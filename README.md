@@ -14,7 +14,7 @@ A methodology for reliable, parallelizable development using Claude Code with op
 ### Install with npm
 
 ```bash
-npx @tekyz/gsd-t install
+npx @tekyzinc/gsd-t install
 ```
 
 This installs 22 GSD-T commands + 3 utility commands to `~/.claude/commands/` and the global CLAUDE.md to `~/.claude/CLAUDE.md`. Works on Windows, Mac, and Linux.
@@ -64,19 +64,19 @@ GSD-T reads all state files and tells you exactly where you left off.
 ## CLI Commands
 
 ```bash
-npx @tekyz/gsd-t install        # Install commands + global CLAUDE.md
-npx @tekyz/gsd-t update         # Update to latest (backs up customizations)
-npx @tekyz/gsd-t init [name]    # Scaffold GSD-T project in current directory
-npx @tekyz/gsd-t status         # Check installation + version
-npx @tekyz/gsd-t doctor         # Diagnose common issues
-npx @tekyz/gsd-t uninstall      # Remove commands (keeps project files)
+npx @tekyzinc/gsd-t install        # Install commands + global CLAUDE.md
+npx @tekyzinc/gsd-t update         # Update to latest (backs up customizations)
+npx @tekyzinc/gsd-t init [name]    # Scaffold GSD-T project in current directory
+npx @tekyzinc/gsd-t status         # Check installation + version
+npx @tekyzinc/gsd-t doctor         # Diagnose common issues
+npx @tekyzinc/gsd-t uninstall      # Remove commands (keeps project files)
 ```
 
 ### Updating
 
 When a new version is published:
 ```bash
-npx @tekyz/gsd-t@latest update
+npx @tekyzinc/gsd-t@latest update
 ```
 
 This will replace changed command files, back up your CLAUDE.md if customized, and track the installed version.

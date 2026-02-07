@@ -1,5 +1,5 @@
 {
-  "name": "@tekyz/gsd-t",
+  "name": "@tekyzinc/gsd-t",
   "version": "2.0.0",
   "description": "GSD-T: Contract-Driven Development for Claude Code — 26 slash commands with impact analysis, test sync, and milestone archival",
   "author": "Tekyz, Inc.",

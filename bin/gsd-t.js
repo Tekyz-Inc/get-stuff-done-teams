@@ -4,12 +4,12 @@
  * GSD-T CLI Installer
  *
  * Usage:
- *   npx @tekyz/gsd-t install     — Install commands + global CLAUDE.md
- *   npx @tekyz/gsd-t update      — Update commands + global CLAUDE.md (preserves customizations)
- *   npx @tekyz/gsd-t init [name] — Initialize a new project with GSD-T structure
- *   npx @tekyz/gsd-t status      — Show what's installed and check for updates
- *   npx @tekyz/gsd-t uninstall   — Remove GSD-T commands (leaves project files alone)
- *   npx @tekyz/gsd-t doctor      — Diagnose common issues
+ *   npx @tekyzinc/gsd-t install     — Install commands + global CLAUDE.md
+ *   npx @tekyzinc/gsd-t update      — Update commands + global CLAUDE.md (preserves customizations)
+ *   npx @tekyzinc/gsd-t init [name] — Initialize a new project with GSD-T structure
+ *   npx @tekyzinc/gsd-t status      — Show what's installed and check for updates
+ *   npx @tekyzinc/gsd-t uninstall   — Remove GSD-T commands (leaves project files alone)
+ *   npx @tekyzinc/gsd-t doctor      — Diagnose common issues
  */
 
 const fs = require("fs");
@@ -212,10 +212,10 @@ function doInstall(opts = {}) {
   log(`  ${DIM}>${RESET} /user:gsd-t-wave`);
   log("");
   log(`${BOLD}Other commands:${RESET}`);
-  log(`  ${DIM}$${RESET} npx @tekyz/gsd-t status      ${DIM}— check installation${RESET}`);
-  log(`  ${DIM}$${RESET} npx @tekyz/gsd-t update      ${DIM}— update to latest${RESET}`);
-  log(`  ${DIM}$${RESET} npx @tekyz/gsd-t init myapp   ${DIM}— scaffold a new project${RESET}`);
-  log(`  ${DIM}$${RESET} npx @tekyz/gsd-t doctor       ${DIM}— diagnose issues${RESET}`);
+  log(`  ${DIM}$${RESET} npx @tekyzinc/gsd-t status      ${DIM}— check installation${RESET}`);
+  log(`  ${DIM}$${RESET} npx @tekyzinc/gsd-t update      ${DIM}— update to latest${RESET}`);
+  log(`  ${DIM}$${RESET} npx @tekyzinc/gsd-t init myapp   ${DIM}— scaffold a new project${RESET}`);
+  log(`  ${DIM}$${RESET} npx @tekyzinc/gsd-t doctor       ${DIM}— diagnose issues${RESET}`);
   log("");
 }
 
@@ -227,7 +227,7 @@ function doUpdate() {
     info("Already up to date!");
     log("");
     log("  To force a reinstall, run:");
-    log(`  ${DIM}$${RESET} npx @tekyz/gsd-t install`);
+    log(`  ${DIM}$${RESET} npx @tekyzinc/gsd-t install`);
     log("");
     return;
   }
@@ -348,13 +348,13 @@ function doStatus() {
     success(`Installed version: ${installedVersion}`);
     if (installedVersion !== PKG_VERSION) {
       warn(`Latest version: ${PKG_VERSION}`);
-      info(`Run 'npx @tekyz/gsd-t update' to update`);
+      info(`Run 'npx @tekyzinc/gsd-t update' to update`);
     } else {
       success(`Up to date (latest: ${PKG_VERSION})`);
     }
   } else {
     error("GSD-T not installed");
-    info("Run 'npx @tekyz/gsd-t install' to install");
+    info("Run 'npx @tekyzinc/gsd-t install' to install");
     return;
   }
 
@@ -432,7 +432,7 @@ function doStatus() {
     info("Run /user:gsd-t-init inside Claude Code to set up");
   } else {
     info("Not in a GSD-T project directory");
-    info(`Run 'npx @tekyz/gsd-t init' to set up this directory`);
+    info(`Run 'npx @tekyzinc/gsd-t init' to set up this directory`);
   }
 
   log("");
@@ -500,7 +500,7 @@ function doDoctor() {
     success("~/.claude/ directory exists");
   } else {
     error("~/.claude/ directory not found");
-    info("Run 'npx @tekyz/gsd-t install' to create it");
+    info("Run 'npx @tekyzinc/gsd-t install' to create it");
     issues++;
   }
 
@@ -556,7 +556,7 @@ function doDoctor() {
   }
   if (encodingIssues > 0) {
     error(`${encodingIssues} command files have encoding issues (corrupted characters)`);
-    info("Run 'npx @tekyz/gsd-t update' to replace with clean versions");
+    info("Run 'npx @tekyzinc/gsd-t update' to replace with clean versions");
     issues++;
   } else if (installed.length > 0) {
     success("No encoding issues in command files");
@@ -577,7 +577,7 @@ function showHelp() {
   log(`${BOLD}GSD-T${RESET} — Contract-Driven Development for Claude Code`);
   log("");
   log(`${BOLD}Usage:${RESET}`);
-  log(`  npx @tekyz/gsd-t ${CYAN}<command>${RESET} [options]`);
+  log(`  npx @tekyzinc/gsd-t ${CYAN}<command>${RESET} [options]`);
   log("");
   log(`${BOLD}Commands:${RESET}`);
   log(`  ${CYAN}install${RESET}        Install slash commands + global CLAUDE.md`);
@@ -589,9 +589,9 @@ function showHelp() {
   log(`  ${CYAN}help${RESET}           Show this help`);
   log("");
   log(`${BOLD}Examples:${RESET}`);
-  log(`  ${DIM}$${RESET} npx @tekyz/gsd-t install`);
-  log(`  ${DIM}$${RESET} npx @tekyz/gsd-t init my-saas-app`);
-  log(`  ${DIM}$${RESET} npx @tekyz/gsd-t update`);
+  log(`  ${DIM}$${RESET} npx @tekyzinc/gsd-t install`);
+  log(`  ${DIM}$${RESET} npx @tekyzinc/gsd-t init my-saas-app`);
+  log(`  ${DIM}$${RESET} npx @tekyzinc/gsd-t update`);
   log("");
   log(`${BOLD}After installing, use in Claude Code:${RESET}`);
   log(`  ${DIM}>${RESET} /user:gsd-t-project "Build a task management app"`);
