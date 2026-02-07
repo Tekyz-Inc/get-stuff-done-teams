@@ -1,102 +1,127 @@
-# GSD-T:
-**A contract-driven development framework for orchestrating Claude Code Agent Teams**
+# GSD-T: Contract-Driven Development for Claude Code
 
----
-
-## Overview
-
-GSD-T extends the proven [GSD methodology](link-to-gsd-repo) to enable reliable multi-agent collaboration on complex software projects. By defining explicit contracts between specialized agents, GSD-T eliminates the chaos of uncoordinated AI development and creates predictable, high-quality outputs.
+A methodology for reliable, parallelizable development using Claude Code CLI with optional Agent Teams support.
 
 ## The Problem
 
-When multiple AI agents work on the same codebase without coordination, you get:
-- Conflicting architectural decisions
-- Duplicated or incompatible code
-- Lost context between task handoffs
-- Unpredictable quality and inconsistent patterns
+**Context rot** — Claude's output quality degrades as conversations grow. By the time you're deep into a feature, Claude has forgotten the architecture decisions from earlier.
+
+**Downstream breakage** — "Quick" changes cascade into unexpected failures because nobody traced the dependencies.
+
+**Test drift** — Tests fall out of sync with code, coverage gaps accumulate, and you find out in production.
 
 ## The Solution
 
-GSD-T introduces **contract-driven development** — a structured approach where agents operate within clearly defined boundaries, communicate through standardized protocols, and maintain shared context throughout the development lifecycle.
+GSD-T solves these with:
 
-## Key Concepts
+- **Contract-driven domains** — Code is partitioned into domains with explicit contracts. Each domain owns specific files. Contracts are the source of truth.
+- **Persistent state** — Everything lives in `.gsd-t/` files. Resume any session instantly with full context.
+- **Impact analysis** — Before any change, trace what depends on it. Block execution if breaking changes aren't addressed.
+- **Automated test sync** — Every code change triggers test analysis. Gaps are caught immediately.
+- **Milestone archival** — Completed work is archived with git tags. Clean handoffs, clear history.
 
-### Agent Roles
-Specialized agents with defined responsibilities, capabilities, and constraints. Each role has explicit boundaries for what it can and cannot modify.
-
-### Task Contracts
-Formal specifications that define inputs, outputs, acceptance criteria, and handoff requirements for each unit of work.
-
-### Handoff Protocols
-Standardized mechanisms for transferring context, state, and responsibility between agents while preserving continuity.
-
-### Shared Context Layer
-A persistent knowledge structure that maintains project state, architectural decisions, and accumulated learnings across all agent interactions.
-
-## Framework Components
-
-```
-gsd-t/
-├── contracts/           # Task and handoff contract templates
-├── roles/               # Agent role definitions
-├── protocols/           # Communication and coordination protocols
-├── templates/           # Project scaffolding templates
-├── examples/            # Sample implementations
-└── docs/                # Comprehensive documentation
-```
-
-## Core Principles
-
-1. **Explicit Over Implicit** — All agent responsibilities, boundaries, and expectations are documented in contracts
-2. **Context Preservation** — No knowledge is lost between agent handoffs
-3. **Predictable Outputs** — Contracts define acceptance criteria before work begins
-4. **Incremental Verification** — Each handoff includes validation checkpoints
-5. **Human-in-the-Loop** — Clear escalation paths for decisions requiring human judgment
-
-## Use Cases
-
-- **Complex Feature Development** — Coordinate frontend, backend, and infrastructure agents
-- **Codebase Modernization** — Orchestrate analysis, planning, and implementation agents
-- **Full-Stack Applications** — Manage specialized agents for different technology layers
-- **Large Refactoring Projects** — Coordinate changes across multiple system components
-
-## Getting Started
+## Quick Start
 
 ```bash
-# Clone the repository
-git clone https://github.com/[your-org]/gsd-t.git
+# 1. Install GSD-T commands (one-time)
+# Windows: Run PC/install-gsd-t.ps1
+# Mac/Linux: Run Mac/install-gsd-t.sh
 
-# Review the quickstart guide
-cd gsd-t/docs
+# 2. Initialize your project
+cd your-project
+claude
+/user:gsd-t-init
+
+# 3. Define what you're building
+/user:gsd-t-milestone "User Authentication System"
+
+# 4. Let it rip (auto-runs all phases)
+/user:gsd-t-wave
 ```
 
-See the [Getting Started Guide](docs/getting-started.md) for detailed setup instructions.
+## Workflow
+
+```
+milestone → partition → discuss → plan → impact → execute → test-sync → integrate → verify → complete
+```
+
+| Phase | What Happens |
+|-------|--------------|
+| **Partition** | Decompose into domains with contracts |
+| **Discuss** | Explore design decisions |
+| **Plan** | Create atomic task lists |
+| **Impact** | Analyze downstream effects (blocks if breaking) |
+| **Execute** | Build it (solo or team mode) |
+| **Test-Sync** | Keep tests aligned with changes |
+| **Integrate** | Wire domains together |
+| **Verify** | Run quality gates |
+| **Complete** | Archive + git tag |
+
+## Commands
+
+| Command | Purpose |
+|---------|---------|
+| `/user:gsd-t-help` | List all commands |
+| `/user:gsd-t-prompt` | Help formulate your idea |
+| `/user:gsd-t-project` | Full project → milestone roadmap |
+| `/user:gsd-t-feature` | Add major feature to existing code |
+| `/user:gsd-t-scan` | Analyze existing codebase |
+| `/user:gsd-t-milestone` | Define a deliverable |
+| `/user:gsd-t-wave` | Auto-run full cycle |
+| `/user:gsd-t-status` | View progress |
+| `/user:gsd-t-resume` | Continue after break |
+| `/user:gsd-t-quick` | Fast task with GSD-T guarantees |
+
+See `/user:gsd-t-help` for the full list of 22 commands.
+
+## Project Structure
+
+```
+your-project/
+├── CLAUDE.md                    # Project conventions
+├── .gsd-t/
+│   ├── progress.md              # Current state
+│   ├── roadmap.md               # Milestone roadmap
+│   ├── impact-report.md         # Downstream effect analysis
+│   ├── test-coverage.md         # Test sync report
+│   ├── contracts/               # API, schema, component specs
+│   ├── domains/                 # Domain scopes and tasks
+│   └── milestones/              # Archived completed work
+└── docs/
+```
+
+## Installation
+
+### Windows
+```powershell
+cd PC
+.\install-gsd-t.ps1
+```
+
+### Mac/Linux
+```bash
+cd Mac
+chmod +x install-gsd-t.sh
+./install-gsd-t.sh
+```
+
+See [readme-install.md](readme-install.md) for detailed installation options.
+
+## Key Principles
+
+1. **Contracts are source of truth** — Code implements contracts, not vice versa
+2. **Domains own files exclusively** — No two domains modify the same file
+3. **Impact before execution** — Always analyze downstream effects first
+4. **Tests stay synced** — Every change triggers test analysis
+5. **State survives sessions** — Resume anytime from `.gsd-t/` files
+6. **Plan solo, execute parallel** — Planning needs full context; execution can parallelize
 
 ## Requirements
 
-- Claude Code CLI with Agent Teams feature enabled
-- Familiarity with the base GSD methodology (recommended)
-
-## Documentation
-
-- [Getting Started](docs/getting-started.md)
-- [Agent Role Definitions](docs/roles.md)
-- [Contract Templates](docs/contracts.md)
-- [Handoff Protocols](docs/protocols.md)
-- [Examples & Tutorials](docs/examples.md)
-
-## Contributing
-
-Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md) for details on the process for submitting pull requests.
+- [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code)
+- Git
+- Optional: Agent Teams (experimental feature for parallel execution)
 
 ## License
 
-MIT License — see [LICENSE](LICENSE) for details.
-
----
-
-**Built for teams who ship.** 🚀
-
----
-
-Want me to adjust any sections, add more technical depth, or modify the tone? I can also create the actual files for any of these documentation pages.
+MIT
