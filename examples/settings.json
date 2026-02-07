@@ -1,0 +1,17 @@
+{
+  "env": {
+    "ANTHROPIC_MODEL": "claude-opus-4-6",
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  },
+  "permissions": {
+    "allow": [
+      "*"
+    ],
+    "deny": [
+      "Read(.env)",
+      "Read(.env.*)"
+    ],
+    "defaultMode": "dontAsk"
+  },
+  "alwaysThinkingEnabled": true
+}

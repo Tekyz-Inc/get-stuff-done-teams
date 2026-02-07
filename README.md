@@ -1,126 +1,275 @@
 # GSD-T: Contract-Driven Development for Claude Code
 
-A methodology for reliable, parallelizable development using Claude Code CLI with optional Agent Teams support.
+A methodology for reliable, parallelizable development using Claude Code with optional Agent Teams support.
 
-## The Problem
+**Solves context rot** — the quality degradation that happens as Claude fills its context window.
+**Enables parallel execution** — contract-driven domains can be worked on simultaneously.
+**Maintains test coverage** — automatically keeps tests aligned with code changes.
+**Catches downstream effects** — analyzes impact before changes break things.
 
-**Context rot** — Claude's output quality degrades as conversations grow. By the time you're deep into a feature, Claude has forgotten the architecture decisions from earlier.
-
-**Downstream breakage** — "Quick" changes cascade into unexpected failures because nobody traced the dependencies.
-
-**Test drift** — Tests fall out of sync with code, coverage gaps accumulate, and you find out in production.
-
-## The Solution
-
-GSD-T solves these with:
-
-- **Contract-driven domains** — Code is partitioned into domains with explicit contracts. Each domain owns specific files. Contracts are the source of truth.
-- **Persistent state** — Everything lives in `.gsd-t/` files. Resume any session instantly with full context.
-- **Impact analysis** — Before any change, trace what depends on it. Block execution if breaking changes aren't addressed.
-- **Automated test sync** — Every code change triggers test analysis. Gaps are caught immediately.
-- **Milestone archival** — Completed work is archived with git tags. Clean handoffs, clear history.
+---
 
 ## Quick Start
 
+### Install with npm
+
 ```bash
-# 1. Install GSD-T commands (one-time)
-# Windows: Run PC/install-gsd-t.ps1
-# Mac/Linux: Run Mac/install-gsd-t.sh
+npx @tekyz/gsd-t install
+```
 
-# 2. Initialize your project
-cd your-project
+This installs 22 GSD-T commands + 3 utility commands to `~/.claude/commands/` and the global CLAUDE.md to `~/.claude/CLAUDE.md`. Works on Windows, Mac, and Linux.
+
+### Start Using It
+
+```bash
+# 1. Start Claude Code in your project
+cd my-project
 claude
-/user:gsd-t-init
 
-# 3. Define what you're building
+# 2. Need help articulating your idea?
+/user:gsd-t-prompt
+
+# 3. Initialize GSD-T
+/user:gsd-t-init my-project
+
+# 4. Define what you're building
 /user:gsd-t-milestone "User Authentication System"
 
-# 4. Let it rip (auto-runs all phases)
+# 5. Let it rip (auto-advances through all phases)
 /user:gsd-t-wave
+
+# Or go phase by phase for more control:
+/user:gsd-t-partition
+/user:gsd-t-discuss
+/user:gsd-t-plan
+/user:gsd-t-impact
+/user:gsd-t-execute
+/user:gsd-t-test-sync
+/user:gsd-t-integrate
+/user:gsd-t-verify
+/user:gsd-t-complete-milestone
 ```
 
-## Workflow
+### Resuming After a Break
 
+```bash
+claude
+/user:gsd-t-resume
 ```
-milestone → partition → discuss → plan → impact → execute → test-sync → integrate → verify → complete
+
+GSD-T reads all state files and tells you exactly where you left off.
+
+---
+
+## CLI Commands
+
+```bash
+npx @tekyz/gsd-t install        # Install commands + global CLAUDE.md
+npx @tekyz/gsd-t update         # Update to latest (backs up customizations)
+npx @tekyz/gsd-t init [name]    # Scaffold GSD-T project in current directory
+npx @tekyz/gsd-t status         # Check installation + version
+npx @tekyz/gsd-t doctor         # Diagnose common issues
+npx @tekyz/gsd-t uninstall      # Remove commands (keeps project files)
 ```
 
-| Phase | What Happens |
-|-------|--------------|
-| **Partition** | Decompose into domains with contracts |
-| **Discuss** | Explore design decisions |
-| **Plan** | Create atomic task lists |
-| **Impact** | Analyze downstream effects (blocks if breaking) |
-| **Execute** | Build it (solo or team mode) |
-| **Test-Sync** | Keep tests aligned with changes |
-| **Integrate** | Wire domains together |
-| **Verify** | Run quality gates |
-| **Complete** | Archive + git tag |
+### Updating
 
-## Commands
+When a new version is published:
+```bash
+npx @tekyz/gsd-t@latest update
+```
+
+This will replace changed command files, back up your CLAUDE.md if customized, and track the installed version.
+
+---
+
+## Commands Reference
+
+### Help & Onboarding
 
 | Command | Purpose |
 |---------|---------|
-| `/user:gsd-t-help` | List all commands |
-| `/user:gsd-t-prompt` | Help formulate your idea |
+| `/user:gsd-t-help` | List all commands with descriptions |
+| `/user:gsd-t-help {cmd}` | Detailed help for specific command |
+| `/user:gsd-t-prompt` | Help formulate your idea before committing |
+
+### Project Initialization
+
+| Command | Purpose |
+|---------|---------|
+| `/user:gsd-t-init` | Initialize GSD-T structure in project |
 | `/user:gsd-t-project` | Full project → milestone roadmap |
-| `/user:gsd-t-feature` | Add major feature to existing code |
-| `/user:gsd-t-scan` | Analyze existing codebase |
-| `/user:gsd-t-milestone` | Define a deliverable |
-| `/user:gsd-t-wave` | Auto-run full cycle |
-| `/user:gsd-t-status` | View progress |
-| `/user:gsd-t-resume` | Continue after break |
+| `/user:gsd-t-feature` | Major feature → impact analysis + milestones |
+| `/user:gsd-t-scan` | Deep codebase analysis → techdebt.md |
+| `/user:gsd-t-promote-debt` | Convert techdebt items to milestones |
+
+### Milestone Workflow
+
+| Command | Purpose | Auto-Invoked |
+|---------|---------|--------------|
+| `/user:gsd-t-milestone` | Define new milestone | No |
+| `/user:gsd-t-partition` | Decompose into domains + contracts | In wave |
+| `/user:gsd-t-discuss` | Multi-perspective design exploration | In wave |
+| `/user:gsd-t-plan` | Create atomic task lists per domain | In wave |
+| `/user:gsd-t-impact` | Analyze downstream effects | In wave (plan→execute) |
+| `/user:gsd-t-execute` | Run tasks (solo or team) | In wave |
+| `/user:gsd-t-test-sync` | Sync tests with code changes | In wave (during execute + verify) |
+| `/user:gsd-t-integrate` | Wire domains together | In wave |
+| `/user:gsd-t-verify` | Run quality gates | In wave |
+| `/user:gsd-t-complete-milestone` | Archive + git tag | In wave (after verify) |
+
+### Automation & Utilities
+
+| Command | Purpose |
+|---------|---------|
+| `/user:gsd-t-wave` | Full cycle, auto-advances all phases |
+| `/user:gsd-t-status` | Cross-domain progress view |
+| `/user:gsd-t-resume` | Restore context, continue |
 | `/user:gsd-t-quick` | Fast task with GSD-T guarantees |
+| `/user:gsd-t-debug` | Systematic debugging with state |
 
-See `/user:gsd-t-help` for the full list of 22 commands.
+### Git Helpers
 
-## Project Structure
+| Command | Purpose |
+|---------|---------|
+| `/user:branch` | Create and switch to a new git branch |
+| `/user:checkin` | Stage, commit, and push all changes |
+| `/user:Claude-md` | Reload CLAUDE.md directives mid-session |
+
+---
+
+## Workflow Phases
+
+| Phase | Purpose | Solo/Team |
+|-------|---------|-----------|
+| **Prompt** | Formulate idea (pre-workflow) | Solo |
+| **Project/Feature/Scan** | Initialize work | Solo (team for large scans) |
+| **Milestone** | Define deliverable | Solo |
+| **Partition** | Decompose into domains + contracts | Solo |
+| **Discuss** | Explore design decisions | Both |
+| **Plan** | Create atomic task lists | Solo (always) |
+| **Impact** | Downstream effect analysis | Solo |
+| **Execute** | Build it | Both |
+| **Test-Sync** | Maintain test coverage | Solo |
+| **Integrate** | Wire domains together | Solo (always) |
+| **Verify** | Quality gates | Both |
+| **Complete** | Archive + tag | Solo |
+
+---
+
+## Entry Points
+
+- **"I have an idea"** → `gsd-t-project` → milestone roadmap → partition → execute
+- **"I have a codebase and need to add something"** → `gsd-t-feature` → impact analysis → milestones
+- **"I have a codebase and need to understand/fix it"** → `gsd-t-scan` → techdebt.md → promote to milestones
+
+---
+
+## Project Structure (What GSD-T Creates)
 
 ```
 your-project/
-├── CLAUDE.md                    # Project conventions
+├── CLAUDE.md
+├── docs/
+│   ├── requirements.md
+│   ├── architecture.md
+│   └── ...
 ├── .gsd-t/
-│   ├── progress.md              # Current state
-│   ├── roadmap.md               # Milestone roadmap
-│   ├── impact-report.md         # Downstream effect analysis
-│   ├── test-coverage.md         # Test sync report
-│   ├── contracts/               # API, schema, component specs
-│   ├── domains/                 # Domain scopes and tasks
-│   └── milestones/              # Archived completed work
-└── docs/
+│   ├── progress.md                    # Master state file
+│   ├── roadmap.md                     # Milestone roadmap
+│   ├── techdebt.md                    # Technical debt register
+│   ├── verify-report.md               # Latest verification results
+│   ├── impact-report.md               # Downstream effect analysis
+│   ├── test-coverage.md               # Test sync report
+│   ├── contracts/
+│   │   ├── api-contract.md
+│   │   ├── schema-contract.md
+│   │   ├── component-contract.md
+│   │   └── integration-points.md
+│   ├── domains/
+│   │   └── {domain-name}/
+│   │       ├── scope.md
+│   │       ├── tasks.md
+│   │       └── constraints.md
+│   ├── milestones/                    # Archived completed milestones
+│   │   └── {milestone-name}-{date}/
+│   └── scan/                          # Codebase analysis outputs
+└── src/
 ```
 
-## Installation
-
-### Windows
-```powershell
-cd PC
-.\install-gsd-t.ps1
-```
-
-### Mac/Linux
-```bash
-cd Mac
-chmod +x install-gsd-t.sh
-./install-gsd-t.sh
-```
-
-See [readme-install.md](readme-install.md) for detailed installation options.
+---
 
 ## Key Principles
 
-1. **Contracts are source of truth** — Code implements contracts, not vice versa
-2. **Domains own files exclusively** — No two domains modify the same file
-3. **Impact before execution** — Always analyze downstream effects first
-4. **Tests stay synced** — Every change triggers test analysis
-5. **State survives sessions** — Resume anytime from `.gsd-t/` files
-6. **Plan solo, execute parallel** — Planning needs full context; execution can parallelize
+1. **Contracts are the source of truth.** Code implements contracts, not the other way around.
+2. **Domains own files exclusively.** No two domains should modify the same file.
+3. **Impact before execution.** Always analyze downstream effects before making changes.
+4. **Tests stay synced.** Every code change triggers test analysis.
+5. **State survives sessions.** Everything is in `.gsd-t/`.
+6. **Plan is single-brain, execute is multi-brain.** Planning and integration always solo; execution and verification can parallelize.
+7. **Every decision is logged.** The Decision Log captures why, not just what.
 
-## Requirements
+---
 
-- [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code)
-- Git
-- Optional: Agent Teams (experimental feature for parallel execution)
+## Enabling Agent Teams
+
+```json
+{
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  }
+}
+```
+
+Teams are optional — all commands work in solo mode.
+
+---
+
+## Manual Installation (without npm)
+
+```bash
+# Windows
+copy commands\*.md %USERPROFILE%\.claude\commands\
+
+# Mac/Linux
+cp commands/*.md ~/.claude/commands/
+```
+
+Verify with: `/user:gsd-t-help`
+
+---
+
+## Repo Contents
+
+```
+get-stuff-done-teams/
+├── README.md
+├── package.json
+├── LICENSE
+├── bin/
+│   └── gsd-t.js                       # CLI installer
+├── commands/                          # 25 slash commands
+│   ├── gsd-t-*.md                     # 22 GSD-T workflow commands
+│   ├── branch.md                      # Git branch helper
+│   ├── checkin.md                     # Git commit/push helper
+│   └── Claude-md.md                   # Reload CLAUDE.md directives
+├── templates/                         # Document templates
+│   ├── CLAUDE-global.md
+│   ├── CLAUDE-project.md
+│   ├── requirements.md
+│   ├── architecture.md
+│   ├── workflows.md
+│   ├── infrastructure.md
+│   └── progress.md
+├── examples/
+│   ├── settings.json
+│   └── .gsd-t/
+├── docs/
+│   └── methodology.md
+└── GSD-T-README.md
+```
+
+---
 
 ## License
 

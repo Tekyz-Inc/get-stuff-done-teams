@@ -1,0 +1,33 @@
+{
+  "name": "@tekyz/gsd-t",
+  "version": "2.0.0",
+  "description": "GSD-T: Contract-Driven Development for Claude Code — 26 slash commands with impact analysis, test sync, and milestone archival",
+  "author": "Tekyz, Inc.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Tekyz-Inc/get-stuff-done-teams.git"
+  },
+  "homepage": "https://github.com/Tekyz-Inc/get-stuff-done-teams#readme",
+  "keywords": [
+    "claude-code",
+    "gsd",
+    "ai-development",
+    "agent-teams",
+    "contract-driven-development",
+    "slash-commands"
+  ],
+  "bin": {
+    "gsd-t": "bin/gsd-t.js"
+  },
+  "files": [
+    "bin/",
+    "commands/",
+    "templates/",
+    "examples/",
+    "docs/"
+  ],
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
