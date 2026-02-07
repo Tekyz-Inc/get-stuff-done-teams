@@ -14,6 +14,7 @@ Display the full command reference:
 GETTING STARTED
 ───────────────────────────────────────────────────────────────────────────────
   prompt              Help formulate your idea before committing to a command
+  brainstorm          Creative exploration, rethinking, and idea generation
   init                Initialize GSD-T structure in current project
   project             New project → requirements → milestone roadmap
   feature             Major feature → impact analysis → milestones
@@ -111,6 +112,13 @@ Use these when user asks for help on a specific command:
 - **Auto-invoked**: No
 - **Files**: None (conversational only)
 - **Use when**: You have a vague idea and need help articulating it
+
+### brainstorm
+- **Summary**: Creative exploration, rethinking, and idea generation
+- **Auto-invoked**: No
+- **Files**: Optional save to `.gsd-t/brainstorm-{date}.md`
+- **Use when**: You want to explore ideas, challenge assumptions, or break out of tunnel vision
+- **Modes**: Ideation, Enhancement, Rethink, Unstuck, Blue Sky
 
 ### init
 - **Summary**: Initialize GSD-T directory structure in current project

@@ -13,7 +13,7 @@
 ```
 PROJECT or FEATURE or SCAN
   └── MILESTONE (major deliverable)
-      └── PARTITION → DISCUSS → PLAN → EXECUTE → INTEGRATE → VERIFY
+      └── PARTITION → DISCUSS → PLAN → IMPACT → EXECUTE → TEST-SYNC → INTEGRATE → VERIFY → COMPLETE
 ```
 
 - **Project**: Full greenfield project → decomposed into milestones
@@ -29,6 +29,7 @@ PROJECT or FEATURE or SCAN
 |---------|---------|
 | `/user:gsd-t-help` | List all commands or get detailed help |
 | `/user:gsd-t-prompt` | Help formulate your idea before committing |
+| `/user:gsd-t-brainstorm` | Creative exploration and idea generation |
 | `/user:gsd-t-project` | Full project → milestone roadmap |
 | `/user:gsd-t-feature` | Major feature → impact analysis + milestones |
 | `/user:gsd-t-scan` | Deep codebase analysis → techdebt.md |
