@@ -49,6 +49,7 @@ PROJECT or FEATURE or SCAN
 | `/user:gsd-t-status` | Cross-domain progress view |
 | `/user:gsd-t-debug` | Systematic debugging |
 | `/user:gsd-t-quick` | Fast task, respects contracts |
+| `/user:gsd-t-populate` | Auto-populate docs from existing codebase |
 | `/user:gsd-t-resume` | Restore context, continue |
 | `/user:branch` | Create and switch to a new git branch |
 | `/user:checkin` | Stage, commit, and push all changes |
@@ -65,7 +66,8 @@ These documents MUST be maintained and referenced throughout development:
 | **Architecture** | `docs/architecture.md` | System design, components, data flow, decisions |
 | **Workflows** | `docs/workflows.md` | User journeys and technical process flows |
 | **Infrastructure** | `docs/infrastructure.md` | Commands, DB setup, server access, creds |
-| **Progress** | `.gsd-t/progress.md` | Current milestone/phase state |
+| **README** | `README.md` | Project overview, setup, features |
+| **Progress** | `.gsd-t/progress.md` | Current milestone/phase state + version |
 | **Contracts** | `.gsd-t/contracts/` | Interfaces between domains |
 | **Tech Debt** | `.gsd-t/techdebt.md` | Debt register from scans |
 
@@ -82,6 +84,21 @@ NEED TO UNDERSTAND SOMETHING?
   ├── Is it about domain interfaces? → Read .gsd-t/contracts/
   └── Not documented? → Research, then DOCUMENT IT
 ```
+
+
+# Versioning
+
+GSD-T tracks project version in `.gsd-t/progress.md` using semantic versioning: `Major.Minor.Patch`
+
+| Segment | Bumped When | Example |
+|---------|-------------|---------|
+| **Major** | Breaking changes, major rework, v1 launch | 1.0.0 → 2.0.0 |
+| **Minor** | New features, completed feature milestones | 1.1.0 → 1.2.0 |
+| **Patch** | Bug fixes, minor improvements, cleanup | 1.1.1 → 1.1.2 |
+
+- Version is set during `gsd-t-init` (starts at `0.1.0`)
+- Version is bumped during `gsd-t-complete-milestone` based on milestone scope
+- Version is reflected in: `progress.md`, `README.md`, package manifest (if any), and git tags (`v{version}`)
 
 
 # Autonomous Execution Rules

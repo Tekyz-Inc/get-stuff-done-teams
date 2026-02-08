@@ -1,6 +1,7 @@
 # GSD-T Progress
 
 ## Project: {Project Name}
+## Version: 0.1.0
 ## Status: INITIALIZED
 ## Date: {Date}
 

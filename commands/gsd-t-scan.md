@@ -352,6 +352,16 @@ Using all scan findings, update or create `docs/requirements.md`:
 - Technical requirements from configs, package.json, runtime settings
 - Non-functional requirements from performance configs, rate limits, caching
 
+### README.md
+Update or create `README.md` with scan findings:
+- Project name and description
+- Tech stack and versions discovered
+- Getting started / setup instructions (from infrastructure findings)
+- Brief architecture overview
+- Link to `docs/` for detailed documentation
+
+If `README.md` exists, merge — update tech stack and setup sections but preserve the user's existing structure and custom content.
+
 ### For all docs:
 - If the file exists and has real content, **merge** — don't overwrite
 - If the file exists with only placeholder text, **replace** with real findings

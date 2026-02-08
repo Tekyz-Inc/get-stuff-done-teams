@@ -76,6 +76,7 @@ GSD-T reads all state files and tells you exactly where you left off.
 | `/user:gsd-t-feature` | Major feature → impact analysis + milestones |
 | `/user:gsd-t-scan` | Deep codebase analysis → techdebt.md |
 | `/user:gsd-t-promote-debt` | Convert techdebt items to milestones |
+| `/user:gsd-t-populate` | Auto-populate docs from existing codebase |
 
 ### Milestone Workflow
 
@@ -148,9 +149,10 @@ GSD-T reads all state files and tells you exactly where you left off.
 your-project/
 ├── CLAUDE.md                          # Project conventions + GSD-T reference
 ├── docs/
-│   ├── requirements.md
-│   ├── architecture.md
-│   └── ...
+│   ├── requirements.md                # Functional + technical requirements
+│   ├── architecture.md                # System design, components, data flow
+│   ├── workflows.md                   # User journeys, technical processes
+│   └── infrastructure.md             # Dev setup, DB, cloud, deployment
 ├── .gsd-t/
 │   ├── progress.md                    # Master state file
 │   ├── roadmap.md                     # Milestone roadmap

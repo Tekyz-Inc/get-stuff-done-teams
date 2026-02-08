@@ -37,6 +37,7 @@ Create `.gsd-t/progress.md`:
 # GSD-T Progress
 
 ## Project: {name from CLAUDE.md or $ARGUMENTS}
+## Version: 0.1.0
 ## Status: INITIALIZED
 ## Date: {today}
 
@@ -105,7 +106,17 @@ docs/
 
 These are the living documents that persist across milestones and keep institutional knowledge alive. The `infrastructure.md` is especially important — it captures the exact commands for provisioning cloud resources, setting up databases, managing secrets, and deploying, so this knowledge doesn't get lost between sessions.
 
-## Step 6: Map Existing Codebase (if code exists)
+## Step 6: Ensure README.md Exists
+
+If no `README.md` exists, create one with:
+- Project name and brief description
+- Tech stack summary
+- Getting started / setup instructions (from existing configs or placeholder)
+- Link to `docs/` for detailed documentation
+
+If `README.md` exists, leave it as-is — don't overwrite user content during init.
+
+## Step 7: Map Existing Codebase (if code exists)
 
 If there's existing source code:
 1. Scan the codebase structure
@@ -114,7 +125,7 @@ If there's existing source code:
 4. Add findings to CLAUDE.md
 5. Log in progress.md: "Existing codebase analyzed — {summary}"
 
-## Step 7: Report
+## Step 8: Report
 
 Tell the user:
 1. What was created

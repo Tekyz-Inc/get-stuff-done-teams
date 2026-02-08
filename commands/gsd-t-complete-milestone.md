@@ -84,7 +84,26 @@ Create `summary.md`:
 {Summary of files created/modified/deleted}
 ```
 
-## Step 5: Clean Working State
+## Step 5: Bump Version
+
+GSD-T tracks project version in `.gsd-t/progress.md` using semantic versioning: `Major.Minor.Patch`
+
+- **Major** (X.0.0): Breaking changes, major rework, v1 launch
+- **Minor** (0.X.0): New features, completed feature milestones
+- **Patch** (0.0.X): Bug fixes, minor improvements, cleanup milestones
+
+Determine the version bump based on the milestone:
+1. Read current version from `.gsd-t/progress.md`
+2. Assess milestone scope:
+   - Was this a major/breaking milestone? → bump **major**, reset minor and patch to 0
+   - Was this a feature milestone? → bump **minor**, reset patch to 0
+   - Was this a bugfix/cleanup/debt milestone? → bump **patch**
+3. Update version in `.gsd-t/progress.md`
+4. If a package manifest exists (`package.json`, `pyproject.toml`, `Cargo.toml`, etc.), update its version to match
+5. Update `README.md` version badge or version reference if present
+6. Include version in the milestone summary and git tag
+
+## Step 6: Clean Working State
 
 Reset `.gsd-t/` for next milestone:
 
@@ -97,30 +116,42 @@ Reset `.gsd-t/` for next milestone:
 ```markdown
 # GSD-T Progress
 
+## Version: {new version}
 ## Current Milestone
 None — ready for next milestone
 
 ## Completed Milestones
-| Milestone | Completed | Tag |
-|-----------|-----------|-----|
-| {name} | {date} | {tag} |
-| {previous} | {date} | {tag} |
+| Milestone | Version | Completed | Tag |
+|-----------|---------|-----------|-----|
+| {name} | {version} | {date} | v{version} |
+| {previous} | {version} | {date} | v{version} |
 
 ## Decision Log
 {Keep the decision log — it's valuable context}
 ```
 
-## Step 6: Create Git Tag
+## Step 7: Update README.md
+
+If `README.md` exists, update it to reflect the completed milestone:
+- Add or update a **Features** / **What's Included** section with capabilities delivered
+- Update version number if displayed in README
+- Update setup instructions if infrastructure changed
+- Update tech stack if new dependencies were added
+- Keep existing user content — merge, don't overwrite
+
+If `README.md` doesn't exist, create one with project name, description, version, tech stack, setup instructions, and link to `docs/`.
+
+## Step 8: Create Git Tag
 
 ```bash
 # Stage any remaining .gsd-t changes
 git add .gsd-t/
 
 # Commit the archive
-git commit -m "milestone({milestone-name}): complete and archive"
+git commit -m "milestone({milestone-name}): complete and archive v{version}"
 
-# Create annotated tag
-git tag -a "milestone/{milestone-name}" -m "Milestone: {name}
+# Create annotated tag with version
+git tag -a "v{version}" -m "v{version} — Milestone: {name}
 
 {Brief description from summary}
 
@@ -128,27 +159,28 @@ Domains: {list}
 Verified: {date}"
 ```
 
-## Step 7: Report Completion
+## Step 9: Report Completion
 
 ```
-✅ Milestone "{name}" completed!
+✅ Milestone "{name}" completed — v{version}
 
 📁 Archived to: .gsd-t/milestones/{name}-{date}/
-🏷️  Tagged as: milestone/{name}
+🏷️  Tagged as: v{version}
 
 Summary:
+- Version: {previous version} → {new version}
 - Domains completed: {N}
 - Tasks completed: {N}
 - Contracts: {N} defined/updated
 - Tests: {N} added/updated
 
 Next steps:
-- Push tags: git push origin milestone/{name}
+- Push tags: git push origin v{version}
 - Start next milestone: /user:gsd-t-milestone "{next name}"
 - Or view roadmap: /user:gsd-t-status
 ```
 
-## Step 8: Update Roadmap (if exists)
+## Step 10: Update Roadmap (if exists)
 
 If `.gsd-t/roadmap.md` exists:
 - Mark this milestone as complete

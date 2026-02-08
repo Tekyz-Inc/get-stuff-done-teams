@@ -44,6 +44,7 @@ UTILITIES
   quick               Fast task with GSD-T guarantees
   debug               Systematic debugging with state
   promote-debt        Convert techdebt items to milestones
+  populate            Auto-populate docs from existing codebase
 
 ───────────────────────────────────────────────────────────────────────────────
 Type /user:gsd-t-help {command} for detailed help on any command.
@@ -239,6 +240,12 @@ Use these when user asks for help on a specific command:
 - **Auto-invoked**: No
 - **Updates**: `.gsd-t/roadmap.md`, `.gsd-t/techdebt.md`
 - **Use when**: Ready to address technical debt items
+
+### populate
+- **Summary**: Auto-populate all living docs from existing codebase analysis
+- **Auto-invoked**: No
+- **Updates**: `docs/requirements.md`, `docs/architecture.md`, `docs/workflows.md`, `docs/infrastructure.md`, `.gsd-t/progress.md`
+- **Use when**: You have an existing codebase and want to fill docs with real findings instead of placeholders
 
 ## Unknown Command
 

@@ -17,7 +17,7 @@ A methodology for reliable, parallelizable development using Claude Code with op
 npx @tekyzinc/gsd-t install
 ```
 
-This installs 23 GSD-T commands + 3 utility commands to `~/.claude/commands/` and the global CLAUDE.md to `~/.claude/CLAUDE.md`. Works on Windows, Mac, and Linux.
+This installs 24 GSD-T commands + 3 utility commands to `~/.claude/commands/` and the global CLAUDE.md to `~/.claude/CLAUDE.md`. Works on Windows, Mac, and Linux.
 
 ### Start Using It
 
@@ -103,6 +103,7 @@ This will replace changed command files, back up your CLAUDE.md if customized, a
 | `/user:gsd-t-feature` | Major feature → impact analysis + milestones |
 | `/user:gsd-t-scan` | Deep codebase analysis → techdebt.md |
 | `/user:gsd-t-promote-debt` | Convert techdebt items to milestones |
+| `/user:gsd-t-populate` | Auto-populate docs from existing codebase |
 
 ### Milestone Workflow
 
@@ -172,9 +173,10 @@ This will replace changed command files, back up your CLAUDE.md if customized, a
 your-project/
 ├── CLAUDE.md
 ├── docs/
-│   ├── requirements.md
-│   ├── architecture.md
-│   └── ...
+│   ├── requirements.md                # Functional + technical requirements
+│   ├── architecture.md                # System design, components, data flow
+│   ├── workflows.md                   # User journeys, technical processes
+│   └── infrastructure.md             # Dev setup, DB, cloud, deployment
 ├── .gsd-t/
 │   ├── progress.md                    # Master state file
 │   ├── roadmap.md                     # Milestone roadmap
@@ -249,8 +251,8 @@ get-stuff-done-teams/
 ├── LICENSE
 ├── bin/
 │   └── gsd-t.js                       # CLI installer
-├── commands/                          # 25 slash commands
-│   ├── gsd-t-*.md                     # 22 GSD-T workflow commands
+├── commands/                          # 27 slash commands
+│   ├── gsd-t-*.md                     # 24 GSD-T workflow commands
 │   ├── branch.md                      # Git branch helper
 │   ├── checkin.md                     # Git commit/push helper
 │   └── Claude-md.md                   # Reload CLAUDE.md directives
@@ -266,8 +268,8 @@ get-stuff-done-teams/
 │   ├── settings.json
 │   └── .gsd-t/
 ├── docs/
+│   ├── GSD-T-README.md                # Detailed methodology + usage guide
 │   └── methodology.md
-└── GSD-T-README.md
 ```
 
 ---
