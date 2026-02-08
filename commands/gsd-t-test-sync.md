@@ -15,9 +15,11 @@ Read:
 4. `.gsd-t/domains/{current}/tasks.md` — recent completed tasks
 
 Identify:
-- Test framework (pytest, jest, vitest, etc.)
+- **Unit/integration test framework** (pytest, jest, vitest, etc.)
+- **E2E test framework** (Playwright, Cypress, Puppeteer, etc.) — check for `playwright.config.*`, `cypress.config.*`, `playwright/`, `cypress/`, `e2e/`, or E2E-related dependencies in package.json/requirements.txt
 - Test directory structure
 - Naming conventions
+- Test run commands (from package.json scripts, Makefile, or CI config)
 
 ## Step 2: Map Code to Tests
 
@@ -77,6 +79,7 @@ Tests that sometimes fail:
 
 ## Step 4: Run Affected Tests
 
+### A) Unit/Integration Tests
 Execute tests that cover changed code:
 
 ```bash
@@ -87,7 +90,34 @@ pytest tests/test_{module}.py -v
 npm test -- --testPathPattern="{module}"
 ```
 
-Capture results:
+### B) E2E Tests
+If an E2E framework is detected, run E2E tests affected by the changes:
+
+```bash
+# Playwright
+npx playwright test {affected-spec}.spec.ts
+
+# Cypress
+npx cypress run --spec "cypress/e2e/{affected-spec}.cy.ts"
+```
+
+Determine which E2E specs are affected:
+- Changed a UI component or page? → Run specs that test that page/flow
+- Changed an API endpoint? → Run specs that exercise that endpoint
+- Changed auth/session logic? → Run all auth-related E2E specs
+- Changed database schema? → Run specs that depend on that data
+- Not sure what's affected? → Run the full E2E suite
+
+### C) Update E2E Tests
+If code changes affect user flows, update E2E test specs:
+- New pages/routes → create new E2E specs
+- Changed UI elements (selectors, text, layout) → update locators and assertions
+- Changed form fields or validation → update form fill steps and error assertions
+- New features → add E2E specs covering the happy path + key error cases
+- Removed features → remove or update affected E2E specs
+
+### D) Capture Results
+For all test types:
 - PASS: Test still valid
 - FAIL: Test needs update or code has bug
 - ERROR: Test broken (import error, etc.)
@@ -101,11 +131,13 @@ Create/update `.gsd-t/test-coverage.md`:
 
 ## Summary
 - Source files analyzed: {N}
-- Test files found: {N}
+- Unit/integration test files: {N}
+- E2E test specs: {N}
 - Coverage gaps: {N}
 - Stale tests: {N}
 - Dead tests: {N}
-- Tests passing: {N}/{total}
+- Unit tests passing: {N}/{total}
+- E2E tests passing: {N}/{total}
 
 ## Coverage Status
 
@@ -205,17 +237,20 @@ If issues found, add to current domain's tasks:
 ### During Execute Phase (auto-invoked):
 After each task completes:
 1. Quick scan of changed files
-2. Run affected tests
-3. If failures: pause and report
-4. If gaps: note for end-of-phase sync
-5. Continue execution
+2. Run affected unit/integration tests
+3. Run affected E2E tests (if E2E framework detected)
+4. If failures: pause and report
+5. If E2E specs need updating: update them before continuing
+6. If gaps: note for end-of-phase sync
+7. Continue execution
 
 ### During Verify Phase (auto-invoked):
 Full sync:
-1. Complete coverage analysis
-2. Run all tests
-3. Generate full report
-4. Block verification if critical tests failing
+1. Complete coverage analysis (unit + E2E)
+2. Run ALL unit/integration tests
+3. Run the FULL E2E test suite — this is mandatory, not optional
+4. Generate full report
+5. Block verification if any critical tests failing (unit or E2E)
 
 ### Standalone Mode:
 ```
@@ -238,19 +273,27 @@ Full sync:
 ```
 🧪 Test Sync Complete
 
-Results:
+Unit/Integration:
 - Tests run: 45
 - Passing: 43
 - Failing: 2
-- Coverage gaps: 3
+
+E2E ({framework}):
+- Specs run: 12
+- Passing: 11
+- Failing: 1
+
+Coverage:
+- Gaps: 3
 - Stale tests: 1
 - Dead tests: 0
 
 Action Required:
-- 2 failing tests must be fixed before verify passes
+- 2 failing unit tests must be fixed before verify passes
+- 1 failing E2E spec must be fixed before verify passes
 - See .gsd-t/test-coverage.md for details
 
-Generated 4 test tasks → added to current domain
+Generated 5 test tasks → added to current domain
 ```
 
 $ARGUMENTS

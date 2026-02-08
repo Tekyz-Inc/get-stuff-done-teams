@@ -20,8 +20,9 @@ Standard dimensions (adjust based on project):
 2. **Contract Compliance**: Does every domain honor its contracts?
 3. **Code Quality**: Conventions, patterns, error handling, readability
 4. **Test Coverage**: Are critical paths tested? Are edge cases covered?
-5. **Security**: Auth flows, input validation, data exposure, dependencies
-6. **Integration Integrity**: Do the seams between domains hold under stress?
+5. **E2E Tests**: Run the full E2E suite (Playwright, Cypress, etc.) — all specs must pass
+6. **Security**: Auth flows, input validation, data exposure, dependencies
+7. **Integration Integrity**: Do the seams between domains hold under stress?
 
 ## Step 3: Execute Verification
 
@@ -31,6 +32,13 @@ Work through each dimension sequentially. For each:
 2. Check it systematically
 3. Record findings as PASS / WARN / FAIL with specifics
 4. If FAIL, create a remediation task
+
+**Mandatory test execution:**
+1. Run ALL unit/integration tests — every test must pass
+2. Detect E2E framework (check for `playwright.config.*`, `cypress.config.*`, E2E deps in package.json)
+3. If E2E framework exists, run the FULL E2E suite — every spec must pass
+4. If E2E specs are missing or stale, invoke `gsd-t-test-sync` to update them first, then re-run
+5. Tests are NOT optional — verification cannot pass without running them
 
 ### Team Mode (when agent teams are enabled)
 ```
@@ -88,6 +96,8 @@ Create or update `.gsd-t/verify-report.md`:
 - Functional: {PASS/WARN/FAIL} — {X}/{Y} criteria met
 - Contracts: {PASS/WARN/FAIL} — {X}/{Y} contracts compliant
 - Code Quality: {PASS/WARN/FAIL} — {N} issues found
+- Unit Tests: {PASS/WARN/FAIL} — {N}/{total} passing
+- E2E Tests: {PASS/WARN/FAIL} — {N}/{total} specs passing
 - Security: {PASS/WARN/FAIL} — {N} findings
 - Integration: {PASS/WARN/FAIL}
 

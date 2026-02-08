@@ -133,8 +133,12 @@ BEFORE EVERY COMMIT:
   │     YES → Update .gsd-t/techdebt.md
   ├── Did I establish a pattern future work should follow?
   │     YES → Update CLAUDE.md or domain constraints.md
-  └── Did I add/change tests?
-        YES → Verify test names and paths are referenced in requirements
+  ├── Did I add/change tests?
+  │     YES → Verify test names and paths are referenced in requirements
+  ├── Did I change UI, routes, or user flows?
+  │     YES → Update affected E2E test specs (Playwright/Cypress)
+  └── Did I run the affected tests?
+        YES → Verify they pass. NO → Run them now.
 ```
 
 If ANY answer is YES and the doc is NOT updated, update it BEFORE committing. No exceptions.

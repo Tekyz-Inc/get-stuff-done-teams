@@ -27,10 +27,12 @@ For each task:
 3. Read the domain's constraints.md — follow all patterns
 4. Implement the task
 5. Verify acceptance criteria are met
-6. Run the Pre-Commit Gate checklist from CLAUDE.md — update ALL affected docs BEFORE committing
-7. Commit with a descriptive message: `[{domain}] Task {N}: {description}`
-8. Update `.gsd-t/progress.md` — mark task complete
-9. If you've reached a CHECKPOINT in integration-points.md, pause and verify the contract before continuing
+6. Run affected unit tests — fix any failures before proceeding
+7. If E2E framework exists and task changed UI/routes/flows: run affected E2E specs, update specs if needed
+8. Run the Pre-Commit Gate checklist from CLAUDE.md — update ALL affected docs BEFORE committing
+9. Commit with a descriptive message: `[{domain}] Task {N}: {description}`
+10. Update `.gsd-t/progress.md` — mark task complete
+11. If you've reached a CHECKPOINT in integration-points.md, pause and verify the contract before continuing
 
 ### Team Mode (when agent teams are enabled)
 Spawn teammates for independent domains:
