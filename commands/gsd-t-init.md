@@ -73,9 +73,10 @@ Create a starter template:
 {Languages, frameworks, services — fill this in}
 
 ## Documentation
-- Requirements: docs/requirements.md (if exists)
-- Architecture: docs/architecture.md (if exists)
-- Schema: docs/schema.md (if exists)
+- Requirements: docs/requirements.md
+- Architecture: docs/architecture.md
+- Workflows: docs/workflows.md
+- Infrastructure: docs/infrastructure.md
 
 ## Conventions
 - {Coding style, naming patterns — fill this in}
@@ -91,12 +92,18 @@ If `CLAUDE.md` exists but doesn't reference GSD-T, append the GSD-T section.
 
 ## Step 5: Create docs/ if Needed
 
-If no `docs/` directory:
+If no `docs/` directory, create it with all 4 living document templates.
+For each file, skip if it already exists:
+
 ```
 docs/
-├── requirements.md    — (create placeholder)
-└── architecture.md    — (create placeholder)
+├── requirements.md    — Functional, technical, and non-functional requirements
+├── architecture.md    — System design, components, data flow, design decisions
+├── workflows.md       — User journeys, technical processes, API flows
+└── infrastructure.md  — Dev setup, DB commands, cloud provisioning, deployment, credentials
 ```
+
+These are the living documents that persist across milestones and keep institutional knowledge alive. The `infrastructure.md` is especially important — it captures the exact commands for provisioning cloud resources, setting up databases, managing secrets, and deploying, so this knowledge doesn't get lost between sessions.
 
 ## Step 6: Map Existing Codebase (if code exists)
 

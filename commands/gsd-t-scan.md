@@ -310,7 +310,55 @@ Estimated effort: {assessment}
 Can be scheduled: During next maintenance window
 ```
 
-## Step 5: Update Project State
+## Step 5: Update Living Documents
+
+The scan produces deep analysis in `.gsd-t/scan/`. Now cross-populate findings into the living docs so knowledge persists across milestones.
+
+### docs/architecture.md
+Using findings from `.gsd-t/scan/architecture.md`, update or create `docs/architecture.md`:
+- System overview (stack, structure, patterns)
+- Component descriptions with locations and dependencies
+- Data flow (request → handler → service → data layer → response)
+- Data models from schema files or ORM definitions
+- API structure from route definitions
+- External integrations
+- Design decisions found in code comments or configs
+
+If the file exists, merge new findings — don't overwrite existing content.
+
+### docs/workflows.md
+Using findings from `.gsd-t/scan/business-rules.md`, update or create `docs/workflows.md`:
+- User workflows traced from routes/handlers (registration, login, core features)
+- Technical workflows from cron jobs, queue workers, scheduled tasks
+- API workflows for multi-step operations
+- Integration workflows for external system syncing
+- State machines and approval flows discovered in code
+
+### docs/infrastructure.md
+Scan the codebase for operational knowledge and update or create `docs/infrastructure.md`:
+- **Quick Reference commands** from package.json scripts, Makefile, README, CI/CD configs
+- **Local development setup** from README, docker-compose, .env.example
+- **Database commands** from migrations, seeds, ORM config, backup scripts
+- **Cloud provisioning** from Terraform, CloudFormation, Pulumi, or deployment scripts
+- **Credentials and secrets** from .env.example (names only, not values) and secret manager configs
+- **Deployment** from CI/CD configs, Dockerfiles, cloud platform configs
+- **Logging and monitoring** from any logging setup or dashboard configs
+
+This is critical — infrastructure knowledge is the most commonly lost between sessions.
+
+### docs/requirements.md
+Using all scan findings, update or create `docs/requirements.md`:
+- Functional requirements discovered from routes, handlers, UI components
+- Technical requirements from configs, package.json, runtime settings
+- Non-functional requirements from performance configs, rate limits, caching
+
+### For all docs:
+- If the file exists and has real content, **merge** — don't overwrite
+- If the file exists with only placeholder text, **replace** with real findings
+- If the file doesn't exist, **create** it
+- Replace `{Project Name}` and `{Date}` tokens with actual values
+
+## Step 6: Update Project State
 
 If `.gsd-t/progress.md` exists:
 - Log scan in Decision Log
@@ -323,7 +371,7 @@ If `.gsd-t/roadmap.md` exists:
 If `CLAUDE.md` exists:
 - Suggest updates for any patterns or conventions discovered during scan
 
-## Step 6: Report to User
+## Step 7: Report to User
 
 Present a summary:
 1. Architecture overview (brief)
