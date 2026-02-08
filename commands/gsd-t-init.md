@@ -79,6 +79,9 @@ Create a starter template:
 - Workflows: docs/workflows.md
 - Infrastructure: docs/infrastructure.md
 
+## Branch Guard
+**Expected branch**: {current branch from `git branch --show-current`}
+
 ## Conventions
 - {Coding style, naming patterns — fill this in}
 

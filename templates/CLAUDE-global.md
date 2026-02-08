@@ -115,6 +115,11 @@ NEVER commit code without running this checklist. This is not optional.
 
 ```
 BEFORE EVERY COMMIT:
+  ├── Am I on the correct branch?
+  │     CHECK → Run `git branch --show-current`
+  │     Compare against "Expected branch" in project CLAUDE.md
+  │     WRONG BRANCH → STOP. Do NOT commit. Switch to the correct branch first.
+  │     No guard set → Proceed (but warn user to set one)
   ├── Did I change an API endpoint or response shape?
   │     YES → Update .gsd-t/contracts/api-contract.md
   ├── Did I change the database schema?

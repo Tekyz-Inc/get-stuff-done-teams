@@ -5,11 +5,14 @@ You are the lead agent coordinating task execution across domains. Choose solo o
 ## Step 1: Load State
 
 Read:
-1. `CLAUDE.md`
+1. `CLAUDE.md` — check for **Branch Guard** (`Expected branch` field)
 2. `.gsd-t/progress.md`
 3. `.gsd-t/contracts/` — all contracts
 4. `.gsd-t/contracts/integration-points.md` — dependency graph
 5. `.gsd-t/domains/*/tasks.md` — all task lists
+
+**Branch check (before any work):**
+Run `git branch --show-current`. If CLAUDE.md declares an expected branch and you're on a different branch, STOP and warn the user. Do NOT execute tasks on the wrong branch.
 
 Identify:
 - Which tasks are already complete (check progress.md)

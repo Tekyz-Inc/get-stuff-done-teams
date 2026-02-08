@@ -21,6 +21,15 @@
 - Workflows: docs/workflows.md
 - Infrastructure: docs/infrastructure.md
 
+## Branch Guard
+<!-- Declare which branch this terminal session should work on. -->
+<!-- Claude will verify the branch before every commit. -->
+**Expected branch**: {main | master | feature-branch-name}
+
+<!-- For multi-branch parallel work (e.g., web + mobile in separate terminals), -->
+<!-- each terminal's CLAUDE.md should declare its own expected branch. -->
+<!-- Example: Web terminal → master, Mobile terminal → Mobile -->
+
 ## GSD-T Workflow
 This project uses contract-driven development.
 - State: .gsd-t/progress.md
