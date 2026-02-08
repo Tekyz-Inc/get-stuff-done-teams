@@ -2,6 +2,22 @@
 
 You are the lead agent exploring design decisions before committing to a plan. The goal of this phase is to produce or refine **contracts** — not just recommendations.
 
+## IMPORTANT: Manual vs Auto-Invoked Behavior
+
+**When manually invoked** (user typed `/user:gsd-t-discuss`):
+- Focus on the user's specific topic from `$ARGUMENTS`
+- Present analysis, options, and recommendations — do NOT auto-implement anything
+- At the end, **STOP and wait for user input** — even in bypass/yolo mode
+- The user wants to review and decide before proceeding
+- Do NOT continue to the plan or execute phase
+
+**When auto-invoked** (called by `gsd-t-wave` or another workflow command):
+- Work through all open questions automatically
+- Make recommendations and log decisions
+- Continue to the next phase without stopping
+
+**How to tell:** If `$ARGUMENTS` contains a specific topic or question, the user invoked this manually. If `$ARGUMENTS` is empty or contains only a milestone reference, it was auto-invoked by the workflow.
+
 ## Step 1: Load Context
 
 Read in order:
@@ -13,7 +29,9 @@ Read in order:
 
 ## Step 2: Identify Open Questions
 
-Based on the milestone and current contracts, identify what's unresolved:
+**If manually invoked with a topic:** Focus on THAT topic. The user's question/topic is the priority. You may surface related questions, but the user's topic comes first.
+
+**If auto-invoked:** Based on the milestone and current contracts, identify what's unresolved:
 - Architecture decisions not yet made
 - Contract details that are vague or missing
 - Technical approaches with multiple viable options
@@ -87,7 +105,7 @@ After all updates:
 - [ ] Every domain's constraints reflect the decisions made
 - [ ] Integration points are updated with any new dependencies
 
-## Step 7: Report
+## Step 7: Report and Stop
 
 Present to the user:
 1. Decisions made (with brief rationale)
@@ -96,5 +114,15 @@ Present to the user:
 4. Recommended next step (usually: plan phase)
 
 Update `.gsd-t/progress.md` status to `DISCUSSED`.
+
+### If manually invoked:
+**STOP HERE.** Do NOT proceed to the plan phase or any other phase. Present your findings and ask the user:
+
+"Discussion complete. Here's what I found and recommend. Want to proceed with these decisions, revise anything, or explore further?"
+
+This is mandatory — even in bypass permissions / yolo mode. The user invoked discuss to THINK, not to auto-pilot. Respect that.
+
+### If auto-invoked (by wave):
+The calling command will handle the transition. Just report completion and return control.
 
 $ARGUMENTS
