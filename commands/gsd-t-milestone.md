@@ -50,6 +50,29 @@ Before formal partitioning, do a quick assessment:
 
 Present the assessment and ask: "Ready to partition into domains now, or want to discuss first?"
 
+## Step 4.5: Document Ripple
+
+After defining the milestone, update affected documentation:
+
+### Always update:
+1. **`.gsd-t/progress.md`** — Already updated in Step 2, but verify the Decision Log includes the milestone definition with rationale
+
+### Check if affected:
+2. **`docs/requirements.md`** — If the milestone scope implies new or changed requirements, add or update them
+3. **`docs/architecture.md`** — If the milestone will introduce new components or change system structure, note planned changes
+4. **`.gsd-t/roadmap.md`** — If it exists, add the new milestone in the proper sequence
+5. **`CLAUDE.md`** — If the milestone establishes new scope boundaries or conventions, add them
+
+### Skip what's not affected.
+
+## Step 4.6: Test Verification
+
+Before proceeding to partition:
+
+1. **Run existing tests**: Execute the full test suite to confirm the codebase is clean before starting the milestone
+2. **Verify passing**: If any tests fail, flag them as pre-existing — they should be addressed as part of this milestone or logged as tech debt
+3. **Baseline**: Record test state so the milestone has a clear starting point for quality measurement
+
 ## Step 5: Auto-Partition (if user confirms)
 
 If the user wants to proceed immediately, execute the partition workflow (same as gsd-t-partition) for this milestone.

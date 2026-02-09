@@ -77,6 +77,29 @@ In `.gsd-t/progress.md`:
 - Log promotion in Decision Log: "{date}: Promoted {N} tech debt items to Milestone {N}: {name}"
 - Reorder milestones if critical items were inserted
 
+## Step 5.5: Document Ripple
+
+After promoting debt items to milestones, update affected documentation:
+
+### Always update:
+1. **`.gsd-t/progress.md`** — Already updated in Step 5, verify Decision Log includes promotion rationale
+
+### Check if affected:
+2. **`docs/requirements.md`** — If promoted debt items imply new or changed requirements (e.g., security requirements from a security hardening milestone), add them
+3. **`docs/architecture.md`** — If promoted debt involves architectural changes, note planned modifications
+4. **`CLAUDE.md`** — If promotion changes the project's priority order or introduces new constraints, add them
+5. **`README.md`** — If the roadmap change affects what's documented in README (e.g., known issues section), update it
+
+### Skip what's not affected.
+
+## Step 5.6: Test Verification
+
+Before reporting:
+
+1. **Run existing tests**: Execute the full test suite to confirm current state — promoted debt milestones should not change code yet
+2. **Verify passing**: Document any pre-existing failures that relate to the promoted debt items — these validate the promotion was warranted
+3. **Note test requirements**: For each promoted milestone, note what tests will need to be added or updated during execution
+
 ## Step 6: Report
 
 Present:

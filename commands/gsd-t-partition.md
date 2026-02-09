@@ -153,6 +153,28 @@ Write `.gsd-t/progress.md`:
 - {date}: {decision and rationale}
 ```
 
+## Step 4.5: Document Ripple
+
+After creating domains and contracts, update affected documentation:
+
+### Always update:
+1. **`.gsd-t/progress.md`** — Already updated in Step 4, but verify Decision Log includes partition rationale
+
+### Check if affected:
+2. **`docs/architecture.md`** — If the partition defines new component boundaries or clarifies the system structure, update it
+3. **`docs/requirements.md`** — If partitioning revealed that requirements need clarification or splitting by domain, update them
+4. **`CLAUDE.md`** — If the partition establishes new file ownership conventions or domain-specific patterns, add them
+
+### Skip what's not affected.
+
+## Step 4.6: Test Verification
+
+Before finalizing the partition:
+
+1. **Run existing tests**: Execute the full test suite to confirm codebase is clean before domain work begins
+2. **Verify passing**: If any tests fail, assign them to the appropriate domain as pre-existing issues
+3. **Map tests to domains**: Note which test files belong to which domain — this informs task planning
+
 ## Step 5: Validate
 
 Before finishing, verify:

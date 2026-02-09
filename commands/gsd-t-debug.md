@@ -83,6 +83,16 @@ After fixing, assess what documentation was affected by the change and update AL
 
 ### Skip what's not affected — don't update docs for the sake of updating them.
 
+## Step 5: Test Verification
+
+Before committing, ensure the fix is solid:
+
+1. **Update tests**: If the bug reveals a missing test case, add one that would have caught it
+2. **Run affected tests**: Execute all tests related to the changed files and domain
+3. **Verify passing**: All tests must pass. If any fail, fix before proceeding (up to 2 attempts)
+4. **Run E2E tests**: If the fix changed UI, routes, or user flows and an E2E framework exists, run affected specs
+5. **Regression check**: Confirm the fix doesn't break any adjacent functionality
+
 Commit: `[debug] Fix {description} — root cause: {explanation}`
 
 $ARGUMENTS

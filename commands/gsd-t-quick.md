@@ -51,4 +51,14 @@ If `.gsd-t/progress.md` exists, assess what documentation was affected and updat
 
 ### Skip what's not affected — most quick tasks will only touch 1-2 of these.
 
+## Step 5: Test Verification
+
+Before committing, verify the change works:
+
+1. **Update tests**: If the change adds or modifies behavior, update or add tests to cover it
+2. **Run affected tests**: Execute all tests related to the changed files and domain
+3. **Verify passing**: All tests must pass. If any fail, fix before proceeding (up to 2 attempts)
+4. **Run E2E tests**: If the change touched UI, routes, or user flows and an E2E framework exists, run affected specs
+5. **No test framework?**: At minimum, manually verify the change works as expected and document how you verified it in the commit message
+
 $ARGUMENTS

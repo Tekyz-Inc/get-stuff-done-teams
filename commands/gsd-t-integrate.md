@@ -104,6 +104,16 @@ Integration is where the real system takes shape. Verify documentation matches r
 
 ### Skip what's not affected.
 
+## Step 5.5: Test Verification
+
+After integration and doc ripple, verify everything works together:
+
+1. **Update tests**: Add or update integration tests for newly wired domain boundaries
+2. **Run all tests**: Execute the full test suite — integration often introduces cross-domain failures
+3. **Verify passing**: All tests must pass. If any fail, fix before proceeding (up to 2 attempts)
+4. **Run E2E tests**: If an E2E framework exists, run the full E2E suite — integration is where end-to-end flows break
+5. **Smoke test results**: Ensure the Step 4 smoke test results are still valid after any fixes
+
 ## Step 6: Handle Integration Issues
 
 For each issue found:

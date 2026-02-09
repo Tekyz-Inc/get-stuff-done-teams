@@ -166,6 +166,31 @@ Initialize or update `.gsd-t/progress.md`:
 
 Ensure `CLAUDE.md` exists and references the roadmap and tech stack.
 
+## Step 5.5: Document Ripple
+
+After creating the roadmap and updating project state, verify all documentation is consistent:
+
+### Always update:
+1. **`.gsd-t/progress.md`** — Already updated in Step 5, verify Decision Log includes project creation rationale and tech stack decisions
+
+### Check if affected:
+2. **`docs/requirements.md`** — If the project scope implies specific functional or technical requirements, add them now
+3. **`docs/architecture.md`** — If tech stack and architecture decisions were made, document them
+4. **`docs/workflows.md`** — If key user workflows are known from the project vision, outline them
+5. **`docs/infrastructure.md`** — If deployment targets and dev setup are known, document them
+6. **`CLAUDE.md`** — Ensure it references the roadmap, tech stack, and any conventions decided during project planning
+7. **`README.md`** — If created or exists, verify it reflects the project overview and tech stack
+
+### Skip what's not affected — early project stage means many docs are still minimal.
+
+## Step 5.6: Test Verification
+
+Before reporting to the user:
+
+1. **If existing code**: Run the full test suite to establish a baseline before milestone work begins
+2. **If greenfield**: Note that test infrastructure should be established in Milestone 1
+3. **Document baseline**: Record the test state so progress can be measured across milestones
+
 ## Step 6: Report to User
 
 Present:

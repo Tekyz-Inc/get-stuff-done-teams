@@ -128,6 +128,30 @@ If there's existing source code:
 4. Add findings to CLAUDE.md
 5. Log in progress.md: "Existing codebase analyzed — {summary}"
 
+## Step 7.5: Document Ripple
+
+After initialization, verify all created documentation is consistent:
+
+### Always update:
+1. **`.gsd-t/progress.md`** — Already created in Step 3, verify it's complete
+2. **`CLAUDE.md`** — Already handled in Step 4, verify GSD-T section is present and references all docs
+
+### Check if affected:
+3. **`docs/requirements.md`** — If existing code was scanned (Step 7), verify requirements doc reflects discovered functionality
+4. **`docs/architecture.md`** — If existing code was scanned, verify architecture doc reflects the actual system structure
+5. **`README.md`** — Already handled in Step 6, verify it links to docs/ and reflects project state
+
+### Skip what's not affected — init creates docs, so most ripple is about consistency verification.
+
+## Step 7.6: Test Verification
+
+After initialization:
+
+1. **If existing code with tests**: Run the full test suite to establish a baseline. Document results in `.gsd-t/progress.md`
+2. **If existing code without tests**: Note the absence — recommend test setup as part of the first milestone
+3. **If greenfield**: No tests to run, but note that test infrastructure should be in Milestone 1
+4. **Verify init outputs**: Confirm all created files exist and are non-empty
+
 ## Step 8: Report
 
 Tell the user:

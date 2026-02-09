@@ -189,7 +189,32 @@ Update `.gsd-t/progress.md`:
 - Log the feature addition in Decision Log
 - Note any contract changes that will be needed
 
-## Step 7: Report to User
+## Step 7: Document Ripple
+
+After creating the feature roadmap and milestones, update all affected documentation:
+
+### Always update:
+1. **`.gsd-t/progress.md`** — Already done in Step 6, but verify Decision Log includes the feature addition with rationale
+
+### Check if affected:
+2. **`docs/requirements.md`** — Add new functional/technical requirements identified during feature analysis
+3. **`docs/architecture.md`** — If the feature introduces new components, data flows, or architectural patterns, document them
+4. **`docs/workflows.md`** — If the feature introduces new user journeys or modifies existing flows, update them
+5. **`CLAUDE.md`** — If the feature establishes new conventions or patterns that future work should follow, add them
+6. **`.gsd-t/contracts/`** — If impact analysis identified contract changes needed, note them (actual updates happen during partition)
+7. **`.gsd-t/techdebt.md`** — If analysis revealed existing debt that interacts with this feature, add or update items
+
+### Skip what's not affected.
+
+## Step 7.5: Test Verification
+
+Before finalizing the feature plan:
+
+1. **Run existing tests**: Execute the full test suite to confirm the codebase is in a clean state before feature work begins
+2. **Verify passing**: If any tests fail, flag them — they must be fixed before or during the first milestone
+3. **Note test gaps**: From the impact analysis, identify which existing tests will need updates and which new tests will be needed — include these in milestone scope
+
+## Step 8: Report to User
 
 Present:
 1. Impact analysis summary (what's new vs. what's modified)

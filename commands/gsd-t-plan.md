@@ -95,6 +95,29 @@ Add to each domain's `tasks.md`:
 - Estimated checkpoints: {N}
 ```
 
+## Step 4.5: Document Ripple
+
+After creating task lists and mapping dependencies, update affected documentation:
+
+### Always update:
+1. **`.gsd-t/progress.md`** — Updated in Step 5, but verify Decision Log includes planning decisions and rationale
+
+### Check if affected:
+2. **`docs/requirements.md`** — If planning revealed missing, ambiguous, or conflicting requirements, update them
+3. **`docs/architecture.md`** — If the task breakdown reveals new components or clarifies data flow, update it
+4. **`.gsd-t/contracts/`** — If planning revealed contract gaps or needed additional detail, update them
+5. **Domain `constraints.md`** — If planning revealed new constraints (task ordering, shared resources), add them
+
+### Skip what's not affected.
+
+## Step 4.6: Test Verification
+
+Before finalizing the plan:
+
+1. **Run existing tests**: Execute the full test suite to confirm codebase state before execution begins
+2. **Verify passing**: Document any pre-existing failures — assign them to appropriate domain tasks
+3. **Include test tasks**: Ensure each domain's task list includes test creation/update tasks where acceptance criteria require verification
+
 ## Step 5: Update Progress
 
 Update `.gsd-t/progress.md`:

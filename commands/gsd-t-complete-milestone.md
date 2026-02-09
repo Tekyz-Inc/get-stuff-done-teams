@@ -141,6 +141,33 @@ If `README.md` exists, update it to reflect the completed milestone:
 
 If `README.md` doesn't exist, create one with project name, description, version, tech stack, setup instructions, and link to `docs/`.
 
+## Step 7.5: Document Ripple
+
+Before creating the git tag, verify all documentation is up to date:
+
+### Always update:
+1. **`.gsd-t/progress.md`** — Already updated in Step 6, verify it's complete with version and milestone state
+2. **`README.md`** — Already updated in Step 7, verify it reflects all delivered capabilities
+
+### Check if affected:
+3. **`docs/requirements.md`** — Verify all requirements delivered in this milestone are marked as complete
+4. **`docs/architecture.md`** — Verify the architecture doc matches the current system state after all milestone work
+5. **`docs/workflows.md`** — Verify any workflows added or changed during the milestone are documented
+6. **`docs/infrastructure.md`** — If infrastructure changed during the milestone (new services, new deployment steps), verify it's documented
+7. **`CLAUDE.md`** — Verify any conventions established during the milestone are captured
+8. **`.gsd-t/techdebt.md`** — Verify any debt resolved during the milestone is marked done, and any new debt discovered is logged
+
+### This is the LAST GATE before tagging — nothing should be undocumented.
+
+## Step 7.6: Test Verification
+
+Before creating the git tag, verify the milestone is truly complete:
+
+1. **Run the full test suite**: Execute ALL tests — unit, integration, and E2E if available
+2. **Verify all pass**: Every test must pass. If any fail, fix before tagging (up to 2 attempts)
+3. **Compare to baseline**: If a test baseline was recorded at milestone start, verify coverage has improved or at minimum not regressed
+4. **Log test results**: Include test pass/fail counts in the milestone summary (Step 4)
+
 ## Step 8: Create Git Tag
 
 ```bash

@@ -37,6 +37,31 @@ Scan this codebase and populate the GSD-T documentation. Analyze the actual code
 
 ---
 
+## Document Ripple
+
+After populating all documentation, verify cross-references:
+
+### Always update:
+1. **`.gsd-t/progress.md`** — Set milestone and log the population session
+2. **`CLAUDE.md`** — If it exists, verify it references all populated docs. If conventions were discovered during population, add them
+
+### Check if affected:
+3. **`.gsd-t/contracts/`** — If API or schema contracts exist, verify they match what was documented in architecture/requirements
+4. **`.gsd-t/techdebt.md`** — If population revealed inconsistencies, missing tests, or debt, log items
+5. **`README.md`** — If it exists, verify it's consistent with the populated docs. If not, update it
+
+### Skip what's not affected.
+
+## Test Verification
+
+After populating documentation:
+
+1. **Run existing tests**: Execute the full test suite to establish the current baseline
+2. **Verify passing**: Document what passes and what fails — this is the project's test starting point
+3. **Cross-reference**: Verify that test files mentioned in `docs/requirements.md` Test Coverage table actually exist and pass
+
+---
+
 Replace all "{Project Name}" with the actual project name (from package.json, README, or folder name).
 Replace all "{Date}" with today date.
 Fill every section with real findings. If a section has nothing (e.g., no cron jobs), write "None" instead of placeholder text.

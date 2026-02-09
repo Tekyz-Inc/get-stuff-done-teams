@@ -97,6 +97,14 @@ Decisions don't just affect contracts — they can change the broader documentat
 
 ### Skip what's not affected.
 
+## Step 5.5: Test Verification
+
+If decisions resulted in contract or code changes:
+
+1. **Run affected tests**: Execute tests related to any files modified by contract updates
+2. **Verify passing**: All tests must pass. If any fail from contract changes, fix before proceeding (up to 2 attempts)
+3. **Flag test gaps**: If decisions created new requirements with no test coverage, note them for the plan phase
+
 ## Step 6: Validate Contracts
 
 After all updates:

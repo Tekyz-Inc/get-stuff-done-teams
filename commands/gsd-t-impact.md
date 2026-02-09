@@ -178,6 +178,29 @@ If breaking changes require pre-work, add to domain tasks:
 - [ ] IMP-002: {remediation task}
 ```
 
+## Step 6.5: Document Ripple
+
+After producing the impact report, update affected documentation:
+
+### Always update:
+1. **`.gsd-t/progress.md`** — Log the impact analysis in the Decision Log with date and key findings
+
+### Check if affected:
+2. **`docs/architecture.md`** — If the analysis revealed architectural concerns or proposed changes, document them
+3. **`docs/requirements.md`** — If the analysis found requirements that would be affected by the planned changes, note the impact
+4. **`.gsd-t/contracts/`** — If contract violations or needed updates were found, flag them clearly in the contracts (mark as "PENDING UPDATE")
+5. **`.gsd-t/techdebt.md`** — If the analysis uncovered new debt or risk areas, add them
+
+### Skip what's not affected.
+
+## Step 6.6: Test Verification
+
+Validate the test landscape before recommending proceed/block:
+
+1. **Run existing tests**: Execute the full test suite to establish current state
+2. **Verify passing**: Confirm what passes today — any pre-existing failures should be noted in the impact report
+3. **Map test impact**: For each planned change in Step 2, identify which tests will need updating — include this in the "Test Impact" section of the report
+
 ## Step 7: Decision Gate
 
 ### If PROCEED:
