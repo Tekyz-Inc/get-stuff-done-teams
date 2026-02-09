@@ -52,7 +52,7 @@ PROJECT or FEATURE or SCAN
 | `/user:gsd-t-populate` | Auto-populate docs from existing codebase |
 | `/user:gsd-t-resume` | Restore context, continue |
 | `/user:branch` | Create and switch to a new git branch |
-| `/user:checkin` | Stage, commit, and push all changes |
+| `/user:checkin` | Auto-bump version, stage, commit, and push |
 | `/user:Claude-md` | Reload and apply CLAUDE.md directives |
 
 

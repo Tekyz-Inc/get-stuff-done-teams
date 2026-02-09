@@ -3,6 +3,7 @@
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: SCANNED
 ## Date: 2026-02-07
+## Version: 2.4.0
 
 ## Milestones
 | # | Milestone | Status | Domains |
@@ -32,6 +33,7 @@
 - 2026-02-07: Full codebase scan completed — 13 tech debt items found (2 critical, 4 high, 4 medium, 3 low). See .gsd-t/techdebt.md
 - 2026-02-07: CRITICAL finding — 25 of 26 command files deleted from working tree. Only gsd-t-brainstorm.md exists on disk. Package is non-functional.
 - 2026-02-07: Security audit found command injection in doctor (execSync), symlink attack surface, and missing input validation. Overall risk: MEDIUM.
+- 2026-02-09: Added automatic version bumping to checkin command — every checkin now auto-bumps patch/minor/major based on change type
 
 ## Session Log
 | Date | Session | What was accomplished |

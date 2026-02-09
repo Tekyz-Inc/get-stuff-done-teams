@@ -135,7 +135,7 @@ This will replace changed command files, back up your CLAUDE.md if customized, a
 | Command | Purpose |
 |---------|---------|
 | `/user:branch` | Create and switch to a new git branch |
-| `/user:checkin` | Stage, commit, and push all changes |
+| `/user:checkin` | Auto-bump version, stage, commit, and push |
 | `/user:Claude-md` | Reload CLAUDE.md directives mid-session |
 
 ---
@@ -254,7 +254,7 @@ get-stuff-done-teams/
 ├── commands/                          # 27 slash commands
 │   ├── gsd-t-*.md                     # 24 GSD-T workflow commands
 │   ├── branch.md                      # Git branch helper
-│   ├── checkin.md                     # Git commit/push helper
+│   ├── checkin.md                     # Auto-version + commit/push helper
 │   └── Claude-md.md                   # Reload CLAUDE.md directives
 ├── templates/                         # Document templates
 │   ├── CLAUDE-global.md

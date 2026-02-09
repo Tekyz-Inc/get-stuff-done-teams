@@ -33,7 +33,7 @@ bin/gsd-t.js           — CLI installer (6 subcommands)
 commands/              — 25 slash commands for Claude Code
   gsd-t-*.md           — 22 GSD-T workflow commands
   branch.md            — Git branch helper
-  checkin.md           — Git commit/push helper
+  checkin.md           — Auto-version + commit/push helper
   Claude-md.md         — Reload CLAUDE.md directives
 templates/             — 7 document templates
   CLAUDE-global.md     — Global ~/.claude/CLAUDE.md template
