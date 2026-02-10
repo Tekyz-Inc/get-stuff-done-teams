@@ -217,6 +217,31 @@ Projects can specify an autonomy level in their project CLAUDE.md:
 
 If not specified, use Level 2.
 
+## Workflow Preferences (Defaults — override in project CLAUDE.md)
+
+### Research Policy
+Before planning a phase, evaluate whether research is needed:
+
+**Run research when:**
+- Phase involves unfamiliar libraries, APIs, or services
+- Architectural decisions are required
+- Integrating external systems
+- Phase scope is ambiguous or complex
+
+**Skip research when:**
+- Patterns are already established from earlier phases
+- Straightforward CRUD, UI, or config work
+- Domain is well understood
+- Phase builds directly on existing code patterns
+
+If in doubt, skip research and proceed — research if execution reveals gaps.
+
+### Phase Flow
+- Upon completing a phase, automatically proceed to the next phase
+- ONLY run Discussion phase if truly required (clear path → skip to Plan)
+- ALWAYS self-verify work by running verification commands
+- NEVER pause to show verification steps — execute them
+
 
 # Don't Do These Things
 

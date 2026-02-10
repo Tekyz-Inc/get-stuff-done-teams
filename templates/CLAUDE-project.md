@@ -36,6 +36,20 @@ This project uses contract-driven development.
 - Contracts: .gsd-t/contracts/
 - Domains: .gsd-t/domains/
 
+## Workflow Preferences
+<!-- Override global defaults from ~/.claude/CLAUDE.md -->
+<!-- Delete lines you don't need to override — globals apply automatically -->
+
+### Research Policy
+<!-- Example overrides: -->
+<!-- "Always research — this project uses cutting-edge APIs" -->
+<!-- "Skip research — well-understood CRUD app" -->
+
+### Phase Flow
+<!-- Example overrides: -->
+<!-- "ALWAYS run Discussion — architecture decisions are critical" -->
+<!-- "Skip discuss unless truly required" -->
+
 ## Project-Specific Conventions
 <!-- Add conventions that override or extend the global CLAUDE.md -->
 

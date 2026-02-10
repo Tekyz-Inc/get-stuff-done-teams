@@ -3,7 +3,7 @@
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: READY
 ## Date: 2026-02-10
-## Version: 2.8.0
+## Version: 2.8.1
 
 ## Current Milestone
 None — ready for next milestone
@@ -36,6 +36,7 @@ None — ready for next milestone
 - 2026-02-09: Milestone 1 defined — Backlog Management System: 7 new slash commands, 2 templates, integration into init/status/help/README/CLAUDE-global
 - 2026-02-09: Milestone 1 partitioned into 3 domains: templates → commands → integration
 - 2026-02-10: Milestone 1 planned, executed, verified, and completed — v2.8.0
+- 2026-02-10: Added Workflow Preferences section to global and project CLAUDE.md templates — Research Policy and Phase Flow defaults with per-project override support. Replaces old GSD Workflow Preferences convention.
 
 ## Session Log
 | Date | Session | What was accomplished |

@@ -102,6 +102,9 @@ Create a starter template:
 ## Conventions
 - {Coding style, naming patterns — fill this in}
 
+## Workflow Preferences
+<!-- Override global defaults. Delete what you don't need to override. -->
+
 ## GSD-T Workflow
 This project uses contract-driven development.
 - State: .gsd-t/progress.md
