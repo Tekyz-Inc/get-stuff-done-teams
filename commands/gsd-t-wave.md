@@ -47,7 +47,9 @@ Work through each phase that hasn't been completed:
   - Count total independent starting tasks across domains
   - If 3+ domains with independent work AND teams are enabled: use team mode
   - Otherwise: solo mode
-  
+
+- **Destructive Action Guard**: Before each task, check if it involves destructive or structural changes (DROP TABLE, schema changes that lose data, removing existing modules, replacing architecture patterns). If YES → STOP and present the change to the user. Wait for explicit approval. This applies at ALL autonomy levels.
+
 - **After each task:**
   - Run quick test-sync (affected tests only)
   - If test failures: pause and report

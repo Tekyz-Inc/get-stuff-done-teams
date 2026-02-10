@@ -101,6 +101,44 @@ GSD-T tracks project version in `.gsd-t/progress.md` using semantic versioning: 
 - Version is reflected in: `progress.md`, `README.md`, package manifest (if any), and git tags (`v{version}`)
 
 
+# Destructive Action Guard (MANDATORY)
+
+**NEVER perform destructive or structural changes without explicit user approval.** This applies at ALL autonomy levels, including Level 3.
+
+```
+BEFORE any of these actions, STOP and ask the user:
+  ├── DROP TABLE, DROP COLUMN, DROP INDEX, TRUNCATE, DELETE without WHERE
+  ├── Renaming or removing database tables or columns
+  ├── Schema migrations that lose data or break existing queries
+  ├── Replacing an existing architecture pattern (e.g., normalized → denormalized)
+  ├── Removing or replacing existing files/modules that contain working functionality
+  ├── Changing ORM models in ways that conflict with the existing database schema
+  ├── Removing API endpoints or changing response shapes that existing clients depend on
+  ├── Replacing a dependency or framework with a different one
+  └── Any change that would require other parts of the system to be rewritten
+```
+
+### How to handle schema/architecture mismatches:
+1. **READ the existing schema/code first** — understand what exists before proposing changes
+2. **Adapt new code to match existing structures** — not the other way around
+3. **If restructuring is truly needed**, present the case to the user with:
+   - What exists today and why it might have been designed that way
+   - What you want to change and why
+   - What will break if you make the change
+   - What data or functionality will be lost
+   - A migration path that preserves existing data
+4. **Wait for explicit approval** before proceeding
+
+### Why this matters:
+Even in development, the user may have:
+- Working functionality they've tested and rely on
+- Data they've carefully set up (seed data, test accounts, configuration)
+- Other code that depends on the current structure
+- Design decisions made for reasons not documented
+
+**"Adapt to what exists" is always safer than "replace what exists."**
+
+
 # Autonomous Execution Rules
 
 ## Prime Rule
@@ -108,6 +146,7 @@ KEEP GOING. Only stop for:
 1. Unrecoverable errors after 2 fix attempts
 2. Ambiguity that fundamentally changes project direction
 3. Milestone completion (checkpoint for user review)
+4. Destructive actions (see Destructive Action Guard above — ALWAYS stop)
 
 ## Pre-Commit Gate (MANDATORY)
 
@@ -174,6 +213,9 @@ If not specified, use Level 2.
 
 # Don't Do These Things
 
+- NEVER perform destructive or structural changes without explicit user approval (see Destructive Action Guard above).
+- NEVER drop database tables, remove columns, or run destructive SQL on an existing database — adapt new code to the existing schema.
+- NEVER replace existing architecture patterns (e.g., normalized → denormalized) without user approval — even if you think the new way is better.
 - NEVER commit code without running the Pre-Commit Gate checklist. EVERY commit.
 - NEVER batch doc updates for later — update docs as part of the same commit as the code change.
 - NEVER start a phase without reading contracts and relevant docs first.

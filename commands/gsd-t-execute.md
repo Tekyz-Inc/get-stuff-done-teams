@@ -28,7 +28,8 @@ For each task:
 1. Read the task description, files list, and contract refs
 2. Read the relevant contract(s) — implement EXACTLY what they specify
 3. Read the domain's constraints.md — follow all patterns
-4. Implement the task
+4. **Destructive Action Guard**: Before implementing, check if the task involves any destructive or structural changes (DROP TABLE, schema changes that lose data, removing existing modules, replacing architecture patterns). If YES → STOP and present the change to the user with what exists, what will change, what will break, and a safe migration path. Wait for explicit approval before proceeding.
+5. Implement the task
 5. Verify acceptance criteria are met
 6. Run affected unit tests — fix any failures before proceeding
 7. If E2E framework exists and task changed UI/routes/flows: run affected E2E specs, update specs if needed
@@ -51,6 +52,7 @@ ALL TEAMMATES must read before starting:
 5. Your domain's tasks.md — your work
 
 RULES FOR ALL TEAMMATES:
+- **Destructive Action Guard**: NEVER drop tables, remove columns, delete data, replace architecture patterns, or remove working modules without messaging the lead first. The lead must get user approval before any destructive action proceeds.
 - Only modify files listed in your domain's scope.md
 - Implement interfaces EXACTLY as specified in contracts
 - If a task is marked BLOCKED, message the lead and wait

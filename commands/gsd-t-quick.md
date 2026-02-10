@@ -27,10 +27,11 @@ Proceed.
 ## Step 3: Execute
 
 1. Identify exactly which files need to change
-2. If a contract exists for the relevant interface, implement to match it
-3. Make the change
-4. Verify it works
-5. Commit: `[quick] {description}`
+2. **Destructive Action Guard**: Check if this task involves destructive or structural changes (DROP TABLE, removing columns, deleting data, replacing architecture patterns, removing working modules, changing schema in ways that conflict with existing data). If YES → STOP and present the change to the user with what exists today, what will change, what will break, and a safe migration path. Wait for explicit approval.
+3. If a contract exists for the relevant interface, implement to match it
+4. Make the change — **adapt new code to existing structures**, not the other way around
+5. Verify it works
+6. Commit: `[quick] {description}`
 
 ## Step 4: Document Ripple (if GSD-T is active)
 

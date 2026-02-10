@@ -47,8 +47,9 @@ The contract didn't specify something it should have. Symptoms:
 2. Trace through the relevant domain(s)
 3. Check contract compliance at each boundary
 4. Identify root cause
-5. Fix and test
-6. Update contracts if needed
+5. **Destructive Action Guard**: If the fix requires destructive or structural changes (dropping tables, removing columns, changing schema, replacing architecture patterns, removing working modules) → STOP and present the change to the user with what exists, what will change, what will break, and a safe migration path. Wait for explicit approval.
+6. Fix and test — **adapt the fix to existing structures**, not the other way around
+7. Update contracts if needed
 
 ### Team Mode (for complex cross-domain bugs)
 ```

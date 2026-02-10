@@ -6,6 +6,7 @@ A methodology for reliable, parallelizable development using Claude Code with op
 **Enables parallel execution** — contract-driven domains can be worked on simultaneously.
 **Maintains test coverage** — automatically keeps tests aligned with code changes.
 **Catches downstream effects** — analyzes impact before changes break things.
+**Protects existing work** — destructive action guard prevents schema drops, architecture replacements, and data loss without explicit approval.
 
 ---
 
