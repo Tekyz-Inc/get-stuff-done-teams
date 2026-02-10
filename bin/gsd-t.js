@@ -6,7 +6,9 @@
  * Usage:
  *   npx @tekyzinc/gsd-t install     — Install commands + global CLAUDE.md
  *   npx @tekyzinc/gsd-t update      — Update commands + global CLAUDE.md (preserves customizations)
- *   npx @tekyzinc/gsd-t init [name] — Initialize a new project with GSD-T structure
+ *   npx @tekyzinc/gsd-t update-all  — Update globally + all registered project CLAUDE.md files
+ *   npx @tekyzinc/gsd-t init [name] — Initialize a new project with GSD-T structure (auto-registers)
+ *   npx @tekyzinc/gsd-t register    — Register current directory as a GSD-T project
  *   npx @tekyzinc/gsd-t status      — Show what's installed and check for updates
  *   npx @tekyzinc/gsd-t uninstall   — Remove GSD-T commands (leaves project files alone)
  *   npx @tekyzinc/gsd-t doctor      — Diagnose common issues
@@ -23,6 +25,7 @@ const COMMANDS_DIR = path.join(CLAUDE_DIR, "commands");
 const GLOBAL_CLAUDE_MD = path.join(CLAUDE_DIR, "CLAUDE.md");
 const SETTINGS_JSON = path.join(CLAUDE_DIR, "settings.json");
 const VERSION_FILE = path.join(CLAUDE_DIR, ".gsd-t-version");
+const PROJECTS_FILE = path.join(CLAUDE_DIR, ".gsd-t-projects");
 
 // Where our package files live (relative to this script)
 const PKG_ROOT = path.resolve(__dirname, "..");
@@ -85,6 +88,25 @@ function getInstalledVersion() {
 
 function saveInstalledVersion() {
   fs.writeFileSync(VERSION_FILE, PKG_VERSION);
+}
+
+function getRegisteredProjects() {
+  try {
+    const content = fs.readFileSync(PROJECTS_FILE, "utf8").trim();
+    if (!content) return [];
+    return content.split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));
+  } catch {
+    return [];
+  }
+}
+
+function registerProject(projectDir) {
+  const resolved = path.resolve(projectDir);
+  const projects = getRegisteredProjects();
+  if (projects.includes(resolved)) return false;
+  projects.push(resolved);
+  fs.writeFileSync(PROJECTS_FILE, projects.join("\n") + "\n");
+  return true;
 }
 
 function getCommandFiles() {
@@ -315,7 +337,12 @@ function doInit(projectName) {
     success(".gsd-t/progress.md");
   }
 
-  // 4. Summary
+  // 4. Register in project index
+  if (registerProject(projectDir)) {
+    success("Registered in ~/.claude/.gsd-t-projects");
+  }
+
+  // 5. Summary
   heading("Project Initialized!");
   log("");
   log(`  ${projectDir}/`);
@@ -469,6 +496,122 @@ function doUninstall() {
   log("");
 }
 
+function doUpdateAll() {
+  // First, run the normal global update
+  const installedVersion = getInstalledVersion();
+  if (installedVersion !== PKG_VERSION) {
+    doInstall({ update: true });
+  } else {
+    heading(`GSD-T v${PKG_VERSION}`);
+    success("Global commands already up to date");
+  }
+
+  // Read project registry
+  heading("Updating registered projects...");
+  log("");
+
+  const projects = getRegisteredProjects();
+
+  if (projects.length === 0) {
+    info("No projects registered");
+    log("");
+    log("  Projects are registered automatically when you run:");
+    log(`  ${DIM}$${RESET} npx @tekyzinc/gsd-t init`);
+    log("");
+    log("  Or register an existing project manually:");
+    log(`  ${DIM}$${RESET} npx @tekyzinc/gsd-t register`);
+    log("");
+    return;
+  }
+
+  let updated = 0;
+  let skipped = 0;
+  let missing = 0;
+
+  for (const projectDir of projects) {
+    const projectName = path.basename(projectDir);
+    const claudeMd = path.join(projectDir, "CLAUDE.md");
+
+    // Check project still exists
+    if (!fs.existsSync(projectDir)) {
+      warn(`${projectName} — directory not found (${projectDir})`);
+      missing++;
+      continue;
+    }
+
+    if (!fs.existsSync(claudeMd)) {
+      warn(`${projectName} — no CLAUDE.md found`);
+      skipped++;
+      continue;
+    }
+
+    const content = fs.readFileSync(claudeMd, "utf8");
+
+    // Check if the project CLAUDE.md needs the Destructive Action Guard
+    if (content.includes("Destructive Action Guard")) {
+      info(`${projectName} — already up to date`);
+      skipped++;
+      continue;
+    }
+
+    // Add the Destructive Action Guard section
+    const guardSection = [
+      "",
+      "",
+      "# Destructive Action Guard (MANDATORY)",
+      "",
+      "**NEVER perform destructive or structural changes without explicit user approval.** This applies at ALL autonomy levels.",
+      "",
+      "Before any of these actions, STOP and ask the user:",
+      "- DROP TABLE, DROP COLUMN, DROP INDEX, TRUNCATE, DELETE without WHERE",
+      "- Renaming or removing database tables or columns",
+      "- Schema migrations that lose data or break existing queries",
+      "- Replacing an existing architecture pattern (e.g., normalized → denormalized)",
+      "- Removing or replacing existing files/modules that contain working functionality",
+      "- Changing ORM models in ways that conflict with the existing database schema",
+      "- Removing API endpoints or changing response shapes that existing clients depend on",
+      "- Any change that would require other parts of the system to be rewritten",
+      "",
+      '**Rule: "Adapt new code to existing structures, not the other way around."**',
+      "",
+    ].join("\n");
+
+    let newContent;
+    // Match headings at any level (# or ## or ###)
+    const preCommitMatch = content.match(/\n(#{1,3} Pre-Commit Gate)/);
+    const dontDoMatch = content.match(/\n(#{1,3} Don't Do These Things)/);
+
+    if (preCommitMatch) {
+      newContent = content.replace(
+        "\n" + preCommitMatch[1],
+        guardSection + "\n" + preCommitMatch[1]
+      );
+    } else if (dontDoMatch) {
+      newContent = content.replace(
+        "\n" + dontDoMatch[1],
+        guardSection + "\n" + dontDoMatch[1]
+      );
+    } else {
+      newContent = content + guardSection;
+    }
+
+    fs.writeFileSync(claudeMd, newContent);
+    success(`${projectName} — updated CLAUDE.md`);
+    updated++;
+  }
+
+  // Summary
+  log("");
+  heading("Update All Complete");
+  log(`  Projects registered: ${projects.length}`);
+  log(`  Updated:             ${updated}`);
+  log(`  Already current:     ${skipped}`);
+  if (missing > 0) {
+    log(`  Not found:           ${missing}`);
+  }
+  log("");
+}
+
 function doDoctor() {
   heading("GSD-T Doctor");
   log("");
@@ -572,6 +715,37 @@ function doDoctor() {
   log("");
 }
 
+function doRegister() {
+  const projectDir = process.cwd();
+  const gsdtDir = path.join(projectDir, ".gsd-t");
+
+  if (!fs.existsSync(gsdtDir)) {
+    error("Not a GSD-T project (no .gsd-t/ directory found)");
+    info("Run 'npx @tekyzinc/gsd-t init' to initialize this project first");
+    return;
+  }
+
+  if (registerProject(projectDir)) {
+    success(`Registered: ${projectDir}`);
+  } else {
+    info("Already registered");
+  }
+
+  // Show all registered projects
+  const projects = getRegisteredProjects();
+  log("");
+  heading("Registered Projects");
+  for (const p of projects) {
+    const exists = fs.existsSync(p);
+    if (exists) {
+      log(`  ${GREEN}✓${RESET} ${p}`);
+    } else {
+      log(`  ${RED}✗${RESET} ${p} ${DIM}(not found)${RESET}`);
+    }
+  }
+  log("");
+}
+
 function showHelp() {
   log("");
   log(`${BOLD}GSD-T${RESET} — Contract-Driven Development for Claude Code`);
@@ -581,8 +755,10 @@ function showHelp() {
   log("");
   log(`${BOLD}Commands:${RESET}`);
   log(`  ${CYAN}install${RESET}        Install slash commands + global CLAUDE.md`);
-  log(`  ${CYAN}update${RESET}         Update to latest (backs up customizations)`);
-  log(`  ${CYAN}init${RESET} [name]    Scaffold GSD-T project in current directory`);
+  log(`  ${CYAN}update${RESET}         Update global commands + CLAUDE.md`);
+  log(`  ${CYAN}update-all${RESET}     Update globally + all registered project CLAUDE.md files`);
+  log(`  ${CYAN}init${RESET} [name]    Scaffold GSD-T project (auto-registers)`);
+  log(`  ${CYAN}register${RESET}       Register current directory as a GSD-T project`);
   log(`  ${CYAN}status${RESET}         Show installation status + check for updates`);
   log(`  ${CYAN}uninstall${RESET}      Remove GSD-T commands (keeps project files)`);
   log(`  ${CYAN}doctor${RESET}         Diagnose common issues`);
@@ -613,8 +789,14 @@ switch (command) {
   case "update":
     doUpdate();
     break;
+  case "update-all":
+    doUpdateAll();
+    break;
   case "init":
     doInit(args[1]);
+    break;
+  case "register":
+    doRegister();
     break;
   case "status":
     doStatus();

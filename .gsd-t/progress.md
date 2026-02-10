@@ -3,7 +3,7 @@
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: SCANNED
 ## Date: 2026-02-07
-## Version: 2.6.0
+## Version: 2.7.0
 
 ## Milestones
 | # | Milestone | Status | Domains |
@@ -36,6 +36,7 @@
 - 2026-02-09: Added automatic version bumping to checkin command — every checkin now auto-bumps patch/minor/major based on change type
 - 2026-02-09: Audited all 27 command files — added Document Ripple and Test Verification steps to 15 commands that were missing them. All code-modifying commands now enforce doc updates and test runs before completion
 - 2026-02-09: Added Destructive Action Guard — mandatory safeguard requiring explicit user approval before any destructive or structural changes (DROP TABLE, schema changes that lose data, architecture replacements, removing working modules). Applied to CLAUDE-global template, gsd-t-execute, gsd-t-quick, gsd-t-debug, and gsd-t-wave. Triggered by incident where GSD-T dropped production tables without user approval
+- 2026-02-09: Added CLI commands: `update-all` (updates global + all registered project CLAUDE.md files), `register` (registers current project). Projects auto-register on `init`. Registry stored at ~/.claude/.gsd-t-projects
 
 ## Session Log
 | Date | Session | What was accomplished |

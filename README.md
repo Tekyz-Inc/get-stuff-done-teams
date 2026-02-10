@@ -66,8 +66,10 @@ GSD-T reads all state files and tells you exactly where you left off.
 
 ```bash
 npx @tekyzinc/gsd-t install        # Install commands + global CLAUDE.md
-npx @tekyzinc/gsd-t update         # Update to latest (backs up customizations)
-npx @tekyzinc/gsd-t init [name]    # Scaffold GSD-T project in current directory
+npx @tekyzinc/gsd-t update         # Update global commands + CLAUDE.md
+npx @tekyzinc/gsd-t update-all     # Update globally + all registered project CLAUDE.md files
+npx @tekyzinc/gsd-t init [name]    # Scaffold GSD-T project (auto-registers)
+npx @tekyzinc/gsd-t register       # Register current directory as a GSD-T project
 npx @tekyzinc/gsd-t status         # Check installation + version
 npx @tekyzinc/gsd-t doctor         # Diagnose common issues
 npx @tekyzinc/gsd-t uninstall      # Remove commands (keeps project files)
