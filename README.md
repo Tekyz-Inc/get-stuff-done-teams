@@ -18,7 +18,7 @@ A methodology for reliable, parallelizable development using Claude Code with op
 npx @tekyzinc/gsd-t install
 ```
 
-This installs 24 GSD-T commands + 3 utility commands to `~/.claude/commands/` and the global CLAUDE.md to `~/.claude/CLAUDE.md`. Works on Windows, Mac, and Linux.
+This installs 31 GSD-T commands + 3 utility commands to `~/.claude/commands/` and the global CLAUDE.md to `~/.claude/CLAUDE.md`. Works on Windows, Mac, and Linux.
 
 ### Start Using It
 
@@ -133,6 +133,18 @@ This will replace changed command files, back up your CLAUDE.md if customized, a
 | `/user:gsd-t-quick` | Fast task with GSD-T guarantees |
 | `/user:gsd-t-debug` | Systematic debugging with state |
 
+### Backlog Management
+
+| Command | Purpose |
+|---------|---------|
+| `/user:gsd-t-backlog-add` | Capture item, auto-categorize, append to backlog |
+| `/user:gsd-t-backlog-list` | Filtered, ordered view of backlog items |
+| `/user:gsd-t-backlog-move` | Reorder items by position (priority) |
+| `/user:gsd-t-backlog-edit` | Modify backlog entry fields |
+| `/user:gsd-t-backlog-remove` | Drop item with optional reason |
+| `/user:gsd-t-backlog-promote` | Refine, classify, launch GSD-T workflow |
+| `/user:gsd-t-backlog-settings` | Manage types, apps, categories, defaults |
+
 ### Git Helpers
 
 | Command | Purpose |
@@ -182,6 +194,8 @@ your-project/
 │   └── infrastructure.md             # Dev setup, DB, cloud, deployment
 ├── .gsd-t/
 │   ├── progress.md                    # Master state file
+│   ├── backlog.md                    # Captured backlog items (priority ordered)
+│   ├── backlog-settings.md           # Types, apps, categories, defaults
 │   ├── roadmap.md                     # Milestone roadmap
 │   ├── techdebt.md                    # Technical debt register
 │   ├── verify-report.md               # Latest verification results
@@ -254,8 +268,8 @@ get-stuff-done-teams/
 ├── LICENSE
 ├── bin/
 │   └── gsd-t.js                       # CLI installer
-├── commands/                          # 27 slash commands
-│   ├── gsd-t-*.md                     # 24 GSD-T workflow commands
+├── commands/                          # 34 slash commands
+│   ├── gsd-t-*.md                     # 31 GSD-T workflow commands
 │   ├── branch.md                      # Git branch helper
 │   ├── checkin.md                     # Auto-version + commit/push helper
 │   └── Claude-md.md                   # Reload CLAUDE.md directives
@@ -266,7 +280,9 @@ get-stuff-done-teams/
 │   ├── architecture.md
 │   ├── workflows.md
 │   ├── infrastructure.md
-│   └── progress.md
+│   ├── progress.md
+│   ├── backlog.md
+│   └── backlog-settings.md
 ├── examples/
 │   ├── settings.json
 │   └── .gsd-t/

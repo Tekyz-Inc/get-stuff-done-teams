@@ -46,6 +46,16 @@ UTILITIES
   promote-debt        Convert techdebt items to milestones
   populate            Auto-populate docs from existing codebase
 
+BACKLOG
+───────────────────────────────────────────────────────────────────────────────
+  backlog-add         Capture item, auto-categorize, append to backlog
+  backlog-list        Filtered, ordered view of backlog items
+  backlog-move        Reorder items by position (priority)
+  backlog-edit        Modify entry fields (title, type, app, category)
+  backlog-remove      Drop item with optional reason
+  backlog-promote     Refine, classify, and launch GSD-T workflow
+  backlog-settings    Manage types, apps, categories, and defaults
+
 ───────────────────────────────────────────────────────────────────────────────
 Type /user:gsd-t-help {command} for detailed help on any command.
 Example: /user:gsd-t-help impact
@@ -246,6 +256,48 @@ Use these when user asks for help on a specific command:
 - **Auto-invoked**: No
 - **Updates**: `docs/requirements.md`, `docs/architecture.md`, `docs/workflows.md`, `docs/infrastructure.md`, `.gsd-t/progress.md`
 - **Use when**: You have an existing codebase and want to fill docs with real findings instead of placeholders
+
+### backlog-add
+- **Summary**: Capture a new backlog item with auto-categorization
+- **Auto-invoked**: No
+- **Files**: `.gsd-t/backlog.md`, `.gsd-t/backlog-settings.md`
+- **Use when**: You have an idea, bug, or improvement to capture for later
+
+### backlog-list
+- **Summary**: Display backlog with optional filtering by type, app, or category
+- **Auto-invoked**: No
+- **Files**: `.gsd-t/backlog.md` (read-only)
+- **Use when**: Reviewing the backlog to see what's queued up
+
+### backlog-move
+- **Summary**: Reorder a backlog item to change its priority
+- **Auto-invoked**: No
+- **Files**: `.gsd-t/backlog.md`
+- **Use when**: Reprioritizing items in the backlog
+
+### backlog-edit
+- **Summary**: Modify fields of an existing backlog entry
+- **Auto-invoked**: No
+- **Files**: `.gsd-t/backlog.md`, `.gsd-t/backlog-settings.md`
+- **Use when**: Updating details of a captured backlog item
+
+### backlog-remove
+- **Summary**: Remove a backlog item with optional reason
+- **Auto-invoked**: No
+- **Files**: `.gsd-t/backlog.md`
+- **Use when**: Dropping an item that's no longer relevant
+
+### backlog-promote
+- **Summary**: Refine a backlog item and launch the appropriate GSD-T workflow
+- **Auto-invoked**: No
+- **Files**: `.gsd-t/backlog.md`, `.gsd-t/progress.md`
+- **Use when**: Ready to act on a backlog item — promotes to milestone, quick, debug, or feature
+
+### backlog-settings
+- **Summary**: Manage allowed types, apps, categories, and default settings
+- **Auto-invoked**: No
+- **Files**: `.gsd-t/backlog-settings.md`
+- **Use when**: Customizing the classification dimensions for your project
 
 ## Unknown Command
 

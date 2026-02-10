@@ -51,6 +51,13 @@ PROJECT or FEATURE or SCAN
 | `/user:gsd-t-quick` | Fast task, respects contracts |
 | `/user:gsd-t-populate` | Auto-populate docs from existing codebase |
 | `/user:gsd-t-resume` | Restore context, continue |
+| `/user:gsd-t-backlog-add` | Capture item, auto-categorize, append to backlog |
+| `/user:gsd-t-backlog-list` | Filtered, ordered view of backlog items |
+| `/user:gsd-t-backlog-move` | Reorder items by position (priority) |
+| `/user:gsd-t-backlog-edit` | Modify backlog entry fields |
+| `/user:gsd-t-backlog-remove` | Drop item with optional reason |
+| `/user:gsd-t-backlog-promote` | Refine, classify, launch GSD-T workflow |
+| `/user:gsd-t-backlog-settings` | Manage types, apps, categories, defaults |
 | `/user:branch` | Create and switch to a new git branch |
 | `/user:checkin` | Auto-bump version, stage, commit, and push |
 | `/user:Claude-md` | Reload and apply CLAUDE.md directives |
