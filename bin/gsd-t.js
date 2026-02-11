@@ -28,6 +28,7 @@ const GLOBAL_CLAUDE_MD = path.join(CLAUDE_DIR, "CLAUDE.md");
 const SETTINGS_JSON = path.join(CLAUDE_DIR, "settings.json");
 const VERSION_FILE = path.join(CLAUDE_DIR, ".gsd-t-version");
 const PROJECTS_FILE = path.join(CLAUDE_DIR, ".gsd-t-projects");
+const UPDATE_CHECK_FILE = path.join(CLAUDE_DIR, ".gsd-t-update-check");
 
 // Where our package files live (relative to this script)
 const PKG_ROOT = path.resolve(__dirname, "..");
@@ -776,6 +777,62 @@ function doRegister() {
   log("");
 }
 
+function checkForUpdates() {
+  // Skip check for update/install/update-all (they handle it themselves)
+  const skipCommands = ["install", "update", "update-all", "--version", "-v"];
+  if (skipCommands.includes(command)) return;
+
+  // Read cache (sync, fast)
+  let cached = null;
+  try {
+    if (fs.existsSync(UPDATE_CHECK_FILE)) {
+      cached = JSON.parse(fs.readFileSync(UPDATE_CHECK_FILE, "utf8"));
+    }
+  } catch { /* ignore corrupt cache */ }
+
+  // Show notice from cache if newer version is known
+  if (cached && cached.latest && cached.latest !== PKG_VERSION) {
+    showUpdateNotice(cached.latest);
+  }
+
+  // Refresh cache in background if stale (older than 24h) or missing
+  const isStale = !cached || (Date.now() - cached.timestamp) > 86400000;
+  if (isStale) {
+    const script = `
+      const https = require("https");
+      const fs = require("fs");
+      https.get("https://registry.npmjs.org/@tekyzinc/gsd-t/latest",
+        { timeout: 5000 }, (res) => {
+        let d = "";
+        res.on("data", (c) => d += c);
+        res.on("end", () => {
+          try {
+            const v = JSON.parse(d).version;
+            fs.writeFileSync(${JSON.stringify(UPDATE_CHECK_FILE)},
+              JSON.stringify({ latest: v, timestamp: Date.now() }));
+          } catch {}
+        });
+      }).on("error", () => {});
+    `.replace(/\n/g, "");
+    const { spawn } = require("child_process");
+    const child = spawn(process.execPath, ["-e", script], {
+      detached: true,
+      stdio: "ignore",
+    });
+    child.unref();
+  }
+}
+
+function showUpdateNotice(latest) {
+  log("");
+  log(`  ${YELLOW}╭──────────────────────────────────────────────╮${RESET}`);
+  log(`  ${YELLOW}│${RESET}  Update available: ${DIM}${PKG_VERSION}${RESET} → ${GREEN}${latest}${RESET}            ${YELLOW}│${RESET}`);
+  log(`  ${YELLOW}│${RESET}  Run: ${CYAN}npm update -g @tekyzinc/gsd-t${RESET}         ${YELLOW}│${RESET}`);
+  log(`  ${YELLOW}│${RESET}  Then: ${CYAN}gsd-t update-all${RESET}                     ${YELLOW}│${RESET}`);
+  log(`  ${YELLOW}│${RESET}  Changelog: ${CYAN}gsd-t changelog${RESET}                  ${YELLOW}│${RESET}`);
+  log(`  ${YELLOW}╰──────────────────────────────────────────────╯${RESET}`);
+}
+
 function doChangelog() {
   const openCmd =
     process.platform === "win32" ? "start" :
@@ -868,3 +925,5 @@ switch (command) {
     showHelp();
     process.exit(1);
 }
+
+checkForUpdates();

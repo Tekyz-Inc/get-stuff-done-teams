@@ -2,6 +2,11 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.10.1] - 2026-02-10
+
+### Added
+- Automatic update check — CLI queries npm registry (cached 24h, background refresh) and shows a notice box with update commands when a newer version is available
+
 ## [2.10.0] - 2026-02-10
 
 ### Added
