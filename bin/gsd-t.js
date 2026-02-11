@@ -12,11 +12,13 @@
  *   npx @tekyzinc/gsd-t status      — Show what's installed and check for updates
  *   npx @tekyzinc/gsd-t uninstall   — Remove GSD-T commands (leaves project files alone)
  *   npx @tekyzinc/gsd-t doctor      — Diagnose common issues
+ *   npx @tekyzinc/gsd-t changelog   — Open changelog in the browser
  */
 
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
+const { execSync } = require("child_process");
 
 // ─── Configuration ───────────────────────────────────────────────────────────
 
@@ -35,6 +37,7 @@ const PKG_EXAMPLES = path.join(PKG_ROOT, "examples");
 
 // Read our version from package.json
 const PKG_VERSION = require(path.join(PKG_ROOT, "package.json")).version;
+const CHANGELOG_URL = "https://github.com/Tekyz-Inc/get-stuff-done-teams/blob/main/CHANGELOG.md";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -63,6 +66,12 @@ function info(msg) {
 }
 function heading(msg) {
   console.log(`\n${BOLD}${msg}${RESET}`);
+}
+function link(text, url) {
+  return `\x1b]8;;${url}\x07${text}\x1b]8;;\x07`;
+}
+function versionLink(ver) {
+  return link(`v${ver || PKG_VERSION}`, CHANGELOG_URL);
 }
 
 function ensureDir(dir) {
@@ -140,7 +149,7 @@ function doInstall(opts = {}) {
   const isUpdate = opts.update || false;
   const verb = isUpdate ? "Updating" : "Installing";
 
-  heading(`${verb} GSD-T v${PKG_VERSION}`);
+  heading(`${verb} GSD-T ${versionLink()}`);
   log("");
 
   // 1. Create ~/.claude/commands/ if needed
@@ -224,7 +233,7 @@ function doInstall(opts = {}) {
   log("");
   log(`  Commands: ${gsdtCommands.length} GSD-T + ${utilityCommands.length} utility commands in ~/.claude/commands/`);
   log(`  Config:   ~/.claude/CLAUDE.md`);
-  log(`  Version:  ${PKG_VERSION}`);
+  log(`  Version:  ${versionLink()}`);
   log("");
   log(`${BOLD}Quick Start:${RESET}`);
   log(`  ${DIM}$${RESET} cd your-project`);
@@ -245,7 +254,7 @@ function doUpdate() {
   const installedVersion = getInstalledVersion();
 
   if (installedVersion === PKG_VERSION) {
-    heading(`GSD-T v${PKG_VERSION}`);
+    heading(`GSD-T ${versionLink()}`);
     info("Already up to date!");
     log("");
     log("  To force a reinstall, run:");
@@ -255,7 +264,7 @@ function doUpdate() {
   }
 
   if (installedVersion) {
-    heading(`Updating GSD-T: v${installedVersion} → v${PKG_VERSION}`);
+    heading(`Updating GSD-T: ${versionLink(installedVersion)} → ${versionLink()}`);
   }
 
   doInstall({ update: true });
@@ -372,12 +381,12 @@ function doStatus() {
   // Installed version
   const installedVersion = getInstalledVersion();
   if (installedVersion) {
-    success(`Installed version: ${installedVersion}`);
+    success(`Installed version: ${versionLink(installedVersion)}`);
     if (installedVersion !== PKG_VERSION) {
-      warn(`Latest version: ${PKG_VERSION}`);
+      warn(`Latest version: ${versionLink()}`);
       info(`Run 'npx @tekyzinc/gsd-t update' to update`);
     } else {
-      success(`Up to date (latest: ${PKG_VERSION})`);
+      success(`Up to date (latest: ${versionLink()})`);
     }
   } else {
     error("GSD-T not installed");
@@ -502,7 +511,7 @@ function doUpdateAll() {
   if (installedVersion !== PKG_VERSION) {
     doInstall({ update: true });
   } else {
-    heading(`GSD-T v${PKG_VERSION}`);
+    heading(`GSD-T ${versionLink()}`);
     success("Global commands already up to date");
   }
 
@@ -531,6 +540,7 @@ function doUpdateAll() {
   for (const projectDir of projects) {
     const projectName = path.basename(projectDir);
     const claudeMd = path.join(projectDir, "CLAUDE.md");
+    let projectUpdated = false;
 
     // Check project still exists
     if (!fs.existsSync(projectDir)) {
@@ -548,56 +558,77 @@ function doUpdateAll() {
     const content = fs.readFileSync(claudeMd, "utf8");
 
     // Check if the project CLAUDE.md needs the Destructive Action Guard
-    if (content.includes("Destructive Action Guard")) {
+    if (!content.includes("Destructive Action Guard")) {
+      const guardSection = [
+        "",
+        "",
+        "# Destructive Action Guard (MANDATORY)",
+        "",
+        "**NEVER perform destructive or structural changes without explicit user approval.** This applies at ALL autonomy levels.",
+        "",
+        "Before any of these actions, STOP and ask the user:",
+        "- DROP TABLE, DROP COLUMN, DROP INDEX, TRUNCATE, DELETE without WHERE",
+        "- Renaming or removing database tables or columns",
+        "- Schema migrations that lose data or break existing queries",
+        "- Replacing an existing architecture pattern (e.g., normalized → denormalized)",
+        "- Removing or replacing existing files/modules that contain working functionality",
+        "- Changing ORM models in ways that conflict with the existing database schema",
+        "- Removing API endpoints or changing response shapes that existing clients depend on",
+        "- Any change that would require other parts of the system to be rewritten",
+        "",
+        '**Rule: "Adapt new code to existing structures, not the other way around."**',
+        "",
+      ].join("\n");
+
+      let newContent;
+      const preCommitMatch = content.match(/\n(#{1,3} Pre-Commit Gate)/);
+      const dontDoMatch = content.match(/\n(#{1,3} Don't Do These Things)/);
+
+      if (preCommitMatch) {
+        newContent = content.replace(
+          "\n" + preCommitMatch[1],
+          guardSection + "\n" + preCommitMatch[1]
+        );
+      } else if (dontDoMatch) {
+        newContent = content.replace(
+          "\n" + dontDoMatch[1],
+          guardSection + "\n" + dontDoMatch[1]
+        );
+      } else {
+        newContent = content + guardSection;
+      }
+
+      fs.writeFileSync(claudeMd, newContent);
+      success(`${projectName} — added Destructive Action Guard`);
+      projectUpdated = true;
+    }
+
+    // Create CHANGELOG.md if it doesn't exist
+    const changelogPath = path.join(projectDir, "CHANGELOG.md");
+    if (!fs.existsSync(changelogPath)) {
+      const today = new Date().toISOString().split("T")[0];
+      const changelogContent = [
+        "# Changelog",
+        "",
+        "All notable changes to this project are documented here.",
+        "",
+        `## [0.1.0] - ${today}`,
+        "",
+        "### Added",
+        "- Initial changelog created by GSD-T",
+        "",
+      ].join("\n");
+      fs.writeFileSync(changelogPath, changelogContent);
+      success(`${projectName} — created CHANGELOG.md`);
+      projectUpdated = true;
+    }
+
+    if (projectUpdated) {
+      updated++;
+    } else {
       info(`${projectName} — already up to date`);
       skipped++;
-      continue;
     }
-
-    // Add the Destructive Action Guard section
-    const guardSection = [
-      "",
-      "",
-      "# Destructive Action Guard (MANDATORY)",
-      "",
-      "**NEVER perform destructive or structural changes without explicit user approval.** This applies at ALL autonomy levels.",
-      "",
-      "Before any of these actions, STOP and ask the user:",
-      "- DROP TABLE, DROP COLUMN, DROP INDEX, TRUNCATE, DELETE without WHERE",
-      "- Renaming or removing database tables or columns",
-      "- Schema migrations that lose data or break existing queries",
-      "- Replacing an existing architecture pattern (e.g., normalized → denormalized)",
-      "- Removing or replacing existing files/modules that contain working functionality",
-      "- Changing ORM models in ways that conflict with the existing database schema",
-      "- Removing API endpoints or changing response shapes that existing clients depend on",
-      "- Any change that would require other parts of the system to be rewritten",
-      "",
-      '**Rule: "Adapt new code to existing structures, not the other way around."**',
-      "",
-    ].join("\n");
-
-    let newContent;
-    // Match headings at any level (# or ## or ###)
-    const preCommitMatch = content.match(/\n(#{1,3} Pre-Commit Gate)/);
-    const dontDoMatch = content.match(/\n(#{1,3} Don't Do These Things)/);
-
-    if (preCommitMatch) {
-      newContent = content.replace(
-        "\n" + preCommitMatch[1],
-        guardSection + "\n" + preCommitMatch[1]
-      );
-    } else if (dontDoMatch) {
-      newContent = content.replace(
-        "\n" + dontDoMatch[1],
-        guardSection + "\n" + dontDoMatch[1]
-      );
-    } else {
-      newContent = content + guardSection;
-    }
-
-    fs.writeFileSync(claudeMd, newContent);
-    success(`${projectName} — updated CLAUDE.md`);
-    updated++;
   }
 
   // Summary
@@ -628,7 +659,6 @@ function doDoctor() {
   }
 
   // 2. Claude Code installed?
-  const { execSync } = require("child_process");
   try {
     const claudeVersion = execSync("claude --version 2>&1", { encoding: "utf8" }).trim();
     success(`Claude Code: ${claudeVersion}`);
@@ -746,6 +776,19 @@ function doRegister() {
   log("");
 }
 
+function doChangelog() {
+  const openCmd =
+    process.platform === "win32" ? "start" :
+    process.platform === "darwin" ? "open" : "xdg-open";
+  try {
+    execSync(`${openCmd} ${CHANGELOG_URL}`, { stdio: "ignore" });
+    success(`Opened changelog in browser`);
+  } catch {
+    // Fallback: print the URL
+    log(`\n  ${CHANGELOG_URL}\n`);
+  }
+}
+
 function showHelp() {
   log("");
   log(`${BOLD}GSD-T${RESET} — Contract-Driven Development for Claude Code`);
@@ -762,6 +805,7 @@ function showHelp() {
   log(`  ${CYAN}status${RESET}         Show installation status + check for updates`);
   log(`  ${CYAN}uninstall${RESET}      Remove GSD-T commands (keeps project files)`);
   log(`  ${CYAN}doctor${RESET}         Diagnose common issues`);
+  log(`  ${CYAN}changelog${RESET}      Open changelog in the browser`);
   log(`  ${CYAN}help${RESET}           Show this help`);
   log("");
   log(`${BOLD}Examples:${RESET}`);
@@ -806,6 +850,9 @@ switch (command) {
     break;
   case "doctor":
     doDoctor();
+    break;
+  case "changelog":
+    doChangelog();
     break;
   case "help":
   case "--help":

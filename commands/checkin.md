@@ -20,11 +20,18 @@ Automatically stage, commit, and push all updated files to GitHub with automatic
 8. Update the version in `package.json`
 9. If `.gsd-t/progress.md` exists, check for a `## Version` line and update it (or add one after the `## Date` line)
 
+### Release Notes
+
+10. If `CHANGELOG.md` exists in the project root, prepend an entry for this version:
+    - Use the format: `## [X.Y.Z] - YYYY-MM-DD` followed by `### Added`, `### Changed`, `### Fixed`, or `### Removed` subsections as appropriate
+    - Summarize the changes in 1-3 bullet points per subsection
+    - Place the new entry directly after the file header (before any existing version entries)
+
 ### Commit and Push
 
-10. Stage all changes (including the version bump) with `git add -A`
-11. Create a commit with a descriptive message summarizing the changes. Include `(vX.Y.Z)` at the end of the first line. Example: `fix: resolve branch guard edge case (v2.3.1)`
-12. Push to origin with `git push`
-13. Confirm success to the user, including the old → new version
+11. Stage all changes (including the version bump and changelog) with `git add -A`
+12. Create a commit with a descriptive message summarizing the changes. Include `(vX.Y.Z)` at the end of the first line. Example: `fix: resolve branch guard edge case (v2.3.1)`
+13. Push to origin with `git push`
+14. Confirm success to the user, including the old → new version
 
 Use the standard commit message format with Co-Authored-By line.

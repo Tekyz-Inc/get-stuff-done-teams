@@ -72,6 +72,7 @@ npx @tekyzinc/gsd-t init [name]    # Scaffold GSD-T project (auto-registers)
 npx @tekyzinc/gsd-t register       # Register current directory as a GSD-T project
 npx @tekyzinc/gsd-t status         # Check installation + version
 npx @tekyzinc/gsd-t doctor         # Diagnose common issues
+npx @tekyzinc/gsd-t changelog      # Open changelog in the browser
 npx @tekyzinc/gsd-t uninstall      # Remove commands (keeps project files)
 ```
 

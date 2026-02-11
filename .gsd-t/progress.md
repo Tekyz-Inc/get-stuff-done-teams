@@ -3,7 +3,7 @@
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: READY
 ## Date: 2026-02-10
-## Version: 2.9.0
+## Version: 2.10.0
 
 ## Current Milestone
 None — ready for next milestone
@@ -38,6 +38,7 @@ None — ready for next milestone
 - 2026-02-10: Milestone 1 planned, executed, verified, and completed — v2.8.0
 - 2026-02-10: Added Workflow Preferences section to global and project CLAUDE.md templates — Research Policy and Phase Flow defaults with per-project override support. Replaces old GSD Workflow Preferences convention.
 - 2026-02-10: Added gsd-t-setup command — generates or restructures project CLAUDE.md by scanning codebase, detecting tech stack/conventions, and removing global duplicates
+- 2026-02-10: Added CHANGELOG.md with full version history. Updated checkin command to auto-maintain release notes on every version bump. Added `changelog` CLI subcommand to open in browser. Version links in CLI output use OSC 8 hyperlinks. update-all now creates CHANGELOG.md for projects that don't have one.
 
 ## Session Log
 | Date | Session | What was accomplished |

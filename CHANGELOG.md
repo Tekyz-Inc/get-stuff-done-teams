@@ -1,0 +1,113 @@
+# Changelog
+
+All notable changes to GSD-T are documented here. Updated with each release.
+
+## [2.10.0] - 2026-02-10
+
+### Added
+- `CHANGELOG.md` release notes document with full version history
+- `changelog` CLI subcommand — opens changelog in the browser (`gsd-t changelog`)
+- Clickable version links in CLI output (OSC 8 hyperlinks to changelog)
+- `checkin` command now auto-updates CHANGELOG.md on every version bump
+- `update-all` now creates CHANGELOG.md for registered projects that don't have one
+
+## [2.9.0] - 2026-02-10
+
+### Added
+- `gsd-t-setup` command — generates or restructures project CLAUDE.md by scanning codebase, detecting tech stack/conventions, and removing global duplicates
+
+## [2.8.1] - 2026-02-10
+
+### Added
+- Workflow Preferences section in global and project CLAUDE.md templates (Research Policy, Phase Flow defaults with per-project override support)
+
+## [2.8.0] - 2026-02-10
+
+### Added
+- Backlog management system: 7 new commands (`backlog-add`, `backlog-list`, `backlog-move`, `backlog-edit`, `backlog-remove`, `backlog-promote`, `backlog-settings`)
+- 2 new templates (`backlog.md`, `backlog-settings.md`)
+- Backlog initialization in `gsd-t-init` with auto-category derivation
+- Backlog summary in `gsd-t-status` report
+- Backlog section in `gsd-t-help`
+
+### Changed
+- Updated `gsd-t-init`, `gsd-t-status`, `gsd-t-help`, CLAUDE-global template, README with backlog integration
+
+## [2.7.0] - 2026-02-09
+
+### Added
+- `update-all` CLI command — updates global install + all registered project CLAUDE.md files
+- `register` CLI command — manually register a project in the GSD-T project registry
+- Auto-registration on `gsd-t init`
+- Project registry at `~/.claude/.gsd-t-projects`
+
+## [2.6.0] - 2026-02-09
+
+### Added
+- Destructive Action Guard — mandatory safeguard requiring explicit user approval before destructive or structural changes (schema drops, architecture replacements, module removal)
+- Guard enforced in global CLAUDE.md, project template, and all execution commands
+
+## [2.5.0] - 2026-02-09
+
+### Changed
+- Audited all 27 command files — added Document Ripple and Test Verification steps to 15 commands that were missing them
+- All code-modifying commands now enforce doc updates and test runs before completion
+
+## [2.4.0] - 2026-02-09
+
+### Added
+- Automatic version bumping in `checkin` command — determines patch/minor/major from change type
+
+## [2.3.0] - 2026-02-09
+
+### Added
+- Branch Guard — prevents commits on wrong branch by checking `Expected branch` in CLAUDE.md
+
+## [2.2.1] - 2026-02-09
+
+### Fixed
+- `gsd-t-discuss` now stops for user review when manually invoked (was auto-continuing even in manual mode)
+
+## [2.2.0] - 2026-02-09
+
+### Added
+- E2E test support in `test-sync`, `verify`, and `execute` commands
+
+## [2.1.0] - 2026-02-09
+
+### Added
+- `gsd-t-populate` command — auto-populate living docs from existing codebase
+- Semantic versioning system tracked in `progress.md`
+- Auto-update README on version changes
+
+## [2.0.2] - 2026-02-07
+
+### Changed
+- `gsd-t-init` now creates all 4 living document templates (`requirements.md`, `architecture.md`, `workflows.md`, `infrastructure.md`)
+- `gsd-t-scan` cross-populates findings into living docs
+
+## [2.0.1] - 2026-02-07
+
+### Fixed
+- Added `gsd-t-brainstorm` to all 4 reference files (README, GSD-T-README, CLAUDE-global, gsd-t-help)
+- Fixed workflow diagram alignment
+
+## [2.0.0] - 2026-02-07
+
+### Added
+- Renamed package to `@tekyzinc/gsd-t`
+- `gsd-t-brainstorm` command — creative exploration, rethinking, and idea generation
+- Initialized GSD-T state (`.gsd-t/` directory) on itself
+
+### Changed
+- Complete framework rewrite from GSD to GSD-T (contract-driven development)
+- npm package with CLI installer (`bin/gsd-t.js`)
+- 6 CLI subcommands: install, update, init, status, doctor, uninstall
+
+## [1.0.0] - 2026-02-07
+
+### Added
+- Initial GSD-T framework implementation
+- Full milestone workflow: partition, discuss, plan, impact, execute, test-sync, integrate, verify, complete
+- Agent Teams support for parallel execution
+- Living documents system (requirements, architecture, workflows, infrastructure)
