@@ -34,6 +34,7 @@ PROJECT or FEATURE or SCAN
 | `/user:gsd-t-feature` | Major feature → impact analysis + milestones |
 | `/user:gsd-t-scan` | Deep codebase analysis → techdebt.md |
 | `/user:gsd-t-promote-debt` | Convert debt items to milestones |
+| `/user:gsd-t-setup` | Generate or restructure project CLAUDE.md |
 | `/user:gsd-t-init` | Initialize project structure |
 | `/user:gsd-t-milestone` | Define new milestone |
 | `/user:gsd-t-partition` | Decompose into domains + contracts |

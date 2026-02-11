@@ -71,6 +71,7 @@ GSD-T reads all state files and tells you exactly where you left off.
 
 | Command | Purpose |
 |---------|---------|
+| `/user:gsd-t-setup` | Generate or restructure project CLAUDE.md |
 | `/user:gsd-t-init` | Initialize GSD-T structure in project |
 | `/user:gsd-t-project` | Full project → milestone roadmap |
 | `/user:gsd-t-feature` | Major feature → impact analysis + milestones |

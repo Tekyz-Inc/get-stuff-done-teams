@@ -15,6 +15,7 @@ GETTING STARTED
 ───────────────────────────────────────────────────────────────────────────────
   prompt              Help formulate your idea before committing to a command
   brainstorm          Creative exploration, rethinking, and idea generation
+  setup               Generate or restructure project CLAUDE.md
   init                Initialize GSD-T structure in current project
   project             New project → requirements → milestone roadmap
   feature             Major feature → impact analysis → milestones
@@ -130,6 +131,12 @@ Use these when user asks for help on a specific command:
 - **Files**: Optional save to `.gsd-t/brainstorm-{date}.md`
 - **Use when**: You want to explore ideas, challenge assumptions, or break out of tunnel vision
 - **Modes**: Ideation, Enhancement, Rethink, Unstuck, Blue Sky
+
+### setup
+- **Summary**: Generate or restructure the project-level CLAUDE.md
+- **Auto-invoked**: No
+- **Creates/Updates**: `CLAUDE.md`
+- **Use when**: Starting a new project, migrating from GSD, or restructuring an existing CLAUDE.md to complement the global one
 
 ### init
 - **Summary**: Initialize GSD-T directory structure in current project
