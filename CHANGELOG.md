@@ -2,6 +2,14 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.10.2] - 2026-02-11
+
+### Added
+- Version update check in `gsd-t-status` slash command — works inside Claude Code and ClaudeWebCLI sessions, not just the CLI binary
+
+### Fixed
+- Normalized `repository.url` in package.json (`git+https://` prefix)
+
 ## [2.10.1] - 2026-02-10
 
 ### Added

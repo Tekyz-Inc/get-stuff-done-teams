@@ -40,4 +40,20 @@ If `.gsd-t/backlog.md` exists, read and parse it. Show total count and top 3 ite
 If there are blockers or issues, highlight them.
 If the user provides $ARGUMENTS, focus the status on that specific domain or aspect.
 
+## Version Check
+
+After displaying the project status, check for GSD-T updates:
+
+1. Read `~/.claude/.gsd-t-version` to get the installed version
+2. Read `~/.claude/.gsd-t-update-check` (JSON with `latest` and `timestamp` fields) to get the latest known version
+3. If the file doesn't exist or is unreadable, run `gsd-t status` (CLI) in the background to trigger a cache refresh, and skip the notice
+4. If `latest` is newer than the installed version, append to the report:
+
+```
+⬆️  GSD-T update available: {installed} → {latest}
+   Run: npm update -g @tekyzinc/gsd-t && gsd-t update-all
+```
+
+5. If versions match, skip — don't show anything
+
 $ARGUMENTS
