@@ -777,6 +777,16 @@ function doRegister() {
   log("");
 }
 
+function isNewerVersion(latest, current) {
+  const l = latest.split(".").map(Number);
+  const c = current.split(".").map(Number);
+  for (let i = 0; i < 3; i++) {
+    if ((l[i] || 0) > (c[i] || 0)) return true;
+    if ((l[i] || 0) < (c[i] || 0)) return false;
+  }
+  return false;
+}
+
 function checkForUpdates() {
   // Skip check for update/install/update-all (they handle it themselves)
   const skipCommands = ["install", "update", "update-all", "--version", "-v"];
@@ -790,8 +800,8 @@ function checkForUpdates() {
     }
   } catch { /* ignore corrupt cache */ }
 
-  // Show notice from cache if newer version is known
-  if (cached && cached.latest && cached.latest !== PKG_VERSION) {
+  // Show notice from cache if a newer version is available
+  if (cached && cached.latest && isNewerVersion(cached.latest, PKG_VERSION)) {
     showUpdateNotice(cached.latest);
   }
 

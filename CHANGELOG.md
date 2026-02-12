@@ -2,6 +2,12 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.11.2] - 2026-02-12
+
+### Fixed
+- CLI update check used `!==` instead of semver comparison — would show incorrect downgrade notices when cache had an older version
+- Added `isNewerVersion()` helper for proper semver comparison in update notifications
+
 ## [2.11.1] - 2026-02-12
 
 ### Changed
