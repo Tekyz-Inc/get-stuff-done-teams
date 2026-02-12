@@ -2,6 +2,12 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.11.1] - 2026-02-12
+
+### Changed
+- `gsd-t-resume` now detects same-session vs cross-session mode — skips full state reload when context is already available, auto-resumes at Level 3
+- Added "Conversation vs. Work" rule to global CLAUDE.md template — plain text questions are answered conversationally, workflow only runs when a `/gsd-t-*` command is invoked
+
 ## [2.11.0] - 2026-02-12
 
 ### Added

@@ -3,7 +3,7 @@
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: READY
 ## Date: 2026-02-10
-## Version: 2.11.0
+## Version: 2.11.1
 
 ## Current Milestone
 None — ready for next milestone
@@ -43,6 +43,7 @@ None — ready for next milestone
 - 2026-02-11: Extended version update check to gsd-t-status slash command for ClaudeWebCLI compatibility — reads same cache files as CLI.
 - 2026-02-11: Changed default autonomy level from Level 2 (Standard) to Level 3 (Full Auto) in all templates, init, and setup commands.
 - 2026-02-12: Level 3 auto-advancing — all phase commands (partition, plan, impact, execute, test-sync, integrate, verify, complete-milestone) now auto-advance at Level 3 without waiting for user input. Discuss phase always pauses. Wave error recovery auto-remediates at Level 3 (up to 2 attempts).
+- 2026-02-12: Added "Conversation vs. Work" rule — plain text messages answered conversationally, workflow only triggers from explicit /gsd-t-* commands. Resume command updated for same-session lightweight mode.
 
 ## Session Log
 | Date | Session | What was accomplished |

@@ -149,6 +149,10 @@ Even in development, the user may have:
 
 # Autonomous Execution Rules
 
+## Conversation vs. Work
+
+Only execute GSD-T workflow behavior when a `/gsd-t-*` command is invoked or when actively mid-phase (resumed via `/gsd-t-resume`). **Plain text messages — especially questions — should be answered conversationally.** Do not launch into workflow execution, file reading, or phase advancement from a question or comment. If the user wants work done, they will invoke a command.
+
 ## Prime Rule
 KEEP GOING. Only stop for:
 1. Unrecoverable errors after 2 fix attempts
