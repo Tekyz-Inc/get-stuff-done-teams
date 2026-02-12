@@ -2,6 +2,11 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.13.2] - 2026-02-12
+
+### Changed
+- `gsd-t-init-scan-setup` now asks for project folder name, creates it if needed, and `cd`s into it — can be run from anywhere
+
 ## [2.13.1] - 2026-02-12
 
 ### Changed

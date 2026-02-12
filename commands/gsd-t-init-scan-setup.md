@@ -1,10 +1,21 @@
 # GSD-T: Init-Scan-Setup — Full Project Onboarding
 
-One command to fully onboard a project into GSD-T. Combines git setup, `gsd-t-init`, `gsd-t-scan`, and `gsd-t-setup` into a single orchestrated flow.
+One command to fully onboard a project into GSD-T. Combines project directory setup, git setup, `gsd-t-init`, `gsd-t-scan`, and `gsd-t-setup` into a single orchestrated flow.
 
-## Step 1: Git Repository Check
+Can be run from anywhere — does not require being in the project folder first.
 
-1. Check if the current directory is inside a git repo: `git rev-parse --is-inside-work-tree`
+## Step 1: Project Directory
+
+If `$ARGUMENTS` includes a folder/project name, use it. Otherwise ask: "What's the project folder name?"
+
+1. Check if the folder exists in the current directory
+   - **Exists** → `cd` into it
+   - **Does not exist** → Create it, then `cd` into it
+2. All subsequent steps run from inside this project directory
+
+## Step 2: Git Repository Check
+
+1. Check if the directory is inside a git repo: `git rev-parse --is-inside-work-tree`
    - **Not a git repo** → Run `git init`
 2. Check for an existing remote: `git remote -v`
    - **No remote found** → Ask the user for the GitHub repository URL, then run:
@@ -13,7 +24,7 @@ One command to fully onboard a project into GSD-T. Combines git setup, `gsd-t-in
      ```
    - **Remote exists** → Log it and continue
 
-## Step 2: Initialize Project (gsd-t-init)
+## Step 3: Initialize Project (gsd-t-init)
 
 Execute the full init workflow (same as `/user:gsd-t-init`):
 
@@ -27,7 +38,7 @@ Execute the full init workflow (same as `/user:gsd-t-init`):
 
 **If `.gsd-t/` already exists**: Skip init — it's already done. Log and continue to scan.
 
-## Step 3: Deep Codebase Scan (gsd-t-scan)
+## Step 4: Deep Codebase Scan (gsd-t-scan)
 
 Execute the full scan workflow (same as `/user:gsd-t-scan`):
 
@@ -40,7 +51,7 @@ Use team mode if agent teams are enabled. Otherwise run solo.
 
 **If `.gsd-t/techdebt.md` already exists**: Append new findings, don't overwrite.
 
-## Step 4: Generate Project CLAUDE.md (gsd-t-setup)
+## Step 5: Generate Project CLAUDE.md (gsd-t-setup)
 
 Execute the full setup workflow (same as `/user:gsd-t-setup`):
 
@@ -52,7 +63,7 @@ Execute the full setup workflow (same as `/user:gsd-t-setup`):
 At Level 3: skip questions that were auto-detected — only ask what's truly unknown.
 At Level 1-2: ask all targeted questions per the setup workflow.
 
-## Step 5: Report
+## Step 6: Report
 
 Present a unified summary:
 
