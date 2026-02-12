@@ -79,7 +79,7 @@ Only ask what could NOT be auto-detected. Skip questions where the answer is alr
 **Potential questions** (ask only if not auto-detected):
 
 1. **Branch Guard**: "Which branch should commits target?" (skip if only `main` or `master` exists)
-2. **Autonomy Level**: "What autonomy level? Level 1 (Supervised), Level 2 (Standard — default), Level 3 (Full Auto)" (skip if existing CLAUDE.md already declares it)
+2. **Autonomy Level**: "What autonomy level? Level 1 (Supervised), Level 2 (Standard), Level 3 (Full Auto — default)" (skip if existing CLAUDE.md already declares it)
 3. **Workflow Preferences**: "Any overrides to the global defaults? (Research Policy, Phase Flow)" (skip if user has no overrides)
 4. **Deployed URLs**: "Production, staging, and local URLs?" (skip if found in .env or existing docs)
 5. **Project-specific rules**: "Any 'never do' rules specific to this project?" (skip if existing CLAUDE.md already has them)
@@ -123,7 +123,7 @@ Build the file using this structure. Include only sections that have real conten
 - Infrastructure: docs/infrastructure.md
 
 ## Autonomy Level
-**Level {N} — {Name}** (pause at {description})
+**Level {N} — {Name}** ({description})  <!-- default: Level 3 — Full Auto -->
 
 ## Workflow Preferences
 <!-- Override global defaults. Delete what you don't need to override. -->

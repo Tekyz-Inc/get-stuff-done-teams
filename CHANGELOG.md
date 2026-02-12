@@ -2,6 +2,13 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.10.3] - 2026-02-11
+
+### Changed
+- Default autonomy level changed from Level 2 (Standard) to Level 3 (Full Auto) across all templates and commands
+- `gsd-t-init` now sets Level 3 in generated CLAUDE.md
+- `gsd-t-setup` defaults to Level 3 when asking autonomy level
+
 ## [2.10.2] - 2026-02-11
 
 ### Added

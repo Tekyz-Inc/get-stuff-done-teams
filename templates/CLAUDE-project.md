@@ -4,7 +4,7 @@
 {Brief project description — what problem does this solve and for whom?}
 
 ## Autonomy Level
-**Level 2 — Standard** (pause at milestones)
+**Level 3 — Full Auto** (only pause for blockers or completion)
 <!-- Options: Level 1 (Supervised), Level 2 (Standard), Level 3 (Full Auto) -->
 
 ## Tech Stack

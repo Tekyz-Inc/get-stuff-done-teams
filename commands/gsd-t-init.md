@@ -96,6 +96,9 @@ Create a starter template:
 - Workflows: docs/workflows.md
 - Infrastructure: docs/infrastructure.md
 
+## Autonomy Level
+**Level 3 — Full Auto** (only pause for blockers or completion)
+
 ## Branch Guard
 **Expected branch**: {current branch from `git branch --show-current`}
 

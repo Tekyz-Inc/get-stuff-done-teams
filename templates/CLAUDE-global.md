@@ -213,10 +213,10 @@ Projects can specify an autonomy level in their project CLAUDE.md:
 | Level | Behavior |
 |-------|----------|
 | **Level 1: Supervised** | Pause at each phase for confirmation |
-| **Level 2: Standard** | Pause only at milestones (default) |
-| **Level 3: Full Auto** | Only pause for blockers or project completion |
+| **Level 2: Standard** | Pause only at milestones |
+| **Level 3: Full Auto** | Only pause for blockers or project completion (default) |
 
-If not specified, use Level 2.
+If not specified, use Level 3.
 
 ## Workflow Preferences (Defaults — override in project CLAUDE.md)
 
