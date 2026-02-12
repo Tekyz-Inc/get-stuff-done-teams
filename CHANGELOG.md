@@ -2,6 +2,11 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.13.3] - 2026-02-12
+
+### Changed
+- `gsd-t-init-scan-setup` now asks "Is {current folder} your project root?" before prompting for a folder name
+
 ## [2.13.2] - 2026-02-12
 
 ### Changed

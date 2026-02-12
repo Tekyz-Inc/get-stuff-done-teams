@@ -6,12 +6,17 @@ Can be run from anywhere — does not require being in the project folder first.
 
 ## Step 1: Project Directory
 
-If `$ARGUMENTS` includes a folder/project name, use it. Otherwise ask: "What's the project folder name?"
+First, ask: **"Is `{current directory name}` your project root folder?"**
 
-1. Check if the folder exists in the current directory
-   - **Exists** → `cd` into it
-   - **Does not exist** → Create it, then `cd` into it
-2. All subsequent steps run from inside this project directory
+- **Yes** → Stay here and continue to Step 2
+- **No** → Ask: "What's the project folder name?" (or use `$ARGUMENTS` if provided)
+  1. Check if the folder exists in the current directory
+     - **Exists** → `cd` into it
+     - **Does not exist** → Create it, then `cd` into it
+
+If `$ARGUMENTS` includes a folder/project name, skip the question and use it directly.
+
+All subsequent steps run from inside the project directory.
 
 ## Step 2: Git Repository Check
 
