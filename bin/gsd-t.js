@@ -805,9 +805,25 @@ function checkForUpdates() {
     showUpdateNotice(cached.latest);
   }
 
-  // Refresh cache in background if stale (older than 1h) or missing
   const isStale = !cached || (Date.now() - cached.timestamp) > 3600000;
-  if (isStale) {
+
+  if (!cached && isStale) {
+    // No cache at all — fetch synchronously so first run shows notification
+    try {
+      const result = execSync(
+        `${process.execPath} -e "const h=require('https');h.get('https://registry.npmjs.org/@tekyzinc/gsd-t/latest',{timeout:5000},(r)=>{let d='';r.on('data',(c)=>d+=c);r.on('end',()=>{try{process.stdout.write(JSON.parse(d).version)}catch{}})}).on('error',()=>{})"`,
+        { timeout: 8000, encoding: "utf8" }
+      ).trim();
+      if (result) {
+        fs.writeFileSync(UPDATE_CHECK_FILE,
+          JSON.stringify({ latest: result, timestamp: Date.now() }));
+        if (isNewerVersion(result, PKG_VERSION)) {
+          showUpdateNotice(result);
+        }
+      }
+    } catch { /* timeout or network error — skip */ }
+  } else if (isStale) {
+    // Cache exists but stale — refresh in background (non-blocking)
     const script = `
       const https = require("https");
       const fs = require("fs");

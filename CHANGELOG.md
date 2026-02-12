@@ -2,6 +2,11 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.11.4] - 2026-02-12
+
+### Fixed
+- First-run update check now fetches synchronously when no cache exists — notification shows immediately instead of requiring a second run
+
 ## [2.11.3] - 2026-02-12
 
 ### Changed
