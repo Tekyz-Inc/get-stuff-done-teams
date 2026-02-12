@@ -46,6 +46,8 @@ UTILITIES
   debug               Systematic debugging with state
   promote-debt        Convert techdebt items to milestones
   populate            Auto-populate docs from existing codebase
+  version-update      Update GSD-T package to latest version
+  version-update-all  Update GSD-T package + all registered projects
 
 BACKLOG
 ───────────────────────────────────────────────────────────────────────────────

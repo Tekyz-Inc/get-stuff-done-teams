@@ -102,6 +102,8 @@ GSD-T reads all state files and tells you exactly where you left off.
 | `/user:gsd-t-status` | Cross-domain progress view |
 | `/user:gsd-t-resume` | Restore context, continue |
 | `/user:gsd-t-quick` | Fast task with GSD-T guarantees |
+| `/user:gsd-t-version-update` | Update GSD-T to latest version |
+| `/user:gsd-t-version-update-all` | Update GSD-T + all registered projects |
 | `/user:gsd-t-debug` | Systematic debugging with state |
 
 ---

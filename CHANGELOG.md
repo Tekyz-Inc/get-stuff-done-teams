@@ -2,6 +2,13 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.12.0] - 2026-02-12
+
+### Added
+- `/user:gsd-t-version-update` slash command — update GSD-T to latest version from within Claude Code
+- `/user:gsd-t-version-update-all` slash command — update GSD-T + all registered projects from within Claude Code
+- Total commands: 34 GSD-T + 3 utility = 37
+
 ## [2.11.6] - 2026-02-12
 
 ### Changed

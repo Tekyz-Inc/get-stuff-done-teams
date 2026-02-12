@@ -134,6 +134,8 @@ This will replace changed command files, back up your CLAUDE.md if customized, a
 | `/user:gsd-t-resume` | Restore context, continue |
 | `/user:gsd-t-quick` | Fast task with GSD-T guarantees |
 | `/user:gsd-t-debug` | Systematic debugging with state |
+| `/user:gsd-t-version-update` | Update GSD-T to latest version |
+| `/user:gsd-t-version-update-all` | Update GSD-T + all registered projects |
 
 ### Backlog Management
 
