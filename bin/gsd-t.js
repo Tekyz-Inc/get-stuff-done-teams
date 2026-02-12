@@ -805,8 +805,8 @@ function checkForUpdates() {
     showUpdateNotice(cached.latest);
   }
 
-  // Refresh cache in background if stale (older than 24h) or missing
-  const isStale = !cached || (Date.now() - cached.timestamp) > 86400000;
+  // Refresh cache in background if stale (older than 1h) or missing
+  const isStale = !cached || (Date.now() - cached.timestamp) > 3600000;
   if (isStale) {
     const script = `
       const https = require("https");

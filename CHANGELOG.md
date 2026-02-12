@@ -2,6 +2,11 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.11.3] - 2026-02-12
+
+### Changed
+- Reduced update check cache duration from 24 hours to 1 hour — new releases are detected faster
+
 ## [2.11.2] - 2026-02-12
 
 ### Fixed
