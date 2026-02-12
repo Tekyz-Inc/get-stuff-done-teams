@@ -123,6 +123,11 @@ When all tasks in all domains are complete:
 1. Update `.gsd-t/progress.md` — all tasks marked complete
 2. Set status to `EXECUTED`
 3. List any contract deviations or decisions made during execution
-4. Recommend: proceed to integrate phase
+
+### Autonomy Behavior
+
+**Level 3 (Full Auto)**: Log a brief status line (e.g., "✅ Execute complete — {N}/{N} tasks done") and auto-advance to the next phase. Do NOT wait for user input.
+
+**Level 1–2**: Report completion summary and recommend proceeding to integrate phase. Wait for confirmation.
 
 $ARGUMENTS

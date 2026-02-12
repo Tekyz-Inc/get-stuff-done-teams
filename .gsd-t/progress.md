@@ -3,7 +3,7 @@
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: READY
 ## Date: 2026-02-10
-## Version: 2.10.3
+## Version: 2.11.0
 
 ## Current Milestone
 None — ready for next milestone
@@ -42,6 +42,7 @@ None — ready for next milestone
 - 2026-02-10: Added automatic update check — CLI checks npm registry (cached 24h) and shows update notice box with commands to run when a newer version exists.
 - 2026-02-11: Extended version update check to gsd-t-status slash command for ClaudeWebCLI compatibility — reads same cache files as CLI.
 - 2026-02-11: Changed default autonomy level from Level 2 (Standard) to Level 3 (Full Auto) in all templates, init, and setup commands.
+- 2026-02-12: Level 3 auto-advancing — all phase commands (partition, plan, impact, execute, test-sync, integrate, verify, complete-milestone) now auto-advance at Level 3 without waiting for user input. Discuss phase always pauses. Wave error recovery auto-remediates at Level 3 (up to 2 attempts).
 
 ## Session Log
 | Date | Session | What was accomplished |

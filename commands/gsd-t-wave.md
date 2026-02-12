@@ -91,8 +91,16 @@ Work through each phase that hasn't been completed:
 Between each phase:
 1. Update `.gsd-t/progress.md`
 2. Report brief status to user
-3. If any phase produces findings that need user input, STOP and ask
-4. If all clear, continue to next phase
+
+### Autonomy Behavior
+
+**Level 3 (Full Auto)**: Auto-advance to the next phase after logging status. Only STOP for:
+- Destructive Action Guard violations (always)
+- Impact analysis BLOCK verdict (always)
+- Unrecoverable errors after 2 fix attempts
+- The Discuss phase (always pauses for user input, even at Level 3)
+
+**Level 1–2**: If any phase produces findings that need user input, STOP and ask. If all clear, continue to next phase.
 
 Status messages:
 ```
@@ -147,25 +155,28 @@ If the user interrupts or the session needs to end:
 - Report blocking issues
 - Generate remediation tasks
 - Add to appropriate domain
-- Ask: "Address blockers now, or pause?"
-- If address: execute remediation tasks, re-run impact
-- If pause: save state, exit
+
+**Level 3 (Full Auto)**: Auto-execute remediation tasks, then re-run impact analysis. Only STOP if remediation fails after 2 attempts.
+
+**Level 1–2**: Ask: "Address blockers now, or pause?" If address: execute remediation tasks, re-run impact. If pause: save state, exit.
 
 ### If tests fail during execute:
 - Pause execution
 - Report failing tests
 - Generate fix tasks
-- Ask: "Fix now or continue?"
-- If fix: execute fix tasks, re-run tests
-- If continue: note failures, proceed (will catch in verify)
+
+**Level 3 (Full Auto)**: Auto-execute fix tasks and re-run tests (up to 2 fix attempts). If still failing, STOP and report to user.
+
+**Level 1–2**: Ask: "Fix now or continue?" If fix: execute fix tasks, re-run tests. If continue: note failures, proceed (will catch in verify).
 
 ### If verify fails:
 - Report failures
 - Generate remediation tasks
 - Do NOT run complete-milestone
-- Ask: "Address issues now?"
-- If yes: execute remediation, re-run verify
-- If no: save state with VERIFY_FAILED status
+
+**Level 3 (Full Auto)**: Auto-execute remediation tasks and re-run verify (up to 2 attempts). If still failing, STOP and report to user.
+
+**Level 1–2**: Ask: "Address issues now?" If yes: execute remediation, re-run verify. If no: save state with VERIFY_FAILED status.
 
 ## Workflow Visualization
 

@@ -129,8 +129,13 @@ Update `.gsd-t/progress.md`:
 - Add contract audit results
 - Add smoke test results
 - List any new tasks created for gaps
-- Recommend: proceed to verify phase
 
 Commit: `[integration] Wire domains together — all contracts verified`
+
+### Autonomy Behavior
+
+**Level 3 (Full Auto)**: Log a brief status line (e.g., "✅ Integrate complete — all domain boundaries wired, {N} contracts verified") and auto-advance to the next phase. Do NOT wait for user input.
+
+**Level 1–2**: Report integration results and recommend proceeding to verify phase. Wait for confirmation.
 
 $ARGUMENTS

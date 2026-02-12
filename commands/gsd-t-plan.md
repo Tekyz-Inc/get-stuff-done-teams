@@ -127,7 +127,11 @@ Update `.gsd-t/progress.md`:
 
 ## Step 6: Report
 
-Present to the user:
+### Autonomy Behavior
+
+**Level 3 (Full Auto)**: Log a brief status line (e.g., "✅ Plan complete — {N} tasks across {N} domains, {execution mode}") and auto-advance to the next phase. Do NOT wait for user input.
+
+**Level 1–2**: Present to the user:
 1. Task count per domain
 2. Dependency graph (which domains block which)
 3. Recommended execution mode:
@@ -135,5 +139,7 @@ Present to the user:
    - **Solo interleaved**: 8-15 tasks with some independence
    - **Team parallel**: 15+ tasks with 3+ independent starting points
 4. Any ambiguities found during planning that need user input
+
+Wait for confirmation before proceeding.
 
 $ARGUMENTS

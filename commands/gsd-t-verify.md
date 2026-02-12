@@ -137,7 +137,14 @@ Update `.gsd-t/progress.md`:
 - If FAIL: Set status to `VERIFY-FAILED`, list required remediations
 - Record verification date and summary
 
-Recommend next step:
+### Autonomy Behavior
+
+**Level 3 (Full Auto)**:
+- VERIFIED → Log "✅ Verify complete — all quality gates passed" and auto-advance to complete-milestone. Do NOT wait for user input.
+- CONDITIONAL PASS → Log warnings, treat as VERIFIED, and auto-advance. Do NOT wait for user input.
+- FAIL → Auto-execute remediation tasks (up to 2 fix attempts). If still failing after 2 attempts, STOP and report to user.
+
+**Level 1–2**:
 - VERIFIED → Milestone complete, proceed to next milestone or ship
 - CONDITIONAL PASS → User decides if warnings are acceptable
 - FAIL → Return to execute phase for remediation tasks

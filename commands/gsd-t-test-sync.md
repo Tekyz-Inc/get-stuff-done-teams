@@ -296,4 +296,10 @@ Action Required:
 Generated 5 test tasks → added to current domain
 ```
 
+### Autonomy Behavior
+
+**Level 3 (Full Auto)**: Log the summary and auto-advance to the next phase. If there are failing tests, attempt auto-fix (up to 2 attempts) before continuing. Do NOT wait for user input.
+
+**Level 1–2**: Present the full report and wait for user input before proceeding.
+
 $ARGUMENTS

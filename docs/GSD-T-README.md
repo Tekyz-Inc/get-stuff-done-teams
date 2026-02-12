@@ -250,6 +250,16 @@ Verify with: `/user:gsd-t-help`
 
 GSD-T respects your project's `CLAUDE.md` for conventions and autonomy level.
 
+### Autonomy Levels
+
+| Level | Phase Behavior |
+|-------|---------------|
+| **Level 1: Supervised** | Pauses at each phase for confirmation |
+| **Level 2: Standard** | Pauses at milestones |
+| **Level 3: Full Auto** (default) | Auto-advances through all phases. Only stops for: Destructive Action Guard, impact BLOCK verdicts, unrecoverable errors (after 2 fix attempts), and the Discuss phase |
+
+Set in your project's `CLAUDE.md` under `## Autonomy Level`.
+
 Recommended `.gsd-t/config.json`:
 
 ```json

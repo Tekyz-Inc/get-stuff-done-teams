@@ -211,9 +211,10 @@ Validate the test landscape before recommending proceed/block:
 ### If PROCEED WITH CAUTION:
 "⚠️ Impact analysis found {N} items requiring attention:"
 - List the yellow items
-- "These can be addressed during execution. Proceed?"
-- If user confirms, continue
-- If user declines, pause for remediation
+
+**Level 3 (Full Auto)**: Log the caution items and auto-advance to execute. Do NOT wait for user input.
+
+**Level 1–2**: "These can be addressed during execution. Proceed?" Wait for user confirmation. If user declines, pause for remediation.
 
 ### If BLOCK:
 "🛑 Impact analysis found breaking changes that must be addressed first:"

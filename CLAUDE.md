@@ -15,6 +15,7 @@ Contract-driven development methodology for Claude Code. An npm package that pro
 ## Autonomy Level
 
 **Level 3 — Full Auto** (only pause for blockers or completion)
+Only pause for blockers or project completion. Execute phases continuously.
 
 
 ## Tech Stack

@@ -184,6 +184,10 @@ Before finishing, verify:
 - [ ] Every contract has an owner and at least one consumer
 - [ ] Integration checkpoints are identified for all cross-domain dependencies
 
-Report the partition to the user with a summary of domains, contracts, and any decisions that need input.
+### Autonomy Behavior
+
+**Level 3 (Full Auto)**: Log a brief status line (e.g., "✅ Partition complete — {N} domains defined, {N} contracts written") and auto-advance to the next phase. Do NOT wait for user input.
+
+**Level 1–2**: Report the partition to the user with a summary of domains, contracts, and any decisions that need input. Wait for confirmation before proceeding.
 
 $ARGUMENTS

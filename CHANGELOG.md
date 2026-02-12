@@ -2,6 +2,14 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.11.0] - 2026-02-12
+
+### Added
+- Autonomy-level-aware auto-advancing for all phase commands — at Level 3 (Full Auto), partition, plan, impact, execute, test-sync, integrate, verify, and complete-milestone auto-advance without waiting for user input
+- Wave error recovery auto-remediates at Level 3 (up to 2 fix attempts before stopping)
+- Discuss phase always pauses for user input regardless of autonomy level
+- Autonomy levels documentation added to GSD-T-README Configuration section
+
 ## [2.10.3] - 2026-02-11
 
 ### Changed
