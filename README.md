@@ -18,7 +18,7 @@ A methodology for reliable, parallelizable development using Claude Code with op
 npx @tekyzinc/gsd-t install
 ```
 
-This installs 32 GSD-T commands + 3 utility commands to `~/.claude/commands/` and the global CLAUDE.md to `~/.claude/CLAUDE.md`. Works on Windows, Mac, and Linux.
+This installs 35 GSD-T commands + 3 utility commands to `~/.claude/commands/` and the global CLAUDE.md to `~/.claude/CLAUDE.md`. Works on Windows, Mac, and Linux.
 
 ### Start Using It
 
@@ -27,10 +27,10 @@ This installs 32 GSD-T commands + 3 utility commands to `~/.claude/commands/` an
 cd my-project
 claude
 
-# 2. Need help articulating your idea?
-/user:gsd-t-prompt
+# 2. Full onboarding (git + init + scan + setup in one)
+/user:gsd-t-init-scan-setup
 
-# 3. Initialize GSD-T
+# Or step by step:
 /user:gsd-t-init my-project
 
 # 4. Define what you're building
@@ -104,6 +104,7 @@ This will replace changed command files, back up your CLAUDE.md if customized, a
 |---------|---------|
 | `/user:gsd-t-setup` | Generate or restructure project CLAUDE.md |
 | `/user:gsd-t-init` | Initialize GSD-T structure in project |
+| `/user:gsd-t-init-scan-setup` | Full onboarding: git + init + scan + setup in one |
 | `/user:gsd-t-project` | Full project → milestone roadmap |
 | `/user:gsd-t-feature` | Major feature → impact analysis + milestones |
 | `/user:gsd-t-scan` | Deep codebase analysis → techdebt.md |
@@ -272,8 +273,8 @@ get-stuff-done-teams/
 ├── LICENSE
 ├── bin/
 │   └── gsd-t.js                       # CLI installer
-├── commands/                          # 35 slash commands
-│   ├── gsd-t-*.md                     # 32 GSD-T workflow commands
+├── commands/                          # 38 slash commands
+│   ├── gsd-t-*.md                     # 35 GSD-T workflow commands
 │   ├── branch.md                      # Git branch helper
 │   ├── checkin.md                     # Auto-version + commit/push helper
 │   └── Claude-md.md                   # Reload CLAUDE.md directives

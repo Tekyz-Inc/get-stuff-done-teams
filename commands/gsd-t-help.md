@@ -17,6 +17,7 @@ GETTING STARTED
   brainstorm          Creative exploration, rethinking, and idea generation
   setup               Generate or restructure project CLAUDE.md
   init                Initialize GSD-T structure in current project
+  init-scan-setup     Full onboarding: git + init + scan + setup in one
   project             New project → requirements → milestone roadmap
   feature             Major feature → impact analysis → milestones
   scan                Deep codebase analysis → techdebt.md
@@ -145,6 +146,13 @@ Use these when user asks for help on a specific command:
 - **Auto-invoked**: No
 - **Creates**: `.gsd-t/` directory structure, initial progress.md
 - **Use when**: Starting GSD-T in a new or existing project
+
+### init-scan-setup
+- **Summary**: Full project onboarding — git + init + scan + setup in one command
+- **Auto-invoked**: No
+- **Creates**: `.gsd-t/` structure, `docs/`, `.gsd-t/scan/`, `.gsd-t/techdebt.md`, optimized `CLAUDE.md`
+- **Use when**: Onboarding any project into GSD-T for the first time (new or existing codebase)
+- **Combines**: gsd-t-init → gsd-t-scan → gsd-t-setup, plus git remote setup if needed
 
 ### project
 - **Summary**: Define a complete new project with requirements and milestone roadmap

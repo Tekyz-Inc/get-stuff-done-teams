@@ -1,0 +1,80 @@
+# GSD-T: Init-Scan-Setup — Full Project Onboarding
+
+One command to fully onboard a project into GSD-T. Combines git setup, `gsd-t-init`, `gsd-t-scan`, and `gsd-t-setup` into a single orchestrated flow.
+
+## Step 1: Git Repository Check
+
+1. Check if the current directory is inside a git repo: `git rev-parse --is-inside-work-tree`
+   - **Not a git repo** → Run `git init`
+2. Check for an existing remote: `git remote -v`
+   - **No remote found** → Ask the user for the GitHub repository URL, then run:
+     ```
+     git remote add origin {url}
+     ```
+   - **Remote exists** → Log it and continue
+
+## Step 2: Initialize Project (gsd-t-init)
+
+Execute the full init workflow (same as `/user:gsd-t-init`):
+
+1. Create `.gsd-t/` directory structure (contracts/, domains/, progress.md, backlog.md, backlog-settings.md)
+2. Ensure `CLAUDE.md` exists (create starter if missing, append GSD-T section if present without it)
+3. Create `docs/` with all 4 living document templates (skip existing files)
+4. Ensure `README.md` exists
+5. Map existing codebase if code exists
+6. Initialize backlog with auto-derived categories
+7. Register project in `~/.claude/.gsd-t-projects`
+
+**If `.gsd-t/` already exists**: Skip init — it's already done. Log and continue to scan.
+
+## Step 3: Deep Codebase Scan (gsd-t-scan)
+
+Execute the full scan workflow (same as `/user:gsd-t-scan`):
+
+1. Scan across all dimensions: architecture, business rules, security, quality, contracts
+2. Build `.gsd-t/techdebt.md` register
+3. Cross-populate findings into living documents (docs/architecture.md, docs/workflows.md, docs/infrastructure.md, docs/requirements.md)
+4. Update README.md with discovered tech stack and setup info
+
+Use team mode if agent teams are enabled. Otherwise run solo.
+
+**If `.gsd-t/techdebt.md` already exists**: Append new findings, don't overwrite.
+
+## Step 4: Generate Project CLAUDE.md (gsd-t-setup)
+
+Execute the full setup workflow (same as `/user:gsd-t-setup`):
+
+1. Read global `~/.claude/CLAUDE.md` to understand what's already covered
+2. Use scan findings + auto-detection to populate project-specific sections
+3. Remove any global duplicates from the project CLAUDE.md
+4. Generate and write the optimized CLAUDE.md
+
+At Level 3: skip questions that were auto-detected — only ask what's truly unknown.
+At Level 1-2: ask all targeted questions per the setup workflow.
+
+## Step 5: Report
+
+Present a unified summary:
+
+```
+Project Onboarded: {project name}
+
+  Git:      {remote URL or "local only"}
+  Init:     .gsd-t/ created, docs/ populated
+  Scan:     {N} tech debt items ({critical} critical, {high} high, {medium} medium, {low} low)
+  Setup:    CLAUDE.md generated ({N} sections)
+  Registry: {registered | already registered}
+
+Next steps:
+  → Review .gsd-t/techdebt.md for critical items
+  → /user:gsd-t-milestone to define your first milestone
+  → /user:gsd-t-wave to run a full development cycle
+```
+
+### Autonomy Behavior
+
+**Level 3 (Full Auto)**: Run all steps without pausing. Only stop if git remote is needed (requires user input) or if a scan reveals critical security blockers.
+
+**Level 1-2**: Pause after each major step (init, scan, setup) for user review before continuing.
+
+$ARGUMENTS

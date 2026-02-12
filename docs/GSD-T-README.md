@@ -21,13 +21,13 @@ A methodology for reliable, parallelizable development using Claude Code with op
 cd my-project
 claude
 
-# 2. Need help articulating your idea?
-/user:gsd-t-prompt
+# 2. Full onboarding (git + init + scan + setup in one)
+/user:gsd-t-init-scan-setup
 
-# 3. Initialize GSD-T
+# Or step by step:
 /user:gsd-t-init my-project
 
-# 4. Define what you're building
+# 3. Define what you're building
 /user:gsd-t-milestone "User Authentication System"
 
 # 5. Let it rip (auto-advances through all phases)
@@ -73,6 +73,7 @@ GSD-T reads all state files and tells you exactly where you left off.
 |---------|---------|
 | `/user:gsd-t-setup` | Generate or restructure project CLAUDE.md |
 | `/user:gsd-t-init` | Initialize GSD-T structure in project |
+| `/user:gsd-t-init-scan-setup` | Full onboarding: git + init + scan + setup in one |
 | `/user:gsd-t-project` | Full project → milestone roadmap |
 | `/user:gsd-t-feature` | Major feature → impact analysis + milestones |
 | `/user:gsd-t-scan` | Deep codebase analysis → techdebt.md |

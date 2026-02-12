@@ -36,6 +36,7 @@ PROJECT or FEATURE or SCAN
 | `/user:gsd-t-promote-debt` | Convert debt items to milestones |
 | `/user:gsd-t-setup` | Generate or restructure project CLAUDE.md |
 | `/user:gsd-t-init` | Initialize project structure |
+| `/user:gsd-t-init-scan-setup` | Full onboarding: git + init + scan + setup in one |
 | `/user:gsd-t-milestone` | Define new milestone |
 | `/user:gsd-t-partition` | Decompose into domains + contracts |
 | `/user:gsd-t-discuss` | Multi-perspective design exploration |

@@ -2,6 +2,13 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.13.0] - 2026-02-12
+
+### Added
+- `/user:gsd-t-init-scan-setup` slash command — full project onboarding combining git setup, init, scan, and setup in one command
+- Prompts for GitHub repo URL if not already connected; skips if remote exists
+- Total commands: 35 GSD-T + 3 utility = 38
+
 ## [2.12.0] - 2026-02-12
 
 ### Added
