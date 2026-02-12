@@ -2,6 +2,11 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.13.1] - 2026-02-12
+
+### Changed
+- Update notification now includes changelog link (https://github.com/Tekyz-Inc/get-stuff-done-teams/blob/main/CHANGELOG.md)
+
 ## [2.13.0] - 2026-02-12
 
 ### Added

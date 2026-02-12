@@ -159,6 +159,7 @@ If a `[GSD-T UPDATE]` message appears in session startup context, show it to the
 ```
 ⬆️  GSD-T update available: {installed} → {latest}
    Run: npm update -g @tekyzinc/gsd-t && gsd-t update-all
+   Changelog: https://github.com/Tekyz-Inc/get-stuff-done-teams/blob/main/CHANGELOG.md
 ```
 
 ## Conversation vs. Work
