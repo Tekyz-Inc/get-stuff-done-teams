@@ -2,6 +2,12 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.11.5] - 2026-02-12
+
+### Added
+- SessionStart hook script (`~/.claude/scripts/gsd-t-update-check.js`) for automatic update notifications in Claude Code sessions
+- "Update Notices" instruction in global CLAUDE.md template — Claude relays update notices to the user on first response
+
 ## [2.11.4] - 2026-02-12
 
 ### Fixed

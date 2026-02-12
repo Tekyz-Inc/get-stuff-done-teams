@@ -149,6 +149,15 @@ Even in development, the user may have:
 
 # Autonomous Execution Rules
 
+## Update Notices
+
+If a `[GSD-T UPDATE]` message appears in session startup context, show it to the user in your first response. Format it as:
+
+```
+⬆️  GSD-T update available: {installed} → {latest}
+   Run: npm update -g @tekyzinc/gsd-t && gsd-t update-all
+```
+
 ## Conversation vs. Work
 
 Only execute GSD-T workflow behavior when a `/gsd-t-*` command is invoked or when actively mid-phase (resumed via `/gsd-t-resume`). **Plain text messages — especially questions — should be answered conversationally.** Do not launch into workflow execution, file reading, or phase advancement from a question or comment. If the user wants work done, they will invoke a command.

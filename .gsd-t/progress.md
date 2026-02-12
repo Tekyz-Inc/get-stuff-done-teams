@@ -3,7 +3,7 @@
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: READY
 ## Date: 2026-02-10
-## Version: 2.11.4
+## Version: 2.11.5
 
 ## Current Milestone
 None — ready for next milestone
