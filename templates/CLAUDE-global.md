@@ -151,7 +151,7 @@ Even in development, the user may have:
 
 ## Update Notices
 
-If a `[GSD-T UPDATE]` message appears in session startup context, show it to the user in your first response. Format it as:
+If a `[GSD-T UPDATE]` message appears in session startup context, show it to the user at the **beginning AND end** of your first response. Format it as:
 
 ```
 ⬆️  GSD-T update available: {installed} → {latest}

@@ -2,6 +2,11 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.11.6] - 2026-02-12
+
+### Changed
+- Update notice now shown at both beginning and end of Claude's first response
+
 ## [2.11.5] - 2026-02-12
 
 ### Added
