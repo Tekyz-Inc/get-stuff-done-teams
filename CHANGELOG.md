@@ -2,6 +2,13 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.13.4] - 2026-02-12
+
+### Added
+- Auto-invoked status column on all command tables in README and GSD-T-README (Manual / In wave)
+- `[auto]` markers on wave-invoked commands in `gsd-t-help` main listing
+- Section headers in `gsd-t-help` now show Manual or Auto label
+
 ## [2.13.3] - 2026-02-12
 
 ### Changed

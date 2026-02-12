@@ -11,7 +11,7 @@ Display the full command reference:
 ║                           GSD-T Command Reference                            ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
-GETTING STARTED
+GETTING STARTED                                                        Manual
 ───────────────────────────────────────────────────────────────────────────────
   prompt              Help formulate your idea before committing to a command
   brainstorm          Creative exploration, rethinking, and idea generation
@@ -22,24 +22,24 @@ GETTING STARTED
   feature             Major feature → impact analysis → milestones
   scan                Deep codebase analysis → techdebt.md
 
-MILESTONE WORKFLOW
+MILESTONE WORKFLOW                                          [auto] = in wave
 ───────────────────────────────────────────────────────────────────────────────
   milestone           Define a new milestone
-  partition           Decompose milestone into domains + contracts
-  discuss             Multi-perspective design exploration
-  plan                Create atomic task lists per domain
-  impact              Analyze downstream effects before execution
-  execute             Run tasks (solo or team mode)
-  test-sync           Sync tests with code changes
-  integrate           Wire domains together at boundaries
-  verify              Run quality gates
-  complete-milestone  Archive milestone + git tag
+  partition    [auto] Decompose milestone into domains + contracts
+  discuss      [auto] Multi-perspective design exploration (always pauses)
+  plan         [auto] Create atomic task lists per domain
+  impact       [auto] Analyze downstream effects before execution
+  execute      [auto] Run tasks (solo or team mode)
+  test-sync    [auto] Sync tests with code changes
+  integrate    [auto] Wire domains together at boundaries
+  verify       [auto] Run quality gates
+  complete-milestone [auto] Archive milestone + git tag
 
-AUTOMATION
+AUTOMATION                                                                Auto
 ───────────────────────────────────────────────────────────────────────────────
   wave                Full cycle: partition → ... → complete (auto-advances)
 
-UTILITIES
+UTILITIES                                                              Manual
 ───────────────────────────────────────────────────────────────────────────────
   status              Cross-domain progress view
   resume              Restore context after break
@@ -50,7 +50,7 @@ UTILITIES
   version-update      Update GSD-T package to latest version
   version-update-all  Update GSD-T package + all registered projects
 
-BACKLOG
+BACKLOG                                                                Manual
 ───────────────────────────────────────────────────────────────────────────────
   backlog-add         Capture item, auto-categorize, append to backlog
   backlog-list        Filtered, ordered view of backlog items

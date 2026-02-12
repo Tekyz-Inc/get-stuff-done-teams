@@ -60,52 +60,52 @@ GSD-T reads all state files and tells you exactly where you left off.
 
 ### Help & Onboarding
 
-| Command | Purpose |
-|---------|---------|
-| `/user:gsd-t-help` | List all commands with descriptions |
-| `/user:gsd-t-help {cmd}` | Detailed help for specific command |
-| `/user:gsd-t-prompt` | Help formulate your idea before committing |
-| `/user:gsd-t-brainstorm` | Creative exploration and idea generation |
+| Command | Purpose | Auto |
+|---------|---------|------|
+| `/user:gsd-t-help` | List all commands with descriptions | Manual |
+| `/user:gsd-t-help {cmd}` | Detailed help for specific command | Manual |
+| `/user:gsd-t-prompt` | Help formulate your idea before committing | Manual |
+| `/user:gsd-t-brainstorm` | Creative exploration and idea generation | Manual |
 
 ### Project Initialization
 
-| Command | Purpose |
-|---------|---------|
-| `/user:gsd-t-setup` | Generate or restructure project CLAUDE.md |
-| `/user:gsd-t-init` | Initialize GSD-T structure in project |
-| `/user:gsd-t-init-scan-setup` | Full onboarding: git + init + scan + setup in one |
-| `/user:gsd-t-project` | Full project → milestone roadmap |
-| `/user:gsd-t-feature` | Major feature → impact analysis + milestones |
-| `/user:gsd-t-scan` | Deep codebase analysis → techdebt.md |
-| `/user:gsd-t-promote-debt` | Convert techdebt items to milestones |
-| `/user:gsd-t-populate` | Auto-populate docs from existing codebase |
+| Command | Purpose | Auto |
+|---------|---------|------|
+| `/user:gsd-t-setup` | Generate or restructure project CLAUDE.md | Manual |
+| `/user:gsd-t-init` | Initialize GSD-T structure in project | Manual |
+| `/user:gsd-t-init-scan-setup` | Full onboarding: git + init + scan + setup in one | Manual |
+| `/user:gsd-t-project` | Full project → milestone roadmap | Manual |
+| `/user:gsd-t-feature` | Major feature → impact analysis + milestones | Manual |
+| `/user:gsd-t-scan` | Deep codebase analysis → techdebt.md | Manual |
+| `/user:gsd-t-promote-debt` | Convert techdebt items to milestones | Manual |
+| `/user:gsd-t-populate` | Auto-populate docs from existing codebase | Manual |
 
 ### Milestone Workflow
 
-| Command | Purpose | Auto-Invoked |
-|---------|---------|--------------|
-| `/user:gsd-t-milestone` | Define new milestone | No |
+| Command | Purpose | Auto |
+|---------|---------|------|
+| `/user:gsd-t-milestone` | Define new milestone | Manual |
 | `/user:gsd-t-partition` | Decompose into domains + contracts | In wave |
 | `/user:gsd-t-discuss` | Multi-perspective design exploration | In wave |
 | `/user:gsd-t-plan` | Create atomic task lists per domain | In wave |
-| `/user:gsd-t-impact` | Analyze downstream effects | In wave (plan→execute) |
+| `/user:gsd-t-impact` | Analyze downstream effects | In wave |
 | `/user:gsd-t-execute` | Run tasks (solo or team) | In wave |
-| `/user:gsd-t-test-sync` | Sync tests with code changes | In wave (during execute + verify) |
+| `/user:gsd-t-test-sync` | Sync tests with code changes | In wave |
 | `/user:gsd-t-integrate` | Wire domains together | In wave |
 | `/user:gsd-t-verify` | Run quality gates | In wave |
-| `/user:gsd-t-complete-milestone` | Archive + git tag | In wave (after verify) |
+| `/user:gsd-t-complete-milestone` | Archive + git tag | In wave |
 
 ### Automation & Utilities
 
-| Command | Purpose |
-|---------|---------|
-| `/user:gsd-t-wave` | Full cycle, auto-advances all phases |
-| `/user:gsd-t-status` | Cross-domain progress view |
-| `/user:gsd-t-resume` | Restore context, continue |
-| `/user:gsd-t-quick` | Fast task with GSD-T guarantees |
-| `/user:gsd-t-version-update` | Update GSD-T to latest version |
-| `/user:gsd-t-version-update-all` | Update GSD-T + all registered projects |
-| `/user:gsd-t-debug` | Systematic debugging with state |
+| Command | Purpose | Auto |
+|---------|---------|------|
+| `/user:gsd-t-wave` | Full cycle, auto-advances all phases | Manual |
+| `/user:gsd-t-status` | Cross-domain progress view | Manual |
+| `/user:gsd-t-resume` | Restore context, continue | Manual |
+| `/user:gsd-t-quick` | Fast task with GSD-T guarantees | Manual |
+| `/user:gsd-t-debug` | Systematic debugging with state | Manual |
+| `/user:gsd-t-version-update` | Update GSD-T to latest version | Manual |
+| `/user:gsd-t-version-update-all` | Update GSD-T + all registered projects | Manual |
 
 ---
 
