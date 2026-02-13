@@ -11,6 +11,10 @@ Display the full command reference:
 ║                           GSD-T Command Reference                            ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
+SMART ROUTER                                                           Manual
+───────────────────────────────────────────────────────────────────────────────
+  gsd-t               Describe what you need → auto-routes to the right command
+
 GETTING STARTED                                                        Manual
 ───────────────────────────────────────────────────────────────────────────────
   prompt              Help formulate your idea before committing to a command
@@ -121,6 +125,13 @@ RELATED COMMANDS
 ## Command Summaries
 
 Use these when user asks for help on a specific command:
+
+### gsd-t (smart router)
+- **Summary**: Describe what you need in plain language — auto-routes to the right GSD-T command
+- **Auto-invoked**: No
+- **Files**: Reads `CLAUDE.md`, `.gsd-t/progress.md`
+- **Use when**: You don't want to remember which command to use — just describe what you want
+- **Examples**: `/user:gsd-t Fix the login bug`, `/user:gsd-t Add dark mode`, `/user:gsd-t Scan for tech debt`
 
 ### prompt
 - **Summary**: Help formulate project/feature/milestone prompts through guided questions

@@ -2,6 +2,13 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.14.0] - 2026-02-12
+
+### Added
+- `/user:gsd-t` smart router command — describe what you need in plain language, auto-routes to the correct GSD-T command
+- Intent classification routes to: quick, feature, project, debug, scan, brainstorm, milestone, wave, status, resume, backlog-add, and more
+- Total commands: 36 GSD-T + 3 utility = 39
+
 ## [2.13.4] - 2026-02-12
 
 ### Added

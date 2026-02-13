@@ -58,6 +58,12 @@ GSD-T reads all state files and tells you exactly where you left off.
 
 ## Commands Reference
 
+### Smart Router
+
+| Command | Purpose | Auto |
+|---------|---------|------|
+| `/user:gsd-t {request}` | Describe what you need → auto-routes to the right command | Manual |
+
 ### Help & Onboarding
 
 | Command | Purpose | Auto |

@@ -3,7 +3,7 @@
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: READY
 ## Date: 2026-02-10
-## Version: 2.13.4
+## Version: 2.14.0
 
 ## Current Milestone
 None — ready for next milestone
@@ -45,6 +45,7 @@ None — ready for next milestone
 - 2026-02-12: Level 3 auto-advancing — all phase commands (partition, plan, impact, execute, test-sync, integrate, verify, complete-milestone) now auto-advance at Level 3 without waiting for user input. Discuss phase always pauses. Wave error recovery auto-remediates at Level 3 (up to 2 attempts).
 - 2026-02-12: Added "Conversation vs. Work" rule — plain text messages answered conversationally, workflow only triggers from explicit /gsd-t-* commands. Resume command updated for same-session lightweight mode.
 - 2026-02-12: Added gsd-t-init-scan-setup command — combines git setup, init, scan, and setup into a single onboarding command. Prompts for GitHub repo if not connected.
+- 2026-02-12: Added /gsd-t smart router — describe what you need in plain language, auto-routes to the correct GSD-T command. Replaces need to memorize 38 commands.
 
 ## Session Log
 | Date | Session | What was accomplished |
