@@ -34,6 +34,7 @@ PROJECT or FEATURE or SCAN
 | `/user:gsd-t-project` | Full project → milestone roadmap |
 | `/user:gsd-t-feature` | Major feature → impact analysis + milestones |
 | `/user:gsd-t-scan` | Deep codebase analysis → techdebt.md |
+| `/user:gsd-t-gap-analysis` | Requirements gap analysis — spec vs. existing code |
 | `/user:gsd-t-promote-debt` | Convert debt items to milestones |
 | `/user:gsd-t-setup` | Generate or restructure project CLAUDE.md |
 | `/user:gsd-t-init` | Initialize project structure |

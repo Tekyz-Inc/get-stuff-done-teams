@@ -2,6 +2,20 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.15.0] - 2026-02-13
+
+### Added
+- `/user:gsd-t-gap-analysis` command — requirements gap analysis against existing codebase
+- Parses spec into discrete numbered requirements, scans codebase, classifies each as implemented/partial/incorrect/not-implemented
+- Evidence-based classification with file:line references for each requirement
+- Severity levels: Critical (incorrect), High (partial), Medium (not implemented), Low (deferrable)
+- Generates `.gsd-t/gap-analysis.md` with requirements breakdown, gap matrix, and summary stats
+- Re-run support with diff against previous gap analysis (resolved, new, changed, unchanged)
+- Optional merge of parsed requirements into `docs/requirements.md`
+- Auto-groups gaps into recommended milestones/features/quick-fixes for promotion
+- Autonomy-aware: Level 3 proceeds with flagged assumptions, Level 1-2 pauses for clarification
+- Total commands: 37 GSD-T + 3 utility = 40
+
 ## [2.14.2] - 2026-02-13
 
 ### Changed

@@ -83,6 +83,7 @@ GSD-T reads all state files and tells you exactly where you left off.
 | `/user:gsd-t-project` | Full project → milestone roadmap | Manual |
 | `/user:gsd-t-feature` | Major feature → impact analysis + milestones | Manual |
 | `/user:gsd-t-scan` | Deep codebase analysis → techdebt.md | Manual |
+| `/user:gsd-t-gap-analysis` | Requirements gap analysis — spec vs. existing code | Manual |
 | `/user:gsd-t-promote-debt` | Convert techdebt items to milestones | Manual |
 | `/user:gsd-t-populate` | Auto-populate docs from existing codebase | Manual |
 

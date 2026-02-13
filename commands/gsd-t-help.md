@@ -25,6 +25,7 @@ GETTING STARTED                                                        Manual
   project             New project → requirements → milestone roadmap
   feature             Major feature → impact analysis → milestones
   scan                Deep codebase analysis → techdebt.md
+  gap-analysis        Requirements gap analysis — spec vs. existing code
 
 MILESTONE WORKFLOW                                          [auto] = in wave
 ───────────────────────────────────────────────────────────────────────────────
@@ -182,6 +183,14 @@ Use these when user asks for help on a specific command:
 - **Auto-invoked**: No
 - **Creates**: `.gsd-t/scan/`, `.gsd-t/techdebt.md`
 - **Use when**: Understanding an existing codebase or auditing technical debt
+
+### gap-analysis
+- **Summary**: Gap analysis — paste a spec, identify what's done, partial, incorrect, or missing
+- **Auto-invoked**: No
+- **Creates**: `.gsd-t/gap-analysis.md`
+- **Reads**: Codebase, `docs/requirements.md`, `docs/architecture.md`, `.gsd-t/contracts/`
+- **Use when**: You have a spec or requirements doc and need to know what's already built vs. what's missing
+- **Features**: Re-run diffing, severity classification, evidence-backed classifications, optional requirements merge, promotable gap groupings
 
 ### milestone
 - **Summary**: Define a specific deliverable milestone within a project

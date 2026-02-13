@@ -3,7 +3,7 @@
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: READY
 ## Date: 2026-02-10
-## Version: 2.14.2
+## Version: 2.15.0
 
 ## Current Milestone
 None — ready for next milestone
@@ -47,6 +47,7 @@ None — ready for next milestone
 - 2026-02-12: Added gsd-t-init-scan-setup command — combines git setup, init, scan, and setup into a single onboarding command. Prompts for GitHub repo if not connected.
 - 2026-02-12: Added /gsd-t smart router — describe what you need in plain language, auto-routes to the correct GSD-T command. Replaces need to memorize 38 commands.
 - 2026-02-13: Updated Update Notices template to handle both version banner (up to date) and update notification messages from SessionStart hook.
+- 2026-02-13: Added /gsd-t-gap-analysis command — requirements gap analysis. User pastes a spec, system parses into discrete requirements, scans codebase, classifies each as implemented/partial/incorrect/not-implemented with evidence and severity, generates gap-analysis.md, groups gaps into promotable milestones/features.
 
 ## Session Log
 | Date | Session | What was accomplished |

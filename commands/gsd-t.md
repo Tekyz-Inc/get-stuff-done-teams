@@ -22,6 +22,7 @@ From `$ARGUMENTS`, classify the request into one of these categories:
 | Run full cycle on current milestone | `gsd-t-wave` | "run it", "execute", "let it rip", "full cycle", "wave" |
 | Debug or investigate a problem | `gsd-t-debug` | "bug", "broken", "not working", "error", "investigate", "why does" |
 | Understand or audit codebase | `gsd-t-scan` | "audit", "analyze", "scan", "tech debt", "what's wrong with" |
+| Compare spec to existing code | `gsd-t-gap-analysis` | "compare", "gap analysis", "spec", "requirements check", "what's implemented", "what's missing" |
 | Explore ideas or rethink approach | `gsd-t-brainstorm` | "brainstorm", "what if", "explore", "rethink", "ideas for" |
 | Help articulate a vague idea | `gsd-t-prompt` | "I want to", "how should I", "help me think about" |
 | Generate or fix project CLAUDE.md | `gsd-t-setup` | "setup CLAUDE.md", "restructure CLAUDE.md" |
