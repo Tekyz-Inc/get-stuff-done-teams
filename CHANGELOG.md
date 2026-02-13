@@ -2,6 +2,12 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.14.1] - 2026-02-13
+
+### Changed
+- Update Notices section in CLAUDE-global template now handles both `[GSD-T UPDATE]` (update available) and `[GSD-T]` (up to date) version banners
+- Update command in notification changed from raw npm command to `/user:gsd-t-version-update-all`
+
 ## [2.14.0] - 2026-02-12
 
 ### Added

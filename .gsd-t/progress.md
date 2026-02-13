@@ -3,7 +3,7 @@
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: READY
 ## Date: 2026-02-10
-## Version: 2.14.0
+## Version: 2.14.1
 
 ## Current Milestone
 None — ready for next milestone
@@ -46,6 +46,7 @@ None — ready for next milestone
 - 2026-02-12: Added "Conversation vs. Work" rule — plain text messages answered conversationally, workflow only triggers from explicit /gsd-t-* commands. Resume command updated for same-session lightweight mode.
 - 2026-02-12: Added gsd-t-init-scan-setup command — combines git setup, init, scan, and setup into a single onboarding command. Prompts for GitHub repo if not connected.
 - 2026-02-12: Added /gsd-t smart router — describe what you need in plain language, auto-routes to the correct GSD-T command. Replaces need to memorize 38 commands.
+- 2026-02-13: Updated Update Notices template to handle both version banner (up to date) and update notification messages from SessionStart hook.
 
 ## Session Log
 | Date | Session | What was accomplished |

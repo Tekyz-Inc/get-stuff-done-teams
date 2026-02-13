@@ -155,13 +155,20 @@ Even in development, the user may have:
 
 ## Update Notices
 
-If a `[GSD-T UPDATE]` message appears in session startup context, show it to the user at the **beginning AND end** of your first response. Format it as:
+On session start, a version check hook outputs one of two messages. Show the result to the user at the **beginning** of your first response:
 
-```
-⬆️  GSD-T update available: {installed} → {latest}
-   Run: npm update -g @tekyzinc/gsd-t && gsd-t update-all
-   Changelog: https://github.com/Tekyz-Inc/get-stuff-done-teams/blob/main/CHANGELOG.md
-```
+- If `[GSD-T UPDATE]` appears → update is available. Show:
+  ```
+  ⬆️  GSD-T update available: {installed} → {latest}
+     Run: /user:gsd-t-version-update-all
+     Changelog: https://github.com/Tekyz-Inc/get-stuff-done-teams/blob/main/CHANGELOG.md
+  ```
+  Also repeat at the **end** of your first response.
+
+- If `[GSD-T]` appears → up to date. Show:
+  ```
+  GSD-T v{version} — up to date
+  ```
 
 ## Conversation vs. Work
 
