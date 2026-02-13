@@ -2,6 +2,11 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.14.2] - 2026-02-13
+
+### Changed
+- Smart router (`/gsd-t`) now displays selected command as the first line of output (mandatory routing confirmation)
+
 ## [2.14.1] - 2026-02-13
 
 ### Changed

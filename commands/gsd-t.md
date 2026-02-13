@@ -38,13 +38,13 @@ From `$ARGUMENTS`, classify the request into one of these categories:
 
 ## Step 3: Confirm and Execute
 
-Show a brief one-line confirmation, then execute:
+**MANDATORY — before doing anything else, output this line FIRST:**
 
 ```
-→ Routing to gsd-t-{command}: {brief reason}
+→ Routing to /user:gsd-t-{command}: {brief reason}
 ```
 
-Then immediately execute that command's full workflow, passing `$ARGUMENTS` through.
+This MUST be the very first line of your response so the user sees which command was selected. Then immediately execute that command's full workflow, passing `$ARGUMENTS` through.
 
 **Do NOT ask "is this the right command?" — just route and go.** The user can interrupt with Esc if it's wrong.
 
