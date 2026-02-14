@@ -54,11 +54,11 @@ Automatically use agent teams to scan and classify requirements in parallel.
 
 ### Team Distribution Strategy
 
-**Hard cap: maximum 4 teammates.** Distribute requirements evenly across them:
+**One teammate per requirement, cap at 10.** Maximize parallelism:
 
-- **Spec has sections**: Group adjacent sections so each teammate gets roughly equal work. (e.g., 12 sections → 4 teammates with 3 sections each)
-- **Flat list (no sections)**: Divide requirements into 4 equal batches (e.g., 30 requirements → R1–R8, R9–R15, R16–R23, R24–R30)
-- **Small spec (< 5 requirements)**: Skip teams, use solo mode
+- **1–2 requirements**: Solo mode (team overhead not worth it)
+- **3–10 requirements**: One teammate per requirement (e.g., 4 requirements → 4 teammates)
+- **11+ requirements**: Cap at 10 teammates, divide requirements evenly (e.g., 30 requirements → 10 teammates with 3 each)
 
 ### Classification Reference
 
@@ -97,12 +97,17 @@ Classification rules:
 Output format per requirement:
   | ID | Requirement | Status | Severity | Evidence |
 
-Teammate assignments (max 4 — divide requirements evenly):
-    - Teammate "analyst-1": Scan and classify R1–R{N}
-    - Teammate "analyst-2": Scan and classify R{N+1}–R{M}
-    - Teammate "analyst-3": Scan and classify R{M+1}–R{P}
-    - Teammate "analyst-4": Scan and classify R{P+1}–R{end}
-  (use fewer if < 16 requirements — 2 teammates for 5–10, 3 for 11–15, 4 for 16+)
+Teammate assignments (one per requirement, cap at 10):
+  For 3–10 requirements — one teammate each:
+    - Teammate "analyst-1": Scan and classify R1
+    - Teammate "analyst-2": Scan and classify R2
+    - ...
+    - Teammate "analyst-{N}": Scan and classify R{N}
+  For 11+ requirements — divide evenly across 10 teammates:
+    - Teammate "analyst-1": Scan and classify R1–R{batch}
+    - Teammate "analyst-2": Scan and classify R{batch+1}–R{2*batch}
+    - ...
+    - Teammate "analyst-10": Scan and classify R{...}–R{end}
 
 Lead responsibilities:
 - Distribute requirement sections to teammates
@@ -114,7 +119,7 @@ Lead responsibilities:
 
 ### Fallback: Solo Mode
 
-If agent teams are not available or there are fewer than 5 requirements, run sequentially:
+If agent teams are not available or there are fewer than 3 requirements, run sequentially:
 - Scan the codebase for each requirement
 - Read source files, test files, config, schema, contracts, and docs
 - Classify each requirement with evidence

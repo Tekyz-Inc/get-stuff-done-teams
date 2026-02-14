@@ -2,6 +2,11 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.15.4] - 2026-02-13
+
+### Changed
+- `gsd-t-gap-analysis` team scaling: one teammate per requirement (3–10), cap at 10 with even batching for 11+, solo for 1–2
+
 ## [2.15.3] - 2026-02-13
 
 ### Fixed
