@@ -2,6 +2,11 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.15.2] - 2026-02-13
+
+### Changed
+- `gsd-t-gap-analysis` team mode now handles flat requirement lists — chunks into batches of ~8–10 per teammate instead of requiring sections
+
 ## [2.15.1] - 2026-02-13
 
 ### Changed

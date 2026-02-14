@@ -50,7 +50,12 @@ Discuss now or proceed with assumptions?
 
 ## Step 4: System Scan + Gap Classification (Team Mode)
 
-Automatically use agent teams to scan and classify requirements in parallel. Each teammate handles one requirement section independently.
+Automatically use agent teams to scan and classify requirements in parallel.
+
+### Team Distribution Strategy
+
+- **Spec has sections**: One teammate per section
+- **Flat list (no sections)**: Chunk requirements into batches of ~8–10 and assign one teammate per batch (e.g., 30 requirements → 3 teammates handling R1–R10, R11–R20, R21–R30)
 
 ### Classification Reference
 
@@ -89,11 +94,16 @@ Classification rules:
 Output format per requirement:
   | ID | Requirement | Status | Severity | Evidence |
 
-Teammate assignments (one per requirement section):
-- Teammate "section-1": Scan and classify {Section 1} (R1–R{N})
-- Teammate "section-2": Scan and classify {Section 2} (R{N+1}–R{M})
-- Teammate "section-3": Scan and classify {Section 3} (R{M+1}–R{P})
-  (add more teammates as needed — one per section)
+Teammate assignments:
+  If spec has sections — one teammate per section:
+    - Teammate "section-1": Scan and classify {Section 1} (R1–R{N})
+    - Teammate "section-2": Scan and classify {Section 2} (R{N+1}–R{M})
+    - Teammate "section-3": Scan and classify {Section 3} (R{M+1}–R{P})
+  If flat list — chunk into batches of ~8–10:
+    - Teammate "batch-1": Scan and classify R1–R10
+    - Teammate "batch-2": Scan and classify R11–R20
+    - Teammate "batch-3": Scan and classify R21–R30
+  (scale teammates to match — aim for 3–5 teammates max)
 
 Lead responsibilities:
 - Distribute requirement sections to teammates
@@ -105,7 +115,7 @@ Lead responsibilities:
 
 ### Fallback: Solo Mode
 
-If agent teams are not available or the spec has only 1 section, run sequentially:
+If agent teams are not available or there are fewer than 5 requirements, run sequentially:
 - Scan the codebase for each requirement
 - Read source files, test files, config, schema, contracts, and docs
 - Classify each requirement with evidence
