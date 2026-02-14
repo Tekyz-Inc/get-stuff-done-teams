@@ -2,6 +2,16 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.16.0] - 2026-02-13
+
+### Changed
+- Smart router (`/gsd-t`) replaced signal-word lookup table with **semantic evaluation** — evaluates user intent against each command's purpose and "Use when" criteria from help summaries
+- Router shows runner-up command when confidence is close: `(also considered: gsd-t-{x} — Esc to switch)`
+- New commands automatically participate in routing without updating a routing table
+
+### Added
+- Backlog item B1: Agentic Workflow Architecture (future exploration when Claude Code agents mature)
+
 ## [2.15.4] - 2026-02-13
 
 ### Changed

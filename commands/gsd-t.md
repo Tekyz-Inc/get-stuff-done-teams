@@ -4,38 +4,42 @@ You are the GSD-T smart router. The user describes what they want in plain langu
 
 ## Step 1: Load Context
 
-Read (if they exist):
+Read:
 1. `CLAUDE.md` — project context
 2. `.gsd-t/progress.md` — current state, active milestone/phase
 
-## Step 2: Analyze Intent
+## Step 2: Semantic Evaluation
 
-From `$ARGUMENTS`, classify the request into one of these categories:
+Read the **Command Summaries** section of `commands/gsd-t-help.md` (or the in-memory skill list). For each command, evaluate whether the user's request matches that command's **Summary** and **Use when** criteria.
 
-| Intent | Route To | Signal Words |
-|--------|----------|--------------|
-| Small fix, tweak, config change, minor addition | `gsd-t-quick` | "fix", "change", "update", "tweak", "add {small thing}", "rename", "move" |
-| Major new feature or capability | `gsd-t-feature` | "add {large feature}", "implement", "build {system}", "create {module}" |
-| Full new project from scratch | `gsd-t-project` | "new project", "start building", "create {app/product}" |
-| Full project onboarding | `gsd-t-init-scan-setup` | "onboard", "set up GSD-T", "initialize" |
-| Define a deliverable chunk | `gsd-t-milestone` | "milestone", "next deliverable", "define {goal}" |
-| Run full cycle on current milestone | `gsd-t-wave` | "run it", "execute", "let it rip", "full cycle", "wave" |
-| Debug or investigate a problem | `gsd-t-debug` | "bug", "broken", "not working", "error", "investigate", "why does" |
-| Understand or audit codebase | `gsd-t-scan` | "audit", "analyze", "scan", "tech debt", "what's wrong with" |
-| Compare spec to existing code | `gsd-t-gap-analysis` | "compare", "gap analysis", "spec", "requirements check", "what's implemented", "what's missing" |
-| Explore ideas or rethink approach | `gsd-t-brainstorm` | "brainstorm", "what if", "explore", "rethink", "ideas for" |
-| Help articulate a vague idea | `gsd-t-prompt` | "I want to", "how should I", "help me think about" |
-| Generate or fix project CLAUDE.md | `gsd-t-setup` | "setup CLAUDE.md", "restructure CLAUDE.md" |
-| Check current progress | `gsd-t-status` | "status", "where are we", "progress", "what's done" |
-| Resume interrupted work | `gsd-t-resume` | "resume", "continue", "pick up where" |
-| Capture something for later | `gsd-t-backlog-add` | "add to backlog", "save for later", "remember to", "todo" |
-| Promote tech debt to milestone | `gsd-t-promote-debt` | "promote debt", "fix tech debt" |
-| Auto-populate docs | `gsd-t-populate` | "populate docs", "fill in docs", "document the codebase" |
+### Evaluation process:
 
-### Ambiguous cases:
-- If the request could be `quick` or `feature`, check scope: does it touch 1-2 files (quick) or require multiple domains/files (feature)?
-- If a milestone is active mid-phase, consider whether the request fits within the current work or is a new task
-- If truly ambiguous, ask one clarifying question — don't guess
+1. **Read the request**: Understand what the user is actually asking for — not just keywords, but intent, scope, and context
+2. **Evaluate each command**: For every GSD-T command, ask: "Would this command raise its hand for this request?" Consider:
+   - Does the request match the command's stated purpose?
+   - Does the scope align? (small task vs. large feature vs. full project)
+   - Does the current project state matter? (e.g., if mid-milestone, does this fit the active phase?)
+3. **Collect candidates**: Commands that match get shortlisted
+4. **Select the best fit**: From the candidates, pick the one whose purpose most closely matches the request
+
+### Resolution rules:
+
+- **0 matches** → Ask one clarifying question to narrow down
+- **1 match** → Route immediately
+- **2+ matches** → Pick the best fit based on scope and context. Show the runner-up:
+  ```
+  → Routing to /user:gsd-t-{command}: {reason}
+    (also considered: gsd-t-{runner-up} — Esc to switch)
+  ```
+
+### Scope disambiguation:
+
+When the same request could fit multiple commands at different scales:
+- **Touches 1-3 files, straightforward** → `quick`
+- **New capability spanning multiple files/components** → `feature`
+- **Requires its own milestone with domains** → `milestone` or `project`
+- **Needs investigation before fixing** → `debug` (not `quick`)
+- **Spec/requirements to verify against code** → `gap-analysis` (not `scan`)
 
 ## Step 3: Confirm and Execute
 
@@ -61,6 +65,7 @@ Examples:
   /user:gsd-t Add dark mode support
   /user:gsd-t Scan the codebase for tech debt
   /user:gsd-t What's the current progress?
+  /user:gsd-t Compare this spec against our code
 
 I'll route to the right GSD-T command automatically.
 ```
