@@ -48,20 +48,11 @@ Review each requirement for ambiguity. If any are unclear:
 Discuss now or proceed with assumptions?
 ```
 
-## Step 4: System Scan
+## Step 4: System Scan + Gap Classification (Team Mode)
 
-Scan the existing codebase to understand current state. Read:
-- Source files relevant to each requirement
-- Test files for coverage evidence
-- Configuration and schema files
-- Existing contracts in `.gsd-t/contracts/`
-- Documentation in `docs/`
+Automatically use agent teams to scan and classify requirements in parallel. Each teammate handles one requirement section independently.
 
-Build an understanding of what exists before classifying.
-
-## Step 5: Gap Classification
-
-For each requirement, classify with evidence:
+### Classification Reference
 
 | Status | Meaning | Action Needed |
 |--------|---------|---------------|
@@ -70,14 +61,54 @@ For each requirement, classify with evidence:
 | **Incorrect** | Code exists but doesn't match the requirement | Fix implementation |
 | **Not Implemented** | No code exists for this requirement | Build from scratch |
 
-Assign severity to gaps:
-
 | Severity | Criteria |
 |----------|----------|
 | **Critical** | Incorrect implementation — existing code actively contradicts the requirement |
 | **High** | Partial implementation — core functionality exists but key pieces are missing |
 | **Medium** | Not implemented — required but no code exists yet |
 | **Low** | Not implemented — nice-to-have or can be deferred |
+
+### Team Execution
+
+```
+Create an agent team for gap analysis:
+
+ALL TEAMMATES must read before starting:
+  1. CLAUDE.md — project conventions
+  2. docs/architecture.md — system structure
+  3. docs/requirements.md — existing requirements
+  4. .gsd-t/contracts/ — domain interfaces
+
+Classification rules:
+  - For each requirement, search the codebase for relevant code
+  - Cite specific files and line numbers as evidence
+  - Classify as: Implemented / Partial / Incorrect / Not Implemented
+  - Assign severity: Critical / High / Medium / Low
+  - Flag assumptions with [ASSUMED: {reason}]
+
+Output format per requirement:
+  | ID | Requirement | Status | Severity | Evidence |
+
+Teammate assignments (one per requirement section):
+- Teammate "section-1": Scan and classify {Section 1} (R1–R{N})
+- Teammate "section-2": Scan and classify {Section 2} (R{N+1}–R{M})
+- Teammate "section-3": Scan and classify {Section 3} (R{M+1}–R{P})
+  (add more teammates as needed — one per section)
+
+Lead responsibilities:
+- Distribute requirement sections to teammates
+- Collect classification results from each teammate
+- Resolve conflicts (two teammates found different evidence for the same code)
+- Merge all results into the unified gap analysis document
+- Update .gsd-t/progress.md after completion
+```
+
+### Fallback: Solo Mode
+
+If agent teams are not available or the spec has only 1 section, run sequentially:
+- Scan the codebase for each requirement
+- Read source files, test files, config, schema, contracts, and docs
+- Classify each requirement with evidence
 
 ## Step 6: Generate Gap Analysis Document
 

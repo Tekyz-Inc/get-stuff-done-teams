@@ -2,6 +2,11 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.15.1] - 2026-02-13
+
+### Changed
+- `gsd-t-gap-analysis` now uses agent team mode automatically — one teammate per requirement section for parallel scanning and classification, with solo fallback
+
 ## [2.15.0] - 2026-02-13
 
 ### Added
