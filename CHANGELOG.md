@@ -2,6 +2,11 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.15.3] - 2026-02-13
+
+### Fixed
+- `gsd-t-gap-analysis` hard cap of 4 teammates max — scales by requirement count (2 for 5–10, 3 for 11–15, 4 for 16+), solo for < 5
+
 ## [2.15.2] - 2026-02-13
 
 ### Changed

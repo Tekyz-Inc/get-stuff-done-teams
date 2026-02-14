@@ -54,8 +54,11 @@ Automatically use agent teams to scan and classify requirements in parallel.
 
 ### Team Distribution Strategy
 
-- **Spec has sections**: One teammate per section
-- **Flat list (no sections)**: Chunk requirements into batches of ~8–10 and assign one teammate per batch (e.g., 30 requirements → 3 teammates handling R1–R10, R11–R20, R21–R30)
+**Hard cap: maximum 4 teammates.** Distribute requirements evenly across them:
+
+- **Spec has sections**: Group adjacent sections so each teammate gets roughly equal work. (e.g., 12 sections → 4 teammates with 3 sections each)
+- **Flat list (no sections)**: Divide requirements into 4 equal batches (e.g., 30 requirements → R1–R8, R9–R15, R16–R23, R24–R30)
+- **Small spec (< 5 requirements)**: Skip teams, use solo mode
 
 ### Classification Reference
 
@@ -94,16 +97,12 @@ Classification rules:
 Output format per requirement:
   | ID | Requirement | Status | Severity | Evidence |
 
-Teammate assignments:
-  If spec has sections — one teammate per section:
-    - Teammate "section-1": Scan and classify {Section 1} (R1–R{N})
-    - Teammate "section-2": Scan and classify {Section 2} (R{N+1}–R{M})
-    - Teammate "section-3": Scan and classify {Section 3} (R{M+1}–R{P})
-  If flat list — chunk into batches of ~8–10:
-    - Teammate "batch-1": Scan and classify R1–R10
-    - Teammate "batch-2": Scan and classify R11–R20
-    - Teammate "batch-3": Scan and classify R21–R30
-  (scale teammates to match — aim for 3–5 teammates max)
+Teammate assignments (max 4 — divide requirements evenly):
+    - Teammate "analyst-1": Scan and classify R1–R{N}
+    - Teammate "analyst-2": Scan and classify R{N+1}–R{M}
+    - Teammate "analyst-3": Scan and classify R{M+1}–R{P}
+    - Teammate "analyst-4": Scan and classify R{P+1}–R{end}
+  (use fewer if < 16 requirements — 2 teammates for 5–10, 3 for 11–15, 4 for 16+)
 
 Lead responsibilities:
 - Distribute requirement sections to teammates
