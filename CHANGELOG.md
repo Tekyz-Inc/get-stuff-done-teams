@@ -2,6 +2,20 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.18.2] - 2026-02-16
+
+### Added
+- Gap Analysis Gate in `gsd-t-complete-milestone` — mandatory requirements verification before archiving
+- Self-correction loop: auto-fixes gaps, re-verifies, re-analyzes (up to 2 cycles), stops if unresolvable
+- Explicit Playwright E2E test execution in milestone test verification step
+
+## [2.18.1] - 2026-02-16
+
+### Added
+- Auto-Init Guard — GSD-T workflow commands automatically run `gsd-t-init` if any init files are missing, then continue with the original command
+- `gsd-t-init` copies `~/.claude/settings.local` → `.claude/settings.local.json` during project initialization
+- Exempt commands that skip auto-init: `gsd-t-init`, `gsd-t-init-scan-setup`, `gsd-t-help`, `gsd-t-version-update`, `gsd-t-version-update-all`, `gsd-t-prompt`, `gsd-t-brainstorm`
+
 ## [2.18.0] - 2026-02-16
 
 ### Added

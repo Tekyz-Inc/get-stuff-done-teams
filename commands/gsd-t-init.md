@@ -18,6 +18,14 @@ Report current state and ask if user wants to reset or continue.
 Offer to migrate: "Found legacy GSD structure. Want me to migrate to GSD-T?"
 If yes, read `.gsd/` state and create equivalent `.gsd-t/` structure.
 
+## Step 1.5: Copy Local Settings
+
+If `~/.claude/settings.local` exists and `.claude/settings.local.json` does not exist in the project:
+1. Create the `.claude/` directory in the project root if it doesn't exist
+2. Copy `~/.claude/settings.local` → `.claude/settings.local.json`
+
+Skip silently if the source file doesn't exist or the target already exists.
+
 ## Step 2: Create Directory Structure
 
 ```

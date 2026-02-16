@@ -17,6 +17,22 @@ If status is not VERIFIED:
 
 If `--force` flag provided, proceed with warning in archive.
 
+## Step 1.5: Gap Analysis Gate
+
+After verification passes, run a gap analysis against `docs/requirements.md` scoped to this milestone's deliverables:
+
+1. Identify which requirements this milestone was supposed to satisfy (from domain scopes, tasks, and milestone definition)
+2. Run `gsd-t-gap-analysis` against those requirements, comparing spec to actual code
+3. If **all gaps resolved** (100% Implemented) → proceed to Step 2
+4. If **gaps found** (Partial, Incorrect, or Not Implemented):
+   a. Auto-fix: execute remediation for each gap (prioritize Critical → High → Medium)
+   b. Run affected tests (unit + integration + Playwright E2E if configured)
+   c. Re-run `gsd-t-verify` to confirm fixes don't break anything
+   d. Re-run gap analysis to confirm gaps are resolved
+   e. If gaps remain after **2 fix cycles** → STOP and report unresolved gaps to user
+
+This is a **mandatory gate** — the milestone cannot be archived with known gaps against its requirements.
+
 ## Step 2: Gather Milestone Artifacts
 
 Collect all files related to this milestone:
@@ -163,10 +179,11 @@ Before creating the git tag, verify all documentation is up to date:
 
 Before creating the git tag, verify the milestone is truly complete:
 
-1. **Run the full test suite**: Execute ALL tests — unit, integration, and E2E if available
-2. **Verify all pass**: Every test must pass. If any fail, fix before tagging (up to 2 attempts)
-3. **Compare to baseline**: If a test baseline was recorded at milestone start, verify coverage has improved or at minimum not regressed
-4. **Log test results**: Include test pass/fail counts in the milestone summary (Step 4)
+1. **Run the full test suite**: Execute ALL tests — unit, integration, and E2E
+2. **Run Playwright E2E** (if configured): Detect `playwright.config.*` or Playwright in dependencies. If present, run the full Playwright suite. If specs are missing or stale, invoke `gsd-t-test-sync` first.
+3. **Verify all pass**: Every test must pass. If any fail, fix before tagging (up to 2 attempts)
+4. **Compare to baseline**: If a test baseline was recorded at milestone start, verify coverage has improved or at minimum not regressed
+5. **Log test results**: Include test pass/fail counts in the milestone summary (Step 4)
 
 ## Step 8: Create Git Tag
 

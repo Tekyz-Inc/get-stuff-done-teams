@@ -3,7 +3,7 @@
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: READY
 ## Date: 2026-02-10
-## Version: 2.18.0
+## Version: 2.18.2
 
 ## Current Milestone
 None — ready for next milestone
@@ -81,6 +81,9 @@ None — ready for next milestone
 - 2026-02-16 11:45: Added git history reconstruction to gsd-t-populate command. Rebuilt Decision Log with full timestamps. v2.16.5
 - 2026-02-16 12:10: Added gsd-t-log command — syncs progress.md Decision Log with recent git activity. v2.17.0
 - 2026-02-16 12:30: Added heartbeat system — Claude Code hooks write events to .gsd-t/heartbeat-{session}.jsonl. Installer configures 9 async hooks. v2.18.0
+- 2026-02-16 13:52: Added Auto-Init Guard — workflow commands auto-run gsd-t-init if any init files missing, then continue with original command. v2.18.1
+- 2026-02-16 13:58: gsd-t-init now copies ~/.claude/settings.local → .claude/settings.local.json during project init. Auto-Init Guard checks for it too. v2.18.1
+- 2026-02-16 14:05: Added Gap Analysis Gate to gsd-t-complete-milestone — mandatory requirements verification with self-correction loop (up to 2 fix cycles) before archiving. Explicit Playwright E2E in test verification. v2.18.2
 
 ## Session Log
 | Date | Session | What was accomplished |

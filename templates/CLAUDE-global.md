@@ -176,6 +176,21 @@ On session start, a version check hook outputs one of two messages. Show the res
 
 Only execute GSD-T workflow behavior when a `/gsd-t-*` command is invoked or when actively mid-phase (resumed via `/gsd-t-resume`). **Plain text messages — especially questions — should be answered conversationally.** Do not launch into workflow execution, file reading, or phase advancement from a question or comment. If the user wants work done, they will invoke a command.
 
+## Auto-Init Guard
+
+Before executing any GSD-T workflow command, check if **any** of these files are missing in the current project:
+- `.gsd-t/progress.md`, `.gsd-t/backlog.md`, `.gsd-t/backlog-settings.md`
+- `.gsd-t/contracts/`, `.gsd-t/domains/`
+- `.claude/settings.local.json` (if `~/.claude/settings.local` exists)
+- `CLAUDE.md`, `README.md`
+- `docs/requirements.md`, `docs/architecture.md`, `docs/workflows.md`, `docs/infrastructure.md`
+
+If any are missing:
+1. Run `gsd-t-init` automatically (it skips files that already exist)
+2. Then continue with the originally requested command
+
+**Exempt commands** (do not trigger auto-init): `gsd-t-init`, `gsd-t-init-scan-setup`, `gsd-t-help`, `gsd-t-version-update`, `gsd-t-version-update-all`, `gsd-t-prompt`, `gsd-t-brainstorm`.
+
 ## Prime Rule
 KEEP GOING. Only stop for:
 1. Unrecoverable errors after 2 fix attempts
