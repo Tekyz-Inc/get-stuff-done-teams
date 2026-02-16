@@ -62,7 +62,7 @@ GSD-T reads all state files and tells you exactly where you left off.
 
 | Command | Purpose | Auto |
 |---------|---------|------|
-| `/user:gsd-t {request}` | Describe what you need → auto-routes to the right command | Manual |
+| `/user:gsd {request}` | Describe what you need → auto-routes to the right command | Manual |
 
 ### Help & Onboarding
 

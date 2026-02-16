@@ -13,7 +13,7 @@ Display the full command reference:
 
 SMART ROUTER                                                           Manual
 ───────────────────────────────────────────────────────────────────────────────
-  gsd-t               Describe what you need → auto-routes to the right command
+  gsd                 Describe what you need → auto-routes to the right command
 
 GETTING STARTED                                                        Manual
 ───────────────────────────────────────────────────────────────────────────────
@@ -127,13 +127,13 @@ RELATED COMMANDS
 
 Use these when user asks for help on a specific command:
 
-### gsd-t (smart router)
+### gsd (smart router)
 - **Summary**: Describe what you need in plain language — auto-routes to the right GSD-T command using semantic evaluation
 - **Auto-invoked**: No
 - **Files**: Reads `CLAUDE.md`, `.gsd-t/progress.md`, command summaries from `gsd-t-help`
 - **How it works**: Evaluates your request against every command's purpose and "Use when" criteria. Commands that match get shortlisted, best fit is selected. Shows runner-up when close.
 - **Use when**: You don't want to remember which command to use — just describe what you want
-- **Examples**: `/user:gsd-t Fix the login bug`, `/user:gsd-t Add dark mode`, `/user:gsd-t Scan for tech debt`
+- **Examples**: `/user:gsd Fix the login bug`, `/user:gsd Add dark mode`, `/user:gsd Scan for tech debt`
 
 ### prompt
 - **Summary**: Help formulate project/feature/milestone prompts through guided questions

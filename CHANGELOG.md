@@ -2,6 +2,11 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.16.2] - 2026-02-16
+
+### Changed
+- Smart router renamed from `/user:gsd-t` to `/user:gsd` — sorts first in autocomplete when typing `/gs`, shorter to type
+
 ## [2.16.1] - 2026-02-16
 
 ### Fixed

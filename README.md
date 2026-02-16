@@ -93,7 +93,7 @@ This will replace changed command files, back up your CLAUDE.md if customized, a
 
 | Command | Purpose | Auto |
 |---------|---------|------|
-| `/user:gsd-t {request}` | Describe what you need → auto-routes to the right command | Manual |
+| `/user:gsd {request}` | Describe what you need → auto-routes to the right command | Manual |
 
 ### Help & Onboarding
 
