@@ -3,7 +3,7 @@
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: READY
 ## Date: 2026-02-10
-## Version: 2.16.4
+## Version: 2.16.5
 
 ## Current Milestone
 None — ready for next milestone
@@ -23,34 +23,62 @@ None — ready for next milestone
 (populated during plan phase)
 
 ## Decision Log
-- 2026-02-07: Project initialized with GSD-T workflow
+(Entries before 2026-02-16 reconstructed from git history with timestamps)
+- 2026-02-07 11:33: Initial commit — repository created on GitHub. v1.0.0
+- 2026-02-07 13:16: Complete GSD-T framework implementation — 26 slash commands, CLI installer, templates, docs. v1.0.0
+- 2026-02-07 14:27: Renamed package to @tekyzinc/gsd-t, added brainstorm command, initialized GSD-T state on itself. v2.0.0
+- 2026-02-07 14:32: Added brainstorm to all 4 reference files, fixed workflow diagram alignment. v2.0.1
 - 2026-02-07: Existing codebase analyzed — npm package with CLI installer (bin/gsd-t.js), 26 slash commands (commands/), 7 templates (templates/), examples, and docs
 - 2026-02-07: Full codebase scan completed — 13 tech debt items found (2 critical, 4 high, 4 medium, 3 low). See .gsd-t/techdebt.md
 - 2026-02-07: CRITICAL finding — 25 of 26 command files deleted from working tree. Only gsd-t-brainstorm.md exists on disk. Package is non-functional.
 - 2026-02-07: Security audit found command injection in doctor (execSync), symlink attack surface, and missing input validation. Overall risk: MEDIUM.
-- 2026-02-09: Added automatic version bumping to checkin command — every checkin now auto-bumps patch/minor/major based on change type
-- 2026-02-09: Audited all 27 command files — added Document Ripple and Test Verification steps to 15 commands that were missing them. All code-modifying commands now enforce doc updates and test runs before completion
-- 2026-02-09: Added Destructive Action Guard — mandatory safeguard requiring explicit user approval before any destructive or structural changes
-- 2026-02-09: Added CLI commands: `update-all`, `register`. Projects auto-register on `init`. Registry at ~/.claude/.gsd-t-projects
+- 2026-02-08 11:21: Init creates all 4 living docs, scan cross-populates findings into docs. v2.0.2
+- 2026-02-08 11:55: Added populate command, auto-update README on version changes, semantic versioning system. v2.1.0
+- 2026-02-08 13:17: Added E2E test support to test-sync, verify, and execute commands. v2.2.0
+- 2026-02-08 13:23: Fixed gsd-t-discuss — stops for user review when manually invoked. v2.2.1
+- 2026-02-08 13:39: Added branch guard — prevents commits on wrong branch by checking Expected branch in CLAUDE.md. v2.3.0
+- 2026-02-09 11:19: Added automatic version bumping to checkin command — every checkin auto-bumps patch/minor/major based on change type. v2.4.0
+- 2026-02-09 14:38: Audited all 27 command files — added Document Ripple and Test Verification steps to 15 commands that were missing them. v2.5.0
+- 2026-02-09 16:53: Added Destructive Action Guard — mandatory safeguard requiring explicit user approval before destructive or structural changes. v2.6.0
+- 2026-02-09 17:29: Added CLI commands: update-all, register. Projects auto-register on init. Registry at ~/.claude/.gsd-t-projects. v2.7.0
 - 2026-02-09: RESOLVED — 25 missing command files restored. All 27 commands present on disk.
 - 2026-02-09: Milestone 1 defined — Backlog Management System: 7 new slash commands, 2 templates, integration into init/status/help/README/CLAUDE-global
 - 2026-02-09: Milestone 1 partitioned into 3 domains: templates → commands → integration
-- 2026-02-10: Milestone 1 planned, executed, verified, and completed — v2.8.0
-- 2026-02-10: Added Workflow Preferences section to global and project CLAUDE.md templates — Research Policy and Phase Flow defaults with per-project override support. Replaces old GSD Workflow Preferences convention.
-- 2026-02-10: Added gsd-t-setup command — generates or restructures project CLAUDE.md by scanning codebase, detecting tech stack/conventions, and removing global duplicates
-- 2026-02-10: Added CHANGELOG.md with full version history. Updated checkin command to auto-maintain release notes on every version bump. Added `changelog` CLI subcommand to open in browser. Version links in CLI output use OSC 8 hyperlinks. update-all now creates CHANGELOG.md for projects that don't have one.
-- 2026-02-10: Added automatic update check — CLI checks npm registry (cached 24h) and shows update notice box with commands to run when a newer version exists.
-- 2026-02-11: Extended version update check to gsd-t-status slash command for ClaudeWebCLI compatibility — reads same cache files as CLI.
-- 2026-02-11: Changed default autonomy level from Level 2 (Standard) to Level 3 (Full Auto) in all templates, init, and setup commands.
-- 2026-02-12: Level 3 auto-advancing — all phase commands (partition, plan, impact, execute, test-sync, integrate, verify, complete-milestone) now auto-advance at Level 3 without waiting for user input. Discuss phase always pauses. Wave error recovery auto-remediates at Level 3 (up to 2 attempts).
-- 2026-02-12: Added "Conversation vs. Work" rule — plain text messages answered conversationally, workflow only triggers from explicit /gsd-t-* commands. Resume command updated for same-session lightweight mode.
-- 2026-02-12: Added gsd-t-init-scan-setup command — combines git setup, init, scan, and setup into a single onboarding command. Prompts for GitHub repo if not connected.
-- 2026-02-12: Added /gsd-t smart router — describe what you need in plain language, auto-routes to the correct GSD-T command. Replaces need to memorize 38 commands.
-- 2026-02-13: Updated Update Notices template to handle both version banner (up to date) and update notification messages from SessionStart hook.
-- 2026-02-13: Added /gsd-t-gap-analysis command — requirements gap analysis. User pastes a spec, system parses into discrete requirements, scans codebase, classifies each as implemented/partial/incorrect/not-implemented with evidence and severity, generates gap-analysis.md, groups gaps into promotable milestones/features.
-- 2026-02-13: Replaced signal-word routing in /gsd-t with semantic evaluation — router now reads command summaries and evaluates intent against each command's purpose and "Use when" criteria. Shows runner-up when confidence is close. No more hardcoded keyword table.
-- 2026-02-16: Fixed gsd-t-init-scan-setup to pull existing code from remote before scanning (was treating repos with existing code as greenfield).
-- 2026-02-16: Added mandatory timestamped progress.md logging to Pre-Commit Gate — every completed task gets a `YYYY-MM-DD HH:MM` entry, not just architectural decisions.
+- 2026-02-10 11:27: Milestone 1 (Backlog Management System) completed — 7 new commands, 2 templates, 5 integration updates. v2.8.0
+- 2026-02-10 11:31: Milestone 1 archived and tagged v2.8.0
+- 2026-02-10 12:27: Added Workflow Preferences to global and project CLAUDE.md templates — Research Policy and Phase Flow defaults. v2.8.1
+- 2026-02-11 14:56: Added gsd-t-setup command — generates or restructures project CLAUDE.md by scanning codebase, detecting tech stack/conventions. v2.9.0
+- 2026-02-11 15:05: Added CHANGELOG.md, changelog CLI command, version links in CLI output. Checkin auto-maintains release notes. v2.10.0
+- 2026-02-11 15:14: Added automatic update check — CLI queries npm registry (cached 24h), shows notice when newer version available. v2.10.1
+- 2026-02-11 15:31: Extended version update check to gsd-t-status slash command for ClaudeWebCLI compatibility. v2.10.2
+- 2026-02-11 17:30: Changed default autonomy level from Level 2 (Standard) to Level 3 (Full Auto) in all templates, init, and setup commands. v2.10.3
+- 2026-02-12 08:29: Level 3 auto-advancing — all phase commands auto-advance without waiting for user input. Discuss always pauses. Wave error recovery auto-remediates (up to 2 attempts). v2.11.0
+- 2026-02-12 09:37: Added "Conversation vs. Work" rule and lightweight same-session resume mode. v2.11.1
+- 2026-02-12 09:50: Fixed CLI update check — used !== instead of semver comparison, added isNewerVersion() helper. v2.11.2
+- 2026-02-12 10:45: Reduced update check cache from 24h to 1h — new releases detected faster. v2.11.3
+- 2026-02-12 11:42: Fixed first-run update check — fetches synchronously when no cache exists. v2.11.4
+- 2026-02-12 12:26: Added SessionStart hook script for automatic update notifications in Claude Code sessions. v2.11.5
+- 2026-02-12 12:46: Update notice now shown at both beginning and end of Claude's first response. v2.11.6
+- 2026-02-12 12:55: Added version-update and version-update-all slash commands. v2.12.0
+- 2026-02-12 13:02: Added gsd-t-init-scan-setup — full onboarding combining git setup, init, scan, and setup. v2.13.0
+- 2026-02-12 13:05: Added changelog link to update notifications. v2.13.1
+- 2026-02-12 13:13: Init-scan-setup now asks for project folder name, creates if needed. v2.13.2
+- 2026-02-12 13:15: Init-scan-setup asks if current folder is project root first. v2.13.3
+- 2026-02-12 13:48: Added auto-invoked status column to all command reference tables. v2.13.4
+- 2026-02-13 09:25: Added /gsd-t smart router — describe what you need in plain language, auto-routes to the correct command. v2.14.0
+- 2026-02-13 10:17: Updated Update Notices template to handle both [GSD-T UPDATE] and [GSD-T] version banners. v2.14.1
+- 2026-02-13 10:56: Smart router displays selected command as first line of output (mandatory routing confirmation). v2.14.2
+- 2026-02-13 15:23: Added /gsd-t-gap-analysis — requirements gap analysis vs existing code. Evidence-based classification, severity levels, re-run diff support. v2.15.0
+- 2026-02-13 16:00: Gap-analysis uses team mode — one teammate per requirement section for parallel scanning. v2.15.1
+- 2026-02-13 16:02: Gap-analysis team mode handles flat requirement lists with batching. v2.15.2
+- 2026-02-13 16:03: Gap-analysis hard cap of 4 teammates with scaling by requirement count. v2.15.3
+- 2026-02-13 16:05: Gap-analysis 1:1 teammate per requirement, cap at 10, solo for 1-2. v2.15.4
+- 2026-02-13 16:54: Semantic router replaces signal-word routing — evaluates intent against command summaries. Backlog item B1 added for agentic workflow. v2.16.0
+- 2026-02-16 09:30: Fixed gsd-t-init-scan-setup to pull existing code from remote before scanning. v2.16.1
+- 2026-02-16 11:12: Renamed smart router from /gsd-t to /gsd (reverted in v2.16.3). v2.16.2
+- 2026-02-16 11:27: Reverted router rename, added mandatory timestamped progress.md logging to Pre-Commit Gate. v2.16.3
+- 2026-02-16 11:34: Re-applied router rename to /gsd — sorts first in autocomplete. v2.16.4
+- 2026-02-16 11:45: Added git history reconstruction to gsd-t-populate command. Rebuilt Decision Log with full timestamps. v2.16.5
 
 ## Session Log
 | Date | Session | What was accomplished |

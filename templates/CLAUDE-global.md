@@ -205,11 +205,16 @@ BEFORE EVERY COMMIT:
   │     YES → Update docs/requirements.md (mark complete or revise)
   ├── Did I add/change/remove a component or change data flow?
   │     YES → Update docs/architecture.md
-  ├── Did I complete a task or make a meaningful change?
+  ├── Did I modify any document, script, or code file?
   │     YES → Add timestamped entry to .gsd-t/progress.md Decision Log
   │     Format: `- YYYY-MM-DD HH:MM: {what was done} — {brief context or result}`
+  │     This includes ALL file-modifying activities:
+  │       project, feature, scan, gap-analysis, milestone, partition, discuss,
+  │       plan, impact, execute, test-sync, integrate, verify, complete-milestone,
+  │       wave, quick, debug, promote-debt, populate, setup, init, init-scan-setup,
+  │       backlog-add/edit/move/remove/promote/settings, and any manual code changes
   ├── Did I make an architectural or design decision?
-  │     YES → Add to .gsd-t/progress.md Decision Log (with decision rationale)
+  │     YES → Also include decision rationale in the progress.md entry
   ├── Did I discover or fix tech debt?
   │     YES → Update .gsd-t/techdebt.md
   ├── Did I establish a pattern future work should follow?

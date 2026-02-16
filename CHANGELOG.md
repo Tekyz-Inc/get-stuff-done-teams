@@ -2,6 +2,15 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.16.5] - 2026-02-16
+
+### Added
+- `gsd-t-populate` now reconstructs Decision Log from git history — parses all commits, generates timestamped entries, merges with existing log
+- Pre-Commit Gate explicitly lists all 30 file-modifying commands that must log to progress.md
+
+### Changed
+- Rebuilt GSD-T project Decision Log with full `YYYY-MM-DD HH:MM` timestamps from 54 git commits
+
 ## [2.16.4] - 2026-02-16
 
 ### Changed

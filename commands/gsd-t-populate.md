@@ -35,6 +35,36 @@ Scan this codebase and populate the GSD-T documentation. Analyze the actual code
 - Set status: VERIFIED
 - Log today session: "GSD-T documentation populated from existing codebase"
 
+## Reconstruct Decision Log from Git History
+
+Rebuild the progress.md Decision Log from the project's commit history:
+
+1. **Read existing Decision Log entries** — note what's already recorded to avoid duplicates
+2. **Run `git log --reverse --format="%ai|%s"`** — get all commits with timestamps and messages
+3. **Filter meaningful commits** — skip merge commits, trivial whitespace/formatting-only commits
+4. **Generate entries** in the standard format:
+   ```
+   - YYYY-MM-DD HH:MM: {commit summary} — {brief context from commit message}
+   ```
+5. **Group by date** — if multiple commits on the same day cover the same logical change, combine them into one entry rather than listing each commit separately
+6. **Merge with existing entries** — insert reconstructed entries chronologically, keeping any hand-written entries that already exist (they may have richer context than commit messages)
+7. **Mark the reconstruction** — add a note at the top of the reconstructed section:
+   ```
+   (Entries before {date} reconstructed from git history)
+   ```
+
+### What to include:
+- Feature additions, bug fixes, refactors
+- Config/dependency changes
+- Documentation updates
+- Version bumps and releases
+- Any commit that modified documents, scripts, or code
+
+### What to exclude:
+- Pure merge commits with no additional context
+- Commits that only change whitespace or formatting
+- Duplicate entries already in the Decision Log
+
 ---
 
 ## Document Ripple
