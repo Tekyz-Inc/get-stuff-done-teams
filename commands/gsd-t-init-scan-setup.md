@@ -28,6 +28,12 @@ All subsequent steps run from inside the project directory.
      git remote add origin {url}
      ```
    - **Remote exists** → Log it and continue
+3. **Pull existing code from remote** (if any):
+   - Run `git fetch origin` to get remote refs
+   - If the remote has commits and local is empty (or behind), run `git pull origin main` (or the default branch)
+   - This ensures the scan sees the actual codebase, not an empty directory
+   - If pull fails due to branch mismatch, try `git pull origin master`
+   - Skip if local already has commits matching the remote
 
 ## Step 3: Initialize Project (gsd-t-init)
 

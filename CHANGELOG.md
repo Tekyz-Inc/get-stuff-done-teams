@@ -2,6 +2,11 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.16.1] - 2026-02-16
+
+### Fixed
+- `gsd-t-init-scan-setup` now pulls existing code from remote before scanning — prevents treating repos with existing code as greenfield
+
 ## [2.16.0] - 2026-02-13
 
 ### Changed
