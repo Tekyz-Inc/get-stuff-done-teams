@@ -2,6 +2,13 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.17.0] - 2026-02-16
+
+### Added
+- `/user:gsd-t-log` command — sync progress.md Decision Log with recent git activity by scanning commits since last logged entry
+- Incremental updates (only new commits) and first-time full reconstruction from git history
+- Total commands: 38 GSD-T + 3 utility = 41
+
 ## [2.16.5] - 2026-02-16
 
 ### Added

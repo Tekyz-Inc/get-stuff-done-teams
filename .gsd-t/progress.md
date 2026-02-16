@@ -3,7 +3,7 @@
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: READY
 ## Date: 2026-02-10
-## Version: 2.16.5
+## Version: 2.17.0
 
 ## Current Milestone
 None — ready for next milestone
@@ -79,6 +79,7 @@ None — ready for next milestone
 - 2026-02-16 11:27: Reverted router rename, added mandatory timestamped progress.md logging to Pre-Commit Gate. v2.16.3
 - 2026-02-16 11:34: Re-applied router rename to /gsd — sorts first in autocomplete. v2.16.4
 - 2026-02-16 11:45: Added git history reconstruction to gsd-t-populate command. Rebuilt Decision Log with full timestamps. v2.16.5
+- 2026-02-16 12:10: Added gsd-t-log command — syncs progress.md Decision Log with recent git activity. v2.17.0
 
 ## Session Log
 | Date | Session | What was accomplished |

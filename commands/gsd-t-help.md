@@ -52,6 +52,7 @@ UTILITIES                                                              Manual
   debug               Systematic debugging with state
   promote-debt        Convert techdebt items to milestones
   populate            Auto-populate docs from existing codebase
+  log                 Sync progress Decision Log with recent git activity
   version-update      Update GSD-T package to latest version
   version-update-all  Update GSD-T package + all registered projects
 
@@ -294,6 +295,13 @@ Use these when user asks for help on a specific command:
 - **Auto-invoked**: No
 - **Updates**: `docs/requirements.md`, `docs/architecture.md`, `docs/workflows.md`, `docs/infrastructure.md`, `.gsd-t/progress.md`
 - **Use when**: You have an existing codebase and want to fill docs with real findings instead of placeholders
+
+### log
+- **Summary**: Sync progress.md Decision Log with recent git activity
+- **Auto-invoked**: No
+- **Files**: `.gsd-t/progress.md`, git history
+- **Use when**: Progress.md Decision Log is behind — catches up by scanning git commits since the last logged entry
+- **Features**: Incremental updates, first-time full reconstruction from git history, groups same-day changes
 
 ### backlog-add
 - **Summary**: Capture a new backlog item with auto-categorization

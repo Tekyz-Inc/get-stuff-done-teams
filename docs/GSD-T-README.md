@@ -111,6 +111,7 @@ GSD-T reads all state files and tells you exactly where you left off.
 | `/user:gsd-t-resume` | Restore context, continue | Manual |
 | `/user:gsd-t-quick` | Fast task with GSD-T guarantees | Manual |
 | `/user:gsd-t-debug` | Systematic debugging with state | Manual |
+| `/user:gsd-t-log` | Sync progress Decision Log with recent git activity | Manual |
 | `/user:gsd-t-version-update` | Update GSD-T to latest version | Manual |
 | `/user:gsd-t-version-update-all` | Update GSD-T + all registered projects | Manual |
 
