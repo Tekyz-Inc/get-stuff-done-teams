@@ -27,7 +27,7 @@ PROJECT or FEATURE or SCAN
 
 | Command | Purpose |
 |---------|---------|
-| `/user:gsd` | Smart router — describe what you need, auto-routes to the right command |
+| `/user:gsd-t` | Smart router — describe what you need, auto-routes to the right command |
 | `/user:gsd-t-help` | List all commands or get detailed help |
 | `/user:gsd-t-prompt` | Help formulate your idea before committing |
 | `/user:gsd-t-brainstorm` | Creative exploration and idea generation |
@@ -205,8 +205,11 @@ BEFORE EVERY COMMIT:
   │     YES → Update docs/requirements.md (mark complete or revise)
   ├── Did I add/change/remove a component or change data flow?
   │     YES → Update docs/architecture.md
+  ├── Did I complete a task or make a meaningful change?
+  │     YES → Add timestamped entry to .gsd-t/progress.md Decision Log
+  │     Format: `- YYYY-MM-DD HH:MM: {what was done} — {brief context or result}`
   ├── Did I make an architectural or design decision?
-  │     YES → Add to .gsd-t/progress.md Decision Log
+  │     YES → Add to .gsd-t/progress.md Decision Log (with decision rationale)
   ├── Did I discover or fix tech debt?
   │     YES → Update .gsd-t/techdebt.md
   ├── Did I establish a pattern future work should follow?

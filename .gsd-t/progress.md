@@ -49,8 +49,8 @@ None — ready for next milestone
 - 2026-02-13: Updated Update Notices template to handle both version banner (up to date) and update notification messages from SessionStart hook.
 - 2026-02-13: Added /gsd-t-gap-analysis command — requirements gap analysis. User pastes a spec, system parses into discrete requirements, scans codebase, classifies each as implemented/partial/incorrect/not-implemented with evidence and severity, generates gap-analysis.md, groups gaps into promotable milestones/features.
 - 2026-02-13: Replaced signal-word routing in /gsd-t with semantic evaluation — router now reads command summaries and evaluates intent against each command's purpose and "Use when" criteria. Shows runner-up when confidence is close. No more hardcoded keyword table.
-- 2026-02-16: Renamed smart router from /gsd-t to /gsd — sorts first in autocomplete when typing /gs, shorter to type, same functionality.
 - 2026-02-16: Fixed gsd-t-init-scan-setup to pull existing code from remote before scanning (was treating repos with existing code as greenfield).
+- 2026-02-16: Added mandatory timestamped progress.md logging to Pre-Commit Gate — every completed task gets a `YYYY-MM-DD HH:MM` entry, not just architectural decisions.
 
 ## Session Log
 | Date | Session | What was accomplished |

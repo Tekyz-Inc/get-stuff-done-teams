@@ -58,14 +58,14 @@ This MUST be the very first line of your response so the user sees which command
 If called with no arguments, show:
 
 ```
-Usage: /user:gsd {describe what you want}
+Usage: /user:gsd-t {describe what you want}
 
 Examples:
-  /user:gsd Fix the login timeout bug
-  /user:gsd Add dark mode support
-  /user:gsd Scan the codebase for tech debt
-  /user:gsd What's the current progress?
-  /user:gsd Compare this spec against our code
+  /user:gsd-t Fix the login timeout bug
+  /user:gsd-t Add dark mode support
+  /user:gsd-t Scan the codebase for tech debt
+  /user:gsd-t What's the current progress?
+  /user:gsd-t Compare this spec against our code
 
 I'll route to the right GSD-T command automatically.
 ```
