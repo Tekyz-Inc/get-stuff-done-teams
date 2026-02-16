@@ -27,7 +27,7 @@ PROJECT or FEATURE or SCAN
 
 | Command | Purpose |
 |---------|---------|
-| `/user:gsd-t` | Smart router — describe what you need, auto-routes to the right command |
+| `/user:gsd` | Smart router — describe what you need, auto-routes to the right command |
 | `/user:gsd-t-help` | List all commands or get detailed help |
 | `/user:gsd-t-prompt` | Help formulate your idea before committing |
 | `/user:gsd-t-brainstorm` | Creative exploration and idea generation |

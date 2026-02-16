@@ -2,13 +2,16 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
-## [2.16.3] - 2026-02-16
+## [2.16.4] - 2026-02-16
 
 ### Changed
+- Smart router renamed from `/user:gsd-t` to `/user:gsd` — sorts first in autocomplete, shorter to type
 - Pre-Commit Gate now requires timestamped progress.md entry (`YYYY-MM-DD HH:MM`) after every completed task, not just architectural decisions
 
+## [2.16.3] - 2026-02-16
+
 ### Fixed
-- Reverted smart router rename (`/gsd` back to `/gsd-t`) — `/gsd` didn't match when typing `/gsd-t`
+- Reverted smart router rename (`/gsd` back to `/gsd-t`) — superseded by 2.16.4 which re-applies the rename
 
 ## [2.16.2] - 2026-02-16
 
