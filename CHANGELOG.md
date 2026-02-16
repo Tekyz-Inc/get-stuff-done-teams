@@ -2,6 +2,15 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.18.0] - 2026-02-16
+
+### Added
+- Heartbeat system — real-time event streaming from Claude Code sessions via async hooks
+- `scripts/gsd-t-heartbeat.js` — hook handler that writes JSONL events to `.gsd-t/heartbeat-{session_id}.jsonl`
+- 9 Claude Code hooks: SessionStart, PostToolUse, SubagentStart, SubagentStop, TaskCompleted, TeammateIdle, Notification, Stop, SessionEnd
+- Installer auto-configures heartbeat hooks in settings.json (all async, zero performance impact)
+- Event types: session lifecycle, tool calls with file/command summaries, agent spawn/stop/idle, task completions
+
 ## [2.17.0] - 2026-02-16
 
 ### Added

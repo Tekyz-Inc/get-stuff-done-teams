@@ -24,6 +24,7 @@ const { execSync } = require("child_process");
 
 const CLAUDE_DIR = path.join(os.homedir(), ".claude");
 const COMMANDS_DIR = path.join(CLAUDE_DIR, "commands");
+const SCRIPTS_DIR = path.join(CLAUDE_DIR, "scripts");
 const GLOBAL_CLAUDE_MD = path.join(CLAUDE_DIR, "CLAUDE.md");
 const SETTINGS_JSON = path.join(CLAUDE_DIR, "settings.json");
 const VERSION_FILE = path.join(CLAUDE_DIR, ".gsd-t-version");
@@ -33,6 +34,7 @@ const UPDATE_CHECK_FILE = path.join(CLAUDE_DIR, ".gsd-t-update-check");
 // Where our package files live (relative to this script)
 const PKG_ROOT = path.resolve(__dirname, "..");
 const PKG_COMMANDS = path.join(PKG_ROOT, "commands");
+const PKG_SCRIPTS = path.join(PKG_ROOT, "scripts");
 const PKG_TEMPLATES = path.join(PKG_ROOT, "templates");
 const PKG_EXAMPLES = path.join(PKG_ROOT, "examples");
 
@@ -144,6 +146,84 @@ function getInstalledCommands() {
   }
 }
 
+// ─── Heartbeat ──────────────────────────────────────────────────────────────
+
+const HEARTBEAT_SCRIPT = "gsd-t-heartbeat.js";
+const HEARTBEAT_HOOKS = [
+  "SessionStart", "PostToolUse", "SubagentStart", "SubagentStop",
+  "TaskCompleted", "TeammateIdle", "Notification", "Stop", "SessionEnd"
+];
+
+function installHeartbeat() {
+  ensureDir(SCRIPTS_DIR);
+
+  // Copy heartbeat script
+  const src = path.join(PKG_SCRIPTS, HEARTBEAT_SCRIPT);
+  const dest = path.join(SCRIPTS_DIR, HEARTBEAT_SCRIPT);
+
+  if (!fs.existsSync(src)) {
+    warn("Heartbeat script not found in package — skipping");
+    return;
+  }
+
+  const srcContent = fs.readFileSync(src, "utf8");
+  const destContent = fs.existsSync(dest) ? fs.readFileSync(dest, "utf8") : "";
+
+  if (srcContent !== destContent) {
+    copyFile(src, dest, HEARTBEAT_SCRIPT);
+  } else {
+    info("Heartbeat script unchanged");
+  }
+
+  // Configure hooks in settings.json
+  const hooksAdded = configureHeartbeatHooks(dest);
+  if (hooksAdded > 0) {
+    success(`${hooksAdded} heartbeat hooks configured in settings.json`);
+  } else {
+    info("Heartbeat hooks already configured");
+  }
+}
+
+function configureHeartbeatHooks(scriptPath) {
+  let settings = {};
+  if (fs.existsSync(SETTINGS_JSON)) {
+    try {
+      settings = JSON.parse(fs.readFileSync(SETTINGS_JSON, "utf8"));
+    } catch {
+      warn("settings.json has invalid JSON — cannot configure hooks");
+      return 0;
+    }
+  }
+
+  if (!settings.hooks) settings.hooks = {};
+
+  const cmd = `node "${scriptPath.replace(/\\/g, "\\\\")}"`;
+  let added = 0;
+
+  for (const event of HEARTBEAT_HOOKS) {
+    if (!settings.hooks[event]) settings.hooks[event] = [];
+
+    // Check if heartbeat hook already exists for this event
+    const hasHeartbeat = settings.hooks[event].some((entry) =>
+      entry.hooks && entry.hooks.some((h) => h.command && h.command.includes(HEARTBEAT_SCRIPT))
+    );
+
+    if (!hasHeartbeat) {
+      settings.hooks[event].push({
+        matcher: "",
+        hooks: [{ type: "command", command: cmd, async: true }],
+      });
+      added++;
+    }
+  }
+
+  if (added > 0) {
+    fs.writeFileSync(SETTINGS_JSON, JSON.stringify(settings, null, 2));
+  }
+
+  return added;
+}
+
 // ─── Commands ────────────────────────────────────────────────────────────────
 
 function doInstall(opts = {}) {
@@ -226,10 +306,14 @@ function doInstall(opts = {}) {
     copyFile(globalSrc, GLOBAL_CLAUDE_MD, "CLAUDE.md installed → ~/.claude/CLAUDE.md");
   }
 
-  // 4. Save version
+  // 4. Install heartbeat script + hooks
+  heading("Heartbeat (Real-time Events)");
+  installHeartbeat();
+
+  // 5. Save version
   saveInstalledVersion();
 
-  // 5. Summary
+  // 6. Summary
   heading("Installation Complete!");
   log("");
   log(`  Commands: ${gsdtCommands.length} GSD-T + ${utilityCommands.length} utility commands in ~/.claude/commands/`);
