@@ -2,6 +2,11 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.20.5] - 2026-02-16
+
+### Added
+- **Next Command Hint**: After each GSD-T phase completes, displays the recommended next command (e.g., `Next → /user:gsd-t-partition`). Full successor mapping for all workflow commands. Skipped during auto-advancing (Level 3 mid-wave)
+
 ## [2.20.4] - 2026-02-16
 
 ### Changed

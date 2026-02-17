@@ -3,7 +3,7 @@
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: READY
 ## Date: 2026-02-10
-## Version: 2.20.4
+## Version: 2.20.5
 
 ## Current Milestone
 None — ready for next milestone
@@ -91,6 +91,7 @@ None — ready for next milestone
 - 2026-02-16 14:55: Added Playwright + Swagger health checks to CLI update-all and doctor. Scans all registered projects for missing Playwright config and Swagger/OpenAPI specs (when API framework detected). v2.20.2
 - 2026-02-16 17:10: Added Playwright Cleanup rule — kill any app/server processes spawned during Playwright tests after test run completes. Applied to global template and live config. v2.20.3
 - 2026-02-16 17:15: Scan now always spawns team mode unless codebase < 5 files or teams explicitly disabled. Updated gsd-t-scan.md and gsd-t-init-scan-setup.md. v2.20.4
+- 2026-02-16 17:20: Added Next Command Hint — after each GSD-T phase completes, show the recommended next command for tab-completion. Full successor mapping in global template. v2.20.5
 
 ## Session Log
 | Date | Session | What was accomplished |

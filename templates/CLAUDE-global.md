@@ -333,6 +333,40 @@ If in doubt, skip research and proceed — research if execution reveals gaps.
 - ALWAYS self-verify work by running verification commands
 - NEVER pause to show verification steps — execute them
 
+### Next Command Hint
+
+When a GSD-T command completes (and does NOT auto-advance to the next phase), display a hint showing the recommended next command. Format:
+
+```
+Next → /user:gsd-t-{command}
+```
+
+Successor mapping:
+| Completed | Next |
+|-----------|------|
+| `project` | `gsd-t-milestone` |
+| `feature` | `gsd-t-milestone` |
+| `milestone` | `gsd-t-partition` |
+| `partition` | `gsd-t-plan` (or `gsd-t-discuss` if complex) |
+| `discuss` | `gsd-t-plan` |
+| `plan` | `gsd-t-execute` (or `gsd-t-impact` if risky) |
+| `impact` | `gsd-t-execute` |
+| `execute` | `gsd-t-test-sync` |
+| `test-sync` | `gsd-t-verify` (or `gsd-t-integrate` if multi-domain) |
+| `integrate` | `gsd-t-verify` |
+| `verify` | `gsd-t-complete-milestone` |
+| `complete-milestone` | `gsd-t-status` |
+| `scan` | `gsd-t-promote-debt` or `gsd-t-milestone` |
+| `init` | `gsd-t-scan` or `gsd-t-milestone` |
+| `init-scan-setup` | `gsd-t-milestone` |
+| `gap-analysis` | `gsd-t-milestone` or `gsd-t-feature` |
+| `populate` | `gsd-t-status` |
+| `setup` | `gsd-t-status` |
+
+Commands with no successor (standalone): `quick`, `debug`, `brainstorm`, `status`, `help`, `resume`, `prompt`, `log`, backlog commands.
+
+Skip the hint if auto-advancing (Level 3 mid-wave) — only show when the user needs to manually invoke the next step.
+
 
 # Don't Do These Things
 
