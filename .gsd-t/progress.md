@@ -1,26 +1,31 @@
 # GSD-T Progress
 
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
-## Status: READY
-## Date: 2026-02-10
 ## Version: 2.21.1
+## Status: EXECUTED
+## Date: 2026-02-18
 
 ## Current Milestone
-None — ready for next milestone
+Contract & Doc Alignment (Tech Debt Fix)
 
 ## Completed Milestones
-| # | Milestone | Version | Completed | Tag |
-|---|-----------|---------|-----------|-----|
-| 1 | Backlog Management System | 2.8.0 | 2026-02-10 | v2.8.0 |
+| Milestone | Version | Completed | Tag |
+|-----------|---------|-----------|-----|
+| Backlog Management System | 2.8.0 | 2026-02-10 | v2.8.0 |
 
 ## Domains
-(populated during partition phase)
+| Domain | Status | Tasks | Completed |
+|--------|--------|-------|-----------|
+| doc-alignment | executed | 5 | 5 |
 
 ## Contracts
 (populated during partition phase)
 
 ## Integration Checkpoints
 (populated during plan phase)
+
+## Blockers
+<!-- No active blockers -->
 
 ## Decision Log
 (Entries before 2026-02-16 reconstructed from git history with timestamps)
@@ -97,6 +102,9 @@ None — ready for next milestone
 - 2026-02-17 12:35: Added gsd-t-triage-and-merge command — auto-reviews unmerged GitHub branches, scores impact (auto-merge/review/skip), merges safe branches, and optionally publishes. Publish gate respects autonomy level (auto in Level 3, prompted in Level 1-2). Updated all 4 reference files + command counts. v2.21.0
 - 2026-02-18 14:00: Re-initialized project — created missing backlog-settings.md, 4 living docs (requirements, architecture, workflows, infrastructure). Backlog settings auto-derived from CLAUDE.md.
 - 2026-02-18 14:30: Triage-and-merge: merged PR #7 (fix-scan2-quick-fixes — 12 scan items: security symlink gaps, contract/doc alignment) and PR #8 (fix-scan2-batch3-quality — 4 remaining scan items: function splitting, ownership validation, npm-update-check extraction). v2.21.1
+- 2026-02-18 16:00: Full codebase scan (5 parallel agents). 9 of 13 original items resolved. 22 total open items (0 critical, 5 high, 8 medium, 9 low). Key findings: backlog/progress format drift from contracts, 7 backlog commands missing from GSD-T-README, stale command counts (41→42), no automated tests. Updated all living docs (architecture, workflows, infrastructure, requirements, README, CLAUDE.md). Fixed CLAUDE.md stale counts (41→42, 37→38, v2.20.5→v2.21.1).
+- 2026-02-18 16:30: Planned Contract & Doc Alignment milestone — 5 independent tasks in 1 domain (doc-alignment): gitignore heartbeat, backlog format fix, progress format fix, GSD-T-README backlog section, stale count fixes. Solo sequential mode.
+- 2026-02-18 17:00: Executed Contract & Doc Alignment milestone — 5/5 tasks complete. Task 1: added heartbeat to .gitignore + removed tracked files. Task 2: reformatted backlog.md to contract spec. Task 3: fixed progress.md header order + milestones table + added Blockers section. Task 4: added 7 backlog commands to GSD-T-README.md. Task 5: verified stale counts already fixed during scan.
 
 ## Session Log
 | Date | Session | What was accomplished |

@@ -10,3 +10,6 @@ Thumbs.db
 
 # Node
 node_modules/
+
+# GSD-T heartbeat telemetry (session-specific, may contain sensitive data)
+.gsd-t/heartbeat-*.jsonl

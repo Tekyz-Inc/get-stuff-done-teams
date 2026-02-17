@@ -116,6 +116,18 @@ GSD-T reads all state files and tells you exactly where you left off.
 | `/user:gsd-t-version-update-all` | Update GSD-T + all registered projects | Manual |
 | `/user:gsd-t-triage-and-merge` | Auto-review, merge, and publish GitHub branches | Manual |
 
+### Backlog Management
+
+| Command | Purpose | Auto |
+|---------|---------|------|
+| `/user:gsd-t-backlog-add` | Capture item, auto-categorize, append to backlog | Manual |
+| `/user:gsd-t-backlog-list` | Filtered, ordered view of backlog items | Manual |
+| `/user:gsd-t-backlog-move` | Reorder items by position (priority) | Manual |
+| `/user:gsd-t-backlog-edit` | Modify backlog entry fields | Manual |
+| `/user:gsd-t-backlog-remove` | Drop item with optional reason | Manual |
+| `/user:gsd-t-backlog-promote` | Refine, classify, launch GSD-T workflow | Manual |
+| `/user:gsd-t-backlog-settings` | Manage types, apps, categories, defaults | Manual |
+
 ---
 
 ## Workflow Phases
