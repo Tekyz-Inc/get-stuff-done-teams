@@ -3,7 +3,7 @@
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: READY
 ## Date: 2026-02-10
-## Version: 2.20.2
+## Version: 2.20.3
 
 ## Current Milestone
 None — ready for next milestone
@@ -89,6 +89,7 @@ None — ready for next milestone
 - 2026-02-16 14:35: Playwright setup mandatory for all projects. Init installs Playwright + creates config. Playwright Readiness Guard auto-installs before any testing command if missing. v2.20.0
 - 2026-02-16 14:45: Added API Documentation Guard — all APIs must be published in Swagger/OpenAPI, URL in CLAUDE.md + README.md + infrastructure.md. Pre-Commit Gate updated to enforce. v2.20.1
 - 2026-02-16 14:55: Added Playwright + Swagger health checks to CLI update-all and doctor. Scans all registered projects for missing Playwright config and Swagger/OpenAPI specs (when API framework detected). v2.20.2
+- 2026-02-16 17:10: Added Playwright Cleanup rule — kill any app/server processes spawned during Playwright tests after test run completes. Applied to global template and live config. v2.20.3
 
 ## Session Log
 | Date | Session | What was accomplished |

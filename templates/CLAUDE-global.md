@@ -201,6 +201,15 @@ Before any command that involves testing (`gsd-t-execute`, `gsd-t-test-sync`, `g
 
 Playwright must always be ready before any testing occurs. Do not skip this check. Do not defer setup to "later."
 
+### Playwright Cleanup
+
+After Playwright tests finish (pass or fail), **kill any app/server processes that were started for the tests**. Playwright often launches a dev server (via `webServer` config or manually). These processes must not be left running:
+1. Check for any dev server processes spawned during the test run
+2. Kill them (e.g., `npx kill-port`, or terminate the process directly)
+3. Verify the port is free before proceeding
+
+This applies everywhere Playwright tests are executed: execute, test-sync, verify, quick, wave, debug, complete-milestone, and integrate.
+
 ## API Documentation Guard (Swagger/OpenAPI)
 
 **Every API endpoint MUST be documented in a Swagger/OpenAPI spec. No exceptions.**

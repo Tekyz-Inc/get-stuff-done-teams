@@ -2,6 +2,11 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.20.3] - 2026-02-16
+
+### Added
+- **Playwright Cleanup**: After Playwright tests finish, kill any app/server processes that were started for the tests. Prevents orphaned dev servers from lingering after test runs
+
 ## [2.20.2] - 2026-02-16
 
 ### Added
