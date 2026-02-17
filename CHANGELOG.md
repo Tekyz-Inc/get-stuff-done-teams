@@ -2,6 +2,12 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.21.1] - 2026-02-18
+
+### Fixed
+- **PR #7 — Fix 12 scan items**: Security symlink validation gaps, contract/doc alignment, scope template hardening, heartbeat crash guard, progress template field ordering
+- **PR #8 — Resolve final 4 scan items**: Function splitting in CLI (`doInit` helpers extracted), ownership validation for domain files, npm-update-check extracted to standalone script (`scripts/npm-update-check.js`)
+
 ## [2.21.0] - 2026-02-17
 
 ### Added
