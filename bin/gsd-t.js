@@ -575,6 +575,24 @@ function doInit(projectName) {
     }
   }
 
+  // Backlog files
+  const backlogFiles = ["backlog.md", "backlog-settings.md"];
+  for (const file of backlogFiles) {
+    const destPath = path.join(gsdtDir, file);
+    if (isSymlink(destPath)) {
+      warn(`Skipping .gsd-t/${file} — target is a symlink`);
+      continue;
+    }
+    try {
+      const content = fs.readFileSync(path.join(PKG_TEMPLATES, file), "utf8");
+      fs.writeFileSync(destPath, content, { flag: "wx" });
+      success(`.gsd-t/${file}`);
+    } catch (e) {
+      if (e.code === "EEXIST") { info(`.gsd-t/${file} already exists — skipping`); }
+      else { throw e; }
+    }
+  }
+
   // 4. Register in project index
   if (registerProject(projectDir)) {
     success("Registered in ~/.claude/.gsd-t-projects");
@@ -592,6 +610,8 @@ function doInit(projectName) {
   log(`  │   └── infrastructure.md`);
   log(`  └── .gsd-t/`);
   log(`      ├── progress.md`);
+  log(`      ├── backlog.md`);
+  log(`      ├── backlog-settings.md`);
   log(`      ├── contracts/`);
   log(`      └── domains/`);
   log("");
