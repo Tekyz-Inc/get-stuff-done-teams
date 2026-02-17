@@ -52,14 +52,23 @@ If `.gsd-t/progress.md` exists, assess what documentation was affected and updat
 
 ### Skip what's not affected — most quick tasks will only touch 1-2 of these.
 
-## Step 5: Test Verification
+## Step 5: Test & Verify (MANDATORY)
 
-Before committing, verify the change works:
+Quick does not mean skip testing. Before committing:
 
-1. **Update tests**: If the change adds or modifies behavior, update or add tests to cover it
-2. **Run affected tests**: Execute all tests related to the changed files and domain
-3. **Verify passing**: All tests must pass. If any fail, fix before proceeding (up to 2 attempts)
-4. **Run E2E tests**: If the change touched UI, routes, or user flows and an E2E framework exists, run affected specs
-5. **No test framework?**: At minimum, manually verify the change works as expected and document how you verified it in the commit message
+1. **Write/update tests for every new or changed code path**:
+   - Unit tests: happy path + common edge cases + error cases
+   - Playwright E2E specs (if UI/routes/flows/modes changed): create new specs for new functionality, update existing specs for changed behavior
+   - Cover all modes/flags affected by this change
+   - "No feature code without test code" applies to quick tasks too
+2. **Run the FULL test suite** — not just affected tests:
+   - All unit/integration tests
+   - Full Playwright E2E suite (if configured)
+   - Fix any failures before proceeding (up to 2 attempts)
+3. **Verify against requirements**:
+   - Does the change satisfy its intended requirement?
+   - Did the change break any existing functionality? (the full test run catches this)
+   - If a contract exists for the interface touched, does the code still match?
+4. **No test framework?**: Set one up, or at minimum manually verify and document how in the commit message
 
 $ARGUMENTS
