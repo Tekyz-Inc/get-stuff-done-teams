@@ -104,6 +104,10 @@ function ensureDir(dir) {
     fs.mkdirSync(dir, { recursive: true });
     return true;
   }
+  if (isSymlink(dir)) {
+    warn(`Refusing to use symlinked directory: ${dir}`);
+    return false;
+  }
   return false;
 }
 
@@ -773,8 +777,10 @@ function doUninstall() {
   const commands = getInstalledCommands();
   let removed = 0;
   for (const file of commands) {
+    const fp = path.join(COMMANDS_DIR, file);
+    if (isSymlink(fp)) { warn(`Skipping symlink: ${file}`); continue; }
     try {
-      fs.unlinkSync(path.join(COMMANDS_DIR, file));
+      fs.unlinkSync(fp);
       removed++;
     } catch (e) {
       error(`Failed to remove ${file}: ${e.message}`);
@@ -786,7 +792,7 @@ function doUninstall() {
 
   // Remove version file
   try {
-    if (fs.existsSync(VERSION_FILE)) {
+    if (fs.existsSync(VERSION_FILE) && !isSymlink(VERSION_FILE)) {
       fs.unlinkSync(VERSION_FILE);
     }
   } catch (e) {
@@ -1185,8 +1191,10 @@ function checkForUpdates() {
         res.on("end", () => {
           try {
             const v = JSON.parse(d).version;
-            fs.writeFileSync(${JSON.stringify(UPDATE_CHECK_FILE)},
-              JSON.stringify({ latest: v, timestamp: Date.now() }));
+            if (v && /^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9.]+)?$/.test(v)) {
+              fs.writeFileSync(${JSON.stringify(UPDATE_CHECK_FILE)},
+                JSON.stringify({ latest: v, timestamp: Date.now() }));
+            }
           } catch {}
         });
       }).on("error", () => {});

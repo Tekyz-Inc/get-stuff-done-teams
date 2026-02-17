@@ -55,6 +55,8 @@ process.stdin.on("end", () => {
     const event = buildEvent(hook);
     if (event) {
       cleanupOldHeartbeats(gsdtDir);
+      // Symlink check — prevent redirection of event data to arbitrary files
+      try { if (fs.lstatSync(file).isSymbolicLink()) return; } catch { /* file doesn't exist yet — safe */ }
       fs.appendFileSync(file, JSON.stringify(event) + "\n");
     }
   } catch (e) {
@@ -69,7 +71,8 @@ function cleanupOldHeartbeats(gsdtDir) {
     for (const f of files) {
       if (!f.startsWith("heartbeat-") || !f.endsWith(".jsonl")) continue;
       const fp = path.join(gsdtDir, f);
-      const stat = fs.statSync(fp);
+      const stat = fs.lstatSync(fp);
+      if (stat.isSymbolicLink()) continue; // Don't follow symlinks
       if (now - stat.mtimeMs > MAX_AGE_MS) {
         fs.unlinkSync(fp);
       }

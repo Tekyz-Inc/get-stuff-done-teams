@@ -282,7 +282,8 @@ get-stuff-done-teams/
 ├── bin/
 │   └── gsd-t.js                       # CLI installer
 ├── commands/                          # 41 slash commands
-│   ├── gsd-t-*.md                     # 38 GSD-T workflow commands
+│   ├── gsd-t-*.md                     # 37 GSD-T workflow commands
+│   ├── gsd.md                         # GSD-T smart router
 │   ├── branch.md                      # Git branch helper
 │   ├── checkin.md                     # Auto-version + commit/push helper
 │   └── Claude-md.md                   # Reload CLAUDE.md directives

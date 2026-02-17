@@ -2,13 +2,15 @@
 
 ## Project: {Project Name}
 ## Version: 0.1.0
-## Status: INITIALIZED
+## Status: READY
 ## Date: {Date}
 
-## Milestones
-| # | Milestone | Status | Domains |
-|---|-----------|--------|---------|
-| 1 | {TBD} | not started | TBD |
+## Current Milestone
+None — ready for next milestone
+
+## Completed Milestones
+| Milestone | Version | Completed | Tag |
+|-----------|---------|-----------|-----|
 
 ## Domains
 | Domain | Status | Tasks | Completed |
