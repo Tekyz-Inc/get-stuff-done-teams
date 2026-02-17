@@ -95,6 +95,7 @@ None — ready for next milestone
 - 2026-02-16 17:35: Merged 3 branches from Gayathri: stale count fixes (CLAUDE.md), doc ripple sections (4 commands), quality polish (CLI refactoring, CRLF fix, heartbeat cleanup, error handling). v2.20.6
 - 2026-02-17 12:25: Merged contracts-td023 branch — 5 formal contract definitions for core GSD-T interfaces (backlog formats, domain structure, pre-commit gate, progress format, wave phases). v2.20.7
 - 2026-02-17 12:35: Added gsd-t-triage-and-merge command — auto-reviews unmerged GitHub branches, scores impact (auto-merge/review/skip), merges safe branches, and optionally publishes. Publish gate respects autonomy level (auto in Level 3, prompted in Level 1-2). Updated all 4 reference files + command counts. v2.21.0
+- 2026-02-18 14:00: Re-initialized project — created missing backlog-settings.md, 4 living docs (requirements, architecture, workflows, infrastructure). Backlog settings auto-derived from CLAUDE.md.
 
 ## Session Log
 | Date | Session | What was accomplished |
