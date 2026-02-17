@@ -2,13 +2,14 @@
 
 ## Summary
 - Critical items: 0
-- High priority: 5
-- Medium priority: 8
+- High priority: 1
+- Medium priority: 5
 - Low priority: 9
-- Total estimated effort: ~3-4 focused sessions
+- Total estimated effort: ~2-3 focused sessions
 
 ### Previous Scan Resolution Rate
 9 of 13 original items resolved since first scan (2026-02-07). 4 partially or still open.
+Additionally, 5 items from second scan resolved via Contract & Doc Alignment milestone (2026-02-18).
 
 ---
 
@@ -42,38 +43,14 @@ Items that should be addressed in the next 1-2 milestones.
 - **Milestone candidate**: YES — standalone milestone
 - **Promoted**: [ ]
 
-### TD-014: Backlog File Format Drift from Contract
-- **Category**: quality
-- **Severity**: HIGH
-- **Location**: `.gsd-t/backlog.md` vs `.gsd-t/contracts/backlog-file-formats.md`
-- **Description**: Live backlog uses `B1` position prefix instead of integer `1`, missing `App` field, extra `Priority` field, different field layout (newlines vs pipe-delimited). Any backlog command parsing the contract format will fail on the live file.
-- **Impact**: Backlog commands may produce incorrect results or fail to parse entries.
-- **Remediation**: Rewrite `.gsd-t/backlog.md` to match contract format, or update contract to match current format. Recommend rewriting live file since commands are coded to the contract.
-- **Effort**: small
-- **Milestone candidate**: NO — fix immediately
-- **Promoted**: [ ]
+### TD-014: Backlog File Format Drift from Contract — RESOLVED
+- **Resolution**: Reformatted backlog.md to match contract (integer positions, App field, pipe-delimited metadata). Fixed 2026-02-18.
 
-### TD-015: Progress.md Format Drift from Contract
-- **Category**: quality
-- **Severity**: HIGH
-- **Location**: `.gsd-t/progress.md` vs `.gsd-t/contracts/progress-file-format.md`
-- **Description**: Header field order differs (live: Project/Status/Date/Version; contract: Project/Version/Status/Date). Completed Milestones table has extra `#` column not in contract. Missing `## Blockers` section entirely.
-- **Impact**: Commands parsing progress.md by position may misread fields.
-- **Remediation**: Reorder header to match contract, add missing Blockers section, remove `#` column or update contract.
-- **Effort**: small
-- **Milestone candidate**: NO — fix immediately
-- **Promoted**: [ ]
+### TD-015: Progress.md Format Drift from Contract — RESOLVED
+- **Resolution**: Fixed header order (Project/Version/Status/Date), removed # column from milestones table, added ## Blockers section. Fixed 2026-02-18.
 
-### TD-016: 7 Backlog Commands Missing from GSD-T-README
-- **Category**: quality
-- **Severity**: HIGH
-- **Location**: `docs/GSD-T-README.md`
-- **Description**: The entire Backlog Management section is missing from GSD-T-README.md. All other 3 reference files (README, gsd-t-help, CLAUDE-global template) include all 7 backlog commands. Violates Pre-Commit Gate rule.
-- **Impact**: Users consulting GSD-T-README don't see backlog commands exist.
-- **Remediation**: Add Backlog Management section to GSD-T-README.md matching the other 3 reference files.
-- **Effort**: small
-- **Milestone candidate**: NO — fix immediately
-- **Promoted**: [ ]
+### TD-016: 7 Backlog Commands Missing from GSD-T-README — RESOLVED
+- **Resolution**: Added Backlog Management section with all 7 commands to GSD-T-README.md. Fixed 2026-02-18.
 
 ### TD-017: doUpdateAll() No Per-Project Error Isolation
 - **Category**: quality
@@ -91,16 +68,8 @@ Items that should be addressed in the next 1-2 milestones.
 ## Medium Priority
 Items to plan for but not urgent.
 
-### TD-018: Heartbeat JSONL Files Not in .gitignore
-- **Category**: security
-- **Severity**: MEDIUM
-- **Location**: `.gitignore`, templates
-- **Description**: Heartbeat files (`.gsd-t/heartbeat-*.jsonl`) are not excluded from git. Two are currently tracked in this repo. They contain session telemetry (file paths, bash commands, search queries) that should not be in version control.
-- **Impact**: Sensitive session data exposed in repo history.
-- **Remediation**: Add `.gsd-t/heartbeat-*.jsonl` to `.gitignore`, remove tracked files from git, add pattern to init templates.
-- **Effort**: small
-- **Milestone candidate**: NO — fix immediately
-- **Promoted**: [ ]
+### TD-018: Heartbeat JSONL Files Not in .gitignore — RESOLVED
+- **Resolution**: Added pattern to .gitignore, removed 2 tracked files with git rm --cached. Fixed 2026-02-18.
 
 ### TD-019: Heartbeat Sensitive Data in Bash Commands
 - **Category**: security
@@ -134,27 +103,11 @@ Items to plan for but not urgent.
 - **Milestone candidate**: NO — fold into quality improvements
 - **Promoted**: [ ]
 
-### TD-022: Stale Command Counts Across Reference Files
-- **Category**: quality
-- **Severity**: MEDIUM
-- **Location**: `CLAUDE.md`, `docs/architecture.md`, `docs/workflows.md`, `docs/infrastructure.md`
-- **Description**: Multiple files say "41 commands" or "37 GSD-T workflow" when actual count is 42 total (38 gsd-t-* + 4 utility). The triage-and-merge addition in v2.21.0 was not propagated to all reference points.
-- **Impact**: Misleading documentation; count validation failures in doctor/status.
-- **Remediation**: Update all files to 42 total, 38 GSD-T workflow, 4 utility.
-- **Effort**: small
-- **Milestone candidate**: NO — fix immediately
-- **Promoted**: [ ]
+### TD-022: Stale Command Counts Across Reference Files — RESOLVED
+- **Resolution**: All reference files updated to 42 total (38 GSD-T + 4 utility) during scan living doc updates. Fixed 2026-02-18.
 
-### TD-023: CLAUDE.md Version/Count Drift
-- **Category**: quality
-- **Severity**: MEDIUM
-- **Location**: `CLAUDE.md` lines 34-35, 55
-- **Description**: Project structure section says "41 slash commands" (should be 42), "37 GSD-T workflow commands" (should be 38), and "package.json — npm package config (v2.20.5)" (should be v2.21.1).
-- **Impact**: CLAUDE.md is the primary instruction file — stale data misleads Claude and users.
-- **Remediation**: Update counts and version. Consider removing version from structure description (it always drifts).
-- **Effort**: small
-- **Milestone candidate**: NO — fix immediately
-- **Promoted**: [ ]
+### TD-023: CLAUDE.md Version/Count Drift — RESOLVED
+- **Resolution**: CLAUDE.md updated to 42/38 counts and v2.21.1 version during scan. Fixed 2026-02-18.
 
 ### TD-024: Heartbeat Cleanup Runs on Every Event
 - **Category**: performance
@@ -270,17 +223,14 @@ Estimated effort: 2 sessions
 Should be prioritized: BEFORE next feature milestone
 Description: Add Node.js built-in test runner suite. 20+ tests covering CLI subcommands, helper functions, detection functions, and integration paths.
 
-### Suggested: Contract & Doc Alignment (High)
-Combines: TD-014, TD-015, TD-016, TD-022, TD-023
-Estimated effort: 1 session
-Should be prioritized: IMMEDIATELY — format drift causes command failures
-Description: Fix backlog/progress format drift from contracts. Add missing backlog commands to GSD-T-README. Fix all stale command counts and version references.
+### COMPLETED: Contract & Doc Alignment (High) — 2026-02-18
+Resolved: TD-014, TD-015, TD-016, TD-018, TD-022, TD-023
 
 ### Suggested: Security Hardening (Medium)
-Combines: TD-018, TD-019, TD-020, TD-026, TD-027, TD-028
+Combines: TD-019, TD-020, TD-026, TD-027, TD-028
 Estimated effort: 1 session
 Can be scheduled: BEFORE next npm publish
-Description: Heartbeat .gitignore, bash command scrubbing, npm-update-check path validation, symlink checks, HTTP response limits.
+Description: Bash command scrubbing, npm-update-check path validation, symlink checks, HTTP response limits.
 
 ### Suggested: CLI Quality Improvement (Medium)
 Combines: TD-017, TD-021, TD-024, TD-025, TD-033, TD-034
@@ -305,4 +255,4 @@ Description: Add Autonomy Behavior sections, renumber fractional steps, refactor
 - Scan mode: Team (5 parallel agents: architecture, business-rules, security, quality, contracts)
 - Previous items resolved: 9 of 13
 - New items found: 21
-- Total open items: 22 (0 critical, 5 high, 8 medium, 9 low)
+- Total open items: 15 (0 critical, 1 high, 5 medium, 9 low) — 7 resolved by Contract & Doc Alignment milestone

@@ -2,7 +2,7 @@
 
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Version: 2.21.1
-## Status: EXECUTED
+## Status: VERIFIED
 ## Date: 2026-02-18
 
 ## Current Milestone
@@ -105,6 +105,7 @@ Contract & Doc Alignment (Tech Debt Fix)
 - 2026-02-18 16:00: Full codebase scan (5 parallel agents). 9 of 13 original items resolved. 22 total open items (0 critical, 5 high, 8 medium, 9 low). Key findings: backlog/progress format drift from contracts, 7 backlog commands missing from GSD-T-README, stale command counts (41→42), no automated tests. Updated all living docs (architecture, workflows, infrastructure, requirements, README, CLAUDE.md). Fixed CLAUDE.md stale counts (41→42, 37→38, v2.20.5→v2.21.1).
 - 2026-02-18 16:30: Planned Contract & Doc Alignment milestone — 5 independent tasks in 1 domain (doc-alignment): gitignore heartbeat, backlog format fix, progress format fix, GSD-T-README backlog section, stale count fixes. Solo sequential mode.
 - 2026-02-18 17:00: Executed Contract & Doc Alignment milestone — 5/5 tasks complete. Task 1: added heartbeat to .gitignore + removed tracked files. Task 2: reformatted backlog.md to contract spec. Task 3: fixed progress.md header order + milestones table + added Blockers section. Task 4: added 7 backlog commands to GSD-T-README.md. Task 5: verified stale counts already fixed during scan.
+- 2026-02-18 17:15: Verified all 5 fixes against contracts — backlog.md matches backlog-file-formats.md, progress.md matches progress-file-format.md, GSD-T-README has all 7 backlog commands, all docs show 42/38 counts. Marked 6 tech debt items resolved (TD-014, TD-015, TD-016, TD-018, TD-022, TD-023). Open items: 15 (was 22).
 
 ## Session Log
 | Date | Session | What was accomplished |
