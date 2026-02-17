@@ -44,8 +44,8 @@ For each task:
 8. **Run ALL tests** — unit, integration, and full Playwright suite. Fix any failures before proceeding (up to 2 attempts)
 9. Run the Pre-Commit Gate checklist from CLAUDE.md — update ALL affected docs BEFORE committing
 10. Commit with a descriptive message: `[{domain}] Task {N}: {description}`
-10. Update `.gsd-t/progress.md` — mark task complete
-11. If you've reached a CHECKPOINT in integration-points.md, pause and verify the contract before continuing
+11. Update `.gsd-t/progress.md` — mark task complete
+12. If you've reached a CHECKPOINT in integration-points.md, pause and verify the contract before continuing
 
 ### Team Mode (when agent teams are enabled)
 Spawn teammates for independent domains:
@@ -142,5 +142,18 @@ When all tasks in all domains are complete:
 **Level 3 (Full Auto)**: Log a brief status line (e.g., "✅ Execute complete — {N}/{N} tasks done") and auto-advance to the next phase. Do NOT wait for user input.
 
 **Level 1–2**: Report completion summary and recommend proceeding to integrate phase. Wait for confirmation.
+
+## Document Ripple
+
+Execute modifies source code, so the Pre-Commit Gate (referenced in Step 9) covers document updates. For clarity, the key documents affected by execution:
+
+### Always update:
+1. **`.gsd-t/progress.md`** — Mark tasks complete, update domain status, log execution summary
+
+### Check if affected (per task):
+2. **`.gsd-t/contracts/`** — Did a task change an API endpoint, schema, or component interface? Update the contract
+3. **`docs/requirements.md`** — Did a task implement or change a requirement? Mark it complete or revise
+4. **`docs/architecture.md`** — Did a task add/change a component or data flow? Update it
+5. **`.gsd-t/techdebt.md`** — Did a task resolve a debt item? Mark it done. Did it reveal new debt? Add it
 
 $ARGUMENTS

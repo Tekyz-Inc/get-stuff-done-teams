@@ -157,4 +157,15 @@ Update `.gsd-t/progress.md`:
 - CONDITIONAL PASS → User decides if warnings are acceptable
 - FAIL → Return to execute phase for remediation tasks
 
+## Document Ripple
+
+### Always update:
+1. **`.gsd-t/progress.md`** — Set status to VERIFIED/VERIFY-FAILED, log verification summary
+2. **`.gsd-t/verify-report.md`** — Created with full verification results (Step 4)
+
+### Check if affected:
+3. **`.gsd-t/domains/{domain}/tasks.md`** — If remediation tasks were created (Step 5)
+4. **`.gsd-t/techdebt.md`** — If verification found new quality or security issues, add as debt
+5. **`docs/requirements.md`** — If verification revealed unmet requirements, update status
+
 $ARGUMENTS

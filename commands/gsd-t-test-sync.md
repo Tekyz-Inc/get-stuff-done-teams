@@ -317,4 +317,15 @@ Generated 5 test tasks → added to current domain
 
 **Level 1–2**: Present the full report and wait for user input before proceeding.
 
+## Document Ripple
+
+### Always update:
+1. **`.gsd-t/progress.md`** — Log test sync results in Decision Log (standalone mode)
+2. **`.gsd-t/test-coverage.md`** — Created/updated with coverage report (Step 5)
+
+### Check if affected:
+3. **`docs/requirements.md`** — If test tasks map to requirements, update the Test Coverage table
+4. **`.gsd-t/domains/{current}/tasks.md`** — If test tasks were generated, append them (Step 6)
+5. **`.gsd-t/techdebt.md`** — If persistent test gaps were found, add as debt items
+
 $ARGUMENTS

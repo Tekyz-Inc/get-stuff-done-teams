@@ -1,3 +1,5 @@
+# Reload CLAUDE.md Directives
+
 Reload and apply CLAUDE.md directives for this session.
 
 1. Read `~/.claude/CLAUDE.md` (global directives). Note any changes from what you've been following.
