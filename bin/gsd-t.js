@@ -18,7 +18,7 @@
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
-const { execSync } = require("child_process");
+const { execFileSync, spawn: cpSpawn } = require("child_process");
 
 // ─── Configuration ───────────────────────────────────────────────────────────
 
@@ -85,7 +85,35 @@ function ensureDir(dir) {
   return false;
 }
 
+function isSymlink(filePath) {
+  try {
+    return fs.lstatSync(filePath).isSymbolicLink();
+  } catch {
+    return false; // File doesn't exist yet — safe to write
+  }
+}
+
+function validateProjectName(name) {
+  return /^[a-zA-Z0-9][a-zA-Z0-9._\- ]{0,100}$/.test(name);
+}
+
+function validateVersion(ver) {
+  return /^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?$/.test(ver);
+}
+
+function validateProjectPath(p) {
+  try {
+    return path.isAbsolute(p) && fs.existsSync(p) && fs.statSync(p).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
 function copyFile(src, dest, label) {
+  if (isSymlink(dest)) {
+    warn(`Skipping symlink target: ${dest}`);
+    return;
+  }
   fs.copyFileSync(src, dest);
   success(label || path.basename(dest));
 }
@@ -163,6 +191,10 @@ function getInstalledVersion() {
 }
 
 function saveInstalledVersion() {
+  if (isSymlink(VERSION_FILE)) {
+    warn("Skipping version write — target is a symlink");
+    return;
+  }
   fs.writeFileSync(VERSION_FILE, PKG_VERSION);
 }
 
@@ -170,7 +202,14 @@ function getRegisteredProjects() {
   try {
     const content = fs.readFileSync(PROJECTS_FILE, "utf8").trim();
     if (!content) return [];
-    return content.split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));
+    const lines = content.split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));
+    return lines.filter((p) => {
+      if (!validateProjectPath(p)) {
+        warn(`Skipping invalid project path: ${p}`);
+        return false;
+      }
+      return true;
+    });
   } catch {
     return [];
   }
@@ -180,6 +219,10 @@ function registerProject(projectDir) {
   const resolved = path.resolve(projectDir);
   const projects = getRegisteredProjects();
   if (projects.includes(resolved)) return false;
+  if (isSymlink(PROJECTS_FILE)) {
+    warn("Skipping project registration — target is a symlink");
+    return false;
+  }
   projects.push(resolved);
   fs.writeFileSync(PROJECTS_FILE, projects.join("\n") + "\n");
   return true;
@@ -282,7 +325,11 @@ function configureHeartbeatHooks(scriptPath) {
   }
 
   if (added > 0) {
-    fs.writeFileSync(SETTINGS_JSON, JSON.stringify(settings, null, 2));
+    if (isSymlink(SETTINGS_JSON)) {
+      warn("Skipping settings.json write — target is a symlink");
+    } else {
+      fs.writeFileSync(SETTINGS_JSON, JSON.stringify(settings, null, 2));
+    }
   }
 
   return added;
@@ -349,7 +396,11 @@ function doInstall(opts = {}) {
         } else {
           // Backup and replace, warn about customizations
           const backupPath = GLOBAL_CLAUDE_MD + ".backup-" + Date.now();
-          fs.copyFileSync(GLOBAL_CLAUDE_MD, backupPath);
+          if (isSymlink(backupPath)) {
+            warn("Skipping backup — target is a symlink");
+          } else {
+            fs.copyFileSync(GLOBAL_CLAUDE_MD, backupPath);
+          }
           copyFile(globalSrc, GLOBAL_CLAUDE_MD, "CLAUDE.md updated");
           warn(`Previous version backed up to ${path.basename(backupPath)}`);
           info("Review the backup if you had custom additions to merge back in.");
@@ -360,11 +411,15 @@ function doInstall(opts = {}) {
       }
     } else {
       // Existing CLAUDE.md without GSD-T — append
-      const gsdtContent = fs.readFileSync(globalSrc, "utf8");
-      const separator = "\n\n# ─── GSD-T Section (added by installer) ───\n\n";
-      fs.appendFileSync(GLOBAL_CLAUDE_MD, separator + gsdtContent);
-      success("GSD-T config appended to existing CLAUDE.md");
-      info("Your existing content was preserved.");
+      if (isSymlink(GLOBAL_CLAUDE_MD)) {
+        warn("Skipping CLAUDE.md append — target is a symlink");
+      } else {
+        const gsdtContent = fs.readFileSync(globalSrc, "utf8");
+        const separator = "\n\n# ─── GSD-T Section (added by installer) ───\n\n";
+        fs.appendFileSync(GLOBAL_CLAUDE_MD, separator + gsdtContent);
+        success("GSD-T config appended to existing CLAUDE.md");
+        info("Your existing content was preserved.");
+      }
     }
   } else {
     copyFile(globalSrc, GLOBAL_CLAUDE_MD, "CLAUDE.md installed → ~/.claude/CLAUDE.md");
@@ -425,6 +480,12 @@ function doInit(projectName) {
     projectName = path.basename(process.cwd());
   }
 
+  if (!validateProjectName(projectName)) {
+    error(`Invalid project name: "${projectName}"`);
+    info("Project names must start with a letter or number and contain only letters, numbers, dots, hyphens, underscores, or spaces (max 101 chars)");
+    return;
+  }
+
   heading(`Initializing GSD-T project: ${projectName}`);
   log("");
 
@@ -432,19 +493,25 @@ function doInit(projectName) {
 
   // 1. Create project CLAUDE.md
   const claudeMdPath = path.join(projectDir, "CLAUDE.md");
-  if (fs.existsSync(claudeMdPath)) {
-    const content = fs.readFileSync(claudeMdPath, "utf8");
-    if (content.includes("GSD-T Workflow")) {
-      info("CLAUDE.md already contains GSD-T section — skipping");
-    } else {
-      warn("CLAUDE.md exists but doesn't reference GSD-T");
-      info("Run /user:gsd-t-init inside Claude Code to add GSD-T section");
-    }
+  if (isSymlink(claudeMdPath)) {
+    warn("Skipping CLAUDE.md — target is a symlink");
   } else {
-    const template = fs.readFileSync(path.join(PKG_TEMPLATES, "CLAUDE-project.md"), "utf8");
-    const content = template.replace(/\{Project Name\}/g, projectName);
-    fs.writeFileSync(claudeMdPath, content);
-    success("CLAUDE.md created");
+    try {
+      const template = fs.readFileSync(path.join(PKG_TEMPLATES, "CLAUDE-project.md"), "utf8");
+      const content = template.replace(/\{Project Name\}/g, projectName);
+      fs.writeFileSync(claudeMdPath, content, { flag: "wx" });
+      success("CLAUDE.md created");
+    } catch (e) {
+      if (e.code === "EEXIST") {
+        const content = fs.readFileSync(claudeMdPath, "utf8");
+        if (content.includes("GSD-T Workflow")) {
+          info("CLAUDE.md already contains GSD-T section — skipping");
+        } else {
+          warn("CLAUDE.md exists but doesn't reference GSD-T");
+          info("Run /user:gsd-t-init inside Claude Code to add GSD-T section");
+        }
+      } else { throw e; }
+    }
   }
 
   // 2. Create docs/ with templates
@@ -456,14 +523,19 @@ function doInit(projectName) {
 
   for (const file of docTemplates) {
     const destPath = path.join(docsDir, file);
-    if (fs.existsSync(destPath)) {
-      info(`docs/${file} already exists — skipping`);
-    } else {
+    if (isSymlink(destPath)) {
+      warn(`Skipping docs/${file} — target is a symlink`);
+      continue;
+    }
+    try {
       let content = fs.readFileSync(path.join(PKG_TEMPLATES, file), "utf8");
       content = content.replace(/\{Project Name\}/g, projectName);
       content = content.replace(/\{Date\}/g, today);
-      fs.writeFileSync(destPath, content);
+      fs.writeFileSync(destPath, content, { flag: "wx" });
       success(`docs/${file}`);
+    } catch (e) {
+      if (e.code === "EEXIST") { info(`docs/${file} already exists — skipping`); }
+      else { throw e; }
     }
   }
 
@@ -478,21 +550,47 @@ function doInit(projectName) {
   // .gitkeep files so empty dirs are tracked
   for (const dir of [contractsDir, domainsDir]) {
     const gitkeep = path.join(dir, ".gitkeep");
-    if (!fs.existsSync(gitkeep)) {
-      fs.writeFileSync(gitkeep, "");
+    if (isSymlink(gitkeep)) continue;
+    try {
+      fs.writeFileSync(gitkeep, "", { flag: "wx" });
+    } catch (e) {
+      if (e.code !== "EEXIST") throw e;
     }
   }
 
   // Progress file
   const progressPath = path.join(gsdtDir, "progress.md");
-  if (fs.existsSync(progressPath)) {
-    info(".gsd-t/progress.md already exists — skipping");
+  if (isSymlink(progressPath)) {
+    warn("Skipping progress.md — target is a symlink");
   } else {
-    let content = fs.readFileSync(path.join(PKG_TEMPLATES, "progress.md"), "utf8");
-    content = content.replace(/\{Project Name\}/g, projectName);
-    content = content.replace(/\{Date\}/g, today);
-    fs.writeFileSync(progressPath, content);
-    success(".gsd-t/progress.md");
+    try {
+      let content = fs.readFileSync(path.join(PKG_TEMPLATES, "progress.md"), "utf8");
+      content = content.replace(/\{Project Name\}/g, projectName);
+      content = content.replace(/\{Date\}/g, today);
+      fs.writeFileSync(progressPath, content, { flag: "wx" });
+      success(".gsd-t/progress.md");
+    } catch (e) {
+      if (e.code === "EEXIST") { info(".gsd-t/progress.md already exists — skipping"); }
+      else { throw e; }
+    }
+  }
+
+  // Backlog files
+  const backlogFiles = ["backlog.md", "backlog-settings.md"];
+  for (const file of backlogFiles) {
+    const destPath = path.join(gsdtDir, file);
+    if (isSymlink(destPath)) {
+      warn(`Skipping .gsd-t/${file} — target is a symlink`);
+      continue;
+    }
+    try {
+      const content = fs.readFileSync(path.join(PKG_TEMPLATES, file), "utf8");
+      fs.writeFileSync(destPath, content, { flag: "wx" });
+      success(`.gsd-t/${file}`);
+    } catch (e) {
+      if (e.code === "EEXIST") { info(`.gsd-t/${file} already exists — skipping`); }
+      else { throw e; }
+    }
   }
 
   // 4. Register in project index
@@ -512,6 +610,8 @@ function doInit(projectName) {
   log(`  │   └── infrastructure.md`);
   log(`  └── .gsd-t/`);
   log(`      ├── progress.md`);
+  log(`      ├── backlog.md`);
+  log(`      ├── backlog-settings.md`);
   log(`      ├── contracts/`);
   log(`      └── domains/`);
   log("");
@@ -747,29 +847,37 @@ function doUpdateAll() {
         newContent = content + guardSection;
       }
 
-      fs.writeFileSync(claudeMd, newContent);
-      success(`${projectName} — added Destructive Action Guard`);
-      projectUpdated = true;
+      if (isSymlink(claudeMd)) {
+        warn(`${projectName} — skipping CLAUDE.md write (symlink)`);
+      } else {
+        fs.writeFileSync(claudeMd, newContent);
+        success(`${projectName} — added Destructive Action Guard`);
+        projectUpdated = true;
+      }
     }
 
     // Create CHANGELOG.md if it doesn't exist
     const changelogPath = path.join(projectDir, "CHANGELOG.md");
-    if (!fs.existsSync(changelogPath)) {
-      const today = new Date().toISOString().split("T")[0];
-      const changelogContent = [
-        "# Changelog",
-        "",
-        "All notable changes to this project are documented here.",
-        "",
-        `## [0.1.0] - ${today}`,
-        "",
-        "### Added",
-        "- Initial changelog created by GSD-T",
-        "",
-      ].join("\n");
-      fs.writeFileSync(changelogPath, changelogContent);
-      success(`${projectName} — created CHANGELOG.md`);
-      projectUpdated = true;
+    if (!isSymlink(changelogPath)) {
+      try {
+        const today = new Date().toISOString().split("T")[0];
+        const changelogContent = [
+          "# Changelog",
+          "",
+          "All notable changes to this project are documented here.",
+          "",
+          `## [0.1.0] - ${today}`,
+          "",
+          "### Added",
+          "- Initial changelog created by GSD-T",
+          "",
+        ].join("\n");
+        fs.writeFileSync(changelogPath, changelogContent, { flag: "wx" });
+        success(`${projectName} — created CHANGELOG.md`);
+        projectUpdated = true;
+      } catch (e) {
+        if (e.code !== "EEXIST") throw e;
+      }
     }
 
     if (projectUpdated) {
@@ -846,7 +954,7 @@ function doDoctor() {
 
   // 2. Claude Code installed?
   try {
-    const claudeVersion = execSync("claude --version 2>&1", { encoding: "utf8" }).trim();
+    const claudeVersion = execFileSync("claude", ["--version"], { encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }).trim();
     success(`Claude Code: ${claudeVersion}`);
   } catch {
     warn("Claude Code CLI not found in PATH");
@@ -1009,7 +1117,7 @@ function checkForUpdates() {
   } catch { /* ignore corrupt cache */ }
 
   // Show notice from cache if a newer version is available
-  if (cached && cached.latest && isNewerVersion(cached.latest, PKG_VERSION)) {
+  if (cached && cached.latest && validateVersion(cached.latest) && isNewerVersion(cached.latest, PKG_VERSION)) {
     showUpdateNotice(cached.latest);
   }
 
@@ -1018,11 +1126,12 @@ function checkForUpdates() {
   if (!cached && isStale) {
     // No cache at all — fetch synchronously so first run shows notification
     try {
-      const result = execSync(
-        `${process.execPath} -e "const h=require('https');h.get('https://registry.npmjs.org/@tekyzinc/gsd-t/latest',{timeout:5000},(r)=>{let d='';r.on('data',(c)=>d+=c);r.on('end',()=>{try{process.stdout.write(JSON.parse(d).version)}catch{}})}).on('error',()=>{})"`,
+      const fetchScript = "const h=require('https');h.get('https://registry.npmjs.org/@tekyzinc/gsd-t/latest',{timeout:5000},(r)=>{let d='';r.on('data',(c)=>d+=c);r.on('end',()=>{try{process.stdout.write(JSON.parse(d).version)}catch{}})}).on('error',()=>{})";
+      const result = execFileSync(
+        process.execPath, ["-e", fetchScript],
         { timeout: 8000, encoding: "utf8" }
       ).trim();
-      if (result) {
+      if (result && validateVersion(result) && !isSymlink(UPDATE_CHECK_FILE)) {
         fs.writeFileSync(UPDATE_CHECK_FILE,
           JSON.stringify({ latest: result, timestamp: Date.now() }));
         if (isNewerVersion(result, PKG_VERSION)) {
@@ -1068,11 +1177,14 @@ function showUpdateNotice(latest) {
 }
 
 function doChangelog() {
-  const openCmd =
-    process.platform === "win32" ? "start" :
-    process.platform === "darwin" ? "open" : "xdg-open";
   try {
-    execSync(`${openCmd} ${CHANGELOG_URL}`, { stdio: "ignore" });
+    if (process.platform === "win32") {
+      // "start" is a cmd built-in — must go through cmd.exe, but with safe array args
+      execFileSync("cmd", ["/c", "start", "", CHANGELOG_URL], { stdio: "ignore" });
+    } else {
+      const openCmd = process.platform === "darwin" ? "open" : "xdg-open";
+      execFileSync(openCmd, [CHANGELOG_URL], { stdio: "ignore" });
+    }
     success(`Opened changelog in browser`);
   } catch {
     // Fallback: print the URL
