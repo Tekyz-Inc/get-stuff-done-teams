@@ -90,6 +90,70 @@ function copyFile(src, dest, label) {
   success(label || path.basename(dest));
 }
 
+function hasPlaywright(projectDir) {
+  const configs = ["playwright.config.ts", "playwright.config.js", "playwright.config.mjs"];
+  return configs.some((f) => fs.existsSync(path.join(projectDir, f)));
+}
+
+function hasSwagger(projectDir) {
+  // Check for OpenAPI/Swagger spec files
+  const specFiles = [
+    "swagger.json", "swagger.yaml", "swagger.yml",
+    "openapi.json", "openapi.yaml", "openapi.yml",
+  ];
+  if (specFiles.some((f) => fs.existsSync(path.join(projectDir, f)))) return true;
+
+  // Check package.json for swagger dependencies
+  const pkgPath = path.join(projectDir, "package.json");
+  if (fs.existsSync(pkgPath)) {
+    try {
+      const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
+      const allDeps = Object.keys(pkg.dependencies || {}).concat(Object.keys(pkg.devDependencies || {}));
+      const swaggerPkgs = ["swagger-jsdoc", "swagger-ui-express", "@fastify/swagger", "@nestjs/swagger", "swagger-ui", "express-openapi-validator"];
+      if (swaggerPkgs.some((p) => allDeps.includes(p))) return true;
+    } catch { /* ignore */ }
+  }
+
+  // Check for Python FastAPI (has built-in OpenAPI)
+  const pyFiles = ["requirements.txt", "pyproject.toml"];
+  for (const f of pyFiles) {
+    const fp = path.join(projectDir, f);
+    if (fs.existsSync(fp)) {
+      try {
+        const content = fs.readFileSync(fp, "utf8");
+        if (content.includes("fastapi")) return true;
+      } catch { /* ignore */ }
+    }
+  }
+
+  return false;
+}
+
+function hasApi(projectDir) {
+  // Quick check: does this project likely have API endpoints?
+  const pkgPath = path.join(projectDir, "package.json");
+  if (fs.existsSync(pkgPath)) {
+    try {
+      const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
+      const allDeps = Object.keys(pkg.dependencies || {}).concat(Object.keys(pkg.devDependencies || {}));
+      const apiFrameworks = ["express", "fastify", "hono", "koa", "hapi", "@nestjs/core", "next"];
+      if (apiFrameworks.some((p) => allDeps.includes(p))) return true;
+    } catch { /* ignore */ }
+  }
+  // Check for Python API frameworks
+  const pyFiles = ["requirements.txt", "pyproject.toml"];
+  for (const f of pyFiles) {
+    const fp = path.join(projectDir, f);
+    if (fs.existsSync(fp)) {
+      try {
+        const content = fs.readFileSync(fp, "utf8");
+        if (content.includes("fastapi") || content.includes("flask") || content.includes("django")) return true;
+      } catch { /* ignore */ }
+    }
+  }
+  return false;
+}
+
 function getInstalledVersion() {
   try {
     return fs.readFileSync(VERSION_FILE, "utf8").trim();
@@ -716,6 +780,37 @@ function doUpdateAll() {
     }
   }
 
+  // Health check: Playwright and Swagger across all projects
+  heading("Project Health");
+  let playwrightMissing = [];
+  let swaggerMissing = [];
+
+  for (const projectDir of projects) {
+    if (!fs.existsSync(projectDir)) continue;
+    const name = path.basename(projectDir);
+
+    if (!hasPlaywright(projectDir)) {
+      playwrightMissing.push(name);
+    }
+
+    if (hasApi(projectDir) && !hasSwagger(projectDir)) {
+      swaggerMissing.push(name);
+    }
+  }
+
+  if (playwrightMissing.length === 0 && swaggerMissing.length === 0) {
+    success("All projects have Playwright and Swagger configured");
+  } else {
+    if (playwrightMissing.length > 0) {
+      warn(`Playwright missing: ${playwrightMissing.join(", ")}`);
+      info("Playwright will be auto-installed when you run a GSD-T command in each project");
+    }
+    if (swaggerMissing.length > 0) {
+      warn(`Swagger/OpenAPI missing (API detected): ${swaggerMissing.join(", ")}`);
+      info("Swagger will be auto-configured when an API endpoint is created or modified");
+    }
+  }
+
   // Summary
   log("");
   heading("Update All Complete");
@@ -724,6 +819,12 @@ function doUpdateAll() {
   log(`  Already current:     ${skipped}`);
   if (missing > 0) {
     log(`  Not found:           ${missing}`);
+  }
+  if (playwrightMissing.length > 0) {
+    log(`  Missing Playwright:  ${playwrightMissing.length}`);
+  }
+  if (swaggerMissing.length > 0) {
+    log(`  Missing Swagger:     ${swaggerMissing.length}`);
   }
   log("");
 }
@@ -804,7 +905,30 @@ function doDoctor() {
     info("No settings.json (not required)");
   }
 
-  // 7. Check for encoding issues in command files
+  // 7. Playwright check (current project)
+  const cwd = process.cwd();
+  if (hasPlaywright(cwd)) {
+    success("Playwright configured");
+  } else {
+    warn("Playwright not configured in this project");
+    info("Will be auto-installed when you run a GSD-T testing command");
+    issues++;
+  }
+
+  // 8. Swagger/OpenAPI check (current project)
+  if (hasApi(cwd)) {
+    if (hasSwagger(cwd)) {
+      success("Swagger/OpenAPI configured");
+    } else {
+      warn("API framework detected but no Swagger/OpenAPI spec found");
+      info("Will be auto-configured when an API endpoint is created or modified");
+      issues++;
+    }
+  } else {
+    info("No API framework detected (Swagger check skipped)");
+  }
+
+  // 9. Check for encoding issues in command files
   let encodingIssues = 0;
   for (const file of installed) {
     const content = fs.readFileSync(path.join(COMMANDS_DIR, file), "utf8");

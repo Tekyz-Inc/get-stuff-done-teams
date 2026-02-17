@@ -2,6 +2,14 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.20.2] - 2026-02-16
+
+### Added
+- **CLI health checks**: `update-all` and `doctor` now check all projects for missing Playwright and Swagger/OpenAPI
+- Smart API detection: scans `package.json`, `requirements.txt`, `pyproject.toml` for API frameworks (Express, Fastify, Hono, Django, FastAPI, etc.)
+- Swagger detection: checks for spec files (`openapi.json/yaml`, `swagger.json/yaml`) and swagger packages in dependencies
+- Health summary in `update-all` shows counts of missing Playwright and Swagger across all registered projects
+
 ## [2.20.1] - 2026-02-16
 
 ### Added
