@@ -55,6 +55,7 @@ UTILITIES                                                              Manual
   log                 Sync progress Decision Log with recent git activity
   version-update      Update GSD-T package to latest version
   version-update-all  Update GSD-T package + all registered projects
+  triage-and-merge    Auto-review, merge, and publish GitHub branches
 
 BACKLOG                                                                Manual
 ───────────────────────────────────────────────────────────────────────────────
@@ -302,6 +303,13 @@ Use these when user asks for help on a specific command:
 - **Files**: `.gsd-t/progress.md`, git history
 - **Use when**: Progress.md Decision Log is behind — catches up by scanning git commits since the last logged entry
 - **Features**: Incremental updates, first-time full reconstruction from git history, groups same-day changes
+
+### triage-and-merge
+- **Summary**: Auto-review unmerged GitHub branches, merge safe ones, and optionally publish
+- **Auto-invoked**: No
+- **Files**: Reads `CLAUDE.md`, `.gsd-t/progress.md`, `package.json`; updates `package.json`, `.gsd-t/progress.md`, `CHANGELOG.md`
+- **Use when**: Collaborators have pushed branches and you want to batch-review, merge, and publish without manual per-branch ceremony
+- **Features**: 3-tier impact scoring (auto-merge / review / skip), publish gate (auto in Level 3, prompted otherwise), conflict detection, sensitive file detection
 
 ### backlog-add
 - **Summary**: Capture a new backlog item with auto-categorization

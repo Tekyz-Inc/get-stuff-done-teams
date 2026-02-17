@@ -114,6 +114,7 @@ GSD-T reads all state files and tells you exactly where you left off.
 | `/user:gsd-t-log` | Sync progress Decision Log with recent git activity | Manual |
 | `/user:gsd-t-version-update` | Update GSD-T to latest version | Manual |
 | `/user:gsd-t-version-update-all` | Update GSD-T + all registered projects | Manual |
+| `/user:gsd-t-triage-and-merge` | Auto-review, merge, and publish GitHub branches | Manual |
 
 ---
 

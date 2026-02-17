@@ -58,6 +58,7 @@ PROJECT or FEATURE or SCAN
 | `/user:gsd-t-resume` | Restore context, continue |
 | `/user:gsd-t-version-update` | Update GSD-T to latest version |
 | `/user:gsd-t-version-update-all` | Update GSD-T + all registered projects |
+| `/user:gsd-t-triage-and-merge` | Auto-review, merge, and publish GitHub branches |
 | `/user:gsd-t-backlog-add` | Capture item, auto-categorize, append to backlog |
 | `/user:gsd-t-backlog-list` | Filtered, ordered view of backlog items |
 | `/user:gsd-t-backlog-move` | Reorder items by position (priority) |
