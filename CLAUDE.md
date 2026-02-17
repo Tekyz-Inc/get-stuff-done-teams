@@ -31,8 +31,8 @@ Only pause for blockers or project completion. Execute phases continuously.
 
 ```
 bin/gsd-t.js           — CLI installer (9 subcommands)
-commands/              — 41 slash commands for Claude Code
-  gsd-t-*.md           — 37 GSD-T workflow commands
+commands/              — 42 slash commands for Claude Code
+  gsd-t-*.md           — 38 GSD-T workflow commands
   gsd.md               — Smart router (auto-routes user intent)
   branch.md            — Git branch helper
   checkin.md           — Auto-version + commit/push helper
@@ -52,7 +52,7 @@ examples/              — Example project structure and settings
   .gsd-t/              — Example contracts and domain structure
 docs/                  — Methodology documentation
   methodology.md       — GSD → GSD-T evolution and concepts
-package.json           — npm package config (v2.20.5)
+package.json           — npm package config (v2.21.1)
 GSD-T-README.md        — Detailed command reference (ships with package)
 README.md              — User-facing repo/npm docs
 ```

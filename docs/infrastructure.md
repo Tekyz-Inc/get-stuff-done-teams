@@ -12,6 +12,7 @@
 | Update all projects | `npx @tekyzinc/gsd-t update-all` |
 | Diagnose issues | `npx @tekyzinc/gsd-t doctor` |
 | View changelog | `npx @tekyzinc/gsd-t changelog` |
+| Register project | `npx @tekyzinc/gsd-t register` |
 | Publish to npm | `npm publish` |
 
 ## Local Development
@@ -36,9 +37,15 @@ node bin/gsd-t.js doctor
 node bin/gsd-t.js init test-project
 
 # Validate command files exist
-ls commands/*.md | wc -l  # Should be 41
+ls commands/*.md | wc -l  # Should be 42
 ls templates/*.md | wc -l  # Should be 9
 ```
+
+### Scripts
+| Script | Purpose |
+|--------|---------|
+| `scripts/gsd-t-heartbeat.js` | Claude Code hook event logger (JSONL output) |
+| `scripts/npm-update-check.js` | Background npm registry version checker |
 
 ## Distribution
 
@@ -46,27 +53,38 @@ ls templates/*.md | wc -l  # Should be 9
 - **Registry**: https://www.npmjs.com/package/@tekyzinc/gsd-t
 - **Publish**: `npm publish` (requires npm login with Tekyz account)
 - **Version**: Managed in `package.json`, synced to `.gsd-t/progress.md`
+- **Files shipped**: `bin/`, `commands/`, `scripts/`, `templates/`, `examples/`, `docs/`, `CHANGELOG.md`
 
 ### Installed Locations
 | What | Where |
 |------|-------|
-| Slash commands | `~/.claude/commands/` |
+| Slash commands (42 files) | `~/.claude/commands/` |
 | Global config | `~/.claude/CLAUDE.md` |
-| Heartbeat hook | `~/.claude/settings.json` (hooks section) |
-| Version cache | `~/.claude/.gsd-t-version` |
-| Update cache | `~/.claude/.gsd-t-update-cache` |
+| Heartbeat script | `~/.claude/scripts/gsd-t-heartbeat.js` |
+| Hook configuration | `~/.claude/settings.json` (hooks section) |
+| Version file | `~/.claude/.gsd-t-version` |
+| Update cache | `~/.claude/.gsd-t-update-check` |
 | Project registry | `~/.claude/.gsd-t-projects` |
 
 ## Repository Structure
 
 ```
 get-stuff-done-teams/
-├── bin/gsd-t.js        — CLI (zero dependencies)
-├── commands/           — 41 slash command files
+├── bin/gsd-t.js        — CLI installer (~1,300 lines, zero dependencies)
+├── commands/           — 42 slash command files (38 GSD-T + 4 utility)
+├── scripts/            — 2 hook/utility scripts
 ├── templates/          — 9 document templates
-├── scripts/            — Heartbeat hook script
 ├── examples/           — Reference project structure
 ├── docs/               — Methodology + living docs
 ├── .gsd-t/             — GSD-T state (self-managed)
 └── package.json        — npm package config
 ```
+
+## Security Notes
+
+- Zero npm dependencies — no supply chain risk
+- All file writes check for symlinks first
+- Input validation on project names, versions, session IDs, paths
+- Heartbeat stdin capped at 1MB
+- HTTP requests use HTTPS with timeouts
+- Init operations use exclusive file creation (`{ flag: "wx" }`)
