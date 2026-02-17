@@ -42,6 +42,28 @@ const PKG_EXAMPLES = path.join(PKG_ROOT, "examples");
 const PKG_VERSION = require(path.join(PKG_ROOT, "package.json")).version;
 const CHANGELOG_URL = "https://github.com/Tekyz-Inc/get-stuff-done-teams/blob/main/CHANGELOG.md";
 
+// Destructive Action Guard — injected into project CLAUDE.md files by doUpdateAll
+const GUARD_SECTION = [
+  "",
+  "",
+  "# Destructive Action Guard (MANDATORY)",
+  "",
+  "**NEVER perform destructive or structural changes without explicit user approval.** This applies at ALL autonomy levels.",
+  "",
+  "Before any of these actions, STOP and ask the user:",
+  "- DROP TABLE, DROP COLUMN, DROP INDEX, TRUNCATE, DELETE without WHERE",
+  "- Renaming or removing database tables or columns",
+  "- Schema migrations that lose data or break existing queries",
+  "- Replacing an existing architecture pattern (e.g., normalized → denormalized)",
+  "- Removing or replacing existing files/modules that contain working functionality",
+  "- Changing ORM models in ways that conflict with the existing database schema",
+  "- Removing API endpoints or changing response shapes that existing clients depend on",
+  "- Any change that would require other parts of the system to be rewritten",
+  "",
+  '**Rule: "Adapt new code to existing structures, not the other way around."**',
+  "",
+].join("\n");
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 const BOLD = "\x1b[1m";
@@ -97,6 +119,14 @@ function validateProjectName(name) {
   return /^[a-zA-Z0-9][a-zA-Z0-9._\- ]{0,100}$/.test(name);
 }
 
+function applyTokens(content, projectName, date) {
+  return content.replace(/\{Project Name\}/g, projectName).replace(/\{Date\}/g, date);
+}
+
+function normalizeEol(str) {
+  return str.replace(/\r\n/g, "\n");
+}
+
 function validateVersion(ver) {
   return /^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?$/.test(ver);
 }
@@ -114,8 +144,12 @@ function copyFile(src, dest, label) {
     warn(`Skipping symlink target: ${dest}`);
     return;
   }
-  fs.copyFileSync(src, dest);
-  success(label || path.basename(dest));
+  try {
+    fs.copyFileSync(src, dest);
+    success(label || path.basename(dest));
+  } catch (e) {
+    error(`Failed to copy ${label || path.basename(dest)}: ${e.message}`);
+  }
 }
 
 function hasPlaywright(projectDir) {
@@ -195,7 +229,11 @@ function saveInstalledVersion() {
     warn("Skipping version write — target is a symlink");
     return;
   }
-  fs.writeFileSync(VERSION_FILE, PKG_VERSION);
+  try {
+    fs.writeFileSync(VERSION_FILE, PKG_VERSION);
+  } catch (e) {
+    error(`Failed to save version file: ${e.message}`);
+  }
 }
 
 function getRegisteredProjects() {
@@ -223,9 +261,14 @@ function registerProject(projectDir) {
     warn("Skipping project registration — target is a symlink");
     return false;
   }
-  projects.push(resolved);
-  fs.writeFileSync(PROJECTS_FILE, projects.join("\n") + "\n");
-  return true;
+  try {
+    projects.push(resolved);
+    fs.writeFileSync(PROJECTS_FILE, projects.join("\n") + "\n");
+    return true;
+  } catch (e) {
+    error(`Failed to register project: ${e.message}`);
+    return false;
+  }
 }
 
 function getCommandFiles() {
@@ -245,9 +288,10 @@ function getUtilityCommands() {
 
 function getInstalledCommands() {
   try {
+    const ourCommands = getCommandFiles();
     return fs
       .readdirSync(COMMANDS_DIR)
-      .filter((f) => f.endsWith(".md") && (f.startsWith("gsd-t-") || ["branch.md", "checkin.md", "Claude-md.md"].includes(f)));
+      .filter((f) => ourCommands.includes(f));
   } catch {
     return [];
   }
@@ -276,7 +320,7 @@ function installHeartbeat() {
   const srcContent = fs.readFileSync(src, "utf8");
   const destContent = fs.existsSync(dest) ? fs.readFileSync(dest, "utf8") : "";
 
-  if (srcContent !== destContent) {
+  if (normalizeEol(srcContent) !== normalizeEol(destContent)) {
     copyFile(src, dest, HEARTBEAT_SCRIPT);
   } else {
     info("Heartbeat script unchanged");
@@ -365,7 +409,7 @@ function doInstall(opts = {}) {
       // Compare content — only overwrite if changed
       const srcContent = fs.readFileSync(src, "utf8");
       const destContent = fs.readFileSync(dest, "utf8");
-      if (srcContent === destContent) {
+      if (normalizeEol(srcContent) === normalizeEol(destContent)) {
         skipped++;
         continue;
       }
@@ -391,7 +435,7 @@ function doInstall(opts = {}) {
       if (isUpdate) {
         // Check if there are customizations (lines not in our template)
         const template = fs.readFileSync(globalSrc, "utf8");
-        if (existing === template) {
+        if (normalizeEol(existing) === normalizeEol(template)) {
           copyFile(globalSrc, GLOBAL_CLAUDE_MD, "CLAUDE.md updated (no customizations detected)");
         } else {
           // Backup and replace, warn about customizations
@@ -490,6 +534,7 @@ function doInit(projectName) {
   log("");
 
   const projectDir = process.cwd();
+  const today = new Date().toISOString().split("T")[0];
 
   // 1. Create project CLAUDE.md
   const claudeMdPath = path.join(projectDir, "CLAUDE.md");
@@ -498,7 +543,7 @@ function doInit(projectName) {
   } else {
     try {
       const template = fs.readFileSync(path.join(PKG_TEMPLATES, "CLAUDE-project.md"), "utf8");
-      const content = template.replace(/\{Project Name\}/g, projectName);
+      const content = applyTokens(template, projectName, today);
       fs.writeFileSync(claudeMdPath, content, { flag: "wx" });
       success("CLAUDE.md created");
     } catch (e) {
@@ -519,7 +564,6 @@ function doInit(projectName) {
   ensureDir(docsDir);
 
   const docTemplates = ["requirements.md", "architecture.md", "workflows.md", "infrastructure.md"];
-  const today = new Date().toISOString().split("T")[0];
 
   for (const file of docTemplates) {
     const destPath = path.join(docsDir, file);
@@ -528,9 +572,8 @@ function doInit(projectName) {
       continue;
     }
     try {
-      let content = fs.readFileSync(path.join(PKG_TEMPLATES, file), "utf8");
-      content = content.replace(/\{Project Name\}/g, projectName);
-      content = content.replace(/\{Date\}/g, today);
+      const template = fs.readFileSync(path.join(PKG_TEMPLATES, file), "utf8");
+      const content = applyTokens(template, projectName, today);
       fs.writeFileSync(destPath, content, { flag: "wx" });
       success(`docs/${file}`);
     } catch (e) {
@@ -564,9 +607,8 @@ function doInit(projectName) {
     warn("Skipping progress.md — target is a symlink");
   } else {
     try {
-      let content = fs.readFileSync(path.join(PKG_TEMPLATES, "progress.md"), "utf8");
-      content = content.replace(/\{Project Name\}/g, projectName);
-      content = content.replace(/\{Date\}/g, today);
+      const template = fs.readFileSync(path.join(PKG_TEMPLATES, "progress.md"), "utf8");
+      const content = applyTokens(template, projectName, today);
       fs.writeFileSync(progressPath, content, { flag: "wx" });
       success(".gsd-t/progress.md");
     } catch (e) {
@@ -731,16 +773,24 @@ function doUninstall() {
   const commands = getInstalledCommands();
   let removed = 0;
   for (const file of commands) {
-    fs.unlinkSync(path.join(COMMANDS_DIR, file));
-    removed++;
+    try {
+      fs.unlinkSync(path.join(COMMANDS_DIR, file));
+      removed++;
+    } catch (e) {
+      error(`Failed to remove ${file}: ${e.message}`);
+    }
   }
   if (removed > 0) {
     success(`Removed ${removed} slash commands from ~/.claude/commands/`);
   }
 
   // Remove version file
-  if (fs.existsSync(VERSION_FILE)) {
-    fs.unlinkSync(VERSION_FILE);
+  try {
+    if (fs.existsSync(VERSION_FILE)) {
+      fs.unlinkSync(VERSION_FILE);
+    }
+  } catch (e) {
+    error(`Failed to remove version file: ${e.message}`);
   }
 
   // Don't touch CLAUDE.md — too risky, may have customizations
@@ -752,6 +802,94 @@ function doUninstall() {
 
   heading("Uninstall Complete");
   log("");
+}
+
+function updateProjectClaudeMd(claudeMd, projectName) {
+  const content = fs.readFileSync(claudeMd, "utf8");
+  if (content.includes("Destructive Action Guard")) return false;
+
+  let newContent;
+  const preCommitMatch = content.match(/\n(#{1,3} Pre-Commit Gate)/);
+  const dontDoMatch = content.match(/\n(#{1,3} Don't Do These Things)/);
+
+  if (preCommitMatch) {
+    newContent = content.replace(
+      "\n" + preCommitMatch[1],
+      GUARD_SECTION + "\n" + preCommitMatch[1]
+    );
+  } else if (dontDoMatch) {
+    newContent = content.replace(
+      "\n" + dontDoMatch[1],
+      GUARD_SECTION + "\n" + dontDoMatch[1]
+    );
+  } else {
+    newContent = content + GUARD_SECTION;
+  }
+
+  if (isSymlink(claudeMd)) {
+    warn(`${projectName} — skipping CLAUDE.md write (symlink)`);
+    return false;
+  }
+  try {
+    fs.writeFileSync(claudeMd, newContent);
+    success(`${projectName} — added Destructive Action Guard`);
+    return true;
+  } catch (e) {
+    error(`${projectName} — failed to update CLAUDE.md: ${e.message}`);
+    return false;
+  }
+}
+
+function createProjectChangelog(projectDir, projectName) {
+  const changelogPath = path.join(projectDir, "CHANGELOG.md");
+  if (isSymlink(changelogPath)) return false;
+  try {
+    const today = new Date().toISOString().split("T")[0];
+    const changelogContent = [
+      "# Changelog",
+      "",
+      "All notable changes to this project are documented here.",
+      "",
+      `## [0.1.0] - ${today}`,
+      "",
+      "### Added",
+      "- Initial changelog created by GSD-T",
+      "",
+    ].join("\n");
+    fs.writeFileSync(changelogPath, changelogContent, { flag: "wx" });
+    success(`${projectName} — created CHANGELOG.md`);
+    return true;
+  } catch (e) {
+    if (e.code !== "EEXIST") throw e;
+    return false;
+  }
+}
+
+function checkProjectHealth(projects) {
+  heading("Project Health");
+  const playwrightMissing = [];
+  const swaggerMissing = [];
+
+  for (const projectDir of projects) {
+    if (!fs.existsSync(projectDir)) continue;
+    const name = path.basename(projectDir);
+    if (!hasPlaywright(projectDir)) playwrightMissing.push(name);
+    if (hasApi(projectDir) && !hasSwagger(projectDir)) swaggerMissing.push(name);
+  }
+
+  if (playwrightMissing.length === 0 && swaggerMissing.length === 0) {
+    success("All projects have Playwright and Swagger configured");
+  } else {
+    if (playwrightMissing.length > 0) {
+      warn(`Playwright missing: ${playwrightMissing.join(", ")}`);
+      info("Playwright will be auto-installed when you run a GSD-T command in each project");
+    }
+    if (swaggerMissing.length > 0) {
+      warn(`Swagger/OpenAPI missing (API detected): ${swaggerMissing.join(", ")}`);
+      info("Swagger will be auto-configured when an API endpoint is created or modified");
+    }
+  }
+  return { playwrightMissing, swaggerMissing };
 }
 
 function doUpdateAll() {
@@ -789,9 +927,7 @@ function doUpdateAll() {
   for (const projectDir of projects) {
     const projectName = path.basename(projectDir);
     const claudeMd = path.join(projectDir, "CLAUDE.md");
-    let projectUpdated = false;
 
-    // Check project still exists
     if (!fs.existsSync(projectDir)) {
       warn(`${projectName} — directory not found (${projectDir})`);
       missing++;
@@ -804,83 +940,10 @@ function doUpdateAll() {
       continue;
     }
 
-    const content = fs.readFileSync(claudeMd, "utf8");
+    const guardAdded = updateProjectClaudeMd(claudeMd, projectName);
+    const changelogCreated = createProjectChangelog(projectDir, projectName);
 
-    // Check if the project CLAUDE.md needs the Destructive Action Guard
-    if (!content.includes("Destructive Action Guard")) {
-      const guardSection = [
-        "",
-        "",
-        "# Destructive Action Guard (MANDATORY)",
-        "",
-        "**NEVER perform destructive or structural changes without explicit user approval.** This applies at ALL autonomy levels.",
-        "",
-        "Before any of these actions, STOP and ask the user:",
-        "- DROP TABLE, DROP COLUMN, DROP INDEX, TRUNCATE, DELETE without WHERE",
-        "- Renaming or removing database tables or columns",
-        "- Schema migrations that lose data or break existing queries",
-        "- Replacing an existing architecture pattern (e.g., normalized → denormalized)",
-        "- Removing or replacing existing files/modules that contain working functionality",
-        "- Changing ORM models in ways that conflict with the existing database schema",
-        "- Removing API endpoints or changing response shapes that existing clients depend on",
-        "- Any change that would require other parts of the system to be rewritten",
-        "",
-        '**Rule: "Adapt new code to existing structures, not the other way around."**',
-        "",
-      ].join("\n");
-
-      let newContent;
-      const preCommitMatch = content.match(/\n(#{1,3} Pre-Commit Gate)/);
-      const dontDoMatch = content.match(/\n(#{1,3} Don't Do These Things)/);
-
-      if (preCommitMatch) {
-        newContent = content.replace(
-          "\n" + preCommitMatch[1],
-          guardSection + "\n" + preCommitMatch[1]
-        );
-      } else if (dontDoMatch) {
-        newContent = content.replace(
-          "\n" + dontDoMatch[1],
-          guardSection + "\n" + dontDoMatch[1]
-        );
-      } else {
-        newContent = content + guardSection;
-      }
-
-      if (isSymlink(claudeMd)) {
-        warn(`${projectName} — skipping CLAUDE.md write (symlink)`);
-      } else {
-        fs.writeFileSync(claudeMd, newContent);
-        success(`${projectName} — added Destructive Action Guard`);
-        projectUpdated = true;
-      }
-    }
-
-    // Create CHANGELOG.md if it doesn't exist
-    const changelogPath = path.join(projectDir, "CHANGELOG.md");
-    if (!isSymlink(changelogPath)) {
-      try {
-        const today = new Date().toISOString().split("T")[0];
-        const changelogContent = [
-          "# Changelog",
-          "",
-          "All notable changes to this project are documented here.",
-          "",
-          `## [0.1.0] - ${today}`,
-          "",
-          "### Added",
-          "- Initial changelog created by GSD-T",
-          "",
-        ].join("\n");
-        fs.writeFileSync(changelogPath, changelogContent, { flag: "wx" });
-        success(`${projectName} — created CHANGELOG.md`);
-        projectUpdated = true;
-      } catch (e) {
-        if (e.code !== "EEXIST") throw e;
-      }
-    }
-
-    if (projectUpdated) {
+    if (guardAdded || changelogCreated) {
       updated++;
     } else {
       info(`${projectName} — already up to date`);
@@ -888,36 +951,7 @@ function doUpdateAll() {
     }
   }
 
-  // Health check: Playwright and Swagger across all projects
-  heading("Project Health");
-  let playwrightMissing = [];
-  let swaggerMissing = [];
-
-  for (const projectDir of projects) {
-    if (!fs.existsSync(projectDir)) continue;
-    const name = path.basename(projectDir);
-
-    if (!hasPlaywright(projectDir)) {
-      playwrightMissing.push(name);
-    }
-
-    if (hasApi(projectDir) && !hasSwagger(projectDir)) {
-      swaggerMissing.push(name);
-    }
-  }
-
-  if (playwrightMissing.length === 0 && swaggerMissing.length === 0) {
-    success("All projects have Playwright and Swagger configured");
-  } else {
-    if (playwrightMissing.length > 0) {
-      warn(`Playwright missing: ${playwrightMissing.join(", ")}`);
-      info("Playwright will be auto-installed when you run a GSD-T command in each project");
-    }
-    if (swaggerMissing.length > 0) {
-      warn(`Swagger/OpenAPI missing (API detected): ${swaggerMissing.join(", ")}`);
-      info("Swagger will be auto-configured when an API endpoint is created or modified");
-    }
-  }
+  const { playwrightMissing, swaggerMissing } = checkProjectHealth(projects);
 
   // Summary
   log("");
