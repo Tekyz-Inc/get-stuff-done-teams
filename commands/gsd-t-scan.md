@@ -401,4 +401,20 @@ All detailed findings are in `.gsd-t/scan/` for review.
 
 Ask: "Want to promote any tech debt items to milestones? Or address the critical items first?"
 
+## Document Ripple
+
+Scan produces analysis files and updates living documents (Step 5 already covers most updates). Verify:
+
+### Always update:
+1. **`.gsd-t/progress.md`** — Log scan completion with summary stats in Decision Log
+2. **`docs/architecture.md`** — Merge scan findings (Step 5)
+3. **`docs/workflows.md`** — Merge business rules findings (Step 5)
+4. **`docs/infrastructure.md`** — Merge operational findings (Step 5)
+5. **`docs/requirements.md`** — Merge discovered requirements (Step 5)
+6. **`README.md`** — Update tech stack and setup if needed (Step 5)
+
+### Check if affected:
+7. **`.gsd-t/techdebt.md`** — Created/updated with all findings (Step 3)
+8. **`CLAUDE.md`** — If new conventions or patterns were discovered, suggest additions
+
 $ARGUMENTS
