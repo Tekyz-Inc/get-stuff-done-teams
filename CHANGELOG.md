@@ -2,6 +2,12 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.20.1] - 2026-02-16
+
+### Added
+- **API Documentation Guard (Swagger/OpenAPI)**: Every API endpoint must be documented in Swagger/OpenAPI spec — no exceptions. Auto-detects framework and installs appropriate Swagger integration. Swagger URL must be published in CLAUDE.md, README.md, and docs/infrastructure.md
+- Pre-Commit Gate now checks for Swagger spec updates on any API endpoint change
+
 ## [2.20.0] - 2026-02-16
 
 ### Added

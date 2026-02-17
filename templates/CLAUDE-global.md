@@ -201,6 +201,25 @@ Before any command that involves testing (`gsd-t-execute`, `gsd-t-test-sync`, `g
 
 Playwright must always be ready before any testing occurs. Do not skip this check. Do not defer setup to "later."
 
+## API Documentation Guard (Swagger/OpenAPI)
+
+**Every API endpoint MUST be documented in a Swagger/OpenAPI spec. No exceptions.**
+
+When any GSD-T command creates or modifies an API endpoint:
+1. **If no Swagger/OpenAPI spec exists**: Set one up immediately
+   - Detect the framework (Express, Fastify, Hono, Django, FastAPI, etc.)
+   - Install the appropriate Swagger integration (e.g., `swagger-jsdoc` + `swagger-ui-express`, `@fastify/swagger`, FastAPI's built-in OpenAPI)
+   - Create the OpenAPI spec file or configure auto-generation from code
+   - Add a `/docs` or `/api-docs` route serving the Swagger UI
+2. **Update the spec**: Every new or changed endpoint must be reflected in the Swagger/OpenAPI spec — routes, request/response schemas, auth requirements, error responses
+3. **Publish the Swagger URL**: The Swagger/API docs URL MUST appear in:
+   - `CLAUDE.md` — under Documentation or Infrastructure section
+   - `README.md` — under API section or Getting Started
+   - `docs/infrastructure.md` — under API documentation
+4. **Verify**: After any API change, confirm the Swagger UI loads and reflects the current endpoints
+
+This applies during: `gsd-t-execute`, `gsd-t-quick`, `gsd-t-integrate`, `gsd-t-wave`, and any command that touches API code.
+
 ## Prime Rule
 KEEP GOING. Only stop for:
 1. Unrecoverable errors after 2 fix attempts
@@ -219,8 +238,10 @@ BEFORE EVERY COMMIT:
   │     Compare against "Expected branch" in project CLAUDE.md
   │     WRONG BRANCH → STOP. Do NOT commit. Switch to the correct branch first.
   │     No guard set → Proceed (but warn user to set one)
-  ├── Did I change an API endpoint or response shape?
+  ├── Did I create or change an API endpoint or response shape?
   │     YES → Update .gsd-t/contracts/api-contract.md
+  │     YES → Update Swagger/OpenAPI spec (see API Documentation Guard below)
+  │     YES → Verify Swagger URL is in CLAUDE.md and README.md
   ├── Did I change the database schema?
   │     YES → Update .gsd-t/contracts/schema-contract.md AND docs/schema.md
   ├── Did I add/change a UI component interface?
