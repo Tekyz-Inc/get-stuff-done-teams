@@ -17,8 +17,12 @@
     "contract-driven-development",
     "slash-commands"
   ],
+  "main": "bin/gsd-t.js",
   "bin": {
     "gsd-t": "bin/gsd-t.js"
+  },
+  "scripts": {
+    "test": "node --test"
   },
   "files": [
     "bin/",

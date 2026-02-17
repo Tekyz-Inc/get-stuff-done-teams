@@ -16,6 +16,7 @@ const path = require("path");
 
 const MAX_STDIN = 1024 * 1024; // 1MB — prevent OOM from unbounded input
 const SAFE_SID = /^[a-zA-Z0-9_-]+$/; // Allowlist for session_id — blocks path traversal
+const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days — auto-cleanup threshold
 
 let input = "";
 let aborted = false;
@@ -53,12 +54,30 @@ process.stdin.on("end", () => {
 
     const event = buildEvent(hook);
     if (event) {
+      cleanupOldHeartbeats(gsdtDir);
       fs.appendFileSync(file, JSON.stringify(event) + "\n");
     }
   } catch (e) {
     // Silent failure — never interfere with Claude Code
   }
 });
+
+function cleanupOldHeartbeats(gsdtDir) {
+  try {
+    const files = fs.readdirSync(gsdtDir);
+    const now = Date.now();
+    for (const f of files) {
+      if (!f.startsWith("heartbeat-") || !f.endsWith(".jsonl")) continue;
+      const fp = path.join(gsdtDir, f);
+      const stat = fs.statSync(fp);
+      if (now - stat.mtimeMs > MAX_AGE_MS) {
+        fs.unlinkSync(fp);
+      }
+    }
+  } catch {
+    // Silent failure — never interfere with Claude Code
+  }
+}
 
 function buildEvent(hook) {
   const base = {
