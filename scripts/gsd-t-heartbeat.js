@@ -14,19 +14,42 @@
 const fs = require("fs");
 const path = require("path");
 
+const MAX_STDIN = 1024 * 1024; // 1MB — prevent OOM from unbounded input
+const SAFE_SID = /^[a-zA-Z0-9_-]+$/; // Allowlist for session_id — blocks path traversal
+
 let input = "";
+let aborted = false;
 process.stdin.setEncoding("utf8");
-process.stdin.on("data", (d) => (input += d));
+process.stdin.on("data", (d) => {
+  input += d;
+  if (input.length > MAX_STDIN) {
+    aborted = true;
+    process.stdin.destroy();
+  }
+});
 process.stdin.on("end", () => {
+  if (aborted) return; // Silently discard oversized input
   try {
     const hook = JSON.parse(input);
     const dir = hook.cwd || process.cwd();
-    const gsdtDir = path.join(dir, ".gsd-t");
 
+    // Validate cwd is absolute path
+    if (!path.isAbsolute(dir)) return;
+
+    const gsdtDir = path.join(dir, ".gsd-t");
     if (!fs.existsSync(gsdtDir)) return;
 
     const sid = hook.session_id || "unknown";
+
+    // Validate session_id — block path traversal (e.g., "../../etc/evil")
+    if (!SAFE_SID.test(sid)) return;
+
     const file = path.join(gsdtDir, `heartbeat-${sid}.jsonl`);
+
+    // Verify resolved path is still within .gsd-t/ directory
+    const resolvedFile = path.resolve(file);
+    const resolvedDir = path.resolve(gsdtDir);
+    if (!resolvedFile.startsWith(resolvedDir + path.sep)) return;
 
     const event = buildEvent(hook);
     if (event) {
