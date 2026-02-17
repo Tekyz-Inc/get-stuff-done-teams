@@ -174,13 +174,35 @@ After initialization, verify all created documentation is consistent:
 
 ### Skip what's not affected — init creates docs, so most ripple is about consistency verification.
 
-## Step 7.6: Test Verification
+## Step 7.6: Playwright Setup (MANDATORY)
+
+Every GSD-T project must have Playwright ready for E2E testing. If `playwright.config.*` does not exist:
+
+1. **Detect package manager**: Check for `bun.lockb` (bun), `yarn.lock` (yarn), `pnpm-lock.yaml` (pnpm), `package-lock.json` or `package.json` (npm), `requirements.txt`/`pyproject.toml` (Python)
+2. **Install Playwright**:
+   - bun: `bun add -d @playwright/test && bunx playwright install chromium`
+   - npm: `npm install -D @playwright/test && npx playwright install chromium`
+   - yarn: `yarn add -D @playwright/test && yarn playwright install chromium`
+   - pnpm: `pnpm add -D @playwright/test && pnpm exec playwright install chromium`
+   - Python: `pip install playwright && playwright install chromium`
+   - No package manager detected: `npm init -y && npm install -D @playwright/test && npx playwright install chromium`
+3. **Create `playwright.config.ts`** (or `.js` if not using TypeScript) with sensible defaults:
+   - `testDir: './e2e'` (or `./tests/e2e`)
+   - `use: { baseURL: 'http://localhost:3000' }` (adjust based on project)
+   - Chromium only (keep it fast; user can add more browsers later)
+   - Screenshot on failure enabled
+4. **Create the E2E test directory** (`e2e/` or `tests/e2e/`) with a placeholder spec
+5. **Add test script** to `package.json` if it exists: `"test:e2e": "playwright test"`
+
+Skip silently if `playwright.config.*` already exists.
+
+## Step 7.7: Test Verification
 
 After initialization:
 
 1. **If existing code with tests**: Run the full test suite to establish a baseline. Document results in `.gsd-t/progress.md`
-2. **If existing code without tests**: Note the absence — recommend test setup as part of the first milestone
-3. **If greenfield**: No tests to run, but note that test infrastructure should be in Milestone 1
+2. **If existing code without tests**: Playwright is now set up (Step 7.6) — note unit test framework should be added as part of the first milestone
+3. **If greenfield**: Playwright is ready. Note that unit test infrastructure should be added in Milestone 1
 4. **Verify init outputs**: Confirm all created files exist and are non-empty
 
 ## Step 8: Report

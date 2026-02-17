@@ -191,6 +191,16 @@ If any are missing:
 
 **Exempt commands** (do not trigger auto-init): `gsd-t-init`, `gsd-t-init-scan-setup`, `gsd-t-help`, `gsd-t-version-update`, `gsd-t-version-update-all`, `gsd-t-prompt`, `gsd-t-brainstorm`.
 
+## Playwright Readiness Guard
+
+Before any command that involves testing (`gsd-t-execute`, `gsd-t-test-sync`, `gsd-t-verify`, `gsd-t-quick`, `gsd-t-wave`, `gsd-t-milestone`, `gsd-t-complete-milestone`, `gsd-t-debug`), check if `playwright.config.*` exists in the project. If it does not:
+1. Detect the package manager and install Playwright (`@playwright/test` + chromium)
+2. Create a basic `playwright.config.ts` with sensible defaults
+3. Create the E2E test directory with a placeholder spec
+4. Then continue with the original command
+
+Playwright must always be ready before any testing occurs. Do not skip this check. Do not defer setup to "later."
+
 ## Prime Rule
 KEEP GOING. Only stop for:
 1. Unrecoverable errors after 2 fix attempts
