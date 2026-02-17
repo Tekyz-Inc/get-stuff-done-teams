@@ -10,7 +10,7 @@
 
 ## Overview
 
-Contract-driven development methodology for Claude Code. An npm package that provides 41 slash commands (38 GSD-T workflow + 3 utility), a CLI installer, templates, and documentation for reliable, parallelizable AI-assisted development.
+Contract-driven development methodology for Claude Code. An npm package that provides 41 slash commands (37 GSD-T workflow + 4 utility), a CLI installer, templates, and documentation for reliable, parallelizable AI-assisted development.
 
 ## Autonomy Level
 
@@ -30,13 +30,14 @@ Only pause for blockers or project completion. Execute phases continuously.
 ## Project Structure
 
 ```
-bin/gsd-t.js           — CLI installer (6 subcommands)
-commands/              — 25 slash commands for Claude Code
-  gsd-t-*.md           — 22 GSD-T workflow commands
+bin/gsd-t.js           — CLI installer (9 subcommands)
+commands/              — 41 slash commands for Claude Code
+  gsd-t-*.md           — 37 GSD-T workflow commands
+  gsd.md               — Smart router (auto-routes user intent)
   branch.md            — Git branch helper
   checkin.md           — Auto-version + commit/push helper
   Claude-md.md         — Reload CLAUDE.md directives
-templates/             — 7 document templates
+templates/             — 9 document templates
   CLAUDE-global.md     — Global ~/.claude/CLAUDE.md template
   CLAUDE-project.md    — Per-project CLAUDE.md template
   requirements.md      — Requirements template
@@ -44,12 +45,14 @@ templates/             — 7 document templates
   workflows.md         — Workflows template
   infrastructure.md    — Infrastructure template
   progress.md          — GSD-T progress template
+  backlog.md           — Backlog template
+  backlog-settings.md  — Backlog settings template
 examples/              — Example project structure and settings
   settings.json        — Claude Code settings with teams enabled
   .gsd-t/              — Example contracts and domain structure
 docs/                  — Methodology documentation
   methodology.md       — GSD → GSD-T evolution and concepts
-package.json           — npm package config (v2.0.0)
+package.json           — npm package config (v2.20.5)
 GSD-T-README.md        — Detailed command reference (ships with package)
 README.md              — User-facing repo/npm docs
 ```
