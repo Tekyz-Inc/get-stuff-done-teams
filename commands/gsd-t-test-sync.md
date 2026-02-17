@@ -108,13 +108,27 @@ Determine which E2E specs are affected:
 - Changed database schema? → Run specs that depend on that data
 - Not sure what's affected? → Run the full E2E suite
 
-### C) Update E2E Tests
-If code changes affect user flows, update E2E test specs:
-- New pages/routes → create new E2E specs
+### C) Create and Update Playwright E2E Tests (MANDATORY when UI/routes/flows/modes changed)
+
+If Playwright is configured (`playwright.config.*` or Playwright in dependencies):
+
+**For new features, pages, modes, or flows — CREATE comprehensive specs:**
+- Happy path for every new user flow
+- All feature modes/flags (e.g., `--component` mode gets its own test suite, not just default mode)
+- Form validation: valid input, invalid input, empty fields, boundary values
+- Error states: network failures, API errors, permission denied, timeout
+- Empty states: no data, first-time user, cleared data
+- Loading states: skeleton screens, spinners, progressive loading
+- Edge cases: rapid clicking, double submission, back/forward navigation, browser refresh mid-flow
+- Responsive: test at mobile and desktop breakpoints if layout changes
+
+**For changed features — UPDATE existing specs AND add missing coverage:**
 - Changed UI elements (selectors, text, layout) → update locators and assertions
 - Changed form fields or validation → update form fill steps and error assertions
-- New features → add E2E specs covering the happy path + key error cases
 - Removed features → remove or update affected E2E specs
+- Review existing specs for missing edge cases and add them
+
+**This is NOT optional.** Every new code path that a user can reach must have a Playwright spec. "We'll add tests later" is never acceptable.
 
 ### D) Capture Results
 For all test types:
@@ -236,13 +250,14 @@ If issues found, add to current domain's tasks:
 
 ### During Execute Phase (auto-invoked):
 After each task completes:
-1. Quick scan of changed files
-2. Run affected unit/integration tests
-3. Run affected E2E tests (if E2E framework detected)
-4. If failures: pause and report
-5. If E2E specs need updating: update them before continuing
-6. If gaps: note for end-of-phase sync
-7. Continue execution
+1. Scan changed files and map to existing tests
+2. **If new code paths have zero test coverage: write tests NOW** — do not defer
+3. Run ALL affected unit/integration tests
+4. Run ALL affected Playwright E2E tests
+5. If failures: fix immediately (up to 2 attempts) before continuing
+6. If E2E specs are missing for new features/modes/flows: **create them NOW**, not later
+7. If E2E specs need updating for changed behavior: update them before continuing
+8. **No task is complete until its tests exist and pass** — do not move to the next task with test gaps
 
 ### During Verify Phase (auto-invoked):
 Full sync:

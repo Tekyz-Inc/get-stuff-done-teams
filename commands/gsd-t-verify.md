@@ -19,8 +19,12 @@ Standard dimensions (adjust based on project):
 1. **Functional Correctness**: Does it work per requirements?
 2. **Contract Compliance**: Does every domain honor its contracts?
 3. **Code Quality**: Conventions, patterns, error handling, readability
-4. **Test Coverage**: Are critical paths tested? Are edge cases covered?
-5. **E2E Tests**: Run the full E2E suite (Playwright, Cypress, etc.) — all specs must pass
+4. **Test Coverage Completeness**: Every new or changed code path MUST have tests. Check:
+   - Do all new functions have unit tests (happy path + edge cases + error cases)?
+   - Do all new features/modes/flows have Playwright E2E specs?
+   - Do all new UI components have interaction tests?
+   - **Zero test coverage on new functionality = FAIL** (not WARN, not "nice to have" — FAIL)
+5. **E2E Tests**: Run the FULL Playwright suite — all specs must pass. If new features lack specs, create them before proceeding.
 6. **Security**: Auth flows, input validation, data exposure, dependencies
 7. **Integration Integrity**: Do the seams between domains hold under stress?
 
@@ -35,10 +39,14 @@ Work through each dimension sequentially. For each:
 
 **Mandatory test execution:**
 1. Run ALL unit/integration tests — every test must pass
-2. Detect E2E framework (check for `playwright.config.*`, `cypress.config.*`, E2E deps in package.json)
-3. If E2E framework exists, run the FULL E2E suite — every spec must pass
-4. If E2E specs are missing or stale, invoke `gsd-t-test-sync` to update them first, then re-run
-5. Tests are NOT optional — verification cannot pass without running them
+2. Detect Playwright (check for `playwright.config.*`, Playwright deps in package.json)
+3. Run the FULL Playwright E2E suite — every spec must pass
+4. **Coverage audit**: For every new feature, mode, page, or flow added in this milestone:
+   - Confirm Playwright specs exist that specifically test it
+   - Confirm specs cover: happy path, error states, edge cases, all modes/flags
+   - If specs are missing or incomplete → invoke `gsd-t-test-sync` to create them, then re-run
+   - **Missing E2E coverage on new functionality = verification FAIL**
+5. Tests are NOT optional — verification cannot pass without running them and confirming comprehensive coverage
 
 ### Team Mode (when agent teams are enabled)
 ```

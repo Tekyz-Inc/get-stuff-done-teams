@@ -30,11 +30,20 @@ For each task:
 3. Read the domain's constraints.md — follow all patterns
 4. **Destructive Action Guard**: Before implementing, check if the task involves any destructive or structural changes (DROP TABLE, schema changes that lose data, removing existing modules, replacing architecture patterns). If YES → STOP and present the change to the user with what exists, what will change, what will break, and a safe migration path. Wait for explicit approval before proceeding.
 5. Implement the task
-5. Verify acceptance criteria are met
-6. Run affected unit tests — fix any failures before proceeding
-7. If E2E framework exists and task changed UI/routes/flows: run affected E2E specs, update specs if needed
-8. Run the Pre-Commit Gate checklist from CLAUDE.md — update ALL affected docs BEFORE committing
-9. Commit with a descriptive message: `[{domain}] Task {N}: {description}`
+6. Verify acceptance criteria are met
+7. **Write comprehensive tests for every new or changed code path** (MANDATORY — no exceptions):
+   a. **Unit/integration tests**: Cover the happy path, common edge cases, error cases, and boundary conditions for every new or modified function
+   b. **Playwright E2E tests** (if UI/routes/flows/modes changed): Detect `playwright.config.*` or Playwright in dependencies. If present:
+      - Create NEW specs for new features, pages, modes, or flows — not just update existing ones
+      - Cover: happy path, form validation errors, empty states, loading states, error states, responsive breakpoints
+      - Cover: all feature modes/flags (e.g., if `--component` mode was added, test `--component` mode specifically)
+      - Cover: common edge cases (network errors, invalid input, rapid clicking, back/forward navigation)
+      - Use descriptive test names that explain the scenario being tested
+   c. If no test framework exists: set one up as part of the task (at minimum, Playwright for E2E)
+   d. **"No feature code without test code"** — implementation and tests are ONE deliverable, not two separate steps
+8. **Run ALL tests** — unit, integration, and full Playwright suite. Fix any failures before proceeding (up to 2 attempts)
+9. Run the Pre-Commit Gate checklist from CLAUDE.md — update ALL affected docs BEFORE committing
+10. Commit with a descriptive message: `[{domain}] Task {N}: {description}`
 10. Update `.gsd-t/progress.md` — mark task complete
 11. If you've reached a CHECKPOINT in integration-points.md, pause and verify the contract before continuing
 
@@ -55,6 +64,10 @@ RULES FOR ALL TEAMMATES:
 - **Destructive Action Guard**: NEVER drop tables, remove columns, delete data, replace architecture patterns, or remove working modules without messaging the lead first. The lead must get user approval before any destructive action proceeds.
 - Only modify files listed in your domain's scope.md
 - Implement interfaces EXACTLY as specified in contracts
+- **Write comprehensive tests with every task** — no feature code without test code:
+  - Unit/integration tests: happy path + edge cases + error cases for every new/changed function
+  - Playwright E2E specs (if UI/routes/flows/modes changed): new specs for new features, cover all modes/flags, form validation, empty/loading/error states, common edge cases
+  - Tests are part of the deliverable, not a follow-up
 - If a task is marked BLOCKED, message the lead and wait
 - Run the Pre-Commit Gate checklist from CLAUDE.md BEFORE every commit — update all affected docs
 - After completing each task, message the lead with:
