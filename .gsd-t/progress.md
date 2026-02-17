@@ -3,7 +3,7 @@
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: READY
 ## Date: 2026-02-10
-## Version: 2.20.5
+## Version: 2.20.6
 
 ## Current Milestone
 None — ready for next milestone
@@ -92,6 +92,7 @@ None — ready for next milestone
 - 2026-02-16 17:10: Added Playwright Cleanup rule — kill any app/server processes spawned during Playwright tests after test run completes. Applied to global template and live config. v2.20.3
 - 2026-02-16 17:15: Scan now always spawns team mode unless codebase < 5 files or teams explicitly disabled. Updated gsd-t-scan.md and gsd-t-init-scan-setup.md. v2.20.4
 - 2026-02-16 17:20: Added Next Command Hint — after each GSD-T phase completes, show the recommended next command for tab-completion. Full successor mapping in global template. v2.20.5
+- 2026-02-16 17:35: Merged 3 branches from Gayathri: stale count fixes (CLAUDE.md), doc ripple sections (4 commands), quality polish (CLI refactoring, CRLF fix, heartbeat cleanup, error handling). v2.20.6
 
 ## Session Log
 | Date | Session | What was accomplished |

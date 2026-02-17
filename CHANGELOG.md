@@ -2,6 +2,20 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.20.6] - 2026-02-16
+
+### Fixed
+- Stale command/template counts in project CLAUDE.md (25→41 commands, 7→9 templates, v2.0.0→v2.20.x)
+- Duplicate step numbering in `gsd-t-execute.md` (two step 10s)
+- Windows CRLF/LF comparison causing false "changed" detection in CLI update
+
+### Added
+- Document Ripple sections to `gsd-t-execute`, `gsd-t-scan`, `gsd-t-test-sync`, `gsd-t-verify`
+- Heartbeat auto-cleanup: files older than 7 days are automatically removed
+- Error handling wrapping around file operations in CLI (copy, unlink, write)
+- `applyTokens()` and `normalizeEol()` helpers to reduce duplication
+- Extracted `updateProjectClaudeMd()`, `createProjectChangelog()`, `checkProjectHealth()` from `doUpdateAll()`
+
 ## [2.20.5] - 2026-02-16
 
 ### Added
