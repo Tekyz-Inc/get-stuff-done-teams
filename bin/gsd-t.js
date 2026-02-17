@@ -137,7 +137,12 @@ function validateVersion(ver) {
 
 function validateProjectPath(p) {
   try {
-    return path.isAbsolute(p) && fs.existsSync(p) && fs.statSync(p).isDirectory();
+    if (!path.isAbsolute(p) || !fs.existsSync(p)) return false;
+    const stat = fs.statSync(p);
+    if (!stat.isDirectory()) return false;
+    // On Unix, verify directory is owned by current user (defense-in-depth)
+    if (typeof process.getuid === "function" && stat.uid !== process.getuid()) return false;
+    return true;
   } catch {
     return false;
   }
@@ -385,19 +390,7 @@ function configureHeartbeatHooks(scriptPath) {
 
 // ─── Commands ────────────────────────────────────────────────────────────────
 
-function doInstall(opts = {}) {
-  const isUpdate = opts.update || false;
-  const verb = isUpdate ? "Updating" : "Installing";
-
-  heading(`${verb} GSD-T ${versionLink()}`);
-  log("");
-
-  // 1. Create ~/.claude/commands/ if needed
-  if (ensureDir(COMMANDS_DIR)) {
-    success("Created ~/.claude/commands/");
-  }
-
-  // 2. Copy all command files
+function installCommands(isUpdate) {
   heading("Slash Commands");
   const commandFiles = getCommandFiles();
   const gsdtCommands = getGsdtCommands();
@@ -410,7 +403,6 @@ function doInstall(opts = {}) {
     const dest = path.join(COMMANDS_DIR, file);
 
     if (isUpdate && fs.existsSync(dest)) {
-      // Compare content — only overwrite if changed
       const srcContent = fs.readFileSync(src, "utf8");
       const destContent = fs.readFileSync(dest, "utf8");
       if (normalizeEol(srcContent) === normalizeEol(destContent)) {
@@ -427,8 +419,10 @@ function doInstall(opts = {}) {
     info(`${skipped} commands unchanged`);
   }
   success(`${gsdtCommands.length} GSD-T commands + ${utilityCommands.length} utilities ${isUpdate ? "updated" : "installed"} → ~/.claude/commands/`);
+  return { gsdtCommands, utilityCommands };
+}
 
-  // 3. Handle global CLAUDE.md
+function installGlobalClaudeMd(isUpdate) {
   heading("Global CLAUDE.md");
   const globalSrc = path.join(PKG_TEMPLATES, "CLAUDE-global.md");
 
@@ -437,12 +431,10 @@ function doInstall(opts = {}) {
 
     if (existing.includes("GSD-T: Contract-Driven Development")) {
       if (isUpdate) {
-        // Check if there are customizations (lines not in our template)
         const template = fs.readFileSync(globalSrc, "utf8");
         if (normalizeEol(existing) === normalizeEol(template)) {
           copyFile(globalSrc, GLOBAL_CLAUDE_MD, "CLAUDE.md updated (no customizations detected)");
         } else {
-          // Backup and replace, warn about customizations
           const backupPath = GLOBAL_CLAUDE_MD + ".backup-" + Date.now();
           if (isSymlink(backupPath)) {
             warn("Skipping backup — target is a symlink");
@@ -458,7 +450,6 @@ function doInstall(opts = {}) {
         info("Run 'gsd-t update' to overwrite with latest version");
       }
     } else {
-      // Existing CLAUDE.md without GSD-T — append
       if (isSymlink(GLOBAL_CLAUDE_MD)) {
         warn("Skipping CLAUDE.md append — target is a symlink");
       } else {
@@ -472,15 +463,26 @@ function doInstall(opts = {}) {
   } else {
     copyFile(globalSrc, GLOBAL_CLAUDE_MD, "CLAUDE.md installed → ~/.claude/CLAUDE.md");
   }
+}
 
-  // 4. Install heartbeat script + hooks
+function doInstall(opts = {}) {
+  const isUpdate = opts.update || false;
+  const verb = isUpdate ? "Updating" : "Installing";
+
+  heading(`${verb} GSD-T ${versionLink()}`);
+  log("");
+
+  if (ensureDir(COMMANDS_DIR)) {
+    success("Created ~/.claude/commands/");
+  }
+
+  const { gsdtCommands, utilityCommands } = installCommands(isUpdate);
+  installGlobalClaudeMd(isUpdate);
+
   heading("Heartbeat (Real-time Events)");
   installHeartbeat();
-
-  // 5. Save version
   saveInstalledVersion();
 
-  // 6. Summary
   heading("Installation Complete!");
   log("");
   log(`  Commands: ${gsdtCommands.length} GSD-T + ${utilityCommands.length} utility commands in ~/.claude/commands/`);
@@ -522,53 +524,35 @@ function doUpdate() {
   doInstall({ update: true });
 }
 
-function doInit(projectName) {
-  if (!projectName) {
-    // Use current directory name
-    projectName = path.basename(process.cwd());
-  }
-
-  if (!validateProjectName(projectName)) {
-    error(`Invalid project name: "${projectName}"`);
-    info("Project names must start with a letter or number and contain only letters, numbers, dots, hyphens, underscores, or spaces (max 101 chars)");
-    return;
-  }
-
-  heading(`Initializing GSD-T project: ${projectName}`);
-  log("");
-
-  const projectDir = process.cwd();
-  const today = new Date().toISOString().split("T")[0];
-
-  // 1. Create project CLAUDE.md
+function initClaudeMd(projectDir, projectName, today) {
   const claudeMdPath = path.join(projectDir, "CLAUDE.md");
   if (isSymlink(claudeMdPath)) {
     warn("Skipping CLAUDE.md — target is a symlink");
-  } else {
-    try {
-      const template = fs.readFileSync(path.join(PKG_TEMPLATES, "CLAUDE-project.md"), "utf8");
-      const content = applyTokens(template, projectName, today);
-      fs.writeFileSync(claudeMdPath, content, { flag: "wx" });
-      success("CLAUDE.md created");
-    } catch (e) {
-      if (e.code === "EEXIST") {
-        const content = fs.readFileSync(claudeMdPath, "utf8");
-        if (content.includes("GSD-T Workflow")) {
-          info("CLAUDE.md already contains GSD-T section — skipping");
-        } else {
-          warn("CLAUDE.md exists but doesn't reference GSD-T");
-          info("Run /user:gsd-t-init inside Claude Code to add GSD-T section");
-        }
-      } else { throw e; }
-    }
+    return;
   }
+  try {
+    const template = fs.readFileSync(path.join(PKG_TEMPLATES, "CLAUDE-project.md"), "utf8");
+    const content = applyTokens(template, projectName, today);
+    fs.writeFileSync(claudeMdPath, content, { flag: "wx" });
+    success("CLAUDE.md created");
+  } catch (e) {
+    if (e.code === "EEXIST") {
+      const content = fs.readFileSync(claudeMdPath, "utf8");
+      if (content.includes("GSD-T Workflow")) {
+        info("CLAUDE.md already contains GSD-T section — skipping");
+      } else {
+        warn("CLAUDE.md exists but doesn't reference GSD-T");
+        info("Run /user:gsd-t-init inside Claude Code to add GSD-T section");
+      }
+    } else { throw e; }
+  }
+}
 
-  // 2. Create docs/ with templates
+function initDocs(projectDir, projectName, today) {
   const docsDir = path.join(projectDir, "docs");
   ensureDir(docsDir);
 
   const docTemplates = ["requirements.md", "architecture.md", "workflows.md", "infrastructure.md"];
-
   for (const file of docTemplates) {
     const destPath = path.join(docsDir, file);
     if (isSymlink(destPath)) {
@@ -585,8 +569,9 @@ function doInit(projectName) {
       else { throw e; }
     }
   }
+}
 
-  // 3. Create .gsd-t/ structure
+function initGsdtDir(projectDir, projectName, today) {
   const gsdtDir = path.join(projectDir, ".gsd-t");
   const contractsDir = path.join(gsdtDir, "contracts");
   const domainsDir = path.join(gsdtDir, "domains");
@@ -594,7 +579,6 @@ function doInit(projectName) {
   ensureDir(contractsDir);
   ensureDir(domainsDir);
 
-  // .gitkeep files so empty dirs are tracked
   for (const dir of [contractsDir, domainsDir]) {
     const gitkeep = path.join(dir, ".gitkeep");
     if (isSymlink(gitkeep)) continue;
@@ -622,8 +606,7 @@ function doInit(projectName) {
   }
 
   // Backlog files
-  const backlogFiles = ["backlog.md", "backlog-settings.md"];
-  for (const file of backlogFiles) {
+  for (const file of ["backlog.md", "backlog-settings.md"]) {
     const destPath = path.join(gsdtDir, file);
     if (isSymlink(destPath)) {
       warn(`Skipping .gsd-t/${file} — target is a symlink`);
@@ -638,13 +621,33 @@ function doInit(projectName) {
       else { throw e; }
     }
   }
+}
 
-  // 4. Register in project index
+function doInit(projectName) {
+  if (!projectName) {
+    projectName = path.basename(process.cwd());
+  }
+
+  if (!validateProjectName(projectName)) {
+    error(`Invalid project name: "${projectName}"`);
+    info("Project names must start with a letter or number and contain only letters, numbers, dots, hyphens, underscores, or spaces (max 101 chars)");
+    return;
+  }
+
+  heading(`Initializing GSD-T project: ${projectName}`);
+  log("");
+
+  const projectDir = process.cwd();
+  const today = new Date().toISOString().split("T")[0];
+
+  initClaudeMd(projectDir, projectName, today);
+  initDocs(projectDir, projectName, today);
+  initGsdtDir(projectDir, projectName, today);
+
   if (registerProject(projectDir)) {
     success("Registered in ~/.claude/.gsd-t-projects");
   }
 
-  // 5. Summary
   heading("Project Initialized!");
   log("");
   log(`  ${projectDir}/`);
@@ -977,13 +980,8 @@ function doUpdateAll() {
   log("");
 }
 
-function doDoctor() {
-  heading("GSD-T Doctor");
-  log("");
-
+function checkDoctorEnvironment() {
   let issues = 0;
-
-  // 1. Node version
   const nodeVersion = parseInt(process.version.slice(1));
   if (nodeVersion >= 16) {
     success(`Node.js ${process.version}`);
@@ -991,8 +989,6 @@ function doDoctor() {
     error(`Node.js ${process.version} — requires >= 16`);
     issues++;
   }
-
-  // 2. Claude Code installed?
   try {
     const claudeVersion = execFileSync("claude", ["--version"], { encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }).trim();
     success(`Claude Code: ${claudeVersion}`);
@@ -1001,8 +997,6 @@ function doDoctor() {
     info("Install with: npm install -g @anthropic-ai/claude-code");
     issues++;
   }
-
-  // 3. ~/.claude/ exists?
   if (fs.existsSync(CLAUDE_DIR)) {
     success("~/.claude/ directory exists");
   } else {
@@ -1010,8 +1004,11 @@ function doDoctor() {
     info("Run 'npx @tekyzinc/gsd-t install' to create it");
     issues++;
   }
+  return issues;
+}
 
-  // 4. Commands installed?
+function checkDoctorInstallation() {
+  let issues = 0;
   const installed = getInstalledCommands();
   const expected = getCommandFiles();
   if (installed.length === expected.length) {
@@ -1025,8 +1022,6 @@ function doDoctor() {
     error("No GSD-T commands installed");
     issues++;
   }
-
-  // 5. CLAUDE.md
   if (fs.existsSync(GLOBAL_CLAUDE_MD)) {
     const content = fs.readFileSync(GLOBAL_CLAUDE_MD, "utf8");
     if (content.includes("GSD-T")) {
@@ -1039,8 +1034,6 @@ function doDoctor() {
     error("No global CLAUDE.md");
     issues++;
   }
-
-  // 6. settings.json valid?
   if (fs.existsSync(SETTINGS_JSON)) {
     try {
       JSON.parse(fs.readFileSync(SETTINGS_JSON, "utf8"));
@@ -1052,8 +1045,25 @@ function doDoctor() {
   } else {
     info("No settings.json (not required)");
   }
+  let encodingIssues = 0;
+  for (const file of installed) {
+    const content = fs.readFileSync(path.join(COMMANDS_DIR, file), "utf8");
+    if (content.includes("\u00e2\u20ac") || content.includes("\u00c3")) {
+      encodingIssues++;
+    }
+  }
+  if (encodingIssues > 0) {
+    error(`${encodingIssues} command files have encoding issues (corrupted characters)`);
+    info("Run 'npx @tekyzinc/gsd-t update' to replace with clean versions");
+    issues++;
+  } else if (installed.length > 0) {
+    success("No encoding issues in command files");
+  }
+  return issues;
+}
 
-  // 7. Playwright check (current project)
+function checkDoctorProject() {
+  let issues = 0;
   const cwd = process.cwd();
   if (hasPlaywright(cwd)) {
     success("Playwright configured");
@@ -1062,8 +1072,6 @@ function doDoctor() {
     info("Will be auto-installed when you run a GSD-T testing command");
     issues++;
   }
-
-  // 8. Swagger/OpenAPI check (current project)
   if (hasApi(cwd)) {
     if (hasSwagger(cwd)) {
       success("Swagger/OpenAPI configured");
@@ -1075,24 +1083,16 @@ function doDoctor() {
   } else {
     info("No API framework detected (Swagger check skipped)");
   }
+  return issues;
+}
 
-  // 9. Check for encoding issues in command files
-  let encodingIssues = 0;
-  for (const file of installed) {
-    const content = fs.readFileSync(path.join(COMMANDS_DIR, file), "utf8");
-    if (content.includes("â€") || content.includes("Ã")) {
-      encodingIssues++;
-    }
-  }
-  if (encodingIssues > 0) {
-    error(`${encodingIssues} command files have encoding issues (corrupted characters)`);
-    info("Run 'npx @tekyzinc/gsd-t update' to replace with clean versions");
-    issues++;
-  } else if (installed.length > 0) {
-    success("No encoding issues in command files");
-  }
-
-  // Summary
+function doDoctor() {
+  heading("GSD-T Doctor");
+  log("");
+  let issues = 0;
+  issues += checkDoctorEnvironment();
+  issues += checkDoctorInstallation();
+  issues += checkDoctorProject();
   log("");
   if (issues === 0) {
     log(`${GREEN}${BOLD}  All checks passed!${RESET}`);
@@ -1181,26 +1181,8 @@ function checkForUpdates() {
     } catch { /* timeout or network error — skip */ }
   } else if (isStale) {
     // Cache exists but stale — refresh in background (non-blocking)
-    const script = `
-      const https = require("https");
-      const fs = require("fs");
-      https.get("https://registry.npmjs.org/@tekyzinc/gsd-t/latest",
-        { timeout: 5000 }, (res) => {
-        let d = "";
-        res.on("data", (c) => d += c);
-        res.on("end", () => {
-          try {
-            const v = JSON.parse(d).version;
-            if (v && /^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9.]+)?$/.test(v)) {
-              fs.writeFileSync(${JSON.stringify(UPDATE_CHECK_FILE)},
-                JSON.stringify({ latest: v, timestamp: Date.now() }));
-            }
-          } catch {}
-        });
-      }).on("error", () => {});
-    `.replace(/\n/g, "");
-    const { spawn } = require("child_process");
-    const child = spawn(process.execPath, ["-e", script], {
+    const updateScript = path.join(__dirname, "..", "scripts", "npm-update-check.js");
+    const child = cpSpawn(process.execPath, [updateScript, UPDATE_CHECK_FILE], {
       detached: true,
       stdio: "ignore",
     });
@@ -1221,7 +1203,8 @@ function showUpdateNotice(latest) {
 function doChangelog() {
   try {
     if (process.platform === "win32") {
-      // "start" is a cmd built-in — must go through cmd.exe, but with safe array args
+      // SAFETY: CHANGELOG_URL is a hardcoded constant (line 43). If it ever becomes
+      // dynamic/user-provided, this cmd.exe call would need URL validation to prevent injection.
       execFileSync("cmd", ["/c", "start", "", CHANGELOG_URL], { stdio: "ignore" });
     } else {
       const openCmd = process.platform === "darwin" ? "open" : "xdg-open";
