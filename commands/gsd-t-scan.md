@@ -13,10 +13,7 @@ Read:
 
 ## Step 2: Full Codebase Scan
 
-Choose solo or team mode:
-
-### Team Mode (recommended for medium-to-large codebases)
-If agent teams are enabled, spawn a team — each dimension is fully independent:
+**Always use Team Mode** unless the codebase is trivially small (< 5 files) or agent teams are explicitly disabled. Each dimension is fully independent — parallel scanning is faster and produces better results.
 
 ```
 Create an agent team to scan this codebase:
@@ -41,7 +38,7 @@ Each teammate: write your findings to your assigned file.
 Lead: synthesize all findings into .gsd-t/techdebt.md when complete.
 ```
 
-### Solo Mode (small codebases or teams not enabled)
+### Solo Mode (fallback — only if < 5 files or teams disabled)
 Work through each dimension sequentially:
 
 Systematically analyze the entire codebase across these dimensions:

@@ -58,7 +58,7 @@ Execute the full scan workflow (same as `/user:gsd-t-scan`):
 3. Cross-populate findings into living documents (docs/architecture.md, docs/workflows.md, docs/infrastructure.md, docs/requirements.md)
 4. Update README.md with discovered tech stack and setup info
 
-Use team mode if agent teams are enabled. Otherwise run solo.
+Always use team mode for the scan unless the codebase is trivially small (< 5 files) or teams are explicitly disabled.
 
 **If `.gsd-t/techdebt.md` already exists**: Append new findings, don't overwrite.
 
