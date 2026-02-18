@@ -90,76 +90,22 @@ function cleanupOldHeartbeats(gsdtDir) {
   }
 }
 
+const EVENT_HANDLERS = {
+  SessionStart: (h) => ({ evt: "session_start", data: { source: h.source, model: h.model } }),
+  PostToolUse: (h) => ({ evt: "tool", tool: h.tool_name, data: summarize(h.tool_name, h.tool_input) }),
+  SubagentStart: (h) => ({ evt: "agent_spawn", data: { agent_id: h.agent_id, agent_type: h.agent_type } }),
+  SubagentStop: (h) => ({ evt: "agent_stop", data: { agent_id: h.agent_id, agent_type: h.agent_type } }),
+  TaskCompleted: (h) => ({ evt: "task_done", data: { task: h.task_subject, agent: h.teammate_name } }),
+  TeammateIdle: (h) => ({ evt: "agent_idle", data: { agent: h.teammate_name, team: h.team_name } }),
+  Notification: (h) => ({ evt: "notification", data: { message: h.message, title: h.title } }),
+  Stop: () => ({ evt: "session_stop" }),
+  SessionEnd: (h) => ({ evt: "session_end", data: { reason: h.reason } }),
+};
+
 function buildEvent(hook) {
-  const base = {
-    ts: new Date().toISOString(),
-    sid: hook.session_id,
-  };
-
-  switch (hook.hook_event_name) {
-    case "SessionStart":
-      return {
-        ...base,
-        evt: "session_start",
-        data: { source: hook.source, model: hook.model },
-      };
-
-    case "PostToolUse":
-      return {
-        ...base,
-        evt: "tool",
-        tool: hook.tool_name,
-        data: summarize(hook.tool_name, hook.tool_input),
-      };
-
-    case "SubagentStart":
-      return {
-        ...base,
-        evt: "agent_spawn",
-        data: { agent_id: hook.agent_id, agent_type: hook.agent_type },
-      };
-
-    case "SubagentStop":
-      return {
-        ...base,
-        evt: "agent_stop",
-        data: { agent_id: hook.agent_id, agent_type: hook.agent_type },
-      };
-
-    case "TaskCompleted":
-      return {
-        ...base,
-        evt: "task_done",
-        data: { task: hook.task_subject, agent: hook.teammate_name },
-      };
-
-    case "TeammateIdle":
-      return {
-        ...base,
-        evt: "agent_idle",
-        data: { agent: hook.teammate_name, team: hook.team_name },
-      };
-
-    case "Notification":
-      return {
-        ...base,
-        evt: "notification",
-        data: { message: hook.message, title: hook.title },
-      };
-
-    case "Stop":
-      return { ...base, evt: "session_stop" };
-
-    case "SessionEnd":
-      return {
-        ...base,
-        evt: "session_end",
-        data: { reason: hook.reason },
-      };
-
-    default:
-      return null;
-  }
+  const handler = EVENT_HANDLERS[hook.hook_event_name];
+  if (!handler) return null;
+  return { ts: new Date().toISOString(), sid: hook.session_id, ...handler(hook) };
 }
 
 // Patterns that indicate sensitive values in CLI commands
