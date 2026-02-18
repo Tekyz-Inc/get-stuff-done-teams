@@ -2,11 +2,27 @@
 
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Version: 2.24.0
-## Status: READY
+## Status: ACTIVE
 ## Date: 2026-02-18
 
 ## Current Milestone
-No active milestone. Next: Milestone 5 (Security Hardening)
+
+| # | Milestone | Status | Domains |
+|---|-----------|--------|---------|
+| 5 | Security Hardening | EXECUTED | security |
+
+**Goal**: Address all 6 known security concerns — scrub sensitive data from heartbeat logs, validate file paths and symlinks in scripts, bound HTTP responses, and document wave security model.
+
+**Tech Debt Items**: TD-019, TD-020, TD-026, TD-027, TD-028, TD-035
+
+**Success Criteria**:
+- [ ] Heartbeat scrubs common secret patterns before logging
+- [ ] npm-update-check.js validates path within ~/.claude/
+- [ ] npm-update-check.js checks symlink before write
+- [ ] HTTP response accumulation bounded (1MB limit)
+- [ ] ensureDir validates parent symlinks
+- [ ] Wave bypassPermissions documented with security implications
+- [ ] All existing tests pass
 
 ## Completed Milestones
 | Milestone | Version | Completed | Tag |
@@ -18,13 +34,15 @@ No active milestone. Next: Milestone 5 (Security Hardening)
 | Testing Foundation | 2.24.0 | 2026-02-18 | v2.24.0 |
 
 ## Domains
-(populated during partition phase)
+| Domain | Status | Tasks | Completed |
+|--------|--------|-------|-----------|
+| security | executed | 6 | 6 |
 
 ## Contracts
-(populated during partition phase)
+No cross-domain contracts — single domain milestone.
 
 ## Integration Checkpoints
-(populated during plan phase)
+No integration checkpoints — single domain milestone.
 
 ## Blockers
 <!-- No active blockers -->
@@ -121,6 +139,10 @@ No active milestone. Next: Milestone 5 (Security Hardening)
 - 2026-02-18 19:30: Promoted 25 of 26 tech debt items into 5 milestones. Created roadmap.md. Milestone 3: Count Fix + QA Contract Alignment (TD-022, TD-042, TD-043). Milestone 4: Testing Foundation (TD-003). Milestone 5: Security Hardening (TD-019, TD-020, TD-026, TD-027, TD-028, TD-035). Milestone 6: CLI Quality Improvement (TD-017, TD-021, TD-024, TD-025, TD-032, TD-033, TD-034). Milestone 7: Command File Cleanup (TD-030, TD-031, TD-036, TD-037, TD-038, TD-039, TD-040, TD-041). TD-029 (TOCTOU race) not promoted — low ROI.
 - 2026-02-18 20:30: Milestone 4 (Testing Foundation) completed — TD-003 resolved. 64 tests in 2 files (test/helpers.test.js: 27 tests for pure helpers, test/filesystem.test.js: 37 tests for filesystem helpers + CLI subcommands). Modified bin/gsd-t.js: added module.exports for 20 functions, require.main guard, parameterized checkForUpdates. Zero external dependencies — Node.js built-in test runner only. v2.24.0
 - 2026-02-18 20:00: Milestone 3 executed — 3/3 tasks complete. Task 1 (TD-022): fixed 8 stale count references across CLAUDE.md, README.md, package.json, docs/infrastructure.md (42→43, 38→39). Task 2 (TD-042): added "During Test-Sync" section to gsd-t-qa.md, added test-sync to qa-agent-contract.md phase list and output table. Task 3 (TD-043): archived doc-alignment domain to milestones/. All verified — zero stale counts, QA contract complete with 9 phases.
+- 2026-02-18 21:45: Milestone 5 (Security Hardening) defined — 6 tech debt items (TD-019, TD-020, TD-026, TD-027, TD-028, TD-035). Goal: address all known security concerns. Note: test baseline blocked by disk space (ENOSPC).
+- 2026-02-18 21:50: Milestone 5 partitioned — 1 domain (security). Single domain because all 6 items are security hardening across 3 JS files + 1 command file with no cross-domain dependencies. No contracts needed. Solo sequential execution.
+- 2026-02-18 21:55: Milestone 5 planned — 6 tasks in security domain. 5 independent, 1 blocked (Task 3 depends on Task 2). Solo sequential mode. Tasks: TD-019 heartbeat scrubbing, TD-020 path validation, TD-026 symlink check, TD-027 HTTP response bounding, TD-028 ensureDir parent validation, TD-035 wave security docs.
+- 2026-02-18 22:15: Milestone 5 executed — 6/6 tasks complete. Task 1: scrubSecrets() + scrubUrl() in heartbeat (TD-019). Task 2: path validation within ~/.claude/ (TD-020). Task 3: symlink check before write (TD-026). Task 4: 1MB HTTP response limit in both fetch paths (TD-027). Task 5: hasSymlinkInPath() parent validation (TD-028). Task 6: Security Considerations section in wave + README Security section (TD-035). All helpers tests pass.
 
 ## Session Log
 | Date | Session | What was accomplished |

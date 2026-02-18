@@ -3,14 +3,15 @@
 ## Summary
 - Critical items: 0
 - High priority: 1
-- Medium priority: 6
-- Low priority: 15
-- Total estimated effort: ~3-4 focused sessions
+- Medium priority: 3
+- Low priority: 12
+- Total estimated effort: ~2-3 focused sessions
 
 ### Scan History
 - **Scan #1** (2026-02-07): 13 items found, 9 resolved
 - **Scan #2** (2026-02-18): 22 items total, 6 resolved via Contract & Doc Alignment milestone
 - **Scan #3** (2026-02-18): 15 items from scan #2 still open, 1 regressed (TD-022), 1 worsened (TD-031), 10 new items found. Total open: 26
+- **Milestone 5** (2026-02-18): 6 items resolved via Security Hardening milestone (TD-019, TD-020, TD-026, TD-027, TD-028, TD-035). Total open: 20
 
 ---
 
@@ -36,6 +37,12 @@
 | TD-042 | QA Agent Contract Missing test-sync Phase | RESOLVED — added During Test-Sync section + contract phase/output (2026-02-18, Milestone 3) |
 | TD-043 | Orphaned Domain Files Not Archived | RESOLVED — archived to .gsd-t/milestones/contract-doc-alignment/ (2026-02-18, Milestone 3) |
 | TD-003 | No Test Coverage | RESOLVED — 64 tests in test/ (27 helper + 37 filesystem/CLI), `npm test` passes (2026-02-18, Milestone 4) |
+| TD-019 | Heartbeat Sensitive Data in Bash Commands | RESOLVED — scrubSecrets() + scrubUrl() helpers scrub passwords, tokens, API keys, bearer tokens, and URL query params (2026-02-18, Milestone 5) |
+| TD-020 | npm-update-check.js Arbitrary Path Write | RESOLVED — validates cache path resolves within ~/.claude/ (2026-02-18, Milestone 5) |
+| TD-026 | npm-update-check.js Missing Symlink Check | RESOLVED — lstatSync symlink check before writeFileSync (2026-02-18, Milestone 5) |
+| TD-027 | Unbounded HTTP Response in Update Fetch | RESOLVED — 1MB response limit in both npm-update-check.js and bin/gsd-t.js inline fetch (2026-02-18, Milestone 5) |
+| TD-028 | ensureDir Does Not Validate Parent Symlinks | RESOLVED — hasSymlinkInPath() walks parent components (2026-02-18, Milestone 5) |
+| TD-035 | Wave bypassPermissions Security Documentation | RESOLVED — Security Considerations section in gsd-t-wave.md + Security section in README.md (2026-02-18, Milestone 5) |
 
 ---
 
@@ -57,26 +64,6 @@ Items that should be addressed in the next 1-2 milestones.
 
 ## Medium Priority
 Items to plan for but not urgent.
-
-### TD-019: Heartbeat Sensitive Data in Bash Commands
-- **Category**: security
-- **Severity**: MEDIUM
-- **Location**: `scripts/gsd-t-heartbeat.js` lines 85-186
-- **Description**: Heartbeat logs first 150 chars of bash commands which may contain passwords, tokens, or secrets. Also logs WebFetch URLs (may have auth tokens in query strings).
-- **Impact**: Sensitive data in heartbeat files. Mitigated by 7-day auto-cleanup and project-local storage.
-- **Remediation**: Scrub common secret patterns (--password, --token, API_KEY=) before logging. Mask URL query parameters.
-- **Effort**: small-medium
-- **Milestone candidate**: NO — fold into security improvements
-- **Promoted**: [x] — Milestone 5: Security Hardening
-
-### TD-020: npm-update-check.js Arbitrary Path Write
-- **Category**: security
-- **Severity**: MEDIUM
-- **Location**: `scripts/npm-update-check.js` lines 11-12, 22
-- **Description**: Cache file path from `process.argv[2]` is used without validation. Could write JSON to any user-writable file.
-- **Remediation**: Validate path is within `~/.claude/` directory before writing.
-- **Effort**: small
-- **Promoted**: [x] — Milestone 5: Security Hardening
 
 ### TD-021: 13 Functions Exceed 30-Line Limit
 - **Category**: quality
@@ -116,16 +103,6 @@ Items to plan for but not urgent.
 - **Effort**: small
 - **Promoted**: [x] — Milestone 6: CLI Quality Improvement
 
-### TD-035: Wave bypassPermissions Security Documentation (NEW — scan #3)
-- **Category**: security (design concern)
-- **Severity**: MEDIUM
-- **Location**: `commands/gsd-t-wave.md:40`
-- **Description**: Wave orchestrator spawns phase agents with `mode: "bypassPermissions"`. Each sub-agent can execute bash, write files, and perform git operations without user approval. If command files in `~/.claude/commands/` are tampered, all 9 wave agents execute modified instructions with full permissions.
-- **Current mitigation**: Command files installed from npm, content comparison during update, `~/.claude/commands/` is user-owned, Destructive Action Guard in CLAUDE.md provides soft protection.
-- **Remediation**: Document security implications of bypassPermissions in wave command and README. Consider `--confirm` flag for Level 1/2 autonomy.
-- **Effort**: small (documentation), medium (technical controls)
-- **Promoted**: [x] — Milestone 5: Security Hardening
-
 ### TD-042: QA Agent Contract Missing test-sync Phase (NEW — scan #3)
 - **Category**: contract drift
 - **Severity**: MEDIUM
@@ -139,30 +116,6 @@ Items to plan for but not urgent.
 
 ## Low Priority
 Nice-to-haves and cleanup.
-
-### TD-026: npm-update-check.js Missing Symlink Check
-- **Category**: security
-- **Severity**: LOW
-- **Location**: `scripts/npm-update-check.js` line 22
-- **Description**: `writeFileSync(cacheFile, ...)` does not check if cache file is a symlink.
-- **Effort**: small
-- **Promoted**: [x] — Milestone 5: Security Hardening
-
-### TD-027: Unbounded HTTP Response in Update Fetch
-- **Category**: security
-- **Severity**: LOW
-- **Location**: `bin/gsd-t.js` line 1169, `scripts/npm-update-check.js` line 16-17
-- **Description**: Both update fetch paths accumulate full HTTP response without size limit.
-- **Effort**: small
-- **Promoted**: [x] — Milestone 5: Security Hardening
-
-### TD-028: ensureDir Does Not Validate Parent Symlinks
-- **Category**: security
-- **Severity**: LOW
-- **Location**: `bin/gsd-t.js` lines 102-112
-- **Description**: Checks target dir for symlink but not parent path components.
-- **Effort**: small
-- **Promoted**: [x] — Milestone 5: Security Hardening
 
 ### TD-029: TOCTOU Race in Symlink Check + Write
 - **Category**: security
@@ -314,7 +267,7 @@ Resolved: TD-014, TD-015, TD-016, TD-018, TD-022 (partially regressed), TD-023
 - Languages: JavaScript, Markdown
 - Scan mode: Team (5 parallel agents: architecture, business-rules, security, quality, contracts)
 - Scan #3 changes: 1 regressed (TD-022), 1 worsened (TD-031), 10 new items, 0 resolved since scan #2
-- Total open items: 26 (0 critical, 2 high, 8 medium, 16 low)
+- Total open items: 20 (0 critical, 1 high, 3 medium, 12 low) — after Milestone 5 resolved 6 items
 
 ### Trend Analysis
 
