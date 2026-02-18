@@ -24,6 +24,19 @@ Should I proceed with quick mode or use the full execute workflow?"
 ### If it's within a single domain or pre-partition:
 Proceed.
 
+## Step 2.5: Spawn QA Agent
+
+Spawn the QA teammate to handle testing for this quick task:
+
+```
+Teammate "qa": Read commands/gsd-t-qa.md for your full instructions.
+  Phase context: quick. Read .gsd-t/contracts/ for relevant contracts.
+  Write tests for the change, run the full test suite.
+  Report: test results and any coverage gaps found.
+```
+
+QA failure blocks the commit.
+
 ## Step 3: Execute
 
 1. Identify exactly which files need to change

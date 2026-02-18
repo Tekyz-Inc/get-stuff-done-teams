@@ -36,6 +36,7 @@ MILESTONE WORKFLOW                                          [auto] = in wave
   impact       [auto] Analyze downstream effects before execution
   execute      [auto] Run tasks (solo or team mode)
   test-sync    [auto] Sync tests with code changes
+  qa           [auto] QA agent — test generation, execution, gap reporting
   integrate    [auto] Wire domains together at boundaries
   verify       [auto] Run quality gates
   complete-milestone [auto] Archive milestone + git tag
@@ -236,6 +237,12 @@ Use these when user asks for help on a specific command:
 - **Auto-invoked**: Yes (during execute and verify)
 - **Creates**: `.gsd-t/test-coverage.md`, test tasks
 - **Use when**: After code changes, to maintain test health
+
+### qa
+- **Summary**: QA agent — test generation, execution, and gap reporting
+- **Auto-invoked**: Yes (spawned as teammate by partition, plan, execute, verify, quick, debug, integrate, complete-milestone)
+- **Creates**: Contract test skeletons, acceptance tests, edge case tests, test audit reports
+- **Use when**: Automatically spawned — never needs manual invocation. Standalone use for ad-hoc test audits.
 
 ### integrate
 - **Summary**: Wire domains together at their boundaries

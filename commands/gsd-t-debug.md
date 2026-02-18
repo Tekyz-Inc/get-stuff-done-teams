@@ -40,6 +40,19 @@ The contract didn't specify something it should have. Symptoms:
 
 → Update the contract, then fix implementations on both sides.
 
+## Step 2.5: Spawn QA Agent
+
+Spawn the QA teammate to handle regression testing:
+
+```
+Teammate "qa": Read commands/gsd-t-qa.md for your full instructions.
+  Phase context: debug. Read .gsd-t/contracts/ for relevant contracts.
+  Write a regression test for the bug once root cause is identified.
+  Report: regression test status and related test coverage.
+```
+
+QA failure blocks the commit.
+
 ## Step 3: Debug (Solo or Team)
 
 ### Solo Mode

@@ -46,6 +46,7 @@ PROJECT or FEATURE or SCAN
 | `/user:gsd-t-impact` | Analyze downstream effects before execution |
 | `/user:gsd-t-execute` | Run tasks (solo or team) |
 | `/user:gsd-t-test-sync` | Keep tests aligned with code changes |
+| `/user:gsd-t-qa` | QA agent — test generation, execution, gap reporting |
 | `/user:gsd-t-integrate` | Wire domains together |
 | `/user:gsd-t-verify` | Run quality gates |
 | `/user:gsd-t-complete-milestone` | Archive milestone + git tag |
@@ -210,6 +211,23 @@ After Playwright tests finish (pass or fail), **kill any app/server processes th
 3. Verify the port is free before proceeding
 
 This applies everywhere Playwright tests are executed: execute, test-sync, verify, quick, wave, debug, complete-milestone, and integrate.
+
+## QA Agent (Mandatory)
+
+Any GSD-T phase that produces or validates code **MUST spawn a QA teammate**. The QA agent's sole job is test generation, execution, and gap reporting. It never writes feature code.
+
+**Commands that must spawn QA agent:**
+`partition`, `plan`, `execute`, `verify`, `complete-milestone`, `quick`, `debug`, `integrate`, `test-sync`, `wave`
+
+**Spawn instruction:**
+```
+Teammate "qa": Read commands/gsd-t-qa.md for your full instructions.
+  Phase context: {current phase}. Read .gsd-t/contracts/ for contract definitions.
+  Your job: generate contract tests, run all tests, report gaps.
+  You do NOT write feature code.
+```
+
+**QA agent failure blocks phase completion.** Lead cannot proceed until QA reports PASS or user explicitly overrides.
 
 ## API Documentation Guard (Swagger/OpenAPI)
 

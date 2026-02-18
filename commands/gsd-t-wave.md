@@ -11,6 +11,10 @@ Read:
 
 Determine current status and resume from wherever the milestone left off.
 
+## Step 1.5: QA Agent Spawning
+
+Every phase that produces or validates code will automatically spawn a QA teammate. The QA agent is spawned per-phase (not once for the entire wave) because each phase has different QA responsibilities. Each phase's command file contains its own QA spawn instructions — follow them when executing that phase.
+
 ## Step 2: Execute Remaining Phases
 
 Work through each phase that hasn't been completed:

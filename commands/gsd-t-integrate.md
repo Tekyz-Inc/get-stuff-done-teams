@@ -88,6 +88,19 @@ Result: PASS
 Result: PARTIAL — needs pagination contract addition
 ```
 
+## Step 4.5: Spawn QA Agent
+
+Spawn the QA teammate to verify contract compliance at domain boundaries:
+
+```
+Teammate "qa": Read commands/gsd-t-qa.md for your full instructions.
+  Phase context: integrate. Read .gsd-t/contracts/ for all contract definitions.
+  Run contract compliance tests at every domain boundary.
+  Report: boundary-by-boundary test results.
+```
+
+QA failure blocks integration completion.
+
 ## Step 5: Document Ripple
 
 Integration is where the real system takes shape. Verify documentation matches reality:
