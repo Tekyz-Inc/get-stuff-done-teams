@@ -246,6 +246,17 @@ your-project/
 
 ---
 
+## Security
+
+- **Wave mode** spawns phase agents with `bypassPermissions` — agents execute without per-action user approval. Use Level 1 or Level 2 autonomy for sensitive projects to review each phase.
+- **Heartbeat logs** scrub sensitive patterns (passwords, tokens, API keys) from bash commands and mask URL query parameters before writing to `.gsd-t/heartbeat-*.jsonl`.
+- **File write paths** are validated (within `~/.claude/`) and checked for symlinks before writing.
+- **HTTP responses** are bounded at 1MB to prevent memory exhaustion from oversized registry responses.
+- **Directory creation** validates parent path components for symlinks to prevent path traversal.
+- Run `gsd-t doctor` to verify installation integrity. Keep GSD-T updated with `gsd-t update`.
+
+---
+
 ## Enabling Agent Teams
 
 ```json

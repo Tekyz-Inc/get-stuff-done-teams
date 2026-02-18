@@ -188,6 +188,34 @@ Each phase agent gets a **fresh context window** (~200K tokens). This means:
 
 State handoff happens through `.gsd-t/` files — exactly what they were designed for.
 
+## Security Considerations
+
+### bypassPermissions Mode
+
+Wave spawns each phase agent with `mode: "bypassPermissions"`. This means agents execute bash commands, write files, and perform git operations **without per-action user approval**. This is by design — wave phases would be impractical with manual approval at every step.
+
+### Attack Surface
+
+If command files in `~/.claude/commands/` are tampered with, wave agents will execute the modified instructions with full permissions. The attack requires:
+1. Write access to the user's `~/.claude/commands/` directory
+2. Knowledge of the GSD-T command file format
+3. The user to run `/gsd-t-wave` after tampering
+
+### Current Mitigations
+
+- **npm-installed files**: Command files are installed from the npm registry, providing a known-good source
+- **Content comparison on update**: `gsd-t update` compares file contents and reports changes
+- **User-owned directory**: `~/.claude/commands/` inherits the user's filesystem permissions
+- **Destructive Action Guard**: CLAUDE.md instructions provide soft protection against destructive operations (DROP TABLE, schema changes, etc.), though agents could theoretically ignore these
+- **Autonomy levels**: Level 1 and Level 2 pause between phases, giving users visibility into agent activity
+
+### Recommendations
+
+- For sensitive projects, use **Level 1 or Level 2 autonomy** instead of Level 3 to review each phase's output
+- Periodically verify command file integrity: `gsd-t doctor` checks installation health
+- If security is a concern, audit `~/.claude/commands/gsd-t-*.md` files for unexpected modifications
+- Keep GSD-T updated (`gsd-t update`) to receive the latest command files from npm
+
 ## Workflow Visualization
 
 ```
