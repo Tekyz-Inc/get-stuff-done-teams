@@ -3,7 +3,7 @@
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: READY
 ## Date: 2026-02-17
-## Version: 2.22.0
+## Version: 2.23.0
 
 ## Current Milestone
 None — ready for next milestone
@@ -87,17 +87,15 @@ None — ready for next milestone
 - 2026-02-16 17:35: Merged 3 branches from Gayathri: stale count fixes (CLAUDE.md), doc ripple sections (4 commands), quality polish (CLI refactoring, CRLF fix, heartbeat cleanup, error handling). v2.20.6
 - 2026-02-17 12:25: Merged contracts-td023 branch — 5 formal contract definitions for core GSD-T interfaces (backlog formats, domain structure, pre-commit gate, progress format, wave phases). v2.20.7
 - 2026-02-17 12:35: Added gsd-t-triage-and-merge command — auto-reviews unmerged GitHub branches, scores impact (auto-merge/review/skip), merges safe branches, and optionally publishes. Publish gate respects autonomy level (auto in Level 3, prompted in Level 1-2). Updated all 4 reference files + command counts. v2.21.0
-<<<<<<< HEAD
-- 2026-02-18 14:00: Re-initialized project — created missing backlog-settings.md, 4 living docs (requirements, architecture, workflows, infrastructure). Backlog settings auto-derived from CLAUDE.md.
-- 2026-02-18 14:30: Triage-and-merge: merged PR #7 (fix-scan2-quick-fixes — 12 scan items: security symlink gaps, contract/doc alignment) and PR #8 (fix-scan2-batch3-quality — 4 remaining scan items: function splitting, ownership validation, npm-update-check extraction). v2.21.1
-=======
 - 2026-02-17 14:30: Milestone 2 defined — QA Agent — Test-Driven Contracts. 3 domains: contract-test-gen, qa-agent-spec, command-integration.
 - 2026-02-17 16:30: Milestone 2 execute phase — contract-test-gen complete (mapping-rules.md with contract-to-test mapping rules for API, Schema, Component contracts).
 - 2026-02-17 16:35: Milestone 2 execute phase — qa-agent-spec complete (gsd-t-qa.md command created, QA Agent Mandatory section added to global template + live CLAUDE.md, all 4 reference files updated with new command).
 - 2026-02-17 16:45: Milestone 2 execute phase — command-integration complete. Added QA agent spawn steps to 10 command files: partition (Step 4.7), plan (Step 4.7), execute (Step 1.5 + team mode), verify (Step 1.5 + team mode), complete-milestone (Step 7.6), quick (Step 2.5), debug (Step 2.5), integrate (Step 4.5), test-sync (Step 1.5), wave (Step 1.5).
 - 2026-02-17 16:50: Milestone 2 verified — 15/15 deliverable checks PASS. All command files have QA spawn steps, all reference files updated, mapping rules complete.
 - 2026-02-17 16:55: Milestone 2 (QA Agent — Test-Driven Contracts) completed — 11 tasks, 3 domains, 1 new command (gsd-t-qa), 10 commands updated with QA spawn, contract-to-test mapping rules defined. v2.22.0
->>>>>>> e8b0fa4 (feat: add QA Agent — test-driven contract enforcement (v2.22.0))
+- 2026-02-18 14:00: Re-initialized project — created missing backlog-settings.md, 4 living docs (requirements, architecture, workflows, infrastructure). Backlog settings auto-derived from CLAUDE.md.
+- 2026-02-18 14:30: Triage-and-merge: merged PR #7 (fix-scan2-quick-fixes — 12 scan items: security symlink gaps, contract/doc alignment) and PR #8 (fix-scan2-batch3-quality — 4 remaining scan items: function splitting, ownership validation, npm-update-check extraction). v2.21.1
+- 2026-02-17 17:15: Wave orchestrator rewrite — gsd-t-wave now spawns independent agent per phase instead of executing inline. Each phase gets fresh context window, eliminating cross-phase accumulation. Orchestrator stays ~30KB. ~75-85% peak context reduction. v2.23.0
 
 ## Session Log
 | Date | Session | What was accomplished |
