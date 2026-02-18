@@ -28,6 +28,8 @@ https.get("https://registry.npmjs.org/@tekyzinc/gsd-t/latest",
     try {
       const v = JSON.parse(d).version;
       if (v && /^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?$/.test(v)) {
+        // Symlink check — prevent redirection to arbitrary files
+        try { if (fs.lstatSync(cacheFile).isSymbolicLink()) return; } catch { /* doesn't exist yet — safe */ }
         fs.writeFileSync(cacheFile,
           JSON.stringify({ latest: v, timestamp: Date.now() }));
       }
