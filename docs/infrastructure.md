@@ -58,7 +58,7 @@ ls templates/*.md | wc -l  # Should be 9
 ### Installed Locations
 | What | Where |
 |------|-------|
-| Slash commands (42 files) | `~/.claude/commands/` |
+| Slash commands (43 files) | `~/.claude/commands/` |
 | Global config | `~/.claude/CLAUDE.md` |
 | Heartbeat script | `~/.claude/scripts/gsd-t-heartbeat.js` |
 | Hook configuration | `~/.claude/settings.json` (hooks section) |

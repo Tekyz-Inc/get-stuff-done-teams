@@ -42,6 +42,17 @@ Your behavior depends on which phase spawned you:
 5. Report per-task: `QA: Task {N} — {pass|fail}. {details}`
 6. Final report: `QA: {pass|fail} — {N}/{N} contract tests passing, {N} edge case tests added`
 
+### During Test-Sync
+**Trigger**: Lead runs test-sync phase
+**Action**: Validate test-to-contract alignment and fill gaps
+
+1. Read all contracts in `.gsd-t/contracts/`
+2. Compare contract definitions against existing test files — identify any contracts without tests
+3. For each contract change since last test-sync, verify tests match the updated contract shape
+4. Write missing contract tests for any gaps found
+5. Run all contract tests to verify they pass against current implementation
+6. Report: `QA: Test-sync — {pass|fail}. {N} contract tests aligned, {N} gaps filled, {N} stale tests updated`
+
 ### During Verify
 **Trigger**: Lead invokes verify phase
 **Action**: Full test audit

@@ -9,7 +9,7 @@ Teammate "qa": {instructions from gsd-t-qa.md, scoped to current phase}
 ## Input (what the QA agent receives)
 - `.gsd-t/contracts/*.md` — all contract definitions
 - Test directory path (detected from playwright.config.* or package.json)
-- Current phase context: "partition" | "plan" | "execute" | "verify" | "quick" | "debug" | "integrate" | "complete"
+- Current phase context: "partition" | "plan" | "execute" | "test-sync" | "verify" | "quick" | "debug" | "integrate" | "complete"
 
 ## Output (what the QA agent produces)
 Per phase:
@@ -18,6 +18,7 @@ Per phase:
 | partition | Contract test skeleton files (one per contract) |
 | plan | Acceptance test scenario files |
 | execute | Test execution results + new edge case tests |
+| test-sync | Contract-test alignment report + gap fills |
 | verify | Full test audit report (contract tests + coverage gaps) |
 | quick | Regression/feature tests for the quick change |
 | debug | Regression test for the bug being fixed |
