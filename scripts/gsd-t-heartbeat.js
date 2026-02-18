@@ -60,7 +60,7 @@ process.stdin.on("end", () => {
 
     const event = buildEvent(hook);
     if (event) {
-      cleanupOldHeartbeats(gsdtDir);
+      if (hook.hook_event_name === "SessionStart") cleanupOldHeartbeats(gsdtDir);
       // Symlink check — prevent redirection of event data to arbitrary files
       try { if (fs.lstatSync(file).isSymbolicLink()) return; } catch { /* file doesn't exist yet — safe */ }
       fs.appendFileSync(file, JSON.stringify(event) + "\n");
