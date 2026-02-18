@@ -9,7 +9,7 @@
 
 | # | Milestone | Status | Domains |
 |---|-----------|--------|---------|
-| 5 | Security Hardening | EXECUTED | security |
+| 5 | Security Hardening | TESTS_SYNCED | security |
 
 **Goal**: Address all 6 known security concerns — scrub sensitive data from heartbeat logs, validate file paths and symlinks in scripts, bound HTTP responses, and document wave security model.
 
@@ -143,6 +143,7 @@ No integration checkpoints — single domain milestone.
 - 2026-02-18 21:50: Milestone 5 partitioned — 1 domain (security). Single domain because all 6 items are security hardening across 3 JS files + 1 command file with no cross-domain dependencies. No contracts needed. Solo sequential execution.
 - 2026-02-18 21:55: Milestone 5 planned — 6 tasks in security domain. 5 independent, 1 blocked (Task 3 depends on Task 2). Solo sequential mode. Tasks: TD-019 heartbeat scrubbing, TD-020 path validation, TD-026 symlink check, TD-027 HTTP response bounding, TD-028 ensureDir parent validation, TD-035 wave security docs.
 - 2026-02-18 22:15: Milestone 5 executed — 6/6 tasks complete. Task 1: scrubSecrets() + scrubUrl() in heartbeat (TD-019). Task 2: path validation within ~/.claude/ (TD-020). Task 3: symlink check before write (TD-026). Task 4: 1MB HTTP response limit in both fetch paths (TD-027). Task 5: hasSymlinkInPath() parent validation (TD-028). Task 6: Security Considerations section in wave + README Security section (TD-035). All helpers tests pass.
+- 2026-02-18 22:30: Milestone 5 test-sync — 30 new security tests in test/security.test.js (scrubSecrets: 18, scrubUrl: 5, summarize integration: 4, hasSymlinkInPath: 3). Added module.exports + require.main guard to gsd-t-heartbeat.js for testability. All helpers (27) and security (30) tests pass. 19 pre-existing filesystem test failures (disk space, not from M5).
 
 ## Session Log
 | Date | Session | What was accomplished |
