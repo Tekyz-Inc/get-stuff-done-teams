@@ -183,61 +183,41 @@ function hasPlaywright(projectDir) {
   return configs.some((f) => fs.existsSync(path.join(projectDir, f)));
 }
 
+function readProjectDeps(projectDir) {
+  const pkgPath = path.join(projectDir, "package.json");
+  if (!fs.existsSync(pkgPath)) return [];
+  try {
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
+    return Object.keys(pkg.dependencies || {}).concat(Object.keys(pkg.devDependencies || {}));
+  } catch { return []; }
+}
+
+function readPyContent(projectDir, filename) {
+  const fp = path.join(projectDir, filename);
+  if (!fs.existsSync(fp)) return "";
+  try { return fs.readFileSync(fp, "utf8"); } catch { return ""; }
+}
+
 function hasSwagger(projectDir) {
-  // Check for OpenAPI/Swagger spec files
-  const specFiles = [
-    "swagger.json", "swagger.yaml", "swagger.yml",
-    "openapi.json", "openapi.yaml", "openapi.yml",
-  ];
+  const specFiles = ["swagger.json", "swagger.yaml", "swagger.yml", "openapi.json", "openapi.yaml", "openapi.yml"];
   if (specFiles.some((f) => fs.existsSync(path.join(projectDir, f)))) return true;
 
-  // Check package.json for swagger dependencies
-  const pkgPath = path.join(projectDir, "package.json");
-  if (fs.existsSync(pkgPath)) {
-    try {
-      const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
-      const allDeps = Object.keys(pkg.dependencies || {}).concat(Object.keys(pkg.devDependencies || {}));
-      const swaggerPkgs = ["swagger-jsdoc", "swagger-ui-express", "@fastify/swagger", "@nestjs/swagger", "swagger-ui", "express-openapi-validator"];
-      if (swaggerPkgs.some((p) => allDeps.includes(p))) return true;
-    } catch { /* ignore */ }
-  }
+  const swaggerPkgs = ["swagger-jsdoc", "swagger-ui-express", "@fastify/swagger", "@nestjs/swagger", "swagger-ui", "express-openapi-validator"];
+  if (swaggerPkgs.some((p) => readProjectDeps(projectDir).includes(p))) return true;
 
-  // Check for Python FastAPI (has built-in OpenAPI)
-  const pyFiles = ["requirements.txt", "pyproject.toml"];
-  for (const f of pyFiles) {
-    const fp = path.join(projectDir, f);
-    if (fs.existsSync(fp)) {
-      try {
-        const content = fs.readFileSync(fp, "utf8");
-        if (content.includes("fastapi")) return true;
-      } catch { /* ignore */ }
-    }
+  for (const f of ["requirements.txt", "pyproject.toml"]) {
+    if (readPyContent(projectDir, f).includes("fastapi")) return true;
   }
-
   return false;
 }
 
 function hasApi(projectDir) {
-  // Quick check: does this project likely have API endpoints?
-  const pkgPath = path.join(projectDir, "package.json");
-  if (fs.existsSync(pkgPath)) {
-    try {
-      const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
-      const allDeps = Object.keys(pkg.dependencies || {}).concat(Object.keys(pkg.devDependencies || {}));
-      const apiFrameworks = ["express", "fastify", "hono", "koa", "hapi", "@nestjs/core", "next"];
-      if (apiFrameworks.some((p) => allDeps.includes(p))) return true;
-    } catch { /* ignore */ }
-  }
-  // Check for Python API frameworks
-  const pyFiles = ["requirements.txt", "pyproject.toml"];
-  for (const f of pyFiles) {
-    const fp = path.join(projectDir, f);
-    if (fs.existsSync(fp)) {
-      try {
-        const content = fs.readFileSync(fp, "utf8");
-        if (content.includes("fastapi") || content.includes("flask") || content.includes("django")) return true;
-      } catch { /* ignore */ }
-    }
+  const apiFrameworks = ["express", "fastify", "hono", "koa", "hapi", "@nestjs/core", "next"];
+  if (apiFrameworks.some((p) => readProjectDeps(projectDir).includes(p))) return true;
+
+  for (const f of ["requirements.txt", "pyproject.toml"]) {
+    const content = readPyContent(projectDir, f);
+    if (content.includes("fastapi") || content.includes("flask") || content.includes("django")) return true;
   }
   return false;
 }
@@ -373,36 +353,29 @@ function configureHeartbeatHooks(scriptPath) {
   }
 
   if (!settings.hooks) settings.hooks = {};
-
   const cmd = `node "${scriptPath.replace(/\\/g, "\\\\")}"`;
   let added = 0;
 
   for (const event of HEARTBEAT_HOOKS) {
-    if (!settings.hooks[event]) settings.hooks[event] = [];
-
-    // Check if heartbeat hook already exists for this event
-    const hasHeartbeat = settings.hooks[event].some((entry) =>
-      entry.hooks && entry.hooks.some((h) => h.command && h.command.includes(HEARTBEAT_SCRIPT))
-    );
-
-    if (!hasHeartbeat) {
-      settings.hooks[event].push({
-        matcher: "",
-        hooks: [{ type: "command", command: cmd, async: true }],
-      });
-      added++;
-    }
+    if (addHeartbeatHook(settings.hooks, event, cmd)) added++;
   }
 
-  if (added > 0) {
-    if (isSymlink(SETTINGS_JSON)) {
-      warn("Skipping settings.json write — target is a symlink");
-    } else {
-      fs.writeFileSync(SETTINGS_JSON, JSON.stringify(settings, null, 2));
-    }
+  if (added > 0 && !isSymlink(SETTINGS_JSON)) {
+    fs.writeFileSync(SETTINGS_JSON, JSON.stringify(settings, null, 2));
+  } else if (added > 0) {
+    warn("Skipping settings.json write — target is a symlink");
   }
-
   return added;
+}
+
+function addHeartbeatHook(hooks, event, cmd) {
+  if (!hooks[event]) hooks[event] = [];
+  const hasHeartbeat = hooks[event].some((entry) =>
+    entry.hooks && entry.hooks.some((h) => h.command && h.command.includes(HEARTBEAT_SCRIPT))
+  );
+  if (hasHeartbeat) return false;
+  hooks[event].push({ matcher: "", hooks: [{ type: "command", command: cmd, async: true }] });
+  return true;
 }
 
 // ─── Commands ────────────────────────────────────────────────────────────────
@@ -412,29 +385,22 @@ function installCommands(isUpdate) {
   const commandFiles = getCommandFiles();
   const gsdtCommands = getGsdtCommands();
   const utilityCommands = getUtilityCommands();
-  let installed = 0;
-  let skipped = 0;
+  let installed = 0, skipped = 0;
 
   for (const file of commandFiles) {
     const src = path.join(PKG_COMMANDS, file);
     const dest = path.join(COMMANDS_DIR, file);
-
     if (isUpdate && fs.existsSync(dest)) {
-      const srcContent = fs.readFileSync(src, "utf8");
-      const destContent = fs.readFileSync(dest, "utf8");
-      if (normalizeEol(srcContent) === normalizeEol(destContent)) {
+      if (normalizeEol(fs.readFileSync(src, "utf8")) === normalizeEol(fs.readFileSync(dest, "utf8"))) {
         skipped++;
         continue;
       }
     }
-
     copyFile(src, dest, file);
     installed++;
   }
 
-  if (skipped > 0) {
-    info(`${skipped} commands unchanged`);
-  }
+  if (skipped > 0) info(`${skipped} commands unchanged`);
   success(`${gsdtCommands.length} GSD-T commands + ${utilityCommands.length} utilities ${isUpdate ? "updated" : "installed"} → ~/.claude/commands/`);
   return { gsdtCommands, utilityCommands };
 }
@@ -443,55 +409,53 @@ function installGlobalClaudeMd(isUpdate) {
   heading("Global CLAUDE.md");
   const globalSrc = path.join(PKG_TEMPLATES, "CLAUDE-global.md");
 
-  if (fs.existsSync(GLOBAL_CLAUDE_MD)) {
-    const existing = fs.readFileSync(GLOBAL_CLAUDE_MD, "utf8");
-
-    if (existing.includes("GSD-T: Contract-Driven Development")) {
-      if (isUpdate) {
-        const template = fs.readFileSync(globalSrc, "utf8");
-        if (normalizeEol(existing) === normalizeEol(template)) {
-          copyFile(globalSrc, GLOBAL_CLAUDE_MD, "CLAUDE.md updated (no customizations detected)");
-        } else {
-          const backupPath = GLOBAL_CLAUDE_MD + ".backup-" + Date.now();
-          if (isSymlink(backupPath)) {
-            warn("Skipping backup — target is a symlink");
-          } else {
-            fs.copyFileSync(GLOBAL_CLAUDE_MD, backupPath);
-          }
-          copyFile(globalSrc, GLOBAL_CLAUDE_MD, "CLAUDE.md updated");
-          warn(`Previous version backed up to ${path.basename(backupPath)}`);
-          info("Review the backup if you had custom additions to merge back in.");
-        }
-      } else {
-        info("CLAUDE.md already contains GSD-T config — skipping");
-        info("Run 'gsd-t update' to overwrite with latest version");
-      }
-    } else {
-      if (isSymlink(GLOBAL_CLAUDE_MD)) {
-        warn("Skipping CLAUDE.md append — target is a symlink");
-      } else {
-        const gsdtContent = fs.readFileSync(globalSrc, "utf8");
-        const separator = "\n\n# ─── GSD-T Section (added by installer) ───\n\n";
-        fs.appendFileSync(GLOBAL_CLAUDE_MD, separator + gsdtContent);
-        success("GSD-T config appended to existing CLAUDE.md");
-        info("Your existing content was preserved.");
-      }
-    }
-  } else {
+  if (!fs.existsSync(GLOBAL_CLAUDE_MD)) {
     copyFile(globalSrc, GLOBAL_CLAUDE_MD, "CLAUDE.md installed → ~/.claude/CLAUDE.md");
+    return;
   }
+
+  const existing = fs.readFileSync(GLOBAL_CLAUDE_MD, "utf8");
+  if (existing.includes("GSD-T: Contract-Driven Development")) {
+    updateExistingGlobalClaudeMd(globalSrc, existing, isUpdate);
+  } else {
+    appendGsdtToClaudeMd(globalSrc);
+  }
+}
+
+function updateExistingGlobalClaudeMd(globalSrc, existing, isUpdate) {
+  if (!isUpdate) {
+    info("CLAUDE.md already contains GSD-T config — skipping");
+    info("Run 'gsd-t update' to overwrite with latest version");
+    return;
+  }
+  const template = fs.readFileSync(globalSrc, "utf8");
+  if (normalizeEol(existing) === normalizeEol(template)) {
+    copyFile(globalSrc, GLOBAL_CLAUDE_MD, "CLAUDE.md updated (no customizations detected)");
+    return;
+  }
+  const backupPath = GLOBAL_CLAUDE_MD + ".backup-" + Date.now();
+  if (!isSymlink(backupPath)) fs.copyFileSync(GLOBAL_CLAUDE_MD, backupPath);
+  else warn("Skipping backup — target is a symlink");
+  copyFile(globalSrc, GLOBAL_CLAUDE_MD, "CLAUDE.md updated");
+  warn(`Previous version backed up to ${path.basename(backupPath)}`);
+  info("Review the backup if you had custom additions to merge back in.");
+}
+
+function appendGsdtToClaudeMd(globalSrc) {
+  if (isSymlink(GLOBAL_CLAUDE_MD)) { warn("Skipping CLAUDE.md append — target is a symlink"); return; }
+  const gsdtContent = fs.readFileSync(globalSrc, "utf8");
+  const separator = "\n\n# ─── GSD-T Section (added by installer) ───\n\n";
+  fs.appendFileSync(GLOBAL_CLAUDE_MD, separator + gsdtContent);
+  success("GSD-T config appended to existing CLAUDE.md");
+  info("Your existing content was preserved.");
 }
 
 function doInstall(opts = {}) {
   const isUpdate = opts.update || false;
-  const verb = isUpdate ? "Updating" : "Installing";
-
-  heading(`${verb} GSD-T ${versionLink()}`);
+  heading(`${isUpdate ? "Updating" : "Installing"} GSD-T ${versionLink()}`);
   log("");
 
-  if (ensureDir(COMMANDS_DIR)) {
-    success("Created ~/.claude/commands/");
-  }
+  if (ensureDir(COMMANDS_DIR)) success("Created ~/.claude/commands/");
 
   const { gsdtCommands, utilityCommands } = installCommands(isUpdate);
   installGlobalClaudeMd(isUpdate);
@@ -500,9 +464,13 @@ function doInstall(opts = {}) {
   installHeartbeat();
   saveInstalledVersion();
 
+  showInstallSummary(gsdtCommands.length, utilityCommands.length);
+}
+
+function showInstallSummary(gsdtCount, utilCount) {
   heading("Installation Complete!");
   log("");
-  log(`  Commands: ${gsdtCommands.length} GSD-T + ${utilityCommands.length} utility commands in ~/.claude/commands/`);
+  log(`  Commands: ${gsdtCount} GSD-T + ${utilCount} utility commands in ~/.claude/commands/`);
   log(`  Config:   ~/.claude/CLAUDE.md`);
   log(`  Version:  ${versionLink()}`);
   log("");
@@ -599,51 +567,30 @@ function initGsdtDir(projectDir, projectName, today) {
   for (const dir of [contractsDir, domainsDir]) {
     const gitkeep = path.join(dir, ".gitkeep");
     if (isSymlink(gitkeep)) continue;
-    try {
-      fs.writeFileSync(gitkeep, "", { flag: "wx" });
-    } catch (e) {
-      if (e.code !== "EEXIST") throw e;
-    }
+    try { fs.writeFileSync(gitkeep, "", { flag: "wx" }); }
+    catch (e) { if (e.code !== "EEXIST") throw e; }
   }
 
-  // Progress file
-  const progressPath = path.join(gsdtDir, "progress.md");
-  if (isSymlink(progressPath)) {
-    warn("Skipping progress.md — target is a symlink");
-  } else {
-    try {
-      const template = fs.readFileSync(path.join(PKG_TEMPLATES, "progress.md"), "utf8");
-      const content = applyTokens(template, projectName, today);
-      fs.writeFileSync(progressPath, content, { flag: "wx" });
-      success(".gsd-t/progress.md");
-    } catch (e) {
-      if (e.code === "EEXIST") { info(".gsd-t/progress.md already exists — skipping"); }
-      else { throw e; }
-    }
-  }
+  writeTemplateFile("progress.md", path.join(gsdtDir, "progress.md"), ".gsd-t/progress.md", projectName, today);
+  writeTemplateFile("backlog.md", path.join(gsdtDir, "backlog.md"), ".gsd-t/backlog.md", projectName, today);
+  writeTemplateFile("backlog-settings.md", path.join(gsdtDir, "backlog-settings.md"), ".gsd-t/backlog-settings.md", projectName, today);
+}
 
-  // Backlog files
-  for (const file of ["backlog.md", "backlog-settings.md"]) {
-    const destPath = path.join(gsdtDir, file);
-    if (isSymlink(destPath)) {
-      warn(`Skipping .gsd-t/${file} — target is a symlink`);
-      continue;
-    }
-    try {
-      const content = fs.readFileSync(path.join(PKG_TEMPLATES, file), "utf8");
-      fs.writeFileSync(destPath, content, { flag: "wx" });
-      success(`.gsd-t/${file}`);
-    } catch (e) {
-      if (e.code === "EEXIST") { info(`.gsd-t/${file} already exists — skipping`); }
-      else { throw e; }
-    }
+function writeTemplateFile(templateName, destPath, label, projectName, today) {
+  if (isSymlink(destPath)) { warn(`Skipping ${label} — target is a symlink`); return; }
+  try {
+    const template = fs.readFileSync(path.join(PKG_TEMPLATES, templateName), "utf8");
+    const content = projectName ? applyTokens(template, projectName, today) : template;
+    fs.writeFileSync(destPath, content, { flag: "wx" });
+    success(label);
+  } catch (e) {
+    if (e.code === "EEXIST") { info(`${label} already exists — skipping`); }
+    else { throw e; }
   }
 }
 
 function doInit(projectName) {
-  if (!projectName) {
-    projectName = path.basename(process.cwd());
-  }
+  if (!projectName) projectName = path.basename(process.cwd());
 
   if (!validateProjectName(projectName)) {
     error(`Invalid project name: "${projectName}"`);
@@ -661,25 +608,27 @@ function doInit(projectName) {
   initDocs(projectDir, projectName, today);
   initGsdtDir(projectDir, projectName, today);
 
-  if (registerProject(projectDir)) {
-    success("Registered in ~/.claude/.gsd-t-projects");
-  }
+  if (registerProject(projectDir)) success("Registered in ~/.claude/.gsd-t-projects");
 
+  showInitTree(projectDir);
+}
+
+function showInitTree(projectDir) {
   heading("Project Initialized!");
   log("");
   log(`  ${projectDir}/`);
-  log(`  ├── CLAUDE.md`);
-  log(`  ├── docs/`);
-  log(`  │   ├── requirements.md`);
-  log(`  │   ├── architecture.md`);
-  log(`  │   ├── workflows.md`);
-  log(`  │   └── infrastructure.md`);
-  log(`  └── .gsd-t/`);
-  log(`      ├── progress.md`);
-  log(`      ├── backlog.md`);
-  log(`      ├── backlog-settings.md`);
-  log(`      ├── contracts/`);
-  log(`      └── domains/`);
+  log("  ├── CLAUDE.md");
+  log("  ├── docs/");
+  log("  │   ├── requirements.md");
+  log("  │   ├── architecture.md");
+  log("  │   ├── workflows.md");
+  log("  │   └── infrastructure.md");
+  log("  └── .gsd-t/");
+  log("      ├── progress.md");
+  log("      ├── backlog.md");
+  log("      ├── backlog-settings.md");
+  log("      ├── contracts/");
+  log("      └── domains/");
   log("");
   log(`${BOLD}Next steps:${RESET}`);
   log(`  1. Edit CLAUDE.md — add project overview and tech stack`);
@@ -692,8 +641,15 @@ function doInit(projectName) {
 function doStatus() {
   heading("GSD-T Status");
   log("");
+  if (!showStatusVersion()) return;
+  showStatusCommands();
+  showStatusConfig();
+  showStatusTeams();
+  showStatusProject();
+  log("");
+}
 
-  // Installed version
+function showStatusVersion() {
   const installedVersion = getInstalledVersion();
   if (installedVersion) {
     success(`Installed version: ${versionLink(installedVersion)}`);
@@ -703,33 +659,26 @@ function doStatus() {
     } else {
       success(`Up to date (latest: ${versionLink()})`);
     }
-  } else {
-    error("GSD-T not installed");
-    info("Run 'npx @tekyzinc/gsd-t install' to install");
-    return;
+    return true;
   }
+  error("GSD-T not installed");
+  info("Run 'npx @tekyzinc/gsd-t install' to install");
+  return false;
+}
 
-  // Commands
+function showStatusCommands() {
   heading("Slash Commands");
   const expected = getCommandFiles();
   const installed = getInstalledCommands();
-  const gsdtExpected = getGsdtCommands();
-  const utilExpected = getUtilityCommands();
-
   const missing = expected.filter((f) => !installed.includes(f));
   const extra = installed.filter((f) => !expected.includes(f));
   const present = expected.filter((f) => installed.includes(f));
+  log(`  ${present.length}/${expected.length} commands installed (${getGsdtCommands().length} GSD-T + ${getUtilityCommands().length} utilities)`);
+  if (missing.length > 0) warn(`Missing: ${missing.join(", ")}`);
+  if (extra.length > 0) info(`Custom commands found: ${extra.join(", ")}`);
+}
 
-  log(`  ${present.length}/${expected.length} commands installed (${gsdtExpected.length} GSD-T + ${utilExpected.length} utilities)`);
-
-  if (missing.length > 0) {
-    warn(`Missing: ${missing.join(", ")}`);
-  }
-  if (extra.length > 0) {
-    info(`Custom commands found: ${extra.join(", ")}`);
-  }
-
-  // Global CLAUDE.md
+function showStatusConfig() {
   heading("Global Config");
   if (fs.existsSync(GLOBAL_CLAUDE_MD)) {
     const content = fs.readFileSync(GLOBAL_CLAUDE_MD, "utf8");
@@ -741,28 +690,29 @@ function doStatus() {
   } else {
     error("~/.claude/CLAUDE.md not found");
   }
+}
 
-  // Settings.json — teams
+function showStatusTeams() {
   heading("Agent Teams");
-  if (fs.existsSync(SETTINGS_JSON)) {
-    try {
-      const settings = JSON.parse(fs.readFileSync(SETTINGS_JSON, "utf8"));
-      const teamsEnabled =
-        settings?.env?.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS === "1";
-      if (teamsEnabled) {
-        success("Agent Teams enabled in settings.json");
-      } else {
-        info("Agent Teams not enabled (optional — solo mode works fine)");
-        info('Add "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1" to env in settings.json');
-      }
-    } catch {
-      warn("settings.json exists but couldn't be parsed");
-    }
-  } else {
+  if (!fs.existsSync(SETTINGS_JSON)) {
     info("No settings.json found (Claude Code will use defaults)");
+    return;
   }
+  try {
+    const settings = JSON.parse(fs.readFileSync(SETTINGS_JSON, "utf8"));
+    const teamsEnabled = settings?.env?.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS === "1";
+    if (teamsEnabled) {
+      success("Agent Teams enabled in settings.json");
+    } else {
+      info("Agent Teams not enabled (optional — solo mode works fine)");
+      info('Add "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1" to env in settings.json');
+    }
+  } catch {
+    warn("settings.json exists but couldn't be parsed");
+  }
+}
 
-  // Current project
+function showStatusProject() {
   heading("Current Project");
   const cwd = process.cwd();
   const hasGsdT = fs.existsSync(path.join(cwd, ".gsd-t"));
@@ -785,77 +735,49 @@ function doStatus() {
     info("Not in a GSD-T project directory");
     info(`Run 'npx @tekyzinc/gsd-t init' to set up this directory`);
   }
-
-  log("");
 }
 
 function doUninstall() {
   heading("Uninstalling GSD-T");
   log("");
 
-  // Remove command files
-  const commands = getInstalledCommands();
-  let removed = 0;
-  for (const file of commands) {
-    const fp = path.join(COMMANDS_DIR, file);
-    if (isSymlink(fp)) { warn(`Skipping symlink: ${file}`); continue; }
-    try {
-      fs.unlinkSync(fp);
-      removed++;
-    } catch (e) {
-      error(`Failed to remove ${file}: ${e.message}`);
-    }
-  }
-  if (removed > 0) {
-    success(`Removed ${removed} slash commands from ~/.claude/commands/`);
-  }
+  removeInstalledCommands();
+  removeVersionFile();
 
-  // Remove version file
-  try {
-    if (fs.existsSync(VERSION_FILE) && !isSymlink(VERSION_FILE)) {
-      fs.unlinkSync(VERSION_FILE);
-    }
-  } catch (e) {
-    error(`Failed to remove version file: ${e.message}`);
-  }
-
-  // Don't touch CLAUDE.md — too risky, may have customizations
   warn("~/.claude/CLAUDE.md was NOT removed (may contain your customizations)");
   info("Remove manually if desired: delete the GSD-T section from ~/.claude/CLAUDE.md");
-
-  // Don't touch project files
   info("Project files (.gsd-t/, docs/, CLAUDE.md) were NOT removed");
 
   heading("Uninstall Complete");
   log("");
 }
 
+function removeInstalledCommands() {
+  const commands = getInstalledCommands();
+  let removed = 0;
+  for (const file of commands) {
+    const fp = path.join(COMMANDS_DIR, file);
+    if (isSymlink(fp)) { warn(`Skipping symlink: ${file}`); continue; }
+    try { fs.unlinkSync(fp); removed++; }
+    catch (e) { error(`Failed to remove ${file}: ${e.message}`); }
+  }
+  if (removed > 0) success(`Removed ${removed} slash commands from ~/.claude/commands/`);
+}
+
+function removeVersionFile() {
+  try {
+    if (fs.existsSync(VERSION_FILE) && !isSymlink(VERSION_FILE)) fs.unlinkSync(VERSION_FILE);
+  } catch (e) {
+    error(`Failed to remove version file: ${e.message}`);
+  }
+}
+
 function updateProjectClaudeMd(claudeMd, projectName) {
   const content = fs.readFileSync(claudeMd, "utf8");
   if (content.includes("Destructive Action Guard")) return false;
 
-  let newContent;
-  const preCommitMatch = content.match(/\n(#{1,3} Pre-Commit Gate)/);
-  const dontDoMatch = content.match(/\n(#{1,3} Don't Do These Things)/);
-
-  if (preCommitMatch) {
-    newContent = content.replace(
-      "\n" + preCommitMatch[1],
-      GUARD_SECTION + "\n" + preCommitMatch[1]
-    );
-  } else if (dontDoMatch) {
-    newContent = content.replace(
-      "\n" + dontDoMatch[1],
-      GUARD_SECTION + "\n" + dontDoMatch[1]
-    );
-  } else {
-    newContent = content + GUARD_SECTION;
-  }
-
-  if (isSymlink(claudeMd)) {
-    warn(`${projectName} — skipping CLAUDE.md write (symlink)`);
-    return false;
-  }
+  const newContent = insertGuardSection(content);
+  if (isSymlink(claudeMd)) { warn(`${projectName} — skipping CLAUDE.md write (symlink)`); return false; }
   try {
     fs.writeFileSync(claudeMd, newContent);
     success(`${projectName} — added Destructive Action Guard`);
@@ -864,6 +786,14 @@ function updateProjectClaudeMd(claudeMd, projectName) {
     error(`${projectName} — failed to update CLAUDE.md: ${e.message}`);
     return false;
   }
+}
+
+function insertGuardSection(content) {
+  const preCommitMatch = content.match(/\n(#{1,3} Pre-Commit Gate)/);
+  if (preCommitMatch) return content.replace("\n" + preCommitMatch[1], GUARD_SECTION + "\n" + preCommitMatch[1]);
+  const dontDoMatch = content.match(/\n(#{1,3} Don't Do These Things)/);
+  if (dontDoMatch) return content.replace("\n" + dontDoMatch[1], GUARD_SECTION + "\n" + dontDoMatch[1]);
+  return content + GUARD_SECTION;
 }
 
 function createProjectChangelog(projectDir, projectName) {
@@ -1032,51 +962,51 @@ function checkDoctorInstallation() {
     success(`All ${expected.length} commands installed`);
   } else if (installed.length > 0) {
     warn(`${installed.length}/${expected.length} commands installed`);
-    const missing = expected.filter((f) => !installed.includes(f));
-    info(`Missing: ${missing.join(", ")}`);
+    info(`Missing: ${expected.filter((f) => !installed.includes(f)).join(", ")}`);
     issues++;
   } else {
     error("No GSD-T commands installed");
     issues++;
   }
-  if (fs.existsSync(GLOBAL_CLAUDE_MD)) {
-    const content = fs.readFileSync(GLOBAL_CLAUDE_MD, "utf8");
-    if (content.includes("GSD-T")) {
-      success("CLAUDE.md contains GSD-T config");
-    } else {
-      warn("CLAUDE.md exists but missing GSD-T section");
-      issues++;
-    }
-  } else {
-    error("No global CLAUDE.md");
-    issues++;
+  issues += checkDoctorClaudeMd();
+  issues += checkDoctorSettings();
+  issues += checkDoctorEncoding(installed);
+  return issues;
+}
+
+function checkDoctorClaudeMd() {
+  if (!fs.existsSync(GLOBAL_CLAUDE_MD)) { error("No global CLAUDE.md"); return 1; }
+  const content = fs.readFileSync(GLOBAL_CLAUDE_MD, "utf8");
+  if (content.includes("GSD-T")) { success("CLAUDE.md contains GSD-T config"); return 0; }
+  warn("CLAUDE.md exists but missing GSD-T section");
+  return 1;
+}
+
+function checkDoctorSettings() {
+  if (!fs.existsSync(SETTINGS_JSON)) { info("No settings.json (not required)"); return 0; }
+  try {
+    JSON.parse(fs.readFileSync(SETTINGS_JSON, "utf8"));
+    success("settings.json is valid JSON");
+    return 0;
+  } catch (e) {
+    error(`settings.json has invalid JSON: ${e.message}`);
+    return 1;
   }
-  if (fs.existsSync(SETTINGS_JSON)) {
-    try {
-      JSON.parse(fs.readFileSync(SETTINGS_JSON, "utf8"));
-      success("settings.json is valid JSON");
-    } catch (e) {
-      error(`settings.json has invalid JSON: ${e.message}`);
-      issues++;
-    }
-  } else {
-    info("No settings.json (not required)");
-  }
-  let encodingIssues = 0;
+}
+
+function checkDoctorEncoding(installed) {
+  let bad = 0;
   for (const file of installed) {
     const content = fs.readFileSync(path.join(COMMANDS_DIR, file), "utf8");
-    if (content.includes("\u00e2\u20ac") || content.includes("\u00c3")) {
-      encodingIssues++;
-    }
+    if (content.includes("\u00e2\u20ac") || content.includes("\u00c3")) bad++;
   }
-  if (encodingIssues > 0) {
-    error(`${encodingIssues} command files have encoding issues (corrupted characters)`);
+  if (bad > 0) {
+    error(`${bad} command files have encoding issues (corrupted characters)`);
     info("Run 'npx @tekyzinc/gsd-t update' to replace with clean versions");
-    issues++;
-  } else if (installed.length > 0) {
-    success("No encoding issues in command files");
+    return 1;
   }
-  return issues;
+  if (installed.length > 0) success("No encoding issues in command files");
+  return 0;
 }
 
 function checkDoctorProject() {
@@ -1161,50 +1091,52 @@ function isNewerVersion(latest, current) {
 }
 
 function checkForUpdates(command) {
-  // Skip check for update/install/update-all (they handle it themselves)
   const skipCommands = ["install", "update", "update-all", "--version", "-v"];
   if (skipCommands.includes(command)) return;
 
-  // Read cache (sync, fast)
-  let cached = null;
-  try {
-    if (fs.existsSync(UPDATE_CHECK_FILE)) {
-      cached = JSON.parse(fs.readFileSync(UPDATE_CHECK_FILE, "utf8"));
-    }
-  } catch { /* ignore corrupt cache */ }
+  const cached = readUpdateCache();
 
-  // Show notice from cache if a newer version is available
   if (cached && cached.latest && validateVersion(cached.latest) && isNewerVersion(cached.latest, PKG_VERSION)) {
     showUpdateNotice(cached.latest);
   }
 
   const isStale = !cached || (Date.now() - cached.timestamp) > 3600000;
-
   if (!cached && isStale) {
-    // No cache at all — fetch synchronously so first run shows notification
-    try {
-      const fetchScriptPath = path.join(__dirname, "..", "scripts", "gsd-t-fetch-version.js");
-      const result = execFileSync(
-        process.execPath, [fetchScriptPath],
-        { timeout: 8000, encoding: "utf8" }
-      ).trim();
-      if (result && validateVersion(result) && !isSymlink(UPDATE_CHECK_FILE)) {
-        fs.writeFileSync(UPDATE_CHECK_FILE,
-          JSON.stringify({ latest: result, timestamp: Date.now() }));
-        if (isNewerVersion(result, PKG_VERSION)) {
-          showUpdateNotice(result);
-        }
-      }
-    } catch { /* timeout or network error — skip */ }
+    fetchVersionSync();
   } else if (isStale) {
-    // Cache exists but stale — refresh in background (non-blocking)
-    const updateScript = path.join(__dirname, "..", "scripts", "npm-update-check.js");
-    const child = cpSpawn(process.execPath, [updateScript, UPDATE_CHECK_FILE], {
-      detached: true,
-      stdio: "ignore",
-    });
-    child.unref();
+    refreshVersionAsync();
   }
+}
+
+function readUpdateCache() {
+  try {
+    if (fs.existsSync(UPDATE_CHECK_FILE)) {
+      return JSON.parse(fs.readFileSync(UPDATE_CHECK_FILE, "utf8"));
+    }
+  } catch { /* ignore corrupt cache */ }
+  return null;
+}
+
+function fetchVersionSync() {
+  try {
+    const fetchScriptPath = path.join(__dirname, "..", "scripts", "gsd-t-fetch-version.js");
+    const result = execFileSync(
+      process.execPath, [fetchScriptPath],
+      { timeout: 8000, encoding: "utf8" }
+    ).trim();
+    if (result && validateVersion(result) && !isSymlink(UPDATE_CHECK_FILE)) {
+      fs.writeFileSync(UPDATE_CHECK_FILE, JSON.stringify({ latest: result, timestamp: Date.now() }));
+      if (isNewerVersion(result, PKG_VERSION)) showUpdateNotice(result);
+    }
+  } catch { /* timeout or network error — skip */ }
+}
+
+function refreshVersionAsync() {
+  const updateScript = path.join(__dirname, "..", "scripts", "npm-update-check.js");
+  const child = cpSpawn(process.execPath, [updateScript, UPDATE_CHECK_FILE], {
+    detached: true, stdio: "ignore",
+  });
+  child.unref();
 }
 
 function showUpdateNotice(latest) {
@@ -1235,12 +1167,8 @@ function doChangelog() {
 }
 
 function showHelp() {
-  log("");
-  log(`${BOLD}GSD-T${RESET} — Contract-Driven Development for Claude Code`);
-  log("");
-  log(`${BOLD}Usage:${RESET}`);
-  log(`  npx @tekyzinc/gsd-t ${CYAN}<command>${RESET} [options]`);
-  log("");
+  log(`\n${BOLD}GSD-T${RESET} — Contract-Driven Development for Claude Code\n`);
+  log(`${BOLD}Usage:${RESET}  npx @tekyzinc/gsd-t ${CYAN}<command>${RESET} [options]\n`);
   log(`${BOLD}Commands:${RESET}`);
   log(`  ${CYAN}install${RESET}        Install slash commands + global CLAUDE.md`);
   log(`  ${CYAN}update${RESET}         Update global commands + CLAUDE.md`);
@@ -1251,19 +1179,15 @@ function showHelp() {
   log(`  ${CYAN}uninstall${RESET}      Remove GSD-T commands (keeps project files)`);
   log(`  ${CYAN}doctor${RESET}         Diagnose common issues`);
   log(`  ${CYAN}changelog${RESET}      Open changelog in the browser`);
-  log(`  ${CYAN}help${RESET}           Show this help`);
-  log("");
+  log(`  ${CYAN}help${RESET}           Show this help\n`);
   log(`${BOLD}Examples:${RESET}`);
   log(`  ${DIM}$${RESET} npx @tekyzinc/gsd-t install`);
   log(`  ${DIM}$${RESET} npx @tekyzinc/gsd-t init my-saas-app`);
-  log(`  ${DIM}$${RESET} npx @tekyzinc/gsd-t update`);
-  log("");
+  log(`  ${DIM}$${RESET} npx @tekyzinc/gsd-t update\n`);
   log(`${BOLD}After installing, use in Claude Code:${RESET}`);
   log(`  ${DIM}>${RESET} /user:gsd-t-project "Build a task management app"`);
-  log(`  ${DIM}>${RESET} /user:gsd-t-wave`);
-  log("");
-  log(`${DIM}Docs: https://github.com/Tekyz-Inc/get-stuff-done-teams${RESET}`);
-  log("");
+  log(`  ${DIM}>${RESET} /user:gsd-t-wave\n`);
+  log(`${DIM}Docs: https://github.com/Tekyz-Inc/get-stuff-done-teams${RESET}\n`);
 }
 
 // ─── Exports (for testing) ───────────────────────────────────────────────────
@@ -1282,6 +1206,8 @@ module.exports = {
   hasPlaywright,
   hasSwagger,
   hasApi,
+  readProjectDeps,
+  readPyContent,
   getCommandFiles,
   getGsdtCommands,
   getUtilityCommands,
@@ -1292,6 +1218,26 @@ module.exports = {
   updateGlobalCommands,
   showNoProjectsHint,
   showUpdateAllSummary,
+  showStatusVersion,
+  showStatusCommands,
+  showStatusConfig,
+  showStatusTeams,
+  showStatusProject,
+  showInstallSummary,
+  showInitTree,
+  writeTemplateFile,
+  insertGuardSection,
+  addHeartbeatHook,
+  removeInstalledCommands,
+  removeVersionFile,
+  checkDoctorClaudeMd,
+  checkDoctorSettings,
+  checkDoctorEncoding,
+  updateExistingGlobalClaudeMd,
+  appendGsdtToClaudeMd,
+  readUpdateCache,
+  fetchVersionSync,
+  refreshVersionAsync,
   PKG_VERSION,
   PKG_ROOT,
   PKG_COMMANDS,
