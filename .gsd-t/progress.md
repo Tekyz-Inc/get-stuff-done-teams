@@ -1,15 +1,15 @@
 # GSD-T Progress
 
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
-## Version: 2.24.1
+## Version: 2.24.2
 ## Status: ACTIVE
-## Date: 2026-02-18
+## Date: 2026-02-19
 
 ## Current Milestone
 
 | # | Milestone | Status | Domains |
 |---|-----------|--------|---------|
-| 6 | CLI Quality Improvement | VERIFIED | cli-quality |
+| 6 | CLI Quality Improvement | COMPLETED | cli-quality |
 
 **Goal**: Bring all CLI code (bin/gsd-t.js, scripts/gsd-t-heartbeat.js) to project quality standards — every function under 30 lines, no code duplication, per-project error isolation in doUpdateAll(), heartbeat cleanup only on SessionStart, and proper .gitattributes/.editorconfig for line ending consistency.
 
@@ -33,6 +33,7 @@
 | Count Fix + QA Contract Alignment | 2.23.1 | 2026-02-18 | v2.23.1 |
 | Testing Foundation | 2.24.0 | 2026-02-18 | v2.24.0 |
 | Security Hardening | 2.24.1 | 2026-02-18 | v2.24.1 |
+| CLI Quality Improvement | 2.24.2 | 2026-02-19 | v2.24.2 |
 
 ## Domains
 | Domain | Status | Tasks | Completed |
@@ -150,6 +151,7 @@ No integration checkpoints — single domain milestone.
 - 2026-02-18 23:15: Milestone 6 (CLI Quality Improvement) defined and partitioned — 7 tech debt items (TD-017, TD-021, TD-024, TD-025, TD-032, TD-033, TD-034). 1 domain (cli-quality). Goal: all functions under 30 lines, deduplication, error isolation, heartbeat optimization, .gitattributes/.editorconfig. Test baseline: helpers PASS, security PASS.
 - 2026-02-18 23:20: Milestone 6 planned — 6 tasks in cli-quality domain. Task 1: .gitattributes/.editorconfig. Task 2: heartbeat SessionStart guard. Task 3: buildEvent refactor. Task 4: extract fetch script. Task 5: doUpdateAll error isolation. Task 6: split all remaining 13 over-30-line functions. Solo sequential mode, 4 independent + 2 blocked.
 - 2026-02-19 00:15: Milestone 6 test-sync — 22 new tests in test/cli-quality.test.js (buildEvent: 10, readProjectDeps: 3, readPyContent: 2, insertGuardSection: 3, readUpdateCache: 1, addHeartbeatHook: 3). All 76 tests pass (54 existing + 22 new).
+- 2026-02-19 00:25: Milestone 6 (CLI Quality Improvement) completed — 7 tech debt items resolved (TD-017, TD-021, TD-024, TD-025, TD-032, TD-033, TD-034). 22 new tests. Version bump 2.24.1 → 2.24.2. Domain archived to milestones/cli-quality-2026-02-19/. v2.24.2
 - 2026-02-19 00:20: Milestone 6 verified — Overall: PASS. 7/7 success criteria met. All 86 functions <= 30 lines (80 in bin/gsd-t.js, 6 in heartbeat). 3 dedup patterns resolved. doUpdateAll has try/catch isolation. 76/76 tests pass. E2E N/A (no UI changed).
 - 2026-02-19 00:00: Milestone 6 executed — 6/6 tasks complete. Task 1: .gitattributes + .editorconfig created (TD-025). Task 2: heartbeat cleanup gated to SessionStart only (TD-024). Task 3: buildEvent refactored to EVENT_HANDLERS map, 4 lines (TD-032). Task 4: inline fetch script extracted to scripts/gsd-t-fetch-version.js (TD-034). Task 5: doUpdateAll per-project try/catch + updateSingleProject/showUpdateAllSummary helpers (TD-017). Task 6: all 13 over-30-line functions split — 80 functions in bin/gsd-t.js, 6 in heartbeat, all <= 30 lines. 3 dedup patterns resolved: readProjectDeps, writeTemplateFile, readUpdateCache (TD-021 + TD-033). 48 exports. 54/54 tests pass.
 

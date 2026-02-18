@@ -44,27 +44,19 @@
 
 ---
 
-## Milestone 6: CLI Quality Improvement — Tech Debt
+## Milestone 6: CLI Quality Improvement — Tech Debt (COMPLETED v2.24.2)
 **Source**: Promoted from tech debt scans #1-3 (2026-02-18)
-**Items**: TD-017, TD-021, TD-024, TD-025, TD-033, TD-034
+**Items**: TD-017, TD-021, TD-024, TD-025, TD-032, TD-033, TD-034
 **Goal**: CLI code meets project quality standards (30-line functions, no duplication, consistent config)
-**Scope**:
-- Wrap per-project iteration in doUpdateAll() with try/catch, extract updateSingleProject()
-- Extract sub-functions from 13 functions exceeding 30-line limit
-- Run heartbeat cleanup only on SessionStart events (not every hook)
-- Add .gitattributes (text=auto) and .editorconfig (end_of_line=lf)
-- Deduplicate JSON.parse(settingsJson), hasSwagger/hasApi, and template-write patterns
-- Extract inline JavaScript from checkForUpdates into separate module
 **Success criteria**:
-- [ ] doUpdateAll() continues on per-project failures
-- [ ] No function exceeds 30 lines in bin/gsd-t.js or scripts/
-- [ ] Heartbeat cleanup only fires on SessionStart
-- [ ] .gitattributes and .editorconfig exist with correct settings
-- [ ] No repeated code patterns (3 duplication types resolved)
-- [ ] checkForUpdates uses external script instead of inline JS
-- [ ] No regression in existing functionality
-**Estimated effort**: 1-2 sessions
-**Priority**: MEDIUM — after count fix
+- [x] doUpdateAll() continues on per-project failures
+- [x] No function exceeds 30 lines in bin/gsd-t.js or scripts/
+- [x] Heartbeat cleanup only fires on SessionStart
+- [x] .gitattributes and .editorconfig exist with correct settings
+- [x] No repeated code patterns (3 duplication types resolved)
+- [x] checkForUpdates uses external script instead of inline JS
+- [x] No regression in existing functionality — 76/76 tests pass
+**Completed**: 2026-02-19
 
 ---
 
