@@ -154,6 +154,33 @@ function buildEvent(hook) {
   }
 }
 
+// Patterns that indicate sensitive values in CLI commands
+const SECRET_FLAGS = /(--(password|token|secret|api[-_]?key|auth|credential|private[-_]?key)[\s=])\S+/gi;
+const SECRET_SHORT = /(\s-p\s)\S+/gi;
+const SECRET_ENV = /((API_KEY|SECRET|TOKEN|PASSWORD|BEARER|AUTH_TOKEN|PRIVATE_KEY|ACCESS_KEY|SECRET_KEY)=)\S+/gi;
+const BEARER_HEADER = /(bearer\s+)\S+/gi;
+
+function scrubSecrets(cmd) {
+  if (!cmd) return cmd;
+  return cmd
+    .replace(SECRET_FLAGS, "$1***")
+    .replace(SECRET_SHORT, "$1***")
+    .replace(SECRET_ENV, "$1***")
+    .replace(BEARER_HEADER, "$1***");
+}
+
+function scrubUrl(url) {
+  if (!url) return url;
+  try {
+    const u = new URL(url);
+    if (!u.search) return url;
+    for (const key of u.searchParams.keys()) {
+      u.searchParams.set(key, "***");
+    }
+    return u.toString();
+  } catch { return url; }
+}
+
 function summarize(tool, input) {
   if (!tool || !input) return {};
   switch (tool) {
@@ -165,7 +192,7 @@ function summarize(tool, input) {
       return { file: shortPath(input.file_path) };
     case "Bash":
       return {
-        cmd: (input.command || "").slice(0, 150),
+        cmd: scrubSecrets((input.command || "").slice(0, 150)),
         desc: input.description,
       };
     case "Grep":
@@ -177,7 +204,7 @@ function summarize(tool, input) {
     case "WebSearch":
       return { query: input.query };
     case "WebFetch":
-      return { url: input.url };
+      return { url: scrubUrl(input.url) };
     case "NotebookEdit":
       return { file: shortPath(input.notebook_path) };
     default:
