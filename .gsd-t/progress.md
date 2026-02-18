@@ -9,7 +9,20 @@
 
 | # | Milestone | Status | Domains |
 |---|-----------|--------|---------|
-| 5 | Security Hardening | COMPLETED | security |
+| 6 | CLI Quality Improvement | EXECUTED | cli-quality |
+
+**Goal**: Bring all CLI code (bin/gsd-t.js, scripts/gsd-t-heartbeat.js) to project quality standards — every function under 30 lines, no code duplication, per-project error isolation in doUpdateAll(), heartbeat cleanup only on SessionStart, and proper .gitattributes/.editorconfig for line ending consistency.
+
+**Tech Debt Items**: TD-017, TD-021, TD-024, TD-025, TD-032, TD-033, TD-034
+
+**Success Criteria**:
+- [ ] doUpdateAll() continues on per-project failures (try/catch isolation)
+- [ ] No function exceeds 30 lines in bin/gsd-t.js or scripts/
+- [ ] Heartbeat cleanup only fires on SessionStart
+- [ ] .gitattributes and .editorconfig exist with correct settings
+- [ ] No repeated code patterns (3 duplication types resolved)
+- [ ] checkForUpdates uses external script instead of inline JS
+- [ ] All existing tests pass (no regressions)
 
 ## Completed Milestones
 | Milestone | Version | Completed | Tag |
@@ -24,7 +37,7 @@
 ## Domains
 | Domain | Status | Tasks | Completed |
 |--------|--------|-------|-----------|
-| security | completed | 6 | 6 |
+| cli-quality | executed | 6 | 6 |
 
 ## Contracts
 No cross-domain contracts — single domain milestone.
@@ -134,6 +147,9 @@ No integration checkpoints — single domain milestone.
 - 2026-02-18 22:30: Milestone 5 test-sync — 30 new security tests in test/security.test.js (scrubSecrets: 18, scrubUrl: 5, summarize integration: 4, hasSymlinkInPath: 3). Added module.exports + require.main guard to gsd-t-heartbeat.js for testability. All helpers (27) and security (30) tests pass. 19 pre-existing filesystem test failures (disk space, not from M5).
 - 2026-02-18 22:45: Milestone 5 verified — Overall: PASS. 6/6 tasks meet all acceptance criteria. Functional, contract compliance, code quality, unit tests (57/57), security all PASS. E2E N/A (no UI/routes/flows changed). No critical findings, no remediation tasks. 1 warning: filesystem.test.js has 22 pre-existing failures (disk space/Windows temp).
 - 2026-02-18 23:00: Milestone 5 (Security Hardening) completed — 6 tech debt items resolved (TD-019, TD-020, TD-026, TD-027, TD-028, TD-035). 30 new security tests. Version bump 2.24.0 → 2.24.1. Domain archived to milestones/security-hardening-2026-02-18/. v2.24.1
+- 2026-02-18 23:15: Milestone 6 (CLI Quality Improvement) defined and partitioned — 7 tech debt items (TD-017, TD-021, TD-024, TD-025, TD-032, TD-033, TD-034). 1 domain (cli-quality). Goal: all functions under 30 lines, deduplication, error isolation, heartbeat optimization, .gitattributes/.editorconfig. Test baseline: helpers PASS, security PASS.
+- 2026-02-18 23:20: Milestone 6 planned — 6 tasks in cli-quality domain. Task 1: .gitattributes/.editorconfig. Task 2: heartbeat SessionStart guard. Task 3: buildEvent refactor. Task 4: extract fetch script. Task 5: doUpdateAll error isolation. Task 6: split all remaining 13 over-30-line functions. Solo sequential mode, 4 independent + 2 blocked.
+- 2026-02-19 00:00: Milestone 6 executed — 6/6 tasks complete. Task 1: .gitattributes + .editorconfig created (TD-025). Task 2: heartbeat cleanup gated to SessionStart only (TD-024). Task 3: buildEvent refactored to EVENT_HANDLERS map, 4 lines (TD-032). Task 4: inline fetch script extracted to scripts/gsd-t-fetch-version.js (TD-034). Task 5: doUpdateAll per-project try/catch + updateSingleProject/showUpdateAllSummary helpers (TD-017). Task 6: all 13 over-30-line functions split — 80 functions in bin/gsd-t.js, 6 in heartbeat, all <= 30 lines. 3 dedup patterns resolved: readProjectDeps, writeTemplateFile, readUpdateCache (TD-021 + TD-033). 48 exports. 54/54 tests pass.
 
 ## Session Log
 | Date | Session | What was accomplished |
