@@ -2,6 +2,11 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.24.7] - 2026-02-18
+
+### Changed
+- **Next Command Hint redesigned**: Replaced plain `Next →` text with GSD-style "Next Up" visual block — divider lines, `▶ Next Up` header, phase name with description, command in backticks, and alternatives section. Format designed to trigger Claude Code's prompt suggestion engine, making the next command appear as ghost text in the user's input field
+
 ## [2.24.6] - 2026-02-18
 
 ### Added

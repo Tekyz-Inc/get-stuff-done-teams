@@ -361,33 +361,51 @@ If in doubt, skip research and proceed — research if execution reveals gaps.
 
 ### Next Command Hint
 
-When a GSD-T command completes (and does NOT auto-advance to the next phase), display a hint showing the recommended next command. Format:
+When a GSD-T command completes (and does NOT auto-advance to the next phase), display a "Next Up" block at the very end of your response. This format is designed to trigger Claude Code's prompt suggestion engine — making the next command appear as ghost text in the user's input field.
+
+**MANDATORY format** — use this exact structure:
 
 ```
-Next → /user:gsd-t-{command}
+───────────────────────────────────────────────────────────────
+
+## ▶ Next Up
+
+**{Phase Name}** — {one-line description of what happens next}
+
+`/user:gsd-t-{command}`
+
+───────────────────────────────────────────────────────────────
+```
+
+If there are alternative commands that also make sense, add them:
+
+```
+**Also available:**
+- `/user:gsd-t-{alt-1}` — {description}
+- `/user:gsd-t-{alt-2}` — {description}
 ```
 
 Successor mapping:
-| Completed | Next |
-|-----------|------|
-| `project` | `gsd-t-milestone` |
-| `feature` | `gsd-t-milestone` |
-| `milestone` | `gsd-t-partition` |
-| `partition` | `gsd-t-plan` (or `gsd-t-discuss` if complex) |
-| `discuss` | `gsd-t-plan` |
-| `plan` | `gsd-t-execute` (or `gsd-t-impact` if risky) |
-| `impact` | `gsd-t-execute` |
-| `execute` | `gsd-t-test-sync` |
-| `test-sync` | `gsd-t-verify` (or `gsd-t-integrate` if multi-domain) |
-| `integrate` | `gsd-t-verify` |
-| `verify` | `gsd-t-complete-milestone` |
-| `complete-milestone` | `gsd-t-status` |
-| `scan` | `gsd-t-promote-debt` or `gsd-t-milestone` |
-| `init` | `gsd-t-scan` or `gsd-t-milestone` |
-| `init-scan-setup` | `gsd-t-milestone` |
-| `gap-analysis` | `gsd-t-milestone` or `gsd-t-feature` |
-| `populate` | `gsd-t-status` |
-| `setup` | `gsd-t-status` |
+| Completed | Next | Also available |
+|-----------|------|----------------|
+| `project` | `milestone` | |
+| `feature` | `milestone` | |
+| `milestone` | `partition` | |
+| `partition` | `plan` | `discuss` (if complex) |
+| `discuss` | `plan` | |
+| `plan` | `execute` | `impact` (if risky) |
+| `impact` | `execute` | |
+| `execute` | `test-sync` | |
+| `test-sync` | `verify` | `integrate` (if multi-domain) |
+| `integrate` | `verify` | |
+| `verify` | `complete-milestone` | |
+| `complete-milestone` | `status` | |
+| `scan` | `promote-debt` | `milestone` |
+| `init` | `scan` | `milestone` |
+| `init-scan-setup` | `milestone` | |
+| `gap-analysis` | `milestone` | `feature` |
+| `populate` | `status` | |
+| `setup` | `status` | |
 
 Commands with no successor (standalone): `quick`, `debug`, `brainstorm`, `status`, `help`, `resume`, `prompt`, `log`, backlog commands.
 
