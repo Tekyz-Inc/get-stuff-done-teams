@@ -159,11 +159,17 @@ Even in development, the user may have:
 
 ## Update Notices
 
-On session start, a version check hook outputs one of two messages. Show the result to the user at the **beginning** of your first response:
+On session start, a version check hook auto-updates GSD-T and outputs a status message. Show the result to the user at the **beginning** of your first response:
 
-- If `[GSD-T UPDATE]` appears → update is available. Show:
+- If `[GSD-T AUTO-UPDATE]` appears → GSD-T was just auto-updated. Show:
   ```
-  ⬆️  GSD-T update available: {installed} → {latest}
+  ✅ GSD-T auto-updated: v{old} → v{new}
+     Changelog: https://github.com/Tekyz-Inc/get-stuff-done-teams/blob/main/CHANGELOG.md
+  ```
+
+- If `[GSD-T UPDATE]` appears → update available but auto-update failed. Show:
+  ```
+  ⬆️  GSD-T update available: v{installed} → v{latest} (auto-update failed)
      Run: /user:gsd-t-version-update-all
      Changelog: https://github.com/Tekyz-Inc/get-stuff-done-teams/blob/main/CHANGELOG.md
   ```
@@ -172,6 +178,7 @@ On session start, a version check hook outputs one of two messages. Show the res
 - If `[GSD-T]` appears → up to date. Show:
   ```
   GSD-T v{version} — up to date
+  Changelog: https://github.com/Tekyz-Inc/get-stuff-done-teams/blob/main/CHANGELOG.md
   ```
 
 ## Conversation vs. Work

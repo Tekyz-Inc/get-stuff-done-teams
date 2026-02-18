@@ -2,6 +2,16 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.24.6] - 2026-02-18
+
+### Added
+- **Auto-update on session start**: SessionStart hook now automatically installs new GSD-T versions when detected — runs `npm install -g` + `gsd-t update-all`. Falls back to manual instructions if auto-update fails
+- **Changelog link in all version messages**: All three output modes (`[GSD-T AUTO-UPDATE]`, `[GSD-T UPDATE]`, `[GSD-T]`) now include the changelog URL
+- **Update check installer**: `bin/gsd-t.js` now deploys the update check script and configures the SessionStart hook automatically during install, with auto-fix for incorrect matchers
+
+### Fixed
+- **SessionStart hook matcher**: Changed from `"startup"` to `""` (empty) to match all session types including compact/resumed sessions
+
 ## [2.24.5] - 2026-02-18
 
 ### Fixed

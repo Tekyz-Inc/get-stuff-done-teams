@@ -1,9 +1,9 @@
 # GSD-T Progress
 
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
-## Version: 2.24.5
 ## Status: READY
 ## Date: 2026-02-18
+## Version: 2.24.6
 
 ## Current Milestone
 
@@ -159,6 +159,7 @@ No integration checkpoints expected — single domain milestone.
 - 2026-02-18 05:30: Promoted all 10 scan #5 tech debt items (TD-056-TD-065) to Milestone 9: Cleanup Sprint. All LOW severity — dead code removal, case fallthrough, test coverage for 2 untested exports, SEC-N16 correction, notification title scrubbing, contract sync (wave integrity check + duplicate format contract). Added to roadmap.md. Estimated effort: small.
 - 2026-02-18 06:00: Milestone 9 (Cleanup Sprint) completed — 10 tech debt items resolved (TD-056-TD-065). 6 tasks in 1 domain. Removed dead code (PKG_EXAMPLES, dead test imports). Applied case fallthrough in summarize(). Simplified checkForUpdates() condition. Scrubbed notification title. Added 9 new tests (readSettingsJson: 3, shortPath: 6). Corrected wave integrity check contract. Deleted duplicate format contract. 125/125 tests pass. Version bump 2.24.4 → 2.24.5. Domain archived to milestones/cleanup-sprint-2026-02-18/. Zero open tech debt. v2.24.5
 - 2026-02-18 05:00: Full codebase scan #5 (5 parallel agents: architecture, business-rules, security, quality, contracts). Post-M8 analysis at v2.24.4. Findings: 0 previous items open (all resolved by M8). 10 new LOW items found (TD-056-TD-065): 7 quality (summarize fallthrough, PKG_EXAMPLES dead code, dead test imports, 2 untested exports, redundant condition, SEC-N16 note wrong), 1 security (notification title unscrubbed), 2 contract drift (wave integrity check divergence, duplicate format contracts). 2 new informational security notes (SEC-N18 prototype lookup, SEC-N19 error path exposure). 87 functions (81+6), 54 exports, all ≤30 lines, 116/116 tests pass. Updated techdebt.md, living docs. Suggested cleanup sprint milestone.
+- 2026-02-18 08:35: SessionStart hook now auto-updates GSD-T when new version detected — runs npm install + update-all automatically. Three output modes: [GSD-T AUTO-UPDATE] (success), [GSD-T UPDATE] (failed, manual fallback), [GSD-T] (up to date). All messages include changelog link. Updated CLAUDE-global template and live CLAUDE.md. v2.24.6
 
 ## Session Log
 | Date | Session | What was accomplished |

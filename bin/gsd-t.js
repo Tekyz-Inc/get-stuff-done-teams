@@ -374,6 +374,88 @@ function addHeartbeatHook(hooks, event, cmd) {
   return true;
 }
 
+// ─── Update Check Hook ──────────────────────────────────────────────────────
+
+const UPDATE_CHECK_SCRIPT = "gsd-t-update-check.js";
+
+function installUpdateCheck() {
+  ensureDir(SCRIPTS_DIR);
+
+  // Copy update check script
+  const src = path.join(PKG_SCRIPTS, UPDATE_CHECK_SCRIPT);
+  const dest = path.join(SCRIPTS_DIR, UPDATE_CHECK_SCRIPT);
+
+  if (!fs.existsSync(src)) {
+    warn("Update check script not found in package — skipping");
+    return;
+  }
+
+  const srcContent = fs.readFileSync(src, "utf8");
+  const destContent = fs.existsSync(dest) ? fs.readFileSync(dest, "utf8") : "";
+
+  if (normalizeEol(srcContent) !== normalizeEol(destContent)) {
+    copyFile(src, dest, UPDATE_CHECK_SCRIPT);
+  } else {
+    info("Update check script unchanged");
+  }
+
+  // Configure SessionStart hook in settings.json
+  configureUpdateCheckHook(dest);
+}
+
+function configureUpdateCheckHook(scriptPath) {
+  let settings = {};
+  if (fs.existsSync(SETTINGS_JSON)) {
+    try {
+      settings = JSON.parse(fs.readFileSync(SETTINGS_JSON, "utf8"));
+    } catch {
+      warn("settings.json has invalid JSON — cannot configure update check hook");
+      return;
+    }
+  }
+
+  if (!settings.hooks) settings.hooks = {};
+  if (!settings.hooks.SessionStart) settings.hooks.SessionStart = [];
+
+  const cmd = `node "${scriptPath.replace(/\\/g, "\\\\")}"`;
+
+  // Check if update check hook already exists
+  const hasUpdateCheck = settings.hooks.SessionStart.some((entry) =>
+    entry.hooks && entry.hooks.some((h) => h.command && h.command.includes(UPDATE_CHECK_SCRIPT))
+  );
+
+  if (hasUpdateCheck) {
+    // Fix matcher if it's not empty string (bug fix — "startup" doesn't match all sessions)
+    let fixed = false;
+    for (const entry of settings.hooks.SessionStart) {
+      if (entry.hooks && entry.hooks.some((h) => h.command && h.command.includes(UPDATE_CHECK_SCRIPT))) {
+        if (entry.matcher !== "") {
+          entry.matcher = "";
+          fixed = true;
+        }
+      }
+    }
+    if (fixed) {
+      if (!isSymlink(SETTINGS_JSON)) {
+        fs.writeFileSync(SETTINGS_JSON, JSON.stringify(settings, null, 2));
+      }
+      success("Fixed update check hook matcher");
+    } else {
+      info("Update check hook already configured");
+    }
+  } else {
+    // Add new hook — synchronous (not async) so output is available before Claude responds
+    settings.hooks.SessionStart.unshift({
+      matcher: "",
+      hooks: [{ type: "command", command: cmd }],
+    });
+    if (!isSymlink(SETTINGS_JSON)) {
+      fs.writeFileSync(SETTINGS_JSON, JSON.stringify(settings, null, 2));
+    }
+    success("Update check hook configured");
+  }
+}
+
 // ─── Commands ────────────────────────────────────────────────────────────────
 
 function installCommands(isUpdate) {
@@ -458,6 +540,9 @@ function doInstall(opts = {}) {
 
   heading("Heartbeat (Real-time Events)");
   installHeartbeat();
+
+  heading("Update Check (Session Start)");
+  installUpdateCheck();
   saveInstalledVersion();
 
   showInstallSummary(gsdtCommands.length, utilityCommands.length);
