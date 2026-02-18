@@ -28,27 +28,19 @@
 
 ---
 
-## Milestone 5: Security Hardening — Tech Debt
+## Milestone 5: Security Hardening — Tech Debt (COMPLETED v2.24.1)
 **Source**: Promoted from tech debt scans #2-3 (2026-02-18)
 **Items**: TD-019, TD-020, TD-026, TD-027, TD-028, TD-035
 **Goal**: All known security concerns addressed or documented
-**Scope**:
-- Scrub sensitive data (passwords, tokens, API keys) from heartbeat bash command logs
-- Validate npm-update-check.js cache file path is within ~/.claude/
-- Add symlink check to npm-update-check.js before writing cache
-- Add HTTP response size limits to update fetch paths
-- Validate parent path components in ensureDir for symlink attacks
-- Document bypassPermissions security implications in wave command and README
 **Success criteria**:
-- [ ] Heartbeat scrubs common secret patterns before logging
-- [ ] npm-update-check.js validates path within ~/.claude/
-- [ ] npm-update-check.js checks symlink before write
-- [ ] HTTP response accumulation bounded (e.g., 1MB limit)
-- [ ] ensureDir validates parent symlinks
-- [ ] Wave bypassPermissions documented with security implications
-- [ ] No regression in existing functionality
-**Estimated effort**: 1 session
-**Priority**: MEDIUM — before next npm publish
+- [x] Heartbeat scrubs common secret patterns before logging
+- [x] npm-update-check.js validates path within ~/.claude/
+- [x] npm-update-check.js checks symlink before write
+- [x] HTTP response accumulation bounded (1MB limit)
+- [x] ensureDir validates parent symlinks
+- [x] Wave bypassPermissions documented with security implications
+- [x] No regression in existing functionality
+**Completed**: 2026-02-18
 
 ---
 
