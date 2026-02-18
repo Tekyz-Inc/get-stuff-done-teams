@@ -100,6 +100,10 @@ function versionLink(ver) {
 }
 
 function ensureDir(dir) {
+  if (hasSymlinkInPath(dir)) {
+    warn(`Refusing to use path with symlinked component: ${dir}`);
+    return false;
+  }
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
     return true;
@@ -117,6 +121,19 @@ function isSymlink(filePath) {
   } catch {
     return false; // File doesn't exist yet — safe to write
   }
+}
+
+function hasSymlinkInPath(targetPath) {
+  const resolved = path.resolve(targetPath);
+  let current = path.dirname(resolved);
+  const root = path.parse(resolved).root;
+  while (current !== root) {
+    if (isSymlink(current)) return true;
+    const parent = path.dirname(current);
+    if (parent === current) break;
+    current = parent;
+  }
+  return false;
 }
 
 function validateProjectName(name) {
@@ -1258,6 +1275,7 @@ module.exports = {
   validateVersion,
   validateProjectPath,
   isSymlink,
+  hasSymlinkInPath,
   isNewerVersion,
   ensureDir,
   copyFile,
