@@ -115,6 +115,7 @@ None — ready for next milestone
 - 2026-02-18 17:15: Verified all 5 fixes against contracts — backlog.md matches backlog-file-formats.md, progress.md matches progress-file-format.md, GSD-T-README has all 7 backlog commands, all docs show 42/38 counts. Marked 6 tech debt items resolved (TD-014, TD-015, TD-016, TD-018, TD-022, TD-023). Open items: 15 (was 22).
 - 2026-02-18 17:30: Milestone completed — Contract & Doc Alignment (Tech Debt Fix). Version bump 2.21.1 → 2.21.2. Tagged v2.21.2. 6 tech debt items resolved, open items reduced from 22 to 15.
 - 2026-02-18 18:00: Triage-and-merge: merged origin/main (QA Agent v2.22.0 + wave rewrite v2.23.0). Resolved 4 conflicts (backlog.md, progress.md, CLAUDE.md, package.json) — kept contract-aligned formats, adopted remote version v2.23.0.
+- 2026-02-18 19:00: Full codebase scan #3 (5 parallel agents). Post-merge analysis of QA Agent + wave rewrite. Key findings: TD-022 REGRESSED (command count 42→43 not updated after gsd-t-qa.md addition), TD-031 WORSENED (fractional steps 22/11→34/17 files), 3 new security design concerns (SEC-N09 wave bypassPermissions, SEC-N10 QA scope, SEC-N11 state integrity), QA contract missing test-sync phase (TD-042), orphaned domain files (TD-043). 10 new items total. Updated techdebt.md (26 open: 0 critical, 2 high, 8 medium, 16 low). Updated living docs (architecture, workflows, infrastructure, requirements) with 43/39 counts and QA/wave architecture.
 
 ## Session Log
 | Date | Session | What was accomplished |
@@ -123,4 +124,4 @@ None — ready for next milestone
 | 2026-02-09 | 2 | Doc ripple + test verify enforcement, Destructive Action Guard, CLI update-all/register, Milestone 1 defined |
 | 2026-02-10 | 3 | Milestone 1: plan → execute → verify → complete. 14 tasks, 3 domains, v2.8.0 tagged. |
 | 2026-02-17 | 4 | Milestone 2: QA Agent — Test-Driven Contracts. 11 tasks, 3 domains, v2.22.0. Wave rewrite v2.23.0. |
-| 2026-02-18 | 5 | Full scan (5 agents), Contract & Doc Alignment milestone: plan → execute → verify → complete. 5 tasks, 1 domain, 6 TDs resolved, v2.21.2. Merged origin/main (v2.23.0). |
+| 2026-02-18 | 5 | Full scan (5 agents), Contract & Doc Alignment milestone (6 TDs resolved, v2.21.2). Merged origin/main (v2.23.0). Scan #3: 10 new items, 1 regressed, 1 worsened. 26 open items. |

@@ -1,6 +1,6 @@
 # Code Quality Analysis — 2026-02-18
 
-Previous scan: 2026-02-07. This scan reflects the current state after significant work since the first scan.
+Previous scans: 2026-02-07 (scan #1), 2026-02-18 (scan #2). This is scan #3, reflecting current state after QA agent addition and wave rewrite.
 
 ---
 
@@ -8,24 +8,42 @@ Previous scan: 2026-02-07. This scan reflects the current state after significan
 
 | ID | Title | Previous Status | Current Status | Notes |
 |----|-------|-----------------|----------------|-------|
-| TD-001 | 25 of 26 Command Files Missing | CRITICAL | **RESOLVED** | All 42 command files present on disk |
-| TD-002 | Command Injection in Doctor via execSync | CRITICAL | **RESOLVED** | Line 993: now uses `execFileSync("claude", ["--version"], ...)` |
-| TD-003 | No Test Coverage | HIGH | **OPEN** | Still zero test files in the project |
-| TD-004 | Missing Error Handling in File Operations | HIGH | **PARTIALLY RESOLVED** | `copyFile()` now has try/catch (line 156-161). `initClaudeMd()`, `initDocs()`, `initGsdtDir()` now catch `EEXIST`. But some paths still lack catch blocks (see Error Handling section) |
-| TD-005 | Symlink Attack Vulnerability | HIGH | **RESOLVED** | `isSymlink()` check added at line 114-120, used throughout before writes |
-| TD-006 | Brainstorm Command Not Documented | HIGH | **RESOLVED** | Brainstorm appears in gsd-t-help.md and all reference files |
-| TD-007 | Hardcoded Utility Command List | MEDIUM | **RESOLVED** | `getUtilityCommands()` line 294 now uses convention: non-`gsd-t-` files are utilities |
-| TD-008 | CRLF/LF Mismatch Causes False-Positive Updates | MEDIUM | **PARTIALLY RESOLVED** | `normalizeEol()` helper added at line 130-132, used in `installCommands()` (line 408) and `installGlobalClaudeMd()` (line 435). However, the project still has CRLF endings in JS files and no `.gitattributes` or `.editorconfig` to enforce consistency |
-| TD-009 | Missing Input Validation on Project Name | MEDIUM | **RESOLVED** | `validateProjectName()` added at line 122-124 with regex validation |
-| TD-010 | Large Functions Approaching Complexity | MEDIUM | **PARTIALLY RESOLVED** | `doInstall()` split into `installCommands()` + `installGlobalClaudeMd()`. `doDoctor()` split into `checkDoctorEnvironment()` + `checkDoctorInstallation()` + `checkDoctorProject()`. `doStatus()` still 98 lines. New large functions introduced (see Complexity section) |
-| TD-012 | Package.json Missing Metadata | LOW | **RESOLVED** | `scripts.test` and `main` fields now present |
-| TD-013 | Template Token Duplication | LOW | **RESOLVED** | `applyTokens()` helper added at line 126-128, used by `initClaudeMd()`, `initDocs()`, `initGsdtDir()` |
+| TD-001 | 25 of 26 Command Files Missing | RESOLVED | **RESOLVED** | All 43 command files present (39 GSD-T + 4 utility) |
+| TD-002 | Command Injection in Doctor via execSync | RESOLVED | **RESOLVED** | Line 993: `execFileSync("claude", ["--version"], ...)` |
+| TD-003 | No Test Coverage | HIGH — OPEN | **OPEN** | Still zero test files in the project |
+| TD-005 | Symlink Attack Vulnerability | RESOLVED | **RESOLVED** | `isSymlink()` check at all write sites |
+| TD-006 | Brainstorm Command Not Documented | RESOLVED | **RESOLVED** | Present in all reference files |
+| TD-007 | Hardcoded Utility Command List | RESOLVED | **RESOLVED** | Convention-based detection |
+| TD-008 | CRLF/LF Mismatch | PARTIALLY RESOLVED | **PARTIALLY RESOLVED** | `normalizeEol()` mitigates, still no `.gitattributes` or `.editorconfig` |
+| TD-009 | Missing Input Validation on Project Name | RESOLVED | **RESOLVED** | `validateProjectName()` at line 122 |
+| TD-010 | Large Functions Approaching Complexity | PARTIALLY RESOLVED | **PARTIALLY RESOLVED** | `doInstall`, `doDoctor` decomposed; `doStatus` still 98 lines; total 13 functions over 30 lines unchanged |
+| TD-014 | Backlog File Format Drift | RESOLVED | **RESOLVED** | Fixed 2026-02-18 |
+| TD-015 | Progress.md Format Drift | RESOLVED | **RESOLVED** | Fixed 2026-02-18 |
+| TD-016 | 7 Backlog Commands Missing from GSD-T-README | RESOLVED | **RESOLVED** | Fixed 2026-02-18 |
+| TD-017 | doUpdateAll() No Per-Project Error Isolation | HIGH — OPEN | **OPEN** | No change — still no try/catch around per-project iteration |
+| TD-018 | Heartbeat JSONL Files Not in .gitignore | RESOLVED | **RESOLVED** | Fixed 2026-02-18 |
+| TD-019 | Heartbeat Sensitive Data in Bash Commands | MEDIUM — OPEN | **OPEN** | No change — still logs first 150 chars of bash commands |
+| TD-020 | npm-update-check.js Arbitrary Path Write | MEDIUM — OPEN | **OPEN** | No change — still no path validation |
+| TD-021 | 13 Functions Exceed 30-Line Limit | MEDIUM — OPEN | **OPEN** | Same 13 functions in bin/gsd-t.js, same 2 in heartbeat |
+| TD-022 | Stale Command Counts Across Reference Files | RESOLVED | **REGRESSION** | See DRIFT-001 below — counts are stale again after gsd-t-qa.md addition |
+| TD-023 | CLAUDE.md Version/Count Drift | RESOLVED | **REGRESSION** | See DRIFT-001/DRIFT-002 below |
+| TD-024 | Heartbeat Cleanup Runs on Every Event | MEDIUM — OPEN | **OPEN** | No change — still `cleanupOldHeartbeats()` on every event |
+| TD-025 | Missing .gitattributes and .editorconfig | MEDIUM — OPEN | **OPEN** | No files added |
+| TD-030 | discuss/impact Missing Autonomy Behavior | LOW — OPEN | **OPEN** | No change — `gsd-t-discuss.md` and `gsd-t-impact.md` still lack formal Autonomy Behavior sections |
+| TD-031 | Fractional Step Numbering in 11 Command Files | LOW — OPEN | **WORSENED** | Now 16 command files with fractional steps (was 11). QA spawn added `.5`/`.6`/`.7` steps to 5 more files |
+| TD-032 | buildEvent() 69 Lines in Heartbeat | LOW — OPEN | **OPEN** | No change |
+| TD-033 | Code Duplication Patterns | LOW — OPEN | **OPEN** | No change — 3 duplication patterns remain |
+| TD-034 | checkForUpdates Inline JS Fragile | LOW — OPEN | **OPEN** | No change |
+
+**Summary:** Of 15 previously open items: 0 resolved, 2 regressed, 1 worsened, 12 unchanged.
 
 ---
 
-## Function Length Inventory — `bin/gsd-t.js`
+## Function Length Inventory — `bin/gsd-t.js` (1301 lines)
 
 Project standard: functions MUST be under 30 lines. Flagged functions are marked with :warning:.
+
+**No functions changed since scan #2.** The file is identical. Full inventory unchanged:
 
 | Function | Lines | Start Line | Status |
 |----------|-------|------------|--------|
@@ -47,7 +65,7 @@ Project standard: functions MUST be under 30 lines. Flagged functions are marked
 | `copyFile()` | 11 | 151 | OK |
 | `hasPlaywright()` | 4 | 164 | OK |
 | `hasSwagger()` | **32** | 169 | :warning: OVER 30 |
-| `hasApi()` | **24** | 203 | OK |
+| `hasApi()` | 24 | 203 | OK |
 | `getInstalledVersion()` | 6 | 228 | OK |
 | `saveInstalledVersion()` | 10 | 236 | OK |
 | `getRegisteredProjects()` | 15 | 248 | OK |
@@ -83,19 +101,19 @@ Project standard: functions MUST be under 30 lines. Flagged functions are marked
 | `doChangelog()` | 16 | 1203 | OK |
 | `showHelp()` | 30 | 1220 | BORDERLINE |
 
-**Summary:** 13 functions exceed 30 lines. 2 functions are at exactly 30 lines (borderline). The largest is `doStatus()` at 98 lines.
+**Summary:** 13 functions exceed 30 lines. 2 functions at exactly 30 lines (borderline). Largest: `doStatus()` at 98 lines. No change from scan #2.
 
-### Functions Requiring Extraction — `scripts/gsd-t-heartbeat.js`
+### Functions — `scripts/gsd-t-heartbeat.js` (202 lines, unchanged)
 
 | Function | Lines | Start Line | Status |
 |----------|-------|------------|--------|
 | `cleanupOldHeartbeats()` | 16 | 67 | OK |
-| `buildEvent()` | 69 | 85 | :warning: OVER 30 |
+| `buildEvent()` | **69** | 85 | :warning: OVER 30 |
 | `summarize()` | 28 | 157 | OK |
 | `shortPath()` | 13 | 188 | OK |
 | stdin `on("end")` handler | 32 | 31 | :warning: OVER 30 |
 
-### Functions — `scripts/npm-update-check.js`
+### Functions — `scripts/npm-update-check.js` (27 lines, unchanged)
 
 | Function | Lines | Start Line | Status |
 |----------|-------|------------|--------|
@@ -103,113 +121,271 @@ Project standard: functions MUST be under 30 lines. Flagged functions are marked
 
 ---
 
+## New Code: `commands/gsd-t-qa.md` Analysis
+
+The `gsd-t-qa.md` file (169 lines) is a new command file added as part of the QA agent integration.
+
+### Quality Assessment
+
+**Strengths:**
+- Clear phase-specific behavior matrix (partition, plan, execute, verify, quick, debug, integrate, complete-milestone)
+- Contract-to-test mapping rules are well-structured with code examples
+- Communication protocol is consistent and machine-parseable (`QA: {PASS|FAIL} — {summary}`)
+- Blocking rules are explicit (QA FAIL blocks phase completion)
+- Cleanup rule included (kill orphan dev servers)
+- Ends with `$ARGUMENTS` as convention requires
+
+**Issues found:**
+
+#### QA-001: No Document Ripple section
+- **Severity:** LOW
+- **File:** `commands/gsd-t-qa.md`
+- **Problem:** The QA agent writes test files (which are source code modifications) but has no Document Ripple section specifying what docs to update. Other code-modifying commands have this section.
+- **Mitigating factor:** QA is always spawned as a teammate, and the lead agent's command includes Document Ripple. The QA agent's scope is limited to test files.
+- **Recommendation:** Add a minimal Document Ripple section: update `.gsd-t/test-coverage.md` and `.gsd-t/progress.md` after test generation.
+
+#### QA-002: Regeneration behavior underspecified
+- **Severity:** LOW
+- **File:** `commands/gsd-t-qa.md` line 144
+- **Problem:** Says "When a contract changes, regenerate the affected test file (preserving any manual additions marked with `// @custom`)". The mechanism for distinguishing `// @contract-test` generated code from `// @custom` additions during regeneration is not defined. An implementing agent would need to invent this merging logic.
+- **Recommendation:** Specify the merge strategy: "Delete all lines between `// @contract-test` markers, re-generate, then leave `// @custom` blocks untouched."
+
+#### QA-003: Test framework assumption
+- **Severity:** LOW
+- **File:** `commands/gsd-t-qa.md` lines 104-121
+- **Problem:** Code examples use `@playwright/test` import syntax exclusively. The command assumes Playwright for all test types (including contract tests which may be better as unit tests). Projects using Jest, Vitest, or pytest have no guidance.
+- **Recommendation:** Add a framework detection preamble similar to `gsd-t-test-sync.md` Step 1.
+
+---
+
+## New Code: Wave Rewrite (`commands/gsd-t-wave.md`) Analysis
+
+The wave command was rewritten from an inline orchestrator to an agent-per-phase spawner (219 lines).
+
+### Quality Assessment
+
+**Strengths:**
+- Agent-per-phase architecture eliminates context accumulation across phases
+- Clear phase sequence table with status → next phase mapping
+- Lightweight orchestrator (reads only `progress.md` and `CLAUDE.md`)
+- Between-phase verification pattern (read progress.md, verify status update)
+- Error recovery documented for impact blocks, test failures, and verify failures
+- ASCII visualization diagram is accurate and helpful
+
+**Issues found:**
+
+#### WAVE-001: No Document Ripple section
+- **Severity:** LOW
+- **File:** `commands/gsd-t-wave.md`
+- **Problem:** Wave is an orchestrator that delegates all work to phase agents, so it doesn't modify files directly. However, other orchestrator-like commands in the project have Document Ripple sections (even if minimal). The previous scan noted wave as "appropriately absent" from Document Ripple, which is still correct, but for consistency it could include a note: "Document Ripple handled by each phase agent."
+
+#### WAVE-002: Discuss phase skip logic is vague
+- **Severity:** LOW
+- **File:** `commands/gsd-t-wave.md` lines 67-69
+- **Problem:** The skip condition is "Are there open architectural questions or multiple viable approaches?" This is subjective. The orchestrator agent must evaluate this without deep context (it only reads progress.md and CLAUDE.md). There is no machine-parseable signal in progress.md to determine this.
+- **Recommendation:** Define a concrete skip heuristic. For example: "Skip Discuss if progress.md contains no `## Open Questions` section or that section is empty."
+
+#### WAVE-003: Error recovery agent count not bounded
+- **Severity:** LOW
+- **File:** `commands/gsd-t-wave.md` lines 167-168, 177-179
+- **Problem:** "Max 2 attempts" is stated for impact and verify remediation, but no limit is stated for the execute phase's internal failure handling. The wave command says "the execute agent handles test failures internally (up to 2 fix attempts)" but this relies on the execute agent respecting that limit.
+- **Impact:** Low — execute.md does specify the 2-attempt limit in its own text.
+
+---
+
+## QA Spawn Integration Consistency
+
+9 command files spawn the QA agent. Analysis of consistency:
+
+| Command | Step # | Phase Context | QA Blocking? | Consistent? |
+|---------|--------|---------------|--------------|-------------|
+| `gsd-t-partition.md` | Step 4.7 | partition | YES — "blocks partition completion" | YES |
+| `gsd-t-plan.md` | Step 4.7 | plan | Partial — "Wait for QA agent to complete" | MINOR ISSUE |
+| `gsd-t-execute.md` | Step 1.5 | execute | YES — "QA failure on any task blocks proceeding" | YES |
+| `gsd-t-test-sync.md` | Step 1.5 | test-sync | Partial — "QA failure flags included" | MINOR ISSUE |
+| `gsd-t-integrate.md` | Step 4.5 | integrate | YES — "QA failure blocks integration" | YES |
+| `gsd-t-verify.md` | Step 1.5 | verify | YES — "QA failure blocks verification" | YES |
+| `gsd-t-quick.md` | Step 2.5 | quick | YES — "QA failure blocks the commit" | YES |
+| `gsd-t-debug.md` | Step 2.5 | debug | YES — "QA failure blocks the commit" | YES |
+| `gsd-t-complete-milestone.md` | Step 7.6 | complete-milestone | YES — "QA failure blocks milestone completion" | YES |
+
+### Issues:
+
+#### QA-SPAWN-001: Inconsistent blocking language in plan and test-sync
+- **Severity:** LOW
+- **Files:** `commands/gsd-t-plan.md` (Step 4.7), `commands/gsd-t-test-sync.md` (Step 1.5)
+- **Problem:** `gsd-t-plan.md` says "Wait for QA agent to complete before proceeding" but does not explicitly say QA failure blocks the phase. `gsd-t-test-sync.md` says "QA failure flags are included in the coverage report" but does not say QA failure blocks test-sync. Other 7 commands all use explicit "QA failure blocks {phase}" language.
+- **Fix:** Add "QA failure blocks plan completion." and "QA failure blocks test-sync completion." respectively.
+
+#### QA-SPAWN-002: QA spawn step numbering is inconsistent
+- **Severity:** LOW
+- **Problem:** QA spawn appears at different fractional step numbers across commands:
+  - `Step 1.5` in execute, test-sync, verify
+  - `Step 2.5` in quick, debug
+  - `Step 4.5` in integrate
+  - `Step 4.7` in partition, plan
+  - `Step 7.6` in complete-milestone
+- **Impact:** The step number follows local context (spawning after the relevant prior step), so this is rational but inconsistent in naming convention.
+- **Recommendation:** This is a symptom of the broader fractional step numbering issue (TD-031). Fix by renumbering to integers.
+
+#### QA-SPAWN-003: QA agent spawn block format is consistent
+- **Positive finding:** All 9 commands use the same Teammate spawn block format:
+  ```
+  Teammate "qa": Read commands/gsd-t-qa.md for your full instructions.
+    Phase context: {phase}. Read .gsd-t/contracts/ for contract definitions.
+    {phase-specific instruction}.
+    Report: {phase-specific report format}.
+  ```
+  This consistency is good.
+
+---
+
+## Fractional Step Numbering — Updated Inventory
+
+Previous scan reported 11 files. After QA spawn integration and other additions, now **16 command files** use fractional step numbering:
+
+| File | Fractional Steps | Added Since Scan #2 |
+|------|-----------------|---------------------|
+| `gsd-t-partition.md` | 4.5, 4.6, **4.7** | 4.7 is new (QA spawn) |
+| `gsd-t-plan.md` | 4.5, 4.6, **4.7** | 4.7 is new (QA spawn) |
+| `gsd-t-execute.md` | **1.5** | 1.5 is new (QA spawn) |
+| `gsd-t-test-sync.md` | **1.5** | 1.5 is new (QA spawn) |
+| `gsd-t-verify.md` | **1.5** | 1.5 is new (QA spawn) |
+| `gsd-t-quick.md` | **2.5** | 2.5 is new (QA spawn) |
+| `gsd-t-debug.md` | **2.5** | 2.5 is new (QA spawn) |
+| `gsd-t-integrate.md` | **4.5**, 5.5 | 4.5 is new (QA spawn) |
+| `gsd-t-complete-milestone.md` | 1.5, 7.5, **7.6** | 7.6 expanded (QA spawn added) |
+| `gsd-t-milestone.md` | 4.5, 4.6 | Unchanged |
+| `gsd-t-init.md` | 1.5, 2.5, 7.5, 7.6, 7.7 | Unchanged |
+| `gsd-t-impact.md` | 6.5, 6.6 | Unchanged |
+| `gsd-t-scan.md` | 5.5 | Unchanged |
+| `gsd-t-promote-debt.md` | 5.5, 5.6 | Unchanged |
+| `gsd-t-project.md` | 5.5, 5.6 | Unchanged |
+| `gsd-t-feature.md` | 7.5 | Unchanged |
+| `gsd-t-discuss.md` | 5.5 | Unchanged |
+
+**Total fractional steps:** 34 across 17 files (was 22 across 11 files in scan #2). The QA spawn integration added 12 new fractional steps across 9 files (7 newly affected, 2 already had fractional steps).
+
+---
+
 ## Dead Code
 
 - **None found.** All functions in `bin/gsd-t.js` are reachable from the `switch` statement at line 1257. All helpers are called by at least one command function.
 - No commented-out code blocks in any JS file.
+- No unused imports.
 
 ---
 
-## Duplication
+## Duplication (unchanged from scan #2)
 
 ### DUP-001: `hasSwagger()` and `hasApi()` share identical package.json parsing pattern
 - **Files:** `bin/gsd-t.js` lines 169-201 vs 203-226
-- **Pattern:** Both functions do `fs.existsSync(pkgPath) → JSON.parse(fs.readFileSync(...)) → Object.keys(dependencies).concat(devDependencies) → someArray.some(...)`. Both also iterate Python files with the same `pyFiles` loop pattern.
-- **Fix:** Extract a `getDependencies(projectDir)` helper and a `hasPythonDep(projectDir, name)` helper.
+- **Pattern:** Both read and parse package.json independently, concat deps+devDeps, use `some()` to check against a package list. Both also iterate Python files identically.
+- **Fix:** Extract `getDependencies(projectDir)` and `hasPythonDep(projectDir, name)`.
 
 ### DUP-002: JSON.parse(fs.readFileSync(SETTINGS_JSON)) repeated 3 times
 - **Files:** `bin/gsd-t.js` lines 351, 732, 1039
-- **Pattern:** Each caller opens `SETTINGS_JSON`, parses it, and handles parse errors independently.
-- **Fix:** Extract `readSettingsJson()` helper returning parsed object or null.
+- **Fix:** Extract `readSettingsJson()` returning parsed object or null.
 
-### DUP-003: Template-write-or-skip pattern repeated across `initClaudeMd()`, `initDocs()`, `initGsdtDir()`
+### DUP-003: Template-write-or-skip pattern repeated across init functions
 - **Files:** `bin/gsd-t.js` lines 527-548, 551-572, 574-624
-- **Pattern:** Read template → apply tokens → `writeFileSync` with `{ flag: "wx" }` → catch `EEXIST` → info skip. Done identically for each template file.
-- **Fix:** Extract `writeTemplate(templateName, destPath, projectName, today, label)` helper.
+- **Fix:** Extract `writeTemplate(templateName, destPath, projectName, today, label)`.
 
 ---
 
-## Complexity Hotspots
+## Complexity Hotspots (unchanged from scan #2)
 
 ### CMPLX-001: `doStatus()` — 98 lines (line 675-773)
-- **Cyclomatic complexity:** ~15 (5 major if/else branches for version, commands, CLAUDE.md, settings, project)
-- **Problem:** Checks 5 independent aspects sequentially in one function. Each could be extracted.
+- **Cyclomatic complexity:** ~15
 - **Fix:** Extract `statusVersion()`, `statusCommands()`, `statusGlobalConfig()`, `statusTeams()`, `statusCurrentProject()`.
 
 ### CMPLX-002: `doUpdateAll()` — 78 lines (line 904-981)
 - **Cyclomatic complexity:** ~10
-- **Problem:** Handles global update + project iteration + health check + summary in one function.
-- **Fix:** The project loop (lines 936-961) could be extracted as `updateSingleProject()`.
+- **Fix:** Extract `updateSingleProject()`. Add try/catch per project.
 
 ### CMPLX-003: `checkDoctorInstallation()` — 52 lines (line 1010-1063)
 - **Cyclomatic complexity:** ~8
-- **Problem:** 4 independent checks (commands, CLAUDE.md, settings, encoding) in one function.
-- **Fix:** Could split encoding check into `checkDoctorEncoding()`.
+- **Fix:** Extract encoding check into `checkDoctorEncoding()`.
 
 ### CMPLX-004: `checkForUpdates()` — 45 lines (line 1146-1191)
-- **Cyclomatic complexity:** ~8 (3 code paths: show cached, sync fetch, background refresh)
-- **Problem:** Inline JavaScript string for fetching version (line 1169) is particularly hard to read and maintain.
-- **Fix:** The inline script is necessary for a zero-dependency approach, but the 3 code paths should be separate functions.
+- **Cyclomatic complexity:** ~8
+- **Fix:** Move inline JS fetch script to separate file.
 
 ### CMPLX-005: `buildEvent()` in heartbeat — 69 lines (line 85-155)
-- **Cyclomatic complexity:** ~10 (switch with 9 cases)
-- **Problem:** Long switch statement mapping hook events to internal events. Each case is simple but the function is long.
-- **Fix:** Use a lookup object `const EVENT_MAP = { SessionStart: (hook) => ({ evt: "session_start", ... }), ... }` to reduce the function to ~5 lines.
+- **Cyclomatic complexity:** ~10
+- **Fix:** Use lookup object pattern.
 
 ---
 
-## Error Handling Gaps
+## Error Handling Gaps (unchanged from scan #2)
 
 ### ERR-001: `doUpdateAll()` project iteration — no try/catch around individual projects
 - **File:** `bin/gsd-t.js` lines 936-961
-- **Problem:** If `updateProjectClaudeMd()` throws on one project (e.g., permission denied on CLAUDE.md), the entire loop aborts. Remaining projects are not updated.
-- **Fix:** Wrap each project iteration in try/catch with `error()` logging.
+- **Problem:** If `updateProjectClaudeMd()` throws on one project, remaining projects are skipped.
+- **Fix:** Wrap each project iteration in try/catch.
 
 ### ERR-002: `checkForUpdates()` inline eval — fragile sync fetch
 - **File:** `bin/gsd-t.js` line 1169
-- **Problem:** The inline JavaScript string `fetchScript` is executed via `execFileSync`. If Node.js changes behavior or the inline code has a subtle bug, it fails silently with an empty catch. This is acceptable (non-critical), but the lack of any timeout feedback is confusing.
 - **Impact:** Low — failure is silent and non-blocking.
 
 ### ERR-003: `doChangelog()` — platform detection without error detail
 - **File:** `bin/gsd-t.js` line 1203-1218
-- **Problem:** On Linux, `xdg-open` may not be installed. The error is caught but the user only sees the URL fallback with no explanation of why the browser didn't open.
-- **Fix:** Add info message: "Could not open browser — install xdg-open or visit the URL above."
+- **Fix:** Add info message for `xdg-open` not found.
 
 ### ERR-004: Heartbeat stdin handler — broad silent catch
 - **File:** `scripts/gsd-t-heartbeat.js` line 62
-- **Problem:** The entire stdin handler is wrapped in a single `try { ... } catch (e) {}` that silently swallows all errors. This is intentional (never interfere with Claude Code) but makes debugging heartbeat issues impossible.
-- **Fix:** Log to a debug file or stderr when `GSD_T_DEBUG` env var is set.
+- **Fix:** Log to debug file when `GSD_T_DEBUG` env var is set.
 
 ---
 
-## Performance Issues
+## Performance Issues (unchanged from scan #2)
 
 ### PERF-001: `hasSwagger()` reads package.json + Python files on every call
 - **File:** `bin/gsd-t.js` lines 169-201
-- **Problem:** `hasSwagger()` and `hasApi()` both independently read the same `package.json` for the same project. When called together (as in `checkProjectHealth()` line 886), the same file is read and parsed twice.
-- **Impact:** Low — only affects `doctor` and `update-all` commands, and only for projects with package.json.
+- **Impact:** Low — only affects `doctor` and `update-all`.
 - **Fix:** Pass parsed package.json data as parameter, or cache per-project.
 
 ### PERF-002: `cleanupOldHeartbeats()` runs on every event
 - **File:** `scripts/gsd-t-heartbeat.js` line 57
-- **Problem:** `cleanupOldHeartbeats(gsdtDir)` calls `fs.readdirSync` + `fs.lstatSync` for every heartbeat file, on every single hook event. In a busy session with many tool uses, this runs hundreds of times.
-- **Impact:** Medium — adds filesystem overhead to every Claude Code tool invocation.
-- **Fix:** Rate-limit cleanup to once per minute or once per session start, not on every event. A simple approach: only run cleanup when `hook_event_name === "SessionStart"`.
+- **Impact:** Medium — filesystem overhead on every Claude Code tool invocation.
+- **Fix:** Only run cleanup on `SessionStart` events.
 
 ---
 
-## Naming Inconsistencies
+## Documentation-Code Drift
+
+### DRIFT-001: Command counts stale after gsd-t-qa.md addition (REGRESSION)
+
+The `gsd-t-qa.md` file was added, increasing total commands from 42 to 43 (39 GSD-T + 4 utility). The following files have stale counts:
+
+| File | Line(s) | Current Text | Should Be |
+|------|---------|-------------|-----------|
+| `CLAUDE.md` | 13 | "42 slash commands (38 GSD-T workflow + 4 utility)" | "43 slash commands (39 GSD-T workflow + 4 utility)" |
+| `CLAUDE.md` | 34 | "commands/ — 42 slash commands for Claude Code" | "43 slash commands" |
+| `CLAUDE.md` | 35 | "gsd-t-*.md — 38 GSD-T workflow commands" | "39 GSD-T workflow commands" |
+| `README.md` | 21 | "38 GSD-T commands + 4 utility commands (42 total)" | "39 GSD-T commands + 4 utility commands (43 total)" |
+| `README.md` | 286 | "# 42 slash commands" | "# 43 slash commands" |
+| `README.md` | 287 | "# 38 GSD-T workflow commands" | "# 39 GSD-T workflow commands" |
+| `package.json` | 4 | "42 slash commands" in description | "43 slash commands" |
+
+**Note:** The installer (`bin/gsd-t.js`) counts dynamically from the `commands/` directory, so it is NOT affected.
+
+### DRIFT-002: CLAUDE.md version says v2.23.0 (CORRECT)
+- **File:** `CLAUDE.md` line 55
+- **Current text:** `package.json — npm package config (v2.23.0)`
+- **Actual:** `package.json` version is `2.23.0`
+- **Status:** Previously drifted, now **CORRECT** — someone updated it.
+
+---
+
+## Naming Inconsistencies (unchanged from scan #2)
 
 ### NAME-001: Mixed function naming: `do*` vs verb-only
-- **File:** `bin/gsd-t.js`
-- **Pattern:** Main commands use `doInstall()`, `doUpdate()`, `doInit()` etc. (with `do` prefix). But helpers use bare verbs: `installCommands()`, `installHeartbeat()`, `installGlobalClaudeMd()`, `copyFile()`.
-- **Impact:** Low — the convention is somewhat clear (`do*` = top-level subcommand, bare = helper) but it is not documented.
-- **Recommendation:** Document in CLAUDE.md Conventions: "`do*()` prefix for CLI subcommand entry points, bare verbs for internal helpers."
+- **Pattern:** `do*` = top-level subcommand, bare verb = helper. Not documented.
+- **Recommendation:** Document in CLAUDE.md Conventions.
 
 ### NAME-002: `getInstalledCommands()` vs `getCommandFiles()` — similar but different
-- **File:** `bin/gsd-t.js` lines 283 vs 298
-- **Problem:** `getCommandFiles()` returns package source command files. `getInstalledCommands()` returns installed command files that match our known commands. The names are similar but the semantics are different. `getCommandFiles()` would more precisely be `getPackageCommandFiles()`.
-- **Impact:** Low — code works correctly, naming is slightly ambiguous.
+- **Impact:** Low — naming is slightly ambiguous.
 
 ---
 
@@ -223,7 +399,7 @@ Project standard: functions MUST be under 30 lines. Flagged functions are marked
 
 **Zero test files exist in the project.** `package.json` has `"test": "node --test"` but no test files exist for it to find.
 
-### Critical paths needing tests (prioritized):
+### Critical paths needing tests (prioritized — same as scan #2):
 
 **P0 — Core commands:**
 1. `doInstall()` — fresh install, update mode, CLAUDE.md merge/append/backup, command counting
@@ -258,108 +434,51 @@ Node.js built-in test runner (`node --test`) — already configured in `package.
 
 ---
 
-## Command File Quality — Consistency Analysis
+## Command File Quality — New Findings
 
-### 42 command files analyzed across 5 dimensions:
+### Consistency Dimensions (updated from scan #2)
 
 #### 1. `$ARGUMENTS` Terminator
-- **Convention:** Every command file should end with `$ARGUMENTS` as the final line to accept user input.
-- **Present:** 40 of 42 files
-- **Missing:** `checkin.md`, `Claude-md.md`
-- **Impact:** These 2 utility commands do not accept passthrough arguments. This may be intentional for `Claude-md.md` (no args needed) but `checkin.md` could benefit from accepting a commit message argument.
+- **Present:** 42 of 43 files (new: `gsd-t-qa.md` has it)
+- **Missing:** `checkin.md` (intentional — doesn't accept args)
+- **Note:** `Claude-md.md` also lacks `$ARGUMENTS` but this is intentional.
+- **Verdict:** **Good.**
 
 #### 2. Document Ripple Section
-- **Convention:** Commands that modify files should have a "Document Ripple" section listing which docs to update.
-- **Present:** 27 of 42 files have an explicit Document Ripple section
-- **Appropriately absent:** 15 files are read-only or conversational commands where Document Ripple does not apply:
-  - `gsd-t-help.md` — read-only display
-  - `gsd-t-status.md` — read-only display
-  - `gsd-t-resume.md` — state recovery, not modification
-  - `gsd-t-prompt.md` — conversational
-  - `gsd-t-brainstorm.md` — optional save only
-  - `gsd-t-wave.md` — orchestrator (delegates to sub-commands which have their own ripples)
-  - `gsd-t-version-update.md` / `gsd-t-version-update-all.md` — meta-commands
-  - `gsd-t-log.md` — modifies only progress.md (self-contained)
-  - `gsd.md` — router, no direct modification
-  - `branch.md` — git only
-  - `checkin.md` — references Pre-Commit Gate from CLAUDE.md
-  - `Claude-md.md` — read-only
-  - `gsd-t-backlog-list.md` — read-only
-  - `gsd-t-init-scan-setup.md` — delegates to sub-commands
-- **Verdict:** **Good coverage.** All file-modifying commands have Document Ripple sections.
+- **Present:** 27 of 43 files (same 27 as before)
+- **Missing from file-modifying commands:** `gsd-t-qa.md` writes test files but has no Document Ripple section (see QA-001 above)
+- **Verdict:** **Minor gap** — QA is the only code-modifying command without Document Ripple.
 
-#### 3. Destructive Action Guard Reference
-- **Convention:** Commands that execute code changes should reference the Destructive Action Guard.
-- **Present:** 5 of 42 files: `gsd-t-execute.md`, `gsd-t-wave.md`, `gsd-t-setup.md`, `gsd-t-quick.md`, `gsd-t-debug.md`
-- **Appropriate coverage:** These are the 5 commands that directly modify source code. Other commands modify only `.gsd-t/` state files or docs, which are not destructive.
-- **Verdict:** **Correct.**
+#### 3. Autonomy Behavior Section
+- **Present:** 8 of 43 files: `gsd-t-verify.md`, `gsd-t-test-sync.md`, `gsd-t-execute.md`, `gsd-t-wave.md`, `gsd-t-partition.md`, `gsd-t-plan.md`, `gsd-t-integrate.md`, `gsd-t-init-scan-setup.md`
+- **Missing from wave-phase commands:** `gsd-t-discuss.md` and `gsd-t-impact.md` (unchanged since scan #2)
+- **Note:** `gsd-t-qa.md` is always spawned as a teammate, not a standalone phase, so Autonomy Behavior is not applicable.
+- **Verdict:** **Minor inconsistency** — same as scan #2.
 
-#### 4. Autonomy Behavior Section
-- **Convention:** Commands that auto-advance should document Level 1-2 vs Level 3 behavior.
-- **Present:** 8 of 42 files: `gsd-t-verify.md`, `gsd-t-test-sync.md`, `gsd-t-execute.md`, `gsd-t-wave.md`, `gsd-t-partition.md`, `gsd-t-plan.md`, `gsd-t-integrate.md`, `gsd-t-init-scan-setup.md`
-- **Missing from wave-phase commands:** `gsd-t-discuss.md` mentions pausing at Level 3 but has no formal Autonomy Behavior section. `gsd-t-impact.md` has no Autonomy Behavior section despite being a wave phase.
-- **Verdict:** **Minor inconsistency.** `gsd-t-discuss.md` and `gsd-t-impact.md` should have explicit Autonomy Behavior sections to match the pattern of other wave-phase commands.
-
-#### 5. Test Verification Section
-- **Convention:** Commands that modify code or state should verify tests pass before committing.
-- **Present in dedicated section:** `gsd-t-setup.md`, `gsd-t-populate.md`
-- **Embedded in workflow steps:** `gsd-t-execute.md` (Step 8), `gsd-t-quick.md` (Step 5), `gsd-t-debug.md` (Step 5), `gsd-t-verify.md` (Step 3), `gsd-t-scan.md` (Step 5.5), `gsd-t-init.md` (Step 7.7), `gsd-t-milestone.md` (Step 4.6), `gsd-t-partition.md` (Step 4.6), `gsd-t-complete-milestone.md` (Step 7.6), `gsd-t-integrate.md` (Step 5.5), `gsd-t-wave.md` (embedded in each phase)
-- **Missing:** `gsd-t-feature.md`, `gsd-t-project.md` — these modify docs but do not run test suites.
-- **Verdict:** **Good.** All code-modifying commands verify tests. Doc-only commands appropriately skip.
-
-#### 6. Step Numbering Convention
-- **Convention:** Steps use `## Step N:` format.
-- **Inconsistency found:** Some commands use fractional steps (`Step 4.5`, `Step 5.5`, `Step 7.5`, `Step 7.6`, `Step 7.7`). This suggests sections were added incrementally without renumbering.
-- **Affected files:** `gsd-t-milestone.md`, `gsd-t-partition.md`, `gsd-t-plan.md`, `gsd-t-init.md`, `gsd-t-complete-milestone.md`, `gsd-t-integrate.md`, `gsd-t-impact.md`, `gsd-t-scan.md`, `gsd-t-promote-debt.md`, `gsd-t-project.md`, `gsd-t-feature.md`
-- **Impact:** Low — Claude can follow fractional steps. But it creates visual inconsistency and suggests organic growth without cleanup.
-- **Recommendation:** Renumber steps to integers in a future cleanup pass.
+#### 4. QA Agent Spawn Section
+- **Present:** 9 of 43 files (new dimension)
+- **Expected in:** All wave-phase commands that modify code or verify quality
+- **Missing from:** `gsd-t-scan.md` — performs codebase analysis but does not spawn QA to validate test coverage as part of the scan. The test verification step in scan (Step 5.5) is manual, not QA-agent-driven.
+- **Verdict:** **Acceptable** — scan is an analysis command, not an execution command. QA spawn is appropriate only for commands that write or verify code.
 
 ---
 
-## CRLF/LF Consistency (TD-008 — STILL PARTIALLY OPEN)
+## CRLF/LF Consistency (TD-025 — STILL OPEN)
 
-- **JS files:** All 3 JS files (`bin/gsd-t.js`, `scripts/gsd-t-heartbeat.js`, `scripts/npm-update-check.js`) use CRLF line endings.
-- **No `.gitattributes`:** No file exists to enforce line ending consistency across platforms.
-- **No `.editorconfig`:** No file exists to enforce editor settings.
-- **`normalizeEol()` helper exists** at line 130 and is used in content comparison (lines 332, 408, 435), which prevents false-positive update detection.
-- **Risk:** Contributors on macOS/Linux will create LF files. When mixed with CRLF files, git diffs become noisy. The `normalizeEol()` helper mitigates the functional impact but not the git noise.
-- **Fix:** Add `.gitattributes` with `* text=auto` and `.editorconfig` with `end_of_line = lf`.
+- **JS files:** All 3 JS files use CRLF line endings.
+- **No `.gitattributes`:** Still missing.
+- **No `.editorconfig`:** Still missing.
+- **`normalizeEol()` helper:** Functional mitigation in place.
+- **Risk:** Noisy git diffs with cross-platform contributors.
 
 ---
 
-## Security Observations (non-blocking)
+## Security Observations (unchanged from scan #2, non-blocking)
 
 ### SEC-OBS-001: Heartbeat writes to project `.gsd-t/` directory
-- **File:** `scripts/gsd-t-heartbeat.js` lines 40-60
-- **Observation:** The heartbeat script validates `session_id` against `SAFE_SID` regex (line 18), checks `path.isAbsolute()`, verifies resolved path stays within `.gsd-t/`, and checks for symlinks before writing. These are all good mitigations.
-- **Remaining concern:** The `cwd` value comes from the hook input (line 35: `hook.cwd || process.cwd()`). If a malicious hook payload provides a crafted `cwd`, the script would write to an arbitrary `.gsd-t/` directory. The `path.isAbsolute()` check at line 38 is the primary defense.
-- **Impact:** Very low — the hook input comes from Claude Code itself, not from external sources.
-
----
-
-## Documentation-Code Drift
-
-### DRIFT-001: CLAUDE.md command counts
-- **File:** `CLAUDE.md` line 13
-- **Current text:** "42 slash commands (38 GSD-T workflow + 4 utility)"
-- **Actual count:** 42 files in `commands/` directory: 38 `gsd-t-*` files + 1 `gsd.md` + 3 utilities (`branch.md`, `checkin.md`, `Claude-md.md`)
-- **Breakdown math:** 38 + 1 + 3 = 42 total. But `gsd.md` is categorized as a utility in `getUtilityCommands()` (since it lacks the `gsd-t-` prefix), so the actual split is 38 GSD-T + 4 utility (gsd + branch + checkin + Claude-md).
-- **Verdict:** The current text "42 slash commands (38 GSD-T workflow + 4 utility)" is **accurate** if we count `gsd.md` as a utility. However, CLAUDE.md Project Structure section (line 34) says "41 slash commands" which is **incorrect** — it should say 42.
-
-### DRIFT-002: CLAUDE.md Project Structure says "41 slash commands"
-- **File:** `CLAUDE.md` line 34
-- **Problem:** Says `commands/ — 41 slash commands for Claude Code` but there are 42 files in `commands/`.
-- **Fix:** Update to `42 slash commands`.
-
-### DRIFT-003: CLAUDE.md says "37 GSD-T workflow commands" but has 38
-- **File:** `CLAUDE.md` line 35
-- **Problem:** Says `gsd-t-*.md — 37 GSD-T workflow commands` but `ls commands/gsd-t-*.md | wc -l` yields 38 files.
-- **Fix:** Update to `38 GSD-T workflow commands`.
-
-### DRIFT-004: package.json version says v2.20.5 in CLAUDE.md
-- **File:** `CLAUDE.md` line 55
-- **Problem:** Says `package.json — npm package config (v2.20.5)` but actual `package.json` version is `2.21.1`.
-- **Fix:** Update to `v2.21.1` or remove version from the description (it will always drift).
+- Mitigations present: `SAFE_SID` regex, `path.isAbsolute()`, resolved path check, symlink check.
+- Remaining concern: `cwd` from hook input could target arbitrary `.gsd-t/` directory.
+- Impact: Very low — hook input comes from Claude Code itself.
 
 ---
 
@@ -368,96 +487,104 @@ Node.js built-in test runner (`node --test`) — already configured in `package.
 ```json
 {
   "name": "@tekyzinc/gsd-t",
-  "version": "2.21.1",
+  "version": "2.23.0",
+  "description": "...42 slash commands...",  // STALE — should say 43
   "scripts": { "test": "node --test" },
   "main": "bin/gsd-t.js",
   "engines": { "node": ">=16.0.0" }
 }
 ```
 
-- **`test` script:** Present but no test files exist — `node --test` silently passes with 0 tests.
-- **`main` field:** Present and correct.
-- **`engines`:** Properly specified.
+- **`description`:** Stale command count (says 42, should be 43)
+- **`test` script:** Present but no test files exist — `node --test` silently passes with 0 tests
+- **`main` field:** Present and correct
+- **`engines`:** Properly specified
 - **`files` array:** Includes `bin/`, `commands/`, `scripts/`, `templates/`, `examples/`, `docs/`, `CHANGELOG.md`. All present.
-- **Missing optional metadata:** `bugs`, `funding`. Not critical.
-- **Missing `prepublishOnly` script:** No pre-publish validation to catch issues like missing command files before publishing.
+- **Missing `prepublishOnly` script:** No pre-publish validation
 
 ---
 
 ## New Issues Found This Scan
 
-### NEW-001: `doStatus()` still 98 lines — not decomposed
+### NEW-009: Command count regression after gsd-t-qa.md addition
 - **Severity:** MEDIUM
-- **Location:** `bin/gsd-t.js` lines 675-773
-- **Description:** Previous scan (TD-010) flagged this. `doInstall()` and `doDoctor()` were decomposed, but `doStatus()` was not.
-- **Fix:** Extract `statusVersion()`, `statusCommands()`, `statusGlobalConfig()`, `statusTeams()`, `statusCurrentProject()`.
+- **Location:** `CLAUDE.md` (lines 13, 34, 35), `README.md` (lines 21, 286, 287), `package.json` (line 4)
+- **Description:** `gsd-t-qa.md` was added to `commands/` but no reference files were updated to reflect the new count (43 total, 39 GSD-T + 4 utility). This is a regression of TD-022 and TD-023 which were previously resolved.
+- **Fix:** Update all 7 locations listed in DRIFT-001 to use 43/39/4 counts.
 
-### NEW-002: `doUpdateAll()` is 78 lines with no per-project error isolation
-- **Severity:** HIGH
-- **Location:** `bin/gsd-t.js` lines 904-981
-- **Description:** New function added since last scan. Iterates registered projects but a throw in any project's update aborts the remaining projects. Also handles global update + project updates + health check + summary in one function.
-- **Fix:** Wrap per-project logic in try/catch. Extract `updateSingleProject()`.
-
-### NEW-003: `checkDoctorInstallation()` is 52 lines
-- **Severity:** MEDIUM
-- **Location:** `bin/gsd-t.js` lines 1010-1063
-- **Description:** New function added during `doDoctor()` decomposition, but it absorbed multiple independent checks without further splitting.
-- **Fix:** Extract encoding check into `checkDoctorEncoding()`.
-
-### NEW-004: `checkForUpdates()` runs inline JS via `execFileSync` — fragile and hard to test
-- **Severity:** MEDIUM
-- **Location:** `bin/gsd-t.js` line 1169
-- **Description:** Contains an inline JavaScript program as a string literal, executed via `execFileSync(process.execPath, ["-e", fetchScript], ...)`. This is hard to read, impossible to unit test, and fragile.
-- **Fix:** Move the sync fetch logic to a separate script file (like `npm-update-check.js`) and call it synchronously, or accept the async-only approach for first-run.
-
-### NEW-005: `gsd-t-discuss.md` and `gsd-t-impact.md` missing Autonomy Behavior section
+### NEW-010: Fractional step numbering worsened — now 17 files, 34 fractional steps
 - **Severity:** LOW
-- **Location:** `commands/gsd-t-discuss.md`, `commands/gsd-t-impact.md`
-- **Description:** These are wave-phase commands but lack the explicit `### Autonomy Behavior` section that other phase commands (`execute`, `verify`, `partition`, `plan`, `integrate`, `test-sync`) have. `gsd-t-discuss.md` mentions pausing inline but does not follow the standard format.
-- **Fix:** Add `### Autonomy Behavior` sections matching the pattern in other wave-phase commands.
+- **Location:** 17 command files (see Fractional Step Numbering section above)
+- **Description:** QA spawn integration added 12 new fractional steps to 9 command files (7 newly affected). Total went from 22 fractional steps across 11 files to 34 across 17 files. This accelerates the technical debt rather than addressing it.
+- **Fix:** Renumber all command files to use clean integer steps in a dedicated cleanup pass.
 
-### NEW-006: Fractional step numbering across 11 command files
+### NEW-011: QA agent missing Document Ripple section
 - **Severity:** LOW
-- **Location:** `gsd-t-milestone.md`, `gsd-t-partition.md`, `gsd-t-plan.md`, `gsd-t-init.md`, `gsd-t-complete-milestone.md`, `gsd-t-integrate.md`, `gsd-t-impact.md`, `gsd-t-scan.md`, `gsd-t-promote-debt.md`, `gsd-t-project.md`, `gsd-t-feature.md`
-- **Description:** Steps like `Step 4.5`, `Step 5.5`, `Step 7.5`, `Step 7.6`, `Step 7.7` indicate incremental additions without renumbering.
-- **Fix:** Renumber to clean integers in a future cleanup pass.
+- **Location:** `commands/gsd-t-qa.md`
+- **Description:** QA agent writes test files but has no Document Ripple section. All other code-writing commands have this section.
+- **Fix:** Add minimal Document Ripple section.
 
-### NEW-007: `buildEvent()` in heartbeat is 69 lines — switch statement
+### NEW-012: Inconsistent QA blocking language in plan and test-sync
 - **Severity:** LOW
-- **Location:** `scripts/gsd-t-heartbeat.js` lines 85-155
-- **Description:** A long switch statement mapping 9 hook events to internal events. Each case is simple (3-5 lines) but the function exceeds the 30-line limit.
-- **Fix:** Use a lookup object pattern: `const BUILDERS = { SessionStart: (h) => ({...}), ... }`.
+- **Location:** `commands/gsd-t-plan.md` (Step 4.7), `commands/gsd-t-test-sync.md` (Step 1.5)
+- **Description:** These two commands don't explicitly state "QA failure blocks {phase}" like the other 7 QA-spawning commands do.
+- **Fix:** Add explicit blocking language.
 
-### NEW-008: Heartbeat cleanup runs on every event — performance concern
-- **Severity:** MEDIUM
-- **Location:** `scripts/gsd-t-heartbeat.js` line 57
-- **Description:** `cleanupOldHeartbeats()` is called on every hook event. In an active session, `PostToolUse` fires hundreds of times, each triggering a `readdirSync` + multiple `lstatSync` calls.
-- **Fix:** Only run cleanup on `SessionStart` events.
+### NEW-013: QA agent test framework assumption
+- **Severity:** LOW
+- **Location:** `commands/gsd-t-qa.md` lines 104-121
+- **Description:** Code examples assume `@playwright/test` exclusively. No guidance for Jest, Vitest, pytest, or other frameworks.
+- **Fix:** Add framework detection preamble.
+
+### NEW-014: Wave discuss-skip heuristic is subjective
+- **Severity:** LOW
+- **Location:** `commands/gsd-t-wave.md` lines 67-69
+- **Description:** The skip condition for Discuss phase is qualitative ("Are there open architectural questions?") without a machine-parseable signal. The lightweight orchestrator (reading only progress.md and CLAUDE.md) has insufficient context to evaluate this reliably.
+- **Fix:** Define a concrete skip heuristic based on progress.md content.
 
 ---
 
 ## Summary
 
-| Category | Count | Severity |
-|----------|-------|----------|
-| Functions over 30 lines | 13 | MEDIUM |
-| Duplication patterns | 3 | LOW |
-| Complexity hotspots | 5 | MEDIUM |
-| Error handling gaps | 4 | LOW-MEDIUM |
-| Performance issues | 2 | LOW-MEDIUM |
-| Naming inconsistencies | 2 | LOW |
-| Command file inconsistencies | 3 | LOW |
-| Documentation-code drift | 4 | LOW |
-| Missing test coverage | 1 (all) | HIGH |
-| CRLF consistency gap | 1 | MEDIUM |
+| Category | Count | Severity | Change from Scan #2 |
+|----------|-------|----------|---------------------|
+| Functions over 30 lines | 13 (JS) + 2 (heartbeat) | MEDIUM | No change |
+| Duplication patterns | 3 | LOW | No change |
+| Complexity hotspots | 5 | MEDIUM | No change |
+| Error handling gaps | 4 | LOW-MEDIUM | No change |
+| Performance issues | 2 | LOW-MEDIUM | No change |
+| Naming inconsistencies | 2 | LOW | No change |
+| Command file inconsistencies | 5 | LOW | +2 (QA-related) |
+| Documentation-code drift | 1 (command counts) | MEDIUM | **Regression** — previously fixed |
+| Missing test coverage | 1 (all) | HIGH | No change |
+| CRLF consistency gap | 1 | MEDIUM | No change |
+| Fractional step numbering | 17 files, 34 steps | LOW | **Worsened** (+6 files, +12 steps) |
 
 ### Priority Recommendations
 
-1. **HIGH:** Add test suite — TD-003 remains the biggest quality gap. The CLI has 52+ functions and zero tests.
-2. **HIGH:** Fix `doUpdateAll()` error isolation (NEW-002) — a single project failure kills the entire update-all operation.
-3. **MEDIUM:** Decompose `doStatus()` (98 lines) and `checkDoctorInstallation()` (52 lines) — the 30-line function limit is violated 13 times.
-4. **MEDIUM:** Fix heartbeat cleanup performance (NEW-008) — rate-limit to `SessionStart` events only.
-5. **MEDIUM:** Add `.gitattributes` and `.editorconfig` for line ending consistency.
-6. **LOW:** Fix CLAUDE.md documentation drift (DRIFT-002, DRIFT-003, DRIFT-004) — command counts and version are stale.
-7. **LOW:** Add Autonomy Behavior sections to `gsd-t-discuss.md` and `gsd-t-impact.md`.
-8. **LOW:** Renumber fractional steps across 11 command files.
+1. **HIGH (UNCHANGED):** Add test suite — TD-003 remains the single biggest quality gap. 52+ functions, zero tests.
+2. **HIGH (UNCHANGED):** Fix `doUpdateAll()` error isolation (TD-017) — single project failure kills entire update-all.
+3. **MEDIUM (REGRESSION):** Fix command counts in CLAUDE.md, README.md, and package.json — `gsd-t-qa.md` addition created stale counts in 7 locations.
+4. **MEDIUM (UNCHANGED):** Decompose `doStatus()` (98 lines), `doUpdateAll()` (78 lines), `checkDoctorInstallation()` (52 lines).
+5. **MEDIUM (UNCHANGED):** Fix heartbeat cleanup performance — rate-limit to `SessionStart` events only.
+6. **MEDIUM (UNCHANGED):** Add `.gitattributes` and `.editorconfig` for line ending consistency.
+7. **LOW:** Add Document Ripple section to `gsd-t-qa.md`.
+8. **LOW:** Add explicit QA blocking language to `gsd-t-plan.md` and `gsd-t-test-sync.md`.
+9. **LOW:** Add Autonomy Behavior sections to `gsd-t-discuss.md` and `gsd-t-impact.md`.
+10. **LOW:** Renumber fractional steps across 17 command files (now more urgent — the problem grew from 11 to 17 files).
+
+### Trend Analysis
+
+| Metric | Scan #1 | Scan #2 | Scan #3 | Trend |
+|--------|---------|---------|---------|-------|
+| Open items | 13 | 15 | 15 + 6 new = 21 | Increasing |
+| Critical items | 2 | 0 | 0 | Stable (good) |
+| HIGH items | 3 | 2 | 2 | Stable |
+| MEDIUM items | 4 | 5 | 5 | Stable |
+| LOW items | 4 | 8 | 14 | Increasing |
+| Functions > 30 lines | 13 | 13 | 13 | No improvement |
+| Test files | 0 | 0 | 0 | No improvement |
+| Fractional steps | N/A | 22/11 files | 34/17 files | Worsening |
+| Command count drift | Yes | Fixed | **Regressed** | Regression |
+
+The codebase is growing in command files and integrations (QA agent, wave rewrite) while core quality issues remain unaddressed. The fractional step numbering debt is actively growing with each new feature. Command count drift recurred because the Pre-Commit Gate was not followed when `gsd-t-qa.md` was added.

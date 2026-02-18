@@ -22,7 +22,7 @@ The framework has no runtime — it is consumed entirely by Claude Code's slash 
 ### Slash Commands (commands/*.md)
 - **Purpose**: Define the GSD-T methodology as executable workflows for Claude Code
 - **Location**: `commands/`
-- **Count**: 42 (38 GSD-T workflow + 4 utility: gsd, branch, checkin, Claude-md)
+- **Count**: 43 (39 GSD-T workflow + 4 utility: gsd, branch, checkin, Claude-md)
 - **Format**: Pure markdown with step-numbered instructions, team mode blocks, document ripple sections, and $ARGUMENTS terminator
 
 ### Templates (templates/*.md)
@@ -131,6 +131,7 @@ Three-tier configuration:
 | pre-commit-gate.md | Commit checklist contract |
 | progress-file-format.md | Progress.md structure |
 | wave-phase-sequence.md | Phase ordering rules |
+| qa-agent-contract.md | QA agent spawn interface, output per phase, communication protocol |
 
 ## Workflow Phase Architecture
 
@@ -138,17 +139,25 @@ Three-tier configuration:
 PARTITION → DISCUSS → PLAN → IMPACT → EXECUTE → TEST-SYNC → INTEGRATE → VERIFY → COMPLETE
 ```
 
-| Phase | Mode | Why |
-|-------|------|-----|
-| Partition | Solo only | Needs full cross-domain context |
-| Discuss | Solo only | Always pauses for user input (even Level 3) |
-| Plan | Solo only | Needs full cross-domain context |
-| Impact | Solo only | Cross-cutting analysis |
-| Execute | Solo or Team | Tasks within domains are independent |
-| Test-Sync | Solo only | Sequential verification |
-| Integrate | Solo only | Needs to see all seams |
-| Verify | Solo or Team | Dimensions are independent |
-| Complete | Solo only | Archival and tagging |
+| Phase | Mode | QA Agent | Why |
+|-------|------|----------|-----|
+| Partition | Solo only | YES — test skeletons | Needs full cross-domain context |
+| Discuss | Solo only | No | Always pauses for user input (even Level 3) |
+| Plan | Solo only | YES — acceptance scenarios | Needs full cross-domain context |
+| Impact | Solo only | No | Cross-cutting analysis |
+| Execute | Solo or Team | YES — continuous testing | Tasks within domains are independent |
+| Test-Sync | Solo only | YES — coverage audit | Sequential verification |
+| Integrate | Solo only | YES — boundary tests | Needs to see all seams |
+| Verify | Solo or Team | YES — full audit | Dimensions are independent |
+| Complete | Solo only | YES — final gate | Archival and tagging |
+
+### Wave Orchestrator (Agent-Per-Phase Model)
+
+The wave command spawns an independent agent for each phase via the Task tool with `bypassPermissions`. Each phase agent gets a fresh ~200K token context window, eliminating context accumulation and mid-wave compaction. The orchestrator itself stays lightweight (~30KB), reading only `progress.md` and `CLAUDE.md`. State handoff between phases occurs through `.gsd-t/` files.
+
+### QA Agent Integration
+
+10 commands spawn a QA teammate (`commands/gsd-t-qa.md`) for test-driven contract enforcement. QA behavior is phase-dependent: test skeletons during partition, continuous testing during execute, full audit during verify. QA failure blocks phase completion (user override available). Communication protocol: `QA: {PASS|FAIL} — {summary}`.
 
 ## Security Model
 
@@ -171,6 +180,8 @@ PARTITION → DISCUSS → PLAN → IMPACT → EXECUTE → TEST-SYNC → INTEGRAT
 | 2026-02-13 | Semantic router over keyword matching | Better intent detection, fewer misroutes | Regex patterns, ML classifier |
 | 2026-02-16 | Mandatory Playwright for all projects | Consistent E2E testing, no "we'll add tests later" | Optional testing, Jest-only |
 | 2026-02-16 | Team mode default for scan | Parallel scanning faster, better results | Solo sequential scan |
+| 2026-02-17 | QA Agent as cross-cutting concern | Mandatory test-driven contracts for all code phases | Optional testing, deferred testing |
+| 2026-02-17 | Agent-per-phase wave orchestration | Fresh context window per phase, eliminates compaction | Inline execution (original approach) |
 
 ## Known Architecture Concerns
 

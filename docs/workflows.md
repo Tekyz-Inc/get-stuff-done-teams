@@ -6,7 +6,7 @@
 
 ### Install GSD-T
 1. Run `npx @tekyzinc/gsd-t install`
-2. CLI copies 42 commands to `~/.claude/commands/`
+2. CLI copies 43 commands to `~/.claude/commands/`
 3. CLI sets up global CLAUDE.md if missing (appends with separator if exists)
 4. CLI installs heartbeat script to `~/.claude/scripts/`
 5. CLI configures 9 hooks in `~/.claude/settings.json`
@@ -14,7 +14,7 @@
 7. User starts Claude Code in their project
 
 **Entry point**: `npx @tekyzinc/gsd-t install`
-**Success**: 42 commands available in Claude Code
+**Success**: 43 commands available in Claude Code
 **Failure**: CLI reports missing Node.js or permission errors
 
 ### Initialize a Project

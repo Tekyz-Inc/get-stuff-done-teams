@@ -7,7 +7,7 @@
 | ID | Requirement | Priority | Status | Tests |
 |----|-------------|----------|--------|-------|
 | REQ-001 | CLI installer with install, update, status, doctor, init, uninstall, update-all, register, changelog subcommands | P1 | complete | manual CLI testing |
-| REQ-002 | 38 GSD-T workflow slash commands for Claude Code | P1 | complete | validated by use |
+| REQ-002 | 39 GSD-T workflow slash commands for Claude Code (incl. QA agent) | P1 | complete | validated by use |
 | REQ-003 | 4 utility commands (gsd smart router, branch, checkin, Claude-md) | P1 | complete | validated by use |
 | REQ-004 | Backlog management system (7 commands: add, list, move, edit, remove, promote, settings) | P1 | complete | validated by use |
 | REQ-005 | Contract-driven development with domain partitioning | P1 | complete | validated by use |
@@ -17,6 +17,8 @@
 | REQ-009 | Document templates for living docs (9 templates with token replacement) | P1 | complete | used by gsd-t-init |
 | REQ-010 | Smart router — natural language intent → command routing | P2 | complete | validated by use |
 | REQ-011 | Triage and merge — auto-review, score, merge safe GitHub branches | P2 | complete | validated by use |
+| REQ-012 | QA Agent — test-driven contract enforcement spawned in 10 phases | P1 | complete | validated by use |
+| REQ-013 | Wave orchestrator — agent-per-phase execution with fresh context windows | P1 | complete | validated by use |
 
 ## Technical Requirements
 
@@ -48,9 +50,15 @@
 | REQ-002–011 | manual | Workflow validation by use | passing |
 | All | none | Automated test suite | **NOT IMPLEMENTED** (TD-003) |
 
-## Gaps Identified (2026-02-18 Scan)
+## Gaps Identified
 
+### Open (Scan #3 — 2026-02-18)
 - No automated test suite — all validation is manual (TD-003)
-- Backlog file format drifted from contract (TD-014)
-- Progress.md format drifted from contract (TD-015)
-- 7 backlog commands missing from GSD-T-README (TD-016)
+- Command count 42→43 not updated across reference files (TD-022 regressed)
+- QA agent contract missing test-sync phase definition (TD-042)
+- Wave bypassPermissions security not documented (TD-035)
+
+### Resolved (2026-02-18)
+- ~~Backlog file format drifted from contract (TD-014)~~ — RESOLVED
+- ~~Progress.md format drifted from contract (TD-015)~~ — RESOLVED
+- ~~7 backlog commands missing from GSD-T-README (TD-016)~~ — RESOLVED

@@ -37,7 +37,7 @@ node bin/gsd-t.js doctor
 node bin/gsd-t.js init test-project
 
 # Validate command files exist
-ls commands/*.md | wc -l  # Should be 42
+ls commands/*.md | wc -l  # Should be 43
 ls templates/*.md | wc -l  # Should be 9
 ```
 
@@ -71,7 +71,7 @@ ls templates/*.md | wc -l  # Should be 9
 ```
 get-stuff-done-teams/
 ├── bin/gsd-t.js        — CLI installer (~1,300 lines, zero dependencies)
-├── commands/           — 42 slash command files (38 GSD-T + 4 utility)
+├── commands/           — 43 slash command files (39 GSD-T + 4 utility)
 ├── scripts/            — 2 hook/utility scripts
 ├── templates/          — 9 document templates
 ├── examples/           — Reference project structure
