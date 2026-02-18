@@ -163,6 +163,7 @@ No integration checkpoints expected — single domain milestone.
 - 2026-02-18 08:45: Added backlog item #2: Subagent Execution Mode for Standalone Commands — debug/quick/scan/etc. spawn as subagents for fresh context windows, preventing compaction during consecutive runs.
 - 2026-02-18 09:00: Redesigned Next Command Hint — replaced plain "Next →" text with GSD-style "Next Up" visual block (divider lines, ▶ header, phase name + description, command in backticks, alternatives section). Format designed to trigger Claude Code's prompt suggestion engine for ghost text in input field.
 - 2026-02-18 09:15: Fixed CLAUDE.md update overwrite bug — installer now uses marker-based merging (GSD-T:START/END HTML comments). Updates only replace GSD-T content between markers, preserving all user customizations. Migration path for existing installs without markers. v2.24.8
+- 2026-02-18 09:30: Updated example settings.json model from claude-opus-4-6 to claude-sonnet-4-6 (newer, faster, lower token usage). v2.24.9
 
 ## Session Log
 | Date | Session | What was accomplished |

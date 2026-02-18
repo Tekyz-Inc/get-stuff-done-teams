@@ -2,6 +2,11 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.24.9] - 2026-02-18
+
+### Changed
+- **Default model**: Example settings.json updated from `claude-opus-4-6` to `claude-sonnet-4-6` (faster, lower token usage)
+
 ## [2.24.8] - 2026-02-18
 
 ### Fixed
