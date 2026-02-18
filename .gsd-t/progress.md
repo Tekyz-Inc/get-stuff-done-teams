@@ -1,12 +1,12 @@
 # GSD-T Progress
 
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
-## Version: 2.23.1
+## Version: 2.24.0
 ## Status: READY
 ## Date: 2026-02-18
 
 ## Current Milestone
-None — ready for next milestone
+No active milestone. Next: Milestone 5 (Security Hardening)
 
 ## Completed Milestones
 | Milestone | Version | Completed | Tag |
@@ -15,6 +15,7 @@ None — ready for next milestone
 | QA Agent — Test-Driven Contracts | 2.22.0 | 2026-02-17 | v2.22.0 |
 | Contract & Doc Alignment (Tech Debt Fix) | 2.21.2 | 2026-02-18 | v2.21.2 |
 | Count Fix + QA Contract Alignment | 2.23.1 | 2026-02-18 | v2.23.1 |
+| Testing Foundation | 2.24.0 | 2026-02-18 | v2.24.0 |
 
 ## Domains
 (populated during partition phase)
@@ -118,6 +119,7 @@ None — ready for next milestone
 - 2026-02-18 18:00: Triage-and-merge: merged origin/main (QA Agent v2.22.0 + wave rewrite v2.23.0). Resolved 4 conflicts (backlog.md, progress.md, CLAUDE.md, package.json) — kept contract-aligned formats, adopted remote version v2.23.0.
 - 2026-02-18 19:00: Full codebase scan #3 (5 parallel agents). Post-merge analysis of QA Agent + wave rewrite. Key findings: TD-022 REGRESSED (command count 42→43 not updated after gsd-t-qa.md addition), TD-031 WORSENED (fractional steps 22/11→34/17 files), 3 new security design concerns (SEC-N09 wave bypassPermissions, SEC-N10 QA scope, SEC-N11 state integrity), QA contract missing test-sync phase (TD-042), orphaned domain files (TD-043). 10 new items total. Updated techdebt.md (26 open: 0 critical, 2 high, 8 medium, 16 low). Updated living docs (architecture, workflows, infrastructure, requirements) with 43/39 counts and QA/wave architecture.
 - 2026-02-18 19:30: Promoted 25 of 26 tech debt items into 5 milestones. Created roadmap.md. Milestone 3: Count Fix + QA Contract Alignment (TD-022, TD-042, TD-043). Milestone 4: Testing Foundation (TD-003). Milestone 5: Security Hardening (TD-019, TD-020, TD-026, TD-027, TD-028, TD-035). Milestone 6: CLI Quality Improvement (TD-017, TD-021, TD-024, TD-025, TD-032, TD-033, TD-034). Milestone 7: Command File Cleanup (TD-030, TD-031, TD-036, TD-037, TD-038, TD-039, TD-040, TD-041). TD-029 (TOCTOU race) not promoted — low ROI.
+- 2026-02-18 20:30: Milestone 4 (Testing Foundation) completed — TD-003 resolved. 64 tests in 2 files (test/helpers.test.js: 27 tests for pure helpers, test/filesystem.test.js: 37 tests for filesystem helpers + CLI subcommands). Modified bin/gsd-t.js: added module.exports for 20 functions, require.main guard, parameterized checkForUpdates. Zero external dependencies — Node.js built-in test runner only. v2.24.0
 - 2026-02-18 20:00: Milestone 3 executed — 3/3 tasks complete. Task 1 (TD-022): fixed 8 stale count references across CLAUDE.md, README.md, package.json, docs/infrastructure.md (42→43, 38→39). Task 2 (TD-042): added "During Test-Sync" section to gsd-t-qa.md, added test-sync to qa-agent-contract.md phase list and output table. Task 3 (TD-043): archived doc-alignment domain to milestones/. All verified — zero stale counts, QA contract complete with 9 phases.
 
 ## Session Log

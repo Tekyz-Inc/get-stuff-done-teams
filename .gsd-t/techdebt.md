@@ -2,7 +2,7 @@
 
 ## Summary
 - Critical items: 0
-- High priority: 2
+- High priority: 1
 - Medium priority: 6
 - Low priority: 15
 - Total estimated effort: ~3-4 focused sessions
@@ -35,22 +35,12 @@
 | TD-022 | Stale Command Counts — REGRESSED | RESOLVED — all counts updated 42→43, 38→39 across 4 files (2026-02-18, Milestone 3) |
 | TD-042 | QA Agent Contract Missing test-sync Phase | RESOLVED — added During Test-Sync section + contract phase/output (2026-02-18, Milestone 3) |
 | TD-043 | Orphaned Domain Files Not Archived | RESOLVED — archived to .gsd-t/milestones/contract-doc-alignment/ (2026-02-18, Milestone 3) |
+| TD-003 | No Test Coverage | RESOLVED — 64 tests in test/ (27 helper + 37 filesystem/CLI), `npm test` passes (2026-02-18, Milestone 4) |
 
 ---
 
 ## High Priority
 Items that should be addressed in the next 1-2 milestones.
-
-### TD-003: No Test Coverage (STILL OPEN — scan #1)
-- **Category**: quality
-- **Severity**: HIGH
-- **Location**: Project-wide
-- **Description**: Zero test files exist. `package.json` has `"test": "node --test"` but no test files. The CLI has 52+ functions across 1300 lines with zero automated tests.
-- **Impact**: Regressions go undetected. Command count regression (TD-022) would have been caught by tests.
-- **Remediation**: Add test suite using Node.js built-in test runner. Target 20+ tests covering: install, update, init, status, doctor, uninstall, and all helper functions.
-- **Effort**: medium
-- **Milestone candidate**: YES — standalone milestone
-- **Promoted**: [x] — Milestone 4: Testing Foundation
 
 ### TD-017: doUpdateAll() No Per-Project Error Isolation
 - **Category**: quality

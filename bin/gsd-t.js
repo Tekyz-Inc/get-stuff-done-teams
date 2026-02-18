@@ -1143,7 +1143,7 @@ function isNewerVersion(latest, current) {
   return false;
 }
 
-function checkForUpdates() {
+function checkForUpdates(command) {
   // Skip check for update/install/update-all (they handle it themselves)
   const skipCommands = ["install", "update", "update-all", "--version", "-v"];
   if (skipCommands.includes(command)) return;
@@ -1249,52 +1249,80 @@ function showHelp() {
   log("");
 }
 
+// ─── Exports (for testing) ───────────────────────────────────────────────────
+
+module.exports = {
+  validateProjectName,
+  applyTokens,
+  normalizeEol,
+  validateVersion,
+  validateProjectPath,
+  isSymlink,
+  isNewerVersion,
+  ensureDir,
+  copyFile,
+  hasPlaywright,
+  hasSwagger,
+  hasApi,
+  getCommandFiles,
+  getGsdtCommands,
+  getUtilityCommands,
+  getInstalledCommands,
+  getInstalledVersion,
+  getRegisteredProjects,
+  PKG_VERSION,
+  PKG_ROOT,
+  PKG_COMMANDS,
+};
+
 // ─── Main ────────────────────────────────────────────────────────────────────
 
-const args = process.argv.slice(2);
-const command = args[0] || "help";
+if (require.main === module) {
+  const args = process.argv.slice(2);
+  const command = args[0] || "help";
 
-switch (command) {
-  case "install":
-    doInstall();
-    break;
-  case "update":
-    doUpdate();
-    break;
-  case "update-all":
-    doUpdateAll();
-    break;
-  case "init":
-    doInit(args[1]);
-    break;
-  case "register":
-    doRegister();
-    break;
-  case "status":
-    doStatus();
-    break;
-  case "uninstall":
-    doUninstall();
-    break;
-  case "doctor":
-    doDoctor();
-    break;
-  case "changelog":
-    doChangelog();
-    break;
-  case "help":
-  case "--help":
-  case "-h":
-    showHelp();
-    break;
-  case "--version":
-  case "-v":
-    log(PKG_VERSION);
-    break;
-  default:
-    error(`Unknown command: ${command}`);
-    showHelp();
-    process.exit(1);
+  switch (command) {
+    case "install":
+      doInstall();
+      break;
+    case "update":
+      doUpdate();
+      break;
+    case "update-all":
+      doUpdateAll();
+      break;
+    case "init":
+      doInit(args[1]);
+      break;
+    case "register":
+      doRegister();
+      break;
+    case "status":
+      doStatus();
+      break;
+    case "uninstall":
+      doUninstall();
+      break;
+    case "doctor":
+      doDoctor();
+      break;
+    case "changelog":
+      doChangelog();
+      break;
+    case "help":
+    case "--help":
+    case "-h":
+      showHelp();
+      break;
+    case "--version":
+    case "-v":
+      log(PKG_VERSION);
+      break;
+    default:
+      error(`Unknown command: ${command}`);
+      showHelp();
+      process.exit(1);
+  }
+
+  checkForUpdates(command);
 }
-
-checkForUpdates();
