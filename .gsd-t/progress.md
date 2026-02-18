@@ -1,30 +1,15 @@
 # GSD-T Progress
 
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
-## Version: 2.24.3
-## Status: ACTIVE
-## Date: 2026-02-19
+## Version: 2.24.4
+## Status: READY
+## Date: 2026-02-18
 
 ## Current Milestone
 
-| # | Milestone | Status | Domains |
-|---|-----------|--------|---------|
-| 7 | Command File Cleanup | COMPLETED | cmd-cleanup |
+No active milestone. Status: READY for next milestone.
 
-**Goal**: All command files follow consistent structure and conventions — fractional steps renumbered, missing sections added (Autonomy Behavior, Document Ripple), QA agent hardened with file-path boundaries and multi-framework support, wave state handoff secured.
-
-**Result**: All 7 success criteria met. 8 tech debt items resolved. Domain archived to milestones/cmd-cleanup-2026-02-19/.
-
-**Tech Debt Items**: TD-030, TD-031, TD-036, TD-037, TD-038, TD-039, TD-040, TD-041
-
-**Success Criteria**:
-- [ ] discuss.md and impact.md have Autonomy Behavior sections
-- [ ] Zero fractional step numbers across all command files
-- [ ] QA agent has file-path boundary constraints and multi-framework guidance
-- [ ] Wave reads progress.md with integrity check; discuss-skip uses structured signal
-- [ ] gsd-t-qa.md has Document Ripple section
-- [ ] All 10 QA-spawning commands have consistent "QA failure blocks" language
-- [ ] No regression in existing functionality
+**Result (M8)**: All 13 scan #4 tech debt items resolved (12 fixed, 1 accepted as risk). Zero open tech debt.
 
 ## Completed Milestones
 | Milestone | Version | Completed | Tag |
@@ -37,14 +22,15 @@
 | Security Hardening | 2.24.1 | 2026-02-18 | v2.24.1 |
 | CLI Quality Improvement | 2.24.2 | 2026-02-19 | v2.24.2 |
 | Command File Cleanup | 2.24.3 | 2026-02-19 | v2.24.3 |
+| Housekeeping + Contract Sync | 2.24.4 | 2026-02-18 | v2.24.4 |
 
 ## Domains
 | Domain | Status | Tasks | Completed |
 |--------|--------|-------|-----------|
-| cmd-cleanup | completed | 5 | 5 |
+<!-- No active domains -->
 
 ## Contracts
-No cross-domain contracts expected — single domain milestone (command files only).
+No cross-domain contracts expected — single domain milestone.
 
 ## Integration Checkpoints
 No integration checkpoints expected — single domain milestone.
@@ -162,6 +148,11 @@ No integration checkpoints expected — single domain milestone.
 - 2026-02-19 00:25: Milestone 6 (CLI Quality Improvement) completed — 7 tech debt items resolved (TD-017, TD-021, TD-024, TD-025, TD-032, TD-033, TD-034). 22 new tests. Version bump 2.24.1 → 2.24.2. Domain archived to milestones/cli-quality-2026-02-19/. v2.24.2
 - 2026-02-19 00:20: Milestone 6 verified — Overall: PASS. 7/7 success criteria met. All 86 functions <= 30 lines (80 in bin/gsd-t.js, 6 in heartbeat). 3 dedup patterns resolved. doUpdateAll has try/catch isolation. 76/76 tests pass. E2E N/A (no UI changed).
 - 2026-02-19 00:00: Milestone 6 executed — 6/6 tasks complete. Task 1: .gitattributes + .editorconfig created (TD-025). Task 2: heartbeat cleanup gated to SessionStart only (TD-024). Task 3: buildEvent refactored to EVENT_HANDLERS map, 4 lines (TD-032). Task 4: inline fetch script extracted to scripts/gsd-t-fetch-version.js (TD-034). Task 5: doUpdateAll per-project try/catch + updateSingleProject/showUpdateAllSummary helpers (TD-017). Task 6: all 13 over-30-line functions split — 80 functions in bin/gsd-t.js, 6 in heartbeat, all <= 30 lines. 3 dedup patterns resolved: readProjectDeps, writeTemplateFile, readUpdateCache (TD-021 + TD-033). 48 exports. 54/54 tests pass.
+- 2026-02-18 03:00: Milestone 8 (Housekeeping + Contract Sync) defined and partitioned — 13 tech debt items (TD-029, TD-044-TD-055). 1 domain (housekeeping). Deleted orphaned domains cli-quality and cmd-cleanup (TD-046). Planned 6 tasks.
+- 2026-02-18 04:00: Milestone 8 verified — 7/7 success criteria PASS. 116/116 tests pass. All contracts synced.
+- 2026-02-18 04:15: Milestone 8 (Housekeeping + Contract Sync) completed — 12 tech debt items resolved (TD-044-TD-055), TD-029 accepted as risk. Zero open tech debt. Version bump 2.24.3 → 2.24.4. Domain archived. v2.24.4
+- 2026-02-18 03:30: Milestone 8 executed — 6/6 tasks complete. Task 1: Quick fixes — CLAUDE.md version dynamic (TD-048), prepublishOnly added (TD-051), orphaned domains deleted (TD-046), status contract-compliant (TD-044). Task 2: Contract sync — progress-file-format enriched (TD-047), wave-phase-sequence updated (TD-053), command-interface-contract renamed (TD-054), integration-points rewritten (TD-055). Task 3: CHANGELOG entries for v2.23.1-v2.24.3 (TD-045). Task 4: readSettingsJson() extracted (TD-050), notification scrubbing (TD-052). Task 5: git renormalize (TD-049). Task 6: TD-029 accepted as risk with 5-point rationale. 116/116 tests pass.
+- 2026-02-18 02:30: Full codebase scan #4 (5 parallel agents: architecture, business-rules, security, quality, contracts). Post-Milestones 3-7 analysis. Key findings: 25 of 26 scan #3 items RESOLVED. Only TD-029 (TOCTOU) remains from previous scans. 12 new items found (0 critical, 1 HIGH, 3 MEDIUM, 8 LOW). HIGH: progress.md Status: ACTIVE not recognized by wave contract (TD-044). MEDIUM: CHANGELOG.md missing M4-M7 (TD-045), orphaned domain dirs (TD-046), progress contract enrichment (TD-047). All 86 functions ≤30 lines, 116/116 tests pass, zero security regressions. Total open: 13 (was 26). Updated techdebt.md, living docs (architecture, workflows, infrastructure, requirements). Test baseline recorded.
 
 ## Session Log
 | Date | Session | What was accomplished |
@@ -171,3 +162,5 @@ No integration checkpoints expected — single domain milestone.
 | 2026-02-10 | 3 | Milestone 1: plan → execute → verify → complete. 14 tasks, 3 domains, v2.8.0 tagged. |
 | 2026-02-17 | 4 | Milestone 2: QA Agent — Test-Driven Contracts. 11 tasks, 3 domains, v2.22.0. Wave rewrite v2.23.0. |
 | 2026-02-18 | 5 | Full scan (5 agents), Contract & Doc Alignment milestone (6 TDs resolved, v2.21.2). Merged origin/main (v2.23.0). Scan #3: 10 new items, 1 regressed, 1 worsened. 26 open items. |
+| 2026-02-18 | 6 | Promoted 25/26 debt items → 5 milestones (M3-M7). Executed all 5 milestones: M3 count fix (v2.23.1), M4 testing (v2.24.0, 64 tests), M5 security (v2.24.1, 30 tests), M6 CLI quality (v2.24.2, 22 tests), M7 command cleanup (v2.24.3). Scan #4: 25/26 resolved, 12 new (all small), 116/116 tests pass. |
+| 2026-02-18 | 7 | M8: Housekeeping + Contract Sync. 6 tasks, 1 domain, 13 tech debt items (12 resolved + TD-029 accepted as risk). Zero open tech debt. v2.24.4 |

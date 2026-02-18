@@ -75,3 +75,19 @@
 - [x] Wave discuss-skip uses structured signal (domain count + contracts + open questions)
 - [x] No regression in existing functionality — 76/76 tests pass
 **Completed**: 2026-02-19
+
+---
+
+## Milestone 8: Housekeeping + Contract Sync — Tech Debt (COMPLETED v2.24.4)
+**Source**: Promoted from tech debt scan #4 (2026-02-18)
+**Items**: TD-029, TD-044, TD-045, TD-046, TD-047, TD-048, TD-049, TD-050, TD-051, TD-052, TD-053, TD-054, TD-055
+**Goal**: All 13 scan #4 findings resolved — contracts synced, docs updated, orphans cleaned, quality gates added
+**Success criteria**:
+- [x] progress.md Status uses contract-recognized values
+- [x] CHANGELOG.md has entries for v2.24.0 through v2.24.3
+- [x] Zero orphaned domain directories
+- [x] All contracts reflect current implementation
+- [x] CLAUDE.md version reference accurate or pattern-resistant
+- [x] All JS files have LF line endings after git renormalization
+- [x] 116/116 tests pass with no regressions
+**Completed**: 2026-02-18

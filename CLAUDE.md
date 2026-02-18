@@ -52,7 +52,7 @@ examples/              — Example project structure and settings
   .gsd-t/              — Example contracts and domain structure
 docs/                  — Methodology documentation
   methodology.md       — GSD → GSD-T evolution and concepts
-package.json           — npm package config (v2.23.0)
+package.json           — npm package config (see package.json for version)
 GSD-T-README.md        — Detailed command reference (ships with package)
 README.md              — User-facing repo/npm docs
 ```

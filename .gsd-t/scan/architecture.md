@@ -1,4 +1,4 @@
-# Architecture Analysis — 2026-02-18
+# Architecture Analysis — 2026-02-18 (Scan #4)
 
 ## Stack
 
@@ -7,24 +7,31 @@
 - **Database**: None — all state is filesystem-based (Markdown files)
 - **Cache**: Update check cache at `~/.claude/.gsd-t-update-check` (JSON, 1-hour TTL)
 - **Deployment**: npm registry (`@tekyzinc/gsd-t`), `bin/gsd-t.js` as CLI entry point
-- **Runtime Node modules**: `fs`, `path`, `os`, `child_process` (execFileSync, spawn)
-- **Current version**: 2.23.0
+- **Runtime Node modules**: `fs`, `path`, `os`, `child_process` (execFileSync, spawn), `https` (in scripts)
+- **Test runner**: Node.js built-in test runner (`node --test`), zero test dependencies
+- **Current version**: 2.24.3
 
 ## Structure
 
 ```
 get-stuff-done-teams/
 ├── bin/
-│   └── gsd-t.js              — CLI installer (1300 lines, 10 subcommands)
+│   └── gsd-t.js              — CLI installer (1297 lines, 80 functions, 48 exports, 10 subcommands)
 ├── commands/                  — 43 slash command files (Claude Code custom commands)
-│   ├── gsd-t-*.md            — 39 GSD-T workflow commands (was 38, added gsd-t-qa.md)
+│   ├── gsd-t-*.md            — 39 GSD-T workflow commands
 │   ├── gsd.md                — Smart router (semantic intent → command dispatch)
 │   ├── branch.md             — Git branch helper
 │   ├── checkin.md            — Auto-version + commit/push helper
 │   └── Claude-md.md          — Reload CLAUDE.md directives
-├── scripts/                   — 2 hook/utility scripts
-│   ├── gsd-t-heartbeat.js    — Claude Code hook event writer (JSONL, 202 lines)
-│   └── npm-update-check.js   — Background npm version checker (28 lines)
+├── scripts/                   — 3 hook/utility scripts
+│   ├── gsd-t-heartbeat.js    — Claude Code hook event writer (183 lines, 6 functions, 5 exports)
+│   ├── npm-update-check.js   — Background npm version checker (42 lines)
+│   └── gsd-t-fetch-version.js — Synchronous npm registry fetch (25 lines, extracted M6)
+├── test/                      — 4 test files, 116 tests (all passing)
+│   ├── helpers.test.js        — 27 tests: pure helper functions (validateProjectName, applyTokens, etc.)
+│   ├── filesystem.test.js     — 37 tests: filesystem helpers + CLI subcommand integration
+│   ├── security.test.js       — 30 tests: scrubSecrets, scrubUrl, summarize integration
+│   └── cli-quality.test.js    — 22 tests: buildEvent, readProjectDeps, insertGuardSection, etc.
 ├── templates/                 — 9 document templates with token substitution
 │   ├── CLAUDE-global.md      — Global ~/.claude/CLAUDE.md template
 │   ├── CLAUDE-project.md     — Per-project CLAUDE.md template
@@ -40,7 +47,6 @@ get-stuff-done-teams/
 │   └── .gsd-t/               — Example contracts and domain structure
 ├── docs/                      — Methodology documentation
 │   ├── methodology.md        — GSD → GSD-T evolution and concepts
-│   ├── GSD-T-README.md       — Detailed command reference (ships with package)
 │   ├── architecture.md       — Living architecture doc (this project)
 │   ├── requirements.md       — Living requirements doc (this project)
 │   ├── workflows.md          — Living workflows doc (this project)
@@ -48,26 +54,35 @@ get-stuff-done-teams/
 ├── .gsd-t/                    — GSD-T's own state (meta: project manages itself)
 │   ├── progress.md           — Project progress and decision log
 │   ├── backlog-settings.md   — Backlog configuration
-│   ├── techdebt.md           — Tech debt register
+│   ├── techdebt.md           — Tech debt register (1 open item: TD-029)
 │   ├── contracts/            — Active domain contracts (9 files)
 │   ├── domains/              — Active domain definitions
 │   ├── scan/                 — Codebase analysis outputs (5 files)
-│   └── milestones/           — Archived completed milestones (3 archived)
+│   └── milestones/           — Archived completed milestones (8 archived)
 │       ├── backlog-management-system-2026-02-10/
 │       ├── qa-agent-test-driven-contracts-2026-02-17/
-│       └── contract-doc-alignment-2026-02-18/
-├── package.json               — npm package config (v2.23.0)
+│       ├── contract-doc-alignment-2026-02-18/
+│       ├── (count-fix — Milestone 3, archived inline)
+│       ├── (testing-foundation — Milestone 4, archived inline)
+│       ├── security-hardening-2026-02-18/
+│       ├── cli-quality-2026-02-19/
+│       └── cmd-cleanup-2026-02-19/
+├── package.json               — npm package config (v2.24.3)
 ├── CLAUDE.md                  — Project instructions for GSD-T itself
 ├── README.md                  — User-facing npm/repo documentation
+├── GSD-T-README.md            — Detailed command reference
 ├── CHANGELOG.md               — Release history
 ├── LICENSE                    — MIT license
+├── .gitattributes             — Line ending enforcement (LF for *.js)
+├── .editorconfig              — Editor config (LF, UTF-8, 2-space indent)
+├── .gitignore                 — OS, editor, node_modules, heartbeat JSONL
 └── .claude/
     └── settings.local.json   — Local Claude Code settings
 ```
 
 ## Architecture Pattern
 
-**Distributed Markdown Instruction System with CLI Lifecycle Manager and Agent Orchestration**
+**Distributed Markdown Instruction System with CLI Lifecycle Manager, Agent Orchestration, and Automated Test Suite**
 
 This is not a traditional application. It is a methodology framework where:
 
@@ -83,6 +98,8 @@ This is not a traditional application. It is a methodology framework where:
 
 6. **Agent orchestration** (`commands/gsd-t-wave.md`, `commands/gsd-t-qa.md`) defines how the wave orchestrator spawns independent agents per phase, and how the QA agent is spawned as a teammate within multiple phases.
 
+7. **Test suite** (`test/`) validates CLI logic, security functions, and quality invariants using Node.js built-in test runner. 116 tests across 4 files, zero external test dependencies.
+
 ### Key Architectural Characteristics
 
 - **No runtime code path**: The CLI installs files; Claude Code interprets them. There is no application server, no running process, no shared runtime state.
@@ -90,7 +107,9 @@ This is not a traditional application. It is a methodology framework where:
 - **Convention over configuration**: Commands follow predictable naming (`gsd-t-{verb}.md`), templates use consistent token format, state files follow documented schemas.
 - **Parallel-safe by design**: Domain isolation (each domain owns distinct files) enables Claude Code Agent Teams to execute concurrently.
 - **Agent-per-phase orchestration**: Wave command spawns a fresh Claude Code agent (via Task tool) for each phase, keeping each agent's context window clean and eliminating mid-wave compaction.
-- **QA agent integration**: 10 command files now spawn a QA teammate to handle test generation, execution, and gap reporting.
+- **QA agent integration**: 10 command files spawn a QA teammate to handle test generation, execution, and gap reporting.
+- **Zero external dependencies**: CLI uses only Node.js built-ins (`fs`, `path`, `os`, `child_process`). Tests use `node:test` and `node:assert/strict`. No npm runtime or dev dependencies.
+- **Testable via module.exports + require.main guard**: Both `bin/gsd-t.js` (48 exports) and `scripts/gsd-t-heartbeat.js` (5 exports) expose functions for testing while guarding their main execution behind `require.main === module`.
 
 ## Data Flow
 
@@ -147,13 +166,15 @@ Claude interprets the markdown as step-by-step instructions
        └── Final: Update .gsd-t/progress.md with decision log entry
 ```
 
-### Wave Orchestrator Flow (NEW — Agent-Per-Phase Model)
+### Wave Orchestrator Flow (Agent-Per-Phase Model)
 
 ```
 /user:gsd-t-wave
        │
        ▼
 Wave orchestrator reads .gsd-t/progress.md + CLAUDE.md (lightweight ~30KB)
+       │
+       ├── Integrity check: verify Status, Milestone, Domains table present
        │
        ▼
 For each phase in sequence:
@@ -172,16 +193,61 @@ For each phase in sequence:
 
 Phase sequence:
 PARTITION → [DISCUSS] → PLAN → IMPACT → EXECUTE → TEST-SYNC → INTEGRATE → VERIFY → COMPLETE
+
+Discuss skip conditions (structured):
+  (a) Single domain milestone
+  (b) No "OPEN QUESTION" in Decision Log
+  (c) All cross-domain contracts exist (for multi-domain)
 ```
 
-Key benefits of agent-per-phase:
-- Each phase agent gets a **fresh ~200K token context window**
-- No context accumulation across phases
-- Mid-phase compaction eliminated for standard-sized phases
-- Orchestrator stays lightweight (~30KB total)
-- State handoff happens through `.gsd-t/` files
+### Test Execution Flow
 
-### QA Agent Flow (NEW — Cross-Phase Test Coverage)
+```
+npm test  (or:  node --test)
+       │
+       ▼
+Node.js built-in test runner discovers test/*.test.js
+       │
+       ├── test/helpers.test.js
+       │     └── require("../bin/gsd-t.js")  — 7 describe blocks, 27 tests
+       │         Tests: validateProjectName, applyTokens, normalizeEol,
+       │                validateVersion, isNewerVersion, PKG_VERSION/PKG_ROOT
+       │
+       ├── test/filesystem.test.js
+       │     └── require("../bin/gsd-t.js")  — 9 describe blocks, 37 tests
+       │         Tests: isSymlink, hasSymlinkInPath, ensureDir, validateProjectPath,
+       │                copyFile, hasPlaywright, hasSwagger, hasApi, command listing,
+       │                CLI subcommand integration (--version, help, status, doctor)
+       │
+       ├── test/security.test.js
+       │     └── require("../scripts/gsd-t-heartbeat.js") + require("../bin/gsd-t.js")
+       │         4 describe blocks, 30 tests
+       │         Tests: scrubSecrets, scrubUrl, summarize integration, hasSymlinkInPath
+       │
+       └── test/cli-quality.test.js
+              └── require("../scripts/gsd-t-heartbeat.js") + require("../bin/gsd-t.js")
+                  6 describe blocks, 22 tests
+                  Tests: buildEvent, readProjectDeps, readPyContent,
+                         insertGuardSection, readUpdateCache, addHeartbeatHook
+```
+
+### Fetch-Version External Script Flow
+
+```
+checkForUpdates() in bin/gsd-t.js
+       │
+       ├── Cache miss (first run)?
+       │   └── fetchVersionSync()
+       │       └── execFileSync(node, ["scripts/gsd-t-fetch-version.js"])
+       │           └── HTTPS GET → registry.npmjs.org → stdout → cache file
+       │
+       └── Cache stale (>1h)?
+            └── refreshVersionAsync()
+                └── spawn(node, ["scripts/npm-update-check.js", cacheFile], { detached: true })
+                    └── HTTPS GET → registry.npmjs.org → cache file (validated within ~/.claude/)
+```
+
+### QA Agent Flow (Cross-Phase Test Coverage)
 
 ```
 Phase command spawns QA teammate:
@@ -189,17 +255,21 @@ Phase command spawns QA teammate:
        ├── Partition: Generate contract test skeletons from .gsd-t/contracts/
        ├── Plan: Generate acceptance test scenarios from domain task lists
        ├── Execute: Run tests continuously, write edge case tests
+       ├── Test-Sync: Audit test coverage against contracts, fill gaps
        ├── Verify: Full test audit — contract tests + coverage gaps
        ├── Quick: Write regression/feature tests, run full suite
        ├── Debug: Write regression test for bug
        ├── Integrate: Run cross-domain integration tests
-       ├── Test-Sync: Audit test coverage against contracts
        ├── Complete: Final gate check — all tests must pass
        └── Wave: QA spawned within each sub-phase agent
 
 Communication: QA → Lead via teammate message
 Format: "QA: {PASS|FAIL} — {summary}. Contract tests: N/N. Gaps: {list|none}"
 Blocking: QA FAIL blocks phase completion (user override available)
+
+File-path boundaries (QA agent restricted to):
+  CAN modify: test/, tests/, __tests__/, e2e/, spec/, test configs, .gsd-t/test-coverage.md
+  CANNOT modify: src/, lib/, bin/, scripts/, commands/, templates/, docs/, .gsd-t/contracts/, CLAUDE.md
 ```
 
 ### Heartbeat Event Flow
@@ -211,10 +281,12 @@ Claude Code event (SessionStart, PostToolUse, SubagentStart, SubagentStop, etc.)
 settings.json hook fires → node ~/.claude/scripts/gsd-t-heartbeat.js
        │
        ├── Read JSON from stdin (hook payload, max 1MB)
-       ├── Validate session_id (alphanumeric only, anti-traversal)
-       ├── Validate cwd is absolute, .gsd-t/ exists
-       ├── Build structured event (ts, sid, evt, data)
-       ├── Cleanup old heartbeat files (>7 days)
+       ├── Validate: cwd is absolute, .gsd-t/ exists
+       ├── Validate: session_id matches /^[a-zA-Z0-9_-]+$/ (anti-traversal)
+       ├── Validate: resolved file path stays within .gsd-t/ directory
+       ├── Symlink check before append
+       ├── Build structured event via EVENT_HANDLERS map (ts, sid, evt, data)
+       ├── Cleanup old heartbeat files >7 days (SessionStart only — gated)
        └── Append to {project}/.gsd-t/heartbeat-{session_id}.jsonl
 ```
 
@@ -229,11 +301,12 @@ Any CLI command (except install/update)
        │   └── Show notice if cached.latest > PKG_VERSION
        │
        ├── No cache at all?
-       │   └── Synchronous fetch → npm registry → cache result → show notice
+       │   └── Synchronous fetch via scripts/gsd-t-fetch-version.js (8s timeout)
+       │       └── Cache result → show notice if newer
        │
        └── Cache exists but stale (>1h)?
-            └── Spawn background process (scripts/npm-update-check.js)
-                └── Fetches npm registry → updates cache file
+            └── Spawn background process (scripts/npm-update-check.js, detached)
+                └── Fetches npm registry → updates cache file (path validated to ~/.claude/)
 ```
 
 ## Configuration Model
@@ -262,7 +335,7 @@ Three-tier configuration, layered from global to project-specific to runtime sta
 | `impact-report.md` | wave, execute | impact | Downstream effect analysis |
 | `verify-report.md` | complete-milestone, wave | verify | Quality gate results |
 | `test-coverage.md` | verify, complete-milestone | test-sync, qa | Test coverage analysis |
-| `heartbeat-{sid}.jsonl` | (external analysis) | gsd-t-heartbeat.js | Append-only session events (auto-cleanup >7 days) |
+| `heartbeat-{sid}.jsonl` | (external analysis) | gsd-t-heartbeat.js | Append-only session events (auto-cleanup >7 days, gated to SessionStart) |
 | `milestones/{name}-{date}/` | status, resume | complete-milestone | Archived milestone with all contracts, domains, progress |
 
 ### Contracts Registry (9 files)
@@ -277,13 +350,13 @@ Three-tier configuration, layered from global to project-specific to runtime sta
 | `pre-commit-gate.md` | framework | all committing commands | Mandatory pre-commit checklist |
 | `wave-phase-sequence.md` | framework | wave, resume, status | Phase order, transition rules, gates |
 | `integration-points.md` | (milestone-specific) | execute, integrate | Dependency graph, checkpoints |
-| `qa-agent-contract.md` | qa-agent-spec domain | command-integration (10 commands) | QA agent spawn interface, output per phase, communication protocol |
+| `qa-agent-contract.md` | qa-agent-spec domain | command-integration (10 commands) | QA agent spawn interface, output per phase (9 phases), communication protocol |
 
 ## Key Abstractions
 
 ### Command File Pattern
 
-Every command file (`commands/gsd-t-*.md`) follows a consistent structure:
+Every command file (`commands/gsd-t-*.md`) follows a consistent structure with integer step numbering (fractional steps eliminated in M7):
 
 ```markdown
 # GSD-T: {Name} — {Subtitle}
@@ -293,8 +366,9 @@ Every command file (`commands/gsd-t-*.md`) follows a consistent structure:
 ## Step 1: Load State
 Read: CLAUDE.md, .gsd-t/progress.md, relevant contracts
 
-## Step 1.5: Spawn QA Agent (if applicable)
+## Step 2: Spawn QA Agent (if applicable)
 Teammate "qa": Read commands/gsd-t-qa.md ...
+QA failure blocks {phase} completion.
 
 ## Step N: {Action}
 {Instructions with code blocks for team mode}
@@ -302,22 +376,19 @@ Teammate "qa": Read commands/gsd-t-qa.md ...
 ## Step N+1: Document Ripple
 {List of docs to check/update}
 
-## Step N+2: Test Verification
-{Testing requirements}
-
 ## Step Final: Autonomy Behavior
-Level 3: auto-advance
+Level 3: auto-advance / log status
 Level 1-2: pause for user
 
 $ARGUMENTS
 ```
 
-### QA Agent Spawn Pattern (NEW)
+### QA Agent Spawn Pattern
 
-10 commands now include a "Step N.5: Spawn QA Agent" section:
+10 commands include a QA agent spawn step with consistent blocking language:
 
 ```markdown
-## Step X.5: Spawn QA Agent
+## Step N: Spawn QA Agent
 
 Spawn the QA teammate to {phase-specific purpose}:
 
@@ -339,34 +410,59 @@ Templates use two replacement tokens, applied by `applyTokens()` in `bin/gsd-t.j
 
 ### CLI Function Organization
 
-`bin/gsd-t.js` (1300 lines) is organized into sections:
+`bin/gsd-t.js` (1297 lines, 80 functions, all <= 30 lines) is organized into sections:
 
 | Section | Lines (approx.) | Functions |
 |---------|-----------------|-----------|
 | Configuration | 23-43 | Path constants, package version |
 | Guard Section | 46-65 | `GUARD_SECTION` template literal |
-| Helpers | 67-296 | Logging, file ops, validation, project registry |
-| Heartbeat | 309-389 | `installHeartbeat()`, `configureHeartbeatHooks()` |
-| Commands | 391-466 | `installCommands()`, `installGlobalClaudeMd()` |
-| Install/Update | 468-525 | `doInstall()`, `doUpdate()` |
-| Init | 527-673 | `initClaudeMd()`, `initDocs()`, `initGsdtDir()`, `doInit()` |
-| Status | 675-773 | `doStatus()` |
-| Uninstall | 775-814 | `doUninstall()` |
-| Update All | 816-981 | `updateProjectClaudeMd()`, `createProjectChangelog()`, `checkProjectHealth()`, `doUpdateAll()` |
-| Doctor | 983-1103 | `checkDoctorEnvironment()`, `checkDoctorInstallation()`, `checkDoctorProject()`, `doDoctor()` |
-| Register | 1105-1134 | `doRegister()` |
-| Update Check | 1136-1218 | `isNewerVersion()`, `checkForUpdates()`, `showUpdateNotice()`, `doChangelog()` |
-| Help | 1220-1250 | `showHelp()` |
-| Main | 1252-1300 | Argument parsing, command dispatch |
+| Helpers | 67-304 | Logging (7), file ops (5), validation (4), project utils (7), detection (4) |
+| Heartbeat | 306-379 | `installHeartbeat()`, `configureHeartbeatHooks()`, `addHeartbeatHook()` |
+| Commands | 381-451 | `installCommands()`, `installGlobalClaudeMd()`, `updateExistingGlobalClaudeMd()`, `appendGsdtToClaudeMd()` |
+| Install/Update | 453-510 | `doInstall()`, `showInstallSummary()`, `doUpdate()` |
+| Init | 512-639 | `initClaudeMd()`, `initDocs()`, `initGsdtDir()`, `writeTemplateFile()`, `doInit()`, `showInitTree()` |
+| Status | 641-738 | `doStatus()`, `showStatusVersion()`, `showStatusCommands()`, `showStatusConfig()`, `showStatusTeams()`, `showStatusProject()` |
+| Uninstall | 740-773 | `doUninstall()`, `removeInstalledCommands()`, `removeVersionFile()` |
+| Update All | 775-928 | `updateProjectClaudeMd()`, `insertGuardSection()`, `createProjectChangelog()`, `checkProjectHealth()`, `doUpdateAll()`, `updateGlobalCommands()`, `showNoProjectsHint()`, `updateSingleProject()`, `showUpdateAllSummary()` |
+| Doctor | 930-1050 | `checkDoctorEnvironment()`, `checkDoctorInstallation()`, `checkDoctorClaudeMd()`, `checkDoctorSettings()`, `checkDoctorEncoding()`, `checkDoctorProject()`, `doDoctor()` |
+| Register | 1052-1081 | `doRegister()` |
+| Update Check | 1083-1167 | `isNewerVersion()`, `checkForUpdates()`, `readUpdateCache()`, `fetchVersionSync()`, `refreshVersionAsync()`, `showUpdateNotice()`, `doChangelog()` |
+| Help | 1169-1191 | `showHelp()` |
+| Exports | 1193-1244 | 48 named exports for testing |
+| Main | 1246-1297 | `require.main === module` guard, argument parsing, command dispatch |
+
+### Heartbeat Function Organization
+
+`scripts/gsd-t-heartbeat.js` (183 lines, 6 functions, all <= 30 lines):
+
+| Function | Purpose |
+|----------|---------|
+| `cleanupOldHeartbeats()` | Remove files > 7 days old (called only on SessionStart) |
+| `buildEvent()` | Route hook event to handler via `EVENT_HANDLERS` map |
+| `scrubSecrets()` | Strip passwords, tokens, API keys from command strings |
+| `scrubUrl()` | Mask query parameter values in URLs |
+| `summarize()` | Extract tool-specific summary from hook payload |
+| `shortPath()` | Convert absolute paths to relative/abbreviated form |
+
+`EVENT_HANDLERS` map (declared at module scope, not inside buildEvent):
+```javascript
+const EVENT_HANDLERS = {
+  SessionStart: (h) => ({ evt: "session_start", data: { source, model } }),
+  PostToolUse:  (h) => ({ evt: "tool", tool: h.tool_name, data: summarize(...) }),
+  SubagentStart: ..., SubagentStop: ..., TaskCompleted: ...,
+  TeammateIdle: ..., Notification: ..., Stop: ..., SessionEnd: ...
+};
+```
 
 ## Entry Points
 
 ### CLI Entry Point (`bin/gsd-t.js`)
 
 - **Triggers**: `npx @tekyzinc/gsd-t <command>` or global `gsd-t <command>`
-- **Responsibilities**: install, update, update-all, init, register, status, uninstall, doctor, changelog, help
-- **Dispatch**: Simple `switch` statement on `process.argv[2]` (line 1257)
-- **Post-dispatch**: `checkForUpdates()` runs after every command (except install/update)
+- **Responsibilities**: install, update, update-all, init, register, status, uninstall, doctor, changelog, help, --version
+- **Dispatch**: Simple `switch` statement on `process.argv[2]` (line 1252), guarded by `require.main === module`
+- **Post-dispatch**: `checkForUpdates()` runs after every command (except install/update/--version)
+- **Testability**: 48 functions exported via `module.exports` for unit testing
 
 ### Claude Code Commands (43 files in `commands/`)
 
@@ -374,29 +470,49 @@ Templates use two replacement tokens, applied by `applyTokens()` in `bin/gsd-t.j
 - **Responsibilities**: Each command defines a complete workflow phase
 - **Discovery**: Claude Code auto-discovers all `.md` files in `~/.claude/commands/`
 - **Breakdown**: 39 GSD-T workflow commands (`gsd-t-*.md`) + 4 utility commands (`gsd.md`, `branch.md`, `checkin.md`, `Claude-md.md`)
+- **Structure**: Integer step numbering, Autonomy Behavior sections, Document Ripple sections, QA spawn steps
 
 ### Heartbeat Hook (`scripts/gsd-t-heartbeat.js`)
 
 - **Triggers**: 9 Claude Code events (SessionStart, PostToolUse, SubagentStart, SubagentStop, TaskCompleted, TeammateIdle, Notification, Stop, SessionEnd)
-- **Input**: JSON on stdin from Claude Code hook system
+- **Input**: JSON on stdin from Claude Code hook system (max 1MB)
 - **Output**: Appends JSONL events to `.gsd-t/heartbeat-{session_id}.jsonl`
+- **Security**: Session ID validation, path containment check, symlink check, parent validation
+- **Testability**: 5 functions exported via `module.exports`, guarded by `require.main === module`
+
+### Fetch Version Script (`scripts/gsd-t-fetch-version.js`)
+
+- **Triggers**: Called synchronously by `fetchVersionSync()` in `bin/gsd-t.js` on first run (no cache)
+- **Input**: None (hardcoded npm registry URL)
+- **Output**: Version string to stdout
+- **Bounded**: 1MB HTTP response limit, 5s timeout
 
 ### Background Update Check (`scripts/npm-update-check.js`)
 
-- **Triggers**: Spawned detached by CLI when update cache is stale
-- **Input**: Cache file path as argv[2]
+- **Triggers**: Spawned detached by `refreshVersionAsync()` when update cache is stale
+- **Input**: Cache file path as argv[2] (validated to resolve within `~/.claude/`)
 - **Output**: Writes `{latest, timestamp}` JSON to cache file
+- **Security**: Path validation (must be within `~/.claude/`), symlink check, version format validation
+
+### Test Suite (`test/*.test.js`)
+
+- **Triggers**: `npm test` or `node --test`
+- **Runner**: Node.js built-in test runner (no external dependencies)
+- **Pattern**: `require("node:test")` for describe/it, `require("node:assert/strict")` for assertions
+- **Coverage**: 116 tests across 25 describe blocks, covering all exported functions
 
 ## Error Handling
 
 ### CLI Error Handling Strategy
 
 - **File operations**: Individual try/catch per operation with `error()` logging — continues on failure
-- **Symlink defense**: Every file write checks `isSymlink()` first — refuses to follow symlinks
+- **Per-project isolation**: `doUpdateAll()` wraps each project update in try/catch (added M6) — one bad project does not abort remaining projects
+- **Symlink defense**: Every file write checks `isSymlink()` first — refuses to follow symlinks. `hasSymlinkInPath()` validates parent directory components.
 - **Safe file creation**: Uses `{ flag: "wx" }` (exclusive create) to avoid overwriting existing files during init
 - **Version validation**: `validateVersion()` regex guards against malformed version strings
 - **Project path validation**: `validateProjectPath()` checks absolute path, existence, directory status, and Unix ownership
 - **Session ID validation**: `SAFE_SID = /^[a-zA-Z0-9_-]+$/` blocks path traversal in heartbeat filenames
+- **HTTP response bounding**: Both `gsd-t-fetch-version.js` and `npm-update-check.js` cap responses at 1MB
 
 ### Command Error Handling
 
@@ -405,6 +521,7 @@ Templates use two replacement tokens, applied by `applyTokens()` in `bin/gsd-t.j
 - Impact analysis gate: BLOCK verdict halts execution in wave mode
 - Checkpoint verification: contract compliance checks at domain boundaries
 - QA agent blocking: QA FAIL status blocks phase completion (user override available)
+- Wave integrity check: verifies progress.md has Status, Milestone, and Domains table before proceeding
 
 ### Wave Error Recovery
 
@@ -415,22 +532,27 @@ Templates use two replacement tokens, applied by `applyTokens()` in `bin/gsd-t.j
 | Verify failure | Level 3: Spawn remediation agent, re-run verify (max 2). Level 1-2: Ask user |
 | Phase agent fails to update status | Orchestrator stops and reports error |
 | QA agent reports FAIL | Phase blocked until QA passes or user overrides |
+| progress.md integrity failure | Wave halts — user directed to /gsd-t-status or /gsd-t-init |
 
 ## Cross-Cutting Concerns
 
 ### Security
 
-- **Symlink protection**: All file writes in CLI and heartbeat check for symlinks
-- **Input validation**: Project names, version strings, session IDs, and project paths are validated
-- **Path traversal prevention**: Heartbeat resolves paths and verifies containment within `.gsd-t/`
-- **Command injection mitigation**: Uses `execFileSync` (not `execSync`) for external commands
-- **Stdin size limit**: Heartbeat caps input at 1MB to prevent OOM
-- **No secrets handling**: Package stores no credentials; env var names (not values) in templates
+- **Symlink protection**: All file writes in CLI and heartbeat check for symlinks. `hasSymlinkInPath()` walks parent directory components.
+- **Input validation**: Project names (`validateProjectName`), version strings (`validateVersion`), session IDs (`SAFE_SID` regex), and project paths (`validateProjectPath`) are validated.
+- **Path traversal prevention**: Heartbeat resolves paths and verifies containment within `.gsd-t/`. Update check validates cache path within `~/.claude/`.
+- **Command injection mitigation**: Uses `execFileSync` with array args (not `execSync` with string) for external commands.
+- **Stdin size limit**: Heartbeat caps input at 1MB (`MAX_STDIN`) to prevent OOM.
+- **HTTP response bounding**: Both fetch scripts cap at 1MB to prevent OOM from oversized registry responses.
+- **Secret scrubbing**: Heartbeat scrubs passwords, tokens, API keys, bearer tokens, and URL query params from logged commands via `scrubSecrets()` and `scrubUrl()`.
+- **Wave security**: `bypassPermissions` mode documented with attack surface analysis, mitigations, and recommendations in `gsd-t-wave.md` and `README.md`.
+- **QA agent file boundaries**: Explicit allowed/denied file paths prevent QA agent from modifying source code, contracts, or docs.
+- **No secrets handling**: Package stores no credentials; env var names (not values) in templates.
 
 ### State Persistence
 
 - All state in `.gsd-t/` is git-tracked Markdown — survives session loss, machine migration, and team sharing
-- Heartbeat JSONL files auto-cleanup after 7 days
+- Heartbeat JSONL files auto-cleanup after 7 days (gated to SessionStart only — not every event)
 - Update check cache has 1-hour TTL
 - Milestone archives preserve complete snapshot of contracts + domains + progress
 
@@ -438,24 +560,27 @@ Templates use two replacement tokens, applied by `applyTokens()` in `bin/gsd-t.j
 
 - **Pre-Commit Gate**: Mental checklist (not enforced programmatically) requiring doc updates with every commit
 - **Document Ripple**: Each command specifies which documents it may affect
-- **Four reference files** must stay synchronized: `README.md`, `docs/GSD-T-README.md`, `templates/CLAUDE-global.md`, `commands/gsd-t-help.md`
+- **Four reference files** must stay synchronized: `README.md`, `GSD-T-README.md`, `templates/CLAUDE-global.md`, `commands/gsd-t-help.md`
+- **Command count assertions**: Tests enforce exact counts (43 total, 39 GSD-T, 4 utility) to catch drift
 
 ### Logging
 
-- CLI: ANSI-colored console output via helper functions (`success()`, `warn()`, `error()`, `info()`)
+- CLI: ANSI-colored console output via helper functions (`success()`, `warn()`, `error()`, `info()`, `heading()`)
 - Commands: Decision Log entries in `.gsd-t/progress.md` with timestamps
-- Heartbeat: Structured JSONL events per session
+- Heartbeat: Structured JSONL events per session with tool summaries and scrubbed secrets
 
 ### Testing Strategy
 
-- **No automated tests exist** for the CLI (`bin/gsd-t.js`) — `package.json` has `"test": "node --test"` but no test files
-- **QA Agent** is the testing mechanism for _consumer projects_, not for GSD-T itself
-- **Commands are validated by use** — manual CLI testing is the only verification method
-- **Contract tests** defined in `gsd-t-qa.md` are generated for consumer projects' contracts, not GSD-T's own contracts
+- **116 automated tests** covering CLI helpers, filesystem operations, security functions, and quality invariants
+- **4 test files**: `helpers.test.js` (pure functions), `filesystem.test.js` (filesystem + CLI integration), `security.test.js` (scrubbing + path validation), `cli-quality.test.js` (refactored functions)
+- **Command count tests**: Explicit assertions that total=43, GSD-T=39, utility=4 — catches count drift automatically
+- **Zero external test dependencies**: Uses Node.js built-in `node:test` and `node:assert/strict`
+- **Run command**: `npm test` (which runs `node --test`)
+- **QA Agent** generates tests for _consumer projects_ using contracts, not for GSD-T itself
 
 ## Workflow Phase Architecture
 
-The core GSD-T workflow is a linear pipeline with conditional branches, now orchestrated via agent-per-phase:
+The core GSD-T workflow is a linear pipeline with conditional branches, orchestrated via agent-per-phase:
 
 ```
 INITIALIZED
@@ -465,7 +590,7 @@ PARTITION ─── Decompose milestone into domains + contracts
     │           └── QA spawned: generate contract test skeletons
     ▼
 DISCUSS ────── Explore design decisions (always pauses, even Level 3)
-    │           └── Skippable (only phase that can be skipped)
+    │           └── Skippable: single domain + no open questions + contracts exist
     ▼
 PLAN ────────── Create atomic task lists per domain
     │           └── QA spawned: generate acceptance test scenarios
@@ -487,27 +612,13 @@ VERIFIED ────── Quality gates pass
     │           ├── QA spawned: full test audit + gap report
     │           └── Gate: PASS / CONDITIONAL PASS / FAIL
     ▼
-COMPLETED ───── Archive to .gsd-t/milestones/{name}/
+COMPLETED ───── Archive to .gsd-t/milestones/{name}-{date}/
                 ├── QA spawned: final gate check
                 ├── Gap analysis gate (100% implemented)
                 └── Create git tag
 ```
 
-### Phase Ownership
-
-| Phase | Mode | QA Agent | Why |
-|-------|------|----------|-----|
-| Partition | Solo only | YES — test skeletons | Needs full cross-domain context |
-| Discuss | Solo only | No | Pauses for user input |
-| Plan | Solo only | YES — acceptance scenarios | Needs full cross-domain context |
-| Impact | Solo only | No | Cross-cutting analysis |
-| Execute | Solo or Team | YES — continuous testing | Tasks within domains are independent |
-| Test-Sync | Solo only | YES — coverage audit | Sequential verification |
-| Integrate | Solo only | YES — boundary tests | Needs to see all seams |
-| Verify | Solo or Team | YES — full audit | Dimensions are independent |
-| Complete | Solo only | YES — final gate | Archival and tagging |
-
-### Wave Orchestration (Agent-Per-Phase)
+### Wave Orchestration Diagram (Agent-Per-Phase)
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
@@ -532,9 +643,10 @@ COMPLETED ───── Archive to .gsd-t/milestones/{name}/
 │    gap gate       gate check     check                  check               │
 │    git tag                                                                   │
 │                                                                              │
-│  Each agent: fresh context window, reads state from files, dies when done   │
+│  Each agent: fresh context window (~200K tokens)                            │
 │  Each agent: may spawn QA teammate for testing within that phase            │
 │  Orchestrator: ~30KB total, never compacts                                  │
+│  State handoff: exclusively through .gsd-t/ files                           │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -542,6 +654,29 @@ COMPLETED ───── Archive to .gsd-t/milestones/{name}/
 
 ### Zero-Dependency CLI
 Only Node.js built-ins: `fs`, `path`, `os`, `child_process`. This is intentional and enforced — CLAUDE.md explicitly states "NEVER add external npm dependencies to the installer."
+
+### module.exports + require.main Guard
+Both `bin/gsd-t.js` and `scripts/gsd-t-heartbeat.js` use the pattern:
+```javascript
+module.exports = { fn1, fn2, ... };  // For testing
+if (require.main === module) { /* CLI/stdin logic */ }
+```
+This enables unit testing of all functions while preserving CLI behavior when run directly. `bin/gsd-t.js` exports 48 functions; `gsd-t-heartbeat.js` exports 5.
+
+### EVENT_HANDLERS Map Pattern
+Heartbeat's `buildEvent()` dispatches via a declarative handler map instead of a switch statement:
+```javascript
+const EVENT_HANDLERS = {
+  SessionStart: (h) => ({ evt: "session_start", ... }),
+  PostToolUse:  (h) => ({ evt: "tool", ... }),
+  // ...
+};
+function buildEvent(hook) {
+  const handler = EVENT_HANDLERS[hook.hook_event_name];
+  if (!handler) return null;
+  return { ts: new Date().toISOString(), sid: hook.session_id, ...handler(hook) };
+}
+```
 
 ### Synchronous File I/O
 All CLI file operations use synchronous APIs (`readFileSync`, `writeFileSync`, `copyFileSync`, `existsSync`). Acceptable for a CLI tool that runs briefly and exits.
@@ -559,51 +694,119 @@ When updating `~/.claude/CLAUDE.md`, if the content has been customized (differs
 `~/.claude/.gsd-t-projects` is a newline-delimited file of absolute paths to registered GSD-T projects. Used by `update-all` to propagate changes (like the Destructive Action Guard) to all projects.
 
 ### Heartbeat Event Sourcing
-Claude Code hook events are captured as append-only JSONL with structured schemas. Each event type produces a standardized record with timestamp, session ID, event type, and type-specific data. Tool usage is summarized (file paths shortened, command strings truncated to 150 chars).
+Claude Code hook events are captured as append-only JSONL with structured schemas. Each event type produces a standardized record with timestamp, session ID, event type, and type-specific data. Tool usage is summarized (file paths shortened, command strings truncated to 150 chars, secrets scrubbed). Cleanup is gated to SessionStart events only (not every PostToolUse).
 
 ### Contract-as-Specification
-`.gsd-t/contracts/` files serve as the single source of truth for inter-domain interfaces. The QA agent generates test skeletons directly from these contracts, establishing a contract → test → implementation pipeline.
+`.gsd-t/contracts/` files serve as the single source of truth for inter-domain interfaces. The QA agent generates test skeletons directly from these contracts, establishing a contract -> test -> implementation pipeline.
 
-### Agent-Per-Phase Orchestration (NEW)
-The wave command no longer executes phases itself. Instead it spawns an independent Task agent for each phase, giving each a fresh ~200K token context window. This eliminates context accumulation and mid-wave compaction. State handoff occurs exclusively through `.gsd-t/` files.
+### Agent-Per-Phase Orchestration
+The wave command spawns an independent Task agent for each phase, giving each a fresh ~200K token context window. State handoff occurs exclusively through `.gsd-t/` files. The orchestrator performs an integrity check on progress.md before proceeding (verifying Status, Milestone, and Domains table fields).
 
-### QA Agent as Cross-Cutting Concern (NEW)
-The QA agent (`commands/gsd-t-qa.md`) is spawned as a teammate within multiple phases. Its behavior is phase-dependent (test skeletons during partition, continuous testing during execute, full audit during verify). It follows a standardized communication protocol (`QA: {PASS|FAIL} — {summary}`) and its failure blocks phase completion.
+### QA Agent as Cross-Cutting Concern
+The QA agent (`commands/gsd-t-qa.md`) is spawned as a teammate within 10 phases. Its behavior is phase-dependent. It has explicit file-path boundaries, multi-framework detection (Playwright, Jest, Vitest, node:test, pytest), a Document Ripple section, and standardized communication protocol. QA failure blocks phase completion.
 
 ## Architecture Concerns
 
-### Command Count Drift (39 GSD-T + 4 utility = 43 total)
-The actual `commands/` directory contains 43 files (39 `gsd-t-*` + 4 utility), but multiple reference documents still say "38 GSD-T commands + 4 utility commands (42 total)." The addition of `commands/gsd-t-qa.md` incremented the count but the following files were not updated:
-- `README.md` line 21: says "38 GSD-T commands + 4 utility commands (42 total)"
-- `package.json` description: says "42 slash commands"
-- `CLAUDE.md` overview: says "42 slash commands (38 GSD-T workflow + 4 utility)"
-- `bin/gsd-t.js` help output and command counting logic may reference stale counts
+### Resolved Since Scan #3 (25 of 26 items)
 
-This is exactly the "four-file synchronization" problem identified in the previous scan — the manual synchronization requirement was violated during the QA Agent milestone.
+All tech debt items except TD-029 (TOCTOU race) have been resolved through Milestones 3-7:
 
-### CLI Size (1300 lines, single file)
-`bin/gsd-t.js` has grown from 641 lines (v1.0) to ~1300 lines. Functions are well-organized by section, but the file exceeds the project's own 200-line file limit convention. Since this is the only executable code file and the project explicitly avoids external dependencies, splitting introduces complexity for questionable benefit. This is a known, accepted deviation.
+| Concern from Scan #3 | Resolution | Milestone |
+|----------------------|------------|-----------|
+| No automated tests (TD-003) | 116 tests in 4 files, all passing | M4 |
+| Command count drift (TD-022) | Fixed + test assertions enforce 43/39/4 counts | M3 |
+| QA agent missing test-sync phase (TD-042) | Added During Test-Sync section + contract | M3 |
+| Orphaned domain files (TD-043) | Archived to milestones/ | M3 |
+| Heartbeat sensitive data (TD-019) | scrubSecrets() + scrubUrl() | M5 |
+| Arbitrary path write (TD-020) | Path validated within ~/.claude/ | M5 |
+| Missing symlink check (TD-026) | lstatSync before write | M5 |
+| Unbounded HTTP response (TD-027) | 1MB limit on both fetch paths | M5 |
+| ensureDir parent validation (TD-028) | hasSymlinkInPath() | M5 |
+| Wave security docs (TD-035) | Security Considerations section | M5 |
+| 13 functions > 30 lines (TD-021) | All 86 functions <= 30 lines | M6 |
+| doUpdateAll no error isolation (TD-017) | try/catch per project | M6 |
+| Heartbeat cleanup every event (TD-024) | Gated to SessionStart only | M6 |
+| Missing .gitattributes/.editorconfig (TD-025) | Created | M6 |
+| buildEvent 69 lines (TD-032) | EVENT_HANDLERS map, 4 lines | M6 |
+| Code duplication (TD-033) | readProjectDeps, writeTemplateFile, readUpdateCache | M6 |
+| Inline fetch fragile (TD-034) | Extracted to scripts/gsd-t-fetch-version.js | M6 |
+| discuss/impact missing Autonomy (TD-030) | Added sections | M7 |
+| Fractional steps 34/17 files (TD-031) | 85 steps renumbered, zero fractional | M7 |
+| QA unrestricted scope (TD-036) | File-path boundaries added | M7 |
+| Wave state no integrity (TD-037) | Integrity check added | M7 |
+| QA missing Document Ripple (TD-038) | Section added | M7 |
+| Inconsistent QA blocking (TD-039) | Standardized across 10 commands | M7 |
+| QA framework assumption (TD-040) | Multi-framework detection table | M7 |
+| Wave discuss-skip subjective (TD-041) | Structured 3-condition check | M7 |
 
-### Four-File Synchronization Requirement
-Any command addition or change requires updating 4 reference files (`README.md`, `docs/GSD-T-README.md`, `templates/CLAUDE-global.md`, `commands/gsd-t-help.md`) plus `bin/gsd-t.js` command count logic. This is a manual process enforced only by the Pre-Commit Gate checklist — no automated validation exists. The QA Agent milestone demonstrates this is a recurring failure mode.
+### Remaining Open Concerns
 
-### Pre-Commit Gate is Unenforced
-The Pre-Commit Gate is a mental checklist in CLAUDE.md, not a git hook or CI check. Its effectiveness depends entirely on Claude following the instructions. There is no programmatic enforcement.
+#### TD-029: TOCTOU Race in Symlink Check + Write (LOW)
+- **Location**: `bin/gsd-t.js` — all `isSymlink()` callers
+- **Description**: Time-of-check-time-of-use gap between `isSymlink()` and `writeFileSync`. A symlink could be created between the check and the write.
+- **Impact**: Theoretical — requires attacker with write access to user's directories at precisely the right moment. Low ROI fix for a CLI tool.
+- **Status**: Not promoted. Revisit if security requirements change.
 
-### CLAUDE.md Merge Risk
-When a user's `~/.claude/CLAUDE.md` exists without GSD-T content, the installer appends GSD-T config with a separator. If this is run multiple times or if the detection heuristic (`includes("GSD-T: Contract-Driven Development")`) fails, duplicate sections could accumulate.
+#### CLI Size (1297 lines, single file) — Accepted Deviation
+`bin/gsd-t.js` exceeds the project's 200-line file limit. Since this is the only executable code file, splitting would add complexity (module resolution, import management) for questionable benefit. The zero-dependency constraint makes module splitting awkward. All 80 functions are <= 30 lines and well-organized by section.
 
-### No Automated Testing
-`package.json` has `"test": "node --test"` but no test files exist. The project relies on manual CLI testing and "commands are validated by use." Given the CLI's 1300 lines of file-manipulating logic, this is a gap. The QA Agent is designed to generate tests for _consumer projects_, not for GSD-T itself.
+#### Four-File Synchronization Requirement
+Any command addition or change requires updating 4 reference files (`README.md`, `GSD-T-README.md`, `templates/CLAUDE-global.md`, `commands/gsd-t-help.md`). This is a manual process enforced by Pre-Commit Gate (not automated). However, the command count test assertions (`test/filesystem.test.js` lines 271-281) now catch count drift automatically.
 
-### Heartbeat File Growth
+#### Pre-Commit Gate is Unenforced
+The Pre-Commit Gate is a mental checklist in CLAUDE.md, not a git hook or CI check. Its effectiveness depends on Claude following the instructions. No programmatic enforcement exists.
+
+#### CLAUDE.md Merge Risk
+When a user's `~/.claude/CLAUDE.md` exists without GSD-T content, the installer appends GSD-T config. The detection heuristic (`includes("GSD-T: Contract-Driven Development")`) could fail if the marker text is modified, potentially causing duplicate sections.
+
+#### Heartbeat File Growth
 Heartbeat JSONL files auto-cleanup after 7 days, but during active development sessions, they can grow unbounded within that window. No per-file size limit exists.
 
-### QA Agent Context Window Overhead
-The QA agent is spawned as a teammate in 9 different phases. Each spawn requires the QA agent to re-read all contracts and the full `gsd-t-qa.md` instruction file. In the wave model, the QA agent is spawned within each phase agent (not by the orchestrator), so this overhead is contained within each phase's context window. However, for complex projects with many contracts, the QA agent's context consumption within a phase could be significant.
+#### Wave Orchestrator Has No Rollback
+If a phase agent fails midway, the orchestrator can detect that status was not updated in `progress.md`, but cannot roll back partial changes. Recovery is `gsd-t-resume`, which picks up from the last completed phase — work from the failed agent is left in place.
 
-### Wave Orchestrator Has No Rollback
-If a phase agent fails midway (e.g., crashes, times out), the wave orchestrator can detect that the status was not updated in `progress.md`, but it has no mechanism to roll back partial changes made by the failed agent. The only recovery is `gsd-t-resume`, which picks up from the last completed phase — any work done by the failed agent is lost or left in an inconsistent state.
+#### Contract-to-Test Mapping is One-Way
+The QA agent generates tests FROM contracts, but there is no mechanism to detect when a contract changes and automatically regenerate tests. The test-sync command covers code-to-test alignment but not contract-to-test alignment.
 
-### Contract → Test Mapping is One-Way
-The QA agent generates tests FROM contracts, but there is no mechanism to detect when a contract changes and automatically regenerate/update the corresponding tests. If a contract is updated during execute or integrate phases, the previously generated contract test skeletons may become stale. The test-sync command covers code-to-test alignment but not contract-to-test alignment.
+#### progress.md Decision Log Size
+The Decision Log in `.gsd-t/progress.md` grows monotonically (currently 165 entries). For long-running projects, this could cause context window pressure when commands read progress.md. No archival or truncation mechanism exists for log entries (only milestone archives remove domain/contract data).
+
+## Changes Since Scan #3
+
+### New Files
+- `scripts/gsd-t-fetch-version.js` — extracted from inline JS in bin/gsd-t.js (M6)
+- `test/helpers.test.js` — 27 tests for pure helper functions (M4)
+- `test/filesystem.test.js` — 37 tests for filesystem + CLI integration (M4)
+- `test/security.test.js` — 30 tests for security functions (M5)
+- `test/cli-quality.test.js` — 22 tests for refactored functions (M6)
+- `.gitattributes` — LF enforcement for *.js files (M6)
+- `.editorconfig` — LF, UTF-8, 2-space indent (M6)
+
+### Modified Files
+- `bin/gsd-t.js` — 80 functions (was ~40), all <= 30 lines, 48 exports, require.main guard (M4+M6)
+- `scripts/gsd-t-heartbeat.js` — 6 functions, EVENT_HANDLERS map, require.main guard, 5 exports (M5+M6)
+- `commands/gsd-t-qa.md` — file-path boundaries, multi-framework detection, Document Ripple section (M7)
+- `commands/gsd-t-wave.md` — integrity check, structured discuss-skip, security docs (M5+M7)
+- 17 command files — fractional steps renumbered to integers (M7)
+- `commands/gsd-t-discuss.md`, `commands/gsd-t-impact.md` — Autonomy Behavior sections (M7)
+
+### Archived Milestones
+- `milestones/security-hardening-2026-02-18/`
+- `milestones/cli-quality-2026-02-19/`
+- `milestones/cmd-cleanup-2026-02-19/`
+
+### Metrics Comparison
+
+| Metric | Scan #3 (v2.23.0) | Scan #4 (v2.24.3) | Change |
+|--------|-------------------|-------------------|--------|
+| bin/gsd-t.js lines | ~1300 | 1297 | Stable (functions split, not expanded) |
+| bin/gsd-t.js functions | ~40 | 80 | +40 (all extracted from 13 over-30-line functions) |
+| Functions > 30 lines | 15 | 0 | Fully resolved |
+| Module exports | 0 | 48 + 5 = 53 | New (for testability) |
+| Test files | 0 | 4 | New |
+| Test count | 0 | 116 | New |
+| Scripts | 2 | 3 | +1 (gsd-t-fetch-version.js) |
+| Open tech debt | 26 | 1 (TD-029) | -25 resolved |
+| Command files | 43 | 43 | Stable |
+| Contracts | 9 | 9 | Stable |
+| Archived milestones | 3 | 8 | +5 |

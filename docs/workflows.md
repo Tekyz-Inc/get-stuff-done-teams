@@ -1,6 +1,6 @@
 # Workflows — GSD-T Framework (@tekyzinc/gsd-t)
 
-## Last Updated: 2026-02-18
+## Last Updated: 2026-02-18 (Scan #4)
 
 ## User Workflows
 
@@ -32,7 +32,7 @@
 ### Full Wave Cycle
 1. User defines milestone via `/gsd-t-milestone`
 2. **Partition**: Decompose into domains + contracts (file ownership, interfaces)
-3. **Discuss**: Explore design decisions (always pauses, even Level 3) — SKIPPABLE if path is clear
+3. **Discuss**: Explore design decisions (always pauses, even Level 3) — SKIPPABLE via structured 3-condition check: single domain, no open questions in Decision Log, all cross-domain contracts exist (M7)
 4. **Plan**: Create atomic task lists per domain with dependencies
 5. **Impact**: Analyze downstream effects (PROCEED / CAUTION / BLOCK verdicts)
 6. **Execute**: Implement tasks (solo or team mode based on domain count)

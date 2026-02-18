@@ -1,16 +1,16 @@
-# Integration Points — Milestone 3: Count Fix + QA Contract Alignment
+# Integration Points
 
-## Dependency Graph
+## Current State
+No active cross-domain dependencies. The project is between milestones or running single-domain milestones.
 
-### Independent (can start immediately)
-- count-contract-fix: All tasks (no cross-domain dependencies)
+## Usage
+This file is populated by `gsd-t-plan` when a milestone has multiple domains with cross-domain dependencies. It defines:
+- Dependency graph (which domains block which)
+- Execution order for solo mode
+- Checkpoints where the lead verifies contract compliance before unblocking downstream tasks
 
-## Execution Order (solo mode)
-1. Task 1: Fix stale command counts (8 line changes across 4 files)
-2. Task 2: Add test-sync phase to QA agent (2 files)
-3. Task 3: DONE — orphaned domain files already archived
-4. VERIFY: grep confirms no stale counts, QA contract has test-sync
+## History
+- **Milestone 3** (Count Fix + QA Contract Alignment): Single domain, no integration points needed.
+- **Milestones 4-8**: All single-domain milestones — no integration points.
 
-## Parallelization Notes
-- All tasks are independent — could run in parallel but scope is too small to justify
-- Solo sequential recommended
+When a multi-domain milestone is created, this file will be updated with the specific dependency graph for that milestone.

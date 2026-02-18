@@ -2,6 +2,75 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.24.4] - 2026-02-18
+
+### Fixed
+- **progress.md status**: Now uses contract-recognized values (READY between milestones, not ACTIVE)
+- **CLAUDE.md version**: Removed hardcoded version — references `package.json` directly to prevent recurring drift (TD-048)
+- **CHANGELOG.md**: Added missing entries for v2.23.1 through v2.24.3 covering milestones 3-7 (TD-045)
+- **Orphaned domains**: Deleted stale `cli-quality/` and `cmd-cleanup/` directories from previous milestones (TD-046)
+- **Git line endings**: Applied `git add --renormalize .` to enforce LF across all tracked files (TD-049)
+- **Notification scrubbing**: Applied `scrubSecrets()` to heartbeat notification messages (TD-052)
+
+### Changed
+- **Contracts synced**: `progress-file-format.md` enriched with milestone table + optional fields. `wave-phase-sequence.md` updated with integrity check (M7) and security considerations (M5). `command-interface-contract.md` renamed to `backlog-command-interface.md`. `integration-points.md` rewritten to reflect current state (TD-047, TD-053, TD-054, TD-055)
+- **readSettingsJson()**: Extracted helper to deduplicate 3 `JSON.parse(readFileSync)` call sites in CLI (TD-050)
+- **prepublishOnly**: Added `npm test` gate before `npm publish` (TD-051)
+- **TD-029 (TOCTOU)**: Formally accepted as risk with 5-point rationale — single-threaded Node.js, user-owned dirs, Windows symlink requires admin
+
+## [2.24.3] - 2026-02-19
+
+### Changed
+- **Command file cleanup**: 85 fractional step numbers renumbered to integers across 17 command files. Autonomy Behavior sections added to `gsd-t-discuss` and `gsd-t-impact`. QA agent hardened with file-path boundary constraints, multi-framework test detection, and Document Ripple section. Wave integrity check validates progress.md fields before starting. Structured 3-condition discuss-skip heuristic. Consistent "QA failure blocks" language across all 10 QA-spawning commands
+
+### Fixed
+- 8 tech debt items resolved: TD-030, TD-031, TD-036, TD-037, TD-038, TD-039, TD-040, TD-041
+
+## [2.24.2] - 2026-02-19
+
+### Changed
+- **CLI quality improvement**: All 86 functions across `bin/gsd-t.js` (80) and `scripts/gsd-t-heartbeat.js` (6) are now <= 30 lines. 3 code duplication patterns resolved (`readProjectDeps`, `writeTemplateFile`, `readPyContent` extracted). `buildEvent()` refactored to handler map pattern. `checkForUpdates` inline JS extracted to `scripts/gsd-t-fetch-version.js`. `doUpdateAll` has per-project error isolation
+
+### Added
+- `.gitattributes` and `.editorconfig` for consistent file formatting
+- 22 new tests in `test/cli-quality.test.js` (buildEvent, readProjectDeps, readPyContent, insertGuardSection, readUpdateCache, addHeartbeatHook)
+
+### Fixed
+- Heartbeat cleanup now only runs on SessionStart (not every event)
+- 7 tech debt items resolved: TD-017, TD-021, TD-024, TD-025, TD-032, TD-033, TD-034
+
+## [2.24.1] - 2026-02-18
+
+### Added
+- **Security hardening**: `scrubSecrets()` and `scrubUrl()` in heartbeat script scrub sensitive data (passwords, tokens, API keys, bearer tokens) before logging. 30 new security tests in `test/security.test.js`
+- `hasSymlinkInPath()` validates parent directories for symlink attacks
+- HTTP response accumulation bounded to 1MB in both fetch paths
+- Security Considerations section in `gsd-t-wave.md` documenting `bypassPermissions` implications
+
+### Fixed
+- `npm-update-check.js` validates cache path within `~/.claude/` and checks for symlinks before writing
+- 6 tech debt items resolved: TD-019, TD-020, TD-026, TD-027, TD-028, TD-035
+
+## [2.24.0] - 2026-02-18
+
+### Added
+- **Testing foundation**: 64 automated tests in 2 test files (`test/helpers.test.js`: 27 tests, `test/filesystem.test.js`: 37 tests) using Node.js built-in test runner (`node --test`). Zero external test dependencies
+- `module.exports` added to `bin/gsd-t.js` for 20 testable functions with `require.main` guard
+- CLI subcommand tests (--version, help, status, doctor)
+- Helper function tests (validateProjectName, applyTokens, normalizeEol, validateVersion, isNewerVersion)
+- Filesystem tests (isSymlink, ensureDir, validateProjectPath, copyFile, hasPlaywright, hasSwagger, hasApi)
+- Command listing tests (getCommandFiles, getGsdtCommands, getUtilityCommands with count validation)
+
+### Fixed
+- Tech debt item TD-003 (no test coverage) resolved
+
+## [2.23.1] - 2026-02-18
+
+### Fixed
+- **Count fix**: All command count references updated to 43/39/4 across CLAUDE.md, README.md, package.json, and docs (TD-022)
+- QA agent contract now includes test-sync phase with "During Test-Sync" section and updated output table (TD-042)
+- Orphaned domain files from previous milestones archived to `.gsd-t/milestones/` (TD-043)
+
 ## [2.23.0] - 2026-02-17
 
 ### Changed

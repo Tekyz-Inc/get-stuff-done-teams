@@ -1,6 +1,6 @@
 # Architecture — GSD-T Framework (@tekyzinc/gsd-t)
 
-## Last Updated: 2026-02-18
+## Last Updated: 2026-02-18 (Scan #4)
 
 ## System Overview
 
@@ -14,10 +14,11 @@ The framework has no runtime — it is consumed entirely by Claude Code's slash 
 
 ### CLI Installer (bin/gsd-t.js)
 - **Purpose**: Install, update, diagnose, and manage GSD-T across projects
-- **Location**: `bin/gsd-t.js` (~1,300 lines)
+- **Location**: `bin/gsd-t.js` (1,297 lines, 80 functions, 48 exports)
 - **Dependencies**: Node.js built-ins only (fs, path, os, child_process, https)
 - **Subcommands**: install, update, status, doctor, init, uninstall, update-all, register, changelog
 - **Organization**: Configuration → Guard section → Helpers → Heartbeat → Commands → Install/Update → Init → Status → Uninstall → Update-All → Doctor → Register → Update Check → Help → Main dispatch
+- **All functions ≤ 30 lines** (M6 refactoring). Largest: `doRegister()` at 30 lines.
 
 ### Slash Commands (commands/*.md)
 - **Purpose**: Define the GSD-T methodology as executable workflows for Claude Code
@@ -32,8 +33,9 @@ The framework has no runtime — it is consumed entirely by Claude Code's slash 
 - **Tokens**: `{Project Name}` and `{Date}` replaced during init via `applyTokens()`
 
 ### Hook Scripts (scripts/)
-- **gsd-t-heartbeat.js**: Real-time event logging via Claude Code hooks. Captures 9 event types as structured JSONL. Input capped at 1MB. Session ID validated. Path traversal protection. Auto-cleanup after 7 days.
-- **npm-update-check.js**: Background npm registry version checker. Spawned detached by CLI when update cache is stale.
+- **gsd-t-heartbeat.js** (183 lines, 6 functions, 5 exports): Real-time event logging via Claude Code hooks. Captures 9 event types as structured JSONL. Input capped at 1MB. Session ID validated. Path traversal protection. Secret scrubbing via `scrubSecrets()`/`scrubUrl()` (M5). EVENT_HANDLERS map pattern (M6). Auto-cleanup after 7 days (SessionStart only, M6).
+- **npm-update-check.js** (42 lines): Background npm registry version checker. Spawned detached by CLI when update cache is stale. Path validation within `~/.claude/` (M5). Symlink check before write (M5). 1MB response limit (M5).
+- **gsd-t-fetch-version.js** (25 lines, NEW in M6): Synchronous npm registry fetch. Called by `fetchVersionSync()` via `execFileSync`. HTTPS-only, 5s timeout, 1MB limit. Silent failure on errors (caller validates).
 
 ### Examples (examples/)
 - **Purpose**: Reference project structure and settings
@@ -159,15 +161,25 @@ The wave command spawns an independent agent for each phase via the Task tool wi
 
 10 commands spawn a QA teammate (`commands/gsd-t-qa.md`) for test-driven contract enforcement. QA behavior is phase-dependent: test skeletons during partition, continuous testing during execute, full audit during verify. QA failure blocks phase completion (user override available). Communication protocol: `QA: {PASS|FAIL} — {summary}`.
 
+### Test Suite (test/)
+- **helpers.test.js** (27 tests): Pure helper functions — validateProjectName, applyTokens, isNewerVersion, normalizeEol, etc.
+- **filesystem.test.js** (37 tests): Filesystem helpers + CLI subcommand integration — ensureDir, isSymlink, writeTemplateFile, status/doctor/help outputs
+- **security.test.js** (30 tests): Security functions — scrubSecrets (18), scrubUrl (5), summarize integration (4), hasSymlinkInPath (3)
+- **cli-quality.test.js** (22 tests): M6 refactored functions — buildEvent (10), readProjectDeps (3), readPyContent (2), insertGuardSection (3), readUpdateCache (1), addHeartbeatHook (3)
+- **Runner**: Node.js built-in (`node --test`), zero test dependencies
+- **Total**: 116 tests, all passing
+
 ## Security Model
 
 - **Zero dependencies**: No supply chain attack surface
-- **Symlink protection**: `isSymlink()` checked at 18+ write sites
+- **Symlink protection**: `isSymlink()` at 15+ write sites + `hasSymlinkInPath()` for parent directory validation (M5)
+- **Secret scrubbing**: `scrubSecrets()` masks passwords/tokens/API keys in heartbeat logs; `scrubUrl()` masks URL query params (M5)
 - **Input validation**: Project names, version strings, session IDs, project paths all validated
-- **Path traversal prevention**: Heartbeat validates session_id regex, resolves paths, verifies containment
+- **Path traversal prevention**: Heartbeat validates session_id regex, resolves paths, verifies containment; npm-update-check validates cache path within `~/.claude/` (M5)
 - **Command injection mitigation**: `execFileSync` with array args (not `execSync`)
 - **Exclusive file creation**: Init uses `{ flag: "wx" }` for atomic create-or-fail
-- **Resource limits**: Heartbeat stdin capped at 1MB, HTTP timeouts, 7-day file cleanup
+- **Resource limits**: Heartbeat stdin capped at 1MB, HTTP responses capped at 1MB (M5), 5s/8s timeouts, 7-day file cleanup
+- **Wave security**: `bypassPermissions` mode documented with attack surface analysis and mitigations (M5)
 
 ## Design Decisions
 
@@ -185,7 +197,7 @@ The wave command spawns an independent agent for each phase via the Task tool wi
 
 ## Known Architecture Concerns
 
-1. **CLI single-file size**: bin/gsd-t.js at ~1,300 lines exceeds the 200-line convention, but splitting adds complexity for questionable benefit given zero-dependency constraint.
+1. **CLI single-file size**: bin/gsd-t.js at 1,297 lines exceeds the 200-line convention, but splitting adds complexity for questionable benefit given zero-dependency constraint. Accepted deviation.
 2. **Four-file synchronization**: Any command change requires updating README, GSD-T-README, CLAUDE-global template, and gsd-t-help. Manual process — no automated validation.
 3. **Pre-Commit Gate unenforced**: Mental checklist in CLAUDE.md, not a git hook or CI check.
-4. **No automated testing**: CLI relies on manual testing despite 52+ functions and 1,300 lines.
+4. **Progress.md Decision Log growth**: Unbounded append-only log. May need periodic archival strategy for long-lived projects.

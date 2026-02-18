@@ -97,7 +97,7 @@ const EVENT_HANDLERS = {
   SubagentStop: (h) => ({ evt: "agent_stop", data: { agent_id: h.agent_id, agent_type: h.agent_type } }),
   TaskCompleted: (h) => ({ evt: "task_done", data: { task: h.task_subject, agent: h.teammate_name } }),
   TeammateIdle: (h) => ({ evt: "agent_idle", data: { agent: h.teammate_name, team: h.team_name } }),
-  Notification: (h) => ({ evt: "notification", data: { message: h.message, title: h.title } }),
+  Notification: (h) => ({ evt: "notification", data: { message: scrubSecrets(h.message), title: h.title } }),
   Stop: () => ({ evt: "session_stop" }),
   SessionEnd: (h) => ({ evt: "session_end", data: { reason: h.reason } }),
 };

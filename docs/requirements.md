@@ -1,6 +1,6 @@
 # Requirements — GSD-T Framework (@tekyzinc/gsd-t)
 
-## Last Updated: 2026-02-18
+## Last Updated: 2026-02-18 (Scan #4)
 
 ## Functional Requirements
 
@@ -46,19 +46,29 @@
 
 | Requirement | Test File | Test Name | Status |
 |-------------|-----------|-----------|--------|
-| REQ-001 | manual | CLI subcommand testing | passing |
-| REQ-002–011 | manual | Workflow validation by use | passing |
-| All | none | Automated test suite | **NOT IMPLEMENTED** (TD-003) |
+| REQ-001 | test/helpers.test.js, test/filesystem.test.js | CLI subcommand + helper tests | passing (64 tests) |
+| REQ-006 | test/cli-quality.test.js | Wave-related function tests (buildEvent, etc.) | passing (22 tests) |
+| REQ-007 | test/security.test.js | Heartbeat security (scrubSecrets, scrubUrl) | passing (30 tests) |
+| REQ-002–005, 008–013 | manual | Workflow validation by use | passing |
+
+**Total automated tests**: 116 across 4 test files (M4, M5, M6). Runner: `node --test` (zero dependencies).
 
 ## Gaps Identified
 
-### Open (Scan #3 — 2026-02-18)
-- No automated test suite — all validation is manual (TD-003)
-- Command count 42→43 not updated across reference files (TD-022 regressed)
-- QA agent contract missing test-sync phase definition (TD-042)
-- Wave bypassPermissions security not documented (TD-035)
+### Open (Scan #4 — 2026-02-18)
+- progress.md Status: ACTIVE not recognized by wave contract (TD-044)
+- CHANGELOG.md missing M4-M7 entries (TD-045)
+- Orphaned domain files from M6/M7 not deleted (TD-046)
+- progress-file-format contract needs enriched format update (TD-047)
+- See `.gsd-t/techdebt.md` for full list (13 items, all LOW-MEDIUM)
 
-### Resolved (2026-02-18)
-- ~~Backlog file format drifted from contract (TD-014)~~ — RESOLVED
-- ~~Progress.md format drifted from contract (TD-015)~~ — RESOLVED
+### Resolved (Milestones 3-7, 2026-02-18/19)
+- ~~No automated test suite (TD-003)~~ — RESOLVED (116 tests, M4)
+- ~~Command count 42→43 not updated (TD-022)~~ — RESOLVED (M3)
+- ~~QA agent contract missing test-sync (TD-042)~~ — RESOLVED (M3)
+- ~~Wave bypassPermissions not documented (TD-035)~~ — RESOLVED (M5)
+- ~~All 15 scan #3 functions >30 lines (TD-021)~~ — RESOLVED (M6, all 80 functions ≤30 lines)
+- ~~34 fractional step numbers (TD-031)~~ — RESOLVED (M7, all renumbered)
+- ~~Backlog file format drift (TD-014)~~ — RESOLVED
+- ~~Progress.md format drift (TD-015)~~ — RESOLVED
 - ~~7 backlog commands missing from GSD-T-README (TD-016)~~ — RESOLVED

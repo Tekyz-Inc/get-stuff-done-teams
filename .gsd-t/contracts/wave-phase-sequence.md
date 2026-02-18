@@ -49,12 +49,12 @@ PARTITION → DISCUSS → PLAN → IMPACT → EXECUTE → TEST-SYNC → INTEGRAT
 Phases proceed in order. Each phase sets its status in `progress.md` upon completion. The next phase reads the status to confirm the prerequisite phase completed.
 
 ### Skippable: Discuss
-Discuss is the ONLY skippable phase. Skip when:
-- The path is clear (simple milestone, clear requirements)
-- Architecture is well-established
-- No open design questions
+Discuss is the ONLY skippable phase. Uses a structured 3-condition check (M7):
+1. Single domain (no cross-domain design questions)
+2. No open questions in the Decision Log
+3. All cross-domain contracts already exist
 
-When skipped, transition directly: PARTITIONED → PLANNED (gsd-t-plan runs after partition).
+When all 3 conditions are met, skip is automatic. When skipped, transition directly: PARTITIONED → PLANNED (gsd-t-plan runs after partition).
 
 ### Decision Gates
 
@@ -92,6 +92,22 @@ When skipped, transition directly: PARTITIONED → PLANNED (gsd-t-plan runs afte
 ### Level 1-2
 - Pause at each phase for user confirmation (Level 1)
 - Pause at milestones only (Level 2)
+
+## Integrity Check (M7)
+
+Wave Step 1 performs a three-field integrity check on `progress.md` before starting:
+1. **Status** — must be a recognized value from the Valid Status table
+2. **Version** — must match `package.json` version
+3. **Current Milestone** — must have an active milestone defined
+
+If any field is missing or invalid, wave reports the error and stops.
+
+## Security Considerations (M5)
+
+The wave orchestrator uses `bypassPermissions` mode for phase agents. This is documented in `gsd-t-wave.md` with security implications:
+- Phase agents can modify files without per-file user approval
+- The Destructive Action Guard still applies (agents must stop for destructive actions)
+- Each phase agent operates in a fresh context window to prevent cross-phase data leakage
 
 ## Interruption Handling
 When interrupted mid-wave:

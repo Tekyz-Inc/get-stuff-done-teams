@@ -47,10 +47,28 @@ gsd-t-partition, gsd-t-plan, gsd-t-execute, gsd-t-integrate, gsd-t-verify, gsd-t
 ### Current Milestone
 ```markdown
 ## Current Milestone
-{milestone name} | None — ready for next milestone
+
+| # | Milestone | Status | Domains |
+|---|-----------|--------|---------|
+| {N} | {name} | {status} | {domain list} |
 ```
 
-When active, contains the milestone name. When idle, contains `None — ready for next milestone`.
+When active, contains the milestone table row. When idle, shows `None — ready for next milestone`.
+
+**Optional enrichment fields** (added below the table when milestone is active):
+```markdown
+**Goal**: {1-2 sentence description of what done looks like}
+
+**Result**: {summary after completion — only present on completed milestones}
+
+**Tech Debt Items**: {comma-separated TD-IDs, if milestone addresses tech debt}
+
+**Success Criteria**:
+- [ ] {measurable outcome}
+- [ ] {measurable outcome}
+```
+
+These fields are set by `gsd-t-milestone` and updated by `gsd-t-complete-milestone`. The Goal and Success Criteria fields are required; Result and Tech Debt Items are optional.
 
 ### Completed Milestones Table
 ```markdown

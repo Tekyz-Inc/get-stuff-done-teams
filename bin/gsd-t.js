@@ -342,15 +342,12 @@ function installHeartbeat() {
 }
 
 function configureHeartbeatHooks(scriptPath) {
-  let settings = {};
-  if (fs.existsSync(SETTINGS_JSON)) {
-    try {
-      settings = JSON.parse(fs.readFileSync(SETTINGS_JSON, "utf8"));
-    } catch {
-      warn("settings.json has invalid JSON — cannot configure hooks");
-      return 0;
-    }
+  const parsed = readSettingsJson();
+  if (parsed === null && fs.existsSync(SETTINGS_JSON)) {
+    warn("settings.json has invalid JSON — cannot configure hooks");
+    return 0;
   }
+  const settings = parsed || {};
 
   if (!settings.hooks) settings.hooks = {};
   const cmd = `node "${scriptPath.replace(/\\/g, "\\\\")}"`;
@@ -698,17 +695,17 @@ function showStatusTeams() {
     info("No settings.json found (Claude Code will use defaults)");
     return;
   }
-  try {
-    const settings = JSON.parse(fs.readFileSync(SETTINGS_JSON, "utf8"));
-    const teamsEnabled = settings?.env?.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS === "1";
-    if (teamsEnabled) {
-      success("Agent Teams enabled in settings.json");
-    } else {
-      info("Agent Teams not enabled (optional — solo mode works fine)");
-      info('Add "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1" to env in settings.json');
-    }
-  } catch {
+  const settings = readSettingsJson();
+  if (settings === null) {
     warn("settings.json exists but couldn't be parsed");
+    return;
+  }
+  const teamsEnabled = settings?.env?.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS === "1";
+  if (teamsEnabled) {
+    success("Agent Teams enabled in settings.json");
+  } else {
+    info("Agent Teams not enabled (optional — solo mode works fine)");
+    info('Add "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1" to env in settings.json');
   }
 }
 
@@ -984,14 +981,12 @@ function checkDoctorClaudeMd() {
 
 function checkDoctorSettings() {
   if (!fs.existsSync(SETTINGS_JSON)) { info("No settings.json (not required)"); return 0; }
-  try {
-    JSON.parse(fs.readFileSync(SETTINGS_JSON, "utf8"));
+  if (readSettingsJson() !== null) {
     success("settings.json is valid JSON");
     return 0;
-  } catch (e) {
-    error(`settings.json has invalid JSON: ${e.message}`);
-    return 1;
   }
+  error("settings.json has invalid JSON");
+  return 1;
 }
 
 function checkDoctorEncoding(installed) {
@@ -1106,6 +1101,12 @@ function checkForUpdates(command) {
   } else if (isStale) {
     refreshVersionAsync();
   }
+}
+
+function readSettingsJson() {
+  if (!fs.existsSync(SETTINGS_JSON)) return null;
+  try { return JSON.parse(fs.readFileSync(SETTINGS_JSON, "utf8")); }
+  catch { return null; }
 }
 
 function readUpdateCache() {
@@ -1235,6 +1236,7 @@ module.exports = {
   checkDoctorEncoding,
   updateExistingGlobalClaudeMd,
   appendGsdtToClaudeMd,
+  readSettingsJson,
   readUpdateCache,
   fetchVersionSync,
   refreshVersionAsync,

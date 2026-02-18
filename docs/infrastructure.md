@@ -1,6 +1,6 @@
 # Infrastructure — GSD-T Framework (@tekyzinc/gsd-t)
 
-## Last Updated: 2026-02-18
+## Last Updated: 2026-02-18 (Scan #4)
 
 ## Quick Reference
 
@@ -30,7 +30,10 @@ node bin/gsd-t.js status
 
 ### Testing
 ```bash
-# Test CLI subcommands
+# Run automated test suite (116 tests, zero dependencies)
+npm test
+
+# Test CLI subcommands manually
 node bin/gsd-t.js install
 node bin/gsd-t.js status
 node bin/gsd-t.js doctor
@@ -44,8 +47,9 @@ ls templates/*.md | wc -l  # Should be 9
 ### Scripts
 | Script | Purpose |
 |--------|---------|
-| `scripts/gsd-t-heartbeat.js` | Claude Code hook event logger (JSONL output) |
-| `scripts/npm-update-check.js` | Background npm registry version checker |
+| `scripts/gsd-t-heartbeat.js` | Claude Code hook event logger (JSONL output, secret scrubbing) |
+| `scripts/npm-update-check.js` | Background npm registry version checker (path-validated) |
+| `scripts/gsd-t-fetch-version.js` | Synchronous npm registry fetch (5s timeout, 1MB limit) |
 
 ## Distribution
 
@@ -72,7 +76,7 @@ ls templates/*.md | wc -l  # Should be 9
 get-stuff-done-teams/
 ├── bin/gsd-t.js        — CLI installer (~1,300 lines, zero dependencies)
 ├── commands/           — 43 slash command files (39 GSD-T + 4 utility)
-├── scripts/            — 2 hook/utility scripts
+├── scripts/            — 3 hook/utility scripts
 ├── templates/          — 9 document templates
 ├── examples/           — Reference project structure
 ├── docs/               — Methodology + living docs
