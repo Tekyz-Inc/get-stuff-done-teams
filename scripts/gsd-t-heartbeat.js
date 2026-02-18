@@ -18,6 +18,12 @@ const MAX_STDIN = 1024 * 1024; // 1MB — prevent OOM from unbounded input
 const SAFE_SID = /^[a-zA-Z0-9_-]+$/; // Allowlist for session_id — blocks path traversal
 const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days — auto-cleanup threshold
 
+// ─── Exports (for testing) ───────────────────────────────────────────────────
+module.exports = { scrubSecrets, scrubUrl, buildEvent, summarize, shortPath };
+
+// ─── Main (stdin processing) ─────────────────────────────────────────────────
+if (require.main === module) {
+
 let input = "";
 let aborted = false;
 process.stdin.setEncoding("utf8");
@@ -63,6 +69,8 @@ process.stdin.on("end", () => {
     // Silent failure — never interfere with Claude Code
   }
 });
+
+} // end require.main
 
 function cleanupOldHeartbeats(gsdtDir) {
   try {

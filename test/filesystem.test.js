@@ -13,6 +13,7 @@ const { execFileSync } = require("node:child_process");
 const {
   validateProjectPath,
   isSymlink,
+  hasSymlinkInPath,
   ensureDir,
   copyFile,
   hasPlaywright,
@@ -53,6 +54,26 @@ describe("isSymlink", () => {
 
   it("returns false for a regular directory", () => {
     assert.equal(isSymlink(tmpDir), false);
+  });
+});
+
+// ─── hasSymlinkInPath ────────────────────────────────────────────────────────
+
+describe("hasSymlinkInPath", () => {
+  it("returns false for a path with no symlinks", () => {
+    const d = path.join(tmpDir, "normal", "nested");
+    fs.mkdirSync(d, { recursive: true });
+    assert.equal(hasSymlinkInPath(d), false);
+  });
+
+  it("returns false for non-existent path with real parents", () => {
+    const d = path.join(tmpDir, "real-parent", "nonexistent");
+    fs.mkdirSync(path.join(tmpDir, "real-parent"), { recursive: true });
+    assert.equal(hasSymlinkInPath(d), false);
+  });
+
+  it("returns false for the temp dir itself", () => {
+    assert.equal(hasSymlinkInPath(tmpDir), false);
   });
 });
 
