@@ -12,6 +12,19 @@ Read:
 5. `docs/requirements.md` — original requirements
 6. All source code
 
+## Step 1.5: Spawn QA Agent
+
+Spawn the QA teammate to run the full test audit:
+
+```
+Teammate "qa": Read commands/gsd-t-qa.md for your full instructions.
+  Phase context: verify. Read .gsd-t/contracts/ for contract definitions.
+  Run full test audit — contract tests, acceptance tests, E2E suite.
+  Report: comprehensive test results with pass/fail counts and coverage gaps.
+```
+
+QA failure blocks verification completion.
+
 ## Step 2: Define Verification Dimensions
 
 Standard dimensions (adjust based on project):
@@ -88,7 +101,12 @@ Teammate assignments:
   - Secret/credential handling
   Report: severity-ranked findings.
 
-Lead: Collect all reports, synthesize, create remediation plan.
+- Teammate "qa": Read commands/gsd-t-qa.md for your full instructions.
+  Phase context: verify. Read .gsd-t/contracts/ for contract definitions.
+  Run full test audit — contract tests, acceptance tests, E2E suite.
+  Report: comprehensive test results with pass/fail counts and coverage gaps.
+
+Lead: Collect all reports (including QA), synthesize, create remediation plan.
 ```
 
 ## Step 4: Compile Verification Report

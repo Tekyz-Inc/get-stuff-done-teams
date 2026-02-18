@@ -2,6 +2,19 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.23.0] - 2026-02-17
+
+### Changed
+- **Wave orchestrator rewrite**: `gsd-t-wave` now spawns an independent agent for each phase instead of executing all phases inline. Each phase agent gets a fresh context window (~200K tokens), eliminating cross-phase context accumulation and preventing mid-wave compaction. The orchestrator stays lightweight (~30KB), reading only progress.md between phases. Phase sequence is unchanged — only the execution model changed. Estimated 75-85% reduction in peak context usage during waves
+
+## [2.22.0] - 2026-02-17
+
+### Added
+- **gsd-t-qa**: New QA Agent command — dedicated teammate for test generation, execution, and gap reporting. Spawned automatically by 10 GSD-T phase commands
+- **QA Agent spawn steps**: Added to partition (4.7), plan (4.7), execute (1.5 + team), verify (1.5 + team), complete-milestone (7.6), quick (2.5), debug (2.5), integrate (4.5), test-sync (1.5), wave (1.5)
+- **Contract-to-test mapping rules**: API contracts → Playwright API tests, Schema contracts → constraint tests, Component contracts → E2E tests
+- **QA Agent (Mandatory) section**: Added to global CLAUDE.md template — QA failure blocks phase completion
+
 ## [2.21.1] - 2026-02-18
 
 ### Fixed

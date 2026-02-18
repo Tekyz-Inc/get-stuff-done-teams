@@ -129,6 +129,7 @@ This will replace changed command files, back up your CLAUDE.md if customized, a
 | `/user:gsd-t-impact` | Analyze downstream effects | In wave |
 | `/user:gsd-t-execute` | Run tasks (solo or team) | In wave |
 | `/user:gsd-t-test-sync` | Sync tests with code changes | In wave |
+| `/user:gsd-t-qa` | QA agent — test generation, execution, gap reporting | Auto-spawned |
 | `/user:gsd-t-integrate` | Wire domains together | In wave |
 | `/user:gsd-t-verify` | Run quality gates | In wave |
 | `/user:gsd-t-complete-milestone` | Archive + git tag | In wave |

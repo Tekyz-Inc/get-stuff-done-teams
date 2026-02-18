@@ -175,9 +175,20 @@ Before creating the git tag, verify all documentation is up to date:
 
 ### This is the LAST GATE before tagging — nothing should be undocumented.
 
-## Step 7.6: Test Verification
+## Step 7.6: Spawn QA Agent and Test Verification
 
-Before creating the git tag, verify the milestone is truly complete:
+Before creating the git tag, spawn the QA teammate for a final test audit:
+
+```
+Teammate "qa": Read commands/gsd-t-qa.md for your full instructions.
+  Phase context: complete-milestone. Read .gsd-t/contracts/ for contract definitions.
+  Run final test audit before milestone archive. Verify all contract tests pass.
+  Report: final test pass/fail counts and any unresolved gaps.
+```
+
+Wait for QA agent to complete. QA failure blocks milestone completion.
+
+Then verify the milestone is truly complete:
 
 1. **Run the full test suite**: Execute ALL tests — unit, integration, and E2E
 2. **Run Playwright E2E** (if configured): Detect `playwright.config.*` or Playwright in dependencies. If present, run the full Playwright suite. If specs are missing or stale, invoke `gsd-t-test-sync` first.

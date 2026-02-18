@@ -1,121 +1,131 @@
-# GSD-T: Wave — Full Cycle Orchestration
+# GSD-T: Wave — Full Cycle Orchestration (Agent-Per-Phase)
 
-You are running a complete GSD-T cycle through all phases for the current milestone. This is the "just go" command — it runs partition → discuss → plan → impact → execute → test-sync → integrate → verify → complete-milestone in sequence, using teams where beneficial.
+You are the wave orchestrator. You do NOT execute phases yourself. Instead, you spawn an **independent agent for each phase**, giving each a fresh context window. This eliminates context accumulation across phases and prevents mid-wave compaction.
 
-## Step 1: Load State
+## Step 1: Load State (Lightweight)
 
-Read:
-1. `CLAUDE.md`
-2. `.gsd-t/progress.md`
-3. All `.gsd-t/` files
+Read ONLY:
+1. `.gsd-t/progress.md` — current status, milestone name, phase state
+2. `CLAUDE.md` — autonomy level only (scan for Level 1/2/3)
 
-Determine current status and resume from wherever the milestone left off.
+Do NOT read contracts, domains, docs, or source code. You are the orchestrator — phase agents handle their own context loading.
 
-## Step 2: Execute Remaining Phases
+## Step 2: Determine Resume Point
 
-Work through each phase that hasn't been completed:
+From progress.md status, determine which phase to start from:
 
-### INITIALIZED or DEFINED → Run Partition
-- Decompose into domains with contracts
-- Set status to PARTITIONED
+| Status | Next Phase |
+|--------|------------|
+| READY | Need milestone first — prompt user or run milestone |
+| INITIALIZED / DEFINED | Partition |
+| PARTITIONED | Discuss (or skip to Plan if path is clear) |
+| DISCUSSED | Plan |
+| PLANNED | Impact |
+| IMPACT_ANALYZED | Execute |
+| EXECUTED | Test-Sync |
+| TESTS_SYNCED | Integrate |
+| INTEGRATED | Verify |
+| VERIFIED | Complete |
+| VERIFY_FAILED | Remediate → re-Verify |
 
-### PARTITIONED → Run Discuss (if needed)
-- If there are open architectural questions or multiple viable approaches: discuss
-- If the path is clear (simple milestone, clear requirements): skip to plan
-- Set status to DISCUSSED
+## Step 3: Phase Orchestration Loop
 
-### DISCUSSED → Run Plan
-- Create atomic task lists per domain
-- Map dependencies and checkpoints
-- Set status to PLANNED
+For each remaining phase, spawn an **independent agent** using the Task tool. Each agent gets a fresh context window, loads its own state from files, and reports back.
 
-### PLANNED → Run Impact Analysis
-- Analyze downstream effects of all planned changes
-- Check for contract violations
-- Trace dependencies and consumers
-- Produce `.gsd-t/impact-report.md`
+### Phase Agent Spawn Pattern
 
-**Decision Gate:**
-- If PROCEED: continue to execute
-- If PROCEED WITH CAUTION: report items, continue if no user intervention
-- If BLOCK: stop, add remediation tasks, require user decision
+For each phase, spawn the agent like this:
 
-- Set status to IMPACT_ANALYZED
+```
+Task agent (subagent_type: "general-purpose", mode: "bypassPermissions"):
+  "Execute the {PHASE} phase of the current GSD-T milestone.
 
-### IMPACT_ANALYZED → Run Execute
-- **Auto-select mode**:
-  - Count total independent starting tasks across domains
-  - If 3+ domains with independent work AND teams are enabled: use team mode
-  - Otherwise: solo mode
+   Read and follow the full instructions in commands/gsd-t-{phase}.md
+   Read .gsd-t/progress.md for current milestone and state.
+   Read CLAUDE.md for project conventions.
+   Read .gsd-t/contracts/ for domain interfaces.
 
-- **Destructive Action Guard**: Before each task, check if it involves destructive or structural changes (DROP TABLE, schema changes that lose data, removing existing modules, replacing architecture patterns). If YES → STOP and present the change to the user. Wait for explicit approval. This applies at ALL autonomy levels.
+   Complete the phase fully:
+   - Follow every step in the command file
+   - Update .gsd-t/progress.md status when done
+   - Run document ripple as specified
+   - Commit your work
 
-- **After each task:**
-  - Run quick test-sync (affected tests only)
-  - If test failures: pause and report
-  - If all pass: continue
+   Report back: one-line status summary."
+```
 
-- Run through all tasks, respecting checkpoints
-- Set status to EXECUTED
+### Phase Sequence
 
-### EXECUTED → Run Full Test Sync
-- Complete test coverage analysis
-- Run all tests
-- Generate/update test tasks if gaps found
-- If critical test failures: add fix tasks, re-execute
-- Set status to TESTS_SYNCED
+Execute phases in this order, spawning one agent per phase:
 
-### TESTS_SYNCED → Run Integrate
-- Wire domains together
-- Verify contract compliance at boundaries
-- Run integration tests
-- Set status to INTEGRATED
+#### 1. PARTITION
+Spawn agent → `commands/gsd-t-partition.md`
+- After: Read `progress.md`, verify status = PARTITIONED
+- If failed: Report error, stop
 
-### INTEGRATED → Run Verify
-- **Auto-select mode**:
-  - If teams enabled and milestone is complex (3+ domains): team verify
-  - Otherwise: solo verify
-- Run quality gates across all dimensions
-- Handle remediation if needed
-- Set status to VERIFIED
+#### 2. DISCUSS (conditional)
+- Check: Are there open architectural questions or multiple viable approaches?
+- If YES: Spawn agent → `commands/gsd-t-discuss.md`
+  - **Note**: Discuss always pauses for user input, even at Level 3. The discuss agent will interact with the user directly.
+- If NO (path is clear): Skip to Plan
 
-### VERIFIED → Run Complete Milestone
-- Archive milestone documentation to `.gsd-t/milestones/{name}/`
-- Generate summary.md
-- Clean working state for next milestone
-- Create git tag
-- Set status to COMPLETED
+#### 3. PLAN
+Spawn agent → `commands/gsd-t-plan.md`
+- After: Read `progress.md`, verify status = PLANNED
 
-## Step 3: Phase Transitions
+#### 4. IMPACT
+Spawn agent → `commands/gsd-t-impact.md`
+- After: Read `progress.md` and `.gsd-t/impact-report.md`
+- **Decision Gate**:
+  - PROCEED → continue to Execute
+  - PROCEED WITH CAUTION → log items, continue
+  - BLOCK → stop, report to user, wait for decision
 
-Between each phase:
-1. Update `.gsd-t/progress.md`
-2. Report brief status to user
+#### 5. EXECUTE
+Spawn agent → `commands/gsd-t-execute.md`
+- This is the heaviest phase. The execute agent will handle its own domain agent spawning and QA agent internally.
+- After: Read `progress.md`, verify status = EXECUTED
 
-### Autonomy Behavior
+#### 6. TEST-SYNC
+Spawn agent → `commands/gsd-t-test-sync.md`
+- After: Read `progress.md`, verify status = TESTS_SYNCED
 
-**Level 3 (Full Auto)**: Auto-advance to the next phase after logging status. Only STOP for:
-- Destructive Action Guard violations (always)
-- Impact analysis BLOCK verdict (always)
+#### 7. INTEGRATE
+Spawn agent → `commands/gsd-t-integrate.md`
+- After: Read `progress.md`, verify status = INTEGRATED
+
+#### 8. VERIFY
+Spawn agent → `commands/gsd-t-verify.md`
+- After: Read `progress.md`, check status:
+  - VERIFIED → proceed to Complete
+  - VERIFY_FAILED → handle remediation (see Error Recovery)
+
+#### 9. COMPLETE
+Spawn agent → `commands/gsd-t-complete-milestone.md`
+- After: Read `progress.md`, verify status = COMPLETED
+
+### Between Each Phase
+
+After each agent completes:
+1. Read `.gsd-t/progress.md` to verify the phase updated status correctly
+2. Report brief status to user:
+   ```
+   ✅ {Phase} complete — {agent's one-line summary}
+   ```
+3. If status was NOT updated correctly: report error and stop
+4. Proceed to next phase
+
+## Step 4: Autonomy Behavior
+
+**Level 3 (Full Auto)**: Auto-advance to next phase after each agent completes. Only STOP for:
+- Destructive Action Guard violations (reported by phase agent)
+- Impact analysis BLOCK verdict
 - Unrecoverable errors after 2 fix attempts
-- The Discuss phase (always pauses for user input, even at Level 3)
+- Discuss phase (always pauses for user input)
 
-**Level 1–2**: If any phase produces findings that need user input, STOP and ask. If all clear, continue to next phase.
+**Level 1–2**: Pause between phases, show status, ask to continue.
 
-Status messages:
-```
-✅ Partition complete — 3 domains defined, 4 contracts written
-✅ Discuss complete — 2 design decisions logged
-✅ Plan complete — 12 tasks across 3 domains
-⚠️ Impact analysis found 2 items requiring attention — proceeding
-✅ Execute complete — 12/12 tasks done
-✅ Test sync — 8 tests affected, all passing, 1 gap noted
-✅ Integrate complete — all domain boundaries wired
-✅ Verify complete — all quality gates passed
-✅ Milestone archived and tagged
-```
-
-## Step 4: Completion
+## Step 5: Completion
 
 When all phases are done:
 ```
@@ -143,59 +153,67 @@ Next steps:
 
 ## Interruption Handling
 
-If the user interrupts or the session needs to end:
-1. Finish the current atomic task
-2. Save all state to `.gsd-t/progress.md`
-3. Note exactly where to resume: "{phase} — {domain} — Task {N}"
-4. Report: "Paused at {location}. Run `/user:gsd-t-resume` to continue."
+If the user interrupts or a phase agent fails:
+1. The current phase agent saves its own state to `.gsd-t/progress.md`
+2. Report: "Paused at {phase}. Run `/user:gsd-t-resume` to continue."
+3. Resume will pick up from the last completed phase
 
 ## Error Recovery
 
 ### If impact analysis blocks:
-- Report blocking issues
-- Generate remediation tasks
-- Add to appropriate domain
+- Read the impact report from the agent's output
+- Report blocking issues to user
 
-**Level 3 (Full Auto)**: Auto-execute remediation tasks, then re-run impact analysis. Only STOP if remediation fails after 2 attempts.
-
-**Level 1–2**: Ask: "Address blockers now, or pause?" If address: execute remediation tasks, re-run impact. If pause: save state, exit.
+**Level 3**: Spawn a remediation agent to fix blocking issues, then re-spawn impact agent. Max 2 attempts.
+**Level 1–2**: Ask user for direction.
 
 ### If tests fail during execute:
-- Pause execution
-- Report failing tests
-- Generate fix tasks
-
-**Level 3 (Full Auto)**: Auto-execute fix tasks and re-run tests (up to 2 fix attempts). If still failing, STOP and report to user.
-
-**Level 1–2**: Ask: "Fix now or continue?" If fix: execute fix tasks, re-run tests. If continue: note failures, proceed (will catch in verify).
+- The execute agent handles test failures internally (up to 2 fix attempts)
+- If still failing after 2 attempts, the execute agent reports failure
+- Orchestrator stops and reports to user
 
 ### If verify fails:
-- Report failures
-- Generate remediation tasks
-- Do NOT run complete-milestone
+- Read verify report for failure details
 
-**Level 3 (Full Auto)**: Auto-execute remediation tasks and re-run verify (up to 2 attempts). If still failing, STOP and report to user.
+**Level 3**: Spawn remediation agent, then re-spawn verify agent. Max 2 attempts.
+**Level 1–2**: Ask user for direction.
 
-**Level 1–2**: Ask: "Address issues now?" If yes: execute remediation, re-run verify. If no: save state with VERIFY_FAILED status.
+## Why Agent-Per-Phase
+
+Each phase agent gets a **fresh context window** (~200K tokens). This means:
+- Phase 7 doesn't carry the context baggage from phases 1-6
+- Mid-phase compaction is eliminated for standard-sized phases
+- Each agent loads only what it needs from state files
+- The orchestrator stays lightweight (~30KB total)
+
+State handoff happens through `.gsd-t/` files — exactly what they were designed for.
 
 ## Workflow Visualization
 
 ```
-┌─────────┐   ┌─────────┐   ┌──────┐   ┌────────┐   ┌─────────┐
-│PARTITION│ → │ DISCUSS │ → │ PLAN │ → │ IMPACT │ → │ EXECUTE │
-└─────────┘   └─────────┘   └──────┘   └────────┘   └────┬────┘
-                                            │            │
-                                         BLOCK?      test-sync
-                                            ↓         after each
-                                        remediate        task
-                                            │            │
-┌──────────┐   ┌────────┐   ┌───────────┐   │   ┌────────┴────────┐
-│ COMPLETE │ ← │ VERIFY │ ← │ INTEGRATE │ ← └── │ FULL TEST-SYNC  │
-└──────────┘   └────────┘   └───────────┘       └─────────────────┘
-     │
-     ↓
-  archive
-  git tag
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                     Wave Orchestrator (lightweight)                          │
+│                                                                              │
+│  ┌─────────┐   ┌─────────┐   ┌──────┐   ┌────────┐   ┌─────────┐          │
+│  │PARTITION│ → │ DISCUSS │ → │ PLAN │ → │ IMPACT │ → │ EXECUTE │          │
+│  │ agent 1 │   │ agent 2 │   │agent 3│   │agent 4 │   │ agent 5 │          │
+│  └────┬────┘   └────┬────┘   └───┬──┘   └───┬────┘   └────┬────┘          │
+│       ↓              ↓            ↓           ↓             ↓               │
+│    status          status      status      status        status             │
+│    check           check       check       check +       check              │
+│                                           gate                              │
+│                                                                              │
+│  ┌──────────┐   ┌────────┐   ┌───────────┐       ┌─────────────────┐       │
+│  │ COMPLETE │ ← │ VERIFY │ ← │ INTEGRATE │ ←──── │ FULL TEST-SYNC  │       │
+│  │ agent 9  │   │agent 8 │   │  agent 7  │       │    agent 6      │       │
+│  └────┬────┘   └────┬────┘   └─────┬─────┘       └────────┬────────┘       │
+│       ↓              ↓              ↓                      ↓               │
+│    archive        status +       status                 status              │
+│    git tag        gate check     check                  check               │
+│                                                                              │
+│  Each agent: fresh context window, reads state from files, dies when done   │
+│  Orchestrator: ~30KB total, never compacts                                  │
+└──────────────────────────────────────────────────────────────────────────────┘
 ```
 
 $ARGUMENTS

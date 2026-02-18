@@ -118,6 +118,19 @@ Before finalizing the plan:
 2. **Verify passing**: Document any pre-existing failures — assign them to appropriate domain tasks
 3. **Include test tasks**: Ensure each domain's task list includes test creation/update tasks where acceptance criteria require verification
 
+## Step 4.7: Spawn QA Agent
+
+After task lists are created, spawn the QA teammate to generate acceptance test scenarios:
+
+```
+Teammate "qa": Read commands/gsd-t-qa.md for your full instructions.
+  Phase context: plan. Read .gsd-t/domains/*/tasks.md for task lists.
+  Generate acceptance test scenarios for tasks with user-facing deliverables.
+  Report: number of acceptance test scenarios generated.
+```
+
+Wait for QA agent to complete before proceeding.
+
 ## Step 5: Update Progress
 
 Update `.gsd-t/progress.md`:

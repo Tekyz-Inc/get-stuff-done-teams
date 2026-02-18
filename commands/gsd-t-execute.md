@@ -19,6 +19,19 @@ Identify:
 - Which tasks are unblocked (no pending dependencies)
 - Which tasks are blocked (waiting on checkpoints)
 
+## Step 1.5: Spawn QA Agent
+
+Spawn the QA teammate to handle testing alongside execution:
+
+```
+Teammate "qa": Read commands/gsd-t-qa.md for your full instructions.
+  Phase context: execute. Read .gsd-t/contracts/ for contract definitions.
+  Run tests continuously as tasks complete. Write edge case tests for new code paths.
+  Report: test pass/fail status after each task completion.
+```
+
+The QA agent runs in parallel — it writes and executes tests while you implement tasks. QA failure on any task blocks proceeding to the next task.
+
 ## Step 2: Choose Execution Mode
 
 ### Solo Mode (default)
@@ -79,6 +92,10 @@ Teammate assignments:
 - Teammate "{domain-1}": Execute .gsd-t/domains/{domain-1}/tasks.md
 - Teammate "{domain-2}": Execute .gsd-t/domains/{domain-2}/tasks.md
 - Teammate "{domain-3}": Execute .gsd-t/domains/{domain-3}/tasks.md
+- Teammate "qa": Read commands/gsd-t-qa.md for your full instructions.
+  Phase context: execute. Read .gsd-t/contracts/ for contract definitions.
+  Run tests continuously as tasks complete. Write edge case tests.
+  Report: test pass/fail status after each task completion.
 
 Lead responsibilities:
 - Use delegate mode (Shift+Tab)

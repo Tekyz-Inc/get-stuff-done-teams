@@ -21,6 +21,19 @@ Identify:
 - Naming conventions
 - Test run commands (from package.json scripts, Makefile, or CI config)
 
+## Step 1.5: Spawn QA Agent
+
+Spawn the QA teammate to assist with test coverage analysis:
+
+```
+Teammate "qa": Read commands/gsd-t-qa.md for your full instructions.
+  Phase context: test-sync. Read .gsd-t/contracts/ for contract definitions.
+  Audit test coverage against contracts. Identify gaps and stale tests.
+  Report: coverage gaps, stale tests, and recommended test tasks.
+```
+
+QA agent works alongside the test sync process. QA failure flags are included in the coverage report.
+
 ## Step 2: Map Code to Tests
 
 For each file changed in recent tasks:
