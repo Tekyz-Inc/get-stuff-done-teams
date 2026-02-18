@@ -1,0 +1,5 @@
+# Auto-detect text files and ensure consistent line endings
+* text=auto
+
+# Force LF for JavaScript files
+*.js text eol=lf
