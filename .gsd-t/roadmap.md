@@ -60,28 +60,18 @@
 
 ---
 
-## Milestone 7: Command File Cleanup — Tech Debt
+## Milestone 7: Command File Cleanup — Tech Debt (COMPLETED v2.24.3)
 **Source**: Promoted from tech debt scans #2-3 (2026-02-18)
 **Items**: TD-030, TD-031, TD-036, TD-037, TD-038, TD-039, TD-040, TD-041
 **Goal**: All command files follow consistent structure and conventions
-**Scope**:
-- Add Autonomy Behavior sections to gsd-t-discuss.md and gsd-t-impact.md
-- Renumber fractional steps (e.g., 4.7 → proper integers) across 17 command files
-- Add explicit file-path boundaries to QA agent (write only in test/ and .gsd-t/)
-- Add git-status integrity check for wave state handoff
-- Add Document Ripple section to gsd-t-qa.md
-- Add explicit "QA failure blocks {phase}" language to plan and test-sync commands
-- Add multi-framework guidance to QA agent (Jest, Vitest, pytest, not just Playwright)
-- Define machine-parseable discuss-skip heuristic for wave orchestrator
 **Success criteria**:
-- [ ] discuss.md and impact.md have Autonomy Behavior sections
-- [ ] Zero fractional step numbers across all command files
-- [ ] QA agent has file-path boundary constraints
-- [ ] Wave reads progress.md with integrity check
-- [ ] gsd-t-qa.md has Document Ripple section
-- [ ] All 10 QA-spawning commands have consistent blocking language
-- [ ] QA agent supports multiple test frameworks
-- [ ] Wave discuss-skip uses structured signal (not subjective judgment)
-- [ ] No regression in existing functionality
-**Estimated effort**: 0.5-1 session
-**Priority**: LOW — during next maintenance window
+- [x] discuss.md and impact.md have Autonomy Behavior sections
+- [x] Zero fractional step numbers across all command files (85 renumbered across 17 files)
+- [x] QA agent has file-path boundary constraints
+- [x] Wave reads progress.md with integrity check
+- [x] gsd-t-qa.md has Document Ripple section
+- [x] All QA-spawning commands have consistent blocking language (9 active spawners)
+- [x] QA agent supports multiple test frameworks (Playwright, Jest, Vitest, node:test, pytest)
+- [x] Wave discuss-skip uses structured signal (domain count + contracts + open questions)
+- [x] No regression in existing functionality — 76/76 tests pass
+**Completed**: 2026-02-19
