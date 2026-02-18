@@ -919,81 +919,81 @@ function checkProjectHealth(projects) {
 }
 
 function doUpdateAll() {
-  // First, run the normal global update
-  const installedVersion = getInstalledVersion();
-  if (installedVersion !== PKG_VERSION) {
+  updateGlobalCommands();
+  heading("Updating registered projects...");
+  log("");
+
+  const projects = getRegisteredProjects();
+  if (projects.length === 0) { showNoProjectsHint(); return; }
+
+  const counts = { updated: 0, skipped: 0, missing: 0, errors: 0 };
+  for (const projectDir of projects) {
+    try {
+      updateSingleProject(projectDir, counts);
+    } catch (e) {
+      warn(`${path.basename(projectDir)} — error: ${e.message || e}`);
+      counts.errors++;
+    }
+  }
+
+  const { playwrightMissing, swaggerMissing } = checkProjectHealth(projects);
+  showUpdateAllSummary(projects.length, counts, playwrightMissing, swaggerMissing);
+}
+
+function updateGlobalCommands() {
+  if (getInstalledVersion() !== PKG_VERSION) {
     doInstall({ update: true });
   } else {
     heading(`GSD-T ${versionLink()}`);
     success("Global commands already up to date");
   }
+}
 
-  // Read project registry
-  heading("Updating registered projects...");
+function showNoProjectsHint() {
+  info("No projects registered");
   log("");
+  log("  Projects are registered automatically when you run:");
+  log(`  ${DIM}$${RESET} npx @tekyzinc/gsd-t init`);
+  log("");
+  log("  Or register an existing project manually:");
+  log(`  ${DIM}$${RESET} npx @tekyzinc/gsd-t register`);
+  log("");
+}
 
-  const projects = getRegisteredProjects();
+function updateSingleProject(projectDir, counts) {
+  const projectName = path.basename(projectDir);
+  const claudeMd = path.join(projectDir, "CLAUDE.md");
 
-  if (projects.length === 0) {
-    info("No projects registered");
-    log("");
-    log("  Projects are registered automatically when you run:");
-    log(`  ${DIM}$${RESET} npx @tekyzinc/gsd-t init`);
-    log("");
-    log("  Or register an existing project manually:");
-    log(`  ${DIM}$${RESET} npx @tekyzinc/gsd-t register`);
-    log("");
+  if (!fs.existsSync(projectDir)) {
+    warn(`${projectName} — directory not found (${projectDir})`);
+    counts.missing++;
     return;
   }
-
-  let updated = 0;
-  let skipped = 0;
-  let missing = 0;
-
-  for (const projectDir of projects) {
-    const projectName = path.basename(projectDir);
-    const claudeMd = path.join(projectDir, "CLAUDE.md");
-
-    if (!fs.existsSync(projectDir)) {
-      warn(`${projectName} — directory not found (${projectDir})`);
-      missing++;
-      continue;
-    }
-
-    if (!fs.existsSync(claudeMd)) {
-      warn(`${projectName} — no CLAUDE.md found`);
-      skipped++;
-      continue;
-    }
-
-    const guardAdded = updateProjectClaudeMd(claudeMd, projectName);
-    const changelogCreated = createProjectChangelog(projectDir, projectName);
-
-    if (guardAdded || changelogCreated) {
-      updated++;
-    } else {
-      info(`${projectName} — already up to date`);
-      skipped++;
-    }
+  if (!fs.existsSync(claudeMd)) {
+    warn(`${projectName} — no CLAUDE.md found`);
+    counts.skipped++;
+    return;
   }
+  const guardAdded = updateProjectClaudeMd(claudeMd, projectName);
+  const changelogCreated = createProjectChangelog(projectDir, projectName);
+  if (guardAdded || changelogCreated) {
+    counts.updated++;
+  } else {
+    info(`${projectName} — already up to date`);
+    counts.skipped++;
+  }
+}
 
-  const { playwrightMissing, swaggerMissing } = checkProjectHealth(projects);
-
-  // Summary
+function showUpdateAllSummary(total, counts, playwrightMissing, swaggerMissing) {
   log("");
   heading("Update All Complete");
-  log(`  Projects registered: ${projects.length}`);
-  log(`  Updated:             ${updated}`);
-  log(`  Already current:     ${skipped}`);
-  if (missing > 0) {
-    log(`  Not found:           ${missing}`);
-  }
-  if (playwrightMissing.length > 0) {
-    log(`  Missing Playwright:  ${playwrightMissing.length}`);
-  }
-  if (swaggerMissing.length > 0) {
-    log(`  Missing Swagger:     ${swaggerMissing.length}`);
-  }
+  log(`  Projects registered: ${total}`);
+  log(`  Updated:             ${counts.updated}`);
+  log(`  Already current:     ${counts.skipped}`);
+  if (counts.missing > 0) log(`  Not found:           ${counts.missing}`);
+  if (counts.errors > 0) log(`  Errors:              ${counts.errors}`);
+  if (playwrightMissing.length > 0) log(`  Missing Playwright:  ${playwrightMissing.length}`);
+  if (swaggerMissing.length > 0) log(`  Missing Swagger:     ${swaggerMissing.length}`);
   log("");
 }
 
@@ -1288,6 +1288,10 @@ module.exports = {
   getInstalledCommands,
   getInstalledVersion,
   getRegisteredProjects,
+  updateSingleProject,
+  updateGlobalCommands,
+  showNoProjectsHint,
+  showUpdateAllSummary,
   PKG_VERSION,
   PKG_ROOT,
   PKG_COMMANDS,
