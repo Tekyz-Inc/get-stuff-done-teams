@@ -7,9 +7,18 @@
 
 const https = require("https");
 const fs = require("fs");
+const path = require("path");
+const os = require("os");
 
 const cacheFile = process.argv[2];
 if (!cacheFile) process.exit(1);
+
+// Validate cache path is within ~/.claude/ to prevent arbitrary file writes
+const resolved = path.resolve(cacheFile);
+const claudeDir = path.join(os.homedir(), ".claude");
+if (!resolved.startsWith(claudeDir + path.sep) && resolved !== claudeDir) {
+  process.exit(1);
+}
 
 https.get("https://registry.npmjs.org/@tekyzinc/gsd-t/latest",
   { timeout: 5000 }, (res) => {
