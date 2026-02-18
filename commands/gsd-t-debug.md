@@ -40,7 +40,7 @@ The contract didn't specify something it should have. Symptoms:
 
 → Update the contract, then fix implementations on both sides.
 
-## Step 2.5: Spawn QA Agent
+## Step 3: Spawn QA Agent
 
 Spawn the QA teammate to handle regression testing:
 
@@ -53,7 +53,7 @@ Teammate "qa": Read commands/gsd-t-qa.md for your full instructions.
 
 QA failure blocks the commit.
 
-## Step 3: Debug (Solo or Team)
+## Step 4: Debug (Solo or Team)
 
 ### Solo Mode
 1. Reproduce the issue
@@ -77,7 +77,7 @@ Create an agent team to debug:
 First to find root cause: message the lead with findings.
 ```
 
-## Step 4: Document Ripple
+## Step 5: Document Ripple
 
 After fixing, assess what documentation was affected by the change and update ALL relevant files:
 
@@ -97,7 +97,7 @@ After fixing, assess what documentation was affected by the change and update AL
 
 ### Skip what's not affected — don't update docs for the sake of updating them.
 
-## Step 5: Test Verification
+## Step 6: Test Verification
 
 Before committing, ensure the fix is solid:
 

@@ -10,6 +10,17 @@ Read ONLY:
 
 Do NOT read contracts, domains, docs, or source code. You are the orchestrator — phase agents handle their own context loading.
 
+### Integrity Check
+
+After reading progress.md, verify it contains the required fields before proceeding:
+- **Status field**: A `Status:` line with a recognized value (DEFINED, PARTITIONED, PLANNED, etc.)
+- **Milestone name**: A `Milestone` heading or table entry identifying the current milestone
+- **Domains table**: A `| Domain |` table with at least one row
+
+If ANY of these are missing or malformed, STOP and report:
+"Wave cannot proceed — progress.md is missing required fields: {list}. Run `/user:gsd-t-status` to inspect, or `/user:gsd-t-init` to repair."
+Do NOT attempt to fix progress.md yourself — that risks data loss.
+
 ## Step 2: Determine Resume Point
 
 From progress.md status, determine which phase to start from:
@@ -64,10 +75,13 @@ Spawn agent → `commands/gsd-t-partition.md`
 - If failed: Report error, stop
 
 #### 2. DISCUSS (conditional)
-- Check: Are there open architectural questions or multiple viable approaches?
-- If YES: Spawn agent → `commands/gsd-t-discuss.md`
+- **Structured skip check** — skip discuss and go directly to Plan if ALL of these are true:
+  - (a) Single domain milestone (only one entry in Domains table)
+  - (b) No items containing "OPEN QUESTION" in the Decision Log
+  - (c) For multi-domain milestones: all cross-domain contracts exist in `.gsd-t/contracts/`
+- If ANY check fails: Spawn agent → `commands/gsd-t-discuss.md`
   - **Note**: Discuss always pauses for user input, even at Level 3. The discuss agent will interact with the user directly.
-- If NO (path is clear): Skip to Plan
+- If all checks pass: Skip to Plan
 
 #### 3. PLAN
 Spawn agent → `commands/gsd-t-plan.md`

@@ -88,7 +88,7 @@ Result: PASS
 Result: PARTIAL — needs pagination contract addition
 ```
 
-## Step 4.5: Spawn QA Agent
+## Step 5: Spawn QA Agent
 
 Spawn the QA teammate to verify contract compliance at domain boundaries:
 
@@ -101,7 +101,7 @@ Teammate "qa": Read commands/gsd-t-qa.md for your full instructions.
 
 QA failure blocks integration completion.
 
-## Step 5: Document Ripple
+## Step 6: Document Ripple
 
 Integration is where the real system takes shape. Verify documentation matches reality:
 
@@ -117,7 +117,7 @@ Integration is where the real system takes shape. Verify documentation matches r
 
 ### Skip what's not affected.
 
-## Step 5.5: Test Verification
+## Step 7: Test Verification
 
 After integration and doc ripple, verify everything works together:
 
@@ -127,7 +127,7 @@ After integration and doc ripple, verify everything works together:
 4. **Run E2E tests**: If an E2E framework exists, run the full E2E suite — integration is where end-to-end flows break
 5. **Smoke test results**: Ensure the Step 4 smoke test results are still valid after any fixes
 
-## Step 6: Handle Integration Issues
+## Step 8: Handle Integration Issues
 
 For each issue found:
 1. Determine if it's a contract gap (missing specification) or implementation bug
@@ -135,7 +135,7 @@ For each issue found:
 3. **Implementation bug**: Fix it directly, document the fix
 4. Log everything in progress.md
 
-## Step 7: Update State
+## Step 9: Update State
 
 Update `.gsd-t/progress.md`:
 - Set status to `INTEGRATED`

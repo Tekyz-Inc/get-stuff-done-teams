@@ -97,7 +97,7 @@ Decisions don't just affect contracts — they can change the broader documentat
 
 ### Skip what's not affected.
 
-## Step 5.5: Test Verification
+## Step 6: Test Verification
 
 If decisions resulted in contract or code changes:
 
@@ -105,7 +105,7 @@ If decisions resulted in contract or code changes:
 2. **Verify passing**: All tests must pass. If any fail from contract changes, fix before proceeding (up to 2 attempts)
 3. **Flag test gaps**: If decisions created new requirements with no test coverage, note them for the plan phase
 
-## Step 6: Validate Contracts
+## Step 7: Validate Contracts
 
 After all updates:
 - [ ] All contracts are internally consistent (no conflicting types/shapes)
@@ -113,7 +113,7 @@ After all updates:
 - [ ] Every domain's constraints reflect the decisions made
 - [ ] Integration points are updated with any new dependencies
 
-## Step 7: Report and Stop
+## Step 8: Report and Stop
 
 Present to the user:
 1. Decisions made (with brief rationale)
@@ -123,14 +123,12 @@ Present to the user:
 
 Update `.gsd-t/progress.md` status to `DISCUSSED`.
 
-### If manually invoked:
-**STOP HERE.** Do NOT proceed to the plan phase or any other phase. Present your findings and ask the user:
+### Autonomy Behavior
 
-"Discussion complete. Here's what I found and recommend. Want to proceed with these decisions, revise anything, or explore further?"
+**When manually invoked** (any autonomy level): **STOP HERE.** Do NOT proceed to the plan phase or any other phase. Present your findings and ask the user: "Discussion complete. Here's what I found and recommend. Want to proceed with these decisions, revise anything, or explore further?" This is mandatory — even at Level 3 / bypass permissions. The user invoked discuss to THINK, not to auto-pilot.
 
-This is mandatory — even in bypass permissions / yolo mode. The user invoked discuss to THINK, not to auto-pilot. Respect that.
+**Level 3 (Full Auto) — when auto-invoked by wave**: Work through all open questions automatically, make recommendations, log decisions, and return control to the calling command. Do NOT wait for user input.
 
-### If auto-invoked (by wave):
-The calling command will handle the transition. Just report completion and return control.
+**Level 1–2 — when auto-invoked**: Present decisions and open questions. Wait for user confirmation before returning control to the calling command.
 
 $ARGUMENTS

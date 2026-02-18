@@ -206,7 +206,7 @@ After creating the feature roadmap and milestones, update all affected documenta
 
 ### Skip what's not affected.
 
-## Step 7.5: Test Verification
+## Step 8: Test Verification
 
 Before finalizing the feature plan:
 
@@ -214,7 +214,7 @@ Before finalizing the feature plan:
 2. **Verify passing**: If any tests fail, flag them — they must be fixed before or during the first milestone
 3. **Note test gaps**: From the impact analysis, identify which existing tests will need updates and which new tests will be needed — include these in milestone scope
 
-## Step 8: Report to User
+## Step 9: Report to User
 
 Present:
 1. Impact analysis summary (what's new vs. what's modified)

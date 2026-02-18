@@ -50,7 +50,7 @@ Before formal partitioning, do a quick assessment:
 
 Present the assessment and ask: "Ready to partition into domains now, or want to discuss first?"
 
-## Step 4.5: Document Ripple
+## Step 5: Document Ripple
 
 After defining the milestone, update affected documentation:
 
@@ -65,7 +65,7 @@ After defining the milestone, update affected documentation:
 
 ### Skip what's not affected.
 
-## Step 4.6: Test Verification
+## Step 6: Test Verification
 
 Before proceeding to partition:
 
@@ -73,7 +73,7 @@ Before proceeding to partition:
 2. **Verify passing**: If any tests fail, flag them as pre-existing — they should be addressed as part of this milestone or logged as tech debt
 3. **Baseline**: Record test state so the milestone has a clear starting point for quality measurement
 
-## Step 5: Auto-Partition (if user confirms)
+## Step 7: Auto-Partition (if user confirms)
 
 If the user wants to proceed immediately, execute the partition workflow (same as gsd-t-partition) for this milestone.
 

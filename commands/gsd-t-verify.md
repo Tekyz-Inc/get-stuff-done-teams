@@ -12,7 +12,7 @@ Read:
 5. `docs/requirements.md` — original requirements
 6. All source code
 
-## Step 1.5: Spawn QA Agent
+## Step 2: Spawn QA Agent
 
 Spawn the QA teammate to run the full test audit:
 
@@ -25,7 +25,7 @@ Teammate "qa": Read commands/gsd-t-qa.md for your full instructions.
 
 QA failure blocks verification completion.
 
-## Step 2: Define Verification Dimensions
+## Step 3: Define Verification Dimensions
 
 Standard dimensions (adjust based on project):
 
@@ -41,7 +41,7 @@ Standard dimensions (adjust based on project):
 6. **Security**: Auth flows, input validation, data exposure, dependencies
 7. **Integration Integrity**: Do the seams between domains hold under stress?
 
-## Step 3: Execute Verification
+## Step 4: Execute Verification
 
 ### Solo Mode (default)
 Work through each dimension sequentially. For each:
@@ -109,7 +109,7 @@ Teammate assignments:
 Lead: Collect all reports (including QA), synthesize, create remediation plan.
 ```
 
-## Step 4: Compile Verification Report
+## Step 5: Compile Verification Report
 
 Create or update `.gsd-t/verify-report.md`:
 
@@ -147,7 +147,7 @@ Create or update `.gsd-t/verify-report.md`:
 | 2 | ui | Add loading states for async calls | WARN |
 ```
 
-## Step 5: Handle Remediation
+## Step 6: Handle Remediation
 
 If there are CRITICAL findings:
 1. Create remediation tasks in the affected domain's `tasks.md`
@@ -155,7 +155,7 @@ If there are CRITICAL findings:
 3. Re-verify the specific findings
 4. Update the verification report
 
-## Step 6: Update State
+## Step 7: Update State
 
 Update `.gsd-t/progress.md`:
 - If all PASS: Set status to `VERIFIED`

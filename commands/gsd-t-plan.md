@@ -95,7 +95,7 @@ Add to each domain's `tasks.md`:
 - Estimated checkpoints: {N}
 ```
 
-## Step 4.5: Document Ripple
+## Step 5: Document Ripple
 
 After creating task lists and mapping dependencies, update affected documentation:
 
@@ -110,7 +110,7 @@ After creating task lists and mapping dependencies, update affected documentatio
 
 ### Skip what's not affected.
 
-## Step 4.6: Test Verification
+## Step 6: Test Verification
 
 Before finalizing the plan:
 
@@ -118,7 +118,7 @@ Before finalizing the plan:
 2. **Verify passing**: Document any pre-existing failures — assign them to appropriate domain tasks
 3. **Include test tasks**: Ensure each domain's task list includes test creation/update tasks where acceptance criteria require verification
 
-## Step 4.7: Spawn QA Agent
+## Step 7: Spawn QA Agent
 
 After task lists are created, spawn the QA teammate to generate acceptance test scenarios:
 
@@ -129,16 +129,16 @@ Teammate "qa": Read commands/gsd-t-qa.md for your full instructions.
   Report: number of acceptance test scenarios generated.
 ```
 
-Wait for QA agent to complete before proceeding.
+Wait for QA agent to complete before proceeding. QA failure blocks plan completion.
 
-## Step 5: Update Progress
+## Step 8: Update Progress
 
 Update `.gsd-t/progress.md`:
 - Set status to `PLANNED`
 - Update domain table with task counts
 - Record any planning decisions in the Decision Log
 
-## Step 6: Report
+## Step 9: Report
 
 ### Autonomy Behavior
 

@@ -19,7 +19,7 @@ Identify:
 - Which tasks are unblocked (no pending dependencies)
 - Which tasks are blocked (waiting on checkpoints)
 
-## Step 1.5: Spawn QA Agent
+## Step 2: Spawn QA Agent
 
 Spawn the QA teammate to handle testing alongside execution:
 
@@ -32,7 +32,7 @@ Teammate "qa": Read commands/gsd-t-qa.md for your full instructions.
 
 The QA agent runs in parallel — it writes and executes tests while you implement tasks. QA failure on any task blocks proceeding to the next task.
 
-## Step 2: Choose Execution Mode
+## Step 3: Choose Execution Mode
 
 ### Solo Mode (default)
 Execute tasks yourself following the execution order in `integration-points.md`.
@@ -108,7 +108,7 @@ Lead responsibilities:
 - Resolve any contract conflicts immediately
 ```
 
-## Step 3: Checkpoint Handling
+## Step 4: Checkpoint Handling
 
 When a checkpoint is reached (solo or team):
 
@@ -123,7 +123,7 @@ When a checkpoint is reached (solo or team):
 5. **Log** in progress.md: `CHECKPOINT {name}: PASSED/FAILED — {details}`
 6. **Unblock** downstream tasks
 
-## Step 4: Error Handling
+## Step 5: Error Handling
 
 ### Contract Violation
 A teammate implements something that doesn't match a contract:
@@ -147,7 +147,7 @@ A teammate finishes independent tasks and is waiting on a checkpoint:
 2. If not, have the teammate work on documentation, tests, or code cleanup within their domain
 3. Or shut down the teammate and respawn when unblocked
 
-## Step 5: Completion
+## Step 6: Completion
 
 When all tasks in all domains are complete:
 1. Update `.gsd-t/progress.md` — all tasks marked complete

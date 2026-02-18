@@ -9,20 +9,20 @@
 
 | # | Milestone | Status | Domains |
 |---|-----------|--------|---------|
-| 6 | CLI Quality Improvement | COMPLETED | cli-quality |
+| 7 | Command File Cleanup | EXECUTED | cmd-cleanup |
 
-**Goal**: Bring all CLI code (bin/gsd-t.js, scripts/gsd-t-heartbeat.js) to project quality standards — every function under 30 lines, no code duplication, per-project error isolation in doUpdateAll(), heartbeat cleanup only on SessionStart, and proper .gitattributes/.editorconfig for line ending consistency.
+**Goal**: All command files follow consistent structure and conventions — fractional steps renumbered, missing sections added (Autonomy Behavior, Document Ripple), QA agent hardened with file-path boundaries and multi-framework support, wave state handoff secured.
 
-**Tech Debt Items**: TD-017, TD-021, TD-024, TD-025, TD-032, TD-033, TD-034
+**Tech Debt Items**: TD-030, TD-031, TD-036, TD-037, TD-038, TD-039, TD-040, TD-041
 
 **Success Criteria**:
-- [x] doUpdateAll() continues on per-project failures (try/catch isolation)
-- [x] No function exceeds 30 lines in bin/gsd-t.js or scripts/
-- [x] Heartbeat cleanup only fires on SessionStart
-- [x] .gitattributes and .editorconfig exist with correct settings
-- [x] No repeated code patterns (3 duplication types resolved)
-- [x] checkForUpdates uses external script instead of inline JS
-- [x] All existing tests pass (no regressions) — 76/76
+- [ ] discuss.md and impact.md have Autonomy Behavior sections
+- [ ] Zero fractional step numbers across all command files
+- [ ] QA agent has file-path boundary constraints and multi-framework guidance
+- [ ] Wave reads progress.md with integrity check; discuss-skip uses structured signal
+- [ ] gsd-t-qa.md has Document Ripple section
+- [ ] All 10 QA-spawning commands have consistent "QA failure blocks" language
+- [ ] No regression in existing functionality
 
 ## Completed Milestones
 | Milestone | Version | Completed | Tag |
@@ -38,13 +38,13 @@
 ## Domains
 | Domain | Status | Tasks | Completed |
 |--------|--------|-------|-----------|
-| cli-quality | verified | 6 | 6 |
+| cmd-cleanup | executed | 5 | 5 |
 
 ## Contracts
-No cross-domain contracts — single domain milestone.
+No cross-domain contracts expected — single domain milestone (command files only).
 
 ## Integration Checkpoints
-No integration checkpoints — single domain milestone.
+No integration checkpoints expected — single domain milestone.
 
 ## Blockers
 <!-- No active blockers -->
@@ -151,6 +151,9 @@ No integration checkpoints — single domain milestone.
 - 2026-02-18 23:15: Milestone 6 (CLI Quality Improvement) defined and partitioned — 7 tech debt items (TD-017, TD-021, TD-024, TD-025, TD-032, TD-033, TD-034). 1 domain (cli-quality). Goal: all functions under 30 lines, deduplication, error isolation, heartbeat optimization, .gitattributes/.editorconfig. Test baseline: helpers PASS, security PASS.
 - 2026-02-18 23:20: Milestone 6 planned — 6 tasks in cli-quality domain. Task 1: .gitattributes/.editorconfig. Task 2: heartbeat SessionStart guard. Task 3: buildEvent refactor. Task 4: extract fetch script. Task 5: doUpdateAll error isolation. Task 6: split all remaining 13 over-30-line functions. Solo sequential mode, 4 independent + 2 blocked.
 - 2026-02-19 00:15: Milestone 6 test-sync — 22 new tests in test/cli-quality.test.js (buildEvent: 10, readProjectDeps: 3, readPyContent: 2, insertGuardSection: 3, readUpdateCache: 1, addHeartbeatHook: 3). All 76 tests pass (54 existing + 22 new).
+- 2026-02-19 00:30: Milestone 7 (Command File Cleanup) defined and partitioned — 8 tech debt items (TD-030, TD-031, TD-036, TD-037, TD-038, TD-039, TD-040, TD-041). 1 domain (cmd-cleanup). Goal: consistent command file structure. Test baseline: 76/76 pass.
+- 2026-02-19 01:00: Milestone 7 planned — 5 tasks in cmd-cleanup domain. Task 1: Autonomy Behavior for discuss+impact (TD-030). Task 2: QA agent hardening — file-path boundaries, Document Ripple, multi-framework (TD-036/037/040). Task 3: Wave integrity check + structured discuss-skip (TD-038/041). Task 4: QA blocking language standardization across 10 commands (TD-039). Task 5: Renumber 32 fractional steps across 17 files to integers (TD-031). Solo sequential, 4 independent + 1 blocked.
+- 2026-02-19 01:30: Milestone 7 executed — 5/5 tasks complete. Task 1: Added Autonomy Behavior sections to gsd-t-discuss.md and gsd-t-impact.md (TD-030). Task 2: Hardened gsd-t-qa.md with File-Path Boundaries, Framework Detection (multi-framework), and Document Ripple sections (TD-036/037/040). Task 3: Added integrity check to wave Step 1 and structured discuss-skip heuristic to Step 3 (TD-038/041). Task 4: Standardized QA blocking language — updated test-sync and plan to use "QA failure blocks {phase} completion" (TD-039). Task 5: Renumbered 85 steps across 17 files — zero fractional steps remain (TD-031). 76/76 tests pass.
 - 2026-02-19 00:25: Milestone 6 (CLI Quality Improvement) completed — 7 tech debt items resolved (TD-017, TD-021, TD-024, TD-025, TD-032, TD-033, TD-034). 22 new tests. Version bump 2.24.1 → 2.24.2. Domain archived to milestones/cli-quality-2026-02-19/. v2.24.2
 - 2026-02-19 00:20: Milestone 6 verified — Overall: PASS. 7/7 success criteria met. All 86 functions <= 30 lines (80 in bin/gsd-t.js, 6 in heartbeat). 3 dedup patterns resolved. doUpdateAll has try/catch isolation. 76/76 tests pass. E2E N/A (no UI changed).
 - 2026-02-19 00:00: Milestone 6 executed — 6/6 tasks complete. Task 1: .gitattributes + .editorconfig created (TD-025). Task 2: heartbeat cleanup gated to SessionStart only (TD-024). Task 3: buildEvent refactored to EVENT_HANDLERS map, 4 lines (TD-032). Task 4: inline fetch script extracted to scripts/gsd-t-fetch-version.js (TD-034). Task 5: doUpdateAll per-project try/catch + updateSingleProject/showUpdateAllSummary helpers (TD-017). Task 6: all 13 over-30-line functions split — 80 functions in bin/gsd-t.js, 6 in heartbeat, all <= 30 lines. 3 dedup patterns resolved: readProjectDeps, writeTemplateFile, readUpdateCache (TD-021 + TD-033). 48 exports. 54/54 tests pass.

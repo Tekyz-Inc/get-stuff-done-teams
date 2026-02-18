@@ -17,7 +17,7 @@ If status is not VERIFIED:
 
 If `--force` flag provided, proceed with warning in archive.
 
-## Step 1.5: Gap Analysis Gate
+## Step 2: Gap Analysis Gate
 
 After verification passes, run a gap analysis against `docs/requirements.md` scoped to this milestone's deliverables:
 
@@ -33,7 +33,7 @@ After verification passes, run a gap analysis against `docs/requirements.md` sco
 
 This is a **mandatory gate** — the milestone cannot be archived with known gaps against its requirements.
 
-## Step 2: Gather Milestone Artifacts
+## Step 3: Gather Milestone Artifacts
 
 Collect all files related to this milestone:
 - `.gsd-t/progress.md` (current state)
@@ -43,7 +43,7 @@ Collect all files related to this milestone:
 - `.gsd-t/domains/*/` (all domain folders)
 - `.gsd-t/contracts/` (snapshot)
 
-## Step 3: Create Archive
+## Step 4: Create Archive
 
 Create milestone archive directory:
 
@@ -60,7 +60,7 @@ Create milestone archive directory:
     └── ...
 ```
 
-## Step 4: Generate Summary
+## Step 5: Generate Summary
 
 Create `summary.md`:
 
@@ -100,7 +100,7 @@ Create `summary.md`:
 {Summary of files created/modified/deleted}
 ```
 
-## Step 5: Bump Version
+## Step 6: Bump Version
 
 GSD-T tracks project version in `.gsd-t/progress.md` using semantic versioning: `Major.Minor.Patch`
 
@@ -119,7 +119,7 @@ Determine the version bump based on the milestone:
 5. Update `README.md` version badge or version reference if present
 6. Include version in the milestone summary and git tag
 
-## Step 6: Clean Working State
+## Step 7: Clean Working State
 
 Reset `.gsd-t/` for next milestone:
 
@@ -146,7 +146,7 @@ None — ready for next milestone
 {Keep the decision log — it's valuable context}
 ```
 
-## Step 7: Update README.md
+## Step 8: Update README.md
 
 If `README.md` exists, update it to reflect the completed milestone:
 - Add or update a **Features** / **What's Included** section with capabilities delivered
@@ -157,7 +157,7 @@ If `README.md` exists, update it to reflect the completed milestone:
 
 If `README.md` doesn't exist, create one with project name, description, version, tech stack, setup instructions, and link to `docs/`.
 
-## Step 7.5: Document Ripple
+## Step 9: Document Ripple
 
 Before creating the git tag, verify all documentation is up to date:
 
@@ -175,7 +175,7 @@ Before creating the git tag, verify all documentation is up to date:
 
 ### This is the LAST GATE before tagging — nothing should be undocumented.
 
-## Step 7.6: Spawn QA Agent and Test Verification
+## Step 10: Spawn QA Agent and Test Verification
 
 Before creating the git tag, spawn the QA teammate for a final test audit:
 
@@ -196,7 +196,7 @@ Then verify the milestone is truly complete:
 4. **Compare to baseline**: If a test baseline was recorded at milestone start, verify coverage has improved or at minimum not regressed
 5. **Log test results**: Include test pass/fail counts in the milestone summary (Step 4)
 
-## Step 8: Create Git Tag
+## Step 11: Create Git Tag
 
 ```bash
 # Stage any remaining .gsd-t changes
@@ -214,7 +214,7 @@ Domains: {list}
 Verified: {date}"
 ```
 
-## Step 9: Report Completion
+## Step 12: Report Completion
 
 ```
 ✅ Milestone "{name}" completed — v{version}
@@ -235,7 +235,7 @@ Next steps:
 - Or view roadmap: /user:gsd-t-status
 ```
 
-## Step 10: Update Roadmap (if exists)
+## Step 13: Update Roadmap (if exists)
 
 If `.gsd-t/roadmap.md` exists:
 - Mark this milestone as complete

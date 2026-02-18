@@ -18,7 +18,7 @@ Report current state and ask if user wants to reset or continue.
 Offer to migrate: "Found legacy GSD structure. Want me to migrate to GSD-T?"
 If yes, read `.gsd/` state and create equivalent `.gsd-t/` structure.
 
-## Step 1.5: Copy Local Settings
+## Step 2: Copy Local Settings
 
 If `~/.claude/settings.local` exists and `.claude/settings.local.json` does not exist in the project:
 1. Create the `.claude/` directory in the project root if it doesn't exist
@@ -26,7 +26,7 @@ If `~/.claude/settings.local` exists and `.claude/settings.local.json` does not 
 
 Skip silently if the source file doesn't exist or the target already exists.
 
-## Step 2: Create Directory Structure
+## Step 3: Create Directory Structure
 
 ```
 .gsd-t/
@@ -39,7 +39,7 @@ Skip silently if the source file doesn't exist or the target already exists.
 └── progress.md
 ```
 
-## Step 2.5: Initialize Backlog
+## Step 4: Initialize Backlog
 
 Create the backlog files from templates:
 1. Copy `templates/backlog.md` → `.gsd-t/backlog.md`
@@ -54,7 +54,7 @@ Read the project's `CLAUDE.md` (if it exists) to auto-populate backlog settings:
 3. **Default App**: Set `**Default App:**` to the most prominent app found (the one mentioned most, or the first one). If only one app is found, use it.
 4. **If nothing found**: Leave the placeholder values from the template — the user can configure later via `/user:gsd-t-backlog-settings`.
 
-## Step 3: Initialize Progress File
+## Step 5: Initialize Progress File
 
 Create `.gsd-t/progress.md`:
 
@@ -84,7 +84,7 @@ Create `.gsd-t/progress.md`:
 - {date}: Project initialized with GSD-T workflow
 ```
 
-## Step 4: Ensure CLAUDE.md Exists
+## Step 6: Ensure CLAUDE.md Exists
 
 If no `CLAUDE.md`:
 Create a starter template:
@@ -125,7 +125,7 @@ This project uses contract-driven development.
 
 If `CLAUDE.md` exists but doesn't reference GSD-T, append the GSD-T section.
 
-## Step 5: Create docs/ if Needed
+## Step 7: Create docs/ if Needed
 
 If no `docs/` directory, create it with all 4 living document templates.
 For each file, skip if it already exists:
@@ -140,7 +140,7 @@ docs/
 
 These are the living documents that persist across milestones and keep institutional knowledge alive. The `infrastructure.md` is especially important — it captures the exact commands for provisioning cloud resources, setting up databases, managing secrets, and deploying, so this knowledge doesn't get lost between sessions.
 
-## Step 6: Ensure README.md Exists
+## Step 8: Ensure README.md Exists
 
 If no `README.md` exists, create one with:
 - Project name and brief description
@@ -150,7 +150,7 @@ If no `README.md` exists, create one with:
 
 If `README.md` exists, leave it as-is — don't overwrite user content during init.
 
-## Step 7: Map Existing Codebase (if code exists)
+## Step 9: Map Existing Codebase (if code exists)
 
 If there's existing source code:
 1. Scan the codebase structure
@@ -159,7 +159,7 @@ If there's existing source code:
 4. Add findings to CLAUDE.md
 5. Log in progress.md: "Existing codebase analyzed — {summary}"
 
-## Step 7.5: Document Ripple
+## Step 10: Document Ripple
 
 After initialization, verify all created documentation is consistent:
 
@@ -174,7 +174,7 @@ After initialization, verify all created documentation is consistent:
 
 ### Skip what's not affected — init creates docs, so most ripple is about consistency verification.
 
-## Step 7.6: Playwright Setup (MANDATORY)
+## Step 11: Playwright Setup (MANDATORY)
 
 Every GSD-T project must have Playwright ready for E2E testing. If `playwright.config.*` does not exist:
 
@@ -196,7 +196,7 @@ Every GSD-T project must have Playwright ready for E2E testing. If `playwright.c
 
 Skip silently if `playwright.config.*` already exists.
 
-## Step 7.7: Test Verification
+## Step 12: Test Verification
 
 After initialization:
 
@@ -205,7 +205,7 @@ After initialization:
 3. **If greenfield**: Playwright is ready. Note that unit test infrastructure should be added in Milestone 1
 4. **Verify init outputs**: Confirm all created files exist and are non-empty
 
-## Step 8: Report
+## Step 13: Report
 
 Tell the user:
 1. What was created (including backlog files: `.gsd-t/backlog.md` and `.gsd-t/backlog-settings.md`)

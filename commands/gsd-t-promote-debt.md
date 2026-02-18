@@ -77,7 +77,7 @@ In `.gsd-t/progress.md`:
 - Log promotion in Decision Log: "{date}: Promoted {N} tech debt items to Milestone {N}: {name}"
 - Reorder milestones if critical items were inserted
 
-## Step 5.5: Document Ripple
+## Step 6: Document Ripple
 
 After promoting debt items to milestones, update affected documentation:
 
@@ -92,7 +92,7 @@ After promoting debt items to milestones, update affected documentation:
 
 ### Skip what's not affected.
 
-## Step 5.6: Test Verification
+## Step 7: Test Verification
 
 Before reporting:
 
@@ -100,7 +100,7 @@ Before reporting:
 2. **Verify passing**: Document any pre-existing failures that relate to the promoted debt items — these validate the promotion was warranted
 3. **Note test requirements**: For each promoted milestone, note what tests will need to be added or updated during execution
 
-## Step 6: Report
+## Step 8: Report
 
 Present:
 1. Milestones created (with item list)

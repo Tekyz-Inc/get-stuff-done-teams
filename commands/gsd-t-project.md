@@ -166,7 +166,7 @@ Initialize or update `.gsd-t/progress.md`:
 
 Ensure `CLAUDE.md` exists and references the roadmap and tech stack.
 
-## Step 5.5: Document Ripple
+## Step 6: Document Ripple
 
 After creating the roadmap and updating project state, verify all documentation is consistent:
 
@@ -183,7 +183,7 @@ After creating the roadmap and updating project state, verify all documentation 
 
 ### Skip what's not affected — early project stage means many docs are still minimal.
 
-## Step 5.6: Test Verification
+## Step 7: Test Verification
 
 Before reporting to the user:
 
@@ -191,7 +191,7 @@ Before reporting to the user:
 2. **If greenfield**: Note that test infrastructure should be established in Milestone 1
 3. **Document baseline**: Record the test state so progress can be measured across milestones
 
-## Step 6: Report to User
+## Step 8: Report to User
 
 Present:
 1. The full milestone roadmap (summary view)

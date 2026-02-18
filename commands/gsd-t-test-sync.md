@@ -21,7 +21,7 @@ Identify:
 - Naming conventions
 - Test run commands (from package.json scripts, Makefile, or CI config)
 
-## Step 1.5: Spawn QA Agent
+## Step 2: Spawn QA Agent
 
 Spawn the QA teammate to assist with test coverage analysis:
 
@@ -32,9 +32,9 @@ Teammate "qa": Read commands/gsd-t-qa.md for your full instructions.
   Report: coverage gaps, stale tests, and recommended test tasks.
 ```
 
-QA agent works alongside the test sync process. QA failure flags are included in the coverage report.
+QA agent works alongside the test sync process. QA failure blocks test-sync completion.
 
-## Step 2: Map Code to Tests
+## Step 3: Map Code to Tests
 
 For each file changed in recent tasks:
 
@@ -56,7 +56,7 @@ find . -name "*.spec.*" | xargs grep -l "{class_name}"
 | src/api/users.py | tests/test_users.py | PARTIAL |
 ```
 
-## Step 3: Detect Test Issues
+## Step 4: Detect Test Issues
 
 ### A) Stale Tests
 Tests that reference old behavior:
@@ -90,7 +90,7 @@ Tests that sometimes fail:
 - Check recent CI runs
 - Note any intermittent failures
 
-## Step 4: Run Affected Tests
+## Step 5: Run Affected Tests
 
 ### A) Unit/Integration Tests
 Execute tests that cover changed code:
@@ -149,7 +149,7 @@ For all test types:
 - FAIL: Test needs update or code has bug
 - ERROR: Test broken (import error, etc.)
 
-## Step 5: Produce Test Coverage Report
+## Step 6: Produce Test Coverage Report
 
 Create/update `.gsd-t/test-coverage.md`:
 
@@ -236,7 +236,7 @@ Create/update `.gsd-t/test-coverage.md`:
 {Based on findings, what should be prioritized}
 ```
 
-## Step 6: Generate Test Tasks
+## Step 7: Generate Test Tasks
 
 If issues found, add to current domain's tasks:
 
@@ -259,7 +259,7 @@ If issues found, add to current domain's tasks:
   - Action: Update all user fixtures
 ```
 
-## Step 7: Integration with Workflow
+## Step 8: Integration with Workflow
 
 ### During Execute Phase (auto-invoked):
 After each task completes:
@@ -289,7 +289,7 @@ Full sync:
 3. Generate all test tasks
 4. Do not auto-add to domains — present for review
 
-## Step 8: Report to User
+## Step 9: Report to User
 
 ### Quick Mode (during execute):
 ```

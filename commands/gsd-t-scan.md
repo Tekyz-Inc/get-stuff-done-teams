@@ -365,7 +365,7 @@ If `README.md` exists, merge — update tech stack and setup sections but preser
 - If the file doesn't exist, **create** it
 - Replace `{Project Name}` and `{Date}` tokens with actual values
 
-## Step 5.5: Test Verification
+## Step 6: Test Verification
 
 After updating living documents, verify nothing was broken:
 
@@ -373,7 +373,7 @@ After updating living documents, verify nothing was broken:
 2. **Verify passing**: If any tests fail that were passing before the scan began, investigate and fix
 3. **Log test baseline**: Record the current test state in `.gsd-t/scan/test-baseline.md` — this gives future milestones a starting point
 
-## Step 6: Update Project State
+## Step 7: Update Project State
 
 If `.gsd-t/progress.md` exists:
 - Log scan in Decision Log
@@ -386,7 +386,7 @@ If `.gsd-t/roadmap.md` exists:
 If `CLAUDE.md` exists:
 - Suggest updates for any patterns or conventions discovered during scan
 
-## Step 7: Report to User
+## Step 8: Report to User
 
 Present a summary:
 1. Architecture overview (brief)

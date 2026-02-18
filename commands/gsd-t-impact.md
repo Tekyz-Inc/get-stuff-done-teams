@@ -178,7 +178,7 @@ If breaking changes require pre-work, add to domain tasks:
 - [ ] IMP-002: {remediation task}
 ```
 
-## Step 6.5: Document Ripple
+## Step 7: Document Ripple
 
 After producing the impact report, update affected documentation:
 
@@ -193,7 +193,7 @@ After producing the impact report, update affected documentation:
 
 ### Skip what's not affected.
 
-## Step 6.6: Test Verification
+## Step 8: Test Verification
 
 Validate the test landscape before recommending proceed/block:
 
@@ -201,7 +201,7 @@ Validate the test landscape before recommending proceed/block:
 2. **Verify passing**: Confirm what passes today — any pre-existing failures should be noted in the impact report
 3. **Map test impact**: For each planned change in Step 2, identify which tests will need updating — include this in the "Test Impact" section of the report
 
-## Step 7: Decision Gate
+## Step 9: Decision Gate
 
 ### If PROCEED:
 "✅ Impact analysis complete. No blocking issues found. Ready for execution."
@@ -236,5 +236,11 @@ When run independently (not as part of wave):
 2. Run full analysis
 3. Produce report
 4. Do NOT auto-proceed — just inform
+
+### Autonomy Behavior
+
+**Level 3 (Full Auto)**: If PROCEED or PROCEED WITH CAUTION, log findings and auto-advance to execute phase. If BLOCK, stop and report breaking changes to user — do NOT auto-advance. When run standalone, always report and exit without auto-proceeding.
+
+**Level 1–2**: Present the full impact report. Wait for user confirmation before proceeding (PROCEED) or pause for remediation (BLOCK). For PROCEED WITH CAUTION, ask "These can be addressed during execution. Proceed?"
 
 $ARGUMENTS

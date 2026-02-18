@@ -153,7 +153,7 @@ Write `.gsd-t/progress.md`:
 - {date}: {decision and rationale}
 ```
 
-## Step 4.5: Document Ripple
+## Step 5: Document Ripple
 
 After creating domains and contracts, update affected documentation:
 
@@ -167,7 +167,7 @@ After creating domains and contracts, update affected documentation:
 
 ### Skip what's not affected.
 
-## Step 4.6: Test Verification
+## Step 6: Test Verification
 
 Before finalizing the partition:
 
@@ -175,7 +175,7 @@ Before finalizing the partition:
 2. **Verify passing**: If any tests fail, assign them to the appropriate domain as pre-existing issues
 3. **Map tests to domains**: Note which test files belong to which domain — this informs task planning
 
-## Step 4.7: Spawn QA Agent
+## Step 7: Spawn QA Agent
 
 After contracts are written, spawn the QA teammate to generate contract test skeletons:
 
@@ -188,7 +188,7 @@ Teammate "qa": Read commands/gsd-t-qa.md for your full instructions.
 
 Wait for QA agent to complete before proceeding. QA failure blocks partition completion.
 
-## Step 5: Validate
+## Step 8: Validate
 
 Before finishing, verify:
 - [ ] Every file in `src/` is owned by exactly one domain

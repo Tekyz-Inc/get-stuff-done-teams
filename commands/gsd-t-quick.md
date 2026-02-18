@@ -24,7 +24,7 @@ Should I proceed with quick mode or use the full execute workflow?"
 ### If it's within a single domain or pre-partition:
 Proceed.
 
-## Step 2.5: Spawn QA Agent
+## Step 3: Spawn QA Agent
 
 Spawn the QA teammate to handle testing for this quick task:
 
@@ -37,7 +37,7 @@ Teammate "qa": Read commands/gsd-t-qa.md for your full instructions.
 
 QA failure blocks the commit.
 
-## Step 3: Execute
+## Step 4: Execute
 
 1. Identify exactly which files need to change
 2. **Destructive Action Guard**: Check if this task involves destructive or structural changes (DROP TABLE, removing columns, deleting data, replacing architecture patterns, removing working modules, changing schema in ways that conflict with existing data). If YES → STOP and present the change to the user with what exists today, what will change, what will break, and a safe migration path. Wait for explicit approval.
@@ -46,7 +46,7 @@ QA failure blocks the commit.
 5. Verify it works
 6. Commit: `[quick] {description}`
 
-## Step 4: Document Ripple (if GSD-T is active)
+## Step 5: Document Ripple (if GSD-T is active)
 
 If `.gsd-t/progress.md` exists, assess what documentation was affected and update ALL relevant files:
 
@@ -65,7 +65,7 @@ If `.gsd-t/progress.md` exists, assess what documentation was affected and updat
 
 ### Skip what's not affected — most quick tasks will only touch 1-2 of these.
 
-## Step 5: Test & Verify (MANDATORY)
+## Step 6: Test & Verify (MANDATORY)
 
 Quick does not mean skip testing. Before committing:
 
