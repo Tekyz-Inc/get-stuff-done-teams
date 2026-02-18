@@ -91,3 +91,29 @@
 - [x] All JS files have LF line endings after git renormalization
 - [x] 116/116 tests pass with no regressions
 **Completed**: 2026-02-18
+
+---
+
+## Milestone 9: Cleanup Sprint — Tech Debt (COMPLETED v2.24.5)
+**Source**: Promoted from tech debt scan #5 (2026-02-18)
+**Items**: TD-056, TD-057, TD-058, TD-059, TD-060, TD-061, TD-062, TD-063, TD-064, TD-065
+**Goal**: Resolve all 10 LOW-severity scan #5 findings — dead code, untested exports, documentation errors, minor security gap, contract drift
+**Scope**:
+- Remove dead code: PKG_EXAMPLES constant (TD-057), dead test imports (TD-058)
+- Code quality: summarize() case fallthrough (TD-056), redundant condition (TD-061)
+- Test coverage: add tests for readSettingsJson() (TD-059) and shortPath() (TD-060)
+- Documentation: correct SEC-N16 note (TD-062)
+- Security: scrub notification title (TD-063)
+- Contract sync: update wave integrity check contract (TD-064), remove duplicate format contract (TD-065)
+**Success criteria**:
+- [x] Zero dead code (PKG_EXAMPLES removed, dead imports removed)
+- [x] summarize() uses case fallthrough, under 27 lines
+- [x] checkForUpdates() condition simplified
+- [x] readSettingsJson() and shortPath() have direct unit tests
+- [x] SEC-N16 informational note is factually accurate
+- [x] Notification title scrubbed via scrubSecrets()
+- [x] wave-phase-sequence.md integrity check matches implementation
+- [x] file-format-contract.md deleted (backlog-file-formats.md is authoritative)
+- [x] All tests pass with no regressions (125/125)
+- [x] No new tech debt introduced
+**Completed**: 2026-02-18

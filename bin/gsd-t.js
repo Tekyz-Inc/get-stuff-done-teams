@@ -36,7 +36,6 @@ const PKG_ROOT = path.resolve(__dirname, "..");
 const PKG_COMMANDS = path.join(PKG_ROOT, "commands");
 const PKG_SCRIPTS = path.join(PKG_ROOT, "scripts");
 const PKG_TEMPLATES = path.join(PKG_ROOT, "templates");
-const PKG_EXAMPLES = path.join(PKG_ROOT, "examples");
 
 // Read our version from package.json
 const PKG_VERSION = require(path.join(PKG_ROOT, "package.json")).version;
@@ -1095,10 +1094,9 @@ function checkForUpdates(command) {
     showUpdateNotice(cached.latest);
   }
 
-  const isStale = !cached || (Date.now() - cached.timestamp) > 3600000;
-  if (!cached && isStale) {
+  if (!cached) {
     fetchVersionSync();
-  } else if (isStale) {
+  } else if ((Date.now() - cached.timestamp) > 3600000) {
     refreshVersionAsync();
   }
 }

@@ -4,9 +4,9 @@
 - Critical items: 0
 - High priority: 0
 - Medium priority: 0
-- Low priority: 0 (1 accepted risk: TD-029)
+- Low priority: 0 (+ 1 accepted risk: TD-029)
 - Total open items: 0
-- **Trend: All scan #4 items resolved through Milestone 8. TD-029 accepted as risk.**
+- **Trend: All scan #5 items resolved through M9. Zero open tech debt. Codebase at peak health.**
 
 ### Scan History
 - **Scan #1** (2026-02-07): 13 items found, 9 resolved
@@ -17,6 +17,8 @@
 - **Milestone 7** (2026-02-19): 8 items resolved via Command File Cleanup (TD-030, TD-031, TD-036, TD-037, TD-038, TD-039, TD-040, TD-041)
 - **Scan #4** (2026-02-18): 25 of 26 previous items resolved. TD-029 still open. 12 new items found. Total open: 13
 - **Milestone 8** (2026-02-18): 12 items resolved via Housekeeping + Contract Sync (TD-044, TD-045, TD-046, TD-047, TD-048, TD-049, TD-050, TD-051, TD-052, TD-053, TD-054, TD-055). TD-029 accepted as risk. Total open: 0
+- **Scan #5** (2026-02-18): 0 previous items open. 10 new LOW items found (7 quality, 1 security, 2 contract drift). Total open: 10
+- **Milestone 9** (2026-02-18): 10 items resolved via Cleanup Sprint (TD-056, TD-057, TD-058, TD-059, TD-060, TD-061, TD-062, TD-063, TD-064, TD-065). Total open: 0
 
 ---
 
@@ -73,6 +75,16 @@
 | TD-053 | wave-phase-sequence Contract Missing Additions | RESOLVED — integrity check + security documented (M8) |
 | TD-054 | command-interface-contract.md Scope Mismatch | RESOLVED — renamed to backlog-command-interface.md (M8) |
 | TD-055 | integration-points.md Stale Data | RESOLVED — updated to reflect current state (M8) |
+| TD-056 | summarize() Case Fallthrough Opportunity | RESOLVED — combined Read/Edit/Write cases using fallthrough (M9) |
+| TD-057 | PKG_EXAMPLES Dead Code | RESOLVED — removed unused constant (M9) |
+| TD-058 | Dead Imports in test/cli-quality.test.js | RESOLVED — removed writeTemplateFile and showStatusVersion imports (M9) |
+| TD-059 | readSettingsJson() Exported But Untested | RESOLVED — 3 tests added in cli-quality.test.js (M9) |
+| TD-060 | shortPath() Exported But Untested | RESOLVED — 6 tests added in security.test.js (M9) |
+| TD-061 | checkForUpdates() Redundant Condition | RESOLVED — simplified to direct if/else-if (M9) |
+| TD-062 | techdebt.md SEC-N16 Note Factually Wrong | RESOLVED — corrected during scan #5 (M9) |
+| TD-063 | Notification Title Unscrubbed (SEC-N17) | RESOLVED — scrubSecrets() applied to h.title (M9) |
+| TD-064 | Wave Integrity Check Contract Divergence | RESOLVED — contract updated to match implementation (M9) |
+| TD-065 | Duplicate Format Contracts | RESOLVED — deleted file-format-contract.md (M9) |
 
 ---
 
@@ -104,19 +116,23 @@
 - **Effort**: medium (for marginal benefit)
 - **Promoted**: [x] Reviewed in M8, accepted as risk
 
----
-
-*(All 12 items from scan #4 resolved in M8. See Resolved Items table above.)*
+(All other items resolved. See Resolved Items table above.)
 
 ---
 
 ## Informational Notes (No Action Required)
 
-### SEC-N16: scrubSecrets Regex Global Flag
-- `scrubSecrets()` regex patterns don't use the `/g` flag, but since `.replace()` with regex only replaces the first match by default, this is safe — each pattern is designed to match the flag-value pair as a whole. Multiple occurrences of the same flag in a single command are unlikely.
+### SEC-N16: scrubSecrets Regex Global Flag — CORRECTED
+- All 4 `scrubSecrets()` regex patterns (`SECRET_FLAGS`, `SECRET_SHORT`, `SECRET_ENV`, `BEARER_HEADER`) at lines 112-115 of `scripts/gsd-t-heartbeat.js` use the `/gi` flag (global + case-insensitive). Since they are only used with `String.prototype.replace()` (never `.test()` or `.exec()`), the mutable `lastIndex` state is not a concern. If future code calls `.test()` or `.exec()` on these regex objects, it could cause intermittent failures due to stateful `lastIndex` — a latent risk to be aware of but no action required today.
 
 ### SEC-N13/N14: gsd-t-fetch-version.js Validation
 - The script doesn't validate HTTP status codes or version string format before outputting. However, the caller (`fetchVersionSync()` in bin/gsd-t.js) validates the response via `validateVersion()`, making this safe. No action required.
+
+### SEC-N18: Prototype Pollution via EVENT_HANDLERS Lookup
+- `EVENT_HANDLERS[hook.hook_event_name]` performs a property lookup using attacker-influenced input. If `hook_event_name` were `"__proto__"` or `"constructor"`, the lookup returns a truthy non-function value, but `handler(hook)` throws TypeError caught by outer try/catch. Fails safely — no exploit path, no state corruption.
+
+### SEC-N19: Error Messages May Expose Path Information
+- Several error handlers in `bin/gsd-t.js` expose `e.message` in console output, which can include full file paths. Standard CLI error reporting behavior — output goes to user's own terminal, not shared files or network.
 
 ---
 
@@ -152,33 +168,40 @@ TD-029 accepted as risk (see Low Priority section).
 
 ## Suggested Tech Debt Milestones
 
-No outstanding suggestions. All scan #4 items resolved through M8.
+### COMPLETED: Cleanup Sprint → Milestone 9 (v2.24.5)
+Items: TD-056, TD-057, TD-058, TD-059, TD-060, TD-061, TD-062, TD-063, TD-064, TD-065
+
+---
+
+## Suggested Tech Debt Milestones
+
+(No open items. All tech debt resolved.)
 
 ---
 
 ## Scan Metadata
-- Latest scan: 2026-02-18 (scan #4)
-- Previous scans: 2026-02-07 (scan #1), 2026-02-18 (scan #2), 2026-02-18 (scan #3)
-- Files analyzed: 4 JS files (bin/gsd-t.js: 1297 lines, scripts/gsd-t-heartbeat.js: 183 lines, scripts/npm-update-check.js: 42 lines, scripts/gsd-t-fetch-version.js: 25 lines), 43 command files, 9 templates, 9 contracts, docs, tests
-- Lines of code: ~1,547 JS + ~12,500+ markdown
+- Latest scan: 2026-02-18 (scan #5)
+- Previous scans: 2026-02-07 (scan #1), 2026-02-18 (scan #2), 2026-02-18 (scan #3), 2026-02-18 (scan #4)
+- Files analyzed: 4 JS files (bin/gsd-t.js: 1,298 lines, scripts/gsd-t-heartbeat.js: 181 lines, scripts/npm-update-check.js: 43 lines, scripts/gsd-t-fetch-version.js: 26 lines), 43 command files, 9 templates, 8 contracts, docs, tests
+- Lines of code: ~1,548 JS + ~12,500+ markdown
 - Languages: JavaScript, Markdown
 - Scan mode: Team (5 parallel agents: architecture, business-rules, security, quality, contracts)
-- Total functions: 86 (80 in bin/gsd-t.js, 6 in heartbeat), all ≤ 30 lines
-- Total tests: 116 (27 helpers + 37 filesystem + 30 security + 22 cli-quality)
+- Total functions: 87 (81 in bin/gsd-t.js, 6 in heartbeat), all ≤ 30 lines
+- Total tests: 125 (27 helpers + 37 filesystem + 36 security + 25 cli-quality)
 - Total exports: 54 (49 in bin/gsd-t.js + 5 in heartbeat)
 
 ### Trend Analysis
 
-| Metric | Scan #1 | Scan #2 | Scan #3 | Scan #4 | Post-M8 | Trend |
-|--------|---------|---------|---------|---------|---------|-------|
-| Open items | 13 | 15 | 26 | 13 | 0 | All resolved |
-| Critical items | 2 | 0 | 0 | 0 | 0 | Stable (good) |
-| HIGH items | 3 | 2 | 2 | 1 | 0 | Resolved |
-| MEDIUM items | 4 | 5 | 8 | 3 | 0 | Resolved |
-| LOW items | 4 | 8 | 16 | 9 | 0 (1 accepted) | Resolved |
-| Functions > 30 lines | 13 | 13 | 15 | 0 | 0 | Resolved |
-| Test files | 0 | 0 | 0 | 4 (116 tests) | 4 (116 tests) | Stable |
-| Fractional steps | N/A | 22/11 | 34/17 | 0 | 0 | Resolved |
-| Command count drift | Yes | Fixed | Regressed | Fixed | Fixed | Stable |
-| Security (open actionable) | 5 | 6 | 9 | 2 | 0 (1 accepted) | Resolved |
-| Contract drift items | N/A | N/A | 3 | 4 | 0 | Resolved |
+| Metric | Scan #1 | Scan #2 | Scan #3 | Scan #4 | Post-M8 | Scan #5 | Post-M9 | Trend |
+|--------|---------|---------|---------|---------|---------|---------|---------|-------|
+| Open items | 13 | 15 | 26 | 13 | 0 | 10 | 0 | All resolved |
+| Critical items | 2 | 0 | 0 | 0 | 0 | 0 | 0 | Stable (good) |
+| HIGH items | 3 | 2 | 2 | 1 | 0 | 0 | 0 | Stable |
+| MEDIUM items | 4 | 5 | 8 | 3 | 0 | 0 | 0 | Stable |
+| LOW items | 4 | 8 | 16 | 9 | 0 (1 accepted) | 10 | 0 (1 accepted) | All resolved |
+| Functions > 30 lines | 13 | 13 | 15 | 0 | 0 | 0 | 0 | Stable |
+| Test files | 0 | 0 | 0 | 4 (116 tests) | 4 (116 tests) | 4 (116 tests) | 4 (125 tests) | +9 tests |
+| Fractional steps | N/A | 22/11 | 34/17 | 0 | 0 | 0 | 0 | Stable |
+| Command count drift | Yes | Fixed | Regressed | Fixed | Fixed | Fixed | Fixed | Stable |
+| Security (open actionable) | 5 | 6 | 9 | 2 | 0 (1 accepted) | 1 (+ 1 accepted) | 0 (1 accepted) | All resolved |
+| Contract drift items | N/A | N/A | 3 | 4 | 0 | 2 | 0 | All resolved |

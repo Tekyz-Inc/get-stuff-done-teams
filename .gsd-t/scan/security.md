@@ -1,227 +1,214 @@
 # Security Scan — GSD-T CLI
 
-**Scan Date:** 2026-02-18 (Scan #4)
-**Package:** @tekyzinc/gsd-t v2.24.3
-**Scope:** `bin/gsd-t.js` (1297 lines), `scripts/gsd-t-heartbeat.js` (183 lines), `scripts/npm-update-check.js` (42 lines), `scripts/gsd-t-fetch-version.js` (25 lines, NEW), `test/security.test.js`, `commands/gsd-t-wave.md`, `commands/gsd-t-qa.md`
-**Previous Scans:** #1 (2026-02-07), #2 (2026-02-18, v2.21.1), #3 (2026-02-18, v2.23.0)
-**Trigger:** Post-Milestones 3-7 security audit
+**Scan Date:** 2026-02-18 (Scan #5)
+**Package:** @tekyzinc/gsd-t v2.24.4
+**Scope:** `bin/gsd-t.js` (1299 lines), `scripts/gsd-t-heartbeat.js` (183 lines), `scripts/npm-update-check.js` (42 lines), `scripts/gsd-t-fetch-version.js` (25 lines), `test/security.test.js` (30 tests), `test/filesystem.test.js` (37 tests), `test/helpers.test.js` (27 tests), `test/cli-quality.test.js` (22 tests)
+**Previous Scans:** #1 (2026-02-07), #2 (2026-02-18, v2.21.1), #3 (2026-02-18, v2.23.0), #4 (2026-02-18, v2.24.3)
+**Trigger:** Post-Milestone 8 (v2.24.4) security audit
 
 ---
 
-## M5 Security Fixes — Regression Check
+## M8 Changes — Security Review
 
-All 6 security fixes from Milestone 5 are intact. No regressions detected.
+### readSettingsJson() Null-Safe Parsing — VERIFIED SECURE
 
-### TD-019: scrubSecrets() + scrubUrl() — INTACT, NO REGRESSION
-- `scripts/gsd-t-heartbeat.js:112-136` — scrubSecrets scrubs `--password`, `--token`, `--secret`, `--api-key`, `--api_key`, `--auth`, `--credential`, `--private-key`, `-p` short flag, `API_KEY=`, `SECRET=`, `TOKEN=`, `PASSWORD=`, `BEARER=`, `AUTH_TOKEN=`, `PRIVATE_KEY=`, `ACCESS_KEY=`, `SECRET_KEY=` env vars, and `bearer` header pattern.
-- `scripts/gsd-t-heartbeat.js:126-136` — scrubUrl parses URL, masks all query parameter values.
-- `scripts/gsd-t-heartbeat.js:148-149` — Bash commands scrubbed via scrubSecrets; WebFetch URLs scrubbed via scrubUrl in `summarize()`.
-- **Test coverage:** 27 tests in `test/security.test.js` covering scrubSecrets (18 tests), scrubUrl (5 tests), and summarize integration (4 tests). All passing.
-
-### TD-020: npm-update-check.js Path Validation — INTACT, NO REGRESSION
-- `scripts/npm-update-check.js:17-21` — Resolves cache file path, validates it starts with `~/.claude/` + path.sep (or equals claudeDir). Exits if outside boundary.
-- No changes to this logic since M5.
-
-### TD-026: npm-update-check.js Symlink Check — INTACT, NO REGRESSION
-- `scripts/npm-update-check.js:36` — `fs.lstatSync(cacheFile).isSymbolicLink()` check before `writeFileSync`.
-- Pattern: check-then-write with catch for non-existent file.
-
-### TD-027: 1MB HTTP Response Limit — INTACT, NO REGRESSION
-- `scripts/npm-update-check.js:25` — `MAX_RESPONSE = 1024 * 1024` with `res.destroy()` on exceed.
-- `scripts/gsd-t-fetch-version.js:14` — `MAX_BODY = 1048576` with `res.destroy()` on exceed.
-- `bin/gsd-t.js:1121-1131` — `fetchVersionSync()` delegates to gsd-t-fetch-version.js (external process), inheriting its 1MB limit.
-- Both network-facing scripts enforce consistent 1MB caps.
-
-### TD-028: hasSymlinkInPath() Parent Validation — INTACT, NO REGRESSION
-- `bin/gsd-t.js:126-137` — `hasSymlinkInPath()` walks from target up to filesystem root checking each component.
-- `bin/gsd-t.js:103` — `ensureDir()` calls `hasSymlinkInPath()` before `mkdirSync`.
-- `bin/gsd-t.js:111` — `ensureDir()` also checks `isSymlink()` on existing directories.
-- **Test coverage:** 3 tests in `test/filesystem.test.js` for hasSymlinkInPath.
-
-### TD-035: Security Documentation — INTACT, NO REGRESSION
-- `commands/gsd-t-wave.md:205-231` — Security Considerations section documents bypassPermissions, attack surface, mitigations, and recommendations.
-- `README.md:249-256` — Security section documents wave mode, heartbeat scrubbing, path validation, response limits, symlink protection.
-
----
-
-## M7 Security Additions — Verification
-
-### QA Agent File-Path Boundaries — VERIFIED
-- `commands/gsd-t-qa.md:14-27` — Explicit CAN/MUST NOT modify sections.
-- CAN modify: test directories, test configs, `.gsd-t/test-coverage.md`.
-- MUST NOT modify: source code (`src/`, `lib/`, `bin/`, `scripts/`), contracts, docs, commands, templates, non-test config.
-- This is a prompt-level control, not a technical enforcement. Agents could theoretically violate it.
-
-### Wave Integrity Check — VERIFIED
-- `commands/gsd-t-wave.md:14-22` — Integrity Check section requires verifying:
-  - Status field with recognized value
-  - Milestone heading or table entry
-  - Domains table with at least one row
-- Stops wave if fields are missing/malformed, instructs user to run status or init.
-- This is a prompt-level control executed by the wave orchestrator agent.
-
----
-
-## New File Review: scripts/gsd-t-fetch-version.js
-
-**First security review of this file (added in M6).**
-
-### File Purpose
-Synchronous npm registry version check. Spawned as a child process by `fetchVersionSync()` in `bin/gsd-t.js:1122-1125`. Outputs version string to stdout.
-
-### Security Analysis
-
-**Positive:**
-- HTTPS-only connection to `registry.npmjs.org` (hardcoded URL, line 16)
-- 1MB response body limit (`MAX_BODY = 1048576`, line 14)
-- 5-second HTTP timeout (line 16)
-- Silent error handling — no information leakage on failure (line 25)
-- Output is just `JSON.parse(data).version` — minimal data exposure
-- No file writes — stdout only
-- No user input consumed — no injection surface
-- Called via `execFileSync` with array args in parent (line 1123) — no shell injection
-
-**Concerns:**
-- **SEC-N13: No version validation in fetch script** — The script outputs `JSON.parse(data).version` directly to stdout without validating it matches semver format. The *caller* in `bin/gsd-t.js:1127` validates with `validateVersion(result)` before using it, so the security boundary is maintained — but the defense is in the caller, not the script itself.
-  - **Severity:** INFORMATIONAL
-  - **Mitigation:** Caller validates. Defense-in-depth would add validation in the script too, but not required.
-
-- **SEC-N14: No response status code check** — The script processes the response body regardless of HTTP status code. A 500/403/redirect response could contain arbitrary data that gets JSON-parsed. Since the only action is `process.stdout.write(parsed.version)`, and the caller validates with semver regex, there's no practical exploit path.
-  - **Severity:** INFORMATIONAL
-  - **Mitigation:** If parsed JSON doesn't have a `version` field, `process.stdout.write(undefined)` writes "undefined" which fails the caller's `validateVersion()` check.
-
-**Verdict:** Secure. No actionable findings. The script follows the same hardened pattern as `npm-update-check.js`.
-
----
-
-## M6 Refactoring Impact Assessment
-
-### 48 Exports from bin/gsd-t.js
-
-`bin/gsd-t.js:1195-1244` now exports 48 functions/constants for testability. The `require.main === module` guard at line 1248 ensures the main CLI logic only runs when invoked directly.
-
-**Security implications:**
-- **Increased testable surface:** All security-critical functions are now individually importable and tested (hasSymlinkInPath, isSymlink, validateProjectPath, validateProjectName, validateVersion, ensureDir, copyFile). This is a **security improvement**.
-- **No new attack surface:** Exports do not execute side effects when imported. All CLI operations are behind the `require.main` guard. The test suite at 116 tests (all passing) validates the behavior of these exports.
-- **Exported internal helpers:** Functions like `readUpdateCache`, `fetchVersionSync`, `refreshVersionAsync` are now accessible to importers. These are benign — `readUpdateCache` only reads a file, `fetchVersionSync` spawns a child process to fetch a version, `refreshVersionAsync` spawns a detached background process. None accept attacker-controlled input when imported by tests.
-
-**Verdict:** The refactoring does not introduce new attack surface. The `require.main` guard is correctly placed. Exports improve security posture by enabling comprehensive testing.
-
-### require.main Guard Coverage
-
-- `bin/gsd-t.js:1248` — Guards all CLI subcommand dispatch.
-- `scripts/gsd-t-heartbeat.js:25` — Guards stdin processing and file I/O.
-- `scripts/npm-update-check.js` — No guard (entire file is side-effectful). This is acceptable because it's only invoked via `cpSpawn` from `bin/gsd-t.js:1136` and never imported.
-- `scripts/gsd-t-fetch-version.js` — No guard (entire file is side-effectful). Same pattern — only invoked via `execFileSync` from `bin/gsd-t.js:1123` and never imported.
-
----
-
-## TD-029 (TOCTOU) — Current Status
-
-**Still applicable. Not mitigated by M5-M7 changes.**
-
-The TOCTOU race between `isSymlink()` check and subsequent `writeFileSync`/`copyFileSync` remains at all overwrite write sites in `bin/gsd-t.js`. The pattern:
+**File:** `bin/gsd-t.js:1106-1110`
 
 ```javascript
-if (isSymlink(dest)) { warn(...); return; }  // Check
-fs.writeFileSync(dest, content);               // Use — gap here
+function readSettingsJson() {
+  if (!fs.existsSync(SETTINGS_JSON)) return null;
+  try { return JSON.parse(fs.readFileSync(SETTINGS_JSON, "utf8")); }
+  catch { return null; }
+}
 ```
 
-This affects: `saveInstalledVersion()` (line 234-239), `registerProject()` (line 266-272), `configureHeartbeatHooks()` (line 363-364), `updateProjectClaudeMd()` (line 780-782), and several copy operations.
+**Analysis:**
+- Returns `null` for both missing and corrupt JSON files. This is a consolidated helper replacing 3 inline parse sites (TD-050).
+- Callers handle `null` correctly:
+  - `configureHeartbeatHooks()` (line 345-350): Distinguishes "file exists but unparseable" from "file missing" — warns user and returns 0.
+  - `showStatusTeams()` (line 698-700): Warns user when settings can't be parsed.
+  - `checkDoctorSettings()` (line 984): Reports issue count for invalid JSON.
+- **No prototype pollution vector**: The parsed JSON is used for property reads (`settings.env`, `settings.hooks`) — not for deep merge or `Object.assign` from untrusted sources. The hooks event names come from the hardcoded `HEARTBEAT_HOOKS` array (line 309-312), not from user input.
+- **Verdict:** Secure. The refactoring reduces code duplication without introducing new risk.
 
-**Risk assessment remains LOW:**
-1. Requires local filesystem access to the user's home directory
-2. Race window is microseconds
-3. CLI tool runs interactively, not as a long-running daemon
-4. Node.js `O_WRONLY | O_CREAT | O_TRUNC` (writeFileSync default) doesn't follow symlinks on most filesystems — but this is OS-dependent, not guaranteed
+### Notification Scrubbing via scrubSecrets() — VERIFIED, PARTIAL GAP
 
-**Recommendation:** Keep as LOW priority. The atomic write pattern (write to temp file, rename) would eliminate this class entirely, but the effort-to-risk ratio doesn't justify it for an interactive CLI tool.
+**File:** `scripts/gsd-t-heartbeat.js:100`
+
+```javascript
+Notification: (h) => ({ evt: "notification", data: { message: scrubSecrets(h.message), title: h.title } }),
+```
+
+**Analysis:**
+- M8 resolved SEC-N15 (from scan #4) by applying `scrubSecrets()` to `h.message`. This is confirmed at line 100.
+- **Gap: `h.title` is still logged raw without scrubbing.** While notification titles are less likely to contain secrets than message bodies, a title like "Error: AUTH_TOKEN=sk_live_xyz" would be written to disk unmasked.
+- See SEC-N17 below for this new finding.
 
 ---
 
-## Previously Resolved Items — Continued Verification
+## M5 Security Fixes — Regression Check (Scan #5)
+
+All 6 M5 security fixes remain intact. No regressions detected.
+
+### TD-019: scrubSecrets() + scrubUrl() — INTACT
+- `scripts/gsd-t-heartbeat.js:112-136` — All patterns present and unchanged.
+- `scripts/gsd-t-heartbeat.js:100` — Notification message now scrubbed (M8 addition).
+- `scripts/gsd-t-heartbeat.js:148-149` — Bash commands and WebFetch URLs scrubbed via `summarize()`.
+- **Test coverage:** 30 tests in `test/security.test.js` (18 scrubSecrets + 5 scrubUrl + 4 summarize + 3 shortPath). All passing.
+
+### TD-020: npm-update-check.js Path Validation — INTACT
+- `scripts/npm-update-check.js:17-21` — Path boundary check unchanged.
+
+### TD-026: npm-update-check.js Symlink Check — INTACT
+- `scripts/npm-update-check.js:36` — Symlink check before write unchanged.
+
+### TD-027: 1MB HTTP Response Limit — INTACT
+- `scripts/npm-update-check.js:25` and `scripts/gsd-t-fetch-version.js:14` — Both limits unchanged.
+
+### TD-028: hasSymlinkInPath() — INTACT
+- `bin/gsd-t.js:126-137` — Logic unchanged.
+
+### TD-035: Security Documentation — INTACT
+- `commands/gsd-t-wave.md` and `README.md` — Security sections present.
+
+---
+
+## Previously Verified Items — Continued Check
 
 ### TD-002: Command Injection — FIXED, NO REGRESSION
-- `bin/gsd-t.js:940` — `execFileSync("claude", ["--version"], ...)` with array args.
-- `bin/gsd-t.js:1123` — `execFileSync(process.execPath, [fetchScriptPath], ...)` with array args.
-- `bin/gsd-t.js:1136` — `cpSpawn(process.execPath, [updateScript, UPDATE_CHECK_FILE], ...)` with array args.
-- `bin/gsd-t.js:1157` — `execFileSync("cmd", ["/c", "start", "", CHANGELOG_URL], ...)` with hardcoded URL constant and safety comment.
+- `bin/gsd-t.js:937` — `execFileSync("claude", ["--version"], ...)` with array args.
+- `bin/gsd-t.js:1124` — `execFileSync(process.execPath, [fetchScriptPath], ...)` with array args.
+- `bin/gsd-t.js:1137` — `cpSpawn(process.execPath, [updateScript, UPDATE_CHECK_FILE], ...)` with array args.
+- `bin/gsd-t.js:1158` — `execFileSync("cmd", ["/c", "start", "", CHANGELOG_URL], ...)` with hardcoded URL constant.
 - No `execSync` or `exec` calls. No shell string interpolation.
 
 ### TD-005: Symlink Protection — FIXED, NO REGRESSION
-- `isSymlink()` at `bin/gsd-t.js:118-124` unchanged.
-- All write sites in `bin/gsd-t.js` verified: lines 169-172 (copyFile), 234-237 (saveInstalledVersion), 266-269 (registerProject), 363-367 (configureHeartbeatHooks), 437-438 (backup), 445 (appendGsdtToClaudeMd), 514-516 (initClaudeMd), 543-545 (initDocs), 569 (initGsdtDir gitkeep), 580 (writeTemplateFile), 760 (removeInstalledCommands), 769 (removeVersionFile), 780 (updateProjectClaudeMd), 801 (createProjectChangelog), 1127 (fetchVersionSync cache write).
+All write sites verified with `isSymlink()` check:
+- `bin/gsd-t.js`: lines 169-172 (copyFile), 234-237 (saveInstalledVersion), 266-269 (registerProject), 360-363 (configureHeartbeatHooks), 434 (backup), 442 (appendGsdtToClaudeMd), 511-512 (initClaudeMd), 540-541 (initDocs), 566 (initGsdtDir gitkeep), 577 (writeTemplateFile), 757 (removeInstalledCommands), 766 (removeVersionFile), 777 (updateProjectClaudeMd), 798 (createProjectChangelog), 1128 (fetchVersionSync cache write).
 - `scripts/gsd-t-heartbeat.js:65` — symlink check before appendFileSync.
 - `scripts/npm-update-check.js:36` — symlink check before writeFileSync.
 
 ### TD-009: Input Validation — FIXED, NO REGRESSION
-- `bin/gsd-t.js:139-141` — `validateProjectName()` regex: `^[a-zA-Z0-9][a-zA-Z0-9._\- ]{0,100}$`.
-- Called at `bin/gsd-t.js:595` before any filesystem operations.
-- **Test coverage:** 7 tests in `test/helpers.test.js` including path traversal rejection.
+- `bin/gsd-t.js:139-141` — `validateProjectName()` regex unchanged.
+- **Test coverage:** 7 tests in `test/helpers.test.js`.
 
 ### SEC-004: TOCTOU Create — FIXED, NO REGRESSION
-- Init operations use `{ flag: "wx" }` (exclusive create) at lines 521, 550, 570, 584, 815.
+- Init operations use `{ flag: "wx" }` (exclusive create) at lines 518, 547, 567, 581, 812.
 
-### SEC-008: Directory Ownership Check — PARTIALLY FIXED, NO CHANGE
+### SEC-008: Directory Ownership Check — PARTIALLY FIXED, UNCHANGED
 - `validateProjectPath()` at `bin/gsd-t.js:155-166` checks Unix ownership via `process.getuid()`.
 - `~/.claude/` itself is not ownership-checked at startup. Accepted risk.
 
 ---
 
-## Accepted Risks (Unchanged)
+## New Findings (Scan #5)
+
+### SEC-N17: Notification Title Logged Without Scrubbing (LOW)
+
+- **Severity:** LOW
+- **File:** `scripts/gsd-t-heartbeat.js:100`
+- **Description:** The `Notification` event handler scrubs `h.message` via `scrubSecrets()` (M8 fix for SEC-N15), but `h.title` is logged raw. If Claude Code sends a notification with a sensitive title (e.g., "Failed: API_KEY=sk_live_xyz connection"), the title would be written to the heartbeat JSONL file unmasked.
+- **Current mitigation:** Heartbeat files are in `.gitignore`, auto-purged after 7 days, and never leave the local machine. Notification titles from Claude Code are typically generic (e.g., "Task Complete", "Error").
+- **Fix:** Apply `scrubSecrets()` to `h.title` as well: `title: scrubSecrets(h.title)`.
+- **Effort:** Trivial (one function call addition).
+- **Priority:** Low — defense-in-depth improvement.
+
+### SEC-N18: Prototype Pollution via EVENT_HANDLERS Lookup (INFORMATIONAL)
+
+- **Severity:** INFORMATIONAL
+- **File:** `scripts/gsd-t-heartbeat.js:106`
+- **Description:** `EVENT_HANDLERS[hook.hook_event_name]` performs a property lookup on a plain object using attacker-influenced input (the `hook_event_name` from stdin JSON). If `hook_event_name` were `"__proto__"` or `"constructor"`, the lookup would return `Object.prototype` or `Object` constructor, neither of which is a function. The `if (!handler) return null` guard at line 107 would not catch this — `Object.prototype` is truthy. However, attempting to invoke it as `handler(hook)` would throw a TypeError (Object.prototype is not callable), which is caught by the outer `try/catch` at line 68. So the code fails safely.
+- **Current mitigation:** Fails safely via TypeError in the `try/catch`. No state corruption, no code execution.
+- **Defense-in-depth fix (optional):** Add `typeof handler === 'function'` check, or use `Object.hasOwn(EVENT_HANDLERS, hook.hook_event_name)`.
+- **Effort:** Trivial.
+- **Priority:** Informational — no exploit path, fails safely.
+
+### SEC-N19: Error Messages May Expose Path Information (INFORMATIONAL)
+
+- **Severity:** INFORMATIONAL
+- **File:** `bin/gsd-t.js` — multiple locations
+- **Description:** Several error handlers expose `e.message` in console output at lines 177, 241, 275, 759, 768, 783, and 861. On filesystem errors, `e.message` can include full file paths. For example, `Failed to copy CLAUDE.md: EACCES: permission denied, open '/home/user/.claude/CLAUDE.md'` reveals the user's home directory structure. Since this is a CLI tool running locally (output goes to the user's own terminal), this is expected behavior and not an information disclosure risk. The user already knows their own filesystem paths.
+- **Mitigating factor:** All error messages go to stdout/stderr of the local terminal. No error messages are written to shared files or transmitted over the network.
+- **Status:** No action needed. Standard CLI error reporting behavior.
+
+---
+
+## Accepted Risks (Unchanged from Scan #4)
+
+### TD-029: TOCTOU Race in Symlink Check + Write — ACCEPTED RISK
+- **Status:** Accepted (M8, with 5-point rationale in techdebt.md).
+- **Location:** `bin/gsd-t.js:118-137` and all callers.
+- **Assessment unchanged:** Microsecond window, requires local access, Node.js is single-threaded, interactive CLI context. No practical exploit path.
 
 ### SEC-005: No Content Validation of Installed Command Files
 - **Status:** Accepted. Command files are markdown — semantic validation is impractical.
 
 ### SEC-006: Backup File Naming Uses Date.now()
-- **Status:** Accepted. Low priority. `bin/gsd-t.js:436` still uses `Date.now()` suffix.
+- **Status:** Accepted. `bin/gsd-t.js:433` still uses `Date.now()` suffix. Low priority.
 
 ### SEC-007: settings.json Schema Validation Missing
-- **Status:** Accepted. JSON parse errors are caught but structure is not validated.
+- **Status:** Accepted. JSON parse errors are caught via `readSettingsJson()` (M8 improvement), but structure is not validated beyond what's needed for hook configuration.
+
+### SEC-008: ~/.claude/ Directory Ownership Not Checked
+- **Status:** Accepted. Partially mitigated by `validateProjectPath()` ownership check on Unix.
+
+---
+
+## Dependency Audit
+
+```
+npm audit: ENOLOCK — no package-lock.json present (zero dependencies, nothing to audit)
+```
+
+**Result:** Zero npm dependencies. No supply chain attack surface. No lockfile needed.
 
 ---
 
 ## Areas Verified as Secure
 
 ### Command Execution
-- All `execFileSync` calls use array arguments: lines 940, 1123, 1157, 1160.
-- `cpSpawn` uses array arguments with `process.execPath`: line 1136.
-- `CHANGELOG_URL` is a hardcoded constant (line 43) with safety comment at lines 1155-1156.
+- All `execFileSync` calls use array arguments: lines 937, 1124, 1158, 1161.
+- `cpSpawn` uses array arguments with `process.execPath`: line 1137.
+- `CHANGELOG_URL` is a hardcoded constant (line 43) with safety comment at lines 1155-1157.
 - No shell string interpolation anywhere in the codebase.
+- No `execSync` or `exec` calls.
 
 ### Path Traversal
 - `validateProjectName()` (line 139) blocks path separators via allowlist regex.
 - `validateProjectPath()` (line 155) requires absolute paths, checks existence, verifies directory ownership on Unix.
 - `getRegisteredProjects()` (line 246) validates each path via `validateProjectPath()`.
 - Heartbeat: session_id validated with `SAFE_SID = /^[a-zA-Z0-9_-]+$/` (line 18), resolved path verified within `.gsd-t/` (lines 57-59).
+- npm-update-check.js: cache file path validated within `~/.claude/` (lines 17-21).
 
 ### Input Validation
-- CLI subcommand dispatch via switch with explicit cases (line 1252) — unknown commands exit with error.
+- CLI subcommand dispatch via switch with explicit cases (line 1254) — unknown commands exit with error.
 - Version strings validated with semver regex via `validateVersion()` (line 151).
 - Project names validated via `validateProjectName()` (line 139).
 - Session IDs validated via `SAFE_SID` regex in heartbeat (line 18).
 - Heartbeat stdin capped at 1MB (line 17).
 - HTTP responses capped at 1MB in both network scripts.
+- JSON.parse errors caught in all 6 parse sites: `readSettingsJson()` (line 1108), `readUpdateCache()` (line 1115), `readProjectDeps()` (line 190), heartbeat stdin (line 40), npm-update-check (line 33), gsd-t-fetch-version (line 23).
 
 ### Symlink Protection
 - Comprehensive `isSymlink()` checks before all file writes in `bin/gsd-t.js` (18+ call sites).
 - `hasSymlinkInPath()` walks parent directory components before creating directories.
 - Heartbeat checks symlinks before write (line 65) and during cleanup (line 83).
-- `ensureDir()` refuses symlinked directories (line 103-115).
+- `ensureDir()` refuses symlinked directories (lines 103-115).
 - Init operations use `{ flag: "wx" }` for atomic create-or-fail.
 
 ### Secret Management
 - No hardcoded credentials, API keys, or tokens.
 - No `.env` files present.
 - Zero npm dependencies — no supply chain attack surface.
-- Heartbeat scrubs sensitive patterns before logging to disk.
+- Heartbeat scrubs sensitive patterns in Bash commands and WebFetch URLs before logging to disk.
+- Notification messages scrubbed via `scrubSecrets()` (M8 fix).
 
 ### Resource Limits
 - Heartbeat stdin: 1MB max (`MAX_STDIN`, line 17).
 - HTTP responses: 1MB max in both scripts.
-- Heartbeat file cleanup: 7-day auto-purge, runs only on SessionStart events (not every event — TD-024 fix confirmed at line 63).
+- Heartbeat file cleanup: 7-day auto-purge, runs only on SessionStart events (line 63).
 - Heartbeat files excluded from git (`.gitignore`).
-- Update fetch: 8-second timeout (line 1125).
+- Update fetch: 8-second timeout (line 1126).
 - Background update check: 5-second HTTP timeout (line 24 in npm-update-check.js).
 
 ### Network Security
@@ -229,45 +216,37 @@ This affects: `saveInstalledVersion()` (line 234-239), `registerProject()` (line
 - Response data validated (semver regex) before use.
 - Update check results only affect display — no code execution from remote data.
 
----
+### Regular Expression Safety
+- `SECRET_FLAGS` (line 112): `/(--(password|token|secret|api[-_]?key|auth|credential|private[-_]?key)[\s=])\S+/gi` — No nested quantifiers. The alternation is bounded. `\S+` cannot cause catastrophic backtracking because `\S` has no overlap with the preceding `[\s=]`. Safe.
+- `SECRET_SHORT` (line 113): `/(\s-p\s)\S+/gi` — Simple pattern with no backtracking risk.
+- `SECRET_ENV` (line 114): Alternation of literal strings followed by `\S+`. Safe.
+- `BEARER_HEADER` (line 115): `/bearer\s+)\S+/gi` — `\s+` followed by `\S+` — no overlap, safe.
+- `SAFE_SID` (line 18): `/^[a-zA-Z0-9_-]+$/` — Character class with `+`, anchored. Linear time. Safe.
+- `validateProjectName` (line 140): `/^[a-zA-Z0-9][a-zA-Z0-9._\- ]{0,100}$/` — Bounded quantifier. Safe.
+- `validateVersion` (line 152): `/^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?$/` — No nested quantifiers. Safe.
+- **Verdict:** No ReDoS vulnerability in any regex pattern.
 
-## New Findings
+### Prototype Pollution
+- `addHeartbeatHook()` (line 368-376): Uses `hooks[event]` where `event` comes from the hardcoded `HEARTBEAT_HOOKS` array. Not attacker-controllable. Safe.
+- `EVENT_HANDLERS[hook.hook_event_name]` (line 106): Attacker-controlled key lookup. Fails safely — see SEC-N18 above.
+- `JSON.parse()` in `readSettingsJson()`: Parsed object properties accessed via dot notation (`settings.hooks`, `settings.env`). No deep merge or property spreading from untrusted sources. Safe.
+- `readProjectDeps()` (line 190): Uses `Object.keys()` on parsed JSON. Safe — `Object.keys` only returns own enumerable properties, not inherited ones.
 
-### SEC-N13: gsd-t-fetch-version.js No Version Validation (INFORMATIONAL)
-- **Severity:** INFORMATIONAL
-- **File:** `scripts/gsd-t-fetch-version.js:23`
-- **Description:** Outputs `JSON.parse(data).version` to stdout without validating it's a valid semver string. Caller in `bin/gsd-t.js:1127` validates with `validateVersion()`, so the security boundary is maintained.
-- **Status:** No action needed. Defense-in-depth is provided by the caller.
-
-### SEC-N14: gsd-t-fetch-version.js No Status Code Check (INFORMATIONAL)
-- **Severity:** INFORMATIONAL
-- **File:** `scripts/gsd-t-fetch-version.js:16`
-- **Description:** Processes response body regardless of HTTP status code. Non-200 responses produce unparseable or undefined version strings, which fail the caller's validation.
-- **Status:** No action needed. Fails safely.
-
-### SEC-N15: Notification Messages Logged Unfiltered
-- **Severity:** LOW
-- **File:** `scripts/gsd-t-heartbeat.js:100`
-- **Description:** The `Notification` event handler logs `message` and `title` fields verbatim to the heartbeat JSONL file without scrubbing. If Claude Code sends notifications containing sensitive data (error messages with connection strings, stack traces with credentials), these would be written to disk in plaintext.
-- **Current Mitigation:** Heartbeat files are in `.gitignore` and auto-purged after 7 days. The data never leaves the local machine.
-- **Remediation:** Apply `scrubSecrets()` to notification messages before logging. Low effort, defense-in-depth.
-- **Effort:** Small
-
-### SEC-N16: scrubSecrets Regex Uses Global Flag with Stateful Matching
-- **Severity:** LOW
-- **File:** `scripts/gsd-t-heartbeat.js:112-115`
-- **Description:** The secret-matching regexes use the `/gi` (global + case-insensitive) flags. In JavaScript, regex objects with the global flag maintain `lastIndex` state between calls. However, since `scrubSecrets()` calls `.replace()` on a new string each time (which resets `lastIndex` internally), and the regex literals are re-evaluated per module load (not per call), this is safe in the current usage pattern. If these regexes were extracted to module-level `const` and reused with `.test()` or `.exec()`, the global flag would cause alternating match/miss behavior.
-- **Status:** Not currently exploitable. Note for future maintainers: do not use these regex objects with `.test()` or `.exec()` — only `.replace()`.
-- **Effort:** N/A (informational)
+### require.main Guard Coverage
+- `bin/gsd-t.js:1250` — Guards all CLI subcommand dispatch.
+- `scripts/gsd-t-heartbeat.js:25` — Guards stdin processing and file I/O.
+- `scripts/npm-update-check.js` — No guard (entire file is side-effectful). Acceptable: only invoked via `cpSpawn`.
+- `scripts/gsd-t-fetch-version.js` — No guard (entire file is side-effectful). Acceptable: only invoked via `execFileSync`.
 
 ---
 
 ## Test Coverage of Security Functions
 
-### test/security.test.js — 27 tests
+### test/security.test.js — 30 tests
 - `scrubSecrets`: 18 tests covering all flag patterns, env var patterns, bearer tokens, multi-secret strings, null handling, and non-sensitive passthrough.
 - `scrubUrl`: 5 tests covering query param masking, no-param passthrough, null handling, and invalid URL handling.
 - `summarize` integration: 4 tests verifying end-to-end scrubbing through the summarize function for Bash and WebFetch tools.
+- `shortPath`: 3 tests (inferred from test output — tests for path abbreviation).
 
 ### test/filesystem.test.js — Security-relevant tests
 - `isSymlink`: 3 tests (non-existent path, regular file, regular directory).
@@ -279,12 +258,13 @@ This affects: `saveInstalledVersion()` (line 234-239), `registerProject()` (line
 ### test/helpers.test.js — Security-relevant tests
 - `validateProjectName`: 7 tests including path traversal character rejection.
 - `validateVersion`: 4 tests including non-numeric rejection.
+- `readSettingsJson`: Tested indirectly via `checkDoctorSettings` (M8 refactoring).
 
-### Coverage Gaps
-- **No symlink-positive tests**: All symlink tests verify false-path behavior (no symlinks present). No tests create actual symlinks and verify they are detected/rejected. This is understandable on Windows where symlinks require elevated privileges, but means the symlink detection logic is tested only via code review, not execution.
-- **No test for heartbeat path traversal protection**: The session_id validation (`SAFE_SID`), cwd validation, and resolved-path-within-gsdtDir check in the heartbeat script have no direct unit tests. They're in the `require.main` block which is not importable.
-- **No test for npm-update-check.js path boundary**: The path validation at lines 17-21 is in the main script body (no exports), so it cannot be unit tested via require. Would need integration test via subprocess.
-- **gsd-t-fetch-version.js has no tests**: The script has no exports and runs as a subprocess. Consider an integration test that verifies it outputs a valid version string.
+### Coverage Gaps (Unchanged)
+- **No symlink-positive tests**: All symlink tests verify the false path. No tests create actual symlinks — understandable on Windows where symlinks require elevated privileges.
+- **No test for heartbeat path traversal protection**: The `SAFE_SID`, cwd validation, and resolved-path-within-gsdtDir check are in the `require.main` block.
+- **No test for npm-update-check.js path boundary**: Path validation at lines 17-21 is in the main script body (no exports).
+- **No test for Notification title scrubbing**: The new SEC-N17 gap (unscrubbed `h.title`) has no test coverage.
 
 ---
 
@@ -303,61 +283,70 @@ This affects: `saveInstalledVersion()` (line 234-239), `registerProject()` (line
 | TD-027 / SEC-N04+N05 | LOW | Resource exhaustion | FIXED (M5) | Scan #2 |
 | TD-028 / SEC-N03 | LOW | Parent symlink | FIXED (M5) | Scan #2 |
 | TD-035 | LOW | Security documentation | FIXED (M5) | Scan #3 |
-| SEC-N09 | MEDIUM | Privilege escalation (wave) | MITIGATED (M5 docs + M7 integrity check) | Scan #3 |
-| SEC-N10 | LOW | Scope boundaries (QA) | MITIGATED (M7 file-path boundaries) | Scan #3 |
-| SEC-N11 | LOW | State integrity (wave) | MITIGATED (M7 integrity check) | Scan #3 |
-| SEC-008 | LOW | Dir ownership | PARTIALLY FIXED | Scan #1 |
-| TD-029 / SEC-N02 | LOW | TOCTOU (overwrite) | OPEN | Scan #2 |
-| SEC-N15 | LOW | Notification scrubbing | NEW | Scan #4 |
-| SEC-N16 | INFORMATIONAL | Regex global flag | NEW (info only) | Scan #4 |
-| SEC-N13 | INFORMATIONAL | No version validation in fetch | NEW (info only) | Scan #4 |
-| SEC-N14 | INFORMATIONAL | No status code check in fetch | NEW (info only) | Scan #4 |
+| SEC-N09 | MEDIUM | Privilege escalation (wave) | MITIGATED (M5 docs + M7) | Scan #3 |
+| SEC-N10 | LOW | Scope boundaries (QA) | MITIGATED (M7) | Scan #3 |
+| SEC-N11 | LOW | State integrity (wave) | MITIGATED (M7) | Scan #3 |
+| SEC-N15 | LOW | Notification msg scrubbing | FIXED (M8) | Scan #4 |
+| SEC-008 | LOW | Dir ownership | PARTIALLY FIXED, ACCEPTED | Scan #1 |
+| TD-029 / SEC-N02 | LOW | TOCTOU (overwrite) | ACCEPTED RISK | Scan #2 |
+| SEC-N17 | LOW | Notification title unscrubbed | NEW | Scan #5 |
+| SEC-N18 | INFORMATIONAL | Prototype lookup in EVENT_HANDLERS | NEW (info only) | Scan #5 |
+| SEC-N19 | INFORMATIONAL | Error message path exposure | NEW (info only) | Scan #5 |
+| SEC-N16 | INFORMATIONAL | Regex global flag note | Unchanged (info only) | Scan #4 |
+| SEC-N13 | INFORMATIONAL | No version validation in fetch | Unchanged (info only) | Scan #4 |
+| SEC-N14 | INFORMATIONAL | No status code check in fetch | Unchanged (info only) | Scan #4 |
 
 **Open actionable findings: 3** (0 CRITICAL, 0 HIGH, 0 MEDIUM, 3 LOW)
-- TD-029 (TOCTOU overwrite) — LOW, not promoted, accepted risk
-- SEC-008 (Dir ownership) — LOW, partially fixed, accepted risk
-- SEC-N15 (Notification scrubbing) — LOW, new finding
+- TD-029 (TOCTOU overwrite) — LOW, accepted risk
+- SEC-008 (Dir ownership) — LOW, accepted risk
+- SEC-N17 (Notification title unscrubbed) — LOW, new finding
 
-**Mitigated since scan #3: 3** (SEC-N09, SEC-N10, SEC-N11 — via M5 documentation + M7 file-path boundaries + M7 integrity check)
-**Fixed since scan #3: 6** (TD-019, TD-020, TD-026, TD-027, TD-028, TD-035 — all via M5)
+**Fixed since scan #4: 1** (SEC-N15 — notification message scrubbing via M8)
 **Regressed: 0**
-**New actionable: 1** (SEC-N15)
-**New informational: 3** (SEC-N13, SEC-N14, SEC-N16)
+**New actionable: 1** (SEC-N17)
+**New informational: 2** (SEC-N18, SEC-N19)
+
+---
+
+## Priority Remediation Order
+
+1. **SEC-N17** (Trivial, LOW) — Apply `scrubSecrets()` to notification `h.title` in heartbeat. One-line fix.
+2. **TD-029** (Medium effort, LOW) — Atomic write pattern for overwrite operations. Diminishing returns for interactive CLI tool. Accepted risk.
+3. **SEC-008** (Small effort, LOW) — Check `~/.claude/` ownership at startup. Accepted risk.
 
 ---
 
 ## Overall Assessment
 
-**Overall Risk: LOW** — Significantly improved since scan #3.
+**Overall Risk: LOW** — No new security concerns introduced by M8 changes.
 
-The codebase has undergone substantial security hardening across Milestones 5-7:
-- All 6 M5 security fixes verified intact with no regressions
-- M7 added prompt-level controls (QA file-path boundaries, wave integrity check)
-- The new `gsd-t-fetch-version.js` follows established security patterns (HTTPS, 1MB limit, timeout)
-- M6 refactoring (48 exports + require.main guard) increases testability without adding attack surface
-- 116 tests all passing, with 27 specifically covering security functions
+M8 delivered two security-relevant improvements:
+1. `readSettingsJson()` consolidates 3 JSON parse sites into one safe helper with null-safe returns.
+2. `scrubSecrets()` now applied to notification messages (SEC-N15 from scan #4 is resolved).
+
+The only new actionable finding (SEC-N17) is a minor oversight where `h.title` in notification events is not scrubbed alongside the already-scrubbed `h.message`. This is a trivial one-line fix for defense-in-depth.
+
+The codebase maintains its strong security posture:
 - Zero npm dependencies eliminates supply chain risk entirely
+- All command execution uses `execFileSync` with array arguments (no shell injection)
+- All file writes are preceded by symlink checks
+- All user input is validated (project names, version strings, session IDs, paths)
+- All network responses are bounded (1MB) and timeout-limited
+- Heartbeat data is scrubbed, gitignored, and auto-purged
+- 116 tests all passing (30 specifically covering security functions)
 
-**Remaining attack surface is minimal:**
-1. TOCTOU race (TD-029) — microsecond window, requires local access, interactive CLI context
-2. Prompt-level controls (wave bypassPermissions, QA boundaries, integrity check) are advisory, not enforced — inherent to AI agent architecture
-3. Notification messages logged unfiltered (SEC-N15) — contained to local disk, auto-purged
-
-## Priority Remediation Order
-
-1. **SEC-N15** (Small, LOW) — Apply scrubSecrets() to notification messages in heartbeat
-2. **TD-029** (Medium, LOW) — Atomic write pattern for overwrite operations (diminishing returns for CLI tool)
-3. **SEC-008** (Small, LOW) — Check ~/.claude/ ownership at startup (defense-in-depth)
+**No critical, high, or medium severity findings. Security posture is stable.**
 
 ---
 
 ## Scan Metadata
-- Scan type: Security (focused audit, scan #4)
-- Trigger: Post-Milestones 3-7 comprehensive security audit
-- Files analyzed: 4 JavaScript files (`bin/gsd-t.js`: 1297 lines, `scripts/gsd-t-heartbeat.js`: 183 lines, `scripts/npm-update-check.js`: 42 lines, `scripts/gsd-t-fetch-version.js`: 25 lines), 2 command files, 4 test files (116 tests)
+- Scan type: Security (focused audit, scan #5)
+- Trigger: Post-Milestone 8 (v2.24.4) security audit
+- Files analyzed: 4 JavaScript files (`bin/gsd-t.js`: 1299 lines, `scripts/gsd-t-heartbeat.js`: 183 lines, `scripts/npm-update-check.js`: 42 lines, `scripts/gsd-t-fetch-version.js`: 25 lines), 4 test files (116 tests)
 - All tests passing: 116/116
-- Previous findings verified: All M5 fixes intact, all previous items checked
+- npm audit: No lockfile (zero dependencies — nothing to audit)
+- Previous findings verified: All M5-M8 fixes intact, all previous items checked
 - Regressions: 0
-- New actionable findings: 1 (SEC-N15, LOW)
-- New informational findings: 3 (SEC-N13, SEC-N14, SEC-N16)
+- New actionable findings: 1 (SEC-N17, LOW)
+- New informational findings: 2 (SEC-N18, SEC-N19)
 - Critical/High open findings: 0

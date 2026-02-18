@@ -1,6 +1,6 @@
 # Workflows — GSD-T Framework (@tekyzinc/gsd-t)
 
-## Last Updated: 2026-02-18 (Scan #4)
+## Last Updated: 2026-02-18 (Scan #5)
 
 ## User Workflows
 
@@ -110,7 +110,8 @@ Every commit must pass applicable checks:
 
 ### npm Publish
 - **Trigger**: Manual `npm publish` after milestone completion
-- **Flow**: Version bumped → CHANGELOG updated → git tagged → npm publish
+- **Pre-publish gate**: `prepublishOnly: "npm test"` runs 116 tests before publish (M8)
+- **Flow**: Version bumped → CHANGELOG updated → git tagged → `npm publish` → tests run automatically → published
 - **Verification**: `npx @tekyzinc/gsd-t status` on fresh install
 
 ### Update All Projects

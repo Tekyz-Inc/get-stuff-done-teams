@@ -2,6 +2,21 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.24.5] - 2026-02-18
+
+### Fixed
+- **Dead code removed**: `PKG_EXAMPLES` constant in `bin/gsd-t.js` and dead imports (`writeTemplateFile`, `showStatusVersion`) in `test/cli-quality.test.js` (TD-057, TD-058)
+- **summarize() case fallthrough**: Combined identical `Read`/`Edit`/`Write` cases using switch fallthrough, saving 4 lines (TD-056)
+- **checkForUpdates() condition**: Simplified redundant `!cached && isStale` to `if (!cached) ... else if (stale)` (TD-061)
+- **Notification title scrubbing**: Applied `scrubSecrets()` to `h.title` in heartbeat notification handler (TD-063)
+- **SEC-N16 note corrected**: Updated informational note during scan #5 (TD-062)
+- **Wave integrity check contract**: Updated `wave-phase-sequence.md` to match actual implementation — checks Status, Milestone name, Domains table (not version) (TD-064)
+- **Duplicate format contract**: Deleted `file-format-contract.md` — `backlog-file-formats.md` is authoritative (TD-065)
+
+### Added
+- 9 new tests: 3 `readSettingsJson()` tests in `cli-quality.test.js`, 6 `shortPath()` tests in `security.test.js` (TD-059, TD-060)
+- Total tests: 125 (was 116)
+
 ## [2.24.4] - 2026-02-18
 
 ### Fixed

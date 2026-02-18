@@ -1,6 +1,6 @@
 # Requirements — GSD-T Framework (@tekyzinc/gsd-t)
 
-## Last Updated: 2026-02-18 (Scan #4)
+## Last Updated: 2026-02-18 (Scan #5)
 
 ## Functional Requirements
 
@@ -31,6 +31,7 @@
 | TECH-005 | Pre-Commit Gate enforced on every commit | P1 | complete (manual, not automated) |
 | TECH-006 | Symlink protection on all file write operations | P1 | complete |
 | TECH-007 | Input validation on project names, versions, paths, session IDs | P1 | complete |
+| TECH-008 | prepublishOnly gate — `npm test` runs before `npm publish` | P1 | complete (M8) |
 
 ## Non-Functional Requirements
 
@@ -55,19 +56,17 @@
 
 ## Gaps Identified
 
-### Open (Scan #4 — 2026-02-18)
-- progress.md Status: ACTIVE not recognized by wave contract (TD-044)
-- CHANGELOG.md missing M4-M7 entries (TD-045)
-- Orphaned domain files from M6/M7 not deleted (TD-046)
-- progress-file-format contract needs enriched format update (TD-047)
-- See `.gsd-t/techdebt.md` for full list (13 items, all LOW-MEDIUM)
+### Open (Scan #5 — 2026-02-18)
+- 10 new LOW items: TD-056 through TD-065 (cosmetic code quality, documentation fixes, contract alignment)
+- See `.gsd-t/techdebt.md` for full list (all LOW severity, no functional issues)
 
-### Resolved (Milestones 3-7, 2026-02-18/19)
+### Resolved (Milestones 3-8, 2026-02-18/19)
+- ~~All scan #4 items (TD-044-TD-055)~~ — RESOLVED (M8)
 - ~~No automated test suite (TD-003)~~ — RESOLVED (116 tests, M4)
 - ~~Command count 42→43 not updated (TD-022)~~ — RESOLVED (M3)
 - ~~QA agent contract missing test-sync (TD-042)~~ — RESOLVED (M3)
 - ~~Wave bypassPermissions not documented (TD-035)~~ — RESOLVED (M5)
-- ~~All 15 scan #3 functions >30 lines (TD-021)~~ — RESOLVED (M6, all 80 functions ≤30 lines)
+- ~~All 15 scan #3 functions >30 lines (TD-021)~~ — RESOLVED (M6, all 81 functions ≤30 lines)
 - ~~34 fractional step numbers (TD-031)~~ — RESOLVED (M7, all renumbered)
 - ~~Backlog file format drift (TD-014)~~ — RESOLVED
 - ~~Progress.md format drift (TD-015)~~ — RESOLVED

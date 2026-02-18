@@ -1,6 +1,6 @@
 # Architecture — GSD-T Framework (@tekyzinc/gsd-t)
 
-## Last Updated: 2026-02-18 (Scan #4)
+## Last Updated: 2026-02-18 (Post-M9)
 
 ## System Overview
 
@@ -14,11 +14,11 @@ The framework has no runtime — it is consumed entirely by Claude Code's slash 
 
 ### CLI Installer (bin/gsd-t.js)
 - **Purpose**: Install, update, diagnose, and manage GSD-T across projects
-- **Location**: `bin/gsd-t.js` (1,297 lines, 80 functions, 48 exports)
+- **Location**: `bin/gsd-t.js` (1,298 lines, 81 functions, 49 exports)
 - **Dependencies**: Node.js built-ins only (fs, path, os, child_process, https)
 - **Subcommands**: install, update, status, doctor, init, uninstall, update-all, register, changelog
 - **Organization**: Configuration → Guard section → Helpers → Heartbeat → Commands → Install/Update → Init → Status → Uninstall → Update-All → Doctor → Register → Update Check → Help → Main dispatch
-- **All functions ≤ 30 lines** (M6 refactoring). Largest: `doRegister()` at 30 lines.
+- **All functions ≤ 30 lines** (M6 refactoring). Largest: `doRegister()` at 30 lines, `summarize()` at 30 lines.
 
 ### Slash Commands (commands/*.md)
 - **Purpose**: Define the GSD-T methodology as executable workflows for Claude Code
@@ -33,9 +33,9 @@ The framework has no runtime — it is consumed entirely by Claude Code's slash 
 - **Tokens**: `{Project Name}` and `{Date}` replaced during init via `applyTokens()`
 
 ### Hook Scripts (scripts/)
-- **gsd-t-heartbeat.js** (183 lines, 6 functions, 5 exports): Real-time event logging via Claude Code hooks. Captures 9 event types as structured JSONL. Input capped at 1MB. Session ID validated. Path traversal protection. Secret scrubbing via `scrubSecrets()`/`scrubUrl()` (M5). EVENT_HANDLERS map pattern (M6). Auto-cleanup after 7 days (SessionStart only, M6).
-- **npm-update-check.js** (42 lines): Background npm registry version checker. Spawned detached by CLI when update cache is stale. Path validation within `~/.claude/` (M5). Symlink check before write (M5). 1MB response limit (M5).
-- **gsd-t-fetch-version.js** (25 lines, NEW in M6): Synchronous npm registry fetch. Called by `fetchVersionSync()` via `execFileSync`. HTTPS-only, 5s timeout, 1MB limit. Silent failure on errors (caller validates).
+- **gsd-t-heartbeat.js** (181 lines, 6 functions, 5 exports): Real-time event logging via Claude Code hooks. Captures 9 event types as structured JSONL. Input capped at 1MB. Session ID validated. Path traversal protection. Secret scrubbing via `scrubSecrets()`/`scrubUrl()` (M5). Notification message + title scrubbing (M8/M9). EVENT_HANDLERS map pattern (M6). Auto-cleanup after 7 days (SessionStart only, M6).
+- **npm-update-check.js** (43 lines): Background npm registry version checker. Spawned detached by CLI when update cache is stale. Path validation within `~/.claude/` (M5). Symlink check before write (M5). 1MB response limit (M5).
+- **gsd-t-fetch-version.js** (26 lines, NEW in M6): Synchronous npm registry fetch. Called by `fetchVersionSync()` via `execFileSync`. HTTPS-only, 5s timeout, 1MB limit. Silent failure on errors (caller validates).
 
 ### Examples (examples/)
 - **Purpose**: Reference project structure and settings
@@ -125,10 +125,9 @@ Three-tier configuration:
 ### Contracts (.gsd-t/contracts/)
 | Contract | Purpose |
 |----------|---------|
-| command-interface-contract.md | Slash command file format and structure |
-| file-format-contract.md | File naming and organization rules |
+| backlog-command-interface.md | Backlog command interface and promote flow |
 | integration-points.md | How components connect |
-| backlog-file-formats.md | Backlog markdown structure |
+| backlog-file-formats.md | Backlog markdown structure (authoritative — duplicate file-format-contract.md deleted in M9) |
 | domain-structure.md | Domain directory layout |
 | pre-commit-gate.md | Commit checklist contract |
 | progress-file-format.md | Progress.md structure |
@@ -197,7 +196,7 @@ The wave command spawns an independent agent for each phase via the Task tool wi
 
 ## Known Architecture Concerns
 
-1. **CLI single-file size**: bin/gsd-t.js at 1,297 lines exceeds the 200-line convention, but splitting adds complexity for questionable benefit given zero-dependency constraint. Accepted deviation.
+1. **CLI single-file size**: bin/gsd-t.js at 1,298 lines exceeds the 200-line convention, but splitting adds complexity for questionable benefit given zero-dependency constraint. Accepted deviation.
 2. **Four-file synchronization**: Any command change requires updating README, GSD-T-README, CLAUDE-global template, and gsd-t-help. Manual process — no automated validation.
 3. **Pre-Commit Gate unenforced**: Mental checklist in CLAUDE.md, not a git hook or CI check.
 4. **Progress.md Decision Log growth**: Unbounded append-only log. May need periodic archival strategy for long-lived projects.

@@ -8,8 +8,47 @@
 const { describe, it } = require("node:test");
 const assert = require("node:assert/strict");
 
-const { scrubSecrets, scrubUrl, summarize } = require("../scripts/gsd-t-heartbeat.js");
+const { scrubSecrets, scrubUrl, summarize, shortPath } = require("../scripts/gsd-t-heartbeat.js");
+const os = require("node:os");
+const path = require("node:path");
 const { hasSymlinkInPath } = require("../bin/gsd-t.js");
+
+// ─── shortPath ──────────────────────────────────────────────────────────────
+
+describe("shortPath", () => {
+  it("returns null for null input", () => {
+    assert.equal(shortPath(null), null);
+  });
+
+  it("returns null for undefined input", () => {
+    assert.equal(shortPath(undefined), null);
+  });
+
+  it("converts cwd-relative paths", () => {
+    const cwd = process.cwd();
+    const result = shortPath(path.join(cwd, "src", "file.js"));
+    assert.equal(result, "src/file.js");
+  });
+
+  it("converts home-relative paths to ~ prefix", () => {
+    const home = os.homedir();
+    const result = shortPath(path.join(home, ".claude", "settings.json"));
+    assert.equal(result, "~/.claude/settings.json");
+  });
+
+  it("returns absolute path with forward slashes for other paths", () => {
+    const result = shortPath("/some/other/path/file.js");
+    assert.equal(result, "/some/other/path/file.js");
+  });
+
+  it("converts backslashes to forward slashes", () => {
+    const cwd = process.cwd();
+    // On Windows, path.join uses backslashes
+    const result = shortPath(path.join(cwd, "test", "file.js"));
+    assert.ok(!result.includes("\\"));
+    assert.equal(result, "test/file.js");
+  });
+});
 
 // ─── scrubSecrets ────────────────────────────────────────────────────────────
 

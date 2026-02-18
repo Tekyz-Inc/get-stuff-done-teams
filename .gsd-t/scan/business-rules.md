@@ -1,15 +1,13 @@
 # Business Rules — 2026-02-18
 
-## Scan #4: Business Rules Extraction (Post-Milestones 3-7)
-**Package**: @tekyzinc/gsd-t v2.24.3
-**Previous scan**: #3 at v2.23.0 (2026-02-18)
+## Scan #5: Business Rules Extraction (Post-Milestone 8)
+**Package**: @tekyzinc/gsd-t v2.24.4
+**Previous scan**: #4 at v2.24.3 (2026-02-18)
 **Scope**: CLI validation, workflow phase rules, QA agent rules, wave orchestration, pre-commit gates, autonomy behavior, heartbeat security, undocumented rules
-**Files scanned**: `bin/gsd-t.js`, 43 command files in `commands/`, `templates/CLAUDE-global.md`, `scripts/gsd-t-heartbeat.js`, `scripts/npm-update-check.js`, `scripts/gsd-t-fetch-version.js` (NEW)
+**Files scanned**: `bin/gsd-t.js`, 43 command files in `commands/`, `templates/CLAUDE-global.md`, `scripts/gsd-t-heartbeat.js`, `scripts/npm-update-check.js`, `scripts/gsd-t-fetch-version.js`
 
-### Changes Since Scan #3
-- **M5**: New security functions `scrubSecrets()`, `scrubUrl()`, `hasSymlinkInPath()` in heartbeat; path validation in `npm-update-check.js`
-- **M6**: All 13 over-30-line functions split. New helpers: `buildEvent()` → `EVENT_HANDLERS` map, `readProjectDeps()`, `readPyContent()`, `insertGuardSection()`, `readUpdateCache()`, `addHeartbeatHook()`, `updateSingleProject()`, `showUpdateAllSummary()`. New script: `scripts/gsd-t-fetch-version.js`
-- **M7**: Command files now have integer-only step numbers, Autonomy Behavior sections in discuss+impact, structured discuss-skip in wave, QA file-path boundaries + multi-framework detection
+### Changes Since Scan #4
+- **M8**: New `readSettingsJson()` helper centralizes settings.json parsing across 3 call sites (`configureHeartbeatHooks`, `showStatusTeams`, `checkDoctorSettings`). Notification event handler now scrubs secrets via `scrubSecrets(h.message)`. New `prepublishOnly` npm script gates publishing on passing tests. `readSettingsJson` added to module.exports.
 
 ---
 
@@ -33,12 +31,12 @@
 - **Constraint**: Defense-in-depth against path traversal and privilege escalation
 - **Enforcement**: `validateProjectPath()` — filters `getRegisteredProjects()`, invalid paths logged with warning and skipped
 
-### 1.4 Symlink Protection (Enhanced in M5)
+### 1.4 Symlink Protection
 - **File**: `bin/gsd-t.js:118-137`, used at 15+ locations throughout
 - **Rule**: NEVER write to a symlinked file or directory; NEVER use a path with any symlinked component
 - **Functions**:
   - `isSymlink(filePath)`: Checks if the target itself is a symlink via `fs.lstatSync()`
-  - `hasSymlinkInPath(targetPath)` **(NEW in M5)**: Walks from target up to filesystem root, checking each ancestor for symlinks
+  - `hasSymlinkInPath(targetPath)`: Walks from target up to filesystem root, checking each ancestor for symlinks
 - **Enforcement**: `isSymlink()` guard before every `fs.writeFileSync`, `fs.copyFileSync`, `fs.appendFileSync`; `hasSymlinkInPath()` guard in `ensureDir()`
 - **Affected operations**: version file, settings.json, CLAUDE.md, project registration, command files, heartbeat script, all init-created files, backup files, changelog creation, guard injection, heartbeat event writing, update cache writing
 
@@ -60,12 +58,12 @@
 - **Constraint**: Returns true only if latest is strictly newer (not equal); missing segments default to 0
 - **Limitation**: Does not handle pre-release suffixes — only compares numeric segments
 
-### 1.8 Update Check Cache (Refactored in M6)
+### 1.8 Update Check Cache
 - **File**: `bin/gsd-t.js:1093-1140`
 - **Rule**: Update check caches npm registry response for 1 hour (3600000ms)
-- **Three-tier fetch logic** (refactored — was monolithic):
+- **Three-tier fetch logic**:
   - `readUpdateCache()`: Reads and parses `~/.claude/.gsd-t-update-check` JSON; returns null on missing/corrupt
-  - `fetchVersionSync()`: **NEW in M6** — delegates to `scripts/gsd-t-fetch-version.js` via `execFileSync` (8s timeout). Previous behavior embedded the fetch inline
+  - `fetchVersionSync()`: Delegates to `scripts/gsd-t-fetch-version.js` via `execFileSync` (8s timeout)
   - `refreshVersionAsync()`: Spawns detached background `scripts/npm-update-check.js` for non-blocking refresh
 - **First-run**: No cache → synchronous fetch via `gsd-t-fetch-version.js` (blocks CLI)
 - **Subsequent stale**: Cache exists but >1hr old → async background refresh
@@ -81,6 +79,24 @@
 - **File**: `CLAUDE.md` (project-level), `package.json`
 - **Rule**: `bin/gsd-t.js` must use ONLY Node.js built-ins (fs, path, os, child_process)
 - **Enforcement**: No `dependencies` or `devDependencies` in package.json; stated as "Don't Do" rule
+
+### 1.11 Settings JSON Centralized Parsing (NEW in M8)
+- **File**: `bin/gsd-t.js:1106-1110`
+- **Rule**: All settings.json reads go through `readSettingsJson()` — returns parsed object or null
+- **Behavior**: Returns `null` if file does not exist; returns `null` if JSON parse fails (swallows error); returns parsed object on success
+- **Call sites** (3 total, all refactored in M8):
+  - `configureHeartbeatHooks()` (line 345): Uses `readSettingsJson()` instead of inline try/catch parse. Distinguishes "file exists but invalid JSON" (warn + return 0) from "file doesn't exist" (proceed with empty object)
+  - `showStatusTeams()` (line 698): Uses `readSettingsJson()` instead of inline try/catch. Returns early with warning if null and file exists
+  - `checkDoctorSettings()` (line 984): Uses `readSettingsJson() !== null` instead of inline try/catch. Simplified error message (no longer includes `e.message`)
+- **Semantic change**: `checkDoctorSettings()` error message changed from `"settings.json has invalid JSON: {error detail}"` to `"settings.json has invalid JSON"` — error detail is no longer exposed
+- **CHANGE from scan #4**: Three inline JSON.parse patterns consolidated into one reusable helper
+
+### 1.12 Publish Gate (NEW in M8)
+- **File**: `package.json:26`
+- **Rule**: `"prepublishOnly": "npm test"` — npm publish is blocked unless all tests pass
+- **Enforcement**: npm lifecycle hook runs `node --test` before `npm publish`; non-zero exit code aborts publish
+- **Scope**: Applies to `npm publish` and `npm pack` commands
+- **CHANGE from scan #4**: Previously no prepublish gate existed; tests had to be run manually
 
 ---
 
@@ -109,17 +125,16 @@
 
 - **Forward-only**: Status transitions proceed in order. Exceptions: VERIFY_FAILED reverts to remediation; COMPLETED resets to READY
 
-### 2.2 Discuss Phase — Structured Skip Check (NEW in M7)
+### 2.2 Discuss Phase — Structured Skip Check
 - **File**: `commands/gsd-t-wave.md:78-83`
-- **Rule**: Discuss is the ONLY phase that may be skipped, but wave now uses a **structured three-condition check** instead of a heuristic
+- **Rule**: Discuss is the ONLY phase that may be skipped, but wave uses a **structured three-condition check**
 - **Skip when ALL of these are true**:
   - (a) Single domain milestone (only one entry in Domains table)
   - (b) No items containing "OPEN QUESTION" in the Decision Log
   - (c) For multi-domain milestones: all cross-domain contracts exist in `.gsd-t/contracts/`
 - **If ANY check fails**: Spawn discuss agent
-- **CHANGE from scan #3**: Previously, the skip condition was a vague "Path is clear, architecture well-established, no open design questions". Now it is a deterministic three-part check.
 
-### 2.3 Discuss Phase — Dual Autonomy Behavior (NEW in M7)
+### 2.3 Discuss Phase — Dual Autonomy Behavior
 - **File**: `commands/gsd-t-discuss.md:6-19`, `126-133`
 - **Manual invocation** (`/user:gsd-t-discuss`):
   - Focus on user's specific topic from `$ARGUMENTS`
@@ -131,9 +146,8 @@
   - Make recommendations and log decisions
   - Continue to next phase without stopping
 - **Detection heuristic**: `$ARGUMENTS` with specific topic = manual; empty or milestone-only = auto-invoked
-- **CHANGE from scan #3**: Autonomy behavior section is now a structured subsection at end of command file. The rules themselves are the same but are now explicitly structured.
 
-### 2.4 Impact Analysis — Dual Autonomy Behavior (NEW in M7)
+### 2.4 Impact Analysis — Dual Autonomy Behavior
 - **File**: `commands/gsd-t-impact.md:240-244`
 - **Level 3 (Full Auto)**:
   - PROCEED or PROCEED WITH CAUTION → log findings and auto-advance to execute. "Do NOT wait for user input."
@@ -143,7 +157,6 @@
   - Present full impact report
   - Wait for user confirmation before proceeding (PROCEED) or pause for remediation (BLOCK)
   - PROCEED WITH CAUTION → ask "These can be addressed during execution. Proceed?"
-- **CHANGE from scan #3**: Impact now has an explicit "Autonomy Behavior" subsection at the end (M7 pattern). Previously, the behavior was described inline in the decision gate.
 
 ### 2.5 Impact Analysis Decision Gate (Three Verdicts)
 - **File**: `commands/gsd-t-impact.md:204-226`, `commands/gsd-t-wave.md:93-97`
@@ -168,7 +181,7 @@
 - **Rule**: `--force` flag allows completing milestone even if status is not VERIFIED
 - **Recording**: Forced completion recorded as status "FORCED" in archive summary
 
-### 2.9 Wave Integrity Check (NEW in M7)
+### 2.9 Wave Integrity Check
 - **File**: `commands/gsd-t-wave.md:13-22`
 - **Rule**: After reading progress.md, wave orchestrator MUST verify three required fields before proceeding:
   - **Status field**: A `Status:` line with a recognized value (DEFINED, PARTITIONED, PLANNED, etc.)
@@ -176,7 +189,6 @@
   - **Domains table**: A `| Domain |` table with at least one row
 - **If ANY missing/malformed**: STOP and report: "Wave cannot proceed — progress.md is missing required fields: {list}. Run `/user:gsd-t-status` to inspect, or `/user:gsd-t-init` to repair."
 - **Critical**: "Do NOT attempt to fix progress.md yourself — that risks data loss."
-- **CHANGE from scan #3**: This is a NEW rule. Previously wave just loaded state without structural validation.
 
 ### 2.10 Phase Status Update Verification
 - **File**: `commands/gsd-t-wave.md:122-130`
@@ -203,12 +215,11 @@
 - **DO NOT**: Write feature code, modify contracts, change architecture
 - **Context**: Receives contracts from `.gsd-t/contracts/` and current phase context
 
-### 3.3 QA File-Path Boundaries (NEW in M7)
+### 3.3 QA File-Path Boundaries
 - **File**: `commands/gsd-t-qa.md:14-27`
 - **CAN modify**: Project test directories (`test/`, `tests/`, `__tests__/`, `e2e/`, `spec/`), test config files (`playwright.config.*`, `jest.config.*`, `vitest.config.*`), `.gsd-t/test-coverage.md`
 - **MUST NOT modify**: Source code (`src/`, `lib/`, `bin/`, `scripts/`), contracts (`.gsd-t/contracts/`), documentation (`docs/`, `README.md`, `CLAUDE.md`), command files (`commands/`), template files (`templates/`), non-test config (`.gsd-t/progress.md`, `package.json`, etc.)
 - **If source change needed**: "Message the lead — do not make the change yourself"
-- **CHANGE from scan #3**: This is a NEW explicit boundary rule. Previously QA was told "you never write feature code" but had no explicit file-path boundary list.
 
 ### 3.4 QA Failure Blocks Phase Completion
 - **File**: `commands/gsd-t-qa.md:209-213`
@@ -232,7 +243,7 @@
 
 - **Source**: `commands/gsd-t-qa.md:29-119`
 
-### 3.6 QA Framework Detection (NEW in M7)
+### 3.6 QA Framework Detection
 - **File**: `commands/gsd-t-qa.md:123-140`
 - **Rule**: Before generating any tests, QA MUST detect the project's existing test framework
 - **Detection order**:
@@ -251,7 +262,6 @@
 | Pytest | `import pytest` | `def test_` / `class Test` | `assert x == y` |
 
 - **Key rule**: "Always match the project's existing test framework. Do not introduce a new framework unless the project has none. If no framework exists, default to ecosystem standard (Node.js: `node:test`, Python: `pytest`)."
-- **CHANGE from scan #3**: This is a NEW explicit multi-framework detection and generation specification. Previously QA defaulted to Playwright patterns.
 
 ### 3.7 Contract-to-Test Mapping Rules
 - **File**: `commands/gsd-t-qa.md:142-186`
@@ -291,14 +301,13 @@
     Gaps: {list or "none"}
   ```
 
-### 3.10 QA Document Ripple (NEW in M7)
+### 3.10 QA Document Ripple
 - **File**: `commands/gsd-t-qa.md:219-229`
 - **Always update**: `.gsd-t/test-coverage.md`
 - **Check if affected**:
   - `docs/requirements.md` — add test file paths to requirement's test mapping
   - Domain `scope.md` — verify test directory listed in owned files
   - `.gsd-t/techdebt.md` — if generation revealed untestable code or missing exports, add as debt
-- **CHANGE from scan #3**: This is a NEW document ripple section added to QA. Previously QA had no document ripple obligations.
 
 ### 3.11 QA Cleanup Rule
 - **File**: `commands/gsd-t-qa.md:216`
@@ -437,8 +446,8 @@
   3. Milestone completion (checkpoint for user review)
   4. Destructive actions (Destructive Action Guard — ALWAYS stop)
 
-### 6.3 Per-Phase Autonomy Behavior Pattern (Formalized in M7)
-- **Observation**: Every phase command now has a structured "Autonomy Behavior" subsection following this pattern:
+### 6.3 Per-Phase Autonomy Behavior Pattern
+- **Observation**: Every phase command has a structured "Autonomy Behavior" subsection following this pattern:
   - **Level 3**: Log brief status line, auto-advance. "Do NOT wait for user input."
   - **Level 1-2**: Present summary, wait for confirmation
 - **Commands with explicit Autonomy Behavior sections**: execute, discuss, impact, verify, test-sync, wave
@@ -447,7 +456,6 @@
   - Impact BLOCK → ALWAYS pauses
   - Destructive Action Guard → ALWAYS pauses
   - VERIFY_FAILED after 2 fix attempts → pauses
-- **CHANGE from scan #3**: Discuss and Impact now have formalized "Autonomy Behavior" subsections. Previously, autonomy behavior was described inline within those commands' step text.
 
 ### 6.4 Triage-and-Merge Publish Gate
 - **File**: `commands/gsd-t-triage-and-merge.md:7-16`
@@ -485,16 +493,15 @@
 - **File**: `templates/CLAUDE-global.md:137-155`
 - **Steps**: (1) READ existing schema/code first; (2) Adapt new code to existing structures; (3) If restructuring truly needed → present case with: what exists, what changes, what breaks, data/functionality lost, migration path; (4) Wait for EXPLICIT approval
 
-### 7.3 Guard Injection into Projects (CLI) — Refactored in M6
+### 7.3 Guard Injection into Projects (CLI)
 - **File**: `bin/gsd-t.js:46-65`, `775-797`
 - **Rule**: `update-all` injects Destructive Action Guard section into project CLAUDE.md files if not present
-- **Placement logic** (now in dedicated `insertGuardSection()` function):
+- **Placement logic** (in `insertGuardSection()` function):
   1. Before "Pre-Commit Gate" heading (regex: `#{1,3} Pre-Commit Gate`)
   2. Before "Don't Do These Things" heading (regex: `#{1,3} Don't Do These Things`)
   3. Append to end (fallback)
 - **Idempotent**: Checks `content.includes("Destructive Action Guard")` before modifying
 - **Guard content**: Hardcoded as `GUARD_SECTION` constant (lines 46-65)
-- **CHANGE from scan #3**: `insertGuardSection()` was extracted from inline code during M6 function-splitting.
 
 ### 7.4 Per-Command Guard Integration
 - **Commands with explicit Destructive Action Guard checks**: execute (solo step 4, team rules), quick (step 3), debug (solo step 5)
@@ -561,6 +568,13 @@
 - **Verdicts per dimension**: PASS / WARN / FAIL
 - **Overall verdicts**: PASS / CONDITIONAL PASS / FAIL
 
+### 8.9 Prepublish Test Gate (NEW in M8)
+- **File**: `package.json:26`
+- **Rule**: `prepublishOnly` npm lifecycle hook runs `npm test` (which invokes `node --test`) before any `npm publish`
+- **Enforcement**: Non-zero test exit code blocks the publish entirely
+- **Scope**: Prevents publishing a broken package to npm registry
+- **CHANGE from scan #4**: Previously there was no automated gate between test suite and npm publish
+
 ---
 
 ## 9. API Documentation Guard Rules
@@ -574,14 +588,13 @@
 - **Publication**: Swagger URL must appear in CLAUDE.md, README.md, docs/infrastructure.md
 - **Verification**: After any API change, confirm Swagger UI loads and reflects current endpoints
 
-### 9.2 Detection Logic (CLI) — Refactored in M6
+### 9.2 Detection Logic (CLI)
 - **File**: `bin/gsd-t.js:186-223`
 - **Swagger detection** (`hasSwagger()`): spec files (swagger/openapi .json/.yaml/.yml) + package.json deps (swagger-jsdoc, swagger-ui-express, @fastify/swagger, @nestjs/swagger, swagger-ui, express-openapi-validator) + Python FastAPI
 - **API detection** (`hasApi()`): package.json deps (express, fastify, hono, koa, hapi, @nestjs/core, next) + Python (fastapi, flask, django)
-- **Helper functions** (NEW in M6):
+- **Helper functions**:
   - `readProjectDeps(projectDir)`: Reads package.json, returns combined deps + devDeps array
   - `readPyContent(projectDir, filename)`: Reads Python dependency files, returns content string
-- **CHANGE from scan #3**: `hasSwagger()` and `hasApi()` now use extracted helper functions instead of inline package.json/Python parsing.
 
 ---
 
@@ -590,7 +603,7 @@
 ### 10.1 Every Phase Has Document Ripple
 - **Observation**: All command files that modify state include a "Document Ripple" section
 - **Pattern**: "Always update" list (mandatory) + "Check if affected" list (conditional) + "Skip what's not affected"
-- **Commands with Document Ripple**: partition, discuss, plan, impact, execute, test-sync, integrate, verify, complete-milestone, quick, debug, feature, project, scan, milestone, promote-debt, init, gap-analysis, triage-and-merge, backlog-add, log, **qa** (22 commands — QA added in M7)
+- **Commands with Document Ripple**: partition, discuss, plan, impact, execute, test-sync, integrate, verify, complete-milestone, quick, debug, feature, project, scan, milestone, promote-debt, init, gap-analysis, triage-and-merge, backlog-add, log, qa (22 commands)
 
 ### 10.2 Progress.md Decision Log Is Universal
 - **Rule**: Every command that modifies files MUST add a timestamped Decision Log entry
@@ -810,7 +823,7 @@
 - **Output**: `.gsd-t/heartbeat-{session_id}.jsonl` (one JSON per line)
 - **Events**: SessionStart, PostToolUse, SubagentStart, SubagentStop, TaskCompleted, TeammateIdle, Notification, Stop, SessionEnd
 
-### 22.2 Security Rules (Enhanced in M5)
+### 22.2 Security Rules
 - **Max stdin**: 1MB (`MAX_STDIN = 1024 * 1024`) — prevents OOM; silently discards oversized input
 - **Session ID**: `/^[a-zA-Z0-9_-]+$/` (`SAFE_SID`) — blocks path traversal
 - **CWD**: Must be absolute path (`path.isAbsolute(dir)`)
@@ -819,7 +832,7 @@
 - **Auto-cleanup**: Files >7 days old deleted on SessionStart (`MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000`)
 - **Cleanup safety**: Symlinked heartbeat files are skipped during cleanup (`stat.isSymbolicLink()` check)
 
-### 22.3 Secret Scrubbing (NEW in M5)
+### 22.3 Secret Scrubbing (Enhanced in M8)
 - **File**: `scripts/gsd-t-heartbeat.js:112-136`
 - **`scrubSecrets(cmd)`**: Replaces sensitive values in CLI commands with `***`
   - `SECRET_FLAGS`: `--password`, `--token`, `--secret`, `--api-key`, `--auth`, `--credential`, `--private-key` + value → `***`
@@ -830,14 +843,14 @@
   - Parses URL, iterates `searchParams.keys()`, sets each to `***`
   - Falls back to original URL on parse error
 - **Applied in**: `summarize()` — Bash commands scrubbed via `scrubSecrets()`, WebFetch URLs scrubbed via `scrubUrl()`
-- **CHANGE from scan #3**: These are entirely NEW functions added in M5. Previously Bash commands and URLs were logged verbatim.
+- **Notification scrubbing (NEW in M8)**: `EVENT_HANDLERS.Notification` now applies `scrubSecrets(h.message)` to notification message content before writing to heartbeat log. Previously `h.message` was logged verbatim, meaning secrets in notification text (e.g., tool output containing env vars or tokens) were written unredacted to `.gsd-t/heartbeat-*.jsonl`
+- **CHANGE from scan #4**: Notification handler changed from `{ message: h.message, title: h.title }` to `{ message: scrubSecrets(h.message), title: h.title }`
 
-### 22.4 Event Handler Architecture (Refactored in M6)
+### 22.4 Event Handler Architecture
 - **File**: `scripts/gsd-t-heartbeat.js:93-109`
 - **`EVENT_HANDLERS` map**: Static object mapping event name → handler function
   - Each handler returns a structured event payload
   - `buildEvent(hook)` looks up handler by `hook.hook_event_name`, returns `{ ts, sid, ...handler(hook) }` or null
-- **CHANGE from scan #3**: Previously `buildEvent()` was a monolithic switch/case. Now uses a declarative handler map.
 
 ### 22.5 Tool Summarization
 - **File**: `scripts/gsd-t-heartbeat.js:138-167`
@@ -852,7 +865,7 @@
 
 ---
 
-## 23. External Fetch Script (NEW in M6)
+## 23. External Fetch Script Rules
 
 ### 23.1 gsd-t-fetch-version.js
 - **File**: `scripts/gsd-t-fetch-version.js`
@@ -861,15 +874,13 @@
 - **Safety**: 1MB response limit (`MAX_BODY = 1048576`); destroys response if exceeded
 - **Output**: Writes version string to stdout (consumed by parent via `execFileSync`)
 - **Silent failure**: Network or parse errors produce no output (parent handles missing output)
-- **CHANGE from scan #3**: This is a NEW file. Previously the synchronous fetch was done inline in `bin/gsd-t.js` using a different approach.
 
-### 23.2 npm-update-check.js — Path Validation (Enhanced in M5)
+### 23.2 npm-update-check.js — Path Validation
 - **File**: `scripts/npm-update-check.js:17-21`
 - **Rule**: Cache file path argument is validated to be within `~/.claude/` directory
   - `path.resolve(cacheFile)` must start with `path.join(os.homedir(), ".claude") + path.sep`
   - Prevents arbitrary file writes via CLI argument injection
 - **Additional safety**: Symlink check before writing cache file; 1MB response limit
-- **CHANGE from scan #3**: The path validation (`resolved.startsWith(claudeDir + path.sep)`) is NEW in M5. Previously the cache path was used without validation.
 
 ---
 
@@ -913,11 +924,10 @@
 - Only detects specific mojibake sequences (`\u00e2\u20ac`, `\u00c3`).
 - Other corruption patterns would not be detected.
 
-### 25.6 Guard Injection Position Priority — Now Explicit Function (M6)
+### 25.6 Guard Injection Position Priority
 - **File**: `bin/gsd-t.js:791-797` (`insertGuardSection()`)
 - Regex matches heading levels 1-3 (`#{1,3}`) for "Pre-Commit Gate" and "Don't Do These Things".
 - Case-sensitive matching.
-- **CHANGE from scan #3**: Previously inline logic; now a named, exported, testable function.
 
 ### 25.7 CLAUDE.md Append Separator
 - **File**: `bin/gsd-t.js:447`
@@ -948,40 +958,53 @@
 - **File**: `bin/gsd-t.js:799-822`
 - Uses `{ flag: "wx" }` — never overwrites existing changelogs.
 
-### 25.14 Exported Test Surface (NEW in M6)
-- **File**: `bin/gsd-t.js:1195-1244`
-- 37 functions and 3 constants are exported via `module.exports` for unit testing.
+### 25.14 Exported Test Surface
+- **File**: `bin/gsd-t.js:1196-1247`
+- 38 functions and 3 constants are exported via `module.exports` for unit testing (38 = 37 prior + `readSettingsJson` added in M8).
 - Includes all validation functions, all helper functions, all show/display functions, and key business logic functions.
-- **New exports since scan #3**: `insertGuardSection`, `addHeartbeatHook`, `readUpdateCache`, `fetchVersionSync`, `refreshVersionAsync`, `updateSingleProject`, `showUpdateAllSummary`, `updateGlobalCommands`, `showNoProjectsHint`, `showStatusVersion`, `showStatusCommands`, `showStatusConfig`, `showStatusTeams`, `showStatusProject`, `showInstallSummary`, `showInitTree`, `writeTemplateFile`, `removeInstalledCommands`, `removeVersionFile`, `updateExistingGlobalClaudeMd`, `appendGsdtToClaudeMd`, `readProjectDeps`, `readPyContent`, `checkDoctorClaudeMd`, `checkDoctorSettings`, `checkDoctorEncoding`
-- **CHANGE from scan #3**: Major expansion of exported test surface. Previously only validation functions and a few helpers were exported.
+- **CHANGE from scan #4**: `readSettingsJson` added to exports
 
-### 25.15 Heartbeat Exports for Testing (NEW in M5)
+### 25.15 Heartbeat Exports for Testing
 - **File**: `scripts/gsd-t-heartbeat.js:22`
 - Exports: `scrubSecrets`, `scrubUrl`, `buildEvent`, `summarize`, `shortPath`
 - Placed before `require.main` guard so they're available for import without executing main logic.
 
-### 25.16 Integer-Only Step Numbers (M7 Convention)
-- **Observation**: Command files in M7 use integer step numbers (`## Step 1`, `## Step 2`) rather than sub-steps or lettered steps at the top level.
+### 25.16 Integer-Only Step Numbers (Convention)
+- **Observation**: Command files use integer step numbers (`## Step 1`, `## Step 2`) rather than sub-steps or lettered steps at the top level.
 - **Pattern**: All steps are numbered sequentially. Sub-sections within steps use `### A)`, `### B)` etc.
-- **CHANGE from scan #3**: This is an implicit convention change. Previous command files sometimes used non-integer or inconsistent step numbering.
+
+### 25.17 readSettingsJson Null Semantics (NEW in M8)
+- **File**: `bin/gsd-t.js:1106-1110`
+- `readSettingsJson()` returns `null` for two distinct conditions: (1) file does not exist, (2) file exists but has invalid JSON. Callers must disambiguate by also checking `fs.existsSync(SETTINGS_JSON)`.
+- **Pattern at call sites**:
+  - `configureHeartbeatHooks()`: `if (parsed === null && fs.existsSync(SETTINGS_JSON))` → warn about invalid JSON; else treat null as empty object
+  - `showStatusTeams()`: `if (!fs.existsSync(SETTINGS_JSON))` first (early return), then `if (settings === null)` → warn about parse failure
+  - `checkDoctorSettings()`: `if (!fs.existsSync(SETTINGS_JSON))` first (early return), then `readSettingsJson() !== null` as success test
+- **Risk**: If a caller forgets to distinguish "missing" from "corrupt", it will silently proceed with defaults when the file is corrupt. The current 3 call sites all handle this correctly.
+
+### 25.18 Notification Scrub Is Title-Exempt (NEW in M8)
+- **File**: `scripts/gsd-t-heartbeat.js:100`
+- The Notification event handler scrubs `h.message` via `scrubSecrets()` but passes `h.title` through verbatim.
+- **Rationale**: Titles are typically short descriptive strings (e.g., "Build complete"), not command output. But if a title ever contains a secret, it would not be scrubbed.
+- **No test coverage**: No existing test verifies that Notification events have their messages scrubbed. The `buildEvent` tests in `test/cli-quality.test.js` test the Notification handler but the test data uses `message: "hello"` (non-sensitive), so it does not exercise the scrubbing path.
 
 ---
 
 ## Summary Statistics
 
-- **Total business rules extracted**: 135+
-- **NEW rules since scan #3**: 11
-- **CHANGED rules since scan #3**: 8
-- **CLI validation rules**: 10 (1 enhanced: symlink)
-- **Workflow phase rules**: 11 (3 new: integrity check, structured discuss-skip, discuss/impact autonomy sections)
-- **QA Agent rules**: 11 (3 new: file-path boundaries, framework detection, document ripple)
+- **Total business rules extracted**: 139+
+- **NEW rules since scan #4**: 5
+- **CHANGED rules since scan #4**: 2
+- **CLI validation rules**: 12 (2 new: readSettingsJson centralization, prepublish gate)
+- **Workflow phase rules**: 11
+- **QA Agent rules**: 11
 - **Wave orchestrator rules**: 10
 - **Pre-Commit Gate rules**: 6 (global) + 6 (GSD-T specific)
-- **Autonomy behavior rules**: 6 (1 formalized: per-phase pattern)
-- **Testing enforcement rules**: 8
-- **Destructive Action Guard rules**: 4 (1 refactored: insertGuardSection)
-- **API Documentation Guard rules**: 2 (1 refactored: helper extraction)
-- **Document Ripple rules**: 3 (1 updated: QA now included)
+- **Autonomy behavior rules**: 6
+- **Testing enforcement rules**: 9 (1 new: prepublish gate)
+- **Destructive Action Guard rules**: 4
+- **API Documentation Guard rules**: 2
+- **Document Ripple rules**: 3
 - **Contract rules**: 5
 - **Domain rules**: 4
 - **Execution mode rules**: 5
@@ -989,40 +1012,36 @@
 - **Smart router rules**: 3
 - **Backlog rules**: 3
 - **Triage-and-merge rules**: 2
-- **Heartbeat/event rules**: 5 (2 new: scrubSecrets/scrubUrl, handler refactor)
-- **External fetch script rules**: 2 (all new)
+- **Heartbeat/event rules**: 5 (1 enhanced: notification scrubbing)
+- **External fetch script rules**: 2
 - **Code standards**: 1 (with sub-rules)
-- **Undocumented/implicit rules**: 16 (3 new: exported test surface, heartbeat exports, integer step numbers)
+- **Undocumented/implicit rules**: 18 (2 new: readSettingsJson null semantics, notification title exemption)
 
-### Change Summary — New Rules Since Scan #3
+### Change Summary — New Rules Since Scan #4
 
 | # | Rule | Source (Milestone) | Category |
 |---|------|--------------------|----------|
-| 1 | `hasSymlinkInPath()` — walk ancestors for symlinks | M5 | CLI validation |
-| 2 | `scrubSecrets()` / `scrubUrl()` — redact sensitive data in heartbeat | M5 | Heartbeat security |
-| 3 | npm-update-check.js path validation — cache file must be within `~/.claude/` | M5 | External script security |
-| 4 | Wave integrity check — verify progress.md has Status, Milestone, Domains before proceeding | M7 | Workflow state |
-| 5 | Structured discuss-skip — three-condition deterministic check replaces heuristic | M7 | Workflow state |
-| 6 | Discuss/Impact autonomy sections — formalized subsections at end of command | M7 | Autonomy behavior |
-| 7 | QA file-path boundaries — explicit CAN/MUST NOT modify lists | M7 | QA rules |
-| 8 | QA multi-framework detection — detect and match existing test framework | M7 | QA rules |
-| 9 | QA document ripple — test-coverage.md, requirements, scope, techdebt | M7 | QA rules |
-| 10 | `gsd-t-fetch-version.js` — dedicated external script for sync version fetch | M6 | External scripts |
-| 11 | Expanded module.exports — 37 functions + 3 constants for unit testing | M6 | Test surface |
+| 1 | `readSettingsJson()` — centralized settings.json parser replacing 3 inline patterns | M8 | CLI validation |
+| 2 | `prepublishOnly` npm gate — `npm test` runs before every `npm publish` | M8 | Testing enforcement |
+| 3 | `readSettingsJson` null semantics — callers must disambiguate missing vs corrupt | M8 | Undocumented rules |
+| 4 | Notification title exempt from scrubbing — `h.title` passes through verbatim | M8 | Undocumented rules |
+| 5 | `readSettingsJson` added to module.exports — 38 functions + 3 constants total | M8 | Test surface |
 
-### Change Summary — Modified Rules Since Scan #3
+### Change Summary — Modified Rules Since Scan #4
 
 | # | Rule | What Changed | Source (Milestone) |
 |---|------|-------------|-------------------|
-| 1 | Update check cache | Three-tier refactor: `readUpdateCache()` + `fetchVersionSync()` (external script) + `refreshVersionAsync()` | M6 |
-| 2 | Guard injection | Extracted to `insertGuardSection()` function | M6 |
-| 3 | Swagger/API detection | `hasSwagger()` and `hasApi()` now use `readProjectDeps()` and `readPyContent()` helpers | M6 |
-| 4 | EVENT_HANDLERS | Monolithic switch → declarative handler map | M6 |
-| 5 | All 13 over-30-line functions | Split into focused single-purpose helpers | M6 |
-| 6 | Discuss skip condition | Vague heuristic → structured 3-part check | M7 |
-| 7 | Autonomy behavior sections | Inline descriptions → formalized end-of-command subsections | M7 |
-| 8 | Document ripple command count | 21 → 22 (QA added) | M7 |
+| 1 | Notification event scrubbing | `h.message` now wrapped in `scrubSecrets()` — previously logged verbatim | M8 |
+| 2 | `checkDoctorSettings()` error message | No longer includes `e.message` detail — simplified to generic message | M8 |
+
+### Test Coverage Gap (M8)
+
+| Gap | Description | Risk |
+|-----|-------------|------|
+| `readSettingsJson()` | No dedicated unit test for the new helper function | Low — indirectly tested via `checkDoctorSettings` and `addHeartbeatHook` tests, but no test for null-on-corrupt or null-on-missing |
+| Notification scrubbing | `buildEvent` test for Notification uses non-sensitive message; does not verify `scrubSecrets()` is applied | Medium — the secret-scrubbing codepath in Notification handler is untested |
+| `prepublishOnly` | No test verifies the npm lifecycle hook blocks publish on test failure | Low — standard npm behavior; the hook itself is declarative |
 
 ---
 
-*Business rules extraction: 2026-02-18 — Scan #4 (post-Milestones 3-7)*
+*Business rules extraction: 2026-02-18 — Scan #5 (post-Milestone 8, v2.24.4)*

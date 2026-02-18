@@ -97,8 +97,8 @@ When all 3 conditions are met, skip is automatic. When skipped, transition direc
 
 Wave Step 1 performs a three-field integrity check on `progress.md` before starting:
 1. **Status** — must be a recognized value from the Valid Status table
-2. **Version** — must match `package.json` version
-3. **Current Milestone** — must have an active milestone defined
+2. **Milestone name** — must have an active milestone identified
+3. **Domains table** — must have at least one domain row defined
 
 If any field is missing or invalid, wave reports the error and stops.
 

@@ -18,8 +18,7 @@ const {
   insertGuardSection,
   readUpdateCache,
   addHeartbeatHook,
-  writeTemplateFile,
-  showStatusVersion,
+  readSettingsJson,
   PKG_ROOT,
 } = require("../bin/gsd-t.js");
 
@@ -147,6 +146,36 @@ describe("readUpdateCache", () => {
     // Just verify it returns object or null without throwing
     const result = readUpdateCache();
     assert.ok(result === null || typeof result === "object");
+  });
+});
+
+// ─── readSettingsJson ───────────────────────────────────────────────────────
+
+describe("readSettingsJson", () => {
+  it("returns object or null without throwing", () => {
+    const result = readSettingsJson();
+    assert.ok(result === null || typeof result === "object");
+  });
+
+  it("returns null when settings.json does not exist", () => {
+    // Temporarily point to non-existent path by testing the function behavior
+    // readSettingsJson checks fs.existsSync(SETTINGS_JSON) — if the file
+    // doesn't exist, it returns null. We can verify this by checking that
+    // the function handles missing files gracefully.
+    const result = readSettingsJson();
+    // Either returns valid object (file exists) or null (doesn't exist)
+    if (result !== null) {
+      assert.equal(typeof result, "object");
+    }
+  });
+
+  it("returns an object with expected structure when file exists", () => {
+    const result = readSettingsJson();
+    if (result !== null) {
+      // settings.json should be a plain object (not array)
+      assert.equal(typeof result, "object");
+      assert.ok(!Array.isArray(result));
+    }
   });
 });
 

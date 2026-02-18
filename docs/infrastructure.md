@@ -1,6 +1,6 @@
 # Infrastructure — GSD-T Framework (@tekyzinc/gsd-t)
 
-## Last Updated: 2026-02-18 (Scan #4)
+## Last Updated: 2026-02-18 (Scan #5)
 
 ## Quick Reference
 
@@ -13,7 +13,7 @@
 | Diagnose issues | `npx @tekyzinc/gsd-t doctor` |
 | View changelog | `npx @tekyzinc/gsd-t changelog` |
 | Register project | `npx @tekyzinc/gsd-t register` |
-| Publish to npm | `npm publish` |
+| Publish to npm | `npm publish` (runs `npm test` automatically via prepublishOnly) |
 
 ## Local Development
 

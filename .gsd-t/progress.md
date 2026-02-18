@@ -1,15 +1,17 @@
 # GSD-T Progress
 
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
-## Version: 2.24.4
+## Version: 2.24.5
 ## Status: READY
 ## Date: 2026-02-18
 
 ## Current Milestone
 
-No active milestone. Status: READY for next milestone.
+| # | Milestone | Status | Domains |
+|---|-----------|--------|---------|
+| 9 | Cleanup Sprint | COMPLETED | cleanup |
 
-**Result (M8)**: All 13 scan #4 tech debt items resolved (12 fixed, 1 accepted as risk). Zero open tech debt.
+**Goal**: Resolve all 10 LOW-severity scan #5 findings (TD-056-TD-065) — dead code, untested exports, documentation errors, minor security gap, contract drift.
 
 ## Completed Milestones
 | Milestone | Version | Completed | Tag |
@@ -23,11 +25,12 @@ No active milestone. Status: READY for next milestone.
 | CLI Quality Improvement | 2.24.2 | 2026-02-19 | v2.24.2 |
 | Command File Cleanup | 2.24.3 | 2026-02-19 | v2.24.3 |
 | Housekeeping + Contract Sync | 2.24.4 | 2026-02-18 | v2.24.4 |
+| Cleanup Sprint | 2.24.5 | 2026-02-18 | v2.24.5 |
 
 ## Domains
 | Domain | Status | Tasks | Completed |
 |--------|--------|-------|-----------|
-<!-- No active domains -->
+| cleanup | executed | 6 | 6 |
 
 ## Contracts
 No cross-domain contracts expected — single domain milestone.
@@ -153,6 +156,9 @@ No integration checkpoints expected — single domain milestone.
 - 2026-02-18 04:15: Milestone 8 (Housekeeping + Contract Sync) completed — 12 tech debt items resolved (TD-044-TD-055), TD-029 accepted as risk. Zero open tech debt. Version bump 2.24.3 → 2.24.4. Domain archived. v2.24.4
 - 2026-02-18 03:30: Milestone 8 executed — 6/6 tasks complete. Task 1: Quick fixes — CLAUDE.md version dynamic (TD-048), prepublishOnly added (TD-051), orphaned domains deleted (TD-046), status contract-compliant (TD-044). Task 2: Contract sync — progress-file-format enriched (TD-047), wave-phase-sequence updated (TD-053), command-interface-contract renamed (TD-054), integration-points rewritten (TD-055). Task 3: CHANGELOG entries for v2.23.1-v2.24.3 (TD-045). Task 4: readSettingsJson() extracted (TD-050), notification scrubbing (TD-052). Task 5: git renormalize (TD-049). Task 6: TD-029 accepted as risk with 5-point rationale. 116/116 tests pass.
 - 2026-02-18 02:30: Full codebase scan #4 (5 parallel agents: architecture, business-rules, security, quality, contracts). Post-Milestones 3-7 analysis. Key findings: 25 of 26 scan #3 items RESOLVED. Only TD-029 (TOCTOU) remains from previous scans. 12 new items found (0 critical, 1 HIGH, 3 MEDIUM, 8 LOW). HIGH: progress.md Status: ACTIVE not recognized by wave contract (TD-044). MEDIUM: CHANGELOG.md missing M4-M7 (TD-045), orphaned domain dirs (TD-046), progress contract enrichment (TD-047). All 86 functions ≤30 lines, 116/116 tests pass, zero security regressions. Total open: 13 (was 26). Updated techdebt.md, living docs (architecture, workflows, infrastructure, requirements). Test baseline recorded.
+- 2026-02-18 05:30: Promoted all 10 scan #5 tech debt items (TD-056-TD-065) to Milestone 9: Cleanup Sprint. All LOW severity — dead code removal, case fallthrough, test coverage for 2 untested exports, SEC-N16 correction, notification title scrubbing, contract sync (wave integrity check + duplicate format contract). Added to roadmap.md. Estimated effort: small.
+- 2026-02-18 06:00: Milestone 9 (Cleanup Sprint) completed — 10 tech debt items resolved (TD-056-TD-065). 6 tasks in 1 domain. Removed dead code (PKG_EXAMPLES, dead test imports). Applied case fallthrough in summarize(). Simplified checkForUpdates() condition. Scrubbed notification title. Added 9 new tests (readSettingsJson: 3, shortPath: 6). Corrected wave integrity check contract. Deleted duplicate format contract. 125/125 tests pass. Version bump 2.24.4 → 2.24.5. Domain archived to milestones/cleanup-sprint-2026-02-18/. Zero open tech debt. v2.24.5
+- 2026-02-18 05:00: Full codebase scan #5 (5 parallel agents: architecture, business-rules, security, quality, contracts). Post-M8 analysis at v2.24.4. Findings: 0 previous items open (all resolved by M8). 10 new LOW items found (TD-056-TD-065): 7 quality (summarize fallthrough, PKG_EXAMPLES dead code, dead test imports, 2 untested exports, redundant condition, SEC-N16 note wrong), 1 security (notification title unscrubbed), 2 contract drift (wave integrity check divergence, duplicate format contracts). 2 new informational security notes (SEC-N18 prototype lookup, SEC-N19 error path exposure). 87 functions (81+6), 54 exports, all ≤30 lines, 116/116 tests pass. Updated techdebt.md, living docs. Suggested cleanup sprint milestone.
 
 ## Session Log
 | Date | Session | What was accomplished |
@@ -164,3 +170,5 @@ No integration checkpoints expected — single domain milestone.
 | 2026-02-18 | 5 | Full scan (5 agents), Contract & Doc Alignment milestone (6 TDs resolved, v2.21.2). Merged origin/main (v2.23.0). Scan #3: 10 new items, 1 regressed, 1 worsened. 26 open items. |
 | 2026-02-18 | 6 | Promoted 25/26 debt items → 5 milestones (M3-M7). Executed all 5 milestones: M3 count fix (v2.23.1), M4 testing (v2.24.0, 64 tests), M5 security (v2.24.1, 30 tests), M6 CLI quality (v2.24.2, 22 tests), M7 command cleanup (v2.24.3). Scan #4: 25/26 resolved, 12 new (all small), 116/116 tests pass. |
 | 2026-02-18 | 7 | M8: Housekeeping + Contract Sync. 6 tasks, 1 domain, 13 tech debt items (12 resolved + TD-029 accepted as risk). Zero open tech debt. v2.24.4 |
+| 2026-02-18 | 8 | Scan #5: post-M8 analysis. 10 new LOW items (TD-056-TD-065). 0 critical/high/medium. 87 functions, 54 exports, 116 tests all pass. Codebase in excellent health. |
+| 2026-02-18 | 9 | Promoted 10 items → M9 Cleanup Sprint. Executed 6 tasks (dead code, case fallthrough, condition fix, title scrub, 9 new tests, contract fixes). 125/125 tests. Zero open tech debt. v2.24.5 |

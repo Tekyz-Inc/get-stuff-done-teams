@@ -1,449 +1,529 @@
-# Contract Drift Analysis — Scan #4
+# Contract Drift Analysis — Scan #5
 
 **Scan Date:** 2026-02-18
-**Package Version:** v2.24.3
+**Package Version:** v2.24.4
 **Scope:** All 9 contracts in `.gsd-t/contracts/` vs actual implementation
-**Previous Scan:** Scan #3 at v2.23.0 (2026-02-18) — found 3 new items (1 High, 2 Medium)
-**Milestones Since Last Scan:** M3 (Count Fix), M4 (Testing), M5 (Security), M6 (CLI Quality), M7 (Command Cleanup)
+**Previous Scan:** Scan #4 at v2.24.3 (2026-02-18) — found 8 open items (1 High, 2 Medium, 5 Low)
+**Milestones Since Last Scan:** M8 (Housekeeping + Contract Sync)
 
 ---
 
 ## Summary
 
-| Contract | Status | Severity | Change from Scan #3 |
+| Contract | Status | Severity | Change from Scan #4 |
 |----------|--------|----------|---------------------|
-| command-interface-contract.md | STALE | Low | Unchanged — still backlog-only scope |
-| file-format-contract.md | MATCHES | — | Unchanged |
-| integration-points.md | STALE | Low | Unchanged — still M3-specific historical doc |
+| backlog-command-interface.md | MATCHES | — | RESOLVED — renamed from command-interface-contract.md |
 | backlog-file-formats.md | MATCHES | — | Unchanged |
-| domain-structure.md | DRIFTED | Medium | NEW — orphaned domains not cleared |
+| domain-structure.md | MATCHES | — | RESOLVED — orphaned domains cleaned |
+| file-format-contract.md | MATCHES | — | Unchanged |
 | pre-commit-gate.md | MATCHES | — | Unchanged |
-| progress-file-format.md | DRIFTED | Medium | NEW — status value and format drifts |
-| wave-phase-sequence.md | DRIFTED | Low | NEW — missing Security/Integrity additions |
-| qa-agent-contract.md | MATCHES | — | RESOLVED (was DRIFTED) |
+| progress-file-format.md | MATCHES | — | RESOLVED — contract enriched with milestone table + optional fields |
+| qa-agent-contract.md | MATCHES | — | Unchanged |
+| wave-phase-sequence.md | MATCHES | — | RESOLVED — integrity check + security considerations added |
+| integration-points.md | MATCHES | — | RESOLVED — rewritten to reflect current state (no active milestone) |
 
-**Cross-Reference File Agreement:** MATCHES — all files show 43/39/4 (was DRIFTED in scan #3)
+**Overall: 0 drifted contracts. All 9 MATCH.**
 
 ---
 
-## Scan #3 Items — Resolution Status
+## Scan #4 Items — Resolution Status
 
-### RESOLVED: Command count 42 → 43 (was High)
+### RESOLVED: progress.md status ACTIVE → READY (was High)
 
-**Fixed in M3 (Count Fix + QA Contract Alignment).**
-
-Verified all files now show correct counts:
-- `CLAUDE.md` line 13: "43 slash commands (39 GSD-T workflow + 4 utility)" — CORRECT
-- `CLAUDE.md` line 34: "43 slash commands for Claude Code" — CORRECT
-- `CLAUDE.md` line 35: "39 GSD-T workflow commands" — CORRECT
-- `package.json` description: "43 slash commands" — CORRECT
-- `README.md` line 21: "39 GSD-T commands + 4 utility commands (43 total)" — CORRECT
-- `README.md` line 297: "43 slash commands" — CORRECT
-- `README.md` line 298: "39 GSD-T workflow commands" — CORRECT
-- `docs/architecture.md` line 25: "43 (39 GSD-T workflow + 4 utility)" — CORRECT
-- `docs/infrastructure.md` line 74: "43 slash command files (39 GSD-T + 4 utility)" — CORRECT
-- `docs/workflows.md` line 9: "43 commands" — CORRECT
-- `docs/workflows.md` line 17: "43 commands available" — CORRECT
-- `docs/requirements.md` line 10: "39 GSD-T workflow slash commands" — CORRECT
-- `bin/gsd-t.js`: Dynamic counting via `getGsdtCommands().length` — CORRECT (auto-adapts)
-- `commands/gsd-t-help.md`: Lists all 39 gsd-t-* + gsd — CORRECT
-- `templates/CLAUDE-global.md`: Lists all 43 commands including qa — CORRECT
-- `docs/GSD-T-README.md`: Lists all commands including qa — CORRECT
-
-**Actual disk count (verified):**
-- 43 .md files in `commands/`
-- 39 starting with `gsd-t-` (GSD-T workflow)
-- 4 utility: `gsd.md`, `branch.md`, `checkin.md`, `Claude-md.md`
-
-**Status: CONFIRMED RESOLVED. No stale counts remain.**
-
-### RESOLVED: QA agent contract missing test-sync phase (was Medium)
-
-**Fixed in M3 (Task 2: TD-042).**
+**Fixed in M8 (Task 1: TD-044).**
 
 Verified:
-- `commands/gsd-t-qa.md` now has a "During Test-Sync" section (lines 63-71) defining QA behavior: validate test-to-contract alignment, compare contract definitions against test files, write missing tests, run all contract tests, report results
-- `.gsd-t/contracts/qa-agent-contract.md` line 12: phase context list now includes `"test-sync"` — reads: `"partition" | "plan" | "execute" | "test-sync" | "verify" | "quick" | "debug" | "integrate" | "complete"`
-- `.gsd-t/contracts/qa-agent-contract.md` Output table now includes test-sync row: `| test-sync | Contract-test alignment report + gap fills |`
+- `.gsd-t/progress.md` line 5: `## Status: READY` — CORRECT
+- Status is a recognized value in the progress-file-format contract Valid Status table
 
 **Status: CONFIRMED RESOLVED.**
 
-### RESOLVED: Orphaned domain files — doc-alignment (was Medium in scan #3)
+### RESOLVED: Orphaned domain files in `.gsd-t/domains/` (was Medium)
 
-**Fixed in M3 (Task 3: TD-043).**
+**Fixed in M8 (Task 1: TD-046).**
 
-Verified: `.gsd-t/domains/doc-alignment/` no longer exists. The `contract-doc-alignment` domain was archived to `.gsd-t/milestones/contract-doc-alignment/`.
+Verified:
+- `.gsd-t/domains/` contains only `.gitkeep` — no orphaned domain directories
+- `cli-quality/` and `cmd-cleanup/` directories deleted
+- Archived copies exist in `.gsd-t/milestones/cli-quality-2026-02-19/` and `.gsd-t/milestones/cmd-cleanup-2026-02-19/`
+- Contract lifecycle rule satisfied: "After archival, `.gsd-t/domains/` is emptied for next milestone"
 
-**Status: CONFIRMED RESOLVED... BUT new orphaned domains found (see below).**
+**Status: CONFIRMED RESOLVED.**
+
+### RESOLVED: progress-file-format contract missing enriched Current Milestone format (was Medium)
+
+**Fixed in M8 (Task 2: TD-047).**
+
+Verified:
+- `.gsd-t/contracts/progress-file-format.md` lines 48-71 now document the enriched format:
+  - Milestone table: `| # | Milestone | Status | Domains |`
+  - Optional enrichment fields: Goal, Result, Tech Debt Items, Success Criteria
+  - Goal and Success Criteria marked as required; Result and Tech Debt Items as optional
+  - Set by `gsd-t-milestone`, updated by `gsd-t-complete-milestone`
+- Live `.gsd-t/progress.md` Current Milestone section reads: `No active milestone. Status: READY for next milestone.` — valid per contract ("When idle, shows `None — ready for next milestone`")
+
+**Status: CONFIRMED RESOLVED.**
+
+### RESOLVED: wave-phase-sequence contract missing Security/Integrity (was Low)
+
+**Fixed in M8 (Task 2: TD-053).**
+
+Verified:
+- `.gsd-t/contracts/wave-phase-sequence.md` lines 96-110 now include:
+  - **Integrity Check (M7)** section: three-field check (Status, Version vs package.json, Current Milestone)
+  - **Security Considerations (M5)** section: documents `bypassPermissions` mode, Destructive Action Guard, fresh context per phase
+- Actual `commands/gsd-t-wave.md` integrity check (lines 13-22) checks: Status field, Milestone name, Domains table
+- **Minor divergence**: Contract says integrity check verifies "Version — must match `package.json` version." Wave command does NOT check version against package.json — it only checks Status, Milestone name, and Domains table.
+
+**Status: RESOLVED with one minor divergence (see Residual item #1 below).**
+
+### RESOLVED: Rename command-interface-contract.md to backlog-command-interface.md (was Low)
+
+**Fixed in M8 (Task 2: TD-054).**
+
+Verified:
+- `.gsd-t/contracts/backlog-command-interface.md` exists — CORRECT
+- `.gsd-t/contracts/command-interface-contract.md` does NOT exist — CORRECT (renamed)
+- Contract content unchanged: 7 backlog commands, settings subcommands, promote flow classification
+- File name now accurately reflects scope (backlog commands only)
+
+**Status: CONFIRMED RESOLVED.**
+
+### RESOLVED: Stale integration-points.md with M3 data (was Low)
+
+**Fixed in M8 (Task 2: TD-055).**
+
+Verified:
+- `.gsd-t/contracts/integration-points.md` now reads:
+  - "No active cross-domain dependencies. The project is between milestones or running single-domain milestones."
+  - Usage section: explains file is populated by `gsd-t-plan` for multi-domain milestones
+  - History section: notes M3 and M4-M8 as single-domain milestones
+- Content accurately reflects current state (READY, no active milestone)
+
+**Status: CONFIRMED RESOLVED.**
+
+### RESOLVED: Stale version reference in CLAUDE.md (was Low)
+
+**Fixed in M8 (Task 1: TD-048).**
+
+Verified:
+- `CLAUDE.md` line 55: `package.json           — npm package config (see package.json for version)`
+- No hardcoded version number — reference is now dynamic/evergreen
+
+**Status: CONFIRMED RESOLVED.**
 
 ---
 
-## 1. command-interface-contract.md — STALE (Low)
+## Contract-by-Contract Verification
 
-**Contract:** `.gsd-t/contracts/command-interface-contract.md`
-**Compared against:** `commands/gsd-t-backlog-*.md` (7 files), all other command files
+### 1. backlog-command-interface.md — MATCHES
 
-### Backlog Commands — MATCH
+**Contract:** `.gsd-t/contracts/backlog-command-interface.md`
+**Compared against:** `commands/gsd-t-backlog-*.md` (7 files)
 
-All 7 backlog commands exist with correct argument patterns. Promote flow classification matches: Milestone, Quick, Debug, Feature analysis. No drift in the covered scope.
+#### Commands — MATCH
 
-### Contract Scope — STALE (unchanged from scan #3)
+| Contract Command | File Exists | Arguments Match | Purpose Match |
+|-----------------|-------------|-----------------|---------------|
+| gsd-t-backlog-add | `commands/gsd-t-backlog-add.md` | YES: `"<title>" [--desc "..."] [--type ...] [--app ...] [--category ...]` | YES |
+| gsd-t-backlog-list | `commands/gsd-t-backlog-list.md` | YES: `[--type ...] [--app ...] [--category ...] [--top N]` | YES |
+| gsd-t-backlog-move | `commands/gsd-t-backlog-move.md` | YES: `<from-position> <to-position>` | YES |
+| gsd-t-backlog-promote | `commands/gsd-t-backlog-promote.md` | YES: `<position>` | YES |
+| gsd-t-backlog-edit | `commands/gsd-t-backlog-edit.md` | YES: `<position> [--title "..."] [--desc "..."] [--type ...] [--app ...] [--category ...]` | YES |
+| gsd-t-backlog-remove | `commands/gsd-t-backlog-remove.md` | YES: `<position> [--reason "..."]` | YES |
+| gsd-t-backlog-settings | `commands/gsd-t-backlog-settings.md` | YES: `<subcommand> [args]` | YES |
 
-The contract only documents the 7 backlog commands and settings subcommands. It does NOT document any other command interfaces (qa, wave, execute, etc.). The title "Command Interface Contract" is misleading.
+#### Settings Subcommands — MATCH
 
-This was identified in scan #3 as low priority. No change since then. The contract is accurate for what it covers (backlog), but the name suggests broader scope.
+All 8 subcommands documented in contract are present in `commands/gsd-t-backlog-settings.md`:
+- `list`, `add-type`, `remove-type`, `add-app`, `remove-app`, `add-category`, `remove-category`, `default-app`
 
-**Fix approach:** Rename to `backlog-command-interface.md` for clarity.
+#### Promote Flow Classification — MATCH
 
----
-
-## 2. file-format-contract.md — MATCHES
-
-**Contract:** `.gsd-t/contracts/file-format-contract.md`
-**Compared against:** `templates/backlog.md`, `templates/backlog-settings.md`, `.gsd-t/backlog.md`, `.gsd-t/backlog-settings.md`
-
-### backlog.md Format — MATCHES
-- Template (`templates/backlog.md`): contains only `# Backlog` heading — matches contract spec for empty file
-- Live file (`.gsd-t/backlog.md`): single entry with correct format: `## 1. {title}`, pipe-delimited metadata, Added date, description
-
-### backlog-settings.md Format — MATCHES
-- Template (`templates/backlog-settings.md`): Types (5 standard), placeholder Apps, empty Categories, Defaults — matches contract
-- Live file (`.gsd-t/backlog-settings.md`): Types (5), Apps (`gsd-t`), Categories (5 entries), Defaults with correct bold-key format
+Contract lists 4 classifications: Milestone, Quick, Debug, Feature analysis.
+`commands/gsd-t-backlog-promote.md` Step 4 table lists identical 4 classifications with matching criteria and trigger commands.
 
 **No drift detected.**
 
 ---
 
-## 3. integration-points.md — STALE (Low)
-
-**Contract:** `.gsd-t/contracts/integration-points.md`
-**Compared against:** Current project state
-
-This contract still documents the M3 (Count Fix + QA Contract Alignment) integration order from 2026-02-18. It is purely historical documentation of a completed milestone. Milestones 4-7 have since completed without creating or updating this contract.
-
-Per the domain-structure contract, `integration-points.md` is a per-milestone artifact that should document cross-domain dependencies for the CURRENT milestone. With no active milestone, this file is a leftover from M3.
-
-**Impact:** Low. The file is harmless but could confuse consumers who expect it to describe current integration state.
-
-**Fix approach:** Either clear to a placeholder state ("No active milestone — populated during partition phase") or archive with the M3 milestone artifacts.
-
----
-
-## 4. backlog-file-formats.md — MATCHES
+### 2. backlog-file-formats.md — MATCHES
 
 **Contract:** `.gsd-t/contracts/backlog-file-formats.md`
 **Compared against:** `.gsd-t/backlog.md`, `.gsd-t/backlog-settings.md`
 
-### backlog.md — MATCHES
-Live entry format:
+#### backlog.md — MATCHES
+
+Live entry:
 ```
 ## 1. Agentic Workflow Architecture
 - **Type:** feature | **App:** gsd-t | **Category:** architecture
 - **Added:** 2026-02-13
 - Evolve GSD-T commands...
 ```
-All fields present: Position (integer), Title, Type, App, Category, Added (YYYY-MM-DD), Description. Matches contract exactly.
 
-### backlog-settings.md — MATCHES
+All contract fields present: Position (1), Title, Type, App, Category, Added (YYYY-MM-DD), Description. Format matches contract entry format exactly. Pipe-delimited metadata line matches. Position numbering sequential (only 1 entry).
+
+#### backlog-settings.md — MATCHES
+
+Live settings:
 - Types: 5 standard types (bug, feature, improvement, ux, architecture) — matches contract
 - Apps: `gsd-t` — matches contract
 - Categories: 5 entries (cli, commands, templates, docs, contracts) — matches contract
-- Defaults: `Default App: gsd-t`, `Auto-categorize: true` — matches contract bold-key format
+- Defaults: `Default App: gsd-t`, `Auto-categorize: true` — bold-key format matches contract
+
+#### Validation Rules — VERIFIED
+
+Contract validation rules are implemented in command files:
+1. Type validation: `gsd-t-backlog-add.md` Step 4, `gsd-t-backlog-edit.md` Step 3
+2. App validation: same locations
+3. Category validation: same locations
+4. Position validation: `gsd-t-backlog-move.md` Step 3
+5. Settings file required: `gsd-t-backlog-add.md` Step 1 checks for settings
 
 **No drift detected.**
 
 ---
 
-## 5. domain-structure.md — DRIFTED (Medium)
+### 3. domain-structure.md — MATCHES
 
 **Contract:** `.gsd-t/contracts/domain-structure.md`
-**Compared against:** `.gsd-t/domains/`, `.gsd-t/milestones/`
+**Compared against:** `.gsd-t/domains/`, `.gsd-t/milestones/` archived domains
 
-### Lifecycle Violation: Domains Not Cleared After Archival
+#### Directory Layout — MATCHES
 
-The domain-structure contract defines (line 119):
-> "Cleared: After archival, `.gsd-t/domains/` is emptied for next milestone"
+Contract specifies: `scope.md`, `tasks.md`, `constraints.md` per domain.
+Verified against archived M5 domain (`milestones/security-hardening-2026-02-18/`):
+- `scope.md` — present, follows "Domain: {name}", Responsibility, Owned Files, NOT Owned format
+- `tasks.md` — present, follows "Tasks: {domain-name}", Summary, Task numbering, Execution Estimate
+- `constraints.md` — present, follows Must Follow, Must Not, Dependencies format
 
-**Actual state of `.gsd-t/domains/`:**
-- `.gsd-t/domains/.gitkeep` — correct placeholder
-- `.gsd-t/domains/cli-quality/` — scope.md, constraints.md, tasks.md (from M6)
-- `.gsd-t/domains/cmd-cleanup/` — scope.md, constraints.md, tasks.md (from M7)
+#### Lifecycle — MATCHES
 
-Both M6 (CLI Quality Improvement) and M7 (Command File Cleanup) are marked COMPLETED in progress.md and have been archived to `.gsd-t/milestones/`:
-- `.gsd-t/milestones/cli-quality-2026-02-19/` — contains scope.md, constraints.md, tasks.md
-- `.gsd-t/milestones/cmd-cleanup-2026-02-19/` — contains scope.md, constraints.md, tasks.md
+Contract lifecycle:
+1. Created by `gsd-t-partition` — verified (M5 scope references partitioning)
+2. Updated by `gsd-t-plan` — verified (tasks.md populated)
+3. Consumed by `gsd-t-execute` — verified
+4. Archived by `gsd-t-complete-milestone` — verified (all milestones have archived domains)
+5. Cleared after archival — verified: `.gsd-t/domains/` contains only `.gitkeep`
 
-The milestone-completion archival copied domain files to milestones but did NOT delete the originals from `.gsd-t/domains/`. This violates the contract lifecycle.
+#### Scope Format — MATCHES
 
-**Impact:** Medium. Future `gsd-t-partition` may see stale domain files. `gsd-t-status` or `gsd-t-execute` reading `.gsd-t/domains/` will find residual domain data from completed milestones.
+M5 `scope.md` includes all contract-required sections:
+- `# Domain: security` — correct naming
+- `## Responsibility` — 1-2 sentence description
+- `## Owned Files/Directories` — file paths with descriptions
+- `## NOT Owned` — explicit exclusion list
+- Additional `## Tech Debt Items` table — not in contract but does not conflict
 
-**Files affected:**
-- `.gsd-t/domains/cli-quality/scope.md`
-- `.gsd-t/domains/cli-quality/constraints.md`
-- `.gsd-t/domains/cli-quality/tasks.md`
-- `.gsd-t/domains/cmd-cleanup/scope.md`
-- `.gsd-t/domains/cmd-cleanup/constraints.md`
-- `.gsd-t/domains/cmd-cleanup/tasks.md`
+#### Task Format — MATCHES
 
-**Fix approach:** Delete the 6 orphaned domain files. Verify `gsd-t-complete-milestone.md` performs cleanup (not just copy) during archival.
+M5 `tasks.md` includes all contract-required fields per task:
+- Task numbering: `### Task {N}: {descriptive name}`
+- Files: exact paths listed
+- Contract refs: `None (single domain)` — valid per contract
+- Dependencies: `NONE` or `Requires Task {N}`
+- Acceptance criteria: multiple testable criteria per task
+- Execution Estimate section at bottom
 
----
+#### Constraints Format — MATCHES
 
-## 6. pre-commit-gate.md — MATCHES
-
-**Contract:** `.gsd-t/contracts/pre-commit-gate.md`
-**Compared against:** `templates/CLAUDE-global.md` Pre-Commit Gate section, project `CLAUDE.md`
-
-All 6 check categories present and consistent:
-1. Branch Check — matches across contract, global template, and project CLAUDE.md
-2. Contract Checks (API, schema, Swagger, UI component) — matches
-3. Scope and Documentation Checks — matches
-4. Progress and Decision Tracking — matches
-5. Debt and Convention Tracking — matches
-6. Test Checks — matches
-
-Project-specific extension in contract matches project CLAUDE.md (command file changes, template changes, wave flow changes, CLI installer testing).
-
-The global template has additional sections not in the pre-commit-gate contract (Swagger/OpenAPI guard, Playwright guard) — these are CLAUDE.md template features, not pre-commit gate items. They are complementary, not conflicting.
+M5 `constraints.md` includes:
+- `## Must Follow` — patterns and conventions
+- `## Must Not` — includes "Modify files outside owned scope" (required by contract)
+- `## Dependencies` — cross-domain relationships
 
 **No drift detected.**
 
 ---
 
-## 7. progress-file-format.md — DRIFTED (Medium)
+### 4. file-format-contract.md — MATCHES
+
+**Contract:** `.gsd-t/contracts/file-format-contract.md`
+**Compared against:** `.gsd-t/backlog.md`, `.gsd-t/backlog-settings.md`
+
+This contract overlaps with `backlog-file-formats.md` — both define the same formats. The formats are consistent between the two contracts. Both match the live files.
+
+**Note:** Having two contracts defining the same format is a minor concern (see Residual item #2). However, neither is drifted — they agree with each other and with reality.
+
+**No drift detected.**
+
+---
+
+### 5. pre-commit-gate.md — MATCHES
+
+**Contract:** `.gsd-t/contracts/pre-commit-gate.md`
+**Compared against:** `templates/CLAUDE-global.md` (lines 258-303), project `CLAUDE.md` (lines 133-160)
+
+#### Base Gate Checklist — MATCHES
+
+All 6 check categories present in contract, global template, and project CLAUDE.md:
+
+| # | Contract Section | Global Template | Project CLAUDE.md |
+|---|-----------------|-----------------|-------------------|
+| 1 | Branch Check | Branch check with `git branch --show-current` | N/A (project-specific extension handles) |
+| 2 | Contract Checks (API, schema, Swagger, UI) | API/schema/component contract updates | N/A (no API in this project) |
+| 3 | Scope and Documentation | New files → scope.md, requirements, architecture | New files → scope.md |
+| 4 | Progress and Decision Tracking | Timestamped Decision Log entries | Decision Log entries |
+| 5 | Debt and Convention | techdebt.md, CLAUDE.md updates | Same |
+| 6 | Test Checks | Test refs, E2E specs, run tests | Same |
+
+#### Project-Specific Extension — MATCHES
+
+Contract's GSD-T Framework Example (lines 70-82) matches project `CLAUDE.md` pre-commit gate:
+- Command file changes → update 4 reference files (GSD-T-README, README, CLAUDE-global template, gsd-t-help)
+- Add/remove command → update all 4 + package.json + command counting
+- CLI installer changes → test 6 subcommands
+- Template changes → verify init output
+- Wave flow changes → update wave, README, GSD-T-README
+
+#### Decision Log Entry Format — MATCHES
+
+Contract: `- YYYY-MM-DD HH:MM: {what was done} — {brief context or result}`
+Global template: `- YYYY-MM-DD HH:MM: {what was done} — {brief context or result}`
+
+**No drift detected.**
+
+---
+
+### 6. progress-file-format.md — MATCHES
 
 **Contract:** `.gsd-t/contracts/progress-file-format.md`
 **Compared against:** `.gsd-t/progress.md` (live), `templates/progress.md`
 
-### Header Block — DRIFTED
+#### Header Block — MATCHES
 
-**Contract specifies valid Status values:**
+Live progress.md:
 ```
-READY, INITIALIZED, DEFINED, PARTITIONED, DISCUSSED, PLANNED, IMPACT_ANALYZED,
-EXECUTING, EXECUTED, TESTS_SYNCED, INTEGRATED, VERIFIED, VERIFY_FAILED, COMPLETED
-```
-
-**Live progress.md has:**
-```
-## Status: ACTIVE
+# GSD-T Progress
+## Project: GSD-T Framework (@tekyzinc/gsd-t)
+## Version: 2.24.4
+## Status: READY
+## Date: 2026-02-18
 ```
 
-`ACTIVE` is NOT a recognized status value in the contract. The current milestone (M7) is COMPLETED, and all work is done. Per the contract, the status should be `READY` (set by `gsd-t-complete-milestone` when idle) or `COMPLETED`.
+Contract requires: Project, Version, Status, Date. All present. Version matches `package.json` (2.24.4). Status is `READY` — recognized value in contract.
 
-**Impact:** Medium. Any command that reads `progress.md` status for state machine transitions (wave, resume, status) will not recognize `ACTIVE` and may fail or behave unpredictably. The wave integrity check specifically looks for recognized values.
+#### Current Milestone — MATCHES
 
-### Current Milestone Section — DRIFTED
+Live: `No active milestone. Status: READY for next milestone.`
+Contract: "When idle, shows `None — ready for next milestone`"
 
-**Contract specifies:**
-```markdown
-## Current Milestone
-{milestone name} | None — ready for next milestone
-```
-A simple heading with text content.
+Semantically equivalent (both indicate idle state).
 
-**Live progress.md has:**
-```markdown
-## Current Milestone
+#### Enriched Format — MATCHES
 
-| # | Milestone | Status | Domains |
-|---|-----------|--------|---------|
-| 7 | Command File Cleanup | COMPLETED | cmd-cleanup |
+Contract now documents (lines 58-71):
+- Optional enrichment fields: Goal, Result, Tech Debt Items, Success Criteria
+- "Set by `gsd-t-milestone` and updated by `gsd-t-complete-milestone`"
+- Goal and Success Criteria required when active; Result and Tech Debt Items optional
 
-**Goal**: ...
-**Result**: ...
-**Tech Debt Items**: ...
-**Success Criteria**: ...
-```
+Live progress.md has `**Result (M8)**:` line — consistent with the optional Result field format.
 
-The live file uses a table format with additional metadata (Goal, Result, Tech Debt Items, Success Criteria) not defined in the contract. The contract expects a simple one-line format.
+#### Completed Milestones Table — MATCHES
 
-**Impact:** Low-Medium. Commands parsing "Current Milestone" section may not extract the milestone name correctly if they expect the simple format. However, this enriched format has been in use since at least M3, suggesting commands have adapted.
+Live: 9 completed milestones with Milestone, Version, Completed, Tag columns.
+Contract: same 4 columns. Rows appended chronologically (oldest first) — MATCHES.
 
-### Template — MATCHES
-`templates/progress.md` matches the contract format:
-```
-## Current Milestone
-None — ready for next milestone
-```
+#### Valid Status Values — MATCHES
 
-### Completed Milestones Table — MATCHES
-Table columns (Milestone, Version, Completed, Tag) match contract. No extra columns.
+Contract lists 14 status values. Live progress.md uses `READY` — in the list. All previous statuses in Decision Log (DEFINED, PARTITIONED, PLANNED, EXECUTING, EXECUTED, VERIFIED, COMPLETED) are recognized values.
 
-### All Other Sections — MATCH
-- Domains table: correct columns (Domain, Status, Tasks, Completed)
-- Contracts section: present (text format, acceptable per contract)
-- Integration Checkpoints: present (text format, acceptable)
-- Blockers: present with HTML comment placeholder
-- Decision Log: append-only, timestamped entries
-- Session Log: table format with Date, Session, What columns
+#### All Other Sections — MATCH
 
-### Decision Log Timestamp Format — MINOR DRIFT (unchanged from scan #3)
-Some early entries use `YYYY-MM-DD:` format without `HH:MM`. Contract specifies `YYYY-MM-DD HH:MM:`. This is from git history reconstruction and is not worth fixing.
+- Domains table: `| Domain | Status | Tasks | Completed |` with HTML comment `<!-- No active domains -->` — valid
+- Contracts: text format — acceptable
+- Integration Checkpoints: text format — acceptable
+- Blockers: `<!-- No active blockers -->` — matches contract HTML comment pattern
+- Decision Log: append-only, timestamped entries — MATCHES
+- Session Log: table with Date, Session, What columns — MATCHES
 
-**Fix approach:**
-1. Change `## Status: ACTIVE` to `## Status: READY` (or add `ACTIVE` to contract as a valid status)
-2. Either update the contract to document the enriched "Current Milestone" table format, or simplify the live progress.md to match the contract's simple format
-3. Recommended: update the contract — the enriched format provides useful metadata
+#### Template — MATCHES
+
+`templates/progress.md` matches contract format for initialization:
+- Header with `{Project Name}`, `{Date}` tokens
+- `None — ready for next milestone` for Current Milestone
+- Empty Completed Milestones table (header only)
+- Placeholder text for Domains, Contracts, Integration Checkpoints
+- HTML comment for Blockers
+- Initial Decision Log entry
+
+**No drift detected.**
 
 ---
 
-## 8. wave-phase-sequence.md — DRIFTED (Low)
+### 7. qa-agent-contract.md — MATCHES
+
+**Contract:** `.gsd-t/contracts/qa-agent-contract.md`
+**Compared against:** `commands/gsd-t-qa.md`
+
+#### Phase Context List — MATCHES
+
+Contract: `"partition" | "plan" | "execute" | "test-sync" | "verify" | "quick" | "debug" | "integrate" | "complete"`
+Command file has `### During {Phase}` sections for all 9 phases.
+
+#### Output Table — MATCHES
+
+All 9 phases have output definitions in contract:
+| Phase | Contract Output | Command Behavior |
+|-------|----------------|-----------------|
+| partition | Contract test skeleton files | Generate contract test skeletons (Step 1-4) |
+| plan | Acceptance test scenario files | Generate acceptance test scenarios |
+| execute | Test execution results + edge case tests | Run tests, write edge cases, per-task reporting |
+| test-sync | Contract-test alignment report + gap fills | Validate alignment, fill gaps, report |
+| verify | Full test audit report | Run ALL tests, coverage audit, gap report |
+| quick | Regression/feature tests | Write/update tests, run full suite |
+| debug | Regression test for bug | Write regression test, run full suite |
+| integrate | Cross-domain integration test results | Run contract + acceptance tests |
+| complete | Final gate report | Run ALL tests, verify contracts, pass/fail |
+
+#### Communication Protocol — MATCHES
+
+Contract: `QA: {pass|fail} — {summary}. {N} contract tests, {N} passing, {N} failing.`
+Command file: `QA: {PASS|FAIL} — {one-line summary}` with detailed breakdown.
+Minor casing difference (pass/fail vs PASS/FAIL) — functionally equivalent.
+
+#### Blocking Rules — MATCHES
+
+Contract: "QA agent failure BLOCKS phase completion"
+Command file: "Your FAIL status blocks phase completion" + "Lead cannot proceed to the next phase until you report PASS"
+
+#### File-Path Boundaries (M7 addition) — NOT IN CONTRACT
+
+Command file has detailed File-Path Boundaries (CAN modify test dirs, MUST NOT modify source/contracts/docs/commands/templates). Contract does not document these boundaries.
+
+**Impact:** Minimal. Boundaries are implementation guidance, not interface changes. Contract defines inputs/outputs/communication correctly.
+
+#### Framework Detection (M7 addition) — NOT IN CONTRACT
+
+Command file has multi-framework detection table (Playwright, Jest, Vitest, Node.js built-in, Pytest). Contract does not document framework-specific behavior.
+
+**Impact:** Minimal. Same rationale — implementation detail, not interface.
+
+**No drift detected (contract interface is correct; command file has additional implementation guidance).**
+
+---
+
+### 8. wave-phase-sequence.md — MATCHES
 
 **Contract:** `.gsd-t/contracts/wave-phase-sequence.md`
 **Compared against:** `commands/gsd-t-wave.md`
 
-### Phase Sequence — MATCHES
+#### Phase Sequence — MATCHES
+
 Both define 9 phases in identical order:
 ```
 PARTITION → DISCUSS → PLAN → IMPACT → EXECUTE → TEST-SYNC → INTEGRATE → VERIFY → COMPLETE
 ```
 
-### Status Values — MATCH
-All status transitions match between contract and wave command.
+#### Phase Definitions — MATCH
 
-### Decision Gates — MATCH
-Impact Analysis Gate (PROCEED / PROCEED WITH CAUTION / BLOCK), Verify Gate (2 attempts), Gap Analysis Gate — all identical.
+All 9 phases: correct command names, status values, and purposes in both contract and implementation.
 
-### Discuss Skip — ENHANCED (not drift)
+#### Transition Rules — MATCH
 
-**Contract says:** "Skip when the path is clear, architecture is well-established, no open design questions."
+- Forward-only: MATCHES
+- Skippable Discuss: Contract (lines 52-57) specifies 3-condition structured check. Wave command (Step 3, section 2) implements identical 3 conditions: (a) single domain, (b) no OPEN QUESTION, (c) all cross-domain contracts exist.
 
-**Wave command says (M7 enhancement):** Structured skip check with specific criteria:
-- (a) Single domain milestone
-- (b) No "OPEN QUESTION" items in Decision Log
-- (c) Multi-domain: all cross-domain contracts exist
+#### Decision Gates — MATCH
 
-The wave command's structured skip is a refinement of the contract's general guidance. Not a violation — it's a more precise implementation of the same intent.
+- Impact Analysis Gate: PROCEED / PROCEED WITH CAUTION / BLOCK — identical
+- Verify Gate: 2 attempts, milestone cannot complete without VERIFIED — identical
+- Gap Analysis Gate: 100% implemented for scoped requirements, auto-fix cycles — identical
 
-### Autonomy Behavior — MATCHES
-Contract and wave agree on Level 3 auto-advance and Discuss always-pause.
+#### Integrity Check (M7) — MATCHES with minor divergence
 
-### Error Recovery — MATCHES
-All recovery paths match with 2-attempt limits.
+Contract (lines 96-103):
+1. Status — recognized value ✓
+2. Version — must match `package.json` version
+3. Current Milestone — must have active milestone defined
 
-### Missing from Contract: Security Considerations and Integrity Check
+Wave command (lines 13-22):
+1. Status field — recognized value ✓
+2. Milestone name — heading or table entry ✓
+3. Domains table — at least one row ✓
 
-**Wave command has (added in M5 and M7):**
-1. **Security Considerations section** (lines 205-231): Documents `bypassPermissions` mode, attack surface, mitigations, and recommendations
-2. **Integrity Check** (Step 1, lines 13-22): Verifies progress.md contains required fields (Status, Milestone name, Domains table) before proceeding
+**Divergence:** Contract checks Version vs package.json. Wave command checks Domains table instead. Wave does NOT verify version against package.json. See Residual item #1.
 
-**Contract does NOT document:**
-- The `bypassPermissions` spawning mode
-- The integrity check behavior
-- Security considerations or attack surface
+#### Security Considerations (M5) — MATCHES
 
-**Impact:** Low. These are implementation details that enhance the wave command's robustness. The contract defines the sequence and transition rules correctly. The security and integrity additions do not change the phase sequence or transition rules — they add pre-execution validation and documentation.
+Contract (lines 105-110): Documents `bypassPermissions` mode, Destructive Action Guard applies, fresh context per phase.
+Wave command (lines 205-231): Detailed Security Considerations section covering bypassPermissions, attack surface, mitigations, recommendations.
 
-**Fix approach:** Add an "Implementation Notes" section to the contract documenting (1) agent-per-phase spawning with bypassPermissions, (2) integrity check before phase loop, (3) security considerations reference.
+Contract is a summary; wave command has full detail. No conflict — contract accurately describes the security model at a higher level.
+
+#### Autonomy Behavior — MATCHES
+
+Level 3 auto-advance, Discuss always-pause — identical in contract and implementation.
+
+#### Error Recovery — MATCHES
+
+All recovery paths match with 2-attempt limits:
+- Impact BLOCK → remediation tasks → re-run
+- Test failures → pause, generate fix tasks, re-run (2 attempts)
+- Verify failure → remediate → re-verify (2 attempts)
+- Gap analysis → auto-fix → re-verify → re-analyze (2 cycles)
+
+#### Interruption Handling — MATCHES
+
+Contract: finish current task, save state, note phase/domain/task, resume with `gsd-t-resume`.
+Wave command: phase agent saves state, orchestrator reports pause, resume picks up from last completed phase.
+
+**Status: MATCHES (one minor divergence in integrity check — see Residual #1).**
 
 ---
 
-## 9. qa-agent-contract.md — MATCHES
+### 9. integration-points.md — MATCHES
 
-**Contract:** `.gsd-t/contracts/qa-agent-contract.md`
-**Compared against:** `commands/gsd-t-qa.md`, all 10 spawning commands
+**Contract:** `.gsd-t/contracts/integration-points.md`
+**Compared against:** Current project state
 
-### Phase Context List — MATCHES (was DRIFTED in scan #3)
+The contract now correctly states:
+- "No active cross-domain dependencies"
+- "The project is between milestones or running single-domain milestones"
+- Usage section explains when/how the file is populated
+- History section tracks M3 through M8 as single-domain milestones
 
-Contract now lists 9 phase contexts:
-```
-"partition" | "plan" | "execute" | "test-sync" | "verify" | "quick" | "debug" | "integrate" | "complete"
-```
-
-`commands/gsd-t-qa.md` has corresponding behavior sections for all 9 phases:
-- During Partition (line 33)
-- During Plan (line 42)
-- During Execute (line 51)
-- During Test-Sync (line 63)
-- During Verify (line 73)
-- During Quick (line 83)
-- During Debug (line 93)
-- During Integrate (line 103)
-- During Complete-Milestone (line 111)
-
-### Output Table — MATCHES
-All 9 phases have output definitions in the contract, including test-sync:
-```
-| test-sync | Contract-test alignment report + gap fills |
-```
-
-### QA Spawn in Commands — VERIFIED
-All 10 commands have QA spawn steps with "QA failure blocks" language:
-1. `commands/gsd-t-partition.md` — "QA failure blocks partition completion"
-2. `commands/gsd-t-plan.md` — "QA failure blocks plan completion"
-3. `commands/gsd-t-execute.md` — "QA failure on any task blocks proceeding to the next task"
-4. `commands/gsd-t-test-sync.md` — "QA failure blocks test-sync completion"
-5. `commands/gsd-t-verify.md` — "QA failure blocks verification completion"
-6. `commands/gsd-t-complete-milestone.md` — "QA failure blocks milestone completion"
-7. `commands/gsd-t-quick.md` — "QA failure blocks the commit"
-8. `commands/gsd-t-debug.md` — "QA failure blocks the commit"
-9. `commands/gsd-t-integrate.md` — "QA failure blocks integration completion"
-10. `commands/gsd-t-wave.md` — delegates to sub-agents (wave itself doesn't spawn QA directly)
-
-### M7 Enhancements — VERIFIED
-QA command file now includes (added in M7):
-- **File-Path Boundaries** (lines 14-27): Defines what QA CAN and MUST NOT modify
-- **Framework Detection** (lines 123-140): Multi-framework test generation support
-- **Document Ripple** (lines 218-229): Post-test documentation update checklist
-
-These enhancements are not in the contract but do not conflict with it. The contract defines the interface (inputs, outputs, communication, blocking rules). The command file's added detail is implementation guidance for the QA agent.
-
-### Communication Protocol — MATCHES
-Contract: `QA: {pass|fail} — {summary}. {N} contract tests, {N} passing, {N} failing.`
-Command file: `QA: {PASS|FAIL} — {one-line summary}` with detailed breakdown.
-Minor casing difference (pass/fail vs PASS/FAIL) but functionally equivalent.
+This matches the project's current state: `progress.md` shows `Status: READY`, no active milestone, all 9 completed milestones were single-domain or had already completed integration.
 
 **No drift detected.**
 
 ---
 
-## Cross-Reference File Agreement — MATCHES
+## Residual Items
 
-### Command Counts: All Correct (43/39/4)
+### 1. Wave integrity check: Contract vs Implementation divergence (Low)
 
-**Verified across all reference files:**
+**Contract** (`wave-phase-sequence.md` line 100): Integrity check includes "Version — must match `package.json` version"
+**Implementation** (`commands/gsd-t-wave.md` lines 15-18): Checks Status field, Milestone name, Domains table — does NOT check Version vs package.json.
 
-| Source | Value | Correct? |
-|--------|-------|----------|
-| `CLAUDE.md` line 13 | "43 slash commands (39 GSD-T workflow + 4 utility)" | YES |
-| `CLAUDE.md` line 34 | "43 slash commands for Claude Code" | YES |
-| `CLAUDE.md` line 35 | "39 GSD-T workflow commands" | YES |
-| `package.json` description | "43 slash commands" | YES |
-| `README.md` line 21 | "39 GSD-T commands + 4 utility commands (43 total)" | YES |
-| `README.md` line 297 | "43 slash commands" | YES |
-| `README.md` line 298 | "39 GSD-T workflow commands" | YES |
-| `docs/architecture.md` line 25 | "43 (39 GSD-T workflow + 4 utility)" | YES |
-| `docs/infrastructure.md` line 74 | "43 slash command files (39 GSD-T + 4 utility)" | YES |
-| `docs/workflows.md` lines 9/17 | "43 commands" | YES |
-| `docs/requirements.md` line 10 | "39 GSD-T workflow slash commands" | YES |
-| `commands/gsd-t-help.md` | Lists all 39 gsd-t-* + gsd | YES |
-| `templates/CLAUDE-global.md` | Lists all 43 commands | YES |
-| `docs/GSD-T-README.md` | Lists all commands including qa | YES |
-| `bin/gsd-t.js` | Dynamic counting via `getGsdtCommands().length` | YES |
+**Impact:** Low. The version check is a useful guard but its absence does not cause failures. The three checks wave performs (Status, Milestone, Domains) are sufficient for safe phase orchestration.
 
-**Status: All counts agree. No stale references found.**
+**Fix approach:** Either:
+- (a) Add version check to `commands/gsd-t-wave.md` integrity check to match contract, or
+- (b) Update contract to remove version check and match actual implementation (Status, Milestone name, Domains table)
 
-### Version Reference — STALE (Minor)
+**Recommendation:** Option (b) — update contract to match implementation. The wave command's integrity check is pragmatic and the version check would add complexity without clear benefit. If version synchronization is desired, it belongs in `gsd-t-verify` or `gsd-t-complete-milestone`, not the wave orchestrator.
 
-`CLAUDE.md` line 55 reads:
-```
-package.json           — npm package config (v2.23.0)
-```
-Actual `package.json` version is `2.24.3`. This is a stale version reference in the project structure comment.
+### 2. Duplicate format contracts: file-format-contract.md and backlog-file-formats.md (Low)
 
----
+Both contracts define the same backlog.md and backlog-settings.md formats. They currently agree with each other and with reality, but maintaining two sources of truth increases drift risk.
 
-## Residual Housekeeping Issues
+**Files:**
+- `.gsd-t/contracts/file-format-contract.md`
+- `.gsd-t/contracts/backlog-file-formats.md`
 
-### 1. Stale Version in CLAUDE.md Project Structure
+**Impact:** Low. No current drift, but future changes to backlog format must update both files.
 
-**File:** `CLAUDE.md` line 55
-**Current:** `package.json           — npm package config (v2.23.0)`
-**Should be:** `package.json           — npm package config (v2.24.3)` (or remove the version entirely to avoid future staleness)
+**Fix approach:** Either:
+- (a) Delete `file-format-contract.md` (it is the older, less detailed version; `backlog-file-formats.md` is more comprehensive with validation rules and initialization details), or
+- (b) Consolidate: merge unique content from `file-format-contract.md` into `backlog-file-formats.md` then delete the original
 
-### 2. Undocumented Interfaces (Carried from Scan #2 and #3)
+**Recommendation:** Option (a) — `backlog-file-formats.md` is the authoritative source. `file-format-contract.md` was the M1 original; `backlog-file-formats.md` is the M3+ replacement with fuller specification.
 
-These remain unaddressed:
+### 3. Undocumented interfaces (Carried from Scans #2-4, Low)
+
+These remain unaddressed across all scans:
 
 1. **gsd-t-init dual-path initialization** — both `bin/gsd-t.js` and `commands/gsd-t-init.md` create backlog files. No contract governs precedence.
    - **Files:** `bin/gsd-t.js`, `commands/gsd-t-init.md`
@@ -454,77 +534,61 @@ These remain unaddressed:
 3. **checkin version sync** — cross-file version synchronization (package.json, progress.md, CHANGELOG.md) has no contract.
    - **Files:** `commands/checkin.md`
 
+**Impact:** Low. These interfaces work in practice — they just lack formal contract documentation. Risk is that future changes to one side break the other without a contract to flag the drift.
+
+---
+
+## Comparison: Scan #4 vs Scan #5
+
+| Item | Scan #4 | Scan #5 |
+|------|---------|---------|
+| progress.md ACTIVE status | High | RESOLVED by M8 |
+| Orphaned domain files | Medium | RESOLVED by M8 |
+| progress-file-format enriched format | Medium | RESOLVED by M8 |
+| Wave security/integrity missing from contract | Low | RESOLVED by M8 |
+| command-interface-contract.md naming | Low | RESOLVED by M8 (renamed) |
+| Stale integration-points.md | Low | RESOLVED by M8 (rewritten) |
+| CLAUDE.md stale version | Low | RESOLVED by M8 |
+| Wave integrity check divergence | — | NEW (Low) — contract says version check, impl does not |
+| Duplicate format contracts | — | NEW (Low) — two contracts define same format |
+| Undocumented interfaces | Low (carried) | Unchanged (Low, carried) |
+
+**Net change:** 7 items resolved, 2 new items found (both Low), 1 carried forward unchanged.
+
 ---
 
 ## Priority Fix List
 
-### High Priority
-
-1. **Fix progress.md status value: ACTIVE → READY**
-   - `ACTIVE` is not a recognized status in the progress-file-format contract
-   - M7 is COMPLETED, no active milestone — status should be `READY`
-   - **Files:** `.gsd-t/progress.md` line 5
-   - **Risk:** Wave integrity check or resume may not recognize `ACTIVE`
-
-### Medium Priority
-
-2. **Delete orphaned domain files from `.gsd-t/domains/`**
-   - `cli-quality/` (M6) and `cmd-cleanup/` (M7) domain files remain after archival
-   - Both milestones are COMPLETED and archived to `milestones/`
-   - Contract requires domains to be cleared after archival
-   - **Files:** 6 files in `.gsd-t/domains/cli-quality/` and `.gsd-t/domains/cmd-cleanup/`
-
-3. **Update progress-file-format contract for enriched Current Milestone format**
-   - Live progress.md uses a table + metadata block for Current Milestone
-   - Contract specifies simple text format: `{milestone name} | None — ready for next milestone`
-   - Recommend updating contract to document the actual enriched format
-   - **Files:** `.gsd-t/contracts/progress-file-format.md`
-
 ### Low Priority
 
-4. **Add Security/Integrity notes to wave-phase-sequence contract**
-   - Wave command has bypassPermissions, integrity check, and security sections not in contract
-   - **Files:** `.gsd-t/contracts/wave-phase-sequence.md`
+1. **Align wave integrity check between contract and implementation**
+   - Contract says version-check; wave command doesn't do it
+   - Recommend: update contract to match implementation
+   - **Files:** `.gsd-t/contracts/wave-phase-sequence.md` lines 99-100
 
-5. **Fix stale version reference in CLAUDE.md**
-   - Line 55: "v2.23.0" should be "v2.24.3" (or remove version to avoid future staleness)
-   - **Files:** `CLAUDE.md` line 55
+2. **Remove duplicate file-format-contract.md**
+   - `backlog-file-formats.md` is the authoritative, more detailed version
+   - Delete `file-format-contract.md` to eliminate dual maintenance
+   - **Files:** `.gsd-t/contracts/file-format-contract.md`
 
-6. **Rename command-interface-contract.md** (carried from scan #3)
-   - Rename to `backlog-command-interface.md` to match actual scope
-   - **Files:** `.gsd-t/contracts/command-interface-contract.md`
-
-7. **Clear stale integration-points.md**
-   - Contains M3-specific integration data, no active milestone exists
-   - **Files:** `.gsd-t/contracts/integration-points.md`
-
-8. **Document undocumented interfaces** (carried from scan #2 and #3)
+3. **Document undocumented interfaces** (carried from scan #2)
    - init dual-path, scan output format, checkin version sync
    - **Files:** new contract files in `.gsd-t/contracts/`
 
 ---
 
-## Comparison: Scan #3 vs Scan #4
+## Overall Assessment
 
-| Item | Scan #3 | Scan #4 |
-|------|---------|---------|
-| Command count drift | DRIFTED (High) | RESOLVED by M3 |
-| QA contract missing test-sync | DRIFTED (Medium) | RESOLVED by M3 |
-| Orphaned domain files | DRIFTED (Medium) - doc-alignment | RESOLVED doc-alignment, NEW cli-quality + cmd-cleanup |
-| progress.md ACTIVE status | Not detected | NEW (Medium) |
-| progress.md enriched format | Not detected | NEW (Low-Medium) |
-| Wave security/integrity | Not detected | NEW (Low) |
-| command-interface scope | STALE (Low) | Unchanged (Low) |
-| integration-points.md | STALE (Low) | Unchanged (Low) |
-| Undocumented interfaces | Carried (Low) | Unchanged (Low) |
-| CLAUDE.md stale version | Not detected | NEW (Low) |
+M8 (Housekeeping + Contract Sync) resolved all 7 open items from scan #4, including the only High priority item (ACTIVE status). All 9 contracts now match their implementations. The 2 new items found are both Low severity — one minor divergence in the wave integrity check specification, and one maintenance concern about duplicate format contracts.
 
-**Net change:** 3 items resolved, 4 new items found, 4 carried forward unchanged.
+**Total open items: 3 (0 High, 0 Medium, 3 Low)**
+
+This is the cleanest state since contract tracking began. Zero functional drift. All contracts accurately describe the system's behavior.
 
 ---
 
-*Contract drift scan #4 completed: 2026-02-18*
-*Previous items: 3 resolved (High count fix, Medium QA test-sync, Medium orphaned domains)*
-*New items found: 4 (1 High, 2 Medium, 1 Low)*
-*Carried items: 4 Low priority (contract scope, stale integration-points, undocumented interfaces)*
-*Total open items: 8 (1 High, 2 Medium, 5 Low)*
+*Contract drift scan #5 completed: 2026-02-18*
+*Previous items: 7 resolved (1 High, 2 Medium, 4 Low)*
+*New items found: 2 (both Low)*
+*Carried items: 1 (Low — undocumented interfaces)*
+*Total open items: 3 (0 High, 0 Medium, 3 Low)*
