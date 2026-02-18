@@ -1166,7 +1166,7 @@ function checkForUpdates(command) {
   if (!cached && isStale) {
     // No cache at all — fetch synchronously so first run shows notification
     try {
-      const fetchScript = "const h=require('https');h.get('https://registry.npmjs.org/@tekyzinc/gsd-t/latest',{timeout:5000},(r)=>{let d='';r.on('data',(c)=>d+=c);r.on('end',()=>{try{process.stdout.write(JSON.parse(d).version)}catch{}})}).on('error',()=>{})";
+      const fetchScript = "const h=require('https');h.get('https://registry.npmjs.org/@tekyzinc/gsd-t/latest',{timeout:5000},(r)=>{let d='';r.on('data',(c)=>{d+=c;if(d.length>1048576){r.destroy();return}});r.on('end',()=>{try{process.stdout.write(JSON.parse(d).version)}catch{}})}).on('error',()=>{})";
       const result = execFileSync(
         process.execPath, ["-e", fetchScript],
         { timeout: 8000, encoding: "utf8" }

@@ -22,8 +22,12 @@ if (!resolved.startsWith(claudeDir + path.sep) && resolved !== claudeDir) {
 
 https.get("https://registry.npmjs.org/@tekyzinc/gsd-t/latest",
   { timeout: 5000 }, (res) => {
+  const MAX_RESPONSE = 1024 * 1024; // 1MB limit
   let d = "";
-  res.on("data", (c) => d += c);
+  res.on("data", (c) => {
+    d += c;
+    if (d.length > MAX_RESPONSE) { res.destroy(); return; }
+  });
   res.on("end", () => {
     try {
       const v = JSON.parse(d).version;
