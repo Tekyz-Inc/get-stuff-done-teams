@@ -1,3 +1,4 @@
+<!-- GSD-T:START — Do not remove this marker. Content between START/END is managed by gsd-t update. -->
 # Prime Directives
 
 1. SIMPLICITY ABOVE ALL. Every change should be minimal and impact as little code as possible. No massive refactors.
@@ -456,3 +457,4 @@ When resuming work (new session or after /clear):
 6. Continue from current task — don't restart the phase
 
 **CRITICAL: Do NOT research how the system works. The docs tell you. Read them.**
+<!-- GSD-T:END — Do not remove this marker. -->

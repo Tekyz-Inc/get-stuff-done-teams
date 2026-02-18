@@ -2,6 +2,11 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.24.8] - 2026-02-18
+
+### Fixed
+- **CLAUDE.md update no longer overwrites user content**: Installer now uses marker-based merging (`<!-- GSD-T:START -->` / `<!-- GSD-T:END -->`). Updates only replace the GSD-T section between markers, preserving all user customizations. Existing installs without markers are auto-migrated. Backup still created for reference
+
 ## [2.24.7] - 2026-02-18
 
 ### Changed

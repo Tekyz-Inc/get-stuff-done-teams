@@ -483,47 +483,80 @@ function installCommands(isUpdate) {
   return { gsdtCommands, utilityCommands };
 }
 
+const GSDT_START = "<!-- GSD-T:START";
+const GSDT_END = "<!-- GSD-T:END";
+
 function installGlobalClaudeMd(isUpdate) {
   heading("Global CLAUDE.md");
   const globalSrc = path.join(PKG_TEMPLATES, "CLAUDE-global.md");
 
   if (!fs.existsSync(GLOBAL_CLAUDE_MD)) {
-    copyFile(globalSrc, GLOBAL_CLAUDE_MD, "CLAUDE.md installed → ~/.claude/CLAUDE.md");
+    copyFile(globalSrc, GLOBAL_CLAUDE_MD, "CLAUDE.md installed");
+    return;
+  }
+
+  if (isSymlink(GLOBAL_CLAUDE_MD)) {
+    warn("Skipping CLAUDE.md — target is a symlink");
     return;
   }
 
   const existing = fs.readFileSync(GLOBAL_CLAUDE_MD, "utf8");
-  if (existing.includes("GSD-T: Contract-Driven Development")) {
-    updateExistingGlobalClaudeMd(globalSrc, existing, isUpdate);
+  const template = fs.readFileSync(globalSrc, "utf8");
+
+  if (existing.includes(GSDT_START)) {
+    mergeGsdtSection(existing, template, isUpdate);
+  } else if (existing.includes("GSD-T: Contract-Driven Development")) {
+    migrateToMarkers(existing, template);
   } else {
-    appendGsdtToClaudeMd(globalSrc);
+    appendGsdtToClaudeMd(template);
   }
 }
 
-function updateExistingGlobalClaudeMd(globalSrc, existing, isUpdate) {
+function mergeGsdtSection(existing, template, isUpdate) {
   if (!isUpdate) {
-    info("CLAUDE.md already contains GSD-T config — skipping");
-    info("Run 'gsd-t update' to overwrite with latest version");
+    info("CLAUDE.md already contains GSD-T config");
     return;
   }
-  const template = fs.readFileSync(globalSrc, "utf8");
-  if (normalizeEol(existing) === normalizeEol(template)) {
-    copyFile(globalSrc, GLOBAL_CLAUDE_MD, "CLAUDE.md updated (no customizations detected)");
+  const startIdx = existing.indexOf(GSDT_START);
+  const endMarkerIdx = existing.indexOf(GSDT_END);
+  if (startIdx === -1 || endMarkerIdx === -1) {
+    warn("GSD-T markers incomplete — appending fresh copy");
+    appendGsdtToClaudeMd(template);
+    return;
+  }
+  const endLineEnd = existing.indexOf("\n", endMarkerIdx);
+  const endIdx = endLineEnd === -1 ? existing.length : endLineEnd + 1;
+  const before = existing.substring(0, startIdx);
+  const after = existing.substring(endIdx);
+  const merged = before + template.trimEnd() + "\n" + after;
+  if (normalizeEol(merged) === normalizeEol(existing)) {
+    info("CLAUDE.md GSD-T section already up to date");
     return;
   }
   const backupPath = GLOBAL_CLAUDE_MD + ".backup-" + Date.now();
-  if (!isSymlink(backupPath)) fs.copyFileSync(GLOBAL_CLAUDE_MD, backupPath);
-  else warn("Skipping backup — target is a symlink");
-  copyFile(globalSrc, GLOBAL_CLAUDE_MD, "CLAUDE.md updated");
-  warn(`Previous version backed up to ${path.basename(backupPath)}`);
-  info("Review the backup if you had custom additions to merge back in.");
+  fs.copyFileSync(GLOBAL_CLAUDE_MD, backupPath);
+  fs.writeFileSync(GLOBAL_CLAUDE_MD, merged);
+  success("CLAUDE.md GSD-T section updated (custom content preserved)");
 }
 
-function appendGsdtToClaudeMd(globalSrc) {
-  if (isSymlink(GLOBAL_CLAUDE_MD)) { warn("Skipping CLAUDE.md append — target is a symlink"); return; }
-  const gsdtContent = fs.readFileSync(globalSrc, "utf8");
-  const separator = "\n\n# ─── GSD-T Section (added by installer) ───\n\n";
-  fs.appendFileSync(GLOBAL_CLAUDE_MD, separator + gsdtContent);
+function migrateToMarkers(existing, template) {
+  const backupPath = GLOBAL_CLAUDE_MD + ".backup-" + Date.now();
+  fs.copyFileSync(GLOBAL_CLAUDE_MD, backupPath);
+  const sepIdx = existing.indexOf("# ─── GSD-T Section");
+  if (sepIdx !== -1) {
+    const before = existing.substring(0, sepIdx);
+    const merged = before + template.trimEnd() + "\n";
+    fs.writeFileSync(GLOBAL_CLAUDE_MD, merged);
+  } else {
+    fs.writeFileSync(GLOBAL_CLAUDE_MD, template);
+  }
+  success("CLAUDE.md migrated to marker-based format");
+  info("Backup saved: " + path.basename(backupPath));
+}
+
+function appendGsdtToClaudeMd(template) {
+  const separator = "\n\n";
+  fs.appendFileSync(GLOBAL_CLAUDE_MD, separator + template.trimEnd() + "\n");
   success("GSD-T config appended to existing CLAUDE.md");
   info("Your existing content was preserved.");
 }
@@ -1317,7 +1350,8 @@ module.exports = {
   checkDoctorClaudeMd,
   checkDoctorSettings,
   checkDoctorEncoding,
-  updateExistingGlobalClaudeMd,
+  mergeGsdtSection,
+  migrateToMarkers,
   appendGsdtToClaudeMd,
   readSettingsJson,
   readUpdateCache,

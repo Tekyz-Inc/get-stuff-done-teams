@@ -3,7 +3,7 @@
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: READY
 ## Date: 2026-02-18
-## Version: 2.24.7
+## Version: 2.24.8
 
 ## Current Milestone
 
@@ -162,6 +162,7 @@ No integration checkpoints expected — single domain milestone.
 - 2026-02-18 08:35: SessionStart hook now auto-updates GSD-T when new version detected — runs npm install + update-all automatically. Three output modes: [GSD-T AUTO-UPDATE] (success), [GSD-T UPDATE] (failed, manual fallback), [GSD-T] (up to date). All messages include changelog link. Updated CLAUDE-global template and live CLAUDE.md. v2.24.6
 - 2026-02-18 08:45: Added backlog item #2: Subagent Execution Mode for Standalone Commands — debug/quick/scan/etc. spawn as subagents for fresh context windows, preventing compaction during consecutive runs.
 - 2026-02-18 09:00: Redesigned Next Command Hint — replaced plain "Next →" text with GSD-style "Next Up" visual block (divider lines, ▶ header, phase name + description, command in backticks, alternatives section). Format designed to trigger Claude Code's prompt suggestion engine for ghost text in input field.
+- 2026-02-18 09:15: Fixed CLAUDE.md update overwrite bug — installer now uses marker-based merging (GSD-T:START/END HTML comments). Updates only replace GSD-T content between markers, preserving all user customizations. Migration path for existing installs without markers. v2.24.8
 
 ## Session Log
 | Date | Session | What was accomplished |
