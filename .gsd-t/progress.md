@@ -3,15 +3,15 @@
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: READY
 ## Date: 2026-02-18
-## Version: 2.27.10
+## Version: 2.28.10
 
 ## Current Milestone
 
 | # | Milestone | Status | Domains |
 |---|-----------|--------|---------|
-| 12 | Planning Intelligence | COMPLETED | cmd-planning-intel |
+| 13 | Tooling & UX | COMPLETED | tooling-ux |
 
-**Goal**: Prevent assumption drift, catch bad plans early, and track requirement coverage.
+**Goal**: Infrastructure and UX improvements — CLI state utility, smarter parallel execution, health diagnostics, reliable pause/resume, context usage visibility.
 
 ## Completed Milestones
 | Milestone | Version | Completed | Tag |
@@ -29,6 +29,7 @@
 | Token Efficiency | 2.25.10 | 2026-02-18 | v2.25.10 |
 | Execution Quality | 2.26.10 | 2026-02-18 | v2.26.10 |
 | Planning Intelligence | 2.27.10 | 2026-02-18 | v2.27.10 |
+| Tooling & UX | 2.28.10 | 2026-02-18 | v2.28.10 |
 
 ## Domains
 | Domain | Status | Tasks | Completed |
@@ -186,6 +187,7 @@ No integration checkpoints expected — single domain milestone.
 - 2026-02-18 16:00: Milestone 10 (Token Efficiency) completed — QA refactored across all phases: removed QA spawn from partition/plan; test-sync/verify/complete-milestone inline contract testing; execute/integrate use Task subagent for QA; quick/debug run tests inline + Step 0 subagent self-spawn; scan/status wrapped as subagents. CLAUDE.md + template QA Mandatory section updated. 125/125 tests pass. v2.25.10
 - 2026-02-18 16:30: Milestone 11 (Execution Quality) completed — Deviation Rules (4-rule protocol + 3-attempt limit) added to execute/quick/debug; execute now commits after each task with feat({domain}/task-{N}) format; team mode includes per-task commit rule; wave between-phase spot-check added (status + git + filesystem verification). 125/125 tests pass. v2.26.10
 - 2026-02-18 17:00: Milestone 12 (Planning Intelligence) completed — discuss now creates .gsd-t/CONTEXT.md with Locked Decisions/Deferred Ideas/Claude's Discretion sections; plan reads CONTEXT.md and maps each Locked Decision to a task (fidelity enforcement); plan outputs REQ-ID→domain/task traceability table in requirements.md; plan validation checker (Task subagent, max 3 iterations) validates REQ coverage/task completeness/contract existence; verify marks matched requirements complete and reports orphans. 125/125 tests pass. v2.27.10
+- 2026-02-18 18:00: Milestone 13 (Tooling & UX) completed — scripts/gsd-t-tools.js (zero-dep CLI returning JSON: state get/set, validate, parse, list, git, template); scripts/gsd-t-statusline.js (context usage bar, color-coded, configured via settings.json statusLine); gsd-t-health.md (validates .gsd-t/ structure, --repair creates missing files); gsd-t-pause.md (saves continue-here-{timestamp}.md); gsd-t-resume.md updated to read continue-here files first; gsd-t-plan.md wave groupings added to integration-points.md; gsd-t-execute.md uses wave groupings for parallel scheduling; bin/gsd-t.js installs utility scripts; all reference files updated to 45 commands (41 GSD-T + 4 utility). 125/125 tests pass. v2.28.10
 
 ## Session Log
 | Date | Session | What was accomplished |
@@ -199,3 +201,4 @@ No integration checkpoints expected — single domain milestone.
 | 2026-02-18 | 7 | M8: Housekeeping + Contract Sync. 6 tasks, 1 domain, 13 tech debt items (12 resolved + TD-029 accepted as risk). Zero open tech debt. v2.24.4 |
 | 2026-02-18 | 8 | Scan #5: post-M8 analysis. 10 new LOW items (TD-056-TD-065). 0 critical/high/medium. 87 functions, 54 exports, 116 tests all pass. Codebase in excellent health. |
 | 2026-02-18 | 9 | Promoted 10 items → M9 Cleanup Sprint. Executed 6 tasks (dead code, case fallthrough, condition fix, title scrub, 9 new tests, contract fixes). 125/125 tests. Zero open tech debt. v2.24.5 |
+| 2026-02-18 | 10 | Versioning scheme changed (patches ≥10). M10 Token Efficiency (QA refactor, subagent wraps, v2.25.10). M11 Execution Quality (Deviation Rules, per-task commits, wave spot-check, v2.26.10). M12 Planning Intelligence (CONTEXT.md, plan validation, REQ traceability, v2.27.10). M13 Tooling & UX (gsd-t-tools.js, statusline, health/pause commands, wave groupings, v2.28.10). All 4 milestones from roadmap.md complete. |

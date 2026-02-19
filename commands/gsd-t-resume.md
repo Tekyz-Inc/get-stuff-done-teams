@@ -15,8 +15,9 @@ You are resuming work after an interruption. This handles both same-session paus
 
 Read in this exact order:
 1. `CLAUDE.md` — project context and conventions
-2. `.gsd-t/progress.md` — current status, decisions, blockers
-3. `.gsd-t/contracts/` — all contract files
+2. **Check for continue-here files first**: List `.gsd-t/continue-here-*.md` files. If any exist, read the most recent one (highest timestamp). It contains exact position, next action, and open items — use this as the primary resume point.
+3. `.gsd-t/progress.md` — current status, decisions, blockers (always read this too)
+4. `.gsd-t/contracts/` — all contract files
 4. `.gsd-t/domains/*/scope.md` — domain boundaries
 5. `.gsd-t/domains/*/tasks.md` — task lists with completion status
 6. `.gsd-t/domains/*/constraints.md` — domain rules
@@ -25,12 +26,14 @@ Read in this exact order:
 
 ## Step 2: Determine Current Position
 
-From progress.md (or conversation context if same-session), identify:
+From the continue-here file (if present) OR progress.md (or conversation context if same-session), identify:
 - Current milestone and status
 - Which phase we're in
 - Which tasks are done, in progress, or blocked
 - Any pending decisions or user-input-needed items
 - Last entry in the Decision Log
+
+**If a continue-here file was found**: Use its "Next Action" field as the primary resume point. The continue-here file is more precise than progress.md alone. After resuming, delete the continue-here file (it has been consumed).
 
 ## Step 3: Report and Continue
 

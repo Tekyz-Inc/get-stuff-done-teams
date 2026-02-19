@@ -456,6 +456,26 @@ function configureUpdateCheckHook(scriptPath) {
   }
 }
 
+// ─── Utility Scripts ─────────────────────────────────────────────────────────
+
+const UTILITY_SCRIPTS = ["gsd-t-tools.js", "gsd-t-statusline.js"];
+
+function installUtilityScripts() {
+  ensureDir(SCRIPTS_DIR);
+  for (const script of UTILITY_SCRIPTS) {
+    const src = path.join(PKG_SCRIPTS, script);
+    const dest = path.join(SCRIPTS_DIR, script);
+    if (!fs.existsSync(src)) continue;
+    const srcContent = fs.readFileSync(src, "utf8");
+    const destContent = fs.existsSync(dest) ? fs.readFileSync(dest, "utf8") : "";
+    if (normalizeEol(srcContent) !== normalizeEol(destContent)) {
+      copyFile(src, dest, script);
+    } else {
+      info(`${script} unchanged`);
+    }
+  }
+}
+
 // ─── Commands ────────────────────────────────────────────────────────────────
 
 function installCommands(isUpdate) {
@@ -576,6 +596,9 @@ function doInstall(opts = {}) {
 
   heading("Update Check (Session Start)");
   installUpdateCheck();
+
+  heading("Utility Scripts");
+  installUtilityScripts();
   saveInstalledVersion();
 
   showInstallSummary(gsdtCommands.length, utilityCommands.length);

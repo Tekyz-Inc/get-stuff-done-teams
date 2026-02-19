@@ -13,5 +13,6 @@
     ],
     "defaultMode": "dontAsk"
   },
-  "alwaysThinkingEnabled": true
+  "alwaysThinkingEnabled": true,
+  "statusLine": "node ~/.claude/scripts/gsd-t-statusline.js"
 }

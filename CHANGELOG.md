@@ -2,6 +2,23 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.28.10] - 2026-02-18
+
+### Added
+- **Milestone 13: Tooling & UX** — Infrastructure and UX improvements:
+  - **`scripts/gsd-t-tools.js`**: New zero-dependency Node.js CLI utility returning compact JSON. Subcommands: `state get/set` (read/write progress.md keys), `validate` (check required files), `parse progress --section` (extract named sections), `list domains|contracts`, `git pre-commit-check` (branch/status/last-commit), `template scope|tasks <domain>`
+  - **`scripts/gsd-t-statusline.js`**: New statusline script for Claude Code. Reads GSD-T project state and optionally reads `CLAUDE_CONTEXT_TOKENS_USED`/`CLAUDE_CONTEXT_TOKENS_MAX` env vars to show a color-coded context usage bar (green→yellow→orange→red). Configure via `"statusLine": "node ~/.claude/scripts/gsd-t-statusline.js"` in `settings.json`
+  - **`gsd-t-health`**: New slash command validating `.gsd-t/` project structure. Checks all required files, directories, version consistency, status validity, contract integrity, and domain integrity. `--repair` creates any missing files from templates. Reports HEALTHY / DEGRADED / BROKEN
+  - **`gsd-t-pause`**: New slash command saving exact position to `.gsd-t/continue-here-{timestamp}.md` with milestone, phase, domain, task, last completed action, next action, and open items
+  - Both scripts automatically installed to `~/.claude/scripts/` during `npx @tekyzinc/gsd-t install/update`
+
+### Changed
+- **`gsd-t-resume`**: Now reads the most recent `.gsd-t/continue-here-*.md` file (if present) as the primary resume point before falling back to `progress.md`. Deletes the continue-here file after consuming it
+- **`gsd-t-plan`**: Wave Execution Groups added to `integration-points.md` format — groups tasks into parallel-safe waves with checkpoints between them. Wave rules: same-wave tasks share no files and have no dependencies; different-wave tasks depend on each other's output or modify shared files
+- **`gsd-t-execute`**: Reads Wave Execution Groups from `integration-points.md` and executes wave-by-wave. Tasks within a wave are parallel-safe; checkpoints between waves verify contract compliance before proceeding. Team mode now spawns teammates only within the same wave
+- **`gsd-t-health`** and **`gsd-t-pause`** added to all reference files (help, README, GSD-T-README, CLAUDE-global template, user CLAUDE.md)
+- Total command count: 43 → **45** (41 GSD-T workflow + 4 utility)
+
 ## [2.27.10] - 2026-02-18
 
 ### Changed

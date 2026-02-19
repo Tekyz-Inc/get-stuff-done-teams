@@ -35,8 +35,20 @@ QA failure on any task blocks proceeding to the next task.
 
 ## Step 3: Choose Execution Mode
 
+### Wave Scheduling (read first)
+
+Before choosing solo or team mode, read the `## Wave Execution Groups` section in `.gsd-t/contracts/integration-points.md` (added by the plan phase).
+
+**If wave groups are present**:
+- Execute wave-by-wave: complete all tasks in Wave 1 before starting Wave 2
+- Within each wave, tasks marked as parallel-safe can run concurrently (team mode) or be interleaved (solo mode)
+- At each wave boundary: run the CHECKPOINT — verify contract compliance — before proceeding
+- File conflict detection: if two tasks in the same wave list the same file in their `scope.md` ownership, move one to the next wave
+
+**If no wave groups are defined** (older plans): fall back to the `Execution Order` list.
+
 ### Solo Mode (default)
-Execute tasks yourself following the execution order in `integration-points.md`.
+Execute tasks yourself following the wave groups (or execution order) in `integration-points.md`.
 
 ### Deviation Rules (MANDATORY for every task)
 
@@ -73,7 +85,7 @@ For each task:
 12. If you've reached a CHECKPOINT in integration-points.md, pause and verify the contract before continuing
 
 ### Team Mode (when agent teams are enabled)
-Spawn teammates for independent domains:
+Spawn teammates for domains within the same wave. Only domains in the same wave can run in parallel — do not spawn teammates for domains in different waves simultaneously:
 
 ```
 Create an agent team for execution:

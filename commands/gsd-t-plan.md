@@ -70,7 +70,7 @@ After creating task lists, append a traceability table to `docs/requirements.md`
 
 ## Step 3: Map Cross-Domain Dependencies
 
-Update `.gsd-t/contracts/integration-points.md` with the full dependency graph:
+Update `.gsd-t/contracts/integration-points.md` with the full dependency graph **and wave groupings**:
 
 ```markdown
 # Integration Points
@@ -87,10 +87,36 @@ Update `.gsd-t/contracts/integration-points.md` with the full dependency graph:
 - UNLOCKS: auth Task 3 (user lookup), ui Task 3 (data fetching)
 - VERIFY: Lead confirms schema matches schema-contract.md
 
-### Second Checkpoint  
+### Second Checkpoint
 - GATE: auth Task 4 (auth middleware) must complete
 - UNLOCKS: ui Task 5 (protected routes)
 - VERIFY: Lead confirms auth endpoints match api-contract.md
+
+## Wave Execution Groups
+
+Waves allow parallel execution within a wave and sequential execution between waves.
+Each wave contains domains/tasks that can safely run in parallel (no shared files, no cross-domain dependencies within the wave).
+
+### Wave 1 — Independent (parallel)
+- data-layer: Tasks 1-3
+- auth: Tasks 1-2
+- **Shared files**: NONE — safe to run in parallel
+- **Completes when**: All listed tasks done
+
+### Wave 2 — After Wave 1 Checkpoint (parallel)
+- CHECKPOINT: Lead verifies schema-contract.md before Wave 2 starts
+- auth: Tasks 3-4
+- ui: Tasks 1-2
+- **Shared files**: NONE — safe to run in parallel
+- **Completes when**: All listed tasks done
+
+### Wave 3 — After Wave 2 Checkpoint (sequential)
+- CHECKPOINT: Lead verifies api-contract.md before Wave 3 starts
+- ui: Tasks 3-5
+- **Note**: Sequential — each task depends on the previous
+
+### Integration
+- INTEGRATION: Wire all domains together
 
 ## Execution Order (for solo mode)
 1. data-layer Tasks 1-3
@@ -102,6 +128,12 @@ Update `.gsd-t/contracts/integration-points.md` with the full dependency graph:
 7. ui Tasks 3-5
 8. INTEGRATION: wire everything together
 ```
+
+### Wave Grouping Rules:
+1. **Same wave** = no shared files, no dependency between them
+2. **Different wave** = one depends on the other's output, OR they modify the same file
+3. **CHECKPOINT between waves** = lead verifies contract compliance before unlocking next wave
+4. Always check domain `scope.md` files for file ownership — overlapping files → different waves
 
 ## Step 4: Estimate Scope
 

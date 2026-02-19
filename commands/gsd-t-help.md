@@ -51,6 +51,8 @@ UTILITIES                                                              Manual
   resume              Restore context after break
   quick               Fast task with GSD-T guarantees
   debug               Systematic debugging with state
+  health              Validate .gsd-t/ structure, optionally repair missing files
+  pause               Save exact position for reliable resume later
   promote-debt        Convert techdebt items to milestones
   populate            Auto-populate docs from existing codebase
   log                 Sync progress Decision Log with recent git activity

@@ -268,12 +268,12 @@ describe("command listing functions", () => {
     assert.equal(gsdt + utils, total);
   });
 
-  it("total command count is 43", () => {
-    assert.equal(getCommandFiles().length, 43);
+  it("total command count is 45", () => {
+    assert.equal(getCommandFiles().length, 45);
   });
 
-  it("gsd-t command count is 39", () => {
-    assert.equal(getGsdtCommands().length, 39);
+  it("gsd-t command count is 41", () => {
+    assert.equal(getGsdtCommands().length, 41);
   });
 
   it("utility command count is 4", () => {
