@@ -43,11 +43,15 @@ Execute the full init workflow (same as `/user:gsd-t-init`):
 2. Ensure `CLAUDE.md` exists (create starter if missing, append GSD-T section if present without it)
 3. Create `docs/` with all 4 living document templates (skip existing files)
 4. Ensure `README.md` exists
-5. Map existing codebase if code exists
-6. Initialize backlog with auto-derived categories
-7. Register project in `~/.claude/.gsd-t-projects`
+5. **Copy project settings**: If `~/.claude/settings.local` exists and `.claude/settings.local.json` does NOT exist in the project root:
+   - Create `.claude/` directory in the project root if needed
+   - Copy `~/.claude/settings.local` → `.claude/settings.local.json`
+   - Skip silently if source doesn't exist or target already exists
+6. Map existing codebase if code exists
+7. Initialize backlog with auto-derived categories
+8. Register project in `~/.claude/.gsd-t-projects`
 
-**If `.gsd-t/` already exists**: Skip init — it's already done. Log and continue to scan.
+**If `.gsd-t/` already exists**: Skip init — it's already done. Log and continue to scan. Still check and copy settings.local (step 5) even if init is skipped.
 
 ## Step 4: Deep Codebase Scan (gsd-t-scan)
 
