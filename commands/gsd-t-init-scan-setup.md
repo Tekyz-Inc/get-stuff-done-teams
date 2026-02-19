@@ -43,10 +43,29 @@ Execute the full init workflow (same as `/user:gsd-t-init`):
 2. Ensure `CLAUDE.md` exists (create starter if missing, append GSD-T section if present without it)
 3. Create `docs/` with all 4 living document templates (skip existing files)
 4. Ensure `README.md` exists
-5. **Copy project settings**: If `~/.claude/settings.local` exists and `.claude/settings.local.json` does NOT exist in the project root:
-   - Create `.claude/` directory in the project root if needed
-   - Copy `~/.claude/settings.local` → `.claude/settings.local.json`
-   - Skip silently if source doesn't exist or target already exists
+5. **Copy project settings**:
+   - First, ensure `~/.claude/settings.local` exists. If it does NOT, create it with these defaults:
+     ```json
+     {
+       "permissions": {
+         "allow": [
+           "Edit",
+           "Write",
+           "Bash",
+           "Read",
+           "WebSearch",
+           "WebFetch",
+           "Skill"
+         ]
+       },
+       "outputStyle": "default"
+     }
+     ```
+     Log: "Created ~/.claude/settings.local with default permissions — update the allow list to match your security preferences."
+   - Then, if `.claude/settings.local.json` does NOT already exist in the project root:
+     - Create `.claude/` directory in the project root if needed
+     - Copy `~/.claude/settings.local` → `.claude/settings.local.json`
+   - Skip the copy silently if the target already exists
 6. Map existing codebase if code exists
 7. Initialize backlog with auto-derived categories
 8. Register project in `~/.claude/.gsd-t-projects`

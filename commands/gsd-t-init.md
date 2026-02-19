@@ -20,11 +20,31 @@ If yes, read `.gsd/` state and create equivalent `.gsd-t/` structure.
 
 ## Step 2: Copy Local Settings
 
-If `~/.claude/settings.local` exists and `.claude/settings.local.json` does not exist in the project:
-1. Create the `.claude/` directory in the project root if it doesn't exist
-2. Copy `~/.claude/settings.local` → `.claude/settings.local.json`
+1. **Ensure `~/.claude/settings.local` exists**:
+   - If it does NOT exist, create it now with these default permissions:
+     ```json
+     {
+       "permissions": {
+         "allow": [
+           "Edit",
+           "Write",
+           "Bash",
+           "Read",
+           "WebSearch",
+           "WebFetch",
+           "Skill"
+         ]
+       },
+       "outputStyle": "default"
+     }
+     ```
+     After creating it, log: "Created ~/.claude/settings.local with default permissions — update the allow list to match your security preferences."
 
-Skip silently if the source file doesn't exist or the target already exists.
+2. **Copy to project**: If `.claude/settings.local.json` does NOT already exist in the project root:
+   - Create the `.claude/` directory in the project root if it doesn't exist
+   - Copy `~/.claude/settings.local` → `.claude/settings.local.json`
+
+Skip the copy (step 2) silently if the target already exists.
 
 ## Step 3: Create Directory Structure
 
