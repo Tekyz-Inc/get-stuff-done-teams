@@ -111,9 +111,10 @@ GSD-T tracks project version in `.gsd-t/progress.md` using semantic versioning: 
 Determine the version bump based on the milestone:
 1. Read current version from `.gsd-t/progress.md`
 2. Assess milestone scope:
-   - Was this a major/breaking milestone? → bump **major**, reset minor and patch to 0
-   - Was this a feature milestone? → bump **minor**, reset patch to 0
-   - Was this a bugfix/cleanup/debt milestone? → bump **patch**
+   - Was this a major/breaking milestone? → bump **major**, reset minor to 0, reset patch to **10**
+   - Was this a feature milestone? → bump **minor**, reset patch to **10**
+   - Was this a bugfix/cleanup/debt milestone? → bump **patch** (increment by 1)
+   - **Patch numbers are always 2 digits (≥10).** After any minor/major reset, start at 10, never 0 or 1.
 3. Update version in `.gsd-t/progress.md`
 4. If a package manifest exists (`package.json`, `pyproject.toml`, `Cargo.toml`, etc.), update its version to match
 5. Update `README.md` version badge or version reference if present

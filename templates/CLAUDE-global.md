@@ -109,11 +109,13 @@ GSD-T tracks project version in `.gsd-t/progress.md` using semantic versioning: 
 
 | Segment | Bumped When | Example |
 |---------|-------------|---------|
-| **Major** | Breaking changes, major rework, v1 launch | 1.0.0 → 2.0.0 |
-| **Minor** | New features, completed feature milestones | 1.1.0 → 1.2.0 |
-| **Patch** | Bug fixes, minor improvements, cleanup | 1.1.1 → 1.1.2 |
+| **Major** | Breaking changes, major rework, v1 launch | 1.0.10 → 2.0.10 |
+| **Minor** | New features, completed feature milestones | 1.10.10 → 1.11.10 |
+| **Patch** | Bug fixes, minor improvements, cleanup | 1.1.10 → 1.1.11 |
 
-- Version is set during `gsd-t-init` (starts at `0.1.0`)
+**Patch convention**: Patch numbers are always 2 digits (≥10). When resetting after a minor or major bump, start at **10** (not 0). This keeps patches always 2 characters without leading zeros, so semver stays valid.
+
+- Version is set during `gsd-t-init` (starts at `0.1.10`)
 - Version is bumped during `gsd-t-complete-milestone` based on milestone scope
 - Version is reflected in: `progress.md`, `README.md`, package manifest (if any), and git tags (`v{version}`)
 

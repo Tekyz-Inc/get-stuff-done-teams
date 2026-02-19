@@ -16,7 +16,11 @@ Automatically stage, commit, and push all updated files to GitHub with automatic
    - **minor**: New features, new commands, new capabilities
    - **major**: Breaking changes, major rework, incompatible API changes
 6. Read the current version from `package.json`
-7. Bump the version according to the determined type (e.g., `2.3.0` → `2.3.1` for patch)
+7. Bump the version according to the determined type:
+   - **patch**: increment patch by 1 (e.g., `2.24.10` → `2.24.11`)
+   - **minor**: increment minor, reset patch to **10** (e.g., `2.24.11` → `2.25.10`)
+   - **major**: increment major, reset minor to 0, reset patch to **10** (e.g., `2.24.11` → `3.0.10`)
+   - **Patch numbers are always 2 digits (≥10).** After any minor/major reset, start at 10, never 0 or 1.
 8. Update the version in `package.json`
 9. If `.gsd-t/progress.md` exists, check for a `## Version` line and update it (or add one after the `## Date` line)
 

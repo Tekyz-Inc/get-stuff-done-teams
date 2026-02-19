@@ -2,6 +2,11 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.24.10] - 2026-02-18
+
+### Changed
+- **Versioning scheme: patch numbers are always 2 digits**: Patch segment now starts at 10 (not 0) after any minor or major reset. Incrementing continues normally (10→11→12…). Semver validity is preserved — no leading zeros. `checkin.md` and `gsd-t-complete-milestone.md` updated with the new convention. `gsd-t-init` will initialize new projects at `0.1.10`
+
 ## [2.24.9] - 2026-02-18
 
 ### Changed

@@ -3,7 +3,7 @@
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: READY
 ## Date: 2026-02-18
-## Version: 2.24.8
+## Version: 2.24.10
 
 ## Current Milestone
 
@@ -164,6 +164,7 @@ No integration checkpoints expected — single domain milestone.
 - 2026-02-18 09:00: Redesigned Next Command Hint — replaced plain "Next →" text with GSD-style "Next Up" visual block (divider lines, ▶ header, phase name + description, command in backticks, alternatives section). Format designed to trigger Claude Code's prompt suggestion engine for ghost text in input field.
 - 2026-02-18 09:15: Fixed CLAUDE.md update overwrite bug — installer now uses marker-based merging (GSD-T:START/END HTML comments). Updates only replace GSD-T content between markers, preserving all user customizations. Migration path for existing installs without markers. v2.24.8
 - 2026-02-18 09:30: Updated example settings.json model from claude-opus-4-6 to claude-sonnet-4-6 (newer, faster, lower token usage). v2.24.9
+- 2026-02-18 15:30: Changed versioning scheme — patch numbers now always 2 digits (≥10). When patch resets after minor/major bump, start at 10 (not 0). Semver stays valid (no leading zeros). Updated checkin.md, gsd-t-complete-milestone.md, templates/CLAUDE-global.md. Current version jumped 2.24.9 → 2.24.10. v2.24.10
 
 ## Session Log
 | Date | Session | What was accomplished |
