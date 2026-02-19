@@ -12,6 +12,9 @@ Read ALL of these:
 5. `.gsd-t/domains/*/constraints.md` — every domain constraint
 6. `docs/` — requirements, architecture, schema, design
 7. Existing source code (if any) — understand current state
+8. `.gsd-t/CONTEXT.md` (if exists — from discuss phase) — **MANDATORY READ if present**
+
+**If CONTEXT.md exists:** Every Locked Decision listed in it MUST be mapped to at least one task in Step 2. Do NOT proceed to execute if any Locked Decision is unmapped.
 
 ## Step 2: Create Task Lists Per Domain
 
@@ -48,6 +51,22 @@ For each domain, write `.gsd-t/domains/{domain-name}/tasks.md`:
 4. **Contract-bound**: Every task that crosses a domain boundary must reference the specific contract it implements
 5. **Ordered**: Tasks within a domain are numbered in execution order
 6. **No implicit knowledge**: Don't assume the executing agent remembers previous tasks — reference contracts and files explicitly
+
+### REQ Traceability
+
+After creating task lists, append a traceability table to `docs/requirements.md`:
+
+```markdown
+## Requirements Traceability (updated by plan phase)
+| REQ-ID | Requirement Summary | Domain | Task(s) | Status |
+|--------|---------------------|--------|---------|--------|
+| REQ-001 | {summary} | {domain} | Task 1, Task 3 | pending |
+| REQ-002 | {summary} | {domain} | Task 2 | pending |
+```
+
+- Every REQ-ID must map to at least one domain/task — orphaned requirements are a planning gap
+- Every task group should trace back to at least one REQ-ID — tasks with no REQ reference may be scope creep
+- Report: orphaned requirements (no task) and unanchored tasks (no REQ)
 
 ## Step 3: Map Cross-Domain Dependencies
 
@@ -118,14 +137,38 @@ Before finalizing the plan:
 2. **Verify passing**: Document any pre-existing failures — assign them to appropriate domain tasks
 3. **Include test tasks**: Ensure each domain's task list includes test creation/update tasks where acceptance criteria require verification
 
-## Step 7: Update Progress
+## Step 7: Plan Validation
+
+Spawn a Task subagent to validate the plan before proceeding:
+
+```
+Task subagent (general-purpose):
+"Validate this GSD-T plan. Read:
+- .gsd-t/domains/*/tasks.md (all task lists)
+- .gsd-t/contracts/ (all contracts)
+- docs/requirements.md (including traceability table)
+- .gsd-t/CONTEXT.md (if exists)
+
+Check:
+1. REQ coverage: every REQ-ID in requirements.md maps to at least one task
+2. Locked Decisions (from CONTEXT.md if present): every Locked Decision maps to at least one task
+3. Task completeness: every task has files, contract refs, and acceptance criteria
+4. Cross-domain dependencies: all BLOCKED-BY references point to real tasks
+5. Contract existence: every task referencing a contract has that contract file present
+
+Report: PASS (all checks pass) or FAIL with specific gaps listed."
+```
+
+**If FAIL**: Fix the identified gaps (up to 3 iterations). If still failing after 3 iterations, STOP and report to user with the specific gaps. Plan cannot proceed until validation PASSES.
+
+## Step 8: Update Progress
 
 Update `.gsd-t/progress.md`:
 - Set status to `PLANNED`
 - Update domain table with task counts
 - Record any planning decisions in the Decision Log
 
-## Step 8: Report
+## Step 9: Report
 
 ### Autonomy Behavior
 

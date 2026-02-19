@@ -2,6 +2,15 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.27.10] - 2026-02-18
+
+### Changed
+- **Milestone 12: Planning Intelligence** — Three improvements to correctness across milestones:
+  - **CONTEXT.md from discuss**: `gsd-t-discuss` now creates `.gsd-t/CONTEXT.md` with three sections — Locked Decisions (plan must implement exactly), Deferred Ideas (plan must NOT implement), and Claude's Discretion (free to decide). New Step 5 added to discuss; steps renumbered
+  - **Plan fidelity enforcement**: `gsd-t-plan` reads CONTEXT.md and maps every Locked Decision to at least one task. Also produces a REQ-ID → domain/task traceability table in `docs/requirements.md`
+  - **Plan validation checker**: A Task subagent validates the plan after creation — checks REQ coverage, Locked Decision mapping, task completeness, cross-domain dependencies, and contract existence. Max 3 fix iterations before stopping
+  - **Requirements close-out in verify**: `gsd-t-verify` marks matched requirements as `complete` in the traceability table and reports orphaned requirements and unanchored tasks
+
 ## [2.26.10] - 2026-02-18
 
 ### Changed

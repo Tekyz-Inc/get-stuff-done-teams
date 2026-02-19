@@ -3,15 +3,15 @@
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: READY
 ## Date: 2026-02-18
-## Version: 2.26.10
+## Version: 2.27.10
 
 ## Current Milestone
 
 | # | Milestone | Status | Domains |
 |---|-----------|--------|---------|
-| 11 | Execution Quality | COMPLETED | cmd-execution-quality |
+| 12 | Planning Intelligence | COMPLETED | cmd-planning-intel |
 
-**Goal**: More reliable execution — deviation rules, atomic per-task commits, and filesystem/git spot-checks in wave.
+**Goal**: Prevent assumption drift, catch bad plans early, and track requirement coverage.
 
 ## Completed Milestones
 | Milestone | Version | Completed | Tag |
@@ -28,6 +28,7 @@
 | Cleanup Sprint | 2.24.5 | 2026-02-18 | v2.24.5 |
 | Token Efficiency | 2.25.10 | 2026-02-18 | v2.25.10 |
 | Execution Quality | 2.26.10 | 2026-02-18 | v2.26.10 |
+| Planning Intelligence | 2.27.10 | 2026-02-18 | v2.27.10 |
 
 ## Domains
 | Domain | Status | Tasks | Completed |
@@ -184,6 +185,7 @@ No integration checkpoints expected — single domain milestone.
 - 2026-02-18 15:30: Changed versioning scheme — patch numbers now always 2 digits (≥10). When patch resets after minor/major bump, start at 10 (not 0). Semver stays valid (no leading zeros). Updated checkin.md, gsd-t-complete-milestone.md, templates/CLAUDE-global.md. v2.24.10
 - 2026-02-18 16:00: Milestone 10 (Token Efficiency) completed — QA refactored across all phases: removed QA spawn from partition/plan; test-sync/verify/complete-milestone inline contract testing; execute/integrate use Task subagent for QA; quick/debug run tests inline + Step 0 subagent self-spawn; scan/status wrapped as subagents. CLAUDE.md + template QA Mandatory section updated. 125/125 tests pass. v2.25.10
 - 2026-02-18 16:30: Milestone 11 (Execution Quality) completed — Deviation Rules (4-rule protocol + 3-attempt limit) added to execute/quick/debug; execute now commits after each task with feat({domain}/task-{N}) format; team mode includes per-task commit rule; wave between-phase spot-check added (status + git + filesystem verification). 125/125 tests pass. v2.26.10
+- 2026-02-18 17:00: Milestone 12 (Planning Intelligence) completed — discuss now creates .gsd-t/CONTEXT.md with Locked Decisions/Deferred Ideas/Claude's Discretion sections; plan reads CONTEXT.md and maps each Locked Decision to a task (fidelity enforcement); plan outputs REQ-ID→domain/task traceability table in requirements.md; plan validation checker (Task subagent, max 3 iterations) validates REQ coverage/task completeness/contract existence; verify marks matched requirements complete and reports orphans. 125/125 tests pass. v2.27.10
 
 ## Session Log
 | Date | Session | What was accomplished |

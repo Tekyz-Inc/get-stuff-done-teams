@@ -39,6 +39,12 @@ Standard dimensions (adjust based on project):
 5. **E2E Tests**: Run the FULL Playwright suite — all specs must pass. If new features lack specs, create them before proceeding.
 6. **Security**: Auth flows, input validation, data exposure, dependencies
 7. **Integration Integrity**: Do the seams between domains hold under stress?
+8. **Requirements Traceability Close-Out**: Mark verified requirements as complete and report orphans:
+   - Read `docs/requirements.md` traceability table (added by plan phase)
+   - For each REQ-ID that is fully implemented and tested: update Status to `complete` in the traceability table
+   - **Orphan report**: List any REQ-IDs with no task mapping (planning gap) and any tasks with no REQ-ID (potential scope creep)
+   - Orphaned requirements = WARN (not blocking unless critical)
+   - Update `docs/requirements.md` with the close-out results
 
 ## Step 4: Execute Verification
 

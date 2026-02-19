@@ -81,7 +81,31 @@ For each decision:
 2. Update domain `scope.md` and `constraints.md` if the decision affects boundaries
 3. Add to `.gsd-t/progress.md` Decision Log with date and rationale
 
-## Step 5: Document Ripple
+## Step 5: Create CONTEXT.md
+
+After finalizing decisions, create or update `.gsd-t/CONTEXT.md`:
+
+```markdown
+# Discuss CONTEXT — {Milestone Name}
+Generated: {date}
+
+## Locked Decisions
+Decisions made in this session. The plan phase MUST implement each of these exactly.
+- {Decision 1 — specific and implementable}
+- {Decision 2}
+
+## Deferred Ideas
+Good ideas surfaced but NOT in scope for this milestone. Plan must NOT implement these.
+- {Idea 1 — brief description of what was deferred and why}
+
+## Claude's Discretion
+Implementation details not specified — Claude can choose freely when executing.
+- {Detail 1 — e.g., "Use either X or Y approach for the logging layer"}
+```
+
+The plan phase planner must read this file and map every Locked Decision to at least one task. If a Locked Decision has no corresponding task, the plan is incomplete.
+
+## Step 6: Document Ripple
 
 Decisions don't just affect contracts — they can change the broader documentation:
 
@@ -97,7 +121,7 @@ Decisions don't just affect contracts — they can change the broader documentat
 
 ### Skip what's not affected.
 
-## Step 6: Test Verification
+## Step 7: Test Verification
 
 If decisions resulted in contract or code changes:
 
@@ -105,7 +129,7 @@ If decisions resulted in contract or code changes:
 2. **Verify passing**: All tests must pass. If any fail from contract changes, fix before proceeding (up to 2 attempts)
 3. **Flag test gaps**: If decisions created new requirements with no test coverage, note them for the plan phase
 
-## Step 7: Validate Contracts
+## Step 8: Validate Contracts
 
 After all updates:
 - [ ] All contracts are internally consistent (no conflicting types/shapes)
@@ -113,7 +137,7 @@ After all updates:
 - [ ] Every domain's constraints reflect the decisions made
 - [ ] Integration points are updated with any new dependencies
 
-## Step 8: Report and Stop
+## Step 9: Report and Stop
 
 Present to the user:
 1. Decisions made (with brief rationale)
