@@ -39,7 +39,7 @@ All subsequent steps run from inside the project directory.
 
 Execute the full init workflow (same as `/user:gsd-t-init`):
 
-1. Create `.gsd-t/` directory structure (contracts/, domains/, progress.md, backlog.md, backlog-settings.md)
+1. Create `.gsd-t/` directory structure (contracts/, domains/, progress.md, backlog.md, backlog-settings.md, token-log.md, qa-issues.md)
 2. Ensure `CLAUDE.md` exists (create starter if missing, append GSD-T section if present without it)
 3. Create `docs/` with all 4 living document templates (skip existing files)
 4. Ensure `README.md` exists

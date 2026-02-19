@@ -7,7 +7,7 @@ You are diagnosing the health of a GSD-T project. Check every required file and 
 When invoked directly by the user, spawn yourself as a Task subagent for a fresh context window:
 
 ```
-Task subagent (general-purpose):
+Task subagent (general-purpose, model: haiku):
 "Run the GSD-T health check. Read commands/gsd-t-health.md for your full instructions.
 Arguments: {$ARGUMENTS}
 Skip Step 0 — you are already the subagent."

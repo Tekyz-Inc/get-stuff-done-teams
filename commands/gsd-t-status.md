@@ -10,6 +10,7 @@ To keep the main conversation context lean, run status via a Task subagent.
 Spawn a fresh subagent using the Task tool:
 ```
 subagent_type: general-purpose
+model: haiku
 prompt: "You are running gsd-t-status. Working directory: {current project root}
 Read .gsd-t/progress.md and execute the full status report workflow."
 ```

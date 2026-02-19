@@ -56,7 +56,21 @@ Skip the copy (step 2) silently if the target already exists.
 │   └── .gitkeep
 ├── backlog.md
 ├── backlog-settings.md
-└── progress.md
+├── progress.md
+├── token-log.md
+└── qa-issues.md
+```
+
+Create `token-log.md` with header row:
+```
+| Date | Command | Step | Model | Duration(s) | Notes |
+|------|---------|------|-------|-------------|-------|
+```
+
+Create `qa-issues.md` with header row:
+```
+| Date | Command | Step | Model | Duration(s) | Severity | Finding |
+|------|---------|------|-------|-------------|----------|---------|
 ```
 
 ## Step 4: Initialize Backlog

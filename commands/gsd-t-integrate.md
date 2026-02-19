@@ -93,12 +93,20 @@ Result: PARTIAL — needs pagination contract addition
 Spawn a QA subagent via the Task tool to verify contract compliance at all domain boundaries:
 
 ```
-Task subagent (general-purpose):
+Task subagent (general-purpose, model: haiku):
 "Run contract compliance tests for this integration. Read .gsd-t/contracts/ for all contract definitions.
 Test every domain boundary: verify that producers and consumers match their contract shapes.
 Run the full test suite.
 Report: boundary-by-boundary test results with pass/fail counts."
 ```
+
+**OBSERVABILITY LOGGING (MANDATORY):**
+Before spawning: run `date +%s` via Bash → save as START
+After subagent returns: run `date +%s` → compute `DURATION=$((END-START))`
+Append to `.gsd-t/token-log.md` (create with header `| Date | Command | Step | Model | Duration(s) | Notes |` if missing):
+`| {YYYY-MM-DD HH:MM} | gsd-t-integrate | Step 5 | haiku | {DURATION}s | {pass/fail}, {N} boundaries tested |`
+If QA found issues, append each to `.gsd-t/qa-issues.md` (create with header `| Date | Command | Step | Model | Duration(s) | Severity | Finding |` if missing):
+`| {YYYY-MM-DD HH:MM} | gsd-t-integrate | Step 5 | haiku | {DURATION}s | {severity} | {finding} |`
 
 QA failure blocks integration completion.
 

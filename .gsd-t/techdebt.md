@@ -358,6 +358,17 @@ Items: TD-056, TD-057, TD-058, TD-059, TD-060, TD-061, TD-062, TD-063, TD-064, T
 - **Milestone candidate**: NO — addressed in this scan's Step 5
 - **Promoted**: [ ]
 
+### TD-080: Log file archiving and summarization not implemented
+- **Category**: quality
+- **Severity**: LOW
+- **Location**: `.gsd-t/token-log.md`, `.gsd-t/qa-issues.md`
+- **Description**: `token-log.md` and `qa-issues.md` grow unboundedly — every Task subagent call appends a row. There is no mechanism to rotate, archive, or summarize these logs when they become large. Over a long-lived project, these files could accumulate thousands of rows, making them unwieldy to read or diff.
+- **Impact**: Low currently (new feature), but grows over time. Large log files slow context loading and git diffs.
+- **Remediation**: Add to `gsd-t-complete-milestone`: (1) archive current log contents to `.gsd-t/milestones/{name}/token-log-{date}.md` and `.gsd-t/milestones/{name}/qa-issues-{date}.md`, (2) reset log files to header-only, (3) optionally produce a summary (top commands by duration, top qa issue categories). Consider adding a `gsd-t-tools.js logs summary` subcommand that reads both files and outputs aggregate stats.
+- **Effort**: small
+- **Milestone candidate**: NO — fold into next cleanup sprint
+- **Promoted**: [ ]
+
 ---
 
 ## Scan #6 Metadata

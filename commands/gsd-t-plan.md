@@ -174,7 +174,7 @@ Before finalizing the plan:
 Spawn a Task subagent to validate the plan before proceeding:
 
 ```
-Task subagent (general-purpose):
+Task subagent (general-purpose, model: haiku):
 "Validate this GSD-T plan. Read:
 - .gsd-t/domains/*/tasks.md (all task lists)
 - .gsd-t/contracts/ (all contracts)
@@ -190,6 +190,14 @@ Check:
 
 Report: PASS (all checks pass) or FAIL with specific gaps listed."
 ```
+
+**OBSERVABILITY LOGGING (MANDATORY):**
+Before spawning: run `date +%s` via Bash → save as START
+After subagent returns: run `date +%s` → compute `DURATION=$((END-START))`
+Append to `.gsd-t/token-log.md` (create with header `| Date | Command | Step | Model | Duration(s) | Notes |` if missing):
+`| {YYYY-MM-DD HH:MM} | gsd-t-plan | Step 7 | haiku | {DURATION}s | {PASS/FAIL}, iteration {N} |`
+If validation FAIL, append each gap to `.gsd-t/qa-issues.md` (create with header `| Date | Command | Step | Model | Duration(s) | Severity | Finding |` if missing):
+`| {YYYY-MM-DD HH:MM} | gsd-t-plan | Step 7 | haiku | {DURATION}s | medium | {gap description} |`
 
 **If FAIL**: Fix the identified gaps (up to 3 iterations). If still failing after 3 iterations, STOP and report to user with the specific gaps. Plan cannot proceed until validation PASSES.
 

@@ -24,12 +24,20 @@ Identify:
 After completing each task, spawn a QA subagent via the Task tool to run tests:
 
 ```
-Task subagent (general-purpose):
+Task subagent (general-purpose, model: haiku):
 "Run the full test suite for this project and report pass/fail counts.
 Read .gsd-t/contracts/ for contract definitions.
 Write edge case tests for any new code paths in this task: {task description}.
 Report: test pass/fail status and any coverage gaps found."
 ```
+
+**OBSERVABILITY LOGGING (MANDATORY):**
+Before spawning: run `date +%s` via Bash → save as START
+After subagent returns: run `date +%s` → compute `DURATION=$((END-START))`
+Append to `.gsd-t/token-log.md` (create with header `| Date | Command | Step | Model | Duration(s) | Notes |` if missing):
+`| {YYYY-MM-DD HH:MM} | gsd-t-execute | Step 2 | haiku | {DURATION}s | task: {task-name}, {pass/fail} |`
+If QA found issues, append each to `.gsd-t/qa-issues.md` (create with header `| Date | Command | Step | Model | Duration(s) | Severity | Finding |` if missing):
+`| {YYYY-MM-DD HH:MM} | gsd-t-execute | Step 2 | haiku | {DURATION}s | {severity} | {finding} |`
 
 QA failure on any task blocks proceeding to the next task.
 

@@ -40,15 +40,15 @@ ALL TEAMMATES read first:
 - CLAUDE.md (if exists)
 - .gsd-t/contracts/ (if exists)
 
-- Teammate "architecture": Analyze project structure, tech stack,
+- Teammate "architecture" (model: haiku): Analyze project structure, tech stack,
   data flow, patterns. Write findings to .gsd-t/scan/architecture.md
-- Teammate "business-rules": Extract all embedded business logic,
+- Teammate "business-rules" (model: haiku): Extract all embedded business logic,
   validation, auth rules, workflows. Write to .gsd-t/scan/business-rules.md
-- Teammate "security": Full security audit — auth, injection, exposure,
+- Teammate "security" (model: sonnet): Full security audit — auth, injection, exposure,
   dependencies. Write to .gsd-t/scan/security.md
-- Teammate "quality": Dead code, duplication, complexity, test gaps,
+- Teammate "quality" (model: sonnet): Dead code, duplication, complexity, test gaps,
   performance, stale deps. Write to .gsd-t/scan/quality.md
-- Teammate "contracts": Compare .gsd-t/contracts/ to actual implementation,
+- Teammate "contracts" (model: haiku): Compare .gsd-t/contracts/ to actual implementation,
   find drift and undocumented interfaces. Write to .gsd-t/scan/contract-drift.md
   (skip if no contracts exist)
 

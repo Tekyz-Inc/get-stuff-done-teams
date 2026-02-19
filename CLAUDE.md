@@ -105,6 +105,24 @@ This project uses GSD-T on itself. Key things to understand:
 - `.gsd-t/scan/` — codebase analysis outputs
 
 
+## Observability Logging (MANDATORY)
+
+Every command that spawns a Task subagent MUST log its execution to `.gsd-t/token-log.md` and (if issues found) `.gsd-t/qa-issues.md`.
+
+**Log format:**
+- Before spawn: run `date +%s` via Bash to record START
+- After subagent returns: run `date +%s`, compute `DURATION=$((END-START))`
+- Append to `.gsd-t/token-log.md` (create with header row if file doesn't exist):
+  `| Date | Command | Step | Model | Duration(s) | Notes |`
+  `| {YYYY-MM-DD HH:MM} | {command} | Step {N} | {model} | {DURATION}s | {brief note} |`
+- For QA/validation subagents: if issues found, append each to `.gsd-t/qa-issues.md`:
+  `| Date | Command | Step | Model | Duration(s) | Severity | Finding |`
+  `| {YYYY-MM-DD HH:MM} | {command} | Step {N} | {model} | {DURATION}s | {severity} | {finding} |`
+
+**Model assignments:**
+- `model: haiku` — mechanical tasks: run tests, count pass/fail, validate structure, check file existence, report status
+- `model: sonnet` (default) — reasoning tasks: write code, security analysis, quality judgment, complex synthesis
+
 ## GSD-T Workflow
 
 This project uses contract-driven development.
