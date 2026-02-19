@@ -3,15 +3,15 @@
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: READY
 ## Date: 2026-02-18
-## Version: 2.25.10
+## Version: 2.26.10
 
 ## Current Milestone
 
 | # | Milestone | Status | Domains |
 |---|-----------|--------|---------|
-| 10 | Token Efficiency | COMPLETED | cmd-qa-refactor |
+| 11 | Execution Quality | COMPLETED | cmd-execution-quality |
 
-**Goal**: Reduce QA overhead and prevent context compaction — QA refactored across all phases, standalone commands wrapped as subagents.
+**Goal**: More reliable execution — deviation rules, atomic per-task commits, and filesystem/git spot-checks in wave.
 
 ## Completed Milestones
 | Milestone | Version | Completed | Tag |
@@ -27,6 +27,7 @@
 | Housekeeping + Contract Sync | 2.24.4 | 2026-02-18 | v2.24.4 |
 | Cleanup Sprint | 2.24.5 | 2026-02-18 | v2.24.5 |
 | Token Efficiency | 2.25.10 | 2026-02-18 | v2.25.10 |
+| Execution Quality | 2.26.10 | 2026-02-18 | v2.26.10 |
 
 ## Domains
 | Domain | Status | Tasks | Completed |
@@ -182,6 +183,7 @@ No integration checkpoints expected — single domain milestone.
 - 2026-02-18: Promoted backlog items #2-#15 into 4 milestones. M10: Token Efficiency (#2,#3,#4). M11: Execution Quality (#5,#7,#8). M12: Planning Intelligence (#6,#9,#10). M13: Tooling & UX (#11,#12,#13,#14,#15). Item #1 (Agentic Workflow) remains in backlog (blocked on external dependency). Roadmap.md updated. Backlog cleaned to 1 item.
 - 2026-02-18 15:30: Changed versioning scheme — patch numbers now always 2 digits (≥10). When patch resets after minor/major bump, start at 10 (not 0). Semver stays valid (no leading zeros). Updated checkin.md, gsd-t-complete-milestone.md, templates/CLAUDE-global.md. v2.24.10
 - 2026-02-18 16:00: Milestone 10 (Token Efficiency) completed — QA refactored across all phases: removed QA spawn from partition/plan; test-sync/verify/complete-milestone inline contract testing; execute/integrate use Task subagent for QA; quick/debug run tests inline + Step 0 subagent self-spawn; scan/status wrapped as subagents. CLAUDE.md + template QA Mandatory section updated. 125/125 tests pass. v2.25.10
+- 2026-02-18 16:30: Milestone 11 (Execution Quality) completed — Deviation Rules (4-rule protocol + 3-attempt limit) added to execute/quick/debug; execute now commits after each task with feat({domain}/task-{N}) format; team mode includes per-task commit rule; wave between-phase spot-check added (status + git + filesystem verification). 125/125 tests pass. v2.26.10
 
 ## Session Log
 | Date | Session | What was accomplished |

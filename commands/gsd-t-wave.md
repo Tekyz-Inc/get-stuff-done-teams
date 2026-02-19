@@ -120,14 +120,18 @@ Spawn agent → `commands/gsd-t-complete-milestone.md`
 
 ### Between Each Phase
 
-After each agent completes:
-1. Read `.gsd-t/progress.md` to verify the phase updated status correctly
-2. Report brief status to user:
+After each agent completes, run this spot-check before proceeding:
+
+1. **Status check**: Read `.gsd-t/progress.md` — verify the phase updated status correctly (no FAILED markers, status matches expected phase completion state)
+2. **Git check**: Run `git log --oneline -5` — verify commits were made during this phase (if execute/integrate: at least one commit per task completed)
+3. **Filesystem check**: Verify key output files exist on disk — e.g., for partition: `.gsd-t/domains/*/scope.md` and `.gsd-t/contracts/` files; for execute: newly created source files; for verify: `.gsd-t/verify-report.md`. Do not trust agent-reported completions alone.
+4. Report to user:
    ```
    ✅ {Phase} complete — {agent's one-line summary}
+   📋 Spot-check: {N} commits | {N} output files verified | no FAILED markers
    ```
-3. If status was NOT updated correctly: report error and stop
-4. Proceed to next phase
+5. If spot-check fails: report the discrepancy, re-spawn the phase agent once to correct it, then re-verify. If still failing: stop and report to user.
+6. Proceed to next phase
 
 ## Step 4: Autonomy Behavior
 

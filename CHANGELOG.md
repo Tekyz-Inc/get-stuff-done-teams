@@ -2,6 +2,14 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.26.10] - 2026-02-18
+
+### Changed
+- **Milestone 11: Execution Quality** — Three improvements to execution reliability:
+  - **Deviation Rules**: `execute`, `quick`, and `debug` now include a 4-rule deviation protocol — auto-fix bugs (3-attempt limit), add minimum missing dependencies, fix blockers, and STOP for architectural changes. Failed attempts log to `.gsd-t/deferred-items.md`
+  - **Atomic per-task commits**: `execute` now commits after each task using `feat({domain}/task-{N}): {description}` format instead of batching at phase end. Team mode instructions updated with the same requirement
+  - **Wave spot-check**: Between-phase verification in `wave` now checks git log (commits present), filesystem (output files exist), and FAILED markers in progress.md — not just agent-reported status
+
 ## [2.25.10] - 2026-02-18
 
 ### Changed

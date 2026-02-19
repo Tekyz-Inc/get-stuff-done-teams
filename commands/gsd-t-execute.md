@@ -38,6 +38,17 @@ QA failure on any task blocks proceeding to the next task.
 ### Solo Mode (default)
 Execute tasks yourself following the execution order in `integration-points.md`.
 
+### Deviation Rules (MANDATORY for every task)
+
+When you encounter unexpected situations during a task:
+
+1. **Bug in existing code blocking progress** → Fix it immediately, up to 3 attempts. If still blocked after 3 attempts, add to `.gsd-t/deferred-items.md` and move to the next task.
+2. **Missing functionality that the task clearly requires** → Add the minimum required code to unblock the task. Do not gold-plate. Document in commit message.
+3. **Blocker (missing file, wrong API, broken dependency)** → Fix the blocker and continue. Add a note to `.gsd-t/deferred-items.md` if the fix was more than trivial.
+4. **Architectural change required** → STOP immediately. Do NOT proceed. Apply the Destructive Action Guard: explain what exists, what needs to change, what breaks, and a migration path. Wait for explicit user approval.
+
+**3-attempt limit**: If any fix attempt fails 3 times, move on — don't loop. Log to `.gsd-t/deferred-items.md`.
+
 For each task:
 1. Read the task description, files list, and contract refs
 2. Read the relevant contract(s) — implement EXACTLY what they specify
@@ -57,7 +68,7 @@ For each task:
    d. **"No feature code without test code"** — implementation and tests are ONE deliverable, not two separate steps
 8. **Run ALL tests** — unit, integration, and full Playwright suite. Fix any failures before proceeding (up to 2 attempts)
 9. Run the Pre-Commit Gate checklist from CLAUDE.md — update ALL affected docs BEFORE committing
-10. Commit with a descriptive message: `[{domain}] Task {N}: {description}`
+10. **Commit immediately** after each task: `feat({domain}/task-{N}): {description}` — do NOT batch commits at phase end
 11. Update `.gsd-t/progress.md` — mark task complete
 12. If you've reached a CHECKPOINT in integration-points.md, pause and verify the contract before continuing
 
@@ -87,7 +98,8 @@ RULES FOR ALL TEAMMATES:
 - After completing each task, message the lead with:
   "DONE: {domain} Task {N} - {summary of what was created/modified}"
 - If you need to deviate from a contract, STOP and message the lead
-- Commit after each task: [{domain}] Task {N}: {description}
+- **Commit immediately after each task**: `feat({domain}/task-{N}): {description}` — do NOT batch commits
+- **Deviation Rules**: (1) Bug blocking progress → fix, 3 attempts max; (2) Missing dependency → add minimum needed; (3) Blocker → fix and log to deferred-items.md; (4) Architectural change → STOP, message lead, never self-approve
 
 Teammate assignments:
 - Teammate "{domain-1}": Execute .gsd-t/domains/{domain-1}/tasks.md

@@ -59,6 +59,16 @@ The contract didn't specify something it should have. Symptoms:
 
 ## Step 3: Debug (Solo or Team)
 
+### Deviation Rules
+
+When you encounter unexpected situations during the fix:
+1. **Related bug found while tracing** → Fix it immediately (up to 3 attempts). Log to `.gsd-t/deferred-items.md` if it recurs.
+2. **Missing functionality required for the fix** → Add minimum needed. Note in commit message.
+3. **Blocker (missing file, wrong API response)** → Fix blocker and continue. Log if non-trivial.
+4. **Architectural change required to fix correctly** → STOP. Explain what exists, what needs to change, what breaks, and a migration path. Wait for user approval. Never self-approve.
+
+**3-attempt limit**: If your fix doesn't work after 3 attempts, log to `.gsd-t/deferred-items.md` and stop trying.
+
 ### Solo Mode
 1. Reproduce the issue
 2. Trace through the relevant domain(s)

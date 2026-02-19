@@ -43,6 +43,16 @@ Proceed.
 
 ## Step 3: Execute
 
+### Deviation Rules
+
+When you encounter unexpected situations:
+1. **Bug blocking progress** → Fix it, up to 3 attempts. If still blocked, add to `.gsd-t/deferred-items.md` and skip.
+2. **Missing dependency clearly needed** → Add minimum required code to unblock. Note in commit.
+3. **Blocker (missing file, wrong API)** → Fix blocker and continue. Log if non-trivial.
+4. **Architectural change required** → STOP. Apply Destructive Action Guard. Never self-approve.
+
+**3-attempt limit**: Stop looping after 3 failed fix attempts. Log and move on.
+
 1. Identify exactly which files need to change
 2. **Destructive Action Guard**: Check if this task involves destructive or structural changes (DROP TABLE, removing columns, deleting data, replacing architecture patterns, removing working modules, changing schema in ways that conflict with existing data). If YES → STOP and present the change to the user with what exists today, what will change, what will break, and a safe migration path. Wait for explicit approval.
 3. If a contract exists for the relevant interface, implement to match it
