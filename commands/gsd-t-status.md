@@ -2,6 +2,22 @@
 
 You are checking the current state of the project across all domains.
 
+## Launch via Subagent
+
+To keep the main conversation context lean, run status via a Task subagent.
+
+**If you are the orchestrating agent** (you received the slash command directly):
+Spawn a fresh subagent using the Task tool:
+```
+subagent_type: general-purpose
+prompt: "You are running gsd-t-status. Working directory: {current project root}
+Read .gsd-t/progress.md and execute the full status report workflow."
+```
+Wait for the subagent to complete. Relay its output to the user. **Do not read files yourself.**
+
+**If you are the spawned subagent** (your prompt says "running gsd-t-status"):
+Continue below.
+
 ## Read These Files
 
 1. `.gsd-t/progress.md`

@@ -175,20 +175,7 @@ Before finalizing the partition:
 2. **Verify passing**: If any tests fail, assign them to the appropriate domain as pre-existing issues
 3. **Map tests to domains**: Note which test files belong to which domain — this informs task planning
 
-## Step 7: Spawn QA Agent
-
-After contracts are written, spawn the QA teammate to generate contract test skeletons:
-
-```
-Teammate "qa": Read commands/gsd-t-qa.md for your full instructions.
-  Phase context: partition. Read .gsd-t/contracts/ for contract definitions.
-  Generate contract test skeleton files for every contract.
-  Report: number of test files generated and total test cases.
-```
-
-Wait for QA agent to complete before proceeding. QA failure blocks partition completion.
-
-## Step 8: Validate
+## Step 7: Validate
 
 Before finishing, verify:
 - [ ] Every file in `src/` is owned by exactly one domain

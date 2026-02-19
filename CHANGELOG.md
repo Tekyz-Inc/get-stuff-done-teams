@@ -2,6 +2,17 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.25.10] - 2026-02-18
+
+### Changed
+- **Milestone 10: Token Efficiency** — QA overhead significantly reduced across all phases:
+  - `partition` and `plan`: QA spawn removed (no code produced in these phases)
+  - `test-sync`, `verify`, `complete-milestone`: contract testing and gap analysis performed inline (no QA teammate)
+  - `execute`, `integrate`: QA now spawned via lightweight Task subagent instead of TeamCreate teammate
+  - `quick`, `debug`: QA spawn removed; tests run inline in the existing Test & Verify step; both commands now self-spawn as Task subagents (Step 0) for fresh context windows
+  - `scan`, `status`: wrap themselves as Task subagents for fresh context on each invocation
+  - Global CLAUDE.md QA Mandatory section updated to reflect the new per-command QA method
+
 ## [2.24.10] - 2026-02-18
 
 ### Changed

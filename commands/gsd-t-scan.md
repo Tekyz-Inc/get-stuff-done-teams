@@ -2,6 +2,22 @@
 
 You are the lead agent performing a comprehensive analysis of an existing codebase. Your job is to understand the architecture, identify business rules, surface vulnerabilities, find inefficiencies, and produce an actionable tech debt register.
 
+## Step 0: Launch via Subagent
+
+Scans are long-running and context-heavy. Always execute via a Task subagent for a fresh context window.
+
+**If you are the orchestrating agent** (you received the slash command directly):
+Spawn a fresh subagent using the Task tool:
+```
+subagent_type: general-purpose
+prompt: "You are running gsd-t-scan. Working directory: {current project root}
+Read CLAUDE.md and .gsd-t/progress.md for project context, then execute gsd-t-scan starting at Step 1."
+```
+Wait for the subagent to complete. Relay its summary to the user. **Do not execute Steps 1+ yourself.**
+
+**If you are the spawned subagent** (your prompt says "starting at Step 1"):
+Continue to Step 1 below.
+
 ## Step 1: Load Existing Context
 
 Read:

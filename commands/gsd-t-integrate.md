@@ -88,15 +88,16 @@ Result: PASS
 Result: PARTIAL — needs pagination contract addition
 ```
 
-## Step 5: Spawn QA Agent
+## Step 5: Contract Compliance Testing
 
-Spawn the QA teammate to verify contract compliance at domain boundaries:
+Spawn a QA subagent via the Task tool to verify contract compliance at all domain boundaries:
 
 ```
-Teammate "qa": Read commands/gsd-t-qa.md for your full instructions.
-  Phase context: integrate. Read .gsd-t/contracts/ for all contract definitions.
-  Run contract compliance tests at every domain boundary.
-  Report: boundary-by-boundary test results.
+Task subagent (general-purpose):
+"Run contract compliance tests for this integration. Read .gsd-t/contracts/ for all contract definitions.
+Test every domain boundary: verify that producers and consumers match their contract shapes.
+Run the full test suite.
+Report: boundary-by-boundary test results with pass/fail counts."
 ```
 
 QA failure blocks integration completion.

@@ -224,20 +224,24 @@ This applies everywhere Playwright tests are executed: execute, test-sync, verif
 
 ## QA Agent (Mandatory)
 
-Any GSD-T phase that produces or validates code **MUST spawn a QA teammate**. The QA agent's sole job is test generation, execution, and gap reporting. It never writes feature code.
+Any GSD-T phase that produces or validates code **MUST run QA**. The QA agent's sole job is test generation, execution, and gap reporting. It never writes feature code.
 
-**Commands that must spawn QA agent:**
-`partition`, `plan`, `execute`, `verify`, `complete-milestone`, `quick`, `debug`, `integrate`, `test-sync`, `wave`
+**QA method by command:**
+- `execute`, `integrate` → spawn QA via **Task subagent** (lightweight, no TeamCreate)
+- `test-sync`, `verify`, `complete-milestone` → perform contract testing and gap analysis **inline**
+- `quick`, `debug` → run the full test suite **inline** as part of the command's Test & Verify step
+- `wave` → each phase agent handles QA per the rules above
+- `partition`, `plan` → no QA spawn needed (no code produced yet)
 
-**Spawn instruction:**
+**Task subagent spawn instruction (execute/integrate):**
 ```
-Teammate "qa": Read commands/gsd-t-qa.md for your full instructions.
-  Phase context: {current phase}. Read .gsd-t/contracts/ for contract definitions.
-  Your job: generate contract tests, run all tests, report gaps.
-  You do NOT write feature code.
+Task subagent (general-purpose):
+"Run the full test suite and contract compliance tests.
+Read .gsd-t/contracts/ for contract definitions.
+Report: pass/fail counts and any coverage gaps."
 ```
 
-**QA agent failure blocks phase completion.** Lead cannot proceed until QA reports PASS or user explicitly overrides.
+**QA failure blocks phase completion.** Lead cannot proceed until QA reports PASS or user explicitly overrides.
 
 ## API Documentation Guard (Swagger/OpenAPI)
 

@@ -3,15 +3,15 @@
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: READY
 ## Date: 2026-02-18
-## Version: 2.24.10
+## Version: 2.25.10
 
 ## Current Milestone
 
 | # | Milestone | Status | Domains |
 |---|-----------|--------|---------|
-| 9 | Cleanup Sprint | COMPLETED | cleanup |
+| 10 | Token Efficiency | COMPLETED | cmd-qa-refactor |
 
-**Goal**: Resolve all 10 LOW-severity scan #5 findings (TD-056-TD-065) — dead code, untested exports, documentation errors, minor security gap, contract drift.
+**Goal**: Reduce QA overhead and prevent context compaction — QA refactored across all phases, standalone commands wrapped as subagents.
 
 ## Completed Milestones
 | Milestone | Version | Completed | Tag |
@@ -26,6 +26,7 @@
 | Command File Cleanup | 2.24.3 | 2026-02-19 | v2.24.3 |
 | Housekeeping + Contract Sync | 2.24.4 | 2026-02-18 | v2.24.4 |
 | Cleanup Sprint | 2.24.5 | 2026-02-18 | v2.24.5 |
+| Token Efficiency | 2.25.10 | 2026-02-18 | v2.25.10 |
 
 ## Domains
 | Domain | Status | Tasks | Completed |
@@ -164,7 +165,23 @@ No integration checkpoints expected — single domain milestone.
 - 2026-02-18 09:00: Redesigned Next Command Hint — replaced plain "Next →" text with GSD-style "Next Up" visual block (divider lines, ▶ header, phase name + description, command in backticks, alternatives section). Format designed to trigger Claude Code's prompt suggestion engine for ghost text in input field.
 - 2026-02-18 09:15: Fixed CLAUDE.md update overwrite bug — installer now uses marker-based merging (GSD-T:START/END HTML comments). Updates only replace GSD-T content between markers, preserving all user customizations. Migration path for existing installs without markers. v2.24.8
 - 2026-02-18 09:30: Updated example settings.json model from claude-opus-4-6 to claude-sonnet-4-6 (newer, faster, lower token usage). v2.24.9
-- 2026-02-18 15:30: Changed versioning scheme — patch numbers now always 2 digits (≥10). When patch resets after minor/major bump, start at 10 (not 0). Semver stays valid (no leading zeros). Updated checkin.md, gsd-t-complete-milestone.md, templates/CLAUDE-global.md. Current version jumped 2.24.9 → 2.24.10. v2.24.10
+- 2026-02-18: Added backlog item #2: QA Agent Optimization (improvement, commands) — skip QA on partition/plan/complete, fold into test-sync/verify, Task subagent for execute/integrate.
+- 2026-02-18: Added backlog item #3: Inline Test Steps for Quick and Debug (improvement, commands) — mandatory run-tests step in command files, eliminates ~37K token QA spawn per invocation.
+- 2026-02-18: Added backlog item #4: Subagent Execution for Standalone Commands (improvement, commands) — debug/quick/scan run as Task subagents for fresh context, prevents context accumulation across consecutive calls.
+- 2026-02-18: Added backlog item #5: Deviation Rules (architecture, commands) — 4-rule protocol for executor autonomy: auto-fix bugs, add critical missing functionality, fix blockers, STOP for architectural changes. 3-attempt limit.
+- 2026-02-18: Added backlog item #6: CONTEXT.md from Discuss Phase (improvement, commands) — structured discuss output: Locked Decisions, Deferred Ideas, Claude's Discretion. Fidelity enforcement in plan phase.
+- 2026-02-18: Added backlog item #7: Atomic Commits Per Task (improvement, commands) — commit after each task not just per phase, format feat(domain/task-N), enables git bisect to exact task.
+- 2026-02-18: Added backlog item #8: Spot-Check Verification (improvement, commands) — verify agent claims via filesystem/git after each phase, defends against Claude Code false failure bug.
+- 2026-02-18: Added backlog item #9: Plan Validation Loop (improvement, commands) — checker agent after plan validates REQ coverage, task completeness, contract compliance, dependency ordering. Max 3 iterations. ~40K cost, breaks even at 1 catch per 5 milestones.
+- 2026-02-18: Added backlog item #10: Requirements Traceability (improvement, commands) — auto cross-reference REQ-IDs to domains/tasks, mark complete after verify, orphan detection, traceability table in requirements.md.
+- 2026-02-18: Added backlog item #11: gsd-t-tools.js Utility CLI (architecture, cli) — Node.js CLI for state ops returning compact JSON. ~50K tokens/wave saved, eliminates markdown parsing bugs.
+- 2026-02-18: Added backlog item #12: Wave-Based Parallel Execution (improvement, commands) — auto dependency analysis groups domain tasks into waves, parallel within wave, sequential between. Smarter than manual team assignment.
+- 2026-02-18: Added backlog item #13: Health Command with Auto-Repair (feature, cli) — gsd-t health validates .gsd-t/ structure, --repair creates missing files with defaults.
+- 2026-02-18: Added backlog item #14: Pause/Resume with Continue-Here Files (improvement, commands) — /pause creates .continue-here-{timestamp}.md with exact position, more reliable than progress.md alone.
+- 2026-02-18: Added backlog item #15: Statusline Context Usage Bar (ux, cli) — context usage % in statusline green→yellow→orange→red, visual warning before compaction hits.
+- 2026-02-18: Promoted backlog items #2-#15 into 4 milestones. M10: Token Efficiency (#2,#3,#4). M11: Execution Quality (#5,#7,#8). M12: Planning Intelligence (#6,#9,#10). M13: Tooling & UX (#11,#12,#13,#14,#15). Item #1 (Agentic Workflow) remains in backlog (blocked on external dependency). Roadmap.md updated. Backlog cleaned to 1 item.
+- 2026-02-18 15:30: Changed versioning scheme — patch numbers now always 2 digits (≥10). When patch resets after minor/major bump, start at 10 (not 0). Semver stays valid (no leading zeros). Updated checkin.md, gsd-t-complete-milestone.md, templates/CLAUDE-global.md. v2.24.10
+- 2026-02-18 16:00: Milestone 10 (Token Efficiency) completed — QA refactored across all phases: removed QA spawn from partition/plan; test-sync/verify/complete-milestone inline contract testing; execute/integrate use Task subagent for QA; quick/debug run tests inline + Step 0 subagent self-spawn; scan/status wrapped as subagents. CLAUDE.md + template QA Mandatory section updated. 125/125 tests pass. v2.25.10
 
 ## Session Log
 | Date | Session | What was accomplished |

@@ -19,18 +19,19 @@ Identify:
 - Which tasks are unblocked (no pending dependencies)
 - Which tasks are blocked (waiting on checkpoints)
 
-## Step 2: Spawn QA Agent
+## Step 2: QA Setup
 
-Spawn the QA teammate to handle testing alongside execution:
+After completing each task, spawn a QA subagent via the Task tool to run tests:
 
 ```
-Teammate "qa": Read commands/gsd-t-qa.md for your full instructions.
-  Phase context: execute. Read .gsd-t/contracts/ for contract definitions.
-  Run tests continuously as tasks complete. Write edge case tests for new code paths.
-  Report: test pass/fail status after each task completion.
+Task subagent (general-purpose):
+"Run the full test suite for this project and report pass/fail counts.
+Read .gsd-t/contracts/ for contract definitions.
+Write edge case tests for any new code paths in this task: {task description}.
+Report: test pass/fail status and any coverage gaps found."
 ```
 
-The QA agent runs in parallel — it writes and executes tests while you implement tasks. QA failure on any task blocks proceeding to the next task.
+QA failure on any task blocks proceeding to the next task.
 
 ## Step 3: Choose Execution Mode
 
@@ -92,12 +93,7 @@ Teammate assignments:
 - Teammate "{domain-1}": Execute .gsd-t/domains/{domain-1}/tasks.md
 - Teammate "{domain-2}": Execute .gsd-t/domains/{domain-2}/tasks.md
 - Teammate "{domain-3}": Execute .gsd-t/domains/{domain-3}/tasks.md
-- Teammate "qa": Read commands/gsd-t-qa.md for your full instructions.
-  Phase context: execute. Read .gsd-t/contracts/ for contract definitions.
-  Run tests continuously as tasks complete. Write edge case tests.
-  Report: test pass/fail status after each task completion.
-
-Lead responsibilities:
+Lead responsibilities (QA is handled via Task subagent — spawn one after each domain checkpoint):
 - Use delegate mode (Shift+Tab)
 - Track completions from teammate messages
 - When a CHECKPOINT is reached:

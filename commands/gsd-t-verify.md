@@ -12,18 +12,17 @@ Read:
 5. `docs/requirements.md` — original requirements
 6. All source code
 
-## Step 2: Spawn QA Agent
+## Step 2: Full Test Audit (Inline)
 
-Spawn the QA teammate to run the full test audit:
+Run the full test audit directly:
 
-```
-Teammate "qa": Read commands/gsd-t-qa.md for your full instructions.
-  Phase context: verify. Read .gsd-t/contracts/ for contract definitions.
-  Run full test audit — contract tests, acceptance tests, E2E suite.
-  Report: comprehensive test results with pass/fail counts and coverage gaps.
-```
+1. Run the full test suite: `npm test` (or project equivalent) — record pass/fail counts
+2. Read all contracts in `.gsd-t/contracts/` — verify each has at least one test validating it
+3. Check acceptance criteria from domain task lists — verify each is tested
+4. Run E2E suite if `playwright.config.*` exists
+5. Report: comprehensive test results with pass/fail counts and coverage gaps
 
-QA failure blocks verification completion.
+Verification cannot complete if any test fails or critical contract gaps remain.
 
 ## Step 3: Define Verification Dimensions
 
@@ -101,12 +100,7 @@ Teammate assignments:
   - Secret/credential handling
   Report: severity-ranked findings.
 
-- Teammate "qa": Read commands/gsd-t-qa.md for your full instructions.
-  Phase context: verify. Read .gsd-t/contracts/ for contract definitions.
-  Run full test audit — contract tests, acceptance tests, E2E suite.
-  Report: comprehensive test results with pass/fail counts and coverage gaps.
-
-Lead: Collect all reports (including QA), synthesize, create remediation plan.
+Lead: After receiving teammate reports, spawn a Task subagent to run the full test suite and contract audit. Collect all reports, synthesize, create remediation plan.
 ```
 
 ## Step 5: Compile Verification Report

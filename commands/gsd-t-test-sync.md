@@ -21,18 +21,17 @@ Identify:
 - Naming conventions
 - Test run commands (from package.json scripts, Makefile, or CI config)
 
-## Step 2: Spawn QA Agent
+## Step 2: Contract Coverage Audit
 
-Spawn the QA teammate to assist with test coverage analysis:
+Perform inline contract testing and gap analysis:
 
-```
-Teammate "qa": Read commands/gsd-t-qa.md for your full instructions.
-  Phase context: test-sync. Read .gsd-t/contracts/ for contract definitions.
-  Audit test coverage against contracts. Identify gaps and stale tests.
-  Report: coverage gaps, stale tests, and recommended test tasks.
-```
+1. Read all contracts in `.gsd-t/contracts/` — identify the interface each one defines
+2. For each contract, check whether a test file exists that validates it
+3. Run the full test suite: `npm test` (or project equivalent)
+4. Identify gaps: contracts with no tests, stale tests referencing removed APIs, uncovered code paths
+5. Report: coverage gaps, stale tests, and recommended test tasks
 
-QA agent works alongside the test sync process. QA failure blocks test-sync completion.
+Test-sync cannot complete if critical contract gaps remain unaddressed.
 
 ## Step 3: Map Code to Tests
 

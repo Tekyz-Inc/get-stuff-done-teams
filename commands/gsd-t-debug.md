@@ -2,6 +2,23 @@
 
 You are debugging an issue in a contract-driven project. Your approach should identify whether the bug is within a domain or at a contract boundary.
 
+## Step 0: Launch via Subagent
+
+To give this debug session a fresh context window and prevent compaction, always execute via a Task subagent.
+
+**If you are the orchestrating agent** (you received the slash command directly):
+Spawn a fresh subagent using the Task tool:
+```
+subagent_type: general-purpose
+prompt: "You are running gsd-t-debug for this issue: {$ARGUMENTS}
+Working directory: {current project root}
+Read CLAUDE.md and .gsd-t/progress.md for project context, then execute gsd-t-debug starting at Step 1."
+```
+Wait for the subagent to complete. Relay its summary to the user. **Do not execute Steps 1–5 yourself.**
+
+**If you are the spawned subagent** (your prompt says "starting at Step 1"):
+Continue to Step 1 below.
+
 ## Step 1: Load Context
 
 Read:
@@ -40,20 +57,7 @@ The contract didn't specify something it should have. Symptoms:
 
 → Update the contract, then fix implementations on both sides.
 
-## Step 3: Spawn QA Agent
-
-Spawn the QA teammate to handle regression testing:
-
-```
-Teammate "qa": Read commands/gsd-t-qa.md for your full instructions.
-  Phase context: debug. Read .gsd-t/contracts/ for relevant contracts.
-  Write a regression test for the bug once root cause is identified.
-  Report: regression test status and related test coverage.
-```
-
-QA failure blocks the commit.
-
-## Step 4: Debug (Solo or Team)
+## Step 3: Debug (Solo or Team)
 
 ### Solo Mode
 1. Reproduce the issue
@@ -77,7 +81,7 @@ Create an agent team to debug:
 First to find root cause: message the lead with findings.
 ```
 
-## Step 5: Document Ripple
+## Step 4: Document Ripple
 
 After fixing, assess what documentation was affected by the change and update ALL relevant files:
 
@@ -97,7 +101,7 @@ After fixing, assess what documentation was affected by the change and update AL
 
 ### Skip what's not affected — don't update docs for the sake of updating them.
 
-## Step 6: Test Verification
+## Step 5: Test Verification (run tests confirming fix)
 
 Before committing, ensure the fix is solid:
 
