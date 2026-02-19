@@ -1,12 +1,12 @@
 # Workflows — GSD-T Framework (@tekyzinc/gsd-t)
 
-## Last Updated: 2026-02-18 (Scan #5)
+## Last Updated: 2026-02-18 (Post-M13, Scan #6)
 
 ## User Workflows
 
 ### Install GSD-T
 1. Run `npx @tekyzinc/gsd-t install`
-2. CLI copies 43 commands to `~/.claude/commands/`
+2. CLI copies 45 commands to `~/.claude/commands/`
 3. CLI sets up global CLAUDE.md if missing (appends with separator if exists)
 4. CLI installs heartbeat script to `~/.claude/scripts/`
 5. CLI configures 9 hooks in `~/.claude/settings.json`
@@ -14,7 +14,8 @@
 7. User starts Claude Code in their project
 
 **Entry point**: `npx @tekyzinc/gsd-t install`
-**Success**: 43 commands available in Claude Code
+5b. CLI installs gsd-t-tools.js and gsd-t-statusline.js to `~/.claude/scripts/` (M13)
+**Success**: 45 commands available in Claude Code
 **Failure**: CLI reports missing Node.js or permission errors
 
 ### Initialize a Project
@@ -41,9 +42,14 @@
 9. **Verify**: Run 7 quality gate dimensions (functional, contracts, quality, tests, E2E, security, integration)
 10. **Complete**: Archive to `.gsd-t/milestones/`, bump version, git tag
 
+Additional wave behaviors (M10-M12):
+- **M10**: QA removed from partition/plan; execute/integrate spawn QA as Task subagent; test-sync/verify/complete run QA inline
+- **M11**: Per-task commits (`feat({domain}/task-{N})`) enforced; between-phase spot-check (status + git + filesystem); Deviation Rules in execute (4-rule protocol, 3-attempt limit)
+- **M12**: discuss creates CONTEXT.md (Locked Decisions); plan reads CONTEXT.md + runs plan validation subagent (max 3 iterations); REQ traceability table in requirements.md; verify marks requirements complete
+
 **Entry point**: `/gsd-t-wave` (auto-advances) or manual phase-by-phase
 **Success**: Milestone completed, version bumped, git tagged
-**Failure**: Wave pauses at failing phase; user can fix and resume
+**Failure**: Wave pauses at failing phase; spot-check re-spawns phase agent once before stopping
 
 ### Autonomy Levels
 | Level | Behavior |
@@ -106,11 +112,45 @@ Every commit must pass applicable checks:
 6. Tech debt tracking (discovered/fixed?)
 7. Test execution (affected tests pass?)
 
+### Pause and Resume (M13)
+
+**Pause workflow** (`/gsd-t-pause`):
+1. Command reads progress.md + domains/*/tasks.md to identify exact position
+2. Creates `.gsd-t/continue-here-{YYYYMMDDTHHMMSS}.md` with: milestone, phase, version, last completed action, next action, open items, user note
+3. File persists until consumed by resume
+4. Multiple pauses create multiple files; resume reads most recent by timestamp
+
+**Resume workflow** (`/gsd-t-resume`):
+1. Same-session: skip file reads, use conversation context
+2. Cross-session: glob `.gsd-t/continue-here-*.md`, read most recent
+3. Resume from "Next Action" field in continue-here file (more precise than progress.md alone)
+4. Delete continue-here file after reading
+
+### CONTEXT.md Workflow (M12)
+
+1. `discuss` phase completes design decisions
+2. Writes `.gsd-t/CONTEXT.md`:
+   - **Locked Decisions**: specific decisions the plan MUST implement
+   - **Deferred Ideas**: good ideas NOT in scope (plan must NOT implement)
+   - **Claude's Discretion**: implementation details left open
+3. `plan` reads CONTEXT.md; every Locked Decision must map to at least one task
+4. Plan validation subagent (Task tool) verifies mapping before finalizing plan
+5. CONTEXT.md persists after plan phase; deleted manually if desired
+6. If discuss is skipped (structured skip), CONTEXT.md is not created; plan handles gracefully
+
+### Project Health Check (M13)
+
+1. User invokes `/gsd-t-health [--repair]`
+2. Health spawns as Task subagent (fresh context)
+3. Checks 12 items: 5 root files, 3 directories, 4 docs, active milestone domains, version consistency, status validity, Decision Log, contract integrity
+4. Reports status as HEALTHY (0 issues), DEGRADED (1-3), or BROKEN (4+ or critical missing)
+5. With `--repair`: creates missing files from templates (MISSING items only; INVALID items flagged for user)
+
 ## Integration Workflows
 
 ### npm Publish
 - **Trigger**: Manual `npm publish` after milestone completion
-- **Pre-publish gate**: `prepublishOnly: "npm test"` runs 116 tests before publish (M8)
+- **Pre-publish gate**: `prepublishOnly: "npm test"` runs 125 tests before publish (M8)
 - **Flow**: Version bumped → CHANGELOG updated → git tagged → `npm publish` → tests run automatically → published
 - **Verification**: `npx @tekyzinc/gsd-t status` on fresh install
 

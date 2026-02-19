@@ -1,13 +1,13 @@
 # Requirements — GSD-T Framework (@tekyzinc/gsd-t)
 
-## Last Updated: 2026-02-18 (Scan #5)
+## Last Updated: 2026-02-18 (Post-M13, Scan #6)
 
 ## Functional Requirements
 
 | ID | Requirement | Priority | Status | Tests |
 |----|-------------|----------|--------|-------|
 | REQ-001 | CLI installer with install, update, status, doctor, init, uninstall, update-all, register, changelog subcommands | P1 | complete | manual CLI testing |
-| REQ-002 | 39 GSD-T workflow slash commands for Claude Code (incl. QA agent) | P1 | complete | validated by use |
+| REQ-002 | 41 GSD-T workflow slash commands for Claude Code (incl. QA agent, health, pause) | P1 | complete | validated by use |
 | REQ-003 | 4 utility commands (gsd smart router, branch, checkin, Claude-md) | P1 | complete | validated by use |
 | REQ-004 | Backlog management system (7 commands: add, list, move, edit, remove, promote, settings) | P1 | complete | validated by use |
 | REQ-005 | Contract-driven development with domain partitioning | P1 | complete | validated by use |
@@ -19,6 +19,10 @@
 | REQ-011 | Triage and merge — auto-review, score, merge safe GitHub branches | P2 | complete | validated by use |
 | REQ-012 | QA Agent — test-driven contract enforcement spawned in 10 phases | P1 | complete | validated by use |
 | REQ-013 | Wave orchestrator — agent-per-phase execution with fresh context windows | P1 | complete | validated by use |
+| REQ-014 | Token Efficiency — QA refactored (removed from partition/plan, Task subagent for execute/integrate, inline for test-sync/verify) | P2 | complete (M10) | validated by use |
+| REQ-015 | Execution Quality — Deviation Rules (4-rule, 3-attempt), per-task commits, wave spot-check | P2 | complete (M11) | validated by use |
+| REQ-016 | Planning Intelligence — CONTEXT.md from discuss, plan fidelity enforcement, plan validation subagent, REQ traceability | P2 | complete (M12) | validated by use |
+| REQ-017 | Tooling & UX — gsd-t-tools.js state CLI, gsd-t-statusline.js context bar, gsd-t-health command, gsd-t-pause command | P2 | complete (M13) | validated by use |
 
 ## Technical Requirements
 
@@ -52,13 +56,20 @@
 | REQ-007 | test/security.test.js | Heartbeat security (scrubSecrets, scrubUrl) | passing (30 tests) |
 | REQ-002–005, 008–013 | manual | Workflow validation by use | passing |
 
-**Total automated tests**: 116 across 4 test files (M4, M5, M6). Runner: `node --test` (zero dependencies).
+**Total automated tests**: 125 across 4 test files (M4: 64, M5: 30, M6: 22, M9: 9). Runner: `node --test` (zero dependencies).
 
 ## Gaps Identified
 
-### Open (Scan #5 — 2026-02-18)
-- 10 new LOW items: TD-056 through TD-065 (cosmetic code quality, documentation fixes, contract alignment)
-- See `.gsd-t/techdebt.md` for full list (all LOW severity, no functional issues)
+### Open (Scan #6 — 2026-02-18, Post-M10-M13)
+- 14 new items: TD-066 through TD-079 (1 high: untestable new scripts; 5 medium: contract drift + doc staleness + stateSet injection; 7 low: cleanup)
+- See `.gsd-t/techdebt.md` for full list
+
+### Resolved (Milestone 9 + Milestones 10-13, 2026-02-18)
+- ~~Scan #5 items (TD-056-TD-065)~~ — RESOLVED (M9, Cleanup Sprint)
+- ~~Token efficiency gaps~~ — RESOLVED (M10)
+- ~~Execution quality gaps (no deviation rules, no per-task commits)~~ — RESOLVED (M11)
+- ~~Planning intelligence gaps (no CONTEXT.md, no plan validation)~~ — RESOLVED (M12)
+- ~~Tooling gaps (no state CLI, no statusline, no health command, no pause)~~ — RESOLVED (M13)
 
 ### Resolved (Milestones 3-8, 2026-02-18/19)
 - ~~All scan #4 items (TD-044-TD-055)~~ — RESOLVED (M8)

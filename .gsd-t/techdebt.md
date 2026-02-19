@@ -2,11 +2,12 @@
 
 ## Summary
 - Critical items: 0
-- High priority: 0
-- Medium priority: 0
-- Low priority: 0 (+ 1 accepted risk: TD-029)
-- Total open items: 0
-- **Trend: All scan #5 items resolved through M9. Zero open tech debt. Codebase at peak health.**
+- High priority: 1 (TD-066: untestable new scripts)
+- Medium priority: 5 (TD-067 through TD-071: contract drift + doc staleness + security)
+- Low priority: 7 (TD-072 through TD-079: cleanup)
+- Total open items: 13 (TD-079 addressed in this scan's doc updates)
+- Accepted risk: 1 (TD-029 TOCTOU)
+- **Trend: Scan #6 post-M10-M13. 14 new items from 4 milestones of feature work. No critical items. Main concern: new scripts (gsd-t-tools, gsd-t-statusline) are untestable without module.exports changes.**
 
 ### Scan History
 - **Scan #1** (2026-02-07): 13 items found, 9 resolved
@@ -19,6 +20,8 @@
 - **Milestone 8** (2026-02-18): 12 items resolved via Housekeeping + Contract Sync (TD-044, TD-045, TD-046, TD-047, TD-048, TD-049, TD-050, TD-051, TD-052, TD-053, TD-054, TD-055). TD-029 accepted as risk. Total open: 0
 - **Scan #5** (2026-02-18): 0 previous items open. 10 new LOW items found (7 quality, 1 security, 2 contract drift). Total open: 10
 - **Milestone 9** (2026-02-18): 10 items resolved via Cleanup Sprint (TD-056, TD-057, TD-058, TD-059, TD-060, TD-061, TD-062, TD-063, TD-064, TD-065). Total open: 0
+- **Milestones 10-13** (2026-02-18): Token Efficiency, Execution Quality, Planning Intelligence, Tooling & UX. Zero open debt going in. 14 new items discovered post-scan.
+- **Scan #6** (2026-02-18): 0 previous items open. 14 new items (TD-066 through TD-079): 0 critical, 1 high, 5 medium, 7 low. Post-M10-M13 analysis.
 
 ---
 
@@ -175,33 +178,213 @@ Items: TD-056, TD-057, TD-058, TD-059, TD-060, TD-061, TD-062, TD-063, TD-064, T
 
 ## Suggested Tech Debt Milestones
 
-(No open items. All tech debt resolved.)
+(No open items from scan #5. All tech debt from M1-M9 resolved.)
 
 ---
 
-## Scan Metadata
-- Latest scan: 2026-02-18 (scan #5)
-- Previous scans: 2026-02-07 (scan #1), 2026-02-18 (scan #2), 2026-02-18 (scan #3), 2026-02-18 (scan #4)
-- Files analyzed: 4 JS files (bin/gsd-t.js: 1,298 lines, scripts/gsd-t-heartbeat.js: 181 lines, scripts/npm-update-check.js: 43 lines, scripts/gsd-t-fetch-version.js: 26 lines), 43 command files, 9 templates, 8 contracts, docs, tests
-- Lines of code: ~1,548 JS + ~12,500+ markdown
+## Scan #6 Findings — Post-M10-M13 (2026-02-18)
+
+**Scan #6 Summary:**
+- Scan date: 2026-02-18
+- Version: 2.28.10
+- Previous open items: 0 (all resolved after M9)
+- New items found: 13 (0 critical, 1 high, 5 medium, 7 low)
+- Items from previous scans that regressed: 0
+- Test baseline: 125/125 passing
+
+---
+
+## High Priority (Scan #6)
+
+### TD-066: gsd-t-tools.js and gsd-t-statusline.js have no module.exports — untestable
+- **Category**: quality
+- **Severity**: HIGH
+- **Location**: `scripts/gsd-t-tools.js`, `scripts/gsd-t-statusline.js`
+- **Description**: Both new scripts added in M13 execute immediately when required (no require.main guard, no module.exports). This is inconsistent with all other scripts (bin/gsd-t.js has 54 exports, gsd-t-heartbeat.js has 5 exports). gsd-t-tools.js contains state-mutating functions (stateSet writes to progress.md) that have zero test coverage as a result. gsd-t-statusline.js contains display logic (contextBar color thresholds) that is untested.
+- **Impact**: stateSet corrupts progress.md with no regression safety net. Any bug in the 12 functions of gsd-t-tools.js or 4 functions of gsd-t-statusline.js will not be caught by the test suite.
+- **Remediation**: Add `if (require.main === module) { /* CLI dispatch */ }` guard and `module.exports = { ... }` at bottom of both files. Add test file `test/tools.test.js` with ~20 tests covering all exported functions.
+- **Effort**: medium
+- **Milestone candidate**: YES — fold into a "Script Testability" milestone or standalone small milestone
+- **Promoted**: [ ]
+
+---
+
+## Medium Priority (Scan #6)
+
+### TD-067: qa-agent-contract.md still lists partition and plan as QA phases (M10 regression)
+- **Category**: quality (contract drift)
+- **Severity**: MEDIUM
+- **Location**: `.gsd-t/contracts/qa-agent-contract.md` lines 12 and output table
+- **Description**: M10 removed QA agent spawning from partition and plan phases. The qa-agent-contract.md still lists "partition" and "plan" in the phase context input and output table. Contract and reality conflict.
+- **Impact**: Any agent reading the contract to understand QA behavior will expect QA output from partition/plan that never arrives. Creates confusion and may cause wave-level validation checks to wait for QA output that never comes.
+- **Remediation**: Remove "partition" and "plan" from the phase context list (line 12) and mark those rows in the output table as "removed in M10". Update "Consumers" section to reflect current 8-phase list.
+- **Effort**: small
+- **Milestone candidate**: NO — fold into next housekeeping milestone
+- **Promoted**: [ ]
+
+### TD-068: Living docs not updated after M10-M13 (4 docs, major staleness)
+- **Category**: quality (documentation)
+- **Severity**: MEDIUM
+- **Location**: `docs/architecture.md`, `docs/workflows.md`, `docs/infrastructure.md`, `docs/requirements.md`
+- **Description**: All four living docs still show "Last Updated: Post-M9" or "Scan #5". Four complete milestones of work (M10-M13) are entirely absent from living documentation. Missing: gsd-t-tools.js, gsd-t-statusline.js in architecture.md and infrastructure.md; CONTEXT.md flow and continue-here flow in workflows.md; wave groupings, deferred-items.md, spot-check in workflows.md and architecture.md; updated command count (43→45) in architecture.md; updated test count (116→125) in infrastructure.md.
+- **Impact**: Violates the "No Re-Research" rule — agents reading living docs for context get stale information and may make incorrect decisions. The docs scan produced by this scan (Step 5) will fix this.
+- **Remediation**: Update all four docs as part of this scan's Step 5. (Scheduled: done in this scan.)
+- **Effort**: small
+- **Milestone candidate**: NO — addressed in this scan's Step 5
+- **Promoted**: [ ]
+
+### TD-069: wave-phase-sequence.md missing M11/M12 additions (spot-check, CONTEXT.md)
+- **Category**: quality (contract drift)
+- **Severity**: MEDIUM
+- **Location**: `.gsd-t/contracts/wave-phase-sequence.md`
+- **Description**: Three significant wave behaviors added in M11-M12 are not documented in the contract: (1) Between-phase spot-check (M11) — 3-field verification after each phase agent completes; (2) Per-task commit requirement (M11) — feat({domain}/task-{N}) format; (3) CONTEXT.md as discuss→plan state handoff (M12). The contract accurately describes M7 additions (integrity check, discuss-skip heuristic) but stops there.
+- **Impact**: Agents reading the contract to understand wave behavior miss critical M11-M12 features.
+- **Remediation**: Add "Spot-Check (M11)" section documenting the 3 fields and re-spawn behavior. Add "Per-Task Commits (M11)" to Execute phase definition. Add "State Handoff: CONTEXT.md (M12)" to the Discuss→Plan transition.
+- **Effort**: small
+- **Milestone candidate**: NO — fold into next housekeeping milestone
+- **Promoted**: [ ]
+
+### TD-070: progress-file-format contract missing M11-M13 state artifacts
+- **Category**: quality (contract drift)
+- **Severity**: MEDIUM
+- **Location**: `.gsd-t/contracts/progress-file-format.md`
+- **Description**: Three new state files introduced in M11-M13 are not described in the progress-file-format contract: (1) `.gsd-t/deferred-items.md` (M11) — log of unresolved issues from execute/quick/debug; (2) `.gsd-t/CONTEXT.md` (M12) — discuss phase output with Locked Decisions; (3) `.gsd-t/continue-here-{timestamp}.md` (M13) — pause/resume checkpoint files. None have documented format contracts or lifecycle rules.
+- **Impact**: Tool authors and agents have no authoritative format reference for these new files. gsd-t-health.md doesn't check for them. No cleanup rules defined.
+- **Remediation**: Add sections to progress-file-format.md documenting each file's format, who creates it, who reads it, and when it should be deleted.
+- **Effort**: small
+- **Milestone candidate**: NO — fold into next housekeeping milestone
+- **Promoted**: [ ]
+
+### TD-071: gsd-t-tools.js stateSet() allows markdown structure injection
+- **Category**: security
+- **Severity**: MEDIUM
+- **Location**: `scripts/gsd-t-tools.js` line 43
+- **Description**: `stateSet(key, value)` writes value directly into progress.md without sanitizing newlines. A value containing `\n## Section\n` successfully injects a new markdown section, corrupting the file structure. Verified with Node.js test. See security.md SEC-N20 for details.
+- **Impact**: Corrupted progress.md causes all GSD-T commands that read state to malfunction. In a pipeline that calls gsd-t-tools.js with user-controlled input, this is exploitable.
+- **Remediation**: Add `value = String(value).replace(/[\r\n]/g, ' ')` before the replace operation in stateSet. Add test to verify newlines are stripped.
+- **Effort**: small
+- **Milestone candidate**: NO — fold into security-focused item in next milestone
+- **Promoted**: [ ]
+
+---
+
+## Low Priority (Scan #6)
+
+### TD-072: gsd-t-tools.js templateScope/templateTasks lack path traversal validation
+- **Category**: security
+- **Severity**: LOW
+- **Location**: `scripts/gsd-t-tools.js` lines 111-121
+- **Description**: domain argument used directly in path.join without validating it stays within .gsd-t/domains/. See SEC-N21.
+- **Impact**: Low — requires malicious caller. path.join normalizes traversal but doesn't block it entirely.
+- **Remediation**: Add `if (!p.startsWith(path.join(gsdDir, 'domains'))) return { error: 'Invalid domain name' }`
+- **Effort**: small
+- **Milestone candidate**: NO — fold into next security item
+- **Promoted**: [ ]
+
+### TD-073: gsd-t-tools.js uses execSync instead of execFileSync
+- **Category**: security
+- **Severity**: LOW
+- **Location**: `scripts/gsd-t-tools.js` lines 92, 97, 104
+- **Description**: preCommitCheck() uses execSync with hardcoded strings. Consistent with main codebase pattern would be execFileSync with array args. See SEC-N22.
+- **Impact**: Low — no user input in current command strings. Risk is future cargo-culting.
+- **Remediation**: Replace with execFileSync(['git', 'branch', '--show-current'], ...).
+- **Effort**: small
+- **Milestone candidate**: NO — fold into next cleanup sprint
+- **Promoted**: [ ]
+
+### TD-074: gsd-t-tools.js findProjectRoot() returns cwd on failure (inconsistent with statusline)
+- **Category**: quality
+- **Severity**: LOW
+- **Location**: `scripts/gsd-t-tools.js` line 16
+- **Description**: Falls back to process.cwd() when no .gsd-t/ found. gsd-t-statusline.js correctly returns null. Operations run silently in wrong directory. See SEC-N23 and AC-2.
+- **Impact**: Low — developer tool; user would notice empty state results.
+- **Remediation**: Return null; add null check at call site with clear error JSON.
+- **Effort**: small
+- **Milestone candidate**: NO — fold into TD-066 fix (add module.exports + fix this simultaneously)
+- **Promoted**: [ ]
+
+### TD-075: deferred-items.md not initialized by gsd-t-init or checked by gsd-t-health
+- **Category**: quality
+- **Severity**: LOW
+- **Location**: `commands/gsd-t-execute.md`, `commands/gsd-t-quick.md`, `commands/gsd-t-debug.md`
+- **Description**: All three commands reference .gsd-t/deferred-items.md as a log file for unresolved issues. This file is created ad-hoc by wave agents but never by gsd-t-init, not listed in gsd-t-health checks, and has no documented format contract.
+- **Impact**: Orphaned file with no cleanup mechanism. No format defined, so tooling can't parse it.
+- **Remediation**: (1) Add deferred-items.md to gsd-t-init template creation; (2) add to gsd-t-health checks; (3) add format spec to progress-file-format.md (consolidate with TD-070).
+- **Effort**: small
+- **Milestone candidate**: NO — fold into TD-070
+- **Promoted**: [ ]
+
+### TD-076: gsd-t-health --repair assumes templates exist without checking
+- **Category**: quality
+- **Severity**: LOW
+- **Location**: `commands/gsd-t-health.md` Step 5
+- **Description**: Repair reads from templates/ without first verifying they exist. A partial install could produce empty or missing template reads that fail silently.
+- **Impact**: Low — partial installs are rare. gsd-t-install or doctor would catch this first.
+- **Remediation**: Add template existence check before repair; suggest `gsd-t install` if missing.
+- **Effort**: small
+- **Milestone candidate**: NO — fold into next cleanup sprint
+- **Promoted**: [ ]
+
+### TD-077: continue-here files accumulate without cleanup
+- **Category**: quality
+- **Severity**: LOW
+- **Location**: `commands/gsd-t-pause.md`, `commands/gsd-t-resume.md`, `commands/gsd-t-health.md`
+- **Description**: Multiple /pause invocations without /resume create multiple continue-here files. gsd-t-health does not flag orphaned continue-here files. gsd-t-resume reads only the most recent.
+- **Impact**: Low — cosmetic issue. Developer must manually delete stale files.
+- **Remediation**: (1) Add .gsd-t/continue-here-*.md glob check to gsd-t-health; (2) warn if >1 file exists; (3) optionally clean up in gsd-t-resume after consumption.
+- **Effort**: small
+- **Milestone candidate**: NO — fold into next cleanup sprint
+- **Promoted**: [ ]
+
+### TD-078: Doctor does not check utility scripts are installed
+- **Category**: quality
+- **Severity**: LOW
+- **Location**: `bin/gsd-t.js` — checkDoctorInstallation()
+- **Description**: checkDoctorInstallation() verifies command files are installed but does not check that gsd-t-tools.js and gsd-t-statusline.js are in ~/.claude/scripts/. If the scripts directory is missing these files (partial install, manual cleanup), doctor reports PASS incorrectly.
+- **Impact**: Low — installUtilityScripts() is called during install and update, so this only affects unusual partial-install scenarios.
+- **Remediation**: Add check for each UTILITY_SCRIPTS file in checkDoctorInstallation().
+- **Effort**: small
+- **Milestone candidate**: NO — fold into next cleanup sprint
+- **Promoted**: [ ]
+
+### TD-079: docs/infrastructure.md stale command and test counts
+- **Category**: quality
+- **Severity**: LOW
+- **Location**: `docs/infrastructure.md` line 43
+- **Description**: "ls commands/*.md | wc -l  # Should be 43" — actual is 45. Test count in Testing section shows 116 — actual is 125. gsd-t-tools.js and gsd-t-statusline.js not in Scripts table.
+- **Impact**: Low — developer reference doc; confusing for new contributors.
+- **Remediation**: Update counts and add new scripts to table. (Addressed in this scan's Step 5.)
+- **Effort**: small
+- **Milestone candidate**: NO — addressed in this scan's Step 5
+- **Promoted**: [ ]
+
+---
+
+## Scan #6 Metadata
+
+- Scan date: 2026-02-18
+- Version scanned: 2.28.10
+- Previous scan: Scan #5 at v2.24.4 (2026-02-18)
+- Files analyzed: 6 JS files (bin/gsd-t.js: 1,438 lines, scripts/gsd-t-heartbeat.js: 180 lines, scripts/npm-update-check.js: 43 lines, scripts/gsd-t-fetch-version.js: 26 lines, scripts/gsd-t-tools.js: 163 lines NEW, scripts/gsd-t-statusline.js: 94 lines NEW), 45 command files, 9 templates, 8 contracts, docs, tests
+- Lines of code: ~1,944 JS + ~14,000+ markdown (est.)
 - Languages: JavaScript, Markdown
-- Scan mode: Team (5 parallel agents: architecture, business-rules, security, quality, contracts)
-- Total functions: 87 (81 in bin/gsd-t.js, 6 in heartbeat), all ≤ 30 lines
+- Scan mode: Lead agent with parallel analysis (5 dimensions)
+- Total functions: 87 (bin/gsd-t.js) + 6 (heartbeat) + 12 (gsd-t-tools) + 4 (gsd-t-statusline) = 109 total, all ≤ 30 lines
 - Total tests: 125 (27 helpers + 37 filesystem + 36 security + 25 cli-quality)
-- Total exports: 54 (49 in bin/gsd-t.js + 5 in heartbeat)
+- New items found: 14 (TD-066 through TD-079)
+- Critical: 0, High: 1, Medium: 5, Low: 7 (including TD-079 addressed in this scan)
 
-### Trend Analysis
+### Updated Trend Analysis
 
-| Metric | Scan #1 | Scan #2 | Scan #3 | Scan #4 | Post-M8 | Scan #5 | Post-M9 | Trend |
-|--------|---------|---------|---------|---------|---------|---------|---------|-------|
-| Open items | 13 | 15 | 26 | 13 | 0 | 10 | 0 | All resolved |
-| Critical items | 2 | 0 | 0 | 0 | 0 | 0 | 0 | Stable (good) |
-| HIGH items | 3 | 2 | 2 | 1 | 0 | 0 | 0 | Stable |
-| MEDIUM items | 4 | 5 | 8 | 3 | 0 | 0 | 0 | Stable |
-| LOW items | 4 | 8 | 16 | 9 | 0 (1 accepted) | 10 | 0 (1 accepted) | All resolved |
-| Functions > 30 lines | 13 | 13 | 15 | 0 | 0 | 0 | 0 | Stable |
-| Test files | 0 | 0 | 0 | 4 (116 tests) | 4 (116 tests) | 4 (116 tests) | 4 (125 tests) | +9 tests |
-| Fractional steps | N/A | 22/11 | 34/17 | 0 | 0 | 0 | 0 | Stable |
-| Command count drift | Yes | Fixed | Regressed | Fixed | Fixed | Fixed | Fixed | Stable |
-| Security (open actionable) | 5 | 6 | 9 | 2 | 0 (1 accepted) | 1 (+ 1 accepted) | 0 (1 accepted) | All resolved |
-| Contract drift items | N/A | N/A | 3 | 4 | 0 | 2 | 0 | All resolved |
+| Metric | Scan #1 | Scan #5 | Post-M9 | Scan #6 | Trend |
+|--------|---------|---------|---------|---------|-------|
+| Open items | 13 | 10 | 0 | 14 | New items from M10-M13 |
+| Critical items | 2 | 0 | 0 | 0 | Stable (good) |
+| HIGH items | 3 | 0 | 0 | 1 | gsd-t-tools testability |
+| MEDIUM items | 4 | 0 | 0 | 5 | Contracts + docs + security |
+| LOW items | 4 | 10 | 0 | 7 | Cleanup items |
+| Functions > 30 lines | 13 | 0 | 0 | 0 | Stable |
+| Test files | 0 | 4 (116 tests) | 4 (125 tests) | 4 (125 tests) | Stable |
+| New JS scripts without tests | 0 | 0 | 0 | 2 | gsd-t-tools, gsd-t-statusline |
+| Contract drift items | N/A | 2 | 0 | 4 | M10-M13 not reflected |
+| Security (open actionable) | 5 | 0 (1 accepted) | 0 (1 accepted) | 2 (+ 1 accepted) | stateSet injection + traversal |
