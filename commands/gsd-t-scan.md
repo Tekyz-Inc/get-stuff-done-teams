@@ -11,12 +11,14 @@ Spawn a fresh subagent using the Task tool:
 ```
 subagent_type: general-purpose
 prompt: "You are running gsd-t-scan. Working directory: {current project root}
-Read CLAUDE.md and .gsd-t/progress.md for project context, then execute gsd-t-scan starting at Step 1."
+Read CLAUDE.md and .gsd-t/progress.md for project context, then execute gsd-t-scan starting at Step 1.
+IMPORTANT: Step 2 requires team mode — spawn 5 teammates (architecture, business-rules, security, quality, contracts)
+running in parallel. Do not skip team mode or run dimensions sequentially."
 ```
 Wait for the subagent to complete. Relay its summary to the user. **Do not execute Steps 1+ yourself.**
 
 **If you are the spawned subagent** (your prompt says "starting at Step 1"):
-Continue to Step 1 below.
+Continue to Step 1 below. At Step 2, use team mode — spawn the 5 teammates in parallel.
 
 ## Step 1: Load Existing Context
 
