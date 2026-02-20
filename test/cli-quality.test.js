@@ -37,17 +37,30 @@ describe("buildEvent", () => {
     const result = buildEvent({ hook_event_name: "PostToolUse", session_id: "s1", tool_name: "Read", tool_input: { file_path: "/tmp/x" } });
     assert.equal(result.evt, "tool");
     assert.equal(result.tool, "Read");
+    assert.equal(result.agent_id, null);
+  });
+
+  it("PostToolUse includes agent_id when provided", () => {
+    const result = buildEvent({ hook_event_name: "PostToolUse", session_id: "s1", tool_name: "Bash", tool_input: { command: "ls" }, agent_id: "a1" });
+    assert.equal(result.agent_id, "a1");
   });
 
   it("returns agent_spawn for SubagentStart", () => {
     const result = buildEvent({ hook_event_name: "SubagentStart", session_id: "s1", agent_id: "a1", agent_type: "explore" });
     assert.equal(result.evt, "agent_spawn");
-    assert.deepStrictEqual(result.data, { agent_id: "a1", agent_type: "explore" });
+    assert.deepStrictEqual(result.data, { agent_id: "a1", agent_type: "explore", parent_id: "s1" });
   });
 
-  it("returns agent_stop for SubagentStop", () => {
+  it("SubagentStart uses parent_agent_id when provided", () => {
+    const result = buildEvent({ hook_event_name: "SubagentStart", session_id: "s1", agent_id: "a2", agent_type: "explore", parent_agent_id: "a1" });
+    assert.equal(result.data.parent_id, "a1");
+  });
+
+  it("returns agent_stop for SubagentStop with parent_id", () => {
     const result = buildEvent({ hook_event_name: "SubagentStop", session_id: "s1", agent_id: "a1", agent_type: "explore" });
     assert.equal(result.evt, "agent_stop");
+    assert.equal(result.data.parent_id, "s1");
+    assert.equal(result.data.agent_id, "a1");
   });
 
   it("returns task_done for TaskCompleted", () => {

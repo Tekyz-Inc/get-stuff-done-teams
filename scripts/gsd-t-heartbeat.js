@@ -92,9 +92,9 @@ function cleanupOldHeartbeats(gsdtDir) {
 
 const EVENT_HANDLERS = {
   SessionStart: (h) => ({ evt: "session_start", data: { source: h.source, model: h.model } }),
-  PostToolUse: (h) => ({ evt: "tool", tool: h.tool_name, data: summarize(h.tool_name, h.tool_input) }),
-  SubagentStart: (h) => ({ evt: "agent_spawn", data: { agent_id: h.agent_id, agent_type: h.agent_type } }),
-  SubagentStop: (h) => ({ evt: "agent_stop", data: { agent_id: h.agent_id, agent_type: h.agent_type } }),
+  PostToolUse: (h) => ({ evt: "tool", tool: h.tool_name, agent_id: h.agent_id || null, data: summarize(h.tool_name, h.tool_input) }),
+  SubagentStart: (h) => ({ evt: "agent_spawn", data: { agent_id: h.agent_id, agent_type: h.agent_type, parent_id: h.parent_agent_id || h.session_id } }),
+  SubagentStop: (h) => ({ evt: "agent_stop", data: { agent_id: h.agent_id, agent_type: h.agent_type, parent_id: h.parent_agent_id || h.session_id } }),
   TaskCompleted: (h) => ({ evt: "task_done", data: { task: h.task_subject, agent: h.teammate_name } }),
   TeammateIdle: (h) => ({ evt: "agent_idle", data: { agent: h.teammate_name, team: h.team_name } }),
   Notification: (h) => ({ evt: "notification", data: { message: scrubSecrets(h.message), title: scrubSecrets(h.title) } }),
