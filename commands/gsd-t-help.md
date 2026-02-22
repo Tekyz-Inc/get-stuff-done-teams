@@ -19,6 +19,7 @@ GETTING STARTED                                                        Manual
 ───────────────────────────────────────────────────────────────────────────────
   prompt              Help formulate your idea before committing to a command
   brainstorm          Creative exploration, rethinking, and idea generation
+  prd                 Generate a GSD-T-optimized Product Requirements Document
   setup               Generate or restructure project CLAUDE.md
   init                Initialize GSD-T structure in current project
   init-scan-setup     Full onboarding: git + init + scan + setup in one
@@ -152,6 +153,14 @@ Use these when user asks for help on a specific command:
 - **Files**: Optional save to `.gsd-t/brainstorm-{date}.md`
 - **Use when**: You want to explore ideas, challenge assumptions, or break out of tunnel vision
 - **Modes**: Ideation, Enhancement, Rethink, Unstuck, Blue Sky
+
+### prd
+- **Summary**: Generate a GSD-T-optimized Product Requirements Document
+- **Auto-invoked**: No
+- **Reads**: `CLAUDE.md`, `.gsd-t/progress.md`, `docs/requirements.md`, `docs/architecture.md`, `.gsd-t/backlog.md`, `.gsd-t/contracts/`
+- **Creates/Updates**: `docs/prd.md`, `.gsd-t/progress.md` (Decision Log)
+- **Use when**: Starting a new project or feature and you need a structured PRD with REQ-IDs, data model, milestones, and exclusions — all optimized for downstream GSD-T commands
+- **Features**: GSD-T context-aware (reads existing docs), adaptive intake (skips questions answered by CLAUDE.md), produces REQ-IDs, field-level data model, file-path-level component list, suggested milestone sequence
 
 ### setup
 - **Summary**: Generate or restructure the project-level CLAUDE.md

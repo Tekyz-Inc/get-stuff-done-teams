@@ -32,6 +32,7 @@ PROJECT or FEATURE or SCAN
 | `/user:gsd-t-help` | List all commands or get detailed help |
 | `/user:gsd-t-prompt` | Help formulate your idea before committing |
 | `/user:gsd-t-brainstorm` | Creative exploration and idea generation |
+| `/user:gsd-t-prd` | Generate a GSD-T-optimized Product Requirements Document |
 | `/user:gsd-t-project` | Full project → milestone roadmap |
 | `/user:gsd-t-feature` | Major feature → impact analysis + milestones |
 | `/user:gsd-t-scan` | Deep codebase analysis → techdebt.md |

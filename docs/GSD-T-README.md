@@ -72,6 +72,7 @@ GSD-T reads all state files and tells you exactly where you left off.
 | `/user:gsd-t-help {cmd}` | Detailed help for specific command | Manual |
 | `/user:gsd-t-prompt` | Help formulate your idea before committing | Manual |
 | `/user:gsd-t-brainstorm` | Creative exploration and idea generation | Manual |
+| `/user:gsd-t-prd` | Generate a GSD-T-optimized Product Requirements Document | Manual |
 
 ### Project Initialization
 
