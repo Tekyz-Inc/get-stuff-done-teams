@@ -3,7 +3,7 @@
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: READY
 ## Date: 2026-02-18
-## Version: 2.29.10
+## Version: 2.29.11
 
 ## Current Milestone
 
@@ -206,6 +206,7 @@ No integration checkpoints expected — single domain milestone.
 | 2026-02-19 | 13 | Added backlog item #2: "Living docs staleness detection" (type: improvement, app: gsd-t, category: commands) — gsd-t-health STALE flag for placeholder-only docs + scan self-check after writing living docs |
 | 2026-02-19 | 16 | Added backlog item #4: "DB integration testing capability in QA agent" (type: feature, app: gsd-t, category: commands) — DB-agnostic test phase reading infrastructure.md for connection, migrations, seed, teardown |
 | 2026-02-22 | 18 | Token logging coverage extended to all subagent-spawning commands (v2.28.14): added OBSERVABILITY LOGGING block to gsd-t-quick (Step 0), gsd-t-debug (Step 0), gsd-t-verify (Step 4 Team Mode), gsd-t-wave (Phase Agent Spawn Pattern), gsd-t-brainstorm (Step 3 Team Mode), gsd-t-discuss (Step 3 Team Mode); CLAUDE.md updated with new-command convention (Command Files), Pre-Commit Gate check, and Don't Do These Things rule; 127/127 tests pass |
+| 2026-02-22 | 20 | Fix getRegisteredProjects to strip `|display name` suffix from project registry entries (v2.29.11): split each line on `|` and take the path segment before it, so entries written as `path|label` (legacy format) are handled correctly without warnings |
 | 2026-02-22 | 19 | Added gsd-t-prd command — GSD-T-optimized PRD generator (v2.29.10): new command reads all project context (CLAUDE.md, progress.md, docs/, contracts/), runs adaptive intake, generates PRD with REQ-IDs/field-level data model/file-path components/milestone sequence, outputs to docs/prd.md; spawns subagent via Step 0 pattern with OBSERVABILITY LOGGING; updated 6 reference files (gsd-t-help.md, GSD-T-README.md, README.md, CLAUDE-global.md template, CLAUDE.md, package.json 2.28.14→2.29.10, count 45→46) |
 | 2026-02-19 | 17 | Token-log compaction-aware schema (v2.28.13): new columns Datetime-start/end + Tokens + Compacted; bash snippet reads CLAUDE_CONTEXT_TOKENS_USED before/after each spawn; compaction detected when end<start and approximates total via (TOK_MAX-TOK_START)+TOK_END; heartbeat SubagentStart/Stop now emit token snapshot; 127/127 tests pass |
 | 2026-02-19 | 15 | Added backlog item #3: "Auto-cleanup test data after test runs" (type: improvement, app: gsd-t, category: cli) — temp files/dirs from test suite must be removed on completion |

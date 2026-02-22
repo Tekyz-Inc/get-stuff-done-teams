@@ -245,7 +245,7 @@ function getRegisteredProjects() {
   try {
     const content = fs.readFileSync(PROJECTS_FILE, "utf8").trim();
     if (!content) return [];
-    const lines = content.split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));
+    const lines = content.split("\n").map((l) => l.trim().split("|")[0].trim()).filter((l) => l && !l.startsWith("#"));
     return lines.filter((p) => {
       if (!validateProjectPath(p)) {
         warn(`Skipping invalid project path: ${p}`);
