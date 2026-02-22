@@ -320,3 +320,7 @@ The REQ-IDs in the PRD are the source of truth — GSD-T's plan validation check
 10. **Respect GSD-T context** — if a milestone is already in progress, the PRD should describe a feature addition, not re-define the whole project
 
 $ARGUMENTS
+
+## Auto-Clear
+
+All work is committed to project files. Execute `/clear` to free the context window for the next command.

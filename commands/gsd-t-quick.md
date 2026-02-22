@@ -113,3 +113,7 @@ Quick does not mean skip testing. Before committing:
 4. **No test framework?**: Set one up, or at minimum manually verify and document how in the commit message
 
 $ARGUMENTS
+
+## Auto-Clear
+
+All work is committed to project files. Execute `/clear` to free the context window for the next command.

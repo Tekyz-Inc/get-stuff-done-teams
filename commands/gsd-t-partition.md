@@ -191,3 +191,7 @@ Before finishing, verify:
 **Level 1–2**: Report the partition to the user with a summary of domains, contracts, and any decisions that need input. Wait for confirmation before proceeding.
 
 $ARGUMENTS
+
+## Auto-Clear
+
+All work is committed to project files. Execute `/clear` to free the context window for the next command.

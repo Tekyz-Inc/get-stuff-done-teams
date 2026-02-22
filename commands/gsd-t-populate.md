@@ -97,3 +97,7 @@ Replace all "{Date}" with today date.
 Fill every section with real findings. If a section has nothing (e.g., no cron jobs), write "None" instead of placeholder text.
 
 $ARGUMENTS
+
+## Auto-Clear
+
+All work is committed to project files. Execute `/clear` to free the context window for the next command.

@@ -123,3 +123,7 @@ Next steps:
 **Level 1-2**: Pause after each major step (init, scan, setup) for user review before continuing.
 
 $ARGUMENTS
+
+## Auto-Clear
+
+All work is committed to project files. Execute `/clear` to free the context window for the next command.

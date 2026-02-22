@@ -131,3 +131,7 @@ Then paste the full prompt above when it asks for details.
 - Keep it moving — this should take 2-5 minutes, not 20
 
 $ARGUMENTS
+
+## Auto-Clear
+
+All work is committed to project files. Execute `/clear` to free the context window for the next command.

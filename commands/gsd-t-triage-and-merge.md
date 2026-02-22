@@ -165,3 +165,7 @@ After completing triage-and-merge, check if any of these need updating based on 
 6. **`commands/gsd-t-help.md`** — If merged branches added commands
 
 $ARGUMENTS
+
+## Auto-Clear
+
+All work is committed to project files. Execute `/clear` to free the context window for the next command.

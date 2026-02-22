@@ -211,3 +211,7 @@ Wait for user confirmation before writing.
 No tests to run — this command produces a configuration file, not code.
 
 $ARGUMENTS
+
+## Auto-Clear
+
+All work is committed to project files. Execute `/clear` to free the context window for the next command.

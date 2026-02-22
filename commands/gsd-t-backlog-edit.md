@@ -105,3 +105,7 @@ Verify the rewritten `.gsd-t/backlog.md` is well-formed:
 If any check fails, report the issue and attempt to fix (up to 2 attempts).
 
 $ARGUMENTS
+
+## Auto-Clear
+
+All work is committed to project files. Execute `/clear` to free the context window for the next command.

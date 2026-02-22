@@ -436,3 +436,7 @@ Scan produces analysis files and updates living documents (Step 5 already covers
 8. **`CLAUDE.md`** — If new conventions or patterns were discovered, suggest additions
 
 $ARGUMENTS
+
+## Auto-Clear
+
+All work is committed to project files. Execute `/clear` to free the context window for the next command.

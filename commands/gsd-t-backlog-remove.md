@@ -80,3 +80,7 @@ Verify the backlog file is well-formed after removal:
 2. If any issues found, fix them before finishing
 
 $ARGUMENTS
+
+## Auto-Clear
+
+All work is committed to project files. Execute `/clear` to free the context window for the next command.

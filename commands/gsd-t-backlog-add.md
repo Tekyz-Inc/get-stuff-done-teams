@@ -88,3 +88,7 @@ Verify the entry was added correctly:
 4. Report: "Added backlog item #{N}: **{title}** — Type: {type} | App: {app} | Category: {category}"
 
 $ARGUMENTS
+
+## Auto-Clear
+
+All work is committed to project files. Execute `/clear` to free the context window for the next command.

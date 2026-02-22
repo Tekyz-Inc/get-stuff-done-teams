@@ -205,3 +205,7 @@ Ask: "Ready to start Milestone 1? Run `/user:gsd-t-partition` to decompose it in
 Or if the user wants to review first: "Review the roadmap in `.gsd-t/roadmap.md` and let me know if you want to adjust scope or ordering."
 
 $ARGUMENTS
+
+## Auto-Clear
+
+All work is committed to project files. Execute `/clear` to free the context window for the next command.

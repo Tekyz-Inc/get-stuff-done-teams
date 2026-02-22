@@ -166,3 +166,7 @@ Commit: `[integration] Wire domains together — all contracts verified`
 **Level 1–2**: Report integration results and recommend proceeding to verify phase. Wait for confirmation.
 
 $ARGUMENTS
+
+## Auto-Clear
+
+All work is committed to project files. Execute `/clear` to free the context window for the next command.

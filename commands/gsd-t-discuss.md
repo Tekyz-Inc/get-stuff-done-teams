@@ -168,3 +168,7 @@ Update `.gsd-t/progress.md` status to `DISCUSSED`.
 **Level 1–2 — when auto-invoked**: Present decisions and open questions. Wait for user confirmation before returning control to the calling command.
 
 $ARGUMENTS
+
+## Auto-Clear
+
+All work is committed to project files. Execute `/clear` to free the context window for the next command.

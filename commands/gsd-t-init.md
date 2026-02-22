@@ -250,3 +250,7 @@ Tell the user:
    - Existing code: "I've mapped the codebase. Ready for /user:gsd-t-partition {milestone}"
 
 $ARGUMENTS
+
+## Auto-Clear
+
+All work is committed to project files. Execute `/clear` to free the context window for the next command.

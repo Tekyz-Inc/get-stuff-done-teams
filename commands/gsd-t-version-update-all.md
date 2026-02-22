@@ -21,3 +21,7 @@ Show the user what version was installed, how many projects were updated, and co
 If the update fails (e.g., permissions issue), suggest running with `sudo` on macOS/Linux or using an Administrator terminal on Windows.
 
 $ARGUMENTS
+
+## Auto-Clear
+
+All work is committed to project files. Execute `/clear` to free the context window for the next command.

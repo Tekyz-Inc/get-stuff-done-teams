@@ -341,3 +341,7 @@ Generated 5 test tasks → added to current domain
 5. **`.gsd-t/techdebt.md`** — If persistent test gaps were found, add as debt items
 
 $ARGUMENTS
+
+## Auto-Clear
+
+All work is committed to project files. Execute `/clear` to free the context window for the next command.

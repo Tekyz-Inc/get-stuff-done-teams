@@ -226,3 +226,7 @@ Present:
 Ask: "Ready to start? Run `/user:gsd-t-partition` for Milestone {N}."
 
 $ARGUMENTS
+
+## Auto-Clear
+
+All work is committed to project files. Execute `/clear` to free the context window for the next command.

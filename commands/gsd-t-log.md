@@ -85,3 +85,7 @@ Then run the full reconstruction (same as the populate command's git history rec
 4. Mark reconstructed entries: `(Entries before {date} reconstructed from git history)`
 
 $ARGUMENTS
+
+## Auto-Clear
+
+All work is committed to project files. Execute `/clear` to free the context window for the next command.

@@ -246,3 +246,7 @@ After generating the gap analysis, update affected documentation:
 3. **`.gsd-t/techdebt.md`** — If incorrect implementations were found, add them as tech debt items
 
 $ARGUMENTS
+
+## Auto-Clear
+
+All work is committed to project files. Execute `/clear` to free the context window for the next command.

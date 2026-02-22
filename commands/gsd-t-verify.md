@@ -199,3 +199,7 @@ Update `.gsd-t/progress.md`:
 5. **`docs/requirements.md`** — If verification revealed unmet requirements, update status
 
 $ARGUMENTS
+
+## Auto-Clear
+
+All work is committed to project files. Execute `/clear` to free the context window for the next command.

@@ -231,3 +231,7 @@ Update `.gsd-t/progress.md`:
 Wait for confirmation before proceeding.
 
 $ARGUMENTS
+
+## Auto-Clear
+
+All work is committed to project files. Execute `/clear` to free the context window for the next command.

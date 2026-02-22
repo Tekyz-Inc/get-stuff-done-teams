@@ -3,7 +3,7 @@
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: READY
 ## Date: 2026-02-18
-## Version: 2.29.11
+## Version: 2.30.10
 
 ## Current Milestone
 
@@ -211,4 +211,5 @@ No integration checkpoints expected — single domain milestone.
 | 2026-02-19 | 17 | Token-log compaction-aware schema (v2.28.13): new columns Datetime-start/end + Tokens + Compacted; bash snippet reads CLAUDE_CONTEXT_TOKENS_USED before/after each spawn; compaction detected when end<start and approximates total via (TOK_MAX-TOK_START)+TOK_END; heartbeat SubagentStart/Stop now emit token snapshot; 127/127 tests pass |
 | 2026-02-19 | 15 | Added backlog item #3: "Auto-cleanup test data after test runs" (type: improvement, app: gsd-t, category: cli) — temp files/dirs from test suite must be removed on completion |
 | 2026-02-19 | 14 | Fix heartbeat hooks for dashboard agent graph (v2.28.12): PostToolUse now writes agent_id (null when absent); SubagentStart + SubagentStop now write parent_id (parent_agent_id if available, else session_id as root). Enables dashboard to draw agent edges and attribute tool calls to correct nodes. 127/127 tests pass. |
+| 2026-02-22 | 21 | Auto-clear context window after safe commands (v2.30.10): added `## Auto-Clear` section to 41 of 42 gsd-t-* command files — instructs Claude to execute `/clear` after each command completes, freeing the context window for the next command. Excluded: gsd-t-resume.md (would defeat purpose of restoring session context). gsd-t-wave.md gets auto-clear only at the very end of the full wave cycle (after all phases complete). All work is committed to project files so clearing is safe. 127/127 tests pass. |
 | 2026-02-19 | 12 | Observability & model optimization (v2.28.11): (1) model: haiku for execute QA, integrate QA, plan validation, status, health, scan architecture/business-rules/contracts teammates; (2) model: sonnet kept for scan security/quality teammates; (3) MANDATORY observability logging added to execute/integrate/plan — before/after Bash timestamps + append to .gsd-t/token-log.md and .gsd-t/qa-issues.md; (4) Observability Logging directive added to CLAUDE.md; (5) init.md creates token-log.md + qa-issues.md with header rows; (6) TD-080 added for log archiving/summarizing. 125/125 tests pass. |

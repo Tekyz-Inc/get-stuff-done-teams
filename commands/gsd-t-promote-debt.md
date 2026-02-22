@@ -109,3 +109,7 @@ Present:
 4. Recommended next action
 
 $ARGUMENTS
+
+## Auto-Clear
+
+All work is committed to project files. Execute `/clear` to free the context window for the next command.

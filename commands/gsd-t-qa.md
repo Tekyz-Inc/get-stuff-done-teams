@@ -230,3 +230,7 @@ After generating or updating tests, check if documentation needs updating:
 ### Skip what's not affected.
 
 $ARGUMENTS
+
+## Auto-Clear
+
+All work is committed to project files. Execute `/clear` to free the context window for the next command.

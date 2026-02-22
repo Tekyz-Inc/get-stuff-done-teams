@@ -74,3 +74,7 @@ After displaying the project status, check for GSD-T updates:
 5. If versions match, skip — don't show anything
 
 $ARGUMENTS
+
+## Auto-Clear
+
+All work is committed to project files. Execute `/clear` to free the context window for the next command.

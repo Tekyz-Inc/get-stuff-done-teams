@@ -207,3 +207,7 @@ Execute modifies source code, so the Pre-Commit Gate (referenced in Step 9) cove
 5. **`.gsd-t/techdebt.md`** — Did a task resolve a debt item? Mark it done. Did it reveal new debt? Add it
 
 $ARGUMENTS
+
+## Auto-Clear
+
+All work is committed to project files. Execute `/clear` to free the context window for the next command.

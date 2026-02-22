@@ -138,3 +138,7 @@ Before committing, ensure the fix is solid:
 Commit: `[debug] Fix {description} — root cause: {explanation}`
 
 $ARGUMENTS
+
+## Auto-Clear
+
+All work is committed to project files. Execute `/clear` to free the context window for the next command.

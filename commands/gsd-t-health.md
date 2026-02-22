@@ -136,3 +136,7 @@ If DEGRADED without --repair → "⚠ Run /user:gsd-t-health --repair to create 
 If BROKEN → "🔴 Project structure is broken. Run /user:gsd-t-health --repair or /user:gsd-t-init to rebuild."
 
 $ARGUMENTS
+
+## Auto-Clear
+
+All work is committed to project files. Execute `/clear` to free the context window for the next command.

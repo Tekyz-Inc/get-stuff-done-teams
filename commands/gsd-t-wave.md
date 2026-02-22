@@ -275,3 +275,7 @@ If command files in `~/.claude/commands/` are tampered with, wave agents will ex
 ```
 
 $ARGUMENTS
+
+## Auto-Clear
+
+The full wave cycle is complete. All work is committed to project files. Execute `/clear` to free the orchestrator context window.

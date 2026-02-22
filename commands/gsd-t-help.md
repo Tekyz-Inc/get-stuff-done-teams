@@ -386,3 +386,7 @@ Run /user:gsd-t-help for full command list.
 ```
 
 $ARGUMENTS
+
+## Auto-Clear
+
+All work is committed to project files. Execute `/clear` to free the context window for the next command.

@@ -246,3 +246,7 @@ If `.gsd-t/roadmap.md` exists:
 - Provide manual tag command
 
 $ARGUMENTS
+
+## Auto-Clear
+
+All work is committed to project files. Execute `/clear` to free the context window for the next command.

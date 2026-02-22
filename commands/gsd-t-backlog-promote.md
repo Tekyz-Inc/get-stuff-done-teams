@@ -117,3 +117,7 @@ Verify the backlog file is well-formed after removal and renumbering:
 3. **Check empty state**: If all entries were removed, verify file contains only the `# Backlog` heading
 
 $ARGUMENTS
+
+## Auto-Clear
+
+All work is committed to project files. Execute `/clear` to free the context window for the next command.

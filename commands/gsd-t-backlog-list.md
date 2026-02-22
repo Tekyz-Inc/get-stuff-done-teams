@@ -57,3 +57,7 @@ If filters were applied but no entries match, display:
 "No backlog items match the filters: {filter summary}. Use `/gsd-t-backlog-list` with no arguments to see all items."
 
 $ARGUMENTS
+
+## Auto-Clear
+
+All work is committed to project files. Execute `/clear` to free the context window for the next command.

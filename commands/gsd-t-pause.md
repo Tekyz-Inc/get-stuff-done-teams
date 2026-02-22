@@ -76,3 +76,7 @@ This command only saves position. If the user invoked /pause mid-task intending 
 If invoked with $ARGUMENTS containing "and continue" or similar, create the file and then continue the current task normally.
 
 $ARGUMENTS
+
+## Auto-Clear
+
+All work is committed to project files. Execute `/clear` to free the context window for the next command.

@@ -182,3 +182,7 @@ If inside an active milestone and the brainstorm produced decisions:
 - When you sense a breakthrough idea, name it: "That feels like the real insight here"
 
 $ARGUMENTS
+
+## Auto-Clear
+
+All work is committed to project files. Execute `/clear` to free the context window for the next command.

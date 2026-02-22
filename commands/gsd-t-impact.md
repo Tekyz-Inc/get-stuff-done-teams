@@ -244,3 +244,7 @@ When run independently (not as part of wave):
 **Level 1–2**: Present the full impact report. Wait for user confirmation before proceeding (PROCEED) or pause for remediation (BLOCK). For PROCEED WITH CAUTION, ask "These can be addressed during execution. Proceed?"
 
 $ARGUMENTS
+
+## Auto-Clear
+
+All work is committed to project files. Execute `/clear` to free the context window for the next command.

@@ -81,3 +81,7 @@ Otherwise, set status to DEFINED and remind them:
 "Run /user:gsd-t-partition to decompose into domains, or /user:gsd-t-discuss to explore approaches first."
 
 $ARGUMENTS
+
+## Auto-Clear
+
+All work is committed to project files. Execute `/clear` to free the context window for the next command.
