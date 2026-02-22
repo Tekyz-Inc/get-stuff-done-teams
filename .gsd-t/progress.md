@@ -3,7 +3,7 @@
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: READY
 ## Date: 2026-02-18
-## Version: 2.28.13
+## Version: 2.28.14
 
 ## Current Milestone
 
@@ -205,6 +205,7 @@ No integration checkpoints expected — single domain milestone.
 | 2026-02-18 | 11 | Full codebase scan #6 (lead agent, 5 dimensions parallel). Post-M10-M13 analysis at v2.28.10. 14 new items found (TD-066 through TD-079): 0 critical, 1 high, 5 medium, 7 low. Key findings: (1) gsd-t-tools.js + gsd-t-statusline.js have no module.exports — zero test coverage (TD-066, HIGH); (2) qa-agent-contract.md still lists partition/plan as QA phases post-M10 (TD-067); (3) living docs not updated after M10-M13 — addressed in this scan (TD-068); (4) wave-phase-sequence contract missing M11/M12 additions (TD-069); (5) progress-file-format contract missing M11-M13 state artifacts (TD-070); (6) stateSet allows markdown injection via newlines (TD-071). 125/125 tests still passing. Updated all living docs (architecture, workflows, infrastructure, requirements). |
 | 2026-02-19 | 13 | Added backlog item #2: "Living docs staleness detection" (type: improvement, app: gsd-t, category: commands) — gsd-t-health STALE flag for placeholder-only docs + scan self-check after writing living docs |
 | 2026-02-19 | 16 | Added backlog item #4: "DB integration testing capability in QA agent" (type: feature, app: gsd-t, category: commands) — DB-agnostic test phase reading infrastructure.md for connection, migrations, seed, teardown |
+| 2026-02-22 | 18 | Token logging coverage extended to all subagent-spawning commands (v2.28.14): added OBSERVABILITY LOGGING block to gsd-t-quick (Step 0), gsd-t-debug (Step 0), gsd-t-verify (Step 4 Team Mode), gsd-t-wave (Phase Agent Spawn Pattern), gsd-t-brainstorm (Step 3 Team Mode), gsd-t-discuss (Step 3 Team Mode); CLAUDE.md updated with new-command convention (Command Files), Pre-Commit Gate check, and Don't Do These Things rule; 127/127 tests pass |
 | 2026-02-19 | 17 | Token-log compaction-aware schema (v2.28.13): new columns Datetime-start/end + Tokens + Compacted; bash snippet reads CLAUDE_CONTEXT_TOKENS_USED before/after each spawn; compaction detected when end<start and approximates total via (TOK_MAX-TOK_START)+TOK_END; heartbeat SubagentStart/Stop now emit token snapshot; 127/127 tests pass |
 | 2026-02-19 | 15 | Added backlog item #3: "Auto-cleanup test data after test runs" (type: improvement, app: gsd-t, category: cli) — temp files/dirs from test suite must be removed on completion |
 | 2026-02-19 | 14 | Fix heartbeat hooks for dashboard agent graph (v2.28.12): PostToolUse now writes agent_id (null when absent); SubagentStart + SubagentStop now write parent_id (parent_agent_id if available, else session_id as root). Enables dashboard to draw agent edges and attribute tool calls to correct nodes. 127/127 tests pass. |

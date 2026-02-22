@@ -92,6 +92,7 @@ This project uses GSD-T on itself. Key things to understand:
 - Step-numbered workflow (Step 1, Step 2, etc.)
 - Team mode instructions use code blocks with teammate assignments
 - Document Ripple section in any command that modifies files
+- **Any step that spawns a Task subagent or agent team MUST include the OBSERVABILITY LOGGING block** (see Observability Logging section). Copy the exact pattern from `commands/gsd-t-execute.md` Step 2. This is non-negotiable — every new command must have this.
 
 ### Templates (templates/*.md)
 - Use `{Project Name}`, `{Date}` as replacement tokens
@@ -171,6 +172,10 @@ BEFORE EVERY COMMIT:
   │     YES → Update all 4 files above
   │     YES → Update package.json version (bump minor or major)
   │     YES → Update bin/gsd-t.js command counting logic
+  ├── Did I create a new command file?
+  │     YES → Does it spawn a Task subagent or agent team?
+  │           YES → Verify OBSERVABILITY LOGGING block is present (see Observability Logging section)
+  │           NO → No logging needed
   ├── Did I change the CLI installer?
   │     YES → Test: install, update, status, doctor, init, uninstall
   ├── Did I change a template?
@@ -194,6 +199,7 @@ BEFORE EVERY COMMIT:
 - NEVER change command file names without updating all 4 reference files (README, GSD-T-README, CLAUDE-global template, gsd-t-help)
 - NEVER modify the wave phase sequence without updating wave, README, and GSD-T-README
 - NEVER let the command count in the installer diverge from the actual commands/ directory
+- NEVER create a command that spawns a Task subagent or agent team without adding the OBSERVABILITY LOGGING block
 
 
 # Recovery After Interruption

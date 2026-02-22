@@ -106,7 +106,19 @@ Teammate assignments:
   - Secret/credential handling
   Report: severity-ranked findings.
 
-Lead: After receiving teammate reports, spawn a Task subagent to run the full test suite and contract audit. Collect all reports, synthesize, create remediation plan.
+Lead: After receiving teammate reports:
+**OBSERVABILITY LOGGING (MANDATORY):**
+Before spawning — run via Bash:
+`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M") && TOK_START=${CLAUDE_CONTEXT_TOKENS_USED:-0} && TOK_MAX=${CLAUDE_CONTEXT_TOKENS_MAX:-200000}`
+Spawn a Task subagent to run the full test suite and contract audit.
+After subagent returns — run via Bash:
+`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && TOK_END=${CLAUDE_CONTEXT_TOKENS_USED:-0} && DURATION=$((T_END-T_START))`
+Compute tokens and compaction:
+- No compaction (TOK_END >= TOK_START): `TOKENS=$((TOK_END-TOK_START))`, COMPACTED=null
+- Compaction detected (TOK_END < TOK_START): `TOKENS=$(((TOK_MAX-TOK_START)+TOK_END))`, COMPACTED=$DT_END
+Append to `.gsd-t/token-log.md` (create with header `| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Tokens | Compacted |` if missing):
+`| {DT_START} | {DT_END} | gsd-t-verify | Step 4 | haiku | {DURATION}s | test audit + contract review | {TOKENS} | {COMPACTED} |`
+Collect all reports, synthesize, create remediation plan.
 ```
 
 ## Step 5: Compile Verification Report

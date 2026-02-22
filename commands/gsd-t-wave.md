@@ -47,6 +47,10 @@ For each remaining phase, spawn an **independent agent** using the Task tool. Ea
 
 For each phase, spawn the agent like this:
 
+**OBSERVABILITY LOGGING (MANDATORY) — repeat for every phase spawn:**
+Before spawning — run via Bash:
+`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M") && TOK_START=${CLAUDE_CONTEXT_TOKENS_USED:-0} && TOK_MAX=${CLAUDE_CONTEXT_TOKENS_MAX:-200000}`
+
 ```
 Task agent (subagent_type: "general-purpose", mode: "bypassPermissions"):
   "Execute the {PHASE} phase of the current GSD-T milestone.
@@ -64,6 +68,14 @@ Task agent (subagent_type: "general-purpose", mode: "bypassPermissions"):
 
    Report back: one-line status summary."
 ```
+
+After phase agent returns — run via Bash:
+`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && TOK_END=${CLAUDE_CONTEXT_TOKENS_USED:-0} && DURATION=$((T_END-T_START))`
+Compute tokens and compaction:
+- No compaction (TOK_END >= TOK_START): `TOKENS=$((TOK_END-TOK_START))`, COMPACTED=null
+- Compaction detected (TOK_END < TOK_START): `TOKENS=$(((TOK_MAX-TOK_START)+TOK_END))`, COMPACTED=$DT_END
+Append to `.gsd-t/token-log.md` (create with header `| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Tokens | Compacted |` if missing):
+`| {DT_START} | {DT_END} | gsd-t-wave | {PHASE} | sonnet | {DURATION}s | phase: {PHASE} | {TOKENS} | {COMPACTED} |`
 
 ### Phase Sequence
 

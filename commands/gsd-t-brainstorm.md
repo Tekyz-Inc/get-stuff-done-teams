@@ -85,21 +85,34 @@ If mode is unclear, ask: "What kind of thinking would be most useful right now �
 5. Periodically collect the best ideas into a running list
 
 ### Team Mode (if enabled and user requests):
+
+**OBSERVABILITY LOGGING (MANDATORY):**
+Before spawning the team — run via Bash:
+`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M") && TOK_START=${CLAUDE_CONTEXT_TOKENS_USED:-0} && TOK_MAX=${CLAUDE_CONTEXT_TOKENS_MAX:-200000}`
+
 ```
 Create an agent team for brainstorming:
 
-- Teammate "visionary": Push boundaries. What's the most ambitious 
-  version? What would make this remarkable? Think in terms of 
+- Teammate "visionary": Push boundaries. What's the most ambitious
+  version? What would make this remarkable? Think in terms of
   possibilities, not constraints.
 
 - Teammate "pragmatist": Keep it real. What can we actually build?
   What's the shortest path to value? Where are the hidden costs?
 
-- Teammate "devil's advocate": Challenge everything. Why might this 
+- Teammate "devil's advocate": Challenge everything. Why might this
   fail? What are we not seeing? Which assumptions are weakest?
 
 Lead: Synthesize the best insights from all three perspectives.
 ```
+
+After team completes — run via Bash:
+`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && TOK_END=${CLAUDE_CONTEXT_TOKENS_USED:-0} && DURATION=$((T_END-T_START))`
+Compute tokens and compaction:
+- No compaction (TOK_END >= TOK_START): `TOKENS=$((TOK_END-TOK_START))`, COMPACTED=null
+- Compaction detected (TOK_END < TOK_START): `TOKENS=$(((TOK_MAX-TOK_START)+TOK_END))`, COMPACTED=$DT_END
+Append to `.gsd-t/token-log.md` (create with header `| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Tokens | Compacted |` if missing):
+`| {DT_START} | {DT_END} | gsd-t-brainstorm | Step 3 | sonnet | {DURATION}s | team brainstorm: {topic summary} | {TOKENS} | {COMPACTED} |`
 
 ## Step 4: Capture the Sparks
 
