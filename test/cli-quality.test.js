@@ -48,7 +48,7 @@ describe("buildEvent", () => {
   it("returns agent_spawn for SubagentStart", () => {
     const result = buildEvent({ hook_event_name: "SubagentStart", session_id: "s1", agent_id: "a1", agent_type: "explore" });
     assert.equal(result.evt, "agent_spawn");
-    assert.deepStrictEqual(result.data, { agent_id: "a1", agent_type: "explore", parent_id: "s1" });
+    assert.deepStrictEqual(result.data, { agent_id: "a1", agent_type: "explore", parent_id: "s1", tokens: null });
   });
 
   it("SubagentStart uses parent_agent_id when provided", () => {

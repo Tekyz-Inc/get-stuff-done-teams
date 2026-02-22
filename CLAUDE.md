@@ -109,15 +109,23 @@ This project uses GSD-T on itself. Key things to understand:
 
 Every command that spawns a Task subagent MUST log its execution to `.gsd-t/token-log.md` and (if issues found) `.gsd-t/qa-issues.md`.
 
-**Log format:**
-- Before spawn: run `date +%s` via Bash to record START
-- After subagent returns: run `date +%s`, compute `DURATION=$((END-START))`
-- Append to `.gsd-t/token-log.md` (create with header row if file doesn't exist):
-  `| Date | Command | Step | Model | Duration(s) | Notes |`
-  `| {YYYY-MM-DD HH:MM} | {command} | Step {N} | {model} | {DURATION}s | {brief note} |`
-- For QA/validation subagents: if issues found, append each to `.gsd-t/qa-issues.md`:
-  `| Date | Command | Step | Model | Duration(s) | Severity | Finding |`
-  `| {YYYY-MM-DD HH:MM} | {command} | Step {N} | {model} | {DURATION}s | {severity} | {finding} |`
+**Log format — before every subagent spawn, run via Bash:**
+`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M") && TOK_START=${CLAUDE_CONTEXT_TOKENS_USED:-0} && TOK_MAX=${CLAUDE_CONTEXT_TOKENS_MAX:-200000}`
+
+**After subagent returns, run via Bash:**
+`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && TOK_END=${CLAUDE_CONTEXT_TOKENS_USED:-0} && DURATION=$((T_END-T_START))`
+
+**Compute tokens with compaction detection:**
+- No compaction (TOK_END >= TOK_START): `TOKENS=$((TOK_END-TOK_START))`, COMPACTED=null
+- Compaction detected (TOK_END < TOK_START): `TOKENS=$(((TOK_MAX-TOK_START)+TOK_END))`, COMPACTED=$DT_END
+
+**Append to `.gsd-t/token-log.md`** (create with header if missing):
+`| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Tokens | Compacted |`
+`| {DT_START} | {DT_END} | {command} | Step {N} | {model} | {DURATION}s | {brief note} | {TOKENS} | {COMPACTED} |`
+
+**For QA/validation subagents:** if issues found, append each to `.gsd-t/qa-issues.md`:
+`| Date | Command | Step | Model | Duration(s) | Severity | Finding |`
+`| {DT_START} | {command} | Step {N} | {model} | {DURATION}s | {severity} | {finding} |`
 
 **Model assignments:**
 - `model: haiku` — mechanical tasks: run tests, count pass/fail, validate structure, check file existence, report status

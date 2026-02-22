@@ -192,12 +192,17 @@ Report: PASS (all checks pass) or FAIL with specific gaps listed."
 ```
 
 **OBSERVABILITY LOGGING (MANDATORY):**
-Before spawning: run `date +%s` via Bash → save as START
-After subagent returns: run `date +%s` → compute `DURATION=$((END-START))`
-Append to `.gsd-t/token-log.md` (create with header `| Date | Command | Step | Model | Duration(s) | Notes |` if missing):
-`| {YYYY-MM-DD HH:MM} | gsd-t-plan | Step 7 | haiku | {DURATION}s | {PASS/FAIL}, iteration {N} |`
+Before spawning — run via Bash:
+`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M") && TOK_START=${CLAUDE_CONTEXT_TOKENS_USED:-0} && TOK_MAX=${CLAUDE_CONTEXT_TOKENS_MAX:-200000}`
+After subagent returns — run via Bash:
+`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && TOK_END=${CLAUDE_CONTEXT_TOKENS_USED:-0} && DURATION=$((T_END-T_START))`
+Compute tokens and compaction:
+- No compaction (TOK_END >= TOK_START): `TOKENS=$((TOK_END-TOK_START))`, COMPACTED=null
+- Compaction detected (TOK_END < TOK_START): `TOKENS=$(((TOK_MAX-TOK_START)+TOK_END))`, COMPACTED=$DT_END
+Append to `.gsd-t/token-log.md` (create with header `| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Tokens | Compacted |` if missing):
+`| {DT_START} | {DT_END} | gsd-t-plan | Step 7 | haiku | {DURATION}s | {PASS/FAIL}, iteration {N} | {TOKENS} | {COMPACTED} |`
 If validation FAIL, append each gap to `.gsd-t/qa-issues.md` (create with header `| Date | Command | Step | Model | Duration(s) | Severity | Finding |` if missing):
-`| {YYYY-MM-DD HH:MM} | gsd-t-plan | Step 7 | haiku | {DURATION}s | medium | {gap description} |`
+`| {DT_START} | gsd-t-plan | Step 7 | haiku | {DURATION}s | medium | {gap description} |`
 
 **If FAIL**: Fix the identified gaps (up to 3 iterations). If still failing after 3 iterations, STOP and report to user with the specific gaps. Plan cannot proceed until validation PASSES.
 
