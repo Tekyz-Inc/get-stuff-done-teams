@@ -3,7 +3,7 @@
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: READY
 ## Date: 2026-02-18
-## Version: 2.31.15
+## Version: 2.31.16
 
 ## Current Milestone
 
@@ -193,6 +193,7 @@ No integration checkpoints expected — single domain milestone.
 - 2026-02-23 00:00: GSD-T project guard for auto-route hook (v2.31.11) — added fs.existsSync(path.join(cwd, '.gsd-t', 'progress.md')) guard at top of gsd-t-auto-route.js; hook now silently passes through in non-GSD-T directories; no behavioral change in GSD-T projects; CLAUDE-global.md note updated to document scoping.
 - 2026-02-23 12:45: Smart router routing format enforced (v2.31.13) — added WRONG/RIGHT examples and explicit valid slug list to commands/gsd.md Step 3; prevents Claude from outputting free-form descriptions like "→ Routing to research + PRD update:" instead of required "/user:gsd-t-{command}" format.
 - 2026-02-23 12:30: Auto-Init Guard exempt list narrowed (v2.31.12) — removed gsd-t-prompt and gsd-t-brainstorm from exempt list; every command now triggers auto-init if project docs are missing except structural commands (init, init-scan-setup, help, version-update, version-update-all); updated templates/CLAUDE-global.md and ~/.claude/CLAUDE.md.
+- 2026-02-23 14:45: Emoji table alignment convention (v2.31.16) — added ## Markdown Tables section to Code Standards in templates/CLAUDE-global.md and ~/.claude/CLAUDE.md; convention: add one extra space after emoji in table cells to compensate for 2-char terminal display width; also pad all column values to widest value width.
 - 2026-02-23 14:30: Init version detection (v2.31.15) — new projects start at `0.1.00` instead of `0.1.10`; existing repos with a manifest version (package.json, pyproject.toml, Cargo.toml, etc.) use that version as starting point; updated gsd-t-init.md Step 5 with detection logic, templates/CLAUDE-global.md and ~/.claude/CLAUDE.md versioning section.
 - 2026-02-23 14:10: Smart router continuation UX (v2.31.14) — added Step 2a (Continuation Check) to commands/gsd.md; when mid-task follow-up detected, router outputs `→ /gsd ──▶ continue /user:gsd-t-{last-command}` instead of new routing announcement; phase-to-command mapping table included; updated gsd-t-help.md gsd summary to document continuation behavior.
 
