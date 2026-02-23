@@ -118,7 +118,9 @@ GSD-T tracks project version in `.gsd-t/progress.md` using semantic versioning: 
 
 **Patch convention**: Patch numbers are always 2 digits (≥10). When resetting after a minor or major bump, start at **10** (not 0). This keeps patches always 2 characters without leading zeros, so semver stays valid.
 
-- Version is set during `gsd-t-init` (starts at `0.1.10`)
+- Version is set during `gsd-t-init`:
+  - **New project** (no existing manifest version): starts at `0.1.00` — first `complete-milestone` resets patch to `0.1.10`
+  - **Existing repo** (has `package.json`, `pyproject.toml`, `Cargo.toml`, etc. with a version): use that version as the starting point
 - Version is bumped during `gsd-t-complete-milestone` based on milestone scope
 - Version is reflected in: `progress.md`, `README.md`, package manifest (if any), and git tags (`v{version}`)
 

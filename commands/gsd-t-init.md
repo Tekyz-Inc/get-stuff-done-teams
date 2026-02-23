@@ -90,13 +90,27 @@ Read the project's `CLAUDE.md` (if it exists) to auto-populate backlog settings:
 
 ## Step 5: Initialize Progress File
 
+### Version Detection
+
+Before creating the progress file, determine the starting version:
+
+1. **Check for an existing version** in the project's manifest file (in this priority order):
+   - `package.json` → `version` field
+   - `pyproject.toml` → `[project] version` or `[tool.poetry] version`
+   - `Cargo.toml` → `[package] version`
+   - `setup.py` → `version=` argument
+   - `build.gradle` / `build.gradle.kts` → `version = `
+   - `.version` file → contents as-is
+2. **If a version is found**: Use it as the starting GSD-T version (the project already has its own versioning history).
+3. **If no version is found**: Use `0.1.00` — the standard GSD-T starting point for a brand-new project with no prior releases. The first `gsd-t-complete-milestone` will reset the patch to `0.1.10` (or bump minor/major per milestone scope).
+
 Create `.gsd-t/progress.md`:
 
 ```markdown
 # GSD-T Progress
 
 ## Project: {name from CLAUDE.md or $ARGUMENTS}
-## Version: 0.1.0
+## Version: {detected version, or 0.1.00}
 ## Status: INITIALIZED
 ## Date: {today}
 
