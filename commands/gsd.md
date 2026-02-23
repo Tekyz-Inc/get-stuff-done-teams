@@ -49,6 +49,24 @@ When the same request could fit multiple commands at different scales:
 → Routing to /user:gsd-t-{command}: {brief reason}
 ```
 
+**CRITICAL: `{command}` MUST be a real GSD-T command slug — never a free-form description.**
+
+Valid command slugs: `quick`, `debug`, `feature`, `execute`, `milestone`, `project`, `scan`, `gap-analysis`, `plan`, `partition`, `discuss`, `impact`, `integrate`, `verify`, `test-sync`, `complete-milestone`, `wave`, `status`, `populate`, `setup`, `init`, `health`, `log`, `pause`, `resume`, `prd`, `brainstorm`, `prompt`, `backlog-add`, `backlog-list`, `backlog-promote`, `promote-debt`, `triage-and-merge`, `version-update`, `version-update-all`
+
+**WRONG ❌** — do not do this:
+```
+→ Routing to research + PRD update: reading web app auth code
+→ Routing to implementation: adding the login feature
+→ Routing to fix: resolving the bug
+```
+
+**RIGHT ✅** — always use the exact command slug:
+```
+→ Routing to /user:gsd-t-execute: implement auth feature across backend
+→ Routing to /user:gsd-t-debug: investigate login bug before fixing
+→ Routing to /user:gsd-t-quick: small focused change to config file
+```
+
 This MUST be the very first line of your response so the user sees which command was selected. Then immediately execute that command's full workflow, passing `$ARGUMENTS` through.
 
 **Do NOT ask "is this the right command?" — just route and go.** The user can interrupt with Esc if it's wrong.
