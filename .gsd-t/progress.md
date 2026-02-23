@@ -3,7 +3,7 @@
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: READY
 ## Date: 2026-02-18
-## Version: 2.31.11
+## Version: 2.31.12
 
 ## Current Milestone
 
@@ -191,6 +191,7 @@ No integration checkpoints expected — single domain milestone.
 - 2026-02-22 00:00: Auto-clear context window after safe commands (v2.30.10) — added Auto-Clear section to 41 of 42 gsd-t-* command files, instructing Claude to execute /clear after each command. Excluded gsd-t-resume (would defeat restore purpose). Wave gets auto-clear only after full cycle completes.
 - 2026-02-23 00:00: Auto-Route feature (v2.31.10) — added scripts/gsd-t-auto-route.js (UserPromptSubmit hook); plain text prompts injected with [GSD-T AUTO-ROUTE] signal → Claude routes via /gsd; slash commands pass through unchanged; gsd-t install configures hook in settings.json; CLAUDE-global.md Conversation vs. Work updated; gsd-t-help/GSD-T-README/README updated. Zero deps, binary detection.
 - 2026-02-23 00:00: GSD-T project guard for auto-route hook (v2.31.11) — added fs.existsSync(path.join(cwd, '.gsd-t', 'progress.md')) guard at top of gsd-t-auto-route.js; hook now silently passes through in non-GSD-T directories; no behavioral change in GSD-T projects; CLAUDE-global.md note updated to document scoping.
+- 2026-02-23 12:30: Auto-Init Guard exempt list narrowed (v2.31.12) — removed gsd-t-prompt and gsd-t-brainstorm from exempt list; every command now triggers auto-init if project docs are missing except structural commands (init, init-scan-setup, help, version-update, version-update-all); updated templates/CLAUDE-global.md and ~/.claude/CLAUDE.md.
 
 ## Session Log
 | Date | Session | What was accomplished |

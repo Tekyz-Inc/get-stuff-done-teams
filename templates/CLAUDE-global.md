@@ -206,7 +206,7 @@ If any are missing:
 1. Run `gsd-t-init` automatically (it skips files that already exist)
 2. Then continue with the originally requested command
 
-**Exempt commands** (do not trigger auto-init): `gsd-t-init`, `gsd-t-init-scan-setup`, `gsd-t-help`, `gsd-t-version-update`, `gsd-t-version-update-all`, `gsd-t-prompt`, `gsd-t-brainstorm`.
+**Exempt commands** (do not trigger auto-init): `gsd-t-init`, `gsd-t-init-scan-setup`, `gsd-t-help`, `gsd-t-version-update`, `gsd-t-version-update-all`.
 
 ## Playwright Readiness Guard
 
