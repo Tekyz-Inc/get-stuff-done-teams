@@ -6,9 +6,13 @@
  * Outputs to stdout: injected as system context before Claude processes the prompt.
  *
  * Logic:
+ *   - Not a GSD-T project (no .gsd-t/progress.md in cwd) → exit silently
  *   - Prompt starts with "/" → exit silently (user typed a command, pass through)
  *   - Prompt is plain text → emit [GSD-T AUTO-ROUTE] signal so Claude routes via /gsd
  */
+
+const fs = require("fs");
+const path = require("path");
 
 let input = "";
 process.stdin.setEncoding("utf8");
@@ -16,10 +20,13 @@ process.stdin.on("data", (chunk) => { input += chunk; });
 process.stdin.on("end", () => {
   try {
     const data = JSON.parse(input);
+    // Guard: only activate in GSD-T projects
+    const cwd = typeof data.cwd === "string" ? data.cwd : process.cwd();
+    if (!fs.existsSync(path.join(cwd, ".gsd-t", "progress.md"))) process.exit(0);
     const prompt = (typeof data.prompt === "string" ? data.prompt : "").trimStart();
     if (prompt.startsWith("/")) process.exit(0); // slash command — pass through
     if (!prompt) process.exit(0);                // empty prompt — pass through
-    // Plain text prompt — inject routing signal
+    // Plain text prompt in a GSD-T project — inject routing signal
     process.stdout.write(
       "[GSD-T AUTO-ROUTE] The user typed a plain text message (no leading /). " +
       "Route it automatically through the /gsd smart router — execute the /user:gsd " +

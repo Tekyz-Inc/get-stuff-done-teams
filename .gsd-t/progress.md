@@ -3,7 +3,7 @@
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: READY
 ## Date: 2026-02-18
-## Version: 2.31.10
+## Version: 2.31.11
 
 ## Current Milestone
 
@@ -190,6 +190,7 @@ No integration checkpoints expected — single domain milestone.
 - 2026-02-18 18:00: Milestone 13 (Tooling & UX) completed — scripts/gsd-t-tools.js (zero-dep CLI returning JSON: state get/set, validate, parse, list, git, template); scripts/gsd-t-statusline.js (context usage bar, color-coded, configured via settings.json statusLine); gsd-t-health.md (validates .gsd-t/ structure, --repair creates missing files); gsd-t-pause.md (saves continue-here-{timestamp}.md); gsd-t-resume.md updated to read continue-here files first; gsd-t-plan.md wave groupings added to integration-points.md; gsd-t-execute.md uses wave groupings for parallel scheduling; bin/gsd-t.js installs utility scripts; all reference files updated to 45 commands (41 GSD-T + 4 utility). 125/125 tests pass. v2.28.10
 - 2026-02-22 00:00: Auto-clear context window after safe commands (v2.30.10) — added Auto-Clear section to 41 of 42 gsd-t-* command files, instructing Claude to execute /clear after each command. Excluded gsd-t-resume (would defeat restore purpose). Wave gets auto-clear only after full cycle completes.
 - 2026-02-23 00:00: Auto-Route feature (v2.31.10) — added scripts/gsd-t-auto-route.js (UserPromptSubmit hook); plain text prompts injected with [GSD-T AUTO-ROUTE] signal → Claude routes via /gsd; slash commands pass through unchanged; gsd-t install configures hook in settings.json; CLAUDE-global.md Conversation vs. Work updated; gsd-t-help/GSD-T-README/README updated. Zero deps, binary detection.
+- 2026-02-23 00:00: GSD-T project guard for auto-route hook (v2.31.11) — added fs.existsSync(path.join(cwd, '.gsd-t', 'progress.md')) guard at top of gsd-t-auto-route.js; hook now silently passes through in non-GSD-T directories; no behavioral change in GSD-T projects; CLAUDE-global.md note updated to document scoping.
 
 ## Session Log
 | Date | Session | What was accomplished |
@@ -213,6 +214,7 @@ No integration checkpoints expected — single domain milestone.
 | 2026-02-19 | 17 | Token-log compaction-aware schema (v2.28.13): new columns Datetime-start/end + Tokens + Compacted; bash snippet reads CLAUDE_CONTEXT_TOKENS_USED before/after each spawn; compaction detected when end<start and approximates total via (TOK_MAX-TOK_START)+TOK_END; heartbeat SubagentStart/Stop now emit token snapshot; 127/127 tests pass |
 | 2026-02-19 | 15 | Added backlog item #3: "Auto-cleanup test data after test runs" (type: improvement, app: gsd-t, category: cli) — temp files/dirs from test suite must be removed on completion |
 | 2026-02-19 | 14 | Fix heartbeat hooks for dashboard agent graph (v2.28.12): PostToolUse now writes agent_id (null when absent); SubagentStart + SubagentStop now write parent_id (parent_agent_id if available, else session_id as root). Enables dashboard to draw agent edges and attribute tool calls to correct nodes. 127/127 tests pass. |
+| 2026-02-23 | 23 | GSD-T project guard for auto-route hook (v2.31.11): added fs.existsSync guard for .gsd-t/progress.md in cwd to gsd-t-auto-route.js — hook now silent in non-GSD-T directories; CLAUDE-global.md + live CLAUDE.md note updated; 127/127 tests pass |
 | 2026-02-23 | 22 | Auto-Route feature (v2.31.10): added scripts/gsd-t-auto-route.js (UserPromptSubmit hook — plain text prompts auto-routed through /gsd, slash commands pass through unchanged); updated bin/gsd-t.js with installAutoRoute()/configureAutoRouteHook() called from doInstall(); updated templates/CLAUDE-global.md and live ~/.claude/CLAUDE.md Conversation vs. Work section with [GSD-T AUTO-ROUTE] signal recognition; updated commands/gsd-t-help.md, docs/GSD-T-README.md, README.md with auto-route documentation. 127/127 tests pass. |
 | 2026-02-22 | 21 | Auto-clear context window after safe commands (v2.30.10): added `## Auto-Clear` section to 41 of 42 gsd-t-* command files — instructs Claude to execute `/clear` after each command completes, freeing the context window for the next command. Excluded: gsd-t-resume.md (would defeat purpose of restoring session context). gsd-t-wave.md gets auto-clear only at the very end of the full wave cycle (after all phases complete). All work is committed to project files so clearing is safe. 127/127 tests pass. |
 | 2026-02-19 | 12 | Observability & model optimization (v2.28.11): (1) model: haiku for execute QA, integrate QA, plan validation, status, health, scan architecture/business-rules/contracts teammates; (2) model: sonnet kept for scan security/quality teammates; (3) MANDATORY observability logging added to execute/integrate/plan — before/after Bash timestamps + append to .gsd-t/token-log.md and .gsd-t/qa-issues.md; (4) Observability Logging directive added to CLAUDE.md; (5) init.md creates token-log.md + qa-issues.md with header rows; (6) TD-080 added for log archiving/summarizing. 125/125 tests pass. |
