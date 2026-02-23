@@ -8,6 +8,22 @@ Read:
 1. `CLAUDE.md` — project context
 2. `.gsd-t/progress.md` — current state, active milestone/phase
 
+## Step 2a: Continuation Check
+
+Before semantic evaluation, determine if this is a **continuation** of an already-running command.
+
+**Continuation indicators (any = continuation):**
+- Message is a follow-up, answer, acknowledgment, or status report — not a new task request
+- Message contains tool output, code, file content, or work artifacts from ongoing work
+- Message reads as mid-task input (e.g., "both files parse cleanly", "yes continue", "looks good", "done")
+- Progress.md shows an active/in-progress phase AND the message doesn't clearly start a new task
+
+**If continuation detected** → skip Step 2, go to Step 3 using the **continuation format**.
+
+**If NOT a continuation** → proceed to Step 2 (normal semantic evaluation).
+
+---
+
 ## Step 2: Semantic Evaluation
 
 Read the **Command Summaries** section of `commands/gsd-t-help.md` (or the in-memory skill list). For each command, evaluate whether the user's request matches that command's **Summary** and **Use when** criteria.
@@ -43,13 +59,37 @@ When the same request could fit multiple commands at different scales:
 
 ## Step 3: Confirm and Execute
 
-**MANDATORY — before doing anything else, output this line FIRST:**
+**MANDATORY — output one of these lines as the VERY FIRST thing in your response, before any tool calls or other output.**
 
+### New request (from Step 2):
 ```
 → Routing to /user:gsd-t-{command}: {brief reason}
 ```
 
-**CRITICAL: `{command}` MUST be a real GSD-T command slug — never a free-form description.**
+### Continuation (from Step 2a):
+```
+→ /gsd ──▶ continue /user:gsd-t-{last-command}
+```
+
+Where `{last-command}` is:
+1. The command most recently active in this conversation, OR
+2. Inferred from progress.md current phase:
+
+| Phase in progress.md | Command slug |
+|----------------------|--------------|
+| EXECUTE | `execute` |
+| PLAN | `plan` |
+| PARTITION | `partition` |
+| VERIFY | `verify` |
+| INTEGRATE | `integrate` |
+| TEST-SYNC | `test-sync` |
+| COMPLETE | `complete-milestone` |
+| SCAN | `scan` |
+| WAVE | `wave` |
+| QUICK | `quick` |
+| DEBUG | `debug` |
+
+**CRITICAL: `{command}` and `{last-command}` MUST be a real GSD-T command slug — never a free-form description.**
 
 Valid command slugs: `quick`, `debug`, `feature`, `execute`, `milestone`, `project`, `scan`, `gap-analysis`, `plan`, `partition`, `discuss`, `impact`, `integrate`, `verify`, `test-sync`, `complete-milestone`, `wave`, `status`, `populate`, `setup`, `init`, `health`, `log`, `pause`, `resume`, `prd`, `brainstorm`, `prompt`, `backlog-add`, `backlog-list`, `backlog-promote`, `promote-debt`, `triage-and-merge`, `version-update`, `version-update-all`
 
@@ -57,17 +97,18 @@ Valid command slugs: `quick`, `debug`, `feature`, `execute`, `milestone`, `proje
 ```
 → Routing to research + PRD update: reading web app auth code
 → Routing to implementation: adding the login feature
-→ Routing to fix: resolving the bug
+→ /gsd ──▶ continue: mid-task work
 ```
 
 **RIGHT ✅** — always use the exact command slug:
 ```
 → Routing to /user:gsd-t-execute: implement auth feature across backend
 → Routing to /user:gsd-t-debug: investigate login bug before fixing
-→ Routing to /user:gsd-t-quick: small focused change to config file
+→ /gsd ──▶ continue /user:gsd-t-execute
+→ /gsd ──▶ continue /user:gsd-t-quick
 ```
 
-This MUST be the very first line of your response so the user sees which command was selected. Then immediately execute that command's full workflow, passing `$ARGUMENTS` through.
+This MUST be the very first line of your response. Then immediately execute that command's full workflow, passing `$ARGUMENTS` through.
 
 **Do NOT ask "is this the right command?" — just route and go.** The user can interrupt with Esc if it's wrong.
 
