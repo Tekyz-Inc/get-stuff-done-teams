@@ -456,6 +456,66 @@ function configureUpdateCheckHook(scriptPath) {
   }
 }
 
+// ─── Auto-Route Hook ─────────────────────────────────────────────────────────
+
+const AUTO_ROUTE_SCRIPT = "gsd-t-auto-route.js";
+
+function installAutoRoute() {
+  ensureDir(SCRIPTS_DIR);
+
+  const src = path.join(PKG_SCRIPTS, AUTO_ROUTE_SCRIPT);
+  const dest = path.join(SCRIPTS_DIR, AUTO_ROUTE_SCRIPT);
+
+  if (!fs.existsSync(src)) {
+    warn("Auto-route script not found in package — skipping");
+    return;
+  }
+
+  const srcContent = fs.readFileSync(src, "utf8");
+  const destContent = fs.existsSync(dest) ? fs.readFileSync(dest, "utf8") : "";
+
+  if (normalizeEol(srcContent) !== normalizeEol(destContent)) {
+    copyFile(src, dest, AUTO_ROUTE_SCRIPT);
+  } else {
+    info("Auto-route script unchanged");
+  }
+
+  configureAutoRouteHook(dest);
+}
+
+function configureAutoRouteHook(scriptPath) {
+  const parsed = readSettingsJson();
+  if (parsed === null && fs.existsSync(SETTINGS_JSON)) {
+    warn("settings.json has invalid JSON — cannot configure auto-route hook");
+    return;
+  }
+  const settings = parsed || {};
+  if (!settings.hooks) settings.hooks = {};
+  if (!settings.hooks.UserPromptSubmit) settings.hooks.UserPromptSubmit = [];
+
+  const cmd = `node "${scriptPath.replace(/\\/g, "\\\\")}"`;
+  const hasAutoRoute = settings.hooks.UserPromptSubmit.some((entry) =>
+    entry.hooks && entry.hooks.some((h) => h.command && h.command.includes(AUTO_ROUTE_SCRIPT))
+  );
+
+  if (hasAutoRoute) {
+    info("Auto-route hook already configured");
+    return;
+  }
+
+  settings.hooks.UserPromptSubmit.push({
+    matcher: "",
+    hooks: [{ type: "command", command: cmd }],
+  });
+
+  if (!isSymlink(SETTINGS_JSON)) {
+    fs.writeFileSync(SETTINGS_JSON, JSON.stringify(settings, null, 2));
+    success("Auto-route hook configured in settings.json");
+  } else {
+    warn("Skipping settings.json write — target is a symlink");
+  }
+}
+
 // ─── Utility Scripts ─────────────────────────────────────────────────────────
 
 const UTILITY_SCRIPTS = ["gsd-t-tools.js", "gsd-t-statusline.js"];
@@ -596,6 +656,9 @@ function doInstall(opts = {}) {
 
   heading("Update Check (Session Start)");
   installUpdateCheck();
+
+  heading("Auto-Route (UserPromptSubmit)");
+  installAutoRoute();
 
   heading("Utility Scripts");
   installUtilityScripts();

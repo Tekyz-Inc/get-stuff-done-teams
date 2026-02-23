@@ -94,6 +94,7 @@ This will replace changed command files, back up your CLAUDE.md if customized, a
 | Command | Purpose | Auto |
 |---------|---------|------|
 | `/user:gsd {request}` | Describe what you need → auto-routes to the right command | Manual |
+| _(any plain text)_ | Auto-routed via UserPromptSubmit hook — no leading `/` needed | Auto |
 
 ### Help & Onboarding
 

@@ -63,6 +63,7 @@ GSD-T reads all state files and tells you exactly where you left off.
 | Command | Purpose | Auto |
 |---------|---------|------|
 | `/user:gsd {request}` | Describe what you need → auto-routes to the right command | Manual |
+| _(any plain text)_ | Auto-routed via UserPromptSubmit hook — no leading `/` needed | Auto |
 
 ### Help & Onboarding
 
