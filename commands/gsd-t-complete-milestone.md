@@ -17,6 +17,30 @@ If status is not VERIFIED:
 
 If `--force` flag provided, proceed with warning in archive.
 
+## Step 1.5: Smoke Test Artifact Gate (MANDATORY — Categories 2 and 7)
+
+Before archiving, verify that high-risk features have testable artifacts. This gate catches what code review and unit tests cannot.
+
+**Scan this milestone's domains for any of the following:**
+- Audio capture/playback, speech recognition/synthesis
+- GPU/WebGPU/WebGL compute or rendering
+- ML inference, model loading, quantized model execution
+- Background workers, service workers, IPC channels
+- Native APIs (camera, bluetooth, filesystem, microphone)
+- WebAssembly modules
+- Any feature whose only prior "test" was manual user interaction
+
+**For each high-risk feature found:**
+
+1. Check that a smoke test script exists (in `scripts/`, `tests/`, or `.gsd-t/smoke-tests/`)
+2. Check that the script was run and passed (evidence in token-log.md, CI output, or a `.gsd-t/smoke-tests/{feature}.md` file with run results)
+3. If manual steps remain unavoidable: `.gsd-t/smoke-tests/{feature}.md` must exist documenting exact steps and confirming they passed
+
+**If any high-risk feature lacks a smoke test artifact → BLOCK completion.**
+Do not proceed to archiving. Create the smoke test now, run it, confirm it passes, then continue.
+
+> This gate exists because complete-milestone is the last opportunity to catch "shipped blind" features before they become user-facing bugs requiring 15 debug sessions to resolve.
+
 ## Step 2: Gap Analysis Gate
 
 After verification passes, run a gap analysis against `docs/requirements.md` scoped to this milestone's deliverables:

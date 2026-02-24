@@ -24,6 +24,37 @@ Run the full test audit directly:
 
 Verification cannot complete if any test fails or critical contract gaps remain.
 
+## Step 2.5: High-Risk Domain Gate (MANDATORY — Categories 2 and 7)
+
+Before running standard verification dimensions, check whether this milestone involves any high-risk domain:
+
+**High-risk domains**: audio capture/playback, GPU/WebGPU/WebGL, ML/inference/model loading, background workers, native APIs (camera, bluetooth, filesystem), IPC, WebAssembly, real-time data streams.
+
+**If any high-risk domain is present:**
+
+### Category 2 — Technology Reliability Gate
+Initialization success does not prove runtime correctness. These technologies can initialize cleanly and fail silently at runtime (compute shader errors, audio context state loss, worker message drops, inference failures).
+
+For each high-risk domain:
+1. A **smoke test script** must exist that exercises actual runtime behavior — not just initialization
+2. The smoke test must have been run and passed
+3. "It initialized without throwing" is NOT a passing smoke test
+4. If no smoke test exists → create one now before proceeding with any other verification dimension
+5. Smoke test failure → verification FAIL (not WARN)
+
+### Category 7 — Manual QA as Test Gate
+"The user will manually test it" is not a test artifact. Scan the milestone's domains for any feature whose acceptance criteria relies solely on manual user testing.
+
+For each such feature:
+1. A smoke test script must exist that automates as much of the verification as possible
+2. Any remaining manual steps must be explicitly documented in `.gsd-t/smoke-tests/{feature}.md` with exact steps and expected outcomes
+3. The documented manual steps must have been executed and passed (noted in the file)
+4. If neither automated smoke test nor documented manual procedure exists → verification FAIL
+
+> These gates exist because the pre-commit checklist "did you run the affected tests?" is meaningless when the only test is "user presses Ctrl+Space." That is not a test. It is hope.
+
+---
+
 ## Step 3: Define Verification Dimensions
 
 Standard dimensions (adjust based on project):

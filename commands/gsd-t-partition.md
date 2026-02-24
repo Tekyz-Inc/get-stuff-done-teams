@@ -17,6 +17,63 @@ If `.gsd-t/` doesn't exist, create the full directory structure:
 └── progress.md
 ```
 
+## Step 1.5: Assumption Audit (MANDATORY — complete before domain work begins)
+
+Before partitioning, surface and lock down all assumptions baked into the requirements. Unexamined assumptions become architectural decisions no one approved.
+
+Work through each category below. For every match found, write the explicit disposition into the affected domain's `constraints.md` and into the Decision Log in `.gsd-t/progress.md`.
+
+---
+
+### Category 1: External Reference Assumptions
+
+Scan requirements for any external project, file, component, library, or URL mentioned by name or path. For each one found, explicitly confirm which disposition applies — and lock it in the contract before any domain touches it:
+
+| Disposition | Meaning |
+|-------------|---------|
+| `USE`       |  Import and depend on it — treat as a dependency |
+| `INSPECT`   |  Read source for patterns only — do not import or copy code |
+| `BUILD`     |  Build equivalent functionality from scratch — do not read or use it |
+
+**No external reference survives partition without a locked disposition.**
+
+Trigger phrases to watch for: "reference X", "like X", "similar to Y", "see W for how it handles Z", any file path or project name, any URL.
+
+> If Level 3 (Full Auto): state the inferred disposition and reason; lock it unless it's ambiguous.
+> If ambiguous (e.g., "reference X" could mean USE or INSPECT): pause and ask the user before proceeding.
+
+---
+
+### Category 3: Black Box Assumptions
+
+Any component, module, or library **not written in this milestone** that a domain will call, import, or depend on → the agent that executes that domain must read its source before treating it as correct. This includes internal project modules written in a previous milestone.
+
+For each such component identified:
+1. Name it explicitly in the domain's `constraints.md` under a `## Must Read Before Using` section
+2. List the specific functions or behaviors the domain depends on
+3. The execute agent is prohibited from treating it as a black box — it must read the listed items before implementing
+
+---
+
+### Category 4: User Intent Assumptions
+
+Scan requirements for ambiguous language. Flag every instance where intent could be interpreted more than one way. Common patterns:
+
+- "like X" / "similar to Y" — does this mean the same UX, the same architecture, or just the same concept?
+- "the way X handles it" — inspiration, direct port, or behavioral equivalent?
+- "reference Z" — does this mean read it, use it, or replicate it?
+- "build something that does W" — from scratch, or using an existing library?
+- Any requirement where a reasonable developer could make two different implementation choices
+
+For each ambiguous item:
+1. State the two (or more) possible interpretations explicitly
+2. State which interpretation you are locking in and why
+3. If genuinely unclear: pause and ask the user — do not infer and proceed
+
+> **Rule**: Ambiguous intent that reaches execute unresolved becomes a wrong assumption. Resolve it here or pay for it in debug sessions.
+
+---
+
 ## Step 2: Identify Domains
 
 Decompose the milestone into 2-5 independent domains. Each domain should:

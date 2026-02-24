@@ -71,6 +71,27 @@ The contract didn't specify something it should have. Symptoms:
 
 → Update the contract, then fix implementations on both sides.
 
+## Step 2.5: Reproduce First (MANDATORY — Category 5)
+
+**A fix attempt without a reproduction script is a guess, not a fix.**
+
+Before touching any code:
+
+1. **Write a reproduction script** that demonstrates the bug. Automate as much as possible:
+   - Unit/integration bug → write a failing test that proves the bug exists
+   - UI/audio/GPU/worker bug (not fully automatable) → write the closest possible script: a headless probe, a log-based trigger, a mock that replicates the failure path. Document the manual remainder explicitly.
+   - If you cannot write any form of reproduction → you do not yet understand the bug. Keep investigating until you can.
+
+2. **Run the reproduction** and confirm it fails before attempting any fix.
+
+3. **Never close a debug session with "ready for testing."** A session closes only when the reproduction script passes. If manual steps remain, document them explicitly and confirm they passed.
+
+4. **Log the reproduction script path** in `.gsd-t/progress.md` Decision Log: what it tests, how to run it, what passing looks like.
+
+> This rule exists because code review cannot detect silent runtime failures (GPU compute shaders, audio context state, worker message drops). Only execution proves correctness.
+
+---
+
 ## Step 3: Debug (Solo or Team)
 
 ### Deviation Rules
@@ -84,13 +105,14 @@ When you encounter unexpected situations during the fix:
 **3-attempt limit**: If your fix doesn't work after 3 attempts, log to `.gsd-t/deferred-items.md` and stop trying.
 
 ### Solo Mode
-1. Reproduce the issue
+1. Reproduce the issue — **reproduction script must exist before step 2** (see Step 2.5)
 2. Trace through the relevant domain(s)
 3. Check contract compliance at each boundary
 4. Identify root cause
 5. **Destructive Action Guard**: If the fix requires destructive or structural changes (dropping tables, removing columns, changing schema, replacing architecture patterns, removing working modules) → STOP and present the change to the user with what exists, what will change, what will break, and a safe migration path. Wait for explicit approval.
 6. Fix and test — **adapt the fix to existing structures**, not the other way around
 7. Update contracts if needed
+8. **Category 6 — Bug Isolation Check**: After applying the fix, run the FULL test suite and all smoke tests — not just the reproduction script. Do not assume the bug was isolated. A fix that resolves one failure frequently uncovers adjacent failures. Every test must pass before the session closes.
 
 ### Team Mode (for complex cross-domain bugs)
 ```
