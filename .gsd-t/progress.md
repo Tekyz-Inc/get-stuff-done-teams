@@ -3,7 +3,7 @@
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: READY
 ## Date: 2026-02-18
-## Version: 2.31.16
+## Version: 2.31.17
 
 ## Current Milestone
 
@@ -195,6 +195,7 @@ No integration checkpoints expected — single domain milestone.
 - 2026-02-23 12:30: Auto-Init Guard exempt list narrowed (v2.31.12) — removed gsd-t-prompt and gsd-t-brainstorm from exempt list; every command now triggers auto-init if project docs are missing except structural commands (init, init-scan-setup, help, version-update, version-update-all); updated templates/CLAUDE-global.md and ~/.claude/CLAUDE.md.
 - 2026-02-23 14:45: Emoji table alignment convention (v2.31.16) — added ## Markdown Tables section to Code Standards in templates/CLAUDE-global.md and ~/.claude/CLAUDE.md; convention: add one extra space after emoji in table cells to compensate for 2-char terminal display width; also pad all column values to widest value width.
 - 2026-02-23 14:30: Init version detection (v2.31.15) — new projects start at `0.1.00` instead of `0.1.10`; existing repos with a manifest version (package.json, pyproject.toml, Cargo.toml, etc.) use that version as starting point; updated gsd-t-init.md Step 5 with detection logic, templates/CLAUDE-global.md and ~/.claude/CLAUDE.md versioning section.
+- 2026-02-23 18:30: Domain subagent isolation in execute (v2.31.17) — rewrote gsd-t-execute.md Solo Mode to spawn each domain as an independent Task subagent (model: sonnet, bypassPermissions) instead of running tasks inline; orchestrator stays lightweight (spawns, collects summaries, verifies checkpoints); observability logging moved to per-domain-subagent level; QA subagent runs inside each domain subagent after each task; NEEDS-APPROVAL deferred-items pattern for destructive actions that can't pause for user input mid-subagent; prevents parent context compaction during heavy execute phases.
 - 2026-02-23 14:10: Smart router continuation UX (v2.31.14) — added Step 2a (Continuation Check) to commands/gsd.md; when mid-task follow-up detected, router outputs `→ /gsd ──▶ continue /user:gsd-t-{last-command}` instead of new routing announcement; phase-to-command mapping table included; updated gsd-t-help.md gsd summary to document continuation behavior.
 
 ## Session Log

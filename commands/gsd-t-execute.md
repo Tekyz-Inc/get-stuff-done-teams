@@ -19,10 +19,11 @@ Identify:
 - Which tasks are unblocked (no pending dependencies)
 - Which tasks are blocked (waiting on checkpoints)
 
-## Step 2: QA Setup
+## Step 2: QA Subagent
 
-After completing each task, spawn a QA subagent via the Task tool to run tests:
+In solo mode, QA runs inside each domain subagent (see Step 3). In team mode, the lead spawns QA subagents at each domain checkpoint using the pattern below.
 
+**QA subagent prompt:**
 ```
 Task subagent (general-purpose, model: haiku):
 "Run the full test suite for this project and report pass/fail counts.
@@ -31,20 +32,8 @@ Write edge case tests for any new code paths in this task: {task description}.
 Report: test pass/fail status and any coverage gaps found."
 ```
 
-**OBSERVABILITY LOGGING (MANDATORY):**
-Before spawning — run via Bash:
-`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M") && TOK_START=${CLAUDE_CONTEXT_TOKENS_USED:-0} && TOK_MAX=${CLAUDE_CONTEXT_TOKENS_MAX:-200000}`
-After subagent returns — run via Bash:
-`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && TOK_END=${CLAUDE_CONTEXT_TOKENS_USED:-0} && DURATION=$((T_END-T_START))`
-Compute tokens and compaction:
-- No compaction (TOK_END >= TOK_START): `TOKENS=$((TOK_END-TOK_START))`, COMPACTED=null
-- Compaction detected (TOK_END < TOK_START): `TOKENS=$(((TOK_MAX-TOK_START)+TOK_END))`, COMPACTED=$DT_END
-Append to `.gsd-t/token-log.md` (create with header `| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Tokens | Compacted |` if missing):
-`| {DT_START} | {DT_END} | gsd-t-execute | Step 2 | haiku | {DURATION}s | task: {task-name}, {pass/fail} | {TOKENS} | {COMPACTED} |`
 If QA found issues, append each to `.gsd-t/qa-issues.md` (create with header `| Date | Command | Step | Model | Duration(s) | Severity | Finding |` if missing):
 `| {DT_START} | gsd-t-execute | Step 2 | haiku | {DURATION}s | {severity} | {finding} |`
-
-QA failure on any task blocks proceeding to the next task.
 
 ## Step 3: Choose Execution Mode
 
@@ -60,42 +49,81 @@ Before choosing solo or team mode, read the `## Wave Execution Groups` section i
 
 **If no wave groups are defined** (older plans): fall back to the `Execution Order` list.
 
-### Solo Mode (default)
-Execute tasks yourself following the wave groups (or execution order) in `integration-points.md`.
+### Solo Mode (default) — Domain Subagent Pattern
 
-### Deviation Rules (MANDATORY for every task)
+Each domain's work runs in an isolated Task subagent with a fresh context window. The orchestrator (this agent) stays lightweight — it only spawns subagents, collects summaries, verifies checkpoints, and updates progress.
 
-When you encounter unexpected situations during a task:
+**OBSERVABILITY LOGGING (MANDATORY) — repeat for every domain subagent spawn:**
 
-1. **Bug in existing code blocking progress** → Fix it immediately, up to 3 attempts. If still blocked after 3 attempts, add to `.gsd-t/deferred-items.md` and move to the next task.
-2. **Missing functionality that the task clearly requires** → Add the minimum required code to unblock the task. Do not gold-plate. Document in commit message.
-3. **Blocker (missing file, wrong API, broken dependency)** → Fix the blocker and continue. Add a note to `.gsd-t/deferred-items.md` if the fix was more than trivial.
-4. **Architectural change required** → STOP immediately. Do NOT proceed. Apply the Destructive Action Guard: explain what exists, what needs to change, what breaks, and a migration path. Wait for explicit user approval.
+Before spawning — run via Bash:
+`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M") && TOK_START=${CLAUDE_CONTEXT_TOKENS_USED:-0} && TOK_MAX=${CLAUDE_CONTEXT_TOKENS_MAX:-200000}`
 
-**3-attempt limit**: If any fix attempt fails 3 times, move on — don't loop. Log to `.gsd-t/deferred-items.md`.
+After subagent returns — run via Bash:
+`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && TOK_END=${CLAUDE_CONTEXT_TOKENS_USED:-0} && DURATION=$((T_END-T_START))`
 
-For each task:
-1. Read the task description, files list, and contract refs
-2. Read the relevant contract(s) — implement EXACTLY what they specify
-3. Read the domain's constraints.md — follow all patterns
-4. **Destructive Action Guard**: Before implementing, check if the task involves any destructive or structural changes (DROP TABLE, schema changes that lose data, removing existing modules, replacing architecture patterns). If YES → STOP and present the change to the user with what exists, what will change, what will break, and a safe migration path. Wait for explicit approval before proceeding.
-5. Implement the task
-6. Verify acceptance criteria are met
-7. **Write comprehensive tests for every new or changed code path** (MANDATORY — no exceptions):
-   a. **Unit/integration tests**: Cover the happy path, common edge cases, error cases, and boundary conditions for every new or modified function
-   b. **Playwright E2E tests** (if UI/routes/flows/modes changed): Detect `playwright.config.*` or Playwright in dependencies. If present:
-      - Create NEW specs for new features, pages, modes, or flows — not just update existing ones
-      - Cover: happy path, form validation errors, empty states, loading states, error states, responsive breakpoints
-      - Cover: all feature modes/flags (e.g., if `--component` mode was added, test `--component` mode specifically)
-      - Cover: common edge cases (network errors, invalid input, rapid clicking, back/forward navigation)
-      - Use descriptive test names that explain the scenario being tested
-   c. If no test framework exists: set one up as part of the task (at minimum, Playwright for E2E)
-   d. **"No feature code without test code"** — implementation and tests are ONE deliverable, not two separate steps
-8. **Run ALL tests** — unit, integration, and full Playwright suite. Fix any failures before proceeding (up to 2 attempts)
-9. Run the Pre-Commit Gate checklist from CLAUDE.md — update ALL affected docs BEFORE committing
-10. **Commit immediately** after each task: `feat({domain}/task-{N}): {description}` — do NOT batch commits at phase end
-11. Update `.gsd-t/progress.md` — mark task complete
-12. If you've reached a CHECKPOINT in integration-points.md, pause and verify the contract before continuing
+Compute tokens and compaction:
+- No compaction (TOK_END >= TOK_START): `TOKENS=$((TOK_END-TOK_START))`, COMPACTED=null
+- Compaction detected (TOK_END < TOK_START): `TOKENS=$(((TOK_MAX-TOK_START)+TOK_END))`, COMPACTED=$DT_END
+
+Append to `.gsd-t/token-log.md` (create with header `| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Tokens | Compacted |` if missing):
+`| {DT_START} | {DT_END} | gsd-t-execute | domain:{domain-name} | sonnet | {DURATION}s | {N} tasks, {pass/fail} | {TOKENS} | {COMPACTED} |`
+
+**For each domain (in wave order), spawn:**
+
+```
+Task subagent (general-purpose, model: sonnet, mode: bypassPermissions):
+"You are executing all tasks for the {domain-name} domain.
+
+Read before starting (load your own context — do not assume anything):
+1. CLAUDE.md — project conventions (CRITICAL)
+2. .gsd-t/domains/{domain-name}/scope.md — what you own
+3. .gsd-t/domains/{domain-name}/constraints.md — patterns to follow
+4. ALL files in .gsd-t/contracts/ — your interfaces
+5. .gsd-t/domains/{domain-name}/tasks.md — your task list
+6. .gsd-t/contracts/integration-points.md — wave order and checkpoints
+
+Execute each incomplete task in order:
+1. Read task description, files list, and contract refs
+2. Read relevant contracts — implement EXACTLY what they specify
+3. Destructive Action Guard: if task involves DROP TABLE, schema changes that lose
+   data, removing working modules, or replacing architecture patterns → write a
+   NEEDS-APPROVAL entry to .gsd-t/deferred-items.md, skip the task, continue
+4. Implement the task
+5. Verify acceptance criteria are met
+6. Write comprehensive tests (MANDATORY — no feature code without test code):
+   - Unit/integration: happy path + edge cases + error cases for every new/changed function
+   - Playwright E2E (if UI/routes/flows changed): new specs for new features, cover
+     all modes, form validation, empty/loading/error states, common edge cases
+   - If no test framework exists: set one up as part of this task
+7. Run ALL tests — unit, integration, Playwright. Fix failures (up to 2 attempts)
+8. Run Pre-Commit Gate checklist from CLAUDE.md — update all affected docs BEFORE committing
+9. Commit immediately: feat({domain-name}/task-{N}): {description}
+10. Update .gsd-t/progress.md — mark task complete
+11. Spawn QA subagent (model: haiku) after each task:
+    'Run the full test suite. Read .gsd-t/contracts/ for definitions.
+     Report: pass/fail counts and coverage gaps.'
+    If QA fails, fix before proceeding. Append issues to .gsd-t/qa-issues.md.
+
+Deviation rules:
+- Bug blocking progress → fix, max 3 attempts; if still blocked, log to
+  .gsd-t/deferred-items.md and continue to next task
+- Missing dependency task requires → add minimum needed, document in commit message
+- Non-trivial blocker → fix and log to .gsd-t/deferred-items.md
+- Architectural change required → write NEEDS-APPROVAL to .gsd-t/deferred-items.md,
+  skip the task, continue — never self-approve structural changes
+
+When all tasks are complete, report:
+- Tasks completed: N/N
+- Test results: pass/fail counts
+- Commits made: list of commit hashes
+- Deferred items (if any): list from .gsd-t/deferred-items.md"
+```
+
+**After each domain subagent returns (orchestrator responsibilities):**
+1. Log to `.gsd-t/token-log.md` (see observability block above)
+2. Check `.gsd-t/deferred-items.md` for any `NEEDS-APPROVAL` entries — if found, STOP and present to user before spawning the next domain
+3. If a CHECKPOINT is reached per `integration-points.md`, verify contract compliance (see Step 4) before proceeding to the next wave/domain
+4. Update `.gsd-t/progress.md` with domain completion status
 
 ### Team Mode (when agent teams are enabled)
 Spawn teammates for domains within the same wave. Only domains in the same wave can run in parallel — do not spawn teammates for domains in different waves simultaneously:
