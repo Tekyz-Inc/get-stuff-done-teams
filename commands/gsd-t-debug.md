@@ -41,6 +41,91 @@ Read:
 3. `.gsd-t/contracts/` — all contracts
 4. `.gsd-t/domains/*/scope.md` — domain boundaries
 
+## Step 1.5: Debug Loop Detection (MANDATORY)
+
+Before attempting any fix, check whether this issue has been through multiple failed debug sessions. This prevents the 10–20 attempt death spiral that happens when the same approach is retried repeatedly.
+
+**Detection:**
+1. Scan `.gsd-t/progress.md` Decision Log for `[debug]` entries related to this issue (match by keyword, error name, or component)
+2. Count distinct debug sessions that attempted to fix this issue
+3. Check `.gsd-t/deferred-items.md` for any entries matching this issue
+
+**If 3 or more prior sessions found → Enter Deep Research Mode (below). Do NOT attempt another fix with the same approach.**
+
+**If fewer than 3 sessions → Proceed to Step 2 normally.**
+
+---
+
+### Deep Research Mode (triggered when debug loop detected)
+
+The current approach has failed 3+ times. This means the root cause is not yet understood. A different strategy — possibly a fundamentally different technical approach — is required.
+
+**OBSERVABILITY LOGGING (MANDATORY):**
+Before spawning — run via Bash:
+`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M") && TOK_START=${CLAUDE_CONTEXT_TOKENS_USED:-0} && TOK_MAX=${CLAUDE_CONTEXT_TOKENS_MAX:-200000}`
+
+```
+Spawn a deep research team (run all three in parallel):
+
+- Teammate "researcher-root-cause": Take the broadest possible look at
+  the problem. Ignore prior fix attempts. Read the full component,
+  its dependencies, contracts, and all error traces from scratch.
+  What is the actual root cause — not the symptom? Consider that the
+  real issue may be architectural, not in the code being patched.
+
+- Teammate "researcher-alternatives": Enumerate 3–5 fundamentally
+  different ways to solve this problem. Include approaches that would
+  require refactoring or changing the technical direction entirely.
+  For each: what are the trade-offs, effort, and risk?
+
+- Teammate "researcher-prior-art": Search external sources, docs,
+  GitHub issues, and known patterns for this class of bug. Has this
+  problem been documented elsewhere? What did others find? Are there
+  framework-specific pitfalls or known workarounds?
+
+Lead: Wait for all three researchers to complete. Then synthesize:
+1. What is the true root cause based on full investigation?
+2. What are the viable solution paths (ranked by confidence)?
+3. Does any path require a different technical approach than what has been tried?
+4. What is the recommended path and why?
+```
+
+After team completes — run via Bash:
+`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && TOK_END=${CLAUDE_CONTEXT_TOKENS_USED:-0} && DURATION=$((T_END-T_START))`
+Compute tokens and compaction:
+- No compaction (TOK_END >= TOK_START): `TOKENS=$((TOK_END-TOK_START))`, COMPACTED=null
+- Compaction detected (TOK_END < TOK_START): `TOKENS=$(((TOK_MAX-TOK_START)+TOK_END))`, COMPACTED=$DT_END
+Append to `.gsd-t/token-log.md`:
+`| {DT_START} | {DT_END} | gsd-t-debug | Step 1.5 | sonnet | {DURATION}s | deep research loop break: {issue summary} | {TOKENS} | {COMPACTED} |`
+
+**STOP. Present findings to the user before making any changes:**
+
+```
+## Debug Loop Break — Research Findings
+
+**Issue**: {issue summary}
+**Prior sessions**: {count} failed attempts
+
+**Root Cause (revised)**: {finding from researcher-root-cause}
+
+**Solution Options**:
+| # | Approach | Effort | Risk | Notes |
+|---|----------|--------|------|-------|
+| 1 | {option} | {effort} | {risk}  | {notes} |
+| 2 | {option} | {effort} | {risk}  | {notes} |
+| 3 | {option} | {effort} | {risk}  | {notes} |
+
+**Recommendation**: {recommended option and rationale}
+
+**Does this require a different technical direction?** {Yes/No — explain}
+
+Please select an option (or provide your own direction) before I proceed.
+```
+
+**Wait for explicit user selection/approval.** Do NOT proceed with any fix until the user confirms the chosen approach. If the recommendation requires refactoring or changing technical direction, the Destructive Action Guard applies — present the full migration path and wait for approval.
+
+---
+
 ## Step 2: Classify the Bug
 
 Based on the user's description ($ARGUMENTS), determine:
@@ -102,7 +187,7 @@ When you encounter unexpected situations during the fix:
 3. **Blocker (missing file, wrong API response)** → Fix blocker and continue. Log if non-trivial.
 4. **Architectural change required to fix correctly** → STOP. Explain what exists, what needs to change, what breaks, and a migration path. Wait for user approval. Never self-approve.
 
-**3-attempt limit**: If your fix doesn't work after 3 attempts, log to `.gsd-t/deferred-items.md` and stop trying.
+**3-attempt limit**: If your fix doesn't work after 3 attempts within this session, treat it as a loop. Do NOT keep trying the same approach. Log the attempt to `.gsd-t/progress.md` Decision Log, then return to Step 1.5 and run Deep Research Mode before any further attempts. Present findings and options to the user before proceeding.
 
 ### Solo Mode
 1. Reproduce the issue — **reproduction script must exist before step 2** (see Step 2.5)

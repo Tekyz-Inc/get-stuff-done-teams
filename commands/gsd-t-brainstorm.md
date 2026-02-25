@@ -84,26 +84,42 @@ If mode is unclear, ask: "What kind of thinking would be most useful right now �
 4. When energy shifts to a new idea, follow it
 5. Periodically collect the best ideas into a running list
 
-### Team Mode (if enabled and user requests):
+### Deep Research Phase (MANDATORY — always runs before Step 5):
+
+Before drawing any conclusions or presenting final insights, spawn a team of parallel research agents. **This is not optional.** No brainstorm session may land (Step 5) until this research phase is complete. The purpose is to ensure conclusions are grounded in evidence — not just intuition — so the brainstorm surfaces the genuinely best path forward and avoids going down the wrong path.
 
 **OBSERVABILITY LOGGING (MANDATORY):**
 Before spawning the team — run via Bash:
 `T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M") && TOK_START=${CLAUDE_CONTEXT_TOKENS_USED:-0} && TOK_MAX=${CLAUDE_CONTEXT_TOKENS_MAX:-200000}`
 
 ```
-Create an agent team for brainstorming:
+Spawn a deep research team (run all three in parallel):
 
-- Teammate "visionary": Push boundaries. What's the most ambitious
-  version? What would make this remarkable? Think in terms of
-  possibilities, not constraints.
+- Teammate "researcher-landscape": Search external sources, docs, and
+  prior art. What solutions already exist for this problem or idea?
+  What have others tried? What are the known pitfalls? What does the
+  current state of the art look like? Produce a research brief with
+  concrete findings and citations.
 
-- Teammate "pragmatist": Keep it real. What can we actually build?
-  What's the shortest path to value? Where are the hidden costs?
+- Teammate "researcher-alternatives": Enumerate 3–5 fundamentally
+  different technical or architectural approaches to this problem.
+  For each: what are the trade-offs, risks, costs, and prerequisites?
+  Which is most promising and why? Consider approaches that might
+  require a completely different direction from the current thinking.
 
-- Teammate "devil's advocate": Challenge everything. Why might this
-  fail? What are we not seeing? Which assumptions are weakest?
+- Teammate "researcher-analogies": Look outside the immediate domain.
+  How have adjacent industries, other products, or different technical
+  domains solved similar problems? Find non-obvious analogies and
+  extract transferable insights that the team may not have considered.
 
-Lead: Synthesize the best insights from all three perspectives.
+Lead: Wait for all three researchers to report before proceeding.
+Then synthesize:
+1. What did we learn that changes or validates the initial thinking?
+2. Which ideas from the brainstorm are supported by research findings?
+3. Which ideas should be reconsidered or ruled out based on evidence?
+4. What is the most promising path forward, and what is the evidence for it?
+
+Do NOT proceed to Step 5 until this synthesis is complete.
 ```
 
 After team completes — run via Bash:
@@ -112,7 +128,7 @@ Compute tokens and compaction:
 - No compaction (TOK_END >= TOK_START): `TOKENS=$((TOK_END-TOK_START))`, COMPACTED=null
 - Compaction detected (TOK_END < TOK_START): `TOKENS=$(((TOK_MAX-TOK_START)+TOK_END))`, COMPACTED=$DT_END
 Append to `.gsd-t/token-log.md` (create with header `| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Tokens | Compacted |` if missing):
-`| {DT_START} | {DT_END} | gsd-t-brainstorm | Step 3 | sonnet | {DURATION}s | team brainstorm: {topic summary} | {TOKENS} | {COMPACTED} |`
+`| {DT_START} | {DT_END} | gsd-t-brainstorm | Step 3 | sonnet | {DURATION}s | deep research: {topic summary} | {TOKENS} | {COMPACTED} |`
 
 ## Step 4: Capture the Sparks
 
