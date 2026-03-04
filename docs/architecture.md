@@ -47,10 +47,10 @@ The framework has no runtime — it is consumed entirely by Claude Code's slash 
 - **Distillation step (complete-milestone Step 2.5)**: Scans `.gsd-t/events/*.jsonl` for patterns seen ≥3 times, proposes CLAUDE.md / constraints.md rule additions, user confirms before write.
 - **`commands/gsd-t-reflect.md`**: On-demand retrospective command (47th command). Reads current milestone events, generates `.gsd-t/retrospectives/YYYY-MM-DD-{milestone}.md` with sections: What Worked, What Failed, Patterns Found, Proposed Memory Updates.
 
-### Planned: Real-Time Agent Dashboard (M15 — requires M14)
-- **`scripts/gsd-t-dashboard-server.js`** (~80 lines, zero external deps): Node.js SSE server watching `.gsd-t/events/*.jsonl`. Pushes new events to connected browser clients.
-- **`scripts/gsd-t-dashboard.html`**: React Flow + Dagre via CDN (no build step). Renders agent hierarchy from `parent_agent_id` links. Live event overlay streamed via SSE. Reference mockup: `scripts/gsd-t-dashboard-mockup.html`.
-- **`commands/gsd-t-visualize.md`**: Launches dashboard server and opens browser. Stops server on completion.
+### Real-Time Agent Dashboard (M15 — in progress)
+- **`scripts/gsd-t-dashboard-server.js`** (141 lines, zero external deps, NEW in M15 server Task 1): Node.js SSE server watching `.gsd-t/events/*.jsonl`. Exports: `startServer(port, eventsDir, htmlPath)`, `tailEventsFile(filePath, callback)`, `readExistingEvents(eventsDir, maxEvents)`, `parseEventLine(line)`, `findEventsDir(projectDir)`. HTTP endpoints: `GET /` (serve dashboard HTML), `GET /events` (SSE stream, max 500 events on connect + tail for new), `GET /ping` (health check), `GET /stop` (graceful shutdown). CLI: `--port`, `--events`, `--detach` (writes PID to `.gsd-t/dashboard.pid`), `--stop` (kills running server). Symlink protection via `lstatSync` pattern.
+- **`scripts/gsd-t-dashboard.html`** (planned): React Flow + Dagre via CDN (no build step). Renders agent hierarchy from `parent_agent_id` links. Live event overlay streamed via SSE. Reference mockup: `scripts/gsd-t-dashboard-mockup.html`.
+- **`commands/gsd-t-visualize.md`** (planned): Launches dashboard server and opens browser. Stops server on completion.
 
 ### Examples (examples/)
 - **Purpose**: Reference project structure and settings

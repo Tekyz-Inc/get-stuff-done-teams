@@ -28,7 +28,7 @@
 | REQ-020 | Pre-Task Experience Retrieval — execute and debug retrieve [failure]/[learning] Decision Log entries matching the current domain/task before spawning subagents (Reflexion pattern); warning injected into subagent prompt if relevant past failures found | P1 | complete (M14) | validated by use |
 | REQ-021 | Milestone Distillation — complete-milestone runs a distillation step: scans the event stream for patterns found ≥3 times, proposes concrete constraints.md / CLAUDE.md rule additions, user confirms before write | P2 | complete (M14) | validated by use |
 | REQ-022 | gsd-t-reflect command — reads .gsd-t/events/*.jsonl for the current milestone, generates structured retrospective (what worked, what failed, patterns found, proposed memory updates), outputs to .gsd-t/retrospectives/YYYY-MM-DD-{milestone}.md | P2 | complete (M14) | validated by use |
-| REQ-023 | Real-Time Agent Dashboard — gsd-t-visualize command starts a zero-dependency SSE server watching .gsd-t/events/ and opens gsd-t-dashboard.html in the browser; dashboard renders agent hierarchy (React Flow + Dagre via CDN) with live event overlay; all 6 interaction patterns visualized (wave/execute, parallel domains, scan, brainstorm, debug, quick/error) | P2 | in progress (M15) | — |
+| REQ-023 | Real-Time Agent Dashboard — gsd-t-visualize command starts a zero-dependency SSE server watching .gsd-t/events/ and opens gsd-t-dashboard.html in the browser; dashboard renders agent hierarchy (React Flow + Dagre via CDN) with live event overlay; all 6 interaction patterns visualized (wave/execute, parallel domains, scan, brainstorm, debug, quick/error) | P2 | in progress (M15 server Task 1 complete) | test/dashboard-server.test.js (23 tests) |
 
 ## Technical Requirements
 
