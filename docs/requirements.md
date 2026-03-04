@@ -1,6 +1,6 @@
 # Requirements — GSD-T Framework (@tekyzinc/gsd-t)
 
-## Last Updated: 2026-02-18 (Post-M13, Scan #6)
+## Last Updated: 2026-03-04 (M14 Executed — Execution Intelligence Layer complete)
 
 ## Functional Requirements
 
@@ -23,6 +23,12 @@
 | REQ-015 | Execution Quality — Deviation Rules (4-rule, 3-attempt), per-task commits, wave spot-check | P2 | complete (M11) | validated by use |
 | REQ-016 | Planning Intelligence — CONTEXT.md from discuss, plan fidelity enforcement, plan validation subagent, REQ traceability | P2 | complete (M12) | validated by use |
 | REQ-017 | Tooling & UX — gsd-t-tools.js state CLI, gsd-t-statusline.js context bar, gsd-t-health command, gsd-t-pause command | P2 | complete (M13) | validated by use |
+| REQ-018 | Execution Event Stream — append-only JSONL event log (.gsd-t/events/) capturing every command invocation, subagent spawn, phase transition, and decision with schema: ts, event_type, command, phase, agent_id, parent_agent_id, trace_id, reasoning, outcome | P1 | complete (M14) | test/event-stream.test.js |
+| REQ-019 | Outcome-Tagged Decision Log — Decision Log entries prefixed with [success], [failure], [learning], [deferred] outcome tags for all new entries written by execute, debug, complete-milestone | P1 | complete (M14) | validated by use |
+| REQ-020 | Pre-Task Experience Retrieval — execute and debug retrieve [failure]/[learning] Decision Log entries matching the current domain/task before spawning subagents (Reflexion pattern); warning injected into subagent prompt if relevant past failures found | P1 | complete (M14) | validated by use |
+| REQ-021 | Milestone Distillation — complete-milestone runs a distillation step: scans the event stream for patterns found ≥3 times, proposes concrete constraints.md / CLAUDE.md rule additions, user confirms before write | P2 | complete (M14) | validated by use |
+| REQ-022 | gsd-t-reflect command — reads .gsd-t/events/*.jsonl for the current milestone, generates structured retrospective (what worked, what failed, patterns found, proposed memory updates), outputs to .gsd-t/retrospectives/YYYY-MM-DD-{milestone}.md | P2 | complete (M14) | validated by use |
+| REQ-023 | Real-Time Agent Dashboard — gsd-t-visualize command starts a zero-dependency SSE server watching .gsd-t/events/ and opens gsd-t-dashboard.html in the browser; dashboard renders agent hierarchy (React Flow + Dagre via CDN) with live event overlay; all 6 interaction patterns visualized (wave/execute, parallel domains, scan, brainstorm, debug, quick/error) | P2 | pending (M15) | — |
 
 ## Technical Requirements
 
@@ -57,6 +63,22 @@
 | REQ-002–005, 008–013 | manual | Workflow validation by use | passing |
 
 **Total automated tests**: 125 across 4 test files (M4: 64, M5: 30, M6: 22, M9: 9). Runner: `node --test` (zero dependencies).
+
+## Requirements Traceability (updated by plan phase — M14)
+
+| REQ-ID  | Requirement Summary                                         | Domain        | Task(s)         | Status  |
+|---------|-------------------------------------------------------------|---------------|-----------------|---------|
+| REQ-018 | Execution Event Stream — JSONL events/ with 9-field schema  | event-stream  | Task 1, Task 2, Task 3, Task 4 | complete |
+| REQ-019 | Outcome-Tagged Decision Log — [success]/[failure] prefixes  | learning-loop | Task 1, Task 2  | complete |
+| REQ-020 | Pre-Task Experience Retrieval — Reflexion pattern           | learning-loop | Task 1, Task 2  | complete |
+| REQ-021 | Milestone Distillation — patterns → CLAUDE.md proposals     | reflect       | Task 1          | complete |
+| REQ-022 | gsd-t-reflect command — retrospective from events/          | reflect       | Task 2, Task 3  | complete |
+| REQ-023 | Real-Time Agent Dashboard (M15 — not in M14 scope)          | —             | —               | pending (M15) |
+
+**Orphaned requirements**: REQ-001 through REQ-017 (all M1–M13 deliverables, complete — not mapped to M14 tasks by design).
+**Unanchored tasks**: event-stream Task 3 (bin/gsd-t.js installer update) and Task 4 (gsd-t-init.md) are infrastructure supporting REQ-018 — implicitly mapped.
+
+---
 
 ## Gaps Identified
 

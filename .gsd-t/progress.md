@@ -9,7 +9,7 @@
 
 | # | Milestone | Status | Domains |
 |---|-----------|--------|---------|
-| 14 | Execution Intelligence Layer | PLANNED | event-stream, learning-loop, reflect |
+| 14 | Execution Intelligence Layer | EXECUTED | event-stream, learning-loop, reflect |
 
 **Goal**: Instrument GSD-T's execution with a structured JSONL event stream and learning loop. Every command invocation, subagent spawn, phase transition, and decision is captured as a structured event with outcome tagging. Before each task, GSD-T retrieves relevant past failures (Reflexion pattern), reducing repeated mistakes. Distillation at milestone completion converts episodic patterns to semantic memory. New `gsd-t-reflect` command enables on-demand retrospective.
 
@@ -34,7 +34,7 @@
 ## Domains
 | Domain        | Status      | Tasks | Completed |
 |---------------|-------------|-------|-----------|
-| event-stream  | in-progress | 4     | 4         |
+| event-stream  | complete    | 4     | 4         |
 | learning-loop | complete    | 3     | 3         |
 | reflect       | complete    | 3     | 3         |
 
@@ -219,6 +219,7 @@
 - 2026-03-04 14:40: [success] M14 learning-loop Task 3 — updated commands/gsd-t-wave.md Between Each Phase section: after spot-check passes (step 5a), writes phase_transition event with outcome:success via gsd-t-event-writer.js; when spot-check fails (step 5), writes phase_transition event with outcome:failure before re-spawning; both event writes use || true fallback to never block wave execution. Additions only, all existing spot-check behavior preserved. 153/153 tests pass.
 - 2026-03-04 14:50: [success] M14 reflect Task 2 — created commands/gsd-t-reflect.md (134 lines, ≤200 limit); Step 0 self-spawn subagent with OBSERVABILITY LOGGING (before/after Bash timestamps, token compaction detection, append to token-log.md); Steps 1-5: load state (milestone name + start date), find events (filter by milestone period), generate retrospective (categorize by outcome, find patterns ≥2 occurrences), write .gsd-t/retrospectives/YYYY-MM-DD-{milestone}.md (## What Worked / What Failed / Patterns Found / Proposed Memory Updates), present proposed rules with user confirmation guard before any CLAUDE.md write; Document Ripple + Auto-Clear; updated test/filesystem.test.js counts 46→47 / 42→43; 153/153 tests pass
 - 2026-03-04 15:30: [success] M14 reflect Task 3 — updated all 4 reference files: README.md (count 46→47, 42→43 GSD-T, added gsd-t-reflect row to Automation & Utilities table, Repo Contents section updated), docs/GSD-T-README.md (added gsd-t-reflect row to Automation & Utilities table), templates/CLAUDE-global.md (added gsd-t-reflect row to Commands Reference table), commands/gsd-t-help.md (added reflect line to UTILITIES section + ### reflect Command Summary entry); 153/153 tests pass
+- 2026-03-04 11:58: [success] M14 Checkpoint 2 PASSED — all 3 waves complete; gsd-t-event-writer.js schema validates; gsd-t-execute.md has pre-task retrieval block; gsd-t-debug.md has experience retrieval (Step 1.7); gsd-t-wave.md has phase_transition event writes; gsd-t-complete-milestone.md has Step 2.5 distillation; gsd-t-reflect.md exists (134 lines); all 4 reference files show count 47; 153/153 tests pass. M14 status: EXECUTED
 - 2026-02-25 10:32: Deep research with team agents for brainstorm and debug loop breaking (v2.31.19) — gsd-t-brainstorm.md: replaced optional team mode (visionary/pragmatist/devil's advocate) with mandatory Deep Research Phase before Step 5; three parallel research agents (landscape, alternatives, analogies) must complete before any conclusions are drawn; token-log note updated from "team brainstorm" to "deep research". gsd-t-debug.md: added Step 1.5 Debug Loop Detection; scans progress.md for 3+ prior debug sessions on same issue and triggers Deep Research Mode with three parallel research agents (root-cause, alternatives, prior-art); Lead synthesizes and presents a structured option table to user before any fix proceeds; 3-attempt limit now escalates to deep research instead of stopping. Purpose: prevent 10–20 session debug death spirals and ensure brainstorm conclusions are evidence-based.
 
 ## Session Log

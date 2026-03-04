@@ -174,6 +174,50 @@
 
 ---
 
+## Milestone 14: Execution Intelligence Layer (DEFINED)
+**Source**: Brainstorm session 2026-03-04 — user goals: audit log + GSD-T learning from past decisions
+**Goal**: Instrument GSD-T's execution with a structured JSONL event stream and learning loop. Every command invocation, subagent spawn, phase transition, and decision is captured with outcome tagging. Pre-task experience retrieval (Reflexion pattern) surfaces past failures before similar tasks. Distillation at milestone completion converts repeated episodic patterns to semantic memory. New `gsd-t-reflect` command for on-demand retrospective.
+**Scope**:
+- `.gsd-t/events/YYYY-MM-DD.jsonl` — append-only event stream, one event per line
+- `scripts/gsd-t-event-writer.js` — zero-dep helper for structured event writes from hooks
+- Outcome-tagged Decision Log — `[success]`, `[failure]`, `[learning]`, `[deferred]` prefixes on all new entries
+- Pre-task experience retrieval — execute/debug grep Decision Log for `[failure]`/`[learning]` entries matching current domain before spawning subagent
+- Phase transition events — every wave phase transition logs event with rationale and outcome
+- Distillation step in `complete-milestone` — scan events for patterns seen ≥3 times, propose constraints.md / CLAUDE.md updates
+- `gsd-t-reflect` command — reads milestone events, generates structured retrospective, proposes memory updates
+- Heartbeat hook enrichment — SubagentStart/Stop/PreToolUse/PostToolUse write to events/ in addition to existing JSONL
+**Out of scope**: Visualization UI (M15), SigNoz integration (backlog #6), external eval frameworks (backlog #7)
+**Success criteria**:
+- [ ] `.gsd-t/events/YYYY-MM-DD.jsonl` written during wave/execute with schema: ts, event_type, command, phase, agent_id, parent_agent_id, trace_id, reasoning, outcome
+- [ ] execute and debug retrieve past `[failure]`/`[learning]` entries from Decision Log before task subagent spawn
+- [ ] complete-milestone distillation step runs and proposes CLAUDE.md updates for patterns found ≥3 times
+- [ ] `gsd-t-reflect` command generates structured retrospective from event stream
+- [ ] All existing tests pass with no regressions (127+)
+- [ ] New tests cover event-writer.js and reflect command event parsing
+
+---
+
+## Milestone 15: Real-Time Agent Dashboard (PLANNED — requires M14)
+**Source**: Brainstorm session 2026-03-04 — user goal: real-time visualization of workflow and agents
+**Goal**: Render GSD-T's live execution as an interactive browser-based dashboard. An SSE server watches the M14 event stream and pushes updates to a React Flow + Dagre visualization showing the agent hierarchy, tool call activity, phase progression, and memory system interactions in real time.
+**Reference mockup**: `scripts/gsd-t-dashboard-mockup.html` (6 scenarios: wave/execute, parallel domains, scan, brainstorm, debug, quick/error)
+**Scope**:
+- `scripts/gsd-t-dashboard-server.js` — Node.js SSE server (~80 lines, zero external deps) watching `.gsd-t/events/*.jsonl`
+- `scripts/gsd-t-dashboard.html` — React Flow + Dagre via CDN (no build step), agent hierarchy + live event overlay
+- `gsd-t-visualize` command — launches dashboard server + opens browser, stops server on Ctrl+C
+- bin/gsd-t.js update — `installDashboardScripts()` copies server + HTML to `~/.claude/scripts/`
+**Out of scope**: SigNoz/OpenTelemetry export, cloud telemetry, WebSocket (SSE sufficient), npm publish of dashboard
+**Blocked by**: M14 (event stream must exist and be populated)
+**Success criteria**:
+- [ ] `gsd-t-visualize` starts server and opens browser in < 3s
+- [ ] Agent hierarchy renders correctly (parent → child via parent_agent_id from events)
+- [ ] Live events appear in dashboard within 1s of JSONL write
+- [ ] All 6 mockup scenarios visualized with real event data
+- [ ] Dashboard server is zero external dependencies (Node.js built-ins only)
+- [ ] All existing tests pass with no regressions
+
+---
+
 ## Milestone 9: Cleanup Sprint — Tech Debt (COMPLETED v2.24.5)
 **Source**: Promoted from tech debt scan #5 (2026-02-18)
 **Items**: TD-056, TD-057, TD-058, TD-059, TD-060, TD-061, TD-062, TD-063, TD-064, TD-065

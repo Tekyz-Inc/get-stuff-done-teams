@@ -1,0 +1,3 @@
+{"ts":"2026-03-04T19:37:20.210Z","event_type":"command_invoked","command":"test","phase":null,"agent_id":null,"parent_agent_id":null,"trace_id":null,"reasoning":null,"outcome":null}
+{"ts":"2026-03-04T19:40:57.715Z","event_type":"command_invoked","command":"test","phase":null,"agent_id":null,"parent_agent_id":null,"trace_id":null,"reasoning":null,"outcome":null}
+{"ts":"2026-03-04T20:08:39.157Z","event_type":"command_invoked","command":"gsd-t-verify","phase":"verify","agent_id":null,"parent_agent_id":null,"trace_id":null,"reasoning":"M14 verify phase","outcome":"success"}

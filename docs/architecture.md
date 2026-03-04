@@ -1,6 +1,6 @@
 # Architecture — GSD-T Framework (@tekyzinc/gsd-t)
 
-## Last Updated: 2026-02-18 (Post-M13, Scan #6)
+## Last Updated: 2026-03-04 (M14 Defined — Execution Intelligence Layer)
 
 ## System Overview
 
@@ -38,6 +38,19 @@ The framework has no runtime — it is consumed entirely by Claude Code's slash 
 - **gsd-t-fetch-version.js** (26 lines, NEW in M6): Synchronous npm registry fetch. Called by `fetchVersionSync()` via `execFileSync`. HTTPS-only, 5s timeout, 1MB limit. Silent failure on errors (caller validates).
 - **gsd-t-tools.js** (163 lines, NEW in M13): State utility CLI returning compact JSON. Subcommands: state get/set (progress.md), validate (required file presence), parse progress --section, list domains/contracts, git pre-commit-check, template scope/tasks. Zero external dependencies. NOTE: No module.exports — untestable as module (TD-066).
 - **gsd-t-statusline.js** (94 lines, NEW in M13): Context usage bar + project state for Claude Code `statusLine` setting. Reads CLAUDE_CONTEXT_TOKENS_USED/MAX env vars for usage percentage. Color-coded bar (green <50%, yellow <70%, orange <85%, red ≥85%). NOTE: No module.exports — untestable as module (TD-066).
+
+### Planned: Execution Intelligence Layer (M14)
+- **`.gsd-t/events/YYYY-MM-DD.jsonl`**: Append-only event stream. One event per line. Schema: `ts`, `event_type`, `command`, `phase`, `agent_id`, `parent_agent_id`, `trace_id`, `reasoning`, `outcome`. Written by hooks (SubagentStart/Stop, PreToolUse/PostToolUse) and command files at phase transitions.
+- **`scripts/gsd-t-event-writer.js`**: Zero-dep helper CLI for structured event writes from hooks and command files. Validates schema before append.
+- **Outcome-tagged Decision Log**: New Decision Log entries use `[success]`/`[failure]`/`[learning]`/`[deferred]` prefixes for machine-readable filtering.
+- **Pre-task experience retrieval**: execute/debug grep Decision Log for `[failure]`/`[learning]` entries matching current domain before spawning subagent — Reflexion pattern without fine-tuning.
+- **Distillation step (complete-milestone)**: Scans `.gsd-t/events/*.jsonl` for patterns seen ≥3 times, proposes CLAUDE.md / constraints.md rule additions.
+- **`commands/gsd-t-reflect.md`**: On-demand retrospective command. Reads current milestone events, generates `.gsd-t/retrospectives/YYYY-MM-DD-{milestone}.md`.
+
+### Planned: Real-Time Agent Dashboard (M15 — requires M14)
+- **`scripts/gsd-t-dashboard-server.js`** (~80 lines, zero external deps): Node.js SSE server watching `.gsd-t/events/*.jsonl`. Pushes new events to connected browser clients.
+- **`scripts/gsd-t-dashboard.html`**: React Flow + Dagre via CDN (no build step). Renders agent hierarchy from `parent_agent_id` links. Live event overlay streamed via SSE. Reference mockup: `scripts/gsd-t-dashboard-mockup.html`.
+- **`commands/gsd-t-visualize.md`**: Launches dashboard server and opens browser. Stops server on completion.
 
 ### Examples (examples/)
 - **Purpose**: Reference project structure and settings
