@@ -142,7 +142,27 @@ After each agent completes, run this spot-check before proceeding:
    ✅ {Phase} complete — {agent's one-line summary}
    📋 Spot-check: {N} commits | {N} output files verified | no FAILED markers
    ```
-5. If spot-check fails: report the discrepancy, re-spawn the phase agent once to correct it, then re-verify. If still failing: stop and report to user.
+5. If spot-check fails: write failure event via Bash, then report the discrepancy, re-spawn the phase agent once to correct it, then re-verify. If still failing: stop and report to user.
+   ```bash
+   node ~/.claude/scripts/gsd-t-event-writer.js \
+     --type phase_transition \
+     --command gsd-t-wave \
+     --phase {COMPLETED_PHASE} \
+     --reasoning "Spot-check failed: {one-line discrepancy summary}" \
+     --outcome failure \
+     --agent-id "${CLAUDE_SESSION_ID:-unknown}" || true
+   ```
+5a. After spot-check passes, write success event via Bash:
+   ```bash
+   node ~/.claude/scripts/gsd-t-event-writer.js \
+     --type phase_transition \
+     --command gsd-t-wave \
+     --phase {COMPLETED_PHASE} \
+     --reasoning "Phase complete: {one-line spot-check summary}" \
+     --outcome success \
+     --agent-id "${CLAUDE_SESSION_ID:-unknown}" || true
+   ```
+   The `|| true` ensures event write failure never blocks wave execution.
 6. Proceed to next phase
 
 ## Step 4: Autonomy Behavior
