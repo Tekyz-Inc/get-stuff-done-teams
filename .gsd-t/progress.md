@@ -9,9 +9,9 @@
 
 | # | Milestone | Status | Domains |
 |---|-----------|--------|---------|
-| 13 | Tooling & UX | COMPLETED | tooling-ux |
+| 14 | Execution Intelligence Layer | PLANNED | event-stream, learning-loop, reflect |
 
-**Goal**: Infrastructure and UX improvements — CLI state utility, smarter parallel execution, health diagnostics, reliable pause/resume, context usage visibility.
+**Goal**: Instrument GSD-T's execution with a structured JSONL event stream and learning loop. Every command invocation, subagent spawn, phase transition, and decision is captured as a structured event with outcome tagging. Before each task, GSD-T retrieves relevant past failures (Reflexion pattern), reducing repeated mistakes. Distillation at milestone completion converts episodic patterns to semantic memory. New `gsd-t-reflect` command enables on-demand retrospective.
 
 ## Completed Milestones
 | Milestone | Version | Completed | Tag |
@@ -32,15 +32,19 @@
 | Tooling & UX | 2.28.10 | 2026-02-18 | v2.28.10 |
 
 ## Domains
-| Domain | Status | Tasks | Completed |
-|--------|--------|-------|-----------|
-| cleanup | executed | 6 | 6 |
+| Domain        | Status      | Tasks | Completed |
+|---------------|-------------|-------|-----------|
+| event-stream  | in-progress | 4     | 4         |
+| learning-loop | planned     | 3     | 0         |
+| reflect       | planned     | 3     | 0         |
 
 ## Contracts
-No cross-domain contracts expected — single domain milestone.
+- [x] event-schema-contract.md — JSONL event schema (owner: event-stream; consumers: learning-loop, reflect)
+- [x] integration-points.md — M14 dependency graph (event-stream → learning-loop + reflect)
 
 ## Integration Checkpoints
-No integration checkpoints expected — single domain milestone.
+- [x] Checkpoint 1: event-stream Task 1 complete → unblocks learning-loop and reflect
+- [ ] Checkpoint 2: all domains complete → proceed to test-sync/verify
 
 ## Blockers
 <!-- No active blockers -->
@@ -201,6 +205,14 @@ No integration checkpoints expected — single domain milestone.
 - 2026-02-25 10:32: Added backlog item #5: GSD-T Workflow Visualizer (type: feature, app: gsd-t, category: ux) — gsd-t-visualize command renders milestone/domain/phase state as ASCII tree, HTML report, or Mermaid diagram; shows task status, contract connections, and current phase position.
 - 2026-02-25 12:58: Added backlog item #6: Observability — Measurement, Logging, and Telemetry via SigNoz (type: feature, app: gsd-t, category: commands) — integrate SigNoz (open-source Datadog/New Relic alternative) for distributed tracing, metrics, and logs; gsd-t-setup detects/prompts observability choice; infrastructure.md documents SigNoz connection + dashboard URL; execute optionally wires OpenTelemetry SDK into new services.
 - 2026-02-25 12:58: Added backlog item #7: AI Evals Framework Integration (type: feature, app: gsd-t, category: commands) — gsd-t-evals command or QA agent extension for LLM output evaluation; eval criteria in contracts (output shape, quality thresholds, hallucination checks); integrates with RAGAS/LangSmith/PromptFoo; QA agent aware of eval steps for AI-component projects; requirements.md documents eval criteria alongside functional requirements.
+- 2026-03-04 12:00: M14 planned — 10 tasks across 3 domains. Wave 1: event-stream 4 tasks (event-writer.js + heartbeat enrichment + bin/gsd-t.js + init.md). Wave 2: learning-loop 3 tasks (execute.md + debug.md + wave.md) + reflect 2 tasks (complete-milestone.md + gsd-t-reflect.md). Wave 3: reflect 1 task (4 reference files). Key decisions: event-writer is a CLI tool installed to ~/.claude/scripts/ (same pattern as gsd-t-tools.js); heartbeat enrichment maps SubagentStart/Stop/PostToolUse to events/ schema inline (no child process spawn from hook for performance); outcome tagging is additions-only to command files; distillation requires user confirmation before CLAUDE.md write.
+- 2026-03-04 11:45: M14 partitioned into 3 domains. event-stream (schema + event-writer.js + heartbeat enrichment + bin/gsd-t.js + gsd-t-init.md); learning-loop (execute.md + debug.md + wave.md — outcome tagging + pre-task retrieval + phase transition events); reflect (gsd-t-reflect.md new command + complete-milestone.md distillation step + 4 reference files). Contracts: event-schema-contract.md (authoritative event schema) + integration-points.md updated. Assumption audit: Reflexion pattern = INSPECT, OpenTelemetry naming = INSPECT, outcome tagging = new entries only, retrieval = grep-based, distillation = user-confirms before write, pattern threshold = within milestone events.
+- 2026-03-04 11:30: Milestone 14 defined — Execution Intelligence Layer: JSONL event stream (.gsd-t/events/), outcome-tagged Decision Log, pre-task experience retrieval (Reflexion pattern), phase transition logging with rationale, distillation step in complete-milestone, gsd-t-reflect command. M15 (Real-Time Agent Dashboard) planned as sequel — SSE server + React Flow dashboard + gsd-t-visualize command. Brainstorm evidence: parallel research on agent observability (OpenTelemetry GenAI), memory systems (Reflexion: 91% vs 80% pass@1), and real-time visualization (React Flow + Dagre + SSE). Dashboard mockup at scripts/gsd-t-dashboard-mockup.html.
+- 2026-03-04 13:00: M14 event-stream Task 1 — created scripts/gsd-t-event-writer.js (zero-dep CLI + module.exports; validates 8 event_type + 5 outcome values; resolves events dir from GSD_T_PROJECT_DIR or cwd; creates .gsd-t/events/ if missing; symlink-safe; exit codes 0/1/2; 26 new tests in test/event-stream.test.js)
+- 2026-03-04 13:00: M14 event-stream Task 4 — updated commands/gsd-t-init.md Step 3 to show and create .gsd-t/events/ directory alongside contracts/ and domains/
+- 2026-03-04 13:00: M14 event-stream Task 2 — enriched scripts/gsd-t-heartbeat.js: added buildEventStreamEntry() mapping SubagentStart/Stop/PostToolUse to events/ schema; added appendToEventsFile() writing YYYY-MM-DD.jsonl with symlink guard; called both after heartbeat write in main handler; existing heartbeat-{sid}.jsonl writes unchanged; 8 new tests cover buildEventStreamEntry, 2 test appendToEventsFile
+- 2026-03-04 13:00: M14 event-stream Task 3 — updated bin/gsd-t.js UTILITY_SCRIPTS array to include gsd-t-event-writer.js; installUtilityScripts() loop handles copy to ~/.claude/scripts/ automatically
+- 2026-03-04 13:00: M14 Checkpoint 1 reached — event-stream Task 1 complete; scripts/gsd-t-event-writer.js exists and validates schema; all 153 tests pass (127 existing + 26 new); learning-loop and reflect domains now unblocked
 - 2026-02-25 10:32: Deep research with team agents for brainstorm and debug loop breaking (v2.31.19) — gsd-t-brainstorm.md: replaced optional team mode (visionary/pragmatist/devil's advocate) with mandatory Deep Research Phase before Step 5; three parallel research agents (landscape, alternatives, analogies) must complete before any conclusions are drawn; token-log note updated from "team brainstorm" to "deep research". gsd-t-debug.md: added Step 1.5 Debug Loop Detection; scans progress.md for 3+ prior debug sessions on same issue and triggers Deep Research Mode with three parallel research agents (root-cause, alternatives, prior-art); Lead synthesizes and presents a structured option table to user before any fix proceeds; 3-attempt limit now escalates to deep research instead of stopping. Purpose: prevent 10–20 session debug death spirals and ensure brainstorm conclusions are evidence-based.
 
 ## Session Log
