@@ -197,7 +197,7 @@
 
 ---
 
-## Milestone 15: Real-Time Agent Dashboard (READY — M14 complete, can start)
+## Milestone 15: Real-Time Agent Dashboard (DEFINED — in progress)
 **Source**: Brainstorm session 2026-03-04 — user goal: real-time visualization of workflow and agents
 **Goal**: Render GSD-T's live execution as an interactive browser-based dashboard. An SSE server watches the M14 event stream and pushes updates to a React Flow + Dagre visualization showing the agent hierarchy, tool call activity, phase progression, and memory system interactions in real time.
 **Reference mockup**: `scripts/gsd-t-dashboard-mockup.html` (6 scenarios: wave/execute, parallel domains, scan, brainstorm, debug, quick/error)

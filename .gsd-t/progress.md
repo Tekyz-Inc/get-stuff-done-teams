@@ -7,7 +7,19 @@
 
 ## Current Milestone
 
-None — ready for next milestone
+| # | Milestone | Status | Domains |
+|---|-----------|--------|---------|
+| 15 | Real-Time Agent Dashboard | DEFINED | TBD |
+
+**Goal**: Render GSD-T's live execution as an interactive browser-based dashboard. An SSE server watches the M14 event stream and pushes updates to a React Flow + Dagre visualization showing agent hierarchy, tool call activity, and phase progression in real time. Adds the `gsd-t-visualize` command (48th command).
+
+**Success criteria**:
+- `gsd-t-visualize` starts server and opens browser in < 3s
+- Agent hierarchy renders correctly from `parent_agent_id` in events
+- Live events appear in dashboard within 1s of JSONL write
+- Dashboard server is zero external dependencies (Node.js built-ins only)
+- All 6 mockup scenarios visualized with real event data
+- All existing 153 tests pass with no regressions
 
 ## Completed Milestones
 | Milestone | Version | Completed | Tag |
@@ -209,6 +221,7 @@ None — ready for next milestone
 - 2026-03-04 15:30: [success] M14 reflect Task 3 — updated all 4 reference files: README.md (count 46→47, 42→43 GSD-T, added gsd-t-reflect row to Automation & Utilities table, Repo Contents section updated), docs/GSD-T-README.md (added gsd-t-reflect row to Automation & Utilities table), templates/CLAUDE-global.md (added gsd-t-reflect row to Commands Reference table), commands/gsd-t-help.md (added reflect line to UTILITIES section + ### reflect Command Summary entry); 153/153 tests pass
 - 2026-03-04 11:58: [success] M14 Checkpoint 2 PASSED — all 3 waves complete; gsd-t-event-writer.js schema validates; gsd-t-execute.md has pre-task retrieval block; gsd-t-debug.md has experience retrieval (Step 1.7); gsd-t-wave.md has phase_transition event writes; gsd-t-complete-milestone.md has Step 2.5 distillation; gsd-t-reflect.md exists (134 lines); all 4 reference files show count 47; 153/153 tests pass. M14 status: EXECUTED
 - 2026-03-04 12:00: [success] Milestone "Execution Intelligence Layer" completed — JSONL event stream (gsd-t-event-writer.js), heartbeat enrichment, outcome-tagged Decision Log (execute/debug/wave), pre-task Reflexion retrieval (execute/debug), phase_transition events (wave), distillation step (complete-milestone), gsd-t-reflect command (#47). 10 tasks, 3 domains, 2 checkpoints, 153 tests. v2.32.10
+- 2026-03-04 12:05: Milestone 15 defined — Real-Time Agent Dashboard: SSE server (gsd-t-dashboard-server.js, zero-dep, ~80 lines) watches .gsd-t/events/*.jsonl; gsd-t-dashboard.html renders React Flow + Dagre agent hierarchy via CDN (no build step); gsd-t-visualize command (#48) launches server + opens browser; bin/gsd-t.js installs server+html to ~/.claude/scripts/. Reference mockup: scripts/gsd-t-dashboard-mockup.html (6 scenarios). Scope decisions: SSE not WebSocket (sufficient for unidirectional push), no npm publish of dashboard, no SigNoz/cloud export. Requires M14 event stream (events/ files as source). Test baseline: 153/153.
 - 2026-02-25 10:32: Deep research with team agents for brainstorm and debug loop breaking (v2.31.19) — gsd-t-brainstorm.md: replaced optional team mode (visionary/pragmatist/devil's advocate) with mandatory Deep Research Phase before Step 5; three parallel research agents (landscape, alternatives, analogies) must complete before any conclusions are drawn; token-log note updated from "team brainstorm" to "deep research". gsd-t-debug.md: added Step 1.5 Debug Loop Detection; scans progress.md for 3+ prior debug sessions on same issue and triggers Deep Research Mode with three parallel research agents (root-cause, alternatives, prior-art); Lead synthesizes and presents a structured option table to user before any fix proceeds; 3-attempt limit now escalates to deep research instead of stopping. Purpose: prevent 10–20 session debug death spirals and ensure brainstorm conclusions are evidence-based.
 
 ## Session Log
