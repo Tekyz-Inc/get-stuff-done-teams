@@ -19,7 +19,7 @@ const SAFE_SID = /^[a-zA-Z0-9_-]+$/; // Allowlist for session_id — blocks path
 const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days — auto-cleanup threshold
 
 // ─── Exports (for testing) ───────────────────────────────────────────────────
-module.exports = { scrubSecrets, scrubUrl, buildEvent, summarize, shortPath };
+module.exports = { scrubSecrets, scrubUrl, buildEvent, summarize, shortPath, buildEventStreamEntry, appendToEventsFile };
 
 // ─── Main (stdin processing) ─────────────────────────────────────────────────
 if (require.main === module) {
@@ -65,6 +65,10 @@ process.stdin.on("end", () => {
       try { if (fs.lstatSync(file).isSymbolicLink()) return; } catch { /* file doesn't exist yet — safe */ }
       fs.appendFileSync(file, JSON.stringify(event) + "\n");
     }
+
+    // Event stream enrichment — additive only, does not affect heartbeat writes above
+    const streamEntry = buildEventStreamEntry(hook);
+    if (streamEntry) appendToEventsFile(gsdtDir, streamEntry);
   } catch (e) {
     // Silent failure — never interfere with Claude Code
   }
@@ -177,4 +181,43 @@ function shortPath(p) {
     return "~" + p.slice(home.length).replace(/\\/g, "/");
   }
   return p.replace(/\\/g, "/");
+}
+
+// ─── Event Stream Enrichment ──────────────────────────────────────────────────
+
+function buildEventStreamEntry(hook) {
+  const ts = new Date().toISOString();
+  const base = { ts, command: null, phase: null, trace_id: null };
+  const n = hook.hook_event_name;
+  if (n === "SubagentStart") {
+    return { ...base, event_type: "subagent_spawn",
+      agent_id: hook.agent_id || null,
+      parent_agent_id: hook.parent_agent_id || hook.session_id || null,
+      reasoning: hook.agent_type || null, outcome: null };
+  }
+  if (n === "SubagentStop") {
+    return { ...base, event_type: "subagent_complete",
+      agent_id: hook.agent_id || null,
+      parent_agent_id: hook.parent_agent_id || hook.session_id || null,
+      reasoning: null, outcome: null };
+  }
+  if (n === "PostToolUse") {
+    return { ...base, event_type: "tool_call",
+      agent_id: hook.agent_id || null, parent_agent_id: null,
+      reasoning: hook.tool_name || null, outcome: null };
+  }
+  return null;
+}
+
+function appendToEventsFile(gsdtDir, entry) {
+  try {
+    const date = new Date().toISOString().slice(0, 10);
+    const eventsDir = path.join(gsdtDir, "events");
+    if (!fs.existsSync(eventsDir)) fs.mkdirSync(eventsDir, { recursive: true });
+    const filePath = path.join(eventsDir, `${date}.jsonl`);
+    try { if (fs.lstatSync(filePath).isSymbolicLink()) return; } catch { /* safe */ }
+    fs.appendFileSync(filePath, JSON.stringify(entry) + "\n");
+  } catch {
+    // Silent failure — never interfere with Claude Code
+  }
 }
