@@ -54,12 +54,15 @@ Skip the copy (step 2) silently if the target already exists.
 │   └── .gitkeep
 ├── domains/
 │   └── .gitkeep
+├── events/
 ├── backlog.md
 ├── backlog-settings.md
 ├── progress.md
 ├── token-log.md
 └── qa-issues.md
 ```
+
+Create `.gsd-t/events/` directory (empty — populated at runtime by heartbeat and event writer).
 
 Create `token-log.md` with header row:
 ```
