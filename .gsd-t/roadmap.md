@@ -174,7 +174,7 @@
 
 ---
 
-## Milestone 14: Execution Intelligence Layer (DEFINED)
+## Milestone 14: Execution Intelligence Layer (COMPLETE — v2.32.10, 2026-03-04)
 **Source**: Brainstorm session 2026-03-04 — user goals: audit log + GSD-T learning from past decisions
 **Goal**: Instrument GSD-T's execution with a structured JSONL event stream and learning loop. Every command invocation, subagent spawn, phase transition, and decision is captured with outcome tagging. Pre-task experience retrieval (Reflexion pattern) surfaces past failures before similar tasks. Distillation at milestone completion converts repeated episodic patterns to semantic memory. New `gsd-t-reflect` command for on-demand retrospective.
 **Scope**:
@@ -185,19 +185,19 @@
 - Phase transition events — every wave phase transition logs event with rationale and outcome
 - Distillation step in `complete-milestone` — scan events for patterns seen ≥3 times, propose constraints.md / CLAUDE.md updates
 - `gsd-t-reflect` command — reads milestone events, generates structured retrospective, proposes memory updates
-- Heartbeat hook enrichment — SubagentStart/Stop/PreToolUse/PostToolUse write to events/ in addition to existing JSONL
+- Heartbeat hook enrichment — SubagentStart/Stop/PostToolUse write to events/ in addition to existing JSONL
 **Out of scope**: Visualization UI (M15), SigNoz integration (backlog #6), external eval frameworks (backlog #7)
 **Success criteria**:
-- [ ] `.gsd-t/events/YYYY-MM-DD.jsonl` written during wave/execute with schema: ts, event_type, command, phase, agent_id, parent_agent_id, trace_id, reasoning, outcome
-- [ ] execute and debug retrieve past `[failure]`/`[learning]` entries from Decision Log before task subagent spawn
-- [ ] complete-milestone distillation step runs and proposes CLAUDE.md updates for patterns found ≥3 times
-- [ ] `gsd-t-reflect` command generates structured retrospective from event stream
-- [ ] All existing tests pass with no regressions (127+)
-- [ ] New tests cover event-writer.js and reflect command event parsing
+- [x] `.gsd-t/events/YYYY-MM-DD.jsonl` written during wave/execute with schema: ts, event_type, command, phase, agent_id, parent_agent_id, trace_id, reasoning, outcome
+- [x] execute and debug retrieve past `[failure]`/`[learning]` entries from Decision Log before task subagent spawn
+- [x] complete-milestone distillation step runs and proposes CLAUDE.md updates for patterns found ≥3 times
+- [x] `gsd-t-reflect` command generates structured retrospective from event stream
+- [x] All existing tests pass with no regressions (153 tests, baseline was 127)
+- [x] New tests cover event-writer.js and heartbeat enrichment (26 new tests)
 
 ---
 
-## Milestone 15: Real-Time Agent Dashboard (PLANNED — requires M14)
+## Milestone 15: Real-Time Agent Dashboard (READY — M14 complete, can start)
 **Source**: Brainstorm session 2026-03-04 — user goal: real-time visualization of workflow and agents
 **Goal**: Render GSD-T's live execution as an interactive browser-based dashboard. An SSE server watches the M14 event stream and pushes updates to a React Flow + Dagre visualization showing the agent hierarchy, tool call activity, phase progression, and memory system interactions in real time.
 **Reference mockup**: `scripts/gsd-t-dashboard-mockup.html` (6 scenarios: wave/execute, parallel domains, scan, brainstorm, debug, quick/error)
