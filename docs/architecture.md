@@ -1,6 +1,6 @@
 # Architecture — GSD-T Framework (@tekyzinc/gsd-t)
 
-## Last Updated: 2026-03-04 (M14 Defined — Execution Intelligence Layer)
+## Last Updated: 2026-03-04 (M14 Complete — Execution Intelligence Layer)
 
 ## System Overview
 
@@ -23,7 +23,7 @@ The framework has no runtime — it is consumed entirely by Claude Code's slash 
 ### Slash Commands (commands/*.md)
 - **Purpose**: Define the GSD-T methodology as executable workflows for Claude Code
 - **Location**: `commands/`
-- **Count**: 45 (41 GSD-T workflow + 4 utility: gsd, branch, checkin, Claude-md) — includes gsd-t-health and gsd-t-pause added in M13
+- **Count**: 47 (43 GSD-T workflow + 4 utility: gsd, branch, checkin, Claude-md) — includes gsd-t-health and gsd-t-pause (M13), gsd-t-reflect (M14)
 - **Format**: Pure markdown with step-numbered instructions, team mode blocks, document ripple sections, and $ARGUMENTS terminator
 
 ### Templates (templates/*.md)
@@ -33,19 +33,19 @@ The framework has no runtime — it is consumed entirely by Claude Code's slash 
 - **Tokens**: `{Project Name}` and `{Date}` replaced during init via `applyTokens()`
 
 ### Hook Scripts (scripts/)
-- **gsd-t-heartbeat.js** (181 lines, 6 functions, 5 exports): Real-time event logging via Claude Code hooks. Captures 9 event types as structured JSONL. Input capped at 1MB. Session ID validated. Path traversal protection. Secret scrubbing via `scrubSecrets()`/`scrubUrl()` (M5). Notification message + title scrubbing (M8/M9). EVENT_HANDLERS map pattern (M6). Auto-cleanup after 7 days (SessionStart only, M6).
+- **gsd-t-heartbeat.js** (181 lines, 6 functions, 5 exports): Real-time event logging via Claude Code hooks. Captures 9 event types as structured JSONL. Input capped at 1MB. Session ID validated. Path traversal protection. Secret scrubbing via `scrubSecrets()`/`scrubUrl()` (M5). Notification message + title scrubbing (M8/M9). EVENT_HANDLERS map pattern (M6). Auto-cleanup after 7 days (SessionStart only, M6). M14: added `buildEventStreamEntry()` (maps SubagentStart/Stop/PostToolUse → events/ schema) and `appendToEventsFile()` (daily-rotated JSONL in `.gsd-t/events/`, symlink-safe).
+- **gsd-t-event-writer.js** (124 lines, 3 exports, NEW in M14): Zero-dep CLI tool + module for structured JSONL event appends to `.gsd-t/events/`. Exports: `validateEvent()`, `resolveEventsFile()`, `appendEvent()`. CLI: `--type`, `--command`, `--phase`, `--reasoning`, `--outcome`, `--agent-id`. Validates all 8 event_type values and 5 outcome values from event-schema-contract. Installed to `~/.claude/scripts/` by CLI installer. Exit codes: 0 success, 1 write error, 2 validation error.
 - **npm-update-check.js** (43 lines): Background npm registry version checker. Spawned detached by CLI when update cache is stale. Path validation within `~/.claude/` (M5). Symlink check before write (M5). 1MB response limit (M5).
 - **gsd-t-fetch-version.js** (26 lines, NEW in M6): Synchronous npm registry fetch. Called by `fetchVersionSync()` via `execFileSync`. HTTPS-only, 5s timeout, 1MB limit. Silent failure on errors (caller validates).
 - **gsd-t-tools.js** (163 lines, NEW in M13): State utility CLI returning compact JSON. Subcommands: state get/set (progress.md), validate (required file presence), parse progress --section, list domains/contracts, git pre-commit-check, template scope/tasks. Zero external dependencies. NOTE: No module.exports — untestable as module (TD-066).
 - **gsd-t-statusline.js** (94 lines, NEW in M13): Context usage bar + project state for Claude Code `statusLine` setting. Reads CLAUDE_CONTEXT_TOKENS_USED/MAX env vars for usage percentage. Color-coded bar (green <50%, yellow <70%, orange <85%, red ≥85%). NOTE: No module.exports — untestable as module (TD-066).
 
-### Planned: Execution Intelligence Layer (M14)
-- **`.gsd-t/events/YYYY-MM-DD.jsonl`**: Append-only event stream. One event per line. Schema: `ts`, `event_type`, `command`, `phase`, `agent_id`, `parent_agent_id`, `trace_id`, `reasoning`, `outcome`. Written by hooks (SubagentStart/Stop, PreToolUse/PostToolUse) and command files at phase transitions.
-- **`scripts/gsd-t-event-writer.js`**: Zero-dep helper CLI for structured event writes from hooks and command files. Validates schema before append.
-- **Outcome-tagged Decision Log**: New Decision Log entries use `[success]`/`[failure]`/`[learning]`/`[deferred]` prefixes for machine-readable filtering.
-- **Pre-task experience retrieval**: execute/debug grep Decision Log for `[failure]`/`[learning]` entries matching current domain before spawning subagent — Reflexion pattern without fine-tuning.
-- **Distillation step (complete-milestone)**: Scans `.gsd-t/events/*.jsonl` for patterns seen ≥3 times, proposes CLAUDE.md / constraints.md rule additions.
-- **`commands/gsd-t-reflect.md`**: On-demand retrospective command. Reads current milestone events, generates `.gsd-t/retrospectives/YYYY-MM-DD-{milestone}.md`.
+### Execution Intelligence Layer (M14 — complete)
+- **`.gsd-t/events/YYYY-MM-DD.jsonl`**: Append-only event stream. One event per line. Schema: `ts`, `event_type`, `command`, `phase`, `agent_id`, `parent_agent_id`, `trace_id`, `reasoning`, `outcome`. Written by hooks (SubagentStart/Stop, PostToolUse via heartbeat.js) and command files at phase transitions.
+- **Outcome-tagged Decision Log**: New Decision Log entries use `[success]`/`[failure]`/`[learning]`/`[deferred]` prefixes for machine-readable filtering (execute, debug, wave, complete-milestone).
+- **Pre-task experience retrieval (execute, debug)**: Grep Decision Log for `[failure]`/`[learning]` entries matching current domain before spawning subagent — Reflexion pattern without fine-tuning. Writes `experience_retrieval` event.
+- **Distillation step (complete-milestone Step 2.5)**: Scans `.gsd-t/events/*.jsonl` for patterns seen ≥3 times, proposes CLAUDE.md / constraints.md rule additions, user confirms before write.
+- **`commands/gsd-t-reflect.md`**: On-demand retrospective command (47th command). Reads current milestone events, generates `.gsd-t/retrospectives/YYYY-MM-DD-{milestone}.md` with sections: What Worked, What Failed, Patterns Found, Proposed Memory Updates.
 
 ### Planned: Real-Time Agent Dashboard (M15 — requires M14)
 - **`scripts/gsd-t-dashboard-server.js`** (~80 lines, zero external deps): Node.js SSE server watching `.gsd-t/events/*.jsonl`. Pushes new events to connected browser clients.

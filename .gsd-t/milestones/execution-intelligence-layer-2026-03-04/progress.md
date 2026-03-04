@@ -2,17 +2,20 @@
 
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: READY
-## Date: 2026-03-04
-## Version: 2.32.10
+## Date: 2026-02-18
+## Version: 2.31.19
 
 ## Current Milestone
 
-None — ready for next milestone
+| # | Milestone | Status | Domains |
+|---|-----------|--------|---------|
+| 14 | Execution Intelligence Layer | EXECUTED | event-stream, learning-loop, reflect |
+
+**Goal**: Instrument GSD-T's execution with a structured JSONL event stream and learning loop. Every command invocation, subagent spawn, phase transition, and decision is captured as a structured event with outcome tagging. Before each task, GSD-T retrieves relevant past failures (Reflexion pattern), reducing repeated mistakes. Distillation at milestone completion converts episodic patterns to semantic memory. New `gsd-t-reflect` command enables on-demand retrospective.
 
 ## Completed Milestones
 | Milestone | Version | Completed | Tag |
 |-----------|---------|-----------|-----|
-| Execution Intelligence Layer | 2.32.10 | 2026-03-04 | v2.32.10 |
 | Backlog Management System | 2.8.0 | 2026-02-10 | v2.8.0 |
 | QA Agent — Test-Driven Contracts | 2.22.0 | 2026-02-17 | v2.22.0 |
 | Contract & Doc Alignment (Tech Debt Fix) | 2.21.2 | 2026-02-18 | v2.21.2 |
@@ -29,10 +32,19 @@ None — ready for next milestone
 | Tooling & UX | 2.28.10 | 2026-02-18 | v2.28.10 |
 
 ## Domains
-<!-- No active domains — ready for next milestone -->
+| Domain        | Status      | Tasks | Completed |
+|---------------|-------------|-------|-----------|
+| event-stream  | complete    | 4     | 4         |
+| learning-loop | complete    | 3     | 3         |
+| reflect       | complete    | 3     | 3         |
 
 ## Contracts
-<!-- No active contracts — see archived milestone for M14 contracts -->
+- [x] event-schema-contract.md — JSONL event schema (owner: event-stream; consumers: learning-loop, reflect)
+- [x] integration-points.md — M14 dependency graph (event-stream → learning-loop + reflect)
+
+## Integration Checkpoints
+- [x] Checkpoint 1: event-stream Task 1 complete → unblocks learning-loop and reflect
+- [x] Checkpoint 2: all domains complete → proceed to test-sync/verify
 
 ## Blockers
 <!-- No active blockers -->
@@ -208,7 +220,6 @@ None — ready for next milestone
 - 2026-03-04 14:50: [success] M14 reflect Task 2 — created commands/gsd-t-reflect.md (134 lines, ≤200 limit); Step 0 self-spawn subagent with OBSERVABILITY LOGGING (before/after Bash timestamps, token compaction detection, append to token-log.md); Steps 1-5: load state (milestone name + start date), find events (filter by milestone period), generate retrospective (categorize by outcome, find patterns ≥2 occurrences), write .gsd-t/retrospectives/YYYY-MM-DD-{milestone}.md (## What Worked / What Failed / Patterns Found / Proposed Memory Updates), present proposed rules with user confirmation guard before any CLAUDE.md write; Document Ripple + Auto-Clear; updated test/filesystem.test.js counts 46→47 / 42→43; 153/153 tests pass
 - 2026-03-04 15:30: [success] M14 reflect Task 3 — updated all 4 reference files: README.md (count 46→47, 42→43 GSD-T, added gsd-t-reflect row to Automation & Utilities table, Repo Contents section updated), docs/GSD-T-README.md (added gsd-t-reflect row to Automation & Utilities table), templates/CLAUDE-global.md (added gsd-t-reflect row to Commands Reference table), commands/gsd-t-help.md (added reflect line to UTILITIES section + ### reflect Command Summary entry); 153/153 tests pass
 - 2026-03-04 11:58: [success] M14 Checkpoint 2 PASSED — all 3 waves complete; gsd-t-event-writer.js schema validates; gsd-t-execute.md has pre-task retrieval block; gsd-t-debug.md has experience retrieval (Step 1.7); gsd-t-wave.md has phase_transition event writes; gsd-t-complete-milestone.md has Step 2.5 distillation; gsd-t-reflect.md exists (134 lines); all 4 reference files show count 47; 153/153 tests pass. M14 status: EXECUTED
-- 2026-03-04 12:00: [success] Milestone "Execution Intelligence Layer" completed — JSONL event stream (gsd-t-event-writer.js), heartbeat enrichment, outcome-tagged Decision Log (execute/debug/wave), pre-task Reflexion retrieval (execute/debug), phase_transition events (wave), distillation step (complete-milestone), gsd-t-reflect command (#47). 10 tasks, 3 domains, 2 checkpoints, 153 tests. v2.32.10
 - 2026-02-25 10:32: Deep research with team agents for brainstorm and debug loop breaking (v2.31.19) — gsd-t-brainstorm.md: replaced optional team mode (visionary/pragmatist/devil's advocate) with mandatory Deep Research Phase before Step 5; three parallel research agents (landscape, alternatives, analogies) must complete before any conclusions are drawn; token-log note updated from "team brainstorm" to "deep research". gsd-t-debug.md: added Step 1.5 Debug Loop Detection; scans progress.md for 3+ prior debug sessions on same issue and triggers Deep Research Mode with three parallel research agents (root-cause, alternatives, prior-art); Lead synthesizes and presents a structured option table to user before any fix proceeds; 3-attempt limit now escalates to deep research instead of stopping. Purpose: prevent 10–20 session debug death spirals and ensure brainstorm conclusions are evidence-based.
 
 ## Session Log

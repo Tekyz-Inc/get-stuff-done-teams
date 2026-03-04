@@ -231,6 +231,8 @@ your-project/
 │   │       ├── scope.md
 │   │       ├── tasks.md
 │   │       └── constraints.md
+│   ├── events/                        # Execution event stream (JSONL, daily-rotated)
+│   ├── retrospectives/                # Retrospective reports from gsd-t-reflect
 │   ├── milestones/                    # Archived completed milestones
 │   │   └── {milestone-name}-{date}/
 │   └── scan/                          # Codebase analysis outputs
@@ -248,6 +250,7 @@ your-project/
 5. **State survives sessions.** Everything is in `.gsd-t/`.
 6. **Plan is single-brain, execute is multi-brain.** Planning and integration always solo; execution and verification can parallelize.
 7. **Every decision is logged.** The Decision Log captures why, not just what.
+8. **Agents learn from experience.** Every command invocation, phase transition, and subagent spawn is captured as a structured event. Past failures surface before each task (Reflexion pattern). Distillation converts repeated patterns into lasting CLAUDE.md rules.
 
 ---
 
