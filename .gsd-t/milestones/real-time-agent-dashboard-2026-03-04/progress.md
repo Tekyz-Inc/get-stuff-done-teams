@@ -1,19 +1,49 @@
 # GSD-T Progress
 
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
-## Status: COMPLETE
+## Status: VERIFIED
 ## Date: 2026-03-04
-## Version: 2.33.10
+## Version: 2.32.10
 
 ## Current Milestone
 
-None — ready for next milestone
+| # | Milestone | Status | Domains |
+|---|-----------|--------|---------|
+| 15 | Real-Time Agent Dashboard | VERIFIED | server, dashboard, command |
+
+**Goal**: Render GSD-T's live execution as an interactive browser-based dashboard. An SSE server watches the M14 event stream and pushes updates to a React Flow + Dagre visualization showing agent hierarchy, tool call activity, and phase progression in real time. Adds the `gsd-t-visualize` command (48th command).
+
+**Success criteria**:
+- `gsd-t-visualize` starts server and opens browser in < 3s
+- Agent hierarchy renders correctly from `parent_agent_id` in events
+- Live events appear in dashboard within 1s of JSONL write
+- Dashboard server is zero external dependencies (Node.js built-ins only)
+- All 6 mockup scenarios visualized with real event data
+- All existing 153 tests pass with no regressions
+
+## Domains
+
+| Domain    | Status   | Tasks | Completed |
+|-----------|----------|-------|-----------|
+| server    | complete | 1     | 1         |
+| dashboard | complete | 1     | 1         |
+| command   | complete  | 3    | 3         |
+
+## Contracts
+
+- [x] dashboard-server-contract.md — HTTP endpoints, PID file, module exports, event stream format
+- [x] integration-points.md — wave groups, checkpoints, dependency graph
+- [ ] (no additional contracts needed — all cross-domain interaction defined in dashboard-server-contract.md)
+
+## Integration Checkpoints
+
+- [x] Checkpoint 1 PASSED — server Task 1 + dashboard Task 1 both complete; module exports verified; 176/176 tests pass
+- [x] Checkpoint 2 PASSED — All waves complete; gsd-t-visualize.md exists (104 lines, ≤200); bin/gsd-t.js UTILITY_SCRIPTS includes both dashboard files; all 4 reference files show count 48 (GSD-T commands: 44); 176/176 tests pass
 
 ## Completed Milestones
 | Milestone | Version | Completed | Tag |
 |-----------|---------|-----------|-----|
-| Real-Time Agent Dashboard    | 2.33.10 | 2026-03-04 | v2.33.10  |
-| Execution Intelligence Layer | 2.32.10 | 2026-03-04 | v2.32.10  |
+| Execution Intelligence Layer | 2.32.10 | 2026-03-04 | v2.32.10 |
 | Backlog Management System | 2.8.0 | 2026-02-10 | v2.8.0 |
 | QA Agent — Test-Driven Contracts | 2.22.0 | 2026-02-17 | v2.22.0 |
 | Contract & Doc Alignment (Tech Debt Fix) | 2.21.2 | 2026-02-18 | v2.21.2 |
@@ -33,7 +63,7 @@ None — ready for next milestone
 <!-- No active domains — ready for next milestone -->
 
 ## Contracts
-<!-- No active contracts — see archived milestone for M15 contracts -->
+<!-- No active contracts — see archived milestone for M14 contracts -->
 
 ## Blockers
 <!-- No active blockers -->
@@ -221,7 +251,6 @@ None — ready for next milestone
 - 2026-03-04 15:00: [success] M15 dashboard Task 1 — created scripts/gsd-t-dashboard.html (195 lines, within ≤200 limit); React 17 + ReactFlow v11.11.4 UMD + Dagre via CDN script tags; dark theme (--bg:#0d1117, --surface:#161b22); SSE connects to http://localhost:{port}/events (port from ?port= URL param, default 7433); auto-reconnect after 3s on disconnect; agent hierarchy graph via React Flow + Dagre TB layout from parent_agent_id fields; live event feed (max 200, newest first, outcome color-coded); vanilla React.createElement (no Babel/JSX) for CDN-only compatibility; ReactFlow v11 UMD needs React/ReactDOM globals loaded first. 176/176 tests pass.
 - 2026-03-04 13:56: [success] M15 Checkpoint 1 PASSED — scripts/gsd-t-dashboard-server.js (141 lines, 5 module exports verified: startServer/tailEventsFile/readExistingEvents/parseEventLine/findEventsDir); scripts/gsd-t-dashboard.html (194 lines, within ≤200 limit); 176/176 tests pass. Wave 2 (command domain) unblocked.
 - 2026-03-04 16:00: [success] M15 server Task 1 — created scripts/gsd-t-dashboard-server.js (141 lines, zero external deps, Node.js built-ins only: http, fs, path, child_process); 5 module exports: startServer(port, eventsDir, htmlPath), tailEventsFile(filePath, callback), readExistingEvents(eventsDir, maxEvents), parseEventLine(line), findEventsDir(projectDir); HTTP endpoints: GET / (serve HTML, 200/404), GET /events (SSE stream, max 500 existing events + tail, keepalive every 15s), GET /ping ({"status":"ok","port"}), GET /stop (graceful shutdown); CLI flags: --port, --events, --detach (PID to .gsd-t/dashboard.pid), --stop; symlink protection via lstatSync pattern (from heartbeat.js line 65); silent failure on missing events dir; created test/dashboard-server.test.js (23 tests, node:test runner); 176/176 tests pass (153 baseline + 23 new). server domain: complete.
-- 2026-03-04 15:00: [success] Milestone "Real-Time Agent Dashboard" completed — SSE server (gsd-t-dashboard-server.js, 141 lines, zero deps), React Flow + Dagre dashboard (gsd-t-dashboard.html, 194 lines), gsd-t-visualize command (#48, 104 lines). 5 tasks, 3 domains, 2 checkpoints, 176 tests. v2.33.10
 - 2026-03-04 14:50: [success] M15 verify PASSED — all gates clear: 176/176 tests pass; gsd-t-dashboard-server.js (141 lines, zero external deps: http/fs/path/child_process only); gsd-t-dashboard.html (194 lines, ≤200 limit); gsd-t-visualize.md (104 lines, has Step 0 OBSERVABILITY LOGGING); UTILITY_SCRIPTS includes both dashboard files; README count 48; REQ-023 complete in requirements.md. M15 status: VERIFIED.
 - 2026-02-25 10:32: Deep research with team agents for brainstorm and debug loop breaking (v2.31.19) — gsd-t-brainstorm.md: replaced optional team mode (visionary/pragmatist/devil's advocate) with mandatory Deep Research Phase before Step 5; three parallel research agents (landscape, alternatives, analogies) must complete before any conclusions are drawn; token-log note updated from "team brainstorm" to "deep research". gsd-t-debug.md: added Step 1.5 Debug Loop Detection; scans progress.md for 3+ prior debug sessions on same issue and triggers Deep Research Mode with three parallel research agents (root-cause, alternatives, prior-art); Lead synthesizes and presents a structured option table to user before any fix proceeds; 3-attempt limit now escalates to deep research instead of stopping. Purpose: prevent 10–20 session debug death spirals and ensure brainstorm conclusions are evidence-based.
 
@@ -250,6 +279,4 @@ None — ready for next milestone
 | 2026-02-23 | 23 | GSD-T project guard for auto-route hook (v2.31.11): added fs.existsSync guard for .gsd-t/progress.md in cwd to gsd-t-auto-route.js — hook now silent in non-GSD-T directories; CLAUDE-global.md + live CLAUDE.md note updated; 127/127 tests pass |
 | 2026-02-23 | 22 | Auto-Route feature (v2.31.10): added scripts/gsd-t-auto-route.js (UserPromptSubmit hook — plain text prompts auto-routed through /gsd, slash commands pass through unchanged); updated bin/gsd-t.js with installAutoRoute()/configureAutoRouteHook() called from doInstall(); updated templates/CLAUDE-global.md and live ~/.claude/CLAUDE.md Conversation vs. Work section with [GSD-T AUTO-ROUTE] signal recognition; updated commands/gsd-t-help.md, docs/GSD-T-README.md, README.md with auto-route documentation. 127/127 tests pass. |
 | 2026-02-22 | 21 | Auto-clear context window after safe commands (v2.30.10): added `## Auto-Clear` section to 41 of 42 gsd-t-* command files — instructs Claude to execute `/clear` after each command completes, freeing the context window for the next command. Excluded: gsd-t-resume.md (would defeat purpose of restoring session context). gsd-t-wave.md gets auto-clear only at the very end of the full wave cycle (after all phases complete). All work is committed to project files so clearing is safe. 127/127 tests pass. |
-| 2026-03-04 | 25 | M14 Execution Intelligence Layer (partition→verify→complete, v2.32.10): JSONL event stream (gsd-t-event-writer.js), heartbeat enrichment, outcome-tagged Decision Log, Reflexion pre-task retrieval (execute/debug), phase_transition events (wave), distillation step (complete-milestone), gsd-t-reflect command (#47). 153 tests. |
-| 2026-03-04 | 26 | M15 Real-Time Agent Dashboard (partition→verify→complete, v2.33.10): gsd-t-dashboard-server.js (141 lines, zero deps, SSE), gsd-t-dashboard.html (194 lines, React Flow + Dagre CDN), gsd-t-visualize command (#48, 104 lines). 176/176 tests. |
 | 2026-02-19 | 12 | Observability & model optimization (v2.28.11): (1) model: haiku for execute QA, integrate QA, plan validation, status, health, scan architecture/business-rules/contracts teammates; (2) model: sonnet kept for scan security/quality teammates; (3) MANDATORY observability logging added to execute/integrate/plan — before/after Bash timestamps + append to .gsd-t/token-log.md and .gsd-t/qa-issues.md; (4) Observability Logging directive added to CLAUDE.md; (5) init.md creates token-log.md + qa-issues.md with header rows; (6) TD-080 added for log archiving/summarizing. 125/125 tests pass. |

@@ -7,6 +7,7 @@ A methodology for reliable, parallelizable development using Claude Code with op
 **Maintains test coverage** — automatically keeps tests aligned with code changes.
 **Catches downstream effects** — analyzes impact before changes break things.
 **Protects existing work** — destructive action guard prevents schema drops, architecture replacements, and data loss without explicit approval.
+**Visualizes execution in real time** — live browser dashboard renders agent hierarchy, tool activity, and phase progression from the event stream.
 
 ---
 
@@ -319,6 +320,12 @@ get-stuff-done-teams/
 │   ├── progress.md
 │   ├── backlog.md
 │   └── backlog-settings.md
+├── scripts/                           # Runtime utility scripts (installed to ~/.claude/scripts/)
+│   ├── gsd-t-tools.js                 # State CLI (get/set/validate/list)
+│   ├── gsd-t-statusline.js            # Context usage bar
+│   ├── gsd-t-event-writer.js          # Structured JSONL event writer
+│   ├── gsd-t-dashboard-server.js      # Zero-dep SSE server for dashboard
+│   └── gsd-t-dashboard.html           # React Flow + Dagre real-time dashboard
 ├── examples/
 │   ├── settings.json
 │   └── .gsd-t/

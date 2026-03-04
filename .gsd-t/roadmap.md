@@ -197,24 +197,24 @@
 
 ---
 
-## Milestone 15: Real-Time Agent Dashboard (DEFINED — in progress)
+## Milestone 15: Real-Time Agent Dashboard (COMPLETE — v2.33.10, 2026-03-04)
 **Source**: Brainstorm session 2026-03-04 — user goal: real-time visualization of workflow and agents
 **Goal**: Render GSD-T's live execution as an interactive browser-based dashboard. An SSE server watches the M14 event stream and pushes updates to a React Flow + Dagre visualization showing the agent hierarchy, tool call activity, phase progression, and memory system interactions in real time.
 **Reference mockup**: `scripts/gsd-t-dashboard-mockup.html` (6 scenarios: wave/execute, parallel domains, scan, brainstorm, debug, quick/error)
 **Scope**:
-- `scripts/gsd-t-dashboard-server.js` — Node.js SSE server (~80 lines, zero external deps) watching `.gsd-t/events/*.jsonl`
-- `scripts/gsd-t-dashboard.html` — React Flow + Dagre via CDN (no build step), agent hierarchy + live event overlay
-- `gsd-t-visualize` command — launches dashboard server + opens browser, stops server on Ctrl+C
-- bin/gsd-t.js update — `installDashboardScripts()` copies server + HTML to `~/.claude/scripts/`
+- `scripts/gsd-t-dashboard-server.js` — Node.js SSE server (141 lines, zero external deps) watching `.gsd-t/events/*.jsonl`
+- `scripts/gsd-t-dashboard.html` — React Flow + Dagre via CDN (194 lines, no build step), agent hierarchy + live event overlay
+- `gsd-t-visualize` command (104 lines, #48) — launches dashboard server + opens browser, stops server via stop argument
+- bin/gsd-t.js update — UTILITY_SCRIPTS array includes both dashboard files
 **Out of scope**: SigNoz/OpenTelemetry export, cloud telemetry, WebSocket (SSE sufficient), npm publish of dashboard
 **Blocked by**: M14 (event stream must exist and be populated)
 **Success criteria**:
-- [ ] `gsd-t-visualize` starts server and opens browser in < 3s
-- [ ] Agent hierarchy renders correctly (parent → child via parent_agent_id from events)
-- [ ] Live events appear in dashboard within 1s of JSONL write
-- [ ] All 6 mockup scenarios visualized with real event data
-- [ ] Dashboard server is zero external dependencies (Node.js built-ins only)
-- [ ] All existing tests pass with no regressions
+- [x] `gsd-t-visualize` starts server and opens browser in < 3s
+- [x] Agent hierarchy renders correctly (parent → child via parent_agent_id from events)
+- [x] Live events appear in dashboard within 1s of JSONL write
+- [x] All 6 mockup scenarios visualized with real event data
+- [x] Dashboard server is zero external dependencies (Node.js built-ins only)
+- [x] All existing tests pass with no regressions (176/176)
 
 ---
 

@@ -1,6 +1,6 @@
 # Requirements — GSD-T Framework (@tekyzinc/gsd-t)
 
-## Last Updated: 2026-03-04 (M14 Executed — Execution Intelligence Layer complete)
+## Last Updated: 2026-03-04 (M15 Complete — Real-Time Agent Dashboard v2.33.10)
 
 ## Functional Requirements
 
@@ -73,7 +73,7 @@
 | REQ-020 | Pre-Task Experience Retrieval — Reflexion pattern           | learning-loop | Task 1, Task 2  | complete |
 | REQ-021 | Milestone Distillation — patterns → CLAUDE.md proposals     | reflect       | Task 1          | complete |
 | REQ-022 | gsd-t-reflect command — retrospective from events/          | reflect       | Task 2, Task 3  | complete |
-| REQ-023 | Real-Time Agent Dashboard — SSE server + React Flow dashboard + gsd-t-visualize command | server, dashboard, command | server T1, dashboard T1, command T1, T2, T3 | in progress (M15) |
+| REQ-023 | Real-Time Agent Dashboard — SSE server + React Flow dashboard + gsd-t-visualize command | server, dashboard, command | server T1, dashboard T1, command T1, T2, T3 | complete (M15) |
 
 **Orphaned requirements**: REQ-001 through REQ-017 (all M1–M13 deliverables, complete — not mapped to M14 tasks by design).
 **Unanchored tasks**: command Task 2 (bin/gsd-t.js installer update) and Task 3 (4 reference files) are infrastructure supporting REQ-023 — implicitly mapped.

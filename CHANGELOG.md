@@ -2,6 +2,35 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.33.10] - 2026-03-04
+
+### Added
+- **Milestone 15: Real-Time Agent Dashboard** — Zero-dependency live browser dashboard for GSD-T execution:
+  - **`scripts/gsd-t-dashboard-server.js`** (141 lines): Node.js HTTP+SSE server (zero external deps). Watches `.gsd-t/events/*.jsonl`, streams up to 500 existing events on connect, tails for new events, keepalive every 15s. Runs detached with PID file. All functions exported for testability (23 unit tests in `test/dashboard-server.test.js`).
+  - **`scripts/gsd-t-dashboard.html`** (194 lines): Browser dashboard using React 17 + React Flow v11.11.4 + Dagre via CDN (no build step, no npm deps). Dark theme. Renders agent hierarchy as directed graph from `parent_agent_id` relationships. Live event feed (max 200 events, outcome color-coded: green=success, red=failure, yellow=learning). Auto-reconnects on disconnect.
+  - **`commands/gsd-t-visualize`**: 48th GSD-T command. Starts server via `--detach`, polls `/ping` up to 5s, opens browser cross-platform (win32/darwin/linux). Accepts `stop` argument. Includes Step 0 self-spawn with OBSERVABILITY LOGGING.
+  - Both `gsd-t-dashboard-server.js` and `gsd-t-dashboard.html` automatically installed to `~/.claude/scripts/` during `npx @tekyzinc/gsd-t install/update`
+  - 23 new tests in `test/dashboard-server.test.js` — total: 176/176 passing
+
+### Changed
+- Total command count: 47 → **48** (44 GSD-T workflow + 4 utility)
+
+## [2.32.10] - 2026-03-04
+
+### Added
+- **Milestone 14: Execution Intelligence Layer** — Structured observability, learning, and reflection:
+  - **`scripts/gsd-t-event-writer.js`**: New zero-dependency CLI + module.exports. Writes structured JSONL events to `.gsd-t/events/YYYY-MM-DD.jsonl`. Validates 8 event_type values and 5 outcome values. Symlink-safe. Resolves events dir from `GSD_T_PROJECT_DIR` or cwd. 26 new tests.
+  - **Heartbeat enrichment**: `scripts/gsd-t-heartbeat.js` maps `SubagentStart`/`SubagentStop`/`PostToolUse` hook events to the events/ schema, appending them to daily JSONL files alongside existing heartbeat writes.
+  - **Outcome-tagged Decision Log**: `execute`, `debug`, and `wave` now prefix all new Decision Log entries with `[success]`, `[failure]`, `[learning]`, or `[deferred]`.
+  - **Pre-task experience retrieval (Reflexion pattern)**: `execute` and `debug` grep the Decision Log for `[failure]`/`[learning]` entries matching the current domain before spawning subagents. Relevant past failures prepended as `⚠️ Past Failures` block in subagent prompt.
+  - **Phase transition events**: `wave` writes `phase_transition` event with outcome:success/failure at each phase boundary.
+  - **Distillation step** (Step 2.5 in `complete-milestone`): Scans event stream for patterns seen ≥3 times, proposes CLAUDE.md / constraints.md rule additions, requires user confirmation before any write.
+  - **`commands/gsd-t-reflect`** (134 lines, 47th command): On-demand retrospective from event stream. Generates `.gsd-t/retrospectives/YYYY-MM-DD-{milestone}.md` with What Worked / What Failed / Patterns Found / Proposed Memory Updates. Includes Step 0 self-spawn with OBSERVABILITY LOGGING.
+  - `gsd-t-event-writer.js` installed to `~/.claude/scripts/` during install/update
+
+### Changed
+- Total command count: 46 → **47** (43 GSD-T workflow + 4 utility)
+
 ## [2.28.10] - 2026-02-18
 
 ### Added
