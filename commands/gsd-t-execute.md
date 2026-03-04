@@ -70,6 +70,16 @@ Append to `.gsd-t/token-log.md` (create with header `| Datetime-start | Datetime
 
 **For each domain (in wave order), spawn:**
 
+**Pre-task experience retrieval (before spawning each domain subagent):**
+Run via Bash:
+`grep -i "\[failure\]\|\[learning\]" .gsd-t/progress.md | grep -i "{domain-name}" | tail -5`
+
+If results found:
+- Prepend a `## ⚠️ Past Failures (retrieve before acting)` block to the subagent prompt (max 5 lines from results)
+- Write event via Bash: `node ~/.claude/scripts/gsd-t-event-writer.js --type experience_retrieval --command gsd-t-execute --reasoning "{N past failures found for {domain-name}}" --outcome null || true`
+
+If no results found: proceed normally (no warning block, no event write).
+
 ```
 Task subagent (general-purpose, model: sonnet, mode: bypassPermissions):
 "You are executing all tasks for the {domain-name} domain.
@@ -98,7 +108,11 @@ Execute each incomplete task in order:
 7. Run ALL tests — unit, integration, Playwright. Fix failures (up to 2 attempts)
 8. Run Pre-Commit Gate checklist from CLAUDE.md — update all affected docs BEFORE committing
 9. Commit immediately: feat({domain-name}/task-{N}): {description}
-10. Update .gsd-t/progress.md — mark task complete
+10. Update .gsd-t/progress.md — mark task complete; prefix the Decision Log entry with an outcome tag based on how the task completed:
+    - Task completed successfully on first attempt → prefix `[success]`
+    - Task completed after a fix (required debugging or correction) → prefix `[learning]`
+    - Task deferred to .gsd-t/deferred-items.md → prefix `[deferred]`
+    - Task failed after 3 attempts → prefix `[failure]`
 11. Spawn QA subagent (model: haiku) after each task:
     'Run the full test suite. Read .gsd-t/contracts/ for definitions.
      Report: pass/fail counts and coverage gaps.'
