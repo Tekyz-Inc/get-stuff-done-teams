@@ -1,7 +1,7 @@
 # GSD-T Progress
 
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
-## Status: READY
+## Status: PARTITIONED
 ## Date: 2026-03-04
 ## Version: 2.32.10
 
@@ -9,7 +9,7 @@
 
 | # | Milestone | Status | Domains |
 |---|-----------|--------|---------|
-| 15 | Real-Time Agent Dashboard | DEFINED | TBD |
+| 15 | Real-Time Agent Dashboard | PARTITIONED | server, dashboard, command |
 
 **Goal**: Render GSD-T's live execution as an interactive browser-based dashboard. An SSE server watches the M14 event stream and pushes updates to a React Flow + Dagre visualization showing agent hierarchy, tool call activity, and phase progression in real time. Adds the `gsd-t-visualize` command (48th command).
 
@@ -20,6 +20,25 @@
 - Dashboard server is zero external dependencies (Node.js built-ins only)
 - All 6 mockup scenarios visualized with real event data
 - All existing 153 tests pass with no regressions
+
+## Domains
+
+| Domain   | Status      | Tasks | Completed |
+|----------|-------------|-------|-----------|
+| server   | partitioned | 0     | 0         |
+| dashboard | partitioned | 0    | 0         |
+| command  | partitioned | 0     | 0         |
+
+## Contracts
+
+- [x] dashboard-server-contract.md — HTTP endpoints, PID file, module exports, event stream format
+- [x] integration-points.md — wave groups, checkpoints, dependency graph
+- [ ] (no additional contracts needed — all cross-domain interaction defined in dashboard-server-contract.md)
+
+## Integration Checkpoints
+
+- [ ] Checkpoint 1: server Task 1 + dashboard Task 1 both complete — blocks command domain
+- [ ] Checkpoint 2: All waves complete — pre-verify gate (153+ tests pass, all 4 reference files show count 48)
 
 ## Completed Milestones
 | Milestone | Version | Completed | Tag |
@@ -222,6 +241,7 @@
 - 2026-03-04 11:58: [success] M14 Checkpoint 2 PASSED — all 3 waves complete; gsd-t-event-writer.js schema validates; gsd-t-execute.md has pre-task retrieval block; gsd-t-debug.md has experience retrieval (Step 1.7); gsd-t-wave.md has phase_transition event writes; gsd-t-complete-milestone.md has Step 2.5 distillation; gsd-t-reflect.md exists (134 lines); all 4 reference files show count 47; 153/153 tests pass. M14 status: EXECUTED
 - 2026-03-04 12:00: [success] Milestone "Execution Intelligence Layer" completed — JSONL event stream (gsd-t-event-writer.js), heartbeat enrichment, outcome-tagged Decision Log (execute/debug/wave), pre-task Reflexion retrieval (execute/debug), phase_transition events (wave), distillation step (complete-milestone), gsd-t-reflect command (#47). 10 tasks, 3 domains, 2 checkpoints, 153 tests. v2.32.10
 - 2026-03-04 12:05: Milestone 15 defined — Real-Time Agent Dashboard: SSE server (gsd-t-dashboard-server.js, zero-dep, ~80 lines) watches .gsd-t/events/*.jsonl; gsd-t-dashboard.html renders React Flow + Dagre agent hierarchy via CDN (no build step); gsd-t-visualize command (#48) launches server + opens browser; bin/gsd-t.js installs server+html to ~/.claude/scripts/. Reference mockup: scripts/gsd-t-dashboard-mockup.html (6 scenarios). Scope decisions: SSE not WebSocket (sufficient for unidirectional push), no npm publish of dashboard, no SigNoz/cloud export. Requires M14 event stream (events/ files as source). Test baseline: 153/153.
+- 2026-03-04 13:05: M15 partitioned into 3 domains: server (gsd-t-dashboard-server.js — zero-dep SSE server, Node.js built-ins, module.exports required), dashboard (gsd-t-dashboard.html — React Flow + Dagre CDN, ≤200 lines, dark theme, parent_agent_id hierarchy), command (gsd-t-visualize.md + bin/gsd-t.js + 4 reference files — Step 0 self-spawn, detached spawn, platform browser open). Contracts: dashboard-server-contract.md + integration-points.md. Wave plan: server+dashboard parallel in Wave 1, command sequential in Wave 2. Assumption locks: mockup = INSPECT (color scheme/layout only, no code copy), CDN = USE, node built-ins = USE, event-writer.js/heartbeat.js = BLACK BOX (must read before using). Test baseline: 153/153 pass. Decision: SSE not WebSocket (unidirectional push is sufficient, simpler Node.js implementation). Decision: detached child_process.spawn with PID file (command can't block the agent). Decision: React Flow + Dagre via CDN (no build step, consistent with mockup pattern).
 - 2026-02-25 10:32: Deep research with team agents for brainstorm and debug loop breaking (v2.31.19) — gsd-t-brainstorm.md: replaced optional team mode (visionary/pragmatist/devil's advocate) with mandatory Deep Research Phase before Step 5; three parallel research agents (landscape, alternatives, analogies) must complete before any conclusions are drawn; token-log note updated from "team brainstorm" to "deep research". gsd-t-debug.md: added Step 1.5 Debug Loop Detection; scans progress.md for 3+ prior debug sessions on same issue and triggers Deep Research Mode with three parallel research agents (root-cause, alternatives, prior-art); Lead synthesizes and presents a structured option table to user before any fix proceeds; 3-attempt limit now escalates to deep research instead of stopping. Purpose: prevent 10–20 session debug death spirals and ensure brainstorm conclusions are evidence-based.
 
 ## Session Log

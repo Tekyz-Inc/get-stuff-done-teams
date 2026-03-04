@@ -1,78 +1,67 @@
 # Integration Points
 
-## Current State: Milestone 14 — Execution Intelligence Layer (3 domains)
+## Current State: Milestone 15 — Real-Time Agent Dashboard (3 domains)
 
 ## Dependency Graph
 
 ```
-event-stream Task 1  ──▶  learning-loop Tasks 1, 2, 3  (all blocked on schema)
-event-stream Task 1  ──▶  reflect Tasks 1, 2            (all blocked on schema)
-event-stream Task 3  ──▶  (requires Task 1 file to exist for installer)
-reflect Task 2       ──▶  reflect Task 3                (docs need command file first)
+server Task 1  ──▶  command Tasks 1, 2, 3  (command needs server.js to exist)
+dashboard Task 1  ──▶  command Tasks 1, 2  (command needs dashboard.html to exist)
+server and dashboard ──▶  parallel-safe (different files, no shared state)
 ```
 
 ## Wave Execution Groups
 
 ### Wave 1 — Independent (parallel-safe)
-- event-stream: Tasks 1, 2, 3, 4
-  - Task 1 first (creates event-writer.js)
-  - Task 2 after Task 1 (heartbeat enrichment)
-  - Task 3 after Task 1 (installer needs the file)
-  - Task 4 independent (gsd-t-init.md change)
-- **Shared files**: NONE between event-stream tasks (Tasks 1/4 are separate files; Tasks 2/3 touch different files)
-- **Internal ordering within wave**: Task 1 → Tasks 2+3; Task 4 any time
-- **Completes when**: All 4 event-stream tasks done + tests pass
+- server: Task 1 (create gsd-t-dashboard-server.js)
+  - Zero external deps, module.exports, SSE endpoints, --detach flag
+- dashboard: Task 1 (create gsd-t-dashboard.html)
+  - React Flow + Dagre via CDN, ≤200 lines, dark theme, SSE connect
+- **Shared files**: NONE — server owns scripts/gsd-t-dashboard-server.js; dashboard owns scripts/gsd-t-dashboard.html
+- **Completes when**: Both tasks done + tests pass (test/dashboard-server.test.js)
 
 ### Checkpoint 1 — Between Wave 1 and Wave 2
-- **GATE**: event-stream Task 1 complete
-- **VERIFY**: `scripts/gsd-t-event-writer.js` exists; `.gsd-t/contracts/event-schema-contract.md` exists
-- **Also verify**: `node scripts/gsd-t-event-writer.js --type command_invoked --command test` runs without crash
-- **UNBLOCKS**: learning-loop Tasks 1-3, reflect Tasks 1-2
-
-### Wave 2 — After Checkpoint 1 (parallel-safe between domains, sequential within reflect)
-- learning-loop: Tasks 1, 2, 3 (all parallel-safe — different files)
-  - execute.md, debug.md, wave.md are all separate files
-- reflect: Tasks 1, 2 (parallel-safe with learning-loop — different files)
-  - complete-milestone.md, gsd-t-reflect.md are separate files
-- **Shared files**: NONE — all 5 tasks in wave 2 touch different files
-- **Completes when**: All 5 tasks done + tests pass
-
-### Wave 3 — After Wave 2 (sequential, docs only)
-- reflect: Task 3 (update 4 reference files)
-- **Requires**: reflect Task 2 complete (gsd-t-reflect.md must exist)
-- **Shared files**: README.md, GSD-T-README.md, CLAUDE-global.md, gsd-t-help.md
-  - These 4 files are ONLY touched by reflect Task 3 — safe
-- **Completes when**: Task 3 done, all 4 reference files updated with count 47
-
-### Checkpoint 2 — Final (pre-integration)
-- **GATE**: All 3 waves complete
+- **GATE**: server Task 1 AND dashboard Task 1 both complete
 - **VERIFY**:
-  - `scripts/gsd-t-event-writer.js` exists and validates schema
-  - `scripts/gsd-t-heartbeat.js` still passes all existing tests
-  - `commands/gsd-t-execute.md` has pre-task retrieval block
-  - `commands/gsd-t-debug.md` has experience retrieval step
-  - `commands/gsd-t-wave.md` has phase_transition event writes
-  - `commands/gsd-t-complete-milestone.md` has Step 2.5 distillation
-  - `commands/gsd-t-reflect.md` exists
-  - All 4 reference files show count 47
-  - `npm test` 127+ tests pass
+  - `scripts/gsd-t-dashboard-server.js` exists and exports startServer/tailEventsFile/readExistingEvents/parseEventLine/findEventsDir
+  - `scripts/gsd-t-dashboard.html` exists and is ≤200 lines
+  - `node -e "require('./scripts/gsd-t-dashboard-server.js')"` exits cleanly (no import errors)
+  - `node scripts/gsd-t-dashboard-server.js --ping 2>&1 | grep -q ok || true` (optional smoke check)
+- **UNBLOCKS**: command Tasks 1, 2, 3
+
+### Wave 2 — After Checkpoint 1 (sequential within command domain)
+- command: Task 1 (create commands/gsd-t-visualize.md)
+  - Step 0 self-spawn, OBSERVABILITY LOGGING, spawn server + open browser, write command_invoked event
+- command: Task 2 (update bin/gsd-t.js — add dashboard files to UTILITY_SCRIPTS)
+  - Add gsd-t-dashboard-server.js and gsd-t-dashboard.html to UTILITY_SCRIPTS array
+- command: Task 3 (update 4 reference files + increment counts 47→48 / 43→44)
+  - README.md, docs/GSD-T-README.md, templates/CLAUDE-global.md, commands/gsd-t-help.md
+  - test/filesystem.test.js count assertions 47→48 / 43→44
+- **Internal ordering**: Task 1 first (command file must exist), Task 2 next (installer), Task 3 last (docs need command to exist)
+- **Completes when**: All 3 tasks done + all 153+ tests pass
+
+### Checkpoint 2 — Final (pre-verify)
+- **GATE**: All 2 waves complete
+- **VERIFY**:
+  - `scripts/gsd-t-dashboard-server.js` exists, module.exports complete
+  - `scripts/gsd-t-dashboard.html` exists, ≤200 lines
+  - `commands/gsd-t-visualize.md` exists, has Step 0 OBSERVABILITY LOGGING
+  - `bin/gsd-t.js` UTILITY_SCRIPTS includes both dashboard files
+  - All 4 reference files show count 48 (GSD-T commands: 44)
+  - `npm test` 153+ tests pass
 
 ## Execution Order (Solo Mode)
 
-1. **event-stream Task 1**: Create gsd-t-event-writer.js
-2. **event-stream Task 4**: Update gsd-t-init.md (independent, can run in parallel with Task 1)
-3. **event-stream Task 2**: Enrich heartbeat.js (after Task 1)
-4. **event-stream Task 3**: Update bin/gsd-t.js installer (after Task 1)
-5. **CHECKPOINT 1**: Verify event-writer.js and schema contract
-6. **learning-loop Task 1**: Update execute.md (parallel-safe with learning-loop 2+3 and reflect 1+2)
-7. **learning-loop Task 2**: Update debug.md
-8. **learning-loop Task 3**: Update wave.md
-9. **reflect Task 1**: Update complete-milestone.md
-10. **reflect Task 2**: Create gsd-t-reflect.md
-11. **reflect Task 3**: Update 4 reference files (after Task 2)
-12. **CHECKPOINT 2**: Full verification before test-sync
+1. **server Task 1**: Create gsd-t-dashboard-server.js (parallel-safe with dashboard)
+2. **dashboard Task 1**: Create gsd-t-dashboard.html (parallel-safe with server)
+3. **CHECKPOINT 1**: Verify both files exist, module.exports work
+4. **command Task 1**: Create commands/gsd-t-visualize.md
+5. **command Task 2**: Update bin/gsd-t.js UTILITY_SCRIPTS array
+6. **command Task 3**: Update 4 reference files + filesystem.test.js counts
+7. **CHECKPOINT 2**: Full verification — all files, all tests pass
 
 ## History
 - **Milestone 3** (Count Fix + QA Contract Alignment): Single domain, no integration points needed.
 - **Milestones 4-8**: All single-domain milestones — no integration points.
 - **Milestone 14** (Execution Intelligence Layer): 3 domains, 2 wave checkpoints. event-stream is foundational (must complete Task 1 first). learning-loop and reflect run in parallel after Checkpoint 1. reflect Task 3 (docs) waits for reflect Task 2 (new command).
+- **Milestone 15** (Real-Time Agent Dashboard): 3 domains, 2 wave checkpoints. server + dashboard run in parallel (Wave 1, different files). command runs after both complete (Wave 2, sequential within domain). command Task 3 (docs) waits for Task 1 (new command file).
