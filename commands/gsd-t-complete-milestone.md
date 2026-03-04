@@ -57,6 +57,27 @@ After verification passes, run a gap analysis against `docs/requirements.md` sco
 
 This is a **mandatory gate** — the milestone cannot be archived with known gaps against its requirements.
 
+## Step 2.5: Distillation — Extract Milestone Patterns
+
+Before archiving, extract learning from the event stream to improve future runs.
+
+1. Check if `.gsd-t/events/` exists and has any `.jsonl` files for this milestone period
+   - If no events files found: skip distillation (log "No events recorded — distillation skipped"), continue to Step 3
+   - If event-writer not installed (`node ~/.claude/scripts/gsd-t-event-writer.js 2>/dev/null || true`): skip gracefully
+
+2. Parse events: scan `.gsd-t/events/*.jsonl` for events with `"outcome":"failure"` or `"outcome":"learning"`
+
+3. Group by `reasoning` field value — count occurrences of each distinct reasoning string
+
+4. For each group with ≥ 3 occurrences:
+   - Formulate a concrete rule (e.g., "Always read X before modifying Y — failed 4 times without this")
+   - Present to user: "Pattern found {N} times: {reasoning}. Proposed rule: '{rule}'. Add to CLAUDE.md? [y/n]"
+   - **Wait for user confirmation before writing** (Destructive Action Guard — CLAUDE.md changes require approval)
+   - If approved: append the rule to CLAUDE.md under the relevant section
+   - Write event: `node ~/.claude/scripts/gsd-t-event-writer.js --type distillation --command gsd-t-complete-milestone --reasoning "{rule}" --outcome success || true`
+
+5. If no patterns found (fewer than 3 occurrences): log "Distillation complete — no repeating patterns found", continue to Step 3
+
 ## Step 3: Gather Milestone Artifacts
 
 Collect all files related to this milestone:
@@ -168,7 +189,8 @@ None — ready for next milestone
 | {previous} | {version} | {date} | v{version} |
 
 ## Decision Log
-{Keep the decision log — it's valuable context}
+- {date}: [success] Milestone "{name}" completed — {summary of what was built}. v{version}
+{Keep all prior decision log entries — they are valuable context}
 ```
 
 ## Step 8: Update README.md
