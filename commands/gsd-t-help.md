@@ -52,6 +52,7 @@ UTILITIES                                                              Manual
   resume              Restore context after break
   quick               Fast task with GSD-T guarantees
   reflect             Generate retrospective from event stream, propose memory updates
+  visualize           Launch browser dashboard (SSE server + React Flow)
   debug               Systematic debugging with state
   health              Validate .gsd-t/ structure, optionally repair missing files
   pause               Save exact position for reliable resume later
@@ -306,6 +307,13 @@ Use these when user asks for help on a specific command:
 - **Reads**: `.gsd-t/events/*.jsonl`, `.gsd-t/progress.md`, `CLAUDE.md`
 - **Creates**: `.gsd-t/retrospectives/YYYY-MM-DD-{milestone}.md`
 - **Use when**: After completing a milestone or mid-milestone to surface what's working, what's failing, and what patterns should become permanent rules
+
+### visualize
+- **Summary**: Launch the real-time agent dashboard — starts the SSE server (if not running) and opens the React Flow visualization in a browser
+- **Auto-invoked**: No
+- **Reads**: `.gsd-t/dashboard.pid`, `.gsd-t/events/*.jsonl` (via server)
+- **Creates**: `.gsd-t/dashboard.pid` (when starting server)
+- **Use when**: Monitoring live agent activity during execute/wave phases; run `gsd-t-visualize stop` to stop the server
 
 ### debug
 - **Summary**: Systematic debugging with persistent state
