@@ -126,6 +126,22 @@ Please select an option (or provide your own direction) before I proceed.
 
 ---
 
+## Step 1.7: Experience Retrieval
+
+Before proceeding to classification and fix, retrieve relevant past failures from the Decision Log.
+
+Run via Bash:
+`grep -i "\[failure\]\|\[learning\]" .gsd-t/progress.md | tail -10`
+
+If results found:
+- Display a `## ⚠️ Relevant Past Failures` block showing matching entries (max 5 lines)
+- Pass this block as context to any debug subagent spawned in Step 3
+- Write event via Bash: `node ~/.claude/scripts/gsd-t-event-writer.js --type experience_retrieval --command gsd-t-debug --reasoning "{N entries found}" --outcome null || true`
+
+If no results found: proceed normally to Step 2.
+
+---
+
 ## Step 2: Classify the Bug
 
 Based on the user's description ($ARGUMENTS), determine:
@@ -187,7 +203,7 @@ When you encounter unexpected situations during the fix:
 3. **Blocker (missing file, wrong API response)** → Fix blocker and continue. Log if non-trivial.
 4. **Architectural change required to fix correctly** → STOP. Explain what exists, what needs to change, what breaks, and a migration path. Wait for user approval. Never self-approve.
 
-**3-attempt limit**: If your fix doesn't work after 3 attempts within this session, treat it as a loop. Do NOT keep trying the same approach. Log the attempt to `.gsd-t/progress.md` Decision Log, then return to Step 1.5 and run Deep Research Mode before any further attempts. Present findings and options to the user before proceeding.
+**3-attempt limit**: If your fix doesn't work after 3 attempts within this session, treat it as a loop. Do NOT keep trying the same approach. Log the attempt to `.gsd-t/progress.md` Decision Log with a `[failure]` prefix, then return to Step 1.5 and run Deep Research Mode before any further attempts. Present findings and options to the user before proceeding.
 
 ### Solo Mode
 1. Reproduce the issue — **reproduction script must exist before step 2** (see Step 2.5)
@@ -217,7 +233,11 @@ First to find root cause: message the lead with findings.
 After fixing, assess what documentation was affected by the change and update ALL relevant files:
 
 ### Always check:
-1. **`.gsd-t/progress.md`** — Add to Decision Log: what broke, why, and the fix
+1. **`.gsd-t/progress.md`** — Add to Decision Log: what broke, why, and the fix. Prefix the entry with an outcome tag:
+   - Debug session start → prefix `[debug]`
+   - Fix succeeded → prefix `[success]`
+   - Fix failed → prefix `[failure]`
+   - Issue deferred → prefix `[deferred]`
 2. **`.gsd-t/contracts/`** — Update any contract if the fix changed an interface, schema, or API shape
 3. **Domain `constraints.md`** — Add a "must not" rule if the bug was caused by a pattern that should be avoided
 
