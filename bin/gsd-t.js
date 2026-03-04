@@ -518,7 +518,7 @@ function configureAutoRouteHook(scriptPath) {
 
 // ─── Utility Scripts ─────────────────────────────────────────────────────────
 
-const UTILITY_SCRIPTS = ["gsd-t-tools.js", "gsd-t-statusline.js"];
+const UTILITY_SCRIPTS = ["gsd-t-tools.js", "gsd-t-statusline.js", "gsd-t-event-writer.js"];
 
 function installUtilityScripts() {
   ensureDir(SCRIPTS_DIR);
