@@ -1,7 +1,7 @@
 # GSD-T Progress
 
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
-## Status: PLANNED
+## Status: EXECUTING
 ## Date: 2026-03-04
 ## Version: 2.32.10
 
@@ -9,7 +9,7 @@
 
 | # | Milestone | Status | Domains |
 |---|-----------|--------|---------|
-| 15 | Real-Time Agent Dashboard | PARTITIONED | server, dashboard, command |
+| 15 | Real-Time Agent Dashboard | EXECUTING (Wave 2) | server, dashboard, command |
 
 **Goal**: Render GSD-T's live execution as an interactive browser-based dashboard. An SSE server watches the M14 event stream and pushes updates to a React Flow + Dagre visualization showing agent hierarchy, tool call activity, and phase progression in real time. Adds the `gsd-t-visualize` command (48th command).
 
@@ -26,8 +26,8 @@
 | Domain    | Status   | Tasks | Completed |
 |-----------|----------|-------|-----------|
 | server    | complete | 1     | 1         |
-| dashboard | planned  | 1     | 0         |
-| command   | planned  | 3     | 0         |
+| dashboard | complete | 1     | 1         |
+| command   | executing | 3    | 0         |
 
 ## Contracts
 
@@ -37,8 +37,8 @@
 
 ## Integration Checkpoints
 
-- [ ] Checkpoint 1: server Task 1 + dashboard Task 1 both complete — blocks command domain
-- [ ] Checkpoint 2: All waves complete — pre-verify gate (153+ tests pass, all 4 reference files show count 48)
+- [x] Checkpoint 1 PASSED — server Task 1 + dashboard Task 1 both complete; module exports verified; 176/176 tests pass
+- [ ] Checkpoint 2: All waves complete — pre-verify gate (176+ tests pass, all 4 reference files show count 48)
 
 ## Completed Milestones
 | Milestone | Version | Completed | Tag |
@@ -244,6 +244,7 @@
 - 2026-03-04 13:22: M15 planned — 5 tasks across 3 domains. Wave 1: server Task 1 (SSE server + tests) + dashboard Task 1 (HTML dashboard) run in parallel. Wave 2: command Tasks 1-3 run sequentially (Task 1 gsd-t-visualize.md, Task 2 bin/gsd-t.js UTILITY_SCRIPTS, Task 3 4 reference files + test counts). Plan validation: PASS (haiku, 50s, iteration 1). Key task specs: Step 0 self-spawn + OBSERVABILITY LOGGING in visualize command; platform detection uses same pattern as bin/gsd-t.js doChangelog() (process.platform win32/darwin/linux); CDN URLs from mockup inspection; lstatSync symlink guard from heartbeat.js line 65 pattern. docs/requirements.md REQ-023 traceability updated with domain/task mapping.
 - 2026-03-04 13:05: M15 partitioned into 3 domains: server (gsd-t-dashboard-server.js — zero-dep SSE server, Node.js built-ins, module.exports required), dashboard (gsd-t-dashboard.html — React Flow + Dagre CDN, ≤200 lines, dark theme, parent_agent_id hierarchy), command (gsd-t-visualize.md + bin/gsd-t.js + 4 reference files — Step 0 self-spawn, detached spawn, platform browser open). Contracts: dashboard-server-contract.md + integration-points.md. Wave plan: server+dashboard parallel in Wave 1, command sequential in Wave 2. Assumption locks: mockup = INSPECT (color scheme/layout only, no code copy), CDN = USE, node built-ins = USE, event-writer.js/heartbeat.js = BLACK BOX (must read before using). Test baseline: 153/153 pass. Decision: SSE not WebSocket (unidirectional push is sufficient, simpler Node.js implementation). Decision: detached child_process.spawn with PID file (command can't block the agent). Decision: React Flow + Dagre via CDN (no build step, consistent with mockup pattern).
 - 2026-03-04 15:00: [success] M15 dashboard Task 1 — created scripts/gsd-t-dashboard.html (195 lines, within ≤200 limit); React 17 + ReactFlow v11.11.4 UMD + Dagre via CDN script tags; dark theme (--bg:#0d1117, --surface:#161b22); SSE connects to http://localhost:{port}/events (port from ?port= URL param, default 7433); auto-reconnect after 3s on disconnect; agent hierarchy graph via React Flow + Dagre TB layout from parent_agent_id fields; live event feed (max 200, newest first, outcome color-coded); vanilla React.createElement (no Babel/JSX) for CDN-only compatibility; ReactFlow v11 UMD needs React/ReactDOM globals loaded first. 176/176 tests pass.
+- 2026-03-04 13:56: [success] M15 Checkpoint 1 PASSED — scripts/gsd-t-dashboard-server.js (141 lines, 5 module exports verified: startServer/tailEventsFile/readExistingEvents/parseEventLine/findEventsDir); scripts/gsd-t-dashboard.html (194 lines, within ≤200 limit); 176/176 tests pass. Wave 2 (command domain) unblocked.
 - 2026-03-04 16:00: [success] M15 server Task 1 — created scripts/gsd-t-dashboard-server.js (141 lines, zero external deps, Node.js built-ins only: http, fs, path, child_process); 5 module exports: startServer(port, eventsDir, htmlPath), tailEventsFile(filePath, callback), readExistingEvents(eventsDir, maxEvents), parseEventLine(line), findEventsDir(projectDir); HTTP endpoints: GET / (serve HTML, 200/404), GET /events (SSE stream, max 500 existing events + tail, keepalive every 15s), GET /ping ({"status":"ok","port"}), GET /stop (graceful shutdown); CLI flags: --port, --events, --detach (PID to .gsd-t/dashboard.pid), --stop; symlink protection via lstatSync pattern (from heartbeat.js line 65); silent failure on missing events dir; created test/dashboard-server.test.js (23 tests, node:test runner); 176/176 tests pass (153 baseline + 23 new). server domain: complete.
 - 2026-02-25 10:32: Deep research with team agents for brainstorm and debug loop breaking (v2.31.19) — gsd-t-brainstorm.md: replaced optional team mode (visionary/pragmatist/devil's advocate) with mandatory Deep Research Phase before Step 5; three parallel research agents (landscape, alternatives, analogies) must complete before any conclusions are drawn; token-log note updated from "team brainstorm" to "deep research". gsd-t-debug.md: added Step 1.5 Debug Loop Detection; scans progress.md for 3+ prior debug sessions on same issue and triggers Deep Research Mode with three parallel research agents (root-cause, alternatives, prior-art); Lead synthesizes and presents a structured option table to user before any fix proceeds; 3-attempt limit now escalates to deep research instead of stopping. Purpose: prevent 10–20 session debug death spirals and ensure brainstorm conclusions are evidence-based.
 
