@@ -56,6 +56,7 @@ PROJECT or FEATURE or SCAN
 | `/user:gsd-t-status` | Cross-domain progress view |
 | `/user:gsd-t-debug` | Systematic debugging |
 | `/user:gsd-t-quick` | Fast task, respects contracts |
+| `/user:gsd-t-reflect` | Generate retrospective from event stream, propose memory updates |
 | `/user:gsd-t-health` | Validate .gsd-t/ structure, optionally repair |
 | `/user:gsd-t-pause` | Save exact position for reliable resume |
 | `/user:gsd-t-populate` | Auto-populate docs from existing codebase |

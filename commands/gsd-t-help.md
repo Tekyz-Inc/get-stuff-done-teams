@@ -51,6 +51,7 @@ UTILITIES                                                              Manual
   status              Cross-domain progress view
   resume              Restore context after break
   quick               Fast task with GSD-T guarantees
+  reflect             Generate retrospective from event stream, propose memory updates
   debug               Systematic debugging with state
   health              Validate .gsd-t/ structure, optionally repair missing files
   pause               Save exact position for reliable resume later
@@ -298,6 +299,13 @@ Use these when user asks for help on a specific command:
 - **Auto-invoked**: No
 - **Creates**: Quick task record
 - **Use when**: Small tasks that don't need full planning
+
+### reflect
+- **Summary**: Generate a structured retrospective from the event stream for the current milestone, then propose CLAUDE.md/constraints.md rule additions based on recurring patterns
+- **Auto-invoked**: No
+- **Reads**: `.gsd-t/events/*.jsonl`, `.gsd-t/progress.md`, `CLAUDE.md`
+- **Creates**: `.gsd-t/retrospectives/YYYY-MM-DD-{milestone}.md`
+- **Use when**: After completing a milestone or mid-milestone to surface what's working, what's failing, and what patterns should become permanent rules
 
 ### debug
 - **Summary**: Systematic debugging with persistent state
