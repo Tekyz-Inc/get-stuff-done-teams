@@ -1,0 +1,1143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>GSD-T Dashboard — Mockup</title>
+<style>
+  :root {
+    --bg:#0d1117; --surface:#161b22; --surface2:#21262d; --border:#30363d;
+    --text:#e6edf3; --muted:#7d8590; --dim:#484f58;
+    --blue:#388bfd; --blue-bg:#1f3a5f;
+    --green:#3fb950; --green-bg:#1a3a1e;
+    --yellow:#d29922; --yellow-bg:#3a2c10;
+    --red:#f85149; --red-bg:#3a1a1a;
+    --purple:#bc8cff; --purple-bg:#2d1f5e;
+    --cyan:#79c0ff; --orange:#d18616;
+    --font:'SF Mono','Fira Code','Cascadia Code',monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:12px;
+    height:100vh;display:flex;flex-direction:column;overflow:hidden;}
+
+  /* Header */
+  .hdr{display:flex;align-items:center;gap:12px;padding:0 16px;
+    background:var(--surface);border-bottom:1px solid var(--border);height:40px;flex-shrink:0;}
+  .logo{color:var(--blue);font-weight:bold;font-size:13px;}
+  .live{display:flex;align-items:center;gap:5px;background:var(--green-bg);
+    border:1px solid var(--green);color:var(--green);padding:2px 8px;border-radius:10px;font-size:10px;}
+  .ldot{width:6px;height:6px;border-radius:50%;background:var(--green);
+    animation:pdot 1.5s ease-in-out infinite;}
+  @keyframes pdot{0%,100%{opacity:1}50%{opacity:.3}}
+  .hmeta{color:var(--muted);font-size:11px;}
+  .hright{margin-left:auto;display:flex;gap:12px;align-items:center;}
+  .tok{color:var(--cyan);font-size:11px;}
+  .pbadge{background:var(--blue-bg);border:1px solid var(--blue);color:var(--blue);
+    padding:2px 10px;border-radius:4px;font-size:11px;}
+
+  /* Scenario bar */
+  .scbar{display:flex;gap:4px;padding:8px 16px;background:var(--surface);
+    border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto;}
+  .scbtn{padding:5px 14px;border-radius:5px;font-family:var(--font);font-size:11px;
+    cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--muted);
+    white-space:nowrap;transition:all .15s;}
+  .scbtn:hover{border-color:var(--blue);color:var(--blue);}
+  .scbtn.active{background:var(--blue-bg);border-color:var(--blue);color:var(--blue);}
+
+  /* Main */
+  .main{display:flex;flex:1;overflow:hidden;}
+
+  /* Graph */
+  .garea{flex:1;position:relative;overflow:hidden;background:var(--bg);
+    background-image:radial-gradient(circle at 1px 1px,var(--border) 1px,transparent 0);
+    background-size:24px 24px;}
+  svg.g{position:absolute;width:100%;height:100%;overflow:visible;}
+
+  /* Nodes */
+  .ng{cursor:pointer;}
+  .ng:hover rect.nr{filter:brightness(1.25);}
+  .nr{transition:filter .2s;}
+  .n-session {fill:#1a1f2e;stroke:var(--blue);stroke-width:1.5;}
+  .n-command {fill:#1e1a2e;stroke:var(--purple);stroke-width:1.5;}
+  .n-domain  {fill:#1a2e1a;stroke:var(--green);stroke-width:1.5;}
+  .n-qa      {fill:#2e2a1a;stroke:var(--yellow);stroke-width:1.5;}
+  .n-scan    {fill:#1a1e2e;stroke:var(--cyan);stroke-width:1.5;}
+  .n-research{fill:#2e1a2e;stroke:var(--purple);stroke-width:1.5;}
+  .n-error   {fill:var(--red-bg);stroke:var(--red);stroke-width:1.5;}
+  .n-done    {fill:#1a2e1a;stroke:var(--green);stroke-width:1.5;}
+  .n-pending {fill:#161b22;stroke:var(--dim);stroke-width:1;}
+  .n-debug   {fill:#2e2210;stroke:var(--orange);stroke-width:1.5;}
+  .n-tool-active{fill:#1e1a2e;stroke:var(--purple);stroke-width:1.5;}
+  .n-tool-done  {fill:#1a2e1a;stroke:var(--green);stroke-width:1;}
+
+  .running{animation:npulse 2s ease-in-out infinite;}
+  @keyframes npulse{0%,100%{stroke-opacity:1;stroke-width:1.5}50%{stroke-opacity:.4;stroke-width:2.5}}
+  .nerr{animation:nerror .4s ease-in-out 4;}
+  @keyframes nerror{0%,100%{stroke-width:1.5}50%{stroke-width:3}}
+
+  .nl{fill:var(--text);font-size:11px;font-family:var(--font);font-weight:500;}
+  .ns{fill:var(--muted);font-size:9px;font-family:var(--font);}
+  .nd{fill:var(--dim);font-size:11px;}
+
+  /* Edges */
+  .e{fill:none;stroke-width:1.5;}
+  .e-spawn {stroke:var(--border);}
+  .e-active{stroke:var(--blue);stroke-width:2;}
+  .e-tool  {stroke:var(--purple);stroke-dasharray:3,2;}
+  .e-msg   {stroke:var(--cyan);stroke-dasharray:4,3;}
+  .e-pending{stroke:var(--dim);stroke-width:1;stroke-dasharray:2,3;}
+
+  .ef{fill:none;stroke-width:2;stroke-dasharray:8,4;animation:flow 1.4s linear infinite;}
+  .ef-spawn{stroke:var(--blue);}
+  .ef-tool {stroke:var(--purple);}
+  .ef-msg  {stroke:var(--cyan);}
+  .ef-scan {stroke:var(--cyan);}
+  .ef-res  {stroke:var(--purple);}
+  @keyframes flow{to{stroke-dashoffset:-24}}
+
+  .tpulse{fill:none;stroke:var(--purple);stroke-width:1;
+    animation:texp 1.6s ease-out infinite;}
+  @keyframes texp{0%{r:5;opacity:.9}100%{r:18;opacity:0}}
+
+  /* Sidebar */
+  .sb{width:280px;background:var(--surface);border-left:1px solid var(--border);
+    display:flex;flex-direction:column;flex-shrink:0;overflow:hidden;}
+  .sbtabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0;}
+  .sbtab{flex:1;padding:8px;text-align:center;color:var(--muted);cursor:pointer;
+    font-size:11px;border-bottom:2px solid transparent;transition:all .15s;}
+  .sbtab.active{color:var(--blue);border-bottom-color:var(--blue);}
+  .sbcont{flex:1;overflow-y:auto;padding:12px;}
+  .sbcont::-webkit-scrollbar{width:4px;}
+  .sbcont::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+  .ssect{margin-bottom:14px;}
+  .stitle{color:var(--muted);font-size:10px;text-transform:uppercase;
+    letter-spacing:.8px;margin-bottom:7px;}
+  .mrow{display:flex;justify-content:space-between;padding:4px 0;
+    border-bottom:1px solid var(--surface2);font-size:11px;}
+  .ml{color:var(--muted)}.mv{color:var(--text)}
+  .mv.gr{color:var(--green)}.mv.bl{color:var(--blue)}
+  .mv.yl{color:var(--yellow)}.mv.rd{color:var(--red)}
+  .rbox{background:var(--surface2);border:1px solid var(--border);border-radius:6px;
+    padding:8px;margin-top:6px;color:var(--muted);font-size:10px;line-height:1.5;
+    border-left:3px solid var(--blue);}
+  .xitem{background:var(--surface2);border-radius:4px;padding:6px 8px;
+    margin-bottom:6px;border-left:3px solid var(--yellow);}
+  .xitem.s{border-left-color:var(--green);}
+  .xitem.f{border-left-color:var(--red);}
+  .xtag{display:inline-block;font-size:9px;padding:1px 5px;border-radius:3px;
+    margin-bottom:3px;font-weight:bold;}
+  .t-f{background:var(--red-bg);color:var(--red);}
+  .t-s{background:var(--green-bg);color:var(--green);}
+  .t-l{background:var(--blue-bg);color:var(--blue);}
+  .t-d{background:var(--surface2);color:var(--muted);}
+  .xt{color:var(--muted);font-size:10px;line-height:1.4;}
+  .xd{color:var(--dim);font-size:9px;margin-top:2px;}
+  .pbw{height:3px;background:var(--surface2);border-radius:2px;margin:4px 0;}
+  .pbf{height:100%;background:var(--green);border-radius:2px;transition:width .5s;}
+  .spin{display:inline-block;width:9px;height:9px;border:1.5px solid var(--border);
+    border-top-color:var(--blue);border-radius:50%;animation:sp .8s linear infinite;
+    vertical-align:middle;margin-right:3px;}
+  @keyframes sp{to{transform:rotate(360deg)}}
+
+  /* Agent count badges */
+  .abadge{display:inline-flex;align-items:center;justify-content:center;
+    width:18px;height:18px;border-radius:50%;font-size:9px;font-weight:bold;
+    background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue);}
+  .abadge.yl{background:var(--yellow-bg);color:var(--yellow);border-color:var(--yellow);}
+  .abadge.gr{background:var(--green-bg);color:var(--green);border-color:var(--green);}
+  .abadge.pu{background:var(--purple-bg);color:var(--purple);border-color:var(--purple);}
+
+  /* Event log */
+  .elog{border-top:1px solid var(--border);flex-shrink:0;height:130px;
+    overflow-y:auto;padding:8px;}
+  .elog::-webkit-scrollbar{width:4px;}
+  .elog::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+  .ee{display:flex;gap:6px;align-items:flex-start;padding:3px 0;
+    border-bottom:1px solid var(--surface2);font-size:10px;line-height:1.3;}
+  .ets{color:var(--dim);flex-shrink:0;}
+  .et{flex-shrink:0;font-weight:bold;}
+  .et.spawn{color:var(--blue)}.et.tool{color:var(--purple)}
+  .et.trans{color:var(--cyan)}.et.dec{color:var(--yellow)}
+  .et.err{color:var(--red)}.et.done{color:var(--green)}
+  .et.res{color:var(--purple)}
+  .em{color:var(--muted);}
+  .enew{animation:fnew 1s ease-out;}
+  @keyframes fnew{from{background:var(--blue-bg)}to{background:transparent}}
+
+  /* Timeline */
+  .tl{height:50px;background:var(--surface);border-top:1px solid var(--border);
+    flex-shrink:0;display:flex;align-items:center;padding:0 16px;gap:0;overflow-x:auto;}
+  .tlp{display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:4px;
+    font-size:10px;flex-shrink:0;}
+  .tlp.done{color:var(--green);background:var(--green-bg);}
+  .tlp.act{color:var(--blue);background:var(--blue-bg);
+    animation:tlpulse 2s ease-in-out infinite;}
+  .tlp.fut{color:var(--dim);}
+  @keyframes tlpulse{0%,100%{background:var(--blue-bg)}50%{background:#1a2f5e}}
+  .tla{color:var(--border);padding:0 3px;font-size:13px;}
+  .tla.act{color:var(--blue);animation:farr .8s ease-in-out infinite;}
+  @keyframes farr{0%,100%{opacity:1}50%{opacity:.2}}
+
+  /* Sync animation for parallel nodes */
+  .parallel-bracket{fill:none;stroke:var(--dim);stroke-width:1;stroke-dasharray:3,2;}
+  .parallel-label{fill:var(--dim);font-size:9px;font-family:var(--font);}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div class="logo">◆ GSD-T</div>
+  <div class="live"><div class="ldot"></div>LIVE</div>
+  <div class="hmeta" id="hdr-meta">session: sess_8f3c2a · gsd-t-wave → M14</div>
+  <div class="hright">
+    <div class="tok" id="hdr-tok">⬡ 87,432 / 200,000 (43%)</div>
+    <div class="pbadge" id="hdr-phase">▶ EXECUTE</div>
+  </div>
+</div>
+
+<!-- Scenario selector -->
+<div class="scbar">
+  <button class="scbtn active" onclick="showScene(0)">wave / execute (parallel domains)</button>
+  <button class="scbtn" onclick="showScene(1)">execute: 3 domains × 3 QA agents</button>
+  <button class="scbtn" onclick="showScene(2)">gsd-t-scan (5 parallel agents)</button>
+  <button class="scbtn" onclick="showScene(3)">gsd-t-brainstorm (deep research)</button>
+  <button class="scbtn" onclick="showScene(4)">gsd-t-debug (loop detection)</button>
+  <button class="scbtn" onclick="showScene(5)">gsd-t-quick + error recovery</button>
+</div>
+
+<div class="main">
+  <div class="garea">
+    <svg class="g" id="graph-svg" viewBox="0 0 820 520">
+      <defs>
+        <marker id="ar-sp" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3z" fill="#30363d"/></marker>
+        <marker id="ar-bl" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3z" fill="#388bfd"/></marker>
+        <marker id="ar-pu" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3z" fill="#bc8cff"/></marker>
+        <marker id="ar-cy" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3z" fill="#79c0ff"/></marker>
+        <marker id="ar-gr" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3z" fill="#3fb950"/></marker>
+        <marker id="ar-or" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3z" fill="#d18616"/></marker>
+      </defs>
+      <g id="scene-content"></g>
+    </svg>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="sb">
+    <div class="sbtabs">
+      <div class="sbtab active" onclick="stab('info')">Info</div>
+      <div class="sbtab" onclick="stab('agents')">Agents</div>
+      <div class="sbtab" onclick="stab('memory')">Memory</div>
+    </div>
+    <div class="sbcont" id="sp-info">
+      <div class="ssect">
+        <div class="stitle">Selected Node</div>
+        <div id="node-name" style="font-size:13px;font-weight:bold;margin-bottom:4px;color:var(--text)">gsd-t-wave</div>
+        <div id="node-type" style="font-size:10px;color:var(--muted);margin-bottom:10px">orchestrator · session root</div>
+        <div class="mrow"><span class="ml">status</span><span class="mv bl" id="nv-status"><span class="spin"></span>running</span></div>
+        <div class="mrow"><span class="ml">command</span><span class="mv" id="nv-cmd">gsd-t-wave</span></div>
+        <div class="mrow"><span class="ml">phase</span><span class="mv" id="nv-phase">EXECUTE</span></div>
+        <div class="mrow"><span class="ml">duration</span><span class="mv" id="nv-dur">2m 28s</span></div>
+        <div class="mrow"><span class="ml">tokens</span><span class="mv" id="nv-tok">87,432</span></div>
+        <div class="mrow"><span class="ml">model</span><span class="mv" id="nv-model">sonnet</span></div>
+        <div class="pbw"><div class="pbf" id="nv-prog" style="width:43%"></div></div>
+        <div style="font-size:9px;color:var(--muted);text-align:right;margin-top:2px" id="nv-tasks">7/19 tasks</div>
+      </div>
+      <div class="ssect">
+        <div class="stitle">Current Reasoning</div>
+        <div class="rbox" id="nv-reason">Orchestrating parallel domain execution — event-capture ✓, learning-loop running (task 3/7), visualization blocked pending event-capture contract.</div>
+      </div>
+      <div class="ssect" id="exp-section">
+        <div class="stitle">Past Experience Surfaced</div>
+        <div class="xitem f"><span class="xtag t-f">[failure]</span>
+          <div class="xt" id="nv-exp1">Pre-task retrieval didn't apply to team mode spawn — domain subagents in parallel mode missed past experience context</div>
+          <div class="xd">2026-02-19 · execute domain</div>
+        </div>
+        <div class="xitem s"><span class="xtag t-s">[success]</span>
+          <div class="xt">Zero-dep chokidar watch pattern works reliably for JSONL file monitoring</div>
+          <div class="xd">2026-02-22 · cli domain</div>
+        </div>
+      </div>
+    </div>
+    <div class="sbcont" id="sp-agents" style="display:none">
+      <div class="ssect">
+        <div class="stitle">Active Agents</div>
+        <div id="agent-list"></div>
+      </div>
+      <div class="ssect">
+        <div class="stitle">Spawn Tree</div>
+        <div id="spawn-tree" style="font-size:10px;color:var(--muted);line-height:2;font-family:var(--font)"></div>
+      </div>
+    </div>
+    <div class="sbcont" id="sp-memory" style="display:none">
+      <div class="ssect">
+        <div class="stitle">Session Stats</div>
+        <div class="mrow"><span class="ml">events logged</span><span class="mv bl" id="mem-events">248</span></div>
+        <div class="mrow"><span class="ml">agents spawned</span><span class="mv" id="mem-agents">8</span></div>
+        <div class="mrow"><span class="ml">decisions captured</span><span class="mv" id="mem-dec">14</span></div>
+        <div class="mrow"><span class="ml">failures surfaced</span><span class="mv yl" id="mem-fail">2</span></div>
+        <div class="mrow"><span class="ml">lessons applied</span><span class="mv gr" id="mem-les">3</span></div>
+        <div class="mrow"><span class="ml">errors</span><span class="mv rd" id="mem-err">0</span></div>
+      </div>
+      <div class="ssect">
+        <div class="stitle">Outcome Log</div>
+        <div id="outcome-log" style="font-size:10px;color:var(--muted);line-height:1.8;"></div>
+      </div>
+    </div>
+    <div class="elog" id="evt-log"></div>
+  </div>
+</div>
+
+<div class="tl" id="timeline-bar"></div>
+
+<script>
+// ═══════════════════════════════════════════════
+// SCENE DEFINITIONS
+// ═══════════════════════════════════════════════
+
+const SCENES = [
+
+// ─────────────────────────────────────────────
+// 0: wave / execute (parallel domains)
+// ─────────────────────────────────────────────
+{
+  meta: { cmd:'gsd-t-wave → M14', tok:'87,432 / 200,000 (43%)', phase:'▶ EXECUTE' },
+  timeline: [
+    {l:'partition',s:'done'},{a:'›'},{l:'plan',s:'done'},{a:'›'},
+    {l:'execute',s:'act'},{a:'›',act:true},{l:'test-sync',s:'fut'},{a:'›'},
+    {l:'integrate',s:'fut'},{a:'›'},{l:'verify',s:'fut'},{a:'›'},{l:'complete',s:'fut'}
+  ],
+  agents:[
+    {n:'gsd-t-wave', t:'orchestrator', s:'running', tok:'87k'},
+    {n:'execute',    t:'phase agent',  s:'running', tok:'41k'},
+    {n:'event-capture', t:'domain', s:'done', tok:'19k'},
+    {n:'learning-loop', t:'domain', s:'running', tok:'47k'},
+    {n:'visualization', t:'domain', s:'blocked', tok:'—'},
+    {n:'qa-agent',   t:'QA · haiku', s:'running', tok:'3k'},
+  ],
+  tree:'◆ gsd-t-wave\n└─ execute\n   ├─ ✓ event-capture\n   ├─ ◌ learning-loop\n   │  └─ ⚑ qa-agent\n   └─ ⏳ visualization (blocked)',
+  outcomes:'[success] event-capture: 6/6 tasks done\n[running] learning-loop: task 3/7\n[blocked] visualization: waiting on event-capture contract',
+  events:[
+    {t:'tool', msg:'learning-loop → Bash: npm test'},
+    {t:'spawn', msg:'learning-loop → qa-agent (haiku)'},
+    {t:'dec', msg:'[learning] 2 past entries surfaced for learning-loop'},
+    {t:'done', msg:'event-capture: 6/6 tasks ✓ 48s'},
+    {t:'trans', msg:'plan → execute · 19 tasks, 3 domains'},
+    {t:'spawn', msg:'execute → learning-loop, event-capture (parallel)'},
+  ],
+  svg: `
+  <!-- ROOT -->
+  <g class="ng" onclick="selNode('wave',0)">
+    <rect class="nr n-session running" x="310" y="16" width="200" height="48" rx="8"/>
+    <text class="nl" x="410" y="36" text-anchor="middle">gsd-t-wave</text>
+    <text class="ns" x="410" y="52" text-anchor="middle">orchestrator · M14: Execution Intelligence</text>
+    <text x="322" y="36" fill="#79c0ff" font-size="11">◆</text>
+  </g>
+  <!-- EXECUTE phase -->
+  <g class="ng" onclick="selNode('execute',0)">
+    <rect class="nr n-domain running" x="310" y="108" width="200" height="44" rx="8"/>
+    <text class="nl" x="410" y="127" text-anchor="middle">execute</text>
+    <text x="322" y="127" fill="#388bfd" font-size="11">◌</text>
+    <text class="ns" x="410" y="141" text-anchor="middle">phase agent · 7/19 tasks · 2m14s</text>
+  </g>
+  <!-- PARTITION done -->
+  <g class="ng" onclick="selNode('partition',0)">
+    <rect class="nr n-done" x="30" y="108" width="130" height="44" rx="8"/>
+    <text class="nl" x="95" y="127" text-anchor="middle">partition</text>
+    <text class="ns" x="95" y="141" text-anchor="middle">✓ 3 domains · 12s</text>
+    <text x="42" y="127" fill="#3fb950" font-size="11">✓</text>
+  </g>
+  <!-- PLAN done -->
+  <g class="ng" onclick="selNode('plan',0)">
+    <rect class="nr n-done" x="180" y="108" width="110" height="44" rx="8"/>
+    <text class="nl" x="235" y="127" text-anchor="middle">plan</text>
+    <text class="ns" x="235" y="141" text-anchor="middle">✓ 19 tasks · 28s</text>
+    <text x="192" y="127" fill="#3fb950" font-size="11">✓</text>
+  </g>
+  <!-- VERIFY pending -->
+  <g class="ng" onclick="selNode('verify',0)">
+    <rect class="nr n-pending" x="530" y="108" width="120" height="44" rx="8"/>
+    <text class="nd" x="590" y="127" text-anchor="middle">verify</text>
+    <text class="ns" x="590" y="141" text-anchor="middle">pending</text>
+  </g>
+
+  <!-- PARALLEL bracket -->
+  <line class="parallel-bracket" x1="80" y1="205" x2="80" y2="220"/>
+  <line class="parallel-bracket" x1="80" y1="220" x2="700" y2="220"/>
+  <line class="parallel-bracket" x1="700" y1="205" x2="700" y2="220"/>
+  <text class="parallel-label" x="390" y="232" text-anchor="middle">── parallel domain subagents ──</text>
+
+  <!-- DOMAINS -->
+  <!-- event-capture done -->
+  <g class="ng" onclick="selNode('event-capture',0)">
+    <rect class="nr n-done" x="60" y="240" width="160" height="52" rx="8"/>
+    <text class="nl" x="140" y="260" text-anchor="middle">event-capture</text>
+    <text x="72" y="260" fill="#3fb950" font-size="11">✓</text>
+    <text class="ns" x="140" y="276" text-anchor="middle">6/6 tasks · sonnet · 48s</text>
+  </g>
+  <!-- learning-loop running -->
+  <g class="ng" onclick="selNode('learning-loop',0)">
+    <rect class="nr n-domain running" x="330" y="240" width="160" height="52" rx="8"/>
+    <text class="nl" x="410" y="260" text-anchor="middle">learning-loop</text>
+    <text x="342" y="260" fill="#388bfd" font-size="11">◌</text>
+    <text class="ns" x="410" y="276" text-anchor="middle">task 3/7 · sonnet · 1m02s</text>
+  </g>
+  <!-- visualization blocked -->
+  <g class="ng" onclick="selNode('visualization',0)">
+    <rect class="nr n-pending" x="600" y="240" width="160" height="52" rx="8"/>
+    <text class="nd" x="680" y="260" text-anchor="middle">visualization</text>
+    <text x="612" y="260" fill="#484f58" font-size="11">⏳</text>
+    <text class="ns" x="680" y="276" text-anchor="middle">blocked · 7 tasks pending</text>
+  </g>
+
+  <!-- QA agent under learning-loop -->
+  <g class="ng" onclick="selNode('qa',0)">
+    <rect class="nr n-qa" x="340" y="348" width="140" height="44" rx="8"/>
+    <text class="nl" x="410" y="367" text-anchor="middle">qa-agent</text>
+    <text x="352" y="367" fill="#d29922" font-size="11">⚑</text>
+    <text class="ns" x="410" y="381" text-anchor="middle">haiku · running tests</text>
+  </g>
+  <!-- Bash tool -->
+  <g class="ng" onclick="selNode('bash',0)">
+    <rect class="nr n-tool-active" x="280" y="448" width="120" height="36" rx="8"/>
+    <text class="nl" x="340" y="464" text-anchor="middle" font-size="10">Bash</text>
+    <text class="ns" x="340" y="478" text-anchor="middle">npm test</text>
+    <text x="292" y="464" fill="#bc8cff" font-size="10">⬡</text>
+    <circle class="tpulse" cx="292" cy="464" r="5"/>
+  </g>
+  <!-- Edit done -->
+  <g class="ng" onclick="selNode('edit',0)">
+    <rect class="nr n-tool-done" x="430" y="448" width="110" height="36" rx="8"/>
+    <text class="nl" x="485" y="464" text-anchor="middle" font-size="10">Edit</text>
+    <text class="ns" x="485" y="478" text-anchor="middle" fill="#3fb950">✓ 3 files</text>
+  </g>
+
+  <!-- Experience warning -->
+  <rect x="30" y="318" width="170" height="44" fill="#3a2c10" stroke="#d29922" stroke-width="1" rx="5" opacity=".92"/>
+  <text x="115" y="334" text-anchor="middle" fill="#d29922" font-size="9" font-family="monospace">⚠ past experience surfaced</text>
+  <text x="115" y="347" text-anchor="middle" fill="#d29922" font-size="9" font-family="monospace">[failure] team mode missed retrieval</text>
+  <text x="115" y="359" text-anchor="middle" fill="#d29922" font-size="8" font-family="monospace" opacity=".7">→ applying fix to parallel spawn</text>
+  <path d="M200,340 L330,268" stroke="#d29922" stroke-width="1" stroke-dasharray="3,2" opacity=".6" marker-end="url(#ar-or)"/>
+
+  <!-- EDGES -->
+  <path class="e e-spawn" d="M360,64 L95,108" marker-end="url(#ar-sp)"/>
+  <path class="e e-spawn" d="M370,64 L235,108" marker-end="url(#ar-sp)"/>
+  <path class="e e-active" d="M410,64 L410,108" marker-end="url(#ar-bl)"/>
+  <path class="ef ef-spawn" d="M410,64 L410,108"/>
+  <path class="e e-pending" d="M450,64 L590,108" marker-end="url(#ar-sp)"/>
+  <path class="e e-spawn" d="M370,152 L140,240" marker-end="url(#ar-sp)"/>
+  <path class="e e-active" d="M410,152 L410,240" marker-end="url(#ar-bl)"/>
+  <path class="ef ef-spawn" d="M410,152 L410,240"/>
+  <path class="e e-pending" d="M450,152 L680,240" marker-end="url(#ar-sp)" stroke-opacity=".4"/>
+  <path class="e e-active" d="M410,292 L410,348" marker-end="url(#ar-bl)"/>
+  <path class="ef ef-spawn" d="M410,292 L410,348"/>
+  <path class="e e-tool" d="M390,292 C370,380 350,420 340,448" marker-end="url(#ar-pu)"/>
+  <path class="ef ef-tool" d="M390,292 C370,380 350,420 340,448"/>
+  <path class="e e-spawn" d="M430,292 C450,380 470,420 485,448" marker-end="url(#ar-sp)"/>
+  `
+},
+
+// ─────────────────────────────────────────────
+// 1: 3 domains × 3 QA agents
+// ─────────────────────────────────────────────
+{
+  meta: { cmd:'gsd-t-execute · M14 · 3 domains in parallel', tok:'142,100 / 200,000 (71%)', phase:'▶ EXECUTE' },
+  timeline: [
+    {l:'partition',s:'done'},{a:'›'},{l:'plan',s:'done'},{a:'›'},
+    {l:'execute',s:'act'},{a:'›',act:true},{l:'test-sync',s:'fut'},{a:'›'},{l:'verify',s:'fut'}
+  ],
+  agents:[
+    {n:'execute',    t:'orchestrator', s:'running', tok:'18k'},
+    {n:'backend',    t:'domain · sonnet', s:'running', tok:'55k'},
+    {n:'frontend',   t:'domain · sonnet', s:'running', tok:'42k'},
+    {n:'cli',        t:'domain · sonnet', s:'done', tok:'27k'},
+    {n:'qa-backend', t:'QA · haiku', s:'running', tok:'8k'},
+    {n:'qa-frontend',t:'QA · haiku', s:'running', tok:'6k'},
+    {n:'qa-cli',     t:'QA · haiku', s:'done', tok:'4k'},
+  ],
+  tree:'◆ execute (orchestrator)\n├─ ◌ backend\n│  └─ ⚑ qa-backend (haiku)\n├─ ◌ frontend\n│  └─ ⚑ qa-frontend (haiku)\n└─ ✓ cli\n   └─ ✓ qa-cli (haiku)',
+  outcomes:'[running] backend: task 4/8, qa watching\n[running] frontend: task 2/6, qa watching\n[success] cli: 5/5 tasks, 127/127 tests pass',
+  events:[
+    {t:'tool', msg:'qa-backend → Bash: npm test -- auth'},
+    {t:'tool', msg:'qa-frontend → Bash: playwright test'},
+    {t:'done', msg:'cli domain: 5/5 tasks ✓ 127 tests pass'},
+    {t:'spawn', msg:'execute → qa-frontend (haiku, parallel)'},
+    {t:'spawn', msg:'execute → qa-backend (haiku, parallel)'},
+    {t:'spawn', msg:'execute → backend, frontend, cli (parallel)'},
+  ],
+  svg: `
+  <!-- Execute root -->
+  <g class="ng" onclick="selNode('execute',1)">
+    <rect class="nr n-command running" x="310" y="20" width="200" height="48" rx="8"/>
+    <text class="nl" x="410" y="40" text-anchor="middle">execute</text>
+    <text x="322" y="40" fill="#bc8cff" font-size="11">◌</text>
+    <text class="ns" x="410" y="54" text-anchor="middle">orchestrator · 3 parallel domains</text>
+  </g>
+
+  <!-- Parallel bracket -->
+  <line class="parallel-bracket" x1="100" y1="115" x2="100" y2="130"/>
+  <line class="parallel-bracket" x1="100" y1="130" x2="720" y2="130"/>
+  <line class="parallel-bracket" x1="720" y1="115" x2="720" y2="130"/>
+  <text class="parallel-label" x="410" y="143" text-anchor="middle">── 3 domain subagents (parallel, each with own QA agent) ──</text>
+
+  <!-- BACKEND domain running -->
+  <g class="ng" onclick="selNode('backend',1)">
+    <rect class="nr n-domain running" x="60" y="152" width="160" height="52" rx="8"/>
+    <text class="nl" x="140" y="172" text-anchor="middle">backend</text>
+    <text x="72" y="172" fill="#388bfd" font-size="11">◌</text>
+    <text class="ns" x="140" y="188" text-anchor="middle">task 4/8 · sonnet · 3m12s</text>
+  </g>
+  <!-- FRONTEND domain running -->
+  <g class="ng" onclick="selNode('frontend',1)">
+    <rect class="nr n-domain running" x="330" y="152" width="160" height="52" rx="8"/>
+    <text class="nl" x="410" y="172" text-anchor="middle">frontend</text>
+    <text x="342" y="172" fill="#388bfd" font-size="11">◌</text>
+    <text class="ns" x="410" y="188" text-anchor="middle">task 2/6 · sonnet · 2m44s</text>
+  </g>
+  <!-- CLI domain done -->
+  <g class="ng" onclick="selNode('cli',1)">
+    <rect class="nr n-done" x="600" y="152" width="160" height="52" rx="8"/>
+    <text class="nl" x="680" y="172" text-anchor="middle">cli</text>
+    <text x="612" y="172" fill="#3fb950" font-size="11">✓</text>
+    <text class="ns" x="680" y="188" text-anchor="middle">5/5 tasks · sonnet · 1m18s</text>
+  </g>
+
+  <!-- QA AGENTS row — all three visible simultaneously -->
+  <text class="parallel-label" x="410" y="267" text-anchor="middle">── QA agents (one per domain, spawned after each task) ──</text>
+
+  <!-- qa-backend running -->
+  <g class="ng" onclick="selNode('qa-backend',1)">
+    <rect class="nr n-qa running" x="50" y="276" width="170" height="48" rx="8"/>
+    <text class="nl" x="135" y="296" text-anchor="middle">qa-backend</text>
+    <text x="62" y="296" fill="#d29922" font-size="11">⚑</text>
+    <text class="ns" x="135" y="310" text-anchor="middle">haiku · npm test -- auth</text>
+  </g>
+  <!-- qa-frontend running -->
+  <g class="ng" onclick="selNode('qa-frontend',1)">
+    <rect class="nr n-qa running" x="320" y="276" width="180" height="48" rx="8"/>
+    <text class="nl" x="410" y="296" text-anchor="middle">qa-frontend</text>
+    <text x="332" y="296" fill="#d29922" font-size="11">⚑</text>
+    <text class="ns" x="410" y="310" text-anchor="middle">haiku · playwright test</text>
+  </g>
+  <!-- qa-cli done -->
+  <g class="ng" onclick="selNode('qa-cli',1)">
+    <rect class="nr n-done" x="590" y="276" width="180" height="48" rx="8"/>
+    <text class="nl" x="680" y="296" text-anchor="middle">qa-cli</text>
+    <text x="602" y="296" fill="#3fb950" font-size="11">✓</text>
+    <text class="ns" x="680" y="310" text-anchor="middle">haiku · 127/127 tests ✓</text>
+  </g>
+
+  <!-- TOOL CALLS under QA agents -->
+  <!-- backend tool active -->
+  <g class="ng" onclick="selNode('bash-be',1)">
+    <rect class="nr n-tool-active" x="35" y="384" width="110" height="36" rx="8"/>
+    <text class="nl" x="90" y="400" text-anchor="middle" font-size="10">Bash</text>
+    <text class="ns" x="90" y="414" text-anchor="middle">npm test -- auth</text>
+    <circle class="tpulse" cx="47" cy="400" r="4"/>
+  </g>
+  <!-- backend edit done -->
+  <g class="ng" onclick="selNode('edit-be',1)">
+    <rect class="nr n-tool-done" x="160" y="384" width="100" height="36" rx="8"/>
+    <text class="nl" x="210" y="400" text-anchor="middle" font-size="10">Edit</text>
+    <text class="ns" x="210" y="414" text-anchor="middle" fill="#3fb950">✓ routes.js</text>
+  </g>
+  <!-- frontend playwright active -->
+  <g class="ng" onclick="selNode('pw-fe',1)">
+    <rect class="nr n-tool-active" x="340" y="384" width="130" height="36" rx="8"/>
+    <text class="nl" x="405" y="400" text-anchor="middle" font-size="10">Bash</text>
+    <text class="ns" x="405" y="414" text-anchor="middle">playwright test</text>
+    <circle class="tpulse" cx="352" cy="400" r="4"/>
+  </g>
+
+  <!-- Contract check annotation -->
+  <rect x="500" y="370" width="180" height="52" fill="#1f3a5f" stroke="#388bfd" stroke-width="1" rx="5" opacity=".9"/>
+  <text x="590" y="386" text-anchor="middle" fill="#79c0ff" font-size="9" font-family="monospace">◎ contract compliance</text>
+  <text x="590" y="399" text-anchor="middle" fill="#79c0ff" font-size="9" font-family="monospace">qa-cli verified: api-contract.md ✓</text>
+  <text x="590" y="412" text-anchor="middle" fill="#3fb950" font-size="9" font-family="monospace">schema-contract.md ✓</text>
+
+  <!-- Agent count summary -->
+  <rect x="20" y="450" width="220" height="42" fill="#161b22" stroke="#30363d" stroke-width="1" rx="6" opacity=".95"/>
+  <text x="30" y="466" fill="#7d8590" font-size="9" font-family="monospace">ACTIVE AGENTS</text>
+  <text x="30" y="481" fill="#388bfd" font-size="10" font-family="monospace">● 2 domain agents running</text>
+  <text x="160" y="481" fill="#d29922" font-size="10" font-family="monospace">⚑ 2 QA agents running</text>
+
+  <!-- EDGES -->
+  <path class="e e-active" d="M370,68 L140,152" marker-end="url(#ar-bl)"/>
+  <path class="ef ef-spawn" d="M370,68 L140,152"/>
+  <path class="e e-active" d="M410,68 L410,152" marker-end="url(#ar-bl)"/>
+  <path class="ef ef-spawn" d="M410,68 L410,152"/>
+  <path class="e e-spawn" d="M450,68 L680,152" marker-end="url(#ar-sp)"/>
+  <path class="ef ef-spawn" d="M450,68 L680,152"/>
+  <!-- domain → qa -->
+  <path class="e e-active" d="M140,204 L135,276" marker-end="url(#ar-bl)"/>
+  <path class="ef ef-spawn" d="M140,204 L135,276"/>
+  <path class="e e-active" d="M410,204 L410,276" marker-end="url(#ar-bl)"/>
+  <path class="ef ef-spawn" d="M410,204 L410,276"/>
+  <path class="e e-spawn" d="M680,204 L680,276" marker-end="url(#ar-sp)"/>
+  <!-- qa → tools -->
+  <path class="e e-tool" d="M100,324 L90,384" marker-end="url(#ar-pu)"/>
+  <path class="ef ef-tool" d="M100,324 L90,384"/>
+  <path class="e e-spawn" d="M150,324 L210,384" marker-end="url(#ar-sp)"/>
+  <path class="e e-tool" d="M390,324 L405,384" marker-end="url(#ar-pu)"/>
+  <path class="ef ef-tool" d="M390,324 L405,384"/>
+  `
+},
+
+// ─────────────────────────────────────────────
+// 2: gsd-t-scan (5 parallel agents)
+// ─────────────────────────────────────────────
+{
+  meta: { cmd:'gsd-t-scan · post-M14 analysis', tok:'62,300 / 200,000 (31%)', phase:'▶ SCAN' },
+  timeline: [{l:'scan',s:'act'}],
+  agents:[
+    {n:'gsd-t-scan', t:'orchestrator · sonnet', s:'running', tok:'12k'},
+    {n:'architecture', t:'scan agent · haiku', s:'done', tok:'9k'},
+    {n:'business-rules',t:'scan agent · haiku', s:'done', tok:'11k'},
+    {n:'security',   t:'scan agent · sonnet', s:'running', tok:'14k'},
+    {n:'quality',    t:'scan agent · sonnet', s:'running', tok:'16k'},
+    {n:'contracts',  t:'scan agent · haiku', s:'done', tok:'8k'},
+  ],
+  tree:'◆ gsd-t-scan\n├─ ✓ architecture (haiku)\n├─ ✓ business-rules (haiku)\n├─ ◌ security (sonnet)\n├─ ◌ quality (sonnet)\n└─ ✓ contracts (haiku)',
+  outcomes:'[success] architecture: 0 critical, 2 medium\n[success] business-rules: 3 patterns found\n[running] security: analyzing 6 dimensions\n[running] quality: checking 87 functions\n[success] contracts: 2 drift items found',
+  events:[
+    {t:'tool', msg:'security → Bash: grep -r "execSync" bin/'},
+    {t:'tool', msg:'quality → Glob: **/*.js'},
+    {t:'done', msg:'contracts: 2 drift items found'},
+    {t:'done', msg:'business-rules: 3 patterns found'},
+    {t:'done', msg:'architecture: 0 critical, 2 medium findings'},
+    {t:'spawn', msg:'scan → 5 parallel agents spawned (sonnet×2, haiku×3)'},
+  ],
+  svg: `
+  <!-- ROOT -->
+  <g class="ng" onclick="selNode('scan',2)">
+    <rect class="nr n-session running" x="310" y="20" width="200" height="48" rx="8"/>
+    <text class="nl" x="410" y="40" text-anchor="middle">gsd-t-scan</text>
+    <text x="322" y="40" fill="#79c0ff" font-size="11">◆</text>
+    <text class="ns" x="410" y="54" text-anchor="middle">orchestrator · 5 parallel agents</text>
+  </g>
+
+  <!-- Parallel bracket -->
+  <line class="parallel-bracket" x1="75" y1="115" x2="75" y2="132"/>
+  <line class="parallel-bracket" x1="75" y1="132" x2="745" y2="132"/>
+  <line class="parallel-bracket" x1="745" y1="115" x2="745" y2="132"/>
+  <text class="parallel-label" x="410" y="144" text-anchor="middle">── 5 scan agents spawned simultaneously ──</text>
+
+  <!-- architecture done -->
+  <g class="ng" onclick="selNode('arch',2)">
+    <rect class="nr n-done" x="20" y="154" width="140" height="52" rx="8"/>
+    <text class="nl" x="90" y="174" text-anchor="middle">architecture</text>
+    <text x="32" y="174" fill="#3fb950" font-size="11">✓</text>
+    <text class="ns" x="90" y="190" text-anchor="middle">haiku · 0 crit, 2 med</text>
+  </g>
+  <!-- business-rules done -->
+  <g class="ng" onclick="selNode('biz',2)">
+    <rect class="nr n-done" x="180" y="154" width="140" height="52" rx="8"/>
+    <text class="nl" x="250" y="174" text-anchor="middle">business-rules</text>
+    <text x="192" y="174" fill="#3fb950" font-size="11">✓</text>
+    <text class="ns" x="250" y="190" text-anchor="middle">haiku · 3 patterns</text>
+  </g>
+  <!-- security running -->
+  <g class="ng" onclick="selNode('security',2)">
+    <rect class="nr n-scan running" x="340" y="154" width="140" height="52" rx="8"/>
+    <text class="nl" x="410" y="174" text-anchor="middle">security</text>
+    <text x="352" y="174" fill="#79c0ff" font-size="11">◌</text>
+    <text class="ns" x="410" y="190" text-anchor="middle">sonnet · 6 dimensions</text>
+  </g>
+  <!-- quality running -->
+  <g class="ng" onclick="selNode('quality',2)">
+    <rect class="nr n-scan running" x="500" y="154" width="140" height="52" rx="8"/>
+    <text class="nl" x="570" y="174" text-anchor="middle">quality</text>
+    <text x="512" y="174" fill="#79c0ff" font-size="11">◌</text>
+    <text class="ns" x="570" y="190" text-anchor="middle">sonnet · 87 functions</text>
+  </g>
+  <!-- contracts done -->
+  <g class="ng" onclick="selNode('contracts',2)">
+    <rect class="nr n-done" x="660" y="154" width="140" height="52" rx="8"/>
+    <text class="nl" x="730" y="174" text-anchor="middle">contracts</text>
+    <text x="672" y="174" fill="#3fb950" font-size="11">✓</text>
+    <text class="ns" x="730" y="190" text-anchor="middle">haiku · 2 drift items</text>
+  </g>
+
+  <!-- Tool calls for active agents -->
+  <!-- security tools -->
+  <g class="ng"><rect class="nr n-tool-active" x="280" y="270" width="130" height="36" rx="8"/>
+    <text class="nl" x="345" y="286" text-anchor="middle" font-size="10">Bash</text>
+    <text class="ns" x="345" y="300" text-anchor="middle">grep -r execSync</text>
+    <circle class="tpulse" cx="292" cy="286" r="4"/>
+  </g>
+  <g class="ng"><rect class="nr n-tool-done" x="420" y="270" width="110" height="36" rx="8"/>
+    <text class="nl" x="475" y="286" text-anchor="middle" font-size="10">Read</text>
+    <text class="ns" x="475" y="300" text-anchor="middle" fill="#3fb950">✓ bin/gsd-t.js</text>
+  </g>
+  <!-- quality tools -->
+  <g class="ng"><rect class="nr n-tool-active" x="490" y="270" width="130" height="36" rx="8"/>
+    <text class="nl" x="555" y="286" text-anchor="middle" font-size="10">Glob</text>
+    <text class="ns" x="555" y="300" text-anchor="middle">**/*.js (87 fns)</text>
+    <circle class="tpulse" cx="502" cy="286" r="4"/>
+  </g>
+  <g class="ng"><rect class="nr n-tool-done" x="630" y="270" width="110" height="36" rx="8"/>
+    <text class="nl" x="685" y="286" text-anchor="middle" font-size="10">Grep</text>
+    <text class="ns" x="685" y="300" text-anchor="middle" fill="#3fb950">✓ 127 tests</text>
+  </g>
+
+  <!-- Synthesis node (pending) -->
+  <rect x="300" y="372" width="220" height="52" fill="#161b22" stroke="#30363d" stroke-width="1" rx="8" stroke-dasharray="4,2"/>
+  <text x="410" y="392" text-anchor="middle" fill="#7d8590" font-size="11" font-family="monospace">synthesis (pending)</text>
+  <text x="410" y="408" text-anchor="middle" fill="#484f58" font-size="9" font-family="monospace">merges all 5 reports → techdebt.md</text>
+  <text x="312" y="392" fill="#484f58" font-size="11">⏳</text>
+  <!-- dash edges to synthesis -->
+  <path d="M90,206 C120,300 280,370 300,398" stroke="#484f58" stroke-width="1" stroke-dasharray="2,3" fill="none"/>
+  <path d="M250,206 C270,290 310,370 330,398" stroke="#484f58" stroke-width="1" stroke-dasharray="2,3" fill="none"/>
+  <path d="M410,206 L410,372" stroke="#484f58" stroke-width="1" stroke-dasharray="2,3" fill="none"/>
+  <path d="M570,206 C560,290 500,370 490,398" stroke="#484f58" stroke-width="1" stroke-dasharray="2,3" fill="none"/>
+  <path d="M730,206 C710,300 540,370 520,398" stroke="#484f58" stroke-width="1" stroke-dasharray="2,3" fill="none"/>
+
+  <!-- Model label badges -->
+  <rect x="22" y="215" width="45" height="16" fill="#1f3a5f" rx="3"/>
+  <text x="45" y="226" text-anchor="middle" fill="#79c0ff" font-size="8" font-family="monospace">haiku</text>
+  <rect x="182" y="215" width="45" height="16" fill="#1f3a5f" rx="3"/>
+  <text x="205" y="226" text-anchor="middle" fill="#79c0ff" font-size="8" font-family="monospace">haiku</text>
+  <rect x="342" y="215" width="50" height="16" fill="#2d1f5e" rx="3"/>
+  <text x="367" y="226" text-anchor="middle" fill="#bc8cff" font-size="8" font-family="monospace">sonnet</text>
+  <rect x="502" y="215" width="50" height="16" fill="#2d1f5e" rx="3"/>
+  <text x="527" y="226" text-anchor="middle" fill="#bc8cff" font-size="8" font-family="monospace">sonnet</text>
+  <rect x="662" y="215" width="45" height="16" fill="#1f3a5f" rx="3"/>
+  <text x="685" y="226" text-anchor="middle" fill="#79c0ff" font-size="8" font-family="monospace">haiku</text>
+
+  <!-- EDGES root → all 5 -->
+  <path class="e e-spawn" d="M370,68 L90,154" marker-end="url(#ar-sp)"/>
+  <path class="e e-spawn" d="M390,68 L250,154" marker-end="url(#ar-sp)"/>
+  <path class="e e-active" d="M410,68 L410,154" marker-end="url(#ar-bl)"/>
+  <path class="ef ef-scan" d="M410,68 L410,154"/>
+  <path class="e e-active" d="M430,68 L570,154" marker-end="url(#ar-bl)"/>
+  <path class="ef ef-scan" d="M430,68 L570,154"/>
+  <path class="e e-spawn" d="M450,68 L730,154" marker-end="url(#ar-sp)"/>
+  <!-- tool edges -->
+  <path class="e e-tool" d="M380,206 L345,270" marker-end="url(#ar-pu)"/>
+  <path class="ef ef-tool" d="M380,206 L345,270"/>
+  <path class="e e-spawn" d="M430,206 L475,270" marker-end="url(#ar-sp)"/>
+  <path class="e e-tool" d="M550,206 L555,270" marker-end="url(#ar-pu)"/>
+  <path class="ef ef-tool" d="M550,206 L555,270"/>
+  <path class="e e-spawn" d="M600,206 L685,270" marker-end="url(#ar-sp)"/>
+  `
+},
+
+// ─────────────────────────────────────────────
+// 3: gsd-t-brainstorm (deep research)
+// ─────────────────────────────────────────────
+{
+  meta: { cmd:'gsd-t-brainstorm · execution intelligence', tok:'48,700 / 200,000 (24%)', phase:'▶ DEEP RESEARCH' },
+  timeline: [{l:'deep research',s:'act'},{a:'›',act:true},{l:'synthesis',s:'fut'},{a:'›'},{l:'brainstorm',s:'fut'}],
+  agents:[
+    {n:'gsd-t-brainstorm', t:'orchestrator · sonnet', s:'running', tok:'8k'},
+    {n:'landscape',  t:'research agent · sonnet', s:'done', tok:'18k'},
+    {n:'alternatives',t:'research agent · sonnet', s:'running', tok:'14k'},
+    {n:'analogies',  t:'research agent · sonnet', s:'running', tok:'12k'},
+  ],
+  tree:'◆ gsd-t-brainstorm\n└─ Deep Research Phase (mandatory)\n   ├─ ✓ landscape (sonnet)\n   ├─ ◌ alternatives (sonnet)\n   └─ ◌ analogies (sonnet)',
+  outcomes:'[success] landscape: OTel, AgentOps, LangSmith patterns\n[running] alternatives: evaluating 5 approaches\n[running] analogies: git blame, VS Code timeline',
+  events:[
+    {t:'res', msg:'alternatives → WebSearch: agent learning frameworks 2026'},
+    {t:'res', msg:'analogies → WebFetch: reflexion paper arxiv'},
+    {t:'done', msg:'landscape: OTel GenAI conventions, 3 reference impls'},
+    {t:'spawn', msg:'brainstorm → 3 parallel research agents (sonnet)'},
+    {t:'dec', msg:'Deep Research Phase: mandatory before any conclusions'},
+  ],
+  svg: `
+  <!-- ROOT -->
+  <g class="ng" onclick="selNode('brainstorm',3)">
+    <rect class="nr n-session running" x="285" y="20" width="250" height="48" rx="8"/>
+    <text class="nl" x="410" y="40" text-anchor="middle">gsd-t-brainstorm</text>
+    <text x="297" y="40" fill="#79c0ff" font-size="11">◆</text>
+    <text class="ns" x="410" y="54" text-anchor="middle">execution intelligence & visualization</text>
+  </g>
+
+  <!-- Deep research mandatory label -->
+  <rect x="250" y="110" width="320" height="28" fill="#2d1f5e" stroke="#bc8cff" stroke-width="1" rx="6"/>
+  <text x="410" y="129" text-anchor="middle" fill="#bc8cff" font-size="10" font-family="monospace">MANDATORY: Deep Research Phase</text>
+
+  <!-- Parallel bracket -->
+  <line class="parallel-bracket" x1="120" y1="155" x2="120" y2="170"/>
+  <line class="parallel-bracket" x1="120" y1="170" x2="700" y2="170"/>
+  <line class="parallel-bracket" x1="700" y1="155" x2="700" y2="170"/>
+  <text class="parallel-label" x="410" y="182" text-anchor="middle">── 3 parallel research agents (all sonnet, all blocking) ──</text>
+
+  <!-- landscape done -->
+  <g class="ng" onclick="selNode('landscape',3)">
+    <rect class="nr n-done" x="60" y="192" width="185" height="52" rx="8"/>
+    <text class="nl" x="152" y="212" text-anchor="middle">landscape</text>
+    <text x="72" y="212" fill="#3fb950" font-size="11">✓</text>
+    <text class="ns" x="152" y="228" text-anchor="middle">state of field · tools · patterns</text>
+  </g>
+  <!-- alternatives running -->
+  <g class="ng" onclick="selNode('alternatives',3)">
+    <rect class="nr n-research running" x="320" y="192" width="180" height="52" rx="8"/>
+    <text class="nl" x="410" y="212" text-anchor="middle">alternatives</text>
+    <text x="332" y="212" fill="#bc8cff" font-size="11">◌</text>
+    <text class="ns" x="410" y="228" text-anchor="middle">design options · tradeoffs</text>
+  </g>
+  <!-- analogies running -->
+  <g class="ng" onclick="selNode('analogies',3)">
+    <rect class="nr n-research running" x="575" y="192" width="185" height="52" rx="8"/>
+    <text class="nl" x="662" y="212" text-anchor="middle">analogies</text>
+    <text x="587" y="212" fill="#bc8cff" font-size="11">◌</text>
+    <text class="ns" x="662" y="228" text-anchor="middle">cross-domain patterns</text>
+  </g>
+
+  <!-- landscape findings -->
+  <rect x="40" y="300" width="220" height="80" fill="#1a2e1a" stroke="#3fb950" stroke-width="1" rx="6"/>
+  <text x="150" y="318" text-anchor="middle" fill="#3fb950" font-size="9" font-family="monospace">✓ landscape findings</text>
+  <text x="150" y="333" text-anchor="middle" fill="#7d8590" font-size="9" font-family="monospace">• OTel GenAI agent spans (dev)</text>
+  <text x="150" y="347" text-anchor="middle" fill="#7d8590" font-size="9" font-family="monospace">• AgentTrace 3-surface model</text>
+  <text x="150" y="361" text-anchor="middle" fill="#7d8590" font-size="9" font-family="monospace">• disler reference impl (Claude)</text>
+  <text x="150" y="375" text-anchor="middle" fill="#7d8590" font-size="9" font-family="monospace">• TRAIL error taxonomy</text>
+
+  <!-- alternatives findings (partial) -->
+  <rect x="305" y="300" width="210" height="80" fill="#1e1a2e" stroke="#bc8cff" stroke-width="1" stroke-dasharray="3,2" rx="6"/>
+  <text x="410" y="318" text-anchor="middle" fill="#bc8cff" font-size="9" font-family="monospace">◌ alternatives (in progress)</text>
+  <text x="410" y="333" text-anchor="middle" fill="#7d8590" font-size="9" font-family="monospace">• Option A: extend existing files</text>
+  <text x="410" y="347" text-anchor="middle" fill="#7d8590" font-size="9" font-family="monospace">• Option B: JSONL event stream</text>
+  <text x="410" y="361" text-anchor="middle" fill="#7d8590" font-size="9" font-family="monospace">• Option C: intelligence-first</text>
+  <text x="410" y="375" text-anchor="middle" fill="#484f58" font-size="9" font-family="monospace">searching 2 more...</text>
+
+  <!-- analogies searching -->
+  <rect x="555" y="300" width="215" height="80" fill="#1e1a2e" stroke="#bc8cff" stroke-width="1" stroke-dasharray="3,2" rx="6"/>
+  <text x="662" y="318" text-anchor="middle" fill="#bc8cff" font-size="9" font-family="monospace">◌ analogies (in progress)</text>
+  <text x="662" y="333" text-anchor="middle" fill="#7d8590" font-size="9" font-family="monospace">• git blame / git log UX</text>
+  <text x="662" y="347" text-anchor="middle" fill="#484f58" font-size="9" font-family="monospace">• VS Code timeline panel (fetch)</text>
+  <text x="662" y="361" text-anchor="middle" fill="#484f58" font-size="9" font-family="monospace">• Reflexion paper (reading)</text>
+
+  <!-- Synthesis pending -->
+  <rect x="280" y="438" width="260" height="52" fill="#161b22" stroke="#30363d" stroke-width="1" rx="8" stroke-dasharray="4,2"/>
+  <text x="410" y="460" text-anchor="middle" fill="#7d8590" font-size="11" font-family="monospace">synthesis (blocked)</text>
+  <text x="410" y="476" text-anchor="middle" fill="#484f58" font-size="9" font-family="monospace">waits for all 3 research agents ✓</text>
+
+  <!-- EDGES -->
+  <path class="e e-active" d="M410,68 L410,110" marker-end="url(#ar-pu)"/>
+  <path class="ef ef-res" d="M410,68 L410,110"/>
+  <path class="e e-active" d="M340,138 L152,192" marker-end="url(#ar-pu)"/>
+  <path class="ef ef-res" d="M340,138 L152,192"/>
+  <path class="e e-active" d="M410,138 L410,192" marker-end="url(#ar-pu)"/>
+  <path class="ef ef-res" d="M410,138 L410,192"/>
+  <path class="e e-active" d="M480,138 L662,192" marker-end="url(#ar-pu)"/>
+  <path class="ef ef-res" d="M480,138 L662,192"/>
+  <!-- agents → findings -->
+  <path class="e e-spawn" d="M152,244 L150,300" marker-end="url(#ar-sp)"/>
+  <path class="e e-active" d="M410,244 L410,300" marker-end="url(#ar-pu)"/>
+  <path class="ef ef-res" d="M410,244 L410,300"/>
+  <path class="e e-active" d="M662,244 L662,300" marker-end="url(#ar-pu)"/>
+  <path class="ef ef-res" d="M662,244 L662,300"/>
+  `
+},
+
+// ─────────────────────────────────────────────
+// 4: gsd-t-debug (loop detection + research)
+// ─────────────────────────────────────────────
+{
+  meta: { cmd:'gsd-t-debug · auth timeout bug (attempt 3)', tok:'156,400 / 200,000 (78%)', phase:'▶ DEBUG ESCALATION' },
+  timeline: [{l:'reproduce',s:'done'},{a:'›'},{l:'fix × 2',s:'done'},{a:'›'},{l:'loop detected',s:'act'},{a:'›',act:true},{l:'deep research',s:'fut'}],
+  agents:[
+    {n:'gsd-t-debug', t:'orchestrator · sonnet', s:'running', tok:'38k'},
+    {n:'root-cause',  t:'research agent · sonnet', s:'fut', tok:'—'},
+    {n:'alternatives',t:'research agent · sonnet', s:'fut', tok:'—'},
+    {n:'prior-art',   t:'research agent · sonnet', s:'fut', tok:'—'},
+  ],
+  tree:'◆ gsd-t-debug\n├─ ✓ reproduce (repro script)\n├─ ✗ fix attempt 1 (failed)\n├─ ✗ fix attempt 2 (failed)\n└─ ⚠ loop detection triggered\n   └─ spawning deep research (3 agents)...',
+  outcomes:'[failure] fix attempt 1: timeout still occurs\n[failure] fix attempt 2: different failure mode\n[warning] 3+ failed sessions detected in Decision Log\n[escalating] → mandatory deep research mode',
+  events:[
+    {t:'err', msg:'fix attempt 2: test still fails (different error)'},
+    {t:'dec', msg:'[failure] 3+ debug sessions found in Decision Log'},
+    {t:'trans', msg:'loop detection: escalating to deep research'},
+    {t:'err', msg:'fix attempt 1: auth timeout unchanged'},
+    {t:'done', msg:'reproduce: repro script confirms issue'},
+    {t:'spawn', msg:'debug started · checking Decision Log for prior attempts'},
+  ],
+  svg: `
+  <!-- ROOT -->
+  <g class="ng" onclick="selNode('debug',4)">
+    <rect class="nr n-debug running" x="285" y="16" width="250" height="48" rx="8"/>
+    <text class="nl" x="410" y="36" text-anchor="middle">gsd-t-debug</text>
+    <text x="297" y="36" fill="#d18616" font-size="11">◆</text>
+    <text class="ns" x="410" y="50" text-anchor="middle">auth timeout bug · session 3 of 3</text>
+  </g>
+
+  <!-- History row: prior failed attempts from Decision Log -->
+  <rect x="20" y="88" width="780" height="48" fill="#2e2210" stroke="#d18616" stroke-width="1" rx="6" opacity=".9"/>
+  <text x="410" y="107" text-anchor="middle" fill="#d29922" font-size="10" font-family="monospace">⚠ Decision Log: 3 prior [debug] sessions found for "auth timeout"</text>
+  <text x="410" y="122" text-anchor="middle" fill="#7d8590" font-size="9" font-family="monospace">2026-02-20 · 2026-02-21 · 2026-02-23 — all marked [failure] — loop detection triggered</text>
+
+  <!-- Timeline of this session -->
+  <!-- reproduce done -->
+  <g class="ng" onclick="selNode('reproduce',4)">
+    <rect class="nr n-done" x="40" y="174" width="150" height="52" rx="8"/>
+    <text class="nl" x="115" y="194" text-anchor="middle">reproduce</text>
+    <text x="52" y="194" fill="#3fb950" font-size="11">✓</text>
+    <text class="ns" x="115" y="210" text-anchor="middle">repro script created</text>
+  </g>
+  <!-- fix 1 failed -->
+  <g class="ng" onclick="selNode('fix1',4)">
+    <rect class="nr n-error nerr" x="220" y="174" width="150" height="52" rx="8"/>
+    <text class="nl" x="295" y="194" text-anchor="middle">fix attempt 1</text>
+    <text x="232" y="194" fill="#f85149" font-size="11">✗</text>
+    <text class="ns" x="295" y="210" text-anchor="middle">timeout unchanged</text>
+  </g>
+  <!-- fix 2 failed -->
+  <g class="ng" onclick="selNode('fix2',4)">
+    <rect class="nr n-error nerr" x="400" y="174" width="150" height="52" rx="8"/>
+    <text class="nl" x="475" y="194" text-anchor="middle">fix attempt 2</text>
+    <text x="412" y="194" fill="#f85149" font-size="11">✗</text>
+    <text class="ns" x="475" y="210" text-anchor="middle">different failure mode</text>
+  </g>
+  <!-- loop detection warning -->
+  <g class="ng" onclick="selNode('loop',4)">
+    <rect x="580" y="174" width="200" height="52" fill="#2e2210" stroke="#d29922" stroke-width="2" rx="8" style="animation:npulse 1.5s ease-in-out infinite"/>
+    <text x="680" y="194" text-anchor="middle" fill="#d29922" font-size="11" font-family="monospace">⚠ loop detected</text>
+    <text x="680" y="210" text-anchor="middle" fill="#7d8590" font-size="9" font-family="monospace">3 attempts exhausted</text>
+  </g>
+
+  <!-- Escalation arrow -->
+  <path d="M660,226 L660,274" stroke="#d29922" stroke-width="2" marker-end="url(#ar-or)" fill="none"/>
+  <path class="ef" style="stroke:#d18616;stroke-dasharray:6,3;animation:flow 1.2s linear infinite;" d="M660,226 L660,274" fill="none"/>
+
+  <!-- Deep research spawning -->
+  <rect x="250" y="282" width="320" height="32" fill="#2d1f5e" stroke="#bc8cff" stroke-width="1.5" rx="6"/>
+  <text x="410" y="303" text-anchor="middle" fill="#bc8cff" font-size="10" font-family="monospace">→ mandatory deep research escalation</text>
+
+  <!-- Research agents spawning -->
+  <line class="parallel-bracket" x1="130" y1="330" x2="130" y2="344"/>
+  <line class="parallel-bracket" x1="130" y1="344" x2="690" y2="344"/>
+  <line class="parallel-bracket" x1="690" y1="330" x2="690" y2="344"/>
+  <text class="parallel-label" x="410" y="356" text-anchor="middle">── spawning 3 research agents ──</text>
+
+  <!-- root-cause (spawning) -->
+  <g class="ng" onclick="selNode('root-cause',4)">
+    <rect x="80" y="364" width="175" height="52" fill="#1e1a2e" stroke="#bc8cff" stroke-width="1" rx="8" stroke-dasharray="3,2"/>
+    <text x="167" y="384" text-anchor="middle" fill="#7d8590" font-size="11" font-family="monospace">root-cause</text>
+    <text x="92" y="384" fill="#bc8cff" font-size="11">◌</text>
+    <text class="ns" x="167" y="400" text-anchor="middle">sonnet · spawning...</text>
+  </g>
+  <!-- alternatives (spawning) -->
+  <g class="ng" onclick="selNode('alt-debug',4)">
+    <rect x="322" y="364" width="175" height="52" fill="#1e1a2e" stroke="#bc8cff" stroke-width="1" rx="8" stroke-dasharray="3,2"/>
+    <text x="409" y="384" text-anchor="middle" fill="#7d8590" font-size="11" font-family="monospace">alternatives</text>
+    <text x="334" y="384" fill="#bc8cff" font-size="11">◌</text>
+    <text class="ns" x="409" y="400" text-anchor="middle">sonnet · spawning...</text>
+  </g>
+  <!-- prior-art (spawning) -->
+  <g class="ng" onclick="selNode('prior-art',4)">
+    <rect x="564" y="364" width="175" height="52" fill="#1e1a2e" stroke="#bc8cff" stroke-width="1" rx="8" stroke-dasharray="3,2"/>
+    <text x="651" y="384" text-anchor="middle" fill="#7d8590" font-size="11" font-family="monospace">prior-art</text>
+    <text x="576" y="384" fill="#bc8cff" font-size="11">◌</text>
+    <text class="ns" x="651" y="400" text-anchor="middle">sonnet · spawning...</text>
+  </g>
+
+  <!-- High context warning -->
+  <rect x="20" y="450" width="260" height="42" fill="#3a1a1a" stroke="#f85149" stroke-width="1" rx="5"/>
+  <text x="30" y="466" fill="#f85149" font-size="9" font-family="monospace">⚠ context: 78% (156k / 200k tokens)</text>
+  <text x="30" y="481" fill="#7d8590" font-size="9" font-family="monospace">research agents get fresh context windows</text>
+
+  <!-- EDGES -->
+  <path class="e e-spawn" d="M360,64 L115,174" marker-end="url(#ar-sp)"/>
+  <path class="e e-spawn" d="M380,64 L295,174" marker-end="url(#ar-sp)"/>
+  <path class="e e-spawn" d="M430,64 L475,174" marker-end="url(#ar-sp)"/>
+  <path class="e e-spawn" d="M450,64 L680,174" marker-end="url(#ar-sp)"/>
+  <path class="e e-spawn" d="M115,226 L220,226 L220,174" stroke="#3fb950" marker-end="url(#ar-gr)"/>
+  <path class="e e-active" d="M380,314 L167,364" marker-end="url(#ar-pu)"/>
+  <path class="ef ef-res" d="M380,314 L167,364"/>
+  <path class="e e-active" d="M410,314 L409,364" marker-end="url(#ar-pu)"/>
+  <path class="ef ef-res" d="M410,314 L409,364"/>
+  <path class="e e-active" d="M440,314 L651,364" marker-end="url(#ar-pu)"/>
+  <path class="ef ef-res" d="M440,314 L651,364"/>
+  `
+},
+
+// ─────────────────────────────────────────────
+// 5: gsd-t-quick + error recovery
+// ─────────────────────────────────────────────
+{
+  meta: { cmd:'gsd-t-quick · fix checkin hook bug', tok:'28,100 / 200,000 (14%)', phase:'▶ QUICK' },
+  timeline: [{l:'subagent spawn',s:'done'},{a:'›'},{l:'implement',s:'done'},{a:'›'},{l:'test',s:'act'},{a:'›',act:true},{l:'deviation',s:'fut'},{a:'›'},{l:'verify',s:'fut'}],
+  agents:[
+    {n:'gsd-t-quick', t:'orchestrator · sonnet', s:'running', tok:'8k'},
+    {n:'quick-subagent',t:'subagent · sonnet', s:'running', tok:'20k'},
+  ],
+  tree:'◆ gsd-t-quick (Step 0: self-spawn)\n└─ ◌ quick-subagent (fresh context)\n   ├─ ✓ implement fix\n   ├─ ◌ running tests (4 fail)\n   └─ ⏳ deviation rule check pending',
+  outcomes:'[success] fix implemented: gsd-t-checkin.md line 47\n[running] test suite: 4 failures found\n[pending] deviation rule: auto-fix if possible',
+  events:[
+    {t:'err', msg:'quick-subagent → test run: 4 failures (hook timing)'},
+    {t:'tool', msg:'quick-subagent → Bash: node --test test/'},
+    {t:'done', msg:'quick-subagent → Edit: gsd-t-checkin.md ✓'},
+    {t:'spawn', msg:'gsd-t-quick → quick-subagent (Step 0 self-spawn)'},
+  ],
+  svg: `
+  <!-- Root orchestrator (small, stays lightweight) -->
+  <g class="ng" onclick="selNode('quick',5)">
+    <rect class="nr n-command" x="335" y="20" width="150" height="44" rx="8"/>
+    <text class="nl" x="410" y="39" text-anchor="middle">gsd-t-quick</text>
+    <text x="347" y="39" fill="#bc8cff" font-size="11">◌</text>
+    <text class="ns" x="410" y="53" text-anchor="middle">orchestrator · Step 0 → subagent</text>
+  </g>
+
+  <!-- Self-spawn note -->
+  <rect x="260" y="88" width="300" height="24" fill="#2d1f5e" stroke="#bc8cff" stroke-width="1" rx="5" opacity=".85"/>
+  <text x="410" y="104" text-anchor="middle" fill="#bc8cff" font-size="9" font-family="monospace">Step 0: self-spawn for fresh context window</text>
+
+  <!-- Quick subagent (main work) -->
+  <g class="ng" onclick="selNode('quick-sub',5)">
+    <rect class="nr n-domain running" x="260" y="130" width="300" height="56" rx="8"/>
+    <text class="nl" x="410" y="153" text-anchor="middle">quick-subagent</text>
+    <text x="272" y="153" fill="#388bfd" font-size="11">◌</text>
+    <text class="ns" x="410" y="170" text-anchor="middle">sonnet · fix checkin hook bug · fresh context</text>
+  </g>
+
+  <!-- Work steps -->
+  <!-- implement done -->
+  <g class="ng" onclick="selNode('impl',5)">
+    <rect class="nr n-done" x="100" y="238" width="160" height="48" rx="8"/>
+    <text class="nl" x="180" y="258" text-anchor="middle">implement</text>
+    <text x="112" y="258" fill="#3fb950" font-size="11">✓</text>
+    <text class="ns" x="180" y="272" text-anchor="middle">Edit: gsd-t-checkin.md</text>
+  </g>
+  <!-- test suite running with failures -->
+  <g class="ng" onclick="selNode('tests',5)">
+    <rect class="nr n-qa running" x="330" y="238" width="160" height="48" rx="8"/>
+    <text class="nl" x="410" y="258" text-anchor="middle">test suite</text>
+    <text x="342" y="258" fill="#d29922" font-size="11">⚑</text>
+    <text class="ns" x="410" y="272" text-anchor="middle">127 tests · 4 failing</text>
+  </g>
+
+  <!-- Error node -->
+  <g class="ng" onclick="selNode('err',5)">
+    <rect class="nr n-error nerr" x="560" y="238" width="160" height="48" rx="8"/>
+    <text class="nl" x="640" y="258" text-anchor="middle">4 failures</text>
+    <text x="572" y="258" fill="#f85149" font-size="11">✗</text>
+    <text class="ns" x="640" y="272" text-anchor="middle">hook timing (recoverable)</text>
+  </g>
+
+  <!-- Deviation rule check -->
+  <rect x="280" y="342" width="260" height="48" fill="#2e2210" stroke="#d29922" stroke-width="1.5" rx="8"/>
+  <text x="410" y="362" text-anchor="middle" fill="#d29922" font-size="10" font-family="monospace">⚑ deviation rule check</text>
+  <text x="410" y="378" text-anchor="middle" fill="#7d8590" font-size="9" font-family="monospace">auto-fix: yes (timing, not architecture)</text>
+
+  <!-- Deviation rules legend -->
+  <rect x="20" y="330" width="230" height="88" fill="#161b22" stroke="#30363d" rx="5" opacity=".95"/>
+  <text x="30" y="346" fill="#7d8590" font-size="9" font-family="monospace">DEVIATION RULES</text>
+  <text x="30" y="361" fill="#3fb950" font-size="9" font-family="monospace">✓ Rule 1: auto-fix bugs</text>
+  <text x="30" y="376" fill="#3fb950" font-size="9" font-family="monospace">✓ Rule 2: add missing functionality</text>
+  <text x="30" y="391" fill="#3fb950" font-size="9" font-family="monospace">✓ Rule 3: fix blockers</text>
+  <text x="30" y="406" fill="#f85149" font-size="9" font-family="monospace">✗ Rule 4: STOP for arch changes</text>
+
+  <!-- Fix attempt 2 (pending) -->
+  <rect x="280" y="450" width="260" height="44" fill="#161b22" stroke="#30363d" stroke-width="1" rx="8" stroke-dasharray="3,2"/>
+  <text x="410" y="469" text-anchor="middle" fill="#7d8590" font-size="11" font-family="monospace">auto-fix attempt 2 (pending)</text>
+  <text x="410" y="483" text-anchor="middle" fill="#484f58" font-size="9" font-family="monospace">max 3 attempts before escalation</text>
+
+  <!-- Tools -->
+  <g class="ng"><rect class="nr n-tool-done" x="80" y="352" width="110" height="36" rx="8"/>
+    <text class="nl" x="135" y="368" text-anchor="middle" font-size="10">Edit</text>
+    <text class="ns" x="135" y="382" text-anchor="middle" fill="#3fb950">✓ line 47</text>
+  </g>
+  <g class="ng"><rect class="nr n-tool-active" x="210" y="352" width="50" height="36" rx="8"/>
+    <text class="nl" x="235" y="368" text-anchor="middle" font-size="10">Bash</text>
+    <text class="ns" x="235" y="382" text-anchor="middle">tests</text>
+    <circle class="tpulse" cx="222" cy="368" r="4"/>
+  </g>
+
+  <!-- EDGES -->
+  <path class="e e-active" d="M410,64 L410,130" marker-end="url(#ar-bl)"/>
+  <path class="ef ef-spawn" d="M410,64 L410,130"/>
+  <path class="e e-spawn" d="M360,186 L180,238" marker-end="url(#ar-sp)"/>
+  <path class="e e-active" d="M410,186 L410,238" marker-end="url(#ar-bl)"/>
+  <path class="ef ef-spawn" d="M410,186 L410,238"/>
+  <path class="e e-active" d="M450,186 L640,238" marker-end="url(#ar-bl)"/>
+  <path class="ef ef-spawn" d="M450,186 L640,238"/>
+  <path class="e e-tool" d="M180,286 L135,352" marker-end="url(#ar-pu)"/>
+  <path class="e e-tool" d="M360,286 L235,352" marker-end="url(#ar-pu)"/>
+  <path class="ef ef-tool" d="M360,286 L235,352"/>
+  <!-- error → deviation -->
+  <path d="M620,286 C590,310 520,340 540,366" stroke="#d29922" stroke-width="1.5" marker-end="url(#ar-or)" fill="none"/>
+  <path class="e e-active" d="M410,286 L410,342" marker-end="url(#ar-bl)"/>
+  <path class="ef ef-spawn" d="M410,286 L410,342"/>
+  `
+}
+];
+
+// ═══════════════════════════════════════════════
+// RENDER ENGINE
+// ═══════════════════════════════════════════════
+
+let currentScene = 0;
+let eventTimer = null;
+
+function showScene(idx) {
+  currentScene = idx;
+  // Update buttons
+  document.querySelectorAll('.scbtn').forEach((b,i)=>b.classList.toggle('active',i===idx));
+  const s = SCENES[idx];
+  // Header
+  document.getElementById('hdr-meta').textContent = 'session: sess_8f3c2a · ' + s.meta.cmd;
+  document.getElementById('hdr-tok').textContent = '⬡ ' + s.meta.tok;
+  document.getElementById('hdr-phase').textContent = s.meta.phase;
+  // Graph
+  document.getElementById('scene-content').innerHTML = s.svg;
+  // Timeline
+  const tl = document.getElementById('timeline-bar');
+  tl.innerHTML = s.timeline.map(t =>
+    t.a ? `<div class="tla${t.act?' act':''}">›</div>`
+        : `<div class="tlp ${t.s}">${t.s==='done'?'✓ ':t.s==='act'?'▶ ':''}${t.l}</div>`
+  ).join('');
+  // Events
+  const el = document.getElementById('evt-log');
+  el.innerHTML = s.events.map(e => {
+    const now = new Date();
+    const ts = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}`;
+    return `<div class="ee"><span class="ets">${ts}</span><span class="et ${e.t}">${e.t.toUpperCase()}</span><span class="em">${e.msg}</span></div>`;
+  }).join('');
+  // Agents tab
+  document.getElementById('agent-list').innerHTML = s.agents.map(a => {
+    const sc = {running:'bl',done:'gr',blocked:'',fut:''}[a.s]||'';
+    return `<div class="mrow"><span class="ml">${a.n}</span><span class="mv ${sc}">${a.t} · ${a.tok}</span></div>`;
+  }).join('');
+  document.getElementById('spawn-tree').textContent = s.tree;
+  document.getElementById('outcome-log').innerHTML = s.outcomes.split('\n').map(l=>l).join('<br>');
+  // Memory stats
+  document.getElementById('mem-events').textContent = [248,312,186,94,312,88][idx];
+  document.getElementById('mem-agents').textContent = [8,7,6,4,4,2][idx];
+  // Live events
+  if (eventTimer) clearInterval(eventTimer);
+  eventTimer = setInterval(() => addLiveEvent(idx), 4500);
+}
+
+function selNode(id, sceneIdx) {
+  // Simple selection feedback — in production this would update sidebar
+  const el = document.getElementById('node-name');
+  if (el) {
+    el.textContent = id;
+    el.style.opacity='0';
+    setTimeout(()=>{el.style.opacity='1';el.style.transition='opacity .3s';},50);
+  }
+}
+
+function stab(t) {
+  ['info','agents','memory'].forEach(x=>{
+    document.getElementById('sp-'+x).style.display = x===t?'block':'none';
+    document.querySelectorAll('.sbtab')[['info','agents','memory'].indexOf(x)].classList.toggle('active',x===t);
+  });
+}
+
+function addLiveEvent(idx) {
+  const s = SCENES[idx];
+  if (!s) return;
+  const el = document.getElementById('evt-log');
+  const e = s.events[Math.floor(Math.random()*s.events.length)];
+  const now = new Date();
+  const ts = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}`;
+  const div = document.createElement('div');
+  div.className = 'ee enew';
+  div.innerHTML = `<span class="ets">${ts}</span><span class="et ${e.t}">${e.t.toUpperCase()}</span><span class="em">${e.msg}</span>`;
+  el.insertBefore(div, el.firstChild);
+  if (el.children.length > 10) el.removeChild(el.lastChild);
+}
+
+// Boot
+showScene(0);
+</script>
+</body>
+</html>

@@ -13,3 +13,9 @@ node_modules/
 
 # GSD-T heartbeat telemetry (session-specific, may contain sensitive data)
 .gsd-t/heartbeat-*.jsonl
+
+# Claude Code internal directories
+.claude/worktrees/
+
+# Windows null device artifact
+nul

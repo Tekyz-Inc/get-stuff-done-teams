@@ -2,6 +2,14 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.33.11] - 2026-03-05
+
+### Added
+- `.gitignore` excludes `.claude/worktrees/` (Claude Code internal) and `nul` (Windows artifact)
+- `ai-evals-analysis.md`, `gsd-t-command-doc-matrix.csv` — development reference documents
+- `scripts/gsd-t-dashboard-mockup.html` — interactive mockup from M15 brainstorm (historical reference)
+- `.gsd-t/brainstorm-2026-02-18.md` — brainstorm notes from Feb 18 ideation session
+
 ## [2.33.10] - 2026-03-04
 
 ### Added
