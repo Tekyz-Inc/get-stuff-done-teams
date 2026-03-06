@@ -2,6 +2,14 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.33.12] - 2026-03-06
+
+### Fixed
+- **Dashboard graph now shows the current session** — heartbeat.js now emits `session_start`/`session_end` events (agent_id=session_id) so the session appears as a root node
+- **Tool calls attributed to session** — PostToolUse events now carry session_id as agent_id fallback; all activity visible in single-agent sessions
+- **Readable node labels** — sessions display as "Session · Mar 6 · abc1234" (blue-bordered); subagents show their type
+- 3 new tests (178/178 passing); event-schema-contract.md updated with new event types
+
 ## [2.33.11] - 2026-03-05
 
 ### Added

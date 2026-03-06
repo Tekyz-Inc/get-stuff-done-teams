@@ -189,6 +189,16 @@ function buildEventStreamEntry(hook) {
   const ts = new Date().toISOString();
   const base = { ts, command: null, phase: null, trace_id: null };
   const n = hook.hook_event_name;
+  if (n === "SessionStart") {
+    return { ...base, event_type: "session_start",
+      agent_id: hook.session_id || null, parent_agent_id: null,
+      reasoning: hook.model || null, outcome: null };
+  }
+  if (n === "SessionEnd") {
+    return { ...base, event_type: "session_end",
+      agent_id: hook.session_id || null, parent_agent_id: null,
+      reasoning: hook.reason || null, outcome: null };
+  }
   if (n === "SubagentStart") {
     return { ...base, event_type: "subagent_spawn",
       agent_id: hook.agent_id || null,
@@ -203,7 +213,7 @@ function buildEventStreamEntry(hook) {
   }
   if (n === "PostToolUse") {
     return { ...base, event_type: "tool_call",
-      agent_id: hook.agent_id || null, parent_agent_id: null,
+      agent_id: hook.agent_id || hook.session_id || null, parent_agent_id: null,
       reasoning: hook.tool_name || null, outcome: null };
   }
   return null;

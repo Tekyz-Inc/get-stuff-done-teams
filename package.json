@@ -1,6 +1,6 @@
 {
   "name": "@tekyzinc/gsd-t",
-  "version": "2.33.11",
+  "version": "2.33.12",
   "description": "GSD-T: Contract-Driven Development for Claude Code — 48 slash commands with real-time agent dashboard, execution intelligence, backlog management, impact analysis, test sync, milestone archival, and PRD generation",
   "author": "Tekyz, Inc.",
   "license": "MIT",

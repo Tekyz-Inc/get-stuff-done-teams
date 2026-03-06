@@ -43,7 +43,9 @@ Every event MUST be a single-line JSON object with exactly these fields:
 | `phase_transition`    | Wave transitions between phases (partition→plan, execute→test-sync, etc.)   | command=wave, phase, reasoning, outcome |
 | `subagent_spawn`      | Task subagent is spawned (from hooks or command files)                       | agent_id=child, parent_agent_id   |
 | `subagent_complete`   | Task subagent returns                                                        | agent_id=child, outcome           |
-| `tool_call`           | PreToolUse/PostToolUse hook fires for significant tools (Bash, Edit, Write)  | reasoning (tool name)             |
+| `session_start`       | SessionStart hook fires — session begins                                     | agent_id=session_id, reasoning=model |
+| `session_end`         | SessionEnd hook fires — session ends                                         | agent_id=session_id, reasoning=reason |
+| `tool_call`           | PostToolUse hook fires; agent_id = subagent ID if in subagent, else session_id | reasoning (tool name)           |
 | `experience_retrieval`| Pre-task grep found relevant [failure]/[learning] entries                   | reasoning (what was found)        |
 | `outcome_tagged`      | Decision Log entry written with an outcome tag                               | outcome (the tag used)            |
 | `distillation`        | complete-milestone distillation step ran                                     | reasoning (patterns found)        |

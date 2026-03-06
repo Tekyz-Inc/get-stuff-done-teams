@@ -302,9 +302,30 @@ describe("buildEventStreamEntry", () => {
     assert.equal(entry.outcome, null);
   });
 
-  it("returns null for SessionStart", () => {
-    const hook = { hook_event_name: "SessionStart", session_id: "s1" };
-    assert.equal(buildEventStreamEntry(hook), null);
+  it("returns session_start for SessionStart", () => {
+    const hook = { hook_event_name: "SessionStart", session_id: "s1", model: "claude-sonnet-4-6" };
+    const entry = buildEventStreamEntry(hook);
+    assert.ok(entry, "Expected non-null entry");
+    assert.equal(entry.event_type, "session_start");
+    assert.equal(entry.agent_id, "s1");
+    assert.equal(entry.parent_agent_id, null);
+    assert.equal(entry.reasoning, "claude-sonnet-4-6");
+    assert.equal(entry.outcome, null);
+  });
+
+  it("returns session_end for SessionEnd", () => {
+    const hook = { hook_event_name: "SessionEnd", session_id: "s1", reason: "user_exit" };
+    const entry = buildEventStreamEntry(hook);
+    assert.ok(entry, "Expected non-null entry");
+    assert.equal(entry.event_type, "session_end");
+    assert.equal(entry.agent_id, "s1");
+    assert.equal(entry.reasoning, "user_exit");
+  });
+
+  it("PostToolUse uses session_id as agent_id when agent_id absent", () => {
+    const hook = { hook_event_name: "PostToolUse", tool_name: "Bash", session_id: "sess-xyz" };
+    const entry = buildEventStreamEntry(hook);
+    assert.equal(entry.agent_id, "sess-xyz");
   });
 
   it("returns null for Stop", () => {
