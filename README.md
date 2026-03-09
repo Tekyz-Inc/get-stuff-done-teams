@@ -8,6 +8,7 @@ A methodology for reliable, parallelizable development using Claude Code with op
 **Catches downstream effects** — analyzes impact before changes break things.
 **Protects existing work** — destructive action guard prevents schema drops, architecture replacements, and data loss without explicit approval.
 **Visualizes execution in real time** — live browser dashboard renders agent hierarchy, tool activity, and phase progression from the event stream.
+**Generates visual scan reports** — every `/gsd-t-scan` produces a self-contained HTML report with 6 live architectural diagrams, a tech debt register, and domain health scores; optional DOCX/PDF export via `--export docx|pdf`.
 
 ---
 

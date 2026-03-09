@@ -2,29 +2,23 @@
 
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: COMPLETE
-## Date: 2026-03-04
-## Version: 2.33.12
+## Date: 2026-03-09
+## Version: 2.34.10
 
 ## Current Milestone
 
-**M16: Dashboard Graph Visibility** — Phase: COMPLETE
-- Goal: Graph always shows the current session as a root node with readable labels; subagents appear as children with edges
-- Root cause: heartbeat never emits session_start to event stream; tool_calls have null agent_id in main session
-- Fix: (1) emit session_start/end events to stream; (2) set agent_id=session_id on tool_calls; (3) improve dashboard node labels + session root rendering
-
-**M17: Scan Visual Output** — Phase: EXECUTED
+**M17: Scan Visual Output** — Phase: COMPLETE
 - Goal: Transform gsd-t-scan from a text-only analysis tool into a rich visual report generator. Every scan produces a self-contained HTML report with 6 live diagrams, a tech debt register, and domain health scores — plus optional DOCX/PDF export for Google Docs.
 - Requirements: REQ-024 through REQ-030, TECH-009 through TECH-013, NFR-006 through NFR-009
-- Reference mock: scan-report-mock.html (project root)
+- Result: 8 new modules (2,168 total lines), 204/204 tests pass, tagged v2.34.10
 
 ## Active Milestone
-| # | Milestone | Status | Version Target |
-|---|-----------|--------|----------------|
-| M17 | Scan Visual Output | EXECUTED | 2.34.10 |
+_None — M17 complete._
 
 ## Completed Milestones
 | Milestone | Version | Completed | Tag |
 |-----------|---------|-----------|-----|
+| Scan Visual Output           | 2.34.10 | 2026-03-09 | v2.34.10  |
 | Real-Time Agent Dashboard    | 2.33.10 | 2026-03-04 | v2.33.10  |
 | Execution Intelligence Layer | 2.32.10 | 2026-03-04 | v2.32.10  |
 | Backlog Management System | 2.8.0 | 2026-02-10 | v2.8.0 |
@@ -60,6 +54,9 @@
 
 ## Decision Log
 (Entries before 2026-02-16 reconstructed from git history with timestamps)
+- 2026-03-09 (session): [success] M17 COMPLETE — v2.34.10 tagged. 8 new modules (scan-schema, scan-schema-parsers, scan-diagrams, scan-diagrams-generators, scan-renderer, scan-report, scan-report-sections, scan-export), 204/204 tests pass, all contracts verified, README updated, milestone archived
+- 2026-03-09 (session): [success] M17 INTEGRATE COMPLETE — full pipeline smoke test passed (extractSchema→generateDiagrams→generateReport), 6 DiagramResults produced, HTML 10143 bytes, all contract shapes verified, npm test 204/204 pass
+- 2026-03-09 (session): [success] M17 TEST_SYNC COMPLETE — test/scan.test.js created (26 tests: extractSchema x6, generateDiagrams x7, generateReport x6, exportReport x5, integration x2), npm test 204/204 pass
 - 2026-03-09 (session): [success] scan-export COMPLETE — bin/scan-export.js created (exportReport: docx/pdf with graceful skip), --export flag added to bin/gsd-t.js, Checkpoint 3 PASSED (all 5 modules verified), npm test 178/178
 - 2026-03-09 (session): [success] scan-report COMPLETE — bin/scan-report.js created (116 lines), bin/scan-report-sections.js created (74 lines), generateReport() verified (HTML self-contained, all 6 diagram sections, no CDN refs), commands/gsd-t-scan.md extended with Steps 2.5+3.5+8, npm test 178/178 pass
 - 2026-03-09 (session): [success] scan-diagrams COMPLETE — bin/scan-renderer.js + bin/scan-diagrams.js + bin/scan-diagrams-generators.js created, generateDiagrams() returns 6 DiagramResults (contract-compliant order), rendering fallback chain operational (mmdc → d2 → placeholder), all 10 contract checks passed

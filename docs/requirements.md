@@ -1,6 +1,6 @@
 # Requirements — GSD-T Framework (@tekyzinc/gsd-t)
 
-## Last Updated: 2026-03-04 (M15 Complete — Real-Time Agent Dashboard v2.33.10)
+## Last Updated: 2026-03-06 (M17 Planned — Scan Visual Output)
 
 ## Functional Requirements
 
@@ -29,6 +29,13 @@
 | REQ-021 | Milestone Distillation — complete-milestone runs a distillation step: scans the event stream for patterns found ≥3 times, proposes concrete constraints.md / CLAUDE.md rule additions, user confirms before write | P2 | complete (M14) | validated by use |
 | REQ-022 | gsd-t-reflect command — reads .gsd-t/events/*.jsonl for the current milestone, generates structured retrospective (what worked, what failed, patterns found, proposed memory updates), outputs to .gsd-t/retrospectives/YYYY-MM-DD-{milestone}.md | P2 | complete (M14) | validated by use |
 | REQ-023 | Real-Time Agent Dashboard — gsd-t-visualize command starts a zero-dependency SSE server watching .gsd-t/events/ and opens gsd-t-dashboard.html in the browser; dashboard renders agent hierarchy (React Flow + Dagre via CDN) with live event overlay; all 6 interaction patterns visualized (wave/execute, parallel domains, scan, brainstorm, debug, quick/error) | P2 | complete (M15) | test/dashboard-server.test.js (23 tests) |
+| REQ-024 | Scan Schema Extraction — gsd-t-scan detects and parses ORM/schema definition files (TypeORM entities, Prisma schema, Drizzle schema, Mongoose models, SQLAlchemy models, raw SQL migrations) to extract: entity names, field names and types, primary/foreign keys, and relationships; outputs structured schema data consumed by REQ-025 ER diagram generation | P1 | planned (M17) | pending |
+| REQ-025 | Scan Diagram Generation — gsd-t-scan generates Mermaid diagram definition files (.mmd) for 6 diagram types derived from codebase analysis: (1) System Architecture — C4-style context diagram of services, databases, queues, and external integrations; (2) Application Architecture — layered diagram showing framework layers (controllers/guards/services/repositories) and their boundaries; (3) Workflow Diagram — state machine derived from status enums and state transition logic; (4) Data Flow Diagram — flowchart tracing data from user input through validation, persistence, async queues, and workers; (5) Sequence Diagram — request/response flow for the most critical API endpoint detected; (6) Database Schema — ER diagram generated from REQ-024 schema extraction | P1 | planned (M17) | pending |
+| REQ-026 | Scan Diagram Rendering — diagram definitions from REQ-025 are rendered to SVG using the configured backend (REQ-028); rendered SVGs are embedded inline in the HTML report; rendering backend is selected in priority order: Mermaid CLI → D2 → Kroki HTTP; if all backends fail a graceful fallback generates a "diagram unavailable" placeholder without blocking the report | P1 | planned (M17) | pending |
+| REQ-027 | Scan HTML Report — gsd-t-scan generates a self-contained HTML report (scan-report.html) containing: (a) sidebar navigation with scrollspy; (b) summary metric cards (files scanned, LoC, tech debt count by severity, test coverage %, outdated deps, API endpoint count); (c) domain health cards with file inventory and health score; (d) 6 diagram sections (REQ-025/026) each with title, type badge, inline SVG, expand-to-fullscreen button with scroll-to-zoom, and descriptive note; (e) tech debt register table with severity badges; (f) key findings with actionable recommendations; report uses dark theme, no external CDN required after generation | P1 | planned (M17) | pending |
+| REQ-028 | Scan Document Export — scan output exportable to two additional formats: (a) DOCX via Pandoc (GPL v2+) — converts scan-report.md + embedded images to .docx; upload to Google Drive auto-converts to Google Docs; (b) PDF via md-to-pdf (MIT) + Puppeteer — renders markdown with CSS styling to print-quality PDF; both export formats are triggered by optional flags (--export=docx, --export=pdf) and are independent of HTML report generation | P2 | planned (M17) | pending |
+| REQ-029 | Diagram Rendering Toolchain — three rendering backends supported, each free and open source, selected automatically based on availability: (1) Primary — Mermaid CLI (mmdc, @mermaid-js/mermaid-cli, MIT, npm) renders .mmd files to SVG via headless Chromium; (2) Enhanced — D2 (MPL-2.0, terrastruct/d2, Go binary) as optional renderer for architecture and dataflow diagrams — uses dagre/ELK/neato layouts (TALA excluded, paid); (3) Fallback — Kroki HTTP API (MIT, yuzutech/kroki) renders any supported format via single HTTP POST to kroki.io (public free tier) or self-hosted Docker instance | P2 | planned (M17) | pending |
+| REQ-030 | MCP Diagram Server Support — gsd-t-scan supports optional MCP-based diagram generation when registered MCP servers are detected in Claude Code settings: diagram-bridge-mcp (MIT, tohachan) selects optimal format and renders via Kroki; C4Diagrammer (MIT, jonverrier) specialized for existing codebase → C4 architecture diagrams; mcp-mermaid (MIT, hustcc) for 22 Mermaid diagram types; MCP path is preferred over CLI when available | P3 | planned (M17) | pending |
 
 ## Technical Requirements
 
@@ -42,6 +49,11 @@
 | TECH-006 | Symlink protection on all file write operations | P1 | complete |
 | TECH-007 | Input validation on project names, versions, paths, session IDs | P1 | complete |
 | TECH-008 | prepublishOnly gate — `npm test` runs before `npm publish` | P1 | complete (M8) |
+| TECH-009 | Mermaid CLI (@mermaid-js/mermaid-cli, MIT) is the primary diagram renderer — requires Node.js (already required by GSD-T); installed on demand if absent; renders .mmd → SVG/PNG via headless Chromium (Puppeteer peer dependency) | P1 | planned (M17) |
+| TECH-010 | D2 diagram renderer (MPL-2.0, terrastruct/d2) is optional — detected by `which d2`; used in preference to Mermaid CLI for architecture and dataflow diagram types when present; free layouts only: dagre, ELK, neato | P2 | planned (M17) |
+| TECH-011 | Kroki HTTP API (MIT, yuzutech/kroki) is the zero-install fallback renderer — single HTTP POST, no local dependencies; defaults to public kroki.io; configurable to self-hosted instance via KROKI_URL env var | P2 | planned (M17) |
+| TECH-012 | Pandoc (GPL v2+) used for DOCX and HTML document export; detected by `which pandoc`; --export flags silently skip if absent with a warning in report output | P2 | planned (M17) |
+| TECH-013 | All diagram and export tooling must be free and open source (MIT, MPL-2.0, GPL, or equivalent OSI-approved license) with no paid tiers, subscriptions, or per-request API fees required for core functionality | P1 | planned (M17) |
 
 ## Non-Functional Requirements
 
@@ -52,6 +64,10 @@
 | NFR-003 | Command files are pure markdown (no frontmatter) | 100% compliance | complete |
 | NFR-004 | Heartbeat auto-cleanup prevents unbounded growth | 7-day TTL | complete |
 | NFR-005 | Update check is non-blocking after first run | background process | complete |
+| NFR-006 | Scan HTML report renders all diagrams in browser within 5 seconds of opening | < 5s render | planned (M17) |
+| NFR-007 | Scan HTML report is self-contained after generation — all SVG diagrams are embedded inline; no external CDN dependencies required to view the report | 100% offline-capable | planned (M17) |
+| NFR-008 | Diagram generation degrades gracefully — if the primary renderer is unavailable the next backend is tried automatically; the scan report is always produced even if all renderers fail (placeholder shown instead of diagram) | zero blocking failures | planned (M17) |
+| NFR-009 | Schema extraction completes within the scan time budget — ORM/schema file parsing adds no more than 10% to total scan duration | ≤ 10% overhead | planned (M17) |
 
 ## Test Coverage
 
@@ -75,8 +91,110 @@
 | REQ-022 | gsd-t-reflect command — retrospective from events/          | reflect       | Task 2, Task 3  | complete |
 | REQ-023 | Real-Time Agent Dashboard — SSE server + React Flow dashboard + gsd-t-visualize command | server, dashboard, command | server T1, dashboard T1, command T1, T2, T3 | complete (M15) |
 
+| REQ-024 | Scan Schema Extraction — ORM/schema parser → structured entity data       | scan-schema      | pending         | planned |
+| REQ-025 | Scan Diagram Generation — 6 diagram type .mmd files from codebase analysis | scan-diagrams    | pending         | planned |
+| REQ-026 | Scan Diagram Rendering — .mmd → SVG via Mermaid CLI / D2 / Kroki           | scan-diagrams    | pending         | planned |
+| REQ-027 | Scan HTML Report — self-contained report with inline SVGs + all sections    | scan-report      | pending         | planned |
+| REQ-028 | Scan Document Export — DOCX (Pandoc) + PDF (md-to-pdf) export flags        | scan-export      | pending         | planned |
+| REQ-029 | Diagram Rendering Toolchain — Mermaid CLI → D2 → Kroki fallback chain      | scan-diagrams    | pending         | planned |
+| REQ-030 | MCP Diagram Server Support — diagram-bridge-mcp / C4Diagrammer / mcp-mermaid | scan-diagrams  | pending         | planned |
+
 **Orphaned requirements**: REQ-001 through REQ-017 (all M1–M13 deliverables, complete — not mapped to M14 tasks by design).
 **Unanchored tasks**: command Task 2 (bin/gsd-t.js installer update) and Task 3 (4 reference files) are infrastructure supporting REQ-023 — implicitly mapped.
+
+---
+
+## M17: Scan Visual Output — Feature Specification
+
+**Goal**: Transform `gsd-t-scan` from a text-only analysis tool into a rich visual report generator. Every scan produces a beautiful, self-contained HTML report with live diagrams, a tech debt register, and domain health scores — plus optional export to Google Docs via DOCX or PDF.
+
+### Scope
+
+| Area | Description |
+|------|-------------|
+| Schema extraction | Detect and parse ORM/schema files to extract entity relationships |
+| Diagram generation | Generate Mermaid (.mmd) diagram definitions for 6 diagram types |
+| Diagram rendering | Render .mmd → SVG using Mermaid CLI, D2, or Kroki (auto-fallback) |
+| HTML report | Self-contained dark-theme report with inline SVGs and expand-to-fullscreen |
+| Document export | DOCX (Pandoc → Google Docs) and PDF (md-to-pdf) export via --export flag |
+| MCP support | Optional MCP server integration when registered in Claude Code settings |
+
+### Diagram Types (REQ-025)
+
+| # | Diagram | Source Analysis | Mermaid Syntax |
+|---|---------|-----------------|----------------|
+| 1 | System Architecture | Config files, imports, env vars, API clients | `C4Context` or `graph TB` |
+| 2 | Application Architecture | Module/class structure, framework layers, routing | `graph TB` with subgraphs |
+| 3 | Workflow | Status enums, state transition methods, FSM patterns | `stateDiagram-v2` |
+| 4 | Data Flow | Request handlers, validation pipes, DB calls, queue producers | `flowchart TD` |
+| 5 | Sequence | Critical API endpoint: auth flow or primary resource creation | `sequenceDiagram` |
+| 6 | Database Schema | ORM entities / Prisma schema / SQL migrations (REQ-024) | `erDiagram` |
+
+### ORM Detection Matrix (REQ-024)
+
+| ORM / Tool | Detection Signal | Schema Source |
+|------------|-----------------|---------------|
+| TypeORM | `@Entity()`, `typeorm` import | `*.entity.ts` files |
+| Prisma | `prisma/schema.prisma` exists | `schema.prisma` |
+| Drizzle | `drizzle-orm` import | `schema.ts` / `*.schema.ts` |
+| Mongoose | `mongoose.Schema`, `new Schema` | `*.model.ts` / `*.schema.ts` |
+| Sequelize | `DataTypes`, `Model.init` | `*.model.js/ts` |
+| SQLAlchemy | `declarative_base`, `Column` | `models.py` / `*.model.py` |
+| Raw SQL | `CREATE TABLE` in `.sql` files | `migrations/*.sql` |
+
+### Rendering Toolchain (REQ-029)
+
+```
+RENDER REQUEST
+  ├── Is `mmdc` (Mermaid CLI) available?
+  │     YES → mmdc -i diagram.mmd -o diagram.svg -t dark   (primary)
+  │     NO  ↓
+  ├── Is `d2` available AND diagram type is arch/dataflow?
+  │     YES → d2 diagram.d2 diagram.svg --layout=dagre      (enhanced)
+  │     NO  ↓
+  ├── Is network available?
+  │     YES → POST diagram src to kroki.io → SVG response   (fallback)
+  │     NO  ↓
+  └── Embed "diagram unavailable" placeholder in report     (graceful degrade)
+```
+
+### HTML Report Structure (REQ-027)
+
+```
+scan-report.html
+  ├── Sidebar navigation (scrollspy, domain/diagram/analysis sections)
+  ├── Compact page header (project name, version, date, stack)
+  ├── Summary (metric cards: files, LoC, debt counts, coverage, deps, endpoints)
+  ├── Domains (health cards with file inventory and health % bar)
+  ├── Diagram sections × 6 (title bar + type badge + SVG + expand button + note)
+  ├── Tech Debt Register (table: severity badge, domain, issue, location, effort)
+  └── Key Findings (actionable cards: security, architecture, reliability, quality)
+```
+
+### Document Export (REQ-028)
+
+| Flag | Tool | Output | Google Docs Path |
+|------|------|--------|-----------------|
+| `--export=docx` | Pandoc (GPL) | `scan-report.docx` | Upload to Drive → Open with Google Docs |
+| `--export=pdf` | md-to-pdf (MIT) | `scan-report.pdf` | Upload to Drive → open directly |
+| _(none)_ | — | `scan-report.html` | Copy/paste markdown, or File → Import |
+
+### Free & Open Source Toolchain Confirmation
+
+| Tool | License | Free? | Paid Components |
+|------|---------|-------|-----------------|
+| Mermaid CLI (`@mermaid-js/mermaid-cli`) | MIT  | Yes | None |
+| D2 (terrastruct/d2) | MPL-2.0  | Yes | TALA layout only (excluded) |
+| Kroki (yuzutech/kroki) | MIT  | Yes | None (self-host or free kroki.io) |
+| diagram-bridge-mcp (tohachan) | MIT  | Yes | None |
+| C4Diagrammer (jonverrier) | MIT  | Yes | None |
+| mcp-mermaid (hustcc) | MIT  | Yes | None |
+| Pandoc | GPL v2+  | Yes | None |
+| md-to-pdf (simonhaenisch) | MIT  | Yes | None |
+
+### Mock Reference
+
+A reference implementation of the HTML report output is at `scan-report-mock.html` (project root). It demonstrates all 6 diagram types, the tech debt register, domain health cards, and the expand-to-fullscreen interaction. Use this as the visual specification for the HTML report (REQ-027).
 
 ---
 

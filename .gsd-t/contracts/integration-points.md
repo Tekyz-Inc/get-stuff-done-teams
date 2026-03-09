@@ -65,3 +65,89 @@ server and dashboard ──▶  parallel-safe (different files, no shared state)
 - **Milestones 4-8**: All single-domain milestones — no integration points.
 - **Milestone 14** (Execution Intelligence Layer): 3 domains, 2 wave checkpoints. event-stream is foundational (must complete Task 1 first). learning-loop and reflect run in parallel after Checkpoint 1. reflect Task 3 (docs) waits for reflect Task 2 (new command).
 - **Milestone 15** (Real-Time Agent Dashboard): 3 domains, 2 wave checkpoints. server + dashboard run in parallel (Wave 1, different files). command runs after both complete (Wave 2, sequential within domain). command Task 3 (docs) waits for Task 1 (new command file).
+
+---
+
+## Current State: Milestone 17 — Scan Visual Output (4 domains)
+
+## Dependency Graph
+
+```
+scan-schema (bin/scan-schema.js)
+  └──▶ scan-diagrams (bin/scan-diagrams.js + scan-renderer.js)
+         └──▶ scan-report (bin/scan-report.js + commands/gsd-t-scan.md)
+                └──▶ scan-export (bin/scan-export.js + bin/gsd-t.js --export flag)
+```
+
+- scan-schema and scan-diagrams are pure modules (no file output beyond their .js files)
+- scan-report owns the only user-visible output file: scan-report.html
+- scan-export is terminal — runs last, only when --export flag is passed
+
+## Wave Execution Groups
+
+### Wave 1 — Independent (parallel-safe)
+- scan-schema: all tasks (creates bin/scan-schema.js)
+  - Owned file: `bin/scan-schema.js`
+  - Produces: `extractSchema(projectRoot)` function per scan-schema-contract.md
+- scan-diagrams: all tasks (creates bin/scan-diagrams.js + bin/scan-renderer.js)
+  - Owned files: `bin/scan-diagrams.js`, `bin/scan-renderer.js`
+  - Produces: `generateDiagrams(analysisData, schemaData, options)` function per scan-diagrams-contract.md
+- **Shared files**: NONE — each domain owns distinct files
+- **Completes when**: Both domains done + unit tests pass for each module
+
+### Checkpoint 1 — Between Wave 1 and Wave 2
+- **GATE**: scan-schema AND scan-diagrams both complete
+- **VERIFY**:
+  - `bin/scan-schema.js` exists and exports `extractSchema`
+  - `bin/scan-diagrams.js` exists and exports `generateDiagrams`
+  - `bin/scan-renderer.js` exists and exports `renderDiagram`
+  - `node -e "require('./bin/scan-schema.js')"` exits cleanly
+  - `node -e "require('./bin/scan-diagrams.js')"` exits cleanly
+  - Both functions return correct shapes per contracts when called with minimal test input
+- **UNBLOCKS**: scan-report all tasks
+
+### Wave 2 — After Checkpoint 1
+- scan-report: all tasks (creates bin/scan-report.js, modifies commands/gsd-t-scan.md)
+  - Owned files: `bin/scan-report.js`, `commands/gsd-t-scan.md`
+  - Adds Steps 2.5, 3.5 to gsd-t-scan.md; creates `generateReport()` function
+  - Output: `scan-report.html` (generated at scan runtime, not during build)
+- **Internal ordering**: bin/scan-report.js first, then commands/gsd-t-scan.md integration
+- **Completes when**: scan-report.js exports `generateReport`, scan.md updated, npm test passes
+
+### Checkpoint 2 — Between Wave 2 and Wave 3
+- **GATE**: scan-report complete
+- **VERIFY**:
+  - `bin/scan-report.js` exists and exports `generateReport`
+  - `commands/gsd-t-scan.md` has Step 2.5 (schema extraction) and Step 3.5 (diagram generation)
+  - `node -e "require('./bin/scan-report.js')"` exits cleanly
+  - npm test passes (all existing tests still pass)
+- **UNBLOCKS**: scan-export all tasks
+
+### Wave 3 — After Checkpoint 2
+- scan-export: all tasks (creates bin/scan-export.js, adds --export flag to bin/gsd-t.js)
+  - Owned files: `bin/scan-export.js`, `bin/gsd-t.js` (--export flag only)
+  - Graceful skip if Pandoc/md-to-pdf absent
+- **Completes when**: scan-export.js exports `exportReport`, gsd-t.js --export flag works, npm test passes
+
+### Checkpoint 3 — Final (pre-verify)
+- **GATE**: All 3 waves complete
+- **VERIFY**:
+  - `bin/scan-schema.js` exports `extractSchema`
+  - `bin/scan-diagrams.js` exports `generateDiagrams`, `bin/scan-renderer.js` exports `renderDiagram`
+  - `bin/scan-report.js` exports `generateReport`
+  - `bin/scan-export.js` exports `exportReport`
+  - `commands/gsd-t-scan.md` has Step 2.5 and Step 3.5
+  - `bin/gsd-t.js` accepts `--export=docx` and `--export=pdf` flags
+  - `npm test` passes (178+ tests)
+
+## Execution Order (Solo Mode)
+
+1. **scan-schema**: Create bin/scan-schema.js (parallel-safe with scan-diagrams)
+2. **scan-diagrams**: Create bin/scan-diagrams.js + bin/scan-renderer.js (parallel-safe with scan-schema)
+3. **CHECKPOINT 1**: Verify both modules export correct functions, contracts satisfied
+4. **scan-report Task 1**: Create bin/scan-report.js
+5. **scan-report Task 2**: Update commands/gsd-t-scan.md (add Steps 2.5 and 3.5)
+6. **CHECKPOINT 2**: Verify scan-report.js exports, scan.md updated, tests pass
+7. **scan-export Task 1**: Create bin/scan-export.js
+8. **scan-export Task 2**: Add --export flag to bin/gsd-t.js
+9. **CHECKPOINT 3**: Full verification — all modules, all flags, all tests pass

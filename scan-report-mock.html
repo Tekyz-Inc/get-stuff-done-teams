@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>GSD-T Scan — TaskFlow v3.2.1</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<style>
+  :root {
+    --bg:      #070b12;
+    --surface: #0c1120;
+    --card:    #0f1624;
+    --card2:   #131c2e;
+    --border:  #1a2840;
+    --border2: #243654;
+    --blue:    #3b82f6;
+    --violet:  #7c3aed;
+    --cyan:    #06b6d4;
+    --green:   #10b981;
+    --amber:   #f59e0b;
+    --red:     #ef4444;
+    --orange:  #f97316;
+    --pink:    #ec4899;
+    --text:    #e2e8f0;
+    --muted:   #4b6080;
+    --muted2:  #7a96b8;
+    --radius:  12px;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    min-height: 100vh;
+  }
+
+  /* ── Sidebar ─────────────────────────────────────────── */
+  nav {
+    width: 192px; min-width: 192px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    position: sticky; top: 0; height: 100vh;
+    overflow-y: auto;
+    padding: 14px 0 24px;
+    display: flex; flex-direction: column; gap: 1px;
+  }
+  .nb {
+    padding: 0 12px 14px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 6px;
+  }
+  .nb .pill {
+    font-size: 8.5px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase;
+    background: linear-gradient(135deg, var(--blue), var(--violet));
+    color: #fff; padding: 2px 7px; border-radius: 4px; display: inline-block; margin-bottom: 5px;
+  }
+  .nb h2 { font-size: 12.5px; font-weight: 700; }
+  .nb p  { font-size: 10px; color: var(--muted2); margin-top: 1px; }
+  .ns {
+    font-size: 8.5px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase;
+    color: var(--muted); padding: 10px 12px 3px; opacity: 0.55;
+  }
+  nav a {
+    display: flex; align-items: center; gap: 7px;
+    padding: 5px 12px; color: var(--muted2);
+    text-decoration: none; font-size: 11.5px; font-weight: 500;
+    border-left: 2px solid transparent; transition: all 0.1s;
+  }
+  nav a:hover, nav a.active {
+    color: var(--text); background: rgba(59,130,246,0.07); border-left-color: var(--blue);
+  }
+  .nd { width: 5px; height: 5px; border-radius: 50%; background: var(--muted); flex-shrink: 0; transition: background 0.1s; }
+  nav a:hover .nd, nav a.active .nd { background: var(--blue); }
+  .nd.g { background: var(--green); }
+  .nd.y { background: var(--amber); }
+  .nd.r { background: var(--red); }
+
+  /* ── Main ────────────────────────────────────────────── */
+  main { flex: 1; overflow-y: auto; padding: 24px 36px 60px; min-width: 0; }
+
+  /* ── Compact Header ──────────────────────────────────── */
+  .ph {
+    display: flex; align-items: baseline; justify-content: space-between;
+    padding-bottom: 14px; border-bottom: 1px solid var(--border); margin-bottom: 24px;
+    flex-wrap: wrap; gap: 6px;
+  }
+  .ph h1 { font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .ph h1 .bc { font-size: 10px; font-weight: 400; color: var(--muted2); }
+  .ph .meta { font-size: 10.5px; color: var(--muted2); display: flex; gap: 12px; flex-wrap: wrap; }
+  .ph .meta .sep { color: var(--border2); }
+
+  /* ── Section ─────────────────────────────────────────── */
+  section { margin-bottom: 44px; scroll-margin-top: 20px; }
+  .sl {
+    font-size: 9px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase;
+    color: var(--muted2); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;
+  }
+  .sl::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  /* ── Metric Cards ────────────────────────────────────── */
+  .mxg { display: grid; grid-template-columns: repeat(auto-fit, minmax(138px, 1fr)); gap: 10px; }
+  .mc {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px 16px; overflow: hidden; position: relative;
+  }
+  .mc-bar { height: 2px; border-radius: 1px; margin-bottom: 10px; background: linear-gradient(90deg, var(--blue), var(--violet)); }
+  .mc-bar.g { background: linear-gradient(90deg, var(--green), #34d399); }
+  .mc-bar.y { background: linear-gradient(90deg, var(--amber), #fbbf24); }
+  .mc-bar.r { background: linear-gradient(90deg, var(--red), #f87171); }
+  .mc-bar.o { background: linear-gradient(90deg, var(--orange), #fb923c); }
+  .mc-lbl { font-size: 9px; font-weight: 800; letter-spacing: 0.7px; text-transform: uppercase; color: var(--muted2); margin-bottom: 4px; }
+  .mc-val { font-size: 24px; font-weight: 800; color: var(--text); line-height: 1; }
+  .mc-sub { font-size: 9.5px; color: var(--muted2); margin-top: 3px; }
+
+  /* ── Diagram Card ────────────────────────────────────── */
+  .dc {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); overflow: hidden; margin-bottom: 16px;
+    transition: border-color 0.15s;
+  }
+  .dc:hover { border-color: var(--border2); }
+  .dc-h {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 9px 14px; background: var(--card2); border-bottom: 1px solid var(--border);
+  }
+  .dc-hl { display: flex; align-items: center; gap: 8px; }
+  .dc-t { font-size: 11.5px; font-weight: 700; color: var(--text); }
+  .dc-tag {
+    font-size: 8.5px; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase;
+    padding: 2px 8px; border-radius: 20px;
+    background: rgba(59,130,246,0.1); color: var(--blue); border: 1px solid rgba(59,130,246,0.2);
+  }
+  .btn-exp {
+    display: flex; align-items: center; gap: 5px;
+    background: rgba(255,255,255,0.04); border: 1px solid var(--border2);
+    border-radius: 6px; color: var(--muted2); cursor: pointer;
+    padding: 4px 10px; font-size: 12px; transition: all 0.15s;
+  }
+  .btn-exp span.lbl { font-size: 9px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; }
+  .btn-exp:hover { background: rgba(59,130,246,0.12); border-color: var(--blue); color: var(--blue); }
+
+  /* Diagram body — fills space, SVG scales up */
+  .dc-b {
+    min-height: 520px;
+    display: flex; align-items: flex-start; justify-content: center;
+    background: radial-gradient(ellipse 80% 60% at 50% 20%, rgba(59,130,246,0.04) 0%, transparent 70%), var(--bg);
+    padding: 24px 20px;
+    overflow: auto;
+  }
+  .dc-b .mermaid { width: 100%; display: flex; align-items: flex-start; justify-content: center; }
+  .dc-b .mermaid svg { width: 100% !important; height: auto !important; display: block; }
+
+  .dc-n {
+    padding: 9px 14px; font-size: 11px; color: var(--muted2);
+    border-top: 1px solid var(--border); background: var(--card2); line-height: 1.5;
+  }
+  .dc-n strong { color: var(--text); }
+  .dc-n code {
+    font-family: 'Consolas', monospace; font-size: 10px;
+    background: rgba(255,255,255,0.05); padding: 1px 5px; border-radius: 3px; color: #7dd3fc;
+  }
+
+  /* ── Fullscreen Modal ────────────────────────────────── */
+  #modal {
+    display: none; position: fixed; inset: 0;
+    background: rgba(4,7,14,0.97); z-index: 1000;
+    flex-direction: column;
+  }
+  #modal.open { display: flex; }
+  .mbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 18px; background: rgba(12,17,32,0.98);
+    border-bottom: 1px solid var(--border); backdrop-filter: blur(8px);
+    flex-shrink: 0;
+  }
+  .mbar h3 { font-size: 12.5px; font-weight: 700; }
+  .mbar .hint { font-size: 9.5px; color: var(--muted2); margin-left: 10px; }
+  .mbar-r { display: flex; align-items: center; gap: 8px; }
+  .btn-z {
+    background: rgba(255,255,255,0.05); border: 1px solid var(--border2);
+    border-radius: 6px; color: var(--muted2); cursor: pointer;
+    padding: 4px 10px; font-size: 13px; font-weight: 700; transition: all 0.12s;
+  }
+  .btn-z:hover { background: rgba(59,130,246,0.12); border-color: var(--blue); color: var(--blue); }
+  .zlbl { font-size: 10.5px; color: var(--muted2); min-width: 36px; text-align: center; }
+  .btn-cls {
+    background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2);
+    border-radius: 7px; color: #f87171; cursor: pointer; padding: 5px 14px;
+    font-size: 12px; font-weight: 600; transition: all 0.12s;
+  }
+  .btn-cls:hover { background: rgba(239,68,68,0.2); border-color: var(--red); }
+  #mcontent {
+    flex: 1; overflow: auto; display: flex;
+    align-items: center; justify-content: center; padding: 48px;
+  }
+  #mdiagram { transform-origin: center center; transition: transform 0.12s; }
+  #mdiagram svg { display: block; width: auto; max-width: 100%; height: auto; }
+
+  /* ── Domain Cards ────────────────────────────────────── */
+  .dg { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
+  .dcard {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px;
+  }
+  .dcard h4 { font-size: 11.5px; font-weight: 700; margin-bottom: 3px; display: flex; align-items: center; gap: 6px; }
+  .ddot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .dcard p { font-size: 10.5px; color: var(--muted2); margin-bottom: 8px; }
+  .flist {
+    font-size: 9.5px; color: var(--muted2); font-family: 'Consolas', monospace;
+    background: var(--bg); border-radius: 6px; padding: 7px 10px; line-height: 1.9;
+    border: 1px solid var(--border);
+  }
+  .hb { display: flex; align-items: center; gap: 6px; margin-top: 9px; font-size: 9.5px; color: var(--muted2); }
+  .hb .bar { flex: 1; height: 3px; background: var(--border); border-radius: 3px; overflow: hidden; }
+  .hb .fill { height: 100%; border-radius: 3px; background: var(--green); }
+  .hb .fill.y { background: var(--amber); }
+  .hb .fill.r { background: var(--red); }
+
+  /* ── Table ───────────────────────────────────────────── */
+  .tw { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  thead th {
+    background: var(--card2); color: var(--muted2);
+    font-size: 8.5px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase;
+    padding: 9px 13px; text-align: left; border-bottom: 1px solid var(--border);
+  }
+  tbody td { padding: 9px 13px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: rgba(255,255,255,0.012); }
+  td code {
+    font-family: 'Consolas', monospace; font-size: 10px;
+    background: rgba(255,255,255,0.05); padding: 1px 5px; border-radius: 3px; color: #7dd3fc;
+  }
+
+  /* Badges */
+  .bx {
+    display: inline-flex; align-items: center; padding: 2px 7px;
+    border-radius: 20px; font-size: 8.5px; font-weight: 800; letter-spacing: 0.4px; text-transform: uppercase;
+  }
+  .bx.c { background: rgba(239,68,68,0.1); color: var(--red); border: 1px solid rgba(239,68,68,0.22); }
+  .bx.h { background: rgba(249,115,22,0.1); color: var(--orange); border: 1px solid rgba(249,115,22,0.22); }
+  .bx.m { background: rgba(245,158,11,0.1); color: var(--amber); border: 1px solid rgba(245,158,11,0.22); }
+  .bx.l { background: rgba(16,185,129,0.1); color: var(--green); border: 1px solid rgba(16,185,129,0.22); }
+  .bx.i { background: rgba(59,130,246,0.1); color: var(--blue); border: 1px solid rgba(59,130,246,0.22); }
+
+  /* ── Findings ────────────────────────────────────────── */
+  .fl { display: flex; flex-direction: column; gap: 8px; }
+  .fi {
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    padding: 13px 14px; display: flex; gap: 11px; align-items: flex-start;
+  }
+  .fi .ico { font-size: 15px; flex-shrink: 0; margin-top: 1px; }
+  .fi h4 { font-size: 11.5px; font-weight: 700; margin-bottom: 2px; }
+  .fi p { font-size: 11px; color: var(--muted2); }
+  .fi code {
+    font-family: 'Consolas', monospace; font-size: 10px;
+    background: rgba(255,255,255,0.05); padding: 1px 5px; border-radius: 3px; color: #7dd3fc;
+  }
+
+  /* ── Footer ──────────────────────────────────────────── */
+  footer {
+    margin-top: 48px; padding-top: 14px; border-top: 1px solid var(--border);
+    font-size: 9.5px; color: var(--muted); display: flex;
+    justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 5px; opacity: 0.5;
+  }
+  footer a { color: var(--muted2); text-decoration: none; }
+  footer a:hover { color: var(--blue); }
+
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<!-- ── Sidebar ─────────────────────────────────────────── -->
+<nav>
+  <div class="nb">
+    <div class="pill">GSD-T Scan</div>
+    <h2>TaskFlow</h2>
+    <p>v3.2.1 &middot; 2026-03-06</p>
+  </div>
+  <div class="ns">Overview</div>
+  <a href="#summary" class="active"><span class="nd g"></span>Summary</a>
+  <a href="#domains"><span class="nd g"></span>Domains</a>
+  <div class="ns">Diagrams</div>
+  <a href="#arch">    <span class="nd"></span>System Architecture</a>
+  <a href="#apparch"> <span class="nd"></span>App Architecture</a>
+  <a href="#workflow"><span class="nd"></span>Workflow</a>
+  <a href="#dataflow"><span class="nd"></span>Data Flow</a>
+  <a href="#sequence"><span class="nd"></span>Sequence</a>
+  <a href="#schema">  <span class="nd"></span>Database Schema</a>
+  <div class="ns">Analysis</div>
+  <a href="#techdebt"><span class="nd y"></span>Tech Debt</a>
+  <a href="#findings"><span class="nd r"></span>Findings</a>
+</nav>
+
+<!-- ── Fullscreen Modal ─────────────────────────────────── -->
+<div id="modal">
+  <div class="mbar">
+    <div style="display:flex;align-items:center;gap:8px">
+      <h3 id="mtitle">Diagram</h3>
+      <span class="hint">Scroll to zoom &middot; Esc to close</span>
+    </div>
+    <div class="mbar-r">
+      <button class="btn-z" onclick="adjustZoom(-0.15)">&#8722;</button>
+      <span class="zlbl" id="zlbl">100%</span>
+      <button class="btn-z" onclick="adjustZoom(0.15)">+</button>
+      <button class="btn-z" onclick="resetZoom()" style="font-size:10px;padding:4px 9px;">Reset</button>
+      <button class="btn-cls" onclick="closeModal()">&#10005; Close</button>
+    </div>
+  </div>
+  <div id="mcontent">
+    <div id="mdiagram"></div>
+  </div>
+</div>
+
+<!-- ── Main ─────────────────────────────────────────────── -->
+<main>
+
+  <div class="ph">
+    <h1><span class="bc">GSD-T &rsaquo; Scan &rsaquo;</span> TaskFlow Codebase Report</h1>
+    <div class="meta">
+      <span>Node.js + TypeScript + PostgreSQL</span>
+      <span class="sep">|</span><span>312 files &middot; 18.4k LoC</span>
+      <span class="sep">|</span><span>2026-03-06</span>
+    </div>
+  </div>
+
+  <!-- Summary -->
+  <section id="summary">
+    <div class="sl">Summary</div>
+    <div class="mxg">
+      <div class="mc"><div class="mc-bar g"></div><div class="mc-lbl">Files Scanned</div><div class="mc-val">312</div><div class="mc-sub">across 8 domains</div></div>
+      <div class="mc"><div class="mc-bar"></div><div class="mc-lbl">Lines of Code</div><div class="mc-val">18.4k</div><div class="mc-sub">TypeScript / JS</div></div>
+      <div class="mc"><div class="mc-bar y"></div><div class="mc-lbl">Tech Debt</div><div class="mc-val">23</div><div class="mc-sub">6 critical, 9 high</div></div>
+      <div class="mc"><div class="mc-bar o"></div><div class="mc-lbl">Test Coverage</div><div class="mc-val">61%</div><div class="mc-sub">target: 80%</div></div>
+      <div class="mc"><div class="mc-bar r"></div><div class="mc-lbl">Outdated Deps</div><div class="mc-val">14</div><div class="mc-sub">3 with CVEs</div></div>
+      <div class="mc"><div class="mc-bar g"></div><div class="mc-lbl">API Endpoints</div><div class="mc-val">47</div><div class="mc-sub">38 documented</div></div>
+    </div>
+  </section>
+
+  <!-- Domains -->
+  <section id="domains">
+    <div class="sl">Domains</div>
+    <div class="dg">
+      <div class="dcard"><h4><span class="ddot" style="background:var(--green)"></span>Auth</h4><p>JWT + OAuth2 (Google, GitHub). Session management and RBAC.</p><div class="flist">src/auth/<br>&nbsp;&nbsp;auth.controller.ts<br>&nbsp;&nbsp;auth.service.ts<br>&nbsp;&nbsp;jwt.strategy.ts<br>&nbsp;&nbsp;oauth.handler.ts</div><div class="hb"><span>Health</span><div class="bar"><div class="fill" style="width:88%"></div></div><span>88%</span></div></div>
+      <div class="dcard"><h4><span class="ddot" style="background:var(--amber)"></span>Tasks</h4><p>Core task CRUD, assignments, priorities, tagging system.</p><div class="flist">src/tasks/<br>&nbsp;&nbsp;tasks.controller.ts<br>&nbsp;&nbsp;tasks.service.ts<br>&nbsp;&nbsp;tasks.repository.ts<br>&nbsp;&nbsp;tasks.dto.ts</div><div class="hb"><span>Health</span><div class="bar"><div class="fill y" style="width:64%"></div></div><span>64%</span></div></div>
+      <div class="dcard"><h4><span class="ddot" style="background:var(--red)"></span>Notifications</h4><p>Email + in-app push. Heavy coupling to task domain — debt item.</p><div class="flist">src/notifications/<br>&nbsp;&nbsp;notify.service.ts<br>&nbsp;&nbsp;email.template.ts<br>&nbsp;&nbsp;push.handler.ts</div><div class="hb"><span>Health</span><div class="bar"><div class="fill r" style="width:38%"></div></div><span>38%</span></div></div>
+      <div class="dcard"><h4><span class="ddot" style="background:var(--green)"></span>Projects</h4><p>Project containers, member management, billing tiers.</p><div class="flist">src/projects/<br>&nbsp;&nbsp;projects.controller.ts<br>&nbsp;&nbsp;projects.service.ts<br>&nbsp;&nbsp;billing.service.ts</div><div class="hb"><span>Health</span><div class="bar"><div class="fill" style="width:82%"></div></div><span>82%</span></div></div>
+    </div>
+  </section>
+
+  <!-- ── Diagram 1: System Architecture ─────────────────── -->
+  <section id="arch">
+    <div class="sl">System Architecture</div>
+    <div class="dc" data-title="System Architecture — C4 Context">
+      <div class="dc-h">
+        <div class="dc-hl">
+          <span class="dc-t">System Architecture — C4 Context</span>
+          <span class="dc-tag">C4 / Architecture</span>
+        </div>
+        <button class="btn-exp" onclick="expandDiagram(this)">&#x26F6;<span class="lbl">Expand</span></button>
+      </div>
+      <div class="dc-b">
+        <div class="mermaid">
+graph TB
+  classDef user     fill:#0d2035,stroke:#06b6d4,color:#a5f3fc,rx:8
+  classDef webapp   fill:#0f1d3a,stroke:#3b82f6,color:#bfdbfe,rx:6
+  classDef api      fill:#1a0f3a,stroke:#7c3aed,color:#ddd6fe,rx:6
+  classDef db       fill:#0a2318,stroke:#10b981,color:#a7f3d0,rx:6
+  classDef queue    fill:#1f1505,stroke:#f59e0b,color:#fde68a,rx:6
+  classDef worker   fill:#1a0f3a,stroke:#7c3aed,color:#ddd6fe,rx:6
+  classDef ext      fill:#111827,stroke:#374151,color:#9ca3af,rx:6
+
+  USER["&#128100; End User\nweb &amp; mobile"]:::user
+  ADMIN["&#128101; Admin\nteam &amp; billing"]:::user
+
+  subgraph PLATFORM["  TaskFlow Platform  "]
+    WEB["&#127760; Web App\nReact SPA"]:::webapp
+    API["&#9889; API Server\nNestJS REST"]:::api
+    PG[("&#128451; PostgreSQL\ntasks · users · projects")]:::db
+    RD[("&#9889; Redis\nsessions · queues")]:::queue
+    WORKER["&#9881; Background Worker\nBullMQ jobs"]:::worker
+  end
+
+  subgraph EXT["  External Services  "]
+    direction LR
+    SENDGRID["&#128231; SendGrid\nEmail"]:::ext
+    OAUTH["&#128273; OAuth\nGoogle / GitHub"]:::ext
+    STRIPE["&#128179; Stripe\nBilling"]:::ext
+    S3["&#9729; AWS S3\nFile storage"]:::ext
+  end
+
+  USER  -->|"HTTPS"| WEB
+  ADMIN -->|"HTTPS"| WEB
+  WEB   -->|"REST / JSON"| API
+  API   -->|"reads / writes"| PG
+  API   -->|"cache &amp; queues"| RD
+  RD    -->|"jobs"| WORKER
+  WORKER-->|"email delivery"| SENDGRID
+  WORKER-->|"file uploads"| S3
+  API   -->|"user auth"| OAUTH
+  API   -->|"subscription"| STRIPE
+
+  style PLATFORM fill:#0a0f1e,stroke:#1e3a5f,color:#e2e8f0
+  style EXT      fill:#0a0f1e,stroke:#1e2d40,color:#9ca3af
+        </div>
+      </div>
+      <div class="dc-n">
+        Standard 3-tier architecture. SPA communicates exclusively with the NestJS API. Background work (email, exports, webhooks) is fully decoupled via BullMQ/Redis. All external integrations are isolated to the API and Worker layers — no direct SPA-to-external calls.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Diagram 2: App Architecture ────────────────────── -->
+  <section id="apparch">
+    <div class="sl">Application Architecture</div>
+    <div class="dc" data-title="Layered Architecture — API Server">
+      <div class="dc-h">
+        <div class="dc-hl">
+          <span class="dc-t">Layered Architecture — API Server</span>
+          <span class="dc-tag">Architecture</span>
+        </div>
+        <button class="btn-exp" onclick="expandDiagram(this)">&#x26F6;<span class="lbl">Expand</span></button>
+      </div>
+      <div class="dc-b">
+        <div class="mermaid">
+graph TB
+  classDef client fill:#0d2035,stroke:#06b6d4,color:#a5f3fc
+  classDef ctrl   fill:#0f1d3a,stroke:#3b82f6,color:#bfdbfe
+  classDef guard  fill:#0f1d3a,stroke:#60a5fa,color:#bfdbfe
+  classDef svc    fill:#1a0f3a,stroke:#7c3aed,color:#ddd6fe
+  classDef repo   fill:#1a0f3a,stroke:#8b5cf6,color:#ddd6fe
+  classDef db     fill:#0a2318,stroke:#10b981,color:#a7f3d0
+  classDef queue  fill:#1f1505,stroke:#f59e0b,color:#fde68a
+  classDef worker fill:#12102a,stroke:#6366f1,color:#c7d2fe
+
+  subgraph CL["  Clients  "]
+    direction LR
+    WEB["&#127760; Web App"]:::client
+    MOB["&#128241; Mobile"]:::client
+  end
+
+  subgraph CTR["  Controller Layer  "]
+    direction LR
+    AC["AuthController"]:::ctrl
+    TC["TasksController"]:::ctrl
+    PC["ProjectsController"]:::ctrl
+    NC["NotifyController"]:::ctrl
+  end
+
+  subgraph GRD["  Guards &amp; Pipes  "]
+    direction LR
+    JG["JwtAuthGuard"]:::guard
+    RG["RolesGuard"]:::guard
+    TH["ThrottlerGuard"]:::guard
+    VP["ValidationPipe"]:::guard
+  end
+
+  subgraph SVC["  Service Layer  "]
+    direction LR
+    AS["AuthService"]:::svc
+    TS["TasksService"]:::svc
+    PS["ProjectsService"]:::svc
+    NS["NotifyService &#9888;"]:::svc
+  end
+
+  subgraph REP["  Repository Layer  "]
+    direction LR
+    UR["UserRepo"]:::repo
+    TR["TasksRepo"]:::repo
+    PR["ProjectsRepo"]:::repo
+  end
+
+  subgraph INF["  Infrastructure  "]
+    direction LR
+    PG[("&#128451; PostgreSQL")]:::db
+    RD[("&#9889; Redis / BullMQ")]:::queue
+  end
+
+  subgraph WRK["  Workers  "]
+    direction LR
+    EW["&#128231; EmailWorker"]:::worker
+    XW["&#128190; ExportWorker"]:::worker
+    HW["&#128279; WebhookWorker"]:::worker
+  end
+
+  WEB & MOB --> CTR
+  CTR --> GRD --> SVC --> REP --> PG
+  SVC --> RD --> EW & XW & HW
+
+  style CL  fill:#080e1a,stroke:#0e2035,color:#e2e8f0
+  style CTR fill:#080e1a,stroke:#1e3a5f,color:#e2e8f0
+  style GRD fill:#080e1a,stroke:#1e3a5f,color:#e2e8f0
+  style SVC fill:#080e1a,stroke:#2d1a5e,color:#e2e8f0
+  style REP fill:#080e1a,stroke:#2d1a5e,color:#e2e8f0
+  style INF fill:#080e1a,stroke:#0f2a1c,color:#e2e8f0
+  style WRK fill:#080e1a,stroke:#1a1840,color:#e2e8f0
+        </div>
+      </div>
+      <div class="dc-n">
+        Clean layered architecture: Controllers &#8594; Guards &#8594; Services &#8594; Repositories. <strong>Debt flag:</strong> <code>NotifyService &#9888;</code> directly imports <code>TasksRepo</code> bypassing the service boundary — should publish domain events instead.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Diagram 3: Workflow ─────────────────────────────── -->
+  <section id="workflow">
+    <div class="sl">Workflow</div>
+    <div class="dc" data-title="Task Lifecycle — State Machine">
+      <div class="dc-h">
+        <div class="dc-hl">
+          <span class="dc-t">Task Lifecycle — State Machine</span>
+          <span class="dc-tag">Workflow</span>
+        </div>
+        <button class="btn-exp" onclick="expandDiagram(this)">&#x26F6;<span class="lbl">Expand</span></button>
+      </div>
+      <div class="dc-b">
+        <div class="mermaid">
+stateDiagram-v2
+  direction LR
+  [*] --> Draft : create
+
+  Draft --> Open       : submit
+  Draft --> [*]        : discard
+
+  Open --> InProgress  : assign member
+  Open --> Cancelled   : cancel
+
+  InProgress --> InReview  : mark done
+  InProgress --> Blocked   : flag blocker
+  InProgress --> Open      : unassign
+
+  Blocked --> InProgress   : resolve
+  Blocked --> Cancelled    : force close
+
+  InReview --> Done        : approve
+  InReview --> InProgress  : reject
+
+  Done --> [*]
+  Cancelled --> [*]
+
+  note right of Blocked
+    ⚠ No SLA timeout —
+    can stagnate here
+    indefinitely
+  end note
+  note right of InReview
+    Triggers email +
+    push notification
+    to task creator
+  end note
+        </div>
+      </div>
+      <div class="dc-n">
+        6-state task machine with clean transitions. <strong>Gap:</strong> No timeout or SLA escalation — tasks stagnate in <code>Blocked</code> or <code>InReview</code> indefinitely. Recommend a scheduled escalation job.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Diagram 4: Data Flow ────────────────────────────── -->
+  <section id="dataflow">
+    <div class="sl">Data Flow</div>
+    <div class="dc" data-title="Task Creation — Data Flow">
+      <div class="dc-h">
+        <div class="dc-hl">
+          <span class="dc-t">Task Creation — Data Flow</span>
+          <span class="dc-tag">Data Flow</span>
+        </div>
+        <button class="btn-exp" onclick="expandDiagram(this)">&#x26F6;<span class="lbl">Expand</span></button>
+      </div>
+      <div class="dc-b">
+        <div class="mermaid">
+flowchart TD
+  classDef user   fill:#0d2035,stroke:#06b6d4,color:#a5f3fc
+  classDef fe     fill:#0f1d3a,stroke:#3b82f6,color:#bfdbfe
+  classDef api    fill:#1a0f3a,stroke:#7c3aed,color:#ddd6fe
+  classDef db     fill:#0a2318,stroke:#10b981,color:#a7f3d0
+  classDef queue  fill:#1f1505,stroke:#f59e0b,color:#fde68a
+  classDef worker fill:#12102a,stroke:#6366f1,color:#c7d2fe
+  classDef ok     fill:#0a2318,stroke:#10b981,color:#a7f3d0
+
+  USR(["&#128100; User"]):::user
+
+  subgraph FE["Frontend"]
+    FORM["Task Form\n+ Validation"]:::fe
+  end
+
+  subgraph API["API Server"]
+    PIPE["ValidationPipe\n+ Sanitize"]:::api
+    CTRL["TasksController\nPOST /tasks"]:::api
+    SVC["TasksService\ncreateTask()"]:::api
+    REPO["TasksRepo\nINSERT"]:::api
+  end
+
+  subgraph ST["Storage"]
+    PG[("&#128451; PostgreSQL\ntasks table")]:::db
+    RD[("&#9889; Redis\nBullMQ queue")]:::queue
+  end
+
+  subgraph WK["Workers"]
+    NW["&#128231; NotifyWorker\nemail + push"]:::worker
+    HW["&#128279; WebhookWorker\nPOST event"]:::worker
+  end
+
+  RES(["&#10003; 201 Created\nreturned immediately"]):::ok
+  EXT(["&#127758; External\nWebhook Targets"]):::user
+
+  USR  -->|"POST /tasks\n{title, due, assignee}"| FORM
+  FORM -->|"cleaned payload"| PIPE
+  PIPE -->|"validated DTO"| CTRL
+  CTRL -->|"createTask(dto)"| SVC
+  SVC  -->|"INSERT row"| REPO
+  REPO -->|"task_id: uuid"| PG
+  PG   -->|"persisted"| SVC
+  SVC  -->|"enqueue jobs"| RD
+  SVC  -->|"return task"| RES
+  RD   --> NW & HW
+  NW   -->|"notify"| USR
+  HW   -->|"HTTP POST"| EXT
+
+  style FE  fill:#080e1a,stroke:#1e3a5f
+  style API fill:#080e1a,stroke:#2d1a5e
+  style ST  fill:#080e1a,stroke:#0f2a1c
+  style WK  fill:#080e1a,stroke:#1a1840
+        </div>
+      </div>
+      <div class="dc-n">
+        API response is non-blocking — <code>201 Created</code> returns before notifications are sent. Notification and webhook delivery are fully async via Redis queues. <strong>Gap:</strong> No dead-letter queue; failed jobs are silently dropped.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Diagram 5: Sequence ─────────────────────────────── -->
+  <section id="sequence">
+    <div class="sl">Sequence</div>
+    <div class="dc" data-title="OAuth2 Login Flow — Google">
+      <div class="dc-h">
+        <div class="dc-hl">
+          <span class="dc-t">OAuth2 Login Flow — Google</span>
+          <span class="dc-tag">Sequence</span>
+        </div>
+        <button class="btn-exp" onclick="expandDiagram(this)">&#x26F6;<span class="lbl">Expand</span></button>
+      </div>
+      <div class="dc-b">
+        <div class="mermaid">
+sequenceDiagram
+  autonumber
+  actor User
+  participant Browser
+  participant API as API Server
+  participant OAuth as Google OAuth
+  participant DB as PostgreSQL
+  participant Cache as Redis
+
+  User->>Browser: Click "Sign in with Google"
+  Browser->>API: GET /auth/google
+  API->>Browser: 302 Redirect → consent URL
+  Browser->>OAuth: User grants consent
+  OAuth->>API: GET /callback?code=xxx
+  API->>OAuth: POST /token {code, secret}
+  OAuth-->>API: {access_token, id_token}
+  API->>OAuth: GET /userinfo
+  OAuth-->>API: {email, name, avatar}
+
+  alt User exists
+    API->>DB: SELECT * FROM users WHERE email=...
+    DB-->>API: existing user row
+  else New user
+    API->>DB: INSERT INTO users (email, name, avatar)
+    DB-->>API: new user row
+  end
+
+  Note over API: ⚠ id_token not validated against<br/>Google JWKS — Critical security debt
+
+  API->>Cache: SET session:{uuid} user_id EX 604800
+  API->>Browser: Set-Cookie: sid=... + 302 /dashboard
+  Browser->>User: Dashboard loaded
+        </div>
+      </div>
+      <div class="dc-n">
+        <strong>Critical security gap:</strong> <code>id_token</code> is accepted without JWKS signature validation — this enables token forgery. Fix: validate against <code>googleapis.com/oauth2/v3/certs</code> via <code>google-auth-library</code>.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Diagram 6: Database Schema ─────────────────────── -->
+  <section id="schema">
+    <div class="sl">Database Schema</div>
+    <div class="dc" data-title="Database Schema — Entity Relationship">
+      <div class="dc-h">
+        <div class="dc-hl">
+          <span class="dc-t">Entity Relationship Diagram</span>
+          <span class="dc-tag">Schema / ER</span>
+        </div>
+        <button class="btn-exp" onclick="expandDiagram(this)">&#x26F6;<span class="lbl">Expand</span></button>
+      </div>
+      <div class="dc-b">
+        <div class="mermaid">
+erDiagram
+  USERS {
+    uuid     id           PK
+    string   email        UK
+    string   name
+    string   avatar_url
+    enum     role         "owner|admin|member"
+    timestamp created_at
+    timestamp updated_at
+  }
+
+  PROJECTS {
+    uuid     id           PK
+    string   name
+    string   slug         UK
+    uuid     owner_id     FK
+    enum     tier         "free|pro|enterprise"
+    timestamp created_at
+  }
+
+  PROJECT_MEMBERS {
+    uuid     project_id   FK
+    uuid     user_id      FK
+    enum     role         "admin|member|viewer"
+    timestamp joined_at
+  }
+
+  TASKS {
+    uuid     id           PK
+    string   title
+    text     description
+    uuid     project_id   FK
+    uuid     assignee_id  FK
+    uuid     created_by   FK
+    enum     status       "draft|open|in_progress|blocked|in_review|done|cancelled"
+    enum     priority     "low|medium|high|urgent"
+    timestamp due_date
+    timestamp created_at
+    timestamp updated_at
+  }
+
+  TASK_TAGS {
+    uuid     task_id      FK
+    string   tag
+  }
+
+  COMMENTS {
+    uuid     id           PK
+    uuid     task_id      FK
+    uuid     author_id    FK
+    text     body
+    timestamp created_at
+  }
+
+  NOTIFICATIONS {
+    uuid     id           PK
+    uuid     user_id      FK
+    uuid     task_id      FK
+    enum     type         "assigned|mentioned|status_changed|overdue"
+    boolean  read
+    timestamp created_at
+  }
+
+  AUDIT_LOG {
+    uuid     id           PK
+    uuid     user_id      FK
+    string   entity_type
+    uuid     entity_id
+    string   action
+    jsonb    diff
+    timestamp created_at
+  }
+
+  USERS          ||--o{ PROJECTS         : "owns"
+  USERS          ||--o{ PROJECT_MEMBERS  : "belongs to"
+  PROJECTS       ||--o{ PROJECT_MEMBERS  : "has members"
+  PROJECTS       ||--o{ TASKS            : "contains"
+  USERS          ||--o{ TASKS            : "assigned to"
+  USERS          ||--o{ TASKS            : "created by"
+  TASKS          ||--o{ TASK_TAGS        : "tagged with"
+  TASKS          ||--o{ COMMENTS         : "has"
+  USERS          ||--o{ COMMENTS         : "authors"
+  USERS          ||--o{ NOTIFICATIONS    : "receives"
+  TASKS          ||--o{ NOTIFICATIONS    : "triggers"
+  USERS          ||--o{ AUDIT_LOG        : "generates"
+        </div>
+      </div>
+      <div class="dc-n">
+        8 core tables. <code>TASKS.status</code> mirrors the state machine exactly. <strong>Note:</strong> <code>AUDIT_LOG.diff</code> uses <code>jsonb</code> — ensure a GIN index is present for performant queries. <code>PROJECT_MEMBERS</code> composite PK on <code>(project_id, user_id)</code>.
+      </div>
+    </div>
+  </section>
+
+  <!-- Tech Debt -->
+  <section id="techdebt">
+    <div class="sl">Tech Debt Register</div>
+    <div class="tw">
+      <table>
+        <thead>
+          <tr><th>Severity</th><th>Domain</th><th>Issue</th><th>Location</th><th>Effort</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><span class="bx c">Critical</span></td><td>Auth</td><td>OAuth id_token not validated against Google JWKS</td><td><code>auth/oauth.handler.ts:84</code></td><td>S</td></tr>
+          <tr><td><span class="bx c">Critical</span></td><td>Tasks</td><td>Raw SQL in bulk update path — SQL injection risk</td><td><code>tasks/tasks.repository.ts:211</code></td><td>S</td></tr>
+          <tr><td><span class="bx c">Critical</span></td><td>Deps</td><td><code>jsonwebtoken@8.5.1</code> — CVE-2022-23529</td><td><code>package.json</code></td><td>XS</td></tr>
+          <tr><td><span class="bx h">High</span></td><td>Notifications</td><td>NotifyService imports TasksRepo directly (layer violation)</td><td><code>notifications/notify.service.ts:12</code></td><td>M</td></tr>
+          <tr><td><span class="bx h">High</span></td><td>Notifications</td><td>No dead-letter queue — failed jobs silently dropped</td><td><code>notifications/push.handler.ts</code></td><td>M</td></tr>
+          <tr><td><span class="bx h">High</span></td><td>Tasks</td><td>No SLA timeout for Blocked / InReview states</td><td><code>tasks/tasks.service.ts</code></td><td>L</td></tr>
+          <tr><td><span class="bx m">Medium</span></td><td>API</td><td>9 endpoints missing Swagger/OpenAPI documentation</td><td><code>src/notifications/</code></td><td>S</td></tr>
+          <tr><td><span class="bx m">Medium</span></td><td>Projects</td><td>No retry logic for Stripe API failures</td><td><code>projects/billing.service.ts:67</code></td><td>S</td></tr>
+          <tr><td><span class="bx m">Medium</span></td><td>Tests</td><td>Coverage 61% overall — Notifications domain at 18%</td><td><code>src/notifications/</code></td><td>L</td></tr>
+          <tr><td><span class="bx m">Medium</span></td><td>DB</td><td>AUDIT_LOG.diff (jsonb) missing GIN index</td><td><code>migrations/</code></td><td>XS</td></tr>
+          <tr><td><span class="bx l">Low</span></td><td>Tasks</td><td>Inconsistent error response shapes across controllers</td><td><code>tasks/tasks.controller.ts</code></td><td>S</td></tr>
+          <tr><td><span class="bx l">Low</span></td><td>Auth</td><td>TTL magic numbers not extracted to config constants</td><td><code>auth/auth.service.ts</code></td><td>XS</td></tr>
+          <tr><td><span class="bx i">Info</span></td><td>Deps</td><td>13 outdated packages (no CVEs) — minor bumps available</td><td><code>package.json</code></td><td>XS</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Findings -->
+  <section id="findings">
+    <div class="sl">Key Findings</div>
+    <div class="fl">
+      <div class="fi"><div class="ico">&#128721;</div><div><h4>Security — Immediate Action Required</h4><p>Two critical issues before next release: (1) <code>id_token</code> from Google OAuth accepted without JWKS verification — enables token forgery. (2) Raw SQL at <code>tasks.repository.ts:211</code> vulnerable to injection. Both are 1-day fixes.</p></div></div>
+      <div class="fi"><div class="ico">&#9889;</div><div><h4>Architecture — Notifications Domain Needs Decoupling</h4><p><code>NotifyService</code> directly imports <code>TasksRepository</code> — a hidden cross-domain dependency. Replace with a domain event bus (BullMQ event queue or NestJS EventEmitter). Effort: M (1–2 days).</p></div></div>
+      <div class="fi"><div class="ico">&#128202;</div><div><h4>Reliability — Silent Job Failures</h4><p>No dead-letter queue for notification jobs. Failed email/push deliveries are silently dropped. Add BullMQ DLQ and failure alerting (Sentry or Slack webhook on repeated failure).</p></div></div>
+      <div class="fi"><div class="ico">&#128196;</div><div><h4>Quality — Test Coverage Gap</h4><p>Overall coverage 61% (target 80%). Notifications domain critically under-tested at 18%. Recommend a dedicated milestone to bring Notifications to 80% coverage before adding new features.</p></div></div>
+      <div class="fi"><div class="ico">&#9989;</div><div><h4>Strengths — Well-Structured Core</h4><p>Auth and Projects domains are healthy (88% and 82%). Layered Controller → Guard → Service → Repository pattern consistently applied except in Notifications. BullMQ async architecture is a solid foundation.</p></div></div>
+    </div>
+  </section>
+
+  <footer>
+    <span>GSD-T Scan Report &mdash; TaskFlow v3.2.1 &mdash; 2026-03-06</span>
+    <span><a href="https://github.com/mermaid-js/mermaid-cli">mermaid-cli (MIT)</a> &middot; <a href="https://pandoc.org">Pandoc (GPL)</a> &middot; <a href="https://mermaid.js.org">Mermaid.js (MIT)</a></span>
+  </footer>
+</main>
+
+<script>
+// ── Mermaid init (manual run so we can post-process) ────
+mermaid.initialize({
+  startOnLoad: false,
+  theme: 'dark',
+  themeVariables: {
+    darkMode: true,
+    background: '#070b12',
+    mainBkg: '#0f1624',
+    primaryColor: '#0f1d3a',
+    primaryTextColor: '#e2e8f0',
+    primaryBorderColor: '#3b82f6',
+    secondaryColor: '#1a0f3a',
+    secondaryTextColor: '#e2e8f0',
+    secondaryBorderColor: '#7c3aed',
+    tertiaryColor: '#0a2318',
+    tertiaryTextColor: '#e2e8f0',
+    tertiaryBorderColor: '#10b981',
+    lineColor: '#3b82f6',
+    textColor: '#e2e8f0',
+    fontSize: '14px',
+    edgeLabelBackground: '#0c1120',
+    clusterBkg: '#080e1a',
+    clusterBorder: '#1a2840',
+    titleColor: '#94a3b8',
+    // Sequence
+    actorBkg: '#0f1d3a',
+    actorBorder: '#3b82f6',
+    actorTextColor: '#bfdbfe',
+    actorLineColor: '#1a2840',
+    signalColor: '#60a5fa',
+    signalTextColor: '#e2e8f0',
+    activationBkgColor: '#1a0f3a',
+    activationBorderColor: '#7c3aed',
+    sequenceNumberColor: '#070b12',
+    labelBoxBkgColor: '#0f1d3a',
+    labelBoxBorderColor: '#3b82f6',
+    labelTextColor: '#bfdbfe',
+    loopTextColor: '#bfdbfe',
+    noteBkgColor: '#1f1505',
+    noteTextColor: '#fde68a',
+    noteBorderColor: '#f59e0b',
+    // ER
+    attributeBackgroundColorOdd: '#0f1624',
+    attributeBackgroundColorEven: '#0c1120',
+    fillType0: '#0f1d3a', fillType1: '#1a0f3a',
+    fillType2: '#0a2318', fillType3: '#1f1505',
+  },
+  flowchart: { curve: 'basis', padding: 28, nodeSpacing: 55, rankSpacing: 65, htmlLabels: true },
+  sequence:  { actorMargin: 80, messageMargin: 35, useMaxWidth: true, mirrorActors: false, boxMargin: 12 },
+  er:        { useMaxWidth: true, layoutDirection: 'TB', minEntityWidth: 120, entityPadding: 18 },
+  state:     { useMaxWidth: true },
+});
+
+// ── Render then scale all SVGs to fill their containers ──
+document.addEventListener('DOMContentLoaded', async () => {
+  try {
+    await mermaid.run({ querySelector: '.mermaid' });
+  } catch(e) { console.warn('Mermaid render error:', e); }
+
+  document.querySelectorAll('.dc-b .mermaid svg').forEach(svg => {
+    svg.removeAttribute('width');
+    svg.removeAttribute('height');
+    svg.style.width   = '100%';
+    svg.style.height  = 'auto';
+    svg.style.display = 'block';
+    svg.style.minHeight = '420px';
+  });
+});
+
+// ── Expand / Modal ───────────────────────────────────────
+let zoom = 1;
+
+function expandDiagram(btn) {
+  const card  = btn.closest('.dc');
+  const title = card.dataset.title || 'Diagram';
+  const svg   = card.querySelector('.mermaid svg');
+  if (!svg) return;
+  const clone = svg.cloneNode(true);
+  clone.style.cssText = 'display:block;width:auto;height:auto;max-width:90vw;max-height:85vh;';
+  clone.removeAttribute('width');
+  clone.removeAttribute('height');
+  const wrap = document.getElementById('mdiagram');
+  wrap.innerHTML = '';
+  wrap.appendChild(clone);
+  document.getElementById('mtitle').textContent = title;
+  zoom = 1; applyZoom();
+  document.getElementById('modal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function adjustZoom(d) {
+  zoom = Math.max(0.2, Math.min(5, zoom + d));
+  applyZoom();
+}
+
+function resetZoom() { zoom = 1; applyZoom(); }
+
+function applyZoom() {
+  document.getElementById('mdiagram').style.transform = `scale(${zoom})`;
+  document.getElementById('zlbl').textContent = Math.round(zoom * 100) + '%';
+}
+
+document.getElementById('mcontent').addEventListener('wheel', e => {
+  e.preventDefault();
+  adjustZoom(e.deltaY < 0 ? 0.06 : -0.06);
+}, { passive: false });
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+document.getElementById('modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('modal') || e.target === document.getElementById('mcontent')) closeModal();
+});
+
+// ── Scrollspy ────────────────────────────────────────────
+const secs = document.querySelectorAll('section[id]');
+const links = document.querySelectorAll('nav a[href^="#"]');
+new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      links.forEach(l => l.classList.remove('active'));
+      const a = document.querySelector(`nav a[href="#${e.target.id}"]`);
+      if (a) a.classList.add('active');
+    }
+  });
+}, { threshold: 0.2 }).observe && secs.forEach(s =>
+  new IntersectionObserver(entries => {
+    if (entries[0].isIntersecting) {
+      links.forEach(l => l.classList.remove('active'));
+      const a = document.querySelector(`nav a[href="#${entries[0].target.id}"]`);
+      if (a) a.classList.add('active');
+    }
+  }, { threshold: 0.15 }).observe(s)
+);
+</script>
+</body>
+</html>

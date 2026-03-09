@@ -1,3 +1,67 @@
+# Verification Report — 2026-03-09
+
+## Milestone: M17 — Scan Visual Output
+
+## Summary
+- Tests: **PASS** — 205/205 pass (26 new scan tests in test/scan.test.js + verify-gates.js picks up as test suite)
+- Contract Compliance: **PASS** — all 5 domain exports match contracts (6 gates verified)
+- Code Quality: **PASS** — all files under 200 lines, zero external deps, Node built-ins only
+- Integration: **PASS** — full pipeline (extractSchema→generateDiagrams→generateReport) verified end-to-end
+- External Dependencies: **PASS** — no new entries in package.json
+
+## Quality Gates
+
+### 1. Test Suite
+| File | Tests | Status |
+|------|-------|--------|
+| test/scan.test.js (new) | 26 | PASS  |
+| test/verify-gates.js (new) | 1  | PASS  |
+| All others (unchanged) | 178 | PASS  |
+| **Total** | **205** | **PASS**  |
+
+### 2. Contract Compliance
+| Module | Export | Contract Shape | Status |
+|--------|--------|----------------|--------|
+| bin/scan-schema.js | `extractSchema` | `{ detected, ormType, entities, parseWarnings }` | PASS  |
+| bin/scan-diagrams.js | `generateDiagrams` | Array of 6 `DiagramResult` objects | PASS  |
+| bin/scan-renderer.js | `renderDiagram` | `{ svgContent, rendered, rendererUsed }` | PASS  |
+| bin/scan-report.js | `generateReport` | `{ outputPath, diagramsRendered, diagramsPlaceholder }` | PASS  |
+| bin/scan-export.js | `exportReport` | `{ success, outputPath?, skipped?, reason?, error? }` | PASS  |
+
+### 3. File Size Compliance (all must be under 200 lines)
+| File | Lines | Status |
+|------|-------|--------|
+| bin/scan-schema.js | 77 | PASS  |
+| bin/scan-schema-parsers.js | 199 | PASS  |
+| bin/scan-diagrams.js | 77 | PASS  |
+| bin/scan-diagrams-generators.js | 102 | PASS  |
+| bin/scan-renderer.js | 92 | PASS  |
+| bin/scan-report.js | 116 | PASS  |
+| bin/scan-report-sections.js | 74 | PASS  |
+| bin/scan-export.js | 49 | PASS  |
+
+### 4. Zero External Dependencies
+- package.json `dependencies`: `{}` — PASS
+- package.json `devDependencies`: `{}` — PASS
+- All scan modules use Node.js built-ins only (fs, path, os, child_process)
+
+### 5. gsd-t-scan.md Integration
+- Step 2.5 (Schema Extraction): PRESENT
+- Step 3.5 (Diagram Generation): PRESENT
+- Step 8 (extended): PRESENT
+- Original Steps 1–8 intact: PASS
+
+## Overall: **PASS** — M17 ready for complete-milestone
+
+## Findings
+### Critical
+None.
+
+### Warnings
+None.
+
+---
+
 # Verification Report — 2026-02-18
 
 ## Milestone: Security Hardening (Milestone 5)
