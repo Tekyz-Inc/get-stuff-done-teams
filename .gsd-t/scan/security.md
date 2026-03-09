@@ -1,8 +1,8 @@
-# Security Audit — 2026-02-18 (Scan #6, Post-M10-M13)
+# Security Audit — 2026-03-09 (Scan #9, Post-M17)
 
-**Package:** @tekyzinc/gsd-t v2.28.10
-**Previous scan:** Scan #5 at v2.24.4
-**Scope:** All new code from M10-M13: scripts/gsd-t-tools.js, scripts/gsd-t-statusline.js, commands/gsd-t-health.md, commands/gsd-t-pause.md, commands/gsd-t-resume.md, and changes to existing commands
+**Package:** @tekyzinc/gsd-t v2.34.10
+**Previous scan:** Scan #8 at v2.34.10 (2026-03-09)
+**Scope:** No new code changes since Scan #8. All Scan #8 findings carried forward unchanged. Test baseline: 205/205 passing.
 
 ---
 
@@ -13,81 +13,142 @@ None found.
 
 ## High (fix soon)
 
-### [HIGH] SEC-N20: stateSet() allows markdown structure injection via newlines in value
-- **File**: `scripts/gsd-t-tools.js` line 43
-- **Finding**: `stateSet(key, value)` writes `value` directly into progress.md via `content.replace(re, '$1' + value)`. If `value` contains newline characters, the injection corrupts the markdown structure. Example: `stateSet('Status', 'READY\n## Decision Log\n- Injected')` successfully inserts a fake Decision Log section.
-- **Proof**: Verified with Node.js test — newlines in value break the markdown structure.
-- **Attack vector**: This is a CLI tool invoked by the developer. The risk is: (1) a malicious script or automation pipeline calling gsd-t-tools.js with crafted input, (2) Claude Code being instructed to use stateSet with unsanitized content from untrusted sources. Low realistic risk but simple to fix.
-- **Remediation**: Sanitize value before writing — strip newlines, or restrict value to single-line text. Add `value = value.replace(/[\n\r]/g, ' ')` before the replace operation.
+### [HIGH] SEC-N28 (carried): gsd-t-update-check.js passes npm version from registry into execSync via shell interpolation
+- **File**: `scripts/gsd-t-update-check.js` lines 61-64
+- **Finding**: The `latest` variable comes from `JSON.parse(d).version` of the npm registry response. This string is interpolated directly into an execSync shell command: `execSync('npm install -g @tekyzinc/gsd-t@' + latest)`. If a malicious npm registry response returns a version string containing shell metacharacters (e.g. `1.0.0; rm -rf ~/`), arbitrary shell commands would execute.
+- **Context**: The npm registry fetch is HTTPS to registry.npmjs.org — low practical risk in normal operation. However, the fetch has no Content-Type validation, and the JSON is parsed directly without validating the version string format before interpolation.
+- **Chain**: (1) Malicious/MITM registry → (2) crafted version string → (3) shell injection in execSync
+- **Remediation**: Validate `latest` against a semver regex before use (`/^\d+\.\d+\.\d+$/`). Use `execFileSync` with array args: `execFileSync('npm', ['install', '-g', '@tekyzinc/gsd-t@' + latest])`.
+- **Status**: OPEN — unresolved since Scan #7
 - **Effort**: small
 
 ---
 
 ## Medium (plan to fix)
 
-### [MEDIUM] SEC-N21: templateScope/templateTasks accept domain argument without path traversal check
+### [MEDIUM] SEC-N37 (NEW — Scan #8): gsd-t-dashboard.html loads 5 CDN resources from unpkg.com — supply chain risk
+- **File**: `scripts/gsd-t-dashboard.html` lines 6-10
+- **Finding**: The dashboard HTML loads React 17, ReactDOM 17, dagre 0.8.5, ReactFlow 11.11.4, and ReactFlow CSS stylesheet from `https://unpkg.com`. These are pinned by version but not by subresource integrity (SRI) hash.
+  - No `integrity="sha384-..."` attribute on any `<script>` or `<link>` tag
+  - unpkg.com serves npm packages — if any of these packages are compromised on npm, the dashboard immediately loads malicious JS
+  - All script resources run with full JS privileges in the user's browser
+  - The dashboard server (`gsd-t-dashboard-server.js`) proxies these HTML files to `http://localhost:7433` — CORS is open (`*`)
+- **Impact**: A compromise of any of the 4 npm packages (react@17, react-dom@17, dagre@0.8.5, reactflow@11.11.4) on unpkg would execute arbitrary JS in the dashboard browser tab with full DOM access. The SSE event stream (containing agent reasoning, command names, trace IDs) would be accessible to the malicious script.
+- **Remediation**:
+  1. Add `integrity="sha384-{hash}"` SRI attributes to all CDN resources
+  2. OR bundle the libraries inline (consistent with scan-report.html pattern)
+  3. OR add `Content-Security-Policy` header in dashboard-server.js restricting script sources
+- **Effort**: medium (bundling) or small (adding SRI hashes)
+
+### [MEDIUM] SEC-N20 (carried from Scan #6): stateSet() allows markdown structure injection via newlines
+- **File**: `scripts/gsd-t-tools.js` line 43
+- **Status**: Still unresolved. See Scan #6 security.md for full details.
+- **Remediation**: `value = String(value).replace(/[\r\n]/g, ' ')` before the replace operation.
+
+### [MEDIUM] SEC-N29 (carried from Scan #7): scan-export.js passes htmlPath to execSync via shell string interpolation
+- **File**: `bin/scan-export.js` lines 20-22, 27-29
+- **Finding**: `exportToDocx()` constructs `execSync('pandoc "' + htmlPath + '" -o "' + outputPath + '" --from=html')`. If `htmlPath` contains shell metacharacters or embedded quotes, this would break out of the shell string.
+- **Status**: Still unresolved.
+- **Remediation**: Use `execFileSync('pandoc', [htmlPath, '-o', outputPath, '--from=html'])` to avoid shell.
+- **Effort**: small
+
+### [MEDIUM] SEC-N30 (carried from Scan #7): scan-renderer.js passes tmpIn/tmpOut paths to execSync via string interpolation
+- **File**: `bin/scan-renderer.js` lines 26, 43
+- **Finding**: `execSync('mmdc -i "' + tmpIn + '" -o "' + tmpOut + '"')` and same for d2. tmpIn/tmpOut are constructed from `os.tmpdir() + timestamp`. Risk is low but inconsistent with execFileSync convention.
+- **Status**: Still unresolved.
+- **Remediation**: Use `execFileSync('mmdc', ['-i', tmpIn, '-o', tmpOut, '-t', 'dark', '--quiet'])`.
+- **Effort**: small
+
+### [MEDIUM] SEC-N21 (carried from Scan #6): templateScope/templateTasks path traversal
 - **File**: `scripts/gsd-t-tools.js` lines 111-121
-- **Finding**: `templateScope(domain)` constructs a path as `path.join(gsdDir, 'domains', domain, 'scope.md')`. No validation that `domain` stays within the `domains/` directory. A caller with `domain = '../../CLAUDE.md'` would construct `gsdDir/domains/../../CLAUDE.md/scope.md` — which resolves outside `domains/` but the `/scope.md` suffix prevents reading an actual file directly. With `domain = '../contracts/api-contract'` it could traverse into contracts/.
-- **Context**: gsd-t-tools.js is a developer CLI; realistic attack requires a malicious caller providing crafted domain names. Claude Code or automation scripts invoking it could be misled.
-- **Remediation**: Validate that the resolved path starts with `path.join(gsdDir, 'domains')`. Add `if (!p.startsWith(path.join(gsdDir, 'domains'))) return { error: 'Invalid domain name' }`.
-- **Effort**: small
+- **Status**: Still unresolved. See Scan #6 security.md for full details.
 
-### [MEDIUM] SEC-N22: gsd-t-tools.js uses execSync (not execFileSync) for git commands
+### [MEDIUM] SEC-N22 (carried from Scan #6): gsd-t-tools.js uses execSync (not execFileSync)
 - **File**: `scripts/gsd-t-tools.js` lines 92, 97, 104
-- **Finding**: `preCommitCheck()` uses `execSync()` with hardcoded string commands. The main bin/gsd-t.js consistently uses `execFileSync()` with array arguments to prevent shell injection. While the current calls have no user input in the command strings, the pattern is inconsistent and could be cargo-culted in future additions.
-- **Remediation**: Replace execSync with execFileSync using array args: `execFileSync('git', ['branch', '--show-current'], { cwd: root, encoding: 'utf8' })`.
-- **Effort**: small
-
-### [MEDIUM] SEC-N23: gsd-t-tools.js findProjectRoot() returns cwd on no-match
-- **File**: `scripts/gsd-t-tools.js` line 16
-- **Finding**: When no `.gsd-t/` directory is found, returns `process.cwd()` instead of null. All operations then target the current directory as if it were the project root. If a user runs gsd-t-tools.js from outside any GSD-T project, validate(), stateGet(), stateSet() operate on the non-project directory silently. gsd-t-statusline.js correctly returns null.
-- **Remediation**: Return null when not found; add null check before `gsdDir` assignment with a clear error output.
-- **Effort**: small
+- **Status**: Still unresolved.
 
 ---
 
 ## Low (nice to have)
 
-### [LOW] SEC-N24: continue-here files deleted before resume completes
-- **File**: `commands/gsd-t-resume.md` Step 2
-- **Finding**: Resume deletes the continue-here file "after reading" but before the resumed work completes. If the resume session fails mid-way (compaction, crash, user abort), the checkpoint is lost. The user must reconstruct position from progress.md alone.
-- **Remediation**: Delete continue-here file only after confirming the first resumed action has begun, not immediately after reading. Or: move to a `.gsd-t/continue-here-archive/` instead of deleting.
+### [LOW] SEC-N38 (NEW — Scan #8): gsd-t-dashboard.html has no Content-Security-Policy — broad XSS attack surface
+- **File**: `scripts/gsd-t-dashboard.html` (inline)
+- **Finding**: The dashboard HTML has no `<meta http-equiv="Content-Security-Policy">` tag and the server (`gsd-t-dashboard-server.js`) does not set a `Content-Security-Policy` response header. The page loads 5 CDN script/style resources and executes inline React application code. Without CSP, any XSS vector (e.g., unsanitized event data rendered in the feed) could execute arbitrary JS.
+- **Context**: Event data rendered in the feed comes from JSONL files written by gsd-t-event-writer.js. The event-writer validates event_type but does not HTML-encode reasoning strings. If a reasoning string contains `<script>` tags, React's JSX rendering would escape them (safe). But the `ev.reasoning` is rendered via `textContent` equivalent in React — so XSS risk is low but not zero if raw HTML injection is possible.
+- **Remediation**: Add CSP header in dashboard-server.js: `"Content-Security-Policy": "default-src 'self' https://unpkg.com; script-src 'self' 'unsafe-inline' https://unpkg.com; style-src 'self' 'unsafe-inline' https://unpkg.com"`
 - **Effort**: small
 
-### [LOW] SEC-N25: gsd-t-health --repair reads templates from relative path assumption
-- **File**: `commands/gsd-t-health.md` Step 5
-- **Finding**: The --repair action assumes `templates/CLAUDE-project.md`, `templates/progress.md`, etc. are accessible relative to the command file's installation. If templates are missing (partial install), the repair silently fails or produces empty files. No validation that template files exist before attempting repair.
-- **Remediation**: Add existence check for template files before repair; warn user if templates are missing and suggest running `gsd-t install` first.
-- **Effort**: small
+### [LOW] SEC-N31 (carried from Scan #7): dashboard-server.js SSE endpoint has no authentication
+- **File**: `scripts/gsd-t-dashboard-server.js` lines 90-96
+- **Status**: Still unresolved. Context: binds to localhost only. Risk requires local access. Acceptable for developer tool.
+
+### [LOW] SEC-N32 (carried from Scan #7): scan-renderer.js tryKroki() sends mermaid DSL to external kroki.io
+- **File**: `bin/scan-renderer.js` lines 53-77
+- **Status**: Still unresolved. Currently dormant (not called in sync path).
+
+### [LOW] SEC-N24 (carried from Scan #6): continue-here file deleted before resume completes
+- **File**: `commands/gsd-t-resume.md` Step 2
+- **Status**: Still unresolved.
+
+### [LOW] SEC-N25 (carried from Scan #6): gsd-t-health --repair reads templates from relative path assumption
+- **Status**: Still unresolved.
+
+### [LOW] SEC-N33 (carried from Scan #7): gsd-t-update-check.js second execSync call uses shell
+- **File**: `scripts/gsd-t-update-check.js` line 64
+- **Status**: Still unresolved. Remediation: Use `execFileSync('gsd-t', ['update-all'])`.
 
 ---
 
-## Previously Known — No Change
+## Previously Known — Carried/Resolved Status
 
-### TD-029 (accepted risk): TOCTOU race in symlink check + write
-Status unchanged. Accept continues.
+| Finding | Status |
+|---------|--------|
+| TD-029 (TOCTOU race)          | ACCEPTED RISK — unchanged |
+| SEC-N16 (scrubSecrets regex)  | INFORMATIONAL — unchanged |
+| SEC-N18 (prototype pollution) | INFORMATIONAL — unchanged |
+| SEC-N19 (error path exposure) | INFORMATIONAL — unchanged |
+| SEC-N20 (stateSet injection)  | OPEN — unresolved from Scan #6 |
+| SEC-N21 (path traversal)      | OPEN — unresolved from Scan #6 |
+| SEC-N22 (execSync in tools.js)| OPEN — unresolved from Scan #6 |
+| SEC-N23 (findProjectRoot cwd) | OPEN — unresolved from Scan #6 |
+| SEC-N24 (resume deletes early)| OPEN — unresolved from Scan #6 |
+| SEC-N25 (health repair path)  | OPEN — unresolved from Scan #6 |
+| SEC-N26 (statusline env var)  | INFORMATIONAL — unchanged |
+| SEC-N27 (bypassPermissions)   | INFORMATIONAL — unchanged |
+| SEC-N28 (update-check execSync)| OPEN — unresolved from Scan #7 |
+| SEC-N29 (scan-export execSync) | OPEN — unresolved from Scan #7 |
+| SEC-N30 (scan-renderer execSync)| OPEN — unresolved from Scan #7 |
+| SEC-N31 (dashboard no auth)   | OPEN — acceptable risk |
+| SEC-N32 (tryKroki external)   | OPEN — dormant |
+| SEC-N33 (gsd-t update-all shell)| OPEN — trivial |
 
-### SEC-N16: scrubSecrets regex global flag
-Status unchanged — informational only.
+---
 
-### SEC-N18: Prototype pollution via EVENT_HANDLERS lookup
-Status unchanged — fails safely.
+## New Findings — Scan #8
 
-### SEC-N19: Error messages may expose path information
-Status unchanged — standard CLI behavior.
+| ID | Severity | Finding |
+|----|----------|---------|
+| SEC-N37 | MEDIUM | gsd-t-dashboard.html CDN resources without SRI hashes — supply chain risk |
+| SEC-N38 | LOW | gsd-t-dashboard.html no Content-Security-Policy |
 
 ---
 
 ## Dependency Audit
-No npm dependencies. Zero supply chain attack surface.
+No npm dependencies. Zero supply chain attack surface on the server side.
 `npm audit` not available without lockfile (no lockfile by design — zero dependencies).
+
+**Note:** The dashboard client-side loads 4 npm packages via CDN (react@17, react-dom@17, dagre@0.8.5, reactflow@11.11.4). These are client-side only and not tracked by npm audit. Manual version review recommended if dashboard is used in sensitive environments.
 
 ---
 
-## New Security Notes (Informational)
+## Security Notes — Informational
 
-### SEC-N26: gsd-t-statusline.js reads env vars CLAUDE_CONTEXT_TOKENS_USED/MAX
-The script reads these env vars without validation. parseInt() with radix 10 handles malformed values gracefully (returns NaN → ctxPct calculation produces NaN → Math.min(100, NaN) = NaN → contextBar not shown). Fails safely. No action required.
+### SEC-N34 (carried): gsd-t-event-writer.js closed schema for M14
+Closed schema prevents accidental data leakage through extra fields. Security-positive.
 
-### SEC-N27: wave bypassPermissions scope unchanged
-M11-M13 did not change the bypassPermissions model. Phase agents still run with full permissions. The security documentation in gsd-t-wave.md continues to cover this. No new attack surface added.
+### SEC-N35 (carried): gsd-t-auto-route.js never blocks prompt
+Auto-route catches all exceptions and exits 0, ensuring it never crashes the user session.
+
+### SEC-N36 (carried): scan-report.js HTML is self-contained (no external CDN resources)
+verify-gates.js confirms: no external link stylesheets, no `src="https://"`. All CSS/JS is inline.
+**Contrast with gsd-t-dashboard.html which loads 5 CDN resources — inconsistent security posture.**

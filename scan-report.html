@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>GSD-T Framework — GSD-T Scan Report</title>
+<style>
+:root{--bg:#0d1117;--card-bg:#161b22;--sidebar-bg:#0d1117;--accent:#58a6ff;--text:#c9d1d9;--border:#30363d;--text-muted:#8b949e}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px}
+#sidebar{position:fixed;left:0;top:0;width:240px;height:100vh;overflow-y:auto;background:var(--sidebar-bg);border-right:1px solid var(--border);padding:16px 0}
+#sidebar h3{color:var(--text-muted);font-size:11px;text-transform:uppercase;letter-spacing:.08em;padding:0 16px 8px}
+#sidebar ul{list-style:none}
+#sidebar ul li a{display:block;padding:6px 16px;color:var(--text-muted);text-decoration:none;font-size:13px}
+#sidebar ul li a:hover,#sidebar ul li a.active{color:var(--accent);background:rgba(88,166,255,.08)}
+main{margin-left:240px;padding:24px;max-width:1200px}
+h1{font-size:22px;margin-bottom:4px}
+h2{font-size:16px;color:var(--text);margin-bottom:16px}
+section{margin-bottom:40px;padding-top:8px}
+.metric-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px}
+.metric-card{background:var(--card-bg);border:1px solid var(--border);border-radius:8px;padding:16px}
+.metric-card .label{color:var(--text-muted);font-size:12px;margin-bottom:4px}
+.metric-card .value{font-size:24px;font-weight:600;color:var(--accent)}
+.health-card{background:var(--card-bg);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:12px}
+.health-bar{background:var(--border);border-radius:4px;height:8px;margin-top:8px}
+.health-fill{background:var(--accent);border-radius:4px;height:8px}
+.diagram-section{background:var(--card-bg);border:1px solid var(--border);border-radius:8px;padding:20px;margin-bottom:24px}
+.diagram-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.type-badge{background:rgba(88,166,255,.15);color:var(--accent);border-radius:4px;padding:2px 8px;font-size:11px;font-family:monospace}
+.diagram-container{min-height:200px}
+.diagram-container svg{width:100%;height:auto;display:block}
+.diagram-placeholder{background:rgba(255,255,255,.03);border:1px dashed var(--border);border-radius:6px;padding:32px;text-align:center;color:var(--text-muted)}
+.diagram-note{font-size:12px;color:var(--text-muted);margin-top:12px;font-style:italic}
+.expand-btn{background:none;border:1px solid var(--border);color:var(--text-muted);border-radius:4px;padding:4px 10px;font-size:12px;cursor:pointer}
+.expand-btn:hover{border-color:var(--accent);color:var(--accent)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:8px 12px;border-bottom:1px solid var(--border);color:var(--text-muted);font-weight:500}
+td{padding:8px 12px;border-bottom:1px solid rgba(48,54,61,.5)}
+.badge{border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600}
+.badge-critical{color:#f85149}.badge-high{color:#d29922}.badge-medium{color:#e3b341}.badge-low{color:#58a6ff}
+.finding-card{background:var(--card-bg);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:12px}
+.finding-category{color:var(--text-muted);font-size:11px;text-transform:uppercase;margin-bottom:4px}
+.finding-title{font-weight:600;margin-bottom:8px}
+.finding-rec{font-size:13px;color:var(--text-muted);border-left:2px solid var(--accent);padding-left:10px;margin-top:8px}
+#modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:1000;overflow:auto;padding:20px}
+#modal-content{background:var(--card-bg);border:1px solid var(--border);border-radius:8px;padding:20px;max-width:1400px;margin:0 auto}
+#modal-close{float:right;background:none;border:1px solid var(--border);color:var(--text);border-radius:4px;padding:4px 12px;cursor:pointer}
+</style>
+</head>
+<body>
+<nav id="sidebar"><h3>GSD-T Scan Report</h3><ul><li><a href="#summary">Summary</a></li><li><a href="#domains">Domains</a></li><li><a href="#diagram-system-architecture">System Architecture</a></li><li><a href="#diagram-app-architecture">App Architecture</a></li><li><a href="#diagram-workflow">Workflow</a></li><li><a href="#diagram-data-flow">Data Flow</a></li><li><a href="#diagram-sequence">Sequence</a></li><li><a href="#diagram-database-schema">Database Schema</a></li><li><a href="#tech-debt">Tech Debt</a></li><li><a href="#findings">Key Findings</a></li></ul></nav><script>const observer=new IntersectionObserver(entries=>{entries.forEach(e=>{const id=e.target.id;const link=document.querySelector('#sidebar a[href="#'+id+'"]');if(link)link.classList.toggle('active',e.isIntersecting);});},{threshold:0.3});document.querySelectorAll('section[id]').forEach(s=>observer.observe(s));</script>
+<main>
+<section id="summary"><h2>Summary</h2><div class="metric-grid"><div class="metric-card"><div class="label">Files Scanned</div><div class="value">0</div></div><div class="metric-card"><div class="label">Lines of Code</div><div class="value">0</div></div><div class="metric-card"><div class="label">Critical Issues</div><div class="value">0</div></div><div class="metric-card"><div class="label">High Issues</div><div class="value">0</div></div><div class="metric-card"><div class="label">Medium Issues</div><div class="value">0</div></div><div class="metric-card"><div class="label">Test Coverage</div><div class="value">N/A</div></div></div></section><section id="domains"><h2>Domains</h2><p style="color:var(--text-muted)">No domain data available.</p></section><section id="diagram-system-architecture" class="diagram-section"><div class="diagram-header"><div><h2>System Architecture</h2><span class="type-badge">graph TB</span></div><button class="expand-btn" onclick="openModal('system-architecture')">&#x26F6; Expand</button></div><div class="diagram-container"><div class="diagram-placeholder">
+  <p>Diagram unavailable — rendering tools not found</p>
+  <p>Install: <code>npm install -g @mermaid-js/mermaid-cli</code></p>
+</div></div><p class="diagram-note">C4-style context diagram showing services, databases, and external integrations</p></section><section id="diagram-app-architecture" class="diagram-section"><div class="diagram-header"><div><h2>Application Architecture</h2><span class="type-badge">graph TB</span></div><button class="expand-btn" onclick="openModal('app-architecture')">&#x26F6; Expand</button></div><div class="diagram-container"><div class="diagram-placeholder">
+  <p>Diagram unavailable — rendering tools not found</p>
+  <p>Install: <code>npm install -g @mermaid-js/mermaid-cli</code></p>
+</div></div><p class="diagram-note">Layered diagram showing framework architecture and component boundaries</p></section><section id="diagram-workflow" class="diagram-section"><div class="diagram-header"><div><h2>Workflow</h2><span class="type-badge">stateDiagram-v2</span></div><button class="expand-btn" onclick="openModal('workflow')">&#x26F6; Expand</button></div><div class="diagram-container"><div class="diagram-placeholder">
+  <p>Diagram unavailable — rendering tools not found</p>
+  <p>Install: <code>npm install -g @mermaid-js/mermaid-cli</code></p>
+</div></div><p class="diagram-note">State machine derived from status enums and state transition logic</p></section><section id="diagram-data-flow" class="diagram-section"><div class="diagram-header"><div><h2>Data Flow</h2><span class="type-badge">flowchart TD</span></div><button class="expand-btn" onclick="openModal('data-flow')">&#x26F6; Expand</button></div><div class="diagram-container"><div class="diagram-placeholder">
+  <p>Diagram unavailable — rendering tools not found</p>
+  <p>Install: <code>npm install -g @mermaid-js/mermaid-cli</code></p>
+</div></div><p class="diagram-note">Data flow from user input through validation, persistence, and async processing</p></section><section id="diagram-sequence" class="diagram-section"><div class="diagram-header"><div><h2>Sequence</h2><span class="type-badge">sequenceDiagram</span></div><button class="expand-btn" onclick="openModal('sequence')">&#x26F6; Expand</button></div><div class="diagram-container"><div class="diagram-placeholder">
+  <p>Diagram unavailable — rendering tools not found</p>
+  <p>Install: <code>npm install -g @mermaid-js/mermaid-cli</code></p>
+</div></div><p class="diagram-note">Request/response sequence for the primary API endpoint</p></section><section id="diagram-database-schema" class="diagram-section"><div class="diagram-header"><div><h2>Database Schema</h2><span class="type-badge">erDiagram</span></div><button class="expand-btn" onclick="openModal('database-schema')">&#x26F6; Expand</button></div><div class="diagram-container"><div class="diagram-placeholder">
+  <p>Diagram unavailable — rendering tools not found</p>
+  <p>Install: <code>npm install -g @mermaid-js/mermaid-cli</code></p>
+</div></div><p class="diagram-note">Entity-relationship diagram generated from ORM/schema definitions</p></section><section id="tech-debt"><h2>Tech Debt Register</h2><p style="color:var(--text-muted)">No tech debt items recorded.</p></section><section id="findings"><h2>Key Findings</h2><p style="color:var(--text-muted)">No findings recorded.</p></section>
+</main>
+<div id="modal"><div id="modal-content"></div></div>
+<script>function openModal(t){const dc=document.querySelector('#diagram-'+t+' .diagram-container');const mc=document.getElementById('modal-content');if(dc&&mc){mc.innerHTML='<button id="modal-close" onclick="closeModal()">&#x2715; Close</button>'+dc.innerHTML;}document.getElementById('modal').style.display='block';}function closeModal(){document.getElementById('modal').style.display='none';}document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});document.getElementById('modal').addEventListener('wheel',function(e){const svgs=this.querySelectorAll('svg');if(!svgs.length)return;e.preventDefault();svgs.forEach(svg=>{const curr=parseFloat(svg.style.width)||100;svg.style.width=Math.max(50,Math.min(300,curr-e.deltaY*0.1)+'%');});},{passive:false});</script>
+</body>
+</html>

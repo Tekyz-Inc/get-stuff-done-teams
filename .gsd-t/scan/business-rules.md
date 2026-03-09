@@ -1,152 +1,125 @@
-# Business Rules — 2026-02-18 (Scan #6, Post-M10-M13)
+# Business Rules — 2026-03-09 (Scan #9, Post-M17)
 
 ## Scan Context
-Package: @tekyzinc/gsd-t v2.28.10
-Previous scan: #5 at v2.24.4
-Focus: New business rules introduced by M10-M13
+Package: @tekyzinc/gsd-t v2.34.10
+Previous scan: Scan #8 at v2.34.10 (2026-03-09)
+Changes since Scan #8: No new code changes. All Scan #8 business rules carried forward.
+Test baseline: 205/205 passing.
 
 ---
 
-## QA Agent Dispatch Rules (M10)
+## Existing Rules (Scan #7) — Status Check
 
-### Which phases spawn QA and how:
-| Phase | QA Behavior |
-|-------|-------------|
-| partition | Removed (was spawning unnecessarily) |
-| plan | Removed (was spawning unnecessarily) |
-| execute | Task subagent spawned after each task |
-| test-sync | Inline contract testing (no separate agent) |
-| verify | Inline full audit |
-| complete-milestone | Inline final gate check |
-| quick | Inline (no separate QA agent) |
-| debug | Inline (no separate QA agent) |
-| integrate | Task subagent |
-| wave | QA handled by each phase agent |
-
-### Rule: QA failure blocks phase completion
-- Lead cannot proceed until QA reports PASS or user overrides with explicit approval
-- Source: qa-agent-contract.md, gsd-t-qa.md
-
-### Undocumented: QA contract still lists "partition" and "plan" as phases
-The qa-agent-contract.md Output table still lists partition and plan as phases that produce output. In practice (post-M10), partition and plan no longer spawn QA. Contract is stale (see contract-drift.md).
+All rules from Scan #7 remain in effect. The tooltip fix+revert had no effect on business logic. Additions and new observations below.
 
 ---
 
-## Subagent Self-Spawn Rules (M10)
+## Dashboard UI Rules (Scan #8 additions)
 
-### Rule: Step 0 pattern for standalone commands
-Commands quick, debug, scan, health must spawn themselves as Task subagents when directly invoked:
-1. Check if already running as subagent (prompt says "starting at Step 1" or "Skip Step 0")
-2. If not subagent: spawn fresh Task subagent, wait, relay output, stop
-3. If subagent: continue from Step 1
+### Rule: Dashboard tooltip renders via CSS position:fixed — known bug
+The tooltip for node hover in the agent graph is implemented as a CSS `position:fixed` overlay. A prior fix attempted to use a React portal to render tooltips above the sidebar z-index layer; this fix was reverted. Current behavior: tooltips may be hidden behind the sidebar when hovering nodes near the right edge of the graph canvas.
+- **Impact**: UX defect only. No data loss or behavioral correctness issue.
+- **Status**: Unresolved — fix was reverted.
 
-### Undocumented: "How to detect" is ambiguous
-The detection mechanism ("if prompt says 'starting at Step 1'") relies on the orchestrating agent correctly instructing the subagent to skip Step 0. No formal detection contract. Risk: infinite spawn loops if the prompt doesn't match expected text.
-
----
-
-## Deviation Rules (M11)
-
-### Rule: 4-rule protocol applies to execute, quick, debug
-When executor encounters unexpected situations:
-1. Bug blocking progress → fix, max 3 attempts. If unresolved after 3: log to deferred-items.md, move on
-2. Missing functionality clearly required → add minimum code to unblock, note in commit
-3. Blocker (missing file, wrong API) → fix and continue, log if non-trivial
-4. Architectural change required → STOP. Apply Destructive Action Guard. Never self-approve.
-
-### Rule: 3-attempt limit is hard
-Stop attempting any fix after 3 failures. Add to .gsd-t/deferred-items.md. Continue to next task.
-
-### Undocumented: Team mode Deviation Rules
-execute.md team mode section mentions Deviation Rules but the instructions to teammates omit the specific 3-attempt limit. Teammate instructions say "(1) Bug blocking progress → fix, 3 attempts max" — abbreviated vs. the full solo rules. Risk of teammates not creating deferred-items.md entries.
+### Undocumented: Dashboard loads only from filesystem (no bundler)
+`gsd-t-dashboard.html` is a single HTML file served by `gsd-t-dashboard-server.js`. It loads React, dagre, and ReactFlow from CDN at runtime. No build step. This means:
+- Version pinning is by URL query string (`react@17`, `reactflow@11.11.4`)
+- unpkg serves the UMD builds of these packages
+- There is no lock file or integrity check for the browser-side dependencies
 
 ---
 
-## Per-Task Commit Rules (M11)
+## Auto-Route Rules (M16 — gsd-t-auto-route.js, carried)
 
-### Rule: Commit immediately after each task in execute
-Format: `feat({domain}/task-{N}): {description}`
-- Do NOT batch commits at phase end
-- Applies to both solo and team mode
-- Run Pre-Commit Gate checklist before each commit
+### Rule: Plain-text prompts in GSD-T projects are auto-routed via /gsd
+1. Hook reads stdin JSON `{ prompt, cwd, session_id }`
+2. If `.gsd-t/progress.md` does NOT exist in cwd → exit silently (not a GSD-T project)
+3. If prompt starts with `/` → exit silently (user typed a command)
+4. If prompt is empty → exit silently
+5. If plain text in a GSD-T project → emit `[GSD-T AUTO-ROUTE]` signal
 
-### Undocumented: Wave mode team commits
-When wave spawns a team of phase agents, each agent handles its own commits. The wave spot-check verifies "at least one commit per task completed" after execute. But the wave-phase-sequence contract does not specify per-task commit format or requirements.
-
----
-
-## Wave Spot-Check Rules (M11)
-
-### Rule: After each phase, wave performs 3-field spot-check
-1. Status check: read progress.md, verify status matches expected phase completion
-2. Git check: run git log --oneline -5, verify commits made during phase
-3. Filesystem check: verify key output files exist on disk
-
-### Rule: Discrepancy handling
-If spot-check fails: re-spawn phase agent once, re-verify. If still failing: stop and report to user.
+### Undocumented: Auto-route only fires for UserPromptSubmit hook
+The auto-route behavior only activates when installed as a UserPromptSubmit hook. If not configured in `.claude/settings.json`, auto-route never fires. No validation that the hook is installed.
 
 ---
 
-## CONTEXT.md Fidelity Rules (M12)
+## Auto-Update Rules (M16 — gsd-t-update-check.js, carried)
 
-### Rule: Every Locked Decision must map to at least one task
-- discuss creates .gsd-t/CONTEXT.md with Locked Decisions
-- plan reads CONTEXT.md and MUST map every Locked Decision to a task
-- Plan cannot proceed if any Locked Decision is unmapped
-- plan validation checker (Task subagent) enforces this
+### Rule: Version update cache is 1 hour TTL
+Cache file at `~/.claude/.gsd-t-update-check`. If stale (>1h), fetch latest from npm registry.
 
-### Rule: Deferred Ideas must NOT be implemented
-Plan must not implement anything in the "Deferred Ideas" section of CONTEXT.md.
+### Rule: Auto-update installs and runs update-all atomically
+If new version available: `npm install -g @tekyzinc/gsd-t@{latest}` then `gsd-t update-all` (in that order). If either fails, falls back to manual update notice `[GSD-T UPDATE]`.
 
-### Rule: Plan validation checker runs up to 3 iterations
-If validation fails: fix gaps, re-validate. Stop after 3 iterations — report gaps to user.
+### Rule: Version file at ~/.claude/.gsd-t-version is the source of truth
+If the file does not exist, script exits silently (no banner).
 
-### Undocumented: CONTEXT.md lifecycle
-CONTEXT.md is created by discuss and consumed by plan, but:
-- Not deleted after plan phase completes
-- Not checked by gsd-t-health
-- If discuss is skipped (wave structured-skip), CONTEXT.md is never created — plan must handle missing CONTEXT.md gracefully (plan.md Step 1 says "if CONTEXT.md exists" — handled)
-- Accumulates across milestones unless manually deleted
+### Undocumented: Auto-update runs every SessionStart
+gsd-t-update-check.js is invoked on every Claude Code SessionStart. The npm registry is only queried if cache is stale (>1h), but the version comparison runs every time.
 
 ---
 
-## Continue-Here File Rules (M13)
+## Event Logging Rules (M14 — gsd-t-event-writer.js, carried)
 
-### Rule: /pause creates .gsd-t/continue-here-{timestamp}.md
-Contains: milestone, phase, version, last completed action, next action, open items, user note.
+### Rule: Event schema is closed for M14
+Exactly 9 fields: ts, event_type, command, phase, agent_id, parent_agent_id, trace_id, reasoning, outcome.
 
-### Rule: /resume reads most recent continue-here file
-Identified by highest timestamp. After reading, deletes the file.
+### Rule: Valid event_types (8 types)
+command_invoked, phase_transition, subagent_spawn, subagent_complete, tool_call, experience_retrieval, outcome_tagged, distillation.
 
-### Undocumented: Multiple continue-here files
-If user runs /pause multiple times without /resume, multiple files accumulate. Resume reads most recent — older files are orphaned indefinitely. No cleanup, no warning.
+### Rule: Valid outcomes (5 values)
+success, failure, learning, deferred, null (null means in-progress).
 
----
+### Rule: Events file rotates daily by UTC date
+File: `.gsd-t/events/YYYY-MM-DD.jsonl`. New file created each UTC day. Append-only.
 
-## Health Repair Rules (M13)
+### Rule: Symlink check before write
+Event writer checks `lstatSync().isSymbolicLink()` before writing. Returns exit code 2 if symlink detected.
 
-### Rule: --repair creates missing files from templates
-Repairs MISSING items only. Does NOT repair INVALID items (e.g., empty contracts, bad status values).
-
-### Rule: Domain repair
-Creates minimal scope.md and tasks.md for any domain directory missing them.
-
-### Undocumented: Template paths not validated
---repair assumes templates/ exist relative to the installed command file location. If the package was partially installed, template reads may fail silently.
+### Undocumented: event_type 'session_start' / 'session_end' listed in contract but not in VALID_EVENT_TYPES set
+event-schema-contract.md lists `session_start` and `session_end` as event types. The VALID_EVENT_TYPES set in gsd-t-event-writer.js has 8 items — but `session_start` and `session_end` are NOT in the set. Attempting to write a `session_start` event fails with exit code 1.
 
 ---
 
-## Validation Rules
+## Dashboard Server Rules (M14 — gsd-t-dashboard-server.js, carried)
 
-### stateGet/stateSet (gsd-t-tools.js)
-- stateGet: key existence validated via regex match on progress.md
-- stateSet: key existence validated; value is injected raw into file with no sanitization
-- Risk: multiline value in stateSet corrupts progress.md markdown structure (see security.md)
+### Rule: Maximum 500 events loaded on SSE connect
+readExistingEvents() caps at MAX_EVENTS = 500. Older events are discarded.
 
-### validate() in gsd-t-tools.js
-Checks presence of: .gsd-t/progress.md, .gsd-t/contracts, .gsd-t/domains, CLAUDE.md
-Does NOT check: backlog.md, backlog-settings.md, docs/ directory, docs/*.md files
-Narrower than gsd-t-health.md's checks (health checks 12 items; validate() checks 4).
+### Rule: Server watches only the newest JSONL file at startup
+tailEventsFile() watches the file returned by getNewestJsonl() at server start time. New files created after server start are not picked up.
+
+### Rule: Keepalive every 15 seconds on SSE stream
+Sends `: keepalive\n\n` every 15s to prevent connection timeout.
+
+### Rule: PID file at .gsd-t/dashboard.pid written on --detach
+Server writes its PID to the file on detach. Deletes it on clean SIGTERM/SIGINT.
+
+### Undocumented: --stop uses process.kill(pid) — cross-platform risk
+On Windows, `process.kill(pid)` with SIGTERM defaults to a forceful kill. The server may not clean up its PID file before dying.
+
+---
+
+## Scan Visual Output Rules (M17, carried)
+
+### Rule: extractSchema() never throws
+All ORM detection and parsing wrapped in try/catch. Returns `{ detected: false, ... }` on any failure.
+
+### Rule: generateDiagrams() always returns exactly 6 DiagramResult objects
+One per type in fixed order. Failed diagrams receive placeholder, not null.
+
+### Rule: Database schema diagram requires detected=true
+If schemaData.detected is false, diagram #6 (database-schema) is automatically a placeholder.
+
+### Rule: generateReport() writes self-contained HTML with no external resources
+verify-gates.js enforces: no external link stylesheet, no `src="https://"`, has DOCTYPE, has 6 diagram sections.
+**Note: This rule applies to scan-report.html only. gsd-t-dashboard.html is intentionally not self-contained.**
+
+### Rule: scan-export.js does NOT export HTML — only docx/pdf
+exportReport() returns error for any format other than 'docx' or 'pdf'.
+
+### Rule: scan-export.js checks for required tools before attempting export
+pandoc must be on PATH for docx export; `npx md-to-pdf` must be available for pdf export.
 
 ---
 
@@ -154,8 +127,9 @@ Narrower than gsd-t-health.md's checks (health checks 12 items; validate() check
 
 | File | Location | What it does | Risk if changed |
 |------|----------|--------------|-----------------|
-| gsd-t-tools.js | findProjectRoot() | Falls back to cwd if no .gsd-t found — silent failure | Operations in wrong directory |
-| gsd-t-tools.js | stateSet() | Writes value to progress.md with no newline sanitization | Markdown structure corruption |
-| gsd-t-tools.js | templateScope/Tasks | domain arg used directly in path.join — no traversal check | Arbitrary file read outside .gsd-t/domains/ |
-| gsd-t-resume.md | Step 2 | Deletes continue-here file after reading | Loses checkpoint if resume fails mid-way |
-| gsd-t-pause.md | Step 5 | Explicitly does NOT auto-continue after creating file | User intent: pause = stop; "and continue" = continue |
+| gsd-t-event-writer.js | VALID_EVENT_TYPES | session_start/session_end NOT in set despite being in contract | Heartbeat cannot write session events through event-writer |
+| gsd-t-update-check.js | line 40 | Cache TTL is exactly 1 hour (3600000 ms) — hardcoded | Changing this changes update check frequency globally |
+| gsd-t-dashboard-server.js | getNewestJsonl() | Sorts files alphabetically — relies on YYYY-MM-DD naming for correct order | Non-date filenames would sort incorrectly |
+| scan-renderer.js | tryD2() | Always writes generic 'app -> db: query' regardless of mmdContent | d2 diagram is never meaningful — always shows generic arch |
+| scan-report.js | line 92-93 | outputPath always in opts.projectRoot (no scan/ subdirectory) | scan-report.html is written to project root, not .gsd-t/scan/ |
+| gsd-t-dashboard.html | CDN URLs | Version pins by URL (react@17, reactflow@11.11.4) — no SRI | CDN compromise or version float could run malicious code |
