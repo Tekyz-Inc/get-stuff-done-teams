@@ -17,7 +17,7 @@ const NOTES = {
   'workflow':            'State machine derived from status enums and state transition logic',
   'data-flow':           'Data flow from user input through validation, persistence, and async processing',
   'sequence':            'Request/response sequence for the primary API endpoint',
-  'database-schema':     'Entity-relationship diagram generated from ORM/schema definitions'
+  'database-schema':     'Schema diagram generated from ORM, document DB, vector store, or raw SQL definitions'
 };
 
 const DIAGRAM_DEFS = [

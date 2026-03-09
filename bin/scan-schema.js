@@ -47,6 +47,25 @@ function detectOrm(projectRoot) {
     const sqlFiles = findFiles(projectRoot, '.sql').filter(f => fileContains(f, 'CREATE TABLE'));
     if (sqlFiles.length) return { ormType: 'raw-sql', files: sqlFiles };
 
+    // Vector and document stores — check package.json and requirements.txt
+    try {
+      const pkgPath = path.join(projectRoot, 'package.json');
+      if (fs.existsSync(pkgPath)) {
+        const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+        const deps = Object.keys({ ...(pkg.dependencies || {}), ...(pkg.devDependencies || {}) }).join(' ');
+        const VECTOR = ['@pinecone-database/pinecone', 'weaviate-client', '@weaviate/client', '@qdrant/js-client-rest', 'chromadb', '@zilliz/milvus2-sdk-node', 'hnswlib-node'];
+        const DOCDB  = ['mongodb', 'couchdb', 'pouchdb', 'arangojs', 'couchbase', 'cassandra-driver'];
+        if (VECTOR.some(p => deps.includes(p))) return { ormType: 'vector-db', files: [pkgPath] };
+        if (DOCDB.some(p => deps.includes(p)))  return { ormType: 'document-db', files: [pkgPath] };
+      }
+      const reqPath = path.join(projectRoot, 'requirements.txt');
+      if (fs.existsSync(reqPath)) {
+        const req = fs.readFileSync(reqPath, 'utf8');
+        if (/pinecone|weaviate|qdrant|chromadb|milvus|faiss|annoy/i.test(req)) return { ormType: 'vector-db', files: [reqPath] };
+        if (/pymongo|motor|couchdb|cassandra|arangodb/i.test(req)) return { ormType: 'document-db', files: [reqPath] };
+      }
+    } catch {}
+
     return { ormType: null, files: [] };
   } catch { return { ormType: null, files: [] }; }
 }
@@ -66,6 +85,13 @@ function extractSchema(projectRoot) {
     else if (ormType === 'sequelize') entities = parsers.parseSequelize(files, warnings);
     else if (ormType === 'sqlalchemy') entities = parsers.parseSqlAlchemy(files, warnings);
     else if (ormType === 'raw-sql') entities = parsers.parseRawSql(files, warnings);
+    else if (ormType === 'vector-db') entities = [
+      { name: 'VectorIndex', fields: [{ name: 'id', type: 'string' }, { name: 'embedding', type: 'float[]' }, { name: 'metadata', type: 'object' }, { name: 'score', type: 'float' }], relations: [] },
+      { name: 'Namespace', fields: [{ name: 'name', type: 'string' }, { name: 'vectorCount', type: 'int' }], relations: [{ fromEntity: 'Namespace', toEntity: 'VectorIndex', type: 'one-to-many' }] }
+    ];
+    else if (ormType === 'document-db') entities = [
+      { name: 'Collection', fields: [{ name: '_id', type: 'ObjectId' }, { name: 'data', type: 'object' }, { name: 'createdAt', type: 'date' }, { name: 'updatedAt', type: 'date' }], relations: [] }
+    ];
 
     entities = entities.filter(e => e.name && e.name.trim());
     return { detected: true, ormType, entities, parseWarnings: warnings };
