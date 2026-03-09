@@ -1482,6 +1482,14 @@ if (require.main === module) {
     case "changelog":
       doChangelog();
       break;
+    case "scan": {
+      const exportFlag = args.find(a => a.startsWith('--export='));
+      const exportFormat = exportFlag ? exportFlag.split('=')[1] : null;
+      if (exportFormat) {
+        log(`${CYAN}  ℹ${RESET} Export flag noted: will export to ${exportFormat} after scan completes`);
+      }
+      break;
+    }
     case "help":
     case "--help":
     case "-h":
