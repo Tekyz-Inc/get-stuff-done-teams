@@ -460,8 +460,15 @@ After writing the text report to `.gsd-t/techdebt.md`, generate the self-contain
 Using Bash tool:
 ```
 node -e "
+const {collectScanData}=require('./bin/scan-data-collector.js');
+const {extractSchema}=require('./bin/scan-schema.js');
+const {generateDiagrams}=require('./bin/scan-diagrams.js');
 const {generateReport}=require('./bin/scan-report.js');
-const r=generateReport(analysisData, schemaData, diagrams, {projectRoot: process.argv[1]});
+const root=process.argv[1];
+const analysisData=collectScanData(root);
+const schemaData=extractSchema(root);
+const diagrams=generateDiagrams(analysisData, schemaData, {projectRoot:root});
+const r=generateReport(analysisData, schemaData, diagrams, {projectRoot:root});
 if (r.outputPath) console.log('HTML report:', r.outputPath, '| Diagrams rendered:', r.diagramsRendered + '/6');
 else console.error('Report generation failed:', r.error);
 " "$SCANNED_PROJECT_ROOT"

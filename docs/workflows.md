@@ -1,6 +1,6 @@
 # Workflows — GSD-T Framework (@tekyzinc/gsd-t)
 
-## Last Updated: 2026-02-18 (Post-M13, Scan #6)
+## Last Updated: 2026-03-09 (Scan #9, Post-M17)
 
 ## User Workflows
 
@@ -158,3 +158,69 @@ Every commit must pass applicable checks:
 - **Trigger**: `gsd-t update-all` CLI command
 - **Flow**: Global update → iterate registered projects → inject Destructive Action Guard → create CHANGELOG → health check (Playwright, Swagger)
 - **Registry**: `~/.claude/.gsd-t-projects` (newline-separated absolute paths)
+
+### Real-Time Agent Dashboard (M14)
+
+**Launch workflow** (`/gsd-t-visualize`):
+1. Check if server is running: `GET http://localhost:7433/ping`
+2. If not running: spawn `gsd-t-dashboard-server.js --detach` as background process; write PID to `.gsd-t/dashboard.pid`
+3. Open browser to `http://localhost:7433`
+4. Dashboard connects to `GET /events` (Server-Sent Events stream)
+
+**Event stream flow**:
+1. Claude Code hook fires (any hook event)
+2. `gsd-t-event-writer.js` validates event fields and appends JSON line to `.gsd-t/events/YYYY-MM-DD.jsonl`
+3. Dashboard server (`gsd-t-dashboard-server.js`) detects file change via `fs.watchFile()`
+4. New event lines are broadcast as SSE: `data: {event-json}\n\n`
+5. Dashboard HTML (React app via CDN) renders event feed with agent hierarchy
+
+**Stop workflow**:
+1. User runs `/gsd-t-visualize stop` or `GET /stop`
+2. Server reads PID file, sends SIGTERM, deletes PID file
+
+**Note:** Server watches only the newest JSONL file at startup. Date rollover (midnight UTC) requires server restart to pick up new file (TD-085).
+
+### Auto-Update Workflow (M15)
+
+1. Claude Code SessionStart hook fires
+2. `gsd-t-update-check.js` reads `~/.claude/.gsd-t-version` (installed version)
+3. Reads cached version from `~/.claude/.gsd-t-update-check` (JSON: `{latest, timestamp}`)
+4. If cached version newer than installed: auto-runs `npm install -g @tekyzinc/gsd-t@{latest}` + `gsd-t update-all`
+5. Outputs `[GSD-T AUTO-UPDATE]`, `[GSD-T UPDATE]`, or `[GSD-T] v{ver}` to stdout
+6. Claude agent reads hook output from context and shows update status in first response
+
+**Cache TTL**: 1 hour. After TTL, background `npm-update-check.js` refreshes async.
+
+### Auto-Route Workflow (M16)
+
+1. User types plain text in Claude Code in a GSD-T project directory
+2. `gsd-t-auto-route.js` UserPromptSubmit hook fires
+3. Script checks if `.gsd-t/progress.md` exists in cwd
+4. If yes: injects `[GSD-T AUTO-ROUTE]` signal into prompt context
+5. Claude agent sees signal and routes the plain text message through `/user:gsd {message}`
+6. Smart router interprets intent and launches appropriate GSD-T command
+
+**Note:** Only fires in GSD-T projects (`.gsd-t/progress.md` must exist). Silently passes through in all other directories.
+
+### Scan Visual Output Workflow (M17)
+
+1. User runs `/gsd-t-scan` — scan subagent analyzes codebase (Steps 1-2)
+2. **Schema extraction** (Step 2.5): `bin/scan-schema.js` detects ORM/schema files
+   - Tries Prisma → TypeORM → Drizzle → Mongoose → Sequelize → SQLAlchemy → raw SQL
+   - Returns `SchemaData { detected, ormType, entities[], parseWarnings[] }`
+3. **Diagram generation** (Step 3.5): `bin/scan-diagrams.js` generates 6 Mermaid diagrams
+   - Types: system-architecture, app-architecture, workflow, data-flow, sequence, database-schema
+   - Renderer chain: mmdc (CLI) → d2 (CLI) → placeholder HTML
+4. **HTML report generation** (Step 8): `bin/scan-report.js` produces self-contained HTML
+   - Sidebar navigation with scrollspy, metric cards, domain health bars
+   - 6 diagram sections with expand-to-modal button
+   - Tech debt table, key findings
+   - Written to project root as `scan-report.html`
+5. **Export** (optional `--export` flag): `bin/scan-export.js` handles docx/pdf (stubs in v2.34.10)
+
+**No external dependencies**: HTML report is fully self-contained (no CDN). All CSS/JS inlined.
+
+### npm Pre-Publish Gate (Updated)
+- **Trigger**: `npm publish` (via `prepublishOnly`)
+- **Gate**: `npm test` runs 205 tests (8 files including verify-gates.js)
+- **Verify-gates checks**: file size compliance (all bin/*.js ≤ 200 lines), no CDN references in scan-report.html, has DOCTYPE, has 6 diagram sections, export format validation

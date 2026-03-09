@@ -17,6 +17,7 @@ const { extractSchema } = require('../bin/scan-schema.js');
 const { generateDiagrams } = require('../bin/scan-diagrams.js');
 const { generateReport } = require('../bin/scan-report.js');
 const { exportReport } = require('../bin/scan-export.js');
+const { collectScanData } = require('../bin/scan-data-collector.js');
 
 // Temp dir for report output
 let tmpDir;
@@ -261,6 +262,50 @@ describe('exportReport', () => {
   it('never throws — returns error object instead', () => {
     assert.doesNotThrow(() => exportReport(null, 'docx', {}));
     assert.doesNotThrow(() => exportReport(undefined, undefined, undefined));
+  });
+});
+
+// ─── collectScanData ──────────────────────────────────────────────────────────
+
+describe('collectScanData', () => {
+  it('never throws on empty directory', () => {
+    const empty = fs.mkdtempSync(path.join(os.tmpdir(), 'scan-collect-'));
+    try {
+      assert.doesNotThrow(() => collectScanData(empty));
+    } finally {
+      fs.rmSync(empty, { recursive: true, force: true });
+    }
+  });
+
+  it('returns required shape keys', () => {
+    const result = collectScanData(tmpDir);
+    for (const key of ['projectName', 'filesScanned', 'totalLoc', 'debtCritical', 'debtHigh', 'debtMedium', 'testCoverage', 'domains', 'techDebt', 'findings']) {
+      assert.ok(Object.prototype.hasOwnProperty.call(result, key), 'missing key: ' + key);
+    }
+  });
+
+  it('parses real project data — GSD-T root', () => {
+    const result = collectScanData(path.join(__dirname, '..'));
+    assert.equal(result.projectName, '@tekyzinc/gsd-t');
+    assert.ok(result.filesScanned > 0, 'filesScanned should be > 0');
+    assert.ok(result.totalLoc > 0, 'totalLoc should be > 0');
+    assert.ok(result.domains.length > 0, 'should have domain entries');
+    assert.ok(result.domains.every(d => d.name && typeof d.name === 'string'), 'all domain names should be strings');
+  });
+
+  it('testCoverage parses N/N format from real project', () => {
+    const result = collectScanData(path.join(__dirname, '..'));
+    assert.match(result.testCoverage, /\d+\/\d+|N\/A/, 'testCoverage should be N/N or N/A');
+  });
+
+  it('returns testCoverage N/A when test-baseline.md absent', () => {
+    const empty = fs.mkdtempSync(path.join(os.tmpdir(), 'scan-collect2-'));
+    try {
+      const result = collectScanData(empty);
+      assert.equal(result.testCoverage, 'N/A');
+    } finally {
+      fs.rmSync(empty, { recursive: true, force: true });
+    }
   });
 });
 

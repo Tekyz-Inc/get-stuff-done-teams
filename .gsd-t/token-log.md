@@ -1,5 +1,6 @@
 | Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Tokens | Compacted |
 |----------------|--------------|---------|------|-------|-------------|-------|--------|-----------|
+| 2026-03-09 10:42 | 2026-03-09 10:52 | gsd-t-scan | Step 2-8 | sonnet | 624s | Scan #8 complete — 5-dim parallel analysis, 31 open items confirmed, 205/205 tests pass | 0 | null |
 | 2026-03-09 10:38 | 2026-03-09 10:46 | gsd-t-scan | Step 2-7 | sonnet | 469s | Scan #9 complete — 5-dim analysis, 4 new debt items, visual report generated | 0 | null |
 | 2026-03-04 13:21 | 2026-03-04 13:22 | gsd-t-plan | Step 7 | haiku | 50s | PASS, iteration 1 | 0 | null |
 | 2026-03-04 13:31 | 2026-03-04 13:42 | gsd-t-execute | domain:dashboard | sonnet | 651s | 1 task, pass (176 tests) | 0 | null |

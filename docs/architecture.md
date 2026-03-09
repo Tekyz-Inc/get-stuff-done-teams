@@ -1,6 +1,6 @@
 # Architecture — GSD-T Framework (@tekyzinc/gsd-t)
 
-## Last Updated: 2026-03-04 (M14 Complete — Execution Intelligence Layer)
+## Last Updated: 2026-03-09 (Scan #9, Post-M17)
 
 ## System Overview
 
@@ -23,7 +23,7 @@ The framework has no runtime — it is consumed entirely by Claude Code's slash 
 ### Slash Commands (commands/*.md)
 - **Purpose**: Define the GSD-T methodology as executable workflows for Claude Code
 - **Location**: `commands/`
-- **Count**: 47 (43 GSD-T workflow + 4 utility: gsd, branch, checkin, Claude-md) — includes gsd-t-health and gsd-t-pause (M13), gsd-t-reflect (M14)
+- **Count**: 48 (44 GSD-T workflow + 4 utility: gsd, branch, checkin, Claude-md) — includes gsd-t-health, gsd-t-pause (M13), gsd-t-reflect (M14), gsd-t-visualize (M15), gsd-t-prd (M16)
 - **Format**: Pure markdown with step-numbered instructions, team mode blocks, document ripple sections, and $ARGUMENTS terminator
 
 ### Templates (templates/*.md)
@@ -46,6 +46,20 @@ The framework has no runtime — it is consumed entirely by Claude Code's slash 
 - **Pre-task experience retrieval (execute, debug)**: Grep Decision Log for `[failure]`/`[learning]` entries matching current domain before spawning subagent — Reflexion pattern without fine-tuning. Writes `experience_retrieval` event.
 - **Distillation step (complete-milestone Step 2.5)**: Scans `.gsd-t/events/*.jsonl` for patterns seen ≥3 times, proposes CLAUDE.md / constraints.md rule additions, user confirms before write.
 - **`commands/gsd-t-reflect.md`**: On-demand retrospective command (47th command). Reads current milestone events, generates `.gsd-t/retrospectives/YYYY-MM-DD-{milestone}.md` with sections: What Worked, What Failed, Patterns Found, Proposed Memory Updates.
+
+### Auto-Route + Auto-Update Hooks (M16 — complete)
+- **`scripts/gsd-t-auto-route.js`** (39 lines): UserPromptSubmit hook. Reads JSON from stdin (`{ prompt, cwd, session_id }`). If `.gsd-t/progress.md` does not exist in cwd → exits silently. If prompt starts with `/` → exits silently. If plain text in a GSD-T project → emits `[GSD-T AUTO-ROUTE]` signal to Claude's context, routing the message through `/user:gsd`. Catches all exceptions — never blocks the prompt.
+- **`scripts/gsd-t-update-check.js`** (79 lines): SessionStart hook. Reads `~/.claude/.gsd-t-version`. Reads/refreshes `~/.claude/.gsd-t-update-check` cache (1h TTL). If newer version available: runs `npm install -g @tekyzinc/gsd-t@{latest}` + `gsd-t update-all` via execSync. Outputs `[GSD-T AUTO-UPDATE]`, `[GSD-T UPDATE]`, or `[GSD-T]` banner. NOTE: No module.exports — untestable as module (TD-081). Version string not validated before execSync (SEC-N28).
+
+### Scan Visual Output (M17 — complete v2.34.10)
+- **`bin/scan-schema.js`** (77 lines): ORM detector + schema extractor. Detects 7 ORM types (Prisma, TypeORM, Drizzle, Mongoose, Sequelize, SQLAlchemy, raw-SQL). Delegates to scan-schema-parsers.js. Returns SchemaData: `{ detected, ormType, entities[], parseWarnings[] }`. Never throws.
+- **`bin/scan-schema-parsers.js`** (199 lines): 7 parser functions (parsePrisma, parseTypeOrm, parseDrizzle, parseMongoose, parseSequelize, parseSqlAlchemy, parseRawSql). Returns Entity[] for each ORM type.
+- **`bin/scan-diagrams.js`** (77 lines): Diagram orchestrator. Calls scan-diagrams-generators.js for each of 6 types. Calls scan-renderer.js to render Mermaid to SVG. Always returns exactly 6 DiagramResult objects. Failed diagrams get placeholder HTML.
+- **`bin/scan-diagrams-generators.js`** (102 lines): Mermaid DSL source generators for 6 types: genSystemArchitecture, genAppArchitecture, genWorkflow, genDataFlow, genSequence, genDatabaseSchema. Falls back to generic diagram if analysisData lacks specific fields.
+- **`bin/scan-renderer.js`** (92 lines): Sync render chain: tryMmdc() → tryD2() → placeholder. Also contains tryKroki() (async, currently dormant — never called in sync path). Uses execSync (not execFileSync — see TD-084/SEC-N30).
+- **`bin/scan-report.js`** (116 lines): Generates self-contained HTML scan report. No external CSS/JS (all inline). Output: `{projectRoot}/scan-report.html` (see TD-092 for placement issue). Exports: generateReport(), buildCss(), buildSidebar(), buildHtmlSkeleton() + section builders.
+- **`bin/scan-report-sections.js`** (74 lines): HTML section builders: buildMetricCards, buildDomainHealth, buildDiagramSection, buildTechDebt, buildFindings.
+- **`bin/scan-export.js`** (49 lines): Export subcommand — DOCX via pandoc, PDF via md-to-pdf. Checks tool availability before attempting. Uses execSync (not execFileSync — see TD-084/SEC-N29).
 
 ### Real-Time Agent Dashboard (M15 — complete v2.33.10)
 - **`scripts/gsd-t-dashboard-server.js`** (141 lines, zero external deps): Node.js SSE server watching `.gsd-t/events/*.jsonl`. Exports: `startServer(port, eventsDir, htmlPath)`, `tailEventsFile(filePath, callback)`, `readExistingEvents(eventsDir, maxEvents)`, `parseEventLine(line)`, `findEventsDir(projectDir)`. HTTP endpoints: `GET /` (serve dashboard HTML), `GET /events` (SSE stream, max 500 events on connect + tail for new), `GET /ping` (health check), `GET /stop` (graceful shutdown). CLI: `--port`, `--events`, `--detach` (writes PID to `.gsd-t/dashboard.pid`), `--stop` (kills running server). Symlink protection via `lstatSync` pattern. 23 unit tests in `test/dashboard-server.test.js`.

@@ -1,135 +1,197 @@
-# Business Rules — 2026-03-09 (Scan #9, Post-M17)
+# Business Rules Analysis — Scan #8 (2026-03-09)
 
-## Scan Context
-Package: @tekyzinc/gsd-t v2.34.10
-Previous scan: Scan #8 at v2.34.10 (2026-03-09)
-Changes since Scan #8: No new code changes. All Scan #8 business rules carried forward.
-Test baseline: 205/205 passing.
+## Project: GSD-T Framework (@tekyzinc/gsd-t) — v2.34.10
 
----
-
-## Existing Rules (Scan #7) — Status Check
-
-All rules from Scan #7 remain in effect. The tooltip fix+revert had no effect on business logic. Additions and new observations below.
+**Total rules identified**: 47
+**Undocumented rules** (not in contracts or CLAUDE.md): 8
 
 ---
 
-## Dashboard UI Rules (Scan #8 additions)
+## Core Workflow Rules
 
-### Rule: Dashboard tooltip renders via CSS position:fixed — known bug
-The tooltip for node hover in the agent graph is implemented as a CSS `position:fixed` overlay. A prior fix attempted to use a React portal to render tooltips above the sidebar z-index layer; this fix was reverted. Current behavior: tooltips may be hidden behind the sidebar when hovering nodes near the right edge of the graph canvas.
-- **Impact**: UX defect only. No data loss or behavioral correctness issue.
-- **Status**: Unresolved — fix was reverted.
+### BR-001: Wave Phase Ordering (Documented)
+Phases execute in fixed order: PARTITION -> DISCUSS -> PLAN -> IMPACT -> EXECUTE -> TEST-SYNC -> INTEGRATE -> VERIFY -> COMPLETE. No phase may skip except Discuss.
 
-### Undocumented: Dashboard loads only from filesystem (no bundler)
-`gsd-t-dashboard.html` is a single HTML file served by `gsd-t-dashboard-server.js`. It loads React, dagre, and ReactFlow from CDN at runtime. No build step. This means:
-- Version pinning is by URL query string (`react@17`, `reactflow@11.11.4`)
-- unpkg serves the UMD builds of these packages
-- There is no lock file or integrity check for the browser-side dependencies
+### BR-002: Discuss Skip Heuristic (Documented)
+Discuss is skippable only when ALL three conditions hold: (1) single domain, (2) no open questions in Decision Log, (3) all cross-domain contracts already exist.
 
----
+### BR-003: Impact Gate Verdicts (Documented)
+Three verdicts: PROCEED, PROCEED WITH CAUTION (continue unless user intervenes), BLOCK (stop and require user decision).
 
-## Auto-Route Rules (M16 — gsd-t-auto-route.js, carried)
+### BR-004: Verify Gate (Documented)
+Milestone cannot complete without VERIFIED status. If VERIFY_FAILED: remediate and re-verify up to 2 attempts.
 
-### Rule: Plain-text prompts in GSD-T projects are auto-routed via /gsd
-1. Hook reads stdin JSON `{ prompt, cwd, session_id }`
-2. If `.gsd-t/progress.md` does NOT exist in cwd → exit silently (not a GSD-T project)
-3. If prompt starts with `/` → exit silently (user typed a command)
-4. If prompt is empty → exit silently
-5. If plain text in a GSD-T project → emit `[GSD-T AUTO-ROUTE]` signal
+### BR-005: Gap Analysis Gate (Documented)
+Requirements must reach 100% Implemented for scoped requirements before milestone completion. Auto-fix up to 2 cycles.
 
-### Undocumented: Auto-route only fires for UserPromptSubmit hook
-The auto-route behavior only activates when installed as a UserPromptSubmit hook. If not configured in `.claude/settings.json`, auto-route never fires. No validation that the hook is installed.
+### BR-006: Deviation Rules in Execute (Documented)
+Four-rule protocol: (1) Bug -> fix up to 3 attempts, then defer; (2) Missing dependency -> add minimum; (3) Blocker -> fix and log; (4) Architectural change -> STOP (Destructive Action Guard).
 
----
+### BR-007: Per-Task Commit Format (Documented)
+Execute enforces `feat({domain}/task-{N})` commit format after each task.
 
-## Auto-Update Rules (M16 — gsd-t-update-check.js, carried)
+### BR-008: Between-Phase Spot-Check (Documented in architecture.md, NOT in wave contract -- TD-093)
+After each phase agent completes, wave reads progress.md (status), runs git log (commits), verifies filesystem output. Re-spawns phase agent once on failure.
 
-### Rule: Version update cache is 1 hour TTL
-Cache file at `~/.claude/.gsd-t-update-check`. If stale (>1h), fetch latest from npm registry.
+### BR-009: QA Blocking Rule (Documented)
+QA failure BLOCKS phase completion. Lead cannot proceed until QA reports PASS or user explicitly overrides.
 
-### Rule: Auto-update installs and runs update-all atomically
-If new version available: `npm install -g @tekyzinc/gsd-t@{latest}` then `gsd-t update-all` (in that order). If either fails, falls back to manual update notice `[GSD-T UPDATE]`.
-
-### Rule: Version file at ~/.claude/.gsd-t-version is the source of truth
-If the file does not exist, script exits silently (no banner).
-
-### Undocumented: Auto-update runs every SessionStart
-gsd-t-update-check.js is invoked on every Claude Code SessionStart. The npm registry is only queried if cache is stale (>1h), but the version comparison runs every time.
+### BR-010: QA Phase Assignment (PARTIALLY documented -- qa-agent-contract.md lists stale phases)
+QA runs: execute (Task subagent), integrate (Task subagent), test-sync (inline), verify (inline), complete-milestone (inline), quick (inline), debug (inline). NOT on partition or plan (removed M10). qa-agent-contract.md incorrectly lists partition and plan (TD-067/TD-093).
 
 ---
 
-## Event Logging Rules (M14 — gsd-t-event-writer.js, carried)
+## Version and State Rules
 
-### Rule: Event schema is closed for M14
-Exactly 9 fields: ts, event_type, command, phase, agent_id, parent_agent_id, trace_id, reasoning, outcome.
+### BR-011: Semantic Versioning Convention (Documented)
+Major.Minor.Patch. Patch always 2 digits (>=10). New minor/major starts patch at 10 (not 0).
 
-### Rule: Valid event_types (8 types)
-command_invoked, phase_transition, subagent_spawn, subagent_complete, tool_call, experience_retrieval, outcome_tagged, distillation.
+### BR-012: Version Bump Triggers (Documented)
+Major: breaking changes/v1 launch. Minor: new features/completed feature milestones. Patch: bug fixes, minor improvements.
 
-### Rule: Valid outcomes (5 values)
-success, failure, learning, deferred, null (null means in-progress).
+### BR-013: Status Enum Validation (Documented)
+Valid statuses: READY, INITIALIZED, PARTITIONED, DISCUSSED, PLANNED, IMPACT_ANALYZED, EXECUTING, EXECUTED, TESTS_SYNCED, INTEGRATED, VERIFIED, VERIFY_FAILED, COMPLETED.
 
-### Rule: Events file rotates daily by UTC date
-File: `.gsd-t/events/YYYY-MM-DD.jsonl`. New file created each UTC day. Append-only.
+### BR-014: Wave Integrity Check (Documented)
+Wave Step 1 verifies: (1) status is recognized, (2) active milestone identified, (3) at least one domain row defined. Stops on failure.
 
-### Rule: Symlink check before write
-Event writer checks `lstatSync().isSymbolicLink()` before writing. Returns exit code 2 if symlink detected.
-
-### Undocumented: event_type 'session_start' / 'session_end' listed in contract but not in VALID_EVENT_TYPES set
-event-schema-contract.md lists `session_start` and `session_end` as event types. The VALID_EVENT_TYPES set in gsd-t-event-writer.js has 8 items — but `session_start` and `session_end` are NOT in the set. Attempting to write a `session_start` event fails with exit code 1.
+### BR-015: CONTEXT.md Locked Decisions (Documented)
+Plan reads `.gsd-t/CONTEXT.md` and fails validation if any Locked Decision has no task mapping.
 
 ---
 
-## Dashboard Server Rules (M14 — gsd-t-dashboard-server.js, carried)
+## Installation and Update Rules
 
-### Rule: Maximum 500 events loaded on SSE connect
-readExistingEvents() caps at MAX_EVENTS = 500. Older events are discarded.
+### BR-016: Zero External Dependencies (Documented)
+CLI installer must never use external npm packages. Node.js built-ins only.
 
-### Rule: Server watches only the newest JSONL file at startup
-tailEventsFile() watches the file returned by getNewestJsonl() at server start time. New files created after server start are not picked up.
+### BR-017: Update Cache TTL (Documented)
+Update check cache (`~/.claude/.gsd-t-update-check`) expires after 1 hour.
 
-### Rule: Keepalive every 15 seconds on SSE stream
-Sends `: keepalive\n\n` every 15s to prevent connection timeout.
+### BR-018: Auto-Update Flow (Partially documented)
+SessionStart hook reads version, checks cache, if newer available: `npm install -g @tekyzinc/gsd-t@{latest}` then `gsd-t update-all`. Outputs [GSD-T AUTO-UPDATE] or [GSD-T UPDATE] banner.
 
-### Rule: PID file at .gsd-t/dashboard.pid written on --detach
-Server writes its PID to the file on detach. Deletes it on clean SIGTERM/SIGINT.
+### BR-019: Version String Validation (Documented in CLI, NOT applied in update-check)
+Version strings must match `/^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?$/`. Applied in CLI bin but NOT applied to the `latest` version fetched from npm registry before execSync use -- security gap (TD-082).
 
-### Undocumented: --stop uses process.kill(pid) — cross-platform risk
-On Windows, `process.kill(pid)` with SIGTERM defaults to a forceful kill. The server may not clean up its PID file before dying.
+### BR-020: Project Name Validation (Documented)
+Project names must match `/^[a-zA-Z0-9][a-zA-Z0-9._\- ]{0,100}$/`.
 
----
-
-## Scan Visual Output Rules (M17, carried)
-
-### Rule: extractSchema() never throws
-All ORM detection and parsing wrapped in try/catch. Returns `{ detected: false, ... }` on any failure.
-
-### Rule: generateDiagrams() always returns exactly 6 DiagramResult objects
-One per type in fixed order. Failed diagrams receive placeholder, not null.
-
-### Rule: Database schema diagram requires detected=true
-If schemaData.detected is false, diagram #6 (database-schema) is automatically a placeholder.
-
-### Rule: generateReport() writes self-contained HTML with no external resources
-verify-gates.js enforces: no external link stylesheet, no `src="https://"`, has DOCTYPE, has 6 diagram sections.
-**Note: This rule applies to scan-report.html only. gsd-t-dashboard.html is intentionally not self-contained.**
-
-### Rule: scan-export.js does NOT export HTML — only docx/pdf
-exportReport() returns error for any format other than 'docx' or 'pdf'.
-
-### Rule: scan-export.js checks for required tools before attempting export
-pandoc must be on PATH for docx export; `npx md-to-pdf` must be available for pdf export.
+### BR-021: Registered Projects Filtering (Partially documented)
+getRegisteredProjects() reads `~/.claude/.gsd-t-projects`, splits on `|` (inline comment separator), skips lines starting with `#`, filters to only existing directories.
 
 ---
 
-## Undocumented Rules (logic with no comments or docs)
+## Security and File Write Rules
 
-| File | Location | What it does | Risk if changed |
-|------|----------|--------------|-----------------|
-| gsd-t-event-writer.js | VALID_EVENT_TYPES | session_start/session_end NOT in set despite being in contract | Heartbeat cannot write session events through event-writer |
-| gsd-t-update-check.js | line 40 | Cache TTL is exactly 1 hour (3600000 ms) — hardcoded | Changing this changes update check frequency globally |
-| gsd-t-dashboard-server.js | getNewestJsonl() | Sorts files alphabetically — relies on YYYY-MM-DD naming for correct order | Non-date filenames would sort incorrectly |
-| scan-renderer.js | tryD2() | Always writes generic 'app -> db: query' regardless of mmdContent | d2 diagram is never meaningful — always shows generic arch |
-| scan-report.js | line 92-93 | outputPath always in opts.projectRoot (no scan/ subdirectory) | scan-report.html is written to project root, not .gsd-t/scan/ |
-| gsd-t-dashboard.html | CDN URLs | Version pins by URL (react@17, reactflow@11.11.4) — no SRI | CDN compromise or version float could run malicious code |
+### BR-022: Symlink Check Before Write (Documented)
+Every file write calls `isSymlink()` first. Every directory creation calls `hasSymlinkInPath()` for parent traversal. Skip with warning if symlink detected.
+
+### BR-023: Exclusive File Creation (Documented)
+Init operations use `{ flag: "wx" }` for atomic create-or-fail.
+
+### BR-024: Session ID Regex Validation (Documented)
+Heartbeat validates session_id format before use in path construction.
+
+### BR-025: Input Size Limits (Documented)
+Heartbeat stdin capped at 1MB. HTTP responses (npm registry) capped at 1MB.
+
+### BR-026: Secret Scrubbing (Documented)
+`scrubSecrets()` applied to all heartbeat log values and notification messages. `scrubUrl()` masks URL query params. 4 regex patterns with `/gi` flags.
+
+### BR-027: HTTPS Only for Network Requests (Documented)
+All external HTTP requests (npm registry) use HTTPS, 5s/8s timeouts.
+
+### BR-028: Path Containment for npm Update Cache (Documented)
+`npm-update-check.js` validates cache path stays within `~/.claude/` before writing.
+
+---
+
+## Event Stream Rules
+
+### BR-029: JSONL One Event Per Line (Documented)
+Events appended as single-line JSON. Multi-line values must escape newlines as `\n`.
+
+### BR-030: Event Type Whitelist (PARTIALLY documented -- contract vs implementation mismatch)
+Only 8 types accepted in event-writer.js: command_invoked, phase_transition, subagent_spawn, subagent_complete, tool_call, experience_retrieval, outcome_tagged, distillation. `session_start` and `session_end` listed in CONTRACT but NOT in VALID_EVENT_TYPES -- callers receive exit code 1 silently (TD-083).
+
+### BR-031: Outcome Enum Whitelist (Documented)
+Valid outcomes: success, failure, learning, deferred, null. Null = in-progress.
+
+### BR-032: Daily File Rotation (Documented)
+Event files rotate daily: `YYYY-MM-DD.jsonl` based on UTC date at write time.
+
+### BR-033: Max Events on Dashboard Connect (Documented)
+SSE stream sends up to 500 existing events on new client connection.
+
+### BR-034: Dashboard File Watch -- Single File Only (Documented in contract, NOT fully implemented)
+Dashboard server watches only the file newest at startup. Does NOT watch for new JSONL files created after date rollover (TD-085).
+
+---
+
+## Scan and Reporting Rules
+
+### BR-035: Always Return 6 Diagrams (Documented)
+`generateDiagrams()` must return exactly 6 DiagramResult objects. Failed diagrams get placeholder HTML, never null.
+
+### BR-036: Renderer Chain Order (DRIFT -- contract says MCP first, code skips MCP)
+Contract says: MCP -> mmdc -> d2 -> placeholder. Reality: mmdc -> d2 -> placeholder. MCP not implemented (TD-083).
+
+### BR-037: D2 Renderer Scope (Documented)
+D2 renderer only attempted for `system-architecture` and `data-flow` diagram types.
+
+### BR-038: SVG Dimension Stripping (Documented)
+Width and height attributes must be removed from rendered SVGs.
+
+### BR-039: Schema Never Throws (Documented)
+`extractSchema()` catches all errors and surfaces them in `parseWarnings[]`.
+
+### BR-040: Single ORM Detection (Documented)
+Only one ORM type returned even if multiple detected. Highest-confidence wins.
+
+### BR-041: HTML Report Output Path (UNDOCUMENTED gap -- TD-092)
+`scan-report.js` line 93 writes to `{projectRoot}/scan-report.html` (root), not `.gsd-t/scan/scan-report.html` as expected.
+
+---
+
+## Autonomy and Workflow Control Rules
+
+### BR-042: Destructive Action Guard (Documented)
+Always pause for user approval before: DROP TABLE, data-losing migrations, removing working files/endpoints, replacing architecture patterns.
+
+### BR-043: Autonomy Level 3 Default (Documented)
+Level 3 (Full Auto) is default unless project CLAUDE.md overrides. Only stop for: unrecoverable errors (2 attempts), fundamental ambiguity, milestone completion, destructive actions.
+
+### BR-044: Pre-Commit Gate (Documented)
+12-point checklist must run before every commit.
+
+### BR-045: Four-File Sync on Command Change (Documented)
+Any command file change requires updating: GSD-T-README.md, README.md, templates/CLAUDE-global.md, commands/gsd-t-help.md.
+
+---
+
+## Undocumented Rules (Not in Contracts)
+
+### BR-U01: stateSet() Writes Value Directly Without Sanitization (TD-071)
+`gsd-t-tools.js stateSet()` writes value parameter directly to progress.md without newline sanitization. A value containing `\n## Section` injects a new markdown section.
+
+### BR-U02: findProjectRoot() Fallback Behavior Inconsistency (TD-074)
+`gsd-t-tools.js findProjectRoot()` returns `process.cwd()` on failure. `gsd-t-statusline.js` correctly returns null. Inconsistent behavior.
+
+### BR-U03: detectTool() Uses execSync with String Concatenation (TD-073 pattern)
+`scan-export.js detectTool()` uses execSync with `'where "' + cmd + '"'` pattern.
+
+### BR-U04: Dashboard SSE Has No Authentication (TD-090)
+`/events` endpoint streams all events with `Access-Control-Allow-Origin: *`. No token or auth check. Localhost-only assumption is undocumented.
+
+### BR-U05: PID File Has No Lifecycle Rules (TD-094)
+Dashboard PID file written on --detach but no format contract, no gsd-t-health check, no live-process validation on --stop.
+
+### BR-U06: continue-here Files Accumulate Without Cleanup (TD-077)
+Multiple /pause invocations without /resume create multiple continue-here files. gsd-t-resume reads only the most recent. No cleanup mechanism.
+
+### BR-U07: deferred-items.md Created Ad-Hoc (TD-075)
+File referenced by execute/quick/debug but never created by gsd-t-init and not checked by gsd-t-health.
+
+### BR-U08: Doctor Does Not Check Utility Scripts (TD-078)
+`checkDoctorInstallation()` verifies command files but not gsd-t-tools.js and gsd-t-statusline.js presence in `~/.claude/scripts/`.

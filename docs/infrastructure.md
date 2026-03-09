@@ -1,6 +1,6 @@
 # Infrastructure — GSD-T Framework (@tekyzinc/gsd-t)
 
-## Last Updated: 2026-02-18 (Post-M13, Scan #6)
+## Last Updated: 2026-03-09 (Scan #9, Post-M17)
 
 ## Quick Reference
 
@@ -30,7 +30,7 @@ node bin/gsd-t.js status
 
 ### Testing
 ```bash
-# Run automated test suite (125 tests, zero dependencies)
+# Run automated test suite (205 tests, zero dependencies)
 npm test
 
 # Test CLI subcommands manually
@@ -40,12 +40,21 @@ node bin/gsd-t.js doctor
 node bin/gsd-t.js init test-project
 
 # Validate command files exist
-ls commands/*.md | wc -l  # Should be 45
+ls commands/*.md | wc -l  # Should be 48
 ls templates/*.md | wc -l  # Should be 9
 
 # Test new utility scripts
 node scripts/gsd-t-tools.js validate
 node scripts/gsd-t-tools.js git pre-commit-check
+
+# Test scan visual output
+node bin/gsd-t.js scan --export html
+# Output: scan-report.html (self-contained, no external deps)
+
+# Test dashboard server
+node scripts/gsd-t-dashboard-server.js --port 7433 --detach
+# Browser: http://localhost:7433
+node scripts/gsd-t-dashboard-server.js --stop
 ```
 
 ### Scripts
@@ -54,8 +63,16 @@ node scripts/gsd-t-tools.js git pre-commit-check
 | `scripts/gsd-t-heartbeat.js` | Claude Code hook event logger (JSONL output, secret scrubbing) |
 | `scripts/npm-update-check.js` | Background npm registry version checker (path-validated) |
 | `scripts/gsd-t-fetch-version.js` | Synchronous npm registry fetch (5s timeout, 1MB limit) |
-| `scripts/gsd-t-tools.js` | State utility CLI — state get/set, validate, list, git check, template read (NEW M13) |
-| `scripts/gsd-t-statusline.js` | Context usage bar + project state for Claude Code statusLine setting (NEW M13) |
+| `scripts/gsd-t-tools.js` | State utility CLI — state get/set, validate, list, git check, template read (M13) |
+| `scripts/gsd-t-statusline.js` | Context usage bar + project state for Claude Code statusLine setting (M13) |
+| `scripts/gsd-t-event-writer.js` | Structured JSONL event appender CLI — writes to .gsd-t/events/ (M14) |
+| `scripts/gsd-t-dashboard-server.js` | Zero-dep SSE server for real-time dashboard — port 7433 (M15) |
+| `scripts/gsd-t-auto-route.js` | UserPromptSubmit hook — auto-routes plain text via /gsd in GSD-T projects (M16) |
+| `scripts/gsd-t-update-check.js` | SessionStart hook — fetches latest npm version, auto-updates GSD-T (M16) |
+| `bin/scan-schema.js` | ORM/DB schema detector + extractor — 7 ORM types (M17) |
+| `bin/scan-diagrams.js` | Diagram orchestrator — 6 diagram types, renders to SVG or placeholder (M17) |
+| `bin/scan-report.js` | Self-contained HTML scan report generator (M17) |
+| `bin/scan-export.js` | Export subcommand — DOCX (pandoc) + PDF (md-to-pdf) stubs (M17) |
 
 ## Distribution
 
@@ -68,7 +85,7 @@ node scripts/gsd-t-tools.js git pre-commit-check
 ### Installed Locations
 | What | Where |
 |------|-------|
-| Slash commands (45 files) | `~/.claude/commands/` |
+| Slash commands (48 files) | `~/.claude/commands/` |
 | Global config | `~/.claude/CLAUDE.md` |
 | Heartbeat script | `~/.claude/scripts/gsd-t-heartbeat.js` |
 | State utility CLI | `~/.claude/scripts/gsd-t-tools.js` |
