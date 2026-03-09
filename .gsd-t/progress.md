@@ -12,7 +12,7 @@
 - Root cause: heartbeat never emits session_start to event stream; tool_calls have null agent_id in main session
 - Fix: (1) emit session_start/end events to stream; (2) set agent_id=session_id on tool_calls; (3) improve dashboard node labels + session root rendering
 
-**M17: Scan Visual Output** — Phase: IMPACT_ANALYZED
+**M17: Scan Visual Output** — Phase: EXECUTED
 - Goal: Transform gsd-t-scan from a text-only analysis tool into a rich visual report generator. Every scan produces a self-contained HTML report with 6 live diagrams, a tech debt register, and domain health scores — plus optional DOCX/PDF export for Google Docs.
 - Requirements: REQ-024 through REQ-030, TECH-009 through TECH-013, NFR-006 through NFR-009
 - Reference mock: scan-report-mock.html (project root)
@@ -20,7 +20,7 @@
 ## Active Milestone
 | # | Milestone | Status | Version Target |
 |---|-----------|--------|----------------|
-| M17 | Scan Visual Output | IMPACT_ANALYZED | 2.34.10 |
+| M17 | Scan Visual Output | EXECUTED | 2.34.10 |
 
 ## Completed Milestones
 | Milestone | Version | Completed | Tag |
@@ -48,7 +48,7 @@
 | scan-schema   | complete    | 5 | 5 |
 | scan-diagrams | complete    | 5 | 5 |
 | scan-report   | complete    | 6 | 6 |
-| scan-export   | planned     | 4 | 0 |
+| scan-export   | complete    | 4 | 4 |
 
 ## Contracts
 - [x] scan-schema-contract.md — `extractSchema()` output shape (SchemaData)
@@ -60,6 +60,7 @@
 
 ## Decision Log
 (Entries before 2026-02-16 reconstructed from git history with timestamps)
+- 2026-03-09 (session): [success] scan-export COMPLETE — bin/scan-export.js created (exportReport: docx/pdf with graceful skip), --export flag added to bin/gsd-t.js, Checkpoint 3 PASSED (all 5 modules verified), npm test 178/178
 - 2026-03-09 (session): [success] scan-report COMPLETE — bin/scan-report.js created (116 lines), bin/scan-report-sections.js created (74 lines), generateReport() verified (HTML self-contained, all 6 diagram sections, no CDN refs), commands/gsd-t-scan.md extended with Steps 2.5+3.5+8, npm test 178/178 pass
 - 2026-03-09 (session): [success] scan-diagrams COMPLETE — bin/scan-renderer.js + bin/scan-diagrams.js + bin/scan-diagrams-generators.js created, generateDiagrams() returns 6 DiagramResults (contract-compliant order), rendering fallback chain operational (mmdc → d2 → placeholder), all 10 contract checks passed
 - 2026-03-09 (session): [success] scan-schema COMPLETE — bin/scan-schema.js created (77 lines), bin/scan-schema-parsers.js created (199 lines), extractSchema() exports verified, 7 ORM parsers (prisma/typeorm/drizzle/mongoose/sequelize/sqlalchemy/raw-sql), all 7 contract checks passed
