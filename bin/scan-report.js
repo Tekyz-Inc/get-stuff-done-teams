@@ -86,24 +86,11 @@ const navLinks=document.querySelectorAll('nav a[href^="#"]');document.querySelec
 <\/script>`;
 }
 
-function buildSidebar(projectName, version, scanDate) {
+function buildSidebar(projectName, version, scanDate, diagTypes) {
   const vp = (version ? esc(version) + ' &middot; ' : '') + esc(scanDate || '');
-  return `<nav>
-  <div class="nb"><div class="pill">GSD&#x2011;T Scan</div><h2>${esc(projectName)}</h2><p>${vp}</p></div>
-  <div class="ns">Overview</div>
-  <a href="#summary"><span class="nd g"></span>Summary</a>
-  <a href="#domains"><span class="nd"></span>Domains</a>
-  <div class="ns">Diagrams</div>
-  <a href="#diagram-system-architecture"><span class="nd"></span>System Architecture</a>
-  <a href="#diagram-app-architecture"><span class="nd"></span>App Architecture</a>
-  <a href="#diagram-workflow"><span class="nd"></span>Workflow</a>
-  <a href="#diagram-data-flow"><span class="nd"></span>Data Flow</a>
-  <a href="#diagram-sequence"><span class="nd"></span>Sequence</a>
-  <a href="#diagram-database-schema"><span class="nd"></span>Database Schema</a>
-  <div class="ns">Analysis</div>
-  <a href="#tech-debt"><span class="nd y"></span>Tech Debt</a>
-  <a href="#findings"><span class="nd r"></span>Key Findings</a>
-</nav>`;
+  const ALL = [['system-architecture','System Architecture'],['app-architecture','App Architecture'],['workflow','Workflow'],['data-flow','Data Flow'],['sequence','Sequence'],['database-schema','Database Schema']];
+  const dlinks = ALL.filter(([t]) => !diagTypes || diagTypes.includes(t)).map(([t, l]) => '<a href="#diagram-' + t + '"><span class="nd"></span>' + esc(l) + '</a>').join('\n  ');
+  return '<nav>\n  <div class="nb"><div class="pill">GSD&#x2011;T Scan</div><h2>' + esc(projectName) + '</h2><p>' + vp + '</p></div>\n  <div class="ns">Overview</div>\n  <a href="#summary"><span class="nd g"></span>Summary</a>\n  <a href="#domains"><span class="nd"></span>Domains</a>\n  <div class="ns">Diagrams</div>\n  ' + dlinks + '\n  <div class="ns">Analysis</div>\n  <a href="#tech-debt"><span class="nd y"></span>Tech Debt</a>\n  <a href="#findings"><span class="nd r"></span>Key Findings</a>\n</nav>';
 }
 
 function buildPageHeader(data, opts) {
@@ -158,11 +145,11 @@ const sections = require('./scan-report-sections.js');
 function generateReport(analysisData, schemaData, diagrams, options) {
   try {
     const safeData = analysisData || {};
-    const safeDiagrams = Array.isArray(diagrams) ? diagrams : [];
+    const safeDiagrams = (Array.isArray(diagrams) ? diagrams : []).filter(d => d.mmdSource || d.rendered);
     const opts = options || {};
     const projectName = safeData.projectName || path.basename(opts.projectRoot || process.cwd());
     const css = buildCss();
-    const sidebar = buildSidebar(projectName, safeData.version || '', safeData.scanDate || '');
+    const sidebar = buildSidebar(projectName, safeData.version || '', safeData.scanDate || '', safeDiagrams.map(d => d.type));
     const pageHeader = buildPageHeader(safeData, opts);
     const body = pageHeader
       + sections.buildMetricCards(safeData)
