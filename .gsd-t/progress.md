@@ -47,7 +47,7 @@
 |--------|--------|-------|-----------|
 | scan-schema   | complete    | 5 | 5 |
 | scan-diagrams | complete    | 5 | 5 |
-| scan-report   | planned     | 6 | 0 |
+| scan-report   | complete    | 6 | 6 |
 | scan-export   | planned     | 4 | 0 |
 
 ## Contracts
@@ -60,6 +60,7 @@
 
 ## Decision Log
 (Entries before 2026-02-16 reconstructed from git history with timestamps)
+- 2026-03-09 (session): [success] scan-report COMPLETE — bin/scan-report.js created (116 lines), bin/scan-report-sections.js created (74 lines), generateReport() verified (HTML self-contained, all 6 diagram sections, no CDN refs), commands/gsd-t-scan.md extended with Steps 2.5+3.5+8, npm test 178/178 pass
 - 2026-03-09 (session): [success] scan-diagrams COMPLETE — bin/scan-renderer.js + bin/scan-diagrams.js + bin/scan-diagrams-generators.js created, generateDiagrams() returns 6 DiagramResults (contract-compliant order), rendering fallback chain operational (mmdc → d2 → placeholder), all 10 contract checks passed
 - 2026-03-09 (session): [success] scan-schema COMPLETE — bin/scan-schema.js created (77 lines), bin/scan-schema-parsers.js created (199 lines), extractSchema() exports verified, 7 ORM parsers (prisma/typeorm/drizzle/mongoose/sequelize/sqlalchemy/raw-sql), all 7 contract checks passed
 - 2026-03-09 (session): [success] M17 IMPACT_ANALYZED — verdict PROCEED. Modified files: commands/gsd-t-scan.md (low risk, additive only — Steps 2.5/3.5/8 extension) and bin/gsd-t.js (low risk, ~14 lines --export flag). No breaking changes. All 6 existing test files unaffected.

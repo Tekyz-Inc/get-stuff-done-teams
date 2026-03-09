@@ -220,6 +220,21 @@ Produce: `.gsd-t/scan/contract-drift.md`
 - {endpoint/table/component}: {description}
 ```
 
+## Step 2.5: Schema Extraction
+
+Run schema extraction on the scanned project to detect ORM/database schema files and parse entity definitions. This data feeds the database schema diagram in Step 3.5.
+
+Using Bash tool:
+```
+node -e "const {extractSchema}=require('./bin/scan-schema.js'); const r=extractSchema(process.argv[1]); process.stdout.write(JSON.stringify(r))" "$SCANNED_PROJECT_ROOT"
+```
+
+Capture output as `schemaData`. Log:
+- Detected ORM type: `schemaData.ormType`
+- Entity count: `schemaData.entities.length`
+
+If `schemaData.detected === false`, note: "No ORM/schema files detected — database diagram will use placeholder."
+
 ## Step 3: Build Tech Debt Register
 
 Synthesize ALL findings into `.gsd-t/techdebt.md`:
@@ -301,6 +316,25 @@ Nice-to-haves and cleanup.
 - Languages: {list}
 - Last scan: {previous date or "first scan"}
 ```
+
+## Step 3.5: Diagram Generation
+
+Generate all 6 architectural diagrams using analysis data from Step 2 and schema data from Step 2.5.
+
+Using Bash tool:
+```
+node -e "
+const {generateDiagrams}=require('./bin/scan-diagrams.js');
+const analysisData=JSON.parse(process.argv[1]);
+const schemaData=JSON.parse(process.argv[2]);
+const r=generateDiagrams(analysisData, schemaData, {projectRoot: process.argv[3]});
+process.stdout.write(JSON.stringify(r.map(d=>({type:d.type,rendered:d.rendered,rendererUsed:d.rendererUsed}))));
+" "$ANALYSIS_JSON" "$SCHEMA_JSON" "$SCANNED_PROJECT_ROOT"
+```
+
+Capture the full array as `diagrams`. Log:
+- Diagrams rendered: count of `diagrams.filter(d => d.rendered).length` out of 6
+- Renderer used per diagram: `diagrams.map(d => d.type + ': ' + d.rendererUsed).join(', ')`
 
 ## Step 4: Suggest Milestone Promotions
 
@@ -418,6 +452,22 @@ Present a summary:
 All detailed findings are in `.gsd-t/scan/` for review.
 
 Ask: "Want to promote any tech debt items to milestones? Or address the critical items first?"
+
+### HTML Report Generation
+
+After writing the text report to `.gsd-t/techdebt.md`, generate the self-contained HTML scan report:
+
+Using Bash tool:
+```
+node -e "
+const {generateReport}=require('./bin/scan-report.js');
+const r=generateReport(analysisData, schemaData, diagrams, {projectRoot: process.argv[1]});
+if (r.outputPath) console.log('HTML report:', r.outputPath, '| Diagrams rendered:', r.diagramsRendered + '/6');
+else console.error('Report generation failed:', r.error);
+" "$SCANNED_PROJECT_ROOT"
+```
+
+Report the HTML output path and diagram render count to the user.
 
 ## Document Ripple
 
