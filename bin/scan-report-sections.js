@@ -1,95 +1,124 @@
 'use strict';
 
-function buildMetricCards(analysisData) {
-  const d = analysisData || {};
+function esc(s) {
+  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function buildMetricCards(d) {
+  d = d || {};
+  const loc = d.totalLoc > 999 ? (d.totalLoc / 1000).toFixed(1) + 'k' : (d.totalLoc || 0);
+  const cov = d.testCoverage || 'N/A';
   const metrics = [
-    { label: 'Files Scanned',   value: d.filesScanned || 0 },
-    { label: 'Lines of Code',   value: (d.totalLoc || 0).toLocaleString() },
-    { label: 'Critical Issues', value: d.debtCritical || 0 },
-    { label: 'High Issues',     value: d.debtHigh     || 0 },
-    { label: 'Medium Issues',   value: d.debtMedium   || 0 },
-    { label: 'Test Coverage',   value: d.testCoverage || 'N/A' }
+    { label: 'Files Scanned',   value: d.filesScanned || 0, sub: 'across all components', bar: 'g' },
+    { label: 'Lines of Code',   value: loc,                  sub: 'source code',           bar: '' },
+    { label: 'Critical Issues', value: d.debtCritical || 0, sub: 'requires immediate fix', bar: 'r' },
+    { label: 'High Issues',     value: d.debtHigh || 0,     sub: 'fix before next release', bar: 'o' },
+    { label: 'Medium Issues',   value: d.debtMedium || 0,   sub: 'plan to address',        bar: 'y' },
+    { label: 'Test Coverage',   value: cov,                  sub: 'passing tests',          bar: 'g' }
   ];
   const cards = metrics.map(m =>
-    '<div class="metric-card"><div class="label">' + m.label + '</div><div class="value">' + m.value + '</div></div>'
+    '<div class="mc"><div class="mc-bar' + (m.bar ? ' ' + m.bar : '') + '"></div>' +
+    '<div class="mc-lbl">' + m.label + '</div>' +
+    '<div class="mc-val">' + m.value + '</div>' +
+    '<div class="mc-sub">' + m.sub + '</div></div>'
   ).join('');
-  return '<section id="summary"><h2>Summary</h2><div class="metric-grid">' + cards + '</div></section>';
+  return '<section id="summary"><div class="sl">Summary</div><div class="mxg">' + cards + '</div></section>';
 }
 
-function buildDomainHealth(analysisData) {
-  const domains = (analysisData && analysisData.domains) || [];
+function buildDomainHealth(d) {
+  d = d || {};
+  const domains = d.domains || [];
   if (!domains.length) {
-    return '<section id="domains"><h2>Component Inventory</h2><p style="color:var(--text-muted)">No component data available.</p></section>';
+    return '<section id="domains"><div class="sl">Component Inventory</div>' +
+      '<p style="color:var(--muted2);font-size:12px">No component data available.</p></section>';
   }
-  const rows = domains.map(d =>
-    '<tr>' +
-    '<td><strong>' + esc(d.name) + '</strong></td>' +
-    '<td class="file-path">' + esc(d.filePath || '') + '</td>' +
-    '<td class="loc-cell">' + esc(d.size || '') + '</td>' +
-    '<td style="color:var(--text-muted);font-size:12px">' + esc(d.purpose || '') + '</td>' +
-    '</tr>'
-  ).join('');
-  return '<section id="domains"><h2>Component Inventory</h2>' +
-    '<table><thead><tr><th>Component</th><th>File(s)</th><th>Lines</th><th>Purpose</th></tr></thead>' +
-    '<tbody>' + rows + '</tbody></table></section>';
+  const rows = domains.map(item => {
+    const bigFile = parseInt(item.size) > 500;
+    const sizeColor = bigFile ? 'color:var(--amber)' : 'color:var(--blue)';
+    return '<tr>' +
+      '<td><strong>' + esc(item.name) + '</strong></td>' +
+      '<td style="font-family:\'Consolas\',monospace;font-size:10px;color:var(--muted2)">' + esc(item.filePath || '') + '</td>' +
+      '<td class="loc-cell" style="' + sizeColor + '">' + esc(item.size || '') + '</td>' +
+      '<td style="color:var(--muted2);font-size:11px">' + esc(item.purpose || '') + '</td>' +
+      '</tr>';
+  }).join('');
+  return '<section id="domains"><div class="sl">Component Inventory</div>' +
+    '<div class="tw"><table><thead><tr><th>Component</th><th>File(s)</th><th>Lines</th><th>Purpose</th></tr></thead>' +
+    '<tbody>' + rows + '</tbody></table></div></section>';
 }
 
-function buildDiagramSection(diagramResult) {
-  const d = diagramResult;
-  return '<section id="diagram-' + d.type + '" class="diagram-section">' +
-    '<div class="diagram-header">' +
-    '<div><h2>' + d.title + '</h2><span class="type-badge">' + d.typeBadge + '</span></div>' +
-    '<button class="expand-btn" onclick="openModal(\'' + d.type + '\')">&#x26F6; Expand</button>' +
+function buildDiagramSection(d) {
+  const secId = 'diagram-' + d.type;
+  const cardTitle = esc(d.title + (d.typeBadge ? ' \u2014 ' + d.typeBadge : ''));
+  let diagramContent;
+  if (d.mmdSource) {
+    // Always use browser-side Mermaid rendering for best visual quality with dark theme
+    diagramContent = '<div class="mermaid">\n' + d.mmdSource + '\n</div>';
+  } else if (d.svgContent && !d.svgContent.includes('diagram-placeholder')) {
+    diagramContent = '<div style="width:100%;overflow:auto">' + d.svgContent + '</div>';
+  } else {
+    diagramContent = d.svgContent ||
+      '<div class="diagram-placeholder"><p>Diagram unavailable</p></div>';
+  }
+  return '<section id="' + secId + '">' +
+    '<div class="sl">' + esc(d.title) + '</div>' +
+    '<div class="dc" data-title="' + cardTitle + '">' +
+    '<div class="dc-h"><div class="dc-hl">' +
+    '<span class="dc-t">' + esc(d.title) + '</span>' +
+    '<span class="dc-tag">' + esc(d.typeBadge) + '</span>' +
+    '</div><button class="btn-exp" onclick="expandDiagram(this)">&#x26F6;<span class="lbl">Expand</span></button>' +
     '</div>' +
-    '<div class="diagram-container" id="diagram-' + d.type + '-inner">' + d.svgContent + '</div>' +
-    '<p class="diagram-note">' + d.note + '</p>' +
-    '</section>';
+    '<div class="dc-b">' + diagramContent + '</div>' +
+    '<div class="dc-n">' + esc(d.note) + '</div>' +
+    '</div></section>';
 }
 
-function buildTechDebt(analysisData) {
-  const items = (analysisData && analysisData.techDebt) || [];
+function buildTechDebt(d) {
+  d = d || {};
+  const items = d.techDebt || [];
   if (!items.length) {
-    return '<section id="tech-debt"><h2>Tech Debt Register</h2><p style="color:var(--text-muted)">No open tech debt items.</p></section>';
+    return '<section id="tech-debt"><div class="sl">Tech Debt Register</div>' +
+      '<p style="color:var(--muted2);font-size:12px">No open tech debt items.</p></section>';
   }
-  const rows = items.map(i =>
-    '<tr><td><span class="badge badge-' + i.severity + '">' + i.severity.toUpperCase() + '</span></td>' +
-    '<td style="font-family:monospace;font-size:12px;color:var(--accent)">' + esc(i.domain || '') + '</td>' +
-    '<td>' + esc(i.issue || '') + '</td>' +
-    '<td style="color:var(--text-muted);font-size:12px">' + esc(i.location || '') + '</td>' +
-    '<td style="color:var(--text-muted);font-size:12px">' + esc(i.effort || '') + '</td></tr>'
-  ).join('');
-  return '<section id="tech-debt"><h2>Tech Debt Register</h2>' +
-    '<table><thead><tr><th>Severity</th><th>ID</th><th>Issue</th><th>Location</th><th>Effort</th></tr></thead>' +
-    '<tbody>' + rows + '</tbody></table></section>';
+  const sevClass = { critical: 'c', high: 'h', medium: 'm', low: 'l', info: 'i' };
+  const rows = items.map(i => {
+    const sc = sevClass[(i.severity || '').toLowerCase()] || 'm';
+    return '<tr>' +
+      '<td><span class="bx ' + sc + '">' + esc(i.severity || '') + '</span></td>' +
+      '<td style="font-family:\'Consolas\',monospace;font-size:11px;color:var(--blue)">' + esc(i.domain || '') + '</td>' +
+      '<td>' + esc(i.issue || '') + '</td>' +
+      '<td><code>' + esc(i.location || '') + '</code></td>' +
+      '<td style="color:var(--muted2);font-size:11px">' + esc(i.effort || '') + '</td>' +
+      '</tr>';
+  }).join('');
+  return '<section id="tech-debt"><div class="sl">Tech Debt Register</div>' +
+    '<div class="tw"><table><thead><tr><th>Severity</th><th>Domain</th><th>Issue</th><th>Location</th><th>Effort</th></tr></thead>' +
+    '<tbody>' + rows + '</tbody></table></div></section>';
 }
 
-const SEV_COLORS = { critical: '#f85149', high: '#e3b341', medium: '#d29922', low: '#58a6ff' };
+const ICONS = {
+  security: '&#128721;', architecture: '&#9889;', reliability: '&#128202;',
+  quality: '&#128196;', performance: '&#9888;', strength: '&#9989;', default: '&#128203;'
+};
 
-function buildFindings(analysisData) {
-  const findings = (analysisData && analysisData.findings) || [];
+function buildFindings(d) {
+  d = d || {};
+  const findings = d.findings || [];
   if (!findings.length) {
-    return '<section id="findings"><h2>Key Findings</h2><p style="color:var(--text-muted)">No findings recorded.</p></section>';
+    return '<section id="findings"><div class="sl">Key Findings</div>' +
+      '<p style="color:var(--muted2);font-size:12px">No findings recorded.</p></section>';
   }
   const cards = findings.map(f => {
-    const sev = (f.severity || 'medium').toLowerCase();
-    const color = SEV_COLORS[sev] || SEV_COLORS.medium;
-    return '<div class="finding-card" style="border-left-color:' + color + '">' +
-      '<div class="finding-header">' +
-      '<span class="sev-badge" style="background:' + color + '22;color:' + color + '">' + sev.toUpperCase() + '</span>' +
-      '<span class="finding-cat">' + esc(f.category || '') + '</span>' +
-      '</div>' +
-      '<div class="finding-title">' + esc(f.title || '') + '</div>' +
-      '<p class="finding-desc">' + esc(f.description || '') + '</p>' +
-      (f.recommendation
-        ? '<div class="finding-rec"><span class="rec-label">Recommendation</span>' + esc(f.recommendation) + '</div>'
-        : '') +
-      '</div>';
+    const cat = (f.category || '').toLowerCase();
+    const ico = ICONS[cat] || ICONS.default;
+    const rec = f.recommendation
+      ? ' <strong style="color:var(--text)">Fix:</strong> ' + esc(f.recommendation) : '';
+    return '<div class="fi"><div class="ico">' + ico + '</div>' +
+      '<div><h4>' + esc(f.title || '') + '</h4>' +
+      '<p>' + esc(f.description || '') + rec + '</p>' +
+      '</div></div>';
   }).join('');
-  return '<section id="findings"><h2>Key Findings</h2>' + cards + '</section>';
-}
-
-function esc(s) {
-  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return '<section id="findings"><div class="sl">Key Findings</div><div class="fl">' + cards + '</div></section>';
 }
 
 module.exports = { buildMetricCards, buildDomainHealth, buildDiagramSection, buildTechDebt, buildFindings };

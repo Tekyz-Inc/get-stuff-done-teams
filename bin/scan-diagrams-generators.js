@@ -2,77 +2,165 @@
 
 function genSystemArchitecture(analysisData) {
   try {
-    const services = (analysisData.services || []).slice(0, 5);
-    if (services.length) {
-      const lines = [
-        'graph TB',
-        '  classDef user fill:#0d6efd,stroke:#0d6efd,color:#fff',
-        '  classDef svc fill:#6f42c1,stroke:#6f42c1,color:#fff',
-        '  User([User]):::user'
-      ];
-      services.forEach((s, i) => {
-        lines.push('  Svc' + i + '[' + s + ']:::svc');
-        lines.push('  User --> Svc' + i);
-      });
+    const services = (analysisData.services || []).slice(0, 4);
+    if (services.length >= 2) {
+      const lines = ['graph TB',
+        '  classDef user fill:#0d2035,stroke:#06b6d4,color:#a5f3fc',
+        '  classDef svc fill:#1a0f3a,stroke:#7c3aed,color:#ddd6fe',
+        '  classDef db fill:#0a2318,stroke:#10b981,color:#a7f3d0',
+        '  User(["&#128100; User"]):::user'];
+      services.forEach((s, i) => { lines.push('  S' + i + '["' + s + '"]:::svc'); lines.push('  User --> S' + i); });
       return lines.join('\n');
     }
-    return 'graph TB\n  classDef user fill:#0d6efd,stroke:#0d6efd,color:#fff\n  classDef svc fill:#6f42c1,stroke:#6f42c1,color:#fff\n  classDef db fill:#198754,stroke:#198754,color:#fff\n  User([User]):::user\n  App[Application]:::svc\n  DB[(Database)]:::db\n  User --> App --> DB';
-  } catch {
-    return 'graph TB\n  App[Application] --> DB[(Database)]';
-  }
+    return `graph TB
+  classDef user fill:#0d2035,stroke:#06b6d4,color:#a5f3fc
+  classDef app  fill:#0f1d3a,stroke:#3b82f6,color:#bfdbfe
+  classDef api  fill:#1a0f3a,stroke:#7c3aed,color:#ddd6fe
+  classDef db   fill:#0a2318,stroke:#10b981,color:#a7f3d0
+  classDef ext  fill:#111827,stroke:#374151,color:#9ca3af
+  USER(["&#128100; User\\nweb &amp; mobile"]):::user
+  subgraph PLATFORM["  Application Platform  "]
+    APP["&#127760; Frontend\\nUser Interface"]:::app
+    API["&#9889; Backend\\nApplication Logic"]:::api
+    DB[("&#128451; Database\\nPrimary Store")]:::db
+  end
+  EXT["&#127758; External Services\\nAPIs &amp; Integrations"]:::ext
+  USER -->|"HTTPS"| APP
+  APP  -->|"REST / JSON"| API
+  API  -->|"reads / writes"| DB
+  API  -->|"calls"| EXT
+  style PLATFORM fill:#0a0f1e,stroke:#1e3a5f,color:#e2e8f0`;
+  } catch { return 'graph TB\n  App[Application] --> DB[(Database)]'; }
 }
 
 function genAppArchitecture(analysisData) {
   try {
-    const layers = analysisData.layers || ['Controllers', 'Services', 'Repositories'];
-    const lines = ['graph TB', '  subgraph App[Application]'];
-    for (let i = 0; i < layers.length; i++) {
-      lines.push('    L' + i + '[' + layers[i] + ']');
-      if (i > 0) lines.push('    L' + (i - 1) + ' --> L' + i);
+    const layers = (analysisData.layers || []).slice(0, 5);
+    if (layers.length >= 3) {
+      const lines = ['graph TB'];
+      const colors = ['#0f1d3a,#3b82f6', '#1a0f3a,#7c3aed', '#0a2318,#10b981', '#1f1505,#f59e0b', '#12102a,#6366f1'];
+      layers.forEach((l, i) => {
+        const [bg, stroke] = colors[i % colors.length].split(',');
+        lines.push(`  L${i}["${l}"]`);
+        lines.push(`  style L${i} fill:${bg},stroke:${stroke},color:#e2e8f0`);
+        if (i > 0) lines.push(`  L${i - 1} --> L${i}`);
+      });
+      return lines.join('\n');
     }
-    lines.push('  end');
-    return lines.join('\n');
-  } catch {
-    return 'graph TB\n  subgraph App\n    Controllers --> Services --> Repositories\n  end';
-  }
+    return `graph TB
+  classDef client fill:#0d2035,stroke:#06b6d4,color:#a5f3fc
+  classDef ctrl  fill:#0f1d3a,stroke:#3b82f6,color:#bfdbfe
+  classDef svc   fill:#1a0f3a,stroke:#7c3aed,color:#ddd6fe
+  classDef repo  fill:#1a0f3a,stroke:#8b5cf6,color:#ddd6fe
+  classDef db    fill:#0a2318,stroke:#10b981,color:#a7f3d0
+  subgraph CL["  Clients  "]
+    WEB["&#127760; Web App"]:::client
+    MOB["&#128241; Mobile"]:::client
+  end
+  subgraph CTR["  Controller Layer  "]
+    AC["AuthController"]:::ctrl
+    TC["TasksController"]:::ctrl
+    PC["ProjectsController"]:::ctrl
+  end
+  subgraph SVC["  Service Layer  "]
+    AS["AuthService"]:::svc
+    TS["TasksService"]:::svc
+    PS["ProjectsService"]:::svc
+  end
+  DB[("&#128451; Database")]:::db
+  WEB & MOB --> CTR --> SVC --> DB
+  style CL  fill:#080e1a,stroke:#0e2035
+  style CTR fill:#080e1a,stroke:#1e3a5f
+  style SVC fill:#080e1a,stroke:#2d1a5e`;
+  } catch { return 'graph TB\n  subgraph App\n    Controllers --> Services --> Repositories\n  end'; }
 }
 
 function genWorkflow(analysisData) {
   try {
-    const states = analysisData.states || [];
-    if (states.length >= 2) {
-      const lines = ['stateDiagram-v2', '  [*] --> ' + states[0]];
-      for (let i = 0; i < states.length - 1; i++) {
-        lines.push('  ' + states[i] + ' --> ' + states[i + 1]);
-      }
+    const states = (analysisData.states || []).slice(0, 6);
+    if (states.length >= 3) {
+      const lines = ['stateDiagram-v2', '  direction LR', '  [*] --> ' + states[0]];
+      states.forEach((s, i) => { if (i < states.length - 1) lines.push(`  ${s} --> ${states[i + 1]}`); });
       lines.push('  ' + states[states.length - 1] + ' --> [*]');
       return lines.join('\n');
     }
-    return 'stateDiagram-v2\n  [*] --> Pending\n  Pending --> Active\n  Active --> Completed\n  Active --> Cancelled\n  Completed --> [*]\n  Cancelled --> [*]';
-  } catch {
-    return 'stateDiagram-v2\n  [*] --> Active\n  Active --> Inactive\n  Inactive --> [*]';
-  }
+    return `stateDiagram-v2
+  direction LR
+  [*] --> Draft : create
+  Draft --> Open        : submit
+  Draft --> [*]         : discard
+  Open --> InProgress   : assign
+  Open --> Cancelled    : cancel
+  InProgress --> Review : mark done
+  InProgress --> Blocked : flag blocker
+  InProgress --> Open   : unassign
+  Blocked --> InProgress : resolve
+  Review --> Done       : approve
+  Review --> InProgress : reject
+  Done --> [*]
+  Cancelled --> [*]
+  note right of Blocked
+    No SLA timeout —
+    can stagnate here
+  end note`;
+  } catch { return 'stateDiagram-v2\n  [*] --> Active\n  Active --> Done\n  Done --> [*]'; }
 }
 
 function genDataFlow(analysisData) {
   try {
-    const endpoints = analysisData.endpoints || [];
-    if (endpoints.length) {
-      return 'flowchart TD\n  Input[' + endpoints[0] + ']\n  Input --> Validate --> Service --> DB[(Store)]\n  Service --> Queue([Queue])\n  DB --> Response\n  Queue --> Response';
-    }
-    return 'flowchart TD\n  Input([HTTP Request]) --> Validate{Valid?}\n  Validate -->|yes| Service[Business Logic]\n  Validate -->|no| Error([400 Error])\n  Service --> DB[(Database)]\n  DB --> Response([HTTP Response])';
-  } catch {
-    return 'flowchart TD\n  Input --> Validate --> Process --> Store --> Respond';
-  }
+    const endpoints = (analysisData.endpoints || []).slice(0, 1);
+    const ep = endpoints[0] || 'POST /api/resource';
+    return `flowchart TD
+  classDef user   fill:#0d2035,stroke:#06b6d4,color:#a5f3fc
+  classDef fe     fill:#0f1d3a,stroke:#3b82f6,color:#bfdbfe
+  classDef api    fill:#1a0f3a,stroke:#7c3aed,color:#ddd6fe
+  classDef db     fill:#0a2318,stroke:#10b981,color:#a7f3d0
+  classDef queue  fill:#1f1505,stroke:#f59e0b,color:#fde68a
+  classDef ok     fill:#0a2318,stroke:#10b981,color:#a7f3d0
+  USR(["&#128100; User"]):::user
+  subgraph FE["Frontend"]
+    FORM["Form\\n+ Client Validation"]:::fe
+  end
+  subgraph API["API Server"]
+    PIPE["ValidationPipe\\n+ Sanitize"]:::api
+    CTRL["Controller\\n${ep}"]:::api
+    SVC["Service\\nbusiness logic"]:::api
+    REPO["Repository\\nINSERT / UPDATE"]:::api
+  end
+  DB[("&#128451; Database")]:::db
+  RD[("&#9889; Queue")]:::queue
+  RES(["&#10003; Response"]):::ok
+  USR --> FORM --> PIPE --> CTRL --> SVC --> REPO --> DB
+  SVC --> RD
+  DB --> RES
+  style FE  fill:#080e1a,stroke:#1e3a5f
+  style API fill:#080e1a,stroke:#2d1a5e`;
+  } catch { return 'flowchart TD\n  Input --> Validate --> Process --> Store --> Respond'; }
 }
 
 function genSequence(analysisData) {
   try {
-    const ep = (analysisData.endpoints || ['POST /api/resource'])[0];
-    return 'sequenceDiagram\n  autonumber\n  Client->>Server: ' + ep + '\n  Server->>Validator: validate(body)\n  Validator-->>Server: ok\n  Server->>DB: query()\n  DB-->>Server: result\n  Server-->>Client: 200 Response';
-  } catch {
-    return 'sequenceDiagram\n  Client->>Server: Request\n  Server->>DB: Query\n  DB-->>Server: Result\n  Server-->>Client: Response';
-  }
+    const ep = ((analysisData.endpoints || [])[0]) || 'POST /api/resource';
+    return `sequenceDiagram
+  autonumber
+  actor User
+  participant Client
+  participant API as API Server
+  participant DB as Database
+  participant Queue
+  User->>Client: Submit form
+  Client->>API: ${ep}
+  API->>API: validate &amp; sanitize
+  alt invalid input
+    API-->>Client: 400 Bad Request
+  else valid
+    API->>DB: INSERT record
+    DB-->>API: record id
+    API->>Queue: enqueue background job
+    API-->>Client: 201 Created
+    Client-->>User: Success feedback
+  end`;
+  } catch { return 'sequenceDiagram\n  Client->>Server: Request\n  Server->>DB: Query\n  DB-->>Server: Result\n  Server-->>Client: Response'; }
 }
 
 function genDatabaseSchema(schemaData) {
@@ -89,14 +177,11 @@ function genDatabaseSchema(schemaData) {
     }
     for (const entity of schemaData.entities) {
       for (const rel of (entity.relations || [])) {
-        const notation = relMap[rel.type] || '||--o{';
-        lines.push('  ' + rel.fromEntity + ' ' + notation + ' ' + rel.toEntity + ' : "has"');
+        lines.push('  ' + rel.fromEntity + ' ' + (relMap[rel.type] || '||--o{') + ' ' + rel.toEntity + ' : "has"');
       }
     }
     return lines.join('\n');
-  } catch {
-    return '';
-  }
+  } catch { return ''; }
 }
 
 module.exports = { genSystemArchitecture, genAppArchitecture, genWorkflow, genDataFlow, genSequence, genDatabaseSchema };

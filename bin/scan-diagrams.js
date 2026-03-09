@@ -29,12 +29,13 @@ const DIAGRAM_DEFS = [
   { type: 'database-schema',     title: 'Database Schema',          typeBadge: 'erDiagram',      gen: (_, s) => genDatabaseSchema(s) }
 ];
 
-function buildPlaceholder(def) {
+function buildPlaceholder(def, mmd) {
   return {
     type: def.type,
     title: def.title,
     typeBadge: def.typeBadge,
     svgContent: PLACEHOLDER_HTML,
+    mmdSource: mmd || '',
     note: NOTES[def.type] || '',
     rendered: false,
     rendererUsed: 'placeholder'
@@ -51,7 +52,7 @@ function generateDiagrams(analysisData, schemaData, options) {
         const isDbSchema = def.type === 'database-schema';
         const noSchema = !schemaData || !schemaData.detected || !mmd;
         if (isDbSchema && noSchema) {
-          results.push(buildPlaceholder(def));
+          results.push(buildPlaceholder(def, ''));
         } else {
           const rendered = renderDiagram(mmd, def.type, options || {});
           results.push({
@@ -59,13 +60,14 @@ function generateDiagrams(analysisData, schemaData, options) {
             title: def.title,
             typeBadge: def.typeBadge,
             svgContent: rendered.svgContent,
+            mmdSource: mmd,
             note: NOTES[def.type] || '',
             rendered: rendered.rendered,
             rendererUsed: rendered.rendererUsed
           });
         }
       } catch {
-        results.push(buildPlaceholder(def));
+        results.push(buildPlaceholder(def, ''));
       }
     }
     return results;
