@@ -23,46 +23,76 @@ function parseTestCoverage(text) {
 }
 
 function parseFilesAndLoc(text) {
-  // Match: | **Total JS** | 19 files | **2,934 lines** | |
   const m = text.match(/\|\s*\*?\*?Total[^|]*\*?\*?\s*\|\s*(\d+)\s+files?\s*\|\s*\*?\*?([\d,]+)[^|]*\*?\*?\s*\|/i);
   if (m) return { filesScanned: parseInt(m[1], 10), totalLoc: parseInt(m[2].replace(/,/g, ''), 10) };
   return { filesScanned: 0, totalLoc: 0 };
 }
 
 function parseComponents(text) {
-  const sectionMatch = text.match(/## Component Inventory([\s\S]*?)(?=\n## |\n---|\n#[^#]|$)/);
-  if (!sectionMatch) return [];
-  return sectionMatch[1].split('\n')
+  const sec = text.match(/## Component Inventory([\s\S]*?)(?=\n## |\n---|\n#[^#]|$)/);
+  if (!sec) return [];
+  return sec[1].split('\n')
     .filter(l => /^\|/.test(l) && !/---/.test(l) && !/Component.*File/i.test(l))
+    .map(row => {
+      const cols = row.split('|').map(c => c.trim().replace(/\*\*/g, '').replace(/`/g, '')).filter(Boolean);
+      if (cols.length < 3) return null;
+      const name = cols[0];
+      if (!name || /^total/i.test(name)) return null;
+      return { name, filePath: cols[1] || '', size: cols[2] || '', purpose: cols[3] || '', files: 1, healthScore: 80 };
+    })
+    .filter(Boolean);
+}
+
+function parseSeverityMap(text) {
+  const map = {};
+  const high = text.match(/High priority:[^\n]*\(([^)]+)\)/i);
+  if (high) {
+    high[1].split(',').forEach(part => { const m = part.trim().match(/TD-\d+/); if (m) map[m[0]] = 'high'; });
+  }
+  const med = text.match(/Medium priority:[^\n]*\(([^)]+)\)/i);
+  if (med) {
+    med[1].split(',').forEach(part => {
+      const r = part.trim().match(/TD-(\d+)[–\-](\d+)/);
+      if (r) {
+        for (let i = parseInt(r[1]); i <= parseInt(r[2]); i++) {
+          map['TD-' + String(i).padStart(3, '0')] = 'medium';
+        }
+      } else { const m = part.trim().match(/TD-\d+/); if (m) map[m[0]] = 'medium'; }
+    });
+  }
+  return map;
+}
+
+function parseTechDebtItems(qualText, debtText) {
+  if (!qualText) return [];
+  const severityMap = parseSeverityMap(debtText || '');
+  const tableMatch = qualText.match(/\| ID \| Title \| Status \|([\s\S]*?)(?=\n---|\n## |$)/i);
+  if (!tableMatch) return [];
+  return tableMatch[1].split('\n')
+    .filter(l => /^\|/.test(l) && !/---/.test(l) && !/\| ID \|/i.test(l))
     .map(row => {
       const cols = row.split('|').map(c => c.trim()).filter(Boolean);
       if (cols.length < 3) return null;
-      const name = cols[0].replace(/\*\*/g, '').trim();
-      if (!name || /^total/i.test(name)) return null;
-      const fileCountMatch = cols[1].match(/(\d+)\s+files?/i);
-      const files = fileCountMatch ? parseInt(fileCountMatch[1], 10) : (cols[1] ? 1 : 0);
-      const locMatch = cols[2].match(/[\d,]+/);
-      const loc = locMatch ? parseInt(locMatch[0].replace(/,/g, ''), 10) : 0;
-      // Health heuristic: files > 200 lines get lower score
-      const healthScore = loc > 200 ? 60 : 90;
-      return { name, files, loc, healthScore };
+      const id = cols[0]; const title = cols[1];
+      if (!cols[2].toUpperCase().includes('OPEN')) return null;
+      return { severity: severityMap[id] || 'low', domain: id, issue: title, location: '', effort: '' };
     })
-    .filter(Boolean);
+    .filter(Boolean).slice(0, 20);
 }
 
 function parseSecurityFindings(text) {
   if (!text) return [];
   const findings = [];
-  const secs = text.split(/\n### /).slice(1);
-  for (const sec of secs) {
+  for (const sec of text.split(/\n### /).slice(1)) {
     const titleLine = sec.split('\n')[0];
     if (!/SEC-[HM]\d+/.test(titleLine)) continue;
-    const idM    = titleLine.match(/(SEC-[HM]\d+)/);
-    const nameM  = titleLine.match(/SEC-[HM]\d+:\s*(.+?)(?:\s+[-–][-–]|\s*$)/);
-    const detM   = sec.match(/- \*\*Details\*\*:\s*(.+?)(?=\n-|\n\n|$)/s);
-    const fixM   = sec.match(/- \*\*Fix\*\*:\s*(.+?)(?=\n-|\n\n|$)/s);
+    const idM   = titleLine.match(/(SEC-[HM]\d+)/);
+    const nameM = titleLine.match(/SEC-[HM]\d+:\s*(.+?)(?:\s+[-–][-–]|\s*$)/);
+    const detM  = sec.match(/- \*\*Details\*\*:\s*(.+?)(?=\n-|\n\n|$)/s);
+    const fixM  = sec.match(/- \*\*Fix\*\*:\s*(.+?)(?=\n-|\n\n|$)/s);
     findings.push({
-      category: /SEC-H/.test(titleLine) ? 'Security — HIGH' : 'Security — MEDIUM',
+      category: /SEC-H/.test(titleLine) ? 'Security' : 'Security',
+      severity: /SEC-H/.test(titleLine) ? 'high' : 'medium',
       title:    (idM ? idM[1] : '') + (nameM ? ': ' + nameM[1].trim() : ''),
       description:    detM ? detM[1].trim().replace(/\n/g, ' ') : '',
       recommendation: fixM ? fixM[1].trim().replace(/\n/g, ' ') : ''
@@ -71,49 +101,53 @@ function parseSecurityFindings(text) {
   return findings;
 }
 
-function parseQualityItems(text) {
+function parseQualityFindings(text) {
   if (!text) return [];
   const findings = [];
-  // Parse rows from open item status table: | TD-NNN | Title | Status |
-  const tableMatch = text.match(/\| ID \| Title \| Status \|([\s\S]*?)(?=\n---|\n## |$)/i);
-  if (!tableMatch) return [];
-  tableMatch[1].split('\n')
-    .filter(l => /^\|/.test(l) && !/---/.test(l) && !/\| ID \|/.test(l))
-    .slice(0, 5) // top 5
-    .forEach(row => {
-      const cols = row.split('|').map(c => c.trim()).filter(Boolean);
-      if (cols.length < 3) return;
-      findings.push({
-        category: 'Quality',
-        title: cols[0] + ': ' + cols[1],
-        description: cols[2] || '',
-        recommendation: 'Review and schedule remediation'
-      });
+  for (const sec of text.split(/\n### /).slice(1)) {
+    const titleLine = sec.split('\n')[0];
+    const idM = titleLine.match(/((?:DC|TCG|TD)-[A-Z\-\d]+)/);
+    const nameM = titleLine.match(/(?:DC|TCG|TD)-[A-Z\-\d]+:\s*(.+?)(?:\s*$)/);
+    const locM = sec.match(/^`([^`]+)`/m);
+    const detM = sec.match(/\n(.+?)\n- \*\*Impact\*\*/s);
+    const sugM = sec.match(/- \*\*Suggestion\*\*:\s*(.+?)(?=\n-|\n\n|$)/s);
+    if (!idM) continue;
+    findings.push({
+      category: 'Quality',
+      severity: 'medium',
+      title:    (idM ? idM[1] : '') + (nameM ? ': ' + nameM[1].trim() : ''),
+      description:    locM ? locM[1] : (detM ? detM[1].trim() : ''),
+      recommendation: sugM ? sugM[1].trim().replace(/\n/g, ' ') : 'Review and schedule remediation'
     });
-  return findings;
+  }
+  return findings.slice(0, 3);
 }
 
 function collectScanData(projectRoot) {
   const scanDir = path.join(projectRoot, '.gsd-t', 'scan');
-  const archText  = read(path.join(scanDir, 'architecture.md'));
-  const testText  = read(path.join(scanDir, 'test-baseline.md'));
-  const secText   = read(path.join(scanDir, 'security.md'));
-  const qualText  = read(path.join(scanDir, 'quality.md'));
-  const debtText  = read(path.join(projectRoot, '.gsd-t', 'techdebt.md'));
+  const rs = (f) => read(path.join(scanDir, f));
+  const rr = (f) => read(path.join(projectRoot, f));
+
+  const archText  = rs('architecture.md');
+  const testText  = rs('test-baseline.md');
+  const secText   = rs('security.md');
+  const qualText  = rs('quality.md');
+  const debtText  = rr('.gsd-t/techdebt.md');
 
   let projectName = path.basename(projectRoot);
-  try { projectName = JSON.parse(read(path.join(projectRoot, 'package.json'))).name || projectName; } catch {}
+  try { projectName = JSON.parse(rr('package.json')).name || projectName; } catch {}
 
   const { filesScanned, totalLoc } = parseFilesAndLoc(archText);
   const { debtCritical, debtHigh, debtMedium } = parseDebtSummary(debtText);
   const testCoverage = parseTestCoverage(testText);
-  const domains  = parseComponents(archText);
-  const secFinds = parseSecurityFindings(secText);
-  const qualFinds = parseQualityItems(qualText);
-  const findings = secFinds.concat(qualFinds).slice(0, 10);
+  const domains   = parseComponents(archText);
+  const techDebt  = parseTechDebtItems(qualText, debtText);
+  const secFinds  = parseSecurityFindings(secText);
+  const qualFinds = parseQualityFindings(qualText);
+  const findings  = secFinds.concat(qualFinds).slice(0, 10);
 
   return { projectName, filesScanned, totalLoc, debtCritical, debtHigh, debtMedium,
-           testCoverage, domains, techDebt: [], findings };
+           testCoverage, domains, techDebt, findings };
 }
 
 module.exports = { collectScanData };

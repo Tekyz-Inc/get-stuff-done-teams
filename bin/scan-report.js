@@ -36,10 +36,16 @@ th{text-align:left;padding:8px 12px;border-bottom:1px solid var(--border);color:
 td{padding:8px 12px;border-bottom:1px solid rgba(48,54,61,.5)}
 .badge{border-radius:4px;padding:2px 8px;font-size:11px;font-weight:600}
 .badge-critical{color:#f85149}.badge-high{color:#d29922}.badge-medium{color:#e3b341}.badge-low{color:#58a6ff}
-.finding-card{background:var(--card-bg);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:12px}
-.finding-category{color:var(--text-muted);font-size:11px;text-transform:uppercase;margin-bottom:4px}
-.finding-title{font-weight:600;margin-bottom:8px}
-.finding-rec{font-size:13px;color:var(--text-muted);border-left:2px solid var(--accent);padding-left:10px;margin-top:8px}
+.file-path{font-family:monospace;font-size:12px;color:var(--text-muted)}
+.loc-cell{font-family:monospace;font-size:12px;color:var(--accent);white-space:nowrap}
+.finding-card{background:var(--card-bg);border:1px solid var(--border);border-left:4px solid var(--border);border-radius:8px;padding:20px;margin-bottom:14px}
+.finding-header{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.sev-badge{border-radius:4px;padding:2px 8px;font-size:10px;font-weight:700;letter-spacing:.06em}
+.finding-cat{color:var(--text-muted);font-size:11px;text-transform:uppercase;letter-spacing:.08em}
+.finding-title{font-size:14px;font-weight:600;margin-bottom:10px;line-height:1.4}
+.finding-desc{font-size:13px;color:var(--text-muted);line-height:1.65;margin-bottom:12px}
+.finding-rec{background:rgba(88,166,255,.06);border-left:3px solid var(--accent);border-radius:0 4px 4px 0;padding:10px 14px;font-size:13px;color:var(--text);line-height:1.55}
+.rec-label{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--accent);margin-bottom:5px;font-weight:600}
 #modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:1000;overflow:auto;padding:20px}
 #modal-content{background:var(--card-bg);border:1px solid var(--border);border-radius:8px;padding:20px;max-width:1400px;margin:0 auto}
 #modal-close{float:right;background:none;border:1px solid var(--border);color:var(--text);border-radius:4px;padding:4px 12px;cursor:pointer}`;
