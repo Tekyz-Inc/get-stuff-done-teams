@@ -60,6 +60,10 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:12
 .badge.failure{background:var(--red-bg);color:var(--red);}
 .badge.learning,.badge.deferred{background:var(--yellow-bg);color:var(--yellow);}
 .noevents{color:var(--muted);font-size:11px;padding:12px;text-align:center;}
+.node-tooltip{position:fixed;z-index:9999;background:#1c2128;border:1px solid var(--blue);
+  border-radius:5px;padding:6px 10px;font-size:11px;color:var(--text);
+  pointer-events:none;white-space:pre-wrap;max-width:280px;line-height:1.5;
+  box-shadow:0 4px 12px rgba(0,0,0,0.6);}
 </style>
 </head>
 <body>
@@ -97,9 +101,24 @@ function layoutGraph(nodes,edges){
 }
 
 function AgentNode({data}){
-  return React.createElement('div',{className:`agent-node ${data.outcome} ${data.nodeType||''}`},
-    React.createElement('div',{className:'node-id',title:data.label},data.label),
-    React.createElement('div',{className:'node-cnt'},`${data.count} event${data.count!==1?'s':''}`));
+  const [tip,setTip]=React.useState(null);
+  function showTip(e){
+    setTip({x:e.clientX+12,y:e.clientY+12,text:data.fullLabel||data.label});
+  }
+  function moveTip(e){
+    setTip(t=>t?{...t,x:e.clientX+12,y:e.clientY+12}:null);
+  }
+  return React.createElement('div',{className:`agent-node ${data.outcome} ${data.nodeType||''}`,
+    onMouseEnter:showTip,onMouseMove:moveTip,onMouseLeave:()=>setTip(null)},
+    React.createElement('div',{className:'node-id'},data.label),
+    React.createElement('div',{className:'node-cnt'},`${data.count} event${data.count!==1?'s':''}`),
+    tip&&React.createElement(ReactDOM.createPortal?'span':'span',null,
+      ReactDOM.createPortal(
+        React.createElement('div',{className:'node-tooltip',style:{left:tip.x,top:tip.y}},tip.text),
+        document.body
+      )
+    )
+  );
 }
 
 const nodeTypes={agentNode:AgentNode};
@@ -130,7 +149,8 @@ function Dashboard(){
       const isSession=d.nodeType==='session';
       const dateStr=d.firstTs?new Date(d.firstTs).toLocaleDateString('en',{month:'short',day:'numeric'}):'';
       const lbl=isSession?`Session · ${dateStr?dateStr+' ':''}${aid.slice(0,7)}`:(d.nodeType||aid.slice(0,8)+'..'+aid.slice(-4));
-      return{id:aid,type:'agentNode',data:{label:lbl,count:d.count,outcome:d.outcome||'',nodeType:d.nodeType||''},position:{x:0,y:0}};
+      const fullLabel=isSession?`Session: ${aid}\nDate: ${dateStr||'unknown'}\nEvents: ${d.count}`:`Agent: ${aid}\nType: ${d.nodeType||'task'}\nEvents: ${d.count}${d.parent?'\nParent: '+d.parent.slice(0,12)+'...':''}`;
+      return{id:aid,type:'agentNode',data:{label:lbl,fullLabel,count:d.count,outcome:d.outcome||'',nodeType:d.nodeType||''},position:{x:0,y:0}};
     });
     const newEdges=Object.entries(agentMap.current)
       .filter(([,d])=>d.parent&&d.parent!=='')
