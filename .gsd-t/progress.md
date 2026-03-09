@@ -12,6 +12,16 @@
 - Root cause: heartbeat never emits session_start to event stream; tool_calls have null agent_id in main session
 - Fix: (1) emit session_start/end events to stream; (2) set agent_id=session_id on tool_calls; (3) improve dashboard node labels + session root rendering
 
+**M17: Scan Visual Output** — Phase: IMPACT_ANALYZED
+- Goal: Transform gsd-t-scan from a text-only analysis tool into a rich visual report generator. Every scan produces a self-contained HTML report with 6 live diagrams, a tech debt register, and domain health scores — plus optional DOCX/PDF export for Google Docs.
+- Requirements: REQ-024 through REQ-030, TECH-009 through TECH-013, NFR-006 through NFR-009
+- Reference mock: scan-report-mock.html (project root)
+
+## Active Milestone
+| # | Milestone | Status | Version Target |
+|---|-----------|--------|----------------|
+| M17 | Scan Visual Output | IMPACT_ANALYZED | 2.34.10 |
+
 ## Completed Milestones
 | Milestone | Version | Completed | Tag |
 |-----------|---------|-----------|-----|
@@ -33,16 +43,31 @@
 | Tooling & UX | 2.28.10 | 2026-02-18 | v2.28.10 |
 
 ## Domains
-<!-- No active domains — ready for next milestone -->
+| Domain | Status | Tasks | Completed |
+|--------|--------|-------|-----------|
+| scan-schema   | complete    | 5 | 5 |
+| scan-diagrams | planned     | 5 | 0 |
+| scan-report   | planned     | 6 | 0 |
+| scan-export   | planned     | 4 | 0 |
 
 ## Contracts
-<!-- No active contracts — see archived milestone for M15 contracts -->
+- [x] scan-schema-contract.md — `extractSchema()` output shape (SchemaData)
+- [x] scan-diagrams-contract.md — `generateDiagrams()` output shape (DiagramResult[])
+- [x] integration-points.md — M17 wave checkpoints (3 checkpoints, 3 waves)
 
 ## Blockers
 <!-- No active blockers -->
 
 ## Decision Log
 (Entries before 2026-02-16 reconstructed from git history with timestamps)
+- 2026-03-09 (session): [success] scan-schema COMPLETE — bin/scan-schema.js created (77 lines), bin/scan-schema-parsers.js created (199 lines), extractSchema() exports verified, 7 ORM parsers (prisma/typeorm/drizzle/mongoose/sequelize/sqlalchemy/raw-sql), all 7 contract checks passed
+- 2026-03-09 (session): [success] M17 IMPACT_ANALYZED — verdict PROCEED. Modified files: commands/gsd-t-scan.md (low risk, additive only — Steps 2.5/3.5/8 extension) and bin/gsd-t.js (low risk, ~14 lines --export flag). No breaking changes. All 6 existing test files unaffected.
+- 2026-03-09 (session): [success] M17 PLANNED — 20 tasks across 4 domains. scan-schema(5) + scan-diagrams(5) parallel Wave 1 → scan-report(6) Wave 2 → scan-export(4) Wave 3.
+- 2026-03-06 (session): [success] M17 PARTITIONED — 4 domains defined: scan-schema (ORM extraction), scan-diagrams (6 diagram types + renderer), scan-report (HTML report + scan.md wiring), scan-export (DOCX/PDF export). 3-wave execution order: scan-schema + scan-diagrams parallel (Wave 1) → scan-report (Wave 2) → scan-export (Wave 3).
+- 2026-03-06 (session): [success] Assumption audit complete — scan-report-mock.html locked as INSPECT; all external tools (mmdc, d2, Pandoc, md-to-pdf, MCP servers) locked as USE; .mmd files locked as temporary; MCP ordering locked as checked-first; NFR-007 "no CDN" scoped to view-time (not render-time).
+- 2026-03-06 (session): [success] Contracts written — scan-schema-contract.md (SchemaData shape, 6 rules), scan-diagrams-contract.md (DiagramResult[] shape, 7 rules). Breaking change policy documented in each contract.
+- 2026-03-09 (session): [success] M17 PLANNED — 20 atomic tasks across 4 domains: scan-schema (5 tasks: ORM detection + 4 parsers + wire + test), scan-diagrams (5 tasks: renderer chain + 6 generators + wire + test), scan-report (6 tasks: CSS/skeleton + section builders + generateReport + scan.md integration + test), scan-export (4 tasks: read gsd-t.js + dispatcher + --export flag + test). Wave execution order locked: Wave 1 parallel (scan-schema + scan-diagrams) → Checkpoint 1 → Wave 2 (scan-report) → Checkpoint 2 → Wave 3 (scan-export) → Checkpoint 3.
+- 2026-03-06 (session): [success] M17 milestone DEFINED — requirements REQ-024–030, TECH-009–013, NFR-006–009 captured. scan-report-mock.html created as visual spec. PRD complete.
 - 2026-02-07 11:33: Initial commit — repository created on GitHub. v1.0.0
 - 2026-02-07 13:16: Complete GSD-T framework implementation — 26 slash commands, CLI installer, templates, docs. v1.0.0
 - 2026-02-07 14:27: Renamed package to @tekyzinc/gsd-t, added brainstorm command, initialized GSD-T state on itself. v2.0.0
@@ -226,6 +251,8 @@
 - 2026-03-04 16:00: [success] M15 server Task 1 — created scripts/gsd-t-dashboard-server.js (141 lines, zero external deps, Node.js built-ins only: http, fs, path, child_process); 5 module exports: startServer(port, eventsDir, htmlPath), tailEventsFile(filePath, callback), readExistingEvents(eventsDir, maxEvents), parseEventLine(line), findEventsDir(projectDir); HTTP endpoints: GET / (serve HTML, 200/404), GET /events (SSE stream, max 500 existing events + tail, keepalive every 15s), GET /ping ({"status":"ok","port"}), GET /stop (graceful shutdown); CLI flags: --port, --events, --detach (PID to .gsd-t/dashboard.pid), --stop; symlink protection via lstatSync pattern (from heartbeat.js line 65); silent failure on missing events dir; created test/dashboard-server.test.js (23 tests, node:test runner); 176/176 tests pass (153 baseline + 23 new). server domain: complete.
 - 2026-03-06 14:00: [success] M16 Dashboard Graph Visibility — fixed root cause: heartbeat now emits session_start/session_end events (agent_id=session_id) and tool_call events now carry session_id as agent_id fallback; dashboard renders session as blue root node labeled "Session · Mar 6 · abc1234"; subagents appear as children with edges; 178/178 tests pass (3 new). v2.33.12
 - 2026-03-05 09:45: Published v2.33.11 to npm — patch bump adding .gitignore exclusions for .claude/worktrees/ and nul (Windows artifact), plus historical dev artifacts (ai-evals-analysis.md, gsd-t-command-doc-matrix.csv, scripts/gsd-t-dashboard-mockup.html, .gsd-t/brainstorm-2026-02-18.md). Pushed 23 pending commits to origin/main.
+- 2026-03-06 15:30: [success] M17 DEFINED — Milestone 17 "Scan Visual Output" defined. Goal: transform gsd-t-scan into a rich visual report generator producing self-contained HTML with 6 diagram types, schema extraction, tech debt register, domain health scores, and DOCX/PDF export. Version target: 2.34.10. Complexity: Medium (3-4 domains). Recommended flow: partition → plan → execute → verify. Test baseline: 178/178 (last recorded v2.33.12). Reference: scan-report-mock.html as visual spec for REQ-027.
+- 2026-03-06 15:00: [success] M17 PRD — defined Scan Visual Output feature requirements in docs/requirements.md. Added REQ-024 through REQ-030 (schema extraction, 6 diagram types, rendering toolchain, HTML report, document export, MCP support), TECH-009 through TECH-013 (Mermaid CLI, D2, Kroki, Pandoc, OSS-only constraint), NFR-006 through NFR-009 (5s render, offline-capable, graceful degrade, 10% overhead cap). Added M17 feature spec section with: scope table, diagram types matrix, ORM detection matrix (7 ORMs), rendering fallback chain, HTML report structure, export format table, OSS toolchain confirmation. Reference implementation at scan-report-mock.html. Decision: all tooling free OSS only (MIT/MPL-2.0/GPL). Decision: Mermaid CLI primary → D2 optional → Kroki fallback.
 - 2026-03-04 15:00: [success] Milestone "Real-Time Agent Dashboard" completed — SSE server (gsd-t-dashboard-server.js, 141 lines, zero deps), React Flow + Dagre dashboard (gsd-t-dashboard.html, 194 lines), gsd-t-visualize command (#48, 104 lines). 5 tasks, 3 domains, 2 checkpoints, 176 tests. v2.33.10
 - 2026-03-04 14:50: [success] M15 verify PASSED — all gates clear: 176/176 tests pass; gsd-t-dashboard-server.js (141 lines, zero external deps: http/fs/path/child_process only); gsd-t-dashboard.html (194 lines, ≤200 limit); gsd-t-visualize.md (104 lines, has Step 0 OBSERVABILITY LOGGING); UTILITY_SCRIPTS includes both dashboard files; README count 48; REQ-023 complete in requirements.md. M15 status: VERIFIED.
 - 2026-02-25 10:32: Deep research with team agents for brainstorm and debug loop breaking (v2.31.19) — gsd-t-brainstorm.md: replaced optional team mode (visionary/pragmatist/devil's advocate) with mandatory Deep Research Phase before Step 5; three parallel research agents (landscape, alternatives, analogies) must complete before any conclusions are drawn; token-log note updated from "team brainstorm" to "deep research". gsd-t-debug.md: added Step 1.5 Debug Loop Detection; scans progress.md for 3+ prior debug sessions on same issue and triggers Deep Research Mode with three parallel research agents (root-cause, alternatives, prior-art); Lead synthesizes and presents a structured option table to user before any fix proceeds; 3-attempt limit now escalates to deep research instead of stopping. Purpose: prevent 10–20 session debug death spirals and ensure brainstorm conclusions are evidence-based.
