@@ -74,6 +74,78 @@ For each ambiguous item:
 
 ---
 
+## Step 1.6: Consumer Surface Identification (MANDATORY — complete before domain work)
+
+Before decomposing into domains, identify **every surface that will consume this system**. A surface is any client, app, or integration that calls your backend — web app, mobile app, CLI, external API, admin panel, background job, etc.
+
+Skipping this step leads to duplicated backend logic when a second consumer is added later.
+
+---
+
+### 1.6.1 — Enumerate Surfaces
+
+For each surface that will consume this system, capture:
+
+```markdown
+## Consumer Surfaces
+
+| Surface | Type | Operations Needed |
+|---------|------|------------------|
+| {Web App}    | web     | login, list-items, get-item, update-progress, search |
+| {Mobile App} | mobile  | login, list-items, get-item, update-progress, offline-sync |
+| {CLI}        | cli     | import-data, export-data, list-items |
+```
+
+**Surface types**: `web`, `mobile`, `cli`, `external-api`, `admin`, `background-worker`, `other`
+
+If only one surface exists → mark "Single consumer — SharedCore not needed" and proceed to Step 2.
+
+---
+
+### 1.6.2 — Identify Shared Operations
+
+Compare the "Operations Needed" column across all surfaces. Flag every operation that appears in 2 or more surfaces:
+
+```markdown
+## Shared Operations (candidates for SharedCore)
+
+| Operation        | Surfaces That Need It | Shared? |
+|------------------|-----------------------|---------|
+| login            | web, mobile           | ✅  |
+| list-items       | web, mobile, cli      | ✅  |
+| get-item         | web, mobile           | ✅  |
+| update-progress  | web, mobile           | ✅  |
+| offline-sync     | mobile only           | ❌  |
+| export-data      | cli only              | ❌  |
+```
+
+---
+
+### 1.6.3 — Auto-Suggest SharedCore Domain
+
+**If 3 or more shared operations exist:**
+
+> ⚠️ **SharedCore recommended** — {N} operations are needed by {M} consumer surfaces.
+> A `shared-core` domain will be added to own these functions.
+> Surfaces get thin adapter layers that call SharedCore — not duplicate implementations.
+
+Add `shared-core` to the domain list before running Step 2. The `shared-core` domain:
+- Owns: the shared operation implementations
+- Consumed by: all surface-specific adapter domains
+- Contract: `shared-services-contract.md` (use the template from `templates/shared-services-contract.md`)
+
+**If fewer than 3 shared operations exist:**
+
+> ℹ️ {N} shared operations found. Inline sharing is sufficient — no separate SharedCore domain needed. Document shared functions in the relevant domain's constraints.md.
+
+---
+
+### 1.6.4 — Write the Shared Services Contract
+
+If SharedCore was created, populate `.gsd-t/contracts/shared-services-contract.md` using the template from `templates/shared-services-contract.md`.
+
+---
+
 ## Step 2: Identify Domains
 
 Decompose the milestone into 2-5 independent domains. Each domain should:

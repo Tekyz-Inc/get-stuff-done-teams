@@ -2,22 +2,22 @@
 
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: COMPLETE
-## Date: 2026-03-09
-## Version: 2.34.10
+## Date: 2026-03-11
+## Version: 2.34.11
 
 ## Current Milestone
 
-**M17: Scan Visual Output** — Phase: COMPLETE
-- Goal: Transform gsd-t-scan from a text-only analysis tool into a rich visual report generator. Every scan produces a self-contained HTML report with 6 live diagrams, a tech debt register, and domain health scores — plus optional DOCX/PDF export for Google Docs.
-- Requirements: REQ-024 through REQ-030, TECH-009 through TECH-013, NFR-006 through NFR-009
-- Result: 8 new modules (2,168 total lines), 204/204 tests pass, tagged v2.34.10
+**M18: Multi-Consumer Surface Identification** — Phase: COMPLETE
+- Goal: GSD-T surfaces shared backend functions before code is written, when 2+ client surfaces consume the same system.
+- Result: 4 files changed (gsd-t-partition +Step 1.6, gsd-t-plan +duplicate scan, gsd-t-impact +new-consumer analysis, templates/shared-services-contract.md new). 205/210 tests pass (5 pre-existing failures unrelated to this change).
 
 ## Active Milestone
-_None — M17 complete._
+_None — M18 complete._
 
 ## Completed Milestones
 | Milestone | Version | Completed | Tag |
 |-----------|---------|-----------|-----|
+| Multi-Consumer Surface ID    | 2.34.11 | 2026-03-11 | v2.34.11  |
 | Scan Visual Output           | 2.34.10 | 2026-03-09 | v2.34.10  |
 | Real-Time Agent Dashboard    | 2.33.10 | 2026-03-04 | v2.33.10  |
 | Execution Intelligence Layer | 2.32.10 | 2026-03-04 | v2.32.10  |
@@ -36,24 +36,21 @@ _None — M17 complete._
 | Planning Intelligence | 2.27.10 | 2026-02-18 | v2.27.10 |
 | Tooling & UX | 2.28.10 | 2026-02-18 | v2.28.10 |
 
-## Domains
+## Domains (M18)
 | Domain | Status | Tasks | Completed |
 |--------|--------|-------|-----------|
-| scan-schema   | complete    | 5 | 5 |
-| scan-diagrams | complete    | 5 | 5 |
-| scan-report   | complete    | 6 | 6 |
-| scan-export   | complete    | 4 | 4 |
+| command-enhancements | complete | 3 | 3 |
+| template-addition    | complete | 1 | 1 |
 
-## Contracts
-- [x] scan-schema-contract.md — `extractSchema()` output shape (SchemaData)
-- [x] scan-diagrams-contract.md — `generateDiagrams()` output shape (DiagramResult[])
-- [x] integration-points.md — M17 wave checkpoints (3 checkpoints, 3 waves)
+## Contracts (M18)
+- [x] shared-services-contract.md template (new)
 
 ## Blockers
 <!-- No active blockers -->
 
 ## Decision Log
 (Entries before 2026-02-16 reconstructed from git history with timestamps)
+- 2026-03-11 (session): [success] M18 COMPLETE — v2.34.11. Multi-Consumer Surface Identification. Added Step 1.6 (Consumer Surface Enumeration) to gsd-t-partition.md, cross-domain duplicate operation scan to gsd-t-plan.md, new-consumer reuse analysis to gsd-t-impact.md, and templates/shared-services-contract.md template. 205/210 tests pass (5 pre-existing). Rationale: GSD-T was provider-centric and single-consumer-assumed, leading to duplicated backend logic when a second client surface (web/mobile) was added.
 - 2026-03-09 10:42: [success] Scan #8 COMPLETE — v2.34.10 (post-M14-M17). 205/205 tests pass. Team scan (5 dimensions: architecture, business-rules, security, quality, contracts). 31 total open items confirmed (TD-066 through TD-096): 3 HIGH, 12 MEDIUM, 16 LOW. No new items found vs Scan #7/9 — codebase unchanged. All scan files updated. Top priority: Script Testability + Contract Alignment Sprint (TD-066, TD-081, TD-082, TD-083, TD-087).
 - 2026-03-09 17:45: [success] Scan #9 COMPLETE — v2.34.10 (post-M17). 205/205 tests pass (confirmed). No new code changes since Scan #8. 31 open tech debt items (3 HIGH: TD-081 TD-082 TD-083; 12 MEDIUM; 16 LOW). Schema extraction: no ORM detected (correct — methodology tool). Diagrams: 6/6 placeholder. Living docs updated: workflows.md (M14-M17 workflows added), requirements.md (REQ-024 through REQ-030 + TECH-009-013 + NFR-006-009 marked complete). Scan files updated to Scan #9 numbering. Top priority: Script Testability + Contract Alignment Sprint.
 - 2026-03-09 10:29: [success] Scan #7 COMPLETE — v2.34.10 (post-M14-M17). 205/205 tests pass. 9 new tech debt items (TD-081 through TD-089): 3 HIGH (script testability + SEC-N28 + 2 contract drift), 7 MEDIUM (execSync pattern + dashboard midnight bug + dead code + command count + docs staleness + progress-file-format), 5 LOW. HTML scan report written to C:\Users\david\GSD-T\scan-report.html. Diagrams: 6/6 placeholder (mmdc/d2 not installed). Living docs updated (architecture.md, infrastructure.md, test-baseline.md). Top priority: Script Testability Sprint (TD-066, TD-081, TD-082).

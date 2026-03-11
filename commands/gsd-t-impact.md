@@ -45,7 +45,39 @@ grep -r "require.*{module}" src/
 - Check `.gsd-t/contracts/schema-contract.md` — does this change data shape?
 - Check `.gsd-t/contracts/component-contract.md` — does this change props/interface?
 
-### D) Test Coverage
+### D) New Consumer Analysis
+
+**Trigger**: Run this section when the planned change adds a new client surface (web app, mobile app, CLI, external API, admin panel, etc.) that will consume the existing backend.
+
+If no new consumer surface is being added, skip this section.
+
+**Step 1 — List what the new consumer needs:**
+```
+Operations the new consumer requires:
+- {operation-name}: {brief description}
+- {operation-name}: {brief description}
+```
+
+**Step 2 — Compare against existing backend operations:**
+```bash
+# Search for existing implementations of each needed operation
+grep -r "{operation-name}" src/
+grep -r "{operation-name}" commands/
+```
+
+**Step 3 — Classify each needed operation:**
+
+| Operation | Classification | Action |
+|-----------|---------------|--------|
+| {op} | REUSE — identical operation exists | Call existing endpoint/function |
+| {op} | EXTEND — similar operation exists, needs a variant | Add param or thin adapter |
+| {op} | DUPLICATE — new endpoint would replicate existing logic | 🔴 Must route through shared layer |
+| {op} | NEW — no equivalent exists | Build new, consider SharedCore placement |
+
+**DUPLICATE items become 🔴 Breaking Changes** in Step 4 — they block execution until the shared layer is designed. Add them to the impact report under "Breaking Changes" with:
+- Required Action: "Extract `{operation}` to shared-core domain; {new-consumer} and {existing-consumer} both call it from there."
+
+### E) Test Coverage
 - Which tests cover this code?
 - Will they still pass after changes?
 - Are there tests that assert current behavior that will become wrong?

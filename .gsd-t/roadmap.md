@@ -1,5 +1,30 @@
 # GSD-T Roadmap — Tech Debt Reduction
 
+---
+
+## Feature: Multi-Consumer Surface Identification
+**Added**: 2026-03-11
+**Context**: GSD-T failed to identify the need for shared backend functions when multiple client surfaces (web, mobile, CLI) consume the same backend. The partition phase was provider-centric and single-consumer-assumed, never asking "who are all the consumers?" before decomposing domains.
+
+### Milestone M18: Multi-Consumer Surface Identification
+**Goal**: GSD-T surfaces shared backend functions before any code is written, when 2+ client surfaces consume the same system.
+**Scope**:
+- `commands/gsd-t-partition.md` — add Consumer Surface Enumeration step (Step 1.6) before domain decomposition
+- `commands/gsd-t-plan.md` — add cross-domain duplicate operation detection in Step 2
+- `commands/gsd-t-impact.md` — add new-consumer reuse analysis in Step 3
+- `templates/shared-services-contract.md` — new template for shared function contracts
+**Impact on existing**:
+- Additive only — no existing steps removed or renamed
+- No breaking changes to contracts or domain structure
+**Success criteria**:
+- [ ] partition prompts for consumer surfaces before domain decomposition
+- [ ] partition auto-suggests SharedCore domain when 2+ surfaces share operations
+- [ ] plan flags duplicate operations across domains
+- [ ] impact identifies reuse opportunities when new consumer is added
+- [ ] shared-services-contract.md template installed and usable
+
+---
+
 ## Milestone 3: Count Fix + QA Contract Alignment — Tech Debt (COMPLETED v2.23.1)
 **Source**: Promoted from tech debt scan #3 (2026-02-18)
 **Items**: TD-022, TD-042, TD-043

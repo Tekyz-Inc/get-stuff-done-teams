@@ -52,6 +52,37 @@ For each domain, write `.gsd-t/domains/{domain-name}/tasks.md`:
 5. **Ordered**: Tasks within a domain are numbered in execution order
 6. **No implicit knowledge**: Don't assume the executing agent remembers previous tasks — reference contracts and files explicitly
 
+### Cross-Domain Duplicate Operation Scan
+
+After creating all domain task lists, scan for operations that appear in more than one domain.
+
+**Check for duplicate task descriptions, function names, or operation verbs** across all `tasks.md` files:
+
+```
+For each operation in each domain's task list:
+  Does this operation appear (by name or clear equivalent) in another domain's task list?
+  → YES → flag as duplicate candidate
+```
+
+**If duplicates found:**
+
+> ⚠️ **Duplicate operations detected** — the following operations appear in multiple domains:
+> - `{operation}` — found in: {domain-A} Task {N}, {domain-B} Task {N}
+> - `{operation}` — found in: {domain-A} Task {N}, {domain-C} Task {N}
+>
+> **Options:**
+> 1. If a `shared-core` domain exists → reassign these tasks to shared-core
+> 2. If no shared-core → extract to a new `shared-core` domain (go back to partition and add it)
+> 3. If the operations are truly surface-specific variants → document the distinction explicitly in each domain's constraints.md to prevent future confusion
+
+**Level 3 (Full Auto)**: If shared-core exists, move the duplicates there automatically. If not, add a task to the first affected domain's list: "Extract `{operation}` to shared-core — coordinate with {domain-B} before implementing".
+
+**If no duplicates found:**
+
+> ✅ No duplicate operations detected across domains.
+
+---
+
 ### REQ Traceability
 
 After creating task lists, append a traceability table to `docs/requirements.md`:
