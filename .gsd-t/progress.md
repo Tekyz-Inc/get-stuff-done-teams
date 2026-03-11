@@ -3,20 +3,21 @@
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: COMPLETE
 ## Date: 2026-03-11
-## Version: 2.34.12
+## Version: 2.35.10
 
 ## Current Milestone
 
-**M18: Multi-Consumer Surface Identification** — Phase: COMPLETE
-- Goal: GSD-T surfaces shared backend functions before code is written, when 2+ client surfaces consume the same system.
-- Result: 4 files changed (gsd-t-partition +Step 1.6, gsd-t-plan +duplicate scan, gsd-t-impact +new-consumer analysis, templates/shared-services-contract.md new). 205/210 tests pass (5 pre-existing failures unrelated to this change).
+**M19: Shared Service Detection & Shared-First Engineering** — Phase: COMPLETE
+- Goal: Close the gap where GSD-T didn't proactively identify shared backend functions when a project adds a second consumer surface (e.g., mobile app alongside existing web app).
+- Result: 3 command files changed (gsd-t-partition +scan feed +existing-surface check +2+ threshold, gsd-t-feature +multi-client check +multi-consumer impact section +SharedCore-first milestone rule, gsd-t-plan +SharedCore-First pre-check +SharedCore contract compliance check). 210/210 tests pass.
 
 ## Active Milestone
-_None — M18 complete._
+_None — M19 complete._
 
 ## Completed Milestones
 | Milestone | Version | Completed | Tag |
 |-----------|---------|-----------|-----|
+| Shared Service Detection     | 2.35.10 | 2026-03-11 | v2.35.10  |
 | Multi-Consumer Surface ID    | 2.34.11 | 2026-03-11 | v2.34.11  |
 | Scan Visual Output           | 2.34.10 | 2026-03-09 | v2.34.10  |
 | Real-Time Agent Dashboard    | 2.33.10 | 2026-03-04 | v2.33.10  |
@@ -36,20 +37,22 @@ _None — M18 complete._
 | Planning Intelligence | 2.27.10 | 2026-02-18 | v2.27.10 |
 | Tooling & UX | 2.28.10 | 2026-02-18 | v2.28.10 |
 
-## Domains (M18)
+## Domains (M19)
 | Domain | Status | Tasks | Completed |
 |--------|--------|-------|-----------|
-| command-enhancements | complete | 3 | 3 |
-| template-addition    | complete | 1 | 1 |
+| partition-shared-first   | complete | 3 | 3 |
+| feature-multiclient-guard | complete | 3 | 3 |
+| plan-sharedcore-first    | complete | 2 | 2 |
 
-## Contracts (M18)
-- [x] shared-services-contract.md template (new)
+## Contracts (M19)
+- [x] No new contracts — internal step enhancements only
 
 ## Blockers
 <!-- No active blockers -->
 
 ## Decision Log
 (Entries before 2026-02-16 reconstructed from git history with timestamps)
+- 2026-03-11 (session): [success] M19 COMPLETE — v2.35.10. Shared Service Detection & Shared-First Engineering. Root cause: when adding a 2nd client (mobile) to a project, partition Step 1.6 didn't scan existing surfaces or read scan quality.md, threshold was 3+ ops (too high), feature had no multi-client check, plan had no SharedCore-first enforcement. Fixes: (1) gsd-t-partition reads scan/quality.md + shared-services-contract.md in Step 1; added Existing System Check to Step 1.6.1; lowered threshold to 2+ ops. (2) gsd-t-feature added Multi-Client Architecture Check to Step 1; Multi-Consumer Check section to Step 3 impact template; SharedCore-first milestone ordering as rule 6. (3) gsd-t-plan added SharedCore-First Pre-Check before task lists; SharedCore Contract Compliance Check to duplicate scan. 210/210 tests pass.
 - 2026-03-11 (session): [success] M18 COMPLETE — v2.34.11. Multi-Consumer Surface Identification. Added Step 1.6 (Consumer Surface Enumeration) to gsd-t-partition.md, cross-domain duplicate operation scan to gsd-t-plan.md, new-consumer reuse analysis to gsd-t-impact.md, and templates/shared-services-contract.md template. 205/210 tests pass (5 pre-existing). Rationale: GSD-T was provider-centric and single-consumer-assumed, leading to duplicated backend logic when a second client surface (web/mobile) was added.
 - 2026-03-09 10:42: [success] Scan #8 COMPLETE — v2.34.10 (post-M14-M17). 205/205 tests pass. Team scan (5 dimensions: architecture, business-rules, security, quality, contracts). 31 total open items confirmed (TD-066 through TD-096): 3 HIGH, 12 MEDIUM, 16 LOW. No new items found vs Scan #7/9 — codebase unchanged. All scan files updated. Top priority: Script Testability + Contract Alignment Sprint (TD-066, TD-081, TD-082, TD-083, TD-087).
 - 2026-03-09 17:45: [success] Scan #9 COMPLETE — v2.34.10 (post-M17). 205/205 tests pass (confirmed). No new code changes since Scan #8. 31 open tech debt items (3 HIGH: TD-081 TD-082 TD-083; 12 MEDIUM; 16 LOW). Schema extraction: no ORM detected (correct — methodology tool). Diagrams: 6/6 placeholder. Living docs updated: workflows.md (M14-M17 workflows added), requirements.md (REQ-024 through REQ-030 + TECH-009-013 + NFR-006-009 marked complete). Scan files updated to Scan #9 numbering. Top priority: Script Testability + Contract Alignment Sprint.

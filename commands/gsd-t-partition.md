@@ -8,6 +8,8 @@ Read these files in order:
 1. `CLAUDE.md` — project conventions and context
 2. `.gsd-t/progress.md` — current state (if exists)
 3. `docs/` — all available documentation (requirements, architecture, schema, design)
+4. `.gsd-t/scan/quality.md` (if exists) — extract the "Consumer Surfaces Detected" and "Shared Service Candidates" tables. These pre-populate Step 1.6 with scan-discovered data and eliminate re-research.
+5. `.gsd-t/contracts/shared-services-contract.md` (if exists) — a SharedCore domain was previously identified. Its listed operations are pre-confirmed shared and carry forward automatically to Step 1.6.2.
 
 If `.gsd-t/` doesn't exist, create the full directory structure:
 ```
@@ -98,7 +100,11 @@ For each surface that will consume this system, capture:
 
 **Surface types**: `web`, `mobile`, `cli`, `external-api`, `admin`, `background-worker`, `other`
 
-If only one surface exists → mark "Single consumer — SharedCore not needed" and proceed to Step 2.
+**Existing System Check**: This milestone may be adding a NEW surface to a system that already has existing consumer surfaces. Before concluding surface enumeration, scan `.gsd-t/progress.md` completed milestones and look for directories or route files indicating prior client surfaces (`web/`, `mobile/`, `app/`, `cli/`, `client/`, `routes/web.js`, `routes/mobile.js`). Add any discovered existing surfaces to the table above.
+
+> ⚠️ **New-client signal**: If this milestone adds a consumer surface to a system that already has one or more other consumer surfaces, SharedCore evaluation is MANDATORY regardless of shared operation count.
+
+If only one surface exists and no prior surfaces were found → mark "Single consumer — SharedCore not needed" and proceed to Step 2.
 
 ---
 
@@ -123,7 +129,7 @@ Compare the "Operations Needed" column across all surfaces. Flag every operation
 
 ### 1.6.3 — Auto-Suggest SharedCore Domain
 
-**If 3 or more shared operations exist:**
+**If 2 or more shared operations exist, OR if this milestone adds a new consumer surface to a system that already has other surfaces (detected in the Existing System Check above):**
 
 > ⚠️ **SharedCore recommended** — {N} operations are needed by {M} consumer surfaces.
 > A `shared-core` domain will be added to own these functions.
@@ -134,7 +140,7 @@ Add `shared-core` to the domain list before running Step 2. The `shared-core` do
 - Consumed by: all surface-specific adapter domains
 - Contract: `shared-services-contract.md` (use the template from `templates/shared-services-contract.md`)
 
-**If fewer than 3 shared operations exist:**
+**If only 1 shared operation exists AND this is not a new-client-to-existing-system scenario:**
 
 > ℹ️ {N} shared operations found. Inline sharing is sufficient — no separate SharedCore domain needed. Document shared functions in the relevant domain's constraints.md.
 

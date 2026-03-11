@@ -18,6 +18,13 @@ Read ALL of these:
 
 ## Step 2: Create Task Lists Per Domain
 
+### SharedCore-First Pre-Check
+
+Before writing any domain task lists:
+1. Does `.gsd-t/contracts/shared-services-contract.md` exist?
+   - **YES**: A `shared-core` domain has been identified. Plan its tasks first. All client-surface domains that consume SharedCore operations are BLOCKED BY shared-core until its tasks complete. Use `BLOCKED BY shared-core Task {N}` in the relevant client domain task lists.
+   - **NO**: Proceed. The Cross-Domain Duplicate Operation Scan (below) will catch any shared operations missed during partition.
+
 For each domain, write `.gsd-t/domains/{domain-name}/tasks.md`:
 
 ```markdown
@@ -80,6 +87,19 @@ For each operation in each domain's task list:
 **If no duplicates found:**
 
 > ✅ No duplicate operations detected across domains.
+
+### SharedCore Contract Compliance Check
+
+If `.gsd-t/contracts/shared-services-contract.md` exists, run a second pass:
+
+For each client-surface domain's task list, compare task operations against the SharedCore contract's "Shared Operations" table. Flag any task that implements an operation already owned by SharedCore:
+
+> ⚠️ **SharedCore contract violation** — the following tasks reimplement operations owned by SharedCore:
+> - {domain} Task {N}: implements `{operation}` — already owned by SharedCore per shared-services-contract.md
+>
+> Fix: Change these tasks to CALL the SharedCore function rather than implementing it independently.
+
+If no violations: `✅ All client domains reference SharedCore correctly.`
 
 ---
 

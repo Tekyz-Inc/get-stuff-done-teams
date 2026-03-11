@@ -22,6 +22,14 @@ Read everything:
 
 Build a mental model of: "How does this codebase work today?"
 
+**Multi-Client Architecture Check**: Before moving to Step 2, identify whether the project has or will have multiple consumer surfaces:
+- Look for directories: `web/`, `mobile/`, `app/`, `cli/`, `client/`, `frontend/`
+- Look for split route files: `routes/web.js`, `routes/mobile.js`, `routes/api/v1/`, `routes/api/v2/`
+- Check package.json scripts for `build:web`, `build:mobile`, `start:mobile`, etc.
+- Check `.gsd-t/scan/quality.md` (if exists) for the "Consumer Surfaces Detected" table
+
+Note what you find — this informs Step 3's Multi-Consumer Check and Step 4's milestone ordering.
+
 ## Step 2: Understand the Feature
 
 From $ARGUMENTS and conversation:
@@ -102,6 +110,14 @@ Produce a combined analysis:
 - {where this feature could break existing functionality}
 - {complex integration points}
 - {performance concerns}
+
+### Multi-Consumer Check
+- Consumer surfaces that exist or will exist after this feature: {list}
+- Does this feature add a new consumer surface? {yes/no}
+- If yes: backend operations this new surface needs: {list}
+- Of those, how many are already implemented for an existing surface? {list any matches}
+- SharedCore extraction candidates (operations needed by 2+ surfaces): {list or "none found"}
+- SharedCore milestone required? {yes — if 2+ candidates found | no — if none}
 ```
 
 ## Step 4: Decompose into Milestones
@@ -121,6 +137,7 @@ Apply these sequencing rules:
 3. **Existing contract updates early**: If existing contracts change, update and verify them before building new code against them
 4. **New functionality before integration**: Build the new thing, then wire it into existing flows
 5. **Migration/backfill as its own milestone**: If existing data needs transformation, isolate that work
+6. **SharedCore before new consumer surfaces**: If the feature adds a new consumer surface (web, mobile, CLI) AND SharedCore candidates were identified in Step 3's Multi-Consumer Check, add a SharedCore milestone BEFORE the new client's milestone. The SharedCore milestone extracts shared operations into a reusable backend domain — the new client's API calls SharedCore functions, it does not duplicate them.
 
 ### Write the Feature Roadmap
 
