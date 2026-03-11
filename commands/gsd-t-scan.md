@@ -47,7 +47,9 @@ ALL TEAMMATES read first:
 - Teammate "security" (model: sonnet): Full security audit — auth, injection, exposure,
   dependencies. Write to .gsd-t/scan/security.md
 - Teammate "quality" (model: sonnet): Dead code, duplication, complexity, test gaps,
-  performance, stale deps. Write to .gsd-t/scan/quality.md
+  performance, stale deps. Also: identify reusability candidates — functions or modules
+  that appear in multiple places doing similar work, and consumer surfaces (web/mobile/CLI/etc.)
+  that call the same backend operations independently. Write to .gsd-t/scan/quality.md
 - Teammate "contracts" (model: haiku): Compare .gsd-t/contracts/ to actual implementation,
   find drift and undocumented interfaces. Write to .gsd-t/scan/contract-drift.md
   (skip if no contracts exist)
@@ -158,6 +160,7 @@ Produce: `.gsd-t/scan/security.md`
 Check for:
 - **Dead code**: Unused functions, unreachable branches, commented-out blocks
 - **Duplication**: Copy-pasted logic that should be abstracted
+- **Reusability / Shared Service Candidates**: Functions implementing the same operation in multiple modules; consumer surfaces (web, mobile, CLI) calling the same backend logic through separate implementations instead of a shared layer
 - **Complexity**: Functions with high cyclomatic complexity, deep nesting
 - **Error handling**: Missing try/catch, swallowed errors, inconsistent patterns
 - **Performance**: N+1 queries, missing indexes, unnecessary re-renders, large bundles
@@ -176,6 +179,27 @@ Produce: `.gsd-t/scan/quality.md`
 
 ## Duplication
 - {file-a} ↔ {file-b}: {description of duplicated logic}
+
+## Reusability Analysis
+
+### Consumer Surfaces Detected
+| Surface | Type | Operations Used |
+|---------|------|----------------|
+| {module/app} | {web/mobile/cli/other} | {list of backend operations it calls} |
+
+### Shared Service Candidates
+Operations implemented independently in 2+ places — candidates for extraction to a shared module:
+
+| Operation | Found In | Recommendation |
+|-----------|----------|----------------|
+| {operation} | {file-a}, {file-b} | Extract to shared-core |
+| {operation} | {file-a}, {file-b}, {file-c} | Extract to shared-core (high priority — 3 copies) |
+
+If none found: `✅ No shared service candidates detected.`
+
+> **Note**: These candidates should seed Step 1.6 (Consumer Surface Identification) the next
+> time `/user:gsd-t-partition` is run. Copy the "Consumer Surfaces Detected" table into
+> partition's Step 1.6.1 to skip re-research.
 
 ## Complexity Hotspots
 - {file}:{function} — complexity: {score/assessment} — {suggestion}
@@ -357,6 +381,12 @@ Can be scheduled: AFTER current feature work
 Combines: TD-020, dependency table items with breaking=yes
 Estimated effort: {assessment}
 Can be scheduled: During next maintenance window
+
+### Suggested: Shared Service Extraction (if candidates found)
+Combines: all "Shared Service Candidates" from quality.md Reusability Analysis
+Estimated effort: {assessment}
+Should be prioritized: BEFORE adding new consumer surfaces to the system
+Note: Use `/user:gsd-t-partition` Step 1.6 to design the SharedCore domain
 ```
 
 ## Step 5: Update Living Documents
