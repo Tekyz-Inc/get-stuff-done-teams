@@ -51,16 +51,13 @@ function buildDiagramSection(d) {
   const secId = 'diagram-' + d.type;
   const cardTitle = esc(d.title + (d.typeBadge ? ' \u2014 ' + d.typeBadge : ''));
   let diagramContent;
-  if (d.mmdSource) {
-    // Always use browser-side Mermaid rendering for best visual quality with dark theme
-    diagramContent = '<div class="mermaid">\n' + d.mmdSource + '\n</div>';
-  } else if (d.svgContent && !d.svgContent.includes('diagram-placeholder')) {
+  if (d.svgContent && !d.svgContent.includes('diagram-placeholder')) {
     diagramContent = '<div style="width:100%;overflow:auto">' + d.svgContent + '</div>';
   } else {
     diagramContent = d.svgContent ||
       '<div class="diagram-placeholder"><p>Diagram unavailable</p></div>';
   }
-  return '<section id="' + secId + '">' +
+  return '<section id="' + secId + '" class="diagram-section">' +
     '<div class="sl">' + esc(d.title) + '</div>' +
     '<div class="dc" data-title="' + cardTitle + '">' +
     '<div class="dc-h"><div class="dc-hl">' +

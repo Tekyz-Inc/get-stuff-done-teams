@@ -71,8 +71,6 @@ footer a{color:var(--muted2);text-decoration:none}footer a:hover{color:var(--blu
 
 function buildScript() {
   return `<script>
-mermaid.initialize({startOnLoad:false,theme:'dark',themeVariables:{darkMode:true,background:'#070b12',mainBkg:'#0f1624',primaryColor:'#0f1d3a',primaryTextColor:'#e2e8f0',primaryBorderColor:'#3b82f6',secondaryColor:'#1a0f3a',secondaryTextColor:'#e2e8f0',secondaryBorderColor:'#7c3aed',tertiaryColor:'#0a2318',tertiaryTextColor:'#e2e8f0',tertiaryBorderColor:'#10b981',lineColor:'#3b82f6',textColor:'#e2e8f0',fontSize:'14px',edgeLabelBackground:'#0c1120',clusterBkg:'#080e1a',clusterBorder:'#1a2840',titleColor:'#94a3b8',actorBkg:'#0f1d3a',actorBorder:'#3b82f6',actorTextColor:'#bfdbfe',actorLineColor:'#1a2840',signalColor:'#60a5fa',signalTextColor:'#e2e8f0',activationBkgColor:'#1a0f3a',activationBorderColor:'#7c3aed',sequenceNumberColor:'#070b12',labelBoxBkgColor:'#0f1d3a',labelBoxBorderColor:'#3b82f6',labelTextColor:'#bfdbfe',loopTextColor:'#bfdbfe',noteBkgColor:'#1f1505',noteTextColor:'#fde68a',noteBorderColor:'#f59e0b',attributeBackgroundColorOdd:'#0f1624',attributeBackgroundColorEven:'#0c1120'},flowchart:{curve:'basis',padding:28,nodeSpacing:55,rankSpacing:65,htmlLabels:true},sequence:{actorMargin:80,messageMargin:35,useMaxWidth:true,mirrorActors:false,boxMargin:12},er:{useMaxWidth:true,layoutDirection:'TB',minEntityWidth:120,entityPadding:18},state:{useMaxWidth:true}});
-document.addEventListener('DOMContentLoaded',async()=>{try{await mermaid.run({querySelector:'.mermaid'});}catch(e){console.warn('Mermaid render error:',e);}document.querySelectorAll('.dc-b .mermaid svg').forEach(svg=>{svg.removeAttribute('width');svg.removeAttribute('height');svg.style.width='100%';svg.style.height='auto';svg.style.display='block';svg.style.minHeight='420px';});});
 let zoom=1;
 function expandDiagram(btn){const card=btn.closest('.dc');const title=card.dataset.title||'Diagram';const svg=card.querySelector('.dc-b svg');if(!svg)return;const clone=svg.cloneNode(true);clone.style.cssText='display:block;width:auto;height:auto;max-width:90vw;max-height:85vh;';clone.removeAttribute('width');clone.removeAttribute('height');const wrap=document.getElementById('mdiagram');wrap.innerHTML='';wrap.appendChild(clone);document.getElementById('mtitle').textContent=title;zoom=1;applyZoom();document.getElementById('modal').classList.add('open');document.body.style.overflow='hidden';}
 function closeModal(){document.getElementById('modal').classList.remove('open');document.body.style.overflow='';}
@@ -112,7 +110,6 @@ function buildHtmlSkeleton(title, css, sidebar, body) {
 <html lang="en">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>${title}</title>
-<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"><\/script>
 <style>
 ${css}
 </style></head>
@@ -145,7 +142,7 @@ const sections = require('./scan-report-sections.js');
 function generateReport(analysisData, schemaData, diagrams, options) {
   try {
     const safeData = analysisData || {};
-    const safeDiagrams = (Array.isArray(diagrams) ? diagrams : []).filter(d => d.mmdSource || d.rendered);
+    const safeDiagrams = (Array.isArray(diagrams) ? diagrams : []).filter(d => d && d.type);
     const opts = options || {};
     const projectName = safeData.projectName || path.basename(opts.projectRoot || process.cwd());
     const css = buildCss();
