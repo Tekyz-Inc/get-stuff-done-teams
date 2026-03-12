@@ -1,3 +1,7 @@
+---
+argument-hint: [commit message]
+---
+
 # Check in updated files to GitHub
 
 Automatically stage, commit, and push all updated files to GitHub with automatic version bumping.

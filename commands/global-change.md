@@ -1,3 +1,7 @@
+---
+argument-hint: <copy|insert|update|delete> <relative-path/filename> [content]
+---
+
 # GSD-T: Global Change — Apply Changes Across All GSD-T Projects
 
 You are applying a file-level change to every GSD-T project registered in `.claude/.gsd-t-projects`. This is a **global** slash command (installed to `~/.claude/commands/`) that enables bulk updates to project configuration, CLAUDE.md files, templates, and any other files that need to stay consistent across the GSD-T ecosystem.

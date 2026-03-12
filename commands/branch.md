@@ -1,3 +1,7 @@
+---
+argument-hint: <branch-name>
+---
+
 # Create a New Branch
 
 Create and switch to a new branch.
