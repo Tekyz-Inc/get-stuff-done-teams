@@ -78,6 +78,7 @@ function buildEvent(args) {
     trace_id: nullify(args["trace-id"]),
     reasoning: nullify(args["reasoning"]),
     outcome: nullify(args["outcome"]),
+    model: nullify(args["model"]),
   };
 }
 

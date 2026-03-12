@@ -23,14 +23,14 @@ Every event MUST be a single-line JSON object with exactly these fields:
   "parent_agent_id": "string|null — parent agent ID (null = root session)",
   "trace_id":        "string|null — groups all events for one wave/milestone run",
   "reasoning":       "string|null — why this event occurred (human-readable)",
-  "outcome":         "string|null — one of: success, failure, learning, deferred, null (null = in-progress)"
+  "outcome":         "string|null — one of: success, failure, learning, deferred, null (null = in-progress)",
+  "model":           "string|null — model used for this operation (e.g., opus, sonnet, haiku) or null"
 }
 ```
 
 **Rules**:
 - All fields must be present — use `null` for absent optional values
 - `ts` must be UTC ISO 8601 with milliseconds
-- No extra fields allowed (schema is closed for M14)
 - No multi-line values — strings must be single-line (escape newlines as `\n`)
 
 ---
