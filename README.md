@@ -20,7 +20,7 @@ A methodology for reliable, parallelizable development using Claude Code with op
 npx @tekyzinc/gsd-t install
 ```
 
-This installs 44 GSD-T commands + 4 utility commands (48 total) to `~/.claude/commands/` and the global CLAUDE.md to `~/.claude/CLAUDE.md`. Works on Windows, Mac, and Linux.
+This installs 44 GSD-T commands + 5 utility commands (49 total) to `~/.claude/commands/` and the global CLAUDE.md to `~/.claude/CLAUDE.md`. Works on Windows, Mac, and Linux.
 
 ### Start Using It
 
@@ -175,6 +175,7 @@ This will replace changed command files, back up your CLAUDE.md if customized, a
 | `/user:branch` | Create and switch to a new git branch | Manual |
 | `/user:checkin` | Auto-bump version, stage, commit, and push | Manual |
 | `/user:Claude-md` | Reload CLAUDE.md directives mid-session | Manual |
+| `/global-change` | Apply file changes across all registered GSD-T projects | Manual |
 
 ---
 

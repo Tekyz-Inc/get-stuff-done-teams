@@ -62,6 +62,7 @@ UTILITIES                                                              Manual
   version-update      Update GSD-T package to latest version
   version-update-all  Update GSD-T package + all registered projects
   triage-and-merge    Auto-review, merge, and publish GitHub branches
+  global-change       Apply file changes across all registered GSD-T projects
 
 BACKLOG                                                                Manual
 ───────────────────────────────────────────────────────────────────────────────
@@ -346,6 +347,14 @@ Use these when user asks for help on a specific command:
 - **Files**: Reads `CLAUDE.md`, `.gsd-t/progress.md`, `package.json`; updates `package.json`, `.gsd-t/progress.md`, `CHANGELOG.md`
 - **Use when**: Collaborators have pushed branches and you want to batch-review, merge, and publish without manual per-branch ceremony
 - **Features**: 3-tier impact scoring (auto-merge / review / skip), publish gate (auto in Level 3, prompted otherwise), conflict detection, sensitive file detection
+
+### global-change
+- **Summary**: Apply file changes (copy/insert/update/delete) across all registered GSD-T projects
+- **Auto-invoked**: No
+- **Files**: Reads `~/.claude/.gsd-t-projects`; modifies target file in each registered project
+- **Use when**: You need to make the same change to CLAUDE.md, contracts, templates, or config across multiple projects at once
+- **Operations**: `copy` (file from GSD-T package), `insert` (append content), `update` (find/replace with `%%REPLACE_WITH%%` delimiter), `delete` (remove file)
+- **Features**: Dry run preview, per-project match validation, parallel execution, skip-on-no-match safety
 
 ### backlog-add
 - **Summary**: Capture a new backlog item with auto-categorization

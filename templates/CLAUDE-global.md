@@ -76,6 +76,7 @@ PROJECT or FEATURE or SCAN
 | `/user:branch` | Create and switch to a new git branch |
 | `/user:checkin` | Auto-bump version, stage, commit, and push |
 | `/user:Claude-md` | Reload and apply CLAUDE.md directives |
+| `/global-change` | Apply file changes across all registered GSD-T projects |
 
 
 # Living Documents

@@ -31,12 +31,13 @@ Only pause for blockers or project completion. Execute phases continuously.
 
 ```
 bin/gsd-t.js           — CLI installer (9 subcommands)
-commands/              — 46 slash commands for Claude Code
-  gsd-t-*.md           — 42 GSD-T workflow commands
+commands/              — 49 slash commands for Claude Code
+  gsd-t-*.md           — 44 GSD-T workflow commands
   gsd.md               — Smart router (auto-routes user intent)
   branch.md            — Git branch helper
   checkin.md           — Auto-version + commit/push helper
   Claude-md.md         — Reload CLAUDE.md directives
+  global-change.md     — Bulk file changes across all GSD-T projects
 templates/             — 9 document templates
   CLAUDE-global.md     — Global ~/.claude/CLAUDE.md template
   CLAUDE-project.md    — Per-project CLAUDE.md template
