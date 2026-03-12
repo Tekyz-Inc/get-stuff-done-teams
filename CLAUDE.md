@@ -110,6 +110,9 @@ This project uses GSD-T on itself. Key things to understand:
 
 Every command that spawns a Task subagent MUST log its execution to `.gsd-t/token-log.md` and (if issues found) `.gsd-t/qa-issues.md`.
 
+**Display model to user — before every subagent spawn, output:**
+`⚙ [{model}] {command} → {brief description}` (e.g., `⚙ [sonnet] gsd-t-execute → domain: auth-service`, `⚙ [haiku] gsd-t-execute → QA validation`)
+
 **Log format — before every subagent spawn, run via Bash:**
 `T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M") && TOK_START=${CLAUDE_CONTEXT_TOKENS_USED:-0} && TOK_MAX=${CLAUDE_CONTEXT_TOKENS_MAX:-200000}`
 

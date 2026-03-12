@@ -252,6 +252,13 @@ Report: pass/fail counts and any coverage gaps."
 
 **QA failure blocks phase completion.** Lead cannot proceed until QA reports PASS or user explicitly overrides.
 
+## Model Display (MANDATORY)
+
+**Before every subagent spawn, display the model being used to the user:**
+`⚙ [{model}] {command} → {brief description}` (e.g., `⚙ [sonnet] gsd-t-execute → domain: auth-service`, `⚙ [haiku] gsd-t-execute → QA validation`)
+
+This gives the user real-time visibility into which model is handling each operation.
+
 ## API Documentation Guard (Swagger/OpenAPI)
 
 **Every API endpoint MUST be documented in a Swagger/OpenAPI spec. No exceptions.**
