@@ -260,6 +260,11 @@ Report: pass/fail counts and any coverage gaps."
 
 This gives the user real-time visibility into which model is handling each operation.
 
+**Model assignments:**
+- `model: haiku` — mechanical tasks: run tests, count pass/fail, validate structure, check file existence, report status
+- `model: sonnet` — mid-tier reasoning: routine code changes, standard refactors, test writing, straightforward synthesis
+- `model: opus` — high-stakes reasoning: architecture decisions, security analysis, complex debugging, cross-module refactors, quality judgment on critical paths
+
 ## API Documentation Guard (Swagger/OpenAPI)
 
 **Every API endpoint MUST be documented in a Swagger/OpenAPI spec. No exceptions.**
