@@ -2,21 +2,45 @@
 
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: COMPLETE
-## Date: 2026-03-11
-## Version: 2.36.10
+## Date: 2026-03-18
+## Version: 2.39.10
 
 ## Current Milestone
 
-**M19: Shared Service Detection & Shared-First Engineering** — Phase: COMPLETE
-- Goal: Close the gap where GSD-T didn't proactively identify shared backend functions when a project adds a second consumer surface (e.g., mobile app alongside existing web app).
-- Result: 3 command files changed (gsd-t-partition +scan feed +existing-surface check +2+ threshold, gsd-t-feature +multi-client check +multi-consumer impact section +SharedCore-first milestone rule, gsd-t-plan +SharedCore-First pre-check +SharedCore contract compliance check). 210/210 tests pass.
+**M20: Graph Abstraction Layer + Native Indexer + CGC Integration** — Phase: COMPLETE
+- Goal: Build a graph abstraction layer with two pluggable providers (native zero-dep indexer + CodeGraphContext MCP), enabling 21 commands to query code structure instead of grep. Automatic fallback chain: CGC → native → grep.
+- PRD: docs/prd-graph-engine.md (PRD-GRAPH-001)
+- Result: 6 new files (graph-store, graph-parsers, graph-overlay, graph-indexer, graph-query, graph-cgc), 3 CLI subcommands (graph index/status/query), 4 new contracts, 70 new tests. Self-indexed: 264 entities, 725 relationships. 280/280 tests pass.
 
 ## Active Milestone
-_None — M19 complete._
+**M21 — Graph-Powered Commands** (Phase: COMPLETE)
+
+## Domains (M20)
+| Domain              | Status   | Tasks | Completed |
+|---------------------|----------|-------|-----------|
+| graph-storage       | complete | 4     | 4         |
+| native-indexer      | complete | 5     | 5         |
+| graph-abstraction   | complete | 4     | 4         |
+| cgc-provider        | complete | 4     | 4         |
+| cli-graph           | complete | 3     | 3         |
+
+## Contracts (M20)
+- [x] graph-query-contract.md — Unified query interface (21 query types, 10 data shapes)
+- [x] graph-storage-contract.md — JSON file storage format (8 files in .gsd-t/graph/)
+- [x] graph-indexer-contract.md — Native parser rules (JS/TS/Python regex patterns, overlay rules)
+- [x] graph-cgc-contract.md — CGC MCP provider (health detection, query translation, enrichment)
+
+## Execution Order (M20)
+Wave 1: graph-storage (foundation, no deps)
+Wave 2: native-indexer (writes to storage)
+Wave 3: graph-abstraction + cgc-provider (parallel — both consume storage)
+Wave 4: cli-graph (consumes all above)
 
 ## Completed Milestones
 | Milestone | Version | Completed | Tag |
 |-----------|---------|-----------|-----|
+| Graph-Powered Commands       | 2.38.10 | 2026-03-18 | v2.38.10  |
+| Graph Engine                 | 2.37.10 | 2026-03-18 | v2.37.10  |
 | Shared Service Detection     | 2.35.10 | 2026-03-11 | v2.35.10  |
 | Multi-Consumer Surface ID    | 2.34.11 | 2026-03-11 | v2.34.11  |
 | Scan Visual Output           | 2.34.10 | 2026-03-09 | v2.34.10  |
@@ -52,6 +76,11 @@ _None — M19 complete._
 
 ## Decision Log
 (Entries before 2026-02-16 reconstructed from git history with timestamps)
+- 2026-03-19 16:55: [success] Scan #10 COMPLETE — v2.38.10 (post-M20/M21). Graph-enhanced scan using CGC (1,439 functions, 153 files) + native (275 entities). 294/294 tests pass. 4 new items found (TD-097-101): 1 CRITICAL (SEC-C01 command injection in graph-query.js grepQuery via execSync string interpolation), 1 MEDIUM (TD-098 absolute path contract violation), 2 LOW (TD-099 graph-store symlink, TD-100 overlay untested). 31 items carried. Total open: 35. Diagrams: 4/6 rendered (mermaid-cli). HTML report: scan-report.html. Graph-vs-grep comparison written to .gsd-t/scan/graph-vs-grep-comparison.md — graph found 5 issues grep-only missed (runtime contract verification, domain boundary check, worktree contamination, circular dep proof, complexity gap). All scan files updated. Living docs updated (architecture.md).
+- 2026-03-19 (session): [success] CGC fully integrated end-to-end. Installed CodeGraphContext 0.3.1 + Neo4j 5 Community (Docker container `gsd-t-neo4j`). Indexed GSD-T: 153 files, 1,437 functions, 41 modules (vs native: 264 entities). Updated graph-cgc.js normalizeResults to handle actual CGC response shapes (find_callers, dead_code, complexity, find_code). Added 7 new query types: findComplexFunctions, getComplexity, getCallChain, getModuleDeps, getClassHierarchy, getStats, cypher. Added CGC auto-install to gsd-t installer (Python check → pip install → Docker Neo4j → CGC config). Added CGC health check to doctor command. Updated tests for CGC-aware provider selection. 84/84 graph tests pass.
+- 2026-03-18 (session): [success] CGC MCP client fully implemented in bin/graph-cgc.js. JSON-RPC over stdio protocol (matches CGC's MCP server). Supports 8 CGC tools: analyze_code_relationships, find_dead_code, find_code, find_most_complex_functions, calculate_cyclomatic_complexity, execute_cypher_query, add_code_to_graph, get_repository_stats. Auto-detects CGC binary on PATH. Normalizes CGC response formats to GSD-T Entity shape. Overlay enrichment with domain/contract/requirement/test/surface context. 14 new tests (health detection, entity normalization, provider interface). 294/294 total tests pass.
+- 2026-03-18 (session): [success] M21 COMPLETE — Graph-Powered Commands v2.38.10. Added graph-enhanced analysis steps to 21 of 49 command files (6 Tier 1: scan, impact, partition, debug, execute, visualize; 5 Tier 2: qa, wave, integrate, verify, gap-analysis; 7 Tier 3: quick, plan, test-sync, complete-milestone, status, feature, populate; 3 Tier 4: promote-debt, init-scan-setup, visualize). All steps guarded with "if graph available" — commands remain fully functional without graph. 280/280 tests pass.
+- 2026-03-18 (session): [success] M20 EXECUTE COMPLETE — Graph Engine. 6 new files created: bin/graph-store.js (storage layer, 8 JSON files in .gsd-t/graph/), bin/graph-parsers.js (JS/TS/Python regex-based entity extraction), bin/graph-overlay.js (GSD-T context mapper: domain/contract/requirement/test/debt/surface mapping), bin/graph-indexer.js (project indexer with incremental support), bin/graph-cgc.js (CGC MCP provider with health detection and fallback), bin/graph-query.js (abstraction layer with 21 query types, 3-provider fallback chain). CLI: 3 new subcommands (graph index/status/query) added to bin/gsd-t.js. Tests: 70 new tests across 3 test files (graph-store:27, graph-indexer:28, graph-query:15). Self-test: indexed GSD-T itself — 264 entities, 725 relationships, 196ms. 280/280 total tests pass.
 - 2026-03-11 (session): [success] M19 COMPLETE — v2.35.10. Shared Service Detection & Shared-First Engineering. Root cause: when adding a 2nd client (mobile) to a project, partition Step 1.6 didn't scan existing surfaces or read scan quality.md, threshold was 3+ ops (too high), feature had no multi-client check, plan had no SharedCore-first enforcement. Fixes: (1) gsd-t-partition reads scan/quality.md + shared-services-contract.md in Step 1; added Existing System Check to Step 1.6.1; lowered threshold to 2+ ops. (2) gsd-t-feature added Multi-Client Architecture Check to Step 1; Multi-Consumer Check section to Step 3 impact template; SharedCore-first milestone ordering as rule 6. (3) gsd-t-plan added SharedCore-First Pre-Check before task lists; SharedCore Contract Compliance Check to duplicate scan. 210/210 tests pass.
 - 2026-03-11 (session): [success] M18 COMPLETE — v2.34.11. Multi-Consumer Surface Identification. Added Step 1.6 (Consumer Surface Enumeration) to gsd-t-partition.md, cross-domain duplicate operation scan to gsd-t-plan.md, new-consumer reuse analysis to gsd-t-impact.md, and templates/shared-services-contract.md template. 205/210 tests pass (5 pre-existing). Rationale: GSD-T was provider-centric and single-consumer-assumed, leading to duplicated backend logic when a second client surface (web/mobile) was added.
 - 2026-03-09 10:42: [success] Scan #8 COMPLETE — v2.34.10 (post-M14-M17). 205/205 tests pass. Team scan (5 dimensions: architecture, business-rules, security, quality, contracts). 31 total open items confirmed (TD-066 through TD-096): 3 HIGH, 12 MEDIUM, 16 LOW. No new items found vs Scan #7/9 — codebase unchanged. All scan files updated. Top priority: Script Testability + Contract Alignment Sprint (TD-066, TD-081, TD-082, TD-083, TD-087).

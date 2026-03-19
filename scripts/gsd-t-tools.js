@@ -4,7 +4,7 @@
 // Returns compact JSON. Subcommands: state, validate, parse, list, git, template
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 
 // Find nearest .gsd-t/ directory walking up from cwd
 function findProjectRoot() {
@@ -13,10 +13,10 @@ function findProjectRoot() {
     if (fs.existsSync(path.join(dir, '.gsd-t'))) return dir;
     dir = path.dirname(dir);
   }
-  return process.cwd();
+  return null;
 }
 
-const root = findProjectRoot();
+const root = findProjectRoot() || process.cwd();
 const gsdDir = path.join(root, '.gsd-t');
 
 function readProgress() {
@@ -40,7 +40,8 @@ function stateSet(key, value) {
   const content = fs.readFileSync(p, 'utf8');
   const re = new RegExp(`(^## ${escapeRe(key)}:\\s*)(.+)`, 'm');
   if (!re.test(content)) return { error: `key not found: ${key}` };
-  fs.writeFileSync(p, content.replace(re, `$1${value}`));
+  const safeValue = String(value).replace(/[\r\n]/g, ' ');
+  fs.writeFileSync(p, content.replace(re, `$1${safeValue}`));
   return { ok: true, key, value };
 }
 
@@ -89,33 +90,44 @@ function listContracts() {
 function preCommitCheck() {
   const result = {};
   try {
-    result.branch = execSync('git branch --show-current', { cwd: root, encoding: 'utf8' }).trim();
+    result.branch = execFileSync('git', ['branch', '--show-current'], { cwd: root, encoding: 'utf8' }).trim();
   } catch {
     result.branch = 'error';
   }
   try {
-    const status = execSync('git status --porcelain', { cwd: root, encoding: 'utf8' }).trim();
+    const status = execFileSync('git', ['status', '--porcelain'], { cwd: root, encoding: 'utf8' }).trim();
     result.clean = status.length === 0;
     result.changes = status ? status.split('\n').filter(Boolean) : [];
   } catch {
     result.clean = 'error';
   }
   try {
-    result.lastCommit = execSync('git log -1 --format="%h %s"', { cwd: root, encoding: 'utf8' }).trim();
+    result.lastCommit = execFileSync('git', ['log', '-1', '--format=%h %s'], { cwd: root, encoding: 'utf8' }).trim();
   } catch {
     result.lastCommit = 'error';
   }
   return result;
 }
 
+function validateDomainPath(domain) {
+  const domainsDir = path.join(gsdDir, 'domains');
+  const resolved = path.resolve(domainsDir, domain);
+  if (!resolved.startsWith(domainsDir + path.sep)) return null;
+  return resolved;
+}
+
 function templateScope(domain) {
-  const p = path.join(gsdDir, 'domains', domain, 'scope.md');
+  const domainDir = validateDomainPath(domain);
+  if (!domainDir) return { error: `Invalid domain name: ${domain}` };
+  const p = path.join(domainDir, 'scope.md');
   if (!fs.existsSync(p)) return { error: `scope.md not found for domain: ${domain}` };
   return { domain, scope: fs.readFileSync(p, 'utf8') };
 }
 
 function templateTasks(domain) {
-  const p = path.join(gsdDir, 'domains', domain, 'tasks.md');
+  const domainDir = validateDomainPath(domain);
+  if (!domainDir) return { error: `Invalid domain name: ${domain}` };
+  const p = path.join(domainDir, 'tasks.md');
   if (!fs.existsSync(p)) return { error: `tasks.md not found for domain: ${domain}` };
   return { domain, tasks: fs.readFileSync(p, 'utf8') };
 }

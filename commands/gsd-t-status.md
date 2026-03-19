@@ -57,6 +57,14 @@ If `.gsd-t/backlog.md` exists, read and parse it. Show total count and top 3 ite
 If there are blockers or issues, highlight them.
 If the user provides $ARGUMENTS, focus the status on that specific domain or aspect.
 
+## Graph Status
+
+If `.gsd-t/graph/meta.json` exists, read it and append to the status report:
+```
+Graph: {entityCount} entities indexed — last indexed {lastIndexed timestamp}
+```
+If the graph does not exist, skip this section.
+
 ## Version Check
 
 After displaying the project status, check for GSD-T updates:

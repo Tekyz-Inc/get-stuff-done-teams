@@ -26,8 +26,26 @@ Read:
 1. `CLAUDE.md` (if exists)
 2. `.gsd-t/progress.md` (if exists)
 3. `.gsd-t/contracts/` (if exists) — compare contracts to reality
-4. `.gsd-t/techdebt.md` (if exists) — append, don't overwrite
+4. `.gsd-t/techdebt.md` (if exists) — archive before replacing (see Step 2.9)
 5. `docs/` — any existing documentation
+
+## Step 1.5: Graph Index (if available)
+
+Before scanning, check if `bin/graph-indexer.js` exists in the GSD-T installation or if `.gsd-t/graph/meta.json` exists in the project. If so:
+
+```bash
+# Run or refresh the graph index
+node -e "const g = require('{gsd-t-path}/bin/graph-indexer'); console.log(JSON.stringify(g.indexProject('{project-root}')))"
+```
+
+If the graph is available, the scan teammates can use these queries for deeper analysis:
+- `query('findDeadCode', {})` → unused functions the quality team should flag
+- `query('findDuplicates', { threshold: 0.8 })` → semantic duplication (name-based or AST via CGC)
+- `query('findCircularDeps', {})` → circular import cycles
+- `query('getDomainBoundaryViolations', {})` → cross-domain access violations
+- `query('getEntitiesByDomain', { domain })` → entities per domain for architecture analysis
+
+Pass the graph query results to each teammate in their prompt context so they can reference concrete entity data instead of relying solely on grep patterns.
 
 ## Step 2: Full Codebase Scan
 
@@ -39,19 +57,24 @@ Create an agent team to scan this codebase:
 ALL TEAMMATES read first:
 - CLAUDE.md (if exists)
 - .gsd-t/contracts/ (if exists)
+- .gsd-t/graph/index.json (if exists) — entity registry for graph-enhanced analysis
 
 - Teammate "architecture" (model: haiku): Analyze project structure, tech stack,
-  data flow, patterns. Write findings to .gsd-t/scan/architecture.md
+  data flow, patterns. If graph available, use entity counts per file and import
+  edges to map component relationships. Write findings to .gsd-t/scan/architecture.md
 - Teammate "business-rules" (model: haiku): Extract all embedded business logic,
   validation, auth rules, workflows. Write to .gsd-t/scan/business-rules.md
 - Teammate "security" (model: sonnet): Full security audit — auth, injection, exposure,
   dependencies. Write to .gsd-t/scan/security.md
 - Teammate "quality" (model: sonnet): Dead code, duplication, complexity, test gaps,
-  performance, stale deps. Also: identify reusability candidates — functions or modules
-  that appear in multiple places doing similar work, and consumer surfaces (web/mobile/CLI/etc.)
-  that call the same backend operations independently. Write to .gsd-t/scan/quality.md
+  performance, stale deps. If graph available, use findDeadCode and findDuplicates
+  results for precise dead code and duplication detection instead of grep heuristics.
+  Also: identify reusability candidates — functions or modules that appear in multiple
+  places doing similar work, and consumer surfaces (web/mobile/CLI/etc.) that call the
+  same backend operations independently. Write to .gsd-t/scan/quality.md
 - Teammate "contracts" (model: haiku): Compare .gsd-t/contracts/ to actual implementation,
-  find drift and undocumented interfaces. Write to .gsd-t/scan/contract-drift.md
+  find drift and undocumented interfaces. If graph available, use contract mappings
+  to verify every contract has implementing code. Write to .gsd-t/scan/contract-drift.md
   (skip if no contracts exist)
 
 Each teammate: write your findings to your assigned file.
@@ -259,12 +282,27 @@ Capture output as `schemaData`. Log:
 
 If `schemaData.detected === false`, note: "No ORM/schema files detected — database diagram will use placeholder."
 
+## Step 2.9: Archive Previous Tech Debt Register
+
+Before building the new register, archive the existing one so the file stays small. Each scan is a complete snapshot — the archive preserves history.
+
+If `.gsd-t/techdebt.md` exists:
+1. Determine the archive date from the file's header (e.g., "Updated 2026-03-19" → `2026-03-19`). If no date found, use today's date.
+2. Rename it to `.gsd-t/techdebt_YYYY-MM-DD.md` (using the extracted date)
+3. If a file with that name already exists (same-day rescan), append a counter: `techdebt_YYYY-MM-DD_2.md`
+
+The new `techdebt.md` created in Step 3 will contain only the current scan's findings. Between scans, mark items as `[RESOLVED]` inline as they are fixed. The next scan replaces the file again.
+
 ## Step 3: Build Tech Debt Register
 
-Synthesize ALL findings into `.gsd-t/techdebt.md`:
+Synthesize ALL findings into a **fresh** `.gsd-t/techdebt.md` (the previous version was archived in Step 2.9). This file contains only the current scan's findings — no resolved items table, no scan history. Previous scans are preserved in `techdebt_YYYY-MM-DD.md` archives.
+
+**Between scans:** when an item is fixed, change its `**Status**:` field to `[RESOLVED] — {brief reason/milestone}`. Do not delete the item — it stays visible until the next scan replaces the file.
+
+**TD numbering:** continue from the highest TD number in the archived file. Check the archive to find the last TD-NNN used.
 
 ```markdown
-# Tech Debt Register — {date}
+# Tech Debt Register — {date} (Scan #{N})
 
 ## Summary
 - Critical items: {N}
@@ -272,6 +310,7 @@ Synthesize ALL findings into `.gsd-t/techdebt.md`:
 - Medium priority: {N}
 - Low priority: {N}
 - Total estimated effort: {rough assessment}
+- Previous scan archive: techdebt_{previous-date}.md
 
 ---
 
@@ -281,6 +320,7 @@ Items that pose active risk or block progress.
 ### TD-001: {title}
 - **Category**: {security | performance | architecture | quality | dependency}
 - **Severity**: CRITICAL
+- **Status**: OPEN
 - **Location**: {file(s)}
 - **Description**: {what's wrong}
 - **Impact**: {what happens if not fixed}
@@ -300,6 +340,7 @@ Items that should be addressed in the next 1-2 milestones.
 ### TD-010: {title}
 - **Category**: {category}
 - **Severity**: HIGH
+- **Status**: OPEN
 - **Location**: {file(s)}
 - **Description**: {what's wrong}
 - **Impact**: {what happens if not fixed}
@@ -335,10 +376,11 @@ Nice-to-haves and cleanup.
 
 ## Scan Metadata
 - Scan date: {date}
+- Scan number: {N}
 - Files analyzed: {count}
 - Lines of code: {approximate}
 - Languages: {list}
-- Last scan: {previous date or "first scan"}
+- Previous scan archive: techdebt_{previous-date}.md (or "first scan")
 ```
 
 ## Step 3.5: Diagram Generation

@@ -19,6 +19,17 @@ Identify:
 - Which tasks are unblocked (no pending dependencies)
 - Which tasks are blocked (waiting on checkpoints)
 
+## Step 1.5: Graph-Enhanced Domain Isolation Check (if available)
+
+If `.gsd-t/graph/meta.json` exists, run graph queries before execution begins:
+
+1. **Reindex** (if stale): `query('reindex', { force: false })` — ensure graph reflects current code
+2. **Domain boundary check**: For each domain about to execute, `query('getEntitiesByDomain', { domain })` — verify the domain's entities match its scope.md
+3. **Pre-execution snapshot**: Record entity counts per domain — after execution, compare to detect scope creep (domain agent modified entities outside its domain)
+4. **Cross-domain dependencies**: `query('getDomainBoundaryViolations', {})` — flag existing violations before work begins so they aren't confused with new violations introduced during execution
+
+After each domain completes, re-run `getDomainBoundaryViolations` and diff against pre-execution snapshot. If new violations appear, flag them immediately before proceeding to the next domain.
+
 ## Step 2: QA Subagent
 
 In solo mode, QA runs inside each domain subagent (see Step 3). In team mode, the lead spawns QA subagents at each domain checkpoint using the pattern below.

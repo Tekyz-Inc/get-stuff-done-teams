@@ -30,6 +30,14 @@ Scan this codebase and populate the GSD-T documentation. Analyze the actual code
 - Document Deployment from CI/CD configs, Dockerfiles, cloud configs
 - Document Logging and Monitoring from any logging setup or dashboard configs
 
+## Graph-Enhanced Population
+
+If `.gsd-t/graph/meta.json` exists (graph index is available):
+1. Use `getEntities` and `getImports` to auto-populate architecture docs more accurately — entity relationships map directly to component diagrams and data flow sections
+2. Use `getEntitiesByDomain` to pre-fill domain scope files with precise file ownership
+
+If graph is not available, rely on filesystem scanning as usual.
+
 ## For .gsd-t/progress.md:
 - Set Milestone 1: "Documentation Baseline"
 - Set status: VERIFIED

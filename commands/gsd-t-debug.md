@@ -142,9 +142,21 @@ If no results found: proceed normally to Step 2.
 
 ---
 
+## Step 1.7: Graph-Enhanced Root Cause Tracing (if available)
+
+If `.gsd-t/graph/meta.json` exists, use the graph to accelerate root cause identification:
+
+1. **Call chain from error**: `query('getCallers', { entity: '{error_function}' })` → trace backward from the error location
+2. **Transitive callers**: `query('getTransitiveCallers', { entity: '{name}', depth: 5 })` → find the full path from entry point to error
+3. **Domain ownership**: `query('getDomainOwner', { entity: '{name}' })` → immediately classify as within-domain or boundary bug
+4. **Contract check**: `query('getContractFor', { entity: '{name}' })` → determine if the bug is at a contract boundary
+5. **Related tests**: `query('getTestsFor', { entity: '{name}' })` → find existing tests that should have caught this
+
+Graph results replace the manual "classify the bug" analysis in Step 2 — the call chain tells you exactly where the bug type is (within-domain vs boundary) based on whether the caller and callee are in the same domain.
+
 ## Step 2: Classify the Bug
 
-Based on the user's description ($ARGUMENTS), determine:
+Based on the user's description ($ARGUMENTS) and graph analysis (if available), determine:
 
 ### A) Within-Domain Bug
 The issue is entirely inside one domain's scope. Symptoms:

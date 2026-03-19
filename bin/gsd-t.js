@@ -536,6 +536,177 @@ function installUtilityScripts() {
   }
 }
 
+// ─── CGC (CodeGraphContext) ──────────────────────────────────────────────────
+
+function installCgc() {
+  // Check Python availability
+  let pythonCmd = null;
+  for (const cmd of ["python3", "python"]) {
+    try {
+      const ver = execFileSync(cmd, ["--version"], {
+        encoding: "utf8", timeout: 3000,
+        stdio: ["pipe", "pipe", "pipe"]
+      }).trim();
+      const major = parseInt((ver.match(/(\d+)\.\d+/) || [])[1]);
+      if (major >= 3) { pythonCmd = cmd; break; }
+    } catch { /* try next */ }
+  }
+
+  if (!pythonCmd) {
+    warn("Python 3 not found — CGC graph engine skipped");
+    info("Install Python 3.10+ to enable deep code graph analysis");
+    return;
+  }
+
+  // Check if CGC is already installed
+  let cgcInstalled = false;
+  try {
+    execFileSync("cgc", ["--version"], {
+      encoding: "utf8", timeout: 3000,
+      stdio: ["pipe", "pipe", "pipe"]
+    });
+    cgcInstalled = true;
+  } catch { /* not installed */ }
+
+  if (!cgcInstalled) {
+    info("Installing CodeGraphContext...");
+    try {
+      execFileSync(pythonCmd, ["-m", "pip", "install", "codegraphcontext"], {
+        encoding: "utf8", timeout: 120000,
+        stdio: ["pipe", "pipe", "pipe"]
+      });
+      success("CodeGraphContext installed");
+    } catch (e) {
+      warn("CGC install failed — graph engine will use native-only mode");
+      info("To install manually: pip install codegraphcontext");
+      return;
+    }
+  } else {
+    // Check for update
+    try {
+      const pipOut = execFileSync(pythonCmd, [
+        "-m", "pip", "install", "--upgrade", "--dry-run", "codegraphcontext"
+      ], {
+        encoding: "utf8", timeout: 30000,
+        stdio: ["pipe", "pipe", "pipe"]
+      });
+      if (pipOut.includes("Would install")) {
+        info("Updating CodeGraphContext...");
+        execFileSync(pythonCmd, [
+          "-m", "pip", "install", "--upgrade", "codegraphcontext"
+        ], {
+          encoding: "utf8", timeout: 120000,
+          stdio: ["pipe", "pipe", "pipe"]
+        });
+        success("CodeGraphContext updated");
+      } else {
+        info("CodeGraphContext up to date");
+      }
+    } catch {
+      info("CodeGraphContext already installed (update check skipped)");
+    }
+  }
+
+  // Check Neo4j availability via Docker
+  let neo4jReady = false;
+  try {
+    const dInfo = execFileSync("docker", ["inspect", "gsd-t-neo4j"], {
+      encoding: "utf8", timeout: 5000,
+      stdio: ["pipe", "pipe", "pipe"]
+    });
+    const container = JSON.parse(dInfo);
+    if (container[0] && container[0].State &&
+        container[0].State.Running) {
+      neo4jReady = true;
+      info("Neo4j container running");
+    } else {
+      // Container exists but stopped — start it
+      execFileSync("docker", ["start", "gsd-t-neo4j"], {
+        encoding: "utf8", timeout: 10000,
+        stdio: ["pipe", "pipe", "pipe"]
+      });
+      neo4jReady = true;
+      success("Neo4j container started");
+    }
+  } catch {
+    // No container — check if Docker is available
+    try {
+      execFileSync("docker", ["info"], {
+        encoding: "utf8", timeout: 5000,
+        stdio: ["pipe", "pipe", "pipe"]
+      });
+      // Docker available — create Neo4j container
+      info("Creating Neo4j container for graph engine...");
+      try {
+        execFileSync("docker", [
+          "run", "-d", "--name", "gsd-t-neo4j",
+          "-p", "7474:7474", "-p", "7687:7687",
+          "-e", "NEO4J_AUTH=neo4j/gsdt-graph-2026",
+          "--restart", "unless-stopped",
+          "neo4j:5-community"
+        ], {
+          encoding: "utf8", timeout: 120000,
+          stdio: ["pipe", "pipe", "pipe"]
+        });
+        neo4jReady = true;
+        success("Neo4j container created (port 7474/7687)");
+      } catch (e) {
+        warn("Failed to create Neo4j container");
+        info("Run manually: docker run -d --name gsd-t-neo4j -p 7474:7474 -p 7687:7687 -e NEO4J_AUTH=neo4j/gsdt-graph-2026 neo4j:5-community");
+      }
+    } catch {
+      warn("Docker not available — CGC will use native-only graph mode");
+      info("Install Docker Desktop to enable CGC deep analysis");
+    }
+  }
+
+  // Configure CGC to use Neo4j
+  if (neo4jReady) {
+    const cgcConfigDir = path.join(os.homedir(), ".codegraphcontext");
+    const cgcConfigFile = path.join(cgcConfigDir, ".env");
+    ensureDir(cgcConfigDir);
+    if (!fs.existsSync(cgcConfigFile) ||
+        !fs.readFileSync(cgcConfigFile, "utf8").includes("NEO4J_URI")) {
+      // Create or append Neo4j config
+      try {
+        execFileSync("cgc", ["config", "set", "DEFAULT_DATABASE", "neo4j"], {
+          encoding: "utf8", timeout: 5000,
+          stdio: ["pipe", "pipe", "pipe"],
+          env: { ...process.env, PYTHONIOENCODING: "utf-8" }
+        });
+        execFileSync("cgc", ["config", "set", "NEO4J_URI", "bolt://localhost:7687"], {
+          encoding: "utf8", timeout: 5000,
+          stdio: ["pipe", "pipe", "pipe"],
+          env: { ...process.env, PYTHONIOENCODING: "utf-8" }
+        });
+        execFileSync("cgc", ["config", "set", "NEO4J_PASSWORD", "gsdt-graph-2026"], {
+          encoding: "utf8", timeout: 5000,
+          stdio: ["pipe", "pipe", "pipe"],
+          env: { ...process.env, PYTHONIOENCODING: "utf-8" }
+        });
+        // Add NEO4J_USERNAME manually (not a CGC config key)
+        const envContent = fs.readFileSync(cgcConfigFile, "utf8");
+        if (!envContent.includes("NEO4J_USERNAME")) {
+          fs.appendFileSync(cgcConfigFile,
+            "\n# Neo4j connection settings\nNEO4J_USERNAME=neo4j\n");
+        }
+        success("CGC configured for Neo4j");
+      } catch {
+        warn("CGC config write failed — configure manually");
+      }
+    } else {
+      info("CGC Neo4j config exists");
+    }
+  }
+
+  // Summary
+  if (neo4jReady) {
+    success("Graph engine: CGC + Neo4j (full analysis)");
+  } else {
+    info("Graph engine: native-only (install Docker for CGC)");
+  }
+}
+
 // ─── Commands ────────────────────────────────────────────────────────────────
 
 function installCommands(isUpdate) {
@@ -662,6 +833,10 @@ function doInstall(opts = {}) {
 
   heading("Utility Scripts");
   installUtilityScripts();
+
+  heading("Graph Engine (CGC)");
+  installCgc();
+
   saveInstalledVersion();
 
   showInstallSummary(gsdtCommands.length, utilityCommands.length);
@@ -1231,6 +1406,41 @@ function checkDoctorProject() {
   return issues;
 }
 
+function checkDoctorCgc() {
+  let issues = 0;
+  heading("Graph Engine (CGC)");
+
+  // Check CGC binary
+  try {
+    const ver = execFileSync("cgc", ["--version"], {
+      encoding: "utf8", timeout: 3000,
+      stdio: ["pipe", "pipe", "pipe"]
+    }).trim();
+    success(`CodeGraphContext ${ver}`);
+  } catch {
+    warn("CGC not installed (deep code analysis unavailable)");
+    info("Run 'pip install codegraphcontext' or reinstall GSD-T");
+    issues++;
+    return issues;
+  }
+
+  // Check Neo4j
+  try {
+    execFileSync("docker", ["inspect", "gsd-t-neo4j", "--format", "{{.State.Running}}"], {
+      encoding: "utf8", timeout: 5000,
+      stdio: ["pipe", "pipe", "pipe"]
+    }).trim() === "true"
+      ? success("Neo4j container running")
+      : (warn("Neo4j container stopped"), info("Run: docker start gsd-t-neo4j"), issues++);
+  } catch {
+    warn("Neo4j container not found");
+    info("Run: docker run -d --name gsd-t-neo4j -p 7474:7474 -p 7687:7687 -e NEO4J_AUTH=neo4j/gsdt-graph-2026 neo4j:5-community");
+    issues++;
+  }
+
+  return issues;
+}
+
 function doDoctor() {
   heading("GSD-T Doctor");
   log("");
@@ -1238,6 +1448,7 @@ function doDoctor() {
   issues += checkDoctorEnvironment();
   issues += checkDoctorInstallation();
   issues += checkDoctorProject();
+  issues += checkDoctorCgc();
   log("");
   if (issues === 0) {
     log(`${GREEN}${BOLD}  All checks passed!${RESET}`);
@@ -1369,6 +1580,76 @@ function doChangelog() {
   }
 }
 
+// ─── Graph ──────────────────────────────────────────────────────────────────
+
+function doGraphIndex() {
+  heading("GSD-T Graph — Index");
+  const root = process.cwd();
+  const gq = require("./graph-indexer");
+  const result = gq.indexProject(root, { force: true });
+  if (result.success) {
+    success(`Indexed ${result.entityCount} entities, ${result.relationshipCount} relationships`);
+    info(`Files processed: ${result.filesProcessed}, skipped: ${result.filesSkipped}`);
+    info(`Duration: ${result.duration}ms`);
+    if (result.errors.length > 0) {
+      warn(`Parse errors: ${result.errors.length}`);
+      result.errors.forEach(e => log(`  ${DIM}${e}${RESET}`));
+    }
+  } else {
+    error("Indexing failed");
+  }
+}
+
+function doGraphStatus() {
+  heading("GSD-T Graph — Status");
+  const root = process.cwd();
+  const store = require("./graph-store");
+  const meta = store.readMeta(root);
+  if (!meta) {
+    warn("No graph index found. Run: gsd-t graph index");
+    return;
+  }
+  success(`Provider: ${meta.provider}`);
+  info(`Entities: ${meta.entityCount}`);
+  info(`Relationships: ${meta.relationshipCount}`);
+  info(`Last indexed: ${meta.lastIndexed}`);
+  info(`Duration: ${meta.duration}ms`);
+  const fileCount = Object.keys(meta.fileHashes || {}).length;
+  info(`Files tracked: ${fileCount}`);
+}
+
+function doGraphQuery(args) {
+  const root = process.cwd();
+  const gq = require("./graph-query");
+  const type = args[0];
+  if (!type) {
+    error("Usage: gsd-t graph query <type> [params...]");
+    info("Types: getEntity, getEntities, getCallers, getCallees,");
+    info("       findDeadCode, findDuplicates, findCircularDeps,");
+    info("       getDomainBoundaryViolations, getIndexStatus");
+    return;
+  }
+  const params = {};
+  for (let i = 1; i < args.length; i++) {
+    const [k, v] = args[i].split("=");
+    if (k && v) params[k] = v;
+  }
+  const result = gq.query(type, params, root);
+  log(JSON.stringify(result, null, 2));
+}
+
+function doGraph(args) {
+  const sub = args[0] || "status";
+  switch (sub) {
+    case "index":  doGraphIndex(); break;
+    case "status": doGraphStatus(); break;
+    case "query":  doGraphQuery(args.slice(1)); break;
+    default:
+      error(`Unknown graph subcommand: ${sub}`);
+      info("Usage: gsd-t graph [index|status|query]");
+  }
+}
+
 function showHelp() {
   log(`\n${BOLD}GSD-T${RESET} — Contract-Driven Development for Claude Code\n`);
   log(`${BOLD}Usage:${RESET}  npx @tekyzinc/gsd-t ${CYAN}<command>${RESET} [options]\n`);
@@ -1382,6 +1663,7 @@ function showHelp() {
   log(`  ${CYAN}uninstall${RESET}      Remove GSD-T commands (keeps project files)`);
   log(`  ${CYAN}doctor${RESET}         Diagnose common issues`);
   log(`  ${CYAN}changelog${RESET}      Open changelog in the browser`);
+  log(`  ${CYAN}graph${RESET}          Code graph operations (index, status, query)`);
   log(`  ${CYAN}help${RESET}           Show this help\n`);
   log(`${BOLD}Examples:${RESET}`);
   log(`  ${DIM}$${RESET} npx @tekyzinc/gsd-t install`);
@@ -1443,6 +1725,10 @@ module.exports = {
   readUpdateCache,
   fetchVersionSync,
   refreshVersionAsync,
+  doGraph,
+  doGraphIndex,
+  doGraphStatus,
+  doGraphQuery,
   PKG_VERSION,
   PKG_ROOT,
   PKG_COMMANDS,
@@ -1481,6 +1767,9 @@ if (require.main === module) {
       break;
     case "changelog":
       doChangelog();
+      break;
+    case "graph":
+      doGraph(args.slice(1));
       break;
     case "scan": {
       const exportFlag = args.find(a => a.startsWith('--export='));

@@ -1,4 +1,7 @@
 {
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  },
   "permissions": {
     "allow": [
       "Edit",
@@ -7,7 +10,11 @@
       "Read",
       "WebSearch",
       "WebFetch",
-      "Skill"
+      "Skill",
+      "mcp__plugin_claude-mem_mcp-search__search",
+      "mcp__plugin_claude-mem_mcp-search__get_observations",
+      "mcp__plugin_claude-mem_mcp-search__timeline",
+      "mcp__plugin_claude-mem_mcp-search__save_memory"
     ]
   },
   "outputStyle": "default"

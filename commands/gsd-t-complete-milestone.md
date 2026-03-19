@@ -17,6 +17,15 @@ If status is not VERIFIED:
 
 If `--force` flag provided, proceed with warning in archive.
 
+## Step 1.25: Graph-Enhanced Completion Check
+
+If `.gsd-t/graph/meta.json` exists (graph index is available):
+1. Query `getEntitiesByDomain` to validate all planned entities were implemented — compare against domain task lists
+2. Query `findDeadCode` to flag unreachable implementations that may indicate incomplete wiring or orphaned code
+3. If missing entities or significant dead code found, block completion and report gaps
+
+If graph is not available, skip this step.
+
 ## Step 1.5: Smoke Test Artifact Gate (MANDATORY — Categories 2 and 7)
 
 Before archiving, verify that high-risk features have testable artifacts. This gate catches what code review and unit tests cannot.

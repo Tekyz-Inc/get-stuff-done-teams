@@ -16,6 +16,15 @@ Read ALL of these:
 
 **If CONTEXT.md exists:** Every Locked Decision listed in it MUST be mapped to at least one task in Step 2. Do NOT proceed to execute if any Locked Decision is unmapped.
 
+## Step 1.5: Graph-Enhanced Dependency Detection
+
+If `.gsd-t/graph/meta.json` exists (graph index is available):
+1. Query `findDuplicates` to detect when planned tasks would create duplicate functions across domains — flag for SharedCore extraction or deduplication
+2. Query `getImporters` for key modules to identify implicit task dependencies that might not be obvious from contracts alone
+3. Feed these findings into the Cross-Domain Duplicate Operation Scan and dependency mapping in Steps 2–3
+
+If graph is not available, skip this step.
+
 ## Step 2: Create Task Lists Per Domain
 
 ### SharedCore-First Pre-Check

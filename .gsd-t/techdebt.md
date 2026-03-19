@@ -1,13 +1,13 @@
-# Tech Debt Register — Updated 2026-03-09 (Scan #9)
+# Tech Debt Register — Updated 2026-03-19 (Scan #10)
 
-## Summary (Current — post Scan #9)
-- Critical items: 0
-- High priority: 3 (TD-081, TD-082, TD-083)
-- Medium priority: 12 (TD-066–071, TD-084–089, TD-095)
-- Low priority: 16 (TD-072–080, TD-090–094, TD-096)
-- Total open items: 31
+## Summary (Current — post Scan #10)
+- Critical items: 1 (TD-097)
+- High priority: 3 (TD-081, TD-082, TD-083) — carried
+- Medium priority: 13 (TD-066–071, TD-084–089, TD-095, TD-098)
+- Low priority: 18 (TD-072–080, TD-090–094, TD-096, TD-099, TD-100, TD-101)
+- Total open items: 35
 - Accepted risk: 1 (TD-029 TOCTOU)
-- **Trend (Scan #9): No code changes since Scan #8. 31 open items accumulated across feature milestones M14-M17. No critical items. Main concerns: 3 scripts untestable (TD-066, TD-081), version injection via execSync (TD-082), dashboard CDN security (TD-095). Cleanup sprint overdue.**
+- **Trend (Scan #10): Post-M20/M21 (Graph Engine). 6 new files (1,726 lines), 70 new tests, 3 new test files. 1 NEW CRITICAL: command injection in graph-query.js grep fallback (TD-097/SEC-C01). 3 new items total (1 critical, 1 medium, 2 low). Graph-enhanced scan found issues grep-only missed: SEC-C01 injection, absolute-path contract violation, worktree contamination in CGC indexing. Cleanup sprint overdue — 35 open items.**
 
 ### Scan History
 - **Scan #1** (2026-02-07): 13 items found, 9 resolved
@@ -26,6 +26,8 @@
 - **Scan #7** (2026-03-09): 15 items carried from Scan #6. 14 new items (TD-080 through TD-094): 0 critical, 3 high, 7 medium, 5 low. Post-M14-M17. Total open: 29.
 - **Scan #8** (2026-03-09): 29 carried. 2 new items (TD-095, TD-096 — dashboard CDN security). Total open: 31.
 - **Scan #9** (2026-03-09): 31 carried. 0 new items (no code changes since Scan #8). Total open: 31.
+- **Milestones 20-21** (2026-03-18 to 2026-03-19): Graph Engine + Graph-Powered Commands. 6 new files, 70 new tests, 21 commands enhanced with graph queries.
+- **Scan #10** (2026-03-19): 31 carried. 4 new items (TD-097 through TD-101): 1 critical, 0 high, 1 medium, 2 low. Graph-enhanced scan. Total open: 35.
 
 ---
 
@@ -807,4 +809,142 @@ Can be scheduled: FOLD INTO Script Testability Sprint (same files, same review)
 - Total tests: 205/205 passing
 - New items found: 0
 - Total open items: 31
+
+---
+
+## Scan #10 Findings — Post-M20/M21 Graph Engine (2026-03-19)
+
+**Scan #10 Summary:**
+- Scan date: 2026-03-19
+- Version: 2.38.10
+- Previous open items: 31 (all carried from Scan #9)
+- New items found: 4 (TD-097 through TD-101): 1 critical, 0 high, 1 medium, 2 low
+- Items resolved: 0
+- Test baseline: 294/294 passing
+- Graph-enhanced: Yes — used CGC (1,439 functions, 153 files, 41 modules) + native (275 entities)
+- Scan mode: Lead agent, 5-dimension analysis (architecture, business-rules, security, quality, contracts)
+
+---
+
+## Critical Priority (Scan #10)
+
+### TD-097: graph-query.js grepQuery() — command injection via params.entity (SEC-C01)
+- **Category**: security
+- **Severity**: CRITICAL
+- **Location**: `bin/graph-query.js` lines 305-306, 321-322
+- **Description**: The grep fallback provider in graph-query.js uses `execSync` with string interpolation of `params.entity` and `params.file` directly into shell commands: `grep -rn "${name}(" ...`. An entity name containing shell metacharacters (`;`, `|`, `$()`, backticks) achieves arbitrary command execution. The grep provider is priority 3 (lowest) so is only active when both CGC and native providers are unavailable — but this IS exercised when no graph index exists (first run on any project, or corrupted index).
+- **Impact**: Shell command injection. Any GSD-T command that calls `query('getCallers', { entity: userInput })` through the grep fallback can execute arbitrary commands.
+- **Remediation**: Replace `execSync(cmd)` with `execFileSync('grep', ['-rn', name + '(', '--include=*.js', '--include=*.ts', '--include=*.py', projectRoot], { encoding: 'utf8', timeout: 5000 })`. Add input validation: `if (!/^[\w.\-/]+$/.test(name)) return [];`
+- **Effort**: small
+- **Milestone candidate**: YES — fix immediately, do not wait for milestone
+- **Promoted**: [ ]
+
+---
+
+## Medium Priority (Scan #10)
+
+### TD-098: graph-query-contract.md Rule 6 violated — absolute paths in results
+- **Category**: quality (contract drift)
+- **Severity**: MEDIUM
+- **Location**: `bin/graph-query.js`, `bin/graph-cgc.js`
+- **Description**: Contract Rule 6 states "All file paths in results MUST be relative to project root." Reality: CGC provider returns absolute paths in entity IDs and file fields. Native provider uses absolute paths in entity `id` field (e.g., `C:\Users\david\GSD-T\bin\graph-cgc.js:48:startCgcServer`). Entity ID determinism (Rule 7) is also affected — same entity gets different IDs on different machines.
+- **Impact**: Commands consuming graph results that expect relative paths will produce incorrect output. Entity IDs are non-portable across machines.
+- **Remediation**: In graph-query.js `query()` function, normalize all returned entity paths to relative (using `path.relative(projectRoot, entity.file)`) before returning. Or fix in each provider's result normalization.
+- **Effort**: small
+- **Milestone candidate**: NO — fold into next graph maintenance milestone
+- **Promoted**: [ ]
+
+---
+
+## Low Priority (Scan #10)
+
+### TD-099: graph-store.js ensureDir() missing symlink protection (SEC-M04)
+- **Category**: security
+- **Severity**: LOW
+- **Location**: `bin/graph-store.js` lines 22-26
+- **Description**: `fs.mkdirSync(dir, { recursive: true })` and `fs.writeFileSync(fp, ...)` in graph-store.js have no symlink protection. Unlike bin/gsd-t.js which has `isSymlink()` + `hasSymlinkInPath()` checks at all write sites, graph-store writes to .gsd-t/graph/ without validation.
+- **Impact**: Low — graph data is non-sensitive (function names, file paths). Requires prior symlink placement by attacker.
+- **Remediation**: Reuse `isSymlink()` / `hasSymlinkInPath()` from gsd-t.js, or extract to shared utility.
+- **Effort**: small
+- **Milestone candidate**: NO — fold into next security sprint
+- **Promoted**: [ ]
+
+### TD-100: graph-overlay.js — no dedicated test file
+- **Category**: quality
+- **Severity**: LOW
+- **Location**: `bin/graph-overlay.js`
+- **Description**: The overlay module (195 lines, 8 exported functions: buildOverlay, buildDomainMap, mapDomains, mapContracts, mapRequirements, mapTests, mapDebt, detectSurfaces) has no dedicated test file. Functions are tested indirectly through graph-indexer.test.js integration tests, but no unit tests for individual mapping functions.
+- **Impact**: Low — overlay functions work correctly (verified via graph queries), but edge cases in domain mapping, contract matching, and surface detection are untested.
+- **Remediation**: Create `test/graph-overlay.test.js` with unit tests for each mapping function.
+- **Effort**: small
+- **Milestone candidate**: NO — fold into next testing sprint
+- **Promoted**: [ ]
+
+### TD-101: graph-cgc-contract.md MCP tool names don't match implementation
+- **Category**: quality (contract drift)
+- **Severity**: LOW
+- **Location**: `.gsd-t/contracts/graph-cgc-contract.md` MCP Communication section
+- **Description**: Contract shows conceptual tool names (`search_codebase`, `get_dependencies`, `find_similar`). Implementation uses actual CGC API tool names (`analyze_code_relationships`, `find_dead_code`, `find_code`, `find_most_complex_functions`, etc.). Minor contract drift.
+- **Impact**: Low — contract communicates intent correctly even if tool names are conceptual.
+- **Remediation**: Update contract MCP Communication section to show actual tool names used in graph-cgc.js.
+- **Effort**: small
+- **Milestone candidate**: NO — fold into next contract alignment
+- **Promoted**: [ ]
+
+---
+
+## Scan #10 Metadata
+
+- Scan date: 2026-03-19
+- Version scanned: 2.38.10
+- Previous scan: Scan #9 at v2.34.10 (2026-03-09)
+- Files analyzed: 27 JS files (4,888 lines), 11 test files (2,943 lines), 49 command files, 10 templates, 16 contracts
+- Languages: JavaScript, Markdown
+- Total tests: 294/294 passing
+- New items found: 4 (TD-097 through TD-101): 1 critical, 0 high, 1 medium, 2 low
+- Items resolved: 0
+- Previously open items carried: 31
+- Total open items: 35
+- Graph providers used: CGC (primary), Native (275 entities), Grep (fallback)
+- Graph queries run: getStats, findDeadCode, findDuplicates, findComplexFunctions, findCircularDeps, getDomainBoundaryViolations, getEntitiesByDomain
+
+### Updated Trend Analysis
+
+| Metric                    | Scan #6  | Scan #9  | Scan #10 | Trend                                    |
+|---------------------------|----------|----------|----------|------------------------------------------|
+| Open items                | 14       | 31       | 35       | Growing — no cleanup milestones since M9 |
+| Critical items            | 0        | 0        | 1        | NEW — SEC-C01 grep injection             |
+| HIGH items                | 1        | 3        | 3        | Stable                                   |
+| MEDIUM items              | 5        | 12       | 13       | +1 (path contract drift)                 |
+| LOW items                 | 7        | 16       | 18       | +2 (symlink + overlay tests)             |
+| JS files                  | 6        | 19       | 27       | +8 (graph engine)                        |
+| JS lines                  | 1,944    | ~4,208   | 4,888    | +680 (graph engine)                      |
+| Test files                | 4 (125)  | 8 (205)  | 11 (294) | +3 files, +89 tests                      |
+| Functions > 30 lines      | 0        | 0        | 0        | Stable (all within limit)                |
+| Contract drift items      | 4        | 6        | 8        | +2 (graph contracts)                     |
+| Security (open actionable)| 2        | 8        | 10       | +2 (graph injection + symlink)           |
+| Circular dependencies     | unknown  | unknown  | 0        | First verified via graph                 |
+| Domain violations         | unknown  | unknown  | 0        | First verified via graph                 |
+
+## Suggested Tech Debt Milestones (Scan #10)
+
+### Suggested: Critical Security Fix (Immediate)
+Combines: TD-097
+Estimated effort: small (30 min)
+Should be prioritized: IMMEDIATELY — before any other work
+
+### Suggested: Graph Quality Sprint
+Combines: TD-098, TD-100, TD-101
+Estimated effort: small-medium (2-3 hours)
+Can be scheduled: After critical fix
+
+### Suggested: execSync Elimination Sprint
+Combines: TD-097, TD-082 (SEC-H01), TD-083 (SEC-H02), TD-084 (SEC-H03), SEC-M01, SEC-M03
+Estimated effort: medium (half day)
+Should be prioritized: BEFORE next feature milestone — all 6 execSync-with-interpolation instances in one sweep
+
+### Suggested: Script Testability + Contract Alignment
+Combines: TD-066, TD-067, TD-069, TD-070, TD-071, TD-074, TD-099
+Estimated effort: medium (half day)
+Can be scheduled: After security sprint
 

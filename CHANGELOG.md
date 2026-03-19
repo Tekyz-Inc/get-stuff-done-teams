@@ -2,6 +2,34 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.39.10] - 2026-03-19
+
+### Added
+- **M20: Graph Abstraction Layer + Native Indexer** — 6 new files (`graph-store`, `graph-parsers`, `graph-overlay`, `graph-indexer`, `graph-query`, `graph-cgc`), 3 CLI subcommands (`graph index/status/query`), 4 new contracts, 70 new tests. Self-indexed: 264 entities, 725 relationships.
+- **M21: Graph-Powered Commands** — 21 commands now query code structure via graph instead of grep, with automatic fallback chain (CGC → native → grep)
+- `/global-change` command for bulk file changes across all registered GSD-T projects (49th command)
+- 3-tier model assignments (haiku/sonnet/opus) with mandatory model display before subagent spawns
+- Graph vs grep comparison analysis (`scan/graph-vs-grep-comparison.md`)
+- PRDs: `prd-graph-engine.md`, `prd-gsd2-hybrid.md`
+
+### Fixed
+- **TD-097 (CRITICAL)**: Command injection in `graph-query.js` — replaced `execSync` with `execFileSync` + input validation
+- **TD-081/TD-082 (HIGH)**: Shell injection in `gsd-t-update-check.js` — added semver validation, `execFileSync`, `module.exports`
+- **TD-083 (HIGH)**: Contract drift — added `session_start`/`session_end` to event writer, removed phantom `mcp` renderer
+- **TD-071 (MEDIUM)**: Markdown injection in `stateSet()` — now strips `\r\n` from values
+- **TD-084**: `execSync` in `scan-export.js` and `scan-renderer.js` replaced with `execFileSync`
+- **TD-085**: Dashboard event loading now handles cross-midnight sessions
+- **TD-087**: Command count corrected to 49 in CLI installer
+- **TD-072**: Path traversal protection in `templateScope`/`templateTasks`
+- **TD-073**: `execSync` in `preCommitCheck()` replaced with `execFileSync`
+- **TD-074**: `findProjectRoot()` now returns `null` instead of cwd on failure
+- **TD-092**: `scan-report.html` now written to `.gsd-t/` instead of project root
+- **TD-099**: `graph-store.js` symlink protection added
+
+### Changed
+- 293/294 tests passing (1 pre-existing failure in `scan.test.js`)
+- Total command count: 49 (45 GSD-T workflow + 4 utility)
+
 ## [2.33.12] - 2026-03-06
 
 ### Fixed

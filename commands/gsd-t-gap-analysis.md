@@ -10,6 +10,15 @@ Read (if they exist):
 3. `docs/requirements.md` — existing requirements
 4. `docs/architecture.md` — system structure
 
+## Step 1.5: Graph-Enhanced Code Mapping
+
+If `.gsd-t/graph/meta.json` exists (graph index is available):
+1. Query `getRequirementFor` to pre-map requirements to code entities — provides evidence for classification in Step 4
+2. Query `findDeadCode` to identify unreachable code that may indicate implemented-but-disconnected features (potential gap indicators)
+3. Feed these findings into the classification step to improve evidence quality
+
+If graph is not available, skip this step.
+
 ## Step 2: Parse Requirements
 
 Break the provided spec into numbered discrete requirements. Each requirement should be:

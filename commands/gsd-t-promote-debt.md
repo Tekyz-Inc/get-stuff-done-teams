@@ -9,6 +9,14 @@ Read:
 2. `.gsd-t/roadmap.md` — current milestone plan
 3. `.gsd-t/progress.md` — what's in progress
 
+## Step 1.5: Graph-Enhanced Impact Radius
+
+If `.gsd-t/graph/meta.json` exists (graph index is available):
+1. For each debt item, query `getCallers` on the affected entity to calculate impact radius — items with more callers have higher blast radius and may warrant higher priority
+2. Include caller counts in the promotable items display to help the user prioritize
+
+If graph is not available, skip this step.
+
 ## Step 2: Identify Items to Promote
 
 From $ARGUMENTS, determine which items to promote:

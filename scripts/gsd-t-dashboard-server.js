@@ -89,10 +89,24 @@ function getNewestJsonl(eventsDir) {
 function handleEvents(req, res, eventsDir) {
   res.writeHead(200, SSE_HEADERS);
   readExistingEvents(eventsDir, MAX_EVENTS).forEach((e) => { try { res.write("data: " + JSON.stringify(e) + "\n\n"); } catch { /* gone */ } });
-  const watched = getNewestJsonl(eventsDir);
-  const unwatch = watched ? tailEventsFile(watched, (obj) => { try { res.write("data: " + JSON.stringify(obj) + "\n\n"); } catch { /* gone */ } }) : null;
+  const sendEvent = (obj) => { try { res.write("data: " + JSON.stringify(obj) + "\n\n"); } catch { /* gone */ } };
+  let watchedFile = getNewestJsonl(eventsDir);
+  let unwatchFile = watchedFile ? tailEventsFile(watchedFile, sendEvent) : null;
+  // Watch events directory for new JSONL files (e.g., after midnight date rollover)
+  let dirWatcher = null;
+  try {
+    dirWatcher = fs.watch(eventsDir, (eventType, filename) => {
+      if (!filename || !filename.endsWith(".jsonl")) return;
+      const newFile = getNewestJsonl(eventsDir);
+      if (newFile && newFile !== watchedFile) {
+        if (unwatchFile) unwatchFile();
+        watchedFile = newFile;
+        unwatchFile = tailEventsFile(watchedFile, sendEvent);
+      }
+    });
+  } catch { /* eventsDir may not exist yet */ }
   const timer = setInterval(() => { try { res.write(": keepalive\n\n"); } catch { clearInterval(timer); } }, KEEPALIVE_MS);
-  req.on("close", () => { clearInterval(timer); if (unwatch) unwatch(); });
+  req.on("close", () => { clearInterval(timer); if (unwatchFile) unwatchFile(); if (dirWatcher) dirWatcher.close(); });
 }
 
 function startServer(port, eventsDir, htmlPath) {

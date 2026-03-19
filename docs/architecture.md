@@ -1,6 +1,6 @@
 # Architecture — GSD-T Framework (@tekyzinc/gsd-t)
 
-## Last Updated: 2026-03-09 (Scan #9, Post-M17)
+## Last Updated: 2026-03-19 (Scan #10, Post-M20/M21)
 
 ## System Overview
 
@@ -14,16 +14,16 @@ The framework has no runtime — it is consumed entirely by Claude Code's slash 
 
 ### CLI Installer (bin/gsd-t.js)
 - **Purpose**: Install, update, diagnose, and manage GSD-T across projects
-- **Location**: `bin/gsd-t.js` (1,438 lines, 81+ functions, all ≤ 30 lines)
-- **Dependencies**: Node.js built-ins only (fs, path, os, child_process, https)
-- **Subcommands**: install, update, status, doctor, init, uninstall, update-all, register, changelog
+- **Location**: `bin/gsd-t.js` (1,798 lines, 90+ functions, all ≤ 30 lines)
+- **Dependencies**: Node.js built-ins only (fs, path, os, child_process, https, crypto)
+- **Subcommands**: install, update, status, doctor, init, uninstall, update-all, register, changelog, graph (index/status/query)
 - **Organization**: Configuration → Guard section → Helpers → Heartbeat → Commands → Install/Update → Init → Status → Uninstall → Update-All → Doctor → Register → Update Check → Help → Main dispatch
 - **All functions ≤ 30 lines** (M6 refactoring). Largest: `doRegister()` at 30 lines, `summarize()` at 30 lines.
 
 ### Slash Commands (commands/*.md)
 - **Purpose**: Define the GSD-T methodology as executable workflows for Claude Code
 - **Location**: `commands/`
-- **Count**: 48 (44 GSD-T workflow + 4 utility: gsd, branch, checkin, Claude-md) — includes gsd-t-health, gsd-t-pause (M13), gsd-t-reflect (M14), gsd-t-visualize (M15), gsd-t-prd (M16)
+- **Count**: 49 (45 GSD-T workflow + 4 utility: gsd, branch, checkin, Claude-md, global-change) — includes gsd-t-health, gsd-t-pause (M13), gsd-t-reflect (M14), gsd-t-visualize (M15), gsd-t-prd (M16), global-change (M20)
 - **Format**: Pure markdown with step-numbered instructions, team mode blocks, document ripple sections, and $ARGUMENTS terminator
 
 ### Templates (templates/*.md)
@@ -65,6 +65,16 @@ The framework has no runtime — it is consumed entirely by Claude Code's slash 
 - **`scripts/gsd-t-dashboard-server.js`** (141 lines, zero external deps): Node.js SSE server watching `.gsd-t/events/*.jsonl`. Exports: `startServer(port, eventsDir, htmlPath)`, `tailEventsFile(filePath, callback)`, `readExistingEvents(eventsDir, maxEvents)`, `parseEventLine(line)`, `findEventsDir(projectDir)`. HTTP endpoints: `GET /` (serve dashboard HTML), `GET /events` (SSE stream, max 500 events on connect + tail for new), `GET /ping` (health check), `GET /stop` (graceful shutdown). CLI: `--port`, `--events`, `--detach` (writes PID to `.gsd-t/dashboard.pid`), `--stop` (kills running server). Symlink protection via `lstatSync` pattern. 23 unit tests in `test/dashboard-server.test.js`.
 - **`scripts/gsd-t-dashboard.html`** (194 lines): React 17 + React Flow v11.11.4 + Dagre via CDN (no build step, no npm deps). Dark theme (`#0d1117`). Renders agent hierarchy as directed graph from `parent_agent_id` relationships. Live event feed (max 200, outcome color-coded). Auto-reconnects on SSE disconnect. Port configurable via `?port=` URL param.
 - **`commands/gsd-t-visualize.md`** (104 lines, 48th command): Starts server via `--detach`, polls `/ping` up to 5s, opens browser cross-platform (win32/darwin/linux). Accepts `stop` argument to shut down server. Step 0 self-spawn with OBSERVABILITY LOGGING.
+
+### Graph Engine (M20 — complete)
+- **`bin/graph-store.js`** (147 lines): File-based graph storage in `.gsd-t/graph/`. 8 JSON files (index, calls, imports, contracts, requirements, tests, surfaces, meta). Read/write operations, MD5 file hashing for incremental indexing, staleness detection. Zero external deps. Note: no symlink protection (TD-099).
+- **`bin/graph-parsers.js`** (327 lines): Language-specific entity parsers. JS/TS: function declarations, arrow functions, classes, methods, imports (ES/CJS), exports. Python: def/class/import. Regex-based (no Tree-sitter). Returns `{ entities, imports, calls }`.
+- **`bin/graph-overlay.js`** (195 lines): GSD-T context mapper. Enriches code entities with: domain ownership (from scope.md), contract mapping (from contracts/*.md), requirement traceability (from requirements.md), test mapping (from test/ files), debt mapping (from techdebt.md), surface detection (from directory structure). 8 exports. No dedicated test file (TD-100).
+- **`bin/graph-indexer.js`** (147 lines): Project indexer. Walks source files, calls parsers, builds overlay, writes to storage. Incremental (skips unchanged files via content hash). Exports `indexProject(root, options)`.
+- **`bin/graph-query.js`** (400 lines): Graph abstraction layer. Unified `query(type, params, root)` interface with 21 query types. 3-provider fallback: CGC MCP → native → grep. Provider registry with priority-based selection. Auto-triggers reindex on stale data. WARNING: grep fallback uses execSync with string interpolation — command injection risk (TD-097/SEC-C01).
+- **`bin/graph-cgc.js`** (510 lines): CodeGraphContext MCP provider — fully integrated end-to-end. Communicates via JSON-RPC/stdio MCP protocol with CGC server backed by Neo4j (Docker container `gsd-t-neo4j`). 12+ query types: getCallers, getTransitiveCallers, getCallees, getTransitiveCallees, findDeadCode, findComplexFunctions, getComplexity, findDuplicates, findCircularDeps, getEntity, getCallChain, getModuleDeps, getClassHierarchy, getStats, cypher. Health detection (3s timeout, session-cached). Overlay enrichment maps CGC results to GSD-T domains/contracts/requirements. Auto-installed by `gsd-t install`.
+- **`bin/scan-data-collector.js`** (153 lines, NEW in M20): Aggregates scan markdown files into structured data for report generation.
+- **Storage**: `.gsd-t/graph/` directory (git-ignored). JSON files: index.json (entities), calls.json (edges), imports.json, contracts.json, requirements.json, tests.json, surfaces.json, meta.json (file hashes + stats).
 
 ### Examples (examples/)
 - **Purpose**: Reference project structure and settings

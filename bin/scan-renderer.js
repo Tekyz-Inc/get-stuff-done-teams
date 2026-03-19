@@ -2,7 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 const https = require('https');
 
 const PLACEHOLDER_HTML = '<div class="diagram-placeholder">\n  <p>Diagram unavailable — rendering tools not found</p>\n  <p>Install: <code>npm install -g @mermaid-js/mermaid-cli</code></p>\n</div>';
@@ -23,7 +23,7 @@ function tryMmdc(mmdContent) {
   const tmpOut = path.join(os.tmpdir(), 'gsd-scan-' + ts + '.svg');
   try {
     fs.writeFileSync(tmpIn, mmdContent, 'utf8');
-    execSync('mmdc -i "' + tmpIn + '" -o "' + tmpOut + '" -t dark --quiet', { timeout: 30000, stdio: 'pipe' });
+    execFileSync('mmdc', ['-i', tmpIn, '-o', tmpOut, '-t', 'dark', '--quiet'], { timeout: 30000, stdio: 'pipe' });
     const svg = fs.readFileSync(tmpOut, 'utf8');
     return { svgContent: stripSvgDimensions(svg), rendered: true, rendererUsed: 'mermaid-cli' };
   } catch { return null; }
@@ -40,7 +40,7 @@ function tryD2(mmdContent, type) {
   const tmpOut = path.join(os.tmpdir(), 'gsd-scan-' + ts + '.svg');
   try {
     fs.writeFileSync(tmpIn, 'app -> db: query', 'utf8');
-    execSync('d2 "' + tmpIn + '" "' + tmpOut + '" --layout=dagre', { timeout: 30000, stdio: 'pipe' });
+    execFileSync('d2', [tmpIn, tmpOut, '--layout=dagre'], { timeout: 30000, stdio: 'pipe' });
     const svg = fs.readFileSync(tmpOut, 'utf8');
     return { svgContent: stripSvgDimensions(svg), rendered: true, rendererUsed: 'd2' };
   } catch { return null; }

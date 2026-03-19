@@ -20,7 +20,7 @@ A methodology for reliable, parallelizable development using Claude Code with op
 npx @tekyzinc/gsd-t install
 ```
 
-This installs 44 GSD-T commands + 5 utility commands (49 total) to `~/.claude/commands/` and the global CLAUDE.md to `~/.claude/CLAUDE.md`. Works on Windows, Mac, and Linux.
+This installs 45 GSD-T commands + 4 utility commands (49 total) to `~/.claude/commands/` and the global CLAUDE.md to `~/.claude/CLAUDE.md`. Works on Windows, Mac, and Linux.
 
 ### Start Using It
 
@@ -306,7 +306,7 @@ get-stuff-done-teams/
 ├── LICENSE
 ├── bin/
 │   └── gsd-t.js                       # CLI installer
-├── commands/                          # 48 slash commands
+├── commands/                          # 49 slash commands
 │   ├── gsd-t-*.md                     # 44 GSD-T workflow commands
 │   ├── gsd.md                         # GSD-T smart router
 │   ├── branch.md                      # Git branch helper

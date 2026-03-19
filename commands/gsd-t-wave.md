@@ -43,6 +43,11 @@ From progress.md status, determine which phase to start from:
 
 For each remaining phase, spawn an **independent agent** using the Task tool. Each agent gets a fresh context window, loads its own state from files, and reports back.
 
+### Graph Availability
+
+If `.gsd-t/graph/meta.json` exists, the code graph is available for all phases. Each phase agent's spawn prompt should include:
+"If .gsd-t/graph/meta.json exists, use graph queries (getCallers, getDomainBoundaryViolations, getTestsFor, etc.) to enhance analysis per the phase command instructions."
+
 ### Phase Agent Spawn Pattern
 
 For each phase, spawn the agent like this:

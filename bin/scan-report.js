@@ -155,7 +155,10 @@ function generateReport(analysisData, schemaData, diagrams, options) {
       + sections.buildTechDebt(safeData)
       + sections.buildFindings(safeData);
     const html = buildHtmlSkeleton(esc(projectName) + ' \u2014 GSD-T Scan Report', css, sidebar, body);
-    const outputPath = path.join(opts.outputDir || opts.projectRoot || process.cwd(), 'scan-report.html');
+    const defaultDir = path.join(opts.projectRoot || process.cwd(), '.gsd-t', 'scan');
+    const outputDir = opts.outputDir || defaultDir;
+    if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
+    const outputPath = path.join(outputDir, 'scan-report.html');
     fs.writeFileSync(outputPath, html, 'utf8');
     return {
       outputPath,

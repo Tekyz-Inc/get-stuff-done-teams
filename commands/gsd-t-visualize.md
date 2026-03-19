@@ -39,6 +39,10 @@ Run via Bash:
 node ~/.claude/scripts/gsd-t-event-writer.js --type command_invoked --command gsd-t-visualize --reasoning "Launching dashboard" || true
 ```
 
+## Step 1.5: Graph Data for Dashboard
+
+If `.gsd-t/graph/index.json` exists, the dashboard can render entity-relationship visualizations from the graph data. The dashboard server will detect and serve graph data automatically — no additional configuration needed.
+
 ## Step 2: Check $ARGUMENTS for "stop"
 
 If `$ARGUMENTS` contains "stop", skip to **Step 5**. Otherwise continue to Step 3.

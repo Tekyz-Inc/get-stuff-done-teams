@@ -1,48 +1,60 @@
-# Test Baseline — Scan #9
+# Test Baseline — Scan #10
 
-**Date**: 2026-03-09
-**Version**: v2.34.10
+**Date**: 2026-03-19
+**Version**: v2.38.10
 **Runner**: `node --test` (Node.js built-in, zero dependencies)
 **Command**: `npm test`
 
 ## Results
 
-| Metric | Value |
-|--------|-------|
-| Total tests | 205 |
-| Passing | 205 |
-| Failing | 0 |
-| Skipped | 0 |
-| Duration | ~17.3s |
+| Metric    | Value |
+|-----------|-------|
+| Tests     | 294   |
+| Suites    | 75    |
+| Pass      | 294   |
+| Fail      | 0     |
+| Cancelled | 0     |
+| Skipped   | 0     |
+| Duration  | ~117s |
 
 ## Test Files
 
-| File | Tests | Status |
-|------|-------|--------|
-| test/helpers.test.js | 27 | PASS |
-| test/filesystem.test.js | 37 | PASS |
-| test/security.test.js | 36 | PASS |
-| test/cli-quality.test.js | 25 | PASS |
-| test/dashboard-server.test.js | (in 205) | PASS |
-| test/event-stream.test.js | (in 205) | PASS |
-| test/scan.test.js | 47 | PASS |
-| test/verify-gates.js | (in 205) | PASS |
+| File                          | Tests | Status  |
+|-------------------------------|-------|---------|
+| test/helpers.test.js          | 27    | PASSING |
+| test/filesystem.test.js       | 37    | PASSING |
+| test/security.test.js         | 36    | PASSING |
+| test/cli-quality.test.js      | 25    | PASSING |
+| test/event-stream.test.js     | 36    | PASSING |
+| test/dashboard-server.test.js | 27    | PASSING |
+| test/graph-store.test.js      | 27    | PASSING |
+| test/graph-indexer.test.js    | 28    | PASSING |
+| test/graph-query.test.js      | 15    | PASSING |
+| test/scan.test.js             | 26    | PASSING |
+| test/verify-gates.js          | 10    | PASSING |
 
-## Coverage Gaps (identified by scan #7)
+## Changes Since Scan #9
 
-| File | Functions | Coverage |
-|------|-----------|---------|
-| scripts/gsd-t-tools.js | 12 functions | NONE — no module.exports (TD-066) |
-| scripts/gsd-t-statusline.js | 4 functions | NONE — no module.exports (TD-066) |
-| scripts/gsd-t-update-check.js | ~5 functions | NONE — no module.exports (TD-081) |
-| scripts/gsd-t-auto-route.js | 1 function | NONE — no module.exports (TCG-NEW-05) |
-| bin/scan-renderer.js tryKroki() | 1 async function | NONE — dormant dead code (TCG-NEW-03) |
+| Metric    | Scan #9 | Scan #10 | Delta |
+|-----------|---------|----------|-------|
+| Tests     | 205     | 294      | +89   |
+| Test files| 8       | 11       | +3    |
+| Duration  | ~88s    | ~117s    | +29s  |
 
-## Notes
+New test files added in M20:
+- `test/graph-store.test.js` (27 tests) — graph storage layer
+- `test/graph-indexer.test.js` (28 tests) — native indexer + overlay
+- `test/graph-query.test.js` (15 tests) — abstraction layer + provider chain
 
-- All 205 tests passing at scan start — no regressions from scan analysis
-- +80 tests from M14-M17 across 3 new test files: dashboard-server.test.js, event-stream.test.js, scan.test.js
-- scan.test.js is the largest new file: 47 tests covering scan-schema, scan-diagrams, scan-report, scan-export subsystem
-- verify-gates.js added as HTML quality gates (no external CDN, DOCTYPE, 6 diagram sections)
-- 3 untested scripts now (up from 2 in Scan #6): tools.js, statusline.js, update-check.js
-- Previous baselines: Scan #5: 125/125, Scan #6: 125/125, Scan #7: 205/205
+## Untested Modules
+
+| Module                        | Reason                              | Risk   |
+|-------------------------------|-------------------------------------|--------|
+| scripts/gsd-t-tools.js        | No module.exports (TD-066)          | HIGH   |
+| scripts/gsd-t-statusline.js   | No module.exports (TD-066)          | MEDIUM |
+| scripts/gsd-t-update-check.js | No module.exports (TD-081)          | MEDIUM |
+| scripts/gsd-t-auto-route.js   | No module.exports                   | LOW    |
+| bin/graph-overlay.js           | No dedicated test file (TD-100)     | LOW    |
+| bin/graph-cgc.js               | No CGC integration test             | LOW    |
+| scripts/gsd-t-dashboard.html  | No E2E/UI tests                     | LOW    |
+| bin/scan-renderer.js tryKroki()| Dead code, untested                 | LOW    |

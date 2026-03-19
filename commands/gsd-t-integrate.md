@@ -12,6 +12,15 @@ Read everything:
 5. `.gsd-t/domains/*/scope.md` — understand boundaries
 6. All source code produced during execution
 
+## Step 1.5: Graph-Enhanced Integration Validation
+
+If `.gsd-t/graph/meta.json` exists (graph index is available):
+1. Query `getDomainBoundaryViolations` to validate that cross-domain wiring matches contracts — flag any code that crosses boundaries without a contract
+2. Query `getCallers` and `getCallees` across domain boundaries to verify all integration points are accounted for in `integration-points.md`
+3. Add any unregistered cross-domain calls to the audit findings in Step 2
+
+If graph is not available, skip this step.
+
 ## Step 2: Contract Compliance Audit
 
 Before wiring anything together, verify each domain honored its contracts:

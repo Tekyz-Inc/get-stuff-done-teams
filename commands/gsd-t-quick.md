@@ -40,6 +40,15 @@ Read:
 2. `.gsd-t/progress.md` (if exists)
 3. `.gsd-t/contracts/` (if exists) — scan for relevant contracts
 
+## Step 1.5: Graph-Enhanced Scope Check
+
+If `.gsd-t/graph/meta.json` exists (graph index is available):
+1. Query `getDomainOwner` for the target function/file to verify it belongs to the expected domain
+2. Query `getDomainBoundaryViolations` to check if the quick change would cross domain boundaries
+3. If violations found, warn the user before proceeding — the change may need the full execute workflow
+
+If graph is not available, skip this step.
+
 ## Step 2: Scope Check
 
 Based on $ARGUMENTS, determine:

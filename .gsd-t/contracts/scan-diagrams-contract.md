@@ -60,10 +60,9 @@ Array of exactly 6 elements (one per diagram type), in order:
 ### RendererName Enum
 
 ```js
-'mcp'           // MCP server (diagram-bridge-mcp | C4Diagrammer | mcp-mermaid)
-'mermaid-cli'   // mmdc CLI
+'mermaid-cli'   // mmdc CLI (primary renderer)
 'd2'            // d2 binary (only for system-architecture and data-flow types)
-'kroki'         // Kroki HTTP API
+'kroki'         // Kroki HTTP API (async, opt-in — not used in default sync path)
 'placeholder'   // all renderers failed — placeholder shown
 ```
 
@@ -86,7 +85,7 @@ When `rendered: false`, `svgContent` must be this exact string (no variation):
 4. If `schemaData.detected === false`, diagram #6 (database-schema) returns `rendered: false` with placeholder
 5. SVG content must have `width` and `height` attributes REMOVED (scan-report.js sets `width:100%`)
 6. D2 renderer is only attempted for `system-architecture` and `data-flow` types (TECH-010)
-7. MCP is checked before CLI chain — if MCP renders successfully, CLI is not attempted (REQ-030)
+7. Renderer chain order: mermaid-cli → d2 (architecture/data-flow only) → placeholder. Kroki is async and opt-in only.
 
 ## Breaking Change Policy
 

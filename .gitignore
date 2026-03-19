@@ -14,6 +14,9 @@ node_modules/
 # GSD-T heartbeat telemetry (session-specific, may contain sensitive data)
 .gsd-t/heartbeat-*.jsonl
 
+# GSD-T graph index (auto-generated, project-specific)
+.gsd-t/graph/
+
 # Claude Code internal directories
 .claude/worktrees/
 

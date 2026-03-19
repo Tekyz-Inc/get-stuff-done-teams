@@ -72,6 +72,10 @@ Execute the full init workflow (same as `/user:gsd-t-init`):
 
 **If `.gsd-t/` already exists**: Skip init — it's already done. Log and continue to scan. Still check and copy settings.local (step 5) even if init is skipped.
 
+## Step 3.5: Graph Indexing Note
+
+If the project has source code, graph indexing (`.gsd-t/graph/`) will run as part of the scan phase (Step 4). The graph provides code-level queries (callers, callees, domain ownership, dead code detection) that enhance all subsequent GSD-T commands. No separate setup is needed — the scan handles it.
+
 ## Step 4: Deep Codebase Scan (gsd-t-scan)
 
 Execute the full scan workflow (same as `/user:gsd-t-scan`):

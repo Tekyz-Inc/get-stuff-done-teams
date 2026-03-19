@@ -26,6 +26,15 @@ You are the QA Agent. You are spawned as a teammate by other GSD-T commands. You
 
 If a test requires a source code change (e.g., adding an export for testability), message the lead — do not make the change yourself.
 
+## Graph-Enhanced Coverage Analysis
+
+If `.gsd-t/graph/meta.json` exists (graph index is available):
+1. Query `getTestsFor` each contract entity to identify coverage gaps — entities with no tests are priority targets
+2. Query `findDeadCode` to flag untested dead code — dead code without tests should be reported as cleanup candidates
+3. Use these findings to prioritize test generation in all phases below
+
+If graph is not available, skip this step and rely on filesystem-based test discovery.
+
 ## Phase-Specific Behavior
 
 Your behavior depends on which phase spawned you:

@@ -76,6 +76,18 @@ For each ambiguous item:
 
 ---
 
+## Step 1.55: Graph-Enhanced Boundary Detection (if available)
+
+If `.gsd-t/graph/meta.json` exists, query the graph to inform domain decomposition:
+
+1. **Entity-to-file mapping**: `query('getEntities', { file })` for each source file — understand what functions/classes exist where
+2. **Import graph**: `query('getImports', { file })` — see the dependency structure between files
+3. **Surface consumers**: `query('getSurfaceConsumers', { entity })` — which surfaces already consume each function (auto-populates Step 1.6)
+4. **Domain boundary violations**: `query('getDomainBoundaryViolations', {})` — existing cross-domain access patterns to inform boundaries
+5. **Shared operation detection**: If multiple surfaces consume the same entity, it's a SharedCore candidate
+
+Use graph results to **propose initial domain boundaries** based on actual code structure, not just file paths. The graph reveals natural boundaries that directory structure may not show (e.g., two files in the same folder that never import each other belong to different domains).
+
 ## Step 1.6: Consumer Surface Identification (MANDATORY — complete before domain work)
 
 Before decomposing into domains, identify **every surface that will consume this system**. A surface is any client, app, or integration that calls your backend — web app, mobile app, CLI, external API, admin panel, background job, etc.

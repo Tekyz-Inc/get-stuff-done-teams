@@ -30,6 +30,15 @@ Build a mental model of: "How does this codebase work today?"
 
 Note what you find — this informs Step 3's Multi-Consumer Check and Step 4's milestone ordering.
 
+## Step 1.5: Graph-Enhanced Blast Radius Analysis
+
+If `.gsd-t/graph/meta.json` exists (graph index is available):
+1. Query `getSurfaceConsumers` and `getCallers` on functions likely affected by the feature to calculate blast radius across all consumer surfaces
+2. Query `getTransitiveCallers` for deep impact chains that may not be obvious from architecture docs alone
+3. Feed these findings into the Impact Analysis in Step 3
+
+If graph is not available, skip this step.
+
 ## Step 2: Understand the Feature
 
 From $ARGUMENTS and conversation:

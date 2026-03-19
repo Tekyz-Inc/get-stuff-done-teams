@@ -21,6 +21,15 @@ Identify:
 - Naming conventions
 - Test run commands (from package.json scripts, Makefile, or CI config)
 
+## Step 1.5: Graph-Enhanced Test Discovery
+
+If `.gsd-t/graph/meta.json` exists (graph index is available):
+1. Query `getTestsFor` each changed entity to find stale or missing tests more precisely than filesystem search
+2. Query `getTransitiveCallers` for changed functions to find indirectly affected tests that may need updating
+3. Feed these findings into the coverage map (Step 3) and issue detection (Step 4)
+
+If graph is not available, skip this step.
+
 ## Step 2: Contract Coverage Audit
 
 Perform inline contract testing and gap analysis:

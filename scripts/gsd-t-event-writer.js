@@ -24,6 +24,8 @@ const VALID_EVENT_TYPES = new Set([
   "phase_transition",
   "subagent_spawn",
   "subagent_complete",
+  "session_start",
+  "session_end",
   "tool_call",
   "experience_retrieval",
   "outcome_tagged",

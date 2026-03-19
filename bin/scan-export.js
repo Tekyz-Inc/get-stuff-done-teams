@@ -1,24 +1,24 @@
 'use strict';
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 const path = require('path');
 
 function detectTool(cmd) {
   try {
-    const check = process.platform === 'win32' ? 'where "' + cmd + '"' : 'which "' + cmd + '"';
-    execSync(check, { stdio: 'pipe', timeout: 5000 });
+    const check = process.platform === 'win32' ? 'where' : 'which';
+    execFileSync(check, [cmd], { stdio: 'pipe', timeout: 5000 });
     return true;
   } catch { return false; }
 }
 
 function detectMdToPdf() {
-  try { execSync('npx md-to-pdf --version', { stdio: 'pipe', timeout: 10000 }); return true; }
+  try { execFileSync('npx', ['md-to-pdf', '--version'], { stdio: 'pipe', timeout: 10000 }); return true; }
   catch { return false; }
 }
 
 function exportToDocx(htmlPath) {
   try {
     const outputPath = htmlPath.replace(/\.html$/, '.docx');
-    execSync('pandoc "' + htmlPath + '" -o "' + outputPath + '" --from=html', { timeout: 60000 });
+    execFileSync('pandoc', [htmlPath, '-o', outputPath, '--from=html'], { timeout: 60000 });
     return { success: true, outputPath };
   } catch (err) { return { success: false, error: err.message }; }
 }
@@ -26,7 +26,7 @@ function exportToDocx(htmlPath) {
 function exportToPdf(htmlPath) {
   try {
     const outputPath = htmlPath.replace(/\.html$/, '.pdf');
-    execSync('npx md-to-pdf "' + htmlPath + '" --output "' + outputPath + '"', { timeout: 120000 });
+    execFileSync('npx', ['md-to-pdf', htmlPath, '--output', outputPath], { timeout: 120000 });
     return { success: true, outputPath };
   } catch (err) { return { success: false, error: err.message }; }
 }

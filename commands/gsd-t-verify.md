@@ -12,6 +12,15 @@ Read:
 5. `docs/requirements.md` — original requirements
 6. All source code
 
+## Step 1.5: Graph-Enhanced Traceability Check
+
+If `.gsd-t/graph/meta.json` exists (graph index is available):
+1. Query `getRequirementFor` on implemented entities to build a requirement-to-code traceability chain — flag entities with no requirement mapping
+2. Query `getDomainBoundaryViolations` to verify no cross-domain boundary violations exist in the final codebase
+3. Include any violations as FAIL findings in the verification report (Step 5)
+
+If graph is not available, skip this step.
+
 ## Step 2: Full Test Audit (Inline)
 
 Run the full test audit directly:

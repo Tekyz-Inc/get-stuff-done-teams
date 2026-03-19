@@ -24,11 +24,31 @@ From the plan or user description, list:
 - Files to be deleted
 - Functions/classes/endpoints being changed
 
+## Step 2.5: Graph-Enhanced Analysis (if available)
+
+Check if a graph index exists: read `.gsd-t/graph/meta.json`. If it exists:
+
+```
+For each changed file/function, query the graph:
+1. query('getCallers', { entity: '{function_name}' })         → all direct callers
+2. query('getTransitiveCallers', { entity: '{name}', depth: 5 }) → full caller chain
+3. query('getDomainOwner', { entity: '{name}' })               → which domain owns this
+4. query('getContractFor', { entity: '{name}' })               → which contract it implements
+5. query('getSurfaceConsumers', { entity: '{name}' })          → which surfaces consume it
+6. query('getDomainBoundaryViolations', {})                    → cross-domain access issues
+```
+
+Use graph results to build a **complete blast radius** that includes transitive callers, contract violations, and cross-surface impact. This replaces the grep-based search in Step 3A when available but grep remains the fallback when no graph exists.
+
 ## Step 3: Trace Dependencies
 
 For each changed file/function:
 
 ### A) Who Calls This?
+
+**If graph available** (Step 2.5): use graph results — they include transitive callers that grep misses.
+
+**If no graph** (fallback):
 ```bash
 # Find all imports/requires of this module
 grep -r "import.*{module}" src/
