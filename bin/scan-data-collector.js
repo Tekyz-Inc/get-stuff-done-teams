@@ -23,7 +23,7 @@ function parseTestCoverage(text) {
 }
 
 function parseFilesAndLoc(text) {
-  const m = text.match(/\|\s*\*?\*?Total[^|]*\*?\*?\s*\|\s*(\d+)\s+files?\s*\|\s*\*?\*?([\d,]+)[^|]*\*?\*?\s*\|/i);
+  const m = text.match(/\|\s*\*?\*?(?:Grand\s+)?Total[^|]*\*?\*?\s*\|\s*\*?\*?(\d+)\s+files?\*?\*?\s*\|\s*\*?\*?([\d,]+)[^|]*\*?\*?\s*\|/i);
   if (m) return { filesScanned: parseInt(m[1], 10), totalLoc: parseInt(m[2].replace(/,/g, ''), 10) };
   return { filesScanned: 0, totalLoc: 0 };
 }
