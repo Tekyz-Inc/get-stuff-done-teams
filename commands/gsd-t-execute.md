@@ -60,11 +60,19 @@ Before choosing solo or team mode, read the `## Wave Execution Groups` section i
 
 **If no wave groups are defined** (older plans): fall back to the `Execution Order` list.
 
-### Solo Mode (default) — Domain Subagent Pattern
+### Solo Mode (default) — Domain Task-Dispatcher Pattern
 
-Each domain's work runs in an isolated Task subagent with a fresh context window. The orchestrator (this agent) stays lightweight — it only spawns subagents, collects summaries, verifies checkpoints, and updates progress.
+Each domain's work runs via a lightweight domain task-dispatcher. The dispatcher spawns one Task subagent PER TASK within that domain, giving each task a completely fresh context window with only the minimum required context. The orchestrator (this agent) stays lightweight — it only spawns dispatchers, collects summaries, verifies checkpoints, and updates progress.
 
-**OBSERVABILITY LOGGING (MANDATORY) — repeat for every domain subagent spawn:**
+**Context provided to each task subagent (fresh-dispatch-contract.md payload):**
+- `scope.md` for the domain
+- Relevant contracts (only those referenced by the task)
+- The single task from `tasks.md`
+- Graph context for the task's files (if available)
+- Up to 5 prior task summaries (10-20 lines each, most recent first)
+- Past failure/learning entries for this domain (max 5 lines)
+
+**OBSERVABILITY LOGGING (MANDATORY) — repeat for every task subagent spawn:**
 
 Before spawning — run via Bash:
 `T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M") && TOK_START=${CLAUDE_CONTEXT_TOKENS_USED:-0} && TOK_MAX=${CLAUDE_CONTEXT_TOKENS_MAX:-200000}`
@@ -84,38 +92,59 @@ Alert on context thresholds (display to user inline):
 - If CTX_PCT is a number and >= 70: `echo "⚠️ WARNING: Context at ${CTX_PCT}% — approaching compaction threshold. Consider splitting in plan."`
 
 Append to `.gsd-t/token-log.md` (create with header `| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Tokens | Compacted | Domain | Task | Ctx% |` if missing):
-`| {DT_START} | {DT_END} | gsd-t-execute | domain:{domain-name} | sonnet | {DURATION}s | {N} tasks, {pass/fail} | {TOKENS} | {COMPACTED} | {domain-name} | all | {CTX_PCT} |`
+`| {DT_START} | {DT_END} | gsd-t-execute | task:{task-id} | sonnet | {DURATION}s | {pass/fail} | {TOKENS} | {COMPACTED} | {domain-name} | task-{task-id} | {CTX_PCT} |`
 
-**For each domain (in wave order), spawn:**
+**For each domain (in wave order), run the domain task-dispatcher:**
 
-**Pre-task experience retrieval (before spawning each domain subagent):**
+**Pre-dispatch experience retrieval (before dispatching each domain's tasks):**
 Run via Bash:
 `grep -i "\[failure\]\|\[learning\]" .gsd-t/progress.md | grep -i "{domain-name}" | tail -5`
 
 If results found:
-- Prepend a `## ⚠️ Past Failures (retrieve before acting)` block to the subagent prompt (max 5 lines from results)
+- Store as `PAST_FAILURES` — prepend to each task subagent prompt (max 5 lines)
 - Write event via Bash: `node ~/.claude/scripts/gsd-t-event-writer.js --type experience_retrieval --command gsd-t-execute --reasoning "{N past failures found for {domain-name}}" --outcome null || true`
 
 If no results found: proceed normally (no warning block, no event write).
 
+**Domain task-dispatcher (lightweight — sequences tasks, passes summaries):**
+
+For each task in `.gsd-t/domains/{domain-name}/tasks.md` (in order, skip completed):
+
+1. Load prior summaries: Read up to 5 most recent `.gsd-t/domains/{domain-name}/task-*-summary.md` files (10-20 lines each)
+2. Load graph context (if `.gsd-t/graph/meta.json` exists): query task's files for relevant graph context
+3. Display: `⚙ [sonnet] gsd-t-execute → domain: {domain-name}, task-{task-id}`
+4. Run observability Bash (T_START / DT_START / TOK_START / TOK_MAX)
+5. Spawn task subagent:
+
 ```
 Task subagent (general-purpose, model: sonnet, mode: bypassPermissions):
-"You are executing all tasks for the {domain-name} domain.
+"You are executing a single task for the {domain-name} domain.
 
-Read before starting (load your own context — do not assume anything):
-1. CLAUDE.md — project conventions (CRITICAL)
-2. .gsd-t/domains/{domain-name}/scope.md — what you own
-3. .gsd-t/domains/{domain-name}/constraints.md — patterns to follow
-4. ALL files in .gsd-t/contracts/ — your interfaces
-5. .gsd-t/domains/{domain-name}/tasks.md — your task list
-6. .gsd-t/contracts/integration-points.md — wave order and checkpoints
+{PAST_FAILURES block if any — ## ⚠️ Past Failures (read before acting)\n{lines}}
 
-Execute each incomplete task in order:
-1. Read task description, files list, and contract refs
+## Your Task
+{full task block from tasks.md — id, description, files, contract refs, dependencies, acceptance criteria}
+
+## Domain Scope
+{contents of .gsd-t/domains/{domain-name}/scope.md}
+
+## Relevant Contracts
+{contents of each contract file referenced by this task}
+
+## Graph Context (if available)
+{graph query results for this task's files — omit section if unavailable}
+
+## Prior Task Summaries (most recent first, max 5)
+{contents of task-{N}-summary.md files — 10-20 lines each}
+
+## Instructions
+
+Execute the task above:
+1. Read the task description, files list, and contract refs carefully
 2. Read relevant contracts — implement EXACTLY what they specify
-3. Destructive Action Guard: if task involves DROP TABLE, schema changes that lose
+3. Destructive Action Guard: if the task involves DROP TABLE, schema changes that lose
    data, removing working modules, or replacing architecture patterns → write a
-   NEEDS-APPROVAL entry to .gsd-t/deferred-items.md, skip the task, continue
+   NEEDS-APPROVAL entry to .gsd-t/deferred-items.md, skip the task, stop here
 4. Implement the task
 5. Verify acceptance criteria are met
 6. Write comprehensive tests (MANDATORY — no feature code without test code):
@@ -125,40 +154,55 @@ Execute each incomplete task in order:
    - If no test framework exists: set one up as part of this task
 7. Run ALL tests — unit, integration, Playwright. Fix failures (up to 2 attempts)
 8. Run Pre-Commit Gate checklist from CLAUDE.md — update all affected docs BEFORE committing
-9. Commit immediately: feat({domain-name}/task-{N}): {description}
-10. Update .gsd-t/progress.md — mark task complete; prefix the Decision Log entry with an outcome tag based on how the task completed:
-    - Task completed successfully on first attempt → prefix `[success]`
-    - Task completed after a fix (required debugging or correction) → prefix `[learning]`
-    - Task deferred to .gsd-t/deferred-items.md → prefix `[deferred]`
-    - Task failed after 3 attempts → prefix `[failure]`
-11. Spawn QA subagent (model: haiku) after each task:
+9. Commit immediately: feat({domain-name}/task-{task-id}): {description}
+10. Update .gsd-t/progress.md — mark this task complete; prefix the Decision Log entry:
+    - Completed successfully on first attempt → prefix `[success]`
+    - Completed after a fix → prefix `[learning]`
+    - Deferred to .gsd-t/deferred-items.md → prefix `[deferred]`
+    - Failed after 3 attempts → prefix `[failure]`
+11. Spawn QA subagent (model: haiku) after completing the task:
     'Run the full test suite. Read .gsd-t/contracts/ for definitions.
      Report: pass/fail counts and coverage gaps.'
     If QA fails, fix before proceeding. Append issues to .gsd-t/qa-issues.md.
+12. Write task summary to .gsd-t/domains/{domain-name}/task-{task-id}-summary.md:
+    ## Task {task-id} Summary — {domain-name}
+    - **Status**: PASS | FAIL
+    - **Files modified**: {list}
+    - **Constraints discovered**: {any new constraints or surprises}
+    - **Tests**: {pass/fail count}
+    - **Notes**: {10-20 lines max — key decisions, patterns, warnings}
 
 Deviation rules:
 - Bug blocking progress → fix, max 3 attempts; if still blocked, log to
-  .gsd-t/deferred-items.md and continue to next task
-- Missing dependency task requires → add minimum needed, document in commit message
-- Non-trivial blocker → fix and log to .gsd-t/deferred-items.md
+  .gsd-t/deferred-items.md and stop (report FAIL in summary)
+- Missing dependency → add minimum needed, document in commit message
+- Non-trivial blocker → log to .gsd-t/deferred-items.md
 - Architectural change required → write NEEDS-APPROVAL to .gsd-t/deferred-items.md,
-  skip the task, continue — never self-approve structural changes
+  skip the task, stop here — never self-approve structural changes
 
-When all tasks are complete, report:
-- Tasks completed: N/N
-- Test results: pass/fail counts
-- Commits made: list of commit hashes
-- Deferred items (if any): list from .gsd-t/deferred-items.md"
+Report back:
+- Task: {task-id}
+- Status: PASS | FAIL
+- Files modified: {list}
+- Tests: {pass/fail count}
+- Commit: {hash}
+- Deferred items (if any)"
 ```
 
-**After each domain subagent returns (orchestrator responsibilities):**
-1. Log to `.gsd-t/token-log.md` (see observability block above)
-2. Check `.gsd-t/deferred-items.md` for any `NEEDS-APPROVAL` entries — if found, STOP and present to user before spawning the next domain
-3. If a CHECKPOINT is reached per `integration-points.md`, verify contract compliance (see Step 4) before proceeding to the next wave/domain
-4. Update `.gsd-t/progress.md` with domain completion status
+6. After task subagent returns:
+   - Run observability Bash (T_END / TOK_END / DURATION / CTX_PCT)
+   - Append to token-log.md (per-task row)
+   - Alert on CTX_PCT thresholds (display to user inline)
+   - Check `.gsd-t/deferred-items.md` for `NEEDS-APPROVAL` — if found, STOP and present to user before proceeding to the next task
+   - Read the task summary from `.gsd-t/domains/{domain-name}/task-{task-id}-summary.md` to use as prior summary for the next task
+
+**After all tasks in a domain complete (orchestrator responsibilities):**
+1. Check `.gsd-t/deferred-items.md` for any `NEEDS-APPROVAL` entries — if found, STOP and present to user before spawning the next domain
+2. If a CHECKPOINT is reached per `integration-points.md`, verify contract compliance (see Step 4) before proceeding to the next wave/domain
+3. Update `.gsd-t/progress.md` with domain completion status
 
 ### Team Mode (when agent teams are enabled)
-Spawn teammates for domains within the same wave. Only domains in the same wave can run in parallel — do not spawn teammates for domains in different waves simultaneously:
+Spawn teammates for domains within the same wave. Only domains in the same wave can run in parallel — do not spawn teammates for domains in different waves simultaneously. Each teammate uses the **domain task-dispatcher pattern** — one subagent per task within their domain (same as solo mode).
 
 ```
 Create an agent team for execution:
@@ -180,16 +224,26 @@ RULES FOR ALL TEAMMATES:
   - Tests are part of the deliverable, not a follow-up
 - If a task is marked BLOCKED, message the lead and wait
 - Run the Pre-Commit Gate checklist from CLAUDE.md BEFORE every commit — update all affected docs
-- After completing each task, message the lead with:
-  "DONE: {domain} Task {N} - {summary of what was created/modified}"
-- If you need to deviate from a contract, STOP and message the lead
 - **Commit immediately after each task**: `feat({domain}/task-{N}): {description}` — do NOT batch commits
 - **Deviation Rules**: (1) Bug blocking progress → fix, 3 attempts max; (2) Missing dependency → add minimum needed; (3) Blocker → fix and log to deferred-items.md; (4) Architectural change → STOP, message lead, never self-approve
 
+**Task-dispatcher pattern per teammate:**
+For each task in your domain's tasks.md (in order, skip completed):
+1. Load prior summaries: read up to 5 most recent `.gsd-t/domains/{your-domain}/task-*-summary.md` files
+2. Load graph context for task's files (if .gsd-t/graph/meta.json exists)
+3. Spawn one Task subagent (model: sonnet) with ONLY:
+   - scope.md, relevant contracts, the single task, graph context, prior summaries
+   - Instruction to write task summary to `.gsd-t/domains/{domain}/task-{id}-summary.md`
+     (format per fresh-dispatch-contract.md Task Summary Format)
+4. After task subagent returns, read the summary and pass it as prior context to the next task
+5. After completing each task, message the lead with:
+   "DONE: {domain} Task {N} - {summary of what was created/modified}"
+6. If you need to deviate from a contract, STOP and message the lead
+
 Teammate assignments:
-- Teammate "{domain-1}": Execute .gsd-t/domains/{domain-1}/tasks.md
-- Teammate "{domain-2}": Execute .gsd-t/domains/{domain-2}/tasks.md
-- Teammate "{domain-3}": Execute .gsd-t/domains/{domain-3}/tasks.md
+- Teammate "{domain-1}": Execute .gsd-t/domains/{domain-1}/tasks.md (task-dispatcher pattern)
+- Teammate "{domain-2}": Execute .gsd-t/domains/{domain-2}/tasks.md (task-dispatcher pattern)
+- Teammate "{domain-3}": Execute .gsd-t/domains/{domain-3}/tasks.md (task-dispatcher pattern)
 Lead responsibilities (QA is handled via Task subagent — spawn one after each domain checkpoint):
 - Use delegate mode (Shift+Tab)
 - Track completions from teammate messages
