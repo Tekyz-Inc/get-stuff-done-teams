@@ -1,13 +1,35 @@
-# Business Rules Analysis — Scan #10 (2026-03-19)
+# Business Rules Analysis — Scan #11 (2026-03-19)
 
-## Project: GSD-T Framework (@tekyzinc/gsd-t) — v2.38.10
+## Project: GSD-T Framework (@tekyzinc/gsd-t) — v2.39.12
 
-**Total rules identified**: 58 (47 from Scan #8 + 11 new for M20/M21)
-**Undocumented rules** (not in contracts or CLAUDE.md): 9 (8 carried + 1 new)
+**Total rules identified**: 64 (58 from Scan #10 + 6 new for graph auto-sync + freshness)
+**Undocumented rules** (not in contracts or CLAUDE.md): 10 (8 carried + 2 new)
 
 ---
 
-## New Rules (M20/M21 — Graph Engine)
+## New Rules (v2.39.11-2.39.12 — Graph Auto-Sync & Scan Freshness)
+
+### BR-059: Command-Boundary Freshness Check (Documented in graph-query-contract.md — NEW)
+Before every non-diagnostic query (all types except 'reindex', 'getIndexStatus', 'getProvider'), query() performs a staleness check IF 500ms+ has elapsed since the last check. If no index exists, it auto-indexes. If index exists, indexProject() re-parses only changed files (hash-based). If any files changed, CGC is synced automatically via `cgc index` CLI.
+
+### BR-060: CGC Sync Retry + Error Reporting (Documented in graph-query.js — NEW)
+CGC sync (_syncCgc) attempts normal sync first; if it fails, retries with `--force` flag. If both fail, stderr is written with a clear diagnostic message (not thrown) so command execution continues. Failed CGC doesn't block GSD-T — native or grep fall back. Sync timeout: 30 seconds (vs grep 5 sec, execFile default 15 sec).
+
+### BR-061: Windows Encoding Workaround for CGC (Documented in graph-query.js — NEW)
+CGC CLI calls set PYTHONIOENCODING='utf-8' env var to handle Windows console encoding issues (CGC 0.3.1 on Windows sometimes receives directory params as None without this). Applies to both `cgc index` normal and force syncs.
+
+### BR-062: TTL-Based Freshness Caching (Documented in graph-query.js — NEW)
+Session-level variable _lastFreshnessCheck tracks the timestamp of the last staleness check. New checks only run if 500ms+ has elapsed. This prevents thrashing the indexer on rapid queries within the same command execution. Resets per session (not per command).
+
+### BR-063: Incremental Scan Data Refresh (UNDOCUMENTED — NEW)
+When `.gsd-t/scan/business-rules.md` (and other scan files) are updated, it is a targeted micro-update to the specific dimension file only. The full scan is NOT re-run. Scan #N numbering is incremented only on full codebase team scans. Targeted updates preserve existing scan context (other dimensions, architecture, etc.) while refreshing a single dimension's findings.
+
+### BR-064: Milestone Checkpoint for Scan Freshness (Undocumented — NEW)
+At milestone completion (gsd-t-complete-milestone), the scan files are archived as part of milestone closure. This creates a "checkpoint" — future scans reference the previous milestone's scan for context. Allows Scan #N to carry forward tech debt items and avoid re-discovering the same issues. Used in Scan #10 (carried 47 from Scan #8) and Scan #11 (carried 58 from Scan #10).
+
+---
+
+## Carried Rules from Scan #10 (all still valid)
 
 ### BR-048: Graph Provider Fallback Chain (Documented in graph-query-contract.md)
 Providers are tried in priority order: CGC (1) -> Native (2) -> Grep (3). First provider that returns non-null wins. If all return null, query returns null.
@@ -44,9 +66,9 @@ Indexer excludes: node_modules, .git, dist, build, coverage, .gsd-t, .claude, __
 
 ---
 
-## Carried Rules (from Scan #8 — all still valid)
+## Carried Rules (from Scan #10 — all still valid)
 
-All 47 rules from Scan #8 remain current. Key updates:
+All 58 rules from Scan #10 remain current (BR-001 through BR-058). Key updates:
 
 - **BR-008** (Between-Phase Spot-Check): Still documented in architecture.md but NOT in wave-phase-sequence.md contract (TD-093 carried).
 - **BR-010** (QA Phase Assignment): qa-agent-contract.md still incorrectly lists partition and plan (TD-067 carried).
@@ -54,7 +76,7 @@ All 47 rules from Scan #8 remain current. Key updates:
 
 ---
 
-## Undocumented Rules (9 total)
+## Undocumented Rules (10 total)
 
 1. **BR-021**: Registered Projects Filtering — partially documented (carried)
 2. **BR-023**: Heartbeat Event Ordering within a session — undocumented (carried)
@@ -64,4 +86,5 @@ All 47 rules from Scan #8 remain current. Key updates:
 6. **BR-035**: Wave deferred-items.md lifecycle — undocumented (carried)
 7. **BR-042**: Scan data collector markdown parsing — undocumented (carried)
 8. **BR-045**: Dashboard midnight rollover not handled — undocumented (carried, PERF-NEW-01)
-9. **BR-057**: CGC auto-install flow — partially documented (NEW)
+9. **BR-057**: CGC auto-install flow — partially documented (carried)
+10. **BR-063**: Incremental Scan Data Refresh (targeted micro-updates vs full re-scan) — undocumented (NEW)
