@@ -120,6 +120,7 @@ Spawn agent → `commands/gsd-t-impact.md`
 #### 5. EXECUTE
 Spawn agent → `commands/gsd-t-execute.md`
 - This is the heaviest phase. The execute agent uses **task-level dispatch** (fresh-dispatch-contract.md): one Task subagent per task within each domain, each receiving only scope.md + relevant contracts + single task + graph context + up to 5 prior summaries. The execute agent handles domain task-dispatching and QA internally.
+- **Team/parallel mode**: If the plan defines parallel domains (same wave), the execute agent dispatches each domain teammate with `isolation: "worktree"` (per worktree-isolation-contract.md). Each domain works in an isolated git worktree. After all domains complete, the execute agent runs the Sequential Merge Protocol: merge domain A → test → merge domain B → test. Per-domain rollback if tests fail. Worktrees are cleaned up after all merges complete.
 - After: Read `progress.md`, verify status = EXECUTED
 
 #### 6. TEST-SYNC

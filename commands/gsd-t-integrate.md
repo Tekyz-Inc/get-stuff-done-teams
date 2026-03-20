@@ -50,9 +50,26 @@ For each contract file:
 
 Fix any mismatches BEFORE proceeding to integration.
 
+## Step 2.5: Worktree Merge Status Check
+
+Before wiring integration points, check whether team mode execution left any domains with rolled-back worktree merges:
+
+1. Read `.gsd-t/progress.md` — look for `[rollback]` entries in the Decision Log from the execute phase
+2. If any domains were rolled back: list them and their failure reasons before proceeding
+3. Integration point wiring should only proceed for domains whose worktree merges PASSED — rolled-back domains are not yet in the main working tree
+
+If rolled-back domains exist, report them to the user (or if Level 3: log to `.gsd-t/deferred-items.md` as `[integration-gap] {domain}: not yet merged — worktree rollback during execute`). Do NOT attempt to re-merge rolled-back domains here; that requires re-running execute for the affected domain.
+
 ## Step 3: Wire Integration Points
 
 Work through each integration point in `integration-points.md`. If integration work spans multiple domains with independent tasks, use the **task-level dispatch pattern** (per fresh-dispatch-contract.md): spawn one Task subagent per integration task, passing only the relevant contracts, the specific integration point to wire, and summaries from prior integration tasks (max 5, 10-20 lines each). This prevents context accumulation across integration tasks.
+
+**Multi-domain integration merging**: If integration work itself requires merging domain outputs that weren't merged during execute (e.g., domains executed in separate waves and integration needs to combine them), use the Sequential Merge Protocol from `.gsd-t/contracts/worktree-isolation-contract.md`:
+1. Sort domains by dependency order (from integration-points.md)
+2. Merge domain A's branch → run tests → merge domain B's branch → run tests
+3. If tests fail after a merge, roll back that domain's merge and log the failure
+4. Contract validation runs between merges
+5. All temporary branches cleaned up after integration completes
 
 For each connection:
 1. Identify the producing domain (provides the interface)
