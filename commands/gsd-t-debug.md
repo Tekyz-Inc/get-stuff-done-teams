@@ -262,6 +262,18 @@ After fixing, assess what documentation was affected by the change and update AL
 9. **Domain `tasks.md`** — If the bug was in an active milestone, update task status or add a remediation task
 10. **`CLAUDE.md`** — Did the fix establish a new convention or pattern that future work should follow? Add it
 
+### Scan Doc Micro-Update (if `.gsd-t/scan/` exists):
+Patch structural metadata in scan docs so they stay fresh between full scans. Near-zero cost — no LLM re-analysis.
+
+For each scan doc that exists, apply only the relevant patches:
+- **`.gsd-t/scan/architecture.md`** — Update file/directory counts if the fix added/removed files
+- **`.gsd-t/scan/quality.md`** — Mark resolved TODOs/FIXMEs, update test counts if tests were added
+- **`.gsd-t/scan/security.md`** — If the bug was a security issue, mark the finding `[RESOLVED]`
+- **`.gsd-t/scan/business-rules.md`** — If the fix changed validation/auth/workflow logic, update the rule
+- **`.gsd-t/scan/contract-drift.md`** — If contracts were updated as part of the fix, mark resolved drift items
+
+Skip scan docs not affected by this fix. Skip analytical sections — those require a full scan.
+
 ### Skip what's not affected — don't update docs for the sake of updating them.
 
 ## Step 5: Test Verification (run tests confirming fix)

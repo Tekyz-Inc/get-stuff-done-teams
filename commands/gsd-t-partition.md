@@ -2,6 +2,23 @@
 
 You are the lead agent in a contract-driven development workflow. Your job is to decompose the current milestone into independent domains with explicit boundaries and contracts.
 
+## Step 0.5: Scan Freshness Auto-Refresh
+
+Before reading scan data, check if scan docs are stale and auto-refresh if needed. This ensures partition decisions are based on current code — no warnings, no user involvement.
+
+If `.gsd-t/scan/.cache.json` exists:
+1. Read the cache and check `dimensions.quality.scannedAt` and `dimensions.architecture.scannedAt`
+2. Count commits since the scan: `git rev-list --count --after="{scannedAt}" HEAD`
+3. If **>10 commits since scan** OR **scan is older than 14 days**:
+   - Log: "Auto-refreshing scan docs (stale by {N} commits / {N} days)..."
+   - Re-run only the stale dimensions by spawning the relevant scan teammates:
+     - If `quality.md` stale → spawn quality teammate (model: sonnet)
+     - If `architecture.md` stale → spawn architecture teammate (model: haiku)
+   - Update `.gsd-t/scan/.cache.json` after refresh
+4. If fresh → proceed silently
+
+If `.gsd-t/scan/` doesn't exist at all → skip (no scan data to refresh).
+
 ## Step 1: Understand the Project
 
 Read these files in order:

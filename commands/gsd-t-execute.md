@@ -259,6 +259,18 @@ Execute modifies source code, so the Pre-Commit Gate (referenced in Step 9) cove
 4. **`docs/architecture.md`** — Did a task add/change a component or data flow? Update it
 5. **`.gsd-t/techdebt.md`** — Did a task resolve a debt item? Mark it done. Did it reveal new debt? Add it
 
+### Scan Doc Micro-Update (if `.gsd-t/scan/` exists):
+After all tasks complete, patch structural metadata in scan docs so they stay fresh between full scans. This is near-zero cost — no LLM re-analysis, just updating counts and lists from code.
+
+For each scan doc that exists, apply only the relevant patches:
+- **`.gsd-t/scan/architecture.md`** — Update file/directory counts, add new files/modules created during execution
+- **`.gsd-t/scan/quality.md`** — Mark resolved TODOs/FIXMEs, update test counts (run `grep -rc "test\|it\|describe" tests/` or equivalent), append new files to Consumer Surfaces table if applicable
+- **`.gsd-t/scan/security.md`** — If a security finding was fixed during execution, mark it `[RESOLVED]`
+- **`.gsd-t/scan/business-rules.md`** — Append any new validation/auth/workflow rules added during execution
+- **`.gsd-t/scan/contract-drift.md`** — If contracts were updated, mark resolved drift items
+
+Skip any scan doc that wasn't affected by the executed tasks. Skip analytical sections (assessments, recommendations) — those require a full scan to update.
+
 $ARGUMENTS
 
 ## Auto-Clear

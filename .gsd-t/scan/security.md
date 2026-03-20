@@ -1,77 +1,65 @@
-# Security Analysis — Scan #10 (2026-03-19)
+# Security Analysis — Scan #11 (2026-03-20)
 
-## Project: GSD-T Framework (@tekyzinc/gsd-t) — v2.38.10
+## Project: GSD-T Framework (@tekyzinc/gsd-t) — v2.39.12
 
-**Scan date**: 2026-03-19
-**Previous scan**: Scan #9 at v2.34.10 (2026-03-09)
-**New items**: 2 (SEC-C01, SEC-M04)
-**Carried items**: 7 (SEC-H01, SEC-H02, SEC-H03, SEC-M01, SEC-M02, SEC-M03, SEC-L01, SEC-L02)
-**Graph-enhanced**: Yes — used findDeadCode, findDuplicates, findComplexFunctions, getCallers queries
+**Scan date**: 2026-03-20
+**Previous scan**: Scan #10 at v2.38.10 (2026-03-19)
+**New items**: 1 (SEC-M05)
+**Resolved items**: 7 (SEC-C01, SEC-H01, SEC-H02, SEC-H03, SEC-M01, SEC-M02, SEC-M03, SEC-M04)
+**Carried items**: 2 (SEC-L01, SEC-L02)
+**Graph-enhanced**: Yes — used SAFE_ENTITY_RE validation analysis, execFileSync migration verification
 
 ---
 
 ## CRITICAL Severity
 
-### SEC-C01: graph-query.js grepQuery() — command injection via params.entity/params.file (NEW)
-- **Location**: `bin/graph-query.js` lines 305-306, 321-322
-- **Code**:
-  ```javascript
-  const cmd = `grep -rn "${name}(" --include="*.js" --include="*.ts" --include="*.py" "${projectRoot}" 2>/dev/null || true`;
-  const out = execSync(cmd, { encoding: 'utf8', timeout: 5000 });
-  ```
-- **Details**: `params.entity` and `params.file` (user-controlled inputs) are interpolated directly into shell commands passed to `execSync`. An entity name like `"; rm -rf / #` achieves arbitrary command execution. The grep fallback provider is the lowest priority (3), so this is only reached when both CGC and native providers are unavailable — but the fallback IS exercised for `getCallers` and `getImporters` queries when no index exists.
-- **Impact**: CRITICAL — shell injection when grep fallback is active. Any command that calls `query('getCallers', { entity: userInput })` or `query('getImporters', { file: userInput })` through the grep provider is exploitable.
-- **Fix**: Use `execFileSync('grep', ['-rn', name + '(', '--include=*.js', '--include=*.ts', '--include=*.py', projectRoot], { encoding: 'utf8', timeout: 5000 })` with array args instead of string interpolation. Alternatively, validate entity/file names against `/^[\w.\-/]+$/` before use.
-- **Status**: NEW
+_No open critical findings._
+
+### ~~SEC-C01~~: graph-query.js grepQuery() — command injection via params.entity/params.file (RESOLVED v2.39.10)
+- **Resolution**: Migrated to `execFileSync` with array args. Added `SAFE_ENTITY_RE = /^[\w.\-/\\:]+$/` guard — entity and file names are validated before use. Injection path eliminated.
 
 ---
 
 ## HIGH Severity
 
-### SEC-H01: gsd-t-update-check.js — version string passed to execSync without validation (CARRIED — TD-082)
-- **Location**: `scripts/gsd-t-update-check.js` line 61
-- **Code**: `execSync('npm install -g @tekyzinc/gsd-t@' + latest, ...)`
-- **Details**: `latest` from npm registry is not validated before shell interpolation. MITM or compromised registry can inject commands.
-- **Fix**: Validate with semver regex. Use `execFileSync('npm', ['install', '-g', '@tekyzinc/gsd-t@' + latest])`.
-- **Status**: OPEN (carried from Scan #7)
+_No open high findings._
 
-### SEC-H02: gsd-t-update-check.js — second execSync call (CARRIED)
-- **Location**: `scripts/gsd-t-update-check.js` line 64
-- **Code**: `execSync('gsd-t update-all', ...)`
-- **Fix**: `execFileSync('gsd-t', ['update-all'], { ... })`
-- **Status**: OPEN (carried from Scan #8)
+### ~~SEC-H01~~: gsd-t-update-check.js — version string passed to execSync without validation (RESOLVED v2.39.10)
+- **Resolution**: `doAutoUpdate()` now uses `execFileSync("npm", ["install", "-g", "@tekyzinc/gsd-t@" + latest])`. Version validated against `SEMVER_RE = /^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?$/` before `doAutoUpdate` is called. Both injection vectors closed.
 
-### SEC-H03: scan-export.js — execSync with string interpolation of htmlPath (CARRIED — TD-084)
-- **Location**: `bin/scan-export.js` lines 21, 30
-- **Fix**: `execFileSync('pandoc', [htmlPath, '-o', outputPath, '--from=html'], { ... })`
-- **Status**: OPEN (carried from Scan #7)
+### ~~SEC-H02~~: gsd-t-update-check.js — second execSync call (RESOLVED v2.39.10)
+- **Resolution**: `execFileSync("gsd-t", ["update-all"])` — array args used throughout.
+
+### ~~SEC-H03~~: scan-export.js — execSync with string interpolation of htmlPath (RESOLVED v2.39.10)
+- **Resolution**: `execFileSync('pandoc', [htmlPath, '-o', outputPath, '--from=html'])` — array args throughout `exportToDocx()` and `exportToPdf()`.
 
 ---
 
 ## MEDIUM Severity
 
-### SEC-M01: scan-renderer.js — execSync with tmpIn/tmpOut paths (CARRIED — TD-084)
-- **Location**: `bin/scan-renderer.js` lines 26, 43
-- **Fix**: `execFileSync('mmdc', ['-i', tmpIn, '-o', tmpOut, '-t', 'dark', '--quiet'], { ... })`
-- **Status**: OPEN (carried from Scan #7)
-
-### SEC-M02: gsd-t-tools.js — stateSet() allows markdown structure injection (CARRIED — TD-071)
-- **Location**: `scripts/gsd-t-tools.js` line 43
-- **Fix**: Add `value = String(value).replace(/[\r\n]/g, ' ')` before replace.
-- **Status**: OPEN (carried from Scan #7)
-
-### SEC-M03: scan-export.js — detectTool() uses execSync with arbitrary cmd string (CARRIED)
-- **Location**: `bin/scan-export.js` lines 6-11
-- **Fix**: Validate `cmd` against `/^[a-zA-Z0-9_-]+$/` or use execFileSync.
-- **Status**: OPEN (carried from Scan #8)
-
-### SEC-M04: graph-store.js — ensureDir() does not validate projectRoot or check symlinks (NEW)
-- **Location**: `bin/graph-store.js` lines 22-26
-- **Code**: `fs.mkdirSync(dir, { recursive: true })` where `dir` derives from `projectRoot` without validation
-- **Details**: Unlike bin/gsd-t.js which has `isSymlink()` + `hasSymlinkInPath()` checks before file writes, graph-store.js has no symlink protection. A symlinked `.gsd-t/graph/` directory could cause graph data to be written to arbitrary locations.
-- **Impact**: MEDIUM — requires prior symlink placement. Risk is consistent with main codebase pattern, which already uses symlink checks everywhere else.
-- **Fix**: Add isSymlink/hasSymlinkInPath check in ensureDir() and writeFile(), or reuse the existing symlink checks from gsd-t.js.
+### SEC-M05: graph-query.js _syncCgc() — projectRoot passed to cgc without path validation (NEW)
+- **Location**: `bin/graph-query.js` lines 376, 381
+- **Code**:
+  ```javascript
+  execFileSync('cgc', ['index', projectRoot], cgcOpts);
+  execFileSync('cgc', ['index', projectRoot, '--force'], cgcOpts);
+  ```
+- **Details**: `projectRoot` is passed as an array argument (not shell-interpolated), so there is no shell injection risk. However, `projectRoot` is not validated to ensure it is a real directory path or that it does not traverse outside expected boundaries. In normal operation, `projectRoot` is derived from `process.cwd()` walking up to find `.gsd-t/`, which limits the practical attack surface. An adversary who controls the working directory from which Claude Code is invoked (e.g., via a malicious project) could point CGC indexing at an arbitrary path. Since CGC is a read-only index operation, the impact is limited to unintended directory traversal for indexing rather than data corruption.
+- **Impact**: MEDIUM (low exploitability, no shell injection, read-only CGC operation)
+- **Fix**: Validate `projectRoot` is an absolute path and that `.gsd-t/` exists within it before passing to `cgc`. Example: `if (!path.isAbsolute(projectRoot) || !fs.existsSync(path.join(projectRoot, '.gsd-t'))) return;`
 - **Status**: NEW
+
+### ~~SEC-M01~~: scan-renderer.js — execSync with tmpIn/tmpOut paths (RESOLVED v2.39.10)
+- **Resolution**: `execFileSync('mmdc', ['-i', tmpIn, '-o', tmpOut, '-t', 'dark', '--quiet'])` — array args used in both `tryMmdc()` and `tryD2()`.
+
+### ~~SEC-M02~~: gsd-t-tools.js — stateSet() allows markdown structure injection (RESOLVED v2.39.10)
+- **Resolution**: Line 43 now applies `String(value).replace(/[\r\n]/g, ' ')` before writing. Newline injection blocked.
+
+### ~~SEC-M03~~: scan-export.js — detectTool() uses execSync with arbitrary cmd string (RESOLVED v2.39.10)
+- **Resolution**: `detectTool()` uses `execFileSync(check, [cmd])` where `check` is either `'where'` or `'which'` (platform-determined constant) and `cmd` is the argument. No shell involved.
+
+### ~~SEC-M04~~: graph-store.js — ensureDir() does not validate projectRoot or check symlinks (RESOLVED v2.39.10)
+- **Resolution**: `ensureDir()` calls `isSymlink(dir)` and throws on symlink. `readFile()` calls `isSymlink(fp)` and returns null on symlink. `writeFile()` calls both `ensureDir()` (dir check) and `isSymlink(fp)` (file check) before writing. Full symlink protection applied at every write path.
 
 ---
 
@@ -79,48 +67,61 @@
 
 ### SEC-L01: Dashboard SSE endpoint has no authentication (CARRIED — TD-090)
 - **Location**: `scripts/gsd-t-dashboard-server.js` SSE_HEADERS
-- **Details**: `Access-Control-Allow-Origin: *` with no token check.
-- **Status**: OPEN (carried)
+- **Details**: `Access-Control-Allow-Origin: *` with no token check. Any local process or browser tab can subscribe to the event stream.
+- **Status**: OPEN (carried from Scan #8)
 
 ### SEC-L02: tryKroki() would send codebase analysis to external kroki.io (CARRIED — TD-091)
 - **Location**: `bin/scan-renderer.js` lines 53-77
-- **Details**: Dead code (never called). Graph findDeadCode confirms no callers.
-- **Status**: OPEN (carried)
+- **Details**: Dead code — `tryKroki()` is defined but never called from `renderDiagram()`. The sync rendering path falls through mmdc → d2 → placeholder. The function would require `await` at the call site to activate, and no caller exists. `KROKI_HOST` env var support is present, suggesting self-hosted use was anticipated. Risk is zero while it remains dead code.
+- **Status**: OPEN (carried — confirm dead code in Scan #12 via graph findDeadCode)
 
 ---
 
 ## Accepted Risks
 
 ### SEC-ACCEPT-01: TOCTOU Race in Symlink Check + Write (TD-029)
-Accepted in M8. See techdebt.md for rationale. Still valid.
+Accepted in M8. There is an inherent race between `isSymlink()` check and the subsequent `writeFileSync()`. An adversary with filesystem access could replace a regular file with a symlink in this window. Accepted because: (1) GSD-T operates on the developer's own machine, (2) the window is microseconds, (3) the threat model does not include local privilege escalation.
 
 ---
 
 ## Informational Notes
 
-### SEC-N33: Graph CGC provider uses execFileSync (good)
-`bin/graph-cgc.js` correctly uses `execFileSync` with array args for all external command calls. No injection pattern.
+### SEC-N33: Graph CGC provider uses execFileSync (good) — CONFIRMED
+`bin/graph-cgc.js` correctly uses `execFileSync` with array args for all external command calls. No injection pattern. Confirmed unchanged.
 
 ### SEC-N34: Graph store writes to .gsd-t/graph/ (git-ignored)
-Graph data files contain function names, file paths, and code structure. Written only to local project directory. Not transmitted.
+Graph data files contain function names, file paths, and code structure. Written only to local project directory. Not transmitted. Graph store now additionally guarded by symlink checks at every write path.
 
 ### SEC-N35: CGC communicates via local stdio only
-CGC MCP server is spawned locally via `spawn()`. Communication is JSON-RPC over stdin/stdout pipes. No network exposure.
+CGC MCP server is spawned locally via `spawn()`. Communication is JSON-RPC over stdin/stdout pipes. No network exposure. `_syncCgc` additionally sets `PYTHONIOENCODING=utf-8` in the subprocess environment to prevent encoding failures from producing misleading error states.
+
+### SEC-N36: SEMVER_RE validation in gsd-t-update-check.js (good)
+`fetchLatestVersion()` validates registry response against `/^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?$/` before returning. Cache reads are also validated (`cached.latest = null` if invalid). Defense-in-depth: even if registry response is compromised, the version string is sanitized before reaching `doAutoUpdate`.
+
+### SEC-N37: Browser-side CDN dependencies in dashboard.html pinned to fixed versions (carried)
+Not audited. Low priority — dashboard is a local dev tool, not exposed externally.
 
 ---
 
 ## Dependency Audit
-No npm dependencies — nothing to audit. Zero supply chain attack surface on the Node.js side.
 
-CGC provider depends on external Python package (codegraphcontext) and Neo4j Docker container. Not npm dependencies. Neo4j container runs localhost-only.
+No npm dependencies — `npm audit` returns `ENOLOCK` (no lockfile), confirming zero tracked dependencies. Zero supply chain attack surface on the Node.js side.
 
-Browser-side CDN dependencies in dashboard.html are pinned to fixed versions but not audited (SEC-N37, carried from Scan #8).
+CGC provider depends on external Python package (`codegraphcontext`) and Neo4j Docker container. Not npm dependencies. Neo4j container is configured localhost-only (`bolt://localhost:7687`) with a hardcoded development password (`gsdt-graph-2026`). This password is non-sensitive by design (local-only dev container), but should not be reused in production contexts.
 
 ---
 
-## Graph-Enhanced Findings Summary
+## Resolved Items Summary (Scan #11)
 
-The graph engine revealed:
-1. **SEC-C01 (CRITICAL)**: The grep fallback provider's `execSync` injection was identified by tracing the `grepQuery` function's parameter flow through the provider chain. Without graph analysis, this was buried in graph-query.js and not flagged in previous scans (which predated the graph engine code).
-2. **SEC-M04 (MEDIUM)**: Graph overlay's file write patterns lack symlink protections present elsewhere. Cross-module comparison via graph entities surfaced this inconsistency.
-3. **Confirmation**: `findDeadCode` confirmed tryKroki() (SEC-L02) remains dead code with zero callers from main tree.
+All 7 open items from Scan #10 were resolved in the v2.39.10 security hardening commit (commit `909b5b6`):
+
+| Item      | Severity | Resolution |
+|-----------|----------|------------|
+| SEC-C01   | CRITICAL | execFileSync + SAFE_ENTITY_RE validation in grepQuery() |
+| SEC-H01   | HIGH     | execFileSync + SEMVER_RE validation in doAutoUpdate()    |
+| SEC-H02   | HIGH     | execFileSync array args in doAutoUpdate()                |
+| SEC-H03   | HIGH     | execFileSync array args in exportToDocx()/exportToPdf()  |
+| SEC-M01   | MEDIUM   | execFileSync array args in tryMmdc()/tryD2()             |
+| SEC-M02   | MEDIUM   | newline sanitization in stateSet()                       |
+| SEC-M03   | MEDIUM   | execFileSync array args in detectTool()                  |
+| SEC-M04   | MEDIUM   | isSymlink() guards in ensureDir()/readFile()/writeFile() |

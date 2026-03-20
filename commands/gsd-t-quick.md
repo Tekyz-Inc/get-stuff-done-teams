@@ -100,6 +100,18 @@ If `.gsd-t/progress.md` exists, assess what documentation was affected and updat
 8. **`.gsd-t/techdebt.md`** — Did this task resolve a debt item? Mark it done. Did it reveal new debt? Add it
 9. **`CLAUDE.md`** — Did this task establish a convention future work should follow? Add it
 
+### Scan Doc Micro-Update (if `.gsd-t/scan/` exists):
+Patch structural metadata in scan docs so they stay fresh between full scans. Near-zero cost — no LLM re-analysis.
+
+For each scan doc that exists, apply only the relevant patches:
+- **`.gsd-t/scan/architecture.md`** — Update file/directory counts, add new files/modules created
+- **`.gsd-t/scan/quality.md`** — Mark resolved TODOs/FIXMEs, update test counts, append new files to Consumer Surfaces if applicable
+- **`.gsd-t/scan/security.md`** — If a security finding was fixed, mark it `[RESOLVED]`
+- **`.gsd-t/scan/business-rules.md`** — Append any new validation/auth/workflow rules added
+- **`.gsd-t/scan/contract-drift.md`** — If contracts were updated, mark resolved drift items
+
+Skip scan docs not affected by this task. Skip analytical sections — those require a full scan.
+
 ### Skip what's not affected — most quick tasks will only touch 1-2 of these.
 
 ## Step 5: Test & Verify (MANDATORY)

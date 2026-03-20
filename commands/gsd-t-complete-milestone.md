@@ -213,6 +213,26 @@ If `README.md` exists, update it to reflect the completed milestone:
 
 If `README.md` doesn't exist, create one with project name, description, version, tech stack, setup instructions, and link to `docs/`.
 
+## Step 8.5: Scan Doc Milestone Checkpoint
+
+Before tagging, ensure scan docs reflect the final state of the codebase after all milestone work. This is the full-refresh counterpart to the micro-updates done during execute/quick/debug.
+
+If `.gsd-t/scan/` exists (a prior scan has been run):
+1. Check `.gsd-t/scan/.cache.json` for staleness — count commits since last scan
+2. If **any dimension is stale** (>0 commits since scan):
+   - Log: "Running milestone scan checkpoint — refreshing all stale scan dimensions..."
+   - Re-run all stale dimensions using scan teammates (same team structure as `gsd-t-scan` Step 2):
+     - Stale `architecture.md` → architecture teammate (model: haiku)
+     - Stale `quality.md` → quality teammate (model: sonnet)
+     - Stale `security.md` → security teammate (model: sonnet)
+     - Stale `business-rules.md` → business-rules teammate (model: haiku)
+     - Stale `contract-drift.md` → contracts teammate (model: haiku)
+   - Update `.gsd-t/scan/.cache.json` after refresh
+   - Update `.gsd-t/techdebt.md` — mark any items resolved during this milestone as `[RESOLVED]`
+3. If all dimensions are fresh → skip with log: "Scan docs are fresh — no checkpoint refresh needed"
+
+If `.gsd-t/scan/` doesn't exist → skip (no scan data to maintain).
+
 ## Step 9: Document Ripple
 
 Before creating the git tag, verify all documentation is up to date:

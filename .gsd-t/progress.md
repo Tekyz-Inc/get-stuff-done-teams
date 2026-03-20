@@ -3,7 +3,7 @@
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: COMPLETE
 ## Date: 2026-03-18
-## Version: 2.39.12
+## Version: 2.39.13
 
 ## Current Milestone
 
@@ -76,6 +76,7 @@ Wave 4: cli-graph (consumes all above)
 
 ## Decision Log
 (Entries before 2026-02-16 reconstructed from git history with timestamps)
+- 2026-03-20 10:00: [success] Scan Doc Freshness System implemented (v2.39.13). Three phases: (1) Post-change micro-updates in execute/quick/debug — patch structural metadata inline after code changes; (2) Hash cache + auto-refresh on read in partition/feature/gap-analysis — stale dimensions re-scanned automatically before consumption, no user involvement; (3) Milestone checkpoint in complete-milestone — full refresh of all stale dimensions before tagging. Cache generated in scan Step 6.5 as .gsd-t/scan/.cache.json. Also ran Scan #11 — all 5 dimensions updated (architecture, quality, security, business-rules, contract-drift).
 - 2026-03-19: Added backlog item #8: "Auto-Setup Graph Dependencies" (type: feature, app: gsd-t, category: cli) — Graph readiness check for version-update commands with hybrid auto-fix/diagnostic approach
 - 2026-03-19: Implemented graph auto-sync (Phase 1 + Phase 2) in graph-query.js — command-boundary staleness check with 500ms TTL + CGC sync via add_code_to_graph when native index detects changes. 294/294 tests pass.
 - 2026-03-19 16:55: [success] Scan #10 COMPLETE — v2.38.10 (post-M20/M21). Graph-enhanced scan using CGC (1,439 functions, 153 files) + native (275 entities). 294/294 tests pass. 4 new items found (TD-097-101): 1 CRITICAL (SEC-C01 command injection in graph-query.js grepQuery via execSync string interpolation), 1 MEDIUM (TD-098 absolute path contract violation), 2 LOW (TD-099 graph-store symlink, TD-100 overlay untested). 31 items carried. Total open: 35. Diagrams: 4/6 rendered (mermaid-cli). HTML report: scan-report.html. Graph-vs-grep comparison written to .gsd-t/scan/graph-vs-grep-comparison.md — graph found 5 issues grep-only missed (runtime contract verification, domain boundary check, worktree contamination, circular dep proof, complexity gap). All scan files updated. Living docs updated (architecture.md).
@@ -290,6 +291,8 @@ Wave 4: cli-graph (consumes all above)
 - 2026-03-04 15:00: [success] Milestone "Real-Time Agent Dashboard" completed — SSE server (gsd-t-dashboard-server.js, 141 lines, zero deps), React Flow + Dagre dashboard (gsd-t-dashboard.html, 194 lines), gsd-t-visualize command (#48, 104 lines). 5 tasks, 3 domains, 2 checkpoints, 176 tests. v2.33.10
 - 2026-03-04 14:50: [success] M15 verify PASSED — all gates clear: 176/176 tests pass; gsd-t-dashboard-server.js (141 lines, zero external deps: http/fs/path/child_process only); gsd-t-dashboard.html (194 lines, ≤200 limit); gsd-t-visualize.md (104 lines, has Step 0 OBSERVABILITY LOGGING); UTILITY_SCRIPTS includes both dashboard files; README count 48; REQ-023 complete in requirements.md. M15 status: VERIFIED.
 - 2026-02-25 10:32: Deep research with team agents for brainstorm and debug loop breaking (v2.31.19) — gsd-t-brainstorm.md: replaced optional team mode (visionary/pragmatist/devil's advocate) with mandatory Deep Research Phase before Step 5; three parallel research agents (landscape, alternatives, analogies) must complete before any conclusions are drawn; token-log note updated from "team brainstorm" to "deep research". gsd-t-debug.md: added Step 1.5 Debug Loop Detection; scans progress.md for 3+ prior debug sessions on same issue and triggers Deep Research Mode with three parallel research agents (root-cause, alternatives, prior-art); Lead synthesizes and presents a structured option table to user before any fix proceeds; 3-attempt limit now escalates to deep research instead of stopping. Purpose: prevent 10–20 session debug death spirals and ensure brainstorm conclusions are evidence-based.
+
+- 2026-03-19 00:00: [success] Scan doc freshness system implemented (3 phases): Phase 1 — micro-updates added to execute/quick/debug Document Ripple sections (patch structural metadata in scan docs after code changes, near-zero cost); Phase 2 — hash cache (.gsd-t/scan/.cache.json) generated at scan completion, auto-refresh on read added to partition/feature/gap-analysis (stale dimensions re-scanned automatically before consumption, no user involvement); Phase 3 — milestone checkpoint added to complete-milestone Step 8.5 (full scan refresh of all stale dimensions before tagging). Also added CLAUDE.md directive: always run update-all after npm publish.
 
 ## Session Log
 | Date | Session | What was accomplished |

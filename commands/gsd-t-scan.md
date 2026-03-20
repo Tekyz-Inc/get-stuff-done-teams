@@ -497,6 +497,50 @@ After updating living documents, verify nothing was broken:
 2. **Verify passing**: If any tests fail that were passing before the scan began, investigate and fix
 3. **Log test baseline**: Record the current test state in `.gsd-t/scan/test-baseline.md` — this gives future milestones a starting point
 
+## Step 6.5: Generate Scan Freshness Cache
+
+After the scan completes and living docs are updated, generate a hash cache so downstream commands can detect staleness without re-scanning.
+
+Create `.gsd-t/scan/.cache.json` with this structure:
+
+```bash
+node -e "
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
+
+const root = process.argv[1];
+const scanDir = path.join(root, '.gsd-t', 'scan');
+
+// Hash all source files that affect each scan dimension
+const dimensions = {
+  architecture: ['**/*.js', '**/*.ts', '**/*.py', '**/*.json', '**/package.json', '**/tsconfig.json'],
+  quality: ['**/*.js', '**/*.ts', '**/*.py', '**/*.test.*', '**/*.spec.*'],
+  security: ['**/*.js', '**/*.ts', '**/*.py', '**/*.env*', '**/package.json', '**/package-lock.json'],
+  'business-rules': ['**/*.js', '**/*.ts', '**/*.py'],
+  'contract-drift': ['.gsd-t/contracts/**']
+};
+
+// For each dimension, hash the scan doc itself to track its version
+const cache = { generated: new Date().toISOString(), dimensions: {} };
+for (const [dim, _patterns] of Object.entries(dimensions)) {
+  const scanFile = path.join(scanDir, dim + '.md');
+  if (fs.existsSync(scanFile)) {
+    const content = fs.readFileSync(scanFile, 'utf8');
+    cache.dimensions[dim] = {
+      scanHash: crypto.createHash('md5').update(content).digest('hex'),
+      scannedAt: new Date().toISOString()
+    };
+  }
+}
+
+fs.writeFileSync(path.join(scanDir, '.cache.json'), JSON.stringify(cache, null, 2));
+console.log('Scan cache generated:', Object.keys(cache.dimensions).length, 'dimensions cached');
+" "$PROJECT_ROOT"
+```
+
+This cache enables downstream commands (`partition`, `feature`, `gap-analysis`) to check scan freshness and auto-refresh stale dimensions before consuming scan data.
+
 ## Step 7: Update Project State
 
 If `.gsd-t/progress.md` exists:

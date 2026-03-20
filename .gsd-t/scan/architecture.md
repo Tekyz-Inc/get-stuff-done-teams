@@ -1,6 +1,6 @@
-# Architecture Analysis — Scan #10 (2026-03-19)
+# Architecture Analysis — Scan #11 (2026-03-19)
 
-## Project: GSD-T Framework (@tekyzinc/gsd-t) — v2.38.10
+## Project: GSD-T Framework (@tekyzinc/gsd-t) — v2.39.12
 
 ## Overview
 
@@ -41,11 +41,11 @@ GSD-T is an npm-distributed methodology framework for Claude Code. It provides s
 | HTML Report              | `bin/scan-report.js`                 | 181   | Self-contained HTML report               |
 | Report Sections          | `bin/scan-report-sections.js`        | 121   | HTML section builders                    |
 | Export                   | `bin/scan-export.js`                 | 49    | DOCX/PDF export via pandoc/md-to-pdf     |
-| **Total JS**             | **27 files**                         | **4,888** | |
-| **Total test files**     | **11 files**                         | **2,943** | |
-| **Grand total JS**       | **38 files**                         | **7,831** | (including test files) |
+| **Total JS**             | **25 files**                         | **5,737** | |
+| **Total test files**     | **11 files**                         | **5,771** | |
+| **Grand total JS**       | **36 files**                         | **11,508** | (including test files) |
 
-**Command count**: 49 (actual `ls commands/*.md` count). CLAUDE.md Overview says "46 slash commands (42 GSD-T workflow + 4 utility)" — 3-file discrepancy (updated from TD-087).
+**Command count**: 49 (actual `ls commands/*.md` count). CLAUDE.md Overview says "46 slash commands (42 GSD-T workflow + 4 utility)" — 3-file discrepancy persists (updated from TD-087). Test count: 85 test/describe blocks across 11 test files.
 
 ---
 
@@ -54,10 +54,10 @@ GSD-T is an npm-distributed methodology framework for Claude Code. It provides s
 - **Language**: JavaScript (Node.js >= 16)
 - **Runtime**: Node.js v22.22.0 (current dev environment)
 - **Package Manager**: npm
-- **Distribution**: npm package (@tekyzinc/gsd-t)
+- **Distribution**: npm package (@tekyzinc/gsd-t), version 2.39.12
 - **Dependencies**: Zero external npm dependencies (built-ins only: fs, path, os, child_process, https, http, crypto)
-- **Testing**: Node.js built-in test runner (`node --test`), 294 tests, 11 test files
-- **Graph Engine**: Native regex-based indexer (275 entities) + CGC MCP provider (1,439 functions, 153 files, 41 modules via Neo4j)
+- **Testing**: Node.js built-in test runner (`node --test`), 85 test blocks, 11 test files
+- **Graph Engine**: Native regex-based indexer (275 entities) + CGC MCP provider (1,439 functions, 153 files, 41 modules via Neo4j). Graph auto-sync enabled at command boundaries. Freshness detection on startup.
 - **Dashboard HTML**: React 17 + React Flow v11.11.4 + Dagre via CDN (gsd-t-dashboard.html, not shipped to npm)
 
 ---
@@ -68,24 +68,24 @@ GSD-T is an npm-distributed methodology framework for Claude Code. It provides s
 Layer 1: Lifecycle Management
   bin/gsd-t.js -- install, update, init, status, doctor, uninstall, update-all, register, changelog, graph
 
-Layer 2: Graph Engine (NEW in M20)
+Layer 2: Graph Engine (M20/M21 — ENHANCED in v2.39.11)
   bin/graph-store.js       -- JSON file storage (.gsd-t/graph/ — 8 files)
   bin/graph-parsers.js     -- JS/TS/Python regex entity extraction
   bin/graph-overlay.js     -- GSD-T context mapper (domain/contract/req/test/debt/surface)
   bin/graph-indexer.js     -- Project indexer with incremental support + file walking
-  bin/graph-cgc.js         -- CGC MCP provider (JSON-RPC stdio, 8 CGC tools, health cache)
-  bin/graph-query.js       -- Abstraction layer (21 query types, 3 providers, fallback chain)
+  bin/graph-cgc.js         -- CGC MCP provider (JSON-RPC stdio, 8 CGC tools, health cache, retry + error reporting)
+  bin/graph-query.js       -- Abstraction layer (21 query types, 3 providers, fallback chain, command injection hardening)
 
 Layer 3: Hook Scripts (~/.claude/scripts/)
-  gsd-t-heartbeat.js      -- PostToolUse, SubagentStart/Stop hooks
-  gsd-t-event-writer.js   -- structured JSONL appender
-  gsd-t-update-check.js   -- SessionStart auto-update (NO module.exports -- TD-081)
-  gsd-t-auto-route.js     -- UserPromptSubmit routing
-  gsd-t-tools.js          -- state utility CLI (NO module.exports -- TD-066)
-  gsd-t-statusline.js     -- context bar (NO module.exports -- TD-066)
-  gsd-t-dashboard-server.js -- SSE server for dashboard
+  gsd-t-heartbeat.js      -- PostToolUse, SubagentStart/Stop hooks, event logging
+  gsd-t-event-writer.js   -- structured JSONL appender (.gsd-t/events/)
+  gsd-t-update-check.js   -- SessionStart auto-update, version check
+  gsd-t-auto-route.js     -- UserPromptSubmit auto-routing
+  gsd-t-tools.js          -- state utility CLI (get/set/validate/list)
+  gsd-t-statusline.js     -- context bar display
+  gsd-t-dashboard-server.js -- SSE server (zero-dependency) for dashboard
   npm-update-check.js     -- background version checker
-  gsd-t-fetch-version.js  -- sync npm fetch
+  gsd-t-fetch-version.js  -- sync npm registry fetch
 
 Layer 4: Scan Modules (bin/)
   scan-schema.js + scan-schema-parsers.js   -- ORM/schema detection
@@ -106,30 +106,35 @@ Layer 5: Methodology (commands/*.md)
 **Provider Fallback Chain**: CGC (priority 1) -> Native (priority 2) -> Grep (priority 3)
 
 ```
-Commands (21 graph-aware)
+Commands (21 graph-aware) + Auto-Sync
+    │
+    ├── (v2.39.11+) Auto-sync at command boundary
+    │     └── Fresh graph required: index + overlay before query
     │
     ▼
 graph-query.js  ─── query(type, params, projectRoot) ───►  Result
     │
     ├── cgcProvider (graph-cgc.js)
-    │     └── JSON-RPC → CGC MCP Server → Neo4j
+    │     └── JSON-RPC → CGC MCP → Neo4j (with retry + error reporting)
     │
     ├── nativeProvider (graph-indexer.js + graph-store.js)
     │     └── Regex parsing → JSON files (.gsd-t/graph/)
     │
     └── grepProvider (graph-query.js inline)
-          └── execSync grep → line-based results
+          └── execSync grep → line-based results (command-injection hardened)
 ```
 
 **Graph Data Flow**:
-1. `indexProject(root)` walks files, parses entities, writes to graph-store
-2. `buildOverlay(root, entities)` enriches with domain/contract/requirement/test/debt/surface
-3. `query(type, params, root)` routes to best provider, returns enriched entities
+1. Auto-sync check: if stale, call `indexProject(root)` + `buildOverlay(root, entities)`
+2. `indexProject(root)` walks files, parses entities, writes to graph-store
+3. `buildOverlay(root, entities)` enriches with domain/contract/requirement/test/debt/surface
+4. `query(type, params, root)` routes to best provider, returns enriched entities
 
-**Current Index Stats** (self-indexed):
-- Native: 275 entities, stale=false
+**Current Index Stats** (self-indexed at v2.39.12):
+- Native: 275 entities, 725 relationships, stale=false
 - CGC: 153 files, 1,439 functions, 41 modules (via Neo4j)
 - Provider in use: CGC (priority 1)
+- Auto-sync frequency: command boundary check + startup freshness detection
 
 ---
 
@@ -152,18 +157,19 @@ Command needs code data → calls `query(type, params, root)` → provider chain
 ## Patterns Observed
 
 - **Zero-dependency**: All modules use only Node.js built-ins (fs, path, os, child_process, https, http, crypto)
-- **Synchronous-first**: All file I/O is synchronous (readFileSync/writeFileSync). Async only in CGC MCP communication.
-- **Provider pattern**: Graph engine uses pluggable provider interface with priority-based fallback
+- **Synchronous-first**: All file I/O is synchronous (readFileSync/writeFileSync). Async only in CGC MCP communication and dashboard SSE.
+- **Provider pattern**: Graph engine uses pluggable provider interface with priority-based fallback chain
 - **Overlay enrichment**: Code entities enriched with GSD-T context (domains, contracts, requirements, tests, debt, surfaces) via overlay mapper
-- **Session caching**: Provider selection cached per session to avoid re-checking availability
+- **Auto-sync on demand**: Graph freshness checked at command boundary; stale index triggers reindex + rebuild overlay (v2.39.11+)
 - **Graceful degradation**: All graph queries work at reduced capability if CGC unavailable; commands work without graph entirely
+- **Event streaming**: All command activity logged to `.gsd-t/events/{date}.jsonl` via PostToolUse hook for analysis and debugging
 
 ---
 
 ## Architecture Concerns
 
-- **Worktree contamination**: Graph indexer walks `.claude/worktrees/` directory and indexes worktree files alongside main project files. Dead code and duplicate detection includes worktree copies, producing false positives. DEFAULT_EXCLUDE should include `.claude` (it does) but the worktree is at project root level under `.claude/worktrees/` — the exclusion check only matches directory names in `walkFiles`, and `.claude` is already excluded. However, CGC indexes the full project including worktrees. This needs investigation.
-- **Command count discrepancy**: 49 actual command files vs. "46" documented in CLAUDE.md Overview (TD-087, now 3 off)
-- **execSync in grep provider**: graph-query.js uses `execSync` with string interpolation of user-controlled `params.entity` — command injection risk (NEW finding, see security.md)
-- **Graph file paths**: Contract Rule 6 states paths MUST be relative but CGC provider returns absolute paths (contract drift)
-- **Untestable scripts**: 3 scripts still lack module.exports (TD-066, TD-081)
+- **Worktree contamination (STILL PRESENT)**: Graph indexer walks `.claude/worktrees/` directory and indexes worktree files alongside main project files. Dead code and duplicate detection includes worktree copies, producing false positives. DEFAULT_EXCLUDE includes `.claude` but only for path name matching in `walkFiles`. CGC indexes full project including worktrees. Scan #11 observes 11 active worktrees (.claude/worktrees/{name}/) all containing project copies.
+- **Command count discrepancy (PERSISTS)**: 49 actual command files vs. "46" documented in CLAUDE.md Overview (TD-087). 3-file gap likely includes: gsd.md (smart router), branch.md, checkin.md, Claude-md.md, or global-change.md (utility commands).
+- **execSync grep provider (HARDENED in v2.39.11)**: graph-query.js grep provider no longer uses string interpolation; command injection risk remediated per security.test.js validation.
+- **Graph file paths (DRIFT NOTED)**: Contract Rule 6 requires paths MUST be relative; CGC provider returns absolute paths. Impact unknown — needs path normalization audit.
+- **Untestable scripts (UNCHANGED)**: gsd-t-update-check.js, gsd-t-tools.js, gsd-t-statusline.js still lack module.exports for unit testing (TD-066, TD-081).

@@ -2,6 +2,23 @@
 
 You are performing a gap analysis between a provided specification and the existing codebase. The user pastes requirements or a spec, and you systematically identify what's done, what's partial, what's wrong, and what's missing.
 
+## Step 0.5: Scan Freshness Auto-Refresh
+
+Before reading scan data for gap classification, check if scan docs are stale and auto-refresh if needed. This ensures gap analysis is based on current code — no warnings, no user involvement.
+
+If `.gsd-t/scan/.cache.json` exists:
+1. Read the cache and check `scannedAt` for each dimension
+2. Count commits since the scan: `git rev-list --count --after="{scannedAt}" HEAD`
+3. If **>10 commits since scan** OR **scan is older than 14 days**:
+   - Log: "Auto-refreshing scan docs (stale by {N} commits / {N} days)..."
+   - Re-run only the stale dimensions by spawning the relevant scan teammates:
+     - If `architecture.md` stale → spawn architecture teammate (model: haiku)
+     - If `quality.md` stale → spawn quality teammate (model: sonnet)
+   - Update `.gsd-t/scan/.cache.json` after refresh
+4. If fresh → proceed silently
+
+If `.gsd-t/scan/` doesn't exist at all → skip (no scan data to refresh).
+
 ## Step 1: Load Context
 
 Read (if they exist):

@@ -107,6 +107,10 @@ This project uses GSD-T on itself. Key things to understand:
 - `.gsd-t/scan/` — codebase analysis outputs
 
 
+### Publishing
+- After publishing a new build to npm (`npm publish`), ALWAYS run `/user:gsd-t-version-update-all` to update all registered GSD-T projects with the new version
+
+
 ## Observability Logging (MANDATORY)
 
 Every command that spawns a Task subagent MUST log its execution to `.gsd-t/token-log.md` and (if issues found) `.gsd-t/qa-issues.md`.
