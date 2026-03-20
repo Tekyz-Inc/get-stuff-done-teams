@@ -200,6 +200,33 @@ Report back:
 1. Check `.gsd-t/deferred-items.md` for any `NEEDS-APPROVAL` entries — if found, STOP and present to user before spawning the next domain
 2. If a CHECKPOINT is reached per `integration-points.md`, verify contract compliance (see Step 4) before proceeding to the next wave/domain
 3. Update `.gsd-t/progress.md` with domain completion status
+4. **Adaptive Replan Check** (per `adaptive-replan-contract.md`) — run after EVERY domain completes, before dispatching the next domain:
+
+   a. **Read domain summaries**: Read all `.gsd-t/domains/{completed-domain}/task-*-summary.md` files. Extract every `**Constraints discovered**:` field. If ALL are empty or "none", skip to the next domain (fast path — no replan needed).
+
+   b. **Assess affected domains** — two modes:
+      - **Graph available** (`.gsd-t/graph/meta.json` exists): For each changed module mentioned in the constraints, run `query('getImporters', { file })` to find which remaining domains import it. Also run `query('getDomainBoundaryViolations', {})` to check if constraint changes affect domain boundaries. Scope replan to ONLY those domains.
+      - **Graph unavailable** (fallback): Check ALL remaining unexecuted domains' `tasks.md` files — less precise but functional.
+
+   c. **Check for invalidated assumptions**: Read each affected remaining domain's `.gsd-t/domains/{domain}/tasks.md`. For each task, check whether any assumption is invalidated by the discovered constraints (e.g., wrong column name, deprecated API, wrong library, missing prerequisite, throughput limits).
+
+   d. **If invalidated assumptions found**: Revise the affected domain's `tasks.md` on disk. Append a Revision block at the end of the file (do NOT overwrite existing tasks — append only):
+      ```markdown
+      ## Revision (Replan Cycle {N})
+      - **Trigger**: {completed-domain} — constraint discovered during execution
+      - **Constraint**: {exact constraint text from summary}
+      - **Changes**: {what was revised in this domain's tasks — list specific task IDs and what changed}
+      - **Rationale**: {why this revision is needed — what would break without it}
+      ```
+
+   e. **Increment replan cycle counter** (track as `REPLAN_CYCLES` in orchestrator state, starting at 0).
+
+   f. **Cycle guard**: If `REPLAN_CYCLES > 2`, STOP and pause for user input:
+      "Replan cycle limit (2) exceeded. {N} constraints are still propagating. Please review `.gsd-t/domains/*/tasks.md` and resolve manually, then re-run execute."
+
+   g. **Log to Decision Log** in `.gsd-t/progress.md`: `- {date}: [replan] Cycle {N} — {completed-domain} constraint propagated to {list of affected domains}: {brief constraint summary}`
+
+   h. The revised `tasks.md` files are now on disk — the next domain's dispatcher will read the updated version automatically (disk-based handoff, no in-memory state sharing needed).
 
 ### Team Mode (when agent teams are enabled)
 Spawn teammates for domains within the same wave. Only domains in the same wave can run in parallel — do not spawn teammates for domains in different waves simultaneously. Each teammate uses the **domain task-dispatcher pattern** — one subagent per task within their domain (same as solo mode).
