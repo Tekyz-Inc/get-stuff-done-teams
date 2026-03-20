@@ -67,6 +67,30 @@ For each domain, write `.gsd-t/domains/{domain-name}/tasks.md`:
 4. **Contract-bound**: Every task that crosses a domain boundary must reference the specific contract it implements
 5. **Ordered**: Tasks within a domain are numbered in execution order
 6. **No implicit knowledge**: Don't assume the executing agent remembers previous tasks — reference contracts and files explicitly
+7. **Context-window fit**: Each task MUST be executable within a single context window. Apply the scope validation heuristics below.
+
+### Task Scope Validation
+
+After writing each task, apply this heuristic check before finalizing:
+
+**Splitting candidates — flag if ANY of these are true:**
+- Task lists **more than 5 files** to modify or create
+- Task has **more than 3 complex dependencies** (other tasks, contracts, or external systems it must read and understand)
+- Task description spans multiple distinct concerns (e.g., "implement X and also refactor Y and update Z docs")
+
+**Warning threshold:** If a task is flagged, emit:
+> ⚠️ **Task scope warning — {domain} Task {N}**: Estimated context load is high ({N} files, {N} dependencies). This task may approach the 70% context window threshold. Consider splitting into:
+> - Task {N}a: {first concern}
+> - Task {N}b: {second concern}
+
+**Auto-split rule (Level 3 Full Auto):** If a task has >5 files AND >3 dependencies, split it automatically. Renumber subsequent tasks. Document the split rationale in the task's Dependencies field.
+
+**Guidance for estimating context size:**
+- Each file to read ≈ 1–5% of context window (varies by file size)
+- CLAUDE.md + scope.md + constraints.md + contracts ≈ 15–25% baseline overhead
+- Tasks with >5 files or >3 cross-domain contracts commonly exceed 70% total context
+
+This rule implements the "task must fit in one context window" constraint — a task that compacts its subagent is a task that produces incomplete or corrupt output.
 
 ### Cross-Domain Duplicate Operation Scan
 
