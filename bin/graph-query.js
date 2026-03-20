@@ -1,7 +1,7 @@
 'use strict';
 const store = require('./graph-store');
 const { indexProject } = require('./graph-indexer');
-const { cgcProvider } = require('./graph-cgc');
+const { cgcProvider, cgcQuery } = require('./graph-cgc');
 
 /**
  * Graph Abstraction Layer — unified query interface.
@@ -11,6 +11,7 @@ const { cgcProvider } = require('./graph-cgc');
 
 const providers = [];
 let sessionProvider = null; // cached per session
+let _lastFreshnessCheck = 0; // timestamp of last staleness check
 
 function registerProvider(provider) {
   providers.push(provider);
@@ -360,6 +361,21 @@ const grepProvider = {
   }
 };
 
+// --- CGC Sync (Phase 2: keep Neo4j in sync at command boundary) ---
+
+function _syncCgc(projectRoot) {
+  try {
+    if (!cgcProvider.available()) return;
+    // Use CLI instead of MCP tool call — add_code_to_graph MCP is broken
+    // on Windows in CGC 0.3.1 (directory param arrives as None)
+    const { execFileSync } = require('child_process');
+    execFileSync('cgc', ['index', projectRoot], {
+      timeout: 30000,
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+  } catch { /* CGC sync is best-effort */ }
+}
+
 // --- Main query function ---
 
 function query(type, params, projectRoot) {
@@ -367,13 +383,24 @@ function query(type, params, projectRoot) {
   nativeProvider.setProjectRoot(projectRoot);
   grepProvider.setProjectRoot(projectRoot);
 
-  // Auto-trigger reindex if stale
+  // Auto-trigger reindex if stale (command-boundary freshness check)
   if (type !== 'reindex' && type !== 'getIndexStatus' &&
       type !== 'getProvider') {
-    const meta = store.readMeta(projectRoot);
-    if (!meta) {
-      // No index exists — run initial index
-      indexProject(projectRoot);
+    const now = Date.now();
+    if (now - _lastFreshnessCheck > 500) {
+      _lastFreshnessCheck = now;
+      const meta = store.readMeta(projectRoot);
+      if (!meta) {
+        // No index exists — run initial index
+        indexProject(projectRoot);
+        _syncCgc(projectRoot);
+      } else {
+        // Check staleness — reindex if any files changed
+        const result = indexProject(projectRoot);
+        if (result.filesProcessed > 0) {
+          _syncCgc(projectRoot);
+        }
+      }
     }
   }
 

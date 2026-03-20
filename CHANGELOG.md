@@ -2,6 +2,16 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.39.11] - 2026-03-19
+
+### Added
+- **Graph auto-sync at command boundary** — every GSD-T command now checks index freshness automatically; both native JSON and CGC/Neo4j are re-indexed when files change (500ms TTL deduplication)
+- **Neo4j setup guide** — `docs/neo4j-setup.md` with full instructions for Docker container, CGC install, project indexing, and scanning
+- Backlog item #8: Auto-Setup Graph Dependencies feature
+
+### Fixed
+- CGC sync uses `cgc index` CLI instead of broken `add_code_to_graph` MCP tool call (CGC 0.3.1 Windows bug workaround)
+
 ## [2.39.10] - 2026-03-19
 
 ### Added

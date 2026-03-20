@@ -3,7 +3,7 @@
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: COMPLETE
 ## Date: 2026-03-18
-## Version: 2.39.10
+## Version: 2.39.11
 
 ## Current Milestone
 
@@ -76,6 +76,8 @@ Wave 4: cli-graph (consumes all above)
 
 ## Decision Log
 (Entries before 2026-02-16 reconstructed from git history with timestamps)
+- 2026-03-19: Added backlog item #8: "Auto-Setup Graph Dependencies" (type: feature, app: gsd-t, category: cli) — Graph readiness check for version-update commands with hybrid auto-fix/diagnostic approach
+- 2026-03-19: Implemented graph auto-sync (Phase 1 + Phase 2) in graph-query.js — command-boundary staleness check with 500ms TTL + CGC sync via add_code_to_graph when native index detects changes. 294/294 tests pass.
 - 2026-03-19 16:55: [success] Scan #10 COMPLETE — v2.38.10 (post-M20/M21). Graph-enhanced scan using CGC (1,439 functions, 153 files) + native (275 entities). 294/294 tests pass. 4 new items found (TD-097-101): 1 CRITICAL (SEC-C01 command injection in graph-query.js grepQuery via execSync string interpolation), 1 MEDIUM (TD-098 absolute path contract violation), 2 LOW (TD-099 graph-store symlink, TD-100 overlay untested). 31 items carried. Total open: 35. Diagrams: 4/6 rendered (mermaid-cli). HTML report: scan-report.html. Graph-vs-grep comparison written to .gsd-t/scan/graph-vs-grep-comparison.md — graph found 5 issues grep-only missed (runtime contract verification, domain boundary check, worktree contamination, circular dep proof, complexity gap). All scan files updated. Living docs updated (architecture.md).
 - 2026-03-19 (session): [success] CGC fully integrated end-to-end. Installed CodeGraphContext 0.3.1 + Neo4j 5 Community (Docker container `gsd-t-neo4j`). Indexed GSD-T: 153 files, 1,437 functions, 41 modules (vs native: 264 entities). Updated graph-cgc.js normalizeResults to handle actual CGC response shapes (find_callers, dead_code, complexity, find_code). Added 7 new query types: findComplexFunctions, getComplexity, getCallChain, getModuleDeps, getClassHierarchy, getStats, cypher. Added CGC auto-install to gsd-t installer (Python check → pip install → Docker Neo4j → CGC config). Added CGC health check to doctor command. Updated tests for CGC-aware provider selection. 84/84 graph tests pass.
 - 2026-03-18 (session): [success] CGC MCP client fully implemented in bin/graph-cgc.js. JSON-RPC over stdio protocol (matches CGC's MCP server). Supports 8 CGC tools: analyze_code_relationships, find_dead_code, find_code, find_most_complex_functions, calculate_cyclomatic_complexity, execute_cypher_query, add_code_to_graph, get_repository_stats. Auto-detects CGC binary on PATH. Normalizes CGC response formats to GSD-T Entity shape. Overlay enrichment with domain/contract/requirement/test/surface context. 14 new tests (health detection, entity normalization, provider interface). 294/294 total tests pass.
