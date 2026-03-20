@@ -1,40 +1,69 @@
 # GSD-T Progress
 
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
-## Status: COMPLETE
-## Date: 2026-03-18
+## Status: IN PROGRESS
+## Date: 2026-03-20
 ## Version: 2.39.13
 
-## Current Milestone
+## Active Milestone
 
-**M20: Graph Abstraction Layer + Native Indexer + CGC Integration** — Phase: COMPLETE
-- Goal: Build a graph abstraction layer with two pluggable providers (native zero-dep indexer + CodeGraphContext MCP), enabling 21 commands to query code structure instead of grep. Automatic fallback chain: CGC → native → grep.
-- PRD: docs/prd-graph-engine.md (PRD-GRAPH-001)
+**M22: GSD 2 Tier 1 — Execution Quality** — Phase: PLANNED
+- Goal: Implement task-level fresh context dispatch, worktree isolation, goal-backward verification, adaptive replanning, and context observability. Eliminate compaction, reduce context utilization to <25% per task, enable safe parallel domain execution.
+- PRD: docs/prd-gsd2-hybrid.md (PRD-GSD2-001 v2)
+- Version Target: 2.40.10
+- Test Baseline: 294/294 pass (2026-03-20)
+
+## Queued Milestones
+
+**M23: GSD 2 Tier 2 — Headless Mode** — Phase: QUEUED
+- Goal: Add `gsd-t headless` CLI mode (via `claude -p` wrapper) for unattended milestone execution, and `gsd-t headless query` for instant JSON state access without LLM calls. Enable CI/CD integration, overnight builds, and pipeline gates.
+- PRD: docs/prd-gsd2-hybrid.md (PRD-GSD2-001 v2)
+- Version Target: 2.41.10
+- Depends on: M22
+
+**M24: Docker (Enterprise)** — Phase: QUEUED
+- Goal: Containerized GSD-T execution with Vault-injected secrets for enterprise security compliance. Ephemeral containers, no credential persistence.
+- PRD: docs/prd-gsd2-hybrid.md (PRD-GSD2-001 v2)
+- Version Target: 2.42.10
+- Depends on: M23
+
+## Previous Milestones (Archived)
+
+**M20: Graph Abstraction Layer + Native Indexer + CGC Integration** — COMPLETE
 - Result: 6 new files (graph-store, graph-parsers, graph-overlay, graph-indexer, graph-query, graph-cgc), 3 CLI subcommands (graph index/status/query), 4 new contracts, 70 new tests. Self-indexed: 264 entities, 725 relationships. 280/280 tests pass.
 
-## Active Milestone
-**M21 — Graph-Powered Commands** (Phase: COMPLETE)
+**M21: Graph-Powered Commands** — COMPLETE
+- Result: Graph-enhanced analysis in 21 of 49 commands across 4 tiers. All steps guarded with "if graph available." 280/280 tests pass.
 
-## Domains (M20)
-| Domain              | Status   | Tasks | Completed |
-|---------------------|----------|-------|-----------|
-| graph-storage       | complete | 4     | 4         |
-| native-indexer      | complete | 5     | 5         |
-| graph-abstraction   | complete | 4     | 4         |
-| cgc-provider        | complete | 4     | 4         |
-| cli-graph           | complete | 3     | 3         |
+## Milestones Roadmap
+| #   | Milestone                             | Status  | Version | Domains |
+|-----|---------------------------------------|---------|---------|---------|
+| M22 | GSD 2 Tier 1 — Execution Quality      | PLANNED     | 2.40.10 | 5       |
+| M23 | GSD 2 Tier 2 — Headless Mode          | QUEUED  | 2.41.10 | 3       |
+| M24 | Docker (Enterprise)                   | QUEUED  | 2.42.10 | 2       |
 
-## Contracts (M20)
-- [x] graph-query-contract.md — Unified query interface (21 query types, 10 data shapes)
-- [x] graph-storage-contract.md — JSON file storage format (8 files in .gsd-t/graph/)
-- [x] graph-indexer-contract.md — Native parser rules (JS/TS/Python regex patterns, overlay rules)
-- [x] graph-cgc-contract.md — CGC MCP provider (health detection, query translation, enrichment)
+## Domains (M22)
+| Domain                 | Status  | Tasks | Completed |
+|------------------------|---------|-------|-----------|
+| context-observability  | complete | 4     | 4         |
+| fresh-dispatch         | pending | 4     | 0         |
+| worktree-isolation     | pending | 4     | 0         |
+| goal-backward          | pending | 3     | 0         |
+| adaptive-replan        | pending | 3     | 0         |
 
-## Execution Order (M20)
-Wave 1: graph-storage (foundation, no deps)
-Wave 2: native-indexer (writes to storage)
-Wave 3: graph-abstraction + cgc-provider (parallel — both consume storage)
-Wave 4: cli-graph (consumes all above)
+## Contracts (M22)
+- [x] fresh-dispatch-contract.md — Task-level subagent dispatch interface (dispatch payload, summary format, plan constraint)
+- [x] worktree-isolation-contract.md — Worktree lifecycle + atomic merge protocol (creation, merge, rollback, ownership validation)
+- [x] goal-backward-contract.md — Behavior verification interface (placeholder patterns, findings report, severity levels)
+- [x] adaptive-replan-contract.md — Post-domain replan check + plan revision protocol (constraint categories, cycle guard, revision format)
+- [x] context-observability-contract.md — Context window tracking + token breakdown format (extended token-log, alerts, aggregation)
+
+## Execution Order (M22)
+Wave 1: context-observability (foundation — tracking needed by all other domains)
+Wave 2: fresh-dispatch (core dispatch mechanism — consumed by worktree + replan)
+Wave 3a: worktree-isolation (filesystem isolation + merge protocol)
+Wave 3b: goal-backward (behavior verification — sequential after worktree, both touch gsd-t-wave.md)
+Wave 4: adaptive-replan (consumes fresh-dispatch summaries, integrates with worktree merge flow)
 
 ## Completed Milestones
 | Milestone | Version | Completed | Tag |
@@ -76,6 +105,9 @@ Wave 4: cli-graph (consumes all above)
 
 ## Decision Log
 (Entries before 2026-02-16 reconstructed from git history with timestamps)
+- 2026-03-20: [success] context-observability domain COMPLETE (4/4 tasks) — Extended token-log.md format with Domain/Task/Ctx% columns; added Ctx% calculation and alert thresholds (70%/85%) to execute, wave, integrate; added token breakdown display to status and visualize; added task scope validation rule to plan (>5 files or >3 deps → split candidate, 70% context warning).
+- 2026-03-20 12:45: [success] M22 PLANNED — 18 tasks across 5 domains, 5 waves (1→2→3a→3b→4). Plan validation: haiku found 4 issues (2 valid, 2 false-positive). Fixed: Wave 3 split into 3a (worktree) + 3b (goal-backward) to avoid gsd-t-wave.md conflict; adaptive-replan execution estimate corrected for full dependency chain. No duplicate operations across domains.
+- 2026-03-20 12:00: [milestone] M22, M23, M24 DEFINED — GSD 2 Hybrid Enhancements per PRD-GSD2-001 v2. M22: Execution Quality (fresh dispatch task-level, worktree isolation, goal-backward, adaptive replan, context observability). M23: Headless Mode (claude -p wrapper, headless query). M24: Docker (enterprise containers). PRD revised: budget ceilings reframed as context observability, model failover dropped, no custom engine needed, fresh dispatch elevated to task-level, plan gains single-context-window constraint. PRD-GRAPH-001 marked DELIVERED. Test baseline: 294/294 pass.
 - 2026-03-20 10:00: [success] Scan Doc Freshness System implemented (v2.39.13). Three phases: (1) Post-change micro-updates in execute/quick/debug — patch structural metadata inline after code changes; (2) Hash cache + auto-refresh on read in partition/feature/gap-analysis — stale dimensions re-scanned automatically before consumption, no user involvement; (3) Milestone checkpoint in complete-milestone — full refresh of all stale dimensions before tagging. Cache generated in scan Step 6.5 as .gsd-t/scan/.cache.json. Also ran Scan #11 — all 5 dimensions updated (architecture, quality, security, business-rules, contract-drift).
 - 2026-03-19: Added backlog item #8: "Auto-Setup Graph Dependencies" (type: feature, app: gsd-t, category: cli) — Graph readiness check for version-update commands with hybrid auto-fix/diagnostic approach
 - 2026-03-19: Implemented graph auto-sync (Phase 1 + Phase 2) in graph-query.js — command-boundary staleness check with 500ms TTL + CGC sync via add_code_to_graph when native index detects changes. 294/294 tests pass.
