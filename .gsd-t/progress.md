@@ -46,7 +46,7 @@
 | Domain                 | Status  | Tasks | Completed |
 |------------------------|---------|-------|-----------|
 | context-observability  | complete | 4     | 4         |
-| fresh-dispatch         | pending | 4     | 0         |
+| fresh-dispatch         | complete | 4     | 4         |
 | worktree-isolation     | pending | 4     | 0         |
 | goal-backward          | pending | 3     | 0         |
 | adaptive-replan        | pending | 3     | 0         |
@@ -105,6 +105,7 @@ Wave 4: adaptive-replan (consumes fresh-dispatch summaries, integrates with work
 
 ## Decision Log
 (Entries before 2026-02-16 reconstructed from git history with timestamps)
+- 2026-03-20: [success] fresh-dispatch domain COMPLETE (4/4 tasks) — Restructured execute solo mode to task-level dispatch: domain task-dispatcher spawns one subagent per task with only scope.md + relevant contracts + single task + graph context + ≤5 prior summaries (fresh-dispatch-contract.md payload). Each task subagent writes task-{id}-summary.md after completion. Observability logging now runs per-task (Domain/Task/Ctx% columns). Updated execute team mode: each teammate uses same task-dispatcher pattern. Updated wave.md execute phase to reference task-level dispatch. Updated integrate.md to reference task-level pattern for multi-domain work. Verified plan.md Task Design Rule 7 ("context-window fit") and Task Scope Validation satisfy contract; updated plan Step 7 observability to full extended format with Ctx%/alerting.
 - 2026-03-20: [success] context-observability domain COMPLETE (4/4 tasks) — Extended token-log.md format with Domain/Task/Ctx% columns; added Ctx% calculation and alert thresholds (70%/85%) to execute, wave, integrate; added token breakdown display to status and visualize; added task scope validation rule to plan (>5 files or >3 deps → split candidate, 70% context warning).
 - 2026-03-20 12:45: [success] M22 PLANNED — 18 tasks across 5 domains, 5 waves (1→2→3a→3b→4). Plan validation: haiku found 4 issues (2 valid, 2 false-positive). Fixed: Wave 3 split into 3a (worktree) + 3b (goal-backward) to avoid gsd-t-wave.md conflict; adaptive-replan execution estimate corrected for full dependency chain. No duplicate operations across domains.
 - 2026-03-20 12:00: [milestone] M22, M23, M24 DEFINED — GSD 2 Hybrid Enhancements per PRD-GSD2-001 v2. M22: Execution Quality (fresh dispatch task-level, worktree isolation, goal-backward, adaptive replan, context observability). M23: Headless Mode (claude -p wrapper, headless query). M24: Docker (enterprise containers). PRD revised: budget ceilings reframed as context observability, model failover dropped, no custom engine needed, fresh dispatch elevated to task-level, plan gains single-context-window constraint. PRD-GRAPH-001 marked DELIVERED. Test baseline: 294/294 pass.
