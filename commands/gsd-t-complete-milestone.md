@@ -50,6 +50,58 @@ Do not proceed to archiving. Create the smoke test now, run it, confirm it passe
 
 > This gate exists because complete-milestone is the last opportunity to catch "shipped blind" features before they become user-facing bugs requiring 15 debug sessions to resolve.
 
+## Step 1.75: Goal-Backward Verification Gate (MANDATORY)
+
+Before archiving, verify that milestone goals are actually achieved end-to-end — not just structurally present. This catches placeholder implementations that passed all quality gates.
+
+Refer to `.gsd-t/contracts/goal-backward-contract.md` for the full verification flow, placeholder patterns, and findings report format.
+
+### 1.75.1 Check for Existing Goal-Backward Results
+
+1. Read `.gsd-t/verify-report.md` — check if it contains a `Goal-Backward:` line
+2. If the verify-report already shows `Goal-Backward: PASS` or `Goal-Backward: WARN` (no CRITICAL/HIGH), skip to Step 2
+3. If no goal-backward results exist, or verify was run without this step, execute the full goal-backward check now (follow the same logic as `gsd-t-verify.md` Step 5.5)
+
+### 1.75.2 Evaluate Goal-Backward Status
+
+**If CRITICAL or HIGH findings exist:**
+- Display findings report to user in the contract format
+- **BLOCK milestone completion** — do not proceed to archiving
+- Prompt:
+  ```
+  ⛔ Goal-Backward Verification FAILED — milestone completion blocked.
+
+  Findings:
+  {findings table}
+
+  Options:
+  1. Fix the findings and re-run /user:gsd-t-verify
+  2. Override with explicit acknowledgment: re-run this command with --force-goal-backward
+
+  Proceed with option 1 (recommended) or acknowledge to force completion?
+  ```
+- If user provides `--force-goal-backward` flag or explicit acknowledgment: log the override and proceed with warning
+- Log to `.gsd-t/progress.md` Decision Log:
+  ```
+  - {date}: [goal-backward-override] Milestone "{name}" completed with unresolved goal-backward findings — user acknowledged. Findings: {summary}
+  ```
+
+**If only MEDIUM findings (warnings):**
+- Log findings to `.gsd-t/progress.md` Decision Log:
+  ```
+  - {date}: [goal-backward-warn] Goal-backward check found {N} medium findings before milestone archive — {summary}. Not blocking.
+  ```
+- Proceed to Step 2
+
+**If PASS (no findings):**
+- Log to `.gsd-t/progress.md` Decision Log:
+  ```
+  - {date}: [goal-backward-pass] Goal-backward verification passed — {N} requirements checked, no placeholder patterns found
+  ```
+- Proceed to Step 2
+
+---
+
 ## Step 2: Gap Analysis Gate
 
 After verification passes, run a gap analysis against `docs/requirements.md` scoped to this milestone's deliverables:
