@@ -199,6 +199,80 @@ Create or update `.gsd-t/verify-report.md`:
 | 2 | ui | Add loading states for async calls | WARN |
 ```
 
+## Step 5.5: Goal-Backward Verification (Post-Gate Behavior Check)
+
+This step runs **after all 8 quality gates pass**. It verifies that milestone goals are actually achieved end-to-end — not just structurally present. It catches placeholder implementations that pass all structural gates.
+
+Refer to `.gsd-t/contracts/goal-backward-contract.md` for the full verification flow, placeholder patterns, and findings report format.
+
+### 5.5.1 Load Milestone Goals and Requirements
+
+1. Read `.gsd-t/progress.md` — extract the current milestone name and goals
+2. Read `docs/requirements.md` — identify **critical requirements** (skip trivial/low-priority items)
+
+### 5.5.2 Trace Requirements to Behavior
+
+For each critical requirement:
+
+1. **If `.gsd-t/graph/meta.json` exists (graph available)**:
+   - Trace the requirement → code path → behavior chain using graph queries
+   - Use `getRequirementFor`, `getCallers`, and `getTestsFor` to build the chain
+   - Flag requirements with no traceable code path as CRITICAL findings
+
+2. **If graph is not available (fallback to grep)**:
+   - Search the codebase for the feature/function implementing each requirement
+   - Trace from entry point → core logic → output/response
+
+### 5.5.3 Scan for Placeholder Patterns
+
+For each file identified in the requirement traces above, scan for these placeholder patterns:
+
+| Pattern | Detection Hint | Severity |
+|---------|---------------|----------|
+| console.log placeholder | `console.log.*TODO\|console.log.*implement` | CRITICAL |
+| TODO/FIXME in implementation | `// TODO\|// FIXME\|# TODO\|# FIXME` in non-test files | CRITICAL |
+| Empty function body | `function \w+\(\) \{\}` or `\(\) => \{\}` with no logic | CRITICAL |
+| Throw not-implemented | `throw new Error.*not implemented\|throw new Error.*TODO` | CRITICAL |
+| Hardcoded return | `return "success"\|return true` with no conditional logic | HIGH |
+| Static UI text | Static `<span>` or text that never updates based on state | HIGH |
+| Pass-through stub | `return input\|return req\|return data` with no transformation | MEDIUM |
+
+### 5.5.4 Produce Findings Report
+
+Format findings per the goal-backward-contract.md report format:
+
+```markdown
+## Goal-Backward Verification Report
+
+### Status: PASS | FAIL
+
+### Findings
+| # | Requirement | File:Line | Pattern | Severity | Description |
+|---|-------------|-----------|---------|----------|-------------|
+| 1 | {req-id}    | {path}:{line} | {pattern} | {severity} | {what's wrong} |
+
+### Summary
+- Requirements checked: {N}
+- Findings: {N} ({critical}, {high}, {medium})
+- Verdict: {PASS if 0 critical/high, FAIL otherwise}
+```
+
+### 5.5.5 Apply Blocking Rules
+
+- **CRITICAL or HIGH findings** → Goal-Backward status = **FAIL** — block verification
+  - Append findings to the Critical section of the verification report (Step 5)
+  - Set overall verification status to FAIL
+- **MEDIUM findings** → Goal-Backward status = **WARN** — log but do not block
+  - Append findings to the Warnings section of the verification report (Step 5)
+- **No findings** → Goal-Backward status = **PASS** — add to verification report summary
+
+Add a `Goal-Backward:` line to the Step 5 verification report summary:
+```
+- Goal-Backward: {PASS/WARN/FAIL} — {N} requirements checked, {N} findings ({critical} critical, {high} high, {medium} medium)
+```
+
+---
+
 ## Step 6: Handle Remediation
 
 If there are CRITICAL findings:
