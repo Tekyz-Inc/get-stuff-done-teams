@@ -39,7 +39,17 @@ Run via Bash:
 node ~/.claude/scripts/gsd-t-event-writer.js --type command_invoked --command gsd-t-visualize --reasoning "Launching dashboard" || true
 ```
 
-## Step 1.5: Graph Data for Dashboard
+## Step 1.5: Context Metrics for Dashboard
+
+If `.gsd-t/token-log.md` exists, the dashboard server automatically reads it and provides context utilization metrics for visualization. These metrics are served from the `/api/token-breakdown` endpoint and rendered as:
+
+1. **Context utilization timeline** — Ctx% over time, ordered by Datetime-start
+2. **Token breakdown by domain** — bar chart grouping Tokens by Domain column (gracefully handles older rows without Domain column — they are grouped as "(untagged)")
+3. **Compaction proximity warnings** — rows where Ctx% >= 70 are highlighted; rows where Ctx% >= 85 are marked critical (🔴)
+
+If `.gsd-t/token-log.md` does not exist, context metrics panels are hidden (not shown as errors).
+
+## Step 1.6: Graph Data for Dashboard
 
 If `.gsd-t/graph/index.json` exists, the dashboard can render entity-relationship visualizations from the graph data. The dashboard server will detect and serve graph data automatically — no additional configuration needed.
 

@@ -57,6 +57,40 @@ If `.gsd-t/backlog.md` exists, read and parse it. Show total count and top 3 ite
 If there are blockers or issues, highlight them.
 If the user provides $ARGUMENTS, focus the status on that specific domain or aspect.
 
+## Token Usage Breakdown
+
+If `.gsd-t/token-log.md` exists, read it and append a token breakdown to the status report.
+
+Parse each row in the table. Handle both old format (9 columns) and extended format (12 columns with Domain, Task, Ctx%). Rows with missing or empty Domain column are assigned domain "(untagged)".
+
+### Token Usage by Domain
+Group rows by Domain. For each domain, sum Tokens and collect all Ctx% values (ignoring "N/A" and empty). Display:
+
+```
+## Token Usage by Domain
+| Domain         | Tokens | Subagents | Peak Ctx% |
+|----------------|--------|-----------|-----------|
+| auth           | 12,400 | 4         | 14%       |
+| notifications  | 45,200 | 3         | 52% ⚠️    |
+| (untagged)     | 8,100  | 6         | N/A       |
+```
+
+Flag any domain where Peak Ctx% >= 70 with `⚠️` suffix.
+
+### Token Usage by Phase/Command
+Group rows by Command. For each command, sum Tokens and count subagent rows. Display:
+
+```
+## Token Usage by Command
+| Command       | Tokens | Subagents |
+|---------------|--------|-----------|
+| gsd-t-execute | 86,200 | 14        |
+| gsd-t-wave    | 12,400 | 9         |
+| gsd-t-plan    | 3,400  | 1         |
+```
+
+If token-log.md does not exist or is empty, skip this section entirely (no error).
+
 ## Graph Status
 
 If `.gsd-t/graph/meta.json` exists, read it and append to the status report:
