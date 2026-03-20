@@ -150,11 +150,34 @@ docker volume rm neo4j_data neo4j_logs
 | `docker: command not found` | Install Docker Desktop |
 | Container not starting | Check `docker logs gsd-t-neo4j` for errors |
 | CGC MCP `add_code_to_graph` fails on Windows | Known CGC 0.3.1 bug — use `cgc index .` CLI instead |
+| `UnicodeEncodeError: 'charmap'` on Windows | CGC crashes on emoji/Unicode in source code. Fix: `set PYTHONIOENCODING=utf-8` before running `cgc index`, or use `PYTHONIOENCODING=utf-8 cgc index .` in bash. GSD-T's auto-sync sets this automatically. |
 | 0 entities indexed | Project may be docs-only (no `.js`/`.ts`/`.py` files) |
+| Very few entities (e.g., 1 function for a large project) | CGC likely crashed mid-index on a file with special characters. Force re-index with UTF-8: `PYTHONIOENCODING=utf-8 cgc index . --force` |
 | Neo4j connection refused | Ensure container is running: `docker start gsd-t-neo4j` |
+| `[GSD-T] CGC sync FAILED` warning | Auto-sync tried twice and failed. Run the manual fix command shown in the warning message. Check that Neo4j container is running and CGC is installed. |
 
 ## Known Limitations
 
-- **CGC 0.3.1 Windows bug:** The `add_code_to_graph` MCP tool call passes `None` for the directory parameter on Windows. Use `cgc index <path>` CLI as a workaround.
+- **CGC 0.3.1 Windows bugs:**
+  - The `add_code_to_graph` MCP tool call passes `None` for the directory parameter on Windows. GSD-T uses `cgc index` CLI as a workaround.
+  - CGC crashes with `UnicodeEncodeError` when source files contain emoji or non-ASCII characters on Windows. GSD-T sets `PYTHONIOENCODING=utf-8` automatically. For manual CLI use, prefix commands with `PYTHONIOENCODING=utf-8`.
 - **Language support:** Native indexer supports JS/TS/Python. CGC supports JS/TS/Python plus additional languages via Tree-sitter.
 - **Docs-only projects:** Projects without source code files produce 0 entities — this is expected behavior, not an error.
+
+## Auto-Sync Error Handling
+
+GSD-T's graph auto-sync (v2.39.11+) does not silently ignore failures. When CGC sync fails:
+
+1. **Attempt 1:** Normal `cgc index` with UTF-8 encoding
+2. **Attempt 2:** Force re-index (`cgc index --force`) to recover from corrupt state
+3. **If both fail:** Warns the user with the error, impact, and fix command
+
+You will see a message like:
+```
+[GSD-T] ⚠ CGC sync FAILED for C:\Users\david\MyProject
+  Error: UnicodeEncodeError: 'charmap' codec can't encode character...
+  Impact: Neo4j graph is stale — deep call chain analysis may return outdated results
+  Fix: run "cgc index C:\Users\david\MyProject --force" manually
+```
+
+The native JSON index is unaffected by CGC failures — it always updates successfully.

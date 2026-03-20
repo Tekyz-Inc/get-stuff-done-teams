@@ -364,16 +364,39 @@ const grepProvider = {
 // --- CGC Sync (Phase 2: keep Neo4j in sync at command boundary) ---
 
 function _syncCgc(projectRoot) {
+  if (!cgcProvider.available()) return;
+  // Use CLI instead of MCP tool call — add_code_to_graph MCP is broken
+  // on Windows in CGC 0.3.1 (directory param arrives as None)
+  const { execFileSync } = require('child_process');
+  const cgcEnv = { ...process.env, PYTHONIOENCODING: 'utf-8' };
+  const cgcOpts = { timeout: 30000, stdio: ['pipe', 'pipe', 'pipe'], env: cgcEnv };
+
+  // Attempt 1: normal sync
   try {
-    if (!cgcProvider.available()) return;
-    // Use CLI instead of MCP tool call — add_code_to_graph MCP is broken
-    // on Windows in CGC 0.3.1 (directory param arrives as None)
-    const { execFileSync } = require('child_process');
-    execFileSync('cgc', ['index', projectRoot], {
-      timeout: 30000,
-      stdio: ['pipe', 'pipe', 'pipe']
-    });
-  } catch { /* CGC sync is best-effort */ }
+    execFileSync('cgc', ['index', projectRoot], cgcOpts);
+    return;
+  } catch (err1) {
+    const msg1 = err1.stderr ? err1.stderr.toString() : err1.message;
+    // Attempt 2: force re-index to recover from corrupt state
+    try {
+      execFileSync('cgc', ['index', projectRoot, '--force'], cgcOpts);
+      process.stderr.write(
+        '[GSD-T] CGC sync recovered via force re-index for ' +
+        projectRoot + '\n'
+      );
+      return;
+    } catch (err2) {
+      const msg2 = err2.stderr ? err2.stderr.toString() : err2.message;
+      // Both attempts failed — warn the user clearly
+      process.stderr.write(
+        '[GSD-T] ⚠ CGC sync FAILED for ' + projectRoot + '\n' +
+        '  Error: ' + (msg2 || msg1).split('\n')[0] + '\n' +
+        '  Impact: Neo4j graph is stale — deep call chain analysis ' +
+        'may return outdated results\n' +
+        '  Fix: run "cgc index ' + projectRoot + ' --force" manually\n'
+      );
+    }
+  }
 }
 
 // --- Main query function ---
