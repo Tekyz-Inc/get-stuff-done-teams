@@ -241,9 +241,20 @@ For each task in your domain's tasks.md (in order, skip completed):
 6. If you need to deviate from a contract, STOP and message the lead
 
 Teammate assignments:
-- Teammate "{domain-1}": Execute .gsd-t/domains/{domain-1}/tasks.md (task-dispatcher pattern)
-- Teammate "{domain-2}": Execute .gsd-t/domains/{domain-2}/tasks.md (task-dispatcher pattern)
-- Teammate "{domain-3}": Execute .gsd-t/domains/{domain-3}/tasks.md (task-dispatcher pattern)
+- Teammate "{domain-1}": Execute .gsd-t/domains/{domain-1}/tasks.md (task-dispatcher pattern, isolated worktree)
+- Teammate "{domain-2}": Execute .gsd-t/domains/{domain-2}/tasks.md (task-dispatcher pattern, isolated worktree)
+- Teammate "{domain-3}": Execute .gsd-t/domains/{domain-3}/tasks.md (task-dispatcher pattern, isolated worktree)
+
+**Worktree isolation (per domain teammate):**
+Each domain teammate MUST be spawned with `isolation: "worktree"` on the Agent tool:
+```
+Agent({
+  prompt: "{domain execution prompt — include: 'You are working in an isolated git worktree. All your changes are isolated to this worktree branch. Do not push; the lead will merge your branch after all domains complete.'}",
+  isolation: "worktree"
+})
+```
+Each teammate works in its own isolated copy of the repository. Changes from one domain do not affect another domain's working tree. This is required for parallel safety — see `.gsd-t/contracts/worktree-isolation-contract.md`.
+
 Lead responsibilities (QA is handled via Task subagent — spawn one after each domain checkpoint):
 - Use delegate mode (Shift+Tab)
 - Track completions from teammate messages
@@ -253,6 +264,82 @@ Lead responsibilities (QA is handled via Task subagent — spawn one after each 
   3. Unblock waiting teammates
 - Update .gsd-t/progress.md after each completion
 - Resolve any contract conflicts immediately
+
+**Sequential Merge Protocol (lead runs after ALL domain agents complete):**
+
+Once all domain teammates report completion, the lead performs sequential atomic merges. This is the critical integration step — see `.gsd-t/contracts/worktree-isolation-contract.md` for the full merge protocol.
+
+1. **Determine merge order**: Read `.gsd-t/contracts/integration-points.md` — use the dependency graph to sort domains. Domains with no upstream dependencies merge first. Example: if domain-A has no deps and domain-B depends on domain-A's output, merge order is [domain-A, domain-B].
+
+2. **For each domain (in dependency order)**:
+
+   a. **File ownership validation (pre-merge)**: Check files the domain agent modified against the domain's `.gsd-t/domains/{domain}/scope.md`:
+      - If `.gsd-t/graph/meta.json` exists: run `query('getDomainBoundaryViolations', { domain })` — flag any files modified outside the domain's declared ownership
+      - If graph unavailable: list files changed in the worktree branch via `git diff --name-only` and compare against scope.md manually
+      - If violations found: log them in `.gsd-t/progress.md` as `[violation] {domain}: modified {file} outside scope`, but do NOT block merge — flag for immediate review after merge
+
+   b. **Merge the domain's worktree branch**:
+      ```bash
+      # The worktree branch name is returned by the Agent tool when isolation: "worktree" is used
+      git merge --no-ff {domain-worktree-branch} -m "integrate({domain}): merge worktree branch"
+      ```
+
+   c. **Contract validation (post-merge)**: Read each contract in `.gsd-t/contracts/` — verify the merged code still satisfies all contract shapes (API shapes, schemas, interfaces). If a contract is violated, log it immediately.
+
+   d. **Run integration tests**:
+      ```bash
+      node --test test/
+      # or project's test command from package.json
+      ```
+
+   e. **If tests PASS**: Continue to the next domain in merge order.
+
+   f. **If tests FAIL**: Roll back this domain's merge:
+      ```bash
+      git reset --hard HEAD~1
+      # or: git revert HEAD --no-edit
+      ```
+      Log failure: `[rollback] {domain}: merge rolled back — integration tests failed after merge`
+      Record in `.gsd-t/progress.md` Decision Log.
+      Continue with remaining domains (other domains' merges are not affected).
+
+3. **Post-merge ownership report**: After all merges complete (successful or rolled back), log a summary in `.gsd-t/progress.md`:
+   ```
+   ## Worktree Merge Summary — {date}
+   - {domain-1}: MERGED | tests: PASS | violations: {N}
+   - {domain-2}: ROLLED BACK | reason: integration tests failed
+   - {domain-3}: MERGED | tests: PASS | violations: 0
+   ```
+
+**Worktree Cleanup (MANDATORY — run after merge protocol, success or failure):**
+
+After all merges complete (whether all passed, some rolled back, or errors occurred):
+
+1. List all worktree branches created during this execution run:
+   ```bash
+   git worktree list
+   git branch --list "gsd-t-worktree-*"
+   ```
+
+2. Remove each domain worktree:
+   ```bash
+   git worktree remove --force {worktree-path}
+   git branch -D {worktree-branch}
+   ```
+
+3. **Orphaned worktree detection**: If any worktrees remain after cleanup (can happen if an agent crashed):
+   ```bash
+   git worktree prune
+   ```
+   Log: `[cleanup] Pruned {N} orphaned worktrees via git worktree prune`
+
+4. Verify no worktrees remain except the main working tree:
+   ```bash
+   git worktree list
+   # should show only: {main-path} {commit} [branch]
+   ```
+
+Cleanup is not optional — orphaned worktrees waste disk space and can confuse subsequent executions. Always run cleanup, even if earlier steps failed.
 ```
 
 ## Step 4: Checkpoint Handling

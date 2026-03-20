@@ -47,7 +47,7 @@
 |------------------------|---------|-------|-----------|
 | context-observability  | complete | 4     | 4         |
 | fresh-dispatch         | complete | 4     | 4         |
-| worktree-isolation     | pending | 4     | 0         |
+| worktree-isolation     | complete | 4     | 4         |
 | goal-backward          | pending | 3     | 0         |
 | adaptive-replan        | pending | 3     | 0         |
 
@@ -105,6 +105,7 @@ Wave 4: adaptive-replan (consumes fresh-dispatch summaries, integrates with work
 
 ## Decision Log
 (Entries before 2026-02-16 reconstructed from git history with timestamps)
+- 2026-03-20: [success] worktree-isolation domain COMPLETE (4/4 tasks) — Task 1: Added isolation: "worktree" to each domain teammate Agent spawn in execute team mode; each domain works in isolated git worktree. Task 2: Added Sequential Merge Protocol to execute team mode — after all domains complete, lead merges domain branches in dependency order (from integration-points.md), runs tests between each merge, rolls back per-domain if tests fail. Task 3: Added file ownership validation (graph getDomainBoundaryViolations + scope.md check) and mandatory worktree cleanup (git worktree remove + prune + orphan detection) after merge protocol. Task 4: Updated gsd-t-wave.md execute phase to reference worktree isolation; updated gsd-t-integrate.md with Step 2.5 (worktree merge status check) and multi-domain merge note referencing worktree-isolation-contract.md. 293/293 tests pass.
 - 2026-03-20: [success] fresh-dispatch domain COMPLETE (4/4 tasks) — Restructured execute solo mode to task-level dispatch: domain task-dispatcher spawns one subagent per task with only scope.md + relevant contracts + single task + graph context + ≤5 prior summaries (fresh-dispatch-contract.md payload). Each task subagent writes task-{id}-summary.md after completion. Observability logging now runs per-task (Domain/Task/Ctx% columns). Updated execute team mode: each teammate uses same task-dispatcher pattern. Updated wave.md execute phase to reference task-level dispatch. Updated integrate.md to reference task-level pattern for multi-domain work. Verified plan.md Task Design Rule 7 ("context-window fit") and Task Scope Validation satisfy contract; updated plan Step 7 observability to full extended format with Ctx%/alerting.
 - 2026-03-20: [success] context-observability domain COMPLETE (4/4 tasks) — Extended token-log.md format with Domain/Task/Ctx% columns; added Ctx% calculation and alert thresholds (70%/85%) to execute, wave, integrate; added token breakdown display to status and visualize; added task scope validation rule to plan (>5 files or >3 deps → split candidate, 70% context warning).
 - 2026-03-20 12:45: [success] M22 PLANNED — 18 tasks across 5 domains, 5 waves (1→2→3a→3b→4). Plan validation: haiku found 4 issues (2 valid, 2 false-positive). Fixed: Wave 3 split into 3a (worktree) + 3b (goal-backward) to avoid gsd-t-wave.md conflict; adaptive-replan execution estimate corrected for full dependency chain. No duplicate operations across domains.
