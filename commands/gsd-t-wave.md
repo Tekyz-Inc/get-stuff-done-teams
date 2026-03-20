@@ -133,9 +133,15 @@ Spawn agent → `commands/gsd-t-integrate.md`
 
 #### 8. VERIFY
 Spawn agent → `commands/gsd-t-verify.md`
+- The verify agent runs all 8 standard quality gates **plus** the goal-backward verification step (Step 5.5 in gsd-t-verify.md), which checks that milestone goals are actually achieved end-to-end and scans for placeholder patterns per `.gsd-t/contracts/goal-backward-contract.md`
+- Goal-backward runs after all structural gates pass — CRITICAL or HIGH findings block verification; MEDIUM findings are warnings only
 - After: Read `progress.md`, check status:
   - VERIFIED → proceed to Complete
-  - VERIFY_FAILED → handle remediation (see Error Recovery)
+  - VERIFY_FAILED → handle remediation (see Error Recovery) — includes goal-backward failures
+- Phase summary must include the `Goal-Backward:` line from verify-report.md:
+  ```
+  📋 Phase 8 (VERIFY): {N} gates passed | Goal-Backward: {PASS/WARN/FAIL} — {N} requirements checked, {N} findings
+  ```
 
 #### 9. COMPLETE
 Spawn agent → `commands/gsd-t-complete-milestone.md`
