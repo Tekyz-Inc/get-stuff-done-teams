@@ -52,7 +52,7 @@ Fix any mismatches BEFORE proceeding to integration.
 
 ## Step 3: Wire Integration Points
 
-Work through each integration point in `integration-points.md`:
+Work through each integration point in `integration-points.md`. If integration work spans multiple domains with independent tasks, use the **task-level dispatch pattern** (per fresh-dispatch-contract.md): spawn one Task subagent per integration task, passing only the relevant contracts, the specific integration point to wire, and summaries from prior integration tasks (max 5, 10-20 lines each). This prevents context accumulation across integration tasks.
 
 For each connection:
 1. Identify the producing domain (provides the interface)

@@ -119,7 +119,7 @@ Spawn agent → `commands/gsd-t-impact.md`
 
 #### 5. EXECUTE
 Spawn agent → `commands/gsd-t-execute.md`
-- This is the heaviest phase. The execute agent will handle its own domain agent spawning and QA agent internally.
+- This is the heaviest phase. The execute agent uses **task-level dispatch** (fresh-dispatch-contract.md): one Task subagent per task within each domain, each receiving only scope.md + relevant contracts + single task + graph context + up to 5 prior summaries. The execute agent handles domain task-dispatching and QA internally.
 - After: Read `progress.md`, verify status = EXECUTED
 
 #### 6. TEST-SYNC
