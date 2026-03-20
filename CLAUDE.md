@@ -129,8 +129,15 @@ Every command that spawns a Task subagent MUST log its execution to `.gsd-t/toke
 - Compaction detected (TOK_END < TOK_START): `TOKENS=$(((TOK_MAX-TOK_START)+TOK_END))`, COMPACTED=$DT_END
 
 **Append to `.gsd-t/token-log.md`** (create with header if missing):
-`| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Tokens | Compacted |`
-`| {DT_START} | {DT_END} | {command} | Step {N} | {model} | {DURATION}s | {brief note} | {TOKENS} | {COMPACTED} |`
+`| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Tokens | Compacted | Domain | Task | Ctx% |`
+`| {DT_START} | {DT_END} | {command} | Step {N} | {model} | {DURATION}s | {brief note} | {TOKENS} | {COMPACTED} | {domain or ""} | {task or ""} | {CTX_PCT} |`
+
+**Compute context utilization — after subagent returns, run via Bash:**
+`if [ "${CLAUDE_CONTEXT_TOKENS_MAX:-0}" -gt 0 ]; then CTX_PCT=$(echo "scale=1; ${CLAUDE_CONTEXT_TOKENS_USED:-0} * 100 / ${CLAUDE_CONTEXT_TOKENS_MAX}" | bc); else CTX_PCT="N/A"; fi`
+
+**Alert on context thresholds (display to user inline):**
+- CTX_PCT >= 85: `echo "🔴 CRITICAL: Context at ${CTX_PCT}% — compaction likely. Task MUST be split."`
+- CTX_PCT >= 70: `echo "⚠️ WARNING: Context at ${CTX_PCT}% — approaching compaction threshold. Consider splitting."`
 
 **For QA/validation subagents:** if issues found, append each to `.gsd-t/qa-issues.md`:
 `| Date | Command | Step | Model | Duration(s) | Severity | Finding |`
