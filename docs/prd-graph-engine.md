@@ -6,12 +6,12 @@
 | **PRD ID** | PRD-GRAPH-001 |
 | **Date** | 2026-03-18 |
 | **Author** | GSD-T Team |
-| **Status** | DRAFT |
+| **Status** | DELIVERED (M20 + M21 complete — 2026-03-20) |
 | **Milestones** | M20 (Graph Abstraction + Indexer + CGC), M21 (Graph-Powered Commands) |
 | **Version Target** | 2.37.10 (M20), 2.38.10 (M21) |
 | **Priority** | P0 — foundational for all future enhancements |
 | **Predecessor** | M19 (Shared Service Detection v2.35.10) |
-| **Successor** | Scan self-validation, then GSD 2 milestones (M22+) |
+| **Successor** | GSD 2 milestones (M22 COMPLETE, M23-M24 queued) |
 
 ---
 

@@ -44,16 +44,16 @@ PROJECT or FEATURE or SCAN
 | `/user:gsd-t-milestone` | Define new milestone |
 | `/user:gsd-t-partition` | Decompose into domains + contracts |
 | `/user:gsd-t-discuss` | Multi-perspective design exploration |
-| `/user:gsd-t-plan` | Create atomic task lists per domain |
+| `/user:gsd-t-plan` | Create atomic task lists per domain (tasks auto-split to fit one context window) |
 | `/user:gsd-t-impact` | Analyze downstream effects before execution |
-| `/user:gsd-t-execute` | Run tasks (solo or team) |
+| `/user:gsd-t-execute` | Run tasks — task-level fresh dispatch, worktree isolation, adaptive replanning |
 | `/user:gsd-t-test-sync` | Keep tests aligned with code changes |
 | `/user:gsd-t-qa` | QA agent — test generation, execution, gap reporting |
 | `/user:gsd-t-integrate` | Wire domains together |
-| `/user:gsd-t-verify` | Run quality gates |
-| `/user:gsd-t-complete-milestone` | Archive milestone + git tag |
+| `/user:gsd-t-verify` | Run quality gates + goal-backward behavior verification |
+| `/user:gsd-t-complete-milestone` | Archive milestone + git tag (goal-backward gate required) |
 | `/user:gsd-t-wave` | Full cycle (auto-advances all phases) |
-| `/user:gsd-t-status` | Cross-domain progress view |
+| `/user:gsd-t-status` | Cross-domain progress view with token breakdown by domain/task/phase |
 | `/user:gsd-t-debug` | Systematic debugging |
 | `/user:gsd-t-quick` | Fast task, respects contracts |
 | `/user:gsd-t-reflect` | Generate retrospective from event stream, propose memory updates |

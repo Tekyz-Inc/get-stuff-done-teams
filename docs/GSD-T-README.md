@@ -96,21 +96,21 @@ GSD-T reads all state files and tells you exactly where you left off.
 | `/user:gsd-t-milestone` | Define new milestone | Manual |
 | `/user:gsd-t-partition` | Decompose into domains + contracts | In wave |
 | `/user:gsd-t-discuss` | Multi-perspective design exploration | In wave |
-| `/user:gsd-t-plan` | Create atomic task lists per domain | In wave |
+| `/user:gsd-t-plan` | Create atomic task lists per domain (tasks auto-split to fit one context window) | In wave |
 | `/user:gsd-t-impact` | Analyze downstream effects | In wave |
-| `/user:gsd-t-execute` | Run tasks (solo or team) | In wave |
+| `/user:gsd-t-execute` | Run tasks — task-level fresh dispatch, worktree isolation, adaptive replanning | In wave |
 | `/user:gsd-t-test-sync` | Sync tests with code changes | In wave |
 | `/user:gsd-t-qa` | QA agent — test generation, execution, gap reporting | Auto-spawned |
 | `/user:gsd-t-integrate` | Wire domains together | In wave |
-| `/user:gsd-t-verify` | Run quality gates | In wave |
-| `/user:gsd-t-complete-milestone` | Archive + git tag | In wave |
+| `/user:gsd-t-verify` | Run quality gates + goal-backward behavior verification | In wave |
+| `/user:gsd-t-complete-milestone` | Archive + git tag (goal-backward gate required) | In wave |
 
 ### Automation & Utilities
 
 | Command | Purpose | Auto |
 |---------|---------|------|
 | `/user:gsd-t-wave` | Full cycle, auto-advances all phases | Manual |
-| `/user:gsd-t-status` | Cross-domain progress view | Manual |
+| `/user:gsd-t-status` | Cross-domain progress view with token breakdown by domain/task/phase | Manual |
 | `/user:gsd-t-resume` | Restore context, continue | Manual |
 | `/user:gsd-t-quick` | Fast task with GSD-T guarantees | Manual |
 | `/user:gsd-t-reflect` | Generate retrospective from event stream, propose memory updates | Manual |

@@ -2,16 +2,12 @@
 
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: IN PROGRESS
-## Date: 2026-03-20
-## Version: 2.39.13
+## Date: 2026-03-22
+## Version: 2.40.10
 
 ## Active Milestone
 
-**M22: GSD 2 Tier 1 — Execution Quality** — Phase: PLANNED
-- Goal: Implement task-level fresh context dispatch, worktree isolation, goal-backward verification, adaptive replanning, and context observability. Eliminate compaction, reduce context utilization to <25% per task, enable safe parallel domain execution.
-- PRD: docs/prd-gsd2-hybrid.md (PRD-GSD2-001 v2)
-- Version Target: 2.40.10
-- Test Baseline: 294/294 pass (2026-03-20)
+None — M22 COMPLETE. Next: M23 (Headless Mode)
 
 ## Queued Milestones
 
@@ -38,7 +34,7 @@
 ## Milestones Roadmap
 | #   | Milestone                             | Status  | Version | Domains |
 |-----|---------------------------------------|---------|---------|---------|
-| M22 | GSD 2 Tier 1 — Execution Quality      | PLANNED     | 2.40.10 | 5       |
+| M22 | GSD 2 Tier 1 — Execution Quality      | COMPLETE    | 2.40.10 | 5       |
 | M23 | GSD 2 Tier 2 — Headless Mode          | QUEUED  | 2.41.10 | 3       |
 | M24 | Docker (Enterprise)                   | QUEUED  | 2.42.10 | 2       |
 
@@ -48,8 +44,8 @@
 | context-observability  | complete | 4     | 4         |
 | fresh-dispatch         | complete | 4     | 4         |
 | worktree-isolation     | complete | 4     | 4         |
-| goal-backward          | pending | 3     | 0         |
-| adaptive-replan        | pending | 3     | 0         |
+| goal-backward          | complete | 3     | 3         |
+| adaptive-replan        | complete | 3     | 3         |
 
 ## Contracts (M22)
 - [x] fresh-dispatch-contract.md — Task-level subagent dispatch interface (dispatch payload, summary format, plan constraint)
@@ -68,6 +64,7 @@ Wave 4: adaptive-replan (consumes fresh-dispatch summaries, integrates with work
 ## Completed Milestones
 | Milestone | Version | Completed | Tag |
 |-----------|---------|-----------|-----|
+| GSD 2 Tier 1 — Execution Quality | 2.40.10 | 2026-03-22 | v2.40.10  |
 | Graph-Powered Commands       | 2.38.10 | 2026-03-18 | v2.38.10  |
 | Graph Engine                 | 2.37.10 | 2026-03-18 | v2.37.10  |
 | Shared Service Detection     | 2.35.10 | 2026-03-11 | v2.35.10  |
@@ -105,6 +102,7 @@ Wave 4: adaptive-replan (consumes fresh-dispatch summaries, integrates with work
 
 ## Decision Log
 (Entries before 2026-02-16 reconstructed from git history with timestamps)
+- 2026-03-22: [milestone] M22 COMPLETE — GSD 2 Tier 1 Execution Quality v2.40.10. 18/18 tasks across 5 domains, 293 tests passing. Delivered: task-level fresh dispatch (one subagent per task, ~10-20% context each), worktree isolation (isolation: "worktree" in execute team mode, sequential merge protocol), goal-backward verification (placeholder detection in verify/complete-milestone), adaptive replanning (post-domain summary check, tasks.md rewrite, max 2 cycles), context observability (Domain/Task/Ctx% columns in token-log.md, 70%/85% alert thresholds, token breakdown in status). Plan command enforces single-context-window task constraint. Updated: 4 reference files, docs/architecture.md, docs/prd-gsd2-hybrid.md, docs/prd-graph-engine.md.
 - 2026-03-20: [success] adaptive-replan domain COMPLETE (3/3 tasks) — Task 1+3: Added Adaptive Replan Check (step 4) to execute orchestrator's "After all tasks in a domain complete" section. Reads completed domain's task-*-summary.md files, extracts "Constraints discovered" fields (fast path if none). Graph-enhanced impact assessment: if graph available, runs getImporters + getDomainBoundaryViolations to scope replan to only affected domains; fallback checks all remaining domains. If invalidated assumptions found, appends Revision block (Trigger/Constraint/Changes/Rationale) to affected domains' tasks.md on disk. Tracks REPLAN_CYCLES counter — max 2 per run, pauses for user if exceeded. Logs all replan decisions to Decision Log in progress.md. Task 2: Updated wave.md EXECUTE phase description to reference adaptive-replan-contract.md, max 2 cycle guard, and replan phase summary format. 293/293 tests pass.
 - 2026-03-20: [success] worktree-isolation domain COMPLETE (4/4 tasks) — Task 1: Added isolation: "worktree" to each domain teammate Agent spawn in execute team mode; each domain works in isolated git worktree. Task 2: Added Sequential Merge Protocol to execute team mode — after all domains complete, lead merges domain branches in dependency order (from integration-points.md), runs tests between each merge, rolls back per-domain if tests fail. Task 3: Added file ownership validation (graph getDomainBoundaryViolations + scope.md check) and mandatory worktree cleanup (git worktree remove + prune + orphan detection) after merge protocol. Task 4: Updated gsd-t-wave.md execute phase to reference worktree isolation; updated gsd-t-integrate.md with Step 2.5 (worktree merge status check) and multi-domain merge note referencing worktree-isolation-contract.md. 293/293 tests pass.
 - 2026-03-20: [success] fresh-dispatch domain COMPLETE (4/4 tasks) — Restructured execute solo mode to task-level dispatch: domain task-dispatcher spawns one subagent per task with only scope.md + relevant contracts + single task + graph context + ≤5 prior summaries (fresh-dispatch-contract.md payload). Each task subagent writes task-{id}-summary.md after completion. Observability logging now runs per-task (Domain/Task/Ctx% columns). Updated execute team mode: each teammate uses same task-dispatcher pattern. Updated wave.md execute phase to reference task-level dispatch. Updated integrate.md to reference task-level pattern for multi-domain work. Verified plan.md Task Design Rule 7 ("context-window fit") and Task Scope Validation satisfy contract; updated plan Step 7 observability to full extended format with Ctx%/alerting.

@@ -231,10 +231,11 @@ Use these when user asks for help on a specific command:
 - **Use when**: Architectural decisions need exploration
 
 ### plan
-- **Summary**: Create atomic task lists for each domain
+- **Summary**: Create atomic task lists for each domain (each task must fit in one context window)
 - **Auto-invoked**: Yes (in wave, after discuss)
 - **Creates**: `.gsd-t/domains/*/tasks.md`
 - **Use when**: Ready to define specific implementation tasks
+- **Note (M22)**: Tasks auto-split if estimated scope exceeds 70% context window — guarantees fresh dispatch works
 
 ### impact
 - **Summary**: Analyze downstream effects of planned changes
@@ -247,6 +248,7 @@ Use these when user asks for help on a specific command:
 - **Auto-invoked**: Yes (in wave, after impact)
 - **Updates**: Domain tasks, progress.md, source code
 - **Use when**: Ready to implement
+- **Note (M22)**: Task-level fresh dispatch (one subagent per task, ~10-20% context each). Team mode uses worktree isolation (`isolation: "worktree"`) — zero file conflicts. Adaptive replanning between domain completions.
 
 ### test-sync
 - **Summary**: Keep tests aligned with code changes
@@ -267,16 +269,18 @@ Use these when user asks for help on a specific command:
 - **Use when**: Domains are complete and need to work together
 
 ### verify
-- **Summary**: Run quality gates across all dimensions
+- **Summary**: Run quality gates across all dimensions, including goal-backward behavior verification
 - **Auto-invoked**: Yes (in wave, after integrate)
 - **Creates**: `.gsd-t/verify-report.md`
 - **Use when**: Checking that milestone meets requirements
+- **Note (M22)**: Goal-backward verification step added — checks for placeholder implementations (console.log/TODO/hardcoded returns) after structural gates pass
 
 ### complete-milestone
 - **Summary**: Archive milestone documentation and create git tag
 - **Auto-invoked**: Yes (in wave, after verify passes)
 - **Creates**: `.gsd-t/milestones/{name}/`, git tag
 - **Use when**: Milestone is done and verified
+- **Note (M22)**: Goal-backward gate runs as final check before archiving — blocks completion if placeholders remain
 
 ### wave
 - **Summary**: Run complete cycle automatically: partition through complete
@@ -285,8 +289,9 @@ Use these when user asks for help on a specific command:
 - **Use when**: Ready to execute a full milestone hands-off
 
 ### status
-- **Summary**: Show current progress across all domains
+- **Summary**: Show current progress across all domains, including token breakdown by domain/task/phase
 - **Auto-invoked**: No
+- **Note (M22)**: Displays context observability data — token usage by domain, avg tokens/task, peak Ctx% per domain
 - **Reads**: All `.gsd-t/` files
 - **Use when**: Need to see where things stand
 

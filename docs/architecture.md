@@ -1,6 +1,6 @@
 # Architecture — GSD-T Framework (@tekyzinc/gsd-t)
 
-## Last Updated: 2026-03-19 (Scan #10, Post-M20/M21)
+## Last Updated: 2026-03-22 (Post-M22 — GSD 2 Tier 1 Execution Quality)
 
 ## System Overview
 
@@ -270,6 +270,76 @@ QA runs inline or as Task subagent depending on phase (M10 refactor). Removed fr
 | 2026-02-18 | CONTEXT.md from discuss phase | Structured handoff between discuss and plan; fidelity enforcement on Locked Decisions | Free-form decisions in progress.md |
 | 2026-02-18 | gsd-t-tools.js as state utility CLI | Reduces token-heavy markdown parsing; compact JSON responses save ~50K tokens/wave | Parsing progress.md inline (original) |
 | 2026-02-18 | continue-here files for pause/resume | More precise than progress.md; captures exact task+next-action, not just phase | progress.md alone (less precise) |
+
+### GSD 2 Tier 1 — Execution Quality (M22 — complete v2.40.10)
+
+Five interlocking capabilities eliminate context rot, enable safe parallel execution, and verify behavior rather than structure alone.
+
+**Task-Level Fresh Dispatch**
+
+Execute dispatches one subagent per TASK (not per domain). Each task agent gets a fresh context window containing only: domain scope.md, relevant contracts, the single current task, graph context for touched files, and prior task summaries (10-20 lines each). Context utilization per task: ~10-20% (down from 60-75% cumulative per domain). Compaction never triggers. The domain dispatcher (lightweight orchestrator) sequences tasks and passes summaries — it never accumulates full task context.
+
+```
+Execute orchestrator (summaries only — ~4-8% ctx)
+  └── Domain-A task-dispatcher
+       ├── Task 1 subagent (fresh, 10-20% ctx) → summary → dies
+       ├── Task 2 subagent (fresh + task 1 summary) → summary → dies
+       └── Task N subagent (fresh + prior summaries) → summary → dies
+```
+
+**Plan command constraint** (added M22): Every task must fit in one context window. If estimated scope exceeds 70% context, plan splits the task automatically.
+
+**Worktree Isolation**
+
+Parallel domain agents work in isolated git worktrees via Agent tool's `isolation: "worktree"` parameter. No shared filesystem — domains cannot step on each other's files. Merges are sequential and atomic:
+
+```
+Dispatch N domains (isolation: "worktree") → parallel execution
+  └── Domain A completes → merge A → run integration tests
+  └── Domain B completes → merge B → run integration tests
+  └── Conflict or test failure → rollback that domain, others unaffected
+```
+
+Rollback granularity is per-domain (not per-commit). Worktrees are cleaned up after all merges complete.
+
+**Goal-Backward Verification**
+
+After all structural quality gates pass (tests, contracts, file existence), a goal-backward pass verifies behavior. Reads milestone goals, traces each requirement to code, and checks for placeholders:
+- `console.log("TODO")` / `console.log("implement X")`
+- Hardcoded return values (`return "Synced"`, `return 200` on a path that should compute)
+- `// TODO`, `// FIXME`, `// PLACEHOLDER` comments in critical paths
+- UI components rendering static strings where dynamic data is required
+
+Applied in: `verify`, `complete-milestone`, `wave` (verification phase).
+
+**Adaptive Replanning**
+
+After each domain completes in execute, the orchestrator reads the domain's result summary and evaluates whether remaining domain plans remain valid. If execution revealed new constraints (deprecated API, schema mismatch, missing dependency, incompatible library), affected domain `tasks.md` files are rewritten on disk before the next domain is dispatched.
+
+Guard: max 2 replanning cycles per execute run. After that, pause for user input (prevents new-constraint → replan → new-constraint loops).
+
+**Context Observability**
+
+Extended token-log.md format (M22) includes `Domain`, `Task`, and `Ctx%` columns:
+
+```
+| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Tokens | Compacted | Domain | Task | Ctx% |
+```
+
+Alert thresholds (inline display):
+- `Ctx% >= 70%` → warning: task approaching compaction, consider splitting
+- `Ctx% >= 85%` → critical: compaction likely, task MUST be split
+
+`gsd-t-status` displays token breakdown by domain/task/phase. `gsd-t-visualize` consumes the same data for dashboard rendering.
+
+## Planned Architecture Changes (M23-M24)
+
+**M23: Headless Mode**
+- New `gsd-t headless` CLI subcommand wrapping `claude -p` for unattended execution.
+- New `gsd-t headless query` for instant JSON state access (no LLM).
+
+**M24: Docker**
+- Dockerfile + docker-compose for containerized enterprise execution.
 
 ## Known Architecture Concerns
 

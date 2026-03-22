@@ -12,3 +12,5 @@
 | 2026-03-04 11:47 | 2026-03-04 11:47 | gsd-t-execute | domain:reflect (tasks 1-2) | sonnet | ~600s | 2 tasks, pass (153 tests) | 0 | null |
 | 2026-03-04 11:48 | 2026-03-04 11:58 | gsd-t-execute | domain:reflect (task-3) | sonnet | 600s | 1 task, pass (153 tests) | 0 | null |
 | 2026-03-09 10:29 | 2026-03-09 10:39 | gsd-t-scan | Step 2 (5-dim) | claude-sonnet-4-6 | 621s | Scan #7 post-M14-M17 — 205 tests, 9 new TD items, HTML report generated | N/A | null |
+| 2026-03-20 12:42 | 2026-03-20 12:43 | gsd-t-plan | Step 7 | haiku | 51s | FAIL (4 findings: 2 valid, 2 false-positive), fixed Wave 3 split + estimate | 0 | null |
+| 2026-03-20 15:36 | 2026-03-20 15:49 | gsd-t-brainstorm | Step 3 | sonnet | 733s | deep research: telemetry + autonomous improvement (3 parallel researchers) | 0 | null |
