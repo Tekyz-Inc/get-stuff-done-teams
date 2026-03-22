@@ -7,15 +7,34 @@
 
 ## Active Milestone
 
-None — M23 COMPLETE. Next: M24 (Docker)
+**M25: Telemetry Collection & Metrics Dashboard (Tier 1)** — DEFINED
+
+**Goal**: Every task emits structured telemetry (task-metrics.jsonl). Milestone completion produces rollup with trend comparison (rollup.jsonl). Dashboard shows metric charts (Chart.js panel). Process ELO tracks overall quality. First-pass success rate is the North Star metric.
+
+**Scope**:
+- `task-metrics.jsonl` — per-task structured telemetry (duration, token usage, pass/fail, fix cycles, context %)
+- `rollup.jsonl` — milestone-level aggregation with trend comparison to previous milestones
+- 4 detection heuristics — first-pass failure rate spike, rework rate anomaly, context overflow correlation, duration regression
+- Chart.js dashboard panel — metric charts integrated into existing gsd-t-visualize dashboard
+- Process ELO score — single composite scalar updated per milestone, tracks overall workflow quality
+- ~400 lines estimated (additive, no rework of existing systems)
+
+**Not in scope (Tier 2+)**: Declarative rule engine (rules.jsonl), patch templates, promotion gates, activation tracking, Neo4j integration, cross-project metrics propagation
+
+**Success criteria**:
+- [ ] Every task in execute/quick/debug emits a record to `.gsd-t/metrics/task-metrics.jsonl`
+- [ ] `complete-milestone` produces rollup entry in `.gsd-t/metrics/rollup.jsonl` with trend delta vs. previous milestone
+- [ ] 4 detection heuristics flag anomalies during verify or complete-milestone
+- [ ] Dashboard (gsd-t-visualize) renders metric charts from task-metrics.jsonl and rollup.jsonl
+- [ ] Process ELO computed and stored per milestone, displayed in status output
+- [ ] All existing tests pass with no regressions (329+ tests)
+
+**Predecessor**: M14 (Execution Intelligence Layer — event stream), M15 (Dashboard — visualization)
+**Brainstorm**: `.gsd-t/brainstorm-2026-03-20-telemetry.md`
 
 ## Queued Milestones
 
-**M24: Docker (Enterprise)** — Phase: QUEUED
-- Goal: Containerized GSD-T execution with Vault-injected secrets for enterprise security compliance. Ephemeral containers, no credential persistence.
-- PRD: docs/prd-gsd2-hybrid.md (PRD-GSD2-001 v2)
-- Version Target: 2.42.10
-- Depends on: M23
+None — backlog item #10 (Docker Enterprise) available when ready.
 
 ## Previous Milestones (Archived)
 
@@ -33,7 +52,8 @@ None — M23 COMPLETE. Next: M24 (Docker)
 |-----|---------------------------------------|---------|---------|---------|
 | M22 | GSD 2 Tier 1 — Execution Quality      | COMPLETE    | 2.40.10 | 5       |
 | M23 | GSD 2 Tier 2 — Headless Mode          | COMPLETE | 2.41.10 | 3       |
-| M24 | Docker (Enterprise)                   | QUEUED  | 2.42.10 | 2       |
+| M24 | Docker (Enterprise)                   | BACKLOG | 2.42.10 | 2       |
+| M25 | Telemetry Collection & Metrics Dashboard (Tier 1) | DEFINED | 2.42.10 | TBD     |
 
 ## Domains (M22)
 | Domain                 | Status  | Tasks | Completed |
@@ -99,6 +119,7 @@ Wave 4: adaptive-replan (consumes fresh-dispatch summaries, integrates with work
 
 ## Decision Log
 (Entries before 2026-02-16 reconstructed from git history with timestamps)
+- 2026-03-22: [milestone] M25 DEFINED — Telemetry Collection & Metrics Dashboard (Tier 1). Scope: task-metrics.jsonl (per-task telemetry), rollup.jsonl (milestone aggregation with trend comparison), 4 detection heuristics, Chart.js dashboard panel, Process ELO score. North Star metric: first-pass success rate. ~400 lines, additive only. Based on brainstorm-2026-03-20-telemetry.md research (DORA, SPC, AlphaZero ELO patterns). Predecessors: M14 (event stream), M15 (dashboard).
 - 2026-03-22: [milestone] M23 COMPLETE — GSD 2 Tier 2 Headless Mode v2.41.10. 3 domains (headless-exec, headless-query, pipeline-integration), 11 tasks total. `gsd-t headless <cmd>` wraps claude -p with exit codes 0-4 and --json/--timeout/--log flags. `gsd-t headless query <type>` returns JSON from .gsd-t/ file parsing (~50ms, no LLM) for 7 query types: status, domains, contracts, debt, context, backlog, graph. CI examples: docs/ci-examples/github-actions.yml + gitlab-ci.yml. headless-contract.md. 36 new tests, 329 total pass.
 - 2026-03-22: [milestone] M22 COMPLETE — GSD 2 Tier 1 Execution Quality v2.40.10. 18/18 tasks across 5 domains, 293 tests passing. Delivered: task-level fresh dispatch (one subagent per task, ~10-20% context each), worktree isolation (isolation: "worktree" in execute team mode, sequential merge protocol), goal-backward verification (placeholder detection in verify/complete-milestone), adaptive replanning (post-domain summary check, tasks.md rewrite, max 2 cycles), context observability (Domain/Task/Ctx% columns in token-log.md, 70%/85% alert thresholds, token breakdown in status). Plan command enforces single-context-window task constraint. Updated: 4 reference files, docs/architecture.md, docs/prd-gsd2-hybrid.md, docs/prd-graph-engine.md.
 - 2026-03-20: [success] adaptive-replan domain COMPLETE (3/3 tasks) — Task 1+3: Added Adaptive Replan Check (step 4) to execute orchestrator's "After all tasks in a domain complete" section. Reads completed domain's task-*-summary.md files, extracts "Constraints discovered" fields (fast path if none). Graph-enhanced impact assessment: if graph available, runs getImporters + getDomainBoundaryViolations to scope replan to only affected domains; fallback checks all remaining domains. If invalidated assumptions found, appends Revision block (Trigger/Constraint/Changes/Rationale) to affected domains' tasks.md on disk. Tracks REPLAN_CYCLES counter — max 2 per run, pauses for user if exceeded. Logs all replan decisions to Decision Log in progress.md. Task 2: Updated wave.md EXECUTE phase description to reference adaptive-replan-contract.md, max 2 cycle guard, and replan phase summary format. 293/293 tests pass.

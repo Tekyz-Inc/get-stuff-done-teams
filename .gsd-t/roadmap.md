@@ -266,3 +266,34 @@
 - [x] All tests pass with no regressions (125/125)
 - [x] No new tech debt introduced
 **Completed**: 2026-02-18
+
+---
+
+## Feature: Autonomous Telemetry & Continuous Improvement System
+**Added**: 2026-03-22
+**Context**: Brainstorm session (2026-03-20) identified that GSD-T captures execution events but lacks structured per-task telemetry, milestone-level aggregation, trend analysis, anomaly detection, and a quality composite score. The existing event stream (M14) and dashboard (M15) provide infrastructure; this feature adds the metrics layer.
+
+### Milestone M25: Telemetry Collection & Metrics Dashboard (Tier 1)
+**Goal**: Every task emits structured telemetry. Milestone completion produces rollup with trend comparison. Dashboard shows metric charts. Process ELO tracks overall quality. First-pass success rate is the North Star metric.
+**Scope**:
+- `.gsd-t/metrics/task-metrics.jsonl` — per-task structured telemetry (duration, token usage, pass/fail, fix cycles, context %)
+- `.gsd-t/metrics/rollup.jsonl` — milestone-level aggregation with trend comparison to previous milestones
+- 4 detection heuristics — first-pass failure rate spike, rework rate anomaly, context overflow correlation, duration regression
+- Chart.js dashboard panel — metric charts integrated into existing gsd-t-visualize dashboard
+- Process ELO score — single composite scalar updated per milestone
+- `commands/gsd-t-execute.md` — emit task-metrics record after each task
+- `commands/gsd-t-quick.md`, `commands/gsd-t-debug.md` — emit task-metrics record
+- `commands/gsd-t-complete-milestone.md` — produce rollup entry, compute ELO delta
+- `commands/gsd-t-verify.md` or `commands/gsd-t-complete-milestone.md` — run 4 detection heuristics
+- `scripts/gsd-t-dashboard.html` — add metrics chart panel
+- `commands/gsd-t-status.md` — display ELO and key metrics summary
+**Not in scope (Tier 2+)**: Declarative rule engine (rules.jsonl), patch templates, promotion gates, activation tracking, Neo4j cross-project integration
+**Predecessor**: M14 (Execution Intelligence Layer), M15 (Real-Time Agent Dashboard)
+**Brainstorm**: `.gsd-t/brainstorm-2026-03-20-telemetry.md`
+**Success criteria**:
+- [ ] Every task in execute/quick/debug emits a record to `.gsd-t/metrics/task-metrics.jsonl`
+- [ ] `complete-milestone` produces rollup entry in `.gsd-t/metrics/rollup.jsonl` with trend delta
+- [ ] 4 detection heuristics flag anomalies during verify or complete-milestone
+- [ ] Dashboard renders metric charts from task-metrics.jsonl and rollup.jsonl
+- [ ] Process ELO computed and stored per milestone, displayed in status output
+- [ ] All existing tests pass with no regressions (329+ tests)
