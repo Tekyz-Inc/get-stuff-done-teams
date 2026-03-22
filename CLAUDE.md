@@ -23,14 +23,14 @@ Only pause for blockers or project completion. Execute phases continuously.
 - **Language**: JavaScript (Node.js >= 16)
 - **Package Manager**: npm
 - **Distribution**: npm package (@tekyzinc/gsd-t)
-- **CLI**: bin/gsd-t.js (install, update, init, status, uninstall, doctor)
+- **CLI**: bin/gsd-t.js (install, update, init, status, uninstall, doctor, graph, headless)
 - **Testing**: Manual CLI testing (command files are markdown, CLI is the testable surface)
 
 
 ## Project Structure
 
 ```
-bin/gsd-t.js           — CLI installer (9 subcommands)
+bin/gsd-t.js           — CLI installer (11 subcommands)
 commands/              — 49 slash commands for Claude Code (45 GSD-T + 4 utility)
   gsd-t-*.md           — 44 GSD-T workflow commands
   gsd.md               — Smart router (auto-routes user intent)

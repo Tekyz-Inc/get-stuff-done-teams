@@ -1,0 +1,104 @@
+# GSD-T Headless Mode — GitHub Actions Example
+#
+# This workflow demonstrates using `gsd-t headless` for automated milestone
+# verification in CI/CD pipelines.
+#
+# Prerequisites:
+#   - ANTHROPIC_API_KEY secret configured in your GitHub repository
+#   - GSD-T installed globally (npm install -g @tekyzinc/gsd-t)
+#   - Claude Code CLI installed (npm install -g @anthropic-ai/claude-code)
+#
+# Usage: Copy this file to .github/workflows/gsd-t-verify.yml in your project
+
+name: GSD-T Headless Verify
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      command:
+        description: 'GSD-T command to run (default: verify)'
+        required: false
+        default: 'verify'
+
+jobs:
+  gsd-t-verify:
+    name: GSD-T Quality Gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install GSD-T
+        run: npm install -g @tekyzinc/gsd-t @anthropic-ai/claude-code
+
+      - name: Query project status (no LLM needed)
+        id: status
+        run: |
+          STATUS=$(gsd-t headless query status)
+          echo "status=$STATUS" >> $GITHUB_OUTPUT
+          echo "GSD-T Project Status: $STATUS"
+
+      - name: Run GSD-T headless verify
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          gsd-t headless ${{ github.event.inputs.command || 'verify' }} \
+            --json \
+            --timeout=1200 \
+            --log
+        # Exit codes:
+        #   0 = success
+        #   1 = verify-fail (tests/gates failed)
+        #   2 = context-budget-exceeded (try splitting milestone)
+        #   3 = error (claude CLI error)
+        #   4 = blocked-needs-human (requires manual review)
+
+      - name: Upload headless log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gsd-t-headless-log
+          path: .gsd-t/headless-*.log
+          retention-days: 7
+
+  gsd-t-status-gate:
+    name: GSD-T State Query Gate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install GSD-T
+        run: npm install -g @tekyzinc/gsd-t
+
+      - name: Check project status
+        run: gsd-t headless query status
+
+      - name: Check for open tech debt
+        run: |
+          DEBT=$(gsd-t headless query debt)
+          COUNT=$(echo "$DEBT" | node -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8')); process.exit(d.data.count > 0 ? 1 : 0)" || echo "")
+          echo "Tech debt items: $DEBT"
+
+      - name: List active domains
+        run: gsd-t headless query domains
+
+      - name: Check graph index
+        run: gsd-t headless query graph

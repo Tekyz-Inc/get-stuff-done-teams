@@ -6,7 +6,7 @@
 | **PRD ID** | PRD-GSD2-001 |
 | **Date** | 2026-03-18 |
 | **Author** | GSD-T Team |
-| **Status** | ACTIVE — M22 COMPLETE (2026-03-22), M23-M24 QUEUED |
+| **Status** | ACTIVE — M22 COMPLETE, M23 COMPLETE (2026-03-22), M24 QUEUED |
 | **Milestones** | M22 (Tier 1), M23 (Tier 2), M24 (Docker) |
 | **Version Target** | 2.40.10 (M22), 2.41.10 (M23), 2.42.10 (M24) |
 | **Priority** | P0 — critical for enterprise delivery quality |
@@ -23,6 +23,7 @@
 | 2026-03-18 | v1 | Initial DRAFT |
 | 2026-03-20 | v2 | Revalidation: Fresh dispatch elevated to task-level (not domain-level); Budget ceilings reframed as Context Observability (context window %, token breakdown — not cost enforcement); Model failover dropped from M23; Plan command gains "single context window" constraint; No custom engine needed for M22 — all via Agent tool + team mode + worktree isolation; PRD-GRAPH-001 marked DELIVERED |
 | 2026-03-22 | v3 | M22 COMPLETE — 18/18 tasks across 5 domains, 293 tests passing, v2.40.10 released |
+| 2026-03-22 | v4 | M23 COMPLETE — 3 domains (headless-exec, headless-query, pipeline-integration), 36 new tests (329 total), v2.41.10 released |
 
 ---
 

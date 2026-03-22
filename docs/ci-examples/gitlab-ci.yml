@@ -1,0 +1,116 @@
+# GSD-T Headless Mode — GitLab CI Example
+#
+# This pipeline demonstrates using `gsd-t headless` for automated milestone
+# verification and state queries in GitLab CI/CD.
+#
+# Prerequisites:
+#   - ANTHROPIC_API_KEY variable configured in GitLab CI/CD settings
+#   - Node.js 20+ runner
+#
+# Usage: Copy the relevant stages/jobs into your .gitlab-ci.yml
+
+stages:
+  - status
+  - verify
+  - report
+
+variables:
+  NODE_VERSION: "20"
+  GSD_T_TIMEOUT: "1200"
+
+# ─── Status Stage (no LLM, runs fast) ────────────────────────────────────────
+
+gsd-t-status:
+  stage: status
+  image: node:${NODE_VERSION}
+  before_script:
+    - npm install -g @tekyzinc/gsd-t
+  script:
+    - echo "=== Project Status ==="
+    - gsd-t headless query status
+    - echo "=== Active Domains ==="
+    - gsd-t headless query domains
+    - echo "=== Contracts ==="
+    - gsd-t headless query contracts
+    - echo "=== Tech Debt ==="
+    - gsd-t headless query debt
+    - echo "=== Backlog ==="
+    - gsd-t headless query backlog
+  artifacts:
+    reports:
+      # Capture JSON output for downstream jobs
+      dotenv: .gsd-t-status.env
+  allow_failure: false
+
+# ─── Verify Stage (LLM-powered, requires ANTHROPIC_API_KEY) ─────────────────
+
+gsd-t-verify:
+  stage: verify
+  image: node:${NODE_VERSION}
+  before_script:
+    - npm install -g @tekyzinc/gsd-t @anthropic-ai/claude-code
+  script:
+    - >
+      gsd-t headless verify
+      --json
+      --timeout=${GSD_T_TIMEOUT}
+      --log
+  after_script:
+    - cat .gsd-t/headless-*.log 2>/dev/null || true
+  artifacts:
+    when: always
+    paths:
+      - .gsd-t/headless-*.log
+    expire_in: 1 week
+  # Exit code mapping:
+  #   0 = success — pipeline continues
+  #   1 = verify-fail — pipeline fails (tests/quality gates failed)
+  #   2 = context-budget-exceeded — pipeline fails (split milestone required)
+  #   3 = error — pipeline fails (check claude CLI config)
+  #   4 = blocked-needs-human — pipeline fails with manual review needed
+  variables:
+    ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+  only:
+    - main
+    - develop
+    - merge_requests
+
+# ─── Report Stage ────────────────────────────────────────────────────────────
+
+gsd-t-context-report:
+  stage: report
+  image: node:${NODE_VERSION}
+  before_script:
+    - npm install -g @tekyzinc/gsd-t
+  script:
+    - echo "=== Token/Context Usage ==="
+    - gsd-t headless query context
+    - echo "=== Graph Index ==="
+    - gsd-t headless query graph
+  when: always
+  allow_failure: true
+
+# ─── Nightly Headless Execute ─────────────────────────────────────────────────
+# Run overnight to execute a milestone phase unattended
+
+gsd-t-nightly-execute:
+  stage: verify
+  image: node:${NODE_VERSION}
+  before_script:
+    - npm install -g @tekyzinc/gsd-t @anthropic-ai/claude-code
+  script:
+    - >
+      gsd-t headless execute
+      --json
+      --timeout=3600
+      --log
+  artifacts:
+    when: always
+    paths:
+      - .gsd-t/headless-*.log
+    expire_in: 2 weeks
+  variables:
+    ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+  only:
+    - schedules  # Only runs on scheduled pipelines
+  allow_failure: false

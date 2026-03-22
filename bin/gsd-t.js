@@ -1650,6 +1650,384 @@ function doGraph(args) {
   }
 }
 
+// ─── Headless Mode ────────────────────────────────────────────────────────────
+
+/**
+ * Parse headless flags from args array.
+ * Extracts --json, --timeout=N, --log from args, returns remainder as positional args.
+ */
+function parseHeadlessFlags(args) {
+  const flags = { json: false, timeout: 300, log: false };
+  const positional = [];
+  for (const arg of args) {
+    if (arg === "--json") {
+      flags.json = true;
+    } else if (arg.startsWith("--timeout=")) {
+      const n = parseInt(arg.slice("--timeout=".length), 10);
+      if (!isNaN(n) && n > 0) flags.timeout = n;
+    } else if (arg === "--log") {
+      flags.log = true;
+    } else {
+      positional.push(arg);
+    }
+  }
+  return { flags, positional };
+}
+
+/**
+ * Build the claude -p invocation string for a GSD-T command.
+ */
+function buildHeadlessCmd(command, cmdArgs) {
+  const argStr = cmdArgs.length > 0 ? " " + cmdArgs.join(" ") : "";
+  return `/user:gsd-t-${command}${argStr}`;
+}
+
+/**
+ * Map claude output + process exit code to a GSD-T headless exit code.
+ * Exit codes: 0=success, 1=verify-fail, 2=context-budget-exceeded, 3=error, 4=blocked-needs-human
+ */
+function mapHeadlessExitCode(processExitCode, output) {
+  if (processExitCode !== 0 && processExitCode !== null) return 3;
+  const lower = (output || "").toLowerCase();
+  if (lower.includes("context budget exceeded") || lower.includes("context window exceeded") ||
+      lower.includes("budget exceeded") || lower.includes("token limit")) return 2;
+  if (lower.includes("blocked") && (lower.includes("needs human") || lower.includes("need human") ||
+      lower.includes("human input") || lower.includes("human approval"))) return 4;
+  if (lower.includes("verification failed") || lower.includes("verify failed") ||
+      lower.includes("quality gate failed") || lower.includes("tests failed")) return 1;
+  return 0;
+}
+
+/**
+ * Generate a headless log file path.
+ */
+function headlessLogPath(projectDir, timestamp) {
+  const ts = timestamp || Date.now();
+  return path.join(projectDir, ".gsd-t", `headless-${ts}.log`);
+}
+
+/**
+ * Execute a GSD-T command via claude -p (non-interactive).
+ */
+function doHeadlessExec(command, cmdArgs, flags) {
+  const opts = flags || {};
+  const jsonMode = opts.json || false;
+  const timeoutMs = (opts.timeout || 300) * 1000;
+  const logMode = opts.log || false;
+  const startTime = Date.now();
+  const timestamp = new Date(startTime).toISOString();
+
+  // Verify claude CLI is available
+  try {
+    execFileSync("claude", ["--version"], {
+      encoding: "utf8", timeout: 5000,
+      stdio: ["pipe", "pipe", "pipe"]
+    });
+  } catch {
+    const msg = "claude CLI not found. Install with: npm install -g @anthropic-ai/claude-code";
+    if (jsonMode) {
+      process.stdout.write(JSON.stringify({
+        success: false, exitCode: 3, gsdtExitCode: 3,
+        command, args: cmdArgs, output: msg,
+        timestamp, duration: Date.now() - startTime, logFile: null
+      }) + "\n");
+    } else {
+      error(msg);
+    }
+    process.exit(3);
+  }
+
+  const prompt = buildHeadlessCmd(command, cmdArgs);
+  let logFile = null;
+
+  if (!jsonMode) {
+    heading(`GSD-T Headless — ${command}`);
+    info(`Prompt: ${prompt}`);
+    info(`Timeout: ${opts.timeout || 300}s`);
+    if (logMode) {
+      logFile = headlessLogPath(process.cwd(), startTime);
+      info(`Log: ${logFile}`);
+    }
+    log("");
+  } else if (logMode) {
+    logFile = headlessLogPath(process.cwd(), startTime);
+  }
+
+  let output = "";
+  let processExitCode = 0;
+
+  try {
+    const result = execFileSync("claude", ["-p", prompt], {
+      encoding: "utf8",
+      timeout: timeoutMs,
+      stdio: ["pipe", "pipe", "pipe"],
+      cwd: process.cwd()
+    });
+    output = result;
+  } catch (e) {
+    // execFileSync throws on non-zero exit or timeout
+    output = (e.stdout || "") + (e.stderr || "");
+    processExitCode = e.status || 1;
+    if (e.signal === "SIGTERM" || e.code === "ETIMEDOUT") {
+      processExitCode = 3;
+      output += "\n[headless: process timed out]";
+    }
+  }
+
+  const gsdtExitCode = mapHeadlessExitCode(processExitCode, output);
+  const duration = Date.now() - startTime;
+
+  // Write log file if requested
+  if (logMode && logFile) {
+    try {
+      const gsdtDir = path.join(process.cwd(), ".gsd-t");
+      ensureDir(gsdtDir);
+      const logContent = [
+        `GSD-T Headless Log`,
+        `Command: ${command}`,
+        `Args: ${cmdArgs.join(" ")}`,
+        `Timestamp: ${timestamp}`,
+        `Duration: ${duration}ms`,
+        `Exit Code: ${gsdtExitCode}`,
+        `---`,
+        output
+      ].join("\n");
+      fs.writeFileSync(logFile, logContent);
+    } catch (e) {
+      if (!jsonMode) warn(`Failed to write log: ${e.message}`);
+    }
+  }
+
+  if (jsonMode) {
+    process.stdout.write(JSON.stringify({
+      success: gsdtExitCode === 0,
+      exitCode: processExitCode,
+      gsdtExitCode,
+      command,
+      args: cmdArgs,
+      output,
+      timestamp,
+      duration,
+      logFile
+    }) + "\n");
+  } else {
+    process.stdout.write(output);
+    if (!output.endsWith("\n")) process.stdout.write("\n");
+    if (gsdtExitCode !== 0) {
+      log("");
+      warn(`Exit code: ${gsdtExitCode}`);
+    }
+  }
+
+  process.exit(gsdtExitCode);
+}
+
+// ─── Headless Query ──────────────────────────────────────────────────────────
+
+const VALID_QUERY_TYPES = ["status", "domains", "contracts", "debt", "context", "backlog", "graph"];
+
+function queryResult(type, data) {
+  return { type, timestamp: new Date().toISOString(), data };
+}
+
+function queryStatus(projectDir) {
+  const progressPath = path.join(projectDir, ".gsd-t", "progress.md");
+  if (!fs.existsSync(progressPath)) {
+    return queryResult("status", { error: "progress.md not found" });
+  }
+  const content = fs.readFileSync(progressPath, "utf8");
+  const versionMatch = content.match(/##\s*Version:\s*(.+)/);
+  const projectMatch = content.match(/##\s*Project:\s*(.+)/);
+  const statusMatch = content.match(/##\s*Status:\s*(.+)/);
+  const milestoneMatch = content.match(/##\s*Active Milestone\s*[\r\n]+\s*(.+)/);
+  const phaseMatch = content.match(/Phase:\s*(\w+)/);
+  return queryResult("status", {
+    version: versionMatch ? versionMatch[1].trim() : null,
+    project: projectMatch ? projectMatch[1].trim() : null,
+    status: statusMatch ? statusMatch[1].trim() : null,
+    activeMilestone: milestoneMatch ? milestoneMatch[1].trim() : null,
+    phase: phaseMatch ? phaseMatch[1].trim() : null
+  });
+}
+
+function queryDomains(projectDir) {
+  const domainsDir = path.join(projectDir, ".gsd-t", "domains");
+  if (!fs.existsSync(domainsDir)) {
+    return queryResult("domains", { domains: [] });
+  }
+  const entries = fs.readdirSync(domainsDir).filter((f) => {
+    const fp = path.join(domainsDir, f);
+    return fs.statSync(fp).isDirectory();
+  });
+  const domains = entries.map((name) => {
+    const domainDir = path.join(domainsDir, name);
+    return {
+      name,
+      hasScope: fs.existsSync(path.join(domainDir, "scope.md")),
+      hasTasks: fs.existsSync(path.join(domainDir, "tasks.md")),
+      hasConstraints: fs.existsSync(path.join(domainDir, "constraints.md"))
+    };
+  });
+  return queryResult("domains", { domains });
+}
+
+function queryContracts(projectDir) {
+  const contractsDir = path.join(projectDir, ".gsd-t", "contracts");
+  if (!fs.existsSync(contractsDir)) {
+    return queryResult("contracts", { contracts: [] });
+  }
+  const contracts = fs.readdirSync(contractsDir)
+    .filter((f) => f.endsWith(".md") && f !== ".gitkeep");
+  return queryResult("contracts", { contracts });
+}
+
+function queryDebt(projectDir) {
+  const debtPath = path.join(projectDir, ".gsd-t", "techdebt.md");
+  if (!fs.existsSync(debtPath)) {
+    return queryResult("debt", { items: [], count: 0 });
+  }
+  const content = fs.readFileSync(debtPath, "utf8");
+  // Parse table rows: | ID | Severity | Description | ...
+  const rows = content.split("\n").filter((line) => {
+    return line.startsWith("| ") && !line.startsWith("| ID") && !line.startsWith("| ---") && !line.startsWith("| #");
+  });
+  const items = rows.map((row) => {
+    const cells = row.split("|").slice(1, -1).map((c) => c.trim());
+    return cells.length >= 2 ? { id: cells[0], severity: cells[1], description: cells[2] || "" } : null;
+  }).filter(Boolean);
+  return queryResult("debt", { items, count: items.length });
+}
+
+function queryContext(projectDir) {
+  const tokenLogPath = path.join(projectDir, ".gsd-t", "token-log.md");
+  if (!fs.existsSync(tokenLogPath)) {
+    return queryResult("context", { entries: [], totalTokens: 0, entryCount: 0 });
+  }
+  const content = fs.readFileSync(tokenLogPath, "utf8");
+  const rows = content.split("\n").filter((line) => {
+    return line.startsWith("| ") && !line.startsWith("| Datetime") && !line.startsWith("| ---");
+  });
+  const entries = rows.map((row) => {
+    const cells = row.split("|").slice(1, -1).map((c) => c.trim());
+    if (cells.length < 8) return null;
+    return {
+      datetimeStart: cells[0],
+      datetimeEnd: cells[1],
+      command: cells[2],
+      step: cells[3],
+      model: cells[4],
+      duration: cells[5],
+      notes: cells[6],
+      tokens: parseInt(cells[7]) || 0
+    };
+  }).filter(Boolean);
+  const totalTokens = entries.reduce((sum, e) => sum + (e.tokens || 0), 0);
+  return queryResult("context", { entries, totalTokens, entryCount: entries.length });
+}
+
+function queryBacklog(projectDir) {
+  const backlogPath = path.join(projectDir, ".gsd-t", "backlog.md");
+  if (!fs.existsSync(backlogPath)) {
+    return queryResult("backlog", { items: [], count: 0 });
+  }
+  const content = fs.readFileSync(backlogPath, "utf8");
+  const rows = content.split("\n").filter((line) => {
+    return line.startsWith("| ") && !line.startsWith("| #") && !line.startsWith("| ID") && !line.startsWith("| ---");
+  });
+  const items = rows.map((row) => {
+    const cells = row.split("|").slice(1, -1).map((c) => c.trim());
+    return cells.length >= 2 ? { id: cells[0], title: cells[1], status: cells[2] || "" } : null;
+  }).filter(Boolean);
+  return queryResult("backlog", { items, count: items.length });
+}
+
+function queryGraph(projectDir) {
+  const metaPath = path.join(projectDir, ".gsd-t", "graph-index", "meta.json");
+  if (!fs.existsSync(metaPath)) {
+    return queryResult("graph", { available: false });
+  }
+  try {
+    const meta = JSON.parse(fs.readFileSync(metaPath, "utf8"));
+    return queryResult("graph", {
+      available: true,
+      provider: meta.provider || "native",
+      entityCount: meta.entityCount || 0,
+      relationshipCount: meta.relationshipCount || 0,
+      lastIndexed: meta.lastIndexed || null
+    });
+  } catch {
+    return queryResult("graph", { available: false, error: "meta.json parse error" });
+  }
+}
+
+function doHeadlessQuery(type) {
+  const projectDir = process.cwd();
+
+  if (!type || !VALID_QUERY_TYPES.includes(type)) {
+    const result = { error: "unknown query type", validTypes: VALID_QUERY_TYPES };
+    process.stdout.write(JSON.stringify(result) + "\n");
+    process.exit(3);
+    return;
+  }
+
+  let result;
+  switch (type) {
+    case "status":    result = queryStatus(projectDir); break;
+    case "domains":   result = queryDomains(projectDir); break;
+    case "contracts": result = queryContracts(projectDir); break;
+    case "debt":      result = queryDebt(projectDir); break;
+    case "context":   result = queryContext(projectDir); break;
+    case "backlog":   result = queryBacklog(projectDir); break;
+    case "graph":     result = queryGraph(projectDir); break;
+    default:
+      result = { error: "unknown query type", validTypes: VALID_QUERY_TYPES };
+  }
+
+  process.stdout.write(JSON.stringify(result) + "\n");
+}
+
+function doHeadless(args) {
+  const sub = args[0];
+  if (!sub || sub === "--help" || sub === "-h") {
+    showHeadlessHelp();
+    return;
+  }
+
+  if (sub === "query") {
+    const type = args[1];
+    doHeadlessQuery(type);
+    return;
+  }
+
+  // headless exec: gsd-t headless <command> [cmdArgs...] [flags]
+  const { flags, positional } = parseHeadlessFlags(args.slice(1));
+  doHeadlessExec(sub, positional, flags);
+}
+
+function showHeadlessHelp() {
+  log(`\n${BOLD}GSD-T Headless Mode${RESET}\n`);
+  log(`${BOLD}Usage:${RESET}`);
+  log(`  ${CYAN}gsd-t headless${RESET} <command> [args] [--json] [--timeout=N] [--log]`);
+  log(`  ${CYAN}gsd-t headless query${RESET} <type>\n`);
+  log(`${BOLD}Exec flags:${RESET}`);
+  log(`  ${CYAN}--json${RESET}        Structured JSON output`);
+  log(`  ${CYAN}--timeout=N${RESET}   Kill after N seconds (default: 300)`);
+  log(`  ${CYAN}--log${RESET}         Write output to .gsd-t/headless-{timestamp}.log\n`);
+  log(`${BOLD}Exit codes:${RESET}`);
+  log(`  0  success`);
+  log(`  1  verify-fail`);
+  log(`  2  context-budget-exceeded`);
+  log(`  3  error`);
+  log(`  4  blocked-needs-human\n`);
+  log(`${BOLD}Query types:${RESET}`);
+  log(`  ${VALID_QUERY_TYPES.join(", ")}\n`);
+  log(`${BOLD}Examples:${RESET}`);
+  log(`  ${DIM}$${RESET} gsd-t headless verify --json`);
+  log(`  ${DIM}$${RESET} gsd-t headless execute --timeout=600 --log`);
+  log(`  ${DIM}$${RESET} gsd-t headless query status`);
+  log(`  ${DIM}$${RESET} gsd-t headless query domains\n`);
+}
+
 function showHelp() {
   log(`\n${BOLD}GSD-T${RESET} — Contract-Driven Development for Claude Code\n`);
   log(`${BOLD}Usage:${RESET}  npx @tekyzinc/gsd-t ${CYAN}<command>${RESET} [options]\n`);
@@ -1664,6 +2042,7 @@ function showHelp() {
   log(`  ${CYAN}doctor${RESET}         Diagnose common issues`);
   log(`  ${CYAN}changelog${RESET}      Open changelog in the browser`);
   log(`  ${CYAN}graph${RESET}          Code graph operations (index, status, query)`);
+  log(`  ${CYAN}headless${RESET}       Non-interactive execution via claude -p + fast state queries`);
   log(`  ${CYAN}help${RESET}           Show this help\n`);
   log(`${BOLD}Examples:${RESET}`);
   log(`  ${DIM}$${RESET} npx @tekyzinc/gsd-t install`);
@@ -1729,6 +2108,22 @@ module.exports = {
   doGraphIndex,
   doGraphStatus,
   doGraphQuery,
+  // Headless mode
+  parseHeadlessFlags,
+  buildHeadlessCmd,
+  mapHeadlessExitCode,
+  headlessLogPath,
+  doHeadlessExec,
+  doHeadlessQuery,
+  doHeadless,
+  queryStatus,
+  queryDomains,
+  queryContracts,
+  queryDebt,
+  queryContext,
+  queryBacklog,
+  queryGraph,
+  VALID_QUERY_TYPES,
   PKG_VERSION,
   PKG_ROOT,
   PKG_COMMANDS,
@@ -1770,6 +2165,9 @@ if (require.main === module) {
       break;
     case "graph":
       doGraph(args.slice(1));
+      break;
+    case "headless":
+      doHeadless(args.slice(1));
       break;
     case "scan": {
       const exportFlag = args.find(a => a.startsWith('--export='));

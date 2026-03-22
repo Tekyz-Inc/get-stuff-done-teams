@@ -1,6 +1,6 @@
 # Infrastructure — GSD-T Framework (@tekyzinc/gsd-t)
 
-## Last Updated: 2026-03-09 (Scan #9, Post-M17)
+## Last Updated: 2026-03-22 (M23 — Headless Mode)
 
 ## Quick Reference
 
@@ -14,6 +14,8 @@
 | View changelog | `npx @tekyzinc/gsd-t changelog` |
 | Register project | `npx @tekyzinc/gsd-t register` |
 | Publish to npm | `npm publish` (runs `npm test` automatically via prepublishOnly) |
+| Headless exec | `gsd-t headless <command> [--json] [--timeout=N] [--log]` |
+| Headless query | `gsd-t headless query <type>` (no LLM, <100ms) |
 
 ## Local Development
 
@@ -107,6 +109,90 @@ get-stuff-done-teams/
 ├── docs/               — Methodology + living docs
 ├── .gsd-t/             — GSD-T state (self-managed)
 └── package.json        — npm package config
+```
+
+## Headless Mode (M23)
+
+Headless mode enables non-interactive GSD-T execution for CI/CD pipelines and overnight builds.
+
+### headless exec
+
+Wraps `claude -p "/user:gsd-t-{command} {args}"` for unattended execution.
+
+```bash
+gsd-t headless verify --json --timeout=1200 --log
+gsd-t headless execute --timeout=3600
+gsd-t headless wave --json
+```
+
+**Flags:**
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--json`        | off    | Output structured JSON envelope |
+| `--timeout=N`   | 300s   | Kill process after N seconds |
+| `--log`         | off    | Write output to `.gsd-t/headless-{timestamp}.log` |
+
+**Exit codes:**
+| Code | Meaning |
+|------|---------|
+| 0    | success |
+| 1    | verify-fail (tests or quality gates failed) |
+| 2    | context-budget-exceeded (split the milestone) |
+| 3    | error (claude CLI error or process failure) |
+| 4    | blocked-needs-human (requires manual intervention) |
+
+**JSON envelope shape (--json flag):**
+```json
+{
+  "success": true,
+  "exitCode": 0,
+  "gsdtExitCode": 0,
+  "command": "verify",
+  "args": [],
+  "output": "...",
+  "timestamp": "2026-03-22T10:00:00.000Z",
+  "duration": 42150,
+  "logFile": ".gsd-t/headless-1742641200000.log"
+}
+```
+
+### headless query
+
+Pure Node.js file parsing — no LLM calls, <100ms response.
+
+```bash
+gsd-t headless query status     # Version, milestone, phase
+gsd-t headless query domains    # Domain list with flags
+gsd-t headless query contracts  # Contract file list
+gsd-t headless query debt       # Tech debt items
+gsd-t headless query context    # Token log summary
+gsd-t headless query backlog    # Backlog items
+gsd-t headless query graph      # Graph index metadata
+```
+
+All queries return JSON to stdout.
+
+### CI/CD Integration
+
+Example workflow files are in `docs/ci-examples/`:
+- `github-actions.yml` — GitHub Actions workflow with verify + status gate jobs
+- `gitlab-ci.yml` — GitLab CI pipeline with status/verify/report stages
+
+**Quick setup for GitHub Actions:**
+```yaml
+- name: GSD-T Verify
+  env:
+    ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+  run: gsd-t headless verify --json --timeout=1200
+```
+
+**Quick setup for GitLab CI:**
+```yaml
+gsd-t-verify:
+  script:
+    - gsd-t headless verify --json --timeout=1200
+  variables:
+    ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
 ```
 
 ## Security Notes

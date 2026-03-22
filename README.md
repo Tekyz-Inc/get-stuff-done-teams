@@ -76,6 +76,11 @@ npx @tekyzinc/gsd-t status         # Check installation + version
 npx @tekyzinc/gsd-t doctor         # Diagnose common issues
 npx @tekyzinc/gsd-t changelog      # Open changelog in the browser
 npx @tekyzinc/gsd-t uninstall      # Remove commands (keeps project files)
+
+# Headless mode (CI/CD)
+gsd-t headless verify --json --timeout=1200  # Run verify non-interactively
+gsd-t headless query status                  # Get project state (no LLM, <100ms)
+gsd-t headless query domains                 # List domains (no LLM)
 ```
 
 ### Updating

@@ -3,19 +3,13 @@
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: IN PROGRESS
 ## Date: 2026-03-22
-## Version: 2.40.10
+## Version: 2.41.10
 
 ## Active Milestone
 
-None — M22 COMPLETE. Next: M23 (Headless Mode)
+None — M23 COMPLETE. Next: M24 (Docker)
 
 ## Queued Milestones
-
-**M23: GSD 2 Tier 2 — Headless Mode** — Phase: QUEUED
-- Goal: Add `gsd-t headless` CLI mode (via `claude -p` wrapper) for unattended milestone execution, and `gsd-t headless query` for instant JSON state access without LLM calls. Enable CI/CD integration, overnight builds, and pipeline gates.
-- PRD: docs/prd-gsd2-hybrid.md (PRD-GSD2-001 v2)
-- Version Target: 2.41.10
-- Depends on: M22
 
 **M24: Docker (Enterprise)** — Phase: QUEUED
 - Goal: Containerized GSD-T execution with Vault-injected secrets for enterprise security compliance. Ephemeral containers, no credential persistence.
@@ -24,6 +18,9 @@ None — M22 COMPLETE. Next: M23 (Headless Mode)
 - Depends on: M23
 
 ## Previous Milestones (Archived)
+
+**M23: GSD 2 Tier 2 — Headless Mode** — COMPLETE
+- Result: 3 domains (headless-exec, headless-query, pipeline-integration). `gsd-t headless` CLI subcommand wraps `claude -p` with exit codes 0-4, --json/--timeout/--log flags. `gsd-t headless query` returns JSON from .gsd-t/ file parsing in ~50ms (no LLM). 7 query types: status, domains, contracts, debt, context, backlog, graph. CI examples: GitHub Actions + GitLab CI. 36 new tests (329 total). v2.41.10.
 
 **M20: Graph Abstraction Layer + Native Indexer + CGC Integration** — COMPLETE
 - Result: 6 new files (graph-store, graph-parsers, graph-overlay, graph-indexer, graph-query, graph-cgc), 3 CLI subcommands (graph index/status/query), 4 new contracts, 70 new tests. Self-indexed: 264 entities, 725 relationships. 280/280 tests pass.
@@ -35,7 +32,7 @@ None — M22 COMPLETE. Next: M23 (Headless Mode)
 | #   | Milestone                             | Status  | Version | Domains |
 |-----|---------------------------------------|---------|---------|---------|
 | M22 | GSD 2 Tier 1 — Execution Quality      | COMPLETE    | 2.40.10 | 5       |
-| M23 | GSD 2 Tier 2 — Headless Mode          | QUEUED  | 2.41.10 | 3       |
+| M23 | GSD 2 Tier 2 — Headless Mode          | COMPLETE | 2.41.10 | 3       |
 | M24 | Docker (Enterprise)                   | QUEUED  | 2.42.10 | 2       |
 
 ## Domains (M22)
@@ -102,6 +99,7 @@ Wave 4: adaptive-replan (consumes fresh-dispatch summaries, integrates with work
 
 ## Decision Log
 (Entries before 2026-02-16 reconstructed from git history with timestamps)
+- 2026-03-22: [milestone] M23 COMPLETE — GSD 2 Tier 2 Headless Mode v2.41.10. 3 domains (headless-exec, headless-query, pipeline-integration), 11 tasks total. `gsd-t headless <cmd>` wraps claude -p with exit codes 0-4 and --json/--timeout/--log flags. `gsd-t headless query <type>` returns JSON from .gsd-t/ file parsing (~50ms, no LLM) for 7 query types: status, domains, contracts, debt, context, backlog, graph. CI examples: docs/ci-examples/github-actions.yml + gitlab-ci.yml. headless-contract.md. 36 new tests, 329 total pass.
 - 2026-03-22: [milestone] M22 COMPLETE — GSD 2 Tier 1 Execution Quality v2.40.10. 18/18 tasks across 5 domains, 293 tests passing. Delivered: task-level fresh dispatch (one subagent per task, ~10-20% context each), worktree isolation (isolation: "worktree" in execute team mode, sequential merge protocol), goal-backward verification (placeholder detection in verify/complete-milestone), adaptive replanning (post-domain summary check, tasks.md rewrite, max 2 cycles), context observability (Domain/Task/Ctx% columns in token-log.md, 70%/85% alert thresholds, token breakdown in status). Plan command enforces single-context-window task constraint. Updated: 4 reference files, docs/architecture.md, docs/prd-gsd2-hybrid.md, docs/prd-graph-engine.md.
 - 2026-03-20: [success] adaptive-replan domain COMPLETE (3/3 tasks) — Task 1+3: Added Adaptive Replan Check (step 4) to execute orchestrator's "After all tasks in a domain complete" section. Reads completed domain's task-*-summary.md files, extracts "Constraints discovered" fields (fast path if none). Graph-enhanced impact assessment: if graph available, runs getImporters + getDomainBoundaryViolations to scope replan to only affected domains; fallback checks all remaining domains. If invalidated assumptions found, appends Revision block (Trigger/Constraint/Changes/Rationale) to affected domains' tasks.md on disk. Tracks REPLAN_CYCLES counter — max 2 per run, pauses for user if exceeded. Logs all replan decisions to Decision Log in progress.md. Task 2: Updated wave.md EXECUTE phase description to reference adaptive-replan-contract.md, max 2 cycle guard, and replan phase summary format. 293/293 tests pass.
 - 2026-03-20: [success] worktree-isolation domain COMPLETE (4/4 tasks) — Task 1: Added isolation: "worktree" to each domain teammate Agent spawn in execute team mode; each domain works in isolated git worktree. Task 2: Added Sequential Merge Protocol to execute team mode — after all domains complete, lead merges domain branches in dependency order (from integration-points.md), runs tests between each merge, rolls back per-domain if tests fail. Task 3: Added file ownership validation (graph getDomainBoundaryViolations + scope.md check) and mandatory worktree cleanup (git worktree remove + prune + orphan detection) after merge protocol. Task 4: Updated gsd-t-wave.md execute phase to reference worktree isolation; updated gsd-t-integrate.md with Step 2.5 (worktree merge status check) and multi-domain merge note referencing worktree-isolation-contract.md. 293/293 tests pass.
