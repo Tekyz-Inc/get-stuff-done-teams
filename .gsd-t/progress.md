@@ -9,7 +9,7 @@
 
 **Feature: Self-Learning & Self-Improvement System** — 3 milestones DEFINED (M25, M26, M27)
 
-**M25: Telemetry Collection & Metrics Dashboard (Tier 1)** — TESTS_SYNCED (v2.43.10)
+**M25: Telemetry Collection & Metrics Dashboard (Tier 1)** — INTEGRATED (v2.43.10)
 - Task telemetry with weighted signal taxonomy, rollups, process ELO, pre-flight intelligence check, Chart.js dashboard, gsd-t-metrics command
 - 4 domains: metrics-collection, metrics-rollup, metrics-dashboard, metrics-commands
 
@@ -53,7 +53,7 @@ None — backlog item #10 (Docker Enterprise) available when ready.
 | M22 | GSD 2 Tier 1 — Execution Quality      | COMPLETE    | 2.40.10 | 5       |
 | M23 | GSD 2 Tier 2 — Headless Mode          | COMPLETE | 2.41.10 | 3       |
 | M24 | Docker (Enterprise)                                | BACKLOG | 2.42.10 | 2       |
-| M25 | Telemetry Collection & Metrics Dashboard (Tier 1)  | TESTS_SYNCED | 2.43.10 | 4       |
+| M25 | Telemetry Collection & Metrics Dashboard (Tier 1)  | INTEGRATED | 2.43.10 | 4       |
 | M26 | Declarative Rule Engine & Patch Lifecycle (Tier 2)  | DEFINED | 2.44.10 | TBD     |
 | M27 | Cross-Project Learning & Global Sync (Tier 2.5)    | DEFINED | 2.45.10 | TBD     |
 
@@ -139,6 +139,7 @@ Wave 4: adaptive-replan (consumes fresh-dispatch summaries, integrates with work
 
 ## Decision Log
 (Entries before 2026-02-16 reconstructed from git history with timestamps)
+- 2026-03-23: [success] M25 INTEGRATED — all 4 domains wired, 3 contracts verified compliant. Contract audit: metrics-schema-contract.md (task-metrics.jsonl + rollup.jsonl schemas, signal taxonomy, ELO formula, heuristics) — all fields match, exports match. dashboard-server-contract.md (GET /metrics endpoint, readMetricsData export) — matches implementation. event-schema-contract.md (task_complete event type) — present in VALID_EVENT_TYPES. End-to-end smoke test: collector->rollup->dashboard data flow verified (temp dir functional test). Integration points: metrics-collection writes task-metrics.jsonl, metrics-rollup reads it and writes rollup.jsonl, dashboard-server reads both via GET /metrics, gsd-t-metrics reads both from disk. No worktree rollbacks. Graph index stale (pre-M25) — skipped graph boundary validation. 4 reference files confirmed: gsd-t-metrics in README.md, GSD-T-README.md, CLAUDE-global.md, gsd-t-help.md. Command count: 50 (dynamic from filesystem). 373/373 tests pass.
 - 2026-03-23: [success] M25 TESTS_SYNCED — 373/373 tests pass (8 new). Coverage gap found and filled: readMetricsData + GET /metrics endpoint in dashboard-server had zero tests. Added 5 unit tests for readMetricsData (empty dir, no files, task-metrics only, rollups only, both + invalid lines) and 2 integration tests for GET /metrics (with data, empty). All 3 M25 contracts verified compliant (metrics-schema, dashboard-server, event-schema). No stale or dead tests. test-coverage.md updated.
 - 2026-03-23: [success] M25 EXECUTED — 16/16 tasks across 4 domains, 3 waves. Wave 1: metrics-collection (5 tasks) — bin/metrics-collector.js (collectTaskMetrics, readTaskMetrics, getPreFlightWarnings), event-schema-contract extended with task_complete, event-writer.js updated, execute/quick/debug instrumented with emission + pre-flight check, 17 new tests. Wave 2: metrics-rollup (5 tasks) — bin/metrics-rollup.js (generateRollup, computeELO, runHeuristics, readRollups), complete-milestone rollup step, verify quality budget check, plan pre-mortem, 18 new tests. Wave 3: metrics-dashboard (2 tasks) + metrics-commands (4 tasks) — GET /metrics endpoint + readMetricsData in dashboard server, Chart.js panel with ELO/trend/heatmap, gsd-t-metrics.md (50th command), status ELO display, all 4 reference files + CLAUDE.md + package.json updated (49→50). 365/365 tests pass (35 new).
 - 2026-03-23: [success] M25 IMPACT_ANALYZED — verdict PROCEED. 0 breaking changes, 5 requires-updates, 12 safe changes, 0 unknown. Key findings: (1) dashboard-server.js at 154/200 line budget — ~46 lines available for /metrics endpoint, sufficient. (2) event-writer.js has hardcoded VALID_EVENT_TYPES Set — `task_complete` must be added during metrics-collection Task 1. (3) gsd-t.js command count is dynamically computed from filesystem — no hardcoded count to update. (4) CLAUDE.md project file references "49 slash commands" — needs updating alongside 4 reference files. (5) plan.md pre-mortem step insertion requires renumbering subsequent steps. All 329 existing tests pass. No remediation tasks needed.
