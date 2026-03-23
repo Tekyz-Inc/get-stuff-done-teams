@@ -109,11 +109,28 @@ function handleEvents(req, res, eventsDir) {
   req.on("close", () => { clearInterval(timer); if (unwatchFile) unwatchFile(); if (dirWatcher) dirWatcher.close(); });
 }
 
-function startServer(port, eventsDir, htmlPath) {
+function readMetricsData(metricsDir) {
+  const taskFile = path.join(metricsDir, "task-metrics.jsonl");
+  const rollupFile = path.join(metricsDir, "rollup.jsonl");
+  const taskMetrics = fs.existsSync(taskFile) ? safeReadJsonl(taskFile) : [];
+  const rollups = fs.existsSync(rollupFile) ? safeReadJsonl(rollupFile) : [];
+  return { taskMetrics, rollups };
+}
+
+function handleMetrics(req, res, projectDir) {
+  const metricsDir = path.join(projectDir, ".gsd-t", "metrics");
+  const data = readMetricsData(metricsDir);
+  res.writeHead(200, { "Content-Type": "application/json" });
+  res.end(JSON.stringify(data));
+}
+
+function startServer(port, eventsDir, htmlPath, projectDir) {
+  const projDir = projectDir || path.resolve(eventsDir, "..", "..");
   const server = http.createServer((req, res) => {
     const url = req.url.split("?")[0];
     if (url === "/" || url === "") return handleRoot(req, res, htmlPath);
     if (url === "/events") return handleEvents(req, res, eventsDir);
+    if (url === "/metrics") return handleMetrics(req, res, projDir);
     if (url === "/ping") return handlePing(req, res, port);
     if (url === "/stop") return handleStop(req, res, server);
     res.writeHead(404); res.end("Not found");
@@ -122,7 +139,7 @@ function startServer(port, eventsDir, htmlPath) {
   return { server, url: `http://localhost:${port}` };
 }
 
-module.exports = { startServer, tailEventsFile, readExistingEvents, parseEventLine, findEventsDir };
+module.exports = { startServer, tailEventsFile, readExistingEvents, parseEventLine, findEventsDir, readMetricsData };
 
 if (require.main === module) {
   const argv = process.argv.slice(2);

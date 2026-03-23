@@ -8,6 +8,7 @@
 <script src="https://unpkg.com/dagre@0.8.5/dist/dagre.min.js"></script>
 <script src="https://unpkg.com/reactflow@11.11.4/dist/umd/index.js"></script>
 <link rel="stylesheet" href="https://unpkg.com/reactflow@11.11.4/dist/style.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 <style>
 :root{--bg:#0d1117;--surface:#161b22;--border:#30363d;--text:#e6edf3;--muted:#7d8590;
   --green:#3fb950;--green-bg:#1a3a1e;--red:#f85149;--red-bg:#3a1a1a;
@@ -50,6 +51,15 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:12
 .model-name{width:50px;color:var(--text);font-weight:500;}.model-bar-bg{flex:1;height:8px;background:var(--bg);border-radius:4px;overflow:hidden;}
 .model-bar{height:100%;border-radius:4px;transition:width .3s ease;}.model-bar.opus{background:var(--blue);}.model-bar.sonnet{background:var(--green);}.model-bar.haiku{background:var(--yellow);}
 .model-cnt{color:var(--muted);font-size:10px;min-width:20px;text-align:right;}
+.metrics-panel{background:var(--surface);border-top:1px solid var(--border);padding:12px;flex-shrink:0;max-height:280px;overflow-y:auto;}
+.metrics-panel .sb-hdr{padding:0 0 8px;border-bottom:none;}
+.elo-display{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:12px;}
+.elo-score{font-size:18px;font-weight:bold;color:var(--blue);}
+.elo-delta{font-size:12px;}.elo-delta.up{color:var(--green);}.elo-delta.down{color:var(--red);}
+.metrics-chart{height:120px;margin-bottom:8px;}
+.domain-heat{width:100%;border-collapse:collapse;font-size:10px;margin-top:4px;}
+.domain-heat th{color:var(--muted);text-align:left;padding:2px 6px;border-bottom:1px solid var(--border);}
+.domain-heat td{padding:2px 6px;}.rate-good{color:var(--green);}.rate-warn{color:var(--yellow);}.rate-bad{color:var(--red);}
 </style>
 </head>
 <body>
@@ -65,6 +75,15 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:12
     <div id="models" class="models"><div class="noevents">No model data yet</div></div>
     <div class="sb-hdr">Live Event Feed</div>
     <div id="feed" class="feed"><div class="noevents">Waiting for events...</div></div>
+    <div class="metrics-panel">
+      <div class="sb-hdr">Process Metrics</div>
+      <div id="elo-display" class="elo-display"><span class="noevents">No metrics data</span></div>
+      <div class="metrics-chart"><canvas id="trend-chart"></canvas></div>
+      <table id="domain-heat" class="domain-heat" style="display:none">
+        <thead><tr><th>Domain</th><th>Pass%</th><th>Avg(s)</th><th>Tasks</th></tr></thead>
+        <tbody id="domain-heat-body"></tbody>
+      </table>
+    </div>
   </div>
 </div>
 <script>
@@ -194,6 +213,50 @@ function Dashboard(){
 }
 
 ReactDOM.render(React.createElement(Dashboard),document.getElementById('rf-root'));
+
+// ── Metrics Panel ──────────────────────────────────────────────────────────
+(function initMetrics(){
+  let trendChart=null;
+  function rateClass(r){return r>=0.8?'rate-good':r>=0.6?'rate-warn':'rate-bad';}
+  function fetchMetrics(){
+    fetch(`http://localhost:${PORT}/metrics`).then(r=>r.json()).then(data=>{
+      renderELO(data.rollups);renderTrend(data.rollups);renderHeatmap(data.rollups);
+    }).catch(()=>{});
+  }
+  function renderELO(rollups){
+    const el=document.getElementById('elo-display');
+    if(!rollups||!rollups.length){el.innerHTML='<span class="noevents">No metrics data</span>';return;}
+    const last=rollups[rollups.length-1];
+    const dc=last.elo_delta>=0?'up':'down';const arrow=last.elo_delta>=0?'+':'';
+    el.innerHTML=`<span class="elo-score">${Math.round(last.elo_after)}</span><span>ELO</span>`+
+      `<span class="elo-delta ${dc}">${arrow}${last.elo_delta.toFixed(1)}</span>`;
+  }
+  function renderTrend(rollups){
+    const ctx=document.getElementById('trend-chart');
+    if(!ctx||!rollups||rollups.length<1)return;
+    const labels=rollups.map(r=>r.milestone);
+    const rates=rollups.map(r=>(r.first_pass_rate*100).toFixed(1));
+    if(trendChart)trendChart.destroy();
+    trendChart=new Chart(ctx,{type:'line',data:{labels,datasets:[{label:'First-Pass %',
+      data:rates,borderColor:'#3fb950',backgroundColor:'rgba(63,185,80,0.1)',fill:true,tension:0.3}]},
+      options:{responsive:true,maintainAspectRatio:false,scales:{y:{min:0,max:100,
+      ticks:{color:'#7d8590',font:{size:9}}},x:{ticks:{color:'#7d8590',font:{size:9}}}},
+      plugins:{legend:{labels:{color:'#e6edf3',font:{size:10}}}}}});
+  }
+  function renderHeatmap(rollups){
+    const tbl=document.getElementById('domain-heat');const body=document.getElementById('domain-heat-body');
+    if(!rollups||!rollups.length||!tbl||!body){return;}
+    const last=rollups[rollups.length-1];
+    if(!last.domain_breakdown||!last.domain_breakdown.length)return;
+    tbl.style.display='table';
+    body.innerHTML=last.domain_breakdown.map(d=>{
+      const r=d.first_pass_rate;const cls=rateClass(r);
+      return `<tr><td>${d.domain}</td><td class="${cls}">${(r*100).toFixed(0)}%</td>`+
+        `<td>${d.avg_duration_s.toFixed(0)}</td><td>${d.tasks}</td></tr>`;
+    }).join('');
+  }
+  fetchMetrics();setInterval(fetchMetrics,30000);
+})();
 </script>
 </body>
 </html>

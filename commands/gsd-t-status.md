@@ -91,6 +91,25 @@ Group rows by Command. For each command, sum Tokens and count subagent rows. Dis
 
 If token-log.md does not exist or is empty, skip this section entirely (no error).
 
+## Process Health
+
+If `.gsd-t/metrics/rollup.jsonl` exists, read the latest entry and append to the status report:
+
+```
+Process Health:
+  ELO: {elo_after} ({elo_delta > 0 ? '↑' : '↓'} {elo_delta})
+  Quality: {first_pass_rate * 100}% first-pass rate | {total_fix_cycles} fix cycles
+```
+
+If `.gsd-t/metrics/task-metrics.jsonl` exists but no rollup.jsonl, compute first_pass_rate directly from task-metrics for the current milestone and display:
+
+```
+Process Health:
+  Quality: {rate}% first-pass rate (current milestone, no rollup yet)
+```
+
+If neither file exists, skip this section entirely.
+
 ## Graph Status
 
 If `.gsd-t/graph/meta.json` exists, read it and append to the status report:

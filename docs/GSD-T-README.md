@@ -102,8 +102,8 @@ GSD-T reads all state files and tells you exactly where you left off.
 | `/user:gsd-t-test-sync` | Sync tests with code changes | In wave |
 | `/user:gsd-t-qa` | QA agent — test generation, execution, gap reporting | Auto-spawned |
 | `/user:gsd-t-integrate` | Wire domains together | In wave |
-| `/user:gsd-t-verify` | Run quality gates + goal-backward behavior verification | In wave |
-| `/user:gsd-t-complete-milestone` | Archive + git tag (goal-backward gate required) | In wave |
+| `/user:gsd-t-verify` | Run quality gates + goal-backward verification → auto-invokes complete-milestone | In wave |
+| `/user:gsd-t-complete-milestone` | Archive + git tag (auto-invoked by verify, also standalone) | In wave |
 
 ### Automation & Utilities
 
@@ -116,6 +116,7 @@ GSD-T reads all state files and tells you exactly where you left off.
 | `/user:gsd-t-reflect` | Generate retrospective from event stream, propose memory updates | Manual |
 | `/user:gsd-t-visualize` | Launch browser dashboard — SSE server + React Flow agent visualization | Manual |
 | `/user:gsd-t-debug` | Systematic debugging with state | Manual |
+| `/user:gsd-t-metrics` | View task telemetry, process ELO, signal distribution, and domain health | Manual |
 | `/user:gsd-t-health` | Validate .gsd-t/ structure, optionally repair | Manual |
 | `/user:gsd-t-pause` | Save exact position for reliable resume | Manual |
 | `/user:gsd-t-log` | Sync progress Decision Log with recent git activity | Manual |
@@ -154,7 +155,7 @@ GSD-T reads all state files and tells you exactly where you left off.
 │                                              │    │  task + at verify)│     │
 │                                              │    └───────────────────┘     │
 │                                              ▼                              │
-│  complete-milestone ◄── verify ◄── integrate ◄──────────────────────┘      │
+│  verify+complete ◄──────────── integrate ◄──────────────────────┘          │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```

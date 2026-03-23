@@ -58,6 +58,7 @@ PROJECT or FEATURE or SCAN
 | `/user:gsd-t-quick` | Fast task, respects contracts |
 | `/user:gsd-t-reflect` | Generate retrospective from event stream, propose memory updates |
 | `/user:gsd-t-visualize` | Launch browser dashboard |
+| `/user:gsd-t-metrics` | View task telemetry, process ELO, and domain health |
 | `/user:gsd-t-health` | Validate .gsd-t/ structure, optionally repair |
 | `/user:gsd-t-pause` | Save exact position for reliable resume |
 | `/user:gsd-t-populate` | Auto-populate docs from existing codebase |
@@ -427,7 +428,7 @@ Successor mapping:
 | `execute` | `test-sync` | |
 | `test-sync` | `verify` | `integrate` (if multi-domain) |
 | `integrate` | `verify` | |
-| `verify` | `complete-milestone` | |
+| `verify` | *(auto-invokes complete-milestone)* | |
 | `complete-milestone` | `status` | |
 | `scan` | `promote-debt` | `milestone` |
 | `init` | `scan` | `milestone` |

@@ -39,8 +39,8 @@ MILESTONE WORKFLOW                                          [auto] = in wave
   test-sync    [auto] Sync tests with code changes
   qa           [auto] QA agent — test generation, execution, gap reporting
   integrate    [auto] Wire domains together at boundaries
-  verify       [auto] Run quality gates
-  complete-milestone [auto] Archive milestone + git tag
+  verify       [auto] Run quality gates → auto-invokes complete-milestone
+  complete-milestone [auto] Archive milestone + git tag (auto-invoked by verify)
 
 AUTOMATION                                                                Auto
 ───────────────────────────────────────────────────────────────────────────────
@@ -277,15 +277,15 @@ Use these when user asks for help on a specific command:
 
 ### complete-milestone
 - **Summary**: Archive milestone documentation and create git tag
-- **Auto-invoked**: Yes (in wave, after verify passes)
+- **Auto-invoked**: Yes — by verify (Step 8, all autonomy levels) and in wave
 - **Creates**: `.gsd-t/milestones/{name}/`, git tag
-- **Use when**: Milestone is done and verified
+- **Use when**: Auto-runs after verify passes. Can also be invoked standalone to manually close a milestone.
 - **Note (M22)**: Goal-backward gate runs as final check before archiving — blocks completion if placeholders remain
 
 ### wave
-- **Summary**: Run complete cycle automatically: partition through complete
+- **Summary**: Run complete cycle automatically: partition through verify+complete
 - **Auto-invoked**: No (user triggers)
-- **Runs**: partition → discuss → plan → impact → execute → test-sync → integrate → verify → complete-milestone
+- **Runs**: partition → discuss → plan → impact → execute → test-sync → integrate → verify+complete
 - **Use when**: Ready to execute a full milestone hands-off
 
 ### status
@@ -320,6 +320,12 @@ Use these when user asks for help on a specific command:
 - **Reads**: `.gsd-t/dashboard.pid`, `.gsd-t/events/*.jsonl` (via server)
 - **Creates**: `.gsd-t/dashboard.pid` (when starting server)
 - **Use when**: Monitoring live agent activity during execute/wave phases; run `gsd-t-visualize stop` to stop the server
+
+### metrics
+- **Summary**: View task telemetry, process ELO, signal distribution, and domain health
+- **Auto-invoked**: No
+- **Reads**: `.gsd-t/metrics/task-metrics.jsonl`, `.gsd-t/metrics/rollup.jsonl`
+- **Use when**: Reviewing process health, first-pass rates, ELO trends, or anomaly flags for the current or a specific milestone
 
 ### debug
 - **Summary**: Systematic debugging with persistent state
