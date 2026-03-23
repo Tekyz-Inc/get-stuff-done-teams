@@ -7,7 +7,7 @@
 
 ## Active Milestone
 
-**Feature: Self-Learning & Self-Improvement System** — 3 milestones DEFINED (M25, M26, M27)
+**Feature: Self-Learning & Self-Improvement System** — M25 COMPLETE, M26 ACTIVE, M27 DEFINED
 
 **M25: Telemetry Collection & Metrics Dashboard (Tier 1)** — COMPLETE (v2.43.10)
 - Task telemetry with weighted signal taxonomy, rollups, process ELO, pre-flight intelligence check, Chart.js dashboard, gsd-t-metrics command
@@ -15,23 +15,42 @@
 - Archived: .gsd-t/milestones/M25-telemetry-metrics-2026-03-23/
 
 **M26: Declarative Rule Engine & Patch Lifecycle (Tier 2)** — DEFINED (v2.44.10)
-- Auto-generated patches, promotion gates (>55% win rate), patch graduation to permanent methodology, quality budget governance
+- **Goal**: Auto-detect failure patterns, generate candidate patches, and manage their lifecycle through promotion gates with measurable improvement thresholds. Promoted patches that sustain improvement graduate into permanent methodology artifacts.
+- **Scope**:
+  - `.gsd-t/metrics/rules.jsonl` — declarative rule engine: pattern detection triggers as JSON objects (not hardcoded heuristics). Adding a new detection pattern = JSON append, not code deploy
+  - `.gsd-t/metrics/patch-templates.jsonl` — maps triggers to specific command file / constraints.md edits. Each template defines: trigger pattern, target file, edit type, edit content
+  - Patch lifecycle with 5 stages: `candidate → applied → measured → promoted → graduated`
+    - **candidate**: auto-generated when heuristic detects repeated pattern (>=3 occurrences in task-metrics)
+    - **applied**: patch template executed, edit applied to target file
+    - **measured**: next 2+ milestones track whether the target metric improved
+    - **promoted**: patch exceeds improvement threshold (>55% win rate, adapted from AlphaZero)
+    - **graduated**: promoted patch sustained for 3+ milestones → absorbed into permanent methodology artifact (constraints.md, verify checks, plan pre-conditions) → removed from rules.jsonl
+  - Promotion gates — patches must measurably improve target metric before becoming permanent
+  - Activation count tracking — each rule records how many times it fires. Rules that haven't prevented a failure in N milestones flagged for deprecation
+  - Periodic consolidation — every 5 milestones, related rules distilled into single cleaner rule (anti-bloat)
+  - Quality budget governance — per-milestone rework ceiling (e.g., max 20% of tasks require fix cycles). When budget exhausted, system auto-tightens constraints: force discuss phase, require contract review, split large tasks
+  - Extends `commands/gsd-t-complete-milestone.md` — rule evaluation + patch generation + promotion + graduation in distillation step
+  - Extends `commands/gsd-t-execute.md` — pre-task active rule injection into subagent prompts
+  - Extends `commands/gsd-t-plan.md` — pre-mortem step reading rules for domain-type failure patterns
+  - New directory: `.gsd-t/metrics/patches/` — individual patch files with status tracking
+  - New contract: `.gsd-t/contracts/rule-engine-contract.md` — rule schema, patch template schema, promotion gate thresholds, graduation criteria
+- **Not in scope (Tier 3)**: Neo4j cross-project causal inference, cross-project rule propagation
+- **Predecessor**: M25 (task-metrics.jsonl must exist and be populated for pattern detection)
+- **Brainstorm**: `.gsd-t/brainstorm-2026-03-20-telemetry.md`
+- **Impact on existing**: All additive — no breaking changes to existing contracts
+
+**Success criteria**:
+- [ ] Rules.jsonl stores detection patterns as declarative JSON objects
+- [ ] Patch templates auto-generate candidate patches when patterns detected (>=3 occurrences)
+- [ ] Promotion gate blocks patch advancement unless >55% improvement measured
+- [ ] Graduated patches write themselves into constraints.md or verify checks and exit rules.jsonl
+- [ ] Activation count tracking flags inactive rules for deprecation
+- [ ] Quality budget governance triggers constraint tightening when rework ceiling exceeded
+- [ ] Pre-mortem in plan surfaces historical failure patterns for current domain types
+- [ ] All existing tests pass with no regressions (373+ tests)
 
 **M27: Cross-Project Learning & Global Sync (Tier 2.5)** — DEFINED (v2.45.10)
 - Global patch propagation, cross-project signal comparison, npm distribution of universal rules
-
-See `.gsd-t/roadmap.md` for full scope, success criteria, and impact analysis.
-
-**Success criteria**:
-- [ ] Every task in execute/quick/debug emits a record to `.gsd-t/metrics/task-metrics.jsonl`
-- [ ] `complete-milestone` produces rollup entry in `.gsd-t/metrics/rollup.jsonl` with trend delta vs. previous milestone
-- [ ] 4 detection heuristics flag anomalies during verify or complete-milestone
-- [ ] Dashboard (gsd-t-visualize) renders metric charts from task-metrics.jsonl and rollup.jsonl
-- [ ] Process ELO computed and stored per milestone, displayed in status output
-- [ ] All existing tests pass with no regressions (329+ tests)
-
-**Predecessor**: M14 (Execution Intelligence Layer — event stream), M15 (Dashboard — visualization)
-**Brainstorm**: `.gsd-t/brainstorm-2026-03-20-telemetry.md`
 
 ## Queued Milestones
 
@@ -140,6 +159,7 @@ Wave 4: adaptive-replan (consumes fresh-dispatch summaries, integrates with work
 
 ## Decision Log
 (Entries before 2026-02-16 reconstructed from git history with timestamps)
+- 2026-03-23: [design] M26 DEFINED — Declarative Rule Engine & Patch Lifecycle (Tier 2). Goal: auto-detect failure patterns from task-metrics.jsonl, generate candidate patches, manage 5-stage lifecycle (candidate→applied→measured→promoted→graduated) with >55% improvement gates. Scope: rules.jsonl declarative engine, patch-templates.jsonl, activation tracking, quality budget governance, pre-mortem in plan, rule injection in execute. Predecessor: M25. All additive, no breaking changes.
 - 2026-03-23: [success] M25 COMPLETE — Telemetry Collection & Metrics Dashboard v2.43.10. 16 tasks, 4 domains, 3 waves. Delivered: bin/metrics-collector.js (per-task telemetry writer), bin/metrics-rollup.js (milestone aggregation + ELO + 4 heuristics), GET /metrics endpoint + Chart.js dashboard panel, gsd-t-metrics command (50th). 373/373 tests. Archived to .gsd-t/milestones/M25-telemetry-metrics-2026-03-23/. No task-metrics data yet (first telemetry milestone) — rollup skipped. Tagged v2.43.10.
 - 2026-03-23: [goal-backward-pass] Goal-backward verification passed — 6 requirements checked, no placeholder patterns found
 - 2026-03-23: [success] M25 VERIFIED — all quality gates PASS. 373/373 tests, 3/3 contracts compliant, 16/16 acceptance criteria met, 0 critical/warning findings. Code quality: all files under 200 lines (metrics-rollup.js at limit), zero external deps, no placeholder patterns. Goal-backward: 6 requirements checked, 0 findings. Quality budget: skipped (no task-metrics data yet, expected for first telemetry milestone). Graph traceability: manual inspection (getRequirementFor not available). verify-report.md updated.
