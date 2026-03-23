@@ -25,6 +25,19 @@ If `.gsd-t/graph/meta.json` exists (graph index is available):
 
 If graph is not available, skip this step.
 
+## Step 1.7: Pre-Mortem — Historical Failure Analysis
+
+Before creating task lists, check historical task-metrics for domain-level failure patterns from previous milestones:
+
+1. Run via Bash:
+   `node -e "const c = require('./bin/metrics-collector.js'); const domains = [/* list domain names from scope files */]; domains.forEach(d => { const w = c.getPreFlightWarnings(d); if(w.length) w.forEach(x => console.log('⚠️ ' + x)); });" 2>/dev/null || true`
+
+2. If any domain has `first_pass_rate < 0.6` historically:
+   - Display warning inline: `⚠️ Domain {name} has historically low first-pass rate ({rate}%). Consider: smaller tasks, more explicit acceptance criteria, or additional contract detail.`
+   - This is **non-blocking** — it informs task design, does not prevent planning.
+
+3. If `.gsd-t/metrics/task-metrics.jsonl` does not exist: skip this step silently (first milestone, no historical data).
+
 ## Step 2: Create Task Lists Per Domain
 
 ### SharedCore-First Pre-Check

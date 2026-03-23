@@ -199,6 +199,21 @@ Create or update `.gsd-t/verify-report.md`:
 | 2 | ui | Add loading states for async calls | WARN |
 ```
 
+## Step 5.25: Metrics Quality Budget Check
+
+Check task-metrics for the current milestone to detect quality budget violations:
+
+1. Run via Bash:
+   `node -e "const c = require('./bin/metrics-collector.js'); const r = c.readTaskMetrics({milestone: '{milestone-id}'}); if(!r.length){console.log('No metrics data — quality budget check skipped');process.exit(0);} const pass=r.filter(t=>t.fix_cycles===0&&t.pass).length; const rate=pass/r.length; console.log('First-pass rate: '+(rate*100).toFixed(1)+'% ('+pass+'/'+r.length+')'); if(rate<0.6) console.log('⚠️ Quality budget WARNING: first-pass rate below 60%');" 2>/dev/null || true`
+
+2. Run heuristics check via Bash:
+   `node -e "const m=require('./bin/metrics-rollup.js'); const r=m.readRollups({milestone:'{milestone-id}'}); if(r.length&&r[r.length-1].heuristic_flags.some(f=>f.severity==='HIGH')) console.log('⚠️ HIGH severity heuristic flag detected — review before completing milestone');" 2>/dev/null || true`
+
+3. Display quality metrics summary inline. Quality budget violation is a **WARNING** (non-blocking) — does not fail verify.
+
+4. Include quality budget status in the verification report (Step 5):
+   `- Quality Budget: {PASS/WARN} — first-pass rate {N}%{, HIGH heuristic: {name} if any}`
+
 ## Step 5.5: Goal-Backward Verification (Post-Gate Behavior Check)
 
 This step runs **after all 8 quality gates pass**. It verifies that milestone goals are actually achieved end-to-end — not just structurally present. It catches placeholder implementations that pass all structural gates.
@@ -291,15 +306,9 @@ Update `.gsd-t/progress.md`:
 
 ### Autonomy Behavior
 
-**Level 3 (Full Auto)**:
-- VERIFIED → Log "✅ Verify complete — all quality gates passed" and auto-advance to complete-milestone. Do NOT wait for user input.
-- CONDITIONAL PASS → Log warnings, treat as VERIFIED, and auto-advance. Do NOT wait for user input.
-- FAIL → Auto-execute remediation tasks (up to 2 fix attempts). If still failing after 2 attempts, STOP and report to user.
-
-**Level 1–2**:
-- VERIFIED → Milestone complete, proceed to next milestone or ship
-- CONDITIONAL PASS → User decides if warnings are acceptable
-- FAIL → Return to execute phase for remediation tasks
+**All Levels**:
+- VERIFIED or CONDITIONAL PASS → **Auto-invoke complete-milestone** (see Step 8 below). Completing a verified milestone is mechanical — there is no judgment call that benefits from user review.
+- FAIL → **Level 3**: Auto-execute remediation tasks (up to 2 fix attempts). If still failing after 2 attempts, STOP and report to user. **Level 1–2**: Return to execute phase for remediation tasks.
 
 ## Document Ripple
 
@@ -311,6 +320,54 @@ Update `.gsd-t/progress.md`:
 3. **`.gsd-t/domains/{domain}/tasks.md`** — If remediation tasks were created (Step 5)
 4. **`.gsd-t/techdebt.md`** — If verification found new quality or security issues, add as debt
 5. **`docs/requirements.md`** — If verification revealed unmet requirements, update status
+
+## Step 8: Auto-Invoke Complete-Milestone
+
+**This step is MANDATORY and runs at ALL autonomy levels.** Completing a verified milestone is a mechanical operation (archive, tag, bump version, update docs). There is no decision that benefits from user review — the decision was made when verification passed.
+
+If status is VERIFY-FAILED:
+- Do NOT invoke complete-milestone
+- Report failures and stop
+
+If status is VERIFIED or VERIFIED-WITH-WARNINGS:
+1. Log: "✅ Verify complete — spawning complete-milestone agent..."
+
+**OBSERVABILITY LOGGING (MANDATORY):**
+Before spawning — run via Bash:
+`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M") && TOK_START=${CLAUDE_CONTEXT_TOKENS_USED:-0} && TOK_MAX=${CLAUDE_CONTEXT_TOKENS_MAX:-200000}`
+
+2. Spawn a Task subagent (model: sonnet, mode: bypassPermissions):
+```
+"Execute the complete-milestone phase of the current GSD-T milestone.
+
+Read and follow the full instructions in commands/gsd-t-complete-milestone.md
+(resolve from ~/.claude/commands/ if not in project).
+Read .gsd-t/progress.md for current milestone and state.
+Read CLAUDE.md for project conventions.
+Read .gsd-t/contracts/ for domain interfaces.
+
+Complete the phase fully:
+- Follow every step in the command file
+- Update .gsd-t/progress.md status when done
+- Run document ripple as specified
+- Commit your work
+
+Report back: one-line status summary."
+```
+
+After subagent returns — run via Bash:
+`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && TOK_END=${CLAUDE_CONTEXT_TOKENS_USED:-0} && DURATION=$((T_END-T_START))`
+Compute tokens and compaction:
+- No compaction (TOK_END >= TOK_START): `TOKENS=$((TOK_END-TOK_START))`, COMPACTED=null
+- Compaction detected (TOK_END < TOK_START): `TOKENS=$(((TOK_MAX-TOK_START)+TOK_END))`, COMPACTED=$DT_END
+Append to `.gsd-t/token-log.md`:
+`| {DT_START} | {DT_END} | gsd-t-verify | Step 8 | sonnet | {DURATION}s | auto-complete-milestone | {TOKENS} | {COMPACTED} | | | {CTX_PCT} |`
+
+3. Verify subagent result: Read `.gsd-t/progress.md` — confirm status is COMPLETED. If not, report the failure.
+
+**Why this is mandatory**: Without auto-completion, verified milestones remain in VERIFIED state indefinitely. Requirements stay unmarked, progress.md is stale, and future sessions cannot tell the work was done. This is the root cause of "GSD-T forgot it did this work" — the milestone was built and verified but never formally completed.
+
+**Why a subagent**: Complete-milestone is a 12-step process (gap analysis, archive, version bump, git tag, doc ripple). Verify is already heavy with 8+ quality gates. Spawning a fresh-context subagent avoids compaction risk — and complete-milestone loads everything it needs from files (progress.md, verify-report.md, contracts).
 
 $ARGUMENTS
 

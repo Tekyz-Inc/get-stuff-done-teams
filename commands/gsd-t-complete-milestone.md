@@ -3,7 +3,8 @@
 You are finalizing a completed milestone. Your job is to archive the milestone documentation, create a git tag, and prepare for the next milestone.
 
 This command is:
-- **Auto-invoked** at the end of `/user:gsd-t-wave` after verify passes
+- **Auto-invoked** by `/user:gsd-t-verify` (Step 8) after all quality gates pass — at ALL autonomy levels
+- **Auto-invoked** by `/user:gsd-t-wave` as part of the VERIFY+COMPLETE phase
 - **Standalone** when user wants to manually close a milestone
 
 ## Step 1: Verify Completion
@@ -284,6 +285,32 @@ If `.gsd-t/scan/` exists (a prior scan has been run):
 3. If all dimensions are fresh → skip with log: "Scan docs are fresh — no checkpoint refresh needed"
 
 If `.gsd-t/scan/` doesn't exist → skip (no scan data to maintain).
+
+## Step 8.7: Generate Metrics Rollup
+
+Generate milestone-level metrics aggregation and ELO score:
+
+1. Run via Bash:
+   `node bin/metrics-rollup.js {milestone-id} {version} 2>/dev/null`
+2. If rollup succeeds, display:
+   ```
+   ## Process Metrics — {milestone}
+   - ELO: {elo_before} → {elo_after} ({elo_delta > 0 ? '+' : ''}{elo_delta})
+   - First-pass rate: {first_pass_rate * 100}%
+   - Tasks: {total_tasks} | Fix cycles: {total_fix_cycles}
+   - Avg duration: {avg_duration_s}s | Avg context: {avg_context_pct}%
+   ```
+3. If `trend_delta` is present (previous milestone exists), display:
+   ```
+   Trend vs previous: first-pass rate {delta > 0 ? '↑' : '↓'} {delta}%, duration {delta}s
+   ```
+4. If `heuristic_flags` has entries, display as warnings:
+   ```
+   ⚠️ Heuristic: {heuristic} ({severity}) — {description}
+   ```
+5. If rollup fails (no task-metrics data): log "No task-metrics found — rollup skipped" and continue.
+
+Include ELO score in the milestone summary (Step 5) and git tag message (Step 11).
 
 ## Step 9: Document Ripple
 
