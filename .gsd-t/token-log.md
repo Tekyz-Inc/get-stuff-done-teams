@@ -21,4 +21,4 @@
 | 2026-03-23 11:19 | 2026-03-23 11:32 | gsd-t-wave | impact | sonnet | 756s | M25 impact: PROCEED, 0 breaking | 0 | null | | | N/A |
 | 2026-03-23 11:32 | 2026-03-23 12:17 | gsd-t-wave | execute | sonnet | 2713s | M25 execute: 16/16 tasks, 365/365 tests, 4 commits | 0 | null | | | N/A |
 | 2026-03-23 12:18 | 2026-03-23 13:05 | gsd-t-wave | test-sync | sonnet | 2859s | M25 test-sync: 373/373 pass, 8 new, 1 gap filled | 0 | null | | | N/A |
-| 2026-03-23 15:42 | 2026-03-23 15:47 | gsd-t-wave | integrate | sonnet | 354s | M25 integrated: 4 domains wired, 3 contracts verified, 373/373 tests | 0 | null | | | N/A |
+| 2026-03-23 15:42 | 2026-03-23 15:47 | gsd-t-wave | integrate | sonnet | 354s | M25 integrated: 4 domains wired, 3 contracts verified, 373/373 tests | 0 | null | | | N/A || 2026-03-23 16:04 | 2026-03-23 16:08 | gsd-t-verify | Step 8 | opus | 240s | auto-complete-milestone M25 | 0 | null | | M25 | N/A |
