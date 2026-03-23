@@ -16,6 +16,7 @@ const {
   readExistingEvents,
   startServer,
   tailEventsFile,
+  readMetricsData,
 } = require("../scripts/gsd-t-dashboard-server.js");
 
 let tmpDir;
@@ -271,5 +272,116 @@ describe("tailEventsFile", () => {
         }, 700);
       }, 50);
     });
+  });
+});
+
+// ─── readMetricsData ─────────────────────────────────────────────────────────
+
+describe("readMetricsData", () => {
+  it("returns empty arrays when metrics directory does not exist", () => {
+    const result = readMetricsData(path.join(tmpDir, "no-such-metrics"));
+    assert.deepEqual(result, { taskMetrics: [], rollups: [] });
+  });
+
+  it("returns empty arrays when metrics files do not exist", () => {
+    const metricsDir = path.join(tmpDir, "empty-metrics");
+    fs.mkdirSync(metricsDir, { recursive: true });
+    const result = readMetricsData(metricsDir);
+    assert.deepEqual(result, { taskMetrics: [], rollups: [] });
+  });
+
+  it("reads task-metrics.jsonl into taskMetrics array", () => {
+    const metricsDir = path.join(tmpDir, "has-task-metrics");
+    fs.mkdirSync(metricsDir, { recursive: true });
+    const record = { ts: "2026-03-23T00:00:00.000Z", milestone: "M25", domain: "d1", task: "t1", signal_type: "pass-through" };
+    fs.writeFileSync(path.join(metricsDir, "task-metrics.jsonl"), JSON.stringify(record) + "\n");
+    const result = readMetricsData(metricsDir);
+    assert.equal(result.taskMetrics.length, 1);
+    assert.equal(result.taskMetrics[0].milestone, "M25");
+    assert.deepEqual(result.rollups, []);
+  });
+
+  it("reads rollup.jsonl into rollups array", () => {
+    const metricsDir = path.join(tmpDir, "has-rollups");
+    fs.mkdirSync(metricsDir, { recursive: true });
+    const rollup = { ts: "2026-03-23T00:00:00.000Z", milestone: "M25", elo_after: 1016 };
+    fs.writeFileSync(path.join(metricsDir, "rollup.jsonl"), JSON.stringify(rollup) + "\n");
+    const result = readMetricsData(metricsDir);
+    assert.deepEqual(result.taskMetrics, []);
+    assert.equal(result.rollups.length, 1);
+    assert.equal(result.rollups[0].elo_after, 1016);
+  });
+
+  it("reads both files when both exist", () => {
+    const metricsDir = path.join(tmpDir, "has-both");
+    fs.mkdirSync(metricsDir, { recursive: true });
+    const task = { ts: "2026-03-23T00:00:00.000Z", milestone: "M25", signal_type: "pass-through" };
+    const rollup = { ts: "2026-03-23T00:00:00.000Z", milestone: "M25", elo_after: 1016 };
+    fs.writeFileSync(path.join(metricsDir, "task-metrics.jsonl"), JSON.stringify(task) + "\n");
+    fs.writeFileSync(path.join(metricsDir, "rollup.jsonl"), JSON.stringify(rollup) + "\n");
+    const result = readMetricsData(metricsDir);
+    assert.equal(result.taskMetrics.length, 1);
+    assert.equal(result.rollups.length, 1);
+  });
+
+  it("skips invalid JSON lines in metrics files", () => {
+    const metricsDir = path.join(tmpDir, "invalid-metrics");
+    fs.mkdirSync(metricsDir, { recursive: true });
+    const valid = { ts: "2026-03-23T00:00:00.000Z", milestone: "M25" };
+    fs.writeFileSync(path.join(metricsDir, "task-metrics.jsonl"), JSON.stringify(valid) + "\nnot-json\n");
+    const result = readMetricsData(metricsDir);
+    assert.equal(result.taskMetrics.length, 1);
+  });
+});
+
+// ─── GET /metrics endpoint ───────────────────────────────────────────────────
+
+describe("GET /metrics endpoint", () => {
+  it("returns JSON with taskMetrics and rollups arrays", (t, done) => {
+    const port = 47210;
+    // Build a self-contained project structure so startServer resolves metricsDir correctly
+    const projRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gsd-t-metricsep-"));
+    const eventsDir = path.join(projRoot, ".gsd-t", "events");
+    fs.mkdirSync(eventsDir, { recursive: true });
+    const metricsDir = path.join(projRoot, ".gsd-t", "metrics");
+    fs.mkdirSync(metricsDir, { recursive: true });
+    const task = { ts: "2026-03-23T00:00:00.000Z", milestone: "M25", signal_type: "pass-through" };
+    fs.writeFileSync(path.join(metricsDir, "task-metrics.jsonl"), JSON.stringify(task) + "\n");
+    const htmlPath = path.join(projRoot, "test.html");
+    fs.writeFileSync(htmlPath, "<html></html>");
+    const { server } = startServer(port, eventsDir, htmlPath);
+    http.get(`http://localhost:${port}/metrics`, (res) => {
+      assert.equal(res.statusCode, 200);
+      assert.equal(res.headers["content-type"], "application/json");
+      let body = "";
+      res.on("data", (chunk) => { body += chunk; });
+      res.on("end", () => {
+        const parsed = JSON.parse(body);
+        assert.ok(Array.isArray(parsed.taskMetrics), "taskMetrics should be an array");
+        assert.ok(Array.isArray(parsed.rollups), "rollups should be an array");
+        assert.ok(parsed.taskMetrics.length >= 1, "should have at least 1 task metric");
+        server.close(() => { fs.rmSync(projRoot, { recursive: true, force: true }); done(); });
+      });
+    }).on("error", (err) => { server.close(); done(err); });
+  });
+
+  it("returns empty arrays when no metrics files exist", (t, done) => {
+    const port = 47215;
+    const projRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gsd-t-nometricsep-"));
+    const eventsDir = path.join(projRoot, ".gsd-t", "events");
+    fs.mkdirSync(eventsDir, { recursive: true });
+    const htmlPath = path.join(projRoot, "test.html");
+    fs.writeFileSync(htmlPath, "<html></html>");
+    const { server } = startServer(port, eventsDir, htmlPath);
+    http.get(`http://localhost:${port}/metrics`, (res) => {
+      let body = "";
+      res.on("data", (chunk) => { body += chunk; });
+      res.on("end", () => {
+        const parsed = JSON.parse(body);
+        assert.deepEqual(parsed.taskMetrics, []);
+        assert.deepEqual(parsed.rollups, []);
+        server.close(() => { fs.rmSync(projRoot, { recursive: true, force: true }); done(); });
+      });
+    }).on("error", (err) => { server.close(); done(err); });
   });
 });

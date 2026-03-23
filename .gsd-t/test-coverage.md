@@ -1,46 +1,77 @@
-# Test Coverage Report — 2026-02-18
+# Test Coverage Report — 2026-03-23
 
 ## Summary
-- Source files analyzed: 3 (bin/gsd-t.js, scripts/gsd-t-heartbeat.js, scripts/npm-update-check.js)
-- Test files: 3 (test/helpers.test.js, test/filesystem.test.js, test/security.test.js)
-- Coverage gaps: 0 (for Milestone 5 changes)
+- Source files analyzed: 4 (M25 new/changed files)
+- Unit/integration test files: 3 (metrics-collector, metrics-rollup, dashboard-server)
+- E2E test specs: 0 (N/A — CLI/library project, no UI)
+- Coverage gaps: 0
 - Stale tests: 0
 - Dead tests: 0
-- Tests passing: helpers (27/27), security (30/30)
-- Pre-existing failures: filesystem (19 failures — disk space / temp dir issues, not from Milestone 5)
+- Unit tests passing: 373/373
+- E2E tests passing: N/A
 
 ## Coverage Status
 
-### Milestone 5 Changes
+### M25: Telemetry Collection & Metrics Dashboard
 
-| Source | Function | Test File | Status |
-|--------|----------|-----------|--------|
-| scripts/gsd-t-heartbeat.js | scrubSecrets() | test/security.test.js | COVERED (18 tests) |
-| scripts/gsd-t-heartbeat.js | scrubUrl() | test/security.test.js | COVERED (5 tests) |
-| scripts/gsd-t-heartbeat.js | summarize() (integration) | test/security.test.js | COVERED (4 tests) |
-| bin/gsd-t.js | hasSymlinkInPath() | test/security.test.js + test/filesystem.test.js | COVERED (3 tests) |
-| bin/gsd-t.js | ensureDir() (updated) | test/filesystem.test.js | COVERED (3 existing tests) |
-| scripts/npm-update-check.js | path validation | N/A (script runs via CLI) | NOT UNIT TESTABLE (stdin/stdout script) |
-| scripts/npm-update-check.js | symlink check | N/A (script runs via CLI) | NOT UNIT TESTABLE (stdin/stdout script) |
-| scripts/npm-update-check.js | HTTP response bound | N/A (requires network) | NOT UNIT TESTABLE (network dependent) |
-| bin/gsd-t.js | inline fetch bound | N/A (requires network) | NOT UNIT TESTABLE (network dependent) |
-| commands/gsd-t-wave.md | documentation only | N/A | NO TEST NEEDED |
-| README.md | documentation only | N/A | NO TEST NEEDED |
+| Source                             | Function              | Test File                          | Status  | Tests |
+|------------------------------------|-----------------------|------------------------------------|---------|-------|
+| bin/metrics-collector.js           | collectTaskMetrics    | test/metrics-collector.test.js     | COVERED | 8     |
+| bin/metrics-collector.js           | readTaskMetrics       | test/metrics-collector.test.js     | COVERED | 4     |
+| bin/metrics-collector.js           | getPreFlightWarnings  | test/metrics-collector.test.js     | COVERED | 4     |
+| bin/metrics-rollup.js              | computeELO            | test/metrics-rollup.test.js        | COVERED | 5     |
+| bin/metrics-rollup.js              | runHeuristics         | test/metrics-rollup.test.js        | COVERED | 6     |
+| bin/metrics-rollup.js              | generateRollup        | test/metrics-rollup.test.js        | COVERED | 5     |
+| bin/metrics-rollup.js              | readRollups           | test/metrics-rollup.test.js        | COVERED | 2     |
+| scripts/gsd-t-dashboard-server.js  | readMetricsData       | test/dashboard-server.test.js      | COVERED | 5     |
+| scripts/gsd-t-dashboard-server.js  | GET /metrics          | test/dashboard-server.test.js      | COVERED | 2     |
+| commands/gsd-t-metrics.md          | (markdown command)    | N/A                                | N/A     | -     |
 
-### Pre-Existing Coverage
+### Contract Compliance
 
-| Source | Test File | Status |
-|--------|-----------|--------|
-| bin/gsd-t.js (helpers) | test/helpers.test.js | COVERED (27 tests) |
-| bin/gsd-t.js (filesystem) | test/filesystem.test.js | PARTIAL (19 pre-existing failures) |
+| Contract                         | Status    | Notes                                                  |
+|----------------------------------|-----------|--------------------------------------------------------|
+| metrics-schema-contract.md       | COMPLIANT | task-metrics.jsonl + rollup.jsonl schemas validated     |
+| dashboard-server-contract.md     | COMPLIANT | GET /metrics endpoint + readMetricsData export tested  |
+| event-schema-contract.md         | COMPLIANT | task_complete event type defined, event-writer tested   |
+
+### Pre-Existing Coverage (unchanged)
+
+| Source                            | Test File                    | Status  |
+|-----------------------------------|------------------------------|---------|
+| bin/gsd-t.js (helpers)            | test/helpers.test.js         | COVERED |
+| bin/gsd-t.js (CLI)                | test/cli-quality.test.js     | COVERED |
+| bin/gsd-t.js (filesystem)         | test/filesystem.test.js      | COVERED |
+| scripts/gsd-t-dashboard-server.js | test/dashboard-server.test.js | COVERED |
+| scripts/gsd-t-event-writer.js     | test/event-stream.test.js    | COVERED |
+| bin/graph-*.js                    | test/graph-*.test.js         | COVERED |
+| bin/gsd-t.js (headless)           | test/headless.test.js        | COVERED |
+| bin/gsd-t.js (scan)               | test/scan.test.js            | COVERED |
+| bin/gsd-t.js (security)           | test/security.test.js        | COVERED |
+
+## Issues Found
+
+### Stale Tests
+None
+
+### Dead Tests
+None
+
+### Failing Tests
+None — 373/373 pass
+
+---
 
 ## Test Health Metrics
 
-- Total test assertions: 57+ passing (27 helpers + 30 security)
-- Test-to-source ratio: 3 test files / 3 source files
-- All Milestone 5 testable functions have coverage
-- Non-testable items: network-dependent scripts (npm-update-check.js), documentation
+- Total tests: 373 (up from 365)
+- New M25 tests: 8 (readMetricsData: 5, GET /metrics endpoint: 2, pre-existing M25 tests: 35 from execute phase)
+- Test-to-code ratio: 13 test files / ~15 source files
+- All M25 exported functions have test coverage
+- All M25 contracts verified by tests
 
-## Pre-Existing Issues (not from Milestone 5)
+---
 
-The filesystem.test.js suite has 19 failing tests related to temp directory operations on Windows (validateProjectPath, copyFile, hasPlaywright, hasSwagger, hasApi). These failures exist before and after Milestone 5 changes. Root cause: disk space (ENOSPC) or Windows temp directory handling.
+## Recommendations
+
+No action required. All M25 code paths have test coverage. The gsd-t-metrics.md command is pure markdown with no testable code.
