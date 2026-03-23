@@ -7,19 +7,19 @@
 
 ## Active Milestone
 
-**M25: Telemetry Collection & Metrics Dashboard (Tier 1)** — DEFINED
+**Feature: Self-Learning & Self-Improvement System** — 3 milestones DEFINED (M25, M26, M27)
 
-**Goal**: Every task emits structured telemetry (task-metrics.jsonl). Milestone completion produces rollup with trend comparison (rollup.jsonl). Dashboard shows metric charts (Chart.js panel). Process ELO tracks overall quality. First-pass success rate is the North Star metric.
+**M25: Telemetry Collection & Metrics Dashboard (Tier 1)** — PARTITIONED (v2.43.10)
+- Task telemetry with weighted signal taxonomy, rollups, process ELO, pre-flight intelligence check, Chart.js dashboard, gsd-t-metrics command
+- 4 domains: metrics-collection, metrics-rollup, metrics-dashboard, metrics-commands
 
-**Scope**:
-- `task-metrics.jsonl` — per-task structured telemetry (duration, token usage, pass/fail, fix cycles, context %)
-- `rollup.jsonl` — milestone-level aggregation with trend comparison to previous milestones
-- 4 detection heuristics — first-pass failure rate spike, rework rate anomaly, context overflow correlation, duration regression
-- Chart.js dashboard panel — metric charts integrated into existing gsd-t-visualize dashboard
-- Process ELO score — single composite scalar updated per milestone, tracks overall workflow quality
-- ~400 lines estimated (additive, no rework of existing systems)
+**M26: Declarative Rule Engine & Patch Lifecycle (Tier 2)** — DEFINED (v2.44.10)
+- Auto-generated patches, promotion gates (>55% win rate), patch graduation to permanent methodology, quality budget governance
 
-**Not in scope (Tier 2+)**: Declarative rule engine (rules.jsonl), patch templates, promotion gates, activation tracking, Neo4j integration, cross-project metrics propagation
+**M27: Cross-Project Learning & Global Sync (Tier 2.5)** — DEFINED (v2.45.10)
+- Global patch propagation, cross-project signal comparison, npm distribution of universal rules
+
+See `.gsd-t/roadmap.md` for full scope, success criteria, and impact analysis.
 
 **Success criteria**:
 - [ ] Every task in execute/quick/debug emits a record to `.gsd-t/metrics/task-metrics.jsonl`
@@ -52,10 +52,30 @@ None — backlog item #10 (Docker Enterprise) available when ready.
 |-----|---------------------------------------|---------|---------|---------|
 | M22 | GSD 2 Tier 1 — Execution Quality      | COMPLETE    | 2.40.10 | 5       |
 | M23 | GSD 2 Tier 2 — Headless Mode          | COMPLETE | 2.41.10 | 3       |
-| M24 | Docker (Enterprise)                   | BACKLOG | 2.42.10 | 2       |
-| M25 | Telemetry Collection & Metrics Dashboard (Tier 1) | DEFINED | 2.42.10 | TBD     |
+| M24 | Docker (Enterprise)                                | BACKLOG | 2.42.10 | 2       |
+| M25 | Telemetry Collection & Metrics Dashboard (Tier 1)  | PARTITIONED | 2.43.10 | 4       |
+| M26 | Declarative Rule Engine & Patch Lifecycle (Tier 2)  | DEFINED | 2.44.10 | TBD     |
+| M27 | Cross-Project Learning & Global Sync (Tier 2.5)    | DEFINED | 2.45.10 | TBD     |
 
-## Domains (M22)
+## Domains (M25)
+| Domain               | Status      | Tasks | Completed |
+|----------------------|-------------|-------|-----------|
+| metrics-collection   | partitioned | 0     | 0         |
+| metrics-rollup       | partitioned | 0     | 0         |
+| metrics-dashboard    | partitioned | 0     | 0         |
+| metrics-commands     | partitioned | 0     | 0         |
+
+## Contracts (M25)
+- [x] metrics-schema-contract.md — task-metrics.jsonl + rollup.jsonl schemas, signal taxonomy, ELO formula, pre-flight check, heuristic types
+- [ ] event-schema-contract.md — EXTEND with task_complete event type (metrics-collection domain)
+- [ ] dashboard-server-contract.md — EXTEND with GET /metrics endpoint (metrics-dashboard domain)
+
+## Execution Order (M25)
+Wave 1: metrics-collection (foundation — produces task-metrics.jsonl consumed by all others)
+Wave 2: metrics-rollup (aggregation — reads task-metrics.jsonl, produces rollup.jsonl + ELO)
+Wave 3: metrics-dashboard + metrics-commands (parallel — terminal consumers, no shared files)
+
+## Domains (M22 — archived)
 | Domain                 | Status  | Tasks | Completed |
 |------------------------|---------|-------|-----------|
 | context-observability  | complete | 4     | 4         |
@@ -119,7 +139,9 @@ Wave 4: adaptive-replan (consumes fresh-dispatch summaries, integrates with work
 
 ## Decision Log
 (Entries before 2026-02-16 reconstructed from git history with timestamps)
-- 2026-03-22: [milestone] M25 DEFINED — Telemetry Collection & Metrics Dashboard (Tier 1). Scope: task-metrics.jsonl (per-task telemetry), rollup.jsonl (milestone aggregation with trend comparison), 4 detection heuristics, Chart.js dashboard panel, Process ELO score. North Star metric: first-pass success rate. ~400 lines, additive only. Based on brainstorm-2026-03-20-telemetry.md research (DORA, SPC, AlphaZero ELO patterns). Predecessors: M14 (event stream), M15 (dashboard).
+- 2026-03-23: [success] M25 PARTITIONED — 4 domains defined: metrics-collection (bin/metrics-collector.js, task-metrics.jsonl, execute/quick/debug emission + pre-flight check), metrics-rollup (bin/metrics-rollup.js, rollup.jsonl, ELO, 4 heuristics, complete-milestone/verify/plan extensions), metrics-dashboard (dashboard-server.js /metrics endpoint, Chart.js panel in dashboard.html), metrics-commands (gsd-t-metrics.md 50th command, status ELO display, 4 reference file updates). 3-wave execution: Wave 1 metrics-collection (foundation) → Wave 2 metrics-rollup (aggregation) → Wave 3 metrics-dashboard + metrics-commands (parallel, terminal consumers). Contract: metrics-schema-contract.md (task-metrics.jsonl + rollup.jsonl schemas, 5 signal types with weights, ELO computation formula, 4 heuristic types, pre-flight check spec). No shared files between domains — clean separation. Assumption audit: event-writer.js INSPECT, events/*.jsonl USE, token-log.md USE, Chart.js USE (CDN), AlphaZero/SRE INSPECT (concepts only).
+- 2026-03-22: [milestone] FEATURE DEFINED — Self-Learning & Self-Improvement System (M25+M26+M27). Three-tier additive architecture: M25 Telemetry Collection & Metrics Dashboard (Tier 1, v2.43.10) — task-metrics.jsonl with weighted signal taxonomy (pass-through/fix-cycle/debug-invoked/user-correction/phase-skip), rollup.jsonl, 4 detection heuristics, pre-flight intelligence check, ELO using weighted signals, Chart.js dashboard panel, gsd-t-metrics command. M26 Declarative Rule Engine & Patch Lifecycle (Tier 2, v2.44.10) — rules.jsonl declarative patterns, patch-templates.jsonl, 5-stage lifecycle (candidate→applied→measured→promoted→graduated), >55% win rate promotion gate, graduation to permanent methodology, activation tracking + retirement, 5-milestone consolidation, quality budget governance. M27 Cross-Project Learning & Global Sync (Tier 2.5, v2.45.10) — dual-layer learning (.gsd-t/metrics/ + ~/.claude/metrics/), global patch propagation via version-update-all, signal-type cross-project comparison, npm distribution of universal rules. OpenClaw-inspired: pre-flight check (heartbeat), weighted signals (RL feedback), patch graduation (skill generation), signal-type comparison. Research: DORA, SRE error budgets, AlphaZero, SPC, immune affinity, UPS ORION, OpenClaw. Predecessors: M14, M15, M22.
+- 2026-03-22: [milestone] M25 DEFINED — Telemetry Collection & Metrics Dashboard (Tier 1). Scope: task-metrics.jsonl (per-task telemetry with weighted signal taxonomy), rollup.jsonl (milestone aggregation with trend comparison), 4 detection heuristics, pre-flight intelligence check in execute, Chart.js dashboard panel, Process ELO using weighted signals, gsd-t-metrics command. North Star metric: first-pass success rate. Additive only. Based on brainstorm-2026-03-20-telemetry.md + OpenClaw analysis. Predecessors: M14 (event stream), M15 (dashboard), M22 (context observability).
 - 2026-03-22: [milestone] M23 COMPLETE — GSD 2 Tier 2 Headless Mode v2.41.10. 3 domains (headless-exec, headless-query, pipeline-integration), 11 tasks total. `gsd-t headless <cmd>` wraps claude -p with exit codes 0-4 and --json/--timeout/--log flags. `gsd-t headless query <type>` returns JSON from .gsd-t/ file parsing (~50ms, no LLM) for 7 query types: status, domains, contracts, debt, context, backlog, graph. CI examples: docs/ci-examples/github-actions.yml + gitlab-ci.yml. headless-contract.md. 36 new tests, 329 total pass.
 - 2026-03-22: [milestone] M22 COMPLETE — GSD 2 Tier 1 Execution Quality v2.40.10. 18/18 tasks across 5 domains, 293 tests passing. Delivered: task-level fresh dispatch (one subagent per task, ~10-20% context each), worktree isolation (isolation: "worktree" in execute team mode, sequential merge protocol), goal-backward verification (placeholder detection in verify/complete-milestone), adaptive replanning (post-domain summary check, tasks.md rewrite, max 2 cycles), context observability (Domain/Task/Ctx% columns in token-log.md, 70%/85% alert thresholds, token breakdown in status). Plan command enforces single-context-window task constraint. Updated: 4 reference files, docs/architecture.md, docs/prd-gsd2-hybrid.md, docs/prd-graph-engine.md.
 - 2026-03-20: [success] adaptive-replan domain COMPLETE (3/3 tasks) — Task 1+3: Added Adaptive Replan Check (step 4) to execute orchestrator's "After all tasks in a domain complete" section. Reads completed domain's task-*-summary.md files, extracts "Constraints discovered" fields (fast path if none). Graph-enhanced impact assessment: if graph available, runs getImporters + getDomainBoundaryViolations to scope replan to only affected domains; fallback checks all remaining domains. If invalidated assumptions found, appends Revision block (Trigger/Constraint/Changes/Rationale) to affected domains' tasks.md on disk. Tracks REPLAN_CYCLES counter — max 2 per run, pauses for user if exceeded. Logs all replan decisions to Decision Log in progress.md. Task 2: Updated wave.md EXECUTE phase description to reference adaptive-replan-contract.md, max 2 cycle guard, and replan phase summary format. 293/293 tests pass.

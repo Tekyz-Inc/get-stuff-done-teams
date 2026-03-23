@@ -269,31 +269,124 @@
 
 ---
 
-## Feature: Autonomous Telemetry & Continuous Improvement System
+## Feature: Self-Learning & Self-Improvement System
 **Added**: 2026-03-22
-**Context**: Brainstorm session (2026-03-20) identified that GSD-T captures execution events but lacks structured per-task telemetry, milestone-level aggregation, trend analysis, anomaly detection, and a quality composite score. The existing event stream (M14) and dashboard (M15) provide infrastructure; this feature adds the metrics layer.
+**Context**: Brainstorm session (2026-03-20) identified that GSD-T captures execution events but lacks structured per-task telemetry, milestone-level aggregation, trend analysis, anomaly detection, and a quality composite score. The existing event stream (M14) and dashboard (M15) provide infrastructure; this feature adds the metrics, rules, and cross-project learning layers. OpenClaw analysis (2026-03-22) validated the architecture and contributed three additions: pre-flight intelligence checks (adapted from OpenClaw's heartbeat), weighted downstream signal taxonomy (from OpenClaw-RL's next-state feedback), and patch graduation to permanent methodology artifacts (from OpenClaw's procedural skill generation).
+**Research basis**: DORA metrics, Google SRE error budgets, AlphaZero policy promotion, manufacturing SPC, immune system affinity maturation, UPS ORION pre-mortem, OpenClaw proactive agent architecture, OpenClaw-RL reinforcement learning from conversational feedback
+**North Star metric**: First-pass success rate — if every task passes QA on the first attempt, everything else follows
 
-### Milestone M25: Telemetry Collection & Metrics Dashboard (Tier 1)
-**Goal**: Every task emits structured telemetry. Milestone completion produces rollup with trend comparison. Dashboard shows metric charts. Process ELO tracks overall quality. First-pass success rate is the North Star metric.
+### Milestone M25: Telemetry Collection & Metrics Dashboard (Tier 1) — v2.43.10
+**Goal**: Every task emits structured telemetry with weighted signal classification. Milestone completion produces rollup with trend comparison. Dashboard shows metric charts. Process ELO tracks overall quality using weighted signals. Pre-flight intelligence check surfaces historical patterns before execution.
 **Scope**:
-- `.gsd-t/metrics/task-metrics.jsonl` — per-task structured telemetry (duration, token usage, pass/fail, fix cycles, context %)
+- `.gsd-t/metrics/task-metrics.jsonl` — per-task structured telemetry (duration, token usage, pass/fail, fix cycles, context %, signal type, signal weight)
 - `.gsd-t/metrics/rollup.jsonl` — milestone-level aggregation with trend comparison to previous milestones
 - 4 detection heuristics — first-pass failure rate spike, rework rate anomaly, context overflow correlation, duration regression
+- Pre-flight intelligence check — execute reads `task-metrics.jsonl` before dispatch, surfaces warnings for domain types with historically high failure/fix-cycle rates (adapted from OpenClaw heartbeat)
+- Weighted downstream signal taxonomy — classify follow-up actions as distinct signal types with weights (from OpenClaw-RL):
+  - `pass-through` (+1.0): task passed QA, next task proceeded
+  - `fix-cycle` (-0.5): task required rework before passing
+  - `debug-invoked` (-0.8): user ran /debug immediately after
+  - `user-correction` (-1.0): user manually intervened/corrected
+  - `phase-skip` (+0.3): phase was clean enough to skip
+- Process ELO score — single composite scalar updated per milestone using weighted signal taxonomy (not binary pass/fail)
 - Chart.js dashboard panel — metric charts integrated into existing gsd-t-visualize dashboard
-- Process ELO score — single composite scalar updated per milestone
-- `commands/gsd-t-execute.md` — emit task-metrics record after each task
+- `gsd-t-metrics` command — on-demand metric queries (first-pass rate, ELO history, domain breakdown, trend comparison)
+- `commands/gsd-t-execute.md` — emit task-metrics record after each task + pre-flight check before dispatch
 - `commands/gsd-t-quick.md`, `commands/gsd-t-debug.md` — emit task-metrics record
 - `commands/gsd-t-complete-milestone.md` — produce rollup entry, compute ELO delta
 - `commands/gsd-t-verify.md` or `commands/gsd-t-complete-milestone.md` — run 4 detection heuristics
 - `scripts/gsd-t-dashboard.html` — add metrics chart panel
 - `commands/gsd-t-status.md` — display ELO and key metrics summary
-**Not in scope (Tier 2+)**: Declarative rule engine (rules.jsonl), patch templates, promotion gates, activation tracking, Neo4j cross-project integration
-**Predecessor**: M14 (Execution Intelligence Layer), M15 (Real-Time Agent Dashboard)
+**Not in scope (Tier 2+)**: Declarative rule engine (rules.jsonl), patch templates, promotion gates, activation tracking, cross-project integration
+**Predecessor**: M14 (Execution Intelligence Layer), M15 (Real-Time Agent Dashboard), M22 (Context Observability)
 **Brainstorm**: `.gsd-t/brainstorm-2026-03-20-telemetry.md`
+**Impact on existing**:
+- Extends `commands/gsd-t-execute.md` — adds pre-flight check step + task-metrics emission step
+- Extends `commands/gsd-t-quick.md`, `commands/gsd-t-debug.md` — adds task-metrics emission step
+- Extends `commands/gsd-t-complete-milestone.md` — adds rollup + ELO computation + heuristic detection steps
+- Extends `commands/gsd-t-status.md` — adds ELO and metrics summary display
+- Extends `scripts/gsd-t-dashboard.html` — adds Chart.js metrics panel
+- Extends `commands/gsd-t-verify.md` — adds heuristic detection step
+- New command: `commands/gsd-t-metrics.md` — on-demand metric queries
+- New directory: `.gsd-t/metrics/` — task-metrics.jsonl and rollup.jsonl
+- No breaking changes to existing contracts or workflows
 **Success criteria**:
-- [ ] Every task in execute/quick/debug emits a record to `.gsd-t/metrics/task-metrics.jsonl`
+- [ ] Every task in execute/quick/debug emits a record to `.gsd-t/metrics/task-metrics.jsonl` with signal_type and signal_weight fields
+- [ ] Pre-flight check in execute reads historical metrics and surfaces warnings for high-risk domain/task patterns
 - [ ] `complete-milestone` produces rollup entry in `.gsd-t/metrics/rollup.jsonl` with trend delta
 - [ ] 4 detection heuristics flag anomalies during verify or complete-milestone
 - [ ] Dashboard renders metric charts from task-metrics.jsonl and rollup.jsonl
-- [ ] Process ELO computed and stored per milestone, displayed in status output
+- [ ] Process ELO computed using weighted signals and stored per milestone, displayed in status output
+- [ ] `gsd-t-metrics` command returns structured metric queries
 - [ ] All existing tests pass with no regressions (329+ tests)
+
+### Milestone M26: Declarative Rule Engine & Patch Lifecycle (Tier 2) — v2.44.10
+**Goal**: Auto-detect failure patterns, generate candidate patches, and manage their lifecycle through promotion gates with measurable improvement thresholds. Promoted patches that sustain improvement graduate into permanent methodology artifacts.
+**Scope**:
+- `.gsd-t/metrics/rules.jsonl` — declarative rule engine: pattern detection triggers as JSON objects (not hardcoded heuristics). Adding a new detection pattern = JSON append, not code deploy
+- `.gsd-t/metrics/patch-templates.jsonl` — maps triggers to specific command file / constraints.md edits. Each template defines: trigger pattern, target file, edit type, edit content
+- Patch lifecycle with 5 stages: `candidate → applied → measured → promoted → graduated`
+  - **candidate**: auto-generated when heuristic detects repeated pattern (≥3 occurrences in task-metrics)
+  - **applied**: patch template executed, edit applied to target file
+  - **measured**: next 2+ milestones track whether the target metric improved
+  - **promoted**: patch exceeds improvement threshold (>55% win rate, adapted from AlphaZero)
+  - **graduated**: promoted patch sustained for 3+ milestones → absorbed into permanent methodology artifact (constraints.md, verify checks, plan pre-conditions) → removed from rules.jsonl (inspired by OpenClaw procedural skill generation)
+- Promotion gates — patches must measurably improve target metric before becoming permanent. Gate check runs during `complete-milestone` distillation step
+- Activation count tracking — each rule records how many times it fires. Rules that haven't prevented a failure in N milestones are flagged for deprecation (from immune system affinity maturation)
+- Periodic consolidation — every 5 milestones, related rules distilled into single cleaner rule (anti-bloat mechanism)
+- Quality budget governance — define per-milestone rework ceiling (e.g., max 20% of tasks require fix cycles). When budget exhausted, system automatically tightens constraints: force discuss phase, require contract review, split large tasks (from Google SRE error budget)
+- `commands/gsd-t-complete-milestone.md` — extends distillation step with rule evaluation, patch candidate generation, promotion gate check, graduation
+- `commands/gsd-t-execute.md` — pre-task step reads active rules and injects relevant constraints into subagent prompts
+- `commands/gsd-t-plan.md` — pre-mortem step: cross-reference domain types against historical failure data in rules, embed mitigations before execution (from UPS ORION)
+**Not in scope (Tier 3)**: Neo4j cross-project causal inference, cross-project rule propagation
+**Predecessor**: M25 (task-metrics.jsonl must exist and be populated for pattern detection)
+**Impact on existing**:
+- Extends `commands/gsd-t-complete-milestone.md` — adds rule evaluation + patch generation + promotion + graduation steps to distillation
+- Extends `commands/gsd-t-execute.md` — adds active rule injection to task subagent prompts (in addition to M25's pre-flight check)
+- Extends `commands/gsd-t-plan.md` — adds pre-mortem step reading rules for domain-type failure patterns
+- New directory: `.gsd-t/metrics/patches/` — individual patch files with status tracking
+- New contract: `.gsd-t/contracts/rule-engine-contract.md` — rule schema, patch template schema, promotion gate thresholds, graduation criteria
+- No breaking changes to existing contracts — all additive
+**Success criteria**:
+- [ ] Rules.jsonl stores detection patterns as declarative JSON objects
+- [ ] Patch templates auto-generate candidate patches when patterns detected (≥3 occurrences)
+- [ ] Promotion gate blocks patch advancement unless >55% improvement measured
+- [ ] Graduated patches write themselves into constraints.md or verify checks and exit rules.jsonl
+- [ ] Activation count tracking flags inactive rules for deprecation
+- [ ] Quality budget governance triggers constraint tightening when rework ceiling exceeded
+- [ ] Pre-mortem in plan surfaces historical failure patterns for current domain types
+- [ ] All existing tests pass with no regressions
+
+### Milestone M27: Cross-Project Learning & Global Sync (Tier 2.5) — v2.45.10
+**Goal**: Propagate proven rules across projects, enable cross-project comparison using signal-type distributions, and eventually ship validated rules in the npm package.
+**Scope**:
+- Dual-layer learning architecture:
+  - Project-specific: `.gsd-t/metrics/` (task-metrics, rollup, rules, patches) — stays local
+  - Cross-project: `~/.claude/metrics/` (global rollup, global rules, signal distributions) — shared across all registered GSD-T projects
+- Global patch propagation — when a rule is promoted in one project:
+  1. Copy to `~/.claude/metrics/global-rules.jsonl` with source project tag
+  2. On `gsd-t-version-update-all`, propagate global rules to all registered projects as candidates (not promoted — each project must re-validate)
+  3. Rules that achieve promotion in 3+ projects → marked as universal
+- Cross-project signal-type comparison — compare weighted signal distributions (not just raw pass/fail rates) across projects. "Project A has 3x the user-correction rate on auth domains" is more actionable than "Project A has lower first-pass rate" (from OpenClaw-RL insight)
+- Cross-project rollup aggregation — domain-type pattern matching: compare similar domain types (auth, payments, UI) across projects to identify systemic patterns
+- npm distribution pipeline — universal rules that achieve promotion in 5+ projects are candidates for shipping in the GSD-T npm package itself (in `templates/` or `examples/rules/`), making the methodology self-improving across all users
+- `gsd-t-version-update-all` — extends with global rule sync step
+- `gsd-t-metrics` command — extends with cross-project comparison mode
+- `gsd-t-status` — extends with global ELO and cross-project rank
+**Not in scope**: Neo4j graph database (optional power tier, not required for cross-project learning)
+**Predecessor**: M26 (rule engine must exist with promotion gates for cross-project propagation to work)
+**Impact on existing**:
+- Extends `bin/gsd-t.js` `doUpdateAll()` — adds global rule sync step during update-all
+- Extends `commands/gsd-t-metrics.md` — adds cross-project comparison queries
+- Extends `commands/gsd-t-status.md` — adds global ELO display
+- Extends `commands/gsd-t-complete-milestone.md` — adds global rule promotion check after local promotion
+- New directory: `~/.claude/metrics/` — global rollup, global rules, signal distributions
+- New contract: `.gsd-t/contracts/cross-project-sync-contract.md` — global rule schema, propagation protocol, universal promotion criteria
+- No breaking changes to existing contracts — all additive
+**Success criteria**:
+- [ ] Promoted rules propagate to `~/.claude/metrics/global-rules.jsonl`
+- [ ] `gsd-t-version-update-all` syncs global rules to all registered projects as candidates
+- [ ] Rules achieving promotion in 3+ projects marked as universal
+- [ ] Cross-project comparison uses signal-type distributions, not just raw rates
+- [ ] `gsd-t-metrics --cross-project` returns domain-type comparison across projects
+- [ ] All existing tests pass with no regressions
