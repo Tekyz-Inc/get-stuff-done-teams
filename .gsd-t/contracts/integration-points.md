@@ -1,115 +1,96 @@
 # Integration Points
 
-## Current State: Milestone 22 — GSD 2 Tier 1: Execution Quality (5 domains)
+## Current State: Milestone 25 — Telemetry Collection & Metrics Dashboard (4 domains)
 
 ## Dependency Graph
 
 ```
-context-observability Task 1
-  └──▶ fresh-dispatch Task 1 (needs logging format defined)
-  └──▶ fresh-dispatch Task 4 (needs scope validation format)
+metrics-collection (all tasks)
+  └──▶ metrics-rollup (all tasks) — reads task-metrics.jsonl
+  └──▶ metrics-dashboard (all tasks) — serves task-metrics.jsonl via /metrics
+  └──▶ metrics-commands (all tasks) — reads task-metrics.jsonl for gsd-t-metrics
 
-fresh-dispatch Task 1
-  └──▶ fresh-dispatch Task 2 (solo pattern → team pattern)
-  └──▶ fresh-dispatch Task 3 (solo pattern → wave/integrate)
-  └──▶ goal-backward Task 1 (needs summary format for tracing)
-
-fresh-dispatch Task 2
-  └──▶ worktree-isolation Task 1 (team mode must have task-level dispatch)
-
-worktree-isolation Task 1
-  └──▶ worktree-isolation Task 2 (dispatch → merge protocol)
-  └──▶ worktree-isolation Task 4 (dispatch → wave/integrate)
-
-worktree-isolation Task 2
-  └──▶ worktree-isolation Task 3 (merge → ownership validation)
-  └──▶ adaptive-replan Task 1 (merge protocol must exist for replan integration)
-
-fresh-dispatch Task 1 + worktree-isolation Task 2
-  └──▶ adaptive-replan Task 1 (needs both summary format AND merge protocol)
+metrics-rollup (all tasks)
+  └──▶ metrics-dashboard (all tasks) — serves rollup.jsonl via /metrics
+  └──▶ metrics-commands (all tasks) — reads rollup.jsonl, displays ELO in status
 ```
 
 ## Shared File Analysis
 
-**CRITICAL**: Multiple domains modify the same files. This REQUIRES sequential execution.
+No files are modified by multiple domains. Each domain has exclusive ownership:
 
-| File | Domains | Wave Assignment |
-|------|---------|----------------|
-| `commands/gsd-t-execute.md` | fresh-dispatch, worktree-isolation, adaptive-replan, context-observability | Wave 1→2→3→4 (sequential by domain) |
-| `commands/gsd-t-wave.md` | fresh-dispatch, worktree-isolation, goal-backward, adaptive-replan, context-observability | Wave 1→2→3→4 (sequential by domain) |
-| `commands/gsd-t-integrate.md` | fresh-dispatch, worktree-isolation, context-observability | Wave 1→2→3 (sequential by domain) |
-| `commands/gsd-t-plan.md` | fresh-dispatch, context-observability | Wave 1→2 (sequential) |
-| `commands/gsd-t-verify.md` | goal-backward only | Wave 3 (no conflict) |
-| `commands/gsd-t-complete-milestone.md` | goal-backward only | Wave 3 (no conflict) |
-| `commands/gsd-t-status.md` | context-observability only | Wave 1 (no conflict) |
-| `commands/gsd-t-visualize.md` | context-observability only | Wave 1 (no conflict) |
-| `commands/gsd-t-qa.md` | context-observability only | Wave 1 (no conflict) |
+| File                                    | Owner               | Notes                        |
+|-----------------------------------------|----------------------|------------------------------|
+| `bin/metrics-collector.js`              | metrics-collection   | NEW                          |
+| `.gsd-t/metrics/task-metrics.jsonl`     | metrics-collection   | NEW (read by rollup, dash, cmds) |
+| `commands/gsd-t-execute.md`             | metrics-collection   | MODIFY (emit + pre-flight)   |
+| `commands/gsd-t-quick.md`              | metrics-collection   | MODIFY (emit)                |
+| `commands/gsd-t-debug.md`              | metrics-collection   | MODIFY (emit)                |
+| `bin/metrics-rollup.js`                 | metrics-rollup       | NEW                          |
+| `.gsd-t/metrics/rollup.jsonl`           | metrics-rollup       | NEW (read by dash, cmds)     |
+| `commands/gsd-t-complete-milestone.md`  | metrics-rollup       | MODIFY (rollup + ELO)        |
+| `commands/gsd-t-verify.md`             | metrics-rollup       | MODIFY (heuristics)          |
+| `commands/gsd-t-plan.md`              | metrics-rollup       | MODIFY (pre-mortem)          |
+| `scripts/gsd-t-dashboard-server.js`     | metrics-dashboard    | MODIFY (GET /metrics)        |
+| `scripts/gsd-t-dashboard.html`          | metrics-dashboard    | MODIFY (Chart.js panel)      |
+| `commands/gsd-t-metrics.md`             | metrics-commands     | NEW (50th command)           |
+| `commands/gsd-t-status.md`             | metrics-commands     | MODIFY (ELO display)         |
+| `bin/gsd-t.js`                         | metrics-commands     | MODIFY (command count)       |
+| `README.md`                            | metrics-commands     | MODIFY (commands table)      |
+| `GSD-T-README.md`                      | metrics-commands     | MODIFY (command reference)   |
+| `templates/CLAUDE-global.md`           | metrics-commands     | MODIFY (commands table)      |
+| `commands/gsd-t-help.md`              | metrics-commands     | MODIFY (help summaries)      |
 
 ## Wave Execution Groups
 
-### Wave 1 — context-observability (foundation)
-- context-observability: Tasks 1-4
-- **Rationale**: Defines the extended logging format needed by all other domains
-- **Shared files**: Modifies execute, wave, integrate, status, visualize, qa, plan
-- **Completes when**: All 4 tasks done, token-log format extended
+### Wave 1 — metrics-collection (foundation)
+- metrics-collection: All tasks
+- **Rationale**: Produces task-metrics.jsonl consumed by all other domains. Defines the schema contract, creates the collector module, and modifies execute/quick/debug to emit records.
+- **Shared files**: None shared — exclusive ownership of collector, execute, quick, debug
+- **Completes when**: bin/metrics-collector.js exists, command files emit records, tests pass
 
 ### CHECKPOINT 1
-- Verify: token-log.md format includes Domain, Task, Ctx% columns
-- Verify: Alert thresholds (70%/85%) documented in commands
-- Verify: Plan validation step added
+- Verify: bin/metrics-collector.js exports are testable
+- Verify: task-metrics.jsonl schema matches metrics-schema-contract.md
+- Verify: execute/quick/debug commands include emit step
+- Verify: Pre-flight check in execute reads historical metrics
 
-### Wave 2 — fresh-dispatch (core mechanism)
-- fresh-dispatch: Tasks 1-4
-- **Rationale**: Defines task-level dispatch pattern consumed by worktree, replan, and goal-backward
-- **Shared files**: Modifies execute, wave, integrate, plan (already modified by Wave 1 — sequential)
-- **Completes when**: All 4 tasks done, task-level dispatch working in solo + team + wave
+### Wave 2 — metrics-rollup (aggregation layer)
+- metrics-rollup: All tasks
+- **Rationale**: Reads task-metrics.jsonl (must exist from Wave 1). Produces rollup.jsonl with ELO computation and 4 detection heuristics.
+- **Shared files**: None shared — exclusive ownership of rollup, complete-milestone, verify, plan
+- **Completes when**: bin/metrics-rollup.js exists, rollup produces valid JSONL, heuristics flag correctly, tests pass
 
 ### CHECKPOINT 2
-- Verify: Execute dispatches one subagent per TASK (not per domain)
-- Verify: Task summaries saved to disk in contract format
-- Verify: Plan command enforces single-context-window constraint
+- Verify: rollup.jsonl schema matches metrics-schema-contract.md
+- Verify: ELO computation is deterministic
+- Verify: 4 heuristics produce structured findings
+- Verify: complete-milestone includes rollup step
+- Verify: verify includes quality budget check
+- Verify: plan includes pre-mortem step
 
-### Wave 3a — worktree-isolation (sequential — shares files with goal-backward)
-- worktree-isolation: Tasks 1-4
-- **Rationale**: Modifies execute (team mode + merge sections), wave (execute phase), integrate
-- **Completes when**: All 4 tasks done
+### Wave 3 — metrics-dashboard + metrics-commands (parallel — no file overlap)
+- metrics-dashboard: All tasks
+- metrics-commands: All tasks
+- **Rationale**: Both are terminal consumers. Dashboard reads JSONL via HTTP, commands read JSONL from disk. No shared files between these two domains.
+- **Completes when**: Dashboard shows charts, gsd-t-metrics command works, status shows ELO, all 4 reference files updated
 
-### CHECKPOINT 3a
-- Verify: Execute team mode uses `isolation: "worktree"`
-- Verify: Sequential merge protocol with per-domain rollback works
-- Verify: File ownership validation via graph works
-
-### Wave 3b — goal-backward (after worktree — both touch gsd-t-wave.md)
-- goal-backward: Tasks 1-3
-- **Rationale**: Modifies verify, complete-milestone, wave (verification phase). Must follow worktree-isolation because both touch gsd-t-wave.md.
-- **Completes when**: All 3 tasks done
-
-### CHECKPOINT 3b
-- Verify: Goal-backward catches placeholder patterns
-- Verify: Verify command includes goal-backward step after quality gates
-- Verify: Complete-milestone blocks on CRITICAL/HIGH findings
-
-### Wave 4 — adaptive-replan (integrates everything)
-- adaptive-replan: Tasks 1-3
-- **Rationale**: Depends on fresh-dispatch summaries + worktree merge protocol
-- **Shared files**: Modifies execute, wave (already modified by Waves 1-3 — sequential)
-- **Completes when**: All 3 tasks done
-
-### CHECKPOINT 4 (Final)
-- Verify: Replan check runs between domain completions
-- Verify: Max 2 replan cycles enforced
-- Verify: All 5 contracts satisfied
-- Verify: All commands consistent
+### CHECKPOINT 3 (Final)
+- Verify: GET /metrics returns combined task-metrics + rollup data
+- Verify: Dashboard Chart.js panel renders trend lines
+- Verify: gsd-t-metrics command returns structured output
+- Verify: gsd-t-status displays ELO and key metrics
+- Verify: All 4 reference files include gsd-t-metrics
+- Verify: bin/gsd-t.js command count is 50
+- Verify: All existing tests pass (329+)
 
 ## Execution Order (for solo mode)
-1. context-observability Tasks 1-4
-2. CHECKPOINT 1: verify token-log format
-3. fresh-dispatch Tasks 1-4
-4. CHECKPOINT 2: verify task-level dispatch
-5. worktree-isolation Tasks 1-4
-6. CHECKPOINT 3a: verify worktree isolation
-7. goal-backward Tasks 1-3
-8. CHECKPOINT 3b: verify goal-backward
-9. adaptive-replan Tasks 1-3
-10. CHECKPOINT 4: final verification
-11. INTEGRATION: verify all commands are consistent
+
+1. metrics-collection (all tasks)
+2. CHECKPOINT 1: verify collector + command emission
+3. metrics-rollup (all tasks)
+4. CHECKPOINT 2: verify rollup + ELO + heuristics
+5. metrics-dashboard (all tasks) — can run parallel with step 6
+6. metrics-commands (all tasks) — can run parallel with step 5
+7. CHECKPOINT 3: final verification
+8. INTEGRATION: verify end-to-end data flow
