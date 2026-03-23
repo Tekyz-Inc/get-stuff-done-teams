@@ -1,18 +1,36 @@
 # Integration Points
 
-## Current State: Milestone 25 — Telemetry Collection & Metrics Dashboard (4 domains)
+## Current State: Milestone 25 — Telemetry Collection & Metrics Dashboard (PLANNED)
 
 ## Dependency Graph
 
 ```
-metrics-collection (all tasks)
-  └──▶ metrics-rollup (all tasks) — reads task-metrics.jsonl
-  └──▶ metrics-dashboard (all tasks) — serves task-metrics.jsonl via /metrics
-  └──▶ metrics-commands (all tasks) — reads task-metrics.jsonl for gsd-t-metrics
+metrics-collection Task 1 (event-schema extension) — INDEPENDENT
+  └──▶ metrics-collection Task 2 (collector module)
 
-metrics-rollup (all tasks)
-  └──▶ metrics-dashboard (all tasks) — serves rollup.jsonl via /metrics
-  └──▶ metrics-commands (all tasks) — reads rollup.jsonl, displays ELO in status
+metrics-collection Task 2 (collector module)
+  └──▶ metrics-collection Task 3 (unit tests)
+  └──▶ metrics-collection Task 4 (instrument execute)
+  └──▶ metrics-collection Task 5 (instrument quick + debug)
+  └──▶ metrics-rollup Task 1 (rollup module — reads task-metrics.jsonl)
+  └──▶ metrics-rollup Task 5 (plan pre-mortem — reads task-metrics.jsonl)
+  └──▶ metrics-dashboard Task 1 (/metrics endpoint — serves task-metrics.jsonl)
+  └──▶ metrics-commands Task 1 (gsd-t-metrics — reads task-metrics.jsonl)
+
+metrics-rollup Task 1 (rollup module)
+  └──▶ metrics-rollup Task 2 (unit tests)
+  └──▶ metrics-rollup Task 3 (complete-milestone integration)
+  └──▶ metrics-rollup Task 4 (verify quality budget)
+  └──▶ metrics-dashboard Task 1 (/metrics endpoint — serves rollup.jsonl)
+  └──▶ metrics-commands Task 1 (gsd-t-metrics — reads rollup.jsonl)
+  └──▶ metrics-commands Task 2 (status ELO — reads rollup.jsonl)
+
+metrics-commands Task 1 (gsd-t-metrics command)
+  └──▶ metrics-commands Task 3 (CLI command count)
+  └──▶ metrics-commands Task 4 (4 reference files)
+
+metrics-dashboard Task 1 (/metrics endpoint)
+  └──▶ metrics-dashboard Task 2 (Chart.js panel)
 ```
 
 ## Shared File Analysis
@@ -44,53 +62,62 @@ No files are modified by multiple domains. Each domain has exclusive ownership:
 ## Wave Execution Groups
 
 ### Wave 1 — metrics-collection (foundation)
-- metrics-collection: All tasks
-- **Rationale**: Produces task-metrics.jsonl consumed by all other domains. Defines the schema contract, creates the collector module, and modifies execute/quick/debug to emit records.
-- **Shared files**: None shared — exclusive ownership of collector, execute, quick, debug
-- **Completes when**: bin/metrics-collector.js exists, command files emit records, tests pass
+- metrics-collection: Tasks 1-5
+- **Shared files**: NONE — safe for solo sequential
+- **Completes when**: bin/metrics-collector.js exists, tests pass, execute/quick/debug emit records
 
 ### CHECKPOINT 1
-- Verify: bin/metrics-collector.js exports are testable
-- Verify: task-metrics.jsonl schema matches metrics-schema-contract.md
-- Verify: execute/quick/debug commands include emit step
-- Verify: Pre-flight check in execute reads historical metrics
+- GATE: metrics-collection Task 3 (tests pass) + Task 4-5 (commands instrumented)
+- VERIFY: Lead confirms task-metrics.jsonl schema matches metrics-schema-contract.md
+- VERIFY: Pre-flight check in execute reads historical metrics
+- UNLOCKS: metrics-rollup Tasks 1, 5; metrics-dashboard Task 1; metrics-commands Task 1
 
 ### Wave 2 — metrics-rollup (aggregation layer)
-- metrics-rollup: All tasks
-- **Rationale**: Reads task-metrics.jsonl (must exist from Wave 1). Produces rollup.jsonl with ELO computation and 4 detection heuristics.
-- **Shared files**: None shared — exclusive ownership of rollup, complete-milestone, verify, plan
-- **Completes when**: bin/metrics-rollup.js exists, rollup produces valid JSONL, heuristics flag correctly, tests pass
+- metrics-rollup: Tasks 1-5
+- **Shared files**: NONE — safe for solo sequential
+- **Completes when**: bin/metrics-rollup.js exists, tests pass, complete-milestone/verify/plan extended
 
 ### CHECKPOINT 2
-- Verify: rollup.jsonl schema matches metrics-schema-contract.md
-- Verify: ELO computation is deterministic
-- Verify: 4 heuristics produce structured findings
-- Verify: complete-milestone includes rollup step
-- Verify: verify includes quality budget check
-- Verify: plan includes pre-mortem step
+- GATE: metrics-rollup Task 2 (tests pass) + Tasks 3-5 (commands extended)
+- VERIFY: Lead confirms rollup.jsonl schema matches metrics-schema-contract.md
+- VERIFY: ELO computation is deterministic (same input = same output)
+- VERIFY: 4 heuristics produce structured findings at correct thresholds
+- UNLOCKS: metrics-dashboard Task 1; metrics-commands Tasks 1, 2
 
 ### Wave 3 — metrics-dashboard + metrics-commands (parallel — no file overlap)
-- metrics-dashboard: All tasks
-- metrics-commands: All tasks
-- **Rationale**: Both are terminal consumers. Dashboard reads JSONL via HTTP, commands read JSONL from disk. No shared files between these two domains.
-- **Completes when**: Dashboard shows charts, gsd-t-metrics command works, status shows ELO, all 4 reference files updated
+- metrics-dashboard: Tasks 1-2
+- metrics-commands: Tasks 1-4
+- **Shared files**: NONE — safe to run in parallel
+- **Completes when**: Dashboard shows charts, gsd-t-metrics command works, status shows ELO, all reference files updated
 
 ### CHECKPOINT 3 (Final)
-- Verify: GET /metrics returns combined task-metrics + rollup data
-- Verify: Dashboard Chart.js panel renders trend lines
-- Verify: gsd-t-metrics command returns structured output
-- Verify: gsd-t-status displays ELO and key metrics
-- Verify: All 4 reference files include gsd-t-metrics
-- Verify: bin/gsd-t.js command count is 50
-- Verify: All existing tests pass (329+)
+- VERIFY: GET /metrics returns combined task-metrics + rollup data
+- VERIFY: Dashboard Chart.js panel renders trend lines and domain heatmap
+- VERIFY: gsd-t-metrics command returns structured output with graceful fallback
+- VERIFY: gsd-t-status displays ELO and key metrics
+- VERIFY: All 4 reference files include gsd-t-metrics
+- VERIFY: bin/gsd-t.js command count is 50
+- VERIFY: All existing tests pass (329+) + new metrics tests pass
 
 ## Execution Order (for solo mode)
 
-1. metrics-collection (all tasks)
-2. CHECKPOINT 1: verify collector + command emission
-3. metrics-rollup (all tasks)
-4. CHECKPOINT 2: verify rollup + ELO + heuristics
-5. metrics-dashboard (all tasks) — can run parallel with step 6
-6. metrics-commands (all tasks) — can run parallel with step 5
-7. CHECKPOINT 3: final verification
-8. INTEGRATION: verify end-to-end data flow
+1. metrics-collection Task 1 (extend event-schema-contract)
+2. metrics-collection Task 2 (create metrics-collector.js)
+3. metrics-collection Task 3 (unit tests)
+4. metrics-collection Task 4 (instrument execute)
+5. metrics-collection Task 5 (instrument quick + debug)
+6. CHECKPOINT 1: verify collector + command emission
+7. metrics-rollup Task 1 (create metrics-rollup.js)
+8. metrics-rollup Task 2 (unit tests)
+9. metrics-rollup Task 3 (integrate complete-milestone)
+10. metrics-rollup Task 4 (integrate verify)
+11. metrics-rollup Task 5 (add plan pre-mortem)
+12. CHECKPOINT 2: verify rollup + ELO + heuristics
+13. metrics-dashboard Task 1 (/metrics endpoint) — parallel-safe with step 14-17
+14. metrics-commands Task 1 (gsd-t-metrics command) — parallel-safe with step 13
+15. metrics-dashboard Task 2 (Chart.js panel)
+16. metrics-commands Task 2 (status ELO display)
+17. metrics-commands Task 3 (CLI command count)
+18. metrics-commands Task 4 (4 reference files)
+19. CHECKPOINT 3: final verification
+20. INTEGRATION: verify end-to-end data flow (collector -> rollup -> dashboard + commands)

@@ -14,3 +14,5 @@
 | 2026-03-09 10:29 | 2026-03-09 10:39 | gsd-t-scan | Step 2 (5-dim) | claude-sonnet-4-6 | 621s | Scan #7 post-M14-M17 — 205 tests, 9 new TD items, HTML report generated | N/A | null |
 | 2026-03-20 12:42 | 2026-03-20 12:43 | gsd-t-plan | Step 7 | haiku | 51s | FAIL (4 findings: 2 valid, 2 false-positive), fixed Wave 3 split + estimate | 0 | null |
 | 2026-03-20 15:36 | 2026-03-20 15:49 | gsd-t-brainstorm | Step 3 | sonnet | 733s | deep research: telemetry + autonomous improvement (3 parallel researchers) | 0 | null |
+
+|  | 2026-03-22 15:50 | gsd-t-wave | milestone | sonnet | 254s | M25 milestone defined | 0 | null | | | N/A || 2026-03-23 11:05 | 2026-03-23 11:14 | gsd-t-plan | Step 7 | opus (inline) | ~540s | PASS, iteration 1 — all 5 checks pass (REQ coverage, task completeness, cross-domain deps, contract existence, no CONTEXT.md) | 0 | null |

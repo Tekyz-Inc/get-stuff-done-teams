@@ -37,6 +37,12 @@
 | REQ-029 | Diagram Rendering Toolchain — three rendering backends supported, each free and open source, selected automatically based on availability: (1) Primary — Mermaid CLI (mmdc, @mermaid-js/mermaid-cli, MIT, npm) renders .mmd files to SVG via headless Chromium; (2) Enhanced — D2 (MPL-2.0, terrastruct/d2, Go binary) as optional renderer for architecture and dataflow diagrams — uses dagre/ELK/neato layouts (TALA excluded, paid); (3) Fallback — Kroki HTTP API (MIT, yuzutech/kroki) renders any supported format via single HTTP POST to kroki.io (public free tier) or self-hosted Docker instance | P2 | complete (M17) | test/scan.test.js + verify-gates.js |
 | REQ-030 | MCP Diagram Server Support — gsd-t-scan supports optional MCP-based diagram generation when registered MCP servers are detected in Claude Code settings: diagram-bridge-mcp (MIT, tohachan) selects optimal format and renders via Kroki; C4Diagrammer (MIT, jonverrier) specialized for existing codebase → C4 architecture diagrams; mcp-mermaid (MIT, hustcc) for 22 Mermaid diagram types; MCP path is preferred over CLI when available | P3 | complete (M17) | test/scan.test.js + verify-gates.js |
 
+| REQ-031 | Per-Task Telemetry Collection — metrics-collector.js emits structured records to task-metrics.jsonl with weighted signal taxonomy (5 signal types), pre-flight intelligence check warns on domain failure patterns | P1 | planned | test/metrics-collector.test.js |
+| REQ-032 | Milestone Rollup & Process ELO — metrics-rollup.js aggregates task-metrics into rollup.jsonl with first_pass_rate, ELO scoring (K=32), trend comparison, 4 detection heuristics (first-pass-failure-spike, rework-rate-anomaly, context-overflow-correlation, duration-regression) | P1 | planned | test/metrics-rollup.test.js |
+| REQ-033 | Metrics Dashboard Panel — Chart.js trend line (first_pass_rate over milestones), domain health heatmap, ELO display in existing dashboard via GET /metrics endpoint | P2 | planned | test/dashboard-server.test.js (extend) |
+| REQ-034 | gsd-t-metrics Command — 50th command reads task-metrics.jsonl + rollup.jsonl, displays metrics summary, ELO, signal distribution, domain breakdown, trend comparison, heuristic warnings | P1 | planned | validated by use |
+| REQ-035 | Process ELO in Status — gsd-t-status displays current ELO score and quality budget summary from rollup.jsonl | P2 | planned | validated by use |
+
 ## Technical Requirements
 
 | ID | Requirement | Priority | Status |
@@ -99,8 +105,18 @@
 | REQ-029 | Diagram Rendering Toolchain — Mermaid CLI → D2 → Kroki fallback chain      | scan-diagrams    | pending         | planned |
 | REQ-030 | MCP Diagram Server Support — diagram-bridge-mcp / C4Diagrammer / mcp-mermaid | scan-diagrams  | pending         | planned |
 
-**Orphaned requirements**: REQ-001 through REQ-017 (all M1–M13 deliverables, complete — not mapped to M14 tasks by design).
-**Unanchored tasks**: command Task 2 (bin/gsd-t.js installer update) and Task 3 (4 reference files) are infrastructure supporting REQ-023 — implicitly mapped.
+## Requirements Traceability (updated by plan phase — M25)
+
+| REQ-ID  | Requirement Summary                                         | Domain              | Task(s)                        | Status  |
+|---------|-------------------------------------------------------------|---------------------|--------------------------------|---------|
+| REQ-031 | Per-Task Telemetry Collection — collector + emission        | metrics-collection  | Task 1, 2, 3, 4, 5            | planned |
+| REQ-032 | Milestone Rollup & Process ELO — rollup + heuristics       | metrics-rollup      | Task 1, 2, 3, 4, 5            | planned |
+| REQ-033 | Metrics Dashboard Panel — /metrics endpoint + Chart.js     | metrics-dashboard   | Task 1, 2                      | planned |
+| REQ-034 | gsd-t-metrics Command — 50th command                       | metrics-commands    | Task 1, 3, 4                   | planned |
+| REQ-035 | Process ELO in Status — ELO display in status output       | metrics-commands    | Task 2                         | planned |
+
+**Orphaned requirements**: REQ-001 through REQ-017 (all M1-M13 deliverables, complete — not mapped to M14+ tasks by design).
+**Unanchored tasks**: metrics-commands Task 3 (CLI count) and Task 4 (4 reference files) are infrastructure supporting REQ-034 — implicitly mapped.
 
 ---
 

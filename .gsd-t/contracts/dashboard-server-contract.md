@@ -31,6 +31,15 @@
 - **Content-Type**: `application/json`
 - **Purpose**: Health check — used by gsd-t-visualize to confirm server is running
 
+### GET /metrics
+- **Response**: JSON object with `{ taskMetrics: [...], rollups: [...] }`
+- **Content-Type**: `application/json`
+- **Behavior**:
+  1. Reads `.gsd-t/metrics/task-metrics.jsonl` — parses each line to taskMetrics array
+  2. Reads `.gsd-t/metrics/rollup.jsonl` — parses each line to rollups array
+  3. Returns empty arrays if files don't exist (graceful fallback)
+- **Purpose**: Serves metrics data to the dashboard Chart.js panel
+
 ### GET /stop (optional)
 - **Response**: `{"status":"stopping"}`
 - **Behavior**: Gracefully shuts down server; used by `gsd-t-visualize stop`
@@ -66,6 +75,7 @@ module.exports = {
   readExistingEvents(eventsDir, maxEvents),    // returns array of event objects
   parseEventLine(line),                        // returns parsed object or null
   findEventsDir(projectDir),                   // resolves .gsd-t/events/ from cwd or env
+  readMetricsData(metricsDir),                 // returns { taskMetrics: [...], rollups: [...] }
 }
 ```
 

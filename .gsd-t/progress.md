@@ -2,14 +2,14 @@
 
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: IN PROGRESS
-## Date: 2026-03-22
+## Date: 2026-03-23
 ## Version: 2.41.10
 
 ## Active Milestone
 
 **Feature: Self-Learning & Self-Improvement System** — 3 milestones DEFINED (M25, M26, M27)
 
-**M25: Telemetry Collection & Metrics Dashboard (Tier 1)** — PARTITIONED (v2.43.10)
+**M25: Telemetry Collection & Metrics Dashboard (Tier 1)** — PLANNED (v2.43.10)
 - Task telemetry with weighted signal taxonomy, rollups, process ELO, pre-flight intelligence check, Chart.js dashboard, gsd-t-metrics command
 - 4 domains: metrics-collection, metrics-rollup, metrics-dashboard, metrics-commands
 
@@ -53,17 +53,17 @@ None — backlog item #10 (Docker Enterprise) available when ready.
 | M22 | GSD 2 Tier 1 — Execution Quality      | COMPLETE    | 2.40.10 | 5       |
 | M23 | GSD 2 Tier 2 — Headless Mode          | COMPLETE | 2.41.10 | 3       |
 | M24 | Docker (Enterprise)                                | BACKLOG | 2.42.10 | 2       |
-| M25 | Telemetry Collection & Metrics Dashboard (Tier 1)  | PARTITIONED | 2.43.10 | 4       |
+| M25 | Telemetry Collection & Metrics Dashboard (Tier 1)  | PLANNED     | 2.43.10 | 4       |
 | M26 | Declarative Rule Engine & Patch Lifecycle (Tier 2)  | DEFINED | 2.44.10 | TBD     |
 | M27 | Cross-Project Learning & Global Sync (Tier 2.5)    | DEFINED | 2.45.10 | TBD     |
 
 ## Domains (M25)
-| Domain               | Status      | Tasks | Completed |
-|----------------------|-------------|-------|-----------|
-| metrics-collection   | partitioned | 0     | 0         |
-| metrics-rollup       | partitioned | 0     | 0         |
-| metrics-dashboard    | partitioned | 0     | 0         |
-| metrics-commands     | partitioned | 0     | 0         |
+| Domain               | Status  | Tasks | Completed |
+|----------------------|---------|-------|-----------|
+| metrics-collection   | planned | 5     | 0         |
+| metrics-rollup       | planned | 5     | 0         |
+| metrics-dashboard    | planned | 2     | 0         |
+| metrics-commands     | planned | 4     | 0         |
 
 ## Contracts (M25)
 - [x] metrics-schema-contract.md — task-metrics.jsonl + rollup.jsonl schemas, signal taxonomy, ELO formula, pre-flight check, heuristic types
@@ -139,6 +139,7 @@ Wave 4: adaptive-replan (consumes fresh-dispatch summaries, integrates with work
 
 ## Decision Log
 (Entries before 2026-02-16 reconstructed from git history with timestamps)
+- 2026-03-23: [success] M25 PLANNED — 16 tasks across 4 domains (metrics-collection: 5, metrics-rollup: 5, metrics-dashboard: 2, metrics-commands: 4). 3-wave execution: Wave 1 metrics-collection (foundation, 5 tasks) -> Wave 2 metrics-rollup (aggregation, 5 tasks) -> Wave 3 metrics-dashboard + metrics-commands (parallel, 6 tasks). Recommended: solo sequential (16 tasks, strictly sequential waves). No duplicate operations detected. No SharedCore needed. REQ-031 through REQ-035 defined and traced to tasks. Integration points updated with task-level dependency graph. Plan validation: PASS.
 - 2026-03-23: [success] M25 PARTITIONED — 4 domains defined: metrics-collection (bin/metrics-collector.js, task-metrics.jsonl, execute/quick/debug emission + pre-flight check), metrics-rollup (bin/metrics-rollup.js, rollup.jsonl, ELO, 4 heuristics, complete-milestone/verify/plan extensions), metrics-dashboard (dashboard-server.js /metrics endpoint, Chart.js panel in dashboard.html), metrics-commands (gsd-t-metrics.md 50th command, status ELO display, 4 reference file updates). 3-wave execution: Wave 1 metrics-collection (foundation) → Wave 2 metrics-rollup (aggregation) → Wave 3 metrics-dashboard + metrics-commands (parallel, terminal consumers). Contract: metrics-schema-contract.md (task-metrics.jsonl + rollup.jsonl schemas, 5 signal types with weights, ELO computation formula, 4 heuristic types, pre-flight check spec). No shared files between domains — clean separation. Assumption audit: event-writer.js INSPECT, events/*.jsonl USE, token-log.md USE, Chart.js USE (CDN), AlphaZero/SRE INSPECT (concepts only).
 - 2026-03-22: [milestone] FEATURE DEFINED — Self-Learning & Self-Improvement System (M25+M26+M27). Three-tier additive architecture: M25 Telemetry Collection & Metrics Dashboard (Tier 1, v2.43.10) — task-metrics.jsonl with weighted signal taxonomy (pass-through/fix-cycle/debug-invoked/user-correction/phase-skip), rollup.jsonl, 4 detection heuristics, pre-flight intelligence check, ELO using weighted signals, Chart.js dashboard panel, gsd-t-metrics command. M26 Declarative Rule Engine & Patch Lifecycle (Tier 2, v2.44.10) — rules.jsonl declarative patterns, patch-templates.jsonl, 5-stage lifecycle (candidate→applied→measured→promoted→graduated), >55% win rate promotion gate, graduation to permanent methodology, activation tracking + retirement, 5-milestone consolidation, quality budget governance. M27 Cross-Project Learning & Global Sync (Tier 2.5, v2.45.10) — dual-layer learning (.gsd-t/metrics/ + ~/.claude/metrics/), global patch propagation via version-update-all, signal-type cross-project comparison, npm distribution of universal rules. OpenClaw-inspired: pre-flight check (heartbeat), weighted signals (RL feedback), patch graduation (skill generation), signal-type comparison. Research: DORA, SRE error budgets, AlphaZero, SPC, immune affinity, UPS ORION, OpenClaw. Predecessors: M14, M15, M22.
 - 2026-03-22: [milestone] M25 DEFINED — Telemetry Collection & Metrics Dashboard (Tier 1). Scope: task-metrics.jsonl (per-task telemetry with weighted signal taxonomy), rollup.jsonl (milestone aggregation with trend comparison), 4 detection heuristics, pre-flight intelligence check in execute, Chart.js dashboard panel, Process ELO using weighted signals, gsd-t-metrics command. North Star metric: first-pass success rate. Additive only. Based on brainstorm-2026-03-20-telemetry.md + OpenClaw analysis. Predecessors: M14 (event stream), M15 (dashboard), M22 (context observability).
