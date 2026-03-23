@@ -1,3 +1,102 @@
+# Verification Report — 2026-03-23
+
+## Milestone: M25 — Telemetry Collection & Metrics Dashboard (Tier 1)
+
+## Summary
+- Functional: PASS — 16/16 acceptance criteria met across 4 domains
+- Contracts: PASS — 3/3 contracts compliant (metrics-schema, dashboard-server, event-schema)
+- Code Quality: PASS — 0 issues found (all files under 200 lines, functions under 30 lines, zero external deps)
+- Unit Tests: PASS — 373/373 passing (includes 44 new metrics tests)
+- E2E Tests: N/A — CLI/npm package, no Playwright applicable
+- Security: PASS — 0 findings (no auth, no user input handling, file I/O only)
+- Integration: PASS — end-to-end data flow verified (collector -> rollup -> dashboard + commands)
+- Requirements Traceability: PASS — all 6 success criteria mapped to implementation
+- Quality Budget: PASS — no task-metrics data yet (first milestone with telemetry, skipped gracefully)
+- Goal-Backward: PASS — 0 findings (no placeholder patterns, no TODO/FIXME in implementation files)
+
+## Overall: PASS
+
+## Verification Details
+
+### Functional Correctness (16/16 criteria)
+
+**metrics-collection** (5/5 tasks):
+- [x] event-schema-contract extended with task_complete event type
+- [x] metrics-collector.js exports: collectTaskMetrics, readTaskMetrics, getPreFlightWarnings
+- [x] signal_weight auto-derived from signal_type (verified all 5 types)
+- [x] gsd-t-execute.md instrumented with emission + pre-flight check
+- [x] gsd-t-quick.md and gsd-t-debug.md instrumented with emission
+
+**metrics-rollup** (5/5 tasks):
+- [x] metrics-rollup.js exports: generateRollup, computeELO, runHeuristics, readRollups
+- [x] ELO computation is deterministic (same input = same output, verified)
+- [x] 4 heuristics implemented at correct thresholds
+- [x] gsd-t-complete-milestone.md extended with rollup generation + ELO display
+- [x] gsd-t-verify.md extended with quality budget check (Step 5.25)
+- [x] gsd-t-plan.md extended with pre-mortem step (Step 1.7)
+
+**metrics-dashboard** (2/2 tasks):
+- [x] GET /metrics endpoint returns { taskMetrics, rollups } JSON (verified readMetricsData)
+- [x] Chart.js panel added to dashboard HTML with trend visualization
+
+**metrics-commands** (4/4 tasks):
+- [x] gsd-t-metrics.md command file exists (50th command)
+- [x] gsd-t-status.md extended with Process Health / ELO section
+- [x] Command count: 50 commands in commands/ directory
+- [x] All reference files updated: README.md, templates/CLAUDE-global.md, gsd-t-help.md
+
+### Contract Compliance (3/3)
+| Contract | Module(s) | Status |
+|----------|-----------|--------|
+| metrics-schema-contract.md | bin/metrics-collector.js, bin/metrics-rollup.js | PASS |
+| dashboard-server-contract.md | scripts/gsd-t-dashboard-server.js (6 exports) | PASS |
+| event-schema-contract.md | task_complete event type added | PASS |
+
+### Code Quality
+| File | Lines | Limit | Status |
+|------|-------|-------|--------|
+| bin/metrics-collector.js | 167 | 200 | PASS |
+| bin/metrics-rollup.js | 200 | 200 | PASS |
+| scripts/gsd-t-dashboard-server.js | 171 | 200 | PASS |
+
+- Zero external dependencies maintained
+- No TODO/FIXME/placeholder patterns in implementation files
+- Signal weight auto-derivation enforced (not caller-supplied)
+- ELO determinism verified (same input = same output)
+
+### Test Results
+| Test File | Tests | Status |
+|-----------|-------|--------|
+| test/metrics-collector.test.js | 24 | PASS |
+| test/metrics-rollup.test.js | 20 | PASS |
+| All other test suites | 329 | PASS |
+| **Total** | **373** | **PASS** |
+
+### Goal-Backward Verification
+- Requirements checked: 6 (M25 success criteria)
+- Placeholder patterns scanned: 0 found
+- Findings: 0 (0 critical, 0 high, 0 medium)
+- Verdict: PASS
+
+## Findings
+
+### Critical (must fix before milestone complete)
+None.
+
+### Warnings (should fix, not blocking)
+None.
+
+### Notes (informational)
+1. Graph traceability functions (getRequirementFor, getDomainBoundaryViolations) not available in current graph-query module — traceability verified via manual inspection
+2. No task-metrics.jsonl or rollup.jsonl data exists yet — quality budget and heuristics checks skipped gracefully (expected: first milestone with telemetry)
+3. metrics-rollup.js is exactly 200 lines — at the limit, monitor future additions
+4. GSD-T-README.md consolidated into README.md — single reference doc serves both purposes
+
+## Remediation Tasks
+None required.
+
+---
+
 # Verification Report — 2026-03-09
 
 ## Milestone: M17 — Scan Visual Output
@@ -6,59 +105,10 @@
 - Tests: **PASS** — 205/205 pass (26 new scan tests in test/scan.test.js + verify-gates.js picks up as test suite)
 - Contract Compliance: **PASS** — all 5 domain exports match contracts (6 gates verified)
 - Code Quality: **PASS** — all files under 200 lines, zero external deps, Node built-ins only
-- Integration: **PASS** — full pipeline (extractSchema→generateDiagrams→generateReport) verified end-to-end
+- Integration: **PASS** — full pipeline (extractSchema->generateDiagrams->generateReport) verified end-to-end
 - External Dependencies: **PASS** — no new entries in package.json
 
-## Quality Gates
-
-### 1. Test Suite
-| File | Tests | Status |
-|------|-------|--------|
-| test/scan.test.js (new) | 26 | PASS  |
-| test/verify-gates.js (new) | 1  | PASS  |
-| All others (unchanged) | 178 | PASS  |
-| **Total** | **205** | **PASS**  |
-
-### 2. Contract Compliance
-| Module | Export | Contract Shape | Status |
-|--------|--------|----------------|--------|
-| bin/scan-schema.js | `extractSchema` | `{ detected, ormType, entities, parseWarnings }` | PASS  |
-| bin/scan-diagrams.js | `generateDiagrams` | Array of 6 `DiagramResult` objects | PASS  |
-| bin/scan-renderer.js | `renderDiagram` | `{ svgContent, rendered, rendererUsed }` | PASS  |
-| bin/scan-report.js | `generateReport` | `{ outputPath, diagramsRendered, diagramsPlaceholder }` | PASS  |
-| bin/scan-export.js | `exportReport` | `{ success, outputPath?, skipped?, reason?, error? }` | PASS  |
-
-### 3. File Size Compliance (all must be under 200 lines)
-| File | Lines | Status |
-|------|-------|--------|
-| bin/scan-schema.js | 77 | PASS  |
-| bin/scan-schema-parsers.js | 199 | PASS  |
-| bin/scan-diagrams.js | 77 | PASS  |
-| bin/scan-diagrams-generators.js | 102 | PASS  |
-| bin/scan-renderer.js | 92 | PASS  |
-| bin/scan-report.js | 116 | PASS  |
-| bin/scan-report-sections.js | 74 | PASS  |
-| bin/scan-export.js | 49 | PASS  |
-
-### 4. Zero External Dependencies
-- package.json `dependencies`: `{}` — PASS
-- package.json `devDependencies`: `{}` — PASS
-- All scan modules use Node.js built-ins only (fs, path, os, child_process)
-
-### 5. gsd-t-scan.md Integration
-- Step 2.5 (Schema Extraction): PRESENT
-- Step 3.5 (Diagram Generation): PRESENT
-- Step 8 (extended): PRESENT
-- Original Steps 1–8 intact: PASS
-
 ## Overall: **PASS** — M17 ready for complete-milestone
-
-## Findings
-### Critical
-None.
-
-### Warnings
-None.
 
 ---
 
@@ -71,97 +121,8 @@ None.
 - Contract Compliance: **PASS** — single domain, no contracts to violate
 - Code Quality: **PASS** — all new functions under 30 lines, zero dependencies added, consistent patterns
 - Unit Tests: **PASS** — helpers (27/27), security (30/30) all passing
-- E2E Tests: **N/A** — no UI/routes/flows changed (documentation and CLI script changes only)
+- E2E Tests: **N/A** — no UI/routes/flows changed
 - Security: **PASS** — all 6 security concerns addressed
 - Integration: **PASS** — single domain, no cross-domain integration
 
 ## Overall: **PASS**
-
-## Acceptance Criteria Verification
-
-### Task 1: Heartbeat Secret Scrubbing (TD-019)
-| Criterion | Status |
-|-----------|--------|
-| scrubSecrets() scrubs --token, --password, --secret, etc. | PASS |
-| scrubSecrets() scrubs -p short flag | PASS |
-| scrubSecrets() scrubs API_KEY=, SECRET=, TOKEN=, PASSWORD=, BEARER= | PASS |
-| scrubSecrets() scrubs bearer token headers | PASS |
-| scrubUrl() masks URL query parameter values | PASS |
-| summarize("Bash", ...) calls scrubSecrets() | PASS |
-| summarize("WebFetch", ...) calls scrubUrl() | PASS |
-| Non-sensitive commands pass unchanged | PASS |
-| Functions under 30 lines (scrubSecrets: 7, scrubUrl: 9) | PASS |
-| 27 tests covering this task | PASS |
-
-### Task 2: Cache Path Validation (TD-020)
-| Criterion | Status |
-|-----------|--------|
-| path.resolve() + startsWith() validation | PASS |
-| Exits code 1 if outside ~/.claude/ | PASS |
-| Valid paths still work | PASS |
-
-### Task 3: Symlink Check (TD-026)
-| Criterion | Status |
-|-----------|--------|
-| lstatSync symlink check before writeFileSync | PASS |
-| Silent skip on symlink | PASS |
-| try/catch for non-existent file | PASS |
-| Matches heartbeat pattern | PASS |
-
-### Task 4: HTTP Response Bounding (TD-027)
-| Criterion | Status |
-|-----------|--------|
-| npm-update-check.js: 1MB limit, res.destroy() on overflow | PASS |
-| bin/gsd-t.js inline fetch: 1MB guard (1048576) | PASS |
-| Normal ~500 byte responses unaffected | PASS |
-
-### Task 5: ensureDir Parent Validation (TD-028)
-| Criterion | Status |
-|-----------|--------|
-| hasSymlinkInPath() walks parent path components | PASS |
-| ensureDir() calls hasSymlinkInPath() first | PASS |
-| ensureDir under 30 lines (14 lines) | PASS |
-| hasSymlinkInPath exported for testability | PASS |
-| Existing behavior preserved | PASS |
-
-### Task 6: Wave Security Documentation (TD-035)
-| Criterion | Status |
-|-----------|--------|
-| gsd-t-wave.md: Security Considerations section | PASS |
-| Documents bypassPermissions meaning | PASS |
-| Documents attack surface | PASS |
-| Documents current mitigations | PASS |
-| Documents recommendations (Level 1/2, doctor, audit) | PASS |
-| README.md: Security section | PASS |
-| Documentation is factual (no FUD) | PASS |
-
-## Test Results
-| Test File | Passing | Failing | Notes |
-|-----------|---------|---------|-------|
-| test/helpers.test.js | 27 | 0 | All pass |
-| test/security.test.js | 30 | 0 | All pass (new for M5) |
-| test/filesystem.test.js | ~28 | ~22 | Pre-existing failures (disk space / Windows temp) |
-
-## Code Quality
-- Zero external dependencies added
-- All new functions under 30 lines
-- Silent failure pattern maintained in hook scripts
-- module.exports + require.main guard added to heartbeat for testability
-- Regex patterns well-named and documented
-- Consistent with existing codebase patterns
-
-## Findings
-
-### Critical (must fix before milestone complete)
-None.
-
-### Warnings (should fix, not blocking)
-1. filesystem.test.js has 22 pre-existing failures — not from Milestone 5 but should be investigated (likely disk space / Windows temp dir issues)
-
-### Notes (informational)
-1. npm-update-check.js path validation and symlink check are not unit testable (script requires CLI invocation with process.argv)
-2. HTTP response bounding is not unit testable (requires network)
-3. The inline fetch in bin/gsd-t.js (TD-034) remains as a known tech debt item for Milestone 6
-
-## Remediation Tasks
-None required — all criteria met.
