@@ -275,7 +275,7 @@
 **Research basis**: DORA metrics, Google SRE error budgets, AlphaZero policy promotion, manufacturing SPC, immune system affinity maturation, UPS ORION pre-mortem, OpenClaw proactive agent architecture, OpenClaw-RL reinforcement learning from conversational feedback
 **North Star metric**: First-pass success rate — if every task passes QA on the first attempt, everything else follows
 
-### Milestone M25: Telemetry Collection & Metrics Dashboard (Tier 1) — v2.43.10
+### Milestone M25: Telemetry Collection & Metrics Dashboard (Tier 1) — v2.43.10 COMPLETE
 **Goal**: Every task emits structured telemetry with weighted signal classification. Milestone completion produces rollup with trend comparison. Dashboard shows metric charts. Process ELO tracks overall quality using weighted signals. Pre-flight intelligence check surfaces historical patterns before execution.
 **Scope**:
 - `.gsd-t/metrics/task-metrics.jsonl` — per-task structured telemetry (duration, token usage, pass/fail, fix cycles, context %, signal type, signal weight)

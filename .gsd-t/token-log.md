@@ -16,3 +16,9 @@
 | 2026-03-20 15:36 | 2026-03-20 15:49 | gsd-t-brainstorm | Step 3 | sonnet | 733s | deep research: telemetry + autonomous improvement (3 parallel researchers) | 0 | null |
 
 |  | 2026-03-22 15:50 | gsd-t-wave | milestone | sonnet | 254s | M25 milestone defined | 0 | null | | | N/A || 2026-03-23 11:05 | 2026-03-23 11:14 | gsd-t-plan | Step 7 | opus (inline) | ~540s | PASS, iteration 1 — all 5 checks pass (REQ coverage, task completeness, cross-domain deps, contract existence, no CONTEXT.md) | 0 | null |
+
+| 2026-03-23 11:03 | 2026-03-23 11:19 | gsd-t-wave | plan | sonnet | 971s | M25 plan: 16 tasks, 4 domains, 3 waves | 0 | null | | | N/A |
+| 2026-03-23 11:19 | 2026-03-23 11:32 | gsd-t-wave | impact | sonnet | 756s | M25 impact: PROCEED, 0 breaking | 0 | null | | | N/A |
+| 2026-03-23 11:32 | 2026-03-23 12:17 | gsd-t-wave | execute | sonnet | 2713s | M25 execute: 16/16 tasks, 365/365 tests, 4 commits | 0 | null | | | N/A |
+| 2026-03-23 12:18 | 2026-03-23 13:05 | gsd-t-wave | test-sync | sonnet | 2859s | M25 test-sync: 373/373 pass, 8 new, 1 gap filled | 0 | null | | | N/A |
+| 2026-03-23 15:42 | 2026-03-23 15:47 | gsd-t-wave | integrate | sonnet | 354s | M25 integrated: 4 domains wired, 3 contracts verified, 373/373 tests | 0 | null | | | N/A |
