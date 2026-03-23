@@ -83,6 +83,16 @@ When you encounter unexpected situations:
 5. Verify it works
 6. Commit: `[quick] {description}`
 
+## Step 3.5: Emit Task Metrics
+
+After committing, emit a task-metrics record for this quick task — run via Bash:
+`node bin/metrics-collector.js --milestone {current-milestone-or-none} --domain {domain-or-quick} --task quick-{timestamp} --command quick --duration_s {elapsed} --tokens_used {estimated} --context_pct ${CTX_PCT:-0} --pass {true|false} --fix_cycles {0|N} --signal_type {pass-through|fix-cycle} --notes "[quick] {description}" 2>/dev/null || true`
+
+Signal type: `pass-through` if task completed on first attempt; `fix-cycle` if rework was needed.
+
+Emit task_complete event — run via Bash:
+`node ~/.claude/scripts/gsd-t-event-writer.js --type task_complete --command gsd-t-quick --reasoning "signal_type={signal_type}, domain={domain}" --outcome {success|failure} || true`
+
 ## Step 4: Document Ripple (if GSD-T is active)
 
 If `.gsd-t/progress.md` exists, assess what documentation was affected and update ALL relevant files:

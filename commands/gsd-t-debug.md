@@ -288,6 +288,16 @@ Before committing, ensure the fix is solid:
 
 Commit: `[debug] Fix {description} — root cause: {explanation}`
 
+## Step 5.5: Emit Task Metrics
+
+After committing, emit a task-metrics record for this debug session — run via Bash:
+`node bin/metrics-collector.js --milestone {current-milestone-or-none} --domain {domain-or-debug} --task debug-{timestamp} --command debug --duration_s {elapsed} --tokens_used {estimated} --context_pct ${CTX_PCT:-0} --pass {true|false} --fix_cycles {attempts} --signal_type debug-invoked --notes "[debug] {description}" 2>/dev/null || true`
+
+Signal type is always `debug-invoked` for debug sessions.
+
+Emit task_complete event — run via Bash:
+`node ~/.claude/scripts/gsd-t-event-writer.js --type task_complete --command gsd-t-debug --reasoning "signal_type=debug-invoked, domain={domain}" --outcome {success|failure} || true`
+
 $ARGUMENTS
 
 ## Auto-Clear

@@ -30,6 +30,7 @@ const VALID_EVENT_TYPES = new Set([
   "experience_retrieval",
   "outcome_tagged",
   "distillation",
+  "task_complete",
 ]);
 
 const VALID_OUTCOMES = new Set(["success", "failure", "learning", "deferred", null]);

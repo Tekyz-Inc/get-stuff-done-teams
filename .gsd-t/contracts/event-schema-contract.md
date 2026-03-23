@@ -49,6 +49,7 @@ Every event MUST be a single-line JSON object with exactly these fields:
 | `experience_retrieval`| Pre-task grep found relevant [failure]/[learning] entries                   | reasoning (what was found)        |
 | `outcome_tagged`      | Decision Log entry written with an outcome tag                               | outcome (the tag used)            |
 | `distillation`        | complete-milestone distillation step ran                                     | reasoning (patterns found)        |
+| `task_complete`       | Task finished — metrics emitted to task-metrics.jsonl                        | reasoning (signal_type + domain)  |
 
 ---
 

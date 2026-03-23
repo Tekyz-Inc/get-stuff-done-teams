@@ -106,6 +106,12 @@ If results found:
 
 If no results found: proceed normally (no warning block, no event write).
 
+**Pre-flight intelligence check (before dispatching each domain's tasks):**
+Run via Bash:
+`node -e "const m = require('./bin/metrics-collector.js'); const w = m.getPreFlightWarnings('{domain-name}'); if(w.length) w.forEach(x => console.log('⚠️ ' + x));" 2>/dev/null || true`
+
+Display any warnings inline (non-blocking — execution proceeds regardless).
+
 **Domain task-dispatcher (lightweight — sequences tasks, passes summaries):**
 
 For each task in `.gsd-t/domains/{domain-name}/tasks.md` (in order, skip completed):
@@ -193,6 +199,11 @@ Report back:
    - Run observability Bash (T_END / TOK_END / DURATION / CTX_PCT)
    - Append to token-log.md (per-task row)
    - Alert on CTX_PCT thresholds (display to user inline)
+   - **Emit task-metrics record** — run via Bash:
+     `node bin/metrics-collector.js --milestone {milestone} --domain {domain-name} --task task-{task-id} --command execute --duration_s $DURATION --tokens_used $TOKENS --context_pct ${CTX_PCT:-0} --pass {true|false} --fix_cycles {0|N} --signal_type {pass-through|fix-cycle} --notes "{brief outcome}" 2>/dev/null || true`
+     Signal type: `pass-through` if task passed on first attempt; `fix-cycle` if rework was needed.
+   - **Emit task_complete event** — run via Bash:
+     `node ~/.claude/scripts/gsd-t-event-writer.js --type task_complete --command gsd-t-execute --reasoning "signal_type={signal_type}, domain={domain-name}" --outcome {success|failure} || true`
    - Check `.gsd-t/deferred-items.md` for `NEEDS-APPROVAL` — if found, STOP and present to user before proceeding to the next task
    - Read the task summary from `.gsd-t/domains/{domain-name}/task-{task-id}-summary.md` to use as prior summary for the next task
 
