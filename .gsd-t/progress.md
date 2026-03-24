@@ -7,7 +7,7 @@
 
 ## Active Milestone
 
-**M28: Doc-Ripple Subagent — Automated Document Ripple Enforcement** — PLANNED
+**M28: Doc-Ripple Subagent — Automated Document Ripple Enforcement** — EXECUTED
 
 **M25: Telemetry Collection & Metrics Dashboard (Tier 1)** — COMPLETE (v2.43.10)
 - Task telemetry with weighted signal taxonomy, rollups, process ELO, pre-flight intelligence check, Chart.js dashboard, gsd-t-metrics command
@@ -84,7 +84,7 @@
 - [x] `gsd-t-metrics --cross-project` returns domain-type comparison across projects
 - [x] All existing tests pass with no regressions (481 tests, 48 new)
 
-**M28: Doc-Ripple Subagent — Automated Document Ripple Enforcement** — PLANNED
+**M28: Doc-Ripple Subagent — Automated Document Ripple Enforcement** — EXECUTED
 - **Goal**: Eliminate the "forgot to update X" failure mode by creating a dedicated agent that automatically identifies and updates all downstream documents after any code change. When doc-ripple completes, the user should never need to ask "did you update everything?"
 - **Scope**:
   - `commands/gsd-t-doc-ripple.md` — new command file defining the doc-ripple agent behavior: reads `git diff`, cross-references against pre-commit gate checklist, produces a manifest of affected documents, spawns parallel subagents to update each one
@@ -128,13 +128,13 @@ None — backlog item #10 (Docker Enterprise) available when ready.
 | M25 | Telemetry Collection & Metrics Dashboard (Tier 1)  | COMPLETE | 2.43.10 | 4       |
 | M26 | Declarative Rule Engine & Patch Lifecycle (Tier 2)  | COMPLETE    | 2.44.10 | 3       |
 | M27 | Cross-Project Learning & Global Sync (Tier 2.5)    | COMPLETE   | 2.45.10 | 3       |
-| M28 | Doc-Ripple Subagent                                | PLANNED     | 2.46.10 | 2       |
+| M28 | Doc-Ripple Subagent                                | EXECUTED    | 2.46.10 | 2       |
 
 ## Domains (M28)
 | Domain              | Status      | Tasks | Completed |
 |---------------------|-------------|-------|-----------|
 | doc-ripple-agent    | complete    | 3     | 3         |
-| command-integration | planned | 4     | 0         |
+| command-integration | complete | 4     | 4         |
 
 ## Contracts (M28)
 - [x] doc-ripple-contract.md — trigger conditions, manifest format, update protocol, threshold logic, integration pattern
@@ -250,6 +250,7 @@ Wave 4: adaptive-replan (consumes fresh-dispatch summaries, integrates with work
 ## Decision Log
 (Entries before 2026-02-16 reconstructed from git history with timestamps)
 - 2026-03-24: [success] M28 doc-ripple-agent Task 2 COMPLETE — created commands/gsd-t-doc-ripple.md (148 lines, under 200 limit). 6-step workflow: load context, threshold check (FIRE/SKIP), blast radius analysis, generate manifest, update documents (inline <3 / parallel subagents >=3), report summary. Includes observability logging block, $ARGUMENTS, Auto-Clear. Updated test counts (50→51 total, 45→46 gsd-t), CLAUDE.md, README.md, gsd-t-help.md, CLAUDE-global.md template. 480/480 tests pass, 0 regressions.
+- 2026-03-24: [success] M28 command-integration Tasks 1-4 COMPLETE — wired doc-ripple into execute (Step 7), integrate (Step 7.5), quick (Step 6), debug (Step 6), wave (Phase 9). Updated README.md and GSD-T-README.md command tables. 523/523 tests pass.
 - 2026-03-24: [success] M28 doc-ripple-agent Task 3 COMPLETE — 43 tests for threshold logic (7 FIRE, 5 SKIP), blast radius analysis (9 tests), manifest format (8 tests), integration (2 tests). 523/523 full suite pass. test/doc-ripple.test.js.
 - 2026-03-24: [success] M28 doc-ripple-agent Task 2 COMPLETE — commands/gsd-t-doc-ripple.md (148 lines). 6-step workflow: load context, threshold check, blast radius, manifest, update docs, report. Observability logging included. Updated 5 reference files (CLAUDE.md, README.md, gsd-t-help.md, CLAUDE-global.md, filesystem.test.js). 480/480 tests.
 - 2026-03-24: [success] M28 doc-ripple-agent Task 1 COMPLETE — finalized doc-ripple-contract.md from DRAFT to ACTIVE. All 5 acceptance criteria verified: status ACTIVE, 7 FIRE + 3 SKIP threshold conditions complete, manifest format includes all 4 columns (Document, Status, Action, Reason), integration pattern provides exact copy-paste block, model assignments documented (inline/haiku/sonnet). 480/480 tests pass, 0 regressions.
