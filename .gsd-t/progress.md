@@ -52,7 +52,7 @@
 - [x] Pre-mortem in plan surfaces historical failure patterns for current domain types
 - [x] All existing tests pass with no regressions (373+ tests)
 
-**M27: Cross-Project Learning & Global Sync (Tier 2.5)** — DEFINED (v2.45.10)
+**M27: Cross-Project Learning & Global Sync (Tier 2.5)** — PARTITIONED (v2.45.10)
 - **Goal**: Propagate proven rules across projects, enable cross-project comparison using signal-type distributions, and eventually ship validated rules in the npm package.
 - **Scope**:
   - Dual-layer learning architecture:
@@ -107,7 +107,23 @@ None — backlog item #10 (Docker Enterprise) available when ready.
 | M24 | Docker (Enterprise)                                | BACKLOG | 2.42.10 | 2       |
 | M25 | Telemetry Collection & Metrics Dashboard (Tier 1)  | COMPLETE | 2.43.10 | 4       |
 | M26 | Declarative Rule Engine & Patch Lifecycle (Tier 2)  | COMPLETE    | 2.44.10 | 3       |
-| M27 | Cross-Project Learning & Global Sync (Tier 2.5)    | DEFINED | 2.45.10 | TBD     |
+| M27 | Cross-Project Learning & Global Sync (Tier 2.5)    | PARTITIONED | 2.45.10 | 3       |
+
+## Domains (M27)
+| Domain              | Status      | Tasks | Completed |
+|---------------------|-------------|-------|-----------|
+| global-metrics      | partitioned | 0     | 0         |
+| cross-project-sync  | partitioned | 0     | 0         |
+| command-extensions   | partitioned | 0     | 0         |
+
+## Contracts (M27)
+- [x] cross-project-sync-contract.md — global-rules.jsonl, global-rollup.jsonl, global-signal-distributions.jsonl schemas, propagation protocol, universal promotion thresholds, global ELO
+- [x] integration-points.md — UPDATED with M27 dependency graph, 3 checkpoints, 3 wave groups
+
+## Execution Order (M27)
+Wave 1: global-metrics (foundation — produces global-sync-manager.js consumed by all others)
+Wave 2: cross-project-sync (propagation layer — extends doUpdateAll)
+Wave 3: command-extensions (wiring — extends metrics, status, complete-milestone commands)
 
 ## Domains (M26 — archived)
 | Domain              | Status   | Tasks | Completed |
@@ -198,6 +214,7 @@ Wave 4: adaptive-replan (consumes fresh-dispatch summaries, integrates with work
 
 ## Decision Log
 (Entries before 2026-02-16 reconstructed from git history with timestamps)
+- 2026-03-23: [success] M27 PARTITIONED — 3 domains defined: global-metrics (bin/global-sync-manager.js, ~/.claude/metrics/ global files, dual-layer learning architecture, signal distribution comparison, universal rule promotion), cross-project-sync (bin/gsd-t.js doUpdateAll extension, global rule propagation to registered projects as candidates, npm distribution pipeline for universal rules in examples/rules/), command-extensions (gsd-t-metrics --cross-project mode, gsd-t-status global ELO display, gsd-t-complete-milestone global promotion step). 3-wave execution: Wave 1 global-metrics (foundation) -> Wave 2 cross-project-sync (propagation) -> Wave 3 command-extensions (wiring). Contract: cross-project-sync-contract.md (global-rules.jsonl + global-rollup.jsonl + global-signal-distributions.jsonl schemas, propagation protocol, universal promotion thresholds 3+/5+, trigger fingerprint dedup). No shared files between domains. Assumption audit: M25/M26 modules USE (direct imports via require), existing command files MODIFY (additive steps only). Single consumer surface (Claude Code slash commands) — no SharedCore needed.
 - 2026-03-23: [design] M27 DEFINED — Cross-Project Learning & Global Sync (Tier 2.5). Goal: propagate proven rules across projects via dual-layer architecture (project-local + global ~/.claude/metrics/), enable cross-project signal comparison, ship universal rules in npm package. Predecessor: M26. All additive, no breaking changes.
 - 2026-03-23: [success] Milestone "M26 Declarative Rule Engine & Patch Lifecycle" completed — declarative rule engine + 5-stage patch lifecycle with promotion gates. v2.44.10
 - 2026-03-23: [goal-backward-pass] Goal-backward verification passed — 8 requirements checked, no placeholder patterns found
