@@ -51,6 +51,13 @@
 | REQ-041 | Distillation Extension — gsd-t-complete-milestone.md distillation step extended with rule evaluation, patch candidate generation, promotion gate check, graduation, consolidation, and quality budget governance | P1 | planned | validated by use |
 | REQ-042 | Quality Budget Governance — per-milestone rework ceiling (default 20%), auto-tightens constraints (force discuss, require contract review, split large tasks) when exceeded | P2 | planned | validated by use |
 
+| REQ-043 | Global Sync Manager — bin/global-sync-manager.js reads local metrics, writes global aggregated files to ~/.claude/metrics/, provides APIs for global rollup, global rules, signal distribution comparison, universal rule promotion | P1 | planned | test/global-sync-manager.test.js |
+| REQ-044 | Cross-Project Rule Propagation — gsd-t-version-update-all syncs global rules (universal or promotion_count >= 2) to all registered projects as candidates | P1 | planned | test/global-rule-sync.test.js |
+| REQ-045 | Universal Rule Promotion — rules promoted in 3+ projects marked universal, 5+ projects become npm distribution candidates shipped in examples/rules/ | P1 | planned | test/global-sync-manager.test.js |
+| REQ-046 | Cross-Project Signal Comparison — gsd-t-metrics --cross-project displays signal-type distribution comparison across registered projects | P2 | planned | validated by use |
+| REQ-047 | Global ELO & Rankings — gsd-t-status displays global ELO score and cross-project rank when global metrics exist | P2 | planned | validated by use |
+| REQ-048 | Global Rule Promotion on Milestone Completion — gsd-t-complete-milestone copies promoted rules to global-rules.jsonl and updates global rollup after local promotion | P1 | planned | validated by use |
+
 ## Technical Requirements
 
 | ID | Requirement | Priority | Status |
@@ -140,6 +147,20 @@
 
 **Orphaned requirements**: None — all M26 REQs mapped to tasks.
 **Unanchored tasks**: rule-engine Task 5 (tests) and patch-lifecycle Task 4 (tests) are QA infrastructure supporting all REQs. command-integration Task 4 (reference docs) supports Pre-Commit Gate compliance.
+
+## Requirements Traceability (updated by plan phase — M27)
+
+| REQ-ID  | Requirement Summary                                         | Domain              | Task(s)                        | Status  |
+|---------|-------------------------------------------------------------|---------------------|--------------------------------|---------|
+| REQ-043 | Global Sync Manager — read local, write global, compare     | global-metrics      | Task 1, 2, 3, 4               | pending |
+| REQ-044 | Cross-Project Rule Propagation — update-all syncs rules     | cross-project-sync  | Task 1, 3                      | pending |
+| REQ-045 | Universal Rule Promotion — 3+ universal, 5+ npm candidate   | global-metrics, cross-project-sync | gm Task 3, cps Task 2 | pending |
+| REQ-046 | Cross-Project Signal Comparison — metrics --cross-project    | command-extensions  | Task 1                         | pending |
+| REQ-047 | Global ELO & Rankings — status global ELO display            | command-extensions  | Task 2                         | pending |
+| REQ-048 | Global Rule Promotion on Milestone Completion                | command-extensions  | Task 3                         | pending |
+
+**Orphaned requirements**: None — all M27 REQs mapped to tasks.
+**Unanchored tasks**: global-metrics Task 4 (tests) and cross-project-sync Task 3 (tests) are QA infrastructure supporting REQ-043 through REQ-045. command-extensions Task 4 (reference docs) supports Pre-Commit Gate compliance.
 
 ---
 

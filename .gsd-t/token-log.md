@@ -31,3 +31,6 @@
 | 2026-03-23 17:58 | 2026-03-23 18:23 | gsd-t-wave | execute | sonnet | 1529s | M26 executed: 13/13 tasks, 423/423 tests, 50 new | 0 | null | | | N/A |
 | 2026-03-23 18:24 | 2026-03-23 18:32 | gsd-t-wave | test-sync | sonnet | 474s | M26 test-sync: 10 new tests, 433/433 pass | 0 | null | | | N/A |
 | 2026-03-23 18:32 | 2026-03-23 18:40 | gsd-t-wave | integrate | sonnet | 477s | M26 integrated: 3 domains wired, 433/433 tests | 0 | null | | | N/A |
+| 2026-03-23 18:40 | 2026-03-23 18:53 | gsd-t-wave | verify+complete | sonnet | 783s | M26 verified+completed: 433/433 tests, v2.44.10 tagged | 0 | null | | | N/A |
+| 2026-03-23 18:54 | 2026-03-23 21:40 | gsd-t-wave | milestone | sonnet | 9962s | M27 milestone defined | 0 | null | | | N/A |
+| 2026-03-23 21:40 | 2026-03-23 21:51 | gsd-t-wave | partition | sonnet | 674s | M27 partitioned: 3 domains, 1 contract | 0 | null | | | N/A || 2026-03-23 22:03 | 2026-03-23 22:03 | gsd-t-plan | Step 7 | haiku | 30s | PASS, iteration 1 | 0 | null |

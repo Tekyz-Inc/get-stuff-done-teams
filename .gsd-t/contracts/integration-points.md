@@ -1,6 +1,6 @@
 # Integration Points
 
-## Current State: Milestone 27 — Cross-Project Learning & Global Sync (PLANNED)
+## Current State: Milestone 27 — Cross-Project Learning & Global Sync (PLANNED — 11 tasks across 3 domains)
 
 ## Dependency Graph
 
@@ -20,7 +20,7 @@
 ### Final Checkpoint (command-extensions complete)
 - GATE: command-extensions reference docs updated
 - VERIFY: End-to-end: local promotion -> global rule -> update-all propagation -> cross-project metrics display
-- VERIFY: All existing tests pass (373+) + new tests pass
+- VERIFY: All existing tests pass (433+) + new tests pass
 
 ## Detailed Dependency Graph
 
@@ -103,7 +103,7 @@ No files are modified by multiple domains. Each domain has exclusive ownership:
 - VERIFY: `gsd-t-metrics --cross-project` displays signal-type distribution comparison across projects
 - VERIFY: `gsd-t-status` displays global ELO and cross-project rank when global metrics exist
 - VERIFY: `gsd-t-complete-milestone` copies promoted rules to global-rules.jsonl after local promotion
-- VERIFY: All existing tests pass (373+) + new global-sync-manager and global-rule-sync tests pass
+- VERIFY: All existing tests pass (433+) + new global-sync-manager and global-rule-sync tests pass
 
 ## Execution Order (for solo mode)
 
