@@ -14,7 +14,7 @@
 - 4 domains: metrics-collection, metrics-rollup, metrics-dashboard, metrics-commands
 - Archived: .gsd-t/milestones/M25-telemetry-metrics-2026-03-23/
 
-**M26: Declarative Rule Engine & Patch Lifecycle (Tier 2)** — TESTS_SYNCED (v2.44.10)
+**M26: Declarative Rule Engine & Patch Lifecycle (Tier 2)** — INTEGRATED (v2.44.10)
 - **Goal**: Auto-detect failure patterns, generate candidate patches, and manage their lifecycle through promotion gates with measurable improvement thresholds. Promoted patches that sustain improvement graduate into permanent methodology artifacts.
 - **Scope**:
   - `.gsd-t/metrics/rules.jsonl` — declarative rule engine: pattern detection triggers as JSON objects (not hardcoded heuristics). Adding a new detection pattern = JSON append, not code deploy
@@ -74,7 +74,7 @@ None — backlog item #10 (Docker Enterprise) available when ready.
 | M23 | GSD 2 Tier 2 — Headless Mode          | COMPLETE | 2.41.10 | 3       |
 | M24 | Docker (Enterprise)                                | BACKLOG | 2.42.10 | 2       |
 | M25 | Telemetry Collection & Metrics Dashboard (Tier 1)  | COMPLETE | 2.43.10 | 4       |
-| M26 | Declarative Rule Engine & Patch Lifecycle (Tier 2)  | PLANNED     | 2.44.10 | 3       |
+| M26 | Declarative Rule Engine & Patch Lifecycle (Tier 2)  | INTEGRATED  | 2.44.10 | 3       |
 | M27 | Cross-Project Learning & Global Sync (Tier 2.5)    | DEFINED | 2.45.10 | TBD     |
 
 ## Domains (M26)
@@ -175,6 +175,7 @@ Wave 4: adaptive-replan (consumes fresh-dispatch summaries, integrates with work
 
 ## Decision Log
 (Entries before 2026-02-16 reconstructed from git history with timestamps)
+- 2026-03-23: [success] M26 INTEGRATED — all 3 domains wired together, 3 contracts verified. Contract audit: rule-engine-contract.md PASS (7 exports match, all schema fields present, all 8 trigger operators valid, all 4 edit types valid, seed data compliant), integration-points.md PASS (3 checkpoints verified, dependency graph honored). Cross-domain wiring: patch-lifecycle.js correctly requires rule-engine.js for getPatchTemplate, command files invoke both modules via node -e. Smoke tests: (1) Rule eval -> candidate creation PASS, (2) Full lifecycle candidate->applied->measured->promoted PASS with >55% gate, (3) Graduation + deprecation + pre-mortem PASS. Quality budget governance in complete-milestone verified. 433/433 tests pass. Zero regressions.
 - 2026-03-23: [success] M26 TESTS_SYNCED — 10 new tests added (32 rule-engine, 28 patch-lifecycle = 60 total for M26). Coverage audit: all 7 rule-engine exports and 8 patch-lifecycle exports have dedicated test suites. Gaps filled: milestone scope evaluation (2 tests), applyPatch edge cases (anchor not found, missing template, unknown edit_type — 3 tests), recordMeasurement edge cases (candidate no-op, zero baseline — 2 tests), promote non-measured no-op (1 test), graduate edge cases (non-promoted, missing template — 2 tests). Contract compliance verified: all schemas, lifecycle state machine, promotion gate (>55%), graduation criteria (3+ milestones), all 8 trigger operators, all 4 edit types. 433/433 tests pass. Zero regressions. .gsd-t/test-coverage.md created.
 - 2026-03-23: [success] M26 EXECUTED — 13/13 tasks across 3 domains, 3 waves. Wave 1: rule-engine (5 tasks) — bin/rule-engine.js (getActiveRules, evaluateRules, getPreMortemRules, getPatchTemplate, recordActivation, flagInactiveRules, consolidateRules), 8 trigger operators, seed rules.jsonl (4 rules) + patch-templates.jsonl (2 templates), 30 new tests. Wave 2: patch-lifecycle (4 tasks) — bin/patch-lifecycle.js (createCandidate, applyPatch, recordMeasurement, checkPromotionGate, promote, graduate, deprecate, getPatchesByStatus), 4 edit types (append/prepend/insert_after/replace), >55% promotion gate, 3-milestone graduation, 20 new tests. Wave 3: command-integration (4 tasks) — execute active rule injection, plan pre-mortem rules, complete-milestone distillation (6 sub-steps: rule eval, patch candidates, promotion gate, graduation, consolidation, quality budget), 4 reference files updated. 423/423 tests pass (50 new). Zero regressions.
 - 2026-03-23: [success] M26 PLANNED — 13 tasks across 3 domains (rule-engine: 5, patch-lifecycle: 4, command-integration: 4). 3-wave execution: Wave 1 rule-engine (foundation, 5 tasks) -> Wave 2 patch-lifecycle (lifecycle layer, 4 tasks) -> Wave 3 command-integration (wiring, 4 tasks). Recommended: solo sequential (13 tasks, strictly sequential waves). No duplicate operations detected. No SharedCore needed. REQ-036 through REQ-042 defined and traced to tasks. Integration points updated with task-level dependency graph and 3 checkpoints. Plan validation: PASS. 373/373 tests pass (pre-execution baseline).
