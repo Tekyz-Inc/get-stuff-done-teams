@@ -3,21 +3,18 @@
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: IN PROGRESS
 ## Date: 2026-03-23
-## Version: 2.44.10
+## Version: 2.43.10
 
 ## Active Milestone
 
-**Feature: Self-Learning & Self-Improvement System** — M25 COMPLETE, M26 COMPLETE, M27 DEFINED
+**Feature: Self-Learning & Self-Improvement System** — M25 COMPLETE, M26 ACTIVE, M27 DEFINED
 
 **M25: Telemetry Collection & Metrics Dashboard (Tier 1)** — COMPLETE (v2.43.10)
 - Task telemetry with weighted signal taxonomy, rollups, process ELO, pre-flight intelligence check, Chart.js dashboard, gsd-t-metrics command
 - 4 domains: metrics-collection, metrics-rollup, metrics-dashboard, metrics-commands
 - Archived: .gsd-t/milestones/M25-telemetry-metrics-2026-03-23/
 
-**M26: Declarative Rule Engine & Patch Lifecycle (Tier 2)** — COMPLETE (v2.44.10)
-- Declarative rule engine (bin/rule-engine.js) + patch lifecycle (bin/patch-lifecycle.js), 5-stage lifecycle (candidate->applied->measured->promoted->graduated), promotion gate (>55%), quality budget governance
-- 3 domains: rule-engine, patch-lifecycle, command-integration
-- Archived: .gsd-t/milestones/M26-rule-engine-patch-lifecycle-2026-03-23/
+**M26: Declarative Rule Engine & Patch Lifecycle (Tier 2)** — VERIFIED (v2.44.10)
 - **Goal**: Auto-detect failure patterns, generate candidate patches, and manage their lifecycle through promotion gates with measurable improvement thresholds. Promoted patches that sustain improvement graduate into permanent methodology artifacts.
 - **Scope**:
   - `.gsd-t/metrics/rules.jsonl` — declarative rule engine: pattern detection triggers as JSON objects (not hardcoded heuristics). Adding a new detection pattern = JSON append, not code deploy
@@ -77,15 +74,24 @@ None — backlog item #10 (Docker Enterprise) available when ready.
 | M23 | GSD 2 Tier 2 — Headless Mode          | COMPLETE | 2.41.10 | 3       |
 | M24 | Docker (Enterprise)                                | BACKLOG | 2.42.10 | 2       |
 | M25 | Telemetry Collection & Metrics Dashboard (Tier 1)  | COMPLETE | 2.43.10 | 4       |
-| M26 | Declarative Rule Engine & Patch Lifecycle (Tier 2)  | COMPLETE    | 2.44.10 | 3       |
+| M26 | Declarative Rule Engine & Patch Lifecycle (Tier 2)  | VERIFIED    | 2.44.10 | 3       |
 | M27 | Cross-Project Learning & Global Sync (Tier 2.5)    | DEFINED | 2.45.10 | TBD     |
 
-## Domains (M26 — archived)
-| Domain              | Status   | Tasks | Completed |
-|---------------------|----------|-------|-----------|
-| rule-engine         | complete | 5     | 5         |
-| patch-lifecycle     | complete | 4     | 4         |
-| command-integration | complete | 4     | 4         |
+## Domains (M26)
+| Domain                | Status      | Tasks | Completed |
+|-----------------------|-------------|-------|-----------|
+| rule-engine           | complete | 5     | 5         |
+| patch-lifecycle       | complete | 4     | 4         |
+| command-integration   | complete | 4     | 4         |
+
+## Contracts (M26)
+- [x] rule-engine-contract.md — rules.jsonl + patch-templates.jsonl schemas, patch status schema, lifecycle state machine, promotion gate (>55%), graduation criteria (3+ milestones), quality budget governance, API definitions
+- [x] integration-points.md — UPDATED with M26 dependency graph, wave execution groups, and solo execution order
+
+## Execution Order (M26)
+Wave 1: rule-engine (foundation — rules.jsonl evaluator, patch-templates, activation tracking, consolidation)
+Wave 2: patch-lifecycle (lifecycle layer — candidate->applied->measured->promoted->graduated, promotion gates)
+Wave 3: command-integration (wiring — execute rule injection, plan pre-mortem, complete-milestone distillation, quality budget)
 
 ## Domains (M25 — archived)
 | Domain               | Status  | Tasks | Completed |
@@ -169,8 +175,6 @@ Wave 4: adaptive-replan (consumes fresh-dispatch summaries, integrates with work
 
 ## Decision Log
 (Entries before 2026-02-16 reconstructed from git history with timestamps)
-- 2026-03-23: [success] Milestone "M26 Declarative Rule Engine & Patch Lifecycle" completed — declarative rule engine + 5-stage patch lifecycle with promotion gates. v2.44.10
-- 2026-03-23: [goal-backward-pass] Goal-backward verification passed — 8 requirements checked, no placeholder patterns found
 - 2026-03-23: [success] M26 VERIFIED — all quality gates PASS. 433/433 tests, 1/1 contract compliant, 8/8 success criteria met, 13/13 tasks complete, 0 critical/warning findings, goal-backward PASS (no placeholders). Ready for complete-milestone.
 - 2026-03-23: [success] M26 INTEGRATED — all 3 domains wired together, 3 contracts verified. Contract audit: rule-engine-contract.md PASS (7 exports match, all schema fields present, all 8 trigger operators valid, all 4 edit types valid, seed data compliant), integration-points.md PASS (3 checkpoints verified, dependency graph honored). Cross-domain wiring: patch-lifecycle.js correctly requires rule-engine.js for getPatchTemplate, command files invoke both modules via node -e. Smoke tests: (1) Rule eval -> candidate creation PASS, (2) Full lifecycle candidate->applied->measured->promoted PASS with >55% gate, (3) Graduation + deprecation + pre-mortem PASS. Quality budget governance in complete-milestone verified. 433/433 tests pass. Zero regressions.
 - 2026-03-23: [success] M26 TESTS_SYNCED — 10 new tests added (32 rule-engine, 28 patch-lifecycle = 60 total for M26). Coverage audit: all 7 rule-engine exports and 8 patch-lifecycle exports have dedicated test suites. Gaps filled: milestone scope evaluation (2 tests), applyPatch edge cases (anchor not found, missing template, unknown edit_type — 3 tests), recordMeasurement edge cases (candidate no-op, zero baseline — 2 tests), promote non-measured no-op (1 test), graduate edge cases (non-promoted, missing template — 2 tests). Contract compliance verified: all schemas, lifecycle state machine, promotion gate (>55%), graduation criteria (3+ milestones), all 8 trigger operators, all 4 edit types. 433/433 tests pass. Zero regressions. .gsd-t/test-coverage.md created.

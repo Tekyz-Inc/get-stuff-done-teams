@@ -135,21 +135,19 @@ Spawn agent → `commands/gsd-t-test-sync.md`
 Spawn agent → `commands/gsd-t-integrate.md`
 - After: Read `progress.md`, verify status = INTEGRATED
 
-#### 8. VERIFY
+#### 8. VERIFY + COMPLETE
 Spawn agent → `commands/gsd-t-verify.md`
 - The verify agent runs all 8 standard quality gates **plus** the goal-backward verification step (Step 5.5 in gsd-t-verify.md), which checks that milestone goals are actually achieved end-to-end and scans for placeholder patterns per `.gsd-t/contracts/goal-backward-contract.md`
 - Goal-backward runs after all structural gates pass — CRITICAL or HIGH findings block verification; MEDIUM findings are warnings only
+- **Verify auto-invokes complete-milestone** (Step 8 of gsd-t-verify.md). The verify agent handles both verification AND milestone completion in a single agent context. Do NOT spawn a separate complete agent.
 - After: Read `progress.md`, check status:
-  - VERIFIED → proceed to Complete
+  - COMPLETED → milestone done (verify passed and auto-completed)
+  - VERIFIED → verify passed but complete-milestone failed — spawn a standalone complete agent as fallback
   - VERIFY_FAILED → handle remediation (see Error Recovery) — includes goal-backward failures
 - Phase summary must include the `Goal-Backward:` line from verify-report.md:
   ```
-  📋 Phase 8 (VERIFY): {N} gates passed | Goal-Backward: {PASS/WARN/FAIL} — {N} requirements checked, {N} findings
+  📋 Phase 8 (VERIFY+COMPLETE): {N} gates passed | Goal-Backward: {PASS/WARN/FAIL} — {N} requirements checked, {N} findings
   ```
-
-#### 9. COMPLETE
-Spawn agent → `commands/gsd-t-complete-milestone.md`
-- After: Read `progress.md`, verify status = COMPLETED
 
 ### Between Each Phase
 
@@ -302,16 +300,17 @@ If command files in `~/.claude/commands/` are tampered with, wave agents will ex
 │    check           check       check       check +       check              │
 │                                           gate                              │
 │                                                                              │
-│  ┌──────────┐   ┌────────┐   ┌───────────┐       ┌─────────────────┐       │
-│  │ COMPLETE │ ← │ VERIFY │ ← │ INTEGRATE │ ←──── │ FULL TEST-SYNC  │       │
-│  │ agent 9  │   │agent 8 │   │  agent 7  │       │    agent 6      │       │
-│  └────┬────┘   └────┬────┘   └─────┬─────┘       └────────┬────────┘       │
-│       ↓              ↓              ↓                      ↓               │
-│    archive        status +       status                 status              │
-│    git tag        gate check     check                  check               │
+│  ┌──────────────────┐   ┌───────────┐       ┌─────────────────┐            │
+│  │ VERIFY+COMPLETE  │ ← │ INTEGRATE │ ←──── │ FULL TEST-SYNC  │            │
+│  │    agent 8       │   │  agent 7  │       │    agent 6      │            │
+│  └────────┬─────────┘   └─────┬─────┘       └────────┬────────┘            │
+│           ↓                    ↓                      ↓                     │
+│    gate check →             status                 status                   │
+│    auto-complete            check                  check                    │
+│    archive + tag                                                            │
 │                                                                              │
 │  Each agent: fresh context window, reads state from files, dies when done   │
-│  Orchestrator: ~30KB total, never compacts                                  │
+│  Orchestrator: 8 agents (was 9), ~30KB total, never compacts               │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 

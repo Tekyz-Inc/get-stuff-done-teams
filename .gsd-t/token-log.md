@@ -26,3 +26,8 @@
 | 2026-03-23 15:58 | 2026-03-23 16:09 | gsd-t-wave | verify+complete | sonnet | 654s | M25 verified + completed: 373/373 tests, 3/3 contracts, v2.43.10 tagged | 0 | null | | | N/A |
 | 2026-03-23 16:09 | 2026-03-23 16:11 | gsd-t-wave | milestone | sonnet | 97s | M26 milestone defined | 0 | null | | | N/A |
 | 2026-03-23 16:11 | 2026-03-23 17:44 | gsd-t-wave | partition | sonnet | 5571s | M26 partitioned: 3 domains, 1 contract, 373/373 tests | 0 | null | | | N/A || 2026-03-23 17:57 | 2026-03-23 17:57 | gsd-t-plan | Step 7 | haiku | 13s | PASS, iteration 1 — 5/5 checks pass (REQ coverage, task completeness, cross-domain deps, contract existence, no locked decisions) | 0 | null | | | N/A |
+
+| 2026-03-23 17:45 | 2026-03-23 17:58 | gsd-t-wave | plan | sonnet | 782s | M26 planned: 13 tasks, 3 domains, 3 waves | 0 | null | | | N/A |
+| 2026-03-23 17:58 | 2026-03-23 18:23 | gsd-t-wave | execute | sonnet | 1529s | M26 executed: 13/13 tasks, 423/423 tests, 50 new | 0 | null | | | N/A |
+| 2026-03-23 18:24 | 2026-03-23 18:32 | gsd-t-wave | test-sync | sonnet | 474s | M26 test-sync: 10 new tests, 433/433 pass | 0 | null | | | N/A |
+| 2026-03-23 18:32 | 2026-03-23 18:40 | gsd-t-wave | integrate | sonnet | 477s | M26 integrated: 3 domains wired, 433/433 tests | 0 | null | | | N/A |
