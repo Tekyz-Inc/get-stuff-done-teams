@@ -81,13 +81,16 @@ Your behavior depends on which phase spawned you:
 
 ### During Verify
 **Trigger**: Lead invokes verify phase
-**Action**: Full test audit
+**Action**: Full test audit + shallow test detection
 
 1. Run ALL tests — contract tests, acceptance tests, edge case tests, existing project tests
 2. Coverage audit: For every contract, confirm tests exist and pass
 3. For every new feature/mode/flow, confirm Playwright specs cover happy path, error states, edge cases
-4. Gap report: List any untested contracts or code paths
-5. Report: `QA: {pass|fail} — {N} contract tests, {N} acceptance tests, {N} edge case tests. Gaps: {list or "none"}`
+4. **Shallow test audit**: Read every Playwright spec file. For each `test()` block, check whether the assertions verify functional behavior (state changes, data flow, content updates after actions) or only check element existence (isVisible, toBeAttached, toBeEnabled). Flag any test that would pass on an empty HTML shell as `SHALLOW — needs functional assertions`.
+5. Gap report: List any untested contracts, code paths, AND shallow tests
+6. Report: `QA: {pass|fail} — {N} contract tests, {N} acceptance tests, {N} edge case tests. Gaps: {list or "none"}. Shallow E2E tests: {N} (list or "none")`
+
+**Shallow tests block verification.** A passing E2E suite where tests don't actually verify feature behavior is equivalent to a failing suite.
 
 ### During Quick
 **Trigger**: Lead runs a quick task
@@ -189,9 +192,27 @@ For each table in `schema-contract.md`:
 For each component in `component-contract.md`:
 - Each `## ComponentName` → one `test.describe` block
 - `Props:` → renders with required props, handles missing optional props
-- `Events:` → event handlers fire correctly
-- API references → verify correct API calls made
+- `Events:` → event handlers fire correctly AND produce the expected state change
+- API references → verify correct API calls made AND responses rendered correctly
 - Auto-generate: empty form, partial form, network error handling
+
+### Functional E2E Test Standard (MANDATORY for all Playwright specs)
+
+**E2E tests that only verify element existence are LAYOUT tests, not functional tests. Layout tests pass even when every feature is broken. This is a QA failure.**
+
+Every Playwright spec MUST verify functional behavior — that actions produce the correct outcome:
+
+| Test Pattern | WRONG (layout test) | RIGHT (functional test) |
+|---|---|---|
+| Tab switching | `expect(tab).toBeVisible()` | Click tab → assert NEW content loaded (text, data unique to that tab) |
+| Form submit | `expect(submitBtn).toBeEnabled()` | Fill form → submit → assert success message AND data persisted (API call, list updated) |
+| Terminal/editor | `expect(terminal).toBeAttached()` | Open terminal → type command → assert output appears |
+| WebSocket | `expect(statusBadge).toBeVisible()` | Wait for connection → assert status text changes to "Connected" → send message → assert response |
+| Navigation | `expect(link).toHaveAttribute('href')` | Click link → assert URL changed AND destination content rendered |
+| Toggle/mode | `expect(toggle).toBeVisible()` | Click toggle → assert the EFFECT (dark mode CSS applied, panel expanded with content, feature enabled) |
+| Error state | `expect(errorDiv).toBeVisible()` | Trigger error → assert message content → assert recovery action works |
+
+**Rule: If a test would pass on an empty HTML shell with the right element IDs, it is not a functional test. Every assertion must prove the feature works, not that the element exists.**
 
 ## Test File Conventions
 

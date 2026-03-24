@@ -2,6 +2,18 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.46.11] - 2026-03-24
+
+### Added
+- **M28: Doc-Ripple Subagent** — automated document ripple enforcement agent. Threshold check (7 FIRE/3 SKIP conditions), blast radius analysis, manifest generation, parallel document updates. New command: `gsd-t-doc-ripple`. 43 new tests. Wired into execute, integrate, quick, debug, wave.
+- **Orchestrator context self-check** — execute and wave orchestrators now check their own context utilization after every domain/phase. If >= 70%, saves progress and stops to prevent session breaks.
+- **Functional E2E test quality standard (REQ-050)** — Playwright specs must verify functional behavior, not just element existence. Shallow test audit added to qa, test-sync, verify, complete-milestone commands.
+- **Document Ripple Completion Gate (REQ-051)** — structural rule preventing "done" reports until all downstream documents are updated.
+
+### Changed
+- Command count: 50 → 51 (added `gsd-t-doc-ripple`)
+- Package description updated to include doc-ripple enforcement
+
 ## [2.39.12] - 2026-03-19
 
 ### Added

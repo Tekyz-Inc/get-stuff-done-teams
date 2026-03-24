@@ -104,7 +104,8 @@ Work through each dimension sequentially. For each:
    - Confirm specs cover: happy path, error states, edge cases, all modes/flags
    - If specs are missing or incomplete → invoke `gsd-t-test-sync` to create them, then re-run
    - **Missing E2E coverage on new functionality = verification FAIL**
-5. Tests are NOT optional — verification cannot pass without running them and confirming comprehensive coverage
+5. **Functional test quality audit**: Read every Playwright spec. For each `test()` block, verify assertions check **functional behavior** (state changed after action, data loaded, content updated, widget responded) — NOT just element existence (`isVisible`, `toBeAttached`, `toBeEnabled`). A test that would pass on an empty HTML page with the right element IDs is a **shallow test** and counts as a verification FAIL. Flag shallow tests and rewrite them before proceeding.
+6. Tests are NOT optional — verification cannot pass without running them and confirming comprehensive, functional coverage
 
 ### Team Mode (when agent teams are enabled)
 ```

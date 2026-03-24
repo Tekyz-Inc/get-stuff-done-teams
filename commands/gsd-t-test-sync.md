@@ -151,6 +151,27 @@ If Playwright is configured (`playwright.config.*` or Playwright in dependencies
 
 **This is NOT optional.** Every new code path that a user can reach must have a Playwright spec. "We'll add tests later" is never acceptable.
 
+**FUNCTIONAL TESTS — NOT LAYOUT TESTS (MANDATORY):**
+E2E specs that only check element existence (`isVisible`, `toBeAttached`, `toBeEnabled`) are
+layout tests. Layout tests pass even when every feature is broken — they are worthless for QA.
+
+Every Playwright assertion MUST verify **functional behavior** — that an action produced the
+correct outcome:
+- **Tab/navigation**: Click → assert the NEW content loaded (unique text, data, or elements
+  that only appear on the destination view). Never just assert the tab element exists.
+- **Forms**: Fill → submit → assert success feedback AND data persisted (API call observed
+  via `page.waitForResponse`, or list/table updated with new entry).
+- **Interactive widgets** (terminals, editors, code panels): Open → interact → assert the
+  widget responded (keystroke produced output, content was saved, command executed).
+- **Connections** (WebSocket, SSE, polling): Assert status transitions ("Connecting" →
+  "Connected") and verify data flows through the connection.
+- **State toggles** (dark mode, expand/collapse, enable/disable): Assert the EFFECT of the
+  toggle, not just that the toggle control exists.
+- **Error handling**: Trigger error → assert error content → assert recovery path works.
+
+**Rule: If a test would pass on an empty HTML page with the correct element IDs and no
+JavaScript, it is not a functional test. Rewrite it.**
+
 ### D) Capture Results
 For all test types:
 - PASS: Test still valid

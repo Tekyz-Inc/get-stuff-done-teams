@@ -445,8 +445,9 @@ Verify the milestone is truly complete:
    c. If specs are missing or stale, invoke `gsd-t-test-sync` first.
    d. Report: "Unit: X/Y pass | E2E: X/Y pass"
 2. **Verify all pass**: Every test must pass. If any fail, fix before tagging (up to 2 attempts)
+3. **Functional test quality gate**: Read every Playwright spec. Verify assertions check **functional behavior** (state changed after action, data loaded, content updated, widget responded to input) — NOT just element existence (`isVisible`, `toBeAttached`, `toBeEnabled`). Shallow tests that would pass on an empty HTML page with the right element IDs are a milestone completion FAIL. Flag and rewrite before proceeding.
 4. **Compare to baseline**: If a test baseline was recorded at milestone start, verify coverage has improved or at minimum not regressed
-5. **Log test results**: Include test pass/fail counts in the milestone summary (Step 4)
+5. **Log test results**: Include test pass/fail counts and shallow test audit results in the milestone summary (Step 4)
 
 ## Step 11: Create Git Tag
 
