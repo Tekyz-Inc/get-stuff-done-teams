@@ -288,7 +288,8 @@ Before committing, ensure the fix is solid:
    d. Report ALL results: "Unit: X/Y pass | E2E: X/Y pass"
 3. **Verify passing**: All tests must pass. If any fail, fix before proceeding (up to 2 attempts)
 4. **If the project has a UI but no E2E specs cover the fixed area**: WRITE THEM.
-5. **Regression check**: Confirm the fix doesn't break any adjacent functionality
+5. **Functional test quality**: Every E2E assertion must verify an action produced the correct outcome (state changed, data loaded, content updated) — not just that elements exist. Tests that only check `isVisible`/`toBeEnabled` are shallow layout tests and don't catch real bugs. If a test would pass on an empty HTML page with the right IDs, rewrite it.
+6. **Regression check**: Confirm the fix doesn't break any adjacent functionality
 
 Commit: `[debug] Fix {description} — root cause: {explanation}`
 
@@ -301,6 +302,26 @@ Signal type is always `debug-invoked` for debug sessions.
 
 Emit task_complete event — run via Bash:
 `node ~/.claude/scripts/gsd-t-event-writer.js --type task_complete --command gsd-t-debug --reasoning "signal_type=debug-invoked, domain={domain}" --outcome {success|failure} || true`
+
+## Step 6: Doc-Ripple (Automated)
+
+After all work is committed but before reporting completion:
+
+1. Run threshold check — read `git diff --name-only HEAD~1` and evaluate against doc-ripple-contract.md trigger conditions
+2. If SKIP: log "Doc-ripple: SKIP — {reason}" and proceed to completion
+3. If FIRE: spawn doc-ripple agent:
+
+⚙ [{model}] gsd-t-doc-ripple → blast radius analysis + parallel updates
+
+Task subagent (general-purpose, model: sonnet):
+"Execute the doc-ripple workflow per commands/gsd-t-doc-ripple.md.
+Git diff context: {files changed list}
+Command that triggered: debug
+Produce manifest at .gsd-t/doc-ripple-manifest.md.
+Update all affected documents.
+Report: 'Doc-ripple: {N} checked, {N} updated, {N} skipped'"
+
+4. After doc-ripple returns, verify manifest exists and report summary inline
 
 $ARGUMENTS
 

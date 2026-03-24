@@ -168,6 +168,26 @@ Execute the task above:
    - If the project has a UI but no Playwright E2E specs exist for the features being
      touched: WRITE THEM. A placeholder spec is not sufficient — write real E2E tests
      that exercise the actual UI functionality being built or changed.
+   - **FUNCTIONAL E2E TESTS — NOT LAYOUT TESTS (MANDATORY)**:
+     E2E tests that only check element existence (isVisible, isEnabled, toBeAttached)
+     are LAYOUT tests, not functional tests. Layout tests pass even when every feature
+     is broken. Every Playwright spec MUST verify functional behavior:
+     a. **State changes**: After an action (click, type, submit), assert the app STATE
+        changed — not just that the button was clickable. Example: clicking a tab must
+        load different content; verify the content changed, not just that the tab exists.
+     b. **Data flow**: Form submissions must verify data arrived (API call made, response
+        rendered, list updated). Don't just assert the form rendered.
+     c. **Navigation/routing**: Tab/page switches must verify the NEW content loaded.
+        Assert on content unique to the destination, not the navigation element itself.
+     d. **Interactive widgets**: Terminals must accept input and produce output. Editors
+        must save changes. Panels must load their functional content after opening.
+     e. **Network integration**: If a feature requires WebSocket/API connection, verify
+        the connection status changes (e.g., "Disconnected" → "Connected") and that
+        messages flow through the connection.
+     f. **Error recovery**: Don't just check error messages render — verify the app
+        recovers (retry button works, form can be resubmitted, etc.).
+     A test that would pass on an empty HTML page with the right element IDs is useless.
+     Every assertion must prove the FEATURE WORKS, not that the ELEMENT EXISTS.
 7. Run ALL test suites — this is NOT optional, not conditional, not "if applicable":
    a. Detect configured test runners: check for vitest/jest config, playwright.config.*, cypress.config.*
    b. Run EVERY detected suite. Unit tests alone are NEVER sufficient when E2E exists.
@@ -187,8 +207,13 @@ Execute the task above:
      b. E2E tests: check for playwright.config.* or cypress.config.* — if found, run the FULL E2E suite
      c. NEVER skip E2E when a config file exists. Running only unit tests is a QA FAILURE.
      d. Read .gsd-t/contracts/ for contract definitions. Check contract compliance.
-     Report format: "Unit: X/Y pass | E2E: X/Y pass (or N/A if no config) | Contract: compliant/violations"'
-    If QA fails, fix before proceeding. Append issues to .gsd-t/qa-issues.md.
+     e. AUDIT E2E test quality: Review each Playwright spec — if any test only checks
+        element existence (isVisible, toBeAttached, toBeEnabled) without verifying functional
+        behavior (state changes, data loaded, content updated after actions), flag it as
+        "SHALLOW TEST — needs functional assertions" in the gap report. A test suite where
+        every spec passes but no feature actually works is a QA FAILURE.
+     Report format: "Unit: X/Y pass | E2E: X/Y pass (or N/A if no config) | Contract: compliant/violations | Shallow tests: N (list)"'
+    If QA fails OR shallow tests are found, fix before proceeding. Append issues to .gsd-t/qa-issues.md.
 12. Write task summary to .gsd-t/domains/{domain-name}/task-{task-id}-summary.md:
     ## Task {task-id} Summary — {domain-name}
     - **Status**: PASS | FAIL
@@ -275,10 +300,11 @@ RULES FOR ALL TEAMMATES:
 - **Destructive Action Guard**: NEVER drop tables, remove columns, delete data, replace architecture patterns, or remove working modules without messaging the lead first. The lead must get user approval before any destructive action proceeds.
 - Only modify files listed in your domain's scope.md
 - Implement interfaces EXACTLY as specified in contracts
-- **Write comprehensive tests with every task** — no feature code without test code:
+- **Write comprehensive FUNCTIONAL tests with every task** — no feature code without test code:
   - Unit/integration tests: happy path + edge cases + error cases for every new/changed function
   - Playwright E2E specs (if UI/routes/flows/modes changed): new specs for new features, cover all modes/flags, form validation, empty/loading/error states, common edge cases
   - Tests are part of the deliverable, not a follow-up
+  - **E2E tests MUST be functional, not layout tests**: Every assertion must verify an action produced the correct outcome (state changed, data loaded, content updated) — NOT just that an element is visible/clickable. A test that passes on an empty HTML shell with correct IDs is worthless. See the Functional E2E Test Requirements in the solo mode instructions above.
 - If a task is marked BLOCKED, message the lead and wait
 - Run the Pre-Commit Gate checklist from CLAUDE.md BEFORE every commit — update all affected docs
 - **Commit immediately after each task**: `feat({domain}/task-{N}): {description}` — do NOT batch commits
@@ -450,6 +476,26 @@ When all tasks in all domains are complete:
 **Level 3 (Full Auto)**: Log a brief status line (e.g., "✅ Execute complete — {N}/{N} tasks done") and auto-advance to the next phase. Do NOT wait for user input.
 
 **Level 1–2**: Report completion summary and recommend proceeding to integrate phase. Wait for confirmation.
+
+## Step 7: Doc-Ripple (Automated)
+
+After all work is committed but before reporting completion:
+
+1. Run threshold check — read `git diff --name-only HEAD~1` and evaluate against doc-ripple-contract.md trigger conditions
+2. If SKIP: log "Doc-ripple: SKIP — {reason}" and proceed to completion
+3. If FIRE: spawn doc-ripple agent:
+
+⚙ [{model}] gsd-t-doc-ripple → blast radius analysis + parallel updates
+
+Task subagent (general-purpose, model: sonnet):
+"Execute the doc-ripple workflow per commands/gsd-t-doc-ripple.md.
+Git diff context: {files changed list}
+Command that triggered: execute
+Produce manifest at .gsd-t/doc-ripple-manifest.md.
+Update all affected documents.
+Report: 'Doc-ripple: {N} checked, {N} updated, {N} skipped'"
+
+4. After doc-ripple returns, verify manifest exists and report summary inline
 
 ## Document Ripple
 

@@ -133,6 +133,7 @@ Quick does not mean skip testing. Before committing:
    - Playwright E2E specs (if UI/routes/flows/modes changed): create new specs for new functionality, update existing specs for changed behavior
    - Cover all modes/flags affected by this change
    - "No feature code without test code" applies to quick tasks too
+   - **Functional tests only** — every E2E assertion must verify an action produced the correct outcome (state changed, data loaded, content updated). Tests that only check element existence (`isVisible`, `toBeEnabled`) are shallow/layout tests and are not acceptable. If a test would pass on an empty HTML page with the right IDs, rewrite it.
 2. **Run ALL configured test suites** — not just affected tests, not just one suite:
    a. Detect all runners: check for vitest/jest config, playwright.config.*, cypress.config.*
    b. Run EVERY detected suite. Unit tests alone are NEVER sufficient when E2E exists.
@@ -144,6 +145,26 @@ Quick does not mean skip testing. Before committing:
    - Did the change break any existing functionality? (the full test run catches this)
    - If a contract exists for the interface touched, does the code still match?
 4. **No test framework?**: Set one up, or at minimum manually verify and document how in the commit message
+
+## Step 6: Doc-Ripple (Automated)
+
+After all work is committed but before reporting completion:
+
+1. Run threshold check — read `git diff --name-only HEAD~1` and evaluate against doc-ripple-contract.md trigger conditions
+2. If SKIP: log "Doc-ripple: SKIP — {reason}" and proceed to completion
+3. If FIRE: spawn doc-ripple agent:
+
+⚙ [{model}] gsd-t-doc-ripple → blast radius analysis + parallel updates
+
+Task subagent (general-purpose, model: sonnet):
+"Execute the doc-ripple workflow per commands/gsd-t-doc-ripple.md.
+Git diff context: {files changed list}
+Command that triggered: quick
+Produce manifest at .gsd-t/doc-ripple-manifest.md.
+Update all affected documents.
+Report: 'Doc-ripple: {N} checked, {N} updated, {N} skipped'"
+
+4. After doc-ripple returns, verify manifest exists and report summary inline
 
 $ARGUMENTS
 

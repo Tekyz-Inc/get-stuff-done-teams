@@ -126,7 +126,10 @@ Run ALL configured test suites — detect and run every one:
 a. Unit tests (vitest/jest/mocha): run the full suite
 b. E2E tests: check for playwright.config.* or cypress.config.* — if found, run the FULL E2E suite
 c. NEVER skip E2E when a config file exists. Running only unit tests is a QA FAILURE.
-Report: 'Unit: X/Y pass | E2E: X/Y pass (or N/A if no config) | Boundary: pass/fail by contract'"
+d. AUDIT E2E test quality: Review each Playwright spec — if any test only checks element existence
+   (isVisible, toBeAttached, toBeEnabled) without verifying functional behavior (state changes,
+   data loaded, content updated after actions), flag it as 'SHALLOW TEST — needs functional assertions'.
+Report: 'Unit: X/Y pass | E2E: X/Y pass (or N/A if no config) | Boundary: pass/fail by contract | Shallow tests: N'"
 ```
 
 **OBSERVABILITY LOGGING (MANDATORY):**
@@ -176,7 +179,28 @@ After integration and doc ripple, verify everything works together:
    c. Unit tests alone are NEVER sufficient when E2E exists
    d. Report: "Unit: X/Y pass | E2E: X/Y pass"
 3. **Verify passing**: All tests must pass. If any fail, fix before proceeding (up to 2 attempts)
+4. **Functional test quality**: Spot-check E2E specs — every assertion must verify functional behavior (state changed, data loaded, content updated after action), not just element existence. Shallow tests that would pass on an empty HTML page are not acceptable.
 5. **Smoke test results**: Ensure the Step 4 smoke test results are still valid after any fixes
+
+## Step 7.5: Doc-Ripple (Automated)
+
+After all integration work is committed but before reporting completion:
+
+1. Run threshold check — read `git diff --name-only HEAD~1` and evaluate against doc-ripple-contract.md trigger conditions
+2. If SKIP: log "Doc-ripple: SKIP — {reason}" and proceed to completion
+3. If FIRE: spawn doc-ripple agent:
+
+⚙ [{model}] gsd-t-doc-ripple → blast radius analysis + parallel updates
+
+Task subagent (general-purpose, model: sonnet):
+"Execute the doc-ripple workflow per commands/gsd-t-doc-ripple.md.
+Git diff context: {files changed list}
+Command that triggered: integrate
+Produce manifest at .gsd-t/doc-ripple-manifest.md.
+Update all affected documents.
+Report: 'Doc-ripple: {N} checked, {N} updated, {N} skipped'"
+
+4. After doc-ripple returns, verify manifest exists and report summary inline
 
 ## Step 8: Handle Integration Issues
 

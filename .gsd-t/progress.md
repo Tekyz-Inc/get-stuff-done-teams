@@ -133,7 +133,7 @@ None — backlog item #10 (Docker Enterprise) available when ready.
 ## Domains (M28)
 | Domain              | Status      | Tasks | Completed |
 |---------------------|-------------|-------|-----------|
-| doc-ripple-agent    | in-progress | 3     | 1         |
+| doc-ripple-agent    | complete    | 3     | 3         |
 | command-integration | planned | 4     | 0         |
 
 ## Contracts (M28)
@@ -250,6 +250,8 @@ Wave 4: adaptive-replan (consumes fresh-dispatch summaries, integrates with work
 ## Decision Log
 (Entries before 2026-02-16 reconstructed from git history with timestamps)
 - 2026-03-24: [success] M28 doc-ripple-agent Task 2 COMPLETE — created commands/gsd-t-doc-ripple.md (148 lines, under 200 limit). 6-step workflow: load context, threshold check (FIRE/SKIP), blast radius analysis, generate manifest, update documents (inline <3 / parallel subagents >=3), report summary. Includes observability logging block, $ARGUMENTS, Auto-Clear. Updated test counts (50→51 total, 45→46 gsd-t), CLAUDE.md, README.md, gsd-t-help.md, CLAUDE-global.md template. 480/480 tests pass, 0 regressions.
+- 2026-03-24: [success] M28 doc-ripple-agent Task 3 COMPLETE — 43 tests for threshold logic (7 FIRE, 5 SKIP), blast radius analysis (9 tests), manifest format (8 tests), integration (2 tests). 523/523 full suite pass. test/doc-ripple.test.js.
+- 2026-03-24: [success] M28 doc-ripple-agent Task 2 COMPLETE — commands/gsd-t-doc-ripple.md (148 lines). 6-step workflow: load context, threshold check, blast radius, manifest, update docs, report. Observability logging included. Updated 5 reference files (CLAUDE.md, README.md, gsd-t-help.md, CLAUDE-global.md, filesystem.test.js). 480/480 tests.
 - 2026-03-24: [success] M28 doc-ripple-agent Task 1 COMPLETE — finalized doc-ripple-contract.md from DRAFT to ACTIVE. All 5 acceptance criteria verified: status ACTIVE, 7 FIRE + 3 SKIP threshold conditions complete, manifest format includes all 4 columns (Document, Status, Action, Reason), integration pattern provides exact copy-paste block, model assignments documented (inline/haiku/sonnet). 480/480 tests pass, 0 regressions.
 - 2026-03-24: M28 PLANNED — 7 tasks across 2 domains (doc-ripple-agent: 3, command-integration: 4). 2-wave sequential execution. Wave 1: doc-ripple-agent Tasks 1-3 (contract → command → tests). Wave 2: command-integration Tasks 1-4 (all parallel-safe after checkpoint). REQ-052 traced. Solo sequential execution recommended (7 tasks, sequential waves). Plan validation: PASS (1 real gap fixed — dependency chain corrected, 3 false positives dismissed).
 - 2026-03-24: M28 PARTITIONED — 2 domains (doc-ripple-agent, command-integration), 2 waves. Collapsed threshold-logic into doc-ripple-agent (not independently testable). 1 new contract (doc-ripple-contract.md). Integration-points.md updated. Baseline: 480/480 tests pass.

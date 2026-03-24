@@ -103,6 +103,7 @@ GSD-T reads all state files and tells you exactly where you left off.
 | `/user:gsd-t-execute` | Run tasks — task-level fresh dispatch, worktree isolation, adaptive replanning | In wave |
 | `/user:gsd-t-test-sync` | Sync tests with code changes | In wave |
 | `/user:gsd-t-qa` | QA agent — test generation, execution, gap reporting | Auto-spawned |
+| `/user:gsd-t-doc-ripple` | Automated document ripple — update downstream docs after code changes | Auto-spawned |
 | `/user:gsd-t-integrate` | Wire domains together | In wave |
 | `/user:gsd-t-verify` | Run quality gates + goal-backward verification → auto-invokes complete-milestone | In wave |
 | `/user:gsd-t-complete-milestone` | Archive + git tag (auto-invoked by verify, also standalone) | In wave |

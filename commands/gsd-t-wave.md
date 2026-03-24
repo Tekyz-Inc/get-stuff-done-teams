@@ -149,6 +149,26 @@ Spawn agent → `commands/gsd-t-verify.md`
   📋 Phase 8 (VERIFY+COMPLETE): {N} gates passed | Goal-Backward: {PASS/WARN/FAIL} — {N} requirements checked, {N} findings
   ```
 
+#### 9. DOC-RIPPLE (Automated — after verify+complete)
+
+After the final phase completes but before wave reports done:
+
+1. Run threshold check — read `git diff --name-only HEAD~1` and evaluate against doc-ripple-contract.md trigger conditions
+2. If SKIP: log "Doc-ripple: SKIP — {reason}" and proceed
+3. If FIRE: spawn doc-ripple agent:
+
+⚙ [{model}] gsd-t-doc-ripple → blast radius analysis + parallel updates
+
+Task subagent (general-purpose, model: sonnet):
+"Execute the doc-ripple workflow per commands/gsd-t-doc-ripple.md.
+Git diff context: {files changed list}
+Command that triggered: wave
+Produce manifest at .gsd-t/doc-ripple-manifest.md.
+Update all affected documents.
+Report: 'Doc-ripple: {N} checked, {N} updated, {N} skipped'"
+
+4. After doc-ripple returns, verify manifest exists and report summary inline
+
 ### Between Each Phase
 
 After each agent completes, run this spot-check before proceeding:
