@@ -38,6 +38,11 @@ Before creating task lists, check historical task-metrics for domain-level failu
 
 3. If `.gsd-t/metrics/task-metrics.jsonl` does not exist: skip this step silently (first milestone, no historical data).
 
+4. **Rule-based pre-mortem**: Run via Bash:
+   `node -e "const re = require('./bin/rule-engine.js'); const domains = [/* list domain names */]; domains.forEach(d => { const rules = re.getPreMortemRules(d); if(rules.length) rules.forEach(r => console.log('RULE ' + r.id + ': ' + r.name + ' — historically triggered for domains like ' + d)); });" 2>/dev/null || true`
+
+   If matching rules found: display warnings inline (non-blocking — informs task design). Falls back gracefully if rules.jsonl does not exist or is empty.
+
 ## Step 2: Create Task Lists Per Domain
 
 ### SharedCore-First Pre-Check

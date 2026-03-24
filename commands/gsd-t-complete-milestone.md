@@ -138,7 +138,31 @@ Before archiving, extract learning from the event stream to improve future runs.
    - If approved: append the rule to CLAUDE.md under the relevant section
    - Write event: `node ~/.claude/scripts/gsd-t-event-writer.js --type distillation --command gsd-t-complete-milestone --reasoning "{rule}" --outcome success || true`
 
-5. If no patterns found (fewer than 3 occurrences): log "Distillation complete — no repeating patterns found", continue to Step 3
+5. If no patterns found (fewer than 3 occurrences): log "Distillation complete — no repeating patterns found"
+
+### Step 2.5b: Rule Engine Distillation
+
+After event-stream pattern detection, run rule-based distillation using the declarative rule engine and patch lifecycle:
+
+1. **Rule Evaluation**: Run via Bash:
+   `node -e "const re = require('./bin/rule-engine.js'); const domains = [/* list milestone domain names */]; domains.forEach(d => { const m = re.evaluateRules(d, { projectDir: '.', milestone: '{milestone-id}' }); m.forEach(x => { console.log('FIRED: ' + x.rule.id + ' — ' + x.rule.name + ' [' + x.severity + ']'); re.recordActivation(x.rule.id, '.'); }); });" 2>/dev/null || true`
+
+2. **Patch Candidate Generation**: For each fired rule with `action: 'patch'`, run via Bash:
+   `node -e "const re = require('./bin/rule-engine.js'); const pl = require('./bin/patch-lifecycle.js'); const fired = [/* rule IDs from step 1 */]; fired.forEach(ruleId => { const rule = re.getActiveRules('.').find(r => r.id === ruleId); if(rule && rule.action === 'patch' && rule.patch_template_id) { const p = pl.createCandidate(ruleId, rule.patch_template_id, 0, '.'); console.log('CANDIDATE: ' + p.id + ' from ' + ruleId); } });" 2>/dev/null || true`
+
+3. **Promotion Gate Check**: For all applied/measured patches, run via Bash:
+   `node -e "const pl = require('./bin/patch-lifecycle.js'); ['applied','measured'].forEach(s => { pl.getPatchesByStatus(s, '.').forEach(p => { const g = pl.checkPromotionGate(p.id, '.'); if(g.passes) { pl.promote(p.id, '.'); console.log('PROMOTED: ' + p.id); } else if(p.measured_milestones && p.measured_milestones.length >= 2) { pl.deprecate(p.id, g.reason, '.'); console.log('DEPRECATED: ' + p.id + ' — ' + g.reason); } }); });" 2>/dev/null || true`
+
+4. **Graduation**: For promoted patches sustained 3+ milestones, run via Bash:
+   `node -e "const pl = require('./bin/patch-lifecycle.js'); pl.getPatchesByStatus('promoted', '.').forEach(p => { const r = pl.graduate(p.id, '.'); if(r.target) console.log('GRADUATED: ' + p.id + ' → ' + r.target); });" 2>/dev/null || true`
+
+5. **Consolidation & Deprecation**: Run via Bash:
+   `node -e "const re = require('./bin/rule-engine.js'); const f = re.flagInactiveRules(5, '.'); if(f.length) f.forEach(r => console.log('INACTIVE: ' + r.id + ' — no activations in 5+ milestones'));" 2>/dev/null || true`
+
+6. **Quality Budget Governance**: Compute rework percentage from task-metrics. Run via Bash:
+   `node -e "const mc = require('./bin/metrics-collector.js'); const recs = mc.readTaskMetrics({ milestone: '{milestone-id}' }, '.'); if(recs.length) { const rework = recs.filter(r => r.fix_cycles > 0).length; const pct = (rework/recs.length*100).toFixed(1); console.log('Rework: ' + pct + '% (' + rework + '/' + recs.length + ')'); if(pct > 20) console.log('⚠️ REWORK CEILING EXCEEDED — triggering constraint tightening for next milestone'); }" 2>/dev/null || true`
+
+   When rework ceiling (20%) exceeded: log warning and note that next milestone should: force discuss phase, require contract review, split large tasks.
 
 ## Step 3: Gather Milestone Artifacts
 

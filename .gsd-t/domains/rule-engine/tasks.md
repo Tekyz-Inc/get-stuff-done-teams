@@ -5,7 +5,7 @@ Delivers the declarative rule engine module (`bin/rule-engine.js`) that loads, e
 
 ## Tasks
 
-### Task 1: Create rule-engine.js — JSONL loaders and rule evaluator
+### Task 1: Create rule-engine.js — JSONL loaders and rule evaluator ✅ COMPLETE
 - **Files**: `bin/rule-engine.js` (NEW)
 - **Contract refs**: rule-engine-contract.md — rules.jsonl schema, trigger operators, Rule Engine API (`getActiveRules`, `evaluateRules`)
 - **Dependencies**: NONE
@@ -18,7 +18,7 @@ Delivers the declarative rule engine module (`bin/rule-engine.js`) that loads, e
   - JSDoc type hints on all exported functions
   - File under 200 lines
 
-### Task 2: Add patch-templates loader and pre-mortem query
+### Task 2: Add patch-templates loader and pre-mortem query ✅ COMPLETE
 - **Files**: `bin/rule-engine.js` (MODIFY)
 - **Contract refs**: rule-engine-contract.md — patch-templates.jsonl schema, `getPreMortemRules` API
 - **Dependencies**: Requires Task 1 (within domain)
@@ -28,7 +28,7 @@ Delivers the declarative rule engine module (`bin/rule-engine.js`) that loads, e
   - Exported function to get template by ID for use by patch-lifecycle domain
   - File stays under 200 lines (split to helper if needed)
 
-### Task 3: Add activation tracking, deprecation flagging, and consolidation
+### Task 3: Add activation tracking, deprecation flagging, and consolidation ✅ COMPLETE
 - **Files**: `bin/rule-engine.js` (MODIFY)
 - **Contract refs**: rule-engine-contract.md — `recordActivation`, `flagInactiveRules`, `consolidateRules` APIs, Activation Count Deprecation, Periodic Consolidation
 - **Dependencies**: Requires Task 2 (within domain)
@@ -39,7 +39,7 @@ Delivers the declarative rule engine module (`bin/rule-engine.js`) that loads, e
   - All writes are atomic (write to temp file, rename)
   - File stays under 200 lines (split to helper module if needed)
 
-### Task 4: Create seed rules and patch templates
+### Task 4: Create seed rules and patch templates ✅ COMPLETE
 - **Files**: `.gsd-t/metrics/rules.jsonl` (NEW), `.gsd-t/metrics/patch-templates.jsonl` (NEW)
 - **Contract refs**: rule-engine-contract.md — rules.jsonl schema, patch-templates.jsonl schema
 - **Dependencies**: Requires Task 1 (within domain, for schema validation)
@@ -49,7 +49,7 @@ Delivers the declarative rule engine module (`bin/rule-engine.js`) that loads, e
   - All records validate against the contract schemas
   - Files are valid JSONL (one JSON object per line)
 
-### Task 5: Create rule-engine tests
+### Task 5: Create rule-engine tests ✅ COMPLETE
 - **Files**: `test/rule-engine.test.js` (NEW)
 - **Contract refs**: rule-engine-contract.md — all API functions
 - **Dependencies**: Requires Task 3 (all API functions must exist)

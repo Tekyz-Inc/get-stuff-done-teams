@@ -5,7 +5,7 @@ Wires the rule engine and patch lifecycle into GSD-T command files. Extends `gsd
 
 ## Tasks
 
-### Task 1: Extend gsd-t-execute.md — active rule injection into subagent prompts
+### Task 1: Extend gsd-t-execute.md — active rule injection into subagent prompts ✅ COMPLETE
 - **Files**: `commands/gsd-t-execute.md` (MODIFY)
 - **Contract refs**: rule-engine-contract.md — Rule Engine API (`getActiveRules`, `evaluateRules`), command-integration constraints (max 10 lines injected)
 - **Dependencies**: BLOCKED by rule-engine Task 5 (rule-engine must be tested and working); BLOCKED by patch-lifecycle Task 4 (patch-lifecycle must be tested)
@@ -17,7 +17,7 @@ Wires the rule engine and patch lifecycle into GSD-T command files. Extends `gsd
   - Non-blocking — rule injection warnings inform the subagent, they do not prevent execution
   - Existing steps not removed or renamed (additive only)
 
-### Task 2: Extend gsd-t-plan.md — rule-based pre-mortem enhancement
+### Task 2: Extend gsd-t-plan.md — rule-based pre-mortem enhancement ✅ COMPLETE
 - **Files**: `commands/gsd-t-plan.md` (MODIFY)
 - **Contract refs**: rule-engine-contract.md — Rule Engine API (`getPreMortemRules`, `evaluateRules`)
 - **Dependencies**: BLOCKED by rule-engine Task 5 (rule-engine must be tested and working)
@@ -27,7 +27,7 @@ Wires the rule engine and patch lifecycle into GSD-T command files. Extends `gsd
   - Pre-mortem output remains non-blocking (informs task design, does not prevent planning)
   - Falls back gracefully if rules.jsonl does not exist or is empty
 
-### Task 3: Extend gsd-t-complete-milestone.md — distillation with rule evaluation, patches, promotion, graduation
+### Task 3: Extend gsd-t-complete-milestone.md — distillation with rule evaluation, patches, promotion, graduation ✅ COMPLETE
 - **Files**: `commands/gsd-t-complete-milestone.md` (MODIFY)
 - **Contract refs**: rule-engine-contract.md — all APIs: evaluateRules, createCandidate, checkPromotionGate, promote, graduate, deprecate, flagInactiveRules, consolidateRules, Quality Budget Governance
 - **Dependencies**: BLOCKED by rule-engine Task 5; BLOCKED by patch-lifecycle Task 4
@@ -42,7 +42,7 @@ Wires the rule engine and patch lifecycle into GSD-T command files. Extends `gsd
   - Existing distillation step preserved (event-stream pattern detection runs first, new sub-steps follow)
   - All new logic expressed as Bash `node -e` invocations calling the bin modules (consistent with existing pattern)
 
-### Task 4: Update reference documentation for M26 changes
+### Task 4: Update reference documentation for M26 changes ✅ COMPLETE
 - **Files**: `GSD-T-README.md` (MODIFY), `README.md` (MODIFY), `templates/CLAUDE-global.md` (MODIFY), `commands/gsd-t-help.md` (MODIFY)
 - **Contract refs**: Pre-Commit Gate (command behavior changes require updating all 4 reference files)
 - **Dependencies**: Requires Tasks 1-3 (all command changes must be finalized first)

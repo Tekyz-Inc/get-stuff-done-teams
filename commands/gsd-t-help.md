@@ -236,6 +236,7 @@ Use these when user asks for help on a specific command:
 - **Creates**: `.gsd-t/domains/*/tasks.md`
 - **Use when**: Ready to define specific implementation tasks
 - **Note (M22)**: Tasks auto-split if estimated scope exceeds 70% context window — guarantees fresh dispatch works
+- **Note (M26)**: Pre-mortem step now also reads rules.jsonl for historical failure patterns via getPreMortemRules
 
 ### impact
 - **Summary**: Analyze downstream effects of planned changes
@@ -249,6 +250,7 @@ Use these when user asks for help on a specific command:
 - **Updates**: Domain tasks, progress.md, source code
 - **Use when**: Ready to implement
 - **Note (M22)**: Task-level fresh dispatch (one subagent per task, ~10-20% context each). Team mode uses worktree isolation (`isolation: "worktree"`) — zero file conflicts. Adaptive replanning between domain completions.
+- **Note (M26)**: Active rule injection — evaluates declarative rules from rules.jsonl before dispatching each domain's tasks. Fires matching rules as warnings in subagent prompts.
 
 ### test-sync
 - **Summary**: Keep tests aligned with code changes
@@ -281,6 +283,7 @@ Use these when user asks for help on a specific command:
 - **Creates**: `.gsd-t/milestones/{name}/`, git tag
 - **Use when**: Auto-runs after verify passes. Can also be invoked standalone to manually close a milestone.
 - **Note (M22)**: Goal-backward gate runs as final check before archiving — blocks completion if placeholders remain
+- **Note (M26)**: Distillation extended with rule engine evaluation, patch candidate generation, promotion gate checks, graduation, consolidation, and quality budget governance
 
 ### wave
 - **Summary**: Run complete cycle automatically: partition through verify+complete

@@ -112,6 +112,13 @@ Run via Bash:
 
 Display any warnings inline (non-blocking — execution proceeds regardless).
 
+**Active Rule Injection (before dispatching each domain's tasks):**
+Run via Bash:
+`node -e "const re = require('./bin/rule-engine.js'); const m = re.evaluateRules('{domain-name}', { projectDir: '.' }); if(m.length) m.forEach(x => console.log('RULE: ' + x.rule.name + ' — ' + x.rule.description + ' [' + x.severity + ']')); else console.log('No active rules for {domain-name}');" 2>/dev/null || true`
+
+If rules fire: inject up to 10 lines of rule warnings into each task subagent prompt (concise format: `RULE: {name} — {description}`). These inform the subagent of known patterns — non-blocking.
+If no rules fire: log "No active rules for {domain-name}" and continue.
+
 **Domain task-dispatcher (lightweight — sequences tasks, passes summaries):**
 
 For each task in `.gsd-t/domains/{domain-name}/tasks.md` (in order, skip completed):

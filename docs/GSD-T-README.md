@@ -12,6 +12,8 @@ A methodology for reliable, parallelizable development using Claude Code with op
 
 **Catches downstream effects** — analyzes impact before changes break things.
 
+**Self-learning rule engine** — declarative rules detect failure patterns from task metrics. Patches progress through 5 lifecycle stages with measurable improvement gates before graduating into permanent methodology.
+
 ---
 
 ## Quick Start

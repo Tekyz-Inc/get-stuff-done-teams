@@ -46,12 +46,12 @@ PROJECT or FEATURE or SCAN
 | `/user:gsd-t-discuss` | Multi-perspective design exploration |
 | `/user:gsd-t-plan` | Create atomic task lists per domain (tasks auto-split to fit one context window) |
 | `/user:gsd-t-impact` | Analyze downstream effects before execution |
-| `/user:gsd-t-execute` | Run tasks — task-level fresh dispatch, worktree isolation, adaptive replanning |
+| `/user:gsd-t-execute` | Run tasks — task-level fresh dispatch, worktree isolation, adaptive replanning, active rule injection |
 | `/user:gsd-t-test-sync` | Keep tests aligned with code changes |
 | `/user:gsd-t-qa` | QA agent — test generation, execution, gap reporting |
 | `/user:gsd-t-integrate` | Wire domains together |
 | `/user:gsd-t-verify` | Run quality gates + goal-backward behavior verification |
-| `/user:gsd-t-complete-milestone` | Archive milestone + git tag (goal-backward gate required) |
+| `/user:gsd-t-complete-milestone` | Archive milestone + git tag (goal-backward gate, rule engine distillation) |
 | `/user:gsd-t-wave` | Full cycle (auto-advances all phases) |
 | `/user:gsd-t-status` | Cross-domain progress view with token breakdown by domain/task/phase |
 | `/user:gsd-t-debug` | Systematic debugging |

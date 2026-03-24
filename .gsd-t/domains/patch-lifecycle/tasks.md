@@ -5,7 +5,7 @@ Delivers the patch lifecycle manager (`bin/patch-lifecycle.js`) that creates can
 
 ## Tasks
 
-### Task 1: Create patch-lifecycle.js — candidate creation and patch application
+### Task 1: Create patch-lifecycle.js — candidate creation and patch application ✅ COMPLETE
 - **Files**: `bin/patch-lifecycle.js` (NEW)
 - **Contract refs**: rule-engine-contract.md — Patch Status File schema, Patch Lifecycle API (`createCandidate`, `applyPatch`), edit types (append, prepend, insert_after, replace)
 - **Dependencies**: BLOCKED by rule-engine Task 1 (needs rule evaluation results and template loader)
@@ -18,7 +18,7 @@ Delivers the patch lifecycle manager (`bin/patch-lifecycle.js`) that creates can
   - JSDoc type hints on all exported functions
   - File under 200 lines
 
-### Task 2: Add measurement, promotion gate, and promotion/deprecation
+### Task 2: Add measurement, promotion gate, and promotion/deprecation ✅ COMPLETE
 - **Files**: `bin/patch-lifecycle.js` (MODIFY)
 - **Contract refs**: rule-engine-contract.md — Patch Lifecycle API (`recordMeasurement`, `checkPromotionGate`, `promote`, `deprecate`), Promotion Gate (>55% over 2+ milestones)
 - **Dependencies**: Requires Task 1 (within domain)
@@ -30,7 +30,7 @@ Delivers the patch lifecycle manager (`bin/patch-lifecycle.js`) that creates can
   - `getPatchesByStatus(status)` returns all patches matching the given lifecycle status
   - File stays under 200 lines
 
-### Task 3: Add graduation logic
+### Task 3: Add graduation logic ✅ COMPLETE
 - **Files**: `bin/patch-lifecycle.js` (MODIFY)
 - **Contract refs**: rule-engine-contract.md — Patch Lifecycle API (`graduate`), Graduation Criteria (promoted for 3+ milestones, sustained improvement)
 - **Dependencies**: Requires Task 2 (within domain)
@@ -42,7 +42,7 @@ Delivers the patch lifecycle manager (`bin/patch-lifecycle.js`) that creates can
   - Graduation targets that are in CLAUDE.md require user confirmation per Destructive Action Guard (function returns proposal, does not auto-write)
   - File stays under 200 lines (split to helper if needed)
 
-### Task 4: Create patch-lifecycle tests
+### Task 4: Create patch-lifecycle tests ✅ COMPLETE
 - **Files**: `test/patch-lifecycle.test.js` (NEW)
 - **Contract refs**: rule-engine-contract.md — all Patch Lifecycle API functions, lifecycle state machine
 - **Dependencies**: Requires Task 3 (all API functions must exist); BLOCKED by rule-engine Task 4 (needs seed rules/templates for integration tests)
