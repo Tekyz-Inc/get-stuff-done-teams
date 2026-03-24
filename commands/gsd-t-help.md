@@ -38,6 +38,7 @@ MILESTONE WORKFLOW                                          [auto] = in wave
   execute      [auto] Run tasks (solo or team mode)
   test-sync    [auto] Sync tests with code changes
   qa           [auto] QA agent — test generation, execution, gap reporting
+  doc-ripple   [auto] Automated document ripple — update docs after code changes
   integrate    [auto] Wire domains together at boundaries
   verify       [auto] Run quality gates → auto-invokes complete-milestone
   complete-milestone [auto] Archive milestone + git tag (auto-invoked by verify)
@@ -263,6 +264,12 @@ Use these when user asks for help on a specific command:
 - **Auto-invoked**: Yes (spawned as teammate by partition, plan, execute, verify, quick, debug, integrate, complete-milestone)
 - **Creates**: Contract test skeletons, acceptance tests, edge case tests, test audit reports
 - **Use when**: Automatically spawned — never needs manual invocation. Standalone use for ad-hoc test audits.
+
+### doc-ripple
+- **Summary**: Automated document ripple — identifies and updates all downstream docs after code changes
+- **Auto-invoked**: Yes (after primary work in execute, integrate, quick, debug, wave)
+- **Creates**: `.gsd-t/doc-ripple-manifest.md`
+- **Use when**: Automatically spawned — never needs manual invocation. Standalone use for ad-hoc doc sync audits.
 
 ### integrate
 - **Summary**: Wire domains together at their boundaries

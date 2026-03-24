@@ -10,7 +10,7 @@
 
 ## Overview
 
-Contract-driven development methodology for Claude Code. An npm package that provides 50 slash commands (45 GSD-T workflow + 5 utility), a CLI installer, templates, and documentation for reliable, parallelizable AI-assisted development.
+Contract-driven development methodology for Claude Code. An npm package that provides 51 slash commands (46 GSD-T workflow + 5 utility), a CLI installer, templates, and documentation for reliable, parallelizable AI-assisted development.
 
 ## Autonomy Level
 
@@ -31,8 +31,8 @@ Only pause for blockers or project completion. Execute phases continuously.
 
 ```
 bin/gsd-t.js           — CLI installer (11 subcommands)
-commands/              — 50 slash commands for Claude Code (46 GSD-T + 4 utility)
-  gsd-t-*.md           — 44 GSD-T workflow commands
+commands/              — 51 slash commands for Claude Code (46 GSD-T + 5 utility)
+  gsd-t-*.md           — 45 GSD-T workflow commands
   gsd.md               — Smart router (auto-routes user intent)
   branch.md            — Git branch helper
   checkin.md           — Auto-version + commit/push helper
@@ -211,6 +211,7 @@ BEFORE EVERY COMMIT:
 
 - NEVER commit without running the Pre-Commit Gate checklist
 - NEVER batch doc updates for later — update docs in the same commit as the change
+- NEVER report a task as "done" until ALL downstream documents are updated — identify the full blast radius first, complete every update in one pass, then report. If a change applies to N files, update N files before presenting a summary. The user should never need to ask "did you update everything?"
 - NEVER add external npm dependencies to the installer — it must stay zero-dependency
 - NEVER change command file names without updating all 4 reference files (README, GSD-T-README, CLAUDE-global template, gsd-t-help)
 - NEVER modify the wave phase sequence without updating wave, README, and GSD-T-README

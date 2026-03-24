@@ -49,6 +49,7 @@ PROJECT or FEATURE or SCAN
 | `/user:gsd-t-execute` | Run tasks — task-level fresh dispatch, worktree isolation, adaptive replanning, active rule injection |
 | `/user:gsd-t-test-sync` | Keep tests aligned with code changes |
 | `/user:gsd-t-qa` | QA agent — test generation, execution, gap reporting |
+| `/user:gsd-t-doc-ripple` | Automated document ripple — update downstream docs after code changes |
 | `/user:gsd-t-integrate` | Wire domains together |
 | `/user:gsd-t-verify` | Run quality gates + goal-backward behavior verification |
 | `/user:gsd-t-complete-milestone` | Archive milestone + git tag (goal-backward gate, rule engine distillation) |
@@ -250,6 +251,32 @@ BEFORE reporting "tests pass" for ANY task:
 
 The conditional "if UI/routes/flows changed" in command files applies to **writing new E2E specs**, not to **running existing ones**. You always run existing E2E specs. Always.
 
+### E2E Test Quality Standard (MANDATORY)
+
+**E2E tests must be FUNCTIONAL tests, not LAYOUT tests.** This is non-negotiable.
+
+A layout test checks that elements exist (`isVisible`, `toBeAttached`, `toBeEnabled`, `toHaveCount`). A functional test checks that features work — actions produce correct outcomes.
+
+```
+LAYOUT TEST (WRONG — passes even if every feature is broken):
+  await expect(page.locator('#tab-sessions')).toBeVisible();
+  await page.click('#tab-sessions');
+  // ← No assertion that the tab's content actually loaded
+
+FUNCTIONAL TEST (RIGHT — fails if the feature is broken):
+  await page.click('#tab-sessions');
+  await expect(page.locator('.session-list')).toContainText('Session 1');
+  // ← Proves clicking the tab loaded the session data
+```
+
+Every Playwright assertion must verify one of:
+- **State changed**: After click/type/submit, the app state is different (new content, updated data, changed status)
+- **Data flowed**: User input → API call → response rendered (use `page.waitForResponse` or assert on rendered data)
+- **Content loaded**: Navigation/tab switch → destination content appeared (assert on text/data unique to destination)
+- **Widget responded**: Terminal accepted keystrokes and produced output, editor saved changes, form submitted and data persisted
+
+**If a test would pass on an empty HTML page with the correct element IDs and no JavaScript, it is not a functional test.** Rewrite it.
+
 ## QA Agent (Mandatory)
 
 Any GSD-T phase that produces or validates code **MUST run QA**. The QA agent's sole job is test generation, execution, and gap reporting. It never writes feature code.
@@ -269,10 +296,15 @@ a. Unit tests (vitest/jest/mocha): run the full suite
 b. E2E tests: check for playwright.config.* or cypress.config.* — if found, run the FULL E2E suite
 c. NEVER skip E2E when a config file exists. Running only unit tests is a QA FAILURE.
 d. Read .gsd-t/contracts/ for contract definitions. Check contract compliance.
-Report format: 'Unit: X/Y pass | E2E: X/Y pass (or N/A if no config) | Contract: compliant/violations'"
+e. AUDIT E2E test quality: Review each Playwright spec — if any test only checks element
+   existence (isVisible, toBeAttached, toBeEnabled) without verifying functional behavior
+   (state changes, data loaded, content updated after user actions), flag it as
+   'SHALLOW TEST — needs functional assertions'. A passing test suite that doesn't catch
+   broken features is a QA FAILURE.
+Report format: 'Unit: X/Y pass | E2E: X/Y pass (or N/A if no config) | Contract: compliant/violations | Shallow tests: N'"
 ```
 
-**QA failure blocks phase completion.** Lead cannot proceed until QA reports PASS or user explicitly overrides.
+**QA failure OR shallow tests found blocks phase completion.** Lead cannot proceed until QA reports PASS with zero shallow tests, or user explicitly overrides.
 
 ## Model Display (MANDATORY)
 
@@ -360,6 +392,35 @@ BEFORE EVERY COMMIT:
 ```
 
 If ANY answer is YES and the doc is NOT updated, update it BEFORE committing. No exceptions.
+
+## Document Ripple Completion Gate (MANDATORY)
+
+**NEVER report a task as "done" or present a summary until ALL downstream documents are updated.** This is not optional.
+
+When a change affects multiple files (e.g., a new standard that applies across command files, a renamed API, a new convention), you MUST:
+
+1. **Identify the full blast radius BEFORE starting**: List every file that needs the change
+2. **Complete ALL updates in one pass**: Do not update 3 of 8 files and then present a summary
+3. **Run the Pre-Commit Gate on the COMPLETE changeset**: Not on a partial subset
+4. **Only THEN report completion**
+
+```
+BEFORE reporting "done" or presenting a summary:
+  ├── Did this change establish a new standard, rule, or convention?
+  │     YES → Grep for every file that should enforce it. Update ALL of them.
+  ├── Did this change modify a pattern used in multiple command files?
+  │     YES → Find and update EVERY command file that uses that pattern.
+  ├── Did this change affect a template (CLAUDE-global, CLAUDE-project, etc.)?
+  │     YES → The template AND the live equivalent (~/.claude/CLAUDE.md) must match.
+  ├── Did this change add a new requirement?
+  │     YES → Add to docs/requirements.md in the same pass.
+  ├── Have I checked EVERY file in the blast radius?
+  │     NO → Keep going. Do not present partial work.
+  └── Am I about to say "want me to also update X?" or "should I check Y?"
+        YES → STOP. Just update X and check Y. Then report done.
+```
+
+**The test for this gate**: If the user asks "did you update all the documents?" and the answer would be "no, I missed some" — you failed this gate. The user should never need to ask.
 
 ## Execution Behavior
 - ALWAYS check docs/architecture.md before adding or modifying components.
