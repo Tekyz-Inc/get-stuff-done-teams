@@ -10,6 +10,7 @@ A methodology for reliable, parallelizable development using Claude Code with op
 **Visualizes execution in real time** — live browser dashboard renders agent hierarchy, tool activity, and phase progression from the event stream.
 **Generates visual scan reports** — every `/gsd-t-scan` produces a self-contained HTML report with 6 live architectural diagrams, a tech debt register, and domain health scores; optional DOCX/PDF export via `--export docx|pdf`.
 **Self-learning rule engine** — declarative rules in rules.jsonl detect failure patterns from task metrics. Candidate patches progress through a 5-stage lifecycle (candidate, applied, measured, promoted, graduated) with >55% improvement gates before becoming permanent methodology artifacts.
+**Cross-project learning** — proven rules propagate to `~/.claude/metrics/` and sync across all registered projects via `update-all`. Rules validated in 3+ projects become universal; 5+ projects qualify for npm distribution. Cross-project signal comparison and global ELO rankings available via `gsd-t-metrics --cross-project` and `gsd-t-status`.
 
 ---
 
@@ -155,7 +156,7 @@ This will replace changed command files, back up your CLAUDE.md if customized, a
 | `/user:gsd-t-reflect` | Generate retrospective from event stream, propose memory updates | Manual |
 | `/user:gsd-t-visualize` | Launch browser dashboard — SSE server + React Flow agent visualization | Manual |
 | `/user:gsd-t-debug` | Systematic debugging with state | Manual |
-| `/user:gsd-t-metrics` | View task telemetry, process ELO, signal distribution, and domain health | Manual |
+| `/user:gsd-t-metrics` | View task telemetry, process ELO, signal distribution, domain health, and cross-project comparison (`--cross-project`) | Manual |
 | `/user:gsd-t-health` | Validate .gsd-t/ structure, optionally repair | Manual |
 | `/user:gsd-t-pause` | Save exact position for reliable resume | Manual |
 | `/user:gsd-t-log` | Sync progress Decision Log with recent git activity | Manual |

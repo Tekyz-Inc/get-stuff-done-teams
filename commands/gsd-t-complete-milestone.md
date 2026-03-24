@@ -164,6 +164,87 @@ After event-stream pattern detection, run rule-based distillation using the decl
 
    When rework ceiling (20%) exceeded: log warning and note that next milestone should: force discuss phase, require contract review, split large tasks.
 
+### Step 2.5c: Global Rule Promotion
+
+After local rule promotion completes, propagate newly promoted rules to global metrics:
+
+1. **Check for promoted rules**: Run via Bash:
+   ```bash
+   node -e "const pl = require('./bin/patch-lifecycle.js'); const promoted = pl.getPatchesByStatus('promoted', '.'); console.log(JSON.stringify(promoted.map(p => ({ id: p.id, rule_id: p.rule_id, template_id: p.template_id }))));" 2>/dev/null || true
+   ```
+
+2. **Copy promoted rules to global**: For each promoted rule, run via Bash:
+   ```bash
+   node -e "
+     const gsm = require('./bin/global-sync-manager.js');
+     const re = require('./bin/rule-engine.js');
+     const pl = require('./bin/patch-lifecycle.js');
+     const promoted = pl.getPatchesByStatus('promoted', '.');
+     let count = 0;
+     for (const p of promoted) {
+       const rule = re.getActiveRules('.').find(r => r.id === p.rule_id);
+       if (!rule) continue;
+       const written = gsm.writeGlobalRule({
+         id: rule.id,
+         original_rule: rule,
+         source_project: (() => { try { return require('./package.json').name; } catch { return require('path').basename(process.cwd()); } })(),
+         source_project_dir: process.cwd(),
+       });
+       gsm.checkUniversalPromotion(written.global_id);
+       count++;
+     }
+     if (count > 0) console.log('Promoted ' + count + ' rules to global metrics');
+   " 2>/dev/null || true
+   ```
+
+3. **Write global rollup entry**: Run via Bash:
+   ```bash
+   node -e "
+     const gsm = require('./bin/global-sync-manager.js');
+     const mc = require('./bin/metrics-collector.js');
+     const mr = require('./bin/metrics-rollup.js');
+     const name = (() => { try { return require('./package.json').name; } catch { return require('path').basename(process.cwd()); } })();
+     const rollups = mr.readRollups({}, '.');
+     const latest = rollups.length > 0 ? rollups[rollups.length - 1] : null;
+     if (latest) {
+       gsm.writeGlobalRollup({
+         source_project: name, source_project_dir: process.cwd(),
+         milestone: latest.milestone, version: latest.version,
+         total_tasks: latest.total_tasks, first_pass_rate: latest.first_pass_rate,
+         avg_duration_s: latest.avg_duration_s, total_fix_cycles: latest.total_fix_cycles,
+         total_tokens: latest.total_tokens, elo_after: latest.elo_after,
+         signal_distribution: latest.signal_distribution,
+         domain_breakdown: latest.domain_breakdown,
+       });
+       console.log('Updated global rollup for ' + name);
+     }
+   " 2>/dev/null || true
+   ```
+
+4. **Write global signal distribution**: Run via Bash:
+   ```bash
+   node -e "
+     const gsm = require('./bin/global-sync-manager.js');
+     const mc = require('./bin/metrics-collector.js');
+     const name = (() => { try { return require('./package.json').name; } catch { return require('path').basename(process.cwd()); } })();
+     const allRecs = mc.readTaskMetrics({}, '.');
+     if (allRecs.length === 0) { process.exit(0); }
+     const counts = {};
+     allRecs.forEach(r => { counts[r.signal_type] = (counts[r.signal_type] || 0) + 1; });
+     const total = allRecs.length;
+     const rates = {};
+     for (const [k, v] of Object.entries(counts)) { rates[k] = Math.round(v / total * 1000) / 1000; }
+     gsm.writeGlobalSignalDistribution({
+       source_project: name, source_project_dir: process.cwd(),
+       total_tasks: total, signal_counts: counts, signal_rates: rates,
+       domain_type_signals: [],
+     });
+     console.log('Updated global signal distribution for ' + name);
+   " 2>/dev/null || true
+   ```
+
+5. If no rules were promoted this milestone: skip silently (steps 3-4 still run for rollup/signal tracking).
+
 ## Step 3: Gather Milestone Artifacts
 
 Collect all files related to this milestone:

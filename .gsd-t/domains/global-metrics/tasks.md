@@ -5,7 +5,7 @@ Implements `bin/global-sync-manager.js` — the core module that reads local pro
 
 ## Tasks
 
-### Task 1: Core JSONL read/write + global rule management
+### Task 1: Core JSONL read/write + global rule management ✅
 - **Files**: `bin/global-sync-manager.js` (create)
 - **Contract refs**: cross-project-sync-contract.md (global-rules.jsonl schema, File Locations, Propagation Protocol — On Local Rule Promotion)
 - **Dependencies**: NONE
@@ -20,7 +20,7 @@ Implements `bin/global-sync-manager.js` — the core module that reads local pro
   - Module exports pattern matches rule-engine.js and patch-lifecycle.js
   - Source project identified from `package.json` name field or directory basename
 
-### Task 2: Signal distribution comparison and domain-type matching
+### Task 2: Signal distribution comparison and domain-type matching ✅
 - **Files**: `bin/global-sync-manager.js` (modify — add exports)
 - **Contract refs**: cross-project-sync-contract.md (global-signal-distributions.jsonl schema, signal_rates normalization)
 - **Dependencies**: Requires Task 1 (within domain)
@@ -31,7 +31,7 @@ Implements `bin/global-sync-manager.js` — the core module that reads local pro
   - Signal rates are normalized (sum = 1.0) per contract
   - Graceful handling when fewer than 2 projects exist (returns data with `insufficient_data: true` flag)
 
-### Task 3: Universal rule promotion logic and global ELO
+### Task 3: Universal rule promotion logic and global ELO ✅
 - **Files**: `bin/global-sync-manager.js` (modify — add exports)
 - **Contract refs**: cross-project-sync-contract.md (Universal Rule Promotion Thresholds, Global ELO Computation)
 - **Dependencies**: Requires Task 1 (within domain)
@@ -43,7 +43,7 @@ Implements `bin/global-sync-manager.js` — the core module that reads local pro
   - ELO algorithm consistent with metrics-rollup.js (K=32, starting at 1000)
   - Returns `null` when no global rollup data exists for a project
 
-### Task 4: Unit tests for global-sync-manager
+### Task 4: Unit tests for global-sync-manager ✅
 - **Files**: `test/global-sync-manager.test.js` (create)
 - **Contract refs**: cross-project-sync-contract.md (all schemas)
 - **Dependencies**: Requires Tasks 1-3 (within domain)

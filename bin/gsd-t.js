@@ -949,6 +949,56 @@ function initGsdtDir(projectDir, projectName, today) {
   writeTemplateFile("progress.md", path.join(gsdtDir, "progress.md"), ".gsd-t/progress.md", projectName, today);
   writeTemplateFile("backlog.md", path.join(gsdtDir, "backlog.md"), ".gsd-t/backlog.md", projectName, today);
   writeTemplateFile("backlog-settings.md", path.join(gsdtDir, "backlog-settings.md"), ".gsd-t/backlog-settings.md", projectName, today);
+
+  // Seed universal rules from npm package (if shipped)
+  seedUniversalRules(projectDir);
+}
+
+function seedUniversalRules(projectDir) {
+  try {
+    const shippedRules = path.join(PKG_ROOT, "examples", "rules", "universal-rules.jsonl");
+    if (!fs.existsSync(shippedRules)) return;
+    const content = fs.readFileSync(shippedRules, "utf8").trim();
+    if (!content) return;
+    const rules = content.split("\n").map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+    if (rules.length === 0) return;
+    const localRulesFile = path.join(projectDir, ".gsd-t", "metrics", "rules.jsonl");
+    const localDir = path.dirname(localRulesFile);
+    if (!fs.existsSync(localDir)) fs.mkdirSync(localDir, { recursive: true });
+    // Read existing local rules to avoid duplicates
+    let existingTriggers = new Set();
+    if (fs.existsSync(localRulesFile)) {
+      const existing = fs.readFileSync(localRulesFile, "utf8").trim();
+      if (existing) {
+        existing.split("\n").forEach((l) => {
+          try { const r = JSON.parse(l); existingTriggers.add(JSON.stringify(r.trigger || {})); } catch {}
+        });
+      }
+    }
+    let seeded = 0;
+    for (const rule of rules) {
+      const trigger = (rule.original_rule && rule.original_rule.trigger) || {};
+      const fp = JSON.stringify(trigger);
+      if (existingTriggers.has(fp)) continue;
+      const candidate = {
+        id: `universal-${rule.global_id || "unknown"}`,
+        created_at: new Date().toISOString(),
+        name: (rule.original_rule && rule.original_rule.name) || rule.global_id || "universal",
+        description: (rule.original_rule && rule.original_rule.description) || "Shipped as universal rule",
+        trigger,
+        severity: (rule.original_rule && rule.original_rule.severity) || "MEDIUM",
+        action: (rule.original_rule && rule.original_rule.action) || "warn",
+        patch_template_id: null,
+        activation_count: 0, last_activated: null,
+        milestone_created: "universal", status: "active",
+        source_global_id: rule.global_id || null,
+      };
+      fs.appendFileSync(localRulesFile, JSON.stringify(candidate) + "\n");
+      existingTriggers.add(fp);
+      seeded++;
+    }
+    if (seeded > 0) success(`Seeded ${seeded} universal rules from npm package`);
+  } catch { /* silently skip if anything fails */ }
 }
 
 function writeTemplateFile(templateName, destPath, label, projectName, today) {
@@ -1223,6 +1273,140 @@ function checkProjectHealth(projects) {
   return { playwrightMissing, swaggerMissing };
 }
 
+// ── Global Rule Sync (M27) ──────────────────────────────────────────────────
+
+function syncGlobalRulesToProject(projectDir) {
+  try {
+    const gsm = require("./global-sync-manager.js");
+    const globalRules = gsm.readGlobalRules();
+    if (globalRules.length === 0) return 0;
+
+    // Filter: universal OR promotion_count >= 2
+    const qualifying = globalRules.filter((r) =>
+      r.is_universal === true || (r.promotion_count || 0) >= 2);
+    if (qualifying.length === 0) return 0;
+
+    // Load local rules to check for duplicates
+    let localRules = [];
+    try {
+      const re = require("./rule-engine.js");
+      localRules = re.getActiveRules(projectDir);
+    } catch { /* rule-engine may not exist in target project */ }
+
+    const rulesFile = path.join(projectDir, ".gsd-t", "metrics", "rules.jsonl");
+    let injected = 0;
+
+    for (const globalRule of qualifying) {
+      const triggerFp = JSON.stringify(
+        globalRule.original_rule && globalRule.original_rule.trigger
+          ? globalRule.original_rule.trigger : {});
+      const alreadyExists = localRules.some((lr) =>
+        JSON.stringify(lr.trigger || {}) === triggerFp);
+      if (alreadyExists) continue;
+
+      // Inject as candidate rule
+      const candidate = {
+        id: `global-${globalRule.global_id}`,
+        created_at: new Date().toISOString(),
+        name: (globalRule.original_rule && globalRule.original_rule.name) || globalRule.global_id,
+        description: (globalRule.original_rule && globalRule.original_rule.description) || "Synced from global rules",
+        trigger: (globalRule.original_rule && globalRule.original_rule.trigger) || {},
+        severity: (globalRule.original_rule && globalRule.original_rule.severity) || "MEDIUM",
+        action: (globalRule.original_rule && globalRule.original_rule.action) || "warn",
+        patch_template_id: null,
+        activation_count: 0,
+        last_activated: null,
+        milestone_created: "global",
+        status: "active",
+        source_global_id: globalRule.global_id,
+      };
+
+      // Append to local rules.jsonl
+      const dir = path.dirname(rulesFile);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.appendFileSync(rulesFile, JSON.stringify(candidate) + "\n");
+      localRules.push(candidate); // track to avoid re-injecting within same sync
+      injected++;
+    }
+    return injected;
+  } catch {
+    return 0;
+  }
+}
+
+function syncGlobalRules(projects) {
+  let totalSynced = 0;
+  try {
+    const gsm = require("./global-sync-manager.js");
+    const globalRules = gsm.readGlobalRules();
+    if (globalRules.length === 0) {
+      log(`${DIM}  ℹ No global rules to sync${RESET}`);
+      return 0;
+    }
+
+    heading("Global Rule Sync");
+    for (const projectDir of projects) {
+      if (!fs.existsSync(projectDir)) continue;
+      const count = syncGlobalRulesToProject(projectDir);
+      if (count > 0) {
+        success(`Synced ${count} global rules to ${path.basename(projectDir)}`);
+        totalSynced += count;
+      }
+    }
+    if (totalSynced === 0) {
+      info("All projects already have qualifying global rules");
+    }
+  } catch {
+    // global-sync-manager may not exist yet
+  }
+  return totalSynced;
+}
+
+function exportUniversalRulesForNpm() {
+  try {
+    const gsm = require("./global-sync-manager.js");
+    const globalRules = gsm.readGlobalRules();
+    const npmCandidates = globalRules.filter((r) => r.is_npm_candidate === true);
+    if (npmCandidates.length === 0) return 0;
+
+    const rulesDir = path.join(PKG_ROOT, "examples", "rules");
+    if (!fs.existsSync(rulesDir)) fs.mkdirSync(rulesDir, { recursive: true });
+
+    const version = PKG_VERSION;
+    const exported = npmCandidates.map((r) => ({
+      ...r,
+      shipped_in_version: r.shipped_in_version || version,
+    }));
+
+    const filePath = path.join(rulesDir, "universal-rules.jsonl");
+    fs.writeFileSync(filePath, exported.map((r) => JSON.stringify(r)).join("\n") + "\n");
+
+    // Update shipped_in_version on global rules
+    for (const r of npmCandidates) {
+      if (!r.shipped_in_version) {
+        r.shipped_in_version = version;
+      }
+    }
+    // Write updated rules back to global
+    const allRules = gsm.readGlobalRules();
+    for (const r of allRules) {
+      const match = npmCandidates.find((c) => c.global_id === r.global_id);
+      if (match) r.shipped_in_version = match.shipped_in_version;
+    }
+    // Re-read and write to ensure consistency
+    const rulesFile = path.join(os.homedir(), ".claude", "metrics", "global-rules.jsonl");
+    if (fs.existsSync(rulesFile)) {
+      const tmp = rulesFile + ".tmp." + process.pid;
+      fs.writeFileSync(tmp, allRules.map((r) => JSON.stringify(r)).join("\n") + "\n");
+      fs.renameSync(tmp, rulesFile);
+    }
+
+    return exported.length;
+  } catch {
+    return 0;
+  }
+}
+
 function doUpdateAll() {
   updateGlobalCommands();
   heading("Updating registered projects...");
@@ -1241,8 +1425,11 @@ function doUpdateAll() {
     }
   }
 
+  // Global rule sync — propagate proven rules across projects
+  const syncCount = syncGlobalRules(projects);
+
   const { playwrightMissing, swaggerMissing } = checkProjectHealth(projects);
-  showUpdateAllSummary(projects.length, counts, playwrightMissing, swaggerMissing);
+  showUpdateAllSummary(projects.length, counts, playwrightMissing, swaggerMissing, syncCount);
 }
 
 function updateGlobalCommands() {
@@ -1289,7 +1476,7 @@ function updateSingleProject(projectDir, counts) {
   }
 }
 
-function showUpdateAllSummary(total, counts, playwrightMissing, swaggerMissing) {
+function showUpdateAllSummary(total, counts, playwrightMissing, swaggerMissing, syncCount) {
   log("");
   heading("Update All Complete");
   log(`  Projects registered: ${total}`);
@@ -1299,6 +1486,7 @@ function showUpdateAllSummary(total, counts, playwrightMissing, swaggerMissing) 
   if (counts.errors > 0) log(`  Errors:              ${counts.errors}`);
   if (playwrightMissing.length > 0) log(`  Missing Playwright:  ${playwrightMissing.length}`);
   if (swaggerMissing.length > 0) log(`  Missing Swagger:     ${swaggerMissing.length}`);
+  if (syncCount > 0) log(`  Global rules synced: ${syncCount}`);
   log("");
 }
 

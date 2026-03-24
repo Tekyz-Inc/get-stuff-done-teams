@@ -5,7 +5,7 @@ Extends `bin/gsd-t.js` `doUpdateAll()` with a global rule sync step that propaga
 
 ## Tasks
 
-### Task 1: Extend doUpdateAll with global rule sync
+### Task 1: Extend doUpdateAll with global rule sync ✅
 - **Files**: `bin/gsd-t.js` (modify — add new helper functions and call in doUpdateAll)
 - **Contract refs**: cross-project-sync-contract.md (Propagation Protocol — On Update-All)
 - **Dependencies**: BLOCKED by global-metrics Task 4 (global-sync-manager.js must exist and be tested)
@@ -22,7 +22,7 @@ Extends `bin/gsd-t.js` `doUpdateAll()` with a global rule sync step that propaga
   - Zero external dependencies maintained
   - Existing doUpdateAll behavior unmodified (only additive call at end)
 
-### Task 2: NPM distribution pipeline for universal rules
+### Task 2: NPM distribution pipeline for universal rules ✅
 - **Files**: `bin/gsd-t.js` (modify — add helper), `examples/rules/` (create directory + universal-rules.jsonl)
 - **Contract refs**: cross-project-sync-contract.md (Propagation Protocol — On NPM Publish, Universal Rule Promotion Thresholds)
 - **Dependencies**: Requires Task 1 (within domain)
@@ -35,7 +35,7 @@ Extends `bin/gsd-t.js` `doUpdateAll()` with a global rule sync step that propaga
   - On install/update, universal rules are copied to new projects as candidates (extends `doInit` or `doInstall` to check `examples/rules/`)
   - Graceful handling when no rules qualify (skip silently)
 
-### Task 3: Unit tests for global rule sync integration
+### Task 3: Unit tests for global rule sync integration ✅
 - **Files**: `test/global-rule-sync.test.js` (create)
 - **Contract refs**: cross-project-sync-contract.md (Propagation Protocol, Universal Rule Promotion Thresholds)
 - **Dependencies**: Requires Tasks 1-2 (within domain), BLOCKED by global-metrics Task 4

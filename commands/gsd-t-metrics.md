@@ -100,6 +100,42 @@ If `heuristic_flags` has entries:
 
 If no anomalies: "No anomalies detected."
 
+## Step 8: Cross-Project Comparison (when --cross-project flag present)
+
+If `$ARGUMENTS` contains `--cross-project`:
+
+1. Run via Bash:
+   ```bash
+   node -e "const g = require('./bin/global-sync-manager.js'); const r = g.compareSignalDistributions(require('./package.json').name || require('path').basename(process.cwd())); console.log(JSON.stringify(r));" 2>/dev/null
+   ```
+
+2. If the result has `insufficient_data: true`, display:
+   "No global metrics yet — complete milestones in multiple projects to enable cross-project comparison"
+
+3. Otherwise, display the cross-project signal distribution comparison:
+   ```
+   ## Cross-Project Signal Distribution
+
+   | Project              | Tasks | Pass-Through | Fix-Cycle | Other |
+   |----------------------|-------|--------------|-----------|-------|
+   | {project} {★ if is_queried} | {N} | {rate}    | {rate}    | ...   |
+   ```
+
+4. If `$ARGUMENTS` also contains `--domain {domainType}`, run:
+   ```bash
+   node -e "const g = require('./bin/global-sync-manager.js'); const r = g.getDomainTypeComparison('{domainType}'); console.log(JSON.stringify(r));" 2>/dev/null
+   ```
+   Display the domain-type comparison table:
+   ```
+   ## Domain-Type Comparison: {domainType}
+
+   | Project              | Tasks | Pass-Through | Fix-Cycle |
+   |----------------------|-------|--------------|-----------|
+   | {project}            | {N}   | {count}      | {count}   |
+   ```
+
+If `--cross-project` is NOT in `$ARGUMENTS`: skip this step entirely (no change to existing behavior).
+
 $ARGUMENTS
 
 ## Auto-Clear

@@ -134,6 +134,31 @@ After displaying the project status, check for GSD-T updates:
 
 5. If versions match, skip — don't show anything
 
+## Global ELO & Cross-Project Rankings
+
+After the Process Health section, check for global metrics:
+
+1. Run via Bash:
+   ```bash
+   node -e "const g = require('./bin/global-sync-manager.js'); const name = (() => { try { return require('./package.json').name; } catch { return require('path').basename(process.cwd()); } })(); const elo = g.getGlobalELO(name); const ranks = g.getProjectRankings(); console.log(JSON.stringify({ elo, ranks, name }));" 2>/dev/null
+   ```
+
+2. If the result returns `elo: null` or the command fails: display "No global metrics yet" and skip.
+
+3. If global ELO data exists, display:
+   ```
+   Global ELO: {elo} (rank #{position} of {total} projects)
+   ```
+   Where position is the 1-based index of the current project in the rankings array.
+
+4. If 2+ projects have global rollup data, display the top 5 rankings:
+   ```
+   ## Cross-Project Rankings (Top 5)
+   | Rank | Project          | ELO    | Latest Milestone |
+   |------|------------------|--------|------------------|
+   | 1    | {project}        | {elo}  | {milestone}      |
+   ```
+
 $ARGUMENTS
 
 ## Auto-Clear

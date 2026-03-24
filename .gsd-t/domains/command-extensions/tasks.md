@@ -5,7 +5,7 @@ Extends three existing GSD-T commands with cross-project capabilities: `gsd-t-me
 
 ## Tasks
 
-### Task 1: Extend gsd-t-metrics with --cross-project mode
+### Task 1: Extend gsd-t-metrics with --cross-project mode ✅
 - **Files**: `commands/gsd-t-metrics.md` (modify — append new step)
 - **Contract refs**: cross-project-sync-contract.md (global-signal-distributions.jsonl schema, global-rollup.jsonl schema)
 - **Dependencies**: BLOCKED by global-metrics Task 4 (global-sync-manager.js API must exist)
@@ -18,7 +18,7 @@ Extends three existing GSD-T commands with cross-project capabilities: `gsd-t-me
   - Graceful fallback: if `~/.claude/metrics/` does not exist, displays "No global metrics yet — complete milestones in multiple projects to enable cross-project comparison"
   - When `--cross-project` not present: no change to existing behavior
 
-### Task 2: Extend gsd-t-status with global ELO display
+### Task 2: Extend gsd-t-status with global ELO display ✅
 - **Files**: `commands/gsd-t-status.md` (modify — append new step)
 - **Contract refs**: cross-project-sync-contract.md (Global ELO Computation)
 - **Dependencies**: BLOCKED by global-metrics Task 4 (global-sync-manager.js API must exist)
@@ -30,7 +30,7 @@ Extends three existing GSD-T commands with cross-project capabilities: `gsd-t-me
   - Graceful fallback: if `~/.claude/metrics/` does not exist, displays "No global metrics yet"
   - Does not require `--global` flag — auto-displays when global data exists (consistent with existing auto-display patterns)
 
-### Task 3: Extend gsd-t-complete-milestone with global rule promotion
+### Task 3: Extend gsd-t-complete-milestone with global rule promotion ✅
 - **Files**: `commands/gsd-t-complete-milestone.md` (modify — append new step after local promotion)
 - **Contract refs**: cross-project-sync-contract.md (Propagation Protocol — On Local Rule Promotion)
 - **Dependencies**: BLOCKED by global-metrics Task 4 AND cross-project-sync Task 3 (both APIs must exist and be tested)
@@ -44,7 +44,7 @@ Extends three existing GSD-T commands with cross-project capabilities: `gsd-t-me
   - Logs: "Promoted {N} rules to global metrics" and "Updated global rollup for {project}"
   - Graceful fallback: if no rules promoted this milestone, skip silently
 
-### Task 4: Reference documentation update
+### Task 4: Reference documentation update ✅
 - **Files**: `GSD-T-README.md` (modify), `README.md` (modify), `templates/CLAUDE-global.md` (modify), `commands/gsd-t-help.md` (modify)
 - **Contract refs**: Pre-Commit Gate (command interface changes require 4-file update)
 - **Dependencies**: Requires Tasks 1-3 (within domain)

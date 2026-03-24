@@ -112,13 +112,13 @@ GSD-T reads all state files and tells you exactly where you left off.
 | Command | Purpose | Auto |
 |---------|---------|------|
 | `/user:gsd-t-wave` | Full cycle, auto-advances all phases | Manual |
-| `/user:gsd-t-status` | Cross-domain progress view with token breakdown by domain/task/phase | Manual |
+| `/user:gsd-t-status` | Cross-domain progress view with token breakdown, global ELO and cross-project rankings | Manual |
 | `/user:gsd-t-resume` | Restore context, continue | Manual |
 | `/user:gsd-t-quick` | Fast task with GSD-T guarantees | Manual |
 | `/user:gsd-t-reflect` | Generate retrospective from event stream, propose memory updates | Manual |
 | `/user:gsd-t-visualize` | Launch browser dashboard — SSE server + React Flow agent visualization | Manual |
 | `/user:gsd-t-debug` | Systematic debugging with state | Manual |
-| `/user:gsd-t-metrics` | View task telemetry, process ELO, signal distribution, and domain health | Manual |
+| `/user:gsd-t-metrics` | View task telemetry, process ELO, signal distribution, domain health, and cross-project comparison (`--cross-project`) | Manual |
 | `/user:gsd-t-health` | Validate .gsd-t/ structure, optionally repair | Manual |
 | `/user:gsd-t-pause` | Save exact position for reliable resume | Manual |
 | `/user:gsd-t-log` | Sync progress Decision Log with recent git activity | Manual |

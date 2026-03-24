@@ -292,10 +292,11 @@ Use these when user asks for help on a specific command:
 - **Use when**: Ready to execute a full milestone hands-off
 
 ### status
-- **Summary**: Show current progress across all domains, including token breakdown by domain/task/phase
+- **Summary**: Show current progress across all domains, including token breakdown by domain/task/phase, global ELO and cross-project rankings
 - **Auto-invoked**: No
 - **Note (M22)**: Displays context observability data — token usage by domain, avg tokens/task, peak Ctx% per domain
-- **Reads**: All `.gsd-t/` files
+- **Note (M27)**: Displays global ELO and cross-project rankings when global metrics exist
+- **Reads**: All `.gsd-t/` files, `~/.claude/metrics/` (global metrics)
 - **Use when**: Need to see where things stand
 
 ### resume
@@ -325,10 +326,10 @@ Use these when user asks for help on a specific command:
 - **Use when**: Monitoring live agent activity during execute/wave phases; run `gsd-t-visualize stop` to stop the server
 
 ### metrics
-- **Summary**: View task telemetry, process ELO, signal distribution, and domain health
+- **Summary**: View task telemetry, process ELO, signal distribution, domain health, and cross-project comparison (with `--cross-project` flag)
 - **Auto-invoked**: No
-- **Reads**: `.gsd-t/metrics/task-metrics.jsonl`, `.gsd-t/metrics/rollup.jsonl`
-- **Use when**: Reviewing process health, first-pass rates, ELO trends, or anomaly flags for the current or a specific milestone
+- **Reads**: `.gsd-t/metrics/task-metrics.jsonl`, `.gsd-t/metrics/rollup.jsonl`, `~/.claude/metrics/` (when `--cross-project`)
+- **Use when**: Reviewing process health, first-pass rates, ELO trends, anomaly flags, or comparing signal distributions across projects
 
 ### debug
 - **Summary**: Systematic debugging with persistent state

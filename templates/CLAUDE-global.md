@@ -53,12 +53,12 @@ PROJECT or FEATURE or SCAN
 | `/user:gsd-t-verify` | Run quality gates + goal-backward behavior verification |
 | `/user:gsd-t-complete-milestone` | Archive milestone + git tag (goal-backward gate, rule engine distillation) |
 | `/user:gsd-t-wave` | Full cycle (auto-advances all phases) |
-| `/user:gsd-t-status` | Cross-domain progress view with token breakdown by domain/task/phase |
+| `/user:gsd-t-status` | Cross-domain progress view with token breakdown, global ELO and cross-project rankings |
 | `/user:gsd-t-debug` | Systematic debugging |
 | `/user:gsd-t-quick` | Fast task, respects contracts |
 | `/user:gsd-t-reflect` | Generate retrospective from event stream, propose memory updates |
 | `/user:gsd-t-visualize` | Launch browser dashboard |
-| `/user:gsd-t-metrics` | View task telemetry, process ELO, and domain health |
+| `/user:gsd-t-metrics` | View task telemetry, process ELO, domain health, and cross-project comparison (`--cross-project`) |
 | `/user:gsd-t-health` | Validate .gsd-t/ structure, optionally repair |
 | `/user:gsd-t-pause` | Save exact position for reliable resume |
 | `/user:gsd-t-populate` | Auto-populate docs from existing codebase |
