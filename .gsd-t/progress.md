@@ -7,7 +7,7 @@
 
 ## Active Milestone
 
-**Feature: Self-Learning & Self-Improvement System** — M25 COMPLETE, M26 COMPLETE, M27 DEFINED
+**Feature: Self-Learning & Self-Improvement System** — M25 COMPLETE, M26 COMPLETE, **M27 DEFINED**
 
 **M25: Telemetry Collection & Metrics Dashboard (Tier 1)** — COMPLETE (v2.43.10)
 - Task telemetry with weighted signal taxonomy, rollups, process ELO, pre-flight intelligence check, Chart.js dashboard, gsd-t-metrics command
@@ -43,17 +43,46 @@
 - **Impact on existing**: All additive — no breaking changes to existing contracts
 
 **Success criteria**:
-- [ ] Rules.jsonl stores detection patterns as declarative JSON objects
-- [ ] Patch templates auto-generate candidate patches when patterns detected (>=3 occurrences)
-- [ ] Promotion gate blocks patch advancement unless >55% improvement measured
-- [ ] Graduated patches write themselves into constraints.md or verify checks and exit rules.jsonl
-- [ ] Activation count tracking flags inactive rules for deprecation
-- [ ] Quality budget governance triggers constraint tightening when rework ceiling exceeded
-- [ ] Pre-mortem in plan surfaces historical failure patterns for current domain types
-- [ ] All existing tests pass with no regressions (373+ tests)
+- [x] Rules.jsonl stores detection patterns as declarative JSON objects
+- [x] Patch templates auto-generate candidate patches when patterns detected (>=3 occurrences)
+- [x] Promotion gate blocks patch advancement unless >55% improvement measured
+- [x] Graduated patches write themselves into constraints.md or verify checks and exit rules.jsonl
+- [x] Activation count tracking flags inactive rules for deprecation
+- [x] Quality budget governance triggers constraint tightening when rework ceiling exceeded
+- [x] Pre-mortem in plan surfaces historical failure patterns for current domain types
+- [x] All existing tests pass with no regressions (373+ tests)
 
 **M27: Cross-Project Learning & Global Sync (Tier 2.5)** — DEFINED (v2.45.10)
-- Global patch propagation, cross-project signal comparison, npm distribution of universal rules
+- **Goal**: Propagate proven rules across projects, enable cross-project comparison using signal-type distributions, and eventually ship validated rules in the npm package.
+- **Scope**:
+  - Dual-layer learning architecture:
+    - Project-specific: `.gsd-t/metrics/` (task-metrics, rollup, rules, patches) — stays local
+    - Cross-project: `~/.claude/metrics/` (global rollup, global rules, signal distributions) — shared across all registered GSD-T projects
+  - Global patch propagation — when a rule is promoted in one project:
+    1. Copy to `~/.claude/metrics/global-rules.jsonl` with source project tag
+    2. On `gsd-t-version-update-all`, propagate global rules to all registered projects as candidates (not promoted — each project must re-validate)
+    3. Rules that achieve promotion in 3+ projects → marked as universal
+  - Cross-project signal-type comparison — compare weighted signal distributions (not just raw pass/fail rates) across projects
+  - Cross-project rollup aggregation — domain-type pattern matching: compare similar domain types across projects to identify systemic patterns
+  - npm distribution pipeline — universal rules achieving promotion in 5+ projects are candidates for shipping in the GSD-T npm package itself (in `templates/` or `examples/rules/`)
+  - Extends `bin/gsd-t.js` `doUpdateAll()` — adds global rule sync step during update-all
+  - Extends `commands/gsd-t-metrics.md` — adds cross-project comparison queries
+  - Extends `commands/gsd-t-status.md` — adds global ELO display
+  - Extends `commands/gsd-t-complete-milestone.md` — adds global rule promotion check after local promotion
+  - New directory: `~/.claude/metrics/` — global rollup, global rules, signal distributions
+  - New contract: `.gsd-t/contracts/cross-project-sync-contract.md` — global rule schema, propagation protocol, universal promotion criteria
+- **Not in scope**: Neo4j graph database (optional power tier, not required for cross-project learning)
+- **Predecessor**: M26 (rule engine must exist with promotion gates for cross-project propagation to work)
+- **Brainstorm**: `.gsd-t/brainstorm-2026-03-20-telemetry.md`
+- **Impact on existing**: All additive — no breaking changes to existing contracts
+
+**Success criteria**:
+- [ ] Promoted rules propagate to `~/.claude/metrics/global-rules.jsonl`
+- [ ] `gsd-t-version-update-all` syncs global rules to all registered projects as candidates
+- [ ] Rules achieving promotion in 3+ projects marked as universal
+- [ ] Cross-project comparison uses signal-type distributions, not just raw rates
+- [ ] `gsd-t-metrics --cross-project` returns domain-type comparison across projects
+- [ ] All existing tests pass with no regressions (433+ tests)
 
 ## Queued Milestones
 
@@ -169,6 +198,7 @@ Wave 4: adaptive-replan (consumes fresh-dispatch summaries, integrates with work
 
 ## Decision Log
 (Entries before 2026-02-16 reconstructed from git history with timestamps)
+- 2026-03-23: [design] M27 DEFINED — Cross-Project Learning & Global Sync (Tier 2.5). Goal: propagate proven rules across projects via dual-layer architecture (project-local + global ~/.claude/metrics/), enable cross-project signal comparison, ship universal rules in npm package. Predecessor: M26. All additive, no breaking changes.
 - 2026-03-23: [success] Milestone "M26 Declarative Rule Engine & Patch Lifecycle" completed — declarative rule engine + 5-stage patch lifecycle with promotion gates. v2.44.10
 - 2026-03-23: [goal-backward-pass] Goal-backward verification passed — 8 requirements checked, no placeholder patterns found
 - 2026-03-23: [success] M26 VERIFIED — all quality gates PASS. 433/433 tests, 1/1 contract compliant, 8/8 success criteria met, 13/13 tasks complete, 0 critical/warning findings, goal-backward PASS (no placeholders). Ready for complete-milestone.
