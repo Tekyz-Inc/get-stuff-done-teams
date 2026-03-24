@@ -2315,6 +2315,10 @@ module.exports = {
   PKG_VERSION,
   PKG_ROOT,
   PKG_COMMANDS,
+  // M27: Cross-project sync
+  syncGlobalRulesToProject,
+  syncGlobalRules,
+  exportUniversalRulesForNpm,
 };
 
 // ─── Main ────────────────────────────────────────────────────────────────────

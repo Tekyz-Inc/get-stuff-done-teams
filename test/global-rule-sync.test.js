@@ -192,3 +192,172 @@ describe("seedUniversalRules behavior", () => {
     fs.rmSync(path.join(tmpProjectDir, "examples"), { recursive: true, force: true });
   });
 });
+
+// ── gsd-t.js sync functions (direct tests) ──────────────────────────────────
+
+const gsdtCli = require("../bin/gsd-t.js");
+
+describe("syncGlobalRulesToProject", () => {
+  it("returns 0 when no global rules exist", () => {
+    const result = gsdtCli.syncGlobalRulesToProject(tmpProjectDir);
+    assert.equal(result, 0);
+  });
+
+  it("returns 0 when no qualifying rules (promotion_count < 2, not universal)", () => {
+    const trigger = { metric: "low_promo", operator: "gt", threshold: 1 };
+    gsm.writeGlobalRule({
+      id: "r1",
+      original_rule: { trigger, name: "Low", description: "test", severity: "LOW", action: "warn" },
+      source_project: "solo",
+      source_project_dir: "/solo",
+    });
+    const result = gsdtCli.syncGlobalRulesToProject(tmpProjectDir);
+    assert.equal(result, 0);
+  });
+
+  it("injects qualifying rule (promotion_count >= 2) as candidate to local rules.jsonl", () => {
+    const trigger = { metric: "sync_test", operator: "gt", threshold: 5 };
+    gsm.writeGlobalRule({
+      id: "r1",
+      original_rule: { trigger, name: "Sync Test", description: "test sync", severity: "HIGH", action: "warn" },
+      source_project: "p1",
+      source_project_dir: "/p1",
+    });
+    gsm.writeGlobalRule({
+      id: "r1",
+      original_rule: { trigger, name: "Sync Test", description: "test sync", severity: "HIGH", action: "warn" },
+      source_project: "p2",
+      source_project_dir: "/p2",
+    });
+
+    const count = gsdtCli.syncGlobalRulesToProject(tmpProjectDir);
+    assert.equal(count, 1);
+
+    // Verify the candidate was written to local rules.jsonl
+    const localRulesFile = path.join(tmpProjectDir, ".gsd-t", "metrics", "rules.jsonl");
+    assert.ok(fs.existsSync(localRulesFile));
+    const content = fs.readFileSync(localRulesFile, "utf8").trim();
+    const rules = content.split("\n").map((l) => JSON.parse(l));
+    assert.equal(rules.length, 1);
+    assert.equal(rules[0].status, "active");
+    assert.equal(rules[0].activation_count, 0);
+    assert.ok(rules[0].id.startsWith("global-grule-"));
+    assert.equal(rules[0].milestone_created, "global");
+    assert.ok(rules[0].source_global_id);
+  });
+
+  it("does not re-inject rule that already exists locally", () => {
+    const trigger = { metric: "dedup_local", operator: "gt", threshold: 3 };
+    gsm.writeGlobalRule({
+      id: "r1",
+      original_rule: { trigger, name: "Dedup", description: "d", severity: "MEDIUM", action: "warn" },
+      source_project: "p1",
+      source_project_dir: "/p1",
+    });
+    gsm.writeGlobalRule({
+      id: "r1",
+      original_rule: { trigger, name: "Dedup", description: "d", severity: "MEDIUM", action: "warn" },
+      source_project: "p2",
+      source_project_dir: "/p2",
+    });
+
+    // First sync
+    const count1 = gsdtCli.syncGlobalRulesToProject(tmpProjectDir);
+    assert.equal(count1, 1);
+
+    // Second sync — should not inject again
+    const count2 = gsdtCli.syncGlobalRulesToProject(tmpProjectDir);
+    assert.equal(count2, 0);
+  });
+
+  it("returns 0 gracefully for nonexistent project dir", () => {
+    const trigger = { metric: "nodir", operator: "gt", threshold: 1 };
+    gsm.writeGlobalRule({
+      id: "r1",
+      original_rule: { trigger },
+      source_project: "p1",
+      source_project_dir: "/p1",
+    });
+    gsm.writeGlobalRule({
+      id: "r1",
+      original_rule: { trigger },
+      source_project: "p2",
+      source_project_dir: "/p2",
+    });
+    const result = gsdtCli.syncGlobalRulesToProject("/nonexistent/path/xyz");
+    assert.equal(result, 0);
+  });
+});
+
+describe("syncGlobalRules", () => {
+  it("returns 0 when no global rules exist", () => {
+    const result = gsdtCli.syncGlobalRules([tmpProjectDir]);
+    assert.equal(result, 0);
+  });
+
+  it("syncs qualifying rules across multiple projects", () => {
+    // Create two project dirs
+    const projA = fs.mkdtempSync(path.join(os.tmpdir(), "gsd-t-syncA-"));
+    const projB = fs.mkdtempSync(path.join(os.tmpdir(), "gsd-t-syncB-"));
+    fs.mkdirSync(path.join(projA, ".gsd-t", "metrics"), { recursive: true });
+    fs.mkdirSync(path.join(projB, ".gsd-t", "metrics"), { recursive: true });
+
+    const trigger = { metric: "multi_sync", operator: "gt", threshold: 1 };
+    gsm.writeGlobalRule({
+      id: "ms1",
+      original_rule: { trigger, name: "Multi", description: "test", severity: "HIGH", action: "warn" },
+      source_project: "origin1",
+      source_project_dir: "/origin1",
+    });
+    gsm.writeGlobalRule({
+      id: "ms1",
+      original_rule: { trigger, name: "Multi", description: "test", severity: "HIGH", action: "warn" },
+      source_project: "origin2",
+      source_project_dir: "/origin2",
+    });
+
+    const total = gsdtCli.syncGlobalRules([projA, projB]);
+    assert.equal(total, 2);
+
+    // Cleanup
+    fs.rmSync(projA, { recursive: true, force: true });
+    fs.rmSync(projB, { recursive: true, force: true });
+  });
+
+  it("skips nonexistent project directories", () => {
+    const trigger = { metric: "skip_test", operator: "gt", threshold: 1 };
+    gsm.writeGlobalRule({
+      id: "sk1",
+      original_rule: { trigger },
+      source_project: "p1",
+      source_project_dir: "/p1",
+    });
+    gsm.writeGlobalRule({
+      id: "sk1",
+      original_rule: { trigger },
+      source_project: "p2",
+      source_project_dir: "/p2",
+    });
+    const result = gsdtCli.syncGlobalRules(["/nonexistent/dir1", "/nonexistent/dir2"]);
+    assert.equal(result, 0);
+  });
+});
+
+describe("exportUniversalRulesForNpm", () => {
+  it("returns 0 when no npm candidates exist", () => {
+    const trigger = { metric: "no_npm", operator: "gt", threshold: 1 };
+    gsm.writeGlobalRule({
+      id: "r1",
+      original_rule: { trigger },
+      source_project: "p1",
+      source_project_dir: "/p1",
+    });
+    const result = gsdtCli.exportUniversalRulesForNpm();
+    assert.equal(result, 0);
+  });
+
+  it("returns 0 when no global rules exist at all", () => {
+    const result = gsdtCli.exportUniversalRulesForNpm();
+    assert.equal(result, 0);
+  });
+});
