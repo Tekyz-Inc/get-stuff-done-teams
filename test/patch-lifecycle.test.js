@@ -155,6 +155,44 @@ describe("applyPatch", () => {
   });
 });
 
+// ── applyPatch edge cases ────────────────────────────────────────────────────
+
+describe("applyPatch edge cases", () => {
+  beforeEach(() => { cleanPatches(); seedTemplate(); });
+
+  it("returns false when insert_after anchor not found", () => {
+    writeTemplates([{
+      id: "tpl-001", rule_id: "rule-001", name: "InsertAfter", description: "test",
+      target_file: "test-target.md", edit_type: "insert_after", edit_anchor: "MISSING ANCHOR",
+      edit_content: "## Inserted", target_metric: "fix_cycles", created_at: "2026-01-01T00:00:00Z",
+    }]);
+    fs.writeFileSync(path.join(tmpDir, "test-target.md"), "# Original\n");
+    const patch = createCandidate("rule-001", "tpl-001", 1, tmpDir);
+    const ok = applyPatch(patch.id, tmpDir);
+    assert.equal(ok, false);
+  });
+
+  it("returns false when template not found", () => {
+    writeTemplates([]); // empty templates
+    fs.writeFileSync(path.join(tmpDir, "test-target.md"), "# Test\n");
+    const patch = createCandidate("rule-001", "tpl-001", 1, tmpDir);
+    const ok = applyPatch(patch.id, tmpDir);
+    assert.equal(ok, false);
+  });
+
+  it("returns false for unknown edit_type", () => {
+    writeTemplates([{
+      id: "tpl-001", rule_id: "rule-001", name: "Bad", description: "test",
+      target_file: "test-target.md", edit_type: "unknown_type", edit_anchor: null,
+      edit_content: "content", target_metric: "fix_cycles", created_at: "2026-01-01T00:00:00Z",
+    }]);
+    fs.writeFileSync(path.join(tmpDir, "test-target.md"), "# Test\n");
+    const patch = createCandidate("rule-001", "tpl-001", 1, tmpDir);
+    const ok = applyPatch(patch.id, tmpDir);
+    assert.equal(ok, false);
+  });
+});
+
 // ── recordMeasurement ────────────────────────────────────────────────────────
 
 describe("recordMeasurement", () => {
@@ -182,6 +220,23 @@ describe("recordMeasurement", () => {
     const updated = JSON.parse(fs.readFileSync(path.join(tmpDir, ".gsd-t", "metrics", "patches", `${patch.id}.json`), "utf8"));
     assert.deepEqual(updated.measured_milestones, ["M27", "M28"]);
     assert.equal(updated.metric_after, 3.5);
+  });
+
+  it("no-ops on candidate patch (requires applied or measured)", () => {
+    const patch = createCandidate("rule-001", "tpl-001", 2.0, tmpDir);
+    recordMeasurement(patch.id, "M27", 3.0, tmpDir);
+    const updated = JSON.parse(fs.readFileSync(path.join(tmpDir, ".gsd-t", "metrics", "patches", `${patch.id}.json`), "utf8"));
+    assert.equal(updated.status, "candidate"); // unchanged
+    assert.equal(updated.metric_after, null);
+  });
+
+  it("handles zero metric_before", () => {
+    fs.writeFileSync(path.join(tmpDir, "test-target.md"), "# Test\n");
+    const patch = createCandidate("rule-001", "tpl-001", 0, tmpDir);
+    applyPatch(patch.id, tmpDir);
+    recordMeasurement(patch.id, "M27", 3.0, tmpDir);
+    const updated = JSON.parse(fs.readFileSync(path.join(tmpDir, ".gsd-t", "metrics", "patches", `${patch.id}.json`), "utf8"));
+    assert.equal(updated.improvement_pct, 100); // positive after from zero before
   });
 });
 
@@ -245,6 +300,16 @@ describe("promote", () => {
     assert.equal(updated.status, "promoted");
     assert.ok(updated.promoted_at);
   });
+
+  it("no-ops on non-measured patch", () => {
+    fs.writeFileSync(path.join(tmpDir, "test-target.md"), "# Test\n");
+    const patch = createCandidate("rule-001", "tpl-001", 1.0, tmpDir);
+    applyPatch(patch.id, tmpDir); // status is "applied", not "measured"
+    promote(patch.id, tmpDir);
+    const updated = JSON.parse(fs.readFileSync(path.join(tmpDir, ".gsd-t", "metrics", "patches", `${patch.id}.json`), "utf8"));
+    assert.equal(updated.status, "applied"); // unchanged
+    assert.equal(updated.promoted_at, null);
+  });
 });
 
 describe("deprecate", () => {
@@ -287,6 +352,29 @@ describe("graduate", () => {
     applyPatch(patch.id, tmpDir);
     recordMeasurement(patch.id, "M27", 2.0, tmpDir);
     promote(patch.id, tmpDir);
+    const result = graduate(patch.id, tmpDir);
+    assert.equal(result.target, null);
+  });
+
+  it("returns null for non-promoted patch", () => {
+    fs.writeFileSync(path.join(tmpDir, "test-target.md"), "# Test\n");
+    const patch = createCandidate("rule-001", "tpl-001", 1.0, tmpDir);
+    applyPatch(patch.id, tmpDir);
+    recordMeasurement(patch.id, "M27", 2.0, tmpDir);
+    // status is "measured", not "promoted"
+    const result = graduate(patch.id, tmpDir);
+    assert.equal(result.target, null);
+  });
+
+  it("returns null when template missing", () => {
+    fs.writeFileSync(path.join(tmpDir, "test-target.md"), "# Test\n");
+    const patch = createCandidate("rule-001", "tpl-001", 1.0, tmpDir);
+    applyPatch(patch.id, tmpDir);
+    recordMeasurement(patch.id, "M27", 2.0, tmpDir);
+    recordMeasurement(patch.id, "M28", 2.5, tmpDir);
+    recordMeasurement(patch.id, "M29", 3.0, tmpDir);
+    promote(patch.id, tmpDir);
+    writeTemplates([]); // remove template
     const result = graduate(patch.id, tmpDir);
     assert.equal(result.target, null);
   });

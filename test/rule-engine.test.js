@@ -204,6 +204,29 @@ describe("evaluateRules", () => {
     assert.equal(matches[0].matchedRecords.length, 1);
   });
 
+  it("uses milestone scope to filter by milestone", () => {
+    writeRules([makeRule({ id: "r1", trigger: { metric: "fix_cycles", operator: "gt", threshold: 2, scope: "milestone", window: 0 } })]);
+    writeMetrics([
+      makeMetric({ domain: "test-domain", milestone: "M25", fix_cycles: 5 }),
+      makeMetric({ domain: "test-domain", milestone: "M26", fix_cycles: 1 }),
+    ]);
+    // Only M26 records should be evaluated; M25 record (fix_cycles=5) excluded
+    const matches = evaluateRules("test-domain", { projectDir: tmpDir, milestone: "M26" });
+    assert.equal(matches.length, 0); // fix_cycles=1 is not > 2
+  });
+
+  it("milestone scope returns matches when threshold met", () => {
+    writeRules([makeRule({ id: "r1", trigger: { metric: "fix_cycles", operator: "gt", threshold: 2, scope: "milestone", window: 0 } })]);
+    writeMetrics([
+      makeMetric({ domain: "test-domain", milestone: "M26", fix_cycles: 5 }),
+      makeMetric({ domain: "other-domain", milestone: "M26", fix_cycles: 4 }),
+    ]);
+    const matches = evaluateRules("test-domain", { projectDir: tmpDir, milestone: "M26" });
+    assert.equal(matches.length, 1);
+    // milestone scope uses allRecs filtered by milestone, not domRecs
+    assert.equal(matches[0].matchedRecords.length, 2);
+  });
+
   it("evaluates first_pass_rate as derived metric", () => {
     writeRules([makeRule({ id: "r1", trigger: { metric: "first_pass_rate", operator: "lt", threshold: 1, scope: "domain", window: 0 } })]);
     writeMetrics([
