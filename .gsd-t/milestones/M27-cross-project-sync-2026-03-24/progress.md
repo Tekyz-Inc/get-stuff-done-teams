@@ -3,7 +3,7 @@
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: IN PROGRESS
 ## Date: 2026-03-23
-## Version: 2.45.10
+## Version: 2.44.10
 
 ## Active Milestone
 
@@ -52,7 +52,7 @@
 - [x] Pre-mortem in plan surfaces historical failure patterns for current domain types
 - [x] All existing tests pass with no regressions (373+ tests)
 
-**M27: Cross-Project Learning & Global Sync (Tier 2.5)** — COMPLETE (v2.45.10)
+**M27: Cross-Project Learning & Global Sync (Tier 2.5)** — VERIFIED (v2.45.10)
 - **Goal**: Propagate proven rules across projects, enable cross-project comparison using signal-type distributions, and eventually ship validated rules in the npm package.
 - **Scope**:
   - Dual-layer learning architecture:
@@ -107,7 +107,7 @@ None — backlog item #10 (Docker Enterprise) available when ready.
 | M24 | Docker (Enterprise)                                | BACKLOG | 2.42.10 | 2       |
 | M25 | Telemetry Collection & Metrics Dashboard (Tier 1)  | COMPLETE | 2.43.10 | 4       |
 | M26 | Declarative Rule Engine & Patch Lifecycle (Tier 2)  | COMPLETE    | 2.44.10 | 3       |
-| M27 | Cross-Project Learning & Global Sync (Tier 2.5)    | COMPLETE   | 2.45.10 | 3       |
+| M27 | Cross-Project Learning & Global Sync (Tier 2.5)    | VERIFIED   | 2.45.10 | 3       |
 
 ## Domains (M27)
 | Domain              | Status   | Tasks | Completed |
@@ -214,7 +214,6 @@ Wave 4: adaptive-replan (consumes fresh-dispatch summaries, integrates with work
 
 ## Decision Log
 (Entries before 2026-02-16 reconstructed from git history with timestamps)
-- 2026-03-24: [success] Milestone "M27 Cross-Project Learning & Global Sync" completed — dual-layer learning architecture, global rule propagation, cross-project comparison, npm distribution pipeline. v2.45.10
 - 2026-03-24: [goal-backward-pass] Goal-backward verification passed — 6 requirements checked, no placeholder patterns found
 - 2026-03-24: [success] M27 VERIFIED — all quality gates PASS. 481/481 tests, 1/1 contract compliant, 6/6 success criteria met, 11/11 tasks complete, 0 critical findings, 1 warning (global-sync-manager.js 350 lines > 200 limit). Goal-backward PASS. Ready for complete-milestone.
 - 2026-03-24: [success] M27 INTEGRATED — all 3 domains wired, 3/3 contracts verified. Contract audit: cross-project-sync-contract.md 12/12 exports match (global-sync-manager.js), propagation protocol verified (writeGlobalRule dedup by trigger fingerprint, syncGlobalRulesToProject filters universal/promo>=2, injects as candidate). Integration points: global-metrics -> cross-project-sync (require('./global-sync-manager.js') in syncGlobalRules/syncGlobalRulesToProject/exportUniversalRulesForNpm), global-metrics -> command-extensions (inline node -e require calls in gsd-t-metrics.md Step 8, gsd-t-status.md global ELO section, gsd-t-complete-milestone.md Step 2.5c). Smoke test: end-to-end writeGlobalRule -> readGlobalRules -> writeGlobalRollup -> getGlobalELO -> getProjectRankings -> compareSignalDistributions all PASS. doUpdateAll calls syncGlobalRules correctly. 481/481 tests pass, 0 failures.
