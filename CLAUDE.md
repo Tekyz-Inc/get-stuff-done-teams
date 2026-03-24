@@ -139,6 +139,9 @@ Every command that spawns a Task subagent MUST log its execution to `.gsd-t/toke
 - CTX_PCT >= 85: `echo "🔴 CRITICAL: Context at ${CTX_PCT}% — compaction likely. Task MUST be split."`
 - CTX_PCT >= 70: `echo "⚠️ WARNING: Context at ${CTX_PCT}% — approaching compaction threshold. Consider splitting."`
 
+**Orchestrator Context Self-Check (execute + wave only):**
+After every domain/phase completes, the orchestrator checks its own CTX_PCT. If >= 70%, it saves progress to disk and STOPs — the user runs `/clear` then re-invokes the command to resume. This prevents the orchestrator itself from hitting compaction, which causes session breaks. See `gsd-t-execute.md` Step 3.5 and `gsd-t-wave.md` Phase Agent Spawn Pattern.
+
 **For QA/validation subagents:** if issues found, append each to `.gsd-t/qa-issues.md`:
 `| Date | Command | Step | Model | Duration(s) | Severity | Finding |`
 `| {DT_START} | {command} | Step {N} | {model} | {DURATION}s | {severity} | {finding} |`

@@ -84,6 +84,17 @@ Compute context utilization — run via Bash:
 Alert on context thresholds (display to user inline):
 - If CTX_PCT >= 85: `echo "🔴 CRITICAL: Context at ${CTX_PCT}% — compaction likely. Task MUST be split."`
 - If CTX_PCT >= 70: `echo "⚠️ WARNING: Context at ${CTX_PCT}% — approaching compaction threshold. Consider splitting in plan."`
+
+**Orchestrator Context Self-Check (MANDATORY):**
+After EVERY phase agent returns, check the wave orchestrator's own context:
+- **If CTX_PCT >= 70:**
+  1. Save checkpoint to `.gsd-t/progress.md` — record which phases are complete, which remain
+  2. Output: `⚠️ Wave orchestrator context at {CTX_PCT}% — approaching limit. Progress saved. Run /clear then /user:gsd-t-wave to continue from the next phase.`
+  3. **STOP the wave loop.** Do NOT spawn the next phase agent. The next session resumes from saved state.
+- **If CTX_PCT < 70:** Continue to next phase.
+
+This prevents the wave orchestrator from running out of context mid-wave.
+
 Append to `.gsd-t/token-log.md` (create with header `| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Tokens | Compacted | Domain | Task | Ctx% |` if missing):
 `| {DT_START} | {DT_END} | gsd-t-wave | {PHASE} | sonnet | {DURATION}s | phase: {PHASE} | {TOKENS} | {COMPACTED} | | | {CTX_PCT} |`
 

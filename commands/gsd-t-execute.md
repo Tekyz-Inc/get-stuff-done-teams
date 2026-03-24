@@ -425,6 +425,29 @@ After all merges complete (whether all passed, some rolled back, or errors occur
 Cleanup is not optional — orphaned worktrees waste disk space and can confuse subsequent executions. Always run cleanup, even if earlier steps failed.
 ```
 
+## Step 3.5: Orchestrator Context Self-Check (MANDATORY)
+
+After EVERY domain completes (and after every checkpoint), the orchestrator MUST check its own context utilization:
+
+Run via Bash:
+`if [ "${CLAUDE_CONTEXT_TOKENS_MAX:-0}" -gt 0 ]; then CTX_PCT=$(echo "scale=1; ${CLAUDE_CONTEXT_TOKENS_USED:-0} * 100 / ${CLAUDE_CONTEXT_TOKENS_MAX}" | bc); else CTX_PCT="N/A"; fi && echo "Orchestrator context: ${CTX_PCT}%"`
+
+**If CTX_PCT >= 70:**
+1. **Save checkpoint to disk** — update `.gsd-t/progress.md` with:
+   - Which domains are complete, which remain
+   - Current wave, next domain to execute
+   - Any checkpoint results
+2. **Instruct user**: Output exactly:
+   ```
+   ⚠️ Orchestrator context at {CTX_PCT}% — approaching limit.
+   Progress saved. Run `/clear` then `/user:gsd-t-execute` to continue from the next domain.
+   ```
+3. **STOP execution.** Do NOT spawn another domain subagent. The next session will resume from saved state.
+
+**If CTX_PCT < 70:** Continue normally to the next domain/wave.
+
+This prevents the orchestrator from running out of context mid-milestone, which causes session breaks and summary-based recovery.
+
 ## Step 4: Checkpoint Handling
 
 When a checkpoint is reached (solo or team):
