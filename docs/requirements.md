@@ -37,11 +37,19 @@
 | REQ-029 | Diagram Rendering Toolchain — three rendering backends supported, each free and open source, selected automatically based on availability: (1) Primary — Mermaid CLI (mmdc, @mermaid-js/mermaid-cli, MIT, npm) renders .mmd files to SVG via headless Chromium; (2) Enhanced — D2 (MPL-2.0, terrastruct/d2, Go binary) as optional renderer for architecture and dataflow diagrams — uses dagre/ELK/neato layouts (TALA excluded, paid); (3) Fallback — Kroki HTTP API (MIT, yuzutech/kroki) renders any supported format via single HTTP POST to kroki.io (public free tier) or self-hosted Docker instance | P2 | complete (M17) | test/scan.test.js + verify-gates.js |
 | REQ-030 | MCP Diagram Server Support — gsd-t-scan supports optional MCP-based diagram generation when registered MCP servers are detected in Claude Code settings: diagram-bridge-mcp (MIT, tohachan) selects optimal format and renders via Kroki; C4Diagrammer (MIT, jonverrier) specialized for existing codebase → C4 architecture diagrams; mcp-mermaid (MIT, hustcc) for 22 Mermaid diagram types; MCP path is preferred over CLI when available | P3 | complete (M17) | test/scan.test.js + verify-gates.js |
 
-| REQ-031 | Per-Task Telemetry Collection — metrics-collector.js emits structured records to task-metrics.jsonl with weighted signal taxonomy (5 signal types), pre-flight intelligence check warns on domain failure patterns | P1 | planned | test/metrics-collector.test.js |
-| REQ-032 | Milestone Rollup & Process ELO — metrics-rollup.js aggregates task-metrics into rollup.jsonl with first_pass_rate, ELO scoring (K=32), trend comparison, 4 detection heuristics (first-pass-failure-spike, rework-rate-anomaly, context-overflow-correlation, duration-regression) | P1 | planned | test/metrics-rollup.test.js |
-| REQ-033 | Metrics Dashboard Panel — Chart.js trend line (first_pass_rate over milestones), domain health heatmap, ELO display in existing dashboard via GET /metrics endpoint | P2 | planned | test/dashboard-server.test.js (extend) |
-| REQ-034 | gsd-t-metrics Command — 50th command reads task-metrics.jsonl + rollup.jsonl, displays metrics summary, ELO, signal distribution, domain breakdown, trend comparison, heuristic warnings | P1 | planned | validated by use |
-| REQ-035 | Process ELO in Status — gsd-t-status displays current ELO score and quality budget summary from rollup.jsonl | P2 | planned | validated by use |
+| REQ-031 | Per-Task Telemetry Collection — metrics-collector.js emits structured records to task-metrics.jsonl with weighted signal taxonomy (5 signal types), pre-flight intelligence check warns on domain failure patterns | P1 | complete (M25) | test/metrics-collector.test.js |
+| REQ-032 | Milestone Rollup & Process ELO — metrics-rollup.js aggregates task-metrics into rollup.jsonl with first_pass_rate, ELO scoring (K=32), trend comparison, 4 detection heuristics (first-pass-failure-spike, rework-rate-anomaly, context-overflow-correlation, duration-regression) | P1 | complete (M25) | test/metrics-rollup.test.js |
+| REQ-033 | Metrics Dashboard Panel — Chart.js trend line (first_pass_rate over milestones), domain health heatmap, ELO display in existing dashboard via GET /metrics endpoint | P2 | complete (M25) | test/dashboard-server.test.js (extend) |
+| REQ-034 | gsd-t-metrics Command — 50th command reads task-metrics.jsonl + rollup.jsonl, displays metrics summary, ELO, signal distribution, domain breakdown, trend comparison, heuristic warnings | P1 | complete (M25) | validated by use |
+| REQ-035 | Process ELO in Status — gsd-t-status displays current ELO score and quality budget summary from rollup.jsonl | P2 | complete (M25) | validated by use |
+
+| REQ-036 | Declarative Rule Engine — bin/rule-engine.js loads rules from rules.jsonl, evaluates triggers against task-metrics with 8 operators (gt, gte, lt, lte, eq, neq, in, pattern_count), tracks activation counts, flags inactive rules, consolidates related rules | P1 | planned | test/rule-engine.test.js |
+| REQ-037 | Patch Template System — patch-templates.jsonl maps rule triggers to file edits (append, prepend, insert_after, replace), templates reference target files and edit content | P1 | planned | test/rule-engine.test.js |
+| REQ-038 | Patch Lifecycle Manager — bin/patch-lifecycle.js manages 5-stage lifecycle (candidate->applied->measured->promoted->graduated) with promotion gate (>55% improvement over 2+ milestones) and graduation (3+ milestones sustained) | P1 | planned | test/patch-lifecycle.test.js |
+| REQ-039 | Active Rule Injection in Execute — gsd-t-execute.md injects firing rules (max 10 lines) into subagent prompts before task dispatch | P1 | planned | validated by use |
+| REQ-040 | Rule-Based Pre-Mortem in Plan — gsd-t-plan.md Step 1.7 enhanced with getPreMortemRules to surface historical rule matches for domain types | P2 | planned | validated by use |
+| REQ-041 | Distillation Extension — gsd-t-complete-milestone.md distillation step extended with rule evaluation, patch candidate generation, promotion gate check, graduation, consolidation, and quality budget governance | P1 | planned | validated by use |
+| REQ-042 | Quality Budget Governance — per-milestone rework ceiling (default 20%), auto-tightens constraints (force discuss, require contract review, split large tasks) when exceeded | P2 | planned | validated by use |
 
 ## Technical Requirements
 
@@ -117,6 +125,21 @@
 
 **Orphaned requirements**: REQ-001 through REQ-017 (all M1-M13 deliverables, complete — not mapped to M14+ tasks by design).
 **Unanchored tasks**: metrics-commands Task 3 (CLI count) and Task 4 (4 reference files) are infrastructure supporting REQ-034 — implicitly mapped.
+
+## Requirements Traceability (updated by plan phase — M26)
+
+| REQ-ID  | Requirement Summary                                         | Domain              | Task(s)                        | Status  |
+|---------|-------------------------------------------------------------|---------------------|--------------------------------|---------|
+| REQ-036 | Declarative Rule Engine — rule evaluator + activation tracking | rule-engine       | Task 1, 2, 3                   | pending |
+| REQ-037 | Patch Template System — templates.jsonl + seed data          | rule-engine         | Task 2, 4                      | pending |
+| REQ-038 | Patch Lifecycle Manager — 5-stage lifecycle + promotion gate | patch-lifecycle     | Task 1, 2, 3                   | pending |
+| REQ-039 | Active Rule Injection in Execute                             | command-integration | Task 1                         | pending |
+| REQ-040 | Rule-Based Pre-Mortem in Plan                                | command-integration | Task 2                         | pending |
+| REQ-041 | Distillation Extension — rules + patches + graduation        | command-integration | Task 3                         | pending |
+| REQ-042 | Quality Budget Governance — rework ceiling + tightening      | command-integration | Task 3                         | pending |
+
+**Orphaned requirements**: None — all M26 REQs mapped to tasks.
+**Unanchored tasks**: rule-engine Task 5 (tests) and patch-lifecycle Task 4 (tests) are QA infrastructure supporting all REQs. command-integration Task 4 (reference docs) supports Pre-Commit Gate compliance.
 
 ---
 

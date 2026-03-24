@@ -14,7 +14,7 @@
 - 4 domains: metrics-collection, metrics-rollup, metrics-dashboard, metrics-commands
 - Archived: .gsd-t/milestones/M25-telemetry-metrics-2026-03-23/
 
-**M26: Declarative Rule Engine & Patch Lifecycle (Tier 2)** — PARTITIONED (v2.44.10)
+**M26: Declarative Rule Engine & Patch Lifecycle (Tier 2)** — PLANNED (v2.44.10)
 - **Goal**: Auto-detect failure patterns, generate candidate patches, and manage their lifecycle through promotion gates with measurable improvement thresholds. Promoted patches that sustain improvement graduate into permanent methodology artifacts.
 - **Scope**:
   - `.gsd-t/metrics/rules.jsonl` — declarative rule engine: pattern detection triggers as JSON objects (not hardcoded heuristics). Adding a new detection pattern = JSON append, not code deploy
@@ -74,19 +74,19 @@ None — backlog item #10 (Docker Enterprise) available when ready.
 | M23 | GSD 2 Tier 2 — Headless Mode          | COMPLETE | 2.41.10 | 3       |
 | M24 | Docker (Enterprise)                                | BACKLOG | 2.42.10 | 2       |
 | M25 | Telemetry Collection & Metrics Dashboard (Tier 1)  | COMPLETE | 2.43.10 | 4       |
-| M26 | Declarative Rule Engine & Patch Lifecycle (Tier 2)  | PARTITIONED | 2.44.10 | 3       |
+| M26 | Declarative Rule Engine & Patch Lifecycle (Tier 2)  | PLANNED     | 2.44.10 | 3       |
 | M27 | Cross-Project Learning & Global Sync (Tier 2.5)    | DEFINED | 2.45.10 | TBD     |
 
 ## Domains (M26)
 | Domain                | Status      | Tasks | Completed |
 |-----------------------|-------------|-------|-----------|
-| rule-engine           | partitioned | 0     | 0         |
-| patch-lifecycle       | partitioned | 0     | 0         |
-| command-integration   | partitioned | 0     | 0         |
+| rule-engine           | planned | 5     | 0         |
+| patch-lifecycle       | planned | 4     | 0         |
+| command-integration   | planned | 4     | 0         |
 
 ## Contracts (M26)
 - [x] rule-engine-contract.md — rules.jsonl + patch-templates.jsonl schemas, patch status schema, lifecycle state machine, promotion gate (>55%), graduation criteria (3+ milestones), quality budget governance, API definitions
-- [ ] integration-points.md — UPDATED with M26 dependency graph and wave execution groups
+- [x] integration-points.md — UPDATED with M26 dependency graph, wave execution groups, and solo execution order
 
 ## Execution Order (M26)
 Wave 1: rule-engine (foundation — rules.jsonl evaluator, patch-templates, activation tracking, consolidation)
@@ -175,6 +175,7 @@ Wave 4: adaptive-replan (consumes fresh-dispatch summaries, integrates with work
 
 ## Decision Log
 (Entries before 2026-02-16 reconstructed from git history with timestamps)
+- 2026-03-23: [success] M26 PLANNED — 13 tasks across 3 domains (rule-engine: 5, patch-lifecycle: 4, command-integration: 4). 3-wave execution: Wave 1 rule-engine (foundation, 5 tasks) -> Wave 2 patch-lifecycle (lifecycle layer, 4 tasks) -> Wave 3 command-integration (wiring, 4 tasks). Recommended: solo sequential (13 tasks, strictly sequential waves). No duplicate operations detected. No SharedCore needed. REQ-036 through REQ-042 defined and traced to tasks. Integration points updated with task-level dependency graph and 3 checkpoints. Plan validation: PASS. 373/373 tests pass (pre-execution baseline).
 - 2026-03-23: [success] M26 PARTITIONED — 3 domains defined: rule-engine (bin/rule-engine.js, rules.jsonl, patch-templates.jsonl, activation tracking, consolidation), patch-lifecycle (bin/patch-lifecycle.js, .gsd-t/metrics/patches/, 5-stage lifecycle, promotion gates >55%, graduation into methodology artifacts), command-integration (execute rule injection, plan pre-mortem extension, complete-milestone distillation extension, quality budget governance). 3-wave execution: Wave 1 rule-engine (foundation) -> Wave 2 patch-lifecycle (lifecycle layer) -> Wave 3 command-integration (wiring). Contract: rule-engine-contract.md (rules.jsonl + patch-templates.jsonl schemas, patch status schema, lifecycle state machine, promotion/graduation criteria, quality budget spec, API definitions). No shared files between domains. Assumption audit: AlphaZero/SRE/immune system/SPC all INSPECT (concepts only), M25 task-metrics.jsonl + rollup.jsonl USE (direct dependencies). Single consumer surface (Claude Code slash commands) — no SharedCore needed.
 - 2026-03-23: [design] M26 DEFINED — Declarative Rule Engine & Patch Lifecycle (Tier 2). Goal: auto-detect failure patterns from task-metrics.jsonl, generate candidate patches, manage 5-stage lifecycle (candidate→applied→measured→promoted→graduated) with >55% improvement gates. Scope: rules.jsonl declarative engine, patch-templates.jsonl, activation tracking, quality budget governance, pre-mortem in plan, rule injection in execute. Predecessor: M25. All additive, no breaking changes.
 - 2026-03-23: [success] M25 COMPLETE — Telemetry Collection & Metrics Dashboard v2.43.10. 16 tasks, 4 domains, 3 waves. Delivered: bin/metrics-collector.js (per-task telemetry writer), bin/metrics-rollup.js (milestone aggregation + ELO + 4 heuristics), GET /metrics endpoint + Chart.js dashboard panel, gsd-t-metrics command (50th). 373/373 tests. Archived to .gsd-t/milestones/M25-telemetry-metrics-2026-03-23/. No task-metrics data yet (first telemetry milestone) — rollup skipped. Tagged v2.43.10.

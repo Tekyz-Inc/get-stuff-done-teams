@@ -22,3 +22,7 @@
 | 2026-03-23 11:32 | 2026-03-23 12:17 | gsd-t-wave | execute | sonnet | 2713s | M25 execute: 16/16 tasks, 365/365 tests, 4 commits | 0 | null | | | N/A |
 | 2026-03-23 12:18 | 2026-03-23 13:05 | gsd-t-wave | test-sync | sonnet | 2859s | M25 test-sync: 373/373 pass, 8 new, 1 gap filled | 0 | null | | | N/A |
 | 2026-03-23 15:42 | 2026-03-23 15:47 | gsd-t-wave | integrate | sonnet | 354s | M25 integrated: 4 domains wired, 3 contracts verified, 373/373 tests | 0 | null | | | N/A || 2026-03-23 16:04 | 2026-03-23 16:08 | gsd-t-verify | Step 8 | opus | 240s | auto-complete-milestone M25 | 0 | null | | M25 | N/A |
+
+| 2026-03-23 15:58 | 2026-03-23 16:09 | gsd-t-wave | verify+complete | sonnet | 654s | M25 verified + completed: 373/373 tests, 3/3 contracts, v2.43.10 tagged | 0 | null | | | N/A |
+| 2026-03-23 16:09 | 2026-03-23 16:11 | gsd-t-wave | milestone | sonnet | 97s | M26 milestone defined | 0 | null | | | N/A |
+| 2026-03-23 16:11 | 2026-03-23 17:44 | gsd-t-wave | partition | sonnet | 5571s | M26 partitioned: 3 domains, 1 contract, 373/373 tests | 0 | null | | | N/A || 2026-03-23 17:57 | 2026-03-23 17:57 | gsd-t-plan | Step 7 | haiku | 13s | PASS, iteration 1 — 5/5 checks pass (REQ coverage, task completeness, cross-domain deps, contract existence, no locked decisions) | 0 | null | | | N/A |
