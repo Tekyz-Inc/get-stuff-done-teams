@@ -7,7 +7,7 @@
 
 ## Active Milestone
 
-**Feature: Self-Learning & Self-Improvement System** — M25 COMPLETE, M26 COMPLETE, **M27 PLANNED**
+**M28: Doc-Ripple Subagent — Automated Document Ripple Enforcement** — PLANNED
 
 **M25: Telemetry Collection & Metrics Dashboard (Tier 1)** — COMPLETE (v2.43.10)
 - Task telemetry with weighted signal taxonomy, rollups, process ELO, pre-flight intelligence check, Chart.js dashboard, gsd-t-metrics command
@@ -84,6 +84,26 @@
 - [x] `gsd-t-metrics --cross-project` returns domain-type comparison across projects
 - [x] All existing tests pass with no regressions (481 tests, 48 new)
 
+**M28: Doc-Ripple Subagent — Automated Document Ripple Enforcement** — PLANNED
+- **Goal**: Eliminate the "forgot to update X" failure mode by creating a dedicated agent that automatically identifies and updates all downstream documents after any code change. When doc-ripple completes, the user should never need to ask "did you update everything?"
+- **Scope**:
+  - `commands/gsd-t-doc-ripple.md` — new command file defining the doc-ripple agent behavior: reads `git diff`, cross-references against pre-commit gate checklist, produces a manifest of affected documents, spawns parallel subagents to update each one
+  - `.gsd-t/contracts/doc-ripple-contract.md` — trigger conditions, manifest format, update protocol, threshold logic
+  - Integration into 5 command files that produce code changes: `gsd-t-execute.md`, `gsd-t-integrate.md`, `gsd-t-quick.md`, `gsd-t-debug.md`, `gsd-t-wave.md` — auto-spawn doc-ripple before reporting completion
+  - Threshold logic: skip on trivial changes (single-file, no cross-cutting impact), fire on changes that touch contracts, standards, conventions, APIs, or patterns used across multiple files
+  - Manifest-based audit trail: doc-ripple produces a `.gsd-t/doc-ripple-manifest.md` showing what was checked, what was updated, and what was already current
+- **Not in scope**: Replacing the Pre-Commit Gate (doc-ripple supplements it, doesn't replace it). Auto-committing (doc-ripple updates files, the lead agent still commits). Modifying non-GSD-T projects.
+- **Predecessor**: REQ-051 (Document Ripple Completion Gate — the rule this agent enforces structurally)
+- **Impact on existing**: All additive — no breaking changes to existing contracts. Existing Document Ripple sections in commands remain as documentation; doc-ripple agent provides automated enforcement.
+
+**Success criteria**:
+- [ ] `commands/gsd-t-doc-ripple.md` exists and defines blast radius analysis + parallel update dispatch
+- [ ] Contract `.gsd-t/contracts/doc-ripple-contract.md` defines trigger conditions, manifest format, update protocol
+- [ ] Doc-ripple auto-spawns in execute, integrate, quick, debug, and wave commands before reporting completion
+- [ ] Threshold logic correctly skips trivial single-file changes and fires on cross-cutting changes
+- [ ] Manifest audit trail shows what was checked/updated/skipped
+- [ ] All existing tests pass with no regressions (480+ tests)
+
 ## Queued Milestones
 
 None — backlog item #10 (Docker Enterprise) available when ready.
@@ -108,8 +128,23 @@ None — backlog item #10 (Docker Enterprise) available when ready.
 | M25 | Telemetry Collection & Metrics Dashboard (Tier 1)  | COMPLETE | 2.43.10 | 4       |
 | M26 | Declarative Rule Engine & Patch Lifecycle (Tier 2)  | COMPLETE    | 2.44.10 | 3       |
 | M27 | Cross-Project Learning & Global Sync (Tier 2.5)    | COMPLETE   | 2.45.10 | 3       |
+| M28 | Doc-Ripple Subagent                                | PLANNED     | 2.46.10 | 2       |
 
-## Domains (M27)
+## Domains (M28)
+| Domain              | Status      | Tasks | Completed |
+|---------------------|-------------|-------|-----------|
+| doc-ripple-agent    | in-progress | 3     | 1         |
+| command-integration | planned | 4     | 0         |
+
+## Contracts (M28)
+- [x] doc-ripple-contract.md — trigger conditions, manifest format, update protocol, threshold logic, integration pattern
+- [x] integration-points.md — UPDATED with M28 dependency graph, 2 waves, 1 checkpoint
+
+## Execution Order (M28)
+Wave 1: doc-ripple-agent (foundation — produces command file + contract consumed by integration)
+Wave 2: command-integration (wiring — adds spawn blocks to 5 commands + updates 4 reference docs)
+
+## Domains (M27 — archived)
 | Domain              | Status   | Tasks | Completed |
 |---------------------|----------|-------|-----------|
 | global-metrics      | complete | 4     | 4         |
@@ -214,6 +249,14 @@ Wave 4: adaptive-replan (consumes fresh-dispatch summaries, integrates with work
 
 ## Decision Log
 (Entries before 2026-02-16 reconstructed from git history with timestamps)
+- 2026-03-24: [success] M28 doc-ripple-agent Task 1 COMPLETE — finalized doc-ripple-contract.md from DRAFT to ACTIVE. All 5 acceptance criteria verified: status ACTIVE, 7 FIRE + 3 SKIP threshold conditions complete, manifest format includes all 4 columns (Document, Status, Action, Reason), integration pattern provides exact copy-paste block, model assignments documented (inline/haiku/sonnet). 480/480 tests pass, 0 regressions.
+- 2026-03-24: M28 PLANNED — 7 tasks across 2 domains (doc-ripple-agent: 3, command-integration: 4). 2-wave sequential execution. Wave 1: doc-ripple-agent Tasks 1-3 (contract → command → tests). Wave 2: command-integration Tasks 1-4 (all parallel-safe after checkpoint). REQ-052 traced. Solo sequential execution recommended (7 tasks, sequential waves). Plan validation: PASS (1 real gap fixed — dependency chain corrected, 3 false positives dismissed).
+- 2026-03-24: M28 PARTITIONED — 2 domains (doc-ripple-agent, command-integration), 2 waves. Collapsed threshold-logic into doc-ripple-agent (not independently testable). 1 new contract (doc-ripple-contract.md). Integration-points.md updated. Baseline: 480/480 tests pass.
+- 2026-03-24: M28 DEFINED — Doc-Ripple Subagent. Automated document ripple enforcement agent. Medium complexity (3→2 domains). Baseline: 480/480 tests pass.
+- 2026-03-24: Promoted backlog item #11 "Doc-Ripple Subagent — Automated Document Ripple Enforcement" as milestone
+- 2026-03-24: Added backlog item #11: "Doc-Ripple Subagent — Automated Document Ripple Enforcement" (type: architecture, app: gsd-t, category: commands)
+- 2026-03-24: [learning] Document Ripple Completion Gate added — root cause: REQ-050 was initially applied to only 3 of 8 command files, requiring user to ask "should any other documents be updated?" Fix: new mandatory gate in global CLAUDE.md, CLAUDE-global template, and project CLAUDE.md. Rule: identify full blast radius BEFORE starting, complete ALL updates in one pass, never present partial work. Key test: "if the user asks 'did you update everything?' and the answer is no — you failed."
+- 2026-03-24: [learning] REQ-050 Functional E2E Test Quality Standard (complete) — root cause: ClaudeWebCLI Playwright tests were shallow layout tests (element exists, is clickable) that passed even with broken features (tab switching didn't load content, terminal didn't accept keystrokes). Fix: added "Functional E2E Test Standard" to 8 command files (execute, qa, test-sync, verify, quick, debug, integrate, complete-milestone), global CLAUDE.md, and CLAUDE-global template. Key distinction: layout test = assert element visible; functional test = assert action produced correct outcome (state changed, data loaded, content updated). QA subagent now audits for and flags shallow tests. Shallow tests block verification and milestone completion. REQ-050 added to docs/requirements.md.
 - 2026-03-24: [learning] E2E Enforcement Rule added (REQ-049) — root cause: ClaudeWebCLI agent ran only unit tests, skipped Playwright E2E. Fix: strengthened 7 command files (execute, quick, debug, test-sync, integrate, verify, complete-milestone) + CLAUDE.md + pre-commit-gate contract. Key distinction: "if UI changed" applies to WRITING new specs, not to RUNNING existing ones. QA subagent prompt now explicitly mandates E2E detection. Report format: "Unit: X/Y | E2E: X/Y".
 - 2026-03-24: [success] Milestone "M27 Cross-Project Learning & Global Sync" completed — dual-layer learning architecture, global rule propagation, cross-project comparison, npm distribution pipeline. v2.45.10
 - 2026-03-24: [goal-backward-pass] Goal-backward verification passed — 6 requirements checked, no placeholder patterns found
