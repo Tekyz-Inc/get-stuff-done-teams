@@ -52,7 +52,7 @@
 - [x] Pre-mortem in plan surfaces historical failure patterns for current domain types
 - [x] All existing tests pass with no regressions (373+ tests)
 
-**M27: Cross-Project Learning & Global Sync (Tier 2.5)** — TESTS_SYNCED (v2.45.10)
+**M27: Cross-Project Learning & Global Sync (Tier 2.5)** — INTEGRATED (v2.45.10)
 - **Goal**: Propagate proven rules across projects, enable cross-project comparison using signal-type distributions, and eventually ship validated rules in the npm package.
 - **Scope**:
   - Dual-layer learning architecture:
@@ -107,7 +107,7 @@ None — backlog item #10 (Docker Enterprise) available when ready.
 | M24 | Docker (Enterprise)                                | BACKLOG | 2.42.10 | 2       |
 | M25 | Telemetry Collection & Metrics Dashboard (Tier 1)  | COMPLETE | 2.43.10 | 4       |
 | M26 | Declarative Rule Engine & Patch Lifecycle (Tier 2)  | COMPLETE    | 2.44.10 | 3       |
-| M27 | Cross-Project Learning & Global Sync (Tier 2.5)    | TESTS_SYNCED | 2.45.10 | 3       |
+| M27 | Cross-Project Learning & Global Sync (Tier 2.5)    | INTEGRATED | 2.45.10 | 3       |
 
 ## Domains (M27)
 | Domain              | Status   | Tasks | Completed |
@@ -214,6 +214,7 @@ Wave 4: adaptive-replan (consumes fresh-dispatch summaries, integrates with work
 
 ## Decision Log
 (Entries before 2026-02-16 reconstructed from git history with timestamps)
+- 2026-03-24: [success] M27 INTEGRATED — all 3 domains wired, 3/3 contracts verified. Contract audit: cross-project-sync-contract.md 12/12 exports match (global-sync-manager.js), propagation protocol verified (writeGlobalRule dedup by trigger fingerprint, syncGlobalRulesToProject filters universal/promo>=2, injects as candidate). Integration points: global-metrics -> cross-project-sync (require('./global-sync-manager.js') in syncGlobalRules/syncGlobalRulesToProject/exportUniversalRulesForNpm), global-metrics -> command-extensions (inline node -e require calls in gsd-t-metrics.md Step 8, gsd-t-status.md global ELO section, gsd-t-complete-milestone.md Step 2.5c). Smoke test: end-to-end writeGlobalRule -> readGlobalRules -> writeGlobalRollup -> getGlobalELO -> getProjectRankings -> compareSignalDistributions all PASS. doUpdateAll calls syncGlobalRules correctly. 481/481 tests pass, 0 failures.
 - 2026-03-24: [success] M27 TESTS_SYNCED — 481/481 tests pass (10 new). Coverage audit: all 11 global-sync-manager.js exports covered (30 tests), 3 new gsd-t.js sync exports covered (9 tests). Contract compliance: all 17 cross-project-sync-contract requirements verified by tests. Exported syncGlobalRulesToProject, syncGlobalRules, exportUniversalRulesForNpm from gsd-t.js for testability. Zero coverage gaps, zero stale tests, zero dead tests. Test coverage report: .gsd-t/test-coverage.md.
 - 2026-03-24: [success] M27 EXECUTED — 11/11 tasks complete across 3 domains. Wave 1: global-metrics (bin/global-sync-manager.js created — readGlobalRules, writeGlobalRule, readGlobalRollups, writeGlobalRollup, readGlobalSignalDistributions, writeGlobalSignalDistribution, compareSignalDistributions, getDomainTypeComparison, checkUniversalPromotion, getGlobalELO, getProjectRankings). Wave 2: cross-project-sync (bin/gsd-t.js extended — syncGlobalRulesToProject, syncGlobalRules, exportUniversalRulesForNpm, seedUniversalRules). Wave 3: command-extensions (gsd-t-metrics.md Step 8 --cross-project, gsd-t-status.md global ELO section, gsd-t-complete-milestone.md Step 2.5c global promotion). Reference docs updated (4 files). 471/471 tests pass (38 new). Zero regressions.
 - 2026-03-23: [success] M27 PLANNED — 11 tasks across 3 domains (global-metrics: 4, cross-project-sync: 3, command-extensions: 4). 3-wave sequential execution. Wave 1: global-metrics Tasks 1-4 (global-sync-manager.js core API, signal comparison, universal promotion, tests). Wave 2: cross-project-sync Tasks 1-3 (doUpdateAll extension, npm pipeline, tests) — blocked by Wave 1. Wave 3: command-extensions Tasks 1-4 (metrics --cross-project, status global ELO, complete-milestone global promotion, reference docs) — blocked by Waves 1-2. REQ-043 through REQ-048 defined and traced. No duplicate operations across domains. 433/433 existing tests pass. Solo sequential execution recommended (11 tasks, sequential waves).
