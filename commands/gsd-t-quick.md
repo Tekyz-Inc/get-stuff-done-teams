@@ -133,9 +133,11 @@ Quick does not mean skip testing. Before committing:
    - Playwright E2E specs (if UI/routes/flows/modes changed): create new specs for new functionality, update existing specs for changed behavior
    - Cover all modes/flags affected by this change
    - "No feature code without test code" applies to quick tasks too
-2. **Run the FULL test suite** — not just affected tests:
-   - All unit/integration tests
-   - Full Playwright E2E suite (if configured)
+2. **Run ALL configured test suites** — not just affected tests, not just one suite:
+   a. Detect all runners: check for vitest/jest config, playwright.config.*, cypress.config.*
+   b. Run EVERY detected suite. Unit tests alone are NEVER sufficient when E2E exists.
+   c. If `playwright.config.*` exists → `npx playwright test` (full suite)
+   d. Report ALL results: "Unit: X/Y pass | E2E: X/Y pass"
    - Fix any failures before proceeding (up to 2 attempts)
 3. **Verify against requirements**:
    - Does the change satisfy its intended requirement?

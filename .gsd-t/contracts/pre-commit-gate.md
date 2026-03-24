@@ -60,7 +60,9 @@ Am I on the correct branch?
 |-----------|--------|
 | Added/changed tests | Verify test names and paths referenced in requirements |
 | Changed UI, routes, or user flows | Update affected E2E test specs |
-| Any code changes | Run affected tests and verify they pass |
+| Any code changes | Run ALL configured test suites (not just unit tests) |
+| `playwright.config.*` exists | Run full E2E suite — unit-only is NEVER sufficient |
+| Project has UI but no E2E specs for touched features | Write E2E specs before committing |
 
 ## Project-Specific Extensions
 

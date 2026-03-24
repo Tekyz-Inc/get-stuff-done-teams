@@ -122,8 +122,11 @@ Spawn a QA subagent via the Task tool to verify contract compliance at all domai
 Task subagent (general-purpose, model: haiku):
 "Run contract compliance tests for this integration. Read .gsd-t/contracts/ for all contract definitions.
 Test every domain boundary: verify that producers and consumers match their contract shapes.
-Run the full test suite.
-Report: boundary-by-boundary test results with pass/fail counts."
+Run ALL configured test suites — detect and run every one:
+a. Unit tests (vitest/jest/mocha): run the full suite
+b. E2E tests: check for playwright.config.* or cypress.config.* — if found, run the FULL E2E suite
+c. NEVER skip E2E when a config file exists. Running only unit tests is a QA FAILURE.
+Report: 'Unit: X/Y pass | E2E: X/Y pass (or N/A if no config) | Boundary: pass/fail by contract'"
 ```
 
 **OBSERVABILITY LOGGING (MANDATORY):**
@@ -167,9 +170,12 @@ Integration is where the real system takes shape. Verify documentation matches r
 After integration and doc ripple, verify everything works together:
 
 1. **Update tests**: Add or update integration tests for newly wired domain boundaries
-2. **Run all tests**: Execute the full test suite — integration often introduces cross-domain failures
+2. **Run ALL configured test suites** — detect and run every one:
+   a. Unit/integration tests (vitest/jest/mocha)
+   b. If `playwright.config.*` exists → run `npx playwright test` (full suite, not just affected specs)
+   c. Unit tests alone are NEVER sufficient when E2E exists
+   d. Report: "Unit: X/Y pass | E2E: X/Y pass"
 3. **Verify passing**: All tests must pass. If any fail, fix before proceeding (up to 2 attempts)
-4. **Run E2E tests**: If an E2E framework exists, run the full E2E suite — integration is where end-to-end flows break
 5. **Smoke test results**: Ensure the Step 4 smoke test results are still valid after any fixes
 
 ## Step 8: Handle Integration Issues

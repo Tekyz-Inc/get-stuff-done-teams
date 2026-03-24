@@ -233,6 +233,23 @@ After Playwright tests finish (pass or fail), **kill any app/server processes th
 
 This applies everywhere Playwright tests are executed: execute, test-sync, verify, quick, wave, debug, complete-milestone, and integrate.
 
+### E2E Enforcement Rule (MANDATORY)
+
+**Running only unit tests when E2E tests exist is a test failure.** This is non-negotiable.
+
+```
+BEFORE reporting "tests pass" for ANY task:
+  ├── Does playwright.config.* or cypress.config.* exist?
+  │     YES → You MUST run the full E2E suite. Unit-only results are INCOMPLETE.
+  │     NO  → Unit/integration tests are sufficient.
+  ├── Did you run every detected test runner?
+  │     NO → Run it now. Do not commit until ALL suites pass.
+  └── Report format MUST include all suites:
+        "Unit: X/Y pass | E2E: X/Y pass" (or "E2E: N/A — no config")
+```
+
+The conditional "if UI/routes/flows changed" in command files applies to **writing new E2E specs**, not to **running existing ones**. You always run existing E2E specs. Always.
+
 ## QA Agent (Mandatory)
 
 Any GSD-T phase that produces or validates code **MUST run QA**. The QA agent's sole job is test generation, execution, and gap reporting. It never writes feature code.
@@ -247,9 +264,12 @@ Any GSD-T phase that produces or validates code **MUST run QA**. The QA agent's 
 **Task subagent spawn instruction (execute/integrate):**
 ```
 Task subagent (general-purpose):
-"Run the full test suite and contract compliance tests.
-Read .gsd-t/contracts/ for contract definitions.
-Report: pass/fail counts and any coverage gaps."
+"Run ALL configured test suites — detect and run every one:
+a. Unit tests (vitest/jest/mocha): run the full suite
+b. E2E tests: check for playwright.config.* or cypress.config.* — if found, run the FULL E2E suite
+c. NEVER skip E2E when a config file exists. Running only unit tests is a QA FAILURE.
+d. Read .gsd-t/contracts/ for contract definitions. Check contract compliance.
+Report format: 'Unit: X/Y pass | E2E: X/Y pass (or N/A if no config) | Contract: compliant/violations'"
 ```
 
 **QA failure blocks phase completion.** Lead cannot proceed until QA reports PASS or user explicitly overrides.

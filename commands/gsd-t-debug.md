@@ -281,9 +281,13 @@ Skip scan docs not affected by this fix. Skip analytical sections — those requ
 Before committing, ensure the fix is solid:
 
 1. **Update tests**: If the bug reveals a missing test case, add one that would have caught it
-2. **Run affected tests**: Execute all tests related to the changed files and domain
+2. **Run ALL configured test suites** — this is NOT optional:
+   a. Detect all runners: check for vitest/jest config, playwright.config.*, cypress.config.*
+   b. Run EVERY detected suite. Unit tests alone are NEVER sufficient when E2E exists.
+   c. If `playwright.config.*` exists → run `npx playwright test` (full suite)
+   d. Report ALL results: "Unit: X/Y pass | E2E: X/Y pass"
 3. **Verify passing**: All tests must pass. If any fail, fix before proceeding (up to 2 attempts)
-4. **Run E2E tests**: If the fix changed UI, routes, or user flows and an E2E framework exists, run affected specs
+4. **If the project has a UI but no E2E specs cover the fixed area**: WRITE THEM.
 5. **Regression check**: Confirm the fix doesn't break any adjacent functionality
 
 Commit: `[debug] Fix {description} — root cause: {explanation}`

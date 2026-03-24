@@ -439,9 +439,12 @@ Before creating the git tag, verify all documentation is up to date:
 
 Verify the milestone is truly complete:
 
-1. **Run the full test suite**: Execute ALL tests — unit, integration, and E2E
-2. **Run Playwright E2E** (if configured): Detect `playwright.config.*` or Playwright in dependencies. If present, run the full Playwright suite. If specs are missing or stale, invoke `gsd-t-test-sync` first.
-3. **Verify all pass**: Every test must pass. If any fail, fix before tagging (up to 2 attempts)
+1. **Run ALL configured test suites** — detect and run every one:
+   a. Unit/integration tests (vitest/jest/mocha)
+   b. If `playwright.config.*` exists → run `npx playwright test` (full suite). Unit tests alone are NEVER sufficient when E2E exists.
+   c. If specs are missing or stale, invoke `gsd-t-test-sync` first.
+   d. Report: "Unit: X/Y pass | E2E: X/Y pass"
+2. **Verify all pass**: Every test must pass. If any fail, fix before tagging (up to 2 attempts)
 4. **Compare to baseline**: If a test baseline was recorded at milestone start, verify coverage has improved or at minimum not regressed
 5. **Log test results**: Include test pass/fail counts in the milestone summary (Step 4)
 

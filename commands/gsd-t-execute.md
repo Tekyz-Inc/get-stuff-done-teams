@@ -165,7 +165,15 @@ Execute the task above:
    - Playwright E2E (if UI/routes/flows changed): new specs for new features, cover
      all modes, form validation, empty/loading/error states, common edge cases
    - If no test framework exists: set one up as part of this task
-7. Run ALL tests — unit, integration, Playwright. Fix failures (up to 2 attempts)
+   - If the project has a UI but no Playwright E2E specs exist for the features being
+     touched: WRITE THEM. A placeholder spec is not sufficient — write real E2E tests
+     that exercise the actual UI functionality being built or changed.
+7. Run ALL test suites — this is NOT optional, not conditional, not "if applicable":
+   a. Detect configured test runners: check for vitest/jest config, playwright.config.*, cypress.config.*
+   b. Run EVERY detected suite. Unit tests alone are NEVER sufficient when E2E exists.
+   c. If `playwright.config.*` exists → run `npx playwright test` (full suite, not just affected specs)
+   d. If E2E tests fail → fix (up to 2 attempts) before proceeding
+   e. Report ALL suite results: "Unit: X/Y pass | E2E: X/Y pass" — never report just one
 8. Run Pre-Commit Gate checklist from CLAUDE.md — update all affected docs BEFORE committing
 9. Commit immediately: feat({domain-name}/task-{task-id}): {description}
 10. Update .gsd-t/progress.md — mark this task complete; prefix the Decision Log entry:
@@ -174,8 +182,12 @@ Execute the task above:
     - Deferred to .gsd-t/deferred-items.md → prefix `[deferred]`
     - Failed after 3 attempts → prefix `[failure]`
 11. Spawn QA subagent (model: haiku) after completing the task:
-    'Run the full test suite. Read .gsd-t/contracts/ for definitions.
-     Report: pass/fail counts and coverage gaps.'
+    'Run ALL configured test suites — detect and run every one:
+     a. Unit tests (vitest/jest/mocha): run the full suite, report pass/fail counts
+     b. E2E tests: check for playwright.config.* or cypress.config.* — if found, run the FULL E2E suite
+     c. NEVER skip E2E when a config file exists. Running only unit tests is a QA FAILURE.
+     d. Read .gsd-t/contracts/ for contract definitions. Check contract compliance.
+     Report format: "Unit: X/Y pass | E2E: X/Y pass (or N/A if no config) | Contract: compliant/violations"'
     If QA fails, fix before proceeding. Append issues to .gsd-t/qa-issues.md.
 12. Write task summary to .gsd-t/domains/{domain-name}/task-{task-id}-summary.md:
     ## Task {task-id} Summary — {domain-name}

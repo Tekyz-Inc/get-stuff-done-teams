@@ -111,8 +111,8 @@ pytest tests/test_{module}.py -v
 npm test -- --testPathPattern="{module}"
 ```
 
-### B) E2E Tests
-If an E2E framework is detected, run E2E tests affected by the changes:
+### B) E2E Tests (MANDATORY when config exists)
+If `playwright.config.*` or `cypress.config.*` exists, you MUST run E2E tests — skipping is never acceptable:
 
 ```bash
 # Playwright

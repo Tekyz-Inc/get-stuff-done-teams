@@ -214,6 +214,7 @@ Wave 4: adaptive-replan (consumes fresh-dispatch summaries, integrates with work
 
 ## Decision Log
 (Entries before 2026-02-16 reconstructed from git history with timestamps)
+- 2026-03-24: [learning] E2E Enforcement Rule added (REQ-049) — root cause: ClaudeWebCLI agent ran only unit tests, skipped Playwright E2E. Fix: strengthened 7 command files (execute, quick, debug, test-sync, integrate, verify, complete-milestone) + CLAUDE.md + pre-commit-gate contract. Key distinction: "if UI changed" applies to WRITING new specs, not to RUNNING existing ones. QA subagent prompt now explicitly mandates E2E detection. Report format: "Unit: X/Y | E2E: X/Y".
 - 2026-03-24: [success] Milestone "M27 Cross-Project Learning & Global Sync" completed — dual-layer learning architecture, global rule propagation, cross-project comparison, npm distribution pipeline. v2.45.10
 - 2026-03-24: [goal-backward-pass] Goal-backward verification passed — 6 requirements checked, no placeholder patterns found
 - 2026-03-24: [success] M27 VERIFIED — all quality gates PASS. 481/481 tests, 1/1 contract compliant, 6/6 success criteria met, 11/11 tasks complete, 0 critical findings, 1 warning (global-sync-manager.js 350 lines > 200 limit). Goal-backward PASS. Ready for complete-milestone.

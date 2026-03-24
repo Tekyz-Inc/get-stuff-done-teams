@@ -57,6 +57,7 @@
 | REQ-046 | Cross-Project Signal Comparison — gsd-t-metrics --cross-project displays signal-type distribution comparison across registered projects | P2 | planned | validated by use |
 | REQ-047 | Global ELO & Rankings — gsd-t-status displays global ELO score and cross-project rank when global metrics exist | P2 | planned | validated by use |
 | REQ-048 | Global Rule Promotion on Milestone Completion — gsd-t-complete-milestone copies promoted rules to global-rules.jsonl and updates global rollup after local promotion | P1 | planned | validated by use |
+| REQ-049 | E2E Enforcement Rule — when playwright.config.* or cypress.config.* exists, ALL test-running commands (execute, quick, debug, test-sync, integrate, verify, complete-milestone) MUST run the full E2E suite. Unit-only results are NEVER sufficient. QA subagent prompts explicitly mandate E2E detection and execution. | P1 | complete | enforced in 7 command files + CLAUDE.md + pre-commit-gate contract |
 
 ## Technical Requirements
 
