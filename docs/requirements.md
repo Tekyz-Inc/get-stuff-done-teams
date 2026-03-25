@@ -61,6 +61,13 @@
 | REQ-050 | Functional E2E Test Quality Standard — Playwright specs MUST verify functional behavior (state changes, data flow, content updates after actions), NOT just element existence (isVisible, toBeEnabled). Shallow layout tests that would pass on an empty HTML page are flagged and block verification. QA subagent audits for shallow tests. | P1 | complete | enforced in execute, qa, test-sync, verify, quick, debug, integrate, complete-milestone + global CLAUDE.md + CLAUDE-global template |
 | REQ-051 | Document Ripple Completion Gate — when a change affects multiple files, identify the full blast radius BEFORE starting, complete ALL updates in one pass, and only report completion after every downstream document is updated. Partial delivery is never acceptable. The user should never need to ask "did you update everything?" | P1 | complete | enforced in global CLAUDE.md + CLAUDE-global template + project CLAUDE.md |
 | REQ-052 | Doc-Ripple Subagent — dedicated agent auto-spawned after code-modifying commands (execute, integrate, quick, debug, wave) that analyzes git diff, identifies full blast radius of affected documents, and spawns parallel subagents to update them. Produces manifest audit trail. Threshold logic skips trivial changes. | P1 | complete | M28: contract ACTIVE, command file, 43 tests, wired into execute/integrate/quick/debug/wave |
+| REQ-053 | Debug Ledger Protocol — structured JSONL ledger (.gsd-t/debug-state.jsonl) persists hypothesis/fix/learning entries across debug sessions. Supports read, append, compact (at 50KB), anti-repetition preamble generation, and clear. | P1 | planned | M29: bin/debug-ledger.js |
+| REQ-054 | Headless Debug-Loop — `gsd-t headless --debug-loop` runs test-fix-retest cycles as separate `claude -p` sessions with fresh context each. External loop controller (pure Node.js, zero AI context). Escalation tiers: sonnet 1-5, opus 6-15, STOP 16-20. --max-iterations enforced externally. | P1 | planned | M29: bin/gsd-t.js headless extension |
+| REQ-055 | Anti-Repetition Preamble — each debug-loop iteration injects a preamble listing all failed hypotheses, current narrowing direction, and tests still failing. Prevents repeat of eliminated approaches. | P1 | planned | M29: bin/debug-ledger.js generateAntiRepetitionPreamble |
+| REQ-056 | Debug-Loop Command Integration — execute, wave, test-sync, verify, and debug commands delegate to headless debug-loop after 2 in-context fix attempts fail. Preserves existing try-twice behavior for quick fixes. | P1 | planned | M29: 5 command files |
+| REQ-057 | Stack Rule Templates — best practice rule files in `templates/stacks/` for React, TypeScript, and Node.js API. Each file follows a standard structure (mandatory framing, numbered sections, GOOD/BAD examples, verification checklist) and stays under 200 lines. Universal templates (`_` prefix) always injected; stack-specific templates injected when detected. | P1 | complete | M30: templates/stacks/ (4 files: _security.md, react.md, typescript.md, node-api.md) |
+| REQ-058 | Stack Detection Engine — auto-detect project tech stack from manifest files (package.json, requirements.txt, go.mod, Cargo.toml) at subagent spawn time. Match detected stacks against available templates. Inject matched rules into subagent prompts with mandatory enforcement framing. Resilient: skip silently if no templates exist or no matches found. | P1 | complete | M30: 5 command files (execute, quick, integrate, wave, debug) |
+| REQ-059 | Stack Rule QA Enforcement — QA subagent prompts include stack rule compliance validation. Stack rule violations have the same severity as contract violations — they fail the task, not warn. Report format includes "Stack rules: compliant/N violations". | P1 | complete | M30: execute QA prompt + all 5 commands |
 
 ## Technical Requirements
 
@@ -165,6 +172,29 @@
 
 **Orphaned requirements**: None — all M27 REQs mapped to tasks.
 **Unanchored tasks**: global-metrics Task 4 (tests) and cross-project-sync Task 3 (tests) are QA infrastructure supporting REQ-043 through REQ-045. command-extensions Task 4 (reference docs) supports Pre-Commit Gate compliance.
+
+## Requirements Traceability (updated by plan phase — M29)
+
+| REQ-ID  | Requirement Summary                                          | Domain               | Task(s)        | Status  |
+|---------|--------------------------------------------------------------|----------------------|----------------|---------|
+| REQ-053 | Debug Ledger Protocol — JSONL ledger with read/write/compact | debug-state-protocol | Task 1, 2, 3   | pending |
+| REQ-054 | Headless Debug-Loop — external loop controller               | headless-loop        | Task 1, 2, 3   | pending |
+| REQ-055 | Anti-Repetition Preamble — failed hypothesis injection       | debug-state-protocol, headless-loop | dsp Task 2, hl Task 2 | pending |
+| REQ-056 | Debug-Loop Command Integration — delegate after 2 failures   | command-integration  | Task 1, 2      | pending |
+
+**Orphaned requirements**: None — all M29 REQs mapped to tasks.
+**Unanchored tasks**: debug-state-protocol Task 3 (tests) and headless-loop Task 3 (tests) are QA infrastructure supporting REQ-053 through REQ-055. command-integration Task 3 (reference docs) supports Pre-Commit Gate compliance.
+
+## Requirements Traceability (updated by plan phase — M30)
+
+| REQ-ID  | Requirement Summary                                          | Domain               | Task(s)        | Status  |
+|---------|--------------------------------------------------------------|----------------------|----------------|---------|
+| REQ-057 | Stack Rule Templates — react.md, typescript.md, node-api.md  | stack-templates      | Task 1, 2, 3   | complete |
+| REQ-058 | Stack Detection Engine — auto-detect + prompt injection      | command-integration  | Task 1, 2      | complete |
+| REQ-059 | Stack Rule QA Enforcement — QA validates compliance          | command-integration  | Task 1, 2      | complete |
+
+**Orphaned requirements**: None — all M30 REQs mapped to tasks.
+**Unanchored tasks**: command-integration Task 3 (tests) is QA infrastructure supporting REQ-057 through REQ-059. command-integration Task 4 (reference docs) supports Pre-Commit Gate compliance.
 
 ---
 

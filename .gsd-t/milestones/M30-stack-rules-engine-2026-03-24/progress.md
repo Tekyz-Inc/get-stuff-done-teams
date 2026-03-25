@@ -215,15 +215,15 @@ None — backlog item #10 (Docker Enterprise) available when ready.
 | M26 | Declarative Rule Engine & Patch Lifecycle (Tier 2)  | COMPLETE    | 2.44.10 | 3       |
 | M27 | Cross-Project Learning & Global Sync (Tier 2.5)    | COMPLETE   | 2.45.10 | 3       |
 | M28 | Doc-Ripple Subagent                                | EXECUTED    | 2.46.10 | 2       |
-| M29 | Compaction-Proof Debug Loop                        | EXECUTED    | 2.47.10 | 3       |
+| M29 | Compaction-Proof Debug Loop                        | PLANNED     | 2.47.10 | 3       |
 | M30 | Stack Rules Engine                                  | COMPLETE    | 2.48.10 | 2       |
 
 ## Domains (M29)
 | Domain               | Status  | Tasks | Completed |
 |----------------------|---------|-------|-----------|
-| debug-state-protocol | complete | 3     | 3         |
-| headless-loop        | complete | 3     | 3         |
-| command-integration  | complete | 3     | 3         |
+| debug-state-protocol | planned | 3     | 0         |
+| headless-loop        | planned | 3     | 0         |
+| command-integration  | planned | 3     | 0         |
 
 ## Contracts (M29)
 - [x] debug-loop-contract.md — ledger schema, API definitions, escalation tiers, CLI interface, command integration pattern

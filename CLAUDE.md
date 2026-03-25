@@ -38,7 +38,7 @@ commands/              — 51 slash commands for Claude Code (46 GSD-T + 5 utili
   checkin.md           — Auto-version + commit/push helper
   Claude-md.md         — Reload CLAUDE.md directives
   global-change.md     — Bulk file changes across all GSD-T projects
-templates/             — 9 document templates
+templates/             — 9 document templates + stacks/ directory
   CLAUDE-global.md     — Global ~/.claude/CLAUDE.md template
   CLAUDE-project.md    — Per-project CLAUDE.md template
   requirements.md      — Requirements template
@@ -48,6 +48,11 @@ templates/             — 9 document templates
   progress.md          — GSD-T progress template
   backlog.md           — Backlog template
   backlog-settings.md  — Backlog settings template
+  stacks/              — Stack Rules Engine templates (injected at execute-time)
+    _security.md       — Universal rules (always injected, _ prefix)
+    react.md           — React-specific rules
+    typescript.md      — TypeScript-specific rules
+    node-api.md        — Node API rules (Express/Fastify/Hono/Koa)
 examples/              — Example project structure and settings
   settings.json        — Claude Code settings with teams enabled
   .gsd-t/              — Example contracts and domain structure
