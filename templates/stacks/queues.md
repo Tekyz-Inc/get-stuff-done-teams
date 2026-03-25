@@ -1,6 +1,7 @@
 # Queue / Background Job Standards (When Queue Library Detected)
 
-These rules are MANDATORY when `bullmq`, `bull`, `amqplib`, `@aws-sdk/client-sqs`, `bee-queue`, `agenda`, `celery`, `dramatiq`, `rq`, or `arq` is in dependencies. Violations fail the task. No exceptions.
+These rules are MANDATORY. Violations fail the task. No exceptions.
+Applies when `bullmq`, `bull`, `amqplib`, `@aws-sdk/client-sqs`, `bee-queue`, `agenda`, `celery`, `dramatiq`, `rq`, or `arq` is in dependencies.
 
 ---
 

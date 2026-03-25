@@ -1,6 +1,7 @@
 # Prisma Standards (When Prisma Detected)
 
-These rules are MANDATORY when `prisma` or `@prisma/client` is in `package.json` or `schema.prisma` exists. Violations fail the task. No exceptions.
+These rules are MANDATORY. Violations fail the task. No exceptions.
+Applies when `prisma` or `@prisma/client` is in `package.json` or `schema.prisma` exists.
 
 ---
 

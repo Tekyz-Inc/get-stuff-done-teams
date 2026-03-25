@@ -1,6 +1,7 @@
 # LLM Application Standards (When LLM SDK Detected)
 
-These rules are MANDATORY when `openai`, `anthropic`, `@anthropic-ai/sdk`, `langchain`, `llama-index`, `@google/generative-ai`, or similar LLM SDKs are in dependencies. Violations fail the task. No exceptions.
+These rules are MANDATORY. Violations fail the task. No exceptions.
+Applies when `openai`, `anthropic`, `@anthropic-ai/sdk`, `langchain`, `llama-index`, `@google/generative-ai`, or similar LLM SDKs are in dependencies.
 
 ---
 

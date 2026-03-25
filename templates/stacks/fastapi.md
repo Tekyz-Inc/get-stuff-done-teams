@@ -1,6 +1,7 @@
 # FastAPI Standards (When FastAPI Detected)
 
-These rules are MANDATORY when `fastapi` is in `requirements.txt` or `pyproject.toml`. Violations fail the task. No exceptions.
+These rules are MANDATORY. Violations fail the task. No exceptions.
+Applies when `fastapi` is in `requirements.txt` or `pyproject.toml`.
 
 ---
 
