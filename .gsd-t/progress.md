@@ -3,7 +3,7 @@
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: IN PROGRESS
 ## Date: 2026-03-24
-## Version: 2.48.10
+## Version: 2.49.10
 
 ## Active Milestone
 
@@ -11,6 +11,11 @@
 - Stack detection + best practice injection: 4 templates (_security.md, react.md, typescript.md, node-api.md), detection wired into execute/quick/integrate/wave/debug, QA enforcement, 135 new tests
 - 2 domains: stack-templates (3 tasks), command-integration (4 tasks)
 - Archived: .gsd-t/milestones/M30-stack-rules-engine-2026-03-24/
+
+**M29: Compaction-Proof Debug Loop** — COMPLETE (v2.49.10)
+- External debug-loop controller (bin/debug-ledger.js + gsd-t headless --debug-loop): JSONL ledger persists hypothesis/fix/learning across sessions, anti-repetition preamble injection, escalation tiers (sonnet 1-5, opus 6-15, STOP 16-20), 50KB compaction, 5 commands delegate fix-retest loops externally, 83 new tests (671 total)
+- 3 domains: debug-state-protocol (3 tasks), headless-loop (3 tasks), command-integration (3 tasks)
+- Archived: .gsd-t/milestones/M29-compaction-proof-debug-loop-2026-03-24/
 
 **M28: Doc-Ripple Subagent — Automated Document Ripple Enforcement** — COMPLETE (v2.46.10)
 - Automated doc-ripple agent: threshold check (7 FIRE/3 SKIP), blast radius analysis, manifest generation, parallel document updates
@@ -112,7 +117,7 @@
 - [ ] Manifest audit trail shows what was checked/updated/skipped
 - [ ] All existing tests pass with no regressions (480+ tests)
 
-**M29: Compaction-Proof Debug Loop** — DEFINED
+**M29: Compaction-Proof Debug Loop** — VERIFIED
 - **Goal**: Eliminate context compaction during debug-fix-retest cycles by moving the retry loop to an external process (headless exec) with a cumulative debug ledger that preserves all hypothesis/fix/learning history across fresh sessions. When done, a 20-iteration debug session should produce zero compaction events.
 - **Scope**:
   - `.gsd-t/debug-state.jsonl` — structured debug ledger protocol: each entry records iteration, test, error, hypothesis, fix attempted, result (PASS/STILL_FAILS), and learning. Serves as cross-session memory that survives context resets
@@ -127,14 +132,14 @@
 - **Impact on existing**: Additive to bin/gsd-t.js (new subcommand mode). Command file changes are behavioral (delegate loops externally instead of running in-context) — no new commands, no removed functionality.
 
 **Success criteria**:
-- [ ] `.gsd-t/debug-state.jsonl` protocol defined with iteration/test/error/hypothesis/fix/result/learning fields
-- [ ] `gsd-t headless --debug-loop` runs test→fix→retest as separate `claude -p` sessions with fresh context each
-- [ ] Anti-repetition preamble auto-generated from ledger and injected into each session's prompt
-- [ ] Escalation tiers: sonnet (1-5), opus (6-15), hard stop (16-20) with full diagnostic output
-- [ ] Ledger compaction triggers at 50KB threshold, preserving summary + last 5 entries
-- [ ] `--max-iterations N` flag enforced by external process (not by AI in-context)
-- [ ] Execute, wave, test-sync, verify, and debug commands delegate fix-retest loops to headless debug-loop
-- [ ] All existing tests pass with no regressions (536+ tests)
+- [x] `.gsd-t/debug-state.jsonl` protocol defined with iteration/test/error/hypothesis/fix/result/learning fields
+- [x] `gsd-t headless --debug-loop` runs test→fix→retest as separate `claude -p` sessions with fresh context each
+- [x] Anti-repetition preamble auto-generated from ledger and injected into each session's prompt
+- [x] Escalation tiers: sonnet (1-5), opus (6-15), hard stop (16-20) with full diagnostic output
+- [x] Ledger compaction triggers at 50KB threshold, preserving summary + last 5 entries
+- [x] `--max-iterations N` flag enforced by external process (not by AI in-context)
+- [x] Execute, wave, test-sync, verify, and debug commands delegate fix-retest loops to headless debug-loop
+- [x] All existing tests pass with no regressions (671 tests, 83 new)
 
 **M30: Stack Rules Engine — Execute-Time Best Practice Enforcement** — DEFINED
 - **Goal**: Auto-detect project tech stack at execute-time, inject mandatory best practice rules from `templates/stacks/` into subagent prompts, and enforce compliance via QA. When done, a React project should automatically get React/TypeScript/security rules injected into every subagent — no manual setup required. Violations fail the task, same weight as contract violations.
@@ -215,7 +220,7 @@ None — backlog item #10 (Docker Enterprise) available when ready.
 | M26 | Declarative Rule Engine & Patch Lifecycle (Tier 2)  | COMPLETE    | 2.44.10 | 3       |
 | M27 | Cross-Project Learning & Global Sync (Tier 2.5)    | COMPLETE   | 2.45.10 | 3       |
 | M28 | Doc-Ripple Subagent                                | EXECUTED    | 2.46.10 | 2       |
-| M29 | Compaction-Proof Debug Loop                        | EXECUTED    | 2.47.10 | 3       |
+| M29 | Compaction-Proof Debug Loop                        | COMPLETE    | 2.49.10 | 3       |
 | M30 | Stack Rules Engine                                  | COMPLETE    | 2.48.10 | 2       |
 
 ## Domains (M29)
@@ -315,6 +320,7 @@ Wave 4: adaptive-replan (consumes fresh-dispatch summaries, integrates with work
 ## Completed Milestones
 | Milestone | Version | Completed | Tag |
 |-----------|---------|-----------|-----|
+| Compaction-Proof Debug Loop      | 2.49.10 | 2026-03-24 | v2.49.10  |
 | Stack Rules Engine               | 2.48.10 | 2026-03-24 | v2.48.10  |
 | GSD 2 Tier 1 — Execution Quality | 2.40.10 | 2026-03-22 | v2.40.10  |
 | Graph-Powered Commands       | 2.38.10 | 2026-03-18 | v2.38.10  |
@@ -354,6 +360,7 @@ Wave 4: adaptive-replan (consumes fresh-dispatch summaries, integrates with work
 
 ## Decision Log
 (Entries before 2026-02-16 reconstructed from git history with timestamps)
+- 2026-03-24: [success] Milestone M29 "Compaction-Proof Debug Loop" COMPLETE — v2.48.10 → v2.49.10. Archived to .gsd-t/milestones/M29-compaction-proof-debug-loop-2026-03-24/. Tagged v2.49.10. 671/671 tests pass (83 new). 3 domains complete (debug-state-protocol: 3 tasks, headless-loop: 3 tasks, command-integration: 3 tasks). Goal-backward: PASS (0 placeholder patterns). Distillation: no repeating failure patterns (0 failures in 1429 events). Rule engine: no rules fired. Metrics rollup: skipped (no task-metrics data for M29).
 - 2026-03-24: [success] Milestone M30 "Stack Rules Engine" COMPLETE — v2.46.11 → v2.48.10. Archived to .gsd-t/milestones/M30-stack-rules-engine-2026-03-24/. Tagged v2.48.10. 672/672 tests pass (135 new). 2 domains complete (stack-templates: 3 tasks, command-integration: 4 tasks). Goal-backward: PASS (0 placeholder patterns). Distillation: no repeating failure patterns. Rule engine: no rules fired, no patches generated.
 - 2026-03-24: [goal-backward-pass] Goal-backward verification passed — 9 requirements checked, 0 placeholder patterns found. All templates contain substantive content with GOOD/BAD examples and verification checklists.
 - 2026-03-24: [success] M30 EXECUTED — 7/7 tasks complete across 2 domains. Wave 1: stack-templates (3 tasks parallel, react.md 199 lines, typescript.md 176 lines, node-api.md 196 lines). Wave 2: command-integration (4 tasks, stack detection wired into execute/quick/integrate/wave/debug, QA enforcement added, 52 new tests, 4 reference docs updated). 672/672 tests pass (135 new). All acceptance criteria met.

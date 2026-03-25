@@ -16,7 +16,7 @@ The framework has no runtime — it is consumed entirely by Claude Code's slash 
 - **Purpose**: Install, update, diagnose, and manage GSD-T across projects
 - **Location**: `bin/gsd-t.js` (1,798 lines, 90+ functions, all ≤ 30 lines)
 - **Dependencies**: Node.js built-ins only (fs, path, os, child_process, https, crypto)
-- **Subcommands**: install, update, status, doctor, init, uninstall, update-all, register, changelog, graph (index/status/query), headless (exec/query)
+- **Subcommands**: install, update, status, doctor, init, uninstall, update-all, register, changelog, graph (index/status/query), headless (exec/query/--debug-loop)
 - **Organization**: Configuration → Guard section → Helpers → Heartbeat → Commands → Install/Update → Init → Status → Uninstall → Update-All → Doctor → Register → Update Check → Help → Main dispatch
 - **All functions ≤ 30 lines** (M6 refactoring). Largest: `doRegister()` at 30 lines, `summarize()` at 30 lines.
 
@@ -77,6 +77,14 @@ The framework has no runtime — it is consumed entirely by Claude Code's slash 
 - **Query functions** (7): `queryStatus`, `queryDomains`, `queryContracts`, `queryDebt`, `queryContext`, `queryBacklog`, `queryGraph` — each reads corresponding `.gsd-t/` file and returns typed JSON result.
 - **Exit codes**: 0=success, 1=verify-fail, 2=context-budget-exceeded, 3=error, 4=blocked-needs-human
 - **CI/CD examples**: `docs/ci-examples/github-actions.yml` (GitHub Actions), `docs/ci-examples/gitlab-ci.yml` (GitLab CI)
+
+### Compaction-Proof Debug Loop (M29 — complete)
+- **bin/debug-ledger.js** (193 lines): JSONL-based debug persistence layer. 6 exported functions: `readLedger`, `appendEntry`, `compactLedger`, `generateAntiRepetitionPreamble`, `getLedgerStats`, `clearLedger`. Ledger file: `.gsd-t/debug-state.jsonl` (11-field schema per entry). Compaction triggers at 50KB — haiku session condenses history, last 5 raw entries preserved. Anti-repetition preamble lists all STILL_FAILS hypotheses, current narrowing direction, and tests still failing. Zero external deps.
+- **doHeadlessDebugLoop(flags)**: External iteration manager in `bin/gsd-t.js`. Runs test-fix-retest as separate `claude -p` sessions — each session starts with zero accumulated context. Escalation tiers: sonnet (iterations 1-5), opus (6-15), STOP with full diagnostic output (16-20). `--max-iterations N` flag (default 20) enforced by external process.
+- **parseDebugLoopFlags(args)**: Extracts `--max-iterations`, `--test-cmd`, `--fix-scope`, `--json`, `--log` from args. Defaults: maxIterations=20.
+- **getEscalationModel(iteration)**: Returns "sonnet" for 1-5, "opus" for 6-15, null for 16-20 (STOP tier).
+- **Command integration**: execute, wave, test-sync, verify, debug all delegate fix-retest loops to `gsd-t headless --debug-loop` after 2 in-context fix attempts.
+- **Exit codes (debug-loop specific)**: 0=all tests pass (ledger cleared), 1=max iterations reached, 3=process error, 4=escalation stop (needs human)
 
 ### Graph Engine (M20 — complete)
 - **`bin/graph-store.js`** (147 lines): File-based graph storage in `.gsd-t/graph/`. 8 JSON files (index, calls, imports, contracts, requirements, tests, surfaces, meta). Read/write operations, MD5 file hashing for incremental indexing, staleness detection. Zero external deps. Note: no symlink protection (TD-099).
