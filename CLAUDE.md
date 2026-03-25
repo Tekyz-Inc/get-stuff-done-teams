@@ -48,11 +48,19 @@ templates/             — 9 document templates + stacks/ directory
   progress.md          — GSD-T progress template
   backlog.md           — Backlog template
   backlog-settings.md  — Backlog settings template
-  stacks/              — Stack Rules Engine templates (injected at execute-time)
-    _security.md       — Universal rules (always injected, _ prefix)
-    react.md           — React-specific rules
-    typescript.md      — TypeScript-specific rules
+  stacks/              — Stack Rules Engine templates (27 files, injected at execute-time)
+    _security.md       — Universal security rules (always injected, _ prefix)
+    _auth.md           — Universal auth rules (always injected, _ prefix)
+    react.md           — React patterns and conventions
+    typescript.md      — TypeScript strict-mode rules
     node-api.md        — Node API rules (Express/Fastify/Hono/Koa)
+    fastapi.md         — FastAPI dependency injection and Pydantic patterns
+    llm.md             — LLM app patterns (streaming, RAG, tool calling)
+    prisma.md          — Prisma ORM schema, migrations, typed client
+    queues.md          — Background jobs (BullMQ, SQS, Celery)
+    (+ 18 more: python, flutter, tailwind, react-native, vite, nextjs, vue,
+     docker, postgresql, github-actions, rest-api, supabase, firebase,
+     graphql, zustand, redux, neo4j, playwright)
 examples/              — Example project structure and settings
   settings.json        — Claude Code settings with teams enabled
   .gsd-t/              — Example contracts and domain structure

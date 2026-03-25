@@ -258,7 +258,7 @@ Use these when user asks for help on a specific command:
 - **Use when**: Ready to implement
 - **Note (M22)**: Task-level fresh dispatch (one subagent per task, ~10-20% context each). Team mode uses worktree isolation (`isolation: "worktree"`) — zero file conflicts. Adaptive replanning between domain completions.
 - **Note (M26)**: Active rule injection — evaluates declarative rules from rules.jsonl before dispatching each domain's tasks. Fires matching rules as warnings in subagent prompts.
-- **Note (M29)**: Stack Rules Engine — auto-detects project tech stack from manifest files and injects mandatory best-practice rules into each task subagent prompt. Universal rules (`_security.md`) always apply; stack-specific rules layer on top. Violations are task failures (same weight as contract violations).
+- **Note (M29)**: Stack Rules Engine — auto-detects project tech stack from manifest files and injects mandatory best-practice rules into each task subagent prompt. Universal rules (`_security.md`, `_auth.md`) always apply; stack-specific rules layer on top. Violations are task failures (same weight as contract violations).
 
 ### test-sync
 - **Summary**: Keep tests aligned with code changes

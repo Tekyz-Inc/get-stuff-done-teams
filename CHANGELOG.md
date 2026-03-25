@@ -2,16 +2,24 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
-## [2.50.10] - 2026-03-25
+## [2.50.12] - 2026-03-25
 
 ### Added
-- **18 new stack rule files** — python, flutter, tailwind, react-native, vite, nextjs, vue, docker, postgresql (with graph-in-SQL section), github-actions, rest-api, supabase, firebase, graphql, zustand, redux, neo4j, playwright. Total: 22 stack rules (was 4).
+- **23 new stack rule files** — python, flutter, tailwind, react-native, vite, nextjs, vue, docker, postgresql (with graph-in-SQL section), github-actions, rest-api, supabase, firebase, graphql, zustand, redux, neo4j, playwright, fastapi, llm (with RAG patterns section), prisma, queues, _auth (universal). Total: 27 stack rules (was 4).
+- **`_auth.md`** (universal) — email-first registration, auth provider abstraction (Cognito/Firebase/Google), token management, password policy, session management, social auth/OAuth, email verification, MFA, authorization/RBAC, auth security, auth UI patterns.
+- **`fastapi.md`** — dependency injection, Pydantic request/response models, lifespan events, BackgroundTasks, async patterns, auto-generated OpenAPI docs.
+- **`llm.md`** — provider-agnostic LLM patterns: structured outputs, streaming, error/retry, token management, conversation state, tool/function calling, RAG patterns (chunking, embeddings, retrieval), prompt management, testing, cost/observability.
+- **`prisma.md`** — schema modeling, migrations, typed client usage, relation queries, transactions, seeding, N+1 prevention.
+- **`queues.md`** — BullMQ/Bull, SQS, RabbitMQ, Celery patterns: idempotent handlers, dead letter queues, retry/backoff, job deduplication, graceful shutdown.
 - **Playwright best practices** — coverage matrix per feature, pairwise combinatorial testing, state transition testing, multi-step workflow testing, Page Object Model, API mocking patterns. Enforces rigorous test depth across permutations.
 - **react.md expanded** — added state management decision table, form management (react-hook-form + zod), React naming conventions (3 new sections from external best practices review).
+- **Project-level stack overrides** — `.gsd-t/stacks/` directory for per-project customization of global stack rules. Local files replace global files of the same name.
 
 ### Changed
-- Stack detection in execute, quick, and debug commands updated to cover all 22 stack files with conditional detection per project dependencies.
+- Stack detection in execute, quick, and debug commands updated to cover all 27 stack files with conditional detection per project dependencies.
+- Detection refactored from one-liner to structured bash with `_sf()` (local override resolver) and `_add()` helper functions.
 - PostgreSQL graph-in-SQL patterns (adjacency lists, junction tables, recursive CTEs) added to postgresql.md based on real project analysis.
+- GSD-T-README.md stack detection table expanded to list all 27 files with their detection triggers.
 
 ## [2.46.11] - 2026-03-24
 

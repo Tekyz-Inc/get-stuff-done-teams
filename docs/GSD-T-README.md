@@ -231,20 +231,42 @@ GSD-T auto-detects your project's tech stack and injects mandatory best-practice
 ### How It Works
 
 1. At subagent spawn time, GSD-T reads project manifest files to detect the active stack(s).
-2. Universal rules (`templates/stacks/_security.md`) are **always** injected.
+2. Universal rules (`templates/stacks/_security.md`, `_auth.md`) are **always** injected.
 3. Stack-specific rules are injected when the corresponding stack is detected.
-4. Rules are appended to the subagent prompt as a `## Stack Rules (MANDATORY)` section.
+4. Project-level overrides in `.gsd-t/stacks/` replace global files of the same name.
+5. Rules are appended to the subagent prompt as a `## Stack Rules (MANDATORY)` section.
 
-### Stack Detection
+### Stack Detection (27 files)
 
-| Project File | Detected Stack |
+| Project File | Detected Stack(s) |
 |---|---|
-| `package.json` with `"react"` | React |
-| `package.json` with `"typescript"` or `tsconfig.json` | TypeScript |
-| `package.json` with `"express"`, `"fastify"`, `"hono"`, or `"koa"` | Node API |
-| `requirements.txt` or `pyproject.toml` | Python |
-| `go.mod` | Go |
-| `Cargo.toml` | Rust |
+| *(always)* | `_security.md`, `_auth.md` |
+| `package.json` with `"react"` | `react.md` |
+| `package.json` with `"react-native"` | `react-native.md` |
+| `package.json` with `"next"` | `nextjs.md` |
+| `package.json` with `"vue"` | `vue.md` |
+| `package.json` with `"typescript"` or `tsconfig.json` | `typescript.md` |
+| `package.json` with `"tailwindcss"` | `tailwind.md` |
+| `package.json` with `"express"`, `"fastify"`, `"hono"`, or `"koa"` | `node-api.md`, `rest-api.md` |
+| `package.json` with `"vite"` | `vite.md` |
+| `package.json` with `"@supabase/supabase-js"` | `supabase.md` |
+| `package.json` with `"firebase"` | `firebase.md` |
+| `package.json` with `"graphql"` or `"@apollo/server"` | `graphql.md` |
+| `package.json` with `"zustand"` | `zustand.md` |
+| `package.json` with `"@reduxjs/toolkit"` | `redux.md` |
+| `package.json` with `"prisma"` or `"@prisma/client"` | `prisma.md` |
+| `package.json` with `"pg"`, `"knex"`, or `"drizzle-orm"` | `postgresql.md` |
+| `package.json` with `"neo4j-driver"` | `neo4j.md` |
+| `package.json` with `"bullmq"`, `"bull"`, `"amqplib"`, or `"@aws-sdk/client-sqs"` | `queues.md` |
+| `package.json` with `"openai"`, `"anthropic"`, `"langchain"` | `llm.md` |
+| `Dockerfile` or `compose.yaml` | `docker.md` |
+| `.github/workflows/*.yml` | `github-actions.md` |
+| `playwright.config.*` | `playwright.md` |
+| `requirements.txt` or `pyproject.toml` | `python.md` |
+| `requirements.txt` with `fastapi` | `fastapi.md` |
+| `requirements.txt` with `celery`, `dramatiq`, `rq`, or `arq` | `queues.md` |
+| `requirements.txt` with `openai`, `anthropic`, `langchain` | `llm.md` |
+| `pubspec.yaml` | `flutter.md` |
 
 ### Commands That Inject Stack Rules
 

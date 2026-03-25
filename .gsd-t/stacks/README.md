@@ -4,7 +4,7 @@ This folder is for **project-specific overrides** of GSD-T's global stack rule f
 
 ## How it works
 
-- GSD-T ships 22 best-practice stack files in `templates/stacks/` (installed globally via npm)
+- GSD-T ships 27 best-practice stack files in `templates/stacks/` (installed globally via npm)
 - When a stack is detected (e.g., React in `package.json`), the corresponding file is injected into subagent prompts
 - If a file with the **same name** exists in this folder, it replaces the global version for this project
 
@@ -23,4 +23,4 @@ To override React rules for this project:
 
 ## Available global stack files
 
-`_security.md`, `react.md`, `react-native.md`, `nextjs.md`, `vue.md`, `typescript.md`, `node-api.md`, `rest-api.md`, `tailwind.md`, `vite.md`, `supabase.md`, `firebase.md`, `graphql.md`, `zustand.md`, `redux.md`, `neo4j.md`, `postgresql.md`, `python.md`, `flutter.md`, `docker.md`, `github-actions.md`, `playwright.md`
+`_security.md`, `_auth.md`, `react.md`, `react-native.md`, `nextjs.md`, `vue.md`, `typescript.md`, `node-api.md`, `rest-api.md`, `fastapi.md`, `tailwind.md`, `vite.md`, `supabase.md`, `firebase.md`, `graphql.md`, `zustand.md`, `redux.md`, `prisma.md`, `neo4j.md`, `postgresql.md`, `python.md`, `flutter.md`, `docker.md`, `github-actions.md`, `playwright.md`, `llm.md`, `queues.md`
