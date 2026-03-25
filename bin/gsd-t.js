@@ -19,6 +19,7 @@ const fs = require("fs");
 const path = require("path");
 const os = require("os");
 const { execFileSync, spawn: cpSpawn } = require("child_process");
+const debugLedger = require(path.join(__dirname, "debug-ledger.js"));
 
 // ─── Configuration ───────────────────────────────────────────────────────────
 
@@ -2174,10 +2175,246 @@ function doHeadlessQuery(type) {
   process.stdout.write(JSON.stringify(result) + "\n");
 }
 
+/**
+ * Parse debug-loop flags from args array.
+ * Extracts --max-iterations, --test-cmd, --fix-scope, --json, --log from args.
+ */
+function parseDebugLoopFlags(args) {
+  const flags = { maxIterations: 20, testCmd: null, fixScope: null, json: false, log: false };
+  const positional = [];
+  for (const arg of args) {
+    if (arg.startsWith("--max-iterations=")) {
+      const n = parseInt(arg.slice("--max-iterations=".length), 10);
+      if (!isNaN(n) && n > 0) flags.maxIterations = n;
+    } else if (arg.startsWith("--test-cmd=")) {
+      flags.testCmd = arg.slice("--test-cmd=".length);
+    } else if (arg.startsWith("--fix-scope=")) {
+      flags.fixScope = arg.slice("--fix-scope=".length);
+    } else if (arg === "--json") {
+      flags.json = true;
+    } else if (arg === "--log") {
+      flags.log = true;
+    } else {
+      positional.push(arg);
+    }
+  }
+  return { flags, positional };
+}
+
+/**
+ * Return the escalation model for a given iteration number.
+ * Tiers: 1-5 → sonnet, 6-15 → opus, 16+ → null (stop)
+ */
+function getEscalationModel(iteration) {
+  if (iteration >= 1 && iteration <= 5) return "sonnet";
+  if (iteration >= 6 && iteration <= 15) return "opus";
+  return null;
+}
+
+/**
+ * Spawn a single `claude -p` session and return stdout as a string.
+ * Returns null if the process fails.
+ */
+function spawnClaudeSession(prompt, model) {
+  try {
+    return execFileSync("claude", ["-p", prompt, "--model", model], {
+      encoding: "utf8", timeout: 300000,
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+  } catch (e) {
+    return (e.stdout || "") + (e.stderr || "") || null;
+  }
+}
+
+/**
+ * Parse test pass/fail from claude output.
+ * Returns { passed: bool, summary: string }.
+ */
+function parseTestResult(output) {
+  const out = (output || "").toLowerCase();
+  const passed =
+    /\ball tests? pass(ed|ing)?\b/.test(out) ||
+    /\ball \d+ tests? pass/.test(out) ||
+    /\bno (test )?failures?\b/.test(out) ||
+    /\btests? (all )?pass(ed)?\b/.test(out);
+  const failed =
+    /\bfail(ed|ing|ure)?\b/.test(out) ||
+    /\berror\b/.test(out) ||
+    /\bnot ok\b/.test(out);
+  const summary = (output || "").slice(0, 500).replace(/\n/g, " ").trim();
+  return { passed: passed && !failed, summary };
+}
+
+/**
+ * Run ledger compaction: spawn haiku to summarize, then compact.
+ */
+function runLedgerCompaction(projectDir, jsonMode) {
+  const entries = debugLedger.readLedger(projectDir);
+  const compactPrompt =
+    "Read this debug ledger. Produce a condensed summary of what has been tried, " +
+    "what failed, and what the evidence suggests. Be concise.\n\n" +
+    JSON.stringify(entries, null, 2);
+  let summary = "Compacted — see previous entries.";
+  try {
+    const out = execFileSync("claude", ["-p", compactPrompt, "--model", "haiku"], {
+      encoding: "utf8", timeout: 120000, stdio: ["pipe", "pipe", "pipe"],
+    });
+    summary = (out || "").trim() || summary;
+  } catch (e) {
+    if (!jsonMode) warn("Compaction haiku session failed — using default summary");
+  }
+  debugLedger.compactLedger(projectDir, summary);
+}
+
+/**
+ * Write a per-iteration log file under .gsd-t/.
+ */
+function writeIterationLog(projectDir, ts, iteration, entry, rawOutput) {
+  const logDir = path.join(projectDir, ".gsd-t");
+  if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
+  const fname = `headless-debug-${ts}-iter-${iteration}.log`;
+  const content = [
+    `Iteration: ${iteration}`,
+    `Timestamp: ${entry.timestamp}`,
+    `Model: ${entry.model}`,
+    `Result: ${entry.result}`,
+    `Fix: ${entry.fix}`,
+    `Learning: ${entry.learning}`,
+    `---`,
+    rawOutput || "",
+  ].join("\n");
+  fs.writeFileSync(path.join(logDir, fname), content);
+}
+
+/**
+ * Full debug-loop: validate flags, check claude CLI, run iteration cycle.
+ */
+function doHeadlessDebugLoop(flags) {
+  const opts = flags || {};
+  const jsonMode = opts.json || false;
+  const projectDir = process.cwd();
+
+  if (opts.maxIterations < 1) {
+    const msg = "--max-iterations must be >= 1";
+    if (jsonMode) process.stdout.write(JSON.stringify({ success: false, exitCode: 3, error: msg }) + "\n");
+    else error(msg);
+    process.exit(3);
+  }
+
+  try {
+    execFileSync("claude", ["--version"], { encoding: "utf8", timeout: 5000, stdio: ["pipe", "pipe", "pipe"] });
+  } catch {
+    const msg = "claude CLI not found. Install with: npm install -g @anthropic-ai/claude-code";
+    if (jsonMode) process.stdout.write(JSON.stringify({ success: false, exitCode: 3, error: msg }) + "\n");
+    else error(msg);
+    process.exit(3);
+  }
+
+  if (!jsonMode) {
+    heading("GSD-T Headless — Debug Loop");
+    info(`Max iterations: ${opts.maxIterations}`);
+    if (opts.testCmd) info(`Test command: ${opts.testCmd}`);
+    if (opts.fixScope) info(`Fix scope: ${opts.fixScope}`);
+    if (opts.log) info(`Logging: enabled`);
+    log("");
+  }
+
+  const ts = Date.now();
+
+  for (let iteration = 1; iteration <= opts.maxIterations; iteration++) {
+    const model = getEscalationModel(iteration);
+
+    // STOP tier: escalation stop
+    if (model === null) {
+      const entries = debugLedger.readLedger(projectDir);
+      const stats = debugLedger.getLedgerStats(projectDir);
+      const diagMsg = `ESCALATION STOP at iteration ${iteration}. ` +
+        `Entries: ${stats.entryCount}, Failures: ${stats.failCount}. ` +
+        `Failed hypotheses:\n${stats.failedHypotheses.map((h, i) => `  ${i + 1}. ${h}`).join("\n")}`;
+      if (jsonMode) {
+        process.stdout.write(JSON.stringify({ success: false, exitCode: 4, iteration, diagnostic: diagMsg, entries }) + "\n");
+      } else {
+        log("");
+        warn(diagMsg);
+      }
+      process.exit(4);
+    }
+
+    // Check compaction
+    const stats = debugLedger.getLedgerStats(projectDir);
+    if (stats.needsCompaction) {
+      if (!jsonMode) info("Ledger compaction triggered...");
+      try { runLedgerCompaction(projectDir, jsonMode); }
+      catch { process.exit(2); }
+    }
+
+    // Generate preamble and build prompt
+    const preamble = debugLedger.generateAntiRepetitionPreamble(projectDir);
+    const scopeHint = opts.fixScope ? `\nFix scope: ${opts.fixScope}` : "";
+    const testHint = opts.testCmd ? `\nRun tests with: ${opts.testCmd}` : "";
+    const prompt = [preamble, `Fix the failing test(s). Write your fix, then run the test suite. Report results.${scopeHint}${testHint}`]
+      .filter(Boolean).join("\n\n");
+
+    if (!jsonMode) info(`Iteration ${iteration}/${opts.maxIterations} [${model}]...`);
+
+    const iterStart = Date.now();
+    let rawOutput = null;
+    try { rawOutput = spawnClaudeSession(prompt, model); }
+    catch (e) {
+      if (jsonMode) process.stdout.write(JSON.stringify({ success: false, exitCode: 3, iteration, error: String(e) }) + "\n");
+      else error(`Process error at iteration ${iteration}: ${e.message}`);
+      process.exit(3);
+    }
+    const duration = Math.round((Date.now() - iterStart) / 1000);
+
+    const { passed, summary } = parseTestResult(rawOutput);
+    const result = passed ? "PASS" : "STILL_FAILS";
+
+    // Extract fix description from output (first 200 chars of output)
+    const fixDesc = (rawOutput || "").split("\n").find((l) => l.trim().length > 20) || "see output";
+    const entry = {
+      iteration, timestamp: new Date().toISOString(),
+      test: opts.testCmd || "unspecified", error: passed ? "" : summary,
+      hypothesis: `iteration-${iteration}`, fix: fixDesc.trim().slice(0, 200),
+      fixFiles: [], result, learning: summary.slice(0, 300),
+      model, duration,
+    };
+
+    try { debugLedger.appendEntry(projectDir, entry); }
+    catch (e) {
+      if (!jsonMode) warn(`Failed to append ledger entry: ${e.message}`);
+    }
+
+    if (opts.log) writeIterationLog(projectDir, ts, iteration, entry, rawOutput);
+
+    if (jsonMode) {
+      process.stdout.write(JSON.stringify({ success: passed, exitCode: passed ? 0 : 1, iteration, result, model, duration, summary }) + "\n");
+    } else {
+      info(`  Result: ${result}`);
+    }
+
+    if (passed) {
+      debugLedger.clearLedger(projectDir);
+      if (!jsonMode) log(`\n${GREEN}All tests pass — debug loop complete.${RESET}`);
+      process.exit(0);
+    }
+  }
+
+  // Max iterations reached
+  if (!jsonMode) warn(`Max iterations (${opts.maxIterations}) reached without all tests passing.`);
+  process.exit(1);
+}
+
 function doHeadless(args) {
   const sub = args[0];
   if (!sub || sub === "--help" || sub === "-h") {
     showHeadlessHelp();
+    return;
+  }
+
+  if (sub === "--debug-loop") {
+    const { flags } = parseDebugLoopFlags(args.slice(1));
+    doHeadlessDebugLoop(flags);
     return;
   }
 
@@ -2196,7 +2433,24 @@ function showHeadlessHelp() {
   log(`\n${BOLD}GSD-T Headless Mode${RESET}\n`);
   log(`${BOLD}Usage:${RESET}`);
   log(`  ${CYAN}gsd-t headless${RESET} <command> [args] [--json] [--timeout=N] [--log]`);
-  log(`  ${CYAN}gsd-t headless query${RESET} <type>\n`);
+  log(`  ${CYAN}gsd-t headless query${RESET} <type>`);
+  log(`  ${CYAN}gsd-t headless --debug-loop${RESET} [--max-iterations=N] [--test-cmd=CMD] [--fix-scope=SCOPE] [--json] [--log]\n`);
+  log(`${BOLD}Debug-loop flags:${RESET}`);
+  log(`  ${CYAN}--max-iterations=N${RESET}  Hard ceiling on iterations (default: 20)`);
+  log(`  ${CYAN}--test-cmd=CMD${RESET}      Override test command`);
+  log(`  ${CYAN}--fix-scope=SCOPE${RESET}   Limit fix scope to specific files or test patterns`);
+  log(`  ${CYAN}--json${RESET}              Structured JSON output per iteration`);
+  log(`  ${CYAN}--log${RESET}               Write per-iteration logs to .gsd-t/\n`);
+  log(`${BOLD}Debug-loop escalation tiers:${RESET}`);
+  log(`  Iterations 1-5:   sonnet  (standard debug)`);
+  log(`  Iterations 6-15:  opus    (deeper reasoning)`);
+  log(`  Iterations 16-20: STOP    (exit code 4 — needs human)\n`);
+  log(`${BOLD}Debug-loop exit codes:${RESET}`);
+  log(`  0  all tests pass`);
+  log(`  1  max iterations reached`);
+  log(`  2  ledger compaction error`);
+  log(`  3  process error`);
+  log(`  4  escalation stop — needs human\n`);
   log(`${BOLD}Exec flags:${RESET}`);
   log(`  ${CYAN}--json${RESET}        Structured JSON output`);
   log(`  ${CYAN}--timeout=N${RESET}   Kill after N seconds (default: 300)`);
@@ -2304,6 +2558,10 @@ module.exports = {
   doHeadlessExec,
   doHeadlessQuery,
   doHeadless,
+  // Headless debug-loop
+  parseDebugLoopFlags,
+  getEscalationModel,
+  doHeadlessDebugLoop,
   queryStatus,
   queryDomains,
   queryContracts,
