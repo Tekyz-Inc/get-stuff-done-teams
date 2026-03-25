@@ -166,7 +166,96 @@ MANDATORY:
 
 ---
 
-## 10. Anti-Patterns
+## 10. State Management — When to Use What
+
+```
+MANDATORY — choose the right tool for the data type:
+  ├── UI toggles, form inputs          → useState
+  ├── Complex local state (multi-step)  → useReducer
+  ├── Server/API data                   → React Query (NEVER useState)
+  ├── Auth session, permissions         → React Context
+  ├── Theme preference                  → React Context + localStorage
+  └── URL state (page, filters)         → React Router (useSearchParams)
+```
+
+**Rules:**
+- Never duplicate server state in local state — React Query is the single source of truth for API data
+- Lift state only when needed — if two siblings need the same state, lift to parent, not a global store
+- Derive, don't store — if a value can be computed from existing state, compute it
+
+**BAD** — storing derived state:
+```tsx
+const [users, setUsers] = useState(allUsers);
+const [filteredUsers, setFilteredUsers] = useState([]);
+const [userCount, setUserCount] = useState(0);
+```
+
+**GOOD** — derive from source:
+```tsx
+const [filter, setFilter] = useState('all');
+const filteredUsers = useMemo(
+  () => users.filter(u => filter === 'all' || u.status === filter),
+  [users, filter]
+);
+const userCount = filteredUsers.length;
+```
+
+---
+
+## 11. Form Management — react-hook-form + Zod
+
+```
+MANDATORY when project uses forms:
+  ├── One Zod schema per form — schema is the single source of truth for validation
+  ├── Use react-hook-form with zodResolver — NEVER validate in event handlers
+  ├── Show field-level errors below the field — not in a toast
+  ├── Disable submit button while submitting
+  ├── Use noValidate on <form> — browser validation conflicts with custom validation
+  └── Use setError('root', ...) for server-side errors
+```
+
+**GOOD**
+```tsx
+const schema = z.object({
+  email: z.string().email('Enter a valid email'),
+  name: z.string().min(2, 'Name must be at least 2 characters'),
+});
+type FormData = z.infer<typeof schema>;
+
+function MyForm() {
+  const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
+    resolver: zodResolver(schema),
+  });
+  return (
+    <form onSubmit={handleSubmit(onSubmit)} noValidate>
+      <label htmlFor="email">Email</label>
+      <input id="email" {...register('email')} />
+      {errors.email && <span className="error">{errors.email.message}</span>}
+      <button type="submit" disabled={isSubmitting}>Save</button>
+    </form>
+  );
+}
+```
+
+---
+
+## 12. React Naming Conventions
+
+```
+MANDATORY:
+  ├── Components:      PascalCase          (UserList.tsx, DataTable.tsx)
+  ├── Hooks:           camelCase + use      (useAuth.ts, useUsers.ts)
+  ├── Services:        camelCase + Service  (userService.ts)
+  ├── Event handlers:  handle prefix        (handleClick, handleSubmit)
+  ├── Callback props:  on prefix            (onClick, onClose, onChange)
+  ├── Boolean state:   is/has/can prefix    (isOpen, hasError, canEdit)
+  ├── Folders:         kebab-case           (user-settings/, danger-window/)
+  └── Non-component files: camelCase        (helpers.ts, permissions.ts)
+```
+
+---
+
+## 13. Anti-Patterns
 
 ```
 NEVER:
@@ -176,7 +265,8 @@ NEVER:
   ├── Conditional hook calls (Section 5)
   ├── Direct state mutation: state.list.push(x) — return new objects/arrays
   ├── console.log in committed code
-  ├── Derived state in useState when it can be computed from props/state
+  ├── Derived state in useState when it can be computed (Section 10)
+  ├── Validate forms in event handlers (use react-hook-form + zod — Section 11)
   └── dangerouslySetInnerHTML without sanitization — see _security.md
 ```
 
@@ -197,3 +287,7 @@ NEVER:
 - [ ] No `console.log` in committed code
 - [ ] No direct state mutations — always return new objects/arrays
 - [ ] `dangerouslySetInnerHTML` usage reviewed against `_security.md`
+- [ ] State tool matches data type (useState/useReducer/Context/React Query/Router)
+- [ ] No derived state in useState — compute from source
+- [ ] Forms use react-hook-form + zod — no manual validation in handlers
+- [ ] React naming conventions followed (handle*, on*, is/has/can)

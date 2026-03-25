@@ -2,6 +2,17 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.50.10] - 2026-03-25
+
+### Added
+- **18 new stack rule files** — python, flutter, tailwind, react-native, vite, nextjs, vue, docker, postgresql (with graph-in-SQL section), github-actions, rest-api, supabase, firebase, graphql, zustand, redux, neo4j, playwright. Total: 22 stack rules (was 4).
+- **Playwright best practices** — coverage matrix per feature, pairwise combinatorial testing, state transition testing, multi-step workflow testing, Page Object Model, API mocking patterns. Enforces rigorous test depth across permutations.
+- **react.md expanded** — added state management decision table, form management (react-hook-form + zod), React naming conventions (3 new sections from external best practices review).
+
+### Changed
+- Stack detection in execute, quick, and debug commands updated to cover all 22 stack files with conditional detection per project dependencies.
+- PostgreSQL graph-in-SQL patterns (adjacency lists, junction tables, recursive CTEs) added to postgresql.md based on real project analysis.
+
 ## [2.46.11] - 2026-03-24
 
 ### Added

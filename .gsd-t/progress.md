@@ -2,8 +2,8 @@
 
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: IN PROGRESS
-## Date: 2026-03-24
-## Version: 2.49.10
+## Date: 2026-03-25
+## Version: 2.50.10
 
 ## Active Milestone
 
@@ -360,6 +360,7 @@ Wave 4: adaptive-replan (consumes fresh-dispatch summaries, integrates with work
 
 ## Decision Log
 (Entries before 2026-02-16 reconstructed from git history with timestamps)
+- 2026-03-25: [feature] Stack Rules Engine expanded: 4 → 22 stack rule files. Added python, flutter, tailwind, react-native, vite, nextjs, vue, docker, postgresql (with graph-in-SQL), github-actions, rest-api, supabase, firebase, graphql, zustand, redux, neo4j, playwright. react.md expanded with 3 new sections. Detection updated in execute/quick/debug. v2.49.10 → v2.50.10.
 - 2026-03-24: [success] Milestone M29 "Compaction-Proof Debug Loop" COMPLETE — v2.48.10 → v2.49.10. Archived to .gsd-t/milestones/M29-compaction-proof-debug-loop-2026-03-24/. Tagged v2.49.10. 671/671 tests pass (83 new). 3 domains complete (debug-state-protocol: 3 tasks, headless-loop: 3 tasks, command-integration: 3 tasks). Goal-backward: PASS (0 placeholder patterns). Distillation: no repeating failure patterns (0 failures in 1429 events). Rule engine: no rules fired. Metrics rollup: skipped (no task-metrics data for M29).
 - 2026-03-24: [success] Milestone M30 "Stack Rules Engine" COMPLETE — v2.46.11 → v2.48.10. Archived to .gsd-t/milestones/M30-stack-rules-engine-2026-03-24/. Tagged v2.48.10. 672/672 tests pass (135 new). 2 domains complete (stack-templates: 3 tasks, command-integration: 4 tasks). Goal-backward: PASS (0 placeholder patterns). Distillation: no repeating failure patterns. Rule engine: no rules fired, no patches generated.
 - 2026-03-24: [goal-backward-pass] Goal-backward verification passed — 9 requirements checked, 0 placeholder patterns found. All templates contain substantive content with GOOD/BAD examples and verification checklists.
