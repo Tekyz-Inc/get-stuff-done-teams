@@ -55,12 +55,43 @@ function detectCrossCuttingSignals(files) {
 }
 
 /**
+ * Detect content-based cross-cutting signals from diff content.
+ * These require reading the actual diff, not just file names.
+ */
+function detectContentSignals(diffContent, files) {
+  const signals = [];
+  if (!diffContent) return signals;
+
+  // FIRE condition 6: API endpoint/route patterns in diff
+  const routePatterns = /\b(app\.(get|post|put|delete|patch)|router\.(get|post|put|delete|patch)|@(Get|Post|Put|Delete|Patch)|endpoint|@app\.route)\b/;
+  if (routePatterns.test(diffContent)) {
+    signals.push("API endpoint/route pattern detected");
+  }
+
+  // FIRE condition 7: Convention keywords in non-test files
+  const nonTestFiles = files.filter((f) => classifyFile(f) !== "test");
+  if (nonTestFiles.length > 0) {
+    const conventionPattern = /\b(MUST|NEVER|MANDATORY|ALWAYS)\b/;
+    if (conventionPattern.test(diffContent)) {
+      signals.push("convention keyword detected (MUST/NEVER/MANDATORY/ALWAYS)");
+    }
+  }
+
+  return signals;
+}
+
+/**
  * Evaluate threshold: FIRE or SKIP.
  * FIRE when ANY cross-cutting signal is detected.
  * SKIP when ALL conditions for skip are met.
+ * @param {string[]} files - changed file paths
+ * @param {string} [diffContent] - optional diff content for content-based signals
  */
-function evaluateThreshold(files) {
-  const signals = detectCrossCuttingSignals(files);
+function evaluateThreshold(files, diffContent) {
+  const signals = [
+    ...detectCrossCuttingSignals(files),
+    ...detectContentSignals(diffContent, files),
+  ];
   return {
     decision: signals.length > 0 ? "FIRE" : "SKIP",
     signals,
@@ -294,6 +325,49 @@ describe("threshold FIRE conditions", () => {
     ]);
     assert.equal(result.decision, "FIRE");
   });
+
+  it("fires when diff contains API endpoint/route patterns", () => {
+    const result = evaluateThreshold(
+      ["src/routes/users.js"],
+      '+ app.get("/api/users", handler);'
+    );
+    assert.equal(result.decision, "FIRE");
+    assert.ok(result.signals.some((s) => s.includes("API endpoint")));
+  });
+
+  it("fires when diff contains router.post pattern", () => {
+    const result = evaluateThreshold(
+      ["src/api/auth.js"],
+      '+ router.post("/login", authController.login);'
+    );
+    assert.equal(result.decision, "FIRE");
+  });
+
+  it("fires when diff contains convention keywords in non-test files", () => {
+    const result = evaluateThreshold(
+      ["src/rules.js"],
+      '+ // MUST validate input before processing'
+    );
+    assert.equal(result.decision, "FIRE");
+    assert.ok(result.signals.some((s) => s.includes("convention keyword")));
+  });
+
+  it("fires on NEVER keyword in non-test files", () => {
+    const result = evaluateThreshold(
+      ["src/constraints.js"],
+      '+ // NEVER modify files outside owned scope'
+    );
+    assert.equal(result.decision, "FIRE");
+  });
+
+  it("skips convention keywords if only in test files", () => {
+    const result = evaluateThreshold(
+      ["test/rules.test.js"],
+      '+ assert.equal(rule, "MUST validate");'
+    );
+    // Only test files changed + convention keyword — but contract says non-test files only
+    assert.equal(result.decision, "SKIP");
+  });
 });
 
 // ─── Threshold Logic: SKIP conditions ───────────────────────────────────────
@@ -332,6 +406,53 @@ describe("threshold SKIP conditions", () => {
   it("skips for single source file change", () => {
     const result = evaluateThreshold(["src/utils.js"]);
     assert.equal(result.decision, "SKIP");
+  });
+});
+
+// ─── Content Signal Detection ───────────────────────────────────────────────
+
+describe("detectContentSignals", () => {
+  it("returns empty array when no diff content", () => {
+    const result = detectContentSignals(null, ["src/a.js"]);
+    assert.deepEqual(result, []);
+  });
+
+  it("detects Express app.get pattern", () => {
+    const result = detectContentSignals('app.get("/users")', ["src/a.js"]);
+    assert.ok(result.some((s) => s.includes("API endpoint")));
+  });
+
+  it("detects Express app.post pattern", () => {
+    const result = detectContentSignals('app.post("/login")', ["src/a.js"]);
+    assert.ok(result.some((s) => s.includes("API endpoint")));
+  });
+
+  it("detects router.delete pattern", () => {
+    const result = detectContentSignals('router.delete("/item/:id")', ["src/a.js"]);
+    assert.ok(result.some((s) => s.includes("API endpoint")));
+  });
+
+  it("detects MANDATORY keyword", () => {
+    const result = detectContentSignals("This is MANDATORY", ["src/a.js"]);
+    assert.ok(result.some((s) => s.includes("convention keyword")));
+  });
+
+  it("detects ALWAYS keyword", () => {
+    const result = detectContentSignals("ALWAYS run tests", ["src/a.js"]);
+    assert.ok(result.some((s) => s.includes("convention keyword")));
+  });
+
+  it("ignores convention keywords when only test files changed", () => {
+    const result = detectContentSignals("MUST validate", ["test/a.test.js"]);
+    assert.equal(result.length, 0);
+  });
+
+  it("detects both API and convention signals simultaneously", () => {
+    const result = detectContentSignals(
+      'app.post("/api/data"); // MUST validate input',
+      ["src/api.js"]
+    );
+    assert.equal(result.length, 2);
   });
 });
 

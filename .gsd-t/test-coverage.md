@@ -1,13 +1,13 @@
 # Test Coverage Report — 2026-03-24
 
 ## Summary
-- Source files analyzed: 3 (global-sync-manager.js, gsd-t.js M27 functions, command files)
-- Unit/integration test files: 2 (global-sync-manager.test.js, global-rule-sync.test.js)
+- Source files analyzed: 4 (global-sync-manager.js, gsd-t.js M27 functions, command files, doc-ripple logic)
+- Unit/integration test files: 3 (global-sync-manager.test.js, global-rule-sync.test.js, doc-ripple.test.js)
 - E2E test specs: 0 (N/A — CLI tool, no UI)
 - Coverage gaps: 0
 - Stale tests: 0
 - Dead tests: 0
-- Unit tests passing: 481/481
+- Unit tests passing: 536/536
 - E2E tests passing: N/A
 
 ## Coverage Status
@@ -18,6 +18,10 @@
 | bin/global-sync-manager.js      | test/global-sync-manager.test.js | 2026-03-24    |
 | bin/gsd-t.js (syncGlobal*)      | test/global-rule-sync.test.js    | 2026-03-24    |
 | bin/gsd-t.js (exportUniversal*) | test/global-rule-sync.test.js    | 2026-03-24    |
+| doc-ripple threshold logic      | test/doc-ripple.test.js          | 2026-03-24    |
+| doc-ripple blast radius         | test/doc-ripple.test.js          | 2026-03-24    |
+| doc-ripple manifest format      | test/doc-ripple.test.js          | 2026-03-24    |
+| doc-ripple content signals      | test/doc-ripple.test.js          | 2026-03-24    |
 
 ### Partial Coverage
 | Source | Test | Gap |
@@ -29,67 +33,40 @@
 |--------|------------|--------|
 | (none) |            |        |
 
----
+## Doc-Ripple Contract Coverage (M28)
 
-## Contract Compliance (M27: cross-project-sync-contract.md)
+All 7 FIRE conditions from doc-ripple-contract.md are tested:
 
-| Contract Requirement                               | Test Coverage | Status |
-|----------------------------------------------------|---------------|--------|
-| global-rules.jsonl schema (all 11 fields)          | writeGlobalRule tests verify all fields | PASS   |
-| global_id uniqueness                               | assigns incremental global_id test      | PASS   |
-| Trigger fingerprint dedup                          | deduplicates by trigger fingerprint     | PASS   |
-| promotion_count starts at 1                        | writeGlobalRule schema test             | PASS   |
-| is_universal at promotion_count >= 3               | sets is_universal test                  | PASS   |
-| is_npm_candidate at promotion_count >= 5           | sets is_npm_candidate test              | PASS   |
-| propagated_to no duplicates                        | does not duplicate propagated_to        | PASS   |
-| global-rollup.jsonl dedup by project+milestone     | updates existing entry test             | PASS   |
-| global-signal-distributions.jsonl one per project  | overwrites entry for same project       | PASS   |
-| Signal rate normalization (sum=1)                  | normalizes signal rates test            | PASS   |
-| Propagation: qualifying = universal OR count >= 2  | qualifying rules test                   | PASS   |
-| Candidate injection: status=active, count=0        | syncGlobalRulesToProject test           | PASS   |
-| No re-injection of existing local rules            | does not re-inject test                 | PASS   |
-| Global ELO from latest rollup                      | getGlobalELO test                       | PASS   |
-| Project rankings sorted by elo descending          | getProjectRankings test                 | PASS   |
-| Domain-type comparison across projects             | getDomainTypeComparison tests           | PASS   |
-| NPM export only for is_npm_candidate=true          | exportUniversalRulesForNpm tests        | PASS   |
+| FIRE Condition | Test(s) | Status |
+|---------------|---------|--------|
+| Files span 3+ directories | threshold FIRE: "fires when files span 3+ directories" | COVERED |
+| Contract file modified | threshold FIRE: "fires when a contract file is modified" | COVERED |
+| Template file modified | threshold FIRE: "fires when a template file is modified" | COVERED |
+| CLAUDE.md modified | threshold FIRE: "fires when CLAUDE.md is modified" | COVERED |
+| Command file modified | threshold FIRE: "fires when a command file is modified" | COVERED |
+| API endpoint/route in diff | threshold FIRE: "fires when diff contains API endpoint/route patterns" | COVERED |
+| Convention keywords in diff | threshold FIRE: "fires when diff contains convention keywords" | COVERED |
 
----
+All 3 SKIP conditions tested:
 
-## Export Coverage (global-sync-manager.js — 11 public exports)
-
-| Export                          | Tests | Status  |
-|---------------------------------|-------|---------|
-| readGlobalRules                 | 2     | COVERED |
-| writeGlobalRule                 | 10    | COVERED |
-| readGlobalRollups               | 1     | COVERED |
-| writeGlobalRollup               | 3     | COVERED |
-| readGlobalSignalDistributions   | 1     | COVERED |
-| writeGlobalSignalDistribution   | 2     | COVERED |
-| compareSignalDistributions      | 3     | COVERED |
-| getDomainTypeComparison         | 3     | COVERED |
-| checkUniversalPromotion         | 3     | COVERED |
-| getGlobalELO                    | 2     | COVERED |
-| getProjectRankings              | 3     | COVERED |
-
-## gsd-t.js M27 Functions (3 new exports)
-
-| Export                          | Tests | Status  |
-|---------------------------------|-------|---------|
-| syncGlobalRulesToProject        | 4     | COVERED |
-| syncGlobalRules                 | 3     | COVERED |
-| exportUniversalRulesForNpm      | 2     | COVERED |
-
----
+| SKIP Condition | Test(s) | Status |
+|---------------|---------|--------|
+| 1-2 dirs, implementation-only | threshold SKIP: 5 tests | COVERED |
+| No special files modified | threshold SKIP: "skips for test-only changes" | COVERED |
+| Convention keywords only in test files | threshold FIRE: "skips convention keywords if only in test files" | COVERED |
 
 ## Test Health Metrics
 
-- Test-to-code ratio: 2 test files / 2 source files (1:1)
-- Total new tests: 10 (481 total, up from 471)
-- Critical paths covered: global rule propagation, dedup, universal promotion, cross-project sync, candidate injection
+- Test-to-code ratio: 536 tests / 6 test files
+- Doc-ripple tests: 56 (threshold: 12, content signals: 8, blast radius: 9, manifest: 8, classify: 8, dirs: 4, integration: 2, extra: 5)
+- Filesystem tests: 338 lines (CLI, helpers, command counting)
+- Critical paths covered: threshold logic, blast radius, manifest format, content-based signal detection
 - Critical paths uncovered: none
 
----
+## Generated Tasks
+
+None — all coverage gaps addressed in this sync.
 
 ## Recommendations
 
-No action required. All M27 exports have test coverage. All contract requirements are verified by tests.
+No action required. All M28 deliverables have complete test coverage matching every contract condition.
