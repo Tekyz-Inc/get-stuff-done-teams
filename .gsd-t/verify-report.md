@@ -1,32 +1,48 @@
 # Verification Report — 2026-03-24
 
-## Milestone: M30 — Stack Rules Engine
+## Milestone: M29 — Compaction-Proof Debug Loop
 
 ## Summary
-- Functional: PASS — 9/9 acceptance criteria met across 7 tasks
-- Contracts: PASS — stack-rules-contract.md fully implemented (detection, injection, QA, resilience)
-- Code Quality: PASS — all templates under 200 lines, consistent structure, no placeholders
-- Unit Tests: PASS — 672/672 passing (135 new in test/stack-rules.test.js)
-- E2E Tests: N/A — no playwright.config.* (command files are markdown, CLI is testable surface)
-- Security: PASS — _security.md covers OWASP Top 10, prompt injection, AI-specific security
-- Integration: PASS — stack detection block identical across all 5 commands
-- Requirements Traceability: PASS — REQ-057, REQ-058, REQ-059 all complete
-- Quality Budget: PASS — no metrics data (first execution, no historical baseline)
-- Goal-Backward: PASS — 0 placeholder patterns found, all templates contain substantive content
+- Functional: PASS — 4/4 requirements met (REQ-053 through REQ-056)
+- Contracts: PASS — 1/1 contract compliant (debug-loop-contract.md)
+- Code Quality: PASS — 0 issues found (zero-dep, <200 lines per file, JSDoc, no TODOs)
+- Unit Tests: PASS — 671/671 passing (83 M29-specific: 46 debug-ledger + 37 headless-debug-loop)
+- E2E Tests: N/A — no playwright.config (CLI-only project)
+- Security: PASS — 0 findings (no user input paths, file I/O sandboxed to .gsd-t/)
+- Integration: PASS — all 5 commands wire delegation correctly
+- Requirements Traceability: PASS — 4/4 REQs complete, 0 orphans
+- Goal-Backward: PASS — 4 requirements checked, 0 findings (0 critical, 0 high, 0 medium)
+- Quality Budget: N/A — no metrics-collector data for M29
 
 ## Overall: PASS
 
 ## Findings
 
 ### Critical (must fix before milestone complete)
-None.
+(none)
 
 ### Warnings (should fix, not blocking)
-None.
+(none)
 
 ### Notes (informational)
-1. _security.md is 243 lines (over the 200-line guideline for stack-specific templates). Acceptable as universal security rules require comprehensive coverage.
-2. Templates ship with 4 files. Additional stacks (Python, Go, Rust, Tailwind) can be added by dropping .md files in templates/stacks/ with no code changes.
+1. test/ directory contains desktop.ini files that cause `node --test test/` to fail — use `node --test test/*.test.js` pattern instead
+2. bin/debug-ledger.js is 193 lines (under 200-line limit)
+3. All new functions in bin/gsd-t.js are exported for testability
+
+## Verification Details
+
+### Functional Correctness
+- REQ-053: bin/debug-ledger.js exports all 6 functions matching contract signatures exactly
+- REQ-054: doHeadlessDebugLoop implements full 10-step iteration cycle with escalation tiers and all exit codes (0-4)
+- REQ-055: generateAntiRepetitionPreamble produces formatted preamble with failed hypotheses, narrowing direction, and still-failing tests
+- REQ-056: All 5 commands delegate to headless debug-loop after 2 in-context fix attempts
+
+### Contract Compliance
+- debug-loop-contract.md: All sections implemented — ledger schema (11 required fields), API signatures (6 functions), anti-repetition preamble format, compaction protocol (50KB threshold, last 5 preserved), CLI interface (5 flags, 5 exit codes), escalation tiers, iteration cycle, command integration pattern
+
+### Goal-Backward Verification
+- Scanned bin/debug-ledger.js and bin/gsd-t.js for placeholder patterns — zero findings
+- All code paths contain real logic, no stubs or pass-throughs
 
 ## Remediation Tasks
-None — all gates passed.
+(none required)
