@@ -100,7 +100,7 @@ GSD-T reads all state files and tells you exactly where you left off.
 | `/user:gsd-t-discuss` | Multi-perspective design exploration | In wave |
 | `/user:gsd-t-plan` | Create atomic task lists per domain (tasks auto-split to fit one context window) | In wave |
 | `/user:gsd-t-impact` | Analyze downstream effects | In wave |
-| `/user:gsd-t-execute` | Run tasks — task-level fresh dispatch, worktree isolation, adaptive replanning | In wave |
+| `/user:gsd-t-execute` | Run tasks — task-level fresh dispatch, worktree isolation, adaptive replanning, stack rules injection | In wave |
 | `/user:gsd-t-test-sync` | Sync tests with code changes | In wave |
 | `/user:gsd-t-qa` | QA agent — test generation, execution, gap reporting | Auto-spawned |
 | `/user:gsd-t-doc-ripple` | Automated document ripple — update downstream docs after code changes | Auto-spawned |
@@ -221,6 +221,88 @@ your-project/
 │       └── quality.md
 └── src/
 ```
+
+---
+
+## Stack Rules Engine
+
+GSD-T auto-detects your project's tech stack and injects mandatory best-practice rules into subagent prompts at execute-time. This ensures stack conventions are enforced at the same weight as contract compliance — violations are task failures, not warnings.
+
+### How It Works
+
+1. At subagent spawn time, GSD-T reads project manifest files to detect the active stack(s).
+2. Universal rules (`templates/stacks/_security.md`) are **always** injected.
+3. Stack-specific rules are injected when the corresponding stack is detected.
+4. Rules are appended to the subagent prompt as a `## Stack Rules (MANDATORY)` section.
+
+### Stack Detection
+
+| Project File | Detected Stack |
+|---|---|
+| `package.json` with `"react"` | React |
+| `package.json` with `"typescript"` or `tsconfig.json` | TypeScript |
+| `package.json` with `"express"`, `"fastify"`, `"hono"`, or `"koa"` | Node API |
+| `requirements.txt` or `pyproject.toml` | Python |
+| `go.mod` | Go |
+| `Cargo.toml` | Rust |
+
+### Commands That Inject Stack Rules
+
+`gsd-t-execute`, `gsd-t-quick`, `gsd-t-integrate`, `gsd-t-wave`, `gsd-t-debug`
+
+### Extending
+
+Drop a `.md` file into `templates/stacks/` to add a new stack. Files prefixed with `_` are universal (always injected). Files without a prefix are stack-specific (injected only when detected). If the `stacks/` directory is missing, detection skips silently — no error.
+
+---
+
+## Headless Mode
+
+Run GSD-T non-interactively in CI/CD pipelines or automated workflows.
+
+### headless exec
+
+```bash
+gsd-t headless verify --json --timeout=1200  # Run verify non-interactively
+gsd-t headless execute --json                # Execute tasks without interactive prompts
+```
+
+### headless query
+
+```bash
+gsd-t headless query status   # Project state — no LLM, <100ms
+gsd-t headless query domains  # Domain list with status
+```
+
+### headless debug-loop
+
+Compaction-proof automated test-fix-retest cycles. Each iteration runs as a separate `claude -p` session with fresh context. A cumulative debug ledger (`.gsd-t/debug-state.jsonl`) preserves all hypothesis/fix/learning history across sessions. An anti-repetition preamble is injected into each session to prevent retrying failed approaches.
+
+```bash
+gsd-t headless --debug-loop [--max-iterations=N] [--test-cmd=CMD] [--fix-scope=PATTERN] [--json] [--log]
+```
+
+**Flags:**
+
+| Flag               | Default | Description |
+|--------------------|---------|-------------|
+| `--max-iterations` | 20      | Hard ceiling on iterations |
+| `--test-cmd`       | (auto)  | Override test command (auto-detected from project) |
+| `--fix-scope`      | (all)   | Limit fix scope to specific files or patterns |
+| `--json`           | false   | Structured JSON output after each iteration |
+| `--log`            | false   | Write per-iteration logs to `.gsd-t/` |
+
+**Escalation tiers:**
+
+| Iterations | Model  | Behavior |
+|------------|--------|----------|
+| 1–5        | sonnet | Standard debug — one fix per session |
+| 6–15       | opus   | Deeper reasoning — reads full ledger, may attempt multi-file fixes |
+| 16–20      | STOP   | Write full diagnostic summary, present to user, exit code 4 |
+
+**Exit codes:** `0` all tests pass · `1` max iterations reached · `2` compaction error · `3` process error · `4` needs human decision
+
+**Auto-escalation from commands:** `gsd-t-execute`, `gsd-t-test-sync`, `gsd-t-verify`, `gsd-t-debug`, and `gsd-t-wave` delegate to `--debug-loop` automatically after 2 failed in-context fix attempts.
 
 ---
 

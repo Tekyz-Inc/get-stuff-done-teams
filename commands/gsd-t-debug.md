@@ -8,6 +8,22 @@ To give this debug session a fresh context window and prevent compaction, always
 
 **If you are the orchestrating agent** (you received the slash command directly):
 
+**Stack Rules Detection (before spawning subagent):**
+Run via Bash to detect project stack and collect matching rules:
+`GSD_T_DIR=$(npm root -g 2>/dev/null)/@tekyzinc/gsd-t; STACKS_DIR="$GSD_T_DIR/templates/stacks"; STACK_RULES=""; if [ -d "$STACKS_DIR" ]; then for f in "$STACKS_DIR"/_*.md; do [ -f "$f" ] && STACK_RULES="${STACK_RULES}$(cat "$f")"$'\n\n'; done; if [ -f "package.json" ]; then grep -q '"react"' package.json 2>/dev/null && [ -f "$STACKS_DIR/react.md" ] && STACK_RULES="${STACK_RULES}$(cat "$STACKS_DIR/react.md")"$'\n\n'; (grep -q '"typescript"' package.json 2>/dev/null || [ -f "tsconfig.json" ]) && [ -f "$STACKS_DIR/typescript.md" ] && STACK_RULES="${STACK_RULES}$(cat "$STACKS_DIR/typescript.md")"$'\n\n'; grep -qE '"(express|fastify|hono|koa)"' package.json 2>/dev/null && [ -f "$STACKS_DIR/node-api.md" ] && STACK_RULES="${STACK_RULES}$(cat "$STACKS_DIR/node-api.md")"$'\n\n'; fi; [ -f "requirements.txt" ] || [ -f "pyproject.toml" ] && [ -f "$STACKS_DIR/python.md" ] && STACK_RULES="${STACK_RULES}$(cat "$STACKS_DIR/python.md")"$'\n\n'; [ -f "go.mod" ] && [ -f "$STACKS_DIR/go.md" ] && STACK_RULES="${STACK_RULES}$(cat "$STACKS_DIR/go.md")"$'\n\n'; [ -f "Cargo.toml" ] && [ -f "$STACKS_DIR/rust.md" ] && STACK_RULES="${STACK_RULES}$(cat "$STACKS_DIR/rust.md")"$'\n\n'; fi`
+
+If STACK_RULES is non-empty, append to the subagent prompt:
+```
+## Stack Rules (MANDATORY — violations fail this task)
+
+{STACK_RULES}
+
+These standards have the same enforcement weight as contract compliance.
+Violations are task failures, not warnings.
+```
+
+If STACK_RULES is empty (no templates/stacks/ dir or no matches), skip silently.
+
 **OBSERVABILITY LOGGING (MANDATORY):**
 Before spawning — run via Bash:
 `T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M") && TOK_START=${CLAUDE_CONTEXT_TOKENS_USED:-0} && TOK_MAX=${CLAUDE_CONTEXT_TOKENS_MAX:-200000}`
@@ -215,7 +231,16 @@ When you encounter unexpected situations during the fix:
 3. **Blocker (missing file, wrong API response)** → Fix blocker and continue. Log if non-trivial.
 4. **Architectural change required to fix correctly** → STOP. Explain what exists, what needs to change, what breaks, and a migration path. Wait for user approval. Never self-approve.
 
-**3-attempt limit**: If your fix doesn't work after 3 attempts within this session, treat it as a loop. Do NOT keep trying the same approach. Log the attempt to `.gsd-t/progress.md` Decision Log with a `[failure]` prefix, then return to Step 1.5 and run Deep Research Mode before any further attempts. Present findings and options to the user before proceeding.
+**3-attempt limit**: If your fix doesn't work after 3 attempts within this session, treat it as a loop. Do NOT keep trying the same approach. Before entering Deep Research Mode, first try the headless debug-loop:
+1. Write current failure context to `.gsd-t/debug-state.jsonl` via appendEntry
+2. Log: "Delegating to headless debug-loop (3 in-context attempts exhausted)"
+3. Run: `gsd-t headless --debug-loop --max-iterations 10`
+4. Check exit code:
+   - 0: Tests pass, continue
+   - 1/4: Log to `.gsd-t/deferred-items.md`, then enter Deep Research Mode
+   - 3: Report error, stop
+
+If the debug-loop also fails (exit 1/4), log the attempt to `.gsd-t/progress.md` Decision Log with a `[failure]` prefix, return to Step 1.5 and run Deep Research Mode before any further attempts. Present findings and options to the user before proceeding.
 
 ### Solo Mode
 1. Reproduce the issue — **reproduction script must exist before step 2** (see Step 2.5)

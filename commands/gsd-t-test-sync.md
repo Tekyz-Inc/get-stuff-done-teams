@@ -296,7 +296,11 @@ After each task completes:
 2. **If new code paths have zero test coverage: write tests NOW** — do not defer
 3. Run ALL affected unit/integration tests
 4. Run ALL affected Playwright E2E tests
-5. If failures: fix immediately (up to 2 attempts) before continuing
+5. If failures: fix immediately (up to 2 attempts) before continuing. If both attempts fail:
+   1. Write failure context to `.gsd-t/debug-state.jsonl` via `node -e "require('./bin/debug-ledger.js').appendEntry('.', {iteration:1,timestamp:new Date().toISOString(),test:'test-sync-failure',error:'2 in-context fix attempts exhausted',hypothesis:'see test-coverage.md',fix:'n/a',fixFiles:[],result:'STILL_FAILS',learning:'delegating to headless debug-loop',model:'sonnet',duration:0})"`
+   2. Log: "Delegating to headless debug-loop (2 in-context attempts exhausted)"
+   3. Run: `gsd-t headless --debug-loop --max-iterations 10`
+   4. Exit code 0 → tests pass, continue; 1/4 → log to `.gsd-t/deferred-items.md`, report failure; 3 → report error
 6. If E2E specs are missing for new features/modes/flows: **create them NOW**, not later
 7. If E2E specs need updating for changed behavior: update them before continuing
 8. **No task is complete until its tests exist and pass** — do not move to the next task with test gaps

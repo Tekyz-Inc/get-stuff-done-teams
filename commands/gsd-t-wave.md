@@ -52,6 +52,22 @@ If `.gsd-t/graph/meta.json` exists, the code graph is available for all phases. 
 
 For each phase, spawn the agent like this:
 
+**Stack Rules Detection (before spawning subagent):**
+Run via Bash to detect project stack and collect matching rules:
+`GSD_T_DIR=$(npm root -g 2>/dev/null)/@tekyzinc/gsd-t; STACKS_DIR="$GSD_T_DIR/templates/stacks"; STACK_RULES=""; if [ -d "$STACKS_DIR" ]; then for f in "$STACKS_DIR"/_*.md; do [ -f "$f" ] && STACK_RULES="${STACK_RULES}$(cat "$f")"$'\n\n'; done; if [ -f "package.json" ]; then grep -q '"react"' package.json 2>/dev/null && [ -f "$STACKS_DIR/react.md" ] && STACK_RULES="${STACK_RULES}$(cat "$STACKS_DIR/react.md")"$'\n\n'; (grep -q '"typescript"' package.json 2>/dev/null || [ -f "tsconfig.json" ]) && [ -f "$STACKS_DIR/typescript.md" ] && STACK_RULES="${STACK_RULES}$(cat "$STACKS_DIR/typescript.md")"$'\n\n'; grep -qE '"(express|fastify|hono|koa)"' package.json 2>/dev/null && [ -f "$STACKS_DIR/node-api.md" ] && STACK_RULES="${STACK_RULES}$(cat "$STACKS_DIR/node-api.md")"$'\n\n'; fi; [ -f "requirements.txt" ] || [ -f "pyproject.toml" ] && [ -f "$STACKS_DIR/python.md" ] && STACK_RULES="${STACK_RULES}$(cat "$STACKS_DIR/python.md")"$'\n\n'; [ -f "go.mod" ] && [ -f "$STACKS_DIR/go.md" ] && STACK_RULES="${STACK_RULES}$(cat "$STACKS_DIR/go.md")"$'\n\n'; [ -f "Cargo.toml" ] && [ -f "$STACKS_DIR/rust.md" ] && STACK_RULES="${STACK_RULES}$(cat "$STACKS_DIR/rust.md")"$'\n\n'; fi`
+
+If STACK_RULES is non-empty, append to the subagent prompt:
+```
+## Stack Rules (MANDATORY — violations fail this task)
+
+{STACK_RULES}
+
+These standards have the same enforcement weight as contract compliance.
+Violations are task failures, not warnings.
+```
+
+If STACK_RULES is empty (no templates/stacks/ dir or no matches), skip silently.
+
 **OBSERVABILITY LOGGING (MANDATORY) — repeat for every phase spawn:**
 Before spawning — run via Bash:
 `T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M") && TOK_START=${CLAUDE_CONTEXT_TOKENS_USED:-0} && TOK_MAX=${CLAUDE_CONTEXT_TOKENS_MAX:-200000}`
@@ -265,6 +281,11 @@ If the user interrupts or a phase agent fails:
 - Report blocking issues to user
 
 **Level 3**: Spawn a remediation agent to fix blocking issues, then re-spawn impact agent. Max 2 attempts.
+If both attempts fail:
+1. Write failure context to `.gsd-t/debug-state.jsonl` via `node -e "require('./bin/debug-ledger.js').appendEntry('.', {iteration:1,timestamp:new Date().toISOString(),test:'impact-remediation',error:'2 in-context fix attempts exhausted',hypothesis:'see impact-report.md',fix:'n/a',fixFiles:[],result:'STILL_FAILS',learning:'delegating to headless debug-loop',model:'sonnet',duration:0})"`
+2. Log: "Delegating to headless debug-loop (2 in-context attempts exhausted)"
+3. Run: `gsd-t headless --debug-loop --max-iterations 10`
+4. Exit code 0 → continue; 1/4 → log to `.gsd-t/deferred-items.md`, report to user; 3 → report error
 **Level 1–2**: Ask user for direction.
 
 ### If tests fail during execute:
@@ -276,6 +297,11 @@ If the user interrupts or a phase agent fails:
 - Read verify report for failure details
 
 **Level 3**: Spawn remediation agent, then re-spawn verify agent. Max 2 attempts.
+If both attempts fail:
+1. Write failure context to `.gsd-t/debug-state.jsonl` via `node -e "require('./bin/debug-ledger.js').appendEntry('.', {iteration:1,timestamp:new Date().toISOString(),test:'verify-remediation',error:'2 in-context fix attempts exhausted',hypothesis:'see verify-report.md',fix:'n/a',fixFiles:[],result:'STILL_FAILS',learning:'delegating to headless debug-loop',model:'sonnet',duration:0})"`
+2. Log: "Delegating to headless debug-loop (2 in-context attempts exhausted)"
+3. Run: `gsd-t headless --debug-loop --max-iterations 10`
+4. Exit code 0 → re-spawn verify agent; 1/4 → log to `.gsd-t/deferred-items.md`, report to user; 3 → report error
 **Level 1–2**: Ask user for direction.
 
 ## Why Agent-Per-Phase

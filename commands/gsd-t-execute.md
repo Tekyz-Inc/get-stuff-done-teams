@@ -119,6 +119,22 @@ Run via Bash:
 If rules fire: inject up to 10 lines of rule warnings into each task subagent prompt (concise format: `RULE: {name} — {description}`). These inform the subagent of known patterns — non-blocking.
 If no rules fire: log "No active rules for {domain-name}" and continue.
 
+**Stack Rules Detection (before spawning subagent):**
+Run via Bash to detect project stack and collect matching rules:
+`GSD_T_DIR=$(npm root -g 2>/dev/null)/@tekyzinc/gsd-t; STACKS_DIR="$GSD_T_DIR/templates/stacks"; STACK_RULES=""; if [ -d "$STACKS_DIR" ]; then for f in "$STACKS_DIR"/_*.md; do [ -f "$f" ] && STACK_RULES="${STACK_RULES}$(cat "$f")"$'\n\n'; done; if [ -f "package.json" ]; then grep -q '"react"' package.json 2>/dev/null && [ -f "$STACKS_DIR/react.md" ] && STACK_RULES="${STACK_RULES}$(cat "$STACKS_DIR/react.md")"$'\n\n'; (grep -q '"typescript"' package.json 2>/dev/null || [ -f "tsconfig.json" ]) && [ -f "$STACKS_DIR/typescript.md" ] && STACK_RULES="${STACK_RULES}$(cat "$STACKS_DIR/typescript.md")"$'\n\n'; grep -qE '"(express|fastify|hono|koa)"' package.json 2>/dev/null && [ -f "$STACKS_DIR/node-api.md" ] && STACK_RULES="${STACK_RULES}$(cat "$STACKS_DIR/node-api.md")"$'\n\n'; fi; [ -f "requirements.txt" ] || [ -f "pyproject.toml" ] && [ -f "$STACKS_DIR/python.md" ] && STACK_RULES="${STACK_RULES}$(cat "$STACKS_DIR/python.md")"$'\n\n'; [ -f "go.mod" ] && [ -f "$STACKS_DIR/go.md" ] && STACK_RULES="${STACK_RULES}$(cat "$STACKS_DIR/go.md")"$'\n\n'; [ -f "Cargo.toml" ] && [ -f "$STACKS_DIR/rust.md" ] && STACK_RULES="${STACK_RULES}$(cat "$STACKS_DIR/rust.md")"$'\n\n'; fi`
+
+If STACK_RULES is non-empty, append to the subagent prompt:
+```
+## Stack Rules (MANDATORY — violations fail this task)
+
+{STACK_RULES}
+
+These standards have the same enforcement weight as contract compliance.
+Violations are task failures, not warnings.
+```
+
+If STACK_RULES is empty (no templates/stacks/ dir or no matches), skip silently.
+
 **Domain task-dispatcher (lightweight — sequences tasks, passes summaries):**
 
 For each task in `.gsd-t/domains/{domain-name}/tasks.md` (in order, skip completed):
@@ -149,6 +165,9 @@ Task subagent (general-purpose, model: sonnet, mode: bypassPermissions):
 
 ## Prior Task Summaries (most recent first, max 5)
 {contents of task-{N}-summary.md files — 10-20 lines each}
+
+## Stack Rules
+{STACK_RULES if non-empty — omit entire section if empty}
 
 ## Instructions
 
@@ -212,7 +231,9 @@ Execute the task above:
         behavior (state changes, data loaded, content updated after actions), flag it as
         "SHALLOW TEST — needs functional assertions" in the gap report. A test suite where
         every spec passes but no feature actually works is a QA FAILURE.
-     Report format: "Unit: X/Y pass | E2E: X/Y pass (or N/A if no config) | Contract: compliant/violations | Shallow tests: N (list)"'
+     Report format: "Unit: X/Y pass | E2E: X/Y pass (or N/A if no config) | Contract: compliant/violations | Shallow tests: N (list) | Stack rules: compliant/N violations"
+     f. Validate compliance with Stack Rules (if injected in the work subagent's prompt).
+        Stack rule violations have the same severity as contract violations — report as failures, not warnings.'
     If QA fails OR shallow tests are found, fix before proceeding. Append issues to .gsd-t/qa-issues.md.
 12. Write task summary to .gsd-t/domains/{domain-name}/task-{task-id}-summary.md:
     ## Task {task-id} Summary — {domain-name}
@@ -223,8 +244,15 @@ Execute the task above:
     - **Notes**: {10-20 lines max — key decisions, patterns, warnings}
 
 Deviation rules:
-- Bug blocking progress → fix, max 3 attempts; if still blocked, log to
-  .gsd-t/deferred-items.md and stop (report FAIL in summary)
+- Bug blocking progress → fix, max 3 attempts; after fix attempt 2 fails:
+  1. Write current failure context to .gsd-t/debug-state.jsonl via appendEntry
+  2. Log: "Delegating to headless debug-loop (2 in-context attempts exhausted)"
+  3. Run: `gsd-t headless --debug-loop --max-iterations 15`
+  4. Check exit code:
+     - 0: Tests pass, continue with task
+     - 1/4: Log to .gsd-t/deferred-items.md and stop (report FAIL in summary)
+     - 3: Report error, stop
+  If still blocked after debug-loop, log to .gsd-t/deferred-items.md and stop (report FAIL in summary)
 - Missing dependency → add minimum needed, document in commit message
 - Non-trivial blocker → log to .gsd-t/deferred-items.md
 - Architectural change required → write NEEDS-APPROVAL to .gsd-t/deferred-items.md,

@@ -309,7 +309,12 @@ Update `.gsd-t/progress.md`:
 
 **All Levels**:
 - VERIFIED or CONDITIONAL PASS → **Auto-invoke complete-milestone** (see Step 8 below). Completing a verified milestone is mechanical — there is no judgment call that benefits from user review.
-- FAIL → **Level 3**: Auto-execute remediation tasks (up to 2 fix attempts). If still failing after 2 attempts, STOP and report to user. **Level 1–2**: Return to execute phase for remediation tasks.
+- FAIL → **Level 3**: Auto-execute remediation tasks (up to 2 fix attempts). If still failing after 2 attempts:
+  1. Write failure context to `.gsd-t/debug-state.jsonl` via `node -e "require('./bin/debug-ledger.js').appendEntry('.', {iteration:1,timestamp:new Date().toISOString(),test:'verify-remediation',error:'2 in-context fix attempts exhausted',hypothesis:'see verify-report.md',fix:'n/a',fixFiles:[],result:'STILL_FAILS',learning:'delegating to headless debug-loop',model:'sonnet',duration:0})"`
+  2. Log: "Delegating to headless debug-loop (2 in-context attempts exhausted)"
+  3. Run: `gsd-t headless --debug-loop --max-iterations 10`
+  4. Exit code 0 → re-run verification; 1/4 → log to `.gsd-t/deferred-items.md`, STOP and report to user; 3 → report error
+  **Level 1–2**: Return to execute phase for remediation tasks.
 
 ## Document Ripple
 

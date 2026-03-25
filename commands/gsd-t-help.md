@@ -65,6 +65,12 @@ UTILITIES                                                              Manual
   triage-and-merge    Auto-review, merge, and publish GitHub branches
   global-change       Apply file changes across all registered GSD-T projects
 
+HEADLESS (CI/CD)                                                       CLI
+───────────────────────────────────────────────────────────────────────────────
+  headless exec       Run any GSD-T command non-interactively via claude -p
+  headless query      Read project state without LLM (<100ms)
+  headless --debug-loop  Compaction-proof test-fix-retest loop (fresh sessions)
+
 BACKLOG                                                                Manual
 ───────────────────────────────────────────────────────────────────────────────
   backlog-add         Capture item, auto-categorize, append to backlog
@@ -252,6 +258,7 @@ Use these when user asks for help on a specific command:
 - **Use when**: Ready to implement
 - **Note (M22)**: Task-level fresh dispatch (one subagent per task, ~10-20% context each). Team mode uses worktree isolation (`isolation: "worktree"`) — zero file conflicts. Adaptive replanning between domain completions.
 - **Note (M26)**: Active rule injection — evaluates declarative rules from rules.jsonl before dispatching each domain's tasks. Fires matching rules as warnings in subagent prompts.
+- **Note (M29)**: Stack Rules Engine — auto-detects project tech stack from manifest files and injects mandatory best-practice rules into each task subagent prompt. Universal rules (`_security.md`) always apply; stack-specific rules layer on top. Violations are task failures (same weight as contract violations).
 
 ### test-sync
 - **Summary**: Keep tests aligned with code changes
@@ -339,10 +346,19 @@ Use these when user asks for help on a specific command:
 - **Use when**: Reviewing process health, first-pass rates, ELO trends, anomaly flags, or comparing signal distributions across projects
 
 ### debug
-- **Summary**: Systematic debugging with persistent state
+- **Summary**: Systematic debugging with persistent state; delegates to `gsd-t headless --debug-loop` after 2 failed in-context fix attempts
 - **Auto-invoked**: No
-- **Creates**: Debug session state
+- **Creates**: Debug session state, `.gsd-t/debug-state.jsonl` (when delegating to headless loop)
 - **Use when**: Tracking down a bug methodically
+
+### headless --debug-loop
+- **Summary**: Compaction-proof automated test-fix-retest loop — each iteration is a fresh `claude -p` session; a cumulative ledger (`.gsd-t/debug-state.jsonl`) preserves all hypothesis/fix/learning history; anti-repetition preamble prevents retrying failed approaches
+- **Auto-invoked**: Yes — by `execute`, `test-sync`, `verify`, `debug`, and `wave` after 2 failed in-context fix attempts
+- **Flags**: `--max-iterations=N` (default 20), `--test-cmd=CMD`, `--fix-scope=PATTERN`, `--json`, `--log`
+- **Escalation**: sonnet (iterations 1–5) → opus (6–15) → STOP with diagnostic summary (16–20)
+- **Exit codes**: `0` pass · `1` max iterations · `2` compaction error · `3` process error · `4` needs human
+- **Creates**: `.gsd-t/debug-state.jsonl`, optional `.gsd-t/headless-{ts}.log`
+- **Use when**: Running automated fix loops in CI, or delegated from in-context commands that exhausted fix attempts
 
 ### promote-debt
 - **Summary**: Convert techdebt.md items into milestones

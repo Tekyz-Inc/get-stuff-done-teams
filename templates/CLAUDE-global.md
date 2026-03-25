@@ -339,7 +339,7 @@ This applies during: `gsd-t-execute`, `gsd-t-quick`, `gsd-t-integrate`, `gsd-t-w
 
 ## Prime Rule
 KEEP GOING. Only stop for:
-1. Unrecoverable errors after 2 fix attempts
+1. Unrecoverable errors after 2 fix attempts (delegate to `gsd-t headless --debug-loop` first — only stop if exit code 4)
 2. Ambiguity that fundamentally changes project direction
 3. Milestone completion (checkpoint for user review)
 4. Destructive actions (see Destructive Action Guard above — ALWAYS stop)
@@ -431,7 +431,7 @@ BEFORE reporting "done" or presenting a summary:
 - NEVER pause to show verification steps — execute them.
 - NEVER ask "should I continue?" — just continue.
 - NEVER summarize what you're "about to do" — just do it.
-- IF a test fails, fix it immediately (up to 2 attempts) before reporting.
+- IF a test fails, fix it immediately (up to 2 attempts) before reporting. If both attempts fail, delegate to `gsd-t headless --debug-loop` before stopping.
 
 ## Autonomy Levels
 
@@ -581,6 +581,23 @@ Also pad all cell values in a column to the width of the widest value:
 | Discord                | ✅  |
 | QQ                     | ❌  |
 ```
+
+
+## Stack Rules Engine
+
+GSD-T auto-detects project tech stack at subagent spawn time and injects mandatory best-practice rules into the subagent prompt.
+
+**Detection sources**: `package.json` (React, TypeScript, Node API), `requirements.txt`/`pyproject.toml` (Python), `go.mod` (Go), `Cargo.toml` (Rust).
+
+**Universal rules**: Templates prefixed with `_` (e.g., `_security.md`) are **always** injected, regardless of stack.
+
+**Stack-specific rules**: Injected only when the matching stack is detected (e.g., `react.md` when `"react"` is in `package.json`).
+
+**Enforcement**: Stack rule violations have the same weight as contract violations — they are task failures, not warnings.
+
+**Extensible**: Drop a `.md` file into `templates/stacks/` in the GSD-T package to add rules for a new stack. If the directory is missing, detection skips silently.
+
+**Commands that inject stack rules**: `gsd-t-execute`, `gsd-t-quick`, `gsd-t-integrate`, `gsd-t-wave`, `gsd-t-debug`.
 
 
 # Recovery After Interruption

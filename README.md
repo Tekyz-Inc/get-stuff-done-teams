@@ -11,6 +11,7 @@ A methodology for reliable, parallelizable development using Claude Code with op
 **Generates visual scan reports** — every `/gsd-t-scan` produces a self-contained HTML report with 6 live architectural diagrams, a tech debt register, and domain health scores; optional DOCX/PDF export via `--export docx|pdf`.
 **Self-learning rule engine** — declarative rules in rules.jsonl detect failure patterns from task metrics. Candidate patches progress through a 5-stage lifecycle (candidate, applied, measured, promoted, graduated) with >55% improvement gates before becoming permanent methodology artifacts.
 **Cross-project learning** — proven rules propagate to `~/.claude/metrics/` and sync across all registered projects via `update-all`. Rules validated in 3+ projects become universal; 5+ projects qualify for npm distribution. Cross-project signal comparison and global ELO rankings available via `gsd-t-metrics --cross-project` and `gsd-t-status`.
+**Stack Rules Engine** — auto-detects project tech stack (React, TypeScript, Node API, Python, Go, Rust) from manifest files and injects mandatory best-practice rules into subagent prompts at execute-time. Universal security rules always apply; stack-specific rules layer on top. Extensible: drop a `.md` file in `templates/stacks/` to add a new stack.
 
 ---
 
@@ -83,7 +84,20 @@ npx @tekyzinc/gsd-t uninstall      # Remove commands (keeps project files)
 gsd-t headless verify --json --timeout=1200  # Run verify non-interactively
 gsd-t headless query status                  # Get project state (no LLM, <100ms)
 gsd-t headless query domains                 # List domains (no LLM)
+
+# Headless debug-loop (compaction-proof automated test-fix-retest)
+gsd-t headless --debug-loop                             # Auto-detect test cmd, up to 20 iterations
+gsd-t headless --debug-loop --max-iterations=10         # Cap at 10 iterations
+gsd-t headless --debug-loop --test-cmd="npm test"       # Override test command
+gsd-t headless --debug-loop --fix-scope="src/auth/**"   # Limit fix scope
+gsd-t headless --debug-loop --json --log                # Structured output + per-iteration logs
 ```
+
+Each iteration runs as a fresh `claude -p` session. A cumulative debug ledger (`.gsd-t/debug-state.jsonl`) preserves hypothesis/fix/learning history across sessions. An anti-repetition preamble prevents retrying failed approaches.
+
+**Escalation tiers**: sonnet (iterations 1–5) → opus (6–15) → STOP with diagnostic summary (16–20)
+
+**Exit codes**: `0` all tests pass · `1` max iterations reached · `2` compaction error · `3` process error · `4` needs human decision
 
 ### Updating
 
@@ -321,7 +335,7 @@ get-stuff-done-teams/
 │   ├── branch.md                      # Git branch helper
 │   ├── checkin.md                     # Auto-version + commit/push helper
 │   └── Claude-md.md                   # Reload CLAUDE.md directives
-├── templates/                         # Document templates
+├── templates/                         # Document templates (9 base + stacks/)
 │   ├── CLAUDE-global.md
 │   ├── CLAUDE-project.md
 │   ├── requirements.md
@@ -330,7 +344,12 @@ get-stuff-done-teams/
 │   ├── infrastructure.md
 │   ├── progress.md
 │   ├── backlog.md
-│   └── backlog-settings.md
+│   ├── backlog-settings.md
+│   └── stacks/                        # Stack Rules Engine templates
+│       ├── _security.md               # Universal — always injected
+│       ├── react.md
+│       ├── typescript.md
+│       └── node-api.md
 ├── scripts/                           # Runtime utility scripts (installed to ~/.claude/scripts/)
 │   ├── gsd-t-tools.js                 # State CLI (get/set/validate/list)
 │   ├── gsd-t-statusline.js            # Context usage bar
