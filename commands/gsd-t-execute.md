@@ -120,8 +120,56 @@ If rules fire: inject up to 10 lines of rule warnings into each task subagent pr
 If no rules fire: log "No active rules for {domain-name}" and continue.
 
 **Stack Rules Detection (before spawning subagent):**
-Run via Bash to detect project stack and collect matching rules:
-`GSD_T_DIR=$(npm root -g 2>/dev/null)/@tekyzinc/gsd-t; STACKS_DIR="$GSD_T_DIR/templates/stacks"; STACK_RULES=""; if [ -d "$STACKS_DIR" ]; then for f in "$STACKS_DIR"/_*.md; do [ -f "$f" ] && STACK_RULES="${STACK_RULES}$(cat "$f")"$'\n\n'; done; if [ -f "package.json" ]; then grep -q '"react-native"' package.json 2>/dev/null && [ -f "$STACKS_DIR/react-native.md" ] && STACK_RULES="${STACK_RULES}$(cat "$STACKS_DIR/react-native.md")"$'\n\n'; grep -q '"react"' package.json 2>/dev/null && ! grep -q '"react-native"' package.json 2>/dev/null && [ -f "$STACKS_DIR/react.md" ] && STACK_RULES="${STACK_RULES}$(cat "$STACKS_DIR/react.md")"$'\n\n'; grep -q '"next"' package.json 2>/dev/null && [ -f "$STACKS_DIR/nextjs.md" ] && STACK_RULES="${STACK_RULES}$(cat "$STACKS_DIR/nextjs.md")"$'\n\n'; grep -q '"vue"' package.json 2>/dev/null && [ -f "$STACKS_DIR/vue.md" ] && STACK_RULES="${STACK_RULES}$(cat "$STACKS_DIR/vue.md")"$'\n\n'; (grep -q '"typescript"' package.json 2>/dev/null || [ -f "tsconfig.json" ]) && [ -f "$STACKS_DIR/typescript.md" ] && STACK_RULES="${STACK_RULES}$(cat "$STACKS_DIR/typescript.md")"$'\n\n'; grep -qE '"(express|fastify|hono|koa)"' package.json 2>/dev/null && [ -f "$STACKS_DIR/node-api.md" ] && STACK_RULES="${STACK_RULES}$(cat "$STACKS_DIR/node-api.md")"$'\n\n'; grep -qE '"(express|fastify|hono|koa)"' package.json 2>/dev/null && [ -f "$STACKS_DIR/rest-api.md" ] && STACK_RULES="${STACK_RULES}$(cat "$STACKS_DIR/rest-api.md")"$'\n\n'; grep -q '"tailwindcss"' package.json 2>/dev/null && [ -f "$STACKS_DIR/tailwind.md" ] && STACK_RULES="${STACK_RULES}$(cat "$STACKS_DIR/tailwind.md")"$'\n\n'; grep -q '"vite"' package.json 2>/dev/null && [ -f "$STACKS_DIR/vite.md" ] && STACK_RULES="${STACK_RULES}$(cat "$STACKS_DIR/vite.md")"$'\n\n'; grep -q '"@supabase/supabase-js"' package.json 2>/dev/null && [ -f "$STACKS_DIR/supabase.md" ] && STACK_RULES="${STACK_RULES}$(cat "$STACKS_DIR/supabase.md")"$'\n\n'; grep -q '"firebase"' package.json 2>/dev/null && [ -f "$STACKS_DIR/firebase.md" ] && STACK_RULES="${STACK_RULES}$(cat "$STACKS_DIR/firebase.md")"$'\n\n'; grep -qE '"(graphql|@apollo/client|urql)"' package.json 2>/dev/null && [ -f "$STACKS_DIR/graphql.md" ] && STACK_RULES="${STACK_RULES}$(cat "$STACKS_DIR/graphql.md")"$'\n\n'; grep -q '"zustand"' package.json 2>/dev/null && [ -f "$STACKS_DIR/zustand.md" ] && STACK_RULES="${STACK_RULES}$(cat "$STACKS_DIR/zustand.md")"$'\n\n'; grep -q '"@reduxjs/toolkit"' package.json 2>/dev/null && [ -f "$STACKS_DIR/redux.md" ] && STACK_RULES="${STACK_RULES}$(cat "$STACKS_DIR/redux.md")"$'\n\n'; grep -q '"neo4j-driver"' package.json 2>/dev/null && [ -f "$STACKS_DIR/neo4j.md" ] && STACK_RULES="${STACK_RULES}$(cat "$STACKS_DIR/neo4j.md")"$'\n\n'; grep -qE '"(pg|prisma|drizzle-orm|knex)"' package.json 2>/dev/null && [ -f "$STACKS_DIR/postgresql.md" ] && STACK_RULES="${STACK_RULES}$(cat "$STACKS_DIR/postgresql.md")"$'\n\n'; fi; ([ -f "requirements.txt" ] || [ -f "pyproject.toml" ] || [ -f "Pipfile" ]) && [ -f "$STACKS_DIR/python.md" ] && STACK_RULES="${STACK_RULES}$(cat "$STACKS_DIR/python.md")"$'\n\n'; ([ -f "requirements.txt" ] && grep -q "psycopg" requirements.txt 2>/dev/null || [ -f "pyproject.toml" ] && grep -q "psycopg" pyproject.toml 2>/dev/null) && [ -f "$STACKS_DIR/postgresql.md" ] && STACK_RULES="${STACK_RULES}$(cat "$STACKS_DIR/postgresql.md")"$'\n\n'; ([ -f "requirements.txt" ] && grep -q "neo4j" requirements.txt 2>/dev/null) && [ -f "$STACKS_DIR/neo4j.md" ] && STACK_RULES="${STACK_RULES}$(cat "$STACKS_DIR/neo4j.md")"$'\n\n'; [ -f "pubspec.yaml" ] && [ -f "$STACKS_DIR/flutter.md" ] && STACK_RULES="${STACK_RULES}$(cat "$STACKS_DIR/flutter.md")"$'\n\n'; [ -f "Dockerfile" ] && [ -f "$STACKS_DIR/docker.md" ] && STACK_RULES="${STACK_RULES}$(cat "$STACKS_DIR/docker.md")"$'\n\n'; [ -d ".github/workflows" ] && [ -f "$STACKS_DIR/github-actions.md" ] && STACK_RULES="${STACK_RULES}$(cat "$STACKS_DIR/github-actions.md")"$'\n\n'; ([ -f "playwright.config.ts" ] || [ -f "playwright.config.js" ]) && [ -f "$STACKS_DIR/playwright.md" ] && STACK_RULES="${STACK_RULES}$(cat "$STACKS_DIR/playwright.md")"$'\n\n'; [ -f "go.mod" ] && [ -f "$STACKS_DIR/go.md" ] && STACK_RULES="${STACK_RULES}$(cat "$STACKS_DIR/go.md")"$'\n\n'; [ -f "Cargo.toml" ] && [ -f "$STACKS_DIR/rust.md" ] && STACK_RULES="${STACK_RULES}$(cat "$STACKS_DIR/rust.md")"$'\n\n'; fi`
+
+Run via Bash to detect project stack and collect matching rules. Local overrides in `.gsd-t/stacks/` take precedence over global templates — if a project has `.gsd-t/stacks/react.md`, it replaces the global `react.md` for that project.
+
+```bash
+GSD_T_DIR=$(npm root -g 2>/dev/null)/@tekyzinc/gsd-t
+STACKS_DIR="$GSD_T_DIR/templates/stacks"
+LOCAL_STACKS=".gsd-t/stacks"
+STACK_RULES=""
+
+# Helper: read local override if exists, else global
+_sf() { local n=$(basename "$1"); [ -f "$LOCAL_STACKS/$n" ] && cat "$LOCAL_STACKS/$n" || cat "$1"; }
+
+# Helper: append a stack file to STACK_RULES
+_add() { [ -f "$STACKS_DIR/$1" ] && STACK_RULES="${STACK_RULES}$(_sf "$STACKS_DIR/$1")"$'\n\n'; }
+
+if [ -d "$STACKS_DIR" ]; then
+  # Universal rules (_ prefix — always injected)
+  for f in "$STACKS_DIR"/_*.md; do [ -f "$f" ] && STACK_RULES="${STACK_RULES}$(_sf "$f")"$'\n\n'; done
+
+  # Package.json-based detection
+  if [ -f "package.json" ]; then
+    grep -q '"react-native"' package.json 2>/dev/null && _add react-native.md
+    grep -q '"react"' package.json 2>/dev/null && ! grep -q '"react-native"' package.json 2>/dev/null && _add react.md
+    grep -q '"next"' package.json 2>/dev/null && _add nextjs.md
+    grep -q '"vue"' package.json 2>/dev/null && _add vue.md
+    (grep -q '"typescript"' package.json 2>/dev/null || [ -f "tsconfig.json" ]) && _add typescript.md
+    grep -qE '"(express|fastify|hono|koa)"' package.json 2>/dev/null && _add node-api.md && _add rest-api.md
+    grep -q '"tailwindcss"' package.json 2>/dev/null && _add tailwind.md
+    grep -q '"vite"' package.json 2>/dev/null && _add vite.md
+    grep -q '"@supabase/supabase-js"' package.json 2>/dev/null && _add supabase.md
+    grep -q '"firebase"' package.json 2>/dev/null && _add firebase.md
+    grep -qE '"(graphql|@apollo/client|urql)"' package.json 2>/dev/null && _add graphql.md
+    grep -q '"zustand"' package.json 2>/dev/null && _add zustand.md
+    grep -q '"@reduxjs/toolkit"' package.json 2>/dev/null && _add redux.md
+    grep -q '"neo4j-driver"' package.json 2>/dev/null && _add neo4j.md
+    grep -qE '"(pg|prisma|drizzle-orm|knex)"' package.json 2>/dev/null && _add postgresql.md
+  fi
+
+  # File-based detection (no package.json needed)
+  ([ -f "requirements.txt" ] || [ -f "pyproject.toml" ] || [ -f "Pipfile" ]) && _add python.md
+  ([ -f "requirements.txt" ] && grep -q "psycopg" requirements.txt 2>/dev/null || [ -f "pyproject.toml" ] && grep -q "psycopg" pyproject.toml 2>/dev/null) && _add postgresql.md
+  ([ -f "requirements.txt" ] && grep -q "neo4j" requirements.txt 2>/dev/null) && _add neo4j.md
+  [ -f "pubspec.yaml" ] && _add flutter.md
+  [ -f "Dockerfile" ] && _add docker.md
+  [ -d ".github/workflows" ] && _add github-actions.md
+  ([ -f "playwright.config.ts" ] || [ -f "playwright.config.js" ]) && _add playwright.md
+  [ -f "go.mod" ] && _add go.md
+  [ -f "Cargo.toml" ] && _add rust.md
+fi
+```
 
 If STACK_RULES is non-empty, append to the subagent prompt:
 ```

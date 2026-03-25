@@ -54,6 +54,8 @@ Skip the copy (step 2) silently if the target already exists.
 │   └── .gitkeep
 ├── domains/
 │   └── .gitkeep
+├── stacks/
+│   └── README.md
 ├── events/
 ├── backlog.md
 ├── backlog-settings.md
@@ -61,6 +63,11 @@ Skip the copy (step 2) silently if the target already exists.
 ├── token-log.md
 └── qa-issues.md
 ```
+
+Create `.gsd-t/stacks/` directory with a `README.md` explaining the override mechanism:
+- This folder holds project-specific overrides of global stack rule files
+- If a file with the same name as a global stack file exists here, it replaces the global version
+- Folder stays empty until the developer explicitly adds overrides
 
 Create `.gsd-t/events/` directory (empty — populated at runtime by heartbeat and event writer).
 
