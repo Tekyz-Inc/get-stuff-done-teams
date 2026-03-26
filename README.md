@@ -156,6 +156,7 @@ This will replace changed command files, back up your CLAUDE.md if customized, a
 | `/user:gsd-t-execute` | Run tasks — task-level fresh dispatch, worktree isolation, adaptive replanning | In wave |
 | `/user:gsd-t-test-sync` | Sync tests with code changes | In wave |
 | `/user:gsd-t-qa` | QA agent — test generation, execution, gap reporting | Auto-spawned |
+| *Red Team* | Adversarial QA — finds bugs the builder missed (inverted incentives) | Auto-spawned |
 | `/user:gsd-t-doc-ripple` | Automated document ripple — update downstream docs after code changes | Auto-spawned |
 | `/user:gsd-t-integrate` | Wire domains together | In wave |
 | `/user:gsd-t-verify` | Run quality gates + goal-backward behavior verification | In wave |

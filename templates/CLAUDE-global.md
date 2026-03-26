@@ -306,6 +306,26 @@ Report format: 'Unit: X/Y pass | E2E: X/Y pass (or N/A if no config) | Contract:
 
 **QA failure OR shallow tests found blocks phase completion.** Lead cannot proceed until QA reports PASS with zero shallow tests, or user explicitly overrides.
 
+## Red Team — Adversarial QA (Mandatory)
+
+After QA passes, every code-producing command spawns a **Red Team agent** — an adversarial subagent whose success is measured by bugs found, not tests passed. This inverts the incentive structure: the Red Team's drive toward "task complete" means digging deeper and finding more bugs, not rubber-stamping.
+
+**Red Team method by command:**
+- `execute` → spawns Red Team after all domain tasks pass (Step 5.5)
+- `integrate` → spawns Red Team after integration tests pass (Step 7.5)
+- `quick` → spawns Red Team after Test & Verify passes (Step 5.5)
+- `debug` → spawns Red Team after fix verification passes (Step 5.3)
+- `wave` → each phase agent handles Red Team per the rules above
+
+**Key Red Team rules:**
+- **Inverted incentive**: More bugs found = more value. Zero bugs requires exhaustive proof of thoroughness.
+- **False positive penalty**: Reporting non-bugs destroys credibility. Every bug must be reproduced with proof.
+- **Exhaustive categories**: Contract violations, boundary inputs, state transitions, error paths, missing flows, regression, E2E functional gaps — all must be attempted.
+- **VERDICT**: `FAIL` (bugs found — blocks completion) or `GRUDGING PASS` (exhaustive search, nothing found).
+- **Report**: Written to `.gsd-t/red-team-report.md`; bugs also appended to `.gsd-t/qa-issues.md`.
+
+**Red Team FAIL blocks phase completion.** CRITICAL/HIGH bugs must be fixed (up to 2 fix cycles). If bugs persist, they are logged to `.gsd-t/deferred-items.md` and presented to the user.
+
 ## Model Display (MANDATORY)
 
 **Before every subagent spawn, display the model being used to the user:**

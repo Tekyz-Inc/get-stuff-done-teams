@@ -103,6 +103,7 @@ GSD-T reads all state files and tells you exactly where you left off.
 | `/user:gsd-t-execute` | Run tasks — task-level fresh dispatch, worktree isolation, adaptive replanning, stack rules injection | In wave |
 | `/user:gsd-t-test-sync` | Sync tests with code changes | In wave |
 | `/user:gsd-t-qa` | QA agent — test generation, execution, gap reporting | Auto-spawned |
+| *Red Team* | Adversarial QA — spawns after QA passes to find bugs the builder missed | Auto-spawned |
 | `/user:gsd-t-doc-ripple` | Automated document ripple — update downstream docs after code changes | Auto-spawned |
 | `/user:gsd-t-integrate` | Wire domains together | In wave |
 | `/user:gsd-t-verify` | Run quality gates + goal-backward verification → auto-invokes complete-milestone | In wave |
@@ -154,8 +155,9 @@ GSD-T reads all state files and tells you exactly where you left off.
 │                                              │         └──────┐             │
 │                                              │                ▼             │
 │                                              │    ┌───────────────────┐     │
-│                                              │    │ (runs after each  │     │
-│                                              │    │  task + at verify)│     │
+│                                              │    │  QA + Red Team    │     │
+│                                              │    │ (after each phase │     │
+│                                              │    │  that writes code)│     │
 │                                              │    └───────────────────┘     │
 │                                              ▼                              │
 │  verify+complete ◄──────────── integrate ◄──────────────────────┘          │
@@ -172,9 +174,9 @@ GSD-T reads all state files and tells you exactly where you left off.
 | **Discuss** | Explore design decisions | Both |
 | **Plan** | Create atomic task lists | Solo (always) |
 | **Impact** | Downstream effect analysis | Solo |
-| **Execute** | Build it | Both |
+| **Execute** | Build it (+ Red Team adversarial QA) | Both |
 | **Test-Sync** | Maintain test coverage | Solo |
-| **Integrate** | Wire domains together | Solo (always) |
+| **Integrate** | Wire domains together (+ Red Team adversarial QA) | Solo (always) |
 | **Verify** | Quality gates | Both |
 | **Complete** | Archive + tag | Solo |
 

@@ -2,6 +2,16 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.51.10] - 2026-03-25
+
+### Added
+- **Red Team — Adversarial QA agent** added to `execute`, `quick`, `integrate`, and `debug` commands. Spawns after the builder's tests pass with inverted incentives — success is measured by bugs found, not tests passed.
+- **Exhaustive attack categories**: contract violations, boundary inputs, state transitions, error paths, missing flows, regression, E2E functional gaps, cross-domain boundaries (integrate only), fix regression variants (debug only).
+- **False positive penalty**: reporting non-bugs destroys credibility, preventing phantom bug inflation.
+- **VERDICT system**: `FAIL` (bugs found — blocks phase completion) or `GRUDGING PASS` (exhaustive search, nothing found — must prove thoroughness).
+- **Red Team report**: findings written to `.gsd-t/red-team-report.md`; bugs appended to `.gsd-t/qa-issues.md`.
+- Red Team documented in CLAUDE-global template, global CLAUDE.md, GSD-T-README wave diagram, README command table.
+
 ## [2.50.12] - 2026-03-25
 
 ### Added

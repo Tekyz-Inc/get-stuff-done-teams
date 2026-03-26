@@ -3,7 +3,7 @@
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: IN PROGRESS
 ## Date: 2026-03-25
-## Version: 2.50.12
+## Version: 2.51.10
 
 ## Active Milestone
 
@@ -360,6 +360,7 @@ Wave 4: adaptive-replan (consumes fresh-dispatch summaries, integrates with work
 
 ## Decision Log
 (Entries before 2026-02-16 reconstructed from git history with timestamps)
+- 2026-03-25 18:00: [feature] Red Team — Adversarial QA agent added to execute, quick, integrate, and debug commands. Spawns after builder's tests pass with inverted incentives (success = bugs found). Exhaustive attack categories: contract violations, boundary inputs, state transitions, error paths, missing flows, regression, E2E functional gaps. VERDICT: FAIL (blocks completion) or GRUDGING PASS (exhaustive search, nothing found). False positive penalty prevents phantom bugs. Updated CLAUDE-global template, global CLAUDE.md, GSD-T-README, README. Design rationale: separation of interest (Red Team didn't build the code), inverted incentives (finding bugs is success), statistical gravity works FOR testing instead of against it.
 - 2026-03-25 16:30: [feature] Stack Rules Engine expanded: 4 → 27 stack rule files. Added _auth.md (universal), fastapi.md, llm.md (with RAG section), prisma.md, queues.md (5 new files this session). Previously added 18 files (python, flutter, tailwind, react-native, vite, nextjs, vue, docker, postgresql, github-actions, rest-api, supabase, firebase, graphql, zustand, redux, neo4j, playwright). Project-level override support via .gsd-t/stacks/. Detection refactored to helper functions (_sf/_add). v2.50.11 → v2.50.12.
 - 2026-03-25: [feature] Stack Rules Engine expanded: 4 → 22 stack rule files. Added python, flutter, tailwind, react-native, vite, nextjs, vue, docker, postgresql (with graph-in-SQL), github-actions, rest-api, supabase, firebase, graphql, zustand, redux, neo4j, playwright. react.md expanded with 3 new sections. Detection updated in execute/quick/debug. v2.49.10 → v2.50.10.
 - 2026-03-24: [success] Milestone M29 "Compaction-Proof Debug Loop" COMPLETE — v2.48.10 → v2.49.10. Archived to .gsd-t/milestones/M29-compaction-proof-debug-loop-2026-03-24/. Tagged v2.49.10. 671/671 tests pass (83 new). 3 domains complete (debug-state-protocol: 3 tasks, headless-loop: 3 tasks, command-integration: 3 tasks). Goal-backward: PASS (0 placeholder patterns). Distillation: no repeating failure patterns (0 failures in 1429 events). Rule engine: no rules fired. Metrics rollup: skipped (no task-metrics data for M29).
