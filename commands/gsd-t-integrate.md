@@ -132,11 +132,19 @@ Result: PARTIAL — needs pagination contract addition
 
 ## Step 5: Contract Compliance Testing
 
+**QA Calibration Injection** — Before spawning QA, check for known weak spots:
+
+Run via Bash:
+`node -e "const qc = require('./bin/qa-calibrator.js'); const inj = qc.generateQAInjection('.'); if(inj) process.stdout.write(inj);" 2>/dev/null`
+
+If the command produces output (non-empty), store it as `QA_INJECTION` and prepend it to the QA subagent prompt below. If the file doesn't exist or produces no output, skip silently.
+
 Spawn a QA subagent via the Task tool to verify contract compliance at all domain boundaries:
 
 ```
 Task subagent (general-purpose, model: sonnet):
-"Run contract compliance tests for this integration. Read .gsd-t/contracts/ for all contract definitions.
+"{QA_INJECTION — if non-empty, insert here as a preamble section before the instructions below}
+Run contract compliance tests for this integration. Read .gsd-t/contracts/ for all contract definitions.
 Test every domain boundary: verify that producers and consumers match their contract shapes.
 Run ALL configured test suites — detect and run every one:
 a. Unit tests (vitest/jest/mocha): run the full suite

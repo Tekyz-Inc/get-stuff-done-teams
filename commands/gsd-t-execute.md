@@ -34,10 +34,18 @@ After each domain completes, re-run `getDomainBoundaryViolations` and diff again
 
 In solo mode, QA runs inside each domain subagent (see Step 3). In team mode, the lead spawns QA subagents at each domain checkpoint using the pattern below.
 
+**QA Calibration Injection** — Before spawning QA, check for known weak spots:
+
+Run via Bash:
+`node -e "const qc = require('./bin/qa-calibrator.js'); const inj = qc.generateQAInjection('.'); if(inj) process.stdout.write(inj);" 2>/dev/null`
+
+If the command produces output (non-empty), store it as `QA_INJECTION` and prepend it to the QA subagent prompt below. If the file doesn't exist or produces no output, skip silently and proceed normally.
+
 **QA subagent prompt:**
 ```
 Task subagent (general-purpose, model: sonnet):
-"Run the full test suite for this project and report pass/fail counts.
+"{QA_INJECTION — if non-empty, insert here as a preamble section before the instructions below}
+Run the full test suite for this project and report pass/fail counts.
 Read .gsd-t/contracts/ for contract definitions.
 Write edge case tests for any new code paths in this task: {task description}.
 Report: test pass/fail status and any coverage gaps found."
@@ -95,6 +103,17 @@ Append to `.gsd-t/token-log.md` (create with header `| Datetime-start | Datetime
 `| {DT_START} | {DT_END} | gsd-t-execute | task:{task-id} | sonnet | {DURATION}s | {pass/fail} | {TOKENS} | {COMPACTED} | {domain-name} | task-{task-id} | {CTX_PCT} |`
 
 **For each domain (in wave order), run the domain task-dispatcher:**
+
+**Token Budget Check (before dispatching each domain's tasks):**
+
+Run via Bash:
+`node -e "const tb = require('./bin/token-budget.js'); const s = tb.getSessionStatus('.'); const d = tb.getDegradationActions(s.threshold, '.'); process.stdout.write(JSON.stringify({threshold: s.threshold, actions: d}));" 2>/dev/null`
+
+Apply the result:
+- `threshold: 'normal'` or file missing → skip silently, proceed with standard model assignments
+- `threshold: 'downgrade'` → apply model overrides from `actions.modelOverride` (e.g., downgrade opus tasks to sonnet)
+- `threshold: 'conserve'` → checkpoint progress to `.gsd-t/progress.md` and skip non-essential operations (Red Team, doc-ripple) for this domain
+- `threshold: 'stop'` → checkpoint all progress, output: "Token budget exhausted — progress saved. Resume after session reset.", and halt execution for remaining domains
 
 **Pre-dispatch experience retrieval (before dispatching each domain's tasks):**
 Run via Bash:

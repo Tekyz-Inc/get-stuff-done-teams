@@ -57,6 +57,7 @@ UTILITIES                                                              Manual
   debug               Systematic debugging with state
   health              Validate .gsd-t/ structure, optionally repair missing files
   pause               Save exact position for reliable resume later
+  audit               Harness self-audit — analyze cost/benefit of enforcement components
   promote-debt        Convert techdebt items to milestones
   populate            Auto-populate docs from existing codebase
   log                 Sync progress Decision Log with recent git activity
@@ -350,6 +351,13 @@ Use these when user asks for help on a specific command:
 - **Auto-invoked**: No
 - **Creates**: Debug session state, `.gsd-t/debug-state.jsonl` (when delegating to headless loop)
 - **Use when**: Tracking down a bug methodically
+
+### audit
+- **Summary**: Harness self-audit — analyze cost and benefit of GSD-T enforcement components (QA, Red Team, doc-ripple, token budget), with optional shadow mode to measure overhead
+- **Auto-invoked**: No
+- **Creates**: `.gsd-t/audit-report.md`
+- **Reads**: `.gsd-t/metrics/`, `.gsd-t/token-log.md`, `bin/component-registry.js`, `bin/qa-calibrator.js`, `bin/token-budget.js`
+- **Use when**: Reviewing whether enforcement components are adding value or overhead; shadow mode measures impact without disabling components; `--disable {component}` temporarily disables one component for comparison
 
 ### headless --debug-loop
 - **Summary**: Compaction-proof automated test-fix-retest loop — each iteration is a fresh `claude -p` session; a cumulative ledger (`.gsd-t/debug-state.jsonl`) preserves all hypothesis/fix/learning history; anti-repetition preamble prevents retrying failed approaches

@@ -245,6 +245,19 @@ After local rule promotion completes, propagate newly promoted rules to global m
 
 5. If no rules were promoted this milestone: skip silently (steps 3-4 still run for rollup/signal tracking).
 
+### Step 2.5d: Component Impact Evaluation (if available)
+
+Record impact data for each active component and log QA miss-rate for this milestone:
+
+1. **Record component impact** — for each domain that completed tasks, run via Bash:
+   `node -e "const cr = require('./bin/component-registry.js'); const domains = [/* list completed domain names */]; domains.forEach(d => cr.recordImpact(d, '{milestone-id}', '.')); " 2>/dev/null || true`
+
+2. **Log QA misses** — compare Red Team findings against QA report to find misses:
+   Run via Bash:
+   `node -e "const qc = require('./bin/qa-calibrator.js'); const rt = require('fs').existsSync('.gsd-t/red-team-report.md') ? require('fs').readFileSync('.gsd-t/red-team-report.md','utf8') : ''; const qa = require('fs').existsSync('.gsd-t/qa-issues.md') ? require('fs').readFileSync('.gsd-t/qa-issues.md','utf8') : ''; if(rt && qa) { const missed = qc.detectMisses(rt, qa, '.'); if(missed.length) missed.forEach(m => qc.logMiss(m.domain, m.category, m.description, '.')); console.log('QA miss-rate: ' + missed.length + ' misses logged'); } else { console.log('QA miss-rate: no data'); }" 2>/dev/null || true`
+
+3. If neither `bin/component-registry.js` nor `bin/qa-calibrator.js` exists, skip silently.
+
 ## Step 3: Gather Milestone Artifacts
 
 Collect all files related to this milestone:

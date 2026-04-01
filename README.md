@@ -13,6 +13,8 @@ A methodology for reliable, parallelizable development using Claude Code with op
 **Self-learning rule engine** — declarative rules in rules.jsonl detect failure patterns from task metrics. Candidate patches progress through a 5-stage lifecycle (candidate, applied, measured, promoted, graduated) with >55% improvement gates before becoming permanent methodology artifacts.
 **Cross-project learning** — proven rules propagate to `~/.claude/metrics/` and sync across all registered projects via `update-all`. Rules validated in 3+ projects become universal; 5+ projects qualify for npm distribution. Cross-project signal comparison and global ELO rankings available via `gsd-t-metrics --cross-project` and `gsd-t-status`.
 **Stack Rules Engine** — auto-detects project tech stack (React, TypeScript, Node API, Python, Go, Rust) from manifest files and injects mandatory best-practice rules into subagent prompts at execute-time. Universal security rules always apply; stack-specific rules layer on top. Extensible: drop a `.md` file in `templates/stacks/` to add a new stack.
+**Self-Calibrating QA** — `qa-calibrator.js` tracks QA miss-rates across milestones, detects weak-spot categories (error paths, boundaries, state transitions), and automatically injects targeted guidance into QA subagent prompts. Projects on the same stack share miss-rate data for faster calibration.
+**Token-Aware Orchestration** — `token-budget.js` tracks session token consumption and applies graduated degradation: downgrade model assignments when approaching limits, checkpoint and skip non-essential operations to conserve budget, and halt cleanly with a resume instruction at the ceiling. Wave and execute phases check budget before each subagent spawn.
 
 ---
 
@@ -24,7 +26,7 @@ A methodology for reliable, parallelizable development using Claude Code with op
 npx @tekyzinc/gsd-t install
 ```
 
-This installs 46 GSD-T commands + 5 utility commands (51 total) to `~/.claude/commands/` and the global CLAUDE.md to `~/.claude/CLAUDE.md`. Works on Windows, Mac, and Linux.
+This installs 47 GSD-T commands + 5 utility commands (52 total) to `~/.claude/commands/` and the global CLAUDE.md to `~/.claude/CLAUDE.md`. Works on Windows, Mac, and Linux.
 
 ### Start Using It
 
@@ -180,6 +182,7 @@ This will replace changed command files, back up your CLAUDE.md if customized, a
 | `/user:gsd-t-version-update` | Update GSD-T to latest version | Manual |
 | `/user:gsd-t-version-update-all` | Update GSD-T + all registered projects | Manual |
 | `/user:gsd-t-triage-and-merge` | Auto-review, merge, and publish GitHub branches | Manual |
+| `/user:gsd-t-audit` | Harness self-audit — analyze cost/benefit of enforcement components | Manual |
 
 ### Backlog Management
 

@@ -39,6 +39,19 @@ From progress.md status, determine which phase to start from:
 | VERIFIED | Complete |
 | VERIFY_FAILED | Remediate → re-Verify |
 
+## Step 2.5: Token Budget Pre-Flight (if available)
+
+Before starting the phase loop, check the projected token cost for this milestone:
+
+Run via Bash:
+`node -e "const tb = require('./bin/token-budget.js'); const est = tb.estimateMilestoneCost('.'); if(est) process.stdout.write(JSON.stringify(est));" 2>/dev/null`
+
+If the command returns data, display to user:
+- `estimated_tokens`: projected total tokens for this milestone
+- `warning`: if `estimated_tokens > budget_ceiling * 0.8`, warn: "Token budget pre-flight: {estimated_tokens} tokens estimated — approaching session ceiling. Consider splitting milestone."
+
+If the file doesn't exist or returns nothing, skip silently and proceed.
+
 ## Step 3: Phase Orchestration Loop
 
 For each remaining phase, spawn an **independent agent** using the Task tool. Each agent gets a fresh context window, loads its own state from files, and reports back.
@@ -67,6 +80,16 @@ Violations are task failures, not warnings.
 ```
 
 If STACK_RULES is empty (no templates/stacks/ dir or no matches), skip silently.
+
+**Per-Phase Token Budget Check (before each phase spawn):**
+
+Run via Bash:
+`node -e "const tb = require('./bin/token-budget.js'); const s = tb.getSessionStatus('.'); process.stdout.write(s.threshold);" 2>/dev/null`
+
+- `normal` or file missing → proceed normally
+- `downgrade` → apply model overrides from `getDegradationActions()` in the phase agent prompt
+- `conserve` → checkpoint progress, skip non-essential phases (test-sync if code unchanged, discuss if already done)
+- `stop` → checkpoint all progress and output: "Token budget exhausted — wave paused. Resume after session reset." then halt
 
 **OBSERVABILITY LOGGING (MANDATORY) — repeat for every phase spawn:**
 Before spawning — run via Bash:

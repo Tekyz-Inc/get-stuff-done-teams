@@ -26,6 +26,13 @@
 <!-- Claude will verify the branch before every commit. -->
 **Expected branch**: {main | master | feature-branch-name}
 
+## Daily Token Budget (optional)
+<!-- Set a session token ceiling for token-aware orchestration (bin/token-budget.js). -->
+<!-- When the session approaches this ceiling, model assignments are downgraded and -->
+<!-- non-essential operations are skipped to stay within budget. -->
+<!-- Example: 1500000 (1.5M tokens) — omit this field to disable token-aware orchestration. -->
+<!-- **Daily token budget**: {ceiling in tokens} -->
+
 <!-- For multi-branch parallel work (e.g., web + mobile in separate terminals), -->
 <!-- each terminal's CLAUDE.md should declare its own expected branch. -->
 <!-- Example: Web terminal → master, Mobile terminal → Mobile -->

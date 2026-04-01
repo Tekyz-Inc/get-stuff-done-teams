@@ -118,6 +118,32 @@ Graph: {entityCount} entities indexed — last indexed {lastIndexed timestamp}
 ```
 If the graph does not exist, skip this section.
 
+## Harness Health (M31 — if available)
+
+If `bin/component-registry.js` exists, check for flagged components:
+
+Run via Bash:
+`node -e "const cr = require('./bin/component-registry.js'); const flagged = cr.getFlaggedComponents('.'); if(flagged.length) { flagged.forEach(c => console.log('⚠️  FLAGGED: ' + c.name + ' — ' + c.reason)); } else { console.log('No flagged components'); }" 2>/dev/null`
+
+If flagged components exist, display them in the report:
+```
+Flagged Components:
+  ⚠️  {component-name} — {reason}
+```
+
+If `bin/qa-calibrator.js` exists and `.gsd-t/metrics/qa-miss-log.jsonl` exists, display QA miss-rate summary:
+
+Run via Bash:
+`node -e "const qc = require('./bin/qa-calibrator.js'); const s = qc.getMissRateSummary('.'); if(s) process.stdout.write(JSON.stringify(s));" 2>/dev/null`
+
+If data returned, display:
+```
+QA Calibration:
+  Miss rate: {miss_rate}% | Weak spots: {weak_spot_count} | Top category: {top_category}
+```
+
+If neither file exists, skip this section entirely.
+
 ## Version Check
 
 After displaying the project status, check for GSD-T updates:

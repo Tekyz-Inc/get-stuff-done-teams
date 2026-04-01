@@ -12,6 +12,17 @@ To give this task a fresh context window and prevent compaction during consecuti
 Before spawning — run via Bash:
 `T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M") && TOK_START=${CLAUDE_CONTEXT_TOKENS_USED:-0} && TOK_MAX=${CLAUDE_CONTEXT_TOKENS_MAX:-200000}`
 
+**Token Budget Check (before spawning subagent):**
+
+Run via Bash:
+`node -e "const tb = require('./bin/token-budget.js'); const s = tb.getSessionStatus('.'); process.stdout.write(s.threshold);" 2>/dev/null`
+
+Apply the result:
+- `normal` or file missing → proceed with default model (sonnet)
+- `downgrade` → downgrade subagent model from sonnet to haiku for non-critical tasks; apply `getDegradationActions()` model overrides
+- `conserve` → run quick task inline (skip subagent spawn overhead); skip Red Team and doc-ripple
+- `stop` → output: "Token budget exhausted — quick task deferred. Resume after session reset." and halt
+
 **Stack Rules Detection (before spawning subagent):**
 
 Run via Bash to detect project stack and collect matching rules. Local overrides in `.gsd-t/stacks/` take precedence over global templates.
@@ -186,6 +197,13 @@ Skip scan docs not affected by this task. Skip analytical sections — those req
 ### Skip what's not affected — most quick tasks will only touch 1-2 of these.
 
 ## Step 5: Test & Verify (MANDATORY)
+
+**QA Calibration Injection** — Before evaluating test results, check for known weak spots:
+
+Run via Bash:
+`node -e "const qc = require('./bin/qa-calibrator.js'); const inj = qc.generateQAInjection('.'); if(inj) process.stdout.write(inj);" 2>/dev/null`
+
+If the command produces output, treat it as a preamble to your QA evaluation — pay extra attention to the flagged weak-spot categories when writing and reviewing tests. If the file doesn't exist or returns empty, skip silently.
 
 Quick does not mean skip testing. Before committing:
 

@@ -68,6 +68,7 @@ PROJECT or FEATURE or SCAN
 | `/user:gsd-t-version-update` | Update GSD-T to latest version |
 | `/user:gsd-t-version-update-all` | Update GSD-T + all registered projects |
 | `/user:gsd-t-triage-and-merge` | Auto-review, merge, and publish GitHub branches |
+| `/user:gsd-t-audit` | Harness self-audit — analyze cost/benefit of enforcement components |
 | `/user:gsd-t-backlog-add` | Capture item, auto-categorize, append to backlog |
 | `/user:gsd-t-backlog-list` | Filtered, ordered view of backlog items |
 | `/user:gsd-t-backlog-move` | Reorder items by position (priority) |
@@ -306,6 +307,8 @@ Report format: 'Unit: X/Y pass | E2E: X/Y pass (or N/A if no config) | Contract:
 
 **QA failure OR shallow tests found blocks phase completion.** Lead cannot proceed until QA reports PASS with zero shallow tests, or user explicitly overrides.
 
+**QA Calibration Feedback Loop** — If `bin/qa-calibrator.js` exists in the project, the system tracks QA miss-rates (bugs found by Red Team that QA missed) and automatically injects targeted guidance into future QA prompts. Weak-spot categories (error paths, boundary inputs, state transitions) are detected from miss patterns and injected as a preamble before the QA subagent runs. Projects without `qa-miss-log.jsonl` data behave identically to baseline — calibration is fully opt-in and backward compatible.
+
 ## Red Team — Adversarial QA (Mandatory)
 
 After QA passes, every code-producing command spawns a **Red Team agent** — an adversarial subagent whose success is measured by bugs found, not tests passed. This inverts the incentive structure: the Red Team's drive toward "task complete" means digging deeper and finding more bugs, not rubber-stamping.
@@ -337,6 +340,8 @@ This gives the user real-time visibility into which model is handling each opera
 - `model: haiku` — strictly mechanical tasks: run test suites and report counts, check file existence, validate JSON structure, branch guard checks
 - `model: sonnet` — mid-tier reasoning: routine code changes, standard refactors, test writing, QA evaluation, straightforward synthesis
 - `model: opus` — high-stakes reasoning: architecture decisions, security analysis, complex debugging, cross-module refactors, Red Team adversarial QA, quality judgment on critical paths
+
+**Token-Aware Orchestration** — If `bin/token-budget.js` exists, the system checks session token consumption before each subagent spawn in `execute`, `wave`, and `quick`. Graduated degradation: `downgrade` applies model overrides (opus→sonnet, sonnet→haiku), `conserve` checkpoints progress and skips non-essential phases, `stop` halts cleanly with a resume instruction. Projects without `token-budget.js` behave identically to baseline — token awareness is fully backward compatible.
 
 ## API Documentation Guard (Swagger/OpenAPI)
 
