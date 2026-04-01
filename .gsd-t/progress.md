@@ -12,9 +12,11 @@
 - Files: gsd-t-execute.md, gsd-t-quick.md, gsd-t-integrate.md, gsd-t-debug.md, CLAUDE-global.md, project CLAUDE.md
 - Note: ~/.claude/CLAUDE.md syncs on next version-update-all (not edited directly to avoid permission prompt)
 
-**M31: Self-Calibrating QA + Token-Aware Orchestration** — DEFINED (v2.52.10)
+**M31: Self-Calibrating QA + Token-Aware Orchestration** — PLANNED (v2.52.10)
 - Enhancements 3.1 (Harness Audit) + 3.2 (QA Calibration) + 3.7 (Token-Aware Orchestration)
 - PRD: docs/prd-harness-evolution.md
+- 4 domains: harness-audit, qa-calibrator, token-orchestrator, command-integration
+- Contracts: harness-audit-contract.md, qa-calibration-contract.md, token-budget-contract.md
 
 **M32: Quality Culture & Design** — DEFINED (v2.53.10)
 - Enhancements 3.3 (Quality North Star) + 3.4 (Design Brief) + 3.5 (Evaluator Interactivity)
