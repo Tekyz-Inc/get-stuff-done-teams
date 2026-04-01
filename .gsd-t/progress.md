@@ -3,7 +3,7 @@
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: IN PROGRESS
 ## Date: 2026-03-25
-## Version: 2.51.10
+## Version: 2.52.10
 
 ## Active Milestone
 
@@ -12,11 +12,14 @@
 - Files: gsd-t-execute.md, gsd-t-quick.md, gsd-t-integrate.md, gsd-t-debug.md, CLAUDE-global.md, project CLAUDE.md
 - Note: ~/.claude/CLAUDE.md syncs on next version-update-all (not edited directly to avoid permission prompt)
 
-**M31: Self-Calibrating QA + Token-Aware Orchestration** — PLANNED (v2.52.10)
+**M31: Self-Calibrating QA + Token-Aware Orchestration** — COMPLETE (v2.52.10)
 - Enhancements 3.1 (Harness Audit) + 3.2 (QA Calibration) + 3.7 (Token-Aware Orchestration)
 - PRD: docs/prd-harness-evolution.md
-- 4 domains: harness-audit, qa-calibrator, token-orchestrator, command-integration
-- Contracts: harness-audit-contract.md, qa-calibration-contract.md, token-budget-contract.md
+- 4 domains: harness-audit (3 tasks), qa-calibrator (2 tasks), token-orchestrator (2 tasks), command-integration (4 tasks) = 11 tasks
+- New: bin/component-registry.js, bin/qa-calibrator.js, bin/token-budget.js, commands/gsd-t-audit.md
+- Wired into: execute, quick, integrate, wave, complete-milestone, status, help
+- Tests: 828 total (88 new for M31 modules)
+- Archived: .gsd-t/milestones/M31-self-calibrating-qa-2026-04-01/
 
 **M32: Quality Culture & Design** — DEFINED (v2.53.10)
 - Enhancements 3.3 (Quality North Star) + 3.4 (Design Brief) + 3.5 (Evaluator Interactivity)
