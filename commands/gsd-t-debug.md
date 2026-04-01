@@ -373,7 +373,7 @@ Before spawning — run via Bash:
 `T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M") && TOK_START=${CLAUDE_CONTEXT_TOKENS_USED:-0} && TOK_MAX=${CLAUDE_CONTEXT_TOKENS_MAX:-200000}`
 
 ```
-Task subagent (general-purpose, model: sonnet):
+Task subagent (general-purpose, model: opus):
 "You are a Red Team QA adversary. Your job is to BREAK the fix that was just applied.
 
 Your value is measured by REAL bugs found. More bugs = more value.

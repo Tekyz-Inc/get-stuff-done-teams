@@ -357,7 +357,65 @@
 - [ ] Pre-mortem in plan surfaces historical failure patterns for current domain types
 - [ ] All existing tests pass with no regressions
 
-### Milestone M27: Cross-Project Learning & Global Sync (Tier 2.5) — v2.45.10
+### Milestone M27: Cross-Project Learning & Global Sync (Tier 2.5) — v2.45.10 COMPLETE
+
+---
+
+## Feature: Harness Evolution — Self-Calibrating Quality Infrastructure
+**Added**: 2026-04-01
+**Context**: Analysis of Anthropic's "Harness Design for Long-Running Apps" engineering article revealed 6 gaps in GSD-T's quality infrastructure. Combined with token-budget constraints on the $200 Max plan and a QA model tier gap (QA running on Haiku), this feature adds 8 enhancements across 3 milestones plus a pre-milestone change. PRD: `docs/prd-harness-evolution.md`. Analysis: `docs/harness-design-analysis.md`.
+
+### Pre-Milestone: Refined Model Tiers (v2.51.11)
+**Goal**: Promote QA from Haiku to Sonnet, Red Team to Opus. Narrow Haiku to strictly mechanical tasks.
+**Scope**:
+- `commands/gsd-t-execute.md` — QA model: haiku → sonnet, Red Team model annotation
+- `commands/gsd-t-quick.md` — QA model annotation
+- `commands/gsd-t-integrate.md` — QA model annotation
+- `templates/CLAUDE-global.md` — model assignment table
+**Impact on existing**: Search-and-replace only. No new infrastructure.
+**Success criteria**:
+- [ ] QA subagent prompts specify model: sonnet (not haiku)
+- [ ] Red Team subagent prompts specify model: opus
+- [ ] CLAUDE-global model assignment table updated
+- [ ] All tests pass
+
+### Milestone M31: Self-Calibrating QA + Token-Aware Orchestration (Tier 1) — v2.52.10
+**Goal**: GSD-T can measure its own component effectiveness, calibrate QA based on miss rates, and manage session-level token budgets on the Max plan.
+**Scope**:
+- Enhancement 3.1: Harness Audit — `gsd-t-audit` command, component registry, shadow mode, cost/benefit ledger
+- Enhancement 3.2: QA Calibration — `bin/qa-calibrator.js`, miss-rate tracking, dynamic weak-spot injection
+- Enhancement 3.7: Token-Aware Orchestration — `bin/token-budget.js`, graduated degradation, pre-flight checks
+**Impact on existing**: Adds 1 new command (count → 52), 2 new bin files, extends execute/quick/integrate/complete-milestone/status/wave
+**Success criteria**:
+- [ ] Component registry lists all enforcement mechanisms with token cost estimates
+- [ ] `gsd-t-audit` can disable a named component and run comparison tasks
+- [ ] QA miss rates tracked per category, weak spots (>30%) injected into QA prompts
+- [ ] Token budget tracked per session with graduated degradation at 60/70/85/95%
+- [ ] All tests pass
+
+### Milestone M32: Quality Culture & Design (Tier 2) — v2.53.10
+**Goal**: Raise quality ceiling through aspirational framing, aesthetic coherence, and interactive evaluation.
+**Scope**:
+- Enhancement 3.3: Quality North Star — project-level quality persona prepended to subagent prompts
+- Enhancement 3.4: Design Brief — `.gsd-t/contracts/design-brief.md` for UI-heavy projects
+- Enhancement 3.5: Evaluator Interactivity — Playwright MCP access for exploratory testing
+**Impact on existing**: Extends init/setup/partition/execute/quick/debug/integrate/wave
+**Success criteria**:
+- [ ] Quality persona injected before stack rules in all subagent prompts
+- [ ] Design brief generated during partition for UI-heavy projects
+- [ ] Exploratory testing via Playwright MCP after scripted tests pass
+- [ ] All tests pass
+
+### Milestone M33: Adaptive Iteration (Tier 3) — v2.54.10
+**Goal**: Replace hardcoded 2-attempt limit with complexity-aware iteration budgets.
+**Scope**:
+- Enhancement 3.6: Configurable Iteration Budget — project/domain/task level overrides, complexity scoring
+**Impact on existing**: Extends plan/execute/quick/debug/wave/test-sync/verify
+**Success criteria**:
+- [ ] Plan assigns complexity-based default budgets per task
+- [ ] Execute respects task budget instead of hardcoded 2
+- [ ] Headless debug loop activates only after full budget exhaustion
+- [ ] All tests pass
 **Goal**: Propagate proven rules across projects, enable cross-project comparison using signal-type distributions, and eventually ship validated rules in the npm package.
 **Scope**:
 - Dual-layer learning architecture:

@@ -36,7 +36,7 @@ In solo mode, QA runs inside each domain subagent (see Step 3). In team mode, th
 
 **QA subagent prompt:**
 ```
-Task subagent (general-purpose, model: haiku):
+Task subagent (general-purpose, model: sonnet):
 "Run the full test suite for this project and report pass/fail counts.
 Read .gsd-t/contracts/ for contract definitions.
 Write edge case tests for any new code paths in this task: {task description}.
@@ -274,7 +274,7 @@ Execute the task above:
     - Completed after a fix → prefix `[learning]`
     - Deferred to .gsd-t/deferred-items.md → prefix `[deferred]`
     - Failed after 3 attempts → prefix `[failure]`
-11. Spawn QA subagent (model: haiku) after completing the task:
+11. Spawn QA subagent (model: sonnet) after completing the task:
     'Run ALL configured test suites — detect and run every one:
      a. Unit tests (vitest/jest/mocha): run the full suite, report pass/fail counts
      b. E2E tests: check for playwright.config.* or cypress.config.* — if found, run the FULL E2E suite
@@ -580,7 +580,7 @@ Before spawning — run via Bash:
 `T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M") && TOK_START=${CLAUDE_CONTEXT_TOKENS_USED:-0} && TOK_MAX=${CLAUDE_CONTEXT_TOKENS_MAX:-200000}`
 
 ```
-Task subagent (general-purpose, model: sonnet):
+Task subagent (general-purpose, model: opus):
 "You are a Red Team QA adversary. Your job is to BREAK the code that was just written.
 
 Your value is measured by REAL bugs found. More bugs = more value.

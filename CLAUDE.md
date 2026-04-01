@@ -160,9 +160,9 @@ After every domain/phase completes, the orchestrator checks its own CTX_PCT. If 
 `| {DT_START} | {command} | Step {N} | {model} | {DURATION}s | {severity} | {finding} |`
 
 **Model assignments:**
-- `model: haiku` — mechanical tasks: run tests, count pass/fail, validate structure, check file existence, report status
-- `model: sonnet` — mid-tier reasoning: routine code changes, standard refactors, test writing, straightforward synthesis
-- `model: opus` — high-stakes reasoning: architecture decisions, security analysis, complex debugging, cross-module refactors, quality judgment on critical paths
+- `model: haiku` — strictly mechanical tasks: run test suites and report counts, check file existence, validate JSON structure, branch guard checks
+- `model: sonnet` — mid-tier reasoning: routine code changes, standard refactors, test writing, QA evaluation, straightforward synthesis
+- `model: opus` — high-stakes reasoning: architecture decisions, security analysis, complex debugging, cross-module refactors, Red Team adversarial QA, quality judgment on critical paths
 
 ## GSD-T Workflow
 

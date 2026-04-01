@@ -7,6 +7,21 @@
 
 ## Active Milestone
 
+**Pre-Milestone: Refined Model Tiers** — COMPLETE (v2.51.11)
+- QA model promotion Haiku → Sonnet, Red Team → Opus, Haiku narrowed to mechanical-only
+- Files: gsd-t-execute.md, gsd-t-quick.md, gsd-t-integrate.md, gsd-t-debug.md, CLAUDE-global.md, project CLAUDE.md
+- Note: ~/.claude/CLAUDE.md syncs on next version-update-all (not edited directly to avoid permission prompt)
+
+**M31: Self-Calibrating QA + Token-Aware Orchestration** — DEFINED (v2.52.10)
+- Enhancements 3.1 (Harness Audit) + 3.2 (QA Calibration) + 3.7 (Token-Aware Orchestration)
+- PRD: docs/prd-harness-evolution.md
+
+**M32: Quality Culture & Design** — DEFINED (v2.53.10)
+- Enhancements 3.3 (Quality North Star) + 3.4 (Design Brief) + 3.5 (Evaluator Interactivity)
+
+**M33: Adaptive Iteration** — DEFINED (v2.54.10)
+- Enhancement 3.6 (Configurable Iteration Budget)
+
 **M30: Stack Rules Engine — Execute-Time Best Practice Enforcement** — COMPLETE (v2.48.10)
 - Stack detection + best practice injection: 4 templates (_security.md, react.md, typescript.md, node-api.md), detection wired into execute/quick/integrate/wave/debug, QA enforcement, 135 new tests
 - 2 domains: stack-templates (3 tasks), command-integration (4 tasks)
@@ -360,6 +375,7 @@ Wave 4: adaptive-replan (consumes fresh-dispatch summaries, integrates with work
 
 ## Decision Log
 (Entries before 2026-02-16 reconstructed from git history with timestamps)
+- 2026-04-01 10:00: [design] PRD-HARNESS-001 created (docs/prd-harness-evolution.md) — "Harness Evolution: Self-Calibrating Quality Infrastructure." 6 enhancements across 3 tiers (M31-M33): Harness Audit Capability (component ROI measurement + selective disable), QA Calibration Feedback Loop (Red Team miss rates → QA prompt tuning), Quality North Star Injection (aspirational quality persona in subagent prompts), Design Brief Artifact (aesthetic coherence for UI projects), Evaluator Interactivity (Playwright MCP for exploratory QA/Red Team testing), Configurable Iteration Budget (adaptive fix attempts replacing hardcoded 2). Inspired by Anthropic's "Harness Design for Long-Running Apps" findings. All additive, backward compatible, zero new dependencies. Version targets: v2.52.10 (M31), v2.53.10 (M32), v2.54.10 (M33).
 - 2026-03-25 18:00: [feature] Red Team — Adversarial QA agent added to execute, quick, integrate, and debug commands. Spawns after builder's tests pass with inverted incentives (success = bugs found). Exhaustive attack categories: contract violations, boundary inputs, state transitions, error paths, missing flows, regression, E2E functional gaps. VERDICT: FAIL (blocks completion) or GRUDGING PASS (exhaustive search, nothing found). False positive penalty prevents phantom bugs. Updated CLAUDE-global template, global CLAUDE.md, GSD-T-README, README. Design rationale: separation of interest (Red Team didn't build the code), inverted incentives (finding bugs is success), statistical gravity works FOR testing instead of against it.
 - 2026-03-25 16:30: [feature] Stack Rules Engine expanded: 4 → 27 stack rule files. Added _auth.md (universal), fastapi.md, llm.md (with RAG section), prisma.md, queues.md (5 new files this session). Previously added 18 files (python, flutter, tailwind, react-native, vite, nextjs, vue, docker, postgresql, github-actions, rest-api, supabase, firebase, graphql, zustand, redux, neo4j, playwright). Project-level override support via .gsd-t/stacks/. Detection refactored to helper functions (_sf/_add). v2.50.11 → v2.50.12.
 - 2026-03-25: [feature] Stack Rules Engine expanded: 4 → 22 stack rule files. Added python, flutter, tailwind, react-native, vite, nextjs, vue, docker, postgresql (with graph-in-SQL), github-actions, rest-api, supabase, firebase, graphql, zustand, redux, neo4j, playwright. react.md expanded with 3 new sections. Detection updated in execute/quick/debug. v2.49.10 → v2.50.10.
@@ -612,6 +628,7 @@ Wave 4: adaptive-replan (consumes fresh-dispatch summaries, integrates with work
 - 2026-03-04 12:00: M14 planned — 10 tasks across 3 domains. Wave 1: event-stream 4 tasks (event-writer.js + heartbeat enrichment + bin/gsd-t.js + init.md). Wave 2: learning-loop 3 tasks (execute.md + debug.md + wave.md) + reflect 2 tasks (complete-milestone.md + gsd-t-reflect.md). Wave 3: reflect 1 task (4 reference files). Key decisions: event-writer is a CLI tool installed to ~/.claude/scripts/ (same pattern as gsd-t-tools.js); heartbeat enrichment maps SubagentStart/Stop/PostToolUse to events/ schema inline (no child process spawn from hook for performance); outcome tagging is additions-only to command files; distillation requires user confirmation before CLAUDE.md write.
 - 2026-03-04 11:45: M14 partitioned into 3 domains. event-stream (schema + event-writer.js + heartbeat enrichment + bin/gsd-t.js + gsd-t-init.md); learning-loop (execute.md + debug.md + wave.md — outcome tagging + pre-task retrieval + phase transition events); reflect (gsd-t-reflect.md new command + complete-milestone.md distillation step + 4 reference files). Contracts: event-schema-contract.md (authoritative event schema) + integration-points.md updated. Assumption audit: Reflexion pattern = INSPECT, OpenTelemetry naming = INSPECT, outcome tagging = new entries only, retrieval = grep-based, distillation = user-confirms before write, pattern threshold = within milestone events.
 - 2026-03-04 11:30: Milestone 14 defined — Execution Intelligence Layer: JSONL event stream (.gsd-t/events/), outcome-tagged Decision Log, pre-task experience retrieval (Reflexion pattern), phase transition logging with rationale, distillation step in complete-milestone, gsd-t-reflect command. M15 (Real-Time Agent Dashboard) planned as sequel — SSE server + React Flow dashboard + gsd-t-visualize command. Brainstorm evidence: parallel research on agent observability (OpenTelemetry GenAI), memory systems (Reflexion: 91% vs 80% pass@1), and real-time visualization (React Flow + Dagre + SSE). Dashboard mockup at scripts/gsd-t-dashboard-mockup.html.
+- 2026-04-01 14:30: [success] Harness Evolution feature defined — 8 enhancements across Pre-Milestone + M31-M33 from Anthropic harness design analysis. PRD: docs/prd-harness-evolution.md. Analysis: docs/harness-design-analysis.md. Decision: keep 3-tier model strategy (Opus/Sonnet/Haiku) due to $200 Max plan token ceiling; promote QA to Sonnet, Red Team to Opus as immediate pre-milestone change. Roadmap updated.
 - 2026-03-04 13:00: M14 event-stream Task 1 — created scripts/gsd-t-event-writer.js (zero-dep CLI + module.exports; validates 8 event_type + 5 outcome values; resolves events dir from GSD_T_PROJECT_DIR or cwd; creates .gsd-t/events/ if missing; symlink-safe; exit codes 0/1/2; 26 new tests in test/event-stream.test.js)
 - 2026-03-04 13:00: M14 event-stream Task 4 — updated commands/gsd-t-init.md Step 3 to show and create .gsd-t/events/ directory alongside contracts/ and domains/
 - 2026-03-04 13:00: M14 event-stream Task 2 — enriched scripts/gsd-t-heartbeat.js: added buildEventStreamEntry() mapping SubagentStart/Stop/PostToolUse to events/ schema; added appendToEventsFile() writing YYYY-MM-DD.jsonl with symlink guard; called both after heartbeat write in main handler; existing heartbeat-{sid}.jsonl writes unchanged; 8 new tests cover buildEventStreamEntry, 2 test appendToEventsFile
