@@ -1,5 +1,6 @@
 | Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Tokens | Compacted |
 |----------------|--------------|---------|------|-------|-------------|-------|--------|-----------|
+| 2026-04-01 18:11 | 2026-04-01 18:15 | gsd-t-integrate | Step 5 | sonnet | 240s | PASS — 9/9 gates, 0 boundary violations, E2E N/A | 0 | null |
 | 2026-03-09 10:42 | 2026-03-09 10:52 | gsd-t-scan | Step 2-8 | sonnet | 624s | Scan #8 complete — 5-dim parallel analysis, 31 open items confirmed, 205/205 tests pass | 0 | null |
 | 2026-03-09 10:38 | 2026-03-09 10:46 | gsd-t-scan | Step 2-7 | sonnet | 469s | Scan #9 complete — 5-dim analysis, 4 new debt items, visual report generated | 0 | null |
 | 2026-03-04 13:21 | 2026-03-04 13:22 | gsd-t-plan | Step 7 | haiku | 50s | PASS, iteration 1 | 0 | null |
@@ -43,3 +44,4 @@
 | 2026-03-24 14:46 | 2026-03-24 14:49 | gsd-t-execute | task:1 | sonnet | 189s | pass | 0 | null | doc-ripple-agent | task-1 | N/A |
 
 | 2026-03-24 14:49 | 2026-03-24 14:49 | gsd-t-visualize | Step 0 | sonnet | 42s | dashboard launched | 0 | null | | | N/A || 2026-04-01 17:44 | 2026-04-01 17:44 | gsd-t-plan | Step 7 | haiku | 9s | PASS, iteration 1 | 0 | null | | | N/A |
+| 2026-04-01 17:50 | 2026-04-01 17:55 | gsd-t-execute | M32/all-tasks | sonnet | 332s | PASS — 3/3 tasks, 9/9 gates | 0 | null | quality-persona+design-brief+evaluator-interactivity | task-1x3 | N/A |
