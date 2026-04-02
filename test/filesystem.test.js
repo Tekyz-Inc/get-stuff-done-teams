@@ -32,7 +32,7 @@ const CLI = path.join(PKG_ROOT, "bin", "gsd-t.js");
 let tmpDir;
 
 before(() => {
-  tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "gsd-t-test-"));
+  tmpDir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "gsd-t-test-")));
 });
 
 after(() => {

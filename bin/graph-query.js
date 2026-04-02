@@ -35,6 +35,7 @@ function selectProvider() {
 
 function resetSession() {
   sessionProvider = null;
+  _lastFreshnessCheck = 0;
 }
 
 // --- Native provider ---

@@ -12,7 +12,7 @@ const store = require('../bin/graph-store');
 let tmpDir;
 
 before(() => {
-  tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gsd-t-query-'));
+  tmpDir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'gsd-t-query-')));
 });
 
 after(() => {
