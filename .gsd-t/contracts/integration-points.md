@@ -1,6 +1,74 @@
 # Integration Points
 
-## Current State: Milestone 30 — Stack Rules Engine (PARTITIONED — 2 domains)
+## Current State: Milestone 32 — Quality Culture & Design (PARTITIONED — 3 domains)
+
+## M32 Dependency Graph
+
+### Wave 1: All domains are INDEPENDENT and parallel-safe
+
+All three M32 domains touch distinct files with no shared ownership:
+- quality-persona: templates/CLAUDE-project.md, gsd-t-init.md, gsd-t-setup.md
+- design-brief: gsd-t-partition.md, gsd-t-plan.md, gsd-t-setup.md (different sections)
+- evaluator-interactivity: gsd-t-execute.md, gsd-t-quick.md, gsd-t-integrate.md, gsd-t-debug.md
+
+> Note: both quality-persona and design-brief touch gsd-t-setup.md but in different sections
+> (persona config vs. design brief generation). This is safe as long as edits are to distinct
+> steps and do not conflict. Execute these tasks in the same session but with non-overlapping
+> section targets, or run them sequentially.
+
+### Shared File Alert: gsd-t-setup.md
+
+| Domain           | Section Target in gsd-t-setup.md        |
+|------------------|------------------------------------------|
+| quality-persona  | New step: persona configuration option   |
+| design-brief     | New step: design brief generation option |
+
+**Resolution**: These are additive new steps in different locations within the file. The execute agent must apply both changes in a single pass to avoid merge conflicts.
+
+### Checkpoint: M32 Complete
+
+- GATE: `templates/CLAUDE-project.md` contains `## Quality North Star` section with preset options
+- GATE: `commands/gsd-t-init.md` contains persona detection/selection step
+- GATE: `commands/gsd-t-setup.md` contains both persona config AND design brief generation options
+- GATE: `commands/gsd-t-partition.md` contains design brief detection/generation step
+- GATE: `commands/gsd-t-plan.md` contains note referencing design brief for UI tasks
+- GATE: `commands/gsd-t-execute.md` contains exploratory testing block in QA/Red Team section
+- GATE: `commands/gsd-t-quick.md` contains exploratory testing block
+- GATE: `commands/gsd-t-integrate.md` contains exploratory testing block
+- GATE: `commands/gsd-t-debug.md` contains exploratory testing block
+- VERIFY: All exploratory blocks skip silently when Playwright MCP not available
+- VERIFY: Persona injection skips silently when `## Quality North Star` section absent
+- VERIFY: Design brief generation skips for non-UI projects
+
+## M32 Detailed Dependency Graph
+
+```
+quality-persona Task 1 — INDEPENDENT, parallel-safe
+  - templates/CLAUDE-project.md (new section)
+  - commands/gsd-t-init.md (new step)
+  - commands/gsd-t-setup.md (new option — section A)
+
+design-brief Task 1 — INDEPENDENT, parallel-safe (caution: gsd-t-setup.md shared)
+  - commands/gsd-t-partition.md (new detection step)
+  - commands/gsd-t-plan.md (new reference note)
+  - commands/gsd-t-setup.md (new option — section B, different from quality-persona's)
+
+evaluator-interactivity Task 1 — INDEPENDENT, parallel-safe
+  - commands/gsd-t-execute.md (exploratory block)
+  - commands/gsd-t-quick.md (exploratory block)
+  - commands/gsd-t-integrate.md (exploratory block)
+  - commands/gsd-t-debug.md (exploratory block)
+
+All three tasks complete → CHECKPOINT: M32 Complete
+```
+
+## M32 Execution Recommendation
+
+Run all three tasks in the same execute session. Since evaluator-interactivity touches 4 different files from the other two domains, it is fully parallel-safe. The quality-persona + design-brief tasks share gsd-t-setup.md — execute them sequentially (quality-persona first, then design-brief) to apply both changes in one file pass.
+
+---
+
+## Previous State: Milestone 30 — Stack Rules Engine (PARTITIONED — 2 domains)
 
 ## M30 Dependency Graph
 

@@ -21,8 +21,12 @@
 - Tests: 828 total (88 new for M31 modules)
 - Archived: .gsd-t/milestones/M31-self-calibrating-qa-2026-04-01/
 
-**M32: Quality Culture & Design** — DEFINED (v2.53.10)
+**M32: Quality Culture & Design** — PARTITIONED (v2.53.10)
 - Enhancements 3.3 (Quality North Star) + 3.4 (Design Brief) + 3.5 (Evaluator Interactivity)
+- 3 domains: quality-persona (1 task), design-brief (1 task), evaluator-interactivity (1 task) = 3 tasks
+- All domains independent; gsd-t-setup.md shared between quality-persona and design-brief (different sections)
+- Contracts: quality-persona-contract.md, design-brief-contract.md, exploratory-testing-contract.md
+- Domain artifacts: scope.md + tasks.md + constraints.md created for all 3 domains
 
 **M33: Adaptive Iteration** — DEFINED (v2.54.10)
 - Enhancement 3.6 (Configurable Iteration Budget)
@@ -380,6 +384,7 @@ Wave 4: adaptive-replan (consumes fresh-dispatch summaries, integrates with work
 
 ## Decision Log
 (Entries before 2026-02-16 reconstructed from git history with timestamps)
+- 2026-04-01 18:00: [partition] M32 partitioned into 3 domains — quality-persona, design-brief, evaluator-interactivity. All independent (no sequential dependencies). gsd-t-setup.md is shared between quality-persona and design-brief but in distinct non-conflicting sections. 3 contracts created: quality-persona-contract.md (persona storage format + preset options), design-brief-contract.md (trigger conditions + file format), exploratory-testing-contract.md (Playwright MCP activation + time budgets + finding format). Assumption audit: no external references, no black-box dependencies, no ambiguous intent. Surface analysis: single consumer surface (Claude Code command files) — SharedCore not needed.
 - 2026-04-01 17:30: [housekeeping] Checkin: M32 milestone planning (3 domains), CI examples, framework comparison scorecard, .gitignore cleanup (desktop.ini/temp exclusions), package.json version drift fix (2.51.10 → 2.52.11), settings.local.json removed from tracking. Event logs through 2026-04-02.
 - 2026-04-01: [success] M31 command-integration domain COMPLETE — QA calibration injection wired into execute (Step 2), quick (Step 5), integrate (Step 5). Token budget check wired into execute (before each domain dispatch), quick (Step 0 before spawn), wave (Step 2.5 pre-flight + per-phase check). Harness audit wired into complete-milestone (new Step 2.5d: component impact + QA miss-rate logging) and status (new Harness Health section). Docs updated: gsd-t-help.md (audit command added), README.md (47 GSD-T + 5 utility = 52 total, new features), docs/GSD-T-README.md (audit in commands table), templates/CLAUDE-global.md (QA calibration + token-aware orchestration notes, audit in commands table), templates/CLAUDE-project.md (Daily Token Budget field placeholder), CLAUDE.md (52 commands). Test counts updated: 51→52 total, 46→47 gsd-t. 40/40 filesystem tests pass, 188/188 broader tests pass. All injections conditional — projects without M31 data behave identically to baseline.
 - 2026-04-01 10:00: [design] PRD-HARNESS-001 created (docs/prd-harness-evolution.md) — "Harness Evolution: Self-Calibrating Quality Infrastructure." 6 enhancements across 3 tiers (M31-M33): Harness Audit Capability (component ROI measurement + selective disable), QA Calibration Feedback Loop (Red Team miss rates → QA prompt tuning), Quality North Star Injection (aspirational quality persona in subagent prompts), Design Brief Artifact (aesthetic coherence for UI projects), Evaluator Interactivity (Playwright MCP for exploratory QA/Red Team testing), Configurable Iteration Budget (adaptive fix attempts replacing hardcoded 2). Inspired by Anthropic's "Harness Design for Long-Running Apps" findings. All additive, backward compatible, zero new dependencies. Version targets: v2.52.10 (M31), v2.53.10 (M32), v2.54.10 (M33).

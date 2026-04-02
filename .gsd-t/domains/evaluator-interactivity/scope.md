@@ -1,20 +1,19 @@
 # Domain: evaluator-interactivity
 
 ## Responsibility
-Give QA and Red Team agents access to Playwright MCP for interactive exploratory testing beyond scripted assertions.
+Give QA and Red Team agents access to Playwright MCP for interactive exploratory testing beyond scripted assertions. After all scripted tests pass, QA gets 3 minutes and Red Team gets 5 minutes of free-form interactive exploration. Findings are tagged [EXPLORATORY] and feed into the QA calibration loop (M31).
 
-## Files Owned
-- None (no new JS modules — this is a prompt engineering feature)
+## Owned Files/Directories
+- `commands/gsd-t-execute.md` — add exploratory testing block to QA/Red Team subagent prompts
+- `commands/gsd-t-quick.md` — add exploratory testing block to inline QA
+- `commands/gsd-t-integrate.md` — add exploratory testing block to integration QA/Red Team
+- `commands/gsd-t-debug.md` — add exploratory testing block to debug verification
 
-## Files Touched
-- `commands/gsd-t-execute.md` — add exploratory testing block to QA/Red Team prompts
-- `commands/gsd-t-quick.md` — same for inline QA
-- `commands/gsd-t-integrate.md` — same for integration QA/Red Team
-- `commands/gsd-t-debug.md` — same for debug verification
-
-## Constraints
-- Requires Playwright MCP to be registered in Claude Code settings
-- If MCP not available, skip silently (graceful degradation)
-- Time budget: 3 minutes QA, 5 minutes Red Team (configurable)
-- Exploratory findings tagged [EXPLORATORY] in reports
-- Scripted tests must pass BEFORE exploratory testing begins
+## NOT Owned (do not modify)
+- `commands/gsd-t-partition.md` — owned by design-brief domain
+- `commands/gsd-t-plan.md` — owned by design-brief domain
+- `commands/gsd-t-setup.md` — owned by design-brief and quality-persona domains
+- `commands/gsd-t-init.md` — owned by quality-persona domain
+- `templates/CLAUDE-project.md` — owned by quality-persona domain
+- `bin/gsd-t.js` — no changes needed (MCP check is prompt-level, not CLI-level)
+- `.gsd-t/contracts/qa-calibration-contract.md` — read-only reference (M31 owns this)
