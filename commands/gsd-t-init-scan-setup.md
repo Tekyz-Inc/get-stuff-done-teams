@@ -62,15 +62,11 @@ Execute the full init workflow (same as `/user:gsd-t-init`):
      }
      ```
      Log: "Created ~/.claude/settings.local with default permissions — update the allow list to match your security preferences."
-   - Then, if `.claude/settings.local.json` does NOT already exist in the project root:
-     - Create `.claude/` directory in the project root if needed
-     - Copy `~/.claude/settings.local` → `.claude/settings.local.json`
-   - Skip the copy silently if the target already exists
 6. Map existing codebase if code exists
 7. Initialize backlog with auto-derived categories
 8. Register project in `~/.claude/.gsd-t-projects`
 
-**If `.gsd-t/` already exists**: Skip init — it's already done. Log and continue to scan. Still check and copy settings.local (step 5) even if init is skipped.
+**If `.gsd-t/` already exists**: Skip init — it's already done. Log and continue to scan. Still check and create settings.local (step 5) even if init is skipped.
 
 ## Step 3.5: Graph Indexing Note
 

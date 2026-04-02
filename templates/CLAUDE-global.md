@@ -206,7 +206,6 @@ Only execute GSD-T workflow behavior when a `/gsd-t-*` command is invoked or whe
 Before executing any GSD-T workflow command, check if **any** of these files are missing in the current project:
 - `.gsd-t/progress.md`, `.gsd-t/backlog.md`, `.gsd-t/backlog-settings.md`
 - `.gsd-t/contracts/`, `.gsd-t/domains/`
-- `.claude/settings.local.json` (if `~/.claude/settings.local` exists)
 - `CLAUDE.md`, `README.md`
 - `docs/requirements.md`, `docs/architecture.md`, `docs/workflows.md`, `docs/infrastructure.md`
 

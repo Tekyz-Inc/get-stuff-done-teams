@@ -25,6 +25,7 @@ node_modules/
 
 # Claude Code internal directories
 .claude/worktrees/
+.claude/settings.local.json
 
 # Windows null device artifact
 nul
