@@ -153,7 +153,19 @@ c. NEVER skip E2E when a config file exists. Running only unit tests is a QA FAI
 d. AUDIT E2E test quality: Review each Playwright spec — if any test only checks element existence
    (isVisible, toBeAttached, toBeEnabled) without verifying functional behavior (state changes,
    data loaded, content updated after actions), flag it as 'SHALLOW TEST — needs functional assertions'.
-Report: 'Unit: X/Y pass | E2E: X/Y pass (or N/A if no config) | Boundary: pass/fail by contract | Shallow tests: N'"
+Report: 'Unit: X/Y pass | E2E: X/Y pass (or N/A if no config) | Boundary: pass/fail by contract | Shallow tests: N'
+
+## Exploratory Testing (if Playwright MCP available)
+
+After all scripted tests pass:
+1. Check if Playwright MCP is registered in Claude Code settings (look for "playwright" in mcpServers)
+2. If available: spend 3 minutes on interactive exploration using Playwright MCP
+   - Try variations of happy paths with unexpected inputs
+   - Probe for race conditions, double-submits, empty states
+   - Test accessibility (keyboard navigation, screen reader flow)
+3. Tag all findings [EXPLORATORY] in your report and append to .gsd-t/qa-issues.md with [EXPLORATORY] prefix
+4. If Playwright MCP is not available: skip this section silently
+Note: Exploratory findings do NOT count against the scripted test pass/fail ratio."
 ```
 
 **OBSERVABILITY LOGGING (MANDATORY):**
@@ -253,6 +265,18 @@ Rules:
 8. **Cross-Domain Boundaries**: Test data flow across EVERY domain boundary.
    Does data arriving from domain A get validated by domain B? What happens
    when domain A sends malformed data that passed A's own validation?
+
+## Exploratory Testing (if Playwright MCP available)
+
+After all scripted tests pass:
+1. Check if Playwright MCP is registered in Claude Code settings (look for "playwright" in mcpServers)
+2. If available: spend 5 minutes on adversarial interactive exploration using Playwright MCP
+   - Attempt race conditions, double-submits, concurrent access patterns
+   - Try unexpected input sequences, boundary values, rapid state transitions
+   - Probe error recovery: does the app recover after failures or get stuck?
+3. Tag all findings [EXPLORATORY] in your report
+4. If Playwright MCP is not available: skip this section silently
+Note: Exploratory findings are additive — they do not replace scripted test results.
 
 ## Report Format
 

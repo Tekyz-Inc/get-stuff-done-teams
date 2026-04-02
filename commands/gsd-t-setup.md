@@ -175,6 +175,82 @@ See `.gsd-t/progress.md` for current milestone/phase state.
 - **Include if relevant**: Where Things Live, Testing, Code Patterns, Environment Variables
 - **Omit if empty**: Deployed URLs (if not deployed), Architecture (if trivial), Workflow Preferences (if no overrides)
 
+## Step 5.5: Quality North Star Configuration
+
+After generating the CLAUDE.md content (Step 5) and before presenting it to the user, offer a Quality North Star section if one is not already present.
+
+**Skip this step if the existing or generated CLAUDE.md already contains `## Quality North Star`.**
+
+Ask the user:
+```
+Would you like to define a Quality North Star for this project?
+This is a 1–3 sentence quality identity that subagents read at execute time to calibrate
+their judgment. It does not add procedural rules — it shapes what "excellent" means here.
+
+Options:
+  [1] library  — "Published npm library: intuitive API, well-documented, backward-compatible, type-safe, zero-dep."
+  [2] web-app  — "User-facing app: accessible, performant, visually consistent. UX is the product."
+  [3] cli      — "Developer CLI: fast, predictable, clear output. Error messages explain what went wrong and how to fix it."
+  [4] custom   — Write your own 1–3 sentences
+  [5] skip     — No Quality North Star (can add later via /user:gsd-t-setup)
+```
+
+If the user picks 1–3, use the corresponding preset text from the table below.
+If the user picks 4, ask: "Describe what 'excellent' means for this project in 1–3 sentences."
+If the user picks 5, skip the section entirely.
+
+| Preset ID | Text |
+|-----------|------|
+| `library` | `This is a published npm library. Every public API must be intuitive, well-documented, and backward-compatible. Type safety and zero-dependency design are non-negotiable.` |
+| `web-app` | `This is a user-facing web application. Every feature must be accessible, performant, and visually consistent. The user experience is the product.` |
+| `cli` | `This is a developer CLI tool. Every command must be fast, predictable, and produce clear output. Error messages must explain what went wrong and how to fix it.` |
+
+Insert the chosen section into the generated CLAUDE.md content before `## GSD-T Workflow`:
+
+```markdown
+## Quality North Star
+
+{selected preset text or custom text}
+```
+
+If the project already has a `CLAUDE.md` with `## Quality North Star`, the generated file preserves the existing section. Do not overwrite user-customized personas.
+
+## Step 5.6: Design Brief Generation (UI Projects)
+
+After the Quality North Star step, check for UI/frontend signals in this project. If detected, offer to generate a design brief.
+
+**Skip this step if `.gsd-t/contracts/design-brief.md` already exists** — user-customized briefs are authoritative. Log: "Design brief: skipped — existing brief preserved."
+
+### Detection — check for ANY of the following
+
+| Signal | How to check |
+|--------|-------------|
+| React, Vue, Svelte, Next.js | in `package.json` dependencies |
+| Flutter | `pubspec.yaml` exists |
+| CSS/SCSS files | `.css`, `.scss`, `.sass` files in project |
+| Component files | `.jsx`, `.tsx`, `.svelte`, `.vue` files in project |
+| Tailwind config | `tailwind.config.js` or `tailwind.config.ts` exists |
+
+If NO signals detected → skip this step entirely. Do not mention it to the user.
+
+If signals detected, ask the user:
+```
+UI/frontend signals detected ({list signals found}).
+Would you like to generate a design brief at .gsd-t/contracts/design-brief.md?
+This gives subagents a consistent visual language reference (colors, typography, spacing, patterns).
+
+  [1] Yes — generate now (sources: Tailwind config if exists, then project defaults)
+  [2] No — skip for now (can generate later by re-running /user:gsd-t-setup)
+```
+
+If user picks 1: generate `.gsd-t/contracts/design-brief.md` using the format defined in `.gsd-t/contracts/design-brief-contract.md` (or the standard format):
+- Extract color palette from `tailwind.config.js/ts` → `theme.colors` if available; else use web defaults
+- Extract fonts from `theme.fontFamily` if available; else use system fonts
+- Read `## Quality North Star` from `CLAUDE.md` for Tone & Voice (skip if absent)
+- Fill remaining fields with sensible defaults and `{placeholder}` markers for user to complete
+
+Log in `.gsd-t/progress.md` Decision Log (if `.gsd-t/` exists): `- {date}: Design brief generated at .gsd-t/contracts/design-brief.md`
+
 ## Step 6: Present and Confirm
 
 Show the generated CLAUDE.md content to the user with a summary:

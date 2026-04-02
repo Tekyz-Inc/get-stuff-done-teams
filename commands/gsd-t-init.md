@@ -183,6 +183,46 @@ This project uses contract-driven development.
 
 If `CLAUDE.md` exists but doesn't reference GSD-T, append the GSD-T section.
 
+## Step 6.5: Set Quality North Star
+
+Detect the project type and offer a quality persona preset. This writes a `## Quality North Star` section to `CLAUDE.md` so subagents have a quality lens at execute time.
+
+**Skip this step if `CLAUDE.md` already contains `## Quality North Star`.**
+
+### Auto-detect project type
+
+Read `package.json` (if it exists) and apply the first matching rule:
+
+| Signal | Suggested preset |
+|--------|-----------------|
+| `"bin"` field present | `cli` |
+| `"react"`, `"next"`, or `"vue"` in `dependencies` or `devDependencies` | `web-app` |
+| `"main"` field present AND no `"scripts.dev"` field | `library` |
+| No strong signal | prompt user to choose |
+
+### Preset text
+
+| Preset ID | Text to write |
+|-----------|---------------|
+| `library` | `This is a published npm library. Every public API must be intuitive, well-documented, and backward-compatible. Type safety and zero-dependency design are non-negotiable.` |
+| `web-app` | `This is a user-facing web application. Every feature must be accessible, performant, and visually consistent. The user experience is the product.` |
+| `cli` | `This is a developer CLI tool. Every command must be fast, predictable, and produce clear output. Error messages must explain what went wrong and how to fix it.` |
+| `custom` | Ask user for a 1–3 sentence description of what "excellent" means for this project. |
+
+### Write to CLAUDE.md
+
+Append (or insert before `## GSD-T Workflow` if present):
+
+```markdown
+## Quality North Star
+
+{selected preset text or user-provided custom text}
+```
+
+If no `package.json` is found and this is a non-JS project, prompt the user to choose a preset or provide custom text.
+
+Log in `.gsd-t/progress.md` Decision Log: `- {date}: Quality North Star set — preset: {preset-id}`
+
 ## Step 7: Create docs/ if Needed
 
 If no `docs/` directory, create it with all 4 living document templates.

@@ -290,6 +290,87 @@ Owner: ui domain
 - Checkpoint: auth must complete Task 2 before UI starts Task 4
 ```
 
+## Step 3.5: Design Brief Detection (UI Projects Only)
+
+After writing contracts, check for UI/frontend signals. If found, generate `.gsd-t/contracts/design-brief.md` to give all subagents a consistent visual language reference.
+
+**Skip this step entirely if no UI signals are detected.**
+
+### Detection — check for ANY of the following
+
+| Signal | How to check |
+|--------|-------------|
+| React in stack | `"react"` in `package.json` `dependencies` or `devDependencies` |
+| Vue in stack | `"vue"` in `package.json` dependencies |
+| Svelte in stack | `"svelte"` in `package.json` dependencies |
+| Next.js in stack | `"next"` in `package.json` dependencies |
+| Flutter project | `pubspec.yaml` exists |
+| CSS/SCSS files in scope | `.css`, `.scss`, or `.sass` files present in the codebase |
+| Component files in scope | `.jsx`, `.tsx`, `.svelte`, or `.vue` files present |
+| Tailwind config exists | `tailwind.config.js` or `tailwind.config.ts` exists |
+
+If NONE of the above match → skip this step entirely. Log: "Design brief: skipped — no UI signals detected."
+
+**If `.gsd-t/contracts/design-brief.md` already exists → do NOT overwrite. Log: "Design brief: skipped — existing brief preserved." and continue.**
+
+### Generate `.gsd-t/contracts/design-brief.md`
+
+Source priority (use first source that provides a value):
+1. **Tailwind config** (`tailwind.config.js/ts`) — extract `theme.colors`, `theme.fontFamily`, `theme.spacing`
+2. **Design token files** (`theme.ts`, `tokens.css`, `design-tokens.json`) — extract token values
+3. **Quality North Star** (read `## Quality North Star` from `CLAUDE.md`) — use for Tone & Voice section (skip gracefully if absent)
+4. **Defaults** — sensible web defaults if no signals found (Tailwind defaults, system fonts, 4px spacing)
+
+Generate the file using this format:
+
+```markdown
+# Design Brief
+
+## Project
+{project name}
+
+## Color Palette
+| Role       | Value   | Usage                  |
+|------------|---------|------------------------|
+| Primary    | #000000 | CTA buttons, links     |
+| Secondary  | #000000 | Secondary actions      |
+| Background | #ffffff | Page background        |
+| Surface    | #f5f5f5 | Cards, panels          |
+| Error      | #ef4444 | Error states           |
+| Success    | #22c55e | Success states         |
+
+## Typography
+| Role      | Family    | Size     | Weight |
+|-----------|-----------|----------|--------|
+| Heading 1 | {font}    | 2rem     | 700    |
+| Heading 2 | {font}    | 1.5rem   | 600    |
+| Body      | {font}    | 1rem     | 400    |
+| Caption   | {font}    | 0.875rem | 400    |
+| Code      | monospace | 0.875rem | 400    |
+
+## Spacing System
+- Base unit: 4px
+- Scale: 4, 8, 12, 16, 24, 32, 48, 64, 96
+
+## Component Patterns
+- {e.g., "Use shadcn/ui primitives for all interactive elements"}
+- {e.g., "Card pattern: rounded-lg border shadow-sm p-4"}
+- {e.g., "Form pattern: label above input, error below"}
+
+## Layout Principles
+- {e.g., "Max content width: 1280px, centered"}
+- {e.g., "Mobile-first: stack to horizontal at md breakpoint"}
+
+## Interaction Patterns
+- {e.g., "Loading: skeleton screens, not spinners"}
+- {e.g., "Transitions: 150ms ease for state changes"}
+
+## Tone & Voice
+{Derived from Quality North Star or brand voice — e.g., "Professional but approachable. Error messages are friendly and actionable."}
+```
+
+Log in `.gsd-t/progress.md` Decision Log: `- {date}: Design brief generated at .gsd-t/contracts/design-brief.md — UI signals detected: {list of signals}`
+
 ## Step 4: Initialize Progress
 
 Write `.gsd-t/progress.md`:

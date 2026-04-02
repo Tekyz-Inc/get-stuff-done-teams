@@ -79,6 +79,7 @@ For each domain, write `.gsd-t/domains/{domain-name}/tasks.md`:
 ```
 
 ### Task Design Rules:
+0. **UI tasks — reference the design brief**: If `.gsd-t/contracts/design-brief.md` exists, UI task descriptions must reference it. Include a note like: "Follow the color palette, typography, spacing, and component patterns defined in `.gsd-t/contracts/design-brief.md`." This ensures visual consistency without repeating spec details in every task.
 1. **Atomic**: Each task produces a working, testable increment
 2. **Self-contained context**: A fresh agent with only CLAUDE.md, the domain's scope/constraints, the relevant contracts, and the task description should be able to execute it
 3. **File-scoped**: Each task lists exactly which files it touches — no surprises

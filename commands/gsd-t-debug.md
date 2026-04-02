@@ -360,6 +360,18 @@ Before committing, ensure the fix is solid:
 5. **Functional test quality**: Every E2E assertion must verify an action produced the correct outcome (state changed, data loaded, content updated) — not just that elements exist. Tests that only check `isVisible`/`toBeEnabled` are shallow layout tests and don't catch real bugs. If a test would pass on an empty HTML page with the right IDs, rewrite it.
 6. **Regression check**: Confirm the fix doesn't break any adjacent functionality
 
+### Exploratory Testing (if Playwright MCP available)
+
+After all scripted tests pass:
+1. Check if Playwright MCP is registered in Claude Code settings (look for "playwright" in mcpServers)
+2. If available: spend 3 minutes on interactive exploration using Playwright MCP
+   - Specifically probe the area around the bug fix — related flows, boundary conditions
+   - Try variations that might expose similar bugs nearby
+   - Test the fix path under edge input conditions
+3. Tag all findings [EXPLORATORY] in reports and append to .gsd-t/qa-issues.md
+4. If Playwright MCP is not available: skip this section silently
+Note: Exploratory findings do NOT count against the scripted test pass/fail ratio.
+
 Commit: `[debug] Fix {description} — root cause: {explanation}`
 
 ## Step 5.3: Red Team — Adversarial QA (MANDATORY)
@@ -408,6 +420,18 @@ Rules:
 8. **E2E Functional Gaps**: Review ALL Playwright specs. Do they test actual
    behavior (state changes, data loaded, navigation works) or just check
    that elements exist? Flag and rewrite any shallow/layout tests.
+
+## Exploratory Testing (if Playwright MCP available)
+
+After all scripted tests pass:
+1. Check if Playwright MCP is registered in Claude Code settings (look for "playwright" in mcpServers)
+2. If available: spend 5 minutes on adversarial interactive exploration using Playwright MCP
+   - Focus on the fixed area and adjacent code — regressions often lurk nearby
+   - Try the original bug reproduction path to confirm it is truly fixed
+   - Probe for variant bugs: same pattern in related code paths
+3. Tag all findings [EXPLORATORY] in your report
+4. If Playwright MCP is not available: skip this section silently
+Note: Exploratory findings are additive — they do not replace scripted test results.
 
 ## Report Format
 

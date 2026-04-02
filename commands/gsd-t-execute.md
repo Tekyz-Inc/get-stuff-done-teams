@@ -306,7 +306,19 @@ Execute the task above:
         every spec passes but no feature actually works is a QA FAILURE.
      Report format: "Unit: X/Y pass | E2E: X/Y pass (or N/A if no config) | Contract: compliant/violations | Shallow tests: N (list) | Stack rules: compliant/N violations"
      f. Validate compliance with Stack Rules (if injected in the work subagent's prompt).
-        Stack rule violations have the same severity as contract violations — report as failures, not warnings.'
+        Stack rule violations have the same severity as contract violations — report as failures, not warnings.
+
+     ## Exploratory Testing (if Playwright MCP available)
+
+     After all scripted tests pass:
+     1. Check if Playwright MCP is registered in Claude Code settings (look for "playwright" in mcpServers)
+     2. If available: spend 3 minutes on interactive exploration using Playwright MCP
+        - Try variations of happy paths with unexpected inputs
+        - Probe for race conditions, double-submits, empty states
+        - Test accessibility (keyboard navigation, screen reader flow)
+     3. Tag all findings [EXPLORATORY] in your report and append to .gsd-t/qa-issues.md with [EXPLORATORY] prefix
+     4. If Playwright MCP is not available: skip this section silently
+     Note: Exploratory findings do NOT count against the scripted test pass/fail ratio.'
     If QA fails OR shallow tests are found, fix before proceeding. Append issues to .gsd-t/qa-issues.md.
 12. Write task summary to .gsd-t/domains/{domain-name}/task-{task-id}-summary.md:
     ## Task {task-id} Summary — {domain-name}
@@ -632,6 +644,18 @@ Rules:
 7. **E2E Functional Gaps**: Review ALL Playwright specs. Do they test actual
    behavior (state changes, data loaded, navigation works) or just check
    that elements exist? Flag and rewrite any shallow/layout tests.
+
+## Exploratory Testing (if Playwright MCP available)
+
+After all scripted tests pass:
+1. Check if Playwright MCP is registered in Claude Code settings (look for "playwright" in mcpServers)
+2. If available: spend 5 minutes on adversarial interactive exploration using Playwright MCP
+   - Attempt race conditions, double-submits, concurrent access patterns
+   - Try unexpected input sequences, boundary values, rapid state transitions
+   - Probe error recovery: does the app recover after failures or get stuck?
+3. Tag all findings [EXPLORATORY] in your report
+4. If Playwright MCP is not available: skip this section silently
+Note: Exploratory findings are additive — they do not replace scripted test results.
 
 ## Report Format
 

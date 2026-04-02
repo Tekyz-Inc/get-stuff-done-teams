@@ -37,6 +37,23 @@
 <!-- each terminal's CLAUDE.md should declare its own expected branch. -->
 <!-- Example: Web terminal → master, Mobile terminal → Mobile -->
 
+## Quality North Star
+
+<!-- Define the quality identity of this project. Subagents read this section and apply it as a quality lens. -->
+<!-- Choose one of the presets below or write your own 1–3 sentence persona, then remove the others. -->
+
+<!-- PRESET: library (npm package, SDK, shared utility) -->
+<!-- This is a published npm library. Every public API must be intuitive, well-documented, and backward-compatible. Type safety and zero-dependency design are non-negotiable. -->
+
+<!-- PRESET: web-app (user-facing web application) -->
+<!-- This is a user-facing web application. Every feature must be accessible, performant, and visually consistent. The user experience is the product. -->
+
+<!-- PRESET: cli (developer CLI or command-line utility) -->
+<!-- This is a developer CLI tool. Every command must be fast, predictable, and produce clear output. Error messages must explain what went wrong and how to fix it. -->
+
+<!-- CUSTOM: replace this line with your own 1–3 sentence quality persona -->
+{Quality persona — describe what "excellent" means for this project}
+
 ## GSD-T Workflow
 This project uses contract-driven development.
 - State: .gsd-t/progress.md

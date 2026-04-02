@@ -225,6 +225,18 @@ Quick does not mean skip testing. Before committing:
    - If a contract exists for the interface touched, does the code still match?
 4. **No test framework?**: Set one up, or at minimum manually verify and document how in the commit message
 
+### Exploratory Testing (if Playwright MCP available)
+
+After all scripted tests pass:
+1. Check if Playwright MCP is registered in Claude Code settings (look for "playwright" in mcpServers)
+2. If available: spend 3 minutes on interactive exploration using Playwright MCP
+   - Try variations of happy paths with unexpected inputs
+   - Probe for race conditions, double-submits, empty states
+   - Test accessibility (keyboard navigation, screen reader flow)
+3. Tag all findings [EXPLORATORY] in reports and append to .gsd-t/qa-issues.md
+4. If Playwright MCP is not available: skip this section silently
+Note: Exploratory findings do NOT count against the scripted test pass/fail ratio.
+
 ## Step 5.5: Red Team — Adversarial QA (MANDATORY)
 
 After tests pass, spawn an adversarial Red Team agent. This agent's sole purpose is to BREAK the code that was just changed. Its success is measured by bugs found, not tests passed.
@@ -269,6 +281,18 @@ Rules:
 7. **E2E Functional Gaps**: Review ALL Playwright specs. Do they test actual
    behavior (state changes, data loaded, navigation works) or just check
    that elements exist? Flag and rewrite any shallow/layout tests.
+
+## Exploratory Testing (if Playwright MCP available)
+
+After all scripted tests pass:
+1. Check if Playwright MCP is registered in Claude Code settings (look for "playwright" in mcpServers)
+2. If available: spend 5 minutes on adversarial interactive exploration using Playwright MCP
+   - Attempt race conditions, double-submits, concurrent access patterns
+   - Try unexpected input sequences, boundary values, rapid state transitions
+   - Probe error recovery: does the app recover after failures or get stuck?
+3. Tag all findings [EXPLORATORY] in your report
+4. If Playwright MCP is not available: skip this section silently
+Note: Exploratory findings are additive — they do not replace scripted test results.
 
 ## Report Format
 
