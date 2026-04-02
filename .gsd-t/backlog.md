@@ -45,7 +45,12 @@
 - **Added:** 2026-03-19
 - When the graph provider chain falls back (CGC → native → grep), warn the user clearly instead of silently degrading. Each fallback should display: what failed, why it failed, what the user loses, and how to fix it. Examples: "⚠ CGC unavailable (Neo4j container stopped) — falling back to native. Deep call chain analysis disabled. Fix: `docker start gsd-t-neo4j`" or "⚠ Native index missing — falling back to grep. Entity lookup, dead code detection, and contract mapping unavailable. Fix: run `gsd-t graph index`". Auto-recovery should attempt corrective actions before falling back: check if Docker container exists but is stopped (start it), check if index files exist but are corrupt (rebuild). Only fall back after recovery attempts fail. Priority: high — silent fallback means silent quality degradation.
 
-## 10. Docker Support (Enterprise)
+## 10. Cross-Project Shared Learning via Git
+- **Type:** feature | **App:** gsd-t | **Category:** commands
+- **Added:** 2026-03-31
+- Enable GSD-T learning (ELO scores, metrics, QA patterns, event history) to be shared across users and machines via a centralized git repository. Currently, `.gsd-t/metrics/`, `.gsd-t/events/`, and `.gsd-t/qa-issues.md` are per-project and travel with each project's git repo — but cross-project ELO comparisons and aggregated pattern learning are local-only. Proposed approach: a `gsd-t-learning` command that syncs anonymized metrics to a shared "learning hub" repo (e.g., `gsd-t-learning-hub` on GitHub). Hub stores: aggregated ELO benchmarks by stack/project-type, common QA failure patterns and fixes, task duration baselines by complexity, stack rule effectiveness scores. Privacy: only aggregate metrics are shared — no source code, file paths, or proprietary content. Users opt-in per project. Benefits: new GSD-T users start with community-learned baselines instead of cold-start, teams share institutional knowledge across projects, stack rules evolve based on real-world effectiveness data.
+
+## 11. Docker Support (Enterprise)
 - **Type:** feature | **App:** gsd-t | **Category:** infrastructure
 - **Added:** 2026-03-22
 - Containerized GSD-T execution for enterprise security compliance. Dockerfile + docker-compose with Node.js + Claude Code + GSD-T pre-installed. Vault-injected secrets (no API keys on developer machines). Ephemeral containers — no credential persistence after run. Volume-mounted project directory. Egress-only network config. Primary interface is `gsd-t headless` (M23). PRD: docs/prd-gsd2-hybrid.md section 4.8, milestone M24. Exit criteria: `docker-compose up` runs a headless milestone, secrets via env vars (Vault-compatible), container is ephemeral, documentation complete. Depends on M23 (Headless Mode) being complete.

@@ -352,6 +352,22 @@ Alert thresholds (inline display):
 
 `gsd-t-status` displays token breakdown by domain/task/phase. `gsd-t-visualize` consumes the same data for dashboard rendering.
 
+### GSD 2 Tier 3 — Quality Culture & Design (M32 — complete v2.53.10)
+
+Three enhancements for project-level quality identity and design consistency.
+
+**Quality North Star**
+
+Projects define a `## Quality North Star` section in their CLAUDE.md (1-3 sentences describing the quality identity). Auto-detected preset options: `library`, `web-app`, `cli`. Configured by `gsd-t-init` (auto-detects from package.json signals: `bin` → cli, React/Vue/Next → web-app, `main` + no `scripts.dev` → library) and `gsd-t-setup` (interactive config for existing projects). Subagents read this section as a quality lens. Silent skip when section absent (backward compatible — no migration required).
+
+**Design Brief Artifact**
+
+During partition, UI/frontend projects automatically receive `.gsd-t/contracts/design-brief.md` with: color palette, typography, spacing system, component patterns, layout principles, interaction patterns, and tone/voice. Trigger signals: React/Vue/Svelte/Next.js in package.json deps, `pubspec.yaml` exists (Flutter), `.css`/`.scss`/`.jsx`/`.tsx`/`.svelte`/`.vue` files, Tailwind config. Source priority: Tailwind config → theme/token files → Quality North Star for tone → sensible defaults. Non-UI projects: no artifact, no step shown. Preservation rule: if brief already exists, never overwrite (user-authoritative).
+
+**Exploratory Testing (Playwright MCP)**
+
+When Playwright MCP is registered in Claude Code settings, QA agents get 3 minutes of interactive exploration and Red Team gets 5 minutes after all scripted tests pass. Findings are tagged `[EXPLORATORY]` in qa-issues.md and red-team-report.md, and tracked separately in QA calibration (category key: `exploratory` — does NOT count against scripted pass/fail ratio). Silent skip when Playwright MCP absent. Wired into: execute, quick, integrate, debug.
+
 ## Planned Architecture Changes (M23-M24)
 
 **M23: Headless Mode**
