@@ -1,6 +1,6 @@
 # Integration Points
 
-## Current State: Milestone 32 — Quality Culture & Design (PARTITIONED — 3 domains)
+## Current State: Milestone 32 — Quality Culture & Design (PLANNED — 3 domains)
 
 ## M32 Dependency Graph
 
@@ -62,9 +62,36 @@ evaluator-interactivity Task 1 — INDEPENDENT, parallel-safe
 All three tasks complete → CHECKPOINT: M32 Complete
 ```
 
+## M32 Wave Execution Groups
+
+### Wave 1 — All Domains (parallel-safe with sequential constraint on gsd-t-setup.md)
+
+All three domains are independent with no cross-domain blocking dependencies.
+
+| Domain                  | Task | Files                                                              |
+|-------------------------|------|--------------------------------------------------------------------|
+| quality-persona         | T1   | templates/CLAUDE-project.md, gsd-t-init.md, gsd-t-setup.md (§A)  |
+| design-brief            | T1   | gsd-t-partition.md, gsd-t-plan.md, gsd-t-setup.md (§B)           |
+| evaluator-interactivity | T1   | gsd-t-execute.md, gsd-t-quick.md, gsd-t-integrate.md, gsd-t-debug.md |
+
+**Shared files**: `gsd-t-setup.md` — touched by both quality-persona (§A: persona config) and design-brief (§B: design brief generation). These are additive edits in separate sections; safe to apply in a single sequential pass (quality-persona first, then design-brief).
+
+**Completes when**: All three Task 1s are done and M32 checkpoint gates pass.
+
+### Integration
+
+After Wave 1 completes, no wiring step is needed — all three domains contribute independent additions to existing commands. Integration is implicit in the gsd-t-setup.md sequential edit constraint.
+
 ## M32 Execution Recommendation
 
 Run all three tasks in the same execute session. Since evaluator-interactivity touches 4 different files from the other two domains, it is fully parallel-safe. The quality-persona + design-brief tasks share gsd-t-setup.md — execute them sequentially (quality-persona first, then design-brief) to apply both changes in one file pass.
+
+## Execution Order (solo mode)
+
+1. quality-persona Task 1 (templates/CLAUDE-project.md + gsd-t-init.md + gsd-t-setup.md §A)
+2. design-brief Task 1 (gsd-t-partition.md + gsd-t-plan.md + gsd-t-setup.md §B) — sequential after quality-persona to avoid gsd-t-setup.md edit conflict
+3. evaluator-interactivity Task 1 (4 command files) — parallel-safe with either of the above
+4. CHECKPOINT: verify all 9 gate conditions pass
 
 ---
 
