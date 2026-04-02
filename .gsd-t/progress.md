@@ -2,8 +2,8 @@
 
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: IN PROGRESS
-## Date: 2026-03-25
-## Version: 2.52.10
+## Date: 2026-04-01
+## Version: 2.52.11
 
 ## Active Milestone
 
@@ -380,6 +380,7 @@ Wave 4: adaptive-replan (consumes fresh-dispatch summaries, integrates with work
 
 ## Decision Log
 (Entries before 2026-02-16 reconstructed from git history with timestamps)
+- 2026-04-01 17:30: [housekeeping] Checkin: M32 milestone planning (3 domains), CI examples, framework comparison scorecard, .gitignore cleanup (desktop.ini/temp exclusions), package.json version drift fix (2.51.10 → 2.52.11), settings.local.json removed from tracking. Event logs through 2026-04-02.
 - 2026-04-01: [success] M31 command-integration domain COMPLETE — QA calibration injection wired into execute (Step 2), quick (Step 5), integrate (Step 5). Token budget check wired into execute (before each domain dispatch), quick (Step 0 before spawn), wave (Step 2.5 pre-flight + per-phase check). Harness audit wired into complete-milestone (new Step 2.5d: component impact + QA miss-rate logging) and status (new Harness Health section). Docs updated: gsd-t-help.md (audit command added), README.md (47 GSD-T + 5 utility = 52 total, new features), docs/GSD-T-README.md (audit in commands table), templates/CLAUDE-global.md (QA calibration + token-aware orchestration notes, audit in commands table), templates/CLAUDE-project.md (Daily Token Budget field placeholder), CLAUDE.md (52 commands). Test counts updated: 51→52 total, 46→47 gsd-t. 40/40 filesystem tests pass, 188/188 broader tests pass. All injections conditional — projects without M31 data behave identically to baseline.
 - 2026-04-01 10:00: [design] PRD-HARNESS-001 created (docs/prd-harness-evolution.md) — "Harness Evolution: Self-Calibrating Quality Infrastructure." 6 enhancements across 3 tiers (M31-M33): Harness Audit Capability (component ROI measurement + selective disable), QA Calibration Feedback Loop (Red Team miss rates → QA prompt tuning), Quality North Star Injection (aspirational quality persona in subagent prompts), Design Brief Artifact (aesthetic coherence for UI projects), Evaluator Interactivity (Playwright MCP for exploratory QA/Red Team testing), Configurable Iteration Budget (adaptive fix attempts replacing hardcoded 2). Inspired by Anthropic's "Harness Design for Long-Running Apps" findings. All additive, backward compatible, zero new dependencies. Version targets: v2.52.10 (M31), v2.53.10 (M32), v2.54.10 (M33).
 - 2026-03-25 18:00: [feature] Red Team — Adversarial QA agent added to execute, quick, integrate, and debug commands. Spawns after builder's tests pass with inverted incentives (success = bugs found). Exhaustive attack categories: contract violations, boundary inputs, state transitions, error paths, missing flows, regression, E2E functional gaps. VERDICT: FAIL (blocks completion) or GRUDGING PASS (exhaustive search, nothing found). False positive penalty prevents phantom bugs. Updated CLAUDE-global template, global CLAUDE.md, GSD-T-README, README. Design rationale: separation of interest (Red Team didn't build the code), inverted incentives (finding bugs is success), statistical gravity works FOR testing instead of against it.

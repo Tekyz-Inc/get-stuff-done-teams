@@ -2,6 +2,20 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.52.11] - 2026-04-01
+
+### Added
+- **M32: Quality Culture & Design** milestone planning — 3 new domains (design-brief, evaluator-interactivity, quality-persona) with scope and task definitions
+- **CI examples** — GitHub Actions and GitLab CI pipeline templates in `docs/ci-examples/`
+- **Framework comparison scorecard** — `docs/framework-comparison-scorecard.md`
+
+### Changed
+- `.gitignore` updated to exclude Windows `desktop.ini` artifacts, temp files (`.tmp.driveupload/`, `.gsd-t/dashboard.pid`), and generated PDFs
+- Fixed package.json version drift (was 2.51.10, should have been 2.52.10 after M31)
+
+### Removed
+- `.claude/settings.local.json` — no longer tracked (managed locally)
+
 ## [2.51.10] - 2026-03-25
 
 ### Added

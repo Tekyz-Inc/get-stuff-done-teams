@@ -1,6 +1,12 @@
 # OS
 .DS_Store
 Thumbs.db
+desktop.ini
+
+# Temp files
+.tmp.driveupload/
+.gsd-t/dashboard.pid
+*.pdf
 
 # Editor
 .vscode/
