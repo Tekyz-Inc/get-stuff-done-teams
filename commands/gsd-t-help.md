@@ -231,6 +231,7 @@ Use these when user asks for help on a specific command:
 - **Auto-invoked**: Yes (in wave, after milestone)
 - **Creates**: `.gsd-t/domains/*/`, `.gsd-t/contracts/`
 - **Use when**: Breaking down a milestone for parallel work
+- **Note (M33)**: Auto-creates `.gsd-t/contracts/design-contract.md` when Figma URLs or design references are detected in requirements — bootstraps the design-to-code stack rule for execute.
 
 ### discuss
 - **Summary**: Explore design decisions from multiple perspectives
@@ -260,7 +261,7 @@ Use these when user asks for help on a specific command:
 - **Note (M22)**: Task-level fresh dispatch (one subagent per task, ~10-20% context each). Team mode uses worktree isolation (`isolation: "worktree"`) — zero file conflicts. Adaptive replanning between domain completions.
 - **Note (M26)**: Active rule injection — evaluates declarative rules from rules.jsonl before dispatching each domain's tasks. Fires matching rules as warnings in subagent prompts.
 - **Note (M29)**: Stack Rules Engine — auto-detects project tech stack from manifest files and injects mandatory best-practice rules into each task subagent prompt. Universal rules (`_security.md`, `_auth.md`) always apply; stack-specific rules layer on top. Violations are task failures (same weight as contract violations).
-- **Note (M33)**: Design-to-code — when a design contract, design tokens, or Figma config is detected, injects pixel-perfect implementation rules: Figma MCP auto-detection, design token extraction, stack capability evaluation (recommends alternatives if stack can't achieve the design), visual verification loop via Claude Preview or Chrome MCP. Adds Step 7 (Visual Design Verification) to task execution flow.
+- **Note (M33)**: Design-to-code — activated when design contract, design tokens, Figma config, or Figma MCP in settings.json is detected. Injects pixel-perfect implementation rules: design token extraction, stack capability evaluation, component decomposition. Step 7 (Visual Design Verification) is MANDATORY — renders each screen in a real browser, screenshots at mobile/tablet/desktop, compares pixel-by-pixel against the Figma design via MCP `get_screenshot`. Visual deviations block task completion. Also triggers from Figma MCP being configured in `~/.claude/settings.json`.
 
 ### test-sync
 - **Summary**: Keep tests aligned with code changes

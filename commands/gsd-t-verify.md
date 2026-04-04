@@ -79,7 +79,15 @@ Standard dimensions (adjust based on project):
 5. **E2E Tests**: Run the FULL Playwright suite — all specs must pass. If new features lack specs, create them before proceeding.
 6. **Security**: Auth flows, input validation, data exposure, dependencies
 7. **Integration Integrity**: Do the seams between domains hold under stress?
-8. **Requirements Traceability Close-Out**: Mark verified requirements as complete and report orphans:
+8. **Design Fidelity** (only when `.gsd-t/contracts/design-contract.md` exists):
+   - Open every implemented screen in a real browser (dev server + Claude Preview, Chrome MCP, or Playwright)
+   - Screenshot each screen at mobile (375px), tablet (768px), and desktop (1280px) widths
+   - Get the Figma reference: call Figma MCP `get_screenshot` if available, or use design images from the contract
+   - Compare every screen pixel-by-pixel against the Figma design:
+     Chart types, colors, typography, spacing, layout, component states, data visualization style
+   - Any deviation = FAIL with specifics (e.g., "Number of Tools: build uses vertical bars, design uses horizontal stacked bars")
+   - Design fidelity FAIL blocks milestone completion — it has the same weight as functional test failures
+9. **Requirements Traceability Close-Out**: Mark verified requirements as complete and report orphans:
    - Read `docs/requirements.md` traceability table (added by plan phase)
    - For each REQ-ID that is fully implemented and tested: update Status to `complete` in the traceability table
    - **Orphan report**: List any REQ-IDs with no task mapping (planning gap) and any tasks with no REQ-ID (potential scope creep)

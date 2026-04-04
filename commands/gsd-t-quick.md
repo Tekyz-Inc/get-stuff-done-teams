@@ -68,8 +68,8 @@ if [ -d "$STACKS_DIR" ]; then
   ([ -f "playwright.config.ts" ] || [ -f "playwright.config.js" ]) && _add playwright.md
   [ -f "go.mod" ] && _add go.md
   [ -f "Cargo.toml" ] && _add rust.md
-  # Design-to-code detection (design contract, design tokens, or Figma config)
-  ([ -f ".gsd-t/contracts/design-contract.md" ] || [ -f "design-tokens.json" ] || [ -d "design-tokens" ] || [ -f ".figmarc" ] || [ -f "figma.config.json" ]) && _add design-to-code.md
+  # Design-to-code detection (design contract, design tokens, Figma config, or Figma MCP configured)
+  ([ -f ".gsd-t/contracts/design-contract.md" ] || [ -f "design-tokens.json" ] || [ -d "design-tokens" ] || [ -f ".figmarc" ] || [ -f "figma.config.json" ] || grep -q '"figma"' ~/.claude/settings.json 2>/dev/null) && _add design-to-code.md
 fi
 ```
 

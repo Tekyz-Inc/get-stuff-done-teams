@@ -617,7 +617,7 @@ GSD-T auto-detects project tech stack at subagent spawn time and injects mandato
 
 **Stack-specific rules**: Injected only when the matching stack is detected (e.g., `react.md` when `"react"` is in `package.json`).
 
-**Design-to-code**: Activated when `.gsd-t/contracts/design-contract.md`, `design-tokens.json`, `design-tokens/`, `.figmarc`, or `figma.config.json` exists. Enforces pixel-perfect frontend implementation from designs with: Figma MCP auto-detection, design token extraction protocol, stack capability evaluation (recommends alternatives if stack can't achieve the design), component decomposition, responsive breakpoint strategy, and a visual verification loop using Claude Preview or Chrome MCP.
+**Design-to-code**: Activated when `.gsd-t/contracts/design-contract.md`, `design-tokens.json`, `design-tokens/`, `.figmarc`, or `figma.config.json` exists, OR when Figma MCP is configured in `~/.claude/settings.json`. Auto-bootstrapped during partition when Figma URLs or design references are detected in requirements. Enforces pixel-perfect frontend implementation from designs with: Figma MCP auto-detection, design token extraction protocol, stack capability evaluation (recommends alternatives if stack can't achieve the design), component decomposition, responsive breakpoint strategy, and a mandatory visual verification loop — every implemented screen must be rendered in a real browser, screenshotted at mobile/tablet/desktop breakpoints, and compared pixel-by-pixel against the Figma design. Visual deviations block task completion.
 
 **Enforcement**: Stack rule violations have the same weight as contract violations — they are task failures, not warnings.
 

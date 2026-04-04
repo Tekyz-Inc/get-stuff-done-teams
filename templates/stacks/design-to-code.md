@@ -398,28 +398,59 @@ MANDATORY:
 
 ```
 MANDATORY:
-  ├── After implementing any design component, run a visual verification:
-  │   1. Render the component (Claude Preview, Chrome MCP, or dev server)
-  │   2. Screenshot the rendered output
-  │   3. Compare side-by-side with the source design
-  │   4. Identify EVERY deviation (spacing, color, font, alignment, sizing)
-  │   5. Fix each deviation — trace fix to design contract values
-  │   6. Re-render and re-compare
-  ├── Maximum 3 verification iterations per component
-  │     If still deviating after 3 → log specific deltas to .gsd-t/qa-issues.md
-  ├── Tool priority for rendering:
-  │     1. Claude Preview (if available) — fastest loop
-  │     2. Chrome MCP (if available) — full browser rendering
-  │     3. Dev server + manual screenshot — last resort
-  ├── Check at EVERY breakpoint — not just desktop
+  ├── After implementing any design component, you MUST verify it visually.
+  │   Skipping this step is a TASK FAILURE — not optional, not "if tools available".
+  │
+  ├── Step 1: GET THE FIGMA REFERENCE
+  │     If Figma MCP available → call get_screenshot with nodeId + fileKey
+  │     If no MCP → use design image/screenshot from the design contract
+  │     You MUST have a reference image before proceeding
+  │
+  ├── Step 2: RENDER IN A REAL BROWSER
+  │     Start the dev server (npm run dev, etc.)
+  │     Open the page using Claude Preview, Chrome MCP, or Playwright
+  │     You MUST see real rendered output — not just read the code
+  │
+  ├── Step 3: SCREENSHOT AT EVERY BREAKPOINT
   │     Mobile (375px), Tablet (768px), Desktop (1280px) minimum
-  ├── Verification is NOT optional — skipping it is a task failure
-  └── Log verification results in the design contract Verification Status table
+  │     Each breakpoint is a separate screenshot
+  │
+  ├── Step 4: PIXEL-BY-PIXEL COMPARISON
+  │     Place Figma screenshot and browser screenshot side-by-side
+  │     Check EVERY element systematically:
+  │       Chart types — bar vs stacked bar vs donut (exact type match)
+  │       Colors — exact hex values, not "close enough"
+  │       Typography — font family, weight, size, line-height, letter-spacing
+  │       Spacing — padding, margins, gaps (exact pixel match)
+  │       Layout — grid structure, alignment, positioning
+  │       Component states — toggle active/inactive, expanded/collapsed
+  │       Data visualization — axis labels, legends, chart orientation
+  │       Icons and imagery — correct icon set, correct sizes
+  │
+  ├── Step 5: FIX EVERY DEVIATION
+  │     Log each deviation with specifics before fixing
+  │     Fix one by one, tracing each fix to the design contract
+  │     Re-render after each batch of fixes
+  │     Maximum 3 fix-and-recheck iterations
+  │
+  ├── Step 6: FINAL VERIFICATION
+  │     After fixes, take fresh screenshots at all breakpoints
+  │     Confirm every deviation is resolved
+  │     If deviations remain → CRITICAL finding in .gsd-t/qa-issues.md
+  │     Task is NOT complete until visual match is confirmed
+  │
+  ├── NO BROWSER TOOLS = BLOCKER
+  │     If Claude Preview, Chrome MCP, and Playwright are ALL unavailable:
+  │     This is a CRITICAL blocker, not a warning to log and move on
+  │     The task CANNOT be marked complete without visual verification
+  │     Log to .gsd-t/qa-issues.md with severity CRITICAL
+  │
+  └── Log all verification results in the design contract Verification Status table
 ```
 
-**BAD** — Writing CSS, committing, moving on without ever seeing the rendered result.
+**BAD** — Writing CSS, committing, moving on without ever opening a browser to see the result. "Tests pass" is not visual verification.
 
-**GOOD** — Render → Screenshot → Compare → Fix spacing from 14px to 16px → Re-render → Confirm match → Log "verified at 3 breakpoints" in design contract.
+**GOOD** — Render at 375px → Screenshot → Compare to Figma → "Donut chart missing center text, stacked bars rendered as vertical bars" → Fix chart type → Fix center text → Re-render → Confirm match → Repeat at 768px and 1280px → All match → Log "verified at 3 breakpoints" in design contract.
 
 ---
 

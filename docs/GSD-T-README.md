@@ -270,7 +270,7 @@ GSD-T auto-detects your project's tech stack and injects mandatory best-practice
 | `requirements.txt` with `celery`, `dramatiq`, `rq`, or `arq` | `queues.md` |
 | `requirements.txt` with `openai`, `anthropic`, `langchain` | `llm.md` |
 | `pubspec.yaml` | `flutter.md` |
-| `.gsd-t/contracts/design-contract.md`, `design-tokens.json`, `design-tokens/`, `.figmarc`, or `figma.config.json` | `design-to-code.md` |
+| `.gsd-t/contracts/design-contract.md`, `design-tokens.json`, `design-tokens/`, `.figmarc`, `figma.config.json`, or Figma MCP in `settings.json` | `design-to-code.md` |
 
 ### Commands That Inject Stack Rules
 

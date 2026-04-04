@@ -193,8 +193,8 @@ if [ -d "$STACKS_DIR" ]; then
   ([ -f "playwright.config.ts" ] || [ -f "playwright.config.js" ]) && _add playwright.md
   [ -f "go.mod" ] && _add go.md
   [ -f "Cargo.toml" ] && _add rust.md
-  # Design-to-code detection (design contract, design tokens, or Figma config)
-  ([ -f ".gsd-t/contracts/design-contract.md" ] || [ -f "design-tokens.json" ] || [ -d "design-tokens" ] || [ -f ".figmarc" ] || [ -f "figma.config.json" ]) && _add design-to-code.md
+  # Design-to-code detection (design contract, design tokens, Figma config, or Figma MCP configured)
+  ([ -f ".gsd-t/contracts/design-contract.md" ] || [ -f "design-tokens.json" ] || [ -d "design-tokens" ] || [ -f ".figmarc" ] || [ -f "figma.config.json" ] || grep -q '"figma"' ~/.claude/settings.json 2>/dev/null) && _add design-to-code.md
 fi
 ```
 
@@ -282,16 +282,37 @@ Execute the task above:
         recovers (retry button works, form can be resubmitted, etc.).
      A test that would pass on an empty HTML page with the right element IDs is useless.
      Every assertion must prove the FEATURE WORKS, not that the ELEMENT EXISTS.
-7. **Visual Design Verification** (only if design-to-code stack rule is active):
-   If the task involves UI implementation from a design reference:
-   a. Check if Claude Preview or Chrome MCP browser tools are available
-   b. If available: render the implemented component at each target breakpoint (mobile 375px, tablet 768px, desktop 1280px)
-   c. Screenshot each rendered breakpoint
-   d. Compare against the source design reference (from `.gsd-t/contracts/design-contract.md`)
-   e. Identify any deviations: spacing, color, typography, alignment, sizing
-   f. Fix deviations — every fix must trace to a design contract value (max 2 fix iterations)
-   g. Log verification results in the design contract's Verification Status table
-   h. If no browser tools available: log warning "Visual verification unavailable — manual review recommended" to `.gsd-t/qa-issues.md`
+7. **Visual Design Verification** (MANDATORY when design-to-code stack rule is active):
+   If the task involves UI implementation from a design reference, this step is NOT optional:
+   a. **Get the Figma reference screenshot**: If Figma MCP is available, call `get_screenshot` with the
+      relevant nodeId and fileKey from `.gsd-t/contracts/design-contract.md`. Save this as the reference.
+      If no Figma MCP, use the design image/screenshot provided in the contract.
+   b. **Render the built component in a real browser**: Start the dev server if not running.
+      Use Claude Preview, Chrome MCP, or Playwright to open the page at the correct URL.
+      Capture screenshots at each target breakpoint:
+        - Mobile: 375px width
+        - Tablet: 768px width
+        - Desktop: 1280px width
+   c. **Pixel-by-pixel comparison**: Place the Figma screenshot and browser screenshot side-by-side.
+      Systematically compare every element:
+        - Chart types (bar vs stacked bar vs donut — exact match required)
+        - Colors (exact hex match — #1A73E8 is not #1A74E9)
+        - Typography (font family, weight, size, line-height, letter-spacing)
+        - Spacing (padding, margins, gaps — exact pixel match)
+        - Layout (grid structure, alignment, element positioning)
+        - Component states (toggles, active states, expanded/collapsed sections)
+        - Data visualization style (chart axis, labels, legends, distribution bars)
+   d. **Log every deviation** with specifics: "Donut chart missing center text '485 Total Interactions',
+      Number of Tools uses vertical bars but design shows horizontal stacked bar"
+   e. **Fix ALL deviations** — max 3 fix-and-recheck iterations per component.
+      After each fix, re-render and re-compare. Every fix must trace to a design contract value.
+   f. **If deviations remain after 3 iterations**: log to `.gsd-t/qa-issues.md` with severity CRITICAL
+      and tag `[VISUAL]`. This BLOCKS task completion — the task is NOT done.
+   g. **Log results** in the design contract's Verification Status table.
+   h. **If no browser/preview tools available**: This is a CRITICAL blocker, not a warning.
+      Log to `.gsd-t/qa-issues.md`: "CRITICAL: No browser tools available for visual verification.
+      Install Claude Preview or configure Playwright for visual testing."
+      The task CANNOT be marked complete without visual verification.
    Skip this step entirely if no design-to-code stack rule was injected.
 8. Run ALL test suites — this is NOT optional, not conditional, not "if applicable":
    a. Detect configured test runners: check for vitest/jest config, playwright.config.*, cypress.config.*

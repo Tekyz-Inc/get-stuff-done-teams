@@ -371,6 +371,53 @@ Generate the file using this format:
 
 Log in `.gsd-t/progress.md` Decision Log: `- {date}: Design brief generated at .gsd-t/contracts/design-brief.md — UI signals detected: {list of signals}`
 
+## Step 3.6: Design Contract Bootstrap (Figma/Design Reference Detection)
+
+After the design brief, check whether this project has a design reference (Figma, images, prototypes). If found, create `.gsd-t/contracts/design-contract.md` to activate the design-to-code stack rule during execute.
+
+**Skip this step if `.gsd-t/contracts/design-contract.md` already exists.**
+
+### Detection — check for ANY of the following
+
+| Signal | How to check |
+|--------|-------------|
+| Figma URL in requirements | `docs/requirements.md` contains `figma.com/design/` or `figma.com/file/` |
+| Figma URL in CLAUDE.md | `CLAUDE.md` contains `figma.com/design/` or `figma.com/file/` |
+| Figma MCP configured | `~/.claude/settings.json` has `mcpServers.figma` |
+| Figma config files | `.figmarc` or `figma.config.json` exists |
+| Design token files | `design-tokens.json` or `design-tokens/` directory exists |
+| Design images in docs | `docs/designs/`, `designs/`, or `mockups/` directory exists with image files |
+| Design references in requirements | `docs/requirements.md` contains "design", "mockup", "pixel-perfect", or "Figma" |
+
+If NONE of the above match → skip this step. Log: "Design contract: skipped — no design references detected."
+
+### Generate `.gsd-t/contracts/design-contract.md`
+
+1. Copy the design contract template from the GSD-T package:
+   ```bash
+   GSD_T_DIR=$(npm root -g 2>/dev/null)/@tekyzinc/gsd-t
+   TEMPLATE="$GSD_T_DIR/templates/design-contract.md"
+   if [ -f "$TEMPLATE" ]; then cp "$TEMPLATE" .gsd-t/contracts/design-contract.md; fi
+   ```
+
+2. If a Figma URL was found, populate the Source section:
+   - Set `Source Type` to `Figma MCP` (if MCP configured) or `Screenshot` (if not)
+   - Set `Source Reference` to the Figma URL
+   - Set `Precision Level` to `Exact (MCP)` or `Estimated (visual analysis)`
+
+3. If Figma MCP is available, use `get_design_context` or `get_metadata` to pre-populate:
+   - Color palette from design variables/styles
+   - Typography from text styles
+   - Spacing from auto-layout values
+
+**This file activates the design-to-code stack rule during execute**, ensuring:
+- Design tokens are extracted before coding
+- Every CSS value traces to the contract
+- Visual verification loop runs after implementation
+- Stack capability is evaluated before implementation begins
+
+Log in `.gsd-t/progress.md` Decision Log: `- {date}: Design contract created at .gsd-t/contracts/design-contract.md — design reference detected: {source type + URL or signal}`
+
 ## Step 4: Initialize Progress
 
 Write `.gsd-t/progress.md`:
