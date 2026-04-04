@@ -57,6 +57,16 @@ When the same request could fit multiple commands at different scales:
 - **Needs investigation before fixing** → `debug` (not `quick`)
 - **Spec/requirements to verify against code** → `gap-analysis` (not `scan`)
 
+### Design-to-code routing:
+
+When the request involves UI implementation from a design (Figma, screenshots, mockups, "pixel-perfect", "match the design", "rebuild the frontend"):
+- **NEVER route to `quick`** — design-to-code requires the full workflow with design contract, token extraction, and visual verification
+- **If no active milestone exists** → route to `wave` (creates milestone → partition with design contract → plan → execute with visual verification)
+- **If a milestone exists but no domains** → route to `partition` (creates design contract in Step 3.6)
+- **If domains exist but no tasks** → route to `plan`
+- **If tasks exist** → route to `execute` (design-to-code stack rule will inject)
+- The design-to-code stack rule activates automatically when `.gsd-t/contracts/design-contract.md` exists or Figma MCP is configured — but the **partition step must run first** to create the design contract
+
 ## Step 3: Confirm and Execute
 
 **MANDATORY — output one of these lines as the VERY FIRST thing in your response, before any tool calls or other output.**
