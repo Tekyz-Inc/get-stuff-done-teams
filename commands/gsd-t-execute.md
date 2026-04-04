@@ -295,9 +295,15 @@ Execute the task above:
       Data visualizations expand into multiple rows: chart type, orientation, axis labels, legend
       position, bar/segment colors, data labels, grid lines, center text, tooltip style.
       If a full-page inventory has fewer than 30 elements, you missed items — go back.
-   c. **Render the built component in a real browser**: Start the dev server if not running.
-      Use Claude Preview, Chrome MCP, or Playwright to open the page at the correct URL.
-      Capture screenshots at each target breakpoint:
+   c. **Open side-by-side browser sessions for direct visual comparison**:
+      Start the dev server if not running. Open TWO views simultaneously:
+      - **View 1 — Built frontend**: Use Claude Preview, Chrome MCP, or Playwright to open the
+        implemented page at the correct URL. Navigate to the exact route/component being verified.
+      - **View 2 — Original design**: If Figma URL → open the Figma page in another browser tab.
+        If design image file → open the image in a browser tab (`file://` path or HTML wrapper).
+        If Figma MCP screenshot → open that screenshot image.
+      Walk through each component with both views visible. Compare element-by-element at matching
+      zoom levels. Capture screenshot pairs (design + implementation) at each target breakpoint:
         - Mobile: 375px width
         - Tablet: 768px width
         - Desktop: 1280px width

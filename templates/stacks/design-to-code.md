@@ -461,13 +461,31 @@ MANDATORY:
   │     Write each element as a row in the comparison table (Step 4).
   │     If the inventory has fewer than 20 elements for a full page, you missed items.
   │
-  ├── Step 3: RENDER IN A REAL BROWSER + SCREENSHOT
+  ├── Step 3: OPEN SIDE-BY-SIDE BROWSER SESSIONS
   │     Start the dev server (npm run dev, etc.)
-  │     Open the page using Claude Preview, Chrome MCP, or Playwright
-  │     You MUST see real rendered output — not just read the code
-  │     Capture screenshots at each target breakpoint:
-  │       Mobile (375px), Tablet (768px), Desktop (1280px) minimum
-  │     Each breakpoint is a separate screenshot
+  │     Open TWO browser views simultaneously for direct visual comparison:
+  │
+  │     VIEW 1 — BUILT FRONTEND:
+  │       Open the implemented page using Claude Preview, Chrome MCP, or Playwright
+  │       Navigate to the exact route/component being verified
+  │       You MUST see real rendered output — not just read the code
+  │
+  │     VIEW 2 — ORIGINAL DESIGN REFERENCE:
+  │       If Figma URL available → open the Figma page in a browser tab/window
+  │         Use the Figma URL from the design contract Source Reference field
+  │         Navigate to the specific frame/component being compared
+  │       If design image file → open the image in a browser tab/window
+  │         Use: file://{absolute-path-to-image} or render in an HTML page
+  │       If Figma MCP screenshot was captured → open that screenshot image
+  │
+  │     COMPARISON APPROACH:
+  │       With both views open, walk through each component/section:
+  │         - Position views side-by-side (or switch between tabs)
+  │         - Compare each element visually at the same zoom level
+  │         - Screenshot BOTH views at matching viewport sizes
+  │       Capture implementation screenshots at each target breakpoint:
+  │         Mobile (375px), Tablet (768px), Desktop (1280px) minimum
+  │       Each breakpoint is a separate screenshot pair (design + implementation)
   │
   ├── Step 4: STRUCTURED ELEMENT-BY-ELEMENT COMPARISON (MANDATORY FORMAT)
   │     You MUST produce a comparison table with this exact structure.
