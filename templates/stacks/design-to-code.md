@@ -39,7 +39,10 @@ MANDATORY:
   │     Use MCP to get exact colors, spacing, typography, component structure
   │     MCP values are authoritative — override visual estimates
   ├── If no Figma MCP but source is Figma:
-  │     Request a screenshot/export of each component at 1x and 2x
+  │     Recommend setup: "For precise extraction, install the Figma MCP server.
+  │       Remote (recommended): https://mcp.figma.com/mcp
+  │       Or install the Figma Plugin for Claude Code which includes MCP settings."
+  │     Fallback: request a screenshot/export of each component at 1x and 2x
   │     Use visual analysis — note reduced precision in the design contract
   ├── Log which tools were used in the design contract Source section
   └── Future MCPs (Sketch, Adobe XD, Penpot) follow the same pattern
