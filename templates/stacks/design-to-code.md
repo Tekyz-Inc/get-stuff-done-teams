@@ -259,7 +259,46 @@ MANDATORY:
 
 ---
 
-## 10. CSS Precision Rules
+## 10. Naming Conventions (Classes, IDs, Data Attributes)
+
+```
+MANDATORY:
+  ├── CSS class naming — use ONE consistent convention per project:
+  │     BEM: .block__element--modifier (e.g., .card__title--highlighted)
+  │     Tailwind: utility classes only (no custom class names needed)
+  │     CSS Modules: camelCase (e.g., styles.cardTitle)
+  │     Scoped CSS (Vue/Svelte): semantic kebab-case (e.g., .card-title)
+  │     NEVER mix conventions in the same project
+  ├── IDs — use sparingly, only when required:
+  │     Form label associations: <label for="email-input">
+  │     Anchor targets: <section id="pricing">
+  │     ARIA references: aria-labelledby, aria-describedby
+  │     NEVER use IDs for styling — classes only
+  │     NEVER use auto-generated or meaningless IDs (id="div1", id="el-47")
+  ├── Data attributes — for JavaScript hooks and testing:
+  │     data-testid for test selectors (e.g., data-testid="submit-button")
+  │     data-* for component state/config (e.g., data-active="true")
+  │     NEVER use classes or IDs for JavaScript selection — use data attributes
+  ├── Component naming — match the design system:
+  │     If Figma layers are named "Hero/CTA Button" → component is CTAButton
+  │     If design system has "Card > Title" → class is .card__title or .card-title
+  │     Align code names with design names for traceability
+  ├── Semantic naming — describe purpose, not appearance:
+  │     BAD: .blue-text, .big-box, .left-panel, .mt-20
+  │     GOOD: .primary-action, .feature-card, .sidebar, .section-spacing
+  │     Exception: utility classes in Tailwind (appearance-based by design)
+  └── File naming — match component names:
+        Component: FeatureCard.vue → styles: feature-card.css or scoped
+        Component: HeroSection.tsx → test: HeroSection.test.tsx
+```
+
+**BAD** — `<div class="div1 blue-thing" id="x47" onclick="...">`
+
+**GOOD** — `<section class="feature-card" data-testid="feature-card-pricing">`
+
+---
+
+## 11. CSS Precision Rules
 
 ```
 MANDATORY:
@@ -290,7 +329,7 @@ MANDATORY:
 
 ---
 
-## 11. Typography Rendering
+## 12. Typography Rendering
 
 ```
 MANDATORY:
@@ -323,7 +362,7 @@ MANDATORY:
 
 ---
 
-## 12. Color Accuracy
+## 13. Color Accuracy
 
 ```
 MANDATORY:
@@ -357,7 +396,7 @@ MANDATORY:
 
 ---
 
-## 13. Interactive States
+## 14. Interactive States
 
 ```
 MANDATORY:
@@ -394,7 +433,7 @@ MANDATORY:
 
 ---
 
-## 14. Visual Verification Loop
+## 15. Visual Verification Loop
 
 ```
 MANDATORY:
@@ -454,7 +493,7 @@ MANDATORY:
 
 ---
 
-## 15. Anti-Patterns
+## 16. Anti-Patterns
 
 ```
 NEVER DO THESE:
@@ -474,7 +513,7 @@ NEVER DO THESE:
 
 ---
 
-## 16. Design-to-Code Verification Checklist
+## 17. Design-to-Code Verification Checklist
 
 Before marking any design implementation task as complete:
 
@@ -486,6 +525,7 @@ Before marking any design implementation task as complete:
 - [ ] Every CSS value traces to a design contract entry
 - [ ] CSS custom properties (or Tailwind config) define all design tokens
 - [ ] Semantic HTML used (no div-soup, proper heading hierarchy)
+- [ ] Naming conventions consistent: classes (BEM/Tailwind/Modules/scoped), IDs (minimal, semantic), data-testid for test hooks
 - [ ] All interactive states implemented (hover, focus, active, disabled)
 - [ ] Responsive behavior implemented for all target breakpoints
 - [ ] Visual verification loop completed at mobile, tablet, and desktop widths
