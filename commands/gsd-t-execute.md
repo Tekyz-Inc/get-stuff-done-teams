@@ -678,6 +678,14 @@ Rules:
 7. **E2E Functional Gaps**: Review ALL Playwright specs. Do they test actual
    behavior (state changes, data loaded, navigation works) or just check
    that elements exist? Flag and rewrite any shallow/layout tests.
+8. **Design Fidelity** (if .gsd-t/contracts/design-contract.md exists):
+   Open every implemented screen in a real browser. Screenshot at mobile
+   (375px), tablet (768px), desktop (1280px). Get Figma reference via
+   Figma MCP get_screenshot (or design contract images). Compare every
+   element: chart types, colors, typography, spacing, layout, component
+   states, data visualization style. Any visual deviation from the design
+   is a CRITICAL bug. 'Build shows vertical bars but design shows horizontal
+   stacked bars' is a real bug, not a style opinion.
 
 ## Exploratory Testing (if Playwright MCP available)
 
