@@ -283,31 +283,40 @@ Execute the task above:
      A test that would pass on an empty HTML page with the right element IDs is useless.
      Every assertion must prove the FEATURE WORKS, not that the ELEMENT EXISTS.
 7. **Visual Design Verification** (MANDATORY when design-to-code stack rule is active):
-   If the task involves UI implementation from a design reference, this step is NOT optional:
+   If the task involves UI implementation from a design reference, this step is NOT optional.
+   **FAIL-BY-DEFAULT**: Every element is UNVERIFIED until you prove it matches. "Looks close" is not
+   a verdict. "Appears to match" is not a verdict. Assume NOTHING matches.
    a. **Get the Figma reference screenshot**: If Figma MCP is available, call `get_screenshot` with the
       relevant nodeId and fileKey from `.gsd-t/contracts/design-contract.md`. Save this as the reference.
       If no Figma MCP, use the design image/screenshot provided in the contract.
-   b. **Render the built component in a real browser**: Start the dev server if not running.
+   b. **Build the element inventory**: Before comparing ANYTHING, enumerate every distinct visual
+      element in the design — walk top-to-bottom, left-to-right. Every chart, label, icon, heading,
+      card, button, spacing boundary, color, and data visualization detail gets its own row.
+      Data visualizations expand into multiple rows: chart type, orientation, axis labels, legend
+      position, bar/segment colors, data labels, grid lines, center text, tooltip style.
+      If a full-page inventory has fewer than 30 elements, you missed items — go back.
+   c. **Render the built component in a real browser**: Start the dev server if not running.
       Use Claude Preview, Chrome MCP, or Playwright to open the page at the correct URL.
       Capture screenshots at each target breakpoint:
         - Mobile: 375px width
         - Tablet: 768px width
         - Desktop: 1280px width
-   c. **Pixel-by-pixel comparison**: Place the Figma screenshot and browser screenshot side-by-side.
-      Systematically compare every element:
-        - Chart types (bar vs stacked bar vs donut — exact match required)
-        - Colors (exact hex match — #1A73E8 is not #1A74E9)
-        - Typography (font family, weight, size, line-height, letter-spacing)
-        - Spacing (padding, margins, gaps — exact pixel match)
-        - Layout (grid structure, alignment, element positioning)
-        - Component states (toggles, active states, expanded/collapsed sections)
-        - Data visualization style (chart axis, labels, legends, distribution bars)
-   d. **Log every deviation** with specifics: "Donut chart missing center text '485 Total Interactions',
-      Number of Tools uses vertical bars but design shows horizontal stacked bar"
-   e. **Fix ALL deviations** — max 3 fix-and-recheck iterations per component.
-      After each fix, re-render and re-compare. Every fix must trace to a design contract value.
-   f. **If deviations remain after 3 iterations**: log to `.gsd-t/qa-issues.md` with severity CRITICAL
-      and tag `[VISUAL]`. This BLOCKS task completion — the task is NOT done.
+   d. **Structured element-by-element comparison** (MANDATORY FORMAT — no prose comparisons):
+      Produce a table with this exact structure for every element in the inventory:
+      `| # | Section | Element | Design (specific) | Implementation (specific) | Verdict |`
+      Rules:
+        - "Design" column: SPECIFIC values (chart type name, hex color, px size, font weight)
+        - "Implementation" column: SPECIFIC observed values from the screenshot — not code assumptions
+        - Verdict: only ✅ MATCH or ❌ DEVIATION — never "appears to match" or "need to verify"
+        - Data visualizations: chart type, axis orientation, axis labels, legend position, bar colors,
+          data label placement, grid lines, center text — each a SEPARATE row
+        - NEVER lead with "what's working" — the table IS the comparison, start with row 1
+   e. **Fix every ❌ DEVIATION** — fix each row individually, trace to design contract value.
+      Re-render after each batch of fixes. Update verdict only after visual re-verification.
+      Max 3 fix-and-recheck iterations per component.
+   f. **Final table**: After fixes, every row must be ✅ MATCH. Any remaining ❌ → log to
+      `.gsd-t/qa-issues.md` with severity CRITICAL and tag `[VISUAL]`. BLOCKS task completion.
+      Report: "Verified: {N}/{total} elements match at {breakpoints} breakpoints"
    g. **Log results** in the design contract's Verification Status table.
    h. **If no browser/preview tools available**: This is a CRITICAL blocker, not a warning.
       Log to `.gsd-t/qa-issues.md`: "CRITICAL: No browser tools available for visual verification.
@@ -679,13 +688,27 @@ Rules:
    behavior (state changes, data loaded, navigation works) or just check
    that elements exist? Flag and rewrite any shallow/layout tests.
 8. **Design Fidelity** (if .gsd-t/contracts/design-contract.md exists):
-   Open every implemented screen in a real browser. Screenshot at mobile
-   (375px), tablet (768px), desktop (1280px). Get Figma reference via
-   Figma MCP get_screenshot (or design contract images). Compare every
-   element: chart types, colors, typography, spacing, layout, component
-   states, data visualization style. Any visual deviation from the design
-   is a CRITICAL bug. 'Build shows vertical bars but design shows horizontal
-   stacked bars' is a real bug, not a style opinion.
+   FAIL-BY-DEFAULT: assume NOTHING matches. Prove each element individually.
+   a. Open every implemented screen in a real browser. Screenshot at mobile
+      (375px), tablet (768px), desktop (1280px). Get Figma reference via
+      Figma MCP get_screenshot (or design contract images).
+   b. Build an element inventory: enumerate every distinct visual element
+      in the design top-to-bottom. Every chart, label, icon, heading, card,
+      spacing boundary, and color. Data visualizations expand: chart type,
+      orientation, axis labels, legend position, bar colors, data labels,
+      grid lines, center text — each a separate item.
+   c. Produce a structured comparison table (MANDATORY):
+      | # | Section | Element | Design (specific) | Implementation (specific) | Verdict |
+      Every element gets specific values in both columns (hex colors, chart
+      type names, px sizes, font weights — never vague descriptions).
+      Only valid verdicts: ✅ MATCH or ❌ DEVIATION.
+      NEVER write "appears to match" or "looks correct."
+   d. Any ❌ DEVIATION is a CRITICAL bug with full reproduction:
+      'Design: horizontal stacked bar with % labels inside bars.
+       Build: vertical grouped bar with labels above bars.' — this is a bug.
+      'Design: 32px Inter SemiBold. Build: 24px Inter Regular.' — this is a bug.
+   e. If the comparison table has fewer than 30 rows for a full page, the
+      audit is incomplete — go back and find the missing elements.
 
 ## Exploratory Testing (if Playwright MCP available)
 

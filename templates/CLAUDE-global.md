@@ -322,7 +322,7 @@ After QA passes, every code-producing command spawns a **Red Team agent** — an
 **Key Red Team rules:**
 - **Inverted incentive**: More bugs found = more value. Zero bugs requires exhaustive proof of thoroughness.
 - **False positive penalty**: Reporting non-bugs destroys credibility. Every bug must be reproduced with proof.
-- **Exhaustive categories**: Contract violations, boundary inputs, state transitions, error paths, missing flows, regression, E2E functional gaps, design fidelity (when design contract exists: render in browser, screenshot, compare pixel-by-pixel against Figma) — all must be attempted.
+- **Exhaustive categories**: Contract violations, boundary inputs, state transitions, error paths, missing flows, regression, E2E functional gaps, design fidelity (when design contract exists: render in browser, screenshot, build element inventory, produce structured comparison table with per-element MATCH/DEVIATION verdicts — never "looks close") — all must be attempted.
 - **VERDICT**: `FAIL` (bugs found — blocks completion) or `GRUDGING PASS` (exhaustive search, nothing found).
 - **Report**: Written to `.gsd-t/red-team-report.md`; bugs also appended to `.gsd-t/qa-issues.md`.
 

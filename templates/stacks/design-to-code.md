@@ -435,6 +435,8 @@ MANDATORY:
 
 ## 15. Visual Verification Loop
 
+**FAIL-BY-DEFAULT RULE**: Every visual element starts as UNVERIFIED. You must prove each one matches — not assume it does. "Looks close" is not a verdict. "Appears to match" is not a verdict. The only valid verdicts are MATCH (with proof) or DEVIATION (with specifics). If you catch yourself writing "looks correct" or "appears right" without element-level proof, you are doing it wrong.
+
 ```
 MANDATORY:
   ├── After implementing any design component, you MUST verify it visually.
@@ -445,38 +447,80 @@ MANDATORY:
   │     If no MCP → use design image/screenshot from the design contract
   │     You MUST have a reference image before proceeding
   │
-  ├── Step 2: RENDER IN A REAL BROWSER
+  ├── Step 2: BUILD THE ELEMENT INVENTORY
+  │     Before ANY comparison, enumerate every distinct visual element in the
+  │     design. Walk the design top-to-bottom, left-to-right. For each section:
+  │       - Section title text and icon
+  │       - Every chart/visualization (type, orientation, labels, legend, series count)
+  │       - Every data table (columns, row structure, sort indicators)
+  │       - Every KPI/stat card (value, label, icon, trend indicator)
+  │       - Every button, toggle, tab, dropdown
+  │       - Every text element (headings, body, captions, labels)
+  │       - Every spacing boundary (section gaps, card padding, element margins)
+  │       - Every color usage (backgrounds, borders, text, chart fills)
+  │     Write each element as a row in the comparison table (Step 4).
+  │     If the inventory has fewer than 20 elements for a full page, you missed items.
+  │
+  ├── Step 3: RENDER IN A REAL BROWSER + SCREENSHOT
   │     Start the dev server (npm run dev, etc.)
   │     Open the page using Claude Preview, Chrome MCP, or Playwright
   │     You MUST see real rendered output — not just read the code
-  │
-  ├── Step 3: SCREENSHOT AT EVERY BREAKPOINT
-  │     Mobile (375px), Tablet (768px), Desktop (1280px) minimum
+  │     Capture screenshots at each target breakpoint:
+  │       Mobile (375px), Tablet (768px), Desktop (1280px) minimum
   │     Each breakpoint is a separate screenshot
   │
-  ├── Step 4: PIXEL-BY-PIXEL COMPARISON
-  │     Place Figma screenshot and browser screenshot side-by-side
-  │     Check EVERY element systematically:
-  │       Chart types — bar vs stacked bar vs donut (exact type match)
-  │       Colors — exact hex values, not "close enough"
-  │       Typography — font family, weight, size, line-height, letter-spacing
-  │       Spacing — padding, margins, gaps (exact pixel match)
-  │       Layout — grid structure, alignment, positioning
-  │       Component states — toggle active/inactive, expanded/collapsed
-  │       Data visualization — axis labels, legends, chart orientation
-  │       Icons and imagery — correct icon set, correct sizes
+  ├── Step 4: STRUCTURED ELEMENT-BY-ELEMENT COMPARISON (MANDATORY FORMAT)
+  │     You MUST produce a comparison table with this exact structure.
+  │     Every row from the inventory gets its own row. No summarizing, no grouping,
+  │     no "appears to match" prose. Each element gets an individual verdict.
+  │
+  │     | # | Section | Element | Design (specific) | Implementation (specific) | Verdict |
+  │     |---|---------|---------|-------------------|--------------------------|---------|
+  │     | 1 | Summary | Chart type | Horizontal stacked bar | Vertical grouped bar | ❌ DEVIATION |
+  │     | 2 | Summary | Chart colors | #4285F4, #34A853, #FBBC04 | #4285F4, #34A853, #FBBC04 | ✅ MATCH |
+  │     | 3 | Summary | Y-axis labels | Tool names, left-aligned | Tool names, left-aligned | ✅ MATCH |
+  │     | 4 | Summary | Bar label placement | Inside bar, white text | Above bar, black text | ❌ DEVIATION |
+  │     | 5 | KPIs | Font size | 32px semibold | 24px regular | ❌ DEVIATION |
+  │     | ... | ... | ... | ... | ... | ... |
+  │
+  │     Rules for the table:
+  │     - "Design" column must have SPECIFIC values (chart type name, hex color,
+  │       pixel size, font weight name) — not vague descriptions
+  │     - "Implementation" column must have SPECIFIC observed values — not assumptions
+  │       from reading code. You must LOOK at the rendered screenshot.
+  │     - NEVER write "Appears to match" or "Looks correct" — measure and verify
+  │     - NEVER write "Need to verify" — verify it NOW or mark UNVERIFIED
+  │     - Data visualizations get MULTIPLE rows: chart type, axis orientation,
+  │       axis labels, legend position, bar/line/segment colors, data labels,
+  │       grid lines, tooltip style — each is a separate element
+  │     - If the table has fewer than 30 rows for a full-page comparison,
+  │       you skipped elements. Go back to the inventory.
+  │
+  │     DATA VISUALIZATION CHECKLIST (expand into table rows):
+  │       Chart type: bar/stacked-bar/grouped-bar/horizontal-bar/line/area/donut/pie/scatter
+  │       Chart orientation: horizontal vs vertical
+  │       Axis labels: present, position, font, values
+  │       Axis grid lines: present, style, color
+  │       Legend: position (top/bottom/right/inline), format, colors
+  │       Data labels: inside bars/above bars/on segments, font, color
+  │       Chart colors: exact hex per series/segment
+  │       Bar width/spacing: relative proportions
+  │       Center text (donut/pie): present, value, font
+  │       Tooltip style: if visible in design
   │
   ├── Step 5: FIX EVERY DEVIATION
-  │     Log each deviation with specifics before fixing
-  │     Fix one by one, tracing each fix to the design contract
+  │     Fix each ❌ row from the table, one by one
+  │     Trace each fix to the design contract value
   │     Re-render after each batch of fixes
+  │     Update the table: change ❌ to ✅ only after visual re-verification
   │     Maximum 3 fix-and-recheck iterations
   │
   ├── Step 6: FINAL VERIFICATION
   │     After fixes, take fresh screenshots at all breakpoints
-  │     Confirm every deviation is resolved
-  │     If deviations remain → CRITICAL finding in .gsd-t/qa-issues.md
-  │     Task is NOT complete until visual match is confirmed
+  │     Produce a FINAL comparison table — every row must be ✅ MATCH
+  │     Any remaining ❌ → CRITICAL finding in .gsd-t/qa-issues.md
+  │     Task is NOT complete until every row shows ✅ MATCH
+  │     Count: "Verified: {N}/{total} elements match at {breakpoints} breakpoints"
   │
   ├── NO BROWSER TOOLS = BLOCKER
   │     If Claude Preview, Chrome MCP, and Playwright are ALL unavailable:
@@ -487,9 +531,9 @@ MANDATORY:
   └── Log all verification results in the design contract Verification Status table
 ```
 
-**BAD** — Writing CSS, committing, moving on without ever opening a browser to see the result. "Tests pass" is not visual verification.
+**BAD** — A vague comparison table with "Appears to match" and "Looks correct" entries. Leading with "What's Working Well" before identifying deviations. Saying "implementation looks very close to the designs" without element-level proof.
 
-**GOOD** — Render at 375px → Screenshot → Compare to Figma → "Donut chart missing center text, stacked bars rendered as vertical bars" → Fix chart type → Fix center text → Re-render → Confirm match → Repeat at 768px and 1280px → All match → Log "verified at 3 breakpoints" in design contract.
+**GOOD** — 45-row structured comparison table where every element has specific design values vs. specific implementation values. 12 deviations identified: wrong chart type (horizontal stacked bar → vertical grouped bar), wrong font size (32px → 24px), missing data labels inside bars, etc. Each fixed individually with re-render verification. Final table: 45/45 ✅ MATCH.
 
 ---
 
