@@ -520,28 +520,38 @@ function configureAutoRouteHook(scriptPath) {
 // ─── Figma MCP ──────────────────────────────────────────────────────────────
 
 const FIGMA_MCP_URL = "https://mcp.figma.com/mcp";
+const CLAUDE_JSON = path.join(os.homedir(), ".claude.json");
 
 function configureFigmaMcp() {
-  const parsed = readSettingsJson();
-  if (parsed === null && fs.existsSync(SETTINGS_JSON)) {
-    warn("settings.json has invalid JSON — cannot configure Figma MCP");
-    return;
-  }
-  const settings = parsed || {};
+  // Check ~/.claude.json (where `claude mcp add` stores servers)
+  try {
+    if (fs.existsSync(CLAUDE_JSON)) {
+      const cj = JSON.parse(fs.readFileSync(CLAUDE_JSON, "utf8"));
+      if (cj.mcpServers && cj.mcpServers.figma) {
+        info("Figma MCP already configured");
+        return;
+      }
+    }
+  } catch { /* ignore parse errors */ }
 
+  // Also check settings.json (legacy location)
+  const settings = readSettingsJson() || {};
   if (settings.mcpServers && settings.mcpServers.figma) {
-    info("Figma MCP already configured");
+    info("Figma MCP already configured (settings.json)");
     return;
   }
 
-  if (!settings.mcpServers) settings.mcpServers = {};
-  settings.mcpServers.figma = { url: FIGMA_MCP_URL };
-
-  if (!isSymlink(SETTINGS_JSON)) {
-    fs.writeFileSync(SETTINGS_JSON, JSON.stringify(settings, null, 2));
+  // Add via `claude mcp add` for proper OAuth registration
+  try {
+    execFileSync("claude", ["mcp", "add", "--transport", "http", "-s", "user", "figma", FIGMA_MCP_URL], {
+      encoding: "utf8",
+      timeout: 10000,
+    });
     success("Figma MCP configured (remote: " + FIGMA_MCP_URL + ")");
-  } else {
-    warn("Skipping settings.json write — target is a symlink");
+    info("Authenticate with Figma on next session start (browser OAuth)");
+  } catch {
+    warn("Could not auto-configure Figma MCP — add manually:");
+    log(`  ${DIM}$${RESET} claude mcp add --transport http -s user figma ${FIGMA_MCP_URL}`);
   }
 }
 
