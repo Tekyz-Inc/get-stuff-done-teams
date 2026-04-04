@@ -517,6 +517,34 @@ function configureAutoRouteHook(scriptPath) {
   }
 }
 
+// ─── Figma MCP ──────────────────────────────────────────────────────────────
+
+const FIGMA_MCP_URL = "https://mcp.figma.com/mcp";
+
+function configureFigmaMcp() {
+  const parsed = readSettingsJson();
+  if (parsed === null && fs.existsSync(SETTINGS_JSON)) {
+    warn("settings.json has invalid JSON — cannot configure Figma MCP");
+    return;
+  }
+  const settings = parsed || {};
+
+  if (settings.mcpServers && settings.mcpServers.figma) {
+    info("Figma MCP already configured");
+    return;
+  }
+
+  if (!settings.mcpServers) settings.mcpServers = {};
+  settings.mcpServers.figma = { url: FIGMA_MCP_URL };
+
+  if (!isSymlink(SETTINGS_JSON)) {
+    fs.writeFileSync(SETTINGS_JSON, JSON.stringify(settings, null, 2));
+    success("Figma MCP configured (remote: " + FIGMA_MCP_URL + ")");
+  } else {
+    warn("Skipping settings.json write — target is a symlink");
+  }
+}
+
 // ─── Utility Scripts ─────────────────────────────────────────────────────────
 
 const UTILITY_SCRIPTS = ["gsd-t-tools.js", "gsd-t-statusline.js", "gsd-t-event-writer.js", "gsd-t-dashboard-server.js", "gsd-t-dashboard.html"];
@@ -831,6 +859,9 @@ function doInstall(opts = {}) {
 
   heading("Auto-Route (UserPromptSubmit)");
   installAutoRoute();
+
+  heading("Figma MCP (Design-to-Code)");
+  configureFigmaMcp();
 
   heading("Utility Scripts");
   installUtilityScripts();
