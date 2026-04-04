@@ -12,7 +12,7 @@ A methodology for reliable, parallelizable development using Claude Code with op
 **Generates visual scan reports** — every `/gsd-t-scan` produces a self-contained HTML report with 6 live architectural diagrams, a tech debt register, and domain health scores; optional DOCX/PDF export via `--export docx|pdf`.
 **Self-learning rule engine** — declarative rules in rules.jsonl detect failure patterns from task metrics. Candidate patches progress through a 5-stage lifecycle (candidate, applied, measured, promoted, graduated) with >55% improvement gates before becoming permanent methodology artifacts.
 **Cross-project learning** — proven rules propagate to `~/.claude/metrics/` and sync across all registered projects via `update-all`. Rules validated in 3+ projects become universal; 5+ projects qualify for npm distribution. Cross-project signal comparison and global ELO rankings available via `gsd-t-metrics --cross-project` and `gsd-t-status`.
-**Stack Rules Engine** — auto-detects project tech stack (React, TypeScript, Node API, Python, Go, Rust) from manifest files and injects mandatory best-practice rules into subagent prompts at execute-time. Universal security rules always apply; stack-specific rules layer on top. Extensible: drop a `.md` file in `templates/stacks/` to add a new stack.
+**Stack Rules Engine** — auto-detects project tech stack (React, TypeScript, Node API, Python, Go, Rust) from manifest files and injects mandatory best-practice rules into subagent prompts at execute-time. Universal security rules always apply; stack-specific rules layer on top. Includes **design-to-code** rules for pixel-perfect frontend implementation from Figma, screenshots, or design images — with Figma MCP integration, design token extraction, stack capability evaluation, and visual verification loops. Extensible: drop a `.md` file in `templates/stacks/` to add a new stack.
 **Self-Calibrating QA** — `qa-calibrator.js` tracks QA miss-rates across milestones, detects weak-spot categories (error paths, boundaries, state transitions), and automatically injects targeted guidance into QA subagent prompts. Projects on the same stack share miss-rate data for faster calibration.
 **Token-Aware Orchestration** — `token-budget.js` tracks session token consumption and applies graduated degradation: downgrade model assignments when approaching limits, checkpoint and skip non-essential operations to conserve budget, and halt cleanly with a resume instruction at the ceiling. Wave and execute phases check budget before each subagent spawn.
 **Quality North Star** — projects define a `## Quality North Star` section in CLAUDE.md (1–3 sentences, e.g., "This is a published npm library. Every public API must be intuitive and backward-compatible."). `gsd-t-init` auto-detects preset (library/web-app/cli) from package.json signals; `gsd-t-setup` configures it for existing projects. Subagents read it as a quality lens; absent = silent skip (backward compatible).
@@ -343,7 +343,7 @@ get-stuff-done-teams/
 │   ├── branch.md                      # Git branch helper
 │   ├── checkin.md                     # Auto-version + commit/push helper
 │   └── Claude-md.md                   # Reload CLAUDE.md directives
-├── templates/                         # Document templates (9 base + stacks/)
+├── templates/                         # Document templates (10 base + stacks/)
 │   ├── CLAUDE-global.md
 │   ├── CLAUDE-project.md
 │   ├── requirements.md
@@ -353,10 +353,12 @@ get-stuff-done-teams/
 │   ├── progress.md
 │   ├── backlog.md
 │   ├── backlog-settings.md
+│   ├── design-contract.md             # Design-to-code token extraction template
 │   └── stacks/                        # Stack Rules Engine templates
 │       ├── _security.md               # Universal — always injected
 │       ├── react.md
 │       ├── typescript.md
+│       ├── design-to-code.md          # Pixel-perfect design implementation
 │       └── node-api.md
 ├── scripts/                           # Runtime utility scripts (installed to ~/.claude/scripts/)
 │   ├── gsd-t-tools.js                 # State CLI (get/set/validate/list)

@@ -38,7 +38,7 @@ commands/              — 52 slash commands for Claude Code (47 GSD-T + 5 utili
   checkin.md           — Auto-version + commit/push helper
   Claude-md.md         — Reload CLAUDE.md directives
   global-change.md     — Bulk file changes across all GSD-T projects
-templates/             — 9 document templates + stacks/ directory
+templates/             — 10 document templates + stacks/ directory
   CLAUDE-global.md     — Global ~/.claude/CLAUDE.md template
   CLAUDE-project.md    — Per-project CLAUDE.md template
   requirements.md      — Requirements template
@@ -48,7 +48,8 @@ templates/             — 9 document templates + stacks/ directory
   progress.md          — GSD-T progress template
   backlog.md           — Backlog template
   backlog-settings.md  — Backlog settings template
-  stacks/              — Stack Rules Engine templates (27 files, injected at execute-time)
+  design-contract.md — Design contract template (design-to-code token extraction)
+  stacks/              — Stack Rules Engine templates (28 files, injected at execute-time)
     _security.md       — Universal security rules (always injected, _ prefix)
     _auth.md           — Universal auth rules (always injected, _ prefix)
     react.md           — React patterns and conventions
@@ -58,6 +59,7 @@ templates/             — 9 document templates + stacks/ directory
     llm.md             — LLM app patterns (streaming, RAG, tool calling)
     prisma.md          — Prisma ORM schema, migrations, typed client
     queues.md          — Background jobs (BullMQ, SQS, Celery)
+    design-to-code.md  — Pixel-perfect design implementation (Figma MCP, visual verification)
     (+ 18 more: python, flutter, tailwind, react-native, vite, nextjs, vue,
      docker, postgresql, github-actions, rest-api, supabase, firebase,
      graphql, zustand, redux, neo4j, playwright)

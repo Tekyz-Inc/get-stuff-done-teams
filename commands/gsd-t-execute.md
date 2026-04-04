@@ -193,6 +193,8 @@ if [ -d "$STACKS_DIR" ]; then
   ([ -f "playwright.config.ts" ] || [ -f "playwright.config.js" ]) && _add playwright.md
   [ -f "go.mod" ] && _add go.md
   [ -f "Cargo.toml" ] && _add rust.md
+  # Design-to-code detection (design contract, design tokens, or Figma config)
+  ([ -f ".gsd-t/contracts/design-contract.md" ] || [ -f "design-tokens.json" ] || [ -d "design-tokens" ] || [ -f ".figmarc" ] || [ -f "figma.config.json" ]) && _add design-to-code.md
 fi
 ```
 
@@ -280,20 +282,31 @@ Execute the task above:
         recovers (retry button works, form can be resubmitted, etc.).
      A test that would pass on an empty HTML page with the right element IDs is useless.
      Every assertion must prove the FEATURE WORKS, not that the ELEMENT EXISTS.
-7. Run ALL test suites — this is NOT optional, not conditional, not "if applicable":
+7. **Visual Design Verification** (only if design-to-code stack rule is active):
+   If the task involves UI implementation from a design reference:
+   a. Check if Claude Preview or Chrome MCP browser tools are available
+   b. If available: render the implemented component at each target breakpoint (mobile 375px, tablet 768px, desktop 1280px)
+   c. Screenshot each rendered breakpoint
+   d. Compare against the source design reference (from `.gsd-t/contracts/design-contract.md`)
+   e. Identify any deviations: spacing, color, typography, alignment, sizing
+   f. Fix deviations — every fix must trace to a design contract value (max 2 fix iterations)
+   g. Log verification results in the design contract's Verification Status table
+   h. If no browser tools available: log warning "Visual verification unavailable — manual review recommended" to `.gsd-t/qa-issues.md`
+   Skip this step entirely if no design-to-code stack rule was injected.
+8. Run ALL test suites — this is NOT optional, not conditional, not "if applicable":
    a. Detect configured test runners: check for vitest/jest config, playwright.config.*, cypress.config.*
    b. Run EVERY detected suite. Unit tests alone are NEVER sufficient when E2E exists.
    c. If `playwright.config.*` exists → run `npx playwright test` (full suite, not just affected specs)
    d. If E2E tests fail → fix (up to 2 attempts) before proceeding
    e. Report ALL suite results: "Unit: X/Y pass | E2E: X/Y pass" — never report just one
-8. Run Pre-Commit Gate checklist from CLAUDE.md — update all affected docs BEFORE committing
-9. Commit immediately: feat({domain-name}/task-{task-id}): {description}
-10. Update .gsd-t/progress.md — mark this task complete; prefix the Decision Log entry:
+9. Run Pre-Commit Gate checklist from CLAUDE.md — update all affected docs BEFORE committing
+10. Commit immediately: feat({domain-name}/task-{task-id}): {description}
+11. Update .gsd-t/progress.md — mark this task complete; prefix the Decision Log entry:
     - Completed successfully on first attempt → prefix `[success]`
     - Completed after a fix → prefix `[learning]`
     - Deferred to .gsd-t/deferred-items.md → prefix `[deferred]`
     - Failed after 3 attempts → prefix `[failure]`
-11. Spawn QA subagent (model: sonnet) after completing the task:
+12. Spawn QA subagent (model: sonnet) after completing the task:
     'Run ALL configured test suites — detect and run every one:
      a. Unit tests (vitest/jest/mocha): run the full suite, report pass/fail counts
      b. E2E tests: check for playwright.config.* or cypress.config.* — if found, run the FULL E2E suite
@@ -728,7 +741,7 @@ Report: 'Doc-ripple: {N} checked, {N} updated, {N} skipped'"
 
 ## Document Ripple
 
-Execute modifies source code, so the Pre-Commit Gate (referenced in Step 9) covers document updates. For clarity, the key documents affected by execution:
+Execute modifies source code, so the Pre-Commit Gate (referenced in Step 10) covers document updates. For clarity, the key documents affected by execution:
 
 ### Always update:
 1. **`.gsd-t/progress.md`** — Mark tasks complete, update domain status, log execution summary

@@ -3,7 +3,7 @@
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: IN PROGRESS
 ## Date: 2026-04-01
-## Version: 2.53.10
+## Version: 2.54.10
 
 ## Active Milestone
 
@@ -685,6 +685,8 @@ Wave 4: adaptive-replan (consumes fresh-dispatch summaries, integrates with work
 - 2026-02-25 10:32: Deep research with team agents for brainstorm and debug loop breaking (v2.31.19) — gsd-t-brainstorm.md: replaced optional team mode (visionary/pragmatist/devil's advocate) with mandatory Deep Research Phase before Step 5; three parallel research agents (landscape, alternatives, analogies) must complete before any conclusions are drawn; token-log note updated from "team brainstorm" to "deep research". gsd-t-debug.md: added Step 1.5 Debug Loop Detection; scans progress.md for 3+ prior debug sessions on same issue and triggers Deep Research Mode with three parallel research agents (root-cause, alternatives, prior-art); Lead synthesizes and presents a structured option table to user before any fix proceeds; 3-attempt limit now escalates to deep research instead of stopping. Purpose: prevent 10–20 session debug death spirals and ensure brainstorm conclusions are evidence-based.
 
 - 2026-03-19 00:00: [success] Scan doc freshness system implemented (3 phases): Phase 1 — micro-updates added to execute/quick/debug Document Ripple sections (patch structural metadata in scan docs after code changes, near-zero cost); Phase 2 — hash cache (.gsd-t/scan/.cache.json) generated at scan completion, auto-refresh on read added to partition/feature/gap-analysis (stale dimensions re-scanned automatically before consumption, no user involvement); Phase 3 — milestone checkpoint added to complete-milestone Step 8.5 (full scan refresh of all stale dimensions before tagging). Also added CLAUDE.md directive: always run update-all after npm publish.
+
+- 2026-04-03 23:00: [success] Design-to-Code stack rule added (v2.54.10) — new stack rule `templates/stacks/design-to-code.md` (16 sections) for pixel-perfect frontend implementation from Figma/screenshots/images. Includes: Figma MCP auto-detection, stack capability evaluation, design token extraction protocol, component decomposition, visual verification loop. New template `templates/design-contract.md` for extracted design tokens. Detection trigger added to 5 command files (execute, quick, integrate, wave, debug) — activates on design-contract.md, design-tokens.json, .figmarc, or figma.config.json. Visual Design Verification step (Step 7) added to execute task flow. All docs updated (README, GSD-T-README, CLAUDE-global, gsd-t-help, CLAUDE.md).
 
 ## Session Log
 | Date | Session | What was accomplished |

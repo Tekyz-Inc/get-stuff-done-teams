@@ -239,7 +239,7 @@ GSD-T auto-detects your project's tech stack and injects mandatory best-practice
 4. Project-level overrides in `.gsd-t/stacks/` replace global files of the same name.
 5. Rules are appended to the subagent prompt as a `## Stack Rules (MANDATORY)` section.
 
-### Stack Detection (27 files)
+### Stack Detection (28 files)
 
 | Project File | Detected Stack(s) |
 |---|---|
@@ -270,6 +270,7 @@ GSD-T auto-detects your project's tech stack and injects mandatory best-practice
 | `requirements.txt` with `celery`, `dramatiq`, `rq`, or `arq` | `queues.md` |
 | `requirements.txt` with `openai`, `anthropic`, `langchain` | `llm.md` |
 | `pubspec.yaml` | `flutter.md` |
+| `.gsd-t/contracts/design-contract.md`, `design-tokens.json`, `design-tokens/`, `.figmarc`, or `figma.config.json` | `design-to-code.md` |
 
 ### Commands That Inject Stack Rules
 
