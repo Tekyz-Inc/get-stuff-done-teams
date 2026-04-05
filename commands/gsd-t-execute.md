@@ -282,53 +282,12 @@ Execute the task above:
         recovers (retry button works, form can be resubmitted, etc.).
      A test that would pass on an empty HTML page with the right element IDs is useless.
      Every assertion must prove the FEATURE WORKS, not that the ELEMENT EXISTS.
-7. **Visual Design Verification** (MANDATORY when design-to-code stack rule is active):
-   If the task involves UI implementation from a design reference, this step is NOT optional.
-   **FAIL-BY-DEFAULT**: Every element is UNVERIFIED until you prove it matches. "Looks close" is not
-   a verdict. "Appears to match" is not a verdict. Assume NOTHING matches.
-   a. **Get the Figma reference screenshot**: If Figma MCP is available, call `get_screenshot` with the
-      relevant nodeId and fileKey from `.gsd-t/contracts/design-contract.md`. Save this as the reference.
-      If no Figma MCP, use the design image/screenshot provided in the contract.
-   b. **Build the element inventory**: Before comparing ANYTHING, enumerate every distinct visual
-      element in the design — walk top-to-bottom, left-to-right. Every chart, label, icon, heading,
-      card, button, spacing boundary, color, and data visualization detail gets its own row.
-      Data visualizations expand into multiple rows: chart type, orientation, axis labels, legend
-      position, bar/segment colors, data labels, grid lines, center text, tooltip style.
-      If a full-page inventory has fewer than 30 elements, you missed items — go back.
-   c. **Open side-by-side browser sessions for direct visual comparison**:
-      Start the dev server if not running. Open TWO views simultaneously:
-      - **View 1 — Built frontend**: Use Claude Preview, Chrome MCP, or Playwright to open the
-        implemented page at the correct URL. Navigate to the exact route/component being verified.
-      - **View 2 — Original design**: If Figma URL → open the Figma page in another browser tab.
-        If design image file → open the image in a browser tab (`file://` path or HTML wrapper).
-        If Figma MCP screenshot → open that screenshot image.
-      Walk through each component with both views visible. Compare element-by-element at matching
-      zoom levels. Capture screenshot pairs (design + implementation) at each target breakpoint:
-        - Mobile: 375px width
-        - Tablet: 768px width
-        - Desktop: 1280px width
-   d. **Structured element-by-element comparison** (MANDATORY FORMAT — no prose comparisons):
-      Produce a table with this exact structure for every element in the inventory:
-      `| # | Section | Element | Design (specific) | Implementation (specific) | Verdict |`
-      Rules:
-        - "Design" column: SPECIFIC values (chart type name, hex color, px size, font weight)
-        - "Implementation" column: SPECIFIC observed values from the screenshot — not code assumptions
-        - Verdict: only ✅ MATCH or ❌ DEVIATION — never "appears to match" or "need to verify"
-        - Data visualizations: chart type, axis orientation, axis labels, legend position, bar colors,
-          data label placement, grid lines, center text — each a SEPARATE row
-        - NEVER lead with "what's working" — the table IS the comparison, start with row 1
-   e. **Fix every ❌ DEVIATION** — fix each row individually, trace to design contract value.
-      Re-render after each batch of fixes. Update verdict only after visual re-verification.
-      Max 3 fix-and-recheck iterations per component.
-   f. **Final table**: After fixes, every row must be ✅ MATCH. Any remaining ❌ → log to
-      `.gsd-t/qa-issues.md` with severity CRITICAL and tag `[VISUAL]`. BLOCKS task completion.
-      Report: "Verified: {N}/{total} elements match at {breakpoints} breakpoints"
-   g. **Log results** in the design contract's Verification Status table.
-   h. **If no browser/preview tools available**: This is a CRITICAL blocker, not a warning.
-      Log to `.gsd-t/qa-issues.md`: "CRITICAL: No browser tools available for visual verification.
-      Install Claude Preview or configure Playwright for visual testing."
-      The task CANNOT be marked complete without visual verification.
-   Skip this step entirely if no design-to-code stack rule was injected.
+7. **Visual Design Note** (when design-to-code stack rule is active):
+   Do NOT perform visual verification yourself — a dedicated Design Verification Agent
+   (Step 5.25) runs after all domain tasks complete and handles the full visual comparison.
+   Your job: write precise code from the design contract tokens. Use exact hex colors,
+   exact spacing values, exact typography. Every CSS value must trace to the design contract.
+   The verification agent will open a browser and prove whether your code matches.
 8. Run ALL test suites — this is NOT optional, not conditional, not "if applicable":
    a. Detect configured test runners: check for vitest/jest config, playwright.config.*, cypress.config.*
    b. Run EVERY detected suite. Unit tests alone are NEVER sufficient when E2E exists.
@@ -648,6 +607,160 @@ A teammate finishes independent tasks and is waiting on a checkpoint:
 1. Check if checkpoint can be expedited
 2. If not, have the teammate work on documentation, tests, or code cleanup within their domain
 3. Or shut down the teammate and respawn when unblocked
+
+## Step 5.25: Design Verification Agent (MANDATORY when design contract exists)
+
+After all domain tasks complete and QA passes, check if `.gsd-t/contracts/design-contract.md` exists. If it does NOT exist, skip this step entirely.
+
+If it DOES exist — spawn a **dedicated Design Verification Agent**. This agent's ONLY job is to open a browser, compare the built frontend against the original design, and produce a structured comparison table. It writes NO feature code. Separation of concerns: the coding agent codes, the verification agent verifies.
+
+⚙ [{model}] Design Verification → visual comparison of built frontend vs design
+
+**OBSERVABILITY LOGGING (MANDATORY):**
+Before spawning — run via Bash:
+`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M") && TOK_START=${CLAUDE_CONTEXT_TOKENS_USED:-0} && TOK_MAX=${CLAUDE_CONTEXT_TOKENS_MAX:-200000}`
+
+```
+Task subagent (general-purpose, model: opus):
+"You are the Design Verification Agent. Your ONLY job is to visually compare
+the built frontend against the original design and produce a structured
+comparison table. You write ZERO feature code. Your sole deliverable is
+the comparison table and verification results.
+
+FAIL-BY-DEFAULT: Every visual element starts as UNVERIFIED. You must prove
+each one matches — not assume it does. 'Looks close' is not a verdict.
+'Appears to match' is not a verdict. The only valid verdicts are MATCH
+(with proof) or DEVIATION (with specifics).
+
+## Step 1: Get the Design Reference
+
+Read .gsd-t/contracts/design-contract.md for the source reference.
+- If Figma MCP available → call get_screenshot with nodeId + fileKey from the contract
+- If design image files → locate them from the contract's Source Reference field
+- If no MCP and no images → log CRITICAL blocker to .gsd-t/qa-issues.md and STOP
+You MUST have a reference image before proceeding.
+
+## Step 2: Build the Element Inventory
+
+Before ANY comparison, enumerate every distinct visual element in the design.
+Walk the design top-to-bottom, left-to-right. For each section:
+  - Section title text and icon
+  - Every chart/visualization (type, orientation, labels, legend, series count)
+  - Every data table (columns, row structure, sort indicators)
+  - Every KPI/stat card (value, label, icon, trend indicator)
+  - Every button, toggle, tab, dropdown
+  - Every text element (headings, body, captions, labels)
+  - Every spacing boundary (section gaps, card padding, element margins)
+  - Every color usage (backgrounds, borders, text, chart fills)
+Write each element as a row for the comparison table.
+If the inventory has fewer than 20 elements for a full page, you missed items.
+
+Data visualizations MUST expand into multiple rows:
+  Chart type, chart orientation, axis labels, axis grid lines, legend position,
+  data labels placement, chart colors per series, bar width/spacing,
+  center text (donut/pie), tooltip style — each a SEPARATE element.
+
+## Step 3: Open Side-by-Side Browser Sessions
+
+Start the dev server (npm run dev, or project equivalent).
+Open TWO browser views simultaneously for direct visual comparison:
+
+VIEW 1 — BUILT FRONTEND:
+  Open the implemented page using Claude Preview, Chrome MCP, or Playwright.
+  Navigate to the exact route/component being verified.
+  You MUST see real rendered output — not just read the code.
+
+VIEW 2 — ORIGINAL DESIGN REFERENCE:
+  If Figma URL available → open the Figma page in a browser tab/window.
+    Use the Figma URL from the design contract Source Reference field.
+    Navigate to the specific frame/component being compared.
+  If design image file → open the image in a browser tab/window.
+    Use: file://{absolute-path-to-image} or render in an HTML page.
+  If Figma MCP screenshot was captured → open that screenshot image.
+
+COMPARISON APPROACH:
+  With both views open, walk through each component/section:
+    - Position views side-by-side (or switch between tabs)
+    - Compare each element visually at the same zoom level
+    - Screenshot BOTH views at matching viewport sizes
+  Capture implementation screenshots at each target breakpoint:
+    Mobile (375px), Tablet (768px), Desktop (1280px) minimum.
+  Each breakpoint is a separate screenshot pair (design + implementation).
+
+If Claude Preview, Chrome MCP, and Playwright are ALL unavailable:
+  This is a CRITICAL blocker. Log to .gsd-t/qa-issues.md:
+  'CRITICAL: No browser tools available for visual verification.'
+  STOP — the verification CANNOT proceed without a browser.
+
+## Step 4: Structured Element-by-Element Comparison (MANDATORY FORMAT)
+
+Produce a comparison table with this exact structure. Every element from
+the inventory gets its own row. No summarizing, no grouping, no prose.
+
+| # | Section | Element | Design (specific) | Implementation (specific) | Verdict |
+|---|---------|---------|-------------------|--------------------------|---------|
+| 1 | Summary | Chart type | Horizontal stacked bar | Vertical grouped bar | ❌ DEVIATION |
+| 2 | Summary | Chart colors | #4285F4, #34A853, #FBBC04 | #4285F4, #34A853, #FBBC04 | ✅ MATCH |
+
+Rules:
+- 'Design' column: SPECIFIC values (chart type name, hex color, px size, font weight)
+- 'Implementation' column: SPECIFIC observed values from the SCREENSHOT — not code assumptions
+- Verdict: only ✅ MATCH or ❌ DEVIATION — never 'appears to match' or 'need to verify'
+- NEVER write 'Appears to match' or 'Looks correct' — measure and verify
+- If the table has fewer than 30 rows for a full-page comparison, you skipped elements
+
+## Step 5: Report Deviations
+
+For each ❌ DEVIATION, write a specific finding:
+  'Design: {exact value}. Implementation: {exact value}. File: {path}:{line}'
+
+Write the FULL comparison table to .gsd-t/contracts/design-contract.md
+under a '## Verification Status' section.
+
+Any ❌ DEVIATION → also append to .gsd-t/qa-issues.md with severity HIGH
+and tag [VISUAL]:
+| {date} | gsd-t-execute | Step 5.25 | opus | {duration} | HIGH | [VISUAL] {description} |
+
+## Step 6: Verdict
+
+Count results: '{MATCH_COUNT}/{TOTAL} elements match at {breakpoints} breakpoints'
+
+VERDICT:
+- ALL rows ✅ MATCH → DESIGN VERIFIED
+- ANY rows ❌ DEVIATION → DESIGN DEVIATIONS FOUND ({count} deviations)
+
+Write verdict to .gsd-t/contracts/design-contract.md Verification Status section.
+
+Report back:
+- Verdict: DESIGN VERIFIED | DESIGN DEVIATIONS FOUND
+- Match count: {N}/{total}
+- Breakpoints verified: {list}
+- Deviations: {count with summary of each}
+- Comparison table: {the full table}"
+```
+
+After subagent returns — run via Bash:
+`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && TOK_END=${CLAUDE_CONTEXT_TOKENS_USED:-0} && DURATION=$((T_END-T_START))`
+Compute tokens and compaction:
+- No compaction (TOK_END >= TOK_START): `TOKENS=$((TOK_END-TOK_START))`, COMPACTED=null
+- Compaction detected (TOK_END < TOK_START): `TOKENS=$(((TOK_MAX-TOK_START)+TOK_END))`, COMPACTED=$DT_END
+Append to `.gsd-t/token-log.md`:
+`| {DT_START} | {DT_END} | gsd-t-execute | Design Verify | opus | {DURATION}s | {VERDICT} — {MATCH}/{TOTAL} elements | {TOKENS} | {COMPACTED} | | | {CTX_PCT} |`
+
+**Artifact Gate (MANDATORY):**
+After the Design Verification Agent returns, check `.gsd-t/contracts/design-contract.md`:
+1. Read the file — does it contain a `## Verification Status` section?
+2. Does that section contain a comparison table with rows?
+3. If EITHER is missing → the verification agent failed its job. Log:
+   `[failure] Design Verification Agent did not produce comparison table — re-spawning`
+   Re-spawn the agent (1 retry). If it fails again, log to `.gsd-t/deferred-items.md`.
+
+**If VERDICT is DESIGN DEVIATIONS FOUND:**
+1. Fix all deviations (spawn a fix subagent, model: sonnet, with the deviation list)
+2. Re-spawn the Design Verification Agent to re-verify (max 2 fix-and-verify cycles)
+3. If deviations persist after 2 cycles, log to `.gsd-t/deferred-items.md` and present to user
+
+**If VERDICT is DESIGN VERIFIED:** Proceed to Red Team.
 
 ## Step 5.5: Red Team — Adversarial QA (MANDATORY)
 

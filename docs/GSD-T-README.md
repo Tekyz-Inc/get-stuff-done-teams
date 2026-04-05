@@ -156,7 +156,9 @@ GSD-T reads all state files and tells you exactly where you left off.
 │                                              │         └──────┐             │
 │                                              │                ▼             │
 │                                              │    ┌───────────────────┐     │
-│                                              │    │  QA + Red Team    │     │
+│                                              │    │  QA + Design      │     │
+│                                              │    │  Verification +   │     │
+│                                              │    │  Red Team         │     │
 │                                              │    │ (after each phase │     │
 │                                              │    │  that writes code)│     │
 │                                              │    └───────────────────┘     │

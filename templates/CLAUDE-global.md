@@ -308,14 +308,36 @@ Report format: 'Unit: X/Y pass | E2E: X/Y pass (or N/A if no config) | Contract:
 
 **QA Calibration Feedback Loop** — If `bin/qa-calibrator.js` exists in the project, the system tracks QA miss-rates (bugs found by Red Team that QA missed) and automatically injects targeted guidance into future QA prompts. Weak-spot categories (error paths, boundary inputs, state transitions) are detected from miss patterns and injected as a preamble before the QA subagent runs. Projects without `qa-miss-log.jsonl` data behave identically to baseline — calibration is fully opt-in and backward compatible.
 
+## Design Verification Agent (Mandatory when design contract exists)
+
+After QA passes, if `.gsd-t/contracts/design-contract.md` exists, a **dedicated Design Verification Agent** is spawned. This agent's ONLY job is to open a browser, compare the built frontend against the original design, and produce a structured element-by-element comparison table. It writes ZERO feature code.
+
+**Why a dedicated agent?** Coding agents consistently skip visual verification — even with detailed instructions — because their incentive is to finish building, not to audit. Separating the verifier from the builder ensures the verification actually happens.
+
+**Design Verification method by command:**
+- `execute` → spawns Design Verification Agent after QA passes (Step 5.25)
+- `quick` → spawns Design Verification Agent after tests pass (Step 5.25)
+- `integrate`, `wave` → Design Verification runs within the execute phase per the rules above
+- Commands without UI work → skipped automatically (no design contract = no verification)
+
+**Key rules:**
+- **FAIL-BY-DEFAULT**: Every visual element starts as UNVERIFIED. Must prove each matches.
+- **Structured comparison table**: 30+ rows minimum for a full page. Each element gets specific design values vs. specific implementation values and a MATCH or DEVIATION verdict.
+- **No vague verdicts**: "Looks close" and "appears to match" are not valid. Only �� MATCH or ❌ DEVIATION with specific values.
+- **Side-by-side browser sessions**: Opens both the built frontend AND the original design (Figma page, design image, or MCP screenshot) for direct visual comparison.
+- **Artifact gate**: Orchestrator checks that `design-contract.md` contains a `## Verification Status` section with a populated comparison table. Missing artifact = re-spawn (1 retry).
+- **Fix cycle**: Deviations are fixed (up to 2 cycles) and re-verified before proceeding.
+
+**Design Verification FAIL blocks phase completion.** Deviations must be fixed or logged to `.gsd-t/deferred-items.md`.
+
 ## Red Team — Adversarial QA (Mandatory)
 
-After QA passes, every code-producing command spawns a **Red Team agent** — an adversarial subagent whose success is measured by bugs found, not tests passed. This inverts the incentive structure: the Red Team's drive toward "task complete" means digging deeper and finding more bugs, not rubber-stamping.
+After QA and Design Verification pass, every code-producing command spawns a **Red Team agent** — an adversarial subagent whose success is measured by bugs found, not tests passed. This inverts the incentive structure: the Red Team's drive toward "task complete" means digging deeper and finding more bugs, not rubber-stamping.
 
 **Red Team method by command:**
-- `execute` → spawns Red Team after all domain tasks pass (Step 5.5)
+- `execute` → spawns Red Team after Design Verification passes (Step 5.5)
 - `integrate` → spawns Red Team after integration tests pass (Step 7.5)
-- `quick` → spawns Red Team after Test & Verify passes (Step 5.5)
+- `quick` → spawns Red Team after Design Verification passes (Step 5.5)
 - `debug` → spawns Red Team after fix verification passes (Step 5.3)
 - `wave` → each phase agent handles Red Team per the rules above
 

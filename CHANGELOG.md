@@ -2,6 +2,19 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.57.10] - 2026-04-04
+
+### Added
+- **Design Verification Agent** — dedicated subagent (Step 5.25) spawned after QA and before Red Team when `.gsd-t/contracts/design-contract.md` exists. Opens a browser with both the built frontend AND the original design (Figma/image) side-by-side for direct visual comparison. Produces a 30+ row structured comparison table with MATCH/DEVIATION verdicts. Artifact gate enforces completion — missing table triggers re-spawn.
+- Wired into `gsd-t-execute` (Step 5.25) and `gsd-t-quick` (Step 5.25)
+
+### Changed
+- **Separation of concerns**: Coding agents no longer perform visual verification inline (removed 45-line Step 7 from task subagent prompt). Coding agents write precise code from design tokens; the verification agent proves it matches.
+- `design-to-code.md` Section 15 slimmed from 120 lines to 20 lines — now points to the dedicated agent instead of embedding the full verification loop in the stack rule
+- `CLAUDE-global.md` updated with Design Verification Agent section between QA and Red Team
+- Red Team now runs after Design Verification (previously ran directly after QA)
+- Non-design projects are completely unaffected (gate checks for design-contract.md existence)
+
 ## [2.52.11] - 2026-04-01
 
 ### Added

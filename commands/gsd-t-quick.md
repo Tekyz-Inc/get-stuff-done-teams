@@ -239,6 +239,46 @@ After all scripted tests pass:
 4. If Playwright MCP is not available: skip this section silently
 Note: Exploratory findings do NOT count against the scripted test pass/fail ratio.
 
+## Step 5.25: Design Verification Agent (MANDATORY when design contract exists)
+
+After tests pass, check if `.gsd-t/contracts/design-contract.md` exists. If it does NOT, skip to Step 5.5.
+
+If it DOES exist and this task involved UI changes — spawn the Design Verification Agent. This agent's ONLY job is to open a browser, compare the built frontend against the original design, and produce a structured comparison table. It writes NO feature code.
+
+⚙ [{model}] Design Verification → visual comparison of built frontend vs design
+
+**OBSERVABILITY LOGGING (MANDATORY):**
+Before spawning — run via Bash:
+`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M") && TOK_START=${CLAUDE_CONTEXT_TOKENS_USED:-0} && TOK_MAX=${CLAUDE_CONTEXT_TOKENS_MAX:-200000}`
+
+```
+Task subagent (general-purpose, model: opus):
+"You are the Design Verification Agent. Your ONLY job is to visually compare
+the built frontend against the original design and produce a structured
+comparison table. You write ZERO feature code.
+
+FAIL-BY-DEFAULT: Every visual element starts as UNVERIFIED. Prove each matches.
+
+1. Read .gsd-t/contracts/design-contract.md for design source reference
+2. Get design reference (Figma MCP screenshot, or design images from contract)
+3. Start dev server, open the built frontend in browser (Claude Preview/Chrome MCP/Playwright)
+4. Open the original design reference in a second browser view
+5. Build element inventory (30+ elements for a full page): every chart, label,
+   icon, heading, card, button, spacing, color — each a separate row
+6. Produce structured comparison table:
+   | # | Section | Element | Design (specific) | Implementation (specific) | Verdict |
+   Only valid verdicts: ✅ MATCH or ❌ DEVIATION (never 'appears to match')
+7. Write results to .gsd-t/contracts/design-contract.md under '## Verification Status'
+8. Any ❌ → append to .gsd-t/qa-issues.md with [VISUAL] tag
+9. Report: DESIGN VERIFIED | DESIGN DEVIATIONS FOUND ({count})"
+```
+
+After subagent returns — run observability Bash and append to token-log.md.
+
+**Artifact Gate:** Read `.gsd-t/contracts/design-contract.md` — if no `## Verification Status` section with a comparison table exists, re-spawn (1 retry).
+
+**If deviations found:** Fix them (max 2 cycles), re-verify. If persistent, log to `.gsd-t/deferred-items.md`.
+
 ## Step 5.5: Red Team — Adversarial QA (MANDATORY)
 
 After tests pass, spawn an adversarial Red Team agent. This agent's sole purpose is to BREAK the code that was just changed. Its success is measured by bugs found, not tests passed.
