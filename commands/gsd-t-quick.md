@@ -259,7 +259,13 @@ comparison table. You write ZERO feature code.
 
 FAIL-BY-DEFAULT: Every visual element starts as UNVERIFIED. Prove each matches.
 
-1. Read .gsd-t/contracts/design-contract.md for design source reference
+STEP 0 (MANDATORY FIRST): Data-labels cross-check.
+For each element contract (or design-contract.md section), read the Test Fixture.
+Verify EVERY label, value, percentage from the fixture appears verbatim in the
+rendered UI. If any is missing → CRITICAL DEVIATION (wrong data). Wrong data
+cannot be redeemed by visual polish.
+
+1. Read .gsd-t/contracts/design-contract.md (flat) OR .gsd-t/contracts/design/ (hierarchical) for design source reference + Test Fixtures
 2. Get design reference (Figma MCP screenshot, or design images from contract)
 3. Start dev server, open the built frontend in browser (Claude Preview/Chrome MCP/Playwright)
 4. Open the original design reference in a second browser view

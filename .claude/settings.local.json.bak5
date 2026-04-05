@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm info:*)",
+      "Bash(ls -la /Users/david/.claude/settings*.json)"
+    ]
+  }
+}

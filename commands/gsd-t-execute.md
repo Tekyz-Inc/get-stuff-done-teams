@@ -632,6 +632,33 @@ each one matches — not assume it does. 'Looks close' is not a verdict.
 'Appears to match' is not a verdict. The only valid verdicts are MATCH
 (with proof) or DEVIATION (with specifics).
 
+## Step 0: Data-Labels Cross-Check (MANDATORY — run FIRST)
+
+Before any visual comparison, verify the built UI is rendering the CORRECT
+DATA from the design. This is the most common failure mode: agents use
+placeholder data (Calculator/Planner/Tracker) while the design shows real
+labels (Steps to Stay Covered/Broker Contact). The verifier then compares
+bar-shapes only and declares MATCH — while the content is catastrophically
+wrong.
+
+1. For EACH element contract under .gsd-t/contracts/design/elements/
+   (or each section of flat .gsd-t/contracts/design-contract.md):
+   a. Read the 'Test Fixture' section — extract every label, value, percentage
+   b. Open the built UI in the browser
+   c. Inspect the rendered element (via DOM or screenshot OCR)
+   d. For EACH label/value/percentage in the Test Fixture:
+      - Does it appear verbatim in the rendered UI?
+      - If NO → immediate ❌ DEVIATION (severity CRITICAL)
+        Log: 'Test Fixture label {X} not found in rendered UI. Found instead: {Y}.'
+      - If YES → ✅ MATCH for that specific label/value
+
+2. Count: '{N}/{total} labels+values from Test Fixture appear correctly in UI'
+
+3. If ANY Test Fixture label or value is missing from the rendered UI:
+   The component is rendering WRONG DATA. This is a CRITICAL deviation.
+   No amount of visual polish can redeem wrong data. Mark the element
+   DEVIATION and continue (do not skip the rest — but flag the severity).
+
 ## Step 1: Get the Design Reference
 
 Read .gsd-t/contracts/design-contract.md for the source reference.

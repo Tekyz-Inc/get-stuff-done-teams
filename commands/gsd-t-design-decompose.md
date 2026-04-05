@@ -15,19 +15,27 @@ If the project is small (single page, ≤10 elements, nothing reusable), use the
 
 ---
 
-## Step 0: Detect Inputs
+## Step 0: Detect Inputs + Load Taxonomy
 
 Run these checks, log results to user inline:
 
 1. **Figma MCP available?**
    - If yes → log "Figma MCP detected — will extract exact tokens per element"
    - If no → log "Figma MCP unavailable — using visual analysis (reduced precision)"
-2. **Existing flat contract?**
-   - If `.gsd-t/contracts/design-contract.md` exists → this is a retrofit; read it and use it as input alongside the design source
-   - If not → this is a fresh decomposition from the design source directly
+2. **Existing flat contract? — MANDATORY INGESTION if present**
+   - If `.gsd-t/contracts/design-contract.md` exists:
+     - **READ IT COMPLETELY** — it is the authoritative ground truth for data labels, values, and verification assertions from prior runs
+     - Extract: exact category labels, exact data values, exact center values, exact percentages
+     - Use these as **Test Fixture** data in every element contract you write (not placeholder data)
+     - If the flat contract has a `## Verification Status` section with 30+ rows, that is the GROUND TRUTH for what each element must match — port every row into the relevant element contract's Verification Checklist
+   - If not → fresh decomposition from the design source directly
 3. **Design source provided?**
    - Required: Figma URL, image path, or prototype URL in `$ARGUMENTS`
    - If missing → ask user: "Provide the design source (Figma URL, image path, or prototype URL)"
+4. **Load the chart taxonomy (MANDATORY)**
+   - READ `templates/design-chart-taxonomy.md` from the GSD-T package (or `~/.claude/` if installed)
+   - This is the **CLOSED SET** of valid element names. You MUST pick from this list. Inventing new element names is FORBIDDEN without user approval to extend the taxonomy.
+   - Keep the taxonomy in working memory while classifying — every element you identify MUST be matched against it
 
 ## Step 1: Survey the Design
 
@@ -45,13 +53,24 @@ Produce an initial flat inventory table:
 
 **Rule**: distinct visual variants = distinct rows. A horizontal stacked bar and a vertical stacked bar are TWO rows, not one.
 
-## Step 2: Classify Each Element
+## Step 2: Classify Each Element (taxonomy-enforced)
 
 For each row in the inventory, assign:
 
-- **Category** — chart / legend / axis / card / table / control / layout / typography / icon / other
+- **Category** — chart / legend / axis / card / table / control / atom / typography / layout
+- **Element name** — **MUST come from `templates/design-chart-taxonomy.md`** (closed set). If no match found, STOP and ask user to extend the taxonomy with rationale.
 - **Reuse count** — how many times does it appear across the entire design?
 - **Owner layer** — element / widget-internal / page-internal
+
+### Visual distinguisher decision rules (consult taxonomy)
+
+Before naming an element, apply the visual distinguisher rules from the taxonomy:
+
+- **Bar chart?** → is it stacked/grouped, horizontal/vertical, percentage/absolute? These are ALL distinct element contracts.
+- **Circular?** → pie vs donut (hole in center?) vs gauge (partial arc?)
+- **Line?** → single vs multi, stepped vs smooth, with area or without
+
+**Anti-pattern to avoid**: "it has bars so it's a bar chart" → WRONG. The failure mode is picking `chart-bar-grouped-vertical` when the design is `chart-bar-stacked-horizontal-percentage`. These render completely differently with completely different data bindings.
 
 **Promotion rule**: an item becomes an **element contract** if:
 - It appears ≥2 times across the design, OR
@@ -59,6 +78,10 @@ For each row in the inventory, assign:
 - It has states or interactions beyond "static display"
 
 Otherwise, it stays internal to its widget or page (no contract needed).
+
+### Atoms are NOT optional
+
+Icons, badges, chips, dividers, avatars, status dots, spinners — every small artifact that appears in the design gets an element contract if it meets the promotion rule. These are the #1 most-missed tier and produce the "feels off" verification result.
 
 ## Step 3: Identify Widgets
 

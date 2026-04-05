@@ -85,6 +85,32 @@ Atomic visual unit. One contract per visual variant (e.g., `chart-bar-stacked-ho
 - {e.g., All series arrays MUST have length === categories.length}
 - {e.g., Values MUST be non-negative for stacked variants}
 
+## Test Fixture (MANDATORY — extracted from design, NOT placeholder)
+
+This is the EXACT data from the design source. Verification compares the built component rendered with this fixture against the Figma design. Placeholder data (Lorem, foo/bar, Calculator/Planner) is FORBIDDEN here — the verifier must be able to compare actual labels and values side-by-side.
+
+```json
+{
+  "__source__": "{Figma node URL or image file + node id}",
+  "__extracted_via__": "{Figma MCP get_design_context | visual analysis}",
+  "__extracted_date__": "{YYYY-MM-DD}",
+
+  "categories": ["{exact label 1 from design}", "{exact label 2}", "..."],
+  "series": [
+    {
+      "name": "{exact series name from design}",
+      "values": [{exact value 1}, {exact value 2}, ...]
+    }
+  ],
+
+  "center_value": "{exact value shown in donut center, if applicable}",
+  "center_sublabel": "{exact sublabel, if applicable}",
+  "percentages_shown": [{30}, {21}, {20}, {15}, {14}]
+}
+```
+
+**Verification rule**: when the component is rendered with THIS fixture, every label, every value, every percentage shown in the built UI MUST match the design. Any substitution is a DEVIATION.
+
 ## Responsive Behavior
 
 | Breakpoint | Adaptation                                                    |

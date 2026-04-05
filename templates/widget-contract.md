@@ -15,16 +15,31 @@ Composition of elements + data binding + layout. Widgets SELECT and POSITION ele
 
 {One sentence — what this widget shows and why. E.g., "Displays revenue breakdown by product category with donut chart and accompanying legend-table, used on the dashboard Overview page and the Analytics detail page."}
 
-## Elements Used
+## Card Chrome Slots (MANDATORY — fill every row or explicitly mark N/A)
+
+Every widget is a card with consistent chrome. Missing chrome is the #1 cause of "looks off" verification results. Document EVERY slot, even if empty.
+
+| Slot                    | Element Contract (or N/A)                | Content / Behavior                               |
+|-------------------------|------------------------------------------|--------------------------------------------------|
+| `title`                 | heading-h3                               | {exact title text from design}                   |
+| `subtitle`              | text-caption or N/A                      | {exact subtitle text — "Which tools members interact with most."} |
+| `header_right_control`  | select-dropdown, button-ghost, or N/A    | {e.g., "Members ▼" filter dropdown in card header} |
+| `kpi_header`            | stat-card-kpi-large or N/A               | {e.g., "2.4" + "Avg tools per member" shown above chart} |
+| `body`                  | {primary element, e.g., chart-donut}     | {main visual}                                    |
+| `body_sidebar`          | {e.g., legend-vertical-right or N/A}     | {element positioned alongside body}              |
+| `footer`                | {e.g., text-caption or N/A}              | {e.g., "Last updated: ..."}                      |
+| `footer_legend`         | {e.g., legend-horizontal-bottom or N/A}  | {legend below body}                              |
+
+**Rule**: If the design shows it, document it. If the design doesn't show it, write "N/A". Do NOT leave blank.
+
+## Elements Used (body composition)
 
 | Slot             | Element Contract                        | Rationale                          |
 |------------------|-----------------------------------------|------------------------------------|
-| {chart}          | chart-donut                             | {part-to-whole comparison}         |
-| {legend}         | legend-vertical-right                   | {6+ series, needs vertical space}  |
-| {title}          | heading-h3                              | {widget header}                    |
-| {filter}         | select-dropdown                         | {time-range selector}              |
+| {body element}   | {e.g., chart-donut}                     | {why this element}                 |
+| {sidebar}        | {e.g., legend-vertical-right}           | {why this variant}                 |
 
-**Rule**: Each slot references an element contract by name. Widget CANNOT override element visual spec. To customize, create a new element variant.
+**Rule**: Each slot references an element contract by name from `design-chart-taxonomy.md`. Widget CANNOT override element visual spec. To customize, create a new element variant.
 
 ## Layout
 

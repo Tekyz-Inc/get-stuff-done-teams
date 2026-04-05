@@ -2,6 +2,19 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.59.10] - 2026-04-05
+
+### Added
+- **Chart & Atom Taxonomy** — `templates/design-chart-taxonomy.md` — closed enumeration of ~70 valid element names across charts, axes, legends, cards, tables, controls, atoms (icons/badges/chips/dividers), typography, and layout primitives. Fixes catastrophic failure mode where agents invented element names and picked wrong chart variants (e.g., `chart-bar-grouped-vertical` when design was `chart-bar-stacked-horizontal-percentage`). `gsd-t-design-decompose` now REQUIRES element names to come from this closed set.
+- **Visual distinguisher decision rules** per chart category (stacked vs grouped vs percentage, pie vs donut vs gauge, line vs area, categorical vs histogram) to prevent near-match pattern-matching.
+- **Atoms taxonomy** — icons, badges, chips, dividers, avatars, status-dots, spinners, tooltips, breadcrumbs, pagination, tags — the most-forgotten element tier.
+
+### Changed
+- **Element template**: `Test Fixture` section is now MANDATORY with the EXACT labels/values/percentages extracted from the design source. Placeholder data (Calculator/Planner/Tracker instead of real labels) is FORBIDDEN. Verifier compares labels verbatim.
+- **Widget template**: adds mandatory **Card Chrome Slots** section (title, subtitle, header_right_control, kpi_header, body, body_sidebar, footer, footer_legend) — each must be filled or explicitly marked N/A. Fixes the "missing subtitle, missing per-card filter dropdown, missing KPI-above-chart" defect.
+- **Design Verification Agent** (gsd-t-execute Step 5.25 + gsd-t-quick Step 5.25): adds mandatory **Step 0 — Data-Labels Cross-Check** that runs BEFORE visual comparison. Verifies every label/value/percentage from the Test Fixture appears verbatim in the rendered UI. Wrong data = CRITICAL deviation, no visual polish can redeem it.
+- **gsd-t-design-decompose**: MUST ingest existing flat `design-contract.md` when present (especially the `## Verification Status` section from prior verified builds) as ground truth for Test Fixture data — no re-inventing labels.
+
 ## [2.58.10] - 2026-04-05
 
 ### Added
