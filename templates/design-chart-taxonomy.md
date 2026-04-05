@@ -54,6 +54,8 @@ The catastrophic failure mode is: agent sees "bars" in Figma, picks `chart-bar-g
 | `chart-radial-bar`        | Concentric arcs, one per category                         |
 | `chart-polar`             | Radial grid with data plotted by angle                    |
 
+> **Note on `-percentage` suffix**: Circular charts (`chart-pie`, `chart-donut`) are inherently part-to-whole — the circle is 100% by definition — so they do **NOT** take a `-percentage` suffix. Whether segment labels show percentages (`30%`) or absolute values (`$485`) is a labelling choice recorded in the element contract's Test Fixture, not a distinct element name. Do not invent `chart-donut-percentage` or `chart-pie-percentage`.
+
 ### Distribution / comparison
 
 | Element name              | Visual distinguisher                                      |

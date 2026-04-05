@@ -2,6 +2,12 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.61.10] - 2026-04-05
+
+### Added
+- **Circular charts `-percentage` clarification** — `design-chart-taxonomy.md` now explicitly states that `chart-pie` and `chart-donut` do NOT take a `-percentage` suffix, because circular charts are inherently part-to-whole (circle = 100%). Whether segment labels show percentages or absolute values is a labelling choice recorded in the Test Fixture, not a distinct element. Prevents agents from inventing `chart-donut-percentage` when it doesn't exist in the closed set. Closes gap A from convergence run 2.
+- **Figma MCP size guard** in `gsd-t-design-decompose.md` Step 1: call `get_metadata` first to map the tree, then `get_design_context` only on leaf nodes (< 100KB). Avoids the 250KB+ tool-results file dump when called on full-page frames. Closes gap #3 from convergence runs 1 and 2.
+
 ## [2.60.10] - 2026-04-05
 
 ### Added

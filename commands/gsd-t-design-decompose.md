@@ -41,6 +41,8 @@ Run these checks, log results to user inline:
 
 Enumerate every visual element on every page/screen in the design. Use Figma MCP `get_metadata` or `get_design_context` if available; otherwise use visual analysis on the image.
 
+> **⚠  Figma MCP size guard**: `get_design_context` on a full-page frame (e.g., a 390×3372px mobile screen) can return 250KB+ and be auto-saved to a tool-results file, forcing you to grep through it. **Always call `get_metadata` FIRST** to map the tree, then call `get_design_context` **only on leaf card/component nodes** (typically < 100KB). If you must call it on a frame, use `excludeScreenshot: true` to halve the payload.
+
 Produce an initial flat inventory table:
 
 | # | Element on Design                  | Appears On Pages       | Visual Variant                       |
