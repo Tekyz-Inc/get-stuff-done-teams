@@ -10,7 +10,7 @@
 
 ## Overview
 
-Contract-driven development methodology for Claude Code. An npm package that provides 52 slash commands (47 GSD-T workflow + 5 utility), a CLI installer, templates, and documentation for reliable, parallelizable AI-assisted development.
+Contract-driven development methodology for Claude Code. An npm package that provides 53 slash commands (48 GSD-T workflow + 5 utility), a CLI installer, templates, and documentation for reliable, parallelizable AI-assisted development.
 
 ## Autonomy Level
 
@@ -31,8 +31,8 @@ Only pause for blockers or project completion. Execute phases continuously.
 
 ```
 bin/gsd-t.js           — CLI installer (11 subcommands)
-commands/              — 52 slash commands for Claude Code (47 GSD-T + 5 utility)
-  gsd-t-*.md           — 46 GSD-T workflow commands
+commands/              — 53 slash commands for Claude Code (48 GSD-T + 5 utility)
+  gsd-t-*.md           — 47 GSD-T workflow commands
   gsd.md               — Smart router (auto-routes user intent)
   branch.md            — Git branch helper
   checkin.md           — Auto-version + commit/push helper
