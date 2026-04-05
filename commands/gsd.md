@@ -65,7 +65,8 @@ When the request involves UI implementation from a design (Figma, screenshots, m
 - **If a milestone exists but no domains** → route to `partition` (creates design contract in Step 3.6)
 - **If domains exist but no tasks** → route to `plan`
 - **If tasks exist** → route to `execute` (design-to-code stack rule will inject)
-- The design-to-code stack rule activates automatically when `.gsd-t/contracts/design-contract.md` exists or Figma MCP is configured — but the **partition step must run first** to create the design contract
+- The design-to-code stack rule activates automatically when `.gsd-t/contracts/design-contract.md` OR `.gsd-t/contracts/design/` exists, or Figma MCP is configured — but the **partition step must run first** to create the design contract
+- **For projects with multiple pages or reusable components** (charts, widgets, design system): route to `design-decompose` BEFORE partition to create the hierarchical contract tree (elements → widgets → pages). Single-page/one-off designs can use flat `design-contract.md` created during partition instead.
 
 ## Step 3: Confirm and Execute
 

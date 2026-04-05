@@ -6,6 +6,35 @@ These rules apply when implementing a visual design as frontend code. The design
 
 ---
 
+## 0. Contract Structure — Flat or Hierarchical
+
+Two contract layouts are supported. Pick the one that fits the project scope:
+
+**Flat** (single file: `.gsd-t/contracts/design-contract.md`)
+- Use when: single page, ≤10 distinct elements, nothing reusable across pages
+- Pros: fast to set up; fine for a landing page or one-off screen
+- Cons: no reuse; visual spec repeats; drift between instances is easy
+
+**Hierarchical** (directory: `.gsd-t/contracts/design/{elements,widgets,pages}/`)
+- Use when: multiple pages, reusable components (charts, cards, legends), design system in play
+- Pros: element contracts are the single source of truth for visual spec — widgets and pages SELECT and POSITION but cannot override. Drift is structurally impossible.
+- Cons: more contracts to write upfront (elements: ~10-20, widgets: ~5-10, pages: N)
+- Bootstrap via: `/user:gsd-t-design-decompose {Figma URL or image path}`
+- Templates: `templates/element-contract.md`, `templates/widget-contract.md`, `templates/page-contract.md`
+
+**Precedence rule (hierarchical only)**:
+```
+element contract  >  widget contract  >  page contract
+```
+A widget that uses `chart-donut` cannot change `chart-donut`'s bar-gap, colors, or label positioning. If customization is needed, create a new element variant (`chart-donut-compact.contract.md`) instead.
+
+**Detection at execute-time**:
+- If `.gsd-t/contracts/design/` exists → hierarchical mode, verify elements first, then widgets, then pages
+- Else if `.gsd-t/contracts/design-contract.md` exists → flat mode
+- Else → bootstrap flat contract during partition
+
+---
+
 ## 1. Design Source Setup
 
 ```

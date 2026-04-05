@@ -2,6 +2,18 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.58.10] - 2026-04-05
+
+### Added
+- **Hierarchical design contracts** — `element` → `widget` → `page` contract hierarchy for design-to-code projects. Element contracts are the single source of truth for visual spec (one contract per visual variant, e.g., `chart-bar-stacked-horizontal` and `chart-bar-stacked-vertical` are separate). Widgets compose elements with layout + data binding. Pages compose widgets with routing + grid layout.
+- **Precedence rule**: element > widget > page. Widgets and pages SELECT and POSITION elements but cannot override element visual spec. Structural drift becomes impossible.
+- **New templates**: `templates/element-contract.md`, `templates/widget-contract.md`, `templates/page-contract.md`
+- **New command**: `/user:gsd-t-design-decompose` — surveys a design (Figma/image/prototype), classifies elements (reuse count ≥2 or non-trivial spec → promoted to element contract), identifies widgets and pages, writes the full contract hierarchy under `.gsd-t/contracts/design/{elements,widgets,pages}/` plus an `INDEX.md` navigation map.
+
+### Changed
+- `design-to-code.md` stack rule adds Section 0 explaining flat vs. hierarchical contract modes and detection at execute-time (presence of `.gsd-t/contracts/design/` triggers hierarchical verification: elements first, then widgets, then pages)
+- Command count: 48 GSD-T + 5 utility = 53 total
+
 ## [2.57.10] - 2026-04-04
 
 ### Added

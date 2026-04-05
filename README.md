@@ -149,6 +149,7 @@ This will replace changed command files, back up your CLAUDE.md if customized, a
 | `/user:gsd-t-gap-analysis` | Requirements gap analysis — spec vs. existing code | Manual |
 | `/user:gsd-t-promote-debt` | Convert techdebt items to milestones | Manual |
 | `/user:gsd-t-populate` | Auto-populate docs from existing codebase | Manual |
+| `/user:gsd-t-design-decompose` | Decompose design into element/widget/page contracts | Manual |
 
 ### Milestone Workflow
 

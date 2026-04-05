@@ -90,6 +90,7 @@ GSD-T reads all state files and tells you exactly where you left off.
 | `/user:gsd-t-gap-analysis` | Requirements gap analysis — spec vs. existing code | Manual |
 | `/user:gsd-t-promote-debt` | Convert techdebt items to milestones | Manual |
 | `/user:gsd-t-populate` | Auto-populate docs from existing codebase | Manual |
+| `/user:gsd-t-design-decompose` | Decompose design into element/widget/page contracts | Manual |
 
 ### Milestone Workflow
 

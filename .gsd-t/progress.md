@@ -3,7 +3,7 @@
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: IN PROGRESS
 ## Date: 2026-04-01
-## Version: 2.57.10
+## Version: 2.58.10
 
 ## Active Milestone
 
@@ -388,6 +388,7 @@ Wave 4: adaptive-replan (consumes fresh-dispatch summaries, integrates with work
 
 ## Decision Log
 (Entries before 2026-02-16 reconstructed from git history with timestamps)
+- 2026-04-05 01:30: [feat] Added hierarchical design contracts (v2.58.10) — element → widget → page contract hierarchy. Element contracts are single source of truth for visual spec; widgets SELECT and POSITION elements; pages assemble widgets. Precedence: element > widget > page (widgets/pages cannot override element visual spec). Variant-per-contract rule: chart-bar-stacked-horizontal and chart-bar-stacked-vertical are SEPARATE contracts. Promotion rule: element contract required if reuse count ≥2 OR non-trivial spec. New files: templates/element-contract.md, templates/widget-contract.md, templates/page-contract.md, commands/gsd-t-design-decompose.md. Updated: templates/stacks/design-to-code.md (Section 0 flat-vs-hierarchical detection), README.md, docs/GSD-T-README.md, templates/CLAUDE-global.md, commands/gsd-t-help.md, CHANGELOG.md. Rationale: flat design-contract.md lets two instances of the same visual (e.g., two donut charts on different pages) drift over time. Hierarchical structure makes drift impossible because widgets reference elements by name. Verification cascades bottom-up (elements in isolation → widgets → pages), catching drift at lowest level.
 - 2026-04-04 17:30: [feat] Added dedicated Design Verification Agent (Step 5.25) to gsd-t-execute.md and gsd-t-quick.md — spawns after QA, before Red Team, only when design-contract.md exists. Separation of concerns: coding agents code, verification agent verifies. Includes artifact gate (missing comparison table = re-spawn), fix cycles (max 2), and deferred-items fallback. Removed 45-line inline visual verification from coding agent prompt (was being skipped). Slimmed design-to-code.md Section 15 to point to dedicated agent. Updated: gsd-t-execute.md, gsd-t-quick.md, templates/stacks/design-to-code.md, templates/CLAUDE-global.md, commands/gsd-t-help.md, docs/GSD-T-README.md, README.md, .gsd-t/progress.md. Non-design projects unaffected.
 - 2026-04-04 15:00: [feat] Added side-by-side browser comparison to visual verification — implementation opens both the built frontend AND the original Figma page/design image simultaneously for direct visual comparison. Files: templates/stacks/design-to-code.md (Section 15 Step 3), commands/gsd-t-execute.md (Step 7c).
 - 2026-04-04 14:30: [fix] Strengthened design-to-code visual verification to prevent superficial "looks close" comparisons. Added: (1) fail-by-default posture — every element starts UNVERIFIED, (2) mandatory element inventory step before comparison, (3) structured comparison table format with per-element MATCH/DEVIATION verdicts, (4) expanded data visualization checklist (chart type, orientation, axis labels, legend, colors, data labels each as separate rows), (5) minimum element count thresholds (30+ for full page). Files: templates/stacks/design-to-code.md (Section 15), commands/gsd-t-execute.md (Step 7 + Red Team category #8), templates/CLAUDE-global.md (Red Team summary).

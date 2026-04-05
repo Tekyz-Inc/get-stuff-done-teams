@@ -60,6 +60,7 @@ UTILITIES                                                              Manual
   audit               Harness self-audit — analyze cost/benefit of enforcement components
   promote-debt        Convert techdebt items to milestones
   populate            Auto-populate docs from existing codebase
+  design-decompose    Decompose design into element/widget/page contracts
   log                 Sync progress Decision Log with recent git activity
   version-update      Update GSD-T package to latest version
   version-update-all  Update GSD-T package + all registered projects
@@ -381,6 +382,13 @@ Use these when user asks for help on a specific command:
 - **Auto-invoked**: No
 - **Updates**: `docs/requirements.md`, `docs/architecture.md`, `docs/workflows.md`, `docs/infrastructure.md`, `.gsd-t/progress.md`
 - **Use when**: You have an existing codebase and want to fill docs with real findings instead of placeholders
+
+### design-decompose
+- **Summary**: Decompose a design (Figma/image/prototype) into a hierarchy of element → widget → page contracts
+- **Auto-invoked**: No
+- **Creates**: `.gsd-t/contracts/design/elements/*.contract.md`, `.gsd-t/contracts/design/widgets/*.contract.md`, `.gsd-t/contracts/design/pages/*.contract.md`, `.gsd-t/contracts/design/INDEX.md`
+- **Use when**: Starting a design-to-code project with multiple pages/reusable components, or retrofitting a flat design-contract.md
+- **Precedence rule**: element > widget > page. Widgets and pages cannot override element visual spec.
 
 ### log
 - **Summary**: Sync progress.md Decision Log with recent git activity
