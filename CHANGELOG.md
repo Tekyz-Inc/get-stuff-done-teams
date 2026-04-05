@@ -2,6 +2,16 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.64.10] - 2026-04-05
+
+### Added (page-contract template)
+- **Page Fixture (OPTIONAL)** section — formalizes the composition chain (element → widget → page) by referencing each widget's fixture via `$ref:{widget-name}#/fixture`. Closes gap P2 from page-tier convergence run 1.
+- **Boundary Rules (MANDATORY)** section — explicit rules on what a page may vs may not do (pass data through widget props = OK; declare CSS for widget internal classes = VIOLATION). Adds a grep-based enforcement check. Closes gap P3.
+- **Grid position format** clarification — use `grid[row=N, col=M]` OR named CSS grid areas, consistently within one page. Closes gap P4.
+
+### Changed
+- **Widgets Used** table: renamed "Notes" column → "Layout Notes" with positioning-only guidance (spans/stacking/sticky — NOT widget configuration). Closes gap P1.
+
 ## [2.63.10] - 2026-04-05
 
 ### Added
