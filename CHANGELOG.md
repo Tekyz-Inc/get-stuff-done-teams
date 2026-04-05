@@ -2,6 +2,16 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.66.10] - 2026-04-05
+
+### Changed (page-contract template)
+- **Composes Elements (direct)** split into two sub-lists: "Existing element contracts used directly" vs "Inline stubs (promotion candidates)". Closes gap P8 from page-tier run 3.
+- **Route guards stub convention** — if a guard is declared but not yet wired, prefix with `(stub)` and link the milestone that will wire it. Closes gap P9.
+- **Skip link `tabindex="-1"` note** — `<main>` must be programmatically focusable for skip-link navigation. Closes gap P10.
+
+### Milestone
+- **Hierarchical contract system CONVERGED** — 3×3 matrix complete: element/widget/page tiers × 3 convergence runs each × 50/50 score. 11 of 14 gaps resolved across v2.59.10–v2.66.10; remaining 3 are widget-template refinements, non-blocking.
+
 ## [2.65.10] - 2026-04-05
 
 ### Changed (page-contract template)

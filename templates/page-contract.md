@@ -112,7 +112,7 @@ Widget contracts that have multiple fixture variants expose them as named sub-fi
 ## Routing & Navigation
 
 - **Route**: {/dashboard/overview}
-- **Guards**: {requires authentication, role: user|admin}
+- **Guards**: {requires authentication, role: user|admin} — if the guard is declared but not yet wired, prefix with `(stub)` and link the authentication milestone that will wire it (e.g., `(stub) requires-auth — milestone M4`).
 - **Breadcrumbs**: {Home > Dashboard > Overview}
 - **Nav active state**: {highlights "Dashboard" in nav-sidebar}
 
@@ -150,7 +150,7 @@ Widget contracts that have multiple fixture variants expose them as named sub-fi
 ## Accessibility
 
 - **Landmarks**: `<header>`, `<nav>`, `<main>`, per-widget `<section role="region">`
-- **Skip link**: "Skip to main content" at top, focuses `<main>` on activation
+- **Skip link**: "Skip to main content" at top, focuses `<main>` on activation. If the skip link targets `<main>`, `<main>` MUST have `tabindex="-1"` to be programmatically focusable via hash-link navigation.
 - **Keyboard order**: header → sidebar → widgets in visual reading order
 - **Page title**: Set via `<title>` per route
 
@@ -196,4 +196,12 @@ Page-level verification runs AFTER all widgets pass their own verification. Page
 
 ## Composes Elements (direct, not via widgets)
 
-{List any element contracts referenced directly by the page (rare — usually everything goes through widgets). E.g., `button-primary` for a floating action button.}
+Split into two lists:
+
+**Existing element contracts used directly:**
+- {e.g., `button-primary` — FAB}
+
+**Inline stubs (promotion candidates):**
+- {e.g., `page-topbar` — used by: dashboard-shell-page. Promote when ≥2 pages use it.}
+
+The first list is atoms that already have their own contracts and are composed into this page without a wrapping widget. The second list is atoms that DON'T have contracts yet but should be extracted once ≥2 pages use them. Keep them distinct.
