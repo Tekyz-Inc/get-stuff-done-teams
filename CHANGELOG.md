@@ -2,6 +2,15 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.65.10] - 2026-04-05
+
+### Changed (page-contract template)
+- **Boundary grep regex tightened** — line-anchored (`^\s*`) + requires opening `{` — avoids false positives on JS identifiers like `donutProps` or property access `obj.donut`. Only matches actual CSS rules. Closes gap P5 from page-tier run 2.
+
+### Added (page-contract template)
+- **Multi-state Page Fixture convention** — for pages whose state swaps widget data, declare one full fixture per state under `__states__` keys, referencing named widget sub-fixtures (`#/fixture-sessions`). Prefer full duplication over override deltas. Closes gap P6.
+- **Inline-stub promotion guidance** — if a page-scope control is used in ≥2 pages, promote to its own widget contract; until then list in Composes Elements (direct) with `(promotion candidate)` tag. Closes gap P7.
+
 ## [2.64.10] - 2026-04-05
 
 ### Added (page-contract template)

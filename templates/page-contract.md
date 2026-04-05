@@ -44,6 +44,27 @@ If you want to formalize the composition chain (element → widget → page), de
 
 Skip this section for pages that are pure assembly with no storybook / harness target. Include it when the page has a dedicated demo route or when multiple pages share widget fixtures and you want to document which instance each page references.
 
+**Multi-state pages** (when page state swaps widget data): declare **one full fixture per state**, keyed by the state name. Prefer full duplication over override deltas — it's more verbose but makes each state independently runnable and avoids merge ambiguity.
+
+```json
+{
+  "__fixture_source__": "composed-from-widgets",
+  "__states__": ["Members", "Sessions"],
+  "Members": {
+    "donut": "$ref:donut-chart-card-widget#/fixture",
+    "bar":   "$ref:bar-chart-card-widget#/fixture"
+  },
+  "Sessions": {
+    "donut": "$ref:donut-chart-card-widget#/fixture-sessions",
+    "bar":   "$ref:bar-chart-card-widget#/fixture-sessions"
+  }
+}
+```
+
+Widget contracts that have multiple fixture variants expose them as named sub-fixtures (`#/fixture-sessions`, `#/fixture-q4`, etc.) rather than a single `#/fixture`.
+
+**Inline-stub promotion**: if a page-scope control or chrome element (segmented control, tab bar, breadcrumb) is used in ≥2 pages, promote it to its own widget contract. Until promoted, list the stub in **Composes Elements (direct)** with a `(promotion candidate)` tag and the page paths that use it.
+
 ## Layout
 
 ```
@@ -152,7 +173,11 @@ A page is **FORBIDDEN** from:
 - Overriding widget visual spec via `:deep()` selectors or `!important` on widget-owned properties
 - Re-specifying element visual spec (colors, font sizes, radii, paddings owned by elements)
 
-**Enforcement check**: `grep` the page file for any CSS selector matching a widget's internal class names — if found, move the styling into the widget contract or create a widget variant.
+**Enforcement check** (line-anchored CSS-only grep, avoids false positives on JS identifiers):
+```
+grep -En '^\s*(\.card-title|\.donut|\.legend-dot|\.kpi-value|\.chart-wrapper|\.filter-select)[^\w-]*\{' {page-file}
+```
+The leading `^\s*` anchor + trailing `\{` requirement matches ONLY CSS rules at the start of a line, not JS property access (`obj.donut`) or variable names (`donutProps`). If any match is found, move the styling into the widget contract or create a widget variant.
 
 ## Verification Checklist
 
