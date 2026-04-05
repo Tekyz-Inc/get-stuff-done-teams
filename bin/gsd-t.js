@@ -26,6 +26,7 @@ const debugLedger = require(path.join(__dirname, "debug-ledger.js"));
 const CLAUDE_DIR = path.join(os.homedir(), ".claude");
 const COMMANDS_DIR = path.join(CLAUDE_DIR, "commands");
 const SCRIPTS_DIR = path.join(CLAUDE_DIR, "scripts");
+const CLAUDE_TEMPLATES_DIR = path.join(CLAUDE_DIR, "templates");
 const GLOBAL_CLAUDE_MD = path.join(CLAUDE_DIR, "CLAUDE.md");
 const SETTINGS_JSON = path.join(CLAUDE_DIR, "settings.json");
 const VERSION_FILE = path.join(CLAUDE_DIR, ".gsd-t-version");
@@ -748,6 +749,38 @@ function installCgc() {
 
 // ─── Commands ────────────────────────────────────────────────────────────────
 
+// Shared templates that slash-command prompts reference by predictable path.
+// Terminal-2 workers should find these at ~/.claude/templates/ without hunting
+// through npx caches. Keep this list tight — only templates that commands cite
+// via absolute path belong here.
+const SHARED_TEMPLATES = [
+  "design-chart-taxonomy.md",
+  "element-contract.md",
+  "widget-contract.md",
+  "page-contract.md",
+  "design-contract.md",
+  "shared-services-contract.md",
+];
+
+function installSharedTemplates() {
+  ensureDir(CLAUDE_TEMPLATES_DIR);
+  let installed = 0, skipped = 0;
+  for (const file of SHARED_TEMPLATES) {
+    const src = path.join(PKG_TEMPLATES, file);
+    const dest = path.join(CLAUDE_TEMPLATES_DIR, file);
+    if (!fs.existsSync(src)) continue;
+    if (fs.existsSync(dest) &&
+        normalizeEol(fs.readFileSync(src, "utf8")) === normalizeEol(fs.readFileSync(dest, "utf8"))) {
+      skipped++;
+      continue;
+    }
+    fs.copyFileSync(src, dest);
+    installed++;
+  }
+  if (skipped > 0) info(`${skipped} templates unchanged`);
+  success(`${installed + skipped} shared templates → ~/.claude/templates/`);
+}
+
 function installCommands(isUpdate) {
   heading("Slash Commands");
   const commandFiles = getCommandFiles();
@@ -872,6 +905,9 @@ function doInstall(opts = {}) {
 
   heading("Figma MCP (Design-to-Code)");
   configureFigmaMcp();
+
+  heading("Shared Templates");
+  installSharedTemplates();
 
   heading("Utility Scripts");
   installUtilityScripts();

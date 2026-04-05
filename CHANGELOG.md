@@ -2,6 +2,15 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.60.10] - 2026-04-05
+
+### Added
+- **Shared Templates installer** — `installSharedTemplates()` in `bin/gsd-t.js` copies design-chart-taxonomy.md, element-contract.md, widget-contract.md, page-contract.md, design-contract.md, and shared-services-contract.md into `~/.claude/templates/` on install/update. Fresh-context workers (including Terminal 2 subprocesses) can now reference these at a predictable path instead of hunting through npx caches. Closes framework gap #1 surfaced by v2.59.10 convergence run 1.
+
+### Changed
+- **Element template `Test Fixture`** now documents a **Fixture Resolution Order** for Figma designs that use template tokens like `{num}%`: (1) concrete Figma text, (2) existing flat contract, (3) requirements sample data, (4) engineered stub matching visible proportions. Adds mandatory `__fixture_source__` and `__figma_template__` fields so verifiers distinguish extracted-from-design vs engineered-to-match-visual. Closes gap #4.
+- **Element template** adds a **Verification Harness** subsection clarifying what card chrome / controls to include vs strip when rendering the element on `/design-system/{name}`. Closes gap #5 ("element-only, no widget chrome" ambiguity).
+
 ## [2.59.10] - 2026-04-05
 
 ### Added

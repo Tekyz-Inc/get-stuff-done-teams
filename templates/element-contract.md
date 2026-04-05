@@ -89,6 +89,20 @@ Atomic visual unit. One contract per visual variant (e.g., `chart-bar-stacked-ho
 
 This is the EXACT data from the design source. Verification compares the built component rendered with this fixture against the Figma design. Placeholder data (Lorem, foo/bar, Calculator/Planner) is FORBIDDEN here — the verifier must be able to compare actual labels and values side-by-side.
 
+### Fixture Resolution Order (when the design has no concrete data)
+
+Figma designs frequently contain template tokens like `{num}%`, `{value}`, `$X,XXX` where concrete numbers are never encoded. When you hit this, follow this order — DO NOT invent unrelated placeholder labels:
+
+1. **Concrete values in Figma text nodes** → use them verbatim (highest priority).
+2. **Existing flat `design-contract.md` in the project** → if the card/chart was previously documented with numbers, inherit those numbers.
+3. **`docs/requirements.md` sample data** → if requirements specify example values, use them.
+4. **Engineered stub that visually matches the Figma render** → measure segment pixel widths (stacked) or relative heights (bar/column) and synthesise values summing to 100% (percentage variants) or matching the visible proportions (absolute variants).
+5. Record the resolution choice in a `__fixture_source__` field so verifiers can distinguish "extracted from design" vs "engineered to match visual".
+
+If the design uses template tokens, ALSO record them verbatim in a `__figma_template__` field. This lets the verifier compare both representations — e.g., "design shows `{num}%` placeholder, fixture supplies `27%`, built UI shows `27%`" is a MATCH, not a deviation.
+
+**Labels (category names, series names, legend items) must ALWAYS be extracted verbatim from Figma** — never substituted. Only numeric values fall back through the resolution order above.
+
 ```json
 {
   "__source__": "{Figma node URL or image file + node id}",
@@ -105,11 +119,24 @@ This is the EXACT data from the design source. Verification compares the built c
 
   "center_value": "{exact value shown in donut center, if applicable}",
   "center_sublabel": "{exact sublabel, if applicable}",
-  "percentages_shown": [{30}, {21}, {20}, {15}, {14}]
+  "percentages_shown": [{30}, {21}, {20}, {15}, {14}],
+
+  "__fixture_source__": "{extracted-from-figma | inherited-from-flat-contract | requirements-sample | engineered-to-match-visual}",
+  "__figma_template__": "{if design uses tokens: record them verbatim, e.g. '{num}%'. Omit if design has concrete values.}"
 }
 ```
 
 **Verification rule**: when the component is rendered with THIS fixture, every label, every value, every percentage shown in the built UI MUST match the design. Any substitution is a DEVIATION.
+
+### Verification Harness (how to render the element in isolation)
+
+When building an element for verification, render it on a dedicated `/design-system/{element-name}` route with **only** the visual context needed to compare it side-by-side against Figma:
+
+- **Always include**: the element itself, its data labels, its legend (if owned by the element).
+- **Include if the Figma reference shows them adjacent to the element**: card chrome (title, subtitle, KPI header) — but mark these in the page wrapper as `<!-- harness-only: belongs to widget contract -->` so future readers don't mistake them for part of this element contract.
+- **Never include**: widget-level controls (dropdowns, date-pickers, header action buttons), surrounding page layout, navigation, filters.
+
+Rule of thumb: if removing an element from the harness would make the Figma↔built comparison impossible (e.g., can't tell which chart the KPI "2.4" refers to), keep it. If it would just make the page look like the real app, strip it.
 
 ## Responsive Behavior
 
