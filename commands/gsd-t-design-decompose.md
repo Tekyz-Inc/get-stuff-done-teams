@@ -36,6 +36,7 @@ Run these checks, log results to user inline:
    - READ `templates/design-chart-taxonomy.md` from the GSD-T package (or `~/.claude/` if installed)
    - This is the **CLOSED SET** of valid element names. You MUST pick from this list. Inventing new element names is FORBIDDEN without user approval to extend the taxonomy.
    - Keep the taxonomy in working memory while classifying — every element you identify MUST be matched against it
+   - **Filename rule**: the element contract filename MUST match the taxonomy name exactly (`chart-bar-vertical-single.contract.md`, not `bar-vertical-single.contract.md`). Shortened aliases are FORBIDDEN — they create taxonomy drift and make link-integrity checks fail. If an existing legacy contract uses a shortened name, prefer renaming it to the taxonomy name over creating a parallel file.
 
 ## Step 1: Survey the Design
 

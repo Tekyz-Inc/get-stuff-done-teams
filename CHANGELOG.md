@@ -2,6 +2,11 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.63.10] - 2026-04-05
+
+### Added
+- **Taxonomy filename rule** in `gsd-t-design-decompose.md` Step 0: element contract filenames MUST match the closed-set taxonomy name exactly (`chart-bar-vertical-single.contract.md`, not `bar-vertical-single.contract.md`). Closes widget-tier gap W5 — shortened aliases create taxonomy drift and break link-integrity. Prefer renaming legacy contracts over creating parallel files.
+
 ## [2.62.10] - 2026-04-05
 
 ### Added
