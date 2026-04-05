@@ -85,6 +85,36 @@ Every widget is a card with consistent chrome. Missing chrome is the #1 cause of
 | legend     | `data.map(d => ({label: d.category, value: d.value, color: d.color}))` |
 | filter     | `{ value: timeRange, options: ['7d','30d','90d','1y'], onChange: onFilterChange }` |
 
+## Test Fixture (MANDATORY)
+
+Widget-scope fixture used by the Verification Harness. MUST include:
+- Top-level widget chrome fields (title, subtitle, filter value, etc.)
+- Body data for each composed element
+
+Prefer referencing the element's own fixture rather than re-inlining its values:
+
+```json
+{
+  "__fixture_source__": "extracted-from-figma | flat-contract | requirements | engineered-stub",
+  "__figma_template__": "{Figma node URL or null}",
+  "title": "Most Popular Tools",
+  "subtitle": "Which tools members interact with most.",
+  "filterValue": "Members",
+  "chart_fixture": "$ref:chart-donut#/fixture",
+  "legend_fixture": "$ref:legend-vertical-right#/fixture"
+}
+```
+
+**Rules:**
+- `__fixture_source__` and `__figma_template__` are REQUIRED (same Fixture Resolution Order as element contracts).
+- Element sub-fixtures should be referenced by `$ref:{element-name}#/fixture` when the widget uses the element's canonical fixture unchanged. Inline only when the widget supplies widget-specific data (e.g., a story-specific dataset).
+- Widget fixture MUST NOT contain visual spec fields that belong to an element (colors, font sizes, padding, radii). Those live in the element contract.
+- **Boundary check**: if a field name matches a slot in the element's fixture (segments, centerValue, xLabels, etc.), it belongs in the element fixture, not the widget fixture.
+
+## Verification Harness
+
+The widget harness page (`/design-system/{widget-name}`) renders ONE widget instance on a blank page — no app chrome, no navigation. The widget IS the harness. Render the widget with the Test Fixture above; do not wrap it in a page-level layout.
+
 ## States
 
 | State       | Widget Behavior                                                   |

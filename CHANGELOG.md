@@ -2,6 +2,12 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.62.10] - 2026-04-05
+
+### Added
+- **Widget-contract Test Fixture section (MANDATORY)** — `templates/widget-contract.md` now requires a `## Test Fixture` section at widget scope, with the same `__fixture_source__` / `__figma_template__` requirements as element contracts. Widget fixtures reference element sub-fixtures via `$ref:{element-name}#/fixture` rather than re-inlining element values — enforces the widget↔element boundary in the fixture layer. Closes gap W4 from widget-tier convergence run 1. Also adds a widget-level Verification Harness subsection.
+- **Widget fixture boundary rule**: widget fixture fields MUST NOT duplicate element visual-spec fields (colors, font sizes, padding, radii) — those live in the element contract. A field name matching an element slot (segments, centerValue, xLabels) belongs in the element fixture.
+
 ## [2.61.10] - 2026-04-05
 
 ### Added
