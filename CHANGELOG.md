@@ -2,6 +2,11 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.68.12] - 2026-04-05
+
+### Fixed (design-chart-taxonomy template)
+- **Lists section, naming grammar, and formalized extension workflow** now ship in the package source template (previously only existed in local `~/.claude/templates/` copy from v2.67.10 — `update-all` overwrote it). Package template and installed template are now in sync.
+
 ## [2.68.11] - 2026-04-05
 
 ### Changed (widget-contract template)

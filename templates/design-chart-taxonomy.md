@@ -144,6 +144,27 @@ The catastrophic failure mode is: agent sees "bars" in Figma, picks `chart-bar-g
 | `table-zebra`             | Alternating row backgrounds                               |
 | `table-striped-header`    | Only header row has distinct background                   |
 
+**Decision rule: table vs list?**
+- Columns aligned across rows, with a header row labelling columns → **table-\***
+- Each row is self-contained (thumbnail + text stack + meta, no shared column grid) → **list-\*** (see Lists section)
+
+---
+
+## Lists
+
+| Element name                   | Visual distinguisher                                                                              |
+|--------------------------------|---------------------------------------------------------------------------------------------------|
+| `list-simple-vertical`         | Vertical stack of single-line text rows                                                           |
+| `list-icon-vertical`           | Vertical stack of rows; each row has leading icon + text                                          |
+| `list-avatar-vertical`         | Vertical stack of rows; each row has leading avatar + text stack                                  |
+| `list-thumbnail-vertical`      | Vertical stack of rows; each row has leading thumbnail (bounded rect image) + text stack + meta   |
+
+**Decision rule: which list variant?**
+- Leading visual is a circular profile image → `list-avatar-vertical`
+- Leading visual is a glyph → `list-icon-vertical`
+- Leading visual is a bounded-rect image (video thumb, article cover) → `list-thumbnail-vertical`
+- No leading visual → `list-simple-vertical`
+
 ---
 
 ## Controls
@@ -257,11 +278,40 @@ When `gsd-t-design-decompose` runs, for EACH visual element encountered in the d
 
 ---
 
+## Naming grammar
+
+Element names follow a consistent grammar to avoid ad-hoc invention:
+
+```
+{category}-{variant}-{orientation/modifier}
+
+Categories: chart, axis, legend, stat-card, card, table, list, button, input,
+            select, tabs, filter, icon, text, heading, container, stack, grid
+
+Modifiers (common):
+  -single / -multi           — series count
+  -horizontal / -vertical    — orientation
+  -stacked / -grouped        — arrangement
+  -percentage                — values sum to 100%
+  -dense / -comfortable      — density
+  -outline / -filled         — visual weight
+```
+
+When proposing a new entry, match the grammar of its sibling section.
+
 ## Extending the taxonomy
 
 If a new element variant is needed:
 
-1. Add it to the relevant section above with a visual distinguisher
-2. If it's a new chart variant, add a decision rule under the chart type
-3. Bump GSD-T version (minor) and document the addition in CHANGELOG.md
-4. Never delete entries — only add (breaking the closed set is destructive)
+1. **Write a proposal first**: `.gsd-t/contracts/design/taxonomy-proposals/{name}.proposal.md` with:
+   - Section it belongs in (existing or new)
+   - Proposed entry name + visual distinguisher (≤80 chars)
+   - Sibling entries — how the new entry differs from each
+   - Catastrophic-misclassification rationale (what goes wrong if you jam it into an existing entry)
+   - Source (Figma node, screenshot)
+   - Companion entries flagged (if the new entry implies a cluster of siblings)
+2. Add it to the relevant section above with a visual distinguisher
+3. If it creates a new section, place it near structurally similar sections (layout-like near Tables, interactive-like near Controls)
+4. If it's a new chart variant, add a decision rule under the chart type
+5. Bump GSD-T version (minor) and document the addition in CHANGELOG.md
+6. Never delete entries — only add (breaking the closed set is destructive)
