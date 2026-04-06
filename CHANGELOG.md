@@ -2,6 +2,16 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.68.11] - 2026-04-05
+
+### Changed (widget-contract template)
+- **Alignment column in Card Chrome Slots** — every slot now requires explicit alignment (left/center/right) extracted from Figma. Incorrect legend alignment was the #2 cause of "looks off" results.
+- **Internal Element Layout section (MANDATORY)** — new section replacing the flat layout table. Documents: body_layout (flex-row/column/grid), body_justify, body_align, body_gap, chart_width/height, legend_width, footer_legend_justify, header_to_body_gap, body_to_footer_gap. These are the exact values that control spacing and sizing of elements within a widget card.
+- **Verification checklist expanded** — now checks: chrome alignment, internal layout, inter-element spacing, element sizing, legend alignment, card container values (6 new items).
+
+### Why
+BDS Analytics comparison revealed consistent intra-widget layout errors: legends left-aligned instead of centered, inconsistent spacing between chart and legend, wrong element sizing within cards. The widget contract template had a Layout section but it specified only container-level properties (padding, border, gap) — not how elements were sized, spaced, and aligned WITHIN the card body. These new fields close that gap.
+
 ## [2.68.10] - 2026-04-05
 
 ### Changed (gsd-t-design-decompose)

@@ -19,18 +19,20 @@ Composition of elements + data binding + layout. Widgets SELECT and POSITION ele
 
 Every widget is a card with consistent chrome. Missing chrome is the #1 cause of "looks off" verification results. Document EVERY slot, even if empty.
 
-| Slot                    | Element Contract (or N/A)                | Content / Behavior                               |
-|-------------------------|------------------------------------------|--------------------------------------------------|
-| `title`                 | heading-h3                               | {exact title text from design}                   |
-| `subtitle`              | text-caption or N/A                      | {exact subtitle text — "Which tools members interact with most."} |
-| `header_right_control`  | select-dropdown, button-ghost, or N/A    | {e.g., "Members ▼" filter dropdown in card header} |
-| `kpi_header`            | stat-card-kpi-large or N/A               | {e.g., "2.4" + "Avg tools per member" shown above chart} |
-| `body`                  | {primary element, e.g., chart-donut}     | {main visual}                                    |
-| `body_sidebar`          | {e.g., legend-vertical-right or N/A}     | {element positioned alongside body}              |
-| `footer`                | {e.g., text-caption or N/A}              | {e.g., "Last updated: ..."}                      |
-| `footer_legend`         | {e.g., legend-horizontal-bottom or N/A}  | {legend below body}                              |
+| Slot                    | Element Contract (or N/A)                | Content / Behavior                               | Alignment       |
+|-------------------------|------------------------------------------|--------------------------------------------------|-----------------|
+| `title`                 | heading-h3                               | {exact title text from design}                   | {left / center} |
+| `subtitle`              | text-caption or N/A                      | {exact subtitle text — "Which tools members interact with most."} | {left / center} |
+| `header_right_control`  | select-dropdown, button-ghost, or N/A    | {e.g., "Members ▼" filter dropdown in card header} | right           |
+| `kpi_header`            | stat-card-kpi-large or N/A               | {e.g., "2.4" + "Avg tools per member" shown above chart} | {left / center} |
+| `body`                  | {primary element, e.g., chart-donut}     | {main visual}                                    | {center / left} |
+| `body_sidebar`          | {e.g., legend-vertical-right or N/A}     | {element positioned alongside body}              | {left / center} |
+| `footer`                | {e.g., text-caption or N/A}              | {e.g., "Last updated: ..."}                      | {left / center} |
+| `footer_legend`         | {e.g., legend-horizontal-bottom or N/A}  | {legend below body}                              | {center / left} |
 
-**Rule**: If the design shows it, document it. If the design doesn't show it, write "N/A". Do NOT leave blank.
+**Rules**:
+- If the design shows it, document it. If the design doesn't show it, write "N/A". Do NOT leave blank.
+- The **Alignment** column is MANDATORY. Incorrect alignment (left vs center) is the #2 cause of "looks off" results after missing chrome. Extract alignment from the Figma node — do not default to left.
 
 ## Elements Used (body composition)
 
@@ -46,25 +48,52 @@ Every widget is a card with consistent chrome. Missing chrome is the #1 cause of
 ```
 ┌──────────────────────────────────────────────┐
 │ {title}                        [{filter}]    │
+│ {subtitle}                                   │
 ├──────────────────────────────────────────────┤
 │              │                               │
 │   {chart}    │      {legend}                 │
 │              │                               │
+├──────────────────────────────────────────────┤
+│          {footer_legend}                     │
 └──────────────────────────────────────────────┘
 ```
+
+### Card Container
 
 | Property           | Value                                               |
 |--------------------|-----------------------------------------------------|
 | container_width    | {100% of parent / fixed 480px}                      |
 | container_height   | {auto / fixed 320px}                                |
-| padding            | {tokens.spacing.6}                                  |
-| gap                | {tokens.spacing.4}                                  |
-| background         | {tokens.color.surface.card}                         |
-| border             | {1px solid tokens.color.border.subtle}              |
-| border_radius      | {tokens.radius.lg}                                  |
-| shadow             | {tokens.shadow.sm}                                  |
-| chart_area_ratio   | {60% of widget width}                               |
-| legend_area_ratio  | {40% of widget width}                               |
+| padding            | {16px — extract exact value from Figma}             |
+| background         | {#ffffff}                                           |
+| border             | {1px solid #e2e8f0}                                 |
+| border_radius      | {8px}                                               |
+| shadow             | {none / 0 2px 8px rgba(0,0,0,0.1)}                 |
+
+### Internal Element Layout (MANDATORY — the "looks off" killer)
+
+This section specifies how elements are sized, spaced, and aligned WITHIN the card body. Missing or wrong values here produce the "spacing inside widgets" and "legends incorrectly aligned" class of errors.
+
+| Property                    | Value                                                      |
+|-----------------------------|------------------------------------------------------------|
+| header_to_body_gap          | {16px — gap between title/subtitle row and body content}   |
+| body_layout                 | {flex-row / flex-column / grid}                            |
+| body_justify                | {center / flex-start / space-between}                      |
+| body_align                  | {center / flex-start / stretch}                            |
+| body_gap                    | {24px — gap between body element and sidebar element}      |
+| chart_width                 | {180px / 60% of body / auto}                               |
+| chart_height                | {180px / auto}                                             |
+| chart_align_self            | {center / flex-start}                                      |
+| legend_width                | {auto / 40% of body}                                       |
+| legend_align_self           | {center / flex-start}                                      |
+| body_to_footer_gap          | {16px — gap between body and footer/footer_legend}         |
+| footer_legend_justify       | {center / flex-start — EXTRACT FROM FIGMA, do not default} |
+
+**Rules**:
+- Extract EVERY value from the Figma node — do not approximate.
+- `footer_legend_justify` is critical: center-aligned legends look completely different from left-aligned. Check the Figma.
+- `body_layout` + `body_justify` + `body_align` together define whether the chart is centered in its card, left-aligned, or stretched. Get this wrong and every widget "looks off."
+- These values are WIDGET-OWNED — they describe how the widget positions its elements, not the elements' internal specs (which live in element contracts).
 
 ## Data Binding
 
@@ -154,7 +183,12 @@ The widget harness page (`/design-system/{widget-name}`) renders ONE widget inst
 Widget-level verification runs AFTER all referenced elements pass their own verification. Widget verification only checks composition — element internals are out of scope.
 
 - [ ] All referenced elements present and correctly slotted
-- [ ] Layout dimensions (width, height, padding, gap) match design
+- [ ] Card chrome alignment matches design (title left/center, legend center/left, etc.)
+- [ ] Internal element layout matches design (body_layout, body_justify, body_align)
+- [ ] Inter-element spacing matches design (header_to_body_gap, body_gap, body_to_footer_gap)
+- [ ] Element sizing matches design (chart_width, chart_height, legend_width)
+- [ ] Legend alignment matches design (footer_legend_justify: center vs left)
+- [ ] Card container values match design (padding, border, radius, shadow)
 - [ ] Responsive breakpoints adapt as specified
 - [ ] Data binding produces correct element inputs (spot-check with sample data)
 - [ ] Inter-element interactions fire (hover sync, click propagation)
