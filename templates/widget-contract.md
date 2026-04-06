@@ -95,6 +95,41 @@ This section specifies how elements are sized, spaced, and aligned WITHIN the ca
 - `body_layout` + `body_justify` + `body_align` together define whether the chart is centered in its card, left-aligned, or stretched. Get this wrong and every widget "looks off."
 - These values are WIDGET-OWNED — they describe how the widget positions its elements, not the elements' internal specs (which live in element contracts).
 
+### Internal Layout Arithmetic (MANDATORY for fixed-height cards)
+
+When `container_height` is fixed (not `auto`), you MUST compute and document the internal height budget. The math must add up exactly — no approximation.
+
+```
+card_height:           {e.g., 334px}
+card_padding_top:      {e.g., 16px}
+card_padding_bottom:   {e.g., 16px}
+header_height:         {title + subtitle + gap} = {e.g., 48px}
+header_to_body_gap:    {e.g., 16px}
+─────────────────────────────────────────────────
+body_available:        {card_height - padding_top - padding_bottom
+                        - header_height - header_to_body_gap}
+                       = {e.g., 334 - 16 - 16 - 48 - 16 = 238px}
+
+body_breakdown:
+  kpi_height:          {natural content height, e.g., 40px — NOT flex:1}
+  kpi_to_chart_gap:    {e.g., 16px}
+  chart_section:       {bar + gap + labels + gap + legend}
+                       = {e.g., 30 + 8 + 12 + 8 + 16 = 74px}
+  ────────────────────
+  total_body_content:  {40 + 16 + 74 = 130px}
+  remaining_space:     {238 - 130 = 108px}
+
+centering_strategy:    {e.g., body uses flex-column + justify-content: center
+                        to vertically center the content group (KPI + chart)
+                        in the 238px body area. KPI keeps natural height.}
+```
+
+**Rules:**
+- Every row must be an exact pixel value extracted from the Figma design
+- The sum of all body content MUST equal `body_available` OR explicitly document how remaining space is distributed (centering, padding, etc.)
+- **NEVER use `flex: 1` on a content element (KPI, label, text) to center it.** `flex: 1` makes the element grow to fill available space, inflating its box model. Use `flex: 1` + `justify-content: center` on the PARENT container instead. The parent grows; children keep natural size.
+- If the math doesn't add up, the design extraction is incomplete — go back to Figma
+
 ## Data Binding
 
 **Widget input shape:**
@@ -189,6 +224,9 @@ Widget-level verification runs AFTER all referenced elements pass their own veri
 - [ ] Element sizing matches design (chart_width, chart_height, legend_width)
 - [ ] Legend alignment matches design (footer_legend_justify: center vs left)
 - [ ] Card container values match design (padding, border, radius, shadow)
+- [ ] Layout arithmetic adds up: sum of child heights + gaps = body_available (fixed-height cards only)
+- [ ] No content element uses `flex: 1` for centering — only parent containers may use `flex: 1`
+- [ ] DOM box model check: no element's offsetHeight >> its content height (inflated box = wrong flex)
 - [ ] Responsive breakpoints adapt as specified
 - [ ] Data binding produces correct element inputs (spot-check with sample data)
 - [ ] Inter-element interactions fire (hover sync, click propagation)

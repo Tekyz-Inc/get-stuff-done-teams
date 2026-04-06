@@ -281,6 +281,47 @@ MANDATORY:
 
 **GOOD** — Extracting gap as exactly `24px` from the design, then: `display: flex; gap: 1.5rem; /* 24px — design contract: section-gap */`
 
+### Flex Centering Anti-Pattern (MANDATORY)
+
+```
+NEVER use flex: 1 on a content element to center its text/content.
+flex: 1 makes the ELEMENT GROW to fill available space — the content
+centers within an oversized box, but the box itself displaces siblings.
+
+  WRONG — content element grows, inflated box shifts layout:
+    .kpi { flex: 1; display: flex; justify-content: center; }
+
+  RIGHT — parent grows, children keep natural size:
+    .body { flex: 1; display: flex; flex-direction: column;
+            justify-content: center; }
+    .kpi  { /* no flex: 1 — natural height only */ }
+
+  RULE: flex: 1 belongs on CONTAINERS, not on CONTENT elements.
+        To center content vertically, apply justify-content: center
+        on the parent — never flex: 1 on the child.
+```
+
+### Fixed-Height Container Arithmetic (MANDATORY)
+
+```
+When a card or container has a fixed height, BEFORE writing any CSS:
+  1. Compute the total available body height:
+     body_available = card_height - padding_top - padding_bottom
+                      - header_height - header_to_body_gap
+  2. List every child element's height (from the design contract)
+  3. List every gap between children
+  4. SUM them: total_content = child1 + gap1 + child2 + gap2 + ...
+  5. Compare: total_content MUST ≤ body_available
+  6. If total_content < body_available:
+     Document the centering strategy (justify-content: center on parent)
+  7. If total_content > body_available:
+     The design extraction is wrong — go back to Figma
+
+  This arithmetic goes in the widget contract's Internal Layout
+  Arithmetic section. The implementation MUST match the arithmetic.
+  If gap: 12px makes the math exceed body_available, use gap: 8px.
+```
+
 ---
 
 ## 9. Responsive Breakpoint Strategy
@@ -628,4 +669,7 @@ Before marking any design implementation task as complete:
 - [ ] Accessibility: focus indicators, alt text, ARIA where needed, 44px touch targets
 - [ ] No magic numbers — every value is documented or uses a design token
 - [ ] SVG structural overlay comparison completed — geometry diff ≤2px per element
+- [ ] DOM box model inspection passed — no inflated elements (offsetHeight >> scrollHeight)
+- [ ] Layout arithmetic verified — child heights + gaps = body available height (fixed-height cards)
+- [ ] No content element uses `flex: 1` for centering — only parent containers
 - [ ] Verification results logged in design contract Verification Status table

@@ -2,6 +2,17 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.70.11] - 2026-04-06
+
+### Added (design pipeline — DOM box model inspection + layout arithmetic)
+- **DOM Box Model Inspection** — new mandatory verification step for fixed-height containers. Uses Playwright to evaluate `offsetHeight` vs `scrollHeight` for each child element. Flags elements where `offsetHeight > scrollHeight * 1.5` as INFLATED (symptom: `flex: 1` on a content element inflating its box beyond content size). Added to: `gsd-t-execute` (Step 5.5 inside Design Verification Agent), `gsd-t-quick` (step 8 inside Design Verification Agent), `gsd-t-design-audit` (Step 3.75).
+- **Internal Layout Arithmetic** — widget contract template now requires computed height budgets for fixed-height cards: `card_height - padding - header = body_available`, then `child1 + gap1 + child2 + ... = total_content ≤ body_available`. Forces the agent to write the math before coding — prevents `gap: 12px` when only `gap: 8px` fits.
+- **Flex Centering Anti-Pattern Rule** — `design-to-code.md` Section 8 now explicitly prohibits `flex: 1` on content elements (KPI, labels, text) for centering. Rule: `flex: 1` belongs on containers, `justify-content: center` on the parent. Children keep natural size.
+- **4 new verification checklist items** in `design-to-code.md` and `widget-contract.md`: box model inspection, layout arithmetic, no content flex:1, inflated element detection.
+
+### Why
+BDS horizontal stacked bar cards required 5 user-prompted fix iterations to get spacing right. Root cause: agent used `flex: 1` on `.kpi` to center it vertically, which inflated the element to 144px (content was 40px), displacing the chart section. The property comparison table and SVG overlay both missed this because the *positions* were close enough — the problem was *how space was distributed*, not where elements landed. DOM box model inspection catches the cause (inflated element) not just the symptom (displaced sibling).
+
 ## [2.70.10] - 2026-04-06
 
 ### Added (design pipeline — 2 new capabilities)

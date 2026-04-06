@@ -785,6 +785,49 @@ aggregate visual drift that individual property checks miss.
 This step catches spacing rhythm, alignment drift, and proportion issues
 that pass the property-level check but are visually wrong in aggregate.
 
+## Step 5.5: DOM Box Model Inspection (MANDATORY for fixed-height containers)
+
+The property table catches wrong values. The SVG overlay catches wrong positions.
+This step catches wrong SPACE DISTRIBUTION — elements whose box model is inflated
+by flex growth, pushing siblings out of position even when the visual appears close.
+
+For each card/widget with a fixed height (container_height is not 'auto'):
+
+1. Use Playwright to evaluate in the browser:
+   ```javascript
+   // For each child element of the card body:
+   const children = await page.$$eval('.card-body > *', els =>
+     els.map(el => ({
+       selector: el.className,
+       offsetHeight: el.offsetHeight,
+       scrollHeight: el.scrollHeight,
+       computedFlex: getComputedStyle(el).flex,
+       computedFlexGrow: getComputedStyle(el).flexGrow,
+     }))
+   );
+   ```
+
+2. Flag any element where `offsetHeight > scrollHeight * 1.5`:
+   This means the element's layout box is ≥50% larger than its content.
+   Symptom: element is using `flex: 1` or `flex-grow: 1` and inflating.
+   ❌ DEVIATION (severity HIGH): '{selector} offsetHeight={X}px but
+   content only needs {scrollHeight}px — inflated by flex growth.
+   Fix: remove flex:1 from this element, apply justify-content:center
+   on its parent container instead.'
+
+3. Verify layout arithmetic:
+   - Read the widget contract's Internal Layout Arithmetic section
+   - Sum all child offsetHeights + computed gaps
+   - Compare against the card body's offsetHeight
+   - If sum > body height → ❌ DEVIATION: content overflows
+   - If sum < body height by >20px with no centering strategy → ❌ DEVIATION
+
+4. Produce box model table:
+   | # | Element | offsetHeight | scrollHeight | flex-grow | Verdict |
+   |---|---------|-------------|-------------|-----------|---------|
+   | 1 | .kpi    | 144px       | 40px        | 1         | ❌ INFLATED |
+   | 2 | .chart  | 74px        | 74px        | 0         | ✅ MATCH |
+
 ## Step 6: Report Deviations
 
 For each ❌ DEVIATION, write a specific finding:

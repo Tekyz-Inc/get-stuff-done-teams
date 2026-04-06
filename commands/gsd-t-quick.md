@@ -288,7 +288,14 @@ cannot be redeemed by visual polish.
       | # | SVG Element | SVG Position | Built Position | Δ px | Verdict |
    g. Flag unmapped SVG elements as MISSING, unmapped DOM elements as EXTRA
    This catches aggregate visual drift that property-level checks miss.
-8. Write results (property table + SVG diff) to .gsd-t/contracts/design-contract.md
+8. DOM Box Model Inspection (for fixed-height containers):
+   a. For each card body child, evaluate: offsetHeight, scrollHeight, flex-grow
+   b. Flag elements where offsetHeight > scrollHeight * 1.5 as INFLATED
+      (element using flex:1 when it shouldn't — box larger than content)
+   c. Verify layout arithmetic: sum of child heights + gaps = body height
+   d. Produce box model table:
+      | Element | offsetHeight | scrollHeight | flex-grow | Verdict |
+9. Write results (property table + SVG diff + box model) to .gsd-t/contracts/design-contract.md
    under '## Verification Status'
 9. Any ❌ → append to .gsd-t/qa-issues.md with [VISUAL] tag
 10. Report: DESIGN VERIFIED | DESIGN DEVIATIONS FOUND ({count})"

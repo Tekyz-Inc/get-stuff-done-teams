@@ -197,9 +197,35 @@ After the per-widget property comparison, run a mechanical SVG-based diff to cat
 
 This step catches spacing rhythm, alignment drift, and proportion issues that pass the per-widget property check but are visually wrong in aggregate.
 
+## Step 3.75: DOM Box Model Inspection (MANDATORY for fixed-height containers)
+
+For each card/widget with a fixed height, inspect the internal space distribution:
+
+1. **Evaluate in browser** (via Playwright) for each card body child:
+   - `offsetHeight` (layout box size), `scrollHeight` (content size), `flex-grow` (computed)
+
+2. **Flag inflated elements**: any element where `offsetHeight > scrollHeight * 1.5`
+   - This means `flex: 1` or `flex-grow: 1` is inflating the element's box beyond its content
+   - Severity: HIGH — "`.kpi` offsetHeight=144px but content only needs 40px — inflated by flex growth"
+
+3. **Verify layout arithmetic**: sum all child `offsetHeight` values + computed gaps. Compare against card body `offsetHeight`:
+   - Sum > body → content overflows (❌ DEVIATION)
+   - Sum < body by >20px with no centering strategy → space is unaccounted (❌ DEVIATION)
+
+4. **Produce box model table** per widget:
+
+```markdown
+### Box Model: {widget-name}
+
+| # | Element | offsetHeight | scrollHeight | flex-grow | Verdict |
+|---|---------|-------------|-------------|-----------|---------|
+| 1 | .kpi    | 144px       | 40px        | 1         | ❌ INFLATED |
+| 2 | .chart  | 74px        | 74px        | 0         | ✅ MATCH |
+```
+
 ## Step 4: Summary Report
 
-After all widgets are audited (property tables + SVG structural diff), produce a summary:
+After all widgets are audited (property tables + SVG structural diff + box model), produce a summary:
 
 ```markdown
 ## Design Audit Summary
