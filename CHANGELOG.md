@@ -2,6 +2,17 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.67.10] - 2026-04-05
+
+### Added (design-chart-taxonomy)
+- **Lists section** — new category between Tables and Controls: `list-simple-vertical`, `list-icon-vertical`, `list-avatar-vertical`, `list-thumbnail-vertical`. Includes decision rule: columns across rows = table; self-contained rows = list.
+- **Table-vs-list decision rule** in Tables section — prevents catastrophic misclassification (jamming list-style repeating items into `table-*` entries).
+- **Naming grammar** — documents the `{category}-{variant}-{orientation}` pattern with common modifiers. Prevents ad-hoc name invention.
+- **Formalized extension workflow** — proposal-first process with: section placement, sibling-diff rationale, catastrophic-misclassification argument, companion-entries-flagged field. Replaces the terse 4-step extension guide.
+
+### Milestone
+- **Extensibility VALIDATED** — task-012 forced the taxonomy-extension workflow (picked `list-thumbnail-vertical`, not previously in taxonomy). Proposal-first process worked cleanly; `$ref` composition chain unaffected by new entries. 12 consecutive 50/50 scores across element/widget/page/scale/extensibility tiers.
+
 ## [2.66.10] - 2026-04-05
 
 ### Changed (page-contract template)
