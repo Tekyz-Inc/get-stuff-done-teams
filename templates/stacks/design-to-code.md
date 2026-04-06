@@ -462,11 +462,30 @@ MANDATORY:
 
 ---
 
-## 15. Visual Verification
+## 15. Visual Verification — Against FIGMA, Not Just Contracts
 
-**Visual verification is handled by a dedicated Design Verification Agent**, spawned automatically by `gsd-t-execute` (Step 5.25) after all domain tasks complete. The verification agent's ONLY job is to open a browser, compare the built frontend against the original design, and produce a structured element-by-element comparison table.
+**Visual verification is handled by a dedicated Design Verification Agent**, spawned automatically by `gsd-t-execute` (Step 5.25) after all domain tasks complete.
 
-**Your job as the coding agent**: Write precise code from the design contract tokens. Every CSS value must trace to a design contract entry. Use exact hex colors, exact spacing values, exact typography. The verification agent will open a browser and prove whether your code matches.
+### Critical distinction: TWO verification targets
+
+The verification agent compares the built frontend against **TWO sources** — not just one:
+
+```
+VERIFICATION TARGETS:
+  ├── TARGET 1: Built screen vs DESIGN CONTRACTS
+  │     Does the code match the contract's claimed values?
+  │     (This is what the 13-task validation proved works — airtight.)
+  │
+  └── TARGET 2: Built screen vs FIGMA DESIGN (MANDATORY — this is new)
+        Does the BUILT SCREEN match the ORIGINAL FIGMA SCREENSHOT?
+        This catches: contracts that were wrong to begin with,
+        chart type misclassification, hallucinated data, missing elements.
+        (This is what was missing — and what caused the BDS failures.)
+```
+
+**Target 2 is the critical addition.** Verifying code-vs-contract is necessary but not sufficient. If the contract said "donut" when Figma showed a stacked bar, the code will faithfully build a donut, the contract verification will say MATCH, and the screen will be WRONG.
+
+### Verification agent workflow
 
 ```
 SEPARATION OF CONCERNS:
@@ -475,12 +494,23 @@ SEPARATION OF CONCERNS:
   │     Do NOT open a browser or attempt visual comparison yourself
   │
   └── DESIGN VERIFICATION AGENT (Step 5.25 of gsd-t-execute):
-        Open browser → screenshot at breakpoints → build element inventory →
-        produce structured comparison table (30+ rows) → report MATCH/DEVIATION
-        per element → fix deviations → re-verify → artifact gate enforces completion
+        1. Open browser → screenshot built page at each breakpoint
+        2. Get Figma screenshot (via MCP get_screenshot or saved reference image)
+        3. SIDE-BY-SIDE comparison: built screenshot vs Figma screenshot
+        4. For EACH widget/section on the page:
+           a. What chart type does the FIGMA show? (look at the Figma screenshot)
+           b. What chart type did the CODE build? (look at the built screenshot)
+           c. Do they match? Not "does code match contract" — does CODE match FIGMA?
+        5. Check every text label: does the built screen show the same titles,
+           subtitles, column headers, legend items, KPI values as the Figma?
+        6. Produce structured comparison table (30+ rows):
+           | Element | Figma Shows | Built Shows | MATCH/DEVIATION |
+        7. Fix deviations → re-verify → artifact gate enforces completion
 ```
 
 The verification agent enforces the **FAIL-BY-DEFAULT** rule: every visual element starts as UNVERIFIED. The only valid verdicts are MATCH (with proof) or DEVIATION (with specifics). "Looks close" and "appears to match" are not verdicts. An artifact gate in the orchestrator blocks completion if the comparison table is missing or empty.
+
+> **Why "vs Figma" matters**: The two-terminal validation (v2.59–v2.67, 13 tasks, all 50/50) proved contracts→code is reliable. But when the BUILT screen was compared to the ACTUAL Figma design, major deviations emerged: wrong chart types (donuts instead of stacked bars), hallucinated column headers, invented data models — all of which scored 50/50 against their (wrong) contracts. Verifying against Figma, not just contracts, is the fix.
 
 ---
 

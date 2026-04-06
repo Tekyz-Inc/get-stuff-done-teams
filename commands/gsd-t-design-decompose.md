@@ -38,32 +38,83 @@ Run these checks, log results to user inline:
    - Keep the taxonomy in working memory while classifying — every element you identify MUST be matched against it
    - **Filename rule**: the element contract filename MUST match the taxonomy name exactly (`chart-bar-vertical-single.contract.md`, not `bar-vertical-single.contract.md`). Shortened aliases are FORBIDDEN — they create taxonomy drift and make link-integrity checks fail. If an existing legacy contract uses a shortened name, prefer renaming it to the taxonomy name over creating a parallel file.
 
-## Step 1: Survey the Design
+## Step 1: Survey the Design — Node-Level Figma Decomposition (MANDATORY)
 
-Enumerate every visual element on every page/screen in the design. Use Figma MCP `get_metadata` or `get_design_context` if available; otherwise use visual analysis on the image.
+> **⚠  This is the highest-leverage step in the entire workflow.** Most design-to-code errors originate here — the agent glances at a page screenshot, guesses chart types, and writes contracts from wrong assumptions. The fix is STRUCTURED NODE-LEVEL EXTRACTION, not "look harder."
 
-> **⚠  Figma MCP size guard**: `get_design_context` on a full-page frame (e.g., a 390×3372px mobile screen) can return 250KB+ and be auto-saved to a tool-results file, forcing you to grep through it. **Always call `get_metadata` FIRST** to map the tree, then call `get_design_context` **only on leaf card/component nodes** (typically < 100KB). If you must call it on a frame, use `excludeScreenshot: true` to halve the payload.
+### 1a. Map the page tree
 
-Produce an initial flat inventory table:
+Call `get_metadata` on the page/frame to get the full node tree. This returns the Figma component hierarchy — every group, frame, and component instance as named nodes with IDs.
 
-| # | Element on Design                  | Appears On Pages       | Visual Variant                       |
-|---|------------------------------------|------------------------|--------------------------------------|
-| 1 | Donut chart with center label      | Overview, Analytics    | chart-donut                          |
-| 2 | Horizontal stacked bar chart       | Analytics              | chart-bar-stacked-horizontal         |
-| 3 | Vertical legend on right           | Overview               | legend-vertical-right                |
-| 4 | KPI tile with delta indicator      | Overview (×4)          | stat-card-with-delta                 |
-| ...
+### 1b. Identify widget-level nodes
 
-**Rule**: distinct visual variants = distinct rows. A horizontal stacked bar and a vertical stacked bar are TWO rows, not one.
+From the metadata tree, identify every distinct visual group (card, widget, section). These are typically direct children of a page frame or section frame. List them:
 
-## Step 2: Classify Each Element (taxonomy-enforced)
+```
+Node tree for page "Analytics":
+├── stat-card-campaign (id: 123:456)
+├── stat-card-visitors (id: 123:457)
+├── most-popular-tools-card (id: 123:458)
+├── number-of-tools-card (id: 123:459)
+├── ...
+```
+
+### 1c. Call `get_design_context` on EACH widget node individually (MANDATORY)
+
+**Do NOT skip this.** Do NOT classify from the page screenshot alone. For each widget node identified in 1b:
+
+1. Call `get_design_context` with the specific node ID
+2. Record the returned: component type, code hints, text content, layout properties
+3. Extract EVERY text string visible in the node (titles, subtitles, labels, column headers, legend items, axis labels, KPI values)
+
+> **⚠  Figma MCP size guard**: `get_design_context` on a full-page frame (e.g., a 390×3372px mobile screen) can return 250KB+ and be auto-saved to a tool-results file. **Never call it on the full page.** Call it on each leaf card/component node individually (typically < 100KB each). If you must inspect a large frame, use `excludeScreenshot: true` to halve the payload.
+
+**Anti-pattern**: Looking at a page screenshot and writing "I see a donut chart" without calling `get_design_context` on that specific node. The MCP returns structured data about the component — use it.
+
+### 1d. Produce the flat inventory table WITH data inventory
+
+| # | Element on Design | Figma Node ID | Appears On Pages | Text Content Extracted | Visual Variant |
+|---|-------------------|---------------|------------------|----------------------|----------------|
+| 1 | Donut chart with center label | 123:458 | Overview, Analytics | Title: "Most Popular Tools", Subtitle: "Which tools members interact with most", Center: "485", Center sub: "Total Interactions", Legend: ["Steps to Stay Covered 30%", "Broker Contact 21%", ...] | chart-donut |
+| 2 | Stacked bar with KPI header | 123:459 | Analytics | Title: "Number of Tools", Subtitle: "How many tools members interact with", KPI: "2.4", KPI sub: "Avg tools per member", Legend: ["1 Tool", "2 Tools", "3 Tools", "4+ Tools"], Labels: ["{num}%", ...] | chart-bar-stacked-horizontal-percentage |
+| ... | | | | | |
+
+**Rules**:
+- Distinct visual variants = distinct rows. A horizontal stacked bar and a vertical stacked bar are TWO rows.
+- The "Text Content Extracted" column is MANDATORY. Every text string visible in the Figma node MUST be listed. This kills hallucinated column headers and invented data models.
+- If `get_design_context` is unavailable (no Figma MCP), extract text from the screenshot with maximum care and flag "⚠ extracted from screenshot, not MCP — verify manually".
+
+## Step 2: Classify Each Element — Show Your Reasoning (MANDATORY)
 
 For each row in the inventory, assign:
 
-- **Category** — chart / legend / axis / card / table / control / atom / typography / layout
+- **Category** — chart / legend / axis / card / table / list / control / atom / typography / layout
 - **Element name** — **MUST come from `templates/design-chart-taxonomy.md`** (closed set). If no match found, STOP and ask user to extend the taxonomy with rationale.
 - **Reuse count** — how many times does it appear across the entire design?
 - **Owner layer** — element / widget-internal / page-internal
+
+### Classification reasoning (MANDATORY — show your work)
+
+For EACH chart/visualization element, you MUST walk the taxonomy decision tree and document your reasoning. This is not optional — skipping this step is how donut charts get classified as stacked bars and vice versa.
+
+**Required format for each element:**
+
+```
+Element #2: node 123:459 "Number of Tools"
+  I SEE: A horizontal bar that fills full width, divided into 4 colored segments
+         with percentage labels above each segment. Legend below: "1 Tool", "2 Tools",
+         "3 Tools", "4+ Tools". Single bar, not multiple bars per category.
+  DECISION TREE:
+    - Is it a bar chart? YES — has rectangular segments
+    - Stacked or grouped? STACKED — segments touch, share one bar
+    - Horizontal or vertical? HORIZONTAL — bar extends left to right
+    - Percentage or absolute? PERCENTAGE — single bar, segments sum to 100%,
+      labels show {num}%
+  CLASSIFICATION: chart-bar-stacked-horizontal-percentage
+  CONFIDENCE: HIGH — matches taxonomy distinguisher exactly
+```
+
+**If confidence is LOW or MEDIUM**, flag it for human review in Step 5.
 
 ### Visual distinguisher decision rules (consult taxonomy)
 
@@ -72,8 +123,11 @@ Before naming an element, apply the visual distinguisher rules from the taxonomy
 - **Bar chart?** → is it stacked/grouped, horizontal/vertical, percentage/absolute? These are ALL distinct element contracts.
 - **Circular?** → pie vs donut (hole in center?) vs gauge (partial arc?)
 - **Line?** → single vs multi, stepped vs smooth, with area or without
+- **Table vs list?** → columns aligned across rows with header = table; self-contained rows = list
 
 **Anti-pattern to avoid**: "it has bars so it's a bar chart" → WRONG. The failure mode is picking `chart-bar-grouped-vertical` when the design is `chart-bar-stacked-horizontal-percentage`. These render completely differently with completely different data bindings.
+
+**Anti-pattern to avoid**: "it has circles so it's a donut" → WRONG. A pair of stacked vertical bar charts side-by-side is NOT two donut charts, even if the bars have rounded segments. LOOK AT THE ACTUAL SHAPE.
 
 **Promotion rule**: an item becomes an **element contract** if:
 - It appears ≥2 times across the design, OR
@@ -110,15 +164,15 @@ Each page/screen in the design becomes a page contract. Document:
 - Global layout (header, sidebar, main)
 - Route + auth guards
 
-## Step 5: Confirm Decomposition With User
+## Step 5: Confirm Decomposition With User — Contract Review Checkpoint
 
-Present the full hierarchy summary:
+Present the full hierarchy summary WITH classification reasoning:
 
 ```
 DECOMPOSITION SUMMARY
 ─────────────────────
 Elements: 14 contracts
-  Charts: 4 (chart-donut, chart-bar-stacked-horizontal, chart-line, chart-sparkline)
+  Charts: 4 (chart-donut, chart-bar-stacked-horizontal-percentage, chart-line-single, chart-sparkline-line)
   Legends: 2 (legend-vertical-right, legend-horizontal-bottom)
   Cards: 2 (stat-card, stat-card-with-delta)
   Tables: 1 (table-dense)
@@ -132,17 +186,32 @@ Pages: 3 contracts
   dashboard-overview, analytics-detail, settings
 
 Total: 23 contracts (vs. flat: ~57 elements in single file)
-
-Cost estimate:
-  - Decomposition effort: ~{N} hours to write all contracts
-  - Verification: elements verified once, reused everywhere → no drift
-  - Implementation: widgets become assembly, not reinvention
 ```
+
+**Then present the classification reasoning table** (from Step 2) as a condensed review:
+
+| # | Widget/Element | Classified As | Key Reasoning | Confidence |
+|---|----------------|---------------|---------------|------------|
+| 1 | Most Popular Tools body | chart-donut | Circle with center hole + center label "485" + 5 colored segments | HIGH |
+| 2 | Number of Tools body | chart-bar-stacked-horizontal-percentage | Single horizontal bar, 4 segments summing to 100%, {num}% labels | HIGH |
+| 3 | Member State chart | chart-bar-stacked-vertical | Multiple stacked vertical bars, 2 groups side-by-side, percentage labels | MEDIUM — verify |
+| ... | | | | |
+
+**Highlight any MEDIUM/LOW confidence entries** — these are the misclassification risks.
+
+**Present the data inventory** for each widget — the user can quickly spot if column headers or labels were hallucinated:
+
+| Widget | Title | Subtitle | Data Labels |
+|--------|-------|----------|-------------|
+| Video Playlist | "Video Playlist" | (none) | Columns: Video, Viewed, Clicked Thumbnail, Clicked CTA, Avg. Seconds Watched |
+| Tool Engagement | "Tool Engagement" | (none) | Tabs: [Your 2026 Plan Options, ...], Stats: "487 Total members who viewed", "300 Total members who clicked CTA" |
 
 Ask user: "Proceed with this decomposition? [y/n/edit]"
 - **y** → Step 6
 - **n** → abort
 - **edit** → accept user revisions to the hierarchy, re-present
+
+> **Why this checkpoint matters**: The 13-task validation (v2.59–v2.67) proved contracts→code is airtight. But Figma→contracts was unverified — misclassifications at this step propagate through the entire build uncaught. This 5-minute review catches: wrong chart types, hallucinated data models, missing elements, wrong labels.
 
 ## Step 6: Write Contracts
 
@@ -203,6 +272,41 @@ element contract > widget contract > page contract
 
 Widgets and pages reference elements by name. They CANNOT override element visual spec. To customize, create a new element variant.
 ```
+
+## Step 6.5: Contract-vs-Figma Verification Gate (MANDATORY)
+
+After writing all contracts but BEFORE proceeding to partition or build, verify that each contract accurately represents the Figma design. This gate catches errors that would otherwise propagate through the entire build.
+
+### For each widget contract:
+
+1. **Re-read the Figma node** — call `get_design_context` (or re-examine the screenshot) for the specific widget node
+2. **Compare the contract's claimed structure against the actual Figma node:**
+
+| Check | What to verify | Failure mode it prevents |
+|-------|---------------|------------------------|
+| Chart type | Contract's element name matches the actual visual pattern | Donut classified as stacked bar (or vice versa) |
+| Data labels | Contract's Test Fixture labels match the Figma text exactly | Hallucinated column headers, invented metrics |
+| Element count | Number of sub-elements in contract matches Figma | Missing legends, extra charts, wrong layout |
+| Text content | Every title, subtitle, label, legend item matches Figma verbatim | "Engagement per video" subtitle that doesn't exist in Figma |
+| Layout structure | Widget's claimed layout matches Figma arrangement | Side-by-side classified as stacked, 2 charts classified as 1 |
+
+3. **Produce a contract-vs-Figma mismatch report:**
+
+```
+CONTRACT-VS-FIGMA VERIFICATION
+───────────────────────────────
+✅ most-popular-tools-card: chart-donut — MATCHES Figma node 123:458
+✅ number-of-tools-card: chart-bar-stacked-horizontal-percentage — MATCHES
+❌ member-state-card: chart-donut — MISMATCH: Figma shows stacked vertical bars, not donuts
+   → Fix: reclassify as chart-bar-stacked-vertical, rewrite element contract
+❌ video-playlist-table: columns [Title, Duration, Views, Watch Time, Completion]
+   — MISMATCH: Figma shows [Video, Viewed, Clicked Thumbnail, Clicked CTA, Avg. Seconds Watched]
+   → Fix: update Test Fixture column headers
+```
+
+4. **If ANY mismatches found**: fix the contracts BEFORE proceeding. Do not build from wrong contracts.
+
+> **Why this gate exists**: The two-terminal validation (tasks 001-013) proved the system produces 50/50 scores when contracts are correct — but also revealed that scoring code-vs-contract doesn't catch contract-vs-Figma errors. This gate closes that gap.
 
 ## Step 7: Wire Into Partition
 

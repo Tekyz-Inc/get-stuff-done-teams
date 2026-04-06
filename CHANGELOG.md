@@ -2,6 +2,20 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.68.10] - 2026-04-05
+
+### Changed (gsd-t-design-decompose)
+- **Node-level Figma decomposition (MANDATORY)** — Step 1 now requires `get_metadata` to map page tree, then `get_design_context` on EACH widget node individually. No more classifying from page screenshots alone. Extracted text content (titles, subtitles, column headers, legend items) becomes mandatory data inventory column.
+- **Classification reasoning (MANDATORY)** — Step 2 now requires written decision-tree walkthrough for every chart element: "I see [description]. Decision tree: [walkthrough]. Classification: [entry]. Confidence: [HIGH/MEDIUM/LOW]". Low/medium confidence entries flagged for human review.
+- **Human contract review checkpoint** — Step 5 now presents classification reasoning table + data inventory alongside decomposition summary. User reviews chart type assignments and text content before contracts are written. 5-minute gate that catches misclassification before it propagates.
+- **Contract-vs-Figma verification gate (MANDATORY)** — New Step 6.5 re-reads each Figma node after contracts are written and produces a mismatch report. Catches: wrong chart types, hallucinated column headers, missing elements, invented data models. Mismatches must be fixed before proceeding to build.
+
+### Changed (design-to-code stack rule)
+- **Visual verification against FIGMA, not just contracts** — Section 15 now requires the Design Verification Agent to compare the built screen against the original Figma screenshot (Target 2), not just against design contracts (Target 1). This closes the gap where wrong contracts produce wrong code that still scores 50/50 against itself.
+
+### Why
+Post-validation comparison of the built BDS Analytics screen against the original Figma design revealed: wrong chart types (donuts instead of stacked bars in Member Segmentation), hallucinated column headers (Video Playlist), invented data models (Tool Engagement). All scored 50/50 against their contracts — because the contracts were wrong. The contracts→code pipeline is airtight; the Figma→contracts pipeline was unverified. These changes close that gap at four layers: node-level extraction, classification reasoning, human review, and contract-vs-Figma gate.
+
 ## [2.67.10] - 2026-04-05
 
 ### Added (design-chart-taxonomy)
