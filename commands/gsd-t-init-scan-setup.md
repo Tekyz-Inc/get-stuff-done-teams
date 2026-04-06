@@ -6,27 +6,54 @@ Can be run from anywhere — does not require being in the project folder first.
 
 ## Step 1: Project Directory
 
-First, ask: **"Is `{current directory name}` your project root folder?"**
+### 1a. Resolve the base projects directory (for new projects)
 
-- **Yes** → Stay here and continue to Step 2
-- **No** → Ask: "What's the project folder name?" (or use `$ARGUMENTS` if provided)
-  1. Check if the folder exists in the current directory
-     - **Exists** → `cd` into it
-     - **Does not exist** → Create it, then `cd` into it
+If `$ARGUMENTS` includes a project name:
 
-If `$ARGUMENTS` includes a folder/project name, skip the question and use it directly.
+1. Check `~/.claude/.gsd-t-config` for settings:
+   ```
+   # ~/.claude/.gsd-t-config format (one key=value per line):
+   projects_dir=/Users/username/projects
+   github_org=MyOrg
+   ```
+   - If `projects_dir` is set → use `{projects_dir}/{project-name}` as the target
+   - If not set → ask: "Where should new projects be created? (e.g., /Users/you/projects)"
+     Save their answer to `~/.claude/.gsd-t-config` as `projects_dir={path}`
+
+2. Check if the target directory exists:
+   - **Exists with files** → `cd` into it (existing project)
+   - **Exists but empty** → `cd` into it (new project)
+   - **Does not exist** → `mkdir -p {target}` then `cd` into it (new project)
+
+If NO `$ARGUMENTS` provided, ask: **"Is `{current directory name}` your project root folder?"**
+- **Yes** → Stay here
+- **No** → Ask for the project name, then apply the resolution above
 
 All subsequent steps run from inside the project directory.
 
-## Step 2: Git Repository Check
+## Step 2: Git Repository + GitHub Setup
 
 1. Check if the directory is inside a git repo: `git rev-parse --is-inside-work-tree`
-   - **Not a git repo** → Run `git init`
+   - **Not a git repo** → Run `git init && git checkout -b main`
 2. Check for an existing remote: `git remote -v`
-   - **No remote found** → Ask the user for the GitHub repository URL, then run:
-     ```
-     git remote add origin {url}
-     ```
+   - **No remote found** → Try to create one automatically:
+     - Check if `gh` CLI is available and authenticated: `gh auth status`
+     - If YES:
+       - Check `~/.claude/.gsd-t-config` for `github_org` setting
+       - If `github_org` is set:
+         ```bash
+         gh repo create {github_org}/{project-name} --private --source=. --push
+         ```
+         Log: "Created GitHub repo: {github_org}/{project-name} (private)"
+       - If `github_org` is NOT set:
+         ```bash
+         gh repo create {project-name} --private --source=. --push
+         ```
+         Log: "Created GitHub repo: {user}/{project-name} (private)"
+     - If NO → ask the user for the GitHub repository URL, then run:
+       ```
+       git remote add origin {url}
+       ```
    - **Remote exists** → Log it and continue
 3. **Pull existing code from remote** (if any):
    - Run `git fetch origin` to get remote refs

@@ -2,6 +2,70 @@
 
 You are setting up a new project (or converting an existing one) to use the GSD-T contract-driven workflow.
 
+## Step 0: Project Directory + Git + GitHub (new projects only)
+
+If `$ARGUMENTS` contains a project name AND the current directory is NOT already a project directory (no `package.json`, `pyproject.toml`, `Cargo.toml`, `src/`, or `CLAUDE.md`), this is a NEW project. Set it up from scratch:
+
+### 0a. Resolve the base projects directory
+
+Check `~/.claude/.gsd-t-config` for settings:
+```
+# ~/.claude/.gsd-t-config format (one key=value per line):
+projects_dir=/Users/username/projects
+github_org=MyOrg
+```
+
+- If `projects_dir` is set → use that path
+- If not → ask user: "Where should new projects be created? (e.g., /Users/you/projects)"
+  - Save their answer to `~/.claude/.gsd-t-config` as `projects_dir={path}` so they're never asked again
+
+### 0b. Create the project directory
+
+```bash
+mkdir -p {projects_dir}/{project-name}
+cd {projects_dir}/{project-name}
+```
+
+If the directory already exists and has files → treat as an existing project, skip to Step 1.
+
+### 0c. Initialize git
+
+```bash
+git init
+git checkout -b main
+```
+
+### 0d. Create GitHub repo
+
+Check if `gh` CLI is available and authenticated:
+```bash
+gh auth status
+```
+
+- If `gh` is available and authenticated:
+  - Check `~/.claude/.gsd-t-config` for `github_org` setting
+  - If `github_org` is set:
+    ```bash
+    gh repo create {github_org}/{project-name} --private --source=. --push
+    ```
+    Log: "Created GitHub repo: {github_org}/{project-name} (private)"
+  - If `github_org` is NOT set (personal repos):
+    ```bash
+    gh repo create {project-name} --private --source=. --push
+    ```
+    Log: "Created GitHub repo: {user}/{project-name} (private)"
+- If `gh` is not available or not authenticated:
+  Log: "GitHub CLI not available — skipping repo creation. Create manually and run: `git remote add origin {url}`"
+
+### 0e. Continue with init
+
+All subsequent steps run from inside `{projects_dir}/{project-name}`.
+
+**Skip Step 0 entirely if:**
+- No project name in `$ARGUMENTS`, OR
+- Current directory already looks like a project (has code/config files), OR
+- Current directory is already inside a git repo with files
+
 ## Step 1: Assess Current State
 
 Check what exists:

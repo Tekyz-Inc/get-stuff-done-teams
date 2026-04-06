@@ -2,6 +2,14 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.70.13] - 2026-04-06
+
+### Changed (gsd-t-init, gsd-t-init-scan-setup)
+- **Auto-create project directory + GitHub repo** — both `gsd-t-init` and `gsd-t-init-scan-setup` now create the project directory under a configurable base path and auto-create a private GitHub repo via `gh` CLI when a project name is provided as an argument.
+- **Configurable base directory** — `~/.claude/.gsd-t-config` stores `projects_dir` (e.g., `/Users/david/projects`). Set once, never asked again. New projects are created at `{projects_dir}/{project-name}`.
+- **Configurable GitHub org** — `~/.claude/.gsd-t-config` stores `github_org` (e.g., `Tekyz-Inc`). When set, repos are created under the org (`gh repo create {org}/{name}`). When not set, repos are created under the user's personal account.
+- Existing project detection: if the current directory already has code/config files, Step 0 is skipped entirely — no behavior change for existing projects.
+
 ## [2.70.12] - 2026-04-06
 
 ### Added (design pipeline — element count reconciliation)
