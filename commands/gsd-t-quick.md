@@ -266,9 +266,12 @@ rendered UI. If any is missing → CRITICAL DEVIATION (wrong data). Wrong data
 cannot be redeemed by visual polish.
 
 1. Read .gsd-t/contracts/design-contract.md (flat) OR .gsd-t/contracts/design/ (hierarchical) for design source reference + Test Fixtures
-2. Get design reference (Figma MCP screenshot, or design images from contract)
+2. Get Figma structured data via `get_metadata` (enumerate nodes) then `get_design_context`
+   per widget node. ⚠ Do NOT use `get_screenshot` for Figma extraction — it returns pixels,
+   not properties. `get_design_context` returns structured code and tokens.
+   If no Figma MCP → use design images from contract as fallback.
 3. Start dev server, open the built frontend in browser (Claude Preview/Chrome MCP/Playwright)
-4. Open the original design reference in a second browser view
+4. Compare built page values against `get_design_context` structured data
 5. Build element inventory (30+ elements for a full page): every chart, label,
    icon, heading, card, button, spacing, color — each a separate row
 6. Produce structured comparison table:

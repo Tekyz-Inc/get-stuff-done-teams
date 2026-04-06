@@ -662,10 +662,16 @@ wrong.
 ## Step 1: Get the Design Reference
 
 Read .gsd-t/contracts/design-contract.md for the source reference.
-- If Figma MCP available → call get_screenshot with nodeId + fileKey from the contract
+- If Figma MCP available → call `get_metadata` to enumerate widget/component nodes,
+  then call `get_design_context` per widget node to extract structured data
+  (code, component properties, design tokens, text content, layout values).
+  ⚠ Do NOT use `get_screenshot` for Figma data extraction — it returns pixels
+    you cannot extract exact values from. `get_design_context` returns structured
+    code and tokens. Use `get_design_context` for extraction, `get_screenshot`
+    ONLY if you need a visual reference image for side-by-side comparison.
 - If design image files → locate them from the contract's Source Reference field
 - If no MCP and no images → log CRITICAL blocker to .gsd-t/qa-issues.md and STOP
-You MUST have a reference image before proceeding.
+You MUST have structured design data (or reference images) before proceeding.
 
 ## Step 2: Build the Element Inventory
 
@@ -697,22 +703,27 @@ VIEW 1 — BUILT FRONTEND:
   Navigate to the exact route/component being verified.
   You MUST see real rendered output — not just read the code.
 
-VIEW 2 — ORIGINAL DESIGN REFERENCE:
-  If Figma URL available → open the Figma page in a browser tab/window.
-    Use the Figma URL from the design contract Source Reference field.
-    Navigate to the specific frame/component being compared.
+VIEW 2 — ORIGINAL DESIGN REFERENCE (structured data, not just images):
+  If Figma MCP available → you already have `get_design_context` data from Step 1.
+    Use the STRUCTURED DATA (component properties, text content, layout values,
+    colors, spacing) as the authoritative design reference — not screenshots.
+    Optionally open the Figma URL in a browser for visual context, but extract
+    values from `get_design_context` responses, not from visual inspection.
   If design image file → open the image in a browser tab/window.
     Use: file://{absolute-path-to-image} or render in an HTML page.
-  If Figma MCP screenshot was captured → open that screenshot image.
+  If no Figma MCP → use reference images from the design contract.
 
 COMPARISON APPROACH:
-  With both views open, walk through each component/section:
-    - Position views side-by-side (or switch between tabs)
-    - Compare each element visually at the same zoom level
-    - Screenshot BOTH views at matching viewport sizes
+  For each widget/component, compare the BUILT DOM/styles against the
+  STRUCTURED values from `get_design_context`:
+    - Chart type: does the built component match the Figma node's structure?
+    - Text content: do titles, labels, legends match `get_design_context` text?
+    - Layout: do spacing, alignment, sizing match the structured properties?
+    - Colors: do fills, strokes, text colors match the exact hex values?
   Capture implementation screenshots at each target breakpoint:
     Mobile (375px), Tablet (768px), Desktop (1280px) minimum.
-  Each breakpoint is a separate screenshot pair (design + implementation).
+  Compare screenshots against Figma for overall visual impression,
+  but use `get_design_context` data for the authoritative value comparison.
 
 If Claude Preview, Chrome MCP, and Playwright are ALL unavailable:
   This is a CRITICAL blocker. Log to .gsd-t/qa-issues.md:
@@ -730,8 +741,9 @@ the inventory gets its own row. No summarizing, no grouping, no prose.
 | 2 | Summary | Chart colors | #4285F4, #34A853, #FBBC04 | #4285F4, #34A853, #FBBC04 | ✅ MATCH |
 
 Rules:
-- 'Design' column: SPECIFIC values (chart type name, hex color, px size, font weight)
-- 'Implementation' column: SPECIFIC observed values from the SCREENSHOT — not code assumptions
+- 'Design' column: SPECIFIC values from `get_design_context` structured data
+  (chart type name, hex color, px size, font weight, text content)
+- 'Implementation' column: SPECIFIC observed values from the built page DOM/styles
 - Verdict: only ✅ MATCH or ❌ DEVIATION — never 'appears to match' or 'need to verify'
 - NEVER write 'Appears to match' or 'Looks correct' — measure and verify
 - If the table has fewer than 30 rows for a full-page comparison, you skipped elements
@@ -837,7 +849,7 @@ Rules:
    FAIL-BY-DEFAULT: assume NOTHING matches. Prove each element individually.
    a. Open every implemented screen in a real browser. Screenshot at mobile
       (375px), tablet (768px), desktop (1280px). Get Figma reference via
-      Figma MCP get_screenshot (or design contract images).
+      `get_design_context` per widget node (structured data — NOT `get_screenshot`).
    b. Build an element inventory: enumerate every distinct visual element
       in the design top-to-bottom. Every chart, label, icon, heading, card,
       spacing boundary, and color. Data visualizations expand: chart type,

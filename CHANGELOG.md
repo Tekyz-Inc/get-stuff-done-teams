@@ -2,6 +2,11 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.69.13] - 2026-04-05
+
+### Fixed (design-to-code pipeline — extraction + verification)
+- **Mandate `get_design_context` everywhere in the pipeline** — initial build (design-to-code.md sections 1-2), verification agent (gsd-t-execute.md Step 5.25), quick verification (gsd-t-quick.md Step 5.25), and Red Team design fidelity check all now explicitly require `get_design_context` per widget node for Figma data extraction. `get_screenshot` is prohibited for extraction and restricted to visual-only comparison of built output. This closes the gap where agents chose `get_screenshot` (pixels) over `get_design_context` (structured code/tokens) at every stage.
+
 ## [2.69.12] - 2026-04-05
 
 ### Fixed (gsd-t-design-audit, gsd-t-design-decompose)

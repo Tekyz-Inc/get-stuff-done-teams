@@ -42,7 +42,13 @@ MANDATORY:
   ├── NEVER write CSS or layout code without a design reference
   ├── Identify the source type: Figma file, image, screenshot, prototype URL
   ├── If source is a Figma URL/file → check if Figma MCP is available
-  │     YES → Use Figma MCP to extract component data, styles, and layout
+  │     YES → Use Figma MCP `get_design_context` per widget/component node
+  │           `get_design_context` returns structured code, component properties,
+  │           and design tokens — this is what you extract values from.
+  │           ⚠ NEVER use `get_screenshot` for extraction — it returns pixels,
+  │             not properties. You cannot reliably extract exact spacing, colors,
+  │             or text from an image. `get_screenshot` is only for verification
+  │             (comparing built output to design visually).
   │     NO  → Inform user: "Figma MCP recommended for precise extraction"
   │           Fallback: use image analysis (Claude's multimodal vision)
   ├── If source is an image/screenshot → use visual analysis to extract values
@@ -62,11 +68,17 @@ MANDATORY:
 MANDATORY:
   ├── Before extraction, detect available tools:
   │     Figma MCP → precise token extraction from Figma files
+  │       `get_design_context` → structured code + tokens (USE THIS for extraction)
+  │       `get_metadata` → node tree enumeration (USE THIS to find widget nodes)
+  │       `get_screenshot` → visual image only (NEVER use for extraction —
+  │         only for post-build verification comparisons)
   │     Claude Preview → render + screenshot for verification loop
   │     Chrome MCP → alternative render + screenshot for verification
   ├── If Figma MCP is available and source is Figma:
-  │     Use MCP to get exact colors, spacing, typography, component structure
-  │     MCP values are authoritative — override visual estimates
+  │     Call `get_metadata` to enumerate the page's widget/component nodes
+  │     Call `get_design_context` per widget node to extract structured data
+  │     Extract exact colors, spacing, typography, component structure from the response
+  │     MCP `get_design_context` values are authoritative — override visual estimates
   ├── If no Figma MCP but source is Figma:
   │     Recommend setup: "For precise extraction, install the Figma MCP server.
   │       Remote (recommended): https://mcp.figma.com/mcp
@@ -495,16 +507,23 @@ SEPARATION OF CONCERNS:
   │
   └── DESIGN VERIFICATION AGENT (Step 5.25 of gsd-t-execute):
         1. Open browser → screenshot built page at each breakpoint
-        2. Get Figma screenshot (via MCP get_screenshot or saved reference image)
-        3. SIDE-BY-SIDE comparison: built screenshot vs Figma screenshot
+        2. Get Figma STRUCTURED DATA via `get_design_context` per widget node
+           ⚠ Do NOT use `get_screenshot` for Figma data — it returns pixels
+             you can't extract exact values from. `get_design_context` returns
+             structured code, component properties, and design tokens.
+           Use `get_metadata` first to enumerate widget nodes, then
+             `get_design_context` on each widget node individually.
+        3. STRUCTURED comparison: built page values vs Figma `get_design_context` values
         4. For EACH widget/section on the page:
-           a. What chart type does the FIGMA show? (look at the Figma screenshot)
-           b. What chart type did the CODE build? (look at the built screenshot)
+           a. What does `get_design_context` say this Figma node contains?
+              (chart type, text content, layout properties, colors)
+           b. What did the CODE actually build? (inspect built page DOM/styles)
            c. Do they match? Not "does code match contract" — does CODE match FIGMA?
         5. Check every text label: does the built screen show the same titles,
-           subtitles, column headers, legend items, KPI values as the Figma?
+           subtitles, column headers, legend items, KPI values as the Figma
+           `get_design_context` response?
         6. Produce structured comparison table (30+ rows):
-           | Element | Figma Shows | Built Shows | MATCH/DEVIATION |
+           | Element | Figma (get_design_context) | Built | MATCH/DEVIATION |
         7. Fix deviations → re-verify → artifact gate enforces completion
 ```
 
