@@ -2,6 +2,11 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.69.11] - 2026-04-05
+
+### Changed (gsd-t-design-audit)
+- **Auto-fix prompt** — after audit completes, if CRITICAL/HIGH deviations found, automatically prompts `/user:gsd-t-quick` with the audit report as source of truth. Re-runs audit after fixes to verify. Up to 2 fix cycles before stopping.
+
 ## [2.69.10] - 2026-04-05
 
 ### Added

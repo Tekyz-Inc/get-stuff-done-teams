@@ -182,9 +182,48 @@ Save the full report to `.gsd-t/design-audit-{page-name}-{YYYY-MM-DD}.md`
 
 Display the summary to the user inline.
 
+## Step 6: Fix Prompt (auto-triggered if deviations found)
+
+If ANY CRITICAL or HIGH deviations were found, automatically prompt the fix workflow:
+
+```
+───────────────────────────────────────────────────────────────
+
+## ▶ Fix Deviations
+
+**{N} CRITICAL + {N} HIGH deviations found.** Fix them now?
+
+The audit report at `.gsd-t/design-audit-{page-name}-{YYYY-MM-DD}.md`
+has the exact Figma values for each deviation.
+
+`/user:gsd-t-quick fix all CRITICAL and HIGH deviations from .gsd-t/design-audit-{page-name}-{YYYY-MM-DD}.md — use the Figma values in the report as the source of truth`
+
+───────────────────────────────────────────────────────────────
+```
+
+If ONLY MEDIUM or LOW deviations remain, show:
+
+```
+───────────────────────────────────────────────────────────────
+
+## ▶ Polish (optional)
+
+**{N} MEDIUM + {N} LOW deviations.** These are minor — fix if you want pixel-perfect.
+
+`/user:gsd-t-quick fix MEDIUM and LOW deviations from .gsd-t/design-audit-{page-name}-{YYYY-MM-DD}.md`
+
+───────────────────────────────────────────────────────────────
+```
+
+If ZERO deviations → display "✅ Pixel-perfect. No fixes needed."
+
+After fixes are applied, **re-run the audit automatically** to verify. Loop until:
+- All CRITICAL and HIGH are resolved, OR
+- 2 fix cycles have been attempted (then stop and present remaining deviations to user)
+
 ## Rules
 
-- **You write ZERO code.** Report only. Fixes are a separate step.
+- **You write ZERO code during the audit phase (Steps 1-5).** Report only. Code changes happen in Step 6 via `/user:gsd-t-quick`.
 - **You do NOT "look close" at anything.** Every property gets an exact value from Figma and an exact value from the build. They match or they don't.
 - **You do NOT skip widgets.** Every widget in the Figma AND every widget in the build gets audited.
 - **You call `get_design_context` per widget node.** Do not classify from a page-level screenshot.
