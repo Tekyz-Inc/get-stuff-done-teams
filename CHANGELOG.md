@@ -2,6 +2,11 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.69.10] - 2026-04-05
+
+### Added
+- **`/user:gsd-t-design-audit` command** — compare a built screen against a Figma design. Node-level Figma decomposition, per-widget comparison tables (10-30+ rows each), severity-rated deviations (CRITICAL/HIGH/MEDIUM/LOW), fidelity percentage. Writes zero code — report only. Usage: `/user:gsd-t-design-audit {Figma URL} {route}`.
+
 ## [2.68.13] - 2026-04-05
 
 ### Added (element-contract template)

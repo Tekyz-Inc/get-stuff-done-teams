@@ -188,6 +188,7 @@ This will replace changed command files, back up your CLAUDE.md if customized, a
 | `/user:gsd-t-version-update-all` | Update GSD-T + all registered projects | Manual |
 | `/user:gsd-t-triage-and-merge` | Auto-review, merge, and publish GitHub branches | Manual |
 | `/user:gsd-t-audit` | Harness self-audit — analyze cost/benefit of enforcement components | Manual |
+| `/user:gsd-t-design-audit` | Compare built screen against Figma design — structured deviation report | Manual |
 
 ### Backlog Management
 

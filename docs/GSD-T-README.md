@@ -129,6 +129,7 @@ GSD-T reads all state files and tells you exactly where you left off.
 | `/user:gsd-t-version-update-all` | Update GSD-T + all registered projects | Manual |
 | `/user:gsd-t-triage-and-merge` | Auto-review, merge, and publish GitHub branches | Manual |
 | `/user:gsd-t-audit` | Harness self-audit — analyze cost/benefit of enforcement components | Manual |
+| `/user:gsd-t-design-audit` | Compare built screen against Figma — per-widget deviation report with severity | Manual |
 | `/global-change` | Apply file changes (copy/insert/update/delete) across all GSD-T projects | Manual |
 
 ### Backlog Management
