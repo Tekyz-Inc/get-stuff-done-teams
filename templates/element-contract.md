@@ -28,6 +28,49 @@ Atomic visual unit. One contract per visual variant (e.g., `chart-bar-stacked-ho
 
 *List every measurable visual property: dimensions, spacing, radii, borders, shadows, opacity. Reference design tokens rather than raw values where possible (`tokens.spacing.4` instead of `16px`).*
 
+### Chart-Type-Specific Mandatory Properties
+
+The free-form table above is necessary but not sufficient. For chart elements, the following properties are **MANDATORY** based on chart category — extract exact values from Figma MCP `get_design_context` or measure from the screenshot. Missing any of these is how "looks off" happens.
+
+**Bar charts** (`chart-bar-*`):
+| Property | Description | Example |
+|----------|-------------|---------|
+| `bar_width` | Width of each bar (px or % of available space) | `32px` / `60%` |
+| `bar_gap` | Gap between bars within a group (grouped only) | `4px` |
+| `bar_group_gap` | Gap between category groups | `24px` |
+| `corner_radius` | Rounding on bar ends (top for vertical, right for horizontal) | `4px top` / `0` |
+| `label_position` | Where percentage/value labels appear | `inside-center` / `outside-right` / `above` |
+| `label_min_width` | Minimum bar width to show label (hide if smaller) | `40px` |
+| `segment_order` | For stacked: order of series from bottom/left to top/right | `[NM, MT, OK, TX, IL]` |
+| `orientation` | Explicit confirmation of horizontal vs vertical | `vertical` |
+
+**Circular charts** (`chart-donut`, `chart-pie`, `chart-radial-bar`):
+| Property | Description | Example |
+|----------|-------------|---------|
+| `outer_diameter` | Total diameter of the chart | `180px` |
+| `inner_diameter` | Hole diameter (donut only, 0 for pie) | `100px` |
+| `segment_order` | Clockwise order of segments from 12 o'clock | `[Steps, Broker, Video, Quick, Plan]` |
+| `start_angle` | Where first segment starts | `12 o'clock (0°)` |
+| `label_position` | Where percentage labels appear | `outside-radial` / `inside-segment` / `none` |
+| `center_content` | What's displayed in the center hole (donut) | `"485" + "Total Interactions"` |
+
+**Line / area charts** (`chart-line-*`, `chart-area-*`):
+| Property | Description | Example |
+|----------|-------------|---------|
+| `stroke_width` | Line thickness | `2px` |
+| `point_radius` | Data point dot radius (0 = no dots) | `4px` |
+| `curve_type` | Linear, bezier, step | `linear` |
+| `fill_opacity` | For area charts: opacity of fill below line | `0.3` |
+
+**Progress / gauge** (`chart-progress-ring`, `chart-progress-bar`):
+| Property | Description | Example |
+|----------|-------------|---------|
+| `track_width` | Width of background track | `12px` |
+| `fill_width` | Width of progress fill (same as track or thinner) | `12px` |
+| `track_color` | Background track color | `#e2e8f0` |
+
+**If your element is a chart and you haven't filled the mandatory properties above, STOP. Go back to Figma and extract them.** These properties are the difference between a chart that "looks close" and one that matches.
+
 ## Labels / Text (if applicable)
 
 | Property      | Value                                                              |

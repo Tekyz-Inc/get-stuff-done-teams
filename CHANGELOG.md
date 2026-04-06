@@ -2,6 +2,14 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.68.13] - 2026-04-05
+
+### Added (element-contract template)
+- **Chart-type-specific mandatory Visual Spec properties** — bar charts must now specify: `bar_width`, `bar_gap`, `bar_group_gap`, `corner_radius`, `label_position`, `label_min_width`, `segment_order`, `orientation`. Circular charts: `outer_diameter`, `inner_diameter`, `segment_order`, `start_angle`, `label_position`, `center_content`. Line/area: `stroke_width`, `point_radius`, `curve_type`, `fill_opacity`. Progress/gauge: `track_width`, `fill_width`, `track_color`. These are the exact properties that distinguish "matches the design" from "looks close."
+
+### Why
+BDS comparison showed bars with wrong width, wrong gap between groups, labels positioned outside instead of inside, wrong segment stacking order. The element contract's Visual Spec was free-form (`{dimension_1}`) — the agent could skip bar_width, segment_order, and label_position entirely. Chart-type-specific mandatory fields close this gap.
+
 ## [2.68.12] - 2026-04-05
 
 ### Fixed (design-chart-taxonomy template)
