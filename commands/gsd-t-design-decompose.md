@@ -71,6 +71,8 @@ Node tree for page "Analytics":
 
 **Anti-pattern**: Looking at a page screenshot and writing "I see a donut chart" without calling `get_design_context` on that specific node. The MCP returns structured data about the component — use it.
 
+> **⚠ Tool guard**: NEVER use `get_screenshot` for Figma design extraction. `get_screenshot` returns pixels — you cannot extract exact property values, spacing, colors, or text from an image with confidence. `get_design_context` returns structured code, component properties, and design tokens. Always use `get_design_context` per widget node.
+
 ### 1d. Produce the flat inventory table WITH data inventory
 
 | # | Element on Design | Figma Node ID | Appears On Pages | Text Content Extracted | Visual Variant |

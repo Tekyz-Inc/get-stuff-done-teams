@@ -2,6 +2,11 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.69.12] - 2026-04-05
+
+### Fixed (gsd-t-design-audit, gsd-t-design-decompose)
+- **Explicit `get_screenshot` prohibition** — agents were choosing `get_screenshot` (returns pixels) instead of `get_design_context` (returns structured code/tokens) for per-widget Figma extraction, defeating structured comparison. Both commands now have explicit tool guards: "NEVER use `get_screenshot` for Figma design extraction." `get_screenshot` is only acceptable for capturing the built page, not for extracting Figma source data.
+
 ## [2.69.11] - 2026-04-05
 
 ### Changed (gsd-t-design-audit)

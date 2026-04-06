@@ -33,13 +33,16 @@ Figma node tree:
 
 ### 1b. Extract each widget node
 
-For EACH widget-level node, call `get_design_context` with the specific node ID. Record:
+For EACH widget-level node, call **`get_design_context`** (NOT `get_screenshot`) with the specific node ID. `get_design_context` returns structured code and component properties that you can extract exact values from. `get_screenshot` returns only visual images — do NOT use it for Figma data extraction.
+
+Record from the `get_design_context` response:
 - **Chart/element type**: what visual pattern does this node contain?
 - **All text content**: every title, subtitle, label, column header, legend item, KPI value, axis label
 - **Layout properties**: alignment, spacing, sizing from the returned code/structure
 - **Colors**: exact hex values for fills, strokes, text
 
 > **⚠ Size guard**: Never call `get_design_context` on the full page frame. Always call on individual widget/card nodes.
+> **⚠ Tool guard**: NEVER use `get_screenshot` to extract Figma design values. It gives you pixels, not properties. Use `get_design_context` — it gives you code, tokens, and structured data.
 
 ### 1c. Classify each element using the taxonomy
 
@@ -226,7 +229,7 @@ After fixes are applied, **re-run the audit automatically** to verify. Loop unti
 - **You write ZERO code during the audit phase (Steps 1-5).** Report only. Code changes happen in Step 6 via `/user:gsd-t-quick`.
 - **You do NOT "look close" at anything.** Every property gets an exact value from Figma and an exact value from the build. They match or they don't.
 - **You do NOT skip widgets.** Every widget in the Figma AND every widget in the build gets audited.
-- **You call `get_design_context` per widget node.** Do not classify from a page-level screenshot.
+- **You MUST call `get_design_context` per widget node — NOT `get_screenshot`.** `get_design_context` returns structured code, component properties, and design tokens. `get_screenshot` returns only a visual image that you cannot extract exact values from. Using `get_screenshot` for widget extraction defeats the entire purpose of structured comparison — you end up eyeballing instead of measuring. The ONLY acceptable use of `get_screenshot` is for the built page (Step 2) where you need to see what was actually rendered. For Figma source data, ALWAYS use `get_design_context`.
 - **You walk the taxonomy decision tree** for every chart element — document your reasoning.
 - **Minimum 10 rows per widget, 30+ for complex widgets.** Fewer rows means you skipped properties.
 - **If you can't determine a value** (e.g., Figma MCP unavailable for exact px), note "⚠ estimated from screenshot" — but still provide your best measurement.
