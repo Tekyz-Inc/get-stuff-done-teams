@@ -2,6 +2,16 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.70.12] - 2026-04-06
+
+### Added (design pipeline — element count reconciliation)
+- **Element Count Reconciliation** — new mandatory verification step that runs BEFORE any property or visual comparison. Counts widgets and elements from the Figma decomposition (stored in INDEX.md), counts the built page's widgets and elements via Playwright, and compares. Any mismatch (missing or extra widgets/elements) is a CRITICAL deviation. Added to: `gsd-t-execute` (Step 0 inside Design Verification Agent), `gsd-t-quick` (Step 0), `gsd-t-design-audit` (Step 1.5).
+- **Figma Element Counts table in INDEX.md** — `gsd-t-design-decompose` now writes element/widget/page counts and a per-page element manifest to INDEX.md as the verification anchor. The verification agent reads these counts as ground truth.
+- **5-layer verification model** — design-to-code.md now documents Targets 0-4 in execution order: count reconciliation → contract comparison → Figma comparison → SVG overlay → DOM box model inspection.
+
+### Why
+A missing widget is the most catastrophic deviation but the easiest to miss in a 30+ row comparison table. The agent compares what exists but doesn't notice what's absent. An explicit count gate catches "Figma has 10 widgets, built page has 9 — WHERE IS THE 10TH?" before any property-level work begins.
+
 ## [2.70.11] - 2026-04-06
 
 ### Added (design pipeline — DOM box model inspection + layout arithmetic)

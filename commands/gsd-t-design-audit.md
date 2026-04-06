@@ -62,6 +62,35 @@ Widget: "Member Segmentation: State"
   CLASSIFICATION: chart-bar-stacked-vertical (two instances side-by-side)
 ```
 
+## Step 1.5: Element Count Reconciliation (MANDATORY)
+
+Before any property comparison, verify the built page has the correct number of elements:
+
+1. **Count from Figma** (from Step 1):
+   - Total widgets/cards identified
+   - Total elements within widgets (charts, legends, stat cards, controls, tables)
+   - Record: `Figma: {N} widgets, {M} total elements`
+
+2. **Count from built page** (open in browser via Playwright):
+   - Count top-level visual groups (cards/widgets)
+   - Count elements within each group
+   - Record: `Built: {N} widgets, {M} total elements`
+
+3. **Compare**:
+   - Widget count match? If NO → ❌ CRITICAL: identify MISSING or EXTRA widgets by name
+   - Element count match per widget? If NO → ❌ CRITICAL: identify MISSING or EXTRA elements
+
+```markdown
+### Element Count Reconciliation
+
+| Level              | Figma | Built | Verdict |
+|--------------------|-------|-------|---------|
+| Widgets (page)     | 10    | 9     | ❌ MISSING: video-playlist-widget |
+| Elements (total)   | 27    | 24    | ❌ MISSING: 3 elements in video-playlist-widget |
+```
+
+A missing widget is the most catastrophic deviation — it means an entire section of the design was silently dropped. Catch it here before spending effort on property-level comparison of widgets that DO exist.
+
 ## Step 2: Capture the Built Screen
 
 Open the built app at the target URL/route. For each widget identified in Step 1:

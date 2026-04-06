@@ -259,7 +259,12 @@ comparison table. You write ZERO feature code.
 
 FAIL-BY-DEFAULT: Every visual element starts as UNVERIFIED. Prove each matches.
 
-STEP 0 (MANDATORY FIRST): Data-labels cross-check.
+STEP 0 (MANDATORY FIRST): Element count reconciliation.
+Read INDEX.md or design-contract.md for Figma element counts (widgets per page,
+total elements per page). Count the built page's widgets and elements via Playwright.
+If counts don't match → CRITICAL DEVIATION: identify which are MISSING or EXTRA.
+
+STEP 0.5: Data-labels cross-check.
 For each element contract (or design-contract.md section), read the Test Fixture.
 Verify EVERY label, value, percentage from the fixture appears verbatim in the
 rendered UI. If any is missing → CRITICAL DEVIATION (wrong data). Wrong data

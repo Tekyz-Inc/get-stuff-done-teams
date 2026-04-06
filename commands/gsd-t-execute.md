@@ -632,7 +632,28 @@ each one matches — not assume it does. 'Looks close' is not a verdict.
 'Appears to match' is not a verdict. The only valid verdicts are MATCH
 (with proof) or DEVIATION (with specifics).
 
-## Step 0: Data-Labels Cross-Check (MANDATORY — run FIRST)
+## Step 0: Element Count Reconciliation (MANDATORY — run BEFORE anything else)
+
+Before any visual or property comparison, verify the built page has the
+correct NUMBER of elements. A missing widget is the easiest deviation to
+miss in a 30+ row comparison table — and the most catastrophic.
+
+1. Read INDEX.md (hierarchical) or design-contract.md (flat) to get the
+   Figma element counts:
+   - Per-page: how many widgets on this page? How many total elements
+     (including widget-internal charts, legends, cards, controls)?
+2. Count the built page's distinct visual elements via Playwright:
+   - Widgets/cards (top-level visual groups)
+   - Charts, tables, stat cards, legends, controls within each widget
+3. Compare:
+   - Figma widget count vs built widget count → mismatch = ❌ CRITICAL
+   - Figma element count vs built element count → mismatch = ❌ CRITICAL
+4. If counts match → proceed to Step 0.5
+   If counts DON'T match → identify WHICH elements are missing or extra:
+   'Figma has {N} widgets, built page has {M}. MISSING: {list}. EXTRA: {list}'
+   Log as CRITICAL deviation — do NOT skip, continue with remaining steps.
+
+## Step 0.5: Data-Labels Cross-Check (MANDATORY)
 
 Before any visual comparison, verify the built UI is rendering the CORRECT
 DATA from the design. This is the most common failure mode: agents use

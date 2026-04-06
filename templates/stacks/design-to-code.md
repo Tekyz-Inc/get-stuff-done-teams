@@ -560,7 +560,12 @@ MANDATORY:
 The verification agent compares the built frontend against **TWO sources** — not just one:
 
 ```
-VERIFICATION TARGETS:
+VERIFICATION TARGETS (run in this order):
+  ├── TARGET 0: ELEMENT COUNT RECONCILIATION (run FIRST)
+  │     Does the built page have the same NUMBER of widgets and elements
+  │     as the Figma design? A missing widget is the most catastrophic
+  │     deviation — catch it before spending effort on property comparison.
+  │
   ├── TARGET 1: Built screen vs DESIGN CONTRACTS
   │     Does the code match the contract's claimed values?
   │     (This is what the 13-task validation proved works — airtight.)
@@ -570,15 +575,19 @@ VERIFICATION TARGETS:
   │     This catches: contracts that were wrong to begin with,
   │     chart type misclassification, hallucinated data, missing elements.
   │
-  └── TARGET 3: SVG STRUCTURAL OVERLAY (MANDATORY)
-        Export Figma frame as SVG → parse element positions/dimensions/colors
-        → compare geometrically against built DOM bounding boxes.
-        This catches: aggregate spacing drift, alignment issues, proportion
-        errors that pass property-level checks but look wrong visually.
-        Mechanical, non-interpretive — no agent reasoning, just geometry.
+  ├── TARGET 3: SVG STRUCTURAL OVERLAY (MANDATORY)
+  │     Export Figma frame as SVG → parse element positions/dimensions/colors
+  │     → compare geometrically against built DOM bounding boxes.
+  │     This catches: aggregate spacing drift, alignment issues, proportion
+  │     errors that pass property-level checks but look wrong visually.
+  │
+  └── TARGET 4: DOM BOX MODEL INSPECTION (fixed-height containers)
+        Evaluate offsetHeight vs scrollHeight per child element.
+        This catches: inflated flex boxes, wrong space distribution,
+        elements growing beyond their content size.
 ```
 
-**Targets 2 and 3 are complementary.** Target 2 catches wrong values (property-level). Target 3 catches wrong placement (geometry-level). Together they cover both "is each value correct?" and "does the whole page look right?"
+**Each target catches a different failure class.** Target 0: missing elements. Target 1: wrong values. Target 2: wrong contracts. Target 3: wrong placement. Target 4: wrong space distribution. All five are needed — no single layer catches everything.
 
 ### Verification agent workflow
 
@@ -652,6 +661,8 @@ Before marking any design implementation task as complete:
 - [ ] Design system / component library identified (or confirmed none) and documented in design contract
 - [ ] Library components mapped to design elements — custom build only where no library match exists
 - [ ] Design source identified and documented in design contract
+- [ ] Element counts recorded in INDEX.md (widgets per page, elements per page)
+- [ ] Built page element count matches Figma element count (no missing/extra widgets)
 - [ ] Stack capability evaluated — all design requirements achievable (or alternatives approved)
 - [ ] All design tokens extracted (colors, typography, spacing, borders, shadows)
 - [ ] Tokens written to `.gsd-t/contracts/design-contract.md`

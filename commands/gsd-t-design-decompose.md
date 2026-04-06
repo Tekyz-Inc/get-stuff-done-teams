@@ -280,6 +280,25 @@ Write `INDEX.md` as a navigation map:
 element contract > widget contract > page contract
 
 Widgets and pages reference elements by name. They CANNOT override element visual spec. To customize, create a new element variant.
+
+## Figma Element Counts (MANDATORY — verification anchor)
+
+These counts are captured from the Figma decomposition and serve as the
+ground truth during verification. Any mismatch between these counts and
+the built output is a CRITICAL deviation.
+
+| Level    | Count | Source                          |
+|----------|-------|---------------------------------|
+| Elements | {N}   | Inventory table (Step 1d)       |
+| Widgets  | {N}   | Widget inventory (Step 3)       |
+| Pages    | {N}   | Page inventory (Step 4)         |
+| Total    | {N}   | Sum of all contracts            |
+
+Per-page element manifest (for verification agent):
+| Page               | Widgets | Elements (including widget-internal) |
+|--------------------|---------|--------------------------------------|
+| {dashboard}        | {N}     | {N} — {list: stat-card ×4, chart-donut ×1, ...} |
+| {analytics}        | {N}     | {N} — {list} |
 ```
 
 ## Step 6.5: Contract-vs-Figma Verification Gate (MANDATORY)
