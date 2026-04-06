@@ -3,7 +3,7 @@
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: IN PROGRESS
 ## Date: 2026-04-01
-## Version: 2.59.10
+## Version: 2.70.10
 
 ## Active Milestone
 
@@ -721,3 +721,5 @@ Wave 4: adaptive-replan (consumes fresh-dispatch summaries, integrates with work
 | 2026-03-04 | 25 | M14 Execution Intelligence Layer (partition→verify→complete, v2.32.10): JSONL event stream (gsd-t-event-writer.js), heartbeat enrichment, outcome-tagged Decision Log, Reflexion pre-task retrieval (execute/debug), phase_transition events (wave), distillation step (complete-milestone), gsd-t-reflect command (#47). 153 tests. |
 | 2026-03-04 | 26 | M15 Real-Time Agent Dashboard (partition→verify→complete, v2.33.10): gsd-t-dashboard-server.js (141 lines, zero deps, SSE), gsd-t-dashboard.html (194 lines, React Flow + Dagre CDN), gsd-t-visualize command (#48, 104 lines). 176/176 tests. |
 | 2026-02-19 | 12 | Observability & model optimization (v2.28.11): (1) model: haiku for execute QA, integrate QA, plan validation, status, health, scan architecture/business-rules/contracts teammates; (2) model: sonnet kept for scan security/quality teammates; (3) MANDATORY observability logging added to execute/integrate/plan — before/after Bash timestamps + append to .gsd-t/token-log.md and .gsd-t/qa-issues.md; (4) Observability Logging directive added to CLAUDE.md; (5) init.md creates token-log.md + qa-issues.md with header rows; (6) TD-080 added for log archiving/summarizing. 125/125 tests pass. |
+- 2026-04-06 10:27: [feat] Added Design System Detection step to design pipeline — gsd-t-design-decompose.md (Step 0.4), gsd-t-design-audit.md (Step 0), design-to-code.md (new Section 1, all subsequent sections renumbered 2→18). Agents now ask for design system/component library URL upfront, fetch docs, catalog available components, and map design elements to library primitives. Reduces custom-build effort and improves fidelity for projects using libraries like shadcn-vue, Vuetify, Radix, MUI. Verification checklist updated with 2 new items.
+- 2026-04-06 10:37: [feat] Added SVG Structural Overlay Comparison as a mandatory verification layer in the design pipeline. Exports Figma frame as SVG, parses element positions/dimensions/colors, maps to built DOM bounding boxes, compares geometry (≤2px = MATCH). Catches aggregate spacing drift, alignment issues, and proportion errors that pass property-level checks. Added to: gsd-t-execute.md (Step 5 inside Design Verification Agent), gsd-t-quick.md (step 7 inside Design Verification Agent), gsd-t-design-audit.md (Step 3.5), design-to-code.md (Target 3 + verification workflow step 7 + checklist item). Three verification layers now: property comparison (values), SVG structural overlay (geometry), Red Team (behavior).

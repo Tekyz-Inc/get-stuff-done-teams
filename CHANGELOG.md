@@ -2,6 +2,16 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.70.10] - 2026-04-06
+
+### Added (design pipeline — 2 new capabilities)
+- **Design System Detection** — all design pipeline commands now ask for a design system / component library URL upfront before extraction or implementation. If provided, the agent fetches the library docs, catalogs available components, and maps design elements to library primitives (use library components instead of building custom). Added to: `gsd-t-design-decompose` (Step 0.4), `gsd-t-design-audit` (Step 0), `design-to-code.md` (new Section 1 — all subsequent sections renumbered). Verification checklist updated with 2 new items.
+- **SVG Structural Overlay Comparison** — new mandatory verification layer that exports the Figma frame as SVG, parses element positions/dimensions/colors from the SVG DOM, maps to built DOM bounding boxes, and compares geometry mechanically (≤2px = MATCH, 3-5px = REVIEW, >5px = DEVIATION). Catches aggregate spacing drift, alignment issues, and proportion errors that pass property-level checks but are visually wrong. Added to: `gsd-t-execute` (Step 5 inside Design Verification Agent), `gsd-t-quick` (step 7 inside Design Verification Agent), `gsd-t-design-audit` (Step 3.5), `design-to-code.md` (Target 3 + workflow step 7 + checklist item).
+
+### Why
+- **Design system**: Building custom cards, tables, tabs, and buttons from scratch when a library like shadcn-vue already provides them wastes effort and produces inferior results (missing accessibility, focus states, interactive states). Asking upfront eliminates redundant work.
+- **SVG overlay**: The property-level comparison table catches wrong values but misses aggregate visual drift — spacing rhythm, alignment, proportions that are individually correct but collectively off. SVG structural diff is mechanical and non-interpretive: geometry vs geometry, no agent reasoning required.
+
 ## [2.69.13] - 2026-04-05
 
 ### Fixed (design-to-code pipeline — extraction + verification)

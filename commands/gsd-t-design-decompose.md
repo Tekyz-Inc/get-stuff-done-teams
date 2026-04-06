@@ -32,7 +32,14 @@ Run these checks, log results to user inline:
 3. **Design source provided?**
    - Required: Figma URL, image path, or prototype URL in `$ARGUMENTS`
    - If missing → ask user: "Provide the design source (Figma URL, image path, or prototype URL)"
-4. **Load the chart taxonomy (MANDATORY)**
+4. **Design system / component library?**
+   - Ask user: "Is a design system or component library being used (e.g., shadcn-vue, Vuetify, Radix, MUI, Ant Design)? If so, provide the URL."
+   - If yes → fetch the docs landing page, catalog available components (cards, tables, tabs, charts, buttons, etc.)
+   - Record in working memory: which design elements can be mapped to library primitives vs. built custom
+   - Factor into Step 2 classification: if the library provides a component (e.g., `Card`, `Table`, `Tabs`), the element contract should reference it as the implementation target
+   - Factor into Step 3 widget composition: library layout primitives (e.g., `Grid`, `Flex`, `Sheet`) inform widget structure
+   - If no → proceed as normal (all components built custom)
+5. **Load the chart taxonomy (MANDATORY)**
    - READ `templates/design-chart-taxonomy.md` from the GSD-T package (or `~/.claude/` if installed)
    - This is the **CLOSED SET** of valid element names. You MUST pick from this list. Inventing new element names is FORBIDDEN without user approval to extend the taxonomy.
    - Keep the taxonomy in working memory while classifying — every element you identify MUST be matched against it

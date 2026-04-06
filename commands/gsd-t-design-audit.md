@@ -17,6 +17,12 @@ Extract from `$ARGUMENTS`:
 If Figma source is missing → ask user: "Provide the Figma file key or URL"
 If built app target is missing → check if a dev server is running. If not → ask user: "Provide the route or URL of the built page to audit"
 
+**Design system / component library?**
+- Ask user: "Is a design system or component library being used (e.g., shadcn-vue, Vuetify, Radix, MUI)? If so, provide the URL."
+- If yes → fetch the docs, note which components the library provides and their default styling (padding, radius, shadows, colors)
+- Factor into Step 3 comparisons: deviations that match library defaults (not Figma) may indicate "used library default instead of design value" — flag as a distinct deviation category
+- If no → proceed as normal
+
 ## Step 1: Map the Figma Design — Node-Level Decomposition
 
 ### 1a. Get the page tree
@@ -142,9 +148,58 @@ For each widget, produce a comparison table with **minimum 10 rows per widget** 
 | **MEDIUM** | Wrong alignment, color, or order that looks incorrect but doesn't change meaning | Legend left instead of center; segment order reversed; wrong shade |
 | **LOW** | Minor sizing or spacing that's barely noticeable | 2px padding difference; slight font-size mismatch |
 
+## Step 3.5: SVG Structural Overlay Comparison (MANDATORY)
+
+After the per-widget property comparison, run a mechanical SVG-based diff to catch aggregate visual drift that individual property checks miss.
+
+1. **Export the Figma frame as SVG**:
+   - Use the Figma REST API or MCP to export the page/frame as SVG
+   - If export is unavailable, ask the user to export and provide the SVG path
+   - Store the SVG at `.gsd-t/design-verify/{page-name}-figma.svg`
+
+2. **Parse the SVG DOM**: extract every `<rect>`, `<text>`, `<circle>`, `<path>`, `<g>` with their positions (x, y), dimensions (width, height), fills, strokes, and text content
+
+3. **Screenshot the built page** at the same viewport width via Playwright
+
+4. **Map SVG elements → built DOM elements** by:
+   - Text content matching (highest confidence)
+   - Position proximity (x,y within 10px tolerance)
+   - Dimensional similarity (width/height within 10% tolerance)
+
+5. **Compare each mapped pair**:
+
+| Check | SVG Value | Built Value | Threshold |
+|-------|-----------|-------------|-----------|
+| Position (x,y) | SVG coordinates | DOM bounding box | ≤2px = MATCH, 3-5px = REVIEW, >5px = DEVIATION |
+| Dimensions (w,h) | SVG width/height | DOM width/height | ≤2px = MATCH, 3-5px = REVIEW, >5px = DEVIATION |
+| Colors | SVG fill/stroke hex | Computed CSS color | Exact hex = MATCH |
+| Text content | SVG `<text>` | DOM textContent | Exact = MATCH |
+
+6. **Produce SVG structural diff table**:
+
+```markdown
+### SVG Structural Diff
+
+| # | SVG Element | SVG Position | Built Position | Δ px | Verdict |
+|---|-------------|-------------|----------------|------|---------|
+| 1 | stat-card-1 rect | (24, 120) 320×200 | (24, 118) 320×204 | 2/4 | ⚠ REVIEW |
+| 2 | chart-title text | (40, 140) | (40, 140) | 0 | ✅ MATCH |
+```
+
+7. **Unmapped elements**:
+   - SVG elements with no DOM match → flag as "MISSING IN BUILD"
+   - DOM elements with no SVG match → flag as "EXTRA — not in design"
+
+8. **Visual overlay** (optional but recommended):
+   - Render SVG in browser at target viewport size
+   - Overlay on built page screenshot with 50% opacity or difference blend mode
+   - Save to `.gsd-t/design-verify/{page-name}-overlay.png`
+
+This step catches spacing rhythm, alignment drift, and proportion issues that pass the per-widget property check but are visually wrong in aggregate.
+
 ## Step 4: Summary Report
 
-After all widgets are audited, produce a summary:
+After all widgets are audited (property tables + SVG structural diff), produce a summary:
 
 ```markdown
 ## Design Audit Summary

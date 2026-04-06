@@ -748,19 +748,57 @@ Rules:
 - NEVER write 'Appears to match' or 'Looks correct' — measure and verify
 - If the table has fewer than 30 rows for a full-page comparison, you skipped elements
 
-## Step 5: Report Deviations
+## Step 5: SVG Structural Overlay Comparison (MANDATORY)
+
+After the property-level comparison, run a mechanical SVG-based diff to catch
+aggregate visual drift that individual property checks miss.
+
+1. Export the Figma frame as SVG:
+   - Use the Figma REST API or MCP to export the page/frame as SVG
+   - If export is unavailable, ask the user to export and provide the SVG path
+   - Store the SVG at .gsd-t/design-verify/{page-name}-figma.svg
+2. Parse the SVG DOM: extract every <rect>, <text>, <circle>, <path>, <g>
+   with their positions (x, y), dimensions (width, height), fills, strokes,
+   and text content
+3. Screenshot the built page at the same viewport width via Playwright
+4. Inspect the built page DOM: extract element bounding boxes, computed
+   styles (colors, dimensions), and text content
+5. Map SVG elements → built DOM elements by:
+   - Text content matching (highest confidence)
+   - Position proximity (x,y within 10px tolerance)
+   - Dimensional similarity (width/height within 10% tolerance)
+6. For each mapped pair, compare:
+   - Position: SVG (x,y) vs DOM bounding box (x,y). Within 2px = MATCH
+   - Dimensions: SVG (w,h) vs DOM (w,h). Within 2px = MATCH
+   - Colors: SVG fill/stroke vs computed CSS color. Exact hex = MATCH
+   - Text: SVG <text> content vs DOM textContent. Exact = MATCH
+7. Produce an SVG structural diff table:
+   | # | SVG Element | SVG Position | Built Position | Δ px | Verdict |
+   Threshold: ≤2px = ✅ MATCH, 3-5px = ⚠ REVIEW, >5px = ❌ DEVIATION
+8. Unmapped SVG elements (no DOM match) → flag as MISSING IN BUILD
+   Unmapped DOM elements (no SVG match) → flag as EXTRA IN BUILD
+9. Generate a visual overlay image (optional but recommended):
+   - Render SVG in browser at target viewport size
+   - Overlay on built page screenshot with 50% opacity or difference blend
+   - Save to .gsd-t/design-verify/{page-name}-overlay.png
+
+This step catches spacing rhythm, alignment drift, and proportion issues
+that pass the property-level check but are visually wrong in aggregate.
+
+## Step 6: Report Deviations
 
 For each ❌ DEVIATION, write a specific finding:
   'Design: {exact value}. Implementation: {exact value}. File: {path}:{line}'
 
-Write the FULL comparison table to .gsd-t/contracts/design-contract.md
-under a '## Verification Status' section.
+Write the FULL comparison table (property-level from Step 4 + SVG structural
+from Step 5) to .gsd-t/contracts/design-contract.md under a
+'## Verification Status' section.
 
 Any ❌ DEVIATION → also append to .gsd-t/qa-issues.md with severity HIGH
 and tag [VISUAL]:
 | {date} | gsd-t-execute | Step 5.25 | opus | {duration} | HIGH | [VISUAL] {description} |
 
-## Step 6: Verdict
+## Step 7: Verdict
 
 Count results: '{MATCH_COUNT}/{TOTAL} elements match at {breakpoints} breakpoints'
 

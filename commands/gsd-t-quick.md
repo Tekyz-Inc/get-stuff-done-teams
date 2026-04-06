@@ -277,9 +277,21 @@ cannot be redeemed by visual polish.
 6. Produce structured comparison table:
    | # | Section | Element | Design (specific) | Implementation (specific) | Verdict |
    Only valid verdicts: ✅ MATCH or ❌ DEVIATION (never 'appears to match')
-7. Write results to .gsd-t/contracts/design-contract.md under '## Verification Status'
-8. Any ❌ → append to .gsd-t/qa-issues.md with [VISUAL] tag
-9. Report: DESIGN VERIFIED | DESIGN DEVIATIONS FOUND ({count})"
+7. SVG Structural Overlay Comparison:
+   a. Export Figma frame as SVG (or ask user for SVG path if export unavailable)
+   b. Parse SVG DOM: extract positions, dimensions, fills, text for every element
+   c. Screenshot built page at same viewport width via Playwright
+   d. Map SVG elements → built DOM elements by text content + position proximity
+   e. Compare: position (≤2px=MATCH, 3-5px=REVIEW, >5px=DEVIATION),
+      dimensions, colors (exact hex), text (exact match)
+   f. Produce SVG structural diff table:
+      | # | SVG Element | SVG Position | Built Position | Δ px | Verdict |
+   g. Flag unmapped SVG elements as MISSING, unmapped DOM elements as EXTRA
+   This catches aggregate visual drift that property-level checks miss.
+8. Write results (property table + SVG diff) to .gsd-t/contracts/design-contract.md
+   under '## Verification Status'
+9. Any ❌ → append to .gsd-t/qa-issues.md with [VISUAL] tag
+10. Report: DESIGN VERIFIED | DESIGN DEVIATIONS FOUND ({count})"
 ```
 
 After subagent returns — run observability Bash and append to token-log.md.

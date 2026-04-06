@@ -35,7 +35,43 @@ A widget that uses `chart-donut` cannot change `chart-donut`'s bar-gap, colors, 
 
 ---
 
-## 1. Design Source Setup
+## 1. Design System Detection
+
+```
+MANDATORY:
+  ├── BEFORE any extraction or implementation, check for a design system:
+  │     Ask user: "Is a design system or component library being used
+  │       (e.g., shadcn-vue, Vuetify, Radix, MUI, Ant Design, Chakra)?
+  │       If so, provide the URL."
+  ├── If YES:
+  │     Fetch the library's docs landing page
+  │     Catalog available components (cards, tables, tabs, charts, buttons,
+  │       inputs, dialogs, dropdowns, etc.)
+  │     Identify the theming system (CSS variables, Tailwind config, theme object)
+  │     Determine customization model:
+  │       Copy-paste (shadcn) → full control, edit component source directly
+  │       Config-based (MUI theme) → customize via theme overrides
+  │       Utility-first (Tailwind + headless) → style via utility classes
+  │     Map design elements to library primitives — use library components
+  │       instead of building custom whenever a match exists
+  │     Record in the design contract: library name, URL, version,
+  │       components used, theming approach
+  ├── If NO:
+  │     Proceed with fully custom implementation
+  │     Note in design contract: "No design system — all components custom"
+  └── WHY: Design system components provide battle-tested accessibility,
+        interactive states, and responsive behavior out of the box.
+        Building custom when a library component exists wastes effort
+        and produces inferior results (missing focus states, ARIA, etc.)
+```
+
+**BAD** — Building a custom card component, dropdown, and table from scratch when shadcn-vue already provides them with full accessibility and Tailwind theming.
+
+**GOOD** — Detecting shadcn-vue, mapping 60% of the design's UI elements to library components, customizing via Tailwind theme tokens, and only building custom for elements the library doesn't cover (specialized charts, domain-specific widgets).
+
+---
+
+## 2. Design Source Setup
 
 ```
 MANDATORY:
@@ -62,7 +98,7 @@ MANDATORY:
 
 ---
 
-## 2. MCP & Tool Detection
+## 3. MCP & Tool Detection
 
 ```
 MANDATORY:
@@ -95,7 +131,7 @@ MANDATORY:
 
 ---
 
-## 3. Stack Capability Evaluation
+## 4. Stack Capability Evaluation
 
 ```
 MANDATORY:
@@ -147,7 +183,7 @@ MANDATORY:
 
 ---
 
-## 4. Design Token Extraction Protocol
+## 5. Design Token Extraction Protocol
 
 ```
 MANDATORY:
@@ -172,7 +208,7 @@ MANDATORY:
 
 ---
 
-## 5. Design Contract Generation
+## 6. Design Contract Generation
 
 ```
 MANDATORY:
@@ -188,7 +224,7 @@ The design contract serves the same purpose as API contracts in GSD-T: it define
 
 ---
 
-## 6. Component Decomposition
+## 7. Component Decomposition
 
 ```
 MANDATORY:
@@ -226,7 +262,7 @@ Page
 
 ---
 
-## 7. Layout Analysis
+## 8. Layout Analysis
 
 ```
 MANDATORY:
@@ -247,7 +283,7 @@ MANDATORY:
 
 ---
 
-## 8. Responsive Breakpoint Strategy
+## 9. Responsive Breakpoint Strategy
 
 ```
 MANDATORY:
@@ -280,7 +316,7 @@ MANDATORY:
 
 ---
 
-## 9. Semantic HTML Structure
+## 10. Semantic HTML Structure
 
 ```
 MANDATORY:
@@ -300,7 +336,7 @@ MANDATORY:
 
 ---
 
-## 10. Naming Conventions (Classes, IDs, Data Attributes)
+## 11. Naming Conventions (Classes, IDs, Data Attributes)
 
 ```
 MANDATORY:
@@ -339,7 +375,7 @@ MANDATORY:
 
 ---
 
-## 11. CSS Precision Rules
+## 12. CSS Precision Rules
 
 ```
 MANDATORY:
@@ -370,7 +406,7 @@ MANDATORY:
 
 ---
 
-## 12. Typography Rendering
+## 13. Typography Rendering
 
 ```
 MANDATORY:
@@ -403,7 +439,7 @@ MANDATORY:
 
 ---
 
-## 13. Color Accuracy
+## 14. Color Accuracy
 
 ```
 MANDATORY:
@@ -437,7 +473,7 @@ MANDATORY:
 
 ---
 
-## 14. Interactive States
+## 15. Interactive States
 
 ```
 MANDATORY:
@@ -474,7 +510,7 @@ MANDATORY:
 
 ---
 
-## 15. Visual Verification — Against FIGMA, Not Just Contracts
+## 16. Visual Verification — Against FIGMA, Not Just Contracts
 
 **Visual verification is handled by a dedicated Design Verification Agent**, spawned automatically by `gsd-t-execute` (Step 5.25) after all domain tasks complete.
 
@@ -488,20 +524,26 @@ VERIFICATION TARGETS:
   │     Does the code match the contract's claimed values?
   │     (This is what the 13-task validation proved works — airtight.)
   │
-  └── TARGET 2: Built screen vs FIGMA DESIGN (MANDATORY — this is new)
-        Does the BUILT SCREEN match the ORIGINAL FIGMA SCREENSHOT?
-        This catches: contracts that were wrong to begin with,
-        chart type misclassification, hallucinated data, missing elements.
-        (This is what was missing — and what caused the BDS failures.)
+  ├── TARGET 2: Built screen vs FIGMA DESIGN (MANDATORY)
+  │     Does the BUILT SCREEN match the ORIGINAL FIGMA STRUCTURED DATA?
+  │     This catches: contracts that were wrong to begin with,
+  │     chart type misclassification, hallucinated data, missing elements.
+  │
+  └── TARGET 3: SVG STRUCTURAL OVERLAY (MANDATORY)
+        Export Figma frame as SVG → parse element positions/dimensions/colors
+        → compare geometrically against built DOM bounding boxes.
+        This catches: aggregate spacing drift, alignment issues, proportion
+        errors that pass property-level checks but look wrong visually.
+        Mechanical, non-interpretive — no agent reasoning, just geometry.
 ```
 
-**Target 2 is the critical addition.** Verifying code-vs-contract is necessary but not sufficient. If the contract said "donut" when Figma showed a stacked bar, the code will faithfully build a donut, the contract verification will say MATCH, and the screen will be WRONG.
+**Targets 2 and 3 are complementary.** Target 2 catches wrong values (property-level). Target 3 catches wrong placement (geometry-level). Together they cover both "is each value correct?" and "does the whole page look right?"
 
 ### Verification agent workflow
 
 ```
 SEPARATION OF CONCERNS:
-  ├── CODING AGENT (you — Sections 1-14 above):
+  ├── CODING AGENT (you — Sections 1-15 above):
   │     Extract tokens → write precise CSS → trace every value to design contract
   │     Do NOT open a browser or attempt visual comparison yourself
   │
@@ -524,7 +566,16 @@ SEPARATION OF CONCERNS:
            `get_design_context` response?
         6. Produce structured comparison table (30+ rows):
            | Element | Figma (get_design_context) | Built | MATCH/DEVIATION |
-        7. Fix deviations → re-verify → artifact gate enforces completion
+        7. SVG STRUCTURAL OVERLAY — mechanical geometry comparison:
+           a. Export Figma frame as SVG (API/MCP or user-provided)
+           b. Parse SVG DOM: positions, dimensions, fills, text per element
+           c. Map SVG elements → built DOM elements by text + position proximity
+           d. Compare geometry: position (≤2px=MATCH), dimensions, colors, text
+           e. Produce SVG diff table:
+              | SVG Element | SVG Position | Built Position | Δ px | Verdict |
+           f. Flag unmapped elements (MISSING IN BUILD / EXTRA IN BUILD)
+           This catches aggregate spacing/alignment drift the property table misses.
+        8. Fix deviations → re-verify → artifact gate enforces completion
 ```
 
 The verification agent enforces the **FAIL-BY-DEFAULT** rule: every visual element starts as UNVERIFIED. The only valid verdicts are MATCH (with proof) or DEVIATION (with specifics). "Looks close" and "appears to match" are not verdicts. An artifact gate in the orchestrator blocks completion if the comparison table is missing or empty.
@@ -533,7 +584,7 @@ The verification agent enforces the **FAIL-BY-DEFAULT** rule: every visual eleme
 
 ---
 
-## 16. Anti-Patterns
+## 17. Anti-Patterns
 
 ```
 NEVER DO THESE:
@@ -553,10 +604,12 @@ NEVER DO THESE:
 
 ---
 
-## 17. Design-to-Code Verification Checklist
+## 18. Design-to-Code Verification Checklist
 
 Before marking any design implementation task as complete:
 
+- [ ] Design system / component library identified (or confirmed none) and documented in design contract
+- [ ] Library components mapped to design elements — custom build only where no library match exists
 - [ ] Design source identified and documented in design contract
 - [ ] Stack capability evaluated — all design requirements achievable (or alternatives approved)
 - [ ] All design tokens extracted (colors, typography, spacing, borders, shadows)
@@ -574,4 +627,5 @@ Before marking any design implementation task as complete:
 - [ ] Spacing exact: every padding, margin, gap matches design values
 - [ ] Accessibility: focus indicators, alt text, ARIA where needed, 44px touch targets
 - [ ] No magic numbers — every value is documented or uses a design token
+- [ ] SVG structural overlay comparison completed — geometry diff ≤2px per element
 - [ ] Verification results logged in design contract Verification Status table
