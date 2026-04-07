@@ -2,6 +2,19 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.70.14] - 2026-04-06
+
+### Changed (design pipeline — hierarchical execution)
+- **Hierarchical Build Order** — `gsd-t-plan` now detects `.gsd-t/contracts/design/INDEX.md` and auto-generates tasks in strict element → widget → page order (Wave 1/2/3). Each element gets its own focused task with only its element contract. Each widget task imports already-built elements. Each page task imports already-built widgets. ONE CONTRACT = ONE TASK.
+- **No Inline Rebuild Rule** — added to `gsd-t-execute`, `gsd-t-quick`, and `design-to-code.md` stack rules. Widget tasks that rebuild element functionality inline (instead of importing the built element component) are a TASK FAILURE. Same for page tasks rebuilding widgets. The hierarchy exists to prevent this.
+- **Contract Is Authoritative** — when the element contract and Figma screenshot disagree, the contract wins. The contract was written from careful design analysis; screenshots are ambiguous at small sizes.
+- **Per-Wave Design Verification Checkpoints** — `gsd-t-execute` now runs design-specific checks at each wave boundary: element contracts after Wave 1, widget assembly after Wave 2, full Figma comparison after Wave 3.
+- **Design Hierarchy Build Rule in subagent prompt** — task subagents now receive explicit instructions for element/widget/page tasks: what to import, what NOT to rebuild, and that contracts are authoritative over screenshots.
+- **Hierarchical Audit Mode** — `gsd-t-design-audit` now detects hierarchical design contracts and audits bottom-up: Level 1 (element chart types), Level 2 (widget assembly — imports vs inline rebuilds), Level 3 (page composition). Pinpoints exactly where a deviation originates instead of flat page-level comparison.
+
+### Why
+The decomposition (gsd-t-design-decompose) creates a perfect hierarchy — 27 elements → 10 widgets → 1 page. But the plan and execute phases didn't follow it. The planner created monolithic "build the page" tasks, and the builder wrote 700-line inline pages ignoring contracts and existing components. All recent enhancements (v2.70.10-12) targeted post-build verification — catching errors after they were made. This change moves enforcement to the build phase: build each element individually (the subagent can't confuse chart types when it only sees one element contract), verify it, then compose. Inside-out execution matches the decomposition structure.
+
 ## [2.70.13] - 2026-04-06
 
 ### Changed (gsd-t-init, gsd-t-init-scan-setup)

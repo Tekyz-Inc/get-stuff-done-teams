@@ -23,6 +23,97 @@ If built app target is missing → check if a dev server is running. If not → 
 - Factor into Step 3 comparisons: deviations that match library defaults (not Figma) may indicate "used library default instead of design value" — flag as a distinct deviation category
 - If no → proceed as normal
 
+## Step 0.5: Hierarchical Audit Mode (when design hierarchy exists)
+
+Check if `.gsd-t/contracts/design/INDEX.md` exists. If it does NOT, skip to Step 1 (flat audit mode).
+
+**If it EXISTS**: The design was decomposed hierarchically (elements → widgets → pages). Audit bottom-up — this pinpoints exactly WHERE a deviation originates.
+
+### Level 1 — Element Audit
+
+For each element contract in `.gsd-t/contracts/design/elements/`:
+
+1. Read the element contract — extract visual spec (sizes, colors, spacing, chart type, props)
+2. Find the corresponding built component in the project (`src/components/elements/` or equivalent)
+3. If the component DOES NOT EXIST → ❌ CRITICAL: "Element `{name}` has no built component"
+4. If it EXISTS:
+   a. Render the component in isolation (if a dev route or Storybook exists) or locate it within the full page
+   b. Compare chart type: does the contract say `bar-vertical-grouped`? Is the built component actually vertical bars?
+   c. Compare visual spec: dimensions, colors, spacing, typography per the element contract
+   d. Produce a comparison row: `| {element-name} | {contract chart type} | {built chart type} | {verdict} |`
+
+```markdown
+### Element Audit
+
+| # | Element | Contract Type | Built Type | Key Properties | Verdict |
+|---|---------|--------------|------------|----------------|---------|
+| 1 | chart-donut | donut 192px, 32px stroke | donut 192px, 32px stroke | ✅ | ✅ MATCH |
+| 2 | bar-vertical-grouped | vertical bars, 4 groups | horizontal bars | ❌ wrong axis | ❌ CRITICAL |
+| 3 | bar-vertical-single | vertical bars, single color | donut chart | ❌ wrong chart type | ❌ CRITICAL |
+```
+
+**If ANY element has a chart type mismatch → flag CRITICAL immediately.** This is the exact failure mode that caused the BDS rebuild to fail: the element contract says vertical bars, but a donut was built. No amount of widget or page-level auditing can fix a wrong element.
+
+### Level 2 — Widget Assembly Audit
+
+For each widget contract in `.gsd-t/contracts/design/widgets/`:
+
+1. Read the widget contract — extract "Elements Used" list and layout spec
+2. Find the built widget component (`src/components/widgets/` or equivalent)
+3. If the widget DOES NOT EXIST → ❌ CRITICAL: "Widget `{name}` has no built component"
+4. If it EXISTS:
+   a. Check: does the widget IMPORT its element components, or does it rebuild element functionality inline?
+      - Grep the widget file for imports from `elements/` or `components/elements/`
+      - If the widget contains inline chart/card implementations that duplicate element components → ❌ HIGH: "Widget rebuilds `{element}` inline instead of importing"
+   b. Check: does the widget compose the CORRECT elements per the contract?
+      - Contract says "uses chart-donut, legend-vertical-right" — does the widget import both?
+   c. Check layout: spacing between elements, responsive behavior per widget contract
+
+```markdown
+### Widget Assembly Audit
+
+| # | Widget | Elements (contract) | Elements (built) | Imports elements? | Layout match? | Verdict |
+|---|--------|--------------------|--------------------|-------------------|---------------|---------|
+| 1 | donut-chart-card | chart-donut, legend-vertical-right, card-header | chart-donut, legend-vertical-right, card-header | ✅ imports | ✅ | ✅ MATCH |
+| 2 | bar-chart-card | bar-vertical-grouped, card-header, legend-horizontal | HorizontalBarGroup (inline) | ❌ inline rebuild | ❌ | ❌ HIGH |
+```
+
+### Level 3 — Page Composition Audit
+
+For each page contract in `.gsd-t/contracts/design/pages/`:
+
+1. Read the page contract — extract widget list and grid positions
+2. Find the built page component
+3. Check: does the page IMPORT its widget components, or inline everything?
+4. Check: section ordering, grid layout, responsive breakpoints
+
+```markdown
+### Page Composition Audit
+
+| # | Widget (contract) | Widget (built) | Imports widget? | Position match? | Verdict |
+|---|-------------------|----------------|-----------------|-----------------|---------|
+| 1 | filter-bar-widget | FilterBarWidget | ✅ | ✅ | ✅ MATCH |
+| 2 | kpi-strip-widget | (inline stat cards) | ❌ inline rebuild | ✅ | ❌ HIGH |
+```
+
+### Hierarchy Summary
+
+After all three levels:
+
+```markdown
+### Hierarchy Audit Summary
+
+| Level | Total | Match | Deviations | Critical |
+|-------|-------|-------|------------|----------|
+| Elements | 27 | 24 | 3 | 2 (wrong chart type) |
+| Widgets | 10 | 7 | 3 | 0 (3 inline rebuilds) |
+| Pages | 1 | 0 | 1 | 0 (inline widgets) |
+
+**Root cause**: 2 element-level chart type mismatches. Fix elements first — widget and page deviations may resolve automatically once correct elements are imported.
+```
+
+**After the hierarchy audit, continue to Step 1 for the full Figma comparison.** The hierarchy audit identifies structural issues (wrong types, inline rebuilds). The Figma comparison (Steps 1-4) catches visual property deviations (colors, spacing, sizes).
+
 ## Step 1: Map the Figma Design — Node-Level Decomposition
 
 ### 1a. Get the page tree

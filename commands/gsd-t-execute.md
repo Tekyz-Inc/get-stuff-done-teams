@@ -64,6 +64,18 @@ Before choosing solo or team mode, read the `## Wave Execution Groups` section i
 - Execute wave-by-wave: complete all tasks in Wave 1 before starting Wave 2
 - Within each wave, tasks marked as parallel-safe can run concurrently (team mode) or be interleaved (solo mode)
 - At each wave boundary: run the CHECKPOINT — verify contract compliance — before proceeding
+- **Design Hierarchy Checkpoint** (when `.gsd-t/contracts/design/INDEX.md` exists):
+  At each wave boundary for design hierarchy waves (elements → widgets → pages):
+  - **After element wave**: For each built element component, verify it renders and matches
+    its element contract (chart type, dimensions, colors, props). Spot-check in a browser
+    or headless render. Any element that doesn't match its contract → fix before widget wave.
+  - **After widget wave**: For each built widget, verify it imports (not rebuilds) its element
+    components and assembles them per the widget contract layout. Check: does the widget
+    import from src/components/elements/? If it contains inline chart/card implementations
+    that duplicate element components → FAIL the checkpoint, fix before page wave.
+  - **After page wave**: Proceed to full Design Verification Agent (Step 5.25) for Figma comparison.
+  These checkpoints are MANDATORY gates — not advisory. The entire point of hierarchical
+  execution is that each layer is correct before the next layer builds on it.
 - File conflict detection: if two tasks in the same wave list the same file in their `scope.md` ownership, move one to the next wave
 
 **If no wave groups are defined** (older plans): fall back to the `Execution Order` list.
@@ -252,9 +264,24 @@ Execute the task above:
 3. Destructive Action Guard: if the task involves DROP TABLE, schema changes that lose
    data, removing working modules, or replacing architecture patterns → write a
    NEEDS-APPROVAL entry to .gsd-t/deferred-items.md, skip the task, stop here
-4. Implement the task
-5. Verify acceptance criteria are met
-6. Write comprehensive tests (MANDATORY — no feature code without test code):
+4. **Design Hierarchy Build Rule** (if this task references a design contract):
+   - If building an ELEMENT: implement ONLY this element's contract. Use exact values —
+     every dimension, color, font size, spacing must trace to the contract or design tokens.
+     No guessed values. Render in isolation to confirm before finishing.
+   - If building a WIDGET: check src/components/elements/ for already-built element
+     components. IMPORT them — do NOT rebuild element functionality inline. If the widget
+     contract says 'uses chart-donut', import the chart-donut element. Building a second
+     donut implementation inline is a TASK FAILURE.
+   - If building a PAGE: check src/components/widgets/ for already-built widget components.
+     IMPORT them — do NOT rebuild widget functionality inline. The page's job is composition
+     and data wiring, not reimplementing widgets.
+   - **Contract is authoritative**: If the element contract says 'bar-vertical-grouped'
+     (vertical bars), build vertical bars — even if the Figma screenshot looks like it
+     could be horizontal. The contract was written from careful design analysis; the
+     screenshot is ambiguous at small sizes. When in doubt, follow the contract.
+5. Implement the task
+6. Verify acceptance criteria are met
+7. Write comprehensive tests (MANDATORY — no feature code without test code):
    - Unit/integration: happy path + edge cases + error cases for every new/changed function
    - Playwright E2E (if UI/routes/flows changed): new specs for new features, cover
      all modes, form validation, empty/loading/error states, common edge cases
@@ -282,26 +309,26 @@ Execute the task above:
         recovers (retry button works, form can be resubmitted, etc.).
      A test that would pass on an empty HTML page with the right element IDs is useless.
      Every assertion must prove the FEATURE WORKS, not that the ELEMENT EXISTS.
-7. **Visual Design Note** (when design-to-code stack rule is active):
+8. **Visual Design Note** (when design-to-code stack rule is active):
    Do NOT perform visual verification yourself — a dedicated Design Verification Agent
    (Step 5.25) runs after all domain tasks complete and handles the full visual comparison.
    Your job: write precise code from the design contract tokens. Use exact hex colors,
    exact spacing values, exact typography. Every CSS value must trace to the design contract.
    The verification agent will open a browser and prove whether your code matches.
-8. Run ALL test suites — this is NOT optional, not conditional, not "if applicable":
+9. Run ALL test suites — this is NOT optional, not conditional, not "if applicable":
    a. Detect configured test runners: check for vitest/jest config, playwright.config.*, cypress.config.*
    b. Run EVERY detected suite. Unit tests alone are NEVER sufficient when E2E exists.
    c. If `playwright.config.*` exists → run `npx playwright test` (full suite, not just affected specs)
    d. If E2E tests fail → fix (up to 2 attempts) before proceeding
    e. Report ALL suite results: "Unit: X/Y pass | E2E: X/Y pass" — never report just one
-9. Run Pre-Commit Gate checklist from CLAUDE.md — update all affected docs BEFORE committing
-10. Commit immediately: feat({domain-name}/task-{task-id}): {description}
-11. Update .gsd-t/progress.md — mark this task complete; prefix the Decision Log entry:
+10. Run Pre-Commit Gate checklist from CLAUDE.md — update all affected docs BEFORE committing
+11. Commit immediately: feat({domain-name}/task-{task-id}): {description}
+12. Update .gsd-t/progress.md — mark this task complete; prefix the Decision Log entry:
     - Completed successfully on first attempt → prefix `[success]`
     - Completed after a fix → prefix `[learning]`
     - Deferred to .gsd-t/deferred-items.md → prefix `[deferred]`
     - Failed after 3 attempts → prefix `[failure]`
-12. Spawn QA subagent (model: sonnet) after completing the task:
+13. Spawn QA subagent (model: sonnet) after completing the task:
     'Run ALL configured test suites — detect and run every one:
      a. Unit tests (vitest/jest/mocha): run the full suite, report pass/fail counts
      b. E2E tests: check for playwright.config.* or cypress.config.* — if found, run the FULL E2E suite
@@ -328,7 +355,7 @@ Execute the task above:
      4. If Playwright MCP is not available: skip this section silently
      Note: Exploratory findings do NOT count against the scripted test pass/fail ratio.'
     If QA fails OR shallow tests are found, fix before proceeding. Append issues to .gsd-t/qa-issues.md.
-12. Write task summary to .gsd-t/domains/{domain-name}/task-{task-id}-summary.md:
+14. Write task summary to .gsd-t/domains/{domain-name}/task-{task-id}-summary.md:
     ## Task {task-id} Summary — {domain-name}
     - **Status**: PASS | FAIL
     - **Files modified**: {list}

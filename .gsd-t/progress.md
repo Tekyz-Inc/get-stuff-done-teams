@@ -3,7 +3,7 @@
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: IN PROGRESS
 ## Date: 2026-04-01
-## Version: 2.70.10
+## Version: 2.70.14
 
 ## Active Milestone
 
@@ -726,3 +726,4 @@ Wave 4: adaptive-replan (consumes fresh-dispatch summaries, integrates with work
 - 2026-04-06 16:07: [feat] Added DOM Box Model Inspection + Layout Arithmetic + Flex Anti-Pattern Rule (v2.70.11). Three verification gaps closed from BDS 5-round fix analysis: (1) Playwright-based offsetHeight vs scrollHeight check catches inflated flex elements, (2) widget contract mandatory height budget math prevents gap miscalculation, (3) explicit prohibition on flex:1 for content centering. Updated: gsd-t-execute.md (Step 5.5), gsd-t-quick.md (step 8), gsd-t-design-audit.md (Step 3.75), design-to-code.md (Section 8 anti-patterns + checklist), widget-contract.md (Internal Layout Arithmetic section + 3 checklist items).
 - 2026-04-06 16:14: [feat] Added Element Count Reconciliation (v2.70.12). Counts widgets/elements from Figma INDEX.md, compares against built DOM count via Playwright. Missing widget = CRITICAL. Added to execute (Step 0), quick (Step 0), design-audit (Step 1.5), design-decompose (Figma Element Counts table in INDEX.md). Design-to-code.md now documents 5-layer verification model: Target 0 (count) → Target 1 (contracts) → Target 2 (Figma) → Target 3 (SVG overlay) → Target 4 (DOM box model).
 - 2026-04-06 16:20: [feat] Added auto-create project dir + GitHub repo to gsd-t-init and gsd-t-init-scan-setup (v2.70.13). Configurable via ~/.claude/.gsd-t-config: projects_dir (base path for new projects) and github_org (org for repo creation). Skips entirely for existing projects.
+- 2026-04-06 22:15: [feat] Hierarchical Build Order for design pipeline (v2.70.14). Root cause fix: decomposition creates element→widget→page hierarchy, but plan/execute ignored it — creating monolithic "build the page" tasks. Now: gsd-t-plan auto-generates tasks in Wave 1 (elements, one task per contract) → Wave 2 (widgets, import built elements) → Wave 3 (pages, import built widgets). Execute adds Design Hierarchy Build Rule in subagent prompt (no inline rebuilds, contract is authoritative over screenshots) + per-wave design verification checkpoints. Previous v2.70.10-12 enhancements (SVG overlay, box model, element count) remain as verification safety net, but primary enforcement moves from post-build verification to build-time structure.

@@ -78,6 +78,84 @@ For each domain, write `.gsd-t/domains/{domain-name}/tasks.md`:
   - {specific testable outcome}
 ```
 
+### Design Hierarchy Task Generation (when hierarchical design contracts exist)
+
+If `.gsd-t/contracts/design/INDEX.md` exists, the design was decomposed into a hierarchy: **elements → widgets → pages**. This hierarchy IS the execution plan. Each level must be built and verified before the next level composes it.
+
+**Detection**: Check for `.gsd-t/contracts/design/INDEX.md`. If it does NOT exist, skip this section entirely — use standard task generation above.
+
+**If it EXISTS**: Read INDEX.md to extract the element, widget, and page contract lists. Then generate tasks in strict build order:
+
+**Wave 1 — Elements (one task per element contract, all parallel-safe):**
+
+Read each contract file in `.gsd-t/contracts/design/elements/`. For each element:
+
+```markdown
+### Task {N}: Build {element-name} element
+- **Files**: src/components/elements/{element-name}.{ext}
+- **Contract refs**: design/elements/{element-name}.contract.md
+- **Dependencies**: NONE
+- **Acceptance criteria**:
+  - Component renders matching ALL visual specs in the element contract (sizes, colors, spacing, typography)
+  - Props/API matches the contract's interface section exactly
+  - Every CSS value traces to a design token or explicit contract value — no guessed/approximated values
+  - Component is importable and reusable (no page-specific logic baked in)
+  - Render the component in isolation (Storybook, test page, or dev route) and visually confirm it matches the contract spec
+```
+
+Elements have no inter-dependencies — all can run in parallel within Wave 1.
+
+**CHECKPOINT after Wave 1**: Verify each built element renders correctly against its contract. Spot-check a sample (or all, if <15 elements) in a browser. Any element that doesn't match its contract gets fixed before Wave 2 starts.
+
+**Wave 2 — Widgets (one task per widget contract):**
+
+Read each contract file in `.gsd-t/contracts/design/widgets/`. For each widget:
+
+```markdown
+### Task {N}: Assemble {widget-name} widget
+- **Files**: src/components/widgets/{widget-name}.{ext}
+- **Contract refs**: design/widgets/{widget-name}.contract.md
+- **Dependencies**: BLOCKED by Wave 1 (all element tasks)
+- **Acceptance criteria**:
+  - Widget IMPORTS already-built element components from Wave 1 — do NOT rebuild element functionality inline. If element X exists in src/components/elements/, you MUST import it.
+  - Layout, spacing, and responsive behavior match the widget contract exactly
+  - Internal element composition matches the contract's element list (correct elements, correct arrangement)
+  - All element props are wired correctly per the widget contract
+  - Render the widget in isolation and visually confirm the assembly matches the contract
+```
+
+Widgets that share no elements can run in parallel. Widgets that compose the same elements should be sequenced to avoid merge conflicts.
+
+**CHECKPOINT after Wave 2**: Verify each built widget assembles its elements correctly. Open each widget in a browser — the composition should match the widget contract's layout spec. Any widget that doesn't match gets fixed before Wave 3 starts.
+
+**Wave 3 — Pages (one task per page contract):**
+
+Read each contract file in `.gsd-t/contracts/design/pages/`. For each page:
+
+```markdown
+### Task {N}: Compose {page-name} page
+- **Files**: src/pages/{page-name}.{ext}
+- **Contract refs**: design/pages/{page-name}.contract.md
+- **Dependencies**: BLOCKED by Wave 2 (all widget tasks)
+- **Acceptance criteria**:
+  - Page IMPORTS already-built widget components from Wave 2 — do NOT rebuild widget functionality inline
+  - Section ordering, page layout, and responsive breakpoints match the page contract exactly
+  - All widget instances are wired with correct data/props per the page contract
+  - Full page renders correctly at all breakpoints specified in the design contracts
+```
+
+**CHECKPOINT after Wave 3**: Full Design Verification Agent comparison against Figma (Step 5.25 in execute). This is where the pixel-perfect validation happens — but by this point, each element and widget has already been verified individually, so page-level deviations should be limited to composition/layout issues.
+
+**Critical rules for design hierarchy tasks:**
+- **ONE CONTRACT = ONE TASK**: Never merge multiple element or widget contracts into one task. Each gets its own focused subagent with only its own contract in context.
+- **NO INLINE REBUILDS**: This is the single most important rule. A widget task that rebuilds an element's functionality inline (instead of importing the element component) is a **TASK FAILURE** — not a style preference, a failure. Same for page tasks rebuilding widgets inline. The entire hierarchy exists to prevent this.
+- **VERIFY BEFORE COMPOSING**: No Wave 2 task starts until Wave 1 is verified. No Wave 3 task starts until Wave 2 is verified. The checkpoint gates are mandatory, not advisory.
+- **ELEMENT CONTRACT IS AUTHORITATIVE**: If the element contract says `bar-vertical-grouped` (vertical bars), the widget that composes it gets vertical bars — period. The Figma screenshot is reference material; the contract is the spec. When they disagree, the contract wins (and flag the discrepancy for review).
+
+**Combining with non-design tasks**: If the milestone has both design tasks and non-design tasks (API, data layer, auth), the non-design tasks can run in parallel with Wave 1 elements. Map dependencies normally — a widget that needs API data is BLOCKED by both its elements AND the API task.
+
+---
+
 ### Task Design Rules:
 0. **UI tasks — reference the design brief**: If `.gsd-t/contracts/design-brief.md` exists, UI task descriptions must reference it. Include a note like: "Follow the color palette, typography, spacing, and component patterns defined in `.gsd-t/contracts/design-brief.md`." This ensures visual consistency without repeating spec details in every task.
 1. **Atomic**: Each task produces a working, testable increment

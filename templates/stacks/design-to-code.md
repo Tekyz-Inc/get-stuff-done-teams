@@ -28,6 +28,30 @@ element contract  >  widget contract  >  page contract
 ```
 A widget that uses `chart-donut` cannot change `chart-donut`'s bar-gap, colors, or label positioning. If customization is needed, create a new element variant (`chart-donut-compact.contract.md`) instead.
 
+**Hierarchical Execution Order (MANDATORY when hierarchical contracts exist)**:
+```
+BUILD ORDER:
+  Wave 1: Elements   — build each element in isolation from its element contract
+                        ONE task per element. Verify each against its contract.
+  Wave 2: Widgets    — IMPORT built elements, compose per widget contract
+                        ONE task per widget. Verify assembly matches contract.
+  Wave 3: Pages      — IMPORT built widgets, compose per page contract
+                        ONE task per page. Full Design Verification Agent runs here.
+
+NO INLINE REBUILDS:
+  Widget tasks MUST import element components. If chart-donut exists in
+  src/components/elements/, you MUST import it — not build a second donut.
+  Page tasks MUST import widget components. The page's job is composition
+  and data wiring, not reimplementing widgets.
+  Rebuilding a lower-level component inline is a TASK FAILURE.
+
+CONTRACT IS AUTHORITATIVE:
+  If the element contract says 'bar-vertical-grouped' (vertical bars),
+  build vertical bars — even if the Figma screenshot looks ambiguous.
+  The contract was written from careful design analysis. When in doubt,
+  follow the contract, not the screenshot.
+```
+
 **Detection at execute-time**:
 - If `.gsd-t/contracts/design/` exists → hierarchical mode, verify elements first, then widgets, then pages
 - Else if `.gsd-t/contracts/design-contract.md` exists → flat mode

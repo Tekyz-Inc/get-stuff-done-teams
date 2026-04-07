@@ -153,9 +153,14 @@ When you encounter unexpected situations:
 1. Identify exactly which files need to change
 2. **Destructive Action Guard**: Check if this task involves destructive or structural changes (DROP TABLE, removing columns, deleting data, replacing architecture patterns, removing working modules, changing schema in ways that conflict with existing data). If YES → STOP and present the change to the user with what exists today, what will change, what will break, and a safe migration path. Wait for explicit approval.
 3. If a contract exists for the relevant interface, implement to match it
-4. Make the change — **adapt new code to existing structures**, not the other way around
-5. Verify it works
-6. Commit: `[quick] {description}`
+4. **Design Hierarchy Build Rule** (if touching design components):
+   - If building/modifying an ELEMENT: implement ONLY from the element contract. Every value must trace to the contract or design tokens.
+   - If building/modifying a WIDGET: IMPORT existing element components — do NOT rebuild element functionality inline. If `chart-donut` exists in `src/components/elements/`, import it.
+   - If building/modifying a PAGE: IMPORT existing widget components — do NOT rebuild widget functionality inline.
+   - **Contract is authoritative**: Follow the contract spec, not the Figma screenshot, when they appear to disagree.
+5. Make the change — **adapt new code to existing structures**, not the other way around
+6. Verify it works
+7. Commit: `[quick] {description}`
 
 ## Step 3.5: Emit Task Metrics
 
