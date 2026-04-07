@@ -301,40 +301,112 @@ Per-page element manifest (for verification agent):
 | {analytics}        | {N}     | {N} — {list} |
 ```
 
-## Step 6.5: Contract-vs-Figma Verification Gate (MANDATORY)
+## Step 6.5: Contract-vs-Figma Verification Gate — SEPARATE AGENT (MANDATORY)
 
-After writing all contracts but BEFORE proceeding to partition or build, verify that each contract accurately represents the Figma design. This gate catches errors that would otherwise propagate through the entire build.
+After writing all contracts but BEFORE proceeding to partition or build, spawn a **dedicated verification subagent** to independently verify every chart classification against the Figma source. This agent has FRESH context, no sunk cost in the classifications, and its sole incentive is finding mismatches.
 
-### For each widget contract:
+> **Why a separate agent?** The decompose agent that classified the charts cannot objectively verify its own classifications. It has the same blind spots that caused the misclassification. This was proven repeatedly — the same agent rubber-stamps its own work. A fresh agent with only the contracts and Figma access catches what the classifier missed.
 
-1. **Re-read the Figma node** — call `get_design_context` (or re-examine the screenshot) for the specific widget node
-2. **Compare the contract's claimed structure against the actual Figma node:**
+**OBSERVABILITY LOGGING (MANDATORY):**
+Before spawning — run via Bash:
+`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M") && TOK_START=${CLAUDE_CONTEXT_TOKENS_USED:-0} && TOK_MAX=${CLAUDE_CONTEXT_TOKENS_MAX:-200000}`
 
-| Check | What to verify | Failure mode it prevents |
-|-------|---------------|------------------------|
-| Chart type | Contract's element name matches the actual visual pattern | Donut classified as stacked bar (or vice versa) |
-| Data labels | Contract's Test Fixture labels match the Figma text exactly | Hallucinated column headers, invented metrics |
-| Element count | Number of sub-elements in contract matches Figma | Missing legends, extra charts, wrong layout |
-| Text content | Every title, subtitle, label, legend item matches Figma verbatim | "Engagement per video" subtitle that doesn't exist in Figma |
-| Layout structure | Widget's claimed layout matches Figma arrangement | Side-by-side classified as stacked, 2 charts classified as 1 |
-
-3. **Produce a contract-vs-Figma mismatch report:**
+⚙ [opus] gsd-t-design-decompose → Chart Classification Verifier
 
 ```
-CONTRACT-VS-FIGMA VERIFICATION
-───────────────────────────────
-✅ most-popular-tools-card: chart-donut — MATCHES Figma node 123:458
-✅ number-of-tools-card: chart-bar-stacked-horizontal-percentage — MATCHES
-❌ member-state-card: chart-donut — MISMATCH: Figma shows stacked vertical bars, not donuts
-   → Fix: reclassify as chart-bar-stacked-vertical, rewrite element contract
-❌ video-playlist-table: columns [Title, Duration, Views, Watch Time, Completion]
-   — MISMATCH: Figma shows [Video, Viewed, Clicked Thumbnail, Clicked CTA, Avg. Seconds Watched]
-   → Fix: update Test Fixture column headers
+Task subagent (general-purpose, model: opus):
+"You are the Chart Classification Verifier. Your ONLY job is to independently
+verify that each element contract's chart type classification matches the actual
+Figma design. You have ZERO knowledge of how the charts were classified — you
+are seeing them fresh. Your incentive: every misclassification you catch prevents
+a wrong chart being built. Every misclassification you miss causes a rebuild.
+
+## Contracts to Verify
+{list each element contract filename + its claimed chart type from INDEX.md}
+
+## Figma Source
+File key: {fileKey}
+Page node: {nodeId}
+
+## Verification Process
+
+For EACH element contract that claims a chart/visualization type:
+
+1. Read the element contract — note its claimed type (e.g., 'bar-vertical-grouped')
+2. Find the Figma node ID referenced in the contract (or in the widget that uses it)
+3. Call `get_design_context` on that specific node ID — examine the STRUCTURE:
+   - Layout mode (horizontal vs vertical arrangement of children)
+   - Child elements (are they bars? segments? slices?)
+   - How children are arranged (side by side? stacked? overlapping?)
+   - Dimensions (do bars extend horizontally or vertically?)
+
+4. Walk the decision tree INDEPENDENTLY (do NOT read the contract's reasoning):
+
+   BAR CHART ORIENTATION PROOF:
+   a. Are the data-bearing rectangles arranged HORIZONTALLY (left to right)?
+      → Segments share ONE ROW, each segment's WIDTH encodes its value
+      → This is HORIZONTAL (stacked if touching, grouped if separated)
+   b. Are the data-bearing rectangles arranged VERTICALLY (bottom to top)?
+      → Each bar is a COLUMN, each bar's HEIGHT encodes its value
+      → This is VERTICAL (stacked if layered, grouped if side-by-side)
+   c. Is it ONE bar with colored segments? → STACKED
+      Is it MULTIPLE separate bars? → GROUPED
+   d. Do labels show percentages summing to 100%? → PERCENTAGE variant
+
+   CRITICAL DISTINCTION — the #1 misclassification:
+   A single horizontal bar divided into colored segments (each segment's WIDTH
+   represents a percentage) is chart-bar-stacked-horizontal-percentage.
+   Multiple vertical columns of different heights side-by-side is
+   chart-bar-grouped-vertical. These render COMPLETELY DIFFERENTLY.
+   If you see colored blocks in a ROW → HORIZONTAL. Period.
+
+5. Compare YOUR classification against the contract's classification.
+
+6. For EACH element, produce:
+
+   ```
+   Element: {name}
+   Contract claims: {chart type}
+   Figma node: {id}
+   I SEE: {describe what the Figma MCP returned — layout, children, arrangement}
+   MY CLASSIFICATION: {your independent classification}
+   VERDICT: ✅ MATCH or ❌ MISMATCH
+   If MISMATCH: Contract says {X} but Figma shows {Y} because {evidence}
+   ```
+
+## Report
+
+Produce the full verification table:
+
+| # | Element | Contract Type | Verified Type | Figma Evidence | Verdict |
+|---|---------|--------------|---------------|----------------|---------|
+| 1 | chart-donut | chart-donut | chart-donut | circular arcs + center hole | ✅ MATCH |
+| 2 | bar-vertical-grouped | bar-vertical-grouped | bar-stacked-horizontal-pct | 4 segments in ONE horizontal row | ❌ MISMATCH |
+
+If ANY ❌ MISMATCH found:
+- List each mismatch with the correct classification and evidence
+- Report: 'VERIFICATION FAILED — {N} misclassifications found. Contracts must be fixed before build.'
+
+If ALL ✅ MATCH:
+- Report: 'VERIFICATION PASSED — all {N} chart classifications confirmed against Figma source.'
+"
 ```
 
-4. **If ANY mismatches found**: fix the contracts BEFORE proceeding. Do not build from wrong contracts.
+After subagent returns — run via Bash:
+`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && TOK_END=${CLAUDE_CONTEXT_TOKENS_USED:-0} && DURATION=$((T_END-T_START))`
 
-> **Why this gate exists**: The two-terminal validation (tasks 001-013) proved the system produces 50/50 scores when contracts are correct — but also revealed that scoring code-vs-contract doesn't catch contract-vs-Figma errors. This gate closes that gap.
+Compute tokens/compaction per standard pattern. Append to `.gsd-t/token-log.md`.
+
+**If VERIFICATION FAILED**: Fix every misclassified element contract before proceeding:
+1. Rename the contract file to match the correct chart type
+2. Rewrite the visual spec section to match the correct chart type
+3. Update INDEX.md references
+4. Update any widget contracts that reference the renamed element
+5. **Re-run the verification subagent** to confirm fixes (max 2 cycles)
+
+**If VERIFICATION PASSED**: Proceed to Step 7.
+
+> **Why this gate exists**: The decompose agent's own examples show the correct classification for "Number of Tools" as `chart-bar-stacked-horizontal-percentage` — yet the agent classified the same chart as `bar-vertical-grouped` in practice. Soft instructions ("MANDATORY decision tree") don't prevent misclassification. A separate agent with fresh context and inverted incentives (success = finding errors) does.
 
 ## Step 7: Wire Into Partition
 

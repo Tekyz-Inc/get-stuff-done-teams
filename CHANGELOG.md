@@ -2,6 +2,16 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.70.15] - 2026-04-06
+
+### Changed (design pipeline — decompose verification)
+- **Separate Verification Agent** — `gsd-t-design-decompose` Step 6.5 now spawns a dedicated opus-model verification subagent instead of self-verifying chart classifications. The decompose agent cannot verify its own work — sunk cost bias causes it to rubber-stamp its classifications. The separate agent has fresh context and its sole incentive is finding mismatches.
+- **BAR CHART ORIENTATION PROOF** — mechanical decision tree injected into the verification agent prompt: rectangles in a ROW → HORIZONTAL, rectangles BOTTOM-TO-TOP → VERTICAL. Eliminates the #1 misclassification (horizontal percentage bars classified as vertical grouped).
+- **Max 2 fix cycles** — if the verifier finds mismatches, contracts are corrected and re-verified (up to 2 cycles). Persistent failures block decompose completion.
+
+### Why
+v2.70.14 ensured "build follows contracts" but the contracts themselves were wrong. The decompose command's Step 6.5 asked the same agent to verify its own chart type classifications — it always passed itself. Three charts (`Number of Tools`, `Time on Page`, `Number of Visits`) were classified as `bar-vertical-grouped` when the Figma shows `bar-stacked-horizontal-percentage`. A separate verification agent with no sunk cost catches these mismatches before contracts are finalized.
+
 ## [2.70.14] - 2026-04-06
 
 ### Changed (design pipeline — hierarchical execution)
