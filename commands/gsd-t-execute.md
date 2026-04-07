@@ -309,12 +309,57 @@ Execute the task above:
         recovers (retry button works, form can be resubmitted, etc.).
      A test that would pass on an empty HTML page with the right element IDs is useless.
      Every assertion must prove the FEATURE WORKS, not that the ELEMENT EXISTS.
-8. **Visual Design Note** (when design-to-code stack rule is active):
-   Do NOT perform visual verification yourself — a dedicated Design Verification Agent
-   (Step 5.25) runs after all domain tasks complete and handles the full visual comparison.
-   Your job: write precise code from the design contract tokens. Use exact hex colors,
-   exact spacing values, exact typography. Every CSS value must trace to the design contract.
-   The verification agent will open a browser and prove whether your code matches.
+8. **Render-Measure-Compare Loop** (when design-to-code stack rule is active — MANDATORY):
+   After implementing the component, you MUST verify it renders correctly by measuring
+   the actual DOM output against the contract's layout spec. This is not optional.
+   Do NOT rely on visual inspection or screenshots — measure mechanically.
+
+   a. **Render**: Start the dev server if not running. Navigate to a route where the
+      component is visible (or create a temporary test route that renders it in isolation).
+
+   b. **Measure via Playwright** — run `page.evaluate()` to extract DOM properties:
+      ```javascript
+      // For a widget: measure its internal layout
+      const el = document.querySelector('.widget-selector');
+      const style = getComputedStyle(el);
+      return {
+        display: style.display,           // 'flex' or 'grid'
+        flexDirection: style.flexDirection, // 'row' or 'column'
+        gap: style.gap,
+        gridTemplateColumns: style.gridTemplateColumns,
+        width: el.offsetWidth,
+        height: el.offsetHeight,
+        childCount: el.children.length,
+        children: Array.from(el.children).map(c => ({
+          tag: c.tagName,
+          width: c.offsetWidth,
+          height: c.offsetHeight,
+          display: getComputedStyle(c).display,
+          flexDirection: getComputedStyle(c).flexDirection,
+        }))
+      };
+      ```
+
+   c. **Compare to contract** — check each measured value against the contract spec:
+      - `body_layout: flex-row` → verify `flexDirection === 'row'`
+      - `container_height: 334px` → verify `height === 334` (±2px tolerance)
+      - Grid `2×2` → verify parent has 2 row children, each with 2 card children
+      - Legend position: if contract says `body_sidebar` (beside chart) →
+        verify legend and chart share a `flex-row` parent.
+        If contract says `footer_legend` (below chart) →
+        verify legend is in a `flex-column` parent below the chart.
+
+   d. **Fix mismatches** — if ANY measurement doesn't match the contract:
+      - Log: "LAYOUT MISMATCH: {property} expected {contract value}, got {measured value}"
+      - Fix the code to match the contract spec
+      - Re-render and re-measure (max 2 fix cycles)
+      - If still mismatched after 2 cycles → log to `.gsd-t/deferred-items.md`
+
+   e. **All pass** → log "RENDER-MEASURE PASS: {N} layout properties verified" and proceed.
+
+   This loop catches the exact class of errors that visual inspection misses:
+   grid-cols-4 instead of 2×2, legend below instead of beside, wrong flex-direction.
+   These are data comparisons, not visual judgments — the same kind of check as a unit test.
 9. Run ALL test suites — this is NOT optional, not conditional, not "if applicable":
    a. Detect configured test runners: check for vitest/jest config, playwright.config.*, cypress.config.*
    b. Run EVERY detected suite. Unit tests alone are NEVER sufficient when E2E exists.

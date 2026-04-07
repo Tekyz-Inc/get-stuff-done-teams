@@ -252,11 +252,38 @@ For each widget contract:
 1. Copy `templates/widget-contract.md` as scaffold
 2. Reference elements by name in the "Elements Used" table
 3. Define layout, data binding, responsive behavior, widget-level verification
+4. **Extract layout CSS from `get_design_context` output (MANDATORY)**:
+   The Figma MCP returns code with explicit CSS layout properties. Parse these into the
+   widget contract's "Internal Element Layout" section:
+   - `body_layout`: Look at the parent container's CSS in the Figma output.
+     `flex flex-row` or `flex gap-[16px] items-center` → `flex-row`.
+     `flex flex-col` or `flex-col gap-[16px]` → `flex-column`.
+     `grid grid-cols-2` → `grid 2-col`. Write EXACTLY what the Figma shows.
+   - `body_gap`: Extract the gap value from the Figma CSS (e.g., `gap-[16px]` → `16px`)
+   - Legend position: If legend is a SIBLING of the chart in a `flex-row` container →
+     legend is BESIDE the chart (`body_sidebar`). If legend is BELOW the chart in a
+     `flex-col` container → legend is in `footer_legend`. This distinction is CRITICAL —
+     it's the difference between a side-by-side layout and a stacked layout.
+   - `container_height`: If the Figma shows `h-[334px]` → fixed height `334px`.
+     If no explicit height → `auto`.
 
 For each page contract:
 1. Copy `templates/page-contract.md` as scaffold
 2. Reference widgets in grid positions
 3. Define route, data loading, global states, performance budget
+4. **Extract grid structure from `get_design_context` output (MANDATORY)**:
+   The Figma MCP returns the page's layout as nested containers. Parse the structure:
+   - Count "Row" or `flex-row` containers and their children to determine grid dimensions
+     (e.g., 2 Row containers with 2 cards each → `grid 2×2`, NOT `grid 1×4`)
+   - Extract `gap` values between rows and between cards within rows
+   - Extract explicit heights on cards (e.g., `h-[334px]`)
+   - Document in the page contract's "Widgets Used" table:
+     ```
+     | grid[row=1, cols=1-2] | most-popular-tools + number-of-tools | 2 per row |
+     | grid[row=2, cols=1-2] | time-on-page + number-of-visits      | 2 per row |
+     ```
+   - **Anti-pattern**: Seeing 4 sibling cards and writing `grid-cols-4` when the Figma
+     groups them into 2 rows of 2. ALWAYS check the parent container structure.
 
 Write `INDEX.md` as a navigation map:
 

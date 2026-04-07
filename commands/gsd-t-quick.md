@@ -159,8 +159,16 @@ When you encounter unexpected situations:
    - If building/modifying a PAGE: IMPORT existing widget components — do NOT rebuild widget functionality inline.
    - **Contract is authoritative**: Follow the contract spec, not the Figma screenshot, when they appear to disagree.
 5. Make the change — **adapt new code to existing structures**, not the other way around
-6. Verify it works
-7. Commit: `[quick] {description}`
+6. **Render-Measure-Compare** (if design component — MANDATORY):
+   After implementing, verify via Playwright DOM measurement (not screenshots):
+   - Render the component in browser
+   - `page.evaluate()` to extract: display, flexDirection, gap, gridTemplateColumns,
+     offsetWidth, offsetHeight, child count and layout
+   - Compare each value to the contract's layout spec (body_layout, container_height, etc.)
+   - Mismatches → fix code → re-measure (max 2 cycles)
+   - This catches: wrong grid structure, legend below vs beside, wrong flex-direction
+7. Verify it works
+8. Commit: `[quick] {description}`
 
 ## Step 3.5: Emit Task Metrics
 
