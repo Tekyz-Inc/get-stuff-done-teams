@@ -2,6 +2,19 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.72.10] - 2026-04-08
+
+### Added (orchestrator — per-item pipeline, stream-json, verbose, clean)
+- **Per-item build+review pipeline** — when workflow provides `buildSingleItemPrompt` + `buildSingleItemReviewPrompt`, each component is built and reviewed individually (1 contract + 1 source per Claude spawn) instead of all-at-once. Fixes reviewer timeout caused by 30+ files in a single context. Each item gets up to 4 auto-review fix cycles independently.
+- **`--output-format stream-json`** — Claude spawns now use streaming JSON output. On timeout, partial output is captured and parsed instead of returning empty string. Enables diagnosing what the reviewer was doing before being killed.
+- **`--verbose` / `-v` flag** — streams Claude's stderr to terminal for real-time tool call visibility, saves prompts to `build-logs/` for post-mortem, logs completion stats after each spawn.
+- **`--clean` flag** — deletes previous build output files before each phase's build step for fresh builds.
+- **Version display** — orchestrator shows GSD-T version in startup header.
+
+### Changed
+- **Reviewer timeout increased** — 300s → 600s for all-at-once review mode (per-item uses 120s per component).
+- **Design orchestrator** — added `buildSingleItemPrompt` and `buildSingleItemReviewPrompt` for per-item pipeline support. Reviewer prompt restructured: code review first, Playwright spot-check second.
+
 ## [2.71.21] - 2026-04-08
 
 ### Fixed (orchestrator — timeout false-pass, review server health, stale cleanup)

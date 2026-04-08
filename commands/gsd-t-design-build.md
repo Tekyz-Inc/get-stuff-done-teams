@@ -33,6 +33,8 @@ Pass any of these as `$ARGUMENTS`:
 | `--review-port <N>` | Review server port (default: 3456) |
 | `--timeout <sec>`   | Claude timeout per tier in seconds (default: 600) |
 | `--skip-measure`    | Skip Playwright measurement (human-review only) |
+| `--clean`           | Delete previous build output before building each phase |
+| `--verbose`, `-v`   | Show Claude's tool calls and prompts in terminal |
 
 ## Prerequisites
 

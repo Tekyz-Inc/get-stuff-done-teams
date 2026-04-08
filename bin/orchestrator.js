@@ -134,6 +134,8 @@ class Orchestrator {
         case "--review-port": opts.reviewPort = parseInt(argv[++i], 10); break;
         case "--timeout": opts.timeout = parseInt(argv[++i], 10) * 1000; break;
         case "--skip-measure": opts.skipMeasure = true; break;
+        case "--clean": opts.clean = true; break;
+        case "--verbose": case "-v": opts.verbose = true; break;
         case "--help":
         case "-h":
           if (this.wf.showUsage) this.wf.showUsage();
@@ -160,6 +162,8 @@ ${BOLD}Options:${RESET}
   --review-port <N>     Review server port (default: ${this.wf.defaults?.reviewPort || 3456})
   --timeout <sec>       Claude timeout per phase in seconds (default: 600)
   --skip-measure        Skip automated measurement (human-review only)
+  --clean               Delete previous build output before building each phase
+  --verbose, -v         Show Claude's tool calls and prompts in terminal
   --help                Show this help
 
 ${BOLD}Phases:${RESET} ${this.wf.phases.join(" → ")}
@@ -185,30 +189,97 @@ ${BOLD}Phases:${RESET} ${this.wf.phases.join(" → ")}
     const start = Date.now();
     let output = "";
     let exitCode = 0;
+    const verbose = this._verbose;
 
     // Build args: -p for print mode, --dangerously-skip-permissions so spawned
     // Claude can write files without interactive permission prompts
-    const args = ["-p", "--dangerously-skip-permissions", prompt];
+    const args = ["-p", "--dangerously-skip-permissions", "--output-format", "stream-json"];
+    if (verbose) args.push("--verbose");
+    args.push(prompt);
+
+    // Log prompt to file for debugging
+    if (verbose) {
+      const logDir = path.join(this.getReviewDir(projectDir), "build-logs");
+      ensureDir(logDir);
+      const label = opts.label || "claude";
+      fs.writeFileSync(
+        path.join(logDir, `${label}-prompt.txt`),
+        `--- Prompt (${new Date().toISOString()}) ---\nTimeout: ${(timeout || 600_000) / 1000}s\nCWD: ${projectDir}\n\n${prompt}`
+      );
+    }
 
     try {
-      output = execFileSync("claude", args, {
+      const raw = execFileSync("claude", args, {
         encoding: "utf8",
         timeout: timeout || this.wf.defaults?.timeout || 600_000,
         stdio: ["pipe", "pipe", "pipe"],
         cwd: projectDir,
         maxBuffer: 10 * 1024 * 1024,
       });
+      // Parse stream-json: each line is a JSON event, extract assistant text
+      output = this._parseStreamJson(raw, verbose);
     } catch (e) {
-      output = (e.stdout || "") + (e.stderr || "");
+      // On timeout/error, still parse any partial stream-json output we got
+      const rawOut = (e.stdout || "") + (e.stderr || "");
+      output = this._parseStreamJson(rawOut, verbose);
       exitCode = e.status || 1;
       if (e.killed) warn(`Claude timed out after ${(timeout || 600_000) / 1000}s`);
     }
 
     const duration = Math.round((Date.now() - start) / 1000);
+
+    if (verbose) {
+      dim(`Claude finished: exit=${exitCode}, duration=${duration}s, output=${output.length} chars`);
+    }
+
     return { output, exitCode, duration };
   }
 
   // ─── Server Management ───────────────────────────────────────────────
+
+  _parseStreamJson(raw, verbose) {
+    // stream-json format: one JSON object per line
+    // We want assistant text content and tool use visibility
+    const textParts = [];
+    const toolCalls = [];
+
+    for (const line of raw.split("\n")) {
+      if (!line.trim()) continue;
+      try {
+        const event = JSON.parse(line);
+        // Assistant text messages
+        if (event.type === "assistant" && event.message?.content) {
+          for (const block of event.message.content) {
+            if (block.type === "text") textParts.push(block.text);
+          }
+        }
+        // Content block deltas (partial streaming)
+        if (event.type === "content_block_delta" && event.delta?.text) {
+          textParts.push(event.delta.text);
+        }
+        // Result message
+        if (event.type === "result" && event.result) {
+          // result contains the final response text
+          if (typeof event.result === "string") textParts.push(event.result);
+        }
+        // Tool use tracking for verbose
+        if (verbose && event.type === "assistant" && event.message?.content) {
+          for (const block of event.message.content) {
+            if (block.type === "tool_use") {
+              toolCalls.push(block.name);
+              dim(`  → ${block.name}${block.input?.command ? ": " + String(block.input.command).slice(0, 80) : ""}`);
+            }
+          }
+        }
+      } catch { /* skip non-JSON lines */ }
+    }
+
+    if (verbose && toolCalls.length > 0) {
+      dim(`  Tool calls: ${toolCalls.length} (${[...new Set(toolCalls)].join(", ")})`);
+    }
+
+    return textParts.join("");
+  }
 
   startDevServer(projectDir, port) {
     if (isPortInUse(port)) {
@@ -491,11 +562,17 @@ ${BOLD}Phases:${RESET} ${this.wf.phases.join(" → ")}
     const { projectDir, resume, startPhase, devPort, reviewPort, skipMeasure } = opts;
     const phases = this.wf.phases;
     const maxReviewCycles = this.wf.defaults?.maxReviewCycles || 3;
+    this._verbose = opts.verbose || false;
 
+    const pkgVersion = (() => {
+      try { return require(path.join(__dirname, "..", "package.json")).version; } catch { return "unknown"; }
+    })();
     heading(`GSD-T ${this.wf.name} Orchestrator`);
+    log(`  Version: ${BOLD}v${pkgVersion}${RESET}`);
     log(`  Project: ${projectDir}`);
     log(`  Ports:   dev=${devPort} review=${reviewPort}`);
     log(`  Phases:  ${phases.join(" → ")}`);
+    if (this._verbose) log(`  ${YELLOW}Verbose mode: ON${RESET}`);
     log("");
 
     // 1. Verify prerequisites
@@ -577,129 +654,256 @@ ${BOLD}Phases:${RESET} ${this.wf.phases.join(" → ")}
         }
       }
 
-      // 6b. Spawn Claude for this phase
-      const prompt = this.wf.buildPrompt(phase, items, prevResults, projectDir);
-      log(`\n${CYAN}  ⚙${RESET} Spawning Claude to build ${items.length} ${phase}...`);
-      dim(`Timeout: ${(opts.timeout || 600_000) / 1000}s`);
-
-      const buildResult = this.spawnClaude(projectDir, prompt, opts.timeout);
-      if (buildResult.exitCode === 0) {
-        success(`Claude finished building ${phase} in ${buildResult.duration}s`);
-      } else {
-        warn(`Claude exited with code ${buildResult.exitCode} after ${buildResult.duration}s`);
-      }
-
-      // Log build output for debugging
-      const buildLogDir = path.join(this.getReviewDir(projectDir), "build-logs");
-      ensureDir(buildLogDir);
-      fs.writeFileSync(
-        path.join(buildLogDir, `${phase}-build.log`),
-        `Exit code: ${buildResult.exitCode}\nDuration: ${buildResult.duration}s\nPrompt length: ${prompt.length}\n\n--- OUTPUT ---\n${buildResult.output.slice(0, 20000)}`
-      );
-
-      // 6c. Collect built paths
-      const builtPaths = items.map(item =>
-        item.sourcePath || (this.wf.guessPaths ? this.wf.guessPaths(phase, item) : "")
-      );
-
-      // 6d. Measure
-      let measurements = {};
-      if (!skipMeasure && this.wf.measure) {
-        measurements = this.wf.measure(projectDir, phase, items, { devPort, reviewPort }) || {};
-      }
-
-      // 6d.5. Automated AI review loop (Term 2 equivalent)
-      // Spawns an independent reviewer Claude that compares built output against contracts.
-      // If issues found → spawn fixer Claude → re-measure → re-review until clean.
-      const maxAutoReviewCycles = this.wf.defaults?.maxAutoReviewCycles || 4;
-      if (this.wf.buildReviewPrompt) {
-        // Clear stale auto-review files from previous runs for this phase
-        const arDir = path.join(this.getReviewDir(projectDir), "auto-review");
-        if (fs.existsSync(arDir)) {
-          for (const f of fs.readdirSync(arDir)) {
-            if (f.startsWith(`${phase}-`)) {
-              try { fs.unlinkSync(path.join(arDir, f)); } catch { /* ignore */ }
+      // Clean previous build output if --clean
+      if (opts.clean && this.wf.guessPaths) {
+        const cleaned = [];
+        for (const item of items) {
+          const guessed = this.wf.guessPaths(phase, item);
+          const paths = Array.isArray(guessed) ? guessed : [guessed];
+          for (const p of paths) {
+            const full = path.join(projectDir, p);
+            if (fs.existsSync(full)) {
+              fs.unlinkSync(full);
+              cleaned.push(p);
             }
           }
         }
+        if (cleaned.length > 0) {
+          info(`--clean: removed ${cleaned.length} existing file(s) for ${phase}`);
+        }
+      }
 
-        let autoReviewCycle = 0;
-        let autoReviewClean = false;
+      // Clear stale auto-review files from previous runs
+      const arDir = path.join(this.getReviewDir(projectDir), "auto-review");
+      if (fs.existsSync(arDir)) {
+        for (const f of fs.readdirSync(arDir)) {
+          if (f.startsWith(`${phase}-`)) {
+            try { fs.unlinkSync(path.join(arDir, f)); } catch { /* ignore */ }
+          }
+        }
+      }
 
-        while (autoReviewCycle < maxAutoReviewCycles && !autoReviewClean) {
-          autoReviewCycle++;
-          heading(`Automated Review — ${phase} (cycle ${autoReviewCycle}/${maxAutoReviewCycles})`);
+      const buildLogDir = path.join(this.getReviewDir(projectDir), "build-logs");
+      ensureDir(buildLogDir);
+      const maxAutoReviewCycles = this.wf.defaults?.maxAutoReviewCycles || 4;
+      const perItemTimeout = this.wf.defaults?.perItemTimeout || 120_000;
+      let builtPaths = [];
+      let measurements = {};
 
-          // Spawn reviewer Claude — independent, no builder context
-          const reviewPrompt = this.wf.buildReviewPrompt(phase, items, measurements, projectDir, { devPort, reviewPort });
-          log(`\n${CYAN}  ⚙${RESET} Spawning reviewer Claude for ${phase}...`);
-          const reviewTimeout = this.wf.defaults?.reviewTimeout || 300_000;
-          const reviewResult = this.spawnClaude(projectDir, reviewPrompt, reviewTimeout);
+      // ── Per-item pipeline: build ONE → review ONE → fix if needed ──
+      // Preferred when workflow provides single-item prompts.
+      // Each Claude spawn reads 1 contract + 1 source = tiny context, fast completion.
+      if (this.wf.buildSingleItemPrompt && this.wf.buildSingleItemReviewPrompt) {
+        log(`\n${CYAN}  ⚙${RESET} Building and reviewing ${items.length} ${phase} one at a time...`);
 
-          // Parse reviewer output for issues
-          let issues;
+        for (let idx = 0; idx < items.length; idx++) {
+          const item = items[idx];
+          heading(`  [${idx + 1}/${items.length}] ${item.componentName}`);
 
-          // Treat reviewer failure as a failed review, not a pass:
-          // - crash: non-zero exit + very short duration (< 10s)
-          // - timeout/kill: exit codes 143 (SIGTERM) or 137 (SIGKILL)
-          // - empty output with non-zero exit: reviewer produced nothing useful
-          const isCrash = reviewResult.exitCode !== 0 && reviewResult.duration < 10;
-          const isKilled = [143, 137].includes(reviewResult.exitCode);
-          const isEmptyFail = reviewResult.exitCode !== 0 && !reviewResult.output.trim();
+          // Build one item
+          const buildPrompt = this.wf.buildSingleItemPrompt(phase, item, prevResults, projectDir);
+          dim(`  Building...`);
+          const buildResult = this.spawnClaude(projectDir, buildPrompt, perItemTimeout, { label: `${phase}-build-${item.id}` });
 
-          if (isCrash || isKilled || isEmptyFail) {
-            const reason = isCrash ? "crashed" : isKilled ? "killed/timed out" : "failed with no output";
-            warn(`Reviewer ${reason} (code ${reviewResult.exitCode}, ${reviewResult.duration}s) — treating as review failure, will retry`);
-            issues = [{ component: "ALL", severity: "critical", description: `Reviewer ${reason} with exit code ${reviewResult.exitCode} — review not performed` }];
+          if (buildResult.exitCode === 0) {
+            success(`  Built (${buildResult.duration}s)`);
           } else {
-            issues = this.wf.parseReviewResult
-              ? this.wf.parseReviewResult(reviewResult.output, phase)
-              : this._parseDefaultReviewResult(reviewResult.output);
+            warn(`  Build exited with code ${buildResult.exitCode} (${buildResult.duration}s)`);
+          }
 
-            if (reviewResult.exitCode === 0) {
-              success(`Reviewer finished in ${reviewResult.duration}s`);
+          fs.writeFileSync(
+            path.join(buildLogDir, `${phase}-build-${item.id}.log`),
+            `Exit code: ${buildResult.exitCode}\nDuration: ${buildResult.duration}s\n\n--- OUTPUT ---\n${buildResult.output.slice(0, 5000)}`
+          );
+
+          // Review one item (up to maxAutoReviewCycles)
+          let itemClean = false;
+          for (let cycle = 1; cycle <= maxAutoReviewCycles && !itemClean; cycle++) {
+            dim(`  Review cycle ${cycle}/${maxAutoReviewCycles}...`);
+            const reviewPrompt = this.wf.buildSingleItemReviewPrompt(phase, item, {}, projectDir, { devPort, reviewPort });
+            const reviewResult = this.spawnClaude(projectDir, reviewPrompt, perItemTimeout, { label: `${phase}-review-${item.id}-c${cycle}` });
+
+            const isCrash = reviewResult.exitCode !== 0 && reviewResult.duration < 10;
+            const isKilled = [143, 137].includes(reviewResult.exitCode);
+            const isEmptyFail = reviewResult.exitCode !== 0 && !reviewResult.output.trim();
+
+            let itemIssues = [];
+            if (isCrash || isKilled || isEmptyFail) {
+              const reason = isCrash ? "crashed" : isKilled ? "killed/timed out" : "failed with no output";
+              warn(`  Reviewer ${reason} (${reviewResult.duration}s)`);
+              itemIssues = [{ component: item.componentName, severity: "critical", description: `Reviewer ${reason}` }];
             } else {
-              warn(`Reviewer exited with code ${reviewResult.exitCode} after ${reviewResult.duration}s`);
+              itemIssues = this.wf.parseReviewResult
+                ? this.wf.parseReviewResult(reviewResult.output, phase)
+                : this._parseDefaultReviewResult(reviewResult.output);
+            }
+
+            if (itemIssues.length === 0) {
+              itemClean = true;
+              success(`  Clean (${reviewResult.duration}s)`);
+            } else {
+              warn(`  ${itemIssues.length} issue(s) found`);
+              for (const issue of itemIssues) {
+                dim(`    ${issue.description || issue.reason || "issue"} [${issue.severity || "medium"}]`);
+              }
+
+              if (cycle < maxAutoReviewCycles) {
+                // Fix this one item
+                const fixPrompt = this.wf.buildAutoFixPrompt
+                  ? this.wf.buildAutoFixPrompt(phase, itemIssues, [item], projectDir)
+                  : this._defaultAutoFixPrompt(phase, itemIssues);
+                dim(`  Fixing...`);
+                const fixResult = this.spawnClaude(projectDir, fixPrompt, perItemTimeout, { label: `${phase}-fix-${item.id}-c${cycle}` });
+                if (fixResult.exitCode === 0) success(`  Fixed (${fixResult.duration}s)`);
+                else warn(`  Fix exited with code ${fixResult.exitCode}`);
+              }
             }
           }
 
-          // Write review report
-          const reportDir = path.join(this.getReviewDir(projectDir), "auto-review");
-          ensureDir(reportDir);
-          fs.writeFileSync(
-            path.join(reportDir, `${phase}-cycle-${autoReviewCycle}.json`),
-            JSON.stringify({ cycle: autoReviewCycle, issues, exitCode: reviewResult.exitCode, duration: reviewResult.duration, output: reviewResult.output.slice(0, 5000) }, null, 2)
-          );
+          builtPaths.push(item.sourcePath || (this.wf.guessPaths ? this.wf.guessPaths(phase, item) : ""));
+        }
 
-          if (issues.length === 0) {
-            autoReviewClean = true;
-            success(`Automated review passed — no issues found in ${phase}`);
-          } else {
-            warn(`Automated review found ${issues.length} issue(s) in ${phase}`);
-            for (const issue of issues) {
-              dim(`${issue.component || "?"}: ${issue.description || issue.reason || "issue"} [${issue.severity || "medium"}]`);
+        // Measure ALL at once (one Playwright run after all items built)
+        if (!skipMeasure && this.wf.measure) {
+          heading("Measuring all built components");
+          measurements = this.wf.measure(projectDir, phase, items, { devPort, reviewPort }) || {};
+        }
+
+      } else {
+        // ── Legacy pipeline: build ALL → measure ALL → review loop ──
+        const prompt = this.wf.buildPrompt(phase, items, prevResults, projectDir);
+        log(`\n${CYAN}  ⚙${RESET} Spawning Claude to build ${items.length} ${phase}...`);
+        dim(`Timeout: ${(opts.timeout || 600_000) / 1000}s`);
+
+        const buildResult = this.spawnClaude(projectDir, prompt, opts.timeout, { label: `${phase}-build` });
+        if (buildResult.exitCode === 0) {
+          success(`Claude finished building ${phase} in ${buildResult.duration}s`);
+        } else {
+          warn(`Claude exited with code ${buildResult.exitCode} after ${buildResult.duration}s`);
+        }
+
+        fs.writeFileSync(
+          path.join(buildLogDir, `${phase}-build.log`),
+          `Exit code: ${buildResult.exitCode}\nDuration: ${buildResult.duration}s\nPrompt length: ${prompt.length}\n\n--- OUTPUT ---\n${buildResult.output.slice(0, 20000)}`
+        );
+
+        builtPaths = items.map(item =>
+          item.sourcePath || (this.wf.guessPaths ? this.wf.guessPaths(phase, item) : "")
+        );
+
+        // Measure
+        if (!skipMeasure && this.wf.measure) {
+          measurements = this.wf.measure(projectDir, phase, items, { devPort, reviewPort }) || {};
+        }
+
+        // Auto-review loop (legacy all-at-once)
+        if (this.wf.buildReviewPrompt || this.wf.buildSingleItemReviewPrompt) {
+          let autoReviewCycle = 0;
+          let autoReviewClean = false;
+
+          while (autoReviewCycle < maxAutoReviewCycles && !autoReviewClean) {
+            autoReviewCycle++;
+            heading(`Automated Review — ${phase} (cycle ${autoReviewCycle}/${maxAutoReviewCycles})`);
+
+            const reviewTimeout = this.wf.defaults?.reviewTimeout || 300_000;
+            let issues = [];
+
+            if (this.wf.buildSingleItemReviewPrompt) {
+              // Per-item review even in legacy build mode
+              log(`\n${CYAN}  ⚙${RESET} Reviewing ${items.length} ${phase} one at a time...`);
+              let totalDuration = 0;
+
+              for (let idx = 0; idx < items.length; idx++) {
+                const item = items[idx];
+                const itemMeasurements = { [item.id]: measurements[item.id] || [] };
+                const reviewPrompt = this.wf.buildSingleItemReviewPrompt(phase, item, itemMeasurements, projectDir, { devPort, reviewPort });
+
+                dim(`  [${idx + 1}/${items.length}] ${item.componentName}...`);
+                const reviewResult = this.spawnClaude(projectDir, reviewPrompt, Math.min(reviewTimeout, perItemTimeout), { label: `${phase}-review-c${autoReviewCycle}-${item.id}` });
+                totalDuration += reviewResult.duration;
+
+                const isCrash = reviewResult.exitCode !== 0 && reviewResult.duration < 10;
+                const isKilled = [143, 137].includes(reviewResult.exitCode);
+                const isEmptyFail = reviewResult.exitCode !== 0 && !reviewResult.output.trim();
+
+                if (isCrash || isKilled || isEmptyFail) {
+                  const reason = isCrash ? "crashed" : isKilled ? "killed/timed out" : "failed with no output";
+                  warn(`  ${item.componentName}: reviewer ${reason} (${reviewResult.duration}s)`);
+                  issues.push({ component: item.componentName, severity: "critical", description: `Reviewer ${reason} — review not performed` });
+                } else {
+                  const itemIssues = this.wf.parseReviewResult
+                    ? this.wf.parseReviewResult(reviewResult.output, phase)
+                    : this._parseDefaultReviewResult(reviewResult.output);
+
+                  if (itemIssues.length > 0) {
+                    warn(`  ${item.componentName}: ${itemIssues.length} issue(s) (${reviewResult.duration}s)`);
+                    issues.push(...itemIssues);
+                  } else {
+                    success(`  ${item.componentName}: clean (${reviewResult.duration}s)`);
+                  }
+                }
+              }
+              log(`\n  Total review time: ${totalDuration}s for ${items.length} items`);
+
+            } else {
+              // All-at-once review
+              const reviewPrompt = this.wf.buildReviewPrompt(phase, items, measurements, projectDir, { devPort, reviewPort });
+              log(`\n${CYAN}  ⚙${RESET} Spawning reviewer Claude for all ${phase}...`);
+              const reviewTimeout2 = this.wf.defaults?.reviewTimeout || 300_000;
+              const reviewResult = this.spawnClaude(projectDir, reviewPrompt, reviewTimeout2, { label: `${phase}-review-cycle${autoReviewCycle}` });
+
+              const isCrash = reviewResult.exitCode !== 0 && reviewResult.duration < 10;
+              const isKilled = [143, 137].includes(reviewResult.exitCode);
+              const isEmptyFail = reviewResult.exitCode !== 0 && !reviewResult.output.trim();
+
+              if (isCrash || isKilled || isEmptyFail) {
+                const reason = isCrash ? "crashed" : isKilled ? "killed/timed out" : "failed with no output";
+                warn(`Reviewer ${reason} (code ${reviewResult.exitCode}, ${reviewResult.duration}s)`);
+                issues = [{ component: "ALL", severity: "critical", description: `Reviewer ${reason} with exit code ${reviewResult.exitCode}` }];
+              } else {
+                issues = this.wf.parseReviewResult
+                  ? this.wf.parseReviewResult(reviewResult.output, phase)
+                  : this._parseDefaultReviewResult(reviewResult.output);
+                if (reviewResult.exitCode === 0) success(`Reviewer finished in ${reviewResult.duration}s`);
+                else warn(`Reviewer exited with code ${reviewResult.exitCode} after ${reviewResult.duration}s`);
+              }
             }
 
-            if (autoReviewCycle < maxAutoReviewCycles) {
-              // Spawn fixer Claude with the issues
-              const fixPrompt = this.wf.buildAutoFixPrompt
-                ? this.wf.buildAutoFixPrompt(phase, issues, items, projectDir)
-                : this._defaultAutoFixPrompt(phase, issues);
+            // Write review report
+            const reportDir = path.join(this.getReviewDir(projectDir), "auto-review");
+            ensureDir(reportDir);
+            fs.writeFileSync(
+              path.join(reportDir, `${phase}-cycle-${autoReviewCycle}.json`),
+              JSON.stringify({ cycle: autoReviewCycle, issues, itemCount: items.length }, null, 2)
+            );
 
-              log(`\n${CYAN}  ⚙${RESET} Spawning fixer Claude for ${issues.length} issue(s)...`);
-              const fixResult = this.spawnClaude(projectDir, fixPrompt, opts.timeout || 600_000);
-              if (fixResult.exitCode === 0) success(`Fixer finished in ${fixResult.duration}s`);
-              else warn(`Fixer exited with code ${fixResult.exitCode}`);
-
-              // Re-measure after fixes
-              if (!skipMeasure && this.wf.measure) {
-                measurements = this.wf.measure(projectDir, phase, items, { devPort, reviewPort }) || {};
-              }
+            if (issues.length === 0) {
+              autoReviewClean = true;
+              success(`Automated review passed — no issues found in ${phase}`);
             } else {
-              warn(`Max auto-review cycles reached — ${issues.length} issue(s) will go to human review`);
-              // Attach unresolved issues to measurements for human visibility
-              const issueFile = path.join(this.getReviewDir(projectDir), "auto-review", `${phase}-unresolved.json`);
-              fs.writeFileSync(issueFile, JSON.stringify(issues, null, 2));
+              warn(`Automated review found ${issues.length} issue(s) in ${phase}`);
+              for (const issue of issues) {
+                dim(`${issue.component || "?"}: ${issue.description || issue.reason || "issue"} [${issue.severity || "medium"}]`);
+              }
+
+              if (autoReviewCycle < maxAutoReviewCycles) {
+                const fixPrompt = this.wf.buildAutoFixPrompt
+                  ? this.wf.buildAutoFixPrompt(phase, issues, items, projectDir)
+                  : this._defaultAutoFixPrompt(phase, issues);
+
+                log(`\n${CYAN}  ⚙${RESET} Spawning fixer Claude for ${issues.length} issue(s)...`);
+                const fixResult = this.spawnClaude(projectDir, fixPrompt, opts.timeout || 600_000, { label: `${phase}-fix-cycle${autoReviewCycle}` });
+                if (fixResult.exitCode === 0) success(`Fixer finished in ${fixResult.duration}s`);
+                else warn(`Fixer exited with code ${fixResult.exitCode}`);
+
+                if (!skipMeasure && this.wf.measure) {
+                  measurements = this.wf.measure(projectDir, phase, items, { devPort, reviewPort }) || {};
+                }
+              } else {
+                warn(`Max auto-review cycles reached — ${issues.length} issue(s) will go to human review`);
+                const issueFile = path.join(this.getReviewDir(projectDir), "auto-review", `${phase}-unresolved.json`);
+                fs.writeFileSync(issueFile, JSON.stringify(issues, null, 2));
+              }
             }
           }
         }
@@ -728,7 +932,7 @@ ${BOLD}Phases:${RESET} ${this.wf.phases.join(" → ")}
               ? this.wf.buildFixPrompt(phase, feedback.needsWork)
               : this._defaultFixPrompt(phase, feedback.needsWork);
             info(`Spawning Claude to apply ${feedback.needsWork.length} fixes...`);
-            const fixResult = this.spawnClaude(projectDir, fixPrompt, opts.timeout || 600_000);
+            const fixResult = this.spawnClaude(projectDir, fixPrompt, opts.timeout || 600_000, { label: `${phase}-human-fix` });
             if (fixResult.exitCode === 0) success("Fixes applied");
             else warn(`Fix attempt returned code ${fixResult.exitCode}`);
           } else {

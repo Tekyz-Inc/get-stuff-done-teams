@@ -134,6 +134,39 @@ ${importInstructions}
 This is a FINITE task. Build the ${items.length} ${phase} listed above, then EXIT.`;
 }
 
+function buildSingleItemPrompt(phase, item, prevResults, projectDir) {
+  const singular = PHASE_SINGULAR[phase];
+  const sourcePath = item.sourcePath || guessPaths(phase, item);
+
+  const prevPaths = [];
+  for (const [, result] of Object.entries(prevResults)) {
+    if (result.builtPaths) prevPaths.push(...result.builtPaths);
+  }
+
+  const importInstructions = prevPaths.length > 0
+    ? `\n## Imports from Previous Tier\nImport these already-built components — do NOT rebuild their functionality inline:\n${prevPaths.map(p => `- ${p}`).join("\n")}\n`
+    : "";
+
+  return `You are building ONE ${singular} component for a Vue 3 + TypeScript project.
+
+## Task
+Build this component from its design contract. Read the contract for exact visual specs — do NOT approximate values.
+
+## Component
+- **${item.componentName}**
+- Contract: ${item.fullContractPath}
+- Write to: ${sourcePath}
+${importInstructions}
+## Rules
+- Read the contract file for exact property values
+- Write the component to the specified source path
+- Follow the project's existing code conventions (check existing files in src/)
+- Use the project's existing dependencies (check package.json)
+- When the component is complete, STOP. Do not start a dev server or build other components.
+
+This is a FINITE task. Build this ONE ${singular}, then EXIT.`;
+}
+
 // ─── Measurement ────────────────────────────────────────────────────────────
 
 function hasPlaywright(projectDir) {
@@ -332,16 +365,16 @@ ${componentList}
 ${measurementContext}
 ## Review Process
 
-For EACH component:
-1. Read the design contract file (path given above) — note every specified property value
-2. Read the source file — check that specified values are implemented correctly
-3. Use Playwright to render the component at http://localhost:${ports.reviewPort}/ and measure:
-   - Does the component render and have correct dimensions?
-   - Do colors, fonts, spacing, border-radius match the contract?
-   - For charts: correct chart type, orientation, axis labels, legend position, data format?
-   - For layouts: correct grid columns, gap, padding, child count and arrangement?
-   - For interactive elements: correct states, hover effects, click behavior?
-4. Compare contract values against actual rendered values — be SPECIFIC (exact px, hex, counts)
+**Step 1 — Code review (do this FIRST for ALL components):**
+For each component, read the design contract file and the source file. Check that every contract-specified value (colors, sizes, spacing, border-radius, font, layout, chart type, etc.) is correctly implemented in the code. This is your primary review — most issues are catchable from code alone.
+
+**Step 2 — Playwright spot-check (do this AFTER code review):**
+Use Playwright to render components at http://localhost:${ports.reviewPort}/ and verify:
+- Components render without errors and have correct dimensions
+- Chart types, orientations, and data structures are correct
+- Interactive elements respond correctly (hover, click, states)
+
+Focus Playwright on components where code review raised concerns or where visual behavior can't be verified from code alone (e.g., SVG rendering, computed layouts). You do NOT need to re-measure every CSS property — the orchestrator already ran Playwright measurements above.
 
 ## Output Format
 
@@ -359,12 +392,56 @@ If ALL components match their contracts, output:
 []
 [/REVIEW_ISSUES]
 
-## Rules
+## CRITICAL — Output Rules
+- Output MUST contain the [REVIEW_ISSUES] markers — the orchestrator parses your result from these markers. Without them, your review is lost.
 - You write ZERO code. You ONLY review.
 - Be HARSH. Your value is in catching what the builder missed.
 - NEVER say "looks close" or "appears to match" — give SPECIFIC values.
 - Every contract property must be verified. Missing verification = missed issue.
 - Severity guide: critical = wrong component type, missing element, broken render. high = wrong dimensions, colors, layout. medium = spacing/padding off. low = minor visual difference.`;
+}
+
+function buildSingleItemReviewPrompt(phase, item, measurements, projectDir, ports) {
+  const sourcePath = item.sourcePath || guessPaths(phase, item);
+
+  // Include measurement failures for this item
+  const m = measurements[item.id] || [];
+  const failures = m.filter(x => !x.pass);
+  const measurementContext = failures.length > 0
+    ? `\n## Measurement Failures\nPlaywright detected: ${failures.map(f => `${f.property}: expected ${f.expected}, got ${f.actual}`).join("; ")}\n`
+    : "";
+
+  return `You are an INDEPENDENT design reviewer. Review this ONE component against its design contract.
+
+## Component
+- **${item.componentName}**
+- Contract: ${item.fullContractPath}
+- Source: ${sourcePath}
+- Selector: \`${item.selector || "." + item.id}\`
+${measurementContext}
+## Review Process
+
+1. Read the design contract file — note every specified property value
+2. Read the source file — check that every contract-specified value is implemented correctly
+3. If needed, use Playwright to render at http://localhost:${ports.reviewPort}/ and verify visual behavior
+
+## Output Format
+
+[REVIEW_ISSUES]
+[
+  {"component": "${item.componentName}", "severity": "high", "description": "Contract specifies X, code has Y"}
+]
+[/REVIEW_ISSUES]
+
+If the component matches its contract, output:
+[REVIEW_ISSUES]
+[]
+[/REVIEW_ISSUES]
+
+## Rules
+- You write ZERO code. You ONLY review.
+- Be HARSH — specific values only, no "looks close."
+- Output MUST contain [REVIEW_ISSUES] markers.`;
 }
 
 function buildAutoFixPrompt(phase, issues, items, projectDir) {
@@ -439,13 +516,16 @@ const designBuildWorkflow = {
     devServerTimeout: 30_000,
     maxReviewCycles: 3,
     maxAutoReviewCycles: 4,
-    reviewTimeout: 300_000,
+    reviewTimeout: 600_000,
+    perItemTimeout: 120_000,
   },
   completionMessage: "All done. Run your app to verify: npm run dev",
 
   discoverWork,
   buildPrompt,
   buildReviewPrompt,
+  buildSingleItemPrompt,
+  buildSingleItemReviewPrompt,
   buildAutoFixPrompt,
   measure,
   buildQueueItem,
