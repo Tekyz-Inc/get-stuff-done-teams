@@ -2,6 +2,17 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.71.12] - 2026-04-08
+
+### Changed (smart router — design-to-code pipeline)
+- **Pipeline Routing** — Smart router now treats design-to-code requests as a multi-step pipeline (clean → decompose → build) instead of picking a single command. When a user says "rebuild from this Figma" or "start from scratch with this design," the router evaluates pipeline entry point based on current state and auto-advances through subsequent steps.
+- **Entry Point Detection** — "start over" / "from scratch" / "clean slate" enters at clean step (removes UI assets, then decompose, then build). Missing design contracts enters at decompose. Existing contracts enters at build.
+- **Inline Cleanup** — Clean step removes UI component files while preserving non-UI files (API, stores, router config, project scaffold). No separate `quick` command needed.
+- **Design Command Slugs** — Added `design-decompose`, `design-build`, `design-audit`, `design-review` to valid router command slugs.
+
+### Why
+User gave the router a single prompt asking to delete old assets and rebuild from a Figma design. The router could only pick one command, so it had to choose between `quick` (cleanup) and `design-decompose` (contracts). The natural workflow is a pipeline that the router should execute end-to-end.
+
 ## [2.71.11] - 2026-04-08
 
 ### Fixed (design-build — review gates and measurement)

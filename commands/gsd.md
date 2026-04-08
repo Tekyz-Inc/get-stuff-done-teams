@@ -59,14 +59,46 @@ When the same request could fit multiple commands at different scales:
 
 ### Design-to-code routing:
 
-When the request involves UI implementation from a design (Figma, screenshots, mockups, "pixel-perfect", "match the design", "rebuild the frontend"):
-- **NEVER route to `quick`** — design-to-code requires the full workflow with design contract, token extraction, and visual verification
+When the request involves UI implementation from a design (Figma URL, screenshots, mockups, "pixel-perfect", "match the design", "rebuild the frontend", "build from this Figma"):
+
+**This is a PIPELINE, not a single command.** The router must evaluate where the user is in the pipeline and execute from that point forward, auto-advancing through subsequent steps.
+
+**Pipeline order:**
+1. **Clean** (if requested) — remove existing UI assets via inline cleanup (not a separate `quick` command)
+2. **Decompose** — `design-decompose` to extract element → widget → page contracts from the Figma design
+3. **Build** — `design-build` to implement from contracts with review gates
+
+**Pipeline entry logic — evaluate these in order, enter at the first that applies:**
+
+| Condition | Entry point | Steps executed |
+|-----------|-------------|----------------|
+| User says "start over", "from scratch", "rebuild", "remove existing", "clean slate" | **Clean → Decompose → Build** | Remove existing UI assets in `src/components/`, `src/views/`, and related style files. Then run `design-decompose` with the Figma URL. Then run `design-build`. |
+| No design contracts exist (`.gsd-t/contracts/design/` missing or empty) | **Decompose → Build** | Run `design-decompose` with the Figma URL. Then run `design-build`. |
+| Design contracts exist but UI not yet built (contracts present, source files missing) | **Build** | Run `design-build` directly. |
+| Design contracts AND source files exist | **Build** | Run `design-build` (will measure existing components against contracts). |
+
+**How to execute the pipeline:**
+
+Route to the entry point command. At the end of that command, **auto-advance to the next pipeline step** — do not stop and ask the user. Display:
+```
+→ Design pipeline: {step 1} ✓ → {step 2} (starting) → {step 3} (pending)
+```
+
+**Clean step** (inline, not a separate command):
+When cleanup is needed, do it at the start of `design-decompose` before reading the Figma:
+- Remove UI component files (`src/components/`, `src/views/`, or equivalent)
+- Remove associated style files and test files for those components
+- Keep non-UI files (API services, stores, types, utilities, router config)
+- Keep the project scaffold (App.vue/tsx, main.ts, index.html)
+- `git add -A && git commit -m "chore: clean UI assets for design rebuild"`
+
+**NEVER route design-to-code requests to `quick`** — design-to-code requires the full pipeline with contracts, measurement, and review gates.
+
+**Fallback for non-pipeline design routing** (when the request is about an existing milestone/wave, not a fresh design build):
 - **If no active milestone exists** → route to `wave` (creates milestone → partition with design contract → plan → execute with visual verification)
 - **If a milestone exists but no domains** → route to `partition` (creates design contract in Step 3.6)
 - **If domains exist but no tasks** → route to `plan`
 - **If tasks exist** → route to `execute` (design-to-code stack rule will inject)
-- The design-to-code stack rule activates automatically when `.gsd-t/contracts/design-contract.md` OR `.gsd-t/contracts/design/` exists, or Figma MCP is configured — but the **partition step must run first** to create the design contract
-- **For projects with multiple pages or reusable components** (charts, widgets, design system): route to `design-decompose` BEFORE partition to create the hierarchical contract tree (elements → widgets → pages). Single-page/one-off designs can use flat `design-contract.md` created during partition instead.
 
 ## Step 3: Confirm and Execute
 
@@ -76,6 +108,13 @@ When the request involves UI implementation from a design (Figma, screenshots, m
 ```
 → Routing to /user:gsd-t-{command}: {brief reason}
 ```
+
+### Design pipeline (from design-to-code routing):
+```
+→ Design pipeline: clean → decompose → build
+  Starting: /user:gsd-t-design-decompose
+```
+Use this format when the router detects a design-to-code pipeline. Show the full pipeline with the current step highlighted. Auto-advance between steps without returning to the router.
 
 ### Continuation (from Step 2a):
 ```
@@ -102,7 +141,7 @@ Where `{last-command}` is:
 
 **CRITICAL: `{command}` and `{last-command}` MUST be a real GSD-T command slug — never a free-form description.**
 
-Valid command slugs: `quick`, `debug`, `feature`, `execute`, `milestone`, `project`, `scan`, `gap-analysis`, `plan`, `partition`, `discuss`, `impact`, `integrate`, `verify`, `test-sync`, `complete-milestone`, `wave`, `status`, `populate`, `setup`, `init`, `health`, `log`, `pause`, `resume`, `prd`, `brainstorm`, `prompt`, `backlog-add`, `backlog-list`, `backlog-promote`, `promote-debt`, `triage-and-merge`, `version-update`, `version-update-all`
+Valid command slugs: `quick`, `debug`, `feature`, `execute`, `milestone`, `project`, `scan`, `gap-analysis`, `plan`, `partition`, `discuss`, `impact`, `integrate`, `verify`, `test-sync`, `complete-milestone`, `wave`, `status`, `populate`, `setup`, `init`, `health`, `log`, `pause`, `resume`, `prd`, `brainstorm`, `prompt`, `backlog-add`, `backlog-list`, `backlog-promote`, `promote-debt`, `triage-and-merge`, `version-update`, `version-update-all`, `design-decompose`, `design-build`, `design-audit`, `design-review`
 
 **WRONG ❌** — do not do this:
 ```
