@@ -485,6 +485,9 @@ ${BOLD}Options:${RESET}
   --review-port <N> Review server port (default: 3456)
   --timeout <sec>   Claude timeout per tier in seconds (default: 600)
   --skip-measure    Skip Playwright measurement (human-review only)
+  --clean           Clear all stale artifacts before starting
+  --verbose, -v     Show Claude's tool calls and prompts in terminal
+  --parallel <N>    Run N items concurrently (default: 1 = sequential)
   --help            Show this help
 
 ${BOLD}Pipeline:${RESET}
@@ -542,12 +545,12 @@ const designBuildWorkflow = {
 
 // ─── Entry Point ────────────────────────────────────────────────────────────
 
-function run(args) {
-  new Orchestrator(designBuildWorkflow).run(args || []);
+async function run(args) {
+  await new Orchestrator(designBuildWorkflow).run(args || []);
 }
 
 if (require.main === module) {
-  run(process.argv.slice(2));
+  run(process.argv.slice(2)).catch(e => { console.error(e); process.exit(1); });
 }
 
 module.exports = { run, workflow: designBuildWorkflow };

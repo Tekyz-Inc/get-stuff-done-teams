@@ -3,7 +3,7 @@
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: IN PROGRESS
 ## Date: 2026-04-01
-## Version: 2.72.10
+## Version: 2.73.10
 
 ## Active Milestone
 
@@ -388,6 +388,7 @@ Wave 4: adaptive-replan (consumes fresh-dispatch summaries, integrates with work
 
 ## Decision Log
 (Entries before 2026-02-16 reconstructed from git history with timestamps)
+- 2026-04-08 23:00: [feat] Parallel per-item pipeline — async spawnClaudeAsync() + _runWithConcurrency() enable N concurrent build+review items via --parallel N flag. Callers updated for async run(). (v2.73.10)
 - 2026-04-08 21:50: [feat] Per-item build+review pipeline — each component built and reviewed individually instead of all-at-once. Fixes reviewer timeout (30+ files in context). Added stream-json output for partial capture on timeout, --verbose for debugging, --clean for fresh builds, version display. Reviewer timeout 300s→600s, per-item 120s. (v2.72.10)
 - 2026-04-08 20:45: [fix] Expanded reviewer failure detection — timeout (exit 143/137) and empty-output failures now caught. Added review server health check with auto-restart during human review gate. Clear stale auto-review files per phase. (v2.71.21)
 - 2026-04-08 15:30: [fix] Added --dangerously-skip-permissions to Claude spawns in orchestrator — builder/reviewer/fixer couldn't write files in -p mode. Increased fixer timeout from 2min to 10min (was getting SIGTERM'd). (v2.71.18)

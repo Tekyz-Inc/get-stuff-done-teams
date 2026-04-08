@@ -2,6 +2,15 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.73.10] - 2026-04-08
+
+### Added (orchestrator — parallel execution)
+- **`--parallel N` flag** — runs N build+review items concurrently via async `spawnClaudeAsync()` and `_runWithConcurrency()`. Default: 1 (sequential). Recommended: 3. Reduces 15-element pipeline from ~30min to ~10min at 3x parallelism.
+- **`--clean` artifact cleanup expanded** — now clears `auto-review/`, `build-logs/`, `queue/`, `feedback/`, `review-complete.json`, `orchestrator-state.json` on fresh start (not just build output).
+
+### Changed
+- **Orchestrator `run()` is now async** — callers (`bin/gsd-t.js`, `bin/design-orchestrator.js`) updated with `.catch()` for proper error handling.
+
 ## [2.72.10] - 2026-04-08
 
 ### Added (orchestrator — per-item pipeline, stream-json, verbose, clean)

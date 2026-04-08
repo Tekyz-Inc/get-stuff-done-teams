@@ -2699,7 +2699,7 @@ if (require.main === module) {
       break;
     case "design-build": {
       const orchestrator = require("./design-orchestrator.js");
-      orchestrator.run(args.slice(1));
+      orchestrator.run(args.slice(1)).catch(e => { console.error(e); process.exit(1); });
       break;
     }
     case "scan": {

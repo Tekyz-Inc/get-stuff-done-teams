@@ -25,7 +25,7 @@
 
 const fs = require("fs");
 const path = require("path");
-const { execFileSync, spawn: cpSpawn } = require("child_process");
+const { execFileSync, execFile, spawn: cpSpawn } = require("child_process");
 
 // ─── ANSI Colors ────────────────────────────────────────────────────────────
 
@@ -136,6 +136,7 @@ class Orchestrator {
         case "--skip-measure": opts.skipMeasure = true; break;
         case "--clean": opts.clean = true; break;
         case "--verbose": case "-v": opts.verbose = true; break;
+        case "--parallel": opts.parallel = parseInt(argv[++i], 10) || 3; break;
         case "--help":
         case "-h":
           if (this.wf.showUsage) this.wf.showUsage();
@@ -162,7 +163,8 @@ ${BOLD}Options:${RESET}
   --review-port <N>     Review server port (default: ${this.wf.defaults?.reviewPort || 3456})
   --timeout <sec>       Claude timeout per phase in seconds (default: 600)
   --skip-measure        Skip automated measurement (human-review only)
-  --clean               Delete previous build output before building each phase
+  --clean               Clear all artifacts from previous runs + delete build output
+  --parallel <N>        Run N items concurrently (default: 1, recommended: 3)
   --verbose, -v         Show Claude's tool calls and prompts in terminal
   --help                Show this help
 
@@ -236,6 +238,71 @@ ${BOLD}Phases:${RESET} ${this.wf.phases.join(" → ")}
   }
 
   // ─── Server Management ───────────────────────────────────────────────
+
+  /**
+   * Async Claude spawn — returns a Promise. Used for parallel execution.
+   */
+  spawnClaudeAsync(projectDir, prompt, timeout, opts = {}) {
+    const start = Date.now();
+    const verbose = this._verbose;
+
+    const args = ["-p", "--dangerously-skip-permissions", "--output-format", "stream-json"];
+    if (verbose) args.push("--verbose");
+    args.push(prompt);
+
+    if (verbose && opts.label) {
+      const logDir = path.join(this.getReviewDir(projectDir), "build-logs");
+      ensureDir(logDir);
+      fs.writeFileSync(
+        path.join(logDir, `${opts.label}-prompt.txt`),
+        `--- Prompt (${new Date().toISOString()}) ---\nTimeout: ${(timeout || 120_000) / 1000}s\nCWD: ${projectDir}\n\n${prompt}`
+      );
+    }
+
+    return new Promise((resolve) => {
+      const child = execFile("claude", args, {
+        encoding: "utf8",
+        timeout: timeout || 120_000,
+        cwd: projectDir,
+        maxBuffer: 10 * 1024 * 1024,
+      }, (err, stdout, stderr) => {
+        const raw = err ? ((err.stdout || "") + (err.stderr || "")) : (stdout || "");
+        const output = this._parseStreamJson(raw, false);
+        const exitCode = err ? (err.code === "ERR_CHILD_PROCESS_STDIO_MAXBUFFER" ? 1 : (err.killed ? 143 : (err.code || 1))) : 0;
+        const duration = Math.round((Date.now() - start) / 1000);
+
+        if (verbose) {
+          dim(`  ${opts.label || "claude"}: exit=${exitCode}, ${duration}s, ${output.length} chars`);
+        }
+
+        resolve({ output, exitCode, duration });
+      });
+    });
+  }
+
+  /**
+   * Run tasks with concurrency limit. Returns results in same order as tasks.
+   * @param {Array<Function>} taskFns — array of () => Promise<result>
+   * @param {number} concurrency — max concurrent tasks
+   */
+  async _runWithConcurrency(taskFns, concurrency) {
+    const results = new Array(taskFns.length).fill(null);
+    let nextIdx = 0;
+
+    async function runNext() {
+      while (nextIdx < taskFns.length) {
+        const idx = nextIdx++;
+        results[idx] = await taskFns[idx]();
+      }
+    }
+
+    const workers = [];
+    for (let i = 0; i < Math.min(concurrency, taskFns.length); i++) {
+      workers.push(runNext());
+    }
+    await Promise.all(workers);
+    return results;
+  }
 
   _parseStreamJson(raw, verbose) {
     // stream-json format: one JSON object per line
@@ -554,7 +621,7 @@ ${BOLD}Phases:${RESET} ${this.wf.phases.join(" → ")}
 
   // ─── Main Pipeline ──────────────────────────────────────────────────
 
-  run(argv) {
+  async run(argv) {
     const opts = this.wf.parseArgs
       ? this.wf.parseArgs(argv, this.parseBaseArgs.bind(this))
       : this.parseBaseArgs(argv || []);
@@ -597,6 +664,29 @@ ${BOLD}Phases:${RESET} ${this.wf.phases.join(" → ")}
       }
     } else {
       state = this._createState();
+
+      // Clean all orchestrator artifacts on fresh start (not --resume)
+      if (opts.clean) {
+        const reviewDir = this.getReviewDir(projectDir);
+        const dirsToClean = ["auto-review", "build-logs", "queue", "feedback"];
+        let cleaned = 0;
+        for (const dir of dirsToClean) {
+          const full = path.join(reviewDir, dir);
+          if (fs.existsSync(full)) {
+            for (const f of fs.readdirSync(full)) {
+              try { fs.unlinkSync(path.join(full, f)); cleaned++; } catch { /* ignore */ }
+            }
+          }
+        }
+        // Remove signal and state files
+        for (const f of ["review-complete.json", "orchestrator-state.json", "shutdown.json"]) {
+          const full = path.join(reviewDir, f);
+          if (fs.existsSync(full)) {
+            try { fs.unlinkSync(full); cleaned++; } catch { /* ignore */ }
+          }
+        }
+        if (cleaned > 0) info(`--clean: removed ${cleaned} stale artifact(s)`);
+      }
     }
 
     // 4. Start servers
@@ -691,24 +781,30 @@ ${BOLD}Phases:${RESET} ${this.wf.phases.join(" → ")}
       let measurements = {};
 
       // ── Per-item pipeline: build ONE → review ONE → fix if needed ──
-      // Preferred when workflow provides single-item prompts.
-      // Each Claude spawn reads 1 contract + 1 source = tiny context, fast completion.
+      // Each item is independent: 1 contract + 1 source = tiny context.
+      // With --parallel N, runs N items concurrently.
       if (this.wf.buildSingleItemPrompt && this.wf.buildSingleItemReviewPrompt) {
-        log(`\n${CYAN}  ⚙${RESET} Building and reviewing ${items.length} ${phase} one at a time...`);
+        const concurrency = opts.parallel || 1;
+        if (concurrency > 1) {
+          log(`\n${CYAN}  ⚙${RESET} Building and reviewing ${items.length} ${phase} (${concurrency} parallel)...`);
+        } else {
+          log(`\n${CYAN}  ⚙${RESET} Building and reviewing ${items.length} ${phase} one at a time...`);
+        }
 
-        for (let idx = 0; idx < items.length; idx++) {
-          const item = items[idx];
-          heading(`  [${idx + 1}/${items.length}] ${item.componentName}`);
+        // Each task: build → review → fix loop for one item
+        const processItem = async (item, idx) => {
+          const label = `[${idx + 1}/${items.length}] ${item.componentName}`;
+          log(`\n  ${BOLD}${label}${RESET}`);
 
-          // Build one item
+          // Build
           const buildPrompt = this.wf.buildSingleItemPrompt(phase, item, prevResults, projectDir);
           dim(`  Building...`);
-          const buildResult = this.spawnClaude(projectDir, buildPrompt, perItemTimeout, { label: `${phase}-build-${item.id}` });
+          const buildResult = await this.spawnClaudeAsync(projectDir, buildPrompt, perItemTimeout, { label: `${phase}-build-${item.id}` });
 
           if (buildResult.exitCode === 0) {
-            success(`  Built (${buildResult.duration}s)`);
+            success(`  ${item.componentName}: built (${buildResult.duration}s)`);
           } else {
-            warn(`  Build exited with code ${buildResult.exitCode} (${buildResult.duration}s)`);
+            warn(`  ${item.componentName}: build exit ${buildResult.exitCode} (${buildResult.duration}s)`);
           }
 
           fs.writeFileSync(
@@ -716,12 +812,12 @@ ${BOLD}Phases:${RESET} ${this.wf.phases.join(" → ")}
             `Exit code: ${buildResult.exitCode}\nDuration: ${buildResult.duration}s\n\n--- OUTPUT ---\n${buildResult.output.slice(0, 5000)}`
           );
 
-          // Review one item (up to maxAutoReviewCycles)
+          // Review cycles
           let itemClean = false;
           for (let cycle = 1; cycle <= maxAutoReviewCycles && !itemClean; cycle++) {
-            dim(`  Review cycle ${cycle}/${maxAutoReviewCycles}...`);
+            dim(`  ${item.componentName}: review c${cycle}...`);
             const reviewPrompt = this.wf.buildSingleItemReviewPrompt(phase, item, {}, projectDir, { devPort, reviewPort });
-            const reviewResult = this.spawnClaude(projectDir, reviewPrompt, perItemTimeout, { label: `${phase}-review-${item.id}-c${cycle}` });
+            const reviewResult = await this.spawnClaudeAsync(projectDir, reviewPrompt, perItemTimeout, { label: `${phase}-review-${item.id}-c${cycle}` });
 
             const isCrash = reviewResult.exitCode !== 0 && reviewResult.duration < 10;
             const isKilled = [143, 137].includes(reviewResult.exitCode);
@@ -730,7 +826,7 @@ ${BOLD}Phases:${RESET} ${this.wf.phases.join(" → ")}
             let itemIssues = [];
             if (isCrash || isKilled || isEmptyFail) {
               const reason = isCrash ? "crashed" : isKilled ? "killed/timed out" : "failed with no output";
-              warn(`  Reviewer ${reason} (${reviewResult.duration}s)`);
+              warn(`  ${item.componentName}: reviewer ${reason} (${reviewResult.duration}s)`);
               itemIssues = [{ component: item.componentName, severity: "critical", description: `Reviewer ${reason}` }];
             } else {
               itemIssues = this.wf.parseReviewResult
@@ -740,28 +836,34 @@ ${BOLD}Phases:${RESET} ${this.wf.phases.join(" → ")}
 
             if (itemIssues.length === 0) {
               itemClean = true;
-              success(`  Clean (${reviewResult.duration}s)`);
+              success(`  ${item.componentName}: clean (${reviewResult.duration}s)`);
             } else {
-              warn(`  ${itemIssues.length} issue(s) found`);
+              warn(`  ${item.componentName}: ${itemIssues.length} issue(s)`);
               for (const issue of itemIssues) {
-                dim(`    ${issue.description || issue.reason || "issue"} [${issue.severity || "medium"}]`);
+                dim(`    ${issue.description || "issue"} [${issue.severity || "medium"}]`);
               }
 
               if (cycle < maxAutoReviewCycles) {
-                // Fix this one item
                 const fixPrompt = this.wf.buildAutoFixPrompt
                   ? this.wf.buildAutoFixPrompt(phase, itemIssues, [item], projectDir)
                   : this._defaultAutoFixPrompt(phase, itemIssues);
-                dim(`  Fixing...`);
-                const fixResult = this.spawnClaude(projectDir, fixPrompt, perItemTimeout, { label: `${phase}-fix-${item.id}-c${cycle}` });
-                if (fixResult.exitCode === 0) success(`  Fixed (${fixResult.duration}s)`);
-                else warn(`  Fix exited with code ${fixResult.exitCode}`);
+                dim(`  ${item.componentName}: fixing...`);
+                const fixResult = await this.spawnClaudeAsync(projectDir, fixPrompt, perItemTimeout, { label: `${phase}-fix-${item.id}-c${cycle}` });
+                if (fixResult.exitCode === 0) success(`  ${item.componentName}: fixed (${fixResult.duration}s)`);
+                else warn(`  ${item.componentName}: fix exit ${fixResult.exitCode}`);
               }
             }
           }
 
-          builtPaths.push(item.sourcePath || (this.wf.guessPaths ? this.wf.guessPaths(phase, item) : ""));
-        }
+          return item.sourcePath || (this.wf.guessPaths ? this.wf.guessPaths(phase, item) : "");
+        };
+
+        // Run with concurrency
+        const taskFns = items.map((item, idx) => () => processItem(item, idx));
+        const startTime = Date.now();
+        builtPaths = await this._runWithConcurrency(taskFns, concurrency);
+        const totalSec = Math.round((Date.now() - startTime) / 1000);
+        success(`All ${items.length} ${phase} processed in ${totalSec}s (${concurrency}x parallel)`);
 
         // Measure ALL at once (one Playwright run after all items built)
         if (!skipMeasure && this.wf.measure) {
