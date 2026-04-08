@@ -2,6 +2,11 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.71.15] - 2026-04-08
+
+### Changed (design-build command → orchestrator delegate)
+- **`gsd-t-design-build.md` now delegates to the JS orchestrator** — the 388-line prompt-based command is replaced with a thin wrapper that runs `gsd-t design-build`. Both `/user:gsd-t-design-build` and `gsd-t design-build` now end up in the same deterministic pipeline. No more prompt-based gates that get skipped.
+
 ## [2.71.14] - 2026-04-08
 
 ### Added (design-build orchestrator)
