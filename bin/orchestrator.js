@@ -576,7 +576,78 @@ ${BOLD}Phases:${RESET} ${this.wf.phases.join(" → ")}
         measurements = this.wf.measure(projectDir, phase, items, { devPort, reviewPort }) || {};
       }
 
-      // 6e. Review cycle
+      // 6d.5. Automated AI review loop (Term 2 equivalent)
+      // Spawns an independent reviewer Claude that compares built output against contracts.
+      // If issues found → spawn fixer Claude → re-measure → re-review until clean.
+      const maxAutoReviewCycles = this.wf.defaults?.maxAutoReviewCycles || 2;
+      if (this.wf.buildReviewPrompt) {
+        let autoReviewCycle = 0;
+        let autoReviewClean = false;
+
+        while (autoReviewCycle < maxAutoReviewCycles && !autoReviewClean) {
+          autoReviewCycle++;
+          heading(`Automated Review — ${phase} (cycle ${autoReviewCycle}/${maxAutoReviewCycles})`);
+
+          // Spawn reviewer Claude — independent, no builder context
+          const reviewPrompt = this.wf.buildReviewPrompt(phase, items, measurements, projectDir, { devPort, reviewPort });
+          log(`\n${CYAN}  ⚙${RESET} Spawning reviewer Claude for ${phase}...`);
+          const reviewTimeout = this.wf.defaults?.reviewTimeout || 300_000;
+          const reviewResult = this.spawnClaude(projectDir, reviewPrompt, reviewTimeout);
+
+          // Parse reviewer output for issues
+          const issues = this.wf.parseReviewResult
+            ? this.wf.parseReviewResult(reviewResult.output, phase)
+            : this._parseDefaultReviewResult(reviewResult.output);
+
+          if (reviewResult.exitCode === 0) {
+            success(`Reviewer finished in ${reviewResult.duration}s`);
+          } else {
+            warn(`Reviewer exited with code ${reviewResult.exitCode} after ${reviewResult.duration}s`);
+          }
+
+          // Write review report
+          const reportDir = path.join(this.getReviewDir(projectDir), "auto-review");
+          ensureDir(reportDir);
+          fs.writeFileSync(
+            path.join(reportDir, `${phase}-cycle-${autoReviewCycle}.json`),
+            JSON.stringify({ cycle: autoReviewCycle, issues, output: reviewResult.output.slice(0, 5000) }, null, 2)
+          );
+
+          if (issues.length === 0) {
+            autoReviewClean = true;
+            success(`Automated review passed — no issues found in ${phase}`);
+          } else {
+            warn(`Automated review found ${issues.length} issue(s) in ${phase}`);
+            for (const issue of issues) {
+              dim(`${issue.component || "?"}: ${issue.description || issue.reason || "issue"} [${issue.severity || "medium"}]`);
+            }
+
+            if (autoReviewCycle < maxAutoReviewCycles) {
+              // Spawn fixer Claude with the issues
+              const fixPrompt = this.wf.buildAutoFixPrompt
+                ? this.wf.buildAutoFixPrompt(phase, issues, items, projectDir)
+                : this._defaultAutoFixPrompt(phase, issues);
+
+              log(`\n${CYAN}  ⚙${RESET} Spawning fixer Claude for ${issues.length} issue(s)...`);
+              const fixResult = this.spawnClaude(projectDir, fixPrompt, 120_000);
+              if (fixResult.exitCode === 0) success(`Fixer finished in ${fixResult.duration}s`);
+              else warn(`Fixer exited with code ${fixResult.exitCode}`);
+
+              // Re-measure after fixes
+              if (!skipMeasure && this.wf.measure) {
+                measurements = this.wf.measure(projectDir, phase, items, { devPort, reviewPort }) || {};
+              }
+            } else {
+              warn(`Max auto-review cycles reached — ${issues.length} issue(s) will go to human review`);
+              // Attach unresolved issues to measurements for human visibility
+              const issueFile = path.join(this.getReviewDir(projectDir), "auto-review", `${phase}-unresolved.json`);
+              fs.writeFileSync(issueFile, JSON.stringify(issues, null, 2));
+            }
+          }
+        }
+      }
+
+      // 6e. Human review cycle
       let reviewCycle = 0;
       let allApproved = false;
 
@@ -653,6 +724,43 @@ ${BOLD}Phases:${RESET} ${this.wf.phases.join(" → ")}
       completedPhases: [],
       phaseResults: {},
     };
+  }
+
+  _parseDefaultReviewResult(output) {
+    // Try to parse JSON issues array from reviewer output
+    // Reviewer is instructed to output JSON between markers
+    const jsonMatch = output.match(/\[REVIEW_ISSUES\]([\s\S]*?)\[\/REVIEW_ISSUES\]/);
+    if (jsonMatch) {
+      try { return JSON.parse(jsonMatch[1].trim()); } catch { /* fall through */ }
+    }
+    // Fallback: look for PASS/FAIL verdict
+    if (/\bGRUDGING PASS\b/i.test(output) || /\bPASS\b.*\b0 issues\b/i.test(output) || /no issues found/i.test(output)) {
+      return [];
+    }
+    // If we see FAIL or DEVIATION keywords, extract what we can
+    const issues = [];
+    const deviationRegex = /(?:DEVIATION|FAIL|CRITICAL|ISSUE)[:\s—-]+(.+)/gi;
+    let match;
+    while ((match = deviationRegex.exec(output)) !== null) {
+      issues.push({ description: match[1].trim(), severity: "medium" });
+    }
+    return issues;
+  }
+
+  _defaultAutoFixPrompt(phase, issues) {
+    const issueList = issues.map((issue, i) =>
+      `${i + 1}. [${issue.severity || "medium"}] ${issue.component || "unknown"}: ${issue.description || issue.reason || "fix needed"}`
+    ).join("\n");
+
+    return `The automated reviewer found these issues in the ${phase} components. Fix each one.
+
+## Issues
+${issueList}
+
+## Rules
+- Read the relevant design contract for each component to verify the correct values
+- Fix ONLY the listed issues — do not modify other components
+- After fixing, EXIT. Do not start servers or ask for review.`;
   }
 
   _defaultFixPrompt(phase, needsWork) {

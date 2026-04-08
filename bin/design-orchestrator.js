@@ -300,6 +300,91 @@ function buildFixPrompt(phase, needsWork) {
   return `Apply these specific fixes to ${phase} components:\n\n${fixes}\n\nApply the changes and EXIT. Do not rebuild anything else.`;
 }
 
+// ─── Automated AI Review (Term 2 equivalent) ───────────────────────────────
+
+function buildReviewPrompt(phase, items, measurements, projectDir, ports) {
+  const singular = PHASE_SINGULAR[phase];
+  const contractsDir = path.join(projectDir, CONTRACTS_DIR);
+
+  const componentList = items.map(c => {
+    const sourcePath = c.sourcePath || guessPaths(phase, c);
+    return `- **${c.componentName}** — contract: ${c.fullContractPath}, source: ${sourcePath}, selector: \`${c.selector || "." + c.id}\``;
+  }).join("\n");
+
+  // Include any measurement failures for context
+  const failedMeasurements = [];
+  for (const item of items) {
+    const m = measurements[item.id] || [];
+    const failures = m.filter(x => !x.pass);
+    if (failures.length > 0) {
+      failedMeasurements.push(`- ${item.componentName}: ${failures.map(f => `${f.property}: expected ${f.expected}, got ${f.actual}`).join("; ")}`);
+    }
+  }
+  const measurementContext = failedMeasurements.length > 0
+    ? `\n## Known Measurement Failures\nPlaywright already detected these — verify they are real issues:\n${failedMeasurements.join("\n")}\n`
+    : "";
+
+  return `You are an INDEPENDENT design reviewer. You have NO knowledge of how these components were built. Your job is to compare the built ${phase} against their design contracts and find deviations.
+
+## Components to Review
+${componentList}
+
+${measurementContext}
+## Review Process
+
+For EACH component:
+1. Read the design contract file (path given above) — note every specified property value
+2. Read the source file — check that specified values are implemented correctly
+3. Use Playwright to render the component at http://localhost:${ports.reviewPort}/ and measure:
+   - Does the component render and have correct dimensions?
+   - Do colors, fonts, spacing, border-radius match the contract?
+   - For charts: correct chart type, orientation, axis labels, legend position, data format?
+   - For layouts: correct grid columns, gap, padding, child count and arrangement?
+   - For interactive elements: correct states, hover effects, click behavior?
+4. Compare contract values against actual rendered values — be SPECIFIC (exact px, hex, counts)
+
+## Output Format
+
+Output your findings between these markers. Each issue must have component, severity (critical/high/medium/low), and description with SPECIFIC contract vs. actual values:
+
+[REVIEW_ISSUES]
+[
+  {"component": "ComponentName", "severity": "critical", "description": "Contract specifies donut chart but rendered as pie chart (no inner radius)"},
+  {"component": "ComponentName", "severity": "high", "description": "Grid gap: contract 16px, actual 24px"}
+]
+[/REVIEW_ISSUES]
+
+If ALL components match their contracts, output:
+[REVIEW_ISSUES]
+[]
+[/REVIEW_ISSUES]
+
+## Rules
+- You write ZERO code. You ONLY review.
+- Be HARSH. Your value is in catching what the builder missed.
+- NEVER say "looks close" or "appears to match" — give SPECIFIC values.
+- Every contract property must be verified. Missing verification = missed issue.
+- Severity guide: critical = wrong component type, missing element, broken render. high = wrong dimensions, colors, layout. medium = spacing/padding off. low = minor visual difference.`;
+}
+
+function buildAutoFixPrompt(phase, issues, items, projectDir) {
+  const issueList = issues.map((issue, i) => {
+    const item = items.find(c => c.componentName === issue.component);
+    const contractPath = item ? item.fullContractPath : "check .gsd-t/contracts/design/";
+    return `${i + 1}. [${issue.severity}] **${issue.component}** — ${issue.description}\n   Contract: ${contractPath}`;
+  }).join("\n");
+
+  return `The automated design reviewer found these issues. Fix each one by reading the design contract and correcting the implementation.
+
+## Issues to Fix
+${issueList}
+
+## Rules
+- Read each component's design contract for the correct values — do NOT guess
+- Fix ONLY the listed issues — do not modify other components or add features
+- After fixing all issues, EXIT. Do not start servers or ask for review.`;
+}
+
 // ─── Summary ────────────────────────────────────────────────────────────────
 
 function formatSummary(phase, result) {
@@ -329,11 +414,13 @@ ${BOLD}Pipeline:${RESET}
   1. Read contracts from .gsd-t/contracts/design/
   2. Start dev server + review server
   3. For each tier (elements → widgets → pages):
-     a. Spawn Claude to build components
+     a. Spawn Claude (builder) to build components from contracts
      b. Measure with Playwright
-     c. Queue for human review
-     d. Wait for review submission (blocks until human approves)
-     e. Process feedback, proceed to next tier
+     c. Spawn Claude (reviewer) to compare against contracts — independent, no builder context
+     d. If reviewer finds issues → spawn Claude (fixer) → re-measure → re-review (max 2 cycles)
+     e. Queue for human review (only after automated review passes)
+     f. Wait for human review submission (blocks until human approves)
+     g. Process feedback, proceed to next tier
 `);
 }
 
@@ -351,11 +438,15 @@ const designBuildWorkflow = {
     timeout: 600_000,
     devServerTimeout: 30_000,
     maxReviewCycles: 3,
+    maxAutoReviewCycles: 2,
+    reviewTimeout: 300_000,
   },
   completionMessage: "All done. Run your app to verify: npm run dev",
 
   discoverWork,
   buildPrompt,
+  buildReviewPrompt,
+  buildAutoFixPrompt,
   measure,
   buildQueueItem,
   buildFixPrompt,

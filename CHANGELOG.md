@@ -2,6 +2,16 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.71.16] - 2026-04-08
+
+### Added (orchestrator — automated AI review loop)
+- **Automated review before human review** — orchestrator now spawns an independent reviewer Claude (no builder context) that compares built components against design contracts. If issues found, spawns a fixer Claude, re-measures, and re-reviews (max 2 cycles). Only after automated review passes do items reach human review. This is the Term 2 equivalent, running deterministically in JavaScript.
+- **Review report persistence** — each auto-review cycle writes results to `.gsd-t/design-review/auto-review/`. Unresolved issues are written to `{phase}-unresolved.json` for human visibility.
+- **Structured review output** — reviewer uses `[REVIEW_ISSUES]` markers for reliable parsing. Fallback parser catches DEVIATION/FAIL/CRITICAL keywords.
+
+### Pipeline (updated)
+Build → Measure → **Automated AI Review** (reviewer → fixer → re-review loop) → Human Review → Next Tier
+
 ## [2.71.15] - 2026-04-08
 
 ### Changed (design-build command → orchestrator delegate)
