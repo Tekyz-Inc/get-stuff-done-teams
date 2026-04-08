@@ -2,6 +2,11 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.73.13] - 2026-04-08
+
+### Fixed (review UI — test fixture props for component preview)
+- **Preview now passes test fixture props** from design contracts to mounted components. Reads `## Test Fixture` JSON block from contract, strips metadata keys (`__` prefixed), and passes as component props. Components that require data (charts, tables, stat cards) now render with sample data instead of blank.
+
 ## [2.73.12] - 2026-04-08
 
 ### Added (review UI — isolated component preview + tier tabs)

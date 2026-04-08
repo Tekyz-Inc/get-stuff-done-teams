@@ -51,8 +51,32 @@ function findGlobalStyles() {
 const FRAMEWORK = detectFramework();
 const GLOBAL_STYLES = findGlobalStyles();
 
+function extractFixtureFromContract(componentPath) {
+  // Map source path → contract path: src/components/elements/ChartDonut.vue → .gsd-t/contracts/design/elements/chart-donut.contract.md
+  const match = componentPath.match(/src\/components\/(\w+)\/(\w+)\.vue$/);
+  if (!match) return null;
+  const [, tier, name] = match;
+  // PascalCase → kebab-case
+  const kebab = name.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
+  const contractPath = path.join(PROJECT_DIR, ".gsd-t", "contracts", "design", tier, `${kebab}.contract.md`);
+  try {
+    const content = fs.readFileSync(contractPath, "utf8");
+    const fixtureMatch = content.match(/## Test Fixture[\s\S]*?```json\s*([\s\S]*?)```/);
+    if (!fixtureMatch) return null;
+    const fixture = JSON.parse(fixtureMatch[1]);
+    // Remove metadata keys (__ prefixed)
+    const props = {};
+    for (const [k, v] of Object.entries(fixture)) {
+      if (!k.startsWith("__")) props[k] = v;
+    }
+    return props;
+  } catch { return null; }
+}
+
 function generatePreviewHtml(componentPath) {
   const linkTags = GLOBAL_STYLES.map(s => `  <link rel="stylesheet" href="/${s}">`).join("\n");
+  const fixture = extractFixtureFromContract(componentPath);
+  const propsJson = fixture ? JSON.stringify(fixture) : "{}";
 
   let mountScript;
   if (FRAMEWORK === "vue") {
@@ -60,7 +84,8 @@ function generatePreviewHtml(componentPath) {
   <script type="module">
     import { createApp } from 'vue'
     import Component from '/${componentPath}'
-    const app = createApp(Component)
+    const props = ${propsJson}
+    const app = createApp(Component, props)
     app.mount('#app')
   </script>`;
   } else if (FRAMEWORK === "react") {
@@ -69,7 +94,8 @@ function generatePreviewHtml(componentPath) {
     import React from 'react'
     import { createRoot } from 'react-dom/client'
     import Component from '/${componentPath}'
-    createRoot(document.getElementById('app')).render(React.createElement(Component))
+    const props = ${propsJson}
+    createRoot(document.getElementById('app')).render(React.createElement(Component, props))
   </script>`;
   } else {
     mountScript = `<script type="module">import '/${componentPath}'</script>`;
