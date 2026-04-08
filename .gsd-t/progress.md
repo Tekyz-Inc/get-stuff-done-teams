@@ -3,7 +3,7 @@
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: IN PROGRESS
 ## Date: 2026-04-01
-## Version: 2.73.14
+## Version: 2.73.15
 
 ## Active Milestone
 
@@ -388,6 +388,7 @@ Wave 4: adaptive-replan (consumes fresh-dispatch summaries, integrates with work
 
 ## Decision Log
 (Entries before 2026-02-16 reconstructed from git history with timestamps)
+- 2026-04-08 23:55: [feat] Review/fix output logging + all-parallel default — reviewer and fix outputs now saved to build-logs/ for auditing (was the reviewer thorough? did it use Playwright?). Default concurrency changed from 1 to all items in parallel (bottleneck is API latency, not CPU/RAM). (v2.73.15)
 - 2026-04-08 23:45: [feat] Isolated component preview in review UI — /review/preview endpoint mounts single component via Vite module resolution, framework-aware (Vue/React/Svelte). Tier tabs (Elements/Widgets/Pages) filter sidebar. Each component renders in isolation with global styles applied. (v2.73.12)
 - 2026-04-08 23:15: [fix] Playwright visual inspection is now PRIMARY reviewer method — computed styles via getComputedStyle() for every contract-specified property. Code review demoted to supplement for non-visual concerns. CSS box math can only be verified at render time. (v2.73.11)
 - 2026-04-08 23:00: [feat] Parallel per-item pipeline — async spawnClaudeAsync() + _runWithConcurrency() enable N concurrent build+review items via --parallel N flag. Callers updated for async run(). (v2.73.10)

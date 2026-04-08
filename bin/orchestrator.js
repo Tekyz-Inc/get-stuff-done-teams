@@ -164,7 +164,7 @@ ${BOLD}Options:${RESET}
   --timeout <sec>       Claude timeout per phase in seconds (default: 600)
   --skip-measure        Skip automated measurement (human-review only)
   --clean               Clear all artifacts from previous runs + delete build output
-  --parallel <N>        Run N items concurrently (default: 1, recommended: 3)
+  --parallel <N>        Run N items concurrently (default: all items in parallel)
   --verbose, -v         Show Claude's tool calls and prompts in terminal
   --help                Show this help
 
@@ -784,7 +784,7 @@ ${BOLD}Phases:${RESET} ${this.wf.phases.join(" → ")}
       // Each item is independent: 1 contract + 1 source = tiny context.
       // With --parallel N, runs N items concurrently.
       if (this.wf.buildSingleItemPrompt && this.wf.buildSingleItemReviewPrompt) {
-        const concurrency = opts.parallel || 1;
+        const concurrency = opts.parallel || items.length;
         if (concurrency > 1) {
           log(`\n${CYAN}  ⚙${RESET} Building and reviewing ${items.length} ${phase} (${concurrency} parallel)...`);
         } else {
@@ -819,6 +819,12 @@ ${BOLD}Phases:${RESET} ${this.wf.phases.join(" → ")}
             const reviewPrompt = this.wf.buildSingleItemReviewPrompt(phase, item, {}, projectDir, { devPort, reviewPort });
             const reviewResult = await this.spawnClaudeAsync(projectDir, reviewPrompt, perItemTimeout, { label: `${phase}-review-${item.id}-c${cycle}` });
 
+            // Save review output for auditing (was the reviewer thorough? did it use Playwright?)
+            fs.writeFileSync(
+              path.join(buildLogDir, `${phase}-review-${item.id}-c${cycle}.log`),
+              `Exit code: ${reviewResult.exitCode}\nDuration: ${reviewResult.duration}s\n\n--- REVIEW OUTPUT ---\n${reviewResult.output.slice(0, 10000)}`
+            );
+
             const isCrash = reviewResult.exitCode !== 0 && reviewResult.duration < 10;
             const isKilled = [143, 137].includes(reviewResult.exitCode);
             const isEmptyFail = reviewResult.exitCode !== 0 && !reviewResult.output.trim();
@@ -849,6 +855,10 @@ ${BOLD}Phases:${RESET} ${this.wf.phases.join(" → ")}
                   : this._defaultAutoFixPrompt(phase, itemIssues);
                 dim(`  ${item.componentName}: fixing...`);
                 const fixResult = await this.spawnClaudeAsync(projectDir, fixPrompt, perItemTimeout, { label: `${phase}-fix-${item.id}-c${cycle}` });
+                fs.writeFileSync(
+                  path.join(buildLogDir, `${phase}-fix-${item.id}-c${cycle}.log`),
+                  `Exit code: ${fixResult.exitCode}\nDuration: ${fixResult.duration}s\n\n--- FIX OUTPUT ---\n${fixResult.output.slice(0, 10000)}`
+                );
                 if (fixResult.exitCode === 0) success(`  ${item.componentName}: fixed (${fixResult.duration}s)`);
                 else warn(`  ${item.componentName}: fix exit ${fixResult.exitCode}`);
               }
@@ -923,6 +933,14 @@ ${BOLD}Phases:${RESET} ${this.wf.phases.join(" → ")}
                 dim(`  [${idx + 1}/${items.length}] ${item.componentName}...`);
                 const reviewResult = this.spawnClaude(projectDir, reviewPrompt, Math.min(reviewTimeout, perItemTimeout), { label: `${phase}-review-c${autoReviewCycle}-${item.id}` });
                 totalDuration += reviewResult.duration;
+
+                // Save review output for auditing
+                const reviewLogDir = path.join(this.getReviewDir(projectDir), "build-logs");
+                ensureDir(reviewLogDir);
+                fs.writeFileSync(
+                  path.join(reviewLogDir, `${phase}-review-c${autoReviewCycle}-${item.id}.log`),
+                  `Exit code: ${reviewResult.exitCode}\nDuration: ${reviewResult.duration}s\n\n--- REVIEW OUTPUT ---\n${reviewResult.output.slice(0, 10000)}`
+                );
 
                 const isCrash = reviewResult.exitCode !== 0 && reviewResult.duration < 10;
                 const isKilled = [143, 137].includes(reviewResult.exitCode);

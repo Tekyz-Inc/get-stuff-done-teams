@@ -34,7 +34,7 @@ Pass any of these as `$ARGUMENTS`:
 | `--timeout <sec>`   | Claude timeout per tier in seconds (default: 600) |
 | `--skip-measure`    | Skip Playwright measurement (human-review only) |
 | `--clean`           | Clear all stale artifacts + delete build output before each phase |
-| `--parallel <N>`    | Run N items concurrently (default: 1, recommended: 3) |
+| `--parallel <N>`    | Run N items concurrently (default: all items in parallel) |
 | `--verbose`, `-v`   | Show Claude's tool calls and prompts in terminal |
 
 ## Prerequisites

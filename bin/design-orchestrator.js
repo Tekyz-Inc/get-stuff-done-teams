@@ -518,7 +518,7 @@ ${BOLD}Options:${RESET}
   --skip-measure    Skip Playwright measurement (human-review only)
   --clean           Clear all stale artifacts before starting
   --verbose, -v     Show Claude's tool calls and prompts in terminal
-  --parallel <N>    Run N items concurrently (default: 1 = sequential)
+  --parallel <N>    Run N items concurrently (default: all items in parallel)
   --help            Show this help
 
 ${BOLD}Pipeline:${RESET}

@@ -2,6 +2,14 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.73.15] - 2026-04-08
+
+### Added
+- **Reviewer output logging** — review and fix outputs now saved to `build-logs/` as `{phase}-review-{id}-c{cycle}.log` and `{phase}-fix-{id}-c{cycle}.log`. Enables auditing whether reviewers actually ran Playwright, what issues were found, and what fixes were applied.
+
+### Changed
+- **Default parallelism now all-items** — per-item pipeline runs all items concurrently by default (was sequential). Bottleneck is API latency, not CPU/RAM. Use `--parallel N` to limit if needed.
+
 ## [2.73.14] - 2026-04-08
 
 ### Fixed (review UI — component preview rendering)
