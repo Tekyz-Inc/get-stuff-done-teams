@@ -2,6 +2,14 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.71.21] - 2026-04-08
+
+### Fixed (orchestrator — timeout false-pass, review server health, stale cleanup)
+- **Reviewer timeout/kill no longer treated as "pass"** — exit codes 143 (SIGTERM) and 137 (SIGKILL) are now always detected as failures regardless of duration. Previously, a reviewer that timed out at 300s was parsed as "0 issues = pass" because crash detection only checked duration < 10s.
+- **Empty output with non-zero exit also caught** — any reviewer that exits non-zero with no output is treated as a failure, not a clean pass.
+- **Review server health check during human review gate** — every ~30s the polling loop verifies port 3456 is alive. If the review server dies, it auto-restarts. Previously, a dead review server left the orchestrator stuck forever.
+- **Stale auto-review cleanup** — old auto-review files from previous runs are cleared at the start of each phase's review cycle, preventing misleading results from prior orchestrator runs.
+
 ## [2.71.20] - 2026-04-08
 
 ### Fixed (orchestrator — reviewer crash false-pass + Ctrl+C + build logging)

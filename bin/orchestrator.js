@@ -368,6 +368,7 @@ ${BOLD}Phases:${RESET} ${this.wf.phases.join(" → ")}
     openBrowser(`http://localhost:${reviewPort}/review`);
 
     // IRONCLAD GATE — JavaScript polling loop
+    let healthCheckCounter = 0;
     while (true) {
       if (fs.existsSync(signalPath)) {
         try {
@@ -376,6 +377,22 @@ ${BOLD}Phases:${RESET} ${this.wf.phases.join(" → ")}
           return data;
         } catch { /* malformed — wait for rewrite */ }
       }
+
+      // Every 10 polls (~30s), verify review server is still alive
+      healthCheckCounter++;
+      if (healthCheckCounter % 10 === 0) {
+        if (!isPortInUse(reviewPort)) {
+          warn("Review server is down! Restarting...");
+          const devPort = this._activeDevPort || reviewPort - 1283; // fallback heuristic
+          const info = this.startReviewServer(projectDir, devPort, reviewPort);
+          if (info.pid || info.alreadyRunning) {
+            success("Review server restarted");
+          } else {
+            error("Failed to restart review server — please restart the orchestrator");
+          }
+        }
+      }
+
       syncSleep(3000);
     }
   }
@@ -514,6 +531,7 @@ ${BOLD}Phases:${RESET} ${this.wf.phases.join(" → ")}
       const devInfo = this.startDevServer(projectDir, devPort);
       const reviewInfo = this.startReviewServer(projectDir, devPort, reviewPort);
       this.pids = [devInfo.pid, reviewInfo.pid].filter(Boolean);
+      this._activeDevPort = devPort;
     }
 
     // Register cleanup on exit
@@ -595,6 +613,16 @@ ${BOLD}Phases:${RESET} ${this.wf.phases.join(" → ")}
       // If issues found → spawn fixer Claude → re-measure → re-review until clean.
       const maxAutoReviewCycles = this.wf.defaults?.maxAutoReviewCycles || 4;
       if (this.wf.buildReviewPrompt) {
+        // Clear stale auto-review files from previous runs for this phase
+        const arDir = path.join(this.getReviewDir(projectDir), "auto-review");
+        if (fs.existsSync(arDir)) {
+          for (const f of fs.readdirSync(arDir)) {
+            if (f.startsWith(`${phase}-`)) {
+              try { fs.unlinkSync(path.join(arDir, f)); } catch { /* ignore */ }
+            }
+          }
+        }
+
         let autoReviewCycle = 0;
         let autoReviewClean = false;
 
@@ -611,10 +639,18 @@ ${BOLD}Phases:${RESET} ${this.wf.phases.join(" → ")}
           // Parse reviewer output for issues
           let issues;
 
-          // Treat reviewer crash (non-zero exit, very short duration) as a failed review, not a pass
-          if (reviewResult.exitCode !== 0 && reviewResult.duration < 10) {
-            warn(`Reviewer crashed (code ${reviewResult.exitCode}, ${reviewResult.duration}s) — treating as review failure, will retry`);
-            issues = [{ component: "ALL", severity: "critical", description: `Reviewer crashed with exit code ${reviewResult.exitCode} — review not performed` }];
+          // Treat reviewer failure as a failed review, not a pass:
+          // - crash: non-zero exit + very short duration (< 10s)
+          // - timeout/kill: exit codes 143 (SIGTERM) or 137 (SIGKILL)
+          // - empty output with non-zero exit: reviewer produced nothing useful
+          const isCrash = reviewResult.exitCode !== 0 && reviewResult.duration < 10;
+          const isKilled = [143, 137].includes(reviewResult.exitCode);
+          const isEmptyFail = reviewResult.exitCode !== 0 && !reviewResult.output.trim();
+
+          if (isCrash || isKilled || isEmptyFail) {
+            const reason = isCrash ? "crashed" : isKilled ? "killed/timed out" : "failed with no output";
+            warn(`Reviewer ${reason} (code ${reviewResult.exitCode}, ${reviewResult.duration}s) — treating as review failure, will retry`);
+            issues = [{ component: "ALL", severity: "critical", description: `Reviewer ${reason} with exit code ${reviewResult.exitCode} — review not performed` }];
           } else {
             issues = this.wf.parseReviewResult
               ? this.wf.parseReviewResult(reviewResult.output, phase)
