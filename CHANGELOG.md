@@ -2,6 +2,12 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.73.16] - 2026-04-08
+
+### Added
+- **Gallery view** — `/review/gallery?cols=N` renders all queued components in a grid layout, proxied through Vite. Vue error boundaries isolate per-component failures so one broken component doesn't crash the gallery. Gallery button in review UI header toggles between single-component and gallery views.
+- **Fixture unwrapping** — when a contract test fixture wraps props in an array (e.g., `{cards: [{value, label}]}`) but the component expects flat props, the first item is auto-unwrapped. Fixes StatCardWithIcon rendering blank in preview.
+
 ## [2.73.15] - 2026-04-08
 
 ### Added

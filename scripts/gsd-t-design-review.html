@@ -705,6 +705,12 @@
     <span class="phase-badge" id="phase-badge">Elements</span>
   </div>
   <div class="header-right">
+    <button class="inspect-toggle" id="gallery-toggle" title="Show all components in a grid" style="margin-right:4px">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
+      </svg>
+      Gallery
+    </button>
     <button class="inspect-toggle" id="inspect-toggle" title="Toggle inspect mode (Ctrl+Shift+I)">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"/>
@@ -1053,6 +1059,25 @@
       inspectorProps.appendChild(hint);
     }
   }
+
+  // ── Gallery mode ──────────────────────────────────
+  const galleryToggle = document.getElementById("gallery-toggle");
+  let galleryActive = false;
+
+  galleryToggle.addEventListener("click", () => {
+    galleryActive = !galleryActive;
+    galleryToggle.classList.toggle("active", galleryActive);
+    if (galleryActive) {
+      previewIframe.src = "/review/gallery?cols=3";
+      previewUrl.textContent = "Gallery — all components";
+    } else if (selectedIdx >= 0 && filteredQueue[selectedIdx]) {
+      const item = filteredQueue[selectedIdx];
+      if (item.sourcePath) {
+        previewIframe.src = `/review/preview?component=${encodeURIComponent(item.sourcePath)}`;
+        previewUrl.textContent = item.sourcePath;
+      }
+    }
+  });
 
   // ── Inspect mode ──────────────────────────────────
   inspectToggle.addEventListener("click", () => {

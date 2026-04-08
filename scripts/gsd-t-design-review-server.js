@@ -69,6 +69,23 @@ function extractFixtureFromContract(componentPath) {
     for (const [k, v] of Object.entries(fixture)) {
       if (!k.startsWith("__")) props[k] = v;
     }
+    // Check if component expects different props than fixture provides.
+    // If fixture has a single array-of-objects key (e.g., "cards": [{value, label}]),
+    // and the component file's defineProps doesn't reference that key,
+    // unwrap the first item as individual props.
+    const propKeys = Object.keys(props);
+    if (propKeys.length === 1) {
+      const val = props[propKeys[0]];
+      if (Array.isArray(val) && val.length > 0 && typeof val[0] === "object") {
+        try {
+          const compSource = fs.readFileSync(path.join(PROJECT_DIR, componentPath), "utf8");
+          // If the component doesn't reference this array key in defineProps, unwrap first item
+          if (!compSource.includes(propKeys[0])) {
+            return val[0];
+          }
+        } catch { /* can't read component, use fixture as-is */ }
+      }
+    }
     return props;
   } catch { return null; }
 }
@@ -119,6 +136,112 @@ ${linkTags}
   <div id="app"></div>
   ${mountScript}
   <script src="/review/inject.js"></script>
+</body>
+</html>`;
+}
+
+function generateGalleryHtml(queueItems, cols) {
+  const linkTags = GLOBAL_STYLES.map(s => `  <link rel="stylesheet" href="/${s}">`).join("\n");
+  // Only include items with source paths (actual components)
+  const components = queueItems.filter(item => item.sourcePath);
+
+  const imports = components.map((item, i) => {
+    return `    import Comp${i} from '/${item.sourcePath}'`;
+  }).join("\n");
+
+  const propsData = components.map((item) => {
+    const fixture = extractFixtureFromContract(item.sourcePath);
+    return fixture ? JSON.stringify(fixture) : "{}";
+  });
+
+  let mountScript;
+  if (FRAMEWORK === "vue") {
+    mountScript = `
+  <script type="module">
+    import { createApp, h, defineComponent, onErrorCaptured, ref } from 'vue'
+${imports}
+
+    const components = [${components.map((_, i) => `Comp${i}`).join(", ")}];
+    const names = ${JSON.stringify(components.map(c => c.name || c.id))};
+    const allProps = [${propsData.join(", ")}];
+
+    // Error boundary wrapper — catches render errors per-component
+    const SafeCell = defineComponent({
+      props: { comp: Object, compProps: Object, label: String },
+      setup(props) {
+        const error = ref(null)
+        onErrorCaptured((err) => { error.value = err.message; return false })
+        return () => h('div', { class: 'gallery-cell' }, [
+          h('div', { class: 'gallery-label' }, props.label),
+          h('div', { class: 'gallery-component' }, [
+            error.value
+              ? h('div', { style: 'color:#ef4444;font-size:12px;padding:8px' }, '⚠ ' + error.value)
+              : h(props.comp, props.compProps)
+          ])
+        ])
+      }
+    })
+
+    const Gallery = defineComponent({
+      render() {
+        return h('div', { class: 'gallery-grid' },
+          components.map((Comp, i) =>
+            h(SafeCell, { comp: Comp, compProps: allProps[i], label: names[i], key: i })
+          )
+        )
+      }
+    })
+    createApp(Gallery).mount('#app')
+  </script>`;
+  } else if (FRAMEWORK === "react") {
+    mountScript = `
+  <script type="module">
+    import React from 'react'
+    import { createRoot } from 'react-dom/client'
+${imports}
+
+    const components = [${components.map((_, i) => `Comp${i}`).join(", ")}];
+    const names = ${JSON.stringify(components.map(c => c.name || c.id))};
+    const allProps = [${propsData.join(", ")}];
+
+    function Gallery() {
+      return React.createElement('div', { className: 'gallery-grid' },
+        components.map((Comp, i) =>
+          React.createElement('div', { className: 'gallery-cell', key: i },
+            React.createElement('div', { className: 'gallery-label' }, names[i]),
+            React.createElement('div', { className: 'gallery-component' },
+              React.createElement(Comp, allProps[i])
+            )
+          )
+        )
+      )
+    }
+    createRoot(document.getElementById('app')).render(React.createElement(Gallery))
+  </script>`;
+  } else {
+    mountScript = `<script type="module">/* unsupported framework */</script>`;
+  }
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GSD-T Design Gallery</title>
+${linkTags}
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #f1f5f9; min-height: 100vh; padding: 24px; font-family: 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif; }
+    #app { width: 100%; }
+    .gallery-grid { display: grid; grid-template-columns: repeat(${cols}, 1fr); gap: 20px; }
+    .gallery-cell { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; overflow: hidden; }
+    .gallery-label { font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #e2e8f0; font-family: monospace; }
+    .gallery-component { min-height: 60px; }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  ${mountScript}
 </body>
 </html>`;
 }
@@ -357,6 +480,49 @@ const server = http.createServer((req, res) => {
 
   if (pathname === "/review/inject.js") {
     serveFile(path.join(SCRIPT_DIR, "gsd-t-design-review-inject.js"), res);
+    return;
+  }
+
+  // Gallery — all queued components in a grid, proxied through Vite
+  if (pathname === "/review/gallery") {
+    const queueItems = readQueue();
+    const cols = parseInt(parsed.query.cols || "3", 10);
+    if (queueItems.length === 0) {
+      res.writeHead(200, { "Content-Type": "text/html" });
+      res.end("<html><body><h2>No components queued yet</h2></body></html>");
+      return;
+    }
+    const html = generateGalleryHtml(queueItems, cols);
+    const previewFile = path.join(PROJECT_DIR, "__gsd-preview.html");
+    try { fs.writeFileSync(previewFile, html); } catch { /* ignore */ }
+    const proxyOpts = {
+      hostname: targetUrl.hostname,
+      port: targetUrl.port,
+      path: "/__gsd-preview.html",
+      method: "GET",
+      headers: { ...req.headers, host: `${targetUrl.hostname}:${targetUrl.port}` },
+    };
+    const proxyReq = http.request(proxyOpts, (proxyRes) => {
+      const chunks = [];
+      proxyRes.on("data", (chunk) => chunks.push(chunk));
+      proxyRes.on("end", () => {
+        const transformed = Buffer.concat(chunks).toString("utf8");
+        const buf = Buffer.from(transformed, "utf8");
+        res.writeHead(proxyRes.statusCode, {
+          ...proxyRes.headers,
+          "content-length": buf.length,
+          "cache-control": "no-cache",
+        });
+        res.end(buf);
+        try { fs.unlinkSync(previewFile); } catch { /* ignore */ }
+      });
+    });
+    proxyReq.on("error", () => {
+      res.writeHead(502, { "Content-Type": "text/html" });
+      res.end("<h1>Dev server unreachable</h1>");
+      try { fs.unlinkSync(previewFile); } catch { /* ignore */ }
+    });
+    proxyReq.end();
     return;
   }
 
