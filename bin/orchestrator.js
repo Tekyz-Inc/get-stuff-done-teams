@@ -179,13 +179,17 @@ ${BOLD}Phases:${RESET} ${this.wf.phases.join(" → ")}
     }
   }
 
-  spawnClaude(projectDir, prompt, timeout) {
+  spawnClaude(projectDir, prompt, timeout, opts = {}) {
     const start = Date.now();
     let output = "";
     let exitCode = 0;
 
+    // Build args: -p for print mode, --dangerously-skip-permissions so spawned
+    // Claude can write files without interactive permission prompts
+    const args = ["-p", "--dangerously-skip-permissions", prompt];
+
     try {
-      output = execFileSync("claude", ["-p", prompt], {
+      output = execFileSync("claude", args, {
         encoding: "utf8",
         timeout: timeout || this.wf.defaults?.timeout || 600_000,
         stdio: ["pipe", "pipe", "pipe"],
@@ -629,7 +633,7 @@ ${BOLD}Phases:${RESET} ${this.wf.phases.join(" → ")}
                 : this._defaultAutoFixPrompt(phase, issues);
 
               log(`\n${CYAN}  ⚙${RESET} Spawning fixer Claude for ${issues.length} issue(s)...`);
-              const fixResult = this.spawnClaude(projectDir, fixPrompt, 120_000);
+              const fixResult = this.spawnClaude(projectDir, fixPrompt, opts.timeout || 600_000);
               if (fixResult.exitCode === 0) success(`Fixer finished in ${fixResult.duration}s`);
               else warn(`Fixer exited with code ${fixResult.exitCode}`);
 
@@ -670,7 +674,7 @@ ${BOLD}Phases:${RESET} ${this.wf.phases.join(" → ")}
               ? this.wf.buildFixPrompt(phase, feedback.needsWork)
               : this._defaultFixPrompt(phase, feedback.needsWork);
             info(`Spawning Claude to apply ${feedback.needsWork.length} fixes...`);
-            const fixResult = this.spawnClaude(projectDir, fixPrompt, 120_000);
+            const fixResult = this.spawnClaude(projectDir, fixPrompt, opts.timeout || 600_000);
             if (fixResult.exitCode === 0) success("Fixes applied");
             else warn(`Fix attempt returned code ${fixResult.exitCode}`);
           } else {

@@ -2,6 +2,12 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.71.18] - 2026-04-08
+
+### Fixed (orchestrator — Claude permissions and timeouts)
+- **Added `--dangerously-skip-permissions` to Claude spawns** — builder, reviewer, and fixer Claude instances couldn't write files in non-interactive `-p` mode. They ran successfully but produced zero output files because permission prompts can't be answered in piped mode.
+- **Increased fixer timeout from 2min to 10min** — fixer was getting SIGTERM'd (exit code 143) trying to create 15 components in 120s. Now uses the same timeout as the builder (default 600s).
+
 ## [2.71.17] - 2026-04-08
 
 ### Fixed (orchestrator — auto-review cycle limit)

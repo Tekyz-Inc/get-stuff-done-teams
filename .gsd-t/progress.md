@@ -3,7 +3,7 @@
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: IN PROGRESS
 ## Date: 2026-04-01
-## Version: 2.71.17
+## Version: 2.71.18
 
 ## Active Milestone
 
@@ -388,6 +388,7 @@ Wave 4: adaptive-replan (consumes fresh-dispatch summaries, integrates with work
 
 ## Decision Log
 (Entries before 2026-02-16 reconstructed from git history with timestamps)
+- 2026-04-08 15:30: [fix] Added --dangerously-skip-permissions to Claude spawns in orchestrator — builder/reviewer/fixer couldn't write files in -p mode. Increased fixer timeout from 2min to 10min (was getting SIGTERM'd). (v2.71.18)
 - 2026-04-08 15:00: [feat] Automated AI review loop in orchestrator — spawns independent reviewer Claude between build and human review. Reviewer compares against contracts with no builder context. If issues → fixer Claude → re-measure → re-review (max 2 cycles). Replaces the old Term 2 Claude session with deterministic JS control. (v2.71.16)
 - 2026-04-08 14:30: [refactor] gsd-t-design-build.md replaced 388-line prompt-based command with thin delegate to JS orchestrator. Both `/user:gsd-t-design-build` and `gsd-t design-build` now run the same deterministic pipeline. (v2.71.15)
 - 2026-04-08 14:00: [feat] Abstract workflow orchestrator (bin/orchestrator.js) + design-build workflow (bin/design-orchestrator.js). Base engine handles deterministic multi-phase pipelines: Claude spawn → measure → ironclad JS review gate → feedback → next phase. Design-build is the first workflow plugin (elements→widgets→pages from contracts). Architecture: base engine is workflow-agnostic; new workflows just provide a definition object (phases, prompts, measurement, feedback). Prompt-based gates failed 3x; JS gates are ironclad. (v2.71.14)
