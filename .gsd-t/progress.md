@@ -3,7 +3,7 @@
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: IN PROGRESS
 ## Date: 2026-04-01
-## Version: 2.73.16
+## Version: 2.73.17
 
 ## Active Milestone
 
@@ -388,6 +388,7 @@ Wave 4: adaptive-replan (consumes fresh-dispatch summaries, integrates with work
 
 ## Decision Log
 (Entries before 2026-02-16 reconstructed from git history with timestamps)
+- 2026-04-09 00:05: [feat] Fixture data tree in property inspector — /review/api/fixture endpoint returns extracted test fixture data. Inspector renders expandable tree showing columns, rows, segments, etc. with color swatches. Collapsible at every level. Playwright-verified: TableStripedHeader shows columns[5] and rows[5] tree. (v2.73.17)
 - 2026-04-08 23:58: [feat] Gallery view + fixture unwrapping — /review/gallery endpoint renders all queued components in a 3-column grid with Vue error boundaries (13/15 render, 2 have fixture mismatches). Fixture extraction auto-unwraps single-array wrappers when component props don't match (fixes StatCardWithIcon blank). Gallery button in review UI toggles between single-component and gallery views. Playwright-verified: 15 cells, 13 render, gallery button loads 15 cells in iframe. (v2.73.16)
 - 2026-04-08 23:55: [feat] Review/fix output logging + all-parallel default — reviewer and fix outputs now saved to build-logs/ for auditing (was the reviewer thorough? did it use Playwright?). Default concurrency changed from 1 to all items in parallel (bottleneck is API latency, not CPU/RAM). (v2.73.15)
 - 2026-04-08 23:45: [feat] Isolated component preview in review UI — /review/preview endpoint mounts single component via Vite module resolution, framework-aware (Vue/React/Svelte). Tier tabs (Elements/Widgets/Pages) filter sidebar. Each component renders in isolation with global styles applied. (v2.73.12)

@@ -588,6 +588,14 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  if (pathname === "/review/api/fixture") {
+    const component = parsed.query.component;
+    const fixture = component ? extractFixtureFromContract(component) : null;
+    res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+    res.end(JSON.stringify(fixture || {}));
+    return;
+  }
+
   if (pathname === "/review/api/feedback" && req.method === "GET") {
     res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
     res.end(JSON.stringify(readFeedback()));

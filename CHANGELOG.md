@@ -2,6 +2,11 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.73.17] - 2026-04-08
+
+### Added
+- **Fixture data tree in property inspector** — when a component is selected, the inspector fetches its test fixture data from `/review/api/fixture` and renders it as an expandable tree. Shows columns, rows, segments, and all nested data with color swatches for hex values. Collapsible at every level.
+
 ## [2.73.16] - 2026-04-08
 
 ### Added

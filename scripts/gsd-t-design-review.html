@@ -1051,6 +1051,18 @@
       renderAIReview(item.aiReview);
     }
 
+    // Fetch and render fixture data (columns, rows, segments, etc.)
+    if (item.sourcePath) {
+      fetch(`/review/api/fixture?component=${encodeURIComponent(item.sourcePath)}`)
+        .then(r => r.json())
+        .then(fixture => {
+          if (fixture && Object.keys(fixture).length > 0) {
+            renderFixtureTree(fixture);
+          }
+        })
+        .catch(() => {});
+    }
+
     // Hint
     if (item.selector) {
       const hint = document.createElement("div");
@@ -1058,6 +1070,94 @@
       hint.textContent = "Click the element in the preview to inspect its properties";
       inspectorProps.appendChild(hint);
     }
+  }
+
+  function renderFixtureTree(fixture) {
+    const container = document.createElement("div");
+    container.className = "prop-group";
+    container.innerHTML = `<div class="prop-group-header">▸ Data Props</div>`;
+    const body = document.createElement("div");
+    body.style.cssText = "padding-left:8px;";
+
+    function renderValue(key, val, parent, depth) {
+      if (Array.isArray(val)) {
+        const row = document.createElement("div");
+        row.className = "prop-group-header";
+        row.style.paddingLeft = (depth * 12) + "px";
+        row.style.fontSize = "11px";
+        row.innerHTML = `<span style="color:#93c5fd">▸ ${key}</span> <span style="color:var(--text-dim);font-size:10px">[${val.length}]</span>`;
+        let expanded = depth < 1;
+        const items = document.createElement("div");
+        items.style.display = expanded ? "" : "none";
+        row.addEventListener("click", () => { expanded = !expanded; items.style.display = expanded ? "" : "none"; row.querySelector("span").textContent = (expanded ? "▾ " : "▸ ") + key; });
+        if (expanded) row.querySelector("span").textContent = "▾ " + key;
+        parent.appendChild(row);
+        val.forEach((item, i) => {
+          if (typeof item === "object" && item !== null) {
+            const itemRow = document.createElement("div");
+            itemRow.style.paddingLeft = ((depth + 1) * 12) + "px";
+            itemRow.style.cssText += "font-size:10px;color:var(--text-dim);margin:2px 0;";
+            itemRow.textContent = `[${i}]`;
+            items.appendChild(itemRow);
+            for (const [k, v] of Object.entries(item)) {
+              renderValue(k, v, items, depth + 2);
+            }
+          } else {
+            const itemRow = document.createElement("div");
+            itemRow.className = "prop-row";
+            itemRow.style.paddingLeft = ((depth + 1) * 12) + "px";
+            itemRow.innerHTML = `<span class="prop-name">[${i}]</span><span class="prop-value">${escapeHtml(String(item))}</span>`;
+            items.appendChild(itemRow);
+          }
+        });
+        parent.appendChild(items);
+      } else if (typeof val === "object" && val !== null) {
+        const row = document.createElement("div");
+        row.className = "prop-group-header";
+        row.style.paddingLeft = (depth * 12) + "px";
+        row.style.fontSize = "11px";
+        row.innerHTML = `<span style="color:#93c5fd">▸ ${key}</span>`;
+        let expanded = depth < 1;
+        const items = document.createElement("div");
+        items.style.display = expanded ? "" : "none";
+        row.addEventListener("click", () => { expanded = !expanded; items.style.display = expanded ? "" : "none"; row.querySelector("span").textContent = (expanded ? "▾ " : "▸ ") + key; });
+        if (expanded) row.querySelector("span").textContent = "▾ " + key;
+        parent.appendChild(row);
+        for (const [k, v] of Object.entries(val)) {
+          renderValue(k, v, items, depth + 1);
+        }
+        parent.appendChild(items);
+      } else {
+        const row = document.createElement("div");
+        row.className = "prop-row";
+        row.style.paddingLeft = (depth * 12) + "px";
+        const displayVal = typeof val === "string" && val.match(/^#[0-9a-fA-F]{3,8}$/)
+          ? `<span class="color-swatch" style="background:${val}"></span>${val}`
+          : escapeHtml(String(val));
+        row.innerHTML = `<span class="prop-name">${escapeHtml(key)}</span><span class="prop-value">${displayVal}</span>`;
+        parent.appendChild(row);
+      }
+    }
+
+    for (const [k, v] of Object.entries(fixture)) {
+      renderValue(k, v, body, 0);
+    }
+    container.appendChild(body);
+
+    // Toggle data props section
+    let dataExpanded = true;
+    container.querySelector(".prop-group-header").addEventListener("click", () => {
+      dataExpanded = !dataExpanded;
+      body.style.display = dataExpanded ? "" : "none";
+      container.querySelector(".prop-group-header").textContent = (dataExpanded ? "▾" : "▸") + " Data Props";
+    });
+    container.querySelector(".prop-group-header").textContent = "▾ Data Props";
+
+    inspectorInfo.appendChild(container);
+  }
+
+  function escapeHtml(str) {
+    return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
   }
 
   // ── Gallery mode ──────────────────────────────────
