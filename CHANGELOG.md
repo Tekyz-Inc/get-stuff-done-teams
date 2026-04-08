@@ -2,6 +2,17 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.71.11] - 2026-04-08
+
+### Fixed (design-build — review gates and measurement)
+- **Explicit Blocking Review Gates** — Steps 5 (widgets) and 6 (pages) now include their own inline bash polling loops instead of cross-referencing Step 3. The subagent was treating "Wait for human review (Step 3)" as an informational note and skipping the gate entirely, building all three tiers without ever showing the review UI.
+- **Concrete Widget Measurement** — Step 5 now has full Playwright `page.evaluate()` code for measuring grid columns, gap, children-per-row, padding, and child positioning. Previously was a single vague line ("Playwright measure the assembled widget").
+- **Concrete Page Measurement** — Step 6 now has explicit Playwright code for grid column count verification, section ordering, widget width ratios, spacing, and responsive breakpoints. Grid column mismatch (e.g., 4-across instead of 2-across) is flagged as `severity: "critical"`.
+- **Auto-Rejection for Grid Failures** — Review server now auto-rejects items with `grid-template-columns`, `gridTemplateColumns`, `columns-per-row`, or `children-per-row` measurement failures as critical (same as chart type mismatches).
+
+### Why
+User ran `design-build` and the builder completed all three tiers (elements → widgets → pages) without ever displaying the review panel. The review gate in Steps 5/6 used parenthetical cross-references that the subagent ignored. Additionally, the page rendered 4-across when the contract specified 2-across — the measurement step had no concrete code to catch this.
+
 ## [2.70.15] - 2026-04-06
 
 ### Changed (design pipeline — decompose verification)

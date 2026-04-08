@@ -3,7 +3,7 @@
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: IN PROGRESS
 ## Date: 2026-04-01
-## Version: 2.71.10
+## Version: 2.71.11
 
 ## Active Milestone
 
@@ -388,6 +388,7 @@ Wave 4: adaptive-replan (consumes fresh-dispatch summaries, integrates with work
 
 ## Decision Log
 (Entries before 2026-02-16 reconstructed from git history with timestamps)
+- 2026-04-08 12:00: [fix] Explicit blocking review gates in design-build Steps 3/5/6 — subagent was treating cross-references ("Wait for human review (Step 3)") as informational notes and skipping the poll loop. Now each tier has its own inline blocking bash loop. Added concrete Playwright measurement code for widgets (grid columns, children-per-row, gap) and pages (grid column count, section ordering, widget dimensions, responsive). Grid column mismatch is severity:critical with auto-rejection. (v2.71.11)
 - 2026-04-06 18:00: [fix] Replaced self-verification gate in gsd-t-design-decompose Step 6.5 with separate opus verification subagent (v2.70.15) — same agent cannot verify its own chart classifications (rubber-stamps due to sunk cost). New agent has fresh context, BAR CHART ORIENTATION PROOF decision tree, max 2 fix cycles. Root cause: decompose misclassified horizontal percentage bars as vertical grouped; all downstream fixes (v2.70.10-14) couldn't compensate for wrong contracts.
 - 2026-04-06 16:30: [feat] Added hierarchical build order to plan/execute/quick/audit/design-to-code (v2.70.14) — Wave 1 elements → Wave 2 widgets → Wave 3 pages, no inline rebuilds, contract is authoritative.
 - 2026-04-05 01:30: [feat] Added hierarchical design contracts (v2.58.10) — element → widget → page contract hierarchy. Element contracts are single source of truth for visual spec; widgets SELECT and POSITION elements; pages assemble widgets. Precedence: element > widget > page (widgets/pages cannot override element visual spec). Variant-per-contract rule: chart-bar-stacked-horizontal and chart-bar-stacked-vertical are SEPARATE contracts. Promotion rule: element contract required if reuse count ≥2 OR non-trivial spec. New files: templates/element-contract.md, templates/widget-contract.md, templates/page-contract.md, commands/gsd-t-design-decompose.md. Updated: templates/stacks/design-to-code.md (Section 0 flat-vs-hierarchical detection), README.md, docs/GSD-T-README.md, templates/CLAUDE-global.md, commands/gsd-t-help.md, CHANGELOG.md. Rationale: flat design-contract.md lets two instances of the same visual (e.g., two donut charts on different pages) drift over time. Hierarchical structure makes drift impossible because widgets reference elements by name. Verification cascades bottom-up (elements in isolation → widgets → pages), catching drift at lowest level.

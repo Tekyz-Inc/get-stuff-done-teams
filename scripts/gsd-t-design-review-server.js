@@ -79,7 +79,11 @@ function autoRejectFailures() {
           m.severity === "critical" ||
           m.property === "chart type" ||
           m.property === "display" ||
-          m.property === "flexDirection"
+          m.property === "flexDirection" ||
+          m.property === "grid-template-columns" ||
+          m.property === "gridTemplateColumns" ||
+          m.property === "columns-per-row" ||
+          m.property === "children-per-row"
         );
         if (criticalFailures.length > 0) {
           // Auto-reject: write feedback and remove from queue

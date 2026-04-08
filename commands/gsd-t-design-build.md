@@ -175,22 +175,26 @@ If rejected:
 
 Continue building remaining elements. Don't wait for human review — queue them all.
 
-## Step 3: Wait for Human Review
+## Step 3: Wait for Human Review (BLOCKING)
 
-After all elements are built and queued, enter the poll loop:
+**This is a BLOCKING step. Do NOT proceed to Step 4 until the human submits their review. Do NOT skip this step. Do NOT treat this as optional.**
+
+After all elements are built and queued, **STOP** and enter the poll loop:
 
 ```
-Waiting for human review...
+Waiting for human review of elements...
   Review UI: http://localhost:3456/review
   {N} elements queued, awaiting submission
 ```
 
-Poll for the review-complete signal:
+Poll for the review-complete signal — **actually run this bash loop**:
 ```bash
 while [ ! -f .gsd-t/design-review/review-complete.json ]; do
   sleep 5
 done
 ```
+
+**Only after `review-complete.json` appears**, proceed to Step 4.
 
 ## Step 4: Process Feedback
 
@@ -233,29 +237,96 @@ If any elements were re-queued → return to Step 3 (max 3 review cycles total).
 
 ## Step 5: Widget Assembly Phase
 
-After all elements are approved:
+**GATE: Do NOT start this step until ALL elements from Step 2 have been reviewed and approved by the human in the review UI.**
 
 1. Read widget contracts from `.gsd-t/contracts/design/widgets/`
 2. For each widget:
    a. Build the widget — MUST import approved element components, not rebuild them inline
    b. Verify imports: grep the widget file for element imports
-   c. Playwright measure the assembled widget
-   d. Queue for review (same flow as elements)
-3. Wait for human review (Step 3)
-4. Process feedback (Step 4)
+   c. **Render-Measure-Compare** — use Playwright to measure the assembled widget against its contract specs:
+      ```javascript
+      // In Playwright page.evaluate():
+      const widget = document.querySelector(widgetSelector);
+      const s = getComputedStyle(widget);
+      const rect = widget.getBoundingClientRect();
+      // Measure layout properties from widget contract:
+      // - grid-template-columns / grid-template-rows (column count, track sizes)
+      // - gap / row-gap / column-gap
+      // - padding, margin, border-radius
+      // - width, height, aspect-ratio
+      // Count direct children and verify against contract's expected child count
+      const children = widget.children;
+      const childRects = [...children].map(c => c.getBoundingClientRect());
+      // Verify children-per-row: count children whose top is within 2px of first child's top
+      const firstRowTop = childRects[0]?.top;
+      const childrenPerRow = childRects.filter(r => Math.abs(r.top - firstRowTop) < 2).length;
+      // Compare ALL measured values against contract specs
+      // Build measurements array: [{ property, expected, actual, pass }]
+      ```
+      **Every measurement failure MUST appear in the queue JSON measurements array with `pass: false`.**
+   d. Write queue JSON to `.gsd-t/design-review/queue/{widget-id}.json` (same format as elements, with `"type": "widget"`)
+   e. Check for auto-rejections (sleep 3, check `rejected/` dir) — fix and re-queue if rejected (max 2 cycles)
+3. After ALL widgets are built and queued, **STOP and poll for human review** — this is a BLOCKING wait, do NOT proceed until the human submits:
+   ```
+   Waiting for human review of widgets...
+     Review UI: http://localhost:3456/review
+     {N} widgets queued, awaiting submission
+   ```
+   ```bash
+   while [ ! -f .gsd-t/design-review/review-complete.json ]; do
+     sleep 5
+   done
+   ```
+4. Process feedback — read `review-complete.json` and each feedback file, apply changes/fixes per the same rules as Step 4. Clear queue, delete signal, clear feedback after processing. If any widgets re-queued → return to sub-step 3 (max 3 review cycles).
 
 ## Step 6: Page Composition Phase
 
-After all widgets are approved:
+**GATE: Do NOT start this step until ALL widgets from Step 5 have been reviewed and approved by the human in the review UI.**
 
 1. Read page contracts from `.gsd-t/contracts/design/pages/`
 2. For each page:
    a. Build the page — MUST import approved widget components
-   b. Verify grid layout, section ordering, responsive breakpoints
-   c. Playwright measure the full page
-   d. Queue for review
-3. Wait for human review
-4. Process feedback
+   b. **Render-Measure-Compare** — use Playwright to verify the full page layout against its contract specs:
+      ```javascript
+      // In Playwright page.evaluate():
+      // 1. GRID LAYOUT — verify column count matches contract
+      const grid = document.querySelector(pageGridSelector);
+      const gridStyle = getComputedStyle(grid);
+      const columns = gridStyle.gridTemplateColumns.split(' ').length;
+      // Compare against contract's expected column count (e.g., 2, not 4)
+      
+      // 2. SECTION ORDERING — verify widgets appear in contract-specified order
+      const sections = [...grid.querySelectorAll('[data-section]')];
+      const sectionOrder = sections.map(s => s.dataset.section);
+      // Compare against contract's section order array
+      
+      // 3. WIDGET DIMENSIONS — verify each widget's width relative to grid
+      const gridRect = grid.getBoundingClientRect();
+      const widgetRects = sections.map(s => s.getBoundingClientRect());
+      // For a 2-column grid: each widget should be ~50% of grid width (minus gap)
+      // For a 1-column widget spanning full width: should be ~100% of grid width
+      
+      // 4. SPACING — verify gap, padding, margins match contract
+      // gap, rowGap, columnGap, padding
+      
+      // 5. RESPONSIVE — if contract specifies breakpoints, measure at each viewport width
+      // Build measurements array: [{ property, expected, actual, pass }]
+      ```
+      **Grid column count is a CRITICAL measurement. If the contract says 2 columns and the page renders 4, this is `severity: "critical"` and MUST be flagged.**
+   c. Write queue JSON to `.gsd-t/design-review/queue/{page-id}.json` (same format, with `"type": "page"`)
+   e. Check for auto-rejections (sleep 3, check `rejected/` dir) — fix and re-queue if rejected (max 2 cycles)
+3. After ALL pages are built and queued, **STOP and poll for human review** — this is a BLOCKING wait, do NOT proceed until the human submits:
+   ```
+   Waiting for human review of pages...
+     Review UI: http://localhost:3456/review
+     {N} pages queued, awaiting submission
+   ```
+   ```bash
+   while [ ! -f .gsd-t/design-review/review-complete.json ]; do
+     sleep 5
+   done
+   ```
+4. Process feedback — same rules as Step 4. Clear queue, delete signal, clear feedback. If any pages re-queued → return to sub-step 3 (max 3 review cycles).
 
 ## Step 7: Cleanup and Report
 
@@ -307,8 +378,10 @@ Update `.gsd-t/progress.md` with completion status.
 
 - NEVER share builder context with Term 2 — coordination is files only
 - NEVER skip the review cycle — every component goes through Term 2 + human
-- NEVER proceed to widgets before all elements are approved
+- NEVER proceed to widgets before all elements are reviewed and approved by the human — the bash polling loop MUST block until `review-complete.json` appears
+- NEVER proceed to pages before all widgets are reviewed and approved by the human — same blocking poll
 - NEVER rebuild element functionality inline in widgets — always import
+- NEVER skip or shortcut the bash polling loop — it MUST actually execute and block
 - Max 3 review cycles per phase — if still failing, stop and present to user
 - Auto-open the browser review UI so the user doesn't have to find it
 - Kill all background processes on completion or error
