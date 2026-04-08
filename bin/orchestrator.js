@@ -569,6 +569,14 @@ ${BOLD}Phases:${RESET} ${this.wf.phases.join(" → ")}
         warn(`Claude exited with code ${buildResult.exitCode} after ${buildResult.duration}s`);
       }
 
+      // Log build output for debugging
+      const buildLogDir = path.join(this.getReviewDir(projectDir), "build-logs");
+      ensureDir(buildLogDir);
+      fs.writeFileSync(
+        path.join(buildLogDir, `${phase}-build.log`),
+        `Exit code: ${buildResult.exitCode}\nDuration: ${buildResult.duration}s\nPrompt length: ${prompt.length}\n\n--- OUTPUT ---\n${buildResult.output.slice(0, 20000)}`
+      );
+
       // 6c. Collect built paths
       const builtPaths = items.map(item =>
         item.sourcePath || (this.wf.guessPaths ? this.wf.guessPaths(phase, item) : "")
