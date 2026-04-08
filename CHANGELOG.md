@@ -2,10 +2,12 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
-## [2.73.13] - 2026-04-08
+## [2.73.14] - 2026-04-08
 
-### Fixed (review UI — test fixture props for component preview)
-- **Preview now passes test fixture props** from design contracts to mounted components. Reads `## Test Fixture` JSON block from contract, strips metadata keys (`__` prefixed), and passes as component props. Components that require data (charts, tables, stat cards) now render with sample data instead of blank.
+### Fixed (review UI — component preview rendering)
+- **Preview HTML now proxied through Vite** for module resolution. Bare module specifiers (`'vue'`, `'react'`) are transformed by Vite into resolved paths. Previously served static HTML which caused `Failed to resolve module specifier "vue"` error.
+- **Test fixture props extracted from design contracts** — reads `## Test Fixture` JSON block, strips metadata keys, passes as component props. Components now render with sample data.
+- **Playwright-verified** — ChartDonut renders 5-segment donut with center value, sublabel, and percentage labels from contract fixture data.
 
 ## [2.73.12] - 2026-04-08
 

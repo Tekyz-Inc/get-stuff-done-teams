@@ -107,7 +107,6 @@ function generatePreviewHtml(componentPath) {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Preview: ${path.basename(componentPath)}</title>
-  <script type="module" src="/@vite/client"></script>
 ${linkTags}
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -361,7 +360,7 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // Component preview — mounts a single component in isolation via Vite
+  // Component preview — writes temp HTML to project, proxies through Vite for module resolution
   if (pathname === "/review/preview") {
     const component = parsed.query.component;
     if (!component) {
@@ -369,24 +368,44 @@ const server = http.createServer((req, res) => {
       res.end("Missing ?component= parameter");
       return;
     }
-    // Proxy this HTML through Vite so module imports resolve correctly
+    // Write preview HTML to project dir so Vite transforms bare module specifiers (e.g., 'vue' → /node_modules/.vite/deps/vue.js)
+    const previewFile = path.join(PROJECT_DIR, "__gsd-preview.html");
     const html = generatePreviewHtml(component);
-    // Send to Vite's HTML transform endpoint via proxy
+    try { fs.writeFileSync(previewFile, html); } catch { /* ignore */ }
+    // Proxy through Vite so it transforms the HTML
     const proxyOpts = {
       hostname: targetUrl.hostname,
       port: targetUrl.port,
-      path: "/__gsd_preview",
+      path: "/__gsd-preview.html",
       method: "GET",
       headers: { ...req.headers, host: `${targetUrl.hostname}:${targetUrl.port}` },
     };
-    // Vite won't know this path — serve directly but let browser resolve modules from Vite
-    const buf = Buffer.from(html, "utf8");
-    res.writeHead(200, {
-      "Content-Type": "text/html",
-      "Content-Length": buf.length,
-      "Cache-Control": "no-cache",
+    const proxyReq = http.request(proxyOpts, (proxyRes) => {
+      const chunks = [];
+      proxyRes.on("data", (chunk) => chunks.push(chunk));
+      proxyRes.on("end", () => {
+        let transformed = Buffer.concat(chunks).toString("utf8");
+        // Inject review overlay if not already present
+        if (!transformed.includes("review/inject.js")) {
+          transformed = transformed.replace("</body>", '<script src="/review/inject.js"></script>\n</body>');
+        }
+        const buf = Buffer.from(transformed, "utf8");
+        res.writeHead(proxyRes.statusCode, {
+          ...proxyRes.headers,
+          "content-length": buf.length,
+          "cache-control": "no-cache",
+        });
+        res.end(buf);
+        // Clean up temp file
+        try { fs.unlinkSync(previewFile); } catch { /* ignore */ }
+      });
     });
-    res.end(buf);
+    proxyReq.on("error", () => {
+      res.writeHead(502, { "Content-Type": "text/html" });
+      res.end("<h1>Dev server unreachable</h1>");
+      try { fs.unlinkSync(previewFile); } catch { /* ignore */ }
+    });
+    proxyReq.end();
     return;
   }
 
