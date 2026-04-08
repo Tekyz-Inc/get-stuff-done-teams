@@ -2,6 +2,13 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.73.12] - 2026-04-08
+
+### Added (review UI — isolated component preview + tier tabs)
+- **`/review/preview` endpoint** — mounts a single component in isolation via Vite module resolution. Framework-aware: auto-detects Vue/React/Svelte from package.json. Includes global styles and Vite HMR client. Components now render in the review iframe instead of showing a blank page.
+- **Tier tabs** — Elements | Widgets | Pages tabs in the sidebar filter components by tier. Counts update as items are queued. All tab shows everything.
+- **Framework detection** — review server reads project's package.json to determine mount strategy. Logs detected framework and global styles on startup.
+
 ## [2.73.11] - 2026-04-08
 
 ### Changed (reviewer — Playwright-first visual inspection)

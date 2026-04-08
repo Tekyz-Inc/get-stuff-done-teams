@@ -127,6 +127,39 @@
     border-bottom: 1px solid var(--border);
   }
 
+  /* ── Tier tabs ──────────────────────────────────── */
+  .tier-tabs {
+    display: flex;
+    padding: 4px;
+    gap: 2px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .tier-tab {
+    flex: 1;
+    padding: 5px 4px;
+    font-size: 11px;
+    font-weight: 600;
+    text-align: center;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all 0.1s;
+  }
+
+  .tier-tab:hover { color: var(--text-muted); background: var(--bg-hover); }
+  .tier-tab.active { color: white; background: var(--accent); }
+
+  .tier-tab .tier-count {
+    font-size: 9px;
+    font-weight: 400;
+    opacity: 0.7;
+    margin-left: 2px;
+  }
+
   .component-list {
     flex: 1;
     overflow-y: auto;
@@ -687,6 +720,12 @@
   <!-- Left sidebar: component list -->
   <div class="sidebar">
     <div class="sidebar-header">Components</div>
+    <div class="tier-tabs" id="tier-tabs">
+      <button class="tier-tab active" data-tier="all">All</button>
+      <button class="tier-tab" data-tier="element">Elements</button>
+      <button class="tier-tab" data-tier="widget">Widgets</button>
+      <button class="tier-tab" data-tier="page">Pages</button>
+    </div>
     <div class="component-list" id="component-list">
       <div class="waiting-overlay" id="waiting-state">
         <div class="spinner"></div>
@@ -750,7 +789,9 @@
 
   // ── State ─────────────────────────────────────────
   let queue = [];
-  let selectedIdx = -1;
+  let filteredQueue = [];  // queue filtered by active tier
+  let activeTier = "all";
+  let selectedIdx = -1;    // index into filteredQueue
   let inspectActive = false;
   const changes = new Map();     // componentId → [{path, property, oldValue, newValue}]
   const comments = new Map();   // componentId → string
@@ -783,6 +824,46 @@
   let currentTree = null;
   let selectedTreeKey = null;
   const propagateBadge = document.getElementById("propagate-badge");
+  const tierTabs = document.getElementById("tier-tabs");
+
+  // ── Tier tab handling ────────────────────────────
+  function filterByTier() {
+    if (activeTier === "all") {
+      filteredQueue = [...queue];
+    } else {
+      filteredQueue = queue.filter(item => item.type === activeTier);
+    }
+  }
+
+  function updateTierCounts() {
+    const counts = { all: queue.length, element: 0, widget: 0, page: 0 };
+    for (const item of queue) {
+      if (counts[item.type] !== undefined) counts[item.type]++;
+    }
+    tierTabs.querySelectorAll(".tier-tab").forEach(tab => {
+      const tier = tab.getAttribute("data-tier");
+      const count = counts[tier] || 0;
+      const label = tier === "all" ? "All" : tier.charAt(0).toUpperCase() + tier.slice(1) + "s";
+      tab.innerHTML = count > 0 ? `${label} <span class="tier-count">${count}</span>` : label;
+      // Hide tabs with 0 items (except All)
+      if (tier !== "all") {
+        tab.style.display = count > 0 ? "" : "none";
+      }
+    });
+  }
+
+  tierTabs.addEventListener("click", (e) => {
+    const tab = e.target.closest(".tier-tab");
+    if (!tab) return;
+    activeTier = tab.getAttribute("data-tier");
+    tierTabs.querySelectorAll(".tier-tab").forEach(t => t.classList.remove("active"));
+    tab.classList.add("active");
+    selectedIdx = -1;
+    filterByTier();
+    renderComponentList();
+    updateSubmitStats();
+    if (filteredQueue.length > 0) selectComponent(0);
+  });
 
   // ── SSE connection ────────────────────────────────
   function connectSSE() {
@@ -836,20 +917,14 @@
       submitBar.style.display = "flex";
       feedbackPanel.style.display = "block";
     }
+    filterByTier();
+    updateTierCounts();
     renderComponentList();
     updateSubmitStats();
 
     // Auto-select first if none selected
-    if (selectedIdx < 0 && queue.length > 0) {
+    if (selectedIdx < 0 && filteredQueue.length > 0) {
       selectComponent(0);
-    }
-
-    // Load iframe with the app URL
-    if (queue.length > 0 && previewIframe.src === "about:blank") {
-      // Use the first component's route or default to "/"
-      const route = queue[0].route || "/";
-      previewIframe.src = route;
-      previewUrl.textContent = route;
     }
   }
 
@@ -859,16 +934,16 @@
       if (ch !== waitingState) ch.remove();
     });
 
-    queue.forEach((item, idx) => {
+    filteredQueue.forEach((item, idx) => {
       const itemChanges = changes.get(item.id) || [];
       const itemComment = comments.get(item.id) || "";
       let statusClass = "pending";
       if (itemChanges.length > 0 && itemComment) {
-        statusClass = "changed"; // has both changes and comments
+        statusClass = "changed";
       } else if (itemChanges.length > 0) {
         statusClass = "changed";
       } else if (itemComment) {
-        statusClass = "rejected"; // comment only = feedback
+        statusClass = "rejected";
       }
 
       const div = document.createElement("div");
@@ -885,53 +960,61 @@
 
   function selectComponent(idx) {
     // Save comment from current element before switching
-    if (selectedIdx >= 0 && queue[selectedIdx]) {
+    if (selectedIdx >= 0 && filteredQueue[selectedIdx]) {
       const comment = feedbackComment.value.trim();
-      if (comment) comments.set(queue[selectedIdx].id, comment);
-      else comments.delete(queue[selectedIdx].id);
+      if (comment) comments.set(filteredQueue[selectedIdx].id, comment);
+      else comments.delete(filteredQueue[selectedIdx].id);
     }
 
     selectedIdx = idx;
     renderComponentList();
 
-    const item = queue[idx];
+    const item = filteredQueue[idx];
     if (!item) return;
 
     // Always show component info in the inspector immediately
     renderComponentInfo(item);
 
-    // Scroll iframe to the component if it has a selector
-    if (item.selector && previewIframe.contentWindow) {
-      // Auto-enable inspect mode so the element gets highlighted
+    // Load isolated component preview in iframe
+    if (item.sourcePath) {
+      const previewSrc = `/review/preview?component=${encodeURIComponent(item.sourcePath)}`;
+      previewIframe.src = previewSrc;
+      previewUrl.textContent = item.sourcePath;
+    }
+
+    // Auto-enable inspect mode and request tree after iframe loads
+    const onPreviewLoad = () => {
+      previewIframe.removeEventListener("load", onPreviewLoad);
+
       if (!inspectActive) {
         inspectActive = true;
         inspectToggle.classList.add("active");
         previewHint.textContent = "Hover to inspect, click to lock selection";
+      }
+
+      if (previewIframe.contentWindow) {
         previewIframe.contentWindow.postMessage({ type: "gsdt-activate" }, "*");
       }
-      previewIframe.contentWindow.postMessage({
-        type: "gsdt-scroll-to",
-        selector: item.selector,
-      }, "*");
 
-      // Request component tree for hierarchical control
+      // Request component tree
       currentTree = null;
       selectedTreeKey = null;
       inspectorTree.innerHTML = "";
-      // Small delay to let scroll-to complete before querying tree
       setTimeout(() => {
         if (previewIframe.contentWindow) {
+          const selector = item.selector || "#app > *";
+          previewIframe.contentWindow.postMessage({
+            type: "gsdt-scroll-to",
+            selector: selector,
+          }, "*");
           previewIframe.contentWindow.postMessage({
             type: "gsdt-get-tree",
-            selector: item.selector,
+            selector: selector,
           }, "*");
         }
-      }, 300);
-    }
-
-    // Save comment from previous element before switching
-    const prevItem = selectedIdx >= 0 ? queue[selectedIdx] : null;
-    // (selectedIdx already updated above via renderComponentList, so use prevItem logic below)
+      }, 500);
+    };
+    previewIframe.addEventListener("load", onPreviewLoad);
 
     // Load existing comment for this element
     feedbackComment.value = comments.get(item.id) || "";
@@ -1179,7 +1262,7 @@
         }
 
         // Check if this property was changed
-        const compId = queue[selectedIdx]?.id;
+        const compId = filteredQueue[selectedIdx]?.id;
         const compChanges = changes.get(compId) || [];
         const existing = compChanges.find(c => c.path === currentElementPath && c.property === prop);
         if (existing) {
@@ -1327,7 +1410,7 @@
   // ── Property editing ──────────────────────────────
   function startEdit(valEl, prop) {
     const currentVal = valEl.getAttribute("data-original");
-    const compChanges = changes.get(queue[selectedIdx]?.id) || [];
+    const compChanges = changes.get(filteredQueue[selectedIdx]?.id) || [];
     const existing = compChanges.find(c => c.path === currentElementPath && c.property === prop);
     const displayVal = existing ? existing.newValue : currentVal;
 
@@ -1361,7 +1444,7 @@
         }, "*");
 
         // Track the change
-        const compId = queue[selectedIdx]?.id;
+        const compId = filteredQueue[selectedIdx]?.id;
         if (compId) {
           if (!changes.has(compId)) changes.set(compId, []);
           const list = changes.get(compId);
@@ -1445,7 +1528,7 @@
   // ── Ctrl/Cmd+Z to undo last change ──────────────────
   document.addEventListener("keydown", (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) {
-      const compId = queue[selectedIdx]?.id;
+      const compId = filteredQueue[selectedIdx]?.id;
       if (!compId) return;
       const list = changes.get(compId);
       if (!list || list.length === 0) return;
@@ -1543,7 +1626,7 @@
 
   // ── Save comment on blur ────────────────────────────
   feedbackComment.addEventListener("blur", () => {
-    const item = queue[selectedIdx];
+    const item = filteredQueue[selectedIdx];
     if (!item) return;
     const comment = feedbackComment.value.trim();
     if (comment) comments.set(item.id, comment);
@@ -1575,10 +1658,10 @@
 
   submitAll.addEventListener("click", async () => {
     // Save current element's comment
-    if (selectedIdx >= 0 && queue[selectedIdx]) {
+    if (selectedIdx >= 0 && filteredQueue[selectedIdx]) {
       const comment = feedbackComment.value.trim();
-      if (comment) comments.set(queue[selectedIdx].id, comment);
-      else comments.delete(queue[selectedIdx].id);
+      if (comment) comments.set(filteredQueue[selectedIdx].id, comment);
+      else comments.delete(filteredQueue[selectedIdx].id);
     }
 
     // Check for non-actionable comments (documentation, not change requests)
@@ -1654,7 +1737,7 @@
   });
 
   undoAllChanges.addEventListener("click", () => {
-    const compId = queue[selectedIdx]?.id;
+    const compId = filteredQueue[selectedIdx]?.id;
     if (compId) {
       changes.delete(compId);
       renderChanges(compId);

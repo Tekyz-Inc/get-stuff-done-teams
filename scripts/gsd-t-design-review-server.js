@@ -26,6 +26,78 @@ const TARGET = getArg("target", "http://localhost:5173");
 const PROJECT_DIR = getArg("project", process.cwd());
 const REVIEW_DIR = path.join(PROJECT_DIR, ".gsd-t", "design-review");
 
+// ── Framework detection ──────────────────────────────────────────────
+function detectFramework() {
+  try {
+    const pkg = JSON.parse(fs.readFileSync(path.join(PROJECT_DIR, "package.json"), "utf8"));
+    const deps = { ...pkg.dependencies, ...pkg.devDependencies };
+    if (deps.vue || deps["vue-router"]) return "vue";
+    if (deps.react || deps["react-dom"]) return "react";
+    if (deps.svelte) return "svelte";
+    if (deps["@angular/core"]) return "angular";
+  } catch { /* no package.json */ }
+  return "vue"; // default
+}
+
+function findGlobalStyles() {
+  const candidates = [
+    "src/assets/main.css", "src/assets/index.css", "src/assets/global.css",
+    "src/styles/main.css", "src/styles/index.css", "src/styles/global.css",
+    "src/index.css", "src/main.css", "src/app.css",
+  ];
+  return candidates.filter(f => fs.existsSync(path.join(PROJECT_DIR, f)));
+}
+
+const FRAMEWORK = detectFramework();
+const GLOBAL_STYLES = findGlobalStyles();
+
+function generatePreviewHtml(componentPath) {
+  const linkTags = GLOBAL_STYLES.map(s => `  <link rel="stylesheet" href="/${s}">`).join("\n");
+
+  let mountScript;
+  if (FRAMEWORK === "vue") {
+    mountScript = `
+  <script type="module">
+    import { createApp } from 'vue'
+    import Component from '/${componentPath}'
+    const app = createApp(Component)
+    app.mount('#app')
+  </script>`;
+  } else if (FRAMEWORK === "react") {
+    mountScript = `
+  <script type="module">
+    import React from 'react'
+    import { createRoot } from 'react-dom/client'
+    import Component from '/${componentPath}'
+    createRoot(document.getElementById('app')).render(React.createElement(Component))
+  </script>`;
+  } else {
+    mountScript = `<script type="module">import '/${componentPath}'</script>`;
+  }
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Preview: ${path.basename(componentPath)}</title>
+  <script type="module" src="/@vite/client"></script>
+${linkTags}
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #ffffff; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 32px; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
+    #app { width: 100%; max-width: 800px; }
+    .preview-error { color: #ef4444; font-size: 14px; padding: 16px; border: 1px solid #ef4444; border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  ${mountScript}
+  <script src="/review/inject.js"></script>
+</body>
+</html>`;
+}
+
 // ── Ensure coordination directory ─────────────────────────────────────
 function ensureDir(dir) {
   try { fs.mkdirSync(dir, { recursive: true }); } catch { /* exists */ }
@@ -263,6 +335,35 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // Component preview — mounts a single component in isolation via Vite
+  if (pathname === "/review/preview") {
+    const component = parsed.query.component;
+    if (!component) {
+      res.writeHead(400, { "Content-Type": "text/plain" });
+      res.end("Missing ?component= parameter");
+      return;
+    }
+    // Proxy this HTML through Vite so module imports resolve correctly
+    const html = generatePreviewHtml(component);
+    // Send to Vite's HTML transform endpoint via proxy
+    const proxyOpts = {
+      hostname: targetUrl.hostname,
+      port: targetUrl.port,
+      path: "/__gsd_preview",
+      method: "GET",
+      headers: { ...req.headers, host: `${targetUrl.hostname}:${targetUrl.port}` },
+    };
+    // Vite won't know this path — serve directly but let browser resolve modules from Vite
+    const buf = Buffer.from(html, "utf8");
+    res.writeHead(200, {
+      "Content-Type": "text/html",
+      "Content-Length": buf.length,
+      "Cache-Control": "no-cache",
+    });
+    res.end(buf);
+    return;
+  }
+
   // ── Review API ──────────────────────────────────────────────────
   if (pathname === "/review/api/status") {
     res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
@@ -388,5 +489,9 @@ server.listen(PORT, () => {
   console.log(`${GREEN}  ✓${RESET} Review UI:  ${CYAN}http://localhost:${PORT}/review${RESET}`);
   console.log(`${GREEN}  ✓${RESET} Proxying:   ${DIM}${TARGET} → http://localhost:${PORT}/${RESET}`);
   console.log(`${GREEN}  ✓${RESET} Project:    ${DIM}${PROJECT_DIR}${RESET}`);
+  console.log(`${GREEN}  ✓${RESET} Framework:  ${DIM}${FRAMEWORK}${RESET}`);
+  if (GLOBAL_STYLES.length > 0) {
+    console.log(`${GREEN}  ✓${RESET} Styles:     ${DIM}${GLOBAL_STYLES.join(", ")}${RESET}`);
+  }
   console.log(`${DIM}  Coordination: ${REVIEW_DIR}${RESET}\n`);
 });

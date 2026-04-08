@@ -3,7 +3,7 @@
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: IN PROGRESS
 ## Date: 2026-04-01
-## Version: 2.73.11
+## Version: 2.73.12
 
 ## Active Milestone
 
@@ -388,6 +388,7 @@ Wave 4: adaptive-replan (consumes fresh-dispatch summaries, integrates with work
 
 ## Decision Log
 (Entries before 2026-02-16 reconstructed from git history with timestamps)
+- 2026-04-08 23:45: [feat] Isolated component preview in review UI — /review/preview endpoint mounts single component via Vite module resolution, framework-aware (Vue/React/Svelte). Tier tabs (Elements/Widgets/Pages) filter sidebar. Each component renders in isolation with global styles applied. (v2.73.12)
 - 2026-04-08 23:15: [fix] Playwright visual inspection is now PRIMARY reviewer method — computed styles via getComputedStyle() for every contract-specified property. Code review demoted to supplement for non-visual concerns. CSS box math can only be verified at render time. (v2.73.11)
 - 2026-04-08 23:00: [feat] Parallel per-item pipeline — async spawnClaudeAsync() + _runWithConcurrency() enable N concurrent build+review items via --parallel N flag. Callers updated for async run(). (v2.73.10)
 - 2026-04-08 21:50: [feat] Per-item build+review pipeline — each component built and reviewed individually instead of all-at-once. Fixes reviewer timeout (30+ files in context). Added stream-json output for partial capture on timeout, --verbose for debugging, --clean for fresh builds, version display. Reviewer timeout 300s→600s, per-item 120s. (v2.72.10)
