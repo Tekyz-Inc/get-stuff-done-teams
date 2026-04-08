@@ -3,7 +3,7 @@
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: IN PROGRESS
 ## Date: 2026-04-01
-## Version: 2.71.13
+## Version: 2.71.14
 
 ## Active Milestone
 
@@ -388,6 +388,7 @@ Wave 4: adaptive-replan (consumes fresh-dispatch summaries, integrates with work
 
 ## Decision Log
 (Entries before 2026-02-16 reconstructed from git history with timestamps)
+- 2026-04-08 14:00: [feat] Abstract workflow orchestrator (bin/orchestrator.js) + design-build workflow (bin/design-orchestrator.js). Base engine handles deterministic multi-phase pipelines: Claude spawn → measure → ironclad JS review gate → feedback → next phase. Design-build is the first workflow plugin (elements→widgets→pages from contracts). Architecture: base engine is workflow-agnostic; new workflows just provide a definition object (phases, prompts, measurement, feedback). Prompt-based gates failed 3x; JS gates are ironclad. (v2.71.14)
 - 2026-04-08 13:00: [fix] design-decompose Next Up hint now recommends design-build instead of partition. Added design-decompose → design-build to successor mapping in CLAUDE-global template and live CLAUDE.md. (v2.71.13)
 - 2026-04-08 12:30: [feat] Smart router design-to-code pipeline — router now treats design requests as a pipeline (clean → decompose → build), not a single command pick. Detects entry point based on state: "start over" enters at clean, missing contracts enters at decompose, contracts present enters at build. Auto-advances between steps. Added design-decompose, design-build, design-audit, design-review to valid command slugs. (v2.71.12)
 - 2026-04-08 12:00: [fix] Explicit blocking review gates in design-build Steps 3/5/6 — subagent was treating cross-references ("Wait for human review (Step 3)") as informational notes and skipping the poll loop. Now each tier has its own inline blocking bash loop. Added concrete Playwright measurement code for widgets (grid columns, children-per-row, gap) and pages (grid column count, section ordering, widget dimensions, responsive). Grid column mismatch is severity:critical with auto-rejection. (v2.71.11)

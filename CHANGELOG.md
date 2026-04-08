@@ -2,6 +2,17 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.71.14] - 2026-04-08
+
+### Added (design-build orchestrator)
+- **Abstract workflow orchestrator** (`bin/orchestrator.js`) — base engine for deterministic multi-phase pipelines. Handles Claude spawning, review queue management, ironclad JS polling gates, state persistence/resume, server lifecycle, and cleanup. Workflow definitions plug in via a simple interface (phases, prompts, measurement, feedback). Zero external dependencies.
+- **Design-build workflow** (`bin/design-orchestrator.js`) — first workflow implementation: elements → widgets → pages. Discovers contracts from `.gsd-t/contracts/design/`, builds per-tier Claude prompts, Playwright measurement, and review queue items. Plugs into the base orchestrator.
+- **CLI subcommand** — `gsd-t design-build [--resume] [--tier] [--dev-port] [--review-port]` delegates to the orchestrator. Integrated into `bin/gsd-t.js` help and switch statement.
+- **Resume capability** — orchestrator persists state to `orchestrator-state.json`, supports `--resume` to continue from where it left off after interruption.
+
+### Why
+Three separate attempts to enforce review gates via prompt instructions all failed — Claude Code agents optimize for task completion and skip any instruction to pause indefinitely. The orchestrator moves flow control out of prompts entirely into deterministic JavaScript.
+
 ## [2.71.13] - 2026-04-08
 
 ### Fixed (design-decompose — successor hint)

@@ -30,7 +30,9 @@ Only pause for blockers or project completion. Execute phases continuously.
 ## Project Structure
 
 ```
-bin/gsd-t.js           — CLI installer (11 subcommands)
+bin/gsd-t.js           — CLI installer (12 subcommands)
+bin/orchestrator.js    — Abstract workflow engine (phases → Claude → measure → gate → next)
+bin/design-orchestrator.js — Design-build workflow (elements → widgets → pages) using orchestrator
 commands/              — 56 slash commands for Claude Code (51 GSD-T + 5 utility)
   gsd-t-*.md           — 50 GSD-T workflow commands
   gsd.md               — Smart router (auto-routes user intent)

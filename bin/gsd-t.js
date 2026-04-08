@@ -2562,6 +2562,7 @@ function showHelp() {
   log(`  ${CYAN}changelog${RESET}      Open changelog in the browser`);
   log(`  ${CYAN}graph${RESET}          Code graph operations (index, status, query)`);
   log(`  ${CYAN}headless${RESET}       Non-interactive execution via claude -p + fast state queries`);
+  log(`  ${CYAN}design-build${RESET}   Deterministic design→code pipeline (elements → widgets → pages)`);
   log(`  ${CYAN}help${RESET}           Show this help\n`);
   log(`${BOLD}Examples:${RESET}`);
   log(`  ${DIM}$${RESET} npx @tekyzinc/gsd-t install`);
@@ -2696,6 +2697,11 @@ if (require.main === module) {
     case "headless":
       doHeadless(args.slice(1));
       break;
+    case "design-build": {
+      const orchestrator = require("./design-orchestrator.js");
+      orchestrator.run(args.slice(1));
+      break;
+    }
     case "scan": {
       const exportFlag = args.find(a => a.startsWith('--export='));
       const exportFormat = exportFlag ? exportFlag.split('=')[1] : null;
