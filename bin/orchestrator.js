@@ -579,7 +579,7 @@ ${BOLD}Phases:${RESET} ${this.wf.phases.join(" → ")}
       // 6d.5. Automated AI review loop (Term 2 equivalent)
       // Spawns an independent reviewer Claude that compares built output against contracts.
       // If issues found → spawn fixer Claude → re-measure → re-review until clean.
-      const maxAutoReviewCycles = this.wf.defaults?.maxAutoReviewCycles || 2;
+      const maxAutoReviewCycles = this.wf.defaults?.maxAutoReviewCycles || 4;
       if (this.wf.buildReviewPrompt) {
         let autoReviewCycle = 0;
         let autoReviewClean = false;

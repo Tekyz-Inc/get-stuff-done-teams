@@ -2,6 +2,11 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.71.17] - 2026-04-08
+
+### Fixed (orchestrator — auto-review cycle limit)
+- **Bumped maxAutoReviewCycles from 2 to 4** — 2 cycles was too conservative for complex components (e.g., charts with multiple contract properties). 4 cycles gives the reviewer/fixer loop enough iterations to converge.
+
 ## [2.71.16] - 2026-04-08
 
 ### Added (orchestrator — automated AI review loop)

@@ -438,7 +438,7 @@ const designBuildWorkflow = {
     timeout: 600_000,
     devServerTimeout: 30_000,
     maxReviewCycles: 3,
-    maxAutoReviewCycles: 2,
+    maxAutoReviewCycles: 4,
     reviewTimeout: 300_000,
   },
   completionMessage: "All done. Run your app to verify: npm run dev",
