@@ -365,25 +365,39 @@ ${componentList}
 ${measurementContext}
 ## Review Process
 
-**Step 1 — Code review (do this FIRST for ALL components):**
-For each component, read the design contract file and the source file. Check that every contract-specified value (colors, sizes, spacing, border-radius, font, layout, chart type, etc.) is correctly implemented in the code. This is your primary review — most issues are catchable from code alone.
+**Step 1 — Playwright visual inspection (PRIMARY — do this FIRST):**
+Every UI component is visual and MUST be visually inspected. For each component:
+1. Open http://localhost:${ports.reviewPort}/ in Playwright
+2. Navigate to / render the component using its selector
+3. For EVERY contract-specified visual property, use \`page.locator(selector).evaluate(el => getComputedStyle(el))\` to measure the actual computed value:
+   - **Box model**: width, height, padding, margin, gap, border-width, border-radius
+   - **Colors**: background-color, color, border-color (compare computed rgb/rgba values)
+   - **Typography**: font-family, font-size, font-weight, line-height, letter-spacing
+   - **Layout**: display, flex-direction, justify-content, align-items, grid-template-columns
+   - **Spacing**: gap, row-gap, column-gap, padding (all sides), margin (all sides)
+   - **Visual**: opacity, box-shadow, overflow, text-overflow
+4. Compare each measured value against the contract specification
+5. Check that the component renders without console errors
+6. For charts/SVGs: verify chart type, orientation, data structure, and proportions visually
 
-**Step 2 — Playwright spot-check (do this AFTER code review):**
-Use Playwright to render components at http://localhost:${ports.reviewPort}/ and verify:
-- Components render without errors and have correct dimensions
-- Chart types, orientations, and data structures are correct
-- Interactive elements respond correctly (hover, click, states)
+Code review alone CANNOT verify CSS box math — cascade, specificity, flex/grid computation, relative units, and parent constraints all affect the final rendered result. Only computed styles from a running browser are authoritative.
 
-Focus Playwright on components where code review raised concerns or where visual behavior can't be verified from code alone (e.g., SVG rendering, computed layouts). You do NOT need to re-measure every CSS property — the orchestrator already ran Playwright measurements above.
+**Step 2 — Code review (supplement for non-visual concerns):**
+Read the source file to check:
+- Prop interfaces match contract definitions
+- Event handlers and interactivity are wired correctly
+- Data binding and state management are correct
+- Accessibility attributes (aria-*, role) are present
+- Component structure matches contract hierarchy
 
 ## Output Format
 
-Output your findings between these markers. Each issue must have component, severity (critical/high/medium/low), and description with SPECIFIC contract vs. actual values:
+Output your findings between these markers. Each issue must have component, severity (critical/high/medium/low), and description with SPECIFIC contract value vs. actual computed value:
 
 [REVIEW_ISSUES]
 [
   {"component": "ComponentName", "severity": "critical", "description": "Contract specifies donut chart but rendered as pie chart (no inner radius)"},
-  {"component": "ComponentName", "severity": "high", "description": "Grid gap: contract 16px, actual 24px"}
+  {"component": "ComponentName", "severity": "high", "description": "Grid gap: contract 16px, computed 24px"}
 ]
 [/REVIEW_ISSUES]
 
@@ -395,9 +409,10 @@ If ALL components match their contracts, output:
 ## CRITICAL — Output Rules
 - Output MUST contain the [REVIEW_ISSUES] markers — the orchestrator parses your result from these markers. Without them, your review is lost.
 - You write ZERO code. You ONLY review.
+- You MUST run Playwright for every component. Skipping visual inspection is a review failure.
 - Be HARSH. Your value is in catching what the builder missed.
-- NEVER say "looks close" or "appears to match" — give SPECIFIC values.
-- Every contract property must be verified. Missing verification = missed issue.
+- NEVER say "looks close" or "appears to match" — give SPECIFIC computed values.
+- Every contract property must be verified via computed style. Missing verification = missed issue.
 - Severity guide: critical = wrong component type, missing element, broken render. high = wrong dimensions, colors, layout. medium = spacing/padding off. low = minor visual difference.`;
 }
 
@@ -421,15 +436,30 @@ function buildSingleItemReviewPrompt(phase, item, measurements, projectDir, port
 ${measurementContext}
 ## Review Process
 
-1. Read the design contract file — note every specified property value
-2. Read the source file — check that every contract-specified value is implemented correctly
-3. If needed, use Playwright to render at http://localhost:${ports.reviewPort}/ and verify visual behavior
+**Step 1 — Playwright visual inspection (PRIMARY):**
+This is a UI component — visual inspection is mandatory, not optional.
+1. Read the design contract file — note every specified visual property value
+2. Open http://localhost:${ports.reviewPort}/ in Playwright
+3. Render the component using its selector
+4. For EVERY contract-specified visual property, measure the actual computed value:
+   \`page.locator(selector).evaluate(el => getComputedStyle(el))\`
+   - Box model: width, height, padding, margin, gap, border-width, border-radius
+   - Colors: background-color, color, border-color (compare computed rgb/rgba)
+   - Typography: font-family, font-size, font-weight, line-height
+   - Layout: display, flex-direction, justify-content, align-items
+5. Compare each computed value against the contract specification
+6. For charts/SVGs: verify type, orientation, proportions visually
+
+Code review alone cannot verify CSS — cascade, specificity, flex/grid, and relative units all affect computed output.
+
+**Step 2 — Code review (non-visual concerns):**
+Read the source file to check prop interfaces, event handlers, data binding, and accessibility attributes.
 
 ## Output Format
 
 [REVIEW_ISSUES]
 [
-  {"component": "${item.componentName}", "severity": "high", "description": "Contract specifies X, code has Y"}
+  {"component": "${item.componentName}", "severity": "high", "description": "Contract specifies X, computed value is Y"}
 ]
 [/REVIEW_ISSUES]
 
@@ -439,8 +469,9 @@ If the component matches its contract, output:
 [/REVIEW_ISSUES]
 
 ## Rules
+- You MUST run Playwright. Skipping visual inspection is a review failure.
 - You write ZERO code. You ONLY review.
-- Be HARSH — specific values only, no "looks close."
+- Be HARSH — specific computed values only, no "looks close."
 - Output MUST contain [REVIEW_ISSUES] markers.`;
 }
 

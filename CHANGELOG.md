@@ -2,6 +2,11 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.73.11] - 2026-04-08
+
+### Changed (reviewer — Playwright-first visual inspection)
+- **Playwright is now the PRIMARY reviewer method** — every contract-specified visual property is verified via `getComputedStyle()` in a real browser. Code review demoted to supplement for non-visual concerns (props, events, accessibility). CSS box math (cascade, specificity, flex/grid computation, relative units) can only be verified at render time, not from source code.
+
 ## [2.73.10] - 2026-04-08
 
 ### Added (orchestrator — parallel execution)
