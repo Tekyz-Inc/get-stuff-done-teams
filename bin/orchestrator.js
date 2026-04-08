@@ -52,10 +52,12 @@ function ensureDir(dir) {
 }
 
 function syncSleep(ms) {
+  // Use sleep command instead of Atomics.wait — Atomics blocks the event loop
+  // completely, preventing SIGINT (Ctrl+C) from being handled
   try {
-    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+    execFileSync("sleep", [String(ms / 1000)], { stdio: "pipe" });
   } catch {
-    try { execFileSync("sleep", [String(ms / 1000)], { stdio: "pipe" }); } catch { /* ignore */ }
+    // sleep interrupted by signal — that's fine
   }
 }
 
@@ -607,14 +609,22 @@ ${BOLD}Phases:${RESET} ${this.wf.phases.join(" → ")}
           const reviewResult = this.spawnClaude(projectDir, reviewPrompt, reviewTimeout);
 
           // Parse reviewer output for issues
-          const issues = this.wf.parseReviewResult
-            ? this.wf.parseReviewResult(reviewResult.output, phase)
-            : this._parseDefaultReviewResult(reviewResult.output);
+          let issues;
 
-          if (reviewResult.exitCode === 0) {
-            success(`Reviewer finished in ${reviewResult.duration}s`);
+          // Treat reviewer crash (non-zero exit, very short duration) as a failed review, not a pass
+          if (reviewResult.exitCode !== 0 && reviewResult.duration < 10) {
+            warn(`Reviewer crashed (code ${reviewResult.exitCode}, ${reviewResult.duration}s) — treating as review failure, will retry`);
+            issues = [{ component: "ALL", severity: "critical", description: `Reviewer crashed with exit code ${reviewResult.exitCode} — review not performed` }];
           } else {
-            warn(`Reviewer exited with code ${reviewResult.exitCode} after ${reviewResult.duration}s`);
+            issues = this.wf.parseReviewResult
+              ? this.wf.parseReviewResult(reviewResult.output, phase)
+              : this._parseDefaultReviewResult(reviewResult.output);
+
+            if (reviewResult.exitCode === 0) {
+              success(`Reviewer finished in ${reviewResult.duration}s`);
+            } else {
+              warn(`Reviewer exited with code ${reviewResult.exitCode} after ${reviewResult.duration}s`);
+            }
           }
 
           // Write review report
@@ -622,7 +632,7 @@ ${BOLD}Phases:${RESET} ${this.wf.phases.join(" → ")}
           ensureDir(reportDir);
           fs.writeFileSync(
             path.join(reportDir, `${phase}-cycle-${autoReviewCycle}.json`),
-            JSON.stringify({ cycle: autoReviewCycle, issues, output: reviewResult.output.slice(0, 5000) }, null, 2)
+            JSON.stringify({ cycle: autoReviewCycle, issues, exitCode: reviewResult.exitCode, duration: reviewResult.duration, output: reviewResult.output.slice(0, 5000) }, null, 2)
           );
 
           if (issues.length === 0) {

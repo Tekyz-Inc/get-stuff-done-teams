@@ -2,6 +2,13 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.71.20] - 2026-04-08
+
+### Fixed (orchestrator — reviewer crash false-pass + Ctrl+C + build logging)
+- **Reviewer crash no longer treated as "pass"** — if the reviewer exits with non-zero code in under 10s, it's a crash, not a clean review. Retried on next cycle. Previously, empty output from a crashed reviewer was parsed as "0 issues = pass."
+- **Ctrl+C now works** — replaced `Atomics.wait` with `sleep` command for synchronous polling. `Atomics.wait` blocks the event loop completely, preventing SIGINT.
+- **Build output logging** — builder output written to `.gsd-t/design-review/build-logs/{phase}-build.log` for debugging.
+
 ## [2.71.18] - 2026-04-08
 
 ### Fixed (orchestrator — Claude permissions and timeouts)
