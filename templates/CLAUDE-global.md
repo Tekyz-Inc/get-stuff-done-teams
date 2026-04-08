@@ -567,6 +567,7 @@ Successor mapping:
 | `gap-analysis` | `milestone` | `feature` |
 | `populate` | `status` | |
 | `setup` | `status` | |
+| `design-decompose` | `design-build` | `partition` (if domains needed first) |
 
 Commands with no successor (standalone): `quick`, `debug`, `brainstorm`, `status`, `help`, `resume`, `prompt`, `log`, `health`, `pause`, backlog commands.
 

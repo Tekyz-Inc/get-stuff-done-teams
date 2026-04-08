@@ -2,6 +2,11 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.71.13] - 2026-04-08
+
+### Fixed (design-decompose — successor hint)
+- **Next Up points to design-build** — `design-decompose` was recommending `partition` as the next step. The natural successor after decomposing contracts is `design-build` (which handles the tiered build with review gates), not `partition`. Updated the command's Step 9 hint and added `design-decompose → design-build` to the successor mapping table in CLAUDE-global template and live CLAUDE.md.
+
 ## [2.71.12] - 2026-04-08
 
 ### Changed (smart router — design-to-code pipeline)

@@ -468,13 +468,13 @@ Display:
 
 ## ▶ Next Up
 
-**Partition** — decompose project into domains owning the design contracts
+**Design Build** — build UI from contracts with tiered review gates (elements → widgets → pages)
 
-`/user:gsd-t-partition`
+`/user:gsd-t-design-build`
 
 **Also available:**
-- `/user:gsd-t-execute` — build element contracts first (they're independently testable)
-- `/user:gsd-t-plan` — plan tasks around the contract hierarchy
+- `/user:gsd-t-partition` — if you need domain boundaries before building
+- `/user:gsd-t-plan` — if you need task lists before building
 
 ───────────────────────────────────────────────────────────────
 ```

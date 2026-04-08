@@ -3,7 +3,7 @@
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: IN PROGRESS
 ## Date: 2026-04-01
-## Version: 2.71.12
+## Version: 2.71.13
 
 ## Active Milestone
 
@@ -388,6 +388,7 @@ Wave 4: adaptive-replan (consumes fresh-dispatch summaries, integrates with work
 
 ## Decision Log
 (Entries before 2026-02-16 reconstructed from git history with timestamps)
+- 2026-04-08 13:00: [fix] design-decompose Next Up hint now recommends design-build instead of partition. Added design-decompose → design-build to successor mapping in CLAUDE-global template and live CLAUDE.md. (v2.71.13)
 - 2026-04-08 12:30: [feat] Smart router design-to-code pipeline — router now treats design requests as a pipeline (clean → decompose → build), not a single command pick. Detects entry point based on state: "start over" enters at clean, missing contracts enters at decompose, contracts present enters at build. Auto-advances between steps. Added design-decompose, design-build, design-audit, design-review to valid command slugs. (v2.71.12)
 - 2026-04-08 12:00: [fix] Explicit blocking review gates in design-build Steps 3/5/6 — subagent was treating cross-references ("Wait for human review (Step 3)") as informational notes and skipping the poll loop. Now each tier has its own inline blocking bash loop. Added concrete Playwright measurement code for widgets (grid columns, children-per-row, gap) and pages (grid column count, section ordering, widget dimensions, responsive). Grid column mismatch is severity:critical with auto-rejection. (v2.71.11)
 - 2026-04-06 18:00: [fix] Replaced self-verification gate in gsd-t-design-decompose Step 6.5 with separate opus verification subagent (v2.70.15) — same agent cannot verify its own chart classifications (rubber-stamps due to sunk cost). New agent has fresh context, BAR CHART ORIENTATION PROOF decision tree, max 2 fix cycles. Root cause: decompose misclassified horizontal percentage bars as vertical grouped; all downstream fixes (v2.70.10-14) couldn't compensate for wrong contracts.
