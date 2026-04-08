@@ -30,7 +30,7 @@ A methodology for reliable, parallelizable development using Claude Code with op
 npx @tekyzinc/gsd-t install
 ```
 
-This installs 48 GSD-T commands + 5 utility commands (53 total) to `~/.claude/commands/` and the global CLAUDE.md to `~/.claude/CLAUDE.md`. Works on Windows, Mac, and Linux.
+This installs 51 GSD-T commands + 5 utility commands (56 total) to `~/.claude/commands/` and the global CLAUDE.md to `~/.claude/CLAUDE.md`. Works on Windows, Mac, and Linux.
 
 ### Start Using It
 
@@ -189,6 +189,8 @@ This will replace changed command files, back up your CLAUDE.md if customized, a
 | `/user:gsd-t-triage-and-merge` | Auto-review, merge, and publish GitHub branches | Manual |
 | `/user:gsd-t-audit` | Harness self-audit — analyze cost/benefit of enforcement components | Manual |
 | `/user:gsd-t-design-audit` | Compare built screen against Figma design — structured deviation report | Manual |
+| `/user:gsd-t-design-build` | Build from design contracts with two-terminal review (Term 1 builder) | Manual |
+| `/user:gsd-t-design-review` | Independent review agent for design build (Term 2 reviewer) | Auto |
 
 ### Backlog Management
 
@@ -340,8 +342,8 @@ get-stuff-done-teams/
 ├── LICENSE
 ├── bin/
 │   └── gsd-t.js                       # CLI installer
-├── commands/                          # 53 slash commands
-│   ├── gsd-t-*.md                     # 45 GSD-T workflow commands
+├── commands/                          # 56 slash commands
+│   ├── gsd-t-*.md                     # 50 GSD-T workflow commands
 │   ├── gsd.md                         # GSD-T smart router
 │   ├── branch.md                      # Git branch helper
 │   ├── checkin.md                     # Auto-version + commit/push helper

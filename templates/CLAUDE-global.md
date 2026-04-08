@@ -71,6 +71,8 @@ PROJECT or FEATURE or SCAN
 | `/user:gsd-t-triage-and-merge` | Auto-review, merge, and publish GitHub branches |
 | `/user:gsd-t-audit` | Harness self-audit — analyze cost/benefit of enforcement components |
 | `/user:gsd-t-design-audit` | Compare built screen against Figma design — structured deviation report |
+| `/user:gsd-t-design-build` | Build from design contracts with two-terminal review |
+| `/user:gsd-t-design-review` | Independent review agent for design build (Term 2) |
 | `/user:gsd-t-backlog-add` | Capture item, auto-categorize, append to backlog |
 | `/user:gsd-t-backlog-list` | Filtered, ordered view of backlog items |
 | `/user:gsd-t-backlog-move` | Reorder items by position (priority) |

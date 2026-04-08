@@ -1,0 +1,1677 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GSD-T Design Review</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --bg-surface: #1e293b;
+    --bg-hover: #334155;
+    --border: #334155;
+    --text: #f8fafc;
+    --text-muted: #94a3b8;
+    --text-dim: #64748b;
+    --accent: #3b82f6;
+    --accent-hover: #2563eb;
+    --green: #22c55e;
+    --red: #ef4444;
+    --orange: #f97316;
+    --yellow: #eab308;
+    --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    --mono: 'JetBrains Mono', 'Fira Code', monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Header ─────────────────────────────────────── */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 16px;
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border);
+    height: 48px;
+    flex-shrink: 0;
+  }
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .header h1 {
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .phase-badge {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: var(--accent);
+    color: white;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .inspect-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text-muted);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .inspect-toggle.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+  }
+
+  .inspect-toggle:hover {
+    border-color: var(--accent);
+  }
+
+  /* ── Main layout ────────────────────────────────── */
+  .main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* ── Sidebar (left) ─────────────────────────────── */
+  .sidebar {
+    width: 260px;
+    flex-shrink: 0;
+    background: var(--bg-surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .sidebar-header {
+    padding: 12px 12px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .component-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px;
+  }
+
+  .component-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: background 0.1s;
+    position: relative;
+  }
+
+  .component-item:hover { background: var(--bg-hover); }
+  .component-item.selected { background: var(--accent); color: white; }
+
+  .component-status {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .component-status.pending { background: var(--text-dim); }
+  .component-status.approved { background: var(--green); }
+  .component-status.rejected { background: var(--red); }
+  .component-status.changed { background: var(--orange); }
+
+  .component-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .component-type { font-size: 10px; color: #94a3b8; }
+
+  /* ── Submit bar ─────────────────────────────────── */
+  .submit-bar {
+    padding: 12px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .submit-stats {
+    display: flex;
+    gap: 12px;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  .submit-stats span { display: flex; align-items: center; gap: 4px; }
+
+  .btn {
+    padding: 8px 16px;
+    border-radius: 6px;
+    border: none;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: center;
+  }
+
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-primary:hover { background: var(--accent-hover); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-sm { padding: 4px 10px; font-size: 12px; }
+  .btn-green { background: var(--green); color: white; }
+  .btn-green:hover { background: #16a34a; }
+  .btn-red { background: var(--red); color: white; }
+  .btn-red:hover { background: #dc2626; }
+  .btn-outline {
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+  }
+  .btn-outline:hover { border-color: var(--text); color: var(--text); }
+
+  /* ── Center: iframe ─────────────────────────────── */
+  .preview-pane {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .preview-pane iframe {
+    flex: 1;
+    border: none;
+    background: white;
+  }
+
+  .preview-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+
+  /* ── Right panel: property inspector ────────────── */
+  .inspector {
+    width: 320px;
+    flex-shrink: 0;
+    background: var(--bg-surface);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .inspector-header {
+    padding: 10px 12px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .inspector-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+  }
+
+  .inspector-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--text-dim);
+    font-size: 13px;
+    text-align: center;
+    padding: 20px;
+  }
+
+  .element-info {
+    padding: 8px;
+    margin-bottom: 8px;
+    background: var(--bg);
+    border-radius: 6px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: #93c5fd;
+    word-break: break-all;
+    line-height: 1.5;
+  }
+
+  /* ── Box model diagram ──────────────────────────── */
+  .box-model {
+    margin: 8px 0 12px;
+    display: flex;
+    justify-content: center;
+  }
+
+  .box-model-diagram {
+    position: relative;
+    width: 220px;
+    height: 140px;
+  }
+
+  .box-margin {
+    position: absolute;
+    inset: 0;
+    background: rgba(249, 115, 22, 0.35);
+    border: 2px solid #f97316;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .box-border-area {
+    position: absolute;
+    inset: 16px;
+    background: rgba(251, 191, 36, 0.35);
+    border: 2px solid #eab308;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .box-padding {
+    position: absolute;
+    inset: 30px;
+    background: rgba(34, 197, 94, 0.35);
+    border: 2px solid #22c55e;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .box-content {
+    position: absolute;
+    inset: 44px;
+    background: rgba(59, 130, 246, 0.35);
+    border: 2px solid #3b82f6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    color: #93c5fd;
+    font-weight: 600;
+    font-family: var(--mono);
+  }
+
+  .box-label {
+    position: absolute;
+    font-size: 10px;
+    font-weight: 600;
+    font-family: var(--mono);
+    color: #f8fafc;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+  }
+
+  .box-label.top { top: 2px; left: 50%; transform: translateX(-50%); }
+  .box-label.bottom { bottom: 2px; left: 50%; transform: translateX(-50%); }
+  .box-label.left { left: 2px; top: 50%; transform: translateY(-50%); }
+  .box-label.right { right: 2px; top: 50%; transform: translateY(-50%); }
+
+  /* ── Property groups ────────────────────────────── */
+  .prop-group {
+    margin-bottom: 12px;
+  }
+
+  .prop-group-header {
+    font-size: 12px;
+    font-weight: 700;
+    color: #e2e8f0;
+    padding: 6px 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .prop-group-header:hover { color: #ffffff; }
+
+  .prop-row {
+    display: flex;
+    align-items: center;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    gap: 4px;
+  }
+
+  .prop-row:hover { background: var(--bg-hover); }
+
+  .prop-name {
+    flex: 0 0 120px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: #cbd5e1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+    border-radius: 2px;
+    padding: 0 2px;
+    transition: background 0.1s;
+  }
+
+  .prop-name:hover { background: var(--bg-hover); color: #f8fafc; }
+
+  .prop-value {
+    flex: 1;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: #ffffff;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .prop-value.editable {
+    cursor: pointer;
+    padding: 1px 4px;
+    border-radius: 3px;
+    border: 1px solid transparent;
+  }
+
+  .prop-value.editable:hover {
+    border-color: var(--border);
+    background: var(--bg);
+  }
+
+  .prop-value.changed {
+    color: var(--orange);
+    font-weight: 600;
+  }
+
+  .prop-edit-input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--accent);
+    border-radius: 3px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 1px 4px;
+    outline: none;
+  }
+
+  .color-swatch {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+    border: 1px solid var(--border);
+    margin-right: 4px;
+    vertical-align: middle;
+  }
+
+  /* ── Changes tracker ────────────────────────────── */
+  .changes-section {
+    border-top: 1px solid var(--border);
+    padding: 8px;
+    flex-shrink: 0;
+  }
+
+  .changes-header {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--orange);
+    margin-bottom: 6px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .change-item {
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 2px 4px;
+    display: flex;
+    gap: 4px;
+    align-items: center;
+  }
+
+  .change-old { color: var(--red); text-decoration: line-through; }
+  .change-new { color: var(--green); }
+  .change-prop { color: var(--text-muted); }
+
+  /* ── Feedback panel ─────────────────────────────── */
+  .feedback-panel {
+    border-top: 1px solid var(--border);
+    padding: 12px;
+    flex-shrink: 0;
+  }
+
+  .feedback-actions {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .feedback-actions .btn { flex: 1; }
+
+  .feedback-comment {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 12px;
+    padding: 8px;
+    resize: vertical;
+    min-height: 60px;
+    outline: none;
+  }
+
+  .feedback-comment:focus { border-color: var(--accent); }
+  .feedback-comment::placeholder { color: #94a3b8; }
+
+  /* ── Auto-review results ────────────────────────── */
+  .auto-review {
+    padding: 8px;
+    margin: 8px 0;
+    background: var(--bg);
+    border-radius: 6px;
+    border: 1px solid var(--border);
+  }
+
+  .auto-review-header {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .auto-review-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    font-family: var(--mono);
+    padding: 2px 0;
+  }
+
+  .auto-review-row .pass { color: var(--green); }
+  .auto-review-row .fail { color: var(--red); }
+
+  /* ── Element tree ──────────────────────────────── */
+  .element-tree {
+    margin: 8px 0;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg);
+    max-height: 240px;
+    overflow-y: auto;
+  }
+
+  .element-tree-header {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .tree-node {
+    display: flex;
+    align-items: center;
+    padding: 3px 8px;
+    cursor: pointer;
+    font-size: 11px;
+    font-family: var(--mono);
+    color: var(--text);
+    border-radius: 3px;
+    gap: 4px;
+  }
+
+  .tree-node:hover { background: var(--bg-hover); }
+  .tree-node.selected { background: var(--accent); color: white; }
+
+  .tree-toggle {
+    width: 14px;
+    text-align: center;
+    color: var(--text-dim);
+    flex-shrink: 0;
+    font-size: 10px;
+    user-select: none;
+  }
+
+  .tree-tag {
+    color: #93c5fd;
+    flex-shrink: 0;
+  }
+
+  .tree-node.selected .tree-tag { color: #dbeafe; }
+
+  .tree-label {
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+  }
+
+  .tree-node.selected .tree-label { color: #e2e8f0; }
+
+  .tree-dims {
+    color: var(--text-dim);
+    font-size: 10px;
+    flex-shrink: 0;
+  }
+
+  .tree-node.selected .tree-dims { color: #bfdbfe; }
+
+  .tree-children {
+    padding-left: 12px;
+  }
+
+  .tree-children.collapsed { display: none; }
+
+  /* ── Scrollbar ──────────────────────────────────── */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+
+  /* ── Propagation badge ──────────────────────────── */
+  .propagate-badge {
+    font-size: 10px;
+    color: var(--green);
+    font-weight: 600;
+    padding: 2px 6px;
+    background: rgba(34, 197, 94, 0.1);
+    border-radius: 4px;
+    display: none;
+  }
+
+  /* ── Waiting state ──────────────────────────────── */
+  .waiting-overlay {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    gap: 16px;
+    color: var(--text-dim);
+  }
+
+  .waiting-overlay .spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .waiting-overlay p { font-size: 14px; }
+  .waiting-overlay .hint { font-size: 12px; color: var(--text-dim); }
+</style>
+</head>
+<body>
+
+<!-- ── Header ──────────────────────────────────────── -->
+<div class="header">
+  <div class="header-left">
+    <h1>GSD-T Design Review</h1>
+    <span class="phase-badge" id="phase-badge">Elements</span>
+  </div>
+  <div class="header-right">
+    <button class="inspect-toggle" id="inspect-toggle" title="Toggle inspect mode (Ctrl+Shift+I)">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"/>
+      </svg>
+      Inspect
+    </button>
+    <span style="font-size:12px;color:var(--text-dim)" id="connection-status">Connecting...</span>
+  </div>
+</div>
+
+<!-- ── Main ────────────────────────────────────────── -->
+<div class="main">
+  <!-- Left sidebar: component list -->
+  <div class="sidebar">
+    <div class="sidebar-header">Components</div>
+    <div class="component-list" id="component-list">
+      <div class="waiting-overlay" id="waiting-state">
+        <div class="spinner"></div>
+        <p>Waiting for components...</p>
+        <span class="hint">Builder terminal will queue items here</span>
+      </div>
+    </div>
+    <div class="submit-bar" id="submit-bar" style="display:none">
+      <div class="submit-stats" id="submit-stats"></div>
+      <button class="btn btn-primary" id="submit-all">Submit Review</button>
+    </div>
+  </div>
+
+  <!-- Center: preview iframe -->
+  <div class="preview-pane">
+    <div class="preview-toolbar">
+      <span id="preview-url">—</span>
+      <span style="flex:1"></span>
+      <span id="preview-hint" style="color:var(--text-dim)">Enable Inspect to hover-select elements</span>
+    </div>
+    <iframe id="preview-iframe" src="about:blank"></iframe>
+  </div>
+
+  <!-- Right panel: property inspector -->
+  <div class="inspector">
+    <div class="inspector-header">
+      <span>Properties</span>
+      <div style="display:flex;align-items:center;gap:6px">
+        <span class="propagate-badge" id="propagate-badge"></span>
+        <button class="btn btn-sm btn-outline" id="reset-styles" style="display:none">Reset</button>
+      </div>
+    </div>
+    <div class="inspector-body" id="inspector-body">
+      <div id="inspector-info"></div>
+      <div id="inspector-tree"></div>
+      <div id="inspector-props">
+        <div class="inspector-empty">
+          <div>
+            <p style="margin-bottom:8px">No element selected</p>
+            <p style="font-size:11px;color:var(--text-dim)">Enable Inspect mode, then hover and click an element in the preview</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="changes-section" id="changes-section" style="display:none">
+      <div class="changes-header">
+        <span>Changes (<span id="changes-count">0</span>)</span>
+        <button class="btn btn-sm btn-outline" id="undo-all-changes">Undo All</button>
+      </div>
+      <div id="changes-list"></div>
+    </div>
+    <div class="feedback-panel" id="feedback-panel" style="display:none">
+      <textarea class="feedback-comment" id="feedback-comment" placeholder="Suggest changes, e.g. &quot;make border thinner&quot; or &quot;reduce gap to 8px&quot;..."></textarea>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  "use strict";
+
+  // ── State ─────────────────────────────────────────
+  let queue = [];
+  let selectedIdx = -1;
+  let inspectActive = false;
+  const changes = new Map();     // componentId → [{path, property, oldValue, newValue}]
+  const comments = new Map();   // componentId → string
+  let currentElementPath = null;
+  let currentStyles = null;
+
+  // ── DOM refs ──────────────────────────────────────
+  const componentList = document.getElementById("component-list");
+  const waitingState = document.getElementById("waiting-state");
+  const submitBar = document.getElementById("submit-bar");
+  const submitStats = document.getElementById("submit-stats");
+  const submitAll = document.getElementById("submit-all");
+  const phaseBadge = document.getElementById("phase-badge");
+  const inspectToggle = document.getElementById("inspect-toggle");
+  const previewIframe = document.getElementById("preview-iframe");
+  const previewUrl = document.getElementById("preview-url");
+  const previewHint = document.getElementById("preview-hint");
+  const inspectorBody = document.getElementById("inspector-body");
+  const changesSection = document.getElementById("changes-section");
+  const changesList = document.getElementById("changes-list");
+  const changesCount = document.getElementById("changes-count");
+  const feedbackPanel = document.getElementById("feedback-panel");
+  const feedbackComment = document.getElementById("feedback-comment");
+  const resetStyles = document.getElementById("reset-styles");
+  const undoAllChanges = document.getElementById("undo-all-changes");
+  const connectionStatus = document.getElementById("connection-status");
+  const inspectorInfo = document.getElementById("inspector-info");
+  const inspectorTree = document.getElementById("inspector-tree");
+  const inspectorProps = document.getElementById("inspector-props");
+  let currentTree = null;
+  let selectedTreeKey = null;
+  const propagateBadge = document.getElementById("propagate-badge");
+
+  // ── SSE connection ────────────────────────────────
+  function connectSSE() {
+    const evtSource = new EventSource("/review/api/events");
+    evtSource.addEventListener("init", (e) => {
+      const data = JSON.parse(e.data);
+      updateStatus(data.status);
+      updateQueue(data.queue);
+      connectionStatus.textContent = "Connected";
+      connectionStatus.style.color = "var(--green)";
+    });
+    evtSource.addEventListener("queue-update", (e) => {
+      updateQueue(JSON.parse(e.data));
+    });
+    evtSource.addEventListener("feedback-submitted", () => {
+      connectionStatus.textContent = "Feedback sent";
+      setTimeout(() => { connectionStatus.textContent = "Connected"; }, 2000);
+    });
+    evtSource.onerror = () => {
+      connectionStatus.textContent = "Disconnected";
+      connectionStatus.style.color = "var(--red)";
+    };
+  }
+
+  // ── Polling fallback ──────────────────────────────
+  async function pollQueue() {
+    try {
+      const res = await fetch("/review/api/queue");
+      const data = await res.json();
+      updateQueue(data);
+    } catch { /* retry */ }
+    try {
+      const res = await fetch("/review/api/status");
+      const data = await res.json();
+      updateStatus(data);
+    } catch { /* retry */ }
+  }
+
+  // ── Status ────────────────────────────────────────
+  function updateStatus(status) {
+    if (status.phase) {
+      phaseBadge.textContent = status.phase.charAt(0).toUpperCase() + status.phase.slice(1);
+    }
+  }
+
+  // ── Queue ─────────────────────────────────────────
+  function updateQueue(items) {
+    queue = items || [];
+    if (queue.length > 0) {
+      waitingState.style.display = "none";
+      submitBar.style.display = "flex";
+      feedbackPanel.style.display = "block";
+    }
+    renderComponentList();
+    updateSubmitStats();
+
+    // Auto-select first if none selected
+    if (selectedIdx < 0 && queue.length > 0) {
+      selectComponent(0);
+    }
+
+    // Load iframe with the app URL
+    if (queue.length > 0 && previewIframe.src === "about:blank") {
+      // Use the first component's route or default to "/"
+      const route = queue[0].route || "/";
+      previewIframe.src = route;
+      previewUrl.textContent = route;
+    }
+  }
+
+  function renderComponentList() {
+    // Remove existing items (keep waiting state)
+    Array.from(componentList.children).forEach(ch => {
+      if (ch !== waitingState) ch.remove();
+    });
+
+    queue.forEach((item, idx) => {
+      const itemChanges = changes.get(item.id) || [];
+      const itemComment = comments.get(item.id) || "";
+      let statusClass = "pending";
+      if (itemChanges.length > 0 && itemComment) {
+        statusClass = "changed"; // has both changes and comments
+      } else if (itemChanges.length > 0) {
+        statusClass = "changed";
+      } else if (itemComment) {
+        statusClass = "rejected"; // comment only = feedback
+      }
+
+      const div = document.createElement("div");
+      div.className = `component-item${idx === selectedIdx ? " selected" : ""}`;
+      div.innerHTML = `
+        <div class="component-status ${statusClass}"></div>
+        <div class="component-name">${item.name || item.id}</div>
+        <div class="component-type">${item.type || ""}</div>
+      `;
+      div.addEventListener("click", () => selectComponent(idx));
+      componentList.appendChild(div);
+    });
+  }
+
+  function selectComponent(idx) {
+    // Save comment from current element before switching
+    if (selectedIdx >= 0 && queue[selectedIdx]) {
+      const comment = feedbackComment.value.trim();
+      if (comment) comments.set(queue[selectedIdx].id, comment);
+      else comments.delete(queue[selectedIdx].id);
+    }
+
+    selectedIdx = idx;
+    renderComponentList();
+
+    const item = queue[idx];
+    if (!item) return;
+
+    // Always show component info in the inspector immediately
+    renderComponentInfo(item);
+
+    // Scroll iframe to the component if it has a selector
+    if (item.selector && previewIframe.contentWindow) {
+      // Auto-enable inspect mode so the element gets highlighted
+      if (!inspectActive) {
+        inspectActive = true;
+        inspectToggle.classList.add("active");
+        previewHint.textContent = "Hover to inspect, click to lock selection";
+        previewIframe.contentWindow.postMessage({ type: "gsdt-activate" }, "*");
+      }
+      previewIframe.contentWindow.postMessage({
+        type: "gsdt-scroll-to",
+        selector: item.selector,
+      }, "*");
+
+      // Request component tree for hierarchical control
+      currentTree = null;
+      selectedTreeKey = null;
+      inspectorTree.innerHTML = "";
+      // Small delay to let scroll-to complete before querying tree
+      setTimeout(() => {
+        if (previewIframe.contentWindow) {
+          previewIframe.contentWindow.postMessage({
+            type: "gsdt-get-tree",
+            selector: item.selector,
+          }, "*");
+        }
+      }, 300);
+    }
+
+    // Save comment from previous element before switching
+    const prevItem = selectedIdx >= 0 ? queue[selectedIdx] : null;
+    // (selectedIdx already updated above via renderComponentList, so use prevItem logic below)
+
+    // Load existing comment for this element
+    feedbackComment.value = comments.get(item.id) || "";
+
+    // Show component changes
+    renderChanges(item.id);
+  }
+
+  function renderComponentInfo(item) {
+    // Show component details in the info zone
+    inspectorInfo.innerHTML = "";
+    inspectorTree.innerHTML = "";
+    inspectorProps.innerHTML = "";
+
+    // Component header
+    const info = document.createElement("div");
+    info.className = "element-info";
+    info.innerHTML = `<strong>${item.name}</strong><br><span style="color:#94a3b8">${item.sourcePath || ""}</span>`;
+    inspectorInfo.appendChild(info);
+
+    // Auto-review results
+    if (item.measurements) {
+      renderAutoReview(item.measurements);
+    }
+
+    // AI review notes from Term 2
+    if (item.aiReview && item.aiReview.notes && item.aiReview.notes.length > 0) {
+      renderAIReview(item.aiReview);
+    }
+
+    // Hint
+    if (item.selector) {
+      const hint = document.createElement("div");
+      hint.style.cssText = "font-size:12px;color:#94a3b8;padding:8px;text-align:center;";
+      hint.textContent = "Click the element in the preview to inspect its properties";
+      inspectorProps.appendChild(hint);
+    }
+  }
+
+  // ── Inspect mode ──────────────────────────────────
+  inspectToggle.addEventListener("click", () => {
+    inspectActive = !inspectActive;
+    inspectToggle.classList.toggle("active", inspectActive);
+    previewHint.textContent = inspectActive
+      ? "Hover to inspect, click to lock selection"
+      : "Enable Inspect to hover-select elements";
+
+    if (previewIframe.contentWindow) {
+      previewIframe.contentWindow.postMessage({
+        type: inspectActive ? "gsdt-activate" : "gsdt-deactivate",
+      }, "*");
+    }
+  });
+
+  // Keyboard shortcut
+  document.addEventListener("keydown", (e) => {
+    if (e.ctrlKey && e.shiftKey && e.key === "I") {
+      e.preventDefault();
+      inspectToggle.click();
+    }
+  });
+
+  // ── Messages from iframe ──────────────────────────
+  window.addEventListener("message", (e) => {
+    const msg = e.data;
+    if (!msg || !msg.type) return;
+
+    switch (msg.type) {
+      case "gsdt-inject-ready":
+        // Inject script is loaded, activate if inspect is on
+        if (inspectActive && previewIframe.contentWindow) {
+          previewIframe.contentWindow.postMessage({ type: "gsdt-activate" }, "*");
+        }
+        break;
+
+      case "gsdt-hover":
+        currentElementPath = msg.path;
+        currentStyles = msg.styles;
+        renderInspector(msg);
+        break;
+
+      case "gsdt-select":
+        currentElementPath = msg.path;
+        currentStyles = msg.styles;
+        renderInspector(msg);
+        resetStyles.style.display = "inline-block";
+        break;
+
+      case "gsdt-style-updated":
+        currentStyles = msg.styles;
+        renderPropertyValues(msg.styles);
+        // Show propagation feedback with scope
+        if (msg.propagated > 0) {
+          const scope = msg.propagateScope || "similar";
+          propagateBadge.textContent = `→ ${msg.propagated} ${scope}`;
+          propagateBadge.style.display = "inline-block";
+          setTimeout(() => { propagateBadge.style.display = "none"; }, 2500);
+        }
+        break;
+
+      case "gsdt-tree":
+        currentTree = msg.tree;
+        renderTree(msg.tree);
+        break;
+    }
+  });
+
+  // When iframe loads, re-activate inspect if needed
+  previewIframe.addEventListener("load", () => {
+    if (inspectActive && previewIframe.contentWindow) {
+      previewIframe.contentWindow.postMessage({ type: "gsdt-activate" }, "*");
+    }
+  });
+
+  // ── Inspector rendering ───────────────────────────
+  function renderInspector(msg) {
+    const styles = msg.styles;
+    const boxModel = msg.boxModel;
+
+    // Only update props zone — preserve tree
+    inspectorProps.innerHTML = "";
+
+    // Element path
+    const info = document.createElement("div");
+    info.className = "element-info";
+    info.textContent = msg.path || `${msg.tagName}.${msg.className}`;
+    inspectorProps.appendChild(info);
+
+    // Box model diagram
+    if (boxModel) {
+      const bm = document.createElement("div");
+      bm.className = "box-model";
+      bm.innerHTML = `
+        <div class="box-model-diagram">
+          <div class="box-margin">
+            <span class="box-label top" style="color:#fb923c">${boxModel.margin.top}</span>
+            <span class="box-label bottom" style="color:#fb923c">${boxModel.margin.bottom}</span>
+            <span class="box-label left" style="color:#fb923c">${boxModel.margin.left}</span>
+            <span class="box-label right" style="color:#fb923c">${boxModel.margin.right}</span>
+          </div>
+          <div class="box-border-area">
+            <span class="box-label top" style="color:#fbbf24">${boxModel.border.top}</span>
+          </div>
+          <div class="box-padding">
+            <span class="box-label top" style="color:#4ade80">${boxModel.padding.top}</span>
+            <span class="box-label bottom" style="color:#4ade80">${boxModel.padding.bottom}</span>
+            <span class="box-label left" style="color:#4ade80">${boxModel.padding.left}</span>
+            <span class="box-label right" style="color:#4ade80">${boxModel.padding.right}</span>
+          </div>
+          <div class="box-content">${boxModel.content.width}×${boxModel.content.height}</div>
+        </div>
+      `;
+      inspectorProps.appendChild(bm);
+    }
+
+    // Property groups
+    const groups = {
+      "Layout": ["display", "flexDirection", "alignItems", "justifyContent", "gap", "gridTemplateColumns", "gridTemplateRows"],
+      "Size": ["width", "height"],
+      "Spacing": ["paddingTop", "paddingRight", "paddingBottom", "paddingLeft", "marginTop", "marginRight", "marginBottom", "marginLeft"],
+      "Typography": ["fontSize", "fontWeight", "lineHeight", "letterSpacing", "textAlign", "fontFamily"],
+      "Visual": ["backgroundColor", "color", "borderRadius", "border", "boxShadow", "opacity"],
+      "Position": ["position", "top", "left", "overflow"],
+    };
+
+    const editableProps = new Set([
+      "display", "flexDirection", "alignItems", "justifyContent", "gap",
+      "gridTemplateColumns", "gridTemplateRows",
+      "width", "height",
+      "paddingTop", "paddingRight", "paddingBottom", "paddingLeft",
+      "marginTop", "marginRight", "marginBottom", "marginLeft",
+      "fontSize", "fontWeight", "lineHeight", "letterSpacing", "textAlign",
+      "backgroundColor", "color", "borderRadius", "border", "opacity",
+    ]);
+
+    for (const [groupName, props] of Object.entries(groups)) {
+      const group = document.createElement("div");
+      group.className = "prop-group";
+
+      const header = document.createElement("div");
+      header.className = "prop-group-header";
+      header.innerHTML = `<span>▸</span> ${groupName}`;
+      group.appendChild(header);
+
+      const rows = document.createElement("div");
+      rows.style.display = "block";
+
+      header.addEventListener("click", () => {
+        const visible = rows.style.display !== "none";
+        rows.style.display = visible ? "none" : "block";
+        header.innerHTML = `<span>${visible ? "▸" : "▾"}</span> ${groupName}`;
+      });
+
+      for (const prop of props) {
+        const val = styles[prop];
+        // Always show spacing props (margin/padding) even at 0px so they can be added
+        const alwaysShow = new Set([
+          "paddingTop", "paddingRight", "paddingBottom", "paddingLeft",
+          "marginTop", "marginRight", "marginBottom", "marginLeft",
+          "gap", "width", "height",
+        ]);
+        if (!alwaysShow.has(prop) && (!val || val === "none" || val === "normal" || val === "static" || val === "0px")) continue;
+
+        const row = document.createElement("div");
+        row.className = "prop-row";
+        row.setAttribute("data-prop", prop);
+
+        const nameEl = document.createElement("span");
+        nameEl.className = "prop-name";
+        // Show scope hint for table cells
+        const selectedTag = msg.tagName;
+        const columnScopeProps = ["textAlign", "width"];
+        const rowScopeProps = ["height"];
+        let scopeHint = "";
+        if ((selectedTag === "td" || selectedTag === "th") && columnScopeProps.includes(prop)) {
+          scopeHint = " ⟶column";
+        } else if ((selectedTag === "td" || selectedTag === "th") && rowScopeProps.includes(prop)) {
+          scopeHint = " ⟶row";
+        }
+        nameEl.innerHTML = prop + (scopeHint ? `<span style="color:var(--accent);font-size:9px">${scopeHint}</span>` : "");
+        nameEl.title = scopeHint
+          ? `Click to highlight. Changes propagate to ${scopeHint.includes("column") ? "entire column" : "all rows"}`
+          : `Click to highlight ${prop} zone`;
+        nameEl.style.cursor = "pointer";
+        nameEl.addEventListener("click", () => {
+          if (previewIframe.contentWindow) {
+            previewIframe.contentWindow.postMessage({
+              type: "gsdt-highlight-zone",
+              property: prop,
+            }, "*");
+          }
+        });
+        row.appendChild(nameEl);
+
+        const valEl = document.createElement("span");
+        valEl.className = "prop-value" + (editableProps.has(prop) ? " editable" : "");
+        valEl.setAttribute("data-prop", prop);
+        valEl.setAttribute("data-original", val);
+
+        // Color swatch for color properties
+        if ((prop === "backgroundColor" || prop === "color") && val !== "transparent" && val !== "rgba(0, 0, 0, 0)") {
+          valEl.innerHTML = `<span class="color-swatch" style="background:${val}"></span>${val}`;
+        } else {
+          valEl.textContent = val;
+        }
+
+        // Check if this property was changed
+        const compId = queue[selectedIdx]?.id;
+        const compChanges = changes.get(compId) || [];
+        const existing = compChanges.find(c => c.path === currentElementPath && c.property === prop);
+        if (existing) {
+          valEl.classList.add("changed");
+          valEl.textContent = existing.newValue;
+        }
+
+        if (editableProps.has(prop)) {
+          valEl.addEventListener("click", () => startEdit(valEl, prop));
+        }
+
+        row.appendChild(valEl);
+        rows.appendChild(row);
+      }
+
+      group.appendChild(rows);
+      if (rows.children.length > 0) {
+        inspectorProps.appendChild(group);
+      }
+    }
+  }
+
+  function renderPropertyValues(styles) {
+    // Update existing property values in the inspector
+    inspectorProps.querySelectorAll(".prop-value[data-prop]").forEach(el => {
+      const prop = el.getAttribute("data-prop");
+      if (styles[prop]) {
+        const isColor = prop === "backgroundColor" || prop === "color";
+        if (isColor && styles[prop] !== "transparent") {
+          el.innerHTML = `<span class="color-swatch" style="background:${styles[prop]}"></span>${styles[prop]}`;
+        } else {
+          el.textContent = styles[prop];
+        }
+      }
+    });
+  }
+
+  // ── Tree rendering ────────────────────────────────
+  function renderTree(tree) {
+    inspectorTree.innerHTML = "";
+    if (!tree) return;
+
+    const container = document.createElement("div");
+    container.className = "element-tree";
+
+    const header = document.createElement("div");
+    header.className = "element-tree-header";
+    header.innerHTML = `<span>Element Tree</span><span style="color:var(--text-dim);font-weight:400">${countNodes(tree)} nodes</span>`;
+    container.appendChild(header);
+
+    const treeBody = document.createElement("div");
+    treeBody.style.padding = "2px";
+    renderTreeNode(tree, treeBody, 0);
+    container.appendChild(treeBody);
+
+    inspectorTree.appendChild(container);
+  }
+
+  function countNodes(node) {
+    let count = 1;
+    if (node.children) {
+      for (const child of node.children) count += countNodes(child);
+    }
+    return count;
+  }
+
+  function renderTreeNode(node, parent, depth) {
+    const row = document.createElement("div");
+    row.className = "tree-node";
+    row.style.paddingLeft = (8 + depth * 12) + "px";
+
+    const hasChildren = node.children && node.children.length > 0;
+
+    // Toggle arrow
+    const toggle = document.createElement("span");
+    toggle.className = "tree-toggle";
+    toggle.textContent = hasChildren ? "▸" : " ";
+    row.appendChild(toggle);
+
+    // Tag name
+    const tagEl = document.createElement("span");
+    tagEl.className = "tree-tag";
+    tagEl.textContent = node.label;
+    row.appendChild(tagEl);
+
+    // Dimensions
+    const dims = document.createElement("span");
+    dims.className = "tree-dims";
+    dims.textContent = `${node.width}×${node.height}`;
+    row.appendChild(dims);
+
+    // Auto-expand table structural nodes so columns are visible
+    const tableStructural = new Set(["table", "thead", "tbody", "tfoot"]);
+    const isHeaderRow = node.tag === "tr" && node.label.includes("hdr");
+    const autoExpand = tableStructural.has(node.tag) || isHeaderRow || depth === 0;
+
+    // Children container
+    let childrenEl = null;
+    if (hasChildren) {
+      childrenEl = document.createElement("div");
+      childrenEl.className = autoExpand ? "tree-children" : "tree-children collapsed";
+      for (const child of node.children) {
+        renderTreeNode(child, childrenEl, depth + 1);
+      }
+    }
+
+    // Toggle arrow matches initial state
+    if (hasChildren) {
+      toggle.textContent = autoExpand ? "▾" : "▸";
+      toggle.style.cursor = "pointer";
+      toggle.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const collapsed = childrenEl.classList.toggle("collapsed");
+        toggle.textContent = collapsed ? "▸" : "▾";
+      });
+    }
+
+    // Click to select this sub-element
+    row.addEventListener("click", () => {
+      // Update tree selection
+      const prev = inspectorTree.querySelector(".tree-node.selected");
+      if (prev) prev.classList.remove("selected");
+      row.classList.add("selected");
+      selectedTreeKey = node.key;
+
+      // Tell iframe to select this element
+      if (previewIframe.contentWindow) {
+        previewIframe.contentWindow.postMessage({
+          type: "gsdt-select-by-key",
+          key: node.key,
+        }, "*");
+      }
+
+      // Expand parent if collapsed
+      if (hasChildren && childrenEl.classList.contains("collapsed")) {
+        childrenEl.classList.remove("collapsed");
+        toggle.textContent = "▾";
+      }
+    });
+
+    parent.appendChild(row);
+    if (childrenEl) parent.appendChild(childrenEl);
+  }
+
+  // ── Property editing ──────────────────────────────
+  function startEdit(valEl, prop) {
+    const currentVal = valEl.getAttribute("data-original");
+    const compChanges = changes.get(queue[selectedIdx]?.id) || [];
+    const existing = compChanges.find(c => c.path === currentElementPath && c.property === prop);
+    const displayVal = existing ? existing.newValue : currentVal;
+
+    const input = document.createElement("input");
+    input.className = "prop-edit-input";
+    input.type = "text";
+    input.value = displayVal;
+    let cancelled = false;
+
+    valEl.innerHTML = "";
+    valEl.appendChild(input);
+    input.focus();
+    // Select just the numeric part for values like "24px", "1.5em", "600"
+    const numMatch = displayVal.match(/^(-?[\d.]+)/);
+    if (numMatch) {
+      input.setSelectionRange(0, numMatch[1].length);
+    } else {
+      input.select();
+    }
+
+    function commit() {
+      if (cancelled) return;
+      const newVal = input.value.trim();
+      if (newVal && newVal !== currentVal) {
+        // Apply the style change to the iframe
+        previewIframe.contentWindow.postMessage({
+          type: "gsdt-set-style",
+          property: prop,
+          value: newVal,
+          propagate: true,
+        }, "*");
+
+        // Track the change
+        const compId = queue[selectedIdx]?.id;
+        if (compId) {
+          if (!changes.has(compId)) changes.set(compId, []);
+          const list = changes.get(compId);
+          const existingIdx = list.findIndex(c => c.path === currentElementPath && c.property === prop);
+          const change = {
+            path: currentElementPath,
+            property: prop,
+            oldValue: currentVal,
+            newValue: newVal,
+          };
+          if (existingIdx >= 0) {
+            list[existingIdx] = change;
+          } else {
+            list.push(change);
+          }
+          renderChanges(compId);
+          renderComponentList();
+        }
+
+        valEl.textContent = newVal;
+        valEl.classList.add("changed");
+      } else {
+        valEl.textContent = existing ? existing.newValue : currentVal;
+        if (existing) valEl.classList.add("changed");
+      }
+    }
+
+    input.addEventListener("blur", () => { if (!cancelled) commit(); });
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { commit(); cancelled = true; input.blur(); }
+      if (e.key === "Escape") {
+        cancelled = true;
+        // Remove input first, then restore text (avoids blur→commit race)
+        if (input.parentElement) input.remove();
+        valEl.textContent = existing ? existing.newValue : currentVal;
+        if (existing) valEl.classList.add("changed");
+      }
+    });
+  }
+
+  // ── Undo single change ──────────────────────────────
+  function undoChange(compId, index) {
+    const list = changes.get(compId);
+    if (!list || index < 0 || index >= list.length) return;
+    const change = list[index];
+
+    // Revert in iframe
+    if (previewIframe.contentWindow) {
+      previewIframe.contentWindow.postMessage({
+        type: "gsdt-set-style",
+        property: change.property,
+        value: change.oldValue,
+        propagate: true,
+      }, "*");
+    }
+
+    // Remove from change list
+    list.splice(index, 1);
+    if (list.length === 0) changes.delete(compId);
+
+    // Update UI
+    renderChanges(compId);
+    renderComponentList();
+    refreshPropHighlights(compId);
+  }
+
+  // ── Clear .changed class on props that are no longer changed ──
+  function refreshPropHighlights(compId) {
+    const list = changes.get(compId) || [];
+    inspectorProps.querySelectorAll(".prop-value.changed").forEach(el => {
+      const prop = el.getAttribute("data-prop");
+      const stillChanged = list.some(c => c.property === prop && c.path === currentElementPath);
+      if (!stillChanged) {
+        el.classList.remove("changed");
+        const original = el.getAttribute("data-original");
+        if (original) el.textContent = original;
+      }
+    });
+  }
+
+  // ── Ctrl/Cmd+Z to undo last change ──────────────────
+  document.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) {
+      const compId = queue[selectedIdx]?.id;
+      if (!compId) return;
+      const list = changes.get(compId);
+      if (!list || list.length === 0) return;
+      e.preventDefault();
+      undoChange(compId, list.length - 1);
+    }
+  });
+
+  // ── Changes display ───────────────────────────────
+  function renderChanges(compId) {
+    const list = changes.get(compId) || [];
+    if (list.length === 0) {
+      changesSection.style.display = "none";
+      return;
+    }
+
+    changesSection.style.display = "block";
+    changesCount.textContent = list.length;
+    changesList.innerHTML = "";
+
+    list.forEach((change, idx) => {
+      const div = document.createElement("div");
+      div.className = "change-item";
+
+      const text = document.createElement("span");
+      text.style.cssText = "flex:1;display:flex;gap:4px;align-items:center;overflow:hidden";
+      text.innerHTML = `
+        <span class="change-prop">${change.property}:</span>
+        <span class="change-old">${change.oldValue}</span>
+        <span>→</span>
+        <span class="change-new">${change.newValue}</span>
+      `;
+
+      const undoBtn = document.createElement("span");
+      undoBtn.textContent = "✕";
+      undoBtn.title = "Undo this change";
+      undoBtn.style.cssText = "cursor:pointer;color:var(--text-dim);font-size:10px;padding:0 2px;flex-shrink:0";
+      undoBtn.addEventListener("mouseenter", () => { undoBtn.style.color = "var(--red)"; });
+      undoBtn.addEventListener("mouseleave", () => { undoBtn.style.color = "var(--text-dim)"; });
+      undoBtn.addEventListener("click", () => undoChange(compId, idx));
+
+      div.appendChild(text);
+      div.appendChild(undoBtn);
+      changesList.appendChild(div);
+    });
+  }
+
+  // ── Auto-review display ───────────────────────────
+  function renderAutoReview(measurements) {
+    if (!measurements || measurements.length === 0) return;
+
+    const section = document.createElement("div");
+    section.className = "auto-review";
+
+    const passCount = measurements.filter(m => m.pass).length;
+    const total = measurements.length;
+
+    section.innerHTML = `
+      <div class="auto-review-header">
+        <span>${passCount === total ? "✅" : "⚠️"}</span>
+        <span>Auto-Review: ${passCount}/${total} pass</span>
+      </div>
+      ${measurements.map(m => `
+        <div class="auto-review-row">
+          <span>${m.property}</span>
+          <span class="${m.pass ? "pass" : "fail"}">${m.pass ? "✓" : "✗"} ${m.actual}</span>
+        </div>
+      `).join("")}
+    `;
+
+    inspectorInfo.appendChild(section);
+  }
+
+  function renderAIReview(aiReview) {
+    const section = document.createElement("div");
+    section.className = "auto-review";
+    section.style.borderColor = "var(--accent)";
+
+    const verdict = aiReview.aiVerdict === "pass" ? "✅" : "⚠️";
+    section.innerHTML = `
+      <div class="auto-review-header">
+        <span>${verdict}</span>
+        <span>AI Review (Term 2)</span>
+      </div>
+      ${aiReview.notes.map(n => `
+        <div class="auto-review-row">
+          <span>${n.note}</span>
+          <span class="${n.severity === "medium" || n.severity === "high" ? "fail" : "pass"}">${n.severity}</span>
+        </div>
+      `).join("")}
+    `;
+
+    inspectorInfo.appendChild(section);
+  }
+
+  // ── Save comment on blur ────────────────────────────
+  feedbackComment.addEventListener("blur", () => {
+    const item = queue[selectedIdx];
+    if (!item) return;
+    const comment = feedbackComment.value.trim();
+    if (comment) comments.set(item.id, comment);
+    else comments.delete(item.id);
+    renderComponentList();
+    updateSubmitStats();
+  });
+
+  // ── Submit ────────────────────────────────────────
+  function updateSubmitStats() {
+    const total = queue.length;
+    const changed = Array.from(changes.keys()).filter(id => (changes.get(id) || []).length > 0).length;
+    const commented = comments.size;
+
+    if (changed > 0 || commented > 0) {
+      submitStats.innerHTML = `
+        <span><span class="component-status changed" style="display:inline-block"></span> ${changed} changed</span>
+        <span><span class="component-status rejected" style="display:inline-block"></span> ${commented} commented</span>
+        <span style="color:var(--text-dim)">${total} total</span>
+      `;
+    } else {
+      submitStats.innerHTML = `<span style="color:var(--text-dim)">${total} elements — no changes</span>`;
+    }
+
+    submitAll.textContent = changed > 0 || commented > 0
+      ? `Submit (${changed} changes, ${commented} comments)`
+      : "Submit — Approve All";
+  }
+
+  submitAll.addEventListener("click", async () => {
+    // Save current element's comment
+    if (selectedIdx >= 0 && queue[selectedIdx]) {
+      const comment = feedbackComment.value.trim();
+      if (comment) comments.set(queue[selectedIdx].id, comment);
+      else comments.delete(queue[selectedIdx].id);
+    }
+
+    // Check for non-actionable comments (documentation, not change requests)
+    const actionWords = /change|make|set|move|add|remove|reduce|increase|fix|use|switch|replace|adjust|align|center|should be|needs to|too |bigger|smaller|wider|narrower|thicker|thinner|lighter|darker|bolder|px|rem|%|#[0-9a-f]/i;
+    const docComments = [];
+    for (const [compId, comment] of comments) {
+      if (!actionWords.test(comment)) {
+        const item = queue.find(q => q.id === compId);
+        docComments.push(item ? item.name : compId);
+      }
+    }
+    if (docComments.length > 0) {
+      const proceed = confirm(
+        "These comments don't suggest specific changes:\n\n" +
+        docComments.map(n => "  \u2022 " + n).join("\n") +
+        "\n\nComments should describe what to change, e.g.:\n" +
+        '  "make padding 8px"\n  "use darker blue"\n  "reduce gap between title and chart"\n\n' +
+        "Non-actionable comments will be discarded.\n\nSubmit anyway?"
+      );
+      if (!proceed) return;
+      for (const [compId, comment] of comments) {
+        if (!actionWords.test(comment)) comments.delete(compId);
+      }
+    }
+
+    // Build feedback: each element gets its changes and comments
+    const feedback = queue.map(item => ({
+      id: item.id,
+      changes: changes.get(item.id) || [],
+      comment: comments.get(item.id) || "",
+    }));
+
+    try {
+      const res = await fetch("/review/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(feedback),
+      });
+      if (res.ok) {
+        const hasWork = feedback.some(f => f.changes.length > 0 || f.comment);
+        submitAll.textContent = hasWork
+          ? "Submitted — builder will apply changes..."
+          : "Approved — moving to next step...";
+        submitAll.disabled = true;
+
+        // Also send source changes
+        const allChanges = [];
+        for (const [compId, changeList] of changes) {
+          for (const change of changeList) {
+            allChanges.push({ componentId: compId, ...change });
+          }
+        }
+        if (allChanges.length > 0) {
+          await fetch("/review/api/write-source", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ changes: allChanges }),
+          });
+        }
+      }
+    } catch (err) {
+      submitAll.textContent = "Error — retry";
+      submitAll.disabled = false;
+    }
+  });
+
+  // ── Reset/undo ────────────────────────────────────
+  resetStyles.addEventListener("click", () => {
+    if (previewIframe.contentWindow) {
+      previewIframe.contentWindow.postMessage({ type: "gsdt-reset-styles" }, "*");
+    }
+    resetStyles.style.display = "none";
+  });
+
+  undoAllChanges.addEventListener("click", () => {
+    const compId = queue[selectedIdx]?.id;
+    if (compId) {
+      changes.delete(compId);
+      renderChanges(compId);
+      renderComponentList();
+      refreshPropHighlights(compId);
+      // Reset iframe styles
+      if (previewIframe.contentWindow) {
+        previewIframe.contentWindow.postMessage({ type: "gsdt-reset-styles" }, "*");
+      }
+    }
+  });
+
+  // ── Init ──────────────────────────────────────────
+  connectSSE();
+  // Also poll periodically as backup
+  setInterval(pollQueue, 5000);
+})();
+</script>
+</body>
+</html>

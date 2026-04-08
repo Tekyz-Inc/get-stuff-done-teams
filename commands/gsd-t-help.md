@@ -61,6 +61,8 @@ UTILITIES                                                              Manual
   promote-debt        Convert techdebt items to milestones
   populate            Auto-populate docs from existing codebase
   design-decompose    Decompose design into element/widget/page contracts
+  design-build        Build from design contracts with two-terminal review
+  design-review       Independent review agent (Term 2) for design build
   log                 Sync progress Decision Log with recent git activity
   version-update      Update GSD-T package to latest version
   version-update-all  Update GSD-T package + all registered projects

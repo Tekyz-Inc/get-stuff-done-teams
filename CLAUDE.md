@@ -10,7 +10,7 @@
 
 ## Overview
 
-Contract-driven development methodology for Claude Code. An npm package that provides 53 slash commands (48 GSD-T workflow + 5 utility), a CLI installer, templates, and documentation for reliable, parallelizable AI-assisted development.
+Contract-driven development methodology for Claude Code. An npm package that provides 56 slash commands (51 GSD-T workflow + 5 utility), a CLI installer, templates, and documentation for reliable, parallelizable AI-assisted development.
 
 ## Autonomy Level
 
@@ -31,8 +31,8 @@ Only pause for blockers or project completion. Execute phases continuously.
 
 ```
 bin/gsd-t.js           — CLI installer (11 subcommands)
-commands/              — 53 slash commands for Claude Code (48 GSD-T + 5 utility)
-  gsd-t-*.md           — 47 GSD-T workflow commands
+commands/              — 56 slash commands for Claude Code (51 GSD-T + 5 utility)
+  gsd-t-*.md           — 50 GSD-T workflow commands
   gsd.md               — Smart router (auto-routes user intent)
   branch.md            — Git branch helper
   checkin.md           — Auto-version + commit/push helper
@@ -63,6 +63,10 @@ templates/             — 10 document templates + stacks/ directory
     (+ 18 more: python, flutter, tailwind, react-native, vite, nextjs, vue,
      docker, postgresql, github-actions, rest-api, supabase, firebase,
      graphql, zustand, redux, neo4j, playwright)
+scripts/               — Runtime scripts for design review system
+  gsd-t-design-review-server.js  — Proxy server (dev server + inject script + review UI)
+  gsd-t-design-review.html       — Human review UI (inspector, tree, property editor)
+  gsd-t-design-review-inject.js  — Injected into proxied iframe (DOM inspection, style editing)
 examples/              — Example project structure and settings
   settings.json        — Claude Code settings with teams enabled
   .gsd-t/              — Example contracts and domain structure
