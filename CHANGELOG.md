@@ -2,6 +2,17 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.73.24] - 2026-04-09
+
+### Added
+- **Remove element button** — hover over any component in the list to reveal a red × button. Clicking it excludes the element from review and auto-comments "EXCLUDED — not in Figma design". Excluded count shown in submit stats.
+
+### Fixed
+- **Comment validation removed** — all comments are now accepted (questions, exclusions, feedback). The "don't suggest specific changes" popup no longer blocks submission.
+
+### Changed
+- **Submit stats** show removed count alongside changed/commented.
+
 ## [2.73.23] - 2026-04-09
 
 ### Fixed
