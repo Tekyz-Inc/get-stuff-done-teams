@@ -195,11 +195,13 @@
 
   .component-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .component-type { font-size: 10px; color: #94a3b8; }
-  .remove-btn {
-    display: none; background: none; border: none; color: #ef4444; font-size: 16px;
+  .remove-btn, .undo-remove-btn {
+    display: none; background: none; border: none; font-size: 14px;
     cursor: pointer; padding: 0 4px; line-height: 1; opacity: 0.6;
   }
-  .remove-btn:hover { opacity: 1; }
+  .remove-btn { color: #ef4444; }
+  .undo-remove-btn { color: #22c55e; display: block; }
+  .remove-btn:hover, .undo-remove-btn:hover { opacity: 1; }
   .component-item:hover .remove-btn { display: block; }
 
   /* ── Submit bar ─────────────────────────────────── */
@@ -959,28 +961,45 @@
         statusClass = "rejected";
       }
 
-      if (excluded.has(item.id)) return; // skip excluded elements
+      const isExcluded = excluded.has(item.id);
 
       const div = document.createElement("div");
-      div.className = `component-item${idx === selectedIdx ? " selected" : ""}`;
-      div.innerHTML = `
-        <div class="component-status ${statusClass}"></div>
-        <div class="component-name">${item.name || item.id}</div>
-        <div class="component-type">${item.type || ""}</div>
-        <button class="remove-btn" title="Remove from review">×</button>
-      `;
-      div.querySelector(".component-name").addEventListener("click", () => selectComponent(idx));
-      div.querySelector(".component-status").addEventListener("click", () => selectComponent(idx));
-      div.querySelector(".remove-btn").addEventListener("click", (e) => {
-        e.stopPropagation();
-        excluded.add(item.id);
-        comments.set(item.id, "EXCLUDED — not in Figma design");
-        if (selectedIdx === idx) {
-          selectedIdx = Math.min(idx, filteredQueue.filter(q => !excluded.has(q.id)).length - 1);
-        }
-        renderComponentList();
-        updateSubmitStats();
-      });
+      div.className = `component-item${idx === selectedIdx ? " selected" : ""}${isExcluded ? " excluded" : ""}`;
+
+      if (isExcluded) {
+        div.innerHTML = `
+          <div class="component-status" style="background:#ef4444"></div>
+          <div class="component-name" style="text-decoration:line-through;opacity:0.5">${item.name || item.id}</div>
+          <button class="undo-remove-btn" title="Restore element">↩</button>
+        `;
+        div.querySelector(".undo-remove-btn").addEventListener("click", (e) => {
+          e.stopPropagation();
+          excluded.delete(item.id);
+          comments.delete(item.id);
+          renderComponentList();
+          updateSubmitStats();
+        });
+      } else {
+        div.innerHTML = `
+          <div class="component-status ${statusClass}"></div>
+          <div class="component-name">${item.name || item.id}</div>
+          <div class="component-type">${item.type || ""}</div>
+          <button class="remove-btn" title="Remove from review">×</button>
+        `;
+        div.querySelector(".component-name").addEventListener("click", () => selectComponent(idx));
+        div.querySelector(".component-status").addEventListener("click", () => selectComponent(idx));
+        div.querySelector(".remove-btn").addEventListener("click", (e) => {
+          e.stopPropagation();
+          excluded.add(item.id);
+          comments.set(item.id, "EXCLUDED — not in Figma design");
+          if (selectedIdx === idx) {
+            const remaining = filteredQueue.filter(q => !excluded.has(q.id));
+            selectedIdx = remaining.length > 0 ? filteredQueue.indexOf(remaining[0]) : -1;
+          }
+          renderComponentList();
+          updateSubmitStats();
+        });
+      }
       componentList.appendChild(div);
     });
   }
@@ -2190,6 +2209,15 @@
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ changes: allChanges }),
+          });
+        }
+
+        // Delete contracts and source files for excluded elements
+        if (excluded.size > 0) {
+          await fetch("/review/api/exclude", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ excludedIds: Array.from(excluded) }),
           });
         }
       }

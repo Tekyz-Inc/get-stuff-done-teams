@@ -620,6 +620,48 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  if (pathname === "/review/api/exclude" && req.method === "POST") {
+    // Remove excluded elements: delete contract files and remove from queue
+    let body = "";
+    req.on("data", (chunk) => { body += chunk; });
+    req.on("end", () => {
+      try {
+        const { excludedIds } = JSON.parse(body);
+        const removed = [];
+        for (const id of excludedIds) {
+          const item = reviewQueue.find(q => q.id === id);
+          if (!item || !item.sourcePath) continue;
+          const match = item.sourcePath.match(/src\/components\/(\w+)\/(\w+)\.vue$/);
+          if (!match) continue;
+          const [, tier, name] = match;
+          const kebab = name.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
+          const contractPath = path.join(PROJECT_DIR, ".gsd-t", "contracts", "design", tier, `${kebab}.contract.md`);
+          if (fs.existsSync(contractPath)) {
+            fs.unlinkSync(contractPath);
+            removed.push({ id, contract: contractPath });
+          }
+          // Remove source file too
+          const srcPath = path.join(PROJECT_DIR, item.sourcePath);
+          if (fs.existsSync(srcPath)) {
+            fs.unlinkSync(srcPath);
+            removed.push({ id, source: srcPath });
+          }
+        }
+        // Remove from queue
+        for (let i = reviewQueue.length - 1; i >= 0; i--) {
+          if (excludedIds.includes(reviewQueue[i].id)) reviewQueue.splice(i, 1);
+        }
+        broadcast("queue-update", reviewQueue);
+        res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+        res.end(JSON.stringify({ ok: true, removed }));
+      } catch (err) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+    });
+    return;
+  }
+
   if (pathname === "/review/api/write-source" && req.method === "POST") {
     // Apply CSS property changes back to source files
     let body = "";

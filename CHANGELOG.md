@@ -2,6 +2,12 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.73.25] - 2026-04-09
+
+### Added
+- **Undo remove** — excluded elements show as struck-through with a green ↩ restore button instead of disappearing. Click to undo before submitting.
+- **Contract deletion on submit** — when excluded elements are submitted, their contract files and source files are deleted from the project. The `/review/api/exclude` endpoint handles cleanup.
+
 ## [2.73.24] - 2026-04-09
 
 ### Added
