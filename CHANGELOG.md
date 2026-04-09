@@ -2,6 +2,11 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.73.22] - 2026-04-09
+
+### Added
+- **Stack-level border-radius** — setting `borderRadius` on a flex/grid bar column container auto-sets `overflow: hidden` (so rounded corners clip child segments) and propagates to all sibling columns. One change rounds all stacked bars.
+
 ## [2.73.21] - 2026-04-09
 
 ### Fixed
