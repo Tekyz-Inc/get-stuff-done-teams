@@ -898,7 +898,9 @@
             let keyCounter = 0;
 
             function buildTree(el, depth) {
-              if (depth > 4) return null; // limit depth
+              // SVG subtrees get deeper traversal (arcs are nested)
+              const isSvgSubtree = el instanceof SVGElement || el.closest("svg");
+              if (depth > (isSvgSubtree ? 8 : 4)) return null;
               const tag = el.tagName.toLowerCase();
               const s = getComputedStyle(el);
               const rect = el.getBoundingClientRect();
@@ -933,11 +935,20 @@
                 label = "Col " + colIdx;
                 if (text && text.length < 15) label += ' "' + text + '"';
               } else if (tag === "svg") {
-                label = "svg";
+                const vb = el.getAttribute("viewBox");
+                label = "svg" + (vb ? ` [${vb}]` : "");
               } else if (tag === "circle") {
-                label = "arc/circle";
+                const stroke = el.getAttribute("stroke") || "";
+                const fill = el.getAttribute("fill") || "";
+                const color = stroke && stroke !== "none" ? stroke : fill && fill !== "none" ? fill : "";
+                const r = el.getAttribute("r") || "";
+                const sw = el.getAttribute("stroke-width") || "";
+                label = "arc" + (color ? " " + color : "") + (sw ? " w:" + sw : "") + (r ? " r:" + r : "");
               } else if (tag === "path") {
-                label = "path";
+                const stroke = el.getAttribute("stroke") || "";
+                const fill = el.getAttribute("fill") || "";
+                const color = stroke && stroke !== "none" ? stroke : fill && fill !== "none" ? fill : "";
+                label = "path" + (color ? " " + color : "");
               } else if (s.display === "flex" || s.display === "inline-flex") {
                 label = "flex " + (s.flexDirection === "column" ? "col" : "row");
               } else if (s.display === "grid") {
@@ -973,10 +984,16 @@
                 node.props.fontWeight = s.fontWeight;
                 if (tag === "th") node.props.background = s.backgroundColor;
               }
-              if (tag === "circle") {
+              if (tag === "circle" || tag === "ellipse") {
                 node.props.stroke = el.getAttribute("stroke");
                 node.props.strokeWidth = el.getAttribute("stroke-width");
                 node.props.r = el.getAttribute("r");
+                node.props.fill = el.getAttribute("fill");
+                node.props.strokeDasharray = el.getAttribute("stroke-dasharray");
+              } else if (tag === "path" || tag === "line" || tag === "rect") {
+                node.props.stroke = el.getAttribute("stroke");
+                node.props.strokeWidth = el.getAttribute("stroke-width");
+                node.props.fill = el.getAttribute("fill");
               }
               if (s.display === "flex" || s.display === "inline-flex") {
                 node.props.gap = s.gap;

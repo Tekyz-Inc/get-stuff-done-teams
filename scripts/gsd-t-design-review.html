@@ -1079,7 +1079,7 @@
     const body = document.createElement("div");
     body.style.cssText = "padding-left:8px;";
 
-    function renderValue(key, val, parent, depth) {
+    function renderValue(key, val, parent, depth, propPath) {
       if (Array.isArray(val)) {
         const row = document.createElement("div");
         row.className = "prop-group-header";
@@ -1093,6 +1093,7 @@
         if (expanded) row.querySelector("span").textContent = "▾ " + key;
         parent.appendChild(row);
         val.forEach((item, i) => {
+          const itemPath = propPath + "." + key + "[" + i + "]";
           if (typeof item === "object" && item !== null) {
             const itemRow = document.createElement("div");
             itemRow.style.paddingLeft = ((depth + 1) * 12) + "px";
@@ -1100,7 +1101,7 @@
             itemRow.textContent = `[${i}]`;
             items.appendChild(itemRow);
             for (const [k, v] of Object.entries(item)) {
-              renderValue(k, v, items, depth + 2);
+              renderValue(k, v, items, depth + 2, itemPath);
             }
           } else {
             const itemRow = document.createElement("div");
@@ -1124,23 +1125,37 @@
         if (expanded) row.querySelector("span").textContent = "▾ " + key;
         parent.appendChild(row);
         for (const [k, v] of Object.entries(val)) {
-          renderValue(k, v, items, depth + 1);
+          renderValue(k, v, items, depth + 1, propPath + "." + key);
         }
         parent.appendChild(items);
       } else {
         const row = document.createElement("div");
         row.className = "prop-row";
         row.style.paddingLeft = (depth * 12) + "px";
-        const displayVal = typeof val === "string" && val.match(/^#[0-9a-fA-F]{3,8}$/)
+        const isColor = typeof val === "string" && val.match(/^#[0-9a-fA-F]{3,8}$/);
+        const displayVal = isColor
           ? `<span class="color-swatch" style="background:${val}"></span>${val}`
           : escapeHtml(String(val));
-        row.innerHTML = `<span class="prop-name">${escapeHtml(key)}</span><span class="prop-value">${displayVal}</span>`;
+
+        const nameEl = document.createElement("span");
+        nameEl.className = "prop-name";
+        nameEl.textContent = key;
+        row.appendChild(nameEl);
+
+        const valEl = document.createElement("span");
+        valEl.className = "prop-value editable";
+        valEl.setAttribute("data-prop", "fixture:" + propPath + "." + key);
+        valEl.setAttribute("data-original", String(val));
+        valEl.innerHTML = displayVal;
+
+        valEl.addEventListener("click", () => startFixtureEdit(valEl, propPath + "." + key, String(val), isColor));
+        row.appendChild(valEl);
         parent.appendChild(row);
       }
     }
 
     for (const [k, v] of Object.entries(fixture)) {
-      renderValue(k, v, body, 0);
+      renderValue(k, v, body, 0, "");
     }
     container.appendChild(body);
 
@@ -1581,6 +1596,96 @@
         cancelled = true;
         if (inputEl.parentElement) inputEl.remove();
         valEl.textContent = existing ? existing.newValue : currentVal;
+        if (existing) valEl.classList.add("changed");
+      }
+    });
+  }
+
+  function startFixtureEdit(valEl, fixturePath, currentVal, isColor) {
+    if (valEl.querySelector("select, input")) return;
+
+    const compId = filteredQueue[selectedIdx]?.id;
+    const compChanges = changes.get(compId) || [];
+    const prop = "fixture:" + fixturePath;
+    const existing = compChanges.find(c => c.property === prop);
+    const displayVal = existing ? existing.newValue : currentVal;
+
+    const inputEl = document.createElement("input");
+    inputEl.className = "prop-edit-input";
+    inputEl.type = isColor ? "color" : "text";
+    inputEl.value = displayVal;
+
+    valEl.innerHTML = "";
+    valEl.appendChild(inputEl);
+    inputEl.focus();
+    if (!isColor) {
+      const numMatch = displayVal.match(/^(-?[\d.]+)/);
+      if (numMatch) {
+        inputEl.setSelectionRange(0, numMatch[1].length);
+      } else {
+        inputEl.select();
+      }
+    }
+
+    let cancelled = false;
+    function commit() {
+      if (cancelled) return;
+      const newVal = inputEl.value.trim();
+      if (newVal && newVal !== currentVal) {
+        // Track as a fixture data change
+        if (compId) {
+          if (!changes.has(compId)) changes.set(compId, []);
+          const list = changes.get(compId);
+          const existingIdx = list.findIndex(c => c.property === prop);
+          const change = {
+            path: "(fixture data)",
+            property: prop,
+            oldValue: currentVal,
+            newValue: newVal,
+          };
+          if (existingIdx >= 0) {
+            list[existingIdx] = change;
+          } else {
+            list.push(change);
+          }
+          renderChanges(compId);
+          renderComponentList();
+        }
+
+        if (isColor) {
+          valEl.innerHTML = `<span class="color-swatch" style="background:${newVal}"></span>${newVal}`;
+        } else {
+          valEl.textContent = newVal;
+        }
+        valEl.classList.add("changed");
+      } else {
+        if (isColor && (existing ? existing.newValue : currentVal).match(/^#/)) {
+          const v = existing ? existing.newValue : currentVal;
+          valEl.innerHTML = `<span class="color-swatch" style="background:${v}"></span>${v}`;
+        } else {
+          valEl.textContent = existing ? existing.newValue : currentVal;
+        }
+        if (existing) valEl.classList.add("changed");
+      }
+    }
+
+    if (isColor) {
+      inputEl.addEventListener("change", () => { commit(); cancelled = true; });
+      inputEl.addEventListener("blur", () => { if (!cancelled) { valEl.innerHTML = `<span class="color-swatch" style="background:${currentVal}"></span>${currentVal}`; } });
+    } else {
+      inputEl.addEventListener("blur", () => { if (!cancelled) commit(); });
+    }
+    inputEl.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { commit(); cancelled = true; inputEl.blur(); }
+      if (e.key === "Escape") {
+        cancelled = true;
+        if (inputEl.parentElement) inputEl.remove();
+        if (isColor) {
+          const v = existing ? existing.newValue : currentVal;
+          valEl.innerHTML = `<span class="color-swatch" style="background:${v}"></span>${v}`;
+        } else {
+          valEl.textContent = existing ? existing.newValue : currentVal;
+        }
         if (existing) valEl.classList.add("changed");
       }
     });

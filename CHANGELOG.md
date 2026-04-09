@@ -2,6 +2,16 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.73.20] - 2026-04-09
+
+### Added
+- **Editable fixture data** — segment label, value, and color fields in the Data Props tree are now clickable to edit. Color fields use a color picker. Changes tracked alongside CSS/SVG changes in the review output.
+- **Better SVG tree labels** — circle/arc nodes show stroke color, width, and radius. Path nodes show fill/stroke color. SVG root shows viewBox.
+- **Deeper SVG tree traversal** — SVG subtrees traverse up to depth 8 (was 4), ensuring individual arc segments appear in the element tree.
+
+### Removed
+- **`percentages_shown`** from donut chart fixture — redundant with `segments[].value`.
+
 ## [2.73.19] - 2026-04-09
 
 ### Added
