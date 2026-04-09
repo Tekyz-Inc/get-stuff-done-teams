@@ -1311,8 +1311,9 @@
       "width", "height",
       "paddingTop", "paddingRight", "paddingBottom", "paddingLeft",
       "marginTop", "marginRight", "marginBottom", "marginLeft",
-      "fontSize", "fontWeight", "lineHeight", "letterSpacing", "textAlign",
+      "fontSize", "fontWeight", "fontFamily", "lineHeight", "letterSpacing", "textAlign",
       "backgroundColor", "color", "borderRadius", "border", "opacity",
+      "overflow", "position", "top", "left", "boxShadow",
     ]);
 
     for (const [groupName, props] of Object.entries(groups)) {
@@ -1533,32 +1534,63 @@
   }
 
   // ── Property editing ──────────────────────────────
+  // Permitted values for enum-style CSS properties
+  const PERMITTED_VALUES = {
+    display: ["block", "flex", "inline-flex", "grid", "inline-grid", "inline", "inline-block", "none", "contents"],
+    flexDirection: ["row", "row-reverse", "column", "column-reverse"],
+    alignItems: ["stretch", "flex-start", "flex-end", "center", "baseline"],
+    justifyContent: ["flex-start", "flex-end", "center", "space-between", "space-around", "space-evenly"],
+    textAlign: ["left", "center", "right", "justify"],
+    fontWeight: ["100", "200", "300", "400", "500", "600", "700", "800", "900"],
+    overflow: ["visible", "hidden", "scroll", "auto", "clip"],
+    position: ["static", "relative", "absolute", "fixed", "sticky"],
+  };
+
   function startEdit(valEl, prop) {
     const currentVal = valEl.getAttribute("data-original");
     const compChanges = changes.get(filteredQueue[selectedIdx]?.id) || [];
     const existing = compChanges.find(c => c.path === currentElementPath && c.property === prop);
     const displayVal = existing ? existing.newValue : currentVal;
 
-    const input = document.createElement("input");
-    input.className = "prop-edit-input";
-    input.type = "text";
-    input.value = displayVal;
+    const permitted = PERMITTED_VALUES[prop];
+    let inputEl;
     let cancelled = false;
 
-    valEl.innerHTML = "";
-    valEl.appendChild(input);
-    input.focus();
-    // Select just the numeric part for values like "24px", "1.5em", "600"
-    const numMatch = displayVal.match(/^(-?[\d.]+)/);
-    if (numMatch) {
-      input.setSelectionRange(0, numMatch[1].length);
+    if (permitted) {
+      // Dropdown for enum properties
+      inputEl = document.createElement("select");
+      inputEl.className = "prop-edit-input";
+      for (const opt of permitted) {
+        const option = document.createElement("option");
+        option.value = opt;
+        option.textContent = opt;
+        if (opt === displayVal) option.selected = true;
+        inputEl.appendChild(option);
+      }
     } else {
-      input.select();
+      // Text input for free-form values
+      inputEl = document.createElement("input");
+      inputEl.className = "prop-edit-input";
+      inputEl.type = "text";
+      inputEl.value = displayVal;
+    }
+
+    valEl.innerHTML = "";
+    valEl.appendChild(inputEl);
+    inputEl.focus();
+    if (!permitted) {
+      // Select just the numeric part for values like "24px", "1.5em", "600"
+      const numMatch = displayVal.match(/^(-?[\d.]+)/);
+      if (numMatch) {
+        inputEl.setSelectionRange(0, numMatch[1].length);
+      } else {
+        inputEl.select();
+      }
     }
 
     function commit() {
       if (cancelled) return;
-      const newVal = input.value.trim();
+      const newVal = inputEl.value.trim();
       if (newVal && newVal !== currentVal) {
         // Apply the style change to the iframe
         previewIframe.contentWindow.postMessage({
@@ -1597,13 +1629,18 @@
       }
     }
 
-    input.addEventListener("blur", () => { if (!cancelled) commit(); });
-    input.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") { commit(); cancelled = true; input.blur(); }
+    if (permitted) {
+      // For select: commit on change, close on blur
+      inputEl.addEventListener("change", () => { commit(); cancelled = true; });
+      inputEl.addEventListener("blur", () => { if (!cancelled) { valEl.textContent = existing ? existing.newValue : currentVal; } });
+    } else {
+      inputEl.addEventListener("blur", () => { if (!cancelled) commit(); });
+    }
+    inputEl.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { commit(); cancelled = true; inputEl.blur(); }
       if (e.key === "Escape") {
         cancelled = true;
-        // Remove input first, then restore text (avoids blur→commit race)
-        if (input.parentElement) input.remove();
+        if (inputEl.parentElement) inputEl.remove();
         valEl.textContent = existing ? existing.newValue : currentVal;
         if (existing) valEl.classList.add("changed");
       }

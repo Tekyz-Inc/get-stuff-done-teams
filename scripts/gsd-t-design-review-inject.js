@@ -333,12 +333,24 @@
         backgroundColor: "rgba(148, 163, 184, 0.08)",
       });
 
-    // ── Generic fallback ──
+    // ── Generic fallback — bright outline + pulse for any unhandled property ──
     } else {
-      addFlashDiv(rect.top, rect.left, rect.width, rect.height, {
-        backgroundColor: "rgba(59, 130, 246, 0.2)",
-        border: "1px solid rgba(59, 130, 246, 0.4)",
+      addFlashDiv(rect.top - 2, rect.left - 2, rect.width + 4, rect.height + 4, {
+        backgroundColor: "rgba(59, 130, 246, 0.15)",
+        border: "2px solid rgba(59, 130, 246, 0.7)",
+        borderRadius: "4px",
       });
+      // Property value label
+      const propVal = s.getPropertyValue(property.replace(/([A-Z])/g, "-$1").toLowerCase()) || s[property] || "";
+      if (propVal && propVal.length < 30) {
+        const lbl = addFlashDiv(rect.top - 20, rect.left, Math.max(propVal.length * 7, 50), 16, {
+          backgroundColor: "#1e293b", borderRadius: "3px",
+          fontSize: "10px", color: "#60a5fa", fontFamily: "monospace",
+          fontWeight: "600", textAlign: "center", lineHeight: "16px",
+          padding: "0 4px", whiteSpace: "nowrap",
+        });
+        lbl.textContent = propVal;
+      }
     }
 
     scheduleFlashFade();

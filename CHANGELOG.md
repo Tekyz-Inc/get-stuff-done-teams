@@ -2,6 +2,13 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.73.18] - 2026-04-09
+
+### Added
+- **Permitted value dropdowns** for enum CSS properties — `display`, `flexDirection`, `textAlign`, `alignItems`, `justifyContent`, `fontWeight`, `overflow`, `position` now show a `<select>` dropdown with valid options instead of a free-text input. Select commits on change.
+- **Enhanced visual cue** — generic flashZone fallback now shows a bright blue outline with a computed-value label overlay. All property name clicks flash the element.
+- **More editable properties** — added `overflow`, `position`, `top`, `left`, `boxShadow`, `fontFamily` to the editable set.
+
 ## [2.73.17] - 2026-04-08
 
 ### Added
