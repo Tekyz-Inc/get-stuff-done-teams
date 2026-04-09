@@ -2,6 +2,11 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.73.23] - 2026-04-09
+
+### Fixed
+- **Container props auto-redirect to parent** — setting `gap`, `borderRadius`, or `overflow` on a bar segment (child) now auto-targets the parent flex/grid container. Previously only worked when the container itself was selected.
+
 ## [2.73.22] - 2026-04-09
 
 ### Added

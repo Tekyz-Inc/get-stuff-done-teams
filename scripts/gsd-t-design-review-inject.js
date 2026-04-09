@@ -712,8 +712,22 @@
           const propagate = msg.propagate !== false; // default true
           let propagatedCount = 0;
 
-          // Apply to primary element
-          lockedEl.style.setProperty(cssName, msg.value, "important");
+          // Container-only props: if applied to a non-container child, redirect to parent
+          const containerOnlyProps = new Set(["gap", "row-gap", "column-gap", "border-radius"]);
+          let targetEl = lockedEl;
+          if (containerOnlyProps.has(cssName)) {
+            const elStyle = getComputedStyle(lockedEl);
+            const isContainer = elStyle.display === "flex" || elStyle.display === "inline-flex" || elStyle.display === "grid";
+            if (!isContainer && lockedEl.parentElement) {
+              const parentStyle = getComputedStyle(lockedEl.parentElement);
+              if (parentStyle.display === "flex" || parentStyle.display === "inline-flex" || parentStyle.display === "grid") {
+                targetEl = lockedEl.parentElement;
+              }
+            }
+          }
+
+          // Apply to target element (may be parent for container-only props)
+          targetEl.style.setProperty(cssName, msg.value, "important");
 
           // Typography props cascade to descendants
           const inheritProps = new Set(["font-size", "font-weight", "font-family", "line-height",
@@ -792,22 +806,24 @@
             } else if (tag === "div" && parent) {
               const elStyle = getComputedStyle(lockedEl);
               const parentStyle = getComputedStyle(parent);
-              const layoutProps = new Set(["gap", "row-gap", "column-gap"]);
 
               // Props that propagate across sibling containers (all bar columns)
               const containerProps = new Set(["gap", "row-gap", "column-gap", "border-radius", "overflow"]);
 
               if (containerProps.has(cssName)) {
-                const elDisplay = elStyle.display;
-                if (elDisplay === "flex" || elDisplay === "inline-flex" || elDisplay === "grid") {
+                // Use targetEl (may be parent if redirected) for container propagation
+                const containerEl = targetEl;
+                const containerParent = containerEl.parentElement;
+                const containerDisplay = getComputedStyle(containerEl).display;
+                if (containerParent && (containerDisplay === "flex" || containerDisplay === "inline-flex" || containerDisplay === "grid")) {
                   // Auto-set overflow:hidden when border-radius is applied to a container
                   if (cssName === "border-radius" && msg.value && msg.value !== "0px" && msg.value !== "0") {
-                    lockedEl.style.setProperty("overflow", "hidden", "important");
+                    containerEl.style.setProperty("overflow", "hidden", "important");
                   }
-                  for (const sib of parent.children) {
-                    if (sib === lockedEl || sib.tagName !== "DIV") continue;
+                  for (const sib of containerParent.children) {
+                    if (sib === containerEl || sib.tagName !== "DIV") continue;
                     const sibStyle = getComputedStyle(sib);
-                    if (sibStyle.display === elDisplay) {
+                    if (sibStyle.display === containerDisplay) {
                       sib.style.setProperty(cssName, msg.value, "important");
                       if (cssName === "border-radius" && msg.value && msg.value !== "0px" && msg.value !== "0") {
                         sib.style.setProperty("overflow", "hidden", "important");
