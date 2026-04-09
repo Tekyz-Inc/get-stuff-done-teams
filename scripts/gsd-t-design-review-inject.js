@@ -790,10 +790,27 @@
                 }
               }
             } else if (tag === "div" && parent) {
-              // For bar segments: propagate to sibling divs in the same flex container
+              const elStyle = getComputedStyle(lockedEl);
               const parentStyle = getComputedStyle(parent);
-              if ((parentStyle.display === "flex" || parentStyle.display === "inline-flex") &&
+              const layoutProps = new Set(["gap", "row-gap", "column-gap"]);
+
+              if (layoutProps.has(cssName)) {
+                // Layout props on a flex/grid container: find all sibling containers with same structure
+                // (e.g., all bar columns in a chart — same parent, same display type)
+                const elDisplay = elStyle.display;
+                if (elDisplay === "flex" || elDisplay === "inline-flex" || elDisplay === "grid") {
+                  for (const sib of parent.children) {
+                    if (sib === lockedEl || sib.tagName !== "DIV") continue;
+                    const sibStyle = getComputedStyle(sib);
+                    if (sibStyle.display === elDisplay) {
+                      sib.style.setProperty(cssName, msg.value, "important");
+                      propagatedCount++;
+                    }
+                  }
+                }
+              } else if ((parentStyle.display === "flex" || parentStyle.display === "inline-flex") &&
                   parent.classList.contains("overflow-hidden")) {
+                // For bar segments: propagate to sibling divs in the same flex container
                 for (const sib of parent.children) {
                   if (sib === lockedEl || sib.tagName !== "DIV") continue;
                   sib.style.setProperty(cssName, msg.value, "important");
@@ -809,6 +826,7 @@
             const tag = lockedEl.tagName.toLowerCase();
             const columnProps = new Set(["text-align", "width", "min-width", "max-width"]);
             const rowProps = new Set(["height", "min-height", "max-height"]);
+            const layoutProps = new Set(["gap", "row-gap", "column-gap"]);
             if ((tag === "td" || tag === "th") && columnProps.has(cssName)) {
               const row = lockedEl.closest("tr");
               const colIdx = row ? Array.from(row.children).indexOf(lockedEl) + 1 : 0;
@@ -817,6 +835,8 @@
               propagateScope = "all rows";
             } else if (tag === "tr") {
               propagateScope = "all rows";
+            } else if (layoutProps.has(cssName)) {
+              propagateScope = "all columns";
             } else {
               propagateScope = "similar";
             }

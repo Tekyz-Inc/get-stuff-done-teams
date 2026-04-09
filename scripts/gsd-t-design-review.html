@@ -1879,17 +1879,35 @@
     function commit() {
       if (cancelled) return;
       const newVal = inputEl.value.trim();
-      if (newVal && newVal !== currentVal) {
-        // Apply the style change to the iframe
-        previewIframe.contentWindow.postMessage({
-          type: "gsdt-set-style",
-          property: prop,
-          value: newVal,
-          propagate: true,
-        }, "*");
+      if (!newVal) {
+        valEl.textContent = existing ? existing.newValue : currentVal;
+        if (existing) valEl.classList.add("changed");
+        return;
+      }
 
+      // Apply the style change to the iframe (always, even if reverting to original)
+      previewIframe.contentWindow.postMessage({
+        type: "gsdt-set-style",
+        property: prop,
+        value: newVal,
+        propagate: true,
+      }, "*");
+
+      const compId = filteredQueue[selectedIdx]?.id;
+      if (newVal === currentVal) {
+        // Reverting to original — remove tracked change
+        if (compId && existing) {
+          const list = changes.get(compId);
+          const idx = list.findIndex(c => c.path === currentElementPath && c.property === prop);
+          if (idx >= 0) list.splice(idx, 1);
+          if (list.length === 0) changes.delete(compId);
+          renderChanges(compId);
+          renderComponentList();
+        }
+        valEl.textContent = currentVal;
+        valEl.classList.remove("changed");
+      } else {
         // Track the change
-        const compId = filteredQueue[selectedIdx]?.id;
         if (compId) {
           if (!changes.has(compId)) changes.set(compId, []);
           const list = changes.get(compId);
@@ -1908,12 +1926,8 @@
           renderChanges(compId);
           renderComponentList();
         }
-
         valEl.textContent = newVal;
         valEl.classList.add("changed");
-      } else {
-        valEl.textContent = existing ? existing.newValue : currentVal;
-        if (existing) valEl.classList.add("changed");
       }
     }
 
@@ -1941,14 +1955,22 @@
     if (!list || index < 0 || index >= list.length) return;
     const change = list[index];
 
-    // Revert in iframe
+    // Revert in iframe based on property type
     if (previewIframe.contentWindow) {
-      previewIframe.contentWindow.postMessage({
-        type: "gsdt-set-style",
-        property: change.property,
-        value: change.oldValue,
-        propagate: true,
-      }, "*");
+      if (change.property.startsWith("svg:")) {
+        previewIframe.contentWindow.postMessage({
+          type: "gsdt-set-svg-attr",
+          attribute: change.property.slice(4),
+          value: change.oldValue,
+        }, "*");
+      } else if (!change.property.startsWith("fixture:")) {
+        previewIframe.contentWindow.postMessage({
+          type: "gsdt-set-style",
+          property: change.property,
+          value: change.oldValue,
+          propagate: true,
+        }, "*");
+      }
     }
 
     // Remove from change list
@@ -2189,14 +2211,32 @@
   undoAllChanges.addEventListener("click", () => {
     const compId = filteredQueue[selectedIdx]?.id;
     if (compId) {
+      // Revert each change individually (SVG attrs need setAttribute, not cssText reset)
+      const list = changes.get(compId) || [];
+      if (previewIframe.contentWindow) {
+        for (const change of list) {
+          if (change.property.startsWith("svg:")) {
+            previewIframe.contentWindow.postMessage({
+              type: "gsdt-set-svg-attr",
+              attribute: change.property.slice(4),
+              value: change.oldValue,
+            }, "*");
+          } else if (!change.property.startsWith("fixture:")) {
+            previewIframe.contentWindow.postMessage({
+              type: "gsdt-set-style",
+              property: change.property,
+              value: change.oldValue,
+              propagate: true,
+            }, "*");
+          }
+        }
+        // Also reset inline CSS overrides
+        previewIframe.contentWindow.postMessage({ type: "gsdt-reset-styles" }, "*");
+      }
       changes.delete(compId);
       renderChanges(compId);
       renderComponentList();
       refreshPropHighlights(compId);
-      // Reset iframe styles
-      if (previewIframe.contentWindow) {
-        previewIframe.contentWindow.postMessage({ type: "gsdt-reset-styles" }, "*");
-      }
     }
   });
 

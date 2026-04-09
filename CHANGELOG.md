@@ -2,6 +2,13 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.73.21] - 2026-04-09
+
+### Fixed
+- **Undo All / Cmd+Z now reverts display** — undo properly sends `gsdt-set-svg-attr` for SVG changes and skips fixture changes. Undo All individually reverts each change before resetting CSS, so the preview updates correctly.
+- **Can re-enter original value** — changing a property back to its original value now removes the tracked change and reverts the style (previously rejected as "no change").
+- **Gap propagation for bar charts** — setting `gap` on a flex/grid container propagates to all sibling containers with the same display type (e.g., all bar columns). Shows "→ N all columns" feedback.
+
 ## [2.73.20] - 2026-04-09
 
 ### Added
