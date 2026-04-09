@@ -333,6 +333,49 @@
         backgroundColor: "rgba(148, 163, 184, 0.08)",
       });
 
+    // ── SVG attribute zones (prefixed with "svg:") ──
+    } else if (property.startsWith("svg:")) {
+      const attr = property.slice(4);
+      if (attr === "stroke-width" || attr === "r" || attr === "rx" || attr === "ry") {
+        // Dimension attribute — blue outline with measurement label
+        addFlashDiv(rect.top - 2, rect.left - 2, rect.width + 4, rect.height + 4, {
+          border: "2px solid #3b82f6",
+          backgroundColor: "rgba(59, 130, 246, 0.15)",
+          borderRadius: "50%",
+        });
+        const val = el.getAttribute(attr) || "";
+        if (val) {
+          const lbl = addFlashDiv(rect.top - 18, rect.left, Math.max(val.length * 8, 40), 16, {
+            backgroundColor: "#1e293b", borderRadius: "3px",
+            fontSize: "10px", color: "#3b82f6", fontFamily: "monospace",
+            fontWeight: "600", textAlign: "center", lineHeight: "16px",
+          });
+          lbl.textContent = val;
+        }
+      } else if (attr === "stroke" || attr === "fill") {
+        // Color attribute — colored border matching the value
+        const color = el.getAttribute(attr) || getComputedStyle(el)[attr] || "#888";
+        addFlashDiv(rect.top - 3, rect.left - 3, rect.width + 6, rect.height + 6, {
+          border: "3px solid " + color,
+          backgroundColor: "transparent",
+          borderRadius: "2px",
+        });
+      } else if (attr === "stroke-dasharray" || attr === "stroke-dashoffset") {
+        // Dash pattern — dashed outline
+        addFlashDiv(rect.top - 2, rect.left - 2, rect.width + 4, rect.height + 4, {
+          border: "2px dashed #f59e0b",
+          backgroundColor: "rgba(245, 158, 11, 0.1)",
+          borderRadius: "2px",
+        });
+      } else {
+        // Generic SVG attr — cyan outline
+        addFlashDiv(rect.top - 2, rect.left - 2, rect.width + 4, rect.height + 4, {
+          border: "2px solid #06b6d4",
+          backgroundColor: "rgba(6, 182, 212, 0.1)",
+          borderRadius: "2px",
+        });
+      }
+
     // ── Generic fallback — bright outline + pulse for any unhandled property ──
     } else {
       addFlashDiv(rect.top - 2, rect.left - 2, rect.width + 4, rect.height + 4, {
@@ -418,6 +461,44 @@
       // Opacity
       opacity: s.opacity,
     };
+  }
+
+  // SVG attribute names to extract per element type
+  const SVG_ATTRS = {
+    svg: ["viewBox", "width", "height"],
+    circle: ["cx", "cy", "r", "stroke", "stroke-width", "fill", "opacity", "stroke-dasharray", "stroke-dashoffset", "transform"],
+    ellipse: ["cx", "cy", "rx", "ry", "stroke", "stroke-width", "fill", "opacity"],
+    rect: ["x", "y", "width", "height", "rx", "ry", "stroke", "stroke-width", "fill", "opacity"],
+    line: ["x1", "y1", "x2", "y2", "stroke", "stroke-width", "opacity"],
+    path: ["d", "stroke", "stroke-width", "fill", "opacity", "stroke-linecap", "stroke-linejoin", "transform"],
+    text: ["x", "y", "font-size", "font-weight", "fill", "text-anchor", "dominant-baseline"],
+    g: ["transform", "opacity", "fill", "stroke"],
+    polyline: ["points", "stroke", "stroke-width", "fill"],
+    polygon: ["points", "stroke", "stroke-width", "fill"],
+  };
+
+  function extractSvgAttrs(el) {
+    const tag = el.tagName.toLowerCase();
+    const attrNames = SVG_ATTRS[tag];
+    if (!attrNames) return null;
+    const attrs = {};
+    let hasAny = false;
+    for (const name of attrNames) {
+      const val = el.getAttribute(name);
+      if (val !== null && val !== undefined) {
+        attrs[name] = val;
+        hasAny = true;
+      }
+    }
+    // Also grab computed stroke/fill from CSS if not in attributes
+    if (el instanceof SVGElement) {
+      const s = getComputedStyle(el);
+      if (!attrs["stroke"] && s.stroke && s.stroke !== "none") { attrs["stroke"] = s.stroke; hasAny = true; }
+      if (!attrs["fill"] && s.fill && s.fill !== "none") { attrs["fill"] = s.fill; hasAny = true; }
+      if (!attrs["stroke-width"] && s.strokeWidth) { attrs["stroke-width"] = s.strokeWidth; hasAny = true; }
+      if (!attrs["opacity"] && s.opacity !== "1") { attrs["opacity"] = s.opacity; hasAny = true; }
+    }
+    return hasAny ? attrs : null;
   }
 
   function extractBoxModel(el) {
@@ -548,6 +629,7 @@
       path: getElementPath(el),
       styles: extractStyles(el),
       boxModel: extractBoxModel(el),
+      svgAttrs: extractSvgAttrs(el),
       tagName: el.tagName.toLowerCase(),
       className: typeof el.className === "string" ? el.className : "",
       textContent: (el.textContent || "").trim().substring(0, 100),
@@ -585,6 +667,7 @@
       path: getElementPath(el),
       styles: extractStyles(el),
       boxModel: extractBoxModel(el),
+      svgAttrs: extractSvgAttrs(el),
       tagName: el.tagName.toLowerCase(),
       className: typeof el.className === "string" ? el.className : "",
       textContent: (el.textContent || "").trim().substring(0, 100),
@@ -747,6 +830,7 @@
             value: msg.value,
             styles: extractStyles(lockedEl),
             boxModel: extractBoxModel(lockedEl),
+            svgAttrs: extractSvgAttrs(lockedEl),
             propagated: propagatedCount,
             propagateScope,
           }, "*");
@@ -772,6 +856,7 @@
             path: getElementPath(lockedEl),
             styles: extractStyles(lockedEl),
             boxModel: extractBoxModel(lockedEl),
+            svgAttrs: extractSvgAttrs(lockedEl),
           }, "*");
         }
         break;
@@ -938,10 +1023,28 @@
             path: getElementPath(el),
             styles: extractStyles(el),
             boxModel: extractBoxModel(el),
+            svgAttrs: extractSvgAttrs(el),
             tagName: el.tagName.toLowerCase(),
             className: typeof el.className === "string" ? el.className : "",
             textContent: (el.textContent || "").trim().substring(0, 100),
             childCount: el.children.length,
+          }, "*");
+        }
+        break;
+
+      case "gsdt-set-svg-attr":
+        // Apply an SVG attribute change to the locked element
+        if (lockedEl && msg.attribute && msg.value !== undefined) {
+          lockedEl.setAttribute(msg.attribute, msg.value);
+          positionOverlay(lockedEl);
+          window.parent.postMessage({
+            type: "gsdt-style-updated",
+            path: getElementPath(lockedEl),
+            property: "svg:" + msg.attribute,
+            value: msg.value,
+            styles: extractStyles(lockedEl),
+            boxModel: extractBoxModel(lockedEl),
+            svgAttrs: extractSvgAttrs(lockedEl),
           }, "*");
         }
         break;

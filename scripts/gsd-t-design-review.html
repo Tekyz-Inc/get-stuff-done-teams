@@ -1230,6 +1230,7 @@
 
       case "gsdt-style-updated":
         currentStyles = msg.styles;
+        if (msg.svgAttrs) currentSvgAttrs = msg.svgAttrs;
         renderPropertyValues(msg.styles);
         // Show propagation feedback with scope
         if (msg.propagated > 0) {
@@ -1255,9 +1256,12 @@
   });
 
   // ── Inspector rendering ───────────────────────────
+  let currentSvgAttrs = null;
+
   function renderInspector(msg) {
     const styles = msg.styles;
     const boxModel = msg.boxModel;
+    currentSvgAttrs = msg.svgAttrs || null;
 
     // Only update props zone — preserve tree
     inspectorProps.innerHTML = "";
@@ -1409,6 +1413,177 @@
         inspectorProps.appendChild(group);
       }
     }
+
+    // SVG Attributes group (if element is SVG)
+    if (currentSvgAttrs) {
+      const svgGroup = document.createElement("div");
+      svgGroup.className = "prop-group";
+
+      const svgHeader = document.createElement("div");
+      svgHeader.className = "prop-group-header";
+      svgHeader.innerHTML = `<span>▾</span> SVG Attributes`;
+      svgHeader.style.color = "#06b6d4";
+      svgGroup.appendChild(svgHeader);
+
+      const svgRows = document.createElement("div");
+      svgRows.style.display = "block";
+
+      svgHeader.addEventListener("click", () => {
+        const visible = svgRows.style.display !== "none";
+        svgRows.style.display = visible ? "none" : "block";
+        svgHeader.innerHTML = `<span>${visible ? "▸" : "▾"}</span> SVG Attributes`;
+      });
+
+      const svgColorAttrs = new Set(["stroke", "fill"]);
+      const svgNumericAttrs = new Set(["stroke-width", "r", "rx", "ry", "cx", "cy", "x", "y",
+        "x1", "y1", "x2", "y2", "width", "height", "opacity", "stroke-dashoffset"]);
+
+      for (const [attr, val] of Object.entries(currentSvgAttrs)) {
+        const row = document.createElement("div");
+        row.className = "prop-row";
+        row.setAttribute("data-prop", "svg:" + attr);
+
+        const nameEl = document.createElement("span");
+        nameEl.className = "prop-name";
+        nameEl.textContent = attr;
+        nameEl.title = `Click to highlight ${attr}`;
+        nameEl.style.cursor = "pointer";
+        nameEl.addEventListener("click", () => {
+          if (previewIframe.contentWindow) {
+            previewIframe.contentWindow.postMessage({
+              type: "gsdt-highlight-zone",
+              property: "svg:" + attr,
+            }, "*");
+          }
+        });
+        row.appendChild(nameEl);
+
+        const valEl = document.createElement("span");
+        valEl.className = "prop-value editable";
+        valEl.setAttribute("data-prop", "svg:" + attr);
+        valEl.setAttribute("data-original", val);
+
+        if (svgColorAttrs.has(attr) && val && val !== "none") {
+          valEl.innerHTML = `<span class="color-swatch" style="background:${val}"></span>${val}`;
+        } else {
+          valEl.textContent = val;
+        }
+
+        // Check if changed
+        const compId = filteredQueue[selectedIdx]?.id;
+        const compChanges = changes.get(compId) || [];
+        const existing = compChanges.find(c => c.path === currentElementPath && c.property === "svg:" + attr);
+        if (existing) {
+          valEl.classList.add("changed");
+          valEl.textContent = existing.newValue;
+        }
+
+        valEl.addEventListener("click", () => startSvgEdit(valEl, attr));
+        row.appendChild(valEl);
+        svgRows.appendChild(row);
+      }
+
+      svgGroup.appendChild(svgRows);
+      if (svgRows.children.length > 0) {
+        inspectorProps.appendChild(svgGroup);
+      }
+    }
+  }
+
+  function startSvgEdit(valEl, attr) {
+    if (valEl.querySelector("select, input")) return;
+
+    const currentVal = valEl.getAttribute("data-original");
+    const compChanges = changes.get(filteredQueue[selectedIdx]?.id) || [];
+    const existing = compChanges.find(c => c.path === currentElementPath && c.property === "svg:" + attr);
+    const displayVal = existing ? existing.newValue : currentVal;
+
+    const permitted = PERMITTED_VALUES[attr];
+    let inputEl;
+
+    if (permitted) {
+      inputEl = document.createElement("select");
+      inputEl.className = "prop-edit-input";
+      for (const opt of permitted) {
+        const option = document.createElement("option");
+        option.value = opt;
+        option.textContent = opt;
+        if (opt === displayVal) option.selected = true;
+        inputEl.appendChild(option);
+      }
+    } else {
+      inputEl = document.createElement("input");
+      inputEl.className = "prop-edit-input";
+      inputEl.type = "text";
+      inputEl.value = displayVal;
+    }
+
+    valEl.innerHTML = "";
+    valEl.appendChild(inputEl);
+    inputEl.focus();
+    if (!permitted) {
+      const numMatch = displayVal.match(/^(-?[\d.]+)/);
+      if (numMatch) {
+        inputEl.setSelectionRange(0, numMatch[1].length);
+      } else {
+        inputEl.select();
+      }
+    }
+
+    let cancelled = false;
+    function commit() {
+      if (cancelled) return;
+      const newVal = inputEl.value.trim();
+      if (newVal && newVal !== currentVal) {
+        previewIframe.contentWindow.postMessage({
+          type: "gsdt-set-svg-attr",
+          attribute: attr,
+          value: newVal,
+        }, "*");
+
+        const compId = filteredQueue[selectedIdx]?.id;
+        if (compId) {
+          if (!changes.has(compId)) changes.set(compId, []);
+          const list = changes.get(compId);
+          const existingIdx = list.findIndex(c => c.path === currentElementPath && c.property === "svg:" + attr);
+          const change = {
+            path: currentElementPath,
+            property: "svg:" + attr,
+            oldValue: currentVal,
+            newValue: newVal,
+          };
+          if (existingIdx >= 0) {
+            list[existingIdx] = change;
+          } else {
+            list.push(change);
+          }
+          renderChanges(compId);
+          renderComponentList();
+        }
+
+        valEl.textContent = newVal;
+        valEl.classList.add("changed");
+      } else {
+        valEl.textContent = existing ? existing.newValue : currentVal;
+        if (existing) valEl.classList.add("changed");
+      }
+    }
+
+    if (permitted) {
+      inputEl.addEventListener("change", () => { commit(); cancelled = true; });
+      inputEl.addEventListener("blur", () => { if (!cancelled) { valEl.textContent = existing ? existing.newValue : currentVal; } });
+    } else {
+      inputEl.addEventListener("blur", () => { if (!cancelled) commit(); });
+    }
+    inputEl.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { commit(); cancelled = true; inputEl.blur(); }
+      if (e.key === "Escape") {
+        cancelled = true;
+        if (inputEl.parentElement) inputEl.remove();
+        valEl.textContent = existing ? existing.newValue : currentVal;
+        if (existing) valEl.classList.add("changed");
+      }
+    });
   }
 
   function renderPropertyValues(styles) {
@@ -1544,9 +1719,17 @@
     fontWeight: ["100", "200", "300", "400", "500", "600", "700", "800", "900"],
     overflow: ["visible", "hidden", "scroll", "auto", "clip"],
     position: ["static", "relative", "absolute", "fixed", "sticky"],
+    // SVG attribute permitted values (used by startSvgEdit)
+    "stroke-linecap": ["butt", "round", "square"],
+    "stroke-linejoin": ["miter", "round", "bevel"],
+    "text-anchor": ["start", "middle", "end"],
+    "dominant-baseline": ["auto", "middle", "hanging", "central", "text-top", "text-bottom"],
   };
 
   function startEdit(valEl, prop) {
+    // Prevent re-entry: if already editing (select/input inside), do nothing
+    if (valEl.querySelector("select, input")) return;
+
     const currentVal = valEl.getAttribute("data-original");
     const compChanges = changes.get(filteredQueue[selectedIdx]?.id) || [];
     const existing = compChanges.find(c => c.path === currentElementPath && c.property === prop);

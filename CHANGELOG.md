@@ -2,6 +2,15 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.73.19] - 2026-04-09
+
+### Added
+- **SVG attribute inspector** — SVG elements (`circle`, `path`, `rect`, `line`, `ellipse`, `text`, `g`, `polyline`, `polygon`) now show an "SVG Attributes" property group with all relevant attributes (stroke-width, r, fill, stroke, stroke-dasharray, viewBox, etc.). Attributes are editable inline with `setAttribute()`. Visual flash zones highlight stroke-width (blue), stroke/fill (matching color), dash patterns (amber dashed), and generic attrs (cyan).
+- **SVG permitted value dropdowns** — `stroke-linecap`, `stroke-linejoin`, `text-anchor`, `dominant-baseline` show `<select>` dropdowns with valid SVG values.
+
+### Fixed
+- **Dropdown flash-on-click** — clicking a permitted-value `<select>` dropdown no longer re-triggers `startEdit()`, which was recreating the dropdown and causing it to flash on/off. Added re-entry guard checking for existing `select`/`input` inside the value element.
+
 ## [2.73.18] - 2026-04-09
 
 ### Added
