@@ -46,3 +46,8 @@
 
 | 2026-03-24 14:49 | 2026-03-24 14:49 | gsd-t-visualize | Step 0 | sonnet | 42s | dashboard launched | 0 | null | | | N/A || 2026-04-01 17:44 | 2026-04-01 17:44 | gsd-t-plan | Step 7 | haiku | 9s | PASS, iteration 1 | 0 | null | | | N/A |
 | 2026-04-01 17:50 | 2026-04-01 17:55 | gsd-t-execute | M32/all-tasks | sonnet | 332s | PASS — 3/3 tasks, 9/9 gates | 0 | null | quality-persona+design-brief+evaluator-interactivity | task-1x3 | N/A |
+| 2026-04-09 13:20 | 2026-04-09 13:24 | gsd-t-quick | Step 0 | sonnet | 244s | quick: fix ChartDonut stroke-width + label spacing | 59899 | null | elements | chart-donut | N/A |
+| 2026-04-14 12:04 | 2026-04-14 12:08 | gsd-t-execute | task:1 | sonnet | 231s | PASS 13/13 | context-meter-hook | task-1 | 1 |
+| 2026-04-14 12:08 | 2026-04-14 12:11 | gsd-t-execute | task:2 | sonnet | 195s | PASS 11/11 (36/36 suite) | context-meter-hook | task-2 | 2 |
+| 2026-04-14 12:11 | 2026-04-14 12:14 | gsd-t-execute | task:3 | sonnet | 183s | PASS 35/35 (71/71 suite) | context-meter-hook | task-3 | 3 |
+| 2026-04-14 12:14 | 2026-04-14 12:21 | gsd-t-execute | task:4 | sonnet | 425s | PASS 15/15 CP2 SAT (919/919 full) | context-meter-hook | task-4 | 4 |
