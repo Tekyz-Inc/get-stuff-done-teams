@@ -2,6 +2,20 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.74.13] - 2026-04-14
+
+### Fixed — v2.74.12 task-counter distribution gap (P0)
+
+**Root cause**: v2.74.12 added `bin/task-counter.cjs` as the deterministic context-burn gate and wired every command file to call `node bin/task-counter.cjs …`, but the installer's `PROJECT_BIN_TOOLS` list (`bin/gsd-t.js:1562`) was never updated to include it. Every downstream project ran command files that referenced a file the installer never copied. In every GSD-T project, `node bin/task-counter.cjs status|should-stop|reset|increment` threw "Cannot find module" — swallowed by `2>/dev/null` — and the orchestrator silently continued with no gate. Confirmed in bee-poc: `reassign-display` 6/6 + `reassign-candidates` 2/9 executed across ~30 min while `task-counter status` stayed `{"count":0}` the entire run and `token-log.md` got zero new rows.
+
+**Additionally**: `doInit()` (`bin/gsd-t.js:1095`) never called `copyBinToolsToProject` at all, so brand-new projects created with `gsd-t init` were born with no bin tools until the user manually ran `update`.
+
+**Fix**:
+- **`bin/gsd-t.js`** — `PROJECT_BIN_TOOLS` now includes `task-counter.cjs`. One-line change at `bin/gsd-t.js:1562`.
+- **`bin/gsd-t.js`** — `doInit()` now calls `copyBinToolsToProject(projectDir, projectName)` after `initGsdtDir`, so newly-initialized projects ship bin tools immediately.
+
+v2.74.12's entire two-layer fix (task-count gate + extracted prompts) is correct — it just needed one line to actually distribute the counter script. Running `/user:gsd-t-version-update-all` after publishing this version will propagate `task-counter.cjs` to every registered project.
+
 ## [2.74.12] - 2026-04-14
 
 ### Fixed — Context-Burn Regression (P0, affects every GSD-T project)
