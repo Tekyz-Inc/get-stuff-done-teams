@@ -13,11 +13,14 @@ Rip out the silent `downgrade` and `conserve` threshold bands from `bin/token-bu
 
 ## Tasks
 
-### Task 1: Rewrite `getDegradationActions()` and retune thresholds
+### Task 1: Rewrite `getDegradationActions()` and retune thresholds (atomic three-file commit)
 
 - **Files**:
   - `bin/token-budget.js` (modify)
-  - `test/token-budget.test.js` (modify)
+  - `scripts/context-meter/threshold.js` (modify) — IMP-003: `BANDS` + `bandFor()` must move from 5-band to 3-band atomically with the same commit, or the context-meter hook will produce stale `downgrade`/`conserve` band labels that token-budget.js no longer understands
+  - `scripts/context-meter/threshold.test.js` (modify) — delete any test asserting `downgrade`/`conserve` band returns, add equivalent three-band boundary tests; must be in the same commit as threshold.js to keep the sub-suite green
+  - `bin/gsd-t.js` (modify) — IMP-004: `doStatus()` switch-case has `downgrade`/`conserve` arms that must be collapsed to the three-band model in the same commit, or `gsd-t status` will crash/print "unknown" on warn/stop states
+  - `test/token-budget.test.js` (modify) — 7 existing `getDegradationActions` tests for `downgrade`/`conserve` must be deleted in the SAME commit (IMP-001) or the test run immediately after T1 will have 7 red tests referencing deleted code paths
 - **Contract refs**: `.gsd-t/contracts/token-budget-contract.md` (will be rewritten in T2 — execute T1 first, then T2 formalizes the contract to match)
 - **Dependencies**: NONE
 - **Acceptance criteria**:
@@ -27,8 +30,11 @@ Rip out the silent `downgrade` and `conserve` threshold bands from `bin/token-bu
   - Any `skipPhases` list constants deleted
   - Threshold constants retuned: `WARN_THRESHOLD_PCT = 70`, `STOP_THRESHOLD_PCT = 85`
   - `getSessionStatus()` return shape's `threshold` field narrowed to union `'normal'|'warn'|'stop'`
-  - `test/token-budget.test.js` updated: tests for `downgrade`/`conserve` branches deleted, new tests for three-band model added (test each band, test threshold boundaries at 69/70/71/84/85/86)
-  - Full test suite green (941+ baseline maintained after deletes + adds)
+  - `scripts/context-meter/threshold.js` `BANDS` array collapsed to three entries (`normal`/`warn`/`stop`) with matching boundaries (70, 85); `bandFor()` returns one of the three strings
+  - `bin/gsd-t.js` `doStatus()` three-band handling only — remove `case 'downgrade':` and `case 'conserve':` arms
+  - `test/token-budget.test.js` updated atomically: 7 `getDegradationActions` `downgrade`/`conserve` tests deleted (see impact-report.md IMP-001), new tests for three-band model added (test each band, test threshold boundaries at 69/70/71/84/85/86)
+  - Full test suite green (941+ baseline maintained after deletes + adds) — commit must be atomic so no intermediate broken state is checked in
+  - `grep -rE "downgrade|conserve|modelOverride|skipPhases" bin/token-budget.js scripts/context-meter/threshold.js bin/gsd-t.js` returns zero hits in live code (comments referencing "removed in v2.76.10" are acceptable)
 
 ### Task 2: Rewrite `token-budget-contract.md` to v3.0.0
 
