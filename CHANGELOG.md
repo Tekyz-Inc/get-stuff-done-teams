@@ -2,6 +2,34 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.74.10] - 2026-04-13
+
+### Added
+- **`bin/archive-progress.js`** — rolling Decision Log archival. Keeps the last 5 entries live in `.gsd-t/progress.md`; older entries roll into `.gsd-t/progress-archive/NNN-YYYY-MM-DD.md` files (20 entries each) with an `INDEX.md` for date-range lookup. **Solves the runaway context consumption from progress.md growth** — current GSD-T project saw 163KB → 42KB on first migration (Decision Log section dropped from ~100KB to 13KB). Idempotent, dry-run supported, safe to run anytime.
+- **`bin/log-tail.js`** — truncate test/build log output before forwarding into context. Writes full output to disk, prints only the tail (default 100 lines, 500 on detected failure). Used by command files to prevent multi-thousand-line stdout dumps from npm test / playwright test from blowing context budget.
+- **`bin/context-budget-audit.js`** — measures the static context cost of a Claude Code session before any work happens. Reports tokens consumed by CLAUDE.md files, command manifest, MCP server schemas, auto-memory, and lazy-loaded skill bodies. Use to diagnose why long-running sessions hit manual `/compact` prompts.
+- **Auto-migration on `version-update-all`** — every registered project gets `archive-progress.js`, `log-tail.js`, and `context-budget-audit.js` copied into its `bin/` directory automatically. The progress archive migration runs once per project (gated by `.gsd-t/.archive-migration-v1` marker) so the next `version-update-all` reclaims context budget across every GSD-T project at once.
+
+### Fixed
+- **Mid-session context exhaustion regression** — manual `/compact` prompts that started ~2026-04-10 traced to `progress.md` growing past 50K tokens (25% of the 200K context window in a single file). Every command that read it paid this cost. Archival fix targets the root cause; commands that read `progress.md` now see <10K tokens of relevant content instead of 50K+ of historical decisions.
+
+## [2.73.28] - 2026-04-09
+
+### Fixed
+- **Ctrl+C now cleanly kills the orchestrator and all child processes** — SIGINT handler tracks all spawned Claude processes (build, review, fix) and kills them on Ctrl+C. The sync `spawnClaude` was converted from `execFileSync` (which blocked the event loop and prevented signal handling) to an async `execFile` with a polling wait that checks an interrupt flag. The `waitForReview` polling loop also breaks on Ctrl+C. No more orphaned processes.
+
+## [2.73.27] - 2026-04-09
+
+### Changed
+- **Unlimited human review cycles with auto-review reset** — the orchestrator no longer caps human review iterations. After each human fix: (1) fixes are applied, (2) components are re-measured, (3) automated AI review runs with a fresh cycle counter (up to `maxAutoReviewCycles`), (4) components are re-queued for human review. This loop repeats until the reviewer submits with zero changes. The human is always the final gate.
+
+## [2.73.26] - 2026-04-09
+
+### Added
+- **AI prompt assistant in review panel** — expandable panel in the header (toggle with Ctrl+K or the AI button). Ask questions about the selected component ("what stroke-width is this using?"), get help translating vague corrections into precise contract language ("arcs are too thick" → actionable property changes), and preview responses before committing them as comments via "Use as comment" button. Uses the Claude Code CLI (`claude -p`) so it works with Claude Max subscriptions — no API key needed. Model defaults to opus (override with `GSD_AI_ASSIST_MODEL` env var).
+- **`/review/api/contract` endpoint** — returns the full design contract markdown for a given component path. Used by the AI assistant to provide contract-aware responses.
+- **`/review/api/ai-assist` endpoint** — streaming SSE endpoint that spawns `claude -p` with component context (name, measurements, computed styles, contract). Zero external dependencies — uses the locally installed Claude Code CLI.
+
 ## [2.73.25] - 2026-04-09
 
 ### Added

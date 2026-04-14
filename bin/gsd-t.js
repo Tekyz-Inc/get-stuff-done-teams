@@ -1546,11 +1546,89 @@ function updateSingleProject(projectDir, counts) {
   }
   const guardAdded = updateProjectClaudeMd(claudeMd, projectName);
   const changelogCreated = createProjectChangelog(projectDir, projectName);
-  if (guardAdded || changelogCreated) {
+  const binToolsCopied = copyBinToolsToProject(projectDir, projectName);
+  const archiveRan = runProgressArchiveMigration(projectDir, projectName);
+  if (guardAdded || changelogCreated || binToolsCopied || archiveRan) {
     counts.updated++;
   } else {
     info(`${projectName} — already up to date`);
     counts.skipped++;
+  }
+}
+
+// Bin tools that should ship with every registered project. Listed here so adding
+// a new tool only requires appending to this array.
+const PROJECT_BIN_TOOLS = ["archive-progress.js", "log-tail.js", "context-budget-audit.js"];
+
+function copyBinToolsToProject(projectDir, projectName) {
+  const projectBinDir = path.join(projectDir, "bin");
+  if (!fs.existsSync(projectBinDir)) {
+    try {
+      fs.mkdirSync(projectBinDir, { recursive: true });
+    } catch {
+      return false;
+    }
+  }
+  let copied = 0;
+  for (const tool of PROJECT_BIN_TOOLS) {
+    const src = path.join(PKG_ROOT, "bin", tool);
+    const dest = path.join(projectBinDir, tool);
+    if (!fs.existsSync(src)) continue;
+    let needsCopy = true;
+    if (fs.existsSync(dest)) {
+      try {
+        const srcContent = fs.readFileSync(src, "utf8");
+        const destContent = fs.readFileSync(dest, "utf8");
+        if (srcContent === destContent) needsCopy = false;
+      } catch {
+        // fall through, will copy
+      }
+    }
+    if (needsCopy) {
+      try {
+        fs.copyFileSync(src, dest);
+        try { fs.chmodSync(dest, 0o755); } catch {}
+        copied++;
+      } catch (e) {
+        warn(`${projectName} — failed to copy ${tool}: ${e.message}`);
+      }
+    }
+  }
+  if (copied > 0) {
+    info(`${projectName} — copied ${copied} bin tool(s)`);
+    return true;
+  }
+  return false;
+}
+
+// One-shot migration: roll the project's progress.md Decision Log into archive
+// files using bin/archive-progress.js. A marker file ensures we only do this once
+// per project — subsequent runs are no-ops.
+function runProgressArchiveMigration(projectDir, projectName) {
+  const progressMd = path.join(projectDir, ".gsd-t", "progress.md");
+  if (!fs.existsSync(progressMd)) return false;
+
+  const markerPath = path.join(projectDir, ".gsd-t", ".archive-migration-v1");
+  if (fs.existsSync(markerPath)) return false;
+
+  const archiveScript = path.join(projectDir, "bin", "archive-progress.js");
+  if (!fs.existsSync(archiveScript)) return false;
+
+  try {
+    const output = execFileSync("node", [archiveScript, "--quiet"], {
+      cwd: projectDir,
+      encoding: "utf8",
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    fs.writeFileSync(
+      markerPath,
+      `# archive-migration-v1\nApplied: ${new Date().toISOString()}\nTool: bin/archive-progress.js\n`
+    );
+    info(`${projectName} — progress.md Decision Log archived (one-time migration)`);
+    return true;
+  } catch (e) {
+    warn(`${projectName} — archive migration failed: ${e.message}`);
+    return false;
   }
 }
 
