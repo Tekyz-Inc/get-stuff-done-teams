@@ -2,6 +2,12 @@
  * Tests for bin/token-budget.js
  * Uses Node.js built-in test runner (node --test)
  *
+ * v3.0.0 (M35): clean break — three-band model (normal / warn / stop).
+ * Silent degradation bands (downgrade, conserve) and their model-override
+ * side channel are REMOVED. getDegradationActions now returns
+ * {band, pct, message} — no actions list, no modelOverrides.
+ * Thresholds tightened to warn@70%, stop@85%.
+ *
  * v2.0.0 (M34): getSessionStatus reads .gsd-t/.context-meter-state.json
  * produced by the Context Meter PostToolUse hook. When the state file is
  * absent or stale (>5min), it falls back to a historical heuristic from
@@ -153,7 +159,7 @@ describe("estimateCost", () => {
 
 // ── getSessionStatus (state-file primary) ────────────────────────────────────
 
-describe("getSessionStatus (real-source)", () => {
+describe("getSessionStatus (real-source, three-band v3.0.0)", () => {
   it("reads fresh state file and returns real values", () => {
     writeState({ inputTokens: 40000 });
     const status = getSessionStatus(tmpDir);
@@ -163,27 +169,42 @@ describe("getSessionStatus (real-source)", () => {
     assert.equal(status.threshold, "normal");
   });
 
-  it("returns 'normal' below 60%", () => {
+  it("returns 'normal' below 70%", () => {
     writeState({ inputTokens: 100000 }); // 50%
     assert.equal(getSessionStatus(tmpDir).threshold, "normal");
   });
 
-  it("returns 'warn' at 60-70%", () => {
-    writeState({ inputTokens: 130000 }); // 65%
+  it("returns 'normal' just below warn boundary (69%)", () => {
+    writeState({ inputTokens: 138000 }); // 69%
+    assert.equal(getSessionStatus(tmpDir).threshold, "normal");
+  });
+
+  it("returns 'warn' at 70% (inclusive lower)", () => {
+    writeState({ inputTokens: 140000 }); // 70%
     assert.equal(getSessionStatus(tmpDir).threshold, "warn");
   });
 
-  it("returns 'downgrade' at 70-85%", () => {
-    writeState({ inputTokens: 150000 }); // 75%
-    assert.equal(getSessionStatus(tmpDir).threshold, "downgrade");
+  it("returns 'warn' at 71%", () => {
+    writeState({ inputTokens: 142000 }); // 71%
+    assert.equal(getSessionStatus(tmpDir).threshold, "warn");
   });
 
-  it("returns 'conserve' at 85-95%", () => {
-    writeState({ inputTokens: 180000 }); // 90%
-    assert.equal(getSessionStatus(tmpDir).threshold, "conserve");
+  it("returns 'warn' at 84% (still below stop)", () => {
+    writeState({ inputTokens: 168000 }); // 84%
+    assert.equal(getSessionStatus(tmpDir).threshold, "warn");
   });
 
-  it("returns 'stop' at >= 95%", () => {
+  it("returns 'stop' at 85% (inclusive lower)", () => {
+    writeState({ inputTokens: 170000 }); // 85%
+    assert.equal(getSessionStatus(tmpDir).threshold, "stop");
+  });
+
+  it("returns 'stop' at 86%", () => {
+    writeState({ inputTokens: 172000 }); // 86%
+    assert.equal(getSessionStatus(tmpDir).threshold, "stop");
+  });
+
+  it("returns 'stop' at 95%+", () => {
     writeState({ inputTokens: 195000 }); // 97.5%
     assert.equal(getSessionStatus(tmpDir).threshold, "stop");
   });
@@ -209,11 +230,12 @@ describe("getSessionStatus (real-source)", () => {
     const today = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} 10:00`;
     writeTokenLog([
       [today, today, "gsd-t-execute", "Step 1", "sonnet", "60s", "n", "50000", "null", "", "execute", "N/A"],
-      [today, today, "gsd-t-execute", "Step 2", "sonnet", "60s", "n", "80000", "null", "", "execute", "N/A"],
+      [today, today, "gsd-t-execute", "Step 2", "sonnet", "60s", "n", "100000", "null", "", "execute", "N/A"],
     ]);
     const status = getSessionStatus(tmpDir);
-    assert.equal(status.consumed, 130000);
-    assert.equal(status.pct, 65);
+    assert.equal(status.consumed, 150000);
+    assert.equal(status.pct, 75);
+    // 75% → warn band under v3.0.0 (warn @ 70, stop @ 85)
     assert.equal(status.threshold, "warn");
   });
 
@@ -227,56 +249,67 @@ describe("getSessionStatus (real-source)", () => {
   });
 });
 
-// ── getDegradationActions ─────────────────────────────────────────────────────
+// ── getDegradationActions (v3.0.0 three-band) ────────────────────────────────
 
-describe("getDegradationActions", () => {
-  it("returns empty actions at normal threshold", () => {
+describe("getDegradationActions (v3.0.0 three-band)", () => {
+  it("returns normal band at low context", () => {
     writeState({ inputTokens: 10000 });
     const result = getDegradationActions(tmpDir);
-    assert.equal(result.threshold, "normal");
-    assert.equal(result.actions.length, 0);
-    assert.deepEqual(result.modelOverrides, {});
+    assert.equal(result.band, "normal");
+    assert.equal(typeof result.pct, "number");
+    assert.equal(typeof result.message, "string");
+    // Clean-break guarantees: no actions array, no modelOverrides, no skipPhases.
+    assert.equal(result.actions, undefined);
+    assert.equal(result.modelOverrides, undefined);
+    assert.equal(result.skipPhases, undefined);
+    assert.equal(result.threshold, undefined);
   });
 
-  it("returns budget alert action at warn threshold", () => {
-    writeState({ inputTokens: 130000 });
+  it("returns warn band at 70% (inclusive lower boundary)", () => {
+    writeState({ inputTokens: 140000 }); // 70%
     const result = getDegradationActions(tmpDir);
-    assert.equal(result.threshold, "warn");
-    assert.ok(result.actions.length > 0);
-    assert.ok(result.actions.some((a) => /budget/i.test(a) || /alert/i.test(a)));
+    assert.equal(result.band, "warn");
+    assert.ok(/70|warn/i.test(result.message));
+    assert.equal(result.modelOverrides, undefined);
   });
 
-  it("returns sonnet:execute → haiku override at downgrade threshold", () => {
-    writeState({ inputTokens: 150000 });
+  it("returns warn band at 84% (still below stop)", () => {
+    writeState({ inputTokens: 168000 }); // 84%
     const result = getDegradationActions(tmpDir);
-    assert.equal(result.threshold, "downgrade");
-    assert.equal(result.modelOverrides["sonnet:execute"], "haiku");
+    assert.equal(result.band, "warn");
+    assert.equal(result.modelOverrides, undefined);
   });
 
-  it("keeps sonnet for QA at downgrade threshold", () => {
-    writeState({ inputTokens: 150000 });
+  it("returns stop band at 85% (inclusive lower boundary)", () => {
+    writeState({ inputTokens: 170000 }); // 85%
     const result = getDegradationActions(tmpDir);
-    assert.equal(result.modelOverrides["sonnet:qa"], "sonnet");
+    assert.equal(result.band, "stop");
+    assert.ok(/stop|halt/i.test(result.message));
+    assert.equal(result.modelOverrides, undefined);
   });
 
-  it("downgrades opus red-team to sonnet at downgrade", () => {
-    writeState({ inputTokens: 150000 });
+  it("returns stop band at 95%+", () => {
+    writeState({ inputTokens: 195000 }); // 97.5%
     const result = getDegradationActions(tmpDir);
-    assert.equal(result.modelOverrides["opus:red-team"], "sonnet");
+    assert.equal(result.band, "stop");
   });
 
-  it("pauses doc-ripple at conserve threshold", () => {
-    writeState({ inputTokens: 180000 });
+  it("message references runway estimator handoff at stop band", () => {
+    writeState({ inputTokens: 180000 }); // 90%
     const result = getDegradationActions(tmpDir);
-    assert.equal(result.threshold, "conserve");
-    assert.ok(result.actions.some((a) => /doc-ripple/i.test(a)));
+    assert.equal(result.band, "stop");
+    assert.ok(/runway|headless|hand/i.test(result.message));
   });
 
-  it("returns hard stop action at stop threshold", () => {
-    writeState({ inputTokens: 195000 });
-    const result = getDegradationActions(tmpDir);
-    assert.equal(result.threshold, "stop");
-    assert.ok(result.actions.some((a) => /stop/i.test(a) || /save/i.test(a)));
+  it("band is never downgrade/conserve under v3.0.0 (clean break)", () => {
+    for (const tokens of [10000, 140000, 168000, 170000, 195000]) {
+      writeState({ inputTokens: tokens });
+      const result = getDegradationActions(tmpDir);
+      assert.ok(
+        result.band === "normal" || result.band === "warn" || result.band === "stop",
+        `unexpected band "${result.band}" — must be normal/warn/stop`,
+      );
+    }
   });
 });
 

@@ -1,10 +1,22 @@
 #!/usr/bin/env node
 
 /**
- * GSD-T Token Budget — Session-level token tracking and graduated degradation
+ * GSD-T Token Budget — Session-level token tracking (three-band model)
  *
- * Reads .gsd-t/token-log.md for historical averages, tracks session usage,
- * and returns model override recommendations at degradation thresholds.
+ * Reads .gsd-t/.context-meter-state.json (M34) for real context-window
+ * readings, tracks session usage, and returns a three-band status signal
+ * (normal / warn / stop) that callers use to decide whether to proceed,
+ * log a warning, or halt cleanly.
+ *
+ * v3.0.0 (M35 — clean break from v2.0.0):
+ *   - The `downgrade` and `conserve` bands were REMOVED. Silent model
+ *     degradation and silent phase-skipping are anti-features — they
+ *     violate GSD-T's "quality is non-negotiable" principle.
+ *   - `getDegradationActions()` now returns `{band, pct, message}` instead
+ *     of `{threshold, actions, modelOverrides}`. No `modelOverride`, no
+ *     `skipPhases`, no `checkpoint` side-channel.
+ *   - `warn` threshold tightened from 60% → 70%. `stop` tightened from
+ *     95% → 85% — keeps us clear of the runtime's native ~95% compact.
  *
  * Zero external dependencies (Node.js built-ins only).
  */
@@ -28,11 +40,16 @@ const BASE_ESTIMATES = {
   default: 6000,
 };
 
+// v3.0.0 three-band thresholds. Lower-bound inclusive.
+//   pct <  70 → normal
+//   70 ≤ pct <  85 → warn (informational — log, proceed)
+//   pct ≥ 85 → stop  (halt cleanly, hand off to runway estimator)
+const WARN_THRESHOLD_PCT = 70;
+const STOP_THRESHOLD_PCT = 85;
+
 const THRESHOLDS = {
-  warn: 60,
-  downgrade: 70,
-  conserve: 85,
-  stop: 95,
+  warn: WARN_THRESHOLD_PCT,
+  stop: STOP_THRESHOLD_PCT,
 };
 
 // ── Exports ──────────────────────────────────────────────────────────────────
@@ -143,15 +160,20 @@ function recordUsage(usage) {
   fs.appendFileSync(fp, line);
 }
 
-// ── getDegradationActions ─────────────────────────────────────────────────────
+// ── getDegradationActions (v3.0.0 — three-band) ─────────────────────────────
 
 /**
+ * v3.0.0 three-band response. The name is preserved for caller-identification
+ * convenience; the return shape is a CLEAN BREAK from v2.0.0 — no
+ * `modelOverrides`, no `actions` list, no `skipPhases`, no `checkpoint`
+ * side-channel. Callers that relied on those fields MUST be updated.
+ *
  * @param {string} [projectDir]
- * @returns {{ threshold: string, actions: string[], modelOverrides: object }}
+ * @returns {{ band: 'normal'|'warn'|'stop', pct: number, message: string }}
  */
 function getDegradationActions(projectDir) {
-  const { threshold } = getSessionStatus(projectDir);
-  return buildDegradationResponse(threshold);
+  const { threshold, pct } = getSessionStatus(projectDir);
+  return buildBandResponse(threshold, pct);
 }
 
 // ── estimateMilestoneCost ─────────────────────────────────────────────────────
@@ -172,57 +194,38 @@ function estimateMilestoneCost(remainingTasks, projectDir) {
   return { estimatedTokens, estimatedPct, feasible };
 }
 
-// ── Internal: threshold resolution ───────────────────────────────────────────
+// ── Internal: threshold resolution (v3.0.0 — three-band) ─────────────────────
 
 function resolveThreshold(pct) {
+  if (!Number.isFinite(pct)) return "normal";
   if (pct >= THRESHOLDS.stop) return "stop";
-  if (pct >= THRESHOLDS.conserve) return "conserve";
-  if (pct >= THRESHOLDS.downgrade) return "downgrade";
   if (pct >= THRESHOLDS.warn) return "warn";
   return "normal";
 }
 
-function buildDegradationResponse(threshold) {
-  const responses = {
-    normal: {
-      threshold: "normal",
-      actions: [],
-      modelOverrides: {},
-    },
-    warn: {
-      threshold: "warn",
-      actions: ["Display budget alert", "Reduce iteration budgets to minimum (2)"],
-      modelOverrides: {},
-    },
-    downgrade: {
-      threshold: "downgrade",
-      actions: ["Downgrade non-critical Sonnet to Haiku", "Skip exploratory testing", "Disable shadow-mode audit"],
-      modelOverrides: {
-        "sonnet:qa": "sonnet",
-        "sonnet:execute": "haiku",
-        "sonnet:doc-ripple": "skip",
-        "opus:red-team": "sonnet",
-        "haiku:*": "haiku",
-      },
-    },
-    conserve: {
-      threshold: "conserve",
-      actions: ["Pause doc-ripple", "Pause design brief generation", "Checkpoint all progress"],
-      modelOverrides: {
-        "sonnet:qa": "sonnet",
-        "sonnet:execute": "haiku",
-        "sonnet:doc-ripple": "skip",
-        "opus:red-team": "sonnet",
-        "haiku:*": "haiku",
-      },
-    },
-    stop: {
-      threshold: "stop",
-      actions: ["Hard stop", "Save all progress", "Display resume instruction"],
-      modelOverrides: {},
-    },
-  };
-  return responses[threshold] || responses.normal;
+function buildBandResponse(band, pct) {
+  const safePct = Number.isFinite(pct) ? pct : 0;
+  switch (band) {
+    case "warn":
+      return {
+        band: "warn",
+        pct: safePct,
+        message: `Context ${safePct.toFixed(1)}% — warn band (≥${WARN_THRESHOLD_PCT}%). Informational only; proceed.`,
+      };
+    case "stop":
+      return {
+        band: "stop",
+        pct: safePct,
+        message: `Context ${safePct.toFixed(1)}% — stop band (≥${STOP_THRESHOLD_PCT}%). Halt cleanly; hand off to runway estimator / headless auto-spawn.`,
+      };
+    case "normal":
+    default:
+      return {
+        band: "normal",
+        pct: safePct,
+        message: `Context ${safePct.toFixed(1)}% — normal band. Proceed.`,
+      };
+  }
 }
 
 // ── Internal: token-log parsing ───────────────────────────────────────────────

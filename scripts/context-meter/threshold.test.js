@@ -82,41 +82,45 @@ test("computePct — small fraction", () => {
   assert.ok(result > 0 && result < 0.001);
 });
 
-// ── bandFor — boundary sweep ─────────────────────────────────────────────────
+// ── bandFor — boundary sweep (v3.0.0 three-band: normal/warn/stop) ───────────
 
 test("bandFor — 0 → normal", () => {
   assert.equal(bandFor(0), "normal");
 });
 
-test("bandFor — 59.9 → normal", () => {
-  assert.equal(bandFor(59.9), "normal");
+test("bandFor — 69 → normal", () => {
+  assert.equal(bandFor(69), "normal");
 });
 
-test("bandFor — 60 → warn (inclusive lower)", () => {
-  assert.equal(bandFor(60), "warn");
+test("bandFor — 69.9 → normal", () => {
+  assert.equal(bandFor(69.9), "normal");
 });
 
-test("bandFor — 69.9 → warn", () => {
-  assert.equal(bandFor(69.9), "warn");
+test("bandFor — 70 → warn (inclusive lower)", () => {
+  assert.equal(bandFor(70), "warn");
 });
 
-test("bandFor — 70 → downgrade (inclusive lower)", () => {
-  assert.equal(bandFor(70), "downgrade");
+test("bandFor — 71 → warn", () => {
+  assert.equal(bandFor(71), "warn");
 });
 
-test("bandFor — 84.9 → downgrade", () => {
-  assert.equal(bandFor(84.9), "downgrade");
+test("bandFor — 84 → warn", () => {
+  assert.equal(bandFor(84), "warn");
 });
 
-test("bandFor — 85 → conserve (inclusive lower)", () => {
-  assert.equal(bandFor(85), "conserve");
+test("bandFor — 84.9 → warn", () => {
+  assert.equal(bandFor(84.9), "warn");
 });
 
-test("bandFor — 94.9 → conserve", () => {
-  assert.equal(bandFor(94.9), "conserve");
+test("bandFor — 85 → stop (inclusive lower)", () => {
+  assert.equal(bandFor(85), "stop");
 });
 
-test("bandFor — 95 → stop (inclusive lower)", () => {
+test("bandFor — 86 → stop", () => {
+  assert.equal(bandFor(86), "stop");
+});
+
+test("bandFor — 95 → stop", () => {
   assert.equal(bandFor(95), "stop");
 });
 
@@ -128,8 +132,7 @@ test("bandFor — NaN → normal (fail-safe)", () => {
   assert.equal(bandFor(NaN), "normal");
 });
 
-test("bandFor — Infinity → stop (finite check: Infinity is NOT finite)", () => {
-  // Infinity is not finite → fail-safe normal.
+test("bandFor — Infinity → normal (fail-safe: Infinity is NOT finite)", () => {
   assert.equal(bandFor(Infinity), "normal");
 });
 
@@ -137,9 +140,9 @@ test("bandFor — undefined → normal", () => {
   assert.equal(bandFor(undefined), "normal");
 });
 
-test("BANDS constant mirrors bin/token-budget.js", () => {
+test("BANDS constant mirrors bin/token-budget.js v3.0.0 three-band model", () => {
   // Guard against accidental drift from the token-budget boundaries.
-  assert.deepEqual(BANDS, { warn: 60, downgrade: 70, conserve: 85, stop: 95 });
+  assert.deepEqual(BANDS, { warn: 70, stop: 85 });
 });
 
 // ── buildAdditionalContext ───────────────────────────────────────────────────

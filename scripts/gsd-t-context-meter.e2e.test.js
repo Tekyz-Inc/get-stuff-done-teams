@@ -356,7 +356,8 @@ test("E2E 2. above threshold — stdout additionalContext and state reflects 80%
   assert.equal(state.inputTokens, 160000);
   assert.equal(state.modelWindowSize, 200000);
   assert.ok(Math.abs(state.pct - 80) < 0.0001, `pct ${state.pct} should ≈ 80`);
-  assert.equal(state.threshold, "downgrade");
+  // v3.0.0 three-band (M35): 80% ∈ [70, 85) → warn
+  assert.equal(state.threshold, "warn");
   assert.equal(state.checkCount, 1);
   assert.equal(state.lastError, null);
 

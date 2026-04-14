@@ -160,7 +160,8 @@ test("3. check-frequency hit — over threshold → additionalContext emitted", 
   const state = JSON.parse(fs.readFileSync(stateFile(tmpRoot), "utf8"));
   assert.equal(state.checkCount, 5);
   assert.equal(state.pct, 80);
-  assert.equal(state.threshold, "downgrade");
+  // v3.0.0 three-band (M35): 80% ∈ [70, 85) → warn
+  assert.equal(state.threshold, "warn");
   assert.equal(state.inputTokens, 160000);
 });
 

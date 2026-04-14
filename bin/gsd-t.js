@@ -1540,17 +1540,14 @@ function showStatusContextMeter() {
   const stale = !Number.isFinite(ageMs) || ageMs > 5 * 60 * 1000;
   const staleSuffix = stale ? " (stale)" : "";
 
+  // v3.0.0 three-band: normal (green) / warn (yellow) / stop (bold red).
   let color = DIM;
   switch (state.threshold) {
     case "normal":
       color = GREEN;
       break;
     case "warn":
-    case "downgrade":
       color = YELLOW;
-      break;
-    case "conserve":
-      color = RED;
       break;
     case "stop":
       color = BOLD + RED;

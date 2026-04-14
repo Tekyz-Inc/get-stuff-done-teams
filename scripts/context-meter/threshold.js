@@ -5,11 +5,15 @@
  *
  * Responsibilities:
  *   1. Compute the context-window percentage from a token count + window size.
- *   2. Map that percentage to a token-budget band (normal / warn / downgrade /
- *      conserve / stop). Boundaries mirror bin/token-budget.js exactly so the
+ *   2. Map that percentage to a token-budget band (normal / warn / stop).
+ *      Boundaries mirror bin/token-budget.js v3.0.0 exactly so the
  *      `threshold` field in the state file is consistent across consumers.
  *   3. Build the exact `additionalContext` string the hook emits when the
  *      measured percentage meets or exceeds the configured thresholdPct.
+ *
+ * v3.0.0 (M35): The `downgrade` and `conserve` bands were REMOVED. The
+ * three-band model is: normal < 70 ≤ warn < 85 ≤ stop. Silent model
+ * degradation and silent phase-skipping violate GSD-T's quality principles.
  *
  * Zero side effects. Zero dependencies. CommonJS.
  */
@@ -17,10 +21,8 @@
 // ── Band boundaries (must match bin/token-budget.js THRESHOLDS exactly) ──────
 // Lower bound inclusive, upper bound exclusive.
 const BANDS = Object.freeze({
-  warn: 60,
-  downgrade: 70,
-  conserve: 85,
-  stop: 95,
+  warn: 70,
+  stop: 85,
 });
 
 /**
@@ -46,25 +48,21 @@ function computePct({ inputTokens, modelWindowSize } = {}) {
 }
 
 /**
- * Map a percentage to a token-budget band.
+ * Map a percentage to a token-budget band (v3.0.0 three-band model).
  *
  * Boundaries (inclusive on the lower edge):
- *   pct <  60 → "normal"
- *   pct <  70 → "warn"
- *   pct <  85 → "downgrade"
- *   pct <  95 → "conserve"
- *   pct >= 95 → "stop"
+ *   pct <  70 → "normal"
+ *   pct <  85 → "warn"
+ *   pct >= 85 → "stop"
  *
  * Non-finite input → "normal" (fail-safe — never escalate on garbage).
  *
  * @param {number} pct
- * @returns {"normal"|"warn"|"downgrade"|"conserve"|"stop"}
+ * @returns {"normal"|"warn"|"stop"}
  */
 function bandFor(pct) {
   if (!Number.isFinite(pct)) return "normal";
   if (pct >= BANDS.stop) return "stop";
-  if (pct >= BANDS.conserve) return "conserve";
-  if (pct >= BANDS.downgrade) return "downgrade";
   if (pct >= BANDS.warn) return "warn";
   return "normal";
 }
