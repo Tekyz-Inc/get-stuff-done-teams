@@ -1,6 +1,56 @@
 # Integration Points
 
-## Current State: Milestone 32 — Quality Culture & Design (PLANNED — 3 domains)
+## Current State: Milestone 34 — Context Meter (PARTITIONED — 5 domains)
+
+## M34 Dependency Graph
+
+```
+                          context-meter-config
+                          (schema + loader)
+                                 |
+                    +------------+------------+
+                    |                         |
+                    v                         v
+          context-meter-hook       installer-integration
+          (runtime script)         (install + doctor + status)
+                    |                         |
+                    +------------+------------+
+                                 |
+                                 v
+                   token-budget-replacement
+                   (rewrite + command file cleanup + task-counter deletion)
+                                 |
+                                 v
+                        m34-docs-and-tests
+                        (user-facing docs + integration tests + version bump)
+```
+
+### Checkpoints
+
+- **M34-CP1**: `context-meter-config` finalizes `context-meter-contract.md` (schema + state file format) → unblocks `context-meter-hook` and `token-budget-replacement`.
+- **M34-CP2**: `context-meter-hook` delivers a working `scripts/gsd-t-context-meter.js` with passing unit tests → unblocks `installer-integration` (which must copy the script) and `token-budget-replacement` (which tests against real state file output).
+- **M34-CP3**: `token-budget-replacement` finishes deleting `bin/task-counter.cjs` and removing all command-file references → unblocks `installer-integration` to update `PROJECT_BIN_TOOLS` without shipping a broken-window state.
+- **M34-CP4**: All three implementation domains (hook, config, installer, token-budget) report unit tests passing → unblocks `m34-docs-and-tests` to begin final docs pass + integration tests + version bump.
+
+### File-Ownership Map (M34)
+
+| File / directory | Owner |
+|---|---|
+| `scripts/gsd-t-context-meter.js`, `scripts/context-meter/**`, `scripts/gsd-t-context-meter.test.js` | context-meter-hook |
+| `.gsd-t/context-meter-config.json`, `templates/context-meter-config.json`, `bin/context-meter-config.cjs`, `bin/context-meter-config.test.cjs`, `.gsd-t/contracts/context-meter-contract.md` | context-meter-config |
+| `bin/gsd-t.js` | installer-integration |
+| `bin/token-budget.js`, `bin/token-budget.test.js`, `bin/orchestrator.js`, `bin/task-counter.cjs` (DELETE), `bin/task-counter.test.cjs` (DELETE), `.gsd-t/contracts/token-budget-contract.md`, `.gsd-t/contracts/context-observability-contract.md`, `commands/gsd-t-execute.md`, `commands/gsd-t-wave.md`, `commands/gsd-t-quick.md`, `commands/gsd-t-integrate.md`, `commands/gsd-t-debug.md` | token-budget-replacement |
+| `README.md`, `GSD-T-README.md`, `templates/CLAUDE-global.md`, `templates/CLAUDE-project.md`, `docs/methodology.md`, `docs/architecture.md`, `docs/requirements.md`, `docs/infrastructure.md`, `CHANGELOG.md`, `package.json` (version bump), `tests/integration/**` | m34-docs-and-tests |
+
+### Wave Ordering (recommended)
+
+1. **Wave 1** (parallel): `context-meter-config` + `context-meter-hook` — can run concurrently once the contract is drafted.
+2. **Wave 2** (parallel after CP1+CP2): `installer-integration` + `token-budget-replacement` — serialized against each other only at CP3 (PROJECT_BIN_TOOLS update must follow task-counter deletion).
+3. **Wave 3** (serial after CP4): `m34-docs-and-tests`.
+
+---
+
+## Historical: Milestone 32 — Quality Culture & Design (PLANNED — 3 domains)
 
 ## M32 Dependency Graph
 

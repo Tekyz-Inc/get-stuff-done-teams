@@ -7,6 +7,13 @@
 
 ## Active Milestone
 
+**M34: Context Meter — API-Based Token Counting (REPLACES Task Counter)** — PLANNED → EXECUTE (v2.74.13 → targeting v2.75.10)
+- Goal: Real context window measurement via Anthropic count_tokens API; replaces the task-counter proxy entirely (not defense-in-depth).
+- Scope: `scripts/gsd-t-context-meter.js` PostToolUse hook, `.gsd-t/context-meter-config.json`, installer extensions (`bin/gsd-t.js`: install hook, doctor check, status display, API key prompt), `bin/token-budget.js` rewrite to read real counts, task-counter retirement (installer + command files + downstream migration), contract updates, documentation, tests.
+- Driver: v2.74.12 regression exposed that task counter is a brittle proxy; Opus-primary usage compounds compaction risk; real measurement is the only durable fix.
+- Domains: context-meter-config, context-meter-hook, installer-integration, token-budget-replacement, m34-docs-and-tests (5 domains, see Domains (M34) section below)
+- Phase: PLANNED — 34 tasks across 5 domains, ready for `/user:gsd-t-execute` (833/833 tests green baseline confirmed)
+
 **Pre-Milestone: Refined Model Tiers** — COMPLETE (v2.51.11)
 - QA model promotion Haiku → Sonnet, Red Team → Opus, Haiku narrowed to mechanical-only
 - Files: gsd-t-execute.md, gsd-t-quick.md, gsd-t-integrate.md, gsd-t-debug.md, CLAUDE-global.md, project CLAUDE.md
@@ -209,6 +216,29 @@
 - [ ] Adding a new stack rule = dropping a `.md` file in `templates/stacks/` with no code changes
 - [ ] All existing tests pass with no regressions (536+ tests)
 
+## Domains (M34)
+| Domain                    | Status   | Tasks | Completed |
+|---------------------------|----------|-------|-----------|
+| context-meter-config      | planned  | 4     | 0         |
+| context-meter-hook        | planned  | 5     | 0         |
+| installer-integration     | planned  | 6     | 0         |
+| token-budget-replacement  | planned  | 10    | 0         |
+| m34-docs-and-tests        | planned  | 9     | 0         |
+
+**Total: 34 tasks across 5 domains. Phase: PLANNED → ready for `/user:gsd-t-execute`.**
+
+## Contracts (M34)
+- [x] context-meter-contract.md — config schema, state file format, hook I/O, threshold mapping (NEW)
+- [x] token-budget-contract.md — v2.0.0: real-count source rewrite, env-var references retired, orchestrator gate semantics (UPDATED)
+- [x] context-observability-contract.md — v2.0.0: Ctx% source → context-meter state file, env-var references retired (UPDATED)
+- [x] integration-points.md — M34 dependency graph, checkpoints CP1–CP4, file-ownership map, wave ordering (UPDATED)
+
+## Integration Checkpoints (M34)
+- [ ] M34-CP1: context-meter-contract.md finalized → unblocks context-meter-hook + token-budget-replacement
+- [ ] M34-CP2: context-meter-hook unit tests passing → unblocks installer-integration + token-budget-replacement real-count tests
+- [ ] M34-CP3: token-budget-replacement deletes task-counter.cjs + removes command-file references → unblocks installer PROJECT_BIN_TOOLS update
+- [ ] M34-CP4: All four implementation domains unit tests passing → unblocks m34-docs-and-tests pass
+
 ## Domains (M30)
 | Domain              | Status  | Tasks | Completed |
 |---------------------|---------|-------|-----------|
@@ -389,6 +419,12 @@ Wave 4: adaptive-replan (consumes fresh-dispatch summaries, integrates with work
 ## Decision Log
 
 > Older entries archived under `progress-archive/` — see `progress-archive/INDEX.md` for the date-range index.
+
+- 2026-04-14 18:55: [plan] M34 planned: 34 atomic tasks across 5 domains (config 4, hook 5, installer 6, token-budget-replacement 10, docs-and-tests 9). All tasks bound to contracts with explicit dependencies, acceptance criteria, and file lists. Cross-domain duplicate operation scan: no duplicates detected, no shared-core needed. Task scope validation: no task exceeds >5 files AND >3 dependencies (auto-split rule not triggered). Checkpoints CP1–CP4 mapped to specific task completions. Next: `/user:gsd-t-execute`.
+
+- 2026-04-14 18:30: [partition] M34 partitioned into 5 domains. Wave ordering: (W1) context-meter-config ∥ context-meter-hook → (W2) installer-integration ∥ token-budget-replacement → (W3) m34-docs-and-tests. Four checkpoints defined (CP1–CP4). New contract: context-meter-contract.md (schema + state file format + hook I/O). Updated contracts: token-budget-contract.md → v2.0.0 (real-count source), context-observability-contract.md → v2.0.0 (Ctx% source), integration-points.md (M34 dependency graph + file-ownership map). Design brief + design contract steps skipped — no UI signals. Green baseline confirmed: 833/833 tests passing before partition. Next: `/user:gsd-t-plan`.
+
+- 2026-04-14 18:00: [decision] M34 formalized as active milestone — Context Meter REPLACES task counter, not defense-in-depth. Roadmap scope updated: task counter retired in same milestone (transitional during dev + brief field validation, then full removal); `gsd-t doctor` gains hard dependency on API key; migration step purges `.task-counter` state in downstream projects. Rationale: task counter is a proxy and the v2.74.12 regression exposed its fragility; Opus-primary usage compounds compaction risk; real measurement is the only durable fix. Next: partition M34 into 5 domains (context-meter-hook, context-meter-config, installer-integration, token-budget-replacement, docs-and-tests).
 
 - 2026-04-09: [fix] Unlimited human review cycles with auto-review reset — human review loop no longer capped. After each human fix: re-measure → re-run auto-review (fresh cycle counter) → re-queue for human. Repeats until zero changes submitted. (v2.73.27)
 

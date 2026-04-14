@@ -448,3 +448,85 @@
 - [ ] Cross-project comparison uses signal-type distributions, not just raw rates
 - [ ] `gsd-t-metrics --cross-project` returns domain-type comparison across projects
 - [ ] All existing tests pass with no regressions
+
+---
+
+## Feature: Context Meter — API-Based Token Counting for Automatic Pause/Clear/Resume
+**Added**: 2026-04-14
+**Context**: Claude Code does not expose context window usage to hooks, env vars, or any programmatic interface. The existing task counter (`bin/task-counter.cjs`) provides a deterministic proxy but has no knowledge of actual token consumption. Meanwhile, the free Token Counting API (`POST /v1/messages/count_tokens`) can count tokens for any message array at zero cost. By reading the session transcript (`.jsonl`) from a PostToolUse hook, reconstructing the messages array, and calling the counting API, GSD-T can detect real context fullness and trigger automatic pause/clear/resume before context exhaustion — replacing the coarse task-count proxy with actual token measurement.
+
+**Research findings** (conversation 2026-04-14):
+- `CLAUDE_CONTEXT_TOKENS_USED`/`MAX` env vars — never exported, confirmed dead
+- `ANTHROPIC_BASE_URL` proxy — does NOT work with Max subscription OAuth (hardcoded to api.anthropic.com)
+- Token Counting API — free, separate rate limits, accepts full message arrays, returns `{input_tokens: N}`
+- PostToolUse hooks receive `transcript_path` and `session_id` on stdin
+- PostToolUse hooks can return `additionalContext` in `hookSpecificOutput` — Claude sees it inline
+- Requires a separate `ANTHROPIC_API_KEY` for the counting endpoint (free, no billing conflict with Max subscription)
+
+### Impact Analysis
+
+#### New Components
+- `scripts/gsd-t-context-meter.js` — PostToolUse hook script: reads transcript, reconstructs messages, calls count_tokens API, compares to model context window, returns additionalContext when threshold exceeded
+- `.gsd-t/context-meter-config.json` — per-project config: threshold percentage (default 75%), model context window size (default 1M for Opus 4.6), check frequency (e.g., every Nth tool call to avoid rate limit waste), API key source
+- `bin/gsd-t.js` additions — `install` subcommand installs the hook into settings.json; `doctor` validates API key and hook configuration
+
+#### Modified Components
+- `bin/gsd-t.js` — add context-meter hook installation alongside heartbeat hooks
+- `bin/token-budget.js` — extend `getSessionStatus()` to read real token count from context meter signal file when available (falls back to task counter when not)
+- `examples/settings.json` — add context-meter PostToolUse hook example
+- `.gsd-t/contracts/token-budget-contract.md` — update to reflect real token data source
+- `.gsd-t/contracts/context-observability-contract.md` — update Ctx% to use real data instead of N/A
+- `templates/CLAUDE-global.md` — document context meter setup in Observability Logging section
+
+#### Affected Contracts
+- `token-budget-contract.md` — `getSessionStatus()` gains a real token signal; threshold logic unchanged. Not breaking — additive data source.
+- `context-observability-contract.md` — Ctx% column can now be populated with real data. Not breaking — currently always N/A.
+
+#### Untouched
+- Task counter (`bin/task-counter.cjs`) — remains as the deterministic hard gate (defense in depth)
+- All command files — no changes to command workflows
+- Wave/execute/quick phase logic — unchanged
+- Graduated degradation thresholds — unchanged (just fed real data instead of task-count proxy)
+
+#### Risk Areas
+- **API key management** — users must create a free API key at console.anthropic.com; needs clear docs
+- **Transcript format parsing** — Claude Code's `.jsonl` format is not publicly documented; may change between versions
+- **Rate limits on count_tokens** — Tier 1 = 100 RPM; checking every tool call in a fast session could hit this. Mitigated by configurable check frequency (e.g., every 5th tool call)
+- **Hook latency** — count_tokens API call adds ~50-100ms per check; must not block Claude noticeably. Mitigated by async HTTP call with timeout
+- **Zero-dependency constraint** — `bin/` scripts must use Node.js built-ins only; HTTP calls use `https` module (no axios/node-fetch)
+
+#### Multi-Consumer Check
+- Single consumer surface: Claude Code CLI
+- No new consumer surfaces added
+- SharedCore milestone: not required
+
+### Milestone M34: Context Meter — API-Based Token Counting (REPLACES Task Counter)
+**Goal**: GSD-T detects real context window usage via the Anthropic Token Counting API and automatically triggers pause/clear/resume when usage exceeds a configurable threshold (default 75%). The task counter is retired — M34 replaces it entirely, not supplements it.
+**Scope**:
+- `scripts/gsd-t-context-meter.js` — PostToolUse hook: transcript → messages → count_tokens → signal
+- `.gsd-t/context-meter-config.json` — threshold %, model window size, check frequency, API key env var name
+- `bin/gsd-t.js` extensions — install hook into settings.json, doctor check for API key + hook config, status display with real context %, prompt for API key during `gsd-t install`
+- `bin/token-budget.js` rewrite — reads real token count from context-meter; task-counter removed
+- `bin/task-counter.cjs` retirement — removed from installer PROJECT_BIN_TOOLS after field validation; `.task-counter` state files purged via migration step
+- Command file cleanup — remove task-counter calls from `gsd-t-execute.md` Steps 0/3.5/5, `gsd-t-wave.md` phase gate, and 4 other command files
+- Contract updates — token-budget, context-observability
+- Documentation — CLAUDE-global template, project CLAUDE.md template, README, GSD-T-README, methodology doc
+- Tests — hook script unit tests, token-budget integration tests, doctor-check tests
+**Impact on existing**:
+- REPLACEMENT — task counter is deprecated and removed in the same milestone (transitional during development + brief field validation, then full removal)
+- `gsd-t doctor` gains a hard dependency on API key availability (configurable env var, default `ANTHROPIC_API_KEY`)
+- `getSessionStatus()` returns real token percentage from context-meter; no task-count proxy fallback
+- Migration: existing downstream projects need API key set and `.task-counter` state cleaned up on next `gsd-t update-all`
+**Dependencies**:
+- User must have a free Anthropic API key (for count_tokens endpoint only — Tier 1 is free)
+- Node.js >= 16 with built-in `https` module
+**Success criteria**:
+- [ ] `gsd-t install` configures context-meter PostToolUse hook in settings.json and prompts for API key setup
+- [ ] `gsd-t doctor` fails if API key missing or hook misconfigured (hard gate)
+- [ ] Context meter reads transcript, reconstructs messages, calls count_tokens API
+- [ ] When usage > threshold, hook returns additionalContext instructing Claude to run `/gsd-t-pause`
+- [ ] `getSessionStatus()` returns real token percentage from context-meter data
+- [ ] Check frequency is configurable (default: every 5th tool call) to respect Tier 1 rate limits (100 RPM)
+- [ ] Hook completes in < 200ms (no perceptible delay)
+- [ ] Task counter fully removed from installer, command files, and downstream projects via migration
+- [ ] All existing tests pass with no regressions (task-counter tests replaced with context-meter tests)

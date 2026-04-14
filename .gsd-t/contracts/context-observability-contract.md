@@ -1,8 +1,8 @@
 # Contract: Context Observability
 
-## Version: 1.0.0
-## Status: DRAFT
-## Owner: context-observability domain
+## Version: 2.0.0 (M34 — real-source rewrite)
+## Status: ACTIVE
+## Owner: token-budget-replacement domain (M34) — succeeds context-observability
 ## Consumers: execute, wave, integrate, status, visualize, qa, plan commands
 
 ---
@@ -22,7 +22,7 @@ Extends existing `.gsd-t/token-log.md` with new columns (backward compatible):
 New columns:
 - **Domain**: Which domain this subagent belongs to (e.g., "auth", "payments"). Empty for non-domain commands.
 - **Task**: Which task within the domain (e.g., "task-3"). Empty for domain-level or non-domain commands.
-- **Ctx%**: Peak context window utilization as percentage. Calculated as: `(CLAUDE_CONTEXT_TOKENS_USED / CLAUDE_CONTEXT_TOKENS_MAX) * 100`
+- **Ctx%**: Peak context window utilization as percentage. **M34**: read from `.gsd-t/.context-meter-state.json` (`pct` field) at log-write time. Fallback: `"N/A"` if the state file is absent or stale. The previous `CLAUDE_CONTEXT_TOKENS_USED / CLAUDE_CONTEXT_TOKENS_MAX` env-var formula is retired — those vars are never exported by Claude Code.
 
 ## Alert Thresholds
 
@@ -59,17 +59,17 @@ Status and visualize commands display aggregated token usage:
 
 During `gsd-t-plan`, for each task:
 1. Estimate context size: scope.md + contracts + graph + task + prior summaries
-2. If estimate > 70% of CLAUDE_CONTEXT_TOKENS_MAX → warn and suggest splitting
+2. If estimate > 70% of the configured `modelWindowSize` from `.gsd-t/context-meter-config.json` (default 200000) → warn and suggest splitting
 3. Heuristic: tasks modifying >5 files OR with >3 complex dependencies are candidates
 
 ## Rules
 
-1. Context tracking is informational — it never blocks execution (alerts only)
-2. Uses CLAUDE_CONTEXT_TOKENS_USED and CLAUDE_CONTEXT_TOKENS_MAX environment variables
-3. If env vars unavailable, Ctx% is recorded as "N/A" (graceful degradation)
-4. Backward compatible with existing token-log.md — new columns appended, old entries unaffected
-5. Aggregation is computed on-read by status/visualize — no separate aggregation file
-6. NOT cost enforcement — no dollar amounts, no monthly budget tracking
+1. Context tracking IS now enforcement-aware (M34) — the Context Meter hook can emit `additionalContext` to Claude instructing a pause/clear/resume when usage exceeds `thresholdPct` (default 75). Token-budget still does not *hard-block* at the command level — the hard stop comes from the orchestrator's session-status gate.
+2. **M34**: Ctx% reads from `.gsd-t/.context-meter-state.json` (produced by the `gsd-t-context-meter` PostToolUse hook). No longer uses `CLAUDE_CONTEXT_TOKENS_USED` / `CLAUDE_CONTEXT_TOKENS_MAX` env vars — those never worked.
+3. If state file is absent or stale (>5min), Ctx% is recorded as "N/A" (graceful degradation — projects without the hook still work).
+4. Backward compatible with existing token-log.md — new columns appended, old entries unaffected.
+5. Aggregation is computed on-read by status/visualize — no separate aggregation file.
+6. NOT cost enforcement — no dollar amounts, no monthly budget tracking.
 
 ## Breaking Changes
 

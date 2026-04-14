@@ -1,10 +1,14 @@
 # Token Budget Contract
 
+## Version: 2.0.0 (M34 — real-source rewrite)
+## Status: ACTIVE
+## Owner: token-budget-replacement domain (M34) — succeeds token-orchestrator
+## Consumers: command-integration domain (execute, wave, quick, integrate, debug)
+
 ## Overview
 Defines the token budget tracking, estimation, and graduated degradation system for session-level token management on the $200 Max plan.
 
-**Owner**: token-orchestrator domain
-**Consumers**: command-integration domain (execute, wave, quick)
+**M34 change**: `getSessionStatus()` now reads real context window usage from the Context Meter state file (`.gsd-t/.context-meter-state.json`) written by the PostToolUse hook. The `CLAUDE_CONTEXT_TOKENS_USED` / `CLAUDE_CONTEXT_TOKENS_MAX` environment variables are no longer referenced — they never worked (Claude Code does not export them). See `context-meter-contract.md`.
 
 ---
 
@@ -79,12 +83,14 @@ getModelCostRatios()
 
 ## Session Budget Estimation
 
-Token budget is estimated from:
-1. `CLAUDE_CONTEXT_TOKENS_MAX` environment variable (per-context limit)
-2. Historical data from `.gsd-t/token-log.md` (average tokens per task type per model)
-3. Model cost ratios: Opus ≈ 5x Sonnet ≈ 25x Haiku
+Token budget is computed from:
+1. **Primary source (M34)**: `.gsd-t/.context-meter-state.json` — real `input_tokens` from the context meter's last count_tokens call. `pct = (inputTokens / modelWindowSize) * 100`.
+2. **Fallback source**: Historical data from `.gsd-t/token-log.md` (average tokens per task type per model) — used when the state file is missing or stale (> 5 minutes old).
+3. Model cost ratios: Opus ≈ 5x Sonnet ≈ 25x Haiku (for `estimateCost()` / `estimateMilestoneCost()` only — not for `getSessionStatus()`).
 
-Session budget tracking reads `token-log.md` entries for the current session (same date, contiguous timestamps) to compute cumulative usage.
+The env vars `CLAUDE_CONTEXT_TOKENS_USED` / `CLAUDE_CONTEXT_TOKENS_MAX` are NOT used. Claude Code does not export them.
+
+Staleness: if the state file's `timestamp` is more than 5 minutes old, `getSessionStatus()` falls back to the historical heuristic (graceful degradation for projects that haven't yet installed the meter hook).
 
 ---
 
@@ -106,3 +112,8 @@ Before starting a wave or multi-domain execute:
 - `wave` before each phase: call `getSessionStatus()`, checkpoint if `conserve`
 - `wave` before starting: call `estimateMilestoneCost()` for pre-flight check
 - `quick` before spawn: call `getSessionStatus()` for budget-aware model selection
+- `bin/orchestrator.js` task-budget gate: uses `getSessionStatus()` to decide whether to stop (exit code 10 on `threshold === 'stop'`). Replaces the retired `task-counter.cjs should-stop` gate in M34.
+
+## Task Counter Retirement (M34)
+
+As of v2.75.10 (M34), `bin/task-counter.cjs` is REMOVED from the installer's `PROJECT_BIN_TOOLS`. All command files that previously invoked `node bin/task-counter.cjs ...` now defer to `bin/token-budget.js` session-status. Existing downstream projects run a one-time migration on `gsd-t update-all` that deletes `bin/task-counter.cjs`, `.gsd-t/task-counter-config.json`, and `.gsd-t/.task-counter-state.json` files.
