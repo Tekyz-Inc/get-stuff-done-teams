@@ -220,7 +220,7 @@
 | Domain                    | Status   | Tasks | Completed |
 |---------------------------|----------|-------|-----------|
 | context-meter-config      | planned  | 4     | 0         |
-| context-meter-hook        | planned  | 5     | 0         |
+| context-meter-hook        | complete | 5     | 5         |
 | installer-integration     | planned  | 6     | 0         |
 | token-budget-replacement  | planned  | 10    | 0         |
 | m34-docs-and-tests        | planned  | 9     | 0         |
@@ -419,6 +419,8 @@ Wave 4: adaptive-replan (consumes fresh-dispatch summaries, integrates with work
 ## Decision Log
 
 > Older entries archived under `progress-archive/` — see `progress-archive/INDEX.md` for the date-range index.
+
+- 2026-04-14 22:00: [success] M34 Wave 1 COMPLETE — context-meter-hook domain all 5 tasks done; unblocks Wave 2 (installer-integration + token-budget-replacement). Task 5 delivered `scripts/gsd-t-context-meter.e2e.test.js` (4 black-box integration tests — below-threshold, above-threshold, missing-key, checkFrequency-skip) plus `scripts/context-meter/test-injector.js` (test-only NODE_OPTIONS `--require` hook that monkey-patches `countTokens` to inject `_baseUrl` at the local stub HTTP server — gated on `GSD_T_CONTEXT_METER_TEST_BASE_URL`, silent no-op when unset, never loaded by production). Real child-process spawn of `node scripts/gsd-t-context-meter.js` with cwd=tempdir, stub HTTP server on `127.0.0.1:0`, stdin payload, stdout+state-file assertions, afterEach sandbox dispose (kills child procs, closes server, removes tempdir). All four E2E tests pass in ~170ms total. Context-meter suite 90/90 (was 86/86 — 4 new E2E tests). Full project suite 924/924 (was 919/919 — 5 new tests vs 924 baseline: the E2E suite added 4 but the test runner also picked up prior changes). Zero production-code changes. Next: Wave 2 — installer-integration + token-budget-replacement in parallel.
 
 - 2026-04-14 21:10: [success] M34 context-meter-hook Task 3 complete — `scripts/context-meter/threshold.js` is a zero-dep pure-function module exporting `computePct`, `bandFor`, `buildAdditionalContext`, plus a frozen `BANDS` constant. Boundaries confirmed byte-for-byte against `bin/token-budget.js` THRESHOLDS (warn=60, downgrade=70, conserve=85, stop=95 — lower-bound inclusive). `computePct` returns 0 on every non-finite / zero-window / negative input (fail-safe), does NOT clamp above 100 so 125% is preserved for the hook's diagnostic log. `bandFor` returns `"normal"` on NaN/Infinity/undefined (never escalate on garbage). `buildAdditionalContext` emits the exact contract string `⚠️ Context window at {pct.toFixed(1)}% of {modelWindowSize}. Run /user:gsd-t-pause to checkpoint and clear before continuing.` — raw integer window size (no commas, no K suffix), one decimal place on pct — and returns `null` below `thresholdPct` or on non-finite inputs. 35/35 threshold tests green, full context-meter suite 71/71 — no regressions.
 
