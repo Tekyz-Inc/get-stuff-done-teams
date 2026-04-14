@@ -1,28 +1,18 @@
 # GSD-T Progress
 
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
-## Status: Ready for next milestone
+## Status: VERIFIED
 ## Date: 2026-04-14
 ## Version: 2.75.10
 
-## Current Milestone
+## Active Milestone
 
-None — ready for next milestone (M35 planned: No Silent Degradation + Surgical Model Escalation + Token Telemetry)
-
-## Completed Milestones
-
-| Milestone | Version | Completed | Tag | Summary |
-|-----------|---------|-----------|-----|---------|
-| M34 Context Meter | 2.75.10 | 2026-04-14 | v2.75.10 | Real context-window measurement via Anthropic count_tokens API; replaces task-counter proxy entirely; 941/941 tests |
-
-## Prior Milestone (Archived)
-
-**M34: Context Meter — API-Based Token Counting (REPLACES Task Counter)** — COMPLETE (v2.75.10)
-- Real context window measurement via Anthropic count_tokens API; replaces the task-counter proxy entirely
-- 5 domains: context-meter-config, context-meter-hook, installer-integration, token-budget-replacement, m34-docs-and-tests (32 tasks + 11 gap-closure sites)
-- 3 contracts: context-meter-contract v1.0.0 NEW, token-budget-contract v2.0.0 REWRITTEN, context-observability-contract v2.0.0 UPDATED
-- Tests: 833 → 941 (+108)
-- Archived: .gsd-t/milestones/M34-context-meter-2026-04-14/
+**M34: Context Meter — API-Based Token Counting (REPLACES Task Counter)** — PLANNED → EXECUTE (v2.74.13 → targeting v2.75.10)
+- Goal: Real context window measurement via Anthropic count_tokens API; replaces the task-counter proxy entirely (not defense-in-depth).
+- Scope: `scripts/gsd-t-context-meter.js` PostToolUse hook, `.gsd-t/context-meter-config.json`, installer extensions (`bin/gsd-t.js`: install hook, doctor check, status display, API key prompt), `bin/token-budget.js` rewrite to read real counts, task-counter retirement (installer + command files + downstream migration), contract updates, documentation, tests.
+- Driver: v2.74.12 regression exposed that task counter is a brittle proxy; Opus-primary usage compounds compaction risk; real measurement is the only durable fix.
+- Domains: context-meter-config, context-meter-hook, installer-integration, token-budget-replacement, m34-docs-and-tests (5 domains, see Domains (M34) section below)
+- Phase: PLANNED — 34 tasks across 5 domains, ready for `/user:gsd-t-execute` (833/833 tests green baseline confirmed)
 
 **Pre-Milestone: Refined Model Tiers** — COMPLETE (v2.51.11)
 - QA model promotion Haiku → Sonnet, Red Team → Opus, Haiku narrowed to mechanical-only
@@ -429,8 +419,6 @@ Wave 4: adaptive-replan (consumes fresh-dispatch summaries, integrates with work
 ## Decision Log
 
 > Older entries archived under `progress-archive/` — see `progress-archive/INDEX.md` for the date-range index.
-
-- 2026-04-14 23:00: [success] M34 Context Meter complete and archived as v2.75.10. Archive at `.gsd-t/milestones/M34-context-meter-2026-04-14/` with contracts (3), domains (5), progress snapshot, verify-report, and full summary.md. 6 REQs verified, 3 contracts active, 941/941 tests green, 0 findings on goal-backward check. 5 M34 domain folders removed from `.gsd-t/domains/` (other milestones' residual domains left intact). Tag `v2.75.10` pending commit. Do NOT publish per user direction; stop after commit + tag. Successor milestone M35 (No Silent Degradation + Surgical Model Escalation + Token Telemetry) designed during complete-milestone gate and will be created next session — key M35 parts: (A) rip out `downgrade`/`conserve` bands from `bin/token-budget.js`, (B) surgical model escalation via `/advisor` + `bin/model-selector.js`, (C) runway estimator with auto-spawn headless on refusal (never prompts `/clear`), (D) eliminate compact messages structurally, (E) granular per-spawn token telemetry → `.gsd-t/token-metrics.jsonl` + `bin/token-optimizer.js` → `.gsd-t/optimization-backlog.md` (detect-only, user selectively promotes), (F) docs + contracts ripple. Decision X (clean break, no compat shim) confirmed. Default routine model: sonnet. Tag v2.75.10 first, then M35 in a new session.
 
 - 2026-04-14 22:45: [fix] M34 gap closed — 9 command files still referenced retired `Tasks-Since-Reset` column and `{COUNTER}` placeholder from v2.74.12 task-counter era. User caught this during the complete-milestone gate check. Files patched: `gsd-t-verify.md` (Steps 4 and 8 — the latter is the auto-invoke-complete-milestone line itself), `gsd-t-plan.md` (Step 7), `gsd-t-prd.md` (Step 0), `gsd-t-audit.md` (Step 0, also added missing header), `gsd-t-brainstorm.md` (Step 3), `gsd-t-reflect.md` (Step 0 — also scrubbed pre-v2.74.12 TOK_END/TOK_START/TOK_MAX/COMPACTED compaction-detect cruft), `gsd-t-visualize.md` (Step 0 — same TOK_* cleanup), `gsd-t-debug.md` (Step 1.5), `gsd-t-discuss.md` (Step 3). Also cleaned up 2 residual `TOK_START / TOK_MAX / TOK_END` references inside `gsd-t-execute.md` Step 2 (lines 237, 419) and replaced `$TOKENS` with literal `0` in the metrics-collector call on line 423 (per-call token accounting requires API response we don't capture; `context_pct` remains the real burn signal). Each site now uses the canonical CTX_PCT bash shim: `CTX_PCT=$(node -e "const tb=require('./bin/token-budget.js'); process.stdout.write(String(tb.getSessionStatus('.').pct||'N/A'))" 2>/dev/null || echo "N/A")`. Grep sweep confirms zero remaining `task-counter`, `Tasks-Since-Reset`, `{COUNTER}`, `TOK_START`, `TOK_END`, `TOK_MAX`, `$TOKENS`, `CLAUDE_CONTEXT_TOKENS_*` in `commands/`, `scripts/`, `bin/`, `templates/` outside of intentional historical prose (execute.md line 120 explanatory note + CLAUDE-global.md line 373 historical footnote + CLAUDE-project.md retirement comment + bin/gsd-t.js retirement migration function itself). Smoke test: `CTX_PCT` shim exits 0 with `N/A` when state file absent (correct fallback). Full suite 941/941 green unchanged. **M34 gap closed — CHANGELOG "Removed: task-counter.cjs + all CLAUDE_CONTEXT_TOKENS_* references" claim now true across all live surfaces.** Files: 9 command files, `commands/gsd-t-execute.md` (3 sites), `commands/gsd-t-verify.md` (2 sites).
 
