@@ -423,6 +423,50 @@ Recommended `.gsd-t/config.json`:
 }
 ```
 
+### Context Meter (M34)
+
+The Context Meter is a PostToolUse hook that runs after every tool call, streams the current Claude Code transcript to the Anthropic `count_tokens` API, and writes the exact input-token count and threshold band to `.gsd-t/.context-meter-state.json`. The GSD-T orchestrator (`gsd-t-execute`, `gsd-t-wave`, `gsd-t-quick`, `gsd-t-integrate`, `gsd-t-debug`) reads this state file via `token-budget.getSessionStatus()` as the authoritative context-burn signal — replacing the v2.74.12 task-counter proxy.
+
+Setup:
+
+1. **Export an API key** — `export ANTHROPIC_API_KEY="sk-ant-..."` (free-tier key is sufficient; `count_tokens` is inexpensive).
+2. **Install the hook** — `npx @tekyzinc/gsd-t install` (registers the PostToolUse hook globally) then `npx @tekyzinc/gsd-t init` in each project (copies the hook runtime and config template).
+3. **Verify with doctor** — `npx @tekyzinc/gsd-t doctor` hard-gates on API key presence, hook registration, script existence, config validity, and a live `count_tokens` dry-run.
+4. **Check status** — `npx @tekyzinc/gsd-t status` shows a Context line with `{pct}% of {window} tokens ({band}) — last check {time ago}`.
+
+`.gsd-t/context-meter-config.json` controls the meter:
+
+```json
+{
+  "enabled": true,
+  "apiKeyEnvVar": "ANTHROPIC_API_KEY",
+  "modelWindowSize": 200000,
+  "thresholdPct": 85,
+  "checkFrequency": 1
+}
+```
+
+Threshold bands used by the orchestrator gate:
+
+| Band      | Range       | Orchestrator action                                         |
+|-----------|-------------|-------------------------------------------------------------|
+| normal    | 0–59%       | Proceed as normal                                           |
+| warn      | 60–69%      | Log warning, continue                                       |
+| downgrade | 70–84%      | Switch opus→sonnet, sonnet→haiku for upcoming subagents     |
+| conserve  | 85–94%      | Checkpoint progress, skip non-essential phases              |
+| stop      | ≥95%        | Halt with resume instruction; user must `/clear` + resume   |
+
+**Observability logging columns** — as of M34, the `.gsd-t/token-log.md` header includes `Ctx%` (the real session-wide context percentage at the time of the subagent spawn) replacing the earlier `Tasks-Since-Reset` column. The old column was a proxy count of how many tasks had run since the last `/clear`; the new column is the actual measurement.
+
+**Upgrading from pre-M34** — `gsd-t update-all` handles the migration automatically:
+- Copies the hook script, runtime files, and config template into every registered project
+- Runs a one-time task-counter retirement (`bin/task-counter.cjs` + `.task-counter*` files deleted, `.gsd-t/.task-counter-retired-v1` marker written)
+- Idempotent on second run
+
+After upgrading, you **must** set `ANTHROPIC_API_KEY` or `gsd-t doctor` will fail.
+
+**Historical note on v2.74.12–13**: between 2026-03 and 2026-04, the orchestrator used `bin/task-counter.cjs` as a proxy — it assumed N tasks ≈ M% context used. That was itself a replacement for an earlier env-var-based check (`CLAUDE_CONTEXT_TOKENS_USED` / `CLAUDE_CONTEXT_TOKENS_MAX`) that never worked because Claude Code does not export those vars. The Context Meter (v2.75.10, M34) is the first version that measures context burn from the authoritative source: the Anthropic API itself.
+
 ---
 
 ## License

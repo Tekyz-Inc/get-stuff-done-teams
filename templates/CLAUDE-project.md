@@ -33,6 +33,17 @@
 <!-- Example: 1500000 (1.5M tokens) — omit this field to disable token-aware orchestration. -->
 <!-- **Daily token budget**: {ceiling in tokens} -->
 
+## Context Meter (M34)
+<!-- The Context Meter is a PostToolUse hook that streams the current transcript -->
+<!-- to Anthropic count_tokens and writes the real context % to -->
+<!-- .gsd-t/.context-meter-state.json. bin/token-budget.js reads that file as the -->
+<!-- authoritative session-stop signal — replacing the v2.74.12 task-counter proxy. -->
+<!-- Requires ANTHROPIC_API_KEY in the shell environment. -->
+<!-- Threshold bands (lower-bound inclusive): normal<60, warn≥60, downgrade≥70, conserve≥85, stop≥95. -->
+<!-- Config: .gsd-t/context-meter-config.json — apiKeyEnvVar, modelWindowSize, thresholdPct, checkFrequency. -->
+<!-- Verify: `npx @tekyzinc/gsd-t doctor` hard-gates on API key + hook + live count_tokens dry-run. -->
+<!-- Historical: v2.74.12 used bin/task-counter.cjs (proxy); v2.74.11 and earlier used CLAUDE_CONTEXT_TOKENS_* env vars (never worked). Both retired in v2.75.10. -->
+
 <!-- For multi-branch parallel work (e.g., web + mobile in separate terminals), -->
 <!-- each terminal's CLAUDE.md should declare its own expected branch. -->
 <!-- Example: Web terminal → master, Mobile terminal → Mobile -->

@@ -368,6 +368,69 @@ During partition, UI/frontend projects automatically receive `.gsd-t/contracts/d
 
 When Playwright MCP is registered in Claude Code settings, QA agents get 3 minutes of interactive exploration and Red Team gets 5 minutes after all scripted tests pass. Findings are tagged `[EXPLORATORY]` in qa-issues.md and red-team-report.md, and tracked separately in QA calibration (category key: `exploratory` — does NOT count against scripted pass/fail ratio). Silent skip when Playwright MCP absent. Wired into: execute, quick, integrate, debug.
 
+## Context Meter Architecture (M34, v2.75.10+)
+
+The Context Meter is the authoritative source for session context-burn measurement in GSD-T. It replaces the v2.74.12 `bin/task-counter.cjs` proxy (and the pre-v2.74.12 `CLAUDE_CONTEXT_TOKENS_USED` env-var approach, which never worked because Claude Code does not export those vars).
+
+**Data flow:**
+
+```
+Claude Code tool call finishes
+  │
+  ▼
+PostToolUse hook (~/.claude/settings.json registered)
+  │
+  ▼
+scripts/gsd-t-context-meter.js (runMeter)
+  │
+  ├── 1. loadConfig(.gsd-t/context-meter-config.json)
+  ├── 2. check-frequency gate — short-circuits if tool-call % freq != 0
+  ├── 3. parseTranscript(hook.transcript_path)
+  │         → { system, messages } shaped for count_tokens
+  ├── 4. countTokens({apiKey, model, system, messages, timeoutMs:200})
+  │         → POST https://api.anthropic.com/v1/messages/count_tokens
+  │         → 200 { input_tokens }  |  failure → null
+  ├── 5. computePct(inputTokens, modelWindowSize)
+  ├── 6. bandFor(pct) → "normal" | "warn" | "downgrade" | "conserve" | "stop"
+  └── 7. atomic write .gsd-t/.context-meter-state.json
+           { version, timestamp, inputTokens, modelWindowSize, pct, threshold, checkCount, lastError? }
+  │
+  ▼
+bin/token-budget.js getSessionStatus(projectDir)
+  │
+  ├── readContextMeterState(dir)
+  │      if fresh (timestamp within 5 min):
+  │        return { consumed, estimated_remaining, pct, threshold }
+  │      else: null
+  │
+  └── fallback: readSessionConsumed(dir) from .gsd-t/token-log.md (heuristic)
+  │
+  ▼
+Command file bash shim (execute/wave/quick/integrate/debug):
+  CTX_PCT=$(node -e "…tb.getSessionStatus('.').pct")
+  │
+  ▼
+Orchestrator Context Gate — exit code 10 (stop) / 11 (conserve) / 12 (downgrade) / 13 (warn)
+```
+
+**Key constraints:**
+- **Fail-open**: every stage catches errors and writes a partial state file. Never crashes Claude Code.
+- **No message content in state or log files** — only token counts, band names, error codes.
+- **Never logs or writes the API key** anywhere.
+- **State staleness window**: 5 minutes — after that, heuristic fallback takes over.
+- **Hook latency budget**: 200ms (timeoutMs on the HTTP call), enforced by `req.setTimeout` + `req.destroy()`.
+
+**Contracts:**
+- `.gsd-t/contracts/context-meter-contract.md` — schema, state file format, hook I/O
+- `.gsd-t/contracts/context-observability-contract.md` v2.0.0 — Ctx% as the real session-wide signal (replaces Tasks-Since-Reset)
+- `.gsd-t/contracts/token-budget-contract.md` v2.0.0 — public API + data-source rewrite
+
+**Installer integration** (`bin/gsd-t.js`):
+- `install` / `init` — copy hook runtime, merge PostToolUse entry into `~/.claude/settings.json`, copy config template, prompt for API key (skippable, TTY-only)
+- `doctor` — RED on missing API key, missing hook, missing script, invalid config, failed count_tokens dry-run
+- `status` — displays `Context: {pct}% of {window} tokens ({band}) — last check {rel}` line
+- `update-all` — one-shot task-counter retirement migration (deletes legacy files, writes `.gsd-t/.task-counter-retired-v1` marker)
+
 ## Planned Architecture Changes (M23-M24)
 
 **M23: Headless Mode**

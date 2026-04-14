@@ -2,6 +2,58 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.75.10] - 2026-04-14
+
+### M34: Context Meter — Real Context-Window Measurement Replaces Task-Counter Proxy
+
+**Background**: v2.74.12/v2.74.13 introduced `bin/task-counter.cjs` as a deterministic session-burn gate after the env-var-based context self-check (`CLAUDE_CONTEXT_TOKENS_USED`) was found to be permanently inert. The task counter fixed the immediate bleeding, but it was always a proxy — 5 tasks ≠ N tokens, and Opus-primary sessions burn context faster than Sonnet-primary sessions for the same task count. M34 replaces the proxy with real measurement via the Anthropic `count_tokens` API, re-exposed through a PostToolUse hook.
+
+### Added
+
+- **`scripts/gsd-t-context-meter.js`** — PostToolUse hook that measures the active Claude Code session's context window after every tool call. Writes a snapshot to `.gsd-t/.context-meter-state.json` (`{pct, consumed, limit, timestamp, model}`) and, when `pct >= warn_threshold`, injects `additionalContext` into the Claude Code response so the orchestrator sees real burn in real time. Fails open (silent no-op) when `ANTHROPIC_API_KEY` is missing or the API is unreachable — never blocks the user's session.
+- **`scripts/context-meter/`** — helper modules: `parser.js` (extract recent turns from transcript), `client.js` (count_tokens API wrapper with retry), `threshold.js` (warn/degrade/conserve/stop bands), `test-injector.js` (deterministic fixtures for unit tests).
+- **`bin/context-meter-config.cjs`** — config loader with defaults and schema validation.
+- **`templates/context-meter-config.json`** — default config (thresholds: warn 0.65, degrade 0.75, conserve 0.85, stop 0.92; staleness window 5 min).
+- **`.gsd-t/contracts/context-meter-contract.md`** v1.0.0 ACTIVE — hook I/O contract, state file schema, threshold semantics, fail-open guarantees.
+- **`.gsd-t/contracts/token-budget-contract.md`** v2.0.0 ACTIVE — rewritten around real measurement; public `getSessionStatus()` API surface preserved but semantics now reflect actual context % instead of task count.
+- **Installer extensions (`bin/gsd-t.js`)**:
+  - `install`/`update` registers `scripts/gsd-t-context-meter.js` as a PostToolUse hook in `~/.claude/settings.json` (idempotent).
+  - First-run prompt for `ANTHROPIC_API_KEY` (skippable — doctor will later fail-red if unset).
+  - `doctor` adds hard-gate checks for API key presence, hook registration, config file, and a dry-run smoke test of the hook entry point.
+  - `status` displays real context % read from `.gsd-t/.context-meter-state.json` (falls back to heuristic when state is missing/stale).
+- **Test coverage**: `scripts/gsd-t-context-meter.e2e.test.js` (90 tests — parser, client, threshold, hook entry, injection); `test/token-budget.test.js` fully rewritten around real measurement; `test/installer-m34.test.js` covers hook install, API key prompt, doctor gate, status line; **941/941 total tests green**.
+
+### Changed
+
+- **`bin/token-budget.js`** — `getSessionStatus()` now reads `.gsd-t/.context-meter-state.json` (with a 5-minute staleness window) and falls back to a heuristic based on `.gsd-t/token-log.md` row count when state is unavailable. Graduated degradation (`warn`/`downgrade`/`conserve`/`stop`) fires on real context % instead of task count. Public API unchanged so `bin/orchestrator.js` and every command that calls it keeps working.
+- **`bin/orchestrator.js`** — task-budget gate now calls `token-budget.getSessionStatus()` for the real signal; checkpoint-and-stop behavior preserved.
+- **Command files** (`gsd-t-execute.md`, `gsd-t-wave.md`, `gsd-t-quick.md`, `gsd-t-integrate.md`, `gsd-t-debug.md`) — every `node bin/task-counter.cjs …` invocation replaced with a `CTX_PCT` bash shim that sources the context meter state file. Observability logging updated.
+- **Token log schema** — `Tasks-Since-Reset` column renamed to `Ctx%`. All command files and templates updated.
+- **Documentation ripple**:
+  - `README.md` — Context Meter feature bullet + full "Context Meter Setup" section.
+  - `docs/GSD-T-README.md` — Configuration → Context Meter subsection with data-flow, threshold bands, upgrade notes.
+  - `docs/architecture.md` — Context Meter Architecture with full data-flow diagram.
+  - `docs/infrastructure.md` — Context Meter Setup section with API key instructions, doctor verification, threshold table, upgrade migration.
+  - `docs/methodology.md` — "Context Awareness: From Proxy to Real Measurement" narrative explaining why proxies failed and how real measurement restores gate integrity.
+  - `docs/requirements.md` — M34 REQ-063 through REQ-068 traceability table with functional and non-functional requirements.
+  - `templates/CLAUDE-global.md` — Context Meter Gate subsection + historical note about the task-counter era.
+  - `templates/CLAUDE-project.md` — new Context Meter section for per-project setup.
+
+### Removed
+
+- **`bin/task-counter.cjs`** — deleted. The entire proxy gate retires. `.gsd-t/.task-counter`, `.gsd-t/task-counter-config.json`, and the `Tasks-Since-Reset` column are no longer read by any code.
+- All `CLAUDE_CONTEXT_TOKENS_USED` / `CLAUDE_CONTEXT_TOKENS_MAX` references across `commands/`, `bin/`, `scripts/`, and `templates/` — the last vestiges of the original broken env-var self-check.
+
+### Migration
+
+- **`gsd-t update-all`** runs a one-shot task-counter retirement migration: deletes `bin/task-counter.cjs`, `.gsd-t/.task-counter`, `.gsd-t/task-counter-config.json` from each registered project; writes `.gsd-t/.task-counter-retired-v1` marker so the migration is idempotent. Projects that had the proxy gate wired in come out the other side on the real context meter with zero manual intervention.
+- **Users MUST set `ANTHROPIC_API_KEY`** in their shell environment (or accept the install-time prompt) for the context meter to produce real readings. Without the key, the hook fails open and `doctor` reports RED on the API key check — the gate falls back to the `token-log.md` row-count heuristic, which is safer than the old env-var vaporware but less accurate than real measurement.
+- Both `install` and `update-all` register the hook in `~/.claude/settings.json` and copy the default config template. Existing `.claude/settings.json` is preserved; only the hook entry is appended.
+
+### Propagation
+
+After publishing, run `/user:gsd-t-version-update-all` to propagate M34 (hook, config, installer, rewritten token-budget, command file updates, retirement migration) to every registered GSD-T project in a single sweep.
+
 ## [2.74.13] - 2026-04-14
 
 ### Fixed — v2.74.12 task-counter distribution gap (P0)

@@ -195,6 +195,69 @@ gsd-t-verify:
     ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
 ```
 
+## Context Meter Setup (M34, v2.75.10+)
+
+The Context Meter is a PostToolUse hook that measures real context consumption via the Anthropic `count_tokens` API. It is **required** for the `gsd-t-execute`, `gsd-t-wave`, `gsd-t-quick`, `gsd-t-integrate`, and `gsd-t-debug` session-stop gates to work.
+
+**API key — required**
+
+```bash
+# Shell profile (~/.zshrc, ~/.bashrc, ~/.config/fish/config.fish)
+export ANTHROPIC_API_KEY="sk-ant-..."
+
+# Verify
+echo $ANTHROPIC_API_KEY | head -c 10
+```
+
+Get a key at [https://console.anthropic.com](https://console.anthropic.com). Free tier is sufficient — `count_tokens` is billed per call at negligible cost.
+
+**CI/CD**: set `ANTHROPIC_API_KEY` as a secret (`secrets.ANTHROPIC_API_KEY` in GitHub Actions, masked variables in GitLab CI). The existing verify workflow example above already threads the secret through.
+
+**Per-project `.env.local` (optional)**: drop `ANTHROPIC_API_KEY=sk-ant-...` into the project's ignored env file and source it in your shell profile if you need per-project keys.
+
+**Verify with doctor**:
+
+```bash
+npx @tekyzinc/gsd-t doctor
+```
+
+Expected GREEN output:
+
+```
+Context Meter
+  ✅ API key set (ANTHROPIC_API_KEY)
+  ✅ PostToolUse hook registered in ~/.claude/settings.json
+  ✅ scripts/gsd-t-context-meter.js exists
+  ✅ .gsd-t/context-meter-config.json loads cleanly
+  ✅ count_tokens dry-run: 7 tokens
+```
+
+If any check is RED, doctor exits with code 1.
+
+**Config file** — `.gsd-t/context-meter-config.json`:
+
+```json
+{
+  "enabled": true,
+  "apiKeyEnvVar": "ANTHROPIC_API_KEY",
+  "modelWindowSize": 200000,
+  "thresholdPct": 85,
+  "checkFrequency": 1
+}
+```
+
+**Threshold bands** (lower-bound inclusive):
+
+| Band      | Range       | Orchestrator action                                    |
+|-----------|-------------|--------------------------------------------------------|
+| normal    | 0–59%       | Proceed                                                |
+| warn      | 60–69%      | Log warning, continue                                  |
+| downgrade | 70–84%      | Downgrade models for subsequent spawns                 |
+| conserve  | 85–94%      | Checkpoint + skip non-essential phases                 |
+| stop      | ≥95%        | Halt with resume instruction                           |
+
+**Upgrading from pre-M34**: `gsd-t update-all` runs a one-time task-counter retirement migration in every registered project (deletes `bin/task-counter.cjs`, `.gsd-t/task-counter-config.json`, `.gsd-t/.task-counter-state.json`, and the `.gsd-t/.task-counter` file; writes `.gsd-t/.task-counter-retired-v1` marker). After upgrade you **must** set `ANTHROPIC_API_KEY` — doctor will fail otherwise.
+
 ## Security Notes
 
 - Zero npm dependencies — no supply chain risk

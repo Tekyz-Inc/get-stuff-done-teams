@@ -210,6 +210,34 @@
 **Orphaned requirements**: None — all M32 REQs mapped to tasks.
 **Unanchored tasks**: None — all 3 domain tasks map directly to functional requirements.
 
+## Requirements Traceability (updated by plan phase — M34)
+
+| REQ-ID  | Requirement Summary                                                                     | Domain                      | Task(s)  | Status   |
+|---------|------------------------------------------------------------------------------------------|-----------------------------|----------|----------|
+| REQ-063 | Context Meter PostToolUse hook — count_tokens API call, state file, fail-open            | context-meter-hook          | Tasks 1–5 | complete |
+| REQ-064 | Context Meter config schema — apiKeyEnvVar, modelWindowSize, thresholdPct, checkFrequency | context-meter-config        | Tasks 1–4 | complete |
+| REQ-065 | Installer integration — install/init hook, doctor gate, status line, update-all migration | installer-integration       | Tasks 1–6 | complete |
+| REQ-066 | bin/token-budget.js v2.0.0 — real-source `getSessionStatus()` reading the meter state file | token-budget-replacement    | Tasks 1–10 | complete |
+| REQ-067 | Command file migration — execute/wave/quick/integrate/debug use CTX_PCT, no task-counter  | token-budget-replacement    | Tasks 6–10 | complete |
+| REQ-068 | Docs + tests — README/GSD-T-README/templates/docs/CHANGELOG updated, integration tests added | m34-docs-and-tests          | Tasks 1–9 | in_progress |
+
+**M34 Functional Requirements:**
+- **REQ-063**: The PostToolUse hook must measure the real transcript token count after every tool call (subject to `checkFrequency`), write the result atomically to `.gsd-t/.context-meter-state.json`, and never crash Claude Code on error.
+- **REQ-064**: The config loader must validate `apiKeyEnvVar` is a string, `modelWindowSize` > 0, `thresholdPct` in (0, 100), `checkFrequency` ≥ 1. Missing config = use defaults.
+- **REQ-065**: `gsd-t doctor` must hard-gate on: API key set, hook registered, script present, config valid, live `count_tokens` dry-run succeeds. Exit code 1 if any RED.
+- **REQ-066**: `bin/token-budget.js` `getSessionStatus()` must read `.gsd-t/.context-meter-state.json` when fresh (within 5 minutes of timestamp) and fall back to a historical heuristic otherwise. Public API shape unchanged from v1.x — callers see no breakage.
+- **REQ-067**: No command file may reference `task-counter.cjs` or `CLAUDE_CONTEXT_TOKENS_*` env vars. All session-stop gates must call `token-budget.getSessionStatus()`.
+- **REQ-068**: All downstream docs (README.md, docs/GSD-T-README.md, templates/CLAUDE-*, docs/*.md, CHANGELOG.md, package.json) must describe M34 by the time the milestone is marked complete.
+
+**M34 Non-Functional Requirements:**
+- Hook latency ≤ 200ms P99 (enforced by `req.setTimeout` + `req.destroy()` in the HTTPS client)
+- Zero external npm dependencies (same as the rest of GSD-T)
+- Zero message content in state files, log files, or diagnostics — only token counts, band names, error category codes
+- Zero API-key material written to disk — env var read only, never persisted
+
+**Orphaned requirements**: None — all M34 REQs mapped to tasks.
+**Unanchored tasks**: None — all 34 M34 tasks map directly to functional or non-functional requirements.
+
 ---
 
 ## M17: Scan Visual Output — Feature Specification

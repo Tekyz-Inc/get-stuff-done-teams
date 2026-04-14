@@ -83,3 +83,19 @@ Teams burn tokens fast. Use them strategically:
 - Planning (always — need full cross-domain context)
 - Integration (always — need to see all seams)
 - The task is straightforward
+
+## Context Awareness: From Proxy to Real Measurement (M34)
+
+GSD-T has always needed a reliable signal for "how much of the context window is consumed right now" so the orchestrator can decide whether to continue, downgrade, checkpoint, or stop. The journey to real measurement is instructive:
+
+1. **v1.0 era — env var check.** Early GSD-T read `CLAUDE_CONTEXT_TOKENS_USED` / `CLAUDE_CONTEXT_TOKENS_MAX` environment variables, assuming Claude Code exported them. It does not. The check was always inert — `pct` was effectively zero forever, and the stop gate never fired. The first symptom was not a crash, it was silent context exhaustion leading to mid-session compaction.
+
+2. **v2.74.12 — task-counter proxy.** To patch the regression, `bin/task-counter.cjs` tracked the number of tasks completed since the last `/clear` and assumed a linear correspondence between task count and context percentage (e.g., 5 tasks ≈ 80%). This was better than nothing but fundamentally a proxy — it could not distinguish a task that read three files from a task that ran a full-project grep and a Playwright suite.
+
+3. **v2.75.10 (M34) — real measurement.** The Context Meter PostToolUse hook streams the current transcript to the Anthropic `count_tokens` API after every tool call and writes the exact `input_tokens` count to `.gsd-t/.context-meter-state.json`. `bin/token-budget.js` `getSessionStatus()` reads that state file as the authoritative signal. Proxies are retired.
+
+**Why this matters**: Opus-primary sessions compound context risk (larger system prompts, deeper reasoning, longer tool outputs). A proxy with ±20% error is fine for an undercommitted Sonnet session but causes silent compaction on a busy Opus session. Real measurement is the only durable fix.
+
+**Fail-open principle**: the meter hook never blocks tool calls or crashes Claude Code. Every failure mode (missing API key, network error, malformed transcript, rate limit) catches and writes a partial state file with `lastError.code` set. The orchestrator treats a missing or stale state file as "fall back to heuristic" rather than "stop immediately" — the user never loses work to a meter hiccup.
+
+**Message content is never logged**: the meter writes only token counts, band names, and error category codes. Never transcript text, never API response bodies, never the API key itself. See `docs/architecture.md` for the full data-flow diagram and `.gsd-t/contracts/context-meter-contract.md` for the schema.

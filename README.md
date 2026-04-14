@@ -15,6 +15,7 @@ A methodology for reliable, parallelizable development using Claude Code with op
 **Stack Rules Engine** — auto-detects project tech stack (React, TypeScript, Node API, Python, Go, Rust) from manifest files and injects mandatory best-practice rules into subagent prompts at execute-time. Universal security rules always apply; stack-specific rules layer on top. Includes **design-to-code** rules for pixel-perfect frontend implementation from Figma, screenshots, or design images — with Figma MCP integration, design token extraction, stack capability evaluation, and mandatory visual verification: every screen is rendered in a real browser, screenshotted at mobile/tablet/desktop, and compared pixel-by-pixel against the Figma design. Auto-bootstraps during partition when design references are detected. Extensible: drop a `.md` file in `templates/stacks/` to add a new stack.
 **Self-Calibrating QA** — `qa-calibrator.js` tracks QA miss-rates across milestones, detects weak-spot categories (error paths, boundaries, state transitions), and automatically injects targeted guidance into QA subagent prompts. Projects on the same stack share miss-rate data for faster calibration.
 **Token-Aware Orchestration** — `token-budget.js` tracks session token consumption and applies graduated degradation: downgrade model assignments when approaching limits, checkpoint and skip non-essential operations to conserve budget, and halt cleanly with a resume instruction at the ceiling. Wave and execute phases check budget before each subagent spawn.
+**Context Meter (M34)** — real-time context window measurement via the Anthropic `count_tokens` API. A PostToolUse hook streams the current transcript to `count_tokens`, writes the exact input-token count and threshold band to `.gsd-t/.context-meter-state.json`, and `token-budget.getSessionStatus()` reads that state file as the authoritative context-burn signal. Replaces the v2.74.12 task-counter proxy. Requires an `ANTHROPIC_API_KEY` — `gsd-t doctor` hard-gates on it. See the Context Meter Setup section below.
 **Quality North Star** — projects define a `## Quality North Star` section in CLAUDE.md (1–3 sentences, e.g., "This is a published npm library. Every public API must be intuitive and backward-compatible."). `gsd-t-init` auto-detects preset (library/web-app/cli) from package.json signals; `gsd-t-setup` configures it for existing projects. Subagents read it as a quality lens; absent = silent skip (backward compatible).
 **Design Brief Artifact** — during partition, UI/frontend projects (React, Vue, Svelte, Flutter, Tailwind) automatically get `.gsd-t/contracts/design-brief.md` with color palette, typography, spacing system, component patterns, and tone/voice. Non-UI projects skip silently. User-customized briefs are preserved. Referenced in plan phase for visual consistency.
 **Design Verification Agent** — after QA passes on design-to-code projects, a dedicated verification agent opens a browser with both the built frontend AND the original design (Figma page, design image, or MCP screenshot) side-by-side for direct visual comparison. Produces a structured element-by-element comparison table (30+ rows) with specific design values vs. implementation values and MATCH/DEVIATION verdicts. An artifact gate enforces that the comparison table exists — missing it blocks completion. Separation of concerns: coding agents code, verification agents verify. Wired into execute (Step 5.25) and quick (Step 5.25). Only fires when `.gsd-t/contracts/design-contract.md` exists — non-design projects are unaffected.
@@ -302,6 +303,70 @@ your-project/
 - **HTTP responses** are bounded at 1MB to prevent memory exhaustion from oversized registry responses.
 - **Directory creation** validates parent path components for symlinks to prevent path traversal.
 - Run `gsd-t doctor` to verify installation integrity. Keep GSD-T updated with `gsd-t update`.
+
+---
+
+## Context Meter Setup (M34 — v2.75.10+)
+
+The Context Meter replaces the v2.74.12 task-counter proxy with real context-window measurement via the Anthropic `count_tokens` API. This is the authoritative signal for session-stop gates in `gsd-t-execute`, `gsd-t-wave`, `gsd-t-quick`, `gsd-t-integrate`, and `gsd-t-debug`.
+
+### 1. Set your API key
+
+Create a key at [console.anthropic.com](https://console.anthropic.com) (free tier is sufficient — `count_tokens` calls are inexpensive) and export it in your shell profile:
+
+```bash
+export ANTHROPIC_API_KEY="sk-ant-..."
+```
+
+The env var name is configurable in `.gsd-t/context-meter-config.json` (default: `ANTHROPIC_API_KEY`).
+
+### 2. Verify with `gsd-t doctor`
+
+```bash
+npx @tekyzinc/gsd-t doctor
+```
+
+Doctor checks:
+- `ANTHROPIC_API_KEY` is set (RED if missing)
+- PostToolUse hook is registered in `~/.claude/settings.json`
+- `scripts/gsd-t-context-meter.js` exists in the project
+- `.gsd-t/context-meter-config.json` parses cleanly
+- A live `count_tokens` dry-run succeeds (RED on 401/403/network failure)
+
+### 3. Adjust thresholds (optional)
+
+Edit `.gsd-t/context-meter-config.json`:
+
+```json
+{
+  "enabled": true,
+  "apiKeyEnvVar": "ANTHROPIC_API_KEY",
+  "modelWindowSize": 200000,
+  "thresholdPct": 85,
+  "checkFrequency": 1
+}
+```
+
+- `modelWindowSize` — total context window (200K for Opus/Sonnet)
+- `thresholdPct` — percentage at which the orchestrator halts (85% = stop; 70% = downgrade; 60% = warn)
+- `checkFrequency` — run `count_tokens` every N tool calls (1 = every call; higher = cheaper + slightly delayed signal)
+
+### 4. Live status
+
+```bash
+npx @tekyzinc/gsd-t status
+```
+
+Displays a Context line with `{pct}% of {window} tokens ({band}) — last check {time ago}`. Missing state file shows `N/A (meter hook not run this session)`.
+
+### Upgrading from pre-M34
+
+Running `gsd-t update-all` handles the migration automatically:
+- Copies the new hook script, runtime files, config template, and `context-meter-config.cjs` loader into every registered project
+- Runs a one-time task-counter retirement — deletes `bin/task-counter.cjs`, `.gsd-t/task-counter-config.json`, `.gsd-t/.task-counter-state.json`, and the `.gsd-t/.task-counter` state file
+- Writes `.gsd-t/.task-counter-retired-v1` marker (subsequent runs are no-op)
+
+After upgrading, **you must set `ANTHROPIC_API_KEY`** — `gsd-t doctor` will fail otherwise.
 
 ---
 
