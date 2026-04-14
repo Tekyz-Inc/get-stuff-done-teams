@@ -93,24 +93,16 @@ For each document or logical group:
 **OBSERVABILITY LOGGING (MANDATORY) — for each subagent spawn:**
 
 Before spawning — run via Bash:
-`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M") && TOK_START=${CLAUDE_CONTEXT_TOKENS_USED:-0} && TOK_MAX=${CLAUDE_CONTEXT_TOKENS_MAX:-200000}`
+`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M")`
 
 After subagent returns — run via Bash:
-`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && TOK_END=${CLAUDE_CONTEXT_TOKENS_USED:-0} && DURATION=$((T_END-T_START))`
+`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START))`
 
-Compute tokens:
-- No compaction (TOK_END >= TOK_START): `TOKENS=$((TOK_END-TOK_START))`, COMPACTED=null
-- Compaction detected (TOK_END < TOK_START): `TOKENS=$(((TOK_MAX-TOK_START)+TOK_END))`, COMPACTED=$DT_END
+Read the task counter (deterministic context-burn signal):
+`COUNTER=$(node bin/task-counter.cjs status 2>/dev/null | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{process.stdout.write(String(JSON.parse(s).count||''))}catch(_){process.stdout.write('')}})")`
 
-Compute context utilization:
-`if [ "${CLAUDE_CONTEXT_TOKENS_MAX:-0}" -gt 0 ]; then CTX_PCT=$(echo "scale=1; ${CLAUDE_CONTEXT_TOKENS_USED:-0} * 100 / ${CLAUDE_CONTEXT_TOKENS_MAX}" | bc); else CTX_PCT="N/A"; fi`
-
-Alert thresholds:
-- CTX_PCT >= 85: `echo "🔴 CRITICAL: Context at ${CTX_PCT}% — compaction likely. Task MUST be split."`
-- CTX_PCT >= 70: `echo "⚠️ WARNING: Context at ${CTX_PCT}% — approaching compaction threshold. Consider splitting."`
-
-Append to `.gsd-t/token-log.md` (create with header `| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Tokens | Compacted | Domain | Task | Ctx% |` if missing):
-`| {DT_START} | {DT_END} | gsd-t-doc-ripple | Step 5 | {model} | {DURATION}s | update:{document} | {TOKENS} | {COMPACTED} | doc-ripple | — | {CTX_PCT} |`
+Append to `.gsd-t/token-log.md` (create with header `| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Domain | Task | Tasks-Since-Reset |` if missing):
+`| {DT_START} | {DT_END} | gsd-t-doc-ripple | Step 5 | {model} | {DURATION}s | update:{document} | doc-ripple | — | {COUNTER} |`
 
 **Each document-update subagent prompt:**
 ```

@@ -9,7 +9,7 @@ When invoked directly by the user, spawn yourself as a Task subagent for a fresh
 **OBSERVABILITY LOGGING — before spawning:**
 
 Run via Bash:
-`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M") && TOK_START=${CLAUDE_CONTEXT_TOKENS_USED:-0} && TOK_MAX=${CLAUDE_CONTEXT_TOKENS_MAX:-200000}`
+`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M")`
 
 ```
 Task subagent (general-purpose, model: sonnet):
@@ -21,14 +21,14 @@ Skip Step 0 — you are already the subagent."
 **OBSERVABILITY LOGGING — after subagent returns:**
 
 Run via Bash:
-`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && TOK_END=${CLAUDE_CONTEXT_TOKENS_USED:-0} && DURATION=$((T_END-T_START))`
+`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START))`
 
 Compute tokens:
 - No compaction (TOK_END >= TOK_START): `TOKENS=$((TOK_END-TOK_START))`, COMPACTED=null
 - Compaction detected (TOK_END < TOK_START): `TOKENS=$(((TOK_MAX-TOK_START)+TOK_END))`, COMPACTED=$DT_END
 
-Append to `.gsd-t/token-log.md` (create with header `| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Tokens | Compacted |` if missing):
-`| {DT_START} | {DT_END} | gsd-t-reflect | Step 0 | sonnet | {DURATION}s | retrospective generated | {TOKENS} | {COMPACTED} |`
+Append to `.gsd-t/token-log.md` (create with header `| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Tasks-Since-Reset |` if missing):
+`| {DT_START} | {DT_END} | gsd-t-reflect | Step 0 | sonnet | {DURATION}s | retrospective generated | {COUNTER} |`
 
 Return the subagent's output and stop. Only skip Step 0 if you are already running as a subagent.
 

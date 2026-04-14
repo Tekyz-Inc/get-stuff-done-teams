@@ -140,28 +140,24 @@ Every command that spawns a Task subagent MUST log its execution to `.gsd-t/toke
 `⚙ [{model}] {command} → {brief description}` (e.g., `⚙ [sonnet] gsd-t-execute → domain: auth-service`, `⚙ [haiku] gsd-t-execute → QA validation`)
 
 **Log format — before every subagent spawn, run via Bash:**
-`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M") && TOK_START=${CLAUDE_CONTEXT_TOKENS_USED:-0} && TOK_MAX=${CLAUDE_CONTEXT_TOKENS_MAX:-200000}`
+`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M")`
 
 **After subagent returns, run via Bash:**
-`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && TOK_END=${CLAUDE_CONTEXT_TOKENS_USED:-0} && DURATION=$((T_END-T_START))`
+`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START))`
 
-**Compute tokens with compaction detection:**
-- No compaction (TOK_END >= TOK_START): `TOKENS=$((TOK_END-TOK_START))`, COMPACTED=null
-- Compaction detected (TOK_END < TOK_START): `TOKENS=$(((TOK_MAX-TOK_START)+TOK_END))`, COMPACTED=$DT_END
+**Read the real context-burn signal — the task counter** (v2.74.12+):
+```
+COUNTER=$(node bin/task-counter.cjs status 2>/dev/null | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{process.stdout.write(String(JSON.parse(s).count||''))}catch(_){process.stdout.write('')}})")
+```
 
 **Append to `.gsd-t/token-log.md`** (create with header if missing):
-`| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Tokens | Compacted | Domain | Task | Ctx% |`
-`| {DT_START} | {DT_END} | {command} | Step {N} | {model} | {DURATION}s | {brief note} | {TOKENS} | {COMPACTED} | {domain or ""} | {task or ""} | {CTX_PCT} |`
+`| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Domain | Task | Tasks-Since-Reset |`
+`| {DT_START} | {DT_END} | {command} | Step {N} | {model} | {DURATION}s | {brief note} | {domain or ""} | {task or ""} | {COUNTER} |`
 
-**Compute context utilization — after subagent returns, run via Bash:**
-`if [ "${CLAUDE_CONTEXT_TOKENS_MAX:-0}" -gt 0 ]; then CTX_PCT=$(echo "scale=1; ${CLAUDE_CONTEXT_TOKENS_USED:-0} * 100 / ${CLAUDE_CONTEXT_TOKENS_MAX}" | bc); else CTX_PCT="N/A"; fi`
+**Orchestrator Task-Count Gate (execute + wave, replaces the broken env-var self-check):**
+`bin/task-counter.cjs` is the real guard. Before each task/phase spawn, run `node bin/task-counter.cjs should-stop` — exit code 10 means the session has hit its task budget (default 5, overridable via `.gsd-t/task-counter-config.json` or `GSD_T_TASK_LIMIT`). On stop, the orchestrator checkpoints and asks the user to `/clear` + `/user:gsd-t-resume`. After each successful task, run `node bin/task-counter.cjs increment task`. See `commands/gsd-t-execute.md` Steps 0/3.5/5 and `commands/gsd-t-wave.md` Step 0 / phase-count gate.
 
-**Alert on context thresholds (display to user inline):**
-- CTX_PCT >= 85: `echo "🔴 CRITICAL: Context at ${CTX_PCT}% — compaction likely. Task MUST be split."`
-- CTX_PCT >= 70: `echo "⚠️ WARNING: Context at ${CTX_PCT}% — approaching compaction threshold. Consider splitting."`
-
-**Orchestrator Context Self-Check (execute + wave only):**
-After every domain/phase completes, the orchestrator checks its own CTX_PCT. If >= 70%, it saves progress to disk and STOPs — the user runs `/clear` then re-invokes the command to resume. This prevents the orchestrator itself from hitting compaction, which causes session breaks. See `gsd-t-execute.md` Step 3.5 and `gsd-t-wave.md` Phase Agent Spawn Pattern.
+**Historical note**: v2.74.11 and earlier attempted a similar guard via `CLAUDE_CONTEXT_TOKENS_USED` / `CLAUDE_CONTEXT_TOKENS_MAX` environment variables. Claude Code **never exports** those vars, so the guard was always inert. That entire code path (token-burn math, compaction detection, CTX_PCT alerts) was removed in v2.74.12 and replaced with the deterministic task counter. Do not reintroduce env-var-based context checks — they do not work.
 
 **For QA/validation subagents:** if issues found, append each to `.gsd-t/qa-issues.md`:
 `| Date | Command | Step | Model | Duration(s) | Severity | Finding |`

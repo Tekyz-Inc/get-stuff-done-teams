@@ -377,12 +377,15 @@ describe("command integration: Stack Rules Detection block", () => {
     });
   }
 
-  it("gsd-t-execute.md QA prompt contains 'Stack rules' validation line", () => {
-    const filePath = path.join(COMMANDS_DIR, "gsd-t-execute.md");
+  it("QA subagent prompt contains 'Stack rules' validation line", () => {
+    // v2.74.12: QA prompt extracted from gsd-t-execute.md to templates/prompts/qa-subagent.md
+    // (eliminates ~3500 tokens of prompt boilerplate from the orchestrator context per spawn).
+    const filePath = path.join(__dirname, "..", "templates", "prompts", "qa-subagent.md");
+    assert.ok(fs.existsSync(filePath), `QA prompt template not found: ${filePath}`);
     const content = fs.readFileSync(filePath, "utf8");
     assert.ok(
       content.includes("Stack rules"),
-      "Expected gsd-t-execute.md QA prompt to include 'Stack rules' validation line"
+      "Expected qa-subagent.md to include 'Stack rules' validation line"
     );
   });
 });

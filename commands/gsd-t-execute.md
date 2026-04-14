@@ -2,6 +2,18 @@
 
 You are the lead agent coordinating task execution across domains. Choose solo or team mode based on the plan.
 
+## Step 0: Reset Task-Count Gate (MANDATORY — first thing in a fresh session)
+
+Run via Bash:
+
+```bash
+node bin/task-counter.cjs reset
+```
+
+This clears `.gsd-t/.task-counter` so the new session starts at 0. The reset is the SIGNAL that this is a clean post-`/clear` orchestrator. Do this exactly ONCE per `/user:gsd-t-execute` invocation, immediately on entry. The gate logic is in Step 3.5; do NOT skip it. If `bin/task-counter.cjs` is missing in this project, `npm install` it via `gsd-t install` then retry — the gate is required.
+
+Why: every `/user:gsd-t-execute` invocation is a fresh orchestrator session. Without the reset, the counter from the previous session would still be at the limit and the gate would refuse to spawn anything. Reset is the only acceptable way to advance the counter back to 0.
+
 ## Step 1: Load State
 
 Read:
@@ -95,24 +107,15 @@ Each domain's work runs via a lightweight domain task-dispatcher. The dispatcher
 **OBSERVABILITY LOGGING (MANDATORY) — repeat for every task subagent spawn:**
 
 Before spawning — run via Bash:
-`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M") && TOK_START=${CLAUDE_CONTEXT_TOKENS_USED:-0} && TOK_MAX=${CLAUDE_CONTEXT_TOKENS_MAX:-200000}`
+`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M")`
 
 After subagent returns — run via Bash:
-`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && TOK_END=${CLAUDE_CONTEXT_TOKENS_USED:-0} && DURATION=$((T_END-T_START))`
+`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START))`
 
-Compute tokens and compaction:
-- No compaction (TOK_END >= TOK_START): `TOKENS=$((TOK_END-TOK_START))`, COMPACTED=null
-- Compaction detected (TOK_END < TOK_START): `TOKENS=$(((TOK_MAX-TOK_START)+TOK_END))`, COMPACTED=$DT_END
+Append to `.gsd-t/token-log.md` (create with header `| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Domain | Task | Tasks-Since-Reset |` if missing):
+`| {DT_START} | {DT_END} | gsd-t-execute | task:{task-id} | sonnet | {DURATION}s | {pass/fail} | {domain-name} | task-{task-id} | {COUNTER} |`
 
-Compute context utilization — run via Bash:
-`if [ "${CLAUDE_CONTEXT_TOKENS_MAX:-0}" -gt 0 ]; then CTX_PCT=$(echo "scale=1; ${CLAUDE_CONTEXT_TOKENS_USED:-0} * 100 / ${CLAUDE_CONTEXT_TOKENS_MAX}" | bc); else CTX_PCT="N/A"; fi`
-
-Alert on context thresholds (display to user inline):
-- If CTX_PCT is a number and >= 85: `echo "🔴 CRITICAL: Context at ${CTX_PCT}% — compaction likely. Task MUST be split."`
-- If CTX_PCT is a number and >= 70: `echo "⚠️ WARNING: Context at ${CTX_PCT}% — approaching compaction threshold. Consider splitting in plan."`
-
-Append to `.gsd-t/token-log.md` (create with header `| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Tokens | Compacted | Domain | Task | Ctx% |` if missing):
-`| {DT_START} | {DT_END} | gsd-t-execute | task:{task-id} | sonnet | {DURATION}s | {pass/fail} | {TOKENS} | {COMPACTED} | {domain-name} | task-{task-id} | {CTX_PCT} |`
+Where `{COUNTER}` is the value returned by `node bin/task-counter.cjs status` (see Step 3.5). Note: the legacy `Tokens`, `Compacted`, and `Ctx%` columns were removed in v2.74.12 — Claude Code does not export `CLAUDE_CONTEXT_TOKENS_USED`/`_MAX`, so those columns always wrote zeros and the orchestrator self-check based on them was inert. The real burn signal is now `Tasks-Since-Reset`, which the task-counter gate in Step 3.5 enforces.
 
 **For each domain (in wave order), run the domain task-dispatcher:**
 
@@ -373,32 +376,10 @@ Execute the task above:
     - Completed after a fix → prefix `[learning]`
     - Deferred to .gsd-t/deferred-items.md → prefix `[deferred]`
     - Failed after 3 attempts → prefix `[failure]`
-13. Spawn QA subagent (model: sonnet) after completing the task:
-    'Run ALL configured test suites — detect and run every one:
-     a. Unit tests (vitest/jest/mocha): run the full suite, report pass/fail counts
-     b. E2E tests: check for playwright.config.* or cypress.config.* — if found, run the FULL E2E suite
-     c. NEVER skip E2E when a config file exists. Running only unit tests is a QA FAILURE.
-     d. Read .gsd-t/contracts/ for contract definitions. Check contract compliance.
-     e. AUDIT E2E test quality: Review each Playwright spec — if any test only checks
-        element existence (isVisible, toBeAttached, toBeEnabled) without verifying functional
-        behavior (state changes, data loaded, content updated after actions), flag it as
-        "SHALLOW TEST — needs functional assertions" in the gap report. A test suite where
-        every spec passes but no feature actually works is a QA FAILURE.
-     Report format: "Unit: X/Y pass | E2E: X/Y pass (or N/A if no config) | Contract: compliant/violations | Shallow tests: N (list) | Stack rules: compliant/N violations"
-     f. Validate compliance with Stack Rules (if injected in the work subagent's prompt).
-        Stack rule violations have the same severity as contract violations — report as failures, not warnings.
-
-     ## Exploratory Testing (if Playwright MCP available)
-
-     After all scripted tests pass:
-     1. Check if Playwright MCP is registered in Claude Code settings (look for "playwright" in mcpServers)
-     2. If available: spend 3 minutes on interactive exploration using Playwright MCP
-        - Try variations of happy paths with unexpected inputs
-        - Probe for race conditions, double-submits, empty states
-        - Test accessibility (keyboard navigation, screen reader flow)
-     3. Tag all findings [EXPLORATORY] in your report and append to .gsd-t/qa-issues.md with [EXPLORATORY] prefix
-     4. If Playwright MCP is not available: skip this section silently
-     Note: Exploratory findings do NOT count against the scripted test pass/fail ratio.'
+13. Spawn QA subagent (model: sonnet) after completing the task. Resolve the templated prompt path first so the orchestrator never holds the full prompt body in its own context:
+    Run via Bash: `QA_PROMPT="$(npm root -g 2>/dev/null)/@tekyzinc/gsd-t/templates/prompts/qa-subagent.md"; [ -f "$QA_PROMPT" ] || QA_PROMPT="templates/prompts/qa-subagent.md"`
+    Then spawn the subagent with this short prompt:
+    'You are the QA agent. Read `'"$QA_PROMPT"'` and follow it exactly. Do not deviate from the protocol in that file. Context for this run: domain={domain-name}, task=task-{task-id}, files-modified={list-from-task-summary}.'
     If QA fails OR shallow tests are found, fix before proceeding. Append issues to .gsd-t/qa-issues.md.
 14. Write task summary to .gsd-t/domains/{domain-name}/task-{task-id}-summary.md:
     ## Task {task-id} Summary — {domain-name}
@@ -475,6 +456,12 @@ Report back:
    g. **Log to Decision Log** in `.gsd-t/progress.md`: `- {date}: [replan] Cycle {N} — {completed-domain} constraint propagated to {list of affected domains}: {brief constraint summary}`
 
    h. The revised `tasks.md` files are now on disk — the next domain's dispatcher will read the updated version automatically (disk-based handoff, no in-memory state sharing needed).
+
+5. **Per-domain Design Verification** — if `.gsd-t/contracts/design-contract.md` exists AND this domain modified UI files, invoke Step 5.25 (Design Verification Agent) NOW for this domain. Otherwise skip.
+
+6. **Per-domain Red Team** — invoke Step 5.5 (Red Team) NOW for this domain. This is the first place Red Team runs in v2.74.12 — there is no global post-execute Red Team anymore. If Red Team returns FAIL, fix bugs and re-run before proceeding to the next domain (max 2 fix-and-verify cycles); if bugs persist, log to `.gsd-t/deferred-items.md` and present to user.
+
+7. **Task-count gate re-check** — run `node bin/task-counter.cjs should-stop`. If exit code is `10`, follow the Step 3.5 STOP procedure now (do NOT spawn the next domain).
 
 ### Team Mode (when agent teams are enabled)
 Spawn teammates for domains within the same wave. Only domains in the same wave can run in parallel — do not spawn teammates for domains in different waves simultaneously. Each teammate uses the **domain task-dispatcher pattern** — one subagent per task within their domain (same as solo mode).
@@ -618,28 +605,62 @@ After all merges complete (whether all passed, some rolled back, or errors occur
 Cleanup is not optional — orphaned worktrees waste disk space and can confuse subsequent executions. Always run cleanup, even if earlier steps failed.
 ```
 
-## Step 3.5: Orchestrator Context Self-Check (MANDATORY)
+## Step 3.5: Orchestrator Task-Count Gate (MANDATORY)
 
-After EVERY domain completes (and after every checkpoint), the orchestrator MUST check its own context utilization:
+The orchestrator MUST check `bin/task-counter.cjs` BEFORE every task subagent spawn AND immediately AFTER every domain completes. This is the real context-burn guardrail. The previous version of this step relied on `CLAUDE_CONTEXT_TOKENS_USED`/`_MAX` env vars which Claude Code does not export — that check was inert and silently let the orchestrator drain context until forced compaction. The replacement below uses a deterministic on-disk task counter.
 
-Run via Bash:
-`if [ "${CLAUDE_CONTEXT_TOKENS_MAX:-0}" -gt 0 ]; then CTX_PCT=$(echo "scale=1; ${CLAUDE_CONTEXT_TOKENS_USED:-0} * 100 / ${CLAUDE_CONTEXT_TOKENS_MAX}" | bc); else CTX_PCT="N/A"; fi && echo "Orchestrator context: ${CTX_PCT}%"`
+**Before each task spawn — gate check:**
 
-**If CTX_PCT >= 70:**
+```bash
+node bin/task-counter.cjs should-stop
+```
+
+If the exit code is `10` (counter is at or past its limit), STOP immediately. Do NOT spawn the next task. Jump straight to the checkpoint/STOP procedure below.
+
+If the exit code is `0`, proceed to spawn the task.
+
+**After each task subagent returns — increment:**
+
+```bash
+node bin/task-counter.cjs increment task
+```
+
+This prints a JSON status line like `{"count":3,"limit":5,"remaining":2,"should_stop":false,...}`. Use this status when writing the token-log row (the `Tasks-Since-Reset` column).
+
+If `should_stop` is `true` after the increment, STOP after this task completes — even if more tasks remain in the current domain.
+
+**STOP procedure (when `should_stop` is true):**
+
 1. **Save checkpoint to disk** — update `.gsd-t/progress.md` with:
    - Which domains are complete, which remain
    - Current wave, next domain to execute
-   - Any checkpoint results
+   - Last completed task id and the next pending task id
 2. **Instruct user**: Output exactly:
    ```
-   ⚠️ Orchestrator context at {CTX_PCT}% — approaching limit.
-   Progress saved. Run `/clear` then `/user:gsd-t-execute` to continue from the next domain.
+   ⏸️ Orchestrator task-count gate reached ({count}/{limit} tasks in this session).
+   Progress saved. Run `/clear` then `/user:gsd-t-execute` to continue from the next task.
    ```
-3. **STOP execution.** Do NOT spawn another domain subagent. The next session will resume from saved state.
+3. **STOP execution.** Do NOT spawn another task or domain subagent. The next session resumes from saved state. The first thing the resumed orchestrator does in Step 0 is run `node bin/task-counter.cjs reset` (see below).
 
-**If CTX_PCT < 70:** Continue normally to the next domain/wave.
+**Configuring the limit:**
 
-This prevents the orchestrator from running out of context mid-milestone, which causes session breaks and summary-based recovery.
+The default limit is 5 tasks per session — conservative, designed for the model+harness combination as of 2026-04-13. Override per-project via `.gsd-t/task-counter-config.json`:
+
+```json
+{ "limit": 8 }
+```
+
+Or per-session via env var: `GSD_T_TASK_LIMIT=8 /user:gsd-t-execute`.
+
+**On resume (Step 0 — first thing the orchestrator does in a fresh session):**
+
+```bash
+node bin/task-counter.cjs reset
+```
+
+This clears the counter so the new session starts fresh. The reset is the SIGNAL that this is a clean post-`/clear` session — never reset mid-session.
+
+This deterministic gate replaces the vaporware env-var check. It is fail-safe: if `bin/task-counter.cjs` is missing for any reason, the `should-stop` command exits non-zero (treated as STOP) rather than silently allowing unlimited spawns.
 
 ## Step 4: Checkpoint Handling
 
@@ -680,285 +701,44 @@ A teammate finishes independent tasks and is waiting on a checkpoint:
 2. If not, have the teammate work on documentation, tests, or code cleanup within their domain
 3. Or shut down the teammate and respawn when unblocked
 
-## Step 5.25: Design Verification Agent (MANDATORY when design contract exists)
+## Step 5.25: Design Verification Agent (per-domain, MANDATORY when design contract exists)
 
-After all domain tasks complete and QA passes, check if `.gsd-t/contracts/design-contract.md` exists. If it does NOT exist, skip this step entirely.
+**IMPORTANT — frequency change in v2.74.12**: Design Verification was previously run once at the end of every execute run, regardless of how many domains existed. It is now run ONCE PER COMPLETED DOMAIN — call this step from the "After all tasks in a domain complete" block (Step 3.5 area), not from a global post-execute hook. This keeps verification co-located with the changes that introduced visual deviation, but stops the agent from re-materializing on every task spawn (which is what commit `b68353e` accidentally caused).
 
-If it DOES exist — spawn a **dedicated Design Verification Agent**. This agent's ONLY job is to open a browser, compare the built frontend against the original design, and produce a structured comparison table. It writes NO feature code. Separation of concerns: the coding agent codes, the verification agent verifies.
+After all tasks in the CURRENT DOMAIN complete and per-task QA has passed, check if `.gsd-t/contracts/design-contract.md` exists. If it does NOT exist, skip this step entirely.
 
-⚙ [{model}] Design Verification → visual comparison of built frontend vs design
+If it DOES exist AND this domain touched UI files — spawn the **Design Verification Agent**. This agent's ONLY job is to open a browser, compare the built frontend against the original design, and produce a structured comparison table. It writes NO feature code.
+
+⚙ [opus] Design Verification → visual comparison for domain {domain-name}
 
 **OBSERVABILITY LOGGING (MANDATORY):**
 Before spawning — run via Bash:
-`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M") && TOK_START=${CLAUDE_CONTEXT_TOKENS_USED:-0} && TOK_MAX=${CLAUDE_CONTEXT_TOKENS_MAX:-200000}`
+`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M")`
+
+Resolve the templated prompt path first so the orchestrator never holds the full ~3500-token verification protocol in its own context:
+
+```bash
+DV_PROMPT="$(npm root -g 2>/dev/null)/@tekyzinc/gsd-t/templates/prompts/design-verify-subagent.md"
+[ -f "$DV_PROMPT" ] || DV_PROMPT="templates/prompts/design-verify-subagent.md"
+```
+
+Then spawn the subagent with this short prompt:
 
 ```
 Task subagent (general-purpose, model: opus):
-"You are the Design Verification Agent. Your ONLY job is to visually compare
-the built frontend against the original design and produce a structured
-comparison table. You write ZERO feature code. Your sole deliverable is
-the comparison table and verification results.
-
-FAIL-BY-DEFAULT: Every visual element starts as UNVERIFIED. You must prove
-each one matches — not assume it does. 'Looks close' is not a verdict.
-'Appears to match' is not a verdict. The only valid verdicts are MATCH
-(with proof) or DEVIATION (with specifics).
-
-## Step 0: Element Count Reconciliation (MANDATORY — run BEFORE anything else)
-
-Before any visual or property comparison, verify the built page has the
-correct NUMBER of elements. A missing widget is the easiest deviation to
-miss in a 30+ row comparison table — and the most catastrophic.
-
-1. Read INDEX.md (hierarchical) or design-contract.md (flat) to get the
-   Figma element counts:
-   - Per-page: how many widgets on this page? How many total elements
-     (including widget-internal charts, legends, cards, controls)?
-2. Count the built page's distinct visual elements via Playwright:
-   - Widgets/cards (top-level visual groups)
-   - Charts, tables, stat cards, legends, controls within each widget
-3. Compare:
-   - Figma widget count vs built widget count → mismatch = ❌ CRITICAL
-   - Figma element count vs built element count → mismatch = ❌ CRITICAL
-4. If counts match → proceed to Step 0.5
-   If counts DON'T match → identify WHICH elements are missing or extra:
-   'Figma has {N} widgets, built page has {M}. MISSING: {list}. EXTRA: {list}'
-   Log as CRITICAL deviation — do NOT skip, continue with remaining steps.
-
-## Step 0.5: Data-Labels Cross-Check (MANDATORY)
-
-Before any visual comparison, verify the built UI is rendering the CORRECT
-DATA from the design. This is the most common failure mode: agents use
-placeholder data (Calculator/Planner/Tracker) while the design shows real
-labels (Steps to Stay Covered/Broker Contact). The verifier then compares
-bar-shapes only and declares MATCH — while the content is catastrophically
-wrong.
-
-1. For EACH element contract under .gsd-t/contracts/design/elements/
-   (or each section of flat .gsd-t/contracts/design-contract.md):
-   a. Read the 'Test Fixture' section — extract every label, value, percentage
-   b. Open the built UI in the browser
-   c. Inspect the rendered element (via DOM or screenshot OCR)
-   d. For EACH label/value/percentage in the Test Fixture:
-      - Does it appear verbatim in the rendered UI?
-      - If NO → immediate ❌ DEVIATION (severity CRITICAL)
-        Log: 'Test Fixture label {X} not found in rendered UI. Found instead: {Y}.'
-      - If YES → ✅ MATCH for that specific label/value
-
-2. Count: '{N}/{total} labels+values from Test Fixture appear correctly in UI'
-
-3. If ANY Test Fixture label or value is missing from the rendered UI:
-   The component is rendering WRONG DATA. This is a CRITICAL deviation.
-   No amount of visual polish can redeem wrong data. Mark the element
-   DEVIATION and continue (do not skip the rest — but flag the severity).
-
-## Step 1: Get the Design Reference
-
-Read .gsd-t/contracts/design-contract.md for the source reference.
-- If Figma MCP available → call `get_metadata` to enumerate widget/component nodes,
-  then call `get_design_context` per widget node to extract structured data
-  (code, component properties, design tokens, text content, layout values).
-  ⚠ Do NOT use `get_screenshot` for Figma data extraction — it returns pixels
-    you cannot extract exact values from. `get_design_context` returns structured
-    code and tokens. Use `get_design_context` for extraction, `get_screenshot`
-    ONLY if you need a visual reference image for side-by-side comparison.
-- If design image files → locate them from the contract's Source Reference field
-- If no MCP and no images → log CRITICAL blocker to .gsd-t/qa-issues.md and STOP
-You MUST have structured design data (or reference images) before proceeding.
-
-## Step 2: Build the Element Inventory
-
-Before ANY comparison, enumerate every distinct visual element in the design.
-Walk the design top-to-bottom, left-to-right. For each section:
-  - Section title text and icon
-  - Every chart/visualization (type, orientation, labels, legend, series count)
-  - Every data table (columns, row structure, sort indicators)
-  - Every KPI/stat card (value, label, icon, trend indicator)
-  - Every button, toggle, tab, dropdown
-  - Every text element (headings, body, captions, labels)
-  - Every spacing boundary (section gaps, card padding, element margins)
-  - Every color usage (backgrounds, borders, text, chart fills)
-Write each element as a row for the comparison table.
-If the inventory has fewer than 20 elements for a full page, you missed items.
-
-Data visualizations MUST expand into multiple rows:
-  Chart type, chart orientation, axis labels, axis grid lines, legend position,
-  data labels placement, chart colors per series, bar width/spacing,
-  center text (donut/pie), tooltip style — each a SEPARATE element.
-
-## Step 3: Open Side-by-Side Browser Sessions
-
-Start the dev server (npm run dev, or project equivalent).
-Open TWO browser views simultaneously for direct visual comparison:
-
-VIEW 1 — BUILT FRONTEND:
-  Open the implemented page using Claude Preview, Chrome MCP, or Playwright.
-  Navigate to the exact route/component being verified.
-  You MUST see real rendered output — not just read the code.
-
-VIEW 2 — ORIGINAL DESIGN REFERENCE (structured data, not just images):
-  If Figma MCP available → you already have `get_design_context` data from Step 1.
-    Use the STRUCTURED DATA (component properties, text content, layout values,
-    colors, spacing) as the authoritative design reference — not screenshots.
-    Optionally open the Figma URL in a browser for visual context, but extract
-    values from `get_design_context` responses, not from visual inspection.
-  If design image file → open the image in a browser tab/window.
-    Use: file://{absolute-path-to-image} or render in an HTML page.
-  If no Figma MCP → use reference images from the design contract.
-
-COMPARISON APPROACH:
-  For each widget/component, compare the BUILT DOM/styles against the
-  STRUCTURED values from `get_design_context`:
-    - Chart type: does the built component match the Figma node's structure?
-    - Text content: do titles, labels, legends match `get_design_context` text?
-    - Layout: do spacing, alignment, sizing match the structured properties?
-    - Colors: do fills, strokes, text colors match the exact hex values?
-  Capture implementation screenshots at each target breakpoint:
-    Mobile (375px), Tablet (768px), Desktop (1280px) minimum.
-  Compare screenshots against Figma for overall visual impression,
-  but use `get_design_context` data for the authoritative value comparison.
-
-If Claude Preview, Chrome MCP, and Playwright are ALL unavailable:
-  This is a CRITICAL blocker. Log to .gsd-t/qa-issues.md:
-  'CRITICAL: No browser tools available for visual verification.'
-  STOP — the verification CANNOT proceed without a browser.
-
-## Step 4: Structured Element-by-Element Comparison (MANDATORY FORMAT)
-
-Produce a comparison table with this exact structure. Every element from
-the inventory gets its own row. No summarizing, no grouping, no prose.
-
-| # | Section | Element | Design (specific) | Implementation (specific) | Verdict |
-|---|---------|---------|-------------------|--------------------------|---------|
-| 1 | Summary | Chart type | Horizontal stacked bar | Vertical grouped bar | ❌ DEVIATION |
-| 2 | Summary | Chart colors | #4285F4, #34A853, #FBBC04 | #4285F4, #34A853, #FBBC04 | ✅ MATCH |
-
-Rules:
-- 'Design' column: SPECIFIC values from `get_design_context` structured data
-  (chart type name, hex color, px size, font weight, text content)
-- 'Implementation' column: SPECIFIC observed values from the built page DOM/styles
-- Verdict: only ✅ MATCH or ❌ DEVIATION — never 'appears to match' or 'need to verify'
-- NEVER write 'Appears to match' or 'Looks correct' — measure and verify
-- If the table has fewer than 30 rows for a full-page comparison, you skipped elements
-
-## Step 5: SVG Structural Overlay Comparison (MANDATORY)
-
-After the property-level comparison, run a mechanical SVG-based diff to catch
-aggregate visual drift that individual property checks miss.
-
-1. Export the Figma frame as SVG:
-   - Use the Figma REST API or MCP to export the page/frame as SVG
-   - If export is unavailable, ask the user to export and provide the SVG path
-   - Store the SVG at .gsd-t/design-verify/{page-name}-figma.svg
-2. Parse the SVG DOM: extract every <rect>, <text>, <circle>, <path>, <g>
-   with their positions (x, y), dimensions (width, height), fills, strokes,
-   and text content
-3. Screenshot the built page at the same viewport width via Playwright
-4. Inspect the built page DOM: extract element bounding boxes, computed
-   styles (colors, dimensions), and text content
-5. Map SVG elements → built DOM elements by:
-   - Text content matching (highest confidence)
-   - Position proximity (x,y within 10px tolerance)
-   - Dimensional similarity (width/height within 10% tolerance)
-6. For each mapped pair, compare:
-   - Position: SVG (x,y) vs DOM bounding box (x,y). Within 2px = MATCH
-   - Dimensions: SVG (w,h) vs DOM (w,h). Within 2px = MATCH
-   - Colors: SVG fill/stroke vs computed CSS color. Exact hex = MATCH
-   - Text: SVG <text> content vs DOM textContent. Exact = MATCH
-7. Produce an SVG structural diff table:
-   | # | SVG Element | SVG Position | Built Position | Δ px | Verdict |
-   Threshold: ≤2px = ✅ MATCH, 3-5px = ⚠ REVIEW, >5px = ❌ DEVIATION
-8. Unmapped SVG elements (no DOM match) → flag as MISSING IN BUILD
-   Unmapped DOM elements (no SVG match) → flag as EXTRA IN BUILD
-9. Generate a visual overlay image (optional but recommended):
-   - Render SVG in browser at target viewport size
-   - Overlay on built page screenshot with 50% opacity or difference blend
-   - Save to .gsd-t/design-verify/{page-name}-overlay.png
-
-This step catches spacing rhythm, alignment drift, and proportion issues
-that pass the property-level check but are visually wrong in aggregate.
-
-## Step 5.5: DOM Box Model Inspection (MANDATORY for fixed-height containers)
-
-The property table catches wrong values. The SVG overlay catches wrong positions.
-This step catches wrong SPACE DISTRIBUTION — elements whose box model is inflated
-by flex growth, pushing siblings out of position even when the visual appears close.
-
-For each card/widget with a fixed height (container_height is not 'auto'):
-
-1. Use Playwright to evaluate in the browser:
-   ```javascript
-   // For each child element of the card body:
-   const children = await page.$$eval('.card-body > *', els =>
-     els.map(el => ({
-       selector: el.className,
-       offsetHeight: el.offsetHeight,
-       scrollHeight: el.scrollHeight,
-       computedFlex: getComputedStyle(el).flex,
-       computedFlexGrow: getComputedStyle(el).flexGrow,
-     }))
-   );
-   ```
-
-2. Flag any element where `offsetHeight > scrollHeight * 1.5`:
-   This means the element's layout box is ≥50% larger than its content.
-   Symptom: element is using `flex: 1` or `flex-grow: 1` and inflating.
-   ❌ DEVIATION (severity HIGH): '{selector} offsetHeight={X}px but
-   content only needs {scrollHeight}px — inflated by flex growth.
-   Fix: remove flex:1 from this element, apply justify-content:center
-   on its parent container instead.'
-
-3. Verify layout arithmetic:
-   - Read the widget contract's Internal Layout Arithmetic section
-   - Sum all child offsetHeights + computed gaps
-   - Compare against the card body's offsetHeight
-   - If sum > body height → ❌ DEVIATION: content overflows
-   - If sum < body height by >20px with no centering strategy → ❌ DEVIATION
-
-4. Produce box model table:
-   | # | Element | offsetHeight | scrollHeight | flex-grow | Verdict |
-   |---|---------|-------------|-------------|-----------|---------|
-   | 1 | .kpi    | 144px       | 40px        | 1         | ❌ INFLATED |
-   | 2 | .chart  | 74px        | 74px        | 0         | ✅ MATCH |
-
-## Step 6: Report Deviations
-
-For each ❌ DEVIATION, write a specific finding:
-  'Design: {exact value}. Implementation: {exact value}. File: {path}:{line}'
-
-Write the FULL comparison table (property-level from Step 4 + SVG structural
-from Step 5) to .gsd-t/contracts/design-contract.md under a
-'## Verification Status' section.
-
-Any ❌ DEVIATION → also append to .gsd-t/qa-issues.md with severity HIGH
-and tag [VISUAL]:
-| {date} | gsd-t-execute | Step 5.25 | opus | {duration} | HIGH | [VISUAL] {description} |
-
-## Step 7: Verdict
-
-Count results: '{MATCH_COUNT}/{TOTAL} elements match at {breakpoints} breakpoints'
-
-VERDICT:
-- ALL rows ✅ MATCH → DESIGN VERIFIED
-- ANY rows ❌ DEVIATION → DESIGN DEVIATIONS FOUND ({count} deviations)
-
-Write verdict to .gsd-t/contracts/design-contract.md Verification Status section.
-
-Report back:
-- Verdict: DESIGN VERIFIED | DESIGN DEVIATIONS FOUND
-- Match count: {N}/{total}
-- Breakpoints verified: {list}
-- Deviations: {count with summary of each}
-- Comparison table: {the full table}"
+"You are the Design Verification Agent. Read $DV_PROMPT and follow it exactly.
+Do not deviate from that protocol. Context for this run:
+  - domain: {domain-name}
+  - design contract: .gsd-t/contracts/design-contract.md
+  - files modified by this domain: {list}
+Report back the verdict, match count, breakpoints verified, deviation count
+and summary, and the full comparison table per the protocol's Step 7."
 ```
 
 After subagent returns — run via Bash:
-`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && TOK_END=${CLAUDE_CONTEXT_TOKENS_USED:-0} && DURATION=$((T_END-T_START))`
-Compute tokens and compaction:
-- No compaction (TOK_END >= TOK_START): `TOKENS=$((TOK_END-TOK_START))`, COMPACTED=null
-- Compaction detected (TOK_END < TOK_START): `TOKENS=$(((TOK_MAX-TOK_START)+TOK_END))`, COMPACTED=$DT_END
+`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START)) && COUNTER_JSON=$(node bin/task-counter.cjs status 2>/dev/null || echo '{}') && COUNTER=$(echo "$COUNTER_JSON" | node -e "let s=''; process.stdin.on('data',d=>s+=d).on('end',()=>{try{process.stdout.write(String(JSON.parse(s).count||''))}catch(_){process.stdout.write('')}})")`
 Append to `.gsd-t/token-log.md`:
-`| {DT_START} | {DT_END} | gsd-t-execute | Design Verify | opus | {DURATION}s | {VERDICT} — {MATCH}/{TOTAL} elements | {TOKENS} | {COMPACTED} | | | {CTX_PCT} |`
+`| {DT_START} | {DT_END} | gsd-t-execute | Design Verify | opus | {DURATION}s | {VERDICT} — {MATCH}/{TOTAL} elements for {domain-name} | | | {COUNTER} |`
 
 **Artifact Gate (MANDATORY):**
 After the Design Verification Agent returns, check `.gsd-t/contracts/design-contract.md`:
@@ -975,113 +755,43 @@ After the Design Verification Agent returns, check `.gsd-t/contracts/design-cont
 
 **If VERDICT is DESIGN VERIFIED:** Proceed to Red Team.
 
-## Step 5.5: Red Team — Adversarial QA (MANDATORY)
+## Step 5.5: Red Team — Adversarial QA (per-domain, MANDATORY)
 
-After all domain tasks pass their tests, spawn an adversarial Red Team agent. This agent's sole purpose is to BREAK the code that was just built. It operates with inverted incentives — its success is measured by bugs found, not tests passed.
+**IMPORTANT — frequency change in v2.74.12**: Red Team was promoted to per-task by commit `da6d3ae` on the assumption that the orchestrator would catch context drain via the `CLAUDE_CONTEXT_TOKENS_USED` self-check. That env var is never set by Claude Code, so the check was inert and the per-task spawning of ~10k-token Red Team subagents was the largest single contributor to the v2.74.x context-burn regression. Red Team is now run ONCE PER COMPLETED DOMAIN — call this step from the "After all tasks in a domain complete" block, not from a per-task hook.
 
-⚙ [{model}] Red Team → adversarial validation of executed domains
+After all tasks in the CURRENT DOMAIN pass their tests, spawn an adversarial Red Team agent. Its sole purpose is to BREAK the domain that was just built.
+
+⚙ [opus] Red Team → adversarial validation for domain {domain-name}
 
 **OBSERVABILITY LOGGING (MANDATORY):**
 Before spawning — run via Bash:
-`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M") && TOK_START=${CLAUDE_CONTEXT_TOKENS_USED:-0} && TOK_MAX=${CLAUDE_CONTEXT_TOKENS_MAX:-200000}`
+`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M")`
+
+Resolve the templated prompt path so the orchestrator never holds the full ~3500-token Red Team protocol in its own context:
+
+```bash
+RT_PROMPT="$(npm root -g 2>/dev/null)/@tekyzinc/gsd-t/templates/prompts/red-team-subagent.md"
+[ -f "$RT_PROMPT" ] || RT_PROMPT="templates/prompts/red-team-subagent.md"
+```
+
+Then spawn the subagent with this short prompt:
 
 ```
 Task subagent (general-purpose, model: opus):
-"You are a Red Team QA adversary. Your job is to BREAK the code that was just written.
-
-Your value is measured by REAL bugs found. More bugs = more value.
-If you find zero bugs, you must prove you were thorough — list every
-attack vector you tried and why it didn't break. A short list means
-you didn't try hard enough.
-
-Rules:
-- False positives DESTROY your credibility. If you report something
-  as a bug and it's actually correct behavior, that's worse than
-  missing a real bug. Never report something you haven't reproduced.
-- Style opinions are not bugs. Theoretical concerns are not bugs.
-  A bug is: 'I did X, expected Y, got Z.' With proof.
-- You are done ONLY when you have exhausted every category below
-  and either found a bug or documented exactly what you tried.
-
-## Attack Categories (exhaust ALL of these)
-
-1. **Contract Violations**: Read .gsd-t/contracts/. Does the code EXACTLY
-   match every contract? Test each endpoint/interface/schema shape.
-2. **Boundary Inputs**: Empty strings, null, undefined, huge payloads,
-   special characters, SQL injection attempts, XSS payloads, path traversal.
-3. **State Transitions**: What happens when actions are performed out of
-   order? Double-submit? Concurrent access? Refresh mid-flow?
-4. **Error Paths**: Remove env vars. Kill the database. Send malformed
-   requests. Does the code handle failures gracefully or crash?
-5. **Missing Flows**: Read docs/requirements.md. Are there user flows that
-   exist in requirements but have NO test coverage? Write tests for them.
-6. **Regression**: Run the FULL test suite. Did any existing tests break?
-7. **E2E Functional Gaps**: Review ALL Playwright specs. Do they test actual
-   behavior (state changes, data loaded, navigation works) or just check
-   that elements exist? Flag and rewrite any shallow/layout tests.
-8. **Design Fidelity** (if .gsd-t/contracts/design-contract.md exists):
-   FAIL-BY-DEFAULT: assume NOTHING matches. Prove each element individually.
-   a. Open every implemented screen in a real browser. Screenshot at mobile
-      (375px), tablet (768px), desktop (1280px). Get Figma reference via
-      `get_design_context` per widget node (structured data — NOT `get_screenshot`).
-   b. Build an element inventory: enumerate every distinct visual element
-      in the design top-to-bottom. Every chart, label, icon, heading, card,
-      spacing boundary, and color. Data visualizations expand: chart type,
-      orientation, axis labels, legend position, bar colors, data labels,
-      grid lines, center text — each a separate item.
-   c. Produce a structured comparison table (MANDATORY):
-      | # | Section | Element | Design (specific) | Implementation (specific) | Verdict |
-      Every element gets specific values in both columns (hex colors, chart
-      type names, px sizes, font weights — never vague descriptions).
-      Only valid verdicts: ✅ MATCH or ❌ DEVIATION.
-      NEVER write "appears to match" or "looks correct."
-   d. Any ❌ DEVIATION is a CRITICAL bug with full reproduction:
-      'Design: horizontal stacked bar with % labels inside bars.
-       Build: vertical grouped bar with labels above bars.' — this is a bug.
-      'Design: 32px Inter SemiBold. Build: 24px Inter Regular.' — this is a bug.
-   e. If the comparison table has fewer than 30 rows for a full page, the
-      audit is incomplete — go back and find the missing elements.
-
-## Exploratory Testing (if Playwright MCP available)
-
-After all scripted tests pass:
-1. Check if Playwright MCP is registered in Claude Code settings (look for "playwright" in mcpServers)
-2. If available: spend 5 minutes on adversarial interactive exploration using Playwright MCP
-   - Attempt race conditions, double-submits, concurrent access patterns
-   - Try unexpected input sequences, boundary values, rapid state transitions
-   - Probe error recovery: does the app recover after failures or get stuck?
-3. Tag all findings [EXPLORATORY] in your report
-4. If Playwright MCP is not available: skip this section silently
-Note: Exploratory findings are additive — they do not replace scripted test results.
-
-## Report Format
-
-For each bug found:
-- **BUG-{N}**: {severity: CRITICAL/HIGH/MEDIUM/LOW}
-  - **Reproduction**: {exact steps to reproduce}
-  - **Expected**: {what should happen}
-  - **Actual**: {what actually happens}
-  - **Proof**: {test file or command that demonstrates the bug}
-
-Summary:
-- BUGS FOUND: {count} (with severity breakdown)
-- COVERAGE GAPS: {untested flows from requirements}
-- SHALLOW TESTS REWRITTEN: {count}
-- CONTRACTS VERIFIED: {N}/{total}
-- ATTACK VECTORS TRIED: {list every category attempted and results}
-- VERDICT: FAIL ({N} bugs found) | GRUDGING PASS (exhaustive search, nothing found)
-
-Write all findings to .gsd-t/red-team-report.md.
-If bugs found, also append to .gsd-t/qa-issues.md."
+"You are a Red Team QA adversary. Read $RT_PROMPT and follow it exactly.
+Do not deviate from that protocol. Context for this run:
+  - domain: {domain-name}
+  - files modified by this domain: {list}
+  - tasks just completed: {task-id list}
+Report back the verdict (FAIL or GRUDGING PASS), bugs found by severity,
+attack categories exhausted, and the path to the written
+.gsd-t/red-team-report.md."
 ```
 
 After subagent returns — run via Bash:
-`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && TOK_END=${CLAUDE_CONTEXT_TOKENS_USED:-0} && DURATION=$((T_END-T_START))`
-Compute tokens and compaction:
-- No compaction (TOK_END >= TOK_START): `TOKENS=$((TOK_END-TOK_START))`, COMPACTED=null
-- Compaction detected (TOK_END < TOK_START): `TOKENS=$(((TOK_MAX-TOK_START)+TOK_END))`, COMPACTED=$DT_END
+`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START)) && COUNTER=$(node bin/task-counter.cjs status 2>/dev/null | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{process.stdout.write(String(JSON.parse(s).count||''))}catch(_){process.stdout.write('')}})")`
 Append to `.gsd-t/token-log.md`:
-`| {DT_START} | {DT_END} | gsd-t-execute | Red Team | sonnet | {DURATION}s | {VERDICT} — {N} bugs found | {TOKENS} | {COMPACTED} | | | {CTX_PCT} |`
+`| {DT_START} | {DT_END} | gsd-t-execute | Red Team | opus | {DURATION}s | {VERDICT} — {N} bugs found in {domain-name} | | | {COUNTER} |`
 
 **If Red Team VERDICT is FAIL:**
 1. Fix all CRITICAL and HIGH bugs immediately (up to 2 fix attempts per bug)

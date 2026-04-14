@@ -2,6 +2,16 @@
 
 You are the wave orchestrator. You do NOT execute phases yourself. Instead, you spawn an **independent agent for each phase**, giving each a fresh context window. This eliminates context accumulation across phases and prevents mid-wave compaction.
 
+## Step 0: Reset Phase-Count Gate (MANDATORY — first thing in a fresh session)
+
+Run via Bash:
+
+```bash
+node bin/task-counter.cjs reset
+```
+
+This clears `.gsd-t/.task-counter` so the new wave session starts at 0. The gate logic is in the Phase Agent Spawn Pattern below — it forces a /clear-and-resume after N phase spawns to prevent the wave orchestrator from itself running out of context. Default N=5, override per-project via `.gsd-t/task-counter-config.json` (`{"limit":8}`) or env `GSD_T_TASK_LIMIT=8`.
+
 ## Step 1: Load State (Lightweight)
 
 Read ONLY:
@@ -93,7 +103,7 @@ Run via Bash:
 
 **OBSERVABILITY LOGGING (MANDATORY) — repeat for every phase spawn:**
 Before spawning — run via Bash:
-`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M") && TOK_START=${CLAUDE_CONTEXT_TOKENS_USED:-0} && TOK_MAX=${CLAUDE_CONTEXT_TOKENS_MAX:-200000}`
+`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M")`
 
 ```
 Task agent (subagent_type: "general-purpose", mode: "bypassPermissions"):
@@ -114,28 +124,31 @@ Task agent (subagent_type: "general-purpose", mode: "bypassPermissions"):
 ```
 
 After phase agent returns — run via Bash:
-`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && TOK_END=${CLAUDE_CONTEXT_TOKENS_USED:-0} && DURATION=$((T_END-T_START))`
-Compute tokens and compaction:
-- No compaction (TOK_END >= TOK_START): `TOKENS=$((TOK_END-TOK_START))`, COMPACTED=null
-- Compaction detected (TOK_END < TOK_START): `TOKENS=$(((TOK_MAX-TOK_START)+TOK_END))`, COMPACTED=$DT_END
-Compute context utilization — run via Bash:
-`if [ "${CLAUDE_CONTEXT_TOKENS_MAX:-0}" -gt 0 ]; then CTX_PCT=$(echo "scale=1; ${CLAUDE_CONTEXT_TOKENS_USED:-0} * 100 / ${CLAUDE_CONTEXT_TOKENS_MAX}" | bc); else CTX_PCT="N/A"; fi`
-Alert on context thresholds (display to user inline):
-- If CTX_PCT >= 85: `echo "🔴 CRITICAL: Context at ${CTX_PCT}% — compaction likely. Task MUST be split."`
-- If CTX_PCT >= 70: `echo "⚠️ WARNING: Context at ${CTX_PCT}% — approaching compaction threshold. Consider splitting in plan."`
+`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START))`
 
-**Orchestrator Context Self-Check (MANDATORY):**
-After EVERY phase agent returns, check the wave orchestrator's own context:
-- **If CTX_PCT >= 70:**
-  1. Save checkpoint to `.gsd-t/progress.md` — record which phases are complete, which remain
-  2. Output: `⚠️ Wave orchestrator context at {CTX_PCT}% — approaching limit. Progress saved. Run /clear then /user:gsd-t-wave to continue from the next phase.`
-  3. **STOP the wave loop.** Do NOT spawn the next phase agent. The next session resumes from saved state.
-- **If CTX_PCT < 70:** Continue to next phase.
+**Wave Orchestrator Phase-Count Gate (MANDATORY) — replaces the broken context-percent check from v2.74.x:**
 
-This prevents the wave orchestrator from running out of context mid-wave.
+Run via Bash AFTER each phase agent returns:
 
-Append to `.gsd-t/token-log.md` (create with header `| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Tokens | Compacted | Domain | Task | Ctx% |` if missing):
-`| {DT_START} | {DT_END} | gsd-t-wave | {PHASE} | sonnet | {DURATION}s | phase: {PHASE} | {TOKENS} | {COMPACTED} | | | {CTX_PCT} |`
+```bash
+node bin/task-counter.cjs increment phase
+```
+
+Read the JSON status the command prints. If `should_stop` is `true` (or the command's exit code is `10`):
+1. Save checkpoint to `.gsd-t/progress.md` — record which phases are complete, which remain.
+2. Output exactly: `⏸️ Wave orchestrator phase-count gate reached ({count}/{limit} phases in this session). Progress saved. Run /clear then /user:gsd-t-wave to continue from the next phase.`
+3. **STOP the wave loop.** Do NOT spawn the next phase agent. The next session resumes from saved state.
+
+The wave orchestrator shares the same `bin/task-counter.cjs` counter as the execute orchestrator. Each phase spawn (PARTITION, DISCUSS, PLAN, IMPACT, EXECUTE, TEST-SYNC, INTEGRATE, VERIFY+COMPLETE, DOC-RIPPLE) increments the counter by 1. With the default limit of 5, a wave will run at most 5 phase agents per session before forcing a /clear-and-resume — typically two sessions per full wave. Override via `.gsd-t/task-counter-config.json` (`{"limit":8}`) or `GSD_T_TASK_LIMIT=8`.
+
+The previous version of this gate relied on `CLAUDE_CONTEXT_TOKENS_USED`/`_MAX` env vars which Claude Code does not export — that check was inert and let the orchestrator drain context until forced compaction. The deterministic on-disk counter has the same intent (force a /clear before context runs out) but actually works.
+
+**On wave entry**, the wave orchestrator runs `node bin/task-counter.cjs reset` exactly once (see Step 0 — it is the very first thing the wave does in a fresh session). The reset is the SIGNAL that this is a clean post-/clear session.
+
+Append to `.gsd-t/token-log.md` (create with header `| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Domain | Task | Tasks-Since-Reset |` if missing):
+`| {DT_START} | {DT_END} | gsd-t-wave | {PHASE} | sonnet | {DURATION}s | phase: {PHASE} | | | {COUNTER} |`
+
+Where `{COUNTER}` is the `count` field from the JSON the increment command just printed.
 
 ### Phase Sequence
 

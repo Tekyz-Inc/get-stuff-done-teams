@@ -10,7 +10,7 @@ To give this task a fresh context window and prevent compaction during consecuti
 
 **OBSERVABILITY LOGGING (MANDATORY):**
 Before spawning — run via Bash:
-`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M") && TOK_START=${CLAUDE_CONTEXT_TOKENS_USED:-0} && TOK_MAX=${CLAUDE_CONTEXT_TOKENS_MAX:-200000}`
+`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M")`
 
 **Token Budget Check (before spawning subagent):**
 
@@ -95,12 +95,9 @@ Read CLAUDE.md and .gsd-t/progress.md for project context, then execute gsd-t-qu
 ```
 
 After subagent returns — run via Bash:
-`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && TOK_END=${CLAUDE_CONTEXT_TOKENS_USED:-0} && DURATION=$((T_END-T_START))`
-Compute tokens and compaction:
-- No compaction (TOK_END >= TOK_START): `TOKENS=$((TOK_END-TOK_START))`, COMPACTED=null
-- Compaction detected (TOK_END < TOK_START): `TOKENS=$(((TOK_MAX-TOK_START)+TOK_END))`, COMPACTED=$DT_END
-Append to `.gsd-t/token-log.md` (create with header `| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Tokens | Compacted |` if missing):
-`| {DT_START} | {DT_END} | gsd-t-quick | Step 0 | sonnet | {DURATION}s | quick: {task summary} | {TOKENS} | {COMPACTED} |`
+`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START))`
+Append to `.gsd-t/token-log.md` (create with header `| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Tasks-Since-Reset |` if missing):
+`| {DT_START} | {DT_END} | gsd-t-quick | Step 0 | sonnet | {DURATION}s | quick: {task summary} | {COUNTER} |`
 
 Relay the subagent's summary to the user. **Do not execute Steps 1–5 yourself.**
 
@@ -262,7 +259,7 @@ If it DOES exist and this task involved UI changes — spawn the Design Verifica
 
 **OBSERVABILITY LOGGING (MANDATORY):**
 Before spawning — run via Bash:
-`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M") && TOK_START=${CLAUDE_CONTEXT_TOKENS_USED:-0} && TOK_MAX=${CLAUDE_CONTEXT_TOKENS_MAX:-200000}`
+`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M")`
 
 ```
 Task subagent (general-purpose, model: opus):
@@ -327,96 +324,34 @@ After subagent returns — run observability Bash and append to token-log.md.
 
 ## Step 5.5: Red Team — Adversarial QA (MANDATORY)
 
-After tests pass, spawn an adversarial Red Team agent. This agent's sole purpose is to BREAK the code that was just changed. Its success is measured by bugs found, not tests passed.
+After tests pass, spawn an adversarial Red Team agent. Its success is measured by bugs found, not tests passed.
 
-⚙ [{model}] Red Team → adversarial validation of quick task
+⚙ [opus] Red Team → adversarial validation of quick task
 
-**OBSERVABILITY LOGGING (MANDATORY):**
-Before spawning — run via Bash:
-`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M") && TOK_START=${CLAUDE_CONTEXT_TOKENS_USED:-0} && TOK_MAX=${CLAUDE_CONTEXT_TOKENS_MAX:-200000}`
-
+Resolve the templated prompt path via Bash (same pattern as execute.md):
 ```
-Task subagent (general-purpose, model: opus):
-"You are a Red Team QA adversary. Your job is to BREAK the code that was just changed.
-
-Your value is measured by REAL bugs found. More bugs = more value.
-If you find zero bugs, you must prove you were thorough — list every
-attack vector you tried and why it didn't break. A short list means
-you didn't try hard enough.
-
-Rules:
-- False positives DESTROY your credibility. If you report something
-  as a bug and it's actually correct behavior, that's worse than
-  missing a real bug. Never report something you haven't reproduced.
-- Style opinions are not bugs. Theoretical concerns are not bugs.
-  A bug is: 'I did X, expected Y, got Z.' With proof.
-- You are done ONLY when you have exhausted every category below
-  and either found a bug or documented exactly what you tried.
-
-## Attack Categories (exhaust ALL of these)
-
-1. **Contract Violations**: Read .gsd-t/contracts/. Does the code EXACTLY
-   match every contract? Test each endpoint/interface/schema shape.
-2. **Boundary Inputs**: Empty strings, null, undefined, huge payloads,
-   special characters, SQL injection attempts, XSS payloads, path traversal.
-3. **State Transitions**: What happens when actions are performed out of
-   order? Double-submit? Concurrent access? Refresh mid-flow?
-4. **Error Paths**: Remove env vars. Kill the database. Send malformed
-   requests. Does the code handle failures gracefully or crash?
-5. **Missing Flows**: Read docs/requirements.md. Are there user flows that
-   exist in requirements but have NO test coverage? Write tests for them.
-6. **Regression**: Run the FULL test suite. Did any existing tests break?
-7. **E2E Functional Gaps**: Review ALL Playwright specs. Do they test actual
-   behavior (state changes, data loaded, navigation works) or just check
-   that elements exist? Flag and rewrite any shallow/layout tests.
-
-## Exploratory Testing (if Playwright MCP available)
-
-After all scripted tests pass:
-1. Check if Playwright MCP is registered in Claude Code settings (look for "playwright" in mcpServers)
-2. If available: spend 5 minutes on adversarial interactive exploration using Playwright MCP
-   - Attempt race conditions, double-submits, concurrent access patterns
-   - Try unexpected input sequences, boundary values, rapid state transitions
-   - Probe error recovery: does the app recover after failures or get stuck?
-3. Tag all findings [EXPLORATORY] in your report
-4. If Playwright MCP is not available: skip this section silently
-Note: Exploratory findings are additive — they do not replace scripted test results.
-
-## Report Format
-
-For each bug found:
-- **BUG-{N}**: {severity: CRITICAL/HIGH/MEDIUM/LOW}
-  - **Reproduction**: {exact steps to reproduce}
-  - **Expected**: {what should happen}
-  - **Actual**: {what actually happens}
-  - **Proof**: {test file or command that demonstrates the bug}
-
-Summary:
-- BUGS FOUND: {count} (with severity breakdown)
-- COVERAGE GAPS: {untested flows from requirements}
-- SHALLOW TESTS REWRITTEN: {count}
-- CONTRACTS VERIFIED: {N}/{total}
-- ATTACK VECTORS TRIED: {list every category attempted and results}
-- VERDICT: FAIL ({N} bugs found) | GRUDGING PASS (exhaustive search, nothing found)
-
-Write all findings to .gsd-t/red-team-report.md.
-If bugs found, also append to .gsd-t/qa-issues.md."
+RT_PROMPT="$(npm root -g 2>/dev/null)/@tekyzinc/gsd-t/templates/prompts/red-team-subagent.md"
+[ -f "$RT_PROMPT" ] || RT_PROMPT="templates/prompts/red-team-subagent.md"
+T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M")
 ```
+
+Spawn Task subagent (general-purpose, model: opus):
+> "Read `$RT_PROMPT` and follow it. Context for this run: quick task — adversarial validation of the code just changed. Write findings to `.gsd-t/red-team-report.md`."
 
 After subagent returns — run via Bash:
-`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && TOK_END=${CLAUDE_CONTEXT_TOKENS_USED:-0} && DURATION=$((T_END-T_START))`
-Compute tokens and compaction:
-- No compaction (TOK_END >= TOK_START): `TOKENS=$((TOK_END-TOK_START))`, COMPACTED=null
-- Compaction detected (TOK_END < TOK_START): `TOKENS=$(((TOK_MAX-TOK_START)+TOK_END))`, COMPACTED=$DT_END
+```
+T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START))
+COUNTER=$(node bin/task-counter.cjs status 2>/dev/null | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{process.stdout.write(String(JSON.parse(s).count||''))}catch(_){process.stdout.write('')}})")
+```
 Append to `.gsd-t/token-log.md`:
-`| {DT_START} | {DT_END} | gsd-t-quick | Red Team | sonnet | {DURATION}s | {VERDICT} — {N} bugs found | {TOKENS} | {COMPACTED} | | | {CTX_PCT} |`
+`| {DT_START} | {DT_END} | gsd-t-quick | Red Team | opus | {DURATION}s | {VERDICT} — {N} bugs found | | | {COUNTER} |`
 
 **If Red Team VERDICT is FAIL:**
-1. Fix all CRITICAL and HIGH bugs immediately (up to 2 fix attempts per bug)
+1. Fix all CRITICAL and HIGH bugs (up to 2 fix cycles)
 2. Re-run Red Team after fixes
-3. If bugs persist after 2 fix cycles, log to `.gsd-t/deferred-items.md` and present to user
+3. If bugs persist, log to `.gsd-t/deferred-items.md` and present to user
 
-**If Red Team VERDICT is GRUDGING PASS:** Proceed to doc-ripple.
+**If GRUDGING PASS:** Proceed to doc-ripple.
 
 ## Step 6: Doc-Ripple (Automated)
 

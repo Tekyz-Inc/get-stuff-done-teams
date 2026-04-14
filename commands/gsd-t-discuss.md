@@ -53,7 +53,7 @@ If the user requests team exploration or there are 3+ complex open questions:
 
 **OBSERVABILITY LOGGING (MANDATORY):**
 Before spawning the team — run via Bash:
-`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M") && TOK_START=${CLAUDE_CONTEXT_TOKENS_USED:-0} && TOK_MAX=${CLAUDE_CONTEXT_TOKENS_MAX:-200000}`
+`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M")`
 
 ```
 Create an agent team:
@@ -72,12 +72,9 @@ Lead: Synthesize into decisions and update contracts.
 ```
 
 After team completes — run via Bash:
-`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && TOK_END=${CLAUDE_CONTEXT_TOKENS_USED:-0} && DURATION=$((T_END-T_START))`
-Compute tokens and compaction:
-- No compaction (TOK_END >= TOK_START): `TOKENS=$((TOK_END-TOK_START))`, COMPACTED=null
-- Compaction detected (TOK_END < TOK_START): `TOKENS=$(((TOK_MAX-TOK_START)+TOK_END))`, COMPACTED=$DT_END
-Append to `.gsd-t/token-log.md` (create with header `| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Tokens | Compacted |` if missing):
-`| {DT_START} | {DT_END} | gsd-t-discuss | Step 3 | sonnet | {DURATION}s | team discuss: {topic summary} | {TOKENS} | {COMPACTED} |`
+`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START))`
+Append to `.gsd-t/token-log.md` (create with header `| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Tasks-Since-Reset |` if missing):
+`| {DT_START} | {DT_END} | gsd-t-discuss | Step 3 | sonnet | {DURATION}s | team discuss: {topic summary} | {COUNTER} |`
 
 Assign teammates based on the nature of the questions:
 - **Technical choice** (e.g., which database): one advocate per option + critic

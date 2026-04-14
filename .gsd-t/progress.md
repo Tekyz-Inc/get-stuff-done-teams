@@ -2,8 +2,8 @@
 
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: IN PROGRESS
-## Date: 2026-04-13
-## Version: 2.74.11
+## Date: 2026-04-14
+## Version: 2.74.12
 
 ## Active Milestone
 
@@ -401,6 +401,8 @@ Wave 4: adaptive-replan (consumes fresh-dispatch summaries, integrates with work
 - 2026-04-13 17:25: [feat] Rolling Decision Log archival to fix mid-session compaction regression — added bin/archive-progress.js (keeps last 5 entries live, rolls older into 20-entry windows under .gsd-t/progress-archive/), bin/log-tail.js (truncates test/build output), bin/context-budget-audit.js (preamble cost diagnostic). Auto-migrated this project: 163KB → 42KB, Decision Log section dropped 100KB+ → 13KB. Wired into version-update-all to copy bin tools into every registered project and run a one-time archive migration (gated by .gsd-t/.archive-migration-v1 marker). Root-cause fix for the "manual /compact prompts started 2026-04-10" regression — every command that read progress.md was paying 25% of the context window per read. (v2.74.10)
 
 - 2026-04-13 17:55: [fix] Renamed bin tools .js → .cjs to support ESM projects — first version-update-all hit a CommonJS/ESM error on BDS-Analytics-UI (which has "type": "module" in package.json). archive-progress.js, log-tail.js, and context-budget-audit.js now use .cjs extension so they run as CommonJS regardless of the host project's module type. Cleaned up broken .js copies from 13 already-updated projects, retried update-all successfully. 11 of 13 projects ran their one-time migration on first update-all. (v2.74.11)
+
+- 2026-04-14: [fix] P0 context-burn regression — `CLAUDE_CONTEXT_TOKENS_USED` / `CLAUDE_CONTEXT_TOKENS_MAX` env vars were vaporware (Claude Code never exports them). The "orchestrator context self-check" added in commit `0b91429` was silently inert, and commits `da6d3ae` / `b68353e` piled per-task Red Team + Design Verification on top assuming it would catch drain. bee-poc reproducer drained 77% → 12% context in 2 tasks. Comprehensive two-layer fix: (1) NEW `bin/task-counter.cjs` — real on-disk task-count gate with `should-stop` exit code 10 at limit, wired into execute.md (Step 0 reset, Step 3.5 gate, Step 5 increment) and wave.md (phase-count gate). `bin/token-budget.js` rewritten to read the counter instead of env vars, API surface preserved. (2) Extracted QA / Red Team / Design Verify prompts to NEW `templates/prompts/*.md` — commands reference by file path so orchestrator never re-materializes prompt bodies; reverted Red Team + Design Verify to per-domain cadence (raises safe-task-count per session from ~5 to ~15+); QA stays per-task. Schema: removed Tokens/Compacted/Ctx% columns from token-log, added Tasks-Since-Reset. Neutralized 70+ env-var refs across 14 command files. 36/36 tests passing. Requires `/user:gsd-t-version-update-all` to propagate to all registered projects. (v2.74.12)
 
 ## Session Log
 | Date | Session | What was accomplished |

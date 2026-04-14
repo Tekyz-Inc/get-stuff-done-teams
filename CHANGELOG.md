@@ -2,6 +2,33 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.74.12] - 2026-04-14
+
+### Fixed — Context-Burn Regression (P0, affects every GSD-T project)
+
+**Root cause**: commit `0b91429` (2026-03-24) added an "orchestrator context self-check" that read `CLAUDE_CONTEXT_TOKENS_USED` / `CLAUDE_CONTEXT_TOKENS_MAX` — environment variables **Claude Code never exports**. The guard was always false, so the self-check was silently inert. Commits `da6d3ae` and `b68353e` then promoted Red Team and Design Verification from per-domain to per-task on the assumption that this guard would catch context drain. With the guard broken, per-task spawning of ~10K-token adversarial prompts drained sessions from 77% → 12% context in just 2 tasks (bee-poc reproducer).
+
+**Fix ships as a comprehensive two-layer correction:**
+
+#### Fix 1: Real task-count gate (replaces vaporware env-var check)
+- **NEW `bin/task-counter.cjs`** — deterministic on-disk task counter. State: `.gsd-t/.task-counter`. Config: `.gsd-t/task-counter-config.json` (default limit: 5). Env override: `GSD_T_TASK_LIMIT`. Commands: `increment <kind>`, `status`, `reset`, `should-stop` (exit code 10 at limit). This is the real signal the old self-check *pretended* to be.
+- **`commands/gsd-t-execute.md`** — Step 0 resets the counter; Step 3.5 calls `node bin/task-counter.cjs should-stop` as a gate before every task spawn; Step 5 increments after each task. At limit, the orchestrator checkpoints and STOPs — user runs `/clear` then `/user:gsd-t-resume`.
+- **`commands/gsd-t-wave.md`** — analogous phase-count gate replaces the broken "Wave Orchestrator Context Self-Check."
+- **`bin/token-budget.js`** — `getSessionStatus()` rewritten to read the task counter instead of env vars. API surface preserved (threshold/pct/consumed/estimated_remaining) so all dependent commands keep working. Graduated-degradation thresholds (warn/downgrade/conserve/stop) now fire on real signal.
+
+#### Fix 2: Revert per-task Red Team / Design Verify, extract prompts to templates
+- **NEW `templates/prompts/`** directory with three self-contained prompt files: `qa-subagent.md`, `red-team-subagent.md`, `design-verify-subagent.md`, plus a `README.md` explaining the architecture. Command files reference prompts by **file path**, not by inlining the body. Subagents read the prompt file themselves, so the orchestrator never re-materializes ~3500-token prompt bodies in its own context per spawn.
+- **`commands/gsd-t-execute.md`** — Red Team and Design Verification moved back to **per-domain** (where they were before `da6d3ae` / `b68353e`). QA stays per-task (smaller, and contracts can drift task-by-task). Result: safe-task-count-per-session rises from ~5 to ~15+.
+- **`commands/gsd-t-quick.md`, `gsd-t-integrate.md`, `gsd-t-debug.md`** — Red Team spawn blocks converted to templated-prompt references. ~270 lines of duplicated adversarial prompt boilerplate removed; run-specific categories (Cross-Domain Boundaries, Regression Around the Fix, Original Bug Variants) preserved as one-line context notes to the subagent.
+
+#### Fix 3: Token-log schema & placeholder cleanup
+- Removed `Tokens | Compacted | Ctx%` columns from the token-log schema (they always wrote `0 | null | N/A` because the env vars were never set). Added `Tasks-Since-Reset` as the real burn signal.
+- Neutralized **70+ references** to `CLAUDE_CONTEXT_TOKENS_USED` / `CLAUDE_CONTEXT_TOKENS_MAX` across 14 command files. The 3 remaining references (gsd-t-execute.md, gsd-t-wave.md, gsd-t-doc-ripple.md) are historical-note mentions only. `scripts/gsd-t-heartbeat.js` and `scripts/gsd-t-statusline.js` still read the env vars but treat them as optional fallbacks that gracefully degrade (unchanged behavior).
+- Test suite (`test/token-budget.test.js`) rewritten around the new counter-based `getSessionStatus()`. 36/36 passing.
+
+### Propagation
+After publishing, run `/user:gsd-t-version-update-all` to propagate the fix to every registered GSD-T project. Projects will receive the new `bin/task-counter.cjs` and updated command files in a single sweep.
+
 ## [2.74.11] - 2026-04-13
 
 ### Fixed

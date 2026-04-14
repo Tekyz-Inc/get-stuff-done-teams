@@ -10,7 +10,7 @@ To keep the main conversation context lean, run audit via a Task subagent.
 
 **OBSERVABILITY LOGGING (MANDATORY):**
 Before spawning — run via Bash:
-`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M") && TOK_START=${CLAUDE_CONTEXT_TOKENS_USED:-0} && TOK_MAX=${CLAUDE_CONTEXT_TOKENS_MAX:-200000}`
+`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M")`
 
 Spawn a fresh subagent using the Task tool:
 ```
@@ -22,12 +22,9 @@ Read CLAUDE.md and .gsd-t/progress.md for project context, then execute gsd-t-au
 ```
 
 After subagent returns — run via Bash:
-`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && TOK_END=${CLAUDE_CONTEXT_TOKENS_USED:-0} && DURATION=$((T_END-T_START))`
-Compute tokens and compaction:
-- No compaction (TOK_END >= TOK_START): `TOKENS=$((TOK_END-TOK_START))`, COMPACTED=null
-- Compaction detected (TOK_END < TOK_START): `TOKENS=$(((TOK_MAX-TOK_START)+TOK_END))`, COMPACTED=$DT_END
+`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START))`
 Append to `.gsd-t/token-log.md` (create with header if missing):
-`| {DT_START} | {DT_END} | gsd-t-audit | Step 0 | sonnet | {DURATION}s | audit: {args summary} | {TOKENS} | {COMPACTED} | | | {CTX_PCT} |`
+`| {DT_START} | {DT_END} | gsd-t-audit | Step 0 | sonnet | {DURATION}s | audit: {args summary} | | | {COUNTER} |`
 
 Relay the subagent's summary to the user. **Do not execute Steps 1–5 yourself.**
 

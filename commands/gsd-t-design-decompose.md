@@ -151,9 +151,33 @@ Icons, badges, chips, dividers, avatars, status dots, spinners — every small a
 
 ## Step 3: Identify Widgets
 
-A **widget** is a reusable composition of elements + data binding that appears as a visual group in the design. Examples: "Revenue Breakdown" (donut + legend + title + filter), "Stat Strip" (4× stat-card-with-delta).
+A **widget** is a self-contained card with ONE headline job: one title, one body, optional header controls, optional footer/legend. Examples: "Revenue Breakdown" (donut + legend + title + filter), "Device Type" (donut + legend), "Number of Tools" (KPI + bar + legend).
 
-For each visual group in the design, determine:
+A **section** is a visual grouping of MULTIPLE widgets that share a common heading or layout container. Sections live in the page contract's layout — they are NOT widgets.
+
+### The Sub-Card Rule (MANDATORY)
+
+**If a visual grouping contains multiple titled sub-cards (each with its own h3/header and its own body), each sub-card is its own widget. The grouping is a section handled in the page layout phase.**
+
+```
+WRONG — one widget conflating three cards:
+  device-browser-widget
+    ├── sub-card "Device Type" (donut)
+    ├── sub-card "Operating System" (bar)
+    └── sub-card "Browser" (bar)
+
+RIGHT — three widgets + a page-level section:
+  device-type-widget         ← widget
+  operating-system-widget    ← widget
+  browser-widget             ← widget
+  device-browser-section     ← page-layout section grouping the 3 widgets
+```
+
+**Test**: Count the number of distinct titled headers (h3 / card title) inside the visual group. If > 1, it is a section, not a widget. Split it.
+
+### Widget vs. Page-Internal Composition
+
+For each candidate widget, determine:
 - Does it appear on ≥2 pages, OR is it clearly a reusable unit conceptually?
   - Yes → widget contract
   - No → page-internal composition (no widget contract needed)
@@ -336,7 +360,7 @@ After writing all contracts but BEFORE proceeding to partition or build, spawn a
 
 **OBSERVABILITY LOGGING (MANDATORY):**
 Before spawning — run via Bash:
-`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M") && TOK_START=${CLAUDE_CONTEXT_TOKENS_USED:-0} && TOK_MAX=${CLAUDE_CONTEXT_TOKENS_MAX:-200000}`
+`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M")`
 
 ⚙ [opus] gsd-t-design-decompose → Chart Classification Verifier
 
@@ -420,7 +444,7 @@ If ALL ✅ MATCH:
 ```
 
 After subagent returns — run via Bash:
-`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && TOK_END=${CLAUDE_CONTEXT_TOKENS_USED:-0} && DURATION=$((T_END-T_START))`
+`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START))`
 
 Compute tokens/compaction per standard pattern. Append to `.gsd-t/token-log.md`.
 

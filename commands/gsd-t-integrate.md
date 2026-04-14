@@ -170,19 +170,11 @@ Note: Exploratory findings do NOT count against the scripted test pass/fail rati
 
 **OBSERVABILITY LOGGING (MANDATORY):**
 Before spawning — run via Bash:
-`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M") && TOK_START=${CLAUDE_CONTEXT_TOKENS_USED:-0} && TOK_MAX=${CLAUDE_CONTEXT_TOKENS_MAX:-200000}`
+`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M")`
 After subagent returns — run via Bash:
-`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && TOK_END=${CLAUDE_CONTEXT_TOKENS_USED:-0} && DURATION=$((T_END-T_START))`
-Compute tokens and compaction:
-- No compaction (TOK_END >= TOK_START): `TOKENS=$((TOK_END-TOK_START))`, COMPACTED=null
-- Compaction detected (TOK_END < TOK_START): `TOKENS=$(((TOK_MAX-TOK_START)+TOK_END))`, COMPACTED=$DT_END
-Compute context utilization — run via Bash:
-`if [ "${CLAUDE_CONTEXT_TOKENS_MAX:-0}" -gt 0 ]; then CTX_PCT=$(echo "scale=1; ${CLAUDE_CONTEXT_TOKENS_USED:-0} * 100 / ${CLAUDE_CONTEXT_TOKENS_MAX}" | bc); else CTX_PCT="N/A"; fi`
-Alert on context thresholds (display to user inline):
-- If CTX_PCT >= 85: `echo "🔴 CRITICAL: Context at ${CTX_PCT}% — compaction likely. Task MUST be split."`
-- If CTX_PCT >= 70: `echo "⚠️ WARNING: Context at ${CTX_PCT}% — approaching compaction threshold. Consider splitting in plan."`
-Append to `.gsd-t/token-log.md` (create with header `| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Tokens | Compacted | Domain | Task | Ctx% |` if missing):
-`| {DT_START} | {DT_END} | gsd-t-integrate | Step 5 | haiku | {DURATION}s | {pass/fail}, {N} boundaries tested | {TOKENS} | {COMPACTED} | | | {CTX_PCT} |`
+`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START))`
+Append to `.gsd-t/token-log.md` (create with header `| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Domain | Task | Tasks-Since-Reset |` if missing):
+`| {DT_START} | {DT_END} | gsd-t-integrate | Step 5 | haiku | {DURATION}s | {pass/fail}, {N} boundaries tested | | | {COUNTER} |`
 If QA found issues, append each to `.gsd-t/qa-issues.md` (create with header `| Date | Command | Step | Model | Duration(s) | Severity | Finding |` if missing):
 `| {DT_START} | gsd-t-integrate | Step 5 | haiku | {DURATION}s | {severity} | {finding} |`
 
@@ -220,99 +212,30 @@ After integration and doc ripple, verify everything works together:
 
 ## Step 7.5: Red Team — Adversarial QA (MANDATORY)
 
-After integration tests pass, spawn an adversarial Red Team agent. This agent's sole purpose is to BREAK the integrated system. Its success is measured by bugs found, not tests passed.
+After integration tests pass, spawn an adversarial Red Team agent on the integrated system. Success is measured by bugs found, not tests passed.
 
-⚙ [{model}] Red Team → adversarial validation of integrated system
+⚙ [opus] Red Team → adversarial validation of integrated system
 
-**OBSERVABILITY LOGGING (MANDATORY):**
-Before spawning — run via Bash:
-`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M") && TOK_START=${CLAUDE_CONTEXT_TOKENS_USED:-0} && TOK_MAX=${CLAUDE_CONTEXT_TOKENS_MAX:-200000}`
-
+Resolve the templated prompt path via Bash:
 ```
-Task subagent (general-purpose, model: opus):
-"You are a Red Team QA adversary. Your job is to BREAK the integrated system.
-
-Your value is measured by REAL bugs found. More bugs = more value.
-If you find zero bugs, you must prove you were thorough — list every
-attack vector you tried and why it didn't break. A short list means
-you didn't try hard enough.
-
-Rules:
-- False positives DESTROY your credibility. If you report something
-  as a bug and it's actually correct behavior, that's worse than
-  missing a real bug. Never report something you haven't reproduced.
-- Style opinions are not bugs. Theoretical concerns are not bugs.
-  A bug is: 'I did X, expected Y, got Z.' With proof.
-- You are done ONLY when you have exhausted every category below
-  and either found a bug or documented exactly what you tried.
-
-## Attack Categories (exhaust ALL of these)
-
-1. **Contract Violations**: Read .gsd-t/contracts/. Does the code EXACTLY
-   match every contract? Test each endpoint/interface/schema shape.
-2. **Boundary Inputs**: Empty strings, null, undefined, huge payloads,
-   special characters, SQL injection attempts, XSS payloads, path traversal.
-3. **State Transitions**: What happens when actions are performed out of
-   order? Double-submit? Concurrent access? Refresh mid-flow?
-4. **Error Paths**: Remove env vars. Kill the database. Send malformed
-   requests. Does the code handle failures gracefully or crash?
-5. **Missing Flows**: Read docs/requirements.md. Are there user flows that
-   exist in requirements but have NO test coverage? Write tests for them.
-6. **Regression**: Run the FULL test suite. Did any existing tests break?
-7. **E2E Functional Gaps**: Review ALL Playwright specs. Do they test actual
-   behavior (state changes, data loaded, navigation works) or just check
-   that elements exist? Flag and rewrite any shallow/layout tests.
-8. **Cross-Domain Boundaries**: Test data flow across EVERY domain boundary.
-   Does data arriving from domain A get validated by domain B? What happens
-   when domain A sends malformed data that passed A's own validation?
-
-## Exploratory Testing (if Playwright MCP available)
-
-After all scripted tests pass:
-1. Check if Playwright MCP is registered in Claude Code settings (look for "playwright" in mcpServers)
-2. If available: spend 5 minutes on adversarial interactive exploration using Playwright MCP
-   - Attempt race conditions, double-submits, concurrent access patterns
-   - Try unexpected input sequences, boundary values, rapid state transitions
-   - Probe error recovery: does the app recover after failures or get stuck?
-3. Tag all findings [EXPLORATORY] in your report
-4. If Playwright MCP is not available: skip this section silently
-Note: Exploratory findings are additive — they do not replace scripted test results.
-
-## Report Format
-
-For each bug found:
-- **BUG-{N}**: {severity: CRITICAL/HIGH/MEDIUM/LOW}
-  - **Reproduction**: {exact steps to reproduce}
-  - **Expected**: {what should happen}
-  - **Actual**: {what actually happens}
-  - **Proof**: {test file or command that demonstrates the bug}
-
-Summary:
-- BUGS FOUND: {count} (with severity breakdown)
-- COVERAGE GAPS: {untested flows from requirements}
-- SHALLOW TESTS REWRITTEN: {count}
-- CONTRACTS VERIFIED: {N}/{total}
-- ATTACK VECTORS TRIED: {list every category attempted and results}
-- VERDICT: FAIL ({N} bugs found) | GRUDGING PASS (exhaustive search, nothing found)
-
-Write all findings to .gsd-t/red-team-report.md.
-If bugs found, also append to .gsd-t/qa-issues.md."
+RT_PROMPT="$(npm root -g 2>/dev/null)/@tekyzinc/gsd-t/templates/prompts/red-team-subagent.md"
+[ -f "$RT_PROMPT" ] || RT_PROMPT="templates/prompts/red-team-subagent.md"
+T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M")
 ```
+
+Spawn Task subagent (general-purpose, model: opus):
+> "Read `$RT_PROMPT` and follow it. Context: cross-domain integration run. **Additional category for this run: Cross-Domain Boundaries** — test data flow across every domain boundary; does data arriving from domain A get validated by domain B; what happens when A sends malformed data that passed A's own validation. Write findings to `.gsd-t/red-team-report.md`."
 
 After subagent returns — run via Bash:
-`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && TOK_END=${CLAUDE_CONTEXT_TOKENS_USED:-0} && DURATION=$((T_END-T_START))`
-Compute tokens and compaction:
-- No compaction (TOK_END >= TOK_START): `TOKENS=$((TOK_END-TOK_START))`, COMPACTED=null
-- Compaction detected (TOK_END < TOK_START): `TOKENS=$(((TOK_MAX-TOK_START)+TOK_END))`, COMPACTED=$DT_END
+```
+T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START))
+COUNTER=$(node bin/task-counter.cjs status 2>/dev/null | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{process.stdout.write(String(JSON.parse(s).count||''))}catch(_){process.stdout.write('')}})")
+```
 Append to `.gsd-t/token-log.md`:
-`| {DT_START} | {DT_END} | gsd-t-integrate | Red Team | sonnet | {DURATION}s | {VERDICT} — {N} bugs found | {TOKENS} | {COMPACTED} | | | {CTX_PCT} |`
+`| {DT_START} | {DT_END} | gsd-t-integrate | Red Team | opus | {DURATION}s | {VERDICT} — {N} bugs found | | | {COUNTER} |`
 
-**If Red Team VERDICT is FAIL:**
-1. Fix all CRITICAL and HIGH bugs immediately (up to 2 fix attempts per bug)
-2. Re-run Red Team after fixes
-3. If bugs persist after 2 fix cycles, log to `.gsd-t/deferred-items.md` and present to user
-
-**If Red Team VERDICT is GRUDGING PASS:** Proceed to doc-ripple.
+**If FAIL:** fix CRITICAL/HIGH bugs (≤2 cycles) → re-run. Persistent bugs → `.gsd-t/deferred-items.md`.
+**If GRUDGING PASS:** proceed to doc-ripple.
 
 ## Step 8: Doc-Ripple (Automated)
 

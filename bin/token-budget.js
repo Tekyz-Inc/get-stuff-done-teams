@@ -77,13 +77,45 @@ function estimateCost(model, taskType, options) {
 /**
  * @param {string} [projectDir]
  * @returns {{ consumed: number, estimated_remaining: number, pct: number, threshold: string }}
+ *
+ * v2.74.12: previously this read process.env.CLAUDE_CONTEXT_TOKENS_USED /
+ * CLAUDE_CONTEXT_TOKENS_MAX, which Claude Code does not export — so consumed
+ * was always 0 and threshold was always 'normal'. The graduated-degradation
+ * machinery downstream was inert. Now we synthesise a percent from the real
+ * task counter at .gsd-t/.task-counter, mapping 0..limit linearly to
+ * 0..100%. This keeps the API stable so commands that ask for thresholds
+ * (downgrade/conserve/stop) get a real signal.
  */
 function getSessionStatus(projectDir) {
-  const maxTokens = parseInt(process.env.CLAUDE_CONTEXT_TOKENS_MAX || "200000", 10);
-  const consumed = readSessionConsumed(projectDir);
-  const pct = maxTokens > 0 ? Math.round((consumed / maxTokens) * 100 * 10) / 10 : 0;
+  const dir = projectDir || process.cwd();
+  const counter = readTaskCounter(dir);
+  const limit = counter.limit > 0 ? counter.limit : 5;
+  const consumed = counter.count;
+  const pct = Math.min(100, Math.round((consumed / limit) * 100 * 10) / 10);
   const threshold = resolveThreshold(pct);
-  return { consumed, estimated_remaining: maxTokens - consumed, pct, threshold };
+  const estimated_remaining = Math.max(0, limit - consumed);
+  return { consumed, estimated_remaining, pct, threshold };
+}
+
+function readTaskCounter(dir) {
+  try {
+    const fp = path.join(dir, ".gsd-t", ".task-counter");
+    const raw = fs.readFileSync(fp, "utf8");
+    const s = JSON.parse(raw);
+    let limit = 5;
+    try {
+      const cfgRaw = fs.readFileSync(path.join(dir, ".gsd-t", "task-counter-config.json"), "utf8");
+      const cfg = JSON.parse(cfgRaw);
+      if (cfg && typeof cfg.limit === "number" && cfg.limit > 0) limit = cfg.limit;
+    } catch (_) {}
+    if (process.env.GSD_T_TASK_LIMIT) {
+      const n = parseInt(process.env.GSD_T_TASK_LIMIT, 10);
+      if (!isNaN(n) && n > 0) limit = n;
+    }
+    return { count: typeof s.count === "number" ? s.count : 0, limit };
+  } catch (_) {
+    return { count: 0, limit: 5 };
+  }
 }
 
 // ── recordUsage ──────────────────────────────────────────────────────────────
@@ -123,13 +155,16 @@ function getDegradationActions(projectDir) {
  * @returns {{ estimatedTokens: number, estimatedPct: number, feasible: boolean }}
  */
 function estimateMilestoneCost(remainingTasks, projectDir) {
-  const { estimated_remaining } = getSessionStatus(projectDir);
-  const maxTokens = parseInt(process.env.CLAUDE_CONTEXT_TOKENS_MAX || "200000", 10);
+  const status = getSessionStatus(projectDir);
+  const limit = status.consumed + status.estimated_remaining || 5;
   const estimatedTokens = remainingTasks.reduce((sum, t) => {
     return sum + estimateCost(t.model, t.taskType, { complexity: t.complexity, projectDir });
   }, 0);
-  const estimatedPct = maxTokens > 0 ? Math.round((estimatedTokens / maxTokens) * 100 * 10) / 10 : 0;
-  const feasible = estimatedTokens <= estimated_remaining * 0.8;
+  // Estimate task-equivalents needed for the remaining work: cost-weighted
+  // approximation against historical avg, capped at the configured task limit.
+  const taskEquivalents = remainingTasks.length;
+  const estimatedPct = limit > 0 ? Math.min(100, Math.round((taskEquivalents / limit) * 100 * 10) / 10) : 0;
+  const feasible = taskEquivalents <= status.estimated_remaining;
   return { estimatedTokens, estimatedPct, feasible };
 }
 

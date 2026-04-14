@@ -158,15 +158,12 @@ Teammate assignments:
 Lead: After receiving teammate reports:
 **OBSERVABILITY LOGGING (MANDATORY):**
 Before spawning — run via Bash:
-`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M") && TOK_START=${CLAUDE_CONTEXT_TOKENS_USED:-0} && TOK_MAX=${CLAUDE_CONTEXT_TOKENS_MAX:-200000}`
+`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M")`
 Spawn a Task subagent to run the full test suite and contract audit.
 After subagent returns — run via Bash:
-`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && TOK_END=${CLAUDE_CONTEXT_TOKENS_USED:-0} && DURATION=$((T_END-T_START))`
-Compute tokens and compaction:
-- No compaction (TOK_END >= TOK_START): `TOKENS=$((TOK_END-TOK_START))`, COMPACTED=null
-- Compaction detected (TOK_END < TOK_START): `TOKENS=$(((TOK_MAX-TOK_START)+TOK_END))`, COMPACTED=$DT_END
-Append to `.gsd-t/token-log.md` (create with header `| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Tokens | Compacted |` if missing):
-`| {DT_START} | {DT_END} | gsd-t-verify | Step 4 | haiku | {DURATION}s | test audit + contract review | {TOKENS} | {COMPACTED} |`
+`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START))`
+Append to `.gsd-t/token-log.md` (create with header `| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Tasks-Since-Reset |` if missing):
+`| {DT_START} | {DT_END} | gsd-t-verify | Step 4 | haiku | {DURATION}s | test audit + contract review | {COUNTER} |`
 Collect all reports, synthesize, create remediation plan.
 ```
 
@@ -348,7 +345,7 @@ If status is VERIFIED or VERIFIED-WITH-WARNINGS:
 
 **OBSERVABILITY LOGGING (MANDATORY):**
 Before spawning — run via Bash:
-`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M") && TOK_START=${CLAUDE_CONTEXT_TOKENS_USED:-0} && TOK_MAX=${CLAUDE_CONTEXT_TOKENS_MAX:-200000}`
+`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M")`
 
 2. Spawn a Task subagent (model: sonnet, mode: bypassPermissions):
 ```
@@ -370,12 +367,9 @@ Report back: one-line status summary."
 ```
 
 After subagent returns — run via Bash:
-`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && TOK_END=${CLAUDE_CONTEXT_TOKENS_USED:-0} && DURATION=$((T_END-T_START))`
-Compute tokens and compaction:
-- No compaction (TOK_END >= TOK_START): `TOKENS=$((TOK_END-TOK_START))`, COMPACTED=null
-- Compaction detected (TOK_END < TOK_START): `TOKENS=$(((TOK_MAX-TOK_START)+TOK_END))`, COMPACTED=$DT_END
+`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START))`
 Append to `.gsd-t/token-log.md`:
-`| {DT_START} | {DT_END} | gsd-t-verify | Step 8 | sonnet | {DURATION}s | auto-complete-milestone | {TOKENS} | {COMPACTED} | | | {CTX_PCT} |`
+`| {DT_START} | {DT_END} | gsd-t-verify | Step 8 | sonnet | {DURATION}s | auto-complete-milestone | | | {COUNTER} |`
 
 3. Verify subagent result: Read `.gsd-t/progress.md` — confirm status is COMPLETED. If not, report the failure.
 
