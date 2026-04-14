@@ -69,4 +69,28 @@ Otherwise, pick up from the logical next action based on current state:
 - Blocked → Explain what's needed to unblock
 - Verify failed → Show remediation tasks
 
+## Step 5: Auto-Advance Through End of Milestone (MANDATORY)
+
+**Resume does NOT stop at the end of a wave or phase. It must chain all the way to `COMPLETED` status.**
+
+When the resumed work reaches a natural handoff point, do NOT print a "Next Up" hint and wait for the user. At Level 3 Full Auto, keep going. The successor mapping in CLAUDE-global.md is the contract — resume honors it exactly like any other command:
+
+| If resume just finished… | Auto-advance to |
+|--------------------------|-----------------|
+| A task (mid-wave, tasks remaining) | next task in the same wave |
+| The last task of a wave (waves remaining) | next wave |
+| The last task of the last wave | `/user:gsd-t-verify` (which auto-invokes `/user:gsd-t-complete-milestone` per verify Step 8) |
+| `/user:gsd-t-verify` (VERIFIED or VERIFIED-WITH-WARNINGS) | `/user:gsd-t-complete-milestone` (verify already spawns this — do not re-invoke) |
+| `/user:gsd-t-complete-milestone` | honor any outstanding multi-step user directive (see below) |
+
+**Never stop at "Wave N complete" or "Task N done" and wait.** The only stopping points are:
+1. VERIFY-FAILED (report failures)
+2. Destructive action needing approval
+3. Unrecoverable error after 2 fix attempts + debug-loop exit 4
+4. `COMPLETED` status reached AND no outstanding user directive
+
+**Outstanding User Directive** (from the continue-here file): If the continue-here file contains an `## Outstanding User Request` or `## User Note` section with a multi-step chain (e.g., "run until milestone complete, then checkin publish update-all"), resume MUST continue executing that chain AFTER complete-milestone finishes. Parse the remaining steps and invoke them in order. Do not stop and ask — the directive was already given.
+
+**Self-check before printing a "Next Up" hint**: Before emitting any `## ▶ Next Up` block, ask: "Is this a Level 3 auto-advance transition?" If yes (which it almost always is at end-of-wave or end-of-milestone under Level 3), SKIP the hint and invoke the next command directly. The hint exists for commands with no successor OR for lower autonomy levels, NOT for the resume-driven path back to COMPLETED.
+
 $ARGUMENTS

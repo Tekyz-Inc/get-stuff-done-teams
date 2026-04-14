@@ -47,6 +47,9 @@ Create `.gsd-t/continue-here-{timestamp}.md`:
 {any known blockers, pending decisions, or things to watch out for}
 {None if clean}
 
+## Outstanding User Directive
+{Copy any multi-step chain the user gave earlier in the session that has NOT been fully executed, verbatim. Examples: "run until milestone complete, then checkin publish update all", "complete M34 and then archive + publish". Resume honors this after the resumed phase finishes. Leave as _None_ if no outstanding chain.}
+
 ## User Note
 {$ARGUMENTS if provided, otherwise: _No note provided._}
 
