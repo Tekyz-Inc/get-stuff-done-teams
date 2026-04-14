@@ -2,9 +2,10 @@
  * Tests for bin/token-budget.js
  * Uses Node.js built-in test runner (node --test)
  *
- * v2.74.12: getSessionStatus now reads the task counter at
- * .gsd-t/.task-counter instead of CLAUDE_CONTEXT_TOKENS_* env vars
- * (which Claude Code never exported). Tests rewritten accordingly.
+ * v2.0.0 (M34): getSessionStatus reads .gsd-t/.context-meter-state.json
+ * produced by the Context Meter PostToolUse hook. When the state file is
+ * absent or stale (>5min), it falls back to a historical heuristic from
+ * .gsd-t/token-log.md against a 200k-token model window.
  */
 
 const { describe, it, before, after, beforeEach } = require("node:test");
@@ -22,8 +23,8 @@ const {
   getModelCostRatios,
 } = require("../bin/token-budget.js");
 
+const MODEL_WINDOW = 200000;
 let tmpDir;
-const ORIG_LIMIT = process.env.GSD_T_TASK_LIMIT;
 
 before(() => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "gsd-t-tb-test-"));
@@ -32,24 +33,33 @@ before(() => {
 
 after(() => {
   fs.rmSync(tmpDir, { recursive: true, force: true });
-  if (ORIG_LIMIT === undefined) delete process.env.GSD_T_TASK_LIMIT;
-  else process.env.GSD_T_TASK_LIMIT = ORIG_LIMIT;
 });
 
 beforeEach(() => {
-  delete process.env.GSD_T_TASK_LIMIT;
+  // Scrub state/log so each test starts from a clean slate.
+  const state = path.join(tmpDir, ".gsd-t", ".context-meter-state.json");
+  if (fs.existsSync(state)) fs.unlinkSync(state);
+  const log = path.join(tmpDir, ".gsd-t", "token-log.md");
+  if (fs.existsSync(log)) fs.unlinkSync(log);
 });
 
-function writeCounter(count, limit) {
-  const fp = path.join(tmpDir, ".gsd-t", ".task-counter");
-  fs.writeFileSync(fp, JSON.stringify({ count, started_at: new Date().toISOString() }));
-  if (limit !== undefined) {
-    const cfg = path.join(tmpDir, ".gsd-t", "task-counter-config.json");
-    fs.writeFileSync(cfg, JSON.stringify({ limit }));
-  } else {
-    const cfg = path.join(tmpDir, ".gsd-t", "task-counter-config.json");
-    if (fs.existsSync(cfg)) fs.unlinkSync(cfg);
-  }
+function writeState({ inputTokens, ageMs = 0, modelWindowSize = MODEL_WINDOW }) {
+  const pct = (inputTokens / modelWindowSize) * 100;
+  const ts = new Date(Date.now() - ageMs).toISOString();
+  const payload = {
+    version: 1,
+    timestamp: ts,
+    inputTokens,
+    modelWindowSize,
+    pct,
+    threshold: "normal",
+    checkCount: 1,
+    lastError: null,
+  };
+  fs.writeFileSync(
+    path.join(tmpDir, ".gsd-t", ".context-meter-state.json"),
+    JSON.stringify(payload),
+  );
 }
 
 function writeTokenLog(rows) {
@@ -107,7 +117,7 @@ describe("estimateCost", () => {
 
   it("uses historicalAvg when provided", () => {
     const cost = estimateCost("sonnet", "qa", { historicalAvg: 1000 });
-    assert.equal(cost, 1000 * 5); // sonnet ratio = 5
+    assert.equal(cost, 1000 * 5);
   });
 
   it("applies complexity multiplier", () => {
@@ -141,63 +151,73 @@ describe("estimateCost", () => {
   });
 });
 
-// ── getSessionStatus ─────────────────────────────────────────────────────────
+// ── getSessionStatus (state-file primary) ────────────────────────────────────
 
-describe("getSessionStatus (task-counter based)", () => {
-  it("returns 'normal' when count < 60% of limit", () => {
-    writeCounter(0, 10);
+describe("getSessionStatus (real-source)", () => {
+  it("reads fresh state file and returns real values", () => {
+    writeState({ inputTokens: 40000 });
     const status = getSessionStatus(tmpDir);
+    assert.equal(status.consumed, 40000);
+    assert.equal(status.estimated_remaining, 160000);
+    assert.equal(status.pct, 20);
     assert.equal(status.threshold, "normal");
-    assert.equal(status.consumed, 0);
-    assert.equal(status.pct, 0);
-    assert.equal(status.estimated_remaining, 10);
   });
 
-  it("returns 'warn' at 60-70% of limit", () => {
-    writeCounter(6, 10); // 60%
+  it("returns 'normal' below 60%", () => {
+    writeState({ inputTokens: 100000 }); // 50%
+    assert.equal(getSessionStatus(tmpDir).threshold, "normal");
+  });
+
+  it("returns 'warn' at 60-70%", () => {
+    writeState({ inputTokens: 130000 }); // 65%
+    assert.equal(getSessionStatus(tmpDir).threshold, "warn");
+  });
+
+  it("returns 'downgrade' at 70-85%", () => {
+    writeState({ inputTokens: 150000 }); // 75%
+    assert.equal(getSessionStatus(tmpDir).threshold, "downgrade");
+  });
+
+  it("returns 'conserve' at 85-95%", () => {
+    writeState({ inputTokens: 180000 }); // 90%
+    assert.equal(getSessionStatus(tmpDir).threshold, "conserve");
+  });
+
+  it("returns 'stop' at >= 95%", () => {
+    writeState({ inputTokens: 195000 }); // 97.5%
+    assert.equal(getSessionStatus(tmpDir).threshold, "stop");
+  });
+
+  it("falls back to heuristic when state file is missing", () => {
     const status = getSessionStatus(tmpDir);
+    assert.equal(status.consumed, 0);
+    assert.equal(status.threshold, "normal");
+    assert.equal(status.estimated_remaining, MODEL_WINDOW);
+  });
+
+  it("falls back to heuristic when state file is stale (>5min)", () => {
+    writeState({ inputTokens: 195000, ageMs: 6 * 60 * 1000 });
+    const status = getSessionStatus(tmpDir);
+    // Stale → heuristic path → zero historical tokens → normal
+    assert.equal(status.threshold, "normal");
+    assert.equal(status.consumed, 0);
+  });
+
+  it("heuristic sums today's tokens from token-log.md", () => {
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, "0");
+    const today = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} 10:00`;
+    writeTokenLog([
+      [today, today, "gsd-t-execute", "Step 1", "sonnet", "60s", "n", "50000", "null", "", "execute", "N/A"],
+      [today, today, "gsd-t-execute", "Step 2", "sonnet", "60s", "n", "80000", "null", "", "execute", "N/A"],
+    ]);
+    const status = getSessionStatus(tmpDir);
+    assert.equal(status.consumed, 130000);
+    assert.equal(status.pct, 65);
     assert.equal(status.threshold, "warn");
   });
 
-  it("returns 'downgrade' at 70-85% of limit", () => {
-    writeCounter(7, 10); // 70%
-    const status = getSessionStatus(tmpDir);
-    assert.equal(status.threshold, "downgrade");
-  });
-
-  it("returns 'conserve' at 85-95% of limit", () => {
-    writeCounter(9, 10); // 90%
-    const status = getSessionStatus(tmpDir);
-    assert.equal(status.threshold, "conserve");
-  });
-
-  it("returns 'stop' at >= 95% of limit", () => {
-    writeCounter(10, 10); // 100%
-    const status = getSessionStatus(tmpDir);
-    assert.equal(status.threshold, "stop");
-  });
-
-  it("falls back to default limit of 5 when no config exists", () => {
-    writeCounter(0); // no config file
-    const status = getSessionStatus(tmpDir);
-    assert.equal(status.consumed, 0);
-    assert.equal(status.estimated_remaining, 5);
-  });
-
-  it("respects GSD_T_TASK_LIMIT env override", () => {
-    writeCounter(0, 5);
-    process.env.GSD_T_TASK_LIMIT = "20";
-    const status = getSessionStatus(tmpDir);
-    assert.equal(status.estimated_remaining, 20);
-  });
-
-  it("computes pct as consumed / limit", () => {
-    writeCounter(3, 10);
-    const status = getSessionStatus(tmpDir);
-    assert.equal(status.pct, 30);
-  });
-
-  it("returns consumed=0 when counter file is missing", () => {
+  it("reports consumed=0 on missing state and empty log", () => {
     const emptyDir = fs.mkdtempSync(path.join(os.tmpdir(), "gsd-t-tb-empty-"));
     fs.mkdirSync(path.join(emptyDir, ".gsd-t"), { recursive: true });
     const status = getSessionStatus(emptyDir);
@@ -211,7 +231,7 @@ describe("getSessionStatus (task-counter based)", () => {
 
 describe("getDegradationActions", () => {
   it("returns empty actions at normal threshold", () => {
-    writeCounter(0, 10);
+    writeState({ inputTokens: 10000 });
     const result = getDegradationActions(tmpDir);
     assert.equal(result.threshold, "normal");
     assert.equal(result.actions.length, 0);
@@ -219,7 +239,7 @@ describe("getDegradationActions", () => {
   });
 
   it("returns budget alert action at warn threshold", () => {
-    writeCounter(6, 10);
+    writeState({ inputTokens: 130000 });
     const result = getDegradationActions(tmpDir);
     assert.equal(result.threshold, "warn");
     assert.ok(result.actions.length > 0);
@@ -227,33 +247,33 @@ describe("getDegradationActions", () => {
   });
 
   it("returns sonnet:execute → haiku override at downgrade threshold", () => {
-    writeCounter(7, 10);
+    writeState({ inputTokens: 150000 });
     const result = getDegradationActions(tmpDir);
     assert.equal(result.threshold, "downgrade");
     assert.equal(result.modelOverrides["sonnet:execute"], "haiku");
   });
 
   it("keeps sonnet for QA at downgrade threshold", () => {
-    writeCounter(7, 10);
+    writeState({ inputTokens: 150000 });
     const result = getDegradationActions(tmpDir);
     assert.equal(result.modelOverrides["sonnet:qa"], "sonnet");
   });
 
   it("downgrades opus red-team to sonnet at downgrade", () => {
-    writeCounter(7, 10);
+    writeState({ inputTokens: 150000 });
     const result = getDegradationActions(tmpDir);
     assert.equal(result.modelOverrides["opus:red-team"], "sonnet");
   });
 
   it("pauses doc-ripple at conserve threshold", () => {
-    writeCounter(9, 10);
+    writeState({ inputTokens: 180000 });
     const result = getDegradationActions(tmpDir);
     assert.equal(result.threshold, "conserve");
     assert.ok(result.actions.some((a) => /doc-ripple/i.test(a)));
   });
 
   it("returns hard stop action at stop threshold", () => {
-    writeCounter(10, 10);
+    writeState({ inputTokens: 195000 });
     const result = getDegradationActions(tmpDir);
     assert.equal(result.threshold, "stop");
     assert.ok(result.actions.some((a) => /stop/i.test(a) || /save/i.test(a)));
@@ -296,9 +316,7 @@ describe("recordUsage", () => {
 
 describe("estimateMilestoneCost", () => {
   it("returns estimatedTokens as sum of task estimates", () => {
-    writeCounter(0, 100);
-    // Clear token-log so estimateCost doesn't use historical avg from prior tests
-    fs.writeFileSync(path.join(tmpDir, ".gsd-t", "token-log.md"), "");
+    writeState({ inputTokens: 0 });
     const tasks = [
       { model: "haiku", taskType: "execute", complexity: 1.0 },
       { model: "haiku", taskType: "qa", complexity: 1.0 },
@@ -308,36 +326,34 @@ describe("estimateMilestoneCost", () => {
     assert.equal(result.estimatedTokens, expected);
   });
 
-  it("returns feasible=true when task-equivalents fit in remaining budget", () => {
-    writeCounter(0, 10);
+  it("returns feasible=true when estimated tokens fit in remaining window", () => {
+    writeState({ inputTokens: 0 });
     const tasks = [{ model: "haiku", taskType: "execute", complexity: 1.0 }];
     const result = estimateMilestoneCost(tasks, tmpDir);
     assert.equal(result.feasible, true);
   });
 
-  it("returns feasible=false when task count exceeds remaining budget", () => {
-    writeCounter(0, 2);
+  it("returns feasible=false when estimated tokens exceed remaining window", () => {
+    writeState({ inputTokens: 199000 }); // ~1k remaining
     const tasks = [
-      { model: "opus", taskType: "execute", complexity: 1.0 },
-      { model: "opus", taskType: "execute", complexity: 1.0 },
-      { model: "opus", taskType: "execute", complexity: 1.0 },
+      { model: "opus", taskType: "execute", complexity: 5.0 },
     ];
     const result = estimateMilestoneCost(tasks, tmpDir);
     assert.equal(result.feasible, false);
   });
 
-  it("returns estimatedPct as percentage of task-slot budget", () => {
-    writeCounter(0, 10);
+  it("returns estimatedPct as percentage of model window", () => {
+    writeState({ inputTokens: 0 });
     const tasks = [
-      { model: "haiku", taskType: "execute", complexity: 1.0 },
       { model: "haiku", taskType: "execute", complexity: 1.0 },
     ];
     const result = estimateMilestoneCost(tasks, tmpDir);
-    assert.equal(result.estimatedPct, 20); // 2 tasks / 10 limit = 20%
+    // haiku execute base = 8000, 8000/200000 = 4%
+    assert.equal(result.estimatedPct, 4);
   });
 
   it("returns zero tokens for empty task list", () => {
-    writeCounter(0, 10);
+    writeState({ inputTokens: 0 });
     const result = estimateMilestoneCost([], tmpDir);
     assert.equal(result.estimatedTokens, 0);
     assert.equal(result.estimatedPct, 0);
@@ -345,8 +361,7 @@ describe("estimateMilestoneCost", () => {
   });
 
   it("sums multiple tasks with different models", () => {
-    writeCounter(0, 100);
-    fs.writeFileSync(path.join(tmpDir, ".gsd-t", "token-log.md"), "");
+    writeState({ inputTokens: 0 });
     const tasks = [
       { model: "haiku", taskType: "execute", complexity: 1.0 },
       { model: "sonnet", taskType: "qa", complexity: 1.0 },

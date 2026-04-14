@@ -74,48 +74,55 @@ function estimateCost(model, taskType, options) {
 
 // ── getSessionStatus ─────────────────────────────────────────────────────────
 
+const STATE_FILE_REL = path.join(".gsd-t", ".context-meter-state.json");
+const STATE_STALE_MS = 5 * 60 * 1000;
+
 /**
  * @param {string} [projectDir]
  * @returns {{ consumed: number, estimated_remaining: number, pct: number, threshold: string }}
  *
- * v2.74.12: previously this read process.env.CLAUDE_CONTEXT_TOKENS_USED /
- * CLAUDE_CONTEXT_TOKENS_MAX, which Claude Code does not export — so consumed
- * was always 0 and threshold was always 'normal'. The graduated-degradation
- * machinery downstream was inert. Now we synthesise a percent from the real
- * task counter at .gsd-t/.task-counter, mapping 0..limit linearly to
- * 0..100%. This keeps the API stable so commands that ask for thresholds
- * (downgrade/conserve/stop) get a real signal.
+ * v2.0.0 (M34): reads `.gsd-t/.context-meter-state.json` produced by the
+ * Context Meter PostToolUse hook. When that file is fresh (timestamp within
+ * the last 5 minutes), real `input_tokens` drive the response. Otherwise we
+ * fall back to a historical heuristic from `.gsd-t/token-log.md`, preserving
+ * graceful degradation for projects without the hook installed.
  */
 function getSessionStatus(projectDir) {
   const dir = projectDir || process.cwd();
-  const counter = readTaskCounter(dir);
-  const limit = counter.limit > 0 ? counter.limit : 5;
-  const consumed = counter.count;
-  const pct = Math.min(100, Math.round((consumed / limit) * 100 * 10) / 10);
-  const threshold = resolveThreshold(pct);
-  const estimated_remaining = Math.max(0, limit - consumed);
-  return { consumed, estimated_remaining, pct, threshold };
+  const real = readContextMeterState(dir);
+  if (real) {
+    const consumed = real.inputTokens;
+    const window = real.modelWindowSize > 0 ? real.modelWindowSize : 200000;
+    const estimated_remaining = Math.max(0, window - consumed);
+    const pct = Math.round(real.pct * 10) / 10;
+    const threshold = resolveThreshold(pct);
+    return { consumed, estimated_remaining, pct, threshold };
+  }
+  return getSessionStatusHeuristic(dir);
 }
 
-function readTaskCounter(dir) {
+function readContextMeterState(dir) {
   try {
-    const fp = path.join(dir, ".gsd-t", ".task-counter");
+    const fp = path.join(dir, STATE_FILE_REL);
     const raw = fs.readFileSync(fp, "utf8");
     const s = JSON.parse(raw);
-    let limit = 5;
-    try {
-      const cfgRaw = fs.readFileSync(path.join(dir, ".gsd-t", "task-counter-config.json"), "utf8");
-      const cfg = JSON.parse(cfgRaw);
-      if (cfg && typeof cfg.limit === "number" && cfg.limit > 0) limit = cfg.limit;
-    } catch (_) {}
-    if (process.env.GSD_T_TASK_LIMIT) {
-      const n = parseInt(process.env.GSD_T_TASK_LIMIT, 10);
-      if (!isNaN(n) && n > 0) limit = n;
-    }
-    return { count: typeof s.count === "number" ? s.count : 0, limit };
+    if (!s || typeof s.inputTokens !== "number" || typeof s.pct !== "number") return null;
+    if (!s.timestamp) return null;
+    const age = Date.now() - Date.parse(s.timestamp);
+    if (isNaN(age) || age > STATE_STALE_MS || age < 0) return null;
+    return s;
   } catch (_) {
-    return { count: 0, limit: 5 };
+    return null;
   }
+}
+
+function getSessionStatusHeuristic(dir) {
+  const window = 200000;
+  const consumed = readSessionConsumed(dir);
+  const estimated_remaining = Math.max(0, window - consumed);
+  const pct = window > 0 ? Math.round((consumed / window) * 100 * 10) / 10 : 0;
+  const threshold = resolveThreshold(pct);
+  return { consumed, estimated_remaining, pct, threshold };
 }
 
 // ── recordUsage ──────────────────────────────────────────────────────────────
@@ -156,15 +163,12 @@ function getDegradationActions(projectDir) {
  */
 function estimateMilestoneCost(remainingTasks, projectDir) {
   const status = getSessionStatus(projectDir);
-  const limit = status.consumed + status.estimated_remaining || 5;
+  const window = status.consumed + status.estimated_remaining || 200000;
   const estimatedTokens = remainingTasks.reduce((sum, t) => {
     return sum + estimateCost(t.model, t.taskType, { complexity: t.complexity, projectDir });
   }, 0);
-  // Estimate task-equivalents needed for the remaining work: cost-weighted
-  // approximation against historical avg, capped at the configured task limit.
-  const taskEquivalents = remainingTasks.length;
-  const estimatedPct = limit > 0 ? Math.min(100, Math.round((taskEquivalents / limit) * 100 * 10) / 10) : 0;
-  const feasible = taskEquivalents <= status.estimated_remaining;
+  const estimatedPct = window > 0 ? Math.min(100, Math.round((estimatedTokens / window) * 100 * 10) / 10) : 0;
+  const feasible = estimatedTokens <= status.estimated_remaining;
   return { estimatedTokens, estimatedPct, feasible };
 }
 
