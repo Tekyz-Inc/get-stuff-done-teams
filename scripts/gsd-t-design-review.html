@@ -248,6 +248,82 @@
   }
   .btn-outline:hover { border-color: var(--text); color: var(--text); }
 
+  /* ── Staging modal ──────────────────────────────── */
+  .modal-overlay {
+    position: fixed; inset: 0; z-index: 9999;
+    background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .modal-overlay[hidden] { display: none; }
+  .modal {
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: 12px; width: 520px; max-height: 80vh;
+    display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
+  .modal-header {
+    padding: 16px 20px; border-bottom: 1px solid var(--border);
+    font-weight: 600; font-size: 15px; display: flex; justify-content: space-between; align-items: center;
+  }
+  .modal-body {
+    padding: 16px 20px; overflow-y: auto; flex: 1;
+    font-size: 13px; line-height: 1.6;
+  }
+  .modal-footer {
+    padding: 12px 20px; border-top: 1px solid var(--border);
+    display: flex; gap: 8px; justify-content: flex-end;
+  }
+  .staging-section { margin-bottom: 14px; }
+  .staging-section h4 {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;
+    color: var(--text-dim); margin-bottom: 6px;
+  }
+  .staging-item {
+    padding: 6px 10px; background: var(--bg); border-radius: 6px;
+    margin-bottom: 4px; font-size: 12px; font-family: var(--mono);
+  }
+  .staging-item .label { color: var(--text-muted); }
+  .staging-item .value { color: var(--text); }
+  .staging-change { color: var(--orange); }
+  .staging-comment { color: var(--accent); }
+  .staging-exclude { color: var(--red); }
+  .staging-approve { color: var(--green); }
+  .staging-summary {
+    display: flex; gap: 16px; padding: 10px 12px;
+    background: var(--bg); border-radius: 8px; margin-bottom: 14px;
+  }
+  .staging-summary .stat { text-align: center; }
+  .staging-summary .stat-num { font-size: 20px; font-weight: 700; }
+  .staging-summary .stat-label { font-size: 10px; color: var(--text-dim); text-transform: uppercase; }
+
+  /* ── Post-submit status screen ──────────────────── */
+  .post-submit-overlay {
+    position: fixed; inset: 0; z-index: 9998;
+    background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 20px;
+  }
+  .post-submit-overlay[hidden] { display: none; }
+  .post-submit-icon { font-size: 56px; }
+  .post-submit-title {
+    font-size: 22px; font-weight: 700; text-align: center;
+  }
+  .post-submit-subtitle {
+    font-size: 14px; color: var(--text-muted); text-align: center;
+    max-width: 440px; line-height: 1.6;
+  }
+  .post-submit-phase {
+    margin-top: 8px; padding: 10px 20px;
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: 8px; font-size: 12px; color: var(--text-dim);
+    font-family: var(--mono);
+  }
+  .post-submit-spinner {
+    width: 24px; height: 24px; border: 3px solid var(--border);
+    border-top-color: var(--accent); border-radius: 50%;
+    animation: post-spin 0.8s linear infinite; margin-top: 4px;
+  }
+  @keyframes post-spin { to { transform: rotate(360deg); } }
+
   /* ── Center: iframe ─────────────────────────────── */
   .preview-pane {
     flex: 1;
@@ -555,6 +631,144 @@
   .feedback-comment:focus { border-color: var(--accent); }
   .feedback-comment::placeholder { color: #94a3b8; }
 
+  .feedback-attachments {
+    display: none;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 6px;
+  }
+  .feedback-attachments.has-items { display: flex; }
+  .feedback-attachment-thumb {
+    position: relative;
+    width: 72px;
+    height: 72px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    background: var(--bg);
+    cursor: pointer;
+  }
+  .feedback-attachment-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .feedback-attachment-thumb .remove {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.65);
+    color: #fff;
+    border: none;
+    font-size: 12px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+  }
+  .feedback-attachment-thumb .remove:hover { background: #ef4444; }
+  .feedback-hint {
+    font-size: 10px;
+    color: var(--text-dim);
+    margin-top: 4px;
+  }
+
+  /* ── AI Assistant panel ────────────────────────────── */
+  .ai-panel {
+    display: none;
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    flex-direction: column;
+    max-height: 280px;
+  }
+  .ai-panel.open { display: flex; }
+
+  .ai-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 16px;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .ai-msg { margin-bottom: 12px; white-space: pre-wrap; word-wrap: break-word; }
+  .ai-msg-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 2px;
+  }
+  .ai-msg-user .ai-msg-label { color: var(--accent); }
+  .ai-msg-assistant .ai-msg-label { color: var(--green); }
+  .ai-msg-text { color: var(--text); }
+  .ai-msg-error .ai-msg-text { color: var(--red); }
+  .ai-msg-actions {
+    margin-top: 6px;
+    display: flex;
+    gap: 6px;
+  }
+
+  .ai-input-row {
+    display: flex;
+    gap: 8px;
+    padding: 8px 12px;
+    border-top: 1px solid var(--border);
+    align-items: center;
+  }
+
+  .ai-input {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 12px;
+    padding: 8px 10px;
+    outline: none;
+  }
+  .ai-input:focus { border-color: var(--accent); }
+  .ai-input::placeholder { color: #94a3b8; }
+  .ai-input:disabled { opacity: 0.5; }
+
+  .ai-clear {
+    font-size: 11px;
+    color: var(--text-dim);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+  }
+  .ai-clear:hover { color: var(--text-muted); }
+
+  .ai-thinking {
+    display: inline-flex;
+    gap: 4px;
+    align-items: center;
+    padding: 4px 0;
+  }
+  .ai-thinking-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: ai-pulse 1.4s ease-in-out infinite;
+  }
+  .ai-thinking-dot:nth-child(2) { animation-delay: 0.2s; }
+  .ai-thinking-dot:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes ai-pulse {
+    0%, 80%, 100% { opacity: 0.2; transform: scale(0.8); }
+    40% { opacity: 1; transform: scale(1); }
+  }
+
   /* ── Auto-review results ────────────────────────── */
   .auto-review {
     padding: 8px;
@@ -713,6 +927,13 @@
     <span class="phase-badge" id="phase-badge">Elements</span>
   </div>
   <div class="header-right">
+    <button class="inspect-toggle" id="ai-toggle" title="AI prompt assistant (Ctrl+K)" style="margin-right:4px">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 2a4 4 0 0 1 4 4v2h1a3 3 0 0 1 3 3v2a3 3 0 0 1-3 3h-1v2a4 4 0 0 1-8 0v-2H7a3 3 0 0 1-3-3v-2a3 3 0 0 1 3-3h1V6a4 4 0 0 1 4-4z"/>
+        <circle cx="9" cy="11" r="1"/><circle cx="15" cy="11" r="1"/>
+      </svg>
+      AI
+    </button>
     <button class="inspect-toggle" id="gallery-toggle" title="Show all components in a grid" style="margin-right:4px">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
@@ -726,6 +947,18 @@
       Inspect
     </button>
     <span style="font-size:12px;color:var(--text-dim)" id="connection-status">Connecting...</span>
+  </div>
+</div>
+
+<!-- ── AI Assistant Panel ──────────────────────────── -->
+<div class="ai-panel" id="ai-panel">
+  <div class="ai-messages" id="ai-messages">
+    <div class="ai-msg" style="color:var(--text-dim);font-size:12px">Ask about the selected component or describe a change you want. Press <kbd style="background:var(--bg-hover);padding:1px 5px;border-radius:3px;font-size:11px">Ctrl+K</kbd> to toggle.</div>
+  </div>
+  <div class="ai-input-row">
+    <input class="ai-input" id="ai-input" type="text" placeholder="Ask about this component or describe a fix..." autocomplete="off" />
+    <button class="btn btn-sm btn-primary" id="ai-send">Send</button>
+    <button class="ai-clear" id="ai-clear" title="Clear conversation">Clear</button>
   </div>
 </div>
 
@@ -792,7 +1025,33 @@
       <div id="changes-list"></div>
     </div>
     <div class="feedback-panel" id="feedback-panel" style="display:none">
-      <textarea class="feedback-comment" id="feedback-comment" placeholder="Suggest changes, e.g. &quot;make border thinner&quot; or &quot;reduce gap to 8px&quot;..."></textarea>
+      <textarea class="feedback-comment" id="feedback-comment" placeholder="Suggest changes, e.g. &quot;make border thinner&quot; or &quot;reduce gap to 8px&quot;... (paste an image with ⌘V)"></textarea>
+      <div class="feedback-attachments" id="feedback-attachments"></div>
+      <div class="feedback-hint">Tip: paste a screenshot (⌘V) to attach it to the comment.</div>
+    </div>
+  </div>
+</div>
+
+<!-- Post-submit status screen -->
+<div class="post-submit-overlay" id="post-submit" hidden>
+  <div class="post-submit-icon" id="post-submit-icon"></div>
+  <div class="post-submit-title" id="post-submit-title"></div>
+  <div class="post-submit-subtitle" id="post-submit-subtitle"></div>
+  <div class="post-submit-spinner" id="post-submit-spinner"></div>
+  <div class="post-submit-phase" id="post-submit-phase"></div>
+</div>
+
+<!-- Staging modal -->
+<div class="modal-overlay" id="staging-modal" hidden>
+  <div class="modal">
+    <div class="modal-header">
+      <span>Review Summary</span>
+      <button class="btn btn-sm btn-outline" id="staging-cancel" style="font-size:16px;padding:2px 8px">&times;</button>
+    </div>
+    <div class="modal-body" id="staging-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" id="staging-back">Back to Review</button>
+      <button class="btn btn-primary" id="staging-confirm">Confirm &amp; Submit</button>
     </div>
   </div>
 </div>
@@ -809,6 +1068,7 @@
   let inspectActive = false;
   const changes = new Map();     // componentId → [{path, property, oldValue, newValue}]
   const comments = new Map();   // componentId → string
+  const commentAttachments = new Map(); // componentId → [{ name, dataUrl }]
   const excluded = new Set();   // componentIds removed from review
   let currentElementPath = null;
   let currentStyles = null;
@@ -830,6 +1090,7 @@
   const changesCount = document.getElementById("changes-count");
   const feedbackPanel = document.getElementById("feedback-panel");
   const feedbackComment = document.getElementById("feedback-comment");
+  const feedbackAttachments = document.getElementById("feedback-attachments");
   const resetStyles = document.getElementById("reset-styles");
   const undoAllChanges = document.getElementById("undo-all-changes");
   const connectionStatus = document.getElementById("connection-status");
@@ -952,12 +1213,14 @@
     filteredQueue.forEach((item, idx) => {
       const itemChanges = changes.get(item.id) || [];
       const itemComment = comments.get(item.id) || "";
+      const itemAttachments = commentAttachments.get(item.id) || [];
+      const hasComment = itemComment || itemAttachments.length > 0;
       let statusClass = "pending";
-      if (itemChanges.length > 0 && itemComment) {
+      if (itemChanges.length > 0 && hasComment) {
         statusClass = "changed";
       } else if (itemChanges.length > 0) {
         statusClass = "changed";
-      } else if (itemComment) {
+      } else if (hasComment) {
         statusClass = "rejected";
       }
 
@@ -1064,10 +1327,88 @@
 
     // Load existing comment for this element
     feedbackComment.value = comments.get(item.id) || "";
+    renderAttachments(item.id);
 
     // Show component changes
     renderChanges(item.id);
   }
+
+  // ── Attachment rendering and paste handling ──────────
+  function renderAttachments(itemId) {
+    const list = commentAttachments.get(itemId) || [];
+    feedbackAttachments.innerHTML = "";
+    if (list.length === 0) {
+      feedbackAttachments.classList.remove("has-items");
+      return;
+    }
+    feedbackAttachments.classList.add("has-items");
+    list.forEach((att, idx) => {
+      const thumb = document.createElement("div");
+      thumb.className = "feedback-attachment-thumb";
+      thumb.title = att.name || "pasted image";
+      const img = document.createElement("img");
+      img.src = att.dataUrl;
+      img.alt = att.name || "pasted image";
+      thumb.appendChild(img);
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "remove";
+      remove.innerHTML = "&times;";
+      remove.title = "Remove attachment";
+      remove.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const current = commentAttachments.get(itemId) || [];
+        current.splice(idx, 1);
+        if (current.length === 0) commentAttachments.delete(itemId);
+        else commentAttachments.set(itemId, current);
+        renderAttachments(itemId);
+        renderComponentList();
+        updateSubmitStats();
+      });
+      thumb.appendChild(remove);
+      thumb.addEventListener("click", () => {
+        // Open in new tab for full-size view
+        const w = window.open("", "_blank");
+        if (w) w.document.write(`<img src="${att.dataUrl}" style="max-width:100%">`);
+      });
+      feedbackAttachments.appendChild(thumb);
+    });
+  }
+
+  feedbackComment.addEventListener("paste", (e) => {
+    const item = filteredQueue[selectedIdx];
+    if (!item) return;
+    const cbItems = e.clipboardData && e.clipboardData.items;
+    if (!cbItems) return;
+    const images = [];
+    for (const ci of cbItems) {
+      if (ci.kind === "file" && ci.type.startsWith("image/")) {
+        const file = ci.getAsFile();
+        if (file) images.push(file);
+      }
+    }
+    if (images.length === 0) return;
+    e.preventDefault();
+    const existing = commentAttachments.get(item.id) || [];
+    let remaining = images.length;
+    images.forEach((file, idx) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        existing.push({
+          name: file.name || `pasted-${Date.now()}-${idx}.png`,
+          dataUrl: reader.result,
+        });
+        remaining--;
+        if (remaining === 0) {
+          commentAttachments.set(item.id, existing);
+          renderAttachments(item.id);
+          renderComponentList();
+          updateSubmitStats();
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  });
 
   function renderComponentInfo(item) {
     // Show component details in the info zone
@@ -2152,7 +2493,12 @@
     const total = queue.length;
     const excludedCount = excluded.size;
     const changed = Array.from(changes.keys()).filter(id => (changes.get(id) || []).length > 0).length;
-    const commented = Array.from(comments.keys()).filter(id => !excluded.has(id)).length;
+    const commentedIds = new Set();
+    for (const id of comments.keys()) if (!excluded.has(id)) commentedIds.add(id);
+    for (const id of commentAttachments.keys()) {
+      if (!excluded.has(id) && (commentAttachments.get(id) || []).length > 0) commentedIds.add(id);
+    }
+    const commented = commentedIds.size;
 
     const parts = [];
     if (changed > 0) parts.push(`<span><span class="component-status changed" style="display:inline-block"></span> ${changed} changed</span>`);
@@ -2167,7 +2513,14 @@
       : "Submit — Approve All";
   }
 
-  submitAll.addEventListener("click", async () => {
+  // ── Staging modal logic ───────────────────────────
+  const stagingModal = document.getElementById("staging-modal");
+  const stagingBody = document.getElementById("staging-body");
+  const stagingCancel = document.getElementById("staging-cancel");
+  const stagingBack = document.getElementById("staging-back");
+  const stagingConfirm = document.getElementById("staging-confirm");
+
+  function buildStagingSummary() {
     // Save current element's comment
     if (selectedIdx >= 0 && filteredQueue[selectedIdx]) {
       const comment = feedbackComment.value.trim();
@@ -2175,13 +2528,146 @@
       else comments.delete(filteredQueue[selectedIdx].id);
     }
 
-    // All comments are accepted — questions, exclusions, and change requests alike
+    const withChanges = [];
+    const withComments = [];
+    const withExclusions = [];
+    const approved = [];
 
-    // Build feedback: each element gets its changes and comments
+    for (const item of queue) {
+      const ch = changes.get(item.id) || [];
+      const cm = comments.get(item.id) || "";
+      const atts = commentAttachments.get(item.id) || [];
+      const ex = excluded.has(item.id);
+      if (ex) { withExclusions.push(item); }
+      else if (ch.length > 0 || cm || atts.length > 0) {
+        if (ch.length > 0) withChanges.push({ item, changes: ch });
+        if (cm || atts.length > 0) withComments.push({ item, comment: cm, attachments: atts });
+      } else {
+        approved.push(item);
+      }
+    }
+
+    let html = `<div class="staging-summary">
+      <div class="stat"><div class="stat-num staging-approve">${approved.length}</div><div class="stat-label">Approved</div></div>
+      <div class="stat"><div class="stat-num staging-change">${withChanges.length}</div><div class="stat-label">Style Changes</div></div>
+      <div class="stat"><div class="stat-num staging-comment">${withComments.length}</div><div class="stat-label">Comments</div></div>
+      <div class="stat"><div class="stat-num staging-exclude">${withExclusions.length}</div><div class="stat-label">Removed</div></div>
+    </div>`;
+
+    if (withChanges.length > 0) {
+      html += `<div class="staging-section"><h4>Style Changes</h4>`;
+      for (const { item, changes: ch } of withChanges) {
+        const name = item.name || item.id;
+        html += `<div class="staging-item"><span class="label">${name}:</span> <span class="staging-change">${ch.length} change${ch.length > 1 ? "s" : ""}</span>`;
+        for (const c of ch) {
+          html += `<div style="margin-left:12px;font-size:11px;color:var(--text-dim)">${c.property}: ${c.oldValue} → ${c.newValue}</div>`;
+        }
+        html += `</div>`;
+      }
+      html += `</div>`;
+    }
+
+    if (withComments.length > 0) {
+      html += `<div class="staging-section"><h4>Comments / Requests</h4>`;
+      for (const { item, comment, attachments } of withComments) {
+        const name = item.name || item.id;
+        const shownComment = comment
+          ? `"${comment.length > 80 ? comment.slice(0, 80) + "…" : comment}"`
+          : `<span style="color:var(--text-dim)">(image only)</span>`;
+        const attCount = (attachments || []).length;
+        const attBadge = attCount > 0
+          ? ` <span style="color:var(--text-dim)">📎 ${attCount} image${attCount > 1 ? "s" : ""}</span>`
+          : "";
+        html += `<div class="staging-item"><span class="label">${name}:</span> <span class="staging-comment">${shownComment}</span>${attBadge}</div>`;
+      }
+      html += `</div>`;
+    }
+
+    if (withExclusions.length > 0) {
+      html += `<div class="staging-section"><h4>Removed Elements</h4>`;
+      for (const item of withExclusions) {
+        const name = item.name || item.id;
+        html += `<div class="staging-item"><span class="staging-exclude">✕ ${name}</span></div>`;
+      }
+      html += `</div>`;
+    }
+
+    if (approved.length > 0) {
+      html += `<div class="staging-section"><h4>Approved (no changes)</h4>`;
+      html += `<div class="staging-item"><span class="staging-approve">${approved.map(i => i.name || i.id).join(", ")}</span></div>`;
+      html += `</div>`;
+    }
+
+    return html;
+  }
+
+  function showStagingModal() {
+    stagingBody.innerHTML = buildStagingSummary();
+    stagingModal.hidden = false;
+  }
+
+  function hideStagingModal() {
+    stagingModal.hidden = true;
+  }
+
+  stagingCancel.addEventListener("click", hideStagingModal);
+  stagingBack.addEventListener("click", hideStagingModal);
+
+  submitAll.addEventListener("click", () => {
+    showStagingModal();
+  });
+
+  // ── Post-submit status screen ─────────────────────
+  const postSubmit = document.getElementById("post-submit");
+  const postSubmitIcon = document.getElementById("post-submit-icon");
+  const postSubmitTitle = document.getElementById("post-submit-title");
+  const postSubmitSubtitle = document.getElementById("post-submit-subtitle");
+  const postSubmitSpinner = document.getElementById("post-submit-spinner");
+  const postSubmitPhase = document.getElementById("post-submit-phase");
+
+  function showPostSubmit(mode) {
+    // mode: "approved" | "fixing"
+    const phase = phaseBadge?.textContent?.toLowerCase() || "elements";
+    const nextPhase = phase === "elements" ? "widgets" : phase === "widgets" ? "pages" : "next phase";
+
+    if (mode === "approved") {
+      postSubmitIcon.textContent = "✅";
+      postSubmitTitle.textContent = "All Approved!";
+      postSubmitSubtitle.textContent = `All ${phase} have been approved. The builder is now moving on to ${nextPhase}. This page will refresh automatically when they're ready for review.`;
+      postSubmitSpinner.style.display = "block";
+      postSubmitPhase.textContent = `Phase: ${phase} → ${nextPhase}`;
+    } else {
+      postSubmitIcon.textContent = "🔧";
+      postSubmitTitle.textContent = "Corrections Submitted";
+      postSubmitSubtitle.textContent = `Your feedback is being applied now. The builder will fix the issues and run auto-review. This page will refresh automatically when they're ready for you to review again.`;
+      postSubmitSpinner.style.display = "block";
+      postSubmitPhase.textContent = `Fixing ${phase} — sit tight`;
+    }
+    postSubmit.hidden = false;
+  }
+
+  // Listen for new queue items (means fixes are done, review again)
+  function listenForRequeue() {
+    const check = setInterval(() => {
+      fetch("/review/api/queue").then(r => r.json()).then(data => {
+        if (Array.isArray(data) && data.length > 0) {
+          clearInterval(check);
+          location.reload();
+        }
+      }).catch(() => {});
+    }, 5000);
+  }
+
+  stagingConfirm.addEventListener("click", async () => {
+    stagingConfirm.disabled = true;
+    stagingConfirm.textContent = "Submitting...";
+
+    // Build feedback: each element gets its changes, comments, and attachments
     const feedback = queue.map(item => ({
       id: item.id,
       changes: changes.get(item.id) || [],
       comment: comments.get(item.id) || "",
+      attachments: commentAttachments.get(item.id) || [],
     }));
 
     try {
@@ -2191,11 +2677,7 @@
         body: JSON.stringify(feedback),
       });
       if (res.ok) {
-        const hasWork = feedback.some(f => f.changes.length > 0 || f.comment);
-        submitAll.textContent = hasWork
-          ? "Submitted — builder will apply changes..."
-          : "Approved — moving to next step...";
-        submitAll.disabled = true;
+        const hasWork = feedback.some(f => f.changes.length > 0 || f.comment || (f.attachments && f.attachments.length > 0));
 
         // Also send source changes
         const allChanges = [];
@@ -2220,10 +2702,15 @@
             body: JSON.stringify({ excludedIds: Array.from(excluded) }),
           });
         }
+
+        // Show status screen and start listening for requeue
+        hideStagingModal();
+        showPostSubmit(hasWork ? "fixing" : "approved");
+        listenForRequeue();
       }
     } catch (err) {
-      submitAll.textContent = "Error — retry";
-      submitAll.disabled = false;
+      stagingConfirm.textContent = "Error — retry";
+      stagingConfirm.disabled = false;
     }
   });
 
@@ -2264,6 +2751,181 @@
       renderChanges(compId);
       renderComponentList();
       refreshPropHighlights(compId);
+    }
+  });
+
+  // ── AI Assistant ──────────────────────────────────
+  const aiToggle = document.getElementById("ai-toggle");
+  const aiPanel = document.getElementById("ai-panel");
+  const aiMessages = document.getElementById("ai-messages");
+  const aiInput = document.getElementById("ai-input");
+  const aiSend = document.getElementById("ai-send");
+  const aiClear = document.getElementById("ai-clear");
+  let aiHistory = [];
+  let aiStreaming = false;
+
+  aiToggle.addEventListener("click", () => {
+    aiPanel.classList.toggle("open");
+    aiToggle.classList.toggle("active");
+    if (aiPanel.classList.contains("open")) aiInput.focus();
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+      e.preventDefault();
+      aiToggle.click();
+    }
+  });
+
+  aiClear.addEventListener("click", () => {
+    aiHistory = [];
+    aiMessages.innerHTML = '<div class="ai-msg" style="color:var(--text-dim);font-size:12px">Conversation cleared.</div>';
+  });
+
+  function escapeAiHtml(s) { return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+  async function buildComponentContext() {
+    const item = filteredQueue[selectedIdx];
+    if (!item) return "(no component selected)";
+
+    const parts = [`Component: ${item.name}`, `Source: ${item.sourcePath || "unknown"}`];
+
+    if (item.measurements && item.measurements.length > 0) {
+      parts.push("Measurements:");
+      for (const m of item.measurements) {
+        parts.push(`  ${m.property}: ${m.actual} (expected: ${m.expected}, ${m.pass ? "PASS" : "FAIL"})`);
+      }
+    }
+
+    if (currentStyles) {
+      parts.push("Computed styles (selected element at " + (currentElementPath || "root") + "):");
+      for (const [k, v] of Object.entries(currentStyles)) {
+        if (v && v !== "none" && v !== "normal" && v !== "auto" && v !== "0px") {
+          parts.push(`  ${k}: ${v}`);
+        }
+      }
+    }
+
+    if (item.sourcePath) {
+      try {
+        const r = await fetch(`/review/api/contract?component=${encodeURIComponent(item.sourcePath)}`);
+        if (r.ok) {
+          const data = await r.json();
+          if (data.content) parts.push("\nDesign contract:\n" + data.content);
+        }
+      } catch { /* skip */ }
+    }
+
+    return parts.join("\n");
+  }
+
+  async function sendAiMessage() {
+    const text = aiInput.value.trim();
+    if (!text || aiStreaming) return;
+
+    aiInput.value = "";
+    aiStreaming = true;
+    aiInput.disabled = true;
+    aiSend.disabled = true;
+
+    // Render user message
+    const userDiv = document.createElement("div");
+    userDiv.className = "ai-msg ai-msg-user";
+    userDiv.innerHTML = `<div class="ai-msg-label">You</div><div class="ai-msg-text">${escapeAiHtml(text)}</div>`;
+    aiMessages.appendChild(userDiv);
+
+    // Render assistant placeholder
+    const aDiv = document.createElement("div");
+    aDiv.className = "ai-msg ai-msg-assistant";
+    const aLabel = document.createElement("div");
+    aLabel.className = "ai-msg-label";
+    aLabel.textContent = "AI";
+    const aText = document.createElement("div");
+    aText.className = "ai-msg-text";
+    aText.innerHTML = '<div class="ai-thinking"><div class="ai-thinking-dot"></div><div class="ai-thinking-dot"></div><div class="ai-thinking-dot"></div></div>';
+    aDiv.appendChild(aLabel);
+    aDiv.appendChild(aText);
+    aiMessages.appendChild(aDiv);
+    aiMessages.scrollTop = aiMessages.scrollHeight;
+
+    const context = await buildComponentContext();
+    aiHistory.push({ role: "user", content: text });
+
+    let fullText = "";
+    try {
+      const res = await fetch("/review/api/ai-assist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: aiHistory, componentContext: context }),
+      });
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split("\n");
+        buf = lines.pop();
+        for (const line of lines) {
+          if (line.startsWith("event: error")) {
+            // Next data line has the error
+          } else if (line.startsWith("data: ")) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              if (data.error) {
+                aDiv.className = "ai-msg ai-msg-error";
+                aText.textContent = data.error;
+              } else if (data.text) {
+                fullText += data.text;
+                aText.textContent = fullText;
+                aiMessages.scrollTop = aiMessages.scrollHeight;
+              }
+            } catch { /* skip */ }
+          }
+        }
+      }
+
+      if (fullText) {
+        aiHistory.push({ role: "assistant", content: fullText });
+
+        // Add "Use as comment" button
+        const actions = document.createElement("div");
+        actions.className = "ai-msg-actions";
+        const useBtn = document.createElement("button");
+        useBtn.className = "btn btn-sm btn-outline";
+        useBtn.textContent = "Use as comment";
+        useBtn.addEventListener("click", () => {
+          const existing = feedbackComment.value.trim();
+          feedbackComment.value = existing ? existing + "\n" + fullText : fullText;
+          const item = filteredQueue[selectedIdx];
+          if (item) {
+            comments.set(item.id, feedbackComment.value.trim());
+            renderComponentList();
+            updateSubmitStats();
+          }
+        });
+        actions.appendChild(useBtn);
+        aDiv.appendChild(actions);
+      }
+    } catch (err) {
+      aDiv.className = "ai-msg ai-msg-error";
+      aText.textContent = "Connection error: " + err.message;
+    }
+
+    aiStreaming = false;
+    aiInput.disabled = false;
+    aiSend.disabled = false;
+    aiInput.focus();
+  }
+
+  aiSend.addEventListener("click", sendAiMessage);
+  aiInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendAiMessage();
     }
   });
 

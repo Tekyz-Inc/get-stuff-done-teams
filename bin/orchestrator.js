@@ -108,6 +108,7 @@ class Orchestrator {
   constructor(workflow) {
     this.wf = workflow;
     this.pids = [];
+    this._childPids = new Set();
   }
 
   // ─── CLI ─────────────────────────────────────────────────────────────
@@ -136,7 +137,7 @@ class Orchestrator {
         case "--skip-measure": opts.skipMeasure = true; break;
         case "--clean": opts.clean = true; break;
         case "--verbose": case "-v": opts.verbose = true; break;
-        case "--parallel": opts.parallel = parseInt(argv[++i], 10) || 3; break;
+        case "--parallel": opts.parallel = parseInt(argv[++i], 10) || 15; break;
         case "--help":
         case "-h":
           if (this.wf.showUsage) this.wf.showUsage();
@@ -164,7 +165,7 @@ ${BOLD}Options:${RESET}
   --timeout <sec>       Claude timeout per phase in seconds (default: 600)
   --skip-measure        Skip automated measurement (human-review only)
   --clean               Clear all artifacts from previous runs + delete build output
-  --parallel <N>        Run N items concurrently (default: all items in parallel)
+  --parallel <N>        Run N items concurrently (default: 15)
   --verbose, -v         Show Claude's tool calls and prompts in terminal
   --help                Show this help
 
@@ -188,18 +189,15 @@ ${BOLD}Phases:${RESET} ${this.wf.phases.join(" → ")}
   }
 
   spawnClaude(projectDir, prompt, timeout, opts = {}) {
+    // Synchronous wrapper around async spawn — uses a temp file signal so
+    // the event loop stays alive and SIGINT (Ctrl+C) can be handled
     const start = Date.now();
-    let output = "";
-    let exitCode = 0;
     const verbose = this._verbose;
 
-    // Build args: -p for print mode, --dangerously-skip-permissions so spawned
-    // Claude can write files without interactive permission prompts
     const args = ["-p", "--dangerously-skip-permissions", "--output-format", "stream-json"];
     if (verbose) args.push("--verbose");
     args.push(prompt);
 
-    // Log prompt to file for debugging
     if (verbose) {
       const logDir = path.join(this.getReviewDir(projectDir), "build-logs");
       ensureDir(logDir);
@@ -210,31 +208,38 @@ ${BOLD}Phases:${RESET} ${this.wf.phases.join(" → ")}
       );
     }
 
-    try {
-      const raw = execFileSync("claude", args, {
-        encoding: "utf8",
-        timeout: timeout || this.wf.defaults?.timeout || 600_000,
-        stdio: ["pipe", "pipe", "pipe"],
-        cwd: projectDir,
-        maxBuffer: 10 * 1024 * 1024,
-      });
-      // Parse stream-json: each line is a JSON event, extract assistant text
-      output = this._parseStreamJson(raw, verbose);
-    } catch (e) {
-      // On timeout/error, still parse any partial stream-json output we got
-      const rawOut = (e.stdout || "") + (e.stderr || "");
-      output = this._parseStreamJson(rawOut, verbose);
-      exitCode = e.status || 1;
-      if (e.killed) warn(`Claude timed out after ${(timeout || 600_000) / 1000}s`);
-    }
+    const effectiveTimeout = timeout || this.wf.defaults?.timeout || 600_000;
+    const signalFile = path.join(this.getReviewDir(projectDir), `_sync-done-${Date.now()}.json`);
+    let result = { output: "", exitCode: 1, duration: 0 };
 
-    const duration = Math.round((Date.now() - start) / 1000);
+    const child = execFile("claude", args, {
+      encoding: "utf8",
+      timeout: effectiveTimeout,
+      cwd: projectDir,
+      maxBuffer: 10 * 1024 * 1024,
+    }, (err, stdout, stderr) => {
+      this.untrackChild(child.pid);
+      const raw = err ? ((err.stdout || "") + (err.stderr || "")) : (stdout || "");
+      const output = this._parseStreamJson(raw, verbose);
+      const exitCode = err ? (err.status || 1) : 0;
+      const duration = Math.round((Date.now() - start) / 1000);
+      if (err && err.killed) warn(`Claude timed out after ${effectiveTimeout / 1000}s`);
+      result = { output, exitCode, duration };
+      try { fs.writeFileSync(signalFile, "done"); } catch { /* ignore */ }
+    });
+    this.trackChild(child.pid);
+
+    // Block until child finishes, but keep event loop alive for SIGINT
+    while (!fs.existsSync(signalFile) && !this._interrupted) {
+      syncSleep(200);
+    }
+    try { fs.unlinkSync(signalFile); } catch { /* ignore */ }
 
     if (verbose) {
-      dim(`Claude finished: exit=${exitCode}, duration=${duration}s, output=${output.length} chars`);
+      dim(`Claude finished: exit=${result.exitCode}, duration=${result.duration}s, output=${result.output.length} chars`);
     }
 
-    return { output, exitCode, duration };
+    return result;
   }
 
   // ─── Server Management ───────────────────────────────────────────────
@@ -266,6 +271,7 @@ ${BOLD}Phases:${RESET} ${this.wf.phases.join(" → ")}
         cwd: projectDir,
         maxBuffer: 10 * 1024 * 1024,
       }, (err, stdout, stderr) => {
+        this.untrackChild(child.pid);
         const raw = err ? ((err.stdout || "") + (err.stderr || "")) : (stdout || "");
         const output = this._parseStreamJson(raw, false);
         const exitCode = err ? (err.code === "ERR_CHILD_PROCESS_STDIO_MAXBUFFER" ? 1 : (err.killed ? 143 : (err.code || 1))) : 0;
@@ -277,6 +283,7 @@ ${BOLD}Phases:${RESET} ${this.wf.phases.join(" → ")}
 
         resolve({ output, exitCode, duration });
       });
+      this.trackChild(child.pid);
     });
   }
 
@@ -505,9 +512,9 @@ ${BOLD}Phases:${RESET} ${this.wf.phases.join(" → ")}
 
     openBrowser(`http://localhost:${reviewPort}/review`);
 
-    // IRONCLAD GATE — JavaScript polling loop
+    // IRONCLAD GATE — JavaScript polling loop (breaks on Ctrl+C via _interrupted flag)
     let healthCheckCounter = 0;
-    while (true) {
+    while (!this._interrupted) {
       if (fs.existsSync(signalPath)) {
         try {
           const data = JSON.parse(fs.readFileSync(signalPath, "utf8"));
@@ -602,6 +609,16 @@ ${BOLD}Phases:${RESET} ${this.wf.phases.join(" → ")}
     }
   }
 
+  // ─── Child process tracking ──────────────────────────────────────────
+
+  trackChild(pid) {
+    if (pid) this._childPids.add(pid);
+  }
+
+  untrackChild(pid) {
+    if (pid) this._childPids.delete(pid);
+  }
+
   // ─── Cleanup ─────────────────────────────────────────────────────────
 
   cleanup(projectDir) {
@@ -610,13 +627,20 @@ ${BOLD}Phases:${RESET} ${this.wf.phases.join(" → ")}
       fs.writeFileSync(shutdownPath, JSON.stringify({ shutdown: true, at: new Date().toISOString() }));
     } catch { /* ignore */ }
 
+    // Kill all tracked child processes (Claude spawns)
+    for (const pid of this._childPids) {
+      try { process.kill(pid, "SIGTERM"); } catch { /* already dead */ }
+    }
+    this._childPids.clear();
+
+    // Kill server processes
     for (const pid of this.pids) {
       if (pid) {
         try { process.kill(pid); } catch { /* already dead */ }
         try { process.kill(-pid); } catch { /* ignore */ }
       }
     }
-    dim("Servers stopped");
+    dim("All processes stopped");
   }
 
   // ─── Main Pipeline ──────────────────────────────────────────────────
@@ -701,9 +725,10 @@ ${BOLD}Phases:${RESET} ${this.wf.phases.join(" → ")}
       this._activeDevPort = devPort;
     }
 
-    // Register cleanup on exit
-    process.on("SIGINT", () => { this.cleanup(projectDir); process.exit(0); });
-    process.on("SIGTERM", () => { this.cleanup(projectDir); process.exit(0); });
+    // Register cleanup on exit — set flag so sync loops can break
+    this._interrupted = false;
+    process.on("SIGINT", () => { this._interrupted = true; this.cleanup(projectDir); process.exit(0); });
+    process.on("SIGTERM", () => { this._interrupted = true; this.cleanup(projectDir); process.exit(0); });
 
     // 5. Determine starting phase
     let startIdx = 0;
@@ -731,6 +756,88 @@ ${BOLD}Phases:${RESET} ${this.wf.phases.join(" → ")}
       }
 
       heading(`Phase ${i + 1}/${phases.length}: ${phase} (${items.length} items)`);
+
+      // ── Element inventory validation (widgets/pages only) ─────────────
+      // Before building widgets or pages, validate that contracts only reference
+      // elements that actually exist. Auto-correct mismatches.
+      if (phase !== phases[0]) { // skip for the first phase (elements themselves)
+        const elemDir = path.join(projectDir, "src", "components", phases[0]);
+        const contractDir = path.join(projectDir, ".gsd-t", "contracts", "design", phase);
+        if (fs.existsSync(elemDir) && fs.existsSync(contractDir)) {
+          // Build inventory of available element kebab names
+          const availableElements = new Set();
+          try {
+            for (const f of fs.readdirSync(elemDir)) {
+              if (!f.endsWith(".vue") && !f.endsWith(".tsx")) continue;
+              const name = f.replace(/\.\w+$/, "");
+              const kebab = name.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
+              availableElements.add(kebab);
+            }
+          } catch { /* ignore */ }
+
+          if (availableElements.size > 0) {
+            info(`Validating ${phase} contracts against element inventory (${availableElements.size} elements)`);
+            let corrections = 0;
+
+            for (const cf of fs.readdirSync(contractDir)) {
+              if (!cf.endsWith(".contract.md")) continue;
+              const cfPath = path.join(contractDir, cf);
+              let content;
+              try { content = fs.readFileSync(cfPath, "utf8"); } catch { continue; }
+
+              // Find all element contract references in table cells
+              const refPattern = /\|\s*(chart-[a-z-]+|legend-[a-z-]+|stat-[a-z-]+|table-[a-z-]+|select-[a-z-]+|tabs-[a-z-]+|date-[a-z-]+|pagination|icon|tooltip)\s*\|/g;
+              let match;
+              const missing = [];
+              while ((match = refPattern.exec(content)) !== null) {
+                const ref = match[1].trim();
+                if (!availableElements.has(ref)) {
+                  missing.push(ref);
+                }
+              }
+
+              if (missing.length > 0) {
+                // Find closest available element for each missing ref
+                const availArr = Array.from(availableElements);
+                for (const miss of missing) {
+                  // Simple similarity: count shared words
+                  const missWords = miss.split("-");
+                  let bestMatch = null;
+                  let bestScore = 0;
+                  for (const avail of availArr) {
+                    const availWords = avail.split("-");
+                    // Count shared words
+                    let shared = 0;
+                    for (const w of missWords) {
+                      if (availWords.includes(w)) shared++;
+                    }
+                    // Prefer same prefix (chart→chart, legend→legend)
+                    if (missWords[0] === availWords[0]) shared += 2;
+                    if (shared > bestScore) {
+                      bestScore = shared;
+                      bestMatch = avail;
+                    }
+                  }
+                  if (bestMatch && bestScore >= 2) {
+                    content = content.split(miss).join(bestMatch);
+                    warn(`  ${cf}: ${miss} → ${bestMatch} (auto-corrected)`);
+                    corrections++;
+                  } else {
+                    warn(`  ${cf}: ${miss} not found, no close match available`);
+                  }
+                }
+                try { fs.writeFileSync(cfPath, content); } catch { /* ignore */ }
+              }
+            }
+
+            if (corrections > 0) {
+              success(`Auto-corrected ${corrections} element reference(s) in ${phase} contracts`);
+            } else {
+              info(`All ${phase} contracts reference valid elements`);
+            }
+          }
+        }
+      }
 
       state.currentPhase = phase;
       this.saveState(projectDir, state);
@@ -1029,11 +1136,12 @@ ${BOLD}Phases:${RESET} ${this.wf.phases.join(" → ")}
         }
       }
 
-      // 6e. Human review cycle
+      // 6e. Human review cycle — unlimited (human decides when to approve)
+      // After each human fix, auto-review runs again with a fresh cycle counter
       let reviewCycle = 0;
       let allApproved = false;
 
-      while (reviewCycle < maxReviewCycles && !allApproved) {
+      while (!allApproved) {
         const queueCount = this.queuePhaseItems(projectDir, phase, items, measurements);
         this.waitForReview(projectDir, phase, queueCount, reviewPort);
 
@@ -1046,19 +1154,97 @@ ${BOLD}Phases:${RESET} ${this.wf.phases.join(" → ")}
           success(`All ${phase} approved!`);
         } else {
           reviewCycle++;
-          if (reviewCycle < maxReviewCycles) {
-            info(`Review cycle ${reviewCycle + 1}/${maxReviewCycles} — applying fixes...`);
-            const fixPrompt = this.wf.buildFixPrompt
-              ? this.wf.buildFixPrompt(phase, feedback.needsWork)
-              : this._defaultFixPrompt(phase, feedback.needsWork);
-            info(`Spawning Claude to apply ${feedback.needsWork.length} fixes...`);
-            const fixResult = this.spawnClaude(projectDir, fixPrompt, opts.timeout || 600_000, { label: `${phase}-human-fix` });
-            if (fixResult.exitCode === 0) success("Fixes applied");
-            else warn(`Fix attempt returned code ${fixResult.exitCode}`);
-          } else {
-            warn(`Max review cycles reached for ${phase} — proceeding with remaining issues`);
-            allApproved = true;
+          info(`Human review cycle ${reviewCycle} — applying ${feedback.needsWork.length} fixes...`);
+          const fixPrompt = this.wf.buildFixPrompt
+            ? this.wf.buildFixPrompt(phase, feedback.needsWork)
+            : this._defaultFixPrompt(phase, feedback.needsWork);
+          const fixResult = this.spawnClaude(projectDir, fixPrompt, opts.timeout || 600_000, { label: `${phase}-human-fix-c${reviewCycle}` });
+          if (fixResult.exitCode === 0) success("Fixes applied");
+          else warn(`Fix attempt returned code ${fixResult.exitCode}`);
+
+          // Re-measure after human fix
+          if (!skipMeasure && this.wf.measure) {
+            info("Re-measuring after human fix...");
+            measurements = this.wf.measure(projectDir, phase, items, { devPort, reviewPort }) || {};
           }
+
+          // Re-run auto-review with fresh cycle counter
+          if (this.wf.buildReviewPrompt || this.wf.buildSingleItemReviewPrompt) {
+            let autoReviewCycle2 = 0;
+            let autoReviewClean2 = false;
+
+            while (autoReviewCycle2 < maxAutoReviewCycles && !autoReviewClean2) {
+              autoReviewCycle2++;
+              heading(`Post-Fix Automated Review — ${phase} (cycle ${autoReviewCycle2}/${maxAutoReviewCycles})`);
+              let issues = [];
+
+              if (this.wf.buildSingleItemReviewPrompt) {
+                const reviewTimeout = this.wf.defaults?.perItemReviewTimeout || 120_000;
+                const perItemTimeout = this.wf.defaults?.perItemTimeout || 300_000;
+                let totalDuration = 0;
+                for (let idx = 0; idx < items.length; idx++) {
+                  const item = items[idx];
+                  const itemMeasurements = { [item.id]: measurements[item.id] || [] };
+                  const reviewPrompt = this.wf.buildSingleItemReviewPrompt(phase, item, itemMeasurements, projectDir, { devPort, reviewPort });
+                  dim(`  [${idx + 1}/${items.length}] ${item.componentName}...`);
+                  const reviewResult = this.spawnClaude(projectDir, reviewPrompt, Math.min(reviewTimeout, perItemTimeout), { label: `${phase}-postreview-c${autoReviewCycle2}-${item.id}` });
+                  totalDuration += reviewResult.duration;
+
+                  const isCrash = reviewResult.exitCode !== 0 && reviewResult.duration < 10;
+                  const isKilled = [143, 137].includes(reviewResult.exitCode);
+                  const isEmptyFail = reviewResult.exitCode !== 0 && !reviewResult.output.trim();
+
+                  if (isCrash || isKilled || isEmptyFail) {
+                    issues.push({ component: item.componentName, severity: "critical", description: `Reviewer ${isCrash ? "crashed" : isKilled ? "killed/timed out" : "failed"} — review not performed` });
+                  } else {
+                    const itemIssues = this.wf.parseReviewResult
+                      ? this.wf.parseReviewResult(reviewResult.output, phase)
+                      : this._parseDefaultReviewResult(reviewResult.output);
+                    if (itemIssues.length > 0) {
+                      warn(`  ${item.componentName}: ${itemIssues.length} issue(s) (${reviewResult.duration}s)`);
+                      issues.push(...itemIssues);
+                    } else {
+                      success(`  ${item.componentName}: clean (${reviewResult.duration}s)`);
+                    }
+                  }
+                }
+                log(`\n  Total review time: ${totalDuration}s for ${items.length} items`);
+              } else {
+                const reviewPrompt = this.wf.buildReviewPrompt(phase, items, measurements, projectDir, { devPort, reviewPort });
+                const reviewResult = this.spawnClaude(projectDir, reviewPrompt, this.wf.defaults?.reviewTimeout || 300_000, { label: `${phase}-postreview-cycle${autoReviewCycle2}` });
+                const isCrash = reviewResult.exitCode !== 0 && reviewResult.duration < 10;
+                const isKilled = [143, 137].includes(reviewResult.exitCode);
+                const isEmptyFail = reviewResult.exitCode !== 0 && !reviewResult.output.trim();
+                if (isCrash || isKilled || isEmptyFail) {
+                  issues = [{ component: "ALL", severity: "critical", description: `Reviewer failed with exit code ${reviewResult.exitCode}` }];
+                } else {
+                  issues = this.wf.parseReviewResult
+                    ? this.wf.parseReviewResult(reviewResult.output, phase)
+                    : this._parseDefaultReviewResult(reviewResult.output);
+                }
+              }
+
+              if (issues.length === 0) {
+                autoReviewClean2 = true;
+                success(`Post-fix automated review passed — no issues found`);
+              } else {
+                warn(`Post-fix review found ${issues.length} issue(s)`);
+                if (autoReviewCycle2 < maxAutoReviewCycles) {
+                  const fixPrompt = this.wf.buildAutoFixPrompt
+                    ? this.wf.buildAutoFixPrompt(phase, issues, items, projectDir)
+                    : this._defaultAutoFixPrompt(phase, issues);
+                  log(`\n${CYAN}  ⚙${RESET} Spawning fixer for ${issues.length} issue(s)...`);
+                  this.spawnClaude(projectDir, fixPrompt, opts.timeout || 600_000, { label: `${phase}-postfix-cycle${autoReviewCycle2}` });
+                  if (!skipMeasure && this.wf.measure) {
+                    measurements = this.wf.measure(projectDir, phase, items, { devPort, reviewPort }) || {};
+                  }
+                } else {
+                  warn(`Max post-fix auto-review cycles reached — remaining issues go to next human review`);
+                }
+              }
+            }
+          }
+          // Loop continues → re-queue for human review
         }
       }
 

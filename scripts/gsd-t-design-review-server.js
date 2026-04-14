@@ -10,6 +10,7 @@
  *   node gsd-t-design-review-server.js [--port 3456] [--target http://localhost:5173] [--project /path/to/project]
  */
 const http = require("http");
+const { spawn } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 const url = require("url");
@@ -88,6 +89,15 @@ function extractFixtureFromContract(componentPath) {
     }
     return props;
   } catch { return null; }
+}
+
+function readContractForComponent(componentPath) {
+  const match = componentPath.match(/src\/components\/(\w+)\/(\w+)\.\w+$/);
+  if (!match) return null;
+  const [, tier, name] = match;
+  const kebab = name.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
+  const contractPath = path.join(PROJECT_DIR, ".gsd-t", "contracts", "design", tier, `${kebab}.contract.md`);
+  try { return fs.readFileSync(contractPath, "utf8"); } catch { return null; }
 }
 
 function generatePreviewHtml(componentPath) {
@@ -372,10 +382,39 @@ function readFeedback() {
   } catch { return []; }
 }
 
+function persistAttachments(item) {
+  if (!Array.isArray(item.attachments) || item.attachments.length === 0) return item;
+  const attDir = path.join(REVIEW_DIR, "feedback", "attachments");
+  ensureDir(attDir);
+  const persisted = [];
+  item.attachments.forEach((att, idx) => {
+    if (!att || typeof att.dataUrl !== "string") return;
+    const m = att.dataUrl.match(/^data:(image\/[a-zA-Z0-9+.-]+);base64,(.+)$/);
+    if (!m) return;
+    const mime = m[1];
+    const ext = mime.split("/")[1].replace("+xml", "").replace("jpeg", "jpg");
+    const ts = Date.now();
+    const safeId = String(item.id).replace(/[^a-zA-Z0-9_-]/g, "_");
+    const filename = `${safeId}-${ts}-${idx}.${ext}`;
+    const absPath = path.join(attDir, filename);
+    try {
+      fs.writeFileSync(absPath, Buffer.from(m[2], "base64"));
+      persisted.push({
+        name: att.name || filename,
+        path: path.relative(REVIEW_DIR, absPath),
+        mime,
+        size: Buffer.byteLength(m[2], "base64"),
+      });
+    } catch {}
+  });
+  return { ...item, attachments: persisted };
+}
+
 function writeFeedback(items) {
   const fbDir = path.join(REVIEW_DIR, "feedback");
   ensureDir(fbDir);
-  for (const item of items) {
+  for (const rawItem of items) {
+    const item = persistAttachments(rawItem);
     const fname = `${item.id}.json`;
     fs.writeFileSync(path.join(fbDir, fname), JSON.stringify(item, null, 2));
   }
@@ -596,6 +635,116 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  if (pathname === "/review/api/contract") {
+    const component = parsed.query.component;
+    const content = component ? readContractForComponent(component) : null;
+    res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+    res.end(JSON.stringify({ content: content || "" }));
+    return;
+  }
+
+  if (pathname === "/review/api/ai-assist" && req.method === "POST") {
+    let body = "";
+    req.on("data", (chunk) => { body += chunk; });
+    req.on("end", () => {
+      try {
+        const { messages, componentContext } = JSON.parse(body);
+
+        // Build a single prompt from system context + conversation history
+        const systemLines = [
+          "You are a design review assistant. A human is reviewing UI components against design contracts in the GSD-T Design Review panel.",
+          "Help them:",
+          "1. Answer questions about the component (properties, styles, measurements, data)",
+          "2. Translate vague corrections into precise, actionable contract language",
+          "3. Suggest specific property changes in the format: property: current → target",
+          "",
+          "Be concise. When suggesting corrections, format them so they can be pasted directly as a review comment.",
+          "",
+          "=== Component Context ===",
+          componentContext || "(no component selected)",
+          "=== End Context ===",
+        ];
+
+        // Include conversation history for multi-turn
+        if (messages && messages.length > 1) {
+          systemLines.push("", "=== Conversation History ===");
+          for (const msg of messages.slice(0, -1)) {
+            systemLines.push(`${msg.role === "user" ? "Human" : "Assistant"}: ${msg.content}`);
+          }
+          systemLines.push("=== End History ===");
+        }
+
+        const lastMessage = messages && messages.length > 0 ? messages[messages.length - 1].content : "";
+        const fullPrompt = systemLines.join("\n") + "\n\nHuman: " + lastMessage;
+        const model = process.env.GSD_AI_ASSIST_MODEL || "opus";
+
+        res.writeHead(200, {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          "Connection": "keep-alive",
+          "Access-Control-Allow-Origin": "*",
+        });
+
+        const claude = spawn("claude", [
+          "-p", fullPrompt,
+          "--model", model,
+          "--output-format", "stream-json",
+          "--verbose",
+        ], { env: { ...process.env, NO_COLOR: "1" } });
+
+        let buf = "";
+        let textSent = 0;
+
+        claude.stdout.on("data", (chunk) => {
+          buf += chunk.toString();
+          const lines = buf.split("\n");
+          buf = lines.pop();
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            try {
+              const evt = JSON.parse(line);
+              if (evt.type === "assistant" && evt.message?.content) {
+                for (const block of evt.message.content) {
+                  if (block.type === "text" && block.text) {
+                    const newText = block.text.slice(textSent);
+                    if (newText) {
+                      res.write(`data: ${JSON.stringify({ text: newText })}\n\n`);
+                      textSent = block.text.length;
+                    }
+                  }
+                }
+              }
+            } catch { /* skip non-JSON lines */ }
+          }
+        });
+
+        claude.stderr.on("data", () => { /* suppress stderr */ });
+
+        claude.on("close", (code) => {
+          if (!res.writableEnded) {
+            if (code !== 0 && textSent === 0) {
+              res.write(`event: error\ndata: ${JSON.stringify({ error: "Claude CLI exited with code " + code + ". Is claude installed and authenticated?" })}\n\n`);
+            }
+            res.write("event: done\ndata: {}\n\n");
+            res.end();
+          }
+        });
+
+        claude.on("error", (err) => {
+          if (!res.writableEnded) {
+            res.write(`event: error\ndata: ${JSON.stringify({ error: "Failed to spawn claude: " + err.message + ". Install Claude Code CLI to enable AI assist." })}\n\n`);
+            res.write("event: done\ndata: {}\n\n");
+            res.end();
+          }
+        });
+      } catch (err) {
+        res.writeHead(400, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+    });
+    return;
+  }
+
   if (pathname === "/review/api/feedback" && req.method === "GET") {
     res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
     res.end(JSON.stringify(readFeedback()));
@@ -647,9 +796,14 @@ const server = http.createServer((req, res) => {
             removed.push({ id, source: srcPath });
           }
         }
-        // Remove from queue
+        // Remove from queue (memory + disk)
         for (let i = reviewQueue.length - 1; i >= 0; i--) {
-          if (excludedIds.includes(reviewQueue[i].id)) reviewQueue.splice(i, 1);
+          if (excludedIds.includes(reviewQueue[i].id)) {
+            // Delete queue JSON file from disk
+            const queueFile = path.join(REVIEW_DIR, "queue", `${reviewQueue[i].id}.json`);
+            try { if (fs.existsSync(queueFile)) fs.unlinkSync(queueFile); } catch {}
+            reviewQueue.splice(i, 1);
+          }
         }
         broadcast("queue-update", reviewQueue);
         res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
