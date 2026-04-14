@@ -1,0 +1,23 @@
+## Task 1 Summary — context-meter-hook
+
+- **Status**: PASS
+- **Files modified**:
+  - `scripts/context-meter/transcript-parser.js` (new)
+  - `scripts/context-meter/transcript-parser.test.js` (new)
+  - `.gsd-t/progress.md` (Decision Log entry)
+  - `.gsd-t/domains/context-meter-hook/task-1-summary.md` (this file)
+- **Constraints discovered** (feeds Tasks 2–4):
+  - Claude Code JSONL top-level `type` set is larger than expected: `user`, `assistant`, `system`, `summary`, `attachment`, `file-history-snapshot`, `permission-mode`, `queue-operation`, `last-prompt`. Only user/assistant carry a usable `message`; all others must be skipped.
+  - `user.message.content` is **string OR array** — normalized to `[{type:'text', text}]` when string, filtered when array.
+  - Assistant content blocks observed: `text`, `thinking`, `tool_use`. `thinking` blocks MUST be stripped — count_tokens rejects them.
+  - `tool_use` blocks carry an extra `caller` field Claude Code adds locally; stripped in the normalized output (not part of Anthropic's public tool_use schema).
+  - `tool_result.content` is itself **string OR array** of text/image blocks; inner `tool_result` blocks may include `is_error`. Only `is_error:true` is preserved (omission = false).
+  - Messages already appear in chronological order in the JSONL, so tool_use → tool_result pairing is implicit — no need for an id→block map. The parser keeps that natural ordering.
+  - `system` top-level field for count_tokens body cannot be recovered from the JSONL (Claude Code does not persist the system prompt into the transcript). Returning `system: ""` — caller/contract accepts a slight undercount.
+  - Lines can be very long (observed 10k+ chars from thinking blocks and large tool_result contents) — streaming line-by-line via `readline` is load-bearing, not premature optimization.
+- **Tests**: 13/13 pass (this task) | full suite 25/25 pass (13 new + 12 existing context-meter-config)
+- **Notes**:
+  - Zero external deps — `fs`, `readline` only.
+  - Async API: `parseTranscript` returns a Promise because `readline` is stream-based. The hook entry-point (Task 4) must `await` it.
+  - Fail-open return is `null`, NOT an empty body — this lets the caller distinguish "bail out of count_tokens" from "valid empty transcript".
+  - Unknown-but-typed blocks are passed through minimally (`{...block}`) for forward compatibility with future Claude Code message schemas.
