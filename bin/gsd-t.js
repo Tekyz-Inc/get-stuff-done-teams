@@ -1481,8 +1481,84 @@ function doStatus() {
   showStatusCommands();
   showStatusConfig();
   showStatusTeams();
+  showStatusContextMeter();
   showStatusProject();
   log("");
+}
+
+function formatRelativeTime(timestampIso) {
+  const then = Date.parse(timestampIso);
+  if (!Number.isFinite(then)) return "unknown";
+  const deltaSec = Math.max(0, Math.floor((Date.now() - then) / 1000));
+  if (deltaSec < 60) return `${deltaSec}s ago`;
+  if (deltaSec < 3600) return `${Math.floor(deltaSec / 60)}m ago`;
+  if (deltaSec < 86400) return `${Math.floor(deltaSec / 3600)}h ago`;
+  return `${Math.floor(deltaSec / 86400)} days ago`;
+}
+
+function showStatusContextMeter() {
+  heading("Context Meter");
+  const cwd = process.cwd();
+  const statePath = path.join(cwd, ".gsd-t", ".context-meter-state.json");
+
+  let state = null;
+  try {
+    if (fs.existsSync(statePath)) {
+      state = JSON.parse(fs.readFileSync(statePath, "utf8"));
+    }
+  } catch {
+    state = null;
+  }
+
+  if (!state || typeof state !== "object") {
+    log(`  ${DIM}Context: N/A (meter hook not run this session)${RESET}`);
+    return;
+  }
+
+  // Error case: inputTokens === 0 AND lastError set
+  if (state.lastError && state.inputTokens === 0) {
+    const code = (state.lastError && state.lastError.code) || "unknown";
+    const rel = state.timestamp ? formatRelativeTime(state.timestamp) : "unknown";
+    log(`  ${DIM}Context: N/A (meter error: ${code}) — last check ${rel}${RESET}`);
+    return;
+  }
+
+  // Require minimum viable fields for a fresh reading
+  if (
+    typeof state.pct !== "number" ||
+    typeof state.modelWindowSize !== "number" ||
+    typeof state.threshold !== "string" ||
+    typeof state.timestamp !== "string"
+  ) {
+    log(`  ${DIM}Context: N/A (meter hook not run this session)${RESET}`);
+    return;
+  }
+
+  const pctStr = state.pct.toFixed(1);
+  const rel = formatRelativeTime(state.timestamp);
+  const ageMs = Date.now() - Date.parse(state.timestamp);
+  const stale = !Number.isFinite(ageMs) || ageMs > 5 * 60 * 1000;
+  const staleSuffix = stale ? " (stale)" : "";
+
+  let color = DIM;
+  switch (state.threshold) {
+    case "normal":
+      color = GREEN;
+      break;
+    case "warn":
+    case "downgrade":
+      color = YELLOW;
+      break;
+    case "conserve":
+      color = RED;
+      break;
+    case "stop":
+      color = BOLD + RED;
+      break;
+  }
+
+  const line = `Context: ${pctStr}% of ${state.modelWindowSize} tokens (${state.threshold} band) — last check ${rel}${staleSuffix}`;
+  log(`  ${color}${line}${RESET}`);
 }
 
 function showStatusVersion() {
