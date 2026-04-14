@@ -1557,8 +1557,9 @@ function updateSingleProject(projectDir, counts) {
 }
 
 // Bin tools that should ship with every registered project. Listed here so adding
-// a new tool only requires appending to this array.
-const PROJECT_BIN_TOOLS = ["archive-progress.js", "log-tail.js", "context-budget-audit.js"];
+// a new tool only requires appending to this array. Use .cjs extension so they
+// always run as CommonJS regardless of the project's package.json "type" field.
+const PROJECT_BIN_TOOLS = ["archive-progress.cjs", "log-tail.cjs", "context-budget-audit.cjs"];
 
 function copyBinToolsToProject(projectDir, projectName) {
   const projectBinDir = path.join(projectDir, "bin");
@@ -1611,7 +1612,7 @@ function runProgressArchiveMigration(projectDir, projectName) {
   const markerPath = path.join(projectDir, ".gsd-t", ".archive-migration-v1");
   if (fs.existsSync(markerPath)) return false;
 
-  const archiveScript = path.join(projectDir, "bin", "archive-progress.js");
+  const archiveScript = path.join(projectDir, "bin", "archive-progress.cjs");
   if (!fs.existsSync(archiveScript)) return false;
 
   try {

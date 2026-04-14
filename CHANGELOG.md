@@ -2,6 +2,11 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.74.11] - 2026-04-13
+
+### Fixed
+- **`bin/archive-progress.js` → `.cjs` rename** — the new bin tools used CommonJS `require()` but failed in projects with `"type": "module"` in `package.json` (caught on BDS-Analytics-UI during first update-all). Renamed all three new bin tools to `.cjs` so they run as CommonJS regardless of the host project's module type. `version-update-all` now copies `.cjs` files and runs `archive-progress.cjs`.
+
 ## [2.74.10] - 2026-04-13
 
 ### Added

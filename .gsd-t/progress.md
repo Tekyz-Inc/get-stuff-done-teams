@@ -3,7 +3,7 @@
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: IN PROGRESS
 ## Date: 2026-04-13
-## Version: 2.74.10
+## Version: 2.74.11
 
 ## Active Milestone
 
@@ -399,6 +399,8 @@ Wave 4: adaptive-replan (consumes fresh-dispatch summaries, integrates with work
 - 2026-04-09 00:05: [feat] Fixture data tree in property inspector — /review/api/fixture endpoint returns extracted test fixture data. Inspector renders expandable tree showing columns, rows, segments, etc. with color swatches. Collapsible at every level. Playwright-verified: TableStripedHeader shows columns[5] and rows[5] tree. (v2.73.17)
 
 - 2026-04-13 17:25: [feat] Rolling Decision Log archival to fix mid-session compaction regression — added bin/archive-progress.js (keeps last 5 entries live, rolls older into 20-entry windows under .gsd-t/progress-archive/), bin/log-tail.js (truncates test/build output), bin/context-budget-audit.js (preamble cost diagnostic). Auto-migrated this project: 163KB → 42KB, Decision Log section dropped 100KB+ → 13KB. Wired into version-update-all to copy bin tools into every registered project and run a one-time archive migration (gated by .gsd-t/.archive-migration-v1 marker). Root-cause fix for the "manual /compact prompts started 2026-04-10" regression — every command that read progress.md was paying 25% of the context window per read. (v2.74.10)
+
+- 2026-04-13 17:55: [fix] Renamed bin tools .js → .cjs to support ESM projects — first version-update-all hit a CommonJS/ESM error on BDS-Analytics-UI (which has "type": "module" in package.json). archive-progress.js, log-tail.js, and context-budget-audit.js now use .cjs extension so they run as CommonJS regardless of the host project's module type. Cleaned up broken .js copies from 13 already-updated projects, retried update-all successfully. 11 of 13 projects ran their one-time migration on first update-all. (v2.74.11)
 
 ## Session Log
 | Date | Session | What was accomplished |
