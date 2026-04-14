@@ -23,6 +23,10 @@ node_modules/
 # GSD-T graph index (auto-generated, project-specific)
 .gsd-t/graph/
 
+# GSD-T context meter (session-specific runtime state)
+.gsd-t/.context-meter-state.json
+.gsd-t/context-meter.log
+
 # Claude Code internal directories
 .claude/worktrees/
 .claude/settings.local.json
