@@ -123,9 +123,9 @@ Do NOT proceed to Step 5 until this synthesis is complete.
 ```
 
 After team completes — run via Bash:
-`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START))`
-Append to `.gsd-t/token-log.md` (create with header `| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Tasks-Since-Reset |` if missing):
-`| {DT_START} | {DT_END} | gsd-t-brainstorm | Step 3 | sonnet | {DURATION}s | deep research: {topic summary} | {COUNTER} |`
+`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START)) && CTX_PCT=$(node -e "const tb=require('./bin/token-budget.js'); process.stdout.write(String(tb.getSessionStatus('.').pct||'N/A'))" 2>/dev/null || echo "N/A")`
+Append to `.gsd-t/token-log.md` (create with header `| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Ctx% |` if missing):
+`| {DT_START} | {DT_END} | gsd-t-brainstorm | Step 3 | sonnet | {DURATION}s | deep research: {topic summary} | {CTX_PCT} |`
 
 ## Step 4: Capture the Sparks
 

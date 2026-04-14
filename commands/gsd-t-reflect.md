@@ -21,14 +21,10 @@ Skip Step 0 — you are already the subagent."
 **OBSERVABILITY LOGGING — after subagent returns:**
 
 Run via Bash:
-`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START))`
+`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START)) && CTX_PCT=$(node -e "const tb=require('./bin/token-budget.js'); process.stdout.write(String(tb.getSessionStatus('.').pct||'N/A'))" 2>/dev/null || echo "N/A")`
 
-Compute tokens:
-- No compaction (TOK_END >= TOK_START): `TOKENS=$((TOK_END-TOK_START))`, COMPACTED=null
-- Compaction detected (TOK_END < TOK_START): `TOKENS=$(((TOK_MAX-TOK_START)+TOK_END))`, COMPACTED=$DT_END
-
-Append to `.gsd-t/token-log.md` (create with header `| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Tasks-Since-Reset |` if missing):
-`| {DT_START} | {DT_END} | gsd-t-reflect | Step 0 | sonnet | {DURATION}s | retrospective generated | {COUNTER} |`
+Append to `.gsd-t/token-log.md` (create with header `| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Ctx% |` if missing):
+`| {DT_START} | {DT_END} | gsd-t-reflect | Step 0 | sonnet | {DURATION}s | retrospective generated | {CTX_PCT} |`
 
 Return the subagent's output and stop. Only skip Step 0 if you are already running as a subagent.
 

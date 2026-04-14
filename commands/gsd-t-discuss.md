@@ -72,9 +72,9 @@ Lead: Synthesize into decisions and update contracts.
 ```
 
 After team completes — run via Bash:
-`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START))`
-Append to `.gsd-t/token-log.md` (create with header `| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Tasks-Since-Reset |` if missing):
-`| {DT_START} | {DT_END} | gsd-t-discuss | Step 3 | sonnet | {DURATION}s | team discuss: {topic summary} | {COUNTER} |`
+`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START)) && CTX_PCT=$(node -e "const tb=require('./bin/token-budget.js'); process.stdout.write(String(tb.getSessionStatus('.').pct||'N/A'))" 2>/dev/null || echo "N/A")`
+Append to `.gsd-t/token-log.md` (create with header `| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Ctx% |` if missing):
+`| {DT_START} | {DT_END} | gsd-t-discuss | Step 3 | sonnet | {DURATION}s | team discuss: {topic summary} | {CTX_PCT} |`
 
 Assign teammates based on the nature of the questions:
 - **Technical choice** (e.g., which database): one advocate per option + critic

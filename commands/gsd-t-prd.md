@@ -23,9 +23,9 @@ Read CLAUDE.md and .gsd-t/progress.md for project context, then execute gsd-t-pr
 ```
 
 After subagent returns — run via Bash:
-`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START))`
-Append to `.gsd-t/token-log.md` (create with header `| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Tasks-Since-Reset |` if missing):
-`| {DT_START} | {DT_END} | gsd-t-prd | Step 0 | sonnet | {DURATION}s | prd: {topic summary} | {COUNTER} |`
+`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START)) && CTX_PCT=$(node -e "const tb=require('./bin/token-budget.js'); process.stdout.write(String(tb.getSessionStatus('.').pct||'N/A'))" 2>/dev/null || echo "N/A")`
+Append to `.gsd-t/token-log.md` (create with header `| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Ctx% |` if missing):
+`| {DT_START} | {DT_END} | gsd-t-prd | Step 0 | sonnet | {DURATION}s | prd: {topic summary} | {CTX_PCT} |`
 
 Relay the subagent's summary to the user. **Do not execute Steps 1–6 yourself.**
 

@@ -234,7 +234,7 @@ For each task in `.gsd-t/domains/{domain-name}/tasks.md` (in order, skip complet
 1. Load prior summaries: Read up to 5 most recent `.gsd-t/domains/{domain-name}/task-*-summary.md` files (10-20 lines each)
 2. Load graph context (if `.gsd-t/graph/meta.json` exists): query task's files for relevant graph context
 3. Display: `⚙ [sonnet] gsd-t-execute → domain: {domain-name}, task-{task-id}`
-4. Run observability Bash (T_START / DT_START / TOK_START / TOK_MAX)
+4. Run observability Bash (T_START / DT_START)
 5. Spawn task subagent:
 
 ```
@@ -416,11 +416,11 @@ Report back:
 ```
 
 6. After task subagent returns:
-   - Run observability Bash (T_END / TOK_END / DURATION / CTX_PCT)
+   - Run observability Bash (T_END / DURATION / CTX_PCT)
    - Append to token-log.md (per-task row)
    - Alert on CTX_PCT thresholds (display to user inline)
    - **Emit task-metrics record** — run via Bash:
-     `node bin/metrics-collector.js --milestone {milestone} --domain {domain-name} --task task-{task-id} --command execute --duration_s $DURATION --tokens_used $TOKENS --context_pct ${CTX_PCT:-0} --pass {true|false} --fix_cycles {0|N} --signal_type {pass-through|fix-cycle} --notes "{brief outcome}" 2>/dev/null || true`
+     `node bin/metrics-collector.js --milestone {milestone} --domain {domain-name} --task task-{task-id} --command execute --duration_s $DURATION --tokens_used 0 --context_pct ${CTX_PCT:-0} --pass {true|false} --fix_cycles {0|N} --signal_type {pass-through|fix-cycle} --notes "{brief outcome}" 2>/dev/null || true`
      Signal type: `pass-through` if task passed on first attempt; `fix-cycle` if rework was needed.
    - **Emit task_complete event** — run via Bash:
      `node ~/.claude/scripts/gsd-t-event-writer.js --type task_complete --command gsd-t-execute --reasoning "signal_type={signal_type}, domain={domain-name}" --outcome {success|failure} || true`

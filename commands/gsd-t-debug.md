@@ -150,9 +150,9 @@ Lead: Wait for all three researchers to complete. Then synthesize:
 ```
 
 After team completes — run via Bash:
-`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START))`
+`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START)) && CTX_PCT=$(node -e "const tb=require('./bin/token-budget.js'); process.stdout.write(String(tb.getSessionStatus('.').pct||'N/A'))" 2>/dev/null || echo "N/A")`
 Append to `.gsd-t/token-log.md`:
-`| {DT_START} | {DT_END} | gsd-t-debug | Step 1.5 | sonnet | {DURATION}s | deep research loop break: {issue summary} | {COUNTER} |`
+`| {DT_START} | {DT_END} | gsd-t-debug | Step 1.5 | sonnet | {DURATION}s | deep research loop break: {issue summary} | {CTX_PCT} |`
 
 **STOP. Present findings to the user before making any changes:**
 
