@@ -1957,7 +1957,8 @@ function updateSingleProject(projectDir, counts) {
   const changelogCreated = createProjectChangelog(projectDir, projectName);
   const binToolsCopied = copyBinToolsToProject(projectDir, projectName);
   const archiveRan = runProgressArchiveMigration(projectDir, projectName);
-  if (guardAdded || changelogCreated || binToolsCopied || archiveRan) {
+  const taskCounterRetired = runTaskCounterRetirementMigration(projectDir, projectName);
+  if (guardAdded || changelogCreated || binToolsCopied || archiveRan || taskCounterRetired) {
     counts.updated++;
   } else {
     info(`${projectName} — already up to date`);
@@ -2040,6 +2041,55 @@ function runProgressArchiveMigration(projectDir, projectName) {
     warn(`${projectName} — archive migration failed: ${e.message}`);
     return false;
   }
+}
+
+// One-shot migration: retire the v2.74.12 task-counter proxy. Removes the stale
+// bin/task-counter.cjs and any leftover .task-counter* state/config files from
+// downstream projects, then writes a marker so subsequent runs are no-ops. The
+// context meter hook (M34) is the authoritative context-burn signal now.
+function runTaskCounterRetirementMigration(projectDir, projectName) {
+  const gsdtDir = path.join(projectDir, ".gsd-t");
+  if (!fs.existsSync(gsdtDir)) return false;
+
+  const markerPath = path.join(gsdtDir, ".task-counter-retired-v1");
+  if (fs.existsSync(markerPath)) return false;
+
+  const targets = [
+    path.join(projectDir, "bin", "task-counter.cjs"),
+    path.join(gsdtDir, "task-counter-config.json"),
+    path.join(gsdtDir, ".task-counter-state.json"),
+    path.join(gsdtDir, ".task-counter"),
+  ];
+
+  let removed = 0;
+  for (const target of targets) {
+    try {
+      if (fs.existsSync(target)) {
+        try { if (fs.lstatSync(target).isSymbolicLink()) continue; } catch {}
+        fs.unlinkSync(target);
+        removed++;
+      }
+    } catch (e) {
+      warn(`${projectName} — failed to remove ${path.basename(target)}: ${e.message}`);
+    }
+  }
+
+  try {
+    fs.writeFileSync(
+      markerPath,
+      `# task-counter-retired-v1\nApplied: ${new Date().toISOString()}\nReplaced-by: scripts/gsd-t-context-meter.js (M34)\n`
+    );
+  } catch (e) {
+    warn(`${projectName} — failed to write retirement marker: ${e.message}`);
+    return false;
+  }
+
+  if (removed > 0) {
+    info(`${projectName} — retired task-counter (removed ${removed} file(s))`);
+  } else {
+    info(`${projectName} — retired task-counter (no legacy files found)`);
+  }
+  return true;
 }
 
 function showUpdateAllSummary(total, counts, playwrightMissing, swaggerMissing, syncCount) {
@@ -3264,6 +3314,7 @@ module.exports = {
   configureContextMeterHooks,
   promptForApiKeyIfMissing,
   resolveApiKeyEnvVar,
+  runTaskCounterRetirementMigration,
 };
 
 // ─── Main ────────────────────────────────────────────────────────────────────
