@@ -18,6 +18,7 @@
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
+const readline = require("readline");
 const { execFileSync, spawn: cpSpawn } = require("child_process");
 const debugLedger = require(path.join(__dirname, "debug-ledger.js"));
 
@@ -374,6 +375,311 @@ function addHeartbeatHook(hooks, event, cmd) {
   if (hasHeartbeat) return false;
   hooks[event].push({ matcher: "", hooks: [{ type: "command", command: cmd, async: true }] });
   return true;
+}
+
+// ─── Context Meter ──────────────────────────────────────────────────────────
+
+const CONTEXT_METER_SCRIPT = "gsd-t-context-meter.js";
+const CONTEXT_METER_DEPS_DIR = "context-meter";
+const CONTEXT_METER_CONFIG_TEMPLATE = "context-meter-config.json";
+const CONTEXT_METER_CONFIG_DEST = path.join(".gsd-t", "context-meter-config.json");
+const CONTEXT_METER_GITIGNORE_ENTRIES = [
+  ".gsd-t/.context-meter-state.json",
+  ".gsd-t/context-meter.log",
+];
+const CONTEXT_METER_HOOK_MARKER = "gsd-t-context-meter";
+const CONTEXT_METER_HOOK_COMMAND =
+  'node "$CLAUDE_PROJECT_DIR/scripts/gsd-t-context-meter.js"';
+
+// Append entries to {projectDir}/.gitignore. Each entry added only if absent.
+// Idempotent. Returns true if any entries were added, false otherwise.
+function ensureGitignoreEntries(projectDir, entries) {
+  const gitignorePath = path.join(projectDir, ".gitignore");
+  if (isSymlink(gitignorePath)) {
+    warn("Skipping .gitignore — target is a symlink");
+    return false;
+  }
+  let content = "";
+  try {
+    if (fs.existsSync(gitignorePath)) {
+      content = fs.readFileSync(gitignorePath, "utf8");
+    }
+  } catch (e) {
+    warn(`Failed to read .gitignore: ${e.message}`);
+    return false;
+  }
+  const existingLines = new Set(
+    content.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
+  );
+  const toAdd = entries.filter((e) => !existingLines.has(e));
+  if (toAdd.length === 0) return false;
+  try {
+    if (!fs.existsSync(gitignorePath)) {
+      fs.writeFileSync(gitignorePath, toAdd.join("\n") + "\n");
+    } else {
+      const prefix = content.length > 0 && !content.endsWith("\n") ? "\n" : "";
+      const block =
+        "\n# GSD-T context meter (session state — do not commit)\n" +
+        toAdd.join("\n") +
+        "\n";
+      fs.appendFileSync(gitignorePath, prefix + block);
+    }
+    return true;
+  } catch (e) {
+    warn(`Failed to append to .gitignore: ${e.message}`);
+    return false;
+  }
+}
+
+// Install the Context Meter into a project directory.
+// Copies scripts/gsd-t-context-meter.js, scripts/context-meter/*.js (runtime
+// only — skips .test.js and test-injector.js), and the config template (if
+// missing). Also appends entries to .gitignore.
+function installContextMeter(projectDir) {
+  try {
+    // 1. Copy gsd-t-context-meter.js → {projectDir}/scripts/
+    const projectScriptsDir = path.join(projectDir, "scripts");
+    if (!fs.existsSync(projectScriptsDir)) {
+      try {
+        fs.mkdirSync(projectScriptsDir, { recursive: true });
+      } catch (e) {
+        warn(`Failed to create scripts/: ${e.message}`);
+        return false;
+      }
+    }
+    const scriptSrc = path.join(PKG_SCRIPTS, CONTEXT_METER_SCRIPT);
+    const scriptDest = path.join(projectScriptsDir, CONTEXT_METER_SCRIPT);
+    if (!fs.existsSync(scriptSrc)) {
+      warn(`${CONTEXT_METER_SCRIPT} not found in package — skipping context meter`);
+      return false;
+    }
+    if (!isSymlink(scriptDest)) {
+      const srcContent = fs.readFileSync(scriptSrc, "utf8");
+      const destContent = fs.existsSync(scriptDest)
+        ? fs.readFileSync(scriptDest, "utf8")
+        : "";
+      if (normalizeEol(srcContent) !== normalizeEol(destContent)) {
+        fs.copyFileSync(scriptSrc, scriptDest);
+        try {
+          fs.chmodSync(scriptDest, 0o755);
+        } catch {}
+      }
+    }
+
+    // 2. Copy scripts/context-meter/*.js (runtime files only)
+    const depsSrcDir = path.join(PKG_SCRIPTS, CONTEXT_METER_DEPS_DIR);
+    const depsDestDir = path.join(projectScriptsDir, CONTEXT_METER_DEPS_DIR);
+    if (fs.existsSync(depsSrcDir)) {
+      if (!fs.existsSync(depsDestDir)) {
+        try {
+          fs.mkdirSync(depsDestDir, { recursive: true });
+        } catch (e) {
+          warn(`Failed to create scripts/${CONTEXT_METER_DEPS_DIR}/: ${e.message}`);
+          return false;
+        }
+      }
+      let depFiles = [];
+      try {
+        depFiles = fs.readdirSync(depsSrcDir);
+      } catch (e) {
+        warn(`Failed to read ${CONTEXT_METER_DEPS_DIR}/: ${e.message}`);
+        return false;
+      }
+      for (const fname of depFiles) {
+        // Skip test files and test-only infrastructure
+        if (fname.includes(".test.")) continue;
+        if (fname === "test-injector.js") continue;
+        const fsrc = path.join(depsSrcDir, fname);
+        const fdest = path.join(depsDestDir, fname);
+        try {
+          const stat = fs.statSync(fsrc);
+          if (!stat.isFile()) continue;
+        } catch {
+          continue;
+        }
+        if (isSymlink(fdest)) continue;
+        try {
+          const srcContent = fs.readFileSync(fsrc, "utf8");
+          const destContent = fs.existsSync(fdest)
+            ? fs.readFileSync(fdest, "utf8")
+            : "";
+          if (normalizeEol(srcContent) !== normalizeEol(destContent)) {
+            fs.copyFileSync(fsrc, fdest);
+          }
+        } catch (e) {
+          warn(`Failed to copy ${CONTEXT_METER_DEPS_DIR}/${fname}: ${e.message}`);
+        }
+      }
+    }
+
+    // 3. Copy config template → {projectDir}/.gsd-t/context-meter-config.json
+    //    ONLY if the destination does not already exist (never overwrite user config).
+    const configSrc = path.join(PKG_TEMPLATES, CONTEXT_METER_CONFIG_TEMPLATE);
+    const configDest = path.join(projectDir, CONTEXT_METER_CONFIG_DEST);
+    const gsdtDir = path.dirname(configDest);
+    if (!fs.existsSync(gsdtDir)) {
+      try {
+        fs.mkdirSync(gsdtDir, { recursive: true });
+      } catch (e) {
+        warn(`Failed to create .gsd-t/: ${e.message}`);
+      }
+    }
+    if (fs.existsSync(configSrc) && !fs.existsSync(configDest)) {
+      if (!isSymlink(configDest)) {
+        try {
+          fs.copyFileSync(configSrc, configDest);
+        } catch (e) {
+          warn(`Failed to copy context-meter-config.json: ${e.message}`);
+        }
+      }
+    }
+
+    // 4. Append .gitignore entries
+    ensureGitignoreEntries(projectDir, CONTEXT_METER_GITIGNORE_ENTRIES);
+
+    return true;
+  } catch (e) {
+    warn(`installContextMeter failed: ${e.message}`);
+    return false;
+  }
+}
+
+// Register the Context Meter PostToolUse hook in ~/.claude/settings.json.
+// Idempotent — if an existing hook references CONTEXT_METER_HOOK_MARKER the
+// command string is refreshed in-place. All other settings/hooks preserved.
+// Returns { installed: bool, action: "added"|"updated"|"noop" }.
+function configureContextMeterHooks(settingsPath) {
+  const targetPath = settingsPath || SETTINGS_JSON;
+  let settings = {};
+  const fileExists = fs.existsSync(targetPath);
+  if (fileExists) {
+    try {
+      settings = JSON.parse(fs.readFileSync(targetPath, "utf8"));
+      if (!settings || typeof settings !== "object") settings = {};
+    } catch {
+      warn("settings.json has invalid JSON — cannot configure context meter hook");
+      return { installed: false, action: "noop" };
+    }
+  }
+
+  if (!settings.hooks) settings.hooks = {};
+  if (!Array.isArray(settings.hooks.PostToolUse)) settings.hooks.PostToolUse = [];
+
+  const cmd = CONTEXT_METER_HOOK_COMMAND;
+  let action = "noop";
+  let found = false;
+
+  for (const entry of settings.hooks.PostToolUse) {
+    if (!entry || !Array.isArray(entry.hooks)) continue;
+    for (const h of entry.hooks) {
+      if (h && typeof h.command === "string" && h.command.includes(CONTEXT_METER_HOOK_MARKER)) {
+        found = true;
+        if (h.command !== cmd) {
+          h.command = cmd;
+          action = "updated";
+        } else if (action === "noop") {
+          action = "noop";
+        }
+      }
+    }
+  }
+
+  if (!found) {
+    settings.hooks.PostToolUse.push({
+      matcher: "*",
+      hooks: [{ type: "command", command: cmd }],
+    });
+    action = "added";
+  }
+
+  if (action === "noop") {
+    return { installed: true, action: "noop" };
+  }
+
+  if (isSymlink(targetPath)) {
+    warn("Skipping settings.json write — target is a symlink");
+    return { installed: false, action: "noop" };
+  }
+  try {
+    fs.writeFileSync(targetPath, JSON.stringify(settings, null, 2));
+  } catch (e) {
+    warn(`Failed to write settings.json: ${e.message}`);
+    return { installed: false, action: "noop" };
+  }
+  return { installed: true, action };
+}
+
+// Interactive prompt for the Anthropic API key env var.
+// Skips if not a TTY or if the env var is already set.
+// Never writes the key anywhere — just prints the export command for the user
+// to paste into their shell profile themselves. Always non-blocking.
+async function promptForApiKeyIfMissing(envVarName) {
+  const varName = envVarName || "ANTHROPIC_API_KEY";
+  if (!process.stdout.isTTY || !process.stdin.isTTY) return "";
+  if (process.env[varName]) return process.env[varName];
+
+  heading("Context Meter — Anthropic API Key");
+  log("");
+  log(`  ${YELLOW}⚠${RESET}  Context Meter: ${varName} is not set.`);
+  log(`     The hook uses Anthropic's count_tokens API (free, not billed) to measure`);
+  log(`     real context window usage. Without it, the meter falls back to heuristics.`);
+  log(`     Get a key: https://console.anthropic.com/settings/keys`);
+  log("");
+
+  let rl;
+  try {
+    rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  } catch (e) {
+    warn(`Could not open API key prompt: ${e.message}`);
+    return "";
+  }
+
+  return new Promise((resolve) => {
+    try {
+      rl.question("  Paste key now, or press Enter to skip: ", (answer) => {
+        try {
+          const key = (answer || "").trim();
+          if (key.length === 0) {
+            log("");
+            info(`Skipped. Set ${varName} later or run 'gsd-t doctor' to re-check.`);
+            log("");
+          } else {
+            log("");
+            success("Got it. Add this line to your shell profile (~/.zshrc or ~/.bashrc):");
+            log("");
+            log(`    ${DIM}export ${varName}="${key}"${RESET}`);
+            log("");
+            log("  Re-open your shell or run the export command to activate.");
+            log("");
+          }
+          resolve(key);
+        } finally {
+          try { rl.close(); } catch {}
+        }
+      });
+    } catch (e) {
+      warn(`API key prompt failed: ${e.message}`);
+      try { rl.close(); } catch {}
+      resolve("");
+    }
+  });
+}
+
+// Resolve the apiKeyEnvVar from the project's context-meter-config.json
+// Falls back to "ANTHROPIC_API_KEY" if loader unavailable or config absent.
+function resolveApiKeyEnvVar(projectDir) {
+  try {
+    const loader = require(path.join(PKG_ROOT, "bin", "context-meter-config.cjs"));
+    if (loader && typeof loader.loadConfig === "function") {
+      const cfg = loader.loadConfig(projectDir || process.cwd());
+      if (cfg && typeof cfg.apiKeyEnvVar === "string" && cfg.apiKeyEnvVar.length > 0) {
+        return cfg.apiKeyEnvVar;
+      }
+    }
+  } catch {
+    // Fall through to default
+  }
+  return "ANTHROPIC_API_KEY";
 }
 
 // ─── Update Check Hook ──────────────────────────────────────────────────────
@@ -884,7 +1190,7 @@ function appendGsdtToClaudeMd(template) {
   info("Your existing content was preserved.");
 }
 
-function doInstall(opts = {}) {
+async function doInstall(opts = {}) {
   const isUpdate = opts.update || false;
   heading(`${isUpdate ? "Updating" : "Installing"} GSD-T ${versionLink()}`);
   log("");
@@ -912,12 +1218,23 @@ function doInstall(opts = {}) {
   heading("Utility Scripts");
   installUtilityScripts();
 
+  heading("Context Meter (PostToolUse)");
+  const cmHook = configureContextMeterHooks(SETTINGS_JSON);
+  if (cmHook.installed) {
+    if (cmHook.action === "added") success("Context meter PostToolUse hook added");
+    else if (cmHook.action === "updated") success("Context meter hook command refreshed");
+    else info("Context meter hook already configured");
+  }
+
   heading("Graph Engine (CGC)");
   installCgc();
 
   saveInstalledVersion();
 
   showInstallSummary(gsdtCommands.length, utilityCommands.length);
+
+  // Interactive prompt (skipped silently in non-TTY shells)
+  await promptForApiKeyIfMissing(resolveApiKeyEnvVar(process.cwd()));
 }
 
 function showInstallSummary(gsdtCount, utilCount) {
@@ -942,7 +1259,7 @@ function showInstallSummary(gsdtCount, utilCount) {
   log("");
 }
 
-function doUpdate() {
+async function doUpdate() {
   const installedVersion = getInstalledVersion();
 
   if (installedVersion === PKG_VERSION) {
@@ -959,7 +1276,7 @@ function doUpdate() {
     heading(`Updating GSD-T: ${versionLink(installedVersion)} → ${versionLink()}`);
   }
 
-  doInstall({ update: true });
+  await doInstall({ update: true });
 }
 
 function initClaudeMd(projectDir, projectName, today) {
@@ -1092,7 +1409,7 @@ function writeTemplateFile(templateName, destPath, label, projectName, today) {
   }
 }
 
-function doInit(projectName) {
+async function doInit(projectName) {
   if (!projectName) projectName = path.basename(process.cwd());
 
   if (!validateProjectName(projectName)) {
@@ -1112,9 +1429,24 @@ function doInit(projectName) {
   initGsdtDir(projectDir, projectName, today);
   copyBinToolsToProject(projectDir, projectName);
 
+  // Context Meter: copy script + deps + config template, append .gitignore,
+  // register the global PostToolUse hook.
+  if (installContextMeter(projectDir)) {
+    success("Context meter installed (scripts/, config template, .gitignore)");
+  }
+  const cmHook = configureContextMeterHooks(SETTINGS_JSON);
+  if (cmHook.installed) {
+    if (cmHook.action === "added") success("Context meter PostToolUse hook added");
+    else if (cmHook.action === "updated") success("Context meter hook command refreshed");
+    else info("Context meter hook already configured");
+  }
+
   if (registerProject(projectDir)) success("Registered in ~/.claude/.gsd-t-projects");
 
   showInitTree(projectDir);
+
+  // Interactive prompt (skipped silently in non-TTY shells)
+  await promptForApiKeyIfMissing(resolveApiKeyEnvVar(projectDir));
 }
 
 function showInitTree(projectDir) {
@@ -1486,8 +1818,8 @@ function exportUniversalRulesForNpm() {
   }
 }
 
-function doUpdateAll() {
-  updateGlobalCommands();
+async function doUpdateAll() {
+  await updateGlobalCommands();
   heading("Updating registered projects...");
   log("");
 
@@ -1511,9 +1843,9 @@ function doUpdateAll() {
   showUpdateAllSummary(projects.length, counts, playwrightMissing, swaggerMissing, syncCount);
 }
 
-function updateGlobalCommands() {
+async function updateGlobalCommands() {
   if (getInstalledVersion() !== PKG_VERSION) {
-    doInstall({ update: true });
+    await doInstall({ update: true });
   } else {
     heading(`GSD-T ${versionLink()}`);
     success("Global commands already up to date");
@@ -1560,7 +1892,7 @@ function updateSingleProject(projectDir, counts) {
 // Bin tools that should ship with every registered project. Listed here so adding
 // a new tool only requires appending to this array. Use .cjs extension so they
 // always run as CommonJS regardless of the project's package.json "type" field.
-const PROJECT_BIN_TOOLS = ["archive-progress.cjs", "log-tail.cjs", "context-budget-audit.cjs", "task-counter.cjs"];
+const PROJECT_BIN_TOOLS = ["archive-progress.cjs", "log-tail.cjs", "context-budget-audit.cjs", "task-counter.cjs", "context-meter-config.cjs"];
 
 function copyBinToolsToProject(projectDir, projectName) {
   const projectBinDir = path.join(projectDir, "bin");
@@ -2735,6 +3067,12 @@ module.exports = {
   syncGlobalRulesToProject,
   syncGlobalRules,
   exportUniversalRulesForNpm,
+  // M34: Context Meter installer integration
+  ensureGitignoreEntries,
+  installContextMeter,
+  configureContextMeterHooks,
+  promptForApiKeyIfMissing,
+  resolveApiKeyEnvVar,
 };
 
 // ─── Main ────────────────────────────────────────────────────────────────────
@@ -2745,16 +3083,16 @@ if (require.main === module) {
 
   switch (command) {
     case "install":
-      doInstall();
+      doInstall().catch((e) => { error(e.message || String(e)); process.exit(1); });
       break;
     case "update":
-      doUpdate();
+      doUpdate().catch((e) => { error(e.message || String(e)); process.exit(1); });
       break;
     case "update-all":
-      doUpdateAll();
+      doUpdateAll().catch((e) => { error(e.message || String(e)); process.exit(1); });
       break;
     case "init":
-      doInit(args[1]);
+      doInit(args[1]).catch((e) => { error(e.message || String(e)); process.exit(1); });
       break;
     case "register":
       doRegister();
