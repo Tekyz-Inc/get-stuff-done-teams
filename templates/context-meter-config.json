@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "thresholdPct": 75,
+  "modelWindowSize": 200000,
+  "checkFrequency": 5,
+  "apiKeyEnvVar": "ANTHROPIC_API_KEY",
+  "statePath": ".gsd-t/.context-meter-state.json",
+  "logPath": ".gsd-t/context-meter.log",
+  "timeoutMs": 2000
+}

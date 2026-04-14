@@ -1,7 +1,7 @@
 # Contract: Context Meter
 
 ## Version: 1.0.0
-## Status: DRAFT (M34)
+## Status: ACTIVE
 ## Owner: context-meter-config domain
 ## Consumers: context-meter-hook (reads config), token-budget-replacement (reads state file), installer-integration (installs hook, validates config), m34-docs-and-tests (documents)
 
