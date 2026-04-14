@@ -2119,7 +2119,120 @@ function checkDoctorCgc() {
   return issues;
 }
 
-function doDoctor() {
+// Verify context meter wiring: API key env var, hook registration,
+// hook script presence, config validity, and a live count_tokens dry-run.
+// Returns number of issues (RED results). Mirrors checkDoctorCgc shape.
+async function checkDoctorContextMeter(projectDir) {
+  let issues = 0;
+  heading("Context Meter");
+
+  const cwd = projectDir || process.cwd();
+
+  // Load config (used by checks 1, 4, and 5). Missing file → defaults; invalid
+  // JSON or schema-mismatch → throws (handled in Check 4).
+  let cfg = null;
+  let cfgLoadErr = null;
+  try {
+    const { loadConfig } = require("./context-meter-config.cjs");
+    cfg = loadConfig(cwd);
+  } catch (e) {
+    cfgLoadErr = e;
+  }
+  const apiKeyEnvVar = (cfg && cfg.apiKeyEnvVar) || "ANTHROPIC_API_KEY";
+
+  // Check 1: API key env var present
+  const apiKeyValue = process.env[apiKeyEnvVar];
+  const apiKeyPresent = typeof apiKeyValue === "string" && apiKeyValue.length > 0;
+  if (apiKeyPresent) {
+    success(`API key present ($${apiKeyEnvVar})`);
+  } else {
+    error(`Missing API key: set $${apiKeyEnvVar} — https://console.anthropic.com/settings/keys`);
+    issues++;
+  }
+
+  // Check 2: Hook registered in ~/.claude/settings.json
+  let hookRegistered = false;
+  try {
+    if (fs.existsSync(SETTINGS_JSON)) {
+      const raw = fs.readFileSync(SETTINGS_JSON, "utf8");
+      const settings = JSON.parse(raw);
+      const postHooks = (settings && settings.hooks && settings.hooks.PostToolUse) || [];
+      for (const entry of postHooks) {
+        if (!entry || !Array.isArray(entry.hooks)) continue;
+        for (const h of entry.hooks) {
+          if (h && typeof h.command === "string" && h.command.includes(CONTEXT_METER_HOOK_MARKER)) {
+            hookRegistered = true;
+            break;
+          }
+        }
+        if (hookRegistered) break;
+      }
+    }
+  } catch {
+    // Fall through — treat as not registered
+  }
+  if (hookRegistered) {
+    success("Context meter hook registered in settings.json");
+  } else {
+    error("Context meter hook not installed — run gsd-t install");
+    issues++;
+  }
+
+  // Check 3: Hook script file exists in project
+  const scriptPath = path.join(cwd, "scripts", CONTEXT_METER_SCRIPT);
+  if (fs.existsSync(scriptPath)) {
+    success("Hook script present");
+  } else {
+    error(`Hook script missing at scripts/${CONTEXT_METER_SCRIPT} — run gsd-t update`);
+    issues++;
+  }
+
+  // Check 4: Config file parses via loader
+  const configPath = path.join(cwd, CONTEXT_METER_CONFIG_DEST);
+  if (cfgLoadErr) {
+    error(`Config file invalid: ${cfgLoadErr.message} — fix ${CONTEXT_METER_CONFIG_DEST}`);
+    issues++;
+  } else if (fs.existsSync(configPath)) {
+    success(`Config valid (threshold ${cfg.thresholdPct}%, check every ${cfg.checkFrequency} calls)`);
+  } else {
+    warn("Using default config — run gsd-t install to copy template");
+  }
+
+  // Check 5: Dry-run count_tokens API call (skip if no API key)
+  if (!apiKeyPresent) {
+    log(`  ${DIM}Skipped count_tokens dry-run (no API key)${RESET}`);
+  } else {
+    const clientPath = path.join(cwd, "scripts", "context-meter", "count-tokens-client.js");
+    if (!fs.existsSync(clientPath)) {
+      error("count_tokens client missing at scripts/context-meter/count-tokens-client.js — run gsd-t update");
+      issues++;
+    } else {
+      try {
+        const { countTokens } = require(clientPath);
+        const result = await countTokens({
+          apiKey: apiKeyValue,
+          model: "claude-opus-4-6",
+          system: "",
+          messages: [{ role: "user", content: [{ type: "text", text: "ping" }] }],
+          timeoutMs: 5000,
+        });
+        if (result && typeof result.inputTokens === "number") {
+          success(`count_tokens dry-run OK (${result.inputTokens} tokens)`);
+        } else {
+          error("count_tokens API call failed — check API key and network");
+          issues++;
+        }
+      } catch (e) {
+        error(`count_tokens dry-run threw: ${e.message}`);
+        issues++;
+      }
+    }
+  }
+
+  return issues;
+}
+
+async function doDoctor() {
   heading("GSD-T Doctor");
   log("");
   let issues = 0;
@@ -2127,6 +2240,7 @@ function doDoctor() {
   issues += checkDoctorInstallation();
   issues += checkDoctorProject();
   issues += checkDoctorCgc();
+  issues += await checkDoctorContextMeter(process.cwd());
   log("");
   if (issues === 0) {
     log(`${GREEN}${BOLD}  All checks passed!${RESET}`);
@@ -2134,6 +2248,7 @@ function doDoctor() {
     log(`${YELLOW}${BOLD}  ${issues} issue${issues > 1 ? "s" : ""} found${RESET}`);
   }
   log("");
+  if (issues > 0) process.exit(1);
 }
 
 function doRegister() {
@@ -3104,7 +3219,7 @@ if (require.main === module) {
       doUninstall();
       break;
     case "doctor":
-      doDoctor();
+      doDoctor().catch((e) => { error(e.message || String(e)); process.exit(1); });
       break;
     case "changelog":
       doChangelog();

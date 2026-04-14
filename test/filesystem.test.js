@@ -329,10 +329,24 @@ describe("CLI subcommands", () => {
   });
 
   it("doctor subcommand runs without error", () => {
-    const result = execFileSync(process.execPath, [CLI, "doctor"], {
+    // doctor exits 1 when any check fails (e.g. missing API key, missing
+    // Playwright). The test environment does NOT guarantee a clean project,
+    // so we accept both exit 0 (all green) and exit 1 (reported issues).
+    // What we're asserting is that doctor RAN — it produced the expected
+    // heading and did not crash with a thrown exception / exit >= 2.
+    const { spawnSync } = require("child_process");
+    const result = spawnSync(process.execPath, [CLI, "doctor"], {
       encoding: "utf8",
       timeout: 15000,
     });
-    assert.ok(result.includes("GSD-T Doctor"));
+    assert.strictEqual(result.signal, null, "doctor should not be killed");
+    assert.ok(
+      result.status === 0 || result.status === 1,
+      `doctor exit code must be 0 or 1, got ${result.status}`
+    );
+    assert.ok(
+      (result.stdout || "").includes("GSD-T Doctor"),
+      "doctor output must contain heading"
+    );
   });
 });
