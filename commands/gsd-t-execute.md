@@ -2,17 +2,19 @@
 
 You are the lead agent coordinating task execution across domains. Choose solo or team mode based on the plan.
 
-## Step 0: Reset Task-Count Gate (MANDATORY — first thing in a fresh session)
+## Step 0: Verify Context Gate Readiness (MANDATORY — first thing in a fresh session)
 
 Run via Bash:
 
 ```bash
-node bin/task-counter.cjs reset
+node -e "const tb = require('./bin/token-budget.js'); const s = tb.getSessionStatus('.'); console.log(JSON.stringify(s));"
 ```
 
-This clears `.gsd-t/.task-counter` so the new session starts at 0. The reset is the SIGNAL that this is a clean post-`/clear` orchestrator. Do this exactly ONCE per `/user:gsd-t-execute` invocation, immediately on entry. The gate logic is in Step 3.5; do NOT skip it. If `bin/task-counter.cjs` is missing in this project, `npm install` it via `gsd-t install` then retry — the gate is required.
+This calls `getSessionStatus()` (v2.0.0) which reads `.gsd-t/.context-meter-state.json` produced by the Context Meter PostToolUse hook. If the state file is fresh (timestamp within 5 min), you get real `pct` and `threshold` values; if missing or stale, the call falls back to the historical heuristic from `.gsd-t/token-log.md`.
 
-Why: every `/user:gsd-t-execute` invocation is a fresh orchestrator session. Without the reset, the counter from the previous session would still be at the limit and the gate would refuse to spawn anything. Reset is the only acceptable way to advance the counter back to 0.
+Use the returned `threshold` as the gate signal for the rest of this run. The gate logic is in Step 3.5; do NOT skip it. If the Context Meter hook isn't installed (`.gsd-t/.context-meter-state.json` missing and doctor reports it), run `gsd-t doctor` to diagnose — the gate still works via the heuristic fallback but real-time readings give much better guardrails.
+
+Why: every `/user:gsd-t-execute` invocation is a fresh orchestrator session and needs a current reading of context utilization before spawning any subagents. The authoritative source is the Context Meter state file; the fallback keeps the gate functional on projects that haven't installed the hook yet.
 
 ## Step 1: Load State
 
@@ -112,10 +114,10 @@ Before spawning — run via Bash:
 After subagent returns — run via Bash:
 `T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START))`
 
-Append to `.gsd-t/token-log.md` (create with header `| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Domain | Task | Tasks-Since-Reset |` if missing):
-`| {DT_START} | {DT_END} | gsd-t-execute | task:{task-id} | sonnet | {DURATION}s | {pass/fail} | {domain-name} | task-{task-id} | {COUNTER} |`
+Append to `.gsd-t/token-log.md` (create with header `| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Domain | Task | Ctx% |` if missing):
+`| {DT_START} | {DT_END} | gsd-t-execute | task:{task-id} | sonnet | {DURATION}s | {pass/fail} | {domain-name} | task-{task-id} | {CTX_PCT} |`
 
-Where `{COUNTER}` is the value returned by `node bin/task-counter.cjs status` (see Step 3.5). Note: the legacy `Tokens`, `Compacted`, and `Ctx%` columns were removed in v2.74.12 — Claude Code does not export `CLAUDE_CONTEXT_TOKENS_USED`/`_MAX`, so those columns always wrote zeros and the orchestrator self-check based on them was inert. The real burn signal is now `Tasks-Since-Reset`, which the task-counter gate in Step 3.5 enforces.
+Where `{CTX_PCT}` is the current `pct` value returned by `getSessionStatus()` (Step 3.5). As of v2.0.0 (M34), `pct` reads the **real** `input_tokens` count from `.gsd-t/.context-meter-state.json` — the count_tokens-based measurement produced by the Context Meter PostToolUse hook. When the state file is absent or stale, the fallback heuristic writes a best-effort percentage and this column reads `N/A` instead. The previous `Tasks-Since-Reset` column (v2.74.12) is retired.
 
 **For each domain (in wave order), run the domain task-dispatcher:**
 
@@ -461,7 +463,7 @@ Report back:
 
 6. **Per-domain Red Team** — invoke Step 5.5 (Red Team) NOW for this domain. This is the first place Red Team runs in v2.74.12 — there is no global post-execute Red Team anymore. If Red Team returns FAIL, fix bugs and re-run before proceeding to the next domain (max 2 fix-and-verify cycles); if bugs persist, log to `.gsd-t/deferred-items.md` and present to user.
 
-7. **Task-count gate re-check** — run `node bin/task-counter.cjs should-stop`. If exit code is `10`, follow the Step 3.5 STOP procedure now (do NOT spawn the next domain).
+7. **Context gate re-check** — run `node -e "const tb=require('./bin/token-budget.js'); const s=tb.getSessionStatus('.'); if(s.threshold==='stop')process.exit(10); if(s.threshold==='conserve')process.exit(11);"`. If exit code is `10`, follow the Step 3.5 STOP procedure now (do NOT spawn the next domain). If exit code is `11`, checkpoint progress and skip non-essential operations (Red Team, doc-ripple) for the next domain.
 
 ### Team Mode (when agent teams are enabled)
 Spawn teammates for domains within the same wave. Only domains in the same wave can run in parallel — do not spawn teammates for domains in different waves simultaneously. Each teammate uses the **domain task-dispatcher pattern** — one subagent per task within their domain (same as solo mode).
@@ -605,31 +607,30 @@ After all merges complete (whether all passed, some rolled back, or errors occur
 Cleanup is not optional — orphaned worktrees waste disk space and can confuse subsequent executions. Always run cleanup, even if earlier steps failed.
 ```
 
-## Step 3.5: Orchestrator Task-Count Gate (MANDATORY)
+## Step 3.5: Orchestrator Context Gate (MANDATORY)
 
-The orchestrator MUST check `bin/task-counter.cjs` BEFORE every task subagent spawn AND immediately AFTER every domain completes. This is the real context-burn guardrail. The previous version of this step relied on `CLAUDE_CONTEXT_TOKENS_USED`/`_MAX` env vars which Claude Code does not export — that check was inert and silently let the orchestrator drain context until forced compaction. The replacement below uses a deterministic on-disk task counter.
+The orchestrator MUST check `getSessionStatus()` BEFORE every task subagent spawn AND immediately AFTER every domain completes. This is the real context-burn guardrail. As of v2.0.0 (M34), `bin/token-budget.js` reads `.gsd-t/.context-meter-state.json` — the live count_tokens-based `input_tokens` measurement produced by the Context Meter PostToolUse hook. When the state file is fresh (timestamp within 5 min), thresholds reflect the ACTUAL context window utilization; when absent or stale, the call falls back to the historical heuristic from `.gsd-t/token-log.md`.
 
 **Before each task spawn — gate check:**
 
 ```bash
-node bin/task-counter.cjs should-stop
+node -e "const tb=require('./bin/token-budget.js'); const s=tb.getSessionStatus('.'); process.stdout.write(JSON.stringify(s)); if(s.threshold==='stop')process.exit(10); if(s.threshold==='conserve')process.exit(11); if(s.threshold==='downgrade')process.exit(12); if(s.threshold==='warn')process.exit(13);"
 ```
 
-If the exit code is `10` (counter is at or past its limit), STOP immediately. Do NOT spawn the next task. Jump straight to the checkpoint/STOP procedure below.
+Exit code semantics:
+- `0` → `normal` band (< 60% ctx). Proceed with standard model assignments.
+- `13` → `warn` band (60–70%). Proceed, but display budget alert and reduce iteration budgets.
+- `12` → `downgrade` band (70–85%). Proceed, but apply `getDegradationActions` model overrides (e.g., opus→sonnet for red-team, sonnet→haiku for execute).
+- `11` → `conserve` band (85–95%). Checkpoint progress to `.gsd-t/progress.md` and skip non-essential operations (Red Team, doc-ripple) for the next domain.
+- `10` → `stop` band (≥ 95%). STOP immediately. Do NOT spawn the next task. Jump straight to the STOP procedure below.
 
-If the exit code is `0`, proceed to spawn the task.
+The JSON on stdout contains `{consumed, estimated_remaining, pct, threshold}` — capture `pct` as `{CTX_PCT}` for the token-log `Ctx%` column on the NEXT spawn.
 
-**After each task subagent returns — increment:**
+**After each task subagent returns — re-check:**
 
-```bash
-node bin/task-counter.cjs increment task
-```
+Run the same command again. The fresh reading reflects post-task consumption (the Context Meter hook refreshes after each tool call). If the band crossed into `stop`, STOP after this task completes even if more tasks remain in the current domain.
 
-This prints a JSON status line like `{"count":3,"limit":5,"remaining":2,"should_stop":false,...}`. Use this status when writing the token-log row (the `Tasks-Since-Reset` column).
-
-If `should_stop` is `true` after the increment, STOP after this task completes — even if more tasks remain in the current domain.
-
-**STOP procedure (when `should_stop` is true):**
+**STOP procedure (when threshold === 'stop'):**
 
 1. **Save checkpoint to disk** — update `.gsd-t/progress.md` with:
    - Which domains are complete, which remain
@@ -637,30 +638,20 @@ If `should_stop` is `true` after the increment, STOP after this task completes �
    - Last completed task id and the next pending task id
 2. **Instruct user**: Output exactly:
    ```
-   ⏸️ Orchestrator task-count gate reached ({count}/{limit} tasks in this session).
+   ⏸️ Orchestrator context gate reached ({pct}% of model window).
    Progress saved. Run `/clear` then `/user:gsd-t-execute` to continue from the next task.
    ```
-3. **STOP execution.** Do NOT spawn another task or domain subagent. The next session resumes from saved state. The first thing the resumed orchestrator does in Step 0 is run `node bin/task-counter.cjs reset` (see below).
+3. **STOP execution.** Do NOT spawn another task or domain subagent. The next session resumes from saved state with a fresh context window.
 
-**Configuring the limit:**
+**Configuring threshold bands:**
 
-The default limit is 5 tasks per session — conservative, designed for the model+harness combination as of 2026-04-13. Override per-project via `.gsd-t/task-counter-config.json`:
-
-```json
-{ "limit": 8 }
-```
-
-Or per-session via env var: `GSD_T_TASK_LIMIT=8 /user:gsd-t-execute`.
+Band boundaries (`warn=60`, `downgrade=70`, `conserve=85`, `stop=95`) are defined in `bin/token-budget.js` (`THRESHOLDS` constant) and documented in `.gsd-t/contracts/token-budget-contract.md`. The `modelWindowSize` used for the denominator comes from `.gsd-t/context-meter-config.json` (default `200000`). Override the window size there if running against a different model. There is no per-session env-var override — the real-time measurement supersedes the need for one.
 
 **On resume (Step 0 — first thing the orchestrator does in a fresh session):**
 
-```bash
-node bin/task-counter.cjs reset
-```
+Step 0 runs `getSessionStatus()` once for readiness confirmation. The reading should be fresh (the Context Meter hook fires on every tool call), so the gate immediately reflects the new session's starting pct — typically near 0 since `/clear` resets the conversation.
 
-This clears the counter so the new session starts fresh. The reset is the SIGNAL that this is a clean post-`/clear` session — never reset mid-session.
-
-This deterministic gate replaces the vaporware env-var check. It is fail-safe: if `bin/task-counter.cjs` is missing for any reason, the `should-stop` command exits non-zero (treated as STOP) rather than silently allowing unlimited spawns.
+This gate replaces the v2.74.12 task counter proxy and the (never-functional) v1.x env-var check. It is fail-safe: if `bin/token-budget.js` or the state file is unreadable for any reason, `getSessionStatus()` throws and the gate exits non-zero (treated as STOP) rather than silently allowing unlimited spawns.
 
 ## Step 4: Checkpoint Handling
 
@@ -736,9 +727,9 @@ and summary, and the full comparison table per the protocol's Step 7."
 ```
 
 After subagent returns — run via Bash:
-`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START)) && COUNTER_JSON=$(node bin/task-counter.cjs status 2>/dev/null || echo '{}') && COUNTER=$(echo "$COUNTER_JSON" | node -e "let s=''; process.stdin.on('data',d=>s+=d).on('end',()=>{try{process.stdout.write(String(JSON.parse(s).count||''))}catch(_){process.stdout.write('')}})")`
+`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START)) && CTX_PCT=$(node -e "try{const tb=require('./bin/token-budget.js'); process.stdout.write(String(tb.getSessionStatus('.').pct))}catch(_){process.stdout.write('N/A')}")`
 Append to `.gsd-t/token-log.md`:
-`| {DT_START} | {DT_END} | gsd-t-execute | Design Verify | opus | {DURATION}s | {VERDICT} — {MATCH}/{TOTAL} elements for {domain-name} | | | {COUNTER} |`
+`| {DT_START} | {DT_END} | gsd-t-execute | Design Verify | opus | {DURATION}s | {VERDICT} — {MATCH}/{TOTAL} elements for {domain-name} | | | {CTX_PCT} |`
 
 **Artifact Gate (MANDATORY):**
 After the Design Verification Agent returns, check `.gsd-t/contracts/design-contract.md`:
@@ -757,7 +748,7 @@ After the Design Verification Agent returns, check `.gsd-t/contracts/design-cont
 
 ## Step 5.5: Red Team — Adversarial QA (per-domain, MANDATORY)
 
-**IMPORTANT — frequency change in v2.74.12**: Red Team was promoted to per-task by commit `da6d3ae` on the assumption that the orchestrator would catch context drain via the `CLAUDE_CONTEXT_TOKENS_USED` self-check. That env var is never set by Claude Code, so the check was inert and the per-task spawning of ~10k-token Red Team subagents was the largest single contributor to the v2.74.x context-burn regression. Red Team is now run ONCE PER COMPLETED DOMAIN — call this step from the "After all tasks in a domain complete" block, not from a per-task hook.
+**IMPORTANT — frequency change in v2.74.12**: Red Team was promoted to per-task by commit `da6d3ae` on the assumption that the orchestrator would catch context drain via an environment-variable-based self-check. That env-var path was never populated by Claude Code, so the check was inert and the per-task spawning of ~10k-token Red Team subagents was the largest single contributor to the v2.74.x context-burn regression. Red Team is now run ONCE PER COMPLETED DOMAIN — call this step from the "After all tasks in a domain complete" block, not from a per-task hook.
 
 After all tasks in the CURRENT DOMAIN pass their tests, spawn an adversarial Red Team agent. Its sole purpose is to BREAK the domain that was just built.
 
@@ -789,9 +780,9 @@ attack categories exhausted, and the path to the written
 ```
 
 After subagent returns — run via Bash:
-`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START)) && COUNTER=$(node bin/task-counter.cjs status 2>/dev/null | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{process.stdout.write(String(JSON.parse(s).count||''))}catch(_){process.stdout.write('')}})")`
+`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START)) && CTX_PCT=$(node -e "try{const tb=require('./bin/token-budget.js'); process.stdout.write(String(tb.getSessionStatus('.').pct))}catch(_){process.stdout.write('N/A')}")`
 Append to `.gsd-t/token-log.md`:
-`| {DT_START} | {DT_END} | gsd-t-execute | Red Team | opus | {DURATION}s | {VERDICT} — {N} bugs found in {domain-name} | | | {COUNTER} |`
+`| {DT_START} | {DT_END} | gsd-t-execute | Red Team | opus | {DURATION}s | {VERDICT} — {N} bugs found in {domain-name} | | | {CTX_PCT} |`
 
 **If Red Team VERDICT is FAIL:**
 1. Fix all CRITICAL and HIGH bugs immediately (up to 2 fix attempts per bug)

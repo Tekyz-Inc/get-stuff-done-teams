@@ -96,8 +96,8 @@ Read CLAUDE.md and .gsd-t/progress.md for project context, then execute gsd-t-qu
 
 After subagent returns — run via Bash:
 `T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START))`
-Append to `.gsd-t/token-log.md` (create with header `| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Tasks-Since-Reset |` if missing):
-`| {DT_START} | {DT_END} | gsd-t-quick | Step 0 | sonnet | {DURATION}s | quick: {task summary} | {COUNTER} |`
+Append to `.gsd-t/token-log.md` (create with header `| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Ctx% |` if missing):
+`| {DT_START} | {DT_END} | gsd-t-quick | Step 0 | sonnet | {DURATION}s | quick: {task summary} | {CTX_PCT} |`
 
 Relay the subagent's summary to the user. **Do not execute Steps 1–5 yourself.**
 
@@ -341,10 +341,10 @@ Spawn Task subagent (general-purpose, model: opus):
 After subagent returns — run via Bash:
 ```
 T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START))
-COUNTER=$(node bin/task-counter.cjs status 2>/dev/null | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{process.stdout.write(String(JSON.parse(s).count||''))}catch(_){process.stdout.write('')}})")
+CTX_PCT=$(node -e "try{const tb=require('./bin/token-budget.js'); process.stdout.write(String(tb.getSessionStatus('.').pct))}catch(_){process.stdout.write('N/A')}")
 ```
 Append to `.gsd-t/token-log.md`:
-`| {DT_START} | {DT_END} | gsd-t-quick | Red Team | opus | {DURATION}s | {VERDICT} — {N} bugs found | | | {COUNTER} |`
+`| {DT_START} | {DT_END} | gsd-t-quick | Red Team | opus | {DURATION}s | {VERDICT} — {N} bugs found | | | {CTX_PCT} |`
 
 **If Red Team VERDICT is FAIL:**
 1. Fix all CRITICAL and HIGH bugs (up to 2 fix cycles)

@@ -2,15 +2,15 @@
 
 You are the wave orchestrator. You do NOT execute phases yourself. Instead, you spawn an **independent agent for each phase**, giving each a fresh context window. This eliminates context accumulation across phases and prevents mid-wave compaction.
 
-## Step 0: Reset Phase-Count Gate (MANDATORY — first thing in a fresh session)
+## Step 0: Verify Context Gate Readiness (MANDATORY — first thing in a fresh session)
 
 Run via Bash:
 
 ```bash
-node bin/task-counter.cjs reset
+node -e "const tb = require('./bin/token-budget.js'); const s = tb.getSessionStatus('.'); console.log(JSON.stringify(s));"
 ```
 
-This clears `.gsd-t/.task-counter` so the new wave session starts at 0. The gate logic is in the Phase Agent Spawn Pattern below — it forces a /clear-and-resume after N phase spawns to prevent the wave orchestrator from itself running out of context. Default N=5, override per-project via `.gsd-t/task-counter-config.json` (`{"limit":8}`) or env `GSD_T_TASK_LIMIT=8`.
+This calls `getSessionStatus()` (v2.0.0) which reads `.gsd-t/.context-meter-state.json` produced by the Context Meter PostToolUse hook. The returned `threshold` drives the gate logic in the Phase Agent Spawn Pattern below — it forces a /clear-and-resume when context consumption crosses the `stop` band (≥95% of model window) so the wave orchestrator itself never runs out of context mid-wave. When the state file is absent or stale, the call falls back to a historical heuristic from `.gsd-t/token-log.md`. Band boundaries and `modelWindowSize` are configured in `.gsd-t/context-meter-config.json` and `bin/token-budget.js` (THRESHOLDS constant).
 
 ## Step 1: Load State (Lightweight)
 
@@ -126,29 +126,31 @@ Task agent (subagent_type: "general-purpose", mode: "bypassPermissions"):
 After phase agent returns — run via Bash:
 `T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START))`
 
-**Wave Orchestrator Phase-Count Gate (MANDATORY) — replaces the broken context-percent check from v2.74.x:**
+**Wave Orchestrator Context Gate (MANDATORY) — real-count measurement via Context Meter state file:**
 
 Run via Bash AFTER each phase agent returns:
 
 ```bash
-node bin/task-counter.cjs increment phase
+node -e "const tb=require('./bin/token-budget.js'); const s=tb.getSessionStatus('.'); process.stdout.write(JSON.stringify(s)); if(s.threshold==='stop')process.exit(10); if(s.threshold==='conserve')process.exit(11);"
 ```
 
-Read the JSON status the command prints. If `should_stop` is `true` (or the command's exit code is `10`):
-1. Save checkpoint to `.gsd-t/progress.md` — record which phases are complete, which remain.
-2. Output exactly: `⏸️ Wave orchestrator phase-count gate reached ({count}/{limit} phases in this session). Progress saved. Run /clear then /user:gsd-t-wave to continue from the next phase.`
-3. **STOP the wave loop.** Do NOT spawn the next phase agent. The next session resumes from saved state.
+The JSON on stdout contains `{consumed, estimated_remaining, pct, threshold}` — capture `pct` as `{CTX_PCT}` for the token-log row.
 
-The wave orchestrator shares the same `bin/task-counter.cjs` counter as the execute orchestrator. Each phase spawn (PARTITION, DISCUSS, PLAN, IMPACT, EXECUTE, TEST-SYNC, INTEGRATE, VERIFY+COMPLETE, DOC-RIPPLE) increments the counter by 1. With the default limit of 5, a wave will run at most 5 phase agents per session before forcing a /clear-and-resume — typically two sessions per full wave. Override via `.gsd-t/task-counter-config.json` (`{"limit":8}`) or `GSD_T_TASK_LIMIT=8`.
+Exit-code handling:
+- `0` (normal/warn/downgrade) → proceed to the next phase. Apply degradation overrides as described in the per-phase check above.
+- `11` (conserve, 85–95%) → checkpoint progress and skip non-essential phases (test-sync if code unchanged, discuss if already done).
+- `10` (stop, ≥95%) → STOP the wave loop. Save checkpoint to `.gsd-t/progress.md` — record which phases are complete, which remain. Output exactly: `⏸️ Wave orchestrator context gate reached ({pct}% of model window). Progress saved. Run /clear then /user:gsd-t-wave to continue from the next phase.` Do NOT spawn the next phase agent.
 
-The previous version of this gate relied on `CLAUDE_CONTEXT_TOKENS_USED`/`_MAX` env vars which Claude Code does not export — that check was inert and let the orchestrator drain context until forced compaction. The deterministic on-disk counter has the same intent (force a /clear before context runs out) but actually works.
+As of v2.0.0 (M34), the wave orchestrator reads the SAME `bin/token-budget.js` real-source measurement as the execute orchestrator — both trace back to `.gsd-t/.context-meter-state.json` produced by the Context Meter PostToolUse hook. Each phase spawn (PARTITION, DISCUSS, PLAN, IMPACT, EXECUTE, TEST-SYNC, INTEGRATE, VERIFY+COMPLETE, DOC-RIPPLE) causes post-call updates to the state file, so each subsequent gate check reflects the real context consumption trajectory. When the state file is absent or stale, the call falls back to the historical heuristic.
 
-**On wave entry**, the wave orchestrator runs `node bin/task-counter.cjs reset` exactly once (see Step 0 — it is the very first thing the wave does in a fresh session). The reset is the SIGNAL that this is a clean post-/clear session.
+The previous v1.x version relied on an environment-variable-based context check which Claude Code never populated; v2.74.12 stood in a proxy task counter; v2.0.0 (M34) retires both and uses the real count_tokens measurement.
 
-Append to `.gsd-t/token-log.md` (create with header `| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Domain | Task | Tasks-Since-Reset |` if missing):
-`| {DT_START} | {DT_END} | gsd-t-wave | {PHASE} | sonnet | {DURATION}s | phase: {PHASE} | | | {COUNTER} |`
+**On wave entry**, Step 0 runs `getSessionStatus()` once for a readiness confirmation. No counter reset is needed — `/clear` plus the next tool call will cause the Context Meter hook to refresh the state file with the new session's starting `input_tokens`.
 
-Where `{COUNTER}` is the `count` field from the JSON the increment command just printed.
+Append to `.gsd-t/token-log.md` (create with header `| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Domain | Task | Ctx% |` if missing):
+`| {DT_START} | {DT_END} | gsd-t-wave | {PHASE} | sonnet | {DURATION}s | phase: {PHASE} | | | {CTX_PCT} |`
+
+Where `{CTX_PCT}` is the `pct` field from the JSON the getSessionStatus command just printed.
 
 ### Phase Sequence
 

@@ -6,9 +6,11 @@
 // Configure in ~/.claude/settings.json:
 //   "statusLine": "node ~/.claude/scripts/gsd-t-statusline.js"
 //
-// Context usage is read from CLAUDE_CONTEXT_TOKENS_USED and
-// CLAUDE_CONTEXT_TOKENS_MAX environment variables if available.
-// Falls back to GSD-T project state only.
+// Context usage is read from .gsd-t/.context-meter-state.json (produced by
+// the Context Meter PostToolUse hook). v2.0.0 (M34) — the legacy
+// environment-variable-based context check is retired because Claude Code
+// never populated those env vars. When the state file is absent or stale
+// (>5min), the context segment is omitted.
 //
 // Zero external dependencies.
 
@@ -63,11 +65,24 @@ function contextBar(pct) {
 
 const root = findProjectRoot();
 
-// Context usage from env vars (provided by Claude Code if available)
-const tokensUsed = parseInt(process.env.CLAUDE_CONTEXT_TOKENS_USED || '0', 10);
-const tokensMax  = parseInt(process.env.CLAUDE_CONTEXT_TOKENS_MAX  || '0', 10);
-const hasContext = tokensMax > 0;
-const ctxPct     = hasContext ? Math.min(100, Math.round((tokensUsed / tokensMax) * 100)) : null;
+// Context usage from the Context Meter state file.
+// Stale-window check mirrors bin/token-budget.js (5 minutes).
+function readContextPct(projectRoot) {
+  if (!projectRoot) return null;
+  try {
+    const fp = path.join(projectRoot, '.gsd-t', '.context-meter-state.json');
+    const raw = fs.readFileSync(fp, 'utf8');
+    const s = JSON.parse(raw);
+    if (!s || typeof s.pct !== 'number' || !s.timestamp) return null;
+    const age = Date.now() - Date.parse(s.timestamp);
+    if (isNaN(age) || age > 5 * 60 * 1000 || age < 0) return null;
+    return Math.min(100, Math.round(s.pct));
+  } catch {
+    return null;
+  }
+}
+
+const ctxPct = readContextPct(root);
 
 // GSD-T project state
 let projectPart = '';
