@@ -1,27 +1,79 @@
 # Contract: Token Budget
 
-## Version: 2.0.0
+## Version: 3.0.0
 ## Status: ACTIVE
-## Owner: token-budget-replacement
-## Consumers: orchestrator, gsd-t-execute, gsd-t-wave, gsd-t-quick, gsd-t-integrate, gsd-t-debug, gsd-t-complete-milestone, m34-docs-and-tests, installer-integration (via doStatus/doDoctor)
+## Previous: 2.0.0 REPLACED (clean break — Option X, no compat shim)
+## Owner: m35-degradation-rip-out
+## Consumers: `commands/gsd-t-execute.md`, `commands/gsd-t-wave.md`, `commands/gsd-t-quick.md`, `commands/gsd-t-integrate.md`, `commands/gsd-t-debug.md`, `commands/gsd-t-doc-ripple.md`, `bin/gsd-t.js` (doStatus, doDoctor), `bin/orchestrator.js`, `bin/runway-estimator.js` (M35 Wave 3)
 
 ---
 
 ## Purpose
 
-`bin/token-budget.js` is the **session-level token budgeter** for GSD-T. It estimates per-task cost, tracks actual consumption, classifies session state into graduated-degradation thresholds (`normal → warn → downgrade → conserve → stop`), and exposes a single signal every pre-spawn gate consumes to decide whether to continue, downgrade models, checkpoint, or stop.
+`bin/token-budget.js` is the **session-level token budgeter** for GSD-T. It exposes a three-band status signal (`normal` / `warn` / `stop`) derived from the real context-window measurement written to `.gsd-t/.context-meter-state.json` by the M34 Context Meter PostToolUse hook. Pre-spawn gates in every long-running command consume this signal to decide whether to proceed, log a warning, or halt cleanly and hand off to the runway estimator / headless auto-spawn pipeline.
 
-As of v2.0.0 (M34), `getSessionStatus()` reads the **Context Meter state file** (`.gsd-t/.context-meter-state.json`) produced by the PostToolUse hook defined in `context-meter-contract.md`. The state file contains real `input_tokens` values from Anthropic's `count_tokens` endpoint — this is the authoritative source. When the state file is missing or its `timestamp` is older than 5 minutes, `getSessionStatus()` falls back to a historical heuristic computed from `.gsd-t/token-log.md`, exactly as it did in v1.x.
+**v3.0.0 is a CLEAN BREAK from v2.0.0** — no deprecation shim, no translation layer, no compatibility fields. The `downgrade` and `conserve` bands are gone. Silent model degradation and silent phase-skipping under context pressure are anti-features; they violate GSD-T's core principle that **quality is non-negotiable**. Instead of degrading quality, M35 halts cleanly and resumes in a fresh context.
 
-This replaces two retired mechanisms from v1.x: the inert `CLAUDE_CONTEXT_TOKENS_USED` / `CLAUDE_CONTEXT_TOKENS_MAX` env-var check (v1.0.x) and the `bin/task-counter.cjs` proxy gate that briefly stood in for it (v2.74.x). See **Removed / Retired** and **Task Counter Retirement** below.
+---
 
-The public API surface is unchanged. Callers see no behavioral break.
+## Core Principle
+
+> Under context pressure, we pause and resume. We never downgrade models, never skip Red Team, never skip doc-ripple, never skip Design Verify.
+
+The three-band model embodies this:
+
+- **`normal`** — context below `WARN_THRESHOLD_PCT` — full speed, no restrictions, no logging noise.
+- **`warn`** — context at or above `WARN_THRESHOLD_PCT` and below `STOP_THRESHOLD_PCT` — **informational only**. Log the band to `.gsd-t/token-log.md`, proceed at full quality. This band exists so the system has visibility into how close it is to the stop threshold without altering behavior.
+- **`stop`** — context at or above `STOP_THRESHOLD_PCT` — halt cleanly. The caller checkpoints progress and hands off to the runway estimator (which auto-spawns headless via `bin/headless-auto-spawn.js` when M35 Wave 3+ lands). The user is never asked to run `/clear` or `/compact`.
+
+---
+
+## Thresholds (frozen API constants)
+
+```javascript
+const WARN_THRESHOLD_PCT = 70;
+const STOP_THRESHOLD_PCT = 85;
+```
+
+| `pct` range | `threshold` | Band semantics |
+|---|---|---|
+| `pct < 70`  | `normal` | Full speed. No restrictions. |
+| `70 ≤ pct < 85` | `warn` | Log to `token-log.md`. Proceed at full quality. Informational. |
+| `pct ≥ 85` | `stop` | Halt cleanly. Checkpoint. Hand off to runway estimator / headless auto-spawn. Never ask the user to `/clear`. |
+
+**Boundary convention**: lower-bound inclusive, upper-bound exclusive, matching `resolveThreshold()` in `bin/token-budget.js`:
+
+```javascript
+function resolveThreshold(pct) {
+  if (!Number.isFinite(pct)) return "normal"; // fail-safe
+  if (pct >= STOP_THRESHOLD_PCT) return "stop";
+  if (pct >= WARN_THRESHOLD_PCT) return "warn";
+  return "normal";
+}
+```
+
+**Rationale for tightening** (from v2.0.0's `60/70/85/95` ladder): the runtime's own compact trigger sits at approximately 95%. The v2.0.0 `stop` band at 95% left zero headroom — any minor overrun by a subagent could trip native compact before GSD-T's halt logic ran. v3.0.0 moves `stop` to 85% so there is ~10% of runway between our halt and the runtime's. `warn` moves to 70% so the informational signal fires at a level that actually correlates with "approaching the halt boundary."
+
+**Single source of truth**: `scripts/context-meter/threshold.js` `BANDS` constant mirrors these two thresholds for the PostToolUse hook's state-file writer. The test `BANDS constant mirrors bin/token-budget.js v3.0.0 three-band model` guards against drift.
+
+---
+
+## Non-Goals (the v3.0.0 guarantees)
+
+This contract **never** returns:
+
+- **Model overrides** (`sonnet:execute → haiku`, etc). Model selection is the job of `bin/model-selector.js` and the `## Model Assignment` block in command files — *not* token-budget. Runtime model downgrade under context pressure is explicitly prohibited.
+- **Phase-skip lists** (`skipPhases: ['doc-ripple', 'red-team']`). Skipping quality gates is never acceptable. If the system cannot run a phase, it halts; it does not silently skip.
+- **Checkpoint side-channels** (the old `checkpoint: true` action). Checkpointing is the caller's responsibility when it receives a `stop` band. This contract only reports the band.
+- **Silent `conserve` or `downgrade` bands**. These are removed. Any code path that still produces them is a defect.
+
+This list is part of the contract. A future version that reintroduces any of these would be a v4.0.0 breaking change and require an explicit architectural reversal.
 
 ---
 
 ## Public API Surface
 
-Every function below is exported from `bin/token-budget.js` via `module.exports` and forms the stable caller contract. v2.0.0 preserves every signature and return shape from v1.x. Only the **internal data source** of `getSessionStatus()` changed.
+Every function below is exported from `bin/token-budget.js` via `module.exports`.
 
 ### `estimateCost(model, taskType, options?)`
 
@@ -32,26 +84,34 @@ Every function below is exported from `bin/token-budget.js` via `module.exports`
 2. Else consult `.gsd-t/token-log.md` for a per-(model, taskType) historical average
 3. Else fall back to `BASE_ESTIMATES[taskType] * modelRatio * (complexity || 1.0)`
 
-`modelRatio` comes from `getModelCostRatios()` — `{ haiku: 1, sonnet: 5, opus: 25 }`.
-
-**v2.0.0 changes**: None. Identical to v1.x.
+**v2.0.0 → v3.0.0 changes**: None. Identical behavior.
 
 ---
 
 ### `getSessionStatus(projectDir?)`
 
-**Signature**: `(projectDir?: string) => { consumed: number, estimated_remaining: number, pct: number, threshold: 'normal' | 'warn' | 'downgrade' | 'conserve' | 'stop' }`
+**Signature**:
+```
+(projectDir?: string) => {
+  consumed: number,
+  estimated_remaining: number,
+  pct: number,
+  threshold: 'normal' | 'warn' | 'stop',
+}
+```
 
-**Behavior (v2.0.0)**:
+**Narrowed `threshold` union** is the v3.0.0 breaking change. v2.0.0 callers that type-checked against `'normal'|'warn'|'downgrade'|'conserve'|'stop'` must collapse their handling to three bands: `downgrade → warn`, `conserve → stop`.
+
+**Behavior (unchanged from v2.0.0)**:
 1. Read `{projectDir || cwd}/.gsd-t/.context-meter-state.json`.
 2. **If present AND `timestamp` within the last 5 minutes**: use real values.
    - `consumed = state.inputTokens`
    - `estimated_remaining = state.modelWindowSize - state.inputTokens`
-   - `pct = state.pct` (already computed by the hook as `(inputTokens / modelWindowSize) * 100`)
-   - `threshold = resolveThreshold(pct)` (see Threshold Bands below)
-3. **Else (missing or stale)**: fall back to the historical heuristic from `.gsd-t/token-log.md` (same code path that served v1.x), preserving graceful degradation for projects that have not yet installed the context-meter hook.
+   - `pct = state.pct`
+   - `threshold = resolveThreshold(pct)` (three-band model)
+3. **Else (missing or stale)**: fall back to historical heuristic from `.gsd-t/token-log.md`.
 
-**v1.x → v2.0.0 migration notes**: The return shape is byte-compatible with v1.x. The sole change is the internal data source. Callers compile unchanged. Tests that previously mocked `process.env.CLAUDE_CONTEXT_TOKENS_USED` must be rewritten to stage a fake `.gsd-t/.context-meter-state.json` fixture (handled by token-budget-replacement Task 4).
+**Staleness window**: 5 minutes. The context-meter hook runs every Nth PostToolUse invocation, so a fresh reading reliably lands within this window under active use. Idle sessions fall back gracefully.
 
 ---
 
@@ -61,17 +121,29 @@ Every function below is exported from `bin/token-budget.js` via `module.exports`
 
 **Behavior**: Appends a row to `.gsd-t/token-log.md` recording actual tokens consumed by a just-completed subagent. Creates the file with header if missing.
 
-**v2.0.0 changes**: None. Identical to v1.x.
+**v3.0.0 changes**: None.
 
 ---
 
-### `getDegradationActions(projectDir?)`
+### `getDegradationActions(projectDir?)` — ⚠ CLEAN-BREAK rename semantics
 
-**Signature**: `(projectDir?: string) => { threshold: string, actions: string[], modelOverrides: Record<string, string> }`
+**Signature** (v3.0.0):
+```
+(projectDir?: string) => {
+  band: 'normal' | 'warn' | 'stop',
+  pct: number,
+  message: string,
+}
+```
 
-**Behavior**: Calls `getSessionStatus()`, maps the resulting `threshold` to a degradation response — the list of actions callers should take and the model-override map (e.g., `sonnet:execute → haiku`). See **Degradation Actions** below for the full mapping.
+**v2.0.0 shape** (for migration reference — no longer returned): `{threshold: string, actions: string[], modelOverrides: Record<string,string>}`. All three fields are gone. Callers that read `.threshold`, `.actions[]`, or `.modelOverrides` MUST be updated — they will see `undefined`.
 
-**v2.0.0 changes**: None. Reads through the new `getSessionStatus()` data source transitively.
+**Behavior**: Delegates to `getSessionStatus()` and returns the `band` (renamed from `threshold` for clarity that this is a discrete band, not a numeric threshold), the measured `pct`, and a human-readable `message` suitable for direct logging to `.gsd-t/token-log.md` or stdout. The function name is preserved for ease of grep-based migration, but the name is misleading in v3.0.0 — there are no "degradation actions" because v3.0.0 does not degrade. A future cleanup may rename it to `getBandStatus()`; the v3.0.0 name is a migration convenience.
+
+**Invariants guaranteed by the test suite**:
+- `band` is always one of `'normal' | 'warn' | 'stop'` — never `'downgrade'`, never `'conserve'`, never anything else.
+- `modelOverrides`, `actions`, `skipPhases`, `threshold`, `checkpoint` fields are never present in the return value.
+- `message` is a non-empty string describing the current band and pct.
 
 ---
 
@@ -79,9 +151,9 @@ Every function below is exported from `bin/token-budget.js` via `module.exports`
 
 **Signature**: `(remainingTasks: Array<{ model: string, taskType: string, complexity?: number }>, projectDir?: string) => { estimatedTokens: number, estimatedPct: number, feasible: boolean }`
 
-**Behavior**: Sums `estimateCost()` across all remaining tasks, compares the result against current session headroom (`getSessionStatus().estimated_remaining`), and returns a feasibility verdict used by `wave` and `execute` for pre-flight budget checks.
+**v3.0.0 changes**: None. Still called from `commands/gsd-t-wave.md` Step 0 in Wave 1; will be superseded by `bin/runway-estimator.js` `estimateRunway()` in M35 Wave 3 (see `runway-estimator-contract.md` v1.0.0, pending).
 
-**v2.0.0 changes**: None. Purely a per-task estimate path — does not touch the state file directly.
+**Note**: Do NOT delete this function in the T1 rewrite. It is still live through Wave 2.
 
 ---
 
@@ -89,164 +161,109 @@ Every function below is exported from `bin/token-budget.js` via `module.exports`
 
 **Signature**: `() => { haiku: 1, sonnet: 5, opus: 25 }`
 
-**Behavior**: Returns a shallow copy of the model cost multipliers (Haiku baseline = 1).
-
-**v2.0.0 changes**: None.
+**v3.0.0 changes**: None.
 
 ---
 
-## Session Budget Estimation
+## Migration Notes — v2.0.0 → v3.0.0
 
-The v2.0.0 data flow is:
+Callers updating from v2.0.0 (Wave 2 sweeps all of these — this section exists for any out-of-tree consumer):
 
-```
-getSessionStatus(projectDir)
-  │
-  ├─ Read .gsd-t/.context-meter-state.json
-  │     │
-  │     ├─ File present AND (now - state.timestamp) < 5 min
-  │     │      → Use real { inputTokens, modelWindowSize, pct }
-  │     │      → threshold = resolveThreshold(pct)
-  │     │      → return { consumed, estimated_remaining, pct, threshold }
-  │     │
-  │     └─ File missing OR stale (> 5 min) OR parse error
-  │            → fallback path
-  │
-  └─ Fallback: historical heuristic
-        ├─ Sum tokens from .gsd-t/token-log.md rows dated today
-        ├─ pct  = (sumTokens / assumedBudget) × 100
-        ├─ threshold = resolveThreshold(pct)
-        └─ return { consumed, estimated_remaining, pct, threshold }
-```
+### 1. Collapse threshold handling from five bands to three
 
-**Staleness window**: 5 minutes. Rationale: the context-meter hook runs every Nth PostToolUse invocation (default N=5). Under active tool use, a fresh reading lands well inside that window. Idle sessions fall back to heuristic, which is correct — a stale meter reading is worse than a coarse current estimate.
-
-**Authoritative source**: `.gsd-t/.context-meter-state.json`. The historical heuristic is a graceful-degradation fallback, not a parallel signal. Never blend the two.
-
-**No environment variable reads.** v2.0.0 does not touch `process.env.CLAUDE_CONTEXT_TOKENS_*` under any code path. Those variables were never exported by Claude Code; see **Removed / Retired**.
-
----
-
-## Threshold Bands
-
-| `pct` range | `threshold` | Band semantics |
+| v2.0.0 threshold | v3.0.0 band | What to do |
 |---|---|---|
-| `pct < 60`  | `normal`    | Full speed. No restrictions. |
-| `60 ≤ pct < 70` | `warn`      | Budget alert. Tighten iteration budgets. |
-| `70 ≤ pct < 85` | `downgrade` | Apply model overrides for non-critical spawns. |
-| `85 ≤ pct < 95` | `conserve`  | Checkpoint. Skip non-essential phases. |
-| `pct ≥ 95`  | `stop`      | Hard stop. Save state, exit gate with code 10. |
+| `normal` | `normal` | unchanged — proceed |
+| `warn` | `normal` (if pct < 70) or `warn` (if 70 ≤ pct < 85) | at new `warn` band, log and proceed |
+| `downgrade` | `warn` | **stop applying model overrides** — proceed at full quality |
+| `conserve` | `stop` | **stop skipping phases** — halt cleanly instead |
+| `stop` | `stop` | unchanged — halt cleanly |
 
-**Boundary convention**: **lower-bound inclusive, upper-bound exclusive**, matching `resolveThreshold()` in `bin/token-budget.js` (strict `>=` comparisons):
+### 2. Drop `.modelOverrides` and `.actions` reads from `getDegradationActions()` results
 
 ```javascript
-if (pct >= 95) return "stop";
-if (pct >= 85) return "conserve";
-if (pct >= 70) return "downgrade";
-if (pct >= 60) return "warn";
-return "normal";
+// v2.0.0 — DELETE THIS CODE
+const actions = getDegradationActions();
+if (actions.modelOverrides["sonnet:execute"]) {
+  model = actions.modelOverrides["sonnet:execute"];
+}
+for (const a of actions.actions) { console.log(a); }
+
+// v3.0.0 — REPLACE WITH
+const { band, pct, message } = getDegradationActions();
+if (band === "stop") {
+  console.error(message);
+  process.exit(10); // halt cleanly
+}
+if (band === "warn") {
+  appendToTokenLog(message); // informational
+}
+// band === "normal" → just proceed
 ```
 
-**Single source of truth**: The band boundaries live in `bin/token-budget.js` only. There is no separate `threshold.js` module. `context-meter-contract.md` v1.0.0 mirrors these bands for its own `state.threshold` field — both contracts reference this table, but the canonical implementation lives in the token budgeter.
+### 3. Exit-code handling in bash pre-spawn gates
 
----
-
-## Degradation Actions
-
-| Threshold   | Actions                                                                                          | Model Overrides                                                                                       |
-|-------------|--------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------|
-| `normal`    | (none)                                                                                           | (none)                                                                                                |
-| `warn`      | Display budget alert; reduce iteration budgets to minimum (2)                                    | (none)                                                                                                |
-| `downgrade` | Downgrade non-critical Sonnet → Haiku; skip exploratory testing; disable shadow-mode audit       | `sonnet:qa → sonnet` (kept — QA is critical); `sonnet:execute → haiku`; `sonnet:doc-ripple → skip`; `opus:red-team → sonnet`; `haiku:* → haiku` |
-| `conserve`  | Pause doc-ripple; pause design brief generation; checkpoint all progress                        | Same override map as `downgrade`                                                                      |
-| `stop`      | Hard stop; save all progress; display resume instruction                                        | (none — execution halts)                                                                              |
-
-At `stop`, the orchestrator gate exits with code 10 and instructs the user to run `/clear` followed by `/user:gsd-t-resume`. This matches the pre-M34 UX, so downstream projects see no change in stop semantics.
+v2.0.0 used exit codes `11` (conserve) and `12` (downgrade) from inline node bootstrappers. v3.0.0 only uses `0` (normal/warn — proceed) and `10` (stop — halt). Command files that check `case $? in 11|12)` must be updated in Wave 2's degradation-rip-out T3 sweep.
 
 ---
 
 ## Integration Points
 
-| Consumer                                    | Call                                             | Purpose                                                                                      |
-|---------------------------------------------|--------------------------------------------------|----------------------------------------------------------------------------------------------|
-| `bin/orchestrator.js` (task-budget gate)    | `getSessionStatus()`                             | Check `threshold === 'stop'` before each phase/task spawn; exit 10 + checkpoint on stop (Task 5 — replaces `task-counter.cjs should-stop`) |
-| `commands/gsd-t-execute.md` (Step 2)        | `getSessionStatus()` + `getDegradationActions()` | Pre-spawn gate per subagent; apply model overrides (Task 6)                                  |
-| `commands/gsd-t-wave.md` (Step 0)           | `getSessionStatus()` + `estimateMilestoneCost()` | Pre-flight feasibility check; per-phase checkpoint on `conserve` (Task 7)                    |
-| `commands/gsd-t-quick.md` (pre-spawn)       | `getSessionStatus()`                             | Budget-aware model selection for quick tasks (Task 8)                                        |
-| `commands/gsd-t-integrate.md` (pre-spawn)   | `getSessionStatus()`                             | Same pattern — check before integration spawns (Task 8)                                      |
-| `commands/gsd-t-debug.md` (pre-spawn)       | `getSessionStatus()`                             | Same pattern — check before debug-loop spawns (Task 8)                                       |
-| `commands/gsd-t-complete-milestone.md`      | `recordUsage()`                                  | Final usage accounting at milestone close                                                    |
-| `bin/gsd-t.js doStatus`                     | `getSessionStatus()`                             | Display current `pct` in `gsd-t status` output (already wired — commit `dc34881`)            |
-| `bin/gsd-t.js doDoctor`                     | `getSessionStatus()` + config validation        | Validate hook is installed and API key is present (already wired — commit `becf318`)         |
+| Consumer | Call | Purpose |
+|---|---|---|
+| `bin/orchestrator.js` task-budget gate | `getSessionStatus()` | Check `threshold === 'stop'` before each phase/task spawn; exit `10` + checkpoint on stop |
+| `commands/gsd-t-execute.md` (Step 0, Step 2) | `getSessionStatus()` + `getDegradationActions()` | Pre-spawn three-band gate; Wave 2 sweep adds the handler |
+| `commands/gsd-t-wave.md` (Step 0) | `getSessionStatus()` + `estimateMilestoneCost()` | Pre-flight feasibility; will pivot to `estimateRunway()` in Wave 3 |
+| `commands/gsd-t-quick.md` (pre-spawn) | `getSessionStatus()` | Quick-task three-band gate (Wave 2 sweep) |
+| `commands/gsd-t-integrate.md` (pre-spawn) | `getSessionStatus()` | Integration three-band gate (Wave 2 sweep) |
+| `commands/gsd-t-debug.md` (pre-spawn, inter-iteration) | `getSessionStatus()` | Debug-loop three-band gate (Wave 2 sweep) |
+| `commands/gsd-t-doc-ripple.md` (pre-spawn) | `getSessionStatus()` | Doc-ripple three-band gate (Wave 2 sweep) |
+| `commands/gsd-t-complete-milestone.md` | `recordUsage()` | Final usage accounting at milestone close |
+| `bin/gsd-t.js doStatus` | reads `.gsd-t/.context-meter-state.json` directly, three-band color switch | `normal` → GREEN, `warn` → YELLOW, `stop` → BOLD+RED |
+| `bin/gsd-t.js doDoctor` | `getSessionStatus()` + config validation | Hook + API key validation |
+| `bin/runway-estimator.js` (M35 Wave 3, pending) | `getSessionStatus()` | Reads current pct as the starting point for runway projection |
 
-Pre-spawn gates in command files invoke the module via a small inline node bootstrapper, e.g.:
+Pre-spawn gates invoke the module via a small inline node bootstrapper:
 
 ```bash
-node -e "const {getSessionStatus} = require('./bin/token-budget.js'); const s = getSessionStatus(); if (s.threshold === 'stop') process.exit(10);"
+node -e "const {getSessionStatus} = require('./bin/token-budget.js'); const s = getSessionStatus(); if (s.threshold === 'stop') { console.error('stop band — halting cleanly'); process.exit(10); }"
 ```
 
 ---
 
-## Task Counter Retirement
+## Option X — Clean Break (explicit)
 
-v2.0.0 completes the retirement of `bin/task-counter.cjs` — the task-counter proxy gate that v2.74.x introduced as a stopgap after the original env-var gate was found to be inert.
+M35 adopted **Option X** during the IMPACT phase: a straight v2.0.0 → v3.0.0 rewrite with no translation shim, no dual-export layer, and no deprecation window. Rationale documented in `.gsd-t/impact-report.md` IMP-001 through IMP-004:
 
-**Retirement timeline**:
-- **v1.0.x**: Original gate read `process.env.CLAUDE_CONTEXT_TOKENS_USED` / `CLAUDE_CONTEXT_TOKENS_MAX`. Claude Code **never exports** these variables, so `consumed` was always `0` and `threshold` was always `'normal'`. The graduated-degradation machinery was silently inert. The regression was documented in commit notes and `.gsd-t/progress.md` but not discovered until v2.74.x.
-- **v2.74.12**: `bin/task-counter.cjs` introduced as a deterministic proxy — it counted tasks rather than tokens, with a hard task limit (default 5). Command files and `bin/orchestrator.js` replaced the env-var checks with `node bin/task-counter.cjs should-stop` calls. This was always intended as a stopgap, not a real measurement.
-- **v2.75.10 (M34, this milestone)**: The Context Meter PostToolUse hook (see `context-meter-contract.md`) takes real `count_tokens` readings from the Anthropic API and writes them to `.gsd-t/.context-meter-state.json`. `bin/token-budget.js` v2.0.0 reads that file directly. The task-counter proxy is removed entirely.
+- The blast radius (6 command files + 3 JS files + 1 test file) is fully enumerated and contained within M35's own task plan.
+- All callers are in-tree. No external packages depend on `bin/token-budget.js`.
+- A compat shim would carry the `modelOverrides` field in every return value indefinitely, defeating the contract's non-goal of "never return model overrides."
+- A deprecation window would mean shipping a release where silent degradation still fires intermittently depending on which code path ran — worse than the v2.0.0 status quo.
 
-**Migration path**:
-1. **token-budget-replacement Task 3**: Rewrite `getSessionStatus()` internals to read the state file.
-2. **token-budget-replacement Task 4**: Rewrite `bin/token-budget.test.js` to use state-file fixtures.
-3. **token-budget-replacement Task 5**: Remove every `task-counter.cjs` reference from `bin/orchestrator.js`; replace the gate with `getSessionStatus()`.
-4. **token-budget-replacement Tasks 6–8**: Remove every `task-counter.cjs` reference from `commands/gsd-t-execute.md`, `gsd-t-wave.md`, `gsd-t-quick.md`, `gsd-t-integrate.md`, `gsd-t-debug.md`. Rename the `Tasks-Since-Reset` column in each observability-logging block to `Ctx%` (matches `context-observability-contract.md` v2.0.0).
-5. **token-budget-replacement Task 9**: Delete `bin/task-counter.cjs` and any `bin/task-counter.test.cjs` artifacts. Repo-wide grep for `task-counter` must return zero hits in `commands/`, `bin/`, `scripts/`, `templates/`.
-6. **installer-integration Task 5** (future — gated by CP3 on this domain's Task 9): Remove `"task-counter.cjs"` from `PROJECT_BIN_TOOLS` in `bin/gsd-t.js`. The `update-all` path additionally deletes `bin/task-counter.cjs`, `.gsd-t/task-counter-config.json`, and `.gsd-t/.task-counter*` from every registered downstream project, writing a `.gsd-t/.task-counter-retired-v1` marker so migration is idempotent.
-
-**Historical documentation references** to `CLAUDE_CONTEXT_TOKENS_*` and `task-counter.cjs` in `.gsd-t/progress.md`, `CHANGELOG.md`, archived milestones, and this contract's **Removed / Retired** section are preserved by design — they describe what the framework used to do, not what it currently does.
+Any attempt to reintroduce compatibility bridging for the removed fields would violate the contract's Non-Goals section. Don't.
 
 ---
 
-## Removed / Retired (v1.x → v2.0.0 migration notes)
+## Schema Freeze Policy
 
-The following mechanisms are retired in v2.0.0. **Do not reintroduce.** Each entry explains why it existed and why it was removed.
-
-| Retired artifact | Rationale for removal |
-|---|---|
-| `process.env.CLAUDE_CONTEXT_TOKENS_USED` / `CLAUDE_CONTEXT_TOKENS_MAX` | Claude Code **never exports** these variables. Any gate that read them was silently inert — `consumed` was always 0 and `threshold` was always `normal`. `bin/token-budget.js` v2.0.0 does not reference them under any code path. |
-| `Tasks-Since-Reset` column in `.gsd-t/token-log.md` | Obsoleted by the `Ctx%` column. See `context-observability-contract.md` v2.0.0. The meaningful signal is context-window percentage, not a task counter. |
-| `bin/task-counter.cjs` proxy gate | Replaced by `bin/token-budget.js` `getSessionStatus()` backed by real `count_tokens` readings. Deleted by token-budget-replacement Task 9. |
-| `bin/orchestrator.js` task-increment calls | Removed entirely. Context-meter state is the authoritative "progress in session" signal; counting tasks is no longer necessary for degradation decisions. |
-| Env-var-based tests in `bin/token-budget.test.js` | Rewritten to use state-file fixtures by token-budget-replacement Task 4. |
+- `WARN_THRESHOLD_PCT` and `STOP_THRESHOLD_PCT` constants are frozen for the v3.x lifetime. Re-tuning requires a new contract version.
+- The `getDegradationActions()` return shape — `{band, pct, message}` — is frozen. Additive fields are allowed in v3.x minor bumps (e.g., `v3.1.0` could add `timestamp`). Removals or renames require a v4.0.0 bump.
+- The `band` union `'normal' | 'warn' | 'stop'` is frozen. Adding a fourth band requires a v4.0.0 bump and a discussion about whether that band violates the Non-Goals section.
 
 ---
 
-## Backward Compatibility
+## Test Coverage
 
-**Caller-side**: Every exported function preserves its v1.x signature and return shape. Code that calls `getSessionStatus()`, `estimateCost()`, `recordUsage()`, `getDegradationActions()`, `estimateMilestoneCost()`, or `getModelCostRatios()` compiles and runs unchanged against v2.0.0. No import path change. No new required options.
-
-**Test-side**: Existing tests that exercise the public API through the return shape continue to pass unchanged. Tests that mocked `process.env.CLAUDE_CONTEXT_TOKENS_USED` must be rewritten to stage a tempdir fixture containing `.gsd-t/.context-meter-state.json` — this migration is token-budget-replacement Task 4.
-
-**Downstream-project-side**: Projects that have not yet installed the context-meter hook continue to function. `getSessionStatus()` falls back to the historical heuristic when the state file is missing, so degradation still engages (less precisely, but correctly).
-
----
-
-## Breaking Changes
-
-**None for callers.** The API surface is byte-compatible with v1.x.
-
-**Internal breakages** (visible only to code inside `bin/token-budget.js` and its test file):
-- `getSessionStatus()` internal data source changed from `process.env.CLAUDE_CONTEXT_TOKENS_*` (v1.0.x) → `.gsd-t/.task-counter` (v2.74.x stopgap) → `.gsd-t/.context-meter-state.json` (v2.0.0).
-- Tests that mocked environment variables must be rewritten to use state-file fixtures.
-- `bin/orchestrator.js` task-counter integration is removed; the gate now calls `getSessionStatus()` directly.
+- `test/token-budget.test.js` — three-band boundary sweep (69/70/71/84/85/86/95), clean-break guarantees (no `modelOverrides`/`actions`/`skipPhases`/`threshold` leakage), heuristic fallback at 75% → `warn`, bulk-scan invariant that no `'downgrade'` or `'conserve'` string ever surfaces.
+- `scripts/context-meter/threshold.test.js` — matching boundary sweep for the hook-side `bandFor()`.
+- `scripts/gsd-t-context-meter.test.js` + `.e2e.test.js` — integration tests verifying the state file is written with the three-band vocabulary.
 
 ---
 
 ## Change Log
 
-| Version | Date       | Change |
-|---------|------------|--------|
-| 1.0.0   | M31        | Initial contract. `getSessionStatus()` read `process.env.CLAUDE_CONTEXT_TOKENS_*`. Shipped with `bin/token-budget.js` as part of the token-orchestrator domain. |
-| 1.x     | v2.74.12   | `bin/task-counter.cjs` stopgap introduced externally after the env-var gate was discovered to be inert. `token-budget.js` was retrofitted to read `.gsd-t/.task-counter` but the contract was not re-versioned. |
-| 2.0.0   | M34 / 2026-04-14 | Real-source rewrite. `getSessionStatus()` reads `.gsd-t/.context-meter-state.json` (5-minute staleness window) with historical heuristic fallback. Task counter retired. Env-var references removed throughout. Public API surface unchanged. Backward compatible for all callers. |
+| Version | Date | Change |
+|---------|------|--------|
+| 1.0.0 | M31 | Initial contract. `getSessionStatus()` read `process.env.CLAUDE_CONTEXT_TOKENS_*` (inert — Claude Code never exports those vars). Five-band ladder (`normal/warn/downgrade/conserve/stop`) defined. |
+| 2.0.0 | M34 / 2026-04-14 | Real-source rewrite. `getSessionStatus()` reads `.gsd-t/.context-meter-state.json` with historical heuristic fallback. Task counter retired. Five-band public API preserved byte-for-byte. |
+| 3.0.0 | M35 / 2026-04-14 | **CLEAN BREAK**. Silent degradation bands (`downgrade`, `conserve`) REMOVED. `getDegradationActions()` return shape replaced with `{band, pct, message}` — no `modelOverrides`, no `actions`, no `skipPhases`, no `checkpoint`. Thresholds tightened: `warn@70%`, `stop@85%`. Non-Goals section added. Option X (no compat shim) documented. |
