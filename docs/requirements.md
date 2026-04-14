@@ -240,6 +240,44 @@
 
 ---
 
+## Requirements Traceability (updated by plan phase — M35)
+
+| REQ-ID  | Requirement Summary                                                                     | Domain                      | Task(s)   | Status   |
+|---------|-----------------------------------------------------------------------------------------|-----------------------------|-----------|----------|
+| REQ-069 | Silent degradation bands removed — `getDegradationActions()` returns only `{band: 'normal'\|'warn'\|'stop'}` | degradation-rip-out | T1 | pending |
+| REQ-070 | Three-band model only — `WARN_THRESHOLD_PCT=70`, `STOP_THRESHOLD_PCT=85`, no model overrides or phase skips | degradation-rip-out | T1, T2 | pending |
+| REQ-071 | Surgical per-phase model selection via `bin/model-selector.js` — ≥8 phase mappings, declarative rules table | model-selector-advisor | T2 | pending |
+| REQ-072 | `/advisor` escalation with graceful fallback — convention-based if API not programmable | model-selector-advisor | T1, T3 | pending |
+| REQ-073 | Pre-flight runway estimator refuses runs projected to cross 85% stop threshold | runway-estimator | T1–T5 | pending |
+| REQ-074 | Per-spawn token telemetry to `.gsd-t/token-metrics.jsonl` with frozen 18-field schema | token-telemetry | T1–T3 | pending |
+| REQ-075 | `gsd-t metrics` CLI: `--tokens [--by ...]`, `--halts`, `--tokens --context-window` | token-telemetry | T4–T6 | pending |
+| REQ-076 | Optimization backlog — detect only, never auto-apply, user promotes or rejects | optimization-backlog | T1–T4 | pending |
+| REQ-077 | Headless auto-spawn on runway refusal — user never sees a `/clear` prompt | headless-auto-spawn | T1–T5 | pending |
+| REQ-078 | Structural elimination of native compact messages — `halt_type: native-compact` count is 0 during M35 execution | runway-estimator + headless-auto-spawn | T1–T5 (RE), T1–T5 (HAS) | pending |
+
+**M35 Functional Requirements:**
+- **REQ-069**: `bin/token-budget.js` `getDegradationActions()` must return `{band: 'normal'|'warn'|'stop', pct: number, message: string}` only. No `modelOverride`, no `skipPhases`, no `checkpoint` side-channel.
+- **REQ-070**: `WARN_THRESHOLD_PCT = 70`, `STOP_THRESHOLD_PCT = 85`. `grep -r "downgrade\|conserve\|modelOverride\|skipPhases" bin/ commands/ docs/ templates/` returns zero hits in live code.
+- **REQ-071**: `bin/model-selector.js` exists with a declarative rules table, at least 8 phase mappings across all three tiers (haiku/sonnet/opus), and unit tests for each mapping.
+- **REQ-072**: `bin/advisor-integration.js` exists. If `/advisor` is programmable: calls it. If not: convention-based fallback block injection. Graceful degradation: missed escalations logged, caller never blocked.
+- **REQ-073**: Every long-running command (execute, wave, integrate, debug, quick) invokes `estimateRunway()` at Step 0. On refusal: prints ⛔ block, calls `autoSpawnHeadless()`, exits cleanly. User never sees "run /clear."
+- **REQ-074**: Every Task subagent spawn in execute/wave/quick/integrate/debug/doc-ripple is wrapped in a token bracket. Records appended to `.gsd-t/token-metrics.jsonl` with all 18 schema fields.
+- **REQ-075**: `gsd-t metrics --tokens [--by <field>...]` prints an aggregated table. `gsd-t metrics --halts` shows halt_type breakdown with native-compact warning. `gsd-t metrics --tokens --context-window` buckets by pct_before.
+- **REQ-076**: `bin/token-optimizer.js` runs at `complete-milestone`, appends to `.gsd-t/optimization-backlog.md`. Recommendations never auto-applied. User promotes via `gsd-t-optimization-apply {ID}` or rejects via `gsd-t-optimization-reject {ID}`.
+- **REQ-077**: `bin/headless-auto-spawn.js` `autoSpawnHeadless()` spawns a detached child process, writes `.gsd-t/headless-sessions/{id}.json`, fires macOS notification on completion, and surfaces results banner on next interactive command.
+- **REQ-078**: The combination of `STOP_THRESHOLD_PCT=85` and runway estimator refusing runs that project past 85% means the runtime's 95% native compact is structurally unreachable. `halt_type: native-compact` in `token-metrics.jsonl` is a defect signal.
+
+**M35 Non-Functional Requirements:**
+- Zero external npm dependencies (GSD-T mandate — token-telemetry.js, runway-estimator.js, headless-auto-spawn.js must use Node.js built-ins only)
+- `autoSpawnHeadless()` must return control to the interactive session in < 500ms (detached spawn is immediate)
+- `estimateRunway()` must complete in < 100ms (reads two local files, no network)
+- Full test suite: target ~1030 tests total after M35; quality over count
+
+**Orphaned requirements**: None — all M35 REQs mapped to tasks.
+**Unanchored tasks**: None — all 38 M35 tasks trace to REQ-069–REQ-078 or REQ-063–068 (existing requirements that M35 code continues to satisfy).
+
+---
+
 ## M17: Scan Visual Output — Feature Specification
 
 **Goal**: Transform `gsd-t-scan` from a text-only analysis tool into a rich visual report generator. Every scan produces a beautiful, self-contained HTML report with live diagrams, a tech debt register, and domain health scores — plus optional export to Google Docs via DOCX or PDF.

@@ -1,28 +1,29 @@
 # GSD-T Progress
 
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
-## Status: M35 DEFINED — ready to partition
+## Status: M35 PLANNED — ready to execute
 ## Date: 2026-04-14
 ## Version: 2.75.10 → 2.76.10 (target)
 
 ## Current Milestone
 
-**M35: No Silent Degradation + Surgical Model Escalation + Token Telemetry** — DEFINED
+**M35: No Silent Degradation + Surgical Model Escalation + Token Telemetry** — PLANNED
 - **Goal**: Rip out silent quality-degradation under context pressure; replace with surgical per-task model selection, pre-flight runway estimator that auto-spawns headless (never prompts `/clear`), and granular per-spawn token telemetry feeding a user-curated optimization backlog.
 - **Version target**: 2.75.10 → 2.76.10
 - **Definition**: `.gsd-t/M35-definition.md` (authoritative source)
-- **Proposed domains (7)**: degradation-rip-out, model-selector-advisor, runway-estimator, token-telemetry, optimization-backlog, headless-auto-spawn, m35-docs-and-tests
-- **Proposed tasks**: ~38 across 5 waves
-- **Contracts**: token-budget-contract v3.0.0 (clean break — Option X), model-selection-contract v1.0.0 NEW, runway-estimator-contract v1.0.0 NEW, token-telemetry-contract v1.0.0 NEW, headless-auto-spawn-contract v1.0.0 NEW
+- **Domains (7)**: degradation-rip-out (4 tasks), model-selector-advisor (6 tasks), token-telemetry (6 tasks), runway-estimator (5 tasks), headless-auto-spawn (5 tasks), optimization-backlog (4 tasks), docs-and-tests (8 tasks)
+- **Total tasks**: 38 across 5 waves
+- **Contracts**: token-budget-contract v3.0.0 (REWRITE), model-selection-contract v1.0.0 NEW, runway-estimator-contract v1.0.0 NEW, token-telemetry-contract v1.0.0 NEW, headless-auto-spawn-contract v1.0.0 NEW
 - **Non-goals**: cost modeling, auto-optimization, model marketplace, runtime patching
-- **Success criteria**: (1) zero `downgrade`/`conserve`/`modelOverride`/`skipPhases` in live code, (2) `bin/model-selector.js` with ≥8 phase mappings, (3) runway estimator wired into ≥5 command files, (4) per-spawn token telemetry capturing full schema, (5) headless auto-spawn tested end-to-end, (6) ~1030/1030 tests green, (7) M35 dogfooded itself (real runway refusal + headless handoff in Wave 3+), (8) `v2.76.10` tagged.
-- **Complexity**: Complex (7 domains) — standard flow: partition → plan → execute → integrate → verify → complete
+- **Success criteria**: (1) zero `downgrade`/`conserve`/`modelOverride`/`skipPhases` in live code, (2) `bin/model-selector.js` with ≥8 phase mappings, (3) runway estimator wired into ≥5 command files, (4) per-spawn token telemetry capturing full schema, (5) headless auto-spawn tested end-to-end, (6) ~1030/1030 tests green, (7) M35 dogfooded itself, (8) `v2.76.10` tagged.
+- **Integration points**: `.gsd-t/contracts/integration-points.md` (full M35 dependency graph)
+- **REQ coverage**: REQ-069 through REQ-078 in `docs/requirements.md`
 
 ## Milestones
 
 | # | Milestone | Status | Version | Domains |
 |---|-----------|--------|---------|---------|
-| M35 | No Silent Degradation + Surgical Model Escalation + Token Telemetry | PARTITIONED | 2.76.10 (target) | 7: degradation-rip-out, model-selector-advisor, runway-estimator, token-telemetry, optimization-backlog, headless-auto-spawn, docs-and-tests |
+| M35 | No Silent Degradation + Surgical Model Escalation + Token Telemetry | PLANNED | 2.76.10 (target) | 7: degradation-rip-out (4), model-selector-advisor (6), runway-estimator (5), token-telemetry (6), optimization-backlog (4), headless-auto-spawn (5), docs-and-tests (8) |
 | M34 | Context Meter | COMPLETE | 2.75.10 | Archived |
 
 ## Completed Milestones
@@ -540,3 +541,4 @@ Wave 4: adaptive-replan (consumes fresh-dispatch summaries, integrates with work
 - 2026-04-06 16:14: [feat] Added Element Count Reconciliation (v2.70.12). Counts widgets/elements from Figma INDEX.md, compares against built DOM count via Playwright. Missing widget = CRITICAL. Added to execute (Step 0), quick (Step 0), design-audit (Step 1.5), design-decompose (Figma Element Counts table in INDEX.md). Design-to-code.md now documents 5-layer verification model: Target 0 (count) → Target 1 (contracts) → Target 2 (Figma) → Target 3 (SVG overlay) → Target 4 (DOM box model).
 - 2026-04-06 16:20: [feat] Added auto-create project dir + GitHub repo to gsd-t-init and gsd-t-init-scan-setup (v2.70.13). Configurable via ~/.claude/.gsd-t-config: projects_dir (base path for new projects) and github_org (org for repo creation). Skips entirely for existing projects.
 - 2026-04-06 22:15: [feat] Hierarchical Build Order for design pipeline (v2.70.14). Root cause fix: decomposition creates element→widget→page hierarchy, but plan/execute ignored it — creating monolithic "build the page" tasks. Now: gsd-t-plan auto-generates tasks in Wave 1 (elements, one task per contract) → Wave 2 (widgets, import built elements) → Wave 3 (pages, import built widgets). Execute adds Design Hierarchy Build Rule in subagent prompt (no inline rebuilds, contract is authoritative over screenshots) + per-wave design verification checkpoints. Previous v2.70.10-12 enhancements (SVG overlay, box model, element count) remain as verification safety net, but primary enforcement moves from post-build verification to build-time structure.
+- 2026-04-14 15:27: [milestone-planned] M35 plan expanded — 38 atomic tasks across 7 domains, 5 waves. Cross-domain dependency graph mapped in integration-points.md. REQ-069–078 added to docs/requirements.md. Wave sequence: Wave1(DR-T1/T2, MSA-T1, TT-T1/T2) → Wave2(DR-T3/T4, MSA-T2–T6, TT-T3–T6) → Wave3(RE-T1–T5, HAS-T1–T3) → Wave4(OB-T1–T4, HAS-T4–T5) → Wave5(DAT-T1–T8). Status: PLANNED. Ready for /user:gsd-t-impact.
