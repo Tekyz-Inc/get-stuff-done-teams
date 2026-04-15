@@ -2,6 +2,21 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [3.10.14] - 2026-04-15
+
+### Fixed — transcript parser orphaned tool_use blocks cause count_tokens 400
+
+**Background**: With `ANTHROPIC_API_KEY` now set (v3.10.12-13 fix), the context meter hook passed the key check but the `count_tokens` API returned HTTP 400: `"tool_use ids were found without tool_result blocks immediately after"`. The transcript parser (`scripts/context-meter/transcript-parser.js`) faithfully reconstructed the JSONL transcript but didn't enforce the API's strict adjacency constraint: every assistant `tool_use` must be immediately followed by a user `tool_result` with matching ids. Mid-session compaction and summarization can orphan these blocks.
+
+### Changed
+- **`scripts/context-meter/transcript-parser.js`** — added `sanitizeToolPairs()` post-processing pass after message reconstruction. Walks the message list enforcing adjacency: assistant `tool_use` blocks are kept only if the immediately following user message contains a `tool_result` with a matching id, and vice versa. Messages that become empty after stripping are dropped. This is a structural fix — any transcript shape (compacted, summarized, interrupted) now produces a valid `count_tokens` payload.
+- **`scripts/context-meter/transcript-parser.test.js`** — updated 2 existing tests that created orphaned `tool_result` messages (now include matching `tool_use` predecessors). Added 1 new test: `orphaned tool_use without matching tool_result is stripped`. 1229/1229 tests pass.
+
+### Verification
+- Real transcript (626→649 messages, 473KB payload) now returns HTTP 200 with `input_tokens: 153597` (was 400 before fix)
+- Context meter state file flipped from `lastError: api_error` to `lastError: null`, `inputTokens: 158543`, `pct: 79.3%`, `threshold: warn`
+- First successful real-time context measurement since M34 was built
+
 ## [3.10.13] - 2026-04-15
 
 ### Fixed — P0 v3.10.12 propagation gap (same regression, downstream projects)

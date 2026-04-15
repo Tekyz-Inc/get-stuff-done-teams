@@ -177,6 +177,15 @@ test("tool_use / tool_result pairing by tool_use_id preserved in order", async (
 test("tool_result with array content (text blocks) is normalized", async () => {
   const { dir, file } = mkTmpFile([
     {
+      type: "assistant",
+      message: {
+        role: "assistant",
+        content: [
+          { type: "tool_use", id: "toolu_02", name: "Read", input: { file_path: "/tmp/x" } },
+        ],
+      },
+    },
+    {
       type: "user",
       message: {
         role: "user",
@@ -196,8 +205,8 @@ test("tool_result with array content (text blocks) is normalized", async () => {
   ]);
   try {
     const got = await parseTranscript(file);
-    assert.equal(got.messages.length, 1);
-    const tr = got.messages[0].content[0];
+    const userMsg = got.messages.find(m => m.role === "user");
+    const tr = userMsg.content[0];
     assert.equal(tr.type, "tool_result");
     assert.deepEqual(tr.content, [
       { type: "text", text: "line 1" },
@@ -211,6 +220,15 @@ test("tool_result with array content (text blocks) is normalized", async () => {
 test("tool_result with is_error:true preserved", async () => {
   const { dir, file } = mkTmpFile([
     {
+      type: "assistant",
+      message: {
+        role: "assistant",
+        content: [
+          { type: "tool_use", id: "toolu_03", name: "Bash", input: { command: "false" } },
+        ],
+      },
+    },
+    {
       type: "user",
       message: {
         role: "user",
@@ -222,7 +240,8 @@ test("tool_result with is_error:true preserved", async () => {
   ]);
   try {
     const got = await parseTranscript(file);
-    assert.equal(got.messages[0].content[0].is_error, true);
+    const userMsg = got.messages.find(m => m.role === "user");
+    assert.equal(userMsg.content[0].is_error, true);
   } finally {
     cleanup(dir);
   }
@@ -314,6 +333,37 @@ test("message with content array but no recognized blocks → message skipped", 
     const got = await parseTranscript(file);
     assert.equal(got.messages.length, 1);
     assert.equal(got.messages[0].content[0].text, "survivor");
+  } finally {
+    cleanup(dir);
+  }
+});
+
+test("orphaned tool_use without matching tool_result is stripped", async () => {
+  const { dir, file } = mkTmpFile([
+    { type: "user", message: { role: "user", content: "hello" } },
+    {
+      type: "assistant",
+      message: {
+        role: "assistant",
+        content: [
+          { type: "text", text: "I will read a file" },
+          { type: "tool_use", id: "toolu_orphan", name: "Read", input: { file_path: "/tmp/x" } },
+        ],
+      },
+    },
+    { type: "user", message: { role: "user", content: "thanks" } },
+  ]);
+  try {
+    const got = await parseTranscript(file);
+    const assistantMsg = got.messages.find(
+      (m) => m.role === "assistant" && m.content.some((b) => b.type === "text")
+    );
+    assert.ok(assistantMsg, "assistant message preserved");
+    assert.ok(
+      !assistantMsg.content.some((b) => b.type === "tool_use"),
+      "orphaned tool_use stripped"
+    );
+    assert.equal(assistantMsg.content[0].text, "I will read a file");
   } finally {
     cleanup(dir);
   }

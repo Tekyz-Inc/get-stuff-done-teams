@@ -152,7 +152,69 @@ async function parseTranscript(transcriptPath) {
     return null;
   }
 
-  return { system, messages };
+  return { system, messages: sanitizeToolPairs(messages) };
+}
+
+/**
+ * Enforce the count_tokens adjacency constraint: every assistant tool_use
+ * must be immediately followed by a user message whose tool_result ids match
+ * ALL tool_use ids from the preceding assistant message.  Walk the message
+ * list and strip tool_use / tool_result blocks from any pair that violates
+ * this rule. Drop messages that become empty after stripping.
+ */
+function sanitizeToolPairs(messages) {
+  const out = [];
+  for (let i = 0; i < messages.length; i++) {
+    const m = messages[i];
+    if (!Array.isArray(m.content)) { out.push(m); continue; }
+
+    if (m.role === "assistant") {
+      const toolUseIds = new Set();
+      for (const b of m.content) {
+        if (b.type === "tool_use" && typeof b.id === "string") toolUseIds.add(b.id);
+      }
+
+      if (toolUseIds.size === 0) { out.push(m); continue; }
+
+      const next = messages[i + 1];
+      const nextResultIds = new Set();
+      if (next && next.role === "user" && Array.isArray(next.content)) {
+        for (const b of next.content) {
+          if (b.type === "tool_result" && typeof b.tool_use_id === "string") {
+            nextResultIds.add(b.tool_use_id);
+          }
+        }
+      }
+
+      const validIds = new Set([...toolUseIds].filter((id) => nextResultIds.has(id)));
+      const filtered = m.content.filter((b) => {
+        if (b.type === "tool_use") return validIds.has(b.id);
+        return true;
+      });
+      if (filtered.length > 0) out.push({ role: m.role, content: filtered });
+      continue;
+    }
+
+    if (m.role === "user") {
+      const prev = out[out.length - 1];
+      const prevUseIds = new Set();
+      if (prev && prev.role === "assistant" && Array.isArray(prev.content)) {
+        for (const b of prev.content) {
+          if (b.type === "tool_use" && typeof b.id === "string") prevUseIds.add(b.id);
+        }
+      }
+
+      const filtered = m.content.filter((b) => {
+        if (b.type === "tool_result") return prevUseIds.has(b.tool_use_id);
+        return true;
+      });
+      if (filtered.length > 0) out.push({ role: m.role, content: filtered });
+      continue;
+    }
+
+    out.push(m);
+  }
+  return out;
 }
 
 /**
