@@ -446,15 +446,23 @@ Setup:
 }
 ```
 
-Threshold bands used by the orchestrator gate:
+Threshold bands used by the orchestrator gate (v3.0.0 three-band model as of M35 / v2.76.10):
 
-| Band      | Range       | Orchestrator action                                         |
-|-----------|-------------|-------------------------------------------------------------|
-| normal    | 0–59%       | Proceed as normal                                           |
-| warn      | 60–69%      | Log warning, continue                                       |
-| downgrade | 70–84%      | Switch opus→sonnet, sonnet→haiku for upcoming subagents     |
-| conserve  | 85–94%      | Checkpoint progress, skip non-essential phases              |
-| stop      | ≥95%        | Halt with resume instruction; user must `/clear` + resume   |
+| Band      | Range       | Orchestrator action                                             |
+|-----------|-------------|-----------------------------------------------------------------|
+| normal    | 0–69%       | Proceed as normal                                               |
+| warn      | 70–84%      | Surface warning; runway estimator refuses if projection crosses |
+| stop      | ≥85%        | Halt cleanly; headless auto-spawn continues in a fresh context  |
+
+**Zero silent quality degradation.** There is no `downgrade` or `conserve` band anymore. When the runway estimator (`bin/runway-estimator.js`) projects a run will cross the 85% stop threshold, the command refuses to start. Instead of printing "please `/clear` and resume," it calls `bin/headless-auto-spawn.js` which detaches a child process to continue the work. The interactive session receives a single ⛔ banner and exits cleanly; the user is never blocked.
+
+**Per-phase model selection** — see `bin/model-selector.js` for the declarative rules table (≥13 phase mappings). Each command file carries a `## Model Assignment` block documenting which phases run on haiku / sonnet / opus. Complexity signals (`cross_module_refactor`, `security_boundary`, `data_loss_risk`, `contract_design`) escalate sonnet→opus at plan time.
+
+**`/advisor` escalation** — mid-phase escalation channel. If `/advisor` is programmable in the runtime, subagents invoke it directly; otherwise, the convention-based fallback (`bin/advisor-integration.js`) appends a `missed_escalation` marker to `.gsd-t/token-log.md` that surfaces at `gsd-t-reflect`. See `.gsd-t/contracts/model-selection-contract.md` v1.0.0.
+
+**`gsd-t metrics` CLI** — `gsd-t metrics --tokens [--by model,command,phase,milestone,domain,domain_type]` aggregates `.gsd-t/token-metrics.jsonl` into a count/total/mean/median/p95 table. `gsd-t metrics --halts` breaks halts down by type (`clean`, `runway-refusal`, `headless-handoff`, `native-compact`). `gsd-t metrics --tokens --context-window` buckets spawns by `context_window_pct_before` in 10% increments. See `.gsd-t/contracts/token-telemetry-contract.md` v1.0.0.
+
+**Optimization apply/reject** — `/user:gsd-t-optimization-apply {ID}` promotes a pending recommendation; `/user:gsd-t-optimization-reject {ID} [--reason "text"]` dismisses it with a 5-milestone cooldown. Both are idempotent. See `commands/gsd-t-optimization-apply.md` and `commands/gsd-t-optimization-reject.md`.
 
 **Observability logging columns** — as of M34, the `.gsd-t/token-log.md` header includes `Ctx%` (the real session-wide context percentage at the time of the subagent spawn) replacing the earlier `Tasks-Since-Reset` column. The old column was a proxy count of how many tasks had run since the last `/clear`; the new column is the actual measurement.
 

@@ -450,6 +450,12 @@ Orchestrator Context Gate — v3.0.0 semantics:
 - `.gsd-t/contracts/token-telemetry-contract.md` v1.0.0 — per-spawn 18-field JSONL at `.gsd-t/token-metrics.jsonl`
 - `.gsd-t/contracts/runway-estimator-contract.md` v1.0.0 — pre-flight projection, confidence grading, refusal/headless handoff
 - `.gsd-t/contracts/headless-auto-spawn-contract.md` v1.0.0 — detached continuation, session schema, macOS notification channel
+- `.gsd-t/contracts/model-selection-contract.md` v1.0.0 — per-phase tier mapping + complexity-signal escalation, consumed by `bin/model-selector.js`
+
+**M35 supporting components** (outside the context-meter dataflow):
+- `bin/model-selector.js` — declarative rules table mapping phases to haiku/sonnet/opus; consulted at plan time, never at runtime under pressure
+- `bin/token-optimizer.js` — at `complete-milestone`, scans the last 3 milestones of `.gsd-t/token-metrics.jsonl` and appends recalibration recommendations to `.gsd-t/optimization-backlog.md` (never auto-applied; user promotes via `/user:gsd-t-optimization-apply` or rejects via `/user:gsd-t-optimization-reject` with 5-milestone cooldown)
+- `bin/check-headless-sessions.js` — renders the read-back banner on `/user:gsd-t-resume` and `/user:gsd-t-status` for completed-but-not-yet-surfaced headless sessions
 
 **Installer integration** (`bin/gsd-t.js`):
 - `install` / `init` — copy hook runtime, merge PostToolUse entry into `~/.claude/settings.json`, copy config template, prompt for API key (skippable, TTY-only)

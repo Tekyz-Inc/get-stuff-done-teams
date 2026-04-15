@@ -246,17 +246,71 @@ If any check is RED, doctor exits with code 1.
 }
 ```
 
-**Threshold bands** (lower-bound inclusive):
+**Threshold bands** (M35 v3.0.0 — three bands, lower-bound inclusive):
 
-| Band      | Range       | Orchestrator action                                    |
-|-----------|-------------|--------------------------------------------------------|
-| normal    | 0–59%       | Proceed                                                |
-| warn      | 60–69%      | Log warning, continue                                  |
-| downgrade | 70–84%      | Downgrade models for subsequent spawns                 |
-| conserve  | 85–94%      | Checkpoint + skip non-essential phases                 |
-| stop      | ≥95%        | Halt with resume instruction                           |
+| Band   | Range    | Orchestrator action                                                              |
+|--------|----------|----------------------------------------------------------------------------------|
+| normal | 0–69%    | Proceed                                                                          |
+| warn   | 70–84%   | Log warning; cue for explicit pause/resume at the next clean boundary            |
+| stop   | ≥85%     | Halt cleanly with resume instruction; command refuses to start if runway crosses |
+
+**Zero silent quality degradation.** There is no `downgrade` band and no `conserve` band. Models are **never** swapped at runtime under context pressure — model choice is a plan-time decision made by `bin/model-selector.js`, and quality-critical phases (Red Team, doc-ripple, Design Verify) always run at their designated tier. See `.gsd-t/contracts/token-budget-contract.md` v3.0.0.
+
+**Structural guarantee**: because the runway estimator refuses runs that project past 85% and the stop band fires at 85%, the runtime's 95% native compact is structurally unreachable under healthy operation. `halt_type: native-compact` in `.gsd-t/token-metrics.jsonl` is a defect signal.
 
 **Upgrading from pre-M34**: `gsd-t update-all` runs a one-time task-counter retirement migration in every registered project (deletes `bin/task-counter.cjs`, `.gsd-t/task-counter-config.json`, `.gsd-t/.task-counter-state.json`, and the `.gsd-t/.task-counter` file; writes `.gsd-t/.task-counter-retired-v1` marker). After upgrade you **must** set `ANTHROPIC_API_KEY` — doctor will fail otherwise.
+
+## Runway-Protected Execution (M35)
+
+M35 adds four components on top of the Context Meter. Together they replace graduated degradation with a pre-flight gate + pause/resume model.
+
+### Per-phase model selection — `bin/model-selector.js`
+
+Declarative rules table mapping each phase (`plan`, `execute`, `red-team`, `doc-ripple`, `design-verify`, `qa`, `integrate`, ...) to a default tier (`haiku`|`sonnet`|`opus`). Complexity signals promoted from the task plan (`cross_module_refactor`, `security_boundary`, `data_loss_risk`, `contract_design`) escalate sonnet→opus. Each command file documents its assignments in a `## Model Assignment` block.
+
+Contract: `.gsd-t/contracts/model-selection-contract.md` v1.0.0
+
+### Pre-flight runway estimator — `bin/runway-estimator.js`
+
+Reads historical per-spawn consumption from `.gsd-t/token-metrics.jsonl` via a three-tier query fallback (exact match on `{command, phase, domain}` → command+phase → command) and produces a confidence-weighted projection of end-of-run `pct`. If the projection would cross `STOP_THRESHOLD_PCT = 85`, the command refuses to start — the interactive session exits cleanly and an autonomous headless continuation is auto-spawned. The user never types `/clear`.
+
+### Headless auto-spawn — `bin/headless-auto-spawn.js`
+
+Detached child-process spawn (`child_process.spawn` with `detached:true`, `stdio:['ignore', fd, fd]`, `child.unref()`). Writes `.gsd-t/headless-sessions/{session-id}.json` with session metadata, polls with `process.kill(pid, 0)` liveness probe (timer `.unref()`-ed), marks `status: completed`, and posts a macOS `osascript` notification when done (graceful no-op on non-darwin). `bin/check-headless-sessions.js` renders the read-back banner on the next `gsd-t-resume` / `gsd-t-status`.
+
+Directory: `.gsd-t/headless-sessions/` — one JSON per session, plus optional `{id}-context.json` and log files.
+
+### Per-spawn token telemetry — `.gsd-t/token-metrics.jsonl`
+
+Frozen 18-field JSONL schema, one record per subagent spawn. Written by the orchestrator, consumed by the runway estimator and the token optimizer.
+
+Contract: `.gsd-t/contracts/token-telemetry-contract.md` v1.0.0
+
+Key fields: `timestamp`, `session_id`, `command`, `phase`, `domain`, `task_id`, `model`, `complexity_signals[]`, `input_tokens`, `output_tokens`, `duration_seconds`, `start_pct`, `end_pct`, `halt_type`, `halt_reason`, `exit_code`, `run_type` (`interactive`|`headless`), `projection_variance`.
+
+`halt_type` values: `clean`, `stop-band`, `runway-refuse`, `native-compact` (defect), `crash`.
+
+### Optimization backlog — `.gsd-t/optimization-backlog.md`
+
+Append-only markdown file of recalibration recommendations. `bin/token-optimizer.js` scans the last 3 milestones of telemetry at `complete-milestone` time and appends detected recommendations. Recommendations are **never** auto-applied — the user promotes via `/user:gsd-t-optimization-apply {ID}` or rejects via `/user:gsd-t-optimization-reject {ID} [--reason "..."]`. Rejected items are fingerprinted and cooled down for 5 milestones before re-surfacing.
+
+Detection rules: `demote` (opus phase with ≥90% success, ≥3 volume), `escalate` (sonnet phase with ≥30% failure, ≥5 volume), `runway-tune` (projection vs. actual divergence >15%), `investigate` (per-phase p95 > 2× median, ≥10 volume).
+
+## Metrics CLI — `gsd-t metrics`
+
+Read-only surface onto the token telemetry stream. Backward-compatible with pre-M35 `metrics` output; new flags surface M35 data.
+
+| Flag                  | Output                                                                                 |
+|-----------------------|----------------------------------------------------------------------------------------|
+| (no flag)             | Task telemetry, process ELO, domain health (pre-M35 behavior)                          |
+| `--tokens`            | Per-command / per-phase token usage summary from `.gsd-t/token-metrics.jsonl`          |
+| `--halts`             | Count + breakdown of `halt_type` values — flags any `native-compact` as a defect       |
+| `--context-window`    | Trailing 20-run window of `end_pct` with runway headroom                               |
+| `--cross-project`     | Cross-project ranking (pre-M35, unchanged)                                             |
+
+## `/advisor` escalation convention
+
+When a sonnet-default phase hits a complexity signal that warrants opus (e.g., cross-module refactor detected mid-execution), the command may emit an `/advisor` hook line in its output — a structured suggestion for the orchestrator to escalate the **next** spawn of that phase to opus. This is a plan-time signal, not a runtime swap: the current spawn completes at its assigned tier, and the escalation applies to subsequent work. See `.gsd-t/contracts/model-selection-contract.md` for the hook schema.
 
 ## Security Notes
 

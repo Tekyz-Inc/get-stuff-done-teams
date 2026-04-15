@@ -253,7 +253,7 @@
 | REQ-075 | `gsd-t metrics` CLI: `--tokens [--by ...]`, `--halts`, `--tokens --context-window` | token-telemetry | T4–T6 | complete (Wave 2) |
 | REQ-076 | Optimization backlog — detect only, never auto-apply, user promotes or rejects | optimization-backlog | T1–T4 | complete (Wave 4) |
 | REQ-077 | Headless auto-spawn on runway refusal — user never sees a `/clear` prompt | headless-auto-spawn | T1–T5 | complete (Waves 3–4) |
-| REQ-078 | Structural elimination of native compact messages — `halt_type: native-compact` count is 0 during M35 execution | runway-estimator + headless-auto-spawn | T1–T5 (RE), T1–T5 (HAS) | pending (M35 verify) |
+| REQ-078 | Structural elimination of native compact messages — `halt_type: native-compact` count is 0 during M35 execution | runway-estimator + headless-auto-spawn | T1–T5 (RE), T1–T5 (HAS) | complete (Wave 5) |
 
 **M35 Functional Requirements:**
 - **REQ-069**: `bin/token-budget.js` `getDegradationActions()` must return `{band: 'normal'|'warn'|'stop', pct: number, message: string}` only. No `modelOverride`, no `skipPhases`, no `checkpoint` side-channel.

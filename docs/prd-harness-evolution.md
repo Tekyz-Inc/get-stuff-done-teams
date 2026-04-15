@@ -512,7 +512,7 @@ All new code (`bin/qa-calibrator.js`, component registry logic) uses Node.js bui
 | Playwright MCP not widely available            | Medium     | Low    | Graceful degradation — feature skips if MCP absent.              |
 | Higher iteration budgets waste context tokens  | Low        | Medium | Budget governance (M26) caps aggregate rework. Telemetry tracks. |
 | Command file sizes grow beyond readability     | Medium     | High   | Each injection is max 5-10 lines. Total overhead auditable via 3.1. |
-| **Token exhaustion mid-milestone**             | **High**   | **High** | **Token-aware orchestration (3.7) with graduated degradation. Progress always checkpointed before hard stop.** |
+| **Token exhaustion mid-milestone**             | **High**   | **High** | **Runway-protected execution (3.7) with pre-flight estimator + headless auto-spawn. No graduated degradation; quality never lowered under pressure. Clean stop at 85% with automatic headless continuation.** |
 | **QA promotion to Sonnet exceeds token budget** | Low       | Medium | QA calls are small relative to execute. Net impact ~10-15% more tokens. Token orchestrator manages ceiling. |
 | **Budget estimation inaccuracy**               | Medium     | Medium | Estimates improve over time using historical data from token-log.md. Conservative defaults (overestimate). |
 
@@ -580,10 +580,10 @@ There are two distinct token budget concerns:
 - QA model promotion (Haiku → Sonnet): +10-15% tokens per milestone
 - Red Team model promotion (Sonnet → Opus): +3-5% tokens per milestone (only 1 call)
 - Exploratory testing: +5-10% tokens per milestone (when MCP available)
-- Higher iteration budgets: variable, capped by token-aware orchestrator (3.7)
+- Higher iteration budgets: variable, bounded by the M35 runway estimator (3.7) which refuses runs projected to cross 85%
 - Harness audit: opt-in only, not counted in normal milestone budgets
 
-**Maximum additional session cost**: ~25-30% more tokens per milestone vs. current. The token-aware orchestrator (3.7) ensures this stays within daily limits through graduated degradation.
+**Maximum additional session cost**: ~25-30% more tokens per milestone vs. current. The M35 runway estimator + headless auto-spawn (3.7) ensures this stays within daily limits through pre-flight refusal + fresh-context headless continuation — **not** through graduated degradation. When a run would exceed the budget, the interactive session hands off cleanly to a headless continuation with a fresh context window; quality is never reduced.
 
 ### Command file discipline
 

@@ -2,6 +2,70 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.76.10] - 2026-04-15
+
+### M35: Runway-Protected Execution — Aggressive Pause-Resume Replaces Graduated Degradation
+
+**Background**: Between v2.74 and v2.75, GSD-T coped with context pressure via graduated degradation — `downgrade` and `conserve` bands that silently demoted opus→sonnet→haiku and skipped Red Team / doc-ripple / Design Verify phases. This made quality **conditional on context pressure**, a load-bearing invariant the user could neither see nor control. M35 removes graduated degradation entirely and replaces it with: surgical per-phase model selection (plan-time, never runtime), a pre-flight runway estimator that refuses runs projected to cross 85% and auto-spawns a detached headless continuation, frozen 18-field per-spawn token telemetry, and a detect-only optimization backlog the user explicitly promotes or rejects. The user never types `/clear` under normal operation.
+
+### Added
+
+- **`bin/model-selector.js`** — declarative phase→tier mapping (≥13 phase mappings) with complexity-signal escalation (`cross_module_refactor`, `security_boundary`, `data_loss_risk`, `contract_design`) that escalates sonnet→opus at plan time. Each command file carries a `## Model Assignment` block.
+- **`bin/runway-estimator.js`** — `estimateRunway({command, domain_type, remaining_tasks})` reads `.gsd-t/token-metrics.jsonl` via a three-tier query fallback (exact → command+phase → command) and returns `{can_start, projected_end_pct, confidence, recommendation}`. Confidence grading: high ≥50 records, medium ≥10, low <10 (+1.25× skew).
+- **`bin/headless-auto-spawn.js`** — detached `child_process.spawn({detached:true, stdio:['ignore', fd, fd]}) + child.unref()`. Writes `.gsd-t/headless-sessions/{session-id}.json`, polls with `process.kill(pid, 0)` (timer `.unref()`-ed), marks `status: completed`, posts a macOS `osascript` notification on exit (graceful no-op on non-darwin).
+- **`bin/check-headless-sessions.js`** — scans `.gsd-t/headless-sessions/` for `status === 'completed' && surfaced !== true` and renders the read-back banner on `/user:gsd-t-resume` and `/user:gsd-t-status`. Exports `checkCompletedSessions`, `markSurfaced`, `formatBanner`, `printBannerIfAny`, `computeDurationLabel`.
+- **`bin/token-telemetry.js`** — per-spawn token bracket writes one frozen 18-field JSONL record per subagent spawn to `.gsd-t/token-metrics.jsonl`. Fields: `timestamp, session_id, command, phase, domain, task_id, model, complexity_signals[], input_tokens, output_tokens, duration_seconds, start_pct, end_pct, halt_type, halt_reason, exit_code, run_type, projection_variance`. `halt_type` values: `clean`, `stop-band`, `runway-refuse`, `native-compact` (defect), `crash`.
+- **`bin/token-optimizer.js`** — at `complete-milestone`, scans the last 3 milestones and appends recalibration recommendations to `.gsd-t/optimization-backlog.md`. Four detection rules: `demote` (opus phase ≥90% success, ≥3 volume), `escalate` (sonnet phase ≥30% failure rate, ≥5 volume), `runway-tune` (projection vs. actual divergence >15%), `investigate` (per-phase p95 > 2× median, ≥10 volume). Fingerprint-based 5-milestone cooldown on rejected items. Exports `detectRecommendations`, `appendToBacklog`, `readBacklog`, `writeBacklog`, `parseBacklog`, `setRecommendationStatus`, `DETECTION_RULES`, `REJECTION_COOLDOWN_MILESTONES`.
+- **`bin/advisor-integration.js`** — `/advisor` escalation hook; convention-based fallback if no programmable API.
+- **`.gsd-t/contracts/token-budget-contract.md` v3.0.0 ACTIVE** — clean-break rewrite. Three bands only: `normal` <70%, `warn` 70–85%, `stop` ≥85%. Response shape `{band, pct, message}`. `downgrade`, `conserve`, `modelOverrides`, `skipPhases` all deleted — no compat shim.
+- **`.gsd-t/contracts/model-selection-contract.md` v1.0.0 ACTIVE** — declarative phase→tier rules, complexity-signal escalation semantics, `/advisor` hook schema.
+- **`.gsd-t/contracts/token-telemetry-contract.md` v1.0.0 ACTIVE** — frozen 18-field per-spawn JSONL schema, `halt_type` enum, `run_type` enum.
+- **`.gsd-t/contracts/runway-estimator-contract.md` v1.0.0 ACTIVE** — pre-flight projection, three-tier query fallback, confidence grading, refusal + headless handoff contract.
+- **`.gsd-t/contracts/headless-auto-spawn-contract.md` v1.0.0 ACTIVE** — detached continuation, session file schema, macOS notification channel, read-back banner.
+- **`commands/gsd-t-optimization-apply.md`** — promotes a backlog recommendation by ID, auto-routes to `/user:gsd-t-quick` or `/user:gsd-t-backlog-promote` based on recommendation type.
+- **`commands/gsd-t-optimization-reject.md`** — rejects a recommendation with optional `--reason`, sets 5-milestone cooldown. Reason captured in token-log.md + Decision Log.
+- **`gsd-t metrics` flags** — `--tokens` (per-command/phase token summary), `--halts` (halt-type breakdown; flags any `native-compact` as defect), `--context-window` (trailing 20-run `end_pct` with runway headroom).
+- **Test coverage**: `test/headless-auto-spawn.test.js` (16 tests — session file schema, completion watcher, read-back banner, non-darwin degradation, E2E shim smoke), `test/token-optimizer.test.js` (19 tests — each rule triggers/skips, parseBacklog round-trip, cooldown filter, OB-T1+OB-T4 integration roundtrip), plus rewrites of `test/token-budget.test.js` around v3.0.0. **~1011/1011 total tests green through Wave 4**.
+
+### Changed
+
+- **`bin/token-budget.js`** — `getSessionStatus()` now returns `{band, pct, message}` with only three bands. `applyModelOverride`, `skipPhases`, `getDegradationActions` band-branching for `downgrade`/`conserve` — all deleted.
+- **`bin/orchestrator.js`** — gate semantics: `normal` proceed, `warn` log + proceed at **full quality**, `stop` halt cleanly and hand off to runway estimator → headless-auto-spawn. No model swaps. No phase skips.
+- **Command files** (`gsd-t-execute.md`, `gsd-t-wave.md`, `gsd-t-quick.md`, `gsd-t-integrate.md`, `gsd-t-debug.md`, `gsd-t-doc-ripple.md`) — Step 0 runway gate; `## Model Assignment` blocks documenting per-phase tier choices; per-spawn token telemetry brackets around every subagent spawn.
+- **`commands/gsd-t-resume.md`** — Step 0.5 Headless Read-Back Banner (MANDATORY) invokes `node bin/check-headless-sessions.js . 2>/dev/null || true`.
+- **`commands/gsd-t-status.md`** — Step 0 Headless Read-Back Banner + Step 0.5 Optimization Backlog Pending Count (one-liner, suppressed when N=0).
+- **`commands/gsd-t-complete-milestone.md`** — Step 14 non-blocking optimizer invocation: `detectRecommendations({lookbackMilestones: 3})` → `appendToBacklog`. Wrapped in try/catch; optimizer failure logged but not re-thrown.
+- **`commands/gsd-t-backlog-list.md`** — `--file` flag supports rendering `optimization-backlog.md` via `bin/token-optimizer.js` parseBacklog, with optional `--status {pending|promoted|rejected}` filter.
+- **`commands/gsd-t-help.md`** — new OPTIMIZATION section in summary table; detailed entries for `optimization-apply` and `optimization-reject`.
+- **Documentation ripple**:
+  - `README.md` — "Runway-Protected Execution (M35, v2.76.10)" section replacing "Token-Aware Orchestration"; threshold description updated to "85% = stop band; 70% = warn band — cue for explicit pause/resume; no silent degradation".
+  - `docs/GSD-T-README.md` — 3-band table replacing 5-band table, "Zero silent quality degradation" explanation, per-phase model selection, `/advisor` escalation, `gsd-t metrics` flags, optimization apply/reject.
+  - `docs/methodology.md` — new "From Silent Degradation to Aggressive Pause-Resume (M35)" section with five principles (quality non-negotiable, explicit per-phase model selection, user never types `/clear`, data before optimization, clean break no compat shim) + "Structural guarantee" closing paragraph.
+  - `docs/architecture.md` — dataflow updated for runway estimator + headless auto-spawn + v3.0.0 band semantics; M35 supporting components section (model-selector, token-optimizer, check-headless-sessions).
+  - `docs/infrastructure.md` — 3-band threshold table replacing 5-band; new Runway-Protected Execution section covering all 5 components; `gsd-t metrics` CLI table; `/advisor` convention.
+  - `docs/requirements.md` — REQ-069 through REQ-078 M35 traceability; REQ-076/077 marked complete.
+  - `docs/prd-harness-evolution.md` — §3.7 rewritten as "Context Gate + Surgical Model Escalation"; risk-table + session-cost mitigations updated to reference runway estimator + headless handoff (no graduated degradation).
+  - `templates/CLAUDE-global.md` + `templates/CLAUDE-project.md` — Token-Aware Orchestration section rewritten around M35 semantics.
+
+### Removed
+
+- **Graduated degradation** — `downgrade` and `conserve` bands are deleted from `bin/token-budget.js`, the v3.0.0 `token-budget-contract.md`, and every command file. `applyModelOverride`, `skipPhases`, and all related runtime machinery are gone.
+- **Runtime model downgrade** — there is no code path that swaps opus→sonnet or sonnet→haiku under context pressure. Model choice is a plan-time decision made by `bin/model-selector.js`, full stop.
+- **Phase-skipping under pressure** — Red Team, doc-ripple, and Design Verify always run at their designated tier regardless of context %. No "non-essential" phase exists.
+- **Manual `/clear` prompts** under normal operation — the user only sees a `/clear` prompt when the headless handoff itself fails, which is an explicit degradation path, not a silent one.
+
+### Migration
+
+- **No user migration required** for v2.75.10 → v2.76.10 — `gsd-t update-all` rewrites command files in place and the new contracts ship with the package. Existing projects inherit the three-band gate automatically.
+- **Projects with custom wrappers calling `getSessionStatus()`** — the return shape changed from `{band, pct, modelOverrides, skipPhases, message}` to `{band, pct, message}`. `modelOverrides` and `skipPhases` consumers must delete their handling code (they never had a quality-reducing role in v3.0.0 anyway).
+- **Historical note**: `halt_type: native-compact` entries in `.gsd-t/token-metrics.jsonl` are defect signals — if they appear after upgrade, the runway estimator thresholds need re-tuning. The structural guarantee is that with `STOP_THRESHOLD_PCT = 85` and pre-flight refusal, the runtime's 95% native compact is unreachable under healthy operation.
+
+### Propagation
+
+Run `/user:gsd-t-version-update-all` from any registered GSD-T project to propagate v2.76.10 to all projects. The command files, templates, and `bin/` scripts are rewritten in place; project state in `.gsd-t/` is preserved.
+
+---
+
 ## [2.75.10] - 2026-04-14
 
 ### M34: Context Meter — Real Context-Window Measurement Replaces Task-Counter Proxy

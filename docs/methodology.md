@@ -86,7 +86,7 @@ Teams burn tokens fast. Use them strategically:
 
 ## Context Awareness: From Proxy to Real Measurement (M34)
 
-GSD-T has always needed a reliable signal for "how much of the context window is consumed right now" so the orchestrator can decide whether to continue, downgrade, checkpoint, or stop. The journey to real measurement is instructive:
+GSD-T has always needed a reliable signal for "how much of the context window is consumed right now" so the orchestrator can decide whether to continue, pause, or hand off to a headless continuation. The journey to real measurement is instructive:
 
 1. **v1.0 era — env var check.** Early GSD-T read `CLAUDE_CONTEXT_TOKENS_USED` / `CLAUDE_CONTEXT_TOKENS_MAX` environment variables, assuming Claude Code exported them. It does not. The check was always inert — `pct` was effectively zero forever, and the stop gate never fired. The first symptom was not a crash, it was silent context exhaustion leading to mid-session compaction.
 
@@ -97,5 +97,25 @@ GSD-T has always needed a reliable signal for "how much of the context window is
 **Why this matters**: Opus-primary sessions compound context risk (larger system prompts, deeper reasoning, longer tool outputs). A proxy with ±20% error is fine for an undercommitted Sonnet session but causes silent compaction on a busy Opus session. Real measurement is the only durable fix.
 
 **Fail-open principle**: the meter hook never blocks tool calls or crashes Claude Code. Every failure mode (missing API key, network error, malformed transcript, rate limit) catches and writes a partial state file with `lastError.code` set. The orchestrator treats a missing or stale state file as "fall back to heuristic" rather than "stop immediately" — the user never loses work to a meter hiccup.
+
+## From Silent Degradation to Aggressive Pause-Resume (M35)
+
+Between v2.74 and v2.75, GSD-T attempted to cope with context pressure through **graduated degradation** — downgrading subagent models (opus→sonnet, sonnet→haiku), checkpointing early, skipping "non-essential" phases (Red Team, doc-ripple, Design Verify). The idea was well-intentioned: burn less context, finish more work before hitting the runtime's native compact at 95%.
+
+**It was the wrong framing.** Degradation is invisible to the user: a task that silently dropped from opus to haiku still reports "completed," and a skipped Red Team pass still looks like a green wave. Several regressions showed up where bugs made it through QA because Red Team had been silently skipped under context pressure, and where cross-module refactors made on haiku introduced subtle type errors that opus would have caught. The quality floor had become conditional on context pressure — a load-bearing invariant that the user could not see or control.
+
+**M35 (v2.76.10) replaces graduated degradation with aggressive pause-resume.** The core principles:
+
+1. **Quality is non-negotiable.** No phase is "non-essential." No model is downgraded under pressure. Red Team, doc-ripple, and Design Verify always run at their designated tier. If a task can't fit, the task pauses — it does not degrade.
+
+2. **Explicit per-phase model selection.** `bin/model-selector.js` carries a declarative rules table with ≥13 phase mappings. Complexity signals (`cross_module_refactor`, `security_boundary`, `data_loss_risk`, `contract_design`) escalate sonnet→opus at plan time. Each command file carries a `## Model Assignment` block documenting its assignments. Model choice is now a plan-time decision, not a runtime pressure response.
+
+3. **User never types `/clear`.** When the runway estimator (`bin/runway-estimator.js`) projects a run would cross 85% context, the command refuses to start — then auto-spawns a detached headless continuation via `bin/headless-auto-spawn.js`. The interactive session sees a single ⛔ banner and exits cleanly. The user gets a macOS notification when the headless run finishes and a read-back banner on the next `gsd-t-resume` or `gsd-t-status` call.
+
+4. **Data before optimization.** Per-spawn token telemetry (`.gsd-t/token-metrics.jsonl`, 18-field frozen schema) is the raw material. The runway estimator reads historical consumption to project future runs. The token optimizer (`bin/token-optimizer.js`) runs at `complete-milestone` and appends retrospective recalibration recommendations to `.gsd-t/optimization-backlog.md`. Recommendations are **never auto-applied** — the user promotes or rejects deliberately. Tier calibration is a data-driven human decision, not a runtime heuristic.
+
+5. **Clean break, no compat shim.** The v2.0.0 `token-budget-contract.md` defined `downgrade` and `conserve` bands with `modelOverrides` and `skipPhases` fields. v3.0.0 drops all of it. The contract is a clean three-band model (`normal` < 70%, `warn` 70–85%, `stop` ≥ 85%) and the response object is just `{band, pct, message}`. No backwards-compat translation layer — the old API is gone.
+
+**Structural guarantee.** Because `STOP_THRESHOLD_PCT = 85` and the runway estimator refuses runs that would project past 85%, the runtime's 95% native compact is now structurally unreachable under healthy operation. `halt_type: native-compact` in `.gsd-t/token-metrics.jsonl` is a defect signal — if it appears, the estimator needs re-tuning.
 
 **Message content is never logged**: the meter writes only token counts, band names, and error category codes. Never transcript text, never API response bodies, never the API key itself. See `docs/architecture.md` for the full data-flow diagram and `.gsd-t/contracts/context-meter-contract.md` for the schema.
