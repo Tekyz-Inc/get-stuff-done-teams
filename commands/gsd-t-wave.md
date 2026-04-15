@@ -193,15 +193,16 @@ After phase agent returns — run via Bash:
 Run via Bash AFTER each phase agent returns:
 
 ```bash
-node -e "const tb=require('./bin/token-budget.js'); const s=tb.getSessionStatus('.'); process.stdout.write(JSON.stringify(s)); if(s.threshold==='stop')process.exit(10); if(s.threshold==='warn')process.exit(13);"
+node -e "const tb=require('./bin/token-budget.js'); const s=tb.getSessionStatus('.'); process.stdout.write(JSON.stringify(s)); if(s.threshold==='stop'||s.threshold==='stale')process.exit(10); if(s.threshold==='warn')process.exit(13);"
 ```
 
 The JSON on stdout contains `{consumed, estimated_remaining, pct, threshold}` — capture `pct` as `{CTX_PCT}` for the token-log row.
 
-Exit-code handling (three-band model per `token-budget-contract.md` v3.0.0):
+Exit-code handling (three-band model per `token-budget-contract.md` v3.0.0, extended with a fourth `stale` guard in v3.10.12):
 - `0` (normal, <70%) → proceed to the next phase at full quality.
 - `13` (warn, 70–85%) → log the warning to `.gsd-t/token-log.md` and proceed to the next phase at full quality. **Never downgrade models or skip phases** — the runway estimator (m35-runway-estimator) is responsible for halting cleanly before reaching `stop`.
 - `10` (stop, ≥85%) → STOP the wave loop. Save checkpoint to `.gsd-t/progress.md` — record which phases are complete, which remain. Call `autoSpawnHeadless({command: 'gsd-t-wave', args, projectDir})` — this spawns a fresh headless session that auto-resumes via `/gsd-t-resume` without any manual `/clear`. Output: `⏸️ Wave orchestrator context gate reached ({pct}% of model window) — handing off to a fresh headless session (ID: {id}). Progress saved.` Return cleanly. Do NOT spawn the next phase agent, do NOT exit with a special code — the handoff is the success path.
+- `10` (stale, meter dead) → **not resumable**. The context meter is dead (usually missing `ANTHROPIC_API_KEY`). Do NOT auto-spawn a fresh session — a fresh session would have the same broken guardrail. Instead, halt the wave and print `⚠ Context meter DEAD — run 'gsd-t doctor' and fix the cause before resuming`.
 
 As of v2.0.0 (M34), the wave orchestrator reads the SAME `bin/token-budget.js` real-source measurement as the execute orchestrator — both trace back to `.gsd-t/.context-meter-state.json` produced by the Context Meter PostToolUse hook. Each phase spawn (PARTITION, DISCUSS, PLAN, IMPACT, EXECUTE, TEST-SYNC, INTEGRATE, VERIFY+COMPLETE, DOC-RIPPLE) causes post-call updates to the state file, so each subsequent gate check reflects the real context consumption trajectory. When the state file is absent or stale, the call falls back to the historical heuristic.
 

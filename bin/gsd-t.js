@@ -1515,11 +1515,20 @@ function showStatusContextMeter() {
     return;
   }
 
-  // Error case: inputTokens === 0 AND lastError set
-  if (state.lastError && state.inputTokens === 0) {
+  // Error case: lastError set. Promoted from DIM to ERROR in v3.10.12.
+  // Before: a silent dim line nobody read. After: a red alarm so users see
+  // that the context-window guardrail is DEAD (M36 regression fix).
+  if (state.lastError) {
     const code = (state.lastError && state.lastError.code) || "unknown";
-    const rel = state.timestamp ? formatRelativeTime(state.timestamp) : "unknown";
-    log(`  ${DIM}Context: N/A (meter error: ${code}) — last check ${rel}${RESET}`);
+    const rel = state.timestamp ? formatRelativeTime(state.timestamp) : "never measured";
+    log(`  ${RED}${BOLD}✗ CONTEXT METER DEAD${RESET} ${RED}— error: ${code}, last check: ${rel}${RESET}`);
+    log(`    ${RED}The context-window guardrail is NOT working. Long sessions will hit /compact.${RESET}`);
+    if (code === "missing_key") {
+      log(`    ${YELLOW}Fix: export ANTHROPIC_API_KEY in your shell profile${RESET}`);
+      log(`    ${YELLOW}     (measurement only — inference stays on Claude Code subscription)${RESET}`);
+    } else {
+      log(`    ${YELLOW}Fix: run 'gsd-t doctor' for diagnostics${RESET}`);
+    }
     return;
   }
 

@@ -1,10 +1,14 @@
 # Contract: Token Budget
 
-## Version: 3.0.0
+## Version: 3.1.0
 ## Status: ACTIVE
-## Previous: 2.0.0 REPLACED (clean break — Option X, no compat shim)
-## Owner: m35-degradation-rip-out
-## Consumers: `commands/gsd-t-execute.md`, `commands/gsd-t-wave.md`, `commands/gsd-t-quick.md`, `commands/gsd-t-integrate.md`, `commands/gsd-t-debug.md`, `commands/gsd-t-doc-ripple.md`, `bin/gsd-t.js` (doStatus, doDoctor), `bin/orchestrator.js`, `bin/runway-estimator.js` (M35 Wave 3)
+## Previous: 3.0.0 (added `stale` band, non-breaking for in-repo consumers which are updated in the same patch)
+## Owner: m35-degradation-rip-out, updated by v3.10.12 context-meter-regression-fix
+## Consumers: `commands/gsd-t-execute.md`, `commands/gsd-t-wave.md`, `commands/gsd-t-quick.md`, `commands/gsd-t-integrate.md`, `commands/gsd-t-debug.md`, `commands/gsd-t-doc-ripple.md`, `commands/gsd-t-resume.md` (Step 0.6), `bin/gsd-t.js` (doStatus, doDoctor), `bin/orchestrator.js`, `bin/runway-estimator.js` (M35 Wave 3)
+
+## Changelog
+- **v3.1.0** (2026-04-15) — Added fourth `stale` band. When `.gsd-t/.context-meter-state.json` exists but is dead (`lastError` set, `timestamp` null, or older than 5 min), `getSessionStatus()` now returns `{threshold: "stale", deadReason}` instead of silently falling through to the heuristic. All gated command files treat `stale` as exit-10 STOP but without the runway-estimator handoff — the guardrail is broken, a fresh session would be equally blind. See `context-meter-contract.md` §"Stale Band and Resume Gating" for the full rationale and the M36 regression that motivated this.
+- **v3.0.0** (2026-03) — Three-band clean break from v2.0.0 `downgrade`/`conserve`.
 
 ---
 
@@ -40,6 +44,7 @@ const STOP_THRESHOLD_PCT = 85;
 | `pct < 70`  | `normal` | Full speed. No restrictions. |
 | `70 ≤ pct < 85` | `warn` | Log to `token-log.md`. Proceed at full quality. Informational. |
 | `pct ≥ 85` | `stop` | Halt cleanly. Checkpoint. Hand off to runway estimator / headless auto-spawn. Never ask the user to `/clear`. |
+| **n/a (meter dead)** | **`stale`** (v3.1.0) | **Context meter state file exists but is broken — `lastError` set, or `timestamp` null, or age > 5 min. `deadReason` field identifies the cause. Gated commands exit 10 but DO NOT auto-spawn a fresh session (a fresh session would have the same broken guardrail). User must fix the underlying cause (usually missing `ANTHROPIC_API_KEY`) before resuming.** |
 
 **Boundary convention**: lower-bound inclusive, upper-bound exclusive, matching `resolveThreshold()` in `bin/token-budget.js`:
 

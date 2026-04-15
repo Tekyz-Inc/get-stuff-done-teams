@@ -2,6 +2,47 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [3.10.12] - 2026-04-15
+
+### Fixed — P0 context meter regression (M36 /compact incidents)
+
+**Background**: During M36 execution the user hit Claude Code's native `/compact` prompt multiple times — the exact scenario M34's Context Meter was built to prevent. Audit of `.gsd-t/.context-meter-state.json` revealed `checkCount=2102` with `pct=0` and `lastError: missing_key` forever. Every one of 2102 PostToolUse hook calls had silently failed at the `ANTHROPIC_API_KEY` check and returned `{}` per the fail-open invariant. `token-budget.getSessionStatus()` read `pct: 0` and reported `threshold: "normal"` to the gate, so the gate was **blind since installation** with no user-visible alarm at any layer.
+
+### Added
+- **`bin/token-budget.js`** — fourth `stale` band in `getSessionStatus()`. When the state file exists but is dead (`lastError` set, `timestamp` null, state older than 5 min, or JSON corrupt), returns `{threshold: "stale", deadReason}` with one of `meter_error:missing_key`, `meter_error:api_error`, `meter_error:parse_failure`, `meter_error:no_transcript`, `meter_never_measured`, `meter_state_stale`, `state_file_corrupt`, `state_file_unreadable`. Previously fell through to the heuristic (which reported 0% and was indistinguishable from a healthy fresh session).
+- **`bin/token-budget.js`** — `buildBandResponse()` handles the `stale` band with a loud message pointing at `gsd-t doctor` and `ANTHROPIC_API_KEY`.
+- **`commands/gsd-t-resume.md`** — new Step 0.6 "Context Meter Health Check" runs after the headless read-back banner and before state loading. If the meter is stale, prints a prominent warning, runs `gsd-t doctor` inline, and refuses to auto-advance into gated commands (`execute`, `wave`, `integrate`, `quick`, `debug`) until fixed.
+- **`.gsd-t/contracts/context-meter-contract.md` v1.1.0** — new §"Stale Band and Resume Gating" documents the regression, the fix, and the mandatory resume-time health check. Also adds a "measurement only, never inference" rule to the configuration section clarifying that the API key named in `apiKeyEnvVar` must never be used for `/v1/messages` inference — inference always runs through the Claude Code subscription.
+- **`.gsd-t/contracts/token-budget-contract.md` v3.1.0** — fourth band added to the threshold table with explicit "gate treats stale as exit-10 stop but does NOT auto-spawn" semantics (a fresh session would have the same broken guardrail).
+
+### Changed
+- **`commands/gsd-t-execute.md`** — Step 3.5 gate snippet (Orchestrator Context Gate) and Step 7 per-domain context gate re-check now exit 10 on `s.threshold==='stop'||s.threshold==='stale'`. Both sites print different user-facing messages for each band: `stop` → "halt cleanly, hand off to runway estimator"; `stale` → "run `gsd-t doctor` and fix the cause".
+- **`commands/gsd-t-wave.md`** — Wave Orchestrator Context Gate snippet now exits 10 on `stale` in addition to `stop`. The `stale` path does NOT call `autoSpawnHeadless()` — a fresh session would have the same broken guardrail.
+- **`bin/gsd-t.js`** — `showStatusContextMeter()` promotes the dead-meter line from a dim ignorable whisper to a red `✗ CONTEXT METER DEAD` alarm with actionable fix instructions (explicitly calls out "measurement only — inference stays on Claude Code subscription" when the cause is `missing_key`). This is the line the user would have seen on every `gsd-t status` run during M36 if it had been loud enough to notice.
+
+### Root cause and the 6 hypotheses
+
+The continue-here file for this session listed 6 plausible failure modes. The audit disproved 5 of them and proved the sixth:
+1. ❌ Gate only fires at subagent-spawn boundaries — FALSE, coverage is broad (16 command files call `getSessionStatus`, `execute` alone has 13 call sites).
+2. ❌ Coverage holes in command files — FALSE, the 4 gated commands (`execute`, `wave`, `integrate`, `quick`, `debug`) all call the gate.
+3. ❌ `.gsd-t/.context-meter-state.json` stale due to silent hook failure — PARTIALLY; the state was not stale, it was **never fresh**. The file had `timestamp: null` after 2102 checks.
+4. ✅ **PostToolUse hook silent failure on missing `ANTHROPIC_API_KEY` — CONFIRMED root cause.** The hook's `runMeter()` step 5 checks the env var, writes `lastError: {code: "missing_key"}`, persists the state, and returns `{}`. This is correct per the hook's fail-open invariant. But nothing downstream was LOUD about it: `token-budget.js` fell through to the heuristic; the gate saw `threshold: "normal"`; `gsd-t status` printed a dim line.
+5. ❌ Session-tokens vs main-transcript measurement gap — MOOT, you can't have a measurement gap if you never measured.
+6. ❌ 85% stop band too thin — MOOT for the same reason.
+
+The v3.10.12 fix targets only the real root cause: **make the gate fail loud when the meter is dead**, and add a resume-time health check so future sessions can't silently run without the guardrail.
+
+### User-visible fix
+
+If you see `✗ CONTEXT METER DEAD` on `gsd-t status` or `⚠ Context meter is DEAD` from `gsd-t-resume`, set `ANTHROPIC_API_KEY` in your shell profile:
+
+```bash
+echo 'export ANTHROPIC_API_KEY="sk-ant-..."' >> ~/.zshrc
+source ~/.zshrc
+```
+
+**Important:** this key is used ONLY for `count_tokens` measurement via the PostToolUse hook and `gsd-t doctor` diagnostics. It is NEVER used for model inference — inference always runs through the Claude Code subscription. The contract `context-meter-contract.md` v1.1.0 Rule #3 enforces this.
+
 ## [3.10.11] - 2026-04-15
 
 ### Added

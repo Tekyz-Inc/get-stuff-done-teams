@@ -529,7 +529,7 @@ Report back:
 
 6. **Per-domain Red Team** — invoke Step 5.5 (Red Team) NOW for this domain. This is the first place Red Team runs in v2.74.12 — there is no global post-execute Red Team anymore. If Red Team returns FAIL, fix bugs and re-run before proceeding to the next domain (max 2 fix-and-verify cycles); if bugs persist, log to `.gsd-t/deferred-items.md` and present to user.
 
-7. **Context gate re-check** — run `node -e "const tb=require('./bin/token-budget.js'); const s=tb.getSessionStatus('.'); if(s.threshold==='stop')process.exit(10); if(s.threshold==='warn')process.exit(13);"`. If exit code is `10`, follow the Step 3.5 STOP procedure now (do NOT spawn the next domain). If exit code is `13`, log the warning and proceed at full quality for the next domain (no model overrides, no phase skips — quality is never silently degraded).
+7. **Context gate re-check** — run `node -e "const tb=require('./bin/token-budget.js'); const s=tb.getSessionStatus('.'); if(s.threshold==='stop'||s.threshold==='stale')process.exit(10); if(s.threshold==='warn')process.exit(13);"`. If exit code is `10`, follow the Step 3.5 STOP procedure now (do NOT spawn the next domain). `stale` means the context meter is dead (usually missing `ANTHROPIC_API_KEY`) and is treated as STOP — print `⚠ Context meter DEAD — run 'gsd-t doctor' and fix before continuing` and halt. If exit code is `13`, log the warning and proceed at full quality for the next domain (no model overrides, no phase skips — quality is never silently degraded).
 
 ### Team Mode (when agent teams are enabled)
 Spawn teammates for domains within the same wave. Only domains in the same wave can run in parallel — do not spawn teammates for domains in different waves simultaneously. Each teammate uses the **domain task-dispatcher pattern** — one subagent per task within their domain (same as solo mode).
@@ -680,13 +680,13 @@ The orchestrator MUST check `getSessionStatus()` BEFORE every task subagent spaw
 **Before each task spawn — gate check:**
 
 ```bash
-node -e "const tb=require('./bin/token-budget.js'); const s=tb.getSessionStatus('.'); process.stdout.write(JSON.stringify(s)); if(s.threshold==='stop')process.exit(10); if(s.threshold==='warn')process.exit(13);"
+node -e "const tb=require('./bin/token-budget.js'); const s=tb.getSessionStatus('.'); process.stdout.write(JSON.stringify(s)); if(s.threshold==='stop'||s.threshold==='stale')process.exit(10); if(s.threshold==='warn')process.exit(13);"
 ```
 
-Exit code semantics (three-band model per `token-budget-contract.md` v3.0.0):
+Exit code semantics (three-band model per `token-budget-contract.md` v3.0.0, extended with a fourth `stale` guard in v3.10.12):
 - `0` → `normal` band (< 70% ctx). Proceed with standard model assignments.
 - `13` → `warn` band (70–85%). Log the warning to `.gsd-t/token-log.md` and proceed at full quality. **Never downgrade models or skip phases** — M35 removed that behavior intentionally. If the projected runway is insufficient, the runway estimator (m35-runway-estimator) will halt cleanly before reaching `stop`.
-- `10` → `stop` band (≥ 85%). STOP immediately. Do NOT spawn the next task. Jump straight to the STOP procedure below.
+- `10` → `stop` band (≥ 85%) **OR `stale` band (meter dead)**. STOP immediately. Do NOT spawn the next task. Jump straight to the STOP procedure below. For `stale`, also print `⚠ Context meter DEAD — run 'gsd-t doctor' and fix the cause (usually missing ANTHROPIC_API_KEY) before resuming` and halt the session — `stale` is not a resumable halt, it means the guardrail is BROKEN, not that the session is full.
 
 The JSON on stdout contains `{consumed, estimated_remaining, pct, threshold}` — capture `pct` as `{CTX_PCT}` for the token-log `Ctx%` column on the NEXT spawn.
 

@@ -216,12 +216,55 @@ describe("getSessionStatus (real-source, three-band v3.0.0)", () => {
     assert.equal(status.estimated_remaining, MODEL_WINDOW);
   });
 
-  it("falls back to heuristic when state file is stale (>5min)", () => {
+  it("returns stale band when state file exists but is older than 5min (v3.10.12)", () => {
     writeState({ inputTokens: 195000, ageMs: 6 * 60 * 1000 });
     const status = getSessionStatus(tmpDir);
-    // Stale → heuristic path → zero historical tokens → normal
+    // v3.10.12: state file exists but is stale → refuse to fall through to
+    // heuristic (which would return a fake "normal" and silently re-break the
+    // M36 regression). Return `stale` so the gate halts loudly.
+    assert.equal(status.threshold, "stale");
+    assert.equal(status.deadReason, "meter_state_stale");
+    assert.equal(status.consumed, 0);
+  });
+
+  it("returns stale band when state file has lastError set (v3.10.12)", () => {
+    // Simulate the exact M36 regression: checkCount=2102, lastError=missing_key,
+    // timestamp=null. Pre-v3.10.12 this returned {threshold: "normal"} and
+    // the gate was silently blind. Post-v3.10.12 it returns "stale".
+    const statePath = path.join(tmpDir, ".gsd-t", ".context-meter-state.json");
+    fs.mkdirSync(path.dirname(statePath), { recursive: true });
+    fs.writeFileSync(
+      statePath,
+      JSON.stringify({
+        version: 1,
+        timestamp: null,
+        inputTokens: 0,
+        modelWindowSize: 200000,
+        pct: 0,
+        threshold: "normal",
+        checkCount: 2102,
+        lastError: {
+          code: "missing_key",
+          message: "env var ANTHROPIC_API_KEY not set",
+          timestamp: "2026-04-15T20:49:56.259Z",
+        },
+      })
+    );
+    const status = getSessionStatus(tmpDir);
+    assert.equal(status.threshold, "stale");
+    assert.equal(status.deadReason, "meter_error:missing_key");
+  });
+
+  it("falls back to heuristic when state file is entirely missing (backward-compat for projects without meter)", () => {
+    // A project with no meter installed (empty .gsd-t/) must still work via
+    // the heuristic — this is the backward-compat path for projects that
+    // pre-date M34.
+    const emptyDir = fs.mkdtempSync(path.join(os.tmpdir(), "gsd-t-tb-nofile-"));
+    fs.mkdirSync(path.join(emptyDir, ".gsd-t"), { recursive: true });
+    const status = getSessionStatus(emptyDir);
     assert.equal(status.threshold, "normal");
     assert.equal(status.consumed, 0);
+    fs.rmSync(emptyDir, { recursive: true, force: true });
   });
 
   it("heuristic sums today's tokens from token-log.md", () => {

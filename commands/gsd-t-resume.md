@@ -72,6 +72,35 @@ This prints a `## Headless runs since you left` banner listing any completed ses
 
 Contract: `.gsd-t/contracts/headless-auto-spawn-contract.md` v1.0.0
 
+## Step 0.6: Context Meter Health Check (MANDATORY, v3.10.12+)
+
+Before loading any other state, verify the Context Meter (M34) is actually alive. A dead meter was the root cause of the M36 `/compact` regression (2026-04-15) — `checkCount=2102` but every hook call failed fail-open because `ANTHROPIC_API_KEY` was unset, and the gate silently reported `pct=0` forever.
+
+Run via Bash:
+
+```bash
+node -e "
+const tb=require('./bin/token-budget.js');
+const s=tb.getSessionStatus('.');
+if (s.threshold === 'stale') {
+  console.error('⚠ Context meter is DEAD — reason: ' + (s.deadReason || 'unknown'));
+  console.error('  The context-window guardrail is BROKEN. Without it, long sessions will hit /compact silently.');
+  console.error('  Fix: set ANTHROPIC_API_KEY in your shell profile (measurement only, never inference).');
+  console.error('  Run: gsd-t doctor');
+  process.exit(1);
+}
+process.stdout.write('context-meter: ok (' + s.threshold + ', ' + s.pct + '%)\\n');
+" || true
+```
+
+If the meter is stale:
+1. **Print the warning** exactly as above (non-fatal — do not halt resume).
+2. **Run `node bin/gsd-t.js doctor`** inline and show the output so the user sees the actionable check list.
+3. **Continue with resume** — but add a prominent `⚠ CONTEXT METER DEAD — gate will treat future gate checks as STOP until fixed` line to your end-of-resume status block so the user cannot miss it.
+4. **Refuse to auto-advance into `execute` / `wave` / `integrate`** until the meter is healthy. If the continue-here file says the next action is one of those gated commands, stop at "meter dead — fix before continuing" instead.
+
+Contract: `context-meter-contract.md` v1.1.0 (v3.10.12) — §"Stale Band and Resume Gating"
+
 ## Step 1: Load Full State (cross-session only)
 
 Read in this exact order:

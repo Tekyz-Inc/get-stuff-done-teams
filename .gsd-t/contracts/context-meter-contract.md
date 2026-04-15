@@ -1,9 +1,13 @@
 # Contract: Context Meter
 
-## Version: 1.0.0
+## Version: 1.1.0
 ## Status: ACTIVE
 ## Owner: context-meter-config domain
-## Consumers: context-meter-hook (reads config), token-budget-replacement (reads state file), installer-integration (installs hook, validates config), m34-docs-and-tests (documents)
+## Consumers: context-meter-hook (reads config), token-budget-replacement (reads state file), installer-integration (installs hook, validates config), m34-docs-and-tests (documents), gsd-t-resume (Step 0.6 meter-health check)
+
+## Changelog
+- **v1.1.0** (2026-04-15) — Added the `stale` band and mandatory resume-time health check (Step 0.6). Fixes M36 regression where `ANTHROPIC_API_KEY` was unset and every PostToolUse hook call failed fail-open (`checkCount=2102`, `pct=0` forever, gate blind). See §"Stale Band and Resume Gating".
+- **v1.0.0** (2026-03) — M34 initial release.
 
 ---
 
@@ -180,15 +184,63 @@ The hook maintains a per-session counter in `statePath` (`checkCount` field). Ev
 
 ## Rules
 
-1. **Fail open**: every error path returns `{}`. Never block Claude.
+1. **Fail open in the HOOK, fail loud in the GATE**: The PostToolUse hook still returns `{}` on every error path — it must never block Claude. But `token-budget.getSessionStatus()` reading the state file is NOT fail-open. If the hook has been writing `lastError` for every check, or `timestamp` is `null`, or the state is stale, the gate returns `threshold: "stale"` which is treated as STOP by `gsd-t-execute`, `gsd-t-wave`, `gsd-t-integrate`, `gsd-t-debug`, `gsd-t-quick`. This is the v1.1.0 fix — see §"Stale Band and Resume Gating".
 2. **No key storage**: API key is only ever read from `process.env[apiKeyEnvVar]`. Never written to disk.
-3. **No message content in logs**: the diagnostic log contains token counts, HTTP status codes, and error categories — never messages.
-4. **State file is not committed**: installer adds `.gsd-t/.context-meter-state.json` and `.gsd-t/context-meter.log` to `.gitignore` during install.
-5. **Transcript format is not a public contract**: Claude Code's transcript JSONL format is undocumented upstream. `transcript-parser.js` must tolerate unknown fields and unfamiliar event types.
-6. **Backward-compatible contract**: projects on an older version of GSD-T that lack the hook continue to function — `token-budget.getSessionStatus()` falls back to heuristic.
+3. **Measurement only**: the API key named in `apiKeyEnvVar` must be used for `count_tokens` and `gsd-t doctor` diagnostic calls ONLY. It must NEVER be used for model inference — inference always runs through the Claude Code subscription. If a future hook or script needs to call `/v1/messages`, it must not reuse this env var.
+4. **No message content in logs**: the diagnostic log contains token counts, HTTP status codes, and error categories — never messages.
+5. **State file is not committed**: installer adds `.gsd-t/.context-meter-state.json` and `.gsd-t/context-meter.log` to `.gitignore` during install.
+6. **Transcript format is not a public contract**: Claude Code's transcript JSONL format is undocumented upstream. `transcript-parser.js` must tolerate unknown fields and unfamiliar event types.
+7. **Backward-compatible contract for projects without the meter**: projects where `.gsd-t/.context-meter-state.json` is entirely missing continue to function — `token-budget.getSessionStatus()` falls back to the heuristic (this is different from a file that exists but is dead, which returns `stale`).
+
+---
+
+## Stale Band and Resume Gating (v1.1.0)
+
+### Why this exists
+
+During M36 execution (2026-04-15), the user hit the Claude Code context window limit and had to run `/compact` **multiple times** — the exact scenario M34's Context Meter was built to prevent. Audit found the state file looked like:
+
+```json
+{ "inputTokens": 0, "pct": 0, "threshold": "normal",
+  "checkCount": 2102,
+  "lastError": { "code": "missing_key", "message": "env var ANTHROPIC_API_KEY not set" } }
+```
+
+Every one of 2102 PostToolUse hook calls failed at the API-key check in `runMeter()` step 5. The hook correctly returned `{}` (fail-open per Rule #1). But `token-budget.getSessionStatus()` dutifully read `pct: 0` and reported `threshold: "normal"` back to the command gate. **The gate had been blind since the day the project was installed without the key set.** There was no user-visible alarm at any layer:
+- The hook fails open silently.
+- `token-budget.js` treated "state file exists but unfresh" the same as "state file missing" and fell through to the heuristic (which is also near-0 early in a session).
+- The gate saw `threshold: "normal"` and cheerfully spawned subagents until the runtime hit its own ~95% compact.
+- `gsd-t doctor` DOES detect the missing key, but it's an on-demand command — neither resume nor execute ran it.
+
+### The fix
+
+A fourth band, `stale`, is introduced to `getSessionStatus()`:
+
+| Band | When returned | Gate action |
+|------|---------------|-------------|
+| `normal` | State file is fresh (timestamp within 5 min), `lastError` is null, `pct < 70` | proceed at full quality |
+| `warn` | Fresh state, `lastError` null, `70 ≤ pct < 85` | proceed, log warning |
+| `stop` | Fresh state, `lastError` null, `pct ≥ 85` | halt, hand off to runway estimator or headless auto-spawn |
+| `stale` | State file exists but: `lastError` is set, OR `timestamp` is null, OR `age > 5 min`, OR JSON corrupt | halt **and refuse to auto-spawn** — the meter is broken, a fresh session would be equally blind |
+
+When `stale` is returned, `getSessionStatus()` also includes a `deadReason` field with one of: `meter_error:missing_key`, `meter_error:api_error`, `meter_error:parse_failure`, `meter_error:no_transcript`, `meter_never_measured`, `meter_state_stale`, `state_file_corrupt`, `state_file_unreadable`.
+
+### Resume-time health check (Step 0.6)
+
+`gsd-t-resume` MUST run a context-meter health check immediately after Step 0.5 (headless read-back banner) and before Step 1 (loading state). If the meter is `stale`:
+1. Print a prominent warning with the `deadReason`.
+2. Run `gsd-t doctor` inline.
+3. Refuse to auto-advance into gated commands (`execute`, `wave`, `integrate`, `quick`, `debug`) until the user fixes the cause.
+4. Allow non-gated commands (`status`, `health`, `backlog-*`, etc.) to proceed.
+
+### Gate-treats-stale-as-stop
+
+All four gated commands (`gsd-t-execute` Step 3.5, `gsd-t-wave` Wave Orchestrator Context Gate, `gsd-t-integrate`, `gsd-t-quick`, `gsd-t-debug`) MUST treat `threshold === 'stale'` as an exit-10 STOP but with a different user-facing message than normal stop (no auto-spawn, no runway estimator, just "meter dead — run `gsd-t doctor`"). A fresh session would not help — the guardrail is broken, not the session full.
 
 ---
 
 ## Breaking Changes
 
 Changing the config schema version or the state file schema version is a breaking change. Bump `version` field and document migration in CHANGELOG.
+
+Adding the `stale` band in v1.1.0 is NOT a breaking change at the state file level (same schema), but it IS a behavior change for consumers reading `threshold` — any consumer that switch-cased only on `normal|warn|stop` must add a `stale` arm. In-repo consumers (`gsd-t-execute`, `gsd-t-wave`, `gsd-t-resume`) are updated in the same patch.

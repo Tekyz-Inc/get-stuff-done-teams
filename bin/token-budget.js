@@ -115,6 +115,21 @@ function getSessionStatus(projectDir) {
     const threshold = resolveThreshold(pct);
     return { consumed, estimated_remaining, pct, threshold };
   }
+  // Meter exists but is dead (file present, API key missing, parse/API error,
+  // or timestamp stale). Return a `stale` band so callers halt instead of
+  // silently running with a blind gate. This is the fix for the M36 /compact
+  // regression where checkCount=2102 but every hook call failed fail-open.
+  const dead = readContextMeterDead(dir);
+  if (dead) {
+    const window = dead.modelWindowSize > 0 ? dead.modelWindowSize : 200000;
+    return {
+      consumed: 0,
+      estimated_remaining: window,
+      pct: 0,
+      threshold: "stale",
+      deadReason: dead.reason,
+    };
+  }
   return getSessionStatusHeuristic(dir);
 }
 
@@ -127,9 +142,39 @@ function readContextMeterState(dir) {
     if (!s.timestamp) return null;
     const age = Date.now() - Date.parse(s.timestamp);
     if (isNaN(age) || age > STATE_STALE_MS || age < 0) return null;
+    if (s.lastError && typeof s.lastError === "object") return null;
     return s;
   } catch (_) {
     return null;
+  }
+}
+
+// Return { reason, modelWindowSize } when the state file exists but the meter
+// is not producing a fresh, clean reading. Returns null when the file is
+// missing entirely (no meter installed — fall through to heuristic).
+function readContextMeterDead(dir) {
+  try {
+    const fp = path.join(dir, STATE_FILE_REL);
+    if (!fs.existsSync(fp)) return null;
+    const raw = fs.readFileSync(fp, "utf8");
+    const s = JSON.parse(raw);
+    if (!s || typeof s !== "object") {
+      return { reason: "state_file_corrupt", modelWindowSize: 0 };
+    }
+    const window = Number.isInteger(s.modelWindowSize) ? s.modelWindowSize : 0;
+    if (s.lastError && typeof s.lastError === "object" && typeof s.lastError.code === "string") {
+      return { reason: `meter_error:${s.lastError.code}`, modelWindowSize: window };
+    }
+    if (!s.timestamp) {
+      return { reason: "meter_never_measured", modelWindowSize: window };
+    }
+    const age = Date.now() - Date.parse(s.timestamp);
+    if (isNaN(age) || age < 0 || age > STATE_STALE_MS) {
+      return { reason: "meter_state_stale", modelWindowSize: window };
+    }
+    return null;
+  } catch (_) {
+    return { reason: "state_file_unreadable", modelWindowSize: 0 };
   }
 }
 
@@ -217,6 +262,12 @@ function buildBandResponse(band, pct) {
         band: "stop",
         pct: safePct,
         message: `Context ${safePct.toFixed(1)}% — stop band (≥${STOP_THRESHOLD_PCT}%). Halt cleanly; hand off to runway estimator / headless auto-spawn.`,
+      };
+    case "stale":
+      return {
+        band: "stale",
+        pct: safePct,
+        message: `Context meter is DEAD — no fresh measurements. Gate treats this as STOP. Run: gsd-t doctor. Fix the cause (usually missing ANTHROPIC_API_KEY) before running gated commands.`,
       };
     case "normal":
     default:
