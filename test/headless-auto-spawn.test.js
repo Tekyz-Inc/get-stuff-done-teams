@@ -363,6 +363,76 @@ describe("HAS-T5: E2E smoke — shim process completion", () => {
   );
 });
 
+// ── 8b. Handoff-lock wiring (m36 T2) ───────────────────────────────────────
+
+describe("HAS-T5 + m36-T2: handoff-lock wiring", () => {
+  const lockMod = require("../bin/handoff-lock.js");
+
+  it("autoSpawnHeadless without sessionId does NOT create a .handoff/ lock (backward-compatible)", () => {
+    const out = has.autoSpawnHeadless({
+      command: "gsd-t-execute",
+      projectDir: tmpDir,
+    });
+    assert.ok(out.id, "spawn still succeeds");
+    const handoffDir = path.join(tmpDir, ".gsd-t", ".handoff");
+    // Backward-compat: no sessionId passed → lock path not engaged.
+    // (The dir may or may not exist from prior tests; what matters is
+    // that no lock-* file for THIS spawn's id was created.)
+    if (fs.existsSync(handoffDir)) {
+      const locks = fs
+        .readdirSync(handoffDir)
+        .filter((n) => n.startsWith("lock-"));
+      assert.equal(
+        locks.length,
+        0,
+        "no lock files should exist when sessionId not supplied",
+      );
+    }
+  });
+
+  it("autoSpawnHeadless with sessionId acquires and releases a handoff lock", () => {
+    const sid = `spawn-race-sid-${process.pid}-${Date.now()}`;
+    const lockPath = lockMod.lockPathFor(tmpDir, sid);
+
+    // Precondition: no lock exists yet.
+    assert.equal(fs.existsSync(lockPath), false);
+
+    const out = has.autoSpawnHeadless({
+      command: "gsd-t-execute",
+      projectDir: tmpDir,
+      sessionId: sid,
+    });
+
+    assert.ok(out.id, "spawn returns a session id");
+    assert.ok(out.pid > 0, "spawn returns a pid");
+
+    // Postcondition: lock has been released (cleaned up in finally).
+    assert.equal(
+      fs.existsSync(lockPath),
+      false,
+      "lock file must be released after spawn returns",
+    );
+  });
+
+  it("autoSpawnHeadless with sessionId throws when the lock is already held", () => {
+    const sid = `held-sid-${process.pid}-${Date.now()}`;
+    const priorHandle = lockMod.acquireHandoffLock(tmpDir, sid);
+    try {
+      assert.throws(
+        () =>
+          has.autoSpawnHeadless({
+            command: "gsd-t-execute",
+            projectDir: tmpDir,
+            sessionId: sid,
+          }),
+        /handoff lock held by PID/,
+      );
+    } finally {
+      lockMod.releaseHandoffLock(priorHandle);
+    }
+  });
+});
+
 // ── 9. No /clear prompts (qualitative) ─────────────────────────────────────
 //
 // HAS-T5 AC: "Verify across M35 execution: assertion that zero user-facing

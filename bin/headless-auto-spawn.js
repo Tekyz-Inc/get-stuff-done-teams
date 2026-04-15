@@ -21,6 +21,14 @@
 const fs = require("fs");
 const path = require("path");
 const { spawn } = require("child_process");
+const {
+  acquireHandoffLock,
+  releaseHandoffLock,
+  // waitForLockRelease — NOT consumed here. The child-side wait is
+  // performed by `commands/gsd-t-resume.md` Step 0 (wired in m36
+  // watch-loop Task 4); it calls waitForLockRelease(projectDir,
+  // sessionId) before reading the continue-here file.
+} = require("./handoff-lock.js");
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -67,39 +75,69 @@ function autoSpawnHeadless(opts) {
   ensureDir(path.join(projectDir, LOG_DIR_REL));
   ensureDir(path.join(projectDir, SESSIONS_DIR_REL));
 
-  // Open log file descriptor before spawning — child writes directly.
-  const logFd = fs.openSync(logPath, "a");
+  // Handoff-lock gate (m36 gap-fix T2). Only engaged when the caller
+  // supplies a `sessionId` — existing callers that do not pass one keep
+  // the pre-m36 behavior unchanged. When engaged, the lock is held
+  // across writeContinueHereFile + spawn so a child that is already
+  // waiting via `waitForLockRelease()` (see commands/gsd-t-resume.md
+  // Step 0, wired by m36 watch-loop T4) cannot read a half-written
+  // continue-here file. See .gsd-t/contracts/headless-auto-spawn-contract.md
+  // v1.0.0 (implementation-detail primitive; no contract bump).
+  const lockSessionId = typeof opts.sessionId === "string" && opts.sessionId
+    ? opts.sessionId
+    : null;
+  let lockHandle = null;
+  if (lockSessionId) {
+    lockHandle = acquireHandoffLock(projectDir, lockSessionId);
+  }
 
-  // Headless invocation: `node bin/gsd-t.js headless <command> [args] --log`
-  // The `gsd-t` CLI entry point is bin/gsd-t.js relative to projectDir.
-  const gsdtCli = path.join(projectDir, "bin", "gsd-t.js");
-  const childArgs = [gsdtCli, "headless", stripGsdtPrefix(command), ...args, "--log"];
+  let pid = 0;
+  try {
+    // Open log file descriptor before spawning — child writes directly.
+    const logFd = fs.openSync(logPath, "a");
 
-  const child = spawn("node", childArgs, {
-    cwd: projectDir,
-    detached: true,
-    stdio: ["ignore", logFd, logFd],
-    env: process.env,
-  });
+    // Headless invocation: `node bin/gsd-t.js headless <command> [args] --log`
+    // The `gsd-t` CLI entry point is bin/gsd-t.js relative to projectDir.
+    const gsdtCli = path.join(projectDir, "bin", "gsd-t.js");
+    const childArgs = [gsdtCli, "headless", stripGsdtPrefix(command), ...args, "--log"];
 
-  child.unref();
-  fs.closeSync(logFd);
+    const child = spawn("node", childArgs, {
+      cwd: projectDir,
+      detached: true,
+      stdio: ["ignore", logFd, logFd],
+      env: process.env,
+    });
 
-  const pid = child.pid || 0;
+    child.unref();
+    fs.closeSync(logFd);
 
-  writeSessionFile(projectDir, {
-    id,
-    pid,
-    logPath: path.relative(projectDir, logPath),
-    startTimestamp: timestamp,
-    command,
-    args,
-    status: "running",
-    continueFromPath: continue_from,
-    surfaced: false,
-  });
+    pid = child.pid || 0;
 
-  writeContinueHereFile(projectDir, id, context);
+    writeSessionFile(projectDir, {
+      id,
+      pid,
+      logPath: path.relative(projectDir, logPath),
+      startTimestamp: timestamp,
+      command,
+      args,
+      status: "running",
+      continueFromPath: continue_from,
+      surfaced: false,
+    });
+
+    writeContinueHereFile(projectDir, id, context);
+  } finally {
+    // Release the lock AFTER the child is confirmed started and
+    // handoff artifacts are on disk. The finally ensures a spawn
+    // failure still frees the slot for a retry.
+    if (lockHandle) {
+      try {
+        releaseHandoffLock(lockHandle);
+      } catch (_) {
+        /* idempotent best-effort */
+      }
+    }
+  }
 
   // T2 — install completion watcher. Non-blocking (setImmediate) so the
   // caller's return is not delayed. The watcher uses `child.on('exit')` on
