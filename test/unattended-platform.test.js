@@ -151,15 +151,14 @@ describe("spawnSupervisor", () => {
   // a positive integer and that the child was reaped (dead by the time we
   // check, thanks to .unref() + fast exit).
   //
-  // NOTE: spawnSupervisor prepends 'unattended' to the args. The shim treats
-  // all CLI args after the script name as opaque — 'unattended' becomes
-  // argv[2] and is ignored, the pid-file path is argv[3].
+  // spawnSupervisor passes args directly (no prepended subcommand), so the
+  // pid-file path is argv[2].
   const shimDir = fs.mkdtempSync(path.join(os.tmpdir(), "gsdt-spawnsup-"));
   const shimScript = path.join(shimDir, "fake-supervisor.js");
   fs.writeFileSync(
     shimScript,
-    // argv: [node, shimScript, 'unattended', pidFile]
-    "const fs=require('fs');fs.writeFileSync(process.argv[3], String(process.pid));process.exit(0);\n",
+    // argv: [node, shimScript, pidFile]
+    "const fs=require('fs');fs.writeFileSync(process.argv[2], String(process.pid));process.exit(0);\n",
   );
 
   it("returns a positive numeric PID", () => {

@@ -178,8 +178,8 @@ function spawnWorker(projectDir, timeoutMs, opts = {}) {
  * state file, and relays `claude -p` workers until the milestone terminates.
  *
  * Spawn recipe:
- *   - `node {binPath} unattended {...args}` — the `unattended` subcommand is
- *     prepended automatically so callers pass only user-facing args.
+ *   - `node {binPath} {...args}` — binPath should be the absolute path to
+ *     `bin/gsd-t-unattended.cjs` (the supervisor entry point), NOT gsd-t.js.
  *   - `detached: true` — the child becomes a process-group leader on POSIX
  *     (darwin/linux) so it survives the parent closing its terminal. On win32
  *     the equivalent flag produces a separate process tree.
@@ -194,13 +194,13 @@ function spawnWorker(projectDir, timeoutMs, opts = {}) {
  *     `docs/unattended-windows-caveats.md` (Task 3).
  *
  * @param {object} params
- * @param {string} params.binPath  Absolute path to `bin/gsd-t.js`.
- * @param {string[]} params.args   Extra args appended after `unattended`.
+ * @param {string} params.binPath  Absolute path to `bin/gsd-t-unattended.cjs`.
+ * @param {string[]} params.args   CLI args passed directly to the supervisor.
  * @param {string} params.cwd      Project directory (supervisor's cwd).
  * @returns {{ pid: number }}      The detached child's PID.
  */
 function spawnSupervisor({ binPath, args, cwd }) {
-  const spawnArgs = [binPath, "unattended", ...(args || [])];
+  const spawnArgs = [binPath, ...(args || [])];
   const opts = {
     cwd,
     detached: true,

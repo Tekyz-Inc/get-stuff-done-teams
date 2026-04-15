@@ -112,6 +112,37 @@ try {
 "
 ```
 
+### 1c.1: Readiness Bootstrap (auto-complete pending state)
+
+**The unattended command must work from ANY workflow state.** If the user says "run unattended," that is an instruction to proceed — not an invitation to ask more questions. Regardless of where the project is in the GSD-T workflow (mid-discussion, pre-milestone, post-partition, between phases), the unattended supervisor should be able to pick up and continue.
+
+The `/gsd-t-resume` worker already knows how to chain through phases automatically. The only thing the unattended command needs is a milestone label in `progress.md` so the supervisor has a target.
+
+**If `MILESTONE=unknown`** (no active milestone found in progress.md):
+
+1. **Look for a milestone** — check in priority order:
+   a. `$ARGUMENTS` — if `--milestone=LABEL` was passed, use it.
+   b. Conversation context — if the user discussed a milestone, feature, or work goal in this session, extract the milestone label from that discussion.
+   c. `.gsd-t/progress.md` — check for any milestone mentioned anywhere (even if not in the standard "Current Milestone" format, e.g., a Decision Log entry like "created milestone M8").
+   d. `.gsd-t/domains/` — if domains exist, infer the milestone from directory names or scope files.
+
+2. **If a milestone is identifiable**:
+   - Ensure `.gsd-t/progress.md` has a `## Current Milestone` section with the label and status `IN PROGRESS`. If missing, add it.
+   - Run `gsd-t-init` silently to fill in any missing required files (it skips existing files).
+   - Print: `ℹ️  Auto-bootstrapped milestone {LABEL} — supervisor workers will continue from current phase.`
+   - Re-read the milestone label.
+
+3. **If no milestone is identifiable at all**:
+   - Print:
+     ```
+     ❌  No active milestone found and none identifiable from context.
+
+         Specify one explicitly: /user:gsd-t-unattended --milestone=M1
+     ```
+   - **STOP.** Do NOT spawn.
+
+**If `MILESTONE` was found but progress.md shows a pre-execution phase** (e.g., milestone was just created, no partition/plan/domains yet): that's fine — proceed with the spawn. The `/gsd-t-resume` worker will read the current state and advance through partition → plan → execute → ... automatically. The unattended command should never second-guess the resume logic or add pre-conditions beyond "a milestone exists."
+
 ### 1d: Check for Stale Stop Sentinel
 
 If `.gsd-t/.unattended/stop` exists from a previous run, remove it before spawning (per contract §10 — the launch command cleans the stale sentinel):
@@ -230,7 +261,7 @@ If `--dry-run` was specified, print:
 
 ```
 🔎  Dry-run mode — would spawn:
-    node bin/gsd-t.js unattended --hours={hours} --milestone={milestone} --max-iterations={maxIterations}
+    node bin/gsd-t-unattended.cjs --hours={hours} --milestone={milestone} --max-iterations={maxIterations}
     Project: {cwd}
 
     No supervisor launched. Remove --dry-run to proceed.
@@ -250,7 +281,7 @@ const hours = parseInt(process.env.GSD_T_HOURS || '24', 10) || 24;
 const milestone = process.env.GSD_T_MILESTONE || '';
 const maxIterations = parseInt(process.env.GSD_T_MAX_ITERATIONS || '200', 10) || 200;
 
-const binPath = path.resolve(__dirname, 'bin', 'gsd-t.js');
+const binPath = path.resolve(__dirname, 'bin', 'gsd-t-unattended.cjs');
 const cwd = process.cwd();
 
 const extraArgs = [];

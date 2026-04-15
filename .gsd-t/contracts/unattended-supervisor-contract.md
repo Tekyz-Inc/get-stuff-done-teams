@@ -126,7 +126,7 @@ Terminal states mean: the supervisor has finalized its state file and removed it
 | 5 | command-dispatch-failed | `Unknown command:` in worker stdout. Worker invocation form is broken. | mapHeadlessExitCode, added in M36 Phase 0 |
 | 6 | gutter-detected | Safety rails detected a stall pattern (repeated error / file thrash / no progress for N iters). | m36-safety-rails |
 | 7 | protected-branch-refusal | Pre-flight: current git branch is in the protected list. | m36-safety-rails |
-| 8 | dirty-tree-refusal | Pre-flight: worktree has non-whitelisted uncommitted changes. | m36-safety-rails |
+| 8 | dirty-tree-refusal | Pre-flight: git status failed (non-file error only — dirty files are auto-whitelisted). | m36-safety-rails |
 | 124 | process-timeout | OS-level timeout signal from spawnSync `timeout` option. | Node child_process |
 
 Codes 6–8 are **supervisor-level halts** (safety rails), not worker exit codes. They are recorded in `state.json.lastExit` and trigger `status = failed`.
@@ -161,7 +161,8 @@ Exit codes of the `gsd-t unattended` CLI itself mirror §5 at termination time.
    - If any pre-flight fails → report reason, exit without spawning. No state file written.
 3. **Launch command** spawns the supervisor:
    ```js
-   const child = spawn('node', [binPath, 'unattended', ...args], {
+   // binPath = absolute path to bin/gsd-t-unattended.cjs
+   const child = spawn('node', [binPath, ...args], {
      cwd: projectDir,
      detached: true,
      stdio: 'ignore',

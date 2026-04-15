@@ -2,6 +2,21 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [3.10.16] - 2026-04-15
+
+### Fixed — unattended supervisor launch friction (3 bugs + UX improvements)
+
+**Background**: Users consistently failed to launch unattended sessions due to compounding pre-flight friction: the supervisor spawn targeted the wrong binary, the dirty-tree check refused on benign files, and missing milestone state caused hard refusals. These issues defeated the purpose of "unattended" mode.
+
+### Changed
+- **`bin/gsd-t-unattended-platform.{js,cjs}`** — `spawnSupervisor()` no longer prepends `"unattended"` as a subcommand. `binPath` now points to `bin/gsd-t-unattended.cjs` (the actual supervisor entry) instead of `bin/gsd-t.js` (which has no `unattended` subcommand and printed "Unknown command" on every launch).
+- **`bin/gsd-t-unattended.{js,cjs}`** — dirty worktree check changed from **refuse** to **auto-whitelist**. Non-whitelisted dirty files are automatically added to `.gsd-t/.unattended/config.json` and the supervisor proceeds. Only genuine git errors (not a repo, etc.) still refuse. Import of `saveConfig` added.
+- **`bin/gsd-t-unattended-safety.{js,cjs}`** — added `saveConfig(projectDir, config)` function to persist auto-whitelisted entries back to the config file. Exported for use by supervisor and tests.
+- **`bin/gsd-t.js`** `updateSingleProject()` — now calls `ensureUnattendedConfig()` (creates `.gsd-t/.unattended/config.json` with all defaults) and `ensureUnattendedGitignore()` (adds `bin/*.cjs`, `.gsd-t/.archive-migration-v1`, `.gsd-t/.task-counter-retired-v1` to `.gitignore`).
+- **`commands/gsd-t-unattended.md`** — Step 1c.1 "Readiness Bootstrap": if no active milestone found, auto-bootstraps from conversation context or `--milestone=` flag instead of refusing. Works from any workflow state. Step 2 dry-run display and binPath updated to reference `gsd-t-unattended.cjs`.
+- **`.gsd-t/contracts/unattended-supervisor-contract.md`** — spawn snippet and exit code 8 description updated.
+- **Tests**: `test/unattended-platform.test.js` shim updated (argv[2] not argv[3]). `test/unattended-supervisor.test.js` dirty-tree test now verifies auto-whitelist behavior + git-error refusal. 1136/1136 tests pass.
+
 ## [3.10.15] - 2026-04-15
 
 ### Fixed — bin tools not propagated to downstream projects (unattended launch fails)

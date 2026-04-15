@@ -760,12 +760,13 @@ describe("M36 supervisor T4: pre-launch refusal — protected branch", () => {
   });
 });
 
-describe("M36 supervisor T4: pre-launch refusal — dirty worktree", () => {
-  it("returns exit 8 and does NOT write PID or state.json", () => {
-    const dir = path.join(tmpDir, ".gsd-t", ".unattended");
+describe("M36 supervisor T4: dirty worktree auto-whitelists and proceeds", () => {
+  it("auto-whitelists dirty files and continues instead of refusing", () => {
+    let savedConfig = null;
+    let workerCalled = false;
 
     const result = sup.doUnattended(
-      ["--project=" + tmpDir, "--max-iterations=3"],
+      ["--project=" + tmpDir, "--max-iterations=1"],
       {
         _checkGitBranch: () => ({ ok: true, branch: "feature/x" }),
         _checkWorktreeCleanliness: () => ({
@@ -774,25 +775,42 @@ describe("M36 supervisor T4: pre-launch refusal — dirty worktree", () => {
           code: 8,
           dirtyFiles: ["src/a.ts", "src/b.ts"],
         }),
+        _saveConfig: (_dir, cfg) => { savedConfig = cfg; },
         _preventSleep: () => null,
         _releaseSleep: () => {},
         _notify: () => {},
         _spawnWorker: () => {
-          throw new Error("spawnWorker must not be called on preflight refusal");
+          workerCalled = true;
+          return { status: 0, stdout: "", stderr: "", signal: null, timedOut: false, error: null };
+        },
+      },
+    );
+    assert.ok(savedConfig, "saveConfig should have been called");
+    assert.ok(savedConfig.dirtyTreeWhitelist.includes("src/a.ts"));
+    assert.ok(savedConfig.dirtyTreeWhitelist.includes("src/b.ts"));
+    assert.ok(workerCalled, "supervisor should proceed to spawn workers after auto-whitelist");
+  });
+
+  it("still refuses on non-file git errors (code 2)", () => {
+    const result = sup.doUnattended(
+      ["--project=" + tmpDir, "--max-iterations=1"],
+      {
+        _checkGitBranch: () => ({ ok: true, branch: "feature/x" }),
+        _checkWorktreeCleanliness: () => ({
+          ok: false,
+          reason: "git status --porcelain failed: not a git repo",
+          code: 2,
+        }),
+        _preventSleep: () => null,
+        _releaseSleep: () => {},
+        _notify: () => {},
+        _spawnWorker: () => {
+          throw new Error("spawnWorker must not be called on git error");
         },
       },
     );
     assert.equal(result.ok, false);
-    assert.equal(result.exitCode, 8);
-    assert.match(result.reason || "", /dirty|whitelisted/);
-    assert.ok(
-      !fs.existsSync(path.join(dir, "supervisor.pid")),
-      "supervisor.pid must not be written on dirty-tree refusal",
-    );
-    assert.ok(
-      !fs.existsSync(path.join(dir, "state.json")),
-      "state.json must not be written on dirty-tree refusal",
-    );
+    assert.equal(result.exitCode, 2);
   });
 });
 

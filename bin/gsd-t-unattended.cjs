@@ -35,6 +35,7 @@ const { mapHeadlessExitCode } = require("./gsd-t.js");
 const {
   DEFAULTS: SAFETY_DEFAULTS,
   loadConfig,
+  saveConfig,
   checkGitBranch,
   checkWorktreeCleanliness,
   checkIterationCap,
@@ -493,6 +494,7 @@ function doUnattended(argv, deps) {
     releaseSleep: deps._releaseSleep || releaseSleep,
     notify: deps._notify || notify,
     loadConfig: deps._loadConfig || loadConfig,
+    saveConfig: deps._saveConfig || saveConfig,
   };
 
   // ── Load config (optional .gsd-t/.unattended/config.json) ────────────────
@@ -549,7 +551,23 @@ function doUnattended(argv, deps) {
     };
   }
   const treeRes = fn.checkWorktreeCleanliness(projectDir, config);
-  if (!treeRes.ok) {
+  if (!treeRes.ok && treeRes.dirtyFiles && treeRes.dirtyFiles.length > 0) {
+    // Auto-whitelist: add the dirty files to the config and persist, then
+    // proceed instead of refusing. This keeps unattended launch frictionless.
+    for (const file of treeRes.dirtyFiles) {
+      if (!config.dirtyTreeWhitelist.includes(file)) {
+        config.dirtyTreeWhitelist.push(file);
+      }
+    }
+    try {
+      fn.saveConfig(projectDir, config);
+    } catch (_) { /* best effort — config dir may not exist yet */ }
+    // eslint-disable-next-line no-console
+    console.error(
+      `[gsd-t-unattended] auto-whitelisted ${treeRes.dirtyFiles.length} dirty file(s): ${treeRes.dirtyFiles.slice(0, 5).join(", ")}${treeRes.dirtyFiles.length > 5 ? ", …" : ""}`,
+    );
+  } else if (!treeRes.ok) {
+    // Non-file failure (e.g. git error) — still refuse.
     // eslint-disable-next-line no-console
     console.error(
       `[gsd-t-unattended] preflight-refusal: ${treeRes.reason || "dirty worktree"}`,

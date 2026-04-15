@@ -1964,7 +1964,9 @@ function updateSingleProject(projectDir, counts) {
   const binToolsCopied = copyBinToolsToProject(projectDir, projectName);
   const archiveRan = runProgressArchiveMigration(projectDir, projectName);
   const taskCounterRetired = runTaskCounterRetirementMigration(projectDir, projectName);
-  if (guardAdded || changelogCreated || binToolsCopied || archiveRan || taskCounterRetired) {
+  const unattendedConfigCreated = ensureUnattendedConfig(projectDir, projectName);
+  const gitignoreUpdated = ensureUnattendedGitignore(projectDir, projectName);
+  if (guardAdded || changelogCreated || binToolsCopied || archiveRan || taskCounterRetired || unattendedConfigCreated || gitignoreUpdated) {
     counts.updated++;
   } else {
     info(`${projectName} — already up to date`);
@@ -2102,6 +2104,55 @@ function runTaskCounterRetirementMigration(projectDir, projectName) {
     info(`${projectName} — retired task-counter (no legacy files found)`);
   }
   return true;
+}
+
+function ensureUnattendedConfig(projectDir, projectName) {
+  const configDir = path.join(projectDir, ".gsd-t", ".unattended");
+  const configPath = path.join(configDir, "config.json");
+  if (fs.existsSync(configPath)) return false;
+  if (!fs.existsSync(path.join(projectDir, ".gsd-t"))) return false;
+
+  try {
+    if (!fs.existsSync(configDir)) {
+      fs.mkdirSync(configDir, { recursive: true });
+    }
+    const defaultConfig = {
+      protectedBranches: ["main", "master", "develop", "trunk", "release/*", "hotfix/*"],
+      dirtyTreeWhitelist: [
+        ".gsd-t/heartbeat-*.jsonl",
+        ".gsd-t/.context-meter-state.json",
+        ".gsd-t/events/*.jsonl",
+        ".gsd-t/token-metrics.jsonl",
+        ".gsd-t/token-log.md",
+        ".gsd-t/.unattended/*",
+        ".gsd-t/.handoff/*",
+        ".claude/settings.local.json",
+        ".claude/settings.local.json.bak*",
+      ],
+      maxIterations: 200,
+      hours: 24,
+    };
+    fs.writeFileSync(configPath, JSON.stringify(defaultConfig, null, 2) + "\n");
+    info(`${projectName} — created .gsd-t/.unattended/config.json (edit to customize)`);
+    return true;
+  } catch (e) {
+    warn(`${projectName} — failed to create unattended config: ${e.message}`);
+    return false;
+  }
+}
+
+const UNATTENDED_GITIGNORE_ENTRIES = [
+  "bin/*.cjs",
+  ".gsd-t/.archive-migration-v1",
+  ".gsd-t/.task-counter-retired-v1",
+];
+
+function ensureUnattendedGitignore(projectDir, projectName) {
+  const added = ensureGitignoreEntries(projectDir, UNATTENDED_GITIGNORE_ENTRIES);
+  if (added) {
+    info(`${projectName} — added GSD-T entries to .gitignore`);
+  }
+  return added;
 }
 
 function showUpdateAllSummary(total, counts, playwrightMissing, swaggerMissing, syncCount) {

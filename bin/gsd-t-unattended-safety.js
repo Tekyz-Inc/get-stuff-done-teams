@@ -151,6 +151,27 @@ function loadConfig(projectDir) {
   return merged;
 }
 
+// ── saveConfig ─────────────────────────────────────────────────────────────
+//
+// Persists the given config object back to `.gsd-t/.unattended/config.json`.
+// Creates the directory if missing. Used by auto-whitelist to remember newly
+// whitelisted dirty-tree entries so subsequent launches don't re-warn.
+
+function saveConfig(projectDir, config) {
+  const configDir = path.join(projectDir, ".gsd-t", ".unattended");
+  const configPath = path.join(configDir, "config.json");
+  if (!fs.existsSync(configDir)) {
+    fs.mkdirSync(configDir, { recursive: true });
+  }
+  const serializable = {};
+  for (const key of Object.keys(DEFAULTS)) {
+    if (config[key] !== undefined) {
+      serializable[key] = config[key];
+    }
+  }
+  fs.writeFileSync(configPath, JSON.stringify(serializable, null, 2) + "\n");
+}
+
 // ── checkGitBranch ──────────────────────────────────────────────────────────
 //
 // Runs `git branch --show-current` in projectDir. An empty result indicates
@@ -745,6 +766,7 @@ function detectBlockerSentinel(runLogTail) {
 module.exports = {
   DEFAULTS,
   loadConfig,
+  saveConfig,
   checkGitBranch,
   checkWorktreeCleanliness,
   checkIterationCap,
