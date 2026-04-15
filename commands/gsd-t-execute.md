@@ -36,7 +36,40 @@ node -e "require('./bin/token-telemetry.js').recordSpawn({timestamp:new Date().t
 
 The bracket is additive to the existing `.gsd-t/token-log.md` OBSERVABILITY LOGGING rows. Both sinks coexist — token-log.md is human-readable with context percentage, token-metrics.jsonl is machine-readable with the full 18-field schema for `gsd-t metrics --tokens/--halts/--context-window` aggregation.
 
-## Step 0: Verify Context Gate Readiness (MANDATORY — first thing in a fresh session)
+## Step 0: Runway Check (MANDATORY — before any other work in a fresh session)
+
+Run via Bash. Count the `remaining_tasks` from the unblocked task list (Step 1 reads `.gsd-t/domains/*/tasks.md`), or use a conservative estimate of 5 if the count is unknown yet:
+
+```bash
+node -e "
+const r = require('./bin/runway-estimator.js').estimateRunway({
+  command: 'gsd-t-execute',
+  domain_type: '{DOMAIN_TYPE}',
+  remaining_tasks: {N},
+  projectDir: '.'
+});
+console.log(JSON.stringify(r, null, 2));
+if (!r.can_start) {
+  console.log('⛔ Insufficient runway — projected ' + r.projected_end_pct + '% (current ' + r.current_pct + '%, ' + r.pct_per_task + '%/task, ' + r.confidence + ' confidence, ' + r.confidence_basis + ' records)');
+  console.log('Auto-spawning headless to continue in a fresh context.');
+  const s = require('./bin/headless-auto-spawn.js').autoSpawnHeadless({
+    command: 'gsd-t-execute', args: [], continue_from: '.'
+  });
+  console.log('Session ID: ' + s.id);
+  console.log('Status: tail ' + s.logPath);
+  console.log('');
+  console.log('Your interactive session remains idle — you can use it for other work.');
+  console.log('You will be notified when the headless run completes.');
+  process.exit(0);
+}
+"
+```
+
+If `can_start === false`, the Step 0 block above has already spawned the headless continuation and exited. The interactive session stops here — do NOT proceed to Step 0.1. If the command continues past Step 0, `can_start === true` and runway is sufficient.
+
+**Contract**: `.gsd-t/contracts/runway-estimator-contract.md` v1.0.0 defines the decision-object shape and the refusal banner format. The stop threshold (85%) mirrors `.gsd-t/contracts/token-budget-contract.md` v3.0.0.
+
+## Step 0.1: Verify Context Gate Readiness (MANDATORY — first thing in a fresh session)
 
 Run via Bash:
 

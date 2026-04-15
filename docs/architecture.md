@@ -391,12 +391,12 @@ scripts/gsd-t-context-meter.js (runMeter)
   │         → POST https://api.anthropic.com/v1/messages/count_tokens
   │         → 200 { input_tokens }  |  failure → null
   ├── 5. computePct(inputTokens, modelWindowSize)
-  ├── 6. bandFor(pct) → "normal" | "warn" | "downgrade" | "conserve" | "stop"
+  ├── 6. bandFor(pct) → "normal" | "warn" | "stop"   (v3.0.0 three-band model)
   └── 7. atomic write .gsd-t/.context-meter-state.json
            { version, timestamp, inputTokens, modelWindowSize, pct, threshold, checkCount, lastError? }
   │
   ▼
-bin/token-budget.js getSessionStatus(projectDir)
+bin/token-budget.js getSessionStatus(projectDir)      ── v3.0.0: normal/warn/stop only
   │
   ├── readContextMeterState(dir)
   │      if fresh (timestamp within 5 min):
@@ -406,11 +406,34 @@ bin/token-budget.js getSessionStatus(projectDir)
   └── fallback: readSessionConsumed(dir) from .gsd-t/token-log.md (heuristic)
   │
   ▼
-Command file bash shim (execute/wave/quick/integrate/debug):
-  CTX_PCT=$(node -e "…tb.getSessionStatus('.').pct")
+bin/runway-estimator.js estimateRunway({command, domain_type, remaining_tasks})
+  │        reads current_pct from .context-meter-state.json
+  │        queries .gsd-t/token-metrics.jsonl for historical pct-delta per spawn
+  │        projects current_pct + pct_per_task × remaining_tasks × skew
+  │        confidence: high ≥50 records, medium ≥10, low <10 (+1.25× skew)
+  │        returns {can_start, projected_end_pct, confidence, recommendation}
+  ▼
+Command file Step 0 — runway gate (execute/wave/quick/integrate/debug):
+  if (!decision.can_start) {
+    print ⛔ banner
+    autoSpawnHeadless({command, continue_from: '.'})    ── bin/headless-auto-spawn.js
+    process.exit(0)                                      ── never prompts user
+  } else {
+    proceed to Step 0.1 (Verify Context Gate Readiness) and Step 1
+  }
   │
   ▼
-Orchestrator Context Gate — exit code 10 (stop) / 11 (conserve) / 12 (downgrade) / 13 (warn)
+bin/headless-auto-spawn.js (when refused)
+  │        detached child: node bin/gsd-t.js headless {command} --log
+  │        child.unref(); interactive session returns immediately
+  │        writes .gsd-t/headless-sessions/{id}.json (status: "running")
+  │        2s poll watcher: process.kill(pid, 0) → mac osascript notification on exit
+  │
+  ▼
+Orchestrator Context Gate — v3.0.0 semantics:
+  normal → proceed
+  warn   → log to .gsd-t/token-log.md, proceed at full quality (informational only)
+  stop   → halt cleanly, runway estimator hands off to headless-auto-spawn
 ```
 
 **Key constraints:**
@@ -423,7 +446,10 @@ Orchestrator Context Gate — exit code 10 (stop) / 11 (conserve) / 12 (downgrad
 **Contracts:**
 - `.gsd-t/contracts/context-meter-contract.md` — schema, state file format, hook I/O
 - `.gsd-t/contracts/context-observability-contract.md` v2.0.0 — Ctx% as the real session-wide signal (replaces Tasks-Since-Reset)
-- `.gsd-t/contracts/token-budget-contract.md` v2.0.0 — public API + data-source rewrite
+- `.gsd-t/contracts/token-budget-contract.md` v3.0.0 — three-band stop-at-85 (M35 clean break from v2.0.0)
+- `.gsd-t/contracts/token-telemetry-contract.md` v1.0.0 — per-spawn 18-field JSONL at `.gsd-t/token-metrics.jsonl`
+- `.gsd-t/contracts/runway-estimator-contract.md` v1.0.0 — pre-flight projection, confidence grading, refusal/headless handoff
+- `.gsd-t/contracts/headless-auto-spawn-contract.md` v1.0.0 — detached continuation, session schema, macOS notification channel
 
 **Installer integration** (`bin/gsd-t.js`):
 - `install` / `init` — copy hook runtime, merge PostToolUse entry into `~/.claude/settings.json`, copy config template, prompt for API key (skippable, TTY-only)

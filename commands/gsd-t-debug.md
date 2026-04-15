@@ -32,7 +32,40 @@ node -e "require('./bin/token-telemetry.js').recordSpawn({timestamp:new Date().t
 
 The bracket is additive to the existing `.gsd-t/token-log.md` OBSERVABILITY LOGGING rows. Both sinks coexist.
 
-## Step 0: Launch via Subagent
+## Step 0: Runway Check (MANDATORY — before any other work in a fresh session)
+
+Debug uses conservative per-iteration cost (opus-default fallback = 8%/task). Run with `remaining_tasks=1` for a single pass; the mid-loop check (below, added by HAS-T3) re-runs this gate between iterations. Run via Bash:
+
+```bash
+node -e "
+const r = require('./bin/runway-estimator.js').estimateRunway({
+  command: 'gsd-t-debug',
+  domain_type: '',
+  remaining_tasks: 1,
+  projectDir: '.'
+});
+console.log(JSON.stringify(r, null, 2));
+if (!r.can_start) {
+  console.log('⛔ Insufficient runway — projected ' + r.projected_end_pct + '% (current ' + r.current_pct + '%, ' + r.pct_per_task + '%/task, ' + r.confidence + ' confidence, ' + r.confidence_basis + ' records)');
+  console.log('Auto-spawning headless to continue in a fresh context.');
+  const s = require('./bin/headless-auto-spawn.js').autoSpawnHeadless({
+    command: 'gsd-t-debug', args: [], continue_from: '.'
+  });
+  console.log('Session ID: ' + s.id);
+  console.log('Status: tail ' + s.logPath);
+  console.log('');
+  console.log('Your interactive session remains idle — you can use it for other work.');
+  console.log('You will be notified when the headless run completes.');
+  process.exit(0);
+}
+"
+```
+
+If `can_start === false`, the headless continuation has been spawned and the interactive session must stop here. Do NOT proceed to Step 0.1.
+
+**Contract**: `.gsd-t/contracts/runway-estimator-contract.md` v1.0.0; stop threshold (85%) mirrors `.gsd-t/contracts/token-budget-contract.md` v3.0.0.
+
+## Step 0.1: Launch via Subagent
 
 To give this debug session a fresh context window and prevent compaction, always execute via a Task subagent.
 
@@ -311,6 +344,60 @@ When you encounter unexpected situations during the fix:
    - 3: Report error, stop
 
 If the debug-loop also fails (exit 1/4), log the attempt to `.gsd-t/progress.md` Decision Log with a `[failure]` prefix, return to Step 1.5 and run Deep Research Mode before any further attempts. Present findings and options to the user before proceeding.
+
+### Between-Iteration Runway Check (MANDATORY — every iteration)
+
+Before starting each new fix attempt (iteration N+1), re-run the runway estimator with `remaining_tasks=1`. Debug loops are the single highest-variance consumer of context, and a mid-loop halt is worse than a pre-flight halt — the user loses the current hypothesis and partial work unless we persist them first.
+
+Run via Bash before each iteration:
+
+```bash
+node -e "
+const r = require('./bin/runway-estimator.js').estimateRunway({
+  command: 'gsd-t-debug',
+  domain_type: '',
+  remaining_tasks: 1,
+  projectDir: '.'
+});
+if (!r.can_start) {
+  // ── HAS-T3 state persistence: capture current hypothesis + fix + test output ──
+  const fs = require('fs');
+  const path = require('path');
+  const ledgerPath = '.gsd-t/debug-ledger.jsonl';
+  const snapshot = {
+    type: 'runway-handoff-snapshot',
+    timestamp: new Date().toISOString(),
+    hypothesis: process.env.GSD_T_DEBUG_HYPOTHESIS || '',
+    last_fix_diff: process.env.GSD_T_DEBUG_LAST_FIX || '',
+    last_test_output: process.env.GSD_T_DEBUG_LAST_TEST_OUTPUT || '',
+    iteration_n_plus_1: Number(process.env.GSD_T_DEBUG_NEXT_ITERATION || 0),
+    current_pct: r.current_pct,
+    projected_end_pct: r.projected_end_pct,
+    confidence: r.confidence
+  };
+  try { fs.mkdirSync(path.dirname(ledgerPath), { recursive: true }); } catch (_) {}
+  fs.appendFileSync(ledgerPath, JSON.stringify(snapshot) + '\n');
+
+  console.log('⛔ Runway exceeded mid-loop — projected ' + r.projected_end_pct + '% at iteration ' + snapshot.iteration_n_plus_1);
+  console.log('Persisted hypothesis + last fix + test output to ' + ledgerPath);
+
+  const s = require('./bin/headless-auto-spawn.js').autoSpawnHeadless({
+    command: 'gsd-t-debug',
+    args: ['--resume', 'iteration-' + snapshot.iteration_n_plus_1],
+    continue_from: ledgerPath
+  });
+  console.log('Runway exceeded mid-loop — headless debug picking up at iteration ' + snapshot.iteration_n_plus_1 + '. Session: ' + s.id + '. Log: ' + s.logPath);
+  process.exit(0);
+}
+"
+```
+
+- On refusal: the block persists `{hypothesis, last_fix_diff, last_test_output}` as a `runway-handoff-snapshot` entry in `.gsd-t/debug-ledger.jsonl`, calls `autoSpawnHeadless` with `--resume iteration-N+1`, prints the handoff message, and exits the loop cleanly (no `/clear` prompt).
+- On proceed: the block exits silently and the next iteration begins.
+
+**Environment variables**: the calling iteration sets `GSD_T_DEBUG_HYPOTHESIS`, `GSD_T_DEBUG_LAST_FIX`, `GSD_T_DEBUG_LAST_TEST_OUTPUT`, `GSD_T_DEBUG_NEXT_ITERATION` before running the Bash block. If unset, empty strings are persisted (the ledger entry is still useful for the headless continuation).
+
+**Contracts**: `.gsd-t/contracts/runway-estimator-contract.md` v1.0.0, `.gsd-t/contracts/headless-auto-spawn-contract.md` v1.0.0.
 
 ### Solo Mode
 1. Reproduce the issue — **reproduction script must exist before step 2** (see Step 2.5)

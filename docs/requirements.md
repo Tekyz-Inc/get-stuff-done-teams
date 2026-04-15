@@ -244,16 +244,16 @@
 
 | REQ-ID  | Requirement Summary                                                                     | Domain                      | Task(s)   | Status   |
 |---------|-----------------------------------------------------------------------------------------|-----------------------------|-----------|----------|
-| REQ-069 | Silent degradation bands removed — `getDegradationActions()` returns only `{band: 'normal'\|'warn'\|'stop'}` | degradation-rip-out | T1 | pending |
-| REQ-070 | Three-band model only — `WARN_THRESHOLD_PCT=70`, `STOP_THRESHOLD_PCT=85`, no model overrides or phase skips | degradation-rip-out | T1, T2 | pending |
-| REQ-071 | Surgical per-phase model selection via `bin/model-selector.js` — ≥8 phase mappings, declarative rules table | model-selector-advisor | T2 | pending |
-| REQ-072 | `/advisor` escalation with graceful fallback — convention-based if API not programmable | model-selector-advisor | T1, T3 | pending |
-| REQ-073 | Pre-flight runway estimator refuses runs projected to cross 85% stop threshold | runway-estimator | T1–T5 | pending |
-| REQ-074 | Per-spawn token telemetry to `.gsd-t/token-metrics.jsonl` with frozen 18-field schema | token-telemetry | T1–T3 | pending |
-| REQ-075 | `gsd-t metrics` CLI: `--tokens [--by ...]`, `--halts`, `--tokens --context-window` | token-telemetry | T4–T6 | pending |
-| REQ-076 | Optimization backlog — detect only, never auto-apply, user promotes or rejects | optimization-backlog | T1–T4 | pending |
-| REQ-077 | Headless auto-spawn on runway refusal — user never sees a `/clear` prompt | headless-auto-spawn | T1–T5 | pending |
-| REQ-078 | Structural elimination of native compact messages — `halt_type: native-compact` count is 0 during M35 execution | runway-estimator + headless-auto-spawn | T1–T5 (RE), T1–T5 (HAS) | pending |
+| REQ-069 | Silent degradation bands removed — `getDegradationActions()` returns only `{band: 'normal'\|'warn'\|'stop'}` | degradation-rip-out | T1 | complete (Wave 1) |
+| REQ-070 | Three-band model only — `WARN_THRESHOLD_PCT=70`, `STOP_THRESHOLD_PCT=85`, no model overrides or phase skips | degradation-rip-out | T1, T2 | complete (Waves 1–2) |
+| REQ-071 | Surgical per-phase model selection via `bin/model-selector.js` — ≥8 phase mappings, declarative rules table | model-selector-advisor | T2 | complete (Wave 2) |
+| REQ-072 | `/advisor` escalation with graceful fallback — convention-based if API not programmable | model-selector-advisor | T1, T3 | complete (Wave 2) |
+| REQ-073 | Pre-flight runway estimator refuses runs projected to cross 85% stop threshold | runway-estimator | T1–T5 | complete (Wave 3) |
+| REQ-074 | Per-spawn token telemetry to `.gsd-t/token-metrics.jsonl` with frozen 18-field schema | token-telemetry | T1–T3 | complete (Waves 1–2) |
+| REQ-075 | `gsd-t metrics` CLI: `--tokens [--by ...]`, `--halts`, `--tokens --context-window` | token-telemetry | T4–T6 | complete (Wave 2) |
+| REQ-076 | Optimization backlog — detect only, never auto-apply, user promotes or rejects | optimization-backlog | T1–T4 | pending (Wave 4) |
+| REQ-077 | Headless auto-spawn on runway refusal — user never sees a `/clear` prompt | headless-auto-spawn | T1–T5 | complete T1–T3 (Wave 3); T4–T5 pending (Wave 4) |
+| REQ-078 | Structural elimination of native compact messages — `halt_type: native-compact` count is 0 during M35 execution | runway-estimator + headless-auto-spawn | T1–T5 (RE), T1–T5 (HAS) | pending (M35 verify) |
 
 **M35 Functional Requirements:**
 - **REQ-069**: `bin/token-budget.js` `getDegradationActions()` must return `{band: 'normal'|'warn'|'stop', pct: number, message: string}` only. No `modelOverride`, no `skipPhases`, no `checkpoint` side-channel.

@@ -31,7 +31,40 @@ node -e "require('./bin/token-telemetry.js').recordSpawn({timestamp:new Date().t
 
 The bracket is additive to the existing `.gsd-t/token-log.md` OBSERVABILITY LOGGING rows. Both sinks coexist — token-log.md is human-readable with context percentage, token-metrics.jsonl is machine-readable with the full 18-field schema for `gsd-t metrics --tokens/--halts/--context-window` aggregation.
 
-## Step 0: Verify Context Gate Readiness (MANDATORY — first thing in a fresh session)
+## Step 0: Runway Check (MANDATORY — before any other work in a fresh session)
+
+Count the wave's total task count (sum of atomic tasks across domains in the current wave). Then run via Bash:
+
+```bash
+node -e "
+const r = require('./bin/runway-estimator.js').estimateRunway({
+  command: 'gsd-t-wave',
+  domain_type: '',
+  remaining_tasks: {N},
+  projectDir: '.'
+});
+console.log(JSON.stringify(r, null, 2));
+if (!r.can_start) {
+  console.log('⛔ Insufficient runway — projected ' + r.projected_end_pct + '% (current ' + r.current_pct + '%, ' + r.pct_per_task + '%/task, ' + r.confidence + ' confidence, ' + r.confidence_basis + ' records)');
+  console.log('Auto-spawning headless to continue in a fresh context.');
+  const s = require('./bin/headless-auto-spawn.js').autoSpawnHeadless({
+    command: 'gsd-t-wave', args: [], continue_from: '.'
+  });
+  console.log('Session ID: ' + s.id);
+  console.log('Status: tail ' + s.logPath);
+  console.log('');
+  console.log('Your interactive session remains idle — you can use it for other work.');
+  console.log('You will be notified when the headless run completes.');
+  process.exit(0);
+}
+"
+```
+
+If `can_start === false`, the headless continuation has already been spawned and the interactive session must stop here. Do NOT proceed to Step 0.1.
+
+**Contract**: `.gsd-t/contracts/runway-estimator-contract.md` v1.0.0; stop threshold (85%) mirrors `.gsd-t/contracts/token-budget-contract.md` v3.0.0.
+
+## Step 0.1: Verify Context Gate Readiness (MANDATORY — first thing in a fresh session)
 
 Run via Bash:
 
@@ -39,7 +72,7 @@ Run via Bash:
 node -e "const tb = require('./bin/token-budget.js'); const s = tb.getSessionStatus('.'); console.log(JSON.stringify(s));"
 ```
 
-This calls `getSessionStatus()` (v2.0.0) which reads `.gsd-t/.context-meter-state.json` produced by the Context Meter PostToolUse hook. The returned `threshold` drives the gate logic in the Phase Agent Spawn Pattern below — it forces a /clear-and-resume when context consumption crosses the `stop` band (≥95% of model window) so the wave orchestrator itself never runs out of context mid-wave. When the state file is absent or stale, the call falls back to a historical heuristic from `.gsd-t/token-log.md`. Band boundaries and `modelWindowSize` are configured in `.gsd-t/context-meter-config.json` and `bin/token-budget.js` (THRESHOLDS constant).
+This calls `getSessionStatus()` (v2.0.0) which reads `.gsd-t/.context-meter-state.json` produced by the Context Meter PostToolUse hook. The returned `threshold` drives the gate logic in the Phase Agent Spawn Pattern below — it enforces the three-band stop boundary (85%) so the wave orchestrator itself never runs out of context mid-wave. When the state file is absent or stale, the call falls back to a historical heuristic from `.gsd-t/token-log.md`. Band boundaries and `modelWindowSize` are configured in `.gsd-t/context-meter-config.json` and `bin/token-budget.js` (THRESHOLDS constant).
 
 ## Step 1: Load State (Lightweight)
 

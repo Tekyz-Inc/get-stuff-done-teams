@@ -32,7 +32,40 @@ node -e "require('./bin/token-telemetry.js').recordSpawn({timestamp:new Date().t
 
 The bracket is additive to the existing `.gsd-t/token-log.md` OBSERVABILITY LOGGING rows. Both sinks coexist — token-log.md is human-readable, token-metrics.jsonl is machine-readable for `gsd-t metrics` aggregation.
 
-## Step 0: Launch via Subagent
+## Step 0: Runway Check (MANDATORY — before any other work in a fresh session)
+
+Quick tasks are always single-task, so `remaining_tasks=1`. Run via Bash:
+
+```bash
+node -e "
+const r = require('./bin/runway-estimator.js').estimateRunway({
+  command: 'gsd-t-quick',
+  domain_type: '',
+  remaining_tasks: 1,
+  projectDir: '.'
+});
+console.log(JSON.stringify(r, null, 2));
+if (!r.can_start) {
+  console.log('⛔ Insufficient runway — projected ' + r.projected_end_pct + '% (current ' + r.current_pct + '%, ' + r.pct_per_task + '%/task, ' + r.confidence + ' confidence, ' + r.confidence_basis + ' records)');
+  console.log('Auto-spawning headless to continue in a fresh context.');
+  const s = require('./bin/headless-auto-spawn.js').autoSpawnHeadless({
+    command: 'gsd-t-quick', args: [], continue_from: '.'
+  });
+  console.log('Session ID: ' + s.id);
+  console.log('Status: tail ' + s.logPath);
+  console.log('');
+  console.log('Your interactive session remains idle — you can use it for other work.');
+  console.log('You will be notified when the headless run completes.');
+  process.exit(0);
+}
+"
+```
+
+If `can_start === false`, the headless continuation has been spawned and the interactive session must stop here. Do NOT proceed to Step 0.1.
+
+**Contract**: `.gsd-t/contracts/runway-estimator-contract.md` v1.0.0; stop threshold (85%) mirrors `.gsd-t/contracts/token-budget-contract.md` v3.0.0.
+
+## Step 0.1: Launch via Subagent
 
 To give this task a fresh context window and prevent compaction during consecutive quick runs, always execute via a Task subagent.
 
