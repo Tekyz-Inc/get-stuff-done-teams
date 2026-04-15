@@ -68,19 +68,30 @@ describe("parseHeadlessFlags", () => {
 // ─── buildHeadlessCmd ────────────────────────────────────────────────────────
 
 describe("buildHeadlessCmd", () => {
-  it("builds prompt with no args", () => {
+  // M36 Phase 0: non-interactive `claude -p` rejects the `/user:` namespace
+  // prefix with "Unknown command". Prompt must be the bare `/gsd-t-X` form.
+  // See .gsd-t/M36-spike-findings.md Spike A.
+  it("builds prompt with no args (bare /gsd-t-X form)", () => {
     const result = buildHeadlessCmd("verify", []);
-    assert.equal(result, "/user:gsd-t-verify");
+    assert.equal(result, "/gsd-t-verify");
   });
 
   it("builds prompt with args", () => {
     const result = buildHeadlessCmd("execute", ["--domain=auth"]);
-    assert.equal(result, "/user:gsd-t-execute --domain=auth");
+    assert.equal(result, "/gsd-t-execute --domain=auth");
   });
 
   it("builds prompt with multiple args", () => {
     const result = buildHeadlessCmd("wave", ["--phase=execute", "--dry-run"]);
-    assert.equal(result, "/user:gsd-t-wave --phase=execute --dry-run");
+    assert.equal(result, "/gsd-t-wave --phase=execute --dry-run");
+  });
+
+  it("does NOT include the /user: namespace prefix (regression: M36 Phase 0)", () => {
+    // Interactive Claude accepts `/user:gsd-t-X`, but `claude -p` rejects
+    // it as "Unknown command" — so the headless prompt must never carry it.
+    const result = buildHeadlessCmd("resume", []);
+    assert.ok(!result.includes("/user:"), `prompt must not contain /user: prefix, got: ${result}`);
+    assert.ok(result.startsWith("/gsd-t-"), `prompt must start with /gsd-t-, got: ${result}`);
   });
 });
 
@@ -121,6 +132,28 @@ describe("mapHeadlessExitCode", () => {
 
   it("prioritizes non-zero process exit over output patterns", () => {
     assert.equal(mapHeadlessExitCode(2, "verification failed"), 3);
+  });
+
+  // M36 Phase 0: claude -p prints "Unknown command: /X" to stdout and exits 0
+  // when a slash command fails to dispatch. Without a sentinel, the caller
+  // would see exit 0 and think the worker succeeded. See Spike D in
+  // .gsd-t/M36-spike-findings.md.
+  it("returns 5 for Unknown command dispatch failure", () => {
+    assert.equal(mapHeadlessExitCode(0, "Unknown command: /gsd-t-resume"), 5);
+  });
+
+  it("returns 5 for Unknown command with leading whitespace", () => {
+    assert.equal(mapHeadlessExitCode(0, "\n\nUnknown command: /user:gsd-t-help\n"), 5);
+  });
+
+  it("dispatch-failed sentinel is case-insensitive", () => {
+    assert.equal(mapHeadlessExitCode(0, "unknown command: /foo"), 5);
+    assert.equal(mapHeadlessExitCode(0, "UNKNOWN COMMAND: /bar"), 5);
+  });
+
+  it("dispatch-failed takes priority over verify-failed strings", () => {
+    // If both appear in output, dispatch failure is the real root cause.
+    assert.equal(mapHeadlessExitCode(0, "Unknown command: /x\nverify failed"), 5);
   });
 });
 

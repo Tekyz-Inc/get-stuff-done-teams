@@ -68,14 +68,14 @@ The framework has no runtime — it is consumed entirely by Claude Code's slash 
 
 ### Headless Mode (M23 — complete)
 - **doHeadless(args)**: Dispatch function for the `headless` CLI subcommand.
-- **doHeadlessExec(command, cmdArgs, flags)**: Wraps `claude -p "/user:gsd-t-{command}"` via `execFileSync`. Verifies claude CLI availability, enforces timeout, writes log file if `--log` requested. Returns structured JSON if `--json` flag set.
+- **doHeadlessExec(command, cmdArgs, flags)**: Wraps `claude -p "/gsd-t-{command}"` via `execFileSync`. Verifies claude CLI availability, enforces timeout, writes log file if `--log` requested. Returns structured JSON if `--json` flag set. (M36 Phase 0: prompt form is `/gsd-t-X`, NOT `/user:gsd-t-X` — non-interactive mode rejects the `/user:` namespace prefix.)
 - **parseHeadlessFlags(args)**: Extracts `--json`, `--timeout=N`, `--log` from raw args. Returns `{ flags, positional }`.
-- **buildHeadlessCmd(command, cmdArgs)**: Builds the `/user:gsd-t-{command}` prompt string.
-- **mapHeadlessExitCode(processExitCode, output)**: Maps process exit code + output text patterns to GSD-T exit codes (0–4).
+- **buildHeadlessCmd(command, cmdArgs)**: Builds the bare `/gsd-t-{command}` prompt string. Interactive-mode `/user:` prefix deliberately omitted — see `.gsd-t/M36-spike-findings.md` Spike A.
+- **mapHeadlessExitCode(processExitCode, output)**: Maps process exit code + output text patterns to GSD-T exit codes (0–5).
 - **headlessLogPath(projectDir, timestamp)**: Generates `.gsd-t/headless-{timestamp}.log` path.
 - **doHeadlessQuery(type)**: Dispatches to one of 7 query functions. All pure Node.js file reads, no LLM calls, <100ms.
 - **Query functions** (7): `queryStatus`, `queryDomains`, `queryContracts`, `queryDebt`, `queryContext`, `queryBacklog`, `queryGraph` — each reads corresponding `.gsd-t/` file and returns typed JSON result.
-- **Exit codes**: 0=success, 1=verify-fail, 2=context-budget-exceeded, 3=error, 4=blocked-needs-human
+- **Exit codes**: 0=success, 1=verify-fail, 2=context-budget-exceeded, 3=error, 4=blocked-needs-human, 5=command-dispatch-failed (M36 Phase 0 — `claude -p` returned `Unknown command:` for the slash command; caller should treat as a bug not a transient failure)
 - **CI/CD examples**: `docs/ci-examples/github-actions.yml` (GitHub Actions), `docs/ci-examples/gitlab-ci.yml` (GitLab CI)
 
 ### Compaction-Proof Debug Loop (M29 — complete)

@@ -2592,19 +2592,30 @@ function parseHeadlessFlags(args) {
 
 /**
  * Build the claude -p invocation string for a GSD-T command.
+ *
+ * Non-interactive `claude -p` mode requires the bare `/gsd-t-X` form — the
+ * `/user:gsd-t-X` namespace prefix is rejected as "Unknown command" even
+ * though interactive mode accepts both. Verified by M36 Phase 0 Spike A
+ * (2026-04-15). See .gsd-t/M36-spike-findings.md.
  */
 function buildHeadlessCmd(command, cmdArgs) {
   const argStr = cmdArgs.length > 0 ? " " + cmdArgs.join(" ") : "";
-  return `/user:gsd-t-${command}${argStr}`;
+  return `/gsd-t-${command}${argStr}`;
 }
 
 /**
  * Map claude output + process exit code to a GSD-T headless exit code.
- * Exit codes: 0=success, 1=verify-fail, 2=context-budget-exceeded, 3=error, 4=blocked-needs-human
+ * Exit codes: 0=success, 1=verify-fail, 2=context-budget-exceeded, 3=error,
+ *             4=blocked-needs-human, 5=command-dispatch-failed
  */
 function mapHeadlessExitCode(processExitCode, output) {
   if (processExitCode !== 0 && processExitCode !== null) return 3;
-  const lower = (output || "").toLowerCase();
+  const raw = output || "";
+  const lower = raw.toLowerCase();
+  // Command dispatch failure — `claude -p` prints "Unknown command: /X"
+  // to stdout and still exits 0. Without this sentinel, a mistyped or
+  // namespace-prefixed slash command silently reports success. (M36 Phase 0.)
+  if (/^unknown command:/im.test(raw)) return 5;
   if (lower.includes("context budget exceeded") || lower.includes("context window exceeded") ||
       lower.includes("budget exceeded") || lower.includes("token limit")) return 2;
   if (lower.includes("blocked") && (lower.includes("needs human") || lower.includes("need human") ||

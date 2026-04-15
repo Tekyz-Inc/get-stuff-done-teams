@@ -9,8 +9,8 @@ Add `gsd-t headless {command} [args]` CLI subcommand that wraps `claude -p` for 
 
 ## Scope
 - Detect `claude` CLI availability
-- Spawn `claude -p "/user:gsd-t-{command} {args}"` as child process
-- Map exit codes: 0=success, 1=verify-fail, 2=context-budget-exceeded, 3=error, 4=blocked-needs-human
+- Spawn `claude -p "/gsd-t-{command} {args}"` as child process (M36 Phase 0: bare form, no `/user:` prefix — non-interactive mode rejects it)
+- Map exit codes: 0=success, 1=verify-fail, 2=context-budget-exceeded, 3=error, 4=blocked-needs-human, 5=command-dispatch-failed
 - --json flag: wrap output in structured JSON envelope
 - --timeout flag: kill process after N seconds (default: 300)
 - --log flag: write output to .gsd-t/headless-{timestamp}.log
