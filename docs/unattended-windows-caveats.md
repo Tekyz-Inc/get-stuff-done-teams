@@ -7,6 +7,46 @@
 
 ---
 
+## 0. Required Software (All Platforms)
+
+The launch command (`/user:gsd-t-unattended`) pre-flights required software in
+Step 1e and refuses to spawn if anything is missing. Install these before
+launching:
+
+**Required everywhere (hard-fail):**
+
+| Tool    | Install                                                       |
+|---------|---------------------------------------------------------------|
+| node    | https://nodejs.org (>= 16)                                    |
+| claude  | `npm install -g @anthropic-ai/claude-code`                    |
+| git     | https://git-scm.com/downloads                                 |
+
+**macOS — soft warnings (install for best reliability):**
+
+| Tool        | Purpose                  | Install             |
+|-------------|--------------------------|---------------------|
+| caffeinate  | sleep prevention          | built-in (Apple)    |
+
+**Linux — soft warnings:**
+
+| Tool                      | Purpose                     | Install                                    |
+|---------------------------|-----------------------------|--------------------------------------------|
+| systemd-inhibit OR caffeine | sleep/screen-lock prevention | usually preinstalled; else `sudo apt install caffeine` |
+| notify-send               | desktop notifications        | `sudo apt install libnotify-bin`           |
+
+**Windows — soft warnings:**
+
+| Tool               | Purpose                      | Install                                |
+|--------------------|------------------------------|----------------------------------------|
+| PowerShell         | sleep prevention (built-in)  | ships with Windows                     |
+| BurntToast         | real toast notifications     | `Install-Module BurntToast` (PowerShell) |
+
+If the pre-flight fails, the launcher prints each missing tool with its
+install instructions and refuses to spawn. Soft warnings are advisory only —
+the supervisor still launches without them, but with degraded resilience.
+
+---
+
 ## 1. Overview
 
 The GSD-T unattended supervisor (M36) ships cross-platform. All core supervisor

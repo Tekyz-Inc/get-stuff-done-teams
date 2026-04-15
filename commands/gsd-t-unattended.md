@@ -121,6 +121,93 @@ fi
 
 If the sentinel was removed, print: `ℹ️  Removed stale stop sentinel from previous run.`
 
+### 1e: Verify Required Software is Installed
+
+The unattended supervisor depends on platform-specific helpers. Check them up front and fail fast with clear install instructions rather than crashing mid-run.
+
+Run via Bash:
+
+```bash
+node -e "
+const { execSync } = require('child_process');
+const os = require('os');
+const platform = os.platform();
+
+function has(cmd) {
+  try {
+    const which = platform === 'win32' ? 'where' : 'command -v';
+    execSync(which + ' ' + cmd, { stdio: 'ignore' });
+    return true;
+  } catch (_) { return false; }
+}
+
+const missing = [];
+const warnings = [];
+
+// REQUIRED on all platforms
+if (!has('node')) missing.push({ name: 'node', install: 'https://nodejs.org (>= 16)' });
+if (!has('claude')) {
+  missing.push({
+    name: 'claude',
+    install: platform === 'win32'
+      ? 'npm install -g @anthropic-ai/claude-code (then ensure claude.cmd is on PATH)'
+      : 'npm install -g @anthropic-ai/claude-code'
+  });
+}
+if (!has('git')) missing.push({ name: 'git', install: 'https://git-scm.com/downloads' });
+
+// PLATFORM-SPECIFIC (warnings only — supervisor runs without them, just less resilient)
+if (platform === 'darwin') {
+  if (!has('caffeinate')) warnings.push('caffeinate (macOS built-in) — missing means sleep may interrupt long runs');
+} else if (platform === 'linux') {
+  if (!has('systemd-inhibit') && !has('caffeine')) {
+    warnings.push('systemd-inhibit or caffeine — missing means sleep/screen-lock may interrupt long runs');
+  }
+  if (!has('notify-send')) {
+    warnings.push('notify-send (libnotify-bin) — missing means no desktop notifications on milestone events');
+  }
+} else if (platform === 'win32') {
+  warnings.push('Windows: sleep prevention uses PowerShell SetThreadExecutionState — no external helper required');
+  warnings.push('Windows: desktop notifications use BurntToast PowerShell module — install with: Install-Module BurntToast');
+}
+
+if (missing.length > 0) {
+  console.log('PREFLIGHT=fail');
+  console.log('MISSING=' + JSON.stringify(missing));
+} else {
+  console.log('PREFLIGHT=ok');
+}
+if (warnings.length > 0) {
+  console.log('WARNINGS=' + JSON.stringify(warnings));
+}
+"
+```
+
+If `PREFLIGHT=fail`, **STOP** and print:
+
+```
+❌  Required software missing — cannot launch unattended supervisor.
+
+    Missing:
+{for each item in MISSING:}
+      • {name}
+        Install: {install}
+
+    Install the missing software and retry: /user:gsd-t-unattended
+```
+
+End the turn. Do NOT spawn.
+
+If `WARNINGS` were emitted, print them as a non-blocking advisory before proceeding:
+
+```
+⚠️  Platform advisories (non-blocking):
+{for each warning:}
+      • {warning}
+
+    Supervisor will still launch, but consider installing these for best reliability.
+```
+
 ## Step 2: Spawn the Detached Supervisor
 
 ⚙ [sonnet] gsd-t-unattended → spawning detached supervisor

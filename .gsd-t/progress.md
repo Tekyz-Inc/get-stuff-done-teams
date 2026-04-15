@@ -1,9 +1,9 @@
 # GSD-T Progress
 
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
-## Status: M36 COMPLETE — archived, v2.77.0 ready for publish (1226/1226 tests green)
+## Status: M36 COMPLETE — archived, v3.10.10 ready for publish (1226/1226 tests green)
 ## Date: 2026-04-15
-## Version: 2.77.0
+## Version: 3.10.10 (major bump from 2.76.10 — M34/M35/M36 arc)
 
 ## Current Milestone
 **M36: Cross-Platform Unattended Supervisor Loop** (COMPLETE 2026-04-15 — archived, awaiting user-gated npm publish)
@@ -11,7 +11,7 @@
 **Goal**: Enable `gsd-t unattended` — a detached OS-process supervisor that spawns fresh `claude -p` worker sessions in a relay, running the active milestone to completion over hours or days without a human in the loop. Launchable from within an interactive Claude session via `/user:gsd-t-unattended`, with an in-session watch loop (`ScheduleWakeup` @ 270s) that displays live progress and transparently re-attaches across `/compact`, `/clear`, and `/resume`.
 
 **Scope**:
-- **IN**: Core supervisor (`bin/gsd-t-unattended.js`), watch-loop slash commands (`gsd-t-unattended`, `gsd-t-unattended-watch`, `gsd-t-unattended-stop`), resume auto-reattach, safety rails (git branch isolation, gutter detection, blocker sentinels, timeouts), cross-platform (macOS + Linux + Windows), notification matrix, fix P0 `gsd-t headless` dispatch bug, fix remaining M35 "Run /clear" STOP gaps, `bin/handoff-lock.js` parent/child race guard, new contract `unattended-supervisor-contract.md` v1.0.0, docs, v2.77.0 publish.
+- **IN**: Core supervisor (`bin/gsd-t-unattended.js`), watch-loop slash commands (`gsd-t-unattended`, `gsd-t-unattended-watch`, `gsd-t-unattended-stop`), resume auto-reattach, safety rails (git branch isolation, gutter detection, blocker sentinels, timeouts), cross-platform (macOS + Linux + Windows), notification matrix, fix P0 `gsd-t headless` dispatch bug, fix remaining M35 "Run /clear" STOP gaps, `bin/handoff-lock.js` parent/child race guard, new contract `unattended-supervisor-contract.md` v1.0.0, docs, v3.10.10 publish (major bump from 2.76.10).
 - **OUT**: Multi-milestone autonomous execution (v1 targets one milestone at a time), Windows sleep-prevention (documented limitation), cloud-hosted supervisor orchestration (future milestone), AI-driven milestone selection.
 
 **Success criteria**:
@@ -20,7 +20,7 @@
 3. `/clear` followed by `/user:gsd-t-resume` during a live unattended run transparently re-attaches to the running supervisor (watch loop resumes automatically).
 4. Pre-existing M35 P0 bug (`bin/gsd-t.js:2598` `/user:` prefix) is fixed — `node bin/gsd-t.js headless help` returns the help banner, not `Unknown command:`.
 5. Test suite stays green throughout (1078 → 1078+N, no regressions).
-6. Published as v2.77.0 via `/user:gsd-t-version-update-all`.
+6. Published as v3.10.10 via `/user:gsd-t-version-update-all` (major bump from 2.76.10 — M34/M35/M36 arc).
 
 **Phase 0 — Spike findings + P0 fix** (pre-requisite to all other phases):
 - Spikes A, B, D: **DONE 2026-04-15**, all PASS. Full findings in `.gsd-t/M36-spike-findings.md`.
@@ -30,7 +30,7 @@
 
 | # | Milestone | Status | Version | Domains |
 |---|-----------|--------|---------|---------|
-| M36 | Cross-Platform Unattended Supervisor Loop | COMPLETE | 2.77.0 | Archived (6 domains: m36-supervisor-core, m36-watch-loop, m36-safety-rails, m36-cross-platform, m36-m35-gap-fixes, m36-docs-and-tests; REQ-079–REQ-087) |
+| M36 | Cross-Platform Unattended Supervisor Loop | COMPLETE | 3.10.10 | Archived (6 domains: m36-supervisor-core, m36-watch-loop, m36-safety-rails, m36-cross-platform, m36-m35-gap-fixes, m36-docs-and-tests; REQ-079–REQ-087; major version bump 2.x→3.x marking M34/M35/M36 arc) |
 | M35 | No Silent Degradation + Surgical Model Escalation + Token Telemetry | COMPLETE | 2.76.10 | Archived (7 domains: degradation-rip-out, model-selector-advisor, runway-estimator, token-telemetry, optimization-backlog, headless-auto-spawn, docs-and-tests; 38 tasks) |
 | M34 | Context Meter | COMPLETE | 2.75.10 | Archived |
 
@@ -38,7 +38,7 @@
 
 | Milestone | Version | Completed | Tag | Summary |
 |-----------|---------|-----------|-----|---------|
-| M36 Cross-Platform Unattended Supervisor Loop | 2.77.0 | 2026-04-15 | v2.77.0 | Detached supervisor relay for 24h+ unattended milestone execution; 3 new slash commands (unattended/unattended-watch/unattended-stop); ScheduleWakeup(270s) in-session watch loop; /clear+/resume auto-reattach via Step 0; cross-platform (macOS/Linux/Windows except sleep-prevention); safety rails (gutter/blocker/timeout); handoff-lock primitive closes M35 parent/child race; 5 command files drop "Run /clear" STOP; 1226/1226 tests |
+| M36 Cross-Platform Unattended Supervisor Loop | 3.10.10 | 2026-04-15 | v3.10.10 | Detached supervisor relay for 24h+ unattended milestone execution; 3 new slash commands (unattended/unattended-watch/unattended-stop); ScheduleWakeup(270s) in-session watch loop; /clear+/resume auto-reattach via Step 0; cross-platform (macOS/Linux/Windows except sleep-prevention); safety rails (gutter/blocker/timeout); handoff-lock primitive closes M35 parent/child race; 5 command files drop "Run /clear" STOP; 1226/1226 tests |
 | M35 Runway-Protected Execution | 2.76.10 | 2026-04-15 | v2.76.10 | Removed silent quality degradation; surgical per-phase model selection; pre-flight runway estimator with headless auto-spawn; 18-field per-spawn token telemetry; detect-only optimization backlog; 985/985 tests |
 | M34 Context Meter | 2.75.10 | 2026-04-14 | v2.75.10 | Real context-window measurement via Anthropic count_tokens API; replaces task-counter proxy entirely; 941/941 tests |
 

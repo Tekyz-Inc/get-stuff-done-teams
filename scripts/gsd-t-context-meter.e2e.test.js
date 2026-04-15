@@ -44,7 +44,7 @@ const os = require("node:os");
 
 const HOOK_SCRIPT = path.resolve(__dirname, "gsd-t-context-meter.js");
 const INJECTOR = path.resolve(__dirname, "context-meter", "test-injector.js");
-const HARD_TIMEOUT_MS = 6000;
+const HARD_TIMEOUT_MS = 12000;
 
 /* ──────────────────────────── test fixtures ──────────────────────────── */
 

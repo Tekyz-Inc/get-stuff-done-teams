@@ -2,7 +2,11 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
-## [2.77.0] - 2026-04-15
+## [3.10.10] - 2026-04-15
+
+### Major version bump: 2.x → 3.x
+
+M36 ships the third pillar of the context/runway/autonomy arc (M34 context meter → M35 no-silent-degradation → M36 unattended supervisor). Cumulatively these three milestones are substantial enough to mark a new major version. No breaking API changes — existing commands and contracts continue to work — but v3.x establishes "unattended-capable" as the default expectation for the harness. Semver major bump also aligns with the "always 2-digit minor and patch" display convention (Minor and Patch start at 10 after a major reset).
 
 ### M36: Unattended Supervisor — Zero-Human-Intervention Milestone Execution
 
@@ -43,7 +47,7 @@ All notable changes to GSD-T are documented here. Updated with each release.
 
 ### Migration
 
-After `npm install @tekyzinc/gsd-t@2.77.0`, run `/user:gsd-t-version-update-all` to propagate v2.77.0 to all registered projects. The new command files, `bin/` modules, and contract are written into each project automatically. No existing `.gsd-t/` state is modified.
+After `npm install @tekyzinc/gsd-t@3.10.10`, run `/user:gsd-t-version-update-all` to propagate v3.10.10 to all registered projects. The new command files, `bin/` modules, and contract are written into each project automatically. No existing `.gsd-t/` state is modified.
 
 ---
 

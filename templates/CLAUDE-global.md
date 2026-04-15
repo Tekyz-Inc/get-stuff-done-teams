@@ -401,7 +401,7 @@ KEEP GOING. Only stop for:
 3. Milestone completion (checkpoint for user review)
 4. Destructive actions (see Destructive Action Guard above — ALWAYS stop)
 
-## Unattended Execution (M36, v2.77.0+)
+## Unattended Execution (M36, v3.10.10+)
 
 `/user:gsd-t-unattended` launches a detached OS-process supervisor that drives the active milestone to completion over hours or days via a `claude -p` worker relay — each worker in a fresh context window. The interactive Claude session receives a 270-second ScheduleWakeup watch loop (`/user:gsd-t-unattended-watch`) that ticks and prints progress until the supervisor reaches a terminal state.
 

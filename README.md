@@ -320,7 +320,7 @@ your-project/
 
 ---
 
-## Unattended Execution (M36 — v2.77.0+)
+## Unattended Execution (M36 — v3.10.10+)
 
 Run the active milestone to completion over hours or days — no human in the loop.
 
