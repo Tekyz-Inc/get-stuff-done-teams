@@ -2,6 +2,51 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [2.77.0] - 2026-04-15
+
+### M36: Unattended Supervisor — Zero-Human-Intervention Milestone Execution
+
+**Background**: M35 introduced headless auto-spawn to continue a single runway-exhausted session in a fresh context. M36 generalizes this into a first-class long-running supervisor: a detached OS-level process that drives the active GSD-T milestone to completion over hours or days via a `claude -p` worker relay. Each worker runs in its own fresh context window; the supervisor survives terminal close, `/clear`, and sleep/wake cycles. A 270-second ScheduleWakeup watch loop in the interactive session provides live status without blocking the user.
+
+### Added
+
+- **`bin/gsd-t-unattended.js`** — detached supervisor process. Spawns `claude -p` workers in a relay, writes atomic `state.json` between iterations, manages `supervisor.pid` lifecycle, invokes safety rails at hook points, sends OS notifications on terminal transitions (macOS `osascript`; silent no-op on other platforms), and removes its own PID file on any exit. Singleton: a second launch with a live PID refuses.
+- **`bin/gsd-t-unattended-safety.js`** — safety rails module. Exports: `checkGitBranch` (protected branch list; configurable), `checkWorktreeCleanliness` (dirty-tree guard with whitelist), `checkIterationCap`, `checkWallClockCap`, `validateState`, `detectBlockerSentinel` (scan run.log tail for unrecoverable/dispatch-failed patterns), `detectGutter` (repeated-error / file-thrash / no-progress stall detection). Each check returns `{ ok, reason?, code? }`.
+- **`bin/gsd-t-unattended-platform.js`** — platform abstraction. Exports: `spawnSupervisor` (detached spawn with `windowsHide`), `preventSleep` / `releaseSleep` (`caffeinate -i` on darwin; no-op on linux/win32), `sendNotification` (osascript on darwin; `notify-send` on linux; toast via PowerShell on win32 — all graceful no-op on failure), `resolveClaudeBin` (`claude.cmd` on win32; `claude` elsewhere + PATH search), `getPlatform`.
+- **`bin/handoff-lock.js`** — parent/child race guard for headless-auto-spawn. Writes `.gsd-t/.handoff/{session-id}.lock` before detaching; child removes on first iteration. Prevents the parent from reporting "failed" while the child is still starting. Exports: `acquireLock`, `releaseLock`, `waitForRelease`, `isLocked`.
+- **`commands/gsd-t-unattended.md`** — `/user:gsd-t-unattended` launch command. Pre-flights (singleton check, safety rails, active milestone), spawns the supervisor via `bin/gsd-t-unattended-platform.js`, polls for `supervisor.pid` + `status=running` (up to 5s), prints the initial watch block, calls `ScheduleWakeup(270, '/user:gsd-t-unattended-watch')`.
+- **`commands/gsd-t-unattended-watch.md`** — `/user:gsd-t-unattended-watch` watch tick. Stateless; reads `supervisor.pid` + `state.json`; renders progress or final summary; reschedules via `ScheduleWakeup(270, ...)` on non-terminal status; stops on terminal status or missing PID file.
+- **`commands/gsd-t-unattended-stop.md`** — `/user:gsd-t-unattended-stop` stop command. Touches `.gsd-t/.unattended/stop` sentinel; prints reassurance; returns immediately (no kill, no wait).
+- **`.gsd-t/contracts/unattended-supervisor-contract.md` v1.0.0 ACTIVE** — authoritative interface for state file schema (18 fields), PID file lifecycle, sentinel semantics, exit codes 0–8+124, launch handshake, watch tick decision tree, resume auto-reattach handshake, stop mechanism, notification levels, safety rails hook points, and configuration file schema.
+- **`docs/unattended-windows-caveats.md`** — known Windows limitations: sleep-prevention not supported (no `caffeinate` equivalent wired; `powercfg /requests` path is v2), `claude.cmd` wrapper adds ~500ms per spawn, Windows Defender may scan each worker spawn, notification via PowerShell toast requires non-interactive shell workaround.
+- **`.claude/settings.json`** (project-shared) — SessionStart hook registered: `node bin/check-headless-sessions.js . 2>/dev/null || true` surfaces completed headless session banners on session start.
+
+### Changed
+
+- **`commands/gsd-t-wave.md`** — "Run /clear" STOP block removed from the runway-exceeded handoff path. The command now calls `autoSpawnHeadless()` seamlessly; user never sees a manual-intervention prompt under normal runway overflow.
+- **`commands/gsd-t-execute.md`**, **`gsd-t-quick.md`**, **`gsd-t-integrate.md`**, **`gsd-t-debug.md`** — same "Run /clear" prompt removal; headless auto-spawn wired in.
+- **`commands/gsd-t-resume.md`** — new Step 0 "Unattended Supervisor Auto-Reattach": checks `supervisor.pid`; if live and non-terminal, skips normal resume and re-starts the watch loop. New Step 0.2 "Handoff Lock Wait": polls until `.gsd-t/.handoff/*.lock` is released (headless child has taken ownership) before proceeding.
+
+### Fixed
+
+- **`bin/gsd-t.js` headless dispatch** (Phase 0 P0, committed prior milestone): `mapHeadlessExitCode` now maps `"Unknown command:"` in worker stdout → exit code 5 (`command-dispatch-failed`). Worker invocation no longer prepends `/user:` to command names, preventing "Unknown command:" failures in non-interactive `claude -p` sessions.
+
+### Tests
+
+- `test/unattended-supervisor.test.js` — 42 tests: happy-path relay, gutter halt, stop sentinel, dispatch-failure halt, crash detection, dirty-tree pre-flight refusal.
+- `test/unattended-safety.test.js` — 18 tests: each check function, combined pre-flight, gutter threshold config.
+- `test/unattended-platform.test.js` — 14 tests: platform detection, spawn flags, sleep-prevention no-op on linux, claude binary resolution.
+- `test/handoff-lock.test.js` — 16 tests: acquire/release, race prevention, waitForRelease timeout, stale lock cleanup.
+- `test/headless-auto-spawn.test.js` — +9 tests (new handoff-lock integration cases added to existing suite).
+- `test/filesystem.test.js` — counts updated to reflect new files (+6 bin files, +3 command files, +1 docs file).
+- **Total**: 1146 → 1226 (+80 new tests).
+
+### Migration
+
+After `npm install @tekyzinc/gsd-t@2.77.0`, run `/user:gsd-t-version-update-all` to propagate v2.77.0 to all registered projects. The new command files, `bin/` modules, and contract are written into each project automatically. No existing `.gsd-t/` state is modified.
+
+---
+
 ## [2.76.10] - 2026-04-15
 
 ### M35: Runway-Protected Execution — Aggressive Pause-Resume Replaces Graduated Degradation

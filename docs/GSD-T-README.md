@@ -114,6 +114,9 @@ GSD-T reads all state files and tells you exactly where you left off.
 
 | Command | Purpose | Auto |
 |---------|---------|------|
+| `/user:gsd-t-unattended` | Launch detached supervisor — runs active milestone to completion with zero human intervention | Manual |
+| `/user:gsd-t-unattended-watch` | Watch tick — fires every 270s via ScheduleWakeup, reports supervisor status | Auto |
+| `/user:gsd-t-unattended-stop` | Touch stop sentinel — supervisor halts after current worker finishes | Manual |
 | `/user:gsd-t-wave` | Full cycle, auto-advances all phases | Manual |
 | `/user:gsd-t-status` | Cross-domain progress view with token breakdown, global ELO and cross-project rankings | Manual |
 | `/user:gsd-t-resume` | Restore context, continue | Manual |
@@ -283,6 +286,20 @@ GSD-T auto-detects your project's tech stack and injects mandatory best-practice
 ### Extending
 
 Drop a `.md` file into `templates/stacks/` to add a new stack. Files prefixed with `_` are universal (always injected). Files without a prefix are stack-specific (injected only when detected). If the `stacks/` directory is missing, detection skips silently — no error.
+
+---
+
+## Unattended Execution (M36)
+
+Run the active milestone to completion over hours or days with zero human intervention. The unattended supervisor is an OS-level process that spawns `claude -p` workers in a relay — each worker runs in a fresh context window, completing one round of wave tasks before handing off to the next. The supervisor survives `/clear`, terminal close, and sleep/wake cycles (macOS/Linux; see `docs/unattended-windows-caveats.md` for Windows).
+
+**Relay model**: Each iteration spawns a fresh `claude -p` session with a compact prompt derived from `.gsd-t/progress.md` state. The supervisor waits for the worker to exit, records the exit code in `state.json`, runs safety checks (gutter detection, blocker sentinel scan), and spawns the next worker. Workers never overlap. Context rot is impossible — each worker starts clean.
+
+**Watch loop**: `/user:gsd-t-unattended` starts an in-session ScheduleWakeup loop that ticks every 270 seconds. Each tick reads `state.json` and `supervisor.pid` to render a live progress block. When the supervisor reaches a terminal state (`done`, `failed`, `stopped`), the watch loop stops rescheduling and prints a final summary. A `/clear` + `/user:gsd-t-resume` transparently re-attaches: the resume command checks for a live `supervisor.pid` and re-starts the watch loop automatically.
+
+**Safety rails**: Branch protection (refuses to run on `main`/`master`/`release/*` by default), dirty-tree check (whitelists GSD-T runtime files), per-iteration gutter detection (repeated error patterns, file thrash, no-progress stall), wall-clock and iteration caps, and a blocker sentinel that halts on unrecoverable worker errors.
+
+**Contract**: `.gsd-t/contracts/unattended-supervisor-contract.md` v1.0.0 is the authoritative reference for the state file schema, exit codes, CLI surface, and platform matrix.
 
 ---
 

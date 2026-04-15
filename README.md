@@ -10,6 +10,7 @@ A methodology for reliable, parallelizable development using Claude Code with op
 **Protects existing work** — destructive action guard prevents schema drops, architecture replacements, and data loss without explicit approval.
 **Visualizes execution in real time** — live browser dashboard renders agent hierarchy, tool activity, and phase progression from the event stream.
 **Generates visual scan reports** — every `/gsd-t-scan` produces a self-contained HTML report with 6 live architectural diagrams, a tech debt register, and domain health scores; optional DOCX/PDF export via `--export docx|pdf`.
+**Unattended execution** — `gsd-t unattended --hours=N` spawns a detached OS-process supervisor that drives the active milestone to completion over hours or days with zero human intervention. A ScheduleWakeup watch loop ticks every 270 seconds; `/clear` + resume transparently re-attaches to the running supervisor.
 **Self-learning rule engine** — declarative rules in rules.jsonl detect failure patterns from task metrics. Candidate patches progress through a 5-stage lifecycle (candidate, applied, measured, promoted, graduated) with >55% improvement gates before becoming permanent methodology artifacts.
 **Cross-project learning** — proven rules propagate to `~/.claude/metrics/` and sync across all registered projects via `update-all`. Rules validated in 3+ projects become universal; 5+ projects qualify for npm distribution. Cross-project signal comparison and global ELO rankings available via `gsd-t-metrics --cross-project` and `gsd-t-status`.
 **Stack Rules Engine** — auto-detects project tech stack (React, TypeScript, Node API, Python, Go, Rust) from manifest files and injects mandatory best-practice rules into subagent prompts at execute-time. Universal security rules always apply; stack-specific rules layer on top. Includes **design-to-code** rules for pixel-perfect frontend implementation from Figma, screenshots, or design images — with Figma MCP integration, design token extraction, stack capability evaluation, and mandatory visual verification: every screen is rendered in a real browser, screenshotted at mobile/tablet/desktop, and compared pixel-by-pixel against the Figma design. Auto-bootstraps during partition when design references are detected. Extensible: drop a `.md` file in `templates/stacks/` to add a new stack.
@@ -175,6 +176,14 @@ This will replace changed command files, back up your CLAUDE.md if customized, a
 | `/user:gsd-t-verify` | Run quality gates + goal-backward behavior verification | In wave |
 | `/user:gsd-t-complete-milestone` | Archive + git tag (goal-backward gate required) | In wave |
 
+### Unattended Execution
+
+| Command | Purpose | Auto |
+|---------|---------|------|
+| `/user:gsd-t-unattended` | Launch detached supervisor — runs active milestone to completion with zero human intervention | Manual |
+| `/user:gsd-t-unattended-watch` | Watch tick — fires every 270s via ScheduleWakeup, reports supervisor status | Auto |
+| `/user:gsd-t-unattended-stop` | Touch stop sentinel — supervisor halts after current worker finishes | Manual |
+
 ### Automation & Utilities
 
 | Command | Purpose | Auto |
@@ -308,6 +317,43 @@ your-project/
 - **HTTP responses** are bounded at 1MB to prevent memory exhaustion from oversized registry responses.
 - **Directory creation** validates parent path components for symlinks to prevent path traversal.
 - Run `gsd-t doctor` to verify installation integrity. Keep GSD-T updated with `gsd-t update`.
+
+---
+
+## Unattended Execution (M36 — v2.77.0+)
+
+Run the active milestone to completion over hours or days — no human in the loop.
+
+```bash
+# Launch from the CLI (detached OS process)
+gsd-t unattended --hours=24
+
+# Or from within Claude Code (starts a 270s watch loop)
+/user:gsd-t-unattended
+
+# Stop (graceful — supervisor halts after the current worker finishes)
+/user:gsd-t-unattended-stop
+```
+
+**How it works:**
+
+- `gsd-t unattended` spawns `bin/gsd-t-unattended.js` as a fully detached OS process. The supervisor runs `claude -p` workers in a relay — one worker per iteration — each in a fresh context window. State is written atomically to `.gsd-t/.unattended/state.json` between iterations.
+- `/user:gsd-t-unattended` does the same from inside Claude Code, then calls `ScheduleWakeup(270, '/user:gsd-t-unattended-watch')` to start an in-session watch loop that ticks every 270 seconds and prints progress.
+- If you run `/clear` + `/user:gsd-t-resume` during a live run, the resume command auto-detects the running supervisor and re-attaches the watch loop — no re-launch needed.
+- The supervisor halts automatically when: the milestone reaches COMPLETED status, the `--hours` wall-clock cap expires, `--max-iterations` is reached, safety rails detect a stall or unrecoverable error, or the stop sentinel is touched.
+
+**Platform support:** macOS and Linux fully supported (including sleep-prevention via `caffeinate` on macOS). Windows is supported except sleep-prevention. See `docs/unattended-windows-caveats.md` for known Windows limitations.
+
+**Key flags:**
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--hours=N` | 24  |  Wall-clock cap |
+| `--max-iterations=N` | 200 | Iteration cap |
+| `--milestone=NAME` | (current) | Override active milestone |
+| `--dry-run` | false | Preflight only — no spawn |
+
+**State files** live under `.gsd-t/.unattended/`: `supervisor.pid`, `state.json`, `run.log`, `stop` (sentinel). Authoritative field definitions: `.gsd-t/contracts/unattended-supervisor-contract.md` v1.0.0.
 
 ---
 

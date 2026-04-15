@@ -68,6 +68,9 @@ PROJECT or FEATURE or SCAN
 | `/user:gsd-t-resume` | Restore context, continue |
 | `/user:gsd-t-version-update` | Update GSD-T to latest version |
 | `/user:gsd-t-version-update-all` | Update GSD-T + all registered projects |
+| `/user:gsd-t-unattended` | Launch detached supervisor — runs active milestone to completion with zero human intervention |
+| `/user:gsd-t-unattended-watch` | Watch tick — fires every 270s via ScheduleWakeup, reports supervisor status |
+| `/user:gsd-t-unattended-stop` | Touch stop sentinel — supervisor halts after current worker finishes |
 | `/user:gsd-t-triage-and-merge` | Auto-review, merge, and publish GitHub branches |
 | `/user:gsd-t-audit` | Harness self-audit — analyze cost/benefit of enforcement components |
 | `/user:gsd-t-design-audit` | Compare built screen against Figma design — structured deviation report |
@@ -397,6 +400,15 @@ KEEP GOING. Only stop for:
 2. Ambiguity that fundamentally changes project direction
 3. Milestone completion (checkpoint for user review)
 4. Destructive actions (see Destructive Action Guard above — ALWAYS stop)
+
+## Unattended Execution (M36, v2.77.0+)
+
+`/user:gsd-t-unattended` launches a detached OS-process supervisor that drives the active milestone to completion over hours or days via a `claude -p` worker relay — each worker in a fresh context window. The interactive Claude session receives a 270-second ScheduleWakeup watch loop (`/user:gsd-t-unattended-watch`) that ticks and prints progress until the supervisor reaches a terminal state.
+
+- **Resume re-attach**: `/user:gsd-t-resume` checks for a live `supervisor.pid`; if the supervisor is still running, it skips normal resume and re-starts the watch loop automatically.
+- **Stop**: `/user:gsd-t-unattended-stop` touches `.gsd-t/.unattended/stop`; supervisor halts after the current worker finishes.
+- **Contract**: `.gsd-t/contracts/unattended-supervisor-contract.md` v1.0.0 — authoritative for state schema, exit codes, CLI flags, and platform matrix.
+- **Platform**: macOS and Linux fully supported. Windows supported except sleep-prevention (see `docs/unattended-windows-caveats.md`).
 
 ## Pre-Commit Gate (MANDATORY)
 

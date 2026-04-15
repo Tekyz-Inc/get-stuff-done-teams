@@ -272,6 +272,83 @@ QA runs inline or as Task subagent depending on phase (M10 refactor). Removed fr
 - **Resource limits**: Heartbeat stdin capped at 1MB, HTTP responses capped at 1MB (M5), 5s/8s timeouts, 7-day file cleanup
 - **Wave security**: `bypassPermissions` mode documented with attack surface analysis and mitigations (M5)
 
+## Unattended Supervisor (M36)
+
+The unattended supervisor is a cross-session relay engine that runs an active GSD-T milestone to completion over hours or days without human intervention. It spans the boundary between the interactive Claude session and the OS process layer.
+
+### Component Diagram
+
+```
+Interactive Claude session
+  └── /user:gsd-t-unattended (launch command)
+        ├── Pre-flight safety checks (branch, dirty tree)
+        └── spawn(detached) → Supervisor process (bin/gsd-t-unattended.js)
+                               ├── writes .gsd-t/.unattended/supervisor.pid
+                               ├── writes .gsd-t/.unattended/state.json  (atomic rewrite each iter)
+                               ├── appends .gsd-t/.unattended/run.log    (worker stdout+stderr)
+                               ├── checks .gsd-t/.unattended/stop        (sentinel — presence = halt)
+                               └── relay loop:
+                                    spawnSync('claude -p "/gsd-t-resume"')
+                                      → worker exits → post-worker safety check → next iter
+
+In-session watch loop (every 270s via ScheduleWakeup)
+  └── /user:gsd-t-unattended-watch
+        ├── reads supervisor.pid  (kill -0 liveness)
+        ├── reads state.json      (status, iter, lastTick)
+        └── reschedules or reports final status
+```
+
+### State Directory Layout
+
+```
+.gsd-t/.unattended/
+├── supervisor.pid   — Integer PID. Exists ONLY while supervisor is alive.
+├── state.json       — Live state snapshot. Atomically rewritten between iterations.
+├── run.log          — Append-only worker stdout+stderr. Never truncated during a run.
+├── stop             — Sentinel file. Absence = run. Presence = user-requested stop.
+└── config.json      — Optional per-project config overrides (maxIterations, hours, etc.)
+```
+
+Sibling: `.gsd-t/.handoff/` — owned by M35-gap-fixes for single-shot handoff locks (see below).
+
+### Contract
+
+`.gsd-t/contracts/unattended-supervisor-contract.md` v1.0.0 — authoritative source for: state schema, status enum, exit-code table, launch handshake, watch tick decision tree, resume auto-reattach handshake, stop mechanism, safety-rails hook points, and CLI surface.
+
+### Platform Abstraction Layer (`bin/gsd-t-unattended-platform.js`)
+
+Exports four cross-platform functions:
+
+| Export | macOS | Linux | Windows |
+|--------|-------|-------|---------|
+| `spawnSupervisor(args)` | `spawn(node, ...)` detached | same | same (`windowsHide:true`) |
+| `preventSleep()` | `caffeinate -i` subprocess | `systemd-inhibit` or no-op | no-op (not supported — see docs/unattended-windows-caveats.md) |
+| `releaseSleep(handle)` | kill caffeinate PID | release inhibit or no-op | no-op |
+| `notify(title, msg, level)` | `osascript` | `notify-send` | no-op |
+| `resolveClaudePath()` | PATH lookup | PATH lookup | `claude.cmd` via PATH |
+
+### Safety Rails (`bin/gsd-t-unattended-safety.js`)
+
+Called at four supervisor hook points (pre-launch, supervisor-init, pre-worker, post-worker):
+
+- **Gutter detection**: stall pattern — repeated identical errors or no file changes for N iterations
+- **Blocker sentinels**: scan worker stdout for unrecoverable-error markers (`BLOCKED_NEEDS_HUMAN`, `DISPATCH_FAILED`)
+- **Iteration cap**: `maxIterations` guard (default 200)
+- **Wall-clock cap**: `hours` guard (default 24h)
+- **Branch/dirty-tree pre-flight**: refuses to start on protected branches or uncleaned worktrees
+
+Each check returns `{ ok, reason?, code? }`. A `false` result halts with `status = 'failed'` and the corresponding exit code (6=gutter, 7=protected-branch, 8=dirty-tree).
+
+### Handoff-Lock Primitive (`bin/handoff-lock.js`)
+
+Closes the M35 parent/child race in `bin/headless-auto-spawn.js`. When the runway estimator fires `autoSpawnHeadless()`, the parent session writes a lock file in `.gsd-t/.handoff/` before spawning the child and removes it only after the child has confirmed PID + state-ready. Prevents the child from beginning execution before the parent has cleanly exited — eliminating the race where both sessions wrote to the same `.gsd-t/` files simultaneously.
+
+### Resume Auto-Reattach
+
+`/user:gsd-t-resume` Step 0 checks for a live supervisor before any other resume logic. If `supervisor.pid` exists and `kill -0` succeeds and `state.json.status` is non-terminal, the resume command skips normal resume flow entirely, prints the current watch block, and calls `ScheduleWakeup(270, '/user:gsd-t-unattended-watch', ...)`. The user transparently re-enters the watch loop without any manual step.
+
+---
+
 ## Design Decisions
 
 | Date | Decision | Rationale | Alternatives Considered |

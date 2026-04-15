@@ -312,6 +312,110 @@ Read-only surface onto the token telemetry stream. Backward-compatible with pre-
 
 When a sonnet-default phase hits a complexity signal that warrants opus (e.g., cross-module refactor detected mid-execution), the command may emit an `/advisor` hook line in its output — a structured suggestion for the orchestrator to escalate the **next** spawn of that phase to opus. This is a plan-time signal, not a runtime swap: the current spawn completes at its assigned tier, and the escalation applies to subsequent work. See `.gsd-t/contracts/model-selection-contract.md` for the hook schema.
 
+## Unattended Supervisor Setup (M36)
+
+The unattended supervisor runs an active GSD-T milestone to completion in a detached OS process — no terminal needed, no human intervention required.
+
+### Quick Start
+
+```bash
+# From within an interactive Claude session:
+/user:gsd-t-unattended
+
+# From the terminal (detached — returns immediately):
+gsd-t unattended --hours=24 --milestone=M36
+
+# Watch current run status (in-session, 270s tick):
+/user:gsd-t-unattended-watch
+
+# Request a graceful stop:
+/user:gsd-t-unattended-stop
+```
+
+### CLI Flags
+
+```
+gsd-t unattended [OPTIONS]
+  --hours=24              Wall-clock cap in hours (default: 24)
+  --max-iterations=200    Worker iteration cap (default: 200)
+  --project=.             Project directory (default: cwd)
+  --branch=AUTO           Branch to run on; AUTO = current non-protected branch
+  --on-done=print         Terminal action: print | merge-commit (merge-commit is v2)
+  --dry-run               Preflight only; no spawn
+  --verbose               Extra log detail
+  --test-mode             Uses stub worker; for CI and smoke tests
+```
+
+### Config File (optional)
+
+`.gsd-t/unattended-config.json` — per-project overrides. Absence = hardcoded defaults.
+
+```json
+{
+  "hours": 24,
+  "maxIterations": 200,
+  "gutterNoProgressIters": 5,
+  "workerTimeoutMs": 3600000,
+  "protectedBranches": ["main", "master", "develop", "trunk"],
+  "dirtyTreeWhitelist": [".gsd-t/.unattended/*", ".gsd-t/events/*.jsonl"]
+}
+```
+
+### State Files
+
+| File | Purpose |
+|------|---------|
+| `.gsd-t/.unattended/supervisor.pid` | Integer PID. Exists only while supervisor is alive. |
+| `.gsd-t/.unattended/state.json` | Live state snapshot — status, iter, milestone, lastTick, etc. Full schema in `unattended-supervisor-contract.md`. |
+| `.gsd-t/.unattended/run.log` | Append-only worker stdout+stderr. Never truncated during a run. |
+| `.gsd-t/.unattended/stop` | Sentinel — touching this file requests a graceful stop. |
+| `.gsd-t/.unattended/config.json` | Optional per-project config overrides (same keys as CLI flags). |
+
+### Required Platform Helpers
+
+| Platform | Sleep Prevention | Notifications |
+|----------|-----------------|---------------|
+| macOS | `caffeinate` (built-in) | `osascript` (built-in) |
+| Linux | `systemd-inhibit` or no-op | `notify-send` (install via `apt`/`dnf`) |
+| Windows | NOT supported — see `docs/unattended-windows-caveats.md` | no-op |
+
+macOS and Linux work out of the box on standard installs. Windows can run the supervisor but the machine may sleep mid-run.
+
+### Contract
+
+`.gsd-t/contracts/unattended-supervisor-contract.md` v1.0.0 — authoritative state schema, exit-code table, status enum, launch/resume handshakes.
+
+### Troubleshooting
+
+**Supervisor won't start**
+- Check `.gsd-t/.unattended/run.log` for error output
+- Run `gsd-t unattended --dry-run` to run pre-flight checks without spawning
+- Verify no protected branch: `git branch --show-current`
+
+**"Already running" error**
+```bash
+# Verify supervisor is actually alive:
+kill -0 $(cat .gsd-t/.unattended/supervisor.pid) && echo "alive" || echo "stale PID"
+
+# If stale, remove PID file:
+rm .gsd-t/.unattended/supervisor.pid
+
+# Or request a graceful stop:
+/user:gsd-t-unattended-stop
+# (or) touch .gsd-t/.unattended/stop
+```
+
+**Watch loop stopped firing**
+- Re-invoke `/user:gsd-t-resume` from a fresh session
+- Step 0 auto-reattach reads `supervisor.pid` — if the supervisor is still alive, it re-enters the watch loop automatically (no manual steps needed)
+
+**Supervisor crashed mid-run**
+- The watch loop detects crash via `kill -0` failure
+- Check `.gsd-t/.unattended/run.log` and final `state.json` for diagnostics
+- Resume normally with `/user:gsd-t-resume` — the milestone continues from its last checkpoint
+
+---
+
 ## Security Notes
 
 - Zero npm dependencies — no supply chain risk

@@ -254,6 +254,15 @@
 | REQ-076 | Optimization backlog — detect only, never auto-apply, user promotes or rejects | optimization-backlog | T1–T4 | complete (Wave 4) |
 | REQ-077 | Headless auto-spawn on runway refusal — user never sees a `/clear` prompt | headless-auto-spawn | T1–T5 | complete (Waves 3–4) |
 | REQ-078 | Structural elimination of native compact messages — `halt_type: native-compact` count is 0 during M35 execution | runway-estimator + headless-auto-spawn | T1–T5 (RE), T1–T5 (HAS) | complete (Wave 5) |
+| REQ-079 | `gsd-t unattended` CLI subcommand runs an active milestone to completion unattended on macOS and Linux (24h+ multi-worker relay, detached OS process) | m36-supervisor-core | T1–T5 | complete (M36 Wave 1–2) |
+| REQ-080 | `/user:gsd-t-unattended` slash command launches the supervisor from within a Claude session without blocking the terminal | m36-supervisor-core + m36-watch-loop | T1, T3 | complete (M36 Wave 1–3) |
+| REQ-081 | In-session watch loop ticks every 270s via `ScheduleWakeup` (inside 5-min prompt-cache TTL) to report live supervisor state | m36-watch-loop | T1–T2 | complete (M36 Wave 3) |
+| REQ-082 | `/clear` + `/user:gsd-t-resume` during a live unattended run transparently re-attaches to the watch loop (Step 0 auto-reattach, no user-visible disruption) | m36-watch-loop | T4 | complete (M36 Wave 3) |
+| REQ-083 | Supervisor survives `/compact` and context resets — each worker is a fresh `claude -p` session; context exhaustion is structurally irrelevant | m36-supervisor-core | T1–T5 | complete (M36 Wave 1–2) |
+| REQ-084 | Safety rails prevent infinite loops: gutter detection, blocker sentinels (`BLOCKED_NEEDS_HUMAN`, `DISPATCH_FAILED`), max-hours and max-iterations timeouts | m36-safety-rails | T1–T5 | complete (M36 Wave 2) |
+| REQ-085 | Cross-platform support — macOS (caffeinate sleep-prevention) + Linux (systemd-inhibit or no-op) + Windows (claude.cmd via PATH; sleep-prevention not supported — see docs/unattended-windows-caveats.md) | m36-cross-platform | T1–T5 | complete (M36 Wave 2) |
+| REQ-086 | Handoff-lock primitive (`bin/handoff-lock.js`) eliminates parent/child race in `headless-auto-spawn.js` runway handoffs (M35 gap fix) | m36-m35-gap-fixes | T1–T3 | complete (M36 Wave 2) |
+| REQ-087 | 5 command files no longer emit "Run /clear" STOP — runway-exceeded handoff auto-invokes `autoSpawnHeadless()` seamlessly (M35 gap fix) | m36-m35-gap-fixes | T3 | complete (M36 Wave 3) |
 
 **M35 Functional Requirements:**
 - **REQ-069**: `bin/token-budget.js` `getDegradationActions()` must return `{band: 'normal'|'warn'|'stop', pct: number, message: string}` only. No `modelOverride`, no `skipPhases`, no `checkpoint` side-channel.
@@ -275,6 +284,26 @@
 
 **Orphaned requirements**: None — all M35 REQs mapped to tasks.
 **Unanchored tasks**: None — all 38 M35 tasks trace to REQ-069–REQ-078 or REQ-063–068 (existing requirements that M35 code continues to satisfy).
+
+**M36 Functional Requirements:**
+- **REQ-079**: `bin/gsd-t-unattended.js` implements the supervisor relay loop: spawn worker → await exit → post-worker safety check → next iter. State written atomically to `.gsd-t/.unattended/state.json`. Contract: `unattended-supervisor-contract.md` v1.0.0.
+- **REQ-080**: `commands/gsd-t-unattended.md` pre-flights branch + dirty tree, spawns supervisor detached, polls for PID readiness, displays initial watch block, and calls `ScheduleWakeup(270, '/user:gsd-t-unattended-watch')`.
+- **REQ-081**: `commands/gsd-t-unattended-watch.md` implements the watch tick decision tree (§8 of contract): reads PID → liveness probe → reads state.json → reschedule or terminal report.
+- **REQ-082**: `commands/gsd-t-resume.md` Step 0 checks `supervisor.pid` before any other resume logic. If live + non-terminal: skip normal resume, print watch block, call `ScheduleWakeup(270, '/user:gsd-t-unattended-watch')`.
+- **REQ-083**: Supervisor relay architecture ensures each worker gets a fresh context window. No compaction state carries over between workers — only `.gsd-t/` milestone state files.
+- **REQ-084**: `bin/gsd-t-unattended-safety.js` exports: `checkGitBranch`, `checkWorktreeCleanliness`, `validateState`, `checkIterationCap`, `checkWallClockCap`, `detectBlockerSentinel`, `detectGutter`. Called at all 4 supervisor hook points.
+- **REQ-085**: `bin/gsd-t-unattended-platform.js` exports: `spawnSupervisor`, `preventSleep`, `releaseSleep`, `notify`, `resolveClaudePath`. Windows: `preventSleep` is a documented no-op. Windows caveats documented in `docs/unattended-windows-caveats.md`.
+- **REQ-086**: `bin/handoff-lock.js` exports: `acquireLock(dir)`, `releaseLock(dir)`, `isLocked(dir)`. Used in `bin/headless-auto-spawn.js` `autoSpawnHeadless()` to guard the parent-exits-before-child-starts window.
+- **REQ-087**: `commands/gsd-t-execute.md`, `gsd-t-wave.md`, `gsd-t-integrate.md`, `gsd-t-quick.md`, `gsd-t-debug.md` — runway-exceeded path calls `autoSpawnHeadless()` and exits cleanly. No "Run /clear" instruction emitted.
+
+**M36 Non-Functional Requirements:**
+- Zero external npm dependencies (all M36 bin/ modules use Node.js built-ins only)
+- Supervisor launch → PID-ready in < 5 seconds (poll timeout in launch command)
+- Worker spawn overhead: < 500ms before `claude -p` subprocess starts
+- Test count: 1146 → 1226 (+80 net new tests across 6 M36 domain test files)
+
+**Orphaned requirements**: None — all M36 REQs mapped to tasks.
+**Unanchored tasks**: None — all M36 tasks trace to REQ-079–REQ-087.
 
 ---
 
