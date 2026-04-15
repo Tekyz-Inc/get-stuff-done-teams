@@ -46,7 +46,7 @@ Before reading any continue-here file or state file, check if a parent process w
 node -e "
 const sessionId = process.env.CLAUDE_HEADLESS_SESSION_ID;
 if (!sessionId) { process.exit(0); }
-const hl = require('./bin/handoff-lock.js');
+const hl = require('./bin/handoff-lock.cjs');
 hl.waitForLockRelease('.', sessionId, 5000)
   .then(() => process.exit(0))
   .catch(e => { console.error('[resume] handoff lock wait timed out:', e.message); process.exit(0); });

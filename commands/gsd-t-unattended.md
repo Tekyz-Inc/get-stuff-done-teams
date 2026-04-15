@@ -243,7 +243,7 @@ Otherwise, run the actual spawn:
 ```bash
 node -e "
 const path = require('path');
-const { spawnSupervisor } = require('./bin/gsd-t-unattended-platform.js');
+const { spawnSupervisor } = require('./bin/gsd-t-unattended-platform.cjs');
 
 // Parse CLI args forwarded from the launch command
 const hours = parseInt(process.env.GSD_T_HOURS || '24', 10) || 24;
@@ -412,7 +412,7 @@ After the tool call, end the turn. The in-session watch loop takes over from her
 
 - **Singleton**: only one supervisor per project at a time. PID collision → refuse with "already running" message.
 - **Stale stop sentinel**: if `.gsd-t/.unattended/stop` exists from a prior run, Step 1d removes it before spawning.
-- **Platform helper**: uses `spawnSupervisor` from `bin/gsd-t-unattended-platform.js` — never hand-rolls `child_process.spawn` directly. This handles macOS/Linux/Windows differences.
+- **Platform helper**: uses `spawnSupervisor` from `bin/gsd-t-unattended-platform.cjs` — never hand-rolls `child_process.spawn` directly. This handles macOS/Linux/Windows differences.
 - **Dry-run**: `--dry-run` prints the would-be invocation without spawning. Useful for validating flags before a long overnight run.
 - **No doc ripple, no pre-commit gate**: this command spawns a background process; it does not modify any source files or contracts.
 - **watch command is stateless**: after this command returns, every `/user:gsd-t-unattended-watch` tick re-reads state from disk. There is no in-memory state to preserve.

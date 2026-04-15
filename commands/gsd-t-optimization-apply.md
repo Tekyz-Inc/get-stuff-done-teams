@@ -2,7 +2,7 @@
 
 Apply (promote) a pending recommendation from `.gsd-t/optimization-backlog.md`. Takes `$ARGUMENTS` as the recommendation ID (e.g., `M35-OPT-001`).
 
-Recommendations are produced by `bin/token-optimizer.js` at `complete-milestone` and are **never auto-applied**. This command is the user's deliberate promotion step.
+Recommendations are produced by `bin/token-optimizer.cjs` at `complete-milestone` and are **never auto-applied**. This command is the user's deliberate promotion step.
 
 ## Usage
 
@@ -25,7 +25,7 @@ Then exit.
 
 ```bash
 node -e "
-const opt = require('./bin/token-optimizer.js');
+const opt = require('./bin/token-optimizer.cjs');
 const content = opt.readBacklog('.');
 const entries = opt.parseBacklog(content);
 const id = process.argv[1];
@@ -58,7 +58,7 @@ At Autonomy Level 3: automatically choose option 1 (quick task) unless the recom
 
 ```bash
 node -e "
-const opt = require('./bin/token-optimizer.js');
+const opt = require('./bin/token-optimizer.cjs');
 let content = opt.readBacklog('.');
 content = opt.setRecommendationStatus(content, process.argv[1], {
   status: 'promoted'

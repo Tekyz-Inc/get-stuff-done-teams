@@ -515,7 +515,7 @@ After all quality gates pass and the milestone is archived, run the token optimi
 ```bash
 node -e "
 try {
-  const opt = require('./bin/token-optimizer.js');
+  const opt = require('./bin/token-optimizer.cjs');
   const recs = opt.detectRecommendations({projectDir: '.', lookbackMilestones: 3});
   opt.appendToBacklog(recs, '.');
   if (recs.length === 0) {

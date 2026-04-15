@@ -2,6 +2,23 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [3.10.15] - 2026-04-15
+
+### Fixed — bin tools not propagated to downstream projects (unattended launch fails)
+
+**Background**: The unattended supervisor (`/gsd-t-unattended`) and several other commands reference bin files via `require('./bin/<tool>.js')` resolved against the project cwd. These files only existed in the GSD-T source repo — downstream projects that use GSD-T as tooling (installed via npm) never received them because `PROJECT_BIN_TOOLS` only listed 5 of the 13 needed files. Additionally, `.js` files fail in downstream projects with `"type": "module"` in their `package.json`.
+
+### Changed
+- **`bin/gsd-t.js`** `PROJECT_BIN_TOOLS` — expanded from 5 to 13 entries. Now includes: `gsd-t-unattended.cjs`, `gsd-t-unattended-platform.cjs`, `gsd-t-unattended-safety.cjs`, `handoff-lock.cjs`, `headless-auto-spawn.cjs`, `runway-estimator.cjs`, `token-telemetry.cjs`, `token-optimizer.cjs` (plus existing 5).
+- **8 new `.cjs` files** created in `bin/` — copies of existing `.js` files with internal cross-requires updated to `.cjs` (e.g., `gsd-t-unattended.cjs` requires `./gsd-t-unattended-safety.cjs` instead of `.js`).
+- **15 command files updated** — all `require('./bin/<tool>.js')` calls switched to `.cjs` for the 8 newly-propagated tools: `gsd-t-execute`, `gsd-t-wave`, `gsd-t-quick`, `gsd-t-integrate`, `gsd-t-debug`, `gsd-t-doc-ripple`, `gsd-t-unattended`, `gsd-t-resume`, `gsd-t-status`, `gsd-t-complete-milestone`, `gsd-t-optimization-apply`, `gsd-t-optimization-reject`, `gsd-t-backlog-list`.
+- 1229/1229 tests pass.
+
+### Impact
+- `/gsd-t-unattended` can now launch from any downstream project (Tekyz-CRM, etc.)
+- Runway estimator, headless auto-spawn, and token telemetry brackets work in downstream projects
+- Token optimizer hooks in complete-milestone and backlog-list work in downstream projects
+
 ## [3.10.14] - 2026-04-15
 
 ### Fixed — transcript parser orphaned tool_use blocks cause count_tokens 400

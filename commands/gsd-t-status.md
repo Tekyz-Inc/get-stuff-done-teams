@@ -38,7 +38,7 @@ Immediately after the headless banner, surface the count of pending token-optimi
 ```bash
 node -e "
 try {
-  const opt = require('./bin/token-optimizer.js');
+  const opt = require('./bin/token-optimizer.cjs');
   const entries = opt.parseBacklog(opt.readBacklog('.'));
   const pending = entries.filter(e => e.status === 'pending').length;
   if (pending > 0) {

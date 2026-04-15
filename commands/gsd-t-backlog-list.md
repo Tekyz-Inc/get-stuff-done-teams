@@ -13,11 +13,11 @@ If `$ARGUMENTS` contains `--file {path}`, read from `.gsd-t/{path}` instead of t
 
 Also support `--status {pending|promoted|rejected}` when listing the optimization backlog — filters by the `**Status**:` field inside each H2 block.
 
-If `--file optimization-backlog.md` is supplied, use `bin/token-optimizer.js` parseBacklog() to parse entries, then render a simplified table with columns: ID, Type, Status, Evidence (truncated to 80 chars). Example:
+If `--file optimization-backlog.md` is supplied, use `bin/token-optimizer.cjs` parseBacklog() to parse entries, then render a simplified table with columns: ID, Type, Status, Evidence (truncated to 80 chars). Example:
 
 ```bash
 node -e "
-const opt = require('./bin/token-optimizer.js');
+const opt = require('./bin/token-optimizer.cjs');
 const entries = opt.parseBacklog(opt.readBacklog('.'));
 const statusFilter = process.argv[1] || '';
 const filtered = statusFilter

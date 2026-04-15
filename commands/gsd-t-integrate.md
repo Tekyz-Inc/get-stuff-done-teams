@@ -27,7 +27,7 @@ T0_PCT=$(node -e "try{const tb=require('./bin/token-budget.cjs');process.stdout.
 ```bash
 T1_TOKENS=$(node -e "try{const s=require('fs').readFileSync('.gsd-t/.context-meter-state.json','utf8');process.stdout.write(String(JSON.parse(s).inputTokens||0))}catch(_){process.stdout.write('0')}")
 T1_PCT=$(node -e "try{const tb=require('./bin/token-budget.cjs');process.stdout.write(String(tb.getSessionStatus('.').pct||0))}catch(_){process.stdout.write('0')}")
-node -e "require('./bin/token-telemetry.js').recordSpawn({timestamp:new Date().toISOString(),milestone:process.env.GSD_T_MILESTONE||'',command:'gsd-t-integrate',phase:'integrate',step:'${STEP:-}',domain:'${DOMAIN:-}',domain_type:'${DOMAIN_TYPE:-}',task:'${TASK:-}',model:'${MODEL:-sonnet}',duration_s:${DURATION:-0},input_tokens_before:${T0_TOKENS},input_tokens_after:${T1_TOKENS},tokens_consumed:${T1_TOKENS}-${T0_TOKENS},context_window_pct_before:${T0_PCT},context_window_pct_after:${T1_PCT},outcome:'${OUTCOME:-success}',halt_type:${HALT_TYPE:-null},escalated_via_advisor:${ESCALATED_VIA_ADVISOR:-false}})" 2>/dev/null || true
+node -e "require('./bin/token-telemetry.cjs').recordSpawn({timestamp:new Date().toISOString(),milestone:process.env.GSD_T_MILESTONE||'',command:'gsd-t-integrate',phase:'integrate',step:'${STEP:-}',domain:'${DOMAIN:-}',domain_type:'${DOMAIN_TYPE:-}',task:'${TASK:-}',model:'${MODEL:-sonnet}',duration_s:${DURATION:-0},input_tokens_before:${T0_TOKENS},input_tokens_after:${T1_TOKENS},tokens_consumed:${T1_TOKENS}-${T0_TOKENS},context_window_pct_before:${T0_PCT},context_window_pct_after:${T1_PCT},outcome:'${OUTCOME:-success}',halt_type:${HALT_TYPE:-null},escalated_via_advisor:${ESCALATED_VIA_ADVISOR:-false}})" 2>/dev/null || true
 ```
 
 The bracket is additive to the existing `.gsd-t/token-log.md` OBSERVABILITY LOGGING rows. Both sinks coexist.
@@ -38,7 +38,7 @@ Count the integration wiring seams in `.gsd-t/contracts/integration-points.md` a
 
 ```bash
 node -e "
-const r = require('./bin/runway-estimator.js').estimateRunway({
+const r = require('./bin/runway-estimator.cjs').estimateRunway({
   command: 'gsd-t-integrate',
   domain_type: '',
   remaining_tasks: {N},
@@ -48,7 +48,7 @@ console.log(JSON.stringify(r, null, 2));
 if (!r.can_start) {
   console.log('⛔ Insufficient runway — projected ' + r.projected_end_pct + '% (current ' + r.current_pct + '%, ' + r.pct_per_task + '%/task, ' + r.confidence + ' confidence, ' + r.confidence_basis + ' records)');
   console.log('Auto-spawning headless to continue in a fresh context.');
-  const s = require('./bin/headless-auto-spawn.js').autoSpawnHeadless({
+  const s = require('./bin/headless-auto-spawn.cjs').autoSpawnHeadless({
     command: 'gsd-t-integrate', args: [], continue_from: '.'
   });
   console.log('Session ID: ' + s.id);

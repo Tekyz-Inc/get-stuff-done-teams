@@ -1975,7 +1975,13 @@ function updateSingleProject(projectDir, counts) {
 // Bin tools that should ship with every registered project. Listed here so adding
 // a new tool only requires appending to this array. Use .cjs extension so they
 // always run as CommonJS regardless of the project's package.json "type" field.
-const PROJECT_BIN_TOOLS = ["archive-progress.cjs", "log-tail.cjs", "context-budget-audit.cjs", "context-meter-config.cjs", "token-budget.cjs"];
+const PROJECT_BIN_TOOLS = [
+  "archive-progress.cjs", "log-tail.cjs", "context-budget-audit.cjs",
+  "context-meter-config.cjs", "token-budget.cjs",
+  "gsd-t-unattended.cjs", "gsd-t-unattended-platform.cjs", "gsd-t-unattended-safety.cjs",
+  "handoff-lock.cjs", "headless-auto-spawn.cjs", "runway-estimator.cjs",
+  "token-telemetry.cjs", "token-optimizer.cjs",
+];
 
 function copyBinToolsToProject(projectDir, projectName) {
   const projectBinDir = path.join(projectDir, "bin");

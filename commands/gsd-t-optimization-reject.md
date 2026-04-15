@@ -28,7 +28,7 @@ Run `/user:gsd-t-backlog-list --file optimization-backlog.md` to see pending rec
 
 ```bash
 node -e "
-const opt = require('./bin/token-optimizer.js');
+const opt = require('./bin/token-optimizer.cjs');
 const content = opt.readBacklog('.');
 const entries = opt.parseBacklog(content);
 const id = process.argv[1];
@@ -54,7 +54,7 @@ The reason text defaults to "no reason given" when `--reason` is absent.
 ```bash
 REASON="${REASON:-no reason given}"
 node -e "
-const opt = require('./bin/token-optimizer.js');
+const opt = require('./bin/token-optimizer.cjs');
 let content = opt.readBacklog('.');
 content = opt.setRecommendationStatus(content, process.argv[1], {
   status: 'rejected',
@@ -87,7 +87,7 @@ Add a Decision Log entry to `.gsd-t/progress.md`:
 
 ## Cooldown Behavior
 
-After rejection, `bin/token-optimizer.js` will skip any fingerprint-matching recommendation for 5 subsequent `complete-milestone` invocations. The cooldown counter is stored in the entry's `Rejection cooldown` field and decrements at each `complete-milestone` run (decrement logic lives in `bin/token-optimizer.js` — Wave 5 docs task DAT-T? covers the decrement step if missing).
+After rejection, `bin/token-optimizer.cjs` will skip any fingerprint-matching recommendation for 5 subsequent `complete-milestone` invocations. The cooldown counter is stored in the entry's `Rejection cooldown` field and decrements at each `complete-milestone` run (decrement logic lives in `bin/token-optimizer.cjs` — Wave 5 docs task DAT-T? covers the decrement step if missing).
 
 ## Contract References
 
