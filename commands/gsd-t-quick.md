@@ -2,6 +2,36 @@
 
 You are executing a small, focused task that doesn't need full phase planning. This is for bug fixes, config changes, small features, and ad-hoc work.
 
+## Model Assignment
+
+Per `.gsd-t/contracts/model-selection-contract.md` v1.0.0.
+
+- **Default**: `sonnet` (`selectModel({phase: "quick"})`) — routine one-off task.
+- **Mechanical subroutines** (demote to `haiku`): test runners (`selectModel({phase: "quick", task_type: "test_runner"})`).
+- **Red Team (Step 5.5)**: `opus` — adversarial reasoning always runs at top tier.
+- **Escalation**: `/advisor` convention-based fallback from `bin/advisor-integration.js` at declared high-stakes sub-decisions (see `.gsd-t/M35-advisor-findings.md`). Never silently downgrade the model or skip Red Team / doc-ripple under context pressure — M35 removed that behavior.
+
+## Per-Spawn Token Bracket (MANDATORY — wrap EVERY Task subagent spawn)
+
+Per `.gsd-t/contracts/token-telemetry-contract.md` v1.0.0. Every Task subagent spawn below **MUST** be wrapped in this token bracket so `.gsd-t/token-metrics.jsonl` gets one record per spawn. This is additive — the existing OBSERVABILITY LOGGING blocks in each spawn site are preserved unmodified alongside this bracket.
+
+**Before each spawn — read starting context tokens:**
+
+```bash
+T0_TOKENS=$(node -e "try{const s=require('fs').readFileSync('.gsd-t/.context-meter-state.json','utf8');process.stdout.write(String(JSON.parse(s).inputTokens||0))}catch(_){process.stdout.write('0')}")
+T0_PCT=$(node -e "try{const tb=require('./bin/token-budget.js');process.stdout.write(String(tb.getSessionStatus('.').pct||0))}catch(_){process.stdout.write('0')}")
+```
+
+**After each spawn — record the bracket:**
+
+```bash
+T1_TOKENS=$(node -e "try{const s=require('fs').readFileSync('.gsd-t/.context-meter-state.json','utf8');process.stdout.write(String(JSON.parse(s).inputTokens||0))}catch(_){process.stdout.write('0')}")
+T1_PCT=$(node -e "try{const tb=require('./bin/token-budget.js');process.stdout.write(String(tb.getSessionStatus('.').pct||0))}catch(_){process.stdout.write('0')}")
+node -e "require('./bin/token-telemetry.js').recordSpawn({timestamp:new Date().toISOString(),milestone:process.env.GSD_T_MILESTONE||'',command:'gsd-t-quick',phase:'quick',step:'${STEP:-}',domain:'${DOMAIN:-}',domain_type:'${DOMAIN_TYPE:-}',task:'${TASK:-}',model:'${MODEL:-sonnet}',duration_s:${DURATION:-0},input_tokens_before:${T0_TOKENS},input_tokens_after:${T1_TOKENS},tokens_consumed:${T1_TOKENS}-${T0_TOKENS},context_window_pct_before:${T0_PCT},context_window_pct_after:${T1_PCT},outcome:'${OUTCOME:-success}',halt_type:${HALT_TYPE:-null},escalated_via_advisor:${ESCALATED_VIA_ADVISOR:-false}})" 2>/dev/null || true
+```
+
+The bracket is additive to the existing `.gsd-t/token-log.md` OBSERVABILITY LOGGING rows. Both sinks coexist — token-log.md is human-readable, token-metrics.jsonl is machine-readable for `gsd-t metrics` aggregation.
+
 ## Step 0: Launch via Subagent
 
 To give this task a fresh context window and prevent compaction during consecutive quick runs, always execute via a Task subagent.
@@ -17,11 +47,10 @@ Before spawning — run via Bash:
 Run via Bash:
 `node -e "const tb = require('./bin/token-budget.js'); const s = tb.getSessionStatus('.'); process.stdout.write(s.threshold);" 2>/dev/null`
 
-Apply the result:
+Apply the result (three-band model per `token-budget-contract.md` v3.0.0 — never silently degrade quality):
 - `normal` or file missing → proceed with default model (sonnet)
-- `downgrade` → downgrade subagent model from sonnet to haiku for non-critical tasks; apply `getDegradationActions()` model overrides
-- `conserve` → run quick task inline (skip subagent spawn overhead); skip Red Team and doc-ripple
-- `stop` → output: "Token budget exhausted — quick task deferred. Resume after session reset." and halt
+- `warn` (≥70%) → log the warning to `.gsd-t/token-log.md` and proceed at full quality. **Do NOT downgrade models, skip Red Team, or skip doc-ripple** — M35 removed that behavior intentionally.
+- `stop` (≥85%) → output: "Context gate reached ({pct}%). Quick task deferred. Resume after session reset." and halt.
 
 **Stack Rules Detection (before spawning subagent):**
 

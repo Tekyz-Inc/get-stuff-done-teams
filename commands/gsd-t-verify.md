@@ -2,6 +2,13 @@
 
 You are the lead agent coordinating verification of the completed work. Each verification dimension should be thorough and independent.
 
+## Model Assignment
+
+Per `.gsd-t/contracts/model-selection-contract.md` v1.0.0.
+
+- **Default**: `opus` (`selectModel({phase: "verify"})`) — milestone verification is the final quality gate before completion. High stakes.
+- **Escalation**: already at opus; there is no stronger tier. Verify judgments are always made at full quality.
+
 ## Step 1: Load State
 
 Read:

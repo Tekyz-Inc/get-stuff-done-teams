@@ -3197,6 +3197,119 @@ function showHeadlessHelp() {
   log(`  ${DIM}$${RESET} gsd-t headless query domains\n`);
 }
 
+// ─── Metrics (M35 token telemetry CLI) ────────────────────────────────────────
+
+function parseMetricsByFlag(args) {
+  const byArg = args.find(a => a.startsWith("--by="));
+  if (!byArg) return [];
+  const raw = byArg.slice(5).trim();
+  if (!raw) return [];
+  return raw.split(",").map(s => s.trim()).filter(Boolean);
+}
+
+function formatPct(v) {
+  if (v === null || v === undefined || Number.isNaN(v)) return "—";
+  return `${Number(v).toFixed(1)}%`;
+}
+
+function formatInt(v) {
+  if (v === null || v === undefined || Number.isNaN(v)) return "—";
+  return String(Math.round(Number(v)));
+}
+
+function doMetrics(args) {
+  const projectDir = process.cwd();
+  let tt;
+  try {
+    tt = require(path.join(projectDir, "bin", "token-telemetry.js"));
+  } catch (e) {
+    error(`bin/token-telemetry.js not found in ${projectDir} — run gsd-t install first.`);
+    process.exit(1);
+  }
+
+  const records = tt.readAll(projectDir);
+  if (records.length === 0) {
+    log(`${DIM}No telemetry records yet — .gsd-t/token-metrics.jsonl is empty or missing.${RESET}`);
+    return;
+  }
+
+  const isTokens = args.includes("--tokens");
+  const isHalts = args.includes("--halts");
+  const isContextWindow = args.includes("--context-window");
+
+  if (!isTokens && !isHalts && !isContextWindow) {
+    log(`${YELLOW}Specify at least one of: --tokens, --halts, --context-window${RESET}`);
+    return;
+  }
+
+  if (isHalts) {
+    const halts = records.filter(r => r.halt_type);
+    log(`\n${BOLD}Halts — ${halts.length} record(s)${RESET}`);
+    if (halts.length === 0) {
+      log(`${DIM}  (no halts recorded — all spawns completed normally)${RESET}\n`);
+    } else {
+      const byType = {};
+      for (const r of halts) {
+        const key = String(r.halt_type);
+        byType[key] = (byType[key] || 0) + 1;
+      }
+      for (const [type, count] of Object.entries(byType).sort()) {
+        log(`  ${CYAN}${type.padEnd(24)}${RESET} ${count}`);
+      }
+      log("");
+    }
+  }
+
+  if (isTokens) {
+    const by = parseMetricsByFlag(args);
+    if (by.length === 0) {
+      const totalConsumed = records.reduce((a, r) => a + (Number(r.tokens_consumed) || 0), 0);
+      const totalDuration = records.reduce((a, r) => a + (Number(r.duration_s) || 0), 0);
+      log(`\n${BOLD}Tokens — ${records.length} spawn(s)${RESET}`);
+      log(`  total tokens consumed:  ${formatInt(totalConsumed)}`);
+      log(`  total duration (s):     ${formatInt(totalDuration)}`);
+      if (records.length > 0) {
+        log(`  mean tokens/spawn:      ${formatInt(totalConsumed / records.length)}`);
+      }
+      log("");
+    } else {
+      const groups = tt.aggregate(records, { by });
+      log(`\n${BOLD}Tokens by ${by.join(",")} — ${groups.length} group(s)${RESET}`);
+      const keyHeader = by.join("/");
+      log(`  ${keyHeader.padEnd(36)}  ${"count".padStart(7)}  ${"total".padStart(12)}  ${"mean".padStart(10)}  ${"median".padStart(10)}  ${"p95".padStart(10)}`);
+      log(`  ${"-".repeat(36)}  ${"-".repeat(7)}  ${"-".repeat(12)}  ${"-".repeat(10)}  ${"-".repeat(10)}  ${"-".repeat(10)}`);
+      for (const g of groups) {
+        const label = by.map(k => g.key[k] == null ? "—" : String(g.key[k])).join("/");
+        log(`  ${label.padEnd(36)}  ${formatInt(g.count).padStart(7)}  ${formatInt(g.total_tokens).padStart(12)}  ${formatInt(g.mean).padStart(10)}  ${formatInt(g.median).padStart(10)}  ${formatInt(g.p95).padStart(10)}`);
+      }
+      log("");
+    }
+  }
+
+  if (isContextWindow) {
+    log(`\n${BOLD}Context window trend — ${records.length} record(s)${RESET}`);
+    const withPct = records.filter(r => r.context_window_pct_after != null && !Number.isNaN(Number(r.context_window_pct_after)));
+    if (withPct.length === 0) {
+      log(`${DIM}  (no context-window measurements in records)${RESET}\n`);
+    } else {
+      const sorted = [...withPct].map(r => Number(r.context_window_pct_after)).sort((a, b) => a - b);
+      const min = sorted[0];
+      const max = sorted[sorted.length - 1];
+      const mean = sorted.reduce((a, b) => a + b, 0) / sorted.length;
+      const p95 = sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.95))];
+      log(`  min:   ${formatPct(min)}`);
+      log(`  mean:  ${formatPct(mean)}`);
+      log(`  p95:   ${formatPct(p95)}`);
+      log(`  max:   ${formatPct(max)}`);
+      const atWarn = withPct.filter(r => Number(r.context_window_pct_after) >= 70).length;
+      const atStop = withPct.filter(r => Number(r.context_window_pct_after) >= 85).length;
+      log(`  spawns at warn band (≥70%):  ${atWarn}`);
+      log(`  spawns at stop band (≥85%):  ${atStop}`);
+      log("");
+    }
+  }
+}
+
 function showHelp() {
   log(`\n${BOLD}GSD-T${RESET} — Contract-Driven Development for Claude Code\n`);
   log(`${BOLD}Usage:${RESET}  npx @tekyzinc/gsd-t ${CYAN}<command>${RESET} [options]\n`);
@@ -3353,6 +3466,9 @@ if (require.main === module) {
       break;
     case "headless":
       doHeadless(args.slice(1));
+      break;
+    case "metrics":
+      doMetrics(args.slice(1));
       break;
     case "design-build": {
       const orchestrator = require("./design-orchestrator.js");

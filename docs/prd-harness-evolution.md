@@ -299,49 +299,63 @@ Evolve GSD-T from a static methodology framework into a self-calibrating quality
 
 ---
 
-### 3.7 Token-Aware Orchestration (MEDIUM-HIGH PRIORITY — Tier 1)
+### 3.7 Context Gate + Surgical Model Escalation (REWRITTEN IN M35 — v2.76.10)
 
-**Problem**: GSD-T runs on Claude's $200 Max plan, where tokens are a hard daily/weekly ceiling — not a variable API expense. A typical milestone spawns 30-50+ subagents across all phases. With tiered models, this consumes roughly 50-80% of a daily budget. Without budget awareness, the orchestrator can exhaust tokens mid-milestone, leaving uncommitted work scattered across subagents and forcing a wait until limits reset.
+**Status**: The original v2 design for this section described graduated degradation with `downgrade` and `conserve` bands that silently demoted models and skipped Red Team / doc-ripple phases under context pressure. **M35 removed that behavior entirely** (see `token-budget-contract.md` v3.0.0 and `.gsd-t/M35-definition.md`). The historical text is preserved in git history; this section documents the replacement.
 
-The article's harness doesn't address this because it operates on API billing where cost is variable. On a Max plan, token exhaustion is a binary failure mode — you either have capacity or you don't.
+**Problem**: Silent quality degradation is the wrong answer to context pressure. If the orchestrator is allowed to swap opus for sonnet, sonnet for haiku, or skip Red Team / doc-ripple / Design Verification when context is tight, the user silently receives lower-quality work than they asked for. GSD-T's core principle is excellent, deeply-tested results — not "best effort under pressure."
 
-**Solution**: Make the wave and execute orchestrators aware of aggregate session-level token consumption, with graceful degradation as limits approach.
+**Solution**: Three strict components that replace the old graduated-degradation model.
 
 **Mechanism**:
-1. **Session budget tracking** — The orchestrator tracks cumulative tokens consumed across all subagent spawns within a session. Uses the existing observability logging data (token-log.md) plus `CLAUDE_CONTEXT_TOKENS_USED` environment variable.
-2. **Budget estimation before spawn** — Before spawning a subagent, estimate the token cost based on: model tier (Opus ~5x Sonnet, Sonnet ~5x Haiku), task complexity (from plan-time scoring if available), and historical average from token-log.md for similar tasks.
-3. **Graduated degradation thresholds**:
 
-| Session Budget Consumed | Action |
-|------------------------|--------|
-| < 60% | Normal operation — all models at assigned tiers |
-| 60-70% | **WARN**: Display budget alert to user. Reduce iteration budgets to minimum (2). |
-| 70-85% | **DOWNGRADE**: Non-critical Sonnet tasks demoted to Haiku. Skip exploratory testing (3.5). Disable shadow-mode audit (3.1). |
-| 85-95% | **CONSERVE**: Pause non-essential phases (doc-ripple, design brief generation). Checkpoint all progress to disk. |
-| > 95% | **STOP**: Hard stop. Save all progress. Display: "Token budget nearly exhausted. Progress saved. Resume with `/gsd-t-resume` after limit resets." |
+1. **Three-band context gate** (`bin/token-budget.js` v3.0.0, `token-budget-contract.md` v3.0.0):
 
-4. **Model-tier-aware budgeting** — The budget tracker understands that one Opus call ≈ 5 Sonnet calls ≈ 25 Haiku calls in token terms. Degradation actions (downgrading Sonnet → Haiku) are chosen to maximize remaining capacity for high-value tasks.
-5. **Milestone pre-flight check** — Before starting a wave or execute run, estimate total token cost for the remaining work. If estimated cost exceeds available budget, warn the user: "This milestone has ~{N} tasks remaining, estimated at ~{X}% of daily budget. Proceed or split across sessions?"
-6. **Integration with iteration budget (3.6)** — When budget is constrained (>60%), iteration budgets are automatically reduced. At >70%, the system prefers model escalation (Haiku → Sonnet) over additional iterations at the same tier, since one Sonnet attempt is more likely to converge than three Haiku attempts.
+| Session Context Consumed | Band | Action |
+|--------------------------|------|--------|
+| < 70% | `normal` | Proceed at full quality. |
+| 70–85% | `warn` | Log to `.gsd-t/token-log.md` and proceed at **full quality**. **Never** downgrade models, skip Red Team, skip doc-ripple, or skip Design Verification. |
+| ≥ 85% | `stop` | Halt cleanly. Checkpoint progress. Hand off to runway estimator / headless auto-spawn (see below). |
 
-**Files affected**:
-- MODIFY: `commands/gsd-t-execute.md` — pre-spawn budget check, degradation logic
-- MODIFY: `commands/gsd-t-wave.md` — milestone pre-flight estimate, per-phase budget check
-- MODIFY: `commands/gsd-t-quick.md` — budget-aware model selection
-- MODIFY: `templates/CLAUDE-global.md` — document token-aware orchestration
-- MODIFY: `templates/CLAUDE-project.md` — optional `Daily Token Budget` field
-- NEW: `bin/token-budget.js` — budget estimation, tracking, and threshold logic (Node.js built-ins only)
+   The bands `downgrade` and `conserve` that existed in v2.x are deleted. `applyModelOverride`, `skipPhases`, and all related machinery are deleted.
+
+2. **Surgical per-phase model selection** (`bin/model-selector.js`, `model-selection-contract.md` v1.0.0 — m35-model-selector-advisor):
+   - Declarative phase→tier mapping: `haiku` for strictly mechanical work (test runners, file-existence checks, JSON validation, branch guards), `sonnet` for routine code work (execute step 2, test-sync, doc-ripple wiring), `opus` for high-stakes reasoning (partition, discuss, Red Team, verify judgment, debug root-cause, architecture/contract design).
+   - Sonnet is the **routine default** — opus is applied surgically at declared escalation points, not as a fallback for "important-looking" work.
+   - Dual-layer: `ANTHROPIC_MODEL=opus` for the interactive session, `model:` directive overrides per-spawn.
+   - Optional `/advisor` escalation hook at declared points; convention-based fallback if the native tool is not programmable.
+
+3. **Runway estimator + headless auto-spawn** (`bin/runway-estimator.js`, `bin/headless-auto-spawn.js` — m35-runway-estimator, m35-headless-auto-spawn):
+   - Pre-flight: before spawning a phase or task subagent, estimate the token cost of the remaining work from `.gsd-t/token-metrics.jsonl` history. If the projected runway crosses the `stop` threshold, **refuse the run and auto-spawn a headless session** to continue the work.
+   - The user never types `/clear` under normal operation. The interactive session stays idle; the headless run consumes the fresh context window and reports results back via `.gsd-t/M35-headless-results-*.md`.
+   - The only time a user sees a `/clear` prompt is when headless auto-spawn itself fails — an explicit degradation path, not a silent one.
+
+4. **Per-spawn telemetry** (`bin/token-telemetry.js`, `token-telemetry-contract.md` v1.0.0 — m35-token-telemetry):
+   - Every Task subagent spawn is wrapped in a token bracket that records `{timestamp, milestone, command, phase, step, domain, task, model, duration_s, input_tokens_before, input_tokens_after, tokens_consumed, context_window_pct_before, context_window_pct_after, outcome, halt_type, escalated_via_advisor}` to `.gsd-t/token-metrics.jsonl`.
+   - `gsd-t metrics --tokens [--by model,command,phase,milestone]`, `gsd-t metrics --halts`, `gsd-t metrics --context-window` surface the history.
+   - Telemetry feeds the runway estimator (historical cost-per-phase) and the optimization backlog (`bin/token-optimizer.js` → `.gsd-t/optimization-backlog.md`, detect-only — user selectively promotes via `/user:gsd-t-optimization-apply|reject`).
+
+**Files affected (M35 active set)**:
+- MODIFY: `bin/token-budget.js` — three-band `getDegradationActions`, `WARN_THRESHOLD_PCT = 70`, `STOP_THRESHOLD_PCT = 85`
+- MODIFY: `.gsd-t/contracts/token-budget-contract.md` — v3.0.0 rewrite (Option X clean break, no compat shim)
+- NEW: `bin/model-selector.js`, `bin/advisor-integration.js`, `bin/runway-estimator.js`, `bin/headless-auto-spawn.js`, `bin/token-telemetry.js`, `bin/token-optimizer.js`
+- NEW: `.gsd-t/contracts/model-selection-contract.md`, `runway-estimator-contract.md`, `token-telemetry-contract.md`, `headless-auto-spawn-contract.md` (all v1.0.0)
+- MODIFY: `commands/gsd-t-execute.md`, `gsd-t-wave.md`, `gsd-t-quick.md`, `gsd-t-integrate.md`, `gsd-t-debug.md`, `gsd-t-doc-ripple.md` — three-band handlers, Model Assignment blocks, per-spawn token brackets, runway estimator wires
+- MODIFY: `templates/CLAUDE-global.md`, `templates/CLAUDE-project.md` — rewrite Token-Aware Orchestration section
 
 **Success criteria**:
-- [ ] Orchestrator estimates token cost before each subagent spawn
-- [ ] Cumulative session usage is tracked and displayed at each phase boundary
-- [ ] Degradation actions trigger at 60%, 70%, 85%, and 95% thresholds
-- [ ] Non-critical Sonnet tasks are demoted to Haiku when budget is constrained
-- [ ] Milestone pre-flight check warns when estimated cost exceeds available budget
-- [ ] Progress is always saved before a hard stop — no lost work
-- [ ] Default behavior (no budget concern) is unchanged — thresholds only fire when budget tracking detects pressure
+- [ ] Zero `downgrade`, `conserve`, `modelOverride`, `skipPhases` references in live code under `bin/`, `scripts/`, `commands/`, `templates/` (prose discussing the removal is acceptable)
+- [ ] `bin/model-selector.js` contains ≥ 8 declarative phase mappings
+- [ ] Runway estimator wired into ≥ 5 command files
+- [ ] Per-spawn token telemetry captures the full 18-field schema
+- [ ] Headless auto-spawn tested end-to-end
+- [ ] ~1030/1030 tests green (954 baseline at M35 Wave 1 exit)
+- [ ] M35 dogfooded itself from Wave 3 onward
+- [ ] `v2.76.10` tagged
 
-**Acceptance test**: Start a wave with a 4-domain milestone. After 3 domains complete (simulating ~70% budget consumed), verify the orchestrator displays a budget warning, reduces iteration budgets, and demotes non-critical tasks to Haiku. Verify all progress is saved and the user sees a clear "resume" instruction.
+**Non-goals**: cost modeling (M35 tracks tokens, not dollars), auto-optimization (backlog is detect-only), model marketplace (Claude models only), runtime Claude Code patches (convention-based `/advisor` fallback if no programmable API).
+
+**Acceptance test**: Start a multi-wave milestone. Drive session context above 70% mid-wave. Verify: (a) the orchestrator logs a `warn` entry and proceeds at full quality with no model swaps and no phase skips; (b) when the runway estimator projects a `stop` crossing before the next phase completes, it halts cleanly and auto-spawns a headless session to continue; (c) the user never sees a `/clear` prompt unless the headless handoff itself fails; (d) `.gsd-t/token-metrics.jsonl` contains one record per spawn with the full schema.
 
 ---
 

@@ -177,4 +177,75 @@ describe("aggregate", () => {
     assert.equal(wave.count, 1);
     assert.equal(wave.total_tokens, 500);
   });
+
+  it("returns [] for empty records array", () => {
+    assert.deepEqual(aggregate([], { by: ["model"] }), []);
+  });
+
+  it("groups by multiple fields (command + model)", () => {
+    recordSpawn(makeRecord({ command: "gsd-t-execute", model: "sonnet", tokens_consumed: 100 }), tmpDir);
+    recordSpawn(makeRecord({ command: "gsd-t-execute", model: "sonnet", tokens_consumed: 200 }), tmpDir);
+    recordSpawn(makeRecord({ command: "gsd-t-execute", model: "opus", tokens_consumed: 900 }), tmpDir);
+    recordSpawn(makeRecord({ command: "gsd-t-wave", model: "sonnet", tokens_consumed: 50 }), tmpDir);
+    const records = readAll(tmpDir);
+    const groups = aggregate(records, { by: ["command", "model"] });
+    assert.equal(groups.length, 3);
+    const execSonnet = groups.find(
+      (g) => g.key.command === "gsd-t-execute" && g.key.model === "sonnet",
+    );
+    assert.equal(execSonnet.count, 2);
+    assert.equal(execSonnet.total_tokens, 300);
+    assert.equal(execSonnet.mean, 150);
+  });
+
+  it("computes median correctly on odd-count group", () => {
+    recordSpawn(makeRecord({ tokens_consumed: 100 }), tmpDir);
+    recordSpawn(makeRecord({ tokens_consumed: 500 }), tmpDir);
+    recordSpawn(makeRecord({ tokens_consumed: 900 }), tmpDir);
+    const records = readAll(tmpDir);
+    const groups = aggregate(records, { by: ["model"] });
+    assert.equal(groups[0].median, 500);
+  });
+
+  it("computes p95 as the sorted element at floor(0.95*n)", () => {
+    // 20 records, tokens 100..2000 by 100
+    for (let i = 1; i <= 20; i++) {
+      recordSpawn(makeRecord({ tokens_consumed: i * 100 }), tmpDir);
+    }
+    const records = readAll(tmpDir);
+    const groups = aggregate(records, { by: ["model"] });
+    // floor(20 * 0.95) = 19 → sorted[19] = 2000
+    assert.equal(groups[0].p95, 2000);
+    assert.equal(groups[0].count, 20);
+    assert.equal(groups[0].total_tokens, 21000);
+  });
+
+  it("handles records with 0 tokens_consumed without throwing", () => {
+    recordSpawn(makeRecord({ tokens_consumed: 0 }), tmpDir);
+    recordSpawn(makeRecord({ tokens_consumed: 0 }), tmpDir);
+    const records = readAll(tmpDir);
+    const groups = aggregate(records, { by: ["model"] });
+    assert.equal(groups[0].count, 2);
+    assert.equal(groups[0].total_tokens, 0);
+    assert.equal(groups[0].mean, 0);
+  });
+
+  it("treats unknown by-fields as empty-string keys without crashing", () => {
+    recordSpawn(makeRecord({ tokens_consumed: 100 }), tmpDir);
+    const records = readAll(tmpDir);
+    const groups = aggregate(records, { by: ["nonexistent_field"] });
+    assert.equal(groups.length, 1);
+    assert.equal(groups[0].key.nonexistent_field, "");
+    assert.equal(groups[0].count, 1);
+  });
+
+  it("records with halt_type are retained and aggregable", () => {
+    recordSpawn(makeRecord({ halt_type: "runway-refusal", tokens_consumed: 1000 }), tmpDir);
+    recordSpawn(makeRecord({ halt_type: null, tokens_consumed: 2000 }), tmpDir);
+    const records = readAll(tmpDir);
+    assert.equal(records.length, 2);
+    const halts = records.filter((r) => r.halt_type);
+    assert.equal(halts.length, 1);
+    assert.equal(halts[0].halt_type, "runway-refusal");
+  });
 });

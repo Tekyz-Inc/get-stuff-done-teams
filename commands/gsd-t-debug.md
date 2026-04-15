@@ -2,6 +2,36 @@
 
 You are debugging an issue in a contract-driven project. Your approach should identify whether the bug is within a domain or at a contract boundary.
 
+## Model Assignment
+
+Per `.gsd-t/contracts/model-selection-contract.md` v1.0.0.
+
+- **Default**: `opus` (`selectModel({phase: "debug"})`) — debugging is high-stakes reasoning by default.
+- **Root-cause analysis**: `opus` (`selectModel({phase: "debug", task_type: "root_cause"})`).
+- **Fix-apply**: `sonnet` (`selectModel({phase: "debug", task_type: "fix_apply"})`) — applying a known fix is routine code work.
+- **Escalation**: already at opus for judgment work; `/advisor` fallback applies if a fix crosses a contract boundary or schema. Never silently downgrade the model under context pressure — M35 removed that behavior.
+
+## Per-Spawn Token Bracket (MANDATORY — wrap EVERY Task subagent spawn)
+
+Per `.gsd-t/contracts/token-telemetry-contract.md` v1.0.0. Every Task subagent spawn below **MUST** be wrapped in this token bracket so `.gsd-t/token-metrics.jsonl` gets one record per spawn. This is additive — the existing OBSERVABILITY LOGGING blocks in each spawn site are preserved unmodified alongside this bracket.
+
+**Before each spawn — read starting context tokens:**
+
+```bash
+T0_TOKENS=$(node -e "try{const s=require('fs').readFileSync('.gsd-t/.context-meter-state.json','utf8');process.stdout.write(String(JSON.parse(s).inputTokens||0))}catch(_){process.stdout.write('0')}")
+T0_PCT=$(node -e "try{const tb=require('./bin/token-budget.js');process.stdout.write(String(tb.getSessionStatus('.').pct||0))}catch(_){process.stdout.write('0')}")
+```
+
+**After each spawn — record the bracket:**
+
+```bash
+T1_TOKENS=$(node -e "try{const s=require('fs').readFileSync('.gsd-t/.context-meter-state.json','utf8');process.stdout.write(String(JSON.parse(s).inputTokens||0))}catch(_){process.stdout.write('0')}")
+T1_PCT=$(node -e "try{const tb=require('./bin/token-budget.js');process.stdout.write(String(tb.getSessionStatus('.').pct||0))}catch(_){process.stdout.write('0')}")
+node -e "require('./bin/token-telemetry.js').recordSpawn({timestamp:new Date().toISOString(),milestone:process.env.GSD_T_MILESTONE||'',command:'gsd-t-debug',phase:'debug',step:'${STEP:-}',domain:'${DOMAIN:-}',domain_type:'${DOMAIN_TYPE:-}',task:'${TASK:-}',model:'${MODEL:-opus}',duration_s:${DURATION:-0},input_tokens_before:${T0_TOKENS},input_tokens_after:${T1_TOKENS},tokens_consumed:${T1_TOKENS}-${T0_TOKENS},context_window_pct_before:${T0_PCT},context_window_pct_after:${T1_PCT},outcome:'${OUTCOME:-success}',halt_type:${HALT_TYPE:-null},escalated_via_advisor:${ESCALATED_VIA_ADVISOR:-false}})" 2>/dev/null || true
+```
+
+The bracket is additive to the existing `.gsd-t/token-log.md` OBSERVABILITY LOGGING rows. Both sinks coexist.
+
 ## Step 0: Launch via Subagent
 
 To give this debug session a fresh context window and prevent compaction, always execute via a Task subagent.

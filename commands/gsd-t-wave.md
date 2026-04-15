@@ -2,6 +2,35 @@
 
 You are the wave orchestrator. You do NOT execute phases yourself. Instead, you spawn an **independent agent for each phase**, giving each a fresh context window. This eliminates context accumulation across phases and prevents mid-wave compaction.
 
+## Model Assignment
+
+Per `.gsd-t/contracts/model-selection-contract.md` v1.0.0. Each phase spawn picks its tier from `bin/model-selector.js` — the wave orchestrator itself is routine coordination work.
+
+- **Wave orchestrator (this agent)**: `sonnet` (`selectModel({phase: "wave"})`).
+- **Per-phase spawns**: each phase agent selects its own tier — `partition` → opus, `discuss` → opus, `plan` → sonnet, `execute` → sonnet (with mechanical haiku subroutines and opus Red Team), `test-sync` → sonnet, `integrate` → sonnet, `verify` → opus, `doc-ripple` → sonnet. The phase command files carry their own Model Assignment blocks.
+- **Escalation**: `/advisor` convention-based fallback from `bin/advisor-integration.js` at declared high-stakes sub-decisions (see `.gsd-t/M35-advisor-findings.md`). Never silently downgrade the model or skip phases under context pressure — M35 removed that behavior.
+
+## Per-Spawn Token Bracket (MANDATORY — wrap EVERY phase agent spawn)
+
+Per `.gsd-t/contracts/token-telemetry-contract.md` v1.0.0. Every phase agent spawn in the Phase Agent Spawn Pattern below **MUST** be wrapped in this token bracket so `.gsd-t/token-metrics.jsonl` gets one record per spawn. This is additive — the existing OBSERVABILITY LOGGING blocks in each spawn site are preserved unmodified alongside this bracket.
+
+**Before each phase spawn — read starting context tokens:**
+
+```bash
+T0_TOKENS=$(node -e "try{const s=require('fs').readFileSync('.gsd-t/.context-meter-state.json','utf8');process.stdout.write(String(JSON.parse(s).inputTokens||0))}catch(_){process.stdout.write('0')}")
+T0_PCT=$(node -e "try{const tb=require('./bin/token-budget.js');process.stdout.write(String(tb.getSessionStatus('.').pct||0))}catch(_){process.stdout.write('0')}")
+```
+
+**After each phase spawn — record the bracket:**
+
+```bash
+T1_TOKENS=$(node -e "try{const s=require('fs').readFileSync('.gsd-t/.context-meter-state.json','utf8');process.stdout.write(String(JSON.parse(s).inputTokens||0))}catch(_){process.stdout.write('0')}")
+T1_PCT=$(node -e "try{const tb=require('./bin/token-budget.js');process.stdout.write(String(tb.getSessionStatus('.').pct||0))}catch(_){process.stdout.write('0')}")
+node -e "require('./bin/token-telemetry.js').recordSpawn({timestamp:new Date().toISOString(),milestone:process.env.GSD_T_MILESTONE||'',command:'gsd-t-wave',phase:'${PHASE:-}',step:'${STEP:-}',domain:'${DOMAIN:-}',domain_type:'${DOMAIN_TYPE:-}',task:'${TASK:-}',model:'${MODEL:-sonnet}',duration_s:${DURATION:-0},input_tokens_before:${T0_TOKENS},input_tokens_after:${T1_TOKENS},tokens_consumed:${T1_TOKENS}-${T0_TOKENS},context_window_pct_before:${T0_PCT},context_window_pct_after:${T1_PCT},outcome:'${OUTCOME:-success}',halt_type:${HALT_TYPE:-null},escalated_via_advisor:${ESCALATED_VIA_ADVISOR:-false}})" 2>/dev/null || true
+```
+
+The bracket is additive to the existing `.gsd-t/token-log.md` OBSERVABILITY LOGGING rows. Both sinks coexist — token-log.md is human-readable with context percentage, token-metrics.jsonl is machine-readable with the full 18-field schema for `gsd-t metrics --tokens/--halts/--context-window` aggregation.
+
 ## Step 0: Verify Context Gate Readiness (MANDATORY — first thing in a fresh session)
 
 Run via Bash:
@@ -96,10 +125,10 @@ If STACK_RULES is empty (no templates/stacks/ dir or no matches), skip silently.
 Run via Bash:
 `node -e "const tb = require('./bin/token-budget.js'); const s = tb.getSessionStatus('.'); process.stdout.write(s.threshold);" 2>/dev/null`
 
+Three-band model per `token-budget-contract.md` v3.0.0 (never silently degrade quality):
 - `normal` or file missing → proceed normally
-- `downgrade` → apply model overrides from `getDegradationActions()` in the phase agent prompt
-- `conserve` → checkpoint progress, skip non-essential phases (test-sync if code unchanged, discuss if already done)
-- `stop` → checkpoint all progress and output: "Token budget exhausted — wave paused. Resume after session reset." then halt
+- `warn` (≥70%) → log the warning to `.gsd-t/token-log.md` and proceed at full quality; **do NOT downgrade models or skip phases** — M35 removed that behavior intentionally
+- `stop` (≥85%) → checkpoint all progress and output: "Wave orchestrator context gate reached ({pct}%). Progress saved. Resume after session reset." then halt
 
 **OBSERVABILITY LOGGING (MANDATORY) — repeat for every phase spawn:**
 Before spawning — run via Bash:
@@ -131,15 +160,15 @@ After phase agent returns — run via Bash:
 Run via Bash AFTER each phase agent returns:
 
 ```bash
-node -e "const tb=require('./bin/token-budget.js'); const s=tb.getSessionStatus('.'); process.stdout.write(JSON.stringify(s)); if(s.threshold==='stop')process.exit(10); if(s.threshold==='conserve')process.exit(11);"
+node -e "const tb=require('./bin/token-budget.js'); const s=tb.getSessionStatus('.'); process.stdout.write(JSON.stringify(s)); if(s.threshold==='stop')process.exit(10); if(s.threshold==='warn')process.exit(13);"
 ```
 
 The JSON on stdout contains `{consumed, estimated_remaining, pct, threshold}` — capture `pct` as `{CTX_PCT}` for the token-log row.
 
-Exit-code handling:
-- `0` (normal/warn/downgrade) → proceed to the next phase. Apply degradation overrides as described in the per-phase check above.
-- `11` (conserve, 85–95%) → checkpoint progress and skip non-essential phases (test-sync if code unchanged, discuss if already done).
-- `10` (stop, ≥95%) → STOP the wave loop. Save checkpoint to `.gsd-t/progress.md` — record which phases are complete, which remain. Output exactly: `⏸️ Wave orchestrator context gate reached ({pct}% of model window). Progress saved. Run /clear then /user:gsd-t-wave to continue from the next phase.` Do NOT spawn the next phase agent.
+Exit-code handling (three-band model per `token-budget-contract.md` v3.0.0):
+- `0` (normal, <70%) → proceed to the next phase at full quality.
+- `13` (warn, 70–85%) → log the warning to `.gsd-t/token-log.md` and proceed to the next phase at full quality. **Never downgrade models or skip phases** — the runway estimator (m35-runway-estimator) is responsible for halting cleanly before reaching `stop`.
+- `10` (stop, ≥85%) → STOP the wave loop. Save checkpoint to `.gsd-t/progress.md` — record which phases are complete, which remain. Output exactly: `⏸️ Wave orchestrator context gate reached ({pct}% of model window). Progress saved. Run /clear then /user:gsd-t-wave to continue from the next phase.` Do NOT spawn the next phase agent.
 
 As of v2.0.0 (M34), the wave orchestrator reads the SAME `bin/token-budget.js` real-source measurement as the execute orchestrator — both trace back to `.gsd-t/.context-meter-state.json` produced by the Context Meter PostToolUse hook. Each phase spawn (PARTITION, DISCUSS, PLAN, IMPACT, EXECUTE, TEST-SYNC, INTEGRATE, VERIFY+COMPLETE, DOC-RIPPLE) causes post-call updates to the state file, so each subsequent gate check reflects the real context consumption trajectory. When the state file is absent or stale, the call falls back to the historical heuristic.
 

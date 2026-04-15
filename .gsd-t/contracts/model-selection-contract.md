@@ -3,7 +3,7 @@
 ## Version: 1.0.0
 ## Status: ACTIVE
 ## Owner: m35-model-selector-advisor
-## Consumers: `bin/model-selector.js` (M35 Wave 2, pending), `bin/advisor-integration.js` (M35 Wave 2, pending), `commands/gsd-t-execute.md`, `commands/gsd-t-wave.md`, `commands/gsd-t-quick.md`, `commands/gsd-t-integrate.md`, `commands/gsd-t-debug.md`, `commands/gsd-t-partition.md`, `commands/gsd-t-discuss.md`, `commands/gsd-t-plan.md`, `commands/gsd-t-verify.md`, `commands/gsd-t-test-sync.md`, `commands/gsd-t-doc-ripple.md`
+## Consumers: `bin/model-selector.js`, `bin/advisor-integration.js`, `commands/gsd-t-execute.md`, `commands/gsd-t-wave.md`, `commands/gsd-t-quick.md`, `commands/gsd-t-integrate.md`, `commands/gsd-t-debug.md`, `commands/gsd-t-partition.md`, `commands/gsd-t-discuss.md`, `commands/gsd-t-plan.md`, `commands/gsd-t-verify.md`, `commands/gsd-t-test-sync.md`, `commands/gsd-t-doc-ripple.md`
 
 ---
 

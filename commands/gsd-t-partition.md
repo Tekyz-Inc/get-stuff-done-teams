@@ -2,6 +2,13 @@
 
 You are the lead agent in a contract-driven development workflow. Your job is to decompose the current milestone into independent domains with explicit boundaries and contracts.
 
+## Model Assignment
+
+Per `.gsd-t/contracts/model-selection-contract.md` v1.0.0.
+
+- **Default**: `opus` (`selectModel({phase: "partition"})`) — domain decomposition is architectural reasoning. High stakes.
+- **Escalation**: already at opus; there is no stronger tier. Partition decisions are always made at full quality.
+
 ## Step 0.5: Scan Freshness Auto-Refresh
 
 Before reading scan data, check if scan docs are stale and auto-refresh if needed. This ensures partition decisions are based on current code — no warnings, no user involvement.

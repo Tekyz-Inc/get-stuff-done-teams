@@ -2,6 +2,13 @@
 
 You are the lead agent creating atomic execution plans for each domain. This phase is ALWAYS single-session — one agent with full context across all domains to ensure consistency.
 
+## Model Assignment
+
+Per `.gsd-t/contracts/model-selection-contract.md` v1.0.0.
+
+- **Default**: `sonnet` (`selectModel({phase: "plan"})`) — task decomposition is structured work.
+- **Escalation**: `/advisor` convention-based fallback from `bin/advisor-integration.js` when a task touches a contract boundary or requires a decision about task granularity (too coarse → brittle execution; too fine → coordination overhead). Never silently downgrade the model under context pressure — M35 removed that behavior.
+
 ## Step 1: Load Full Context
 
 Read ALL of these:

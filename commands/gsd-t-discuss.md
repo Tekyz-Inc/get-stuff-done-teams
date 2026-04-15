@@ -2,6 +2,13 @@
 
 You are the lead agent exploring design decisions before committing to a plan. The goal of this phase is to produce or refine **contracts** — not just recommendations.
 
+## Model Assignment
+
+Per `.gsd-t/contracts/model-selection-contract.md` v1.0.0.
+
+- **Default**: `opus` (`selectModel({phase: "discuss"})`) — design exploration benefits most from top-tier reasoning.
+- **Escalation**: already at opus; there is no stronger tier.
+
 ## IMPORTANT: Manual vs Auto-Invoked Behavior
 
 **When manually invoked** (user typed `/user:gsd-t-discuss`):

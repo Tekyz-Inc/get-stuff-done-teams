@@ -2,6 +2,40 @@
 
 You are the lead agent coordinating task execution across domains. Choose solo or team mode based on the plan.
 
+## Model Assignment
+
+Per `.gsd-t/contracts/model-selection-contract.md` v1.0.0. Selection is deterministic via `bin/model-selector.js` — never runtime-overridden by context pressure.
+
+- **Default**: `sonnet` — routine task execution (`selectModel({phase: "execute"})`). Sonnet is the M35 routine tier.
+- **Mechanical subroutines** (demote to `haiku`):
+  - Test runners (`selectModel({phase: "execute", task_type: "test_runner"})`)
+  - Branch guards (`selectModel({phase: "execute", task_type: "branch_guard"})`)
+  - File-existence checks (`selectModel({phase: "execute", task_type: "file_check"})`)
+- **QA subagent (Step 2)**: `sonnet` — evaluation needs judgment per M31 tier refinement (`selectModel({phase: "execute", task_type: "qa"})`).
+- **Red Team (Step 5.5)**: `opus` — adversarial reasoning benefits most from top tier (`selectModel({phase: "execute", task_type: "red_team"})`).
+- **Escalation points**: at any declared high-stakes sub-decision (cross-module refactor, contract design, security-boundary change), invoke the convention-based `/advisor` fallback from `bin/advisor-integration.js`. If the `/advisor` tool is unavailable, the caller proceeds at the assigned model and logs a missed escalation to `.gsd-t/token-log.md` (see `.gsd-t/M35-advisor-findings.md`). Never silently downgrade the model or skip Red Team / doc-ripple under context pressure — M35 removed that behavior.
+
+## Per-Spawn Token Bracket (MANDATORY — wrap EVERY Task subagent spawn)
+
+Per `.gsd-t/contracts/token-telemetry-contract.md` v1.0.0. Every Task subagent spawn below (Step 2 QA, Step 3 domain dispatcher, Step 5.25 Design Verification, Step 5.5 Red Team, Step 7 doc-ripple) **MUST** be wrapped in this token bracket so `.gsd-t/token-metrics.jsonl` gets one record per spawn. This is additive — the existing OBSERVABILITY LOGGING blocks in each spawn site are preserved unmodified alongside this bracket.
+
+**Before each spawn — read starting context tokens:**
+
+```bash
+T0_TOKENS=$(node -e "try{const s=require('fs').readFileSync('.gsd-t/.context-meter-state.json','utf8');process.stdout.write(String(JSON.parse(s).inputTokens||0))}catch(_){process.stdout.write('0')}")
+T0_PCT=$(node -e "try{const tb=require('./bin/token-budget.js');process.stdout.write(String(tb.getSessionStatus('.').pct||0))}catch(_){process.stdout.write('0')}")
+```
+
+**After each spawn — record the bracket:**
+
+```bash
+T1_TOKENS=$(node -e "try{const s=require('fs').readFileSync('.gsd-t/.context-meter-state.json','utf8');process.stdout.write(String(JSON.parse(s).inputTokens||0))}catch(_){process.stdout.write('0')}")
+T1_PCT=$(node -e "try{const tb=require('./bin/token-budget.js');process.stdout.write(String(tb.getSessionStatus('.').pct||0))}catch(_){process.stdout.write('0')}")
+node -e "require('./bin/token-telemetry.js').recordSpawn({timestamp:new Date().toISOString(),milestone:process.env.GSD_T_MILESTONE||'',command:'gsd-t-execute',phase:'${PHASE:-execute}',step:'${STEP:-}',domain:'${DOMAIN:-}',domain_type:'${DOMAIN_TYPE:-}',task:'${TASK:-}',model:'${MODEL:-sonnet}',duration_s:${DURATION:-0},input_tokens_before:${T0_TOKENS},input_tokens_after:${T1_TOKENS},tokens_consumed:${T1_TOKENS}-${T0_TOKENS},context_window_pct_before:${T0_PCT},context_window_pct_after:${T1_PCT},outcome:'${OUTCOME:-success}',halt_type:${HALT_TYPE:-null},escalated_via_advisor:${ESCALATED_VIA_ADVISOR:-false}})" 2>/dev/null || true
+```
+
+The bracket is additive to the existing `.gsd-t/token-log.md` OBSERVABILITY LOGGING rows. Both sinks coexist — token-log.md is human-readable with context percentage, token-metrics.jsonl is machine-readable with the full 18-field schema for `gsd-t metrics --tokens/--halts/--context-window` aggregation.
+
 ## Step 0: Verify Context Gate Readiness (MANDATORY — first thing in a fresh session)
 
 Run via Bash:
@@ -124,13 +158,12 @@ Where `{CTX_PCT}` is the current `pct` value returned by `getSessionStatus()` (S
 **Token Budget Check (before dispatching each domain's tasks):**
 
 Run via Bash:
-`node -e "const tb = require('./bin/token-budget.js'); const s = tb.getSessionStatus('.'); const d = tb.getDegradationActions(s.threshold, '.'); process.stdout.write(JSON.stringify({threshold: s.threshold, actions: d}));" 2>/dev/null`
+`node -e "const tb = require('./bin/token-budget.js'); const s = tb.getSessionStatus('.'); const d = tb.getDegradationActions(s.threshold, '.'); process.stdout.write(JSON.stringify({band: d.band, pct: d.pct, message: d.message}));" 2>/dev/null`
 
-Apply the result:
-- `threshold: 'normal'` or file missing → skip silently, proceed with standard model assignments
-- `threshold: 'downgrade'` → apply model overrides from `actions.modelOverride` (e.g., downgrade opus tasks to sonnet)
-- `threshold: 'conserve'` → checkpoint progress to `.gsd-t/progress.md` and skip non-essential operations (Red Team, doc-ripple) for this domain
-- `threshold: 'stop'` → checkpoint all progress, output: "Token budget exhausted — progress saved. Resume after session reset.", and halt execution for remaining domains
+Apply the result (three-band model per `token-budget-contract.md` v3.0.0 — never silently degrade quality):
+- `band: 'normal'` or file missing → proceed with standard model assignments
+- `band: 'warn'` (≥70%) → log the warning to `.gsd-t/token-log.md` and proceed at full quality; do NOT downgrade models or skip phases
+- `band: 'stop'` (≥85%) → checkpoint all progress, output: "Orchestrator context gate reached ({pct}%). Progress saved. Resume after session reset.", and halt execution for remaining domains. Runway estimator / headless auto-spawn will handle the handoff once they exist (m35-runway-estimator, m35-headless-auto-spawn).
 
 **Pre-dispatch experience retrieval (before dispatching each domain's tasks):**
 Run via Bash:
@@ -463,7 +496,7 @@ Report back:
 
 6. **Per-domain Red Team** — invoke Step 5.5 (Red Team) NOW for this domain. This is the first place Red Team runs in v2.74.12 — there is no global post-execute Red Team anymore. If Red Team returns FAIL, fix bugs and re-run before proceeding to the next domain (max 2 fix-and-verify cycles); if bugs persist, log to `.gsd-t/deferred-items.md` and present to user.
 
-7. **Context gate re-check** — run `node -e "const tb=require('./bin/token-budget.js'); const s=tb.getSessionStatus('.'); if(s.threshold==='stop')process.exit(10); if(s.threshold==='conserve')process.exit(11);"`. If exit code is `10`, follow the Step 3.5 STOP procedure now (do NOT spawn the next domain). If exit code is `11`, checkpoint progress and skip non-essential operations (Red Team, doc-ripple) for the next domain.
+7. **Context gate re-check** — run `node -e "const tb=require('./bin/token-budget.js'); const s=tb.getSessionStatus('.'); if(s.threshold==='stop')process.exit(10); if(s.threshold==='warn')process.exit(13);"`. If exit code is `10`, follow the Step 3.5 STOP procedure now (do NOT spawn the next domain). If exit code is `13`, log the warning and proceed at full quality for the next domain (no model overrides, no phase skips — quality is never silently degraded).
 
 ### Team Mode (when agent teams are enabled)
 Spawn teammates for domains within the same wave. Only domains in the same wave can run in parallel — do not spawn teammates for domains in different waves simultaneously. Each teammate uses the **domain task-dispatcher pattern** — one subagent per task within their domain (same as solo mode).
@@ -614,15 +647,13 @@ The orchestrator MUST check `getSessionStatus()` BEFORE every task subagent spaw
 **Before each task spawn — gate check:**
 
 ```bash
-node -e "const tb=require('./bin/token-budget.js'); const s=tb.getSessionStatus('.'); process.stdout.write(JSON.stringify(s)); if(s.threshold==='stop')process.exit(10); if(s.threshold==='conserve')process.exit(11); if(s.threshold==='downgrade')process.exit(12); if(s.threshold==='warn')process.exit(13);"
+node -e "const tb=require('./bin/token-budget.js'); const s=tb.getSessionStatus('.'); process.stdout.write(JSON.stringify(s)); if(s.threshold==='stop')process.exit(10); if(s.threshold==='warn')process.exit(13);"
 ```
 
-Exit code semantics:
-- `0` → `normal` band (< 60% ctx). Proceed with standard model assignments.
-- `13` → `warn` band (60–70%). Proceed, but display budget alert and reduce iteration budgets.
-- `12` → `downgrade` band (70–85%). Proceed, but apply `getDegradationActions` model overrides (e.g., opus→sonnet for red-team, sonnet→haiku for execute).
-- `11` → `conserve` band (85–95%). Checkpoint progress to `.gsd-t/progress.md` and skip non-essential operations (Red Team, doc-ripple) for the next domain.
-- `10` → `stop` band (≥ 95%). STOP immediately. Do NOT spawn the next task. Jump straight to the STOP procedure below.
+Exit code semantics (three-band model per `token-budget-contract.md` v3.0.0):
+- `0` → `normal` band (< 70% ctx). Proceed with standard model assignments.
+- `13` → `warn` band (70–85%). Log the warning to `.gsd-t/token-log.md` and proceed at full quality. **Never downgrade models or skip phases** — M35 removed that behavior intentionally. If the projected runway is insufficient, the runway estimator (m35-runway-estimator) will halt cleanly before reaching `stop`.
+- `10` → `stop` band (≥ 85%). STOP immediately. Do NOT spawn the next task. Jump straight to the STOP procedure below.
 
 The JSON on stdout contains `{consumed, estimated_remaining, pct, threshold}` — capture `pct` as `{CTX_PCT}` for the token-log `Ctx%` column on the NEXT spawn.
 
@@ -645,7 +676,7 @@ Run the same command again. The fresh reading reflects post-task consumption (th
 
 **Configuring threshold bands:**
 
-Band boundaries (`warn=60`, `downgrade=70`, `conserve=85`, `stop=95`) are defined in `bin/token-budget.js` (`THRESHOLDS` constant) and documented in `.gsd-t/contracts/token-budget-contract.md`. The `modelWindowSize` used for the denominator comes from `.gsd-t/context-meter-config.json` (default `200000`). Override the window size there if running against a different model. There is no per-session env-var override — the real-time measurement supersedes the need for one.
+Band boundaries (`warn=70`, `stop=85`) are defined in `bin/token-budget.js` (`WARN_THRESHOLD_PCT` / `STOP_THRESHOLD_PCT` constants) and documented in `.gsd-t/contracts/token-budget-contract.md` v3.0.0. The `modelWindowSize` used for the denominator comes from `.gsd-t/context-meter-config.json` (default `200000`). Override the window size there if running against a different model. There is no per-session env-var override — the real-time measurement supersedes the need for one.
 
 **On resume (Step 0 — first thing the orchestrator does in a fresh session):**
 
