@@ -11,6 +11,18 @@ You are resuming work after an interruption. This handles both same-session paus
 **Cross-session** (first command in a new session, no prior conversation context):
 - Run Step 1 to load full state
 
+## Step 0.5: Headless Read-Back Banner (MANDATORY)
+
+Before loading full state, surface any completed headless sessions the user hasn't seen yet. Run this once at the start of every resume invocation:
+
+```bash
+node bin/check-headless-sessions.js . 2>/dev/null || true
+```
+
+This prints a `## Headless runs since you left` banner listing any completed sessions with their duration, outcome, and log path, then marks them surfaced so the banner never re-appears for the same session. If no completed sessions exist, it prints nothing.
+
+Contract: `.gsd-t/contracts/headless-auto-spawn-contract.md` v1.0.0
+
 ## Step 1: Load Full State (cross-session only)
 
 Read in this exact order:

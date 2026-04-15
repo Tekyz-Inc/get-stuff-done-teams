@@ -85,6 +85,11 @@ BACKLOG                                                                Manual
   backlog-promote     Refine, classify, and launch GSD-T workflow
   backlog-settings    Manage types, apps, categories, and defaults
 
+OPTIMIZATION                                                           Manual
+───────────────────────────────────────────────────────────────────────────────
+  optimization-apply  Promote a pending token-optimizer recommendation
+  optimization-reject Dismiss a recommendation with optional reason + cooldown
+
 ───────────────────────────────────────────────────────────────────────────────
 Type /user:gsd-t-help {command} for detailed help on any command.
 Example: /user:gsd-t-help impact
@@ -455,6 +460,20 @@ Use these when user asks for help on a specific command:
 - **Auto-invoked**: No
 - **Files**: `.gsd-t/backlog-settings.md`
 - **Use when**: Customizing the classification dimensions for your project
+
+### optimization-apply
+- **Summary**: Promote a pending token-optimizer recommendation from `.gsd-t/optimization-backlog.md`
+- **Auto-invoked**: No
+- **Files**: `.gsd-t/optimization-backlog.md`, `.gsd-t/progress.md`, `.gsd-t/token-log.md`
+- **Usage**: `/user:gsd-t-optimization-apply {ID}`
+- **Use when**: A recommendation looks correct and you want to act on it — offers a quick-task or full backlog-promote path
+
+### optimization-reject
+- **Summary**: Dismiss a recommendation with an optional reason; sets a 5-milestone cooldown
+- **Auto-invoked**: No
+- **Files**: `.gsd-t/optimization-backlog.md`, `.gsd-t/progress.md`, `.gsd-t/token-log.md`
+- **Usage**: `/user:gsd-t-optimization-reject {ID} [--reason "text"]`
+- **Use when**: A recommendation is wrong or premature — prevents the same signal from re-surfacing for 5 milestones
 
 ## Unknown Command
 

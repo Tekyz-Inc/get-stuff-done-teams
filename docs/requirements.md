@@ -251,8 +251,8 @@
 | REQ-073 | Pre-flight runway estimator refuses runs projected to cross 85% stop threshold | runway-estimator | T1–T5 | complete (Wave 3) |
 | REQ-074 | Per-spawn token telemetry to `.gsd-t/token-metrics.jsonl` with frozen 18-field schema | token-telemetry | T1–T3 | complete (Waves 1–2) |
 | REQ-075 | `gsd-t metrics` CLI: `--tokens [--by ...]`, `--halts`, `--tokens --context-window` | token-telemetry | T4–T6 | complete (Wave 2) |
-| REQ-076 | Optimization backlog — detect only, never auto-apply, user promotes or rejects | optimization-backlog | T1–T4 | pending (Wave 4) |
-| REQ-077 | Headless auto-spawn on runway refusal — user never sees a `/clear` prompt | headless-auto-spawn | T1–T5 | complete T1–T3 (Wave 3); T4–T5 pending (Wave 4) |
+| REQ-076 | Optimization backlog — detect only, never auto-apply, user promotes or rejects | optimization-backlog | T1–T4 | complete (Wave 4) |
+| REQ-077 | Headless auto-spawn on runway refusal — user never sees a `/clear` prompt | headless-auto-spawn | T1–T5 | complete (Waves 3–4) |
 | REQ-078 | Structural elimination of native compact messages — `halt_type: native-compact` count is 0 during M35 execution | runway-estimator + headless-auto-spawn | T1–T5 (RE), T1–T5 (HAS) | pending (M35 verify) |
 
 **M35 Functional Requirements:**

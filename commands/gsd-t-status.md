@@ -19,6 +19,37 @@ Wait for the subagent to complete. Relay its output to the user. **Do not read f
 **If you are the spawned subagent** (your prompt says "running gsd-t-status"):
 Continue below.
 
+## Step 0: Headless Read-Back Banner (MANDATORY)
+
+Before reading any files, surface any completed headless sessions the user hasn't seen yet. Run this once at the start of every status invocation:
+
+```bash
+node bin/check-headless-sessions.js . 2>/dev/null || true
+```
+
+This prints a `## Headless runs since you left` banner listing any completed sessions with their duration, outcome, and log path, then marks them surfaced so the banner never re-appears for the same session. If no completed sessions exist, it prints nothing. The banner appears at the very top of status output — before the main status table.
+
+Contract: `.gsd-t/contracts/headless-auto-spawn-contract.md` v1.0.0
+
+## Step 0.5: Optimization Backlog Pending Count (one-liner)
+
+Immediately after the headless banner, surface the count of pending token-optimizer recommendations. Show only when `N > 0` — when `N === 0`, omit the line entirely (no noise).
+
+```bash
+node -e "
+try {
+  const opt = require('./bin/token-optimizer.js');
+  const entries = opt.parseBacklog(opt.readBacklog('.'));
+  const pending = entries.filter(e => e.status === 'pending').length;
+  if (pending > 0) {
+    console.log('Optimization backlog: ' + pending + ' pending recommendation(s) — /user:gsd-t-backlog-list --file optimization-backlog.md');
+  }
+} catch (_) { /* optimizer unavailable — silent */ }
+"
+```
+
+Contract: `.gsd-t/contracts/token-telemetry-contract.md` v1.0.0
+
 ## Read These Files
 
 1. `.gsd-t/progress.md`

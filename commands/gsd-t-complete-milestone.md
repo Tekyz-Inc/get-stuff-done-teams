@@ -508,6 +508,30 @@ If `.gsd-t/roadmap.md` exists:
 - Update any dependent milestones
 - Highlight next recommended milestone
 
+## Step 14: Token Optimization Recommendations (non-blocking)
+
+After all quality gates pass and the milestone is archived, run the token optimizer to detect model-tier miscalibration signals from the milestone's telemetry. This appends recommendations to `.gsd-t/optimization-backlog.md`. **Never blocks, never prompts, never auto-applies.** Optimizer failure is caught and logged, not re-thrown.
+
+```bash
+node -e "
+try {
+  const opt = require('./bin/token-optimizer.js');
+  const recs = opt.detectRecommendations({projectDir: '.', lookbackMilestones: 3});
+  opt.appendToBacklog(recs, '.');
+  if (recs.length === 0) {
+    console.log('Token optimizer: no new recommendations.');
+  } else {
+    console.log('Token optimizer: ' + recs.length + ' new recommendation(s) → .gsd-t/optimization-backlog.md');
+    console.log('Review with: /user:gsd-t-backlog-list --file optimization-backlog.md');
+  }
+} catch (e) {
+  console.error('Token optimizer error (non-blocking): ' + e.message);
+}
+"
+```
+
+Contract: `.gsd-t/contracts/token-telemetry-contract.md` v1.0.0
+
 ## Error Handling
 
 ### If verify failed:
