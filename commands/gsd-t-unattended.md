@@ -77,6 +77,12 @@ Parse `$ARGUMENTS` for:
 - `--max-iterations=N` — iteration cap (default: `200`)
 - `--dry-run` — preflight only; print what would be spawned, do NOT spawn
 
+**Persistent overrides**: create `.gsd-t/.unattended/config.json` to change
+defaults per-project (caps, protected branches, dirty-tree whitelist). CLI
+flags always win over the config file. See `docs/unattended-config.md` for
+the full schema and common recipes (e.g. `{"protectedBranches": []}` for
+solo projects that commit directly to main).
+
 Run via Bash to read the current milestone from progress.md:
 
 ```bash

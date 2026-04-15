@@ -2,6 +2,20 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [3.10.11] - 2026-04-15
+
+### Added
+- `docs/unattended-config.md` — full schema and recipe reference for `.gsd-t/.unattended/config.json`. The supervisor has always loaded this file (M36 safety rails), but there was no user-facing doc explaining the schema, precedence, or common overrides.
+- `commands/gsd-t-unattended.md` Step 1c cross-references the new config doc and calls out the solo-project recipe (`{"protectedBranches": []}` to disable the main/master guard).
+
+### Fixed
+- Flaky test: `scripts/gsd-t-context-meter.e2e.test.js` `HARD_TIMEOUT_MS` bumped 6000 → 12000ms. The hook child process runs fine in 30ms in isolation but was timing out under full-suite parallelism load on some machines. No behavioral change — just a more forgiving outer cap.
+- `commands/gsd-t-unattended.md` gained Step 1e: pre-flight software check that hard-fails the launch if `node`, `claude`, or `git` are missing, and prints soft warnings for missing platform helpers (`caffeinate` on darwin; `systemd-inhibit`/`notify-send` on linux; BurntToast advisory on win32). Replaces the previous "crash mid-run when a helper is missing" behavior with fail-fast + actionable install instructions.
+- `docs/unattended-windows-caveats.md` added §0 "Required Software" matrix listing hard-required and soft-recommended tools per platform.
+
+### Notes
+- No API or contract changes. `.gsd-t/.unattended/config.json` loader and precedence (CLI > env > config > defaults) were already built into M36 safety rails — this release only surfaces them in documentation.
+
 ## [3.10.10] - 2026-04-15
 
 ### Major version bump: 2.x → 3.x
