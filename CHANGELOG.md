@@ -2,6 +2,27 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [3.10.13] - 2026-04-15
+
+### Fixed — P0 v3.10.12 propagation gap (same regression, downstream projects)
+
+**Background**: v3.10.12 shipped the `stale` band fix to `bin/token-budget.js` in the GSD-T repo, but verification revealed the fix was **never visible in any downstream project**. Every command file gate snippet is `require('./bin/token-budget.js')` resolved against the **project cwd** — and no downstream project has a local `bin/token-budget.js` file. `PROJECT_BIN_TOOLS` in `bin/gsd-t.js` (the list that `update-all` copies to each registered project) did not include `token-budget.js`, so downstream projects never received any copy. The require throws `MODULE_NOT_FOUND`, the surrounding `try{…}catch(_){process.stdout.write('0')}` swallows it, and the gate sees `pct: 0` = normal band. Identical failure mode to the original regression.
+
+### Changed
+- **`bin/token-budget.js` → `bin/token-budget.cjs`** — renamed to `.cjs` so it runs as CommonJS regardless of downstream `package.json` `"type"` field. Some registered projects use `"type": "module"`, which would have broken `require('./bin/token-budget.js')` even if the file were propagated. The `.cjs` extension is the same convention used by all other tools in `PROJECT_BIN_TOOLS` (`archive-progress.cjs`, `log-tail.cjs`, `context-budget-audit.cjs`, `context-meter-config.cjs`).
+- **`bin/gsd-t.js`** `PROJECT_BIN_TOOLS` — appended `"token-budget.cjs"`. Now `update-all` copies the file to every registered project's `bin/` on update.
+- **All 17 command files** referencing `./bin/token-budget.js` — updated to `./bin/token-budget.cjs`: `gsd-t-execute`, `gsd-t-wave`, `gsd-t-quick`, `gsd-t-debug`, `gsd-t-integrate`, `gsd-t-doc-ripple`, `gsd-t-verify`, `gsd-t-plan`, `gsd-t-discuss`, `gsd-t-visualize`, `gsd-t-reflect`, `gsd-t-brainstorm`, `gsd-t-audit`, `gsd-t-prd`, `gsd-t-resume`, `gsd-t-unattended`, `gsd-t-help`.
+- **`test/token-budget.test.js`** — require path updated to `../bin/token-budget.cjs`. All 1228 tests pass.
+
+### Why this matters
+Without this patch, v3.10.12's `stale` band fix is **dead code in every downstream project**. The command files fail the require, catch silently, and the gate goes back to reporting 0% normal — exactly the invisible failure mode that caused the M36 regression in the first place. The two patches are a single logical fix; shipping v3.10.12 alone was incomplete.
+
+### Verification
+- `npm test` → 1228/1228 pass (same baseline as v3.10.12)
+- No runtime references to `token-budget.js` remain under `commands/`
+- `bin/token-budget.cjs` is 13867 bytes (verbatim copy of the v3.10.12 `token-budget.js`)
+- `PROJECT_BIN_TOOLS` now has 5 entries — `update-all` will copy to all 15 registered projects on next invocation
+
 ## [3.10.12] - 2026-04-15
 
 ### Fixed — P0 context meter regression (M36 /compact incidents)

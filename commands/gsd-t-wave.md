@@ -18,14 +18,14 @@ Per `.gsd-t/contracts/token-telemetry-contract.md` v1.0.0. Every phase agent spa
 
 ```bash
 T0_TOKENS=$(node -e "try{const s=require('fs').readFileSync('.gsd-t/.context-meter-state.json','utf8');process.stdout.write(String(JSON.parse(s).inputTokens||0))}catch(_){process.stdout.write('0')}")
-T0_PCT=$(node -e "try{const tb=require('./bin/token-budget.js');process.stdout.write(String(tb.getSessionStatus('.').pct||0))}catch(_){process.stdout.write('0')}")
+T0_PCT=$(node -e "try{const tb=require('./bin/token-budget.cjs');process.stdout.write(String(tb.getSessionStatus('.').pct||0))}catch(_){process.stdout.write('0')}")
 ```
 
 **After each phase spawn — record the bracket:**
 
 ```bash
 T1_TOKENS=$(node -e "try{const s=require('fs').readFileSync('.gsd-t/.context-meter-state.json','utf8');process.stdout.write(String(JSON.parse(s).inputTokens||0))}catch(_){process.stdout.write('0')}")
-T1_PCT=$(node -e "try{const tb=require('./bin/token-budget.js');process.stdout.write(String(tb.getSessionStatus('.').pct||0))}catch(_){process.stdout.write('0')}")
+T1_PCT=$(node -e "try{const tb=require('./bin/token-budget.cjs');process.stdout.write(String(tb.getSessionStatus('.').pct||0))}catch(_){process.stdout.write('0')}")
 node -e "require('./bin/token-telemetry.js').recordSpawn({timestamp:new Date().toISOString(),milestone:process.env.GSD_T_MILESTONE||'',command:'gsd-t-wave',phase:'${PHASE:-}',step:'${STEP:-}',domain:'${DOMAIN:-}',domain_type:'${DOMAIN_TYPE:-}',task:'${TASK:-}',model:'${MODEL:-sonnet}',duration_s:${DURATION:-0},input_tokens_before:${T0_TOKENS},input_tokens_after:${T1_TOKENS},tokens_consumed:${T1_TOKENS}-${T0_TOKENS},context_window_pct_before:${T0_PCT},context_window_pct_after:${T1_PCT},outcome:'${OUTCOME:-success}',halt_type:${HALT_TYPE:-null},escalated_via_advisor:${ESCALATED_VIA_ADVISOR:-false}})" 2>/dev/null || true
 ```
 
@@ -69,10 +69,10 @@ If `can_start === false`, the headless continuation has already been spawned and
 Run via Bash:
 
 ```bash
-node -e "const tb = require('./bin/token-budget.js'); const s = tb.getSessionStatus('.'); console.log(JSON.stringify(s));"
+node -e "const tb = require('./bin/token-budget.cjs'); const s = tb.getSessionStatus('.'); console.log(JSON.stringify(s));"
 ```
 
-This calls `getSessionStatus()` (v2.0.0) which reads `.gsd-t/.context-meter-state.json` produced by the Context Meter PostToolUse hook. The returned `threshold` drives the gate logic in the Phase Agent Spawn Pattern below — it enforces the three-band stop boundary (85%) so the wave orchestrator itself never runs out of context mid-wave. When the state file is absent or stale, the call falls back to a historical heuristic from `.gsd-t/token-log.md`. Band boundaries and `modelWindowSize` are configured in `.gsd-t/context-meter-config.json` and `bin/token-budget.js` (THRESHOLDS constant).
+This calls `getSessionStatus()` (v2.0.0) which reads `.gsd-t/.context-meter-state.json` produced by the Context Meter PostToolUse hook. The returned `threshold` drives the gate logic in the Phase Agent Spawn Pattern below — it enforces the three-band stop boundary (85%) so the wave orchestrator itself never runs out of context mid-wave. When the state file is absent or stale, the call falls back to a historical heuristic from `.gsd-t/token-log.md`. Band boundaries and `modelWindowSize` are configured in `.gsd-t/context-meter-config.json` and `bin/token-budget.cjs` (THRESHOLDS constant).
 
 ## Step 1: Load State (Lightweight)
 
@@ -116,7 +116,7 @@ From progress.md status, determine which phase to start from:
 Before starting the phase loop, check the projected token cost for this milestone:
 
 Run via Bash:
-`node -e "const tb = require('./bin/token-budget.js'); const est = tb.estimateMilestoneCost('.'); if(est) process.stdout.write(JSON.stringify(est));" 2>/dev/null`
+`node -e "const tb = require('./bin/token-budget.cjs'); const est = tb.estimateMilestoneCost('.'); if(est) process.stdout.write(JSON.stringify(est));" 2>/dev/null`
 
 If the command returns data, display to user:
 - `estimated_tokens`: projected total tokens for this milestone
@@ -156,7 +156,7 @@ If STACK_RULES is empty (no templates/stacks/ dir or no matches), skip silently.
 **Per-Phase Token Budget Check (before each phase spawn):**
 
 Run via Bash:
-`node -e "const tb = require('./bin/token-budget.js'); const s = tb.getSessionStatus('.'); process.stdout.write(s.threshold);" 2>/dev/null`
+`node -e "const tb = require('./bin/token-budget.cjs'); const s = tb.getSessionStatus('.'); process.stdout.write(s.threshold);" 2>/dev/null`
 
 Three-band model per `token-budget-contract.md` v3.0.0 (never silently degrade quality):
 - `normal` or file missing → proceed normally
@@ -193,7 +193,7 @@ After phase agent returns — run via Bash:
 Run via Bash AFTER each phase agent returns:
 
 ```bash
-node -e "const tb=require('./bin/token-budget.js'); const s=tb.getSessionStatus('.'); process.stdout.write(JSON.stringify(s)); if(s.threshold==='stop'||s.threshold==='stale')process.exit(10); if(s.threshold==='warn')process.exit(13);"
+node -e "const tb=require('./bin/token-budget.cjs'); const s=tb.getSessionStatus('.'); process.stdout.write(JSON.stringify(s)); if(s.threshold==='stop'||s.threshold==='stale')process.exit(10); if(s.threshold==='warn')process.exit(13);"
 ```
 
 The JSON on stdout contains `{consumed, estimated_remaining, pct, threshold}` — capture `pct` as `{CTX_PCT}` for the token-log row.
@@ -204,7 +204,7 @@ Exit-code handling (three-band model per `token-budget-contract.md` v3.0.0, exte
 - `10` (stop, ≥85%) → STOP the wave loop. Save checkpoint to `.gsd-t/progress.md` — record which phases are complete, which remain. Call `autoSpawnHeadless({command: 'gsd-t-wave', args, projectDir})` — this spawns a fresh headless session that auto-resumes via `/gsd-t-resume` without any manual `/clear`. Output: `⏸️ Wave orchestrator context gate reached ({pct}% of model window) — handing off to a fresh headless session (ID: {id}). Progress saved.` Return cleanly. Do NOT spawn the next phase agent, do NOT exit with a special code — the handoff is the success path.
 - `10` (stale, meter dead) → **not resumable**. The context meter is dead (usually missing `ANTHROPIC_API_KEY`). Do NOT auto-spawn a fresh session — a fresh session would have the same broken guardrail. Instead, halt the wave and print `⚠ Context meter DEAD — run 'gsd-t doctor' and fix the cause before resuming`.
 
-As of v2.0.0 (M34), the wave orchestrator reads the SAME `bin/token-budget.js` real-source measurement as the execute orchestrator — both trace back to `.gsd-t/.context-meter-state.json` produced by the Context Meter PostToolUse hook. Each phase spawn (PARTITION, DISCUSS, PLAN, IMPACT, EXECUTE, TEST-SYNC, INTEGRATE, VERIFY+COMPLETE, DOC-RIPPLE) causes post-call updates to the state file, so each subsequent gate check reflects the real context consumption trajectory. When the state file is absent or stale, the call falls back to the historical heuristic.
+As of v2.0.0 (M34), the wave orchestrator reads the SAME `bin/token-budget.cjs` real-source measurement as the execute orchestrator — both trace back to `.gsd-t/.context-meter-state.json` produced by the Context Meter PostToolUse hook. Each phase spawn (PARTITION, DISCUSS, PLAN, IMPACT, EXECUTE, TEST-SYNC, INTEGRATE, VERIFY+COMPLETE, DOC-RIPPLE) causes post-call updates to the state file, so each subsequent gate check reflects the real context consumption trajectory. When the state file is absent or stale, the call falls back to the historical heuristic.
 
 The previous v1.x version relied on an environment-variable-based context check which Claude Code never populated; v2.74.12 stood in a proxy task counter; v2.0.0 (M34) retires both and uses the real count_tokens measurement.
 

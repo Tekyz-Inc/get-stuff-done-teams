@@ -1,5 +1,5 @@
 /**
- * Tests for bin/token-budget.js
+ * Tests for bin/token-budget.cjs
  * Uses Node.js built-in test runner (node --test)
  *
  * v3.0.0 (M35): clean break — three-band model (normal / warn / stop).
@@ -27,7 +27,7 @@ const {
   getDegradationActions,
   estimateMilestoneCost,
   getModelCostRatios,
-} = require("../bin/token-budget.js");
+} = require("../bin/token-budget.cjs");
 
 const MODEL_WINDOW = 200000;
 let tmpDir;

@@ -369,7 +369,7 @@ Use these when user asks for help on a specific command:
 - **Summary**: Harness self-audit — analyze cost and benefit of GSD-T enforcement components (QA, Red Team, doc-ripple, token budget), with optional shadow mode to measure overhead
 - **Auto-invoked**: No
 - **Creates**: `.gsd-t/audit-report.md`
-- **Reads**: `.gsd-t/metrics/`, `.gsd-t/token-log.md`, `bin/component-registry.js`, `bin/qa-calibrator.js`, `bin/token-budget.js`
+- **Reads**: `.gsd-t/metrics/`, `.gsd-t/token-log.md`, `bin/component-registry.js`, `bin/qa-calibrator.js`, `bin/token-budget.cjs`
 - **Use when**: Reviewing whether enforcement components are adding value or overhead; shadow mode measures impact without disabling components; `--disable {component}` temporarily disables one component for comparison
 
 ### headless --debug-loop

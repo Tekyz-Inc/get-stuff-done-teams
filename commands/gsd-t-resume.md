@@ -80,7 +80,7 @@ Run via Bash:
 
 ```bash
 node -e "
-const tb=require('./bin/token-budget.js');
+const tb=require('./bin/token-budget.cjs');
 const s=tb.getSessionStatus('.');
 if (s.threshold === 'stale') {
   console.error('⚠ Context meter is DEAD — reason: ' + (s.deadReason || 'unknown'));

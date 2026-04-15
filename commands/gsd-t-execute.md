@@ -23,14 +23,14 @@ Per `.gsd-t/contracts/token-telemetry-contract.md` v1.0.0. Every Task subagent s
 
 ```bash
 T0_TOKENS=$(node -e "try{const s=require('fs').readFileSync('.gsd-t/.context-meter-state.json','utf8');process.stdout.write(String(JSON.parse(s).inputTokens||0))}catch(_){process.stdout.write('0')}")
-T0_PCT=$(node -e "try{const tb=require('./bin/token-budget.js');process.stdout.write(String(tb.getSessionStatus('.').pct||0))}catch(_){process.stdout.write('0')}")
+T0_PCT=$(node -e "try{const tb=require('./bin/token-budget.cjs');process.stdout.write(String(tb.getSessionStatus('.').pct||0))}catch(_){process.stdout.write('0')}")
 ```
 
 **After each spawn — record the bracket:**
 
 ```bash
 T1_TOKENS=$(node -e "try{const s=require('fs').readFileSync('.gsd-t/.context-meter-state.json','utf8');process.stdout.write(String(JSON.parse(s).inputTokens||0))}catch(_){process.stdout.write('0')}")
-T1_PCT=$(node -e "try{const tb=require('./bin/token-budget.js');process.stdout.write(String(tb.getSessionStatus('.').pct||0))}catch(_){process.stdout.write('0')}")
+T1_PCT=$(node -e "try{const tb=require('./bin/token-budget.cjs');process.stdout.write(String(tb.getSessionStatus('.').pct||0))}catch(_){process.stdout.write('0')}")
 node -e "require('./bin/token-telemetry.js').recordSpawn({timestamp:new Date().toISOString(),milestone:process.env.GSD_T_MILESTONE||'',command:'gsd-t-execute',phase:'${PHASE:-execute}',step:'${STEP:-}',domain:'${DOMAIN:-}',domain_type:'${DOMAIN_TYPE:-}',task:'${TASK:-}',model:'${MODEL:-sonnet}',duration_s:${DURATION:-0},input_tokens_before:${T0_TOKENS},input_tokens_after:${T1_TOKENS},tokens_consumed:${T1_TOKENS}-${T0_TOKENS},context_window_pct_before:${T0_PCT},context_window_pct_after:${T1_PCT},outcome:'${OUTCOME:-success}',halt_type:${HALT_TYPE:-null},escalated_via_advisor:${ESCALATED_VIA_ADVISOR:-false}})" 2>/dev/null || true
 ```
 
@@ -74,7 +74,7 @@ If `can_start === false`, the Step 0 block above has already spawned the headles
 Run via Bash:
 
 ```bash
-node -e "const tb = require('./bin/token-budget.js'); const s = tb.getSessionStatus('.'); console.log(JSON.stringify(s));"
+node -e "const tb = require('./bin/token-budget.cjs'); const s = tb.getSessionStatus('.'); console.log(JSON.stringify(s));"
 ```
 
 This calls `getSessionStatus()` (v2.0.0) which reads `.gsd-t/.context-meter-state.json` produced by the Context Meter PostToolUse hook. If the state file is fresh (timestamp within 5 min), you get real `pct` and `threshold` values; if missing or stale, the call falls back to the historical heuristic from `.gsd-t/token-log.md`.
@@ -191,7 +191,7 @@ Where `{CTX_PCT}` is the current `pct` value returned by `getSessionStatus()` (S
 **Token Budget Check (before dispatching each domain's tasks):**
 
 Run via Bash:
-`node -e "const tb = require('./bin/token-budget.js'); const s = tb.getSessionStatus('.'); const d = tb.getDegradationActions(s.threshold, '.'); process.stdout.write(JSON.stringify({band: d.band, pct: d.pct, message: d.message}));" 2>/dev/null`
+`node -e "const tb = require('./bin/token-budget.cjs'); const s = tb.getSessionStatus('.'); const d = tb.getDegradationActions(s.threshold, '.'); process.stdout.write(JSON.stringify({band: d.band, pct: d.pct, message: d.message}));" 2>/dev/null`
 
 Apply the result (three-band model per `token-budget-contract.md` v3.0.0 — never silently degrade quality):
 - `band: 'normal'` or file missing → proceed with standard model assignments
@@ -529,7 +529,7 @@ Report back:
 
 6. **Per-domain Red Team** — invoke Step 5.5 (Red Team) NOW for this domain. This is the first place Red Team runs in v2.74.12 — there is no global post-execute Red Team anymore. If Red Team returns FAIL, fix bugs and re-run before proceeding to the next domain (max 2 fix-and-verify cycles); if bugs persist, log to `.gsd-t/deferred-items.md` and present to user.
 
-7. **Context gate re-check** — run `node -e "const tb=require('./bin/token-budget.js'); const s=tb.getSessionStatus('.'); if(s.threshold==='stop'||s.threshold==='stale')process.exit(10); if(s.threshold==='warn')process.exit(13);"`. If exit code is `10`, follow the Step 3.5 STOP procedure now (do NOT spawn the next domain). `stale` means the context meter is dead (usually missing `ANTHROPIC_API_KEY`) and is treated as STOP — print `⚠ Context meter DEAD — run 'gsd-t doctor' and fix before continuing` and halt. If exit code is `13`, log the warning and proceed at full quality for the next domain (no model overrides, no phase skips — quality is never silently degraded).
+7. **Context gate re-check** — run `node -e "const tb=require('./bin/token-budget.cjs'); const s=tb.getSessionStatus('.'); if(s.threshold==='stop'||s.threshold==='stale')process.exit(10); if(s.threshold==='warn')process.exit(13);"`. If exit code is `10`, follow the Step 3.5 STOP procedure now (do NOT spawn the next domain). `stale` means the context meter is dead (usually missing `ANTHROPIC_API_KEY`) and is treated as STOP — print `⚠ Context meter DEAD — run 'gsd-t doctor' and fix before continuing` and halt. If exit code is `13`, log the warning and proceed at full quality for the next domain (no model overrides, no phase skips — quality is never silently degraded).
 
 ### Team Mode (when agent teams are enabled)
 Spawn teammates for domains within the same wave. Only domains in the same wave can run in parallel — do not spawn teammates for domains in different waves simultaneously. Each teammate uses the **domain task-dispatcher pattern** — one subagent per task within their domain (same as solo mode).
@@ -675,12 +675,12 @@ Cleanup is not optional — orphaned worktrees waste disk space and can confuse 
 
 ## Step 3.5: Orchestrator Context Gate (MANDATORY)
 
-The orchestrator MUST check `getSessionStatus()` BEFORE every task subagent spawn AND immediately AFTER every domain completes. This is the real context-burn guardrail. As of v2.0.0 (M34), `bin/token-budget.js` reads `.gsd-t/.context-meter-state.json` — the live count_tokens-based `input_tokens` measurement produced by the Context Meter PostToolUse hook. When the state file is fresh (timestamp within 5 min), thresholds reflect the ACTUAL context window utilization; when absent or stale, the call falls back to the historical heuristic from `.gsd-t/token-log.md`.
+The orchestrator MUST check `getSessionStatus()` BEFORE every task subagent spawn AND immediately AFTER every domain completes. This is the real context-burn guardrail. As of v2.0.0 (M34), `bin/token-budget.cjs` reads `.gsd-t/.context-meter-state.json` — the live count_tokens-based `input_tokens` measurement produced by the Context Meter PostToolUse hook. When the state file is fresh (timestamp within 5 min), thresholds reflect the ACTUAL context window utilization; when absent or stale, the call falls back to the historical heuristic from `.gsd-t/token-log.md`.
 
 **Before each task spawn — gate check:**
 
 ```bash
-node -e "const tb=require('./bin/token-budget.js'); const s=tb.getSessionStatus('.'); process.stdout.write(JSON.stringify(s)); if(s.threshold==='stop'||s.threshold==='stale')process.exit(10); if(s.threshold==='warn')process.exit(13);"
+node -e "const tb=require('./bin/token-budget.cjs'); const s=tb.getSessionStatus('.'); process.stdout.write(JSON.stringify(s)); if(s.threshold==='stop'||s.threshold==='stale')process.exit(10); if(s.threshold==='warn')process.exit(13);"
 ```
 
 Exit code semantics (three-band model per `token-budget-contract.md` v3.0.0, extended with a fourth `stale` guard in v3.10.12):
@@ -709,13 +709,13 @@ Run the same command again. The fresh reading reflects post-task consumption (th
 
 **Configuring threshold bands:**
 
-Band boundaries (`warn=70`, `stop=85`) are defined in `bin/token-budget.js` (`WARN_THRESHOLD_PCT` / `STOP_THRESHOLD_PCT` constants) and documented in `.gsd-t/contracts/token-budget-contract.md` v3.0.0. The `modelWindowSize` used for the denominator comes from `.gsd-t/context-meter-config.json` (default `200000`). Override the window size there if running against a different model. There is no per-session env-var override — the real-time measurement supersedes the need for one.
+Band boundaries (`warn=70`, `stop=85`) are defined in `bin/token-budget.cjs` (`WARN_THRESHOLD_PCT` / `STOP_THRESHOLD_PCT` constants) and documented in `.gsd-t/contracts/token-budget-contract.md` v3.0.0. The `modelWindowSize` used for the denominator comes from `.gsd-t/context-meter-config.json` (default `200000`). Override the window size there if running against a different model. There is no per-session env-var override — the real-time measurement supersedes the need for one.
 
 **On resume (Step 0 — first thing the orchestrator does in a fresh session):**
 
 Step 0 runs `getSessionStatus()` once for readiness confirmation. The reading should be fresh (the Context Meter hook fires on every tool call), so the gate immediately reflects the new session's starting pct — typically near 0 since `/clear` resets the conversation.
 
-This gate replaces the v2.74.12 task counter proxy and the (never-functional) v1.x env-var check. It is fail-safe: if `bin/token-budget.js` or the state file is unreadable for any reason, `getSessionStatus()` throws and the gate exits non-zero (treated as STOP) rather than silently allowing unlimited spawns.
+This gate replaces the v2.74.12 task counter proxy and the (never-functional) v1.x env-var check. It is fail-safe: if `bin/token-budget.cjs` or the state file is unreadable for any reason, `getSessionStatus()` throws and the gate exits non-zero (treated as STOP) rather than silently allowing unlimited spawns.
 
 ## Step 4: Checkpoint Handling
 
@@ -791,7 +791,7 @@ and summary, and the full comparison table per the protocol's Step 7."
 ```
 
 After subagent returns — run via Bash:
-`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START)) && CTX_PCT=$(node -e "try{const tb=require('./bin/token-budget.js'); process.stdout.write(String(tb.getSessionStatus('.').pct))}catch(_){process.stdout.write('N/A')}")`
+`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START)) && CTX_PCT=$(node -e "try{const tb=require('./bin/token-budget.cjs'); process.stdout.write(String(tb.getSessionStatus('.').pct))}catch(_){process.stdout.write('N/A')}")`
 Append to `.gsd-t/token-log.md`:
 `| {DT_START} | {DT_END} | gsd-t-execute | Design Verify | opus | {DURATION}s | {VERDICT} — {MATCH}/{TOTAL} elements for {domain-name} | | | {CTX_PCT} |`
 
@@ -844,7 +844,7 @@ attack categories exhausted, and the path to the written
 ```
 
 After subagent returns — run via Bash:
-`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START)) && CTX_PCT=$(node -e "try{const tb=require('./bin/token-budget.js'); process.stdout.write(String(tb.getSessionStatus('.').pct))}catch(_){process.stdout.write('N/A')}")`
+`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START)) && CTX_PCT=$(node -e "try{const tb=require('./bin/token-budget.cjs'); process.stdout.write(String(tb.getSessionStatus('.').pct))}catch(_){process.stdout.write('N/A')}")`
 Append to `.gsd-t/token-log.md`:
 `| {DT_START} | {DT_END} | gsd-t-execute | Red Team | opus | {DURATION}s | {VERDICT} — {N} bugs found in {domain-name} | | | {CTX_PCT} |`
 
