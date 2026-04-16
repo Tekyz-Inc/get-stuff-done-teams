@@ -154,7 +154,7 @@ test("buildAdditionalContext — below threshold returns null", () => {
   );
 });
 
-test("buildAdditionalContext — at threshold returns string", () => {
+test("buildAdditionalContext — at threshold returns multi-line MANDATORY STOP", () => {
   const result = buildAdditionalContext({
     pct: 75,
     modelWindowSize: 200000,
@@ -162,18 +162,28 @@ test("buildAdditionalContext — at threshold returns string", () => {
   });
   assert.ok(typeof result === "string");
   assert.ok(result.includes("75.0%"));
+  assert.ok(result.includes("MANDATORY STOP"));
+  assert.ok(result.includes("/user:gsd-t-pause"));
+  assert.ok(result.includes("/clear"));
+  assert.ok(result.includes("/user:gsd-t-resume"));
+  assert.ok(result.includes("Destructive Action Guard"));
+  assert.ok(result.includes("\n"), "must be multi-line");
 });
 
-test("buildAdditionalContext — above threshold exact contract string", () => {
+test("buildAdditionalContext — above threshold exact contract string (M37 multi-line)", () => {
   const result = buildAdditionalContext({
     pct: 76.2,
     modelWindowSize: 200000,
     thresholdPct: 75,
   });
-  assert.equal(
-    result,
-    "⚠️ Context window at 76.2% of 200000. Run /user:gsd-t-pause to checkpoint and clear before continuing."
-  );
+  const lines = result.split("\n");
+  assert.equal(lines.length, 6, "must have exactly 6 lines");
+  assert.equal(lines[0], "🛑 MANDATORY STOP — Context window at 76.2% of 200000 (threshold: 75%).");
+  assert.equal(lines[1], "You MUST stop what you are doing RIGHT NOW and execute these steps in order:");
+  assert.equal(lines[2], "1. Run /user:gsd-t-pause to save your exact position");
+  assert.equal(lines[3], "2. Tell the user to run /clear to free the context window");
+  assert.equal(lines[4], "3. Tell the user to run /user:gsd-t-resume to continue from the saved position");
+  assert.ok(lines[5].includes("Destructive Action Guard"));
 });
 
 test("buildAdditionalContext — decimal formatting rounds via toFixed(1)", () => {
@@ -195,7 +205,7 @@ test("buildAdditionalContext — modelWindowSize emitted raw (no commas)", () =>
     modelWindowSize: 200000,
     thresholdPct: 75,
   });
-  assert.ok(result.includes("of 200000."));
+  assert.ok(result.includes("of 200000"));
   assert.ok(!result.includes("200,000"));
   assert.ok(!result.includes("200K"));
 });
@@ -228,6 +238,7 @@ test("buildAdditionalContext — zero pct vs zero threshold emits", () => {
   });
   assert.ok(typeof result === "string");
   assert.ok(result.includes("0.0%"));
+  assert.ok(result.includes("MANDATORY STOP"));
 });
 
 test("buildAdditionalContext — pct over 100% still formats correctly", () => {
@@ -236,10 +247,8 @@ test("buildAdditionalContext — pct over 100% still formats correctly", () => {
     modelWindowSize: 200000,
     thresholdPct: 75,
   });
-  assert.equal(
-    result,
-    "⚠️ Context window at 102.3% of 200000. Run /user:gsd-t-pause to checkpoint and clear before continuing."
-  );
+  assert.ok(result.startsWith("🛑 MANDATORY STOP — Context window at 102.3% of 200000"));
+  assert.ok(result.includes("MANDATORY STOP"));
 });
 
 test("buildAdditionalContext — different modelWindowSize (1M)", () => {
@@ -248,8 +257,6 @@ test("buildAdditionalContext — different modelWindowSize (1M)", () => {
     modelWindowSize: 1000000,
     thresholdPct: 75,
   });
-  assert.equal(
-    result,
-    "⚠️ Context window at 80.0% of 1000000. Run /user:gsd-t-pause to checkpoint and clear before continuing."
-  );
+  assert.ok(result.startsWith("🛑 MANDATORY STOP — Context window at 80.0% of 1000000"));
+  assert.ok(result.includes("threshold: 75%"));
 });

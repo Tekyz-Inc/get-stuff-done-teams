@@ -2,6 +2,19 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [3.11.10] - 2026-04-16
+
+### Added — Universal Context Auto-Pause (M37)
+
+**Background**: The Context Meter (M34) correctly measures context window usage and emits an `additionalContext` signal at the configured threshold (default 75%). However, Claude consistently ignores the single-line suggestion format, continuing to work until hitting the runtime's ~95% `/compact` wall — which destroys context silently and loses work.
+
+### Changed
+- **`scripts/context-meter/threshold.js`** — `buildAdditionalContext()` now returns a 6-line MANDATORY STOP instruction instead of a single-line suggestion. The message starts with `🛑 MANDATORY STOP` and includes step-by-step instructions (pause → clear → resume) with explicit reference to the Destructive Action Guard enforcement weight.
+- **`.gsd-t/contracts/context-meter-contract.md`** — bumped to v1.2.0. New §"Universal Auto-Pause Rule" documents the mandatory behavioral requirement. Rule #8 added: `additionalContext` is a MANDATORY STOP signal with Destructive Action Guard enforcement weight.
+- **`templates/CLAUDE-global.md`** — new `## Universal Auto-Pause Rule (MANDATORY)` section added between Context Meter and API Documentation Guard sections. Same enforcement weight as the Destructive Action Guard.
+- **5 loop command files** (`gsd-t-execute`, `gsd-t-wave`, `gsd-t-integrate`, `gsd-t-quick`, `gsd-t-debug`) — Step 0.2 added: Universal Auto-Pause Rule enforcement. If `🛑 MANDATORY STOP` appears in `additionalContext` at any point, immediately halt, pause, and instruct clear+resume.
+- **Tests**: All 1228 tests pass (1224 unit + 4 e2e). `threshold.test.js` and `gsd-t-context-meter.e2e.test.js` updated for new multi-line format.
+
 ## [3.10.16] - 2026-04-15
 
 ### Fixed — unattended supervisor launch friction (3 bugs + UX improvements)

@@ -1,11 +1,12 @@
 # Contract: Context Meter
 
-## Version: 1.1.0
+## Version: 1.2.0
 ## Status: ACTIVE
 ## Owner: context-meter-config domain
-## Consumers: context-meter-hook (reads config), token-budget-replacement (reads state file), installer-integration (installs hook, validates config), m34-docs-and-tests (documents), gsd-t-resume (Step 0.6 meter-health check)
+## Consumers: context-meter-hook (reads config), token-budget-replacement (reads state file), installer-integration (installs hook, validates config), m34-docs-and-tests (documents), gsd-t-resume (Step 0.6 meter-health check), all loop commands (execute, wave, integrate, quick, debug — auto-pause enforcement)
 
 ## Changelog
+- **v1.2.0** (2026-04-16) — **Universal Auto-Pause** (M37). The `additionalContext` message is now a multi-line MANDATORY STOP instruction with the same enforcement weight as the Destructive Action Guard. All loop commands must treat this signal as an unignorable hard stop. See §"Universal Auto-Pause Rule".
 - **v1.1.0** (2026-04-15) — Added the `stale` band and mandatory resume-time health check (Step 0.6). Fixes M36 regression where `ANTHROPIC_API_KEY` was unset and every PostToolUse hook call failed fail-open (`checkCount=2102`, `pct=0` forever, gate blind). See §"Stale Band and Resume Gating".
 - **v1.0.0** (2026-03) — M34 initial release.
 
@@ -137,10 +138,10 @@ Hook reads the JSON payload from stdin, extracts `transcript_path`, and hands it
   ```json
   {}
   ```
-- **Threshold exceeded**:
+- **Threshold exceeded** (M37 v1.2.0 — multi-line MANDATORY STOP):
   ```json
   {
-    "additionalContext": "⚠️ Context window at 76.2% of 200000. Run /user:gsd-t-pause to checkpoint and clear before continuing."
+    "additionalContext": "🛑 MANDATORY STOP — Context window at 76.2% of 200000 (threshold: 75%).\nYou MUST stop what you are doing RIGHT NOW and execute these steps in order:\n1. Run /user:gsd-t-pause to save your exact position\n2. Tell the user to run /clear to free the context window\n3. Tell the user to run /user:gsd-t-resume to continue from the saved position\nDo NOT continue working, spawn subagents, or start new tasks. This has the same enforcement weight as the Destructive Action Guard — violating it risks losing work to context overflow."
   }
   ```
 
@@ -191,6 +192,38 @@ The hook maintains a per-session counter in `statePath` (`checkCount` field). Ev
 5. **State file is not committed**: installer adds `.gsd-t/.context-meter-state.json` and `.gsd-t/context-meter.log` to `.gitignore` during install.
 6. **Transcript format is not a public contract**: Claude Code's transcript JSONL format is undocumented upstream. `transcript-parser.js` must tolerate unknown fields and unfamiliar event types.
 7. **Backward-compatible contract for projects without the meter**: projects where `.gsd-t/.context-meter-state.json` is entirely missing continue to function — `token-budget.getSessionStatus()` falls back to the heuristic (this is different from a file that exists but is dead, which returns `stale`).
+8. **additionalContext is a MANDATORY STOP signal** (v1.2.0, M37): When `buildAdditionalContext()` returns a non-null string, Claude MUST immediately stop all work and execute the steps in the message. This signal has the same enforcement weight as the Destructive Action Guard — it is not a suggestion. All loop commands (`gsd-t-execute`, `gsd-t-wave`, `gsd-t-integrate`, `gsd-t-quick`, `gsd-t-debug`) enforce this rule. The `CLAUDE-global.md` template contains a matching `## Universal Auto-Pause Rule` section. Violating this rule risks context overflow and lost work.
+
+---
+
+## Universal Auto-Pause Rule (v1.2.0, M37)
+
+### Why this exists
+
+The Context Meter (M34) measures real context usage and emits an `additionalContext` signal when usage crosses the configured threshold (default 75%). Prior to M37, this signal was a polite suggestion (`⚠️ Run /user:gsd-t-pause...`). Claude consistently ignored it — continuing to work, spawning subagents, and eventually hitting the runtime's ~95% `/compact` wall, which destroys context silently.
+
+### The fix
+
+The `additionalContext` message is now a multi-line **MANDATORY STOP** instruction:
+
+```
+🛑 MANDATORY STOP — Context window at {pct}% of {windowSize} (threshold: {thresholdPct}%).
+You MUST stop what you are doing RIGHT NOW and execute these steps in order:
+1. Run /user:gsd-t-pause to save your exact position
+2. Tell the user to run /clear to free the context window
+3. Tell the user to run /user:gsd-t-resume to continue from the saved position
+Do NOT continue working, spawn subagents, or start new tasks. This has the same enforcement weight as the Destructive Action Guard — violating it risks losing work to context overflow.
+```
+
+### Enforcement layers
+
+1. **Hook output**: `buildAdditionalContext()` in `scripts/context-meter/threshold.js` emits the multi-line MANDATORY STOP instruction when `pct >= thresholdPct`.
+2. **CLAUDE-global.md template**: Contains a `## Universal Auto-Pause Rule (MANDATORY)` section with the same enforcement weight as `## Destructive Action Guard (MANDATORY)`.
+3. **Command files**: All loop commands (`execute`, `wave`, `integrate`, `quick`, `debug`) include an explicit auto-pause signal check that halts execution when the signal is present in the most recent hook output.
+
+### Scope
+
+This rule applies to ALL session types — not just GSD-T orchestrated workflows. Ad-hoc coding, debugging, brainstorming, research — any session where the Context Meter hook fires. The `additionalContext` field in the hook's stdout JSON is delivered to Claude by the Claude Code runtime's PostToolUse mechanism, making it visible regardless of what command or workflow is active.
 
 ---
 

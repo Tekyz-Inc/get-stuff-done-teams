@@ -375,6 +375,25 @@ This gives the user real-time visibility into which model is handling each opera
 
 *Historical note (v2.74.12–v2.74.13)*: between 2026-03 and 2026-04 the orchestrator used `bin/task-counter.cjs` — a proxy that assumed N tasks ≈ M% context used. That itself replaced an earlier env-var-based check (`CLAUDE_CONTEXT_TOKENS_USED` / `CLAUDE_CONTEXT_TOKENS_MAX`) that never worked because Claude Code does not export those variables. Both approaches are retired: the env-var path is removed entirely; `task-counter.cjs` is deleted from the package and from downstream projects via a one-shot migration in `gsd-t update-all`. Do not reintroduce either check.
 
+## Universal Auto-Pause Rule (MANDATORY)
+
+**When the Context Meter emits an `additionalContext` message, you MUST stop immediately.** This rule has the same enforcement weight as the Destructive Action Guard — it is non-negotiable.
+
+The Context Meter PostToolUse hook (`scripts/gsd-t-context-meter.js`) measures real context window usage after every tool call. When usage crosses the configured threshold (default 75%), the hook emits a multi-line `additionalContext` message starting with `🛑 MANDATORY STOP`. When you see this message:
+
+```
+WHEN YOU SEE "🛑 MANDATORY STOP" IN additionalContext:
+  1. STOP all work immediately — do NOT finish the current task, do NOT spawn subagents
+  2. Run /user:gsd-t-pause to save your exact position (state, files, progress)
+  3. Tell the user to run /clear to free the context window
+  4. Tell the user to run /user:gsd-t-resume to continue from the saved position
+  5. Do NOT continue working after running pause — the session is done
+```
+
+**This applies to ALL session types**: orchestrated workflows (execute, wave, integrate), ad-hoc commands (quick, debug), and even plain conversations. Any session where the Context Meter fires. Ignoring this signal risks hitting the runtime's ~95% `/compact` wall, which destroys context silently and loses work.
+
+**Contract**: `.gsd-t/contracts/context-meter-contract.md` v1.2.0, §"Universal Auto-Pause Rule".
+
 ## API Documentation Guard (Swagger/OpenAPI)
 
 **Every API endpoint MUST be documented in a Swagger/OpenAPI spec. No exceptions.**

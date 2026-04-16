@@ -71,8 +71,9 @@ function bandFor(pct) {
  * Build the `additionalContext` string the hook emits, or null if the
  * measured percentage is below the configured thresholdPct.
  *
- * Exact format (from .gsd-t/contracts/context-meter-contract.md line 139):
- *   ⚠️ Context window at {pct.toFixed(1)}% of {modelWindowSize}. Run /user:gsd-t-pause to checkpoint and clear before continuing.
+ * M37 (v1.2.0): This is a MANDATORY STOP instruction, not a suggestion.
+ * The multi-line format is designed to be unignorable — same enforcement
+ * weight as the Destructive Action Guard.
  *
  * `modelWindowSize` is emitted as the raw integer — no commas, no "K" suffix.
  *
@@ -82,7 +83,14 @@ function bandFor(pct) {
 function buildAdditionalContext({ pct, modelWindowSize, thresholdPct } = {}) {
   if (!Number.isFinite(pct) || !Number.isFinite(thresholdPct)) return null;
   if (pct < thresholdPct) return null;
-  return `⚠️ Context window at ${pct.toFixed(1)}% of ${modelWindowSize}. Run /user:gsd-t-pause to checkpoint and clear before continuing.`;
+  return [
+    `🛑 MANDATORY STOP — Context window at ${pct.toFixed(1)}% of ${modelWindowSize} (threshold: ${thresholdPct}%).`,
+    `You MUST stop what you are doing RIGHT NOW and execute these steps in order:`,
+    `1. Run /user:gsd-t-pause to save your exact position`,
+    `2. Tell the user to run /clear to free the context window`,
+    `3. Tell the user to run /user:gsd-t-resume to continue from the saved position`,
+    `Do NOT continue working, spawn subagents, or start new tasks. This has the same enforcement weight as the Destructive Action Guard — violating it risks losing work to context overflow.`,
+  ].join("\n");
 }
 
 module.exports = { computePct, bandFor, buildAdditionalContext, BANDS };

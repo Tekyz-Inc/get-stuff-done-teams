@@ -346,10 +346,12 @@ test("E2E 2. above threshold — stdout additionalContext and state reflects 80%
 
   assert.equal(code, 0);
   const parsed = JSON.parse(stdout || "{}");
-  assert.deepEqual(parsed, {
-    additionalContext:
-      "⚠️ Context window at 80.0% of 200000. Run /user:gsd-t-pause to checkpoint and clear before continuing.",
-  });
+  assert.ok(parsed.additionalContext, "must emit additionalContext");
+  assert.ok(parsed.additionalContext.includes("MANDATORY STOP"), "must be MANDATORY STOP");
+  assert.ok(parsed.additionalContext.includes("80.0%"), "must include pct");
+  assert.ok(parsed.additionalContext.includes("200000"), "must include window size");
+  assert.ok(parsed.additionalContext.includes("/user:gsd-t-pause"), "must instruct pause");
+  assert.ok(parsed.additionalContext.includes("/user:gsd-t-resume"), "must instruct resume");
 
   const state = sandbox.readState();
   assert.ok(state);

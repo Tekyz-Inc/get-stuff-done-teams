@@ -65,6 +65,16 @@ If `can_start === false`, the headless continuation has been spawned and the int
 
 **Contract**: `.gsd-t/contracts/runway-estimator-contract.md` v1.0.0; stop threshold (85%) mirrors `.gsd-t/contracts/token-budget-contract.md` v3.0.0.
 
+## Step 0.2: Universal Auto-Pause Rule (MANDATORY — context-meter-contract v1.2.0, M37)
+
+**If at ANY point during this command you see a `🛑 MANDATORY STOP` message in `additionalContext` (delivered by the Context Meter PostToolUse hook), you MUST:**
+1. Immediately stop all work — do NOT continue the task, do NOT spawn the next subagent
+2. Run `/user:gsd-t-pause` to save exact position
+3. Tell the user to run `/clear` then `/user:gsd-t-resume`
+4. STOP — do not continue
+
+This has the same enforcement weight as the Destructive Action Guard. The signal means the context window is at or above the configured threshold (default 75%) and continuing risks hitting the runtime's ~95% `/compact` wall.
+
 ## Step 0.1: Launch via Subagent
 
 To give this task a fresh context window and prevent compaction during consecutive quick runs, always execute via a Task subagent.

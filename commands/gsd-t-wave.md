@@ -74,6 +74,16 @@ node -e "const tb = require('./bin/token-budget.cjs'); const s = tb.getSessionSt
 
 This calls `getSessionStatus()` (v2.0.0) which reads `.gsd-t/.context-meter-state.json` produced by the Context Meter PostToolUse hook. The returned `threshold` drives the gate logic in the Phase Agent Spawn Pattern below — it enforces the three-band stop boundary (85%) so the wave orchestrator itself never runs out of context mid-wave. When the state file is absent or stale, the call falls back to a historical heuristic from `.gsd-t/token-log.md`. Band boundaries and `modelWindowSize` are configured in `.gsd-t/context-meter-config.json` and `bin/token-budget.cjs` (THRESHOLDS constant).
 
+## Step 0.2: Universal Auto-Pause Rule (MANDATORY — context-meter-contract v1.2.0, M37)
+
+**If at ANY point during this command you see a `🛑 MANDATORY STOP` message in `additionalContext` (delivered by the Context Meter PostToolUse hook), you MUST:**
+1. Immediately stop all work — do NOT advance to the next phase, do NOT spawn the next subagent
+2. Run `/user:gsd-t-pause` to save exact position
+3. Tell the user to run `/clear` then `/user:gsd-t-resume`
+4. STOP — do not continue
+
+This has the same enforcement weight as the Destructive Action Guard. The signal means the context window is at or above the configured threshold (default 75%) and continuing risks hitting the runtime's ~95% `/compact` wall.
+
 ## Step 1: Load State (Lightweight)
 
 Read ONLY:

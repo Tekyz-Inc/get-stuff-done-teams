@@ -1,35 +1,31 @@
 # GSD-T Progress
 
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
-## Status: M36 COMPLETE + context-meter/unattended fully working in downstream projects
-## Date: 2026-04-15
-## Version: 3.10.16 (patch — unattended launch friction fixes)
+## Status: M37 EXECUTE — Universal Context Auto-Pause
+## Date: 2026-04-16
+## Version: 3.11.10 (minor — Universal Context Auto-Pause)
 
 ## Current Milestone
-**M36: Cross-Platform Unattended Supervisor Loop** (COMPLETE 2026-04-15 — archived, awaiting user-gated npm publish)
+**M37: Universal Context Auto-Pause** — EXECUTE (all tasks complete, pending verify + propagate)
 
-**Goal**: Enable `gsd-t unattended` — a detached OS-process supervisor that spawns fresh `claude -p` worker sessions in a relay, running the active milestone to completion over hours or days without a human in the loop. Launchable from within an interactive Claude session via `/user:gsd-t-unattended`, with an in-session watch loop (`ScheduleWakeup` @ 270s) that displays live progress and transparently re-attaches across `/compact`, `/clear`, and `/resume`.
+**Goal**: When context usage crosses a threshold (default 75%), automatically execute `gsd-t-pause` to save exact position — then instruct the user to `/clear` and `/user:gsd-t-resume`. Works in ANY session type: execute, quick, debug, ad-hoc prototyping, research, brainstorming. No session should ever hit the runtime's ~95% `/compact` wall again.
 
 **Scope**:
-- **IN**: Core supervisor (`bin/gsd-t-unattended.js`), watch-loop slash commands (`gsd-t-unattended`, `gsd-t-unattended-watch`, `gsd-t-unattended-stop`), resume auto-reattach, safety rails (git branch isolation, gutter detection, blocker sentinels, timeouts), cross-platform (macOS + Linux + Windows), notification matrix, fix P0 `gsd-t headless` dispatch bug, fix remaining M35 "Run /clear" STOP gaps, `bin/handoff-lock.js` parent/child race guard, new contract `unattended-supervisor-contract.md` v1.0.0, docs, v3.10.10 publish (major bump from 2.76.10).
-- **OUT**: Multi-milestone autonomous execution (v1 targets one milestone at a time), Windows sleep-prevention (documented limitation), cloud-hosted supervisor orchestration (future milestone), AI-driven milestone selection.
+- **IN**: Strengthen the `additionalContext` signal from the context meter hook to be an unignorable MANDATORY STOP instruction (not a suggestion). Add a new `## Universal Auto-Pause Rule` section to `CLAUDE-global.md` template and project `CLAUDE.md` that makes Claude treat the context-meter pause signal as a hard stop — same weight as the Destructive Action Guard. Update `buildAdditionalContext()` in `threshold.js` to emit a stronger, multi-line instruction that names the exact steps (pause → clear → resume). Update the context-meter contract to document this as a mandatory behavioral rule. Propagate to all downstream projects via `update-all`.
+- **OUT**: Changing the hook architecture itself (it already works correctly). Adding new hooks or scripts. Changing the threshold percentages (75% default is fine). Changing how `gsd-t-pause` or `gsd-t-resume` work (they're already correct).
 
 **Success criteria**:
-1. `gsd-t unattended --hours=24` runs a real milestone from DEFINED → COMPLETED with zero human intervention on macOS and Linux.
-2. `/user:gsd-t-unattended` launches from within a Claude session, detaches, and the in-session watch loop ticks every 270s without blocking the terminal.
-3. `/clear` followed by `/user:gsd-t-resume` during a live unattended run transparently re-attaches to the running supervisor (watch loop resumes automatically).
-4. Pre-existing M35 P0 bug (`bin/gsd-t.js:2598` `/user:` prefix) is fixed — `node bin/gsd-t.js headless help` returns the help banner, not `Unknown command:`.
-5. Test suite stays green throughout (1078 → 1078+N, no regressions).
-6. Published as v3.10.10 via `/user:gsd-t-version-update-all` (major bump from 2.76.10 — M34/M35/M36 arc).
-
-**Phase 0 — Spike findings + P0 fix** (pre-requisite to all other phases):
-- Spikes A, B, D: **DONE 2026-04-15**, all PASS. Full findings in `.gsd-t/M36-spike-findings.md`.
-- P0 fix: `bin/gsd-t.js:2598` `buildHeadlessCmd()` drop `/user:` prefix; `mapHeadlessExitCode()` add `Unknown command:` sentinel → exit 5; regression test.
+1. The `additionalContext` message emitted at ≥75% is an explicit MANDATORY STOP instruction, not a suggestion.
+2. `CLAUDE-global.md` contains a Universal Auto-Pause Rule section with the same enforcement weight as Destructive Action Guard.
+3. Every GSD-T command file that runs in a loop (execute, wave, integrate, quick, debug) has an explicit "if auto-pause signal received, STOP" check.
+4. The context-meter contract (v1.2.0) documents the auto-pause behavioral requirement.
+5. After `update-all`, all downstream projects receive the updated templates and contract.
 
 ## Milestones
 
 | # | Milestone | Status | Version | Domains |
 |---|-----------|--------|---------|---------|
+| M37 | Universal Context Auto-Pause | EXECUTE | 3.11.10 | m37-auto-pause (single domain: threshold.js, contract v1.2.0, CLAUDE-global template, 5 command files) |
 | M36 | Cross-Platform Unattended Supervisor Loop | COMPLETE | 3.10.10 | Archived (6 domains: m36-supervisor-core, m36-watch-loop, m36-safety-rails, m36-cross-platform, m36-m35-gap-fixes, m36-docs-and-tests; REQ-079–REQ-087; major version bump 2.x→3.x marking M34/M35/M36 arc) |
 | M35 | No Silent Degradation + Surgical Model Escalation + Token Telemetry | COMPLETE | 2.76.10 | Archived (7 domains: degradation-rip-out, model-selector-advisor, runway-estimator, token-telemetry, optimization-backlog, headless-auto-spawn, docs-and-tests; 38 tasks) |
 | M34 | Context Meter | COMPLETE | 2.75.10 | Archived |
@@ -464,6 +460,9 @@ Wave 4: adaptive-replan (consumes fresh-dispatch summaries, integrates with work
 
 > Older entries archived under `progress-archive/` — see `progress-archive/INDEX.md` for the date-range index.
 
+- 2026-04-16 00:20: [M37-execute] Universal Context Auto-Pause — all core tasks complete. `buildAdditionalContext()` in threshold.js strengthened from single-line suggestion to 6-line MANDATORY STOP instruction. context-meter-contract.md bumped to v1.2.0 with new §"Universal Auto-Pause Rule". CLAUDE-global.md template updated with new MANDATORY section (same weight as Destructive Action Guard). Step 0.2 auto-pause rule added to 5 loop commands (execute, wave, integrate, quick, debug). All 1228 tests pass (1224 unit + 4 e2e). Pending: verify phase + npm publish + update-all propagation.
+- 2026-04-15 19:25: [backlog] Added backlog item #13: "Agent Topology Dashboard Redesign" (type: ux, app: gsd-t, category: commands) — redesign dashboard to card-based directed graph layout with GSD-T role names, enriched per-agent metrics, and click-to-expand detail panel. Reference design provided by user.
+- 2026-04-15 19:15: [milestone-defined] M37 Universal Context Auto-Pause — user hit context exhaustion twice during ad-hoc dashboard prototyping. Root cause: the context meter's `additionalContext` signal at 75% is a suggestion that Claude ignores. Fix: strengthen to MANDATORY STOP instruction + add enforcement rule to CLAUDE-global.md template with same weight as Destructive Action Guard. Simple scope (no new hooks/scripts), primarily template and contract updates.
 - 2026-04-15 17:30: [fix] v3.10.16 — unattended launch friction fixes. Three bugs: (1) spawnSupervisor targeted gsd-t.js (no unattended subcommand) instead of gsd-t-unattended.cjs — supervisor crashed immediately on every launch. (2) Dirty worktree check refused launch on any untracked file — changed to auto-whitelist dirty files into config.json and proceed. (3) No milestone in progress.md caused hard refusal — added readiness bootstrap that auto-writes milestone from conversation context or --milestone flag. Also: update-all now creates .gsd-t/.unattended/config.json with defaults (protectedBranches, dirtyTreeWhitelist) so users can easily customize per-project, and adds bin/*.cjs + migration markers to .gitignore. 1136/1136 tests.
 - 2026-04-15 15:10: [fix] v3.10.15 — propagate bin tools to downstream projects. `PROJECT_BIN_TOOLS` expanded from 5→13 entries. Created `.cjs` copies of 8 bin files (supervisor, handoff-lock, headless-auto-spawn, runway-estimator, token-telemetry, token-optimizer) with internal cross-requires updated. Updated 15 command files to reference `.cjs` versions. Unblocks `/gsd-t-unattended` launch from downstream projects like Tekyz-CRM. 1229/1229 tests.
 - 2026-04-15 14:57: [fix] v3.10.14 — transcript parser orphaned tool_use blocks cause count_tokens 400. With API key now working (v3.10.13), the hook passed the key check but the API returned 400 because mid-session compaction orphans tool_use/tool_result pairs. Added `sanitizeToolPairs()` to `scripts/context-meter/transcript-parser.js` — enforces adjacency constraint, strips unpaired blocks. First successful real-time measurement: `inputTokens: 158543, pct: 79.3%, threshold: warn`. Context meter is fully working end-to-end for the first time. 1229/1229 tests.
