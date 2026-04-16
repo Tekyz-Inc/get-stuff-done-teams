@@ -175,3 +175,22 @@
 <!-- missed_escalation 2026-04-15T22:38:11.208Z phase= domain= task= q="(no question provided)" -->
 <!-- missed_escalation 2026-04-15T22:40:03.054Z phase= domain= task= q="test" -->
 <!-- missed_escalation 2026-04-15T22:40:03.055Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-15T22:42:37.834Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-15T22:42:37.834Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-15T23:07:03.766Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-15T23:07:03.766Z phase= domain= task= q="(no question provided)" -->
+| 2026-04-15 16:10 | 2026-04-15 16:12 | gsd-t-unattended | Step 2 | sonnet | 126s | supervisor spawned PID 67033 | | | |
+<!-- missed_escalation 2026-04-15T23:24:45.072Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-15T23:24:45.073Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-15T23:27:00.135Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-15T23:27:00.135Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-15T23:35:53.698Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-15T23:35:53.698Z phase= domain= task= q="(no question provided)" -->
+| 2026-04-15 16:43 | 2026-04-15 16:44 | gsd-t-unattended | Step 2 | sonnet | 12s | supervisor spawned PID 26712 | | |  |
+|  | 2026-04-15 17:00 | gsd-t-unattended | Step 2 | sonnet | 5s | supervisor spawned PID 42185 | | |  |
+<!-- missed_escalation 2026-04-16T00:21:53.694Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-16T00:21:53.694Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-16T00:24:01.733Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-16T00:24:01.733Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-16T00:25:30.892Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-16T00:25:30.892Z phase= domain= task= q="(no question provided)" -->

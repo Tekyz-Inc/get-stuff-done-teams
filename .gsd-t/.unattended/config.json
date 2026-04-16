@@ -1,0 +1,23 @@
+{
+  "protectedBranches": [
+    "master",
+    "develop",
+    "trunk",
+    "release/*",
+    "hotfix/*"
+  ],
+  "dirtyTreeWhitelist": [
+    ".gsd-t/**",
+    ".claude/**",
+    ".gitignore",
+    "scripts/**",
+    "bin/**",
+    "commands/**",
+    "docs/**",
+    "README.md"
+  ],
+  "maxIterations": 200,
+  "hours": 24,
+  "gutterNoProgressIters": 5,
+  "workerTimeoutMs": 3600000
+}

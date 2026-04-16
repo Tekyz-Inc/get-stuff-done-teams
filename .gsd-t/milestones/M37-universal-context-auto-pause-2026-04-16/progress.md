@@ -1,12 +1,12 @@
 # GSD-T Progress
 
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
-## Status: M37 COMPLETE — Universal Context Auto-Pause
+## Status: M37 VERIFIED — Universal Context Auto-Pause
 ## Date: 2026-04-16
 ## Version: 3.11.10 (minor — Universal Context Auto-Pause)
 
 ## Current Milestone
-None — ready for next milestone
+**M37: Universal Context Auto-Pause** — VERIFIED (all gates pass, auto-invoking complete-milestone)
 
 **Goal**: When context usage crosses a threshold (default 75%), automatically execute `gsd-t-pause` to save exact position — then instruct the user to `/clear` and `/user:gsd-t-resume`. Works in ANY session type: execute, quick, debug, ad-hoc prototyping, research, brainstorming. No session should ever hit the runtime's ~95% `/compact` wall again.
 
@@ -25,7 +25,7 @@ None — ready for next milestone
 
 | # | Milestone | Status | Version | Domains |
 |---|-----------|--------|---------|---------|
-| M37 | Universal Context Auto-Pause | COMPLETE | 3.11.10 | Archived (1 domain: m37-auto-pause; context-meter-contract v1.2.0; 5 command files updated; 1228/1228 tests) |
+| M37 | Universal Context Auto-Pause | VERIFIED | 3.11.10 | m37-auto-pause (single domain: threshold.js, contract v1.2.0, CLAUDE-global template, 5 command files) |
 | M36 | Cross-Platform Unattended Supervisor Loop | COMPLETE | 3.10.10 | Archived (6 domains: m36-supervisor-core, m36-watch-loop, m36-safety-rails, m36-cross-platform, m36-m35-gap-fixes, m36-docs-and-tests; REQ-079–REQ-087; major version bump 2.x→3.x marking M34/M35/M36 arc) |
 | M35 | No Silent Degradation + Surgical Model Escalation + Token Telemetry | COMPLETE | 2.76.10 | Archived (7 domains: degradation-rip-out, model-selector-advisor, runway-estimator, token-telemetry, optimization-backlog, headless-auto-spawn, docs-and-tests; 38 tasks) |
 | M34 | Context Meter | COMPLETE | 2.75.10 | Archived |
@@ -34,20 +34,11 @@ None — ready for next milestone
 
 | Milestone | Version | Completed | Tag | Summary |
 |-----------|---------|-----------|-----|---------|
-| M37 Universal Context Auto-Pause | 3.11.10 | 2026-04-16 | v3.11.10 | Strengthened context meter additionalContext from suggestion to MANDATORY STOP instruction; context-meter-contract v1.2.0; CLAUDE-global Universal Auto-Pause Rule section; Step 0.2 in 5 loop commands; 1228/1228 tests |
 | M36 Cross-Platform Unattended Supervisor Loop | 3.10.10 | 2026-04-15 | v3.10.10 | Detached supervisor relay for 24h+ unattended milestone execution; 3 new slash commands (unattended/unattended-watch/unattended-stop); ScheduleWakeup(270s) in-session watch loop; /clear+/resume auto-reattach via Step 0; cross-platform (macOS/Linux/Windows except sleep-prevention); safety rails (gutter/blocker/timeout); handoff-lock primitive closes M35 parent/child race; 5 command files drop "Run /clear" STOP; 1226/1226 tests |
 | M35 Runway-Protected Execution | 2.76.10 | 2026-04-15 | v2.76.10 | Removed silent quality degradation; surgical per-phase model selection; pre-flight runway estimator with headless auto-spawn; 18-field per-spawn token telemetry; detect-only optimization backlog; 985/985 tests |
 | M34 Context Meter | 2.75.10 | 2026-04-14 | v2.75.10 | Real context-window measurement via Anthropic count_tokens API; replaces task-counter proxy entirely; 941/941 tests |
 
 ## Prior Milestone (Archived)
-
-**M37: Universal Context Auto-Pause** — COMPLETE (v3.11.10)
-- Strengthened context meter `additionalContext` from single-line suggestion to 6-line MANDATORY STOP instruction
-- context-meter-contract v1.2.0: new §"Universal Auto-Pause Rule", Rule #8
-- `templates/CLAUDE-global.md`: new `## Universal Auto-Pause Rule (MANDATORY)` section
-- Step 0.2 auto-pause rule added to 5 loop commands (execute, wave, integrate, quick, debug)
-- 1228/1228 tests pass
-- Archived: .gsd-t/milestones/M37-universal-context-auto-pause-2026-04-16/
 
 **M35: Runway-Protected Execution — No Silent Degradation + Surgical Model Escalation + Token Telemetry** — COMPLETE (v2.76.10)
 - Rips out silent quality-degradation under context pressure; three-band gate (normal/warn/stop) + surgical per-phase model selection + pre-flight runway estimator + headless auto-spawn + 18-field per-spawn token telemetry + detect-only optimization backlog
@@ -469,8 +460,6 @@ Wave 4: adaptive-replan (consumes fresh-dispatch summaries, integrates with work
 
 > Older entries archived under `progress-archive/` — see `progress-archive/INDEX.md` for the date-range index.
 
-- 2026-04-16 00:30: [goal-backward-pass] Goal-backward verification passed — 5 requirements checked, no placeholder patterns found
-- 2026-04-16 00:28: [complete-milestone] M37 Universal Context Auto-Pause completed — v3.11.10. Archived to .gsd-t/milestones/M37-universal-context-auto-pause-2026-04-16/. Published to npm, pushed to GitHub, propagated to 12 downstream projects.
 - 2026-04-16 00:20: [M37-execute] Universal Context Auto-Pause — all core tasks complete. `buildAdditionalContext()` in threshold.js strengthened from single-line suggestion to 6-line MANDATORY STOP instruction. context-meter-contract.md bumped to v1.2.0 with new §"Universal Auto-Pause Rule". CLAUDE-global.md template updated with new MANDATORY section (same weight as Destructive Action Guard). Step 0.2 auto-pause rule added to 5 loop commands (execute, wave, integrate, quick, debug). All 1228 tests pass (1224 unit + 4 e2e). Pending: verify phase + npm publish + update-all propagation.
 - 2026-04-15 19:25: [backlog] Added backlog item #13: "Agent Topology Dashboard Redesign" (type: ux, app: gsd-t, category: commands) — redesign dashboard to card-based directed graph layout with GSD-T role names, enriched per-agent metrics, and click-to-expand detail panel. Reference design provided by user.
 - 2026-04-15 19:15: [milestone-defined] M37 Universal Context Auto-Pause — user hit context exhaustion twice during ad-hoc dashboard prototyping. Root cause: the context meter's `additionalContext` signal at 75% is a suggestion that Claude ignores. Fix: strengthen to MANDATORY STOP instruction + add enforcement rule to CLAUDE-global.md template with same weight as Destructive Action Guard. Simple scope (no new hooks/scripts), primarily template and contract updates.
