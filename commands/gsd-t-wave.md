@@ -2,6 +2,19 @@
 
 You are the wave orchestrator. You do NOT execute phases yourself. Instead, you spawn an **independent agent for each phase**, giving each a fresh context window. This eliminates context accumulation across phases and prevents mid-wave compaction.
 
+## Argument Parsing
+
+Parse `$ARGUMENTS`. Detect `--watch` (sets `WATCH_FLAG=true`; default `false`). Per `.gsd-t/contracts/headless-default-contract.md` §2, `--watch` propagates to **primary** phase-agent spawns only. Validation spawns (doc-ripple in Step 7) always go headless regardless of the flag.
+
+## Spawn Primitive — Default Headless (M38 Domain 1)
+
+Per `.gsd-t/contracts/headless-default-contract.md` v1.0.0. Spawn classifications used below:
+
+- `spawnType: 'primary'` — per-phase agents (partition, discuss, plan, impact, execute, test-sync, integrate, verify+complete)
+- `spawnType: 'validation'` — post-phase spot-checks, doc-ripple agent
+
+Default path is `autoSpawnHeadless({command, spawnType, watch: WATCH_FLAG, projectDir, sessionContext})` with the read-back banner surfacing completion. When `WATCH_FLAG=true` AND `spawnType='primary'`, `autoSpawnHeadless` returns `{mode:'in-context'}` and the orchestrator falls back to the in-context Task-agent pattern documented inline.
+
 ## Model Assignment
 
 Per `.gsd-t/contracts/model-selection-contract.md` v1.0.0. Each phase spawn picks its tier from `bin/model-selector.js` — the wave orchestrator itself is routine coordination work.
@@ -178,7 +191,7 @@ Before spawning — run via Bash:
 `T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M")`
 
 ```
-Task agent (subagent_type: "general-purpose", mode: "bypassPermissions"):
+Task agent (spawnType: primary, subagent_type: "general-purpose", mode: "bypassPermissions"):
   "Execute the {PHASE} phase of the current GSD-T milestone.
 
    Read and follow the full instructions in commands/gsd-t-{phase}.md
@@ -293,11 +306,11 @@ After the final phase completes but before wave reports done:
 
 1. Run threshold check — read `git diff --name-only HEAD~1` and evaluate against doc-ripple-contract.md trigger conditions
 2. If SKIP: log "Doc-ripple: SKIP — {reason}" and proceed
-3. If FIRE: spawn doc-ripple agent:
+3. If FIRE: spawn doc-ripple agent — `spawnType: 'validation'` (always headless, `--watch` ignored):
 
 ⚙ [{model}] gsd-t-doc-ripple → blast radius analysis + parallel updates
 
-Task subagent (general-purpose, model: sonnet):
+Task subagent (spawnType: validation, general-purpose, model: sonnet):
 "Execute the doc-ripple workflow per commands/gsd-t-doc-ripple.md.
 Git diff context: {files changed list}
 Command that triggered: wave

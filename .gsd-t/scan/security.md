@@ -1,127 +1,126 @@
-# Security Analysis — Scan #11 (2026-03-20)
+# Security Audit — 2026-04-16 (Scan #11)
 
-## Project: GSD-T Framework (@tekyzinc/gsd-t) — v2.39.12
+GSD-T is a developer-tooling package distributed via npm with **zero runtime
+dependencies**. Threat surface is narrow: local file I/O, child-process invocation
+(git, claude, node, playwright, tree-sitter binaries, npm), and two localhost-bound
+HTTP servers (dashboards). No network listeners that bind to public interfaces, no
+auth tokens issued, no DB.
 
-**Scan date**: 2026-03-20
-**Previous scan**: Scan #10 at v2.38.10 (2026-03-19)
-**New items**: 1 (SEC-M05)
-**Resolved items**: 7 (SEC-C01, SEC-H01, SEC-H02, SEC-H03, SEC-M01, SEC-M02, SEC-M03, SEC-M04)
-**Carried items**: 2 (SEC-L01, SEC-L02)
-**Graph-enhanced**: Yes — used SAFE_ENTITY_RE validation analysis, execFileSync migration verification
+## Critical (fix immediately)
 
----
+_None new in Scan #11._
 
-## CRITICAL Severity
+(Note: the previously-tracked **TD-097 / SEC-C01** — command injection in
+`bin/graph-query.js` `grepQuery()` via `params.entity` — is carried forward from
+Scan #10 in the archive at `.gsd-t/techdebt_2026-03-19.md`. Confirm fix status before
+the next milestone closes.)
 
-_No open critical findings._
+## High (fix soon)
 
-### ~~SEC-C01~~: graph-query.js grepQuery() — command injection via params.entity/params.file (RESOLVED v2.39.10)
-- **Resolution**: Migrated to `execFileSync` with array args. Added `SAFE_ENTITY_RE = /^[\w.\-/\\:]+$/` guard — entity and file names are validated before use. Injection path eliminated.
+### SEC-H01 — `runway-estimator.js` still requires/uses `ANTHROPIC_API_KEY` as if it were mandatory
+- File: `bin/runway-estimator.js`, `bin/runway-estimator.cjs`
+- After v3.11.11 the context meter no longer needs the key, but `runway-estimator`
+  was not audited in the same change. If a user follows the stale "you must set
+  `ANTHROPIC_API_KEY`" instruction in CHANGELOG.md / README.md / docs and exports a
+  key, it is now used **only** by runway-estimator (and possibly a few telemetry paths)
+  — vs the broad "this is required for context-meter" framing. Risk: users assume the
+  key is for measurement and don't realize it gates a separate pre-flight estimator.
+- Remediation: doc-ripple every reference to align with v3.11.11 reality (see
+  Quality TD-103); if runway-estimator should also drop the requirement, do that as a
+  follow-up.
+- Severity: HIGH (documentation security — wrong mental model leads to misconfigured
+  trust boundaries).
 
----
+### SEC-H02 — Test file `scripts/gsd-t-context-meter.test.js` references `_countTokens` injection that no longer exists
+- File: `scripts/gsd-t-context-meter.test.js` (lines 108, 130, 152, 178, 209, 220, 358)
+- 7 tests fail because `runMeter()` no longer accepts a `_countTokens` injection (the
+  whole API path was deleted in v3.11.11 in favor of `_estimateTokens`).
+- **Why this is a security item, not just a quality one**: the broken tests cover the
+  exact paths that handle missing API key, API timeout, API failure, fail-open, and
+  the "log never contains message content" privacy invariant. A failing/skipped privacy
+  test is a real risk — if the `estimate-tokens.js` code path were to start logging
+  message content, no test would catch it because the corresponding assertion is in a
+  test that fails on import-time API mismatch, not on the privacy invariant itself.
+- Remediation: rewrite the 7 tests to inject `_estimateTokens` and target the local
+  estimator's behavior, including a test that the new code path also never logs
+  content. (The `tokens=42`-vs-`tokens=8` discrepancy in test #11 confirms the fixture
+  numbers were not updated for the new estimator output.)
+- Severity: HIGH (privacy-test regression).
 
-## HIGH Severity
+## Medium (plan to fix)
 
-_No open high findings._
+### SEC-M01 — Two dashboard servers bind to localhost ports without auth
+- Files: `scripts/gsd-t-dashboard-server.js` (port 7433), new
+  `scripts/gsd-t-agent-dashboard-server.js` (port 7434).
+- Carried debt (`TD-090` in archive — original was 7433 only). The new agent dashboard
+  doubles the surface.
+- Localhost-only is reasonable for a dev tool, but multi-user macOS/Linux machines
+  share `127.0.0.1` between users — a co-tenant could read events/heartbeat/context-meter
+  state via the SSE stream.
+- Remediation: bind to `127.0.0.1` only (verify in code), add a one-time auth token
+  printed at startup that the HTML page must echo back, or document the trust model
+  explicitly in `infrastructure.md`.
+- Severity: MEDIUM.
 
-### ~~SEC-H01~~: gsd-t-update-check.js — version string passed to execSync without validation (RESOLVED v2.39.10)
-- **Resolution**: `doAutoUpdate()` now uses `execFileSync("npm", ["install", "-g", "@tekyzinc/gsd-t@" + latest])`. Version validated against `SEMVER_RE = /^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?$/` before `doAutoUpdate` is called. Both injection vectors closed.
+### SEC-M02 — Stale documentation tells users to export `ANTHROPIC_API_KEY` — risk of key paste in shared docs
+- Files: README.md (10 hits), docs/infrastructure.md (12), docs/architecture.md (4),
+  docs/methodology.md (multiple), CHANGELOG.md (multiple).
+- The instructions say "free tier is sufficient — `count_tokens` is inexpensive" and
+  show an `export ANTHROPIC_API_KEY="sk-ant-..."` snippet. Post-v3.11.11 these are
+  obsolete: the count_tokens path is removed. Users who follow the stale instructions
+  may copy keys into shared shell-init files thinking they need to.
+- Remediation: doc-ripple — either remove all references or move to a clearly labeled
+  "Optional: for runway estimator and telemetry — not required by context meter"
+  section.
+- Severity: MEDIUM (mis-instruction → unnecessary credential exposure).
 
-### ~~SEC-H02~~: gsd-t-update-check.js — second execSync call (RESOLVED v2.39.10)
-- **Resolution**: `execFileSync("gsd-t", ["update-all"])` — array args used throughout.
+### SEC-M03 — `bin/scan-export.js` and `bin/scan-renderer.js` still use `execSync` with string interpolation
+- Carried debt (TD-084 in archive). Confirm scope hasn't grown.
+- Remediation: switch to `execFileSync` with array args.
 
-### ~~SEC-H03~~: scan-export.js — execSync with string interpolation of htmlPath (RESOLVED v2.39.10)
-- **Resolution**: `execFileSync('pandoc', [htmlPath, '-o', outputPath, '--from=html'])` — array args throughout `exportToDocx()` and `exportToPdf()`.
+## Low (nice to have)
 
----
+### SEC-L01 — 76 `heartbeat-*.jsonl` files clutter `.gsd-t/`
+- Gitignored (verified) — not a leak risk, but each file contains session telemetry
+  that may include task names/file paths. If a user accidentally tarballs `.gsd-t/` to
+  share progress with a teammate, this pile travels with it.
+- Remediation: add a `gsd-t doctor` hint or a session-end cleanup step that rotates
+  heartbeats >30 days old into `.gsd-t/heartbeat-archive/` (or deletes them).
 
-## MEDIUM Severity
+### SEC-L02 — `bin/gsd-t-unattended.js` uses `execSync` for cross-platform queries
+- Carried context. Already uses array-arg form for most calls (verified
+  `gsd-t-unattended-platform.js:132`, `:212`, `:247`, `:332`, `:342`, `:354`); audit
+  remaining `execSync` site at `gsd-t-unattended.js:252` for input sanitization.
 
-### SEC-M05: graph-query.js _syncCgc() — projectRoot passed to cgc without path validation (NEW)
-- **Location**: `bin/graph-query.js` lines 376, 381
-- **Code**:
-  ```javascript
-  execFileSync('cgc', ['index', projectRoot], cgcOpts);
-  execFileSync('cgc', ['index', projectRoot, '--force'], cgcOpts);
-  ```
-- **Details**: `projectRoot` is passed as an array argument (not shell-interpolated), so there is no shell injection risk. However, `projectRoot` is not validated to ensure it is a real directory path or that it does not traverse outside expected boundaries. In normal operation, `projectRoot` is derived from `process.cwd()` walking up to find `.gsd-t/`, which limits the practical attack surface. An adversary who controls the working directory from which Claude Code is invoked (e.g., via a malicious project) could point CGC indexing at an arbitrary path. Since CGC is a read-only index operation, the impact is limited to unintended directory traversal for indexing rather than data corruption.
-- **Impact**: MEDIUM (low exploitability, no shell injection, read-only CGC operation)
-- **Fix**: Validate `projectRoot` is an absolute path and that `.gsd-t/` exists within it before passing to `cgc`. Example: `if (!path.isAbsolute(projectRoot) || !fs.existsSync(path.join(projectRoot, '.gsd-t'))) return;`
-- **Status**: NEW
-
-### ~~SEC-M01~~: scan-renderer.js — execSync with tmpIn/tmpOut paths (RESOLVED v2.39.10)
-- **Resolution**: `execFileSync('mmdc', ['-i', tmpIn, '-o', tmpOut, '-t', 'dark', '--quiet'])` — array args used in both `tryMmdc()` and `tryD2()`.
-
-### ~~SEC-M02~~: gsd-t-tools.js — stateSet() allows markdown structure injection (RESOLVED v2.39.10)
-- **Resolution**: Line 43 now applies `String(value).replace(/[\r\n]/g, ' ')` before writing. Newline injection blocked.
-
-### ~~SEC-M03~~: scan-export.js — detectTool() uses execSync with arbitrary cmd string (RESOLVED v2.39.10)
-- **Resolution**: `detectTool()` uses `execFileSync(check, [cmd])` where `check` is either `'where'` or `'which'` (platform-determined constant) and `cmd` is the argument. No shell involved.
-
-### ~~SEC-M04~~: graph-store.js — ensureDir() does not validate projectRoot or check symlinks (RESOLVED v2.39.10)
-- **Resolution**: `ensureDir()` calls `isSymlink(dir)` and throws on symlink. `readFile()` calls `isSymlink(fp)` and returns null on symlink. `writeFile()` calls both `ensureDir()` (dir check) and `isSymlink(fp)` (file check) before writing. Full symlink protection applied at every write path.
-
----
-
-## LOW Severity
-
-### SEC-L01: Dashboard SSE endpoint has no authentication (CARRIED — TD-090)
-- **Location**: `scripts/gsd-t-dashboard-server.js` SSE_HEADERS
-- **Details**: `Access-Control-Allow-Origin: *` with no token check. Any local process or browser tab can subscribe to the event stream.
-- **Status**: OPEN (carried from Scan #8)
-
-### SEC-L02: tryKroki() would send codebase analysis to external kroki.io (CARRIED — TD-091)
-- **Location**: `bin/scan-renderer.js` lines 53-77
-- **Details**: Dead code — `tryKroki()` is defined but never called from `renderDiagram()`. The sync rendering path falls through mmdc → d2 → placeholder. The function would require `await` at the call site to activate, and no caller exists. `KROKI_HOST` env var support is present, suggesting self-hosted use was anticipated. Risk is zero while it remains dead code.
-- **Status**: OPEN (carried — confirm dead code in Scan #12 via graph findDeadCode)
-
----
-
-## Accepted Risks
-
-### SEC-ACCEPT-01: TOCTOU Race in Symlink Check + Write (TD-029)
-Accepted in M8. There is an inherent race between `isSymlink()` check and the subsequent `writeFileSync()`. An adversary with filesystem access could replace a regular file with a symlink in this window. Accepted because: (1) GSD-T operates on the developer's own machine, (2) the window is microseconds, (3) the threat model does not include local privilege escalation.
-
----
-
-## Informational Notes
-
-### SEC-N33: Graph CGC provider uses execFileSync (good) — CONFIRMED
-`bin/graph-cgc.js` correctly uses `execFileSync` with array args for all external command calls. No injection pattern. Confirmed unchanged.
-
-### SEC-N34: Graph store writes to .gsd-t/graph/ (git-ignored)
-Graph data files contain function names, file paths, and code structure. Written only to local project directory. Not transmitted. Graph store now additionally guarded by symlink checks at every write path.
-
-### SEC-N35: CGC communicates via local stdio only
-CGC MCP server is spawned locally via `spawn()`. Communication is JSON-RPC over stdin/stdout pipes. No network exposure. `_syncCgc` additionally sets `PYTHONIOENCODING=utf-8` in the subprocess environment to prevent encoding failures from producing misleading error states.
-
-### SEC-N36: SEMVER_RE validation in gsd-t-update-check.js (good)
-`fetchLatestVersion()` validates registry response against `/^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?$/` before returning. Cache reads are also validated (`cached.latest = null` if invalid). Defense-in-depth: even if registry response is compromised, the version string is sanitized before reaching `doAutoUpdate`.
-
-### SEC-N37: Browser-side CDN dependencies in dashboard.html pinned to fixed versions (carried)
-Not audited. Low priority — dashboard is a local dev tool, not exposed externally.
-
----
+### SEC-L03 — No SRI hashes on dashboard CDN resources
+- Carried debt (TD-095, TD-096 in archive). New `gsd-t-agent-dashboard.html` should be
+  audited for the same.
 
 ## Dependency Audit
 
-No npm dependencies — `npm audit` returns `ENOLOCK` (no lockfile), confirming zero tracked dependencies. Zero supply chain attack surface on the Node.js side.
+```
+$ npm audit
+npm error code ENOLOCK
+npm error audit This command requires an existing lockfile.
+```
 
-CGC provider depends on external Python package (`codegraphcontext`) and Neo4j Docker container. Not npm dependencies. Neo4j container is configured localhost-only (`bolt://localhost:7687`) with a hardcoded development password (`gsdt-graph-2026`). This password is non-sensitive by design (local-only dev container), but should not be reused in production contexts.
+- **No `package-lock.json`** in the repo. With zero declared dependencies this is fine
+  in production (nothing to lock), but it disables `npm audit` as a routine check in CI.
+- Recommendation: generate a lockfile in CI (`npm i --package-lock-only`) and run audit
+  there — even with zero deps it would catch any future dependency added without going
+  through the zero-dep policy review.
 
----
+## Secret Management
+- No `.env*` files in the repo (verified — only the `.env*` rule in `.gitignore`).
+- No hardcoded credentials found in `bin/` or `scripts/`. The 10 files matched by the
+  initial grep all reference `password|secret|api_key|token|credential` as identifier
+  strings (config field names, telemetry tags) — not literal values.
+- Config-loader API-key leak guard (`bin/context-meter-config.cjs`) actively rejects
+  fields that look key-shaped — strong positive control.
 
-## Resolved Items Summary (Scan #11)
+## CORS / CSP / Rate Limiting
+- N/A — no public HTTP surface. Localhost dashboards do not implement CSP (carried
+  TD-096); low priority while local-only.
 
-All 7 open items from Scan #10 were resolved in the v2.39.10 security hardening commit (commit `909b5b6`):
-
-| Item      | Severity | Resolution |
-|-----------|----------|------------|
-| SEC-C01   | CRITICAL | execFileSync + SAFE_ENTITY_RE validation in grepQuery() |
-| SEC-H01   | HIGH     | execFileSync + SEMVER_RE validation in doAutoUpdate()    |
-| SEC-H02   | HIGH     | execFileSync array args in doAutoUpdate()                |
-| SEC-H03   | HIGH     | execFileSync array args in exportToDocx()/exportToPdf()  |
-| SEC-M01   | MEDIUM   | execFileSync array args in tryMmdc()/tryD2()             |
-| SEC-M02   | MEDIUM   | newline sanitization in stateSet()                       |
-| SEC-M03   | MEDIUM   | execFileSync array args in detectTool()                  |
-| SEC-M04   | MEDIUM   | isSymlink() guards in ensureDir()/readFile()/writeFile() |
+## File Upload
+- N/A.

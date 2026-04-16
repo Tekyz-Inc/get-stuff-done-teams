@@ -2,6 +2,12 @@
 
 ## Last Updated: 2026-03-22 (M23 — Headless Mode)
 
+> **Scan #11 note (2026-04-16, v3.11.11)**: the `ANTHROPIC_API_KEY` setup section
+> below is now stale — the context meter switched to a local token estimator
+> in v3.11.11 and the key is no longer required by the meter. The key is still
+> consumed by `bin/runway-estimator.js` and some telemetry paths. Doctor was
+> updated; this doc was not. See `.gsd-t/techdebt.md` TD-103.
+
 ## Quick Reference
 
 | Task | Command |

@@ -1,175 +1,181 @@
-# Architecture Analysis — Scan #11 (2026-03-19)
+# Architecture Analysis — 2026-04-16 (Scan #11)
 
-## Project: GSD-T Framework (@tekyzinc/gsd-t) — v2.39.12
-
-## Overview
-
-GSD-T is an npm-distributed methodology framework for Claude Code. It provides slash commands (markdown files), a CLI installer (Node.js), document templates, and a code graph engine for contract-driven development with AI assistance. There is no traditional runtime — command files are interpreted by Claude Code's slash command system, and the CLI handles lifecycle management.
-
-**Architecture Pattern**: Distributed Markdown Instruction System with CLI Lifecycle Manager + Code Graph Engine.
-
----
-
-## Component Inventory
-
-| Component                | File(s)                              | Lines | Purpose                                  |
-|--------------------------|--------------------------------------|-------|------------------------------------------|
-| CLI Installer            | `bin/gsd-t.js`                       | 1,798 | Install, update, diagnose, manage GSD-T  |
-| Slash Commands           | `commands/*.md`                      | 49 files | Workflow methodology for Claude Code   |
-| Templates                | `templates/*.md`                     | 10 files | Project initialization starters        |
-| Graph Store              | `bin/graph-store.js`                 | 147   | JSON file graph persistence (.gsd-t/graph/) |
-| Graph Parsers            | `bin/graph-parsers.js`               | 327   | JS/TS/Python regex entity extraction     |
-| Graph Overlay            | `bin/graph-overlay.js`               | 195   | GSD-T context mapper (domain/contract/requirement/test/debt/surface) |
-| Graph Indexer            | `bin/graph-indexer.js`               | 147   | Project indexer with incremental support |
-| Graph CGC Provider       | `bin/graph-cgc.js`                   | 510   | CGC MCP provider (JSON-RPC over stdio)   |
-| Graph Query              | `bin/graph-query.js`                 | 400   | Abstraction layer (21 query types, 3-provider fallback) |
-| Heartbeat Hook           | `scripts/gsd-t-heartbeat.js`         | 233   | Event logging via Claude Code hooks      |
-| Event Writer             | `scripts/gsd-t-event-writer.js`      | 125   | Structured JSONL event appends           |
-| Dashboard Server         | `scripts/gsd-t-dashboard-server.js`  | 140   | Zero-dep SSE server                      |
-| State Utility CLI        | `scripts/gsd-t-tools.js`             | 163   | State get/set, validate, list            |
-| Statusline               | `scripts/gsd-t-statusline.js`        | 94    | Context bar for Claude Code              |
-| Auto-Route Hook          | `scripts/gsd-t-auto-route.js`        | 39    | UserPromptSubmit routing hook            |
-| Update Check Hook        | `scripts/gsd-t-update-check.js`      | 79    | SessionStart auto-update                 |
-| npm Update Check         | `scripts/npm-update-check.js`        | 42    | Background version checker               |
-| Version Fetch            | `scripts/gsd-t-fetch-version.js`     | 25    | Sync npm registry fetch                  |
-| Schema Extractor         | `bin/scan-schema.js`                 | 103   | ORM/DB schema detection                  |
-| Schema Parsers           | `bin/scan-schema-parsers.js`         | 199   | 7 ORM-type parsers                       |
-| Scan Data Collector      | `bin/scan-data-collector.js`         | 153   | Aggregates scan markdown into data       |
-| Diagram Orchestrator     | `bin/scan-diagrams.js`               | 79    | 6-diagram generation                     |
-| Diagram Generators       | `bin/scan-diagrams-generators.js`    | 187   | Mermaid DSL generators                   |
-| Diagram Renderer         | `bin/scan-renderer.js`               | 92    | mmdc -> d2 -> placeholder chain          |
-| HTML Report              | `bin/scan-report.js`                 | 181   | Self-contained HTML report               |
-| Report Sections          | `bin/scan-report-sections.js`        | 121   | HTML section builders                    |
-| Export                   | `bin/scan-export.js`                 | 49    | DOCX/PDF export via pandoc/md-to-pdf     |
-| **Total JS**             | **25 files**                         | **5,737** | |
-| **Total test files**     | **11 files**                         | **5,771** | |
-| **Grand total JS**       | **36 files**                         | **11,508** | (including test files) |
-
-**Command count**: 49 (actual `ls commands/*.md` count). CLAUDE.md Overview says "46 slash commands (42 GSD-T workflow + 4 utility)" — 3-file discrepancy persists (updated from TD-087). Test count: 85 test/describe blocks across 11 test files.
-
----
-
-## Tech Stack
-
+## Stack
 - **Language**: JavaScript (Node.js >= 16)
-- **Runtime**: Node.js v22.22.0 (current dev environment)
-- **Package Manager**: npm
-- **Distribution**: npm package (@tekyzinc/gsd-t), version 2.39.12
-- **Dependencies**: Zero external npm dependencies (built-ins only: fs, path, os, child_process, https, http, crypto)
-- **Testing**: Node.js built-in test runner (`node --test`), 85 test blocks, 11 test files
-- **Graph Engine**: Native regex-based indexer (275 entities) + CGC MCP provider (1,439 functions, 153 files, 41 modules via Neo4j). Graph auto-sync enabled at command boundaries. Freshness detection on startup.
-- **Dashboard HTML**: React 17 + React Flow v11.11.4 + Dagre via CDN (gsd-t-dashboard.html, not shipped to npm)
+- **Module systems**: Mixed CommonJS — `.js` and `.cjs` (paired files for many tools)
+- **Package manager**: npm
+- **Distribution**: npm package (`@tekyzinc/gsd-t` v3.11.11)
+- **External dependencies**: ZERO runtime, ZERO devDependencies (deliberate constraint)
+- **Test runner**: `node --test` (built-in)
+- **Target environment**: Claude Code CLI as the host runtime (slash commands + hooks)
 
----
-
-## Architecture Layers
+## Structure
 
 ```
-Layer 1: Lifecycle Management
-  bin/gsd-t.js -- install, update, init, status, doctor, uninstall, update-all, register, changelog, graph
+bin/                     49 files (~19,931 LOC)   CLI installer + orchestration libs
+  gsd-t.js               main CLI (install, update, init, status, doctor, headless, metrics, graph, ...)
+  orchestrator.js        abstract phase/gate engine
+  design-orchestrator.js design-build pipeline (uses orchestrator)
+  graph-*.js             M20/M21 Code Graph (indexer/store/query/cgc/parsers/overlay)
+  scan-*.js              scan data collection, schema extraction, diagrams, report
+  gsd-t-unattended*.{js,cjs}     M36 detached supervisor (paired esm-ish/.cjs)
+  context-meter-config.cjs       Config loader (.cjs to be require()-able from hook)
+  token-budget.cjs       getSessionStatus() — primary context-burn signal
+  token-telemetry*.{js,cjs}      18-field per-spawn telemetry (M35)
+  model-selector.js      Per-phase model picker (M35)
+  runway-estimator*.{js,cjs}     Pre-flight runway estimate (M35)
+  headless-auto-spawn*.{js,cjs}  Headless dispatch surface
+  handoff-lock.{js,cjs}  Parent/child handoff primitive
+  rule-engine.js         Stack rules injector
+  qa-calibrator.js, component-registry.js, debug-ledger.js, advisor-integration.js,
+  metrics-collector.js, metrics-rollup.js, archive-progress.cjs,
+  patch-lifecycle.js, scan-export.js, scan-renderer.js, ...
 
-Layer 2: Graph Engine (M20/M21 — ENHANCED in v2.39.11)
-  bin/graph-store.js       -- JSON file storage (.gsd-t/graph/ — 8 files)
-  bin/graph-parsers.js     -- JS/TS/Python regex entity extraction
-  bin/graph-overlay.js     -- GSD-T context mapper (domain/contract/req/test/debt/surface)
-  bin/graph-indexer.js     -- Project indexer with incremental support + file walking
-  bin/graph-cgc.js         -- CGC MCP provider (JSON-RPC stdio, 8 CGC tools, health cache, retry + error reporting)
-  bin/graph-query.js       -- Abstraction layer (21 query types, 3 providers, fallback chain, command injection hardening)
+scripts/                 ~5,837 LOC               runtime scripts (hooks + dashboards + helpers)
+  gsd-t-context-meter.js          PostToolUse hook entry (M34/v3.11.11 local estimator)
+  context-meter/                  helper modules (estimate-tokens, threshold, transcript-parser + tests)
+  gsd-t-dashboard-server.js       SSE metrics dashboard (port 7433, wired into CLI/README)
+  gsd-t-dashboard.html            (UI for above)
+  gsd-t-agent-dashboard-server.js NEW — Agent topology dashboard (port 7434) — UNWIRED (see Quality)
+  gsd-t-agent-dashboard.html      NEW — UI for agent topology — UNWIRED
+  gsd-t-design-review-server.js   Two-terminal proxy for design build/review
+  gsd-t-design-review.html, gsd-t-design-review-inject.js
+  gsd-t-statusline.js, gsd-t-heartbeat.js, gsd-t-event-writer.js,
+  gsd-t-fetch-version.js, gsd-t-update-check.js, npm-update-check.js,
+  gsd-t-auto-route.js, gsd-t-tools.js, gsd-t-dashboard-mockup.html
 
-Layer 3: Hook Scripts (~/.claude/scripts/)
-  gsd-t-heartbeat.js      -- PostToolUse, SubagentStart/Stop hooks, event logging
-  gsd-t-event-writer.js   -- structured JSONL appender (.gsd-t/events/)
-  gsd-t-update-check.js   -- SessionStart auto-update, version check
-  gsd-t-auto-route.js     -- UserPromptSubmit auto-routing
-  gsd-t-tools.js          -- state utility CLI (get/set/validate/list)
-  gsd-t-statusline.js     -- context bar display
-  gsd-t-dashboard-server.js -- SSE server (zero-dependency) for dashboard
-  npm-update-check.js     -- background version checker
-  gsd-t-fetch-version.js  -- sync npm registry fetch
+commands/                61 files (~14,663 LOC)   slash commands (markdown is "source")
+  gsd-t-*.md             56 GSD-T workflow commands
+  gsd.md, branch.md, checkin.md, Claude-md.md, global-change.md (5 utility)
 
-Layer 4: Scan Modules (bin/)
-  scan-schema.js + scan-schema-parsers.js   -- ORM/schema detection
-  scan-data-collector.js                     -- scan data aggregator
-  scan-diagrams.js + scan-diagrams-generators.js -- diagram generation
-  scan-renderer.js                           -- Mermaid/D2 rendering (execSync -- TD-084)
-  scan-report.js + scan-report-sections.js   -- HTML report
-  scan-export.js                             -- DOCX/PDF export (execSync -- TD-084)
+templates/               29 files (~9,890 LOC)
+  CLAUDE-global.md, CLAUDE-project.md, requirements.md, architecture.md,
+  workflows.md, infrastructure.md, progress.md, backlog.md, backlog-settings.md,
+  context-meter-config.json, design-contract.md, element-contract.md,
+  page-contract.md, widget-contract.md, shared-services-contract.md,
+  design-chart-taxonomy.md, prompts/
+  stacks/                28 stack rule packs (auth+security universal + 26 stack-specific)
 
-Layer 5: Methodology (commands/*.md)
-  49 slash commands executed by Claude Code
+test/                    38 files (~13,694 LOC)   node --test suite
+  + scripts/context-meter/*.test.js + scripts/gsd-t-context-meter.test.js +
+    scripts/gsd-t-context-meter.e2e.test.js + bin/context-meter-config.test.cjs
+
+docs/                    16 files                 living docs + analyses + PRDs
+  requirements.md, architecture.md, workflows.md, infrastructure.md (the 4 living docs),
+  GSD-T-README.md, methodology.md, prd-graph-engine.md, prd-gsd2-hybrid.md,
+  prd-harness-evolution.md, harness-design-analysis.md,
+  context-budget-recovery-plan.md, framework-comparison-scorecard.md,
+  neo4j-setup.md, unattended-config.md, unattended-windows-caveats.md, ci-examples/
+
+.gsd-t/                  state directory          (own dogfooding)
+  contracts/             40 contracts             interface specs
+  domains/               domain scopes
+  milestones/            archived completed milestones
+  scan/                  this scan's outputs
 ```
-
----
-
-## Graph Engine Architecture (M20/M21)
-
-**Provider Fallback Chain**: CGC (priority 1) -> Native (priority 2) -> Grep (priority 3)
-
-```
-Commands (21 graph-aware) + Auto-Sync
-    │
-    ├── (v2.39.11+) Auto-sync at command boundary
-    │     └── Fresh graph required: index + overlay before query
-    │
-    ▼
-graph-query.js  ─── query(type, params, projectRoot) ───►  Result
-    │
-    ├── cgcProvider (graph-cgc.js)
-    │     └── JSON-RPC → CGC MCP → Neo4j (with retry + error reporting)
-    │
-    ├── nativeProvider (graph-indexer.js + graph-store.js)
-    │     └── Regex parsing → JSON files (.gsd-t/graph/)
-    │
-    └── grepProvider (graph-query.js inline)
-          └── execSync grep → line-based results (command-injection hardened)
-```
-
-**Graph Data Flow**:
-1. Auto-sync check: if stale, call `indexProject(root)` + `buildOverlay(root, entities)`
-2. `indexProject(root)` walks files, parses entities, writes to graph-store
-3. `buildOverlay(root, entities)` enriches with domain/contract/requirement/test/debt/surface
-4. `query(type, params, root)` routes to best provider, returns enriched entities
-
-**Current Index Stats** (self-indexed at v2.39.12):
-- Native: 275 entities, 725 relationships, stale=false
-- CGC: 153 files, 1,439 functions, 41 modules (via Neo4j)
-- Provider in use: CGC (priority 1)
-- Auto-sync frequency: command boundary check + startup freshness detection
-
----
 
 ## Data Flow
 
-### CLI Install Flow
-User → `npm install -g @tekyzinc/gsd-t` → `bin/gsd-t.js install` → copies commands/ to ~/.claude/commands/ → copies scripts/ to ~/.claude/scripts/ → creates settings.local.json → writes version to ~/.claude/.gsd-t-version
+### 1. User invokes a slash command (`/user:gsd-t-execute`)
+- Claude Code reads `commands/gsd-t-execute.md` and follows the markdown procedure.
+- Command may spawn Task subagents, run Bash to call `bin/*.js` helpers, write to `.gsd-t/`.
 
-### Session Start Flow
-Claude Code start → SessionStart hook → `gsd-t-update-check.js` checks npm version → auto-update if newer → `gsd-t-auto-route.js` registers prompt routing
+### 2. CLI tool (`npx @tekyzinc/gsd-t <subcmd>`)
+- `bin/gsd-t.js` is the entry. Subcommands: `install`, `update`, `update-all`, `init`,
+  `status`, `doctor`, `headless`, `metrics`, `graph`, `uninstall`, etc.
+- Reads/writes `~/.claude/commands/`, `~/.claude/CLAUDE.md`, project `.gsd-t/`.
 
-### Command Execution Flow
-User types `/user:gsd-t-{command}` → Claude Code loads `commands/gsd-t-{command}.md` → agent follows markdown instructions → reads/writes .gsd-t/ state files → commits changes
+### 3. Hooks (PostToolUse → Context Meter)
+- Claude Code calls `scripts/gsd-t-context-meter.js` after each tool use.
+- Hook reads transcript → `parseTranscript()` → `estimateTokens()` (LOCAL, chars/3.5) →
+  `bandFor(pct)` → writes `.gsd-t/.context-meter-state.json` → emits `additionalContext`
+  (mandatory STOP message at >=75% per v1.2.0).
+- `bin/token-budget.cjs` `getSessionStatus()` reads the state file as the authoritative
+  context-pressure signal for command-file gates.
 
-### Graph Query Flow (NEW)
-Command needs code data → calls `query(type, params, root)` → provider chain: CGC (Tree-sitter via Neo4j) → native (regex-based JSON index) → grep fallback → returns enriched Entity/Import/etc.
+### 4. Telemetry / Metrics
+- `bin/metrics-collector.js` + `bin/metrics-rollup.js` aggregate `.gsd-t/events/*.jsonl`
+  and `heartbeat-*.jsonl` into `.gsd-t/metrics/`.
+- `scripts/gsd-t-dashboard-server.js` serves SSE on port 7433.
+- `bin/token-telemetry.{js,cjs}` writes per-spawn 18-field rows to `.gsd-t/token-metrics.jsonl`.
 
----
+### 5. Unattended Supervisor (M36)
+- `bin/gsd-t-unattended.js` (lifecycle) + `gsd-t-unattended-platform.js` (cross-platform
+  process spawn / sleep prevention / notifications) + `gsd-t-unattended-safety.js` (gutter,
+  blocker detection, branch guards). Detached process drives `claude -p` worker relay.
+- State in `.gsd-t/.unattended/`.
+
+### 6. Code Graph (M20/M21)
+- `bin/graph-indexer.js` walks the project, parses with `graph-parsers.js`, persists to
+  `bin/graph-store.js` → `.gsd-t/graph/`.
+- `bin/graph-cgc.js` runs `tree-sitter` via spawned binary for AST-level parsing.
+- `bin/graph-query.js` answers queries (`findDeadCode`, `findDuplicates`, etc.).
+
+## State Management
+- **Persistent**: `.gsd-t/` per-project (progress, contracts, milestones, events, metrics,
+  graph, scan outputs).
+- **Hook session**: `.gsd-t/.context-meter-state.json` (5-min freshness window).
+- **Unattended supervisor**: `.gsd-t/.unattended/{state.json, supervisor.pid, run.log}`.
+- **Cross-project registry**: `~/.claude/.gsd-t-projects.json` (project list for update-all).
+- **Versioning**: `.gsd-t/progress.md` Header line + `package.json` for the package itself.
+
+## Configuration
+- `~/.claude/settings.json` — Claude Code settings, hook registration.
+- `.gsd-t/context-meter-config.json` — threshold/checkFrequency/timeoutMs.
+- `.gsd-t/.unattended/config.json` — supervisor config.
+- `.gsd-t/backlog-settings.md` — backlog taxonomy.
+- Env: post-v3.11.11, **no env var is required at runtime**. `ANTHROPIC_API_KEY` is now
+  optional (used only by `bin/runway-estimator.js` and the legacy install prompt — see
+  TD candidate "stale ANTHROPIC_API_KEY references").
 
 ## Patterns Observed
-
-- **Zero-dependency**: All modules use only Node.js built-ins (fs, path, os, child_process, https, http, crypto)
-- **Synchronous-first**: All file I/O is synchronous (readFileSync/writeFileSync). Async only in CGC MCP communication and dashboard SSE.
-- **Provider pattern**: Graph engine uses pluggable provider interface with priority-based fallback chain
-- **Overlay enrichment**: Code entities enriched with GSD-T context (domains, contracts, requirements, tests, debt, surfaces) via overlay mapper
-- **Auto-sync on demand**: Graph freshness checked at command boundary; stale index triggers reindex + rebuild overlay (v2.39.11+)
-- **Graceful degradation**: All graph queries work at reduced capability if CGC unavailable; commands work without graph entirely
-- **Event streaming**: All command activity logged to `.gsd-t/events/{date}.jsonl` via PostToolUse hook for analysis and debugging
-
----
+- **Markdown-as-source**: command files are the canonical workflow definition; agents
+  follow them step-by-step. JS helpers are leaf utilities the markdown references.
+- **Paired `.js` / `.cjs` files** for tools that must be `require()`d from hooks
+  (which run as plain CommonJS) and also from main CLI. (Examples: `token-budget`,
+  `runway-estimator`, `token-telemetry`, `headless-auto-spawn`, `handoff-lock`,
+  `gsd-t-unattended-*`.) Cost: drift risk if one half is updated and the other isn't.
+- **Zero-dependency stance**: all bin/scripts use only Node built-ins. Reduces supply-chain
+  risk, avoids version conflicts in the consumer environment.
+- **Fail-open hooks**: PostToolUse hook never throws and never exits non-zero; on any
+  failure it returns `{}`. Documented invariant in `gsd-t-context-meter.js`.
+- **Contract-driven**: 40 interface contracts in `.gsd-t/contracts/` — each domain consumes
+  contracts from its dependencies and publishes its own.
+- **Three-band context gate** (M35): `normal` (<70%) / `warn` (70–85%) / `stop` (>=85%) —
+  no silent quality degradation.
 
 ## Architecture Concerns
 
-- **Worktree contamination (STILL PRESENT)**: Graph indexer walks `.claude/worktrees/` directory and indexes worktree files alongside main project files. Dead code and duplicate detection includes worktree copies, producing false positives. DEFAULT_EXCLUDE includes `.claude` but only for path name matching in `walkFiles`. CGC indexes full project including worktrees. Scan #11 observes 11 active worktrees (.claude/worktrees/{name}/) all containing project copies.
-- **Command count discrepancy (PERSISTS)**: 49 actual command files vs. "46" documented in CLAUDE.md Overview (TD-087). 3-file gap likely includes: gsd.md (smart router), branch.md, checkin.md, Claude-md.md, or global-change.md (utility commands).
-- **execSync grep provider (HARDENED in v2.39.11)**: graph-query.js grep provider no longer uses string interpolation; command injection risk remediated per security.test.js validation.
-- **Graph file paths (DRIFT NOTED)**: Contract Rule 6 requires paths MUST be relative; CGC provider returns absolute paths. Impact unknown — needs path normalization audit.
-- **Untestable scripts (UNCHANGED)**: gsd-t-update-check.js, gsd-t-tools.js, gsd-t-statusline.js still lack module.exports for unit testing (TD-066, TD-081).
+1. **Two parallel dashboard implementations.** `scripts/gsd-t-dashboard-server.js`
+   (port 7433, wired into CLI + commands + README) AND a new
+   `scripts/gsd-t-agent-dashboard-server.js` (port 7434) + `gsd-t-agent-dashboard.html`
+   that are checked into git but not referenced by any command, CLI subcommand, or doc.
+   Either it's dead code, or the wiring step was missed.
+
+2. **CLAUDE.md (project) drift after M34/M37.** Project `CLAUDE.md` still describes the
+   retired `bin/task-counter.cjs` proxy as the "real guard" with sample bash for
+   `should-stop`/`increment task` — the file was removed in M34 (v2.75.10). The live
+   commands (`gsd-t-execute.md`, `gsd-t-wave.md`) no longer reference it.
+
+3. **Stale `ANTHROPIC_API_KEY` references after v3.11.11.** v3.11.11 (this morning)
+   replaced the count_tokens API with a local estimator. README, docs/architecture.md,
+   docs/infrastructure.md, docs/requirements.md, docs/methodology.md, CHANGELOG, several
+   contracts, and ~3 command files still document the API key as required and instruct
+   users to set it. Doctor was updated; user-facing docs were not.
+
+4. **Heartbeat JSONL pollution.** 76 `heartbeat-*.jsonl` files live in `.gsd-t/`
+   (not git-tracked — gitignored — but cluttering the working tree). These are
+   session-scoped and should be cleaned up on session end or rotated into a subdirectory.
+
+5. **18+ brainstorm/continue-here/M3*-spike-findings docs in `.gsd-t/` root.** Working
+   notes accumulate; nothing prunes them. Compare to `progress-archive/` and
+   `milestones/` which already have proper homes.
+
+6. **`scripts/context-meter/` lives outside `bin/`** despite being pure library code that
+   the hook consumes — a holdover from M34 where the hook itself was the only consumer.
+   Now `bin/token-budget.cjs` indirectly depends on the same shape via the state file.
+   Worth considering a move to `bin/context-meter/` for consistency.
+
+7. **Test layout split**: most tests in `test/`, but the context-meter unit/e2e tests
+   live in `scripts/` next to the code. Two test discovery roots → easy to forget one
+   when running scoped subsets.

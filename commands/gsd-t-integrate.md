@@ -2,6 +2,18 @@
 
 You are the lead agent performing integration work. This phase is ALWAYS single-session — one agent with full context across all domains to handle the seams.
 
+## Argument Parsing
+
+Parse `$ARGUMENTS`. Detect `--watch` (sets `WATCH_FLAG=true`; default `false`). Per `.gsd-t/contracts/headless-default-contract.md` §2, integrate's own agent work is interactive; all **validation** spawns below (QA in Step 5, Red Team in Step 7.5, doc-ripple in Step 9) always go headless regardless of `--watch`.
+
+## Spawn Primitive — Default Headless (M38 Domain 1)
+
+Per `.gsd-t/contracts/headless-default-contract.md` v1.0.0. Spawn classifications used below:
+
+- `spawnType: 'validation'` — QA subagent (Step 5 contract compliance), Red Team (Step 7.5 adversarial), doc-ripple (Step 9)
+
+Default path is `autoSpawnHeadless({command, spawnType: 'validation', watch: false, projectDir, sessionContext})` — validation spawns ignore `--watch`. Read-back banner surfaces each completion.
+
 ## Model Assignment
 
 Per `.gsd-t/contracts/model-selection-contract.md` v1.0.0.
@@ -212,10 +224,10 @@ Run via Bash:
 
 If the command produces output (non-empty), store it as `QA_INJECTION` and prepend it to the QA subagent prompt below. If the file doesn't exist or produces no output, skip silently.
 
-Spawn a QA subagent via the Task tool to verify contract compliance at all domain boundaries:
+Spawn a QA subagent via the Task tool to verify contract compliance at all domain boundaries — `spawnType: 'validation'` (always headless, `--watch` ignored):
 
 ```
-Task subagent (general-purpose, model: sonnet):
+Task subagent (spawnType: validation, general-purpose, model: sonnet):
 "{QA_INJECTION — if non-empty, insert here as a preamble section before the instructions below}
 Run contract compliance tests for this integration. Read .gsd-t/contracts/ for all contract definitions.
 Test every domain boundary: verify that producers and consumers match their contract shapes.
@@ -296,7 +308,7 @@ RT_PROMPT="$(npm root -g 2>/dev/null)/@tekyzinc/gsd-t/templates/prompts/red-team
 T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M")
 ```
 
-Spawn Task subagent (general-purpose, model: opus):
+Spawn Task subagent (spawnType: validation, general-purpose, model: opus) — always headless, `--watch` ignored:
 > "Read `$RT_PROMPT` and follow it. Context: cross-domain integration run. **Additional category for this run: Cross-Domain Boundaries** — test data flow across every domain boundary; does data arriving from domain A get validated by domain B; what happens when A sends malformed data that passed A's own validation. Write findings to `.gsd-t/red-team-report.md`."
 
 After subagent returns — run via Bash:
@@ -316,11 +328,11 @@ After all integration work is committed but before reporting completion:
 
 1. Run threshold check — read `git diff --name-only HEAD~1` and evaluate against doc-ripple-contract.md trigger conditions
 2. If SKIP: log "Doc-ripple: SKIP — {reason}" and proceed to completion
-3. If FIRE: spawn doc-ripple agent:
+3. If FIRE: spawn doc-ripple agent — `spawnType: 'validation'` (always headless, `--watch` ignored):
 
 ⚙ [{model}] gsd-t-doc-ripple → blast radius analysis + parallel updates
 
-Task subagent (general-purpose, model: sonnet):
+Task subagent (spawnType: validation, general-purpose, model: sonnet):
 "Execute the doc-ripple workflow per commands/gsd-t-doc-ripple.md.
 Git diff context: {files changed list}
 Command that triggered: integrate

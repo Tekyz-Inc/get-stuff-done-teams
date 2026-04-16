@@ -53,19 +53,53 @@ module.exports = {
  *   args?: string[],
  *   continue_from?: string,
  *   projectDir?: string,
- *   context?: object
+ *   context?: object,
+ *   sessionContext?: object,
+ *   sessionId?: string,
+ *   watch?: boolean,
+ *   spawnType?: 'primary' | 'validation'
  * }} opts
- * @returns {{ id: string, pid: number, logPath: string, timestamp: string }}
+ * @returns {{ id: string | null, pid: number | null, logPath: string | null, timestamp: string, mode: 'headless' | 'in-context' }}
  */
 function autoSpawnHeadless(opts) {
   const command = opts.command;
   const args = opts.args || [];
   const continue_from = opts.continue_from || ".";
   const projectDir = opts.projectDir || process.cwd();
-  const context = opts.context || null;
+  const context = opts.context || opts.sessionContext || null;
+  const watch = opts.watch === true;
+  const spawnType = opts.spawnType || "primary";
 
   if (!command || typeof command !== "string") {
     throw new Error("autoSpawnHeadless: `command` is required");
+  }
+  if (spawnType !== "primary" && spawnType !== "validation") {
+    throw new Error(
+      `autoSpawnHeadless: \`spawnType\` must be 'primary' or 'validation' (got ${JSON.stringify(spawnType)})`,
+    );
+  }
+
+  // Propagation rules (headless-default-contract §2):
+  //   watch=true + primary    → signal in-context fallback (caller uses Task)
+  //   watch=true + validation → warn on stderr; proceed headless
+  //   watch=false             → headless (default behavior)
+  if (watch && spawnType === "primary") {
+    return {
+      id: null,
+      pid: null,
+      logPath: null,
+      timestamp: new Date().toISOString(),
+      mode: "in-context",
+    };
+  }
+  if (watch && spawnType === "validation") {
+    try {
+      process.stderr.write(
+        `[headless-default] --watch ignored for validation spawn type: ${spawnType}\n`,
+      );
+    } catch (_) {
+      /* best effort */
+    }
   }
 
   const timestamp = new Date().toISOString();
@@ -145,7 +179,13 @@ function autoSpawnHeadless(opts) {
   // a detached approach that survives even after the parent's `unref()`.
   installCompletionWatcher({ projectDir, id, logPath, pid, startTimestamp: timestamp });
 
-  return { id, pid, logPath: path.relative(projectDir, logPath), timestamp };
+  return {
+    id,
+    pid,
+    logPath: path.relative(projectDir, logPath),
+    timestamp,
+    mode: "headless",
+  };
 }
 
 // ── makeSessionId ────────────────────────────────────────────────────────────

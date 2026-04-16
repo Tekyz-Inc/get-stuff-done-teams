@@ -2,6 +2,45 @@
 
 You are the lead agent coordinating task execution across domains. Choose solo or team mode based on the plan.
 
+## Argument Parsing
+
+Parse `$ARGUMENTS` before doing any work. Detect these flags:
+
+- `--watch` — opt-in to **in-context streaming** for primary work subagents. If present, set `WATCH_FLAG=true`; otherwise `WATCH_FLAG=false` (default).
+
+Validation spawns (QA, Red Team, Design Verification, doc-ripple) ignore `--watch` per `.gsd-t/contracts/headless-default-contract.md` §2 — they always go headless.
+
+## Spawn Primitive — Default Headless (M38 Domain 1)
+
+Per `.gsd-t/contracts/headless-default-contract.md` v1.0.0. Every Task-subagent spawn below is classified as one of:
+
+- `spawnType: 'primary'` — domain task-dispatcher (Step 3 fresh-dispatch)
+- `spawnType: 'validation'` — Step 2 QA, Step 5.25 Design Verification, Step 5.5 Red Team, Step 7 doc-ripple
+
+**Default spawn path** (when `WATCH_FLAG=false`):
+
+```bash
+SESSION=$(node -e "
+const has = require('./bin/headless-auto-spawn.cjs');
+const r = has.autoSpawnHeadless({
+  command: 'gsd-t-execute',
+  args: [], // optional per-spawn args
+  projectDir: process.cwd(),
+  spawnType: '{primary|validation}',
+  watch: false,
+  sessionContext: { step: '{step-id}', domain: '{domain-name}', task: '{task-id}' }
+});
+process.stdout.write(JSON.stringify(r));
+")
+echo "⚙ [${MODEL:-sonnet}] gsd-t-execute → ${DESC:-subagent} (headless)"
+```
+
+Then `bin/check-headless-sessions.js printBannerIfAny()` surfaces the completion on the next user message.
+
+**`--watch` path** (only when `WATCH_FLAG=true` AND `spawnType: 'primary'`): `autoSpawnHeadless()` returns `{mode: 'in-context'}` sentinel — fall back to the in-context Task subagent pattern documented in each Step below. The OBSERVABILITY LOGGING block runs unchanged.
+
+**Validation spawns** always run headless regardless of `--watch`.
+
 ## Model Assignment
 
 Per `.gsd-t/contracts/model-selection-contract.md` v1.0.0. Selection is deterministic via `bin/model-selector.js` — never runtime-overridden by context pressure.
@@ -132,9 +171,9 @@ Run via Bash:
 
 If the command produces output (non-empty), store it as `QA_INJECTION` and prepend it to the QA subagent prompt below. If the file doesn't exist or produces no output, skip silently and proceed normally.
 
-**QA subagent prompt:**
+**QA subagent prompt** — `spawnType: 'validation'` (always headless, `--watch` ignored per headless-default-contract §2):
 ```
-Task subagent (general-purpose, model: sonnet):
+Task subagent (spawnType: validation, general-purpose, model: sonnet):
 "{QA_INJECTION — if non-empty, insert here as a preamble section before the instructions below}
 Run the full test suite for this project and report pass/fail counts.
 Read .gsd-t/contracts/ for contract definitions.
@@ -311,10 +350,10 @@ For each task in `.gsd-t/domains/{domain-name}/tasks.md` (in order, skip complet
 2. Load graph context (if `.gsd-t/graph/meta.json` exists): query task's files for relevant graph context
 3. Display: `⚙ [sonnet] gsd-t-execute → domain: {domain-name}, task-{task-id}`
 4. Run observability Bash (T_START / DT_START)
-5. Spawn task subagent:
+5. Spawn task subagent — `spawnType: 'primary'` (respects `--watch`: headless by default, in-context when `WATCH_FLAG=true`):
 
 ```
-Task subagent (general-purpose, model: sonnet, mode: bypassPermissions):
+Task subagent (spawnType: primary, general-purpose, model: sonnet, mode: bypassPermissions):
 "You are executing a single task for the {domain-name} domain.
 
 {PAST_FAILURES block if any — ## ⚠️ Past Failures (read before acting)\n{lines}}
@@ -787,10 +826,10 @@ DV_PROMPT="$(npm root -g 2>/dev/null)/@tekyzinc/gsd-t/templates/prompts/design-v
 [ -f "$DV_PROMPT" ] || DV_PROMPT="templates/prompts/design-verify-subagent.md"
 ```
 
-Then spawn the subagent with this short prompt:
+Then spawn the subagent with this short prompt — `spawnType: 'validation'` (always headless, `--watch` ignored):
 
 ```
-Task subagent (general-purpose, model: opus):
+Task subagent (spawnType: validation, general-purpose, model: opus):
 "You are the Design Verification Agent. Read $DV_PROMPT and follow it exactly.
 Do not deviate from that protocol. Context for this run:
   - domain: {domain-name}
@@ -839,10 +878,10 @@ RT_PROMPT="$(npm root -g 2>/dev/null)/@tekyzinc/gsd-t/templates/prompts/red-team
 [ -f "$RT_PROMPT" ] || RT_PROMPT="templates/prompts/red-team-subagent.md"
 ```
 
-Then spawn the subagent with this short prompt:
+Then spawn the subagent with this short prompt — `spawnType: 'validation'` (always headless, `--watch` ignored):
 
 ```
-Task subagent (general-purpose, model: opus):
+Task subagent (spawnType: validation, general-purpose, model: opus):
 "You are a Red Team QA adversary. Read $RT_PROMPT and follow it exactly.
 Do not deviate from that protocol. Context for this run:
   - domain: {domain-name}
@@ -884,11 +923,11 @@ After all work is committed but before reporting completion:
 
 1. Run threshold check — read `git diff --name-only HEAD~1` and evaluate against doc-ripple-contract.md trigger conditions
 2. If SKIP: log "Doc-ripple: SKIP — {reason}" and proceed to completion
-3. If FIRE: spawn doc-ripple agent:
+3. If FIRE: spawn doc-ripple agent — `spawnType: 'validation'` (always headless, `--watch` ignored):
 
 ⚙ [{model}] gsd-t-doc-ripple → blast radius analysis + parallel updates
 
-Task subagent (general-purpose, model: sonnet):
+Task subagent (spawnType: validation, general-purpose, model: sonnet):
 "Execute the doc-ripple workflow per commands/gsd-t-doc-ripple.md.
 Git diff context: {files changed list}
 Command that triggered: execute

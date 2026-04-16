@@ -2,14 +2,28 @@
 
 You are the lead agent performing a comprehensive analysis of an existing codebase. Your job is to understand the architecture, identify business rules, surface vulnerabilities, find inefficiencies, and produce an actionable tech debt register.
 
+## Argument Parsing
+
+Parse `$ARGUMENTS`. Detect `--watch` (sets `WATCH_FLAG=true`; default `false`). Per `.gsd-t/contracts/headless-default-contract.md` §2, `--watch` propagates to the **primary** scan spawns (Step 0 outer subagent, Step 2 dimension agents). Step 5 living-document updates and Step 8 HTML report are validation-style — they always go headless.
+
+## Spawn Primitive — Default Headless (M38 Domain 1)
+
+Per `.gsd-t/contracts/headless-default-contract.md` v1.0.0. Spawn classifications used below:
+
+- `spawnType: 'primary'` — Step 0 outer fresh-dispatch subagent, Step 2 dimension agents, Step 3 synthesis agent
+- `spawnType: 'validation'` — Step 5 living-document updater, Step 8 HTML report generator
+
+Default path is `autoSpawnHeadless({command, spawnType, watch: WATCH_FLAG, projectDir, sessionContext})`.
+
 ## Step 0: Launch via Subagent
 
 Scans are long-running and context-heavy. Always execute via a Task subagent for a fresh context window.
 
 **If you are the orchestrating agent** (you received the slash command directly):
-Spawn a fresh subagent using the Task tool:
+Spawn a fresh subagent using the Task tool — `spawnType: 'primary'` (respects `--watch`: headless by default, in-context when `WATCH_FLAG=true`):
 ```
 subagent_type: general-purpose
+spawnType: primary
 prompt: "You are running gsd-t-scan. Working directory: {current project root}
 Read CLAUDE.md and .gsd-t/progress.md for project context, then execute gsd-t-scan starting at Step 1.
 IMPORTANT: Step 2 requires team mode — spawn 5 teammates (architecture, business-rules, security, quality, contracts)

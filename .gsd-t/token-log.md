@@ -194,3 +194,35 @@
 <!-- missed_escalation 2026-04-16T00:24:01.733Z phase= domain= task= q="(no question provided)" -->
 <!-- missed_escalation 2026-04-16T00:25:30.892Z phase= domain= task= q="test" -->
 <!-- missed_escalation 2026-04-16T00:25:30.892Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-16T17:38:05.606Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-16T17:38:05.607Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-16T17:43:05.166Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-16T17:43:05.166Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-16T17:43:27.487Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-16T17:43:27.488Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-16T17:43:44.925Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-16T17:43:44.925Z phase= domain= task= q="(no question provided)" -->
+| 2026-04-16 10:42 | 2026-04-16 10:58 | gsd-t-scan | Step 2-8 | sonnet (lead+inline 5-dim) | 960s | Scan #11 — synthesized 5 dimension files inline (Task subagent spawn primitive unavailable in this harness); 11 new TD items (TD-102→TD-112), 3 HIGH; HTML report rendered; diagrams 0/6 (placeholder mode) | (meta) | scan #11 | N/A |
+<!-- missed_escalation 2026-04-16T21:17:51.584Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-16T21:17:51.584Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-16T21:18:12.355Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-16T21:18:12.355Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-16T21:18:32.783Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-16T21:18:32.784Z phase= domain= task= q="(no question provided)" -->
+| 2026-04-16 14:54 | 2026-04-16 14:54 | gsd-t-unattended | Step 2 | sonnet | ~2s | supervisor spawned PID 93642 | | | |
+<!-- missed_escalation 2026-04-16T22:06:22.507Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-16T22:06:22.507Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-16T22:06:43.649Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-16T22:06:43.649Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-16T22:07:01.082Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-16T22:07:01.082Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-16T22:07:52.826Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-16T22:07:52.827Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-16T22:08:13.934Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-16T22:08:13.934Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-16T22:37:33.341Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-16T22:37:33.341Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-16T22:37:53.444Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-16T22:37:53.445Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-16T22:38:13.648Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-16T22:38:13.648Z phase= domain= task= q="(no question provided)" -->

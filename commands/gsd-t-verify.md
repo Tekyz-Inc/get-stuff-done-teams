@@ -2,6 +2,18 @@
 
 You are the lead agent coordinating verification of the completed work. Each verification dimension should be thorough and independent.
 
+## Argument Parsing
+
+Parse `$ARGUMENTS`. Detect `--watch` (sets `WATCH_FLAG=true`; default `false`). Per `.gsd-t/contracts/headless-default-contract.md` §2, verify spawns are ALL classified as **validation** (the work product is a verdict, not a code change) — they always go headless regardless of `--watch`.
+
+## Spawn Primitive — Default Headless (M38 Domain 1)
+
+Per `.gsd-t/contracts/headless-default-contract.md` v1.0.0. Spawn classifications used below:
+
+- `spawnType: 'validation'` — Step 4 test-audit subagent, Step 8 auto-invoke complete-milestone
+
+Default path is `autoSpawnHeadless({command, spawnType: 'validation', watch: false, projectDir, sessionContext})`. Auto-invoke of complete-milestone (Step 8) is preserved — it is spawned headless via the same primitive and surfaces via the read-back banner.
+
 ## Model Assignment
 
 Per `.gsd-t/contracts/model-selection-contract.md` v1.0.0.
@@ -166,7 +178,7 @@ Lead: After receiving teammate reports:
 **OBSERVABILITY LOGGING (MANDATORY):**
 Before spawning — run via Bash:
 `T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M")`
-Spawn a Task subagent to run the full test suite and contract audit.
+Spawn a Task subagent (spawnType: validation) to run the full test suite and contract audit — always headless.
 After subagent returns — run via Bash:
 `T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START)) && CTX_PCT=$(node -e "const tb=require('./bin/token-budget.cjs'); process.stdout.write(String(tb.getSessionStatus('.').pct||'N/A'))" 2>/dev/null || echo "N/A")`
 Append to `.gsd-t/token-log.md` (create with header `| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Ctx% |` if missing):
@@ -354,7 +366,7 @@ If status is VERIFIED or VERIFIED-WITH-WARNINGS:
 Before spawning — run via Bash:
 `T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M")`
 
-2. Spawn a Task subagent (model: sonnet, mode: bypassPermissions):
+2. Spawn a Task subagent (spawnType: validation, model: sonnet, mode: bypassPermissions) — always headless, `--watch` ignored:
 ```
 "Execute the complete-milestone phase of the current GSD-T milestone.
 

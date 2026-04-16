@@ -433,8 +433,8 @@ function ensureGitignoreEntries(projectDir, entries) {
 
 // Install the Context Meter into a project directory.
 // Copies scripts/gsd-t-context-meter.js, scripts/context-meter/*.js (runtime
-// only — skips .test.js and test-injector.js), and the config template (if
-// missing). Also appends entries to .gitignore.
+// only — skips .test.js), and the config template (if missing). Also appends
+// entries to .gitignore.
 function installContextMeter(projectDir) {
   try {
     // 1. Copy gsd-t-context-meter.js → {projectDir}/scripts/
@@ -486,9 +486,7 @@ function installContextMeter(projectDir) {
         return false;
       }
       for (const fname of depFiles) {
-        // Skip test files and test-only infrastructure
         if (fname.includes(".test.")) continue;
-        if (fname === "test-injector.js") continue;
         const fsrc = path.join(depsSrcDir, fname);
         const fdest = path.join(depsDestDir, fname);
         try {
@@ -3515,6 +3513,14 @@ if (require.main === module) {
     case "headless":
       doHeadless(args.slice(1));
       break;
+    case "unattended": {
+      const { spawnSync } = require("child_process");
+      const cjs = path.join(__dirname, "gsd-t-unattended.cjs");
+      const res = spawnSync(process.execPath, [cjs, ...args.slice(1)], {
+        stdio: "inherit",
+      });
+      process.exit(res.status == null ? 1 : res.status);
+    }
     case "metrics":
       doMetrics(args.slice(1));
       break;

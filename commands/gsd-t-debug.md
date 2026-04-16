@@ -2,6 +2,19 @@
 
 You are debugging an issue in a contract-driven project. Your approach should identify whether the bug is within a domain or at a contract boundary.
 
+## Argument Parsing
+
+Parse `$ARGUMENTS`. The issue description is `$ISSUE`. Detect `--watch` (sets `WATCH_FLAG=true`; default `false`). Per `.gsd-t/contracts/headless-default-contract.md` §2, `--watch` propagates only to the **primary** inner fix-loop subagent (Step 0.1). Validation spawns (Deep Research Step 1.5, Red Team Step 5.3, doc-ripple Step 6) always go headless regardless of the flag.
+
+## Spawn Primitive — Default Headless (M38 Domain 1)
+
+Per `.gsd-t/contracts/headless-default-contract.md` v1.0.0. Spawn classifications used below:
+
+- `spawnType: 'primary'` — Step 0.1 fresh-dispatch subagent running the debug session
+- `spawnType: 'validation'` — Step 1.5 Deep Research teammates, Step 5.3 Red Team, Step 6 doc-ripple
+
+Default path is `autoSpawnHeadless({command, spawnType, watch: WATCH_FLAG, projectDir, sessionContext})`. Outer orchestrator stays interactive; inner subagent goes headless by default and streams in-context only when `WATCH_FLAG=true`.
+
 ## Model Assignment
 
 Per `.gsd-t/contracts/model-selection-contract.md` v1.0.0.
@@ -147,9 +160,10 @@ If STACK_RULES is empty (no templates/stacks/ dir or no matches), skip silently.
 Before spawning — run via Bash:
 `T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M")`
 
-Spawn a fresh subagent using the Task tool:
+Spawn a fresh subagent using the Task tool — `spawnType: 'primary'` (respects `--watch`: headless by default, in-context when `WATCH_FLAG=true`):
 ```
 subagent_type: general-purpose
+spawnType: primary
 prompt: "You are running gsd-t-debug for this issue: {$ARGUMENTS}
 Working directory: {current project root}
 Read CLAUDE.md and .gsd-t/progress.md for project context, then execute gsd-t-debug starting at Step 1."
@@ -510,7 +524,7 @@ RT_PROMPT="$(npm root -g 2>/dev/null)/@tekyzinc/gsd-t/templates/prompts/red-team
 T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M")
 ```
 
-Spawn Task subagent (general-purpose, model: opus):
+Spawn Task subagent (spawnType: validation, general-purpose, model: opus) — always headless, `--watch` ignored:
 > "Read `$RT_PROMPT` and follow it. Context: post-fix validation for a debug session. **Additional categories for this run:** (a) **Regression Around the Fix** — test every code path adjacent to the changed lines; fixes frequently break neighboring functionality. (b) **Original Bug Variants** — the original bug was {one-line description}; search for SIMILAR bugs in related code (same pattern, different location). Write findings to `.gsd-t/red-team-report.md`."
 
 After subagent returns — run via Bash:
@@ -540,11 +554,11 @@ After all work is committed but before reporting completion:
 
 1. Run threshold check — read `git diff --name-only HEAD~1` and evaluate against doc-ripple-contract.md trigger conditions
 2. If SKIP: log "Doc-ripple: SKIP — {reason}" and proceed to completion
-3. If FIRE: spawn doc-ripple agent:
+3. If FIRE: spawn doc-ripple agent — `spawnType: 'validation'` (always headless, `--watch` ignored):
 
 ⚙ [{model}] gsd-t-doc-ripple → blast radius analysis + parallel updates
 
-Task subagent (general-purpose, model: sonnet):
+Task subagent (spawnType: validation, general-purpose, model: sonnet):
 "Execute the doc-ripple workflow per commands/gsd-t-doc-ripple.md.
 Git diff context: {files changed list}
 Command that triggered: debug

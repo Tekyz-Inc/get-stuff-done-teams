@@ -1,6 +1,135 @@
 # Integration Points
 
-## Current State: Milestone 35 — No Silent Degradation + Surgical Model Escalation + Token Telemetry (PLANNED — 7 domains)
+## Current State: Milestone 38 — Headless-by-Default + Meter Reduction (PARTITIONED — 5 domains)
+
+## M38 Dependency Graph
+
+```
+Wave 1 (sequential within wave — Domain 1 first, Domain 2 second):
+  m38-headless-spawn-default   ────► commands/* spawn pattern + headless-default-contract.md
+                                                            │
+                                                            ▼
+  m38-meter-reduction          ────► strip meter machinery + supervisor callsite updates
+                                                            │
+                                            GATE: Wave 1 complete
+                                                            │
+Wave 2 (parallel after Wave 1 gate — 3 truly-independent domains):
+  ┌─────────────────────────────────────────────────────────┘
+  m38-unattended-event-stream  ────► event emission + watch tick reform
+  m38-router-conversational    ────► gsd.md intent classifier + delete 3 commands
+  m38-cleanup-and-docs         ────► delete self-improvement loop + doc ripple + version bump
+                                                            │
+                                            GATE: Wave 2 complete
+                                                            │
+                                                            ▼
+                            VERIFY → COMPLETE-MILESTONE → tag v3.12.10
+```
+
+### Abbreviation Key
+
+| Abbrev | Domain |
+|--------|--------|
+| H1 | m38-headless-spawn-default |
+| MR | m38-meter-reduction |
+| ES | m38-unattended-event-stream |
+| RC | m38-router-conversational |
+| CD | m38-cleanup-and-docs |
+
+### Checkpoints
+
+- **M38-CP1** (Domain 1 complete within Wave 1): `headless-default-contract.md` v1.0.0 finalized + every command file converted to `autoSpawnHeadless()` + `--watch` flag implemented + tests green → unblocks Domain 2
+- **M38-CP2** (Wave 1 complete): meter machinery stripped (runway-estimator/token-telemetry/three-band/dead-meter detection deleted) + supervisor callsites updated + 7 stranded context-meter tests rewritten + `bin/token-budget.cjs` single-band → unblocks Wave 2
+- **M38-CP3** (Domain 3 complete within Wave 2): `bin/event-stream.cjs` operational + watch tick reform shipped + `unattended-event-stream-contract.md` v1.0.0 finalized
+- **M38-CP4** (Domain 4 complete within Wave 2): Router intent classifier live + 3 conversational commands deleted + tests adjusted
+- **M38-CP5** (Wave 2 complete): All Wave 2 domains done + Domain 5 doc ripple + version bump 3.11.11 → 3.12.10 + folded contracts deleted + `gsd-t version-update-all` ready (user-gated) → ready for verify + complete-milestone
+
+### File-Ownership Map (M38)
+
+| File / directory | Owner |
+|------------------|-------|
+| `bin/headless-auto-spawn.cjs` | H1 |
+| `commands/gsd-t-execute.md`, `gsd-t-wave.md`, `gsd-t-integrate.md`, `gsd-t-quick.md`, `gsd-t-debug.md`, `gsd-t-scan.md`, `gsd-t-verify.md` (spawn pattern + `--watch` flag) | H1 (Wave 1) |
+| `.gsd-t/contracts/headless-default-contract.md` (NEW) | H1 |
+| `bin/token-budget.cjs`, `scripts/gsd-t-context-meter.js`, `scripts/context-meter/threshold.js`, `scripts/context-meter/transcript-parser.js` | MR |
+| `bin/runway-estimator.cjs`, `bin/token-telemetry.cjs/.js` (DELETE) | MR |
+| `commands/*.md` per-spawn token bracket / runway gate / Step 0.2 auto-pause STRIPS | MR (Wave 1, after H1) |
+| `bin/gsd-t-unattended.cjs` meter callsite updates | MR (Wave 1) |
+| `.gsd-t/contracts/context-meter-contract.md` v1.3.0 | MR |
+| `bin/event-stream.cjs` (NEW), `bin/gsd-t-unattended.cjs` event emission, `commands/gsd-t-unattended-watch.md` reform | ES |
+| `.gsd-t/contracts/unattended-event-stream-contract.md` (NEW) | ES |
+| `.gsd-t/contracts/unattended-supervisor-contract.md` v1.1.0 (UPDATE) | ES |
+| `commands/gsd.md` (intent classifier) | RC |
+| `commands/gsd-t-prompt.md`, `gsd-t-brainstorm.md`, `gsd-t-discuss.md` (DELETE) | RC |
+| `commands/gsd-t-optimization-apply.md`, `gsd-t-optimization-reject.md`, `gsd-t-reflect.md`, `gsd-t-audit.md` (DELETE) | CD |
+| `bin/qa-calibrator.js`, `bin/token-optimizer.js` (DELETE) | CD |
+| `commands/gsd-t-complete-milestone.md` Step 14 removal, `gsd-t-backlog-list.md` `--file` flag removal, `gsd-t-status.md` Step 0.5 removal | CD |
+| `commands/gsd-t-help.md` (entry deletions for 4 self-improvement + 3 conversational = 7 total) | CD (coordinate with RC for the 3 conversational entries) |
+| `templates/CLAUDE-global.md`, `templates/CLAUDE-project.md`, project `CLAUDE.md` | CD |
+| `docs/architecture.md`, `docs/workflows.md`, `docs/infrastructure.md`, `docs/methodology.md`, `docs/requirements.md`, `docs/prd-harness-evolution.md` | CD |
+| `README.md`, `GSD-T-README.md`, `CHANGELOG.md` | CD |
+| `package.json` (3.11.11 → 3.12.10), `bin/gsd-t.js` (command count) | CD |
+| Deleted contracts: `runway-estimator-contract.md`, `token-telemetry-contract.md`, `headless-auto-spawn-contract.md`, `qa-calibration-contract.md`, `harness-audit-contract.md` | CD |
+| Test additions/rewrites: `test/headless-auto-spawn.test.js` extend, `test/headless-default.test.js` NEW, `test/event-stream.test.js` NEW, `test/unattended-watch.test.js` NEW, `test/router-intent.test.js` NEW, `test/token-budget.test.js` REWRITE, `scripts/gsd-t-context-meter.test.js` REWRITE 7 stranded, `test/filesystem.test.js` count adjust, DELETE `test/runway-estimator.test.js` + `test/token-telemetry.test.js` | per owning domain |
+
+### Shared File Sequencing (Critical — M38)
+
+The 7 command files in H1's scope are ALSO touched by MR (token bracket strips). The agreed sequence:
+
+1. **Within Wave 1**: H1 lands FIRST (converts spawn pattern, adds `--watch`, preserves OBSERVABILITY LOGGING blocks)
+2. **Then within Wave 1**: MR applies on top (strips per-spawn token brackets, runway gates, Step 0.2 auto-pause STOP language). The blocks MR strips are distinct from H1's edits — additive separations.
+3. **Within Wave 2**: CD applies the doc-ripple AFTER ES + RC are done so docs reflect final command-file shape.
+
+The supervisor (`bin/gsd-t-unattended.cjs`) is touched by both MR (meter callsite updates) and ES (event emission). Sequence:
+
+1. **Wave 1**: MR updates meter callsites
+2. **Wave 2**: ES adds event emission on top of MR's clean state
+
+### Self-Modifying Sequencing Rationale
+
+M38 deletes/rewires load-bearing parts the unattended supervisor itself uses. To prevent the supervisor from pulling the rug out from under itself, the partition sequences:
+
+- **Wave 1 (H1 + MR) = supervisor-critical infrastructure**: spawn primitive + meter machinery. MUST land before any unattended run executes Wave 2 work. If a user re-launches `/user:gsd-t-unattended` mid-M38, it must be against a Wave-1-complete codebase.
+- **Wave 2 (ES + RC + CD) = supervisor-extension and cleanup**: event emission improves the supervisor; router and cleanup are independent of supervisor execution path. Safe to run unattended once Wave 1 is in.
+
+The interactive partition step (Path A choice in this resume cycle) gates the supervisor against Wave 1's land before unattended execution of Wave 2. After this partition completes, Wave 1 should be executed interactively (or via headless-default `autoSpawnHeadless()` pattern). Wave 2 can run unattended.
+
+### Wave Execution Groups (M38)
+
+#### Wave 1 — Supervisor-Critical (sequential within wave)
+
+| Domain | Owner | Concern |
+|--------|-------|---------|
+| m38-headless-spawn-default | H1 | Lands FIRST. Spawn primitive + `--watch` + headless-default-contract |
+| m38-meter-reduction | MR | Lands SECOND, on top of H1. Meter strip + supervisor callsite updates |
+
+**Completes when**: M38-CP1 + M38-CP2 both pass; full test suite green at clean Wave-1 state
+
+#### Wave 2 — Independent Parallel (after Wave 1 gate)
+
+| Domain | Owner | Parallel-safe? |
+|--------|-------|----------------|
+| m38-unattended-event-stream | ES | Yes — owns disjoint files (event-stream.cjs NEW, watch.md, unattended.cjs additive) |
+| m38-router-conversational | RC | Yes — owns gsd.md + 3 deletions; help.md edits coordinated with CD |
+| m38-cleanup-and-docs | CD | Mostly yes; runs LAST in the wave to capture final shape in docs |
+
+**Within-Wave-2 sequencing**:
+- ES + RC truly parallel
+- CD waits for ES + RC to finish, then does the doc ripple in one pass (Document Ripple Completion Gate per CLAUDE-global.md)
+
+**Completes when**: M38-CP3 + M38-CP4 + M38-CP5 all pass; full test suite green; deleted contracts removed; version bumped
+
+### Execution Order (solo mode)
+
+1. Wave 1: H1 (sequential tasks within domain) → COMMIT → MR (sequential tasks within domain)
+2. GATE: M38-CP2 (Wave 1 complete) — full test suite green, supervisor smoke test
+3. Wave 2: ES + RC parallel → COMMIT both → CD (doc ripple complete pass) → COMMIT
+4. GATE: M38-CP5 (Wave 2 complete)
+5. `/user:gsd-t-verify` → auto-invokes `/user:gsd-t-complete-milestone`
+6. User-gated: `npm publish` + `gsd-t version-update-all`
+
+---
+
+## Previous State: Milestone 35 — No Silent Degradation + Surgical Model Escalation + Token Telemetry (PLANNED — 7 domains)
 
 ## M35 Dependency Graph
 

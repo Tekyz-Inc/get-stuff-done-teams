@@ -2,6 +2,12 @@
 
 ## Last Updated: 2026-03-22 (M23 — Headless Mode)
 
+> **Scan #11 note (2026-04-16, v3.11.11)**: this doc is partially stale relative to
+> M34 (Context Meter), M35 (Runway-Protected Execution), M36 (Unattended Supervisor),
+> M37 (Universal Auto-Pause), and the v3.11.11 switch to local token estimation.
+> See `.gsd-t/scan/architecture.md` for the current architecture snapshot and
+> `.gsd-t/techdebt.md` TD-103 for the doc-ripple milestone candidate.
+
 ## System Overview
 
 GSD-T is an npm-distributed methodology framework for Claude Code. It provides slash commands (markdown files), a CLI installer (Node.js), and document templates that together enable contract-driven development with AI assistance.

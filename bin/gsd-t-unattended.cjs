@@ -476,7 +476,32 @@ function finalizeState(state, dir, terminalStatus) {
  */
 function doUnattended(argv, deps) {
   deps = deps || {};
-  const opts = parseArgs(argv || []);
+  const rawArgv = argv || [];
+
+  // --watch rejection (headless-default-contract §2) — unattended is detached
+  // by definition; passing --watch is a category error. Refuse fast so the
+  // user sees a clear message before any state.json / PID work happens.
+  if (
+    Array.isArray(rawArgv) &&
+    rawArgv.some(
+      (a) => typeof a === "string" && (a === "--watch" || a.startsWith("--watch=")),
+    )
+  ) {
+    // eslint-disable-next-line no-console
+    console.error(
+      "[gsd-t-unattended] --watch is incompatible with unattended.\n" +
+        "Unattended supervisor is detached by definition.\n" +
+        "Run /user:gsd-t-unattended-watch from your interactive session to see live activity.",
+    );
+    return {
+      ok: false,
+      dryRun: false,
+      exitCode: 2,
+      reason: "--watch is incompatible with unattended",
+    };
+  }
+
+  const opts = parseArgs(rawArgv);
   const projectDir = path.resolve(opts.project || ".");
 
   // ── Resolve injection points (real impls by default) ─────────────────────

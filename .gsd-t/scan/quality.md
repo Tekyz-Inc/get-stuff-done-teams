@@ -1,243 +1,189 @@
-# Code Quality Analysis — 2026-03-19 (Scan #11, Post-M20/M21 patch series)
-
-**Date:** 2026-03-19
-**Version:** v2.39.12
-**Previous scan:** Scan #10 at v2.38.10 (2026-03-19)
-**Test baseline:** 294/294 passing (confirmed by running `node --test` from project root)
-**Focus:** Patch series v2.39.x — CGC sync retry, error reporting, Windows encoding workaround, graph auto-sync, scan-data-collector regex, Neo4j setup guide. No new source files added since M21.
-**Graph-enhanced:** Yes — graph engine active for this project
-
----
+# Code Quality Analysis — 2026-04-16 (Scan #11)
 
 ## Dead Code
 
-### DC-CARRIED-01 (carried from Scan #7): tryKroki() in scan-renderer.js is dormant
-- `bin/scan-renderer.js` lines 53-77
-- Zero callers from main execution tree. Comment at line 85 documents this intentionally: "tryKroki is async; skip in sync rendering path — Kroki available via async wrapper if needed"
-- Impact: LOW. Still unresolved. Document as intentional or remove.
+### Q-DC01 — Two parallel dashboard implementations, the new one unwired
+- Files (new, untracked → just `git add`'d this session):
+  `scripts/gsd-t-agent-dashboard-server.js`, `scripts/gsd-t-agent-dashboard.html`
+- The existing `scripts/gsd-t-dashboard-server.js` (port 7433) is wired into the CLI
+  (`bin/gsd-t.js`), `commands/gsd-t-visualize.md`, `README.md`, and contracts.
+- The new agent topology dashboard (port 7434) has **zero references** anywhere
+  (verified: `grep "agent-dashboard"` returns no hits in commands, CLI, README, docs,
+  or other scripts).
+- Either: (a) finish wiring it (add `gsd-t-visualize-agents` command or extend
+  `gsd-t-visualize` with a `--agents` flag, register port + path in
+  `dashboard-server-contract.md`, document in README), OR (b) remove the files. As
+  shipped today it is dead code that ships in the npm package (the `scripts/` dir is
+  in `package.json#files`).
+- Effort: small (wire-up) or trivial (remove).
 
-### DC-NEW-03: findCgcCommand() flagged as duplicate by graph (carried)
-- `bin/graph-cgc.js` line 18
-- False positive from name-based duplicate detection. Discovery function, not dead code.
-- Impact: NONE — no action needed.
-
-### DC-NEW-04: Graph indexes worktree copies as separate entities (carried)
-- CGC indexes `.claude/worktrees/` files alongside main project files
-- `findDeadCode` returns worktree copies of functions as dead code
-- Impact: LOW — noise in graph results, not actual dead code
-- Suggestion: graph-query should filter `.claude/worktrees/` from output
-
----
+### Q-DC02 — Dead-file deletion confirmed (housekeeping note)
+- Three files were deleted this session per the operator note:
+  `scripts/context-meter/count-tokens-client.js`,
+  `scripts/context-meter/count-tokens-client.test.js`,
+  `scripts/context-meter/test-injector.js`.
+- The corresponding skip rule in `bin/gsd-t.js` was reportedly cleaned up too.
+- Verified: `scripts/context-meter/` now contains only `estimate-tokens.{js,test.js}`,
+  `threshold.{js,test.js}`, `transcript-parser.{js,test.js}`. No further action needed.
 
 ## Duplication
 
-### DUP-CARRIED-01: findProjectRoot() duplicated in gsd-t-tools.js and gsd-t-statusline.js
-- `scripts/gsd-t-tools.js` line 10, `scripts/gsd-t-statusline.js` line 29
-- Still unresolved. Acceptable given zero-dependency constraint.
-
-### DUP-CARRIED-02: execFileSync shell-out pattern in 4 bin/ files (updated)
-- `bin/scan-renderer.js`, `bin/scan-export.js`, `scripts/gsd-t-update-check.js`, `bin/graph-query.js`
-- All four use `const { execFileSync } = require('child_process')` with inline try/catch
-- Note: previous scan tracked this as "execSync + string interpolation" — now confirmed as `execFileSync` (safer, no shell). Pattern is safe but repeated.
-- Impact: LOW — acceptable for a zero-dep package. Pattern is consistent.
-
-### DUP-NEW-03: isNewer() / isNewerVersion() version comparison duplicated (carried)
-- `scripts/gsd-t-update-check.js` line 17: `isNewer(a, b)`
-- `bin/gsd-t.js` line 1492: `isNewerVersion(a, b)`
-- Same semver split-map-compare logic, different names
-- Impact: LOW — acceptable duplication for zero-dep scripts.
-
----
+### Q-DUP01 — Paired `.js` / `.cjs` duplicates with drift risk
+- 7 paired sets in `bin/`: `gsd-t-unattended`, `gsd-t-unattended-platform`,
+  `gsd-t-unattended-safety`, `runway-estimator`, `token-telemetry`,
+  `headless-auto-spawn`, `handoff-lock`.
+- Necessary because hooks and some installer paths require CommonJS-with-`.cjs`
+  resolution while the rest of the codebase is mixed. But this means every code change
+  to those modules must be made in both files.
+- No automated check ensures the pairs stay in sync.
+- Effort: medium — write a `npm test` companion that diff-compares paired modules at
+  the AST level (or a simpler check: same exported symbols + same line count
+  ±10%); fail CI on drift.
 
 ## Reusability Analysis
 
 ### Consumer Surfaces Detected
-| Surface             | Type | Operations Used                                  |
-|---------------------|------|--------------------------------------------------|
-| CLI (bin/gsd-t.js)  | cli  | install, update, init, status, doctor, graph     |
-| Commands (49 .md)   | ai   | state read/write, graph query, scan, test        |
-| Dashboard HTML      | web  | SSE event stream, JSONL read                     |
-| Hook scripts (9)    | hook | event write, state get/set, version check        |
+
+| Surface | Type | Operations Used |
+|---------|------|----------------|
+| `bin/gsd-t.js` CLI | CLI | install, update, init, status, doctor, headless, metrics, graph, uninstall, version-update-all |
+| Slash commands (`commands/*.md`) | Agent workflow | All workflow phases — orchestrate via Bash to call bin/* helpers |
+| Hooks (context-meter, statusline, heartbeat, update-check, auto-route) | Claude Code hook | Each does one narrow job |
+| Dashboards (`scripts/gsd-t-dashboard-server.js`, `scripts/gsd-t-agent-dashboard-server.js`) | Local web UI | Read events, heartbeats, context-meter state, supervisor state |
+| Unattended supervisor (detached) | OS process | Drives `claude -p` worker relay |
 
 ### Shared Service Candidates
-No new shared service candidates identified. The graph engine continues to follow the abstraction layer pattern: `graph-query.js` is the shared entry point for all 21 graph-aware commands. `execFileSync` wrapper consolidation remains a low-priority option if a future build step is ever added.
 
----
+| Operation | Found In | Recommendation |
+|-----------|----------|----------------|
+| Atomic file write (write tmp → rename) | `scripts/gsd-t-context-meter.js` `writeStateAtomic`, several `bin/*.js` files implement variants | Extract to `bin/fs-atomic.js` and require in all sites |
+| `.jsonl` line append + tail | `bin/metrics-collector.js`, `scripts/gsd-t-event-writer.js`, `scripts/gsd-t-heartbeat.js`, dashboard servers | Extract `bin/jsonl-tail.js` (open + watch + parse + replay) |
+| Threshold-band classification | `bin/token-budget.cjs` `bandFor`, `scripts/context-meter/threshold.js` `bandFor` | These exist in both sides of the meter — verify single source of truth (the meter side is canonical; the budget side should `require()` it instead of re-implementing) |
+| Cross-platform process spawn with stdin/stdout JSON | `bin/headless-auto-spawn.js`, `bin/gsd-t-unattended-platform.js`, `bin/graph-cgc.js` | Each handles signal forwarding / timeout / fail-open differently — extract `bin/spawn-json.js` |
+
+> **Note**: These candidates should seed Step 1.6 (Consumer Surface Identification) the
+> next time `/user:gsd-t-partition` is run.
 
 ## Complexity Hotspots
 
-### CMPLX-NEW-01: bin/gsd-t.js remains the largest file at 1,798 lines (carried)
-- Well above the 200-line soft limit in code standards
-- Contains 9+ subcommand handlers. Subcommands added in M20/M21 (graph, register, changelog) increased dispatch surface.
-- All functions ≤ 30 lines individually (M6 refactoring holds)
-- Suggestion: Extract graph and register subcommands to separate module. Still a carried recommendation.
-
-### CMPLX-NEW-02: bin/graph-cgc.js at 510 lines (carried)
-- Second-largest file
-- Contains CGC process management, MCP protocol, result normalization, provider interface
-- All functions individually well-structured and within 30-line limit
-- Impact: LOW — cohesive single responsibility (CGC communication)
-
-### CMPLX-NEW-03: bin/graph-query.js at 452 lines (updated — was 400)
-- Grew by 52 lines in v2.39.x (CGC sync retry + error reporting)
-- grepQuery switch/case handles: getCallers, getImporters, getProvider, getIndexStatus
-- Impact: LOW — acceptable for a routing/dispatch module, still within reason
-
-### CMPLX-NEW-04: bin/graph-parsers.js at 327 lines
-- Parser for JS and Python function/class/import extraction via regex
-- No new growth since M21
-- Impact: LOW — file is narrowly scoped (parsing only)
-
----
+| File | Approx LOC | Notes |
+|------|-----------|-------|
+| `bin/gsd-t.js` | ~3,300+ | Mega-installer. Already split out several helpers; further extraction (graph subcommand, metrics subcommand, doctor) would help. |
+| `bin/orchestrator.js` | high | Abstract phase engine — consolidates many gates; worth a contract-level review next milestone. |
+| `commands/gsd-t-execute.md` | ~700 lines | The richest command file. Step 5 alone has multiple sub-steps + observability + Red Team + Design Verification. |
+| `commands/gsd-t-wave.md` | 489 lines | Coordinates the full cycle; high coupling to other command files. |
 
 ## Error Handling Gaps
-
-### EH-CARRIED-03: scan-renderer.js tryMmdc/tryD2 swallow all exceptions silently
-- Intentional for graceful degradation. Assessment: acceptable.
-
-### EH-NEW-06: graph-query.js grepQuery catch blocks return empty array silently (carried)
-- `bin/graph-query.js` lines ~315, ~329: `catch { return []; }`
-- Grep failures (timeout, permission) silently return empty results with no warning
-- Impact: LOW — grep is fallback of last resort. Silent failure is acceptable here.
-
-### EH-NEW-07: graph-store.js readFile catch returns null silently (carried)
-- `bin/graph-store.js` line 32: `catch { return null; }`
-- Missing or corrupt JSON files return null with no error
-- Impact: LOW — callers handle null correctly (e.g., `readIndex(root) || { entities: [] }`)
-
----
-
-## Test Coverage
-
-### Test File Inventory
-| File                           | it() calls | Status      |
-|--------------------------------|------------|-------------|
-| test/cli-quality.test.js       | 27         | PASSING     |
-| test/dashboard-server.test.js  | 23         | PASSING     |
-| test/event-stream.test.js      | 29         | PASSING     |
-| test/filesystem.test.js        | 40         | PASSING     |
-| test/graph-indexer.test.js     | 28         | PASSING     |
-| test/graph-query.test.js       | 29         | PASSING     |
-| test/graph-store.test.js       | 27         | PASSING     |
-| test/helpers.test.js           | 27         | PASSING     |
-| test/scan.test.js              | 31         | PASSING     |
-| test/security.test.js          | 33         | PASSING     |
-| test/verify-gates.js           | (gates)    | PASSING     |
-| **Total**                      | **294**    | **All pass** |
-
-Note: graph-parsers and graph-overlay are tested within graph-indexer.test.js (lines 8-10, 311+), not in dedicated files.
-
-### Test Coverage Gaps
-
-#### TCG-CARRIED-01 (TD-066, carried): gsd-t-tools.js and gsd-t-statusline.js — still zero test coverage
-- Primary finding from Scan #6 HIGH item. Unresolved after 8+ milestones.
-- Impact: MEDIUM — these scripts run at every command boundary (hook execution).
-
-#### TCG-CARRIED-03: scan-renderer.js tryKroki() — zero test coverage
-- Dormant async path. Impact: LOW.
-
-#### TCG-CARRIED-04: gsd-t-update-check.js — untestable (no module.exports)
-- Impact: MEDIUM — same pattern as TD-066.
-
-#### TCG-CARRIED-05: gsd-t-auto-route.js — untestable (no module.exports)
-- Impact: LOW — simple logic.
-
-#### TCG-CARRIED-06: gsd-t-dashboard.html — no E2E or UI tests
-- Impact: LOW-MEDIUM.
-
-#### TCG-NEW-07: graph-cgc.js — no test for actual CGC communication (carried)
-- Tests mock the CGC process. No integration test that verifies real CGC MCP protocol over stdio.
-- Impact: LOW — CGC is optional and tested end-to-end during manual verification.
-
-#### TCG-NEW-08: graph-overlay.js — no dedicated test file (carried)
-- Overlay functions tested indirectly through graph-indexer.test.js (describe block at line 311)
-- Impact: MEDIUM — overlay logic is critical for enrichment accuracy.
-
----
-
-## Naming and Convention Issues
-
-### CONV-CARRIED-03: RESOLVED in v2.39.x
-- CLAUDE.md now correctly states "49 slash commands (45 GSD-T workflow + 4 utility)"
-- `ls commands/*.md` = 49 files; CLAUDE.md count = 49. Mismatch resolved.
-- Note: architecture.md still lists "49 (45 GSD-T workflow + 4 utility: gsd, branch, checkin, Claude-md, global-change)" which counts 5 utility — minor inconsistency. 4 utility + gsd.md (router) = 5 if gsd.md is counted as utility.
-
-### CONV-CARRIED-04: RendererName enum in scan-diagrams-contract.md lists 'mcp' but no MCP code exists
-- Still unresolved.
-
-### CONV-NEW-06: Graph engine absolute paths — contract violation (carried)
-- graph-query-contract.md Rule 6: "All file paths in results MUST be relative to project root"
-- Actual: CGC provider returns absolute paths; native provider uses absolute `id` format
-- Impact: MEDIUM — consumers expecting relative paths get absolute. Contract violated.
-
----
-
-## Unresolved Developer Notes
-No TODO, FIXME, HACK, or XXX comments found in any JS or script files. Clean.
-
----
+- Most CLI sites use synchronous `fs` calls with simple try/catch around write operations.
+- The PostToolUse hook is correctly wrapped in a top-level try/catch (fail-open invariant
+  documented and enforced).
+- **Gap (carried)**: `bin/scan-export.js` / `bin/scan-renderer.js` `execSync` interpolation
+  (TD-084 in archive) — string-interpolated shell, can throw obscure errors and bypass
+  intended validation.
 
 ## Performance Issues
+- 76 `heartbeat-*.jsonl` files in `.gsd-t/` slow down `ls`, `du`, and any scan that walks
+  `.gsd-t/`. Low impact today (9.7 MB total), but grows monotonically.
+- The dashboard SSE servers do not appear to use sendfile / batched writes; for large
+  event volumes a buffered batch flush would reduce per-event syscall pressure
+  (defer until measured pain).
 
-### PERF-CARRIED-01: RESOLVED in v2.39.x
-- Dashboard server now handles UTC midnight rollover
-- `scripts/gsd-t-dashboard-server.js` lines 95-108: `fs.watch(eventsDir)` detects new JSONL files and switches the active watcher when a new daily file appears
-- Status: CLOSED
+## Naming
+- Consistent overall (`snake_case` for JS file names, `PascalCase` for classes, `camelCase`
+  for functions).
+- Minor: `gsd-t-unattended-platform.js` vs `unattended-platform.test.js` — the test name
+  drops the `gsd-t-` prefix that the source has. 7 paired files have similar
+  test-name/source-name skew. Trivial; mention only because uniformity across `test/`
+  improves grep workflows.
 
-### PERF-NEW-02: Graph reindex triggered on every query when no meta.json exists (carried)
-- `bin/graph-query.js` line ~372: If `readMeta(projectRoot)` returns null, `indexProject(projectRoot)` is called on every query
-- Impact: LOW for established projects (meta.json exists), but poor UX on first use in a large project
-- Suggestion: After indexing, always write meta.json so subsequent queries skip reindex.
+## Unresolved Developer Notes
+- No TODO/FIXME/XXX/HACK markers found in `bin/` or `scripts/`. (Discipline: good.)
 
----
+## Test Coverage Gaps
 
-## Living Docs Staleness (Post-M21 patch series)
+### Q-T01 — 7 failing tests in `scripts/gsd-t-context-meter.test.js` after v3.11.11
+- **Status**: known regression introduced by yesterday's switch from API to local
+  estimator.
+- Failures: tests 2, 3, 4, 6, 7b, 10c, 11. All use the now-removed `_countTokens`
+  injection or assert on a `tokens=42` log line that the new estimator doesn't produce.
+- Root cause: source was migrated to `_estimateTokens` injection but the test file was
+  not.
+- Fix: rewrite each test to inject `_estimateTokens` and assert on the new behavior;
+  retain the privacy-content invariant (test 11) but with the new log format
+  (`tokens=N pct=X.X band=Y`).
+- This is a **stop-the-line** item — the tests these replaced cover privacy and
+  fail-open invariants.
 
-| Doc                    | Status  | Missing or Stale Content                                                         |
-|------------------------|---------|----------------------------------------------------------------------------------|
-| docs/architecture.md   | STALE   | Test count shows "125 tests" (line 241) — actual is 294. Should be updated.     |
-| docs/architecture.md   | CURRENT | Graph engine files, component counts, CLI subcommands all correctly documented.  |
-| docs/workflows.md      | UNKNOWN | Not checked this scan — carry from Scan #10 (graph flows may still be missing)   |
-| docs/infrastructure.md | UNKNOWN | Not checked this scan — carry from Scan #10                                       |
-| docs/requirements.md   | UNKNOWN | Not checked this scan — carry from Scan #10                                       |
+### Q-T02 — Pre-existing `test/token-budget.test.js` "heuristic fallback" failures
+- **Status**: per operator note, 2 known failures expected. Verified separately with
+  `node --test test/token-budget.test.js`: result is **42/42 passing** as of this
+  scan. The previously-flagged heuristic-fallback tests appear to no longer be failing
+  — possibly fixed in a recent commit (file is listed as ` M test/token-budget.test.js`
+  in `git status` so the working tree includes the fix).
+- Recommend: clear the "2 known failures" advisory from operator notes; current
+  baseline is clean for this file.
 
-Primary staleness finding: `docs/architecture.md` line 241 still reads "Total: 125 tests, all passing (post-M9)" — this is 169 tests out of date.
-
----
+### Q-T03 — No coverage of v3.11.11 estimator privacy invariant
+- `scripts/context-meter/estimate-tokens.js` does not appear in any `*.test.js` file
+  besides its own `estimate-tokens.test.js`. The privacy-content rule (must never log
+  raw user/assistant text) needs a dedicated test in `gsd-t-context-meter.test.js`
+  once that file is repaired.
 
 ## Stale Dependencies
-No npm dependencies — nothing to update. Zero supply chain attack surface on the Node.js side.
 
----
+| Package | Current | Latest | Breaking? | Priority |
+|---------|---------|--------|-----------|----------|
+| (none — zero declared deps) | — | — | — | — |
 
-## Security
+- Node engine requirement: `>=16`. Node 16 is EOL (April 2024). Bump to `>=18` or
+  `>=20` (active LTS) to remove an EOL signal in users' npm warnings.
 
-### SEC-CARRIED-01: graph-query.js grepQuery uses function name directly in execFileSync args
-- `bin/graph-query.js` lines 309, 325: function name from graph entity is passed as grep argument
-- Uses `execFileSync('grep', [...])` not shell interpolation — no shell injection risk
-- However, a crafted entity name with special regex characters could cause grep failures or unexpected matches
-- Impact: LOW — grep receives name as a literal argument, not via shell. execFileSync is safe.
+## Documentation Drift Hotspots (Quality)
 
----
+### Q-DOC01 — Project `CLAUDE.md` describes the retired `bin/task-counter.cjs` as the "real guard"
+- Project `CLAUDE.md` (this repo) under "Observability Logging" still includes:
+  > `COUNTER=$(node bin/task-counter.cjs status …)`
+  >
+  > `Orchestrator Task-Count Gate (execute + wave, replaces the broken env-var self-check):`
+  > `bin/task-counter.cjs is the real guard.`
+- The file no longer exists. M34 retired it. The live commands (`gsd-t-execute.md`,
+  `gsd-t-wave.md`) and global `~/.claude/CLAUDE.md` reflect the retirement.
+- Effort: small — replace the section with the M34/M35 context-meter narrative.
 
-## Graph-Enhanced Findings Summary
+### Q-DOC02 — Stale `count_tokens` / `ANTHROPIC_API_KEY` references after v3.11.11
+- Files still referring to the API path:
+  `.gsd-t/contracts/context-meter-contract.md` (16 hits — partial update, but Purpose
+  paragraph + Field reference still tell the API story),
+  `docs/architecture.md` (4),
+  `docs/infrastructure.md` (12),
+  `docs/requirements.md` (2),
+  `README.md` (10),
+  `docs/methodology.md` (multiple),
+  `CHANGELOG.md` (multiple),
+  commands `gsd-t-execute.md`, `gsd-t-resume.md`, `gsd-t-wave.md`.
+- Doctor and installer were updated; user-facing surface was not.
+- Effort: medium — full doc-ripple pass. Each file needs a "v3.11.11 supersedes this"
+  marker + replacement narrative.
 
-What the graph engine found that grep-only scanning missed (carried from Scan #10):
-1. **Worktree contamination** (DC-NEW-04): CGC indexes worktree copies, creating false positives in dead code analysis. Only visible with graph data.
-2. **isNewer() duplication** (DUP-NEW-03): `findDuplicates` detected name-based similarity between `isNewer` (update-check) and `isNewerVersion` (gsd-t.js). Grep would need manual pattern matching.
-3. **Absolute path contract violation** (CONV-NEW-06): Inspecting actual graph query results revealed paths are absolute, not relative as contracted. This can only be found by running queries, not by reading source.
-4. **Complexity data gap** (CMPLX-NEW-01 note): `findComplexFunctions` returns complexity=1 for all functions — the native regex parser does not compute real cyclomatic complexity.
-5. **Zero circular dependencies**: `findCircularDeps` confirmed no import cycles exist.
-6. **Zero domain boundary violations**: `getDomainBoundaryViolations` returned empty — all graph engine modules respect domain boundaries.
+### Q-DOC03 — Command count drift
+- `package.json` description says `61 slash commands`. Actual: 61. ✅
+- Project `CLAUDE.md` line in Overview says `56 slash commands (51 GSD-T workflow + 5 utility)`.
+  Actual: 61 (56 GSD-T + 5 utility — the `+5` figure is right but the total is wrong).
+- README.md mentions `61 slash commands` ✅ in two places.
+- Effort: trivial — bump CLAUDE.md.
 
-## Changes Since Scan #10
+## Misc / Housekeeping
 
-| Item                         | Change                                                          |
-|------------------------------|-----------------------------------------------------------------|
-| PERF-CARRIED-01              | RESOLVED — dashboard handles midnight JSONL rollover            |
-| CONV-CARRIED-03              | RESOLVED — CLAUDE.md command count now matches actual 49 files  |
-| Test count                   | 294/294 (unchanged from Scan #10 — no new tests in patch series)|
-| bin/*.js total lines         | 4,750 (was 4,888 — minor corrections and refactors in patch series) |
-| DUP-CARRIED-02               | Updated: confirmed execFileSync (not execSync), 4 files, no shell risk |
-| CMPLX-NEW-03 (graph-query)   | Grew from 400 → 452 lines in v2.39.x CGC retry/error reporting |
-| architecture.md test count   | Still stale: shows "125 tests", actual is 294                   |
+### Q-H01 — Working-tree noise in `.gsd-t/`
+- 76 `heartbeat-*.jsonl` files (gitignored, but still in the working dir).
+- 6 `continue-here-*.md` files. 4 `brainstorm-*.md`. Several `M*-*.md` spike-finding
+  files at the root (M35, M36).
+- These are gitignored or are intentional records, but they accumulate. A documented
+  "session-end housekeeping" command (or `gsd-t-pause` extension) would help.
+
+### Q-H02 — Runtime files dirty in `git status`
+- `.claude/scheduled_tasks.lock`, `.gsd-t/.unattended/run.log`,
+  `.gsd-t/.unattended/state.json` are listed as modified. These are runtime artifacts;
+  they should be in `.gitignore`. Verify `.gsd-t/.unattended/` is ignored
+  (state.json may legitimately be tracked as the canonical schema example, but
+  run.log + supervisor.pid should not be).

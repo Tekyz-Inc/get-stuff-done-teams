@@ -1,0 +1,25 @@
+{
+  "generated": "2026-04-16T17:57:50.896Z",
+  "dimensions": {
+    "architecture": {
+      "scanHash": "cbbd9a568ec846945803d4471d2d13fe",
+      "scannedAt": "2026-04-16T17:57:50.897Z"
+    },
+    "quality": {
+      "scanHash": "4e2295952ec11dd4b9185090e44709e4",
+      "scannedAt": "2026-04-16T17:57:50.897Z"
+    },
+    "security": {
+      "scanHash": "12ffdb540defcbe4adda1394131e40d6",
+      "scannedAt": "2026-04-16T17:57:50.898Z"
+    },
+    "business-rules": {
+      "scanHash": "7b288cf36b63a271b86c9c37a611c530",
+      "scannedAt": "2026-04-16T17:57:50.900Z"
+    },
+    "contract-drift": {
+      "scanHash": "d0ed9c677f45b424b9715295e1880d12",
+      "scannedAt": "2026-04-16T17:57:50.902Z"
+    }
+  }
+}

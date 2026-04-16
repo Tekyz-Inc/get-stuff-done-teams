@@ -2,6 +2,35 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [3.11.12] - 2026-04-16
+
+### Added — M38 Partition + Plan + Domain H1 Progress
+
+**Background**: M38 (Headless-by-Default + Meter Reduction) partitioned into 5 domains across 2 waves. Domain H1 (headless-spawn-default) executed through T6 by unattended supervisor Iter 2 but did not commit. This checkin captures all M38 setup work + H1 in-flight progress + Scan #11 regeneration.
+
+### Added
+- **5 M38 domain directories** under `.gsd-t/domains/` (m38-headless-spawn-default, m38-meter-reduction, m38-unattended-event-stream, m38-router-conversational, m38-cleanup-and-docs) with scope.md, constraints.md, tasks.md each — 35 atomic tasks total
+- **2 new contracts**: `.gsd-t/contracts/headless-default-contract.md` (v1.0.0 DRAFT, folds 3 M35 contracts), `.gsd-t/contracts/unattended-event-stream-contract.md` (v1.0.0 DRAFT)
+- **`test/headless-default.test.js`** — 11 tests covering the 4-cell propagation matrix (primary/validation × watch/no-watch) + existing regression coverage
+- **`bin/gsd-t.js`** `unattended` passthrough subcommand — dispatches to `bin/gsd-t-unattended.cjs` so defense-in-depth `--watch` rejection reaches the supervisor rejection logic
+- **M38 Scan #11** artifacts under `.gsd-t/scan/` (architecture, business-rules, contract-drift, quality, security, test-baseline + scan-report.html)
+
+### Changed
+- **`bin/headless-auto-spawn.{cjs,js}`** — added `watch` + `spawnType` parameters; propagation rules implemented (validation spawns always headless, primary+watch returns `{mode: 'in-context'}`)
+- **7 command files** converted to `autoSpawnHeadless({...spawnType: 'primary', watch: $WATCH_FLAG})` pattern: `gsd-t-execute`, `gsd-t-wave`, `gsd-t-integrate`, `gsd-t-quick`, `gsd-t-debug`, `gsd-t-scan`, `gsd-t-verify`
+- **`bin/gsd-t-unattended.{cjs,js}`** — rejects `--watch` flag with clear error (validation-spawn enforcement in unattended context)
+- **`bin/gsd-t.js`** `installContextMeter()` — removed `test-injector.js` skip (file deleted; no longer needed)
+- **`.gsd-t/contracts/integration-points.md`** — M38 dependency graph + 5 checkpoints (M38-CP1 → M38-CP5) + file ownership map
+- **`.gsd-t/progress.md`** — M38 partition + plan entries added to Decision Log
+- **`docs/architecture.md` + `docs/infrastructure.md`** — Scan #11 staleness callouts added (TD-103 doc-ripple candidate noted)
+
+### Removed
+- **`scripts/context-meter/count-tokens-client.{js,test.js}`** — retired with v3.11.11 local-estimator switch (count_tokens API no longer called)
+- **`scripts/context-meter/test-injector.js`** — test-only infrastructure, no longer referenced
+
+### Testing
+- 1234/1242 tests pass. 8 pre-existing failures carried forward: 7 stranded context-meter tests (TD-102, owned by M38-MR) + 1 scan.test.js live-state test (unrelated). No regressions from H1 work.
+
 ## [3.11.10] - 2026-04-16
 
 ### Added — Universal Context Auto-Pause (M37)
