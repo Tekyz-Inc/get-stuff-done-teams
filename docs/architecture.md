@@ -345,7 +345,7 @@ Closes the M35 parent/child race in `bin/headless-auto-spawn.js`. When the runwa
 
 ### Resume Auto-Reattach
 
-`/user:gsd-t-resume` Step 0 checks for a live supervisor before any other resume logic. If `supervisor.pid` exists and `kill -0` succeeds and `state.json.status` is non-terminal, the resume command skips normal resume flow entirely, prints the current watch block, and calls `ScheduleWakeup(270, '/user:gsd-t-unattended-watch', ...)`. The user transparently re-enters the watch loop without any manual step.
+`/user:gsd-t-resume` Step 0 checks for a live supervisor before any other resume logic. If `supervisor.pid` exists and `kill -0` succeeds and `state.json.status` is non-terminal, the resume command skips normal resume flow entirely, prints the current watch block, and calls `ScheduleWakeup(270, '/gsd-t-unattended-watch', ...)`. The user transparently re-enters the watch loop without any manual step.
 
 ---
 

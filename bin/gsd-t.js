@@ -1232,9 +1232,6 @@ async function doInstall(opts = {}) {
   saveInstalledVersion();
 
   showInstallSummary(gsdtCommands.length, utilityCommands.length);
-
-  // Interactive prompt (skipped silently in non-TTY shells)
-  await promptForApiKeyIfMissing(resolveApiKeyEnvVar(process.cwd()));
 }
 
 function showInstallSummary(gsdtCount, utilCount) {
@@ -1444,9 +1441,6 @@ async function doInit(projectName) {
   if (registerProject(projectDir)) success("Registered in ~/.claude/.gsd-t-projects");
 
   showInitTree(projectDir);
-
-  // Interactive prompt (skipped silently in non-TTY shells)
-  await promptForApiKeyIfMissing(resolveApiKeyEnvVar(projectDir));
 }
 
 function showInitTree(projectDir) {
@@ -1523,12 +1517,7 @@ function showStatusContextMeter() {
     const rel = state.timestamp ? formatRelativeTime(state.timestamp) : "never measured";
     log(`  ${RED}${BOLD}✗ CONTEXT METER DEAD${RESET} ${RED}— error: ${code}, last check: ${rel}${RESET}`);
     log(`    ${RED}The context-window guardrail is NOT working. Long sessions will hit /compact.${RESET}`);
-    if (code === "missing_key") {
-      log(`    ${YELLOW}Fix: export ANTHROPIC_API_KEY in your shell profile${RESET}`);
-      log(`    ${YELLOW}     (measurement only — inference stays on Claude Code subscription)${RESET}`);
-    } else {
-      log(`    ${YELLOW}Fix: run 'gsd-t doctor' for diagnostics${RESET}`);
-    }
+    log(`    ${YELLOW}Fix: run 'gsd-t doctor' for diagnostics${RESET}`);
     return;
   }
 
@@ -2308,8 +2297,8 @@ function checkDoctorCgc() {
   return issues;
 }
 
-// Verify context meter wiring: API key env var, hook registration,
-// hook script presence, config validity, and a live count_tokens dry-run.
+// Verify context meter wiring: hook registration, hook script presence,
+// config validity, and a local estimation dry-run.
 // Returns number of issues (RED results). Mirrors checkDoctorCgc shape.
 async function checkDoctorContextMeter(projectDir) {
   let issues = 0;
@@ -2317,8 +2306,8 @@ async function checkDoctorContextMeter(projectDir) {
 
   const cwd = projectDir || process.cwd();
 
-  // Load config (used by checks 1, 4, and 5). Missing file → defaults; invalid
-  // JSON or schema-mismatch → throws (handled in Check 4).
+  // Load config (used by checks 3 and 4). Missing file → defaults; invalid
+  // JSON or schema-mismatch → throws (handled in Check 3).
   let cfg = null;
   let cfgLoadErr = null;
   try {
@@ -2327,19 +2316,8 @@ async function checkDoctorContextMeter(projectDir) {
   } catch (e) {
     cfgLoadErr = e;
   }
-  const apiKeyEnvVar = (cfg && cfg.apiKeyEnvVar) || "ANTHROPIC_API_KEY";
 
-  // Check 1: API key env var present
-  const apiKeyValue = process.env[apiKeyEnvVar];
-  const apiKeyPresent = typeof apiKeyValue === "string" && apiKeyValue.length > 0;
-  if (apiKeyPresent) {
-    success(`API key present ($${apiKeyEnvVar})`);
-  } else {
-    error(`Missing API key: set $${apiKeyEnvVar} — https://console.anthropic.com/settings/keys`);
-    issues++;
-  }
-
-  // Check 2: Hook registered in ~/.claude/settings.json
+  // Check 1: Hook registered in ~/.claude/settings.json
   let hookRegistered = false;
   try {
     if (fs.existsSync(SETTINGS_JSON)) {
@@ -2367,7 +2345,7 @@ async function checkDoctorContextMeter(projectDir) {
     issues++;
   }
 
-  // Check 3: Hook script file exists in project
+  // Check 2: Hook script file exists in project
   const scriptPath = path.join(cwd, "scripts", CONTEXT_METER_SCRIPT);
   if (fs.existsSync(scriptPath)) {
     success("Hook script present");
@@ -2376,7 +2354,7 @@ async function checkDoctorContextMeter(projectDir) {
     issues++;
   }
 
-  // Check 4: Config file parses via loader
+  // Check 3: Config file parses via loader
   const configPath = path.join(cwd, CONTEXT_METER_CONFIG_DEST);
   if (cfgLoadErr) {
     error(`Config file invalid: ${cfgLoadErr.message} — fix ${CONTEXT_METER_CONFIG_DEST}`);
@@ -2387,34 +2365,27 @@ async function checkDoctorContextMeter(projectDir) {
     warn("Using default config — run gsd-t install to copy template");
   }
 
-  // Check 5: Dry-run count_tokens API call (skip if no API key)
-  if (!apiKeyPresent) {
-    log(`  ${DIM}Skipped count_tokens dry-run (no API key)${RESET}`);
+  // Check 4: Dry-run local token estimation
+  const estimatorPath = path.join(cwd, "scripts", "context-meter", "estimate-tokens.js");
+  if (!fs.existsSync(estimatorPath)) {
+    error("Token estimator missing at scripts/context-meter/estimate-tokens.js — run gsd-t update");
+    issues++;
   } else {
-    const clientPath = path.join(cwd, "scripts", "context-meter", "count-tokens-client.js");
-    if (!fs.existsSync(clientPath)) {
-      error("count_tokens client missing at scripts/context-meter/count-tokens-client.js — run gsd-t update");
-      issues++;
-    } else {
-      try {
-        const { countTokens } = require(clientPath);
-        const result = await countTokens({
-          apiKey: apiKeyValue,
-          model: "claude-opus-4-6",
-          system: "",
-          messages: [{ role: "user", content: [{ type: "text", text: "ping" }] }],
-          timeoutMs: 5000,
-        });
-        if (result && typeof result.inputTokens === "number") {
-          success(`count_tokens dry-run OK (${result.inputTokens} tokens)`);
-        } else {
-          error("count_tokens API call failed — check API key and network");
-          issues++;
-        }
-      } catch (e) {
-        error(`count_tokens dry-run threw: ${e.message}`);
+    try {
+      const { estimateTokens } = require(estimatorPath);
+      const result = estimateTokens({
+        system: "",
+        messages: [{ role: "user", content: [{ type: "text", text: "ping" }] }],
+      });
+      if (result && typeof result.inputTokens === "number") {
+        success(`Token estimator dry-run OK (${result.inputTokens} tokens)`);
+      } else {
+        error("Token estimator returned null");
         issues++;
       }
+    } catch (e) {
+      error(`Token estimator dry-run threw: ${e.message}`);
+      issues++;
     }
   }
 

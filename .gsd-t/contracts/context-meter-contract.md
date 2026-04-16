@@ -155,18 +155,26 @@ Empty output (`{}`) is the **safe default** for every failure mode: API error, m
 
 ### checkFrequency gate
 
-The hook maintains a per-session counter in `statePath` (`checkCount` field). Every PostToolUse invocation increments the counter. The count_tokens API call is made only when `checkCount % checkFrequency === 0`. Otherwise the hook returns `{}` without hitting the API (respects Tier 1 rate limits of 100 RPM).
+The hook maintains a per-session counter in `statePath` (`checkCount` field). Every PostToolUse invocation increments the counter. Token estimation runs only when `checkCount % checkFrequency === 0`. Otherwise the hook returns `{}`.
 
 ---
 
-## count_tokens API usage
+## Token estimation (local, zero API cost)
 
-- Endpoint: `POST https://api.anthropic.com/v1/messages/count_tokens`
-- Headers: `x-api-key: {key}`, `anthropic-version: 2023-06-01`, `content-type: application/json`
-- Body: `{ "model": "claude-opus-4-6", "system": "...", "messages": [...reconstructed from transcript...] }`
-- Response: `{ "input_tokens": 124350 }`
-- Free tier: count_tokens is not billed.
-- Rate limit: Tier 1 = 100 RPM. `checkFrequency` default of 5 gives ~20 RPM headroom at heavy tool-call pace.
+Since v3.12, the context meter uses **local character-based estimation** instead of the Anthropic `count_tokens` API. This eliminates all API costs, network dependencies, and API key requirements.
+
+- Method: Parse transcript → measure total character count → divide by 3.5 (chars per token)
+- Module: `scripts/context-meter/estimate-tokens.js`
+- Accuracy: Within ~5-10% of the real `count_tokens` API. For threshold bands with 15-point gaps (normal < 70%, warn < 85%), this is more than sufficient.
+- Cost: Zero. No API calls, no network, no billing.
+- The 3.5 chars/token ratio slightly overestimates token count, which is the safe direction (triggers pause earlier, not later).
+
+### Historical note (v2.75–v3.11)
+
+Previous versions called `POST /v1/messages/count_tokens` via `scripts/context-meter/count-tokens-client.js`, requiring `ANTHROPIC_API_KEY`. This was replaced because:
+1. The API bills per input token even for count_tokens calls — at high volumes with Opus model IDs, this reached ~$126/month
+2. All Claude 3.5+ models share the same tokenizer, making the API call unnecessary
+3. The network dependency and API key requirement added fragility (the M36 regression was caused by a missing API key)
 
 ---
 

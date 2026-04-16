@@ -338,7 +338,7 @@ gsd-t unattended --hours=24
 **How it works:**
 
 - `gsd-t unattended` spawns `bin/gsd-t-unattended.js` as a fully detached OS process. The supervisor runs `claude -p` workers in a relay — one worker per iteration — each in a fresh context window. State is written atomically to `.gsd-t/.unattended/state.json` between iterations.
-- `/user:gsd-t-unattended` does the same from inside Claude Code, then calls `ScheduleWakeup(270, '/user:gsd-t-unattended-watch')` to start an in-session watch loop that ticks every 270 seconds and prints progress.
+- `/user:gsd-t-unattended` does the same from inside Claude Code, then calls `ScheduleWakeup(270, '/gsd-t-unattended-watch')` to start an in-session watch loop that ticks every 270 seconds and prints progress.
 - If you run `/clear` + `/user:gsd-t-resume` during a live run, the resume command auto-detects the running supervisor and re-attaches the watch loop — no re-launch needed.
 - The supervisor halts automatically when: the milestone reaches COMPLETED status, the `--hours` wall-clock cap expires, `--max-iterations` is reached, safety rails detect a stall or unrecoverable error, or the stop sentinel is touched.
 

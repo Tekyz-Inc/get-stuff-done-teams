@@ -3,7 +3,7 @@
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: M37 COMPLETE — Universal Context Auto-Pause
 ## Date: 2026-04-16
-## Version: 3.11.10 (minor — Universal Context Auto-Pause)
+## Version: 3.11.11 (patch — local token estimation replaces count_tokens API)
 
 ## Current Milestone
 None — ready for next milestone

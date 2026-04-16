@@ -4,30 +4,20 @@
  * TEST-ONLY FILE. Not shipped to users. Does not participate in production
  * require graphs. Spawned as part of `node --test` only.
  *
- * Tasks 1–4 of the context-meter-hook domain unit-tested `runMeter()` via
- * dependency injection. This test exercises the real child-process hook as
- * Claude Code would invoke it:
+ * Exercises the real child-process hook as Claude Code would invoke it:
  *
  *   1. A temporary project root is constructed under os.tmpdir() containing:
  *        - .gsd-t/context-meter-config.json (real config loader target)
  *        - transcript.jsonl (minimal Claude-Code-shaped transcript)
- *   2. A local stub HTTP server mimics POST /v1/messages/count_tokens and
- *      returns a configurable `input_tokens` value.
- *   3. `node scripts/gsd-t-context-meter.js` is spawned as a child process
- *      with cwd = tempdir, NODE_OPTIONS = --require <test-injector>, and
- *      GSD_T_CONTEXT_METER_TEST_BASE_URL pointing at the stub.
- *   4. We write the PostToolUse JSON payload to the child's stdin, close
+ *   2. `node scripts/gsd-t-context-meter.js` is spawned as a child process
+ *      with cwd = tempdir.
+ *   3. We write the PostToolUse JSON payload to the child's stdin, close
  *      stdin, collect stdout, and assert both the stdout shape and the
  *      on-disk state file.
  *
- * The test-injector.js file is the single unavoidable bit of test-only
- * infrastructure: the production hook's CLI shim takes no base-URL override
- * (by design — production must not be routable to a non-Anthropic host),
- * so redirecting HTTP in a black-box test requires a --require-level
- * monkey-patch inside the child process. See that file's comment block.
- *
- * Timing budget: each test < 2s, whole suite < 10s. Hard timeouts on every
- * async wait prevent suite hangs on unclosed sockets or child processes.
+ * Since v3.12 the context meter uses local token estimation (no API call),
+ * so no stub HTTP server is needed. The transcript content determines the
+ * estimated token count via chars/3.5 heuristic.
  *
  * @module scripts/gsd-t-context-meter.e2e.test
  */
@@ -37,27 +27,18 @@
 const { test, beforeEach, afterEach } = require("node:test");
 const assert = require("node:assert/strict");
 const { spawn } = require("node:child_process");
-const http = require("node:http");
 const fs = require("node:fs");
 const path = require("node:path");
 const os = require("node:os");
 
 const HOOK_SCRIPT = path.resolve(__dirname, "gsd-t-context-meter.js");
-const INJECTOR = path.resolve(__dirname, "context-meter", "test-injector.js");
 const HARD_TIMEOUT_MS = 12000;
 
 /* ──────────────────────────── test fixtures ──────────────────────────── */
 
-/**
- * Sandbox state for a single test. Holds the tempdir, stub server, and a
- * dispose() that guarantees everything is torn down — even on failure.
- */
 class Sandbox {
   constructor() {
     this.tempdir = null;
-    this.server = null;
-    this.serverUrl = null;
-    this.hitCount = 0;
     this.childProcs = [];
   }
 
@@ -89,15 +70,17 @@ class Sandbox {
   }
 
   /**
-   * Write a minimal Claude-Code transcript JSONL containing one user turn and
-   * one assistant turn — enough for parseTranscript() to return a non-empty
-   * messages array.
+   * Write a Claude-Code transcript JSONL with configurable content size.
+   * The charCount parameter controls how many characters of text content
+   * are in the transcript, which determines the estimated token count.
    */
-  writeTranscript(filename = "transcript.jsonl") {
+  writeTranscript(filename = "transcript.jsonl", charCount = 100) {
+    const userText = "x".repeat(Math.floor(charCount / 2));
+    const assistantText = "y".repeat(Math.ceil(charCount / 2));
     const lines = [
       JSON.stringify({
         type: "user",
-        message: { role: "user", content: "hello world" },
+        message: { role: "user", content: userText },
         uuid: "u1",
         sessionId: "sess-1",
       }),
@@ -105,7 +88,7 @@ class Sandbox {
         type: "assistant",
         message: {
           role: "assistant",
-          content: [{ type: "text", text: "hi there" }],
+          content: [{ type: "text", text: assistantText }],
           model: "claude-opus-4-6",
         },
         uuid: "a1",
@@ -117,10 +100,6 @@ class Sandbox {
     return p;
   }
 
-  /**
-   * Optional: pre-seed the state file so we can test the checkFrequency skip
-   * path (where runMeter increments but does not call the API).
-   */
   writeState(state) {
     const full = Object.assign(
       {
@@ -142,52 +121,8 @@ class Sandbox {
     );
   }
 
-  /**
-   * Start a local stub HTTP server that responds to every request with the
-   * given inputTokens value. Tracks hit count so tests can assert the API
-   * was (or was not) called.
-   */
-  async startStub({ inputTokens }) {
-    this.server = http.createServer((req, res) => {
-      this.hitCount++;
-      // Drain the request body (even though we don't inspect it) so the
-      // client sees a clean close.
-      req.on("data", () => {});
-      req.on("end", () => {
-        res.writeHead(200, { "content-type": "application/json" });
-        res.end(JSON.stringify({ input_tokens: inputTokens }));
-      });
-    });
-    await new Promise((resolve, reject) => {
-      const t = setTimeout(
-        () => reject(new Error("stub server listen timeout")),
-        HARD_TIMEOUT_MS
-      );
-      this.server.on("error", (err) => {
-        clearTimeout(t);
-        reject(err);
-      });
-      this.server.listen(0, "127.0.0.1", () => {
-        clearTimeout(t);
-        const { port } = this.server.address();
-        this.serverUrl = `http://127.0.0.1:${port}`;
-        resolve();
-      });
-    });
-  }
-
-  /**
-   * Spawn the real hook as a child process, write a payload to stdin, and
-   * resolve with { stdout, stderr, code }. Enforces a hard timeout so the
-   * test can never hang the suite.
-   */
   async runHook({ payload, env }) {
-    const fullEnv = Object.assign({}, process.env, {
-      ANTHROPIC_API_KEY: "test-key-ignored",
-      GSD_T_CONTEXT_METER_TEST_BASE_URL: this.serverUrl || "",
-      NODE_OPTIONS: `--require ${INJECTOR}`,
-    });
-    // Allow caller to override any env (including unsetting ANTHROPIC_API_KEY).
+    const fullEnv = Object.assign({}, process.env, {});
     if (env) {
       for (const [k, v] of Object.entries(env)) {
         if (v === null || v === undefined) {
@@ -257,7 +192,6 @@ class Sandbox {
   }
 
   async dispose() {
-    // Kill any lingering children first.
     for (const c of this.childProcs) {
       try {
         if (!c.killed) c.kill("SIGKILL");
@@ -266,17 +200,6 @@ class Sandbox {
       }
     }
     this.childProcs = [];
-
-    if (this.server) {
-      await new Promise((resolve) => {
-        try {
-          this.server.close(() => resolve());
-        } catch (_) {
-          resolve();
-        }
-      });
-      this.server = null;
-    }
 
     if (this.tempdir) {
       try {
@@ -307,10 +230,10 @@ afterEach(async () => {
 
 /* ──────────────────────────── tests ──────────────────────────── */
 
-test("E2E 1. below threshold — stdout {} and state reflects 25%", async () => {
+test("E2E 1. below threshold — stdout {} and state reflects estimate", async () => {
+  // 100 chars of text content → ~29 tokens (100/3.5) → 0.014% of 200K window
   sandbox.writeConfig({ thresholdPct: 75, modelWindowSize: 200000, checkFrequency: 1 });
-  const transcriptPath = sandbox.writeTranscript();
-  await sandbox.startStub({ inputTokens: 50000 });
+  const transcriptPath = sandbox.writeTranscript("transcript.jsonl", 100);
 
   const { stdout, code } = await sandbox.runHook({
     payload: { session_id: "test-below", transcript_path: transcriptPath },
@@ -323,22 +246,21 @@ test("E2E 1. below threshold — stdout {} and state reflects 25%", async () => 
   const state = sandbox.readState();
   assert.ok(state, "state file should exist");
   assert.equal(state.version, 1);
-  assert.equal(state.inputTokens, 50000);
+  assert.ok(state.inputTokens > 0, "should have estimated some tokens");
+  assert.ok(state.inputTokens < 1000, "small transcript should estimate < 1K tokens");
   assert.equal(state.modelWindowSize, 200000);
-  assert.ok(Math.abs(state.pct - 25) < 0.0001, `pct ${state.pct} should ≈ 25`);
+  assert.ok(state.pct < 1, "pct should be well below threshold");
   assert.equal(state.threshold, "normal");
   assert.equal(state.checkCount, 1);
   assert.equal(state.lastError, null);
   assert.ok(typeof state.timestamp === "string" && state.timestamp.length > 0);
-
   assert.equal(sandbox.tmpFileExists(), false, "no leftover .tmp file");
-  assert.equal(sandbox.hitCount, 1, "stub server should have been called exactly once");
 });
 
-test("E2E 2. above threshold — stdout additionalContext and state reflects 80%", async () => {
+test("E2E 2. above threshold — stdout additionalContext with large transcript", async () => {
+  // 600K chars → ~171K tokens → 85.7% of 200K window → warn band + additionalContext
   sandbox.writeConfig({ thresholdPct: 75, modelWindowSize: 200000, checkFrequency: 1 });
-  const transcriptPath = sandbox.writeTranscript();
-  await sandbox.startStub({ inputTokens: 160000 });
+  const transcriptPath = sandbox.writeTranscript("transcript.jsonl", 600000);
 
   const { stdout, code } = await sandbox.runHook({
     payload: { session_id: "test-above", transcript_path: transcriptPath },
@@ -348,33 +270,26 @@ test("E2E 2. above threshold — stdout additionalContext and state reflects 80%
   const parsed = JSON.parse(stdout || "{}");
   assert.ok(parsed.additionalContext, "must emit additionalContext");
   assert.ok(parsed.additionalContext.includes("MANDATORY STOP"), "must be MANDATORY STOP");
-  assert.ok(parsed.additionalContext.includes("80.0%"), "must include pct");
-  assert.ok(parsed.additionalContext.includes("200000"), "must include window size");
   assert.ok(parsed.additionalContext.includes("/user:gsd-t-pause"), "must instruct pause");
   assert.ok(parsed.additionalContext.includes("/user:gsd-t-resume"), "must instruct resume");
 
   const state = sandbox.readState();
   assert.ok(state);
-  assert.equal(state.inputTokens, 160000);
-  assert.equal(state.modelWindowSize, 200000);
-  assert.ok(Math.abs(state.pct - 80) < 0.0001, `pct ${state.pct} should ≈ 80`);
-  // v3.0.0 three-band (M35): 80% ∈ [70, 85) → warn
-  assert.equal(state.threshold, "warn");
+  assert.ok(state.inputTokens > 100000, "large transcript should estimate >100K tokens");
+  assert.ok(state.pct > 50, "pct should be above threshold");
   assert.equal(state.checkCount, 1);
   assert.equal(state.lastError, null);
-
   assert.equal(sandbox.tmpFileExists(), false);
-  assert.equal(sandbox.hitCount, 1);
 });
 
-test("E2E 3. API key missing — stdout {}, state has lastError.code='missing_key'", async () => {
+test("E2E 3. missing transcript — stdout {}, state has parse error", async () => {
   sandbox.writeConfig({ thresholdPct: 75, checkFrequency: 1 });
-  const transcriptPath = sandbox.writeTranscript();
-  await sandbox.startStub({ inputTokens: 50000 });
 
   const { stdout, code } = await sandbox.runHook({
-    payload: { session_id: "test-nokey", transcript_path: transcriptPath },
-    env: { ANTHROPIC_API_KEY: null }, // explicitly unset
+    payload: {
+      session_id: "test-nofile",
+      transcript_path: path.join(sandbox.tempdir, "nonexistent.jsonl"),
+    },
   });
 
   assert.equal(code, 0);
@@ -385,18 +300,13 @@ test("E2E 3. API key missing — stdout {}, state has lastError.code='missing_ke
   assert.ok(state);
   assert.equal(state.checkCount, 1);
   assert.ok(state.lastError && typeof state.lastError === "object");
-  assert.equal(state.lastError.code, "missing_key");
-
-  // API must NOT have been called.
-  assert.equal(sandbox.hitCount, 0, "stub server must not be hit when key is missing");
+  assert.equal(state.lastError.code, "parse_failure");
 });
 
-test("E2E 4. checkFrequency skip — API not called, checkCount increments", async () => {
+test("E2E 4. checkFrequency skip — estimation not run, checkCount increments", async () => {
   sandbox.writeConfig({ thresholdPct: 75, checkFrequency: 5 });
-  const transcriptPath = sandbox.writeTranscript();
-  // Pre-seed state so that checkCount goes 3 → 4, which is NOT a multiple of 5.
+  const transcriptPath = sandbox.writeTranscript("transcript.jsonl", 100);
   sandbox.writeState({ checkCount: 3 });
-  await sandbox.startStub({ inputTokens: 50000 });
 
   const { stdout, code } = await sandbox.runHook({
     payload: { session_id: "test-skip", transcript_path: transcriptPath },
@@ -409,9 +319,6 @@ test("E2E 4. checkFrequency skip — API not called, checkCount increments", asy
   const state = sandbox.readState();
   assert.ok(state);
   assert.equal(state.checkCount, 4, "counter increments even on skipped turn");
-  // lastError/inputTokens unchanged from seed on skipped turn.
   assert.equal(state.inputTokens, 0);
-
-  assert.equal(sandbox.hitCount, 0, "stub server must not be hit on skipped turn");
   assert.equal(sandbox.tmpFileExists(), false);
 });

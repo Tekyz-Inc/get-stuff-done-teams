@@ -66,14 +66,16 @@ This is race-free, terminal-close-safe, and language-agnostic (per contract §10
 Output the confirmation block:
 
 ```
-🛑  Stop sentinel written. Supervisor will halt between next worker iterations (within ~5 minutes). State file will finalize with status=stopped.
+🛑  Stop sentinel written. Supervisor will halt after the current worker finishes (up to ~5 min).
 
    Session: {SESSION from Step 3}
    Iter:    {ITER from Step 3}
    Status:  {STATUS from Step 3}
 
-   The current worker will run to completion (up to ~1h). Stop is honored at the next pre-worker checkpoint.
-   No kill signal is sent — this is a clean cooperative halt.
+   The current worker runs to completion. Stop is honored at the next pre-worker checkpoint.
+   The watch loop (if running) will detect status=stopped on its next tick and stop itself.
+   If a watch tick fires before the supervisor processes the sentinel, it may reschedule once
+   more — this is expected. It will catch the terminal status on the following tick.
 ```
 
 ## Step 6: Return Immediately

@@ -35,7 +35,6 @@ const { mapHeadlessExitCode } = require("./gsd-t.js");
 const {
   DEFAULTS: SAFETY_DEFAULTS,
   loadConfig,
-  saveConfig,
   checkGitBranch,
   checkWorktreeCleanliness,
   checkIterationCap,
@@ -494,7 +493,6 @@ function doUnattended(argv, deps) {
     releaseSleep: deps._releaseSleep || releaseSleep,
     notify: deps._notify || notify,
     loadConfig: deps._loadConfig || loadConfig,
-    saveConfig: deps._saveConfig || saveConfig,
   };
 
   // ── Load config (optional .gsd-t/.unattended/config.json) ────────────────
@@ -551,23 +549,7 @@ function doUnattended(argv, deps) {
     };
   }
   const treeRes = fn.checkWorktreeCleanliness(projectDir, config);
-  if (!treeRes.ok && treeRes.dirtyFiles && treeRes.dirtyFiles.length > 0) {
-    // Auto-whitelist: add the dirty files to the config and persist, then
-    // proceed instead of refusing. This keeps unattended launch frictionless.
-    for (const file of treeRes.dirtyFiles) {
-      if (!config.dirtyTreeWhitelist.includes(file)) {
-        config.dirtyTreeWhitelist.push(file);
-      }
-    }
-    try {
-      fn.saveConfig(projectDir, config);
-    } catch (_) { /* best effort — config dir may not exist yet */ }
-    // eslint-disable-next-line no-console
-    console.error(
-      `[gsd-t-unattended] auto-whitelisted ${treeRes.dirtyFiles.length} dirty file(s): ${treeRes.dirtyFiles.slice(0, 5).join(", ")}${treeRes.dirtyFiles.length > 5 ? ", …" : ""}`,
-    );
-  } else if (!treeRes.ok) {
-    // Non-file failure (e.g. git error) — still refuse.
+  if (!treeRes.ok) {
     // eslint-disable-next-line no-console
     console.error(
       `[gsd-t-unattended] preflight-refusal: ${treeRes.reason || "dirty worktree"}`,
@@ -1005,9 +987,15 @@ function runMainLoop(state, dir, opts, deps, ctx) {
  */
 function _spawnWorker(state, opts) {
   const bin = (state && state.claudeBin) || resolveClaudePath();
+  const workerEnv = { ...process.env, GSD_T_UNATTENDED_WORKER: "1" };
   const res = platformSpawnWorker(opts.cwd, opts.timeout, {
     bin,
-    args: ["-p", "/gsd-t-resume"],
+    args: [
+      "-p",
+      "You are an unattended worker iteration. CRITICAL: Do NOT check supervisor.pid, do NOT auto-reattach to a watch loop, do NOT schedule any ScheduleWakeup. You ARE the worker spawned by the supervisor. Skip Step 0 (auto-reattach) entirely and go directly to Step 0.1. Run /gsd-t-resume but skip the unattended supervisor auto-reattach check in Step 0.",
+      "--dangerously-skip-permissions",
+    ],
+    env: workerEnv,
   });
   return {
     status: typeof res.status === "number" ? res.status : null,

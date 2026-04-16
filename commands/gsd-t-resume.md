@@ -6,6 +6,8 @@ You are resuming work after an interruption. This handles both same-session paus
 
 **This step runs FIRST, before reading any docs, contracts, or continue-here files.**
 
+**Worker bypass**: If the environment variable `GSD_T_UNATTENDED_WORKER=1` is set, this resume is being invoked by the unattended supervisor as a worker iteration. **SKIP this entire Step 0** — do NOT check for supervisor.pid, do NOT auto-reattach, do NOT schedule a watch tick. Fall through directly to Step 0.1. The worker's job is to do actual work, not watch itself.
+
 Check whether an unattended supervisor is actively running for this project:
 
 1. Check if `.gsd-t/.unattended/supervisor.pid` exists.
@@ -22,7 +24,7 @@ Check whether an unattended supervisor is actively running for this project:
    - **Terminal status** (`done`, `failed`, `stopped`, `crashed`) → the supervisor has finished and is waiting for cleanup. Fall through to Step 0.1 so normal resume flow runs (it will see progress.md state and continue from where the supervisor left off).
    - **Non-terminal status** (`initializing`, `running`, or any unrecognized value) → **AUTO-REATTACH**:
      - Print the current watch status using the data in `state.json` (elapsed time, current iteration, milestone/wave/task, last worker exit code).
-     - Call `ScheduleWakeup(270, '/user:gsd-t-unattended-watch', reason='resumed watch')`.
+     - Call `ScheduleWakeup(270, '/gsd-t-unattended-watch', reason='resumed watch')`.
      - **STOP reading resume.md entirely. Do NOT proceed to Step 0.1 or any later step. Do NOT read docs, contracts, or continue-here files. Do NOT display a headless read-back banner.** The watcher will display the live status block and re-schedule itself. Return now.
 
 Contract reference: `unattended-supervisor-contract.md` §9 (Resume Auto-Reattach Handshake)

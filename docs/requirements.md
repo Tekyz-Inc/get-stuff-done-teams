@@ -287,9 +287,9 @@
 
 **M36 Functional Requirements:**
 - **REQ-079**: `bin/gsd-t-unattended.js` implements the supervisor relay loop: spawn worker → await exit → post-worker safety check → next iter. State written atomically to `.gsd-t/.unattended/state.json`. Contract: `unattended-supervisor-contract.md` v1.0.0.
-- **REQ-080**: `commands/gsd-t-unattended.md` pre-flights branch + dirty tree, spawns supervisor detached, polls for PID readiness, displays initial watch block, and calls `ScheduleWakeup(270, '/user:gsd-t-unattended-watch')`.
+- **REQ-080**: `commands/gsd-t-unattended.md` pre-flights branch + dirty tree, spawns supervisor detached, polls for PID readiness, displays initial watch block, and calls `ScheduleWakeup(270, '/gsd-t-unattended-watch')`.
 - **REQ-081**: `commands/gsd-t-unattended-watch.md` implements the watch tick decision tree (§8 of contract): reads PID → liveness probe → reads state.json → reschedule or terminal report.
-- **REQ-082**: `commands/gsd-t-resume.md` Step 0 checks `supervisor.pid` before any other resume logic. If live + non-terminal: skip normal resume, print watch block, call `ScheduleWakeup(270, '/user:gsd-t-unattended-watch')`.
+- **REQ-082**: `commands/gsd-t-resume.md` Step 0 checks `supervisor.pid` before any other resume logic. If live + non-terminal: skip normal resume, print watch block, call `ScheduleWakeup(270, '/gsd-t-unattended-watch')`.
 - **REQ-083**: Supervisor relay architecture ensures each worker gets a fresh context window. No compaction state carries over between workers — only `.gsd-t/` milestone state files.
 - **REQ-084**: `bin/gsd-t-unattended-safety.js` exports: `checkGitBranch`, `checkWorktreeCleanliness`, `validateState`, `checkIterationCap`, `checkWallClockCap`, `detectBlockerSentinel`, `detectGutter`. Called at all 4 supervisor hook points.
 - **REQ-085**: `bin/gsd-t-unattended-platform.js` exports: `spawnSupervisor`, `preventSleep`, `releaseSleep`, `notify`, `resolveClaudePath`. Windows: `preventSleep` is a documented no-op. Windows caveats documented in `docs/unattended-windows-caveats.md`.

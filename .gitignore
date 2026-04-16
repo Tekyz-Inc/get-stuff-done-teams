@@ -33,3 +33,8 @@ node_modules/
 
 # Windows null device artifact
 nul
+
+# GSD-T context meter (session state — do not commit)
+bin/*.cjs
+.gsd-t/.archive-migration-v1
+.gsd-t/.task-counter-retired-v1

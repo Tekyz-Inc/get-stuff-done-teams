@@ -20,7 +20,7 @@ See `unattended-supervisor-contract.md` §8 (Watch Tick Decision Tree), §4 (Sta
      - failed                      → failure summary,  STOP
      - stopped                     → user-stop confirm, STOP
      - initializing | running      → render watch block, go to 4
-4. ScheduleWakeup(270, '/user:gsd-t-unattended-watch', reason='unattended tick {iter}')
+4. ScheduleWakeup(270, '/gsd-t-unattended-watch', reason='unattended tick {iter}')
 ```
 
 **Critical**: Every branch except `initializing`/`running` is TERMINAL — do NOT reschedule. When you reach a terminal state, print the report and end the turn. Do not add a "Next Up" block — this is a self-rescheduling loop, not a phase workflow.
@@ -126,6 +126,72 @@ const last50 = tailLines.slice(-50);
 const last1 = tailLines.length > 0 ? tailLines[tailLines.length - 1] : '';
 out('LOG_TAIL_LAST1', last1);
 out('LOG_TAIL_LAST50', last50.join('\n'));
+
+// --- workflow progress from progress.md and domain task files ---
+let phase = 'unknown';
+let waveInfo = '';
+let waveCurrent = 0;
+let waveTotal = 0;
+let tasksDone = 0;
+let tasksTotal = 0;
+let domainSummary = [];
+try {
+  const prog = fs.readFileSync('.gsd-t/progress.md', 'utf8');
+  // Extract phase from Status line
+  const statusM = prog.match(/^## Status:.*?(\b(?:DEFINED|PARTITIONED|PLANNED|EXECUTING|EXECUTED|INTEGRATING|VERIFYING|VERIFIED|COMPLETE|IN.PROGRESS)\b)/mi);
+  if (statusM) phase = statusM[1].trim();
+  // Extract "Wave N of M" or latest "Wave N" from Decision Log
+  const waveOfM = prog.match(/Wave\s+(\d+)\s+(?:of|\/)\s+(\d+)/gi);
+  if (waveOfM && waveOfM.length > 0) {
+    const last = waveOfM[waveOfM.length - 1];
+    const parts = last.match(/(\d+)\s+(?:of|\/)\s+(\d+)/);
+    if (parts) { waveCurrent = parseInt(parts[1], 10); waveTotal = parseInt(parts[2], 10); }
+  } else {
+    const waveM = prog.match(/Wave\s+(\d+)/gi);
+    if (waveM && waveM.length > 0) {
+      const last = waveM[waveM.length - 1].match(/(\d+)/);
+      if (last) waveCurrent = parseInt(last[1], 10);
+    }
+  }
+} catch (_) {}
+
+// Read domain task files for completion counts and wave totals
+try {
+  const domainsDir = '.gsd-t/domains';
+  if (fs.existsSync(domainsDir)) {
+    const domains = fs.readdirSync(domainsDir).filter(d => {
+      try { return fs.statSync(path.join(domainsDir, d)).isDirectory(); } catch (_) { return false; }
+    });
+    let maxWave = 0;
+    for (const d of domains) {
+      const tasksFile = path.join(domainsDir, d, 'tasks.md');
+      if (!fs.existsSync(tasksFile)) continue;
+      const txt = fs.readFileSync(tasksFile, 'utf8');
+      const lines = txt.split('\n');
+      let done = 0, total = 0;
+      for (const line of lines) {
+        // Count wave headers to determine total waves
+        const wH = line.match(/^#+\s*Wave\s+(\d+)/i);
+        if (wH) { const w = parseInt(wH[1], 10); if (w > maxWave) maxWave = w; }
+        if (/^[-*]\s*\[x\]/i.test(line)) { done++; total++; }
+        else if (/^[-*]\s*\[\s?\]/.test(line)) { total++; }
+      }
+      if (total > 0) {
+        tasksDone += done;
+        tasksTotal += total;
+        domainSummary.push(d + ':' + done + '/' + total);
+      }
+    }
+    if (maxWave > 0 && waveTotal === 0) waveTotal = maxWave;
+  }
+} catch (_) {}
+if (waveCurrent > 0 && waveTotal > 0) waveInfo = 'Wave ' + waveCurrent + ' of ' + waveTotal;
+else if (waveCurrent > 0) waveInfo = 'Wave ' + waveCurrent;
+out('PHASE', phase);
+out('WAVE_INFO', waveInfo);
+out('TASKS_DONE', tasksDone);
+out('TASKS_TOTAL', tasksTotal);
+out('DOMAIN_SUMMARY', domainSummary.join(' | '));
 "
 ```
 
@@ -239,23 +305,31 @@ The supervisor is still alive but has transitioned to a terminal status on its l
 
 If `PID_FILE_EXISTS=true` AND `ALIVE=true` AND `STATUS` is `initializing` or `running`:
 
-Render the compact watch block below. Format rules:
+Render the enriched watch block below. The key insight: users need **workflow progress** (phase, wave, tasks done/remaining), not just supervisor mechanics (iter, PID, exit code).
+
+Format rules:
 - One extra space after each emoji (per CLAUDE.md markdown table rules — preserves alignment in terminal views).
 - Elapsed formatted as `{H}h{M}m` from `ELAPSED_MS`.
-- Last-tick age formatted as `{S}s` or `{M}m{S}s`. If age > 540s (2× tick cadence), append ` ⚠️  stale` as a soft warning (not a crash — per contract §3 write semantics).
-- `LAST_EXIT` duration from `LAST_ELAPSED_MS` rendered as seconds.
-- Wave/task lines are omitted when absent from state.
-- Last non-empty `run.log` line is truncated to 80 chars.
+- Last-tick age formatted as `{S}s` or `{M}m{S}s`. If age > 540s (2× tick cadence), append ` ⚠️  stale` as a soft warning.
+- Tasks progress bar: `[████████░░░░] 8/12` — filled blocks proportional to done/total.
+- Domain breakdown only shown if ≤6 domains (otherwise too noisy).
 
 ```
-⚙  Unattended — {MILESTONE}{ Wave {WAVE}}{ · Task {TASK}}
-⏱  Iter {ITER} / {MAX_ITER} · elapsed {Hh Mm} · last tick {tickAge}
-📊  Last exit: {LAST_EXIT} ({durationSec}s) · PID {PID} · session {SESSION}
-📝  {truncated last log line or "(no output yet)"}
+⚙  Unattended — {MILESTONE} · {PHASE}{ · {WAVE_INFO}}
+📋  Tasks: {TASKS_DONE}/{TASKS_TOTAL} [{progress bar}] · elapsed {Hh Mm}
+🔧  {DOMAIN_SUMMARY or "No domains yet (pre-partition)"}
+⏱  Iter {ITER}/{MAX_ITER} · last tick {tickAge} · last exit {LAST_EXIT} ({durationSec}s)
 ⏰  Next tick in 270s · Stop: /user:gsd-t-unattended-stop
 ```
 
-(5 lines — the contract §8 format allows up to 10. Keep it tight.)
+Progress bar rendering (8 chars wide):
+- If `TASKS_TOTAL > 0`: filled = round(TASKS_DONE / TASKS_TOTAL * 8), empty = 8 - filled. Use `█` for filled, `░` for empty.
+- If `TASKS_TOTAL == 0`: show `[░░░░░░░░]` (pre-partition, no tasks yet).
+
+Domain summary formatting:
+- Each domain: `{name}: {done}/{total}` separated by ` | `
+- If domains > 6, show top 3 incomplete + "... +{N} more"
+- If no domains exist, show phase-appropriate message: "Partitioning..." / "Planning..." / "No domains yet"
 
 ## Step 7: Reschedule via ScheduleWakeup (Non-Terminal Only)
 
@@ -264,7 +338,7 @@ Render the compact watch block below. Format rules:
 Call the harness `ScheduleWakeup` tool with these exact parameters:
 
 - `delaySeconds`: `270` (fixed — inside the 5-minute prompt-cache TTL)
-- `prompt`: `/user:gsd-t-unattended-watch`
+- `prompt`: `/gsd-t-unattended-watch`
 - `reason`: `unattended tick {ITER}` — substituting the integer `ITER` from Step 2
 
 Tool invocation pattern (make this real tool call, not a bash command):
@@ -272,7 +346,7 @@ Tool invocation pattern (make this real tool call, not a bash command):
 ```
 ScheduleWakeup(
   delaySeconds: 270,
-  prompt: "/user:gsd-t-unattended-watch",
+  prompt: "/gsd-t-unattended-watch",
   reason: "unattended tick {ITER}"
 )
 ```

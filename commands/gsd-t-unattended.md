@@ -424,7 +424,7 @@ Print the launch confirmation block:
 Call the harness `ScheduleWakeup` tool with these exact parameters:
 
 - `delaySeconds`: `270` (fixed — inside the 5-minute prompt-cache TTL)
-- `prompt`: `/user:gsd-t-unattended-watch`
+- `prompt`: `/gsd-t-unattended-watch`
 - `reason`: `first unattended tick`
 
 Tool invocation pattern (make this a real tool call, not a bash command):
@@ -432,7 +432,7 @@ Tool invocation pattern (make this a real tool call, not a bash command):
 ```
 ScheduleWakeup(
   delaySeconds: 270,
-  prompt: "/user:gsd-t-unattended-watch",
+  prompt: "/gsd-t-unattended-watch",
   reason: "first unattended tick"
 )
 ```

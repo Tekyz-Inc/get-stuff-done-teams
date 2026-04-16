@@ -7,7 +7,7 @@
  * Wires together:
  *   - bin/context-meter-config.cjs            (loadConfig)
  *   - scripts/context-meter/transcript-parser.js  (parseTranscript)
- *   - scripts/context-meter/count-tokens-client.js (countTokens)
+ *   - scripts/context-meter/estimate-tokens.js    (estimateTokens — local, zero API cost)
  *   - scripts/context-meter/threshold.js      (computePct/bandFor/buildAdditionalContext)
  *
  * Contract: .gsd-t/contracts/context-meter-contract.md
@@ -20,8 +20,8 @@
  *   failure of its own stdin. See contract rule #1.
  *
  * Testability:
- *   `runMeter({ payload, projectRoot, env, clock?, baseUrl?, _parseTranscript?,
- *               _countTokens?, _loadConfig? })` is the pure async core. Tests
+ *   `runMeter({ payload, projectRoot, env, clock?, _parseTranscript?,
+ *               _estimateTokens?, _loadConfig? })` is the pure async core. Tests
  *   fabricate payloads and inject stubs; production code uses only the CLI
  *   shim at the bottom of the file (runs when `require.main === module`).
  *
@@ -35,11 +35,10 @@ const path = require("path");
 
 const { loadConfig: realLoadConfig } = require("../bin/context-meter-config.cjs");
 const { parseTranscript: realParseTranscript } = require("./context-meter/transcript-parser");
-const { countTokens: realCountTokens } = require("./context-meter/count-tokens-client");
+const { estimateTokens: realEstimateTokens } = require("./context-meter/estimate-tokens");
 const { computePct, bandFor, buildAdditionalContext } = require("./context-meter/threshold");
 
 const STATE_VERSION = 1;
-const MODEL_ID = "claude-opus-4-6";
 
 /* ─────────────────────────── state file helpers ─────────────────────────── */
 
@@ -119,10 +118,9 @@ function appendLog(logPath, level, category, detail, clock) {
  * @param {string}   opts.projectRoot    normally process.cwd()
  * @param {object}   opts.env            normally process.env
  * @param {Function} [opts.clock]        optional () => Date (test seam)
- * @param {string}   [opts.baseUrl]      optional countTokens _baseUrl override (test seam)
  * @param {Function} [opts._loadConfig]  optional loadConfig stub (test seam)
  * @param {Function} [opts._parseTranscript] optional parseTranscript stub (test seam)
- * @param {Function} [opts._countTokens] optional countTokens stub (test seam)
+ * @param {Function} [opts._estimateTokens] optional estimateTokens stub (test seam)
  * @returns {Promise<object>} `{}` or `{ additionalContext: "..." }`
  */
 async function runMeter(opts) {
@@ -133,10 +131,9 @@ async function runMeter(opts) {
       projectRoot,
       env,
       clock,
-      baseUrl,
       _loadConfig = realLoadConfig,
       _parseTranscript = realParseTranscript,
-      _countTokens = realCountTokens,
+      _estimateTokens = realEstimateTokens,
     } = opts || {};
 
     const root = projectRoot || process.cwd();
@@ -187,20 +184,7 @@ async function runMeter(opts) {
       return {};
     }
 
-    // 5. API key env var check.
-    const apiKey = envObj[cfg.apiKeyEnvVar];
-    if (typeof apiKey !== "string" || apiKey.length === 0) {
-      state.lastError = {
-        code: "missing_key",
-        message: `env var ${cfg.apiKeyEnvVar} not set`,
-        timestamp: now().toISOString(),
-      };
-      writeStateAtomic(statePath, state);
-      appendLog(logPath, "ERROR", "missing_key", `env var ${cfg.apiKeyEnvVar} unset`, clock);
-      return {};
-    }
-
-    // 6. Parse transcript (streaming, async). null → bail out.
+    // 5. Parse transcript (streaming, async). null → bail out.
     let parsed;
     try {
       parsed = await _parseTranscript(transcriptPath);
@@ -224,19 +208,12 @@ async function runMeter(opts) {
       return {};
     }
 
-    // 7. Call count_tokens. null → fail open (keep prior inputTokens? reset to 0?)
-    //    CHOICE: reset inputTokens to 0 on failure to avoid stale-reading-based
-    //    false-positive threshold trips. lastError still records the failure so
-    //    consumers can see we didn't get a fresh count.
+    // 6. Estimate tokens locally (no API call, zero cost).
     let tokenResp;
     try {
-      tokenResp = await _countTokens({
-        apiKey,
-        model: MODEL_ID,
+      tokenResp = _estimateTokens({
         system: parsed.system || "",
         messages: parsed.messages,
-        timeoutMs: cfg.timeoutMs,
-        _baseUrl: baseUrl,
       });
     } catch (_) {
       tokenResp = null;
@@ -248,12 +225,12 @@ async function runMeter(opts) {
       state.threshold = "normal";
       state.timestamp = now().toISOString();
       state.lastError = {
-        code: "api_error",
-        message: "count_tokens returned null",
+        code: "estimate_error",
+        message: "estimateTokens returned null",
         timestamp: state.timestamp,
       };
       writeStateAtomic(statePath, state);
-      appendLog(logPath, "ERROR", "api_error", "count_tokens null", clock);
+      appendLog(logPath, "ERROR", "estimate_error", "estimateTokens null", clock);
       return {};
     }
 
