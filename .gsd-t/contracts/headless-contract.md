@@ -23,7 +23,7 @@ gsd-t headless <command> [args...] [flags]
 
 **Invocation:**
 ```
-claude -p "/user:gsd-t-{command} {args}"
+claude -p "/gsd-t-{command} {args}"
 ```
 
 ### headless query

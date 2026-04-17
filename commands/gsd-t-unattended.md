@@ -16,7 +16,7 @@ Run via Bash:
 
 ```bash
 if [ ! -f ".gsd-t/progress.md" ]; then
-  echo "ERROR: .gsd-t/progress.md not found — not a GSD-T project. Run /user:gsd-t-init first."
+  echo "ERROR: .gsd-t/progress.md not found — not a GSD-T project. Run /gsd-t-init first."
   exit 1
 fi
 ```
@@ -61,10 +61,10 @@ If `PID_RUNNING=true`, **STOP** and print:
 ```
 🔴  Unattended supervisor is already running (PID {PID}).
 
-    Use /user:gsd-t-unattended-stop to request a clean halt, then wait for the
+    Use /gsd-t-unattended-stop to request a clean halt, then wait for the
     watch loop to confirm it has stopped before relaunching.
 
-    To just watch the current run: /user:gsd-t-unattended-watch
+    To just watch the current run: /gsd-t-unattended-watch
 ```
 
 Do NOT spawn a second supervisor. End the turn.
@@ -137,7 +137,7 @@ The `/gsd-t-resume` worker already knows how to chain through phases automatical
      ```
      ❌  No active milestone found and none identifiable from context.
 
-         Specify one explicitly: /user:gsd-t-unattended --milestone=M1
+         Specify one explicitly: /gsd-t-unattended --milestone=M1
      ```
    - **STOP.** Do NOT spawn.
 
@@ -230,7 +230,7 @@ If `PREFLIGHT=fail`, **STOP** and print:
       • {name}
         Install: {install}
 
-    Install the missing software and retry: /user:gsd-t-unattended
+    Install the missing software and retry: /gsd-t-unattended
 ```
 
 End the turn. Do NOT spawn.
@@ -393,7 +393,7 @@ If `LIVENESS=dead`, the supervisor crashed at startup. Print diagnostics and **S
       • Protected branch or dirty worktree rejected by safety rails
       • Permissions error on .gsd-t/.unattended/ directory
 
-    Fix the issue above and retry: /user:gsd-t-unattended
+    Fix the issue above and retry: /gsd-t-unattended
 ```
 
 End the turn without scheduling a watch tick.
@@ -415,8 +415,8 @@ Print the launch confirmation block:
     Watch:          ScheduleWakeup every 270s
 
     The supervisor is running detached — it survives /clear and terminal close.
-    Stop gracefully: /user:gsd-t-unattended-stop
-    Watch manually:  /user:gsd-t-unattended-watch
+    Stop gracefully: /gsd-t-unattended-stop
+    Watch manually:  /gsd-t-unattended-watch
 ```
 
 ## Step 5: Schedule the First Watch Tick
@@ -446,6 +446,6 @@ After the tool call, end the turn. The in-session watch loop takes over from her
 - **Platform helper**: uses `spawnSupervisor` from `bin/gsd-t-unattended-platform.cjs` — never hand-rolls `child_process.spawn` directly. This handles macOS/Linux/Windows differences.
 - **Dry-run**: `--dry-run` prints the would-be invocation without spawning. Useful for validating flags before a long overnight run.
 - **No doc ripple, no pre-commit gate**: this command spawns a background process; it does not modify any source files or contracts.
-- **watch command is stateless**: after this command returns, every `/user:gsd-t-unattended-watch` tick re-reads state from disk. There is no in-memory state to preserve.
+- **watch command is stateless**: after this command returns, every `/gsd-t-unattended-watch` tick re-reads state from disk. There is no in-memory state to preserve.
 
 $ARGUMENTS

@@ -15,7 +15,7 @@ supervisor never silently falls back on a broken config.
 
 From highest to lowest:
 
-1. **CLI flags** passed to `/user:gsd-t-unattended` (e.g. `--hours=48`)
+1. **CLI flags** passed to `/gsd-t-unattended` (e.g. `--hours=48`)
 2. **Environment variables** (`GSD_T_HOURS`, `GSD_T_MAX_ITERATIONS`, etc.)
 3. **`.gsd-t/.unattended/config.json`** fields
 4. **Hardcoded defaults** in `bin/gsd-t-unattended-safety.js` → `DEFAULTS`

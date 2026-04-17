@@ -197,7 +197,7 @@ Every commit must pass applicable checks:
 2. `gsd-t-auto-route.js` UserPromptSubmit hook fires
 3. Script checks if `.gsd-t/progress.md` exists in cwd
 4. If yes: injects `[GSD-T AUTO-ROUTE]` signal into prompt context
-5. Claude agent sees signal and routes the plain text message through `/user:gsd {message}`
+5. Claude agent sees signal and routes the plain text message through `/gsd {message}`
 6. Smart router interprets intent and launches appropriate GSD-T command
 
 **Note:** Only fires in GSD-T projects (`.gsd-t/progress.md` must exist). Silently passes through in all other directories.

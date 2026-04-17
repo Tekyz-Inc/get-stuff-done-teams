@@ -44,7 +44,7 @@ Before formal partitioning, do a quick assessment:
 
 - **Complexity estimate**: Simple (1-2 domains), Medium (3-4), Complex (5+)
 - **Recommended approach**:
-  - Simple: Consider using /user:gsd-t-quick for each piece
+  - Simple: Consider using /gsd-t-quick for each piece
   - Medium: Standard partition → plan → execute flow
   - Complex: Partition → discuss → plan → execute → integrate → verify
 
@@ -78,7 +78,7 @@ Before proceeding to partition:
 If the user wants to proceed immediately, execute the partition workflow (same as gsd-t-partition) for this milestone.
 
 Otherwise, set status to DEFINED and remind them:
-"Run /user:gsd-t-partition to decompose into domains, or /user:gsd-t-discuss to explore approaches first."
+"Run /gsd-t-partition to decompose into domains, or /gsd-t-discuss to explore approaches first."
 
 $ARGUMENTS
 

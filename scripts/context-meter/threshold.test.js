@@ -183,7 +183,7 @@ test("buildAdditionalContext — marker is machine-readable and short (< 40 char
   assert.ok(result.length < 40, `marker too long: ${result.length}`);
 });
 
-test("buildAdditionalContext — marker contains NO user-facing language (no MANDATORY, STOP, /user:, /clear)", () => {
+test("buildAdditionalContext — marker contains NO user-facing language (no MANDATORY, STOP, /, /clear)", () => {
   const result = buildAdditionalContext({
     pct: 80,
     modelWindowSize: 200000,
@@ -191,7 +191,7 @@ test("buildAdditionalContext — marker contains NO user-facing language (no MAN
   });
   assert.ok(!/MANDATORY/.test(result));
   assert.ok(!/STOP/.test(result));
-  assert.ok(!/\/user:/.test(result));
+  assert.ok(!/\//.test(result));
   assert.ok(!/\/clear/.test(result));
   assert.ok(!/Destructive/.test(result));
 });

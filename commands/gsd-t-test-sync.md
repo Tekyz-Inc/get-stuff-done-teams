@@ -322,7 +322,7 @@ Full sync:
 
 ### Standalone Mode:
 ```
-/user:gsd-t-test-sync
+/gsd-t-test-sync
 ```
 1. Full analysis of entire codebase
 2. Comprehensive report

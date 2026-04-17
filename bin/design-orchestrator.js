@@ -31,7 +31,7 @@ function discoverWork(projectDir) {
   const indexPath = path.join(contractsDir, "INDEX.md");
 
   if (!fs.existsSync(indexPath)) {
-    error("No design contracts found. Run /user:gsd-t-design-decompose first.");
+    error("No design contracts found. Run /gsd-t-design-decompose first.");
     process.exit(1);
   }
 

@@ -89,7 +89,7 @@ that doesn't exist.
 After indexing is complete, run a full codebase scan in each project to generate the baseline analysis. From within each project directory:
 
 ```
-/user:gsd-t-scan
+/gsd-t-scan
 ```
 
 Or to scan all projects at once, paste this prompt into Claude Code:
@@ -98,7 +98,7 @@ Or to scan all projects at once, paste this prompt into Claude Code:
 For each project listed in ~/.claude/.gsd-t-projects that has source code
 files (.js, .ts, .py, .jsx, .tsx):
 1. cd into the project directory
-2. Run /user:gsd-t-scan
+2. Run /gsd-t-scan
 3. Report: project name, scan status, tech debt items found, test count
 
 Use team mode with parallel agents. Skip documentation-only projects

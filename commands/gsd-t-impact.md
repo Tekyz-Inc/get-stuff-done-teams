@@ -3,7 +3,7 @@
 You are analyzing the downstream effects of planned changes before execution. Your job is to identify what might break, what needs updating, and what risks exist.
 
 This command is:
-- **Auto-invoked** between plan and execute phases in `/user:gsd-t-wave`
+- **Auto-invoked** between plan and execute phases in `/gsd-t-wave`
 - **Standalone** when user wants to evaluate potential changes
 
 ## Step 1: Load Context
@@ -273,7 +273,7 @@ Validate the test landscape before recommending proceed/block:
 - List the red items
 - Generate remediation tasks
 - Add tasks to current domain's task list
-- "Run `/user:gsd-t-execute` to address these first, then re-run impact analysis."
+- "Run `/gsd-t-execute` to address these first, then re-run impact analysis."
 - Do NOT proceed to execute phase
 
 ## Standalone Mode
@@ -281,7 +281,7 @@ Validate the test landscape before recommending proceed/block:
 When run independently (not as part of wave):
 
 ```
-/user:gsd-t-impact "considering adding user roles to the auth system"
+/gsd-t-impact "considering adding user roles to the auth system"
 ```
 
 1. Ask clarifying questions about the change

@@ -54,7 +54,7 @@ Create `.gsd-t/continue-here-{timestamp}.md`:
 {$ARGUMENTS if provided, otherwise: _No note provided._}
 
 ## Resume Command
-/user:gsd-t-resume
+/gsd-t-resume
 ```
 
 ## Step 4: Confirm to User
@@ -67,7 +67,7 @@ Output:
 Saved position: .gsd-t/continue-here-{timestamp}.md
 Next action:    {next action summary}
 
-To resume: /user:gsd-t-resume
+To resume: /gsd-t-resume
 ```
 
 ## Step 5: Do NOT Stop Work (unless user asked to pause all work)

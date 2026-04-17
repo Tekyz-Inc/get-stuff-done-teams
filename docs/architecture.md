@@ -52,7 +52,7 @@ The framework has no runtime — it is consumed entirely by Claude Code's slash 
 - **Pre-task experience retrieval (execute, debug)**: Grep Decision Log for `[failure]`/`[learning]` entries matching current domain before spawning subagent — Reflexion pattern without fine-tuning. Writes `experience_retrieval` event.
 - **Distillation step (complete-milestone Step 2.5)**: Scans `.gsd-t/events/*.jsonl` for patterns seen ≥3 times, proposes CLAUDE.md / constraints.md rule additions, user confirms before write.
 ### Auto-Route + Auto-Update Hooks (M16 — complete)
-- **`scripts/gsd-t-auto-route.js`** (39 lines): UserPromptSubmit hook. Reads JSON from stdin (`{ prompt, cwd, session_id }`). If `.gsd-t/progress.md` does not exist in cwd → exits silently. If prompt starts with `/` → exits silently. If plain text in a GSD-T project → emits `[GSD-T AUTO-ROUTE]` signal to Claude's context, routing the message through `/user:gsd`. Catches all exceptions — never blocks the prompt.
+- **`scripts/gsd-t-auto-route.js`** (39 lines): UserPromptSubmit hook. Reads JSON from stdin (`{ prompt, cwd, session_id }`). If `.gsd-t/progress.md` does not exist in cwd → exits silently. If prompt starts with `/` → exits silently. If plain text in a GSD-T project → emits `[GSD-T AUTO-ROUTE]` signal to Claude's context, routing the message through `/gsd`. Catches all exceptions — never blocks the prompt.
 - **`scripts/gsd-t-update-check.js`** (79 lines): SessionStart hook. Reads `~/.claude/.gsd-t-version`. Reads/refreshes `~/.claude/.gsd-t-update-check` cache (1h TTL). If newer version available: runs `npm install -g @tekyzinc/gsd-t@{latest}` + `gsd-t update-all` via execSync. Outputs `[GSD-T AUTO-UPDATE]`, `[GSD-T UPDATE]`, or `[GSD-T]` banner. NOTE: No module.exports — untestable as module (TD-081). Version string not validated before execSync (SEC-N28).
 
 ### Scan Visual Output (M17 — complete v2.34.10)
@@ -72,9 +72,9 @@ The framework has no runtime — it is consumed entirely by Claude Code's slash 
 
 ### Headless Mode (M23 — complete)
 - **doHeadless(args)**: Dispatch function for the `headless` CLI subcommand.
-- **doHeadlessExec(command, cmdArgs, flags)**: Wraps `claude -p "/gsd-t-{command}"` via `execFileSync`. Verifies claude CLI availability, enforces timeout, writes log file if `--log` requested. Returns structured JSON if `--json` flag set. (M36 Phase 0: prompt form is `/gsd-t-X`, NOT `/user:gsd-t-X` — non-interactive mode rejects the `/user:` namespace prefix.)
+- **doHeadlessExec(command, cmdArgs, flags)**: Wraps `claude -p "/gsd-t-{command}"` via `execFileSync`. Verifies claude CLI availability, enforces timeout, writes log file if `--log` requested. Returns structured JSON if `--json` flag set. (M36 Phase 0: prompt form is `/gsd-t-X`, NOT `/gsd-t-X` — non-interactive mode rejects the `/` namespace prefix.)
 - **parseHeadlessFlags(args)**: Extracts `--json`, `--timeout=N`, `--log` from raw args. Returns `{ flags, positional }`.
-- **buildHeadlessCmd(command, cmdArgs)**: Builds the bare `/gsd-t-{command}` prompt string. Interactive-mode `/user:` prefix deliberately omitted — see `.gsd-t/M36-spike-findings.md` Spike A.
+- **buildHeadlessCmd(command, cmdArgs)**: Builds the bare `/gsd-t-{command}` prompt string. Interactive-mode `/` prefix deliberately omitted — see `.gsd-t/M36-spike-findings.md` Spike A.
 - **mapHeadlessExitCode(processExitCode, output)**: Maps process exit code + output text patterns to GSD-T exit codes (0–5).
 - **headlessLogPath(projectDir, timestamp)**: Generates `.gsd-t/headless-{timestamp}.log` path.
 - **doHeadlessQuery(type)**: Dispatches to one of 7 query functions. All pure Node.js file reads, no LLM calls, <100ms.
@@ -130,7 +130,7 @@ gsd-t init [name] → templates/ → applyTokens()
 
 ### Runtime Command Execution (within Claude Code)
 ```
-User types /user:gsd-t-{command} [args]
+User types /gsd-t-{command} [args]
   → Claude Code loads ~/.claude/commands/gsd-t-{command}.md
   → Claude interprets step-by-step instructions
   → Reads state files → Executes workflow → Pre-Commit Gate → Updates progress.md
@@ -284,7 +284,7 @@ The unattended supervisor is a cross-session relay engine that runs an active GS
 
 ```
 Interactive Claude session
-  └── /user:gsd-t-unattended (launch command)
+  └── /gsd-t-unattended (launch command)
         ├── Pre-flight safety checks (branch, dirty tree)
         └── spawn(detached) → Supervisor process (bin/gsd-t-unattended.js)
                                ├── writes .gsd-t/.unattended/supervisor.pid
@@ -296,7 +296,7 @@ Interactive Claude session
                                       → worker exits → post-worker safety check → next iter
 
 In-session watch loop (every 270s via ScheduleWakeup)
-  └── /user:gsd-t-unattended-watch
+  └── /gsd-t-unattended-watch
         ├── reads supervisor.pid  (kill -0 liveness)
         ├── reads state.json      (status, iter, lastTick)
         └── reschedules or reports final status
@@ -349,7 +349,7 @@ Closes the M35 parent/child race in `bin/headless-auto-spawn.js`. When the runwa
 
 ### Resume Auto-Reattach
 
-`/user:gsd-t-resume` Step 0 checks for a live supervisor before any other resume logic. If `supervisor.pid` exists and `kill -0` succeeds and `state.json.status` is non-terminal, the resume command skips normal resume flow entirely, prints the current watch block, and calls `ScheduleWakeup(270, '/gsd-t-unattended-watch', ...)`. The user transparently re-enters the watch loop without any manual step.
+`/gsd-t-resume` Step 0 checks for a live supervisor before any other resume logic. If `supervisor.pid` exists and `kill -0` succeeds and `state.json.status` is non-terminal, the resume command skips normal resume flow entirely, prints the current watch block, and calls `ScheduleWakeup(270, '/gsd-t-unattended-watch', ...)`. The user transparently re-enters the watch loop without any manual step.
 
 ---
 
@@ -533,7 +533,7 @@ Orchestrator Context Gate — v3.0.0 semantics:
 
 **Supporting components** (outside the context-meter dataflow):
 - `bin/model-selector.js` — declarative rules table mapping phases to haiku/sonnet/opus; consulted at plan time, never at runtime under pressure
-- `bin/check-headless-sessions.js` — renders the read-back banner on `/user:gsd-t-resume` and `/user:gsd-t-status` for completed-but-not-yet-surfaced headless sessions
+- `bin/check-headless-sessions.js` — renders the read-back banner on `/gsd-t-resume` and `/gsd-t-status` for completed-but-not-yet-surfaced headless sessions
 - `bin/event-stream.cjs` (M38) — shared library for JSONL event emission and cursor-based tailing; used by supervisor, watch tick, and dashboard
 
 **Installer integration** (`bin/gsd-t.js`):

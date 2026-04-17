@@ -123,7 +123,7 @@ Headless mode enables non-interactive GSD-T execution for CI/CD pipelines and ov
 
 ### headless exec
 
-Wraps `claude -p "/user:gsd-t-{command} {args}"` for unattended execution.
+Wraps `claude -p "/gsd-t-{command} {args}"` for unattended execution.
 
 ```bash
 gsd-t headless verify --json --timeout=1200 --log
@@ -314,16 +314,16 @@ The unattended supervisor runs an active GSD-T milestone to completion in a deta
 
 ```bash
 # From within an interactive Claude session:
-/user:gsd-t-unattended
+/gsd-t-unattended
 
 # From the terminal (detached — returns immediately):
 gsd-t unattended --hours=24 --milestone=M36
 
 # Watch current run status (in-session, 270s tick):
-/user:gsd-t-unattended-watch
+/gsd-t-unattended-watch
 
 # Request a graceful stop:
-/user:gsd-t-unattended-stop
+/gsd-t-unattended-stop
 ```
 
 ### CLI Flags
@@ -395,18 +395,18 @@ kill -0 $(cat .gsd-t/.unattended/supervisor.pid) && echo "alive" || echo "stale 
 rm .gsd-t/.unattended/supervisor.pid
 
 # Or request a graceful stop:
-/user:gsd-t-unattended-stop
+/gsd-t-unattended-stop
 # (or) touch .gsd-t/.unattended/stop
 ```
 
 **Watch loop stopped firing**
-- Re-invoke `/user:gsd-t-resume` from a fresh session
+- Re-invoke `/gsd-t-resume` from a fresh session
 - Step 0 auto-reattach reads `supervisor.pid` — if the supervisor is still alive, it re-enters the watch loop automatically (no manual steps needed)
 
 **Supervisor crashed mid-run**
 - The watch loop detects crash via `kill -0` failure
 - Check `.gsd-t/.unattended/run.log` and final `state.json` for diagnostics
-- Resume normally with `/user:gsd-t-resume` — the milestone continues from its last checkpoint
+- Resume normally with `/gsd-t-resume` — the milestone continues from its last checkpoint
 
 ---
 

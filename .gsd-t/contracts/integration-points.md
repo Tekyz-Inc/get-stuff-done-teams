@@ -88,7 +88,7 @@ The supervisor (`bin/gsd-t-unattended.cjs`) is touched by both MR (meter callsit
 
 M38 deletes/rewires load-bearing parts the unattended supervisor itself uses. To prevent the supervisor from pulling the rug out from under itself, the partition sequences:
 
-- **Wave 1 (H1 + MR) = supervisor-critical infrastructure**: spawn primitive + meter machinery. MUST land before any unattended run executes Wave 2 work. If a user re-launches `/user:gsd-t-unattended` mid-M38, it must be against a Wave-1-complete codebase.
+- **Wave 1 (H1 + MR) = supervisor-critical infrastructure**: spawn primitive + meter machinery. MUST land before any unattended run executes Wave 2 work. If a user re-launches `/gsd-t-unattended` mid-M38, it must be against a Wave-1-complete codebase.
 - **Wave 2 (ES + RC + CD) = supervisor-extension and cleanup**: event emission improves the supervisor; router and cleanup are independent of supervisor execution path. Safe to run unattended once Wave 1 is in.
 
 The interactive partition step (Path A choice in this resume cycle) gates the supervisor against Wave 1's land before unattended execution of Wave 2. After this partition completes, Wave 1 should be executed interactively (or via headless-default `autoSpawnHeadless()` pattern). Wave 2 can run unattended.
@@ -124,7 +124,7 @@ The interactive partition step (Path A choice in this resume cycle) gates the su
 2. GATE: M38-CP2 (Wave 1 complete) — full test suite green, supervisor smoke test
 3. Wave 2: ES + RC parallel → COMMIT both → CD (doc ripple complete pass) → COMMIT
 4. GATE: M38-CP5 (Wave 2 complete)
-5. `/user:gsd-t-verify` → auto-invokes `/user:gsd-t-complete-milestone`
+5. `/gsd-t-verify` → auto-invokes `/gsd-t-complete-milestone`
 6. User-gated: `npm publish` + `gsd-t version-update-all`
 
 ---

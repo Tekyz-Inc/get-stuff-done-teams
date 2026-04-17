@@ -131,9 +131,9 @@ After repair, re-run the checks and report the final state.
 ## Step 6: Next Steps
 
 If HEALTHY → "✅ GSD-T structure is healthy — all required files present."
-If DEGRADED with --repair done → "✅ Repaired {N} missing files. Run /user:gsd-t-health again to confirm."
-If DEGRADED without --repair → "⚠ Run /user:gsd-t-health --repair to create {N} missing files."
-If BROKEN → "🔴 Project structure is broken. Run /user:gsd-t-health --repair or /user:gsd-t-init to rebuild."
+If DEGRADED with --repair done → "✅ Repaired {N} missing files. Run /gsd-t-health again to confirm."
+If DEGRADED without --repair → "⚠ Run /gsd-t-health --repair to create {N} missing files."
+If BROKEN → "🔴 Project structure is broken. Run /gsd-t-health --repair or /gsd-t-init to rebuild."
 
 $ARGUMENTS
 

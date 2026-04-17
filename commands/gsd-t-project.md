@@ -200,7 +200,7 @@ Present:
 4. Any scope decisions you made and why
 5. Questions or trade-offs that need user input
 
-Ask: "Ready to start Milestone 1? Run `/user:gsd-t-partition` to decompose it into domains."
+Ask: "Ready to start Milestone 1? Run `/gsd-t-partition` to decompose it into domains."
 
 Or if the user wants to review first: "Review the roadmap in `.gsd-t/roadmap.md` and let me know if you want to adjust scope or ordering."
 

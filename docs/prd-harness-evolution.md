@@ -333,7 +333,7 @@ Evolve GSD-T from a static methodology framework into a self-calibrating quality
 4. **Per-spawn telemetry** (`bin/token-telemetry.js`, `token-telemetry-contract.md` v1.0.0 — m35-token-telemetry):
    - Every Task subagent spawn is wrapped in a token bracket that records `{timestamp, milestone, command, phase, step, domain, task, model, duration_s, input_tokens_before, input_tokens_after, tokens_consumed, context_window_pct_before, context_window_pct_after, outcome, halt_type, escalated_via_advisor}` to `.gsd-t/token-metrics.jsonl`.
    - `gsd-t metrics --tokens [--by model,command,phase,milestone]`, `gsd-t metrics --halts`, `gsd-t metrics --context-window` surface the history.
-   - Telemetry feeds the runway estimator (historical cost-per-phase) and the optimization backlog (`bin/token-optimizer.js` → `.gsd-t/optimization-backlog.md`, detect-only — user selectively promotes via `/user:gsd-t-optimization-apply|reject`).
+   - Telemetry feeds the runway estimator (historical cost-per-phase) and the optimization backlog (`bin/token-optimizer.js` → `.gsd-t/optimization-backlog.md`, detect-only — user selectively promotes via `/gsd-t-optimization-apply|reject`).
 
 **Files affected (M35 active set)**:
 - MODIFY: `bin/token-budget.js` — three-band `getDegradationActions`, `WARN_THRESHOLD_PCT = 70`, `STOP_THRESHOLD_PCT = 85`

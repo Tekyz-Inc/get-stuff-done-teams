@@ -279,7 +279,7 @@ User immediately sees that notifications domain is consuming disproportionate to
 **Architecture**:
 ```
 gsd-t headless wave M25
-  └── claude -p "/user:gsd-t-wave M25"
+  └── claude -p "/gsd-t-wave M25"
         └── Agent tool dispatches phases (fresh context per phase)
               └── Execute phase dispatches domains (parallel, worktree isolation)
                     └── Each domain dispatches tasks (fresh context per task)

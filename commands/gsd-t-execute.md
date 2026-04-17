@@ -66,7 +66,7 @@ This calls `getSessionStatus()` (v2.0.0) which reads `.gsd-t/.context-meter-stat
 
 Use the returned `threshold` as the gate signal for the rest of this run. The gate logic is in Step 3.5; do NOT skip it. If the Context Meter hook isn't installed (`.gsd-t/.context-meter-state.json` missing and doctor reports it), run `gsd-t doctor` to diagnose — the gate still works via the heuristic fallback but real-time readings give much better guardrails.
 
-Why: every `/user:gsd-t-execute` invocation is a fresh orchestrator session and needs a current reading of context utilization before spawning any subagents. The authoritative source is the Context Meter state file; the fallback keeps the gate functional on projects that haven't installed the hook yet.
+Why: every `/gsd-t-execute` invocation is a fresh orchestrator session and needs a current reading of context utilization before spawning any subagents. The authoritative source is the Context Meter state file; the fallback keeps the gate functional on projects that haven't installed the hook yet.
 
 ## Step 1: Load State
 

@@ -471,7 +471,7 @@ This domain owns the following design contracts:
 - Pages: (none — pages owned by page-assembly domain)
 ```
 
-If `.gsd-t/domains/` does NOT exist yet, suggest the user run `/user:gsd-t-partition` next, with a note that design contracts should be partitioned into domains:
+If `.gsd-t/domains/` does NOT exist yet, suggest the user run `/gsd-t-partition` next, with a note that design contracts should be partitioned into domains:
 - **design-system domain** owns element contracts
 - **widgets domain** owns widget contracts
 - **pages domain** owns page assembly + routing
@@ -494,11 +494,11 @@ Display:
 
 **Design Build** — build UI from contracts with tiered review gates (elements → widgets → pages)
 
-`/user:gsd-t-design-build`
+`/gsd-t-design-build`
 
 **Also available:**
-- `/user:gsd-t-partition` — if you need domain boundaries before building
-- `/user:gsd-t-plan` — if you need task lists before building
+- `/gsd-t-partition` — if you need domain boundaries before building
+- `/gsd-t-plan` — if you need task lists before building
 
 ───────────────────────────────────────────────────────────────
 ```

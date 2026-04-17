@@ -2,6 +2,53 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [3.12.13] - 2026-04-17
+
+### Fixed — `/` Prefix Strip Sitewide
+
+Claude Code does not namespace local slash commands under `user:`, so every `/gsd-t-*`, `/checkin`, `/branch`, `/Claude-md`, `/global-change` reference produced `Unknown command: /X` errors when the user typed one. This release strips the prefix from every live reference:
+
+- **54 command files** in `commands/*.md`
+- **All live docs**: `README.md`, `GSD-T-README.md`, `CHANGELOG.md`, `docs/*.md`, `CLAUDE.md`
+- **All templates**: `templates/CLAUDE-global.md`, `templates/CLAUDE-project.md`, `templates/stacks/*.md`
+- **Scripts and CLI**: `bin/gsd-t.js`, `bin/gsd-t-unattended.js`, `bin/design-orchestrator.js`, `scripts/gsd-t-auto-route.js`, `scripts/gsd-t-update-check.js`
+- **All `.gsd-t/contracts/*.md` and live `.gsd-t/domains/*/scope.md`**
+- **User-global `~/.claude/CLAUDE.md`** (via `sed` in the same pass)
+- Test fixture strings in `test/headless.test.js` preserved — those are regression-test literals asserting `claude -p` rejects the `/` prefix.
+- Historical archives (`.gsd-t/milestones/*`, `.gsd-t/progress-archive/*`, `.gsd-t/continue-here-*`) left untouched as time-capsule records.
+
+### Fixed — `update-all` Now Upgrades the Global CLI Binary
+
+v3.12.12's `update-all` propagated command files to `~/.claude/commands/` but never ran `npm install -g @tekyzinc/gsd-t@latest`. Result: the CLI binary stayed stale even after `npm publish`, so new features (like v3.12.12's token-log observability) never activated on user machines that had updated "successfully."
+
+`bin/gsd-t.js`:
+- `doUpdateAll()` now calls new `upgradeGlobalBinary()` helper FIRST, which runs `npm install -g @tekyzinc/gsd-t@latest` via `execFileSync({stdio: 'inherit'})`.
+- After upgrade succeeds, the newly-installed on-disk version is compared against the running process's `PKG_VERSION`. If they diverge, `reexecUpdateAll()` hands off to the new binary with `GSDT_POST_UPGRADE=1` to prevent recursion.
+- On upgrade failure (e.g., missing global-npm permissions), logs the error and continues with command-file propagation so the user isn't fully blocked.
+- Upgrade is skipped when `GSDT_POST_UPGRADE=1` is set (re-entry from self-invocation).
+
+### Changed — Global `CLAUDE.md` Size Reduction (−26%)
+
+`~/.claude/CLAUDE.md` was 41,131 chars (above Claude Code's 40k auto-warning threshold). Three optimizations trimmed it to 30,272 chars without losing information:
+
+1. **Commands Reference table removed** (~63 lines). The router and `/gsd-t-help` resolve commands dynamically — nothing reads this table at runtime. Replaced with a one-line pointer: *"See `/gsd-t-help` for the complete command list."*
+2. **Markdown Tables / emoji-padding section extracted** to `templates/stacks/_markdown.md` (32 lines, `_` prefix = universal stack rule, auto-injected by Stack Rules Engine for every subagent spawn). CLAUDE.md now has a one-line pointer at that template.
+3. **Autonomous Execution Rules subsections tightened** — QA Agent, Design Verification, Red Team, Headless-by-Default Spawn, Unattended Execution each cut from multi-paragraph re-statements to 2–3 lines: rule + enforcement + path to the authoritative contract/protocol file. The contracts (`qa-agent-contract.md`, `headless-default-contract.md`, etc.) and prompts (`red-team-subagent.md`, `design-verify-subagent.md`) remain the source of truth for method specifics.
+
+Same edits propagated to `templates/CLAUDE-global.md` so future installs inherit the lean version.
+
+### Changed — Project `CLAUDE.md` Audit
+
+Audited `CLAUDE.md` in this repo (the @tekyzinc/gsd-t dev repo itself). Removed a duplicate Destructive Action Guard block (verbatim copy of the global's). Pre-Commit Gate now points at `.gsd-t/contracts/pre-commit-gate.md` (which exists and owns the full checklist) while retaining the 7 repo-specific extensions inline. 7,095 → 6,269 chars (−12%).
+
+### Added — New Stack Rule: `templates/stacks/_markdown.md`
+
+Universal (always-injected) stack rule covering markdown-table formatting with emoji. Included in every subagent spawn regardless of detected tech stack, per the Stack Rules Engine's `_`-prefix convention.
+
+### Note — v3.12.12 Supervisor Status
+
+The earlier hypothesis that v3.12.12 broke `bin/gsd-t-unattended.cjs` via a missing `require("./debug-ledger.js")` was incorrect. `bin/debug-ledger.js` exists, ships in the package, and has been present since a March commit. The supervisor was running fine on the globally-installed v3.11.11 binary — it simply never picked up v3.12.12's env-var injection because `update-all` never upgraded the binary (see above fix).
+
 ## [3.12.12] - 2026-04-17
 
 ### Fixed — Token-Log Observability for Headless/Unattended Workers
@@ -265,9 +312,9 @@ M36 ships the third pillar of the context/runway/autonomy arc (M34 context meter
 - **`bin/gsd-t-unattended-safety.js`** — safety rails module. Exports: `checkGitBranch` (protected branch list; configurable), `checkWorktreeCleanliness` (dirty-tree guard with whitelist), `checkIterationCap`, `checkWallClockCap`, `validateState`, `detectBlockerSentinel` (scan run.log tail for unrecoverable/dispatch-failed patterns), `detectGutter` (repeated-error / file-thrash / no-progress stall detection). Each check returns `{ ok, reason?, code? }`.
 - **`bin/gsd-t-unattended-platform.js`** — platform abstraction. Exports: `spawnSupervisor` (detached spawn with `windowsHide`), `preventSleep` / `releaseSleep` (`caffeinate -i` on darwin; no-op on linux/win32), `sendNotification` (osascript on darwin; `notify-send` on linux; toast via PowerShell on win32 — all graceful no-op on failure), `resolveClaudeBin` (`claude.cmd` on win32; `claude` elsewhere + PATH search), `getPlatform`.
 - **`bin/handoff-lock.js`** — parent/child race guard for headless-auto-spawn. Writes `.gsd-t/.handoff/{session-id}.lock` before detaching; child removes on first iteration. Prevents the parent from reporting "failed" while the child is still starting. Exports: `acquireLock`, `releaseLock`, `waitForRelease`, `isLocked`.
-- **`commands/gsd-t-unattended.md`** — `/user:gsd-t-unattended` launch command. Pre-flights (singleton check, safety rails, active milestone), spawns the supervisor via `bin/gsd-t-unattended-platform.js`, polls for `supervisor.pid` + `status=running` (up to 5s), prints the initial watch block, calls `ScheduleWakeup(270, '/user:gsd-t-unattended-watch')`.
-- **`commands/gsd-t-unattended-watch.md`** — `/user:gsd-t-unattended-watch` watch tick. Stateless; reads `supervisor.pid` + `state.json`; renders progress or final summary; reschedules via `ScheduleWakeup(270, ...)` on non-terminal status; stops on terminal status or missing PID file.
-- **`commands/gsd-t-unattended-stop.md`** — `/user:gsd-t-unattended-stop` stop command. Touches `.gsd-t/.unattended/stop` sentinel; prints reassurance; returns immediately (no kill, no wait).
+- **`commands/gsd-t-unattended.md`** — `/gsd-t-unattended` launch command. Pre-flights (singleton check, safety rails, active milestone), spawns the supervisor via `bin/gsd-t-unattended-platform.js`, polls for `supervisor.pid` + `status=running` (up to 5s), prints the initial watch block, calls `ScheduleWakeup(270, '/gsd-t-unattended-watch')`.
+- **`commands/gsd-t-unattended-watch.md`** — `/gsd-t-unattended-watch` watch tick. Stateless; reads `supervisor.pid` + `state.json`; renders progress or final summary; reschedules via `ScheduleWakeup(270, ...)` on non-terminal status; stops on terminal status or missing PID file.
+- **`commands/gsd-t-unattended-stop.md`** — `/gsd-t-unattended-stop` stop command. Touches `.gsd-t/.unattended/stop` sentinel; prints reassurance; returns immediately (no kill, no wait).
 - **`.gsd-t/contracts/unattended-supervisor-contract.md` v1.0.0 ACTIVE** — authoritative interface for state file schema (18 fields), PID file lifecycle, sentinel semantics, exit codes 0–8+124, launch handshake, watch tick decision tree, resume auto-reattach handshake, stop mechanism, notification levels, safety rails hook points, and configuration file schema.
 - **`docs/unattended-windows-caveats.md`** — known Windows limitations: sleep-prevention not supported (no `caffeinate` equivalent wired; `powercfg /requests` path is v2), `claude.cmd` wrapper adds ~500ms per spawn, Windows Defender may scan each worker spawn, notification via PowerShell toast requires non-interactive shell workaround.
 - **`.claude/settings.json`** (project-shared) — SessionStart hook registered: `node bin/check-headless-sessions.js . 2>/dev/null || true` surfaces completed headless session banners on session start.
@@ -280,7 +327,7 @@ M36 ships the third pillar of the context/runway/autonomy arc (M34 context meter
 
 ### Fixed
 
-- **`bin/gsd-t.js` headless dispatch** (Phase 0 P0, committed prior milestone): `mapHeadlessExitCode` now maps `"Unknown command:"` in worker stdout → exit code 5 (`command-dispatch-failed`). Worker invocation no longer prepends `/user:` to command names, preventing "Unknown command:" failures in non-interactive `claude -p` sessions.
+- **`bin/gsd-t.js` headless dispatch** (Phase 0 P0, committed prior milestone): `mapHeadlessExitCode` now maps `"Unknown command:"` in worker stdout → exit code 5 (`command-dispatch-failed`). Worker invocation no longer prepends `/` to command names, preventing "Unknown command:" failures in non-interactive `claude -p` sessions.
 
 ### Tests
 
@@ -294,7 +341,7 @@ M36 ships the third pillar of the context/runway/autonomy arc (M34 context meter
 
 ### Migration
 
-After `npm install @tekyzinc/gsd-t@3.10.10`, run `/user:gsd-t-version-update-all` to propagate v3.10.10 to all registered projects. The new command files, `bin/` modules, and contract are written into each project automatically. No existing `.gsd-t/` state is modified.
+After `npm install @tekyzinc/gsd-t@3.10.10`, run `/gsd-t-version-update-all` to propagate v3.10.10 to all registered projects. The new command files, `bin/` modules, and contract are written into each project automatically. No existing `.gsd-t/` state is modified.
 
 ---
 
@@ -309,7 +356,7 @@ After `npm install @tekyzinc/gsd-t@3.10.10`, run `/user:gsd-t-version-update-all
 - **`bin/model-selector.js`** — declarative phase→tier mapping (≥13 phase mappings) with complexity-signal escalation (`cross_module_refactor`, `security_boundary`, `data_loss_risk`, `contract_design`) that escalates sonnet→opus at plan time. Each command file carries a `## Model Assignment` block.
 - **`bin/runway-estimator.js`** — `estimateRunway({command, domain_type, remaining_tasks})` reads `.gsd-t/token-metrics.jsonl` via a three-tier query fallback (exact → command+phase → command) and returns `{can_start, projected_end_pct, confidence, recommendation}`. Confidence grading: high ≥50 records, medium ≥10, low <10 (+1.25× skew).
 - **`bin/headless-auto-spawn.js`** — detached `child_process.spawn({detached:true, stdio:['ignore', fd, fd]}) + child.unref()`. Writes `.gsd-t/headless-sessions/{session-id}.json`, polls with `process.kill(pid, 0)` (timer `.unref()`-ed), marks `status: completed`, posts a macOS `osascript` notification on exit (graceful no-op on non-darwin).
-- **`bin/check-headless-sessions.js`** — scans `.gsd-t/headless-sessions/` for `status === 'completed' && surfaced !== true` and renders the read-back banner on `/user:gsd-t-resume` and `/user:gsd-t-status`. Exports `checkCompletedSessions`, `markSurfaced`, `formatBanner`, `printBannerIfAny`, `computeDurationLabel`.
+- **`bin/check-headless-sessions.js`** — scans `.gsd-t/headless-sessions/` for `status === 'completed' && surfaced !== true` and renders the read-back banner on `/gsd-t-resume` and `/gsd-t-status`. Exports `checkCompletedSessions`, `markSurfaced`, `formatBanner`, `printBannerIfAny`, `computeDurationLabel`.
 - **`bin/token-telemetry.js`** — per-spawn token bracket writes one frozen 18-field JSONL record per subagent spawn to `.gsd-t/token-metrics.jsonl`. Fields: `timestamp, session_id, command, phase, domain, task_id, model, complexity_signals[], input_tokens, output_tokens, duration_seconds, start_pct, end_pct, halt_type, halt_reason, exit_code, run_type, projection_variance`. `halt_type` values: `clean`, `stop-band`, `runway-refuse`, `native-compact` (defect), `crash`.
 - **`bin/token-optimizer.js`** — at `complete-milestone`, scans the last 3 milestones and appends recalibration recommendations to `.gsd-t/optimization-backlog.md`. Four detection rules: `demote` (opus phase ≥90% success, ≥3 volume), `escalate` (sonnet phase ≥30% failure rate, ≥5 volume), `runway-tune` (projection vs. actual divergence >15%), `investigate` (per-phase p95 > 2× median, ≥10 volume). Fingerprint-based 5-milestone cooldown on rejected items. Exports `detectRecommendations`, `appendToBacklog`, `readBacklog`, `writeBacklog`, `parseBacklog`, `setRecommendationStatus`, `DETECTION_RULES`, `REJECTION_COOLDOWN_MILESTONES`.
 - **`bin/advisor-integration.js`** — `/advisor` escalation hook; convention-based fallback if no programmable API.
@@ -318,7 +365,7 @@ After `npm install @tekyzinc/gsd-t@3.10.10`, run `/user:gsd-t-version-update-all
 - **`.gsd-t/contracts/token-telemetry-contract.md` v1.0.0 ACTIVE** — frozen 18-field per-spawn JSONL schema, `halt_type` enum, `run_type` enum.
 - **`.gsd-t/contracts/runway-estimator-contract.md` v1.0.0 ACTIVE** — pre-flight projection, three-tier query fallback, confidence grading, refusal + headless handoff contract.
 - **`.gsd-t/contracts/headless-auto-spawn-contract.md` v1.0.0 ACTIVE** — detached continuation, session file schema, macOS notification channel, read-back banner.
-- **`commands/gsd-t-optimization-apply.md`** — promotes a backlog recommendation by ID, auto-routes to `/user:gsd-t-quick` or `/user:gsd-t-backlog-promote` based on recommendation type.
+- **`commands/gsd-t-optimization-apply.md`** — promotes a backlog recommendation by ID, auto-routes to `/gsd-t-quick` or `/gsd-t-backlog-promote` based on recommendation type.
 - **`commands/gsd-t-optimization-reject.md`** — rejects a recommendation with optional `--reason`, sets 5-milestone cooldown. Reason captured in token-log.md + Decision Log.
 - **`gsd-t metrics` flags** — `--tokens` (per-command/phase token summary), `--halts` (halt-type breakdown; flags any `native-compact` as defect), `--context-window` (trailing 20-run `end_pct` with runway headroom).
 - **Test coverage**: `test/headless-auto-spawn.test.js` (16 tests — session file schema, completion watcher, read-back banner, non-darwin degradation, E2E shim smoke), `test/token-optimizer.test.js` (19 tests — each rule triggers/skips, parseBacklog round-trip, cooldown filter, OB-T1+OB-T4 integration roundtrip), plus rewrites of `test/token-budget.test.js` around v3.0.0. **~1011/1011 total tests green through Wave 4**.
@@ -358,7 +405,7 @@ After `npm install @tekyzinc/gsd-t@3.10.10`, run `/user:gsd-t-version-update-all
 
 ### Propagation
 
-Run `/user:gsd-t-version-update-all` from any registered GSD-T project to propagate v2.76.10 to all projects. The command files, templates, and `bin/` scripts are rewritten in place; project state in `.gsd-t/` is preserved.
+Run `/gsd-t-version-update-all` from any registered GSD-T project to propagate v2.76.10 to all projects. The command files, templates, and `bin/` scripts are rewritten in place; project state in `.gsd-t/` is preserved.
 
 ---
 
@@ -412,7 +459,7 @@ Run `/user:gsd-t-version-update-all` from any registered GSD-T project to propag
 
 ### Propagation
 
-After publishing, run `/user:gsd-t-version-update-all` to propagate M34 (hook, config, installer, rewritten token-budget, command file updates, retirement migration) to every registered GSD-T project in a single sweep.
+After publishing, run `/gsd-t-version-update-all` to propagate M34 (hook, config, installer, rewritten token-budget, command file updates, retirement migration) to every registered GSD-T project in a single sweep.
 
 ## [2.74.13] - 2026-04-14
 
@@ -426,7 +473,7 @@ After publishing, run `/user:gsd-t-version-update-all` to propagate M34 (hook, c
 - **`bin/gsd-t.js`** — `PROJECT_BIN_TOOLS` now includes `task-counter.cjs`. One-line change at `bin/gsd-t.js:1562`.
 - **`bin/gsd-t.js`** — `doInit()` now calls `copyBinToolsToProject(projectDir, projectName)` after `initGsdtDir`, so newly-initialized projects ship bin tools immediately.
 
-v2.74.12's entire two-layer fix (task-count gate + extracted prompts) is correct — it just needed one line to actually distribute the counter script. Running `/user:gsd-t-version-update-all` after publishing this version will propagate `task-counter.cjs` to every registered project.
+v2.74.12's entire two-layer fix (task-count gate + extracted prompts) is correct — it just needed one line to actually distribute the counter script. Running `/gsd-t-version-update-all` after publishing this version will propagate `task-counter.cjs` to every registered project.
 
 ## [2.74.12] - 2026-04-14
 
@@ -438,7 +485,7 @@ v2.74.12's entire two-layer fix (task-count gate + extracted prompts) is correct
 
 #### Fix 1: Real task-count gate (replaces vaporware env-var check)
 - **NEW `bin/task-counter.cjs`** — deterministic on-disk task counter. State: `.gsd-t/.task-counter`. Config: `.gsd-t/task-counter-config.json` (default limit: 5). Env override: `GSD_T_TASK_LIMIT`. Commands: `increment <kind>`, `status`, `reset`, `should-stop` (exit code 10 at limit). This is the real signal the old self-check *pretended* to be.
-- **`commands/gsd-t-execute.md`** — Step 0 resets the counter; Step 3.5 calls `node bin/task-counter.cjs should-stop` as a gate before every task spawn; Step 5 increments after each task. At limit, the orchestrator checkpoints and STOPs — user runs `/clear` then `/user:gsd-t-resume`.
+- **`commands/gsd-t-execute.md`** — Step 0 resets the counter; Step 3.5 calls `node bin/task-counter.cjs should-stop` as a gate before every task spawn; Step 5 increments after each task. At limit, the orchestrator checkpoints and STOPs — user runs `/clear` then `/gsd-t-resume`.
 - **`commands/gsd-t-wave.md`** — analogous phase-count gate replaces the broken "Wave Orchestrator Context Self-Check."
 - **`bin/token-budget.js`** — `getSessionStatus()` rewritten to read the task counter instead of env vars. API surface preserved (threshold/pct/consumed/estimated_remaining) so all dependent commands keep working. Graduated-degradation thresholds (warn/downgrade/conserve/stop) now fire on real signal.
 
@@ -453,7 +500,7 @@ v2.74.12's entire two-layer fix (task-count gate + extracted prompts) is correct
 - Test suite (`test/token-budget.test.js`) rewritten around the new counter-based `getSessionStatus()`. 36/36 passing.
 
 ### Propagation
-After publishing, run `/user:gsd-t-version-update-all` to propagate the fix to every registered GSD-T project. Projects will receive the new `bin/task-counter.cjs` and updated command files in a single sweep.
+After publishing, run `/gsd-t-version-update-all` to propagate the fix to every registered GSD-T project. Projects will receive the new `bin/task-counter.cjs` and updated command files in a single sweep.
 
 ## [2.74.11] - 2026-04-13
 
@@ -647,7 +694,7 @@ Build → Measure → **Automated AI Review** (reviewer → fixer → re-review 
 ## [2.71.15] - 2026-04-08
 
 ### Changed (design-build command → orchestrator delegate)
-- **`gsd-t-design-build.md` now delegates to the JS orchestrator** — the 388-line prompt-based command is replaced with a thin wrapper that runs `gsd-t design-build`. Both `/user:gsd-t-design-build` and `gsd-t design-build` now end up in the same deterministic pipeline. No more prompt-based gates that get skipped.
+- **`gsd-t-design-build.md` now delegates to the JS orchestrator** — the 388-line prompt-based command is replaced with a thin wrapper that runs `gsd-t design-build`. Both `/gsd-t-design-build` and `gsd-t design-build` now end up in the same deterministic pipeline. No more prompt-based gates that get skipped.
 
 ## [2.71.14] - 2026-04-08
 
@@ -762,12 +809,12 @@ BDS horizontal stacked bar cards required 5 user-prompted fix iterations to get 
 ## [2.69.11] - 2026-04-05
 
 ### Changed (gsd-t-design-audit)
-- **Auto-fix prompt** — after audit completes, if CRITICAL/HIGH deviations found, automatically prompts `/user:gsd-t-quick` with the audit report as source of truth. Re-runs audit after fixes to verify. Up to 2 fix cycles before stopping.
+- **Auto-fix prompt** — after audit completes, if CRITICAL/HIGH deviations found, automatically prompts `/gsd-t-quick` with the audit report as source of truth. Re-runs audit after fixes to verify. Up to 2 fix cycles before stopping.
 
 ## [2.69.10] - 2026-04-05
 
 ### Added
-- **`/user:gsd-t-design-audit` command** — compare a built screen against a Figma design. Node-level Figma decomposition, per-widget comparison tables (10-30+ rows each), severity-rated deviations (CRITICAL/HIGH/MEDIUM/LOW), fidelity percentage. Writes zero code — report only. Usage: `/user:gsd-t-design-audit {Figma URL} {route}`.
+- **`/gsd-t-design-audit` command** — compare a built screen against a Figma design. Node-level Figma decomposition, per-widget comparison tables (10-30+ rows each), severity-rated deviations (CRITICAL/HIGH/MEDIUM/LOW), fidelity percentage. Writes zero code — report only. Usage: `/gsd-t-design-audit {Figma URL} {route}`.
 
 ## [2.68.13] - 2026-04-05
 
@@ -891,7 +938,7 @@ Post-validation comparison of the built BDS Analytics screen against the origina
 - **Hierarchical design contracts** — `element` → `widget` → `page` contract hierarchy for design-to-code projects. Element contracts are the single source of truth for visual spec (one contract per visual variant, e.g., `chart-bar-stacked-horizontal` and `chart-bar-stacked-vertical` are separate). Widgets compose elements with layout + data binding. Pages compose widgets with routing + grid layout.
 - **Precedence rule**: element > widget > page. Widgets and pages SELECT and POSITION elements but cannot override element visual spec. Structural drift becomes impossible.
 - **New templates**: `templates/element-contract.md`, `templates/widget-contract.md`, `templates/page-contract.md`
-- **New command**: `/user:gsd-t-design-decompose` — surveys a design (Figma/image/prototype), classifies elements (reuse count ≥2 or non-trivial spec → promoted to element contract), identifies widgets and pages, writes the full contract hierarchy under `.gsd-t/contracts/design/{elements,widgets,pages}/` plus an `INDEX.md` navigation map.
+- **New command**: `/gsd-t-design-decompose` — surveys a design (Figma/image/prototype), classifies elements (reuse count ≥2 or non-trivial spec → promoted to element contract), identifies widgets and pages, writes the full contract hierarchy under `.gsd-t/contracts/design/{elements,widgets,pages}/` plus an `INDEX.md` navigation map.
 
 ### Changed
 - `design-to-code.md` stack rule adds Section 0 explaining flat vs. hierarchical contract modes and detection at execute-time (presence of `.gsd-t/contracts/design/` triggers hierarchical verification: elements first, then widgets, then pages)
@@ -1255,7 +1302,7 @@ Post-validation comparison of the built BDS Analytics screen against the origina
 ## [2.20.5] - 2026-02-16
 
 ### Added
-- **Next Command Hint**: After each GSD-T phase completes, displays the recommended next command (e.g., `Next → /user:gsd-t-partition`). Full successor mapping for all workflow commands. Skipped during auto-advancing (Level 3 mid-wave)
+- **Next Command Hint**: After each GSD-T phase completes, displays the recommended next command (e.g., `Next → /gsd-t-partition`). Full successor mapping for all workflow commands. Skipped during auto-advancing (Level 3 mid-wave)
 
 ## [2.20.4] - 2026-02-16
 
@@ -1325,7 +1372,7 @@ Post-validation comparison of the built BDS Analytics screen against the origina
 ## [2.17.0] - 2026-02-16
 
 ### Added
-- `/user:gsd-t-log` command — sync progress.md Decision Log with recent git activity by scanning commits since last logged entry
+- `/gsd-t-log` command — sync progress.md Decision Log with recent git activity by scanning commits since last logged entry
 - Incremental updates (only new commits) and first-time full reconstruction from git history
 - Total commands: 38 GSD-T + 3 utility = 41
 
@@ -1341,7 +1388,7 @@ Post-validation comparison of the built BDS Analytics screen against the origina
 ## [2.16.4] - 2026-02-16
 
 ### Changed
-- Smart router renamed from `/user:gsd-t` to `/user:gsd` — sorts first in autocomplete, shorter to type
+- Smart router renamed from `/gsd-t` to `/gsd` — sorts first in autocomplete, shorter to type
 - Pre-Commit Gate now requires timestamped progress.md entry (`YYYY-MM-DD HH:MM`) after every completed task, not just architectural decisions
 
 ## [2.16.3] - 2026-02-16
@@ -1352,7 +1399,7 @@ Post-validation comparison of the built BDS Analytics screen against the origina
 ## [2.16.2] - 2026-02-16
 
 ### Changed
-- Smart router renamed from `/user:gsd-t` to `/user:gsd` (reverted in 2.16.3)
+- Smart router renamed from `/gsd-t` to `/gsd` (reverted in 2.16.3)
 
 ## [2.16.1] - 2026-02-16
 
@@ -1392,7 +1439,7 @@ Post-validation comparison of the built BDS Analytics screen against the origina
 ## [2.15.0] - 2026-02-13
 
 ### Added
-- `/user:gsd-t-gap-analysis` command — requirements gap analysis against existing codebase
+- `/gsd-t-gap-analysis` command — requirements gap analysis against existing codebase
 - Parses spec into discrete numbered requirements, scans codebase, classifies each as implemented/partial/incorrect/not-implemented
 - Evidence-based classification with file:line references for each requirement
 - Severity levels: Critical (incorrect), High (partial), Medium (not implemented), Low (deferrable)
@@ -1412,12 +1459,12 @@ Post-validation comparison of the built BDS Analytics screen against the origina
 
 ### Changed
 - Update Notices section in CLAUDE-global template now handles both `[GSD-T UPDATE]` (update available) and `[GSD-T]` (up to date) version banners
-- Update command in notification changed from raw npm command to `/user:gsd-t-version-update-all`
+- Update command in notification changed from raw npm command to `/gsd-t-version-update-all`
 
 ## [2.14.0] - 2026-02-12
 
 ### Added
-- `/user:gsd-t` smart router command — describe what you need in plain language, auto-routes to the correct GSD-T command
+- `/gsd-t` smart router command — describe what you need in plain language, auto-routes to the correct GSD-T command
 - Intent classification routes to: quick, feature, project, debug, scan, brainstorm, milestone, wave, status, resume, backlog-add, and more
 - Total commands: 36 GSD-T + 3 utility = 39
 
@@ -1446,15 +1493,15 @@ Post-validation comparison of the built BDS Analytics screen against the origina
 ## [2.13.0] - 2026-02-12
 
 ### Added
-- `/user:gsd-t-init-scan-setup` slash command — full project onboarding combining git setup, init, scan, and setup in one command
+- `/gsd-t-init-scan-setup` slash command — full project onboarding combining git setup, init, scan, and setup in one command
 - Prompts for GitHub repo URL if not already connected; skips if remote exists
 - Total commands: 35 GSD-T + 3 utility = 38
 
 ## [2.12.0] - 2026-02-12
 
 ### Added
-- `/user:gsd-t-version-update` slash command — update GSD-T to latest version from within Claude Code
-- `/user:gsd-t-version-update-all` slash command — update GSD-T + all registered projects from within Claude Code
+- `/gsd-t-version-update` slash command — update GSD-T to latest version from within Claude Code
+- `/gsd-t-version-update-all` slash command — update GSD-T + all registered projects from within Claude Code
 - Total commands: 34 GSD-T + 3 utility = 37
 
 ## [2.11.6] - 2026-02-12

@@ -28,7 +28,7 @@ Before semantic evaluation, determine if this is a **continuation** of an alread
 
 For non-continuation messages, decide whether the request is **conversational** (user is thinking, exploring, or articulating — no command spawn) or **workflow** (user wants work done — route to a GSD-T command via Step 2).
 
-This step replaces the retired `/user:gsd-t-prompt`, `/user:gsd-t-brainstorm`, and `/user:gsd-t-discuss` commands, whose use cases the router now handles inline.
+This step replaces the retired `/gsd-t-prompt`, `/gsd-t-brainstorm`, and `/gsd-t-discuss` commands, whose use cases the router now handles inline.
 
 ### Conversational triggers (respond inline, NO command spawn):
 
@@ -74,7 +74,7 @@ Read the **Command Summaries** section of `commands/gsd-t-help.md` (or the in-me
 - **1 match** → Route immediately
 - **2+ matches** → Pick the best fit based on scope and context. Show the runner-up:
   ```
-  → Routing to /user:gsd-t-{command}: {reason}
+  → Routing to /gsd-t-{command}: {reason}
     (also considered: gsd-t-{runner-up} — Esc to switch)
   ```
 
@@ -136,7 +136,7 @@ When cleanup is needed, do it at the start of `design-decompose` before reading 
 
 ### New request (from Step 2):
 ```
-→ Routing to /user:gsd-t-{command}: {brief reason}
+→ Routing to /gsd-t-{command}: {brief reason}
 ```
 
 ### Conversational (from Step 2.5):
@@ -148,13 +148,13 @@ Follow this header with your direct in-line response — ask clarifying question
 ### Design pipeline (from design-to-code routing):
 ```
 → Design pipeline: clean → decompose → build
-  Starting: /user:gsd-t-design-decompose
+  Starting: /gsd-t-design-decompose
 ```
 Use this format when the router detects a design-to-code pipeline. Show the full pipeline with the current step highlighted. Auto-advance between steps without returning to the router.
 
 ### Continuation (from Step 2a):
 ```
-→ /gsd ──▶ continue /user:gsd-t-{last-command}
+→ /gsd ──▶ continue /gsd-t-{last-command}
 ```
 
 Where `{last-command}` is:
@@ -188,10 +188,10 @@ Valid command slugs: `quick`, `debug`, `feature`, `execute`, `milestone`, `proje
 
 **RIGHT ✅** — always use the exact command slug:
 ```
-→ Routing to /user:gsd-t-execute: implement auth feature across backend
-→ Routing to /user:gsd-t-debug: investigate login bug before fixing
-→ /gsd ──▶ continue /user:gsd-t-execute
-→ /gsd ──▶ continue /user:gsd-t-quick
+→ Routing to /gsd-t-execute: implement auth feature across backend
+→ Routing to /gsd-t-debug: investigate login bug before fixing
+→ /gsd ──▶ continue /gsd-t-execute
+→ /gsd ──▶ continue /gsd-t-quick
 ```
 
 This MUST be the very first line of your response. Then immediately execute that command's full workflow, passing `$ARGUMENTS` through.
@@ -203,16 +203,16 @@ This MUST be the very first line of your response. Then immediately execute that
 If called with no arguments, show:
 
 ```
-Usage: /user:gsd {describe what you want}
+Usage: /gsd {describe what you want}
 
 Examples:
-  /user:gsd Fix the login timeout bug
-  /user:gsd Add dark mode support
-  /user:gsd Scan the codebase for tech debt
-  /user:gsd What's the current progress?
-  /user:gsd Compare this spec against our code
-  /user:gsd Help me think through this integration before I start
-  /user:gsd I'm stuck — what are other angles?
+  /gsd Fix the login timeout bug
+  /gsd Add dark mode support
+  /gsd Scan the codebase for tech debt
+  /gsd What's the current progress?
+  /gsd Compare this spec against our code
+  /gsd Help me think through this integration before I start
+  /gsd I'm stuck — what are other angles?
 
 I'll route to the right GSD-T command — or just think out loud with you
 if you're still figuring things out (no command spawn).

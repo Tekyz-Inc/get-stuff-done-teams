@@ -153,7 +153,7 @@ Exit codes of the `gsd-t unattended` CLI itself mirror §5 at termination time.
 
 ## 7. Launch Handshake
 
-1. **User** invokes `/user:gsd-t-unattended` in an interactive Claude session.
+1. **User** invokes `/gsd-t-unattended` in an interactive Claude session.
 2. **Launch command** pre-flights:
    - Reads project; verifies `.gsd-t/progress.md` exists and has an active non-COMPLETED milestone.
    - Checks `.gsd-t/.unattended/supervisor.pid` — if present AND `kill -0` succeeds, refuse with "already running" message and ScheduleWakeup a watch tick instead. Singleton.
@@ -178,7 +178,7 @@ Exit codes of the `gsd-t unattended` CLI itself mirror §5 at termination time.
 
 ## 8. Watch Tick Decision Tree
 
-Each `/user:gsd-t-unattended-watch` firing:
+Each `/gsd-t-unattended-watch` firing:
 
 1. Read `supervisor.pid` — absent → supervisor finalized cleanly. Read final `state.json`, print report, STOP.
 2. `kill -0 {pid}` — fails → `crashed`. Print diagnostics + `run.log` tail, STOP.
@@ -195,7 +195,7 @@ Each `/user:gsd-t-unattended-watch` firing:
 
 ## 9. Resume Auto-Reattach Handshake
 
-When `/user:gsd-t-resume` runs, its NEW Step 0 (owned by m36-watch-loop) executes BEFORE any other resume logic:
+When `/gsd-t-resume` runs, its NEW Step 0 (owned by m36-watch-loop) executes BEFORE any other resume logic:
 
 1. If `.gsd-t/.unattended/supervisor.pid` does not exist → fall through to normal resume flow (unchanged).
 2. Read PID. `kill -0 {pid}` fails → supervisor is crashed. Log the crash, remove the stale PID file, fall through to normal resume. (Don't silently swallow — state.json still says "running" in this case, which is valuable diagnostic info.)
@@ -209,7 +209,7 @@ The resume auto-reattach is idempotent — running it multiple times in the same
 
 ## 10. Stop Mechanism
 
-User invokes `/user:gsd-t-unattended-stop`:
+User invokes `/gsd-t-unattended-stop`:
 1. Command creates `.gsd-t/.unattended/stop` (touches the file, writes current ISO timestamp as body for diagnostics).
 2. Command prints "Stop requested. Supervisor will halt after the current worker finishes."
 3. Command returns immediately. No wait, no kill.

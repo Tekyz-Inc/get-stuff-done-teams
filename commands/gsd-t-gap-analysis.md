@@ -224,13 +224,13 @@ Show the recommended groupings and offer promotion paths:
 ## Recommended Next Steps
 
 1. {Milestone name} — {N} gaps ({critical} critical, {high} high)
-   → /user:gsd-t-milestone "{name}"
+   → /gsd-t-milestone "{name}"
 
 2. {Feature name} — {N} gaps
-   → /user:gsd-t-feature "{name}"
+   → /gsd-t-feature "{name}"
 
 3. Quick fixes — {N} items
-   → /user:gsd-t-quick "{description}"
+   → /gsd-t-quick "{description}"
 
 Promote any of these now, or review the gap analysis first?
 ```

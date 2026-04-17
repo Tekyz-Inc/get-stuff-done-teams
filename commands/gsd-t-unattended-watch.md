@@ -2,7 +2,7 @@
 
 **Model**: haiku (polling a state file is mechanical — no reasoning needed)
 
-You are running one tick of the unattended supervisor watch loop. This command is **stateless**: every firing re-reads `.gsd-t/.unattended/supervisor.pid` + `state.json` + `run.log` from disk and makes a fresh decision. There is no in-memory state between ticks, and a `/clear` followed by `/user:gsd-t-resume` during a live unattended run is a no-op.
+You are running one tick of the unattended supervisor watch loop. This command is **stateless**: every firing re-reads `.gsd-t/.unattended/supervisor.pid` + `state.json` + `run.log` from disk and makes a fresh decision. There is no in-memory state between ticks, and a `/clear` followed by `/gsd-t-resume` during a live unattended run is a no-op.
 
 The watch loop is the user's visibility surface into the running supervisor. It fires every 270 seconds (inside the 5-minute prompt-cache TTL) and either:
 1. Renders a compact status block + reschedules itself, OR
@@ -245,7 +245,7 @@ The supervisor process is gone but it did not remove its PID file — this is a 
 
     Recovery: inspect .gsd-t/.unattended/run.log and .gsd-t/.unattended/state.json.
     Remove the stale PID file with: rm .gsd-t/.unattended/supervisor.pid
-    Then relaunch with: /user:gsd-t-unattended
+    Then relaunch with: /gsd-t-unattended
 ```
 
 **STOP** — do NOT reschedule. End the turn.
@@ -296,7 +296,7 @@ The supervisor is still alive but has transitioned to a terminal status on its l
     Total elapsed: {Hh Mm}
     Log:           {LOG_PATH}
 
-    Stop sentinel was honored between worker iterations. Relaunch with /user:gsd-t-unattended.
+    Stop sentinel was honored between worker iterations. Relaunch with /gsd-t-unattended.
 ```
 
 **STOP** — do NOT reschedule. End the turn.
@@ -321,7 +321,7 @@ Format rules:
 📋  Tasks: {TASKS_DONE}/{TASKS_TOTAL} [{progress bar}] · elapsed {Hh Mm}
 🔧  {DOMAIN_SUMMARY or "No domains yet (pre-partition)"}
 ⏱  Iter {ITER}/{MAX_ITER} · last tick {tickAge} · last exit {LAST_EXIT} ({durationSec}s)
-⏰  Next tick in 270s · Stop: /user:gsd-t-unattended-stop
+⏰  Next tick in 270s · Stop: /gsd-t-unattended-stop
 ```
 
 Progress bar rendering (8 chars wide):
@@ -392,7 +392,7 @@ After the tool call, end the turn. Do NOT output a "Next Up" hint, do NOT contin
 ## Notes
 
 - **Stateless**: every tick re-reads state from disk. No memory between firings.
-- **Terminal = STOP**: any terminal branch (3, 4, 5) ends the loop. The user relaunches via `/user:gsd-t-unattended` if needed.
+- **Terminal = STOP**: any terminal branch (3, 4, 5) ends the loop. The user relaunches via `/gsd-t-unattended` if needed.
 - **Never spawn subagents**: this is a pure polling command — no Task, no TeamCreate, no observability logging block.
 - **No branch guard, no pre-commit gate, no doc ripple**: this command does not modify any files.
 - **Stale-tick tolerance**: if `lastTick` is >540s old but PID is still alive, warn soft (`⚠️  stale`) but still reschedule — the supervisor may be mid-worker.

@@ -9,7 +9,7 @@
 
 ## 0. Required Software (All Platforms)
 
-The launch command (`/user:gsd-t-unattended`) pre-flights required software in
+The launch command (`/gsd-t-unattended`) pre-flights required software in
 Step 1e and refuses to spawn if anything is missing. Install these before
 launching:
 

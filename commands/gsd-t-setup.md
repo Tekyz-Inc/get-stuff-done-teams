@@ -192,7 +192,7 @@ Options:
   [2] web-app  — "User-facing app: accessible, performant, visually consistent. UX is the product."
   [3] cli      — "Developer CLI: fast, predictable, clear output. Error messages explain what went wrong and how to fix it."
   [4] custom   — Write your own 1–3 sentences
-  [5] skip     — No Quality North Star (can add later via /user:gsd-t-setup)
+  [5] skip     — No Quality North Star (can add later via /gsd-t-setup)
 ```
 
 If the user picks 1–3, use the corresponding preset text from the table below.
@@ -240,7 +240,7 @@ Would you like to generate a design brief at .gsd-t/contracts/design-brief.md?
 This gives subagents a consistent visual language reference (colors, typography, spacing, patterns).
 
   [1] Yes — generate now (sources: Tailwind config if exists, then project defaults)
-  [2] No — skip for now (can generate later by re-running /user:gsd-t-setup)
+  [2] No — skip for now (can generate later by re-running /gsd-t-setup)
 ```
 
 If user picks 1: generate `.gsd-t/contracts/design-brief.md` using the format defined in `.gsd-t/contracts/design-brief-contract.md` (or the standard format):

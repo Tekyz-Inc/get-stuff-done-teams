@@ -1294,9 +1294,9 @@ function showInstallSummary(gsdtCount, utilCount) {
   log(`${BOLD}Quick Start:${RESET}`);
   log(`  ${DIM}$${RESET} cd your-project`);
   log(`  ${DIM}$${RESET} claude`);
-  log(`  ${DIM}>${RESET} /user:gsd-t-init my-project`);
-  log(`  ${DIM}>${RESET} /user:gsd-t-milestone "First Feature"`);
-  log(`  ${DIM}>${RESET} /user:gsd-t-wave`);
+  log(`  ${DIM}>${RESET} /gsd-t-init my-project`);
+  log(`  ${DIM}>${RESET} /gsd-t-milestone "First Feature"`);
+  log(`  ${DIM}>${RESET} /gsd-t-wave`);
   log("");
   log(`${BOLD}Other commands:${RESET}`);
   log(`  ${DIM}$${RESET} npx @tekyzinc/gsd-t status      ${DIM}— check installation${RESET}`);
@@ -1344,7 +1344,7 @@ function initClaudeMd(projectDir, projectName, today) {
         info("CLAUDE.md already contains GSD-T section — skipping");
       } else {
         warn("CLAUDE.md exists but doesn't reference GSD-T");
-        info("Run /user:gsd-t-init inside Claude Code to add GSD-T section");
+        info("Run /gsd-t-init inside Claude Code to add GSD-T section");
       }
     } else { throw e; }
   }
@@ -1513,8 +1513,8 @@ function showInitTree(projectDir) {
   log(`${BOLD}Next steps:${RESET}`);
   log(`  1. Edit CLAUDE.md — add project overview and tech stack`);
   log(`  2. Start Claude Code: ${DIM}claude${RESET}`);
-  log(`  3. Run: ${DIM}/user:gsd-t-populate${RESET}  ${DIM}(if existing codebase)${RESET}`);
-  log(`     Or:  ${DIM}/user:gsd-t-project${RESET}   ${DIM}(if new project)${RESET}`);
+  log(`  3. Run: ${DIM}/gsd-t-populate${RESET}  ${DIM}(if existing codebase)${RESET}`);
+  log(`     Or:  ${DIM}/gsd-t-project${RESET}   ${DIM}(if new project)${RESET}`);
   log("");
 }
 
@@ -1687,7 +1687,7 @@ function showStatusProject() {
     }
   } else if (hasClaudeMd) {
     info("CLAUDE.md found but no .gsd-t/ directory");
-    info("Run /user:gsd-t-init inside Claude Code to set up");
+    info("Run /gsd-t-init inside Claude Code to set up");
   } else {
     info("Not in a GSD-T project directory");
     info(`Run 'npx @tekyzinc/gsd-t init' to set up this directory`);
@@ -1945,6 +1945,19 @@ function exportUniversalRulesForNpm() {
 }
 
 async function doUpdateAll() {
+  // Step 1: Upgrade the globally-installed npm package FIRST. Without this,
+  // `update-all` would only propagate command files — but the global `gsd-t`
+  // binary itself could stay pinned to an older version (e.g., user stuck
+  // on v3.11.11 while npm registry has v3.12.12). See CHANGELOG v3.12.13.
+  // Guard with an env flag to prevent re-exec loops.
+  if (!process.env.GSDT_POST_UPGRADE) {
+    const upgraded = await upgradeGlobalBinary();
+    if (upgraded.reexec) {
+      reexecUpdateAll();
+      return;
+    }
+  }
+
   await updateGlobalCommands();
   heading("Updating registered projects...");
   log("");
@@ -1967,6 +1980,65 @@ async function doUpdateAll() {
 
   const { playwrightMissing, swaggerMissing } = checkProjectHealth(projects);
   showUpdateAllSummary(projects.length, counts, playwrightMissing, swaggerMissing, syncCount);
+}
+
+// Upgrade the globally-installed @tekyzinc/gsd-t to @latest. Returns
+// { upgraded: bool, reexec: bool, error?: string }.
+// - reexec=true when the on-disk version after `npm install -g` is newer than
+//   the currently-running PKG_VERSION, meaning we need to hand off to the
+//   freshly-installed binary so the new code drives propagation.
+// - reexec=false when already at latest, or when the install failed (we
+//   continue with the current binary and still propagate command files).
+async function upgradeGlobalBinary() {
+  heading("Upgrading global @tekyzinc/gsd-t to latest...");
+  try {
+    execFileSync("npm", ["install", "-g", "@tekyzinc/gsd-t@latest"], {
+      stdio: "inherit",
+      env: process.env,
+    });
+  } catch (e) {
+    warn(`Global npm install failed: ${e.message || e}`);
+    info("Continuing with current binary — command files will still be propagated.");
+    return { upgraded: false, reexec: false, error: String(e.message || e) };
+  }
+
+  // Read the freshly-installed global package's version. If it's newer than
+  // the currently-running process, signal a re-exec.
+  let newVersion = null;
+  try {
+    const prefix = execFileSync("npm", ["prefix", "-g"], { encoding: "utf8" }).trim();
+    const globalPkgJson = path.join(prefix, "lib", "node_modules", "@tekyzinc", "gsd-t", "package.json");
+    if (fs.existsSync(globalPkgJson)) {
+      newVersion = JSON.parse(fs.readFileSync(globalPkgJson, "utf8")).version;
+    }
+  } catch {
+    // Best-effort; fall through.
+  }
+
+  if (newVersion && newVersion !== PKG_VERSION) {
+    success(`Global binary upgraded: v${PKG_VERSION} → v${newVersion}`);
+    info("Handing off to the newly-installed binary for propagation...");
+    return { upgraded: true, reexec: true };
+  }
+  success(`Global binary already at latest (v${PKG_VERSION})`);
+  return { upgraded: true, reexec: false };
+}
+
+// Hand execution to the newly-installed global `gsd-t update-all`. Sets the
+// GSDT_POST_UPGRADE env flag so the child does not recurse into another
+// upgrade attempt.
+function reexecUpdateAll() {
+  const env = Object.assign({}, process.env, { GSDT_POST_UPGRADE: "1" });
+  try {
+    execFileSync("gsd-t", ["update-all"], { stdio: "inherit", env });
+  } catch (e) {
+    // Surface the child's exit code; execFileSync throws with .status on
+    // non-zero exit. Fall through to re-throw so the caller exits cleanly.
+    if (e && typeof e.status === "number") {
+      process.exit(e.status);
+    }
+    throw e;
+  }
 }
 
 async function updateGlobalCommands() {
@@ -2718,7 +2790,7 @@ function parseHeadlessFlags(args) {
  * Build the claude -p invocation string for a GSD-T command.
  *
  * Non-interactive `claude -p` mode requires the bare `/gsd-t-X` form — the
- * `/user:gsd-t-X` namespace prefix is rejected as "Unknown command" even
+ * `/gsd-t-X` namespace prefix is rejected as "Unknown command" even
  * though interactive mode accepts both. Verified by M36 Phase 0 Spike A
  * (2026-04-15). See .gsd-t/M36-spike-findings.md.
  */
@@ -3378,8 +3450,8 @@ function showHelp() {
   log(`  ${DIM}$${RESET} npx @tekyzinc/gsd-t init my-saas-app`);
   log(`  ${DIM}$${RESET} npx @tekyzinc/gsd-t update\n`);
   log(`${BOLD}After installing, use in Claude Code:${RESET}`);
-  log(`  ${DIM}>${RESET} /user:gsd-t-project "Build a task management app"`);
-  log(`  ${DIM}>${RESET} /user:gsd-t-wave\n`);
+  log(`  ${DIM}>${RESET} /gsd-t-project "Build a task management app"`);
+  log(`  ${DIM}>${RESET} /gsd-t-wave\n`);
   log(`${DIM}Docs: https://github.com/Tekyz-Inc/get-stuff-done-teams${RESET}\n`);
 }
 

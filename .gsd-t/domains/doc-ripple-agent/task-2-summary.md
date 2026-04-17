@@ -30,7 +30,7 @@ Adding a new command required updates to 4 reference files:
 - `CLAUDE.md` — updated command count in Overview and Project Structure
 - `README.md` — updated two count references (install description + file tree)
 - `commands/gsd-t-help.md` — added doc-ripple to listing and detailed sections
-- `templates/CLAUDE-global.md` — added `/user:gsd-t-doc-ripple` to commands table
+- `templates/CLAUDE-global.md` — added `/gsd-t-doc-ripple` to commands table
 
 ## Test Results
 

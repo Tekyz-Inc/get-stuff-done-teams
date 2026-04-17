@@ -13,14 +13,14 @@ Parse $ARGUMENTS to extract:
 - `<position>` — the entry number to promote
 
 If no position is provided, show an error:
-"Usage: `/user:gsd-t-backlog-promote <position>`"
+"Usage: `/gsd-t-backlog-promote <position>`"
 
 ## Step 2: Find and Display Entry
 
 Find the entry at the specified position in `.gsd-t/backlog.md`.
 
 If the position doesn't exist, show an error:
-"No backlog entry at position {position}. Run `/user:gsd-t-backlog-list` to see available entries."
+"No backlog entry at position {position}. Run `/gsd-t-backlog-list` to see available entries."
 
 Display the entry to the user:
 ```
@@ -88,10 +88,10 @@ After classification is confirmed:
 
 Based on the classification, present the command for the user to invoke:
 
-- **Milestone**: "Run `/user:gsd-t-milestone {refined description}`"
-- **Quick**: "Run `/user:gsd-t-quick {refined description}`"
-- **Debug**: "Run `/user:gsd-t-debug {refined description}`"
-- **Feature**: "Run `/user:gsd-t-feature {refined description}`"
+- **Milestone**: "Run `/gsd-t-milestone {refined description}`"
+- **Quick**: "Run `/gsd-t-quick {refined description}`"
+- **Debug**: "Run `/gsd-t-debug {refined description}`"
+- **Feature**: "Run `/gsd-t-feature {refined description}`"
 
 Display the full command with the refined description ready to copy.
 

@@ -291,13 +291,13 @@ Next steps:
 
 For a new project:
 ```
-/user:gsd-t-project {one-line summary}
+/gsd-t-project {one-line summary}
 ```
 Then paste the PRD when prompted. The PRD's requirements table becomes docs/requirements.md. The architecture section seeds docs/architecture.md. The milestone sequence becomes your roadmap.
 
 For a feature on an existing project:
 ```
-/user:gsd-t-feature {one-line summary}
+/gsd-t-feature {one-line summary}
 ```
 Then paste the PRD when prompted.
 

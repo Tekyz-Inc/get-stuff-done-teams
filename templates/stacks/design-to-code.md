@@ -19,7 +19,7 @@ Two contract layouts are supported. Pick the one that fits the project scope:
 - Use when: multiple pages, reusable components (charts, cards, legends), design system in play
 - Pros: element contracts are the single source of truth for visual spec — widgets and pages SELECT and POSITION but cannot override. Drift is structurally impossible.
 - Cons: more contracts to write upfront (elements: ~10-20, widgets: ~5-10, pages: N)
-- Bootstrap via: `/user:gsd-t-design-decompose {Figma URL or image path}`
+- Bootstrap via: `/gsd-t-design-decompose {Figma URL or image path}`
 - Templates: `templates/element-contract.md`, `templates/widget-contract.md`, `templates/page-contract.md`
 
 **Precedence rule (hierarchical only)**:

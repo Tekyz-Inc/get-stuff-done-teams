@@ -154,7 +154,7 @@ When GSD-T spawns a subagent via the Task tool or a TeamCreate, the subagent inh
 
 **Example flow**:
 1. User's shell has `ANTHROPIC_MODEL=opus`.
-2. User types `/user:gsd-t-execute` in their session. Claude Code runs on `opus`.
+2. User types `/gsd-t-execute` in their session. Claude Code runs on `opus`.
 3. Claude Code (running on `opus`) reads `commands/gsd-t-execute.md`, sees `## Model Assignment: Default: sonnet`, and issues the `execute` subagent spawn with `model: sonnet`. The subagent runs on `sonnet`.
 4. The subagent hits a declared escalation point (e.g., "verify-fix after test failure"). It invokes `/advisor` (programmable path) or emits an `/advisor` request block (convention path). The `/advisor` call runs on `opus`.
 5. The subagent proceeds on `sonnet` with the `opus` guidance applied.

@@ -3,8 +3,8 @@
 You are finalizing a completed milestone. Your job is to archive the milestone documentation, create a git tag, and prepare for the next milestone.
 
 This command is:
-- **Auto-invoked** by `/user:gsd-t-verify` (Step 8) after all quality gates pass — at ALL autonomy levels
-- **Auto-invoked** by `/user:gsd-t-wave` as part of the VERIFY+COMPLETE phase
+- **Auto-invoked** by `/gsd-t-verify` (Step 8) after all quality gates pass — at ALL autonomy levels
+- **Auto-invoked** by `/gsd-t-wave` as part of the VERIFY+COMPLETE phase
 - **Standalone** when user wants to manually close a milestone
 
 ## Step 1: Verify Completion
@@ -14,7 +14,7 @@ Read:
 2. `.gsd-t/verify-report.md` — confirm all checks passed
 
 If status is not VERIFIED:
-"⚠️ Milestone not yet verified. Run `/user:gsd-t-verify` first, or use `--force` to complete anyway."
+"⚠️ Milestone not yet verified. Run `/gsd-t-verify` first, or use `--force` to complete anyway."
 
 If `--force` flag provided, proceed with warning in archive.
 
@@ -76,7 +76,7 @@ Refer to `.gsd-t/contracts/goal-backward-contract.md` for the full verification 
   {findings table}
 
   Options:
-  1. Fix the findings and re-run /user:gsd-t-verify
+  1. Fix the findings and re-run /gsd-t-verify
   2. Override with explicit acknowledgment: re-run this command with --force-goal-backward
 
   Proceed with option 1 (recommended) or acknowledge to force completion?
@@ -493,8 +493,8 @@ Summary:
 
 Next steps:
 - Push tags: git push origin v{version}
-- Start next milestone: /user:gsd-t-milestone "{next name}"
-- Or view roadmap: /user:gsd-t-status
+- Start next milestone: /gsd-t-milestone "{next name}"
+- Or view roadmap: /gsd-t-status
 ```
 
 ## Step 13: Update Roadmap (if exists)
@@ -510,7 +510,7 @@ If `.gsd-t/roadmap.md` exists:
 "Cannot complete — verification found issues. Address them first or use `--force`."
 
 ### If no milestone active:
-"No active milestone to complete. Run `/user:gsd-t-status` to see state."
+"No active milestone to complete. Run `/gsd-t-status` to see state."
 
 ### If git operations fail:
 - Still create archive

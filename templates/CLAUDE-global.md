@@ -26,65 +26,7 @@ PROJECT or FEATURE or SCAN
 
 ## Commands Reference
 
-| Command | Purpose |
-|---------|---------|
-| `/user:gsd` | Smart router — describe what you need, auto-routes to the right command |
-| `/user:gsd-t-help` | List all commands or get detailed help |
-| `/user:gsd-t-prompt` | Help formulate your idea before committing |
-| `/user:gsd-t-brainstorm` | Creative exploration and idea generation |
-| `/user:gsd-t-prd` | Generate a GSD-T-optimized Product Requirements Document |
-| `/user:gsd-t-project` | Full project → milestone roadmap |
-| `/user:gsd-t-feature` | Major feature → impact analysis + milestones |
-| `/user:gsd-t-scan` | Deep codebase analysis → techdebt.md |
-| `/user:gsd-t-gap-analysis` | Requirements gap analysis — spec vs. existing code |
-| `/user:gsd-t-promote-debt` | Convert debt items to milestones |
-| `/user:gsd-t-setup` | Generate or restructure project CLAUDE.md |
-| `/user:gsd-t-init` | Initialize project structure |
-| `/user:gsd-t-init-scan-setup` | Full onboarding: git + init + scan + setup in one |
-| `/user:gsd-t-milestone` | Define new milestone |
-| `/user:gsd-t-partition` | Decompose into domains + contracts |
-| `/user:gsd-t-discuss` | Multi-perspective design exploration |
-| `/user:gsd-t-plan` | Create atomic task lists per domain (tasks auto-split to fit one context window) |
-| `/user:gsd-t-impact` | Analyze downstream effects before execution |
-| `/user:gsd-t-execute` | Run tasks — task-level fresh dispatch, worktree isolation, adaptive replanning, active rule injection |
-| `/user:gsd-t-test-sync` | Keep tests aligned with code changes |
-| `/user:gsd-t-qa` | QA agent — test generation, execution, gap reporting |
-| `/user:gsd-t-doc-ripple` | Automated document ripple — update downstream docs after code changes |
-| `/user:gsd-t-integrate` | Wire domains together |
-| `/user:gsd-t-verify` | Run quality gates + goal-backward behavior verification |
-| `/user:gsd-t-complete-milestone` | Archive milestone + git tag (goal-backward gate, rule engine distillation) |
-| `/user:gsd-t-wave` | Full cycle (auto-advances all phases) |
-| `/user:gsd-t-status` | Cross-domain progress view with token breakdown, global ELO and cross-project rankings |
-| `/user:gsd-t-debug` | Systematic debugging |
-| `/user:gsd-t-quick` | Fast task, respects contracts |
-| `/user:gsd-t-visualize` | Launch browser dashboard |
-| `/user:gsd-t-metrics` | View task telemetry, process ELO, domain health, and cross-project comparison (`--cross-project`) |
-| `/user:gsd-t-health` | Validate .gsd-t/ structure, optionally repair |
-| `/user:gsd-t-pause` | Save exact position for reliable resume |
-| `/user:gsd-t-populate` | Auto-populate docs from existing codebase |
-| `/user:gsd-t-design-decompose` | Decompose design into element/widget/page contracts |
-| `/user:gsd-t-log` | Sync progress Decision Log with recent git activity |
-| `/user:gsd-t-resume` | Restore context, continue |
-| `/user:gsd-t-version-update` | Update GSD-T to latest version |
-| `/user:gsd-t-version-update-all` | Update GSD-T + all registered projects |
-| `/user:gsd-t-unattended` | Launch detached supervisor — runs active milestone to completion with zero human intervention |
-| `/user:gsd-t-unattended-watch` | Watch tick — fires every 270s via ScheduleWakeup, reports supervisor status |
-| `/user:gsd-t-unattended-stop` | Touch stop sentinel — supervisor halts after current worker finishes |
-| `/user:gsd-t-triage-and-merge` | Auto-review, merge, and publish GitHub branches |
-| `/user:gsd-t-design-audit` | Compare built screen against Figma design — structured deviation report |
-| `/user:gsd-t-design-build` | Build from design contracts with two-terminal review |
-| `/user:gsd-t-design-review` | Independent review agent for design build (Term 2) |
-| `/user:gsd-t-backlog-add` | Capture item, auto-categorize, append to backlog |
-| `/user:gsd-t-backlog-list` | Filtered, ordered view of backlog items |
-| `/user:gsd-t-backlog-move` | Reorder items by position (priority) |
-| `/user:gsd-t-backlog-edit` | Modify backlog entry fields |
-| `/user:gsd-t-backlog-remove` | Drop item with optional reason |
-| `/user:gsd-t-backlog-promote` | Refine, classify, launch GSD-T workflow |
-| `/user:gsd-t-backlog-settings` | Manage types, apps, categories, defaults |
-| `/user:branch` | Create and switch to a new git branch |
-| `/user:checkin` | Auto-bump version, stage, commit, and push |
-| `/user:Claude-md` | Reload and apply CLAUDE.md directives |
-| `/global-change` | Apply file changes across all registered GSD-T projects |
+See `/gsd-t-help` for the complete command list.
 
 
 # Living Documents
@@ -189,7 +131,7 @@ On session start, a version check hook auto-updates GSD-T and outputs a status m
 - If `[GSD-T UPDATE]` appears → update available but auto-update failed. Show:
   ```
   ⬆️  GSD-T update available: v{installed} → v{latest} (auto-update failed)
-     Run: /user:gsd-t-version-update-all
+     Run: /gsd-t-version-update-all
      Changelog: https://github.com/Tekyz-Inc/get-stuff-done-teams/blob/main/CHANGELOG.md
   ```
   Also repeat at the **end** of your first response.
@@ -204,7 +146,7 @@ On session start, a version check hook auto-updates GSD-T and outputs a status m
 
 Only execute GSD-T workflow behavior when a `/gsd-t-*` command is invoked or when actively mid-phase (resumed via `/gsd-t-resume`). **Plain text messages — especially questions — should be answered conversationally.** Do not launch into workflow execution, file reading, or phase advancement from a question or comment. If the user wants work done, they will invoke a command.
 
-**Exception — Auto-Route signal**: When `[GSD-T AUTO-ROUTE]` appears in your context (injected by the UserPromptSubmit hook), the user's plain text message should be treated as a `/user:gsd {message}` invocation. Execute the `/gsd` smart router with the user's full message as the argument instead of replying conversationally. The hook only fires in GSD-T projects (directories containing `.gsd-t/progress.md`) — it silently passes through in all other directories.
+**Exception — Auto-Route signal**: When `[GSD-T AUTO-ROUTE]` appears in your context (injected by the UserPromptSubmit hook), the user's plain text message should be treated as a `/gsd {message}` invocation. Execute the `/gsd` smart router with the user's full message as the argument instead of replying conversationally. The hook only fires in GSD-T projects (directories containing `.gsd-t/progress.md`) — it silently passes through in all other directories.
 
 ## Auto-Init Guard
 
@@ -284,74 +226,18 @@ Every Playwright assertion must verify one of:
 
 ## QA Agent (Mandatory)
 
-Any GSD-T phase that produces or validates code **MUST run QA**. The QA agent's sole job is test generation, execution, and gap reporting. It never writes feature code.
-
-**QA method by command:**
-- `execute`, `integrate` → spawn QA via **Task subagent** (lightweight, no TeamCreate)
-- `test-sync`, `verify`, `complete-milestone` → perform contract testing and gap analysis **inline**
-- `quick`, `debug` → run the full test suite **inline** as part of the command's Test & Verify step
-- `wave` → each phase agent handles QA per the rules above
-- `partition`, `plan` → no QA spawn needed (no code produced yet)
-
-**Task subagent spawn instruction (execute/integrate):**
-```
-Task subagent (general-purpose):
-"Run ALL configured test suites — detect and run every one:
-a. Unit tests (vitest/jest/mocha): run the full suite
-b. E2E tests: check for playwright.config.* or cypress.config.* — if found, run the FULL E2E suite
-c. NEVER skip E2E when a config file exists. Running only unit tests is a QA FAILURE.
-d. Read .gsd-t/contracts/ for contract definitions. Check contract compliance.
-e. AUDIT E2E test quality: Review each Playwright spec — if any test only checks element
-   existence (isVisible, toBeAttached, toBeEnabled) without verifying functional behavior
-   (state changes, data loaded, content updated after user actions), flag it as
-   'SHALLOW TEST — needs functional assertions'. A passing test suite that doesn't catch
-   broken features is a QA FAILURE.
-Report format: 'Unit: X/Y pass | E2E: X/Y pass (or N/A if no config) | Contract: compliant/violations | Shallow tests: N'"
-```
-
-**QA failure OR shallow tests found blocks phase completion.** Lead cannot proceed until QA reports PASS with zero shallow tests, or user explicitly overrides.
+Every code-producing/validating phase MUST run QA. QA writes ZERO feature code — it generates, runs, and gap-reports tests. Failure (or any shallow E2E test) blocks phase completion.
+Protocol: `templates/prompts/qa-subagent.md`. Contract: `.gsd-t/contracts/qa-agent-contract.md`.
 
 ## Design Verification Agent (Mandatory when design contract exists)
 
-After QA passes, if `.gsd-t/contracts/design-contract.md` exists, a **dedicated Design Verification Agent** is spawned. This agent's ONLY job is to open a browser, compare the built frontend against the original design, and produce a structured element-by-element comparison table. It writes ZERO feature code.
-
-**Why a dedicated agent?** Coding agents consistently skip visual verification — even with detailed instructions — because their incentive is to finish building, not to audit. Separating the verifier from the builder ensures the verification actually happens.
-
-**Design Verification method by command:**
-- `execute` → spawns Design Verification Agent after QA passes (Step 5.25)
-- `quick` → spawns Design Verification Agent after tests pass (Step 5.25)
-- `integrate`, `wave` → Design Verification runs within the execute phase per the rules above
-- Commands without UI work → skipped automatically (no design contract = no verification)
-
-**Key rules:**
-- **FAIL-BY-DEFAULT**: Every visual element starts as UNVERIFIED. Must prove each matches.
-- **Structured comparison table**: 30+ rows minimum for a full page. Each element gets specific design values vs. specific implementation values and a MATCH or DEVIATION verdict.
-- **No vague verdicts**: "Looks close" and "appears to match" are not valid. Only �� MATCH or ❌ DEVIATION with specific values.
-- **Side-by-side browser sessions**: Opens both the built frontend AND the original design (Figma page, design image, or MCP screenshot) for direct visual comparison.
-- **Artifact gate**: Orchestrator checks that `design-contract.md` contains a `## Verification Status` section with a populated comparison table. Missing artifact = re-spawn (1 retry).
-- **Fix cycle**: Deviations are fixed (up to 2 cycles) and re-verified before proceeding.
-
-**Design Verification FAIL blocks phase completion.** Deviations must be fixed or logged to `.gsd-t/deferred-items.md`.
+When `.gsd-t/contracts/design-contract.md` or `.gsd-t/contracts/design/` exists, a dedicated agent opens a browser, compares the build against the design, and writes a structured element-by-element MATCH/DEVIATION table. Writes ZERO feature code. Deviations (or missing verification artifact) block phase completion.
+Protocol: `templates/prompts/design-verify-subagent.md`.
 
 ## Red Team — Adversarial QA (Mandatory)
 
-After QA and Design Verification pass, every code-producing command spawns a **Red Team agent** — an adversarial subagent whose success is measured by bugs found, not tests passed. This inverts the incentive structure: the Red Team's drive toward "task complete" means digging deeper and finding more bugs, not rubber-stamping.
-
-**Red Team method by command:**
-- `execute` → spawns Red Team after Design Verification passes (Step 5.5)
-- `integrate` → spawns Red Team after integration tests pass (Step 7.5)
-- `quick` → spawns Red Team after Design Verification passes (Step 5.5)
-- `debug` → spawns Red Team after fix verification passes (Step 5.3)
-- `wave` → each phase agent handles Red Team per the rules above
-
-**Key Red Team rules:**
-- **Inverted incentive**: More bugs found = more value. Zero bugs requires exhaustive proof of thoroughness.
-- **False positive penalty**: Reporting non-bugs destroys credibility. Every bug must be reproduced with proof.
-- **Exhaustive categories**: Contract violations, boundary inputs, state transitions, error paths, missing flows, regression, E2E functional gaps, design fidelity (when design contract exists: render in browser, screenshot, build element inventory, produce structured comparison table with per-element MATCH/DEVIATION verdicts — never "looks close") — all must be attempted.
-- **VERDICT**: `FAIL` (bugs found — blocks completion) or `GRUDGING PASS` (exhaustive search, nothing found).
-- **Report**: Written to `.gsd-t/red-team-report.md`; bugs also appended to `.gsd-t/qa-issues.md`.
-
-**Red Team FAIL blocks phase completion.** CRITICAL/HIGH bugs must be fixed (up to 2 fix cycles). If bugs persist, they are logged to `.gsd-t/deferred-items.md` and presented to the user.
+After QA + Design Verification pass, every code-producing command spawns an adversarial subagent whose success is measured by bugs found, not tests passed. VERDICT is `FAIL` (bugs — blocks completion) or `GRUDGING PASS` (exhaustive search, nothing found). CRITICAL/HIGH bugs get up to 2 fix cycles before deferral.
+Protocol: `templates/prompts/red-team-subagent.md`.
 
 ## Model Display (MANDATORY)
 
@@ -369,12 +255,8 @@ This gives the user real-time visibility into which model is handling each opera
 
 ## Headless-by-Default Spawn (M38, v3.12.10+)
 
-**Architectural shift**: long-running work spawns detached by default, not interactively. Commands that previously invited mid-session context exhaustion (execute, wave, integrate, debug's repair loops) now route through the unattended supervisor from the start. The interactive session invokes, sees a banner, and hands off — no `/clear`, no pause/resume dance, no drift into the 95% `/compact` wall.
-
-- **Invocation**: any workflow command can accept `--watch` to keep a live status block in the interactive session (ScheduleWakeup-driven, 270s ticks). Without `--watch`, the caller gets a launch banner, an event-stream log location, and exits.
-- **Event stream**: the supervisor emits JSONL to `.gsd-t/events/YYYY-MM-DD.jsonl` at every phase boundary (task_start, task_complete, error, retry). The watch-tick command and dashboard consume the same stream.
-- **Router mode**: when the user describes what they want in plain language via `/user:gsd` and the request is exploratory/conversational (brainstorm, "help me think through", "what are the trade-offs"), the router answers inline — no command spawn. See `commands/gsd.md` Step 2.5.
-- **Contracts**: `.gsd-t/contracts/headless-default-contract.md` v1.0.0, `unattended-event-stream-contract.md` v1.0.0, `unattended-supervisor-contract.md` v1.1.0.
+Long-running work (execute, wave, integrate, debug repair loops) spawns detached by default. Interactive session shows a banner, event-stream path, then exits — no mid-session `/compact` wall. `--watch` keeps a ScheduleWakeup-driven status block in the caller; events stream JSONL to `.gsd-t/events/YYYY-MM-DD.jsonl`. Router mode (`/gsd`) answers exploratory requests inline without a command spawn — see `commands/gsd.md` Step 2.5.
+Contract: `.gsd-t/contracts/headless-default-contract.md` (see also `unattended-event-stream-contract.md`, `unattended-supervisor-contract.md`).
 
 ## API Documentation Guard (Swagger/OpenAPI)
 
@@ -404,12 +286,8 @@ KEEP GOING. Only stop for:
 
 ## Unattended Execution (M36, v3.10.10+)
 
-`/user:gsd-t-unattended` launches a detached OS-process supervisor that drives the active milestone to completion over hours or days via a `claude -p` worker relay — each worker in a fresh context window. The interactive Claude session receives a 270-second ScheduleWakeup watch loop (`/user:gsd-t-unattended-watch`) that ticks and prints progress until the supervisor reaches a terminal state.
-
-- **Resume re-attach**: `/user:gsd-t-resume` checks for a live `supervisor.pid`; if the supervisor is still running, it skips normal resume and re-starts the watch loop automatically.
-- **Stop**: `/user:gsd-t-unattended-stop` touches `.gsd-t/.unattended/stop`; supervisor halts after the current worker finishes.
-- **Contract**: `.gsd-t/contracts/unattended-supervisor-contract.md` v1.0.0 — authoritative for state schema, exit codes, CLI flags, and platform matrix.
-- **Platform**: macOS and Linux fully supported. Windows supported except sleep-prevention (see `docs/unattended-windows-caveats.md`).
+`/gsd-t-unattended` launches a detached supervisor that drives the active milestone to completion via a `claude -p` worker relay (fresh context per worker). `/gsd-t-resume` auto-reattaches via watch loop if `supervisor.pid` is live; `/gsd-t-unattended-stop` halts after the current worker. macOS/Linux fully supported; Windows lacks sleep-prevention.
+Contract: `.gsd-t/contracts/unattended-supervisor-contract.md` (state schema, exit codes, CLI flags, platform matrix).
 
 ## Pre-Commit Gate (MANDATORY)
 
@@ -550,7 +428,7 @@ When a GSD-T command completes (and does NOT auto-advance to the next phase), di
 
 **{Phase Name}** — {one-line description of what happens next}
 
-`/user:gsd-t-{command}`
+`/gsd-t-{command}`
 
 ───────────────────────────────────────────────────────────────
 ```
@@ -559,8 +437,8 @@ If there are alternative commands that also make sense, add them:
 
 ```
 **Also available:**
-- `/user:gsd-t-{alt-1}` — {description}
-- `/user:gsd-t-{alt-2}` — {description}
+- `/gsd-t-{alt-1}` — {description}
+- `/gsd-t-{alt-2}` — {description}
 ```
 
 Successor mapping:
@@ -625,30 +503,7 @@ private:    _underscore       (_internal_method)
 
 ## Markdown Tables
 
-Emoji display as 2 characters wide in terminal/monospace but count as 1 in string length. This causes misaligned columns. **Always add one extra space after emoji in table cells** to compensate:
-
-```
-WRONG — misaligned in terminal:
-| Channel  | Support |
-|----------|---------|
-| Discord  | ✅ |
-| LINE     | ❌ |
-
-RIGHT — one extra space after emoji:
-| Channel  | Support |
-|----------|---------|
-| Discord  | ✅  |
-| LINE     | ❌  |
-```
-
-This extra space is invisible in rendered HTML (GitHub, VS Code preview) but restores alignment in terminal views. Apply to all GSD-T-generated docs that use emoji in tables.
-
-Also pad all cell values in a column to the width of the widest value:
-```
-| iMessage (BlueBubbles) | ✅  |
-| Discord                | ✅  |
-| QQ                     | ❌  |
-```
+Markdown table emoji-padding rules live in `templates/stacks/_markdown.md` (auto-injected via Stack Rules Engine).
 
 
 ## Stack Rules Engine
@@ -661,7 +516,7 @@ GSD-T auto-detects project tech stack at subagent spawn time and injects mandato
 
 **Stack-specific rules**: Injected only when the matching stack is detected (e.g., `react.md` when `"react"` is in `package.json`).
 
-**Design-to-code**: Activated when `.gsd-t/contracts/design-contract.md` (flat), `.gsd-t/contracts/design/` (hierarchical element/widget/page contracts — bootstrap via `/user:gsd-t-design-decompose`), `design-tokens.json`, `design-tokens/`, `.figmarc`, or `figma.config.json` exists, OR when Figma MCP is configured in `~/.claude/settings.json`. Auto-bootstrapped during partition when Figma URLs or design references are detected in requirements. Enforces pixel-perfect frontend implementation from designs with: Figma MCP auto-detection, design token extraction protocol, stack capability evaluation (recommends alternatives if stack can't achieve the design), component decomposition, responsive breakpoint strategy, and a mandatory visual verification loop — every implemented screen must be rendered in a real browser, screenshotted at mobile/tablet/desktop breakpoints, and compared pixel-by-pixel against the Figma design. Visual deviations block task completion.
+**Design-to-code**: Activated when `.gsd-t/contracts/design-contract.md` (flat), `.gsd-t/contracts/design/` (hierarchical element/widget/page contracts — bootstrap via `/gsd-t-design-decompose`), `design-tokens.json`, `design-tokens/`, `.figmarc`, or `figma.config.json` exists, OR when Figma MCP is configured in `~/.claude/settings.json`. Auto-bootstrapped during partition when Figma URLs or design references are detected in requirements. Enforces pixel-perfect frontend implementation from designs with: Figma MCP auto-detection, design token extraction protocol, stack capability evaluation (recommends alternatives if stack can't achieve the design), component decomposition, responsive breakpoint strategy, and a mandatory visual verification loop — every implemented screen must be rendered in a real browser, screenshotted at mobile/tablet/desktop breakpoints, and compared pixel-by-pixel against the Figma design. Visual deviations block task completion.
 
 **Enforcement**: Stack rule violations have the same weight as contract violations — they are task failures, not warnings.
 

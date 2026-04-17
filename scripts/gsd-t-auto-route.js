@@ -29,7 +29,7 @@ process.stdin.on("end", () => {
     // Plain text prompt in a GSD-T project — inject routing signal
     process.stdout.write(
       "[GSD-T AUTO-ROUTE] The user typed a plain text message (no leading /). " +
-      "Route it automatically through the /gsd smart router — execute the /user:gsd " +
+      "Route it automatically through the /gsd smart router — execute the /gsd " +
       "command with the user's full message as the argument."
     );
   } catch {

@@ -235,7 +235,7 @@ Operations implemented independently in 2+ places — candidates for extraction 
 If none found: `✅ No shared service candidates detected.`
 
 > **Note**: These candidates should seed Step 1.6 (Consumer Surface Identification) the next
-> time `/user:gsd-t-partition` is run. Copy the "Consumer Surfaces Detected" table into
+> time `/gsd-t-partition` is run. Copy the "Consumer Surfaces Detected" table into
 > partition's Step 1.6.1 to skip re-research.
 
 ## Complexity Hotspots
@@ -442,7 +442,7 @@ Can be scheduled: During next maintenance window
 Combines: all "Shared Service Candidates" from quality.md Reusability Analysis
 Estimated effort: {assessment}
 Should be prioritized: BEFORE adding new consumer surfaces to the system
-Note: Use `/user:gsd-t-partition` Step 1.6 to design the SharedCore domain
+Note: Use `/gsd-t-partition` Step 1.6 to design the SharedCore domain
 ```
 
 ## Step 5: Update Living Documents
@@ -563,7 +563,7 @@ If `.gsd-t/progress.md` exists:
 
 If `.gsd-t/roadmap.md` exists:
 - Do NOT auto-add milestones — present suggestions to user
-- User decides which to promote with `/user:gsd-t-promote-debt`
+- User decides which to promote with `/gsd-t-promote-debt`
 
 If `CLAUDE.md` exists:
 - Suggest updates for any patterns or conventions discovered during scan

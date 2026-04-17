@@ -1,6 +1,6 @@
 # GSD-T: Feature — Add a Major Feature to an Existing Project
 
-You are the lead agent planning a significant new feature for an existing codebase. Unlike `/user:gsd-t-project` (greenfield), this command respects and builds on what already exists — existing patterns, schema, auth, conventions, and contracts.
+You are the lead agent planning a significant new feature for an existing codebase. Unlike `/gsd-t-project` (greenfield), this command respects and builds on what already exists — existing patterns, schema, auth, conventions, and contracts.
 
 ## Step 0.5: Scan Freshness Auto-Refresh
 
@@ -154,7 +154,7 @@ The feature may be a single milestone or multiple, depending on scope:
 ### Single Milestone (if feature is focused):
 - 2-4 domains, < 15 tasks total
 - Minimal impact on existing contracts
-- Skip roadmap, go straight to: "Run `/user:gsd-t-partition` to begin"
+- Skip roadmap, go straight to: "Run `/gsd-t-partition` to begin"
 
 ### Multiple Milestones (if feature is complex):
 Apply these sequencing rules:
@@ -267,7 +267,7 @@ Present:
 4. Any conflicts with existing work
 5. Recommended starting point
 
-Ask: "Ready to start? Run `/user:gsd-t-partition` for Milestone {N}."
+Ask: "Ready to start? Run `/gsd-t-partition` for Milestone {N}."
 
 $ARGUMENTS
 

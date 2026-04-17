@@ -145,7 +145,7 @@ test("3. check-frequency hit — at/over threshold → silent marker emitted, ba
   assert.equal(out.additionalContext, "next-spawn-headless:true");
   // No user-facing banner strings.
   assert.ok(!/MANDATORY STOP/.test(out.additionalContext));
-  assert.ok(!/\/user:gsd-t-pause/.test(out.additionalContext));
+  assert.ok(!/\/gsd-t-pause/.test(out.additionalContext));
 
   const state = JSON.parse(fs.readFileSync(stateFile(tmpRoot), "utf8"));
   assert.equal(state.checkCount, 5);

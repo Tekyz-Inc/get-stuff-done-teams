@@ -499,7 +499,7 @@ function doUnattended(argv, deps) {
     console.error(
       "[gsd-t-unattended] --watch is incompatible with unattended.\n" +
         "Unattended supervisor is detached by definition.\n" +
-        "Run /user:gsd-t-unattended-watch from your interactive session to see live activity.",
+        "Run /gsd-t-unattended-watch from your interactive session to see live activity.",
     );
     return {
       ok: false,

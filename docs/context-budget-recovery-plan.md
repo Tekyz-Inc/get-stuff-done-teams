@@ -20,7 +20,7 @@
 
 ## Per-invocation cost (where the regression actually hides)
 
-A typical `/user:gsd-t-execute` invocation loads:
+A typical `/gsd-t-execute` invocation loads:
 
 | Item | Tokens | Notes |
 |------|--------|-------|
@@ -85,7 +85,7 @@ Note: these savings only apply when a command is invoked. If you only ever run `
 **Current size**: 9,679 tokens (4.8% of window — always loaded)
 **Target size**: ~4,500 tokens
 **Method**:
-- The entire "Commands Reference" table (51 rows) duplicates `commands/gsd-t-help.md` — DELETE the table, replace with `Run /user:gsd-t-help for the full command list.`
+- The entire "Commands Reference" table (51 rows) duplicates `commands/gsd-t-help.md` — DELETE the table, replace with `Run /gsd-t-help for the full command list.`
 - The "Update Notices" / "Auto-Init Guard" / "Playwright Readiness Guard" / "QA Agent" / "Design Verification Agent" / "Red Team" sections (~3,000 tokens combined) are duplicated in the relevant command files. Move them to the command files only and replace with one-line summaries here.
 - The "Pre-Commit Gate" decision tree (~1,500 tokens) is also in project CLAUDE.md — keep one, link from the other
 - The "Document Ripple Completion Gate" (~1,500 tokens) is duplicated in `gsd-t-doc-ripple.md` — reference only

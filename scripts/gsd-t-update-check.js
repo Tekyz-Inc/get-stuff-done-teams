@@ -49,7 +49,7 @@ function doAutoUpdate(latest, installed) {
       : latest;
     console.log(`[GSD-T AUTO-UPDATE] v${installed} → v${updated}. Changelog: ${CHANGELOG}`);
   } catch {
-    console.log(`[GSD-T UPDATE] v${installed} — update available (v${installed} → v${latest}). Auto-update failed — run manually: /user:gsd-t-version-update-all. Changelog: ${CHANGELOG}`);
+    console.log(`[GSD-T UPDATE] v${installed} — update available (v${installed} → v${latest}). Auto-update failed — run manually: /gsd-t-version-update-all. Changelog: ${CHANGELOG}`);
   }
 }
 

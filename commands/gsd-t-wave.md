@@ -49,7 +49,7 @@ After reading progress.md, verify it contains the required fields before proceed
 - **Domains table**: A `| Domain |` table with at least one row
 
 If ANY of these are missing or malformed, STOP and report:
-"Wave cannot proceed — progress.md is missing required fields: {list}. Run `/user:gsd-t-status` to inspect, or `/user:gsd-t-init` to repair."
+"Wave cannot proceed — progress.md is missing required fields: {list}. Run `/gsd-t-status` to inspect, or `/gsd-t-init` to repair."
 Do NOT attempt to fix progress.md yourself — that risks data loss.
 
 ## Step 2: Determine Resume Point
@@ -304,8 +304,8 @@ Summary:
 
 Next steps:
 - Push tag: git push origin milestone/{name}
-- Start next: /user:gsd-t-milestone "{next}"
-- View roadmap: /user:gsd-t-status
+- Start next: /gsd-t-milestone "{next}"
+- View roadmap: /gsd-t-status
 ═══════════════════════════════════════════════════════════════════════════════
 ```
 
@@ -313,7 +313,7 @@ Next steps:
 
 If the user interrupts or a phase agent fails:
 1. The current phase agent saves its own state to `.gsd-t/progress.md`
-2. Report: "Paused at {phase}. Run `/user:gsd-t-resume` to continue."
+2. Report: "Paused at {phase}. Run `/gsd-t-resume` to continue."
 3. Resume will pick up from the last completed phase
 
 ## Error Recovery

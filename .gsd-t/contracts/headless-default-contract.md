@@ -42,7 +42,7 @@ User-invoked commands accept `--watch` to opt back into in-context streaming for
 - `gsd-t-integrate --watch` → integration agent streams
 - `gsd-t-scan` → dimension subagents respect `--watch`
 - `gsd-t-verify` → verification subagents respect `--watch`
-- `gsd-t-unattended --watch` → **error** with message: "Unattended supervisor is detached by definition. `--watch` is incompatible. Run `/user:gsd-t-unattended-watch` from your interactive session to see live activity."
+- `gsd-t-unattended --watch` → **error** with message: "Unattended supervisor is detached by definition. `--watch` is incompatible. Run `/gsd-t-unattended-watch` from your interactive session to see live activity."
 
 ### Default Behavior (no flag)
 
@@ -58,7 +58,7 @@ Every subagent spawn goes headless. The user sees:
 
 | Param | Type | Required | Description |
 |-------|------|----------|-------------|
-| `command` | string | yes | Slash command name (e.g., `gsd-t-execute`) — bare form, no `/user:` prefix. May include the `gsd-t-` prefix; `stripGsdtPrefix()` normalizes. |
+| `command` | string | yes | Slash command name (e.g., `gsd-t-execute`) — bare form, no `/` prefix. May include the `gsd-t-` prefix; `stripGsdtPrefix()` normalizes. |
 | `args` | string[] | no | Command arguments to pass through to the child `gsd-t headless` invocation. Defaults to `[]`. |
 | `projectDir` | string | no | Absolute project directory. Defaults to `process.cwd()`. |
 | `sessionContext` | object | no | Alias of `context` for readability in new callsites. Identical behavior. |

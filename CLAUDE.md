@@ -53,7 +53,7 @@ Exact command list: `ls commands/`. Exact stack rule set: `ls templates/stacks/`
 
 **Directory structure** — `.gsd-t/contracts/` (domain interfaces), `.gsd-t/domains/{name}/` (scope/tasks/constraints), `.gsd-t/milestones/` (archives), `.gsd-t/scan/` (analysis outputs).
 
-**Publishing** — after `npm publish`, ALWAYS run `/user:gsd-t-version-update-all` to propagate to registered projects.
+**Publishing** — after `npm publish`, ALWAYS run `/gsd-t-version-update-all` to propagate to registered projects.
 
 ## Observability Logging (MANDATORY)
 

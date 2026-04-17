@@ -400,7 +400,7 @@ If ANY CRITICAL or HIGH deviations were found, automatically prompt the fix work
 The audit report at `.gsd-t/design-audit-{page-name}-{YYYY-MM-DD}.md`
 has the exact Figma values for each deviation.
 
-`/user:gsd-t-quick fix all CRITICAL and HIGH deviations from .gsd-t/design-audit-{page-name}-{YYYY-MM-DD}.md — use the Figma values in the report as the source of truth`
+`/gsd-t-quick fix all CRITICAL and HIGH deviations from .gsd-t/design-audit-{page-name}-{YYYY-MM-DD}.md — use the Figma values in the report as the source of truth`
 
 ───────────────────────────────────────────────────────────────
 ```
@@ -414,7 +414,7 @@ If ONLY MEDIUM or LOW deviations remain, show:
 
 **{N} MEDIUM + {N} LOW deviations.** These are minor — fix if you want pixel-perfect.
 
-`/user:gsd-t-quick fix MEDIUM and LOW deviations from .gsd-t/design-audit-{page-name}-{YYYY-MM-DD}.md`
+`/gsd-t-quick fix MEDIUM and LOW deviations from .gsd-t/design-audit-{page-name}-{YYYY-MM-DD}.md`
 
 ───────────────────────────────────────────────────────────────
 ```
@@ -427,7 +427,7 @@ After fixes are applied, **re-run the audit automatically** to verify. Loop unti
 
 ## Rules
 
-- **You write ZERO code during the audit phase (Steps 1-5).** Report only. Code changes happen in Step 6 via `/user:gsd-t-quick`.
+- **You write ZERO code during the audit phase (Steps 1-5).** Report only. Code changes happen in Step 6 via `/gsd-t-quick`.
 - **You do NOT "look close" at anything.** Every property gets an exact value from Figma and an exact value from the build. They match or they don't.
 - **You do NOT skip widgets.** Every widget in the Figma AND every widget in the build gets audited.
 - **You MUST call `get_design_context` per widget node — NOT `get_screenshot`.** `get_design_context` returns structured code, component properties, and design tokens. `get_screenshot` returns only a visual image that you cannot extract exact values from. Using `get_screenshot` for widget extraction defeats the entire purpose of structured comparison — you end up eyeballing instead of measuring. The ONLY acceptable use of `get_screenshot` is for the built page (Step 2) where you need to see what was actually rendered. For Figma source data, ALWAYS use `get_design_context`.

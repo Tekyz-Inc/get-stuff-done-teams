@@ -84,8 +84,8 @@ BACKLOG                                                                Manual
   backlog-settings    Manage types, apps, categories, and defaults
 
 ───────────────────────────────────────────────────────────────────────────────
-Type /user:gsd-t-help {command} for detailed help on any command.
-Example: /user:gsd-t-help impact
+Type /gsd-t-help {command} for detailed help on any command.
+Example: /gsd-t-help impact
 ╚══════════════════════════════════════════════════════════════════════════════╝
 ```
 
@@ -94,7 +94,7 @@ Example: /user:gsd-t-help impact
 When user provides a command name, show detailed help:
 
 ```
-/user:gsd-t-help {command}
+/gsd-t-help {command}
 ```
 
 ### Command Details Format:
@@ -108,7 +108,7 @@ SUMMARY
   {One-line description}
 
 USAGE
-  /user:gsd-t-{command} [arguments]
+  /gsd-t-{command} [arguments]
 
 WHEN TO USE
   • {Use case 1}
@@ -131,8 +131,8 @@ FILES CREATED/UPDATED
   • {file 2}
 
 EXAMPLES
-  /user:gsd-t-{command}
-  /user:gsd-t-{command} "with argument"
+  /gsd-t-{command}
+  /gsd-t-{command} "with argument"
 
 RELATED COMMANDS
   • {related 1} — {why related}
@@ -149,10 +149,10 @@ Use these when user asks for help on a specific command:
 - **Summary**: Describe what you need in plain language — auto-routes to the right GSD-T command using semantic evaluation
 - **Auto-invoked**: Yes — via UserPromptSubmit hook when prompt does not start with `/`
 - **Files**: Reads `CLAUDE.md`, `.gsd-t/progress.md`, command summaries from `gsd-t-help`
-- **How it works**: First checks if this is a continuation of an ongoing command (mid-task follow-up, status report, or acknowledgment) — if so, outputs `→ /gsd ──▶ continue /user:gsd-t-{last-command}` and resumes. For new requests, evaluates against every command's purpose and "Use when" criteria. Commands that match get shortlisted, best fit is selected. Shows runner-up when close.
+- **How it works**: First checks if this is a continuation of an ongoing command (mid-task follow-up, status report, or acknowledgment) — if so, outputs `→ /gsd ──▶ continue /gsd-t-{last-command}` and resumes. For new requests, evaluates against every command's purpose and "Use when" criteria. Commands that match get shortlisted, best fit is selected. Shows runner-up when close.
 - **Auto-route**: After `gsd-t install`, any plain text message (no leading `/`) is automatically routed through `/gsd`. Slash commands pass through unchanged. Binary detection — no heuristics.
 - **Use when**: You don't want to remember which command to use — just describe what you want
-- **Examples**: `/user:gsd Fix the login bug`, `/user:gsd Add dark mode`, `/user:gsd Scan for tech debt`
+- **Examples**: `/gsd Fix the login bug`, `/gsd Add dark mode`, `/gsd Scan for tech debt`
 - **Auto-route examples**: `Fix the login bug` (no slash needed), `Add dark mode`, `Scan for tech debt`
 
 ### prd
@@ -228,7 +228,7 @@ Use these when user asks for help on a specific command:
 - **Use when**: Ready to define specific implementation tasks
 - **Note (M22)**: Tasks auto-split if estimated scope exceeds 70% context window — guarantees fresh dispatch works
 - **Note (M26)**: Pre-mortem step now also reads rules.jsonl for historical failure patterns via getPreMortemRules
-- **Note (M38)**: Conversational use cases (formerly `/user:gsd-t-prompt`, `/user:gsd-t-brainstorm`, `/user:gsd-t-discuss`) are now handled by the Smart Router's conversational mode — just describe what you want via `/user:gsd` or plain text.
+- **Note (M38)**: Conversational use cases (formerly `/gsd-t-prompt`, `/gsd-t-brainstorm`, `/gsd-t-discuss`) are now handled by the Smart Router's conversational mode — just describe what you want via `/gsd` or plain text.
 
 ### impact
 - **Summary**: Analyze downstream effects of planned changes
@@ -433,7 +433,7 @@ Did you mean one of these?
   • {closest match 1}
   • {closest match 2}
 
-Run /user:gsd-t-help for full command list.
+Run /gsd-t-help for full command list.
 ```
 
 $ARGUMENTS

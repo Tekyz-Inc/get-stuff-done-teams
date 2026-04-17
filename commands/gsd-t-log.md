@@ -8,7 +8,7 @@ Read:
 1. `.gsd-t/progress.md` — current Decision Log entries
 2. Note the **last entry's timestamp** — this is the cutoff; only commits after this time need processing
 
-If `.gsd-t/progress.md` doesn't exist, inform user: "No GSD-T state found. Run `/user:gsd-t-init` first."
+If `.gsd-t/progress.md` doesn't exist, inform user: "No GSD-T state found. Run `/gsd-t-init` first."
 
 ## Step 2: Get Recent Commits
 

@@ -149,7 +149,7 @@ Progress:
 Next up: {specific next action}
 Blockers: {any pending items} | None
 
-Ready to continue? Or run /user:gsd-t-status for full details.
+Ready to continue? Or run /gsd-t-status for full details.
 ```
 
 ## Step 4: Continue
@@ -171,9 +171,9 @@ When the resumed work reaches a natural handoff point, do NOT print a "Next Up" 
 |--------------------------|-----------------|
 | A task (mid-wave, tasks remaining) | next task in the same wave |
 | The last task of a wave (waves remaining) | next wave |
-| The last task of the last wave | `/user:gsd-t-verify` (which auto-invokes `/user:gsd-t-complete-milestone` per verify Step 8) |
-| `/user:gsd-t-verify` (VERIFIED or VERIFIED-WITH-WARNINGS) | `/user:gsd-t-complete-milestone` (verify already spawns this — do not re-invoke) |
-| `/user:gsd-t-complete-milestone` | honor any outstanding multi-step user directive (see below) |
+| The last task of the last wave | `/gsd-t-verify` (which auto-invokes `/gsd-t-complete-milestone` per verify Step 8) |
+| `/gsd-t-verify` (VERIFIED or VERIFIED-WITH-WARNINGS) | `/gsd-t-complete-milestone` (verify already spawns this — do not re-invoke) |
+| `/gsd-t-complete-milestone` | honor any outstanding multi-step user directive (see below) |
 
 **Never stop at "Wave N complete" or "Task N done" and wait.** The only stopping points are:
 1. VERIFY-FAILED (report failures)

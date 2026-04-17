@@ -64,7 +64,7 @@ All subsequent steps run from inside the project directory.
 
 ## Step 3: Initialize Project (gsd-t-init)
 
-Execute the full init workflow (same as `/user:gsd-t-init`):
+Execute the full init workflow (same as `/gsd-t-init`):
 
 1. Create `.gsd-t/` directory structure (contracts/, domains/, progress.md, backlog.md, backlog-settings.md, token-log.md, qa-issues.md)
 2. Ensure `CLAUDE.md` exists (create starter if missing, append GSD-T section if present without it)
@@ -101,7 +101,7 @@ If the project has source code, graph indexing (`.gsd-t/graph/`) will run as par
 
 ## Step 4: Deep Codebase Scan (gsd-t-scan)
 
-Execute the full scan workflow (same as `/user:gsd-t-scan`):
+Execute the full scan workflow (same as `/gsd-t-scan`):
 
 1. Scan across all dimensions: architecture, business rules, security, quality, contracts
 2. Build `.gsd-t/techdebt.md` register
@@ -114,7 +114,7 @@ Always use team mode for the scan unless the codebase is trivially small (< 5 fi
 
 ## Step 5: Generate Project CLAUDE.md (gsd-t-setup)
 
-Execute the full setup workflow (same as `/user:gsd-t-setup`):
+Execute the full setup workflow (same as `/gsd-t-setup`):
 
 1. Read global `~/.claude/CLAUDE.md` to understand what's already covered
 2. Use scan findings + auto-detection to populate project-specific sections
@@ -139,8 +139,8 @@ Project Onboarded: {project name}
 
 Next steps:
   → Review .gsd-t/techdebt.md for critical items
-  → /user:gsd-t-milestone to define your first milestone
-  → /user:gsd-t-wave to run a full development cycle
+  → /gsd-t-milestone to define your first milestone
+  → /gsd-t-wave to run a full development cycle
 ```
 
 ### Autonomy Behavior

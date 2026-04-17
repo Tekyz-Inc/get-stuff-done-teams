@@ -154,7 +154,7 @@ Read the project's `CLAUDE.md` (if it exists) to auto-populate backlog settings:
 1. **Apps**: Scan for app names, service names, or product names (look for headings, "Tech Stack" sections, or named components). Populate the `## Apps` section in `backlog-settings.md` with discovered names (lowercase).
 2. **Categories**: Scan for domain concepts, module names, and technical areas (e.g., "authentication", "payments", "api", "database"). Populate the `## Categories` section.
 3. **Default App**: Set `**Default App:**` to the most prominent app found (the one mentioned most, or the first one). If only one app is found, use it.
-4. **If nothing found**: Leave the placeholder values from the template — the user can configure later via `/user:gsd-t-backlog-settings`.
+4. **If nothing found**: Leave the placeholder values from the template — the user can configure later via `/gsd-t-backlog-settings`.
 
 ## Step 5: Initialize Progress File
 
@@ -366,10 +366,10 @@ After initialization:
 Tell the user:
 1. What was created (including backlog files: `.gsd-t/backlog.md` and `.gsd-t/backlog-settings.md`)
 2. What they should fill in (CLAUDE.md details, requirements)
-3. Backlog settings status: whether apps/categories were auto-derived from CLAUDE.md or need manual configuration via `/user:gsd-t-backlog-settings`
+3. Backlog settings status: whether apps/categories were auto-derived from CLAUDE.md or need manual configuration via `/gsd-t-backlog-settings`
 4. Recommended next step:
-   - New project: "Define your milestone, then run /user:gsd-t-partition"
-   - Existing code: "I've mapped the codebase. Ready for /user:gsd-t-partition {milestone}"
+   - New project: "Define your milestone, then run /gsd-t-partition"
+   - Existing code: "I've mapped the codebase. Ready for /gsd-t-partition {milestone}"
 
 $ARGUMENTS
 

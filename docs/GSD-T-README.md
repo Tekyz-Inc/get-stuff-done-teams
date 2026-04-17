@@ -24,34 +24,34 @@ cd my-project
 claude
 
 # 2. Full onboarding (git + init + scan + setup in one)
-/user:gsd-t-init-scan-setup
+/gsd-t-init-scan-setup
 
 # Or step by step:
-/user:gsd-t-init my-project
+/gsd-t-init my-project
 
 # 3. Define what you're building
-/user:gsd-t-milestone "User Authentication System"
+/gsd-t-milestone "User Authentication System"
 
 # 5. Let it rip (auto-advances through all phases)
-/user:gsd-t-wave
+/gsd-t-wave
 
 # Or go phase by phase for more control:
-/user:gsd-t-partition
-/user:gsd-t-discuss
-/user:gsd-t-plan
-/user:gsd-t-impact
-/user:gsd-t-execute
-/user:gsd-t-test-sync
-/user:gsd-t-integrate
-/user:gsd-t-verify
-/user:gsd-t-complete-milestone
+/gsd-t-partition
+/gsd-t-discuss
+/gsd-t-plan
+/gsd-t-impact
+/gsd-t-execute
+/gsd-t-test-sync
+/gsd-t-integrate
+/gsd-t-verify
+/gsd-t-complete-milestone
 ```
 
 ## Resuming After a Break
 
 ```bash
 claude
-/user:gsd-t-resume
+/gsd-t-resume
 ```
 
 GSD-T reads all state files and tells you exactly where you left off.
@@ -64,86 +64,86 @@ GSD-T reads all state files and tells you exactly where you left off.
 
 | Command | Purpose | Auto |
 |---------|---------|------|
-| `/user:gsd {request}` | Describe what you need → auto-routes to the right command | Manual |
+| `/gsd {request}` | Describe what you need → auto-routes to the right command | Manual |
 | _(any plain text)_ | Auto-routed via UserPromptSubmit hook — no leading `/` needed | Auto |
 
 ### Help & Onboarding
 
 | Command | Purpose | Auto |
 |---------|---------|------|
-| `/user:gsd-t-help` | List all commands with descriptions | Manual |
-| `/user:gsd-t-help {cmd}` | Detailed help for specific command | Manual |
-| `/user:gsd-t-prompt` | Help formulate your idea before committing | Manual |
-| `/user:gsd-t-brainstorm` | Creative exploration and idea generation | Manual |
-| `/user:gsd-t-prd` | Generate a GSD-T-optimized Product Requirements Document | Manual |
+| `/gsd-t-help` | List all commands with descriptions | Manual |
+| `/gsd-t-help {cmd}` | Detailed help for specific command | Manual |
+| `/gsd-t-prompt` | Help formulate your idea before committing | Manual |
+| `/gsd-t-brainstorm` | Creative exploration and idea generation | Manual |
+| `/gsd-t-prd` | Generate a GSD-T-optimized Product Requirements Document | Manual |
 
 ### Project Initialization
 
 | Command | Purpose | Auto |
 |---------|---------|------|
-| `/user:gsd-t-setup` | Generate or restructure project CLAUDE.md | Manual |
-| `/user:gsd-t-init` | Initialize GSD-T structure in project | Manual |
-| `/user:gsd-t-init-scan-setup` | Full onboarding: git + init + scan + setup in one | Manual |
-| `/user:gsd-t-project` | Full project → milestone roadmap | Manual |
-| `/user:gsd-t-feature` | Major feature → impact analysis + milestones | Manual |
-| `/user:gsd-t-scan` | Deep codebase analysis → techdebt.md | Manual |
-| `/user:gsd-t-gap-analysis` | Requirements gap analysis — spec vs. existing code | Manual |
-| `/user:gsd-t-promote-debt` | Convert techdebt items to milestones | Manual |
-| `/user:gsd-t-populate` | Auto-populate docs from existing codebase | Manual |
-| `/user:gsd-t-design-decompose` | Decompose design into element/widget/page contracts | Manual |
+| `/gsd-t-setup` | Generate or restructure project CLAUDE.md | Manual |
+| `/gsd-t-init` | Initialize GSD-T structure in project | Manual |
+| `/gsd-t-init-scan-setup` | Full onboarding: git + init + scan + setup in one | Manual |
+| `/gsd-t-project` | Full project → milestone roadmap | Manual |
+| `/gsd-t-feature` | Major feature → impact analysis + milestones | Manual |
+| `/gsd-t-scan` | Deep codebase analysis → techdebt.md | Manual |
+| `/gsd-t-gap-analysis` | Requirements gap analysis — spec vs. existing code | Manual |
+| `/gsd-t-promote-debt` | Convert techdebt items to milestones | Manual |
+| `/gsd-t-populate` | Auto-populate docs from existing codebase | Manual |
+| `/gsd-t-design-decompose` | Decompose design into element/widget/page contracts | Manual |
 
 ### Milestone Workflow
 
 | Command | Purpose | Auto |
 |---------|---------|------|
-| `/user:gsd-t-milestone` | Define new milestone | Manual |
-| `/user:gsd-t-partition` | Decompose into domains + contracts | In wave |
-| `/user:gsd-t-discuss` | Multi-perspective design exploration | In wave |
-| `/user:gsd-t-plan` | Create atomic task lists per domain (tasks auto-split to fit one context window) | In wave |
-| `/user:gsd-t-impact` | Analyze downstream effects | In wave |
-| `/user:gsd-t-execute` | Run tasks — task-level fresh dispatch, worktree isolation, adaptive replanning, stack rules injection | In wave |
-| `/user:gsd-t-test-sync` | Sync tests with code changes | In wave |
-| `/user:gsd-t-qa` | QA agent — test generation, execution, gap reporting | Auto-spawned |
+| `/gsd-t-milestone` | Define new milestone | Manual |
+| `/gsd-t-partition` | Decompose into domains + contracts | In wave |
+| `/gsd-t-discuss` | Multi-perspective design exploration | In wave |
+| `/gsd-t-plan` | Create atomic task lists per domain (tasks auto-split to fit one context window) | In wave |
+| `/gsd-t-impact` | Analyze downstream effects | In wave |
+| `/gsd-t-execute` | Run tasks — task-level fresh dispatch, worktree isolation, adaptive replanning, stack rules injection | In wave |
+| `/gsd-t-test-sync` | Sync tests with code changes | In wave |
+| `/gsd-t-qa` | QA agent — test generation, execution, gap reporting | Auto-spawned |
 | *Red Team* | Adversarial QA — spawns after QA passes to find bugs the builder missed | Auto-spawned |
-| `/user:gsd-t-doc-ripple` | Automated document ripple — update downstream docs after code changes | Auto-spawned |
-| `/user:gsd-t-integrate` | Wire domains together | In wave |
-| `/user:gsd-t-verify` | Run quality gates + goal-backward verification → auto-invokes complete-milestone | In wave |
-| `/user:gsd-t-complete-milestone` | Archive + git tag (auto-invoked by verify, also standalone) | In wave |
+| `/gsd-t-doc-ripple` | Automated document ripple — update downstream docs after code changes | Auto-spawned |
+| `/gsd-t-integrate` | Wire domains together | In wave |
+| `/gsd-t-verify` | Run quality gates + goal-backward verification → auto-invokes complete-milestone | In wave |
+| `/gsd-t-complete-milestone` | Archive + git tag (auto-invoked by verify, also standalone) | In wave |
 
 ### Automation & Utilities
 
 | Command | Purpose | Auto |
 |---------|---------|------|
-| `/user:gsd-t-unattended` | Launch detached supervisor — runs active milestone to completion with zero human intervention | Manual |
-| `/user:gsd-t-unattended-watch` | Watch tick — fires every 270s via ScheduleWakeup, reports supervisor status | Auto |
-| `/user:gsd-t-unattended-stop` | Touch stop sentinel — supervisor halts after current worker finishes | Manual |
-| `/user:gsd-t-wave` | Full cycle, auto-advances all phases | Manual |
-| `/user:gsd-t-status` | Cross-domain progress view with token breakdown, global ELO and cross-project rankings | Manual |
-| `/user:gsd-t-resume` | Restore context, continue | Manual |
-| `/user:gsd-t-quick` | Fast task with GSD-T guarantees | Manual |
-| `/user:gsd-t-visualize` | Launch browser dashboard — SSE server + React Flow agent visualization | Manual |
-| `/user:gsd-t-debug` | Systematic debugging with state | Manual |
-| `/user:gsd-t-metrics` | View task telemetry, process ELO, signal distribution, domain health, and cross-project comparison (`--cross-project`) | Manual |
-| `/user:gsd-t-health` | Validate .gsd-t/ structure, optionally repair | Manual |
-| `/user:gsd-t-pause` | Save exact position for reliable resume | Manual |
-| `/user:gsd-t-log` | Sync progress Decision Log with recent git activity | Manual |
-| `/user:gsd-t-version-update` | Update GSD-T to latest version | Manual |
-| `/user:gsd-t-version-update-all` | Update GSD-T + all registered projects | Manual |
-| `/user:gsd-t-triage-and-merge` | Auto-review, merge, and publish GitHub branches | Manual |
-| `/user:gsd-t-design-audit` | Compare built screen against Figma — per-widget deviation report with severity | Manual |
+| `/gsd-t-unattended` | Launch detached supervisor — runs active milestone to completion with zero human intervention | Manual |
+| `/gsd-t-unattended-watch` | Watch tick — fires every 270s via ScheduleWakeup, reports supervisor status | Auto |
+| `/gsd-t-unattended-stop` | Touch stop sentinel — supervisor halts after current worker finishes | Manual |
+| `/gsd-t-wave` | Full cycle, auto-advances all phases | Manual |
+| `/gsd-t-status` | Cross-domain progress view with token breakdown, global ELO and cross-project rankings | Manual |
+| `/gsd-t-resume` | Restore context, continue | Manual |
+| `/gsd-t-quick` | Fast task with GSD-T guarantees | Manual |
+| `/gsd-t-visualize` | Launch browser dashboard — SSE server + React Flow agent visualization | Manual |
+| `/gsd-t-debug` | Systematic debugging with state | Manual |
+| `/gsd-t-metrics` | View task telemetry, process ELO, signal distribution, domain health, and cross-project comparison (`--cross-project`) | Manual |
+| `/gsd-t-health` | Validate .gsd-t/ structure, optionally repair | Manual |
+| `/gsd-t-pause` | Save exact position for reliable resume | Manual |
+| `/gsd-t-log` | Sync progress Decision Log with recent git activity | Manual |
+| `/gsd-t-version-update` | Update GSD-T to latest version | Manual |
+| `/gsd-t-version-update-all` | Update GSD-T + all registered projects | Manual |
+| `/gsd-t-triage-and-merge` | Auto-review, merge, and publish GitHub branches | Manual |
+| `/gsd-t-design-audit` | Compare built screen against Figma — per-widget deviation report with severity | Manual |
 | `/global-change` | Apply file changes (copy/insert/update/delete) across all GSD-T projects | Manual |
 
 ### Backlog Management
 
 | Command | Purpose | Auto |
 |---------|---------|------|
-| `/user:gsd-t-backlog-add` | Capture item, auto-categorize, append to backlog | Manual |
-| `/user:gsd-t-backlog-list` | Filtered, ordered view of backlog items | Manual |
-| `/user:gsd-t-backlog-move` | Reorder items by position (priority) | Manual |
-| `/user:gsd-t-backlog-edit` | Modify backlog entry fields | Manual |
-| `/user:gsd-t-backlog-remove` | Drop item with optional reason | Manual |
-| `/user:gsd-t-backlog-promote` | Refine, classify, launch GSD-T workflow | Manual |
-| `/user:gsd-t-backlog-settings` | Manage types, apps, categories, defaults | Manual |
+| `/gsd-t-backlog-add` | Capture item, auto-categorize, append to backlog | Manual |
+| `/gsd-t-backlog-list` | Filtered, ordered view of backlog items | Manual |
+| `/gsd-t-backlog-move` | Reorder items by position (priority) | Manual |
+| `/gsd-t-backlog-edit` | Modify backlog entry fields | Manual |
+| `/gsd-t-backlog-remove` | Drop item with optional reason | Manual |
+| `/gsd-t-backlog-promote` | Refine, classify, launch GSD-T workflow | Manual |
+| `/gsd-t-backlog-settings` | Manage types, apps, categories, defaults | Manual |
 
 ---
 
@@ -293,7 +293,7 @@ Run the active milestone to completion over hours or days with zero human interv
 
 **Relay model**: Each iteration spawns a fresh `claude -p` session with a compact prompt derived from `.gsd-t/progress.md` state. The supervisor waits for the worker to exit, records the exit code in `state.json`, runs safety checks (gutter detection, blocker sentinel scan), and spawns the next worker. Workers never overlap. Context rot is impossible — each worker starts clean.
 
-**Watch loop**: `/user:gsd-t-unattended` starts an in-session ScheduleWakeup loop that ticks every 270 seconds. Each tick reads `state.json` and `supervisor.pid` to render a live progress block. When the supervisor reaches a terminal state (`done`, `failed`, `stopped`), the watch loop stops rescheduling and prints a final summary. A `/clear` + `/user:gsd-t-resume` transparently re-attaches: the resume command checks for a live `supervisor.pid` and re-starts the watch loop automatically.
+**Watch loop**: `/gsd-t-unattended` starts an in-session ScheduleWakeup loop that ticks every 270 seconds. Each tick reads `state.json` and `supervisor.pid` to render a live progress block. When the supervisor reaches a terminal state (`done`, `failed`, `stopped`), the watch loop stops rescheduling and prints a final summary. A `/clear` + `/gsd-t-resume` transparently re-attaches: the resume command checks for a live `supervisor.pid` and re-starts the watch loop automatically.
 
 **Safety rails**: Branch protection (refuses to run on `main`/`master`/`release/*` by default), dirty-tree check (whitelists GSD-T runtime files), per-iteration gutter detection (repeated error patterns, file thrash, no-progress stall), wall-clock and iteration caps, and a blocker sentinel that halts on unrecoverable worker errors.
 
@@ -405,7 +405,7 @@ copy *.md %USERPROFILE%\.claude\commands\
 cp *.md ~/.claude/commands/
 ```
 
-Verify with: `/user:gsd-t-help`
+Verify with: `/gsd-t-help`
 
 ---
 

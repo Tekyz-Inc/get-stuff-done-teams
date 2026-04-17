@@ -40,7 +40,7 @@ Pass any of these as `$ARGUMENTS`:
 ## Prerequisites
 
 - Design contracts must exist in `.gsd-t/contracts/design/` with an `INDEX.md`
-- If no contracts exist, run `/user:gsd-t-design-decompose` first
+- If no contracts exist, run `/gsd-t-design-decompose` first
 
 ## Why a JS Orchestrator?
 
