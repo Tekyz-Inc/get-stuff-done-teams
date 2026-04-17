@@ -6,7 +6,7 @@
 | **PRD ID**        | PRD-HARNESS-001                                                       |
 | **Date**          | 2026-04-01                                                            |
 | **Author**        | GSD-T Team                                                            |
-| **Status**        | DRAFT                                                                 |
+| **Status**        | HISTORICAL — M31 shipped (v2.52.10); M32/M33 (self-calibrating QA + token-optimizer loops) **SUPERSEDED by M38** (v3.12.10). Retain for historical reference; do not re-implement deleted sections. |
 | **Milestones**    | M31 (Tier 1), M32 (Tier 2), M33 (Tier 3)                             |
 | **Version Target**| 2.52.10 (M31), 2.53.10 (M32), 2.54.10 (M33)                         |
 | **Priority**      | P0 — framework self-improvement and quality convergence               |

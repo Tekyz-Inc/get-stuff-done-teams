@@ -248,12 +248,12 @@
 | REQ-070 | Three-band model only — `WARN_THRESHOLD_PCT=70`, `STOP_THRESHOLD_PCT=85`, no model overrides or phase skips | degradation-rip-out | T1, T2 | complete (Waves 1–2) |
 | REQ-071 | Surgical per-phase model selection via `bin/model-selector.js` — ≥8 phase mappings, declarative rules table | model-selector-advisor | T2 | complete (Wave 2) |
 | REQ-072 | `/advisor` escalation with graceful fallback — convention-based if API not programmable | model-selector-advisor | T1, T3 | complete (Wave 2) |
-| REQ-073 | Pre-flight runway estimator refuses runs projected to cross 85% stop threshold | runway-estimator | T1–T5 | complete (Wave 3) |
-| REQ-074 | Per-spawn token telemetry to `.gsd-t/token-metrics.jsonl` with frozen 18-field schema | token-telemetry | T1–T3 | complete (Waves 1–2) |
-| REQ-075 | `gsd-t metrics` CLI: `--tokens [--by ...]`, `--halts`, `--tokens --context-window` | token-telemetry | T4–T6 | complete (Wave 2) |
-| REQ-076 | Optimization backlog — detect only, never auto-apply, user promotes or rejects | optimization-backlog | T1–T4 | complete (Wave 4) |
-| REQ-077 | Headless auto-spawn on runway refusal — user never sees a `/clear` prompt | headless-auto-spawn | T1–T5 | complete (Waves 3–4) |
-| REQ-078 | Structural elimination of native compact messages — `halt_type: native-compact` count is 0 during M35 execution | runway-estimator + headless-auto-spawn | T1–T5 (RE), T1–T5 (HAS) | complete (Wave 5) |
+| REQ-073 | Pre-flight runway estimator refuses runs projected to cross 85% stop threshold | runway-estimator | T1–T5 | SUPERSEDED by REQ-088 (M38) — runway-estimator deleted; headless-by-default replaces the refusal gate |
+| REQ-074 | Per-spawn token telemetry to `.gsd-t/token-metrics.jsonl` with frozen 18-field schema | token-telemetry | T1–T3 | SUPERSEDED by REQ-092 (M38) — token-telemetry deleted; single-band meter obviates the feed |
+| REQ-075 | `gsd-t metrics` CLI: `--tokens [--by ...]`, `--halts`, `--tokens --context-window` | token-telemetry | T4–T6 | SUPERSEDED by REQ-092 (M38) — `--tokens`/`--halts` emitters removed with telemetry deletion |
+| REQ-076 | Optimization backlog — detect only, never auto-apply, user promotes or rejects | optimization-backlog | T1–T4 | SUPERSEDED by REQ-093 (M38) — self-improvement loop deleted; signal never produced action |
+| REQ-077 | Headless auto-spawn on runway refusal — user never sees a `/clear` prompt | headless-auto-spawn | T1–T5 | SUPERSEDED by REQ-088 (M38) — headless-by-default promotes auto-spawn from emergency pivot to default primitive |
+| REQ-078 | Structural elimination of native compact messages — `halt_type: native-compact` count is 0 during M35 execution | runway-estimator + headless-auto-spawn | T1–T5 (RE), T1–T5 (HAS) | SUPERSEDED by REQ-088 (M38) — achieved via structural headless-default spawn, not runway projection |
 | REQ-079 | `gsd-t unattended` CLI subcommand runs an active milestone to completion unattended on macOS and Linux (24h+ multi-worker relay, detached OS process) | m36-supervisor-core | T1–T5 | complete (M36 Wave 1–2) |
 | REQ-080 | `/user:gsd-t-unattended` slash command launches the supervisor from within a Claude session without blocking the terminal | m36-supervisor-core + m36-watch-loop | T1, T3 | complete (M36 Wave 1–3) |
 | REQ-081 | In-session watch loop ticks every 270s via `ScheduleWakeup` (inside 5-min prompt-cache TTL) to report live supervisor state | m36-watch-loop | T1–T2 | complete (M36 Wave 3) |
@@ -269,12 +269,12 @@
 - **REQ-070**: `WARN_THRESHOLD_PCT = 70`, `STOP_THRESHOLD_PCT = 85`. `grep -r "downgrade\|conserve\|modelOverride\|skipPhases" bin/ commands/ docs/ templates/` returns zero hits in live code.
 - **REQ-071**: `bin/model-selector.js` exists with a declarative rules table, at least 8 phase mappings across all three tiers (haiku/sonnet/opus), and unit tests for each mapping.
 - **REQ-072**: `bin/advisor-integration.js` exists. If `/advisor` is programmable: calls it. If not: convention-based fallback block injection. Graceful degradation: missed escalations logged, caller never blocked.
-- **REQ-073**: Every long-running command (execute, wave, integrate, debug, quick) invokes `estimateRunway()` at Step 0. On refusal: prints ⛔ block, calls `autoSpawnHeadless()`, exits cleanly. User never sees "run /clear."
-- **REQ-074**: Every Task subagent spawn in execute/wave/quick/integrate/debug/doc-ripple is wrapped in a token bracket. Records appended to `.gsd-t/token-metrics.jsonl` with all 18 schema fields.
-- **REQ-075**: `gsd-t metrics --tokens [--by <field>...]` prints an aggregated table. `gsd-t metrics --halts` shows halt_type breakdown with native-compact warning. `gsd-t metrics --tokens --context-window` buckets by pct_before.
-- **REQ-076**: `bin/token-optimizer.js` runs at `complete-milestone`, appends to `.gsd-t/optimization-backlog.md`. Recommendations never auto-applied. User promotes via `gsd-t-optimization-apply {ID}` or rejects via `gsd-t-optimization-reject {ID}`.
-- **REQ-077**: `bin/headless-auto-spawn.js` `autoSpawnHeadless()` spawns a detached child process, writes `.gsd-t/headless-sessions/{id}.json`, fires macOS notification on completion, and surfaces results banner on next interactive command.
-- **REQ-078**: The combination of `STOP_THRESHOLD_PCT=85` and runway estimator refusing runs that project past 85% means the runtime's 95% native compact is structurally unreachable. `halt_type: native-compact` in `token-metrics.jsonl` is a defect signal.
+- **REQ-073**: _SUPERSEDED by REQ-088 (M38, v3.12.10)._ Original: runway estimator refusal at Step 0 of long-running commands. M38 deletes `bin/runway-estimator.cjs`; headless-by-default primitive handles context pressure structurally (no projection needed).
+- **REQ-074**: _SUPERSEDED by REQ-092 (M38, v3.12.10)._ Original: 18-field per-spawn token telemetry to `.gsd-t/token-metrics.jsonl`. M38 deletes `bin/token-telemetry.cjs`; the single-band meter keeps only local-estimator readings — no bracketed per-spawn records.
+- **REQ-075**: _SUPERSEDED by REQ-092 (M38, v3.12.10)._ Original: `gsd-t metrics --tokens|--halts|--context-window` CLI emitters. M38 retires those subcommands with telemetry deletion.
+- **REQ-076**: _SUPERSEDED by REQ-093 (M38, v3.12.10)._ Original: `bin/token-optimizer.js` detect-only recommendations with user promote/reject. M38 deletes the self-improvement loop (4 commands + `qa-calibrator.js` + `token-optimizer.js`) — signal never produced action.
+- **REQ-077**: _SUPERSEDED by REQ-088 (M38, v3.12.10)._ Original: `autoSpawnHeadless()` invoked only on runway refusal. M38 promotes it to the default spawn primitive for workflow commands; see `headless-default-contract.md` v1.0.0.
+- **REQ-078**: _SUPERSEDED by REQ-088 (M38, v3.12.10)._ Original: runway-projection + STOP_THRESHOLD combo makes native-compact structurally unreachable. M38 achieves the same guarantee via headless-default spawning — context resets by design, not by projection.
 
 **M35 Non-Functional Requirements:**
 - Zero external npm dependencies (GSD-T mandate — token-telemetry.js, runway-estimator.js, headless-auto-spawn.js must use Node.js built-ins only)
