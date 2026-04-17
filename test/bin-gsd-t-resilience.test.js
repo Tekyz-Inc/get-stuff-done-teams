@@ -33,87 +33,59 @@ test("bin/gsd-t.js loads without throwing when debug-ledger.js is missing", () =
   assert.doesNotMatch(res.stderr || "", /debug-ledger/, "no debug-ledger references in stderr");
 });
 
-test("copyBinToolsToProject removes a stray bin/gsd-t.js that byte-matches source", () => {
+test("copyBinToolsToProject removes a stray bin/gsd-t.js matching installer signature", () => {
   const tmp = mkTmp("sweep-match");
   const binDir = path.join(tmp, "bin");
   fs.mkdirSync(binDir, { recursive: true });
-  // Seed the stray with exact source content — simulates older installer copy
+  // Seed with current source content — matches signature
   fs.copyFileSync(SRC_GSD_T, path.join(binDir, "gsd-t.js"));
   assert.ok(fs.existsSync(path.join(binDir, "gsd-t.js")), "stray present before sweep");
 
   const gt = require(SRC_GSD_T);
-  // copyBinToolsToProject is not exported; drive it via the CLI update-all path
-  // by calling into the module's internal function through a child process.
-  // Simplest route: invoke `node bin/gsd-t.js register` in the tmp dir, then
-  // `update-all` — but that touches global state. Instead, re-export via
-  // a spawn that exercises the sweep directly.
-  const driver = `
-    const path = require("path");
-    const mod = require(${JSON.stringify(SRC_GSD_T)});
-    // The installer doesn't export copyBinToolsToProject; we trigger it by
-    // forcing a register + update run scoped to the tmp project. Fall back to
-    // directly testing the sweep invariant: after a copyBinToolsToProject run,
-    // the stray must be gone when it byte-matches source.
-    process.chdir(${JSON.stringify(tmp)});
-    // Minimal .gsd-t so register accepts the project
-    require("fs").mkdirSync(path.join(${JSON.stringify(tmp)}, ".gsd-t"), { recursive: true });
-    require("fs").writeFileSync(path.join(${JSON.stringify(tmp)}, ".gsd-t", "progress.md"), "# test\\n");
-  `;
-  spawnSync(process.execPath, ["-e", driver], { encoding: "utf8" });
+  gt.copyBinToolsToProject(tmp, "test-project");
 
-  // Directly exercise the sweep behavior via a child node that loads gsd-t.js
-  // with an injection seam: call update-all-like flow by invoking the internal
-  // helper through an eval. To avoid brittle private coupling, assert on the
-  // end-to-end: running `bin/gsd-t.js update` in the tmp bin/ must clean up
-  // the stray if the installer exposes the function. We invoke the sweep by
-  // running a minimal driver that re-requires and calls the exported sweep,
-  // if available, or exits cleanly.
-  const sweepDriver = `
-    const path = require("path");
-    const fs = require("fs");
-    const mod = require(${JSON.stringify(SRC_GSD_T)});
-    // If copyBinToolsToProject is exported for tests, call it. Otherwise,
-    // simulate by requiring the module and letting its top-level run work.
-    if (typeof mod.copyBinToolsToProject === "function") {
-      mod.copyBinToolsToProject(${JSON.stringify(tmp)}, "test-project");
-    } else {
-      // Fall back: manually execute the sweep contract — this mirrors the
-      // sweep logic to confirm the test's expected shape.
-      const src = ${JSON.stringify(SRC_GSD_T)};
-      const dest = path.join(${JSON.stringify(binDir)}, "gsd-t.js");
-      if (fs.existsSync(dest) && fs.readFileSync(dest, "utf8") === fs.readFileSync(src, "utf8")) {
-        fs.unlinkSync(dest);
-      }
-    }
-  `;
-  const res = spawnSync(process.execPath, ["-e", sweepDriver], { encoding: "utf8" });
-  assert.equal(res.status, 0, res.stderr);
-  assert.ok(!fs.existsSync(path.join(binDir, "gsd-t.js")), "byte-matching stray must be deleted");
+  assert.ok(!fs.existsSync(path.join(binDir, "gsd-t.js")), "matching-signature stray must be deleted");
 });
 
-test("copyBinToolsToProject leaves a user-owned bin/gsd-t.js alone when content differs", () => {
+test("copyBinToolsToProject sweeps older-version stray with the installer signature", () => {
+  const tmp = mkTmp("sweep-older");
+  const binDir = path.join(tmp, "bin");
+  fs.mkdirSync(binDir, { recursive: true });
+  // Simulate an older version of our own file: correct header, different body.
+  // The sweep must still remove it because the signature matches the installer.
+  const olderVersion = [
+    "#!/usr/bin/env node",
+    "",
+    "/**",
+    " * GSD-T CLI Installer",
+    " *",
+    " * Usage:",
+    " *   npx @tekyzinc/gsd-t install",
+    " */",
+    "",
+    "// old v3.13.11 body — intentionally different from current source",
+    "const debugLedger = require('./debug-ledger.js');",
+    "// …",
+  ].join("\n");
+  fs.writeFileSync(path.join(binDir, "gsd-t.js"), olderVersion);
+
+  const gt = require(SRC_GSD_T);
+  gt.copyBinToolsToProject(tmp, "test-project");
+
+  assert.ok(!fs.existsSync(path.join(binDir, "gsd-t.js")), "older-version stray (signature match) must be deleted");
+});
+
+test("copyBinToolsToProject leaves a user-owned bin/gsd-t.js alone when signature doesn't match", () => {
   const tmp = mkTmp("sweep-skip");
   const binDir = path.join(tmp, "bin");
   fs.mkdirSync(binDir, { recursive: true });
-  const userOwned = "#!/usr/bin/env node\n// user's own file\nconsole.log('mine');\n";
+  // User's own file: shebang but missing the "GSD-T CLI Installer" marker
+  const userOwned = "#!/usr/bin/env node\n// user's own helper script\nconsole.log('mine');\n";
   fs.writeFileSync(path.join(binDir, "gsd-t.js"), userOwned);
 
-  const sweepDriver = `
-    const path = require("path");
-    const fs = require("fs");
-    const mod = require(${JSON.stringify(SRC_GSD_T)});
-    if (typeof mod.copyBinToolsToProject === "function") {
-      mod.copyBinToolsToProject(${JSON.stringify(tmp)}, "test-project");
-    } else {
-      const src = ${JSON.stringify(SRC_GSD_T)};
-      const dest = path.join(${JSON.stringify(binDir)}, "gsd-t.js");
-      if (fs.existsSync(dest) && fs.readFileSync(dest, "utf8") === fs.readFileSync(src, "utf8")) {
-        fs.unlinkSync(dest);
-      }
-    }
-  `;
-  const res = spawnSync(process.execPath, ["-e", sweepDriver], { encoding: "utf8" });
-  assert.equal(res.status, 0, res.stderr);
+  const gt = require(SRC_GSD_T);
+  gt.copyBinToolsToProject(tmp, "test-project");
+
   assert.ok(fs.existsSync(path.join(binDir, "gsd-t.js")), "user-owned file must survive sweep");
   assert.equal(fs.readFileSync(path.join(binDir, "gsd-t.js"), "utf8"), userOwned, "content unchanged");
 });

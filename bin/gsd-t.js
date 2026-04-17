@@ -2157,13 +2157,19 @@ function copyBinToolsToProject(projectDir, projectName) {
   let cleaned = 0;
   for (const stray of DEPRECATED_BIN_STRAYS) {
     const strayPath = path.join(projectBinDir, stray);
-    const srcPath = path.join(PKG_ROOT, "bin", stray);
     if (!fs.existsSync(strayPath)) continue;
-    if (!fs.existsSync(srcPath)) continue;
     try {
       const strayContent = fs.readFileSync(strayPath, "utf8");
-      const srcContent = fs.readFileSync(srcPath, "utf8");
-      if (strayContent === srcContent) {
+      const head = strayContent.slice(0, 400);
+      // Signature-match any version this installer ever shipped. The marker
+      // is unique enough to rule out user-owned files: node shebang + the
+      // verbatim JSDoc header "GSD-T CLI Installer". Matches every historical
+      // version of bin/gsd-t.js, not just the current one, so older strays
+      // (e.g. v3.13.11 left behind on v3.13.12+) are still swept.
+      const isOurs =
+        head.startsWith("#!/usr/bin/env node") &&
+        head.includes("GSD-T CLI Installer");
+      if (isOurs) {
         fs.unlinkSync(strayPath);
         cleaned++;
       }

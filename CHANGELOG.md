@@ -2,6 +2,22 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [3.13.13] - 2026-04-17
+
+### Fixed — Stray sweep now matches older-version installer artifacts
+
+v3.13.12 shipped the defensive require + DEPRECATED_BIN_STRAYS sweep, but the sweep's safety check was too narrow: it only deleted strays whose bytes matched the **current** source. Projects left behind with a v3.13.11 (or earlier) `bin/gsd-t.js` would not match the current source (different body), so the sweep refused to delete them and those projects stayed crashed.
+
+**Fix**: sweep now uses a **signature** check rather than a byte-identity check. A stray is deleted when it starts with `#!/usr/bin/env node` AND contains the verbatim JSDoc header `GSD-T CLI Installer` in the first 400 characters. That combination is unique enough to rule out user-owned files (a user's own script would not contain our header) while matching every historical version of this installer — so older-version artifacts are swept correctly.
+
+**Files**:
+- `bin/gsd-t.js` — sweep loop now uses signature match instead of byte-match.
+- `test/bin-gsd-t-resilience.test.js` — new test case covering older-version stray (shebang + header + different body) → must be deleted. Existing byte-match test kept. Existing user-owned test kept.
+
+**Tests**: 1239/1239 pass (+1 new assertion vs v3.13.12). E2E: N/A.
+
+**Impact**: bee-poc and any other project carrying a pre-v3.13.12 `bin/gsd-t.js` now self-heals on the next `gsd-t update-all` pass after installing v3.13.13.
+
 ## [3.13.12] - 2026-04-17
 
 ### Fixed — Project-local `bin/gsd-t.js` crash on missing `debug-ledger.js` + self-heal sweep
