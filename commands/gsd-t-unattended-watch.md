@@ -305,7 +305,9 @@ The supervisor is still alive but has transitioned to a terminal status on its l
 
 If `PID_FILE_EXISTS=true` AND `ALIVE=true` AND `STATUS` is `initializing` or `running`:
 
-Render the enriched watch block below. The key insight: users need **workflow progress** (phase, wave, tasks done/remaining), not just supervisor mechanics (iter, PID, exit code).
+Render two blocks: the workflow-progress header (existing) plus the M38 **event-stream activity block** driven by `.gsd-t/events/*.jsonl` since the last cursor.
+
+### 6a: Workflow Progress Header
 
 Format rules:
 - One extra space after each emoji (per CLAUDE.md markdown table rules — preserves alignment in terminal views).
@@ -330,6 +332,40 @@ Domain summary formatting:
 - Each domain: `{name}: {done}/{total}` separated by ` | `
 - If domains > 6, show top 3 incomplete + "... +{N} more"
 - If no domains exist, show phase-appropriate message: "Partitioning..." / "Planning..." / "No domains yet"
+
+### 6b: Event-Stream Activity Block (M38)
+
+After the workflow header, render the structured activity log by reading
+`.gsd-t/events/YYYY-MM-DD.jsonl` since the last cursor (`.gsd-t/.unattended/event-cursor`).
+The formatter is pure and lives at `bin/unattended-watch-format.cjs` — invoke it via `node -e`:
+
+```bash
+node -e "
+const es = require('./bin/event-stream.cjs');
+const wf = require('./bin/unattended-watch-format.cjs');
+const fs = require('fs');
+let state = {};
+try { state = JSON.parse(fs.readFileSync('.gsd-t/.unattended/state.json','utf8')); } catch(_){}
+const { events, newCursor } = es.readSinceCursor('.');
+console.log(wf.formatWatchTick({ events, state }));
+es.advanceCursor('.', newCursor);
+"
+```
+
+Output shape (per contract §4):
+
+```
+[unattended supervisor — iter 14, +9m elapsed]
+  ▶  task: m38-h1-T3 (wave wave-1)
+  📝  6 files modified (commands/gsd-t-execute.md, ...)
+  ✅  test_result: unit 1228/1228 pass
+  ✅  subagent_verdict: qa pass (0 findings)
+  ⏱  duration: 8m 12s · verdict: pass
+```
+
+Zero-event window output: `[unattended supervisor — iter N, +Tm elapsed] (no new activity since last tick)`.
+
+The formatter applies the emoji-spacing rule itself; do not add post-processing.
 
 ## Step 7: Reschedule via ScheduleWakeup (Non-Terminal Only)
 

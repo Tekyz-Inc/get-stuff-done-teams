@@ -56,6 +56,13 @@ const {
   notify,
 } = require("./gsd-t-unattended-platform.js");
 
+// Event stream (M38 ES) — additive, non-blocking. `_emit` swallows its own
+// errors per unattended-event-stream-contract.md §6.
+const { appendEvent: _esAppendEvent } = require("./event-stream.cjs");
+function _emit(projectDir, ev) {
+  try { _esAppendEvent(projectDir, ev); } catch (_) { /* never halt the loop */ }
+}
+
 // ── Constants ───────────────────────────────────────────────────────────────
 
 const CONTRACT_VERSION = "1.0.0";
@@ -909,6 +916,16 @@ function runMainLoop(state, dir, opts, deps, ctx) {
     state.lastWorkerStartedAt = workerStart.toISOString();
     writeState(state, dir);
 
+    _emit(projectDir, {
+      ts: workerStart.toISOString(),
+      iter: state.iter,
+      type: "task_start",
+      source: "supervisor",
+      milestone: state.milestone || "",
+      wave: state.wave || "",
+      task: state.nextTask || "",
+    });
+
     let res;
     try {
       res = spawnWorker(state, {
@@ -945,6 +962,29 @@ function runMainLoop(state, dir, opts, deps, ctx) {
     state.lastWorkerFinishedAt = workerEnd.toISOString();
     state.lastElapsedMs = elapsedMs;
     writeState(state, dir);
+
+    // Event-stream: task_complete on success, error on non-zero.
+    const durationS = Math.round(elapsedMs / 1000);
+    if (exitCode === 0) {
+      _emit(projectDir, {
+        ts: workerEnd.toISOString(),
+        iter: state.iter,
+        type: "task_complete",
+        source: "supervisor",
+        task: state.nextTask || "",
+        verdict: "pass",
+        duration_s: durationS,
+      });
+    } else {
+      _emit(projectDir, {
+        ts: workerEnd.toISOString(),
+        iter: state.iter,
+        type: "error",
+        source: "supervisor",
+        error: `worker exit ${exitCode}`,
+        recoverable: exitCode !== 4 && exitCode !== 5,
+      });
+    }
 
     // ── POST-WORKER HOOK (contract §12) ────────────────────────────────────
     // Read the tail of run.log for pattern detection. ~200 lines is enough
@@ -984,6 +1024,13 @@ function runMainLoop(state, dir, opts, deps, ctx) {
         break;
       }
       // Not yet done — continue relay.
+      _emit(projectDir, {
+        iter: state.iter,
+        type: "retry",
+        source: "supervisor",
+        attempt: state.iter,
+        reason: "milestone_incomplete",
+      });
       continue;
     }
     if (exitCode === 4) {
@@ -1000,9 +1047,23 @@ function runMainLoop(state, dir, opts, deps, ctx) {
     }
     if (exitCode === 124) {
       // Timeout — continue unless the iter cap is hit on the next check.
+      _emit(projectDir, {
+        iter: state.iter,
+        type: "retry",
+        source: "supervisor",
+        attempt: state.iter,
+        reason: "timeout",
+      });
       continue;
     }
     // Non-terminal (1/2/3) — continue the relay.
+    _emit(projectDir, {
+      iter: state.iter,
+      type: "retry",
+      source: "supervisor",
+      attempt: state.iter,
+      reason: `exit_${exitCode}`,
+    });
   }
 
   // If we exited because the user dropped a stop sentinel and no terminal

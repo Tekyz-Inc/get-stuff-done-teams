@@ -34,7 +34,9 @@ node_modules/
 # Windows null device artifact
 nul
 
-# GSD-T context meter (session state — do not commit)
-bin/*.cjs
+# GSD-T context meter state file (session state — do not commit)
+# Note: legitimate `.cjs` source files under bin/ ARE tracked; only the
+# per-session state artifact should be ignored.
+bin/context-meter-state.cjs
 .gsd-t/.archive-migration-v1
 .gsd-t/.task-counter-retired-v1

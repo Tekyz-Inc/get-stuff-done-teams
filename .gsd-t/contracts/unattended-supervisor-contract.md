@@ -1,7 +1,7 @@
 # Contract: Unattended Supervisor
 
-**Version**: 1.0.0 (DRAFT — finalized during m36-docs-and-tests verify phase)
-**Status**: ACTIVE for M36
+**Version**: 1.1.0
+**Status**: ACTIVE for M38
 **Owner**: m36-supervisor-core + m36-watch-loop (shared)
 **Consumers**: m36-supervisor-core, m36-watch-loop, m36-safety-rails, m36-cross-platform, m36-m35-gap-fixes, m36-docs-and-tests
 **Depends on**: `headless-auto-spawn-contract.md` v1.0.0 (M35) — supervisor is a higher-level relay built above the same substrate
@@ -295,11 +295,32 @@ Test count delta target: ~60 net new tests (supervisor-core 24 + watch-loop 12 +
 
 ---
 
+## 14a. Event Emission (v1.1.0)
+
+The supervisor MUST emit structured events at phase boundaries via
+`bin/event-stream.cjs` `appendEvent(projectDir, ev)`. Emission is additive
+(state.json schema unchanged) and non-blocking (file-write failures are
+logged but never halt the relay loop).
+
+Schema and consumer rules live in `unattended-event-stream-contract.md` v1.0.0.
+The four mandatory supervisor emission points:
+
+| Event | Emitted When | Required fields (beyond ts/iter/type/source) |
+|-------|--------------|------------------------------------------------|
+| `task_start` | Before each `spawnWorker` call | `milestone`, `wave`, `task` |
+| `task_complete` | After a worker exits with code 0 (milestone not yet complete counts) | `task`, `verdict`, `duration_s` |
+| `error` | On non-zero worker exit (1/2/3/4/5/6/124) | `error`, `recoverable` |
+| `retry` | When the loop continues after a non-terminal exit (0-incomplete / 1/2/3 / 124) | `attempt`, `reason` |
+
+Workers spawned via `claude -p` MAY also emit their own events (file_changed,
+test_result, subagent_verdict) — supervisor emission is the floor, not the ceiling.
+
 ## 15. Version History
 
 | Version | Date | Change | Owner |
 |---------|------|--------|-------|
 | 1.0.0 | 2026-04-15 | Initial draft during M36 partition | m36-supervisor-core + m36-watch-loop |
+| 1.1.0 | 2026-04-16 | Added event-stream emission requirement at phase boundaries; references unattended-event-stream-contract.md v1.0.0 | m38-unattended-event-stream |
 
 ---
 

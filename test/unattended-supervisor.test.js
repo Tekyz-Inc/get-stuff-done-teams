@@ -1059,3 +1059,110 @@ describe("M36 supervisor T4: notify fires on terminal transitions", () => {
     assert.equal(notifyCalls[0].level, "success");
   });
 });
+
+// ── M38 ES-T2: event-stream emission ────────────────────────────────────────
+
+function _readEmittedEvents(projectDir) {
+  const dir = path.join(projectDir, ".gsd-t", "events");
+  if (!fs.existsSync(dir)) return [];
+  const files = fs.readdirSync(dir).filter((f) => f.endsWith(".jsonl")).sort();
+  const events = [];
+  for (const f of files) {
+    const raw = fs.readFileSync(path.join(dir, f), "utf8");
+    for (const line of raw.split("\n")) {
+      if (!line.trim()) continue;
+      try { events.push(JSON.parse(line)); } catch (_) { /* skip */ }
+    }
+  }
+  return events;
+}
+
+describe("M38 supervisor ES-T2: event emission — happy path", () => {
+  it("emits task_start before each spawn and task_complete after each success", () => {
+    let iters = 0;
+    const fakeSpawn = (state) => {
+      iters = state.iter;
+      return { status: 0, stdout: `iter ${state.iter} ok\n`, stderr: "", signal: null };
+    };
+    const fakeMilestone = () => iters >= 2;
+    sup.doUnattended(
+      ["--project=" + tmpDir, "--max-iterations=10"],
+      permissiveDeps({ _spawnWorker: fakeSpawn, _isMilestoneComplete: fakeMilestone }),
+    );
+    const events = _readEmittedEvents(tmpDir);
+    const starts = events.filter((e) => e.type === "task_start");
+    const completes = events.filter((e) => e.type === "task_complete");
+    assert.equal(starts.length, 2, "two task_start events for two iterations");
+    assert.equal(completes.length, 2, "two task_complete events for two successes");
+    for (const e of starts) {
+      assert.equal(e.source, "supervisor");
+      assert.ok(typeof e.ts === "string" && e.ts.length > 0);
+      assert.ok(Number.isFinite(e.iter));
+    }
+    for (const e of completes) {
+      assert.equal(e.source, "supervisor");
+      assert.equal(e.verdict, "pass");
+      assert.ok(Number.isFinite(e.duration_s));
+    }
+  });
+});
+
+describe("M38 supervisor ES-T2: event emission — error on exit 4", () => {
+  it("emits error event with recoverable=false on unrecoverable blocker", () => {
+    const fakeSpawn = () => ({
+      status: 0,
+      stdout: "blocked — needs human approval to proceed\n",
+      stderr: "",
+      signal: null,
+    });
+    sup.doUnattended(
+      ["--project=" + tmpDir, "--max-iterations=10"],
+      permissiveDeps({ _spawnWorker: fakeSpawn, _isMilestoneComplete: () => false }),
+    );
+    const events = _readEmittedEvents(tmpDir);
+    const errors = events.filter((e) => e.type === "error");
+    assert.equal(errors.length, 1, "one error event for exit 4");
+    assert.equal(errors[0].source, "supervisor");
+    assert.equal(errors[0].recoverable, false, "exit 4 is unrecoverable");
+    assert.match(errors[0].error, /worker exit 4/);
+  });
+});
+
+describe("M38 supervisor ES-T2: event emission — retry on timeout", () => {
+  it("emits retry event with reason=timeout on each 124 exit that continues", () => {
+    const fakeSpawn = () => ({ status: null, stdout: "", stderr: "", signal: "SIGTERM" });
+    sup.doUnattended(
+      ["--project=" + tmpDir, "--max-iterations=3"],
+      permissiveDeps({ _spawnWorker: fakeSpawn, _isMilestoneComplete: () => false }),
+    );
+    const events = _readEmittedEvents(tmpDir);
+    const retries = events.filter((e) => e.type === "retry");
+    assert.equal(retries.length, 3, "one retry per timeout iteration");
+    for (const r of retries) {
+      assert.equal(r.source, "supervisor");
+      assert.equal(r.reason, "timeout");
+      assert.ok(Number.isFinite(r.attempt));
+    }
+  });
+});
+
+describe("M38 supervisor ES-T2: event emission — retry on milestone-incomplete", () => {
+  it("emits retry with reason=milestone_incomplete between successful iters", () => {
+    let iters = 0;
+    const fakeSpawn = (state) => {
+      iters = state.iter;
+      return { status: 0, stdout: `iter ${state.iter} ok\n`, stderr: "", signal: null };
+    };
+    const fakeMilestone = () => iters >= 3;
+    sup.doUnattended(
+      ["--project=" + tmpDir, "--max-iterations=10"],
+      permissiveDeps({ _spawnWorker: fakeSpawn, _isMilestoneComplete: fakeMilestone }),
+    );
+    const events = _readEmittedEvents(tmpDir);
+    const retries = events.filter((e) => e.type === "retry");
+    assert.equal(retries.length, 2, "iter 1 and 2 emit retry; iter 3 completes milestone");
+    for (const r of retries) {
+      assert.equal(r.reason, "milestone_incomplete");
+    }
+  });
+});
