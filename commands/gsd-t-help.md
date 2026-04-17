@@ -17,8 +17,6 @@ SMART ROUTER                                                           Manual
 
 GETTING STARTED                                                        Manual
 ───────────────────────────────────────────────────────────────────────────────
-  prompt              Help formulate your idea before committing to a command
-  brainstorm          Creative exploration, rethinking, and idea generation
   prd                 Generate a GSD-T-optimized Product Requirements Document
   setup               Generate or restructure project CLAUDE.md
   init                Initialize GSD-T structure in current project
@@ -32,7 +30,6 @@ MILESTONE WORKFLOW                                          [auto] = in wave
 ───────────────────────────────────────────────────────────────────────────────
   milestone           Define a new milestone
   partition    [auto] Decompose milestone into domains + contracts
-  discuss      [auto] Multi-perspective design exploration (always pauses)
   plan         [auto] Create atomic task lists per domain
   impact       [auto] Analyze downstream effects before execution
   execute      [auto] Run tasks (solo or team mode)
@@ -165,19 +162,6 @@ Use these when user asks for help on a specific command:
 - **Examples**: `/user:gsd Fix the login bug`, `/user:gsd Add dark mode`, `/user:gsd Scan for tech debt`
 - **Auto-route examples**: `Fix the login bug` (no slash needed), `Add dark mode`, `Scan for tech debt`
 
-### prompt
-- **Summary**: Help formulate project/feature/milestone prompts through guided questions
-- **Auto-invoked**: No
-- **Files**: None (conversational only)
-- **Use when**: You have a vague idea and need help articulating it
-
-### brainstorm
-- **Summary**: Creative exploration, rethinking, and idea generation
-- **Auto-invoked**: No
-- **Files**: Optional save to `.gsd-t/brainstorm-{date}.md`
-- **Use when**: You want to explore ideas, challenge assumptions, or break out of tunnel vision
-- **Modes**: Ideation, Enhancement, Rethink, Unstuck, Blue Sky
-
 ### prd
 - **Summary**: Generate a GSD-T-optimized Product Requirements Document
 - **Auto-invoked**: No
@@ -244,19 +228,14 @@ Use these when user asks for help on a specific command:
 - **Use when**: Breaking down a milestone for parallel work
 - **Note (M33)**: Auto-creates `.gsd-t/contracts/design-contract.md` when Figma URLs or design references are detected in requirements — bootstraps the design-to-code stack rule for execute.
 
-### discuss
-- **Summary**: Explore design decisions from multiple perspectives
-- **Auto-invoked**: Yes (in wave, after partition)
-- **Updates**: `.gsd-t/contracts/`, decision log
-- **Use when**: Architectural decisions need exploration
-
 ### plan
 - **Summary**: Create atomic task lists for each domain (each task must fit in one context window)
-- **Auto-invoked**: Yes (in wave, after discuss)
+- **Auto-invoked**: Yes (in wave, after partition)
 - **Creates**: `.gsd-t/domains/*/tasks.md`
 - **Use when**: Ready to define specific implementation tasks
 - **Note (M22)**: Tasks auto-split if estimated scope exceeds 70% context window — guarantees fresh dispatch works
 - **Note (M26)**: Pre-mortem step now also reads rules.jsonl for historical failure patterns via getPreMortemRules
+- **Note (M38)**: Conversational use cases (formerly `/user:gsd-t-prompt`, `/user:gsd-t-brainstorm`, `/user:gsd-t-discuss`) are now handled by the Smart Router's conversational mode — just describe what you want via `/user:gsd` or plain text.
 
 ### impact
 - **Summary**: Analyze downstream effects of planned changes
@@ -316,7 +295,7 @@ Use these when user asks for help on a specific command:
 ### wave
 - **Summary**: Run complete cycle automatically: partition through verify+complete
 - **Auto-invoked**: No (user triggers)
-- **Runs**: partition → discuss → plan → impact → execute → test-sync → integrate → verify+complete
+- **Runs**: partition → plan → impact → execute → test-sync → integrate → verify+complete
 - **Use when**: Ready to execute a full milestone hands-off
 
 ### status

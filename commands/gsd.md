@@ -18,9 +18,39 @@ Before semantic evaluation, determine if this is a **continuation** of an alread
 - Message reads as mid-task input (e.g., "both files parse cleanly", "yes continue", "looks good", "done")
 - Progress.md shows an active/in-progress phase AND the message doesn't clearly start a new task
 
-**If continuation detected** → skip Step 2, go to Step 3 using the **continuation format**.
+**If continuation detected** → skip Step 2 and Step 2.5, go to Step 3 using the **continuation format**.
 
-**If NOT a continuation** → proceed to Step 2 (normal semantic evaluation).
+**If NOT a continuation** → proceed to Step 2.5 (intent classification).
+
+---
+
+## Step 2.5: Intent Classification
+
+For non-continuation messages, decide whether the request is **conversational** (user is thinking, exploring, or articulating — no command spawn) or **workflow** (user wants work done — route to a GSD-T command via Step 2).
+
+This step replaces the retired `/user:gsd-t-prompt`, `/user:gsd-t-brainstorm`, and `/user:gsd-t-discuss` commands, whose use cases the router now handles inline.
+
+### Conversational triggers (respond inline, NO command spawn):
+
+- **Idea articulation / structuring**: "help me think through this", "I have an idea but…", "what questions should I ask myself", "help me structure this before I commit"
+- **Brainstorming / exploration**: "let me brainstorm", "what are some alternatives", "I'm stuck — what other angles", "what if we rethink", "what assumptions are we making", "what would the best version look like"
+- **Design / trade-off discussion**: "let's explore trade-offs before we commit", "what are the options for X", "should we use A or B" (asked as exploration, not as a request to decide and build)
+- **Open-ended questions about direction**: "what do you think about…", "how should we approach…"
+
+**Action for conversational triggers**: print the output format (see Step 3) and respond directly in the conversation using the same reasoning pattern the deleted commands used — ask clarifying questions, lay out options, reframe assumptions, summarize insights. Do NOT spawn a GSD-T command. End the turn when the user seems ready to act; they will come back with a workflow request.
+
+### Workflow triggers (proceed to Step 2 semantic evaluation):
+
+- Direct task requests: "fix", "add", "implement", "refactor", "ship", "build", "delete", "rename"
+- Named artifacts: "run the tests", "scan the codebase", "verify the milestone", "status"
+- Design-to-code requests (see Step 2 design-to-code routing)
+- Anything where the user expects files to change or a command to run
+
+**Action for workflow triggers**: proceed to Step 2.
+
+### Default
+
+When classification is ambiguous, default to **conversational**. Users who want work done are almost always explicit; users who are thinking deserve thinking partnership, not premature spawning.
 
 ---
 
@@ -109,6 +139,12 @@ When cleanup is needed, do it at the start of `design-decompose` before reading 
 → Routing to /user:gsd-t-{command}: {brief reason}
 ```
 
+### Conversational (from Step 2.5):
+```
+→ Conversational mode (no command spawn)
+```
+Follow this header with your direct in-line response — ask clarifying questions, surface options, reframe assumptions, offer a synthesis. Do NOT invoke any GSD-T command. End the turn when the conversation reaches a natural stopping point; the user will return with a workflow request if they want work done.
+
 ### Design pipeline (from design-to-code routing):
 ```
 → Design pipeline: clean → decompose → build
@@ -141,7 +177,7 @@ Where `{last-command}` is:
 
 **CRITICAL: `{command}` and `{last-command}` MUST be a real GSD-T command slug — never a free-form description.**
 
-Valid command slugs: `quick`, `debug`, `feature`, `execute`, `milestone`, `project`, `scan`, `gap-analysis`, `plan`, `partition`, `discuss`, `impact`, `integrate`, `verify`, `test-sync`, `complete-milestone`, `wave`, `status`, `populate`, `setup`, `init`, `health`, `log`, `pause`, `resume`, `prd`, `brainstorm`, `prompt`, `backlog-add`, `backlog-list`, `backlog-promote`, `promote-debt`, `triage-and-merge`, `version-update`, `version-update-all`, `design-decompose`, `design-build`, `design-audit`, `design-review`
+Valid command slugs: `quick`, `debug`, `feature`, `execute`, `milestone`, `project`, `scan`, `gap-analysis`, `plan`, `partition`, `impact`, `integrate`, `verify`, `test-sync`, `complete-milestone`, `wave`, `status`, `populate`, `setup`, `init`, `health`, `log`, `pause`, `resume`, `prd`, `backlog-add`, `backlog-list`, `backlog-promote`, `promote-debt`, `triage-and-merge`, `version-update`, `version-update-all`, `design-decompose`, `design-build`, `design-audit`, `design-review`
 
 **WRONG ❌** — do not do this:
 ```
@@ -175,8 +211,11 @@ Examples:
   /user:gsd Scan the codebase for tech debt
   /user:gsd What's the current progress?
   /user:gsd Compare this spec against our code
+  /user:gsd Help me think through this integration before I start
+  /user:gsd I'm stuck — what are other angles?
 
-I'll route to the right GSD-T command automatically.
+I'll route to the right GSD-T command — or just think out loud with you
+if you're still figuring things out (no command spawn).
 ```
 
 $ARGUMENTS
