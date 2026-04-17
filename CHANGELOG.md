@@ -2,6 +2,30 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [3.13.14] - 2026-04-17
+
+### Fixed — Supervisor no longer requires project-local `bin/gsd-t.js` + sweep self-protection
+
+v3.13.13 successfully swept bee-poc's stray `bin/gsd-t.js`, but exposed a second bug: `bin/gsd-t-unattended.cjs:31` still did `require("./gsd-t.js")` to pull in the `mapHeadlessExitCode` helper. With the stray removed, projects could no longer load the supervisor at all — the require chain now failed on `gsd-t.js` itself instead of `debug-ledger.js`. Three options were on the table (restore both files, resolve from global, or remove all stale copies); we picked the middle path via file extraction.
+
+**Fix 1 — extract `mapHeadlessExitCode` to its own file** (`bin/headless-exit-codes.cjs`, new):
+The exit-code contract helper (0=success, 1=verify fail, 2=context budget, 3=non-zero exit, 4=blocked, 5=unknown command) is now a standalone zero-dependency module. `bin/gsd-t-unattended.cjs:31` now does `require("./headless-exit-codes.cjs")` — no transitive dependency on the full CLI installer. `bin/gsd-t.js` still re-exports `mapHeadlessExitCode` for backward compatibility (top-of-file require + `module.exports`).
+
+**Fix 2 — `headless-exit-codes.cjs` joins `PROJECT_BIN_TOOLS`**: `copyBinToolsToProject` now copies the new helper into every registered project's `bin/` on the next `update-all`, so the supervisor can load it locally without reaching into the global package.
+
+**Fix 3 — sweep self-protection** (`copyBinToolsToProject`):
+While dogfooding v3.13.13, the sweep ran against GSD-T's own source repo (which is registered as a project for eating-our-own-dogfood purposes), recognized the source `bin/gsd-t.js` as matching the installer signature (it IS the installer), and deleted it. The source was restored via `git restore`, but the sweep now carries a guard: if `realpathSync(projectBinDir) === realpathSync(PKG_ROOT/bin)`, skip the sweep entirely. Dogfooding the installer on itself no longer cannibalizes the source.
+
+**Files**:
+- `bin/headless-exit-codes.cjs` — new file, 50 lines, extracted helper with explanatory header.
+- `bin/gsd-t-unattended.cjs` — line 31 now requires the new helper instead of `./gsd-t.js`.
+- `bin/gsd-t.js` — top-of-file re-export of `mapHeadlessExitCode` (backward compat); original declaration replaced with a comment pointing to the extracted module; `PROJECT_BIN_TOOLS` gains `headless-exit-codes.cjs`; sweep logic gains the realpath equality guard.
+- `test/bin-gsd-t-resilience.test.js` — new test: `copyBinToolsToProject refuses to sweep the source package's own bin/` (run sweep with `projectDir = PKG_ROOT`, assert `bin/gsd-t.js` still exists after).
+
+**Tests**: 1240/1240 pass (+1 new self-protection test). E2E: N/A.
+
+**Impact**: bee-poc's supervisor can now load after `gsd-t update-all` copies the new `headless-exit-codes.cjs` helper into `bin/`. No project needs a local `bin/gsd-t.js` for the supervisor to function. Running the installer against its own source repo no longer destroys the source.
+
 ## [3.13.13] - 2026-04-17
 
 ### Fixed — Stray sweep now matches older-version installer artifacts

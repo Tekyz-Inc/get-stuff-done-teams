@@ -75,6 +75,17 @@ test("copyBinToolsToProject sweeps older-version stray with the installer signat
   assert.ok(!fs.existsSync(path.join(binDir, "gsd-t.js")), "older-version stray (signature match) must be deleted");
 });
 
+test("copyBinToolsToProject refuses to sweep the source package's own bin/", () => {
+  // Self-protection: running the sweep against the installer's own source
+  // repo (PKG_ROOT) must NOT delete bin/gsd-t.js even though the signature
+  // matches — that file IS the installer.
+  const gt = require(SRC_GSD_T);
+  const pkgRoot = path.resolve(__dirname, "..");
+  assert.ok(fs.existsSync(path.join(pkgRoot, "bin", "gsd-t.js")), "source gsd-t.js must exist before test");
+  gt.copyBinToolsToProject(pkgRoot, "GSD-T");
+  assert.ok(fs.existsSync(path.join(pkgRoot, "bin", "gsd-t.js")), "source gsd-t.js must survive sweep against its own package");
+});
+
 test("copyBinToolsToProject leaves a user-owned bin/gsd-t.js alone when signature doesn't match", () => {
   const tmp = mkTmp("sweep-skip");
   const binDir = path.join(tmp, "bin");

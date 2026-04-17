@@ -45,4 +45,5 @@ bin/context-meter-state.cjs
 .gsd-t/.task-counter-retired-v1
 
 # GSD-T context meter (session state — do not commit)
-bin/*.cjs
+# Scoped to the state artifact only — real source .cjs under bin/ IS tracked.
+bin/context-meter-state.cjs

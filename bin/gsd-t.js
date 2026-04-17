@@ -34,6 +34,12 @@ try {
   };
 }
 
+// Shared headless exit-code helper — lives in its own file so non-entry
+// modules (e.g. bin/gsd-t-unattended.cjs) can require it without pulling
+// in the full CLI. See commentary near the original declaration site and
+// in headless-exit-codes.cjs itself.
+const { mapHeadlessExitCode } = require(path.join(__dirname, "headless-exit-codes.cjs"));
+
 // ─── Configuration ───────────────────────────────────────────────────────────
 
 const CLAUDE_DIR = path.join(os.homedir(), ".claude");
@@ -2110,6 +2116,7 @@ const PROJECT_BIN_TOOLS = [
   "context-meter-config.cjs", "token-budget.cjs",
   "gsd-t-unattended.cjs", "gsd-t-unattended-platform.cjs", "gsd-t-unattended-safety.cjs",
   "handoff-lock.cjs", "headless-auto-spawn.cjs",
+  "headless-exit-codes.cjs",
 ];
 
 // Files that older versions of this installer copied into project bin/ but
@@ -2154,27 +2161,41 @@ function copyBinToolsToProject(projectDir, projectName) {
       }
     }
   }
+  // Self-protection: NEVER sweep the package's own bin/. Without this guard,
+  // running `gsd-t update-all` with the GSD-T source repo itself registered
+  // as a project (legitimate during development) would signature-match
+  // bin/gsd-t.js — which IS the installer — and delete the source file.
+  // Resolve both paths to handle symlinks / relative path quirks.
+  const resolvedProjectBin = fs.realpathSync.native
+    ? (() => { try { return fs.realpathSync(projectBinDir); } catch { return projectBinDir; } })()
+    : projectBinDir;
+  const resolvedPkgBin = (() => {
+    try { return fs.realpathSync(path.join(PKG_ROOT, "bin")); } catch { return path.join(PKG_ROOT, "bin"); }
+  })();
+  const isSourcePackage = resolvedProjectBin === resolvedPkgBin;
   let cleaned = 0;
-  for (const stray of DEPRECATED_BIN_STRAYS) {
-    const strayPath = path.join(projectBinDir, stray);
-    if (!fs.existsSync(strayPath)) continue;
-    try {
-      const strayContent = fs.readFileSync(strayPath, "utf8");
-      const head = strayContent.slice(0, 400);
-      // Signature-match any version this installer ever shipped. The marker
-      // is unique enough to rule out user-owned files: node shebang + the
-      // verbatim JSDoc header "GSD-T CLI Installer". Matches every historical
-      // version of bin/gsd-t.js, not just the current one, so older strays
-      // (e.g. v3.13.11 left behind on v3.13.12+) are still swept.
-      const isOurs =
-        head.startsWith("#!/usr/bin/env node") &&
-        head.includes("GSD-T CLI Installer");
-      if (isOurs) {
-        fs.unlinkSync(strayPath);
-        cleaned++;
+  if (!isSourcePackage) {
+    for (const stray of DEPRECATED_BIN_STRAYS) {
+      const strayPath = path.join(projectBinDir, stray);
+      if (!fs.existsSync(strayPath)) continue;
+      try {
+        const strayContent = fs.readFileSync(strayPath, "utf8");
+        const head = strayContent.slice(0, 400);
+        // Signature-match any version this installer ever shipped. The marker
+        // is unique enough to rule out user-owned files: node shebang + the
+        // verbatim JSDoc header "GSD-T CLI Installer". Matches every historical
+        // version of bin/gsd-t.js, not just the current one, so older strays
+        // (e.g. v3.13.11 left behind on v3.13.12+) are still swept.
+        const isOurs =
+          head.startsWith("#!/usr/bin/env node") &&
+          head.includes("GSD-T CLI Installer");
+        if (isOurs) {
+          fs.unlinkSync(strayPath);
+          cleaned++;
+        }
+      } catch {
+        // leave the file alone on any read error
       }
-    } catch {
-      // leave the file alone on any read error
     }
   }
   if (cleaned > 0) {
@@ -2852,22 +2873,10 @@ function buildHeadlessCmd(command, cmdArgs) {
  * Exit codes: 0=success, 1=verify-fail, 2=context-budget-exceeded, 3=error,
  *             4=blocked-needs-human, 5=command-dispatch-failed
  */
-function mapHeadlessExitCode(processExitCode, output) {
-  if (processExitCode !== 0 && processExitCode !== null) return 3;
-  const raw = output || "";
-  const lower = raw.toLowerCase();
-  // Command dispatch failure — `claude -p` prints "Unknown command: /X"
-  // to stdout and still exits 0. Without this sentinel, a mistyped or
-  // namespace-prefixed slash command silently reports success. (M36 Phase 0.)
-  if (/^unknown command:/im.test(raw)) return 5;
-  if (lower.includes("context budget exceeded") || lower.includes("context window exceeded") ||
-      lower.includes("budget exceeded") || lower.includes("token limit")) return 2;
-  if (lower.includes("blocked") && (lower.includes("needs human") || lower.includes("need human") ||
-      lower.includes("human input") || lower.includes("human approval"))) return 4;
-  if (lower.includes("verification failed") || lower.includes("verify failed") ||
-      lower.includes("quality gate failed") || lower.includes("tests failed")) return 1;
-  return 0;
-}
+// mapHeadlessExitCode now lives in ./headless-exit-codes.cjs — see re-export
+// near the top of this file. Kept out-of-line here so non-entry modules
+// (e.g. bin/gsd-t-unattended.cjs) can require the shared helper without
+// pulling in the full CLI at bin/gsd-t.js.
 
 /**
  * Generate a headless log file path.

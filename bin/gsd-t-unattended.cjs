@@ -28,7 +28,7 @@ const fs = require("fs");
 const path = require("path");
 const os = require("os");
 const { execSync, spawnSync } = require("child_process");
-const { mapHeadlessExitCode } = require("./gsd-t.js");
+const { mapHeadlessExitCode } = require("./headless-exit-codes.cjs");
 
 // Safety rails (m36-safety-rails) — pure-function checks for pre-launch,
 // supervisor-init, pre-worker, and post-worker hook points per contract §12.
