@@ -351,6 +351,14 @@ Reset `.gsd-t/` for next milestone:
 4. Clear `.gsd-t/impact-report.md`, `.gsd-t/test-coverage.md`
 5. Update `.gsd-t/progress.md`:
 
+**CRITICAL — Decision Log Trim**: This trim happens AFTER Step 4's archive copy of `.gsd-t/progress.md` is written. The archive snapshot at `.gsd-t/milestones/{name}-{date}/progress.md` is the source-of-truth for full history. The live Decision Log is reset to the just-completed milestone's entries only — everything dated before the milestone's start date is deleted from the live file (it remains in the archive). This prevents the live progress.md from growing without bound.
+
+Steps to apply the trim:
+- Identify the just-completed milestone's start date (typically the `[milestone-defined]` entry for this milestone)
+- Delete all Decision Log entries dated BEFORE that start date from the live `.gsd-t/progress.md`
+- Keep entries from the start date onward (they cover the milestone arc + the completion entry you're about to add)
+- Prepend the pointer line shown below
+
 ```markdown
 # GSD-T Progress
 
@@ -365,8 +373,11 @@ None — ready for next milestone
 | {previous} | {version} | {date} | v{version} |
 
 ## Decision Log
+
+> Prior decision log entries preserved in `.gsd-t/milestones/*/progress.md` — see archive snapshots for pre-{next-milestone-name} history.
+
 - {date}: [success] Milestone "{name}" completed — {summary of what was built}. v{version}
-{Keep all prior decision log entries — they are valuable context}
+{Trim: delete all decision-log entries older than the just-completed milestone's start date. Those entries are preserved in the milestone archive created in Step 4. Keep only the completion entry above plus any entries logged on or after the cutoff — typically the live log is near-empty when the next milestone begins.}
 ```
 
 ## Step 8: Update README.md

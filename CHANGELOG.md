@@ -2,6 +2,24 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [3.12.15] - 2026-04-17
+
+### Fixed — Decision Log Trim — stop live progress.md bloat
+
+`commands/gsd-t-complete-milestone.md` Step 7 previously instructed "Keep all prior decision log entries — they are valuable context". Because every prior milestone's full log is already frozen into its archive snapshot by Step 4, carrying the same entries forward on the live `.gsd-t/progress.md` produced unbounded file growth (GSD-T's live file had reached 168,921 bytes / 658 lines — 10× the size of a healthy project).
+
+**Fix**: Step 7 now explicitly trims the live Decision Log to the just-completed milestone's entries after the archive snapshot is written. The instruction reads:
+
+> Delete all decision-log entries older than the just-completed milestone's start date. Those entries are preserved in the milestone archive created in Step 4. Keep only the completion entry plus any entries logged on or after the cutoff — typically the live log is near-empty when the next milestone begins.
+
+The archive at `.gsd-t/milestones/{name}-{date}/progress.md` remains the source-of-truth for the full history. A pointer line (`> Prior decision log entries preserved in .gsd-t/milestones/*/progress.md`) is added to the live file so future readers know where to look.
+
+**One-time cleanup on the GSD-T repo**: live `.gsd-t/progress.md` trimmed from 168,921 B / 658 lines to 11,733 B / 67 lines (93% reduction), cut at M38 start (2026-04-16 14:25). Historical decision log preserved by copying the pre-trim file into `.gsd-t/milestones/M38-headless-by-default-2026-04-17/progress.md` (Step 4 missed that archive copy when M38 was completed earlier today; fix-forward).
+
+**Users with bloated `.gsd-t/progress.md`** can run the same one-time cleanup manually: find the current milestone's `[milestone-defined]` start entry in the Decision Log, copy the pre-trim file to the milestone archive directory (if it's not already there), then delete all Decision Log entries older than that start date. Keep the pointer line at the top of the Decision Log section.
+
+**Tests**: Unit 1186/1186 pass (no code paths changed — pure doc/template edits + one-time live file rewrite). E2E N/A.
+
 ## [3.12.14] - 2026-04-17
 
 ### Fixed — Telemetry Env-Propagation Regression (Tag All Worker Events)
