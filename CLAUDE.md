@@ -8,6 +8,8 @@ Contract-driven development methodology for Claude Code. npm package providing s
 
 ## Autonomy Level
 
+> Overrides global: pins the default from `~/.claude/CLAUDE.md` § Autonomy Levels.
+
 **Level 3 — Full Auto**. Only pause for blockers, destructive actions, or project completion.
 
 ## Tech Stack
