@@ -97,7 +97,7 @@ describe("safety-T1: DEFAULTS shape", () => {
     // Concrete contract values.
     assert.equal(d.maxIterations, 200);
     assert.equal(d.hours, 24);
-    assert.equal(d.workerTimeoutMs, 3600000);
+    assert.equal(d.workerTimeoutMs, 270000);
     assert.equal(d.gutterNoProgressIters, 5);
 
     // Branch list MUST include the canonical six.
@@ -166,7 +166,7 @@ describe("safety-T1: loadConfig", () => {
     assert.equal(cfg.hours, 6);
     assert.deepEqual(cfg.protectedBranches, ["main", "staging"]);
     // Untouched fields fall back to defaults.
-    assert.equal(cfg.workerTimeoutMs, 3600000);
+    assert.equal(cfg.workerTimeoutMs, 270000);
     assert.equal(cfg.gutterNoProgressIters, 5);
     assert.deepEqual(cfg.dirtyTreeWhitelist, safety.DEFAULTS.dirtyTreeWhitelist);
   });

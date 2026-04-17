@@ -17,6 +17,10 @@ Default path is `autoSpawnHeadless({command, spawnType, watch: WATCH_FLAG, proje
 
 ## Step 0: Launch via Subagent
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-scan --step 0 --step-label "Launch via Subagent" 2>/dev/null || true
+```
+
 Scans are long-running and context-heavy. Always execute via a Task subagent for a fresh context window.
 
 **If you are the orchestrating agent** (you received the slash command directly):
@@ -36,6 +40,10 @@ Continue to Step 1 below. At Step 2, use team mode — spawn the 5 teammates in 
 
 ## Step 1: Load Existing Context
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-scan --step 1 --step-label "Load Existing Context" 2>/dev/null || true
+```
+
 Read:
 1. `CLAUDE.md` (if exists)
 2. `.gsd-t/progress.md` (if exists)
@@ -44,6 +52,10 @@ Read:
 5. `docs/` — any existing documentation
 
 ## Step 1.5: Graph Index (if available)
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-scan --step 1 --step-label ".5: Graph Index (if available)" 2>/dev/null || true
+```
 
 Before scanning, check if `bin/graph-indexer.js` exists in the GSD-T installation or if `.gsd-t/graph/meta.json` exists in the project. If so:
 
@@ -62,6 +74,10 @@ If the graph is available, the scan teammates can use these queries for deeper a
 Pass the graph query results to each teammate in their prompt context so they can reference concrete entity data instead of relying solely on grep patterns.
 
 ## Step 2: Full Codebase Scan
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-scan --step 2 --step-label "Full Codebase Scan" 2>/dev/null || true
+```
 
 **Always use Team Mode** unless the codebase is trivially small (< 5 files) or agent teams are explicitly disabled. Each dimension is fully independent — parallel scanning is faster and produces better results.
 
@@ -283,6 +299,10 @@ Produce: `.gsd-t/scan/contract-drift.md`
 
 ## Step 2.5: Schema Extraction
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-scan --step 2 --step-label ".5: Schema Extraction" 2>/dev/null || true
+```
+
 Run schema extraction on the scanned project to detect ORM/database schema files and parse entity definitions. This data feeds the database schema diagram in Step 3.5.
 
 Using Bash tool:
@@ -298,6 +318,10 @@ If `schemaData.detected === false`, note: "No ORM/schema files detected — data
 
 ## Step 2.9: Archive Previous Tech Debt Register
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-scan --step 2 --step-label ".9: Archive Previous Tech Debt Register" 2>/dev/null || true
+```
+
 Before building the new register, archive the existing one so the file stays small. Each scan is a complete snapshot — the archive preserves history.
 
 If `.gsd-t/techdebt.md` exists:
@@ -308,6 +332,10 @@ If `.gsd-t/techdebt.md` exists:
 The new `techdebt.md` created in Step 3 will contain only the current scan's findings. Between scans, mark items as `[RESOLVED]` inline as they are fixed. The next scan replaces the file again.
 
 ## Step 3: Build Tech Debt Register
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-scan --step 3 --step-label "Build Tech Debt Register" 2>/dev/null || true
+```
 
 Synthesize ALL findings into a **fresh** `.gsd-t/techdebt.md` (the previous version was archived in Step 2.9). This file contains only the current scan's findings — no resolved items table, no scan history. Previous scans are preserved in `techdebt_YYYY-MM-DD.md` archives.
 
@@ -399,6 +427,10 @@ Nice-to-haves and cleanup.
 
 ## Step 3.5: Diagram Generation
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-scan --step 3 --step-label ".5: Diagram Generation" 2>/dev/null || true
+```
+
 Generate all 6 architectural diagrams using analysis data from Step 2 and schema data from Step 2.5.
 
 Using Bash tool:
@@ -417,6 +449,10 @@ Capture the full array as `diagrams`. Log:
 - Renderer used per diagram: `diagrams.map(d => d.type + ': ' + d.rendererUsed).join(', ')`
 
 ## Step 4: Suggest Milestone Promotions
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-scan --step 4 --step-label "Suggest Milestone Promotions" 2>/dev/null || true
+```
 
 Review all items marked `Milestone candidate: YES` and group them into logical milestones:
 
@@ -446,6 +482,10 @@ Note: Use `/gsd-t-partition` Step 1.6 to design the SharedCore domain
 ```
 
 ## Step 5: Update Living Documents
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-scan --step 5 --step-label "Update Living Documents" 2>/dev/null || true
+```
 
 The scan produces deep analysis in `.gsd-t/scan/`. Now cross-populate findings into the living docs so knowledge persists across milestones.
 
@@ -505,6 +545,10 @@ If `README.md` exists, merge — update tech stack and setup sections but preser
 
 ## Step 6: Test Verification
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-scan --step 6 --step-label "Test Verification" 2>/dev/null || true
+```
+
 After updating living documents, verify nothing was broken:
 
 1. **Run existing tests**: Execute the full test suite to establish a baseline — document what passes and what was already failing
@@ -512,6 +556,10 @@ After updating living documents, verify nothing was broken:
 3. **Log test baseline**: Record the current test state in `.gsd-t/scan/test-baseline.md` — this gives future milestones a starting point
 
 ## Step 6.5: Generate Scan Freshness Cache
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-scan --step 6 --step-label ".5: Generate Scan Freshness Cache" 2>/dev/null || true
+```
 
 After the scan completes and living docs are updated, generate a hash cache so downstream commands can detect staleness without re-scanning.
 
@@ -557,6 +605,10 @@ This cache enables downstream commands (`partition`, `feature`, `gap-analysis`) 
 
 ## Step 7: Update Project State
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-scan --step 7 --step-label "Update Project State" 2>/dev/null || true
+```
+
 If `.gsd-t/progress.md` exists:
 - Log scan in Decision Log
 - Note critical findings
@@ -569,6 +621,10 @@ If `CLAUDE.md` exists:
 - Suggest updates for any patterns or conventions discovered during scan
 
 ## Step 8: Report to User
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-scan --step 8 --step-label "Report to User" 2>/dev/null || true
+```
 
 Present a summary:
 1. Architecture overview (brief)

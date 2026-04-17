@@ -26,6 +26,10 @@ Per `.gsd-t/contracts/model-selection-contract.md` v1.0.0.
 
 ## Step 0.1: Launch via Subagent
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-quick --step 0 --step-label ".1: Launch via Subagent" 2>/dev/null || true
+```
+
 To give this task a fresh context window and prevent compaction during consecutive quick runs, always execute via a Task subagent.
 
 **If you are the orchestrating agent** (you received the slash command directly):
@@ -127,12 +131,20 @@ Continue to Step 1 below.
 
 ## Step 1: Load Context (Fast)
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-quick --step 1 --step-label "Load Context (Fast)" 2>/dev/null || true
+```
+
 Read:
 1. `CLAUDE.md`
 2. `.gsd-t/progress.md` (if exists)
 3. `.gsd-t/contracts/` (if exists) — scan for relevant contracts
 
 ## Step 1.5: Graph-Enhanced Scope Check
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-quick --step 1 --step-label ".5: Graph-Enhanced Scope Check" 2>/dev/null || true
+```
 
 If `.gsd-t/graph/meta.json` exists (graph index is available):
 1. Query `getDomainOwner` for the target function/file to verify it belongs to the expected domain
@@ -142,6 +154,10 @@ If `.gsd-t/graph/meta.json` exists (graph index is available):
 If graph is not available, skip this step.
 
 ## Step 2: Scope Check
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-quick --step 2 --step-label "Scope Check" 2>/dev/null || true
+```
 
 Based on $ARGUMENTS, determine:
 - Which domain does this touch? (check `.gsd-t/domains/*/scope.md` if available)
@@ -157,6 +173,10 @@ Should I proceed with quick mode or use the full execute workflow?"
 Proceed.
 
 ## Step 3: Execute
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-quick --step 3 --step-label "Execute" 2>/dev/null || true
+```
 
 ### Deviation Rules
 
@@ -190,6 +210,10 @@ When you encounter unexpected situations:
 
 ## Step 3.5: Emit Task Metrics
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-quick --step 3 --step-label ".5: Emit Task Metrics" 2>/dev/null || true
+```
+
 After committing, emit a task-metrics record for this quick task — run via Bash:
 `node bin/metrics-collector.js --milestone {current-milestone-or-none} --domain {domain-or-quick} --task quick-{timestamp} --command quick --duration_s {elapsed} --tokens_used {estimated} --context_pct ${CTX_PCT:-0} --pass {true|false} --fix_cycles {0|N} --signal_type {pass-through|fix-cycle} --notes "[quick] {description}" 2>/dev/null || true`
 
@@ -199,6 +223,10 @@ Emit task_complete event — run via Bash:
 `node ~/.claude/scripts/gsd-t-event-writer.js --type task_complete --command gsd-t-quick --reasoning "signal_type={signal_type}, domain={domain}" --outcome {success|failure} || true`
 
 ## Step 4: Document Ripple (if GSD-T is active)
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-quick --step 4 --step-label "Document Ripple (if GSD-T is active)" 2>/dev/null || true
+```
 
 If `.gsd-t/progress.md` exists, assess what documentation was affected and update ALL relevant files:
 
@@ -230,6 +258,10 @@ Skip scan docs not affected by this task. Skip analytical sections — those req
 ### Skip what's not affected — most quick tasks will only touch 1-2 of these.
 
 ## Step 5: Test & Verify (MANDATORY)
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-quick --step 5 --step-label "Test & Verify (MANDATORY)" 2>/dev/null || true
+```
 
 Quick does not mean skip testing. Before committing:
 
@@ -264,6 +296,10 @@ After all scripted tests pass:
 Note: Exploratory findings do NOT count against the scripted test pass/fail ratio.
 
 ## Step 5.25: Design Verification Agent (MANDATORY when design contract exists)
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-quick --step 5 --step-label ".25: Design Verification Agent (MANDATORY when design contract exists)" 2>/dev/null || true
+```
 
 After tests pass, check if `.gsd-t/contracts/design-contract.md` exists. If it does NOT, skip to Step 5.5.
 
@@ -338,6 +374,10 @@ After subagent returns — run observability Bash and append to token-log.md.
 
 ## Step 5.5: Red Team — Adversarial QA (MANDATORY)
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-quick --step 5 --step-label ".5: Red Team — Adversarial QA (MANDATORY)" 2>/dev/null || true
+```
+
 After tests pass, spawn an adversarial Red Team agent. Its success is measured by bugs found, not tests passed.
 
 ⚙ [opus] Red Team → adversarial validation of quick task
@@ -368,6 +408,10 @@ Append to `.gsd-t/token-log.md`:
 **If GRUDGING PASS:** Proceed to doc-ripple.
 
 ## Step 6: Doc-Ripple (Automated)
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-quick --step 6 --step-label "Doc-Ripple (Automated)" 2>/dev/null || true
+```
 
 After all work is committed but before reporting completion:
 

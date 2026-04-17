@@ -4,6 +4,10 @@ You are defining a new milestone for the project. A milestone is a significant d
 
 ## Step 1: Load Context
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-milestone --step 1 --step-label "Load Context" 2>/dev/null || true
+```
+
 Read:
 1. `CLAUDE.md`
 2. `.gsd-t/progress.md` — check if GSD-T is initialized
@@ -12,6 +16,10 @@ Read:
 If `.gsd-t/` doesn't exist, run the init workflow first.
 
 ## Step 2: Define the Milestone
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-milestone --step 2 --step-label "Define the Milestone" 2>/dev/null || true
+```
 
 Based on $ARGUMENTS and available documentation:
 
@@ -29,6 +37,10 @@ Update `.gsd-t/progress.md` milestones table:
 
 ## Step 3: Clear Previous Milestone State (if applicable)
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-milestone --step 3 --step-label "Clear Previous Milestone State (if applicable)" 2>/dev/null || true
+```
+
 If there's a completed previous milestone:
 1. Archive domain task files (they contain valuable context)
 2. Keep contracts that are still valid
@@ -39,6 +51,10 @@ If previous milestone is NOT complete:
 Ask user: "Milestone {N-1} is still {status}. Archive it and start new? Or complete it first?"
 
 ## Step 4: Pre-Partition Assessment
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-milestone --step 4 --step-label "Pre-Partition Assessment" 2>/dev/null || true
+```
 
 Before formal partitioning, do a quick assessment:
 
@@ -51,6 +67,10 @@ Before formal partitioning, do a quick assessment:
 Present the assessment and ask: "Ready to partition into domains now, or want to discuss first?"
 
 ## Step 5: Document Ripple
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-milestone --step 5 --step-label "Document Ripple" 2>/dev/null || true
+```
 
 After defining the milestone, update affected documentation:
 
@@ -67,6 +87,10 @@ After defining the milestone, update affected documentation:
 
 ## Step 6: Test Verification
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-milestone --step 6 --step-label "Test Verification" 2>/dev/null || true
+```
+
 Before proceeding to partition:
 
 1. **Run existing tests**: Execute the full test suite to confirm the codebase is clean before starting the milestone
@@ -74,6 +98,10 @@ Before proceeding to partition:
 3. **Baseline**: Record test state so the milestone has a clear starting point for quality measurement
 
 ## Step 7: Auto-Partition (if user confirms)
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-milestone --step 7 --step-label "Auto-Partition (if user confirms)" 2>/dev/null || true
+```
 
 If the user wants to proceed immediately, execute the partition workflow (same as gsd-t-partition) for this milestone.
 

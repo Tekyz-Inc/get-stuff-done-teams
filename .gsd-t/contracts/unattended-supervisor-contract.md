@@ -1,6 +1,6 @@
 # Contract: Unattended Supervisor
 
-**Version**: 1.1.0
+**Version**: 1.3.0
 **Status**: ACTIVE for M38
 **Owner**: m36-supervisor-core + m36-watch-loop (shared)
 **Consumers**: m36-supervisor-core, m36-watch-loop, m36-safety-rails, m36-cross-platform, m36-m35-gap-fixes, m36-docs-and-tests
@@ -145,6 +145,8 @@ gsd-t unattended [OPTIONS]
   --dry-run               Preflight only; no spawn
   --verbose               Extra log detail
   --test-mode             Uses stub worker; for CI and smoke tests
+  --worker-timeout=270000 Per-iter worker timeout in ms (default 270000,
+                          cache-warm). See §16.
 ```
 
 Exit codes of the `gsd-t unattended` CLI itself mirror §5 at termination time.
@@ -272,7 +274,7 @@ Each check returns `{ ok, reason?, code? }`. A `false` result halts the supervis
   "maxIterations": 200,
   "hours": 24,
   "gutterNoProgressIters": 5,
-  "workerTimeoutMs": 3600000
+  "workerTimeoutMs": 270000
 }
 ```
 
@@ -339,17 +341,135 @@ The token-log row appended by `_appendTokenLog` MUST substitute
 `process.env.GSD_T_MODEL` for the previous hardcoded `"unknown"` placeholder
 so supervisor iterations are attributable to their model.
 
-## 15. Version History
+## 15. Worker Team Mode (v1.3.0)
+
+Added in v1.3.0 (M39) to close the 3–5× speed gap observed in the bee-poc
+relay run (pid 69481: 45+ minutes on v3.12.13 for a milestone that finishes
+in 10–15 minutes when executed in-session with Team Mode). Each `claude -p`
+worker spawned by `_spawnWorker` now carries Team Mode instructions in its
+prompt so it can parallelize intra-wave domain work itself. The supervisor
+remains single-worker-per-iter; intra-wave parallelism is a **worker-level**
+capability, not a supervisor-level one.
+
+1. **Parallelism scope** — intra-wave only. All domains within a single wave
+   may run concurrently. Inter-wave boundaries ALWAYS remain sequential:
+   wave-N+1 may depend on wave-N contract updates, scope.md changes, or
+   disk-based handoff artifacts, so the worker MUST finish every domain in
+   the current wave before advancing to the next.
+2. **Concurrency cap** — 15 concurrent Task subagents maximum. This matches
+   the `/gsd-t-execute` Team Mode cap and is rooted in Claude Code's
+   subagent scheduler budget. Exceeding it produces diminishing returns and
+   starvation. Workers MUST NOT raise this cap without an explicit contract
+   bump.
+3. **Detection heuristic** — the worker reads `.gsd-t/partition.md` to
+   identify the current wave and which domains belong to it, then reads
+   `.gsd-t/domains/*/tasks.md` to count domains with incomplete tasks in
+   that wave. If 2 or more domains have incomplete current-wave tasks →
+   parallel path. If exactly 1 domain has incomplete current-wave tasks →
+   sequential path. Domains whose current-wave tasks are all committed are
+   skipped entirely.
+4. **Sequential fallback** — single-domain waves execute sequentially
+   inside the worker itself (no Task subagent spawn). Spawning a single
+   subagent for a single-domain wave wastes a context and a round-trip
+   without any parallelism benefit. The worker does the work directly.
+5. **Spawn pattern** — mirrors `/gsd-t-execute` Team Mode exactly:
+   `general-purpose` subagent_type, one subagent per domain, same prompt
+   skeleton (domain name + `scope.md` + the current-wave slice of
+   `tasks.md` + relevant contracts). No new subagent_type, no new prompt
+   dialect — Team Mode is a single shape with a single enforcement story.
+   Source of truth: `commands/gsd-t-execute.md` Step 3 "Team Mode" section.
+6. **Wait semantics** — the worker waits for ALL spawned subagents to
+   report back before advancing. No partial-return fast-paths, no
+   speculative wave advance on first N-of-M completions. Wave closure is
+   an all-or-nothing gate so the disk state is consistent before the next
+   wave reads any contract or scope.
+7. **Rationale** — closes the 3–5× speed gap from the bee-poc baseline
+   (pid 69481 observed 45+ min on v3.12.13 for a milestone that Team Mode
+   completes in-session in 10–15 min). Before v1.3.0, the unattended
+   worker serialized every domain even when the wave had 3 or 4 parallel
+   domains — Team Mode's speedup was available interactively but not in
+   the supervisor relay. §15 plus the prompt edit in `_spawnWorker` close
+   that gap without touching the supervisor control loop or event schema.
+
+## 16. Cache-Warm Pacing (v1.3.0)
+
+Added in v1.3.0 (M39) as the sibling of §15 (D3 Worker Team Mode). Both
+sections were added in the same contract version bump but address different
+dimensions of the supervisor relay: §15 speeds up a single worker iter by
+parallelizing its domains; §16 speeds up the relay ACROSS iters by keeping
+the Anthropic prompt cache warm between back-to-back workers. The two
+changes are orthogonal and compose — a parallelized worker that exits within
+270 s still warm-relaunches on the next iter.
+
+1. **Worker timeout default** — 270 s (270,000 ms). Encoded as
+   `DEFAULT_WORKER_TIMEOUT_MS` in `bin/gsd-t-unattended.cjs` and passed to
+   every `_spawnWorker` call via the main relay loop's `timeout` option.
+   This REPLACES the previous 1-hour default (3,600,000 ms) from §13. The
+   supervisor CLI's `--worker-timeout` flag (§6) still overrides the default
+   at launch time and MUST NOT be raised above 270 s without a separate
+   user-approved revision — raising it breaks the cache-warm invariant.
+2. **Cache-window math** — Anthropic's prompt-cache TTL is 5 minutes
+   (300 s). The supervisor→worker handoff budget is ~30 s (worker process
+   exit + `writeState` persist + next `spawnSync` startup). Therefore:
+
+   ```
+   270 s worker iter  +  30 s handoff  =  300 s total
+                                          ─────────
+                                          = TTL → next iter hits warm cache
+   ```
+
+   The 270 s value is the largest worker budget that preserves the warm-cache
+   invariant with ~30 s of handoff headroom. Lowering it below ~180 s shrinks
+   the useful iter budget without buying any caching benefit (already well
+   inside the window); raising it above 270 s makes back-to-back cache hits
+   unreliable even with a fast handoff.
+3. **Graceful degradation** — if a single iter legitimately exceeds 270 s
+   (the worker is still running at the deadline), the supervisor kills the
+   worker via the existing `spawnSync` timeout path, maps the exit to code
+   124 (TIMEOUT per §5), emits a `retry` event with `reason: "timeout"`, and
+   continues the relay. The next iter pays a cold-cache cost (first-response
+   latency for the fresh worker is ~2–5× higher) but execution is never
+   interrupted — there is no hard failure, no manual intervention required,
+   no state corruption. A warning-level log line identifies the iter as a
+   cache-miss so operators can audit pacing over long runs.
+4. **Inter-iteration sleep invariant** — the supervisor MUST NOT sleep
+   more than 5 seconds between a worker exit and the next `spawnWorker`
+   call on the happy path. Every added second shrinks the effective cache
+   window. The main relay loop in `runMainLoop` MUST remain sleep-free
+   between iters: worker exit → `writeState` → post-worker hooks
+   (blocker/gutter detection) → `_emit` → `continue`. Error-backoff
+   branches may sleep (out of scope for this invariant); the happy-path
+   `continue` is synchronous.
+5. **Sibling reference** — §15 (Worker Team Mode) is the other v1.3.0
+   addition. Both sections landed in the same contract bump under M39
+   Wave 1 and both were motivated by the same bee-poc relay observation
+   (pid 69481, 45+ min). §15 attacks intra-iter speed (parallel domains);
+   §16 attacks inter-iter speed (warm-cache handoffs). Neither depends on
+   the other, and either can be rolled back independently if needed.
+6. **Cross-platform** — the 270 s budget is platform-agnostic. It depends
+   only on wall-clock time at the `spawnSync` boundary, which Node measures
+   identically on macOS, Linux, and Windows. M36's cross-platform
+   sleep-prevention matrix (macOS `caffeinate` / Linux `systemd-inhibit` /
+   Windows unsupported) stands unchanged — cache-warm pacing is orthogonal
+   to OS-level sleep prevention. On Windows, where sleep prevention is
+   unsupported, cache-warm pacing still applies whenever the host stays
+   awake.
+
+---
+
+## 17. Version History
 
 | Version | Date | Change | Owner |
 |---------|------|--------|-------|
 | 1.0.0 | 2026-04-15 | Initial draft during M36 partition | m36-supervisor-core + m36-watch-loop |
 | 1.1.0 | 2026-04-16 | Added event-stream emission requirement at phase boundaries; references unattended-event-stream-contract.md v1.0.0 | m38-unattended-event-stream |
 | 1.2.0 | 2026-04-17 | Added §14b Worker Env Propagation (GSD_T_COMMAND/PHASE/TRACE_ID/MODEL/PROJECT_DIR) to close the v3.12.13 null-telemetry regression | v3.12.14 |
+| 1.3.0 | 2026-04-17 | Added §15 Worker Team Mode (intra-wave parallelism, cap 15, sequential inter-wave) — worker now mirrors `/gsd-t-execute` Team Mode pattern to close the bee-poc 3–5× speed gap | m39-d3-parallel-exec |
+| 1.3.0 | 2026-04-17 | Added §16 Cache-Warm Pacing — worker timeout default lowered from 1 h to 270 s to preserve Anthropic's 5-min prompt-cache TTL across back-to-back worker handoffs; graceful degradation on timeout | m39-d4-cache-warm-pacing |
 
 ---
 
-## 16. Verification Status
+## 18. Verification Status
 
 To be populated by `m36-docs-and-tests` at verify time. At milestone completion this section must show:
 
@@ -357,6 +477,6 @@ To be populated by `m36-docs-and-tests` at verify time. At milestone completion 
 - Integration test exercises §7, §8, §9, §10, §12 end-to-end
 - CLI surface (§6) matches `bin/gsd-t.js` `doUnattended()` implementation
 - Exit codes (§5) match `bin/gsd-t.js` `mapHeadlessExitCode()` implementation
-- Status enum (§4) matches `state.json` writes in `bin/gsd-t-unattended.js`
+- Status enum (§4) matches `state.json` writes in `bin/gsd-t-unattended.cjs`
 
 Status: **PENDING — awaiting code domain implementation**

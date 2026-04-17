@@ -23,6 +23,10 @@ Per `.gsd-t/contracts/model-selection-contract.md` v1.0.0.
 
 ## Step 1: Load State
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-verify --step 1 --step-label "Load State" 2>/dev/null || true
+```
+
 Read:
 1. `CLAUDE.md`
 2. `.gsd-t/progress.md` — confirm status is INTEGRATED
@@ -33,6 +37,10 @@ Read:
 
 ## Step 1.5: Graph-Enhanced Traceability Check
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-verify --step 1 --step-label ".5: Graph-Enhanced Traceability Check" 2>/dev/null || true
+```
+
 If `.gsd-t/graph/meta.json` exists (graph index is available):
 1. Query `getRequirementFor` on implemented entities to build a requirement-to-code traceability chain — flag entities with no requirement mapping
 2. Query `getDomainBoundaryViolations` to verify no cross-domain boundary violations exist in the final codebase
@@ -41,6 +49,10 @@ If `.gsd-t/graph/meta.json` exists (graph index is available):
 If graph is not available, skip this step.
 
 ## Step 2: Full Test Audit (Inline)
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-verify --step 2 --step-label "Full Test Audit (Inline)" 2>/dev/null || true
+```
 
 Run the full test audit directly:
 
@@ -53,6 +65,10 @@ Run the full test audit directly:
 Verification cannot complete if any test fails or critical contract gaps remain.
 
 ## Step 2.5: High-Risk Domain Gate (MANDATORY — Categories 2 and 7)
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-verify --step 2 --step-label ".5: High-Risk Domain Gate (MANDATORY — Categories 2 and 7)" 2>/dev/null || true
+```
 
 Before running standard verification dimensions, check whether this milestone involves any high-risk domain:
 
@@ -85,6 +101,10 @@ For each such feature:
 
 ## Step 3: Define Verification Dimensions
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-verify --step 3 --step-label "Define Verification Dimensions" 2>/dev/null || true
+```
+
 Standard dimensions (adjust based on project):
 
 1. **Functional Correctness**: Does it work per requirements?
@@ -114,6 +134,10 @@ Standard dimensions (adjust based on project):
    - Update `docs/requirements.md` with the close-out results
 
 ## Step 4: Execute Verification
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-verify --step 4 --step-label "Execute Verification" 2>/dev/null || true
+```
 
 ### Solo Mode (default)
 Work through each dimension sequentially. For each:
@@ -188,6 +212,10 @@ Collect all reports, synthesize, create remediation plan.
 
 ## Step 5: Compile Verification Report
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-verify --step 5 --step-label "Compile Verification Report" 2>/dev/null || true
+```
+
 Create or update `.gsd-t/verify-report.md`:
 
 ```markdown
@@ -226,6 +254,10 @@ Create or update `.gsd-t/verify-report.md`:
 
 ## Step 5.25: Metrics Quality Budget Check
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-verify --step 5 --step-label ".25: Metrics Quality Budget Check" 2>/dev/null || true
+```
+
 Check task-metrics for the current milestone to detect quality budget violations:
 
 1. Run via Bash:
@@ -240,6 +272,10 @@ Check task-metrics for the current milestone to detect quality budget violations
    `- Quality Budget: {PASS/WARN} — first-pass rate {N}%{, HIGH heuristic: {name} if any}`
 
 ## Step 5.5: Goal-Backward Verification (Post-Gate Behavior Check)
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-verify --step 5 --step-label ".5: Goal-Backward Verification (Post-Gate Behavior Check)" 2>/dev/null || true
+```
 
 This step runs **after all 8 quality gates pass**. It verifies that milestone goals are actually achieved end-to-end — not just structurally present. It catches placeholder implementations that pass all structural gates.
 
@@ -315,6 +351,10 @@ Add a `Goal-Backward:` line to the Step 5 verification report summary:
 
 ## Step 6: Handle Remediation
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-verify --step 6 --step-label "Handle Remediation" 2>/dev/null || true
+```
+
 If there are CRITICAL findings:
 1. Create remediation tasks in the affected domain's `tasks.md`
 2. Execute fixes (solo — don't spawn teams for remediation)
@@ -322,6 +362,10 @@ If there are CRITICAL findings:
 4. Update the verification report
 
 ## Step 7: Update State
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-verify --step 7 --step-label "Update State" 2>/dev/null || true
+```
 
 Update `.gsd-t/progress.md`:
 - If all PASS: Set status to `VERIFIED`
@@ -352,6 +396,10 @@ Update `.gsd-t/progress.md`:
 5. **`docs/requirements.md`** — If verification revealed unmet requirements, update status
 
 ## Step 8: Auto-Invoke Complete-Milestone
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-verify --step 8 --step-label "Auto-Invoke Complete-Milestone" 2>/dev/null || true
+```
 
 **This step is MANDATORY and runs at ALL autonomy levels.** Completing a verified milestone is a mechanical operation (archive, tag, bump version, update docs). There is no decision that benefits from user review — the decision was made when verification passed.
 

@@ -9,6 +9,10 @@ This command is:
 
 ## Step 1: Verify Completion
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-complete-milestone --step 1 --step-label "Verify Completion" 2>/dev/null || true
+```
+
 Read:
 1. `.gsd-t/progress.md` — confirm status is VERIFIED
 2. `.gsd-t/verify-report.md` — confirm all checks passed
@@ -20,6 +24,10 @@ If `--force` flag provided, proceed with warning in archive.
 
 ## Step 1.25: Graph-Enhanced Completion Check
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-complete-milestone --step 1 --step-label ".25: Graph-Enhanced Completion Check" 2>/dev/null || true
+```
+
 If `.gsd-t/graph/meta.json` exists (graph index is available):
 1. Query `getEntitiesByDomain` to validate all planned entities were implemented — compare against domain task lists
 2. Query `findDeadCode` to flag unreachable implementations that may indicate incomplete wiring or orphaned code
@@ -28,6 +36,10 @@ If `.gsd-t/graph/meta.json` exists (graph index is available):
 If graph is not available, skip this step.
 
 ## Step 1.5: Smoke Test Artifact Gate (MANDATORY — Categories 2 and 7)
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-complete-milestone --step 1 --step-label ".5: Smoke Test Artifact Gate (MANDATORY — Categories 2 and 7)" 2>/dev/null || true
+```
 
 Before archiving, verify that high-risk features have testable artifacts. This gate catches what code review and unit tests cannot.
 
@@ -52,6 +64,10 @@ Do not proceed to archiving. Create the smoke test now, run it, confirm it passe
 > This gate exists because complete-milestone is the last opportunity to catch "shipped blind" features before they become user-facing bugs requiring 15 debug sessions to resolve.
 
 ## Step 1.75: Goal-Backward Verification Gate (MANDATORY)
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-complete-milestone --step 1 --step-label ".75: Goal-Backward Verification Gate (MANDATORY)" 2>/dev/null || true
+```
 
 Before archiving, verify that milestone goals are actually achieved end-to-end — not just structurally present. This catches placeholder implementations that passed all quality gates.
 
@@ -105,6 +121,10 @@ Refer to `.gsd-t/contracts/goal-backward-contract.md` for the full verification 
 
 ## Step 2: Gap Analysis Gate
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-complete-milestone --step 2 --step-label "Gap Analysis Gate" 2>/dev/null || true
+```
+
 After verification passes, run a gap analysis against `docs/requirements.md` scoped to this milestone's deliverables:
 
 1. Identify which requirements this milestone was supposed to satisfy (from domain scopes, tasks, and milestone definition)
@@ -120,6 +140,10 @@ After verification passes, run a gap analysis against `docs/requirements.md` sco
 This is a **mandatory gate** — the milestone cannot be archived with known gaps against its requirements.
 
 ## Step 2.5: Distillation — Extract Milestone Patterns
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-complete-milestone --step 2 --step-label ".5: Distillation — Extract Milestone Patterns" 2>/dev/null || true
+```
 
 Before archiving, extract learning from the event stream to improve future runs.
 
@@ -141,6 +165,10 @@ Before archiving, extract learning from the event stream to improve future runs.
 5. If no patterns found (fewer than 3 occurrences): log "Distillation complete — no repeating patterns found"
 
 ### Step 2.5b: Rule Engine Distillation
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-complete-milestone --step 2 --step-label ".5b: Rule Engine Distillation" 2>/dev/null || true
+```
 
 After event-stream pattern detection, run rule-based distillation using the declarative rule engine and patch lifecycle:
 
@@ -165,6 +193,10 @@ After event-stream pattern detection, run rule-based distillation using the decl
    When rework ceiling (20%) exceeded: log warning and note that next milestone should: force discuss phase, require contract review, split large tasks.
 
 ### Step 2.5c: Global Rule Promotion
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-complete-milestone --step 2 --step-label ".5c: Global Rule Promotion" 2>/dev/null || true
+```
 
 After local rule promotion completes, propagate newly promoted rules to global metrics:
 
@@ -247,6 +279,10 @@ After local rule promotion completes, propagate newly promoted rules to global m
 
 ### Step 2.5d: Component Impact Evaluation (if available)
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-complete-milestone --step 2 --step-label ".5d: Component Impact Evaluation (if available)" 2>/dev/null || true
+```
+
 Record impact data for each active component:
 
 1. **Record component impact** — for each domain that completed tasks, run via Bash:
@@ -255,6 +291,10 @@ Record impact data for each active component:
 2. If `bin/component-registry.js` does not exist, skip silently.
 
 ## Step 3: Gather Milestone Artifacts
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-complete-milestone --step 3 --step-label "Gather Milestone Artifacts" 2>/dev/null || true
+```
 
 Collect all files related to this milestone:
 - `.gsd-t/progress.md` (current state)
@@ -265,6 +305,10 @@ Collect all files related to this milestone:
 - `.gsd-t/contracts/` (snapshot)
 
 ## Step 4: Create Archive
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-complete-milestone --step 4 --step-label "Create Archive" 2>/dev/null || true
+```
 
 Create milestone archive directory:
 
@@ -282,6 +326,10 @@ Create milestone archive directory:
 ```
 
 ## Step 5: Generate Summary
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-complete-milestone --step 5 --step-label "Generate Summary" 2>/dev/null || true
+```
 
 Create `summary.md`:
 
@@ -323,6 +371,10 @@ Create `summary.md`:
 
 ## Step 6: Bump Version
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-complete-milestone --step 6 --step-label "Bump Version" 2>/dev/null || true
+```
+
 GSD-T tracks project version in `.gsd-t/progress.md` using semantic versioning: `Major.Minor.Patch`
 
 - **Major** (X.0.0): Breaking changes, major rework, v1 launch
@@ -342,6 +394,10 @@ Determine the version bump based on the milestone:
 6. Include version in the milestone summary and git tag
 
 ## Step 7: Clean Working State
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-complete-milestone --step 7 --step-label "Clean Working State" 2>/dev/null || true
+```
 
 Reset `.gsd-t/` for next milestone:
 
@@ -382,6 +438,10 @@ None — ready for next milestone
 
 ## Step 8: Update README.md
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-complete-milestone --step 8 --step-label "Update README.md" 2>/dev/null || true
+```
+
 If `README.md` exists, update it to reflect the completed milestone:
 - Add or update a **Features** / **What's Included** section with capabilities delivered
 - Update version number if displayed in README
@@ -392,6 +452,10 @@ If `README.md` exists, update it to reflect the completed milestone:
 If `README.md` doesn't exist, create one with project name, description, version, tech stack, setup instructions, and link to `docs/`.
 
 ## Step 8.5: Scan Doc Milestone Checkpoint
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-complete-milestone --step 8 --step-label ".5: Scan Doc Milestone Checkpoint" 2>/dev/null || true
+```
 
 Before tagging, ensure scan docs reflect the final state of the codebase after all milestone work. This is the full-refresh counterpart to the micro-updates done during execute/quick/debug.
 
@@ -412,6 +476,10 @@ If `.gsd-t/scan/` exists (a prior scan has been run):
 If `.gsd-t/scan/` doesn't exist → skip (no scan data to maintain).
 
 ## Step 8.7: Generate Metrics Rollup
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-complete-milestone --step 8 --step-label ".7: Generate Metrics Rollup" 2>/dev/null || true
+```
 
 Generate milestone-level metrics aggregation and ELO score:
 
@@ -439,6 +507,10 @@ Include ELO score in the milestone summary (Step 5) and git tag message (Step 11
 
 ## Step 9: Document Ripple
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-complete-milestone --step 9 --step-label "Document Ripple" 2>/dev/null || true
+```
+
 Before creating the git tag, verify all documentation is up to date:
 
 ### Always update:
@@ -457,6 +529,10 @@ Before creating the git tag, verify all documentation is up to date:
 
 ## Step 10: Test Verification
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-complete-milestone --step 10 --step-label "Test Verification" 2>/dev/null || true
+```
+
 Verify the milestone is truly complete:
 
 1. **Run ALL configured test suites** — detect and run every one:
@@ -470,6 +546,10 @@ Verify the milestone is truly complete:
 5. **Log test results**: Include test pass/fail counts and shallow test audit results in the milestone summary (Step 4)
 
 ## Step 11: Create Git Tag
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-complete-milestone --step 11 --step-label "Create Git Tag" 2>/dev/null || true
+```
 
 ```bash
 # Stage any remaining .gsd-t changes
@@ -488,6 +568,10 @@ Verified: {date}"
 ```
 
 ## Step 12: Report Completion
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-complete-milestone --step 12 --step-label "Report Completion" 2>/dev/null || true
+```
 
 ```
 ✅ Milestone "{name}" completed — v{version}
@@ -509,6 +593,10 @@ Next steps:
 ```
 
 ## Step 13: Update Roadmap (if exists)
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-complete-milestone --step 13 --step-label "Update Roadmap (if exists)" 2>/dev/null || true
+```
 
 If `.gsd-t/roadmap.md` exists:
 - Mark this milestone as complete

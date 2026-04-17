@@ -10,6 +10,10 @@ See `unattended-supervisor-contract.md` §7 (Launch Handshake), §4 (Status Enum
 
 ## Step 1: Pre-Flight Checks
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-unattended --step 1 --step-label "Pre-Flight Checks" 2>/dev/null || true
+```
+
 ### 1a: Verify GSD-T Project
 
 Run via Bash:
@@ -247,6 +251,10 @@ If `WARNINGS` were emitted, print them as a non-blocking advisory before proceed
 
 ## Step 2: Spawn the Detached Supervisor
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-unattended --step 2 --step-label "Spawn the Detached Supervisor" 2>/dev/null || true
+```
+
 ⚙ [sonnet] gsd-t-unattended → spawning detached supervisor
 
 **Before spawn — read starting context tokens (observability bracket):**
@@ -322,6 +330,10 @@ fs.appendFileSync(LOG, row);
 ```
 
 ## Step 3: Verify Supervisor Liveness
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-unattended --step 3 --step-label "Verify Supervisor Liveness" 2>/dev/null || true
+```
 
 Wait up to 2 seconds for the supervisor to write its PID file and transition out of `initializing`:
 
@@ -400,6 +412,10 @@ End the turn without scheduling a watch tick.
 
 ## Step 4: Display Initial Status Block
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-unattended --step 4 --step-label "Display Initial Status Block" 2>/dev/null || true
+```
+
 Print the launch confirmation block:
 
 ```
@@ -420,6 +436,10 @@ Print the launch confirmation block:
 ```
 
 ## Step 5: Schedule the First Watch Tick
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-unattended --step 5 --step-label "Schedule the First Watch Tick" 2>/dev/null || true
+```
 
 Call the harness `ScheduleWakeup` tool with these exact parameters:
 

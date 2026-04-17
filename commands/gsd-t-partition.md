@@ -11,6 +11,10 @@ Per `.gsd-t/contracts/model-selection-contract.md` v1.0.0.
 
 ## Step 0.5: Scan Freshness Auto-Refresh
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-partition --step 0 --step-label ".5: Scan Freshness Auto-Refresh" 2>/dev/null || true
+```
+
 Before reading scan data, check if scan docs are stale and auto-refresh if needed. This ensures partition decisions are based on current code — no warnings, no user involvement.
 
 If `.gsd-t/scan/.cache.json` exists:
@@ -28,6 +32,10 @@ If `.gsd-t/scan/` doesn't exist at all → skip (no scan data to refresh).
 
 ## Step 1: Understand the Project
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-partition --step 1 --step-label "Understand the Project" 2>/dev/null || true
+```
+
 Read these files in order:
 1. `CLAUDE.md` — project conventions and context
 2. `.gsd-t/progress.md` — current state (if exists)
@@ -44,6 +52,10 @@ If `.gsd-t/` doesn't exist, create the full directory structure:
 ```
 
 ## Step 1.5: Assumption Audit (MANDATORY — complete before domain work begins)
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-partition --step 1 --step-label ".5: Assumption Audit (MANDATORY — complete before domain work begins)" 2>/dev/null || true
+```
 
 Before partitioning, surface and lock down all assumptions baked into the requirements. Unexamined assumptions become architectural decisions no one approved.
 
@@ -102,6 +114,10 @@ For each ambiguous item:
 
 ## Step 1.55: Graph-Enhanced Boundary Detection (if available)
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-partition --step 1 --step-label ".55: Graph-Enhanced Boundary Detection (if available)" 2>/dev/null || true
+```
+
 If `.gsd-t/graph/meta.json` exists, query the graph to inform domain decomposition:
 
 1. **Entity-to-file mapping**: `query('getEntities', { file })` for each source file — understand what functions/classes exist where
@@ -113,6 +129,10 @@ If `.gsd-t/graph/meta.json` exists, query the graph to inform domain decompositi
 Use graph results to **propose initial domain boundaries** based on actual code structure, not just file paths. The graph reveals natural boundaries that directory structure may not show (e.g., two files in the same folder that never import each other belong to different domains).
 
 ## Step 1.6: Consumer Surface Identification (MANDATORY — complete before domain work)
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-partition --step 1 --step-label ".6: Consumer Surface Identification (MANDATORY — complete before domain work)" 2>/dev/null || true
+```
 
 Before decomposing into domains, identify **every surface that will consume this system**. A surface is any client, app, or integration that calls your backend — web app, mobile app, CLI, external API, admin panel, background job, etc.
 
@@ -190,6 +210,10 @@ If SharedCore was created, populate `.gsd-t/contracts/shared-services-contract.m
 
 ## Step 2: Identify Domains
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-partition --step 2 --step-label "Identify Domains" 2>/dev/null || true
+```
+
 Decompose the milestone into 2-5 independent domains. Each domain should:
 - Own a distinct area of functionality
 - Have minimal overlap with other domains
@@ -238,6 +262,10 @@ For each domain, create `.gsd-t/domains/{domain-name}/`:
 ```
 
 ## Step 3: Write Contracts
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-partition --step 3 --step-label "Write Contracts" 2>/dev/null || true
+```
 
 Contracts define HOW domains interact. Create files in `.gsd-t/contracts/`:
 
@@ -298,6 +326,10 @@ Owner: ui domain
 ```
 
 ## Step 3.5: Design Brief Detection (UI Projects Only)
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-partition --step 3 --step-label ".5: Design Brief Detection (UI Projects Only)" 2>/dev/null || true
+```
 
 After writing contracts, check for UI/frontend signals. If found, generate `.gsd-t/contracts/design-brief.md` to give all subagents a consistent visual language reference.
 
@@ -380,6 +412,10 @@ Log in `.gsd-t/progress.md` Decision Log: `- {date}: Design brief generated at .
 
 ## Step 3.6: Design Contract Bootstrap (Figma/Design Reference Detection)
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-partition --step 3 --step-label ".6: Design Contract Bootstrap (Figma/Design Reference Detection)" 2>/dev/null || true
+```
+
 After the design brief, check whether this project has a design reference (Figma, images, prototypes). If found, create `.gsd-t/contracts/design-contract.md` to activate the design-to-code stack rule during execute.
 
 **Skip this step if `.gsd-t/contracts/design-contract.md` already exists.**
@@ -427,6 +463,10 @@ Log in `.gsd-t/progress.md` Decision Log: `- {date}: Design contract created at 
 
 ## Step 4: Initialize Progress
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-partition --step 4 --step-label "Initialize Progress" 2>/dev/null || true
+```
+
 Write `.gsd-t/progress.md`:
 ```markdown
 # GSD-T Progress
@@ -454,6 +494,10 @@ Write `.gsd-t/progress.md`:
 
 ## Step 5: Document Ripple
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-partition --step 5 --step-label "Document Ripple" 2>/dev/null || true
+```
+
 After creating domains and contracts, update affected documentation:
 
 ### Always update:
@@ -468,6 +512,10 @@ After creating domains and contracts, update affected documentation:
 
 ## Step 6: Test Verification
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-partition --step 6 --step-label "Test Verification" 2>/dev/null || true
+```
+
 Before finalizing the partition:
 
 1. **Run existing tests**: Execute the full test suite to confirm codebase is clean before domain work begins
@@ -475,6 +523,10 @@ Before finalizing the partition:
 3. **Map tests to domains**: Note which test files belong to which domain — this informs task planning
 
 ## Step 7: Validate
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-partition --step 7 --step-label "Validate" 2>/dev/null || true
+```
 
 Before finishing, verify:
 - [ ] Every file in `src/` is owned by exactly one domain

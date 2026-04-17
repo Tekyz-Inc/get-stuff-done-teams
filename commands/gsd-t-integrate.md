@@ -25,6 +25,10 @@ Per `.gsd-t/contracts/model-selection-contract.md` v1.0.0.
 
 ## Step 1: Load Full State
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-integrate --step 1 --step-label "Load Full State" 2>/dev/null || true
+```
+
 Read everything:
 1. `CLAUDE.md`
 2. `.gsd-t/progress.md`
@@ -35,6 +39,10 @@ Read everything:
 
 ## Step 1.5: Graph-Enhanced Integration Validation
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-integrate --step 1 --step-label ".5: Graph-Enhanced Integration Validation" 2>/dev/null || true
+```
+
 If `.gsd-t/graph/meta.json` exists (graph index is available):
 1. Query `getDomainBoundaryViolations` to validate that cross-domain wiring matches contracts — flag any code that crosses boundaries without a contract
 2. Query `getCallers` and `getCallees` across domain boundaries to verify all integration points are accounted for in `integration-points.md`
@@ -43,6 +51,10 @@ If `.gsd-t/graph/meta.json` exists (graph index is available):
 If graph is not available, skip this step.
 
 ## Step 2: Contract Compliance Audit
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-integrate --step 2 --step-label "Contract Compliance Audit" 2>/dev/null || true
+```
 
 Before wiring anything together, verify each domain honored its contracts:
 
@@ -73,6 +85,10 @@ Fix any mismatches BEFORE proceeding to integration.
 
 ## Step 2.5: Worktree Merge Status Check
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-integrate --step 2 --step-label ".5: Worktree Merge Status Check" 2>/dev/null || true
+```
+
 Before wiring integration points, check whether team mode execution left any domains with rolled-back worktree merges:
 
 1. Read `.gsd-t/progress.md` — look for `[rollback]` entries in the Decision Log from the execute phase
@@ -82,6 +98,10 @@ Before wiring integration points, check whether team mode execution left any dom
 If rolled-back domains exist, report them to the user (or if Level 3: log to `.gsd-t/deferred-items.md` as `[integration-gap] {domain}: not yet merged — worktree rollback during execute`). Do NOT attempt to re-merge rolled-back domains here; that requires re-running execute for the affected domain.
 
 ## Step 3: Wire Integration Points
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-integrate --step 3 --step-label "Wire Integration Points" 2>/dev/null || true
+```
 
 **Stack Rules Detection (before spawning subagent):**
 Run via Bash to detect project stack and collect matching rules:
@@ -127,6 +147,10 @@ For each connection:
 
 ## Step 4: End-to-End Smoke Test
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-integrate --step 4 --step-label "End-to-End Smoke Test" 2>/dev/null || true
+```
+
 Run through the primary user flows:
 1. Identify the 3-5 most critical paths from requirements
 2. Trace each path through all domain boundaries
@@ -152,6 +176,10 @@ Result: PARTIAL — needs pagination contract addition
 ```
 
 ## Step 5: Contract Compliance Testing
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-integrate --step 5 --step-label "Contract Compliance Testing" 2>/dev/null || true
+```
 
 Spawn a QA subagent via the Task tool to verify contract compliance at all domain boundaries — `spawnType: 'validation'` (always headless, `--watch` ignored):
 
@@ -195,6 +223,10 @@ QA failure blocks integration completion.
 
 ## Step 6: Document Ripple
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-integrate --step 6 --step-label "Document Ripple" 2>/dev/null || true
+```
+
 Integration is where the real system takes shape. Verify documentation matches reality:
 
 ### Always update:
@@ -211,6 +243,10 @@ Integration is where the real system takes shape. Verify documentation matches r
 
 ## Step 7: Test Verification
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-integrate --step 7 --step-label "Test Verification" 2>/dev/null || true
+```
+
 After integration and doc ripple, verify everything works together:
 
 1. **Update tests**: Add or update integration tests for newly wired domain boundaries
@@ -224,6 +260,10 @@ After integration and doc ripple, verify everything works together:
 5. **Smoke test results**: Ensure the Step 4 smoke test results are still valid after any fixes
 
 ## Step 7.5: Red Team — Adversarial QA (MANDATORY)
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-integrate --step 7 --step-label ".5: Red Team — Adversarial QA (MANDATORY)" 2>/dev/null || true
+```
 
 After integration tests pass, spawn an adversarial Red Team agent on the integrated system. Success is measured by bugs found, not tests passed.
 
@@ -252,6 +292,10 @@ Append to `.gsd-t/token-log.md`:
 
 ## Step 8: Doc-Ripple (Automated)
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-integrate --step 8 --step-label "Doc-Ripple (Automated)" 2>/dev/null || true
+```
+
 After all integration work is committed but before reporting completion:
 
 1. Run threshold check — read `git diff --name-only HEAD~1` and evaluate against doc-ripple-contract.md trigger conditions
@@ -272,6 +316,10 @@ Report: 'Doc-ripple: {N} checked, {N} updated, {N} skipped'"
 
 ## Step 9: Handle Integration Issues
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-integrate --step 9 --step-label "Handle Integration Issues" 2>/dev/null || true
+```
+
 For each issue found:
 1. Determine if it's a contract gap (missing specification) or implementation bug
 2. **Contract gap**: Update the contract, create a follow-up task
@@ -279,6 +327,10 @@ For each issue found:
 4. Log everything in progress.md
 
 ## Step 10: Update State
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-integrate --step 10 --step-label "Update State" 2>/dev/null || true
+```
 
 Update `.gsd-t/progress.md`:
 - Set status to `INTEGRATED`

@@ -347,7 +347,7 @@ const fs = require('fs');
 let state = {};
 try { state = JSON.parse(fs.readFileSync('.gsd-t/.unattended/state.json','utf8')); } catch(_){}
 const { events, newCursor } = es.readSinceCursor('.');
-console.log(wf.formatWatchTick({ events, state }));
+console.log(wf.formatWatchTick({ events, state, withWatchProgress: true }));
 es.advanceCursor('.', newCursor);
 "
 ```

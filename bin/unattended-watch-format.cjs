@@ -99,6 +99,21 @@ function _formatIteration(iter, evs) {
  * @param {number} [args.now] — override for Date.now() (tests)
  * @returns {string}
  */
+function _renderWatchProgressTree(args) {
+  // M39 D2 — best-effort watch-progress tree appended below the formatter
+  // output. Banner preserved verbatim; returns "" on any failure so callers
+  // never see a tree when state is missing/unavailable.
+  try {
+    const wp = require("./watch-progress.js");
+    const stateDir = (args && args.stateDir) || ".gsd-t/.watch-state";
+    const current = args && args.currentAgent ? args.currentAgent : null;
+    const tree = wp.buildTree(stateDir);
+    return wp.renderTree(tree, { currentAgent: current }) || "";
+  } catch (_) {
+    return "";
+  }
+}
+
 function formatWatchTick(args) {
   const events = Array.isArray(args && args.events) ? args.events : [];
   const state = (args && args.state) || {};
@@ -108,21 +123,30 @@ function formatWatchTick(args) {
   const iter = Number.isFinite(state.iter) ? state.iter : 0;
   const header = `[unattended supervisor — iter ${iter}${elapsed ? `, ${elapsed}` : ""}]`;
 
+  let body;
   if (events.length === 0) {
-    return `${header} (no new activity since last tick)`;
+    body = `${header} (no new activity since last tick)`;
+  } else {
+    const groups = _groupByIter(events);
+    const blocks = [];
+    for (const [groupIter, evs] of groups) {
+      const groupHeader = groups.length > 1 ? `[iter ${groupIter}]` : header;
+      const bodyLines = _formatIteration(groupIter, evs);
+      blocks.push([groupHeader, ...bodyLines].join("\n"));
+    }
+    body = groups.length > 1 ? `${header}\n${blocks.join("\n")}` : blocks[0];
   }
 
-  const groups = _groupByIter(events);
-  const blocks = [];
-  for (const [groupIter, evs] of groups) {
-    const groupHeader = groups.length > 1 ? `[iter ${groupIter}]` : header;
-    const body = _formatIteration(groupIter, evs);
-    blocks.push([groupHeader, ...body].join("\n"));
-  }
-  if (groups.length > 1) {
-    return `${header}\n${blocks.join("\n")}`;
-  }
-  return blocks[0];
+  // M39 D2 — watch-progress tree below the existing formatter output.
+  // Banner preserved verbatim; tree appended only when caller opts in via
+  // `args.withWatchProgress = true`. Default-off preserves backward
+  // compatibility with existing snapshot-style callers (tests).
+  if (!(args && args.withWatchProgress === true)) return body;
+  const tree = _renderWatchProgressTree({
+    stateDir: args && args.stateDir,
+    currentAgent: args && (args.currentAgent || state.sessionId),
+  });
+  return tree ? `${body}\n${tree}` : body;
 }
 
 /**

@@ -26,6 +26,10 @@ Per `.gsd-t/contracts/model-selection-contract.md` v1.0.0.
 
 ## Step 0.1: Launch via Subagent
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-debug --step 0 --step-label ".1: Launch via Subagent" 2>/dev/null || true
+```
+
 To give this debug session a fresh context window and prevent compaction, always execute via a Task subagent.
 
 **If you are the orchestrating agent** (you received the slash command directly):
@@ -117,6 +121,10 @@ Continue to Step 1 below.
 
 ## Step 1: Load Context
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-debug --step 1 --step-label "Load Context" 2>/dev/null || true
+```
+
 Read:
 1. `CLAUDE.md`
 2. `.gsd-t/progress.md`
@@ -124,6 +132,10 @@ Read:
 4. `.gsd-t/domains/*/scope.md` — domain boundaries
 
 ## Step 1.5: Debug Loop Detection (MANDATORY)
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-debug --step 1 --step-label ".5: Debug Loop Detection (MANDATORY)" 2>/dev/null || true
+```
 
 Before attempting any fix, check whether this issue has been through multiple failed debug sessions. This prevents the 10–20 attempt death spiral that happens when the same approach is retried repeatedly.
 
@@ -207,6 +219,10 @@ Please select an option (or provide your own direction) before I proceed.
 
 ## Step 1.7: Experience Retrieval
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-debug --step 1 --step-label ".7: Experience Retrieval" 2>/dev/null || true
+```
+
 Before proceeding to classification and fix, retrieve relevant past failures from the Decision Log.
 
 Run via Bash:
@@ -223,6 +239,10 @@ If no results found: proceed normally to Step 2.
 
 ## Step 1.7: Graph-Enhanced Root Cause Tracing (if available)
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-debug --step 1 --step-label ".7: Graph-Enhanced Root Cause Tracing (if available)" 2>/dev/null || true
+```
+
 If `.gsd-t/graph/meta.json` exists, use the graph to accelerate root cause identification:
 
 1. **Call chain from error**: `query('getCallers', { entity: '{error_function}' })` → trace backward from the error location
@@ -234,6 +254,10 @@ If `.gsd-t/graph/meta.json` exists, use the graph to accelerate root cause ident
 Graph results replace the manual "classify the bug" analysis in Step 2 — the call chain tells you exactly where the bug type is (within-domain vs boundary) based on whether the caller and callee are in the same domain.
 
 ## Step 2: Classify the Bug
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-debug --step 2 --step-label "Classify the Bug" 2>/dev/null || true
+```
 
 Based on the user's description ($ARGUMENTS) and graph analysis (if available), determine:
 
@@ -265,6 +289,10 @@ The contract didn't specify something it should have. Symptoms:
 
 ## Step 2.5: Reproduce First (MANDATORY — Category 5)
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-debug --step 2 --step-label ".5: Reproduce First (MANDATORY — Category 5)" 2>/dev/null || true
+```
+
 **A fix attempt without a reproduction script is a guess, not a fix.**
 
 Before touching any code:
@@ -285,6 +313,10 @@ Before touching any code:
 ---
 
 ## Step 3: Debug (Solo or Team)
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-debug --step 3 --step-label "Debug (Solo or Team)" 2>/dev/null || true
+```
 
 ### Deviation Rules
 
@@ -330,6 +362,10 @@ First to find root cause: message the lead with findings.
 
 ## Step 4: Document Ripple
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-debug --step 4 --step-label "Document Ripple" 2>/dev/null || true
+```
+
 After fixing, assess what documentation was affected by the change and update ALL relevant files:
 
 ### Always check:
@@ -366,6 +402,10 @@ Skip scan docs not affected by this fix. Skip analytical sections — those requ
 
 ## Step 5: Test Verification (run tests confirming fix)
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-debug --step 5 --step-label "Test Verification (run tests confirming fix)" 2>/dev/null || true
+```
+
 Before committing, ensure the fix is solid:
 
 1. **Update tests**: If the bug reveals a missing test case, add one that would have caught it
@@ -395,6 +435,10 @@ Commit: `[debug] Fix {description} — root cause: {explanation}`
 
 ## Step 5.3: Red Team — Adversarial QA (MANDATORY)
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-debug --step 5 --step-label ".3: Red Team — Adversarial QA (MANDATORY)" 2>/dev/null || true
+```
+
 After the fix passes all tests, spawn an adversarial Red Team agent to BREAK the fix and find regressions.
 
 ⚙ [opus] Red Team → adversarial validation of debug fix
@@ -422,6 +466,10 @@ Append to `.gsd-t/token-log.md`:
 
 ## Step 5.5: Emit Task Metrics
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-debug --step 5 --step-label ".5: Emit Task Metrics" 2>/dev/null || true
+```
+
 After committing, emit a task-metrics record for this debug session — run via Bash:
 `node bin/metrics-collector.js --milestone {current-milestone-or-none} --domain {domain-or-debug} --task debug-{timestamp} --command debug --duration_s {elapsed} --tokens_used {estimated} --context_pct ${CTX_PCT:-0} --pass {true|false} --fix_cycles {attempts} --signal_type debug-invoked --notes "[debug] {description}" 2>/dev/null || true`
 
@@ -431,6 +479,10 @@ Emit task_complete event — run via Bash:
 `node ~/.claude/scripts/gsd-t-event-writer.js --type task_complete --command gsd-t-debug --reasoning "signal_type=debug-invoked, domain={domain}" --outcome {success|failure} || true`
 
 ## Step 6: Doc-Ripple (Automated)
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-debug --step 6 --step-label "Doc-Ripple (Automated)" 2>/dev/null || true
+```
 
 After all work is committed but before reporting completion:
 

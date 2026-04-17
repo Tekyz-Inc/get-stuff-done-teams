@@ -4,6 +4,10 @@ You are resuming work after an interruption. This handles both same-session paus
 
 ## Step 0: Unattended Supervisor Auto-Reattach
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-resume --step 0 --step-label "Unattended Supervisor Auto-Reattach" 2>/dev/null || true
+```
+
 **This step runs FIRST, before reading any docs, contracts, or continue-here files.**
 
 **Worker bypass**: If the environment variable `GSD_T_UNATTENDED_WORKER=1` is set, this resume is being invoked by the unattended supervisor as a worker iteration. **SKIP this entire Step 0** — do NOT check for supervisor.pid, do NOT auto-reattach, do NOT schedule a watch tick. Fall through directly to Step 0.1. The worker's job is to do actual work, not watch itself.
@@ -33,6 +37,10 @@ Contract reference: `unattended-supervisor-contract.md` §9 (Resume Auto-Reattac
 
 ## Step 0.1: Detect Resume Mode
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-resume --step 0 --step-label ".1: Detect Resume Mode" 2>/dev/null || true
+```
+
 **Same-session** (conversation context still available — you can see prior messages about the active phase/task):
 - Skip to Step 2 — you already have the context loaded
 - Do NOT re-read all state files
@@ -41,6 +49,10 @@ Contract reference: `unattended-supervisor-contract.md` §9 (Resume Auto-Reattac
 - Run Step 1 to load full state
 
 ## Step 0.2: Handoff Lock Wait (headless resume only)
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-resume --step 0 --step-label ".2: Handoff Lock Wait (headless resume only)" 2>/dev/null || true
+```
 
 Before reading any continue-here file or state file, check if a parent process wrote a handoff lock for this session:
 
@@ -64,6 +76,10 @@ This prevents the child side of a headless spawn from reading a partial continue
 
 ## Step 0.5: Headless Read-Back Banner (MANDATORY)
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-resume --step 0 --step-label ".5: Headless Read-Back Banner (MANDATORY)" 2>/dev/null || true
+```
+
 Before loading full state, surface any completed headless sessions the user hasn't seen yet. Run this once at the start of every resume invocation:
 
 ```bash
@@ -75,6 +91,10 @@ This prints a `## Headless runs since you left` banner listing any completed ses
 Contract: `.gsd-t/contracts/headless-default-contract.md` v1.0.0
 
 ## Step 0.6: Context Meter Health Check (MANDATORY, v3.10.12+)
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-resume --step 0 --step-label ".6: Context Meter Health Check (MANDATORY, v3.10.12+)" 2>/dev/null || true
+```
 
 Before loading any other state, verify the Context Meter (M34) is actually alive. A dead meter was the root cause of the M36 `/compact` regression (2026-04-15) — `checkCount=2102` but every hook call failed fail-open because `ANTHROPIC_API_KEY` was unset, and the gate silently reported `pct=0` forever.
 
@@ -105,6 +125,10 @@ Contract: `context-meter-contract.md` v1.1.0 (v3.10.12) — §"Stale Band and Re
 
 ## Step 1: Load Full State (cross-session only)
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-resume --step 1 --step-label "Load Full State (cross-session only)" 2>/dev/null || true
+```
+
 Read in this exact order:
 1. `CLAUDE.md` — project context and conventions
 2. **Check for continue-here files first**: List `.gsd-t/continue-here-*.md` files. If any exist, read the most recent one (highest timestamp). It contains exact position, next action, and open items — use this as the primary resume point.
@@ -118,6 +142,10 @@ Read in this exact order:
 
 ## Step 2: Determine Current Position
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-resume --step 2 --step-label "Determine Current Position" 2>/dev/null || true
+```
+
 From the continue-here file (if present) OR progress.md (or conversation context if same-session), identify:
 - Current milestone and status
 - Which phase we're in
@@ -128,6 +156,10 @@ From the continue-here file (if present) OR progress.md (or conversation context
 **If a continue-here file was found**: Use its "Next Action" field as the primary resume point. The continue-here file is more precise than progress.md alone. After resuming, delete the continue-here file (it has been consumed).
 
 ## Step 3: Report and Continue
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-resume --step 3 --step-label "Report and Continue" 2>/dev/null || true
+```
 
 **Level 3 (Full Auto)**: Log a brief status line and auto-resume from the current task/phase. Do NOT wait for user input.
 
@@ -154,6 +186,10 @@ Ready to continue? Or run /gsd-t-status for full details.
 
 ## Step 4: Continue
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-resume --step 4 --step-label "Continue" 2>/dev/null || true
+```
+
 If $ARGUMENTS specifies what to do next, proceed with that.
 Otherwise, pick up from the logical next action based on current state:
 - Mid-execution → Continue with next unblocked task
@@ -162,6 +198,10 @@ Otherwise, pick up from the logical next action based on current state:
 - Verify failed → Show remediation tasks
 
 ## Step 5: Auto-Advance Through End of Milestone (MANDATORY)
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-resume --step 5 --step-label "Auto-Advance Through End of Milestone (MANDATORY)" 2>/dev/null || true
+```
 
 **Resume does NOT stop at the end of a wave or phase. It must chain all the way to `COMPLETED` status.**
 

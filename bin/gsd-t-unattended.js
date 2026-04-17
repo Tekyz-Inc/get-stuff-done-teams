@@ -74,7 +74,11 @@ const RUN_LOG = "run.log";
 
 const DEFAULT_HOURS = 24;
 const DEFAULT_MAX_ITERATIONS = 200;
-const DEFAULT_WORKER_TIMEOUT_MS = 3600000; // 1 hour per contract §13
+// Anthropic prompt-cache TTL is 5 minutes (300,000 ms). The supervisor→worker
+// handoff budget is ~30 s (process exit + state persist + next spawn). A 270 s
+// worker timeout leaves room to complete the iter AND still relaunch against
+// a warm cache. See contract §16 (cache-warm pacing).
+const DEFAULT_WORKER_TIMEOUT_MS = 270 * 1000;
 
 const TERMINAL_STATUSES = new Set(["done", "failed", "stopped", "crashed"]);
 const VALID_STATUSES = new Set([

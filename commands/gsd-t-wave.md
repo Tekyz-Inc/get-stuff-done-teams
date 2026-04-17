@@ -25,6 +25,10 @@ Per `.gsd-t/contracts/model-selection-contract.md` v1.0.0. Each phase spawn pick
 
 ## Step 0.1: Verify Context Gate Readiness (MANDATORY — first thing in a fresh session)
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-wave --step 0 --step-label ".1: Verify Context Gate Readiness (MANDATORY — first thing in a fresh session)" 2>/dev/null || true
+```
+
 Run via Bash:
 
 ```bash
@@ -34,6 +38,10 @@ node -e "const tb = require('./bin/token-budget.cjs'); const s = tb.getSessionSt
 This calls `getSessionStatus()` which reads `.gsd-t/.context-meter-state.json` produced by the Context Meter PostToolUse hook. The returned `threshold` is `normal` or `threshold` (single-band model per `context-meter-contract.md` v1.3.0) and drives the gate logic in the Phase Agent Spawn Pattern below. When the state file is absent, `getSessionStatus()` returns `{pct: 0, threshold: 'normal'}`. `thresholdPct` (default `75`) and `modelWindowSize` are configured in `.gsd-t/context-meter-config.json`.
 
 ## Step 1: Load State (Lightweight)
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-wave --step 1 --step-label "Load State (Lightweight)" 2>/dev/null || true
+```
 
 Read ONLY:
 1. `.gsd-t/progress.md` — current status, milestone name, phase state
@@ -54,6 +62,10 @@ Do NOT attempt to fix progress.md yourself — that risks data loss.
 
 ## Step 2: Determine Resume Point
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-wave --step 2 --step-label "Determine Resume Point" 2>/dev/null || true
+```
+
 From progress.md status, determine which phase to start from:
 
 | Status | Next Phase |
@@ -72,6 +84,10 @@ From progress.md status, determine which phase to start from:
 
 ## Step 2.5: Token Budget Pre-Flight (if available)
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-wave --step 2 --step-label ".5: Token Budget Pre-Flight (if available)" 2>/dev/null || true
+```
+
 Before starting the phase loop, check the projected token cost for this milestone:
 
 Run via Bash:
@@ -84,6 +100,10 @@ If the command returns data, display to user:
 If the file doesn't exist or returns nothing, skip silently and proceed.
 
 ## Step 3: Phase Orchestration Loop
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-wave --step 3 --step-label "Phase Orchestration Loop" 2>/dev/null || true
+```
 
 For each remaining phase, spawn an **independent agent** using the Task tool. Each agent gets a fresh context window, loads its own state from files, and reports back.
 
@@ -275,6 +295,10 @@ After each agent completes, run this spot-check before proceeding:
 
 ## Step 4: Autonomy Behavior
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-wave --step 4 --step-label "Autonomy Behavior" 2>/dev/null || true
+```
+
 **Level 3 (Full Auto)**: Auto-advance to next phase after each agent completes. Only STOP for:
 - Destructive Action Guard violations (reported by phase agent)
 - Impact analysis BLOCK verdict
@@ -284,6 +308,10 @@ After each agent completes, run this spot-check before proceeding:
 **Level 1–2**: Pause between phases, show status, ask to continue.
 
 ## Step 5: Completion
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-wave --step 5 --step-label "Completion" 2>/dev/null || true
+```
 
 When all phases are done:
 ```

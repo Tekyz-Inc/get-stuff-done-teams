@@ -15,6 +15,10 @@ This command is:
 
 ## Step 1: Load Context
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-test-sync --step 1 --step-label "Load Context" 2>/dev/null || true
+```
+
 Read:
 1. `CLAUDE.md` — testing conventions, test locations
 2. `.gsd-t/progress.md` — what just changed
@@ -30,6 +34,10 @@ Identify:
 
 ## Step 1.5: Graph-Enhanced Test Discovery
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-test-sync --step 1 --step-label ".5: Graph-Enhanced Test Discovery" 2>/dev/null || true
+```
+
 If `.gsd-t/graph/meta.json` exists (graph index is available):
 1. Query `getTestsFor` each changed entity to find stale or missing tests more precisely than filesystem search
 2. Query `getTransitiveCallers` for changed functions to find indirectly affected tests that may need updating
@@ -38,6 +46,10 @@ If `.gsd-t/graph/meta.json` exists (graph index is available):
 If graph is not available, skip this step.
 
 ## Step 2: Contract Coverage Audit
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-test-sync --step 2 --step-label "Contract Coverage Audit" 2>/dev/null || true
+```
 
 Perform inline contract testing and gap analysis:
 
@@ -50,6 +62,10 @@ Perform inline contract testing and gap analysis:
 Test-sync cannot complete if critical contract gaps remain unaddressed.
 
 ## Step 3: Map Code to Tests
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-test-sync --step 3 --step-label "Map Code to Tests" 2>/dev/null || true
+```
 
 For each file changed in recent tasks:
 
@@ -72,6 +88,10 @@ find . -name "*.spec.*" | xargs grep -l "{class_name}"
 ```
 
 ## Step 4: Detect Test Issues
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-test-sync --step 4 --step-label "Detect Test Issues" 2>/dev/null || true
+```
 
 ### A) Stale Tests
 Tests that reference old behavior:
@@ -106,6 +126,10 @@ Tests that sometimes fail:
 - Note any intermittent failures
 
 ## Step 5: Run Affected Tests
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-test-sync --step 5 --step-label "Run Affected Tests" 2>/dev/null || true
+```
 
 ### A) Unit/Integration Tests
 Execute tests that cover changed code:
@@ -186,6 +210,10 @@ For all test types:
 - ERROR: Test broken (import error, etc.)
 
 ## Step 6: Produce Test Coverage Report
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-test-sync --step 6 --step-label "Produce Test Coverage Report" 2>/dev/null || true
+```
 
 Create/update `.gsd-t/test-coverage.md`:
 
@@ -274,6 +302,10 @@ Create/update `.gsd-t/test-coverage.md`:
 
 ## Step 7: Generate Test Tasks
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-test-sync --step 7 --step-label "Generate Test Tasks" 2>/dev/null || true
+```
+
 If issues found, add to current domain's tasks:
 
 ```markdown
@@ -296,6 +328,10 @@ If issues found, add to current domain's tasks:
 ```
 
 ## Step 8: Integration with Workflow
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-test-sync --step 8 --step-label "Integration with Workflow" 2>/dev/null || true
+```
 
 ### During Execute Phase (auto-invoked):
 After each task completes:
@@ -330,6 +366,10 @@ Full sync:
 4. Do not auto-add to domains — present for review
 
 ## Step 9: Report to User
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-test-sync --step 9 --step-label "Report to User" 2>/dev/null || true
+```
 
 ### Quick Mode (during execute):
 ```

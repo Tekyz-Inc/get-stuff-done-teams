@@ -11,6 +11,10 @@ Per `.gsd-t/contracts/model-selection-contract.md` v1.0.0.
 
 ## Step 1: Load Full Context
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-plan --step 1 --step-label "Load Full Context" 2>/dev/null || true
+```
+
 Read ALL of these:
 1. `CLAUDE.md`
 2. `.gsd-t/progress.md`
@@ -25,6 +29,10 @@ Read ALL of these:
 
 ## Step 1.5: Graph-Enhanced Dependency Detection
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-plan --step 1 --step-label ".5: Graph-Enhanced Dependency Detection" 2>/dev/null || true
+```
+
 If `.gsd-t/graph/meta.json` exists (graph index is available):
 1. Query `findDuplicates` to detect when planned tasks would create duplicate functions across domains — flag for SharedCore extraction or deduplication
 2. Query `getImporters` for key modules to identify implicit task dependencies that might not be obvious from contracts alone
@@ -33,6 +41,10 @@ If `.gsd-t/graph/meta.json` exists (graph index is available):
 If graph is not available, skip this step.
 
 ## Step 1.7: Pre-Mortem — Historical Failure Analysis
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-plan --step 1 --step-label ".7: Pre-Mortem — Historical Failure Analysis" 2>/dev/null || true
+```
 
 Before creating task lists, check historical task-metrics for domain-level failure patterns from previous milestones:
 
@@ -51,6 +63,10 @@ Before creating task lists, check historical task-metrics for domain-level failu
    If matching rules found: display warnings inline (non-blocking — informs task design). Falls back gracefully if rules.jsonl does not exist or is empty.
 
 ## Step 2: Create Task Lists Per Domain
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-plan --step 2 --step-label "Create Task Lists Per Domain" 2>/dev/null || true
+```
 
 ### SharedCore-First Pre-Check
 
@@ -258,6 +274,10 @@ After creating task lists, append a traceability table to `docs/requirements.md`
 
 ## Step 3: Map Cross-Domain Dependencies
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-plan --step 3 --step-label "Map Cross-Domain Dependencies" 2>/dev/null || true
+```
+
 Update `.gsd-t/contracts/integration-points.md` with the full dependency graph **and wave groupings**:
 
 ```markdown
@@ -325,6 +345,10 @@ Each wave contains domains/tasks that can safely run in parallel (no shared file
 
 ## Step 4: Estimate Scope
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-plan --step 4 --step-label "Estimate Scope" 2>/dev/null || true
+```
+
 Add to each domain's `tasks.md`:
 ```markdown
 ## Execution Estimate
@@ -335,6 +359,10 @@ Add to each domain's `tasks.md`:
 ```
 
 ## Step 5: Document Ripple
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-plan --step 5 --step-label "Document Ripple" 2>/dev/null || true
+```
 
 After creating task lists and mapping dependencies, update affected documentation:
 
@@ -351,6 +379,10 @@ After creating task lists and mapping dependencies, update affected documentatio
 
 ## Step 6: Test Verification
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-plan --step 6 --step-label "Test Verification" 2>/dev/null || true
+```
+
 Before finalizing the plan:
 
 1. **Run existing tests**: Execute the full test suite to confirm codebase state before execution begins
@@ -358,6 +390,10 @@ Before finalizing the plan:
 3. **Include test tasks**: Ensure each domain's task list includes test creation/update tasks where acceptance criteria require verification
 
 ## Step 7: Plan Validation
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-plan --step 7 --step-label "Plan Validation" 2>/dev/null || true
+```
 
 Spawn a Task subagent to validate the plan before proceeding:
 
@@ -393,12 +429,20 @@ If validation FAIL, append each gap to `.gsd-t/qa-issues.md` (create with header
 
 ## Step 8: Update Progress
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-plan --step 8 --step-label "Update Progress" 2>/dev/null || true
+```
+
 Update `.gsd-t/progress.md`:
 - Set status to `PLANNED`
 - Update domain table with task counts
 - Record any planning decisions in the Decision Log
 
 ## Step 9: Report
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-plan --step 9 --step-label "Report" 2>/dev/null || true
+```
 
 ### Autonomy Behavior
 

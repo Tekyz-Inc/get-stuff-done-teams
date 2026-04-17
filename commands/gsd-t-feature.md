@@ -4,6 +4,10 @@ You are the lead agent planning a significant new feature for an existing codeba
 
 ## Step 0.5: Scan Freshness Auto-Refresh
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-feature --step 0 --step-label ".5: Scan Freshness Auto-Refresh" 2>/dev/null || true
+```
+
 Before reading scan data for impact analysis, check if scan docs are stale and auto-refresh if needed. This ensures feature planning is based on current code — no warnings, no user involvement.
 
 If `.gsd-t/scan/.cache.json` exists:
@@ -21,6 +25,10 @@ If `.gsd-t/scan/.cache.json` exists:
 If `.gsd-t/scan/` doesn't exist at all → skip (no scan data to refresh).
 
 ## Step 1: Understand What Exists
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-feature --step 1 --step-label "Understand What Exists" 2>/dev/null || true
+```
 
 Read everything:
 1. `CLAUDE.md` — project conventions, stack, patterns
@@ -50,6 +58,10 @@ Note what you find — this informs Step 3's Multi-Consumer Check and Step 4's m
 
 ## Step 1.5: Graph-Enhanced Blast Radius Analysis
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-feature --step 1 --step-label ".5: Graph-Enhanced Blast Radius Analysis" 2>/dev/null || true
+```
+
 If `.gsd-t/graph/meta.json` exists (graph index is available):
 1. Query `getSurfaceConsumers` and `getCallers` on functions likely affected by the feature to calculate blast radius across all consumer surfaces
 2. Query `getTransitiveCallers` for deep impact chains that may not be obvious from architecture docs alone
@@ -58,6 +70,10 @@ If `.gsd-t/graph/meta.json` exists (graph index is available):
 If graph is not available, skip this step.
 
 ## Step 2: Understand the Feature
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-feature --step 2 --step-label "Understand the Feature" 2>/dev/null || true
+```
 
 From $ARGUMENTS and conversation:
 - What does this feature do?
@@ -73,6 +89,10 @@ If context is thin, ask targeted questions:
 - Any existing features this replaces or modifies?
 
 ## Step 3: Impact Analysis
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-feature --step 3 --step-label "Impact Analysis" 2>/dev/null || true
+```
 
 Before planning milestones, analyze how this feature touches the existing system.
 
@@ -149,6 +169,10 @@ Produce a combined analysis:
 
 ## Step 4: Decompose into Milestones
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-feature --step 4 --step-label "Decompose into Milestones" 2>/dev/null || true
+```
+
 The feature may be a single milestone or multiple, depending on scope:
 
 ### Single Milestone (if feature is focused):
@@ -216,6 +240,10 @@ Append to `.gsd-t/roadmap.md` (or create if doesn't exist):
 
 ## Step 5: Reconcile with Existing State
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-feature --step 5 --step-label "Reconcile with Existing State" 2>/dev/null || true
+```
+
 Critical step — make sure the new milestones fit with what's already built:
 
 1. **Check for conflicts**: Do new milestones conflict with in-progress work?
@@ -228,12 +256,20 @@ If conflicts exist, present them to the user with options:
 
 ## Step 6: Update Project State
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-feature --step 6 --step-label "Update Project State" 2>/dev/null || true
+```
+
 Update `.gsd-t/progress.md`:
 - Add new milestones to the table
 - Log the feature addition in Decision Log
 - Note any contract changes that will be needed
 
 ## Step 7: Document Ripple
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-feature --step 7 --step-label "Document Ripple" 2>/dev/null || true
+```
 
 After creating the feature roadmap and milestones, update all affected documentation:
 
@@ -252,6 +288,10 @@ After creating the feature roadmap and milestones, update all affected documenta
 
 ## Step 8: Test Verification
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-feature --step 8 --step-label "Test Verification" 2>/dev/null || true
+```
+
 Before finalizing the feature plan:
 
 1. **Run existing tests**: Execute the full test suite to confirm the codebase is in a clean state before feature work begins
@@ -259,6 +299,10 @@ Before finalizing the feature plan:
 3. **Note test gaps**: From the impact analysis, identify which existing tests will need updates and which new tests will be needed — include these in milestone scope
 
 ## Step 9: Report to User
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-feature --step 9 --step-label "Report to User" 2>/dev/null || true
+```
 
 Present:
 1. Impact analysis summary (what's new vs. what's modified)

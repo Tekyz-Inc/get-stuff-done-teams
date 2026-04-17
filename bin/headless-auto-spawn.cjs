@@ -84,6 +84,21 @@ function autoSpawnHeadless(opts) {
   //   watch=true + validation → warn on stderr; proceed headless
   //   watch=false             → headless (default behavior)
   if (watch && spawnType === "primary") {
+    // M39 D2 — append watch-progress tree below banner (best-effort).
+    // Banner here is the in-context-fallback signal printed by the caller;
+    // we don't own it, so we only render the tree to stdout. Never throws.
+    try {
+      const wp = require("./watch-progress.js");
+      const stateDir = path.join(projectDir, ".gsd-t", ".watch-state");
+      const tree = wp.buildTree(stateDir);
+      const rendered = wp.renderTree(tree, { currentAgent: null });
+      if (rendered) {
+        // eslint-disable-next-line no-console
+        console.log(rendered);
+      }
+    } catch (_) {
+      /* watch-progress is best-effort; never crash the watch */
+    }
     return {
       id: null,
       pid: null,
@@ -155,6 +170,10 @@ function autoSpawnHeadless(opts) {
     }
     if (process.env.GSD_T_MODEL) {
       workerEnv.GSD_T_MODEL = process.env.GSD_T_MODEL;
+    }
+    workerEnv.GSD_T_AGENT_ID = "headless-" + id;
+    if (process.env.GSD_T_AGENT_ID) {
+      workerEnv.GSD_T_PARENT_AGENT_ID = process.env.GSD_T_AGENT_ID;
     }
 
     const child = spawn("node", childArgs, {

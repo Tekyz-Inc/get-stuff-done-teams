@@ -73,7 +73,13 @@ const RUN_LOG = "run.log";
 
 const DEFAULT_HOURS = 24;
 const DEFAULT_MAX_ITERATIONS = 200;
-const DEFAULT_WORKER_TIMEOUT_MS = 3600000; // 1 hour per contract §13
+// Anthropic prompt-cache TTL is 5 minutes (300,000 ms). The supervisor→worker
+// handoff budget is ~30 s (process exit + state persist + next spawn). A 270 s
+// worker timeout leaves room to complete the iter AND still relaunch against
+// a warm cache. If a single iter legitimately exceeds 270 s, the supervisor
+// kills the worker and logs a cache-miss warning; the next iter pays a
+// cold-cache cost but execution continues.
+const DEFAULT_WORKER_TIMEOUT_MS = 270 * 1000; // 270s — see cache-warm-pacing note above; contract §13/§16
 
 const TERMINAL_STATUSES = new Set(["done", "failed", "stopped", "crashed"]);
 const VALID_STATUSES = new Set([
@@ -205,6 +211,17 @@ function parseArgs(argv) {
       case "test-mode":
         out.testMode = true;
         break;
+      case "worker-timeout": {
+        // Per unattended-supervisor-contract §6 + §16: user-supplied override
+        // of DEFAULT_WORKER_TIMEOUT_MS (270 s). Accepts ms. Must not be raised
+        // above 270000 without a separate user-approved contract revision —
+        // the supervisor clamps but does not refuse silently.
+        const n = parseInt(val, 10);
+        if (Number.isFinite(n) && n > 0) {
+          out.workerTimeoutMs = n;
+        }
+        break;
+      }
       default:
         // Unknown flag — ignore for forward compatibility
         break;
@@ -558,6 +575,13 @@ function doUnattended(argv, deps) {
   ) {
     opts.maxIterations = config.maxIterations;
   }
+  if (
+    opts.workerTimeoutMs === undefined &&
+    typeof config.workerTimeoutMs === "number" &&
+    config.workerTimeoutMs > 0
+  ) {
+    opts.workerTimeoutMs = config.workerTimeoutMs;
+  }
   // CLI values now win — mirror them back into config so the pre-worker
   // safety caps (checkIterationCap / checkWallClockCap) use the effective
   // supervisor-scoped limits rather than the on-disk file defaults.
@@ -705,6 +729,21 @@ function doUnattended(argv, deps) {
     console.log(
       `[gsd-t-unattended] running — sessionId=${state.sessionId} pid=${process.pid} milestone=${state.milestone} platform=${state.platform}`,
     );
+    // M39 D2 — append watch-progress tree below banner (best-effort).
+    // Banner preserved verbatim above; renderer output appended below per
+    // watch-progress-contract.md §7. Never throws into the supervisor loop.
+    try {
+      const wp = require("./watch-progress.js");
+      const stateDir = path.join(projectDir, ".gsd-t", ".watch-state");
+      const tree = wp.buildTree(stateDir);
+      const rendered = wp.renderTree(tree, { currentAgent: state.sessionId });
+      if (rendered) {
+        // eslint-disable-next-line no-console
+        console.log(rendered);
+      }
+    } catch (_) {
+      /* watch-progress is best-effort; never crash the watch */
+    }
   }
 
   // ── SUPERVISOR-INIT HOOK (contract §12) ──────────────────────────────────
@@ -1138,11 +1177,48 @@ function _spawnWorker(state, opts) {
   else if (process.env.GSD_T_TRACE_ID) workerEnv.GSD_T_TRACE_ID = process.env.GSD_T_TRACE_ID;
   if (state && state.model) workerEnv.GSD_T_MODEL = state.model;
   else if (process.env.GSD_T_MODEL) workerEnv.GSD_T_MODEL = process.env.GSD_T_MODEL;
+  // D2 watch-progress: mint a per-worker agent id and forward the supervisor's
+  // id as parent, so shims inside the worker write state files that the tree
+  // builder can attach under the supervisor root.
+  workerEnv.GSD_T_AGENT_ID =
+    "supervisor-iter-" + (state && state.iter ? state.iter : Date.now());
+  if (process.env.GSD_T_AGENT_ID) {
+    workerEnv.GSD_T_PARENT_AGENT_ID = process.env.GSD_T_AGENT_ID;
+  }
   const res = platformSpawnWorker(opts.cwd, opts.timeout, {
     bin,
     args: [
       "-p",
-      "You are an unattended worker iteration. CRITICAL: Do NOT check supervisor.pid, do NOT auto-reattach to a watch loop, do NOT schedule any ScheduleWakeup. You ARE the worker spawned by the supervisor. Skip Step 0 (auto-reattach) entirely and go directly to Step 0.1. Run /gsd-t-resume but skip the unattended supervisor auto-reattach check in Step 0.",
+      [
+        "You are an unattended worker iteration. CRITICAL: Do NOT check supervisor.pid, do NOT auto-reattach to a watch loop, do NOT schedule any ScheduleWakeup. You ARE the worker spawned by the supervisor. Skip Step 0 (auto-reattach) entirely and go directly to Step 0.1.",
+        "",
+        "# Team Mode (Intra-Wave Parallelism)",
+        "",
+        "Before executing tasks for this iteration, read `.gsd-t/partition.md` to",
+        "identify the current wave and which domains belong to it.",
+        "",
+        "If the current wave has MULTIPLE independent domains/tasks (check",
+        "`.gsd-t/domains/*/tasks.md` — 2 or more domains with incomplete tasks in the",
+        "current wave):",
+        "",
+        "  SPAWN PARALLEL SUBAGENTS — up to 15 concurrent Task subagents, one per",
+        "  domain, using `general-purpose` subagent_type. Use the same subagent",
+        "  prompt pattern as `/gsd-t-execute` Team Mode (see `commands/gsd-t-execute.md`",
+        "  Step 3 Team Mode section). Each subagent:",
+        "    - Receives the domain name, its scope.md, its tasks.md (only incomplete",
+        "      tasks from the current wave), and the relevant contracts",
+        "    - Works ONLY within its domain boundary",
+        "    - Returns when all its current-wave tasks are committed",
+        "  WAIT for ALL spawned subagents to report back before advancing.",
+        "",
+        "If the current wave has only 1 domain with incomplete tasks, execute",
+        "sequentially in this worker (no subagent spawn needed).",
+        "",
+        "Inter-wave boundaries always remain sequential — never parallelize across",
+        "waves, because wave-N+1 may depend on wave-N contract/state updates.",
+        "",
+        "Your job: run /gsd-t-resume but skip the unattended supervisor auto-reattach check in Step 0.",
+      ].join("\n"),
       "--dangerously-skip-permissions",
     ],
     env: workerEnv,

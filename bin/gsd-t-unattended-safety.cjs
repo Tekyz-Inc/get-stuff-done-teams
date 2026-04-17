@@ -55,7 +55,7 @@ const DEFAULTS = Object.freeze({
   maxIterations: 200,
   hours: 24,
   gutterNoProgressIters: 5,
-  workerTimeoutMs: 3600000,
+  workerTimeoutMs: 270000,
 });
 
 // ── Glob → regex helper ─────────────────────────────────────────────────────

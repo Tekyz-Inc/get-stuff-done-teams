@@ -4,6 +4,10 @@ You are the lead agent taking a complete project vision and breaking it into a l
 
 ## Step 1: Gather Project Context
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-project --step 1 --step-label "Gather Project Context" 2>/dev/null || true
+```
+
 Read everything available:
 1. `CLAUDE.md` (if exists)
 2. `docs/` — any existing documentation
@@ -23,6 +27,10 @@ If context is thin, ask the user targeted questions:
 Do NOT proceed until you have enough context to make informed milestone decisions. It's better to ask 3 good questions now than to repartition later.
 
 ## Step 2: Identify the Full Scope
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-project --step 2 --step-label "Identify the Full Scope" 2>/dev/null || true
+```
 
 List ALL major capabilities the project needs. Group them into functional areas:
 
@@ -66,6 +74,10 @@ Adjust these categories based on the actual project. Not every project needs all
 
 ## Step 3: Sequence into Milestones
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-project --step 3 --step-label "Sequence into Milestones" 2>/dev/null || true
+```
+
 Break functional areas into milestones following these principles:
 
 ### Sequencing Rules:
@@ -83,6 +95,10 @@ Break functional areas into milestones following these principles:
 - If a milestone feels too big, split it. Too small, merge it.
 
 ## Step 4: Write the Milestone Roadmap
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-project --step 4 --step-label "Write the Milestone Roadmap" 2>/dev/null || true
+```
 
 Create `.gsd-t/roadmap.md`:
 
@@ -142,6 +158,10 @@ Create `.gsd-t/roadmap.md`:
 
 ## Step 5: Update Project State
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-project --step 5 --step-label "Update Project State" 2>/dev/null || true
+```
+
 Initialize or update `.gsd-t/progress.md`:
 
 ```markdown
@@ -168,6 +188,10 @@ Ensure `CLAUDE.md` exists and references the roadmap and tech stack.
 
 ## Step 6: Document Ripple
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-project --step 6 --step-label "Document Ripple" 2>/dev/null || true
+```
+
 After creating the roadmap and updating project state, verify all documentation is consistent:
 
 ### Always update:
@@ -185,6 +209,10 @@ After creating the roadmap and updating project state, verify all documentation 
 
 ## Step 7: Test Verification
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-project --step 7 --step-label "Test Verification" 2>/dev/null || true
+```
+
 Before reporting to the user:
 
 1. **If existing code**: Run the full test suite to establish a baseline before milestone work begins
@@ -192,6 +220,10 @@ Before reporting to the user:
 3. **Document baseline**: Record the test state so progress can be measured across milestones
 
 ## Step 8: Report to User
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-project --step 8 --step-label "Report to User" 2>/dev/null || true
+```
 
 Present:
 1. The full milestone roadmap (summary view)

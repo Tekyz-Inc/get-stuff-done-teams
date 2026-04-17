@@ -4,6 +4,10 @@ You are performing a gap analysis between a provided specification and the exist
 
 ## Step 0.5: Scan Freshness Auto-Refresh
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-gap-analysis --step 0 --step-label ".5: Scan Freshness Auto-Refresh" 2>/dev/null || true
+```
+
 Before reading scan data for gap classification, check if scan docs are stale and auto-refresh if needed. This ensures gap analysis is based on current code — no warnings, no user involvement.
 
 If `.gsd-t/scan/.cache.json` exists:
@@ -21,6 +25,10 @@ If `.gsd-t/scan/` doesn't exist at all → skip (no scan data to refresh).
 
 ## Step 1: Load Context
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-gap-analysis --step 1 --step-label "Load Context" 2>/dev/null || true
+```
+
 Read (if they exist):
 1. `CLAUDE.md` — project context
 2. `.gsd-t/progress.md` — current state
@@ -28,6 +36,10 @@ Read (if they exist):
 4. `docs/architecture.md` — system structure
 
 ## Step 1.5: Graph-Enhanced Code Mapping
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-gap-analysis --step 1 --step-label ".5: Graph-Enhanced Code Mapping" 2>/dev/null || true
+```
 
 If `.gsd-t/graph/meta.json` exists (graph index is available):
 1. Query `getRequirementFor` to pre-map requirements to code entities — provides evidence for classification in Step 4
@@ -37,6 +49,10 @@ If `.gsd-t/graph/meta.json` exists (graph index is available):
 If graph is not available, skip this step.
 
 ## Step 2: Parse Requirements
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-gap-analysis --step 2 --step-label "Parse Requirements" 2>/dev/null || true
+```
 
 Break the provided spec into numbered discrete requirements. Each requirement should be:
 - **Atomic** — one testable behavior or capability per item
@@ -61,6 +77,10 @@ For large specs, show progress: "Analyzing section {N} of {total}: {section name
 
 ## Step 3: Clarification Check
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-gap-analysis --step 3 --step-label "Clarification Check" 2>/dev/null || true
+```
+
 Review each requirement for ambiguity. If any are unclear:
 
 - At **Level 3 (Full Auto)**: Proceed with reasonable assumptions. Flag each assumption in the gap analysis with `[ASSUMED: {assumption}]`
@@ -75,6 +95,10 @@ Discuss now or proceed with assumptions?
 ```
 
 ## Step 4: System Scan + Gap Classification (Team Mode)
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-gap-analysis --step 4 --step-label "System Scan + Gap Classification (Team Mode)" 2>/dev/null || true
+```
 
 Automatically use agent teams to scan and classify requirements in parallel.
 
@@ -152,6 +176,10 @@ If agent teams are not available or there are fewer than 3 requirements, run seq
 
 ## Step 6: Generate Gap Analysis Document
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-gap-analysis --step 6 --step-label "Generate Gap Analysis Document" 2>/dev/null || true
+```
+
 Create `.gsd-t/gap-analysis.md`:
 
 ```markdown
@@ -205,6 +233,10 @@ Create `.gsd-t/gap-analysis.md`:
 
 ## Step 7: Merge to Requirements (Optional)
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-gap-analysis --step 7 --step-label "Merge to Requirements (Optional)" 2>/dev/null || true
+```
+
 After generating the gap analysis, offer:
 
 ```
@@ -217,6 +249,10 @@ Merge parsed requirements into docs/requirements.md? (Y/N)
 If yes, merge the discrete requirements into `docs/requirements.md`, marking each with its current status.
 
 ## Step 8: Present Promotion Options
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-gap-analysis --step 8 --step-label "Present Promotion Options" 2>/dev/null || true
+```
 
 Show the recommended groupings and offer promotion paths:
 
@@ -238,6 +274,10 @@ Promote any of these now, or review the gap analysis first?
 At **Level 3**: Present the recommendations and wait for user direction. Do NOT auto-promote — the user decides which gaps to act on.
 
 ## Step 9: Re-run Support
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-gap-analysis --step 9 --step-label "Re-run Support" 2>/dev/null || true
+```
 
 If `.gsd-t/gap-analysis.md` already exists from a previous run:
 

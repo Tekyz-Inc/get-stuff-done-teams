@@ -56,6 +56,10 @@ Per `.gsd-t/contracts/model-selection-contract.md` v1.0.0. Selection is determin
 
 ## Step 0.1: Verify Context Gate Readiness (MANDATORY — first thing in a fresh session)
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-execute --step 0 --step-label ".1: Verify Context Gate Readiness (MANDATORY — first thing in a fresh session)" 2>/dev/null || true
+```
+
 Run via Bash:
 
 ```bash
@@ -69,6 +73,10 @@ Use the returned `threshold` as the gate signal for the rest of this run. The ga
 Why: every `/gsd-t-execute` invocation is a fresh orchestrator session and needs a current reading of context utilization before spawning any subagents. The authoritative source is the Context Meter state file; the fallback keeps the gate functional on projects that haven't installed the hook yet.
 
 ## Step 1: Load State
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-execute --step 1 --step-label "Load State" 2>/dev/null || true
+```
 
 Read:
 1. `CLAUDE.md` — check for **Branch Guard** (`Expected branch` field)
@@ -87,6 +95,10 @@ Identify:
 
 ## Step 1.5: Graph-Enhanced Domain Isolation Check (if available)
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-execute --step 1 --step-label ".5: Graph-Enhanced Domain Isolation Check (if available)" 2>/dev/null || true
+```
+
 If `.gsd-t/graph/meta.json` exists, run graph queries before execution begins:
 
 1. **Reindex** (if stale): `query('reindex', { force: false })` — ensure graph reflects current code
@@ -97,6 +109,10 @@ If `.gsd-t/graph/meta.json` exists, run graph queries before execution begins:
 After each domain completes, re-run `getDomainBoundaryViolations` and diff against pre-execution snapshot. If new violations appear, flag them immediately before proceeding to the next domain.
 
 ## Step 2: QA Subagent
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-execute --step 2 --step-label "QA Subagent" 2>/dev/null || true
+```
 
 In solo mode, QA runs inside each domain subagent (see Step 3). In team mode, the lead spawns QA subagents at each domain checkpoint using the pattern below.
 
@@ -113,6 +129,10 @@ If QA found issues, append each to `.gsd-t/qa-issues.md` (create with header `| 
 `| {DT_START} | gsd-t-execute | Step 2 | haiku | {DURATION}s | {severity} | {finding} |`
 
 ## Step 3: Choose Execution Mode
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-execute --step 3 --step-label "Choose Execution Mode" 2>/dev/null || true
+```
 
 ### Wave Scheduling (read first)
 
@@ -651,6 +671,10 @@ Cleanup is not optional — orphaned worktrees waste disk space and can confuse 
 
 ## Step 3.5: Orchestrator Context Gate (MANDATORY)
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-execute --step 3 --step-label ".5: Orchestrator Context Gate (MANDATORY)" 2>/dev/null || true
+```
+
 Single-band context gate per `.gsd-t/contracts/context-meter-contract.md` v1.3.0. The orchestrator checks `getSessionStatus()` BEFORE every task subagent spawn. `bin/token-budget.cjs` reads `.gsd-t/.context-meter-state.json` — the token estimate produced by the Context Meter PostToolUse hook.
 
 **Before each task spawn — gate check:**
@@ -670,6 +694,10 @@ The threshold percentage (default `75`) lives in `.gsd-t/context-meter-config.js
 
 ## Step 4: Checkpoint Handling
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-execute --step 4 --step-label "Checkpoint Handling" 2>/dev/null || true
+```
+
 When a checkpoint is reached (solo or team):
 
 1. **Stop** execution of blocked tasks
@@ -684,6 +712,10 @@ When a checkpoint is reached (solo or team):
 6. **Unblock** downstream tasks
 
 ## Step 5: Error Handling
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-execute --step 5 --step-label "Error Handling" 2>/dev/null || true
+```
 
 ### Contract Violation
 A teammate implements something that doesn't match a contract:
@@ -708,6 +740,10 @@ A teammate finishes independent tasks and is waiting on a checkpoint:
 3. Or shut down the teammate and respawn when unblocked
 
 ## Step 5.25: Design Verification Agent (per-domain, MANDATORY when design contract exists)
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-execute --step 5 --step-label ".25: Design Verification Agent (per-domain, MANDATORY when design contract exists)" 2>/dev/null || true
+```
 
 **IMPORTANT — frequency change in v2.74.12**: Design Verification was previously run once at the end of every execute run, regardless of how many domains existed. It is now run ONCE PER COMPLETED DOMAIN — call this step from the "After all tasks in a domain complete" block (Step 3.5 area), not from a global post-execute hook. This keeps verification co-located with the changes that introduced visual deviation, but stops the agent from re-materializing on every task spawn (which is what commit `b68353e` accidentally caused).
 
@@ -763,6 +799,10 @@ After the Design Verification Agent returns, check `.gsd-t/contracts/design-cont
 
 ## Step 5.5: Red Team — Adversarial QA (per-domain, MANDATORY)
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-execute --step 5 --step-label ".5: Red Team — Adversarial QA (per-domain, MANDATORY)" 2>/dev/null || true
+```
+
 **IMPORTANT — frequency change in v2.74.12**: Red Team was promoted to per-task by commit `da6d3ae` on the assumption that the orchestrator would catch context drain via an environment-variable-based self-check. That env-var path was never populated by Claude Code, so the check was inert and the per-task spawning of ~10k-token Red Team subagents was the largest single contributor to the v2.74.x context-burn regression. Red Team is now run ONCE PER COMPLETED DOMAIN — call this step from the "After all tasks in a domain complete" block, not from a per-task hook.
 
 After all tasks in the CURRENT DOMAIN pass their tests, spawn an adversarial Red Team agent. Its sole purpose is to BREAK the domain that was just built.
@@ -808,6 +848,10 @@ Append to `.gsd-t/token-log.md`:
 
 ## Step 6: Completion
 
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-execute --step 6 --step-label "Completion" 2>/dev/null || true
+```
+
 When all tasks in all domains are complete:
 1. Update `.gsd-t/progress.md` — all tasks marked complete
 2. Set status to `EXECUTED`
@@ -820,6 +864,10 @@ When all tasks in all domains are complete:
 **Level 1–2**: Report completion summary and recommend proceeding to integrate phase. Wait for confirmation.
 
 ## Step 7: Doc-Ripple (Automated)
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-execute --step 7 --step-label "Doc-Ripple (Automated)" 2>/dev/null || true
+```
 
 After all work is committed but before reporting completion:
 
