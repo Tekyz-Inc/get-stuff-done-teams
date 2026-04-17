@@ -2,6 +2,38 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [3.13.10] - 2026-04-17
+
+### Added — M39: Fast Unattended + Universal Watch-Progress Tree
+
+Closes the 3–5× speed gap between unattended and in-session execution, adds a universal task-list progress view under every `--watch` surface, and keeps supervisor→worker handoffs inside the 5-minute Anthropic prompt-cache TTL.
+
+**D2 — progress-watch (12 tasks)**:
+- `.gsd-t/contracts/watch-progress-contract.md` v1.0.0 — state-file schema, tree-reconstruction algorithm, stale-state expiry (24h), renderer contract, integration invariants.
+- `scripts/gsd-t-watch-state.js` — zero-dep writer CLI with shim-safe agent-id resolution (CLI arg → `GSD_T_AGENT_ID` env → auto-minted `shell-{pid}-{ts}` fallback). Atomic tmp-write+rename; `start`/`advance`/`done`/`skip`/`fail` subcommands.
+- `bin/watch-progress.js` — tree builder (parent_agent_id lineage, orphan handling) + renderer (✅/🔄/⬜/➡️/❌ markers; expanded-current-subtree + collapsed-siblings layout).
+- 189 step-shims across 17 workflow command files — every numbered step now writes its progress state under `.gsd-t/.watch-state/{agent_id}.json`.
+- Integration into `bin/gsd-t-unattended.cjs`, `bin/unattended-watch-format.cjs`, `bin/headless-auto-spawn.cjs` — tree appends below the existing banner (banner preserved intact).
+
+**D3 — parallel-exec (4 tasks)**:
+- Team Mode prompt block inserted into `_spawnWorker` at the worker instruction boundary. Unattended worker now spawns up to 15 concurrent `Task` subagents per wave (intra-wave parallel), waits for all, then advances (inter-wave sequential). Falls back to sequential when the wave contains only one domain.
+- `.gsd-t/contracts/unattended-supervisor-contract.md` §15 v1.3.0 — Team Mode contract: cap of 15, dependency-graph preservation, wave-boundary semantics.
+
+**D4 — cache-warm-pacing (3 tasks)**:
+- `DEFAULT_WORKER_TIMEOUT_MS = 270000` (270 s) in `bin/gsd-t-unattended.cjs` + `.js`. Preserves the Anthropic 5-min prompt-cache TTL with a ~30 s supervisor→worker handoff budget, eliminating the cold-cache penalty that was adding minutes per iter.
+- `--worker-timeout=<ms>` CLI flag parsed and merged into the live config (was documented in §6 but silently ignored pre-M39).
+- `.gsd-t/contracts/unattended-supervisor-contract.md` §16 v1.3.0 — cache-warm pacing contract: inline rationale comment requirement, inter-iteration sleep invariant (< 5 s), timeout override semantics.
+
+**Red Team**: Initial FAIL (2 CRITICAL + 2 HIGH) → fixes → GRUDGING PASS.
+- BUG-1 (CRITICAL): `GSD_T_AGENT_ID` had no producer — 189 shims would silently fail. Fixed by injecting `supervisor-iter-{N}` in `_spawnWorker`, `headless-{id}` in `autoSpawnHeadless`, and adding an auto-mint fallback chain to the writer CLI.
+- BUG-2 (CRITICAL): `--worker-timeout` flag documented in §6 but no `case "worker-timeout":` in `parseArgs`. Fixed with parse case + config merge + test assertion.
+- BUG-3 (HIGH): `.js` and `.cjs` variants of unattended + safety files had divergent defaults (3600000 vs 270000). Fixed by aligning all four files to 270000.
+- BUG-4 (HIGH): Team Mode prompt referenced "Step 4" but the current execute flow uses "Step 3". Fixed in both the prompt string and the contract §15.
+
+**Tests**: 1227/1227 pass (+3 new: shim-safe agent-id auto-mint, env-var fallback, `--worker-timeout` flag parse).
+
+**Impact**: bee-poc's next supervisor relaunch on v3.13.10 should complete iters 3–5× faster than the v3.12.13 baseline, with visible task-list progression under every `--watch` surface.
+
 ## [3.12.15] - 2026-04-17
 
 ### Fixed — Decision Log Trim — stop live progress.md bloat
