@@ -2,6 +2,29 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [3.13.15] - 2026-04-17
+
+### Fixed — Self-protection guard now uses package-name identity + narrow `bin/*.cjs` gitignore rule
+
+Two bugs in v3.13.14 surfaced when `gsd-t update-all` ran against GSD-T's own source repo from the globally-installed CLI:
+
+**Bug 1 — Self-protection guard bypassed**: The v3.13.14 guard compared `realpathSync(projectBinDir)` against `realpathSync(PKG_ROOT/bin)`. When `update-all` runs from the globally-installed CLI (`/usr/local/lib/node_modules/@tekyzinc/gsd-t`), `PKG_ROOT` points there — NOT to the local GSD-T source at `/Users/…/projects/GSD-T`. The paths never match in the typical dogfood setup, so the guard returned `false` and the sweep ate the source `bin/gsd-t.js`.
+
+**Fix**: identity is now by `package.json` name. The sweep reads `projectDir/package.json` and skips if `name === "@tekyzinc/gsd-t"`. Works regardless of whether `update-all` runs from the local source tree or the global install.
+
+**Bug 2 — Gitignore rule overly broad**: `UNATTENDED_GITIGNORE_ENTRIES` included `bin/*.cjs`, which ignored every `.cjs` under `bin/` — contradicting the adjacent comment ("legitimate `.cjs` source files under `bin/` ARE tracked"). With the broad rule active, new source `.cjs` files (e.g., `bin/headless-exit-codes.cjs`) couldn't be committed without `--force`.
+
+**Fix**: the gitignore entry narrows to exactly `bin/context-meter-state.cjs` — the single session-state artifact that was the original intent.
+
+**Files**:
+- `bin/gsd-t.js` — `isSourcePackage` now reads `package.json.name`; `UNATTENDED_GITIGNORE_ENTRIES` narrowed.
+- `test/bin-gsd-t-resilience.test.js` — self-protection test reshaped: seeds a tmp `package.json` with `name: "@tekyzinc/gsd-t"` + a signature-matching stray, asserts the stray survives the sweep.
+- `.gitignore` — deduped and restored to the narrow form.
+
+**Tests**: 1240/1240 pass (unchanged count; existing self-protection test reshaped). E2E: N/A.
+
+**Impact**: `gsd-t update-all` is now safe to run with GSD-T itself registered as a project, regardless of where the CLI is installed from. Legitimate `.cjs` source files in `bin/` are no longer blanket-ignored in downstream projects' `.gitignore`. bee-poc's supervisor, which started loading cleanly on v3.13.14, continues to load on v3.13.15 (this release is purely dogfood-protection + gitignore repair; no supervisor-behavior change).
+
 ## [3.13.14] - 2026-04-17
 
 ### Fixed — Supervisor no longer requires project-local `bin/gsd-t.js` + sweep self-protection

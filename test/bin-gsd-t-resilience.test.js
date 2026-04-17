@@ -75,15 +75,30 @@ test("copyBinToolsToProject sweeps older-version stray with the installer signat
   assert.ok(!fs.existsSync(path.join(binDir, "gsd-t.js")), "older-version stray (signature match) must be deleted");
 });
 
-test("copyBinToolsToProject refuses to sweep the source package's own bin/", () => {
-  // Self-protection: running the sweep against the installer's own source
-  // repo (PKG_ROOT) must NOT delete bin/gsd-t.js even though the signature
-  // matches — that file IS the installer.
+test("copyBinToolsToProject refuses to sweep a project whose package.json name is @tekyzinc/gsd-t", () => {
+  // Self-protection: when the target project IS the GSD-T source repo
+  // (identified by package.json name), the sweep must be skipped — otherwise
+  // running update-all with GSD-T registered as a project would eat the source.
+  // Identity is by package name, NOT path, because when invoked from a global
+  // install, PKG_ROOT points to the global copy, not the local source.
+  const tmp = mkTmp("sweep-self");
+  const binDir = path.join(tmp, "bin");
+  fs.mkdirSync(binDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(tmp, "package.json"),
+    JSON.stringify({ name: "@tekyzinc/gsd-t", version: "0.0.0" })
+  );
+  // Seed a stray that would otherwise match the signature and get swept.
+  fs.copyFileSync(SRC_GSD_T, path.join(binDir, "gsd-t.js"));
+  assert.ok(fs.existsSync(path.join(binDir, "gsd-t.js")), "stray must exist before test");
+
   const gt = require(SRC_GSD_T);
-  const pkgRoot = path.resolve(__dirname, "..");
-  assert.ok(fs.existsSync(path.join(pkgRoot, "bin", "gsd-t.js")), "source gsd-t.js must exist before test");
-  gt.copyBinToolsToProject(pkgRoot, "GSD-T");
-  assert.ok(fs.existsSync(path.join(pkgRoot, "bin", "gsd-t.js")), "source gsd-t.js must survive sweep against its own package");
+  gt.copyBinToolsToProject(tmp, "GSD-T");
+
+  assert.ok(
+    fs.existsSync(path.join(binDir, "gsd-t.js")),
+    "source bin/gsd-t.js must survive sweep when package.json identifies project as @tekyzinc/gsd-t"
+  );
 });
 
 test("copyBinToolsToProject leaves a user-owned bin/gsd-t.js alone when signature doesn't match", () => {

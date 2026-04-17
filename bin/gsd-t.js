@@ -2161,18 +2161,23 @@ function copyBinToolsToProject(projectDir, projectName) {
       }
     }
   }
-  // Self-protection: NEVER sweep the package's own bin/. Without this guard,
+  // Self-protection: NEVER sweep GSD-T's own source repo. Without this guard,
   // running `gsd-t update-all` with the GSD-T source repo itself registered
   // as a project (legitimate during development) would signature-match
   // bin/gsd-t.js — which IS the installer — and delete the source file.
-  // Resolve both paths to handle symlinks / relative path quirks.
-  const resolvedProjectBin = fs.realpathSync.native
-    ? (() => { try { return fs.realpathSync(projectBinDir); } catch { return projectBinDir; } })()
-    : projectBinDir;
-  const resolvedPkgBin = (() => {
-    try { return fs.realpathSync(path.join(PKG_ROOT, "bin")); } catch { return path.join(PKG_ROOT, "bin"); }
+  // Identity is by package.json name, NOT by path — when update-all runs from
+  // the globally-installed package, PKG_ROOT points to the global install and
+  // realpath comparison against the local source always fails.
+  const isSourcePackage = (() => {
+    try {
+      const pkgPath = path.join(projectDir, "package.json");
+      if (!fs.existsSync(pkgPath)) return false;
+      const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
+      return pkg && pkg.name === "@tekyzinc/gsd-t";
+    } catch {
+      return false;
+    }
   })();
-  const isSourcePackage = resolvedProjectBin === resolvedPkgBin;
   let cleaned = 0;
   if (!isSourcePackage) {
     for (const stray of DEPRECATED_BIN_STRAYS) {
@@ -2324,7 +2329,7 @@ function ensureUnattendedConfig(projectDir, projectName) {
 }
 
 const UNATTENDED_GITIGNORE_ENTRIES = [
-  "bin/*.cjs",
+  "bin/context-meter-state.cjs",
   ".gsd-t/.archive-migration-v1",
   ".gsd-t/.task-counter-retired-v1",
 ];
