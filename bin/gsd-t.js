@@ -388,8 +388,14 @@ const CONTEXT_METER_GITIGNORE_ENTRIES = [
   ".gsd-t/context-meter.log",
 ];
 const CONTEXT_METER_HOOK_MARKER = "gsd-t-context-meter";
+// Canonical global hook — runs the script from the globally-installed npm package.
+// Guarded so it silently exits 0 if the package is not present (non-GSD-T projects).
 const CONTEXT_METER_HOOK_COMMAND =
-  'node "$CLAUDE_PROJECT_DIR/scripts/gsd-t-context-meter.js"';
+  'bash -c \'[ -f "$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-context-meter.js" ] && node "$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-context-meter.js" || true\'';
+// Legacy command patterns that must be migrated on install/update/init.
+const CONTEXT_METER_STALE_PATTERNS = [
+  /node\s+"?\$CLAUDE_PROJECT_DIR\/scripts\/gsd-t-context-meter\.js"?/,
+];
 
 // Append entries to {projectDir}/.gitignore. Each entry added only if absent.
 // Idempotent. Returns true if any entries were added, false otherwise.
@@ -544,7 +550,9 @@ function installContextMeter(projectDir) {
 
 // Register the Context Meter PostToolUse hook in ~/.claude/settings.json.
 // Idempotent — if an existing hook references CONTEXT_METER_HOOK_MARKER the
-// command string is refreshed in-place. All other settings/hooks preserved.
+// command string is refreshed/migrated in-place to the canonical form.
+// Stale entries matching CONTEXT_METER_STALE_PATTERNS are migrated on the spot.
+// All other settings/hooks are preserved.
 // Returns { installed: bool, action: "added"|"updated"|"noop" }.
 function configureContextMeterHooks(settingsPath) {
   const targetPath = settingsPath || SETTINGS_JSON;
@@ -570,13 +578,17 @@ function configureContextMeterHooks(settingsPath) {
   for (const entry of settings.hooks.PostToolUse) {
     if (!entry || !Array.isArray(entry.hooks)) continue;
     for (const h of entry.hooks) {
-      if (h && typeof h.command === "string" && h.command.includes(CONTEXT_METER_HOOK_MARKER)) {
+      if (!h || typeof h.command !== "string") continue;
+      const isCurrentCanonical = h.command === cmd;
+      const isMarkerMatch = h.command.includes(CONTEXT_METER_HOOK_MARKER);
+      const isStaleMatch = !isCurrentCanonical &&
+        CONTEXT_METER_STALE_PATTERNS.some((re) => re.test(h.command));
+
+      if (isCurrentCanonical || isMarkerMatch || isStaleMatch) {
         found = true;
-        if (h.command !== cmd) {
+        if (!isCurrentCanonical) {
           h.command = cmd;
           action = "updated";
-        } else if (action === "noop") {
-          action = "noop";
         }
       }
     }
@@ -605,6 +617,46 @@ function configureContextMeterHooks(settingsPath) {
     return { installed: false, action: "noop" };
   }
   return { installed: true, action };
+}
+
+// Remove any context meter PostToolUse hooks from settings.json.
+// Used during uninstall. Leaves all other hooks intact.
+function removeContextMeterHook(settingsPath) {
+  const targetPath = settingsPath || SETTINGS_JSON;
+  if (!fs.existsSync(targetPath)) return false;
+  let settings;
+  try {
+    settings = JSON.parse(fs.readFileSync(targetPath, "utf8"));
+    if (!settings || typeof settings !== "object") return false;
+  } catch {
+    warn("settings.json has invalid JSON — cannot remove context meter hook");
+    return false;
+  }
+
+  if (!settings.hooks || !Array.isArray(settings.hooks.PostToolUse)) return false;
+
+  const before = settings.hooks.PostToolUse.length;
+  settings.hooks.PostToolUse = settings.hooks.PostToolUse.filter((entry) => {
+    if (!entry || !Array.isArray(entry.hooks)) return true;
+    // Keep the entry only if NONE of its hooks reference the context meter
+    return !entry.hooks.some(
+      (h) => h && typeof h.command === "string" && h.command.includes(CONTEXT_METER_HOOK_MARKER)
+    );
+  });
+  const removed = before - settings.hooks.PostToolUse.length;
+  if (removed === 0) return false;
+
+  if (isSymlink(targetPath)) {
+    warn("Skipping settings.json write — target is a symlink");
+    return false;
+  }
+  try {
+    fs.writeFileSync(targetPath, JSON.stringify(settings, null, 2));
+    return true;
+  } catch (e) {
+    warn(`Failed to write settings.json: ${e.message}`);
+    return false;
+  }
 }
 
 // Interactive prompt for the Anthropic API key env var.
@@ -1648,6 +1700,11 @@ function doUninstall() {
 
   removeInstalledCommands();
   removeVersionFile();
+
+  // Remove context meter PostToolUse hook from settings.json
+  if (removeContextMeterHook(SETTINGS_JSON)) {
+    success("Context meter PostToolUse hook removed from settings.json");
+  }
 
   warn("~/.claude/CLAUDE.md was NOT removed (may contain your customizations)");
   info("Remove manually if desired: delete the GSD-T section from ~/.claude/CLAUDE.md");
@@ -3360,6 +3417,7 @@ module.exports = {
   ensureGitignoreEntries,
   installContextMeter,
   configureContextMeterHooks,
+  removeContextMeterHook,
   promptForApiKeyIfMissing,
   resolveApiKeyEnvVar,
   runTaskCounterRetirementMigration,

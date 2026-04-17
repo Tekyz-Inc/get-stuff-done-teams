@@ -2,6 +2,14 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [3.12.11] - 2026-04-17
+
+### Fixed
+- **Installer owns global PostToolUse context-meter hook** — the hook command now targets the globally-installed npm package (`$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-context-meter.js`) instead of `$CLAUDE_PROJECT_DIR/scripts/...`. The old path caused `Cannot find module` errors in every non-GSD-T project and when `CLAUDE_PROJECT_DIR` was unset.
+- **Auto-migration of stale hook entries** — `install`, `update`, `update-all`, and `init` now detect and replace any PostToolUse entry whose command matches the prior `$CLAUDE_PROJECT_DIR`-based pattern, upgrading it in-place to the canonical global form.
+- **Existence guard** — the hook command is wrapped in a `bash -c '[ -f ... ] && node ... || true'` guard so it silently exits 0 when the package is not present (non-GSD-T projects, uninstalled state).
+- **Uninstall removes the hook** — `gsd-t uninstall` now removes any PostToolUse hook containing `gsd-t-context-meter` from `~/.claude/settings.json`, leaving all other hooks intact.
+
 ## [3.12.10] - 2026-04-17
 
 ### M38: Headless-by-Default + Meter Reduction
