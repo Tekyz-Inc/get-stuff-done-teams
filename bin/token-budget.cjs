@@ -1,22 +1,25 @@
 #!/usr/bin/env node
 
 /**
- * GSD-T Token Budget — Session-level token tracking (three-band model)
+ * GSD-T Token Budget — Session-level token tracking (single-band, v3.12)
  *
- * Reads .gsd-t/.context-meter-state.json (M34) for real context-window
- * readings, tracks session usage, and returns a three-band status signal
- * (normal / warn / stop) that callers use to decide whether to proceed,
- * log a warning, or halt cleanly.
+ * Reads .gsd-t/.context-meter-state.json (M34) for context-window readings
+ * and returns a single-band status signal (normal / threshold) that the
+ * orchestrator uses to decide whether the next subagent spawn must go
+ * through autoSpawnHeadless().
  *
- * v3.0.0 (M35 — clean break from v2.0.0):
- *   - The `downgrade` and `conserve` bands were REMOVED. Silent model
- *     degradation and silent phase-skipping are anti-features — they
- *     violate GSD-T's "quality is non-negotiable" principle.
- *   - `getDegradationActions()` now returns `{band, pct, message}` instead
- *     of `{threshold, actions, modelOverrides}`. No `modelOverride`, no
- *     `skipPhases`, no `checkpoint` side-channel.
- *   - `warn` threshold tightened from 60% → 70%. `stop` tightened from
- *     95% → 85% — keeps us clear of the runtime's native ~95% compact.
+ * v3.12.0 (M38 — meter reduction):
+ *   - Collapsed three-band model (normal/warn/stop) to single-band
+ *     (normal/threshold). The orchestrator makes the routing decision;
+ *     the meter reports a band, not a degradation policy.
+ *   - `getDegradationActions` export removed.
+ *   - Dead-meter detection, `stale` band, and `deadReason` removed.
+ *     Stale state transparently falls through to the heuristic — the
+ *     fail-open hook never raised a user-visible alarm anyway, and the
+ *     orchestrator's headless-by-default posture handles overflow
+ *     structurally rather than by trying to instruct Claude mid-session.
+ *   - Threshold default is `thresholdPct` from context-meter-config.json
+ *     (default 75%). There is no intermediate warn band.
  *
  * Zero external dependencies (Node.js built-ins only).
  */
@@ -40,17 +43,8 @@ const BASE_ESTIMATES = {
   default: 6000,
 };
 
-// v3.0.0 three-band thresholds. Lower-bound inclusive.
-//   pct <  70 → normal
-//   70 ≤ pct <  85 → warn (informational — log, proceed)
-//   pct ≥ 85 → stop  (halt cleanly, hand off to runway estimator)
-const WARN_THRESHOLD_PCT = 70;
-const STOP_THRESHOLD_PCT = 85;
-
-const THRESHOLDS = {
-  warn: WARN_THRESHOLD_PCT,
-  stop: STOP_THRESHOLD_PCT,
-};
+// v3.12 single-band default. Overridable via context-meter-config.json.
+const DEFAULT_THRESHOLD_PCT = 75;
 
 // ── Exports ──────────────────────────────────────────────────────────────────
 
@@ -58,7 +52,6 @@ module.exports = {
   estimateCost,
   getSessionStatus,
   recordUsage,
-  getDegradationActions,
   estimateMilestoneCost,
   getModelCostRatios,
 };
@@ -92,45 +85,34 @@ function estimateCost(model, taskType, options) {
 // ── getSessionStatus ─────────────────────────────────────────────────────────
 
 const STATE_FILE_REL = path.join(".gsd-t", ".context-meter-state.json");
+const CONFIG_FILE_REL = path.join(".gsd-t", "context-meter-config.json");
 const STATE_STALE_MS = 5 * 60 * 1000;
 
 /**
  * @param {string} [projectDir]
- * @returns {{ consumed: number, estimated_remaining: number, pct: number, threshold: string }}
+ * @returns {{ consumed: number, estimated_remaining: number, pct: number, threshold: 'normal'|'threshold' }}
  *
- * v2.0.0 (M34): reads `.gsd-t/.context-meter-state.json` produced by the
- * Context Meter PostToolUse hook. When that file is fresh (timestamp within
- * the last 5 minutes), real `input_tokens` drive the response. Otherwise we
- * fall back to a historical heuristic from `.gsd-t/token-log.md`, preserving
- * graceful degradation for projects without the hook installed.
+ * v3.12 (M38): reads `.gsd-t/.context-meter-state.json` produced by the
+ * Context Meter PostToolUse hook. When the state file is fresh (timestamp
+ * within 5 minutes), real `input_tokens` drive the response. Otherwise we
+ * fall back to a historical heuristic from `.gsd-t/token-log.md`. Stale or
+ * missing state is not a distinct band — the fail-open hook never raised
+ * a user-visible alarm, and the orchestrator's headless-by-default spawn
+ * path handles overflow structurally.
  */
 function getSessionStatus(projectDir) {
   const dir = projectDir || process.cwd();
+  const thresholdPct = resolveThresholdPct(dir);
   const real = readContextMeterState(dir);
   if (real) {
     const consumed = real.inputTokens;
     const window = real.modelWindowSize > 0 ? real.modelWindowSize : 200000;
     const estimated_remaining = Math.max(0, window - consumed);
     const pct = Math.round(real.pct * 10) / 10;
-    const threshold = resolveThreshold(pct);
+    const threshold = bandFor(pct, thresholdPct);
     return { consumed, estimated_remaining, pct, threshold };
   }
-  // Meter exists but is dead (file present, API key missing, parse/API error,
-  // or timestamp stale). Return a `stale` band so callers halt instead of
-  // silently running with a blind gate. This is the fix for the M36 /compact
-  // regression where checkCount=2102 but every hook call failed fail-open.
-  const dead = readContextMeterDead(dir);
-  if (dead) {
-    const window = dead.modelWindowSize > 0 ? dead.modelWindowSize : 200000;
-    return {
-      consumed: 0,
-      estimated_remaining: window,
-      pct: 0,
-      threshold: "stale",
-      deadReason: dead.reason,
-    };
-  }
-  return getSessionStatusHeuristic(dir);
+  return getSessionStatusHeuristic(dir, thresholdPct);
 }
 
 function readContextMeterState(dir) {
@@ -149,41 +131,25 @@ function readContextMeterState(dir) {
   }
 }
 
-// Return { reason, modelWindowSize } when the state file exists but the meter
-// is not producing a fresh, clean reading. Returns null when the file is
-// missing entirely (no meter installed — fall through to heuristic).
-function readContextMeterDead(dir) {
+function resolveThresholdPct(dir) {
   try {
-    const fp = path.join(dir, STATE_FILE_REL);
-    if (!fs.existsSync(fp)) return null;
+    const fp = path.join(dir, CONFIG_FILE_REL);
     const raw = fs.readFileSync(fp, "utf8");
-    const s = JSON.parse(raw);
-    if (!s || typeof s !== "object") {
-      return { reason: "state_file_corrupt", modelWindowSize: 0 };
-    }
-    const window = Number.isInteger(s.modelWindowSize) ? s.modelWindowSize : 0;
-    if (s.lastError && typeof s.lastError === "object" && typeof s.lastError.code === "string") {
-      return { reason: `meter_error:${s.lastError.code}`, modelWindowSize: window };
-    }
-    if (!s.timestamp) {
-      return { reason: "meter_never_measured", modelWindowSize: window };
-    }
-    const age = Date.now() - Date.parse(s.timestamp);
-    if (isNaN(age) || age < 0 || age > STATE_STALE_MS) {
-      return { reason: "meter_state_stale", modelWindowSize: window };
-    }
-    return null;
+    const c = JSON.parse(raw);
+    const pct = Number(c.thresholdPct);
+    if (Number.isFinite(pct) && pct > 0 && pct < 100) return pct;
   } catch (_) {
-    return { reason: "state_file_unreadable", modelWindowSize: 0 };
+    /* fall through */
   }
+  return DEFAULT_THRESHOLD_PCT;
 }
 
-function getSessionStatusHeuristic(dir) {
+function getSessionStatusHeuristic(dir, thresholdPct) {
   const window = 200000;
   const consumed = readSessionConsumed(dir);
   const estimated_remaining = Math.max(0, window - consumed);
   const pct = window > 0 ? Math.round((consumed / window) * 100 * 10) / 10 : 0;
-  const threshold = resolveThreshold(pct);
+  const threshold = bandFor(pct, thresholdPct);
   return { consumed, estimated_remaining, pct, threshold };
 }
 
@@ -205,22 +171,6 @@ function recordUsage(usage) {
   fs.appendFileSync(fp, line);
 }
 
-// ── getDegradationActions (v3.0.0 — three-band) ─────────────────────────────
-
-/**
- * v3.0.0 three-band response. The name is preserved for caller-identification
- * convenience; the return shape is a CLEAN BREAK from v2.0.0 — no
- * `modelOverrides`, no `actions` list, no `skipPhases`, no `checkpoint`
- * side-channel. Callers that relied on those fields MUST be updated.
- *
- * @param {string} [projectDir]
- * @returns {{ band: 'normal'|'warn'|'stop', pct: number, message: string }}
- */
-function getDegradationActions(projectDir) {
-  const { threshold, pct } = getSessionStatus(projectDir);
-  return buildBandResponse(threshold, pct);
-}
-
 // ── estimateMilestoneCost ─────────────────────────────────────────────────────
 
 /**
@@ -239,44 +189,11 @@ function estimateMilestoneCost(remainingTasks, projectDir) {
   return { estimatedTokens, estimatedPct, feasible };
 }
 
-// ── Internal: threshold resolution (v3.0.0 — three-band) ─────────────────────
+// ── Internal: single-band resolution ─────────────────────────────────────────
 
-function resolveThreshold(pct) {
+function bandFor(pct, thresholdPct) {
   if (!Number.isFinite(pct)) return "normal";
-  if (pct >= THRESHOLDS.stop) return "stop";
-  if (pct >= THRESHOLDS.warn) return "warn";
-  return "normal";
-}
-
-function buildBandResponse(band, pct) {
-  const safePct = Number.isFinite(pct) ? pct : 0;
-  switch (band) {
-    case "warn":
-      return {
-        band: "warn",
-        pct: safePct,
-        message: `Context ${safePct.toFixed(1)}% — warn band (≥${WARN_THRESHOLD_PCT}%). Informational only; proceed.`,
-      };
-    case "stop":
-      return {
-        band: "stop",
-        pct: safePct,
-        message: `Context ${safePct.toFixed(1)}% — stop band (≥${STOP_THRESHOLD_PCT}%). Halt cleanly; hand off to runway estimator / headless auto-spawn.`,
-      };
-    case "stale":
-      return {
-        band: "stale",
-        pct: safePct,
-        message: `Context meter is DEAD — no fresh measurements. Gate treats this as STOP. Run: gsd-t doctor. Fix the cause (usually missing ANTHROPIC_API_KEY) before running gated commands.`,
-      };
-    case "normal":
-    default:
-      return {
-        band: "normal",
-        pct: safePct,
-        message: `Context ${safePct.toFixed(1)}% — normal band. Proceed.`,
-      };
-  }
+  return pct >= thresholdPct ? "threshold" : "normal";
 }
 
 // ── Internal: token-log parsing ───────────────────────────────────────────────

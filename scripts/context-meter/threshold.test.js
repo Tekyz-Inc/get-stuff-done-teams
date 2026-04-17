@@ -2,6 +2,10 @@
  * scripts/context-meter/threshold.test.js
  *
  * Tests for threshold.js — context-meter's pure-function band/emit module.
+ *
+ * v3.12 (M38): single-band model (normal|threshold). The M37 MANDATORY STOP
+ * banner is replaced with a short silent marker consumed by the orchestrator.
+ *
  * Run: node --test scripts/context-meter/threshold.test.js
  */
 
@@ -11,7 +15,6 @@ const {
   computePct,
   bandFor,
   buildAdditionalContext,
-  BANDS,
 } = require("./threshold");
 
 // ── computePct ───────────────────────────────────────────────────────────────
@@ -82,53 +85,45 @@ test("computePct — small fraction", () => {
   assert.ok(result > 0 && result < 0.001);
 });
 
-// ── bandFor — boundary sweep (v3.0.0 three-band: normal/warn/stop) ───────────
+// ── bandFor — single-band (normal/threshold) ─────────────────────────────────
 
-test("bandFor — 0 → normal", () => {
+test("bandFor — 0 → normal (default threshold 75)", () => {
   assert.equal(bandFor(0), "normal");
 });
 
-test("bandFor — 69 → normal", () => {
-  assert.equal(bandFor(69), "normal");
+test("bandFor — 74.9 → normal (below default 75)", () => {
+  assert.equal(bandFor(74.9), "normal");
 });
 
-test("bandFor — 69.9 → normal", () => {
-  assert.equal(bandFor(69.9), "normal");
+test("bandFor — 75 → threshold (inclusive lower, default)", () => {
+  assert.equal(bandFor(75), "threshold");
 });
 
-test("bandFor — 70 → warn (inclusive lower)", () => {
-  assert.equal(bandFor(70), "warn");
+test("bandFor — 85 → threshold", () => {
+  assert.equal(bandFor(85), "threshold");
 });
 
-test("bandFor — 71 → warn", () => {
-  assert.equal(bandFor(71), "warn");
+test("bandFor — 95 → threshold", () => {
+  assert.equal(bandFor(95), "threshold");
 });
 
-test("bandFor — 84 → warn", () => {
-  assert.equal(bandFor(84), "warn");
+test("bandFor — 150 → threshold (no upper clamp)", () => {
+  assert.equal(bandFor(150), "threshold");
 });
 
-test("bandFor — 84.9 → warn", () => {
-  assert.equal(bandFor(84.9), "warn");
+test("bandFor — explicit thresholdPct 60, pct 59 → normal", () => {
+  assert.equal(bandFor(59, 60), "normal");
 });
 
-test("bandFor — 85 → stop (inclusive lower)", () => {
-  assert.equal(bandFor(85), "stop");
+test("bandFor — explicit thresholdPct 60, pct 60 → threshold", () => {
+  assert.equal(bandFor(60, 60), "threshold");
 });
 
-test("bandFor — 86 → stop", () => {
-  assert.equal(bandFor(86), "stop");
+test("bandFor — explicit thresholdPct 90, pct 80 → normal", () => {
+  assert.equal(bandFor(80, 90), "normal");
 });
 
-test("bandFor — 95 → stop", () => {
-  assert.equal(bandFor(95), "stop");
-});
-
-test("bandFor — 150 → stop (no upper clamp)", () => {
-  assert.equal(bandFor(150), "stop");
-});
-
-test("bandFor — NaN → normal (fail-safe)", () => {
+test("bandFor — NaN pct → normal (fail-safe)", () => {
   assert.equal(bandFor(NaN), "normal");
 });
 
@@ -136,16 +131,22 @@ test("bandFor — Infinity → normal (fail-safe: Infinity is NOT finite)", () =
   assert.equal(bandFor(Infinity), "normal");
 });
 
+test("bandFor — NaN thresholdPct → normal (fail-safe)", () => {
+  assert.equal(bandFor(80, NaN), "normal");
+});
+
 test("bandFor — undefined → normal", () => {
   assert.equal(bandFor(undefined), "normal");
 });
 
-test("BANDS constant mirrors bin/token-budget.js v3.0.0 three-band model", () => {
-  // Guard against accidental drift from the token-budget boundaries.
-  assert.deepEqual(BANDS, { warn: 70, stop: 85 });
+test("bandFor — never returns warn/stop/stale/dead-meter (v3.12 cleanup)", () => {
+  for (const p of [0, 50, 69, 70, 74, 75, 80, 85, 90, 95, 100, 150]) {
+    const b = bandFor(p);
+    assert.ok(b === "normal" || b === "threshold", `band for ${p} was ${b}`);
+  }
 });
 
-// ── buildAdditionalContext ───────────────────────────────────────────────────
+// ── buildAdditionalContext — single-band silent marker ───────────────────────
 
 test("buildAdditionalContext — below threshold returns null", () => {
   assert.equal(
@@ -154,60 +155,45 @@ test("buildAdditionalContext — below threshold returns null", () => {
   );
 });
 
-test("buildAdditionalContext — at threshold returns multi-line MANDATORY STOP", () => {
+test("buildAdditionalContext — at threshold returns short silent marker", () => {
   const result = buildAdditionalContext({
     pct: 75,
     modelWindowSize: 200000,
     thresholdPct: 75,
   });
-  assert.ok(typeof result === "string");
-  assert.ok(result.includes("75.0%"));
-  assert.ok(result.includes("MANDATORY STOP"));
-  assert.ok(result.includes("/user:gsd-t-pause"));
-  assert.ok(result.includes("/clear"));
-  assert.ok(result.includes("/user:gsd-t-resume"));
-  assert.ok(result.includes("Destructive Action Guard"));
-  assert.ok(result.includes("\n"), "must be multi-line");
+  assert.equal(result, "next-spawn-headless:true");
 });
 
-test("buildAdditionalContext — above threshold exact contract string (M37 multi-line)", () => {
+test("buildAdditionalContext — above threshold returns same marker (no pct interpolation)", () => {
   const result = buildAdditionalContext({
-    pct: 76.2,
+    pct: 92.7,
     modelWindowSize: 200000,
     thresholdPct: 75,
   });
-  const lines = result.split("\n");
-  assert.equal(lines.length, 6, "must have exactly 6 lines");
-  assert.equal(lines[0], "🛑 MANDATORY STOP — Context window at 76.2% of 200000 (threshold: 75%).");
-  assert.equal(lines[1], "You MUST stop what you are doing RIGHT NOW and execute these steps in order:");
-  assert.equal(lines[2], "1. Run /user:gsd-t-pause to save your exact position");
-  assert.equal(lines[3], "2. Tell the user to run /clear to free the context window");
-  assert.equal(lines[4], "3. Tell the user to run /user:gsd-t-resume to continue from the saved position");
-  assert.ok(lines[5].includes("Destructive Action Guard"));
+  assert.equal(result, "next-spawn-headless:true");
 });
 
-test("buildAdditionalContext — decimal formatting rounds via toFixed(1)", () => {
-  const result = buildAdditionalContext({
-    pct: 76.25,
-    modelWindowSize: 200000,
-    thresholdPct: 75,
-  });
-  // toFixed(1) on 76.25 → "76.3" (banker rounds vary but V8 gives "76.3" here)
-  assert.ok(result.includes("76.3%") || result.includes("76.2%"));
-  // Either rounding is acceptable — what matters is one decimal place.
-  const match = result.match(/at (\d+\.\d)% of/);
-  assert.ok(match, "must have exactly one decimal place");
-});
-
-test("buildAdditionalContext — modelWindowSize emitted raw (no commas)", () => {
+test("buildAdditionalContext — marker is machine-readable and short (< 40 chars)", () => {
   const result = buildAdditionalContext({
     pct: 80,
     modelWindowSize: 200000,
     thresholdPct: 75,
   });
-  assert.ok(result.includes("of 200000"));
-  assert.ok(!result.includes("200,000"));
-  assert.ok(!result.includes("200K"));
+  assert.ok(typeof result === "string");
+  assert.ok(result.length < 40, `marker too long: ${result.length}`);
+});
+
+test("buildAdditionalContext — marker contains NO user-facing language (no MANDATORY, STOP, /user:, /clear)", () => {
+  const result = buildAdditionalContext({
+    pct: 80,
+    modelWindowSize: 200000,
+    thresholdPct: 75,
+  });
+  assert.ok(!/MANDATORY/.test(result));
+  assert.ok(!/STOP/.test(result));
+  assert.ok(!/\/user:/.test(result));
+  assert.ok(!/\/clear/.test(result));
+  assert.ok(!/Destructive/.test(result));
 });
 
 test("buildAdditionalContext — NaN pct returns null", () => {
@@ -229,34 +215,20 @@ test("buildAdditionalContext — missing args returns null", () => {
   assert.equal(buildAdditionalContext(), null);
 });
 
-test("buildAdditionalContext — zero pct vs zero threshold emits", () => {
-  // 0 >= 0 is true — edge case: if thresholdPct is 0, every call emits.
+test("buildAdditionalContext — zero pct vs zero threshold emits (0 >= 0)", () => {
   const result = buildAdditionalContext({
     pct: 0,
     modelWindowSize: 200000,
     thresholdPct: 0,
   });
-  assert.ok(typeof result === "string");
-  assert.ok(result.includes("0.0%"));
-  assert.ok(result.includes("MANDATORY STOP"));
+  assert.equal(result, "next-spawn-headless:true");
 });
 
-test("buildAdditionalContext — pct over 100% still formats correctly", () => {
+test("buildAdditionalContext — pct over 100% still emits", () => {
   const result = buildAdditionalContext({
     pct: 102.3,
     modelWindowSize: 200000,
     thresholdPct: 75,
   });
-  assert.ok(result.startsWith("🛑 MANDATORY STOP — Context window at 102.3% of 200000"));
-  assert.ok(result.includes("MANDATORY STOP"));
-});
-
-test("buildAdditionalContext — different modelWindowSize (1M)", () => {
-  const result = buildAdditionalContext({
-    pct: 80,
-    modelWindowSize: 1000000,
-    thresholdPct: 75,
-  });
-  assert.ok(result.startsWith("🛑 MANDATORY STOP — Context window at 80.0% of 1000000"));
-  assert.ok(result.includes("threshold: 75%"));
+  assert.equal(result, "next-spawn-headless:true");
 });

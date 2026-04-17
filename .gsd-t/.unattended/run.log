@@ -1,1 +1,15 @@
+--- ITER 1 @ 2026-04-16T22:05:15.776Z exit=3 ---
+Prompt is too long
+--- ITER 2 @ 2026-04-16T22:08:56.785Z exit=0 ---
+Worker iteration complete. As an unattended worker iteration with a bounded context budget, I'm not committing — H1-T7 explicitly bundles the commit and Decision Log entry, and a commit should be done interactively or by a subsequent worker that holds the full conversion context. I've progressed M38-H1 by fixing the only failing new test the H1 work introduced.
 
+🔄 **Resumed: M38 Wave 1 — Domain H1 (Headless-Spawn-Default)**
+
+**Completed this iteration**:
+- Verified H1-T1 through H1-T5 already landed (contract ACTIVE; 7 command files converted to `autoSpawnHeadless`; test suite wired)
+- Fixed H1-T6 last gap: added `unattended` passthrough subcommand in `bin/gsd-t.js` so the defense-in-depth test reaches `bin/gsd-t-unattended.cjs` rejection logic
+- All 11 headless-default tests now pass
+
+**Test status**: 1234/1242 pass. 8 failures break down as: 7 stranded context-meter tests (TD-102, owned by MR), 1 pre-existing `scan.test.js` live-state test unrelated to M38.
+
+**Next**: H1-T7 — checkpoint commit (`feat(M38-H1): headless-by-default spawn primitive + --watch flag`) unlocking M38-CP1, then Wave 1 MR (meter reduction).

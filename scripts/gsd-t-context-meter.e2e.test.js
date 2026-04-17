@@ -269,9 +269,10 @@ test("E2E 2. above threshold — stdout additionalContext with large transcript"
   assert.equal(code, 0);
   const parsed = JSON.parse(stdout || "{}");
   assert.ok(parsed.additionalContext, "must emit additionalContext");
-  assert.ok(parsed.additionalContext.includes("MANDATORY STOP"), "must be MANDATORY STOP");
-  assert.ok(parsed.additionalContext.includes("/user:gsd-t-pause"), "must instruct pause");
-  assert.ok(parsed.additionalContext.includes("/user:gsd-t-resume"), "must instruct resume");
+  // v3.12 (M38): additionalContext is a short silent marker, not a MANDATORY STOP banner.
+  assert.equal(parsed.additionalContext, "next-spawn-headless:true");
+  assert.ok(!/MANDATORY STOP/.test(parsed.additionalContext));
+  assert.ok(!/\/user:gsd-t-pause/.test(parsed.additionalContext));
 
   const state = sandbox.readState();
   assert.ok(state);

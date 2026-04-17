@@ -54,60 +54,6 @@ Per `.gsd-t/contracts/model-selection-contract.md` v1.0.0. Selection is determin
 - **Red Team (Step 5.5)**: `opus` — adversarial reasoning benefits most from top tier (`selectModel({phase: "execute", task_type: "red_team"})`).
 - **Escalation points**: at any declared high-stakes sub-decision (cross-module refactor, contract design, security-boundary change), invoke the convention-based `/advisor` fallback from `bin/advisor-integration.js`. If the `/advisor` tool is unavailable, the caller proceeds at the assigned model and logs a missed escalation to `.gsd-t/token-log.md` (see `.gsd-t/M35-advisor-findings.md`). Never silently downgrade the model or skip Red Team / doc-ripple under context pressure — M35 removed that behavior.
 
-## Per-Spawn Token Bracket (MANDATORY — wrap EVERY Task subagent spawn)
-
-Per `.gsd-t/contracts/token-telemetry-contract.md` v1.0.0. Every Task subagent spawn below (Step 2 QA, Step 3 domain dispatcher, Step 5.25 Design Verification, Step 5.5 Red Team, Step 7 doc-ripple) **MUST** be wrapped in this token bracket so `.gsd-t/token-metrics.jsonl` gets one record per spawn. This is additive — the existing OBSERVABILITY LOGGING blocks in each spawn site are preserved unmodified alongside this bracket.
-
-**Before each spawn — read starting context tokens:**
-
-```bash
-T0_TOKENS=$(node -e "try{const s=require('fs').readFileSync('.gsd-t/.context-meter-state.json','utf8');process.stdout.write(String(JSON.parse(s).inputTokens||0))}catch(_){process.stdout.write('0')}")
-T0_PCT=$(node -e "try{const tb=require('./bin/token-budget.cjs');process.stdout.write(String(tb.getSessionStatus('.').pct||0))}catch(_){process.stdout.write('0')}")
-```
-
-**After each spawn — record the bracket:**
-
-```bash
-T1_TOKENS=$(node -e "try{const s=require('fs').readFileSync('.gsd-t/.context-meter-state.json','utf8');process.stdout.write(String(JSON.parse(s).inputTokens||0))}catch(_){process.stdout.write('0')}")
-T1_PCT=$(node -e "try{const tb=require('./bin/token-budget.cjs');process.stdout.write(String(tb.getSessionStatus('.').pct||0))}catch(_){process.stdout.write('0')}")
-node -e "require('./bin/token-telemetry.cjs').recordSpawn({timestamp:new Date().toISOString(),milestone:process.env.GSD_T_MILESTONE||'',command:'gsd-t-execute',phase:'${PHASE:-execute}',step:'${STEP:-}',domain:'${DOMAIN:-}',domain_type:'${DOMAIN_TYPE:-}',task:'${TASK:-}',model:'${MODEL:-sonnet}',duration_s:${DURATION:-0},input_tokens_before:${T0_TOKENS},input_tokens_after:${T1_TOKENS},tokens_consumed:${T1_TOKENS}-${T0_TOKENS},context_window_pct_before:${T0_PCT},context_window_pct_after:${T1_PCT},outcome:'${OUTCOME:-success}',halt_type:${HALT_TYPE:-null},escalated_via_advisor:${ESCALATED_VIA_ADVISOR:-false}})" 2>/dev/null || true
-```
-
-The bracket is additive to the existing `.gsd-t/token-log.md` OBSERVABILITY LOGGING rows. Both sinks coexist — token-log.md is human-readable with context percentage, token-metrics.jsonl is machine-readable with the full 18-field schema for `gsd-t metrics --tokens/--halts/--context-window` aggregation.
-
-## Step 0: Runway Check (MANDATORY — before any other work in a fresh session)
-
-Run via Bash. Count the `remaining_tasks` from the unblocked task list (Step 1 reads `.gsd-t/domains/*/tasks.md`), or use a conservative estimate of 5 if the count is unknown yet:
-
-```bash
-node -e "
-const r = require('./bin/runway-estimator.cjs').estimateRunway({
-  command: 'gsd-t-execute',
-  domain_type: '{DOMAIN_TYPE}',
-  remaining_tasks: {N},
-  projectDir: '.'
-});
-console.log(JSON.stringify(r, null, 2));
-if (!r.can_start) {
-  console.log('⛔ Insufficient runway — projected ' + r.projected_end_pct + '% (current ' + r.current_pct + '%, ' + r.pct_per_task + '%/task, ' + r.confidence + ' confidence, ' + r.confidence_basis + ' records)');
-  console.log('Auto-spawning headless to continue in a fresh context.');
-  const s = require('./bin/headless-auto-spawn.cjs').autoSpawnHeadless({
-    command: 'gsd-t-execute', args: [], continue_from: '.'
-  });
-  console.log('Session ID: ' + s.id);
-  console.log('Status: tail ' + s.logPath);
-  console.log('');
-  console.log('Your interactive session remains idle — you can use it for other work.');
-  console.log('You will be notified when the headless run completes.');
-  process.exit(0);
-}
-"
-```
-
-If `can_start === false`, the Step 0 block above has already spawned the headless continuation and exited. The interactive session stops here — do NOT proceed to Step 0.1. If the command continues past Step 0, `can_start === true` and runway is sufficient.
-
-**Contract**: `.gsd-t/contracts/runway-estimator-contract.md` v1.0.0 defines the decision-object shape and the refusal banner format. The stop threshold (85%) mirrors `.gsd-t/contracts/token-budget-contract.md` v3.0.0.
-
 ## Step 0.1: Verify Context Gate Readiness (MANDATORY — first thing in a fresh session)
 
 Run via Bash:
@@ -121,16 +67,6 @@ This calls `getSessionStatus()` (v2.0.0) which reads `.gsd-t/.context-meter-stat
 Use the returned `threshold` as the gate signal for the rest of this run. The gate logic is in Step 3.5; do NOT skip it. If the Context Meter hook isn't installed (`.gsd-t/.context-meter-state.json` missing and doctor reports it), run `gsd-t doctor` to diagnose — the gate still works via the heuristic fallback but real-time readings give much better guardrails.
 
 Why: every `/user:gsd-t-execute` invocation is a fresh orchestrator session and needs a current reading of context utilization before spawning any subagents. The authoritative source is the Context Meter state file; the fallback keeps the gate functional on projects that haven't installed the hook yet.
-
-## Step 0.2: Universal Auto-Pause Rule (MANDATORY — context-meter-contract v1.2.0, M37)
-
-**If at ANY point during this command you see a `🛑 MANDATORY STOP` message in `additionalContext` (delivered by the Context Meter PostToolUse hook), you MUST:**
-1. Immediately stop all work — do NOT finish the current task, do NOT spawn the next subagent
-2. Run `/user:gsd-t-pause` to save exact position
-3. Tell the user to run `/clear` then `/user:gsd-t-resume`
-4. STOP — do not continue
-
-This has the same enforcement weight as the Destructive Action Guard. The signal means the context window is at or above the configured threshold (default 75%) and continuing risks hitting the runtime's ~95% `/compact` wall.
 
 ## Step 1: Load State
 
@@ -240,12 +176,11 @@ Where `{CTX_PCT}` is the current `pct` value returned by `getSessionStatus()` (S
 **Token Budget Check (before dispatching each domain's tasks):**
 
 Run via Bash:
-`node -e "const tb = require('./bin/token-budget.cjs'); const s = tb.getSessionStatus('.'); const d = tb.getDegradationActions(s.threshold, '.'); process.stdout.write(JSON.stringify({band: d.band, pct: d.pct, message: d.message}));" 2>/dev/null`
+`node -e "const tb = require('./bin/token-budget.cjs'); const s = tb.getSessionStatus('.'); process.stdout.write(JSON.stringify(s));" 2>/dev/null`
 
-Apply the result (three-band model per `token-budget-contract.md` v3.0.0 — never silently degrade quality):
-- `band: 'normal'` or file missing → proceed with standard model assignments
-- `band: 'warn'` (≥70%) → log the warning to `.gsd-t/token-log.md` and proceed at full quality; do NOT downgrade models or skip phases
-- `band: 'stop'` (≥85%) → checkpoint all progress, output: "Orchestrator context gate reached ({pct}%). Progress saved. Resume after session reset.", and halt execution for remaining domains. Runway estimator / headless auto-spawn will handle the handoff once they exist (m35-runway-estimator, m35-headless-auto-spawn).
+Apply the single-band result per `context-meter-contract.md` v1.3.0:
+- `threshold: 'normal'` (or file missing) → proceed with standard model assignments.
+- `threshold: 'threshold'` → the Context Meter's PostToolUse hook has already emitted the `next-spawn-headless:true` marker; subsequent task-dispatcher spawns route through `autoSpawnHeadless()` automatically. No manual halt.
 
 **Pre-dispatch experience retrieval (before dispatching each domain's tasks):**
 Run via Bash:
@@ -578,7 +513,7 @@ Report back:
 
 6. **Per-domain Red Team** — invoke Step 5.5 (Red Team) NOW for this domain. This is the first place Red Team runs in v2.74.12 — there is no global post-execute Red Team anymore. If Red Team returns FAIL, fix bugs and re-run before proceeding to the next domain (max 2 fix-and-verify cycles); if bugs persist, log to `.gsd-t/deferred-items.md` and present to user.
 
-7. **Context gate re-check** — run `node -e "const tb=require('./bin/token-budget.cjs'); const s=tb.getSessionStatus('.'); if(s.threshold==='stop'||s.threshold==='stale')process.exit(10); if(s.threshold==='warn')process.exit(13);"`. If exit code is `10`, follow the Step 3.5 STOP procedure now (do NOT spawn the next domain). `stale` means the context meter is dead (usually missing `ANTHROPIC_API_KEY`) and is treated as STOP — print `⚠ Context meter DEAD — run 'gsd-t doctor' and fix before continuing` and halt. If exit code is `13`, log the warning and proceed at full quality for the next domain (no model overrides, no phase skips — quality is never silently degraded).
+7. **Context gate re-check** — run `node -e "const tb=require('./bin/token-budget.cjs'); const s=tb.getSessionStatus('.'); process.stdout.write(JSON.stringify(s));"`. If `threshold === 'threshold'`, the Context Meter hook has already emitted the `next-spawn-headless:true` marker — the next domain dispatcher must be routed through `autoSpawnHeadless()` so it runs in a fresh headless context. `threshold === 'normal'` → proceed in-context.
 
 ### Team Mode (when agent teams are enabled)
 Spawn teammates for domains within the same wave. Only domains in the same wave can run in parallel — do not spawn teammates for domains in different waves simultaneously. Each teammate uses the **domain task-dispatcher pattern** — one subagent per task within their domain (same as solo mode).
@@ -724,47 +659,22 @@ Cleanup is not optional — orphaned worktrees waste disk space and can confuse 
 
 ## Step 3.5: Orchestrator Context Gate (MANDATORY)
 
-The orchestrator MUST check `getSessionStatus()` BEFORE every task subagent spawn AND immediately AFTER every domain completes. This is the real context-burn guardrail. As of v2.0.0 (M34), `bin/token-budget.cjs` reads `.gsd-t/.context-meter-state.json` — the live count_tokens-based `input_tokens` measurement produced by the Context Meter PostToolUse hook. When the state file is fresh (timestamp within 5 min), thresholds reflect the ACTUAL context window utilization; when absent or stale, the call falls back to the historical heuristic from `.gsd-t/token-log.md`.
+Single-band context gate per `.gsd-t/contracts/context-meter-contract.md` v1.3.0. The orchestrator checks `getSessionStatus()` BEFORE every task subagent spawn. `bin/token-budget.cjs` reads `.gsd-t/.context-meter-state.json` — the token estimate produced by the Context Meter PostToolUse hook.
 
 **Before each task spawn — gate check:**
 
 ```bash
-node -e "const tb=require('./bin/token-budget.cjs'); const s=tb.getSessionStatus('.'); process.stdout.write(JSON.stringify(s)); if(s.threshold==='stop'||s.threshold==='stale')process.exit(10); if(s.threshold==='warn')process.exit(13);"
+node -e "const tb=require('./bin/token-budget.cjs'); const s=tb.getSessionStatus('.'); process.stdout.write(JSON.stringify(s));"
 ```
 
-Exit code semantics (three-band model per `token-budget-contract.md` v3.0.0, extended with a fourth `stale` guard in v3.10.12):
-- `0` → `normal` band (< 70% ctx). Proceed with standard model assignments.
-- `13` → `warn` band (70–85%). Log the warning to `.gsd-t/token-log.md` and proceed at full quality. **Never downgrade models or skip phases** — M35 removed that behavior intentionally. If the projected runway is insufficient, the runway estimator (m35-runway-estimator) will halt cleanly before reaching `stop`.
-- `10` → `stop` band (≥ 85%) **OR `stale` band (meter dead)**. STOP immediately. Do NOT spawn the next task. Jump straight to the STOP procedure below. For `stale`, also print `⚠ Context meter DEAD — run 'gsd-t doctor' and fix the cause (usually missing ANTHROPIC_API_KEY) before resuming` and halt the session — `stale` is not a resumable halt, it means the guardrail is BROKEN, not that the session is full.
+The JSON on stdout contains `{pct, threshold}` where `threshold` is `normal` or `threshold`. Capture `pct` as `{CTX_PCT}` for the token-log `Ctx%` column on the NEXT spawn.
 
-The JSON on stdout contains `{consumed, estimated_remaining, pct, threshold}` — capture `pct` as `{CTX_PCT}` for the token-log `Ctx%` column on the NEXT spawn.
+- `threshold: 'normal'` → proceed with the standard in-context spawn path for `primary` spawns (headless for `validation` spawns per headless-default-contract).
+- `threshold: 'threshold'` → the Context Meter's PostToolUse hook has already emitted the `next-spawn-headless:true` marker. Route subsequent `primary` task-dispatcher spawns through `autoSpawnHeadless()` as well — the next spawn runs in a fresh headless context, the current orchestrator finishes its bookkeeping and returns cleanly. No manual checkpoint/halt.
 
-**After each task subagent returns — re-check:**
+**Configuring the threshold:**
 
-Run the same command again. The fresh reading reflects post-task consumption (the Context Meter hook refreshes after each tool call). If the band crossed into `stop`, STOP after this task completes even if more tasks remain in the current domain.
-
-**STOP procedure (when threshold === 'stop'):**
-
-1. **Save checkpoint to disk** — update `.gsd-t/progress.md` with:
-   - Which domains are complete, which remain
-   - Current wave, next domain to execute
-   - Last completed task id and the next pending task id
-2. **Instruct user**: Output exactly:
-   ```
-   ⏸️ Orchestrator context gate reached ({pct}% of model window).
-   Progress saved. Run `/clear` then `/user:gsd-t-execute` to continue from the next task.
-   ```
-3. **STOP execution.** Do NOT spawn another task or domain subagent. The next session resumes from saved state with a fresh context window.
-
-**Configuring threshold bands:**
-
-Band boundaries (`warn=70`, `stop=85`) are defined in `bin/token-budget.cjs` (`WARN_THRESHOLD_PCT` / `STOP_THRESHOLD_PCT` constants) and documented in `.gsd-t/contracts/token-budget-contract.md` v3.0.0. The `modelWindowSize` used for the denominator comes from `.gsd-t/context-meter-config.json` (default `200000`). Override the window size there if running against a different model. There is no per-session env-var override — the real-time measurement supersedes the need for one.
-
-**On resume (Step 0 — first thing the orchestrator does in a fresh session):**
-
-Step 0 runs `getSessionStatus()` once for readiness confirmation. The reading should be fresh (the Context Meter hook fires on every tool call), so the gate immediately reflects the new session's starting pct — typically near 0 since `/clear` resets the conversation.
-
-This gate replaces the v2.74.12 task counter proxy and the (never-functional) v1.x env-var check. It is fail-safe: if `bin/token-budget.cjs` or the state file is unreadable for any reason, `getSessionStatus()` throws and the gate exits non-zero (treated as STOP) rather than silently allowing unlimited spawns.
+The threshold percentage (default `75`) lives in `.gsd-t/context-meter-config.json`. The `modelWindowSize` used for the denominator is in the same file (default `200000`). Override either by editing that file.
 
 ## Step 4: Checkpoint Handling
 

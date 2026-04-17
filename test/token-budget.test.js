@@ -2,16 +2,11 @@
  * Tests for bin/token-budget.cjs
  * Uses Node.js built-in test runner (node --test)
  *
- * v3.0.0 (M35): clean break — three-band model (normal / warn / stop).
- * Silent degradation bands (downgrade, conserve) and their model-override
- * side channel are REMOVED. getDegradationActions now returns
- * {band, pct, message} — no actions list, no modelOverrides.
- * Thresholds tightened to warn@70%, stop@85%.
- *
- * v2.0.0 (M34): getSessionStatus reads .gsd-t/.context-meter-state.json
- * produced by the Context Meter PostToolUse hook. When the state file is
- * absent or stale (>5min), it falls back to a historical heuristic from
- * .gsd-t/token-log.md against a 200k-token model window.
+ * v3.12.0 (M38 meter reduction): single-band model (normal / threshold).
+ * Three-band bands (warn, stop), stale-band, dead-meter detection, and
+ * getDegradationActions export are REMOVED. The orchestrator reads the
+ * band and routes spawns via autoSpawnHeadless() — the meter no longer
+ * emits a degradation policy.
  */
 
 const { describe, it, before, after, beforeEach } = require("node:test");
@@ -24,12 +19,12 @@ const {
   estimateCost,
   getSessionStatus,
   recordUsage,
-  getDegradationActions,
   estimateMilestoneCost,
   getModelCostRatios,
 } = require("../bin/token-budget.cjs");
 
 const MODEL_WINDOW = 200000;
+const DEFAULT_THRESHOLD_PCT = 75;
 let tmpDir;
 
 before(() => {
@@ -42,11 +37,12 @@ after(() => {
 });
 
 beforeEach(() => {
-  // Scrub state/log so each test starts from a clean slate.
   const state = path.join(tmpDir, ".gsd-t", ".context-meter-state.json");
   if (fs.existsSync(state)) fs.unlinkSync(state);
   const log = path.join(tmpDir, ".gsd-t", "token-log.md");
   if (fs.existsSync(log)) fs.unlinkSync(log);
+  const cfg = path.join(tmpDir, ".gsd-t", "context-meter-config.json");
+  if (fs.existsSync(cfg)) fs.unlinkSync(cfg);
 });
 
 function writeState({ inputTokens, ageMs = 0, modelWindowSize = MODEL_WINDOW }) {
@@ -65,6 +61,21 @@ function writeState({ inputTokens, ageMs = 0, modelWindowSize = MODEL_WINDOW }) 
   fs.writeFileSync(
     path.join(tmpDir, ".gsd-t", ".context-meter-state.json"),
     JSON.stringify(payload),
+  );
+}
+
+function writeConfig(thresholdPct) {
+  fs.writeFileSync(
+    path.join(tmpDir, ".gsd-t", "context-meter-config.json"),
+    JSON.stringify({
+      version: 1,
+      thresholdPct,
+      modelWindowSize: MODEL_WINDOW,
+      checkFrequency: 5,
+      statePath: ".gsd-t/.context-meter-state.json",
+      logPath: ".gsd-t/context-meter.log",
+      timeoutMs: 2000,
+    }),
   );
 }
 
@@ -157,9 +168,9 @@ describe("estimateCost", () => {
   });
 });
 
-// ── getSessionStatus (state-file primary) ────────────────────────────────────
+// ── getSessionStatus (single-band v3.12) ─────────────────────────────────────
 
-describe("getSessionStatus (real-source, three-band v3.0.0)", () => {
+describe("getSessionStatus (single-band v3.12)", () => {
   it("reads fresh state file and returns real values", () => {
     writeState({ inputTokens: 40000 });
     const status = getSessionStatus(tmpDir);
@@ -169,44 +180,41 @@ describe("getSessionStatus (real-source, three-band v3.0.0)", () => {
     assert.equal(status.threshold, "normal");
   });
 
-  it("returns 'normal' below 70%", () => {
+  it("returns 'normal' well below default 75% threshold", () => {
     writeState({ inputTokens: 100000 }); // 50%
     assert.equal(getSessionStatus(tmpDir).threshold, "normal");
   });
 
-  it("returns 'normal' just below warn boundary (69%)", () => {
-    writeState({ inputTokens: 138000 }); // 69%
+  it("returns 'normal' just below default threshold boundary (74%)", () => {
+    writeState({ inputTokens: 148000 }); // 74%
     assert.equal(getSessionStatus(tmpDir).threshold, "normal");
   });
 
-  it("returns 'warn' at 70% (inclusive lower)", () => {
-    writeState({ inputTokens: 140000 }); // 70%
-    assert.equal(getSessionStatus(tmpDir).threshold, "warn");
+  it("returns 'threshold' at 75% (inclusive lower, default thresholdPct)", () => {
+    writeState({ inputTokens: 150000 }); // 75%
+    assert.equal(getSessionStatus(tmpDir).threshold, "threshold");
   });
 
-  it("returns 'warn' at 71%", () => {
-    writeState({ inputTokens: 142000 }); // 71%
-    assert.equal(getSessionStatus(tmpDir).threshold, "warn");
+  it("returns 'threshold' at 85%", () => {
+    writeState({ inputTokens: 170000 });
+    assert.equal(getSessionStatus(tmpDir).threshold, "threshold");
   });
 
-  it("returns 'warn' at 84% (still below stop)", () => {
-    writeState({ inputTokens: 168000 }); // 84%
-    assert.equal(getSessionStatus(tmpDir).threshold, "warn");
+  it("returns 'threshold' at 95%+", () => {
+    writeState({ inputTokens: 195000 });
+    assert.equal(getSessionStatus(tmpDir).threshold, "threshold");
   });
 
-  it("returns 'stop' at 85% (inclusive lower)", () => {
-    writeState({ inputTokens: 170000 }); // 85%
-    assert.equal(getSessionStatus(tmpDir).threshold, "stop");
+  it("honors custom thresholdPct from context-meter-config.json", () => {
+    writeConfig(60);
+    writeState({ inputTokens: 120000 }); // 60%
+    assert.equal(getSessionStatus(tmpDir).threshold, "threshold");
   });
 
-  it("returns 'stop' at 86%", () => {
-    writeState({ inputTokens: 172000 }); // 86%
-    assert.equal(getSessionStatus(tmpDir).threshold, "stop");
-  });
-
-  it("returns 'stop' at 95%+", () => {
-    writeState({ inputTokens: 195000 }); // 97.5%
-    assert.equal(getSessionStatus(tmpDir).threshold, "stop");
+  it("returns 'normal' when below custom thresholdPct (80%)", () => {
+    writeConfig(80);
+    writeState({ inputTokens: 150000 }); // 75%
+    assert.equal(getSessionStatus(tmpDir).threshold, "normal");
   });
 
   it("falls back to heuristic when state file is missing", () => {
@@ -216,21 +224,16 @@ describe("getSessionStatus (real-source, three-band v3.0.0)", () => {
     assert.equal(status.estimated_remaining, MODEL_WINDOW);
   });
 
-  it("returns stale band when state file exists but is older than 5min (v3.10.12)", () => {
+  it("falls back to heuristic when state file is older than 5min (no stale band)", () => {
     writeState({ inputTokens: 195000, ageMs: 6 * 60 * 1000 });
     const status = getSessionStatus(tmpDir);
-    // v3.10.12: state file exists but is stale → refuse to fall through to
-    // heuristic (which would return a fake "normal" and silently re-break the
-    // M36 regression). Return `stale` so the gate halts loudly.
-    assert.equal(status.threshold, "stale");
-    assert.equal(status.deadReason, "meter_state_stale");
+    // v3.12 (M38): stale state no longer produces a special band.
+    // It falls through to the heuristic, which for an empty log returns normal.
+    assert.equal(status.threshold, "normal");
     assert.equal(status.consumed, 0);
   });
 
-  it("returns stale band when state file has lastError set (v3.10.12)", () => {
-    // Simulate the exact M36 regression: checkCount=2102, lastError=missing_key,
-    // timestamp=null. Pre-v3.10.12 this returned {threshold: "normal"} and
-    // the gate was silently blind. Post-v3.10.12 it returns "stale".
+  it("falls back to heuristic when state file has lastError set (no stale band)", () => {
     const statePath = path.join(tmpDir, ".gsd-t", ".context-meter-state.json");
     fs.mkdirSync(path.dirname(statePath), { recursive: true });
     fs.writeFileSync(
@@ -244,27 +247,21 @@ describe("getSessionStatus (real-source, three-band v3.0.0)", () => {
         threshold: "normal",
         checkCount: 2102,
         lastError: {
-          code: "missing_key",
-          message: "env var ANTHROPIC_API_KEY not set",
+          code: "some_error",
+          message: "parse failure",
           timestamp: "2026-04-15T20:49:56.259Z",
         },
       })
     );
     const status = getSessionStatus(tmpDir);
-    assert.equal(status.threshold, "stale");
-    assert.equal(status.deadReason, "meter_error:missing_key");
+    assert.equal(status.threshold, "normal");
+    assert.equal(status.deadReason, undefined);
   });
 
-  it("falls back to heuristic when state file is entirely missing (backward-compat for projects without meter)", () => {
-    // A project with no meter installed (empty .gsd-t/) must still work via
-    // the heuristic — this is the backward-compat path for projects that
-    // pre-date M34.
-    const emptyDir = fs.mkdtempSync(path.join(os.tmpdir(), "gsd-t-tb-nofile-"));
-    fs.mkdirSync(path.join(emptyDir, ".gsd-t"), { recursive: true });
-    const status = getSessionStatus(emptyDir);
-    assert.equal(status.threshold, "normal");
-    assert.equal(status.consumed, 0);
-    fs.rmSync(emptyDir, { recursive: true, force: true });
+  it("never returns deadReason field", () => {
+    writeState({ inputTokens: 40000 });
+    const status = getSessionStatus(tmpDir);
+    assert.equal(status.deadReason, undefined);
   });
 
   it("heuristic sums today's tokens from token-log.md", () => {
@@ -278,8 +275,8 @@ describe("getSessionStatus (real-source, three-band v3.0.0)", () => {
     const status = getSessionStatus(tmpDir);
     assert.equal(status.consumed, 150000);
     assert.equal(status.pct, 75);
-    // 75% → warn band under v3.0.0 (warn @ 70, stop @ 85)
-    assert.equal(status.threshold, "warn");
+    // 75% reaches default threshold (75)
+    assert.equal(status.threshold, "threshold");
   });
 
   it("reports consumed=0 on missing state and empty log", () => {
@@ -290,67 +287,14 @@ describe("getSessionStatus (real-source, three-band v3.0.0)", () => {
     assert.equal(status.threshold, "normal");
     fs.rmSync(emptyDir, { recursive: true, force: true });
   });
-});
 
-// ── getDegradationActions (v3.0.0 three-band) ────────────────────────────────
-
-describe("getDegradationActions (v3.0.0 three-band)", () => {
-  it("returns normal band at low context", () => {
-    writeState({ inputTokens: 10000 });
-    const result = getDegradationActions(tmpDir);
-    assert.equal(result.band, "normal");
-    assert.equal(typeof result.pct, "number");
-    assert.equal(typeof result.message, "string");
-    // Clean-break guarantees: no actions array, no modelOverrides, no skipPhases.
-    assert.equal(result.actions, undefined);
-    assert.equal(result.modelOverrides, undefined);
-    assert.equal(result.skipPhases, undefined);
-    assert.equal(result.threshold, undefined);
-  });
-
-  it("returns warn band at 70% (inclusive lower boundary)", () => {
-    writeState({ inputTokens: 140000 }); // 70%
-    const result = getDegradationActions(tmpDir);
-    assert.equal(result.band, "warn");
-    assert.ok(/70|warn/i.test(result.message));
-    assert.equal(result.modelOverrides, undefined);
-  });
-
-  it("returns warn band at 84% (still below stop)", () => {
-    writeState({ inputTokens: 168000 }); // 84%
-    const result = getDegradationActions(tmpDir);
-    assert.equal(result.band, "warn");
-    assert.equal(result.modelOverrides, undefined);
-  });
-
-  it("returns stop band at 85% (inclusive lower boundary)", () => {
-    writeState({ inputTokens: 170000 }); // 85%
-    const result = getDegradationActions(tmpDir);
-    assert.equal(result.band, "stop");
-    assert.ok(/stop|halt/i.test(result.message));
-    assert.equal(result.modelOverrides, undefined);
-  });
-
-  it("returns stop band at 95%+", () => {
-    writeState({ inputTokens: 195000 }); // 97.5%
-    const result = getDegradationActions(tmpDir);
-    assert.equal(result.band, "stop");
-  });
-
-  it("message references runway estimator handoff at stop band", () => {
-    writeState({ inputTokens: 180000 }); // 90%
-    const result = getDegradationActions(tmpDir);
-    assert.equal(result.band, "stop");
-    assert.ok(/runway|headless|hand/i.test(result.message));
-  });
-
-  it("band is never downgrade/conserve under v3.0.0 (clean break)", () => {
-    for (const tokens of [10000, 140000, 168000, 170000, 195000]) {
+  it("threshold is only 'normal' or 'threshold' — never warn/stop/stale/dead-meter", () => {
+    for (const tokens of [0, 40000, 100000, 148000, 150000, 170000, 195000]) {
       writeState({ inputTokens: tokens });
-      const result = getDegradationActions(tmpDir);
+      const status = getSessionStatus(tmpDir);
       assert.ok(
-        result.band === "normal" || result.band === "warn" || result.band === "stop",
-        `unexpected band "${result.band}" — must be normal/warn/stop`,
+        status.threshold === "normal" || status.threshold === "threshold",
+        `unexpected threshold "${status.threshold}" — must be normal|threshold`,
       );
     }
   });
@@ -385,6 +329,15 @@ describe("recordUsage", () => {
       recordUsage({ model: "haiku", taskType: "qa", tokens: 500, duration_s: 5, projectDir: dir });
     });
     fs.rmSync(dir, { recursive: true, force: true });
+  });
+});
+
+// ── getDegradationActions removed in v3.12 ────────────────────────────────────
+
+describe("getDegradationActions (removed in v3.12)", () => {
+  it("is no longer exported", () => {
+    const mod = require("../bin/token-budget.cjs");
+    assert.equal(mod.getDegradationActions, undefined);
   });
 });
 

@@ -239,7 +239,7 @@ async function runMeter(opts) {
       inputTokens: tokenResp.inputTokens,
       modelWindowSize: cfg.modelWindowSize,
     });
-    const band = bandFor(pct);
+    const band = bandFor(pct, cfg.thresholdPct);
 
     state.inputTokens = tokenResp.inputTokens;
     state.pct = pct;

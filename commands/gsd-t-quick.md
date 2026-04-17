@@ -24,70 +24,6 @@ Per `.gsd-t/contracts/model-selection-contract.md` v1.0.0.
 - **Red Team (Step 5.5)**: `opus` — adversarial reasoning always runs at top tier.
 - **Escalation**: `/advisor` convention-based fallback from `bin/advisor-integration.js` at declared high-stakes sub-decisions (see `.gsd-t/M35-advisor-findings.md`). Never silently downgrade the model or skip Red Team / doc-ripple under context pressure — M35 removed that behavior.
 
-## Per-Spawn Token Bracket (MANDATORY — wrap EVERY Task subagent spawn)
-
-Per `.gsd-t/contracts/token-telemetry-contract.md` v1.0.0. Every Task subagent spawn below **MUST** be wrapped in this token bracket so `.gsd-t/token-metrics.jsonl` gets one record per spawn. This is additive — the existing OBSERVABILITY LOGGING blocks in each spawn site are preserved unmodified alongside this bracket.
-
-**Before each spawn — read starting context tokens:**
-
-```bash
-T0_TOKENS=$(node -e "try{const s=require('fs').readFileSync('.gsd-t/.context-meter-state.json','utf8');process.stdout.write(String(JSON.parse(s).inputTokens||0))}catch(_){process.stdout.write('0')}")
-T0_PCT=$(node -e "try{const tb=require('./bin/token-budget.cjs');process.stdout.write(String(tb.getSessionStatus('.').pct||0))}catch(_){process.stdout.write('0')}")
-```
-
-**After each spawn — record the bracket:**
-
-```bash
-T1_TOKENS=$(node -e "try{const s=require('fs').readFileSync('.gsd-t/.context-meter-state.json','utf8');process.stdout.write(String(JSON.parse(s).inputTokens||0))}catch(_){process.stdout.write('0')}")
-T1_PCT=$(node -e "try{const tb=require('./bin/token-budget.cjs');process.stdout.write(String(tb.getSessionStatus('.').pct||0))}catch(_){process.stdout.write('0')}")
-node -e "require('./bin/token-telemetry.cjs').recordSpawn({timestamp:new Date().toISOString(),milestone:process.env.GSD_T_MILESTONE||'',command:'gsd-t-quick',phase:'quick',step:'${STEP:-}',domain:'${DOMAIN:-}',domain_type:'${DOMAIN_TYPE:-}',task:'${TASK:-}',model:'${MODEL:-sonnet}',duration_s:${DURATION:-0},input_tokens_before:${T0_TOKENS},input_tokens_after:${T1_TOKENS},tokens_consumed:${T1_TOKENS}-${T0_TOKENS},context_window_pct_before:${T0_PCT},context_window_pct_after:${T1_PCT},outcome:'${OUTCOME:-success}',halt_type:${HALT_TYPE:-null},escalated_via_advisor:${ESCALATED_VIA_ADVISOR:-false}})" 2>/dev/null || true
-```
-
-The bracket is additive to the existing `.gsd-t/token-log.md` OBSERVABILITY LOGGING rows. Both sinks coexist — token-log.md is human-readable, token-metrics.jsonl is machine-readable for `gsd-t metrics` aggregation.
-
-## Step 0: Runway Check (MANDATORY — before any other work in a fresh session)
-
-Quick tasks are always single-task, so `remaining_tasks=1`. Run via Bash:
-
-```bash
-node -e "
-const r = require('./bin/runway-estimator.cjs').estimateRunway({
-  command: 'gsd-t-quick',
-  domain_type: '',
-  remaining_tasks: 1,
-  projectDir: '.'
-});
-console.log(JSON.stringify(r, null, 2));
-if (!r.can_start) {
-  console.log('⛔ Insufficient runway — projected ' + r.projected_end_pct + '% (current ' + r.current_pct + '%, ' + r.pct_per_task + '%/task, ' + r.confidence + ' confidence, ' + r.confidence_basis + ' records)');
-  console.log('Auto-spawning headless to continue in a fresh context.');
-  const s = require('./bin/headless-auto-spawn.cjs').autoSpawnHeadless({
-    command: 'gsd-t-quick', args: [], continue_from: '.'
-  });
-  console.log('Session ID: ' + s.id);
-  console.log('Status: tail ' + s.logPath);
-  console.log('');
-  console.log('Your interactive session remains idle — you can use it for other work.');
-  console.log('You will be notified when the headless run completes.');
-  process.exit(0);
-}
-"
-```
-
-If `can_start === false`, the headless continuation has been spawned and the interactive session must stop here. Do NOT proceed to Step 0.1.
-
-**Contract**: `.gsd-t/contracts/runway-estimator-contract.md` v1.0.0; stop threshold (85%) mirrors `.gsd-t/contracts/token-budget-contract.md` v3.0.0.
-
-## Step 0.2: Universal Auto-Pause Rule (MANDATORY — context-meter-contract v1.2.0, M37)
-
-**If at ANY point during this command you see a `🛑 MANDATORY STOP` message in `additionalContext` (delivered by the Context Meter PostToolUse hook), you MUST:**
-1. Immediately stop all work — do NOT continue the task, do NOT spawn the next subagent
-2. Run `/user:gsd-t-pause` to save exact position
-3. Tell the user to run `/clear` then `/user:gsd-t-resume`
-4. STOP — do not continue
-
-This has the same enforcement weight as the Destructive Action Guard. The signal means the context window is at or above the configured threshold (default 75%) and continuing risks hitting the runtime's ~95% `/compact` wall.
-
 ## Step 0.1: Launch via Subagent
 
 To give this task a fresh context window and prevent compaction during consecutive quick runs, always execute via a Task subagent.
@@ -103,10 +39,9 @@ Before spawning — run via Bash:
 Run via Bash:
 `node -e "const tb = require('./bin/token-budget.cjs'); const s = tb.getSessionStatus('.'); process.stdout.write(s.threshold);" 2>/dev/null`
 
-Apply the result (three-band model per `token-budget-contract.md` v3.0.0 — never silently degrade quality):
-- `normal` or file missing → proceed with default model (sonnet)
-- `warn` (≥70%) → log the warning to `.gsd-t/token-log.md` and proceed at full quality. **Do NOT downgrade models, skip Red Team, or skip doc-ripple** — M35 removed that behavior intentionally.
-- `stop` (≥85%) → output: "Context gate reached ({pct}%). Quick task deferred. Resume after session reset." and halt.
+Apply the single-band result per `context-meter-contract.md` v1.3.0:
+- `normal` (or file missing) → proceed with default model (sonnet).
+- `threshold` → the Context Meter's PostToolUse hook has already emitted the `next-spawn-headless:true` marker; route the subagent spawn through `autoSpawnHeadless()` so the work runs in a fresh headless context.
 
 **Stack Rules Detection (before spawning subagent):**
 
