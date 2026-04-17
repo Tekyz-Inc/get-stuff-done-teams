@@ -2,6 +2,26 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [3.13.12] - 2026-04-17
+
+### Fixed — Project-local `bin/gsd-t.js` crash on missing `debug-ledger.js` + self-heal sweep
+
+A bee-poc relaunch after the v3.13.11 fix still crashed with `MODULE_NOT_FOUND: Cannot find module './debug-ledger.js'` — but the crash came from `bin/gsd-t.js` itself, not from the v3.13.11 supervisor code. Root cause: an older version of `copyBinToolsToProject` copied `bin/gsd-t.js` into registered projects as part of a now-deprecated whitelist. The current `PROJECT_BIN_TOOLS` whitelist (10 `.cjs` files) does not include `gsd-t.js` or its sibling `debug-ledger.js`, so `update-all` stopped maintaining both — but the stale copy persisted in project `bin/` directories, and `bin/gsd-t.js` had a hard require on `./debug-ledger.js` at the top of the file. Any invocation of the stale project-local copy crashed before the first line of real work. bee-poc had the 130 KB stale `bin/gsd-t.js` from this lineage.
+
+**Layer 1 — defensive require** (`bin/gsd-t.js:23`):
+The top-level `require('./debug-ledger.js')` is now wrapped in `try/catch` and falls back to a no-op stub exporting every function the real module exports (`readLedger`, `appendEntry`, `getLedgerStats`, `clearLedger`, `compactLedger`, `generateAntiRepetitionPreamble`). Projects with stale copies no longer crash; they degrade to debug-ledger-disabled behavior until `update-all` sweeps the stray away.
+
+**Layer 2 — deprecated-stray sweep** (`copyBinToolsToProject`):
+New `DEPRECATED_BIN_STRAYS = ["gsd-t.js"]` list is swept after the normal copy loop. For each entry: if the project has the stray AND its bytes match the source copy in this package, delete it (proves it's an installer artifact, not a user file that happens to share the name). User-owned files with different content are left untouched. Log line: `{project} — cleaned up N stray bin file(s)`. On the next `gsd-t update-all` after v3.13.12 installs, every project that picked up a stale `bin/gsd-t.js` self-heals; subsequent invocations fall through to the global install.
+
+**Files**:
+- `bin/gsd-t.js` — defensive require with full no-op stub; `DEPRECATED_BIN_STRAYS` list; post-copy sweep loop; `copyBinToolsToProject` returns `true` when either a copy happened or a stray was cleaned.
+- `test/bin-gsd-t-resilience.test.js` — 3 new tests: (a) loading `bin/gsd-t.js --help` without `debug-ledger.js` does not emit `MODULE_NOT_FOUND`; (b) byte-matching stray is deleted; (c) user-owned file (byte-divergent) is preserved.
+
+**Tests**: 1238/1238 pass (was 1235; +3 new assertions). E2E: N/A (no playwright.config.*).
+
+**Impact**: installed projects that inherited a stale `bin/gsd-t.js` from older `update-all` passes will self-heal on the next `gsd-t update-all` after installing v3.13.12. bee-poc's 130 KB stale copy is removed on its next pass, after which any invocation path that had been hitting the project-local copy falls through to the global install — no more divergent vendoring.
+
 ## [3.13.11] - 2026-04-17
 
 ### Fixed — Unattended supervisor reliability triple-fix (bee-poc 15-min hang fallout)

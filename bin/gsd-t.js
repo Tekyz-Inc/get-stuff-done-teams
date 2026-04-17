@@ -20,7 +20,19 @@ const path = require("path");
 const os = require("os");
 const readline = require("readline");
 const { execFileSync, spawn: cpSpawn } = require("child_process");
-const debugLedger = require(path.join(__dirname, "debug-ledger.js"));
+let debugLedger;
+try {
+  debugLedger = require(path.join(__dirname, "debug-ledger.js"));
+} catch (_) {
+  debugLedger = {
+    readLedger: () => [],
+    appendEntry: () => {},
+    getLedgerStats: () => ({ entryCount: 0, sizeBytes: 0, needsCompaction: false, failedHypotheses: [], passCount: 0, failCount: 0 }),
+    clearLedger: () => {},
+    compactLedger: () => {},
+    generateAntiRepetitionPreamble: () => "",
+  };
+}
 
 // ─── Configuration ───────────────────────────────────────────────────────────
 
@@ -2100,6 +2112,14 @@ const PROJECT_BIN_TOOLS = [
   "handoff-lock.cjs", "headless-auto-spawn.cjs",
 ];
 
+// Files that older versions of this installer copied into project bin/ but
+// are no longer part of PROJECT_BIN_TOOLS. On each update-all pass, sweep the
+// project's bin/ and remove any stray file that still byte-matches the source
+// copy in this package — that proves it's an old installer artifact, not a
+// user's own file sharing the same name. User-owned files (byte-divergent)
+// are left alone.
+const DEPRECATED_BIN_STRAYS = ["gsd-t.js"];
+
 function copyBinToolsToProject(projectDir, projectName) {
   const projectBinDir = path.join(projectDir, "bin");
   if (!fs.existsSync(projectBinDir)) {
@@ -2134,11 +2154,31 @@ function copyBinToolsToProject(projectDir, projectName) {
       }
     }
   }
+  let cleaned = 0;
+  for (const stray of DEPRECATED_BIN_STRAYS) {
+    const strayPath = path.join(projectBinDir, stray);
+    const srcPath = path.join(PKG_ROOT, "bin", stray);
+    if (!fs.existsSync(strayPath)) continue;
+    if (!fs.existsSync(srcPath)) continue;
+    try {
+      const strayContent = fs.readFileSync(strayPath, "utf8");
+      const srcContent = fs.readFileSync(srcPath, "utf8");
+      if (strayContent === srcContent) {
+        fs.unlinkSync(strayPath);
+        cleaned++;
+      }
+    } catch {
+      // leave the file alone on any read error
+    }
+  }
+  if (cleaned > 0) {
+    info(`${projectName} — cleaned up ${cleaned} stray bin file(s)`);
+  }
   if (copied > 0) {
     info(`${projectName} — copied ${copied} bin tool(s)`);
     return true;
   }
-  return false;
+  return cleaned > 0;
 }
 
 // One-shot migration: roll the project's progress.md Decision Log into archive
@@ -3497,6 +3537,7 @@ module.exports = {
   isNewerVersion,
   ensureDir,
   copyFile,
+  copyBinToolsToProject,
   hasPlaywright,
   hasSwagger,
   hasApi,
