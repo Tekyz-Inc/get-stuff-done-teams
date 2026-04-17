@@ -135,11 +135,18 @@ function autoSpawnHeadless(opts) {
     const gsdtCli = path.join(projectDir, "bin", "gsd-t.js");
     const childArgs = [gsdtCli, "headless", stripGsdtPrefix(command), ...args, "--log"];
 
+    // Inject command/phase into worker env so event-stream entries are tagged
+    // (Fix 2, v3.12.12). GSD_T_PHASE defaults to "execute" for primary spawns.
+    const workerEnv = Object.assign({}, process.env, {
+      GSD_T_COMMAND: command,
+      GSD_T_PHASE: process.env.GSD_T_PHASE || "execute",
+    });
+
     const child = spawn("node", childArgs, {
       cwd: projectDir,
       detached: true,
       stdio: ["ignore", logFd, logFd],
-      env: process.env,
+      env: workerEnv,
     });
 
     child.unref();
@@ -291,6 +298,7 @@ function installCompletionWatcher(opts) {
   const POLL_MS = 2000;
   const MAX_WAIT_MS = 60 * 60 * 1000; // 1 hour safety cap
   const startMs = Date.now();
+  const dtStart = new Date(startTimestamp).toLocaleString("sv-SE", { hour12: false }).slice(0, 16);
 
   const timer = setInterval(() => {
     let alive = false;
@@ -305,9 +313,20 @@ function installCompletionWatcher(opts) {
       // Exit code is unknown from a signal-based probe. Best-effort: read
       // the log's last lines to guess, otherwise default to 0.
       const exitCode = guessExitCodeFromLog(projectDir, id);
+      const endTimestamp = new Date().toISOString();
       markSessionCompleted(projectDir, id, {
         exitCode,
-        endTimestamp: new Date().toISOString(),
+        endTimestamp,
+      });
+      // Append token-log row (Fix 1, v3.12.12)
+      const dtEnd = new Date(endTimestamp).toLocaleString("sv-SE", { hour12: false }).slice(0, 16);
+      const durationS = Math.round((Date.now() - startMs) / 1000);
+      appendTokenLog(projectDir, {
+        dtStart,
+        dtEnd,
+        command: extractCommand(id),
+        durationS,
+        exitCode,
       });
       fireMacNotification({ id, command: extractCommand(id), startTimestamp });
     } else if (Date.now() - startMs > MAX_WAIT_MS) {
@@ -353,6 +372,43 @@ function fireMacNotification({ id, command }) {
     child.unref();
   } catch (_) {
     /* graceful degradation */
+  }
+}
+
+// ── Token-Log Writer (Fix 1, v3.12.12) ───────────────────────────────────────
+
+const TOKEN_LOG_HEADER =
+  "| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Domain | Task | Ctx% |\n" +
+  "|---|---|---|---|---|---|---|---|---|---|\n";
+
+/**
+ * Append one row to {projectDir}/.gsd-t/token-log.md matching the schema used
+ * by interactive command-file observability blocks.
+ *
+ * @param {string} projectDir
+ * @param {{ dtStart: string, dtEnd: string, command: string, durationS: number, exitCode: number }} entry
+ */
+function appendTokenLog(projectDir, entry) {
+  try {
+    const logPath = path.join(projectDir, ".gsd-t", "token-log.md");
+    const note = entry.exitCode === 0 ? "headless spawn: ok" : `headless spawn: exit ${entry.exitCode}`;
+    const row =
+      `| ${entry.dtStart} | ${entry.dtEnd} | ${entry.command} | headless | unknown | ${entry.durationS}s | ${note} | - | - | unknown |\n`;
+    if (!fs.existsSync(logPath)) {
+      // Create with header
+      ensureDir(path.dirname(logPath));
+      fs.writeFileSync(logPath, `# GSD-T Token Log\n\n${TOKEN_LOG_HEADER}${row}`);
+    } else {
+      // Check if header row exists; if not prepend it (migration for files created before this fix)
+      const existing = fs.readFileSync(logPath, "utf8");
+      if (!existing.includes("| Datetime-start |")) {
+        fs.writeFileSync(logPath, `# GSD-T Token Log\n\n${TOKEN_LOG_HEADER}${existing}${row}`);
+      } else {
+        fs.appendFileSync(logPath, row);
+      }
+    }
+  } catch (_) {
+    /* best-effort — never halt the completion watcher */
   }
 }
 

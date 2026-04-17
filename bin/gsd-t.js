@@ -2657,6 +2657,39 @@ function doGraph(args) {
   }
 }
 
+// ─── Token-Log Writer (Fix 1, v3.12.12) ─────────────────────────────────────
+
+const _TL_HEADER =
+  "| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Domain | Task | Ctx% |\n" +
+  "|---|---|---|---|---|---|---|---|---|---|\n";
+
+/**
+ * Append one row to {projectDir}/.gsd-t/token-log.md for a headless exec
+ * invocation. Best-effort — never throws.
+ */
+function appendHeadlessTokenLog(projectDir, entry) {
+  try {
+    const logPath = path.join(projectDir, ".gsd-t", "token-log.md");
+    const note = entry.exitCode === 0 ? "headless exec: ok" : `headless exec: exit ${entry.exitCode}`;
+    const row =
+      `| ${entry.dtStart} | ${entry.dtEnd} | ${entry.command} | headless | unknown | ${entry.durationS}s | ${note} | - | - | unknown |\n`;
+    const gsdtDir = path.join(projectDir, ".gsd-t");
+    if (!fs.existsSync(gsdtDir)) fs.mkdirSync(gsdtDir, { recursive: true });
+    if (!fs.existsSync(logPath)) {
+      fs.writeFileSync(logPath, `# GSD-T Token Log\n\n${_TL_HEADER}${row}`);
+    } else {
+      const existing = fs.readFileSync(logPath, "utf8");
+      if (!existing.includes("| Datetime-start |")) {
+        fs.writeFileSync(logPath, `# GSD-T Token Log\n\n${_TL_HEADER}${existing}${row}`);
+      } else {
+        fs.appendFileSync(logPath, row);
+      }
+    }
+  } catch (_) {
+    /* best-effort */
+  }
+}
+
 // ─── Headless Mode ────────────────────────────────────────────────────────────
 
 /**
@@ -2774,12 +2807,20 @@ function doHeadlessExec(command, cmdArgs, flags) {
   let output = "";
   let processExitCode = 0;
 
+  // Inject command/phase env vars so worker event-stream entries are tagged
+  // (Fix 2, v3.12.12).
+  const workerEnv = Object.assign({}, process.env, {
+    GSD_T_COMMAND: `gsd-t-${command}`,
+    GSD_T_PHASE: process.env.GSD_T_PHASE || "execute",
+  });
+
   try {
     const result = execFileSync("claude", ["-p", "--dangerously-skip-permissions", prompt], {
       encoding: "utf8",
       timeout: timeoutMs,
       stdio: ["pipe", "pipe", "pipe"],
-      cwd: process.cwd()
+      cwd: process.cwd(),
+      env: workerEnv,
     });
     output = result;
   } catch (e) {
@@ -2794,6 +2835,16 @@ function doHeadlessExec(command, cmdArgs, flags) {
 
   const gsdtExitCode = mapHeadlessExitCode(processExitCode, output);
   const duration = Date.now() - startTime;
+
+  // Append to token-log.md (Fix 1, v3.12.12) — headless exec writes a row so
+  // `gsd-t headless <command>` spawns are visible in the log.
+  appendHeadlessTokenLog(process.cwd(), {
+    dtStart: new Date(startTime).toISOString().slice(0, 16).replace("T", " "),
+    dtEnd: new Date(startTime + duration).toISOString().slice(0, 16).replace("T", " "),
+    command: `gsd-t-${command}`,
+    durationS: Math.round(duration / 1000),
+    exitCode: gsdtExitCode,
+  });
 
   // Write log file if requested
   if (logMode && logFile) {

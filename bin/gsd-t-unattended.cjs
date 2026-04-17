@@ -939,6 +939,17 @@ function runMainLoop(state, dir, opts, deps, ctx) {
     // Append the full worker output to run.log (never truncate).
     _appendRunLog(dir, state.iter, workerEnd, exitCode, stdout, stderr);
 
+    // Append to token-log.md (Fix 1, v3.12.12) — supervisor workers write rows
+    // so the log captures headless/unattended activity, not just interactive spawns.
+    _appendTokenLog(projectDir, {
+      dtStart: workerStart.toISOString().slice(0, 16).replace("T", " "),
+      dtEnd: workerEnd.toISOString().slice(0, 16).replace("T", " "),
+      command: "gsd-t-resume",
+      durationS: Math.round(elapsedMs / 1000),
+      exitCode,
+      iter: state.iter,
+    });
+
     // Post-spawn state update
     state.lastExit = exitCode;
     state.lastWorkerFinishedAt = workerEnd.toISOString();
@@ -1060,6 +1071,41 @@ function runMainLoop(state, dir, opts, deps, ctx) {
   return state;
 }
 
+// ── _appendTokenLog (Fix 1, v3.12.12) ───────────────────────────────────────
+
+const _TOKEN_LOG_HEADER =
+  "| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Domain | Task | Ctx% |\n" +
+  "|---|---|---|---|---|---|---|---|---|---|\n";
+
+/**
+ * Append one row to {projectDir}/.gsd-t/token-log.md for a supervisor worker
+ * iteration. Matches the schema used by interactive command-file observability.
+ */
+function _appendTokenLog(projectDir, entry) {
+  try {
+    const logPath = path.join(projectDir, ".gsd-t", "token-log.md");
+    const note = entry.exitCode === 0
+      ? `supervisor iter=${entry.iter}: ok`
+      : `supervisor iter=${entry.iter}: exit ${entry.exitCode}`;
+    const row =
+      `| ${entry.dtStart} | ${entry.dtEnd} | ${entry.command} | supervisor-iter-${entry.iter} | unknown | ${entry.durationS}s | ${note} | - | - | unknown |\n`;
+    const gsdtDir = path.join(projectDir, ".gsd-t");
+    if (!fs.existsSync(gsdtDir)) fs.mkdirSync(gsdtDir, { recursive: true });
+    if (!fs.existsSync(logPath)) {
+      fs.writeFileSync(logPath, `# GSD-T Token Log\n\n${_TOKEN_LOG_HEADER}${row}`);
+    } else {
+      const existing = fs.readFileSync(logPath, "utf8");
+      if (!existing.includes("| Datetime-start |")) {
+        fs.writeFileSync(logPath, `# GSD-T Token Log\n\n${_TOKEN_LOG_HEADER}${existing}${row}`);
+      } else {
+        fs.appendFileSync(logPath, row);
+      }
+    }
+  } catch (_) {
+    /* best-effort — never halt the supervisor loop */
+  }
+}
+
 // ── _spawnWorker ────────────────────────────────────────────────────────────
 
 /**
@@ -1073,7 +1119,15 @@ function runMainLoop(state, dir, opts, deps, ctx) {
  */
 function _spawnWorker(state, opts) {
   const bin = (state && state.claudeBin) || resolveClaudePath();
-  const workerEnv = { ...process.env, GSD_T_UNATTENDED_WORKER: "1" };
+  // Inject command/phase so event-stream tool_call entries are tagged in worker
+  // contexts (Fix 2, v3.12.12). Supervisor always runs gsd-t-resume workers;
+  // phase is inferred from state when available.
+  const workerEnv = {
+    ...process.env,
+    GSD_T_UNATTENDED_WORKER: "1",
+    GSD_T_COMMAND: "gsd-t-resume",
+    GSD_T_PHASE: (state && state.phase) || "execute",
+  };
   const res = platformSpawnWorker(opts.cwd, opts.timeout, {
     bin,
     args: [

@@ -71,11 +71,17 @@ function nullify(val) {
 }
 
 function buildEvent(args) {
+  // Env-var fallbacks: workers spawned by supervisor/headless-auto-spawn inherit
+  // GSD_T_COMMAND and GSD_T_PHASE so tool_call events are tagged even when the
+  // worker doesn't pass --command/--phase explicitly (Fix 2, v3.12.12).
+  const envCommand = process.env.GSD_T_COMMAND || null;
+  const envPhase = process.env.GSD_T_PHASE || null;
+
   return {
     ts: new Date().toISOString(),
     event_type: nullify(args["type"]),
-    command: nullify(args["command"]),
-    phase: nullify(args["phase"]),
+    command: nullify(args["command"]) || envCommand,
+    phase: nullify(args["phase"]) || envPhase,
     agent_id: nullify(args["agent-id"]),
     parent_agent_id: nullify(args["parent-id"]),
     trace_id: nullify(args["trace-id"]),

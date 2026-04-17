@@ -2,6 +2,35 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [3.12.12] - 2026-04-17
+
+### Fixed — Token-Log Observability for Headless/Unattended Workers
+
+**Background**: M38 headless-by-default left `.gsd-t/token-log.md` blind to all supervisor and headless-exec worker activity. Rows were only written by interactive `T_START/T_END` bash blocks in command files. All event-stream `tool_call` entries from workers had `command: null`, `phase: null`, `trace_id: null`.
+
+#### Fix 1: headless worker spawns append to token-log.md
+
+Three spawn paths now write rows to `{projectDir}/.gsd-t/token-log.md`:
+
+- **`bin/headless-auto-spawn.cjs`** — `installCompletionWatcher` appends a row when the detached child exits (poll-based, graceful — never halts on write failure). Creates the file with the canonical header if it does not exist. Migrates files created before this fix (adds header if missing).
+- **`bin/gsd-t-unattended.cjs`** — supervisor worker loop appends a row after each `_spawnWorker` call completes, recording iteration number, duration, exit code. New `_appendTokenLog` helper follows the same schema as interactive command observability blocks.
+- **`bin/gsd-t.js` `doHeadlessExec`** — `gsd-t headless <command>` invocations append a row synchronously after the `claude -p` process exits.
+
+Row format matches the existing token-log schema:
+`| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Domain | Task | Ctx% |`
+Tokens are logged as `unknown` (no API access in worker contexts); duration is wall-clock.
+
+#### Fix 2: command/phase propagate to event-stream entries in worker contexts
+
+Env-var approach chosen (cleaner, no call-site changes needed):
+
+- **`scripts/gsd-t-event-writer.js` `buildEvent`** — reads `GSD_T_COMMAND` and `GSD_T_PHASE` env vars as defaults when `--command`/`--phase` flags are absent. Explicit flags always win.
+- **`bin/headless-auto-spawn.cjs`** — sets `GSD_T_COMMAND={command}` and `GSD_T_PHASE={phase}` on every detached child's env before spawn.
+- **`bin/gsd-t-unattended.cjs` `_spawnWorker`** — sets `GSD_T_COMMAND=gsd-t-resume` and `GSD_T_PHASE={state.phase||execute}` on each `claude -p` worker env.
+- **`bin/gsd-t.js` `doHeadlessExec`** — sets `GSD_T_COMMAND=gsd-t-{command}` on the `execFileSync` env.
+
+Result: all `tool_call` events in worker contexts are tagged with the originating command and phase instead of `null`.
+
 ## [3.12.11] - 2026-04-17
 
 ### Fixed
