@@ -2743,8 +2743,10 @@ function appendHeadlessTokenLog(projectDir, entry) {
   try {
     const logPath = path.join(projectDir, ".gsd-t", "token-log.md");
     const note = entry.exitCode === 0 ? "headless exec: ok" : `headless exec: exit ${entry.exitCode}`;
+    // v3.12.14: prefer env-var model over hardcoded "unknown".
+    const model = process.env.GSD_T_MODEL || "unknown";
     const row =
-      `| ${entry.dtStart} | ${entry.dtEnd} | ${entry.command} | headless | unknown | ${entry.durationS}s | ${note} | - | - | unknown |\n`;
+      `| ${entry.dtStart} | ${entry.dtEnd} | ${entry.command} | headless | ${model} | ${entry.durationS}s | ${note} | - | - | unknown |\n`;
     const gsdtDir = path.join(projectDir, ".gsd-t");
     if (!fs.existsSync(gsdtDir)) fs.mkdirSync(gsdtDir, { recursive: true });
     if (!fs.existsSync(logPath)) {
@@ -2879,12 +2881,17 @@ function doHeadlessExec(command, cmdArgs, flags) {
   let output = "";
   let processExitCode = 0;
 
-  // Inject command/phase env vars so worker event-stream entries are tagged
-  // (Fix 2, v3.12.12).
+  // Inject command/phase/trace/model/project-dir env vars so worker
+  // event-stream entries (writer CLI + heartbeat hook) are tagged in the
+  // child's context (Fix 2, v3.12.12; trace/model/project-dir added v3.12.14
+  // for the null-telemetry regression fix).
   const workerEnv = Object.assign({}, process.env, {
     GSD_T_COMMAND: `gsd-t-${command}`,
     GSD_T_PHASE: process.env.GSD_T_PHASE || "execute",
+    GSD_T_PROJECT_DIR: process.env.GSD_T_PROJECT_DIR || process.cwd(),
   });
+  if (process.env.GSD_T_TRACE_ID) workerEnv.GSD_T_TRACE_ID = process.env.GSD_T_TRACE_ID;
+  if (process.env.GSD_T_MODEL) workerEnv.GSD_T_MODEL = process.env.GSD_T_MODEL;
 
   try {
     const result = execFileSync("claude", ["-p", "--dangerously-skip-permissions", prompt], {
@@ -3169,9 +3176,22 @@ function getEscalationModel(iteration) {
  */
 function spawnClaudeSession(prompt, model) {
   try {
+    // v3.12.14: propagate GSD_T_* env vars so the worker's heartbeat hook +
+    // event-writer entries are tagged with the parent command/phase/trace and
+    // this session's model. Without these, tool_call events from the debug
+    // worker appear as command=null/phase=null.
+    const env = Object.assign({}, process.env, {
+      GSD_T_COMMAND: process.env.GSD_T_COMMAND || "gsd-t-debug",
+      GSD_T_PHASE: process.env.GSD_T_PHASE || "debug",
+      GSD_T_MODEL: model || process.env.GSD_T_MODEL || null,
+      GSD_T_PROJECT_DIR: process.env.GSD_T_PROJECT_DIR || process.cwd(),
+    });
+    if (env.GSD_T_MODEL === null) delete env.GSD_T_MODEL;
+    if (process.env.GSD_T_TRACE_ID) env.GSD_T_TRACE_ID = process.env.GSD_T_TRACE_ID;
     return execFileSync("claude", ["-p", prompt, "--model", model], {
       encoding: "utf8", timeout: 300000,
       stdio: ["pipe", "pipe", "pipe"],
+      env,
     });
   } catch (e) {
     return (e.stdout || "") + (e.stderr || "") || null;
@@ -3208,8 +3228,17 @@ function runLedgerCompaction(projectDir, jsonMode) {
     JSON.stringify(entries, null, 2);
   let summary = "Compacted — see previous entries.";
   try {
+    // v3.12.14: propagate GSD_T_* env for telemetry tagging.
+    const env = Object.assign({}, process.env, {
+      GSD_T_COMMAND: process.env.GSD_T_COMMAND || "gsd-t-debug",
+      GSD_T_PHASE: process.env.GSD_T_PHASE || "debug",
+      GSD_T_MODEL: "haiku",
+      GSD_T_PROJECT_DIR: process.env.GSD_T_PROJECT_DIR || projectDir,
+    });
+    if (process.env.GSD_T_TRACE_ID) env.GSD_T_TRACE_ID = process.env.GSD_T_TRACE_ID;
     const out = execFileSync("claude", ["-p", compactPrompt, "--model", "haiku"], {
       encoding: "utf8", timeout: 120000, stdio: ["pipe", "pipe", "pipe"],
+      env,
     });
     summary = (out || "").trim() || summary;
   } catch (e) {

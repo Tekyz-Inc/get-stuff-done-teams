@@ -685,12 +685,22 @@ const server = http.createServer((req, res) => {
           "Access-Control-Allow-Origin": "*",
         });
 
+        // v3.12.14: propagate GSD_T_* env for telemetry tagging in the worker.
+        const childEnv = {
+          ...process.env,
+          NO_COLOR: "1",
+          GSD_T_COMMAND: process.env.GSD_T_COMMAND || "gsd-t-design-review",
+          GSD_T_PHASE: process.env.GSD_T_PHASE || "design-review",
+          GSD_T_MODEL: model || process.env.GSD_T_MODEL || "unknown",
+        };
+        if (process.env.GSD_T_TRACE_ID) childEnv.GSD_T_TRACE_ID = process.env.GSD_T_TRACE_ID;
+        if (process.env.GSD_T_PROJECT_DIR) childEnv.GSD_T_PROJECT_DIR = process.env.GSD_T_PROJECT_DIR;
         const claude = spawn("claude", [
           "-p", fullPrompt,
           "--model", model,
           "--output-format", "stream-json",
           "--verbose",
-        ], { env: { ...process.env, NO_COLOR: "1" } });
+        ], { env: childEnv });
 
         let buf = "";
         let textSent = 0;

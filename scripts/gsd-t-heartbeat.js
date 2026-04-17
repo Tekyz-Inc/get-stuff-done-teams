@@ -187,7 +187,17 @@ function shortPath(p) {
 
 function buildEventStreamEntry(hook) {
   const ts = new Date().toISOString();
-  const base = { ts, command: null, phase: null, trace_id: null };
+  // Env-var fallbacks: supervisor/headless spawned workers inherit these on
+  // their process.env so PostToolUse tool_call events are tagged instead of
+  // landing as null/null/null in the stream (v3.12.14 telemetry fix — the
+  // writer had these fallbacks since v3.12.12 but the heartbeat hook — source
+  // of ~90% of tool_call events — hardcoded nulls).
+  const base = {
+    ts,
+    command: process.env.GSD_T_COMMAND || null,
+    phase: process.env.GSD_T_PHASE || null,
+    trace_id: process.env.GSD_T_TRACE_ID || null,
+  };
   const n = hook.hook_event_name;
   if (n === "SessionStart") {
     return { ...base, event_type: "session_start",

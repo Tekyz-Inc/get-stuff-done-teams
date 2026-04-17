@@ -135,12 +135,27 @@ function autoSpawnHeadless(opts) {
     const gsdtCli = path.join(projectDir, "bin", "gsd-t.js");
     const childArgs = [gsdtCli, "headless", stripGsdtPrefix(command), ...args, "--log"];
 
-    // Inject command/phase into worker env so event-stream entries are tagged
-    // (Fix 2, v3.12.12). GSD_T_PHASE defaults to "execute" for primary spawns.
+    // Inject command/phase/trace/model into worker env so event-stream entries
+    // (both the writer CLI and the heartbeat PostToolUse hook) are tagged in
+    // the child's context (Fix 2, v3.12.12; trace/model/project-dir added
+    // v3.12.14 to close the null-telemetry regression).
+    //
+    // GSD_T_PHASE defaults to "execute" for primary spawns.
+    // GSD_T_TRACE_ID / GSD_T_MODEL are inherited from parent env if set;
+    // parents (orchestrator, command files) should set them before spawning.
+    // GSD_T_PROJECT_DIR gives the writer a stable target when the child cwd
+    // drifts (e.g., temp dirs in subagents).
     const workerEnv = Object.assign({}, process.env, {
       GSD_T_COMMAND: command,
       GSD_T_PHASE: process.env.GSD_T_PHASE || "execute",
+      GSD_T_PROJECT_DIR: process.env.GSD_T_PROJECT_DIR || projectDir,
     });
+    if (process.env.GSD_T_TRACE_ID) {
+      workerEnv.GSD_T_TRACE_ID = process.env.GSD_T_TRACE_ID;
+    }
+    if (process.env.GSD_T_MODEL) {
+      workerEnv.GSD_T_MODEL = process.env.GSD_T_MODEL;
+    }
 
     const child = spawn("node", childArgs, {
       cwd: projectDir,
@@ -392,8 +407,12 @@ function appendTokenLog(projectDir, entry) {
   try {
     const logPath = path.join(projectDir, ".gsd-t", "token-log.md");
     const note = entry.exitCode === 0 ? "headless spawn: ok" : `headless spawn: exit ${entry.exitCode}`;
+    // v3.12.14: prefer env-var model over the old hardcoded "unknown". The
+    // parent session should have set GSD_T_MODEL before invoking spawn; fall
+    // back to "unknown" if not (graceful).
+    const model = process.env.GSD_T_MODEL || "unknown";
     const row =
-      `| ${entry.dtStart} | ${entry.dtEnd} | ${entry.command} | headless | unknown | ${entry.durationS}s | ${note} | - | - | unknown |\n`;
+      `| ${entry.dtStart} | ${entry.dtEnd} | ${entry.command} | headless | ${model} | ${entry.durationS}s | ${note} | - | - | unknown |\n`;
     if (!fs.existsSync(logPath)) {
       // Create with header
       ensureDir(path.dirname(logPath));

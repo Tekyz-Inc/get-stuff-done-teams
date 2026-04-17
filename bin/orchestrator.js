@@ -82,6 +82,25 @@ function isPortInUse(port) {
   }
 }
 
+/**
+ * Build the env block for orchestrator-spawned `claude -p` sessions.
+ * v3.12.14 — propagates GSD_T_COMMAND/PHASE/TRACE_ID/MODEL/PROJECT_DIR so the
+ * worker's heartbeat hook and event-writer entries are tagged. Accepts the
+ * opts object (for `label`) that callers already pass and defaults missing
+ * fields from the parent process env.
+ */
+function _buildOrchestratorEnv(opts, projectDir) {
+  opts = opts || {};
+  const env = Object.assign({}, process.env, {
+    GSD_T_COMMAND: process.env.GSD_T_COMMAND || "gsd-t-orchestrator",
+    GSD_T_PHASE: process.env.GSD_T_PHASE || opts.label || "orchestrator",
+    GSD_T_PROJECT_DIR: process.env.GSD_T_PROJECT_DIR || projectDir,
+  });
+  if (process.env.GSD_T_TRACE_ID) env.GSD_T_TRACE_ID = process.env.GSD_T_TRACE_ID;
+  if (process.env.GSD_T_MODEL) env.GSD_T_MODEL = process.env.GSD_T_MODEL;
+  return env;
+}
+
 // ─── Orchestrator Class ────────────────────────────────────────────────────
 
 class Orchestrator {
@@ -212,11 +231,15 @@ ${BOLD}Phases:${RESET} ${this.wf.phases.join(" → ")}
     const signalFile = path.join(this.getReviewDir(projectDir), `_sync-done-${Date.now()}.json`);
     let result = { output: "", exitCode: 1, duration: 0 };
 
+    // v3.12.14: propagate GSD_T_* env so the worker's heartbeat hook and
+    // event-writer entries are tagged. opts.label → phase/command hints.
+    const env = _buildOrchestratorEnv(opts, projectDir);
     const child = execFile("claude", args, {
       encoding: "utf8",
       timeout: effectiveTimeout,
       cwd: projectDir,
       maxBuffer: 10 * 1024 * 1024,
+      env,
     }, (err, stdout, stderr) => {
       this.untrackChild(child.pid);
       const raw = err ? ((err.stdout || "") + (err.stderr || "")) : (stdout || "");
@@ -264,12 +287,15 @@ ${BOLD}Phases:${RESET} ${this.wf.phases.join(" → ")}
       );
     }
 
+    // v3.12.14: propagate GSD_T_* env for telemetry tagging in the child.
+    const env = _buildOrchestratorEnv(opts, projectDir);
     return new Promise((resolve) => {
       const child = execFile("claude", args, {
         encoding: "utf8",
         timeout: timeout || 120_000,
         cwd: projectDir,
         maxBuffer: 10 * 1024 * 1024,
+        env,
       }, (err, stdout, stderr) => {
         this.untrackChild(child.pid);
         const raw = err ? ((err.stdout || "") + (err.stderr || "")) : (stdout || "");

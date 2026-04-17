@@ -135,11 +135,22 @@ function autoSpawnHeadless(opts) {
     const gsdtCli = path.join(projectDir, "bin", "gsd-t.js");
     const childArgs = [gsdtCli, "headless", stripGsdtPrefix(command), ...args, "--log"];
 
+    // v3.12.14 — env-var propagation for telemetry tagging (mirror of the
+    // authoritative .cjs variant). PRODUCTION consumers import the .cjs; this
+    // .js copy is retained only to keep the legacy test green.
+    const workerEnv = Object.assign({}, process.env, {
+      GSD_T_COMMAND: command,
+      GSD_T_PHASE: process.env.GSD_T_PHASE || "execute",
+      GSD_T_PROJECT_DIR: process.env.GSD_T_PROJECT_DIR || projectDir,
+    });
+    if (process.env.GSD_T_TRACE_ID) workerEnv.GSD_T_TRACE_ID = process.env.GSD_T_TRACE_ID;
+    if (process.env.GSD_T_MODEL) workerEnv.GSD_T_MODEL = process.env.GSD_T_MODEL;
+
     const child = spawn("node", childArgs, {
       cwd: projectDir,
       detached: true,
       stdio: ["ignore", logFd, logFd],
-      env: process.env,
+      env: workerEnv,
     });
 
     child.unref();

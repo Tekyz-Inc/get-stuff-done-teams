@@ -1087,8 +1087,10 @@ function _appendTokenLog(projectDir, entry) {
     const note = entry.exitCode === 0
       ? `supervisor iter=${entry.iter}: ok`
       : `supervisor iter=${entry.iter}: exit ${entry.exitCode}`;
+    // v3.12.14: prefer env-var model over the hardcoded "unknown" placeholder.
+    const model = process.env.GSD_T_MODEL || "unknown";
     const row =
-      `| ${entry.dtStart} | ${entry.dtEnd} | ${entry.command} | supervisor-iter-${entry.iter} | unknown | ${entry.durationS}s | ${note} | - | - | unknown |\n`;
+      `| ${entry.dtStart} | ${entry.dtEnd} | ${entry.command} | supervisor-iter-${entry.iter} | ${model} | ${entry.durationS}s | ${note} | - | - | unknown |\n`;
     const gsdtDir = path.join(projectDir, ".gsd-t");
     if (!fs.existsSync(gsdtDir)) fs.mkdirSync(gsdtDir, { recursive: true });
     if (!fs.existsSync(logPath)) {
@@ -1119,15 +1121,23 @@ function _appendTokenLog(projectDir, entry) {
  */
 function _spawnWorker(state, opts) {
   const bin = (state && state.claudeBin) || resolveClaudePath();
-  // Inject command/phase so event-stream tool_call entries are tagged in worker
-  // contexts (Fix 2, v3.12.12). Supervisor always runs gsd-t-resume workers;
-  // phase is inferred from state when available.
+  // Inject command/phase/trace/model/project-dir so event-stream tool_call
+  // entries (writer CLI + heartbeat hook) are tagged in worker contexts
+  // (Fix 2, v3.12.12; trace/model/project-dir added v3.12.14 for the
+  // null-telemetry regression fix). Supervisor always runs gsd-t-resume
+  // workers; phase is inferred from state when available. Trace/model flow
+  // through from parent process.env when set.
   const workerEnv = {
     ...process.env,
     GSD_T_UNATTENDED_WORKER: "1",
     GSD_T_COMMAND: "gsd-t-resume",
     GSD_T_PHASE: (state && state.phase) || "execute",
+    GSD_T_PROJECT_DIR: process.env.GSD_T_PROJECT_DIR || opts.cwd || state.projectDir,
   };
+  if (state && state.traceId) workerEnv.GSD_T_TRACE_ID = state.traceId;
+  else if (process.env.GSD_T_TRACE_ID) workerEnv.GSD_T_TRACE_ID = process.env.GSD_T_TRACE_ID;
+  if (state && state.model) workerEnv.GSD_T_MODEL = state.model;
+  else if (process.env.GSD_T_MODEL) workerEnv.GSD_T_MODEL = process.env.GSD_T_MODEL;
   const res = platformSpawnWorker(opts.cwd, opts.timeout, {
     bin,
     args: [

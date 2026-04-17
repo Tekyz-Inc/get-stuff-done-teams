@@ -2,6 +2,36 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [3.12.14] - 2026-04-17
+
+### Fixed — Telemetry Env-Propagation Regression (Tag All Worker Events)
+
+v3.12.12 added `GSD_T_COMMAND`/`GSD_T_PHASE` env-var fallbacks to `scripts/gsd-t-event-writer.js` but two critical call sites were missed — producing mostly-null telemetry in production.
+
+**Evidence from bee-poc (50 min observation)**: 908 events, only 1/908 had `command` populated; 836 `tool_call` events had command/phase/trace_id all null; only 2 `.gsd-t/token-log.md` rows (both from the outer supervisor process; 37 inner subagents wrote zero rows); supervisor row showed `model=unknown`.
+
+**Root causes**:
+1. `scripts/gsd-t-heartbeat.js::buildEventStreamEntry` — this PostToolUse hook fires on every tool call in every child process (the source of ~90% of events) and hardcoded `{command: null, phase: null, trace_id: null}` into every event it wrote.
+2. Neither the writer nor the heartbeat read `GSD_T_TRACE_ID` or `GSD_T_MODEL` from env — so even when spawners set them, they never appeared on events.
+3. Several spawn sites (orchestrator, `spawnClaudeSession`, `runLedgerCompaction`, design-review claude spawn) never set the GSD_T_* env block at all.
+
+**Fixes**:
+- `scripts/gsd-t-event-writer.js::buildEvent` now reads `GSD_T_TRACE_ID` and `GSD_T_MODEL` env fallbacks alongside command/phase.
+- `scripts/gsd-t-heartbeat.js::buildEventStreamEntry` replaced hardcoded null triple with `process.env.GSD_T_COMMAND||null` / `GSD_T_PHASE||null` / `GSD_T_TRACE_ID||null`.
+- `bin/headless-auto-spawn.{cjs,js}` workerEnv sets `GSD_T_COMMAND` + `GSD_T_PHASE` + `GSD_T_PROJECT_DIR`, and conditionally forwards parent `GSD_T_TRACE_ID` / `GSD_T_MODEL`. `appendTokenLog` reads `process.env.GSD_T_MODEL` instead of the `"unknown"` literal.
+- `bin/gsd-t-unattended.cjs::_spawnWorker` workerEnv populates the full GSD_T_* block from `state` + env fallbacks. `_appendTokenLog` reads `process.env.GSD_T_MODEL`.
+- `bin/gsd-t.js` three sites patched: `doHeadlessExec` workerEnv, `spawnClaudeSession` (fallback command=`gsd-t-debug` / phase=`debug`), `runLedgerCompaction` (fallback model=`haiku`). `appendHeadlessTokenLog` reads `process.env.GSD_T_MODEL`.
+- `bin/orchestrator.js` new `_buildOrchestratorEnv(opts, projectDir)` helper threaded through `spawnClaude` (sync) and `spawnClaudeAsync`.
+- `scripts/gsd-t-design-review-server.js` claude spawn now injects the GSD_T_* env block.
+
+**Reproduction test**: NEW `test/telemetry-env-propagation.test.js` — 6 tests that exercise the REAL production spawn code paths (not hand-rolled mocks): writer + heartbeat env-fallback unit coverage, `autoSpawnHeadless` real-spawn via env-dump shim at `bin/gsd-t.js`, unattended `platform.spawnWorker` with a real env-dump script. Failed 3/6 before fix as expected; 6/6 pass after.
+
+**Tests**: Unit 1186/1186 pass. E2E N/A (no `playwright.config.*` or `cypress.config.*`).
+
+**Red Team** (opus, adversarial sweep categories: regression-around-fix + original-bug-variants covering context-meter hook and PostToolUse hook paths): verdict **GRUDGING PASS** — 5 additional claude-worker spawn sites found and patched in this same release; no untagged claude-worker spawn paths remain.
+
+**Doc ripple**: `.gsd-t/contracts/event-schema-contract.md` new "Env-Var Fallbacks (v3.12.14)" section with flag/env/caller table; `.gsd-t/contracts/headless-default-contract.md` new "Worker Env Propagation (v3.12.14)" section; `.gsd-t/contracts/unattended-supervisor-contract.md` §14b v1.2.0 Worker Env Propagation + version history entry.
+
 ## [3.12.13] - 2026-04-17
 
 ### Fixed — `/` Prefix Strip Sitewide

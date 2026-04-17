@@ -315,12 +315,37 @@ The four mandatory supervisor emission points:
 Workers spawned via `claude -p` MAY also emit their own events (file_changed,
 test_result, subagent_verdict) — supervisor emission is the floor, not the ceiling.
 
+## 14b. Worker Env Propagation (v1.2.0, v3.12.14)
+
+`_spawnWorker` MUST construct the worker env such that the worker's
+event-stream entries (both the `gsd-t-event-writer.js` CLI output and the
+PostToolUse heartbeat hook entries) carry routing identity. Without this
+propagation, `tool_call` events emit with `command=null, phase=null,
+trace_id=null, model=null` even though the writer/hook have env-var fallbacks
+(Fix 2, v3.12.12).
+
+Required env block on every `platformSpawnWorker` call:
+
+| Env var | Source | Default |
+|---|---|---|
+| `GSD_T_UNATTENDED_WORKER` | hard-coded | `"1"` |
+| `GSD_T_COMMAND` | hard-coded | `"gsd-t-resume"` |
+| `GSD_T_PHASE` | `state.phase` | `"execute"` |
+| `GSD_T_PROJECT_DIR` | parent env or `opts.cwd` or `state.projectDir` | — |
+| `GSD_T_TRACE_ID` | `state.traceId` or parent env | omitted if neither set |
+| `GSD_T_MODEL` | `state.model` or parent env | omitted if neither set |
+
+The token-log row appended by `_appendTokenLog` MUST substitute
+`process.env.GSD_T_MODEL` for the previous hardcoded `"unknown"` placeholder
+so supervisor iterations are attributable to their model.
+
 ## 15. Version History
 
 | Version | Date | Change | Owner |
 |---------|------|--------|-------|
 | 1.0.0 | 2026-04-15 | Initial draft during M36 partition | m36-supervisor-core + m36-watch-loop |
 | 1.1.0 | 2026-04-16 | Added event-stream emission requirement at phase boundaries; references unattended-event-stream-contract.md v1.0.0 | m38-unattended-event-stream |
+| 1.2.0 | 2026-04-17 | Added §14b Worker Env Propagation (GSD_T_COMMAND/PHASE/TRACE_ID/MODEL/PROJECT_DIR) to close the v3.12.13 null-telemetry regression | v3.12.14 |
 
 ---
 

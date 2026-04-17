@@ -93,6 +93,26 @@ Returns synchronously:
 - `.gsd-t/headless-{id}.log` — child stdout+stderr (via `logFd` opened in `autoSpawnHeadless`)
 - On user's next message, `bin/check-headless-sessions.js printBannerIfAny()` surfaces `status: 'completed' && surfaced !== true` sessions, then marks them `surfaced: true`.
 
+### Worker Env Propagation (v3.12.14)
+
+`autoSpawnHeadless` sets the following env vars on the detached child so that
+events emitted from the child's context (both the event-writer CLI and the
+PostToolUse heartbeat hook) carry routing identity. Parent env values pass
+through when set; `GSD_T_COMMAND` / `GSD_T_PHASE` / `GSD_T_PROJECT_DIR` have
+sensible defaults:
+
+| Env var | Default | Required |
+|---|---|---|
+| `GSD_T_COMMAND` | `{command}` arg | yes |
+| `GSD_T_PHASE` | parent env or `"execute"` | yes |
+| `GSD_T_PROJECT_DIR` | parent env or `projectDir` | yes |
+| `GSD_T_TRACE_ID` | parent env only (propagated if set) | no |
+| `GSD_T_MODEL` | parent env only (propagated if set) | no |
+
+This matches the env propagation done by `bin/gsd-t-unattended.cjs::_spawnWorker`
+for supervisor workers and by `bin/orchestrator.js::_buildOrchestratorEnv`
+for workflow orchestrator spawns.
+
 ## 4. Threshold Crossing — Silent Orchestrator Action
 
 When the local-estimator hook reports context above threshold (Domain 2 owns the simplified single-band semantics), the orchestrator silently routes the next subagent spawn through `autoSpawnHeadless()` regardless of `--watch`. NO MANDATORY STOP banner. NO ceremony.

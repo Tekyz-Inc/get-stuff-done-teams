@@ -94,6 +94,24 @@ The writer:
 3. Creates `.gsd-t/events/` if missing
 4. Appends the JSON object as a single line to `YYYY-MM-DD.jsonl`
 
+### Env-Var Fallbacks (v3.12.14)
+
+When a CLI flag is omitted, the writer falls back to these process env vars so
+that workers spawned by the supervisor / headless / orchestrator / debug paths
+produce tagged events without every caller passing every flag:
+
+| Flag | Env fallback | Set by |
+|---|---|---|
+| `--command` | `GSD_T_COMMAND` | `bin/headless-auto-spawn.cjs`, `bin/gsd-t-unattended.cjs::_spawnWorker`, `bin/gsd-t.js::doHeadlessExec` + `spawnClaudeSession` + `runLedgerCompaction`, `bin/orchestrator.js::_buildOrchestratorEnv`, `scripts/gsd-t-design-review-server.js` |
+| `--phase` | `GSD_T_PHASE` | same callers (default `execute` for primary spawns) |
+| `--trace-id` | `GSD_T_TRACE_ID` | propagated from parent if set |
+| `--model` | `GSD_T_MODEL` | propagated from parent / spawn site |
+
+The SAME env vars are ALSO read by the PostToolUse heartbeat hook
+(`scripts/gsd-t-heartbeat.js::buildEventStreamEntry`) so that `tool_call`
+entries emitted from inside a detached child inherit the parent's routing
+context. Explicit CLI flags always win over env fallbacks.
+
 ---
 
 ## Integration Checkpoints
