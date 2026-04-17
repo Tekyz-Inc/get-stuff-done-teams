@@ -1,6 +1,88 @@
 # Integration Points
 
-## Current State: Milestone 38 — Headless-by-Default + Meter Reduction (PARTITIONED — 5 domains)
+## Current State: Milestone 39 — Fast Unattended + Universal Watch-Progress Tree (PARTITIONED — 3 domains)
+
+## M39 Dependency Graph
+
+```
+Wave 1 (all three domains parallel):
+  D2 progress-watch       ────► new files + 17 workflow command shims + 3 watch-printer call sites (additive)
+  D3 parallel-exec        ────► _spawnWorker prompt + unattended-supervisor-contract.md §15 (additive)
+  D4 cache-warm-pacing    ────► supervisor main relay loop timeout + unattended-supervisor-contract.md §16 (additive)
+                                                           │
+                                            GATE: Wave 1 complete
+                                                           │
+                                                           ▼
+                              SMOKE: /gsd-t-quick --watch (banner + task list)
+                                                           │
+                                                           ▼
+                            VERIFY → COMPLETE-MILESTONE → tag v3.13.10
+```
+
+### Abbreviation Key
+
+| Abbrev | Domain |
+|--------|--------|
+| D2 | d2-progress-watch |
+| D3 | d3-parallel-exec |
+| D4 | d4-cache-warm-pacing |
+
+### Checkpoints
+
+- **M39-CP1** (Wave 1 complete): all three domains landed; `watch-progress-contract.md` v1.0.0 finalized (full body by D2); `unattended-supervisor-contract.md` bumped to v1.3.0 with §15 (D3) + §16 (D4) appended; full test suite green; `/gsd-t-quick --watch` smoke test renders banner + task list.
+
+### File-Ownership Map (M39)
+
+| File / directory | Owner |
+|------------------|-------|
+| `bin/watch-progress.js` (NEW) | D2 |
+| `scripts/gsd-t-watch-state.js` (NEW) | D2 |
+| `.gsd-t/.watch-state/` (NEW, gitignored) | D2 |
+| `test/watch-progress.test.js` (NEW) | D2 |
+| `.gsd-t/contracts/watch-progress-contract.md` v1.0.0 | D2 |
+| `.gitignore` (ADD `.gsd-t/.watch-state/`) | D2 |
+| Shims in 17 workflow command files (`commands/gsd-t-{project,feature,milestone,partition,plan,execute,test-sync,integrate,verify,complete-milestone,scan,gap-analysis,wave,quick,debug,unattended,resume}.md`) | D2 |
+| `bin/gsd-t-unattended.cjs` watch printer (append render below banner) | D2 |
+| `bin/unattended-watch-format.cjs` (append render below banner) | D2 |
+| `bin/headless-auto-spawn.cjs` `autoSpawnHeadless` watch fallback (append render below banner) | D2 |
+| `bin/gsd-t-unattended.cjs::_spawnWorker` prompt text (~lines 1120–1145) | D3 |
+| `.gsd-t/contracts/unattended-supervisor-contract.md` §15 "Worker Team Mode (v1.3.0)" | D3 |
+| `test/unattended-worker-team-mode.test.js` (NEW) | D3 |
+| `bin/gsd-t-unattended.cjs` main relay loop (~lines 861–939) worker timeout | D4 |
+| `.gsd-t/contracts/unattended-supervisor-contract.md` §16 "Cache-Warm Pacing (v1.3.0)" | D4 |
+| `test/unattended-cache-warm-pacing.test.js` (NEW) | D4 |
+
+### Shared File Sequencing (M39)
+
+Two files are edited by more than one domain; both cases are additive and non-overlapping:
+
+1. **`bin/gsd-t-unattended.cjs`** — D3 edits `_spawnWorker` prompt text (~lines 1120–1145). D4 edits the main relay loop (~lines 861–939). Disjoint line ranges; no coordination required.
+2. **`.gsd-t/contracts/unattended-supervisor-contract.md`** — D3 appends §15. D4 appends §16. Disjoint section additions; no coordination required. Version header bumps to v1.3.0 as a single-line change — whichever domain's edit lands second picks up the version bump (idempotent).
+
+No checkpoints needed between the three domains because the edits are additive section appends and disjoint line ranges.
+
+### Wave Execution Groups (M39)
+
+#### Wave 1 — All Three Domains (parallel-safe)
+
+| Domain | Owner | Parallel-safe? |
+|--------|-------|----------------|
+| D2 progress-watch | d2-progress-watch | Yes — disjoint targets from D3/D4 |
+| D3 parallel-exec | d3-parallel-exec | Yes — non-overlapping with D4 in shared files |
+| D4 cache-warm-pacing | d4-cache-warm-pacing | Yes — non-overlapping with D3 in shared files |
+
+**Completes when**: M39-CP1 passes.
+
+### Execution Order (solo mode)
+
+1. Wave 1: D2 + D3 + D4 in any order (solo agent runs sequentially; recommended D2 first — largest surface, lowest risk).
+2. After all three land: smoke test `/gsd-t-quick --watch`. Banner preserved + task list renders below.
+3. `/gsd-t-verify` → auto-invokes `/gsd-t-complete-milestone`.
+4. User-gated: `npm publish` v3.13.10 → `gsd-t update-all`.
+
+---
+
+## Previous State: Milestone 38 — Headless-by-Default + Meter Reduction (PARTITIONED — 5 domains)
 
 ## M38 Dependency Graph
 

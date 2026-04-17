@@ -27,6 +27,9 @@ node_modules/
 .gsd-t/.context-meter-state.json
 .gsd-t/context-meter.log
 
+# GSD-T watch-progress state (session-specific runtime state — M39 D2)
+.gsd-t/.watch-state/
+
 # Claude Code internal directories
 .claude/worktrees/
 .claude/settings.local.json
@@ -40,3 +43,6 @@ nul
 bin/context-meter-state.cjs
 .gsd-t/.archive-migration-v1
 .gsd-t/.task-counter-retired-v1
+
+# GSD-T context meter (session state — do not commit)
+bin/*.cjs
