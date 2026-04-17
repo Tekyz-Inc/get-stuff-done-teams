@@ -25,22 +25,50 @@ function parseTestCoverage(text) {
 function parseFilesAndLoc(text) {
   const m = text.match(/\|\s*\*?\*?(?:Grand\s+)?Total[^|]*\*?\*?\s*\|\s*\*?\*?(\d+)\s+files?\*?\*?\s*\|\s*\*?\*?([\d,]+)[^|]*\*?\*?\s*\|/i);
   if (m) return { filesScanned: parseInt(m[1], 10), totalLoc: parseInt(m[2].replace(/,/g, ''), 10) };
+  let files = 0;
+  let loc = 0;
+  const lineRe = /(\d+)\s+files?\s*\(\s*~?\s*([\d,]+)\s+LOC\s*\)/gi;
+  let match;
+  while ((match = lineRe.exec(text)) !== null) {
+    files += parseInt(match[1], 10);
+    loc += parseInt(match[2].replace(/,/g, ''), 10);
+  }
+  if (files > 0) return { filesScanned: files, totalLoc: loc };
   return { filesScanned: 0, totalLoc: 0 };
 }
 
 function parseComponents(text) {
   const sec = text.match(/## Component Inventory([\s\S]*?)(?=\n## |\n---|\n#[^#]|$)/);
-  if (!sec) return [];
-  return sec[1].split('\n')
-    .filter(l => /^\|/.test(l) && !/---/.test(l) && !/Component.*File/i.test(l))
-    .map(row => {
-      const cols = row.split('|').map(c => c.trim().replace(/\*\*/g, '').replace(/`/g, '')).filter(Boolean);
-      if (cols.length < 3) return null;
-      const name = cols[0];
-      if (!name || /^total/i.test(name)) return null;
-      return { name, filePath: cols[1] || '', size: cols[2] || '', purpose: cols[3] || '', files: 1, healthScore: 80 };
-    })
-    .filter(Boolean);
+  if (sec) {
+    const tableRows = sec[1].split('\n')
+      .filter(l => /^\|/.test(l) && !/---/.test(l) && !/Component.*File/i.test(l))
+      .map(row => {
+        const cols = row.split('|').map(c => c.trim().replace(/\*\*/g, '').replace(/`/g, '')).filter(Boolean);
+        if (cols.length < 3) return null;
+        const name = cols[0];
+        if (!name || /^total/i.test(name)) return null;
+        return { name, filePath: cols[1] || '', size: cols[2] || '', purpose: cols[3] || '', files: 1, healthScore: 80 };
+      })
+      .filter(Boolean);
+    if (tableRows.length > 0) return tableRows;
+  }
+  const structSec = text.match(/## Structure([\s\S]*?)(?=\n## |\n---|\n#[^#]|$)/);
+  if (!structSec) return [];
+  const entryRe = /^([a-zA-Z0-9_.\-]+\/)\s+(?:~?\s*)?(?:(\d+)\s+files?\s*)?\(?\s*~?\s*([\d,]+)\s+LOC\s*\)?\s*(.*)$/gm;
+  const out = [];
+  let m;
+  while ((m = entryRe.exec(structSec[1])) !== null) {
+    const name = m[1].replace(/\/$/, '');
+    out.push({
+      name,
+      filePath: m[1],
+      size: (m[2] ? m[2] + ' files, ' : '') + m[3] + ' LOC',
+      purpose: (m[4] || '').trim(),
+      files: m[2] ? parseInt(m[2], 10) : 1,
+      healthScore: 80,
+    });
+  }
+  return out;
 }
 
 function parseSeverityMap(text) {
