@@ -286,21 +286,9 @@ Detached child-process spawn (`child_process.spawn` with `detached:true`, `stdio
 
 Directory: `.gsd-t/headless-sessions/` — one JSON per session, plus optional `{id}-context.json` and log files.
 
-### Per-spawn token telemetry — `.gsd-t/token-metrics.jsonl`
+### Per-spawn token telemetry — retired in M38
 
-Frozen 18-field JSONL schema, one record per subagent spawn. Written by the orchestrator, consumed by the runway estimator and the token optimizer.
-
-Contract: `.gsd-t/contracts/token-telemetry-contract.md` v1.0.0
-
-Key fields: `timestamp`, `session_id`, `command`, `phase`, `domain`, `task_id`, `model`, `complexity_signals[]`, `input_tokens`, `output_tokens`, `duration_seconds`, `start_pct`, `end_pct`, `halt_type`, `halt_reason`, `exit_code`, `run_type` (`interactive`|`headless`), `projection_variance`.
-
-`halt_type` values: `clean`, `stop-band`, `runway-refuse`, `native-compact` (defect), `crash`.
-
-### Optimization backlog — `.gsd-t/optimization-backlog.md`
-
-Append-only markdown file of recalibration recommendations. `bin/token-optimizer.js` scans the last 3 milestones of telemetry at `complete-milestone` time and appends detected recommendations. Recommendations are **never** auto-applied — the user promotes via `/user:gsd-t-optimization-apply {ID}` or rejects via `/user:gsd-t-optimization-reject {ID} [--reason "..."]`. Rejected items are fingerprinted and cooled down for 5 milestones before re-surfacing.
-
-Detection rules: `demote` (opus phase with ≥90% success, ≥3 volume), `escalate` (sonnet phase with ≥30% failure, ≥5 volume), `runway-tune` (projection vs. actual divergence >15%), `investigate` (per-phase p95 > 2× median, ≥10 volume).
+Between M35 and M38 GSD-T wrote an 18-field JSONL record per subagent spawn to `.gsd-t/token-metrics.jsonl`. M38 deletes that instrumentation along with the runway estimator and the three-band meter that consumed it; the headless-by-default spawn model doesn't need pre-flight projection, and the single-band meter measures itself directly via the Anthropic count_tokens API. Historical records are preserved in milestone archives but the file is no longer written.
 
 ## Metrics CLI — `gsd-t metrics`
 

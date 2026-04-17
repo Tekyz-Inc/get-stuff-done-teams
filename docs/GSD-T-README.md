@@ -121,7 +121,6 @@ GSD-T reads all state files and tells you exactly where you left off.
 | `/user:gsd-t-status` | Cross-domain progress view with token breakdown, global ELO and cross-project rankings | Manual |
 | `/user:gsd-t-resume` | Restore context, continue | Manual |
 | `/user:gsd-t-quick` | Fast task with GSD-T guarantees | Manual |
-| `/user:gsd-t-reflect` | Generate retrospective from event stream, propose memory updates | Manual |
 | `/user:gsd-t-visualize` | Launch browser dashboard — SSE server + React Flow agent visualization | Manual |
 | `/user:gsd-t-debug` | Systematic debugging with state | Manual |
 | `/user:gsd-t-metrics` | View task telemetry, process ELO, signal distribution, domain health, and cross-project comparison (`--cross-project`) | Manual |
@@ -131,7 +130,6 @@ GSD-T reads all state files and tells you exactly where you left off.
 | `/user:gsd-t-version-update` | Update GSD-T to latest version | Manual |
 | `/user:gsd-t-version-update-all` | Update GSD-T + all registered projects | Manual |
 | `/user:gsd-t-triage-and-merge` | Auto-review, merge, and publish GitHub branches | Manual |
-| `/user:gsd-t-audit` | Harness self-audit — analyze cost/benefit of enforcement components | Manual |
 | `/user:gsd-t-design-audit` | Compare built screen against Figma — per-widget deviation report with severity | Manual |
 | `/global-change` | Apply file changes (copy/insert/update/delete) across all GSD-T projects | Manual |
 
@@ -475,11 +473,9 @@ Threshold bands used by the orchestrator gate (v3.0.0 three-band model as of M35
 
 **Per-phase model selection** — see `bin/model-selector.js` for the declarative rules table (≥13 phase mappings). Each command file carries a `## Model Assignment` block documenting which phases run on haiku / sonnet / opus. Complexity signals (`cross_module_refactor`, `security_boundary`, `data_loss_risk`, `contract_design`) escalate sonnet→opus at plan time.
 
-**`/advisor` escalation** — mid-phase escalation channel. If `/advisor` is programmable in the runtime, subagents invoke it directly; otherwise, the convention-based fallback (`bin/advisor-integration.js`) appends a `missed_escalation` marker to `.gsd-t/token-log.md` that surfaces at `gsd-t-reflect`. See `.gsd-t/contracts/model-selection-contract.md` v1.0.0.
+**`/advisor` escalation** — mid-phase escalation channel. If `/advisor` is programmable in the runtime, subagents invoke it directly; otherwise, the convention-based fallback (`bin/advisor-integration.js`) appends a `missed_escalation` marker to `.gsd-t/token-log.md`. See `.gsd-t/contracts/model-selection-contract.md` v1.0.0.
 
-**`gsd-t metrics` CLI** — `gsd-t metrics --tokens [--by model,command,phase,milestone,domain,domain_type]` aggregates `.gsd-t/token-metrics.jsonl` into a count/total/mean/median/p95 table. `gsd-t metrics --halts` breaks halts down by type (`clean`, `runway-refusal`, `headless-handoff`, `native-compact`). `gsd-t metrics --tokens --context-window` buckets spawns by `context_window_pct_before` in 10% increments. See `.gsd-t/contracts/token-telemetry-contract.md` v1.0.0.
-
-**Optimization apply/reject** — `/user:gsd-t-optimization-apply {ID}` promotes a pending recommendation; `/user:gsd-t-optimization-reject {ID} [--reason "text"]` dismisses it with a 5-milestone cooldown. Both are idempotent. See `commands/gsd-t-optimization-apply.md` and `commands/gsd-t-optimization-reject.md`.
+**`gsd-t metrics` CLI** — `gsd-t metrics` reads task telemetry for process ELO and domain health. The `--tokens` / `--halts` / `--context-window` flags read `.gsd-t/token-metrics.jsonl` when it exists from pre-M38 runs; M38 retires per-spawn telemetry emission along with the runway estimator and three-band meter (headless-by-default obviates pre-flight projection).
 
 **Observability logging columns** — as of M34, the `.gsd-t/token-log.md` header includes `Ctx%` (the real session-wide context percentage at the time of the subagent spawn) replacing the earlier `Tasks-Since-Reset` column. The old column was a proxy count of how many tasks had run since the last `/clear`; the new column is the actual measurement.
 

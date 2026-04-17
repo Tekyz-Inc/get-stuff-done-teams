@@ -2,44 +2,6 @@
 
 You are displaying the project backlog with optional filtering and limiting.
 
-## Step 0: Parse --file flag
-
-If `$ARGUMENTS` contains `--file {path}`, read from `.gsd-t/{path}` instead of the default `.gsd-t/backlog.md`. This enables listing alternate backlog files such as `.gsd-t/optimization-backlog.md` (produced by the token optimizer at complete-milestone):
-
-```
-/user:gsd-t-backlog-list --file optimization-backlog.md
-/user:gsd-t-backlog-list --file optimization-backlog.md --status pending
-```
-
-Also support `--status {pending|promoted|rejected}` when listing the optimization backlog — filters by the `**Status**:` field inside each H2 block.
-
-If `--file optimization-backlog.md` is supplied, use `bin/token-optimizer.cjs` parseBacklog() to parse entries, then render a simplified table with columns: ID, Type, Status, Evidence (truncated to 80 chars). Example:
-
-```bash
-node -e "
-const opt = require('./bin/token-optimizer.cjs');
-const entries = opt.parseBacklog(opt.readBacklog('.'));
-const statusFilter = process.argv[1] || '';
-const filtered = statusFilter
-  ? entries.filter(e => e.status === statusFilter)
-  : entries;
-if (filtered.length === 0) {
-  console.log('No recommendations' + (statusFilter ? ' with status=' + statusFilter : '') + '.');
-  process.exit(0);
-}
-console.log('# Optimization Backlog (' + filtered.length + ' entries' + (statusFilter ? ', status=' + statusFilter : '') + ')');
-console.log('');
-console.log('| ID | Type | Status | Evidence |');
-console.log('|---|---|---|---|');
-for (const e of filtered) {
-  const ev = (e.evidence || '').slice(0, 80);
-  console.log('| ' + e.id + ' | ' + (e.type || '') + ' | ' + (e.status || '') + ' | ' + ev + ' |');
-}
-" "$STATUS_FILTER"
-```
-
-Exit after rendering when `--file` is present — skip the default steps below.
-
 ## Step 1: Read Backlog
 
 Read `.gsd-t/backlog.md` and parse all entries.

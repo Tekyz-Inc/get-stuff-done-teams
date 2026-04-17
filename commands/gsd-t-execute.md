@@ -100,18 +100,10 @@ After each domain completes, re-run `getDomainBoundaryViolations` and diff again
 
 In solo mode, QA runs inside each domain subagent (see Step 3). In team mode, the lead spawns QA subagents at each domain checkpoint using the pattern below.
 
-**QA Calibration Injection** — Before spawning QA, check for known weak spots:
-
-Run via Bash:
-`node -e "const qc = require('./bin/qa-calibrator.js'); const inj = qc.generateQAInjection('.'); if(inj) process.stdout.write(inj);" 2>/dev/null`
-
-If the command produces output (non-empty), store it as `QA_INJECTION` and prepend it to the QA subagent prompt below. If the file doesn't exist or produces no output, skip silently and proceed normally.
-
 **QA subagent prompt** — `spawnType: 'validation'` (always headless, `--watch` ignored per headless-default-contract §2):
 ```
 Task subagent (spawnType: validation, general-purpose, model: sonnet):
-"{QA_INJECTION — if non-empty, insert here as a preamble section before the instructions below}
-Run the full test suite for this project and report pass/fail counts.
+"Run the full test suite for this project and report pass/fail counts.
 Read .gsd-t/contracts/ for contract definitions.
 Write edge case tests for any new code paths in this task: {task description}.
 Report: test pass/fail status and any coverage gaps found."

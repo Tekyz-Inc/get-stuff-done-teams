@@ -58,7 +58,7 @@ hl.waitForLockRelease('.', sessionId, 5000)
 - If `CLAUDE_HEADLESS_SESSION_ID` is not set (interactive resume) → the script exits immediately; no wait needed.
 - If set → wait up to **5 seconds** for the parent's handoff lock to be released before reading `.gsd-t/continue-here-*.md` or any other state file. On timeout, log and proceed anyway (parent may have crashed after spawning).
 
-This prevents the child side of a headless runway-handoff from reading a partial continue-here file written by the parent. Contract: `headless-auto-spawn-contract.md` v1.0.0, m35-gap-fixes T2 deferred hook.
+This prevents the child side of a headless spawn from reading a partial continue-here file written by the parent. Contract: `headless-default-contract.md` v1.0.0, m35-gap-fixes T2 deferred hook.
 
 ---
 
@@ -72,7 +72,7 @@ node bin/check-headless-sessions.js . 2>/dev/null || true
 
 This prints a `## Headless runs since you left` banner listing any completed sessions with their duration, outcome, and log path, then marks them surfaced so the banner never re-appears for the same session. If no completed sessions exist, it prints nothing.
 
-Contract: `.gsd-t/contracts/headless-auto-spawn-contract.md` v1.0.0
+Contract: `.gsd-t/contracts/headless-default-contract.md` v1.0.0
 
 ## Step 0.6: Context Meter Health Check (MANDATORY, v3.10.12+)
 

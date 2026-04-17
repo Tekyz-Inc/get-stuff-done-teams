@@ -14,14 +14,10 @@ A methodology for reliable, parallelizable development using Claude Code with op
 **Self-learning rule engine** — declarative rules in rules.jsonl detect failure patterns from task metrics. Candidate patches progress through a 5-stage lifecycle (candidate, applied, measured, promoted, graduated) with >55% improvement gates before becoming permanent methodology artifacts.
 **Cross-project learning** — proven rules propagate to `~/.claude/metrics/` and sync across all registered projects via `update-all`. Rules validated in 3+ projects become universal; 5+ projects qualify for npm distribution. Cross-project signal comparison and global ELO rankings available via `gsd-t-metrics --cross-project` and `gsd-t-status`.
 **Stack Rules Engine** — auto-detects project tech stack (React, TypeScript, Node API, Python, Go, Rust) from manifest files and injects mandatory best-practice rules into subagent prompts at execute-time. Universal security rules always apply; stack-specific rules layer on top. Includes **design-to-code** rules for pixel-perfect frontend implementation from Figma, screenshots, or design images — with Figma MCP integration, design token extraction, stack capability evaluation, and mandatory visual verification: every screen is rendered in a real browser, screenshotted at mobile/tablet/desktop, and compared pixel-by-pixel against the Figma design. Auto-bootstraps during partition when design references are detected. Extensible: drop a `.md` file in `templates/stacks/` to add a new stack.
-**Self-Calibrating QA** — `qa-calibrator.js` tracks QA miss-rates across milestones, detects weak-spot categories (error paths, boundaries, state transitions), and automatically injects targeted guidance into QA subagent prompts. Projects on the same stack share miss-rate data for faster calibration.
-**Runway-Protected Execution (M35, v2.76.10)** — three-band token budget (`normal` < 70%, `warn` 70–85%, `stop` ≥ 85%) with **zero silent quality degradation**. No model downgrades, no phase skips under pressure. Instead:
+**Headless-by-Default Spawn (M38, v3.12.10)** — long-running workflow commands (execute, wave, integrate, debug repair loops) spawn detached by default via the unattended supervisor. The interactive session prints a launch banner, logs the event-stream path, and exits. Pass `--watch` to keep a live status block in the session (270s `ScheduleWakeup` ticks, cache-window-safe). The supervisor emits JSONL events to `.gsd-t/events/YYYY-MM-DD.jsonl` at every phase boundary — shared by watch command and dashboard. See `.gsd-t/contracts/headless-default-contract.md` v1.0.0 and `unattended-event-stream-contract.md` v1.0.0.
 - **Surgical model selection** — `bin/model-selector.js` assigns haiku/sonnet/opus per phase via a declarative rules table; `/advisor` escalation path with convention-based fallback.
-- **Pre-flight runway estimator** — `bin/runway-estimator.js` reads per-spawn token telemetry and projects whether a long-running command would cross 85%. If yes, the run is refused *before burning any tokens*.
-- **Headless auto-spawn on refusal** — `bin/headless-auto-spawn.js` detaches a child process to continue the work in a fresh context. The interactive session never sees a `/clear` prompt.
-- **Per-spawn token telemetry** — `.gsd-t/token-metrics.jsonl` records one 18-field row per Task subagent spawn. Feeds the runway estimator and the retrospective optimization backlog.
-- **Optimization backlog** — `bin/token-optimizer.js` runs at `complete-milestone` and appends model-tier recalibration recommendations (`demote`, `escalate`, `runway-tune`, `investigate`) to `.gsd-t/optimization-backlog.md`. **Never auto-applies.** User promotes via `/user:gsd-t-optimization-apply {ID}` or dismisses via `/user:gsd-t-optimization-reject {ID} [--reason "..."]` with a 5-milestone cooldown.
-**Context Meter (M34)** — real-time context window measurement via the Anthropic `count_tokens` API. A PostToolUse hook streams the current transcript to `count_tokens`, writes the exact input-token count and threshold band to `.gsd-t/.context-meter-state.json`, and `token-budget.getSessionStatus()` reads that state file as the authoritative context-burn signal. Replaces the v2.74.12 task-counter proxy. Requires an `ANTHROPIC_API_KEY` — `gsd-t doctor` hard-gates on it. See the Context Meter Setup section below.
+- **Per-spawn token telemetry** — `.gsd-t/token-metrics.jsonl` records one 18-field row per Task subagent spawn.
+**Context Meter (M34/M38)** — PostToolUse hook writes `.gsd-t/.context-meter-state.json` via local token estimation. Single-band model (`context-meter-contract.md` v1.3.0): one threshold (default 85%), one action — hand off to a detached headless spawn. The meter informs spawn-time routing, not in-flight pauses.
 **Quality North Star** — projects define a `## Quality North Star` section in CLAUDE.md (1–3 sentences, e.g., "This is a published npm library. Every public API must be intuitive and backward-compatible."). `gsd-t-init` auto-detects preset (library/web-app/cli) from package.json signals; `gsd-t-setup` configures it for existing projects. Subagents read it as a quality lens; absent = silent skip (backward compatible).
 **Design Brief Artifact** — during partition, UI/frontend projects (React, Vue, Svelte, Flutter, Tailwind) automatically get `.gsd-t/contracts/design-brief.md` with color palette, typography, spacing system, component patterns, and tone/voice. Non-UI projects skip silently. User-customized briefs are preserved. Referenced in plan phase for visual consistency.
 **Design Verification Agent** — after QA passes on design-to-code projects, a dedicated verification agent opens a browser with both the built frontend AND the original design (Figma page, design image, or MCP screenshot) side-by-side for direct visual comparison. Produces a structured element-by-element comparison table (30+ rows) with specific design values vs. implementation values and MATCH/DEVIATION verdicts. An artifact gate enforces that the comparison table exists — missing it blocks completion. Separation of concerns: coding agents code, verification agents verify. Wired into execute (Step 5.25) and quick (Step 5.25). Only fires when `.gsd-t/contracts/design-contract.md` exists — non-design projects are unaffected.
@@ -37,7 +33,7 @@ A methodology for reliable, parallelizable development using Claude Code with op
 npx @tekyzinc/gsd-t install
 ```
 
-This installs 51 GSD-T commands + 5 utility commands (56 total) to `~/.claude/commands/` and the global CLAUDE.md to `~/.claude/CLAUDE.md`. Works on Windows, Mac, and Linux.
+This installs 49 GSD-T commands + 5 utility commands (54 total) to `~/.claude/commands/` and the global CLAUDE.md to `~/.claude/CLAUDE.md`. Works on Windows, Mac, and Linux.
 
 ### Start Using It
 
@@ -192,7 +188,6 @@ This will replace changed command files, back up your CLAUDE.md if customized, a
 | `/user:gsd-t-status` | Cross-domain progress view with token breakdown by domain/task/phase | Manual |
 | `/user:gsd-t-resume` | Restore context, continue | Manual |
 | `/user:gsd-t-quick` | Fast task with GSD-T guarantees | Manual |
-| `/user:gsd-t-reflect` | Generate retrospective from event stream, propose memory updates | Manual |
 | `/user:gsd-t-visualize` | Launch browser dashboard — SSE server + React Flow agent visualization | Manual |
 | `/user:gsd-t-debug` | Systematic debugging with state | Manual |
 | `/user:gsd-t-metrics` | View task telemetry, process ELO, signal distribution, domain health, and cross-project comparison (`--cross-project`) | Manual |
@@ -202,7 +197,6 @@ This will replace changed command files, back up your CLAUDE.md if customized, a
 | `/user:gsd-t-version-update` | Update GSD-T to latest version | Manual |
 | `/user:gsd-t-version-update-all` | Update GSD-T + all registered projects | Manual |
 | `/user:gsd-t-triage-and-merge` | Auto-review, merge, and publish GitHub branches | Manual |
-| `/user:gsd-t-audit` | Harness self-audit — analyze cost/benefit of enforcement components | Manual |
 | `/user:gsd-t-design-audit` | Compare built screen against Figma design — structured deviation report | Manual |
 | `/user:gsd-t-design-build` | Build from design contracts with two-terminal review (Term 1 builder) | Manual |
 | `/user:gsd-t-design-review` | Independent review agent for design build (Term 2 reviewer) | Auto |

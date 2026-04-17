@@ -193,7 +193,7 @@ This table is the source of truth for phase-to-tier assignments. `bin/model-sele
 
 ## Observability Contract
 
-Every subagent spawn logs its model assignment to `.gsd-t/token-log.md` via the existing OBSERVABILITY LOGGING block. The `Model` column (already present in the token-log schema) records the tier at spawn time. M35 Wave 2 adds a new column / or a new JSONL file (`.gsd-t/token-metrics.jsonl`, see `token-telemetry-contract.md` v1.0.0) with an `escalated_via_advisor` boolean field so retrospective analysis can count escalations vs. missed escalations.
+Every subagent spawn logs its model assignment to `.gsd-t/token-log.md` via the existing OBSERVABILITY LOGGING block. The `Model` column (already present in the token-log schema) records the tier at spawn time. Historical note: M35 also wrote per-spawn records with an `escalated_via_advisor` boolean to `.gsd-t/token-metrics.jsonl`; M38 retires that JSONL stream (along with the deleted token-telemetry-contract), so the escalation signal now lives only in the observability log.
 
 - **`escalated_via_advisor: true`** — the subagent invoked `/advisor` at a declared escalation point.
 - **`escalated_via_advisor: false`** — no escalation attempted (either the condition was not met or `/advisor` was unavailable).

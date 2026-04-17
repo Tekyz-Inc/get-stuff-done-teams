@@ -26,32 +26,31 @@
 <!-- Claude will verify the branch before every commit. -->
 **Expected branch**: {main | master | feature-branch-name}
 
-## Context Gate — No Silent Degradation (M35, v2.76.10+)
-<!-- Three-band context gate per .gsd-t/contracts/token-budget-contract.md v3.0.0: -->
-<!--   - normal (<70%):  proceed at full quality -->
-<!--   - warn   (70–85%): log to .gsd-t/token-log.md and proceed at FULL quality -->
-<!--                      (never downgrade models, never skip Red Team / doc-ripple / Design Verification) -->
-<!--   - stop   (≥85%):  halt cleanly, runway estimator / headless auto-spawn handles the handoff -->
+## Context Meter (M34/M38, v3.12.10+)
+<!-- The Context Meter is a PostToolUse hook that uses local token estimation -->
+<!-- and writes the current context % to .gsd-t/.context-meter-state.json. -->
+<!-- bin/token-budget.cjs reads that file as the spawn-time routing signal. -->
+<!-- Single-band model (context-meter-contract v1.3.0): one threshold (default 85%), -->
+<!-- one action — hand off to a detached headless spawn via the unattended supervisor. -->
+<!-- No three-band routing, no silent model downgrades. The meter informs spawn-time -->
+<!-- decisions, not in-flight pauses. -->
+<!-- Config: .gsd-t/context-meter-config.json — modelWindowSize, thresholdPct, checkFrequency. -->
+<!-- Verify: `npx @tekyzinc/gsd-t doctor`. -->
+
+## Headless-by-Default Spawn (M38, v3.12.10+)
+<!-- Long-running workflow commands (execute, wave, integrate, debug repair loops) -->
+<!-- route through the unattended supervisor from the start. Interactive session -->
+<!-- invokes, sees a launch banner and event-stream log location, and exits. -->
+<!-- Pass --watch to keep a live status block in the session (270s ScheduleWakeup ticks). -->
+<!-- Event stream: .gsd-t/events/YYYY-MM-DD.jsonl (JSONL, phase boundaries). -->
+<!-- Contracts: headless-default-contract.md v1.0.0, unattended-event-stream-contract.md v1.0.0, -->
+<!-- unattended-supervisor-contract.md v1.1.0. -->
+
+## Model Selection
 <!-- Model choice is made surgically per-phase via bin/model-selector.js (model-selection-contract.md v1.0.0): -->
 <!--   - haiku  — mechanical: test runners, file-existence checks, JSON validation, branch guards -->
 <!--   - sonnet — routine: execute, test-sync, doc-ripple wiring, quick, integrate, debug fix-apply -->
-<!--   - opus   — high-stakes: partition, discuss, Red Team, verify judgment, debug root-cause, contracts -->
-<!-- Per-spawn telemetry is captured to .gsd-t/token-metrics.jsonl via bin/token-telemetry.js -->
-<!-- (token-telemetry-contract.md v1.0.0) and surfaced via: -->
-<!--   - gsd-t metrics --tokens [--by model,command,phase,milestone] -->
-<!--   - gsd-t metrics --halts -->
-<!--   - gsd-t metrics --context-window -->
-
-## Context Meter (M34, v2.75.10+)
-<!-- The Context Meter is a PostToolUse hook that streams the current transcript -->
-<!-- to Anthropic count_tokens and writes the real context % to -->
-<!-- .gsd-t/.context-meter-state.json. bin/token-budget.js reads that file as the -->
-<!-- authoritative session-stop signal, feeding the three-band context gate above. -->
-<!-- Requires ANTHROPIC_API_KEY in the shell environment. -->
-<!-- Threshold bands (lower-bound inclusive) as of M35: normal<70, warn≥70, stop≥85. -->
-<!-- Config: .gsd-t/context-meter-config.json — apiKeyEnvVar, modelWindowSize, thresholdPct, checkFrequency. -->
-<!-- Verify: `npx @tekyzinc/gsd-t doctor` hard-gates on API key + hook + live count_tokens dry-run. -->
-<!-- Historical: v2.74.12 used bin/task-counter.cjs (proxy); v2.74.11 and earlier used CLAUDE_CONTEXT_TOKENS_* env vars (never worked). Both retired in v2.75.10. M35 removed the v2.x downgrade/conserve bands that silently degraded quality. -->
+<!--   - opus   — high-stakes: partition, Red Team, verify judgment, debug root-cause, contracts -->
 
 <!-- For multi-branch parallel work (e.g., web + mobile in separate terminals), -->
 <!-- each terminal's CLAUDE.md should declare its own expected branch. -->

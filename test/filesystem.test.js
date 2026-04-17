@@ -268,17 +268,14 @@ describe("command listing functions", () => {
     assert.equal(gsdt + utils, total);
   });
 
-  // M38-RC: deleted gsd-t-prompt, gsd-t-brainstorm, gsd-t-discuss (−3).
-  // M38-CD (pending in same Wave 2) will delete gsd-t-optimization-apply,
-  // gsd-t-optimization-reject, gsd-t-reflect, gsd-t-audit (−4 more).
-  // Each commit updates these numbers at its own boundary so every commit
-  // lands with tests green.
-  it("total command count is 58", () => {
-    assert.equal(getCommandFiles().length, 58);
+  // M38 deleted 7 commands: gsd-t-prompt, gsd-t-brainstorm, gsd-t-discuss (RC);
+  // gsd-t-optimization-apply, gsd-t-optimization-reject, gsd-t-reflect, gsd-t-audit (CD).
+  it("total command count is 54", () => {
+    assert.equal(getCommandFiles().length, 54);
   });
 
-  it("gsd-t command count is 53", () => {
-    assert.equal(getGsdtCommands().length, 53);
+  it("gsd-t command count is 49", () => {
+    assert.equal(getGsdtCommands().length, 49);
   });
 
   it("utility command count is 5", () => {

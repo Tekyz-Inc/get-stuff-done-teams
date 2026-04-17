@@ -247,16 +247,12 @@ After local rule promotion completes, propagate newly promoted rules to global m
 
 ### Step 2.5d: Component Impact Evaluation (if available)
 
-Record impact data for each active component and log QA miss-rate for this milestone:
+Record impact data for each active component:
 
 1. **Record component impact** — for each domain that completed tasks, run via Bash:
    `node -e "const cr = require('./bin/component-registry.js'); const domains = [/* list completed domain names */]; domains.forEach(d => cr.recordImpact(d, '{milestone-id}', '.')); " 2>/dev/null || true`
 
-2. **Log QA misses** — compare Red Team findings against QA report to find misses:
-   Run via Bash:
-   `node -e "const qc = require('./bin/qa-calibrator.js'); const rt = require('fs').existsSync('.gsd-t/red-team-report.md') ? require('fs').readFileSync('.gsd-t/red-team-report.md','utf8') : ''; const qa = require('fs').existsSync('.gsd-t/qa-issues.md') ? require('fs').readFileSync('.gsd-t/qa-issues.md','utf8') : ''; if(rt && qa) { const missed = qc.detectMisses(rt, qa, '.'); if(missed.length) missed.forEach(m => qc.logMiss(m.domain, m.category, m.description, '.')); console.log('QA miss-rate: ' + missed.length + ' misses logged'); } else { console.log('QA miss-rate: no data'); }" 2>/dev/null || true`
-
-3. If neither `bin/component-registry.js` nor `bin/qa-calibrator.js` exists, skip silently.
+2. If `bin/component-registry.js` does not exist, skip silently.
 
 ## Step 3: Gather Milestone Artifacts
 
@@ -507,30 +503,6 @@ If `.gsd-t/roadmap.md` exists:
 - Mark this milestone as complete
 - Update any dependent milestones
 - Highlight next recommended milestone
-
-## Step 14: Token Optimization Recommendations (non-blocking)
-
-After all quality gates pass and the milestone is archived, run the token optimizer to detect model-tier miscalibration signals from the milestone's telemetry. This appends recommendations to `.gsd-t/optimization-backlog.md`. **Never blocks, never prompts, never auto-applies.** Optimizer failure is caught and logged, not re-thrown.
-
-```bash
-node -e "
-try {
-  const opt = require('./bin/token-optimizer.cjs');
-  const recs = opt.detectRecommendations({projectDir: '.', lookbackMilestones: 3});
-  opt.appendToBacklog(recs, '.');
-  if (recs.length === 0) {
-    console.log('Token optimizer: no new recommendations.');
-  } else {
-    console.log('Token optimizer: ' + recs.length + ' new recommendation(s) → .gsd-t/optimization-backlog.md');
-    console.log('Review with: /user:gsd-t-backlog-list --file optimization-backlog.md');
-  }
-} catch (e) {
-  console.error('Token optimizer error (non-blocking): ' + e.message);
-}
-"
-```
-
-Contract: `.gsd-t/contracts/token-telemetry-contract.md` v1.0.0
 
 ## Error Handling
 

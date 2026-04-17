@@ -1,7 +1,7 @@
 {
   "name": "@tekyzinc/gsd-t",
-  "version": "3.11.12",
-  "description": "GSD-T: Contract-Driven Development for Claude Code — 61 slash commands with unattended supervisor relay, headless CI/CD mode, graph-powered code analysis, real-time agent dashboard, execution intelligence, task telemetry, doc-ripple enforcement, backlog management, impact analysis, test sync, milestone archival, and PRD generation",
+  "version": "3.12.10",
+  "description": "GSD-T: Contract-Driven Development for Claude Code — 54 slash commands with headless-by-default workflow spawning, unattended supervisor relay with event stream, graph-powered code analysis, real-time agent dashboard, task telemetry, doc-ripple enforcement, backlog management, impact analysis, test sync, milestone archival, and PRD generation",
   "author": "Tekyz, Inc.",
   "license": "MIT",
   "repository": {

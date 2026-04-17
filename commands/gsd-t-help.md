@@ -52,12 +52,10 @@ UTILITIES                                                              Manual
   status              Cross-domain progress view
   resume              Restore context after break
   quick               Fast task with GSD-T guarantees
-  reflect             Generate retrospective from event stream, propose memory updates
   visualize           Launch browser dashboard (SSE server + React Flow)
   debug               Systematic debugging with state
   health              Validate .gsd-t/ structure, optionally repair missing files
   pause               Save exact position for reliable resume later
-  audit               Harness self-audit — analyze cost/benefit of enforcement components
   promote-debt        Convert techdebt items to milestones
   populate            Auto-populate docs from existing codebase
   design-decompose    Decompose design into element/widget/page contracts
@@ -84,11 +82,6 @@ BACKLOG                                                                Manual
   backlog-remove      Drop item with optional reason
   backlog-promote     Refine, classify, and launch GSD-T workflow
   backlog-settings    Manage types, apps, categories, and defaults
-
-OPTIMIZATION                                                           Manual
-───────────────────────────────────────────────────────────────────────────────
-  optimization-apply  Promote a pending token-optimizer recommendation
-  optimization-reject Dismiss a recommendation with optional reason + cooldown
 
 ───────────────────────────────────────────────────────────────────────────────
 Type /user:gsd-t-help {command} for detailed help on any command.
@@ -318,13 +311,6 @@ Use these when user asks for help on a specific command:
 - **Creates**: Quick task record
 - **Use when**: Small tasks that don't need full planning
 
-### reflect
-- **Summary**: Generate a structured retrospective from the event stream for the current milestone, then propose CLAUDE.md/constraints.md rule additions based on recurring patterns
-- **Auto-invoked**: No
-- **Reads**: `.gsd-t/events/*.jsonl`, `.gsd-t/progress.md`, `CLAUDE.md`
-- **Creates**: `.gsd-t/retrospectives/YYYY-MM-DD-{milestone}.md`
-- **Use when**: After completing a milestone or mid-milestone to surface what's working, what's failing, and what patterns should become permanent rules
-
 ### visualize
 - **Summary**: Launch the real-time agent dashboard — starts the SSE server (if not running) and opens the React Flow visualization in a browser
 - **Auto-invoked**: No
@@ -343,13 +329,6 @@ Use these when user asks for help on a specific command:
 - **Auto-invoked**: No
 - **Creates**: Debug session state, `.gsd-t/debug-state.jsonl` (when delegating to headless loop)
 - **Use when**: Tracking down a bug methodically
-
-### audit
-- **Summary**: Harness self-audit — analyze cost and benefit of GSD-T enforcement components (QA, Red Team, doc-ripple, token budget), with optional shadow mode to measure overhead
-- **Auto-invoked**: No
-- **Creates**: `.gsd-t/audit-report.md`
-- **Reads**: `.gsd-t/metrics/`, `.gsd-t/token-log.md`, `bin/component-registry.js`, `bin/qa-calibrator.js`, `bin/token-budget.cjs`
-- **Use when**: Reviewing whether enforcement components are adding value or overhead; shadow mode measures impact without disabling components; `--disable {component}` temporarily disables one component for comparison
 
 ### headless --debug-loop
 - **Summary**: Compaction-proof automated test-fix-retest loop — each iteration is a fresh `claude -p` session; a cumulative ledger (`.gsd-t/debug-state.jsonl`) preserves all hypothesis/fix/learning history; anti-repetition preamble prevents retrying failed approaches
@@ -442,20 +421,6 @@ Use these when user asks for help on a specific command:
 - **Auto-invoked**: No
 - **Files**: `.gsd-t/backlog-settings.md`
 - **Use when**: Customizing the classification dimensions for your project
-
-### optimization-apply
-- **Summary**: Promote a pending token-optimizer recommendation from `.gsd-t/optimization-backlog.md`
-- **Auto-invoked**: No
-- **Files**: `.gsd-t/optimization-backlog.md`, `.gsd-t/progress.md`, `.gsd-t/token-log.md`
-- **Usage**: `/user:gsd-t-optimization-apply {ID}`
-- **Use when**: A recommendation looks correct and you want to act on it — offers a quick-task or full backlog-promote path
-
-### optimization-reject
-- **Summary**: Dismiss a recommendation with an optional reason; sets a 5-milestone cooldown
-- **Auto-invoked**: No
-- **Files**: `.gsd-t/optimization-backlog.md`, `.gsd-t/progress.md`, `.gsd-t/token-log.md`
-- **Usage**: `/user:gsd-t-optimization-reject {ID} [--reason "text"]`
-- **Use when**: A recommendation is wrong or premature — prevents the same signal from re-surfacing for 5 milestones
 
 ## Unknown Command
 

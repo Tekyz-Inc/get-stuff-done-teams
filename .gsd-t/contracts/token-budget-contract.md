@@ -156,7 +156,7 @@ Every function below is exported from `bin/token-budget.js` via `module.exports`
 
 **Signature**: `(remainingTasks: Array<{ model: string, taskType: string, complexity?: number }>, projectDir?: string) => { estimatedTokens: number, estimatedPct: number, feasible: boolean }`
 
-**v3.0.0 changes**: None. Still called from `commands/gsd-t-wave.md` Step 0 in Wave 1; will be superseded by `bin/runway-estimator.js` `estimateRunway()` in M35 Wave 3 (see `runway-estimator-contract.md` v1.0.0, pending).
+**v3.0.0 changes**: None. Historical note: M35 introduced `bin/runway-estimator.js` `estimateRunway()` as the intended successor; M38 deleted the runway estimator along with the three-band model (headless-by-default obviates pre-flight projection), and this function is no longer an active callsite.
 
 **Note**: Do NOT delete this function in the T1 rewrite. It is still live through Wave 2.
 

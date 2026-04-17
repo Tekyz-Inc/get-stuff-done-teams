@@ -231,13 +231,6 @@ Skip scan docs not affected by this task. Skip analytical sections — those req
 
 ## Step 5: Test & Verify (MANDATORY)
 
-**QA Calibration Injection** — Before evaluating test results, check for known weak spots:
-
-Run via Bash:
-`node -e "const qc = require('./bin/qa-calibrator.js'); const inj = qc.generateQAInjection('.'); if(inj) process.stdout.write(inj);" 2>/dev/null`
-
-If the command produces output, treat it as a preamble to your QA evaluation — pay extra attention to the flagged weak-spot categories when writing and reviewing tests. If the file doesn't exist or returns empty, skip silently.
-
 Quick does not mean skip testing. Before committing:
 
 1. **Write/update tests for every new or changed code path**:

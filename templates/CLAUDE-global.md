@@ -57,7 +57,6 @@ PROJECT or FEATURE or SCAN
 | `/user:gsd-t-status` | Cross-domain progress view with token breakdown, global ELO and cross-project rankings |
 | `/user:gsd-t-debug` | Systematic debugging |
 | `/user:gsd-t-quick` | Fast task, respects contracts |
-| `/user:gsd-t-reflect` | Generate retrospective from event stream, propose memory updates |
 | `/user:gsd-t-visualize` | Launch browser dashboard |
 | `/user:gsd-t-metrics` | View task telemetry, process ELO, domain health, and cross-project comparison (`--cross-project`) |
 | `/user:gsd-t-health` | Validate .gsd-t/ structure, optionally repair |
@@ -72,7 +71,6 @@ PROJECT or FEATURE or SCAN
 | `/user:gsd-t-unattended-watch` | Watch tick — fires every 270s via ScheduleWakeup, reports supervisor status |
 | `/user:gsd-t-unattended-stop` | Touch stop sentinel — supervisor halts after current worker finishes |
 | `/user:gsd-t-triage-and-merge` | Auto-review, merge, and publish GitHub branches |
-| `/user:gsd-t-audit` | Harness self-audit — analyze cost/benefit of enforcement components |
 | `/user:gsd-t-design-audit` | Compare built screen against Figma design — structured deviation report |
 | `/user:gsd-t-design-build` | Build from design contracts with two-terminal review |
 | `/user:gsd-t-design-review` | Independent review agent for design build (Term 2) |
@@ -313,8 +311,6 @@ Report format: 'Unit: X/Y pass | E2E: X/Y pass (or N/A if no config) | Contract:
 
 **QA failure OR shallow tests found blocks phase completion.** Lead cannot proceed until QA reports PASS with zero shallow tests, or user explicitly overrides.
 
-**QA Calibration Feedback Loop** — If `bin/qa-calibrator.js` exists in the project, the system tracks QA miss-rates (bugs found by Red Team that QA missed) and automatically injects targeted guidance into future QA prompts. Weak-spot categories (error paths, boundary inputs, state transitions) are detected from miss patterns and injected as a preamble before the QA subagent runs. Projects without `qa-miss-log.jsonl` data behave identically to baseline — calibration is fully opt-in and backward compatible.
-
 ## Design Verification Agent (Mandatory when design contract exists)
 
 After QA passes, if `.gsd-t/contracts/design-contract.md` exists, a **dedicated Design Verification Agent** is spawned. This agent's ONLY job is to open a browser, compare the built frontend against the original design, and produce a structured element-by-element comparison table. It writes ZERO feature code.
@@ -369,30 +365,16 @@ This gives the user real-time visibility into which model is handling each opera
 - `model: sonnet` — mid-tier reasoning: routine code changes, standard refactors, test writing, QA evaluation, straightforward synthesis
 - `model: opus` — high-stakes reasoning: architecture decisions, security analysis, complex debugging, cross-module refactors, Red Team adversarial QA, quality judgment on critical paths
 
-**Context Gate — No Silent Degradation (M35, v2.76.10+)** — The orchestrator reads session context consumption via `bin/token-budget.js` `getSessionStatus()` before each subagent spawn and applies a **three-band model** (`token-budget-contract.md` v3.0.0): `normal` (< 70%, proceed at full quality), `warn` (70–85%, log and proceed at **full quality** — never downgrade models, never skip Red Team / doc-ripple / Design Verification), `stop` (≥ 85%, halt cleanly and hand off to the runway estimator). The older v2.x `downgrade` / `conserve` bands are deleted. Model choice is made surgically per-phase via `bin/model-selector.js` (`model-selection-contract.md` v1.0.0) — sonnet for routine work, opus at declared escalation points, haiku strictly for mechanical tasks — not as a fallback for context pressure. Per-spawn telemetry is captured to `.gsd-t/token-metrics.jsonl` via `bin/token-telemetry.js` (`token-telemetry-contract.md` v1.0.0) and surfaced via `gsd-t metrics --tokens|--halts|--context-window`.
+**Context Meter (M34/M38, v3.12.10+)** — The real context-window measurement feeding the headless-default spawn decision. A PostToolUse hook (`scripts/gsd-t-context-meter.js`) runs after every tool call, uses local token estimation to write the current input-token count into `.gsd-t/.context-meter-state.json`. `getSessionStatus()` reads that state file (fresh window = 5 minutes) with a historical heuristic fallback when the file is missing or stale. Command files consume the signal via a small bash shim (`CTX_PCT=$(node -e "…tb.getSessionStatus('.').pct")`). **Single-band model** (context-meter-contract v1.3.0): there's one threshold (default 85%) and one action — hand off to a detached headless spawn. No three-band routing, no silent downgrades, no MANDATORY STOP prose. The meter exists to inform spawn-time routing, not to pause work in-flight.
 
-**Context Meter (M34, v2.75.10+)** — The real context-window measurement feeding the context gate above. A PostToolUse hook (`scripts/gsd-t-context-meter.js`) runs after every tool call, streams the current Claude Code transcript to the Anthropic `count_tokens` API, and writes the real input-token count plus the resolved threshold band into `.gsd-t/.context-meter-state.json`. `getSessionStatus()` reads that state file (fresh window = 5 minutes) with a historical heuristic fallback when the file is missing or stale. Command files consume the signal via a small bash shim (`CTX_PCT=$(node -e "…tb.getSessionStatus('.').pct")`). Threshold bands (lower-bound inclusive) as of M35: `normal` < 70, `warn` ≥ 70, `stop` ≥ 85. Requires `ANTHROPIC_API_KEY` — `gsd-t doctor` hard-gates on its presence.
+## Headless-by-Default Spawn (M38, v3.12.10+)
 
-*Historical note (v2.74.12–v2.74.13)*: between 2026-03 and 2026-04 the orchestrator used `bin/task-counter.cjs` — a proxy that assumed N tasks ≈ M% context used. That itself replaced an earlier env-var-based check (`CLAUDE_CONTEXT_TOKENS_USED` / `CLAUDE_CONTEXT_TOKENS_MAX`) that never worked because Claude Code does not export those variables. Both approaches are retired: the env-var path is removed entirely; `task-counter.cjs` is deleted from the package and from downstream projects via a one-shot migration in `gsd-t update-all`. Do not reintroduce either check.
+**Architectural shift**: long-running work spawns detached by default, not interactively. Commands that previously invited mid-session context exhaustion (execute, wave, integrate, debug's repair loops) now route through the unattended supervisor from the start. The interactive session invokes, sees a banner, and hands off — no `/clear`, no pause/resume dance, no drift into the 95% `/compact` wall.
 
-## Universal Auto-Pause Rule (MANDATORY)
-
-**When the Context Meter emits an `additionalContext` message, you MUST stop immediately.** This rule has the same enforcement weight as the Destructive Action Guard — it is non-negotiable.
-
-The Context Meter PostToolUse hook (`scripts/gsd-t-context-meter.js`) measures real context window usage after every tool call. When usage crosses the configured threshold (default 75%), the hook emits a multi-line `additionalContext` message starting with `🛑 MANDATORY STOP`. When you see this message:
-
-```
-WHEN YOU SEE "🛑 MANDATORY STOP" IN additionalContext:
-  1. STOP all work immediately — do NOT finish the current task, do NOT spawn subagents
-  2. Run /user:gsd-t-pause to save your exact position (state, files, progress)
-  3. Tell the user to run /clear to free the context window
-  4. Tell the user to run /user:gsd-t-resume to continue from the saved position
-  5. Do NOT continue working after running pause — the session is done
-```
-
-**This applies to ALL session types**: orchestrated workflows (execute, wave, integrate), ad-hoc commands (quick, debug), and even plain conversations. Any session where the Context Meter fires. Ignoring this signal risks hitting the runtime's ~95% `/compact` wall, which destroys context silently and loses work.
-
-**Contract**: `.gsd-t/contracts/context-meter-contract.md` v1.2.0, §"Universal Auto-Pause Rule".
+- **Invocation**: any workflow command can accept `--watch` to keep a live status block in the interactive session (ScheduleWakeup-driven, 270s ticks). Without `--watch`, the caller gets a launch banner, an event-stream log location, and exits.
+- **Event stream**: the supervisor emits JSONL to `.gsd-t/events/YYYY-MM-DD.jsonl` at every phase boundary (task_start, task_complete, error, retry). The watch-tick command and dashboard consume the same stream.
+- **Router mode**: when the user describes what they want in plain language via `/user:gsd` and the request is exploratory/conversational (brainstorm, "help me think through", "what are the trade-offs"), the router answers inline — no command spawn. See `commands/gsd.md` Step 2.5.
+- **Contracts**: `.gsd-t/contracts/headless-default-contract.md` v1.0.0, `unattended-event-stream-contract.md` v1.0.0, `unattended-supervisor-contract.md` v1.1.0.
 
 ## API Documentation Guard (Swagger/OpenAPI)
 

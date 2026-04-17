@@ -51,8 +51,6 @@ The framework has no runtime — it is consumed entirely by Claude Code's slash 
 - **Outcome-tagged Decision Log**: New Decision Log entries use `[success]`/`[failure]`/`[learning]`/`[deferred]` prefixes for machine-readable filtering (execute, debug, wave, complete-milestone).
 - **Pre-task experience retrieval (execute, debug)**: Grep Decision Log for `[failure]`/`[learning]` entries matching current domain before spawning subagent — Reflexion pattern without fine-tuning. Writes `experience_retrieval` event.
 - **Distillation step (complete-milestone Step 2.5)**: Scans `.gsd-t/events/*.jsonl` for patterns seen ≥3 times, proposes CLAUDE.md / constraints.md rule additions, user confirms before write.
-- **`commands/gsd-t-reflect.md`**: On-demand retrospective command (47th command). Reads current milestone events, generates `.gsd-t/retrospectives/YYYY-MM-DD-{milestone}.md` with sections: What Worked, What Failed, Patterns Found, Proposed Memory Updates.
-
 ### Auto-Route + Auto-Update Hooks (M16 — complete)
 - **`scripts/gsd-t-auto-route.js`** (39 lines): UserPromptSubmit hook. Reads JSON from stdin (`{ prompt, cwd, session_id }`). If `.gsd-t/progress.md` does not exist in cwd → exits silently. If prompt starts with `/` → exits silently. If plain text in a GSD-T project → emits `[GSD-T AUTO-ROUTE]` signal to Claude's context, routing the message through `/user:gsd`. Catches all exceptions — never blocks the prompt.
 - **`scripts/gsd-t-update-check.js`** (79 lines): SessionStart hook. Reads `~/.claude/.gsd-t-version`. Reads/refreshes `~/.claude/.gsd-t-update-check` cache (1h TTL). If newer version available: runs `npm install -g @tekyzinc/gsd-t@{latest}` + `gsd-t update-all` via execSync. Outputs `[GSD-T AUTO-UPDATE]`, `[GSD-T UPDATE]`, or `[GSD-T]` banner. NOTE: No module.exports — untestable as module (TD-081). Version string not validated before execSync (SEC-N28).
@@ -529,16 +527,14 @@ Orchestrator Context Gate — v3.0.0 semantics:
 **Contracts:**
 - `.gsd-t/contracts/context-meter-contract.md` — schema, state file format, hook I/O
 - `.gsd-t/contracts/context-observability-contract.md` v2.0.0 — Ctx% as the real session-wide signal (replaces Tasks-Since-Reset)
-- `.gsd-t/contracts/token-budget-contract.md` v3.0.0 — three-band stop-at-85 (M35 clean break from v2.0.0)
-- `.gsd-t/contracts/token-telemetry-contract.md` v1.0.0 — per-spawn 18-field JSONL at `.gsd-t/token-metrics.jsonl`
-- `.gsd-t/contracts/runway-estimator-contract.md` v1.0.0 — pre-flight projection, confidence grading, refusal/headless handoff
-- `.gsd-t/contracts/headless-auto-spawn-contract.md` v1.0.0 — detached continuation, session schema, macOS notification channel
+- `.gsd-t/contracts/token-budget-contract.md` v3.0.0 — single-band stop-at-85 (M38 collapsed the three-band degradation model)
+- `.gsd-t/contracts/headless-default-contract.md` v1.0.0 — detached-by-default spawn primitive (M38; folds-and-supersedes headless-auto-spawn-contract v1.0.0 and obviates the runway-estimator / token-telemetry contracts deleted in M38)
 - `.gsd-t/contracts/model-selection-contract.md` v1.0.0 — per-phase tier mapping + complexity-signal escalation, consumed by `bin/model-selector.js`
 
-**M35 supporting components** (outside the context-meter dataflow):
+**Supporting components** (outside the context-meter dataflow):
 - `bin/model-selector.js` — declarative rules table mapping phases to haiku/sonnet/opus; consulted at plan time, never at runtime under pressure
-- `bin/token-optimizer.js` — at `complete-milestone`, scans the last 3 milestones of `.gsd-t/token-metrics.jsonl` and appends recalibration recommendations to `.gsd-t/optimization-backlog.md` (never auto-applied; user promotes via `/user:gsd-t-optimization-apply` or rejects via `/user:gsd-t-optimization-reject` with 5-milestone cooldown)
 - `bin/check-headless-sessions.js` — renders the read-back banner on `/user:gsd-t-resume` and `/user:gsd-t-status` for completed-but-not-yet-surfaced headless sessions
+- `bin/event-stream.cjs` (M38) — shared library for JSONL event emission and cursor-based tailing; used by supervisor, watch tick, and dashboard
 
 **Installer integration** (`bin/gsd-t.js`):
 - `install` / `init` — copy hook runtime, merge PostToolUse entry into `~/.claude/settings.json`, copy config template, prompt for API key (skippable, TTY-only)

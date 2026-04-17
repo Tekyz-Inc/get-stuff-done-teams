@@ -29,26 +29,7 @@ node bin/check-headless-sessions.js . 2>/dev/null || true
 
 This prints a `## Headless runs since you left` banner listing any completed sessions with their duration, outcome, and log path, then marks them surfaced so the banner never re-appears for the same session. If no completed sessions exist, it prints nothing. The banner appears at the very top of status output — before the main status table.
 
-Contract: `.gsd-t/contracts/headless-auto-spawn-contract.md` v1.0.0
-
-## Step 0.5: Optimization Backlog Pending Count (one-liner)
-
-Immediately after the headless banner, surface the count of pending token-optimizer recommendations. Show only when `N > 0` — when `N === 0`, omit the line entirely (no noise).
-
-```bash
-node -e "
-try {
-  const opt = require('./bin/token-optimizer.cjs');
-  const entries = opt.parseBacklog(opt.readBacklog('.'));
-  const pending = entries.filter(e => e.status === 'pending').length;
-  if (pending > 0) {
-    console.log('Optimization backlog: ' + pending + ' pending recommendation(s) — /user:gsd-t-backlog-list --file optimization-backlog.md');
-  }
-} catch (_) { /* optimizer unavailable — silent */ }
-"
-```
-
-Contract: `.gsd-t/contracts/token-telemetry-contract.md` v1.0.0
+Contract: `.gsd-t/contracts/headless-default-contract.md` v1.0.0
 
 ## Read These Files
 
@@ -162,18 +143,7 @@ Flagged Components:
   ⚠️  {component-name} — {reason}
 ```
 
-If `bin/qa-calibrator.js` exists and `.gsd-t/metrics/qa-miss-log.jsonl` exists, display QA miss-rate summary:
-
-Run via Bash:
-`node -e "const qc = require('./bin/qa-calibrator.js'); const s = qc.getMissRateSummary('.'); if(s) process.stdout.write(JSON.stringify(s));" 2>/dev/null`
-
-If data returned, display:
-```
-QA Calibration:
-  Miss rate: {miss_rate}% | Weak spots: {weak_spot_count} | Top category: {top_category}
-```
-
-If neither file exists, skip this section entirely.
+If `bin/component-registry.js` does not exist, skip this section entirely.
 
 ## Version Check
 

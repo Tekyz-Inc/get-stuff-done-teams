@@ -305,6 +305,22 @@
 **Orphaned requirements**: None — all M36 REQs mapped to tasks.
 **Unanchored tasks**: None — all M36 tasks trace to REQ-079–REQ-087.
 
+**M38 Functional Requirements:**
+- **REQ-088**: Workflow commands (execute, wave, integrate, debug repair loops) spawn detached by default via the unattended supervisor. Interactive session returns after printing a launch banner and event-stream log location. Contract: `headless-default-contract.md` v1.0.0. Traces to: m38-headless-spawn-default T1–T6.
+- **REQ-089**: `--watch` flag keeps a live status block in the interactive session (270s `ScheduleWakeup` ticks, cache-window-safe). Without `--watch`, the session exits; the user is notified via macOS when work completes. Flag propagates through wave → phase commands. Traces to: m38-headless-spawn-default T4.
+- **REQ-090**: Supervisor emits JSONL events to `.gsd-t/events/YYYY-MM-DD.jsonl` at every phase boundary (`task_start`, `task_complete`, `error`, `retry`). Cursor state at `.gsd-t/.unattended/event-cursor`. Shared library: `bin/event-stream.cjs`. Contract: `unattended-event-stream-contract.md` v1.0.0, supervisor contract bumped to v1.1.0. Traces to: m38-unattended-event-stream T1–T5.
+- **REQ-091**: Smart Router classifies non-continuation messages as conversational or workflow. Conversational triggers (thinking/brainstorming/exploring) get inline responses with no command spawn. Workflow triggers route to the existing semantic evaluation. Default on ambiguity: conversational. Traces to: m38-router-conversational T1–T5.
+- **REQ-092**: Context Meter collapses to a single-band model (`context-meter-contract.md` v1.3.0). One threshold, one action — hand off to a detached spawn. Three-band routing (`normal`/`warn`/`stop`) and `MANDATORY STOP` rule removed. Traces to: m38-meter-reduction T1–T6.
+- **REQ-093**: Self-improvement loop deleted — 4 commands (`gsd-t-optimization-apply`, `gsd-t-optimization-reject`, `gsd-t-reflect`, `gsd-t-audit`) and 2 bin files (`qa-calibrator.js`, `token-optimizer.js`) removed. Their signal never produced action; the work that would close the loop is folded into the spawn decision. Traces to: m38-cleanup-and-docs T1–T10.
+
+**M38 Non-Functional Requirements:**
+- Net LOC decrease ≥ 5,000 (success criterion #11 of the milestone)
+- `npm test` green through every domain commit
+- Zero external npm dependencies (inherited — applies to `bin/event-stream.cjs`, `bin/unattended-watch-format.cjs`)
+
+**Orphaned requirements**: None — all M38 REQs mapped to tasks.
+**Unanchored tasks**: None — all M38 tasks trace to REQ-088–REQ-093.
+
 ---
 
 ## M17: Scan Visual Output — Feature Specification

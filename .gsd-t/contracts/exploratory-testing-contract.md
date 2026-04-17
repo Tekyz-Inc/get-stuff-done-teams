@@ -63,7 +63,7 @@ Exploratory findings feed into M31 QA calibration as a separate category:
 - Category key: `exploratory`
 - These findings do NOT count against the scripted test pass/fail ratio
 - They are tracked separately in `.gsd-t/metrics/task-metrics.jsonl` with `source: "exploratory"`
-- QA calibration contract (`qa-calibration-contract.md`) defines the `exploratory` signal type
+- Historical: the M31 `qa-calibration-contract.md` defined the `exploratory` signal type; that contract was deleted in M38 along with the self-improvement loop. The `source: "exploratory"` marker on task-metrics records is the surviving discriminator.
 
 ## Prompt Block Template
 

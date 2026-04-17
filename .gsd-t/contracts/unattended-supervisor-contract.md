@@ -4,8 +4,8 @@
 **Status**: ACTIVE for M38
 **Owner**: m36-supervisor-core + m36-watch-loop (shared)
 **Consumers**: m36-supervisor-core, m36-watch-loop, m36-safety-rails, m36-cross-platform, m36-m35-gap-fixes, m36-docs-and-tests
-**Depends on**: `headless-auto-spawn-contract.md` v1.0.0 (M35) — supervisor is a higher-level relay built above the same substrate
-**Related**: `token-budget-contract.md` v3.0.0 (M35), `model-selection-contract.md` v1.0.0 (M35), `runway-estimator-contract.md` v1.0.0 (M35)
+**Depends on**: `headless-default-contract.md` v1.0.0 (M38; folds-and-supersedes headless-auto-spawn-contract v1.0.0 from M35) — supervisor is a higher-level relay built above the same substrate
+**Related**: `token-budget-contract.md` v3.0.0 (M35), `model-selection-contract.md` v1.0.0 (M35)
 
 ---
 
