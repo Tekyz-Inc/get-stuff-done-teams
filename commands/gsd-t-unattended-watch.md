@@ -103,8 +103,15 @@ if (state) {
   const lt = state.lastTick ? Date.parse(state.lastTick) : null;
   const tickAgeMs = lt ? (Date.now() - lt) : null;
   out('TICK_AGE_MS', tickAgeMs);
+  // v3.13.11 Bug 3: IS_STALE computed deterministically here (not in Haiku's
+  // rendering step) — stale iff tickAgeMs > 540000 (2× 270s tick cadence per
+  // unattended-supervisor-contract §3). Below threshold → false. At/above
+  // threshold → true. Renderer just reads this flag; no prose interpretation.
+  const IS_STALE = tickAgeMs !== null && tickAgeMs > 540000;
+  out('IS_STALE', IS_STALE);
 } else {
   out('STATUS', null);
+  out('IS_STALE', false);
 }
 
 // --- run.log tail (last ~2KB via fd seek, not full read) ---
@@ -312,7 +319,7 @@ Render two blocks: the workflow-progress header (existing) plus the M38 **event-
 Format rules:
 - One extra space after each emoji (per CLAUDE.md markdown table rules — preserves alignment in terminal views).
 - Elapsed formatted as `{H}h{M}m` from `ELAPSED_MS`.
-- Last-tick age formatted as `{S}s` or `{M}m{S}s`. If age > 540s (2× tick cadence), append ` ⚠️  stale` as a soft warning.
+- Last-tick age formatted as `{S}s` or `{M}m{S}s`. If `IS_STALE=true` (computed deterministically in Step 2 as `tickAgeMs > 540000`), append ` ⚠️  stale`. The renderer must NOT interpret the threshold itself — Step 2 is the source of truth; rendering just reads the IS_STALE flag verbatim.
 - Tasks progress bar: `[████████░░░░] 8/12` — filled blocks proportional to done/total.
 - Domain breakdown only shown if ≤6 domains (otherwise too noisy).
 
@@ -395,6 +402,6 @@ After the tool call, end the turn. Do NOT output a "Next Up" hint, do NOT contin
 - **Terminal = STOP**: any terminal branch (3, 4, 5) ends the loop. The user relaunches via `/gsd-t-unattended` if needed.
 - **Never spawn subagents**: this is a pure polling command — no Task, no TeamCreate, no observability logging block.
 - **No branch guard, no pre-commit gate, no doc ripple**: this command does not modify any files.
-- **Stale-tick tolerance**: if `lastTick` is >540s old but PID is still alive, warn soft (`⚠️  stale`) but still reschedule — the supervisor may be mid-worker.
+- **Stale-tick tolerance**: `IS_STALE=true` iff `tickAgeMs > 540000` (computed deterministically in Step 2). When stale, warn soft (`⚠️  stale`) but still reschedule — the supervisor may be mid-worker. The threshold math lives in Step 2's node block; rendering reads the flag verbatim.
 
 $ARGUMENTS

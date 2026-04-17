@@ -975,8 +975,22 @@ function runMainLoop(state, dir, opts, deps, ctx) {
       exitCode = mapHeadlessExitCode(res.status, stdout + "\n" + stderr);
     }
 
+    // v3.13.11 Bug 1: when the watchdog fires (spawnSync timeout SIGTERM or
+    // platform.spawnWorker timedOut flag), make the event explicit in run.log
+    // so operators can see WHICH iteration timed out without inferring from
+    // exit codes. The marker is prepended to stdout and written in the single
+    // per-iter run.log append (no duplicate header).
+    let loggedStdout = stdout;
+    if (exitCode === 124) {
+      const marker =
+        `[worker_timeout] iter=${state.iter} budget=${workerTimeoutMs}ms ` +
+        `elapsed=${elapsedMs}ms — watchdog SIGTERM delivered, ` +
+        `supervisor continues relay per contract §16.\n`;
+      loggedStdout = marker + (stdout || "");
+    }
+
     // Append the full worker output to run.log (never truncate).
-    _appendRunLog(dir, state.iter, workerEnd, exitCode, stdout, stderr);
+    _appendRunLog(dir, state.iter, workerEnd, exitCode, loggedStdout, stderr);
 
     // Append to token-log.md (Fix 1, v3.12.12) — supervisor workers write rows
     // so the log captures headless/unattended activity, not just interactive spawns.
@@ -1191,6 +1205,23 @@ function _spawnWorker(state, opts) {
       "-p",
       [
         "You are an unattended worker iteration. CRITICAL: Do NOT check supervisor.pid, do NOT auto-reattach to a watch loop, do NOT schedule any ScheduleWakeup. You ARE the worker spawned by the supervisor. Skip Step 0 (auto-reattach) entirely and go directly to Step 0.1.",
+        "",
+        "# CWD Invariant (v3.13.11 Bug 2)",
+        "",
+        "Before any other work, assert your current working directory matches the",
+        "supervisor's project directory. A worker that silently drifts to a",
+        "different repo will commit to the wrong tree and corrupt state.json.",
+        "",
+        "First Bash call this turn (mandatory):",
+        "",
+        "    [ \"$(pwd)\" = \"$GSD_T_PROJECT_DIR\" ] || cd \"$GSD_T_PROJECT_DIR\"",
+        "    pwd  # confirm",
+        "",
+        "Thereafter, scope any directory change inside a subshell so a `cd` in",
+        "one Bash call cannot contaminate the next one:",
+        "",
+        "    ( cd some/subdir && run-command )   # safe — subshell",
+        "    cd some/subdir && run-command        # UNSAFE — leaks cwd",
         "",
         "# Team Mode (Intra-Wave Parallelism)",
         "",

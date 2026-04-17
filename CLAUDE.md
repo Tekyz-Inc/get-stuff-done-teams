@@ -76,6 +76,23 @@ For QA/validation subagents, append findings to `.gsd-t/qa-issues.md`:
 | Date | Command | Step | Model | Duration(s) | Severity | Finding |
 ```
 
+
+# Destructive Action Guard (MANDATORY)
+
+**NEVER perform destructive or structural changes without explicit user approval.** This applies at ALL autonomy levels.
+
+Before any of these actions, STOP and ask the user:
+- DROP TABLE, DROP COLUMN, DROP INDEX, TRUNCATE, DELETE without WHERE
+- Renaming or removing database tables or columns
+- Schema migrations that lose data or break existing queries
+- Replacing an existing architecture pattern (e.g., normalized → denormalized)
+- Removing or replacing existing files/modules that contain working functionality
+- Changing ORM models in ways that conflict with the existing database schema
+- Removing API endpoints or changing response shapes that existing clients depend on
+- Any change that would require other parts of the system to be rewritten
+
+**Rule: "Adapt new code to existing structures, not the other way around."**
+
 ## Pre-Commit Gate (project-specific additions)
 
 The global gate applies first (see `~/.claude/CLAUDE.md`). Additionally for this repo:

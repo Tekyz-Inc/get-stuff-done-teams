@@ -1,6 +1,6 @@
 # Contract: Unattended Supervisor
 
-**Version**: 1.3.0
+**Version**: 1.3.1
 **Status**: ACTIVE for M38
 **Owner**: m36-supervisor-core + m36-watch-loop (shared)
 **Consumers**: m36-supervisor-core, m36-watch-loop, m36-safety-rails, m36-cross-platform, m36-m35-gap-fixes, m36-docs-and-tests
@@ -432,6 +432,16 @@ changes are orthogonal and compose — a parallelized worker that exits within
    interrupted — there is no hard failure, no manual intervention required,
    no state corruption. A warning-level log line identifies the iter as a
    cache-miss so operators can audit pacing over long runs.
+
+   **v3.13.11 diagnostic tag**: on timeout, `runMainLoop` writes a
+   deterministic `[worker_timeout] iter=N budget=Nms elapsed=Nms — watchdog
+   SIGTERM delivered, supervisor continues relay per contract §16.` line to
+   `run.log` immediately before the main iter body. This surfaces the
+   watchdog firing in log tails without requiring the operator to parse
+   `state.json`. The existing `writeState` call still commits `lastExit=124`
+   and a fresh `lastTick` so `/gsd-t-unattended-watch` sees a heartbeat
+   post-timeout within the same tick. See `run.log` `grep '[worker_timeout]'`
+   for a timeline of cache misses.
 4. **Inter-iteration sleep invariant** — the supervisor MUST NOT sleep
    more than 5 seconds between a worker exit and the next `spawnWorker`
    call on the happy path. Every added second shrinks the effective cache
@@ -466,6 +476,7 @@ changes are orthogonal and compose — a parallelized worker that exits within
 | 1.2.0 | 2026-04-17 | Added §14b Worker Env Propagation (GSD_T_COMMAND/PHASE/TRACE_ID/MODEL/PROJECT_DIR) to close the v3.12.13 null-telemetry regression | v3.12.14 |
 | 1.3.0 | 2026-04-17 | Added §15 Worker Team Mode (intra-wave parallelism, cap 15, sequential inter-wave) — worker now mirrors `/gsd-t-execute` Team Mode pattern to close the bee-poc 3–5× speed gap | m39-d3-parallel-exec |
 | 1.3.0 | 2026-04-17 | Added §16 Cache-Warm Pacing — worker timeout default lowered from 1 h to 270 s to preserve Anthropic's 5-min prompt-cache TTL across back-to-back worker handoffs; graceful degradation on timeout | m39-d4-cache-warm-pacing |
+| 1.3.1 | 2026-04-17 | §16 bullet 3 gains a v3.13.11 diagnostic tag: `runMainLoop` writes an explicit `[worker_timeout] iter=N budget=Nms elapsed=Nms` line to `run.log` when the watchdog fires, so timeout-induced cache misses surface in log tails without requiring state.json inspection | v3.13.11 (bee-poc hang triple-fix) |
 
 ---
 

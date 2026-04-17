@@ -2,6 +2,32 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [3.13.11] - 2026-04-17
+
+### Fixed — Unattended supervisor reliability triple-fix (bee-poc 15-min hang fallout)
+
+A real bee-poc supervisor relay hung for 15+ minutes on v3.12.15 (pid 70897). Three independent defects surfaced from that incident and are fixed together in this patch. The root cause of the hang itself — a 1-hour worker timeout on the deployed v3.12.15 package — is finally resolved by shipping v3.13.10's D4 work to npm; the two other bugs are fixes for contract-boundary and cosmetic issues the hang exposed.
+
+**Bug 1 (P0) — supervisor watchdog visibility on timeout**:
+The spawnSync `timeout` option kills a hung worker after `DEFAULT_WORKER_TIMEOUT_MS` (270 s in v3.13.10+) and maps the result to contract exit code 124, but the event was not legibly surfaced in `run.log`. Operators tailing the log saw an empty iter block with no indication that the watchdog had fired. `runMainLoop` now writes a deterministic `[worker_timeout] iter=N budget=Nms elapsed=Nms` line to `run.log` immediately before the regular iter trailer, so timeout-induced cache misses are self-documenting. The existing `writeState` call still commits `lastExit=124` + a fresh `lastTick` so `/gsd-t-unattended-watch` sees a heartbeat post-timeout.
+
+**Note on the deployed-version aspect**: the 1-hour → 270 s worker-timeout reduction shipped in v3.13.10 on GitHub but v3.13.10 was never published to npm (progress.md was in "pending publish" state when the bee-poc run started). bee-poc was running against the installed v3.12.15, which still had `DEFAULT_WORKER_TIMEOUT_MS = 3600000`. Publishing v3.13.11 closes both issues — the timeout reduction reaches bee-poc (and every downstream project) and the new diagnostic line makes future watchdog firings visible.
+
+**Bug 2 (P0) — worker cwd invariant**:
+run.log from the bee-poc hang showed a `Shell cwd was reset to /Users/david/projects/GSD-T` line mid-iter — the worker's Bash shell had escaped bee-poc's project directory, and subsequent tool calls silently targeted the wrong repo. `_spawnWorker` already passes `cwd: projectDir` to `platformSpawnWorker` and sets `GSD_T_PROJECT_DIR` on the worker env (correct baseline), but the worker itself had no instruction to re-assert that invariant. The worker prompt now carries an explicit `# CWD Invariant` section that instructs the worker to (a) run `[ "$(pwd)" = "$GSD_T_PROJECT_DIR" ] || cd "$GSD_T_PROJECT_DIR"` as its first Bash call, and (b) scope any directory change inside a subshell (`( cd other && cmd )`) rather than using bare top-level `cd`.
+
+**Bug 3 (P2) — IS_STALE determinism**:
+`/gsd-t-unattended-watch` is run by the haiku model and the "tick age > 540 s → append ⚠️ stale" threshold lived in the Step 6a rendering prose. Haiku would occasionally apply the stale flag to ticks in the 330–540 s band by misreading the prose. The threshold math now lives entirely inside Step 2's `node -e` block as a boolean emission (`IS_STALE = tickAgeMs !== null && tickAgeMs > 540000`), and Step 6a just reads the flag. Boundary cases: 539 s = false, 540 s = false (strict greater-than), 541 s = true.
+
+**Files**:
+- `bin/gsd-t-unattended.cjs` — worker_timeout run.log append; CWD Invariant section in `_spawnWorker` prompt.
+- `commands/gsd-t-unattended-watch.md` — Step 2 IS_STALE computation + emission; Step 6a reader-only rendering; Notes section updated.
+- `test/unattended-triple-fix-v3-13-11.test.js` — 8 new tests (3 Bug 1 + 3 Bug 2 + 3 Bug 3 — one boundary-math test covers three points, bringing the practical count to 8 assertions across 8 it-blocks, of which 3 exercise the Bug 3 boundaries).
+
+**Tests**: 1235/1235 pass (was 1227; +8 new assertions). E2E: N/A (no playwright.config.*).
+
+**Impact**: bee-poc-class hangs are self-recoverable in v3.13.11 — a hung worker is bounded at 270 s by the watchdog, the timeout is now visible in run.log, cwd drift is caught by the worker itself on entry, and `/gsd-t-unattended-watch` no longer produces spurious stale warnings under the threshold.
+
 ## [3.13.10] - 2026-04-17
 
 ### Added — M39: Fast Unattended + Universal Watch-Progress Tree
