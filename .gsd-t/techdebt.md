@@ -2,7 +2,7 @@
 
 ## Summary
 - **Critical items**: 0 new (1 carried — TD-097 graph-query injection, status unverified)
-- **High priority**: 3 new (TD-102, TD-103, TD-104)
+- **High priority**: 3 new (TD-102, TD-103, TD-104) — all RESOLVED by M38 (v3.12.10)
 - **Medium priority**: 4 new (TD-105 through TD-108)
 - **Low priority**: 4 new (TD-109 through TD-112)
 - **Total new this scan**: 11
@@ -35,7 +35,7 @@ Items that should be addressed in the next 1–2 milestones.
 ### TD-102: Stranded context-meter tests after v3.11.11 (privacy invariant at risk)
 - **Category**: quality / security
 - **Severity**: HIGH
-- **Status**: OPEN
+- **Status**: RESOLVED — M38 (v3.12.10) `scripts/gsd-t-context-meter.test.js` rewritten for single-band estimator; 7 stranded tests green
 - **Location**: `scripts/gsd-t-context-meter.test.js` (tests 2, 3, 4, 6, 7b, 10c, 11)
 - **Description**: 7 tests reference the removed `_countTokens` injection or assert
   on the old log fixture (`tokens=42`). Source was migrated to `_estimateTokens` in
@@ -54,7 +54,7 @@ Items that should be addressed in the next 1–2 milestones.
 ### TD-103: Stale `count_tokens` / `ANTHROPIC_API_KEY` documentation across user-facing surfaces
 - **Category**: quality (documentation security)
 - **Severity**: HIGH
-- **Status**: OPEN
+- **Status**: RESOLVED — M38 (v3.12.10) CD domain doc-ripple updated all 9 living documents; context-meter-contract v1.3.0 rewrites purpose section; methodology §3–§5 historical framing added
 - **Location**: README.md (10 hits), docs/infrastructure.md (12), docs/architecture.md
   (4), docs/methodology.md, docs/requirements.md (2),
   `.gsd-t/contracts/context-meter-contract.md` (16, partial update), CHANGELOG.md
@@ -84,7 +84,7 @@ Items that should be addressed in the next 1–2 milestones.
 ### TD-104: Project `CLAUDE.md` describes the retired `bin/task-counter.cjs` as the "real guard"
 - **Category**: quality (documentation)
 - **Severity**: HIGH
-- **Status**: OPEN
+- **Status**: RESOLVED — M38 (v3.12.10) CD-T5 updated project CLAUDE.md; task-counter.cjs prose retired; Context Meter section updated to single-band v1.3.0
 - **Location**: `/Users/david/projects/GSD-T/CLAUDE.md` — sections "Observability
   Logging" and the "Orchestrator Task-Count Gate" subsection.
 - **Description**: M34 (v2.75.10) retired `bin/task-counter.cjs` and the install/update

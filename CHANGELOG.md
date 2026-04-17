@@ -2,6 +2,51 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [3.12.10] - 2026-04-17
+
+### M38: Headless-by-Default + Meter Reduction
+
+**Background**: M37 was right that the context meter needed to do more — but escalating to a MANDATORY STOP banner in the interactive session was the wrong fix. M38 removes the cause instead of bandaging the symptom: headless spawning is now the default for all primary workflow subagents, so the parent context grows much slower and the single-band meter threshold is sufficient. Seven commands removed. Five contracts folded. Net result: same "work never stops" UX achieved by structure instead of instrumentation.
+
+### Added
+- **`bin/event-stream.cjs`** — new module for structured JSONL event emission to `.gsd-t/events/YYYY-MM-DD.jsonl`. Emits `task_start`, `task_complete`, `subagent_verdict`, `file_changed`, `test_result`, `error`, `retry` event types. Used by unattended supervisor and watch tick.
+- **`bin/headless-auto-spawn.cjs`** `watch` + `spawnType` parameters — propagation rules: `spawnType:'validation'` always headless regardless of `--watch`; `spawnType:'primary'` + `watch:true` returns `{mode:'in-context'}` for live streaming.
+- **`.gsd-t/contracts/headless-default-contract.md`** v1.0.0 — defines the headless spawn primitive, Conversion Map (7 primary commands converted), `--watch` flag spec, validation-spawn enforcement, and migration path. Folds headless-auto-spawn-contract v1.0.0.
+- **`.gsd-t/contracts/unattended-event-stream-contract.md`** v1.0.0 — JSONL event schema, watch tick activity log format, supervisor emission requirements.
+- **`test/headless-default.test.js`** — 11 tests covering the 4-cell propagation matrix (primary/validation × watch/no-watch) + regression coverage.
+- **`test/event-stream.test.js`**, **`test/unattended-watch.test.js`**, **`test/router-intent.test.js`** — new test files for M38 components.
+- **`commands/gsd.md`** intent classifier — handles conversational requests directly (workflow → existing command; conversational → respond; ambiguous → default to conversation).
+
+### Changed
+- **7 command files** (`gsd-t-execute`, `gsd-t-wave`, `gsd-t-integrate`, `gsd-t-quick`, `gsd-t-debug`, `gsd-t-scan`, `gsd-t-verify`) — converted to `autoSpawnHeadless({spawnType:'primary', watch:$WATCH_FLAG})` pattern. Validation spawns (QA, Red Team, Design Verification) always headless.
+- **`bin/gsd-t-unattended.{cjs,js}`** — rejects `--watch` flag with clear error. Emits structured JSONL events at every phase boundary.
+- **`.gsd-t/contracts/context-meter-contract.md`** v1.3.0 — drops three-band model, dead-meter detection, stale-band logic, Universal Auto-Pause elevation. Single-band model: one threshold (default 85%), one action (silent headless handoff). Replaces v1.2.0.
+- **`.gsd-t/contracts/unattended-supervisor-contract.md`** v1.1.0 — adds §9 Event Stream Emission requirement: supervisor MUST emit structured events; watch tick MUST read events and format activity log.
+- **`templates/CLAUDE-global.md`** — Universal Auto-Pause Rule section removed; Context Meter section updated to single-band description.
+- **5 loop commands** (`gsd-t-execute`, `gsd-t-wave`, `gsd-t-integrate`, `gsd-t-quick`, `gsd-t-debug`) — Step 0.2 Universal Auto-Pause enforcement stripped.
+- **`scripts/gsd-t-context-meter.test.js`** — rewritten for single-band model.
+- **`test/filesystem.test.js`** — command count updated from 61 to 54.
+- **`docs/requirements.md`** — REQ-073..078 updated to `SUPERSEDED by REQ-08X (M38)` with replacement pointers. REQ-088..093 added (M38 requirements).
+- **`docs/methodology.md`** §3–§5 — historical framing added; deleted machinery marked as superseded by M38.
+- **`docs/prd-harness-evolution.md`** — Status updated to `HISTORICAL — M31 shipped; M32/M33 SUPERSEDED by M38`.
+- **`docs/architecture.md`**, **`docs/workflows.md`**, **`docs/infrastructure.md`**, **`GSD-T-README.md`** — updated to reflect headless-by-default spawn path, event stream, simplified meter.
+
+### Removed
+- **7 commands deleted**: `gsd-t-optimization-apply`, `gsd-t-optimization-reject`, `gsd-t-reflect`, `gsd-t-audit` (self-improvement loop), `gsd-t-prompt`, `gsd-t-brainstorm`, `gsd-t-discuss` (conversational — router intent classifier handles these)
+- **`bin/runway-estimator.cjs`** + **`bin/token-telemetry.cjs`** — deleted; replaced by headless-by-default approach
+- **`bin/qa-calibrator.js`** + **`bin/token-optimizer.js`** — deleted with self-improvement loop
+- **5 contracts folded/deleted**: `runway-estimator-contract.md`, `token-telemetry-contract.md`, `headless-auto-spawn-contract.md`, `qa-calibration-contract.md`, `harness-audit-contract.md`
+- **`test/runway-estimator.test.js`**, **`test/token-telemetry.test.js`**, **`test/qa-calibrator.test.js`**, **`test/token-optimizer.test.js`** — deleted with removed modules
+
+### Migration Notes
+- **Spawn pattern**: replace `autoSpawnHeadless()` (no args) with `autoSpawnHeadless({spawnType:'primary', watch:$WATCH_FLAG})` in any downstream command files that call the spawn primitive directly.
+- **Context meter**: if you depend on the three-band model (`normal`/`warn`/`stop`) or dead-meter detection in `token-budget.cjs`, those fields are removed. `getSessionStatus()` returns `{pct, threshold}` only.
+- **Deleted contracts**: any downstream references to `runway-estimator-contract.md`, `token-telemetry-contract.md`, or `headless-auto-spawn-contract.md` should point to `headless-default-contract.md` v1.0.0 instead.
+- **Deleted commands**: `gsd-t-prompt`, `gsd-t-brainstorm`, `gsd-t-discuss` — use plain text messages to Claude instead; the router classifier handles conversational requests. `gsd-t-optimization-apply/reject`, `gsd-t-reflect`, `gsd-t-audit` — removed; the self-improvement backlog is no longer maintained.
+
+### Testing
+- 1176/1177 tests pass. 1 pre-existing failure (`scan.test.js:287`) carried forward — scan-data-collector regex drift vs current prose format, unrelated to M38 scope.
+
 ## [3.11.12] - 2026-04-16
 
 ### Added — M38 Partition + Plan + Domain H1 Progress
