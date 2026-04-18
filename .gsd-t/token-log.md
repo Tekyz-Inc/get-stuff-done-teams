@@ -254,3 +254,88 @@
 <!-- missed_escalation 2026-04-17T17:40:52.941Z phase= domain= task= q="(no question provided)" -->
 <!-- missed_escalation 2026-04-17T17:41:44.087Z phase= domain= task= q="test" -->
 <!-- missed_escalation 2026-04-17T17:41:44.087Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-17T17:42:37.053Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-17T17:42:37.054Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-17T18:55:14.307Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-17T18:55:14.308Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-17T18:56:52.017Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-17T18:56:52.017Z phase= domain= task= q="(no question provided)" -->
+| 2026-04-17 11:49 | 2026-04-17 12:02 | gsd-t-debug | Step 0 | opus | 761s | debug: v3.12.13 telemetry regression — spawner env-var gap | - | - | 251 |
+<!-- missed_escalation 2026-04-17T19:05:43.451Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-17T19:05:43.451Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-17T19:27:16.947Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-17T19:27:16.948Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-17T19:28:19.206Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-17T19:28:19.206Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-17T19:29:39.767Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-17T19:29:39.767Z phase= domain= task= q="(no question provided)" -->
+| 2026-04-17 12:23 | 2026-04-17 12:30 | gsd-t-quick | Step 0 | sonnet | 454s | quick: v3.12.15 decision-log trim + progress.md cleanup | 273.3 |
+<!-- missed_escalation 2026-04-17T19:42:54.474Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-17T19:42:54.475Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-17T19:49:13.806Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-17T19:49:13.806Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-17T19:56:41.442Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-17T19:56:41.442Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-17T20:12:08.704Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-17T20:12:08.704Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-17T20:15:04.652Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-17T20:15:04.652Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-17T20:26:05.044Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-17T20:26:05.044Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-17T20:30:23.942Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-17T20:30:23.943Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-17T20:32:38.709Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-17T20:32:38.709Z phase= domain= task= q="(no question provided)" -->
+| 2026-04-17 13:12 | 2026-04-17 13:33 | gsd-t-execute | Step 5.5 Red Team | opus | 1227s | FAIL→fix→GRUDGING PASS (M39 Wave 1; 4 critical/high + 4 low fixes) | M39 | Wave1 RedTeam | N/A |
+<!-- missed_escalation 2026-04-17T20:35:53.720Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-17T20:35:53.720Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-17T20:37:53.935Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-17T20:37:53.935Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-17T21:30:10.004Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-17T21:30:10.004Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-17T21:34:18.001Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-17T21:34:18.002Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-17T21:36:03.455Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-17T21:36:03.455Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-17T21:38:44.999Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-17T21:38:44.999Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-17T21:39:28.589Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-17T21:39:28.589Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-17T21:39:49.393Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-17T21:39:49.393Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-17T21:40:09.114Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-17T21:40:09.114Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-17T21:40:29.287Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-17T21:40:29.288Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-17T21:41:08.748Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-17T21:41:08.749Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-17T21:42:53.892Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-17T21:42:53.893Z phase= domain= task= q="(no question provided)" -->
+| 2026-04-17 14:27 | 2026-04-17 14:44 | gsd-t-debug | Step 0 | opus | 1013s | v3.13.11 triple-fix (watchdog + cwd invariant + IS_STALE) — 1235/1235 pass, Red Team GRUDGING PASS, published | | | N/A |
+<!-- missed_escalation 2026-04-17T22:00:40.204Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-17T22:00:40.204Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-17T22:01:23.073Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-17T22:01:23.073Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-17T22:04:25.165Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-17T22:04:25.166Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-17T22:05:12.443Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-17T22:05:12.444Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-17T22:10:56.785Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-17T22:10:56.785Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-17T22:13:56.640Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-17T22:13:56.640Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-17T22:14:41.925Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-17T22:14:41.925Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-17T22:16:47.387Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-17T22:16:47.387Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-17T22:17:49.395Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-17T22:17:49.395Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-18T03:42:48.298Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-18T03:42:48.298Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-18T03:43:29.619Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-18T03:43:29.619Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-18T20:14:05.720Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-18T20:14:05.720Z phase= domain= task= q="(no question provided)" -->
+| 2026-04-18 13:14 | 2026-04-18 13:14 | gsd-t-verify | Step 2 | opus | 17s | npm test 1240/1240 pass | M39 | full-suite | 10.1 |
+<!-- missed_escalation 2026-04-18T20:19:42.835Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-18T20:19:42.835Z phase= domain= task= q="(no question provided)" -->
