@@ -10,11 +10,10 @@ A methodology for reliable, parallelizable development using Claude Code with op
 **Protects existing work** — destructive action guard prevents schema drops, architecture replacements, and data loss without explicit approval.
 **Visualizes execution in real time** — live browser dashboard renders agent hierarchy, tool activity, and phase progression from the event stream.
 **Generates visual scan reports** — every `/gsd-t-scan` produces a self-contained HTML report with 6 live architectural diagrams, a tech debt register, and domain health scores; optional DOCX/PDF export via `--export docx|pdf`.
-**Unattended execution** — `gsd-t unattended --hours=N` spawns a detached OS-process supervisor that drives the active milestone to completion over hours or days with zero human intervention. A ScheduleWakeup watch loop ticks every 270 seconds; `/clear` + resume transparently re-attaches to the running supervisor.
 **Self-learning rule engine** — declarative rules in rules.jsonl detect failure patterns from task metrics. Candidate patches progress through a 5-stage lifecycle (candidate, applied, measured, promoted, graduated) with >55% improvement gates before becoming permanent methodology artifacts.
 **Cross-project learning** — proven rules propagate to `~/.claude/metrics/` and sync across all registered projects via `update-all`. Rules validated in 3+ projects become universal; 5+ projects qualify for npm distribution. Cross-project signal comparison and global ELO rankings available via `gsd-t-metrics --cross-project` and `gsd-t-status`.
 **Stack Rules Engine** — auto-detects project tech stack (React, TypeScript, Node API, Python, Go, Rust) from manifest files and injects mandatory best-practice rules into subagent prompts at execute-time. Universal security rules always apply; stack-specific rules layer on top. Includes **design-to-code** rules for pixel-perfect frontend implementation from Figma, screenshots, or design images — with Figma MCP integration, design token extraction, stack capability evaluation, and mandatory visual verification: every screen is rendered in a real browser, screenshotted at mobile/tablet/desktop, and compared pixel-by-pixel against the Figma design. Auto-bootstraps during partition when design references are detected. Extensible: drop a `.md` file in `templates/stacks/` to add a new stack.
-**Headless-by-Default Spawn (M38, v3.12.10)** — long-running workflow commands (execute, wave, integrate, debug repair loops) spawn detached by default via the unattended supervisor. The interactive session prints a launch banner, logs the event-stream path, and exits. Pass `--watch` to keep a live status block in the session (270s `ScheduleWakeup` ticks, cache-window-safe). The supervisor emits JSONL events to `.gsd-t/events/YYYY-MM-DD.jsonl` at every phase boundary — shared by watch command and dashboard. See `.gsd-t/contracts/headless-default-contract.md` v1.0.0 and `unattended-event-stream-contract.md` v1.0.0.
+**Headless-by-Default Spawn (M38, v3.12.10)** — long-running workflow commands (execute, wave, integrate, debug repair loops) spawn detached by default. The interactive session prints a launch banner, logs the event-stream path, and exits. Pass `--watch` to keep a live status block in the session (270s `ScheduleWakeup` ticks, cache-window-safe). Detached workers emit JSONL events to `.gsd-t/events/YYYY-MM-DD.jsonl` at every phase boundary — shared by watch command and dashboard. See `.gsd-t/contracts/headless-default-contract.md` v1.0.0 and `unattended-event-stream-contract.md` v1.0.0.
 - **Surgical model selection** — `bin/model-selector.js` assigns haiku/sonnet/opus per phase via a declarative rules table; `/advisor` escalation path with convention-based fallback.
 - **Per-spawn token telemetry** — `.gsd-t/token-metrics.jsonl` records one 18-field row per Task subagent spawn.
 **Context Meter (M34/M38)** — PostToolUse hook writes `.gsd-t/.context-meter-state.json` via local token estimation. Single-band model (`context-meter-contract.md` v1.3.0): one threshold (default 85%), one action — hand off to a detached headless spawn. The meter informs spawn-time routing, not in-flight pauses.
@@ -172,11 +171,11 @@ This will replace changed command files, back up your CLAUDE.md if customized, a
 | `/gsd-t-verify` | Run quality gates + goal-backward behavior verification | In wave |
 | `/gsd-t-complete-milestone` | Archive + git tag (goal-backward gate required) | In wave |
 
-### Unattended Execution
+### Overnight / Idle-Run Commands (slower than in-session — use only for unattended overnight or multi-hour idle runs)
 
 | Command | Purpose | Auto |
 |---------|---------|------|
-| `/gsd-t-unattended` | Launch detached supervisor — runs active milestone to completion with zero human intervention | Manual |
+| `/gsd-t-unattended` | Launch detached supervisor for overnight/idle runs only | Manual |
 | `/gsd-t-unattended-watch` | Watch tick — fires every 270s via ScheduleWakeup, reports supervisor status | Auto |
 | `/gsd-t-unattended-stop` | Touch stop sentinel — supervisor halts after current worker finishes | Manual |
 
@@ -314,15 +313,15 @@ your-project/
 
 ---
 
-## Unattended Execution (M36 — v3.10.10+)
+## Overnight / Idle-Run Supervisor (M36 — v3.10.10+)
 
-Run the active milestone to completion over hours or days — no human in the loop.
+> **Daytime work runs in-session.** This supervisor is provided for unattended overnight or multi-hour idle runs only — it is dramatically slower than in-session execution because every worker iteration pays cold-context startup cost (re-reads CLAUDE.md, progress.md, all domain files) before doing real work, then is bounded to a 270s cache-warm budget. Reach for it only when you genuinely cannot supervise the run.
 
 ```bash
 # Launch from the CLI (detached OS process)
 gsd-t unattended --hours=24
 
-# Or from within Claude Code (starts a 270s watch loop)
+# Or from within Claude Code
 /gsd-t-unattended
 
 # Stop (graceful — supervisor halts after the current worker finishes)

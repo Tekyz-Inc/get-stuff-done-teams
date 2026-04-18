@@ -2,6 +2,19 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [3.13.16] - 2026-04-17
+
+### Changed — Removed proactive suggestions to use `/gsd-t-unattended`; positioned as overnight/idle-only
+
+The unattended supervisor remains supported for genuine overnight or multi-hour idle runs but is no longer pitched as a general workflow option. In practice it runs 5–10× slower than in-session execution because every worker iteration pays cold-context startup cost (re-reads CLAUDE.md, progress.md, all domain files) before doing real work, then is bounded to a 270s cache-warm budget. Daytime work belongs in-session.
+
+**Files**:
+- `templates/CLAUDE-global.md` — removed the "Unattended Execution (M36)" section that pitched it as a feature alongside in-session.
+- `commands/gsd-t-help.md` — repositioned the `unattended*` rows under AUTOMATION as overnight-only with a slowness caveat.
+- `README.md` — removed the top-level "Unattended execution" feature bullet; renamed the commands-table heading and the full section heading to "Overnight / Idle-Run …" with a leading callout that daytime work runs in-session; reworded the M38 headless-by-default bullet to drop "via the unattended supervisor" framing.
+
+**No behavioral changes.** Commands `/gsd-t-unattended`, `/gsd-t-unattended-watch`, `/gsd-t-unattended-stop` continue to work exactly as before. The supervisor contract is unchanged.
+
 ## [3.13.15] - 2026-04-17
 
 ### Fixed — Self-protection guard now uses package-name identity + narrow `bin/*.cjs` gitignore rule

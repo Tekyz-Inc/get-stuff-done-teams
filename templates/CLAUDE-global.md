@@ -284,11 +284,6 @@ KEEP GOING. Only stop for:
 3. Milestone completion (checkpoint for user review)
 4. Destructive actions (see Destructive Action Guard above — ALWAYS stop)
 
-## Unattended Execution (M36, v3.10.10+)
-
-`/gsd-t-unattended` launches a detached supervisor that drives the active milestone to completion via a `claude -p` worker relay (fresh context per worker). `/gsd-t-resume` auto-reattaches via watch loop if `supervisor.pid` is live; `/gsd-t-unattended-stop` halts after the current worker. macOS/Linux fully supported; Windows lacks sleep-prevention.
-Contract: `.gsd-t/contracts/unattended-supervisor-contract.md` (state schema, exit codes, CLI flags, platform matrix).
-
 ## Pre-Commit Gate (MANDATORY)
 
 NEVER commit code without running this checklist. This is not optional.

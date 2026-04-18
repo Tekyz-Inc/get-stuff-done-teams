@@ -43,7 +43,7 @@ MILESTONE WORKFLOW                                          [auto] = in wave
 AUTOMATION                                                                Auto
 ───────────────────────────────────────────────────────────────────────────────
   wave                Full cycle: partition → ... → complete (auto-advances)
-  unattended          Run active milestone unattended — detached OS supervisor, multi-worker relay (24h+)
+  unattended          Detached supervisor for overnight/multi-hour idle runs only — slower than in-session
   unattended-watch    Show live supervisor status; reschedules every 270s via ScheduleWakeup
   unattended-stop     Request graceful supervisor stop (sentinel file — safe mid-worker)
 
