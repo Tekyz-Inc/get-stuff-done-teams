@@ -415,13 +415,26 @@ Check:
 Report: PASS (all checks pass) or FAIL with specific gaps listed."
 ```
 
-**OBSERVABILITY LOGGING (MANDATORY):**
-Before spawning — run via Bash:
-`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M")`
-After subagent returns — run via Bash:
-`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START)) && CTX_PCT=$(node -e "const tb=require('./bin/token-budget.cjs'); process.stdout.write(String(tb.getSessionStatus('.').pct||'N/A'))" 2>/dev/null || echo "N/A")`
-Append to `.gsd-t/token-log.md` (create with header `| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Domain | Task | Ctx% |` if missing):
-`| {DT_START} | {DT_END} | gsd-t-plan | Step 7 | haiku | {DURATION}s | {PASS/FAIL}, iteration {N} | | | {CTX_PCT} |`
+**OBSERVABILITY LOGGING (MANDATORY) — wrap the validation spawn with `captureSpawn`:**
+
+```
+node -e "
+const { captureSpawn } = require('./bin/gsd-t-token-capture.cjs');
+(async () => {
+  await captureSpawn({
+    command: 'gsd-t-plan',
+    step: 'Step 7',
+    model: 'haiku',
+    description: 'plan validation, iteration {N}',
+    projectDir: '.',
+    notes: '{PASS/FAIL}, iteration {N}',
+    spawnFn: async () => { /* Task validation subagent call */ },
+  });
+})();
+"
+```
+
+`captureSpawn` parses `result.usage` and writes the row to `.gsd-t/token-log.md` under the canonical header (Tokens column renders as `in=N out=N cr=N cc=N $X.XX` or `—`, never `N/A`).
 If validation FAIL, append each gap to `.gsd-t/qa-issues.md` (create with header `| Date | Command | Step | Model | Duration(s) | Severity | Finding |` if missing):
 `| {DT_START} | gsd-t-plan | Step 7 | haiku | {DURATION}s | medium | {gap description} |`
 
