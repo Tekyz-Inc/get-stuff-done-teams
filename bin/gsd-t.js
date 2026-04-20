@@ -3517,6 +3517,122 @@ function doMetrics(_args) {
   log(`${DIM}metrics removed in v3.12 — context meter is no longer telemetry-instrumented${RESET}`);
 }
 
+function doStreamFeed(args) {
+  const sub = args[0];
+  const projectDir = process.cwd();
+  const pidFile = path.join(projectDir, ".gsd-t", "stream-feed", ".server.pid");
+  const portFile = path.join(projectDir, ".gsd-t", "stream-feed", ".server.port");
+
+  function readPid() {
+    try { return parseInt(fs.readFileSync(pidFile, "utf8").trim(), 10); }
+    catch { return null; }
+  }
+  function readPort() {
+    try { return parseInt(fs.readFileSync(portFile, "utf8").trim(), 10); }
+    catch { return null; }
+  }
+  function isAlive(pid) {
+    if (!pid) return false;
+    try { process.kill(pid, 0); return true; } catch { return false; }
+  }
+
+  if (!sub || sub === "help" || sub === "--help" || sub === "-h") {
+    log(`\n${BOLD}gsd-t stream-feed${RESET} — Localhost stream-json watcher (M40 D4)\n`);
+    log(`${BOLD}Usage:${RESET}`);
+    log(`  gsd-t stream-feed ${CYAN}start${RESET} [--port N]`);
+    log(`  gsd-t stream-feed ${CYAN}status${RESET}`);
+    log(`  gsd-t stream-feed ${CYAN}stop${RESET}`);
+    log(`\nDefault port: 7842. Env override: GSD_T_STREAM_FEED_PORT.`);
+    return;
+  }
+
+  if (sub === "start") {
+    const existing = readPid();
+    if (isAlive(existing)) {
+      log(`${YELLOW}stream-feed-server already running${RESET} (pid ${existing}, port ${readPort() || "?"})`);
+      return;
+    }
+    let port = null;
+    for (let i = 1; i < args.length; i++) {
+      if (args[i] === "--port") port = Number(args[++i]);
+    }
+    const { spawn } = require("child_process");
+    const serverScript = path.join(__dirname, "..", "scripts", "gsd-t-stream-feed-server.js");
+    const forward = ["--project-dir", projectDir];
+    if (port) forward.push("--port", String(port));
+    const feedDir = path.join(projectDir, ".gsd-t", "stream-feed");
+    try { fs.mkdirSync(feedDir, { recursive: true }); } catch { /* exists */ }
+    const out = fs.openSync(path.join(feedDir, "server.log"), "a");
+    const err = fs.openSync(path.join(feedDir, "server.log"), "a");
+    const child = spawn(process.execPath, [serverScript, ...forward], {
+      detached: true, stdio: ["ignore", out, err], cwd: projectDir,
+    });
+    child.unref();
+    try { fs.writeFileSync(pidFile, String(child.pid)); } catch { /* noop */ }
+    try { fs.writeFileSync(portFile, String(port || process.env.GSD_T_STREAM_FEED_PORT || 7842)); } catch { /* noop */ }
+    log(`${GREEN}✓${RESET} stream-feed-server started (pid ${child.pid}, port ${port || 7842})`);
+    log(`  log: .gsd-t/stream-feed/server.log`);
+    return;
+  }
+
+  if (sub === "status") {
+    const pid = readPid();
+    const port = readPort();
+    if (!isAlive(pid)) {
+      log(`${DIM}stream-feed-server not running${RESET}`);
+      return;
+    }
+    log(`${GREEN}●${RESET} stream-feed-server running`);
+    log(`  pid:  ${pid}`);
+    log(`  port: ${port || 7842}`);
+    // Try to fetch live stats
+    try {
+      const http = require("http");
+      const done = { v: false };
+      const req = http.get({ host: "127.0.0.1", port: port || 7842, path: "/status", timeout: 1000 }, (res) => {
+        let body = "";
+        res.on("data", (c) => body += c);
+        res.on("end", () => {
+          try {
+            const j = JSON.parse(body);
+            log(`  frames today: ${j.framesToday}`);
+            log(`  clients: ${j.clients}`);
+            log(`  stats: ingested=${j.stats.framesIngested} broadcast=${j.stats.framesBroadcast} kicked=${j.stats.kicked}`);
+          } catch { /* noop */ }
+          done.v = true;
+        });
+      });
+      req.on("error", () => { done.v = true; });
+      req.on("timeout", () => { req.destroy(); done.v = true; });
+    } catch { /* noop */ }
+    return;
+  }
+
+  if (sub === "stop") {
+    const pid = readPid();
+    if (!isAlive(pid)) {
+      log(`${DIM}stream-feed-server not running${RESET}`);
+      try { fs.unlinkSync(pidFile); } catch { /* noop */ }
+      try { fs.unlinkSync(portFile); } catch { /* noop */ }
+      return;
+    }
+    try { process.kill(pid, "SIGTERM"); } catch { /* noop */ }
+    log(`${GREEN}✓${RESET} stream-feed-server stopped (pid ${pid})`);
+    // Clean up stale PID files after a short wait
+    setTimeout(() => {
+      if (!isAlive(pid)) {
+        try { fs.unlinkSync(pidFile); } catch { /* noop */ }
+        try { fs.unlinkSync(portFile); } catch { /* noop */ }
+      }
+    }, 500);
+    return;
+  }
+
+  error(`Unknown stream-feed subcommand: ${sub}`);
+  log(`Try: gsd-t stream-feed --help`);
+  process.exit(1);
+}
+
 function showHelp() {
   log(`\n${BOLD}GSD-T${RESET} — Contract-Driven Development for Claude Code\n`);
   log(`${BOLD}Usage:${RESET}  npx @tekyzinc/gsd-t ${CYAN}<command>${RESET} [options]\n`);
@@ -3534,6 +3650,7 @@ function showHelp() {
   log(`  ${CYAN}headless${RESET}       Non-interactive execution via claude -p + fast state queries`);
   log(`  ${CYAN}orchestrate${RESET}    External task orchestrator — one claude -p spawn per task (M40)`);
   log(`  ${CYAN}benchmark-orchestrator${RESET} M40 speed gate — compares orchestrator vs in-session wall-clock`);
+  log(`  ${CYAN}stream-feed${RESET}    Localhost stream-json watcher (start|status|stop) — M40 D4`);
   log(`  ${CYAN}design-build${RESET}   Deterministic design→code pipeline (elements → widgets → pages)`);
   log(`  ${CYAN}help${RESET}           Show this help\n`);
   log(`${BOLD}Examples:${RESET}`);
@@ -3701,6 +3818,10 @@ if (require.main === module) {
         stdio: "inherit",
       });
       process.exit(res.status == null ? 1 : res.status);
+    }
+    case "stream-feed": {
+      doStreamFeed(args.slice(1));
+      break;
     }
     case "metrics":
       doMetrics(args.slice(1));

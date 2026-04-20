@@ -1,4 +1,4 @@
-# Stream JSON Sink Contract — v1.0.0
+# Stream JSON Sink Contract — v1.1.0
 
 **Milestone**: M40 — External Task Orchestrator
 **Producer**: d1-orchestrator-core (worker stdout)
@@ -62,6 +62,33 @@ Option locked in by partition: **line-delimited JSON over a local HTTP POST stre
 - No auth (localhost-only, single-user).
 - No CORS (localhost-only).
 
+## Usage field propagation (D4-T6)
+
+Claude Code's stream-json emits `usage` in two places with different semantics:
+
+### `{type: "assistant"}.message.usage`
+Per-assistant-turn usage. Fields:
+- `input_tokens` — prompt input for this turn (NOT a running total)
+- `output_tokens` — assistant output for this turn
+- `cache_read_input_tokens` — cache-hit portion of input
+- `cache_creation_input_tokens` — cache-miss portion creating new cache entries
+
+Multiple `assistant` frames arrive per task. Aggregators SHOULD sum these as a progress signal, but the sum is NOT authoritative — Claude's own accounting lives in the result frame.
+
+### `{type: "result"}.usage`
+Final aggregate for the entire worker turn. Same field names as above, but represents the authoritative total. Also present at top level of the result frame:
+- `total_cost_usd` (preferred) or `cost_usd` — dollar cost
+- `num_turns` — agent turn count
+- `duration_ms` — wall-clock run time
+
+### Aggregator behavior (gsd-t-token-aggregator)
+1. Assistant frames accumulate running totals keyed by `(workerPid, taskId)` from the most recent `task-boundary state=start`.
+2. When the `result` frame arrives, its `usage` OVERWRITES the accumulated totals (result is authoritative).
+3. A task with no `result` frame is marked `partial: true` in the aggregate output.
+4. Output schema v1: `.gsd-t/metrics/token-usage.jsonl` — one line per task with `schemaVersion`, `workerPid`, `taskId`, `domain`, `wave`, `milestone`, `inputTokens`, `outputTokens`, `cacheReadInputTokens`, `cacheCreationInputTokens`, `costUSD`, `numTurns`, `durationMs`, `startTs`, `endTs`, `state`, `assistantFrames`, `partial`.
+5. `.gsd-t/token-log.md` Tokens column is rewritten as `in=N out=N cr=N cc=N $X.XX` (or `—` when cost unknown), matched by taskId.
+
 ## Versioning
 - Frame schema changes: bump minor if additive, major if breaking.
 - Transport changes: bump major.
+- **v1.1.0** — added Usage field propagation section (D4-T6, 2026-04-20).

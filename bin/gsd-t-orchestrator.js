@@ -8,6 +8,7 @@ const { loadConfig } = require('./gsd-t-orchestrator-config.cjs');
 const { readAllTasks, groupByWave, validateNoForwardDeps } = require('./gsd-t-orchestrator-queue.cjs');
 const { runWorker } = require('./gsd-t-orchestrator-worker.cjs');
 const { buildTaskBrief } = require('./gsd-t-task-brief.js');
+const { createStreamFeedClient } = require('./gsd-t-stream-feed-client.cjs');
 
 const STATE_DIR = '.gsd-t/orchestrator';
 const STATE_FILE = 'state.json';
@@ -21,7 +22,10 @@ function parseCliArgs(argv) {
     workerTimeoutMs: null,
     projectDir: process.cwd(),
     resume: false,
-    help: false
+    help: false,
+    streamFeed: true,
+    streamFeedPort: null,
+    streamFeedHost: null
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -31,6 +35,9 @@ function parseCliArgs(argv) {
     else if (a === '--worker-timeout') { args.workerTimeoutMs = argv[++i]; }
     else if (a === '--project-dir') { args.projectDir = path.resolve(argv[++i]); }
     else if (a === '--resume') { args.resume = true; }
+    else if (a === '--no-stream-feed') { args.streamFeed = false; }
+    else if (a === '--stream-feed-port') { args.streamFeedPort = Number(argv[++i]); }
+    else if (a === '--stream-feed-host') { args.streamFeedHost = argv[++i]; }
   }
   return args;
 }
@@ -45,6 +52,9 @@ function printHelp() {
     '  --worker-timeout <ms>    Per-worker timeout in ms (default 270000).',
     '  --project-dir <path>     Project directory (default cwd).',
     '  --resume                 Resume from .gsd-t/orchestrator/state.json.',
+    '  --no-stream-feed         Disable pushing frames to local stream-feed server.',
+    '  --stream-feed-port <N>   Override stream-feed port (default 7842 / env GSD_T_STREAM_FEED_PORT).',
+    '  --stream-feed-host <H>   Override stream-feed host (default 127.0.0.1).',
     '  -h, --help               Show this help.',
     ''
   ].join('\n'));
@@ -111,7 +121,7 @@ function filterTasksByMilestone(tasks, milestone) {
   return tasks;
 }
 
-async function runWaveTasks({ tasks, config, state, logger, spawnImpl, runWorkerImpl = runWorker, onFrame, interrupt, liveChildrenRef }) {
+async function runWaveTasks({ tasks, config, state, logger, spawnImpl, runWorkerImpl = runWorker, onFrame, interrupt, liveChildrenRef, streamFeedFactory }) {
   const queue = [...tasks];
   const running = new Set();
   const results = [];
@@ -155,20 +165,49 @@ async function runWaveTasks({ tasks, config, state, logger, spawnImpl, runWorker
       if (retryCount > 0) {
         brief += `\n\n## Retry Note\nPrevious attempt failed. Try again, paying attention to the Done Signal checklist.\n`;
       }
-      return runWorkerImpl({
+
+      // D1-T7: per-worker stream-feed client. Opens when we get a pid; every
+      // onFrame call tees to both the user callback and the feed client so the
+      // D4 server + UI see every frame.
+      let feedClient = null;
+
+      const teeFrame = (frame) => {
+        emit(frame);
+        if (feedClient) {
+          try { feedClient.pushFrame(frame); } catch (_) { /* best-effort */ }
+        }
+      };
+
+      const outcome = await runWorkerImpl({
         task: taskForWorker,
         brief,
         config,
-        onFrame: emit,
+        onFrame: teeFrame,
         onSpawn: ({ child, pid }) => {
           if (pid != null) {
             state.patchTask(task.id, { workerPid: pid });
             liveChildren.set(task.id, child);
+            if (streamFeedFactory) {
+              try {
+                feedClient = streamFeedFactory({
+                  workerPid: pid,
+                  taskId: canonicalTaskId,
+                  projectDir: config.projectDir
+                });
+              } catch (err) {
+                logger.log(`[orchestrator] stream-feed client open failed for ${task.id}: ${err.message}`);
+              }
+            }
           }
         },
         env: process.env,
         spawnImpl
       });
+
+      if (feedClient) {
+        try { await feedClient.close(); } catch (_) { /* best-effort */ }
+      }
+      return outcome;
     };
 
     let outcome = await attempt(0);
@@ -236,7 +275,9 @@ async function runOrchestrator(opts) {
     spawnImpl,
     runWorkerImpl,
     onFrame,
-    installSignalHandlers = true
+    installSignalHandlers = true,
+    streamFeed = null,  // D1-T7: null|false = off, true = default (env-aware), object = client opts
+    streamFeedFactory: streamFeedFactoryOverride = null  // test hook
   } = opts;
 
   const config = loadConfig({
@@ -263,6 +304,40 @@ async function runOrchestrator(opts) {
   state.save({ milestone: config.milestone, totalTasks: scopedTasks.length, waves: [...waves.keys()] });
   writeEvent(projectDir, 'orchestrator_start', { milestone: config.milestone, total_tasks: scopedTasks.length });
 
+  // D1-T7: stream-feed wiring. `streamFeed: true` means "open clients pointed at
+  // the default local server". `streamFeed: { port, host }` overrides. `false`/null
+  // disables. If a user-supplied onFrame is the consumer, they can still opt-in.
+  let streamFeedFactory = streamFeedFactoryOverride;
+  let orchestratorFeedClient = null;
+  const feedOpts = (streamFeed && typeof streamFeed === 'object') ? streamFeed : {};
+  const feedEnabled = streamFeed === true || (streamFeed && typeof streamFeed === 'object');
+  if (feedEnabled && !streamFeedFactory) {
+    streamFeedFactory = ({ workerPid, taskId, projectDir }) => createStreamFeedClient({
+      ...feedOpts,
+      projectDir,
+      workerPid,
+      taskId
+    });
+  }
+  if (streamFeedFactory) {
+    try {
+      orchestratorFeedClient = streamFeedFactory({
+        workerPid: process.pid,
+        taskId: 'orchestrator',
+        projectDir
+      });
+    } catch (err) {
+      logger.log(`[orchestrator] stream-feed orchestrator client open failed: ${err.message}`);
+    }
+  }
+
+  const teeWaveFrame = (frame) => {
+    if (typeof onFrame === 'function') { try { onFrame(frame); } catch (_) {} }
+    if (orchestratorFeedClient) {
+      try { orchestratorFeedClient.pushFrame(frame); } catch (_) {}
+    }
+  };
+
   const interrupt = { interrupted: false, currentWaveChildren: null };
 
   let sigintHandler = null;
@@ -285,6 +360,10 @@ async function runOrchestrator(opts) {
     if (sigintHandler && typeof process.removeListener === 'function') {
       try { process.removeListener('SIGINT', sigintHandler); } catch (_) {}
     }
+    if (orchestratorFeedClient) {
+      try { orchestratorFeedClient.close(); } catch (_) {}
+      orchestratorFeedClient = null;
+    }
   };
 
   try {
@@ -293,7 +372,7 @@ async function runOrchestrator(opts) {
       if (interrupt.interrupted) break;
       state.save({ currentWave: waveNum, status: 'running' });
       writeEvent(projectDir, 'wave_start', { wave: waveNum, task_count: waveTasks.length });
-      emitWaveBoundary(onFrame, 'start', waveNum, waveTasks.length);
+      emitWaveBoundary(teeWaveFrame, 'start', waveNum, waveTasks.length);
 
       const waveStartedMs = Date.now();
       const waveLiveChildren = new Map();
@@ -307,7 +386,8 @@ async function runOrchestrator(opts) {
         runWorkerImpl,
         onFrame,
         interrupt,
-        liveChildrenRef: waveLiveChildren
+        liveChildrenRef: waveLiveChildren,
+        streamFeedFactory
       });
 
       const failed = results.filter((r) => !r.outcome.result.ok);
@@ -317,7 +397,7 @@ async function runOrchestrator(opts) {
         wave: waveNum,
         failed_count: failed.length
       });
-      emitWaveBoundary(onFrame, failed.length ? 'failed' : 'done', waveNum, waveTasks.length, { durationMs: waveDurationMs, failed: failed.length });
+      emitWaveBoundary(teeWaveFrame, failed.length ? 'failed' : 'done', waveNum, waveTasks.length, { durationMs: waveDurationMs, failed: failed.length });
 
       if (interrupt.interrupted) break;
 
@@ -351,12 +431,21 @@ async function main() {
     printHelp();
     process.exit(2);
   }
+  let streamFeedOpt = args.streamFeed;
+  if (streamFeedOpt) {
+    if (args.streamFeedPort || args.streamFeedHost) {
+      streamFeedOpt = {};
+      if (args.streamFeedPort) streamFeedOpt.port = args.streamFeedPort;
+      if (args.streamFeedHost) streamFeedOpt.host = args.streamFeedHost;
+    }
+  }
   try {
     const res = await runOrchestrator({
       projectDir: args.projectDir,
       milestone: args.milestone,
       maxParallel: args.maxParallel,
-      workerTimeoutMs: args.workerTimeoutMs
+      workerTimeoutMs: args.workerTimeoutMs,
+      streamFeed: streamFeedOpt
     });
     if (res.status === 'interrupted') {
       process.exit(130);
