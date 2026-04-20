@@ -2,6 +2,24 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [3.15.10] - 2026-04-20
+
+### Added — Universal Token Capture Across GSD-T (M41)
+
+Every subagent spawn across GSD-T now routes through a single shared wrapper, retiring the silent `| N/A |` Tokens convention that preceded M41. Every spawn's input/output/cache tokens and cost USD land in both the human-readable `.gsd-t/token-log.md` and the machine-readable `.gsd-t/metrics/token-usage.jsonl` (schema v1, reused from M40 D4).
+
+**Token-capture wrapper (D1)**: `bin/gsd-t-token-capture.cjs` exports `captureSpawn({command, step, model, description, projectDir, spawnFn, domain?, task?})` and `recordSpawnRow({...})`. Parses bare + `.result`-wrapped + stream-json envelopes with assistant-vs-result precedence. Missing usage renders `—`, never `0`, never `N/A`. Migration-in-place upgrades existing `.gsd-t/token-log.md` to the canonical 12-column header (adds Tokens + Compacted columns).
+
+**Command-file doc-ripple (D2)**: all 20 spawn-capable `commands/*.md` files converted from inline `T_START=$(date +%s)` bash blocks to `captureSpawn`/`recordSpawnRow` pattern. `templates/CLAUDE-global.md` and the project `CLAUDE.md` carry the Token Capture Rule (MANDATORY). A canonical-block drift-guard test (`test/m41-canonical-block-drift.test.js`) asserts no legacy blocks remain and every OBSERVABILITY LOGGING declaration pairs with a wrapper call.
+
+**Historical backfill (D3)**: `bin/gsd-t-token-backfill.cjs` + `gsd-t backfill-tokens [--since YYYY-MM-DD] [--patch-log] [--dry-run]`. Walks `.gsd-t/events/*.jsonl`, `.gsd-t/stream-feed/*.jsonl`, and `.gsd-t/headless-*.log`. Handles both event-stream frames and stream-json frames. Idempotent via `source: "backfill"` key-tuple tracking. `--patch-log` atomically rewrites legacy `N/A`/`0`/`—` Tokens cells in place using tmp+rename.
+
+**Token dashboard (D4)**: `bin/gsd-t-token-dashboard.cjs` + `gsd-t tokens [--since] [--milestone] [--format table|json]`. Streams JSONL via `readline.createInterface`; aggregates byDay/byCommand/byModel; top-10 spawns by cost desc; cache-hit rate per model; rolling 7-day projection (daily avg × 30). Injects a 3-line token block at the tail of `gsd-t status`. Perf gate: 22ms on 10k-line JSONL (budget 500ms).
+
+**Enforcement (D5)**: `bin/gsd-t-capture-lint.cjs` + `gsd-t capture-lint [--staged|--all]`. Greps for `Task({`, `spawn('claude', ...)`, and `claude -p` without a surrounding `captureSpawn`/`recordSpawnRow` within ±20 lines. Balanced-quote heuristic excludes JS-string-literal false positives. Whitelists: wrapper/linter modules themselves, `test/**`, `commands/gsd-t-help.md`, comment-only lines, markdown prose outside fences, any line with `GSD-T-CAPTURE-LINT: skip` marker nearby. Opt-in pre-commit hook via `gsd-t init --install-hooks` — appends idempotently to `.git/hooks/pre-commit` with a `# GSD-T capture lint` marker; never overwrites existing hooks.
+
+Tests: +27 net (1479/1479 total). No new contracts — reuses M40's `metrics-schema-contract.md` v1 and `stream-json-sink-contract.md` v1.1.0.
+
 ## [3.14.10] - 2026-04-20
 
 ### Added — External Task Orchestrator + Streaming Watcher UI (M40)

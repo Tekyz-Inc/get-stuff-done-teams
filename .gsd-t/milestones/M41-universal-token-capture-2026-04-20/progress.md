@@ -1,7 +1,7 @@
 # GSD-T Progress
 
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
-## Status: M41 COMPLETE — Universal Token Capture shipped, v3.15.10 tagged
+## Status: M41 VERIFIED — all 5 domains shipped; ready for COMPLETE-MILESTONE
 ## Date: 2026-04-20
 ## Version: 3.15.10
 
