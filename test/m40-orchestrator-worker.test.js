@@ -5,7 +5,6 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { spawn } = require('child_process');
 
 const { runWorker, buildArgs } = require('../bin/gsd-t-orchestrator-worker.cjs');
 
@@ -14,34 +13,6 @@ function mkProj() {
   fs.mkdirSync(path.join(dir, '.gsd-t'), { recursive: true });
   fs.writeFileSync(path.join(dir, '.gsd-t', 'progress.md'), '# Progress\n');
   return dir;
-}
-
-function writeMockClaude(mockDir, behavior) {
-  const scriptPath = path.join(mockDir, 'claude-mock.sh');
-  let body = '#!/bin/sh\n';
-  switch (behavior) {
-    case 'happy':
-      body += `echo '{"type":"assistant","content":"ok"}'\n`;
-      body += `echo '{"type":"result","ok":true}'\n`;
-      body += `exit 0\n`;
-      break;
-    case 'fail':
-      body += `echo '{"type":"assistant","content":"bad"}'\n`;
-      body += `exit 2\n`;
-      break;
-    case 'hang':
-      body += `sleep 30\n`;
-      break;
-    case 'invalid-json':
-      body += `echo 'not json at all'\n`;
-      body += `echo '{"type":"result","ok":true}'\n`;
-      body += `exit 0\n`;
-      break;
-    default:
-      body += `exit 0\n`;
-  }
-  fs.writeFileSync(scriptPath, body, { mode: 0o755 });
-  return scriptPath;
 }
 
 test('buildArgs: default model sonnet', () => {
@@ -57,16 +28,37 @@ test('buildArgs: explicit model honored', () => {
   assert.equal(args[args.indexOf('--model') + 1], 'opus');
 });
 
+function mockSpawn(behavior) {
+  const { EventEmitter } = require('events');
+  return (_bin, _args, _opts) => {
+    const child = new EventEmitter();
+    child.stdout = new EventEmitter();
+    child.stderr = new EventEmitter();
+    child.stdin = { write: () => {}, end: () => {}, on: () => {} };
+    child.kill = () => {};
+    setImmediate(() => {
+      if (behavior === 'happy') {
+        child.stdout.emit('data', Buffer.from('{"type":"assistant","content":"ok"}\n{"type":"result","ok":true}\n'));
+        child.emit('exit', 0, null);
+      } else if (behavior === 'fail') {
+        child.stdout.emit('data', Buffer.from('{"type":"assistant","content":"bad"}\n'));
+        child.emit('exit', 2, null);
+      }
+    });
+    return child;
+  };
+}
+
 test('runWorker: happy path — frames emitted, completion check runs, ok=false (no commit)', async () => {
   const dir = mkProj();
-  const mock = writeMockClaude(dir, 'happy');
   const frames = [];
   const result = await runWorker({
-    task: { id: 'm40-t', domain: 'd-x', wave: 0 },
+    task: { id: 'm40-t', domain: 'd-x', wave: 0, skipTest: true },
     brief: 'do a thing',
     config: { projectDir: dir, workerTimeoutMs: 5000 },
     onFrame: (f) => frames.push(f),
-    env: { ...process.env, GSD_T_CLAUDE_BIN: mock }
+    env: process.env,
+    spawnImpl: mockSpawn('happy')
   });
 
   assert.equal(result.exitCode, 0);
@@ -86,13 +78,13 @@ test('runWorker: happy path — frames emitted, completion check runs, ok=false 
 
 test('runWorker: non-zero exit → missing includes worker_exit_nonzero', async () => {
   const dir = mkProj();
-  const mock = writeMockClaude(dir, 'fail');
   const result = await runWorker({
-    task: { id: 'm40-fail', domain: 'd-x', wave: 0 },
+    task: { id: 'm40-fail', domain: 'd-x', wave: 0, skipTest: true },
     brief: 'fail me',
     config: { projectDir: dir, workerTimeoutMs: 5000 },
     onFrame: () => {},
-    env: { ...process.env, GSD_T_CLAUDE_BIN: mock }
+    env: process.env,
+    spawnImpl: mockSpawn('fail')
   });
 
   assert.equal(result.exitCode, 2);
@@ -102,33 +94,48 @@ test('runWorker: non-zero exit → missing includes worker_exit_nonzero', async 
 });
 
 test('runWorker: timeout triggers SIGTERM and missing worker_exited_via_timeout', async () => {
+  const { EventEmitter } = require('events');
   const dir = mkProj();
-  const mock = writeMockClaude(dir, 'hang');
   const logs = [];
   const t0 = Date.now();
+
+  const spawnImpl = () => {
+    const child = new EventEmitter();
+    child.stdout = new EventEmitter();
+    child.stderr = new EventEmitter();
+    child.stdin = { write: () => {}, end: () => {}, on: () => {} };
+    child.kill = (sig) => {
+      if (sig === 'SIGTERM') {
+        setTimeout(() => child.emit('exit', null, 'SIGTERM'), 10);
+      }
+    };
+    return child;
+  };
+
   const result = await runWorker({
-    task: { id: 'm40-hang', domain: 'd-x', wave: 0 },
+    task: { id: 'm40-hang', domain: 'd-x', wave: 0, skipTest: true },
     brief: 'never finishes',
     config: {
       projectDir: dir,
-      workerTimeoutMs: 1200,
+      workerTimeoutMs: 100,
       logger: { log: (m) => logs.push(m) }
     },
     onFrame: () => {},
-    env: { ...process.env, GSD_T_CLAUDE_BIN: mock }
+    env: process.env,
+    spawnImpl
   });
 
   const elapsed = Date.now() - t0;
   assert.equal(result.timedOut, true);
   assert.ok(result.result.missing.includes('worker_exited_via_timeout'));
   assert.ok(logs.some(m => /\[worker_timeout\]/.test(m)));
-  assert.ok(elapsed < 10000, 'timeout must not wait for 30s sleep');
+  assert.ok(elapsed < 2000, 'mock timeout must not wait for a real sleep');
 });
 
 test('runWorker: spawn error → result includes spawn_error', async () => {
   const dir = mkProj();
   const result = await runWorker({
-    task: { id: 'm40-bad-bin', domain: 'd-x', wave: 0 },
+    task: { id: 'm40-bad-bin', domain: 'd-x', wave: 0, skipTest: true },
     brief: 'whatever',
     config: { projectDir: dir, workerTimeoutMs: 5000 },
     onFrame: () => {},
@@ -143,15 +150,30 @@ test('runWorker: spawn error → result includes spawn_error', async () => {
 });
 
 test('runWorker: invalid json lines wrapped as {type:"raw"}', async () => {
+  const { EventEmitter } = require('events');
   const dir = mkProj();
-  const mock = writeMockClaude(dir, 'invalid-json');
   const frames = [];
+
+  const spawnImpl = () => {
+    const child = new EventEmitter();
+    child.stdout = new EventEmitter();
+    child.stderr = new EventEmitter();
+    child.stdin = { write: () => {}, end: () => {}, on: () => {} };
+    child.kill = () => {};
+    setImmediate(() => {
+      child.stdout.emit('data', Buffer.from('not json at all\n{"type":"result","ok":true}\n'));
+      child.emit('exit', 0, null);
+    });
+    return child;
+  };
+
   await runWorker({
-    task: { id: 'm40-raw', domain: 'd-x', wave: 0 },
+    task: { id: 'm40-raw', domain: 'd-x', wave: 0, skipTest: true },
     brief: 'garbled',
     config: { projectDir: dir, workerTimeoutMs: 5000 },
     onFrame: (f) => frames.push(f),
-    env: { ...process.env, GSD_T_CLAUDE_BIN: mock }
+    env: process.env,
+    spawnImpl
   });
   const raw = frames.filter(f => f.type === 'raw');
   assert.equal(raw.length, 1);
@@ -159,28 +181,32 @@ test('runWorker: invalid json lines wrapped as {type:"raw"}', async () => {
 });
 
 test('runWorker: worker cwd = config.projectDir, env has GSD_T_PROJECT_DIR', async () => {
+  const { EventEmitter } = require('events');
   const dir = mkProj();
-  const scriptPath = path.join(dir, 'claude-mock.sh');
-  const outPath = path.join(dir, 'mock.out');
-  fs.writeFileSync(scriptPath, `#!/bin/sh
-pwd > ${outPath}
-echo GSD_T_PROJECT_DIR=$GSD_T_PROJECT_DIR >> ${outPath}
-echo '{"type":"result","ok":true}'
-exit 0
-`, { mode: 0o755 });
+  let capturedOpts = null;
+
+  const spawnImpl = (_bin, _args, opts) => {
+    capturedOpts = opts;
+    const child = new EventEmitter();
+    child.stdout = new EventEmitter();
+    child.stderr = new EventEmitter();
+    child.stdin = { write: () => {}, end: () => {}, on: () => {} };
+    child.kill = () => {};
+    setImmediate(() => child.emit('exit', 0, null));
+    return child;
+  };
 
   await runWorker({
-    task: { id: 'm40-env', domain: 'd-x', wave: 0 },
+    task: { id: 'm40-env', domain: 'd-x', wave: 0, skipTest: true },
     brief: 'check env',
     config: { projectDir: dir, workerTimeoutMs: 5000 },
     onFrame: () => {},
-    env: { ...process.env, GSD_T_CLAUDE_BIN: scriptPath }
+    env: { PATH: process.env.PATH },
+    spawnImpl
   });
 
-  const out = fs.readFileSync(outPath, 'utf8');
-  const lines = out.trim().split('\n');
-  assert.equal(fs.realpathSync(lines[0]), fs.realpathSync(dir));
-  assert.equal(lines[1], `GSD_T_PROJECT_DIR=${dir}`);
+  assert.equal(capturedOpts.cwd, dir);
+  assert.equal(capturedOpts.env.GSD_T_PROJECT_DIR, dir);
 });
 
 test('runWorker: validates required args', async () => {
