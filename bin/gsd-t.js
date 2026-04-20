@@ -3826,6 +3826,31 @@ if (require.main === module) {
     case "metrics":
       doMetrics(args.slice(1));
       break;
+    case "backfill-tokens": {
+      const bfOpts = { projectDir: process.cwd(), since: null, patchLog: false, dryRun: false };
+      for (let i = 1; i < args.length; i++) {
+        const a = args[i];
+        if (a === '--since' && args[i+1]) { bfOpts.since = args[++i]; }
+        else if (a.startsWith('--since=')) { bfOpts.since = a.slice(8); }
+        else if (a === '--patch-log') { bfOpts.patchLog = true; }
+        else if (a === '--dry-run') { bfOpts.dryRun = true; }
+        else if (a === '--project-dir' && args[i+1]) { bfOpts.projectDir = args[++i]; }
+        else if (a.startsWith('--project-dir=')) { bfOpts.projectDir = a.slice(14); }
+        else if (a === '--help' || a === '-h') {
+          log('Usage: gsd-t backfill-tokens [--since YYYY-MM-DD] [--patch-log] [--dry-run] [--project-dir PATH]');
+          process.exit(0);
+        }
+        else {
+          error(`backfill-tokens: unknown arg: ${a}`);
+          process.exit(2);
+        }
+      }
+      const backfill = require(path.join(__dirname, 'gsd-t-token-backfill.cjs'));
+      backfill.main(bfOpts)
+        .then(({ exitCode }) => process.exit(exitCode || 0))
+        .catch((e) => { error(e.message || String(e)); process.exit(3); });
+      break;
+    }
     case "design-build": {
       const orchestrator = require("./design-orchestrator.js");
       orchestrator.run(args.slice(1)).catch(e => { console.error(e); process.exit(1); });
