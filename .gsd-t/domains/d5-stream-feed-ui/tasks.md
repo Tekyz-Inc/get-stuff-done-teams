@@ -66,9 +66,23 @@ Single-file dark-mode HTML+JS watcher UI. Connects to D4 ws feed, renders claude
   - Asserts file size under 150 KB (operator tool, not a bundled app)
   - No headless browser required — pure DOM-string inspection with a minimal regex/parse pass
 
+### Task 6: Token-usage panel in the feed UI
+- **Files**: `scripts/gsd-t-stream-feed.html` (MODIFY)
+- **Contract refs**: `.gsd-t/contracts/stream-json-sink-contract.md` (§"Usage field propagation" — from D4-T6)
+- **Dependencies**: Requires Task 4, BLOCKED BY d4-stream-feed-server Task 6 (aggregator schema must be stable first)
+- **Wave**: 3
+- **Acceptance criteria**:
+  - Task-boundary banners now show `$X.XX · N in / N out / N cache-read tokens` inline next to the task id (when `{type:"result"}` frame has arrived for that task)
+  - Wave-boundary banners show wave total: `wave N done — $X.XX · N tokens`
+  - Corner status bar (fixed top-right) shows running total for the current run: `$X.XX · N tokens · M spawns`
+  - Numbers formatted humanized (`1.2K`, `4.1M`), cost to 2 decimals
+  - If a task's result frame has no `usage` field, panel shows `—` (not `$0.00`) to distinguish missing-data from zero-cost
+  - Uses only data already in the ws feed — no new endpoints, no separate fetch
+  - Verified against a recorded JSONL fixture that includes full M40-bench in-session run output (which carries a real `{type:"result"}` envelope with cost + usage)
+
 ## Execution Estimate
-- Total tasks: 5
+- Total tasks: 6
 - Independent tasks (no blockers): 0 (all gated on D0 PASS + D4 Task 2)
-- Blocked tasks (waiting on other domains): 1 (Task 1 on D4)
+- Blocked tasks (waiting on other domains): 2 (Task 1 on D4 Task 2, Task 6 on D4 Task 6)
 - Blocked tasks (within domain): 4
 - Estimated checkpoints: 1 (inspect-decide in Task 1)

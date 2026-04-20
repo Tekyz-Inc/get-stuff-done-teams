@@ -70,9 +70,24 @@ Localhost ws server that ingests stream-json from D1 workers via HTTP POST, pers
   - Localhost enforcement: attempt connect from non-loopback (mock) → rejected
   - All tests pass under `node --test`
 
+### Task 6: Token aggregator — per-task + per-worker usage rollup
+- **Files**: `scripts/gsd-t-token-aggregator.js` (NEW), `.gsd-t/metrics/token-usage.jsonl` (WRITTEN at runtime), `.gsd-t/contracts/stream-json-sink-contract.md` (MODIFY — add §"Usage field propagation" documenting `{type:"assistant"}.usage` semantics and `{type:"result"}.usage` aggregate)
+- **Contract refs**: `.gsd-t/contracts/stream-json-sink-contract.md`
+- **Dependencies**: Requires Task 2 (reads the JSONL the stream-feed-server persists)
+- **Wave**: 3
+- **Acceptance criteria**:
+  - Reads `.gsd-t/stream-feed/YYYY-MM-DD.jsonl` (or any JSONL path, --feed-log flag)
+  - Parses every frame; on `{type:"assistant"}` extracts `usage.{input_tokens,output_tokens,cache_read_input_tokens,cache_creation_input_tokens}`; on `{type:"result"}` extracts aggregate + `costUSD` + `num_turns`
+  - Groups by: `workerPid` (per-spawn), `taskId` (per-task), `wave` (per-wave), `domain` (per-domain), `milestone` (per-milestone, inferred from orchestrator state.json)
+  - Appends per-task rows to `.gsd-t/metrics/token-usage.jsonl` (schema v1: ts, workerPid, taskId, domain, wave, milestone, inputTokens, outputTokens, cacheReadInputTokens, cacheCreationInputTokens, costUSD, numTurns, durationMs)
+  - Updates the corresponding row in `.gsd-t/token-log.md` — finds the row by `(command, start datetime, task)` match and overwrites the `Tokens` column with real counts (formatted `in=N out=N cr=N cc=N $X.XX`)
+  - Runs in two modes: `--tail` (follow the JSONL live, update as frames arrive) and `--once` (one-shot scan, exit)
+  - Unit tests: fixture JSONL with 2 assistant frames + 1 result frame → correct rollup; missing `usage` field → logged as `partial`, not fatal; malformed JSON → logged, skipped
+  - Zero external deps — node `fs`, `readline` only
+
 ## Execution Estimate
-- Total tasks: 5
+- Total tasks: 6
 - Independent tasks (no blockers): 0 (all gated on D0 PASS)
 - Blocked tasks (waiting on other domains): 1 (Task 1 on D0)
-- Blocked tasks (within domain): 4
+- Blocked tasks (within domain): 5
 - Estimated checkpoints: 1 (inspect-decide in Task 1 is a small internal checkpoint)
