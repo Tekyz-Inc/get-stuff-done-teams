@@ -133,12 +133,12 @@ function runOrchestratorSide({ fixtureDir, runIdx, mockClaude, logger, keepTmp =
       bin,
       '--milestone', 'M40-bench',
       '--project-dir', dest,
-      '--max-parallel', '2',
-      '--worker-timeout', '60000',
+      '--max-parallel', '8',
+      '--worker-timeout', '180000',
     ], {
       env: buildChildEnv(mockClaude),
       encoding: 'utf8',
-      timeout: 600000,
+      timeout: 900000,
     });
     exitCode = res.status;
     output = captureOutput(res);
@@ -184,7 +184,7 @@ function runInsessionSide({ fixtureDir, runIdx, mockClaude, logger, keepTmp = fa
       env: buildChildEnv(mockClaude),
       input: prompt,
       encoding: 'utf8',
-      timeout: 600000,
+      timeout: 900000,
     });
     exitCode = res.status;
     output = captureOutput(res);

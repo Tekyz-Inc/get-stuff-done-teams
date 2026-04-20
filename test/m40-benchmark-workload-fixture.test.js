@@ -13,9 +13,11 @@ const FIXTURE_DIR = path.resolve(__dirname, 'fixtures', 'm40-benchmark-workload'
 test('benchmark fixture: directory layout is present', () => {
   assert.ok(fs.existsSync(path.join(FIXTURE_DIR, 'README.md')));
   assert.ok(fs.existsSync(path.join(FIXTURE_DIR, '.gsd-t', 'contracts', 'completion-signal-contract.md')));
-  assert.ok(fs.existsSync(path.join(FIXTURE_DIR, '.gsd-t', 'domains', 'bench-d1', 'scope.md')));
-  assert.ok(fs.existsSync(path.join(FIXTURE_DIR, '.gsd-t', 'domains', 'bench-d1', 'constraints.md')));
-  assert.ok(fs.existsSync(path.join(FIXTURE_DIR, '.gsd-t', 'domains', 'bench-d1', 'tasks.md')));
+  for (const d of ['bench-d1', 'bench-d2', 'bench-d3', 'bench-d4']) {
+    assert.ok(fs.existsSync(path.join(FIXTURE_DIR, '.gsd-t', 'domains', d, 'scope.md')), `${d}/scope.md missing`);
+    assert.ok(fs.existsSync(path.join(FIXTURE_DIR, '.gsd-t', 'domains', d, 'constraints.md')), `${d}/constraints.md missing`);
+    assert.ok(fs.existsSync(path.join(FIXTURE_DIR, '.gsd-t', 'domains', d, 'tasks.md')), `${d}/tasks.md missing`);
+  }
   assert.ok(fs.existsSync(path.join(FIXTURE_DIR, 'package.json')), 'fixture must define npm test');
   assert.ok(fs.existsSync(path.join(FIXTURE_DIR, 'test', 'run.js')), 'fixture must ship a test runner');
   assert.ok(fs.existsSync(path.join(FIXTURE_DIR, '.gitignore')), 'fixture must ignore orchestrator byproducts');
@@ -36,12 +38,15 @@ test('benchmark fixture: tasks carry ownedPatterns from Files: field', () => {
   }
 });
 
-test('benchmark fixture: tasks.md parses cleanly (4 tasks, 2 waves)', () => {
+test('benchmark fixture: tasks.md parses cleanly (20 tasks, 3 waves, 4 domains)', () => {
   const tasks = readAllTasks(FIXTURE_DIR);
-  assert.equal(tasks.length, 4);
+  assert.equal(tasks.length, 20, 'fixture should have 20 tasks across 4 domains');
   const waves = groupByWave(tasks);
-  assert.equal(waves.get(0).length, 2);
-  assert.equal(waves.get(1).length, 2);
+  assert.equal(waves.get(0).length, 8, 'wave 0: 2 generators × 4 domains = 8 tasks');
+  assert.equal(waves.get(1).length, 8, 'wave 1: 2 derivers × 4 domains = 8 tasks');
+  assert.equal(waves.get(2).length, 4, 'wave 2: 1 aggregator × 4 domains = 4 tasks');
+  const domains = new Set(tasks.map((t) => t.domain));
+  assert.deepEqual([...domains].sort(), ['bench-d1', 'bench-d2', 'bench-d3', 'bench-d4']);
 });
 
 test('benchmark fixture: wave deps are valid (no forward cross-wave deps)', () => {
@@ -49,7 +54,7 @@ test('benchmark fixture: wave deps are valid (no forward cross-wave deps)', () =
   assert.doesNotThrow(() => validateNoForwardDeps(tasks));
 });
 
-test('benchmark fixture: buildTaskBrief produces a valid brief for T1', () => {
+test('benchmark fixture: buildTaskBrief produces a valid brief for bench-d1-t1', () => {
   const brief = buildTaskBrief({
     milestone: 'M40-bench',
     domain: 'bench-d1',
@@ -58,21 +63,24 @@ test('benchmark fixture: buildTaskBrief produces a valid brief for T1', () => {
     expectedBranch: 'main'
   });
   assert.ok(brief.includes('## Task'));
-  assert.ok(brief.includes('Generate out/a.txt'));
+  assert.ok(brief.includes('Generate out/d1-a.txt'));
   assert.ok(brief.includes('## Done Signal'));
   assert.ok(brief.includes('## CWD Invariant'));
   assert.ok(Buffer.byteLength(brief, 'utf8') <= 10000);
 });
 
-test('benchmark fixture: buildTaskBrief produces valid briefs for all 4 tasks', () => {
-  for (let i = 1; i <= 4; i++) {
-    const brief = buildTaskBrief({
-      milestone: 'M40-bench',
-      domain: 'bench-d1',
-      taskId: `bench-d1-t${i}`,
-      projectDir: FIXTURE_DIR
-    });
-    assert.ok(brief.length > 500, `T${i} brief should be non-trivial`);
-    assert.ok(brief.includes('## Done Signal'), `T${i} must include Done Signal`);
+test('benchmark fixture: buildTaskBrief produces valid briefs for all 20 tasks', () => {
+  for (const domain of ['bench-d1', 'bench-d2', 'bench-d3', 'bench-d4']) {
+    for (let i = 1; i <= 5; i++) {
+      const taskId = `${domain}-t${i}`;
+      const brief = buildTaskBrief({
+        milestone: 'M40-bench',
+        domain,
+        taskId,
+        projectDir: FIXTURE_DIR
+      });
+      assert.ok(brief.length > 500, `${taskId} brief should be non-trivial`);
+      assert.ok(brief.includes('## Done Signal'), `${taskId} must include Done Signal`);
+    }
   }
 });
