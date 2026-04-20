@@ -132,49 +132,51 @@ Violations are task failures, not warnings.
 
 If STACK_RULES is empty (no templates/stacks/ dir or no matches), skip silently.
 
-**OBSERVABILITY LOGGING (MANDATORY) — repeat for every phase spawn:**
-Before spawning — run via Bash:
-`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M")`
+**OBSERVABILITY LOGGING (MANDATORY) — wrap every phase spawn with `captureSpawn`:**
 
 ```
-Task agent (spawnType: primary, subagent_type: "general-purpose", mode: "bypassPermissions"):
-  "Execute the {PHASE} phase of the current GSD-T milestone.
-
-   Read and follow the full instructions in commands/gsd-t-{phase}.md
-   Read .gsd-t/progress.md for current milestone and state.
-   Read CLAUDE.md for project conventions.
-   Read .gsd-t/contracts/ for domain interfaces.
-
-   Complete the phase fully:
-   - Follow every step in the command file
-   - Update .gsd-t/progress.md status when done
-   - Run document ripple as specified
-   - Commit your work
-
-   Report back: one-line status summary."
+node -e "
+const { captureSpawn } = require('./bin/gsd-t-token-capture.cjs');
+(async () => {
+  await captureSpawn({
+    command: 'gsd-t-wave',
+    step: '{PHASE}',
+    model: 'sonnet',
+    description: 'phase: {PHASE}',
+    projectDir: '.',
+    notes: 'phase: {PHASE}',
+    spawnFn: async () => { /* Task agent (spawnType: primary, subagent_type: 'general-purpose', mode: 'bypassPermissions'):
+      'Execute the {PHASE} phase of the current GSD-T milestone.
+       Read and follow the full instructions in commands/gsd-t-{phase}.md
+       Read .gsd-t/progress.md for current milestone and state.
+       Read CLAUDE.md for project conventions.
+       Read .gsd-t/contracts/ for domain interfaces.
+       Complete the phase fully:
+       - Follow every step in the command file
+       - Update .gsd-t/progress.md status when done
+       - Run document ripple as specified
+       - Commit your work
+       Report back: one-line status summary.' */ },
+  });
+})();
+"
 ```
 
-After phase agent returns — run via Bash:
-`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START))`
+`captureSpawn` parses `result.usage` and writes the row to `.gsd-t/token-log.md` under the canonical header. Tokens column renders as `in=N out=N cr=N cc=N $X.XX` or `—`, never `N/A`. Ctx% is pulled from `getSessionStatus()` automatically.
 
 **Wave Orchestrator Context Gate (MANDATORY) — single-band measurement via Context Meter state file:**
 
-Run via Bash AFTER each phase agent returns:
+After each phase agent returns, run via Bash:
 
 ```bash
 node -e "const tb=require('./bin/token-budget.cjs'); const s=tb.getSessionStatus('.'); process.stdout.write(JSON.stringify(s));"
 ```
 
-The JSON on stdout contains `{pct, threshold}` where `threshold` is `normal` or `threshold` (single-band model per `context-meter-contract.md` v1.3.0). Capture `pct` as `{CTX_PCT}` for the token-log row.
+The JSON on stdout contains `{pct, threshold}` where `threshold` is `normal` or `threshold` (single-band model per `context-meter-contract.md` v1.3.0).
 
 Handling:
 - `threshold === 'normal'` → proceed to the next phase.
 - `threshold === 'threshold'` → the Context Meter's PostToolUse hook has already emitted the `next-spawn-headless:true` marker; the orchestrator routes subsequent subagent spawns through `autoSpawnHeadless()`. No manual checkpoint/halt — the meter + spawn primitive together handle handoff.
-
-Append to `.gsd-t/token-log.md` (create with header `| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Domain | Task | Ctx% |` if missing):
-`| {DT_START} | {DT_END} | gsd-t-wave | {PHASE} | sonnet | {DURATION}s | phase: {PHASE} | | | {CTX_PCT} |`
-
-Where `{CTX_PCT}` is the `pct` field from the JSON the getSessionStatus command just printed.
 
 ### Phase Sequence
 
