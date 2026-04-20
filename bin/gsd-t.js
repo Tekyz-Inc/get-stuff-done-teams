@@ -567,6 +567,50 @@ function installContextMeter(projectDir) {
 }
 
 // Register the Context Meter PostToolUse hook in ~/.claude/settings.json.
+// Opt-in pre-commit hook installer (M41 D5). Appends the capture-lint block
+// to .git/hooks/pre-commit; if the file doesn't exist, copies our stock
+// script. Never overwrites an existing hook.
+const CAPTURE_LINT_HOOK_MARKER = "# GSD-T capture lint";
+function installCaptureLintHook(projectDir) {
+  const gitDir = path.join(projectDir, ".git");
+  if (!fs.existsSync(gitDir)) {
+    warn("No .git directory — not a git repo; skipping hook install");
+    return false;
+  }
+  const hooksDir = path.join(gitDir, "hooks");
+  try { fs.mkdirSync(hooksDir, { recursive: true }); } catch (_) {}
+  const hookPath = path.join(hooksDir, "pre-commit");
+  const stockSrc = path.join(PKG_ROOT, "scripts", "hooks", "pre-commit-capture-lint");
+  let stock = "";
+  try { stock = fs.readFileSync(stockSrc, "utf8"); } catch (_) {
+    warn("Could not read pre-commit-capture-lint script from package");
+    return false;
+  }
+
+  if (!fs.existsSync(hookPath)) {
+    fs.writeFileSync(hookPath, stock);
+    try { fs.chmodSync(hookPath, 0o755); } catch (_) {}
+    success(`Hook installed at ${path.relative(projectDir, hookPath)}`);
+    info("Test with: gsd-t capture-lint --staged");
+    return true;
+  }
+
+  const existing = fs.readFileSync(hookPath, "utf8");
+  if (existing.includes(CAPTURE_LINT_HOOK_MARKER)) {
+    info("Capture-lint block already present in pre-commit hook — no change");
+    return true;
+  }
+
+  const appended = existing.trimEnd() +
+    "\n\n" + CAPTURE_LINT_HOOK_MARKER + "\n" +
+    stock.replace(/^#!.*\n/, "") + "\n";
+  fs.writeFileSync(hookPath, appended);
+  try { fs.chmodSync(hookPath, 0o755); } catch (_) {}
+  success(`Capture-lint block appended to ${path.relative(projectDir, hookPath)}`);
+  info("Test with: gsd-t capture-lint --staged");
+  return true;
+}
+
 // Idempotent — if an existing hook references CONTEXT_METER_HOOK_MARKER the
 // command string is refreshed/migrated in-place to the canonical form.
 // Stale entries matching CONTEXT_METER_STALE_PATTERNS are migrated on the spot.
@@ -3791,9 +3835,21 @@ if (require.main === module) {
     case "update-all":
       doUpdateAll().catch((e) => { error(e.message || String(e)); process.exit(1); });
       break;
-    case "init":
-      doInit(args[1]).catch((e) => { error(e.message || String(e)); process.exit(1); });
+    case "init": {
+      let initProject = null;
+      let installHooks = false;
+      for (let i = 1; i < args.length; i++) {
+        const a = args[i];
+        if (a === '--install-hooks') installHooks = true;
+        else if (!a.startsWith('-')) initProject = a;
+      }
+      doInit(initProject)
+        .then(() => {
+          if (installHooks) installCaptureLintHook(process.cwd());
+        })
+        .catch((e) => { error(e.message || String(e)); process.exit(1); });
       break;
+    }
     case "register":
       doRegister();
       break;
@@ -3869,6 +3925,45 @@ if (require.main === module) {
       backfill.main(bfOpts)
         .then(({ exitCode }) => process.exit(exitCode || 0))
         .catch((e) => { error(e.message || String(e)); process.exit(3); });
+      break;
+    }
+    case "capture-lint": {
+      const clOpts = { projectDir: process.cwd(), mode: 'staged' };
+      for (let i = 1; i < args.length; i++) {
+        const a = args[i];
+        if (a === '--staged') { clOpts.mode = 'staged'; }
+        else if (a === '--all') { clOpts.mode = 'all'; }
+        else if (a === '--project-dir' && args[i+1]) { clOpts.projectDir = args[++i]; }
+        else if (a.startsWith('--project-dir=')) { clOpts.projectDir = a.slice(14); }
+        else if (a === '--help' || a === '-h') {
+          log('Usage: gsd-t capture-lint [--staged] [--all] [--project-dir PATH]');
+          process.exit(0);
+        }
+        else {
+          error(`capture-lint: unknown arg: ${a}`);
+          process.exit(2);
+        }
+      }
+      try {
+        const linter = require(path.join(__dirname, 'gsd-t-capture-lint.cjs'));
+        const res = linter.main(clOpts);
+        if (res.error) {
+          error(`capture-lint: ${res.error}`);
+          process.exit(2);
+        }
+        for (const v of res.violations) {
+          log(`${v.file}:${v.line}: ${v.message}`);
+        }
+        if (res.violations.length === 0) {
+          log(`capture-lint: ${res.files.length} file(s) checked — clean`);
+        } else {
+          log(`capture-lint: ${res.violations.length} violation(s) across ${res.files.length} file(s)`);
+        }
+        process.exit(res.exitCode);
+      } catch (e) {
+        error(e.message || String(e));
+        process.exit(2);
+      }
       break;
     }
     case "tokens": {

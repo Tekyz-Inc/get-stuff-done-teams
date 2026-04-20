@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# GSD-T capture lint (M41 D5)
+# Rejects commits that introduce bare Task(…) / claude -p / spawn('claude', …)
+# calls bypassing bin/gsd-t-token-capture.cjs.
+#
+# Install (opt-in):  gsd-t init --install-hooks
+# Remove:            rm .git/hooks/pre-commit  (or delete this block if merged
+#                    into an existing hook)
+
+set -e
+
+if command -v gsd-t >/dev/null 2>&1; then
+  GSD_T_BIN=gsd-t
+elif [ -x "./bin/gsd-t.js" ]; then
+  GSD_T_BIN="node ./bin/gsd-t.js"
+else
+  echo "[capture-lint] gsd-t CLI not found — skipping lint" >&2
+  exit 0
+fi
+
+if ! $GSD_T_BIN capture-lint --staged; then
+  echo ""
+  echo "Token capture lint failed — see paths above."
+  echo "Wrap spawns with captureSpawn({…, spawnFn}) or add GSD-T-CAPTURE-LINT: skip" >&2
+  exit 1
+fi

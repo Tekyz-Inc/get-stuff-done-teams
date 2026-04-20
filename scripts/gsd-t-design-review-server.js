@@ -695,7 +695,9 @@ const server = http.createServer((req, res) => {
         };
         if (process.env.GSD_T_TRACE_ID) childEnv.GSD_T_TRACE_ID = process.env.GSD_T_TRACE_ID;
         if (process.env.GSD_T_PROJECT_DIR) childEnv.GSD_T_PROJECT_DIR = process.env.GSD_T_PROJECT_DIR;
-        const claude = spawn("claude", [
+        // Pre-M41 code: design-review server streams stream-json and parses
+        // usage envelopes itself. Out of scope for D5 wrapper conversion.
+        const claude = spawn("claude", [ // GSD-T-CAPTURE-LINT: skip
           "-p", fullPrompt,
           "--model", model,
           "--output-format", "stream-json",
