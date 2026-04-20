@@ -2,6 +2,32 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [3.14.10] - 2026-04-20
+
+### Added — External Task Orchestrator + Streaming Watcher UI (M40)
+
+JS orchestrator (`bin/gsd-t-orchestrator.js`) drives `claude -p` one task per spawn: short-lived, fresh context, architecturally compaction-free. Benchmark gate PASS: 226s orchestrator vs 316s in-session on 20-task/3-wave/4-domain fixture (0.72× wall-clock, threshold 1.05×).
+
+**Orchestrator core (D1)**: wave-barrier join, per-wave Promise.all parallelism (default 3, ceiling 15 per Team Mode §15), workerPid attribution, SIGINT handler, retry policy per completion-signal-contract (first FAIL → single retry; second FAIL → halt wave), state.json atomic writes, task-boundary + wave-boundary synthetic frames emitted to stream-feed clients.
+
+**Task brief builder (D2)**: `bin/gsd-t-task-brief.js` composes 2–5 KB self-contained per-task briefs from `.gsd-t/domains/{domain}/{scope,constraints,tasks}.md` + named contract excerpts + stack rules + Done Signal section; drop-order compactor guarantees non-droppable sections always survive.
+
+**Completion protocol (D3)**: `bin/gsd-t-completion-check.cjs` `assertCompletion()` returns `{ok, missing[], details}` by checking commit-on-expected-branch + progress.md entry + test exit. Ambiguous tasks (commit present but no progress entry) are flagged for operator triage — never silently claimed done.
+
+**Stream-feed server (D4)**: `scripts/gsd-t-stream-feed-server.js` — HTTP POST /ingest, WebSocket /feed?from=N replay, 127.0.0.1:7842, JSONL persist-before-broadcast. `scripts/gsd-t-token-aggregator.js` parses assistant + result envelope usage and writes `.gsd-t/metrics/token-usage.jsonl` schema v1 + rewrites `.gsd-t/token-log.md` in place. New CLI: `gsd-t stream-feed`.
+
+**Stream-feed UI (D5)**: `scripts/gsd-t-stream-feed.html` — 47.5 KB, zero-dep, zero-token-cost local dashboard. Dark-mode claude.ai-style continuous feed with task/wave banners (duration + cost/tokens chips), token corner bar (running total), localStorage-persisted filters (tasks/domains/waves), auto-scroll pause + "↓ Jump to live" button.
+
+**Recovery and resume (D6)**: `bin/gsd-t-orchestrator-recover.cjs` `recoverRunState()` reconciles interrupted runs via assertCompletion replay; `--resume` + `--no-archive` flags on `gsd-t orchestrate`; `/gsd-t-resume` Step 0.3 auto-detects in-flight state.json and surfaces resume invocation; 24 recovery unit tests cover fresh/terminal/resume modes + ambiguous classification + PID liveness.
+
+**Contracts**: `stream-json-sink-contract.md` v1.0.0 → **v1.1.0** (new §"Usage field propagation" documenting assistant vs result envelope semantics); `wave-join-contract.md`, `completion-signal-contract.md`, `metrics-schema-contract.md` — all test-backed.
+
+**Tests**: 1421/1421 pass (up from 1240 at M39 close, +181). 16 new M40 test files. Zero coverage gaps. Zero placeholder patterns (goal-backward PASS).
+
+**New CLI subcommands**: `gsd-t orchestrate`, `gsd-t benchmark-orchestrator`, `gsd-t stream-feed`.
+
+**Files**: `bin/gsd-t-orchestrator.js`, `bin/gsd-t-orchestrator-worker.cjs`, `bin/gsd-t-orchestrator-queue.cjs`, `bin/gsd-t-orchestrator-config.cjs`, `bin/gsd-t-orchestrator-recover.cjs`, `bin/gsd-t-completion-check.cjs`, `bin/gsd-t-benchmark-orchestrator.js`, `bin/gsd-t-task-brief.js`, `bin/gsd-t-task-brief-template.cjs`, `bin/gsd-t-task-brief-compactor.cjs`, `scripts/gsd-t-stream-feed-server.js`, `scripts/gsd-t-stream-feed.html`, `scripts/gsd-t-token-aggregator.js`, `templates/prompts/m40-task-brief.md`, 16 M40 test files, 4 new/updated contracts, `commands/gsd-t-resume.md` Step 0.3.
+
 ## [3.13.16] - 2026-04-17
 
 ### Changed — Removed proactive suggestions to use `/gsd-t-unattended`; positioned as overnight/idle-only
