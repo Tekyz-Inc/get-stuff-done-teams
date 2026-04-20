@@ -29,6 +29,7 @@ test('parseCliArgs: defaults + custom paths', () => {
     '--results-path', '/tmp/results.json',
     '--project-dir', '/tmp/proj',
     '--mock-claude', '/bin/true',
+    '--keep-tmp',
   ]);
   assert.equal(a.runs, 1);
   assert.equal(a.fixtureDir, FIXTURE_DIR);
@@ -36,6 +37,12 @@ test('parseCliArgs: defaults + custom paths', () => {
   assert.equal(a.resultsPath, '/tmp/results.json');
   assert.equal(a.projectDir, '/tmp/proj');
   assert.equal(a.mockClaude, '/bin/true');
+  assert.equal(a.keepTmp, true);
+});
+
+test('parseCliArgs: --keep-tmp defaults false', () => {
+  const a = bench.parseCliArgs(['--runs', '1']);
+  assert.equal(a.keepTmp, false);
 });
 
 test('parseCliArgs: rejects non-positive --runs', () => {
@@ -198,6 +205,57 @@ test('runOrchestratorSide: injected spawnImpl is called with orchestrator bin + 
   assert.ok(calls[0].args[0].endsWith('gsd-t-orchestrator.js'));
   assert.ok(calls[0].args.includes('--project-dir'));
   assert.ok(calls[0].args.includes('--milestone'));
+});
+
+test('runOrchestratorSide: captures BOTH stdout and stderr into stderr field (regression)', () => {
+  const spawnImpl = () => ({
+    status: 1,
+    stdout: '[wave_halt] wave=0 failed_tasks=1\n',
+    stderr: 'something on stderr\n',
+  });
+  const r = bench.runOrchestratorSide({
+    fixtureDir: FIXTURE_DIR,
+    runIdx: 1,
+    mockClaude: '/bin/true',
+    logger: silentLogger(),
+    spawnImpl,
+  });
+  assert.equal(r.exitCode, 1);
+  assert.match(r.stderr, /--- stdout ---/);
+  assert.match(r.stderr, /wave_halt/);
+  assert.match(r.stderr, /--- stderr ---/);
+  assert.match(r.stderr, /something on stderr/);
+});
+
+test('runOrchestratorSide: keepTmp=true preserves tmp dir and reports tmpDir', () => {
+  const spawnImpl = () => ({ status: 0, stdout: '', stderr: '' });
+  const r = bench.runOrchestratorSide({
+    fixtureDir: FIXTURE_DIR,
+    runIdx: 77,
+    mockClaude: '/bin/true',
+    logger: silentLogger(),
+    keepTmp: true,
+    spawnImpl,
+  });
+  try {
+    assert.ok(r.tmpDir, 'tmpDir should be reported when keepTmp=true');
+    assert.ok(fs.existsSync(r.tmpDir), 'tmp dir should still exist on disk');
+    assert.ok(fs.existsSync(path.join(r.tmpDir, 'workload', '.git')));
+  } finally {
+    if (r.tmpDir) fs.rmSync(r.tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('runOrchestratorSide: keepTmp=false (default) cleans up and tmpDir=null', () => {
+  const spawnImpl = () => ({ status: 0, stdout: '', stderr: '' });
+  const r = bench.runOrchestratorSide({
+    fixtureDir: FIXTURE_DIR,
+    runIdx: 78,
+    mockClaude: '/bin/true',
+    logger: silentLogger(),
+    spawnImpl,
+  });
+  assert.equal(r.tmpDir, null);
 });
 
 test('runInsessionSide: injected spawnImpl is called with claude bin + --dangerously-skip-permissions', () => {

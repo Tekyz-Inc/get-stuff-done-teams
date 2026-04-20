@@ -27,6 +27,7 @@ function parseCliArgs(argv) {
     fixtureDir: DEFAULT_FIXTURE,
     mockClaude: null,
     projectDir: process.cwd(),
+    keepTmp: false,
     help: false,
   };
   for (let i = 0; i < argv.length; i++) {
@@ -38,6 +39,7 @@ function parseCliArgs(argv) {
     else if (a === '--fixture-dir') { args.fixtureDir = path.resolve(argv[++i]); }
     else if (a === '--mock-claude') { args.mockClaude = path.resolve(argv[++i]); }
     else if (a === '--project-dir') { args.projectDir = path.resolve(argv[++i]); }
+    else if (a === '--keep-tmp') { args.keepTmp = true; }
   }
   if (!Number.isInteger(args.runs) || args.runs < 1) {
     throw new Error('--runs must be a positive integer');
@@ -59,6 +61,7 @@ function printHelp() {
     '  --fixture-dir <path>   Override benchmark workload fixture directory.',
     '  --mock-claude <path>   Use this binary as `claude` (for smoke tests).',
     '  --project-dir <path>   Project directory to write outputs into (default cwd).',
+    '  --keep-tmp             Preserve per-run tmp directories for diagnosis.',
     '  -h, --help             Show this help.',
     '',
     'Verdict is PASS when median(orchestrator_ms) <= median(in-session_ms) * 1.05.',
@@ -112,12 +115,19 @@ function buildChildEnv(mockClaude) {
   return env;
 }
 
-function runOrchestratorSide({ fixtureDir, runIdx, mockClaude, logger, spawnImpl = spawnSync }) {
+function captureOutput(res) {
+  const parts = [];
+  if (res && res.stdout) parts.push('--- stdout ---\n' + String(res.stdout));
+  if (res && res.stderr) parts.push('--- stderr ---\n' + String(res.stderr));
+  return parts.join('\n').slice(-4096);
+}
+
+function runOrchestratorSide({ fixtureDir, runIdx, mockClaude, logger, keepTmp = false, spawnImpl = spawnSync }) {
   const { tmpBase, dest } = prepareRun(fixtureDir, 'orch', runIdx);
   const bin = path.join(__dirname, 'gsd-t-orchestrator.js');
   const t0 = Date.now();
   let exitCode = null;
-  let stderr = '';
+  let output = '';
   try {
     const res = spawnImpl(process.execPath, [
       bin,
@@ -131,17 +141,18 @@ function runOrchestratorSide({ fixtureDir, runIdx, mockClaude, logger, spawnImpl
       timeout: 600000,
     });
     exitCode = res.status;
-    stderr = (res.stderr || '').slice(-2048);
+    output = captureOutput(res);
   } catch (e) {
-    stderr = 'spawn_error: ' + (e && e.message);
+    output = 'spawn_error: ' + (e && e.message);
   }
   const durationMs = Date.now() - t0;
   if (logger) logger.log(`[bench orch #${runIdx}] exit=${exitCode} duration=${durationMs}ms`);
-  cleanupRun(tmpBase);
-  return { durationMs, exitCode, stderr };
+  if (keepTmp && logger) logger.log(`  kept: ${tmpBase}`);
+  if (!keepTmp) cleanupRun(tmpBase);
+  return { durationMs, exitCode, stderr: output, tmpDir: keepTmp ? tmpBase : null };
 }
 
-function runInsessionSide({ fixtureDir, runIdx, mockClaude, logger, spawnImpl = spawnSync }) {
+function runInsessionSide({ fixtureDir, runIdx, mockClaude, logger, keepTmp = false, spawnImpl = spawnSync }) {
   const { tmpBase, dest } = prepareRun(fixtureDir, 'insession', runIdx);
   const claudeBin = mockClaude || process.env.GSD_T_CLAUDE_BIN || 'claude';
   const prompt = [
@@ -160,7 +171,7 @@ function runInsessionSide({ fixtureDir, runIdx, mockClaude, logger, spawnImpl = 
   ].join('\n');
   const t0 = Date.now();
   let exitCode = null;
-  let stderr = '';
+  let output = '';
   try {
     const res = spawnImpl(claudeBin, [
       '-p',
@@ -176,14 +187,15 @@ function runInsessionSide({ fixtureDir, runIdx, mockClaude, logger, spawnImpl = 
       timeout: 600000,
     });
     exitCode = res.status;
-    stderr = (res.stderr || '').slice(-2048);
+    output = captureOutput(res);
   } catch (e) {
-    stderr = 'spawn_error: ' + (e && e.message);
+    output = 'spawn_error: ' + (e && e.message);
   }
   const durationMs = Date.now() - t0;
   if (logger) logger.log(`[bench insession #${runIdx}] exit=${exitCode} duration=${durationMs}ms`);
-  cleanupRun(tmpBase);
-  return { durationMs, exitCode, stderr };
+  if (keepTmp && logger) logger.log(`  kept: ${tmpBase}`);
+  if (!keepTmp) cleanupRun(tmpBase);
+  return { durationMs, exitCode, stderr: output, tmpDir: keepTmp ? tmpBase : null };
 }
 
 function collectEnv() {
@@ -269,6 +281,7 @@ async function runBenchmark(opts) {
     projectDir,
     reportPath,
     resultsPath,
+    keepTmp = false,
     logger = console,
     orchestratorImpl = runOrchestratorSide,
     insessionImpl = runInsessionSide,
@@ -281,8 +294,8 @@ async function runBenchmark(opts) {
   const orchestrator = [];
   const insession = [];
   for (let i = 1; i <= runs; i++) {
-    orchestrator.push(orchestratorImpl({ fixtureDir, runIdx: i, mockClaude, logger }));
-    insession.push(insessionImpl({ fixtureDir, runIdx: i, mockClaude, logger }));
+    orchestrator.push(orchestratorImpl({ fixtureDir, runIdx: i, mockClaude, logger, keepTmp }));
+    insession.push(insessionImpl({ fixtureDir, runIdx: i, mockClaude, logger, keepTmp }));
   }
 
   const summary = computeVerdict(orchestrator, insession);
