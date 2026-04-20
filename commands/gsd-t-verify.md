@@ -199,15 +199,24 @@ Teammate assignments:
   Report: severity-ranked findings.
 
 Lead: After receiving teammate reports:
-**OBSERVABILITY LOGGING (MANDATORY):**
-Before spawning — run via Bash:
-`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M")`
-Spawn a Task subagent (spawnType: validation) to run the full test suite and contract audit — always headless.
-After subagent returns — run via Bash:
-`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START)) && CTX_PCT=$(node -e "const tb=require('./bin/token-budget.cjs'); process.stdout.write(String(tb.getSessionStatus('.').pct||'N/A'))" 2>/dev/null || echo "N/A")`
-Append to `.gsd-t/token-log.md` (create with header `| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Ctx% |` if missing):
-`| {DT_START} | {DT_END} | gsd-t-verify | Step 4 | haiku | {DURATION}s | test audit + contract review | {CTX_PCT} |`
-Collect all reports, synthesize, create remediation plan.
+**OBSERVABILITY LOGGING (MANDATORY) — wrap the validation spawn with `captureSpawn`:**
+```
+node -e "
+const { captureSpawn } = require('./bin/gsd-t-token-capture.cjs');
+(async () => {
+  await captureSpawn({
+    command: 'gsd-t-verify',
+    step: 'Step 4',
+    model: 'haiku',
+    description: 'test audit + contract review',
+    projectDir: '.',
+    notes: 'test audit + contract review',
+    spawnFn: async () => { /* Task subagent (spawnType: validation) runs the full test suite and contract audit — always headless */ },
+  });
+})();
+"
+```
+`captureSpawn` parses `result.usage` and writes the row to `.gsd-t/token-log.md` under the canonical header. Tokens column renders as `in=N out=N cr=N cc=N $X.XX` or `—`, never `N/A`. Collect all reports, synthesize, create remediation plan.
 ```
 
 ## Step 5: Compile Verification Report
@@ -410,33 +419,40 @@ If status is VERIFY-FAILED:
 If status is VERIFIED or VERIFIED-WITH-WARNINGS:
 1. Log: "✅ Verify complete — spawning complete-milestone agent..."
 
-**OBSERVABILITY LOGGING (MANDATORY):**
-Before spawning — run via Bash:
-`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M")`
+**OBSERVABILITY LOGGING (MANDATORY) — wrap the complete-milestone auto-invoke with `captureSpawn`:**
 
-2. Spawn a Task subagent (spawnType: validation, model: sonnet, mode: bypassPermissions) — always headless, `--watch` ignored:
+2. Spawn through `captureSpawn` — `spawnType: 'validation'`, model: sonnet, mode: bypassPermissions (always headless, `--watch` ignored):
+
 ```
-"Execute the complete-milestone phase of the current GSD-T milestone.
-
-Read and follow the full instructions in commands/gsd-t-complete-milestone.md
-(resolve from ~/.claude/commands/ if not in project).
-Read .gsd-t/progress.md for current milestone and state.
-Read CLAUDE.md for project conventions.
-Read .gsd-t/contracts/ for domain interfaces.
-
-Complete the phase fully:
-- Follow every step in the command file
-- Update .gsd-t/progress.md status when done
-- Run document ripple as specified
-- Commit your work
-
-Report back: one-line status summary."
+node -e "
+const { captureSpawn } = require('./bin/gsd-t-token-capture.cjs');
+(async () => {
+  await captureSpawn({
+    command: 'gsd-t-verify',
+    step: 'Step 8',
+    model: 'sonnet',
+    description: 'auto-complete-milestone',
+    projectDir: '.',
+    notes: 'auto-complete-milestone',
+    spawnFn: async () => { /* Task subagent (spawnType: validation, model: sonnet, mode: bypassPermissions):
+      'Execute the complete-milestone phase of the current GSD-T milestone.
+       Read and follow the full instructions in commands/gsd-t-complete-milestone.md
+       (resolve from ~/.claude/commands/ if not in project).
+       Read .gsd-t/progress.md for current milestone and state.
+       Read CLAUDE.md for project conventions.
+       Read .gsd-t/contracts/ for domain interfaces.
+       Complete the phase fully:
+       - Follow every step in the command file
+       - Update .gsd-t/progress.md status when done
+       - Run document ripple as specified
+       - Commit your work
+       Report back: one-line status summary.' */ },
+  });
+})();
+"
 ```
 
-After subagent returns — run via Bash:
-`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START)) && CTX_PCT=$(node -e "const tb=require('./bin/token-budget.cjs'); process.stdout.write(String(tb.getSessionStatus('.').pct||'N/A'))" 2>/dev/null || echo "N/A")`
-Append to `.gsd-t/token-log.md`:
-`| {DT_START} | {DT_END} | gsd-t-verify | Step 8 | sonnet | {DURATION}s | auto-complete-milestone | | | {CTX_PCT} |`
+`captureSpawn` parses `result.usage` and writes the row to `.gsd-t/token-log.md` under the canonical header. Tokens column renders as `in=N out=N cr=N cc=N $X.XX` or `—`, never `N/A`.
 
 3. Verify subagent result: Read `.gsd-t/progress.md` — confirm status is COMPLETED. If not, report the failure.
 
