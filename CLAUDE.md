@@ -59,22 +59,72 @@ Exact command list: `ls commands/`. Exact stack rule set: `ls templates/stacks/`
 
 ## Observability Logging (MANDATORY)
 
-Every command that spawns a Task subagent MUST log to `.gsd-t/token-log.md` and (if issues found) `.gsd-t/qa-issues.md`.
+Every command that spawns a Task subagent, invokes `claude -p`, or calls `spawn('claude', ...)` MUST route the spawn through `bin/gsd-t-token-capture.cjs` so the real token-usage envelope is parsed and recorded. This is the M41 canonical pattern — the pre-M41 bash block that wrote `| N/A |` is retired.
 
-**Before spawn**: output `⚙ [{model}] {command} → {description}`, then `T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M")`.
+### Pattern A — wrap a spawn callable with `captureSpawn`
 
-**After spawn**: `T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START))`, then `CTX_PCT=$(node -e "try{const tb=require('./bin/token-budget.cjs'); process.stdout.write(String(tb.getSessionStatus('.').pct))}catch(_){process.stdout.write('N/A')}")`.
+Preferred for new spawn sites. The wrapper owns the before/after timing, model banner, envelope parse, row write, and JSONL record.
 
-**Append to `.gsd-t/token-log.md`** (create with header if missing):
 ```
-| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Domain | Task | Ctx% |
-| {DT_START} | {DT_END} | {command} | Step {N} | {model} | {DURATION}s | {note} | {domain} | {task} | {CTX_PCT} |
+node -e "
+const { captureSpawn } = require('./bin/gsd-t-token-capture.cjs');
+(async () => {
+  await captureSpawn({
+    command: 'gsd-t-execute',
+    step: 'Step 4',
+    model: 'sonnet',
+    description: 'domain: auth-service',
+    projectDir: '.',
+    domain: 'auth-service',
+    task: 'T-3',
+    spawnFn: async () => { /* actual Task(...) or spawn('claude', ...) call */ },
+  });
+})();
+"
 ```
+
+### Pattern B — record after the result envelope is already in hand
+
+For command files where the Task subagent already ran and the caller has the result object. Identical row format, no timing wrap.
+
+```
+node -e "
+const { recordSpawnRow } = require('./bin/gsd-t-token-capture.cjs');
+recordSpawnRow({
+  projectDir: '.',
+  command: 'gsd-t-verify',
+  step: 'Step 4',
+  model: 'haiku',
+  startedAt: '2026-04-21 10:00',
+  endedAt:   '2026-04-21 10:02',
+  usage: result.usage, // may be undefined — wrapper handles with '—'
+  domain: '-', task: '-',
+  ctxPct: 42,
+  notes: 'test audit + contract review',
+});
+"
+```
+
+### Canonical `.gsd-t/token-log.md` header
+
+```
+| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Tokens | Notes | Domain | Task | Ctx% |
+```
+
+The wrapper detects old headers (no `Tokens` column) and upgrades in place, preserving existing rows. The **Tokens** cell renders as `in=N out=N cr=N cc=N $X.XX` when usage is present, or `—` when absent. Never `0`. Never `N/A`. A zero is a measurement; a dash is an acknowledged gap.
 
 For QA/validation subagents, append findings to `.gsd-t/qa-issues.md`:
 ```
 | Date | Command | Step | Model | Duration(s) | Severity | Finding |
 ```
+
+## Token Capture Rule (MANDATORY)
+
+Every `Task(...)` subagent spawn, every `claude -p` child process, and every `spawn('claude', ...)` call MUST flow through `bin/gsd-t-token-capture.cjs`. Either wrap with `captureSpawn({..., spawnFn})` or record explicitly with `recordSpawnRow({...})` after the call returns.
+
+No command file ships a bare `Task(...)` or `claude -p` line outside of a wrapper call. `gsd-t capture-lint` (D5) enforces this mechanically; violations fail the opt-in pre-commit hook.
+
+Rationale: the pre-M41 convention silently wrote `N/A` tokens because no caller parsed the `usage` envelope. The wrapper is the single place that parses it. Bypassing the wrapper re-introduces blind spots.
 
 
 # Destructive Action Guard (MANDATORY)

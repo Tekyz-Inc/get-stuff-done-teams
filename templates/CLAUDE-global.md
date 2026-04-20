@@ -253,6 +253,75 @@ This gives the user real-time visibility into which model is handling each opera
 
 **Context Meter (M34/M38, v3.12.10+)** — The real context-window measurement feeding the headless-default spawn decision. A PostToolUse hook (`scripts/gsd-t-context-meter.js`) runs after every tool call, uses local token estimation to write the current input-token count into `.gsd-t/.context-meter-state.json`. `getSessionStatus()` reads that state file (fresh window = 5 minutes) with a historical heuristic fallback when the file is missing or stale. Command files consume the signal via a small bash shim (`CTX_PCT=$(node -e "…tb.getSessionStatus('.').pct")`). **Single-band model** (context-meter-contract v1.3.0): there's one threshold (default 85%) and one action — hand off to a detached headless spawn. No three-band routing, no silent downgrades, no MANDATORY STOP prose. The meter exists to inform spawn-time routing, not to pause work in-flight.
 
+## Observability Logging (MANDATORY)
+
+Every command that spawns a Task subagent, invokes `claude -p`, or calls `spawn('claude', ...)` MUST route the spawn through `bin/gsd-t-token-capture.cjs` so the real token-usage envelope is parsed and recorded. This is the M41 canonical pattern — the pre-M41 bash block that wrote `| N/A |` is retired.
+
+### Pattern A — wrap a spawn callable with `captureSpawn`
+
+Preferred for new spawn sites. The wrapper owns the before/after timing, model banner, envelope parse, row write, and JSONL record.
+
+```
+node -e "
+const { captureSpawn } = require('./bin/gsd-t-token-capture.cjs');
+(async () => {
+  await captureSpawn({
+    command: 'gsd-t-execute',
+    step: 'Step 4',
+    model: 'sonnet',
+    description: 'domain: auth-service',
+    projectDir: '.',
+    domain: 'auth-service',
+    task: 'T-3',
+    spawnFn: async () => { /* actual Task(...) or spawn('claude', ...) call */ },
+  });
+})();
+"
+```
+
+### Pattern B — record after the result envelope is already in hand
+
+For command files where the Task subagent already ran and the caller has the result object. Identical row format, no timing wrap.
+
+```
+node -e "
+const { recordSpawnRow } = require('./bin/gsd-t-token-capture.cjs');
+recordSpawnRow({
+  projectDir: '.',
+  command: 'gsd-t-verify',
+  step: 'Step 4',
+  model: 'haiku',
+  startedAt: '2026-04-21 10:00',
+  endedAt:   '2026-04-21 10:02',
+  usage: result.usage, // may be undefined — wrapper handles with '—'
+  domain: '-', task: '-',
+  ctxPct: 42,
+  notes: 'test audit + contract review',
+});
+"
+```
+
+### Canonical `.gsd-t/token-log.md` header
+
+```
+| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Tokens | Notes | Domain | Task | Ctx% |
+```
+
+The wrapper detects old headers (no `Tokens` column) and upgrades in place, preserving existing rows. The **Tokens** cell renders as `in=N out=N cr=N cc=N $X.XX` when usage is present, or `—` when absent. Never `0`. Never `N/A`. A zero is a measurement; a dash is an acknowledged gap.
+
+For QA/validation subagents, append findings to `.gsd-t/qa-issues.md`:
+```
+| Date | Command | Step | Model | Duration(s) | Severity | Finding |
+```
+
+## Token Capture Rule (MANDATORY)
+
+Every `Task(...)` subagent spawn, every `claude -p` child process, and every `spawn('claude', ...)` call MUST flow through `bin/gsd-t-token-capture.cjs`. Either wrap with `captureSpawn({..., spawnFn})` or record explicitly with `recordSpawnRow({...})` after the call returns.
+
+No command file ships a bare `Task(...)` or `claude -p` line outside of a wrapper call. `gsd-t capture-lint` (D5) enforces this mechanically; violations fail the opt-in pre-commit hook.
+
+Rationale: the pre-M41 convention silently wrote `N/A` tokens because no caller parsed the `usage` envelope. The wrapper is the single place that parses it. Bypassing the wrapper re-introduces blind spots.
+
 ## Headless-by-Default Spawn (M38, v3.12.10+)
 
 Long-running work (execute, wave, integrate, debug repair loops) spawns detached by default. Interactive session shows a banner, event-stream path, then exits — no mid-session `/compact` wall. `--watch` keeps a ScheduleWakeup-driven status block in the caller; events stream JSONL to `.gsd-t/events/YYYY-MM-DD.jsonl`. Router mode (`/gsd`) answers exploratory requests inline without a command spawn — see `commands/gsd.md` Step 2.5.
