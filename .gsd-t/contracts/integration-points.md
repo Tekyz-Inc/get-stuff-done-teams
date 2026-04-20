@@ -1,222 +1,117 @@
 # Integration Points
 
-## Current State: Milestone 40 — External Task Orchestrator + Streaming Watcher UI (PARTITIONED — 7 domains)
+## Current State: Milestone 41 — Universal Token Capture Across GSD-T (PARTITIONED — 5 domains)
 
-## M40 Dependency Graph
+## M41 Dependency Graph
 
 ```
-Wave 0 (go/no-go gate — kill-switch):
-  D3 (contract-only slice: completion-signal-contract.md + assertCompletion)
+Wave 1 (foundation — no external blockers):
+  D1 token-capture-wrapper
+      │   (exports captureSpawn + recordSpawnRow from bin/gsd-t-token-capture.cjs)
+      │   (reuses schema v1 from M40 D4 aggregator)
       │
       ▼
-  D1 (minimal slice: queue + worker spawn + wave join, no UI)  ──┐
-  D2 (minimal slice: brief builder + template + compactor)     ──┤
-      │                                                          │
-      ▼                                                          │
-  D0 speed-benchmark: orchestrator wall-clock vs in-session  ◄───┘
-      │
-      ├── PASS → unlock Wave 2 + Wave 3 + Wave 4
-      └── FAIL → HALT M40; D4/D5 deferred; D1/D2/D3 shipped as primitives
+Wave 2 (unlocked by D1 landed + tested):
+  D2 command-file-doc-ripple ─── rewrites all 20 command files + canonical block
+                                 in templates/CLAUDE-global.md and CLAUDE.md
 
-Wave 1 (unlocked by D0 PASS, contract-only prep):
-  (already complete — D3 contract landed in Wave 0)
+  D3 historical-backfill       ─── bin/gsd-t-token-backfill.cjs +
+                                 `gsd-t backfill-tokens` CLI subcommand
+                                 reads .gsd-t/events/*.jsonl + .gsd-t/headless-*.log
 
-Wave 2 (unlocked by D0 PASS):
-  D1 orchestrator-core (full)
-  D2 task-brief-builder (full)
+  D2 and D3 ship in parallel — both depend on D1 only, not on each other.
+
       │
       ▼
-Wave 3 (unlocked by Wave 2 done):
-  D4 stream-feed-server ◄─── consumes D1 worker stdout
-  D5 stream-feed-ui     ◄─── consumes D4 ws feed
+Wave 3 (unlocked by D2 + D3 landed):
+  D4 token-dashboard           ─── bin/gsd-t-token-dashboard.cjs +
+                                 `gsd-t tokens` CLI + status-tail injection
 
-Wave 4 (unlocked by Wave 3 done):
-  D6 recovery-and-resume
+  D5 enforcement               ─── bin/gsd-t-capture-lint.cjs + opt-in pre-commit
+                                 hook + CLAUDE MUST rule
+
+  D4 and D5 ship in parallel — D4 renders, D5 protects. Neither depends on the other.
 
                 GATE: all waves complete
                               │
                               ▼
-       VERIFY → COMPLETE-MILESTONE → tag v3.14.10
+       VERIFY → COMPLETE-MILESTONE → tag v3.15.10
 ```
 
 ### Abbreviation Key
 
 | Abbrev | Domain |
 |--------|--------|
-| D0 | d0-speed-benchmark |
-| D1 | d1-orchestrator-core |
-| D2 | d2-task-brief-builder |
-| D3 | d3-completion-protocol |
-| D4 | d4-stream-feed-server |
-| D5 | d5-stream-feed-ui |
-| D6 | d6-recovery-and-resume |
+| D1 | d1-token-capture-wrapper |
+| D2 | d2-command-file-doc-ripple |
+| D3 | d3-historical-backfill |
+| D4 | d4-token-dashboard |
+| D5 | d5-enforcement |
 
 ### Checkpoints
 
-- **M40-CP0** (Wave 0 gate): D3 contract landed; D1+D2 minimal slices runnable; D0 benchmark executed; verdict recorded in `docs/m40-benchmark-report.md`. If FAIL → milestone halts here (D0 constraint: "It's not worth doing if it doesn't run at least as fast[er]").
-- **M40-CP2** (Wave 2 complete): D1 full orchestrator ships; D2 full brief builder ships; orchestrator can drive an arbitrary domain end-to-end (without UI).
-- **M40-CP3** (Wave 3 complete): D4 server + D5 UI render live worker output at `localhost:7842`; backlog replay works; task-boundary banners render.
-- **M40-CP4** (Wave 4 complete): D6 recovery-and-resume in place; `/gsd-t-resume` detects orchestrator runs; operator flow documented.
+- **M41-CP1** (Wave 1 complete): `bin/gsd-t-token-capture.cjs` loads; `captureSpawn` + `recordSpawnRow` exported; 12+ unit tests green; full suite at baseline+N.
+- **M41-CP2** (Wave 2 complete): every command file spawn site goes through the wrapper; no `| N/A |` rows left in canonical templates; `gsd-t backfill-tokens --dry-run` reports real parsed-envelope count > 0 on this project.
+- **M41-CP3** (Wave 3 complete): `gsd-t tokens` prints live + backfilled totals; `gsd-t status` shows the two-line token block; `gsd-t capture-lint --all` exits 0 on main; CLAUDE files carry the new MUST rule.
 
-## Wave Execution Groups (task-level)
+### Cross-Domain Interfaces
 
-### Wave 0 — Foundation + Gate (parallel-safe within sub-groups)
+| Producer | Consumer | Interface |
+|----------|----------|-----------|
+| D1 `recordSpawnRow` | D2 command files | Function call in a `node -e "..."` block inside each command's observability section |
+| D1 JSONL schema v1 | D3 backfill | Same record shape, with added optional `source: "backfill" \| "live"` field |
+| D1 JSONL schema v1 | D4 dashboard | Streaming line-by-line read, in-memory aggregation |
+| D2 converted command files | D5 linter | Wrapped spawn sites are the "clean" state the linter checks for |
+| M40 D4 aggregator | D1 + D3 | `scripts/gsd-t-token-aggregator.js` envelope-parse helpers — both reuse |
+| M40 D5 stream-feed UI | D4 dashboard | Shared `humanizeTokens` + `formatCost` formatters for consistent rendering |
 
-**0a — Independent starts (no blockers):**
-- D3 Task 1: Freeze completion-signal-contract.md
-- D1 Task 1: Config loader
-- D2 Task 1: Brief template
-- D0 Task 1: Benchmark workload fixture
+### Contracts Referenced (no new contracts in M41 — reuses M40 shapes)
 
-**0b — Unlocked by 0a:**
-- D3 Task 2: Implement assertCompletion (after D3 Task 1)
-- D1 Task 2: Queue + wave partitioning (after D1 Task 1)
-- D2 Task 2: Compactor (after D2 Task 1)
+| Contract | Source | M41 consumers |
+|----------|--------|---------------|
+| `metrics-schema-contract.md` | M40 D4 | D1 (write), D3 (write + backfill extension), D4 (read) |
+| `stream-json-sink-contract.md` v1.1.0 | M40 D1 | D1 (envelope parsing), D3 (log archive parsing) |
+| `completion-signal-contract.md` | M40 D3 | not directly consumed — M41 observes spawns that already terminated |
 
-**0c — Cross-domain integration:**
-- D2 Task 3: buildTaskBrief (after D2 Task 2, D3 Task 1)
-- D3 Task 3: Completion check unit tests (after D3 Task 2)
-- D1 Task 3: Worker lifecycle (after D1 Task 2, D3 Task 2)
+No new contract files are added by M41. The existing schema v1 remains the source of truth; M41 just fills in the data.
 
-**0d — Orchestrator CLI ready:**
-- D1 Task 4: Main CLI + wave-join loop (after D1 Task 3, D2 Task 3)
-- D1 Task 5: Subcommand wiring (after D1 Task 4)
+---
 
-**0e — THE GATE:**
-- D0 Task 2: Benchmark driver (after D1 Task 5, D2 Task 3)
-- D0 Task 3: Test wrapper + verdict recording (after D0 Task 2)
+## Must-Read List (Assumption Audit Category 3 — Black Box)
 
-**Shared files in Wave 0**: `bin/gsd-t.js` touched once (D1 Task 5). All other file writes are to NEW files — no parallel write contention.
+Every M41 domain MUST read these before treating them as correct:
 
-**GATE after Wave 0**: benchmark verdict must be recorded. PASS → Wave 2 unlocks. FAIL → M40 halts; D4/D5/D6 deferred.
+| File | Why |
+|------|-----|
+| `scripts/gsd-t-token-aggregator.js` (M40 D4) | Assistant-frame-vs-result-frame usage precedence; D1 + D3 reuse these helpers |
+| `.gsd-t/contracts/metrics-schema-contract.md` | Schema v1 record shape |
+| `.gsd-t/contracts/stream-json-sink-contract.md` v1.1.0 | Which frames carry authoritative usage |
+| `bin/gsd-t-token-capture.cjs` (D1 output) | The wrapper is the source of truth for row formatting — D2, D3, D4 all depend on it |
+| `scripts/gsd-t-stream-feed.html` (M40 D5) | `humanizeTokens` + `formatCost` — D4 must match |
 
-### Wave 2 — Full orchestrator (after D0 PASS, parallel)
-- D1 Task 6: Full worker + state.json refinement
-- D2 is already complete in Wave 0 (no extra tasks)
+## External Reference Dispositions (Assumption Audit Category 1)
 
-**Shared files**: D1 Task 6 modifies `bin/gsd-t-orchestrator-worker.cjs` and `bin/gsd-t-orchestrator.js` — same-domain, serialized.
+| Reference from M41 definition | Disposition | Notes |
+|-------------------------------|-------------|-------|
+| `scripts/gsd-t-token-aggregator.js` | **USE** | Import envelope-parse helpers; do not modify |
+| `scripts/gsd-t-stream-feed.html` | **INSPECT** | Read `humanizeTokens` + `formatCost` for parity; do not import from HTML |
+| `bin/gsd-t-orchestrator.js` worker spawn path | **INSPECT** | Already captures usage via stream-json sink (M40). Understand how, don't rewire. |
+| `commands/gsd-t-execute.md` | **USE** (as reference target for D2) | Convert in isolation first as the worked example |
+| Historical `.gsd-t/headless-*.log` | **USE** (read-only) | D3 parses these; never deletes or rotates |
+| Historical `.gsd-t/events/*.jsonl` | **USE** (read-only) | D3 parses these; never deletes or rotates |
 
-### Wave 3 — Stream feed (parallel across D4 + D5 at inspection stage, then gated)
+## User Intent Locked-In Interpretations (Assumption Audit Category 4)
 
-**3a — Parallel inspect:**
-- D4 Task 1: Inspect + decide on existing agent-dashboard server
-- D5 Task 1: Inspect + decide on existing agent-dashboard UI (conditionally waits on D4 Task 2 for contract stability — see task dep)
-
-**3b — D4 server build:**
-- D4 Task 2: Implement server (after D4 Task 1)
-- D4 Task 3: Client helper (after D4 Task 2)
-- D4 Task 4: CLI subcommand (after D4 Task 2)
-- D4 Task 5: Server + client tests (after D4 Tasks 2, 3)
-
-**3c — D5 UI build (after D4 Task 2):**
-- D5 Task 2: Render loop (after D5 Task 1, D4 Task 2)
-- D5 Task 3: Boundary banners (after D5 Task 2)
-- D5 Task 4: Scrollback + filter + auto-scroll (after D5 Task 3)
-- D5 Task 5: Smoke test (after D5 Task 4)
-
-**3d — Orchestrator ↔ stream-feed wiring:**
-- D1 Task 7: Stream sink wiring (after D1 Task 6, D4 Task 3)
-
-**Shared files**: `bin/gsd-t.js` touched by D4 Task 4 (additive subcommand). Within same wave D1 Task 7 only touches `bin/gsd-t-orchestrator-worker.cjs` — independent of D4/D5.
-
-### Wave 4 — Recovery (after Wave 3 done, serial)
-- D6 Task 1: Recovery algorithm (needs D1 Task 6 + D4 Task 2 outputs)
-- D6 Task 2: `--resume` CLI flag (after D6 Task 1)
-- D6 Task 3: `/gsd-t-resume` Step 0 integration (after D6 Task 2)
-- D6 Task 4: Recovery unit tests (after D6 Tasks 1, 2)
-
-**Shared files**: `bin/gsd-t-orchestrator.js` modified by D6 Task 2 — single-domain, serialized. `commands/gsd-t-resume.md` modified by D6 Task 3 only.
-
-## Execution Order (solo mode)
-
-Linear sequence if parallelism unavailable:
-1. D3 Task 1 (contract freeze)
-2. D1 Tasks 1, 2 (config, queue)
-3. D2 Tasks 1, 2 (template, compactor)
-4. D3 Task 2 (assertCompletion)
-5. D2 Task 3 (buildTaskBrief — now has completion contract)
-6. D3 Task 3 (completion tests)
-7. D1 Tasks 3, 4, 5 (worker, CLI, subcommand)
-8. D0 Tasks 1, 2, 3 (fixture, driver, verdict) → **GATE**
-9. If GATE PASS: D1 Task 6 (full worker)
-10. D4 Tasks 1, 2, 3, 4, 5 (inspect, server, client, CLI, tests)
-11. D5 Tasks 1, 2, 3, 4, 5 (inspect, render, banners, scroll, smoke)
-12. D1 Task 7 (stream wiring)
-13. D6 Tasks 1, 2, 3, 4 (recovery)
-14. VERIFY → COMPLETE-MILESTONE → tag v3.14.10
-
-### File-Ownership Map (M40)
-
-| File / directory | Owner | Notes |
-|------------------|-------|-------|
-| `bin/gsd-t-orchestrator.js` (NEW) | D1 | main entry |
-| `bin/gsd-t-orchestrator-queue.cjs` (NEW) | D1 | wave partitioning |
-| `bin/gsd-t-orchestrator-worker.cjs` (NEW) | D1 | worker lifecycle |
-| `bin/gsd-t-orchestrator-config.cjs` (NEW) | D1 | config merge |
-| `bin/gsd-t-orchestrator-recover.cjs` (NEW) | D6 | recovery algo |
-| `bin/gsd-t-task-brief.js` (NEW) | D2 | public API |
-| `bin/gsd-t-task-brief-template.cjs` (NEW) | D2 | prose envelope |
-| `bin/gsd-t-task-brief-compactor.cjs` (NEW) | D2 | size budget |
-| `bin/gsd-t-completion-check.cjs` (NEW) | D3 | assertCompletion helper |
-| `bin/gsd-t-benchmark-orchestrator.js` (NEW) | D0 | go/no-go driver |
-| `bin/gsd-t-stream-feed-client.cjs` (NEW) | D4 | orchestrator-side push |
-| `scripts/gsd-t-stream-feed-server.js` (NEW or rewrite of existing untracked `gsd-t-agent-dashboard-server.js`) | D4 | 127.0.0.1 ws server |
-| `scripts/gsd-t-stream-feed.html` (NEW or rewrite of existing untracked `gsd-t-agent-dashboard.html`) | D5 | UI |
-| `.gsd-t/contracts/task-brief-contract.md` (NEW) | D2 | excerpt source for briefs |
-| `.gsd-t/contracts/completion-signal-contract.md` (NEW) | D3 | done-signal definition |
-| `.gsd-t/contracts/stream-json-sink-contract.md` (NEW) | D1↔D4 joint | frame schema + transport |
-| `.gsd-t/contracts/wave-join-contract.md` (NEW) | D1 | parallelism semantics |
-| `commands/gsd-t-resume.md` (MODIFY Step 0 only) | D6 | add orchestrator-run detection |
-| `docs/m40-benchmark-report.md` (NEW, produced by D0 run) | D0 | gate artifact |
-| `test/m40-*.test.js` (NEW, one per domain D0–D6) | respective owners | unit + integration |
-
-### Cross-Domain Checkpoints
-
-| From | To | Checkpoint |
-|------|-----|-----------|
-| D3 contract complete | D1 orchestrator-core can implement `assertCompletion` calls | Wave 0 item 1 |
-| D3 contract complete | D2 brief-builder can excerpt Done Signal into briefs | Wave 0 item 1 |
-| D1 minimal + D2 minimal | D0 can run benchmark | Wave 0 item 3 |
-| D0 PASS verdict | D1/D2 full, D4/D5 begin | Gate |
-| D1 full (state.json schema stable) | D6 recovery can read it | Wave 4 precondition |
-| D1 stdout piping stable | D4 ingest endpoint can receive | Wave 3 precondition |
-| D4 ws endpoint stable | D5 UI can subscribe | Wave 3 internal |
-
-### Shared Files / Contention Points
-
-| File | Domains | Coordination |
-|------|---------|--------------|
-| `bin/gsd-t.js` | D1 (adds `orchestrate` subcommand), D4 (adds `stream-feed` subcommand), D6 (adds `--resume` flag to orchestrate) | Additive — each domain appends its own subcommand block; no shared lines edited |
-| `commands/gsd-t-resume.md` | D6 only | D6 modifies Step 0 only; rest untouched |
-| `package.json` version | complete-milestone only | No domain bumps mid-milestone |
-| `CHANGELOG.md` | complete-milestone only | No domain bumps mid-milestone |
-
-### Existing-Code Dispositions (Assumption Audit)
-
-| External / existing reference | Disposition | Rationale |
-|-------------------------------|-------------|-----------|
-| `bin/gsd-t-unattended.cjs` `_spawnWorker` | **INSPECT** | Read for spawn shape, prompt envelope, CWD invariant pattern. Do NOT import — D1 orchestrator is a new entry point, not a refactor of supervisor. |
-| `.gsd-t/events/YYYY-MM-DD.jsonl` (existing event stream) | **USE** | D1 continues writing `task-start` / `task-done` events here for backwards compat with existing telemetry. |
-| `scripts/gsd-t-agent-dashboard-server.js` (424 LOC untracked) | **INSPECT-then-decide** | D4 reads first; if it already matches the `stream-json-sink-contract.md` shape, promote to `scripts/gsd-t-stream-feed-server.js`. If not, salvage patterns and rewrite. Decision recorded in Decision Log post-inspection. |
-| `scripts/gsd-t-agent-dashboard.html` (1043 LOC untracked) | **INSPECT-then-decide** | Same treatment as the server file — D5 inspects and decides promote vs rewrite. |
-| `templates/stacks/*.md` (Stack Rules Engine) | **USE** | D2 brief builder calls `bin/rule-engine.js` which reads these. No change to the engine. |
-| `bin/model-selector.js` | **NOT USED** | Orchestrator workers do NOT pick their own model. The brief specifies the model; D1 passes `--model` to `claude -p`. |
-| `bin/token-budget.cjs` | **NOT USED in workers** | Each worker is one task, one shot — context meter is irrelevant inside workers. Orchestrator itself may read it for its own status banner (optional). |
-| `commands/gsd-t-execute.md` | **UNCHANGED** | M40 ships alongside interactive execute; the two paths coexist. |
-| `bin/gsd-t-unattended.cjs` supervisor | **UNCHANGED** | Stays for overnight/idle use per M40 scope §Explicitly NOT in scope. |
-
-### User Intent Locked-In Interpretations (Assumption Audit Category 4)
-
-| Ambiguous phrase from M40 definition | Interpretations | Locked |
-|---------------------------------------|-----------------|--------|
-| "claude.ai-style" (D5 UI) | (a) pixel-perfect clone, (b) same layout conventions (assistant cards, collapsible tools, dark mode) | **(b)** — visual conventions only, not an exact clone. Operator tool, not a product. |
-| "streaming watcher UI" | (a) real-time tail only, (b) backlog + tail | **(b)** — ws connect replays today's JSONL, then tails live. |
-| "zero Claude token cost" | (a) no Claude API calls from UI, (b) no LLM at all in the rendering path | **(b)** — no LLM, no cloud, fully local. |
-| "process-level parallelism" | (a) shell fork-exec, (b) node `child_process.spawn` | **(b)** — node `child_process.spawn`, so frames can be piped programmatically. |
-| "recovery" (D6) | (a) auto-resume on crash, (b) operator-initiated resume | **(b)** — operator runs `gsd-t orchestrate --resume` explicitly. No silent auto-restart. |
+| Ambiguous phrase from M41 definition | Interpretations | Locked |
+|--------------------------------------|-----------------|--------|
+| "universal token capture" | (a) every spawn surface, (b) only new spawns going forward | **(a)** — D3 backfills the historical record; D1+D2 cover forward |
+| "missing usage" handling | (a) write `0`, (b) write `—`, (c) write `N/A` | **(b)** — `—` means "gap acknowledged", never `0` (a zero is a measurement) and never `N/A` (the old convention being retired) |
+| "enforcement" (D5) | (a) hard fail on any bare spawn, (b) warn in CI, (c) opt-in pre-commit hook + MUST rule in CLAUDE | **(c)** — opt-in hook for ship; methodology rule blocks from day 1; automatic hook installation deferred to post-shakedown |
+| "dashboard" (D4) | (a) web UI, (b) CLI table | **(b)** — M40 D5 is the live web UI; M41 D4 is the historical CLI view. No second web server. |
+| "backfill" (D3) | (a) retroactively rewrite old `N/A` rows, (b) append backfill-only JSONL | **both** — `--patch-log` rewrites rows in place; default writes JSONL-only with `source: "backfill"` marker |
 
 ---
 
 ## Prior Milestone Archives
 
-Previous integration-points content (M39 and earlier) is preserved in milestone archives under `.gsd-t/milestones/`. Most recent: `M39-fast-unattended-watch-progress-2026-04-18/`.
+Previous integration-points content (M40 and earlier) is preserved in milestone archives under `.gsd-t/milestones/`. Most recent: `M40-external-task-orchestrator-2026-04-20/`.

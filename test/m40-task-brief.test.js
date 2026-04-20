@@ -248,11 +248,12 @@ test('buildTaskBrief: over-budget drops optional sections first, keeps task + do
 
 test('buildTaskBrief: on this repo (self-test) produces non-empty brief under 10KB', () => {
   // Self-test against the actual GSD-T repo — proves real-world fixture works.
+  // Targets the currently-active milestone's first domain so the fixture survives milestone archival.
   const projectDir = path.resolve(__dirname, '..');
   const brief = buildTaskBrief({
-    milestone: 'M40',
-    domain: 'd2-task-brief-builder',
-    taskId: 'd2-t1',
+    milestone: 'M41',
+    domain: 'd1-token-capture-wrapper',
+    taskId: 'd1-t1',
     projectDir,
     maxBytes: 10000
   });
