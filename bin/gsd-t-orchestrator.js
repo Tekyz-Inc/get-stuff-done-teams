@@ -122,15 +122,18 @@ async function runWaveTasks({ tasks, config, state, logger, spawnImpl, runWorker
     state.patchTask(task.id, { status: 'running', startedAt: started, retryCount: 0 });
     writeEvent(config.projectDir, 'task_start', { task_id: task.id, wave: task.wave, domain: task.domain });
 
+    const canonicalTaskId = task.id.includes(':T')
+      ? `${task.domain}-t${task.id.split(':T')[1]}`
+      : task.id;
+    const taskForWorker = { ...task, canonicalId: canonicalTaskId };
+
     const attempt = async (retryCount) => {
       let brief;
       try {
         brief = buildTaskBrief({
           milestone: config.milestone,
           domain: task.domain,
-          taskId: task.id.includes(':T')
-            ? `${task.domain}-t${task.id.split(':T')[1]}`
-            : task.id,
+          taskId: canonicalTaskId,
           projectDir: config.projectDir,
           expectedBranch: config.expectedBranch || 'main'
         });
@@ -147,7 +150,7 @@ async function runWaveTasks({ tasks, config, state, logger, spawnImpl, runWorker
         brief += `\n\n## Retry Note\nPrevious attempt failed. Try again, paying attention to the Done Signal checklist.\n`;
       }
       return runWorkerImpl({
-        task,
+        task: taskForWorker,
         brief,
         config,
         onFrame: () => {},

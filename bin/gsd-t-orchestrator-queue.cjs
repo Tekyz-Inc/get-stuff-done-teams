@@ -17,6 +17,28 @@ function listDomainTaskFiles(projectDir) {
   return out.sort((a, b) => a.domain.localeCompare(b.domain));
 }
 
+function parseFilesField(text) {
+  const patterns = [];
+  const seen = new Set();
+  const re = /`([^`]+)`/g;
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    const raw = m[1].trim();
+    if (!raw) continue;
+    const pattern = raw.replace(/\/$/, '/**');
+    if (!seen.has(pattern)) { seen.add(pattern); patterns.push(pattern); }
+  }
+  if (patterns.length === 0) {
+    for (const part of text.split(/[,;]/)) {
+      const raw = part.replace(/\([^)]*\)/g, '').trim();
+      if (raw && !/^(none|n\/a)$/i.test(raw) && !seen.has(raw)) {
+        seen.add(raw); patterns.push(raw);
+      }
+    }
+  }
+  return patterns;
+}
+
 function parseTasksFile(markdown, domain) {
   const tasks = [];
   const lines = markdown.split(/\r?\n/);
@@ -27,6 +49,7 @@ function parseTasksFile(markdown, domain) {
     if (current) {
       if (current.wave == null) current.wave = DEFAULT_WAVE;
       if (!current.dependencies) current.dependencies = [];
+      if (!current.ownedPatterns) current.ownedPatterns = [];
       tasks.push(current);
     }
     current = null;
@@ -43,7 +66,8 @@ function parseTasksFile(markdown, domain) {
         taskNum: parseInt(taskHeader[1], 10),
         title: taskHeader[2].trim(),
         wave: null,
-        dependencies: []
+        dependencies: [],
+        ownedPatterns: []
       };
       continue;
     }
@@ -58,6 +82,12 @@ function parseTasksFile(markdown, domain) {
     const depMatch = line.match(/^\s*-\s*\*\*Dependencies\*\*\s*:\s*(.+?)\s*$/i);
     if (depMatch) {
       current.dependencies = parseDependencies(depMatch[1], domain);
+      continue;
+    }
+
+    const filesMatch = line.match(/^\s*-\s*\*\*Files\*\*\s*:\s*(.+?)\s*$/i);
+    if (filesMatch) {
+      current.ownedPatterns = parseFilesField(filesMatch[1]);
       continue;
     }
   }
@@ -143,6 +173,7 @@ module.exports = {
   listDomainTaskFiles,
   parseTasksFile,
   parseDependencies,
+  parseFilesField,
   readAllTasks,
   groupByWave,
   validateNoForwardDeps

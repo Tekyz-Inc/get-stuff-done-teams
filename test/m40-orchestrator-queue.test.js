@@ -9,6 +9,7 @@ const path = require('path');
 const {
   parseTasksFile,
   parseDependencies,
+  parseFilesField,
   readAllTasks,
   groupByWave,
   validateNoForwardDeps
@@ -178,4 +179,46 @@ test('validateNoForwardDeps: cross-domain forward dep rejected', () => {
     () => validateNoForwardDeps(tasks),
     /forward cross-wave dependency/
   );
+});
+
+
+test('parseFilesField: extracts backtick-quoted paths, strips (NEW)/(UPDATED) suffixes', () => {
+  const p = parseFilesField('`out/a.txt` (NEW), `test/bench/a.test.js` (NEW)');
+  assert.deepEqual(p, ['out/a.txt', 'test/bench/a.test.js']);
+});
+
+test('parseFilesField: trailing slash becomes glob', () => {
+  const p = parseFilesField('`test/fixtures/m40-benchmark-workload/` (NEW)');
+  assert.deepEqual(p, ['test/fixtures/m40-benchmark-workload/**']);
+});
+
+test('parseFilesField: falls back to comma-split when no backticks', () => {
+  const p = parseFilesField('out/a.txt (NEW), test/bench/a.test.js (NEW)');
+  assert.deepEqual(p, ['out/a.txt', 'test/bench/a.test.js']);
+});
+
+test('parseFilesField: NONE / N/A => []', () => {
+  assert.deepEqual(parseFilesField('NONE'), []);
+  assert.deepEqual(parseFilesField('N/A'), []);
+});
+
+test('parseTasksFile: task.ownedPatterns populated from Files: line', () => {
+  const md = `# Tasks
+
+### Task 1: Make a thing
+- **Files**: \`out/a.txt\` (NEW), \`test/bench/a.test.js\` (NEW)
+- **Wave**: 0
+- **Dependencies**: NONE
+`;
+  const [t] = parseTasksFile(md, 'd-bench');
+  assert.deepEqual(t.ownedPatterns, ['out/a.txt', 'test/bench/a.test.js']);
+});
+
+test('parseTasksFile: task without Files line has ownedPatterns=[]', () => {
+  const md = `### Task 1: Whatever
+- **Wave**: 0
+- **Dependencies**: NONE
+`;
+  const [t] = parseTasksFile(md, 'd-none');
+  assert.deepEqual(t.ownedPatterns, []);
 });

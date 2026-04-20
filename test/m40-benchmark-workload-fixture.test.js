@@ -16,6 +16,24 @@ test('benchmark fixture: directory layout is present', () => {
   assert.ok(fs.existsSync(path.join(FIXTURE_DIR, '.gsd-t', 'domains', 'bench-d1', 'scope.md')));
   assert.ok(fs.existsSync(path.join(FIXTURE_DIR, '.gsd-t', 'domains', 'bench-d1', 'constraints.md')));
   assert.ok(fs.existsSync(path.join(FIXTURE_DIR, '.gsd-t', 'domains', 'bench-d1', 'tasks.md')));
+  assert.ok(fs.existsSync(path.join(FIXTURE_DIR, 'package.json')), 'fixture must define npm test');
+  assert.ok(fs.existsSync(path.join(FIXTURE_DIR, 'test', 'run.js')), 'fixture must ship a test runner');
+  assert.ok(fs.existsSync(path.join(FIXTURE_DIR, '.gitignore')), 'fixture must ignore orchestrator byproducts');
+});
+
+test('benchmark fixture: .gitignore excludes orchestrator byproducts', () => {
+  const ig = fs.readFileSync(path.join(FIXTURE_DIR, '.gitignore'), 'utf8');
+  for (const needle of ['.gsd-t/events/', '.gsd-t/orchestrator/', 'heartbeat-']) {
+    assert.ok(ig.includes(needle), `.gitignore must exclude ${needle}`);
+  }
+});
+
+test('benchmark fixture: tasks carry ownedPatterns from Files: field', () => {
+  const tasks = readAllTasks(FIXTURE_DIR);
+  for (const t of tasks) {
+    assert.ok(Array.isArray(t.ownedPatterns) && t.ownedPatterns.length >= 2,
+      `${t.id} should have at least 2 owned patterns (output file + test file)`);
+  }
 });
 
 test('benchmark fixture: tasks.md parses cleanly (4 tasks, 2 waves)', () => {

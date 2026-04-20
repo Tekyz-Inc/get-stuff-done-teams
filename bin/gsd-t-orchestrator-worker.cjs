@@ -140,7 +140,7 @@ function runWorker(opts) {
       let result;
       try {
         result = assertCompletion({
-          taskId: task.id,
+          taskId: task.canonicalId || task.id,
           projectDir: config.projectDir,
           expectedBranch: task.expectedBranch || config.expectedBranch || 'main',
           taskStart,
