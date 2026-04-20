@@ -6,27 +6,29 @@ You are launching the GSD-T real-time agent dashboard — an SSE-backed browser 
 
 When invoked directly by the user, spawn yourself as a Task subagent for a fresh context window.
 
-**OBSERVABILITY LOGGING — before spawning:**
-
-Run via Bash:
-`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M")`
+**OBSERVABILITY LOGGING (MANDATORY) — wrap the visualize subagent spawn with `captureSpawn`:**
 
 ```
-Task subagent (general-purpose, model: sonnet):
-"Run the GSD-T visualize command. Read commands/gsd-t-visualize.md for your full instructions.
-Arguments: {$ARGUMENTS}
-Skip Step 0 — you are already the subagent."
+node -e "
+const { captureSpawn } = require('./bin/gsd-t-token-capture.cjs');
+(async () => {
+  await captureSpawn({
+    command: 'gsd-t-visualize',
+    step: 'Step 0',
+    model: 'sonnet',
+    description: 'dashboard launched',
+    projectDir: '.',
+    notes: 'dashboard launched',
+    spawnFn: async () => { /* Task subagent (general-purpose, model: sonnet):
+      'Run the GSD-T visualize command. Read commands/gsd-t-visualize.md for your full instructions.
+      Arguments: {\$ARGUMENTS}
+      Skip Step 0 — you are already the subagent.' */ },
+  });
+})();
+"
 ```
 
-**OBSERVABILITY LOGGING — after subagent returns:**
-
-Run via Bash:
-`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START)) && CTX_PCT=$(node -e "const tb=require('./bin/token-budget.cjs'); process.stdout.write(String(tb.getSessionStatus('.').pct||'N/A'))" 2>/dev/null || echo "N/A")`
-
-Append to `.gsd-t/token-log.md` (create with header `| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Ctx% |` if missing):
-`| {DT_START} | {DT_END} | gsd-t-visualize | Step 0 | sonnet | {DURATION}s | dashboard launched | {CTX_PCT} |`
-
-Return the subagent's output and stop. Only skip Step 0 if you are already running as a subagent.
+`captureSpawn` parses `result.usage` and writes the row to `.gsd-t/token-log.md` under the canonical header. Tokens column renders as `in=N out=N cr=N cc=N $X.XX` or `—`, never `N/A`. Return the subagent's output and stop. Only skip Step 0 if you are already running as a subagent.
 
 ## Step 1: Write command_invoked Event
 
