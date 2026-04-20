@@ -1,0 +1,1168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GSD-T Stream Feed</title>
+<style>
+:root {
+  --bg: #0a0a10; --surface: #111118; --card: #16161f; --card-hover: #1c1c28;
+  --border: #2a2a38; --border-soft: #1e1e2a;
+  --text: #e6edf3; --muted: #9098a8; --dim: #5a6070;
+  --cyan: #00d4ff; --green: #31d158; --red: #ff5f5f; --yellow: #d4a017;
+  --purple: #a371f7; --blue: #4493f8; --orange: #ff9042;
+  --mono: 'SF Mono', 'JetBrains Mono', 'Fira Code', 'Cascadia Code', Menlo, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif;
+  --radius: 8px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 13px;
+  line-height: 1.5; height: 100vh; display: flex; flex-direction: column; overflow: hidden;
+}
+
+/* ── Header ───────────────────────────────────────── */
+.header {
+  padding: 10px 20px; background: var(--surface); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 14px; flex-shrink: 0;
+}
+.logo { font-weight: 700; letter-spacing: -0.3px; font-size: 14px; }
+.logo .accent { color: var(--cyan); }
+.status-badge {
+  display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px;
+  border-radius: 10px; font-size: 11px; font-weight: 600; background: var(--card);
+}
+.status-badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--dim); }
+.status-badge.connected .dot { background: var(--green); animation: pulse 1.5s ease-in-out infinite; }
+.status-badge.connected { color: var(--green); }
+.status-badge.reconnecting .dot { background: var(--yellow); }
+.status-badge.reconnecting { color: var(--yellow); }
+.status-badge.disconnected .dot { background: var(--red); }
+.status-badge.disconnected { color: var(--red); }
+@keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .4 } }
+.header-spacer { flex: 1; }
+.frame-counter { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+
+/* ── Feed ─────────────────────────────────────────── */
+.feed {
+  flex: 1; overflow-y: auto; padding: 16px 20px 80px; position: relative;
+  scroll-behavior: smooth;
+}
+.feed::-webkit-scrollbar { width: 10px; }
+.feed::-webkit-scrollbar-track { background: var(--bg); }
+.feed::-webkit-scrollbar-thumb { background: var(--border); border-radius: 5px; }
+.feed::-webkit-scrollbar-thumb:hover { background: var(--dim); }
+
+/* ── Assistant card ───────────────────────────────── */
+.msg-assistant {
+  background: var(--card); border: 1px solid var(--border-soft); border-radius: var(--radius);
+  padding: 12px 14px; margin-bottom: 10px; max-width: 880px;
+}
+.msg-assistant .msg-hd {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+  font-size: 11px; color: var(--muted);
+}
+.msg-assistant .msg-hd .role { color: var(--cyan); font-weight: 600; }
+.msg-assistant .msg-hd .meta { font-family: var(--mono); color: var(--dim); }
+.msg-assistant .msg-body { font-size: 13px; line-height: 1.55; color: var(--text); }
+.msg-assistant .msg-body p { margin: 0 0 8px; }
+.msg-assistant .msg-body p:last-child { margin-bottom: 0; }
+.msg-assistant .msg-body code {
+  background: var(--bg); border: 1px solid var(--border-soft); padding: 1px 5px;
+  border-radius: 3px; font-family: var(--mono); font-size: 12px; color: var(--orange);
+}
+.msg-assistant .msg-body pre {
+  background: var(--bg); border: 1px solid var(--border-soft); padding: 10px;
+  border-radius: 6px; overflow-x: auto; margin: 8px 0; font-family: var(--mono);
+  font-size: 12px; line-height: 1.5;
+}
+.msg-assistant .msg-body pre code { background: none; border: none; padding: 0; color: var(--text); }
+.msg-assistant .msg-body strong { color: var(--text); font-weight: 600; }
+.msg-assistant .msg-body em { font-style: italic; color: var(--muted); }
+.msg-assistant .msg-body ul, .msg-assistant .msg-body ol { margin: 6px 0 8px 22px; }
+.msg-assistant .msg-body li { margin-bottom: 2px; }
+
+/* ── Tool call (collapsible) ──────────────────────── */
+.tool-block {
+  background: var(--card); border: 1px solid var(--border-soft); border-radius: var(--radius);
+  margin-bottom: 10px; max-width: 880px; overflow: hidden;
+}
+.tool-block.failed { border-color: rgba(255,95,95,0.4); }
+.tool-hd {
+  display: flex; align-items: center; gap: 10px; padding: 8px 12px; cursor: pointer;
+  user-select: none; background: transparent; transition: background 0.1s;
+}
+.tool-hd:hover { background: var(--card-hover); }
+.tool-chevron {
+  display: inline-block; width: 10px; height: 10px; color: var(--dim);
+  transition: transform 0.15s; font-family: var(--mono); font-size: 10px;
+}
+.tool-block.open .tool-chevron { transform: rotate(90deg); }
+.tool-icon {
+  width: 22px; height: 22px; border-radius: 5px; background: rgba(163,113,247,0.15);
+  border: 1px solid rgba(163,113,247,0.35); color: var(--purple);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--mono); font-size: 11px; font-weight: 600;
+}
+.tool-block.failed .tool-icon { background: rgba(255,95,95,0.15); border-color: var(--red); color: var(--red); }
+.tool-name { font-family: var(--mono); font-size: 12px; color: var(--text); font-weight: 600; }
+.tool-preview {
+  flex: 1; font-family: var(--mono); font-size: 11px; color: var(--muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+}
+.tool-dur { font-family: var(--mono); font-size: 11px; color: var(--dim); flex-shrink: 0; }
+.tool-body {
+  display: none; padding: 0 12px 12px; border-top: 1px solid var(--border-soft);
+  font-family: var(--mono); font-size: 12px;
+}
+.tool-block.open .tool-body { display: block; }
+.tool-section { margin-top: 10px; }
+.tool-section-label {
+  font-size: 10px; color: var(--dim); text-transform: uppercase; letter-spacing: 0.7px;
+  margin-bottom: 4px; font-family: var(--sans); font-weight: 600;
+}
+.tool-section pre {
+  background: var(--bg); border: 1px solid var(--border-soft); padding: 8px;
+  border-radius: 5px; overflow-x: auto; font-family: var(--mono); font-size: 12px;
+  white-space: pre-wrap; word-break: break-word; color: var(--text); max-height: 400px;
+  overflow-y: auto;
+}
+
+/* ── Boundaries ───────────────────────────────────── */
+.boundary {
+  padding: 6px 12px; margin: 12px 0; border-radius: 4px; font-family: var(--mono);
+  font-size: 11px; color: var(--muted); background: var(--surface);
+  border-left: 3px solid var(--border);
+}
+
+/* Task boundary: narrow horizontal banner, color-coded by state */
+.task-banner {
+  display: flex; align-items: center; gap: 10px; padding: 8px 14px;
+  margin: 10px 0; border-radius: var(--radius);
+  background: var(--surface); border: 1px solid var(--border-soft);
+  border-left: 3px solid var(--dim); font-family: var(--mono); font-size: 12px;
+  cursor: pointer; user-select: none; transition: background 0.1s;
+  max-width: 880px;
+}
+.task-banner:hover { background: var(--card-hover); }
+.task-banner.start { border-left-color: var(--green); }
+.task-banner.done { border-left-color: var(--dim); opacity: 0.75; }
+.task-banner.failed { border-left-color: var(--red); background: rgba(255,95,95,0.06); }
+.task-banner .state-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+}
+.task-banner.start .state-dot { background: var(--green); animation: pulse 1.5s ease-in-out infinite; }
+.task-banner.done .state-dot { background: var(--dim); }
+.task-banner.failed .state-dot { background: var(--red); }
+.task-banner .task-id { color: var(--text); font-weight: 600; }
+.task-banner .task-meta { color: var(--muted); font-size: 11px; }
+.task-banner .task-dur { margin-left: auto; color: var(--dim); font-size: 11px; }
+.task-banner .task-pid { color: var(--dim); font-size: 11px; }
+
+/* Wave boundary: larger, more prominent, full-width */
+.wave-banner {
+  display: flex; align-items: center; gap: 12px; padding: 12px 18px;
+  margin: 20px 0 12px; border-radius: var(--radius);
+  background: linear-gradient(90deg, rgba(0,212,255,0.08), rgba(0,212,255,0.02));
+  border: 1px solid rgba(0,212,255,0.25);
+  font-family: var(--mono); font-size: 13px; color: var(--text);
+  cursor: pointer; user-select: none; max-width: 880px;
+}
+.wave-banner:hover { background: linear-gradient(90deg, rgba(0,212,255,0.14), rgba(0,212,255,0.04)); }
+.wave-banner.done { opacity: 0.7; border-color: rgba(0,212,255,0.15); }
+.wave-banner.failed { background: rgba(255,95,95,0.06); border-color: rgba(255,95,95,0.35); }
+.wave-banner .wave-icon {
+  font-size: 16px; color: var(--cyan); font-weight: 700; letter-spacing: -1px;
+}
+.wave-banner.failed .wave-icon { color: var(--red); }
+.wave-banner .wave-label { font-weight: 700; color: var(--text); }
+.wave-banner .wave-meta { color: var(--muted); font-size: 12px; }
+.wave-banner .wave-dur { margin-left: auto; color: var(--muted); font-size: 12px; }
+
+/* ── Empty / error states ─────────────────────────── */
+.empty-state {
+  padding: 60px 20px; text-align: center; color: var(--dim); font-size: 13px;
+}
+.empty-state .big { font-size: 20px; margin-bottom: 10px; color: var(--muted); }
+
+/* ── Filter panel ─────────────────────────────────── */
+.filter-toggle {
+  background: var(--card); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--muted); font-family: var(--sans); font-size: 11px; padding: 4px 10px;
+  cursor: pointer; display: flex; align-items: center; gap: 5px;
+}
+.filter-toggle:hover { color: var(--text); border-color: var(--text); }
+.filter-toggle.active { color: var(--cyan); border-color: var(--cyan); }
+.filter-badge {
+  background: var(--cyan); color: var(--bg); font-size: 10px; font-weight: 700;
+  border-radius: 9px; padding: 1px 6px; min-width: 16px; text-align: center;
+}
+
+.filter-panel {
+  position: absolute; top: 52px; right: 20px; width: 320px; max-height: 70vh;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 14px; z-index: 50; box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  display: none; overflow-y: auto; font-family: var(--sans); font-size: 12px;
+}
+.filter-panel.open { display: block; }
+.filter-section { margin-bottom: 14px; }
+.filter-section:last-child { margin-bottom: 0; }
+.filter-section-hd {
+  display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;
+}
+.filter-section-title {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.7px;
+  color: var(--muted); font-weight: 600;
+}
+.filter-clear-btn {
+  background: none; border: none; color: var(--cyan); font-size: 11px; cursor: pointer;
+  font-family: var(--sans);
+}
+.filter-clear-btn:hover { color: var(--text); }
+.filter-options { display: flex; flex-wrap: wrap; gap: 5px; }
+.filter-option {
+  display: inline-flex; align-items: center; gap: 5px; padding: 4px 8px;
+  background: var(--card); border: 1px solid var(--border-soft); border-radius: 4px;
+  cursor: pointer; user-select: none; font-family: var(--mono); font-size: 11px;
+  color: var(--muted); transition: background 0.1s;
+}
+.filter-option:hover { background: var(--card-hover); color: var(--text); }
+.filter-option.selected {
+  background: rgba(0,212,255,0.12); border-color: rgba(0,212,255,0.5); color: var(--cyan);
+}
+.filter-empty {
+  color: var(--dim); font-size: 11px; font-style: italic; padding: 2px 0;
+}
+
+/* Filter hiding — apply to feed items that carry filter metadata */
+.feed.filtered .filterable[data-filtered="true"] { display: none; }
+
+/* ── Token usage corner bar ───────────────────────── */
+.token-bar {
+  position: fixed; top: 62px; right: 20px; z-index: 45;
+  background: rgba(22,22,31,0.92); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 6px 12px;
+  font-family: var(--mono); font-size: 11px; color: var(--muted);
+  display: flex; align-items: center; gap: 10px; backdrop-filter: blur(8px);
+}
+.token-bar .tb-cost { color: var(--green); font-weight: 600; }
+.token-bar .tb-tokens { color: var(--cyan); }
+.token-bar .tb-spawns { color: var(--purple); }
+.token-bar .tb-sep { color: var(--dim); }
+.token-bar.empty { opacity: 0.5; }
+
+/* Inline usage chip on task + wave banners */
+.usage-chip {
+  font-family: var(--mono); font-size: 11px; color: var(--muted);
+  padding: 1px 6px; background: var(--bg); border-radius: 3px;
+  border: 1px solid var(--border-soft); white-space: nowrap;
+}
+.usage-chip.missing { color: var(--dim); font-style: italic; }
+.usage-chip .cost { color: var(--green); font-weight: 600; }
+
+/* ── Jump to live button ──────────────────────────── */
+.jump-to-live {
+  position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%);
+  background: var(--cyan); color: var(--bg); font-family: var(--sans); font-size: 12px;
+  font-weight: 600; padding: 8px 16px; border-radius: 20px; border: none;
+  cursor: pointer; box-shadow: 0 4px 16px rgba(0,212,255,0.4);
+  display: none; align-items: center; gap: 6px; z-index: 40;
+}
+.jump-to-live.visible { display: inline-flex; }
+.jump-to-live:hover { background: #2ce0ff; }
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="logo"><span class="accent">◆</span> GSD-T <span style="color:var(--muted);font-weight:400">stream feed</span></div>
+  <div id="statusBadge" class="status-badge disconnected"><span class="dot"></span><span id="statusText">disconnected</span></div>
+  <div class="header-spacer"></div>
+  <button id="filterToggle" class="filter-toggle" type="button">
+    <span>▾ filter</span>
+    <span id="filterBadge" class="filter-badge" style="display:none">0</span>
+  </button>
+  <div class="frame-counter"><span id="frameCount">0</span> frames</div>
+</div>
+<div id="filterPanel" class="filter-panel">
+  <div class="filter-section">
+    <div class="filter-section-hd">
+      <span class="filter-section-title">Tasks</span>
+      <button class="filter-clear-btn" data-clear="task">clear</button>
+    </div>
+    <div id="filterOptionsTask" class="filter-options"><div class="filter-empty">none yet</div></div>
+  </div>
+  <div class="filter-section">
+    <div class="filter-section-hd">
+      <span class="filter-section-title">Domains</span>
+      <button class="filter-clear-btn" data-clear="domain">clear</button>
+    </div>
+    <div id="filterOptionsDomain" class="filter-options"><div class="filter-empty">none yet</div></div>
+  </div>
+  <div class="filter-section">
+    <div class="filter-section-hd">
+      <span class="filter-section-title">Waves</span>
+      <button class="filter-clear-btn" data-clear="wave">clear</button>
+    </div>
+    <div id="filterOptionsWave" class="filter-options"><div class="filter-empty">none yet</div></div>
+  </div>
+</div>
+<div id="feed" class="feed">
+  <div id="emptyState" class="empty-state">
+    <div class="big">◇</div>
+    <div>Waiting for frames…</div>
+    <div style="margin-top:6px;font-size:11px">connecting to <code style="font-family:var(--mono);color:var(--cyan)">ws://127.0.0.1:7842/feed</code></div>
+  </div>
+</div>
+<div id="tokenBar" class="token-bar empty">
+  <span class="tb-cost" id="tbCost">—</span>
+  <span class="tb-sep">·</span>
+  <span class="tb-tokens" id="tbTokens">0 tokens</span>
+  <span class="tb-sep">·</span>
+  <span class="tb-spawns" id="tbSpawns">0 spawns</span>
+</div>
+<button id="jumpToLive" class="jump-to-live" type="button">↓ Jump to live</button>
+
+<script>
+'use strict';
+
+// ── Config ─────────────────────────────────────────
+const WS_URL_DEFAULT = `ws://${location.hostname || '127.0.0.1'}:7842/feed?from=0`;
+const RECONNECT_DELAY_MS = 1000;
+
+// ── State ──────────────────────────────────────────
+const state = {
+  ws: null,
+  frameCount: 0,
+  toolUseById: new Map(),   // tool_use.id → DOM element for pairing with tool_result
+  taskStartByKey: new Map(), // `${workerPid}:${taskId}` → { bannerEl, ts, firstFrameEl }
+  waveStartByNum: new Map(), // wave number → { bannerEl, ts }
+  lastTaskKey: null,         // most recent task-boundary:start key (for firstFrameEl anchor)
+  lastTaskContext: null,     // { task, domain, wave } — applied to subsequent frames for filtering
+  reconnectTimer: null,
+};
+
+// ── DOM refs ───────────────────────────────────────
+const feed = document.getElementById('feed');
+const emptyState = document.getElementById('emptyState');
+const statusBadge = document.getElementById('statusBadge');
+const statusText = document.getElementById('statusText');
+const frameCountEl = document.getElementById('frameCount');
+const filterToggle = document.getElementById('filterToggle');
+const filterPanel = document.getElementById('filterPanel');
+const filterBadge = document.getElementById('filterBadge');
+const filterOptTask = document.getElementById('filterOptionsTask');
+const filterOptDomain = document.getElementById('filterOptionsDomain');
+const filterOptWave = document.getElementById('filterOptionsWave');
+const jumpToLiveBtn = document.getElementById('jumpToLive');
+const tokenBar = document.getElementById('tokenBar');
+const tbCost = document.getElementById('tbCost');
+const tbTokens = document.getElementById('tbTokens');
+const tbSpawns = document.getElementById('tbSpawns');
+
+// ── Usage aggregation state ────────────────────────
+// Per-task aggregated usage, keyed by `${workerPid}:${taskId}`.
+// wave totals computed on-demand from task entries matching a wave.
+const usageState = {
+  byTaskKey: new Map(),        // key → { pid, taskId, wave, domain, usage, cost, numTurns, durationMs, hasResult, spawned }
+  totals: { cost: 0, tokens: 0, spawns: 0, anyCostSeen: false },
+};
+
+function humanizeTokens(n) {
+  if (n == null || !Number.isFinite(n)) return '0';
+  const abs = Math.abs(n);
+  if (abs < 1000) return String(n);
+  if (abs < 1e6) return (n / 1000).toFixed(n >= 10000 ? 0 : 1) + 'K';
+  if (abs < 1e9) return (n / 1e6).toFixed(n >= 10e6 ? 0 : 1) + 'M';
+  return (n / 1e9).toFixed(1) + 'B';
+}
+
+function formatCost(c) {
+  if (c == null || !Number.isFinite(c)) return '—';
+  return '$' + c.toFixed(2);
+}
+
+function refreshTokenBar() {
+  const t = usageState.totals;
+  if (t.spawns === 0 && !t.anyCostSeen) {
+    tokenBar.classList.add('empty');
+  } else {
+    tokenBar.classList.remove('empty');
+  }
+  tbCost.textContent = t.anyCostSeen ? formatCost(t.cost) : '—';
+  tbTokens.textContent = humanizeTokens(t.tokens) + ' tokens';
+  tbSpawns.textContent = t.spawns + ' spawn' + (t.spawns === 1 ? '' : 's');
+}
+
+// ── Auto-scroll + jump-to-live state ───────────────
+// Follow mode: feed auto-scrolls to bottom on new frames.
+// When user scrolls up (more than SCROLL_PAUSE_THRESHOLD_PX from bottom), pause auto-scroll.
+let autoScrollEnabled = true;
+const SCROLL_PAUSE_THRESHOLD_PX = 80;
+
+function isNearBottom() {
+  return feed.scrollHeight - (feed.scrollTop + feed.clientHeight) < SCROLL_PAUSE_THRESHOLD_PX;
+}
+feed.addEventListener('scroll', () => {
+  if (isNearBottom()) {
+    autoScrollEnabled = true;
+    jumpToLiveBtn.classList.remove('visible');
+  } else {
+    autoScrollEnabled = false;
+    jumpToLiveBtn.classList.add('visible');
+  }
+});
+jumpToLiveBtn.addEventListener('click', () => {
+  autoScrollEnabled = true;
+  feed.scrollTop = feed.scrollHeight;
+  jumpToLiveBtn.classList.remove('visible');
+});
+
+// ── Filter state + localStorage persistence ────────
+const LS_KEY = 'gsd-t-stream-feed-filters-v1';
+const filterState = {
+  enabled: { task: new Set(), domain: new Set(), wave: new Set() },
+  seen: { task: new Set(), domain: new Set(), wave: new Set() },
+};
+
+function loadFilterPrefs() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return;
+    const obj = JSON.parse(raw);
+    if (obj && typeof obj === 'object') {
+      for (const k of ['task', 'domain', 'wave']) {
+        if (Array.isArray(obj[k])) filterState.enabled[k] = new Set(obj[k]);
+      }
+    }
+  } catch (_) {}
+}
+function saveFilterPrefs() {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify({
+      task: Array.from(filterState.enabled.task),
+      domain: Array.from(filterState.enabled.domain),
+      wave: Array.from(filterState.enabled.wave),
+    }));
+  } catch (_) {}
+}
+loadFilterPrefs();
+
+filterToggle.addEventListener('click', () => {
+  filterPanel.classList.toggle('open');
+  filterToggle.classList.toggle('active', filterPanel.classList.contains('open'));
+});
+document.addEventListener('click', (ev) => {
+  if (!filterPanel.contains(ev.target) && !filterToggle.contains(ev.target)) {
+    filterPanel.classList.remove('open');
+    filterToggle.classList.remove('active');
+  }
+});
+for (const btn of document.querySelectorAll('.filter-clear-btn')) {
+  btn.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    const kind = btn.dataset.clear;
+    filterState.enabled[kind].clear();
+    renderFilterOptions();
+    applyFilters();
+    saveFilterPrefs();
+  });
+}
+
+function addFilterValue(kind, value) {
+  if (value == null || value === '') return;
+  const v = String(value);
+  if (filterState.seen[kind].has(v)) return;
+  filterState.seen[kind].add(v);
+  renderFilterOptions();
+}
+
+function renderFilterOptions() {
+  const kinds = [
+    { kind: 'task', el: filterOptTask },
+    { kind: 'domain', el: filterOptDomain },
+    { kind: 'wave', el: filterOptWave },
+  ];
+  for (const { kind, el } of kinds) {
+    const values = Array.from(filterState.seen[kind]).sort((a, b) => {
+      if (kind === 'wave') return Number(a) - Number(b);
+      return String(a).localeCompare(String(b));
+    });
+    if (values.length === 0) {
+      el.innerHTML = '<div class="filter-empty">none yet</div>';
+      continue;
+    }
+    el.innerHTML = '';
+    for (const v of values) {
+      const opt = document.createElement('span');
+      opt.className = 'filter-option' + (filterState.enabled[kind].has(v) ? ' selected' : '');
+      opt.textContent = v;
+      opt.addEventListener('click', () => {
+        if (filterState.enabled[kind].has(v)) filterState.enabled[kind].delete(v);
+        else filterState.enabled[kind].add(v);
+        opt.classList.toggle('selected');
+        applyFilters();
+        saveFilterPrefs();
+      });
+      el.appendChild(opt);
+    }
+  }
+  // Update badge
+  const total = filterState.enabled.task.size + filterState.enabled.domain.size + filterState.enabled.wave.size;
+  if (total > 0) {
+    filterBadge.textContent = String(total);
+    filterBadge.style.display = '';
+  } else {
+    filterBadge.style.display = 'none';
+  }
+}
+
+function elementMatchesFilters(el) {
+  // Element is hidden if ANY active filter kind is non-empty AND the element's
+  // value for that kind is NOT in the enabled set.
+  const { task, domain, wave } = filterState.enabled;
+  if (task.size > 0) {
+    const v = el.dataset.filterTask;
+    if (!v || !task.has(v)) return false;
+  }
+  if (domain.size > 0) {
+    const v = el.dataset.filterDomain;
+    if (!v || !domain.has(v)) return false;
+  }
+  if (wave.size > 0) {
+    const v = el.dataset.filterWave;
+    if (!v || !wave.has(v)) return false;
+  }
+  return true;
+}
+
+function applyFilters() {
+  const any = filterState.enabled.task.size + filterState.enabled.domain.size + filterState.enabled.wave.size > 0;
+  feed.classList.toggle('filtered', any);
+  if (!any) {
+    for (const el of feed.querySelectorAll('.filterable')) {
+      el.dataset.filtered = 'false';
+    }
+    return;
+  }
+  for (const el of feed.querySelectorAll('.filterable')) {
+    el.dataset.filtered = elementMatchesFilters(el) ? 'false' : 'true';
+  }
+}
+
+// Current filter context applied to every new element: last-seen task-start's metadata.
+function currentFilterContext() {
+  if (!state.lastTaskKey) return { task: null, domain: null, wave: null };
+  return state.lastTaskContext || { task: null, domain: null, wave: null };
+}
+
+function tagFilterable(el, ctx) {
+  el.classList.add('filterable');
+  if (ctx.task) el.dataset.filterTask = ctx.task;
+  if (ctx.domain) el.dataset.filterDomain = ctx.domain;
+  if (ctx.wave != null) el.dataset.filterWave = String(ctx.wave);
+  // Apply current visibility immediately
+  if (feed.classList.contains('filtered')) {
+    el.dataset.filtered = elementMatchesFilters(el) ? 'false' : 'true';
+  }
+}
+
+// ── Status indicator ───────────────────────────────
+function setStatus(kind, label) {
+  statusBadge.className = `status-badge ${kind}`;
+  statusText.textContent = label;
+}
+
+function incrementFrameCount() {
+  state.frameCount++;
+  frameCountEl.textContent = state.frameCount;
+  if (emptyState && emptyState.parentNode) emptyState.remove();
+}
+
+// ── Minimal markdown renderer ──────────────────────
+// Handles: fenced code blocks, inline code, bold, italic, lists, paragraphs.
+// Escapes HTML first, then applies markdown transforms.
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function renderMarkdown(src) {
+  if (!src) return '';
+  // Extract fenced code blocks first so their contents aren't markdown-processed.
+  const codeBlocks = [];
+  let text = String(src).replace(/```(\w+)?\n([\s\S]*?)```/g, (_, lang, code) => {
+    const idx = codeBlocks.length;
+    codeBlocks.push(`<pre><code>${escapeHtml(code.replace(/\n$/, ''))}</code></pre>`);
+    return `\x00CODEBLOCK${idx}\x00`;
+  });
+  text = escapeHtml(text);
+  // Inline code
+  text = text.replace(/`([^`\n]+)`/g, (_, c) => `<code>${c}</code>`);
+  // Bold **x** and italic *x*
+  text = text.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
+  text = text.replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>');
+  // Lists: convert consecutive "- " or "* " lines into <ul>
+  text = text.replace(/(^|\n)((?:[-*] .+(?:\n|$))+)/g, (_, lead, block) => {
+    const items = block.trim().split(/\n/).map(l => l.replace(/^[-*]\s+/, '')).map(i => `<li>${i}</li>`).join('');
+    return `${lead}<ul>${items}</ul>`;
+  });
+  // Numbered lists
+  text = text.replace(/(^|\n)((?:\d+\. .+(?:\n|$))+)/g, (_, lead, block) => {
+    const items = block.trim().split(/\n/).map(l => l.replace(/^\d+\.\s+/, '')).map(i => `<li>${i}</li>`).join('');
+    return `${lead}<ol>${items}</ol>`;
+  });
+  // Paragraphs — split on blank lines, wrap non-empty chunks that aren't already block-level
+  const parts = text.split(/\n{2,}/).map(chunk => {
+    const c = chunk.trim();
+    if (!c) return '';
+    if (/^<(ul|ol|pre|h\d)/.test(c)) return c;
+    if (/^\x00CODEBLOCK\d+\x00$/.test(c)) return c;
+    return `<p>${c.replace(/\n/g, '<br>')}</p>`;
+  });
+  text = parts.filter(Boolean).join('\n');
+  // Restore code blocks
+  text = text.replace(/\x00CODEBLOCK(\d+)\x00/g, (_, i) => codeBlocks[Number(i)]);
+  return text;
+}
+
+// ── Content extraction helpers ─────────────────────
+function extractAssistantText(frame) {
+  // Claude stream-json: {type:"assistant", message: {content: [{type:"text", text:"..."}, {type:"tool_use", ...}]}}
+  const parts = [];
+  const toolUses = [];
+  const msg = frame && frame.message;
+  if (!msg || !Array.isArray(msg.content)) return { text: '', toolUses: [] };
+  for (const block of msg.content) {
+    if (!block || typeof block !== 'object') continue;
+    if (block.type === 'text' && typeof block.text === 'string') parts.push(block.text);
+    else if (block.type === 'tool_use') toolUses.push(block);
+  }
+  return { text: parts.join('\n\n'), toolUses };
+}
+
+function extractToolResult(frame) {
+  // {type:"user", message:{content:[{type:"tool_result", tool_use_id, content, is_error}]}}
+  // Also bare {type:"tool_result", ...} for direct emission.
+  if (frame && frame.type === 'tool_result') return frame;
+  const msg = frame && frame.message;
+  if (!msg || !Array.isArray(msg.content)) return null;
+  for (const block of msg.content) {
+    if (block && block.type === 'tool_result') return block;
+  }
+  return null;
+}
+
+function formatInputPreview(input) {
+  if (input == null) return '';
+  if (typeof input === 'string') return input.length > 120 ? input.slice(0, 117) + '…' : input;
+  try {
+    const keys = Object.keys(input);
+    if (keys.length === 0) return '{}';
+    const first = keys[0];
+    const val = input[first];
+    const valStr = typeof val === 'string' ? val : JSON.stringify(val);
+    const preview = `${first}=${valStr}`;
+    return preview.length > 120 ? preview.slice(0, 117) + '…' : preview;
+  } catch (_) { return ''; }
+}
+
+function formatContentPreview(content) {
+  if (content == null) return '';
+  const s = typeof content === 'string' ? content : JSON.stringify(content);
+  const firstLine = s.split('\n')[0];
+  return firstLine.length > 120 ? firstLine.slice(0, 117) + '…' : firstLine;
+}
+
+function formatDuration(startTs, endTs) {
+  if (!startTs || !endTs) return '';
+  const ms = new Date(endTs).getTime() - new Date(startTs).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return '';
+  if (ms < 1000) return `${ms}ms`;
+  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+  return `${Math.floor(ms / 60000)}m ${Math.floor((ms % 60000) / 1000)}s`;
+}
+
+// ── Renderers ──────────────────────────────────────
+function renderAssistant(frame) {
+  const { text, toolUses } = extractAssistantText(frame);
+  const msgId = (frame.message && frame.message.id) || '';
+  const model = (frame.message && frame.message.model) || '';
+
+  if (text.trim()) {
+    const card = document.createElement('div');
+    card.className = 'msg-assistant';
+    const hd = document.createElement('div');
+    hd.className = 'msg-hd';
+    hd.innerHTML = `<span class="role">assistant</span><span class="meta">${escapeHtml(model || '')}${msgId ? ' · ' + escapeHtml(msgId.slice(-8)) : ''}</span>`;
+    const body = document.createElement('div');
+    body.className = 'msg-body';
+    body.innerHTML = renderMarkdown(text);
+    card.appendChild(hd);
+    card.appendChild(body);
+    tagFilterable(card, currentFilterContext());
+    feed.appendChild(card);
+  }
+
+  for (const tu of toolUses) {
+    renderToolUse(tu, frame.ts || (frame.message && frame.message.ts));
+  }
+}
+
+function renderToolUse(block, ts) {
+  const wrap = document.createElement('div');
+  wrap.className = 'tool-block';
+  wrap.dataset.toolUseId = block.id || '';
+  wrap.dataset.ts = ts || '';
+
+  const hd = document.createElement('div');
+  hd.className = 'tool-hd';
+  hd.innerHTML = `
+    <span class="tool-chevron">▶</span>
+    <span class="tool-icon">${escapeHtml((block.name || '?').slice(0, 2).toUpperCase())}</span>
+    <span class="tool-name">${escapeHtml(block.name || 'tool')}</span>
+    <span class="tool-preview">${escapeHtml(formatInputPreview(block.input))}</span>
+    <span class="tool-dur" data-role="dur"></span>
+  `;
+  hd.addEventListener('click', () => wrap.classList.toggle('open'));
+
+  const body = document.createElement('div');
+  body.className = 'tool-body';
+  body.innerHTML = `
+    <div class="tool-section">
+      <div class="tool-section-label">input</div>
+      <pre>${escapeHtml(typeof block.input === 'string' ? block.input : JSON.stringify(block.input, null, 2))}</pre>
+    </div>
+    <div class="tool-section" data-role="output" style="display:none">
+      <div class="tool-section-label">output</div>
+      <pre data-role="output-pre"></pre>
+    </div>
+  `;
+
+  wrap.appendChild(hd);
+  wrap.appendChild(body);
+  tagFilterable(wrap, currentFilterContext());
+  feed.appendChild(wrap);
+
+  if (block.id) state.toolUseById.set(block.id, wrap);
+}
+
+function renderToolResult(block, frameTs) {
+  const id = block.tool_use_id || block.id;
+  if (!id) return;
+  const wrap = state.toolUseById.get(id);
+  if (!wrap) return; // orphaned — tool_use never rendered (pre-subscribe)
+
+  // Pair duration
+  const startTs = wrap.dataset.ts;
+  const dur = formatDuration(startTs, frameTs);
+  const durEl = wrap.querySelector('[data-role="dur"]');
+  if (durEl && dur) durEl.textContent = dur;
+
+  // Mark as failed if needed
+  if (block.is_error) wrap.classList.add('failed');
+
+  // Populate output section
+  const outSection = wrap.querySelector('[data-role="output"]');
+  const outPre = wrap.querySelector('[data-role="output-pre"]');
+  if (outSection && outPre) {
+    const contentStr = typeof block.content === 'string'
+      ? block.content
+      : Array.isArray(block.content)
+        ? block.content.map(c => (c && c.type === 'text' ? c.text : JSON.stringify(c))).join('\n')
+        : JSON.stringify(block.content, null, 2);
+    outPre.textContent = contentStr;
+    outSection.style.display = '';
+
+    // Update header preview to show first line of output
+    const preview = wrap.querySelector('.tool-preview');
+    if (preview) preview.textContent = formatContentPreview(contentStr);
+  }
+}
+
+function renderResultSummary(frame) {
+  // {type:"result"} — final worker summary. Captures usage into usageState, then
+  // renders a compact boundary line and enriches the active task's start banner.
+  const usage = frame.usage || {};
+  const cost = typeof frame.total_cost_usd === 'number' ? frame.total_cost_usd
+             : typeof frame.cost_usd === 'number' ? frame.cost_usd : null;
+  const inTok = usage.input_tokens;
+  const outTok = usage.output_tokens;
+  const crTok = usage.cache_read_input_tokens;
+  const ccTok = usage.cache_creation_input_tokens;
+
+  // Attribute to the currently-active task (if any).
+  const key = state.lastTaskKey;
+  if (key) {
+    const entry = usageState.byTaskKey.get(key) || {};
+    const ctx = state.lastTaskContext || {};
+    if (entry.pid == null) {
+      const pidFromKey = Number(key.split(':')[0]);
+      entry.pid = Number.isFinite(pidFromKey) && pidFromKey > 0 ? pidFromKey : null;
+    }
+    entry.taskId = ctx.task || entry.taskId || null;
+    entry.domain = ctx.domain || entry.domain || null;
+    entry.wave = ctx.wave ?? entry.wave ?? null;
+    entry.usage = {
+      input_tokens: inTok, output_tokens: outTok,
+      cache_read_input_tokens: crTok, cache_creation_input_tokens: ccTok,
+    };
+    entry.cost = cost;
+    entry.numTurns = frame.num_turns ?? null;
+    entry.durationMs = frame.duration_ms ?? null;
+    entry.hasResult = true;
+    usageState.byTaskKey.set(key, entry);
+
+    // Enrich the task's start banner inline
+    const taskEntry = state.taskStartByKey.get(key);
+    if (taskEntry && taskEntry.bannerEl) enrichTaskBannerWithUsage(taskEntry.bannerEl, entry);
+  }
+
+  // Update running totals (result is authoritative)
+  recomputeTotals();
+  refreshTokenBar();
+
+  // Boundary summary line
+  const div = document.createElement('div');
+  div.className = 'boundary';
+  const parts = [];
+  parts.push(cost != null ? formatCost(cost) : '—');
+  if (inTok != null) parts.push(`in=${humanizeTokens(inTok)}`);
+  if (outTok != null) parts.push(`out=${humanizeTokens(outTok)}`);
+  if (crTok != null) parts.push(`cr=${humanizeTokens(crTok)}`);
+  if (frame.num_turns != null) parts.push(`${frame.num_turns} turns`);
+  if (frame.duration_ms != null) parts.push(`${(frame.duration_ms / 1000).toFixed(1)}s`);
+  div.textContent = `✓ result ${parts.join(' · ')}`;
+  tagFilterable(div, currentFilterContext());
+  feed.appendChild(div);
+}
+
+function enrichTaskBannerWithUsage(bannerEl, entry) {
+  if (!bannerEl) return;
+  // Remove any existing chip first
+  const existing = bannerEl.querySelector('.usage-chip');
+  if (existing) existing.remove();
+  const chip = document.createElement('span');
+  if (!entry || !entry.hasResult) {
+    chip.className = 'usage-chip missing';
+    chip.textContent = '—';
+  } else {
+    chip.className = 'usage-chip';
+    const u = entry.usage || {};
+    const cost = entry.cost != null ? formatCost(entry.cost) : null;
+    const pieces = [];
+    if (cost) pieces.push(`<span class="cost">${cost}</span>`);
+    else pieces.push('—');
+    if (u.input_tokens != null) pieces.push(`${humanizeTokens(u.input_tokens)} in`);
+    if (u.output_tokens != null) pieces.push(`${humanizeTokens(u.output_tokens)} out`);
+    if (u.cache_read_input_tokens != null) pieces.push(`${humanizeTokens(u.cache_read_input_tokens)} cr`);
+    chip.innerHTML = pieces.join(' · ');
+  }
+  // Insert before the duration element so it reads: id · meta · chip · dur
+  const durEl = bannerEl.querySelector('.task-dur');
+  if (durEl) bannerEl.insertBefore(chip, durEl);
+  else bannerEl.appendChild(chip);
+}
+
+function enrichWaveBannerWithUsage(bannerEl, wave) {
+  if (!bannerEl) return;
+  const existing = bannerEl.querySelector('.usage-chip');
+  if (existing) existing.remove();
+  let totalCost = 0; let anyCost = false;
+  let inTok = 0, outTok = 0, crTok = 0;
+  let matched = 0;
+  for (const e of usageState.byTaskKey.values()) {
+    if (e.wave == null || Number(e.wave) !== Number(wave)) continue;
+    matched++;
+    if (e.cost != null) { totalCost += e.cost; anyCost = true; }
+    const u = e.usage || {};
+    if (u.input_tokens != null) inTok += u.input_tokens;
+    if (u.output_tokens != null) outTok += u.output_tokens;
+    if (u.cache_read_input_tokens != null) crTok += u.cache_read_input_tokens;
+  }
+  if (matched === 0) return;
+  const chip = document.createElement('span');
+  chip.className = anyCost ? 'usage-chip' : 'usage-chip missing';
+  const pieces = [];
+  if (anyCost) pieces.push(`<span class="cost">${formatCost(totalCost)}</span>`);
+  else pieces.push('—');
+  pieces.push(`${humanizeTokens(inTok + outTok)} tokens`);
+  pieces.push(`${matched} tasks`);
+  chip.innerHTML = pieces.join(' · ');
+  const durEl = bannerEl.querySelector('.wave-dur');
+  if (durEl) bannerEl.insertBefore(chip, durEl);
+  else bannerEl.appendChild(chip);
+}
+
+function recomputeTotals() {
+  let cost = 0; let anyCost = false; let tokens = 0; let spawns = 0;
+  for (const e of usageState.byTaskKey.values()) {
+    if (e.spawned) spawns++;
+    if (e.cost != null) { cost += e.cost; anyCost = true; }
+    const u = e.usage || {};
+    if (u.input_tokens != null) tokens += u.input_tokens;
+    if (u.output_tokens != null) tokens += u.output_tokens;
+  }
+  usageState.totals.cost = cost;
+  usageState.totals.anyCostSeen = anyCost;
+  usageState.totals.tokens = tokens;
+  usageState.totals.spawns = spawns;
+}
+
+function renderTaskBoundary(frame) {
+  const taskId = frame.taskId || '?';
+  const domain = frame.domain || '';
+  const wave = frame.wave;
+  const pid = frame.workerPid;
+  const bState = frame.state || 'start';
+  const key = `${pid || 'nopid'}:${taskId}`;
+
+  if (bState === 'start') {
+    const el = document.createElement('div');
+    el.className = 'task-banner start';
+    el.dataset.taskKey = key;
+    el.innerHTML = `
+      <span class="state-dot"></span>
+      <span class="task-id">${escapeHtml(taskId)}</span>
+      <span class="task-meta">${escapeHtml(domain)}${wave != null ? ' · wave ' + wave : ''}</span>
+      <span class="task-pid">${pid ? 'pid ' + pid : ''}</span>
+      <span class="task-dur" data-role="dur">running…</span>
+    `;
+    el.addEventListener('click', () => {
+      const entry = state.taskStartByKey.get(key);
+      const anchor = (entry && entry.firstFrameEl) || el;
+      anchor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    // Register filter values
+    addFilterValue('task', taskId);
+    if (domain) addFilterValue('domain', domain);
+    if (wave != null) addFilterValue('wave', wave);
+    const ctx = { task: taskId, domain: domain || null, wave: wave ?? null };
+    tagFilterable(el, ctx);
+    feed.appendChild(el);
+    state.taskStartByKey.set(key, { bannerEl: el, ts: frame.ts, firstFrameEl: null });
+    state.lastTaskKey = key;
+    state.lastTaskContext = ctx;
+
+    // Register a new spawn for usage totals — only count if not seen before.
+    const u = usageState.byTaskKey.get(key) || {};
+    if (!u.spawned) {
+      u.spawned = true;
+      u.taskId = taskId; u.domain = domain || null; u.wave = wave ?? null;
+      u.pid = pid || null;
+      usageState.byTaskKey.set(key, u);
+      recomputeTotals();
+      refreshTokenBar();
+    }
+  } else if (bState === 'done' || bState === 'failed') {
+    const entry = state.taskStartByKey.get(key);
+    const el = document.createElement('div');
+    el.className = `task-banner ${bState === 'done' ? 'done' : 'failed'}`;
+    el.dataset.taskKey = key;
+    const dur = entry && entry.ts ? formatDuration(entry.ts, frame.ts) : '';
+    el.innerHTML = `
+      <span class="state-dot"></span>
+      <span class="task-id">${escapeHtml(taskId)}</span>
+      <span class="task-meta">${escapeHtml(domain)}${wave != null ? ' · wave ' + wave : ''} · ${escapeHtml(bState)}</span>
+      <span class="task-pid">${pid ? 'pid ' + pid : ''}</span>
+      <span class="task-dur">${escapeHtml(dur)}</span>
+    `;
+    el.addEventListener('click', () => {
+      const startEntry = state.taskStartByKey.get(key);
+      const anchor = (startEntry && (startEntry.firstFrameEl || startEntry.bannerEl)) || el;
+      anchor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    tagFilterable(el, { task: taskId, domain: domain || null, wave: wave ?? null });
+    // If usage is available (result came before done), enrich this done banner too
+    const usageEntry = usageState.byTaskKey.get(key);
+    if (usageEntry && usageEntry.hasResult) enrichTaskBannerWithUsage(el, usageEntry);
+    feed.appendChild(el);
+
+    if (entry && entry.bannerEl) {
+      entry.bannerEl.classList.remove('start');
+      entry.bannerEl.classList.add(bState === 'done' ? 'done' : 'failed');
+      const durEl = entry.bannerEl.querySelector('[data-role="dur"]');
+      if (durEl) durEl.textContent = dur || bState;
+    }
+    if (state.lastTaskKey === key) {
+      state.lastTaskKey = null;
+      state.lastTaskContext = null;
+    }
+  } else {
+    const div = document.createElement('div');
+    div.className = 'boundary';
+    div.textContent = `· task ${taskId} — ${bState}`;
+    feed.appendChild(div);
+  }
+}
+
+function renderWaveBoundary(frame) {
+  const wave = frame.wave;
+  const boundaryState = frame.state || 'start';
+
+  if (boundaryState === 'start') {
+    const el = document.createElement('div');
+    el.className = 'wave-banner start';
+    el.dataset.wave = String(wave);
+    el.innerHTML = `
+      <span class="wave-icon">≡</span>
+      <span class="wave-label">Wave ${escapeHtml(String(wave ?? '?'))}</span>
+      <span class="wave-meta">starting…</span>
+      <span class="wave-dur" data-role="dur"></span>
+    `;
+    el.addEventListener('click', () => el.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    if (wave != null) addFilterValue('wave', wave);
+    tagFilterable(el, { task: null, domain: null, wave: wave ?? null });
+    feed.appendChild(el);
+    state.waveStartByNum.set(wave, { bannerEl: el, ts: frame.ts });
+  } else if (boundaryState === 'done' || boundaryState === 'failed') {
+    const entry = state.waveStartByNum.get(wave);
+    const el = document.createElement('div');
+    el.className = `wave-banner ${boundaryState}`;
+    el.dataset.wave = String(wave);
+    const dur = entry && entry.ts ? formatDuration(entry.ts, frame.ts) : '';
+    el.innerHTML = `
+      <span class="wave-icon">${boundaryState === 'done' ? '✓' : '✗'}</span>
+      <span class="wave-label">Wave ${escapeHtml(String(wave ?? '?'))} ${escapeHtml(boundaryState)}</span>
+      <span class="wave-meta"></span>
+      <span class="wave-dur">${escapeHtml(dur)}</span>
+    `;
+    el.addEventListener('click', () => {
+      const anchor = (entry && entry.bannerEl) || el;
+      anchor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    tagFilterable(el, { task: null, domain: null, wave: wave ?? null });
+    feed.appendChild(el);
+    enrichWaveBannerWithUsage(el, wave);
+    if (entry && entry.bannerEl) enrichWaveBannerWithUsage(entry.bannerEl, wave);
+
+    if (entry && entry.bannerEl) {
+      entry.bannerEl.classList.remove('start');
+      entry.bannerEl.classList.add(boundaryState);
+      const meta = entry.bannerEl.querySelector('.wave-meta');
+      if (meta) meta.textContent = boundaryState;
+      const durEl = entry.bannerEl.querySelector('[data-role="dur"]');
+      if (durEl && dur) durEl.textContent = dur;
+    }
+  } else {
+    const div = document.createElement('div');
+    div.className = 'boundary';
+    div.textContent = `≡ wave ${wave ?? '?'} — ${boundaryState}`;
+    feed.appendChild(div);
+  }
+}
+
+// ── Frame dispatcher ───────────────────────────────
+function handleFrame(frame) {
+  if (!frame || typeof frame !== 'object') {
+    console.warn('[stream-feed] malformed frame (not an object):', frame);
+    return;
+  }
+  incrementFrameCount();
+  try {
+    switch (frame.type) {
+      case 'assistant':
+        renderAssistant(frame);
+        break;
+      case 'user': {
+        const tr = extractToolResult(frame);
+        if (tr) renderToolResult(tr, frame.ts || (frame.message && frame.message.ts));
+        // else: silent — user frames without tool_result content are not rendered in T2
+        break;
+      }
+      case 'tool_result':
+        renderToolResult(frame, frame.ts);
+        break;
+      case 'tool_use':
+        renderToolUse(frame, frame.ts);
+        break;
+      case 'result':
+        renderResultSummary(frame);
+        break;
+      case 'task-boundary':
+        renderTaskBoundary(frame);
+        break;
+      case 'wave-boundary':
+        renderWaveBoundary(frame);
+        break;
+      case 'system':
+      case 'kicked':
+        // ignore meta frames in T2
+        break;
+      default:
+        console.warn('[stream-feed] unknown frame type:', frame.type);
+    }
+  } catch (e) {
+    console.warn('[stream-feed] frame render error:', e, frame);
+  }
+
+  // Record the first non-boundary frame rendered after the most recent task-start,
+  // so clicking a task banner can jump directly to that task's first real content.
+  if (state.lastTaskKey && frame.type !== 'task-boundary' && frame.type !== 'wave-boundary') {
+    const entry = state.taskStartByKey.get(state.lastTaskKey);
+    if (entry && !entry.firstFrameEl) {
+      const lastChild = feed.lastElementChild;
+      if (lastChild && lastChild !== entry.bannerEl) entry.firstFrameEl = lastChild;
+    }
+  }
+
+  // Auto-scroll to bottom only if the user hasn't scrolled up.
+  if (autoScrollEnabled) feed.scrollTop = feed.scrollHeight;
+}
+
+// ── WebSocket connection ───────────────────────────
+function connect() {
+  if (state.ws) {
+    try { state.ws.close(); } catch (_) {}
+  }
+  setStatus('reconnecting', 'connecting');
+  let ws;
+  try {
+    ws = new WebSocket(WS_URL_DEFAULT);
+  } catch (e) {
+    console.warn('[stream-feed] WebSocket constructor failed:', e);
+    scheduleReconnect();
+    return;
+  }
+  state.ws = ws;
+
+  ws.addEventListener('open', () => {
+    setStatus('connected', 'live');
+  });
+
+  ws.addEventListener('message', (ev) => {
+    // Server broadcasts one JSON frame per message. Parse and dispatch.
+    let frame;
+    try { frame = JSON.parse(ev.data); }
+    catch (e) {
+      console.warn('[stream-feed] invalid JSON:', ev.data);
+      return;
+    }
+    handleFrame(frame);
+  });
+
+  ws.addEventListener('close', () => {
+    setStatus('disconnected', 'disconnected');
+    scheduleReconnect();
+  });
+
+  ws.addEventListener('error', () => {
+    // 'close' will follow — let that handler schedule reconnect.
+  });
+}
+
+function scheduleReconnect() {
+  if (state.reconnectTimer) return;
+  setStatus('reconnecting', `retrying in ${RECONNECT_DELAY_MS / 1000}s`);
+  state.reconnectTimer = setTimeout(() => {
+    state.reconnectTimer = null;
+    connect();
+  }, RECONNECT_DELAY_MS);
+}
+
+// ── Boot ───────────────────────────────────────────
+renderFilterOptions();
+connect();
+</script>
+</body>
+</html>
