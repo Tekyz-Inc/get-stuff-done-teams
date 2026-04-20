@@ -10,22 +10,29 @@ To give PRD generation a fresh context window:
 
 **If you are the orchestrating agent** (you received the slash command directly):
 
-**OBSERVABILITY LOGGING (MANDATORY):**
-Before spawning — run via Bash:
-`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M")`
+**OBSERVABILITY LOGGING (MANDATORY) — wrap the PRD subagent spawn with `captureSpawn`:**
 
-Spawn a fresh subagent using the Task tool:
 ```
-subagent_type: general-purpose
-prompt: "You are running gsd-t-prd for this request: {$ARGUMENTS}
-Working directory: {current project root}
-Read CLAUDE.md and .gsd-t/progress.md for project context, then execute gsd-t-prd starting at Step 1."
+node -e "
+const { captureSpawn } = require('./bin/gsd-t-token-capture.cjs');
+(async () => {
+  await captureSpawn({
+    command: 'gsd-t-prd',
+    step: 'Step 0',
+    model: 'sonnet',
+    description: 'prd: {topic summary}',
+    projectDir: '.',
+    notes: 'prd: {topic summary}',
+    spawnFn: async () => { /* Task subagent (subagent_type: general-purpose):
+      'You are running gsd-t-prd for this request: {\$ARGUMENTS}
+      Working directory: {current project root}
+      Read CLAUDE.md and .gsd-t/progress.md for project context, then execute gsd-t-prd starting at Step 1.' */ },
+  });
+})();
+"
 ```
 
-After subagent returns — run via Bash:
-`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START)) && CTX_PCT=$(node -e "const tb=require('./bin/token-budget.cjs'); process.stdout.write(String(tb.getSessionStatus('.').pct||'N/A'))" 2>/dev/null || echo "N/A")`
-Append to `.gsd-t/token-log.md` (create with header `| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Ctx% |` if missing):
-`| {DT_START} | {DT_END} | gsd-t-prd | Step 0 | sonnet | {DURATION}s | prd: {topic summary} | {CTX_PCT} |`
+`captureSpawn` parses `result.usage` and writes the row to `.gsd-t/token-log.md` under the canonical header. Tokens column renders as `in=N out=N cr=N cc=N $X.XX` or `—`, never `N/A`.
 
 Relay the subagent's summary to the user. **Do not execute Steps 1–6 yourself.**
 
