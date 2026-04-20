@@ -34,10 +34,6 @@ To give this task a fresh context window and prevent compaction during consecuti
 
 **If you are the orchestrating agent** (you received the slash command directly):
 
-**OBSERVABILITY LOGGING (MANDATORY):**
-Before spawning — run via Bash:
-`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M")`
-
 **Token Budget Check (before spawning subagent):**
 
 Run via Bash:
@@ -109,20 +105,32 @@ Violations are task failures, not warnings.
 
 If STACK_RULES is empty (no templates/stacks/ dir or no matches), skip silently.
 
-Spawn a fresh subagent using the Task tool — `spawnType: 'primary'` (respects `--watch`: headless by default, in-context when `WATCH_FLAG=true`):
+Spawn a fresh subagent via `captureSpawn` — `spawnType: 'primary'` (respects `--watch`: headless by default, in-context when `WATCH_FLAG=true`):
+
+**OBSERVABILITY LOGGING (MANDATORY) — wrap the primary subagent spawn with `captureSpawn`:**
+
 ```
-subagent_type: general-purpose
-spawnType: primary
-prompt: "You are running gsd-t-quick for this request: {$ARGUMENTS}
-Working directory: {current project root}
-Read CLAUDE.md and .gsd-t/progress.md for project context, then execute gsd-t-quick starting at Step 1.
-{STACK_RULES block — if non-empty, append the ## Stack Rules section defined above; omit if empty}"
+node -e "
+const { captureSpawn } = require('./bin/gsd-t-token-capture.cjs');
+(async () => {
+  await captureSpawn({
+    command: 'gsd-t-quick',
+    step: 'Step 0',
+    model: 'sonnet',
+    description: 'quick: {task summary}',
+    projectDir: '.',
+    notes: 'quick: {task summary}',
+    spawnFn: async () => { /* Task subagent (general-purpose, spawnType: primary, model: sonnet):
+      'You are running gsd-t-quick for this request: {\$ARGUMENTS}
+      Working directory: {current project root}
+      Read CLAUDE.md and .gsd-t/progress.md for project context, then execute gsd-t-quick starting at Step 1.
+      {STACK_RULES block — if non-empty, append the ## Stack Rules section defined above; omit if empty}' */ },
+  });
+})();
+"
 ```
 
-After subagent returns — run via Bash:
-`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START))`
-Append to `.gsd-t/token-log.md` (create with header `| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Ctx% |` if missing):
-`| {DT_START} | {DT_END} | gsd-t-quick | Step 0 | sonnet | {DURATION}s | quick: {task summary} | {CTX_PCT} |`
+`captureSpawn` parses `result.usage` and writes the row to `.gsd-t/token-log.md` under the canonical header. Tokens column renders as `in=N out=N cr=N cc=N $X.XX` or `—`, never `N/A`.
 
 Relay the subagent's summary to the user. **Do not execute Steps 1–5 yourself.**
 
@@ -305,11 +313,30 @@ After tests pass, check if `.gsd-t/contracts/design-contract.md` exists. If it d
 
 If it DOES exist and this task involved UI changes — spawn the Design Verification Agent. This agent's ONLY job is to open a browser, compare the built frontend against the original design, and produce a structured comparison table. It writes NO feature code.
 
-⚙ [{model}] Design Verification → visual comparison of built frontend vs design
+⚙ [opus] Design Verification → visual comparison of built frontend vs design
 
-**OBSERVABILITY LOGGING (MANDATORY):**
-Before spawning — run via Bash:
-`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M")`
+**OBSERVABILITY LOGGING (MANDATORY) — wrap the Design Verification subagent spawn with `captureSpawn`:**
+
+```
+node -e "
+const { captureSpawn } = require('./bin/gsd-t-token-capture.cjs');
+(async () => {
+  await captureSpawn({
+    command: 'gsd-t-quick',
+    step: 'Design Verify',
+    model: 'opus',
+    description: 'visual comparison of built frontend vs design',
+    projectDir: '.',
+    notes: 'design-verify',
+    spawnFn: async () => { /* Task subagent (spawnType: validation, general-purpose, model: opus) — body below */ },
+  });
+})();
+"
+```
+
+`captureSpawn` parses `result.usage` and writes the row to `.gsd-t/token-log.md` under the canonical header. Tokens column renders as `in=N out=N cr=N cc=N $X.XX` or `—`, never `N/A`.
+
+**Design Verification subagent prompt body (passed to `spawnFn`):**
 
 ```
 Task subagent (spawnType: validation, general-purpose, model: opus):
@@ -366,8 +393,6 @@ cannot be redeemed by visual polish.
 10. Report: DESIGN VERIFIED | DESIGN DEVIATIONS FOUND ({count})"
 ```
 
-After subagent returns — run observability Bash and append to token-log.md.
-
 **Artifact Gate:** Read `.gsd-t/contracts/design-contract.md` — if no `## Verification Status` section with a comparison table exists, re-spawn (1 retry).
 
 **If deviations found:** Fix them (max 2 cycles), re-verify. If persistent, log to `.gsd-t/deferred-items.md`.
@@ -386,19 +411,29 @@ Resolve the templated prompt path via Bash (same pattern as execute.md):
 ```
 RT_PROMPT="$(npm root -g 2>/dev/null)/@tekyzinc/gsd-t/templates/prompts/red-team-subagent.md"
 [ -f "$RT_PROMPT" ] || RT_PROMPT="templates/prompts/red-team-subagent.md"
-T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M")
 ```
 
-Spawn Task subagent (spawnType: validation, general-purpose, model: opus) — always headless, `--watch` ignored:
-> "Read `$RT_PROMPT` and follow it. Context for this run: quick task — adversarial validation of the code just changed. Write findings to `.gsd-t/red-team-report.md`."
+**OBSERVABILITY LOGGING (MANDATORY) — wrap the Red Team subagent spawn with `captureSpawn`:**
 
-After subagent returns — run via Bash:
 ```
-T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START))
-CTX_PCT=$(node -e "try{const tb=require('./bin/token-budget.cjs'); process.stdout.write(String(tb.getSessionStatus('.').pct))}catch(_){process.stdout.write('N/A')}")
+node -e "
+const { captureSpawn } = require('./bin/gsd-t-token-capture.cjs');
+(async () => {
+  await captureSpawn({
+    command: 'gsd-t-quick',
+    step: 'Red Team',
+    model: 'opus',
+    description: 'adversarial validation of quick task',
+    projectDir: '.',
+    notes: '{VERDICT} — {N} bugs found',
+    spawnFn: async () => { /* Task subagent (spawnType: validation, general-purpose, model: opus) — always headless, --watch ignored:
+      'Read \$RT_PROMPT and follow it. Context for this run: quick task — adversarial validation of the code just changed. Write findings to .gsd-t/red-team-report.md.' */ },
+  });
+})();
+"
 ```
-Append to `.gsd-t/token-log.md`:
-`| {DT_START} | {DT_END} | gsd-t-quick | Red Team | opus | {DURATION}s | {VERDICT} — {N} bugs found | | | {CTX_PCT} |`
+
+`captureSpawn` parses `result.usage` and writes the row to `.gsd-t/token-log.md` under the canonical header. Tokens column renders as `in=N out=N cr=N cc=N $X.XX` or `—`, never `N/A`.
 
 **If Red Team VERDICT is FAIL:**
 1. Fix all CRITICAL and HIGH bugs (up to 2 fix cycles)
