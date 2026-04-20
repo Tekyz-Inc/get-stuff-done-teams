@@ -358,9 +358,7 @@ After writing all contracts but BEFORE proceeding to partition or build, spawn a
 
 > **Why a separate agent?** The decompose agent that classified the charts cannot objectively verify its own classifications. It has the same blind spots that caused the misclassification. This was proven repeatedly — the same agent rubber-stamps its own work. A fresh agent with only the contracts and Figma access catches what the classifier missed.
 
-**OBSERVABILITY LOGGING (MANDATORY):**
-Before spawning — run via Bash:
-`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M")`
+**OBSERVABILITY LOGGING (MANDATORY) — wrap the Chart Classification Verifier spawn with `captureSpawn`:** route through `bin/gsd-t-token-capture.cjs` with `{command: 'gsd-t-design-decompose', step: 'Chart Classification Verifier', model: 'opus', projectDir: '.', notes: 'verification {PASSED/FAILED}'}`. The wrapper owns banner + timing + envelope parse + row write.
 
 ⚙ [opus] gsd-t-design-decompose → Chart Classification Verifier
 
@@ -443,10 +441,7 @@ If ALL ✅ MATCH:
 "
 ```
 
-After subagent returns — run via Bash:
-`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START))`
-
-Compute tokens/compaction per standard pattern. Append to `.gsd-t/token-log.md`.
+After the `captureSpawn` wrapper returns, the row is already written to `.gsd-t/token-log.md` under the canonical header with Tokens = `in=N out=N cr=N cc=N $X.XX` (or `—` if no envelope). No post-processing needed.
 
 **If VERIFICATION FAILED**: Fix every misclassified element contract before proceeding:
 1. Rename the contract file to match the correct chart type
