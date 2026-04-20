@@ -80,6 +80,12 @@ function runWorker(opts) {
       stdio: ['pipe', 'pipe', 'pipe']
     });
 
+    const workerPid = child && typeof child.pid === 'number' ? child.pid : null;
+    emitBoundary(onFrame, task, 'pid', { workerPid });
+    if (typeof opts.onSpawn === 'function') {
+      try { opts.onSpawn({ child, pid: workerPid }); } catch (_) {}
+    }
+
     let stdoutBuf = '';
     let stderrBuf = '';
     let timedOut = false;
@@ -118,13 +124,14 @@ function runWorker(opts) {
       clearTimeout(timeout);
       if (killTimer) clearTimeout(killTimer);
       const durationMs = Date.now() - startMs;
-      emitBoundary(onFrame, task, 'failed', { reason: 'spawn_error', error: String(err) });
+      emitBoundary(onFrame, task, 'failed', { reason: 'spawn_error', error: String(err), workerPid });
       resolve({
         result: { ok: false, missing: ['spawn_error'], details: { error: String(err) } },
         exitCode: -1,
         durationMs,
         timedOut: false,
-        stderr: stderrBuf
+        stderr: stderrBuf,
+        workerPid
       });
     });
 
@@ -163,8 +170,8 @@ function runWorker(opts) {
         result = { ok: false, missing, details: { ...(result.details || {}), exitCode, signal: signal || null, stderr: stderrBuf.slice(-2000) } };
       }
 
-      emitBoundary(onFrame, task, result.ok ? 'done' : 'failed', { exitCode, durationMs });
-      resolve({ result, exitCode, durationMs, timedOut, stderr: stderrBuf });
+      emitBoundary(onFrame, task, result.ok ? 'done' : 'failed', { exitCode, durationMs, workerPid });
+      resolve({ result, exitCode, durationMs, timedOut, stderr: stderrBuf, workerPid });
     });
 
     child.stdin.on('error', () => { /* ignore — covered by child exit */ });

@@ -111,11 +111,17 @@ function filterTasksByMilestone(tasks, milestone) {
   return tasks;
 }
 
-async function runWaveTasks({ tasks, config, state, logger, spawnImpl, runWorkerImpl = runWorker }) {
+async function runWaveTasks({ tasks, config, state, logger, spawnImpl, runWorkerImpl = runWorker, onFrame, interrupt, liveChildrenRef }) {
   const queue = [...tasks];
   const running = new Set();
   const results = [];
+  const liveChildren = liveChildrenRef || new Map();
   let haltRequested = false;
+  if (!interrupt) interrupt = { interrupted: false };
+
+  const emit = (frame) => {
+    if (typeof onFrame === 'function') { try { onFrame(frame); } catch (_) {} }
+  };
 
   const launch = async (task) => {
     const started = nowIso();
@@ -153,16 +159,24 @@ async function runWaveTasks({ tasks, config, state, logger, spawnImpl, runWorker
         task: taskForWorker,
         brief,
         config,
-        onFrame: () => {},
+        onFrame: emit,
+        onSpawn: ({ child, pid }) => {
+          if (pid != null) {
+            state.patchTask(task.id, { workerPid: pid });
+            liveChildren.set(task.id, child);
+          }
+        },
         env: process.env,
         spawnImpl
       });
     };
 
     let outcome = await attempt(0);
-    if (!outcome.result.ok && config.retryOnFail) {
+    liveChildren.delete(task.id);
+    if (!outcome.result.ok && !interrupt.interrupted && config.retryOnFail) {
       state.patchTask(task.id, { retryCount: 1 });
       outcome = await attempt(1);
+      liveChildren.delete(task.id);
     }
 
     const endedAt = nowIso();
@@ -189,7 +203,7 @@ async function runWaveTasks({ tasks, config, state, logger, spawnImpl, runWorker
   };
 
   const pump = async () => {
-    while (queue.length && running.size < config.maxParallel && !haltRequested) {
+    while (queue.length && running.size < config.maxParallel && !haltRequested && !interrupt.interrupted) {
       const task = queue.shift();
       const p = launch(task).finally(() => running.delete(p));
       running.add(p);
@@ -199,10 +213,17 @@ async function runWaveTasks({ tasks, config, state, logger, spawnImpl, runWorker
   await pump();
   while (running.size) {
     await Promise.race(running);
-    if (!haltRequested) await pump();
+    if (!haltRequested && !interrupt.interrupted) await pump();
   }
 
-  return { results, halted: haltRequested };
+  return { results, halted: haltRequested, liveChildren };
+}
+
+function emitWaveBoundary(onFrame, state, wave, taskCount, extra) {
+  if (typeof onFrame !== 'function') return;
+  const frame = { type: 'wave-boundary', wave, state, taskCount, ts: nowIso() };
+  if (extra) Object.assign(frame, extra);
+  try { onFrame(frame); } catch (_) {}
 }
 
 async function runOrchestrator(opts) {
@@ -213,7 +234,9 @@ async function runOrchestrator(opts) {
     workerTimeoutMs,
     logger = console,
     spawnImpl,
-    runWorkerImpl
+    runWorkerImpl,
+    onFrame,
+    installSignalHandlers = true
   } = opts;
 
   const config = loadConfig({
@@ -240,38 +263,84 @@ async function runOrchestrator(opts) {
   state.save({ milestone: config.milestone, totalTasks: scopedTasks.length, waves: [...waves.keys()] });
   writeEvent(projectDir, 'orchestrator_start', { milestone: config.milestone, total_tasks: scopedTasks.length });
 
-  const waveResults = [];
-  for (const [waveNum, waveTasks] of waves) {
-    state.save({ currentWave: waveNum, status: 'running' });
-    writeEvent(projectDir, 'wave_start', { wave: waveNum, task_count: waveTasks.length });
+  const interrupt = { interrupted: false, currentWaveChildren: null };
 
-    const { results, halted } = await runWaveTasks({
-      tasks: waveTasks,
-      config,
-      state,
-      logger,
-      spawnImpl,
-      runWorkerImpl
-    });
-
-    const failed = results.filter((r) => !r.outcome.result.ok);
-    waveResults.push({ wave: waveNum, total: waveTasks.length, done: results.length - failed.length, failed: failed.length });
-    writeEvent(projectDir, failed.length ? 'wave_failed' : 'wave_done', {
-      wave: waveNum,
-      failed_count: failed.length
-    });
-
-    if (halted || failed.length) {
-      state.save({ status: 'failed' });
-      logger.log(`[wave_halt] wave=${waveNum} failed_tasks=${failed.length}`);
-      writeEvent(projectDir, 'orchestrator_halt', { wave: waveNum, failed_count: failed.length });
-      return { status: 'failed', waves: waveResults, failedWave: waveNum };
-    }
+  let sigintHandler = null;
+  if (installSignalHandlers && typeof process.on === 'function') {
+    sigintHandler = () => {
+      if (interrupt.interrupted) return;
+      interrupt.interrupted = true;
+      logger.log('[orchestrator] SIGINT received — terminating workers');
+      writeEvent(projectDir, 'orchestrator_interrupt', {});
+      if (interrupt.currentWaveChildren) {
+        for (const child of interrupt.currentWaveChildren.values()) {
+          try { child.kill('SIGTERM'); } catch (_) {}
+        }
+      }
+    };
+    process.on('SIGINT', sigintHandler);
   }
 
-  state.save({ status: 'done', endedAt: nowIso() });
-  writeEvent(projectDir, 'orchestrator_done', { waves: waveResults.length });
-  return { status: 'done', waves: waveResults };
+  const cleanup = () => {
+    if (sigintHandler && typeof process.removeListener === 'function') {
+      try { process.removeListener('SIGINT', sigintHandler); } catch (_) {}
+    }
+  };
+
+  try {
+    const waveResults = [];
+    for (const [waveNum, waveTasks] of waves) {
+      if (interrupt.interrupted) break;
+      state.save({ currentWave: waveNum, status: 'running' });
+      writeEvent(projectDir, 'wave_start', { wave: waveNum, task_count: waveTasks.length });
+      emitWaveBoundary(onFrame, 'start', waveNum, waveTasks.length);
+
+      const waveStartedMs = Date.now();
+      const waveLiveChildren = new Map();
+      interrupt.currentWaveChildren = waveLiveChildren;
+      const { results, halted } = await runWaveTasks({
+        tasks: waveTasks,
+        config,
+        state,
+        logger,
+        spawnImpl,
+        runWorkerImpl,
+        onFrame,
+        interrupt,
+        liveChildrenRef: waveLiveChildren
+      });
+
+      const failed = results.filter((r) => !r.outcome.result.ok);
+      const waveDurationMs = Date.now() - waveStartedMs;
+      waveResults.push({ wave: waveNum, total: waveTasks.length, done: results.length - failed.length, failed: failed.length });
+      writeEvent(projectDir, failed.length ? 'wave_failed' : 'wave_done', {
+        wave: waveNum,
+        failed_count: failed.length
+      });
+      emitWaveBoundary(onFrame, failed.length ? 'failed' : 'done', waveNum, waveTasks.length, { durationMs: waveDurationMs, failed: failed.length });
+
+      if (interrupt.interrupted) break;
+
+      if (halted || failed.length) {
+        state.save({ status: 'failed' });
+        logger.log(`[wave_halt] wave=${waveNum} failed_tasks=${failed.length}`);
+        writeEvent(projectDir, 'orchestrator_halt', { wave: waveNum, failed_count: failed.length });
+        return { status: 'failed', waves: waveResults, failedWave: waveNum };
+      }
+    }
+
+    if (interrupt.interrupted) {
+      state.save({ status: 'interrupted', endedAt: nowIso() });
+      writeEvent(projectDir, 'orchestrator_done_interrupted', {});
+      return { status: 'interrupted', waves: waveResults };
+    }
+
+    state.save({ status: 'done', endedAt: nowIso() });
+    writeEvent(projectDir, 'orchestrator_done', { waves: waveResults.length });
+    return { status: 'done', waves: waveResults };
+  } finally {
+    cleanup();
+  }
 }
 
 async function main() {
@@ -289,6 +358,9 @@ async function main() {
       maxParallel: args.maxParallel,
       workerTimeoutMs: args.workerTimeoutMs
     });
+    if (res.status === 'interrupted') {
+      process.exit(130);
+    }
     if (res.status === 'failed') {
       process.exit(1);
     }
