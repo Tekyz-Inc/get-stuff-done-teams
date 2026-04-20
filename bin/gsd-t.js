@@ -3533,6 +3533,7 @@ function showHelp() {
   log(`  ${CYAN}graph${RESET}          Code graph operations (index, status, query)`);
   log(`  ${CYAN}headless${RESET}       Non-interactive execution via claude -p + fast state queries`);
   log(`  ${CYAN}orchestrate${RESET}    External task orchestrator — one claude -p spawn per task (M40)`);
+  log(`  ${CYAN}benchmark-orchestrator${RESET} M40 speed gate — compares orchestrator vs in-session wall-clock`);
   log(`  ${CYAN}design-build${RESET}   Deterministic design→code pipeline (elements → widgets → pages)`);
   log(`  ${CYAN}help${RESET}           Show this help\n`);
   log(`${BOLD}Examples:${RESET}`);
@@ -3688,6 +3689,14 @@ if (require.main === module) {
     case "orchestrate": {
       const { spawnSync } = require("child_process");
       const js = path.join(__dirname, "gsd-t-orchestrator.js");
+      const res = spawnSync(process.execPath, [js, ...args.slice(1)], {
+        stdio: "inherit",
+      });
+      process.exit(res.status == null ? 1 : res.status);
+    }
+    case "benchmark-orchestrator": {
+      const { spawnSync } = require("child_process");
+      const js = path.join(__dirname, "gsd-t-benchmark-orchestrator.js");
       const res = spawnSync(process.execPath, [js, ...args.slice(1)], {
         stdio: "inherit",
       });
