@@ -209,13 +209,26 @@ After all scripted tests pass:
 Note: Exploratory findings do NOT count against the scripted test pass/fail ratio."
 ```
 
-**OBSERVABILITY LOGGING (MANDATORY):**
-Before spawning — run via Bash:
-`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M")`
-After subagent returns — run via Bash:
-`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START))`
-Append to `.gsd-t/token-log.md` (create with header `| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Domain | Task | Ctx% |` if missing):
-`| {DT_START} | {DT_END} | gsd-t-integrate | Step 5 | haiku | {DURATION}s | {pass/fail}, {N} boundaries tested | | | {CTX_PCT} |`
+**OBSERVABILITY LOGGING (MANDATORY) — wrap the Step 5 validation spawn with `captureSpawn`:**
+
+```
+node -e "
+const { captureSpawn } = require('./bin/gsd-t-token-capture.cjs');
+(async () => {
+  await captureSpawn({
+    command: 'gsd-t-integrate',
+    step: 'Step 5',
+    model: 'haiku',
+    description: 'cross-boundary integration QA',
+    projectDir: '.',
+    notes: '{pass/fail}, {N} boundaries tested',
+    spawnFn: async () => { /* Task validation subagent call */ },
+  });
+})();
+"
+```
+
+`captureSpawn` writes the row to `.gsd-t/token-log.md` under the canonical header. Tokens column renders as `in=N out=N cr=N cc=N $X.XX` or `—`, never `N/A`.
 If QA found issues, append each to `.gsd-t/qa-issues.md` (create with header `| Date | Command | Step | Model | Duration(s) | Severity | Finding |` if missing):
 `| {DT_START} | gsd-t-integrate | Step 5 | haiku | {DURATION}s | {severity} | {finding} |`
 
@@ -270,22 +283,36 @@ After integration tests pass, spawn an adversarial Red Team agent on the integra
 ⚙ [opus] Red Team → adversarial validation of integrated system
 
 Resolve the templated prompt path via Bash:
-```
+```bash
 RT_PROMPT="$(npm root -g 2>/dev/null)/@tekyzinc/gsd-t/templates/prompts/red-team-subagent.md"
 [ -f "$RT_PROMPT" ] || RT_PROMPT="templates/prompts/red-team-subagent.md"
-T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M")
 ```
 
-Spawn Task subagent (spawnType: validation, general-purpose, model: opus) — always headless, `--watch` ignored:
-> "Read `$RT_PROMPT` and follow it. Context: cross-domain integration run. **Additional category for this run: Cross-Domain Boundaries** — test data flow across every domain boundary; does data arriving from domain A get validated by domain B; what happens when A sends malformed data that passed A's own validation. Write findings to `.gsd-t/red-team-report.md`."
+Then spawn through `captureSpawn` — `spawnType: 'validation'` (always headless, `--watch` ignored):
 
-After subagent returns — run via Bash:
 ```
-T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START))
-CTX_PCT=$(node -e "try{const tb=require('./bin/token-budget.cjs'); process.stdout.write(String(tb.getSessionStatus('.').pct))}catch(_){process.stdout.write('N/A')}")
+node -e "
+const { captureSpawn } = require('./bin/gsd-t-token-capture.cjs');
+(async () => {
+  await captureSpawn({
+    command: 'gsd-t-integrate',
+    step: 'Red Team',
+    model: 'opus',
+    description: 'cross-domain adversarial validation',
+    projectDir: '.',
+    notes: '{VERDICT} — {N} bugs found',
+    spawnFn: async () => { /* Task subagent (spawnType: validation, general-purpose, model: opus):
+      'Read \$RT_PROMPT and follow it. Context: cross-domain integration run.
+      Additional category for this run: Cross-Domain Boundaries — test data flow across every
+      domain boundary; does data arriving from domain A get validated by domain B; what happens
+      when A sends malformed data that passed A own validation.
+      Write findings to .gsd-t/red-team-report.md.' */ },
+  });
+})();
+"
 ```
-Append to `.gsd-t/token-log.md`:
-`| {DT_START} | {DT_END} | gsd-t-integrate | Red Team | opus | {DURATION}s | {VERDICT} — {N} bugs found | | | {CTX_PCT} |`
+
+`captureSpawn` writes the row to `.gsd-t/token-log.md` under the canonical header. Tokens column renders as `in=N out=N cr=N cc=N $X.XX` or `—`, never `N/A`.
 
 **If FAIL:** fix CRITICAL/HIGH bugs (≤2 cycles) → re-run. Persistent bugs → `.gsd-t/deferred-items.md`.
 **If GRUDGING PASS:** proceed to doc-ripple.
