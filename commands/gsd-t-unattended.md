@@ -257,13 +257,13 @@ node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-
 
 ⚙ [sonnet] gsd-t-unattended → spawning detached supervisor
 
-**Before spawn — read starting context tokens (observability bracket):**
+**Before spawn — capture start timestamp (observability bracket):**
 
 ```bash
-T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M")
-T0_TOKENS=$(node -e "try{const s=require('fs').readFileSync('.gsd-t/.context-meter-state.json','utf8');process.stdout.write(String(JSON.parse(s).inputTokens||0))}catch(_){process.stdout.write('0')}")
-T0_PCT=$(node -e "try{const tb=require('./bin/token-budget.cjs');process.stdout.write(String(tb.getSessionStatus('.').pct||0))}catch(_){process.stdout.write('0')}")
+DT_START=$(date +"%Y-%m-%d %H:%M")
 ```
+
+The detached supervisor is a `node -e spawnSupervisor` fire-and-forget (no Claude result envelope). Timing is recorded via `recordSpawnRow` (Pattern B) after spawn returns.
 
 If `--dry-run` was specified, print:
 
@@ -307,27 +307,26 @@ console.log('SPAWNED_PID=' + result.pid);
 
 Capture `SPAWNED_PID` from the output.
 
-**After spawn — record observability bracket:**
+**After spawn — record row via `recordSpawnRow` (Pattern B, no usage envelope):**
 
 ```bash
-T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START))
-T1_TOKENS=$(node -e "try{const s=require('fs').readFileSync('.gsd-t/.context-meter-state.json','utf8');process.stdout.write(String(JSON.parse(s).inputTokens||0))}catch(_){process.stdout.write('0')}")
-T1_PCT=$(node -e "try{const tb=require('./bin/token-budget.cjs');process.stdout.write(String(tb.getSessionStatus('.').pct||0))}catch(_){process.stdout.write('0')}")
-COUNTER=$(node bin/task-counter.cjs status 2>/dev/null | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{process.stdout.write(String(JSON.parse(s).count||''))}catch(_){process.stdout.write('')}})")
-```
-
-Append to `.gsd-t/token-log.md` (create with header if missing):
-
-```bash
+DT_END=$(date +"%Y-%m-%d %H:%M")
 node -e "
-const fs = require('fs');
-const LOG = '.gsd-t/token-log.md';
-const header = '| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Domain | Task | Tasks-Since-Reset |\n|---|---|---|---|---|---|---|---|---|---|\n';
-const row = '| ${DT_START} | ${DT_END} | gsd-t-unattended | Step 2 | sonnet | ${DURATION}s | supervisor spawned PID ${SPAWNED_PID} | | | ${COUNTER} |\n';
-if (!fs.existsSync(LOG)) fs.writeFileSync(LOG, header);
-fs.appendFileSync(LOG, row);
+const { recordSpawnRow } = require('./bin/gsd-t-token-capture.cjs');
+recordSpawnRow({
+  projectDir: '.',
+  command: 'gsd-t-unattended',
+  step: 'Step 2',
+  model: 'sonnet',
+  startedAt: process.env.DT_START,
+  endedAt: process.env.DT_END,
+  // usage omitted → Tokens cell renders as '—' (no envelope from a fire-and-forget node spawn)
+  notes: 'supervisor spawned PID ' + (process.env.SPAWNED_PID || '?'),
+});
 "
 ```
+
+The row lands under the canonical `.gsd-t/token-log.md` header with Tokens = `—`, Ctx% pulled via `getSessionStatus()`. No usage envelope is available because the supervisor is a fire-and-forget `node -e spawnSupervisor` child, not a `claude -p` or Task subagent.
 
 ## Step 3: Verify Supervisor Liveness
 
