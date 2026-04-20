@@ -96,23 +96,31 @@ Violations are task failures, not warnings.
 
 If STACK_RULES is empty (no templates/stacks/ dir or no matches), skip silently.
 
-**OBSERVABILITY LOGGING (MANDATORY):**
-Before spawning — run via Bash:
-`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M")`
+Spawn a fresh subagent via `captureSpawn` — `spawnType: 'primary'` (respects `--watch`: headless by default, in-context when `WATCH_FLAG=true`):
 
-Spawn a fresh subagent using the Task tool — `spawnType: 'primary'` (respects `--watch`: headless by default, in-context when `WATCH_FLAG=true`):
+**OBSERVABILITY LOGGING (MANDATORY) — wrap the primary subagent spawn with `captureSpawn`:**
+
 ```
-subagent_type: general-purpose
-spawnType: primary
-prompt: "You are running gsd-t-debug for this issue: {$ARGUMENTS}
-Working directory: {current project root}
-Read CLAUDE.md and .gsd-t/progress.md for project context, then execute gsd-t-debug starting at Step 1."
+node -e "
+const { captureSpawn } = require('./bin/gsd-t-token-capture.cjs');
+(async () => {
+  await captureSpawn({
+    command: 'gsd-t-debug',
+    step: 'Step 0',
+    model: 'sonnet',
+    description: 'debug: {issue summary}',
+    projectDir: '.',
+    notes: 'debug: {issue summary}',
+    spawnFn: async () => { /* Task subagent (general-purpose, spawnType: primary, model: sonnet):
+      'You are running gsd-t-debug for this issue: {\$ARGUMENTS}
+      Working directory: {current project root}
+      Read CLAUDE.md and .gsd-t/progress.md for project context, then execute gsd-t-debug starting at Step 1.' */ },
+  });
+})();
+"
 ```
 
-After subagent returns — run via Bash:
-`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START))`
-Append to `.gsd-t/token-log.md` (create with header `| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Ctx% |` if missing):
-`| {DT_START} | {DT_END} | gsd-t-debug | Step 0 | sonnet | {DURATION}s | debug: {issue summary} | {CTX_PCT} |`
+`captureSpawn` parses `result.usage` and writes the row to `.gsd-t/token-log.md` under the canonical header. Tokens column renders as `in=N out=N cr=N cc=N $X.XX` or `—`, never `N/A`.
 
 Relay the subagent's summary to the user. **Do not execute Steps 1–5 yourself.**
 
@@ -154,40 +162,30 @@ Before attempting any fix, check whether this issue has been through multiple fa
 
 The current approach has failed 3+ times. This means the root cause is not yet understood. A different strategy — possibly a fundamentally different technical approach — is required.
 
-**OBSERVABILITY LOGGING (MANDATORY):**
-Before spawning — run via Bash:
-`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M")`
+**OBSERVABILITY LOGGING (MANDATORY) — wrap the Deep Research team spawn with `captureSpawn`:**
 
 ```
-Spawn a deep research team (run all three in parallel):
-
-- Teammate "researcher-root-cause": Take the broadest possible look at
-  the problem. Ignore prior fix attempts. Read the full component,
-  its dependencies, contracts, and all error traces from scratch.
-  What is the actual root cause — not the symptom? Consider that the
-  real issue may be architectural, not in the code being patched.
-
-- Teammate "researcher-alternatives": Enumerate 3–5 fundamentally
-  different ways to solve this problem. Include approaches that would
-  require refactoring or changing the technical direction entirely.
-  For each: what are the trade-offs, effort, and risk?
-
-- Teammate "researcher-prior-art": Search external sources, docs,
-  GitHub issues, and known patterns for this class of bug. Has this
-  problem been documented elsewhere? What did others find? Are there
-  framework-specific pitfalls or known workarounds?
-
-Lead: Wait for all three researchers to complete. Then synthesize:
-1. What is the true root cause based on full investigation?
-2. What are the viable solution paths (ranked by confidence)?
-3. Does any path require a different technical approach than what has been tried?
-4. What is the recommended path and why?
+node -e "
+const { captureSpawn } = require('./bin/gsd-t-token-capture.cjs');
+(async () => {
+  await captureSpawn({
+    command: 'gsd-t-debug',
+    step: 'Step 1.5',
+    model: 'sonnet',
+    description: 'deep research loop break: {issue summary}',
+    projectDir: '.',
+    notes: 'deep research loop break: {issue summary}',
+    spawnFn: async () => { /* Deep research team (three teammates in parallel):
+      - Teammate 'researcher-root-cause': broadest look at the problem, ignore prior fix attempts, identify true root cause (possibly architectural, not in code being patched).
+      - Teammate 'researcher-alternatives': enumerate 3–5 fundamentally different solutions with trade-offs, effort, and risk.
+      - Teammate 'researcher-prior-art': search external sources, docs, GitHub issues for this class of bug and known workarounds.
+      Lead synthesizes after all three complete: true root cause, ranked solution paths, whether a different technical approach is required, and the recommended path. */ },
+  });
+})();
+"
 ```
 
-After team completes — run via Bash:
-`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START)) && CTX_PCT=$(node -e "const tb=require('./bin/token-budget.cjs'); process.stdout.write(String(tb.getSessionStatus('.').pct||'N/A'))" 2>/dev/null || echo "N/A")`
-Append to `.gsd-t/token-log.md`:
-`| {DT_START} | {DT_END} | gsd-t-debug | Step 1.5 | sonnet | {DURATION}s | deep research loop break: {issue summary} | {CTX_PCT} |`
+`captureSpawn` parses `result.usage` and writes the row to `.gsd-t/token-log.md` under the canonical header. Tokens column renders as `in=N out=N cr=N cc=N $X.XX` or `—`, never `N/A`.
 
 **STOP. Present findings to the user before making any changes:**
 
@@ -447,19 +445,33 @@ Resolve the templated prompt path via Bash:
 ```
 RT_PROMPT="$(npm root -g 2>/dev/null)/@tekyzinc/gsd-t/templates/prompts/red-team-subagent.md"
 [ -f "$RT_PROMPT" ] || RT_PROMPT="templates/prompts/red-team-subagent.md"
-T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M")
 ```
 
-Spawn Task subagent (spawnType: validation, general-purpose, model: opus) — always headless, `--watch` ignored:
-> "Read `$RT_PROMPT` and follow it. Context: post-fix validation for a debug session. **Additional categories for this run:** (a) **Regression Around the Fix** — test every code path adjacent to the changed lines; fixes frequently break neighboring functionality. (b) **Original Bug Variants** — the original bug was {one-line description}; search for SIMILAR bugs in related code (same pattern, different location). Write findings to `.gsd-t/red-team-report.md`."
+**OBSERVABILITY LOGGING (MANDATORY) — wrap the Red Team subagent spawn with `captureSpawn`:**
 
-After subagent returns — run via Bash:
 ```
-T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START))
-CTX_PCT=$(node -e "try{const tb=require('./bin/token-budget.cjs'); process.stdout.write(String(tb.getSessionStatus('.').pct))}catch(_){process.stdout.write('N/A')}")
+node -e "
+const { captureSpawn } = require('./bin/gsd-t-token-capture.cjs');
+(async () => {
+  await captureSpawn({
+    command: 'gsd-t-debug',
+    step: 'Red Team',
+    model: 'opus',
+    description: 'adversarial validation of debug fix',
+    projectDir: '.',
+    notes: '{VERDICT} — {N} bugs found',
+    spawnFn: async () => { /* Task subagent (spawnType: validation, general-purpose, model: opus) — always headless, --watch ignored:
+      'Read \$RT_PROMPT and follow it. Context: post-fix validation for a debug session.
+      Additional categories for this run:
+      (a) Regression Around the Fix — test every code path adjacent to the changed lines; fixes frequently break neighboring functionality.
+      (b) Original Bug Variants — the original bug was {one-line description}; search for SIMILAR bugs in related code (same pattern, different location).
+      Write findings to .gsd-t/red-team-report.md.' */ },
+  });
+})();
+"
 ```
-Append to `.gsd-t/token-log.md`:
-`| {DT_START} | {DT_END} | gsd-t-debug | Red Team | opus | {DURATION}s | {VERDICT} — {N} bugs found | | | {CTX_PCT} |`
+
+`captureSpawn` parses `result.usage` and writes the row to `.gsd-t/token-log.md` under the canonical header. Tokens column renders as `in=N out=N cr=N cc=N $X.XX` or `—`, never `N/A`.
 
 **If FAIL:** fix CRITICAL/HIGH bugs (≤2 cycles) → re-run. Persistent bugs → `.gsd-t/deferred-items.md`.
 **If GRUDGING PASS:** proceed to metrics and doc-ripple.
