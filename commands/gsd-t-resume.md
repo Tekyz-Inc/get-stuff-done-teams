@@ -74,6 +74,39 @@ This prevents the child side of a headless spawn from reading a partial continue
 
 ---
 
+## Step 0.3: Orchestrator Run Recovery (M40 D6)
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-resume --step 0 --step-label ".3: Orchestrator Run Recovery (M40 D6)" 2>/dev/null || true
+```
+
+If an orchestrator run was interrupted (crash, SIGINT, kill, parent timeout), `.gsd-t/orchestrator/state.json` will still exist with a non-terminal `status`. Detect this and offer to resume it via the deterministic `--resume` path rather than attempting prose-driven reconciliation:
+
+```bash
+node -e "
+const fs = require('fs');
+const path = require('path');
+const fp = path.join('.gsd-t', 'orchestrator', 'state.json');
+if (!fs.existsSync(fp)) process.exit(0);
+let s; try { s = JSON.parse(fs.readFileSync(fp, 'utf8')); } catch { process.exit(0); }
+const TERMINAL = new Set(['done','failed','stopped','interrupted','completed']);
+if (!s || TERMINAL.has(s.status)) process.exit(0);
+const running = Object.entries(s.tasks || {}).filter(([,t]) => t && t.status === 'running');
+console.error('▶ Orchestrator run still in-flight (status=' + (s.status||'?') + ', ' + running.length + ' running task(s))');
+console.error('  Resume via: node bin/gsd-t-orchestrator.js orchestrate --milestone ' + (s.milestone || '<id>') + ' --resume');
+console.error('  This calls recoverRunState() to reconcile in-flight tasks (ok/ambiguous/failed) before continuing.');
+" || true
+```
+
+Rules:
+- **State absent or terminal** → nothing to do; fall through.
+- **Non-terminal** → surface the recovery hint and, at Level 3, auto-invoke the orchestrator with `--resume` when the current milestone matches `state.milestone`. Ambiguous tasks (commit but no progress entry) are flagged in the orchestrator output and require operator triage — do **not** silently claim them done.
+- The recovery algorithm, archiving, and ambiguous handling are covered by unit tests in `test/m40-recovery.test.js` and implemented in `bin/gsd-t-orchestrator-recover.cjs`.
+
+Contract: stream-json-sink v1.1.0, wave-join v1.x, completion-signal v1.x.
+
+---
+
 ## Step 0.5: Headless Read-Back Banner (MANDATORY)
 
 ```bash

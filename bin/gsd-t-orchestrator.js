@@ -9,6 +9,7 @@ const { readAllTasks, groupByWave, validateNoForwardDeps } = require('./gsd-t-or
 const { runWorker } = require('./gsd-t-orchestrator-worker.cjs');
 const { buildTaskBrief } = require('./gsd-t-task-brief.js');
 const { createStreamFeedClient } = require('./gsd-t-stream-feed-client.cjs');
+const { recoverRunState, writeRecoveredState, archiveState } = require('./gsd-t-orchestrator-recover.cjs');
 
 const STATE_DIR = '.gsd-t/orchestrator';
 const STATE_FILE = 'state.json';
@@ -22,6 +23,7 @@ function parseCliArgs(argv) {
     workerTimeoutMs: null,
     projectDir: process.cwd(),
     resume: false,
+    noArchive: false,
     help: false,
     streamFeed: true,
     streamFeedPort: null,
@@ -35,6 +37,7 @@ function parseCliArgs(argv) {
     else if (a === '--worker-timeout') { args.workerTimeoutMs = argv[++i]; }
     else if (a === '--project-dir') { args.projectDir = path.resolve(argv[++i]); }
     else if (a === '--resume') { args.resume = true; }
+    else if (a === '--no-archive') { args.noArchive = true; }
     else if (a === '--no-stream-feed') { args.streamFeed = false; }
     else if (a === '--stream-feed-port') { args.streamFeedPort = Number(argv[++i]); }
     else if (a === '--stream-feed-host') { args.streamFeedHost = argv[++i]; }
@@ -52,6 +55,7 @@ function printHelp() {
     '  --worker-timeout <ms>    Per-worker timeout in ms (default 270000).',
     '  --project-dir <path>     Project directory (default cwd).',
     '  --resume                 Resume from .gsd-t/orchestrator/state.json.',
+    '  --no-archive             When --resume + state is terminal, do NOT archive — fail instead.',
     '  --no-stream-feed         Disable pushing frames to local stream-feed server.',
     '  --stream-feed-port <N>   Override stream-feed port (default 7842 / env GSD_T_STREAM_FEED_PORT).',
     '  --stream-feed-host <H>   Override stream-feed host (default 127.0.0.1).',
@@ -277,7 +281,9 @@ async function runOrchestrator(opts) {
     onFrame,
     installSignalHandlers = true,
     streamFeed = null,  // D1-T7: null|false = off, true = default (env-aware), object = client opts
-    streamFeedFactory: streamFeedFactoryOverride = null  // test hook
+    streamFeedFactory: streamFeedFactoryOverride = null,  // test hook
+    resume = false,
+    noArchive = false
   } = opts;
 
   const config = loadConfig({
@@ -301,8 +307,48 @@ async function runOrchestrator(opts) {
   const waves = groupByWave(scopedTasks);
 
   const state = makeState(projectDir);
+
+  // D6-T2: --resume handling. Ran before we touch state.save().
+  //   fresh    → error (no run to resume)
+  //   terminal → archive (unless --no-archive) and start fresh
+  //   resume   → seed state.tasks from reconciled recovery output, skip done/ambiguous
+  let resumedSkipIds = new Set(); // task ids to not re-launch (done + ambiguous)
+  let resumeStartWave = null;
+  if (resume) {
+    const recovery = recoverRunState({ projectDir });
+    for (const note of (recovery.notes || [])) logger.log(`[resume] ${note}`);
+    if (recovery.mode === 'fresh') {
+      const err = new Error('no run to resume — .gsd-t/orchestrator/state.json is missing');
+      err.code = 'NO_RESUME_STATE';
+      throw err;
+    }
+    if (recovery.mode === 'terminal') {
+      if (noArchive) {
+        const err = new Error('--resume requested but state is terminal and --no-archive was set');
+        err.code = 'TERMINAL_NO_ARCHIVE';
+        throw err;
+      }
+      const { archived, archivePath } = archiveState(projectDir);
+      if (archived) logger.log(`[resume] archived terminal state → ${archivePath}; starting fresh`);
+    } else if (recovery.mode === 'resume') {
+      // Persist reconciled task statuses and load them into the in-memory state.
+      writeRecoveredState(projectDir, { ...recovery.state, tasks: recovery.tasks });
+      state.data = { ...recovery.state, tasks: recovery.tasks };
+      for (const [tid, t] of Object.entries(recovery.tasks)) {
+        if (t.status === 'done' || t.status === 'ambiguous') resumedSkipIds.add(tid);
+        if (t.status === 'ambiguous') logger.log(`[resume] task ${tid} is AMBIGUOUS — commit without progress entry; skipped, needs operator triage`);
+      }
+      resumeStartWave = recovery.currentWave;
+      if (resumeStartWave != null) {
+        logger.log(`[resume] continuing from wave ${resumeStartWave} (${resumedSkipIds.size}/${Object.keys(recovery.tasks).length} tasks already done or ambiguous)`);
+      } else {
+        logger.log('[resume] all tasks reconciled as done/ambiguous — nothing left to run');
+      }
+    }
+  }
+
   state.save({ milestone: config.milestone, totalTasks: scopedTasks.length, waves: [...waves.keys()] });
-  writeEvent(projectDir, 'orchestrator_start', { milestone: config.milestone, total_tasks: scopedTasks.length });
+  writeEvent(projectDir, resume ? 'orchestrator_resume' : 'orchestrator_start', { milestone: config.milestone, total_tasks: scopedTasks.length });
 
   // D1-T7: stream-feed wiring. `streamFeed: true` means "open clients pointed at
   // the default local server". `streamFeed: { port, host }` overrides. `false`/null
@@ -370,15 +416,29 @@ async function runOrchestrator(opts) {
     const waveResults = [];
     for (const [waveNum, waveTasks] of waves) {
       if (interrupt.interrupted) break;
+      // D6-T2: on resume, skip waves entirely behind the resume point.
+      if (resumeStartWave != null && waveNum < resumeStartWave) {
+        writeEvent(projectDir, 'wave_skipped', { wave: waveNum, reason: 'resume_before' });
+        continue;
+      }
+      // Filter out tasks that recovery marked done/ambiguous.
+      const effectiveTasks = resumedSkipIds.size
+        ? waveTasks.filter((t) => !resumedSkipIds.has(t.id))
+        : waveTasks;
+      if (effectiveTasks.length === 0) {
+        writeEvent(projectDir, 'wave_skipped', { wave: waveNum, reason: 'all_tasks_reconciled' });
+        continue;
+      }
+
       state.save({ currentWave: waveNum, status: 'running' });
-      writeEvent(projectDir, 'wave_start', { wave: waveNum, task_count: waveTasks.length });
-      emitWaveBoundary(teeWaveFrame, 'start', waveNum, waveTasks.length);
+      writeEvent(projectDir, 'wave_start', { wave: waveNum, task_count: effectiveTasks.length });
+      emitWaveBoundary(teeWaveFrame, 'start', waveNum, effectiveTasks.length);
 
       const waveStartedMs = Date.now();
       const waveLiveChildren = new Map();
       interrupt.currentWaveChildren = waveLiveChildren;
       const { results, halted } = await runWaveTasks({
-        tasks: waveTasks,
+        tasks: effectiveTasks,
         config,
         state,
         logger,
@@ -445,7 +505,9 @@ async function main() {
       milestone: args.milestone,
       maxParallel: args.maxParallel,
       workerTimeoutMs: args.workerTimeoutMs,
-      streamFeed: streamFeedOpt
+      streamFeed: streamFeedOpt,
+      resume: args.resume,
+      noArchive: args.noArchive
     });
     if (res.status === 'interrupted') {
       process.exit(130);
