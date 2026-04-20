@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-04-20T20:25:33.610Z",
+  "runs": 1,
+  "fixtureDir": "/Users/david/projects/GSD-T/test/fixtures/m40-benchmark-workload",
+  "env": {
+    "node": "v24.14.1",
+    "platform": "darwin-25.4.0",
+    "arch": "arm64",
+    "cpuCount": 18,
+    "totalMemMb": 49152,
+    "freeMemMb": 2849
+  },
+  "orchestrator": [
+    {
+      "durationMs": 226451,
+      "exitCode": 0,
+      "stderr": "",
+      "tmpDir": "/var/folders/w6/20pdx7xx3nj7mrr522xtgfmm0000gn/T/m40-bench-orch-1-TlhZp9",
+      "commitAudit": {
+        "totalCommits": 23,
+        "taskCommitCount": 22,
+        "uniqueTaskIds": 20,
+        "expectedTaskCount": 20,
+        "discipline": "compliant"
+      }
+    }
+  ],
+  "insession": [
+    {
+      "durationMs": 315567,
+      "exitCode": 0,
+      "stderr": "20:25:30.009Z\",\"tool_use_result\":{\"stdout\":\"> m40-benchmark-workload@0.0.0 test\\n> node test/run.js\\n\\nOK 20 test file(s)\\n6136d5f bench-d4-t5: aggregate out/d4-sum.txt (D4-ALPHA|D4-BETA)\\nab81bb3 bench-d3-t5: aggregate out/d3-sum.txt (D3-ALPHA|D3-BETA)\\n2b1bdd6 bench-d2-t5: add progress.md entry\\n7c34137 bench-d2-t5: aggregate out/d2-sum.txt (D2-ALPHA|D2-BETA)\\n25fda5f bench-d1-t5: aggregate out/d1-sum.txt (D1-ALPHA|D1-BETA)\\n215a979 bench-d4-t4: add progress.md entry\\nb1ca40b bench-d4-t4: derive out/d4-d.txt (D4-BETA) from out/d4-b.txt\\n623591b bench-d4-t3: derive out/d4-c.txt (D4-ALPHA) from out/d4-a.txt\\n6a59d2f bench-d3-t4: add progress.md entry\\n647f7b5 bench-d3-t4: derive out/d3-d.txt (D3-BETA) from out/d3-b.txt\\n7c9e6ff bench-d3-t3: derive out/d3-c.txt (D3-ALPHA) from out/d3-a.txt\\n15c7688 bench-d2-t4: add progress.md entry\\naa9330d bench-d2-t4: derive out/d2-d.txt (D2-BETA) from out/d2-b.txt\\n87c0ffc bench-d2-t3: derive out/d2-c.txt (D2-ALPHA) from out/d2-a.txt\\nb16d972 bench-d1-t4: add progress.md entry\\ncc4ab05 bench-d1-t4: derive out/d1-d.txt (D1-BETA) from out/d1-b.txt\\n234c2fc bench-d1-t3: derive out/d1-c.txt (D1-ALPHA) from out/d1-a.txt\\n97599c6 bench-d4-t2: add progress.md entry\\n063c681 bench-d4-t2: generate out/d4-b.txt with content d4-beta\\nb7b7f8d bench-d4-t1: generate out/d4-a.txt with content d4-alpha\\n179aeb3 bench-d3-t2: add progress.md entry\\n62ac701 bench-d3-t2: generate out/d3-b.txt with content d3-beta\\nf842447 bench-d3-t1: generate out/d3-a.txt with content d3-alpha\\n86c39a1 bench-d2-t2: add progress.md entry\\n11aac82 bench-d2-t2: generate out/d2-b.txt with content d2-beta\",\"stderr\":\"\",\"interrupted\":false,\"isImage\":false,\"noOutputExpected\":false}}\n{\"type\":\"assistant\",\"message\":{\"model\":\"claude-sonnet-4-6\",\"id\":\"msg_01ANWy26vp3z4Yjy3WwV8BPq\",\"type\":\"message\",\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"All 20 tasks complete. `npm test` passes with 20 test files. Each task has its own commit with the canonical task ID prefix, and all progress.md Decision Log entries are present. Wave order was respected: Wave 0 (8 generator tasks) → Wave 1 (8 deriver tasks) → Wave 2 (4 aggregator tasks).\"}],\"stop_reason\":null,\"stop_sequence\":null,\"stop_details\":null,\"usage\":{\"input_tokens\":1,\"cache_creation_input_tokens\":1194,\"cache_read_input_tokens\":62440,\"cache_creation\":{\"ephemeral_5m_input_tokens\":0,\"ephemeral_1h_input_tokens\":1194},\"output_tokens\":1,\"service_tier\":\"standard\",\"inference_geo\":\"not_available\"},\"context_management\":null},\"parent_tool_use_id\":null,\"session_id\":\"3aebd98f-fa05-4226-bc29-5fe3a8871a88\",\"uuid\":\"384508dc-1b5b-4835-abd5-ab92d0e12c12\"}\n{\"type\":\"result\",\"subtype\":\"success\",\"is_error\":false,\"api_error_status\":null,\"duration_ms\":313268,\"duration_api_ms\":292999,\"num_turns\":114,\"result\":\"All 20 tasks complete. `npm test` passes with 20 test files. Each task has its own commit with the canonical task ID prefix, and all progress.md Decision Log entries are present. Wave order was respected: Wave 0 (8 generator tasks) → Wave 1 (8 deriver tasks) → Wave 2 (4 aggregator tasks).\",\"stop_reason\":\"end_turn\",\"session_id\":\"3aebd98f-fa05-4226-bc29-5fe3a8871a88\",\"total_cost_usd\":1.7521864500000002,\"usage\":{\"input_tokens\":90,\"cache_creation_input_tokens\":58669,\"cache_read_input_tokens\":4157509,\"output_tokens\":18977,\"server_tool_use\":{\"web_search_requests\":0,\"web_fetch_requests\":0},\"service_tier\":\"standard\",\"cache_creation\":{\"ephemeral_1h_input_tokens\":58669,\"ephemeral_5m_input_tokens\":0},\"inference_geo\":\"\",\"iterations\":[{\"input_tokens\":1,\"output_tokens\":85,\"cache_read_input_tokens\":62440,\"cache_creation_input_tokens\":1194,\"cache_creation\":{\"ephemeral_5m_input_tokens\":0,\"ephemeral_1h_input_tokens\":1194},\"type\":\"message\"}],\"speed\":\"standard\"},\"modelUsage\":{\"claude-sonnet-4-6\":{\"inputTokens\":90,\"outputTokens\":18977,\"cacheReadInputTokens\":4157509,\"cacheCreationInputTokens\":58669,\"webSearchRequests\":0,\"costUSD\":1.7521864500000002,\"contextWindow\":200000,\"maxOutputTokens\":32000}},\"permission_denials\":[],\"terminal_reason\":\"completed\",\"fast_mode_state\":\"off\",\"uuid\":\"7cc872ea-39db-47f1-b90e-29a0d88d3ecc\"}\n",
+      "tmpDir": "/var/folders/w6/20pdx7xx3nj7mrr522xtgfmm0000gn/T/m40-bench-insession-1-zWACkE",
+      "commitAudit": {
+        "totalCommits": 29,
+        "taskCommitCount": 28,
+        "uniqueTaskIds": 20,
+        "expectedTaskCount": 20,
+        "discipline": "compliant"
+      }
+    }
+  ],
+  "summary": {
+    "verdict": "PASS",
+    "verdictDetail": "orchestrator 226451ms ≤ in-session 315567ms × 1.05 (331345ms) — Waves 2+3+4 unlocked",
+    "medianOrchMs": 226451,
+    "medianInsessionMs": 315567,
+    "thresholdMs": 331345,
+    "orchCompliant": true,
+    "insCompliant": true
+  },
+  "verdict": "PASS",
+  "verdictDetail": "orchestrator 226451ms ≤ in-session 315567ms × 1.05 (331345ms) — Waves 2+3+4 unlocked"
+}
