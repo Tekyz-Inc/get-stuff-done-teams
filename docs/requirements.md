@@ -441,3 +441,23 @@ A reference implementation of the HTML report output is at `scan-report-mock.htm
 - ~~Backlog file format drift (TD-014)~~ — RESOLVED
 - ~~Progress.md format drift (TD-015)~~ — RESOLVED
 - ~~7 backlog commands missing from GSD-T-README (TD-016)~~ — RESOLVED
+
+## M40 Requirements Traceability (plan phase — 2026-04-19)
+
+Milestone 40 (External Task Orchestrator + Streaming Watcher UI) decomposes into 5 measurable requirements drawn directly from `progress.md` Current Milestone § Success criteria. Task numbers reference `.gsd-t/domains/*/tasks.md`.
+
+| REQ-ID | Requirement Summary | Domain | Task(s) | Status |
+|--------|---------------------|--------|---------|--------|
+| REQ-M40-01 | Speed parity or better vs in-session (D0 kill-switch gate) | d0-speed-benchmark | Tasks 1, 2, 3 | pending |
+| REQ-M40-02 | No compaction — one task per spawn, fresh context each time | d1-orchestrator-core | Tasks 3, 4, 6 | pending |
+| REQ-M40-03 | Live streaming UI on localhost:7842 at zero Claude token cost | d4-stream-feed-server, d5-stream-feed-ui | D4 Tasks 1–5, D5 Tasks 1–5 | pending |
+| REQ-M40-04 | Per-wave Promise.all parallelism with Team Mode §15 ceiling (15 max) | d1-orchestrator-core | Tasks 1, 4, 6 | pending |
+| REQ-M40-05 | Recovery from durable JSONL + progress.md on orchestrator crash | d6-recovery-and-resume | Tasks 1, 2, 3, 4 | pending |
+
+Supporting contracts (no direct REQ mapping — shared infrastructure):
+- `task-brief-contract.md` (d2-task-brief-builder Tasks 1–3) — enables REQ-M40-02 via self-contained briefs
+- `completion-signal-contract.md` (d3-completion-protocol Tasks 1–3) — enables REQ-M40-02 and REQ-M40-05 via deterministic done-signal
+- `wave-join-contract.md` (d1-orchestrator-core) — enables REQ-M40-04
+- `stream-json-sink-contract.md` (d1↔d4 joint) — enables REQ-M40-03
+
+All 5 REQs map to at least one task; no orphaned requirements. All 25 tasks across 7 domains trace to at least one REQ (task-brief/completion tasks support via contract infra).

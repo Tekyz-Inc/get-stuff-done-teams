@@ -1,18 +1,43 @@
 # GSD-T Progress
 
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
-## Status: COMPLETED — M39 archived 2026-04-18
-## Date: 2026-04-18
-## Version: 3.13.16
+## Status: M40 PLANNED — External Task Orchestrator + Streaming Watcher UI
+## Date: 2026-04-19
+## Version: 3.13.16 (targeting 3.14.10 at M40 complete)
 
 ## Current Milestone
 
-None — ready for next milestone
+**M40 — External Task Orchestrator + Streaming Watcher UI** (DEFINED)
+
+### Goal
+Build an external JS orchestrator that drives in-session Claude one task per spawn — short-lived, fresh context per task, never long enough to compact. Pair it with a dumb local streaming watcher UI that renders all workers' stream-json output as a continuous claude.ai-style feed at zero Claude token cost.
+
+### Core problem it solves
+M8-sized work (~40 tasks across 8 domains) exceeds one Claude Code session's context budget. In-session risks mid-execute compaction that loses cross-file reasoning chains. The unattended supervisor is 5–10× slower and gives only per-iter (5-min) visibility. Both fail on the same workload.
+
+### Success criteria (measurable)
+1. **Speed parity or better**: orchestrator wall-clock ≤ in-session wall-clock on a single-domain benchmark (D0 go/no-go gate). Ideal: faster due to process-level parallelism.
+2. **No compaction**: no worker session exceeds one task; compaction is architecturally impossible during an M40 run.
+3. **Live streaming UI**: `localhost:7842` renders stream-json from all active workers with claude.ai-style layout, task-boundary banners, and durable JSONL backlog. Zero Claude token cost in the UI process.
+4. **Parallelism**: per-wave `Promise.all` over parallel-safe tasks, default 3 concurrent workers, max 15 (Team Mode contract §15). Each worker is a separate OS process with its own context window.
+5. **Recovery**: if orchestrator crashes mid-run, resume from durable JSONL + progress.md state.
+
+### Scope
+**In scope**: orchestrator-core (task queue + claude-p spawn + completion detection + kill/respawn + wave join), task-brief-builder (2–5KB self-contained per-task briefs), completion-protocol contract (commit on expected branch + progress.md entry + test exit), stream-feed-server (ws + JSONL persistence), stream-feed-ui (HTML/JS claude.ai-style renderer), recovery-and-resume.
+
+**Explicitly NOT in scope**: retiring `gsd-t-unattended` (stays for overnight/idle), rewriting `gsd-t-execute` subagent flow (unchanged — M40 is a new orchestrator, not a replacement), mobile UI, remote/hosted watcher (localhost only), multi-project orchestration (single project per orchestrator run).
+
+### Go/no-go gate (D0, built first)
+Benchmark orchestrator vs in-session on the same domain. If orchestrator is not ≥ in-session, kill M40 before building the UI (D4/D5). No sunk-cost commitment. User requirement: *"It's not worth doing if it doesn't run at least as fast[er]."*
+
+### Version target
+v3.14.10 (minor bump — new major feature, not a fix).
 
 ## Milestones
 
 | # | Milestone | Status | Version | Domains |
 |---|-----------|--------|---------|---------|
+| M40 | External Task Orchestrator + Streaming Watcher UI | PLANNED | 3.14.10 (target) | 7 domains, 28 tasks in 4 waves: W0 = 15 tasks (5 sub-groups including D0 gate) + W2 = 1 task + W3 = 11 tasks + W4 = 4 tasks |
 | M39 | Fast Unattended + Universal Watch-Progress Tree | COMPLETE | 3.13.10 | 3 domains: D2 progress-watch, D3 parallel-exec, D4 cache-warm-pacing |
 | M38 | Headless-by-Default + Meter Reduction | COMPLETE | 3.12.10 | 5 domains in 2 waves: Wave 1 sequential (m38-headless-spawn-default → m38-meter-reduction); Wave 2 parallel (m38-unattended-event-stream + m38-router-conversational + m38-cleanup-and-docs) |
 | M37 | Universal Context Auto-Pause | COMPLETE | 3.11.10 | Archived (1 domain: m37-auto-pause; context-meter-contract v1.2.0; 5 command files updated; 1228/1228 tests) |
@@ -47,3 +72,6 @@ Older milestones (M33 and earlier) archived under `.gsd-t/milestones/` — see d
 - 2026-04-17 19:45: [milestone-partitioned] M39 PARTITIONED into 3 domains, all in Wave 1 (parallel). D2 d2-progress-watch, D3 d3-parallel-exec, D4 d4-cache-warm-pacing. Shared files: `bin/gsd-t-unattended.cjs` and `unattended-supervisor-contract.md` — additive, no coordination required.
 - 2026-04-17 19:30: [milestone-defined] M39 — Fast Unattended + Universal Watch-Progress Tree committed to progress.md. Target version 3.13.10. 3 domains: D2 progress-watch, D3 parallel-exec, D4 cache-warm-pacing. Rationale: bee-poc pid 69481 has been grinding unattended on v3.12.13 for 45+ min on a milestone that in-session finishes in 10–15 min — root cause is worker prompt at `bin/gsd-t-unattended.cjs::_spawnWorker` not teaching Team Mode. Ready for partition.
 - 2026-04-18 15:00: [complete-milestone] M39 Fast Unattended + Universal Watch-Progress Tree COMPLETED — v3.13.16 (shipping tag v3.13.10 + patches v3.13.11–v3.13.16). Archived to `.gsd-t/milestones/M39-fast-unattended-watch-progress-2026-04-18/`. Tests: 1240/1240 unit pass. E2E: N/A. [goal-backward-pass] 4/4 success criteria verified. [distillation] No repeating patterns from event stream. [patch-lifecycle] No promotions/deprecations. Token optimizer: no new recommendations.
+- 2026-04-19 18:00: [milestone-planned] M40 PLANNED — 28 tasks across 7 domains. Wave 0 (foundation+gate): 15 tasks in 5 sub-groups (0a independent starts: D3-T1, D1-T1, D2-T1, D0-T1; 0b same-domain unlock; 0c cross-domain integration; 0d orchestrator CLI ready; 0e THE GATE = D0-T2 benchmark driver → D0-T3 verdict). Wave 2 (after D0 PASS): D1-T6 full worker. Wave 3 (stream feed): D4 Tasks 1-5 + D5 Tasks 1-5 + D1-T7 stream wiring. Wave 4 (recovery): D6 Tasks 1-4. REQ traceability appended to `docs/requirements.md` with 5 M40 REQs (REQ-M40-01 through REQ-M40-05), all mapped to tasks. Scope-validation: no task >5 files, no cross-domain dep >3 per task. No duplicate operations across domains (D1/D2/D3 roles are orthogonal; D4/D5 split by transport vs rendering). Tests baseline 1240/1240 pass. Ready for Wave 0 execute.
+- 2026-04-19 17:45: [milestone-partitioned] M40 PARTITIONED into 7 domains across 5 waves. D0 speed-benchmark (KILL-SWITCH GATE — Wave 0), D1 orchestrator-core, D2 task-brief-builder, D3 completion-protocol (contract-only, lands first), D4 stream-feed-server, D5 stream-feed-ui, D6 recovery-and-resume. Wave 0 assembles D3 contract + D1/D2 minimal slices + D0 benchmark run — if benchmark FAIL, milestone halts before D4/D5 ever start (per user: "It's not worth doing if it doesn't run at least as fast[er]"). 4 new contracts written: task-brief-contract.md v1.0.0, completion-signal-contract.md v1.0.0, stream-json-sink-contract.md v1.0.0, wave-join-contract.md v1.0.0. Existing code dispositions locked in: `bin/gsd-t-unattended.cjs` INSPECT, existing events JSONL USE, `scripts/gsd-t-agent-dashboard*` (untracked, 424+1043 LOC) INSPECT-then-decide for D4/D5 promotion-or-rewrite, `bin/model-selector.js` + `bin/token-budget.cjs` NOT USED inside workers (one-shot workers don't need context meter), `commands/gsd-t-execute.md` UNCHANGED, unattended supervisor UNCHANGED. Five ambiguity-locks recorded (claude.ai-style = visual conventions not clone; streaming = replay+tail; zero-token = no LLM at all; parallelism = child_process.spawn; recovery = operator-initiated not auto). Baseline tests: 1240/1240 pass. Domains ready for `/gsd-t-plan` to fill tasks.md files.
+- 2026-04-19 11:00: [milestone-defined] M40 — External Task Orchestrator + Streaming Watcher UI committed to progress.md. Target v3.14.10 (minor bump, new major feature). Rationale: M8-sized work exceeds single-session context; in-session compaction loses cross-file reasoning; unattended is 5–10× slower with 5-min visibility gap. Solution: external node orchestrator spawns short-lived `claude -p` workers (one task per spawn = no compaction possible), pipes stream-json to a dumb local watcher UI (`localhost:7842`) that renders claude.ai-style continuous feed at zero Claude token cost. Per-wave Promise.all parallelism (default 3, max 15 per Team Mode §15) — true process-level, not subagent-level. D0 speed-benchmark gate built first: if orchestrator ≯ in-session on same domain, kill M40 before D4/D5 UI work. Seven proposed domains (D0–D6) — partition will validate/adjust. Ready for partition.
