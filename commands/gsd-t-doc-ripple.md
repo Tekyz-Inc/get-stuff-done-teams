@@ -97,19 +97,28 @@ For each document or logical group:
 ⚙ [haiku] gsd-t-doc-ripple → update {document}
 (Use sonnet for docs/architecture.md and docs/requirements.md — these need reasoning.)
 
-**OBSERVABILITY LOGGING (MANDATORY) — for each subagent spawn:**
+**OBSERVABILITY LOGGING (MANDATORY) — wrap each document-update subagent with `captureSpawn`:**
 
-Before spawning — run via Bash:
-`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M")`
+```
+node -e "
+const { captureSpawn } = require('./bin/gsd-t-token-capture.cjs');
+(async () => {
+  await captureSpawn({
+    command: 'gsd-t-doc-ripple',
+    step: 'Step 5',
+    model: '{haiku|sonnet}',
+    description: 'update {document}',
+    projectDir: '.',
+    domain: 'doc-ripple',
+    task: '-',
+    notes: 'update:{document}',
+    spawnFn: async () => { /* Task subagent call for the document-update prompt below */ },
+  });
+})();
+"
+```
 
-After subagent returns — run via Bash:
-`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START))`
-
-Read the real context% from the Context Meter state file:
-`CTX_PCT=$(node -e "try{const tb=require('./bin/token-budget.cjs'); process.stdout.write(String(tb.getSessionStatus('.').pct))}catch(_){process.stdout.write('N/A')}")`
-
-Append to `.gsd-t/token-log.md` (create with header `| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Domain | Task | Ctx% |` if missing):
-`| {DT_START} | {DT_END} | gsd-t-doc-ripple | Step 5 | {model} | {DURATION}s | update:{document} | doc-ripple | — | {CTX_PCT} |`
+`captureSpawn` parses `result.usage` and writes the row to `.gsd-t/token-log.md` under the canonical header. Tokens column renders as `in=N out=N cr=N cc=N $X.XX` or `—`, never `N/A`.
 
 **Each document-update subagent prompt:**
 ```
