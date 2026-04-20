@@ -146,10 +146,17 @@ function runOrchestratorSide({ fixtureDir, runIdx, mockClaude, logger, keepTmp =
     output = 'spawn_error: ' + (e && e.message);
   }
   const durationMs = Date.now() - t0;
-  if (logger) logger.log(`[bench orch #${runIdx}] exit=${exitCode} duration=${durationMs}ms`);
+  const commitAudit = auditTaskCommits(dest);
+  if (logger) logger.log(`[bench orch #${runIdx}] exit=${exitCode} duration=${durationMs}ms commits=${commitAudit.taskCommitCount}/${commitAudit.expectedTaskCount}`);
   if (keepTmp && logger) logger.log(`  kept: ${tmpBase}`);
   if (!keepTmp) cleanupRun(tmpBase);
-  return { durationMs, exitCode, stderr: output, tmpDir: keepTmp ? tmpBase : null };
+  return {
+    durationMs,
+    exitCode,
+    stderr: output,
+    tmpDir: keepTmp ? tmpBase : null,
+    commitAudit
+  };
 }
 
 function runInsessionSide({ fixtureDir, runIdx, mockClaude, logger, keepTmp = false, spawnImpl = spawnSync }) {
@@ -162,11 +169,41 @@ function runInsessionSide({ fixtureDir, runIdx, mockClaude, logger, keepTmp = fa
     'against this fixture sequentially (no external orchestrator).',
     '',
     `Project dir: ${dest}`,
-    'Read .gsd-t/domains/*/tasks.md; for each wave in order, for each task in',
-    'the wave: read the task body, create/modify the specified files per the',
-    'Acceptance criteria, run `npm test` for that test, and commit on main.',
     '',
-    'Do not spawn subagents. This is the baseline we are being compared against.',
+    '## Required discipline (enforces parity with orchestrator path)',
+    '',
+    'For the benchmark to be a fair comparison, you MUST apply the same',
+    'per-task discipline the external orchestrator enforces on its workers.',
+    'Shortcuts that collapse multiple tasks into one batch INVALIDATE the',
+    'benchmark.',
+    '',
+    '1. Read `.gsd-t/contracts/completion-signal-contract.md` once at the start.',
+    '2. Read every `.gsd-t/domains/*/tasks.md` to enumerate the tasks.',
+    '3. Process tasks strictly in wave order: ALL wave 0 before ANY wave 1,',
+    '   ALL wave 1 before ANY wave 2, etc. Within a wave you may interleave',
+    '   tasks but each task MUST complete its own commit before the next',
+    '   task begins writing files.',
+    '4. For EACH task, in order:',
+    '   a. Read the task body from its domain tasks.md',
+    '   b. Create/modify ONLY the files listed in that task\'s `**Files**:` field',
+    '   c. Run `npm test` and verify it passes',
+    '   d. `git add` ONLY that task\'s owned files',
+    '   e. `git commit` with a message starting with the canonical task id',
+    '      (e.g. `bench-d1-t1: …`) on branch `main`',
+    '   f. Add a Decision Log entry to `.gsd-t/progress.md` naming the task id',
+    '   g. Commit the progress.md update as part of (e) OR as a follow-up',
+    '      commit whose message also starts with the same task id',
+    '',
+    '## Hard rules',
+    '- ONE commit per task minimum. Twenty tasks → at least twenty commits',
+    '  beyond the baseline commit. DO NOT bulk-commit multiple tasks.',
+    '- DO NOT write files for task N+1 before task N is committed.',
+    '- DO NOT spawn subagents — you are the single-session baseline.',
+    '- DO NOT push to any git remote (no `git push`).',
+    '- If you finish early, STOP. Do not run extra work.',
+    '',
+    'This is the baseline the external orchestrator is being compared to.',
+    'The comparison is only meaningful if both sides obey the same rules.',
     '',
   ].join('\n');
   const t0 = Date.now();
@@ -192,10 +229,34 @@ function runInsessionSide({ fixtureDir, runIdx, mockClaude, logger, keepTmp = fa
     output = 'spawn_error: ' + (e && e.message);
   }
   const durationMs = Date.now() - t0;
-  if (logger) logger.log(`[bench insession #${runIdx}] exit=${exitCode} duration=${durationMs}ms`);
+  const commitAudit = auditTaskCommits(dest);
+  if (logger) logger.log(`[bench insession #${runIdx}] exit=${exitCode} duration=${durationMs}ms commits=${commitAudit.taskCommitCount}/${commitAudit.expectedTaskCount}`);
   if (keepTmp && logger) logger.log(`  kept: ${tmpBase}`);
   if (!keepTmp) cleanupRun(tmpBase);
-  return { durationMs, exitCode, stderr: output, tmpDir: keepTmp ? tmpBase : null };
+  return {
+    durationMs,
+    exitCode,
+    stderr: output,
+    tmpDir: keepTmp ? tmpBase : null,
+    commitAudit
+  };
+}
+
+function auditTaskCommits(workloadDir) {
+  const { spawnSync: ss } = require('child_process');
+  const res = ss('git', ['-C', workloadDir, 'log', '--pretty=%s'], { encoding: 'utf8' });
+  const subjects = String(res.stdout || '').split('\n').filter(Boolean);
+  const taskIdRe = /^bench-d\d+-t\d+[:\s]/;
+  const taskCommits = subjects.filter((s) => taskIdRe.test(s));
+  const uniqueTaskIds = new Set(taskCommits.map((s) => s.split(/[:\s]/)[0]));
+  const expectedTaskCount = 20;
+  return {
+    totalCommits: subjects.length,
+    taskCommitCount: taskCommits.length,
+    uniqueTaskIds: uniqueTaskIds.size,
+    expectedTaskCount,
+    discipline: uniqueTaskIds.size >= expectedTaskCount ? 'compliant' : 'noncompliant'
+  };
 }
 
 function collectEnv() {
@@ -225,14 +286,18 @@ function renderReportMd(results) {
   lines.push(`- CPUs: ${results.env.cpuCount}`);
   lines.push(`- RAM: ${results.env.freeMemMb} MB free / ${results.env.totalMemMb} MB total`);
   lines.push('');
-  lines.push('## Per-run timings (ms)');
+  lines.push('## Per-run timings (ms) and commit-discipline audit');
   lines.push('');
-  lines.push('| # | Orchestrator | In-session |');
-  lines.push('|---|--------------|------------|');
+  lines.push('| # | Orchestrator (ms / exit / commits) | In-session (ms / exit / commits) |');
+  lines.push('|---|------------------------------------|----------------------------------|');
   for (let i = 0; i < results.runs; i++) {
     const o = results.orchestrator[i] || {};
     const s = results.insession[i] || {};
-    lines.push(`| ${i + 1} | ${o.durationMs ?? '—'} (exit ${o.exitCode ?? '—'}) | ${s.durationMs ?? '—'} (exit ${s.exitCode ?? '—'}) |`);
+    const oc = o.commitAudit || {};
+    const sc = s.commitAudit || {};
+    const oCommits = `${oc.uniqueTaskIds ?? '—'}/${oc.expectedTaskCount ?? '—'}`;
+    const sCommits = `${sc.uniqueTaskIds ?? '—'}/${sc.expectedTaskCount ?? '—'}`;
+    lines.push(`| ${i + 1} | ${o.durationMs ?? '—'} / ${o.exitCode ?? '—'} / ${oCommits} | ${s.durationMs ?? '—'} / ${s.exitCode ?? '—'} / ${sCommits} |`);
   }
   lines.push('');
   lines.push(`- **Median orchestrator**: ${results.summary.medianOrchMs} ms`);
@@ -257,6 +322,8 @@ function renderReportMd(results) {
 function computeVerdict(orchTimings, insessionTimings) {
   const orchOk = orchTimings.length && orchTimings.every((r) => r.exitCode === 0);
   const insOk = insessionTimings.length && insessionTimings.every((r) => r.exitCode === 0);
+  const orchCompliant = orchTimings.every((r) => !r.commitAudit || r.commitAudit.discipline === 'compliant');
+  const insCompliant = insessionTimings.every((r) => !r.commitAudit || r.commitAudit.discipline === 'compliant');
   const medianOrchMs = median(orchTimings.map((r) => r.durationMs));
   const medianInsessionMs = median(insessionTimings.map((r) => r.durationMs));
   const thresholdMs = Math.round(medianInsessionMs * PASS_TOLERANCE);
@@ -264,13 +331,16 @@ function computeVerdict(orchTimings, insessionTimings) {
   let verdictDetail;
   if (!orchOk || !insOk) {
     verdictDetail = `one or more runs failed (orchestrator_ok=${orchOk}, insession_ok=${insOk}) — cannot trust comparison — M40 HALT RECOMMENDED`;
+  } else if (!orchCompliant || !insCompliant) {
+    verdict = 'INVALID';
+    verdictDetail = `commit-discipline audit failed (orchestrator_compliant=${orchCompliant}, insession_compliant=${insCompliant}) — one side did not produce one-commit-per-task; timing comparison is meaningless until both sides obey the same rules`;
   } else if (medianOrchMs <= thresholdMs) {
     verdict = 'PASS';
     verdictDetail = `orchestrator ${medianOrchMs}ms ≤ in-session ${medianInsessionMs}ms × ${PASS_TOLERANCE} (${thresholdMs}ms) — Waves 2+3+4 unlocked`;
   } else {
     verdictDetail = `orchestrator ${medianOrchMs}ms > in-session ${medianInsessionMs}ms × ${PASS_TOLERANCE} (${thresholdMs}ms) — M40 HALT RECOMMENDED`;
   }
-  return { verdict, verdictDetail, medianOrchMs, medianInsessionMs, thresholdMs };
+  return { verdict, verdictDetail, medianOrchMs, medianInsessionMs, thresholdMs, orchCompliant, insCompliant };
 }
 
 async function runBenchmark(opts) {

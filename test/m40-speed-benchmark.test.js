@@ -117,9 +117,28 @@ test('renderReportMd: contains verdict, methodology, per-run rows', () => {
   const md = bench.renderReportMd(results);
   assert.match(md, /# M40 Speed Benchmark/);
   assert.match(md, /Verdict.*PASS/);
-  assert.match(md, /\| 1 \| 100/);
-  assert.match(md, /\| 2 \| 110/);
+  assert.match(md, /\| 1 \| 100 \/ 0/);
+  assert.match(md, /\| 2 \| 110 \/ 0/);
   assert.match(md, /Methodology/);
+});
+
+test('computeVerdict: INVALID when commit audit fails on either side', () => {
+  const v = bench.computeVerdict(
+    [{ durationMs: 100, exitCode: 0, commitAudit: { discipline: 'compliant', uniqueTaskIds: 20, expectedTaskCount: 20 } }],
+    [{ durationMs: 200, exitCode: 0, commitAudit: { discipline: 'noncompliant', uniqueTaskIds: 1, expectedTaskCount: 20 } }]
+  );
+  assert.equal(v.verdict, 'INVALID');
+  assert.match(v.verdictDetail, /commit-discipline audit failed/);
+  assert.match(v.verdictDetail, /insession_compliant=false/);
+});
+
+test('computeVerdict: compliant audit on both sides → PASS behaves normally', () => {
+  const compliant = { discipline: 'compliant', uniqueTaskIds: 20, expectedTaskCount: 20 };
+  const v = bench.computeVerdict(
+    [{ durationMs: 100, exitCode: 0, commitAudit: compliant }],
+    [{ durationMs: 200, exitCode: 0, commitAudit: compliant }]
+  );
+  assert.equal(v.verdict, 'PASS');
 });
 
 test('runBenchmark: smoke — --runs 1 against fixture, injected timings, PASS path writes both artifacts', async () => {
