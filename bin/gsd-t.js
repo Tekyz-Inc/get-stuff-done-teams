@@ -1545,7 +1545,27 @@ function doStatus() {
   showStatusTeams();
   showStatusContextMeter();
   showStatusProject();
+  showStatusTokenBlock();
   log("");
+}
+
+function showStatusTokenBlock() {
+  const cwd = process.cwd();
+  if (!fs.existsSync(path.join(cwd, ".gsd-t"))) return;
+  let milestone = null;
+  try {
+    const progressPath = path.join(cwd, ".gsd-t", "progress.md");
+    if (fs.existsSync(progressPath)) {
+      const src = fs.readFileSync(progressPath, "utf8");
+      const m = src.match(/## Current Milestone:\s*(\S+)/) || src.match(/Milestone:\s*(M\d+)/);
+      if (m) milestone = m[1];
+    }
+  } catch (_) {}
+  try {
+    const dashboard = require(path.join(__dirname, "gsd-t-token-dashboard.cjs"));
+    const agg = dashboard.aggregateSync({ projectDir: cwd, milestone });
+    log(dashboard.renderStatusBlock(agg));
+  } catch (_) {}
 }
 
 function formatRelativeTime(timestampIso) {
@@ -3848,6 +3868,40 @@ if (require.main === module) {
       const backfill = require(path.join(__dirname, 'gsd-t-token-backfill.cjs'));
       backfill.main(bfOpts)
         .then(({ exitCode }) => process.exit(exitCode || 0))
+        .catch((e) => { error(e.message || String(e)); process.exit(3); });
+      break;
+    }
+    case "tokens": {
+      const tkOpts = { projectDir: process.cwd(), since: null, milestone: null, format: 'table' };
+      for (let i = 1; i < args.length; i++) {
+        const a = args[i];
+        if (a === '--since' && args[i+1]) { tkOpts.since = args[++i]; }
+        else if (a.startsWith('--since=')) { tkOpts.since = a.slice(8); }
+        else if (a === '--milestone' && args[i+1]) { tkOpts.milestone = args[++i]; }
+        else if (a.startsWith('--milestone=')) { tkOpts.milestone = a.slice(12); }
+        else if (a === '--format' && args[i+1]) { tkOpts.format = args[++i]; }
+        else if (a.startsWith('--format=')) { tkOpts.format = a.slice(9); }
+        else if (a === '--project-dir' && args[i+1]) { tkOpts.projectDir = args[++i]; }
+        else if (a.startsWith('--project-dir=')) { tkOpts.projectDir = a.slice(14); }
+        else if (a === '--help' || a === '-h') {
+          log('Usage: gsd-t tokens [--since YYYY-MM-DD] [--milestone Mxx] [--format table|json]');
+          process.exit(0);
+        }
+        else {
+          error(`tokens: unknown arg: ${a}`);
+          process.exit(2);
+        }
+      }
+      if (tkOpts.format !== 'table' && tkOpts.format !== 'json') {
+        error(`tokens: --format must be 'table' or 'json' (got: ${tkOpts.format})`);
+        process.exit(2);
+      }
+      const dashboard = require(path.join(__dirname, 'gsd-t-token-dashboard.cjs'));
+      dashboard.aggregate(tkOpts)
+        .then((agg) => {
+          log(tkOpts.format === 'json' ? dashboard.renderJson(agg) : dashboard.renderTable(agg));
+          process.exit(0);
+        })
         .catch((e) => { error(e.message || String(e)); process.exit(3); });
       break;
     }
