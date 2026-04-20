@@ -170,18 +170,30 @@ Each domain's work runs via a lightweight domain task-dispatcher. The dispatcher
 - Up to 5 prior task summaries (10-20 lines each, most recent first)
 - Past failure/learning entries for this domain (max 5 lines)
 
-**OBSERVABILITY LOGGING (MANDATORY) — repeat for every task subagent spawn:**
+**OBSERVABILITY LOGGING (MANDATORY) — wrap every task subagent spawn with `captureSpawn`:**
 
-Before spawning — run via Bash:
-`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M")`
+Route the spawn through `bin/gsd-t-token-capture.cjs` so the real `usage` envelope is parsed. The wrapper owns banner + timing + envelope parse + row write + JSONL record. Example for a per-task dispatch:
 
-After subagent returns — run via Bash:
-`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START))`
+```
+node -e "
+const { captureSpawn } = require('./bin/gsd-t-token-capture.cjs');
+(async () => {
+  await captureSpawn({
+    command: 'gsd-t-execute',
+    step: 'task:{task-id}',
+    model: 'sonnet',
+    description: 'domain: {domain-name} task: {task-id}',
+    projectDir: '.',
+    domain: '{domain-name}',
+    task: '{task-id}',
+    notes: '{pass/fail}',
+    spawnFn: async () => { /* Task(...) or spawn('claude', ...) call */ },
+  });
+})();
+"
+```
 
-Append to `.gsd-t/token-log.md` (create with header `| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Domain | Task | Ctx% |` if missing):
-`| {DT_START} | {DT_END} | gsd-t-execute | task:{task-id} | sonnet | {DURATION}s | {pass/fail} | {domain-name} | task-{task-id} | {CTX_PCT} |`
-
-Where `{CTX_PCT}` is the current `pct` value returned by `getSessionStatus()` (Step 3.5). As of v2.0.0 (M34), `pct` reads the **real** `input_tokens` count from `.gsd-t/.context-meter-state.json` — the count_tokens-based measurement produced by the Context Meter PostToolUse hook. When the state file is absent or stale, the fallback heuristic writes a best-effort percentage and this column reads `N/A` instead. The previous `Tasks-Since-Reset` column (v2.74.12) is retired.
+`captureSpawn` writes the row to `.gsd-t/token-log.md` under the canonical header (`| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Tokens | Notes | Domain | Task | Ctx% |`) — upgrading old headers in place. The **Tokens** cell renders as `in=N out=N cr=N cc=N $X.XX` when `result.usage` is present, or `—` when absent. Never `0`. Never `N/A`. The wrapper also pulls `Ctx%` from `getSessionStatus()` automatically (Step 3.5 context) — `pct` reads the real `input_tokens` count from `.gsd-t/.context-meter-state.json` produced by the Context Meter PostToolUse hook; when the state file is absent or stale, it reads `N/A`.
 
 **For each domain (in wave order), run the domain task-dispatcher:**
 
@@ -753,9 +765,7 @@ If it DOES exist AND this domain touched UI files — spawn the **Design Verific
 
 ⚙ [opus] Design Verification → visual comparison for domain {domain-name}
 
-**OBSERVABILITY LOGGING (MANDATORY):**
-Before spawning — run via Bash:
-`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M")`
+**OBSERVABILITY LOGGING (MANDATORY) — wrap the Design Verification spawn with `captureSpawn`:**
 
 Resolve the templated prompt path first so the orchestrator never holds the full ~3500-token verification protocol in its own context:
 
@@ -764,23 +774,35 @@ DV_PROMPT="$(npm root -g 2>/dev/null)/@tekyzinc/gsd-t/templates/prompts/design-v
 [ -f "$DV_PROMPT" ] || DV_PROMPT="templates/prompts/design-verify-subagent.md"
 ```
 
-Then spawn the subagent with this short prompt — `spawnType: 'validation'` (always headless, `--watch` ignored):
+Then spawn through `captureSpawn` — `spawnType: 'validation'` (always headless, `--watch` ignored):
 
 ```
-Task subagent (spawnType: validation, general-purpose, model: opus):
-"You are the Design Verification Agent. Read $DV_PROMPT and follow it exactly.
-Do not deviate from that protocol. Context for this run:
-  - domain: {domain-name}
-  - design contract: .gsd-t/contracts/design-contract.md
-  - files modified by this domain: {list}
-Report back the verdict, match count, breakpoints verified, deviation count
-and summary, and the full comparison table per the protocol's Step 7."
+node -e "
+const { captureSpawn } = require('./bin/gsd-t-token-capture.cjs');
+(async () => {
+  await captureSpawn({
+    command: 'gsd-t-execute',
+    step: 'Design Verify',
+    model: 'opus',
+    description: 'visual comparison for domain {domain-name}',
+    projectDir: '.',
+    domain: '{domain-name}',
+    task: '-',
+    notes: '{VERDICT} — {MATCH}/{TOTAL} elements',
+    spawnFn: async () => { /* Task subagent (spawnType: validation, general-purpose, model: opus):
+      'You are the Design Verification Agent. Read $DV_PROMPT and follow it exactly.
+      Do not deviate from that protocol. Context for this run:
+        - domain: {domain-name}
+        - design contract: .gsd-t/contracts/design-contract.md
+        - files modified by this domain: {list}
+      Report back the verdict, match count, breakpoints verified, deviation count
+      and summary, and the full comparison table per the protocol's Step 7.' */ },
+  });
+})();
+"
 ```
 
-After subagent returns — run via Bash:
-`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START)) && CTX_PCT=$(node -e "try{const tb=require('./bin/token-budget.cjs'); process.stdout.write(String(tb.getSessionStatus('.').pct))}catch(_){process.stdout.write('N/A')}")`
-Append to `.gsd-t/token-log.md`:
-`| {DT_START} | {DT_END} | gsd-t-execute | Design Verify | opus | {DURATION}s | {VERDICT} — {MATCH}/{TOTAL} elements for {domain-name} | | | {CTX_PCT} |`
+`captureSpawn` parses `result.usage` and appends a row to `.gsd-t/token-log.md` under the canonical header. Tokens column renders as `in=N out=N cr=N cc=N $X.XX` or `—`, never `N/A`.
 
 **Artifact Gate (MANDATORY):**
 After the Design Verification Agent returns, check `.gsd-t/contracts/design-contract.md`:
@@ -809,9 +831,7 @@ After all tasks in the CURRENT DOMAIN pass their tests, spawn an adversarial Red
 
 ⚙ [opus] Red Team → adversarial validation for domain {domain-name}
 
-**OBSERVABILITY LOGGING (MANDATORY):**
-Before spawning — run via Bash:
-`T_START=$(date +%s) && DT_START=$(date +"%Y-%m-%d %H:%M")`
+**OBSERVABILITY LOGGING (MANDATORY) — wrap the Red Team spawn with `captureSpawn`:**
 
 Resolve the templated prompt path so the orchestrator never holds the full ~3500-token Red Team protocol in its own context:
 
@@ -820,24 +840,36 @@ RT_PROMPT="$(npm root -g 2>/dev/null)/@tekyzinc/gsd-t/templates/prompts/red-team
 [ -f "$RT_PROMPT" ] || RT_PROMPT="templates/prompts/red-team-subagent.md"
 ```
 
-Then spawn the subagent with this short prompt — `spawnType: 'validation'` (always headless, `--watch` ignored):
+Then spawn through `captureSpawn` — `spawnType: 'validation'` (always headless, `--watch` ignored):
 
 ```
-Task subagent (spawnType: validation, general-purpose, model: opus):
-"You are a Red Team QA adversary. Read $RT_PROMPT and follow it exactly.
-Do not deviate from that protocol. Context for this run:
-  - domain: {domain-name}
-  - files modified by this domain: {list}
-  - tasks just completed: {task-id list}
-Report back the verdict (FAIL or GRUDGING PASS), bugs found by severity,
-attack categories exhausted, and the path to the written
-.gsd-t/red-team-report.md."
+node -e "
+const { captureSpawn } = require('./bin/gsd-t-token-capture.cjs');
+(async () => {
+  await captureSpawn({
+    command: 'gsd-t-execute',
+    step: 'Red Team',
+    model: 'opus',
+    description: 'adversarial validation for domain {domain-name}',
+    projectDir: '.',
+    domain: '{domain-name}',
+    task: '-',
+    notes: '{VERDICT} — {N} bugs found',
+    spawnFn: async () => { /* Task subagent (spawnType: validation, general-purpose, model: opus):
+      'You are a Red Team QA adversary. Read $RT_PROMPT and follow it exactly.
+      Do not deviate from that protocol. Context for this run:
+        - domain: {domain-name}
+        - files modified by this domain: {list}
+        - tasks just completed: {task-id list}
+      Report back the verdict (FAIL or GRUDGING PASS), bugs found by severity,
+      attack categories exhausted, and the path to the written
+      .gsd-t/red-team-report.md.' */ },
+  });
+})();
+"
 ```
 
-After subagent returns — run via Bash:
-`T_END=$(date +%s) && DT_END=$(date +"%Y-%m-%d %H:%M") && DURATION=$((T_END-T_START)) && CTX_PCT=$(node -e "try{const tb=require('./bin/token-budget.cjs'); process.stdout.write(String(tb.getSessionStatus('.').pct))}catch(_){process.stdout.write('N/A')}")`
-Append to `.gsd-t/token-log.md`:
-`| {DT_START} | {DT_END} | gsd-t-execute | Red Team | opus | {DURATION}s | {VERDICT} — {N} bugs found in {domain-name} | | | {CTX_PCT} |`
+`captureSpawn` parses `result.usage` and appends a row to `.gsd-t/token-log.md`. Tokens column renders as `in=N out=N cr=N cc=N $X.XX` or `—`, never `N/A`.
 
 **If Red Team VERDICT is FAIL:**
 1. Fix all CRITICAL and HIGH bugs immediately (up to 2 fix attempts per bug)
