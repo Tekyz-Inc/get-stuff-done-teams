@@ -461,3 +461,40 @@ Supporting contracts (no direct REQ mapping — shared infrastructure):
 - `stream-json-sink-contract.md` (d1↔d4 joint) — enables REQ-M40-03
 
 All 5 REQs map to at least one task; no orphaned requirements. All 25 tasks across 7 domains trace to at least one REQ (task-brief/completion tasks support via contract infra).
+
+## M43 Universal Token Attribution (partition phase — 2026-04-21)
+
+Milestone 43 (Token Attribution & Always-Headless Inversion — target v3.17.10) decomposes into 6 measurable requirements across two themes. Task numbers reference `.gsd-t/domains/m43-*/tasks.md`.
+
+| REQ-ID | Requirement Summary | Domain | Status |
+|--------|---------------------|--------|--------|
+| REQ-M43-01 | Per-turn in-session token usage captured on every dialog turn; rows land in `.gsd-t/metrics/token-usage.jsonl` with `turn_id`, `session_id`, `sessionType: "in-session"` | D1 in-session-usage-capture | **Wave 1 complete (2026-04-21)** — Branch B locked (transcript-sourced, Stop-hook-triggered). Live end-to-end validated: 523 rows in sink from real transcript. |
+| REQ-M43-02 | Per-tool attribution via output-byte ratio — `gsd-t tool-cost --group-by tool\|command\|domain` shows non-zero attribution across Bash/Read/Edit/Grep/Task | D2 per-tool-attribution | pending (Wave 2) |
+| REQ-M43-03 | One canonical sink + schema v2 for all token rows; `.gsd-t/token-log.md` regeneratable view | D3 sink-unification-backfill | **complete (2026-04-21)** minus D3-T4.1 backfill parser follow-up |
+| REQ-M43-04 | Every command spawns; zero `--in-session` / `--headless` flag matches in `commands/*.md` after D4 | D4 default-headless-inversion | pending (Wave 3) |
+| REQ-M43-05 | Router dialog-growth meter warns when `/compact` predicted within N turns; pure read/warn, never refuses | D5 dialog-channel-meter | pending (Wave 2) |
+| REQ-M43-06 | Dashboard URL printed at every spawn; transcript viewer auto-launches on first spawn if not running; tool-cost panel renders against any spawn | D6 transcript-viewer-primary-surface | pending (Wave 2) |
+
+### D1 Branch Lock (2026-04-21)
+
+Branch B chosen. Evidence from `.gsd-t/.hook-probe/` payloads (captured during supervisor-2026-04-21-2320 session):
+
+- Stop / SessionEnd / PostToolUse hook payloads carry `session_id`, `transcript_path`, `cwd`, `hook_event_name` — **but no `usage`**.
+- `transcript_path` JSONL rows contain `message.usage` with `input_tokens`, `output_tokens`, `cache_read_input_tokens`, `cache_creation_input_tokens`, `total_cost_usd` — same shape the M40 D4 aggregator already parses.
+
+**Hybrid chosen**: Stop hook = trigger, transcript = data source. `bin/gsd-t-in-session-usage.cjs::processHookPayload` reads the transcript since the last cursor, emits one v2-schema JSONL row per assistant turn with `sessionType: "in-session"`, `turn_id` (Claude `message.id`), `session_id` (hook `session_id`). Idempotent across replays via per-session transcript-line cursor.
+
+**Install path**: hook entry goes in user's `~/.claude/settings.json` (or project `.claude/settings.json`) — not written by the installer. The user wires it once:
+
+```json
+{ "matcher": "", "hooks": [
+    { "type": "command",
+      "command": "node \"$HOME/.claude/scripts/gsd-t-in-session-usage-hook.js\"",
+      "async": true } ] }
+```
+
+Supporting contracts:
+- `metrics-schema-contract.md` v2 — owns `turn_id`, `session_id`, `sessionType`, `tool_attribution[]`
+- `stream-json-sink-contract.md` v1.2.0 — formalizes dialog-channel entry-point (D1)
+- `tool-attribution-contract.md` v1.0.0 — output-byte ratio algorithm (D2, new contract)
+- `headless-default-contract.md` v2.0.0 — always-headless rule (D4, bump pending)

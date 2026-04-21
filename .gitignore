@@ -20,6 +20,17 @@ node_modules/
 # GSD-T heartbeat telemetry (session-specific, may contain sensitive data)
 .gsd-t/heartbeat-*.jsonl
 
+# GSD-T M43 D1 in-session token-usage sink (session-specific, regeneratable
+# from the Claude Code transcript — contains per-turn session_id / turn_id)
+.gsd-t/metrics/token-usage.jsonl
+
+# GSD-T M43 D1 hook-probe payloads (raw Stop/SessionEnd/PostToolUse captures,
+# session-specific — contain session_id + transcript_path)
+.gsd-t/.hook-probe/
+
+# GSD-T M43 D1 in-session capture cursor (per-session idempotence state)
+.gsd-t/.in-session-cursor.json
+
 # GSD-T graph index (auto-generated, project-specific)
 .gsd-t/graph/
 

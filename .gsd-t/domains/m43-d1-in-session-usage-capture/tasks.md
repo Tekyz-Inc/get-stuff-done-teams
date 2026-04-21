@@ -24,19 +24,22 @@
 - [x] Decision recorded in `.gsd-t/progress.md` Decision Log 2026-04-21 23:30 + field-name evidence above.
 - [ ] Delete `.gsd-t/.hook-probe/` directory once D1-T2 ships — leaves script in place for future re-enablement. (Deferred to D1-T3 completion so raw payloads remain available for the integration-test golden fixtures.)
 
-### D1-T2 — Implement capture entry-point
-- Branch A: write `scripts/hooks/gsd-t-in-session-usage-hook.js` + wire install/update in `bin/gsd-t.js` (`install --install-in-session-hook` idempotent behavior).
-- Branch B: write `scripts/transcript-tee-interactive.cjs` (reuse M42 D1 tee primitives; wrap `claude` or user shell invocation).
-- Either branch: write `bin/gsd-t-in-session-usage.cjs` with `captureInSessionUsage({projectDir, sessionId, turnId, usage, model, command?, ts?})` that appends a JSONL line to `.gsd-t/metrics/token-usage.jsonl` conforming to D3's schema v2.
-- Unit tests in `test/m43-in-session-usage.test.js`.
+### D1-T2 — Implement capture entry-point — **DONE** (2026-04-21, commit 6d40e1c)
+- [x] Branch B shipped (chosen): `bin/gsd-t-in-session-usage.cjs` exports `captureInSessionUsage({projectDir, sessionId, turnId, usage, model, command?, ts?})` and `processHookPayload({projectDir, payload})`. Appends v2-schema JSONL rows to `.gsd-t/metrics/token-usage.jsonl`. Idempotent via transcript-line cursor. `skipMarkdownLog=true` — per-turn rows do **not** touch `.gsd-t/token-log.md` (that file is a regenerated view per D3).
+- [x] Hook shim shipped: `scripts/hooks/gsd-t-in-session-usage-hook.js` — reads stdin JSON, delegates to `processHookPayload`. ~50 lines, no external deps.
+- [x] Unit tests: `test/m43-in-session-usage.test.js` — 10/10 pass. Covers one-turn, multi-turn, idempotent replay, appended-turn delta, missing usage, non-assistant lines, missing transcript, non-existent transcript, null-usage direct call, JSONL-only emission, real-probe-shaped payload.
+- [x] `recordSpawnRow` extended with `skipMarkdownLog` option (backward compatible — existing callers unchanged).
+- Branch A skipped: hook payloads carry no `usage` (evidenced in D1-T1), so the hook-only path is not viable; the Branch B hybrid (Stop hook as trigger, transcript as data source) replaces it.
+- Install-flag wiring in `bin/gsd-t.js` deferred: the hook is a user-owned `~/.claude/settings.json` entry, not something the installer should write. Documented in D1-T4.
 
-### D1-T3 — Integration test (one-turn + multi-turn)
-- Fabricate an in-session session with 1 turn, assert 1 row in `.gsd-t/metrics/token-usage.jsonl`.
-- Fabricate a 3-turn session, assert 3 rows with distinct `turn_id`.
-- Fabricate a session with missing `usage`, assert row written with `usage: null`.
-- Run the full suite (`npm test`), confirm no regressions.
+### D1-T3 — Integration test (one-turn + multi-turn) — **DONE** (2026-04-21)
+- [x] Unit suite in `test/m43-in-session-usage.test.js` covers all three fabricated scenarios (one-turn, three-turn distinct `turn_id`, null-usage direct call writes `hasUsage=false`).
+- [x] **Live end-to-end**: real Stop payload `Stop-2026-04-21T23-24-30-274Z-a5ee3b8e-1a7.json` processed against live Claude Code transcript (2184 lines). Result: 522 rows emitted on first fire, 1 row + 521 skipped on replay (idempotent via cursor). Sink landed at 523 v2-schema rows, all with `sessionType: "in-session"`, distinct `turn_id`, parsed `inputTokens`/`outputTokens`/`cacheReadInputTokens`, `model: claude-opus-4-7`.
+- [x] `gsd-t tokens --regenerate-log` against the populated sink produces 527 lines (verified end-to-end D1↔D3 integration, then reverted — see D1-T4 note on hand-maintained log preservation).
+- [x] Full suite: 1588/1590 pass; the 2 fails (`buildEventStreamEntry`, `writer_shim_safe_empty_agent_id_auto_mints_id`) are pre-existing and unrelated to M43 (same fails observed before D3 landed).
 
-### D1-T4 — Documentation
-- Update `docs/requirements.md` §"M43 Universal Token Attribution" with the locked branch.
-- Update `bin/gsd-t.js --help` if Branch A adds a new install subcommand flag.
-- Append entry to `.gsd-t/progress.md` Decision Log.
+### D1-T4 — Documentation — **DONE** (2026-04-21)
+- [x] `docs/requirements.md` §"M43 Universal Token Attribution" updated with Branch B lock + live-validation evidence.
+- [x] `bin/gsd-t.js --help`: no flag added (install-flag wiring deferred per D1-T2 note — hook belongs in user settings, not installer).
+- [x] `.gsd-t/progress.md` Decision Log entry: 2026-04-21 16:35 — Wave 1 gate achieved.
+- [x] Hand-maintained `.gsd-t/token-log.md` preserved (`git checkout` after verification regen). D3-T4.1 backfill parser extension is the path to make the full regen reproduce historical spawn rows; until then, the hand-maintained file stays authoritative for pre-M43 spawn history.

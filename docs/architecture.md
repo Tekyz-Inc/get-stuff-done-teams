@@ -444,7 +444,7 @@ producers ─┬─► .gsd-t/metrics/token-usage.jsonl ─┬─► gsd-t token
            ├── scripts/gsd-t-token-aggregator.js     (M40 worker stream-json)
            ├── bin/gsd-t-token-capture.cjs           (M41 recordSpawnRow / captureSpawn)
            ├── bin/gsd-t-token-backfill.cjs          (M41 D3 historical recovery)
-           └── M43 D1 in-session capture (hook or tee — branch pending)
+           └── bin/gsd-t-in-session-usage.cjs       (M43 D1 — Branch B: Stop-hook trigger + transcript-sourced)
 ```
 
 Under v2, `.gsd-t/token-log.md` is a **regenerated view** (`gsd-t tokens --regenerate-log`), not hand-maintained. Wrapper still appends in real time for live visibility; regeneration is an explicit operator step that requires the JSONL to be fully backfilled first. Regeneration is idempotent and deterministic (sort order: `startedAt` asc → `session_id` asc → `turn_id` asc, numeric when both turn IDs parse).
