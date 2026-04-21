@@ -66,5 +66,5 @@ test('transcript HTML — includes auto-scroll with pause-on-scroll-up', () => {
 
 test('transcript HTML — uses /transcript/:id/stream SSE path', () => {
   const html = fs.readFileSync(HTML_PATH, 'utf8');
-  assert.match(html, /new EventSource\('\/transcript\/' \+ encodeURIComponent\(spawnId\) \+ '\/stream'\)/);
+  assert.match(html, /new EventSource\('\/transcript\/'\s*\+\s*encodeURIComponent\([a-zA-Z_$][\w$]*\)\s*\+\s*'\/stream'\)/);
 });

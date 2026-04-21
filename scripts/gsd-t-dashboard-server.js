@@ -192,6 +192,55 @@ function tailTranscriptFile(filePath, callback) {
   return () => fs.unwatchFile(filePath, processNewData);
 }
 
+// ── M42 D3 — kill per-spawn ────────────────────────────────────────────────
+
+function writeTranscriptsIndex(projectDir, idx) {
+  const p = path.join(transcriptsDir(projectDir), ".index.json");
+  const tmp = p + ".tmp";
+  try { fs.mkdirSync(path.dirname(p), { recursive: true }); } catch { /* exists */ }
+  fs.writeFileSync(tmp, JSON.stringify(idx, null, 2));
+  fs.renameSync(tmp, p);
+}
+
+function handleTranscriptKill(req, res, spawnId, projectDir) {
+  if (!isValidSpawnId(spawnId)) { res.writeHead(400); res.end("Invalid spawn id"); return; }
+  const idx = readTranscriptsIndex(projectDir);
+  const i = idx.spawns.findIndex((s) => s.spawnId === spawnId);
+  if (i < 0) { res.writeHead(404, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "unknown_spawn" })); return; }
+  const entry = idx.spawns[i];
+  const pid = entry.workerPid;
+  if (!pid || typeof pid !== "number") {
+    res.writeHead(409, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "no_pid_recorded" }));
+    return;
+  }
+  try {
+    process.kill(pid, "SIGTERM");
+    idx.spawns[i].status = "stopped";
+    idx.spawns[i].endedAt = idx.spawns[i].endedAt || new Date().toISOString();
+    writeTranscriptsIndex(projectDir, idx);
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ status: "stopped", pid }));
+  } catch (err) {
+    if (err.code === "ESRCH") {
+      // Process already gone — treat as success and mark ended
+      idx.spawns[i].status = idx.spawns[i].status === "running" ? "stopped" : idx.spawns[i].status;
+      idx.spawns[i].endedAt = idx.spawns[i].endedAt || new Date().toISOString();
+      writeTranscriptsIndex(projectDir, idx);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ status: "already_stopped", pid }));
+      return;
+    }
+    if (err.code === "EPERM") {
+      res.writeHead(403, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "permission_denied", pid }));
+      return;
+    }
+    res.writeHead(500, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: String(err.message || err) }));
+  }
+}
+
 function handleTranscriptStream(req, res, spawnId, projectDir) {
   if (!isValidSpawnId(spawnId)) { res.writeHead(400); res.end("Invalid spawn id"); return; }
   const filePath = path.join(transcriptsDir(projectDir), `${spawnId}.ndjson`);
@@ -259,6 +308,9 @@ function startServer(port, eventsDir, htmlPath, projectDir, transcriptHtmlPath) 
     if (url === "/ping") return handlePing(req, res, port);
     if (url === "/stop") return handleStop(req, res, server);
     if (url === "/transcripts") return handleTranscriptsList(req, res, projDir);
+    // POST /transcript/:spawnId/kill — SIGTERM the recorded workerPid
+    const killMatch = url.match(/^\/transcript\/([^/]+)\/kill$/);
+    if (killMatch && req.method === "POST") return handleTranscriptKill(req, res, decodeURIComponent(killMatch[1]), projDir);
     // /transcript/:spawnId/stream — SSE tail of per-spawn ndjson
     const streamMatch = url.match(/^\/transcript\/([^/]+)\/stream$/);
     if (streamMatch) return handleTranscriptStream(req, res, decodeURIComponent(streamMatch[1]), projDir);
@@ -279,10 +331,12 @@ module.exports = {
   findEventsDir,
   readMetricsData,
   readTranscriptsIndex,
+  writeTranscriptsIndex,
   isValidSpawnId,
   handleTranscriptsList,
   handleTranscriptStream,
   handleTranscriptPage,
+  handleTranscriptKill,
   transcriptsDir,
 };
 

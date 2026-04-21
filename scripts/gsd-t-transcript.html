@@ -22,7 +22,27 @@
       --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
     }
     * { box-sizing: border-box; }
-    body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--sans); font-size: 14px; line-height: 1.55; }
+    body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--sans); font-size: 14px; line-height: 1.55; display: grid; grid-template-columns: 280px 1fr; grid-template-rows: auto 1fr; min-height: 100vh; }
+    body > header { grid-column: 1 / -1; }
+    body > aside { grid-column: 1; grid-row: 2; background: var(--bg-raised); border-right: 1px solid var(--border); padding: 12px 0; overflow-y: auto; max-height: calc(100vh - 50px); position: sticky; top: 49px; align-self: start; }
+    body > main { grid-column: 2; grid-row: 2; }
+    aside h3 { margin: 0 12px 8px 12px; font-size: 11px; text-transform: uppercase; color: var(--fg-xdim); letter-spacing: 0.08em; }
+    aside .tree { font-size: 13px; }
+    aside .node { display: flex; align-items: center; padding: 5px 12px; cursor: pointer; gap: 6px; }
+    aside .node:hover { background: var(--bg-soft); }
+    aside .node.active { background: var(--bg-soft); border-left: 2px solid var(--accent); }
+    aside .node .dot { flex: 0 0 8px; width: 8px; height: 8px; border-radius: 50%; background: var(--fg-xdim); }
+    aside .node.running .dot { background: var(--green); animation: pulse 2s ease-in-out infinite; }
+    aside .node.stopped .dot { background: var(--yellow); }
+    aside .node.failed .dot { background: var(--red); }
+    aside .node .name { flex: 1; font-family: var(--mono); font-size: 11px; color: var(--fg-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    aside .node.active .name { color: var(--fg); }
+    aside .node .kill { flex: 0 0 auto; background: transparent; border: 1px solid var(--border); color: var(--fg-xdim); border-radius: 3px; padding: 1px 6px; font-size: 10px; cursor: pointer; font-family: var(--mono); }
+    aside .node.running .kill { color: var(--red); border-color: var(--red); }
+    aside .node .kill:hover:not([disabled]) { background: var(--red); color: #fff; }
+    aside .node .kill[disabled] { opacity: 0.3; cursor: not-allowed; }
+    aside .empty { padding: 12px; color: var(--fg-xdim); font-size: 12px; font-style: italic; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
     header { position: sticky; top: 0; z-index: 10; background: var(--bg-raised); border-bottom: 1px solid var(--border); padding: 10px 16px; display: flex; align-items: center; gap: 12px; }
     header .title { font-weight: 600; }
     header .spawn-id { font-family: var(--mono); color: var(--fg-dim); font-size: 12px; }
@@ -32,7 +52,7 @@
     header .status.ended .dot { background: var(--fg-xdim); }
     header .status.error .dot { background: var(--red); }
 
-    main { max-width: 960px; margin: 0 auto; padding: 16px; padding-bottom: 120px; }
+    main { padding: 16px; padding-bottom: 120px; max-width: 960px; margin: 0 auto; width: 100%; }
     .frame { margin: 8px 0; }
     .frame.system { color: var(--fg-xdim); font-style: italic; font-size: 12px; padding: 2px 0; }
     .frame.user { border-left: 3px solid var(--accent); padding: 6px 12px; background: var(--bg-raised); border-radius: 0 4px 4px 0; }
@@ -69,6 +89,10 @@
     <div class="spawn-id" id="hdr-spawn-id"></div>
     <div class="status" id="hdr-status"><span class="dot"></span><span class="label">connecting…</span></div>
   </header>
+  <aside>
+    <h3>Spawns</h3>
+    <div class="tree" id="tree"></div>
+  </aside>
   <main id="stream"></main>
   <button class="jump-to-live" id="jump-btn">↓ Jump to live</button>
 
@@ -276,14 +300,122 @@
         renderRaw(JSON.stringify(frame));
       }
 
-      const src = new EventSource('/transcript/' + encodeURIComponent(spawnId) + '/stream');
-      src.onopen = () => setStatus('connected', 'live');
-      src.onerror = () => setStatus('error', 'disconnected');
-      src.onmessage = (ev) => {
-        if (!ev.data) return;
-        try { renderFrame(JSON.parse(ev.data)); }
-        catch { renderRaw(ev.data); }
-      };
+      // ── Sidebar ─────────────────────────────────────────────────────────
+      //
+      // Poll /transcripts every 3s, build a parent-indented tree, render.
+      // Exposed as window.__gsdtBuildTree for unit-testable tree-build logic.
+
+      function buildTree(spawns) {
+        // Map spawnId → node, then link children to parents. Orphans float
+        // to the root level.
+        const byId = new Map();
+        const roots = [];
+        for (const s of spawns) byId.set(s.spawnId, { ...s, children: [] });
+        for (const node of byId.values()) {
+          if (node.parentId && byId.has(node.parentId)) {
+            byId.get(node.parentId).children.push(node);
+          } else {
+            roots.push(node);
+          }
+        }
+        // Sort each level newest-first
+        const ts = (a, b) => (Date.parse(b.startedAt) || 0) - (Date.parse(a.startedAt) || 0);
+        roots.sort(ts);
+        for (const n of byId.values()) n.children.sort(ts);
+        return roots;
+      }
+      window.__gsdtBuildTree = buildTree;
+
+      function statusClass(s) {
+        if (s.status === 'running') return 'running';
+        if (s.status === 'failed') return 'failed';
+        if (s.status === 'stopped') return 'stopped';
+        return '';
+      }
+
+      function renderTree(roots) {
+        const tree = document.getElementById('tree');
+        tree.innerHTML = '';
+        if (!roots.length) {
+          const e = document.createElement('div');
+          e.className = 'empty';
+          e.textContent = 'No spawns yet.';
+          tree.appendChild(e);
+          return;
+        }
+        const currentId = (location.hash || '#').slice(1) || spawnId;
+        function render(node, depth) {
+          const el = document.createElement('div');
+          el.className = 'node ' + statusClass(node);
+          if (node.spawnId === currentId) el.classList.add('active');
+          el.style.paddingLeft = (12 + depth * 14) + 'px';
+          const dot = document.createElement('span'); dot.className = 'dot';
+          const name = document.createElement('span'); name.className = 'name';
+          name.textContent = (node.command || 'spawn') + ' · ' + node.spawnId.slice(-8);
+          name.title = (node.description || node.spawnId) + '\n' + (node.startedAt || '');
+          const kill = document.createElement('button');
+          kill.className = 'kill';
+          kill.textContent = 'kill';
+          kill.disabled = node.status !== 'running' || !node.workerPid;
+          kill.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            if (!confirm('SIGTERM spawn ' + node.spawnId + ' (pid ' + node.workerPid + ')?')) return;
+            fetch('/transcript/' + encodeURIComponent(node.spawnId) + '/kill', { method: 'POST' })
+              .then((r) => r.json())
+              .then((j) => { kill.textContent = j.status || 'killed'; })
+              .catch(() => { kill.textContent = 'err'; });
+          });
+          el.appendChild(dot); el.appendChild(name); el.appendChild(kill);
+          el.addEventListener('click', () => {
+            if (node.spawnId === currentId) return;
+            location.hash = node.spawnId;
+          });
+          document.getElementById('tree').appendChild(el);
+          for (const c of node.children) render(c, depth + 1);
+        }
+        for (const r of roots) render(r, 0);
+      }
+
+      let pollTimer = null;
+      function pollSpawns() {
+        fetch('/transcripts')
+          .then((r) => r.json())
+          .then((j) => renderTree(buildTree(j.spawns || [])))
+          .catch(() => { /* keep last render */ });
+      }
+
+      // ── SSE connection (reconnectable on hash change) ───────────────────
+
+      let src = null;
+      function connect(id) {
+        if (src) { try { src.close(); } catch { /* gone */ } src = null; }
+        stream.innerHTML = '';
+        toolUseById.clear();
+        autoScroll = true;
+        jumpBtn.classList.remove('visible');
+        document.getElementById('hdr-spawn-id').textContent = id;
+        setStatus('', 'connecting…');
+        src = new EventSource('/transcript/' + encodeURIComponent(id) + '/stream');
+        src.onopen = () => setStatus('connected', 'live');
+        src.onerror = () => setStatus('error', 'disconnected');
+        src.onmessage = (ev) => {
+          if (!ev.data) return;
+          try { renderFrame(JSON.parse(ev.data)); }
+          catch { renderRaw(ev.data); }
+        };
+      }
+
+      window.addEventListener('hashchange', () => {
+        const id = (location.hash || '').slice(1);
+        if (id) { connect(id); pollSpawns(); }
+      });
+
+      const initialId = (location.hash || '').slice(1) || spawnId;
+      if (!location.hash && spawnId) location.hash = spawnId;
+      connect(initialId);
+
+      pollSpawns();
+      pollTimer = setInterval(pollSpawns, 3000);
     })();
   </script>
 </body>
