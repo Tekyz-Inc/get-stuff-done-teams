@@ -191,19 +191,25 @@ function recordSpawnRow(opts) {
   const task   = (opts.task   == null || opts.task   === '') ? '-' : String(opts.task);
   const ctxPct = (opts.ctxPct == null) ? 'N/A' : String(opts.ctxPct);
 
-  _appendTokenLogRow(tokenLogPath, {
-    startedAt: opts.startedAt,
-    endedAt: opts.endedAt,
-    command: opts.command,
-    step: opts.step,
-    model: opts.model,
-    durationSec,
-    tokensCell,
-    notes,
-    domain,
-    task,
-    ctxPct,
-  });
+  // skipMarkdownLog: JSONL is canonical (D3). The markdown log is a legacy view
+  // kept in sync for human-readable tailing; high-frequency producers (D1
+  // per-turn in-session rows, D2 joiner) should write JSONL-only and rely on
+  // `gsd-t tokens --regenerate-log` for the markdown rendering.
+  if (!opts.skipMarkdownLog) {
+    _appendTokenLogRow(tokenLogPath, {
+      startedAt: opts.startedAt,
+      endedAt: opts.endedAt,
+      command: opts.command,
+      step: opts.step,
+      model: opts.model,
+      durationSec,
+      tokensCell,
+      notes,
+      domain,
+      task,
+      ctxPct,
+    });
+  }
 
   const milestone = opts.milestone || _inferMilestone(projectDir);
   _appendJsonlRecord(jsonlPath, _buildJsonlRecord({
