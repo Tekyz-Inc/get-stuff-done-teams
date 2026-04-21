@@ -1315,6 +1315,20 @@ function _spawnWorker(state, opts) {
     onHeartbeatCheck: opts.onHeartbeatCheck,
     heartbeatPollMs: opts.heartbeatPollMs,
     onHeartbeatSample: opts.onHeartbeatSample,
+    // M43 live transcript tee — append each worker stdout line to the
+    // transcript file as it arrives, so /transcript/:id/stream renders the
+    // run in real time instead of waiting for the worker to exit.
+    onStdoutLine: teeSpawnId
+      ? (line) => {
+          try {
+            transcriptTee.appendFrame({
+              spawnId: teeSpawnId,
+              projectDir: opts.cwd,
+              frame: line,
+            });
+          } catch (_) { /* tee is best-effort */ }
+        }
+      : undefined,
     args: [
       "-p",
       [
@@ -1369,26 +1383,14 @@ function _spawnWorker(state, opts) {
     env: workerEnv,
   });
 
-  // M42 D1 — post-hoc line tee + return shape. Factored into a finalize()
-  // helper so we can run sync when platformSpawnWorker returned sync (legacy
-  // spawnSync path), and async when it returned a Promise (heartbeat path).
+  // M43 — finalize: live tee already wrote each line via onStdoutLine in the
+  // platform layer; here we only mark the transcript closed with the worker's
+  // terminal status. Legacy sync path (no onHeartbeatCheck) doesn't fire
+  // onStdoutLine, but the supervisor always provides a heartbeat callback so
+  // that branch is unreachable in production. If a future caller goes async
+  // without heartbeat, transcripts would be empty — acceptable until then.
   const finalize = (res) => {
     if (teeSpawnId) {
-      try {
-        const out = typeof res.stdout === "string" ? res.stdout : "";
-        if (out.length) {
-          const lines = out.split("\n");
-          for (const line of lines) {
-            if (line.length > 0) {
-              transcriptTee.appendFrame({
-                spawnId: teeSpawnId,
-                projectDir: opts.cwd,
-                frame: line,
-              });
-            }
-          }
-        }
-      } catch (_) { /* tee is best-effort */ }
       try {
         const status =
           typeof res.status === "number" && res.status === 0

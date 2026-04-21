@@ -130,6 +130,12 @@ function isAlive(pid) {
  * @param {number} [opts.heartbeatPollMs]  Poll cadence in ms. Default 60_000.
  * @param {Function} [opts.onHeartbeatSample]  Optional observer; receives the
  *   raw callback result each poll for logging.
+ * @param {Function} [opts.onStdoutLine]  Optional live stdout line callback.
+ *   When provided (heartbeat path only), invoked once per `\n`-terminated line
+ *   as stdout streams in. Trailing partial line is flushed on close. Errors
+ *   are swallowed (best-effort tee). Used by the supervisor to write each
+ *   worker line into the M42 transcript file in real time, instead of
+ *   appending the entire stdout buffer post-hoc at child exit.
  * @returns {{
  *   status: number|null,
  *   stdout: string,
@@ -158,6 +164,7 @@ function spawnWorker(projectDir, timeoutMs, opts = {}) {
       onHeartbeatCheck: opts.onHeartbeatCheck,
       heartbeatPollMs: opts.heartbeatPollMs || 60 * 1000,
       onHeartbeatSample: opts.onHeartbeatSample,
+      onStdoutLine: opts.onStdoutLine,
       spawnImpl: opts._spawnImpl || spawn,
     });
   }
@@ -213,6 +220,7 @@ function _spawnWorkerAsyncHeartbeat({
   onHeartbeatCheck,
   heartbeatPollMs,
   onHeartbeatSample,
+  onStdoutLine,
   spawnImpl,
 }) {
   return new Promise((resolve) => {
@@ -241,7 +249,21 @@ function _spawnWorkerAsyncHeartbeat({
 
     const chunksOut = [];
     const chunksErr = [];
-    if (child.stdout) child.stdout.on("data", (d) => chunksOut.push(d));
+    let lineBuf = "";
+    const emitLine = (line) => {
+      if (typeof onStdoutLine !== "function" || line.length === 0) return;
+      try { onStdoutLine(line); } catch (_) { /* tee is best-effort */ }
+    };
+    if (child.stdout) child.stdout.on("data", (d) => {
+      chunksOut.push(d);
+      if (typeof onStdoutLine !== "function") return;
+      lineBuf += d.toString("utf8");
+      let nl;
+      while ((nl = lineBuf.indexOf("\n")) >= 0) {
+        emitLine(lineBuf.slice(0, nl));
+        lineBuf = lineBuf.slice(nl + 1);
+      }
+    });
     if (child.stderr) child.stderr.on("data", (d) => chunksErr.push(d));
 
     let resolved = false;
@@ -287,6 +309,11 @@ function _spawnWorkerAsyncHeartbeat({
       resolved = true;
       clearInterval(heartbeatTimer);
       clearTimeout(absoluteTimer);
+
+      if (lineBuf.length > 0) {
+        emitLine(lineBuf);
+        lineBuf = "";
+      }
 
       const stdout = Buffer.concat(chunksOut).toString("utf8");
       const stderr = Buffer.concat(chunksErr).toString("utf8");

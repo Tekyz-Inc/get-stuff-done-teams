@@ -229,6 +229,7 @@ describe("startServer", () => {
         assert.match(body, /class="livestream-btn[^"]*disabled[^"]*"/, "button starts disabled until /transcripts resolves");
         assert.match(body, /\/transcripts/, "button JS must reference the /transcripts endpoint");
         assert.match(body, /\/transcript\/\$\{encodeURIComponent\(latest\.spawnId\)\}/, "button must navigate to /transcript/:spawnId");
+        assert.match(body, /params\.get\('port'\)\s*\|\|\s*location\.port/, "PORT must default to location.port so SSE works on project-hashed ports, not hardcoded 7433");
         server.close(done);
       });
     }).on("error", (err) => { server.close(); done(err); });

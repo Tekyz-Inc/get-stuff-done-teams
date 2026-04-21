@@ -27,7 +27,7 @@ const {
   preventSleep,
   releaseSleep,
   notify,
-} = require("../bin/gsd-t-unattended-platform.js");
+} = require("../bin/gsd-t-unattended-platform.cjs");
 
 // ─── resolveClaudePath ───────────────────────────────────────────────────────
 
@@ -141,6 +141,27 @@ describe("spawnWorker", () => {
     assert.equal(result.status, 0);
     assert.match(result.stderr, /boom/);
   });
+
+  it("invokes onStdoutLine per line as stdout streams (heartbeat path)", async () => {
+    const lines = [];
+    // Use String.fromCharCode(10) to embed a literal newline in the worker
+    // script — escape sequences in the outer JS source would survive into
+    // the spawned node -e arg as the two-character string "\\n".
+    const NL = "String.fromCharCode(10)";
+    const workerScript =
+      `process.stdout.write('alpha'+${NL}+'beta'+${NL});` +
+      `setTimeout(()=>process.stdout.write('gamma'+${NL}+'trailing'),20)`;
+    const result = await spawnWorker(process.cwd(), 30000, {
+      bin: process.execPath,
+      args: ["-e", workerScript],
+      onHeartbeatCheck: () => ({ stale: false }),
+      heartbeatPollMs: 60_000,
+      onStdoutLine: (line) => lines.push(line),
+    });
+    assert.equal(result.status, 0);
+    assert.deepEqual(lines, ["alpha", "beta", "gamma", "trailing"]);
+    assert.equal(result.stdout, "alpha\nbeta\ngamma\ntrailing");
+  });
 });
 
 // ─── spawnSupervisor ─────────────────────────────────────────────────────────
@@ -151,14 +172,15 @@ describe("spawnSupervisor", () => {
   // a positive integer and that the child was reaped (dead by the time we
   // check, thanks to .unref() + fast exit).
   //
-  // spawnSupervisor passes args directly (no prepended subcommand), so the
-  // pid-file path is argv[2].
+  // spawnSupervisor (.cjs) prepends the "unattended" subcommand before user
+  // args, so the shim's argv is [node, shimScript, "unattended", pidFile].
+  // The shim reads argv[3] for the pid-file path.
   const shimDir = fs.mkdtempSync(path.join(os.tmpdir(), "gsdt-spawnsup-"));
   const shimScript = path.join(shimDir, "fake-supervisor.js");
   fs.writeFileSync(
     shimScript,
-    // argv: [node, shimScript, pidFile]
-    "const fs=require('fs');fs.writeFileSync(process.argv[2], String(process.pid));process.exit(0);\n",
+    // argv: [node, shimScript, "unattended", pidFile]
+    "const fs=require('fs');fs.writeFileSync(process.argv[3], String(process.pid));process.exit(0);\n",
   );
 
   it("returns a positive numeric PID", () => {

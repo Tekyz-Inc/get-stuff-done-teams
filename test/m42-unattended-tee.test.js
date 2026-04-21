@@ -30,9 +30,22 @@ function makeFakePlatformSpawn(stdout, status) {
   return function fakeSpawn(_cwd, _timeout, opts) {
     // Capture env so assertions can verify GSD_T_SPAWN_ID propagation.
     fakeSpawn.lastEnv = opts && opts.env ? opts.env : {};
+    // M43 — live tee contract: the platform spawn invokes onStdoutLine per
+    // `\n`-terminated line as stdout arrives. The supervisor's finalize()
+    // only calls closeTranscript, so any line that should land in the
+    // transcript must be delivered through the live callback.
+    const out = stdout || '';
+    if (typeof opts?.onStdoutLine === 'function' && out.length) {
+      let buf = '';
+      for (const ch of out) {
+        if (ch === '\n') { opts.onStdoutLine(buf); buf = ''; }
+        else buf += ch;
+      }
+      if (buf.length > 0) opts.onStdoutLine(buf);
+    }
     return {
       status: status != null ? status : 0,
-      stdout: stdout || '',
+      stdout: out,
       stderr: '',
       signal: null,
       timedOut: false,

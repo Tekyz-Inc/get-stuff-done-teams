@@ -97,7 +97,7 @@ const {useState,useEffect,useCallback,useRef}=React;
 const {ReactFlow,useNodesState,useEdgesState,Background,Controls,MarkerType}=window.ReactFlow||{};
 const dagre=window.dagre;
 const params=new URLSearchParams(location.search);
-const PORT=params.get('port')||'7433';
+const PORT=params.get('port')||location.port||'7433';
 const MAX_EVENTS=200;
 const GRAPH_W=160,GRAPH_H=60;
 
