@@ -1,13 +1,24 @@
 # GSD-T Progress
 
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
-## Status: M41 COMPLETE — Universal Token Capture shipped, v3.15.10 tagged
+## Status: M42 DEFINED — Live Spawn Transcript Viewer
 ## Date: 2026-04-20
-## Version: 3.15.10
+## Version: 3.15.10 → 3.16.10 (target)
 
 ## Current Milestone
 
-**M41 Universal Token Capture Across GSD-T** — PARTITIONED (5 domains, 3 waves). Target: v3.15.10.
+**M42 Live Spawn Transcript Viewer** — DEFINED (3 domains). Target: v3.16.10.
+
+**Goal**: Give the operator the same visual comfort as an in-session Claude CLI run when work happens unattended — see the full conversation scroll per spawn (user/system/assistant/tool_use/tool_result/thinking) in a browser UI served off the existing `:7433` dashboard.
+
+**Scope**:
+- D1 stream-json tee capture: extend unattended supervisor + token-capture wrapper so every spawned `claude -p` runs `--output-format stream-json --verbose` and tees raw frames to `.gsd-t/transcripts/{spawn-id}.ndjson`. Allocate a hierarchical `spawn-id` (parent-aware). Preserve token/event pipelines — tee is additive.
+- D2 SSE route + ndjson→HTML renderer: new GET `/transcript/{spawn-id}/stream` SSE endpoint tailing the ndjson with full replay; new GET `/transcript/{spawn-id}` HTML page rendering frames Claude-Code-style.
+- D3 sidebar tree + kill controls: sidebar lists all active + recent spawns, parent-indented; click-to-swap; per-spawn kill button.
+
+**Out of scope (deferred)**: Intervene / SIGSTOP-inject. Read-only viewer first.
+
+**Previous milestone retained for reference below** (M41 Universal Token Capture Across GSD-T — COMPLETE, v3.15.10 tagged, 5 domains, 3 waves).
 
 **Wave 1 (foundation)**: D1 token-capture-wrapper — builds `bin/gsd-t-token-capture.cjs` exporting `captureSpawn` + `recordSpawnRow` (zero deps, .cjs, reuses M40 D4 schema v1).
 

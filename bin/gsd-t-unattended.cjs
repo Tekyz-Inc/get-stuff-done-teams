@@ -62,6 +62,11 @@ function _emit(projectDir, ev) {
   try { _esAppendEvent(projectDir, ev); } catch (_) { /* never halt the loop */ }
 }
 
+// M42 D1 — transcript tee. Captures each worker's stdout lines to an ndjson
+// file and registers the spawn so the dashboard sidebar can list + render it.
+// Best-effort: every call is swallowed so tee failures never halt the loop.
+const transcriptTee = require("./gsd-t-transcript-tee.cjs");
+
 // ── Constants ───────────────────────────────────────────────────────────────
 
 const CONTRACT_VERSION = "1.0.0";
@@ -1199,6 +1204,27 @@ function _spawnWorker(state, opts) {
   if (process.env.GSD_T_AGENT_ID) {
     workerEnv.GSD_T_PARENT_AGENT_ID = process.env.GSD_T_AGENT_ID;
   }
+
+  // M42 D1 — allocate a spawn-id + open transcript before spawning. parentId
+  // is the supervisor's own spawn-id (set once at supervisor start via
+  // GSD_T_SPAWN_ID env) so the sidebar can render parent-indented trees.
+  const parentSpawnId = process.env.GSD_T_SPAWN_ID || null;
+  let teeSpawnId = null;
+  try {
+    teeSpawnId = transcriptTee.allocateSpawnId({ parentId: parentSpawnId });
+    transcriptTee.openTranscript({
+      spawnId: teeSpawnId,
+      projectDir: opts.cwd,
+      meta: {
+        parentId: parentSpawnId,
+        command: "gsd-t-unattended-worker",
+        description: `iter=${state && state.iter ? state.iter : "?"} milestone=${state && state.milestone ? state.milestone : "-"}`,
+        model: (state && state.model) || null,
+      },
+    });
+    workerEnv.GSD_T_SPAWN_ID = teeSpawnId;
+  } catch (_) { /* tee is best-effort */ }
+
   const res = platformSpawnWorker(opts.cwd, opts.timeout, {
     bin,
     args: [
@@ -1254,6 +1280,42 @@ function _spawnWorker(state, opts) {
     ],
     env: workerEnv,
   });
+
+  // M42 D1 — post-hoc line tee. spawnSync captures the full stdout as a
+  // single string; split and append each line so the transcript ndjson is
+  // replayable by the dashboard SSE route. Non-JSON lines get wrapped as
+  // {type:"raw"} by the tee module.
+  if (teeSpawnId) {
+    try {
+      const out = typeof res.stdout === "string" ? res.stdout : "";
+      if (out.length) {
+        const lines = out.split("\n");
+        for (const line of lines) {
+          if (line.length > 0) {
+            transcriptTee.appendFrame({
+              spawnId: teeSpawnId,
+              projectDir: opts.cwd,
+              frame: line,
+            });
+          }
+        }
+      }
+    } catch (_) { /* tee is best-effort */ }
+    try {
+      const status =
+        typeof res.status === "number" && res.status === 0
+          ? "done"
+          : res.timedOut
+            ? "stopped"
+            : "failed";
+      transcriptTee.closeTranscript({
+        spawnId: teeSpawnId,
+        projectDir: opts.cwd,
+        status,
+      });
+    } catch (_) { /* tee is best-effort */ }
+  }
+
   return {
     status: typeof res.status === "number" ? res.status : null,
     stdout: res.stdout || "",
@@ -1261,6 +1323,7 @@ function _spawnWorker(state, opts) {
     signal: res.signal || null,
     timedOut: !!res.timedOut,
     error: res.error || null,
+    spawnId: teeSpawnId,
   };
 }
 

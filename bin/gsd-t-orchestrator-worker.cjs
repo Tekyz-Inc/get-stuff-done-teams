@@ -3,6 +3,7 @@
 const { spawn } = require('child_process');
 const path = require('path');
 const { assertCompletion } = require('./gsd-t-completion-check.cjs');
+const transcriptTee = require('./gsd-t-transcript-tee.cjs');
 
 const DEFAULT_CLAUDE_BIN = 'claude';
 
@@ -71,19 +72,44 @@ function runWorker(opts) {
   const bin = pickClaudeBin(env);
   const args = buildArgs(task);
 
+  // M42 D1 — allocate a spawn-id and open the transcript registry entry
+  const parentSpawnId = (opts && opts.parentSpawnId) || env.GSD_T_SPAWN_ID || null;
+  const spawnId = (opts && opts.spawnId) || transcriptTee.allocateSpawnId({ parentId: parentSpawnId });
+  let transcriptOpened = false;
+  try {
+    transcriptTee.openTranscript({
+      spawnId,
+      projectDir: config.projectDir,
+      meta: {
+        parentId: parentSpawnId,
+        command: 'orchestrator-worker',
+        description: `task=${task.id} domain=${task.domain || '-'} wave=${task.wave == null ? '-' : task.wave}`,
+        model: (task && task.model) || 'sonnet',
+      },
+    });
+    transcriptOpened = true;
+  } catch (_) { /* tee is best-effort */ }
+
   emitBoundary(onFrame, task, 'start');
 
   return new Promise((resolve) => {
     const child = spawnImpl(bin, args, {
       cwd: config.projectDir,
-      env: { ...env, GSD_T_PROJECT_DIR: config.projectDir },
+      env: { ...env, GSD_T_PROJECT_DIR: config.projectDir, GSD_T_SPAWN_ID: spawnId },
       stdio: ['pipe', 'pipe', 'pipe']
     });
 
     const workerPid = child && typeof child.pid === 'number' ? child.pid : null;
     emitBoundary(onFrame, task, 'pid', { workerPid });
+    if (transcriptOpened && workerPid != null) {
+      try {
+        const idx = transcriptTee._readIndex(config.projectDir);
+        const i = idx.spawns.findIndex((s) => s.spawnId === spawnId);
+        if (i >= 0) { idx.spawns[i].workerPid = workerPid; transcriptTee._writeIndex(config.projectDir, idx); }
+      } catch (_) {}
+    }
     if (typeof opts.onSpawn === 'function') {
-      try { opts.onSpawn({ child, pid: workerPid }); } catch (_) {}
+      try { opts.onSpawn({ child, pid: workerPid, spawnId }); } catch (_) {}
     }
 
     let stdoutBuf = '';
@@ -92,6 +118,9 @@ function runWorker(opts) {
     let killTimer = null;
 
     const handleLine = (line) => {
+      if (transcriptOpened) {
+        try { transcriptTee.appendFrame({ spawnId, projectDir: config.projectDir, frame: line }); } catch (_) {}
+      }
       try {
         const frame = JSON.parse(line);
         if (typeof onFrame === 'function') onFrame(frame);
@@ -171,7 +200,10 @@ function runWorker(opts) {
       }
 
       emitBoundary(onFrame, task, result.ok ? 'done' : 'failed', { exitCode, durationMs, workerPid });
-      resolve({ result, exitCode, durationMs, timedOut, stderr: stderrBuf, workerPid });
+      if (transcriptOpened) {
+        try { transcriptTee.closeTranscript({ spawnId, projectDir: config.projectDir, status: result.ok ? 'done' : 'failed' }); } catch (_) {}
+      }
+      resolve({ result, exitCode, durationMs, timedOut, stderr: stderrBuf, workerPid, spawnId });
     });
 
     child.stdin.on('error', () => { /* ignore — covered by child exit */ });
