@@ -67,9 +67,13 @@ function _emit(projectDir, ev) {
 // Best-effort: every call is swallowed so tee failures never halt the loop.
 const transcriptTee = require("./gsd-t-transcript-tee.cjs");
 
+// M43 liveness heartbeat watchdog (contract v1.4.0 §"Heartbeat Watchdog") —
+// pure, testable staleness checker against .gsd-t/events/YYYY-MM-DD.jsonl mtime.
+const { checkHeartbeat: _checkHeartbeat } = require("./gsd-t-unattended-heartbeat.cjs");
+
 // ── Constants ───────────────────────────────────────────────────────────────
 
-const CONTRACT_VERSION = "1.0.0";
+const CONTRACT_VERSION = "1.4.0";
 const UNATTENDED_DIR_REL = path.join(".gsd-t", ".unattended");
 const PID_FILE = "supervisor.pid";
 const STATE_FILE = "state.json";
@@ -78,13 +82,17 @@ const RUN_LOG = "run.log";
 
 const DEFAULT_HOURS = 24;
 const DEFAULT_MAX_ITERATIONS = 200;
-// Anthropic prompt-cache TTL is 5 minutes (300,000 ms). The supervisor→worker
-// handoff budget is ~30 s (process exit + state persist + next spawn). A 270 s
-// worker timeout leaves room to complete the iter AND still relaunch against
-// a warm cache. If a single iter legitimately exceeds 270 s, the supervisor
-// kills the worker and logs a cache-miss warning; the next iter pays a
-// cold-cache cost but execution continues.
-const DEFAULT_WORKER_TIMEOUT_MS = 270 * 1000; // 270s — see cache-warm-pacing note above; contract §13/§16
+// M43 liveness heartbeat (contract v1.1.0 §"Heartbeat Watchdog"):
+//   Healthy workers producing events every poll cycle (60 s) run under the
+//   absolute backstop — raised from 270 s to 1 hour so long-running legitimate
+//   iterations are NOT cut. Stuck workers are detected by the heartbeat
+//   checker via events/YYYY-MM-DD.jsonl mtime and SIGTERM'd at the 5-min
+//   staleness threshold. The 270 s cache-pacing rationale is subsumed by the
+//   heartbeat check, which fires long before cache-miss cost becomes
+//   dominant.
+const DEFAULT_WORKER_TIMEOUT_MS = 60 * 60 * 1000; // 1 h absolute backstop (contract §13/§16)
+const DEFAULT_STALE_HEARTBEAT_MS = 5 * 60 * 1000; // 5 min — stuck-worker threshold
+const DEFAULT_HEARTBEAT_POLL_MS = 60 * 1000; // 60 s poll cadence
 
 const TERMINAL_STATUSES = new Set(["done", "failed", "stopped", "crashed"]);
 const VALID_STATUSES = new Set([
@@ -120,6 +128,8 @@ module.exports = {
   TERMINAL_STATUSES,
   VALID_STATUSES,
   DEFAULT_WORKER_TIMEOUT_MS,
+  DEFAULT_STALE_HEARTBEAT_MS,
+  DEFAULT_HEARTBEAT_POLL_MS,
 };
 
 // ── parseArgs ───────────────────────────────────────────────────────────────
@@ -503,7 +513,7 @@ function finalizeState(state, dir, terminalStatus) {
  *   reason?: string,
  * }}
  */
-function doUnattended(argv, deps) {
+async function doUnattended(argv, deps) {
   deps = deps || {};
   const rawArgv = argv || [];
 
@@ -586,6 +596,13 @@ function doUnattended(argv, deps) {
     config.workerTimeoutMs > 0
   ) {
     opts.workerTimeoutMs = config.workerTimeoutMs;
+  }
+  if (
+    opts.staleHeartbeatMs === undefined &&
+    typeof config.staleHeartbeatMs === "number" &&
+    config.staleHeartbeatMs > 0
+  ) {
+    opts.staleHeartbeatMs = config.staleHeartbeatMs;
   }
   // CLI values now win — mirror them back into config so the pre-worker
   // safety caps (checkIterationCap / checkWallClockCap) use the effective
@@ -798,7 +815,7 @@ function doUnattended(argv, deps) {
   // Main relay loop. Workers spawn fresh each iteration until the milestone
   // completes, the iteration cap is hit, a terminal exit code is returned,
   // a stop sentinel is observed, or a safety rails halt fires.
-  runMainLoop(state, dir, opts, deps, { fn, config });
+  await runMainLoop(state, dir, opts, deps, { fn, config });
 
   // Terminal notification + explicit finalize. finalizeState is idempotent —
   // the process.on('exit') handler will be a no-op after this.
@@ -885,7 +902,7 @@ function _notifyAndFinalize(state, dir, fn, terminalHint) {
  * `stopRequested`). Task 4 will replace `_spawnWorker` with the real
  * cross-platform helper.
  */
-function runMainLoop(state, dir, opts, deps, ctx) {
+async function runMainLoop(state, dir, opts, deps, ctx) {
   deps = deps || {};
   ctx = ctx || {};
   // Safety rails + platform helpers wired by doUnattended (fn) + loaded
@@ -909,6 +926,22 @@ function runMainLoop(state, dir, opts, deps, ctx) {
     deps._isMilestoneComplete || (useTestStub ? () => true : isMilestoneComplete);
   const stopCheck = deps._stopRequested || stopRequested;
   const workerTimeoutMs = opts.workerTimeoutMs || DEFAULT_WORKER_TIMEOUT_MS;
+  const staleHeartbeatMs =
+    (typeof opts.staleHeartbeatMs === "number" && opts.staleHeartbeatMs > 0
+      ? opts.staleHeartbeatMs
+      : (typeof config.staleHeartbeatMs === "number" && config.staleHeartbeatMs > 0
+        ? config.staleHeartbeatMs
+        : DEFAULT_STALE_HEARTBEAT_MS));
+  const heartbeatPollMs =
+    (typeof opts.heartbeatPollMs === "number" && opts.heartbeatPollMs > 0
+      ? opts.heartbeatPollMs
+      : DEFAULT_HEARTBEAT_POLL_MS);
+  // Test hook: deps._checkHeartbeat lets tests substitute the staleness
+  // checker without mocking fs. Production uses the real module.
+  const heartbeatImpl = deps._checkHeartbeat || _checkHeartbeat;
+  // Test hook: deps._disableHeartbeat lets unit tests bypass the async path
+  // for test-mode / stub spawns that return synchronously.
+  const heartbeatEnabled = !deps._disableHeartbeat && !useTestStub;
   const projectDir = state.projectDir;
 
   while (!isDone(state) && !stopCheck(projectDir)) {
@@ -953,12 +986,28 @@ function runMainLoop(state, dir, opts, deps, ctx) {
     });
 
     let res;
+    const workerStartMs = workerStart.getTime();
+    const hbOpts = heartbeatEnabled
+      ? {
+          onHeartbeatCheck: () =>
+            heartbeatImpl({
+              projectDir,
+              workerStartedAt: workerStartMs,
+              staleHeartbeatMs,
+            }),
+          heartbeatPollMs,
+        }
+      : {};
     try {
       res = spawnWorker(state, {
         cwd: projectDir,
         timeout: workerTimeoutMs,
         verbose: !!opts.verbose,
+        ...hbOpts,
       });
+      if (res && typeof res.then === "function") {
+        res = await res;
+      }
     } catch (e) {
       // Defensive: a real spawnSync shouldn't throw, but a shim could.
       res = { status: 3, stdout: "", stderr: String((e && e.message) || e), signal: null };
@@ -970,27 +1019,39 @@ function runMainLoop(state, dir, opts, deps, ctx) {
     const stdout = typeof res.stdout === "string" ? res.stdout : "";
     const stderr = typeof res.stderr === "string" ? res.stderr : "";
 
-    // Timeout detection: spawnSync sets status=null and signal='SIGTERM' on
-    // timeout (legacy shim), OR sets res.timedOut=true (platform.spawnWorker).
-    // Map to contract code 124.
+    // Kill-path detection (M43 heartbeat watchdog precedes wall-clock timeout):
+    //   - res.staleHeartbeat === true → heartbeat fired, code 125 (new)
+    //   - res.timedOut === true OR status=null+SIGTERM → wall-clock, code 124
+    // Heartbeat wins on ties because it's the more specific signal.
     let exitCode;
-    if (res.timedOut === true || res.status === null || res.signal === "SIGTERM") {
+    let lastExitReason = null;
+    if (res.staleHeartbeat === true) {
+      exitCode = 125;
+      lastExitReason = "stale_heartbeat";
+    } else if (res.timedOut === true || res.status === null || res.signal === "SIGTERM") {
       exitCode = 124;
+      lastExitReason = "worker_timeout";
     } else {
       exitCode = mapHeadlessExitCode(res.status, stdout + "\n" + stderr);
     }
 
-    // v3.13.11 Bug 1: when the watchdog fires (spawnSync timeout SIGTERM or
-    // platform.spawnWorker timedOut flag), make the event explicit in run.log
-    // so operators can see WHICH iteration timed out without inferring from
-    // exit codes. The marker is prepended to stdout and written in the single
-    // per-iter run.log append (no duplicate header).
+    // v3.13.11 Bug 1: when a watchdog fires, make the event explicit in
+    // run.log so operators can see WHICH iteration was cut without inferring
+    // from exit codes. The marker is prepended to stdout and written in the
+    // single per-iter run.log append (no duplicate header).
     let loggedStdout = stdout;
     if (exitCode === 124) {
       const marker =
         `[worker_timeout] iter=${state.iter} budget=${workerTimeoutMs}ms ` +
-        `elapsed=${elapsedMs}ms — watchdog SIGTERM delivered, ` +
+        `elapsed=${elapsedMs}ms — absolute-backstop SIGTERM delivered, ` +
         `supervisor continues relay per contract §16.\n`;
+      loggedStdout = marker + (stdout || "");
+    } else if (exitCode === 125) {
+      const reason = res.heartbeatReason || "no recent events.jsonl writes";
+      const marker =
+        `[stale_heartbeat] iter=${state.iter} threshold=${staleHeartbeatMs}ms ` +
+        `elapsed=${elapsedMs}ms reason="${reason}" — ` +
+        `heartbeat watchdog SIGTERM delivered, supervisor continues relay.\n`;
       loggedStdout = marker + (stdout || "");
     }
 
@@ -1012,6 +1073,13 @@ function runMainLoop(state, dir, opts, deps, ctx) {
     state.lastExit = exitCode;
     state.lastWorkerFinishedAt = workerEnd.toISOString();
     state.lastElapsedMs = elapsedMs;
+    if (lastExitReason) {
+      state.lastExitReason = lastExitReason;
+    } else if (exitCode === 0) {
+      state.lastExitReason = "clean";
+    } else {
+      state.lastExitReason = `exit_${exitCode}`;
+    }
     writeState(state, dir);
 
     // Event-stream: task_complete on success, error on non-zero.
@@ -1104,6 +1172,20 @@ function runMainLoop(state, dir, opts, deps, ctx) {
         source: "supervisor",
         attempt: state.iter,
         reason: "timeout",
+      });
+      continue;
+    }
+    if (exitCode === 125) {
+      // Stale heartbeat (M43) — continue unless the iter cap hits. The
+      // heartbeat kill is recoverable by definition: the worker was not
+      // emitting events, which is the most common class of stuck iteration
+      // (e.g. child stuck on a long Bash call with no tool_call emits).
+      _emit(projectDir, {
+        iter: state.iter,
+        type: "retry",
+        source: "supervisor",
+        attempt: state.iter,
+        reason: "stale_heartbeat",
       });
       continue;
     }
@@ -1225,8 +1307,11 @@ function _spawnWorker(state, opts) {
     workerEnv.GSD_T_SPAWN_ID = teeSpawnId;
   } catch (_) { /* tee is best-effort */ }
 
-  const res = platformSpawnWorker(opts.cwd, opts.timeout, {
+  const spawnResult = platformSpawnWorker(opts.cwd, opts.timeout, {
     bin,
+    onHeartbeatCheck: opts.onHeartbeatCheck,
+    heartbeatPollMs: opts.heartbeatPollMs,
+    onHeartbeatSample: opts.onHeartbeatSample,
     args: [
       "-p",
       [
@@ -1281,50 +1366,58 @@ function _spawnWorker(state, opts) {
     env: workerEnv,
   });
 
-  // M42 D1 — post-hoc line tee. spawnSync captures the full stdout as a
-  // single string; split and append each line so the transcript ndjson is
-  // replayable by the dashboard SSE route. Non-JSON lines get wrapped as
-  // {type:"raw"} by the tee module.
-  if (teeSpawnId) {
-    try {
-      const out = typeof res.stdout === "string" ? res.stdout : "";
-      if (out.length) {
-        const lines = out.split("\n");
-        for (const line of lines) {
-          if (line.length > 0) {
-            transcriptTee.appendFrame({
-              spawnId: teeSpawnId,
-              projectDir: opts.cwd,
-              frame: line,
-            });
+  // M42 D1 — post-hoc line tee + return shape. Factored into a finalize()
+  // helper so we can run sync when platformSpawnWorker returned sync (legacy
+  // spawnSync path), and async when it returned a Promise (heartbeat path).
+  const finalize = (res) => {
+    if (teeSpawnId) {
+      try {
+        const out = typeof res.stdout === "string" ? res.stdout : "";
+        if (out.length) {
+          const lines = out.split("\n");
+          for (const line of lines) {
+            if (line.length > 0) {
+              transcriptTee.appendFrame({
+                spawnId: teeSpawnId,
+                projectDir: opts.cwd,
+                frame: line,
+              });
+            }
           }
         }
-      }
-    } catch (_) { /* tee is best-effort */ }
-    try {
-      const status =
-        typeof res.status === "number" && res.status === 0
-          ? "done"
-          : res.timedOut
-            ? "stopped"
-            : "failed";
-      transcriptTee.closeTranscript({
-        spawnId: teeSpawnId,
-        projectDir: opts.cwd,
-        status,
-      });
-    } catch (_) { /* tee is best-effort */ }
-  }
+      } catch (_) { /* tee is best-effort */ }
+      try {
+        const status =
+          typeof res.status === "number" && res.status === 0
+            ? "done"
+            : res.timedOut
+              ? "stopped"
+              : "failed";
+        transcriptTee.closeTranscript({
+          spawnId: teeSpawnId,
+          projectDir: opts.cwd,
+          status,
+        });
+      } catch (_) { /* tee is best-effort */ }
+    }
 
-  return {
-    status: typeof res.status === "number" ? res.status : null,
-    stdout: res.stdout || "",
-    stderr: res.stderr || "",
-    signal: res.signal || null,
-    timedOut: !!res.timedOut,
-    error: res.error || null,
-    spawnId: teeSpawnId,
+    return {
+      status: typeof res.status === "number" ? res.status : null,
+      stdout: res.stdout || "",
+      stderr: res.stderr || "",
+      signal: res.signal || null,
+      timedOut: !!res.timedOut,
+      staleHeartbeat: !!res.staleHeartbeat,
+      heartbeatReason: res.heartbeatReason || null,
+      error: res.error || null,
+      spawnId: teeSpawnId,
+    };
   };
+
+  if (spawnResult && typeof spawnResult.then === "function") {
+    return spawnResult.then(finalize);
+  }
+  return finalize(spawnResult);
 }
 
 // ── _testModeSpawnWorker ────────────────────────────────────────────────────

@@ -14,7 +14,8 @@
  * Task 1 of m36-cross-platform delivers:
  *   - resolveClaudePath()
  *   - isAlive(pid)
- *   - spawnWorker(projectDir, timeoutMs)
+ *   - spawnWorker(projectDir, timeoutMs, opts)
+ *       opts.onHeartbeatCheck? — async liveness watchdog (M43 D?)
  *
  * Cross-platform notes:
  *   - darwin / linux paths are runtime-tested.
@@ -89,45 +90,77 @@ function isAlive(pid) {
 // ─── spawnWorker ─────────────────────────────────────────────────────────────
 
 /**
- * Spawn a synchronous `claude -p '/gsd-t-resume'` worker iteration for the
- * unattended supervisor.
+ * Spawn a `claude -p '/gsd-t-resume'` worker iteration for the unattended
+ * supervisor.
  *
  * Returns a normalized result object: `{ status, stdout, stderr, signal,
- * timedOut, error }`. Never throws — spawn errors are returned in `error`.
+ * timedOut, staleHeartbeat, error }`. Never throws — spawn errors are
+ * returned in `error`.
  *
- * Timeout semantics: when `spawnSync`'s `timeout` fires, the child is sent
- * SIGTERM (or the equivalent on win32), `status` is `null`, and `signal` is
- * non-null. We surface this as `timedOut: true` so callers can map to exit
- * code 3 per contract §5.
+ * Two kill paths:
+ *   1. Heartbeat watchdog (M43 primary) — when `opts.onHeartbeatCheck` is
+ *      provided, the function polls every `opts.heartbeatPollMs` (default
+ *      60_000). If the callback returns `{stale: true, ...}`, the child is
+ *      SIGTERM'd and `staleHeartbeat: true` is set on the result.
+ *   2. Wall-clock timeout (absolute backstop) — `timeoutMs` is the hard cap
+ *      regardless of heartbeat. On expiry the child is SIGTERM'd and
+ *      `timedOut: true`. Default raised to 1 h in supervisor-core so a
+ *      healthy long-running worker is not cut.
  *
- * Spawn recipe (uniform across platforms):
- *   - `shell: false`  → no shell quoting hazards
- *   - `windowsHide: true`  → no flashed window on win32
- *   - explicit `claude.cmd` filename on win32 (see resolveClaudePath JSDoc)
+ * Exactly one path is used per iteration:
+ *   - opts.onHeartbeatCheck present → heartbeat path (async event loop)
+ *   - opts.onHeartbeatCheck absent  → legacy spawnSync path (blocking)
+ * The legacy path is preserved so callers that have no meaningful liveness
+ * signal (test stubs, dry-run) keep the original semantics.
  *
- * @todo Spike C: verify `claude.cmd -p "/gsd-t-resume"` dispatches correctly
- *       under PowerShell + cmd.exe + Git Bash. See
- *       `docs/unattended-windows-caveats.md` (Task 3 of m36-cross-platform).
+ * Cross-platform:
+ *   - darwin / linux: runtime-tested.
+ *   - win32: implementation-complete; documented in
+ *     `docs/unattended-windows-caveats.md` (Task 3).
  *
  * @param {string} projectDir   Absolute path to the project directory (cwd).
- * @param {number} timeoutMs    Wall-clock cap per worker iteration in ms.
+ * @param {number} timeoutMs    Wall-clock backstop per worker iteration in ms.
  * @param {object} [opts]       Optional overrides (test-mode hooks).
  * @param {string} [opts.bin]   Override the resolved binary (test-mode only).
  * @param {string[]} [opts.args] Override args (defaults to `['-p', '/gsd-t-resume']`).
  * @param {object} [opts.env]   Override env (defaults to `process.env`).
+ * @param {Function} [opts.onHeartbeatCheck]  Called every heartbeatPollMs
+ *   with no args; must return `{stale: boolean, reason?: string}` or a
+ *   Promise thereof. When stale, the child is SIGTERM'd.
+ * @param {number} [opts.heartbeatPollMs]  Poll cadence in ms. Default 60_000.
+ * @param {Function} [opts.onHeartbeatSample]  Optional observer; receives the
+ *   raw callback result each poll for logging.
  * @returns {{
  *   status: number|null,
  *   stdout: string,
  *   stderr: string,
  *   signal: string|null,
  *   timedOut: boolean,
+ *   staleHeartbeat: boolean,
+ *   heartbeatReason: string|null,
  *   error: Error|null
- * }}
+ * }|Promise<...>}
+ *   Returns a Promise when `opts.onHeartbeatCheck` is provided; otherwise a
+ *   synchronous result (legacy path).
  */
 function spawnWorker(projectDir, timeoutMs, opts = {}) {
   const bin = opts.bin || resolveClaudePath();
   const args = opts.args || ["-p", "/gsd-t-resume"];
   const env = opts.env || process.env;
+
+  if (typeof opts.onHeartbeatCheck === "function") {
+    return _spawnWorkerAsyncHeartbeat({
+      bin,
+      args,
+      env,
+      cwd: projectDir,
+      timeoutMs,
+      onHeartbeatCheck: opts.onHeartbeatCheck,
+      heartbeatPollMs: opts.heartbeatPollMs || 60 * 1000,
+      onHeartbeatSample: opts.onHeartbeatSample,
+      spawnImpl: opts._spawnImpl || spawn,
+    });
+  }
 
   const result = spawnSync(bin, args, {
     cwd: projectDir,
@@ -139,19 +172,11 @@ function spawnWorker(projectDir, timeoutMs, opts = {}) {
     windowsHide: true,
   });
 
-  // Normalize. spawnSync may return error if the binary cannot be launched
-  // (ENOENT etc.) — surface it instead of throwing.
   const stdout = typeof result.stdout === "string" ? result.stdout : "";
   const stderr = typeof result.stderr === "string" ? result.stderr : "";
   const signal = result.signal || null;
   const status = typeof result.status === "number" ? result.status : null;
 
-  // Timeout detection: when spawnSync's `timeout` option fires it sets
-  //   - status === null
-  //   - signal !== null  (SIGTERM on POSIX, equivalent on win32)
-  //   - error.code === 'ETIMEDOUT'  (Node surfaces it as a synthetic Error)
-  // The ETIMEDOUT code is the authoritative signal — checking it
-  // discriminates a genuine timeout from an ENOENT/spawn failure.
   const errCode = result.error && result.error.code;
   const timedOut =
     errCode === "ETIMEDOUT" || (status === null && signal !== null && !result.error);
@@ -162,10 +187,122 @@ function spawnWorker(projectDir, timeoutMs, opts = {}) {
     stderr,
     signal,
     timedOut,
-    // Suppress the synthetic ETIMEDOUT error so callers can rely on
-    // `timedOut` for the timeout case and `error` for genuine spawn failures.
+    staleHeartbeat: false,
+    heartbeatReason: null,
     error: errCode === "ETIMEDOUT" ? null : result.error || null,
   };
+}
+
+/**
+ * Async spawn path used when a heartbeat callback is provided.
+ *
+ * Returns a Promise resolving to the same result shape as spawnWorker's
+ * legacy path, plus `staleHeartbeat` and `heartbeatReason`.
+ *
+ * Kill precedence when both fire in the same tick: heartbeat wins (it is
+ * the more specific signal). The loser is suppressed on the result.
+ *
+ * @private
+ */
+function _spawnWorkerAsyncHeartbeat({
+  bin,
+  args,
+  env,
+  cwd,
+  timeoutMs,
+  onHeartbeatCheck,
+  heartbeatPollMs,
+  onHeartbeatSample,
+  spawnImpl,
+}) {
+  return new Promise((resolve) => {
+    let child;
+    try {
+      child = spawnImpl(bin, args, {
+        cwd,
+        env,
+        stdio: ["ignore", "pipe", "pipe"],
+        shell: false,
+        windowsHide: true,
+      });
+    } catch (err) {
+      resolve({
+        status: null,
+        stdout: "",
+        stderr: "",
+        signal: null,
+        timedOut: false,
+        staleHeartbeat: false,
+        heartbeatReason: null,
+        error: err,
+      });
+      return;
+    }
+
+    const chunksOut = [];
+    const chunksErr = [];
+    if (child.stdout) child.stdout.on("data", (d) => chunksOut.push(d));
+    if (child.stderr) child.stderr.on("data", (d) => chunksErr.push(d));
+
+    let resolved = false;
+    let timedOut = false;
+    let staleHeartbeat = false;
+    let heartbeatReason = null;
+    let spawnErr = null;
+
+    const heartbeatTimer = setInterval(async () => {
+      if (resolved) return;
+      let sample;
+      try {
+        sample = await onHeartbeatCheck();
+      } catch (err) {
+        // Heartbeat check must not kill the worker on its own failures.
+        // Surface via sample observer when provided and continue.
+        sample = { stale: false, reason: `heartbeat check threw: ${err.message}` };
+      }
+      if (typeof onHeartbeatSample === "function") {
+        try { onHeartbeatSample(sample); } catch (_) { /* observer best-effort */ }
+      }
+      if (sample && sample.stale) {
+        staleHeartbeat = true;
+        heartbeatReason = sample.reason || "stale heartbeat";
+        try { child.kill("SIGTERM"); } catch (_) { /* child may already be gone */ }
+      }
+    }, heartbeatPollMs);
+    if (typeof heartbeatTimer.unref === "function") heartbeatTimer.unref();
+
+    const absoluteTimer = setTimeout(() => {
+      if (resolved || staleHeartbeat) return;
+      timedOut = true;
+      try { child.kill("SIGTERM"); } catch (_) { /* child may already be gone */ }
+    }, timeoutMs);
+    if (typeof absoluteTimer.unref === "function") absoluteTimer.unref();
+
+    child.on("error", (err) => {
+      spawnErr = err;
+    });
+
+    child.on("close", (status, signal) => {
+      if (resolved) return;
+      resolved = true;
+      clearInterval(heartbeatTimer);
+      clearTimeout(absoluteTimer);
+
+      const stdout = Buffer.concat(chunksOut).toString("utf8");
+      const stderr = Buffer.concat(chunksErr).toString("utf8");
+
+      resolve({
+        status: typeof status === "number" ? status : null,
+        stdout,
+        stderr,
+        signal: signal || null,
+        timedOut,
+        staleHeartbeat,
+        heartbeatReason,
+        error: spawnErr,
+      });
+    });
+  });
 }
 
 // ─── spawnSupervisor ─────────────────────────────────────────────────────────

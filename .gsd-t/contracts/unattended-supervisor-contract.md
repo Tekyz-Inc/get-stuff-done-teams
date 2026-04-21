@@ -1,11 +1,11 @@
 # Contract: Unattended Supervisor
 
-**Version**: 1.3.1
-**Status**: ACTIVE for M38
+**Version**: 1.4.0
+**Status**: ACTIVE for M43
 **Owner**: m36-supervisor-core + m36-watch-loop (shared)
 **Consumers**: m36-supervisor-core, m36-watch-loop, m36-safety-rails, m36-cross-platform, m36-m35-gap-fixes, m36-docs-and-tests
 **Depends on**: `headless-default-contract.md` v1.0.0 (M38; folds-and-supersedes headless-auto-spawn-contract v1.0.0 from M35) — supervisor is a higher-level relay built above the same substrate
-**Related**: `token-budget-contract.md` v3.0.0 (M35), `model-selection-contract.md` v1.0.0 (M35)
+**Related**: `token-budget-contract.md` v3.0.0 (M35), `model-selection-contract.md` v1.0.0 (M35), `unattended-event-stream-contract.md` v1.0.0 (M38; heartbeat watchdog consumes its `.gsd-t/events/YYYY-MM-DD.jsonl` append stream as the liveness signal)
 
 ---
 
@@ -121,13 +121,14 @@ Terminal states mean: the supervisor has finalized its state file and removed it
 | 0 | success | Worker completed normally; milestone may or may not be done. | Worker exit 0 + no sentinel match |
 | 1 | worker-generic-failure | Worker exited non-zero, no specific sentinel. | Worker exit ≠ 0 |
 | 2 | preflight-failure | Config error, state corruption, missing project dir, malformed state.json. | Supervisor or safety rails |
-| 3 | timeout | Worker wall-clock timeout (default 1h per iter). | spawnSync timeout |
+| 3 | timeout | Worker wall-clock timeout (default 1h per iter post-v1.4.0 — absolute backstop; heartbeat is primary). | spawn timeout |
 | 4 | unrecoverable | Worker reported unrecoverable error (2 fix attempts failed + debug-loop exit 4). | mapHeadlessExitCode sentinel |
 | 5 | command-dispatch-failed | `Unknown command:` in worker stdout. Worker invocation form is broken. | mapHeadlessExitCode, added in M36 Phase 0 |
 | 6 | gutter-detected | Safety rails detected a stall pattern (repeated error / file thrash / no progress for N iters). | m36-safety-rails |
 | 7 | protected-branch-refusal | Pre-flight: current git branch is in the protected list. | m36-safety-rails |
 | 8 | dirty-tree-refusal | Pre-flight: git status failed (non-file error only — dirty files are auto-whitelisted). | m36-safety-rails |
-| 124 | process-timeout | OS-level timeout signal from spawnSync `timeout` option. | Node child_process |
+| 124 | worker-timeout | Wall-clock absolute-backstop timeout (default 1h post-v1.4.0). Set `lastExitReason="worker_timeout"`. | spawn timeout |
+| 125 | stale-heartbeat | Heartbeat watchdog fired — events.jsonl mtime stopped advancing for `staleHeartbeatMs` (default 5min). Supervisor SIGTERM'd the worker. Set `lastExitReason="stale_heartbeat"`. | §16a heartbeat watchdog |
 
 Codes 6–8 are **supervisor-level halts** (safety rails), not worker exit codes. They are recorded in `state.json.lastExit` and trigger `status = failed`.
 
@@ -145,8 +146,12 @@ gsd-t unattended [OPTIONS]
   --dry-run               Preflight only; no spawn
   --verbose               Extra log detail
   --test-mode             Uses stub worker; for CI and smoke tests
-  --worker-timeout=270000 Per-iter worker timeout in ms (default 270000,
-                          cache-warm). See §16.
+  --worker-timeout=3600000    Per-iter absolute-backstop timeout in ms.
+                              Default 3_600_000 (1 h) post-v1.4.0. See §16.
+                              This is a BACKSTOP; the heartbeat watchdog
+                              (§16a) is the primary stuck-worker detector.
+  --stale-heartbeat-ms=300000 Heartbeat staleness threshold in ms. Default
+                              300_000 (5 min). See §16a.
 ```
 
 Exit codes of the `gsd-t unattended` CLI itself mirror §5 at termination time.
@@ -274,11 +279,17 @@ Each check returns `{ ok, reason?, code? }`. A `false` result halts the supervis
   "maxIterations": 200,
   "hours": 24,
   "gutterNoProgressIters": 5,
-  "workerTimeoutMs": 270000
+  "workerTimeoutMs": 3600000,
+  "staleHeartbeatMs": 300000
 }
 ```
 
 Absence of `.gsd-t/.unattended/config.json` → use hardcoded defaults matching the values above. Presence overrides the defaults field-by-field (missing fields fall back to default).
+
+`workerTimeoutMs` post-v1.4.0 defaults to 3,600,000 ms (1 h) as an absolute
+backstop — the heartbeat watchdog (§16a) is the primary stuck-worker
+detector. `staleHeartbeatMs` (new in v1.4.0) sets the heartbeat staleness
+threshold (default 300,000 = 5 min).
 
 ---
 
@@ -391,79 +402,140 @@ capability, not a supervisor-level one.
    the supervisor relay. §15 plus the prompt edit in `_spawnWorker` close
    that gap without touching the supervisor control loop or event schema.
 
-## 16. Cache-Warm Pacing (v1.3.0)
+## 16. Cache-Warm Pacing (v1.3.0, superseded-as-primary by §16a in v1.4.0)
 
 Added in v1.3.0 (M39) as the sibling of §15 (D3 Worker Team Mode). Both
 sections were added in the same contract version bump but address different
 dimensions of the supervisor relay: §15 speeds up a single worker iter by
 parallelizing its domains; §16 speeds up the relay ACROSS iters by keeping
 the Anthropic prompt cache warm between back-to-back workers. The two
-changes are orthogonal and compose — a parallelized worker that exits within
-270 s still warm-relaunches on the next iter.
+changes are orthogonal and compose.
 
-1. **Worker timeout default** — 270 s (270,000 ms). Encoded as
-   `DEFAULT_WORKER_TIMEOUT_MS` in `bin/gsd-t-unattended.cjs` and passed to
-   every `_spawnWorker` call via the main relay loop's `timeout` option.
-   This REPLACES the previous 1-hour default (3,600,000 ms) from §13. The
-   supervisor CLI's `--worker-timeout` flag (§6) still overrides the default
-   at launch time and MUST NOT be raised above 270 s without a separate
-   user-approved revision — raising it breaks the cache-warm invariant.
-2. **Cache-window math** — Anthropic's prompt-cache TTL is 5 minutes
-   (300 s). The supervisor→worker handoff budget is ~30 s (worker process
-   exit + `writeState` persist + next `spawnSync` startup). Therefore:
+**Historical v1.3.0 design** — the worker timeout default was 270 s
+(270,000 ms), sized to fit inside Anthropic's 5-minute prompt-cache TTL
+with ~30 s of handoff headroom. A hung worker would be SIGTERM'd at 270 s
+as a side effect of the cache-warm budget, which doubled as a crude
+liveness guard.
 
-   ```
-   270 s worker iter  +  30 s handoff  =  300 s total
-                                          ─────────
-                                          = TTL → next iter hits warm cache
-   ```
+**v1.4.0 supersession** — the 270 s budget was too aggressive for legitimate
+long-running iters (large partition analyses, multi-domain parallel waves)
+and too loose for genuine hangs (5 min of a silent worker still wastes 270 s
+of wall-clock). M43 introduced a dedicated heartbeat watchdog (§16a) whose
+staleness threshold is decoupled from the cache-warm budget. Post-v1.4.0:
 
-   The 270 s value is the largest worker budget that preserves the warm-cache
-   invariant with ~30 s of handoff headroom. Lowering it below ~180 s shrinks
-   the useful iter budget without buying any caching benefit (already well
-   inside the window); raising it above 270 s makes back-to-back cache hits
-   unreliable even with a fast handoff.
-3. **Graceful degradation** — if a single iter legitimately exceeds 270 s
-   (the worker is still running at the deadline), the supervisor kills the
-   worker via the existing `spawnSync` timeout path, maps the exit to code
-   124 (TIMEOUT per §5), emits a `retry` event with `reason: "timeout"`, and
-   continues the relay. The next iter pays a cold-cache cost (first-response
-   latency for the fresh worker is ~2–5× higher) but execution is never
-   interrupted — there is no hard failure, no manual intervention required,
-   no state corruption. A warning-level log line identifies the iter as a
-   cache-miss so operators can audit pacing over long runs.
-
-   **v3.13.11 diagnostic tag**: on timeout, `runMainLoop` writes a
-   deterministic `[worker_timeout] iter=N budget=Nms elapsed=Nms — watchdog
-   SIGTERM delivered, supervisor continues relay per contract §16.` line to
-   `run.log` immediately before the main iter body. This surfaces the
-   watchdog firing in log tails without requiring the operator to parse
-   `state.json`. The existing `writeState` call still commits `lastExit=124`
-   and a fresh `lastTick` so `/gsd-t-unattended-watch` sees a heartbeat
-   post-timeout within the same tick. See `run.log` `grep '[worker_timeout]'`
-   for a timeline of cache misses.
-4. **Inter-iteration sleep invariant** — the supervisor MUST NOT sleep
-   more than 5 seconds between a worker exit and the next `spawnWorker`
-   call on the happy path. Every added second shrinks the effective cache
-   window. The main relay loop in `runMainLoop` MUST remain sleep-free
-   between iters: worker exit → `writeState` → post-worker hooks
-   (blocker/gutter detection) → `_emit` → `continue`. Error-backoff
+1. **Worker timeout default raised to 1 h** (3,600,000 ms). Encoded as
+   `DEFAULT_WORKER_TIMEOUT_MS` in `bin/gsd-t-unattended.cjs`. This is now
+   an **absolute backstop** — it fires only when the heartbeat watchdog
+   has somehow failed to detect a hang and a worker has been running
+   without progress for a full hour. It is NOT the cache-warm budget.
+2. **Heartbeat watchdog is primary** — see §16a. Default 5-minute
+   staleness window (`staleHeartbeatMs = 300_000`) with 60-second polling.
+   A stuck worker gets SIGTERM'd with exit code 125 well before the 1 h
+   backstop fires.
+3. **Cache-pacing invariant still holds** between iterations — the relay
+   loop MUST NOT sleep more than 5 seconds between a worker exit and the
+   next `spawnWorker` call on the happy path. The Anthropic prompt-cache
+   TTL (5 min) is a hard ceiling for cache reuse, so any inter-iter sleep
+   approaching that TTL forfeits the caching benefit. Enforced by the
+   test at `test/unattended-cache-warm-pacing.test.js`. Error-backoff
    branches may sleep (out of scope for this invariant); the happy-path
    `continue` is synchronous.
+4. **Graceful degradation on 125** — when the heartbeat fires, the
+   supervisor SIGTERMs the worker, maps the exit to code 125 (see §5),
+   sets `state.lastExitReason="stale_heartbeat"`, emits a `retry` event
+   with `reason: "stale_heartbeat"`, and continues the relay. Same
+   no-hard-failure semantics as the old 270s path — the difference is
+   the trigger criterion (event-stream silence vs wall-clock).
 5. **Sibling reference** — §15 (Worker Team Mode) is the other v1.3.0
-   addition. Both sections landed in the same contract bump under M39
-   Wave 1 and both were motivated by the same bee-poc relay observation
-   (pid 69481, 45+ min). §15 attacks intra-iter speed (parallel domains);
-   §16 attacks inter-iter speed (warm-cache handoffs). Neither depends on
-   the other, and either can be rolled back independently if needed.
-6. **Cross-platform** — the 270 s budget is platform-agnostic. It depends
-   only on wall-clock time at the `spawnSync` boundary, which Node measures
-   identically on macOS, Linux, and Windows. M36's cross-platform
-   sleep-prevention matrix (macOS `caffeinate` / Linux `systemd-inhibit` /
-   Windows unsupported) stands unchanged — cache-warm pacing is orthogonal
-   to OS-level sleep prevention. On Windows, where sleep prevention is
-   unsupported, cache-warm pacing still applies whenever the host stays
-   awake.
+   addition and is unaffected by v1.4.0. §16a (Heartbeat Watchdog) is
+   the v1.4.0 supersession of the liveness-detection role §16 used to
+   carry.
+6. **Cross-platform** — the 1 h backstop and the 5 min heartbeat window
+   are both platform-agnostic. M36's cross-platform sleep-prevention
+   matrix (macOS `caffeinate` / Linux `systemd-inhibit` / Windows
+   unsupported) stands unchanged.
+
+---
+
+## 16a. Heartbeat Watchdog (v1.4.0)
+
+Added in v1.4.0 (M43) to replace the §16 wall-clock guillotine as the
+**primary stuck-worker detector**. Motivated by the observation that
+workers doing legitimate long-tail work (multi-domain waves, large
+partitions, Team-Mode subagent waits) can exceed 270 s without being
+stuck, while workers that ARE stuck frequently stop writing to the event
+stream within seconds — heartbeat staleness is a much sharper signal
+than wall-clock elapsed.
+
+### Design
+
+The supervisor observes the worker's liveness through the **event-stream
+append frequency** at `.gsd-t/events/YYYY-MM-DD.jsonl` (schema: see
+`unattended-event-stream-contract.md`). Every tool call, model turn, and
+phase boundary appends a line. If the file's mtime stops advancing for
+more than `staleHeartbeatMs`, the worker is almost certainly hung and
+SIGTERM is delivered.
+
+1. **Liveness signal** — file mtime of today's events file. Computed via
+   `fs.statSync(eventsPath).mtimeMs`. The reference time for staleness is
+   `max(mtimeMs, workerStartedAt)` so a stale events file inherited from
+   a prior worker iter cannot immediately kill a fresh worker.
+2. **Grace window** — if the events file does not yet exist (fresh
+   project, or worker hasn't written its first tool-call frame), the
+   worker is considered healthy until `workerStartedAt + staleHeartbeatMs`
+   has elapsed. After that, "absent events file" counts as stale.
+3. **Poll cadence** — `setInterval` inside `platformSpawnWorker`'s async
+   path, firing every `heartbeatPollMs` (default 60,000 = 1 min) for the
+   duration of the worker process lifetime. The interval is cleared on
+   worker exit or timeout.
+4. **Kill path** — when `checkHeartbeat()` returns `{stale: true}`, the
+   supervisor calls `child.kill("SIGTERM")`, the spawn promise resolves
+   with `{staleHeartbeat: true, heartbeatReason}`, and the main loop
+   maps the exit to code 125 with `lastExitReason="stale_heartbeat"`.
+   Heartbeat beats wall-clock on ties — if both fire in the same poll
+   tick, the heartbeat signal wins because it is the more specific
+   diagnosis.
+5. **Run-log diagnostic** — on code-125, `runMainLoop` prepends a
+   `[stale_heartbeat] iter=N threshold=Nms elapsed=Nms reason="..."` line
+   to the iter's run.log block (parallel to the existing `[worker_timeout]`
+   marker). Operators can `grep '[stale_heartbeat]'` for a timeline of
+   heartbeat firings without parsing state.json.
+
+### Configuration
+
+| Knob | Default | CLI flag | config.json key |
+|------|---------|----------|-----------------|
+| Staleness threshold | 300,000 ms (5 min) | `--stale-heartbeat-ms=N` | `staleHeartbeatMs` |
+| Poll cadence | 60,000 ms (1 min) | not exposed (internal) | not exposed |
+| Backstop timeout | 3,600,000 ms (1 h) | `--worker-timeout=N` | `workerTimeoutMs` |
+
+CLI > config.json > default, standard merge precedence.
+
+### State.json fields
+
+When a heartbeat fires, the supervisor writes:
+
+```json
+{
+  "lastExit": 125,
+  "lastExitReason": "stale_heartbeat",
+  "lastHeartbeatReason": "events mtime stale 312s > 300s threshold"
+}
+```
+
+`lastExitReason` is also written for other exit paths (`"clean"`,
+`"worker_timeout"`, `"exit_N"`) so watch-tick renderers can surface the
+cause without re-deriving it from the exit code.
+
+### Testability
+
+`bin/gsd-t-unattended-heartbeat.cjs` exports `checkHeartbeat({projectDir,
+workerStartedAt, staleHeartbeatMs, now, fsShim})` as a pure function so
+unit tests can inject a fake clock and fake filesystem. The spawn wrapper
+accepts `onHeartbeatCheck` as a callback hook so the main loop's
+heartbeat implementation can be substituted in tests.
+
+See `test/m43-heartbeat-watchdog.test.js` for the full coverage matrix.
 
 ---
 
@@ -477,6 +549,7 @@ changes are orthogonal and compose — a parallelized worker that exits within
 | 1.3.0 | 2026-04-17 | Added §15 Worker Team Mode (intra-wave parallelism, cap 15, sequential inter-wave) — worker now mirrors `/gsd-t-execute` Team Mode pattern to close the bee-poc 3–5× speed gap | m39-d3-parallel-exec |
 | 1.3.0 | 2026-04-17 | Added §16 Cache-Warm Pacing — worker timeout default lowered from 1 h to 270 s to preserve Anthropic's 5-min prompt-cache TTL across back-to-back worker handoffs; graceful degradation on timeout | m39-d4-cache-warm-pacing |
 | 1.3.1 | 2026-04-17 | §16 bullet 3 gains a v3.13.11 diagnostic tag: `runMainLoop` writes an explicit `[worker_timeout] iter=N budget=Nms elapsed=Nms` line to `run.log` when the watchdog fires, so timeout-induced cache misses surface in log tails without requiring state.json inspection | v3.13.11 (bee-poc hang triple-fix) |
+| 1.4.0 | 2026-04-21 | **M43 Heartbeat Watchdog**. Added §16a — events.jsonl mtime polled every 60s during each worker iter, SIGTERM on staleness > 5 min (default). Added exit code 125 (`stale-heartbeat`) and `state.lastExitReason` field. Raised `workerTimeoutMs` default from 270s to 1h (absolute backstop only). §16 (cache-warm pacing) retained as the inter-iter sleep invariant but no longer the worker-timeout rationale. New CLI flag `--stale-heartbeat-ms`; new config.json key `staleHeartbeatMs`. | M43 quick |
 
 ---
 

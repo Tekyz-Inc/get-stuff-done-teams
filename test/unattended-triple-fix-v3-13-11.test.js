@@ -61,7 +61,7 @@ function freshTmpProject() {
 // ─── Bug 1: supervisor watchdog on hung worker ─────────────────────────────
 
 describe("v3.13.11 Bug 1 — supervisor watchdog fires on hung worker", () => {
-  it("simulated timeout: lastExit=124, lastTick updated, worker_timeout in run.log", () => {
+  it("simulated timeout: lastExit=124, lastTick updated, worker_timeout in run.log", async () => {
     const tmp = freshTmpProject();
     try {
       // Stub "hung worker": shaped exactly like what platformSpawnWorker
@@ -81,7 +81,7 @@ describe("v3.13.11 Bug 1 — supervisor watchdog fires on hung worker", () => {
         };
       };
 
-      const result = SUP.doUnattended(
+      const result = await SUP.doUnattended(
         ["--project=" + tmp, "--max-iterations=2", "--worker-timeout=2000"],
         permissiveDeps({
           _spawnWorker: fakeSpawn,

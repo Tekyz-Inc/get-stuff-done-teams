@@ -55,7 +55,13 @@ const DEFAULTS = Object.freeze({
   maxIterations: 200,
   hours: 24,
   gutterNoProgressIters: 5,
-  workerTimeoutMs: 270000,
+  // Absolute backstop — raised from 270_000 to 3_600_000 in contract v1.1.0
+  // now that the heartbeat watchdog is the primary stuck-worker detector.
+  workerTimeoutMs: 3600000,
+  // Heartbeat watchdog threshold — events JSONL mtime must advance within
+  // this many ms or the worker is SIGTERM'd. Contract v1.1.0 §"Heartbeat
+  // Watchdog".
+  staleHeartbeatMs: 300000,
 });
 
 // ── Glob → regex helper ─────────────────────────────────────────────────────
@@ -110,6 +116,7 @@ function cloneDefaults() {
     hours: DEFAULTS.hours,
     gutterNoProgressIters: DEFAULTS.gutterNoProgressIters,
     workerTimeoutMs: DEFAULTS.workerTimeoutMs,
+    staleHeartbeatMs: DEFAULTS.staleHeartbeatMs,
   };
 }
 

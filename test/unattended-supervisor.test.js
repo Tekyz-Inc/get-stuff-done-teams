@@ -282,8 +282,8 @@ describe("M36 supervisor T1: finalizeState", () => {
 // ── 6. doUnattended dry-run ─────────────────────────────────────────────────
 
 describe("M36 supervisor T1: doUnattended dry-run", () => {
-  it("does NOT write PID or state.json and exits ok", () => {
-    const result = sup.doUnattended(
+  it("does NOT write PID or state.json and exits ok", async () => {
+    const result = await sup.doUnattended(
       [
         "--project=" + tmpDir,
         "--hours=1",
@@ -311,8 +311,8 @@ describe("M36 supervisor T1: doUnattended dry-run", () => {
 // ── 7. doUnattended real run ────────────────────────────────────────────────
 
 describe("M36 supervisor T1: doUnattended real run", () => {
-  it("creates runtime dir, writes PID, transitions to running", () => {
-    const result = sup.doUnattended(
+  it("creates runtime dir, writes PID, transitions to running", async () => {
+    const result = await sup.doUnattended(
       [
         "--project=" + tmpDir,
         "--hours=24",
@@ -360,7 +360,7 @@ describe("M36 supervisor T1: doUnattended real run", () => {
 // ── 9. Task 2: main loop + mapHeadlessExitCode integration ──────────────────
 
 describe("M36 supervisor T2: main loop — happy path", () => {
-  it("3-iteration relay reaches 'done' when milestone completes", () => {
+  it("3-iteration relay reaches 'done' when milestone completes", async () => {
     let iters = 0;
     const fakeSpawn = (state) => {
       iters = state.iter;
@@ -374,7 +374,7 @@ describe("M36 supervisor T2: main loop — happy path", () => {
     // Milestone is complete only after iter 3
     const fakeMilestone = (_projectDir, _id) => iters >= 3;
 
-    const result = sup.doUnattended(
+    const result = await sup.doUnattended(
       ["--project=" + tmpDir, "--hours=24", "--max-iterations=10"],
       permissiveDeps({ _spawnWorker: fakeSpawn, _isMilestoneComplete: fakeMilestone }),
     );
@@ -387,14 +387,14 @@ describe("M36 supervisor T2: main loop — happy path", () => {
 });
 
 describe("M36 supervisor T2: main loop — exit 4 unrecoverable", () => {
-  it("transitions to 'failed' on blocked-needs-human sentinel", () => {
+  it("transitions to 'failed' on blocked-needs-human sentinel", async () => {
     const fakeSpawn = () => ({
       status: 0,
       stdout: "blocked — needs human approval to proceed\n",
       stderr: "",
       signal: null,
     });
-    const result = sup.doUnattended(
+    const result = await sup.doUnattended(
       ["--project=" + tmpDir, "--max-iterations=10"],
       permissiveDeps({ _spawnWorker: fakeSpawn, _isMilestoneComplete: () => false }),
     );
@@ -405,14 +405,14 @@ describe("M36 supervisor T2: main loop — exit 4 unrecoverable", () => {
 });
 
 describe("M36 supervisor T2: main loop — exit 5 command-dispatch-failed", () => {
-  it("transitions to 'failed' on Unknown command sentinel", () => {
+  it("transitions to 'failed' on Unknown command sentinel", async () => {
     const fakeSpawn = () => ({
       status: 0,
       stdout: "Unknown command: /gsd-t-resume\n",
       stderr: "",
       signal: null,
     });
-    const result = sup.doUnattended(
+    const result = await sup.doUnattended(
       ["--project=" + tmpDir, "--max-iterations=10"],
       permissiveDeps({ _spawnWorker: fakeSpawn, _isMilestoneComplete: () => false }),
     );
@@ -423,14 +423,14 @@ describe("M36 supervisor T2: main loop — exit 5 command-dispatch-failed", () =
 });
 
 describe("M36 supervisor T2: main loop — timeout continues", () => {
-  it("records lastExit=124 and keeps looping until iter cap", () => {
+  it("records lastExit=124 and keeps looping until iter cap", async () => {
     let calls = 0;
     const fakeSpawn = () => {
       calls++;
       // Simulate spawnSync timeout: status=null, signal='SIGTERM'
       return { status: null, stdout: "", stderr: "", signal: "SIGTERM" };
     };
-    const result = sup.doUnattended(
+    const result = await sup.doUnattended(
       ["--project=" + tmpDir, "--max-iterations=3"],
       permissiveDeps({ _spawnWorker: fakeSpawn, _isMilestoneComplete: () => false }),
     );
@@ -447,7 +447,7 @@ describe("M36 supervisor T2: main loop — timeout continues", () => {
 });
 
 describe("M36 supervisor T2: main loop — run.log append format", () => {
-  it("appends '--- ITER n @ ISO exit=code ---' headers and worker output", () => {
+  it("appends '--- ITER n @ ISO exit=code ---' headers and worker output", async () => {
     const fakeSpawn = (state) => ({
       status: 0,
       stdout: `OUT-${state.iter}`,
@@ -461,7 +461,7 @@ describe("M36 supervisor T2: main loop — run.log append format", () => {
       return fakeSpawn(s);
     };
 
-    sup.doUnattended(
+    await sup.doUnattended(
       ["--project=" + tmpDir, "--max-iterations=5"],
       permissiveDeps({ _spawnWorker: spawn2, _isMilestoneComplete: fakeMilestone }),
     );
@@ -534,7 +534,7 @@ describe("M36 supervisor T2: isDone / stopRequested helpers", () => {
 // ── 10. Task 3: stop sentinel + finalize idempotency ───────────────────────
 
 describe("M36 supervisor T3: stop sentinel mid-loop", () => {
-  it("transitions to 'stopped' when sentinel appears between workers", () => {
+  it("transitions to 'stopped' when sentinel appears between workers", async () => {
     let calls = 0;
     // Stop sentinel appears after iter 2. The loop's pre-spawn stopCheck
     // should then halt without a 3rd spawn and transition to 'stopped'.
@@ -551,7 +551,7 @@ describe("M36 supervisor T3: stop sentinel mid-loop", () => {
       }
       return { status: 0, stdout: `iter ${state.iter} ok\n`, stderr: "", signal: null };
     };
-    const result = sup.doUnattended(
+    const result = await sup.doUnattended(
       ["--project=" + tmpDir, "--max-iterations=10"],
       permissiveDeps({ _spawnWorker: fakeSpawn, _isMilestoneComplete: () => false }),
     );
@@ -594,7 +594,7 @@ describe("M36 supervisor T3: cleanStaleStopSentinel", () => {
     assert.equal(logs.length, 0, "should not log when no sentinel");
   });
 
-  it("is auto-invoked by doUnattended so stale sentinels don't halt new runs", () => {
+  it("is auto-invoked by doUnattended so stale sentinels don't halt new runs", async () => {
     // Pre-place a stale sentinel; doUnattended must clean it before the
     // loop's stopCheck would otherwise halt iter 1 immediately.
     const dir = path.join(tmpDir, ".gsd-t", ".unattended");
@@ -607,7 +607,7 @@ describe("M36 supervisor T3: cleanStaleStopSentinel", () => {
       stderr: "",
       signal: null,
     });
-    const result = sup.doUnattended(
+    const result = await sup.doUnattended(
       ["--project=" + tmpDir, "--max-iterations=3"],
       permissiveDeps({ _spawnWorker: fakeSpawn, _isMilestoneComplete: (_p, _m) => true }),
     );
@@ -721,13 +721,13 @@ describe("M36 supervisor T1: status enum", () => {
 // ── 11. Task 4: safety rails + platform wiring ─────────────────────────────
 
 describe("M36 supervisor T4: pre-launch refusal — protected branch", () => {
-  it("returns exit 7 and does NOT write PID or state.json", () => {
+  it("returns exit 7 and does NOT write PID or state.json", async () => {
     // Fresh temp dir, no PID/state at start.
     const dir = path.join(tmpDir, ".gsd-t", ".unattended");
     assert.ok(!fs.existsSync(path.join(dir, "supervisor.pid")));
     assert.ok(!fs.existsSync(path.join(dir, "state.json")));
 
-    const result = sup.doUnattended(
+    const result = await sup.doUnattended(
       ["--project=" + tmpDir, "--max-iterations=3"],
       {
         _checkGitBranch: () => ({
@@ -761,11 +761,11 @@ describe("M36 supervisor T4: pre-launch refusal — protected branch", () => {
 });
 
 describe("M36 supervisor T4: dirty worktree auto-whitelists and proceeds", () => {
-  it("auto-whitelists dirty files and continues instead of refusing", () => {
+  it("auto-whitelists dirty files and continues instead of refusing", async () => {
     let savedConfig = null;
     let workerCalled = false;
 
-    const result = sup.doUnattended(
+    const result = await sup.doUnattended(
       ["--project=" + tmpDir, "--max-iterations=1"],
       {
         _checkGitBranch: () => ({ ok: true, branch: "feature/x" }),
@@ -791,8 +791,8 @@ describe("M36 supervisor T4: dirty worktree auto-whitelists and proceeds", () =>
     assert.ok(workerCalled, "supervisor should proceed to spawn workers after auto-whitelist");
   });
 
-  it("still refuses on non-file git errors (code 2)", () => {
-    const result = sup.doUnattended(
+  it("still refuses on non-file git errors (code 2)", async () => {
+    const result = await sup.doUnattended(
       ["--project=" + tmpDir, "--max-iterations=1"],
       {
         _checkGitBranch: () => ({ ok: true, branch: "feature/x" }),
@@ -815,7 +815,7 @@ describe("M36 supervisor T4: dirty worktree auto-whitelists and proceeds", () =>
 });
 
 describe("M36 supervisor T4: pre-worker hook — iteration cap halts loop", () => {
-  it("transitions to 'failed' with lastExit=6 when cap is hit mid-loop", () => {
+  it("transitions to 'failed' with lastExit=6 when cap is hit mid-loop", async () => {
     // Trick: fake checkIterationCap to refuse starting at iter=2.
     let calls = 0;
     const fakeIterCap = (state) => {
@@ -839,7 +839,7 @@ describe("M36 supervisor T4: pre-worker hook — iteration cap halts loop", () =
         signal: null,
       };
     };
-    const result = sup.doUnattended(
+    const result = await sup.doUnattended(
       ["--project=" + tmpDir, "--max-iterations=10"],
       permissiveDeps({
         _checkIterationCap: fakeIterCap,
@@ -854,7 +854,7 @@ describe("M36 supervisor T4: pre-worker hook — iteration cap halts loop", () =
 });
 
 describe("M36 supervisor T4: pre-worker hook — wall-clock cap halts loop", () => {
-  it("transitions to 'failed' with lastExit=6 when wall-clock cap fires", () => {
+  it("transitions to 'failed' with lastExit=6 when wall-clock cap fires", async () => {
     let calls = 0;
     let fired = false;
     // Wall-clock cap refuses on the second pre-worker check.
@@ -880,7 +880,7 @@ describe("M36 supervisor T4: pre-worker hook — wall-clock cap halts loop", () 
         signal: null,
       };
     };
-    const result = sup.doUnattended(
+    const result = await sup.doUnattended(
       ["--project=" + tmpDir, "--max-iterations=10"],
       permissiveDeps({
         _checkWallClockCap: fakeWallCap,
@@ -896,7 +896,7 @@ describe("M36 supervisor T4: pre-worker hook — wall-clock cap halts loop", () 
 });
 
 describe("M36 supervisor T4: post-worker hook — gutter detection halts loop", () => {
-  it("transitions to 'failed' with lastExit=6 on gutter detection", () => {
+  it("transitions to 'failed' with lastExit=6 on gutter detection", async () => {
     let gutterFired = false;
     const fakeGutter = () => {
       gutterFired = true;
@@ -914,7 +914,7 @@ describe("M36 supervisor T4: post-worker hook — gutter detection halts loop", 
       stderr: "",
       signal: null,
     });
-    const result = sup.doUnattended(
+    const result = await sup.doUnattended(
       ["--project=" + tmpDir, "--max-iterations=10"],
       permissiveDeps({
         _detectGutter: fakeGutter,
@@ -930,7 +930,7 @@ describe("M36 supervisor T4: post-worker hook — gutter detection halts loop", 
 });
 
 describe("M36 supervisor T4: post-worker hook — blocker sentinel halts loop", () => {
-  it("transitions to 'failed' with lastExit=6 on blocker sentinel", () => {
+  it("transitions to 'failed' with lastExit=6 on blocker sentinel", async () => {
     let blockerFired = false;
     const fakeBlocker = () => {
       blockerFired = true;
@@ -948,7 +948,7 @@ describe("M36 supervisor T4: post-worker hook — blocker sentinel halts loop", 
       stderr: "",
       signal: null,
     });
-    const result = sup.doUnattended(
+    const result = await sup.doUnattended(
       ["--project=" + tmpDir, "--max-iterations=10"],
       permissiveDeps({
         _detectBlockerSentinel: fakeBlocker,
@@ -964,7 +964,7 @@ describe("M36 supervisor T4: post-worker hook — blocker sentinel halts loop", 
 });
 
 describe("M36 supervisor T4: sleep prevention wired on init and released on finalize", () => {
-  it("stores handle from preventSleep and calls releaseSleep on terminal", () => {
+  it("stores handle from preventSleep and calls releaseSleep on terminal", async () => {
     const sleepCalls = { prevent: 0, release: 0, lastHandle: null };
     const fakePrevent = (reason) => {
       sleepCalls.prevent += 1;
@@ -980,7 +980,7 @@ describe("M36 supervisor T4: sleep prevention wired on init and released on fina
       stderr: "",
       signal: null,
     });
-    const result = sup.doUnattended(
+    const result = await sup.doUnattended(
       ["--project=" + tmpDir, "--max-iterations=3"],
       {
         _checkGitBranch: () => ({ ok: true, branch: "feature/sleep" }),
@@ -1004,9 +1004,9 @@ describe("M36 supervisor T4: sleep prevention wired on init and released on fina
 });
 
 describe("M36 supervisor T4: resolveClaudePath failure halts before PID write", () => {
-  it("returns exit 2 and does NOT write PID or state.json", () => {
+  it("returns exit 2 and does NOT write PID or state.json", async () => {
     const dir = path.join(tmpDir, ".gsd-t", ".unattended");
-    const result = sup.doUnattended(
+    const result = await sup.doUnattended(
       ["--project=" + tmpDir, "--max-iterations=3"],
       {
         _checkGitBranch: () => ({ ok: true, branch: "feature/x" }),
@@ -1034,7 +1034,7 @@ describe("M36 supervisor T4: resolveClaudePath failure halts before PID write", 
 });
 
 describe("M36 supervisor T4: notify fires on terminal transitions", () => {
-  it("invokes notify('Complete', …, 'success') on done", () => {
+  it("invokes notify('Complete', …, 'success') on done", async () => {
     const notifyCalls = [];
     const fakeNotify = (title, msg, level) => {
       notifyCalls.push({ title, msg, level });
@@ -1045,7 +1045,7 @@ describe("M36 supervisor T4: notify fires on terminal transitions", () => {
       stderr: "",
       signal: null,
     });
-    const result = sup.doUnattended(
+    const result = await sup.doUnattended(
       ["--project=" + tmpDir, "--max-iterations=3"],
       permissiveDeps({
         _notify: fakeNotify,
@@ -1078,14 +1078,14 @@ function _readEmittedEvents(projectDir) {
 }
 
 describe("M38 supervisor ES-T2: event emission — happy path", () => {
-  it("emits task_start before each spawn and task_complete after each success", () => {
+  it("emits task_start before each spawn and task_complete after each success", async () => {
     let iters = 0;
     const fakeSpawn = (state) => {
       iters = state.iter;
       return { status: 0, stdout: `iter ${state.iter} ok\n`, stderr: "", signal: null };
     };
     const fakeMilestone = () => iters >= 2;
-    sup.doUnattended(
+    await sup.doUnattended(
       ["--project=" + tmpDir, "--max-iterations=10"],
       permissiveDeps({ _spawnWorker: fakeSpawn, _isMilestoneComplete: fakeMilestone }),
     );
@@ -1108,14 +1108,14 @@ describe("M38 supervisor ES-T2: event emission — happy path", () => {
 });
 
 describe("M38 supervisor ES-T2: event emission — error on exit 4", () => {
-  it("emits error event with recoverable=false on unrecoverable blocker", () => {
+  it("emits error event with recoverable=false on unrecoverable blocker", async () => {
     const fakeSpawn = () => ({
       status: 0,
       stdout: "blocked — needs human approval to proceed\n",
       stderr: "",
       signal: null,
     });
-    sup.doUnattended(
+    await sup.doUnattended(
       ["--project=" + tmpDir, "--max-iterations=10"],
       permissiveDeps({ _spawnWorker: fakeSpawn, _isMilestoneComplete: () => false }),
     );
@@ -1129,9 +1129,9 @@ describe("M38 supervisor ES-T2: event emission — error on exit 4", () => {
 });
 
 describe("M38 supervisor ES-T2: event emission — retry on timeout", () => {
-  it("emits retry event with reason=timeout on each 124 exit that continues", () => {
+  it("emits retry event with reason=timeout on each 124 exit that continues", async () => {
     const fakeSpawn = () => ({ status: null, stdout: "", stderr: "", signal: "SIGTERM" });
-    sup.doUnattended(
+    await sup.doUnattended(
       ["--project=" + tmpDir, "--max-iterations=3"],
       permissiveDeps({ _spawnWorker: fakeSpawn, _isMilestoneComplete: () => false }),
     );
@@ -1147,14 +1147,14 @@ describe("M38 supervisor ES-T2: event emission — retry on timeout", () => {
 });
 
 describe("M38 supervisor ES-T2: event emission — retry on milestone-incomplete", () => {
-  it("emits retry with reason=milestone_incomplete between successful iters", () => {
+  it("emits retry with reason=milestone_incomplete between successful iters", async () => {
     let iters = 0;
     const fakeSpawn = (state) => {
       iters = state.iter;
       return { status: 0, stdout: `iter ${state.iter} ok\n`, stderr: "", signal: null };
     };
     const fakeMilestone = () => iters >= 3;
-    sup.doUnattended(
+    await sup.doUnattended(
       ["--project=" + tmpDir, "--max-iterations=10"],
       permissiveDeps({ _spawnWorker: fakeSpawn, _isMilestoneComplete: fakeMilestone }),
     );
