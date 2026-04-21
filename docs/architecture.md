@@ -433,6 +433,22 @@ Alert thresholds (inline display):
 
 `gsd-t-status` displays token breakdown by domain/task/phase. `gsd-t-visualize` consumes the same data for dashboard rendering.
 
+**Token Pipeline (M40 → M41 → M43 D3)**
+
+Canonical store: `.gsd-t/metrics/token-usage.jsonl` (append-only JSONL; schema in `.gsd-t/contracts/metrics-schema-contract.md` — v1 M40, v2 M43 additive).
+
+```
+producers ─┬─► .gsd-t/metrics/token-usage.jsonl ─┬─► gsd-t tokens                 (dashboard)
+           │                                     ├─► gsd-t tokens --regenerate-log (→ token-log.md)
+           │                                     └─► M43 D2 tool-attribution (planned)
+           ├── scripts/gsd-t-token-aggregator.js     (M40 worker stream-json)
+           ├── bin/gsd-t-token-capture.cjs           (M41 recordSpawnRow / captureSpawn)
+           ├── bin/gsd-t-token-backfill.cjs          (M41 D3 historical recovery)
+           └── M43 D1 in-session capture (hook or tee — branch pending)
+```
+
+Under v2, `.gsd-t/token-log.md` is a **regenerated view** (`gsd-t tokens --regenerate-log`), not hand-maintained. Wrapper still appends in real time for live visibility; regeneration is an explicit operator step that requires the JSONL to be fully backfilled first. Regeneration is idempotent and deterministic (sort order: `startedAt` asc → `session_id` asc → `turn_id` asc, numeric when both turn IDs parse).
+
 ### GSD 2 Tier 3 — Quality Culture & Design (M32 — complete v2.53.10)
 
 Three enhancements for project-level quality identity and design consistency.

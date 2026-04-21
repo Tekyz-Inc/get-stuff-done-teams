@@ -15,6 +15,7 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
 const backfill = require('../bin/gsd-t-token-backfill.cjs');
+const capture = require('../bin/gsd-t-token-capture.cjs');
 
 function makeTmp() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gsd-t-m41-bf-'));
@@ -221,7 +222,8 @@ test('matchAndWrite: matched envelope tags JSONL record with source=backfill', a
     const jsonl = fs.readFileSync(path.join(dir, '.gsd-t', 'metrics', 'token-usage.jsonl'), 'utf8');
     const rec = JSON.parse(jsonl.trim().split('\n')[0]);
     assert.equal(rec.source, 'backfill');
-    assert.equal(rec.schemaVersion, 1);
+    // Backfill writes through recordSpawnRow → uses current SCHEMA_VERSION (v2 is additive over v1)
+    assert.equal(rec.schemaVersion, capture.SCHEMA_VERSION);
     assert.equal(rec.inputTokens, 100);
     assert.equal(rec.outputTokens, 20);
   } finally { cleanup(dir); }

@@ -3967,7 +3967,7 @@ if (require.main === module) {
       break;
     }
     case "tokens": {
-      const tkOpts = { projectDir: process.cwd(), since: null, milestone: null, format: 'table' };
+      const tkOpts = { projectDir: process.cwd(), since: null, milestone: null, format: 'table', regenerateLog: false };
       for (let i = 1; i < args.length; i++) {
         const a = args[i];
         if (a === '--since' && args[i+1]) { tkOpts.since = args[++i]; }
@@ -3978,14 +3978,28 @@ if (require.main === module) {
         else if (a.startsWith('--format=')) { tkOpts.format = a.slice(9); }
         else if (a === '--project-dir' && args[i+1]) { tkOpts.projectDir = args[++i]; }
         else if (a.startsWith('--project-dir=')) { tkOpts.projectDir = a.slice(14); }
+        else if (a === '--regenerate-log') { tkOpts.regenerateLog = true; }
         else if (a === '--help' || a === '-h') {
           log('Usage: gsd-t tokens [--since YYYY-MM-DD] [--milestone Mxx] [--format table|json]');
+          log('       gsd-t tokens --regenerate-log   (rewrite .gsd-t/token-log.md from token-usage.jsonl)');
           process.exit(0);
         }
         else {
           error(`tokens: unknown arg: ${a}`);
           process.exit(2);
         }
+      }
+      if (tkOpts.regenerateLog) {
+        try {
+          const regen = require(path.join(__dirname, 'gsd-t-token-regenerate-log.cjs'));
+          const res = regen.regenerateLog({ projectDir: tkOpts.projectDir });
+          log(`Regenerated ${res.wrote} (${res.rowCount} row${res.rowCount === 1 ? '' : 's'})`);
+          process.exit(0);
+        } catch (e) {
+          error(e.message || String(e));
+          process.exit(3);
+        }
+        break;
       }
       if (tkOpts.format !== 'table' && tkOpts.format !== 'json') {
         error(`tokens: --format must be 'table' or 'json' (got: ${tkOpts.format})`);

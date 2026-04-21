@@ -165,7 +165,7 @@ test('recordSpawnRow: upgrades old header in place, preserves existing rows', ()
   } finally { cleanup(dir); }
 });
 
-test('recordSpawnRow: appends JSONL record with schemaVersion=1', () => {
+test('recordSpawnRow: appends JSONL record with current SCHEMA_VERSION', () => {
   const dir = makeTmpProject();
   try {
     capture.recordSpawnRow({
@@ -178,7 +178,8 @@ test('recordSpawnRow: appends JSONL record with schemaVersion=1', () => {
     const jsonl = fs.readFileSync(path.join(dir, '.gsd-t', 'metrics', 'token-usage.jsonl'), 'utf8');
     const line = jsonl.trim().split('\n')[0];
     const rec = JSON.parse(line);
-    assert.equal(rec.schemaVersion, 1);
+    // v2 is additive; a v1-shape caller still produces a valid row
+    assert.equal(rec.schemaVersion, capture.SCHEMA_VERSION);
     assert.equal(rec.command, 'c');
     assert.equal(rec.inputTokens, 10);
     assert.equal(rec.outputTokens, 5);

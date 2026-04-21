@@ -20,7 +20,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
 const NEW_HEADER = '| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Tokens | Notes | Domain | Task | Ctx% |';
 const NEW_SEP    = '|---|---|---|---|---|---|---|---|---|---|---|';
@@ -94,10 +94,10 @@ function _appendJsonlRecord(jsonlPath, record) {
   fs.appendFileSync(jsonlPath, JSON.stringify(record) + '\n');
 }
 
-function _buildJsonlRecord({ command, step, model, startedAt, endedAt, durationSec, usage, domain, task, notes, ctxPct, milestone, source }) {
+function _buildJsonlRecord({ command, step, model, startedAt, endedAt, durationSec, usage, domain, task, notes, ctxPct, milestone, source, sessionId, turnId, sessionType, toolAttribution, compactionPressure }) {
   const u = usage || {};
   const cost = (typeof u.total_cost_usd === 'number') ? u.total_cost_usd : (typeof u.cost_usd === 'number' ? u.cost_usd : null);
-  return {
+  const rec = {
     schemaVersion: SCHEMA_VERSION,
     ts: new Date().toISOString(),
     source: source || 'live',
@@ -119,6 +119,12 @@ function _buildJsonlRecord({ command, step, model, startedAt, endedAt, durationS
     notes: notes || null,
     hasUsage: !!usage,
   };
+  if (sessionId != null)  rec.session_id  = String(sessionId);
+  if (turnId != null)     rec.turn_id     = String(turnId);
+  if (sessionType != null) rec.sessionType = sessionType;
+  if (Array.isArray(toolAttribution) && toolAttribution.length) rec.tool_attribution = toolAttribution;
+  if (compactionPressure && typeof compactionPressure === 'object') rec.compaction_pressure = compactionPressure;
+  return rec;
 }
 
 function _inferMilestone(projectDir) {
@@ -163,6 +169,11 @@ function _parseStartedAt(s) {
  * @param {string|number} [opts.ctxPct]
  * @param {string} [opts.notes]
  * @param {'live'|'backfill'} [opts.source]
+ * @param {string} [opts.sessionId]          v2 — stable session identifier
+ * @param {string|number} [opts.turnId]      v2 — per-turn identifier within sessionId
+ * @param {'in-session'|'headless'} [opts.sessionType]  v2 — channel classifier
+ * @param {Array}  [opts.toolAttribution]    v2 — D2 joiner output; usually omitted by spawn callers
+ * @param {object} [opts.compactionPressure] v2 — D5 runway snapshot; usually omitted by spawn callers
  * @returns {{tokenLogPath: string, jsonlPath: string}}
  */
 function recordSpawnRow(opts) {
@@ -209,6 +220,11 @@ function recordSpawnRow(opts) {
     ctxPct: opts.ctxPct == null ? null : opts.ctxPct,
     milestone,
     source: opts.source || 'live',
+    sessionId: opts.sessionId,
+    turnId: opts.turnId,
+    sessionType: opts.sessionType,
+    toolAttribution: opts.toolAttribution,
+    compactionPressure: opts.compactionPressure,
   }));
 
   return { tokenLogPath, jsonlPath };
@@ -266,6 +282,11 @@ async function captureSpawn(opts) {
     task: opts.task,
     ctxPct,
     notes,
+    sessionId: opts.sessionId,
+    turnId: opts.turnId,
+    sessionType: opts.sessionType,
+    toolAttribution: opts.toolAttribution,
+    compactionPressure: opts.compactionPressure,
   });
 
   if (caught) throw caught;
