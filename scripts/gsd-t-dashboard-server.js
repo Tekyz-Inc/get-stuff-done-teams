@@ -124,8 +124,133 @@ function handleMetrics(req, res, projectDir) {
   res.end(JSON.stringify(data));
 }
 
-function startServer(port, eventsDir, htmlPath, projectDir) {
+// ── M42 D2 — per-spawn transcript routes ──────────────────────────────────────
+
+const TRANSCRIPTS_SUBDIR = path.join(".gsd-t", "transcripts");
+
+function transcriptsDir(projectDir) {
+  return path.join(projectDir, TRANSCRIPTS_SUBDIR);
+}
+
+function readTranscriptsIndex(projectDir) {
+  const p = path.join(transcriptsDir(projectDir), ".index.json");
+  try {
+    const raw = fs.readFileSync(p, "utf8");
+    const parsed = JSON.parse(raw);
+    if (parsed && Array.isArray(parsed.spawns)) return parsed;
+  } catch { /* no index yet */ }
+  return { spawns: [] };
+}
+
+function isValidSpawnId(id) {
+  return typeof id === "string" && /^[a-zA-Z0-9._-]+$/.test(id) && id.length <= 200;
+}
+
+function handleTranscriptsList(req, res, projectDir) {
+  const idx = readTranscriptsIndex(projectDir);
+  const sorted = idx.spawns
+    .slice()
+    .sort((a, b) => (Date.parse(b.startedAt) || 0) - (Date.parse(a.startedAt) || 0));
+  res.writeHead(200, { "Content-Type": "application/json" });
+  res.end(JSON.stringify({ spawns: sorted }));
+}
+
+function handleTranscriptPage(req, res, spawnId, transcriptHtmlPath) {
+  if (!isValidSpawnId(spawnId)) { res.writeHead(400); res.end("Invalid spawn id"); return; }
+  fs.readFile(transcriptHtmlPath, (err, data) => {
+    if (err) { res.writeHead(404); res.end("Transcript UI not found"); return; }
+    // Inject the spawn-id as a data attribute on <body> by string replacement;
+    // the HTML ships with a placeholder `data-spawn-id="__SPAWN_ID__"`.
+    const html = data.toString("utf8").replace(/__SPAWN_ID__/g, spawnId);
+    res.writeHead(200, { "Content-Type": "text/html" });
+    res.end(html);
+  });
+}
+
+function tailTranscriptFile(filePath, callback) {
+  let offset = 0;
+  let buf = "";
+  function processNewData() {
+    let stat;
+    try { stat = fs.statSync(filePath); } catch { return; }
+    if (stat.size <= offset) return;
+    const fd = fs.openSync(filePath, "r");
+    try {
+      const b = Buffer.alloc(stat.size - offset);
+      fs.readSync(fd, b, 0, b.length, offset);
+      buf += b.toString("utf8");
+      offset = stat.size;
+    } finally { fs.closeSync(fd); }
+    let nl;
+    while ((nl = buf.indexOf("\n")) >= 0) {
+      const line = buf.slice(0, nl);
+      buf = buf.slice(nl + 1);
+      if (line.length > 0) callback(line);
+    }
+  }
+  fs.watchFile(filePath, { interval: 500, persistent: true }, processNewData);
+  return () => fs.unwatchFile(filePath, processNewData);
+}
+
+function handleTranscriptStream(req, res, spawnId, projectDir) {
+  if (!isValidSpawnId(spawnId)) { res.writeHead(400); res.end("Invalid spawn id"); return; }
+  const filePath = path.join(transcriptsDir(projectDir), `${spawnId}.ndjson`);
+  let exists = true;
+  try { fs.accessSync(filePath); } catch { exists = false; }
+
+  res.writeHead(200, SSE_HEADERS);
+
+  // Replay: read the full file from byte 0 and send each line.
+  let replayedBytes = 0;
+  if (exists) {
+    try {
+      const full = fs.readFileSync(filePath, "utf8");
+      replayedBytes = Buffer.byteLength(full, "utf8");
+      full.split("\n").forEach((line) => {
+        if (line.length > 0) {
+          try { res.write("data: " + line + "\n\n"); } catch { /* gone */ }
+        }
+      });
+    } catch { /* empty transcript */ }
+  }
+
+  // Tail: from replayedBytes onward. We reuse the tailer, but seed offset
+  // with what we already replayed so we don't double-send.
+  let unwatchFile = null;
+  if (exists) {
+    let offset = replayedBytes;
+    let buf = "";
+    const processNewData = () => {
+      let stat;
+      try { stat = fs.statSync(filePath); } catch { return; }
+      if (stat.size <= offset) return;
+      const fd = fs.openSync(filePath, "r");
+      try {
+        const b = Buffer.alloc(stat.size - offset);
+        fs.readSync(fd, b, 0, b.length, offset);
+        buf += b.toString("utf8");
+        offset = stat.size;
+      } finally { fs.closeSync(fd); }
+      let nl;
+      while ((nl = buf.indexOf("\n")) >= 0) {
+        const line = buf.slice(0, nl);
+        buf = buf.slice(nl + 1);
+        if (line.length > 0) {
+          try { res.write("data: " + line + "\n\n"); } catch { /* gone */ }
+        }
+      }
+    };
+    fs.watchFile(filePath, { interval: 500, persistent: true }, processNewData);
+    unwatchFile = () => fs.unwatchFile(filePath, processNewData);
+  }
+
+  const timer = setInterval(() => { try { res.write(": keepalive\n\n"); } catch { clearInterval(timer); } }, KEEPALIVE_MS);
+  req.on("close", () => { clearInterval(timer); if (unwatchFile) unwatchFile(); });
+}
+
+function startServer(port, eventsDir, htmlPath, projectDir, transcriptHtmlPath) {
   const projDir = projectDir || path.resolve(eventsDir, "..", "..");
+  const tHtmlPath = transcriptHtmlPath || path.join(path.dirname(htmlPath), "gsd-t-transcript.html");
   const server = http.createServer((req, res) => {
     const url = req.url.split("?")[0];
     if (url === "/" || url === "") return handleRoot(req, res, htmlPath);
@@ -133,13 +258,33 @@ function startServer(port, eventsDir, htmlPath, projectDir) {
     if (url === "/metrics") return handleMetrics(req, res, projDir);
     if (url === "/ping") return handlePing(req, res, port);
     if (url === "/stop") return handleStop(req, res, server);
+    if (url === "/transcripts") return handleTranscriptsList(req, res, projDir);
+    // /transcript/:spawnId/stream — SSE tail of per-spawn ndjson
+    const streamMatch = url.match(/^\/transcript\/([^/]+)\/stream$/);
+    if (streamMatch) return handleTranscriptStream(req, res, decodeURIComponent(streamMatch[1]), projDir);
+    // /transcript/:spawnId — HTML viewer page
+    const pageMatch = url.match(/^\/transcript\/([^/]+)$/);
+    if (pageMatch) return handleTranscriptPage(req, res, decodeURIComponent(pageMatch[1]), tHtmlPath);
     res.writeHead(404); res.end("Not found");
   });
   server.listen(port);
   return { server, url: `http://localhost:${port}` };
 }
 
-module.exports = { startServer, tailEventsFile, readExistingEvents, parseEventLine, findEventsDir, readMetricsData };
+module.exports = {
+  startServer,
+  tailEventsFile,
+  readExistingEvents,
+  parseEventLine,
+  findEventsDir,
+  readMetricsData,
+  readTranscriptsIndex,
+  isValidSpawnId,
+  handleTranscriptsList,
+  handleTranscriptStream,
+  handleTranscriptPage,
+  transcriptsDir,
+};
 
 if (require.main === module) {
   const argv = process.argv.slice(2);
@@ -150,6 +295,7 @@ if (require.main === module) {
   const eventsDir = getArg("--events") || findEventsDir(projectDir);
   const pidFile = path.join(projectDir, ".gsd-t", "dashboard.pid");
   const htmlPath = path.join(__dirname, "gsd-t-dashboard.html");
+  const transcriptHtmlPath = path.join(__dirname, "gsd-t-transcript.html");
 
   if (hasFlag("--stop")) {
     try { const pid = parseInt(fs.readFileSync(pidFile, "utf8").trim(), 10); process.kill(pid); fs.unlinkSync(pidFile); }
@@ -163,7 +309,7 @@ if (require.main === module) {
     fs.writeFileSync(pidFile, String(child.pid));
     process.exit(0);
   }
-  const { server, url } = startServer(port, eventsDir, htmlPath);
+  const { server, url } = startServer(port, eventsDir, htmlPath, projectDir, transcriptHtmlPath);
   process.stdout.write("GSD-T Dashboard: " + url + "\n");
   function cleanup() { try { fs.unlinkSync(pidFile); } catch { /* ok */ } server.close(() => process.exit(0)); }
   process.on("SIGTERM", cleanup);

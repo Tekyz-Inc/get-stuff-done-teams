@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GSD-T Transcript</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --bg-raised: #161b22;
+      --bg-soft: #1f2937;
+      --fg: #c9d1d9;
+      --fg-dim: #8b949e;
+      --fg-xdim: #6e7681;
+      --accent: #58a6ff;
+      --accent-warm: #f0883e;
+      --border: #30363d;
+      --green: #3fb950;
+      --yellow: #d29922;
+      --red: #f85149;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--sans); font-size: 14px; line-height: 1.55; }
+    header { position: sticky; top: 0; z-index: 10; background: var(--bg-raised); border-bottom: 1px solid var(--border); padding: 10px 16px; display: flex; align-items: center; gap: 12px; }
+    header .title { font-weight: 600; }
+    header .spawn-id { font-family: var(--mono); color: var(--fg-dim); font-size: 12px; }
+    header .status { margin-left: auto; font-size: 12px; color: var(--fg-dim); }
+    header .status .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--yellow); margin-right: 6px; vertical-align: middle; }
+    header .status.connected .dot { background: var(--green); }
+    header .status.ended .dot { background: var(--fg-xdim); }
+    header .status.error .dot { background: var(--red); }
+
+    main { max-width: 960px; margin: 0 auto; padding: 16px; padding-bottom: 120px; }
+    .frame { margin: 8px 0; }
+    .frame.system { color: var(--fg-xdim); font-style: italic; font-size: 12px; padding: 2px 0; }
+    .frame.user { border-left: 3px solid var(--accent); padding: 6px 12px; background: var(--bg-raised); border-radius: 0 4px 4px 0; }
+    .frame.user .prefix { color: var(--accent); font-weight: 600; margin-right: 6px; }
+    .frame.assistant-text { font-family: var(--mono); white-space: pre-wrap; word-break: break-word; }
+    .frame.thinking { color: var(--fg-xdim); font-style: italic; font-size: 13px; padding: 4px 8px; border-left: 2px dashed var(--border); margin: 6px 0; }
+    .frame.thinking summary { cursor: pointer; color: var(--fg-dim); }
+    .frame.tool-use { margin: 8px 0; border: 1px solid var(--border); border-radius: 4px; background: var(--bg-raised); }
+    .frame.tool-use summary { padding: 8px 12px; cursor: pointer; color: var(--accent-warm); font-family: var(--mono); font-size: 13px; list-style: none; }
+    .frame.tool-use summary::before { content: "⎿ "; color: var(--fg-dim); }
+    .frame.tool-use[open] summary { border-bottom: 1px solid var(--border); }
+    .frame.tool-use pre { margin: 0; padding: 10px 12px; font-family: var(--mono); font-size: 12px; color: var(--fg); white-space: pre-wrap; word-break: break-word; overflow-x: auto; }
+    .frame.tool-result { margin: 4px 0 8px 24px; padding: 8px 12px; border-left: 2px solid var(--border); background: var(--bg-soft); border-radius: 0 4px 4px 0; }
+    .frame.tool-result pre { margin: 0; font-family: var(--mono); font-size: 12px; color: var(--fg-dim); white-space: pre-wrap; word-break: break-word; max-height: 240px; overflow: hidden; }
+    .frame.tool-result.expanded pre { max-height: none; }
+    .frame.tool-result .show-more { display: block; margin-top: 6px; color: var(--accent); cursor: pointer; font-size: 11px; font-family: var(--mono); }
+    .frame.raw { color: var(--fg-xdim); font-family: var(--mono); font-size: 11px; white-space: pre-wrap; padding: 2px 0; }
+    .frame.boundary { margin: 12px 0; padding: 8px 12px; background: var(--bg-soft); border-left: 3px solid var(--accent-warm); border-radius: 0 4px 4px 0; font-size: 13px; }
+    .frame.boundary.done { border-left-color: var(--green); }
+    .frame.boundary.failed { border-left-color: var(--red); }
+    .frame.boundary .label { color: var(--accent-warm); font-weight: 600; font-family: var(--mono); font-size: 12px; margin-right: 8px; }
+    .frame.boundary.done .label { color: var(--green); }
+    .frame.boundary.failed .label { color: var(--red); }
+    .frame.boundary .meta { color: var(--fg-dim); font-family: var(--mono); font-size: 12px; }
+
+    .jump-to-live { position: fixed; bottom: 24px; right: 24px; background: var(--accent); color: #fff; border: none; padding: 10px 16px; border-radius: 20px; cursor: pointer; font-size: 13px; font-family: var(--sans); font-weight: 600; box-shadow: 0 4px 12px rgba(0,0,0,0.4); display: none; z-index: 20; }
+    .jump-to-live.visible { display: block; }
+    .jump-to-live:hover { background: #79c0ff; }
+  </style>
+</head>
+<body data-spawn-id="__SPAWN_ID__">
+  <header>
+    <div class="title">GSD-T Transcript</div>
+    <div class="spawn-id" id="hdr-spawn-id"></div>
+    <div class="status" id="hdr-status"><span class="dot"></span><span class="label">connecting…</span></div>
+  </header>
+  <main id="stream"></main>
+  <button class="jump-to-live" id="jump-btn">↓ Jump to live</button>
+
+  <script>
+    (function () {
+      'use strict';
+
+      const spawnId = document.body.getAttribute('data-spawn-id');
+      document.getElementById('hdr-spawn-id').textContent = spawnId;
+
+      const stream = document.getElementById('stream');
+      const statusEl = document.getElementById('hdr-status');
+      const statusLabel = statusEl.querySelector('.label');
+      const jumpBtn = document.getElementById('jump-btn');
+
+      // Pair tool_result → tool_use by tool_use_id so the renderer can place
+      // the result next to the call even when they come as separate frames.
+      const toolUseById = new Map();
+
+      let autoScroll = true;
+
+      function setStatus(cls, text) {
+        statusEl.className = 'status ' + cls;
+        statusLabel.textContent = text;
+      }
+
+      function atBottom() {
+        return window.innerHeight + window.scrollY >= document.body.offsetHeight - 40;
+      }
+
+      window.addEventListener('scroll', () => {
+        if (atBottom()) { autoScroll = true; jumpBtn.classList.remove('visible'); }
+        else { autoScroll = false; jumpBtn.classList.add('visible'); }
+      });
+
+      jumpBtn.addEventListener('click', () => {
+        autoScroll = true;
+        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+        jumpBtn.classList.remove('visible');
+      });
+
+      function appendFrame(el) {
+        stream.appendChild(el);
+        if (autoScroll) {
+          requestAnimationFrame(() => window.scrollTo(0, document.body.scrollHeight));
+        }
+      }
+
+      function renderSystem(frame) {
+        const div = document.createElement('div');
+        div.className = 'frame system';
+        const sid = frame.session_id ? ' session=' + frame.session_id.slice(0, 8) : '';
+        const model = frame.model ? ' model=' + frame.model : '';
+        const subtype = frame.subtype ? ' ' + frame.subtype : '';
+        div.textContent = 'system' + subtype + sid + model;
+        appendFrame(div);
+      }
+
+      function renderUserMessage(content) {
+        const div = document.createElement('div');
+        div.className = 'frame user';
+        const p = document.createElement('span');
+        p.className = 'prefix';
+        p.textContent = '>';
+        div.appendChild(p);
+        const span = document.createElement('span');
+        span.textContent = typeof content === 'string' ? content : JSON.stringify(content);
+        div.appendChild(span);
+        appendFrame(div);
+      }
+
+      function renderAssistantText(text) {
+        const div = document.createElement('div');
+        div.className = 'frame assistant-text';
+        div.textContent = text;
+        appendFrame(div);
+      }
+
+      function renderThinking(text) {
+        const d = document.createElement('details');
+        d.className = 'frame thinking';
+        const s = document.createElement('summary');
+        s.textContent = '✻ Thinking (' + text.length + ' chars)';
+        d.appendChild(s);
+        const pre = document.createElement('div');
+        pre.textContent = text;
+        d.appendChild(pre);
+        appendFrame(d);
+      }
+
+      function toolUsePreview(input) {
+        if (!input || typeof input !== 'object') return '';
+        // Surface the most useful single arg: file_path, command, pattern, path, description
+        const keys = ['file_path', 'command', 'pattern', 'path', 'description', 'prompt'];
+        for (const k of keys) {
+          if (typeof input[k] === 'string') {
+            const v = input[k];
+            return k + '="' + (v.length > 80 ? v.slice(0, 77) + '…' : v) + '"';
+          }
+        }
+        const first = Object.keys(input)[0];
+        if (first) return first + '=…';
+        return '';
+      }
+
+      function renderToolUse(block) {
+        const d = document.createElement('details');
+        d.className = 'frame tool-use';
+        const s = document.createElement('summary');
+        s.textContent = block.name + '(' + toolUsePreview(block.input) + ')';
+        d.appendChild(s);
+        const pre = document.createElement('pre');
+        try { pre.textContent = JSON.stringify(block.input, null, 2); }
+        catch { pre.textContent = String(block.input); }
+        d.appendChild(pre);
+        toolUseById.set(block.id, { name: block.name, el: d });
+        appendFrame(d);
+      }
+
+      function renderToolResult(block) {
+        const div = document.createElement('div');
+        div.className = 'frame tool-result';
+        const pre = document.createElement('pre');
+        let text;
+        if (typeof block.content === 'string') text = block.content;
+        else if (Array.isArray(block.content)) {
+          text = block.content.map(c => typeof c === 'string' ? c : (c.text || JSON.stringify(c))).join('\n');
+        } else text = JSON.stringify(block.content || '');
+        pre.textContent = text;
+        div.appendChild(pre);
+        if (text.length > 800) {
+          const more = document.createElement('span');
+          more.className = 'show-more';
+          more.textContent = 'show more';
+          more.addEventListener('click', () => {
+            div.classList.toggle('expanded');
+            more.textContent = div.classList.contains('expanded') ? 'show less' : 'show more';
+          });
+          div.appendChild(more);
+        }
+        appendFrame(div);
+      }
+
+      function renderBoundary(frame) {
+        const div = document.createElement('div');
+        div.className = 'frame boundary ' + (frame.state || '');
+        const label = document.createElement('span');
+        label.className = 'label';
+        label.textContent = '▸ task ' + (frame.state || '?');
+        div.appendChild(label);
+        const meta = document.createElement('span');
+        meta.className = 'meta';
+        const bits = [];
+        if (frame.taskId) bits.push('id=' + frame.taskId);
+        if (frame.domain) bits.push('domain=' + frame.domain);
+        if (frame.wave != null) bits.push('wave=' + frame.wave);
+        if (frame.exitCode != null) bits.push('exit=' + frame.exitCode);
+        if (frame.durationMs != null) bits.push('duration=' + Math.round(frame.durationMs/1000) + 's');
+        meta.textContent = bits.join('  ');
+        div.appendChild(meta);
+        appendFrame(div);
+      }
+
+      function renderRaw(line) {
+        const div = document.createElement('div');
+        div.className = 'frame raw';
+        div.textContent = line;
+        appendFrame(div);
+      }
+
+      function renderFrame(frame) {
+        if (!frame || typeof frame !== 'object') return;
+        const type = frame.type;
+        if (type === 'system') { renderSystem(frame); return; }
+        if (type === 'task-boundary') { renderBoundary(frame); return; }
+        if (type === 'raw') { renderRaw(frame.line || ''); return; }
+        if (type === 'assistant' && frame.message && Array.isArray(frame.message.content)) {
+          for (const b of frame.message.content) {
+            if (b.type === 'text') renderAssistantText(b.text || '');
+            else if (b.type === 'thinking') renderThinking(b.thinking || b.text || '');
+            else if (b.type === 'tool_use') renderToolUse(b);
+            else renderRaw(JSON.stringify(b));
+          }
+          return;
+        }
+        if (type === 'user' && frame.message && Array.isArray(frame.message.content)) {
+          for (const b of frame.message.content) {
+            if (b.type === 'tool_result') renderToolResult(b);
+            else if (b.type === 'text') renderUserMessage(b.text || '');
+            else renderRaw(JSON.stringify(b));
+          }
+          return;
+        }
+        if (type === 'user' && typeof frame.message === 'string') {
+          renderUserMessage(frame.message);
+          return;
+        }
+        if (type === 'result') {
+          const d = document.createElement('div');
+          d.className = 'frame system';
+          d.textContent = 'result subtype=' + (frame.subtype || '?') + ' duration=' + (frame.duration_ms || 0) + 'ms';
+          appendFrame(d);
+          return;
+        }
+        renderRaw(JSON.stringify(frame));
+      }
+
+      const src = new EventSource('/transcript/' + encodeURIComponent(spawnId) + '/stream');
+      src.onopen = () => setStatus('connected', 'live');
+      src.onerror = () => setStatus('error', 'disconnected');
+      src.onmessage = (ev) => {
+        if (!ev.data) return;
+        try { renderFrame(JSON.parse(ev.data)); }
+        catch { renderRaw(ev.data); }
+      };
+    })();
+  </script>
+</body>
+</html>
