@@ -26,6 +26,11 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:12
 .status.wait{background:var(--yellow-bg);border-color:var(--yellow);color:var(--yellow);}
 .dot{width:6px;height:6px;border-radius:50%;background:currentColor;animation:pdot 1.5s ease-in-out infinite;}
 @keyframes pdot{0%,100%{opacity:1}50%{opacity:.3}}
+.livestream-btn{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:4px;
+  background:var(--blue-bg);border:1px solid var(--blue);color:var(--blue);text-decoration:none;
+  font-size:10px;font-weight:500;font-family:var(--font);cursor:pointer;transition:opacity .15s;}
+.livestream-btn:hover{opacity:.85;}
+.livestream-btn.disabled{background:transparent;border-color:var(--border);color:var(--muted);cursor:not-allowed;pointer-events:none;}
 .hright{margin-left:auto;color:var(--muted);font-size:11px;}.main{display:flex;flex:1;overflow:hidden;}
 .garea{flex:1;position:relative;background:var(--bg);}.rfwrap{width:100%;height:100%;}
 .react-flow__background{background:var(--bg);}.react-flow__node{font-family:var(--font);font-size:11px;}
@@ -66,6 +71,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:12
 <div class="hdr">
   <span class="logo">GSD-T Agent Dashboard</span>
   <div id="status" class="status wait"><span class="dot"></span><span id="status-txt">Connecting...</span></div>
+  <a id="livestream-btn" class="livestream-btn disabled" href="#" title="Open the latest live spawn transcript">▶ Live Stream</a>
   <div class="hright"><span id="ev-count">0 events</span></div>
 </div>
 <div class="main">
@@ -256,6 +262,30 @@ ReactDOM.render(React.createElement(Dashboard),document.getElementById('rf-root'
     }).join('');
   }
   fetchMetrics();setInterval(fetchMetrics,30000);
+})();
+(function(){
+  const btn=document.getElementById('livestream-btn');
+  if(!btn)return;
+  function pickLatest(spawns){
+    if(!Array.isArray(spawns)||spawns.length===0)return null;
+    const live=spawns.filter(s=>s.status&&!['done','stopped','failed','crashed'].includes(s.status));
+    const pool=live.length?live:spawns;
+    return pool.slice().sort((a,b)=>(Date.parse(b.startedAt)||0)-(Date.parse(a.startedAt)||0))[0];
+  }
+  function refresh(){
+    fetch(`http://localhost:${PORT}/transcripts`,{cache:'no-store'}).then(r=>r.ok?r.json():null).then(d=>{
+      const latest=d&&pickLatest(d.spawns);
+      if(latest){
+        btn.href=`/transcript/${encodeURIComponent(latest.spawnId)}`;
+        btn.classList.remove('disabled');
+        const live=latest.status&&!['done','stopped','failed','crashed'].includes(latest.status);
+        btn.textContent=(live?'▶ Live Stream':'▶ Latest Transcript')+` · ${latest.spawnId.slice(0,10)}`;
+      }else{
+        btn.href='#';btn.classList.add('disabled');btn.textContent='▶ Live Stream (no spawns yet)';
+      }
+    }).catch(()=>{});
+  }
+  refresh();setInterval(refresh,10000);
 })();
 </script>
 </body>

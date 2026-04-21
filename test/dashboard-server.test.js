@@ -213,6 +213,26 @@ describe("startServer", () => {
       req.on("error", () => { /* expected on destroy */ });
     });
   });
+
+  it("GET / on the shipped dashboard.html exposes the Live Stream button wired to /transcripts", (t, done) => {
+    const port = 47204;
+    const eventsDir = path.join(tmpDir, "srv-livestream-events");
+    fs.mkdirSync(eventsDir, { recursive: true });
+    const realHtml = path.join(__dirname, "..", "scripts", "gsd-t-dashboard.html");
+    const { server } = startServer(port, eventsDir, realHtml);
+    http.get(`http://localhost:${port}/`, (res) => {
+      let body = "";
+      res.on("data", (chunk) => { body += chunk; });
+      res.on("end", () => {
+        assert.equal(res.statusCode, 200, "GET / should return 200 when html exists");
+        assert.match(body, /id="livestream-btn"/, "button anchor must be present");
+        assert.match(body, /class="livestream-btn[^"]*disabled[^"]*"/, "button starts disabled until /transcripts resolves");
+        assert.match(body, /\/transcripts/, "button JS must reference the /transcripts endpoint");
+        assert.match(body, /\/transcript\/\$\{encodeURIComponent\(latest\.spawnId\)\}/, "button must navigate to /transcript/:spawnId");
+        server.close(done);
+      });
+    }).on("error", (err) => { server.close(); done(err); });
+  });
 });
 
 // ─── tailEventsFile ───────────────────────────────────────────────────────────
