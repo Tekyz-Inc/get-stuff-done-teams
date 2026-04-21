@@ -433,14 +433,15 @@ Alert thresholds (inline display):
 
 `gsd-t-status` displays token breakdown by domain/task/phase. `gsd-t-visualize` consumes the same data for dashboard rendering.
 
-**Token Pipeline (M40 → M41 → M43 D3)**
+**Token Pipeline (M40 → M41 → M43 D3 → M43 D2)**
 
 Canonical store: `.gsd-t/metrics/token-usage.jsonl` (append-only JSONL; schema in `.gsd-t/contracts/metrics-schema-contract.md` — v1 M40, v2 M43 additive).
 
 ```
 producers ─┬─► .gsd-t/metrics/token-usage.jsonl ─┬─► gsd-t tokens                 (dashboard)
            │                                     ├─► gsd-t tokens --regenerate-log (→ token-log.md)
-           │                                     └─► M43 D2 tool-attribution (planned)
+           │                                     ├─► gsd-t tokens --show-tool-costs (adds D2 section)
+           │                                     └─► gsd-t tool-cost (M43 D2)
            ├── scripts/gsd-t-token-aggregator.js     (M40 worker stream-json)
            ├── bin/gsd-t-token-capture.cjs           (M41 recordSpawnRow / captureSpawn)
            ├── bin/gsd-t-token-backfill.cjs          (M41 D3 historical recovery)
@@ -448,6 +449,27 @@ producers ─┬─► .gsd-t/metrics/token-usage.jsonl ─┬─► gsd-t token
 ```
 
 Under v2, `.gsd-t/token-log.md` is a **regenerated view** (`gsd-t tokens --regenerate-log`), not hand-maintained. Wrapper still appends in real time for live visibility; regeneration is an explicit operator step that requires the JSONL to be fully backfilled first. Regeneration is idempotent and deterministic (sort order: `startedAt` asc → `session_id` asc → `turn_id` asc, numeric when both turn IDs parse).
+
+**Per-Tool Attribution (M43 D2)**
+
+`bin/gsd-t-tool-attribution.cjs` + `bin/gsd-t-tool-cost.cjs` + `gsd-t tool-cost` CLI join per-turn usage rows with tool-call events and attribute each turn's tokens across the tools called in that turn. Contract: `.gsd-t/contracts/tool-attribution-contract.md` v1.0.0 defines the output-byte ratio algorithm with four tie-breakers (zero-byte turn → equal split, missing tool_result → zero weight flagged, no tool calls → no-tool bucket, null turn tokens → skipped).
+
+```
+.gsd-t/metrics/token-usage.jsonl ─┐
+                                  ├─► joinTurnsAndEvents (session_id + ts window)
+.gsd-t/events/YYYY-MM-DD.jsonl ───┘            │
+                                               ▼
+                                    attributeTurn → attributions[]
+                                               │
+                                               ▼
+                             aggregateByTool / aggregateByCommand / aggregateByDomain
+                                               │
+                                               ▼
+                                         gsd-t tool-cost CLI
+                                  (table / json, --group-by, --since, --milestone)
+```
+
+Zero-dep, sync filesystem I/O. Perf gate: 3k turns × 30k events join+aggregate in <3s (measured ~30ms on a dev laptop). The current event schema does not carry `tool_result` bytes, so the zero-byte tie-breaker fires and tools-in-turn split equally. A future event-schema extension that records bytes will activate the ratio with no library change.
 
 ### GSD 2 Tier 3 — Quality Culture & Design (M32 — complete v2.53.10)
 

@@ -307,12 +307,47 @@ function aggregateSync(opts) {
   return agg;
 }
 
+/**
+ * Render a "Top 10 tools by cost" section by invoking the D2 attribution
+ * library and its CLI renderer. Used by `gsd-t tokens --show-tool-costs`.
+ *
+ * @param {object} opts
+ * @param {string} opts.projectDir
+ * @param {string} [opts.since]
+ * @param {string} [opts.milestone]
+ * @param {'table'|'json'} [opts.format]
+ * @returns {string} rendered section (multi-line string)
+ */
+function renderToolCostsSection(opts) {
+  const projectDir = opts.projectDir || '.';
+  const toolCost = require('./gsd-t-tool-cost.cjs');
+  const attribution = require('./gsd-t-tool-attribution.cjs');
+  const turnsPath = path.join(projectDir, '.gsd-t', 'metrics', 'token-usage.jsonl');
+  const eventsGlob = path.join(projectDir, '.gsd-t', 'events');
+  if (!fs.existsSync(turnsPath)) {
+    return '── Top 10 tools by cost ──\n  (no data)';
+  }
+  const joined = attribution.joinTurnsAndEvents({
+    turnsPath,
+    eventsGlob,
+    since: opts.since || undefined,
+    milestone: opts.milestone || undefined,
+  });
+  const agg = attribution.aggregateByTool(joined).slice(0, 10);
+  if (opts.format === 'json') {
+    return '\n── Top 10 tools by cost (JSON) ──\n' + agg.map((r) => JSON.stringify(r)).join('\n');
+  }
+  return '\n── Top 10 tools by cost ──\n' +
+    toolCost.renderTable(agg, { groupBy: 'tool', since: opts.since, milestone: opts.milestone });
+}
+
 module.exports = {
   aggregate,
   aggregateSync,
   renderTable,
   renderJson,
   renderStatusBlock,
+  renderToolCostsSection,
   _safeParse,
   _day,
 };

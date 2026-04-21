@@ -3716,6 +3716,7 @@ function showHelp() {
   log(`  ${CYAN}benchmark-orchestrator${RESET} M40 speed gate — compares orchestrator vs in-session wall-clock`);
   log(`  ${CYAN}stream-feed${RESET}    Localhost stream-json watcher (start|status|stop) — M40 D4`);
   log(`  ${CYAN}design-build${RESET}   Deterministic design→code pipeline (elements → widgets → pages)`);
+  log(`  ${CYAN}tool-cost${RESET}      Per-tool token/cost attribution (M43 D2) — group-by tool|command|domain`);
   log(`  ${CYAN}help${RESET}           Show this help\n`);
   log(`${BOLD}Examples:${RESET}`);
   log(`  ${DIM}$${RESET} npx @tekyzinc/gsd-t install`);
@@ -3967,7 +3968,7 @@ if (require.main === module) {
       break;
     }
     case "tokens": {
-      const tkOpts = { projectDir: process.cwd(), since: null, milestone: null, format: 'table', regenerateLog: false };
+      const tkOpts = { projectDir: process.cwd(), since: null, milestone: null, format: 'table', regenerateLog: false, showToolCosts: false };
       for (let i = 1; i < args.length; i++) {
         const a = args[i];
         if (a === '--since' && args[i+1]) { tkOpts.since = args[++i]; }
@@ -3979,8 +3980,9 @@ if (require.main === module) {
         else if (a === '--project-dir' && args[i+1]) { tkOpts.projectDir = args[++i]; }
         else if (a.startsWith('--project-dir=')) { tkOpts.projectDir = a.slice(14); }
         else if (a === '--regenerate-log') { tkOpts.regenerateLog = true; }
+        else if (a === '--show-tool-costs') { tkOpts.showToolCosts = true; }
         else if (a === '--help' || a === '-h') {
-          log('Usage: gsd-t tokens [--since YYYY-MM-DD] [--milestone Mxx] [--format table|json]');
+          log('Usage: gsd-t tokens [--since YYYY-MM-DD] [--milestone Mxx] [--format table|json] [--show-tool-costs]');
           log('       gsd-t tokens --regenerate-log   (rewrite .gsd-t/token-log.md from token-usage.jsonl)');
           process.exit(0);
         }
@@ -4008,7 +4010,22 @@ if (require.main === module) {
       const dashboard = require(path.join(__dirname, 'gsd-t-token-dashboard.cjs'));
       dashboard.aggregate(tkOpts)
         .then((agg) => {
-          log(tkOpts.format === 'json' ? dashboard.renderJson(agg) : dashboard.renderTable(agg));
+          const baseOut = tkOpts.format === 'json' ? dashboard.renderJson(agg) : dashboard.renderTable(agg);
+          let out = baseOut;
+          if (tkOpts.showToolCosts) {
+            try {
+              out = out + '\n' + dashboard.renderToolCostsSection({
+                projectDir: tkOpts.projectDir,
+                since: tkOpts.since,
+                milestone: tkOpts.milestone,
+                format: tkOpts.format,
+              });
+            } catch (e) {
+              // Non-fatal: tool-cost section failure doesn't break primary output.
+              out = out + '\n── Top 10 tools by cost ──\n  (tool-cost section unavailable: ' + (e.message || String(e)) + ')';
+            }
+          }
+          log(out);
           process.exit(0);
         })
         .catch((e) => { error(e.message || String(e)); process.exit(3); });
@@ -4017,6 +4034,11 @@ if (require.main === module) {
     case "design-build": {
       const orchestrator = require("./design-orchestrator.js");
       orchestrator.run(args.slice(1)).catch(e => { console.error(e); process.exit(1); });
+      break;
+    }
+    case "tool-cost": {
+      const toolCost = require(path.join(__dirname, 'gsd-t-tool-cost.cjs'));
+      process.exit(toolCost.run(args.slice(1)));
       break;
     }
     case "scan": {
