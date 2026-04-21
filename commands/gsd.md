@@ -218,4 +218,44 @@ I'll route to the right GSD-T command — or just think out loud with you
 if you're still figuring things out (no command spawn).
 ```
 
+## Step 5: Dialog-Channel Growth Warning (M43 D5)
+
+After you've finished your response text (routing header + any conversational body + any command invocation), check whether dialog growth is trending toward `/compact` and, if so, append a one-line warning footer. This is a pure read/warn signal — it never refuses, never reroutes, never blocks.
+
+### When to check
+
+- Always — every router turn ends with this check. Cost is a single JSONL read of `.gsd-t/metrics/token-usage.jsonl`.
+
+### How to check
+
+Run the following (substitute the current session id; `$CLAUDE_SESSION_ID` works in most shells, otherwise fall back to the most recent `sessionType: "in-session"` session in the sink):
+
+```
+node -e "
+const { estimateDialogGrowth } = require('./bin/runway-estimator.cjs');
+const r = estimateDialogGrowth({
+  projectDir: '.',
+  sessionId: process.env.CLAUDE_SESSION_ID || '',
+});
+if (r.shouldWarn) {
+  const n = r.predicted_turns_to_compact;
+  const k = r.k;
+  const d = Math.round(r.median_delta);
+  console.log('> ⚠  Dialog pressure: ~' + n + ' turns to /compact (last K=' + k + ' turns, growth ~' + d + '/turn).');
+  console.log('> Consider spawning the next action detached (\`/gsd ... --detach\`) or running \`/compact\` now.');
+}
+"
+```
+
+### What to emit
+
+If the node call prints nothing (growth flat, insufficient history, no session, etc.), emit nothing. Otherwise append the printed block verbatim as the last lines of your response. It MUST render as a blockquote — two lines, starting with `> ⚠`. Never reformat it, never prepend explanation, never turn it into a modal or a `/clear` command.
+
+### What NOT to do
+
+- Do NOT refuse or defer the user's request based on this signal.
+- Do NOT silently route to a different command because of growth.
+- Do NOT emit the warning more than once per turn.
+- Do NOT write to any file from this step — it is pure read + footer print.
+
 $ARGUMENTS

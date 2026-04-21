@@ -1,11 +1,12 @@
 # Contract: Context Meter
 
-## Version: 1.3.0
+## Version: 1.4.0
 ## Status: ACTIVE
-## Owner: m38-meter-reduction domain
-## Consumers: context-meter-hook (reads config), token-budget (reads state file), installer-integration (installs hook, validates config), orchestrator (reads threshold band to trigger silent headless handoff)
+## Owner: m38-meter-reduction domain (core); m43-d5-dialog-channel-meter (§Dialog Growth Meter)
+## Consumers: context-meter-hook (reads config), token-budget (reads state file), installer-integration (installs hook, validates config), orchestrator (reads threshold band to trigger silent headless handoff), `/gsd` router (reads dialog growth signal for end-of-turn footer)
 
 ## Changelog
+- **v1.4.0** (2026-04-21) — **Dialog Growth Meter** (M43 D5). Adds §Dialog Growth Meter subsection: `bin/runway-estimator.cjs::estimateDialogGrowth` surfaces a router-only one-line "~N turns to `/compact`" warning when median-of-deltas turn-over-turn growth predicts the pre-auto-compact ceiling within 5 turns. Pure read/warn — never refuses, never reroutes. Consumed by `commands/gsd.md` Step 5. Additive change; existing consumers and API surface unaffected.
 - **v1.3.0** (2026-04-16) — **Meter Reduction** (M38). Collapses three-band model to single-band: `normal` and `threshold` only. Deletes `warn`, `stop`, `downgrade`, `conserve`, `dead-meter`, `stale` bands. Deletes `getDegradationActions`. Deletes Universal Auto-Pause MANDATORY STOP banner in `additionalContext` — replaced with silent marker consumed by the orchestrator to trigger `autoSpawnHeadless()` on the next subagent spawn. Deletes resume-time health check (Step 0.6). Deletes `deadReason` field from state and gate return. Rationale: M37's elevation was the right symptom fix but wrong enforcement layer — M38 moves overflow prevention into structure (headless-by-default) instead of runtime banners Claude routinely ignored. See M38 milestone notes.
 - **v1.2.0** (2026-04-16) — [SUPERSEDED] Universal Auto-Pause (M37). Made `additionalContext` a multi-line MANDATORY STOP. Removed in v1.3.0.
 - **v1.1.0** (2026-04-15) — [SUPERSEDED] Added `stale` band and resume-time health check. Removed in v1.3.0.
@@ -213,7 +214,85 @@ There are no intermediate bands, no dead-meter state, no stale band, no special 
 ## Migration note for downstream projects
 
 On `gsd-t version-update-all`:
-- Template `.gsd-t/contracts/context-meter-contract.md` overwritten to v1.3.0.
+- Template `.gsd-t/contracts/context-meter-contract.md` overwritten to v1.4.0.
 - Existing state files require no migration (backward-compatible read).
 - Existing config files require no migration (unused fields ignored).
 - Command file deletions propagate automatically via template overwrite in the same update pass.
+
+---
+
+## Dialog Growth Meter (v1.4.0, M43 D5)
+
+The primary context meter above measures the **in-session Claude Code context window** via transcript parsing (PostToolUse hook). The dialog growth meter added in v1.4.0 measures a different and narrower signal: **turn-over-turn token growth in the dialog channel**, sourced from the canonical per-turn usage sink that M43 D1 writes.
+
+Under M43's channel-separation model, the in-session channel carries only the `/gsd` router dialog; every tool-using command spawns. The dialog growth meter exists to warn the operator when the router conversation itself is trending toward `/compact`, so they can `/clear` or wrap the exchange deliberately rather than being silently compacted mid-thought.
+
+### Module: `bin/runway-estimator.cjs`
+
+```javascript
+/**
+ * Read .gsd-t/metrics/token-usage.jsonl, filter to rows with
+ *   sessionType: "in-session" AND session_id === opts.sessionId,
+ * sort by timestamp, take last K turns, compute median of turn-over-turn
+ * input_tokens deltas, predict turns-to-/compact given cap × 0.92 headroom.
+ *
+ * Pure read/warn. Never refuses, never reroutes, never writes state.
+ *
+ * @param {object} opts
+ * @param {string} opts.projectDir
+ * @param {string} opts.sessionId                required
+ * @param {number} [opts.k]                      default 5
+ * @param {number} [opts.modelContextCap]        default 200000
+ * @param {number} [opts.warnThresholdTurns]     default 5
+ * @returns {{
+ *   shouldWarn: boolean,
+ *   slope: number,
+ *   median_delta: number,
+ *   latest_input_tokens: number,
+ *   predicted_turns_to_compact: number,  // Infinity when slope <= 0
+ *   k: number,
+ *   history_len: number,
+ *   reason?: 'missing_session_id'|'no_rows'|'insufficient_history'
+ * }}
+ */
+function estimateDialogGrowth(opts)
+```
+
+### Semantics
+
+| Aspect | Rule |
+|--------|------|
+| **Input source** | `.gsd-t/metrics/token-usage.jsonl` (schema v2, D3). Rows filtered to `sessionType: "in-session"` + matching `session_id`. |
+| **Ordering** | By `ts` ascending; tie-break on `turn_id` lexicographic. |
+| **Window** | Last K turns (default 5). |
+| **Growth metric** | Median of K-1 deltas of `inputTokens` between consecutive turns. Outlier-resistant — a single spike does not dominate. |
+| **Prediction** | `predicted_turns_to_compact = ceil((modelContextCap × 0.92 − latest_input_tokens) / slope)` when `slope > 0`. The `× 0.92` reflects Claude Code's pre-auto-compact headroom (~8% before the model window fills). |
+| **Warn threshold** | `shouldWarn: true` when `predicted_turns_to_compact ≤ warnThresholdTurns` (default 5). |
+| **Insufficient history** | Fewer than 3 in-session turns for the session → `{ shouldWarn: false, reason: 'insufficient_history' }`. No false alarms on cold-start. |
+| **No rows / missing file** | `{ shouldWarn: false, reason: 'no_rows' }`. Missing file is a supported state, not an error. |
+| **Missing session id** | `{ shouldWarn: false, reason: 'missing_session_id' }`. |
+| **Zero / negative slope** | `predicted_turns_to_compact: Infinity`, `shouldWarn: false`. |
+
+### Consumer: `commands/gsd.md` Step 5
+
+The router appends a two-line blockquote at the end of its response when `shouldWarn: true`:
+
+```
+> ⚠  Dialog pressure: ~{N} turns to /compact (last K={K} turns, growth ~{delta}/turn).
+> Consider spawning the next action detached (`/gsd ... --detach`) or running `/compact` now.
+```
+
+The router emits nothing when `shouldWarn: false` (the overwhelmingly common case). The block is advisory only — routing/classification decisions are unchanged.
+
+### Rules
+
+1. **Read-only, never writes**: the dialog growth meter does not mutate state. No new state file, no log, no side-effect in the sink.
+2. **Never refuses, never reroutes**: under always-headless, there is nothing to reroute to; the only meaningful action is "tell the operator." The router keeps routing exactly as Step 2/2.5 dictate.
+3. **Session-scoped**: rows from other `session_id` values are ignored. Cross-session aggregation is explicitly out of scope — the operator cares about *this* conversation.
+4. **Dialog channel only**: rows with `sessionType !== "in-session"` are filtered out. Headless spawn usage is observed via the dashboard, not this meter.
+5. **Additive to the core meter**: the PostToolUse-hook context meter above is unchanged. Both meters may be consulted independently; they measure different things.
+
+### Why this is not a circuit breaker
+
+The original M43 D5 sketch was a compaction-pressure circuit breaker that would refuse to start in-session commands when growth trended toward `/compact`. M43 D4's always-headless inversion eliminated the premise — there are no in-session commands to refuse. The dialog growth meter is the residue of that scope collapse: a read-only signal for the only thing left running in-session, the dialog itself.
+
