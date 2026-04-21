@@ -1,6 +1,6 @@
 # Contract: Unattended Supervisor
 
-**Version**: 1.4.0
+**Version**: 1.4.1
 **Status**: ACTIVE for M43
 **Owner**: m36-supervisor-core + m36-watch-loop (shared)
 **Consumers**: m36-supervisor-core, m36-watch-loop, m36-safety-rails, m36-cross-platform, m36-m35-gap-fixes, m36-docs-and-tests
@@ -23,7 +23,7 @@ All supervisor runtime state lives under `.gsd-t/.unattended/`:
 
 ```
 .gsd-t/.unattended/
-├── supervisor.pid     — Integer PID of the running supervisor. Exactly one line. Exists ONLY while a supervisor is alive.
+├── supervisor.pid     — JSON fingerprint `{pid, projectDir, startedAt}` of the running supervisor (v1.4.1+). Exists ONLY while a supervisor is alive. Legacy bare-integer form still readable by `bin/supervisor-pid-fingerprint.cjs`.
 ├── state.json         — Live state snapshot. Atomically rewritten by the supervisor between iterations.
 ├── run.log            — Append-only worker stdout+stderr. Never truncated during a run. Rotation is v2.
 ├── stop               — Sentinel file. Absence = run. Presence = user has requested stop. Supervisor checks between workers.
@@ -550,6 +550,7 @@ See `test/m43-heartbeat-watchdog.test.js` for the full coverage matrix.
 | 1.3.0 | 2026-04-17 | Added §16 Cache-Warm Pacing — worker timeout default lowered from 1 h to 270 s to preserve Anthropic's 5-min prompt-cache TTL across back-to-back worker handoffs; graceful degradation on timeout | m39-d4-cache-warm-pacing |
 | 1.3.1 | 2026-04-17 | §16 bullet 3 gains a v3.13.11 diagnostic tag: `runMainLoop` writes an explicit `[worker_timeout] iter=N budget=Nms elapsed=Nms` line to `run.log` when the watchdog fires, so timeout-induced cache misses surface in log tails without requiring state.json inspection | v3.13.11 (bee-poc hang triple-fix) |
 | 1.4.0 | 2026-04-21 | **M43 Heartbeat Watchdog**. Added §16a — events.jsonl mtime polled every 60s during each worker iter, SIGTERM on staleness > 5 min (default). Added exit code 125 (`stale-heartbeat`) and `state.lastExitReason` field. Raised `workerTimeoutMs` default from 270s to 1h (absolute backstop only). §16 (cache-warm pacing) retained as the inter-iter sleep invariant but no longer the worker-timeout rationale. New CLI flag `--stale-heartbeat-ms`; new config.json key `staleHeartbeatMs`. | M43 quick |
+| 1.4.1 | 2026-04-21 | PID file upgraded to JSON fingerprint `{pid, projectDir, startedAt}` via `bin/supervisor-pid-fingerprint.cjs`; resume Step 0 liveness check verifies project + ps command line to distinguish "our supervisor" from macOS PID recycling. Legacy bare-integer files still readable (five-outcome resolution: no_pid_file / dead / alive_verified / alive_legacy_pid / alive_but_stale). | multi-project isolation quick |
 
 ---
 

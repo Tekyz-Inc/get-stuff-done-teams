@@ -722,8 +722,11 @@ async function doUnattended(argv, deps) {
   // Write the PID file. Singleton enforcement (refusing if another
   // supervisor is already alive) is owned by the launch handshake — see
   // contract §7. We trust the caller for now and just write our PID.
-  const pidPath = path.join(dir, PID_FILE);
-  fs.writeFileSync(pidPath, String(process.pid) + "\n", "utf8");
+  // Contract v1.4.1: write JSON fingerprint {pid, projectDir, startedAt}
+  // so resume-time liveness checks can distinguish "our supervisor" from
+  // "some other process recycled this PID" (macOS PID recycling).
+  const { writePidFile } = require("./supervisor-pid-fingerprint.cjs");
+  writePidFile(projectDir, process.pid);
 
   // Install terminal handlers BEFORE transitioning to `running` so a crash
   // mid-transition is still finalized.

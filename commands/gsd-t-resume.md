@@ -17,12 +17,26 @@ Check whether an unattended supervisor is actively running for this project:
 1. Check if `.gsd-t/.unattended/supervisor.pid` exists.
    - **Does not exist** → no supervisor running. Fall through to Step 0.1.
 
-2. **File exists**: Read the PID (single integer on one line). Run:
+2. **File exists**: Run the liveness + fingerprint check via the helper:
    ```bash
-   kill -0 <pid> 2>/dev/null && echo "alive" || echo "dead"
+   node -e "
+   const { readPidFile, verifyFingerprint } = require('./bin/supervisor-pid-fingerprint.cjs');
+   const entry = readPidFile(process.cwd());
+   if (!entry) { console.log('no_pid_file'); process.exit(0); }
+   try { process.kill(entry.pid, 0); } catch { console.log('dead:' + entry.pid); process.exit(0); }
+   const r = verifyFingerprint(entry, process.cwd());
+   if (r.ok === true)  console.log('alive_verified:' + entry.pid);
+   else if (r.ok === null) console.log('alive_legacy_pid:' + entry.pid);
+   else console.log('alive_but_stale:' + entry.pid + ':' + r.reason);
+   "
    ```
-   - **"dead"** → supervisor exited (cleanly or crashed). The PID file is stale. Log: `[resume] supervisor PID <pid> no longer alive — stale PID file, falling through to normal resume`. Fall through to Step 0.1.
-   - **"alive"** → supervisor process is live. Proceed to step 3.
+
+   Five possible outcomes:
+   - `no_pid_file` → no supervisor running, fall through to Step 0.1.
+   - `dead:<pid>` → supervisor exited (cleanly or crashed). PID file stale. Log: `[resume] supervisor PID <pid> no longer alive — stale PID file, falling through to normal resume`. Fall through.
+   - `alive_verified:<pid>` → our supervisor, same project, ps confirms command line. Proceed to step 3 (AUTO-REATTACH).
+   - `alive_legacy_pid:<pid>` → PID file is legacy bare-integer form; we can only confirm "some process with this PID exists." Log a one-line warning: `[resume] supervisor PID <pid> file uses legacy bare-integer form — next supervisor launch will upgrade to JSON fingerprint`. Proceed to step 3 as if verified (preserves behavior for any already-running legacy supervisors).
+   - `alive_but_stale:<pid>:<reason>` → process alive but **not** our supervisor (different project recycled PID, or non-gsd-t process). Log: `[resume] supervisor PID <pid> no longer identifies our supervisor (reason: <reason>) — treating as stale, falling through to normal resume`. Fall through to Step 0.1.
 
 3. **Supervisor is alive**: Read `.gsd-t/.unattended/state.json`. Check `state.status`:
    - **Terminal status** (`done`, `failed`, `stopped`, `crashed`) → the supervisor has finished and is waiting for cleanup. Fall through to Step 0.1 so normal resume flow runs (it will see progress.md state and continue from where the supervisor left off).

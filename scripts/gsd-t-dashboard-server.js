@@ -8,8 +8,38 @@ const fs = require("fs");
 const path = require("path");
 const { spawn } = require("child_process");
 
+// Base port — the effective default is project-hashed (see
+// projectScopedDefaultPort). Explicit --port N always overrides.
 const DEFAULT_PORT = 7433;
 const MAX_EVENTS = 500;
+
+/**
+ * Deterministic project-scoped default port so two projects running
+ * `gsd-t visualize` simultaneously don't collide on 7433. Hashes the
+ * resolved project directory (djb2) and maps into [7433, 7532].
+ *
+ * @param {string} projectDir — any path-like string; resolved internally.
+ * @returns {number} port in [DEFAULT_PORT, DEFAULT_PORT + 99].
+ */
+function projectScopedDefaultPort(projectDir) {
+  const resolved = path.resolve(projectDir || ".");
+  let hash = 5381;
+  for (let i = 0; i < resolved.length; i++) {
+    hash = ((hash * 33) ^ resolved.charCodeAt(i)) >>> 0;
+  }
+  return DEFAULT_PORT + (hash % 100);
+}
+
+/**
+ * Pure helper so callers (and tests) can resolve the effective port from a
+ * parsed --port argument + projectDir. Explicit argPort always wins.
+ */
+function resolvePort({ argPort, projectDir }) {
+  if (argPort != null && argPort !== "" && !Number.isNaN(parseInt(argPort, 10))) {
+    return parseInt(argPort, 10);
+  }
+  return projectScopedDefaultPort(projectDir);
+}
 const KEEPALIVE_MS = 15000;
 const SSE_HEADERS = { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", "Connection": "keep-alive", "Access-Control-Allow-Origin": "*" };
 
@@ -392,14 +422,17 @@ module.exports = {
   handleTranscriptPage,
   handleTranscriptKill,
   transcriptsDir,
+  DEFAULT_PORT,
+  projectScopedDefaultPort,
+  resolvePort,
 };
 
 if (require.main === module) {
   const argv = process.argv.slice(2);
   const getArg = (flag) => { const i = argv.indexOf(flag); return i >= 0 ? argv[i + 1] : null; };
   const hasFlag = (f) => argv.includes(f);
-  const port = parseInt(getArg("--port") || DEFAULT_PORT, 10);
   const projectDir = process.env.GSD_T_PROJECT_DIR || process.cwd();
+  const port = resolvePort({ argPort: getArg("--port"), projectDir });
   const eventsDir = getArg("--events") || findEventsDir(projectDir);
   const pidFile = path.join(projectDir, ".gsd-t", "dashboard.pid");
   const htmlPath = path.join(__dirname, "gsd-t-dashboard.html");
