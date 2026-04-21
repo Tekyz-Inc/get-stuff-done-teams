@@ -1489,16 +1489,35 @@ function isMilestoneComplete(projectDir, milestoneId) {
     if (!fs.existsSync(p)) return false;
     const body = fs.readFileSync(p, "utf8");
     const idEsc = milestoneId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    // Form 1: "{id} COMPLETE" or "{id} COMPLETED"
-    const directRe = new RegExp(`\\b${idEsc}\\b[^\\n]*\\bCOMPLETED?\\b`, "i");
-    if (directRe.test(body)) return true;
-    // Form 2: "Status: complete" on a line mentioning the milestone id
     const lines = body.split(/\r?\n/);
+    const COMPLETE_PHASES = new Set(["COMPLETE", "COMPLETED", "DONE", "VERIFIED"]);
+
+    // Authoritative signal #1: the top-of-file Status header.
+    //   `## Status: M43 PARTITIONED — Token Attribution & ...`
+    // Match `## Status:` lines that name the active milestone id and read
+    // the first ALL-CAPS phase keyword that follows. Anything outside the
+    // keyword set (PARTITIONED, EXECUTING, VERIFYING, ...) is non-terminal.
+    const statusRe = new RegExp(
+      `^##\\s*Status:[^\\n]*\\b${idEsc}\\b\\s+([A-Z][A-Z-]+)`,
+    );
     for (const ln of lines) {
-      if (new RegExp(`\\b${idEsc}\\b`).test(ln) && /\bcomplete(d)?\b/i.test(ln)) {
-        return true;
-      }
+      const m = ln.match(statusRe);
+      if (m && COMPLETE_PHASES.has(m[1])) return true;
     }
+
+    // Authoritative signal #2: the milestone's row in the Milestones table.
+    //   `| M43 | <name> | PARTITIONED | <version> | <domains> |`
+    // The third pipe column is the milestone's status. Decision Log prose,
+    // descriptive paragraphs, and "see also M43" mentions never satisfy
+    // this — the row format is structural.
+    const rowRe = new RegExp(
+      `^\\|\\s*${idEsc}\\s*\\|[^|]*\\|\\s*([A-Z][A-Z-]+)\\s*\\|`,
+    );
+    for (const ln of lines) {
+      const m = ln.match(rowRe);
+      if (m && COMPLETE_PHASES.has(m[1])) return true;
+    }
+
     return false;
   } catch (_) {
     return false;
