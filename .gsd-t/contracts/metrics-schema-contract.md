@@ -1,11 +1,19 @@
 # Metrics Schema Contract
 
-## Overview
-Defines the canonical schemas for M25 telemetry files: `task-metrics.jsonl` and `rollup.jsonl`.
-Both files are append-only JSONL (one JSON object per line).
+## Version
+- **v2** (2026-04-21, M43 D3) — `.gsd-t/metrics/token-usage.jsonl` schema bumped from v1 → v2. Adds `turn_id`, `session_id`, `sessionType`, `tool_attribution[]`, `compaction_pressure{}`. All fields optional on read; producers are partitioned by ownership (see §Token-Usage JSONL Schema v2 below).
+- **v1** (2026-04-20, M40 D4) — first `.gsd-t/metrics/token-usage.jsonl` schema, per-spawn rows.
+- (pre-v1, M25) — `task-metrics.jsonl` + `rollup.jsonl` schemas documented below (unchanged).
 
-**Owner**: metrics-collection domain (task-metrics), metrics-rollup domain (rollup)
-**Consumers**: metrics-dashboard domain, metrics-commands domain
+## Overview
+Defines the canonical schemas for:
+- **M25 telemetry**: `task-metrics.jsonl` + `rollup.jsonl` (unchanged — see original sections below)
+- **M40+ token telemetry**: `token-usage.jsonl` schema — v1 (M40 D4) → v2 (M43 D3)
+
+All are append-only JSONL (one JSON object per line).
+
+**Owner**: metrics-collection domain (task-metrics), metrics-rollup domain (rollup), M43 D3 sink-unification-backfill (token-usage schema v2)
+**Consumers**: metrics-dashboard domain, metrics-commands domain, M43 D1/D2/D5/D6 (token-usage)
 
 ---
 
@@ -134,3 +142,119 @@ Before dispatching a task in execute, read `task-metrics.jsonl` and check:
 - metrics-rollup reads task-metrics.jsonl, writes rollup.jsonl
 - metrics-dashboard reads both JSONL files via GET /metrics endpoint (read-only)
 - metrics-commands reads both JSONL files directly from disk (read-only)
+
+---
+
+## Token-Usage JSONL Schema (v1 — M40 D4)
+
+Produced by `scripts/gsd-t-token-aggregator.js` (worker stream) and `bin/gsd-t-token-capture.cjs` (`recordSpawnRow`/`captureSpawn`). Appended to `.gsd-t/metrics/token-usage.jsonl`.
+
+Each line is a JSON object representing one spawn or one aggregated worker/task:
+
+```json
+{
+  "schemaVersion": 1,
+  "ts":             "string -- ISO 8601 UTC, when this row was written",
+  "source":         "string -- 'live' | 'backfill'",
+  "command":        "string -- e.g. 'gsd-t-execute', 'gsd-t-wave'",
+  "step":           "string -- e.g. 'Step 4'",
+  "model":          "string -- 'opus' | 'sonnet' | 'haiku' | exact model id",
+  "startedAt":      "string -- 'YYYY-MM-DD HH:MM' (local)",
+  "endedAt":        "string -- 'YYYY-MM-DD HH:MM' (local)",
+  "durationMs":     "number -- wall-clock",
+  "inputTokens":              "number",
+  "outputTokens":             "number",
+  "cacheReadInputTokens":     "number",
+  "cacheCreationInputTokens": "number",
+  "costUSD":        "number|null",
+  "domain":         "string|null",
+  "task":           "string|null",
+  "milestone":      "string|null -- e.g. 'M40'",
+  "ctxPct":         "number|null -- 0-100",
+  "notes":          "string|null",
+  "hasUsage":       "boolean -- true if upstream envelope carried a usage field"
+}
+```
+
+### v1 Rules
+- All numeric token fields default to `0` when `usage` is absent; `hasUsage=false` distinguishes "measured zero" from "missing envelope."
+- `costUSD=null` ONLY when upstream envelope omits both `total_cost_usd` and `cost_usd`.
+- Rows are append-only. Regeneration of `.gsd-t/token-log.md` from this file is deterministic (M43 D3).
+
+---
+
+## Token-Usage JSONL Schema (v2 — M43 D3)
+
+v2 extends v1 additively. **Every v1 row is a valid v2 row** (new fields are optional). No existing consumer breaks on a v1-shaped row.
+
+```json
+{
+  "schemaVersion": 2,
+
+  // --- all v1 fields (unchanged) ---
+  "ts": "...", "source": "...", "command": "...", "step": "...", "model": "...",
+  "startedAt": "...", "endedAt": "...", "durationMs": 0,
+  "inputTokens": 0, "outputTokens": 0,
+  "cacheReadInputTokens": 0, "cacheCreationInputTokens": 0,
+  "costUSD": null, "domain": null, "task": null, "milestone": null,
+  "ctxPct": null, "notes": null, "hasUsage": false,
+
+  // --- v2 additions ---
+  "session_id":  "string|null -- stable session identifier (in-session: Claude Code session id; headless: spawn id)",
+  "turn_id":     "string|null -- stable per-turn identifier within session_id (monotonic, usually int as string)",
+  "sessionType": "'in-session' | 'headless' | null",
+  "tool_attribution": [
+    {
+      "tool_name":         "string -- e.g. 'Bash', 'Read', 'Edit', 'Grep', 'Task'",
+      "bytes_attributed":  "number -- bytes of tool_result output attributed to this tool in this row/turn",
+      "tokens_attributed": "number -- tokens attributed by output-byte ratio (see tool-attribution-contract)",
+      "share":             "number -- 0.0-1.0, fraction of row's output tokens attributed to this tool",
+      "missing_tool_result": "boolean -- optional; true if the tool_use had no matched tool_result"
+    }
+  ],
+  "compaction_pressure": {
+    "predicted_turns_to_compact": "number|null -- estimated turns until next /compact",
+    "score":                      "number -- 0.0-1.0, higher = closer to compact",
+    "tripped":                    "boolean -- true when score ≥ circuit-breaker threshold"
+  }
+}
+```
+
+### v2 Field Ownership (Producer Partitioning)
+
+Each v2 field has exactly one producer domain. Other domains READ but do not WRITE.
+
+| Field                         | Producer Domain                       | Notes |
+|-------------------------------|---------------------------------------|-------|
+| `session_id`, `turn_id`, `sessionType` | M43 D1 in-session usage capture | Headless rows continue to use spawn id as `session_id`; `turn_id` derived from stream-json turn count. |
+| `tool_attribution[]`          | M43 D2 per-tool attribution (`bin/gsd-t-tool-attribution.cjs`) | Written as a **join-result row** keyed by `(session_id, turn_id)` — does NOT mutate prior rows. |
+| `compaction_pressure{}`       | M43 D5 compaction-pressure circuit breaker (`bin/runway-estimator.cjs` ext) | Written at the moment the estimator samples trajectory. Absent on rows produced before D5 lands. |
+
+`recordSpawnRow` / `captureSpawn` / `gsd-t-token-aggregator.js` continue to write the v1 subset and MAY pass through `session_id` / `turn_id` / `sessionType` when the caller supplies them (D3-T2 extends the signature additively).
+
+### v2 Rules
+
+1. **Backward compatibility**: a row with `schemaVersion: 1` is read correctly by all v2 consumers. A row with `schemaVersion: 2` but only v1 fields is semantically identical to a v1 row.
+2. **Optional fields**: every v2 addition defaults to `null` (objects) or `[]` (arrays) on read. Readers MUST handle missing fields.
+3. **No mutation**: v2 never rewrites historical rows. Backfill (D3-T4) APPENDS recovered rows with `source: "backfill"`.
+4. **Deterministic ordering for regeneration**: `startedAt` asc → `session_id` asc → `turn_id` asc (numeric if all numeric, else lexicographic). `.gsd-t/token-log.md` regeneration (D3-T3) uses this sort.
+5. **Tool attribution writes a separate row**: D2's joiner writes its own row (`command: "tool-attribution-join"` or similar marker) rather than mutating D1's row, so the append-only invariant holds.
+6. **Compaction pressure writes on sample**: D5 writes a row (possibly with zero `inputTokens`/`outputTokens`) every time it samples, OR inline on a spawn row when D5 is called synchronously from the spawn path. Readers group by `session_id`+`turn_id` to merge.
+
+### v2 Derived Artifact: `.gsd-t/token-log.md`
+
+Post-v2, `.gsd-t/token-log.md` is a **regenerated view** (`gsd-t tokens --regenerate-log`), not a hand-maintained table. The wrapper's append path is preserved for real-time visibility (existing behavior). Canonical store is the JSONL.
+
+### v2 Changelog
+
+- 2026-04-21 (M43 D3-T1): initial v2 definition. Contract committed BEFORE D1/D2/D5 begin writing new fields so implementers can code against a fixed schema.
+
+---
+
+## Integration Notes (v2)
+
+- M43 D1 writes `session_id` + `turn_id` + `sessionType` on every per-turn in-session row.
+- M43 D2 reads `session_id` + `turn_id` across the events stream and the token-usage JSONL, joins by those two keys, writes back one attribution row per matched turn.
+- M43 D5 reads the rolling trajectory of `inputTokens` + `outputTokens` per `session_id` and writes `compaction_pressure` on the next sampled row.
+- M43 D6 surfaces `tool_attribution[]` and `compaction_pressure` in the transcript viewer sidebar.
+- M41 wrapper (`bin/gsd-t-token-capture.cjs`) remains the canonical write entrypoint for spawn rows. Signature extension (D3-T2) is additive — existing callers unchanged.

@@ -57,8 +57,8 @@ D4 is the *act* half of M43 Part B: D1/D2/D3 (Part A) measure cost; D4 removes t
 
 ## Dependencies
 
-- **D4 runs in Wave 2** alongside D2/D5/D6. D4 is independent of D1/D3 (schema-blind).
-- D4 can ship before D5/D6 if needed — none of them depend on each other.
+- **D4 MUST land in the FINAL wave, alone.** Reason: D4 deletes spawn-mode branching from the very command files the orchestrator routes work through. If D4 lands mid-run, every subsequent spawn changes shape under the running orchestrator. Sequencing D4 last guarantees a stable spawn surface for all preceding waves.
+- D4 is otherwise independent of D1/D3 (schema-blind) — the "final wave alone" constraint is purely about runtime spawn stability, not data flow.
 
 ## Tradeoff
 
