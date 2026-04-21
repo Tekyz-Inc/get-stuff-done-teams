@@ -1,10 +1,12 @@
 # Domain: m43-d4-default-headless-inversion
 
+> **Revised 2026-04-21**: Original scope was "headless unless `--in-session` OR low-water mark." User direction collapsed this: **the dialog channel is reserved for human↔Claude conversation; everything else spawns. No flag, no threshold.** D4 now strips the conditional logic entirely rather than inverting it.
+
 ## Responsibility
 
-Flip the spawn-mode default across the GSD-T command surface from **"spawn headless only when over context band"** to **"spawn headless unless the user explicitly passes `--in-session` OR the session-context is below a low-water mark (~15%)"**.
+Strip the spawn-mode conditional logic from the GSD-T command surface so that **every command spawns, unconditionally**. There is no `--in-session` flag, no `--headless` flag, no context-meter-driven branching at spawn time. The only thing that runs in the dialog channel is the `/gsd` router itself, which always spawns the actual command.
 
-This is the *inversion* half of M43: Part A (D1/D2/D3) measures; D4 acts on what's measured. Also: the router (`/gsd`) gets an inverse hint — "quick exploratory queries run in-session unless you pass `--headless`."
+D4 is the *act* half of M43 Part B: D1/D2/D3 (Part A) measure cost; D4 removes the choice surface that produced the bee-poc compaction pathology.
 
 ## Owned Files/Directories
 
@@ -22,33 +24,42 @@ This is the *inversion* half of M43: Part A (D1/D2/D3) measures; D4 acts on what
 - `commands/gsd-t-feature.md`
 - `commands/gsd-t-project.md`
 - `commands/gsd-t-partition.md`
-- `commands/gsd.md` (router — add the inverse hint for conversational use)
+- `commands/gsd.md` (router — clarify that the router always spawns; no inverse hint, no `--headless` flag)
 - `.gsd-t/contracts/headless-default-contract.md` — BUMP v1.0.0 → v2.0.0. Document:
-  - New default: headless.
-  - `--in-session` opt-out flag syntax + propagation rules (router → command file → spawn site).
-  - Low-water-mark bypass: if `ctxPct < 15`, stay in-session without needing the flag.
-  - Heartbeat compatibility: `.gsd-t/events/*.jsonl` writer is unchanged; headless spawns already emit events today.
-- `bin/headless-auto-spawn.cjs` — EDIT. Invert the default branch of `shouldSpawnHeadless`: current "yes if pct > threshold" flips to "yes unless `--in-session` or pct < 15%".
-- `test/m43-headless-default-inversion.test.js` — NEW. Matrix tests: 14 command files × 3 flag scenarios (default → headless, `--in-session` → in-session, low-water → in-session).
+  - **Channel-separation invariant**: dialog channel runs the router only; commands always spawn.
+  - **Deletes** `--in-session` opt-out from the v1 spec (was never shipped, is now explicitly out of scope).
+  - **Deletes** low-water-mark bypass from the v1 spec.
+  - Heartbeat compatibility unchanged: `.gsd-t/events/*.jsonl` writer is untouched.
+  - Migration note for any external consumer that may have built on the v1 flag surface (none known in this repo).
+- `bin/headless-auto-spawn.cjs` — EDIT. Simplify `shouldSpawnHeadless` to `() => true`, or inline the spawn at every call site and delete the helper. Pick whichever produces the smaller diff. The function exists today as a context-meter-aware branch; under v2.0.0 the branch has one outcome.
+- `test/m43-headless-default-inversion.test.js` — NEW. Negative-flag tests:
+  - 14 command files × default invocation → spawns. (Replaces the original 14 × 3-flag matrix; only one mode now.)
+  - Grep assertion: `--in-session` and `--headless` appear in zero command files (post-D4).
+  - Router test: `/gsd` always invokes via `Task(...)` / spawn, never inline.
 
 ## NOT Owned
 
 - Token capture wrapper — D3.
-- In-session usage capture entry-point — D1.
-- Transcript viewer URL plumbing — D6 (D4 doesn't print the URL; D6 does).
-- Runway estimator / compaction-pressure circuit breaker — D5.
+- In-session usage capture entry-point — D1 (the dialog channel itself still gets per-turn capture).
+- Transcript viewer URL printing — D6.
+- Dialog meter (was the compaction-pressure circuit breaker) — D5.
 
 ## Contract Surface
 
-- `headless-default-contract.md` v2.0.0 is the single source of truth for spawn-mode decisions.
+- `headless-default-contract.md` v2.0.0 is the single source of truth for spawn-mode behavior. The contract is now one sentence long in spirit: "every command spawns."
 - Every edited command file references v2.0.0 in its doc-ripple.
 
 ## Consumers
 
 - Router `/gsd` is the primary end-user entry point.
 - Every command file listed above.
-- `bin/headless-auto-spawn.cjs::autoSpawnHeadless` is the single code path.
+- `bin/headless-auto-spawn.cjs::autoSpawnHeadless` is the single code path; the branching disappears.
 
 ## Dependencies
 
 - **D4 runs in Wave 2** alongside D2/D5/D6. D4 is independent of D1/D3 (schema-blind).
+- D4 can ship before D5/D6 if needed — none of them depend on each other.
+
+## Tradeoff
+
+Spawning even tiny work (single Read, one Bash) has overhead — orchestrator startup, transcript file, dashboard registration. Acknowledged and accepted. If overhead bites, the answer is to make the spawn faster (M40-style fast spawn), not to re-introduce a threshold.
