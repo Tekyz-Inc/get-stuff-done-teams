@@ -241,13 +241,32 @@ function handleTranscriptKill(req, res, spawnId, projectDir) {
   }
 }
 
+/**
+ * Find the transcripts-index entry for a spawn-id, or null when the index
+ * is missing / the id isn't recorded. Used by handleTranscriptStream to
+ * detect already-finished spawns so the SSE stream can emit `event: end`
+ * and close instead of tailing indefinitely.
+ */
+function readIndexEntry(projectDir, spawnId) {
+  const idx = readTranscriptsIndex(projectDir);
+  if (!idx || !Array.isArray(idx.spawns)) return null;
+  return idx.spawns.find((s) => s && s.spawnId === spawnId) || null;
+}
+
 function handleTranscriptStream(req, res, spawnId, projectDir) {
   if (!isValidSpawnId(spawnId)) { res.writeHead(400); res.end("Invalid spawn id"); return; }
   const filePath = path.join(transcriptsDir(projectDir), `${spawnId}.ndjson`);
   let exists = true;
-  try { fs.accessSync(filePath); } catch { exists = false; }
+  let fileSize = 0;
+  try { fileSize = fs.statSync(filePath).size; } catch { exists = false; }
 
   res.writeHead(200, SSE_HEADERS);
+
+  // Consult the transcripts index — if the spawn is already finished we
+  // replay and close instead of attaching a live tail.
+  const entry = readIndexEntry(projectDir, spawnId);
+  const finishedStatuses = ["done", "failed", "stopped"];
+  const isFinished = !!(entry && entry.status && finishedStatuses.includes(entry.status));
 
   // Replay: read the full file from byte 0 and send each line.
   let replayedBytes = 0;
@@ -263,35 +282,69 @@ function handleTranscriptStream(req, res, spawnId, projectDir) {
     } catch { /* empty transcript */ }
   }
 
+  // Finished spawn → emit end event and close the stream. No tail, no keepalive.
+  if (isFinished) {
+    const endPayload = JSON.stringify({
+      status: entry.status,
+      endedAt: entry.endedAt || null,
+    });
+    try { res.write("event: end\ndata: " + endPayload + "\n\n"); } catch { /* gone */ }
+    try { res.end(); } catch { /* gone */ }
+    return;
+  }
+
+  // Missing file — tell the viewer the stream is live but empty. fs.watchFile
+  // needs the file to exist, so we skip the tail here. A running producer
+  // will have created the file already (the finished-spawn branch above
+  // catches the post-hoc teed case via index status).
+  if (!exists) {
+    const waitingPayload = JSON.stringify({
+      status: "waiting",
+      reason: "no transcript file yet",
+    });
+    try { res.write("event: status\ndata: " + waitingPayload + "\n\n"); } catch { /* gone */ }
+    const timer = setInterval(() => { try { res.write(": keepalive\n\n"); } catch { clearInterval(timer); } }, KEEPALIVE_MS);
+    req.on("close", () => { clearInterval(timer); });
+    return;
+  }
+
+  // Empty file — producer hasn't written anything yet. Emit a status frame
+  // so the viewer knows the stream is live but the file is 0 bytes, then
+  // attach the live tail so we pick up writes as they arrive.
+  if (fileSize === 0) {
+    const emptyPayload = JSON.stringify({
+      status: "empty",
+      reason: "transcript file exists but is empty",
+    });
+    try { res.write("event: status\ndata: " + emptyPayload + "\n\n"); } catch { /* gone */ }
+  }
+
   // Tail: from replayedBytes onward. We reuse the tailer, but seed offset
   // with what we already replayed so we don't double-send.
-  let unwatchFile = null;
-  if (exists) {
-    let offset = replayedBytes;
-    let buf = "";
-    const processNewData = () => {
-      let stat;
-      try { stat = fs.statSync(filePath); } catch { return; }
-      if (stat.size <= offset) return;
-      const fd = fs.openSync(filePath, "r");
-      try {
-        const b = Buffer.alloc(stat.size - offset);
-        fs.readSync(fd, b, 0, b.length, offset);
-        buf += b.toString("utf8");
-        offset = stat.size;
-      } finally { fs.closeSync(fd); }
-      let nl;
-      while ((nl = buf.indexOf("\n")) >= 0) {
-        const line = buf.slice(0, nl);
-        buf = buf.slice(nl + 1);
-        if (line.length > 0) {
-          try { res.write("data: " + line + "\n\n"); } catch { /* gone */ }
-        }
+  let offset = replayedBytes;
+  let buf = "";
+  const processNewData = () => {
+    let stat;
+    try { stat = fs.statSync(filePath); } catch { return; }
+    if (stat.size <= offset) return;
+    const fd = fs.openSync(filePath, "r");
+    try {
+      const b = Buffer.alloc(stat.size - offset);
+      fs.readSync(fd, b, 0, b.length, offset);
+      buf += b.toString("utf8");
+      offset = stat.size;
+    } finally { fs.closeSync(fd); }
+    let nl;
+    while ((nl = buf.indexOf("\n")) >= 0) {
+      const line = buf.slice(0, nl);
+      buf = buf.slice(nl + 1);
+      if (line.length > 0) {
+        try { res.write("data: " + line + "\n\n"); } catch { /* gone */ }
       }
-    };
-    fs.watchFile(filePath, { interval: 500, persistent: true }, processNewData);
-    unwatchFile = () => fs.unwatchFile(filePath, processNewData);
-  }
+    }
+  };
+  fs.watchFile(filePath, { interval: 500, persistent: true }, processNewData);
+  const unwatchFile = () => fs.unwatchFile(filePath, processNewData);
 
   const timer = setInterval(() => { try { res.write(": keepalive\n\n"); } catch { clearInterval(timer); } }, KEEPALIVE_MS);
   req.on("close", () => { clearInterval(timer); if (unwatchFile) unwatchFile(); });
@@ -332,6 +385,7 @@ module.exports = {
   readMetricsData,
   readTranscriptsIndex,
   writeTranscriptsIndex,
+  readIndexEntry,
   isValidSpawnId,
   handleTranscriptsList,
   handleTranscriptStream,
