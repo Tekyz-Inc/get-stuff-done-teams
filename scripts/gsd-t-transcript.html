@@ -105,6 +105,11 @@
     .jump-to-live { position: fixed; bottom: 24px; right: 24px; background: var(--accent); color: #fff; border: none; padding: 10px 16px; border-radius: 20px; cursor: pointer; font-size: 13px; font-family: var(--sans); font-weight: 600; box-shadow: 0 4px 12px rgba(0,0,0,0.4); display: none; z-index: 20; }
     .jump-to-live.visible { display: block; }
     .jump-to-live:hover { background: #79c0ff; }
+    /* Q2b — compact_marker inline timeline badge */
+    .frame.compact-marker { display: flex; align-items: center; gap: 8px; margin: 14px 0; padding: 0; }
+    .frame.compact-marker .cm-line { flex: 1; height: 1px; background: #d29922; opacity: 0.4; }
+    .frame.compact-marker .cm-badge { flex: 0 0 auto; background: rgba(210,153,34,0.15); border: 1px solid #d29922; border-radius: 12px; padding: 3px 10px; font-family: var(--mono); font-size: 11px; color: #d29922; font-weight: 600; cursor: default; white-space: nowrap; }
+    .frame.compact-marker .cm-badge:hover { background: rgba(210,153,34,0.28); }
   </style>
 </head>
 <body data-spawn-id="__SPAWN_ID__">
@@ -294,9 +299,41 @@
         appendFrame(div);
       }
 
+      function renderCompactMarker(frame) {
+        const div = document.createElement('div');
+        div.className = 'frame compact-marker';
+
+        const lineL = document.createElement('span');
+        lineL.className = 'cm-line';
+
+        const badge = document.createElement('span');
+        badge.className = 'cm-badge';
+        badge.textContent = '⚡ CW boundary';
+
+        // Build tooltip text from available fields.
+        const tipParts = [];
+        if (frame.ts) tipParts.push('ts: ' + frame.ts);
+        if (frame.trigger) tipParts.push('trigger: ' + frame.trigger);
+        if (frame.prior_session_id) tipParts.push('prior: ' + frame.prior_session_id.slice(0, 12));
+        if (frame.session_id) tipParts.push('new: ' + frame.session_id.slice(0, 12));
+        if (frame.preTokens != null) tipParts.push('pre: ' + frame.preTokens.toLocaleString());
+        if (frame.postTokens != null) tipParts.push('post: ' + frame.postTokens.toLocaleString());
+        badge.title = tipParts.join('\n') || 'Context Window boundary';
+
+        const lineR = document.createElement('span');
+        lineR.className = 'cm-line';
+
+        div.appendChild(lineL);
+        div.appendChild(badge);
+        div.appendChild(lineR);
+        appendFrame(div);
+      }
+      window.__gsdtRenderCompactMarker = renderCompactMarker;
+
       function renderFrame(frame) {
         if (!frame || typeof frame !== 'object') return;
         const type = frame.type;
+        if (type === 'compact_marker') { renderCompactMarker(frame); return; }
         if (type === 'system') { renderSystem(frame); return; }
         if (type === 'task-boundary') { renderBoundary(frame); return; }
         if (type === 'raw') { renderRaw(frame.line || ''); return; }

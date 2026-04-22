@@ -19,6 +19,9 @@
  *   throwing here would break Claude Code session startup.
  * - Only acts when `source === "compact"`.
  * - Appends one NDJSON row to `<cwd>/.gsd-t/metrics/compactions.jsonl`.
+ * - Appends one compact_marker frame to the most-recently-modified
+ *   `<cwd>/.gsd-t/transcripts/*.ndjson` (the live transcript). No-ops
+ *   silently when no transcript exists.
  * - 1 MiB stdin cap (defense in depth; real payloads are tiny).
  * - Path-traversal guard: refuses any cwd that doesn't let the resolved
  *   output path stay under `<cwd>/.gsd-t/metrics/`.
@@ -65,6 +68,11 @@ process.stdin.on("end", () => {
 
   try {
     writeRow(payload);
+  } catch {
+    // silent — never throw
+  }
+  try {
+    writeTranscriptMarker(payload);
   } catch {
     // silent — never throw
   }
@@ -118,6 +126,95 @@ function writeRow(payload) {
   };
 
   fs.appendFileSync(outPath, JSON.stringify(row) + "\n", "utf8");
+}
+
+/**
+ * Find the most-recently-modified .ndjson in <cwd>/.gsd-t/transcripts/.
+ * Returns the absolute path, or null if none exists or the directory is absent.
+ */
+function findActiveTranscript(cwd) {
+  const transcriptsDir = path.join(cwd, ".gsd-t", "transcripts");
+  let entries;
+  try {
+    entries = fs.readdirSync(transcriptsDir);
+  } catch {
+    return null;
+  }
+  const ndjsons = entries.filter((e) => e.endsWith(".ndjson"));
+  if (!ndjsons.length) return null;
+
+  let newest = null;
+  let newestMtime = -1;
+  for (const name of ndjsons) {
+    const full = path.join(transcriptsDir, name);
+    try {
+      const stat = fs.statSync(full);
+      if (stat.mtimeMs > newestMtime) {
+        newestMtime = stat.mtimeMs;
+        newest = full;
+      }
+    } catch {
+      // skip unreadable entries
+    }
+  }
+  return newest;
+}
+
+/**
+ * Append a compact_marker frame to the active transcript NDJSON.
+ * No-ops silently when no transcript exists.
+ */
+function writeTranscriptMarker(payload) {
+  let cwd;
+  if (typeof payload.cwd === "string") {
+    if (!path.isAbsolute(payload.cwd)) return;
+    cwd = payload.cwd;
+  } else if (payload.cwd === undefined || payload.cwd === null) {
+    cwd = process.cwd();
+  } else {
+    return;
+  }
+
+  const gsdDir = path.join(cwd, ".gsd-t");
+  if (!fs.existsSync(gsdDir)) return;
+
+  const transcriptPath = findActiveTranscript(cwd);
+  if (!transcriptPath) return;
+
+  // Path-traversal guard: resolved transcript path must stay under <cwd>/.gsd-t/transcripts/
+  const transcriptsDir = path.join(gsdDir, "transcripts") + path.sep;
+  if (!path.resolve(transcriptPath).startsWith(path.resolve(transcriptsDir))) return;
+
+  const marker = {
+    type: "compact_marker",
+    ts: new Date().toISOString(),
+    source: "compact",
+    session_id: typeof payload.session_id === "string" ? payload.session_id : null,
+    prior_session_id: typeof payload.prior_session_id === "string"
+      ? payload.prior_session_id
+      : (typeof payload.previous_session_id === "string"
+          ? payload.previous_session_id
+          : null),
+  };
+
+  // Include optional fields when present.
+  if (typeof payload.trigger === "string") marker.trigger = payload.trigger;
+  if (typeof payload.preTokens === "number") marker.preTokens = payload.preTokens;
+  if (typeof payload.postTokens === "number") marker.postTokens = payload.postTokens;
+  // Also check nested compactMetadata (scanner shape).
+  if (payload.compactMetadata && typeof payload.compactMetadata === "object") {
+    if (typeof payload.compactMetadata.trigger === "string" && !marker.trigger) {
+      marker.trigger = payload.compactMetadata.trigger;
+    }
+    if (typeof payload.compactMetadata.preTokens === "number" && marker.preTokens == null) {
+      marker.preTokens = payload.compactMetadata.preTokens;
+    }
+    if (typeof payload.compactMetadata.postTokens === "number" && marker.postTokens == null) {
+      marker.postTokens = payload.compactMetadata.postTokens;
+    }
+  }
+
+  fs.appendFileSync(transcriptPath, JSON.stringify(marker) + "\n", "utf8");
 }
 
 function exitClean() {
