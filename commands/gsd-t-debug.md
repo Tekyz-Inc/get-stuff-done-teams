@@ -4,16 +4,16 @@ You are debugging an issue in a contract-driven project. Your approach should id
 
 ## Argument Parsing
 
-Parse `$ARGUMENTS`. The issue description is `$ISSUE`. Detect `--watch` (sets `WATCH_FLAG=true`; default `false`). Per `.gsd-t/contracts/headless-default-contract.md` §2, `--watch` propagates only to the **primary** inner fix-loop subagent (Step 0.1). Validation spawns (Deep Research Step 1.5, Red Team Step 5.3, doc-ripple Step 6) always go headless regardless of the flag.
+Parse `$ARGUMENTS`. The issue description is `$ISSUE`. M43 D4 removed the `--watch` opt-out; `--in-session`/`--headless` were never shipped. Under `.gsd-t/contracts/headless-default-contract.md` **v2.0.0** the inner fix-loop subagent (Step 0.1) and all validation spawns (Deep Research Step 1.5, Red Team Step 5.3, doc-ripple Step 6) go headless unconditionally. A legacy `--watch` token is accepted but ignored (stderr deprecation line).
 
-## Spawn Primitive — Default Headless (M38 Domain 1)
+## Spawn Primitive — Always Headless (M43 D4, v2.0.0)
 
-Per `.gsd-t/contracts/headless-default-contract.md` v1.0.0. Spawn classifications used below:
+Per `.gsd-t/contracts/headless-default-contract.md` v2.0.0. Spawn classifications used below (both always headless):
 
 - `spawnType: 'primary'` — Step 0.1 fresh-dispatch subagent running the debug session
 - `spawnType: 'validation'` — Step 1.5 Deep Research teammates, Step 5.3 Red Team, Step 6 doc-ripple
 
-Default path is `autoSpawnHeadless({command, spawnType, watch: WATCH_FLAG, projectDir, sessionContext})`. Outer orchestrator stays interactive; inner subagent goes headless by default and streams in-context only when `WATCH_FLAG=true`.
+Spawn path is `autoSpawnHeadless({command, spawnType, projectDir, sessionContext})`. The outer `gsd-t-debug` command body is itself the interactive spawn target when invoked by `/gsd` or `gsd-t-wave`; nested spawns always go headless.
 
 ## Model Assignment
 
@@ -96,7 +96,7 @@ Violations are task failures, not warnings.
 
 If STACK_RULES is empty (no templates/stacks/ dir or no matches), skip silently.
 
-Spawn a fresh subagent via `captureSpawn` — `spawnType: 'primary'` (respects `--watch`: headless by default, in-context when `WATCH_FLAG=true`):
+Spawn a fresh subagent via `captureSpawn` — `spawnType: 'primary'` (always headless per headless-default-contract v2.0.0):
 
 **OBSERVABILITY LOGGING (MANDATORY) — wrap the primary subagent spawn with `captureSpawn`:**
 
@@ -460,7 +460,7 @@ const { captureSpawn } = require('./bin/gsd-t-token-capture.cjs');
     description: 'adversarial validation of debug fix',
     projectDir: '.',
     notes: '{VERDICT} — {N} bugs found',
-    spawnFn: async () => { /* Task subagent (spawnType: validation, general-purpose, model: opus) — always headless, --watch ignored:
+    spawnFn: async () => { /* Task subagent (spawnType: validation, general-purpose, model: opus) — always headless per headless-default-contract v2.0.0:
       'Read \$RT_PROMPT and follow it. Context: post-fix validation for a debug session.
       Additional categories for this run:
       (a) Regression Around the Fix — test every code path adjacent to the changed lines; fixes frequently break neighboring functionality.
@@ -500,7 +500,7 @@ After all work is committed but before reporting completion:
 
 1. Run threshold check — read `git diff --name-only HEAD~1` and evaluate against doc-ripple-contract.md trigger conditions
 2. If SKIP: log "Doc-ripple: SKIP — {reason}" and proceed to completion
-3. If FIRE: spawn doc-ripple agent — `spawnType: 'validation'` (always headless, `--watch` ignored):
+3. If FIRE: spawn doc-ripple agent — `spawnType: 'validation'` (always headless per headless-default-contract v2.0.0):
 
 ⚙ [{model}] gsd-t-doc-ripple → blast radius analysis + parallel updates
 

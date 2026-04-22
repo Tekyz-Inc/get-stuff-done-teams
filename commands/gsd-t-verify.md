@@ -4,15 +4,15 @@ You are the lead agent coordinating verification of the completed work. Each ver
 
 ## Argument Parsing
 
-Parse `$ARGUMENTS`. Detect `--watch` (sets `WATCH_FLAG=true`; default `false`). Per `.gsd-t/contracts/headless-default-contract.md` §2, verify spawns are ALL classified as **validation** (the work product is a verdict, not a code change) — they always go headless regardless of `--watch`.
+Parse `$ARGUMENTS`. M43 D4 removed the `--watch` opt-out; `--in-session`/`--headless` were never shipped. Under `.gsd-t/contracts/headless-default-contract.md` **v2.0.0** every verify spawn goes headless unconditionally. A legacy `--watch` token is accepted but ignored (stderr deprecation line).
 
-## Spawn Primitive — Default Headless (M38 Domain 1)
+## Spawn Primitive — Always Headless (M43 D4, v2.0.0)
 
-Per `.gsd-t/contracts/headless-default-contract.md` v1.0.0. Spawn classifications used below:
+Per `.gsd-t/contracts/headless-default-contract.md` v2.0.0. Spawn classifications used below:
 
 - `spawnType: 'validation'` — Step 4 test-audit subagent, Step 8 auto-invoke complete-milestone
 
-Default path is `autoSpawnHeadless({command, spawnType: 'validation', watch: false, projectDir, sessionContext})`. Auto-invoke of complete-milestone (Step 8) is preserved — it is spawned headless via the same primitive and surfaces via the read-back banner.
+Spawn path is `autoSpawnHeadless({command, spawnType: 'validation', projectDir, sessionContext})`. Auto-invoke of complete-milestone (Step 8) is preserved — spawned headless via the same primitive and surfaced via the read-back banner.
 
 ## Model Assignment
 
@@ -421,7 +421,7 @@ If status is VERIFIED or VERIFIED-WITH-WARNINGS:
 
 **OBSERVABILITY LOGGING (MANDATORY) — wrap the complete-milestone auto-invoke with `captureSpawn`:**
 
-2. Spawn through `captureSpawn` — `spawnType: 'validation'`, model: sonnet, mode: bypassPermissions (always headless, `--watch` ignored):
+2. Spawn through `captureSpawn` — `spawnType: 'validation'`, model: sonnet, mode: bypassPermissions (always headless per headless-default-contract v2.0.0):
 
 ```
 node -e "

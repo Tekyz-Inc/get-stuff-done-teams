@@ -26,24 +26,27 @@
 <!-- Claude will verify the branch before every commit. -->
 **Expected branch**: {main | master | feature-branch-name}
 
-## Context Meter (M34/M38, v3.12.10+)
+## Context Meter (M34/M38/M43 D4, v3.16.x+) — Observational Only
 <!-- The Context Meter is a PostToolUse hook that uses local token estimation -->
 <!-- and writes the current context % to .gsd-t/.context-meter-state.json. -->
-<!-- bin/token-budget.cjs reads that file as the spawn-time routing signal. -->
-<!-- Single-band model (context-meter-contract v1.3.0): one threshold (default 85%), -->
-<!-- one action — hand off to a detached headless spawn via the unattended supervisor. -->
-<!-- No three-band routing, no silent model downgrades. The meter informs spawn-time -->
-<!-- decisions, not in-flight pauses. -->
-<!-- Config: .gsd-t/context-meter-config.json — modelWindowSize, thresholdPct, checkFrequency. -->
+<!-- Under M43 D4 (channel-separation inversion) the meter is OBSERVATIONAL ONLY: -->
+<!-- the pct is recorded into the token-log Ctx% column on the next spawn, -->
+<!-- but no threshold gates any routing decision. Every command spawns detached -->
+<!-- unconditionally (see Always-Headless section below). -->
+<!-- Config: .gsd-t/context-meter-config.json — modelWindowSize, checkFrequency. -->
 <!-- Verify: `npx @tekyzinc/gsd-t doctor`. -->
 
-## Headless-by-Default Spawn (M38, v3.12.10+)
-<!-- Long-running workflow commands (execute, wave, integrate, debug repair loops) -->
-<!-- route through the unattended supervisor from the start. Interactive session -->
-<!-- invokes, sees a launch banner and event-stream log location, and exits. -->
-<!-- Pass --watch to keep a live status block in the session (270s ScheduleWakeup ticks). -->
-<!-- Event stream: .gsd-t/events/YYYY-MM-DD.jsonl (JSONL, phase boundaries). -->
-<!-- Contracts: headless-default-contract.md v1.0.0, unattended-event-stream-contract.md v1.0.0, -->
+## Always-Headless Spawn (M43 D4, v3.16.x+) — Channel Separation
+<!-- Every GSD-T command spawns detached, unconditionally. No --watch flag. -->
+<!-- No --in-session flag. No --headless opt-in. No context-meter threshold -->
+<!-- that reroutes. The dialog channel is reserved for human↔Claude conversation; -->
+<!-- every workflow turn is a detached headless child. Interactive session shows -->
+<!-- a launch banner + live-transcript URL + event-stream path, then exits. -->
+<!-- Results surface via the read-back banner on the user's next message. -->
+<!-- The only in-session surface is the /gsd router, and only for dialog-only -->
+<!-- exploratory turns (Step 2.5 classifier → `conversational`). -->
+<!-- Legacy watch/inSession params on autoSpawnHeadless() are accepted-and-ignored. -->
+<!-- Contracts: headless-default-contract.md v2.0.0, unattended-event-stream-contract.md v1.0.0, -->
 <!-- unattended-supervisor-contract.md v1.1.0. -->
 
 ## Model Selection

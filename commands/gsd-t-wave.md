@@ -4,16 +4,16 @@ You are the wave orchestrator. You do NOT execute phases yourself. Instead, you 
 
 ## Argument Parsing
 
-Parse `$ARGUMENTS`. Detect `--watch` (sets `WATCH_FLAG=true`; default `false`). Per `.gsd-t/contracts/headless-default-contract.md` §2, `--watch` propagates to **primary** phase-agent spawns only. Validation spawns (doc-ripple in Step 7) always go headless regardless of the flag.
+Parse `$ARGUMENTS`. M43 D4 removed `--watch`; `--in-session`/`--headless` were never shipped. Under `.gsd-t/contracts/headless-default-contract.md` **v2.0.0** every phase-agent spawn goes headless unconditionally. A legacy `--watch` token in `$ARGUMENTS` is accepted but ignored (one-line stderr deprecation warning from the spawn primitive).
 
-## Spawn Primitive — Default Headless (M38 Domain 1)
+## Spawn Primitive — Always Headless (M43 D4, v2.0.0)
 
-Per `.gsd-t/contracts/headless-default-contract.md` v1.0.0. Spawn classifications used below:
+Per `.gsd-t/contracts/headless-default-contract.md` v2.0.0. Spawn classifications (kept for logging only — both always headless):
 
 - `spawnType: 'primary'` — per-phase agents (partition, discuss, plan, impact, execute, test-sync, integrate, verify+complete)
 - `spawnType: 'validation'` — post-phase spot-checks, doc-ripple agent
 
-Default path is `autoSpawnHeadless({command, spawnType, watch: WATCH_FLAG, projectDir, sessionContext})` with the read-back banner surfacing completion. When `WATCH_FLAG=true` AND `spawnType='primary'`, `autoSpawnHeadless` returns `{mode:'in-context'}` and the orchestrator falls back to the in-context Task-agent pattern documented inline.
+Spawn path is `autoSpawnHeadless({command, spawnType, projectDir, sessionContext})` with the read-back banner surfacing completion.
 
 ## Model Assignment
 
@@ -35,7 +35,7 @@ Run via Bash:
 node -e "const tb = require('./bin/token-budget.cjs'); const s = tb.getSessionStatus('.'); console.log(JSON.stringify(s));"
 ```
 
-This calls `getSessionStatus()` which reads `.gsd-t/.context-meter-state.json` produced by the Context Meter PostToolUse hook. The returned `threshold` is `normal` or `threshold` (single-band model per `context-meter-contract.md` v1.3.0) and drives the gate logic in the Phase Agent Spawn Pattern below. When the state file is absent, `getSessionStatus()` returns `{pct: 0, threshold: 'normal'}`. `thresholdPct` (default `75`) and `modelWindowSize` are configured in `.gsd-t/context-meter-config.json`.
+This calls `getSessionStatus()` which reads `.gsd-t/.context-meter-state.json` produced by the Context Meter PostToolUse hook. The returned `{pct, threshold}` is captured for the NEXT spawn's token-log Ctx% column — under headless-default-contract v2.0.0 the `threshold` band does NOT drive the spawn decision; every phase agent goes through `autoSpawnHeadless()` unconditionally. When the state file is absent, `getSessionStatus()` returns `{pct: 0, threshold: 'normal'}`. `thresholdPct` (default `75`) and `modelWindowSize` are configured in `.gsd-t/context-meter-config.json`.
 
 ## Step 1: Load State (Lightweight)
 
@@ -175,8 +175,7 @@ node -e "const tb=require('./bin/token-budget.cjs'); const s=tb.getSessionStatus
 The JSON on stdout contains `{pct, threshold}` where `threshold` is `normal` or `threshold` (single-band model per `context-meter-contract.md` v1.3.0).
 
 Handling:
-- `threshold === 'normal'` → proceed to the next phase.
-- `threshold === 'threshold'` → the Context Meter's PostToolUse hook has already emitted the `next-spawn-headless:true` marker; the orchestrator routes subsequent subagent spawns through `autoSpawnHeadless()`. No manual checkpoint/halt — the meter + spawn primitive together handle handoff.
+Capture `pct` for the next spawn's Ctx% log field. The `threshold` field is observational under headless-default-contract v2.0.0 — every spawn routes through `autoSpawnHeadless()` unconditionally, so the band does not gate phase progression.
 
 ### Phase Sequence
 
@@ -246,7 +245,7 @@ After the final phase completes but before wave reports done:
 
 1. Run threshold check — read `git diff --name-only HEAD~1` and evaluate against doc-ripple-contract.md trigger conditions
 2. If SKIP: log "Doc-ripple: SKIP — {reason}" and proceed
-3. If FIRE: spawn doc-ripple agent — `spawnType: 'validation'` (always headless, `--watch` ignored):
+3. If FIRE: spawn doc-ripple agent — `spawnType: 'validation'` (always headless per headless-default-contract v2.0.0):
 
 ⚙ [{model}] gsd-t-doc-ripple → blast radius analysis + parallel updates
 

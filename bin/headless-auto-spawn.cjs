@@ -3,19 +3,26 @@
 /**
  * GSD-T Headless Auto-Spawn — Detached headless continuation
  *
- * When the runway estimator refuses a run (projected context ≥ stop band),
- * the caller invokes `autoSpawnHeadless()` to hand off to a detached child
- * process running `gsd-t headless {command} --log`. The interactive session
- * never blocks on the child (`child.unref()`), so the user retains their
- * terminal and can work on unrelated tasks. On child completion, a macOS
- * notification fires (T2). The interactive session surfaces the result via
- * a read-back banner on the next `gsd-t-resume` or `gsd-t-status` call (T4).
+ * Every GSD-T command spawn routes through `autoSpawnHeadless()` to a
+ * detached child process running `gsd-t headless {command} --log`. The
+ * interactive session never blocks on the child (`child.unref()`), so the
+ * user retains their terminal and can work on unrelated tasks. On child
+ * completion, a macOS notification fires (T2). The interactive session
+ * surfaces the result via a read-back banner on the next `gsd-t-resume`
+ * or `gsd-t-status` call (T4).
  *
  * Zero external dependencies (Node.js built-ins only).
  *
- * Contract: .gsd-t/contracts/headless-auto-spawn-contract.md v1.0.0
- * Consumers: commands/gsd-t-execute|wave|integrate|quick|debug.md (via runway
- *            estimator handoff), bin/runway-estimator.js (conceptual target).
+ * Contract: .gsd-t/contracts/headless-default-contract.md v2.0.0
+ *   - v2.0.0 (M43 D4): channel-separation invariant. Every command spawns.
+ *     No opt-out flag, no context-meter threshold gating, no `--in-session`
+ *     escape hatch. `shouldSpawnHeadless` is a constant `() => true`. The
+ *     `watch` parameter is accepted for caller backward-compat for one
+ *     version but ignored (deprecation warning emitted once per process).
+ * Consumers: every command file that spawns subagents (execute, wave, quick,
+ *            integrate, debug, scan, verify, complete-milestone, test-sync,
+ *            scan, gap-analysis, populate, feature, project, partition);
+ *            the `/gsd` router (Step 2 action-turn handoff).
  */
 
 const fs = require("fs");
@@ -43,7 +50,16 @@ module.exports = {
   writeSessionFile,
   writeContinueHereFile,
   markSessionCompleted,
+  // M43 D4 — channel-separation invariant. The helper is retained for
+  // backward-compat with any caller that imported it from a v1.x consumer;
+  // it now unconditionally returns true. See headless-default-contract
+  // v2.0.0 §Invariants.
+  shouldSpawnHeadless: () => true,
 };
+
+// M43 D4 — one-shot deprecation banner when a caller still passes `watch`
+// (or the never-shipped `inSession`). Module-level flag avoids log spam.
+let _deprecatedWatchWarned = false;
 
 // ── autoSpawnHeadless ────────────────────────────────────────────────────────
 
@@ -67,7 +83,23 @@ function autoSpawnHeadless(opts) {
   const continue_from = opts.continue_from || ".";
   const projectDir = opts.projectDir || process.cwd();
   const context = opts.context || opts.sessionContext || null;
-  const watch = opts.watch === true;
+  // M43 D4 — `watch` is accepted for caller backward-compat but IGNORED.
+  // `inSession` was never shipped; accept+ignore for the same reason.
+  // Under headless-default-contract v2.0.0 every spawn goes headless; the
+  // only in-session surface is the `/gsd` router dialog channel, which is
+  // upstream of this function. One-shot deprecation warning on stderr.
+  const legacyWatch = opts.watch === true;
+  const legacyInSession = opts.inSession === true;
+  if ((legacyWatch || legacyInSession) && !_deprecatedWatchWarned) {
+    _deprecatedWatchWarned = true;
+    try {
+      process.stderr.write(
+        "[headless-default] `watch`/`inSession` flag is deprecated under headless-default-contract v2.0.0 — every spawn is headless; caller hint ignored.\n",
+      );
+    } catch (_) {
+      /* best-effort */
+    }
+  }
   const spawnType = opts.spawnType || "primary";
 
   if (!command || typeof command !== "string") {
@@ -77,44 +109,6 @@ function autoSpawnHeadless(opts) {
     throw new Error(
       `autoSpawnHeadless: \`spawnType\` must be 'primary' or 'validation' (got ${JSON.stringify(spawnType)})`,
     );
-  }
-
-  // Propagation rules (headless-default-contract §2):
-  //   watch=true + primary    → signal in-context fallback (caller uses Task)
-  //   watch=true + validation → warn on stderr; proceed headless
-  //   watch=false             → headless (default behavior)
-  if (watch && spawnType === "primary") {
-    // M39 D2 — append watch-progress tree below banner (best-effort).
-    // Banner here is the in-context-fallback signal printed by the caller;
-    // we don't own it, so we only render the tree to stdout. Never throws.
-    try {
-      const wp = require("./watch-progress.js");
-      const stateDir = path.join(projectDir, ".gsd-t", ".watch-state");
-      const tree = wp.buildTree(stateDir);
-      const rendered = wp.renderTree(tree, { currentAgent: null });
-      if (rendered) {
-        // eslint-disable-next-line no-console
-        console.log(rendered);
-      }
-    } catch (_) {
-      /* watch-progress is best-effort; never crash the watch */
-    }
-    return {
-      id: null,
-      pid: null,
-      logPath: null,
-      timestamp: new Date().toISOString(),
-      mode: "in-context",
-    };
-  }
-  if (watch && spawnType === "validation") {
-    try {
-      process.stderr.write(
-        `[headless-default] --watch ignored for validation spawn type: ${spawnType}\n`,
-      );
-    } catch (_) {
-      /* best effort */
-    }
   }
 
   const timestamp = new Date().toISOString();

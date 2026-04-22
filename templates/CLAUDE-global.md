@@ -322,10 +322,15 @@ No command file ships a bare `Task(...)` or `claude -p` line outside of a wrappe
 
 Rationale: the pre-M41 convention silently wrote `N/A` tokens because no caller parsed the `usage` envelope. The wrapper is the single place that parses it. Bypassing the wrapper re-introduces blind spots.
 
-## Headless-by-Default Spawn (M38, v3.12.10+)
+## Always-Headless Spawn (M43 D4, v3.16.x+) — Channel Separation
 
-Long-running work (execute, wave, integrate, debug repair loops) spawns detached by default. Interactive session shows a banner, event-stream path, then exits — no mid-session `/compact` wall. `--watch` keeps a ScheduleWakeup-driven status block in the caller; events stream JSONL to `.gsd-t/events/YYYY-MM-DD.jsonl`. Router mode (`/gsd`) answers exploratory requests inline without a command spawn — see `commands/gsd.md` Step 2.5.
-Contract: `.gsd-t/contracts/headless-default-contract.md` (see also `unattended-event-stream-contract.md`, `unattended-supervisor-contract.md`).
+Every GSD-T command spawns detached, unconditionally. There is no `--watch`, no `--in-session`, no `--headless` opt-in, no context-meter threshold that reroutes, no low-water-mark bypass. The dialog channel is reserved for human↔Claude conversation; everything else is a detached headless child. Interactive session shows a launch banner + live-transcript URL + event-stream path, then exits. Results surface via the read-back banner on the user's next message.
+
+The only in-session surface is the `/gsd` router (`commands/gsd.md`), and only for dialog-only exploratory turns. The moment Step 2.5 classifies a turn as `workflow`, the router hands off to a detached spawn.
+
+Legacy `watch` / `inSession` params are accepted-and-ignored with a one-shot stderr deprecation warning (scheduled removal in v3.0.0 of the contract). `shouldSpawnHeadless` is a constant `() => true`.
+
+Contract: `.gsd-t/contracts/headless-default-contract.md` v2.0.0 (see also `unattended-event-stream-contract.md`, `unattended-supervisor-contract.md`).
 
 ## API Documentation Guard (Swagger/OpenAPI)
 

@@ -1,206 +1,121 @@
 # Contract: headless-default-contract
 
-**Version**: 1.0.0
-**Status**: ACTIVE — M38 Domain 1 (finalized 2026-04-16 by H1-T1)
-**Owner**: m38-headless-spawn-default
-**Consumers**: every command file that spawns subagents; m38-meter-reduction (Domain 2 strips meter callsites that this contract obviates); m38-unattended-event-stream (Domain 3 — independent); m38-router-conversational (Domain 4 — independent); m38-cleanup-and-docs (Domain 5 — folds 3 deleted contracts into this one)
+**Version**: 2.0.0
+**Status**: ACTIVE — M43 D4 (channel-separation inversion; Wave 3, 2026-04-21)
+**Owner**: m43-d4-default-headless-inversion
+**Predecessor**: v1.0.0 (M38 Domain 1, 2026-04-16) — `.gsd-t/contracts/_archived/headless-default-contract-v1.0.0.md` if archived; otherwise this file's §Version History preserves the prior semantics.
+**Consumers**: every command file that spawns subagents (`gsd-t-execute`, `gsd-t-wave`, `gsd-t-quick`, `gsd-t-integrate`, `gsd-t-debug`, `gsd-t-verify`, `gsd-t-scan`, `gsd-t-test-sync`, `gsd-t-complete-milestone`, `gsd-t-gap-analysis`, `gsd-t-populate`, `gsd-t-feature`, `gsd-t-project`, `gsd-t-partition`); the `/gsd` router (Step 2 action-turn handoff).
 
-**Folded contracts** (deleted by Domain 5 on M38 ship):
-- `headless-auto-spawn-contract.md` v1.0.0 (M35) — superseded; this contract is the new home
-- `runway-estimator-contract.md` v1.0.0 (M35) — runway estimator deleted by Domain 2; no replacement (headless-by-default removes the need)
-- `token-telemetry-contract.md` v1.0.0 (M35) — telemetry deleted by Domain 2; no replacement (per-spawn telemetry was instrumentation for the meter, not for users)
+**Folded contracts** (deleted by M38 Domain 5 on M38 ship, preserved here for traceability):
+- `headless-auto-spawn-contract.md` v1.0.0 (M35) — superseded; this contract is the home
+- `runway-estimator-contract.md` v1.0.0 (M35) — runway estimator deleted; no replacement
+- `token-telemetry-contract.md` v1.0.0 (M35) — telemetry deleted; no replacement
 
 ---
 
 ## 1. Purpose
 
-Subagent spawns from GSD-T command files default to **headless** (`autoSpawnHeadless()` from `bin/headless-auto-spawn.cjs`) instead of in-context Task spawn. The parent context grows much slower because subagent transcripts never inflate it. Headless results land via the existing read-back banner mechanism (`bin/check-headless-sessions.js`) on the user's next message.
+Subagent spawns from GSD-T command files default to **headless** (`autoSpawnHeadless()` from `bin/headless-auto-spawn.cjs`) — the parent context never inflates with subagent transcripts. Headless results land via the read-back banner mechanism (`bin/check-headless-sessions.js`) on the user's next message.
 
-This is the architectural shift M38 ships: treat the cause (parent context grows from in-context subagent transcripts), not the symptom (predict-and-pause when full).
+v2.0.0 strengthens v1.0.0 by removing every remaining escape hatch. The architectural shift is complete: the dialog channel is reserved for human↔Claude conversation; everything else spawns.
 
-## 2. The `--watch` Flag
+## 2. Invariants (v2.0.0)
 
-User-invoked commands accept `--watch` to opt back into in-context streaming for **primary work spawns only**.
+1. **Every command spawns**, unconditionally. No opt-out flag. No context-meter threshold. No low-water-mark bypass.
+2. **The only in-session surface is the `/gsd` router** (`commands/gsd.md`), and only for dialog-only (exploratory) turns. Every workflow turn the router classifies (Step 2.5) spawns detached unconditionally.
+3. **`shouldSpawnHeadless` is a constant `() => true`.** The export is retained for backward-compat with any caller that imported it from a v1.x consumer.
+4. **Legacy `watch` / `inSession` params are accepted but ignored.** `autoSpawnHeadless()` emits a one-shot stderr deprecation warning on first encounter within a process; no functional effect. Scheduled for removal in v3.0.0.
+5. **The context-meter bands are observational only.** `getSessionStatus()` still returns `{pct, threshold}`; command files record `pct` into the token-log `Ctx%` column on the next spawn. The `threshold` value does NOT gate any spawn decision (it did in v1.x).
+6. **`/gsd` router dialog-growth footer (D5) is unchanged.** Pure read/warn signal. Never refuses, never reroutes.
 
-### Propagation Rules
+## 3. What Was Deleted from v1.0.0
 
-| Spawn type | Default | `--watch` propagates? |
-|------------|---------|------------------------|
-| Primary work (execute domain workers, debug fix agent, quick's main task) | headless | yes — streams in-context |
-| QA validation | headless | **no** — always headless |
-| Red Team adversarial QA | headless | **no** — always headless |
-| Design Verification | headless | **no** — always headless |
-| Doc-ripple agents | headless | **no** — always headless |
-| Unattended supervisor workers | headless (detached) | **rejected** — passing `--watch` to `gsd-t-unattended` errors |
+- The `--watch` flag's `watch=true + spawnType='primary' → {mode: 'in-context'}` fallback branch in `autoSpawnHeadless()`. Now: all four rows of the propagation matrix are `headless`.
+- The `--watch` flag on every user-invocable command file. The flag parse is removed; remaining prose explicitly states "ignored (stderr deprecation line)".
+- The orchestrator's "threshold silently reroutes next spawn" prose in command files (Step 3.5 of `gsd-t-execute`, post-phase block of `gsd-t-wave`, Token Budget Check of `gsd-t-quick`). Replaced with "band captured for logging; no gating".
+- The `--in-session` opt-out from the v1 spec. It was scoped for v2 in the partition-era plan, then explicitly deleted per channel-separation (2026-04-21 Decision Log entry).
+- The 15% low-water bypass from the v1 spec. Same rationale.
 
-### `--watch` Acceptance
+## 4. Spawn Primitive Contract
 
-- `gsd-t-execute --watch` → primary domain workers stream
-- `gsd-t-quick --watch` → quick's inner subagent streams
-- `gsd-t-debug --watch` → debug fix-loop agent streams
-- `gsd-t-wave` → primary phase agents respect `--watch`; validation spawns ignore it
-- `gsd-t-integrate --watch` → integration agent streams
-- `gsd-t-scan` → dimension subagents respect `--watch`
-- `gsd-t-verify` → verification subagents respect `--watch`
-- `gsd-t-unattended --watch` → **error** with message: "Unattended supervisor is detached by definition. `--watch` is incompatible. Run `/gsd-t-unattended-watch` from your interactive session to see live activity."
-
-### Default Behavior (no flag)
-
-Every subagent spawn goes headless. The user sees:
-1. A brief one-line status when each spawn launches: `⚙ [{model}] {command} → {description} (headless)`
-2. The read-back banner on their next message: `## Headless runs since you left` listing completed sessions
-
-## 3. Spawn Primitive Contract
-
-`autoSpawnHeadless({command, args, projectDir, sessionContext, watch=false, spawnType='primary', context, continue_from, sessionId})` — the default subagent spawn primitive used by command files.
+`autoSpawnHeadless({command, args, projectDir, sessionContext, spawnType='primary', context, continue_from, sessionId})` — the single subagent spawn primitive used by every command file and by `/gsd`'s action-turn handoff.
 
 ### Inputs
 
 | Param | Type | Required | Description |
 |-------|------|----------|-------------|
-| `command` | string | yes | Slash command name (e.g., `gsd-t-execute`) — bare form, no `/` prefix. May include the `gsd-t-` prefix; `stripGsdtPrefix()` normalizes. |
-| `args` | string[] | no | Command arguments to pass through to the child `gsd-t headless` invocation. Defaults to `[]`. |
-| `projectDir` | string | no | Absolute project directory. Defaults to `process.cwd()`. |
-| `sessionContext` | object | no | Alias of `context` for readability in new callsites. Identical behavior. |
+| `command` | string | yes | Slash command name (e.g., `gsd-t-execute`) — bare form. May include `gsd-t-` prefix; `stripGsdtPrefix()` normalizes. |
+| `args` | string[] | no | Command arguments to pass through to the child `gsd-t headless` invocation. Default `[]`. |
+| `projectDir` | string | no | Absolute project directory. Default `process.cwd()`. |
+| `sessionContext` | object | no | Alias of `context`. |
 | `context` | object | no | Snapshot written to `.gsd-t/headless-sessions/{id}-context.json`. When omitted, `buildContextSnapshot(projectDir)` captures progress.md header + last Decision Log entry. |
-| `continue_from` | string | no | Relative path passed to child for continuation. Defaults to `"."`. |
-| `sessionId` | string | no | Enables the handoff-lock gate — callers that set it acquire `.gsd-t/.handoff/lock-{sessionId}` across the write+spawn window. Callsites that do not set it keep pre-m36 behavior. |
-| `watch` | boolean | no | If `true` AND `spawnType === 'primary'`, signal fallback to in-context Task spawn. Default `false`. |
-| `spawnType` | string | no | Enum `'primary'` \| `'validation'`. Default `'primary'`. Controls `--watch` propagation. |
+| `continue_from` | string | no | Relative path passed to child for continuation. Default `"."`. |
+| `sessionId` | string | no | Enables the handoff-lock gate; callers that set it acquire `.gsd-t/.handoff/lock-{sessionId}` across the write+spawn window. |
+| `spawnType` | string | no | Enum `'primary'` \| `'validation'`. Default `'primary'`. Used for observability classification only — both always go headless. |
+| ~~`watch`~~ | boolean | no | **Deprecated under v2.0.0** — accepted for caller backward-compat, ignored. One-shot stderr deprecation warning. Scheduled for removal in v3.0.0. |
+| ~~`inSession`~~ | boolean | no | **Deprecated under v2.0.0** — same as `watch`. Was never shipped functionally. |
 
 ### Outputs
 
 Returns synchronously:
 ```
-{ id: string, pid: number, logPath: string, timestamp: string, mode: 'headless' | 'in-context' }
+{ id: string, pid: number, logPath: string, timestamp: string, mode: 'headless' }
 ```
-- `mode: 'headless'` — default headless path; detached child running `node bin/gsd-t.js headless {command} [args] --log`
-- `mode: 'in-context'` — `watch=true && spawnType==='primary'`; `{id, pid, logPath}` are `null` sentinels and the caller falls back to in-context Task spawn (existing M35-and-prior pattern). The OBSERVABILITY LOGGING block still runs around the Task spawn.
+Under v2.0.0 `mode` is always `'headless'`. The `'in-context'` sentinel that v1.x returned for `watch=true + primary` has been removed.
 
-### Behavior matrix
+### Propagation matrix (v2.0.0 — every row is headless)
 
-| `watch` | `spawnType` | Behavior |
-|---------|-------------|----------|
+| `watch` (ignored) | `spawnType` | Behavior |
+|-------------------|-------------|----------|
 | `false` | `'primary'` | headless — detached child, read-back banner surfaces result |
 | `false` | `'validation'` | headless — detached child (same path) |
-| `true`  | `'primary'` | returns `{mode: 'in-context'}` signal; caller performs in-context Task spawn |
-| `true`  | `'validation'` | logs `[headless-default] --watch ignored for validation spawn type: {type}` to stderr; proceeds headless |
+| `true`  | `'primary'` | headless; one-shot stderr deprecation warning |
+| `true`  | `'validation'` | headless; one-shot stderr deprecation warning |
 
-### Session artifacts (headless mode)
+### Session artifacts
 
-- `.gsd-t/headless-sessions/{id}.json` — running session with `status: 'running'`; updated to `status: 'completed'` with `exitCode` + `endTimestamp` via `markSessionCompleted()`
-- `.gsd-t/headless-sessions/{id}-context.json` — serialized `context` or `buildContextSnapshot()` capture
-- `.gsd-t/headless-{id}.log` — child stdout+stderr (via `logFd` opened in `autoSpawnHeadless`)
-- On user's next message, `bin/check-headless-sessions.js printBannerIfAny()` surfaces `status: 'completed' && surfaced !== true` sessions, then marks them `surfaced: true`.
+Unchanged from v1.0.0:
+- `.gsd-t/headless-sessions/{id}.json` — running → completed
+- `.gsd-t/headless-sessions/{id}-context.json` — context snapshot
+- `.gsd-t/headless-{id}.log` — child stdout+stderr
+- `bin/check-headless-sessions.js printBannerIfAny()` surfaces on user's next message; marks sessions `surfaced: true`
 
-### Worker Env Propagation (v3.12.14)
+### Live transcript URL banner (M43 D6)
 
-`autoSpawnHeadless` sets the following env vars on the detached child so that
-events emitted from the child's context (both the event-writer CLI and the
-PostToolUse heartbeat hook) carry routing identity. Parent env values pass
-through when set; `GSD_T_COMMAND` / `GSD_T_PHASE` / `GSD_T_PROJECT_DIR` have
-sensible defaults:
-
-| Env var | Default | Required |
-|---|---|---|
-| `GSD_T_COMMAND` | `{command}` arg | yes |
-| `GSD_T_PHASE` | parent env or `"execute"` | yes |
-| `GSD_T_PROJECT_DIR` | parent env or `projectDir` | yes |
-| `GSD_T_TRACE_ID` | parent env only (propagated if set) | no |
-| `GSD_T_MODEL` | parent env only (propagated if set) | no |
-
-This matches the env propagation done by `bin/gsd-t-unattended.cjs::_spawnWorker`
-for supervisor workers and by `bin/orchestrator.js::_buildOrchestratorEnv`
-for workflow orchestrator spawns.
-
-## 4. Threshold Crossing — Silent Orchestrator Action
-
-When the local-estimator hook reports context above threshold (Domain 2 owns the simplified single-band semantics), the orchestrator silently routes the next subagent spawn through `autoSpawnHeadless()` regardless of `--watch`. NO MANDATORY STOP banner. NO ceremony.
-
-The user sees:
-- Brief log: `⚙ [orchestrator] context above threshold ({pct}%) — next spawn forced headless`
-- Activity continues without ritual
-
-This replaces the M37 Universal Auto-Pause Rule's MANDATORY STOP behavior with a structural fix: the spawn that would have been the straw that broke the camel's back goes headless instead.
-
-## 5. Read-Back Banner
-
-Existing mechanism in `bin/check-headless-sessions.js` is unchanged. On user's next message, the banner formats completed sessions:
+Preserved from M43 Wave 2 (`bin/headless-auto-spawn.cjs` commit 01f4534). Every spawn prints:
 
 ```
-## Headless runs since you left
-- {sessionId} — {command} {args} — completed in {duration} — exit {code}
-  → see {logPath}
+▶ Live transcript: http://127.0.0.1:{port}/transcript/{id}
 ```
 
-Sessions are marked `surfaced: true` after first banner display.
+The dashboard is autostarted via `scripts/gsd-t-dashboard-autostart.cjs::ensureDashboardRunning` before the banner line is emitted. Both are best-effort — banner failure never crashes the spawn.
+
+### Worker Env Propagation
+
+Unchanged from v1.0.0 (see v1 §3 Worker Env Propagation). `GSD_T_COMMAND`, `GSD_T_PHASE`, `GSD_T_PROJECT_DIR`, `GSD_T_TRACE_ID`, `GSD_T_MODEL`, `GSD_T_AGENT_ID`, `GSD_T_PARENT_AGENT_ID` all propagate to the detached child.
+
+## 5. The `/gsd` Router
+
+The router (`commands/gsd.md`) is the single in-session surface.
+
+- **Exploratory / conversational turns** (Step 2.5 classifier → `conversational`) stay in the dialog channel. No command spawn. Header: `→ Conversational mode (no command spawn)`.
+- **Workflow turns** (Step 2.5 classifier → `workflow`, action verbs like fix/add/implement/run/execute) proceed to Step 2 semantic evaluation and spawn the chosen command detached. Header: `→ Routing to /gsd-t-{command}: {reason}`.
+- **Continuation turns** (Step 2a) route to the in-flight command; header: `→ /gsd ──▶ continue /gsd-t-{last-command}`.
+- **Dialog-growth footer** (Step 5, M43 D5) — pure read/warn; never refuses, never reroutes.
 
 ## 6. Migration
 
-- Wave 1 Domain 1: command files convert spawn callsites from in-context Task to `autoSpawnHeadless()`. The OBSERVABILITY LOGGING block is preserved.
-- Wave 1 Domain 2: deletes meter machinery (runway-estimator, telemetry, three-band, dead-meter detection) — safe because Domain 1's spawn-time orchestrator action replaces the runway estimator's preventative role.
-- Wave 2 Domain 5: deletes the 3 folded contracts; CHANGELOG documents the architectural shift.
+- **From v1.0.0 → v2.0.0**: callers that pass `watch` or `inSession` continue to work — the values are ignored with a one-shot stderr deprecation. No code change required in consumers, but command files have been edited in the same commit to drop the flag parse and the threshold branching prose.
+- **Removal target**: `watch` / `inSession` are removed from the `autoSpawnHeadless` signature in v3.0.0. Any remaining external consumer should drop them before then.
 
 ## 7. Test Coverage
 
-- `test/headless-auto-spawn.test.js` — extends existing 16+ tests with `--watch` propagation rule cases
-- `test/headless-default.test.js` — NEW — tests for `--watch` rejection by unattended, validation-spawn-always-headless rule, threshold-cross silent routing
-- `test/filesystem.test.js` — command count adjusted for Domain 4's 3 conversational deletions and Domain 5's 4 self-improvement deletions
-
-## Appendix A: Spawn Callsite Conversion Map
-
-Authored by H1-T1 audit (2026-04-16). Consumed by H1-T3 / H1-T4 / H1-T5 conversion tasks. Each item below becomes an `autoSpawnHeadless({..., spawnType: 'primary' | 'validation', watch: $WATCH_FLAG})` call.
-
-### commands/gsd-t-execute.md (14 spawns)
-- Step 2 (validation) — QA subagent runs full test suite, reports pass/fail + coverage gaps
-- Step 3 (primary) — Domain task-dispatcher fresh-dispatch spawn per task
-- Step 3 (validation) — Post-task QA subagent (inline QA after each task)
-- Step 5.25 (validation) — Design Verification Agent (when design contract exists)
-- Step 5.5 (validation) — Red Team adversarial QA per domain
-- Step 5.5 (validation) — Doc-ripple agent blast-radius analysis
-
-### commands/gsd-t-wave.md (9 spawns)
-- Step 3 (primary) — Phase agent spawn per wave phase (PARTITION → DISCUSS → PLAN → IMPACT → EXECUTE → TEST-SYNC → INTEGRATE → VERIFY+COMPLETE)
-- Step 3 (validation) — Post-phase spot-check agent (status/git/filesystem)
-- Step 3 (validation) — Phase transition event writer
-
-### commands/gsd-t-integrate.md (2 spawns)
-- Step 5 (validation) — QA subagent for contract compliance at domain boundaries
-- Step 7.5 (validation) — Red Team adversarial validation of integrated system
-
-### commands/gsd-t-quick.md (4 spawns)
-- Step 0.1 (primary) — Fresh-dispatch subagent runs the quick task
-- Step 5.25 (validation) — Design Verification Agent (when design contract exists)
-- Step 5.5 (validation) — Red Team adversarial validation
-- Step 6 (validation) — Doc-ripple agent blast-radius analysis
-
-### commands/gsd-t-debug.md (5 spawns)
-- Step 0.1 (primary) — Fresh-dispatch subagent runs the debug session
-- Step 1.5 (validation) — 3 parallel Deep Research teammates (root-cause, alternatives, prior-art) when debug loop detected
-- Step 5.3 (validation) — Red Team adversarial validation post-fix
-- Step 6 (validation) — Doc-ripple agent blast-radius analysis
-
-### commands/gsd-t-scan.md (6 spawns)
-- Step 0 (primary) — Fresh-dispatch subagent runs the scan
-- Step 2 (primary) — 5 parallel dimension agents (architecture, business-rules, security, quality, contracts)
-- Step 3 (primary) — Synthesis agent → tech-debt register
-- Step 5 (validation) — Living-document updater agent
-- Step 8 (validation) — HTML report generator
-
-### commands/gsd-t-verify.md (2 spawns)
-- Step 4 (primary|validation) — Team-mode 4 parallel verification agents (functional, contracts, quality, security) OR solo through each dimension. **Treat as `spawnType: 'validation'`** per constraints — verify is validation by nature, the work product is a verdict, not a code change.
-- Step 8 (validation) — Auto-invoke complete-milestone spawn (preserves verify → complete-milestone chaining)
-
-### Argument Parsing Gap
-
-None of the 7 files currently has a `## Argument Parsing` section. H1-T3..T6 must add this stub near the top of each user-invocable file (`execute`, `quick`, `debug`, `wave`, `integrate`, `scan`, `verify`). Detect `--watch` in `$ARGUMENTS` and set `WATCH_FLAG=true` (default `false`).
-
-### OBSERVABILITY LOGGING Compliance
-
-Six of seven files (all except `gsd-t-scan.md`) already have the required block per project CLAUDE.md. Conversions MUST preserve these blocks — wrap `autoSpawnHeadless()` calls with the same `T_START` / `T_END` / `DURATION` / `token-log.md` append pattern used around the current `Task(...)` spawns.
-
----
+- `test/headless-auto-spawn.test.js` — shape of return, session files, handoff lock wiring. Unchanged.
+- `test/headless-default.test.js` — propagation matrix updated for v2.0.0: every row is now `headless`; the former `watch=true + primary → in-context` test is re-asserted as "spawns anyway, flag ignored".
+- `test/m43-headless-default-inversion.test.js` — NEW — matrix across the 14 command files + `/gsd` router, asserting every action-turn row resolves to headless; grep-assertion that `--in-session` / `--headless` appear in zero operational command-file prose.
+- `test/m43-url-banner.test.js` — D6 transcript URL banner preserved (unchanged).
 
 ## Version History
 
-- **1.0.0** (M38, target v3.12.10) — NEW. Folds and supersedes headless-auto-spawn-contract v1.0.0. Folds-and-deletes runway-estimator-contract v1.0.0 + token-telemetry-contract v1.0.0 (no replacement; headless-by-default obviates them). §3 spawn primitive signature finalized against actual `autoSpawnHeadless()` exports in `bin/headless-auto-spawn.cjs`. Appendix A Conversion Map authored by H1-T1 audit 2026-04-16.
+- **2.0.0** (M43 D4, target v3.16.x) — NEW. Channel-separation inversion: every command spawns, unconditionally. `watch` / `inSession` deprecated (accepted-and-ignored; scheduled removal in v3.0.0). `shouldSpawnHeadless` collapsed to `() => true`. Threshold-driven rerouting prose stripped from command files; context-meter bands are observational only. Router (`/gsd`) is the single in-session surface, only for dialog-only turns.
+- **1.0.0** (M38, v3.12.10, 2026-04-16) — Initial headless-by-default. Introduced `--watch` opt-in for primary spawns; validation spawns always headless. Folded three M35-era contracts. Threshold band (§4) silently rerouted the next spawn.

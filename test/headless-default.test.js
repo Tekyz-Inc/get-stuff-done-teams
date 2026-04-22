@@ -1,18 +1,18 @@
 /**
- * Tests for the headless-default spawn primitive extension (M38 Domain 1).
- * Exercises the `--watch` flag + `spawnType` propagation rules on the
- * `autoSpawnHeadless()` primitive AND the `--watch` rejection at the
- * `gsd-t-unattended` CLI surface.
+ * Tests for the headless-default spawn primitive extension.
  *
- * Contract: .gsd-t/contracts/headless-default-contract.md v1.0.0 §2, §3
+ * Contract: .gsd-t/contracts/headless-default-contract.md v2.0.0 §2, §3
+ *   - M43 D4 channel-separation invariant: every spawn is headless. The
+ *     `watch` / `inSession` params are accepted for caller backward-compat
+ *     but ignored (one-shot stderr deprecation warning).
  *
- * Propagation matrix (§2):
- *   | watch | spawnType   | behavior                                   |
- *   |-------|-------------|--------------------------------------------|
- *   | false | primary     | headless (default)                         |
- *   | false | validation  | headless (always)                          |
- *   | true  | primary     | signal in-context fallback ({mode})        |
- *   | true  | validation  | stderr warning; proceed headless           |
+ * Propagation matrix (v2.0.0 §2) — every row is headless:
+ *   | watch (ignored) | spawnType   | behavior                          |
+ *   |-----------------|-------------|-----------------------------------|
+ *   | false           | primary     | headless                          |
+ *   | false           | validation  | headless                          |
+ *   | true            | primary     | headless (watch hint ignored)     |
+ *   | true            | validation  | headless (watch hint ignored)     |
  */
 
 const { describe, it, before, after, beforeEach } = require("node:test");
@@ -97,31 +97,34 @@ describe("HD-T2: propagation — watch=false + validation (always headless)", ()
   });
 });
 
-// ── 3. Propagation matrix: watch=true / primary (in-context fallback) ────────
+// ── 3. Propagation matrix: watch=true / primary (v2.0.0 — headless, flag ignored) ────────
 
-describe("HD-T2: propagation — watch=true + primary (in-context fallback)", () => {
-  it("returns {mode:'in-context'} sentinel and writes NO session file", () => {
-    const before = listSessionFiles(tmpDir);
+describe("HD-T2 / M43-D4: propagation — watch=true + primary (channel-separation: spawns anyway)", () => {
+  it("returns {mode:'headless'} and writes session file even when watch=true (flag ignored)", () => {
     const result = has.autoSpawnHeadless({
       command: "gsd-t-execute",
       projectDir: tmpDir,
       watch: true,
       spawnType: "primary",
     });
-    assert.equal(result.mode, "in-context");
-    assert.equal(result.id, null);
-    assert.equal(result.pid, null);
-    assert.equal(result.logPath, null);
-    assert.ok(result.timestamp);
-    const after = listSessionFiles(tmpDir);
     assert.equal(
-      after.length,
-      before.length,
-      "in-context mode must not write session files",
+      result.mode,
+      "headless",
+      "v2.0.0: watch flag is deprecated/ignored; every spawn is headless",
     );
+    assert.ok(result.id && typeof result.id === "string");
+    assert.ok(result.pid > 0);
+    assert.ok(result.logPath);
+    const sessionFp = path.join(
+      tmpDir,
+      ".gsd-t",
+      "headless-sessions",
+      `${result.id}.json`,
+    );
+    assert.ok(fs.existsSync(sessionFp));
   });
 
-  it("does not spawn a child process (no .gsd-t/headless-*.log appears)", () => {
+  it("spawns a child process (headless log appears) even with watch=true", () => {
     const logsBefore = listHeadlessLogs(tmpDir);
     has.autoSpawnHeadless({
       command: "gsd-t-quick",
@@ -130,11 +133,21 @@ describe("HD-T2: propagation — watch=true + primary (in-context fallback)", ()
       spawnType: "primary",
     });
     const logsAfter = listHeadlessLogs(tmpDir);
-    assert.equal(
-      logsAfter.length,
-      logsBefore.length,
-      "in-context mode must not open a log fd",
+    assert.ok(
+      logsAfter.length > logsBefore.length,
+      "v2.0.0: watch=true must NOT suppress the headless spawn (every command spawns)",
     );
+  });
+
+  it("legacy `inSession: true` hint is also accepted but ignored", () => {
+    const result = has.autoSpawnHeadless({
+      command: "gsd-t-execute",
+      projectDir: tmpDir,
+      inSession: true,
+      spawnType: "primary",
+    });
+    assert.equal(result.mode, "headless");
+    assert.ok(result.id);
   });
 });
 

@@ -126,17 +126,17 @@ test("unattended_verbose_banner_appends_tree_below", () => {
   assert.match(out, /child-Y/);
 });
 
-// ── T9: headless-auto-spawn.cjs watch path renders tree ─────────────────────
+// ── T9: headless-auto-spawn.cjs watch=true still spawns headless (v2.0.0) ───
 
-test("auto_spawn_watch_primary_renders_tree_to_stdout", () => {
-  // Call the real binary with watch=true+primary against a tmp project that
-  // contains state files. Assert stdout contains our labels.
+test("auto_spawn_watch_primary_spawns_headless_flag_ignored_v2", () => {
+  // Under headless-default-contract v2.0.0 the `watch` flag is deprecated
+  // and ignored: every spawn goes headless. The v1.x in-context fallback
+  // (and the watch-progress tree printed on that path) has been removed.
   const proj = makeTmpProject();
   const stateDir = path.join(proj, ".gsd-t", ".watch-state");
   writeRecord(stateDir, mkRecord("r1", null, "in_progress", "headless-root"));
   writeRecord(stateDir, mkRecord("c1", "r1", "in_progress", "headless-child"));
 
-  // Build a tiny driver that requires the module and calls it.
   const driver = `
     const p = ${JSON.stringify(proj)};
     const { autoSpawnHeadless } = require(${JSON.stringify(path.resolve(__dirname, "..", "bin", "headless-auto-spawn.cjs"))});
@@ -148,7 +148,5 @@ test("auto_spawn_watch_primary_renders_tree_to_stdout", () => {
     cwd: proj,
   });
   assert.equal(res.status, 0, res.stderr);
-  assert.match(res.stdout, /MODE=in-context/);
-  assert.match(res.stdout, /headless-root/);
-  assert.match(res.stdout, /headless-child/);
+  assert.match(res.stdout, /MODE=headless/, "v2.0.0: watch flag is ignored; always headless");
 });

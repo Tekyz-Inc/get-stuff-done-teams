@@ -4,16 +4,16 @@ You are the lead agent performing a comprehensive analysis of an existing codeba
 
 ## Argument Parsing
 
-Parse `$ARGUMENTS`. Detect `--watch` (sets `WATCH_FLAG=true`; default `false`). Per `.gsd-t/contracts/headless-default-contract.md` §2, `--watch` propagates to the **primary** scan spawns (Step 0 outer subagent, Step 2 dimension agents). Step 5 living-document updates and Step 8 HTML report are validation-style — they always go headless.
+Parse `$ARGUMENTS`. M43 D4 removed the `--watch` opt-out; `--in-session`/`--headless` were never shipped. Under `.gsd-t/contracts/headless-default-contract.md` **v2.0.0** every scan spawn goes headless unconditionally (Step 0 outer subagent, Step 2 dimension agents, Step 3 synthesis agent, Step 5 living-document updater, Step 8 HTML report generator). A legacy `--watch` token is accepted but ignored (stderr deprecation line).
 
-## Spawn Primitive — Default Headless (M38 Domain 1)
+## Spawn Primitive — Always Headless (M43 D4, v2.0.0)
 
-Per `.gsd-t/contracts/headless-default-contract.md` v1.0.0. Spawn classifications used below:
+Per `.gsd-t/contracts/headless-default-contract.md` v2.0.0. Spawn classifications used below (both always headless):
 
 - `spawnType: 'primary'` — Step 0 outer fresh-dispatch subagent, Step 2 dimension agents, Step 3 synthesis agent
 - `spawnType: 'validation'` — Step 5 living-document updater, Step 8 HTML report generator
 
-Default path is `autoSpawnHeadless({command, spawnType, watch: WATCH_FLAG, projectDir, sessionContext})`.
+Spawn path is `autoSpawnHeadless({command, spawnType, projectDir, sessionContext})`.
 
 ## Step 0: Launch via Subagent
 
@@ -24,7 +24,7 @@ node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-
 Scans are long-running and context-heavy. Always execute via a Task subagent for a fresh context window.
 
 **If you are the orchestrating agent** (you received the slash command directly):
-Spawn a fresh subagent using the Task tool — `spawnType: 'primary'` (respects `--watch`: headless by default, in-context when `WATCH_FLAG=true`):
+Spawn a fresh subagent using the Task tool — `spawnType: 'primary'` (always headless per headless-default-contract v2.0.0):
 ```
 subagent_type: general-purpose
 spawnType: primary

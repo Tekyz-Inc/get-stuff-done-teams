@@ -4,20 +4,16 @@ You are the lead agent coordinating task execution across domains. Choose solo o
 
 ## Argument Parsing
 
-Parse `$ARGUMENTS` before doing any work. Detect these flags:
+Parse `$ARGUMENTS` before doing any work. M43 D4 removed the `--watch` opt-out; `--in-session`/`--headless` were never shipped. Under `.gsd-t/contracts/headless-default-contract.md` **v2.0.0** every command spawns — the dialog channel is reserved for the `/gsd` router's exploratory turns and is upstream of this command. Any legacy `--watch` token in `$ARGUMENTS` is accepted but ignored (printed as a single stderr deprecation line by the spawn primitive).
 
-- `--watch` — opt-in to **in-context streaming** for primary work subagents. If present, set `WATCH_FLAG=true`; otherwise `WATCH_FLAG=false` (default).
+## Spawn Primitive — Always Headless (M43 D4, v2.0.0)
 
-Validation spawns (QA, Red Team, Design Verification, doc-ripple) ignore `--watch` per `.gsd-t/contracts/headless-default-contract.md` §2 — they always go headless.
-
-## Spawn Primitive — Default Headless (M38 Domain 1)
-
-Per `.gsd-t/contracts/headless-default-contract.md` v1.0.0. Every Task-subagent spawn below is classified as one of:
+Per `.gsd-t/contracts/headless-default-contract.md` v2.0.0. Every Task-subagent spawn below goes headless unconditionally. Classification is kept only for downstream logging:
 
 - `spawnType: 'primary'` — domain task-dispatcher (Step 3 fresh-dispatch)
 - `spawnType: 'validation'` — Step 2 QA, Step 5.25 Design Verification, Step 5.5 Red Team, Step 7 doc-ripple
 
-**Default spawn path** (when `WATCH_FLAG=false`):
+**Spawn path** (unconditional):
 
 ```bash
 SESSION=$(node -e "
@@ -27,7 +23,6 @@ const r = has.autoSpawnHeadless({
   args: [], // optional per-spawn args
   projectDir: process.cwd(),
   spawnType: '{primary|validation}',
-  watch: false,
   sessionContext: { step: '{step-id}', domain: '{domain-name}', task: '{task-id}' }
 });
 process.stdout.write(JSON.stringify(r));
@@ -36,10 +31,6 @@ echo "⚙ [${MODEL:-sonnet}] gsd-t-execute → ${DESC:-subagent} (headless)"
 ```
 
 Then `bin/check-headless-sessions.js printBannerIfAny()` surfaces the completion on the next user message.
-
-**`--watch` path** (only when `WATCH_FLAG=true` AND `spawnType: 'primary'`): `autoSpawnHeadless()` returns `{mode: 'in-context'}` sentinel — fall back to the in-context Task subagent pattern documented in each Step below. The OBSERVABILITY LOGGING block runs unchanged.
-
-**Validation spawns** always run headless regardless of `--watch`.
 
 ## Model Assignment
 
@@ -116,7 +107,7 @@ node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-
 
 In solo mode, QA runs inside each domain subagent (see Step 3). In team mode, the lead spawns QA subagents at each domain checkpoint using the pattern below.
 
-**QA subagent prompt** — `spawnType: 'validation'` (always headless, `--watch` ignored per headless-default-contract §2):
+**QA subagent prompt** — `spawnType: 'validation'` (always headless per headless-default-contract v2.0.0):
 ```
 Task subagent (spawnType: validation, general-purpose, model: sonnet):
 "Run the full test suite for this project and report pass/fail counts.
@@ -202,9 +193,7 @@ const { captureSpawn } = require('./bin/gsd-t-token-capture.cjs');
 Run via Bash:
 `node -e "const tb = require('./bin/token-budget.cjs'); const s = tb.getSessionStatus('.'); process.stdout.write(JSON.stringify(s));" 2>/dev/null`
 
-Apply the single-band result per `context-meter-contract.md` v1.3.0:
-- `threshold: 'normal'` (or file missing) → proceed with standard model assignments.
-- `threshold: 'threshold'` → the Context Meter's PostToolUse hook has already emitted the `next-spawn-headless:true` marker; subsequent task-dispatcher spawns route through `autoSpawnHeadless()` automatically. No manual halt.
+Capture `pct` as `{CTX_PCT}` for the token-log `Ctx%` column on the next spawn. The reading is observational only — under headless-default-contract v2.0.0 the spawn decision is no longer gated on `threshold`; every task-dispatcher spawn goes through `autoSpawnHeadless()` regardless of band.
 
 **Pre-dispatch experience retrieval (before dispatching each domain's tasks):**
 Run via Bash:
@@ -309,7 +298,7 @@ For each task in `.gsd-t/domains/{domain-name}/tasks.md` (in order, skip complet
 2. Load graph context (if `.gsd-t/graph/meta.json` exists): query task's files for relevant graph context
 3. Display: `⚙ [sonnet] gsd-t-execute → domain: {domain-name}, task-{task-id}`
 4. Run observability Bash (T_START / DT_START)
-5. Spawn task subagent — `spawnType: 'primary'` (respects `--watch`: headless by default, in-context when `WATCH_FLAG=true`):
+5. Spawn task subagent — `spawnType: 'primary'` (always headless per headless-default-contract v2.0.0):
 
 ```
 Task subagent (spawnType: primary, general-purpose, model: sonnet, mode: bypassPermissions):
@@ -537,7 +526,7 @@ Report back:
 
 6. **Per-domain Red Team** — invoke Step 5.5 (Red Team) NOW for this domain. This is the first place Red Team runs in v2.74.12 — there is no global post-execute Red Team anymore. If Red Team returns FAIL, fix bugs and re-run before proceeding to the next domain (max 2 fix-and-verify cycles); if bugs persist, log to `.gsd-t/deferred-items.md` and present to user.
 
-7. **Context gate re-check** — run `node -e "const tb=require('./bin/token-budget.cjs'); const s=tb.getSessionStatus('.'); process.stdout.write(JSON.stringify(s));"`. If `threshold === 'threshold'`, the Context Meter hook has already emitted the `next-spawn-headless:true` marker — the next domain dispatcher must be routed through `autoSpawnHeadless()` so it runs in a fresh headless context. `threshold === 'normal'` → proceed in-context.
+7. **Context observation** — run `node -e "const tb=require('./bin/token-budget.cjs'); const s=tb.getSessionStatus('.'); process.stdout.write(JSON.stringify(s));"` and capture `pct` for the NEXT spawn's token-log row. No gating: the next domain dispatcher runs through `autoSpawnHeadless()` either way under headless-default-contract v2.0.0.
 
 ### Team Mode (when agent teams are enabled)
 Spawn teammates for domains within the same wave. Only domains in the same wave can run in parallel — do not spawn teammates for domains in different waves simultaneously. Each teammate uses the **domain task-dispatcher pattern** — one subagent per task within their domain (same as solo mode).
@@ -687,18 +676,15 @@ Cleanup is not optional — orphaned worktrees waste disk space and can confuse 
 node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-execute --step 3 --step-label ".5: Orchestrator Context Gate (MANDATORY)" 2>/dev/null || true
 ```
 
-Single-band context gate per `.gsd-t/contracts/context-meter-contract.md` v1.3.0. The orchestrator checks `getSessionStatus()` BEFORE every task subagent spawn. `bin/token-budget.cjs` reads `.gsd-t/.context-meter-state.json` — the token estimate produced by the Context Meter PostToolUse hook.
+Context observation — the orchestrator captures `getSessionStatus()` BEFORE every spawn for the Ctx% column only. Under headless-default-contract v2.0.0 the band does NOT gate the spawn decision; every task-dispatcher spawn goes through `autoSpawnHeadless()`.
 
-**Before each task spawn — gate check:**
+**Before each task spawn — capture ctx reading:**
 
 ```bash
 node -e "const tb=require('./bin/token-budget.cjs'); const s=tb.getSessionStatus('.'); process.stdout.write(JSON.stringify(s));"
 ```
 
-The JSON on stdout contains `{pct, threshold}` where `threshold` is `normal` or `threshold`. Capture `pct` as `{CTX_PCT}` for the token-log `Ctx%` column on the NEXT spawn.
-
-- `threshold: 'normal'` → proceed with the standard in-context spawn path for `primary` spawns (headless for `validation` spawns per headless-default-contract).
-- `threshold: 'threshold'` → the Context Meter's PostToolUse hook has already emitted the `next-spawn-headless:true` marker. Route subsequent `primary` task-dispatcher spawns through `autoSpawnHeadless()` as well — the next spawn runs in a fresh headless context, the current orchestrator finishes its bookkeeping and returns cleanly. No manual checkpoint/halt.
+The JSON on stdout contains `{pct, threshold}`. Capture `pct` as `{CTX_PCT}` for the token-log `Ctx%` column on the NEXT spawn. The `threshold` field is observational — no longer used for branching.
 
 **Configuring the threshold:**
 
@@ -774,7 +760,7 @@ DV_PROMPT="$(npm root -g 2>/dev/null)/@tekyzinc/gsd-t/templates/prompts/design-v
 [ -f "$DV_PROMPT" ] || DV_PROMPT="templates/prompts/design-verify-subagent.md"
 ```
 
-Then spawn through `captureSpawn` — `spawnType: 'validation'` (always headless, `--watch` ignored):
+Then spawn through `captureSpawn` — `spawnType: 'validation'` (always headless per headless-default-contract v2.0.0):
 
 ```
 node -e "
@@ -840,7 +826,7 @@ RT_PROMPT="$(npm root -g 2>/dev/null)/@tekyzinc/gsd-t/templates/prompts/red-team
 [ -f "$RT_PROMPT" ] || RT_PROMPT="templates/prompts/red-team-subagent.md"
 ```
 
-Then spawn through `captureSpawn` — `spawnType: 'validation'` (always headless, `--watch` ignored):
+Then spawn through `captureSpawn` — `spawnType: 'validation'` (always headless per headless-default-contract v2.0.0):
 
 ```
 node -e "
@@ -905,7 +891,7 @@ After all work is committed but before reporting completion:
 
 1. Run threshold check — read `git diff --name-only HEAD~1` and evaluate against doc-ripple-contract.md trigger conditions
 2. If SKIP: log "Doc-ripple: SKIP — {reason}" and proceed to completion
-3. If FIRE: spawn doc-ripple agent — `spawnType: 'validation'` (always headless, `--watch` ignored):
+3. If FIRE: spawn doc-ripple agent — `spawnType: 'validation'` (always headless per headless-default-contract v2.0.0):
 
 ⚙ [{model}] gsd-t-doc-ripple → blast radius analysis + parallel updates
 

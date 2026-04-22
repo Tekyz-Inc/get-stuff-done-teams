@@ -43,7 +43,12 @@ module.exports = {
   writeSessionFile,
   writeContinueHereFile,
   markSessionCompleted,
+  // M43 D4 — channel-separation invariant; see .cjs twin.
+  shouldSpawnHeadless: () => true,
 };
+
+// M43 D4 — one-shot deprecation banner (legacy `.js` copy mirrors `.cjs`).
+let _deprecatedWatchWarned = false;
 
 // ── autoSpawnHeadless ────────────────────────────────────────────────────────
 
@@ -67,7 +72,19 @@ function autoSpawnHeadless(opts) {
   const continue_from = opts.continue_from || ".";
   const projectDir = opts.projectDir || process.cwd();
   const context = opts.context || opts.sessionContext || null;
-  const watch = opts.watch === true;
+  // M43 D4 — `watch`/`inSession` ignored under v2.0.0 channel-separation.
+  const legacyWatch = opts.watch === true;
+  const legacyInSession = opts.inSession === true;
+  if ((legacyWatch || legacyInSession) && !_deprecatedWatchWarned) {
+    _deprecatedWatchWarned = true;
+    try {
+      process.stderr.write(
+        "[headless-default] `watch`/`inSession` flag is deprecated under headless-default-contract v2.0.0 — every spawn is headless; caller hint ignored.\n",
+      );
+    } catch (_) {
+      /* best-effort */
+    }
+  }
   const spawnType = opts.spawnType || "primary";
 
   if (!command || typeof command !== "string") {
@@ -77,29 +94,6 @@ function autoSpawnHeadless(opts) {
     throw new Error(
       `autoSpawnHeadless: \`spawnType\` must be 'primary' or 'validation' (got ${JSON.stringify(spawnType)})`,
     );
-  }
-
-  // Propagation rules (headless-default-contract §2):
-  //   watch=true + primary    → signal in-context fallback (caller uses Task)
-  //   watch=true + validation → warn on stderr; proceed headless
-  //   watch=false             → headless (default behavior)
-  if (watch && spawnType === "primary") {
-    return {
-      id: null,
-      pid: null,
-      logPath: null,
-      timestamp: new Date().toISOString(),
-      mode: "in-context",
-    };
-  }
-  if (watch && spawnType === "validation") {
-    try {
-      process.stderr.write(
-        `[headless-default] --watch ignored for validation spawn type: ${spawnType}\n`,
-      );
-    } catch (_) {
-      /* best effort */
-    }
   }
 
   const timestamp = new Date().toISOString();

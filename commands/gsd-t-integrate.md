@@ -4,15 +4,15 @@ You are the lead agent performing integration work. This phase is ALWAYS single-
 
 ## Argument Parsing
 
-Parse `$ARGUMENTS`. Detect `--watch` (sets `WATCH_FLAG=true`; default `false`). Per `.gsd-t/contracts/headless-default-contract.md` §2, integrate's own agent work is interactive; all **validation** spawns below (QA in Step 5, Red Team in Step 7.5, doc-ripple in Step 9) always go headless regardless of `--watch`.
+Parse `$ARGUMENTS`. M43 D4 removed the `--watch` opt-out; `--in-session`/`--headless` were never shipped. Under `.gsd-t/contracts/headless-default-contract.md` **v2.0.0** every spawn below goes headless unconditionally — QA (Step 5), Red Team (Step 7.5), doc-ripple (Step 9). Integrate's own lead-agent body remains the interactive entry point for this command (it is itself the spawn target when invoked from `/gsd` or `gsd-t-wave`). A legacy `--watch` token is accepted but ignored (stderr deprecation line).
 
-## Spawn Primitive — Default Headless (M38 Domain 1)
+## Spawn Primitive — Always Headless (M43 D4, v2.0.0)
 
-Per `.gsd-t/contracts/headless-default-contract.md` v1.0.0. Spawn classifications used below:
+Per `.gsd-t/contracts/headless-default-contract.md` v2.0.0. Spawn classifications used below:
 
 - `spawnType: 'validation'` — QA subagent (Step 5 contract compliance), Red Team (Step 7.5 adversarial), doc-ripple (Step 9)
 
-Default path is `autoSpawnHeadless({command, spawnType: 'validation', watch: false, projectDir, sessionContext})` — validation spawns ignore `--watch`. Read-back banner surfaces each completion.
+Spawn path is `autoSpawnHeadless({command, spawnType: 'validation', projectDir, sessionContext})`. Read-back banner surfaces each completion.
 
 ## Model Assignment
 
@@ -181,7 +181,7 @@ Result: PARTIAL — needs pagination contract addition
 node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-integrate --step 5 --step-label "Contract Compliance Testing" 2>/dev/null || true
 ```
 
-Spawn a QA subagent via the Task tool to verify contract compliance at all domain boundaries — `spawnType: 'validation'` (always headless, `--watch` ignored):
+Spawn a QA subagent via the Task tool to verify contract compliance at all domain boundaries — `spawnType: 'validation'` (always headless per headless-default-contract v2.0.0):
 
 ```
 Task subagent (spawnType: validation, general-purpose, model: sonnet):
@@ -288,7 +288,7 @@ RT_PROMPT="$(npm root -g 2>/dev/null)/@tekyzinc/gsd-t/templates/prompts/red-team
 [ -f "$RT_PROMPT" ] || RT_PROMPT="templates/prompts/red-team-subagent.md"
 ```
 
-Then spawn through `captureSpawn` — `spawnType: 'validation'` (always headless, `--watch` ignored):
+Then spawn through `captureSpawn` — `spawnType: 'validation'` (always headless per headless-default-contract v2.0.0):
 
 ```
 node -e "
@@ -327,7 +327,7 @@ After all integration work is committed but before reporting completion:
 
 1. Run threshold check — read `git diff --name-only HEAD~1` and evaluate against doc-ripple-contract.md trigger conditions
 2. If SKIP: log "Doc-ripple: SKIP — {reason}" and proceed to completion
-3. If FIRE: spawn doc-ripple agent — `spawnType: 'validation'` (always headless, `--watch` ignored):
+3. If FIRE: spawn doc-ripple agent — `spawnType: 'validation'` (always headless per headless-default-contract v2.0.0):
 
 ⚙ [{model}] gsd-t-doc-ripple → blast radius analysis + parallel updates
 

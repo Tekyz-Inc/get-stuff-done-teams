@@ -26,7 +26,9 @@ Before semantic evaluation, determine if this is a **continuation** of an alread
 
 ## Step 2.5: Intent Classification
 
-For non-continuation messages, decide whether the request is **conversational** (user is thinking, exploring, or articulating — no command spawn) or **workflow** (user wants work done — route to a GSD-T command via Step 2).
+> **Inverted default (M43 D4, v2.0.0)** — the only in-session surface in GSD-T is this router itself, and only for dialog-only (exploratory) turns. Every **workflow** turn spawns a detached command unconditionally. There is no `--in-session` flag, no `--headless` flag, no context-meter threshold that reroutes. See `.gsd-t/contracts/headless-default-contract.md` v2.0.0 §Invariants.
+
+For non-continuation messages, decide whether the request is **conversational** (user is thinking, exploring, or articulating — no command spawn; stays in the dialog channel) or **workflow** (user wants work done — route to a GSD-T command via Step 2; **always spawns detached**).
 
 This step replaces the retired `/gsd-t-prompt`, `/gsd-t-brainstorm`, and `/gsd-t-discuss` commands, whose use cases the router now handles inline.
 
@@ -41,12 +43,12 @@ This step replaces the retired `/gsd-t-prompt`, `/gsd-t-brainstorm`, and `/gsd-t
 
 ### Workflow triggers (proceed to Step 2 semantic evaluation):
 
-- Direct task requests: "fix", "add", "implement", "refactor", "ship", "build", "delete", "rename"
+- Direct task requests / action verbs: "fix", "add", "implement", "refactor", "ship", "build", "run", "execute", "deploy", "delete", "rename"
 - Named artifacts: "run the tests", "scan the codebase", "verify the milestone", "status"
 - Design-to-code requests (see Step 2 design-to-code routing)
 - Anything where the user expects files to change or a command to run
 
-**Action for workflow triggers**: proceed to Step 2.
+**Action for workflow triggers**: proceed to Step 2 — which then spawns detached unconditionally (v2.0.0 invariant).
 
 ### Default
 

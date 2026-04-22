@@ -4,16 +4,16 @@ You are executing a small, focused task that doesn't need full phase planning. T
 
 ## Argument Parsing
 
-Parse `$ARGUMENTS`. The first positional arg is the quick task description (`$TASK`). Detect `--watch` (sets `WATCH_FLAG=true`; default `false`). Per `.gsd-t/contracts/headless-default-contract.md` §2, `--watch` propagates only to the **primary** inner subagent (Step 0.1 fresh-dispatch). Validation spawns (Design Verification Step 5.25, Red Team Step 5.5, doc-ripple Step 6) always go headless regardless of `--watch`.
+Parse `$ARGUMENTS`. The first positional arg is the quick task description (`$TASK`). M43 D4 removed the `--watch` opt-out; `--in-session`/`--headless` were never shipped. Under `.gsd-t/contracts/headless-default-contract.md` **v2.0.0** the inner subagent spawn (Step 0.1 fresh-dispatch) and all validation spawns (Design Verification Step 5.25, Red Team Step 5.5, doc-ripple Step 6) go headless unconditionally. A legacy `--watch` token is accepted but ignored (stderr deprecation line).
 
-## Spawn Primitive — Default Headless (M38 Domain 1)
+## Spawn Primitive — Always Headless (M43 D4, v2.0.0)
 
-Per `.gsd-t/contracts/headless-default-contract.md` v1.0.0. Spawn classifications used below:
+Per `.gsd-t/contracts/headless-default-contract.md` v2.0.0. Spawn classifications used below (both always headless):
 
 - `spawnType: 'primary'` — Step 0.1 fresh-dispatch subagent running the quick task
 - `spawnType: 'validation'` — Design Verification (Step 5.25), Red Team (Step 5.5), doc-ripple (Step 6)
 
-Default path is `autoSpawnHeadless({command, spawnType, watch: WATCH_FLAG, projectDir, sessionContext})`. Outer `gsd-t-quick` orchestrator stays interactive; the inner subagent goes headless by default and streams in-context only when `WATCH_FLAG=true`.
+Spawn path is `autoSpawnHeadless({command, spawnType, projectDir, sessionContext})`. The outer `gsd-t-quick` command body is itself the interactive spawn target for the parent `/gsd` router — nested spawns from this body always go headless.
 
 ## Model Assignment
 
@@ -34,14 +34,12 @@ To give this task a fresh context window and prevent compaction during consecuti
 
 **If you are the orchestrating agent** (you received the slash command directly):
 
-**Token Budget Check (before spawning subagent):**
+**Context observation (before spawning subagent):**
 
-Run via Bash:
-`node -e "const tb = require('./bin/token-budget.cjs'); const s = tb.getSessionStatus('.'); process.stdout.write(s.threshold);" 2>/dev/null`
+Run via Bash to capture `pct` for the NEXT spawn's token-log Ctx% column:
+`node -e "const tb = require('./bin/token-budget.cjs'); const s = tb.getSessionStatus('.'); process.stdout.write(String(s.pct));" 2>/dev/null`
 
-Apply the single-band result per `context-meter-contract.md` v1.3.0:
-- `normal` (or file missing) → proceed with default model (sonnet).
-- `threshold` → the Context Meter's PostToolUse hook has already emitted the `next-spawn-headless:true` marker; route the subagent spawn through `autoSpawnHeadless()` so the work runs in a fresh headless context.
+No gating — under headless-default-contract v2.0.0 every spawn goes through `autoSpawnHeadless()` regardless of band. The capture is observational only.
 
 **Stack Rules Detection (before spawning subagent):**
 
@@ -105,7 +103,7 @@ Violations are task failures, not warnings.
 
 If STACK_RULES is empty (no templates/stacks/ dir or no matches), skip silently.
 
-Spawn a fresh subagent via `captureSpawn` — `spawnType: 'primary'` (respects `--watch`: headless by default, in-context when `WATCH_FLAG=true`):
+Spawn a fresh subagent via `captureSpawn` — `spawnType: 'primary'` (always headless per headless-default-contract v2.0.0):
 
 **OBSERVABILITY LOGGING (MANDATORY) — wrap the primary subagent spawn with `captureSpawn`:**
 
@@ -426,7 +424,7 @@ const { captureSpawn } = require('./bin/gsd-t-token-capture.cjs');
     description: 'adversarial validation of quick task',
     projectDir: '.',
     notes: '{VERDICT} — {N} bugs found',
-    spawnFn: async () => { /* Task subagent (spawnType: validation, general-purpose, model: opus) — always headless, --watch ignored:
+    spawnFn: async () => { /* Task subagent (spawnType: validation, general-purpose, model: opus) — always headless per headless-default-contract v2.0.0:
       'Read \$RT_PROMPT and follow it. Context for this run: quick task — adversarial validation of the code just changed. Write findings to .gsd-t/red-team-report.md.' */ },
   });
 })();
@@ -452,7 +450,7 @@ After all work is committed but before reporting completion:
 
 1. Run threshold check — read `git diff --name-only HEAD~1` and evaluate against doc-ripple-contract.md trigger conditions
 2. If SKIP: log "Doc-ripple: SKIP — {reason}" and proceed to completion
-3. If FIRE: spawn doc-ripple agent — `spawnType: 'validation'` (always headless, `--watch` ignored):
+3. If FIRE: spawn doc-ripple agent — `spawnType: 'validation'` (always headless per headless-default-contract v2.0.0):
 
 ⚙ [{model}] gsd-t-doc-ripple → blast radius analysis + parallel updates
 
