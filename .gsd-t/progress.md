@@ -1,13 +1,44 @@
 # GSD-T Progress
 
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
-## Status: M43 COMPLETED — Token Attribution & Always-Headless Inversion (v3.17.10)
-## Date: 2026-04-21
+## Status: M44 IN PROGRESS — Cross-Domain & Cross-Task Parallelism (in-session AND unattended)
+## Date: 2026-04-22
 ## Version: 3.17.10
 
 ## Current Milestone
 
-**M43 Token Attribution & Always-Headless Inversion** — DEFINED (6 domains). Target: v3.17.10.
+**M44 Cross-Domain & Cross-Task Parallelism (in-session AND unattended)** — IN PROGRESS (7 proposed domains, scoped in backlog #14). Target: v3.18.10.
+
+**Goal**: Deliver task-level parallelism to **both** execution modes on equal footing, with mode-aware gating math. Unattended mode adds the harder contract: **zero compaction across an autonomous M1 → M10 run**.
+
+**Mode contracts (NON-NEGOTIABLE)**:
+- **[in-session]** Speed + reduce compaction as much as possible. Hard rule: NEVER throw an interactive pause/resume prompt.
+- **[unattended]** Run M1 → M10 end-to-end with zero human involvement and **zero compaction**. Per-worker CW headroom is the binding gate.
+
+**Three pre-existing invariants (apply to BOTH modes)**: file-disjointness proof BEFORE spawn · 100% automatic merges · pre-spawn economics check.
+
+**Two delivery layers**: L1 parallel `claude -p` worker spawns (primary lever for both modes) · L2 parallel tasks within one worker (weaker lever, when L1 isn't economic).
+
+**Pre-reqs landed**: Q1 token-log regen (`7eefd2c`) · Q2a compaction detector + scanner (`940e5a8`/`f7de324`) · Q2b compact_marker frame + visualizer badge (`8abe4ef`) · Q3 turn→tool join fix (`8f4588b`) · optimization report generator (`b5edff2`) · adaptive maxParallel (`969462a`).
+
+**Calibration corpus**: 525 turn rows (`.gsd-t/metrics/token-usage.jsonl`) + 72 compaction events (`.gsd-t/metrics/compactions.jsonl`) + per-CW report (`.gsd-t/reports/token-usage-2026-04-22.md`).
+
+**Proposed domains (7)** — full scope in `.gsd-t/backlog.md` #14:
+- D1 — Generic task-graph reader (parses domain tasks + cross-domain deps → DAG)
+- D2 — `gsd-t parallel` CLI (subcommand wrapping M40 orchestrator with task-level parallelism, `--mode` aware)
+- D3 — Command-file integration (`execute`/`wave`/`quick`/`debug`/`integrate` consume task-graph)
+- D4 — Dep-graph validation (refuses fan-out when deps unmet)
+- D5 — File-disjointness prover (walks expected-touch lists, sequential fallback if unprovable)
+- D6 — Pre-spawn economics + cost estimator (queries token-usage.jsonl for similar-task cost, mode-aware gating)
+- D7 — Per-CW token attribution + compaction-event integration (`cw_id` tagging + estimator calibration loop)
+
+**Success criteria**:
+- [in-session] `gsd-t-execute` previously taking T min serially completes in ≤ T/2 min with N workers, zero pause/resume prompts
+- [unattended] M1 → M5 minimum (ideally M1 → M10) runs end-to-end with **zero compaction events** during the autonomous chain
+
+**Recommended flow**: `partition` → `discuss` (D1 task-graph schema + D6 estimator algorithm need design) → `plan` → `execute` (waves) → `integrate` → `verify` → `complete-milestone` → tag v3.18.10.
+
+**Previous milestone (M43)** completed 2026-04-21, v3.17.10 tagged. Reference DEFINED block preserved in `.gsd-t/milestones/` archive.
 
 **Goal**: Make every token attributable to a specific tool / command / domain, and lock the framework to a single rule: **the in-session channel is reserved for human↔Claude dialog. All tool-using work spawns. The visualizer is the watching surface.** No flags, no thresholds, no opt-outs — there is no "in-session mode" for commands to enter.
 
@@ -52,6 +83,7 @@
 
 | # | Milestone | Status | Version | Domains |
 |---|-----------|--------|---------|---------|
+| M44 | Cross-Domain & Cross-Task Parallelism (in-session AND unattended) | IN PROGRESS | 3.18.10 (target) | 7 proposed (D1 task-graph reader · D2 `gsd-t parallel` CLI · D3 command-file integration · D4 dep-graph validation · D5 file-disjointness prover · D6 pre-spawn economics + cost estimator · D7 per-CW attribution + compaction-event integration). Mode-aware: in-session gates orchestrator-CW; unattended gates per-worker-CW + zero-compaction contract. Two layers: L1 parallel `claude -p` workers, L2 parallel tasks within one worker. Pre-reqs Q1/Q2a/Q2b/Q3/R/adaptive all landed. Calibration corpus: 525 turns + 72 compactions + per-CW report. Full scope in backlog #14. |
 | M43 | Token Attribution & Always-Headless Inversion | COMPLETED | 3.17.10 | 6 domains across 2 themes, 3 waves (W1 D3+D1 foundation · W2 D2+D5+D6 parallel · W3 D4 alone). **Part A — Universal Token Attribution**: D1 per-turn dialog-channel usage capture (hook-based if Claude Code exposes usage on Stop/SessionEnd — probe shipped `f94857b` — else extend M42 transcript tee to interactive); D2 per-tool attribution (`bin/gsd-t-tool-attribution.cjs` joins events JSONL + token-usage JSONL by `turn_id`, attributes by output-byte ratio; `gsd-t tool-cost --group-by tool|command|domain`); D3 sink unification + backfill (canonical schema v2, `token-log.md` regenerated view, backfill 64 historical Tokens=0 rows). **Part B — Always-Headless Inversion (channel separation)**: D4 strip headless/in-session branching from ~14 command files — every command spawns, no `--in-session` flag, no `--headless` flag, no low-water mark; D5 collapses from compaction-pressure circuit breaker to a router-only dialog meter (warn on growth; never refuses/reroutes); D6 transcript viewer (`:7433`) as **the** primary surface — URL printed at every spawn, dashboard auto-launches if not running. Contracts: metrics-schema v1→v2 (drops `compaction_pressure` field from original sketch), stream-json-sink v1.1.0→v1.2.0, new tool-attribution-contract, headless-default v1.0.0→v2.0.0 (**deletes** `--in-session` opt-out, documents channel-separation invariant). |
 | M42 | Live Spawn Transcript Viewer | COMPLETE | 3.16.10 | 3 domains. D1 stream-json tee capture (transcript-tee.cjs, orchestrator-worker tee, unattended post-hoc tee); D2 SSE route + ndjson→HTML renderer (`/transcript/:id`, `/transcript/:id/stream`, `gsd-t-transcript.html` Claude-Code-style renderer with auto-scroll); D3 sidebar tree + kill controls (parent-indented tree, status dots, POST `/transcript/:id/kill`). 29 M42-specific tests; 1522/1522 suite pass. Intervene/SIGSTOP deferred to follow-up milestone. |
 | M41 | Universal Token Capture Across GSD-T | COMPLETE | 3.15.10 | 5 domains, 3 waves. Wave 1: D1 token-capture-wrapper (3 tasks). Wave 2 parallel: D2 command-file-doc-ripple (4 tasks × 20 command files + 2 CLAUDE files), D3 historical-backfill (4 tasks, `bin/gsd-t-token-backfill.cjs` + `gsd-t backfill-tokens` CLI). Wave 3 parallel: D4 token-dashboard (4 tasks, `gsd-t tokens` + status integration), D5 enforcement (5 tasks, linter + opt-in hook + CLAUDE rule). Reuses M40 D4 aggregator + schema v1 — no new contracts. |
@@ -86,6 +118,10 @@ Older milestones (M33 and earlier) archived under `.gsd-t/milestones/` — see d
 ## Decision Log
 
 > Prior decision log entries preserved in `.gsd-t/milestones/*/progress.md` — see archive snapshots (most recently `M40-external-task-orchestrator-2026-04-20/progress.md`) for pre-M40 history.
+
+- 2026-04-22 22:31: [partition M44 · unattended iter 1] M44 partitioned into 7 domains across 3 waves (Foundation: D1+D7 → Gates: D4+D5+D6 → Integration: D2→D3). Mode-aware gating math layered on M40 orchestrator (built-on, not replaced). Shared-file conflict map identifies orchestrator.js + orchestrator-config.cjs as D2/D6 split, command files as D3-owned, token-capture.cjs as D7 cw_id pass-through. Integration points: post-Wave-2 D6 estimator vs D7-tagged real slice + D4+D5 synthetic 2-task fixture; post-Wave-3 in-session multi-domain smoke (assert ≤T/2 + zero pause prompts) + unattended 5-iter chain over multi-task milestone (assert zero compactions in compactions.jsonl). Pre-reqs all landed (Q1/Q2a/Q2b/Q3, optimization report, adaptive maxParallel). No known blockers. Calibration corpus: 525 turn rows + 72 compaction events. Next: /gsd-t-plan for M44 to populate per-domain tasks.md task bodies (or proceed straight to /gsd-t-execute Wave 1 if tasks.md already concrete).
+
+- 2026-04-22 22:50: [bootstrap] Promoted M44 from backlog #14 to `## Current Milestone` (status IN PROGRESS, target v3.18.10) ahead of `/gsd-t-unattended` launch. Status header flipped from `M43 COMPLETED` to `M44 IN PROGRESS`. Added M44 row to Milestones table above the M43 COMPLETED row. M43 reference DEFINED block dropped from Current Milestone (full M43 record preserved in the Completed Milestones table at line 70). Body summary lifted from backlog #14 (mode contracts NON-NEGOTIABLE, three invariants, two delivery layers, pre-reqs landed status, calibration corpus pointers, 7 proposed domains, success criteria, recommended flow → `partition` → `discuss` → `plan` → `execute` → `integrate` → `verify` → `complete-milestone` → tag v3.18.10). Bootstrap done because progress.md showed M43 COMPLETED but no successor; supervisor's resume worker keys off `## Current Milestone` so the supervisor would have had no target.
 
 - 2026-04-22 22:30: [quick] Q2b — compact_marker frame in transcript NDJSON + visualizer timeline badge. Extended `scripts/gsd-t-compact-detector.js` with a second write path: after appending the compactions.jsonl row, the hook now also appends a `{type:"compact_marker", ts, source, session_id, prior_session_id, trigger?, preTokens?, postTokens?}` frame to the most-recently-modified `.ndjson` in `<cwd>/.gsd-t/transcripts/`. Active transcript discovery (`findActiveTranscript`) reads the transcripts dir, filters `*.ndjson`, picks the file with the highest mtime — no-ops silently when the dir is absent or empty. Identical guardrails as the Q2a write: path-traversal guard (resolved transcript path must stay under `.gsd-t/transcripts/`), off-switch (no `.gsd-t/` → silent no-op), fail-open (transcript append failure swallowed so compactions.jsonl write always completes). Updated `scripts/gsd-t-transcript.html`: new CSS `.frame.compact-marker` (orange/yellow horizontal rule with centered badge), new `renderCompactMarker(frame)` function (exports as `window.__gsdtRenderCompactMarker`), badge label "⚡ CW boundary", tooltip = `ts + trigger + prior_session_id + session_id + preTokens + postTokens` — only fields present in the frame. `renderFrame()` dispatches `type === "compact_marker"` before all other frame types. New `test/m44-compact-marker-frame.test.js` — **11/11 pass**: schema required fields; optional fields included/omitted correctly; appends without overwriting prior content; most-recently-modified transcript chosen; no-op when `.gsd-t/` absent; no-op when transcripts dir absent; no-op when dir has no `.ndjson`; hook exits 0 even when transcript write fails (compactions.jsonl still written); renderer exports `renderCompactMarker`; badge has `cm-badge` class + "CW boundary" text + tooltip with trigger/tokens; no throw on legacy frame. Full suite **1758/1760** — same 2 pre-existing unrelated fails. Files changed: `scripts/gsd-t-compact-detector.js` (+76 lines: `findActiveTranscript` + `writeTranscriptMarker` + inline call), `scripts/gsd-t-transcript.html` (+39 lines: CSS + `renderCompactMarker` + `renderFrame` dispatch), `test/m44-compact-marker-frame.test.js` (new, 235 lines).
 

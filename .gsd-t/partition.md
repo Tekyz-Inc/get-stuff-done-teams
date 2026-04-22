@@ -1,111 +1,140 @@
-# M43 Partition — Token Attribution & Always-Headless Inversion
+# M44 Partition — Cross-Domain & Cross-Task Parallelism (in-session AND unattended)
 
 **Status**: PARTITIONED
-**Date**: 2026-04-21
-**Target version**: 3.17.10
-**Domains**: 6 (D1 in-session-usage-capture, D2 per-tool-attribution, D3 sink-unification-backfill, D4 default-headless-inversion, D5 dialog-channel-meter, D6 transcript-viewer-primary-surface)
-**Waves**: 3 (Foundation → Build-out → Inversion-alone)
-**Rationale source**: M43 scope revised 2026-04-21 (channel separation; see `.gsd-t/progress.md` M43 "Current Milestone" + Decision Log 2026-04-21 14:43).
+**Date**: 2026-04-22
+**Target version**: 3.18.10
+**Domains**: 7 (D1 task-graph-reader · D2 parallel-cli · D3 command-file-integration · D4 depgraph-validation · D5 file-disjointness-prover · D6 pre-spawn-economics · D7 per-cw-attribution)
+**Waves**: 3 (Foundation → Gates → Integration)
+**Rationale source**: M44 scope 2026-04-22 (mode-aware parallelism; see `.gsd-t/progress.md` M44 "Current Milestone" + backlog #14).
 
 ## Theme Split
 
-- **Part A — Universal Token Attribution**: D1, D2, D3. Measures cost per turn, tool, command, domain. Must ship before the inversion so the inversion can be validated against attributed data.
-- **Part B — Always-Headless Inversion (channel separation)**: D4, D5, D6. D4 strips branching; D5 is a router-only dialog growth meter; D6 makes the transcript viewer the primary surface.
+- **Layer 1 — Parallel `claude -p` worker spawns**: primary lever for both modes. K workers each with a clean CW. For [unattended], this is the compaction-elimination mechanism — slicing work into smaller per-worker pieces that never approach the CW ceiling. For [in-session], it is primarily a wall-clock reducer. D2 delivers the CLI wrapping M40 orchestrator; D3 wires it into the command files.
+- **Layer 2 — Parallel tasks within one worker**: weaker lever, bounded by one CW. Used when L1 isn't economic (small tasks, shared context). Same disjointness/economics gates apply at sub-iter granularity. This layer is part of D2's `--mode in-session` path.
+
+**Mode contracts (NON-NEGOTIABLE)**:
+- **[in-session]** Speed + reduce compaction as much as possible. Hard rule: NEVER throw an interactive pause/resume prompt. Silent compaction is acceptable; demanding user attention is not.
+- **[unattended]** Zero compaction across an autonomous M1 → M10 run. Per-worker CW headroom is the binding gate. Speed is a side-benefit. Supervisor (Node, no CW) orchestrates `claude -p` workers.
 
 ## Domains
 
-### D1 — m43-d1-in-session-usage-capture
-**Responsibility**: capture per-turn token usage for the dialog channel (the one thing still running in-session). Branch A (hook-based on Stop/SessionEnd) if Claude Code exposes `usage`; else Branch B (extend M42 transcript tee to interactive sessions). Writes `.gsd-t/metrics/token-usage.jsonl` rows with `turn_id`/`session_id`/`sessionType`.
-**Status**: D1-T1 PROBE INSTALLED (`f94857b`). Branch decision BLOCKED on hook-wire-up (settings.json permission) + one real Stop fire.
-**Full detail**: `.gsd-t/domains/m43-d1-in-session-usage-capture/{scope,constraints,tasks}.md`.
+### D1 — m44-d1-task-graph-reader
+**Responsibility**: parse `.gsd-t/domains/*/tasks.md` and cross-domain dependency declarations; emit a validated DAG of independently-executable task slices. Mode-agnostic.
+**Full detail**: `.gsd-t/domains/m44-d1-task-graph-reader/{scope,constraints,tasks}.md`.
 
-### D2 — m43-d2-per-tool-attribution
-**Responsibility**: join per-turn usage (D1/D3 JSONL) against the tool-call event stream (`.gsd-t/events/*.jsonl`) by `turn_id`; attribute each turn's tokens across its tool_calls by output-byte ratio. Ship `bin/gsd-t-tool-attribution.cjs` + `gsd-t tool-cost --group-by tool|command|domain` CLI.
-**Full detail**: `.gsd-t/domains/m43-d2-per-tool-attribution/{scope,constraints,tasks}.md`.
+### D2 — m44-d2-parallel-cli
+**Responsibility**: new `gsd-t parallel` subcommand wrapping M40 orchestrator with task-level (not just domain-level) parallelism. Honors `--mode in-session|unattended` flag (or auto-detects from caller). Both modes. Consumes D1 DAG, D4 dep-gate, D5 disjointness-gate, D6 economics gate.
+**Full detail**: `.gsd-t/domains/m44-d2-parallel-cli/{scope,constraints,tasks}.md`.
 
-### D3 — m43-d3-sink-unification-backfill
-**Responsibility**: one canonical schema (v2) + one canonical sink (`.gsd-t/metrics/token-usage.jsonl`). Every producer (M36 heartbeat, M40 aggregator, M41 wrapper, D1 capture, D2 joiner) writes into that sink. `.gsd-t/token-log.md` becomes a regenerated view (`gsd-t tokens --regenerate-log`). Backfill ~64 historical `Tokens=0`/`—` rows from `.gsd-t/events/*.jsonl` + `.gsd-t/headless-*.log` using the existing (but unrun) M41 D3 backfiller.
-**Full detail**: `.gsd-t/domains/m43-d3-sink-unification-backfill/{scope,constraints,tasks}.md`.
+### D3 — m44-d3-command-file-integration
+**Responsibility**: `gsd-t-execute`, `gsd-t-wave`, `gsd-t-quick`, `gsd-t-debug`, `gsd-t-integrate` learn to consume the task-graph via D2 CLI and dispatch parallel workers. Both modes. Depends on D2's stable CLI surface.
+**Full detail**: `.gsd-t/domains/m44-d3-command-file-integration/{scope,constraints,tasks}.md`.
 
-### D4 — m43-d4-default-headless-inversion
-**Responsibility**: strip spawn-mode conditional logic from ~14 command files. Every command spawns — no `--in-session`, no `--headless`, no low-water mark, no context-meter-driven branching. `bin/headless-auto-spawn.cjs::shouldSpawnHeadless` collapses to `() => true` (or the helper is inlined and deleted). The only in-session surface is the `/gsd` router itself, which always spawns.
-**Full detail**: `.gsd-t/domains/m43-d4-default-headless-inversion/{scope,constraints,tasks}.md`.
+### D4 — m44-d4-depgraph-validation
+**Responsibility**: pre-spawn validator that confirms task dependencies are honored before fan-out; refuses to spawn tasks whose dependencies have not completed. Mode-agnostic. Read-only against task state artifacts.
+**Full detail**: `.gsd-t/domains/m44-d4-depgraph-validation/{scope,constraints,tasks}.md`.
 
-### D5 — m43-d5-dialog-channel-meter
-**Responsibility** (collapsed from original compaction-pressure circuit breaker): extend `bin/runway-estimator.cjs` with a turn-over-turn dialog growth meter (median-of-deltas slope). When growth predicts `/compact` within N turns, the router appends a one-line warning to its response. Pure read/warn — never refuses, never reroutes. Under channel separation there is nothing to reroute *to*.
-**Scope note**: the originally-sketched `bin/gsd-t-compaction-pressure.cjs` new module + `compaction-pressure-contract.md` v1.0.0 are **removed from scope**. D5 is now a small extension to an existing module.
-**Full detail**: `.gsd-t/domains/m43-d5-compaction-pressure-circuit-breaker/{scope,constraints,tasks}.md` (filename retained; domain body is "dialog-channel-meter").
+### D5 — m44-d5-file-disjointness-prover
+**Responsibility**: walk each task's expected-touch list against every other concurrent task's list; prove no shared write targets before parallel spawn. Falls back to sequential when unprovable. Sources: domain `scope.md`, prior commit history for similar tasks, optional explicit `touches:` field on task stubs. Mode-agnostic.
+**Full detail**: `.gsd-t/domains/m44-d5-file-disjointness-prover/{scope,constraints,tasks}.md`.
 
-### D6 — m43-d6-transcript-viewer-primary-surface
-**Responsibility**: promote `http://127.0.0.1:7433/transcript/{spawn-id}` from "useful" to **the** primary surface. Every spawn prints the URL. Dashboard auto-launches on first spawn if not already running (port via `projectScopedDefaultPort` from `df34eb2`). Adds per-spawn tool-cost panel backed by D2's attribution library + `GET /transcript/:id/tool-cost` + `GET /transcript/:id/usage` routes.
-**Full detail**: `.gsd-t/domains/m43-d6-transcript-viewer-primary-surface/{scope,constraints,tasks}.md`.
+### D6 — m44-d6-pre-spawn-economics
+**Responsibility**: query `.gsd-t/metrics/token-usage.jsonl` for prior-similar-task token cost (matches by command + step + domain); estimate per-worker CW footprint; decide parallel-vs-sequential. Mode-aware: feeds [in-session] orchestrator-CW gate vs [unattended] per-worker-CW gate. Calibrated against the 525-row + 72-event corpus.
+**Full detail**: `.gsd-t/domains/m44-d6-pre-spawn-economics/{scope,constraints,tasks}.md`.
+
+### D7 — m44-d7-per-cw-attribution
+**Responsibility**: ensure every spawn (parallel or sequential) tags its token-usage rows with `cw_id` so the per-CW rollup keeps working post-M44. Wire the existing `scripts/gsd-t-compact-detector.js` hook output into the supervisor's "we failed to prevent compaction" signal for [unattended] estimator calibration.
+**Full detail**: `.gsd-t/domains/m44-d7-per-cw-attribution/{scope,constraints,tasks}.md`.
 
 ## Wave Plan
 
-### Wave 1 — Foundation (schema + probe)
+### Wave 1 — Foundation
 
 | Domain | Parallel-safe? | Notes |
 |--------|----------------|-------|
-| D3 sink-unification-backfill | Yes — owns schema v2 | Lands first; D1 + D2 depend on v2 field names. |
-| D1 in-session-usage-capture | Yes — owns dialog-channel capture | Probe already installed (`f94857b`). Needs hook wire-up + Branch A/B decision. Writes rows in v2 shape. |
+| D1 task-graph-reader | Yes — new library, no shared-write conflicts | Parses tasks.md + cross-domain deps → DAG. D2, D4, D5, D6 all consume the DAG object. Lands first. |
+| D7 per-cw-attribution | Yes — owns `cw_id` field pass-through in token-capture | Foundation because D6's estimator and the post-spawn calibration loop both require `cw_id`-tagged rows. Touches only `bin/gsd-t-token-capture.cjs` (unique owner). |
 
-**Gate to Wave 2**: schema v2 contract merged + D1 branch locked + first real D1 row lands in `.gsd-t/metrics/token-usage.jsonl`.
+**Gate to Wave 2**: D1 emits a well-formed DAG from a synthetic 2-task fixture; D7 `cw_id` pass-through lands in `bin/gsd-t-token-capture.cjs` and rows in `.gsd-t/metrics/token-usage.jsonl` include the field.
 
-### Wave 2 — Build-out (parallel)
+### Wave 2 — Gates (parallel-safe)
 
 | Domain | Parallel-safe? | Depends on |
 |--------|----------------|-----------|
-| D2 per-tool-attribution | Yes — new library + new CLI; reads-only from D1/D3 sink + event stream | D3 (schema v2), D1 (rows exist) |
-| D5 dialog-channel-meter | Yes — small extension to `bin/runway-estimator.cjs` + `commands/gsd.md` footer | D3 (schema v2), D1 (dialog rows) |
-| D6 transcript-viewer-primary-surface | Yes — dashboard server routes + HTML panel + autostart + URL banner | D2 (tool-cost library for the panel route); coordinates URL-banner text with D4 |
+| D4 dep-graph validation | Yes — new library, reads DAG + task-state artifacts | D1 (DAG emitter) |
+| D5 file-disjointness prover | Yes — new library, reads scope.md + git history | D1 (task touch-list field) |
+| D6 pre-spawn economics estimator | Yes — new library, reads D7-tagged token-usage.jsonl | D1 (DAG), D7 (cw_id-tagged rows for calibration corpus) |
 
-**Gate to Wave 3**: D2 ships `gsd-t tool-cost`, D5 warning fires on synthetic fixture, D6 panel renders against a real spawn.
+All three are pre-spawn safety gates and purely read-only against existing artifacts. None touches command files or the orchestrator's execution path — safe to run in parallel.
 
-### Wave 3 — Inversion (alone)
+**Gate to Wave 3**: D4 + D5 gates exercised end-to-end against a synthetic 2-task fixture; D6 estimator produces a decision against a real D7-tagged dataset slice (at minimum: the existing 525-row corpus now enriched with `cw_id`).
+
+### Wave 3 — Integration (D2 first, then D3)
 
 | Domain | Parallel-safe? | Notes |
 |--------|----------------|-------|
-| D4 default-headless-inversion | Runs ALONE in this wave | Deletes spawn-mode branching from the command files the orchestrator itself routes work through. If D4 lands mid-run, every subsequent spawn changes shape under the running orchestrator. Sequencing D4 last guarantees a stable spawn surface for Waves 1+2. |
+| D2 `gsd-t parallel` CLI | Runs FIRST in Wave 3 (not parallel with D3) | Wires D1 DAG + D4/D5/D6 gates + M40 orchestrator extensions into the new `parallel` subcommand. Also extends `bin/gsd-t-orchestrator-config.cjs` with mode-aware gating math. Must be stable before D3 can call it. |
+| D3 command-file integration | Runs AFTER D2 lands | Edits `commands/gsd-t-{execute,wave,quick,debug,integrate}.md` to dispatch via `gsd-t parallel`. D3 depends on D2's CLI surface being stable. |
 
-**No inter-wave parallelism**: Wave N+1 starts only after Wave N's gate passes.
+**No within-Wave-3 parallelism**: D3 starts only after D2's gate passes.
 
 ## Shared Files & Conflict Map
 
-- `bin/headless-auto-spawn.cjs`: **D4** (collapses `shouldSpawnHeadless`) + **D6** (adds URL-banner print). Disjoint intent; D4 owns the decision logic, D6 owns the banner-print block. D6 lands in Wave 2, D4 lands in Wave 3 → D4 sees D6's banner additions and preserves them.
-- `scripts/gsd-t-dashboard-server.js`: **D6** only (new routes). No conflict.
-- `.gsd-t/contracts/headless-default-contract.md` v1.0.0 → v2.0.0: **D4** owns the bump.
-- `.gsd-t/contracts/metrics-schema-contract.md` v1 → v2: **D3** owns the bump.
-- `.gsd-t/contracts/stream-json-sink-contract.md` v1.1.0 → v1.2.0: **D1** owns the bump (formalizes dialog-channel entry-point).
-- `.gsd-t/contracts/tool-attribution-contract.md` v1.0.0: **D2** owns the new contract.
-- `commands/gsd.md`: **D5** (dialog-meter warning footer) + **D4** (clarify router always spawns). Disjoint sections.
-- `bin/gsd-t-token-capture.cjs`: **D3** only (schema-v2 field pass-through).
-- `bin/runway-estimator.cjs`: **D5** only (dialog growth signal function).
+| File | Owner | Notes |
+|------|-------|-------|
+| `bin/gsd-t-orchestrator.js` | **D2** (parallel subcommand wiring) | D6 callsite for gating math is via the config module, not inline |
+| `bin/gsd-t-orchestrator-config.cjs` | **D2** (mode-aware gating math) + **D6** (estimator callsite) | D6 passes estimator result object into config; D2 owns the config file. Both touch different logical sections — D6 adds an `estimateTaskFootprint()` import, D2 adds the in-session orchestrator-CW headroom block. D6 lands in Wave 2 and leaves a clean extension point; D2 completes the wiring in Wave 3. |
+| `commands/gsd-t-execute.md` | **D3** only | D3 owns the integration block in all 5 command files |
+| `commands/gsd-t-wave.md` | **D3** only | |
+| `commands/gsd-t-quick.md` | **D3** only | |
+| `commands/gsd-t-debug.md` | **D3** only | |
+| `commands/gsd-t-integrate.md` | **D3** only | |
+| `bin/gsd-t-token-capture.cjs` | **D7** only | Adds optional `cw_id` field to the row writer and pass-through. No other domain touches this file in M44. |
+| `.gsd-t/contracts/wave-join-contract.md` | **D2** owns the bump | Mode-aware gating math addition (v1.0.0 → v1.1.0) |
+| `.gsd-t/contracts/metrics-schema-contract.md` | **D7** owns the bump | Adds optional `cw_id` field (v2 → v2.1.0) |
+| `.gsd-t/contracts/compaction-events-contract.md` | **D7** owns the bump | Post-spawn calibration loop wiring (v1.0.0 → v1.1.0) |
+| `.gsd-t/contracts/headless-default-contract.md` | **D2 + D3 read-only** | Neither bumps unless adding required behavior; the v2.0.0 contract from M43 D4 covers the always-headless invariant and does not need revision for parallelism |
+| `bin/gsd-t-orchestrator-recover.cjs` | **D2 read-only** | Recovery semantics unchanged; D2 reads to understand resume surface |
 
 ## Integration Points
 
-After Wave 2:
-- **D2 + D6 integration**: dashboard tool-cost route calls D2's `aggregateByTool` against a per-spawn slice of the sink; verify with one real spawn (any headless command).
-- **D1 + D3 integration**: first real Stop fires → row lands in v2 sink with `sessionType: "in-session"` + `turn_id` + `session_id`; `gsd-t tokens --regenerate-log` produces a markdown row that includes it.
+**Post-Wave-2** (before Wave 3 starts):
+- D6 estimator runs `estimateTaskFootprint()` against a real D7-tagged dataset slice from the 525-row corpus enriched with `cw_id`. Assert: returns a decision object with fields `parallelOk`, `estimatedCwPct`, `workerCount`, `mode`. Fixture: simulate a "domain=execute, step=Wave 1" lookup.
+- D4 + D5 gates exercised end-to-end against a synthetic 2-task fixture: two task stubs, one with declared dep on the other, one with overlapping file in touch-list. Assert D4 rejects the out-of-order request; assert D5 falls back to sequential for the overlapping pair.
 
-After Wave 3:
-- **Full cycle smoke test**: invoke any of the 14 stripped command files without flags; assert a spawn happens, the transcript URL is printed, the dashboard auto-starts if down, the tool-cost panel renders, the sink gets a v2 row with non-null usage.
-- Grep assertion: `--in-session` + `--headless` return zero matches in `commands/*.md`.
+**Post-Wave-3** (before `/gsd-t-integrate`):
+- **In-session smoke test**: invoke `gsd-t-execute` against a small multi-domain fixture using the new `parallel` path (`--mode in-session`). Assert wall-clock ≤ T/2 vs sequential baseline for a known fixture, AND zero pause/resume prompts appear in the event stream.
+- **Unattended smoke test**: invoke `gsd-t unattended` with a multi-task milestone configuration and `--max-iterations 5`. Assert: (a) every worker completes without compaction — zero entries added to `.gsd-t/metrics/compactions.jsonl` during the run window, (b) D7 `cw_id` tags are present in all new token-usage rows emitted during the run.
 
 ## Skipped Partition Steps (with rationale)
 
-- **Step 1.5 Assumption Audit**: partially in-scope. D1 has an explicit external-reference disposition for the Claude Code hook surface (documented in `d1-in-session-usage-capture/constraints.md`). D2–D6 inherit framework-internal references — no external unlocks needed.
-- **Step 1.6 Consumer Surface**: N/A. GSD-T is a framework/CLI package; `SharedCore` already exists via `bin/gsd-t-token-capture.cjs` (M41) — D2/D3 extend it rather than fork.
-- **Step 3.5 Design Brief**: skipped. D6 touches HTML but inherits the M42 transcript UI; no new visual language.
-- **Step 3.6 Design Contract**: skipped. UI changes are additive panels, not a new aesthetic.
+- **Step 1.5 Assumption Audit**: D6 has external-dataset reference disposition (the 525-row `.gsd-t/metrics/token-usage.jsonl` calibration corpus + 72-event `.gsd-t/metrics/compactions.jsonl`). These are living files in the repo, not external service dependencies — disposition is "read as calibration input, document known-failure modes in the economics-estimator-contract." D1–D5, D7 inherit framework-internal references only. No external unlocks needed.
+- **Step 1.6 Consumer Surface**: N/A (GSD-T is a framework package; the consumer surface is the command files and the `gsd-t parallel` CLI which are both internal).
+- **Step 3.5 Design Brief**: N/A (no UI surface; all new surfaces are CLI and JSONL).
+- **Step 3.6 Design Contract**: N/A (same reason as 3.5).
 
 ## Execution Order (supervisor / solo)
 
-1. **Wave 1** — D3 first (schema v2 is the prerequisite), then D1 (hook wire-up + branch lock + first row).
-2. **Wave 2** — D2 + D5 + D6 in any order (parallel-safe). A Team Mode worker can run all three concurrently.
-3. **Wave 3** — D4 alone. No concurrent work.
-4. Post-Wave-3: `/gsd-t-integrate` (smoke test + grep assertions) → `/gsd-t-verify` → auto-invokes `/gsd-t-complete-milestone`.
-5. User-gated: tag v3.17.10, `npm publish`, `/gsd-t-version-update-all`.
+1. **Wave 1** — D1 + D7 in parallel (both Wave-1-safe, disjoint file ownership).
+2. **Wave 1 gate** — D1 DAG emits cleanly + D7 `cw_id` field confirmed in token-capture.
+3. **Wave 2** — D4 + D5 + D6 in parallel (all read-only against existing artifacts, no shared writes).
+4. **Wave 2 gate** — D4/D5 synthetic fixture gates pass + D6 produces a decision from real corpus slice.
+5. **Wave 3, step 1** — D2 alone (extends orchestrator + config; lands `gsd-t parallel` CLI; bumps wave-join-contract v1.1.0).
+6. **Wave 3, step 2** — D3 alone (edits 5 command files to dispatch via D2).
+7. **Wave 3 gate** — in-session + unattended smoke tests above pass.
+8. `/gsd-t-integrate` → `/gsd-t-verify` → auto-invokes `/gsd-t-complete-milestone` → tag v3.18.10.
+9. `npm publish` → `/gsd-t-version-update-all`.
 
 ## Known Blockers
 
-- **D1-T1 hook wire-up**: an unattended-worker iteration cannot write to `~/.claude/settings.json` or `.claude/settings.json` (permission denied). Either (a) interactive Claude adds the entry via `/update-config`, or (b) an unattended worker is granted the permission explicitly. Probe script + target directory are already staged.
+None currently. All M44 pre-reqs landed:
+- Q1 token-log regen (`7eefd2c`)
+- Q2a compaction detector + scanner (`940e5a8` / `f7de324`)
+- Q2b compact_marker frame + visualizer badge (`8abe4ef`)
+- Q3 turn→tool join fix (`8f4588b`)
+- Optimization report generator (`b5edff2`)
+- Adaptive maxParallel (`969462a`)
+
+Calibration corpus exists and is stable: `.gsd-t/metrics/token-usage.jsonl` (525 rows) + `.gsd-t/metrics/compactions.jsonl` (72 events) + `.gsd-t/reports/token-usage-2026-04-22.md` (per-CW rollup).
+
+Note: D7 `cw_id` enrichment of the existing corpus is a post-Wave-1 step — the 525 historical rows will not gain `cw_id` retroactively (backfill is out of scope); D6 calibration uses the subset of rows that carry `cw_id` from new spawns + a fallback to per-iter median for rows without it.
