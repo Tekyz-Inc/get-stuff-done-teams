@@ -2854,15 +2854,84 @@ function doGraphQuery(args) {
 }
 
 function doGraph(args) {
+  // M44 D1-T4: `gsd-t graph --output json|table` prints the task-graph DAG
+  // (parsed from .gsd-t/domains/*/tasks.md) for debugging. The pre-existing
+  // `index|status|query` subcommands are the codebase entity graph (graph-
+  // indexer) and remain unchanged.
+  const outIdx = args.indexOf("--output");
+  if (outIdx !== -1) {
+    const fmt = args[outIdx + 1] || "json";
+    return doGraphTaskOutput(fmt);
+  }
   const sub = args[0] || "status";
   switch (sub) {
     case "index":  doGraphIndex(); break;
     case "status": doGraphStatus(); break;
     case "query":  doGraphQuery(args.slice(1)); break;
+    case "tasks":  doGraphTaskOutput(args[1] || "table"); break;
     default:
       error(`Unknown graph subcommand: ${sub}`);
-      info("Usage: gsd-t graph [index|status|query]");
+      info("Usage: gsd-t graph [index|status|query|tasks]");
+      info("       gsd-t graph --output json|table   (task DAG)");
   }
+}
+
+// M44 D1-T4: print the task DAG built by bin/gsd-t-task-graph.cjs.
+function doGraphTaskOutput(format) {
+  const tg = require("./gsd-t-task-graph.cjs");
+  let graph;
+  try {
+    graph = tg.buildTaskGraph({ projectDir: process.cwd() });
+  } catch (e) {
+    if (e && e.name === "TaskGraphCycleError") {
+      error(`Task graph cycle: ${(e.cycle || []).join(" → ")}`);
+      process.exit(2);
+    }
+    error(e && e.message ? e.message : String(e));
+    process.exit(2);
+  }
+  const fmt = String(format || "table").toLowerCase();
+  if (fmt === "json") {
+    process.stdout.write(JSON.stringify(graph, null, 2) + "\n");
+    return;
+  }
+  if (fmt === "table") {
+    if (!graph.nodes.length) {
+      info("No tasks found in .gsd-t/domains/*/tasks.md");
+      if (graph.warnings.length) graph.warnings.forEach((w) => warn(w));
+      return;
+    }
+    // header
+    const rows = graph.nodes.map((n) => ({
+      id: n.id,
+      domain: n.domain,
+      wave: String(n.wave),
+      status: n.status,
+      ready: graph.ready.indexOf(n.id) !== -1 ? "yes" : "no",
+      deps: n.deps.join(", ") || "-",
+    }));
+    const cols = ["id", "domain", "wave", "status", "ready", "deps"];
+    const widths = {};
+    for (const c of cols) {
+      widths[c] = c.length;
+      for (const r of rows) widths[c] = Math.max(widths[c], String(r[c]).length);
+    }
+    const fmtRow = (r) =>
+      cols.map((c) => String(r[c]).padEnd(widths[c])).join("  ");
+    log(fmtRow(Object.fromEntries(cols.map((c) => [c, c.toUpperCase()]))));
+    log(cols.map((c) => "-".repeat(widths[c])).join("  "));
+    for (const r of rows) log(fmtRow(r));
+    log("");
+    info(`${graph.nodes.length} tasks · ${graph.edges.length} edges · ${graph.ready.length} ready`);
+    if (graph.warnings.length) {
+      log("");
+      warn(`${graph.warnings.length} warning(s):`);
+      graph.warnings.forEach((w) => log(`  ${w}`));
+    }
+    return;
+  }
+  error(`Unknown --output format: ${format} (expected: json|table)`);
+  process.exit(2);
 }
 
 // ─── Token-Log Writer (Fix 1, v3.12.12) ─────────────────────────────────────
