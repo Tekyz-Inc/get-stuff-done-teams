@@ -222,6 +222,78 @@ function tailTranscriptFile(filePath, callback) {
   return () => fs.unwatchFile(filePath, processNewData);
 }
 
+// ── M43 D6 — per-spawn tool-cost + usage routes ────────────────────────────
+
+/**
+ * Load per-turn usage rows for a given spawn-id from
+ * `.gsd-t/metrics/token-usage.jsonl`.
+ *
+ * Rows emitted by M41/M43 include either `spawn_id` OR `session_id`. We match
+ * against both so the route works both for headless spawns (which tag rows
+ * with `spawn_id` at emit time) and in-session D1 captures (which tag with
+ * the session's `session_id`).
+ *
+ * @param {string} projectDir
+ * @param {string} spawnId
+ * @returns {Array<object>}
+ */
+function readSpawnUsageRows(projectDir, spawnId) {
+  const fp = path.join(projectDir, ".gsd-t", "metrics", "token-usage.jsonl");
+  if (!fs.existsSync(fp)) return [];
+  const lines = safeReadJsonl(fp);
+  return lines.filter((row) => {
+    if (!row || typeof row !== "object") return false;
+    return row.spawn_id === spawnId || row.session_id === spawnId;
+  });
+}
+
+function handleTranscriptUsage(req, res, spawnId, projectDir) {
+  if (!isValidSpawnId(spawnId)) { res.writeHead(400); res.end("Invalid spawn id"); return; }
+  const rows = readSpawnUsageRows(projectDir, spawnId);
+  res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+  res.end(JSON.stringify({ spawn_id: spawnId, rows, generated_at: new Date().toISOString() }));
+}
+
+/**
+ * Proxy to D2's `aggregateByTool`. D2 is co-deployed in Wave 2 — if the
+ * library isn't on disk yet, we return HTTP 503 with a machine-readable
+ * body so the viewer panel can display "Tool attribution not yet available"
+ * without breaking.
+ */
+function handleTranscriptToolCost(req, res, spawnId, projectDir) {
+  if (!isValidSpawnId(spawnId)) { res.writeHead(400); res.end("Invalid spawn id"); return; }
+  let attribution;
+  try {
+    // TODO(D6→D2): remove the try/catch once D2 lands. Keep the call shape.
+    // eslint-disable-next-line global-require
+    attribution = require("../bin/gsd-t-tool-attribution.cjs");
+  } catch (_) {
+    res.writeHead(503, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+    res.end(JSON.stringify({ error: "tool-attribution library not yet available" }));
+    return;
+  }
+  const rows = readSpawnUsageRows(projectDir, spawnId);
+  let tools = [];
+  try {
+    if (typeof attribution.aggregateByTool !== "function") {
+      res.writeHead(503, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      res.end(JSON.stringify({ error: "aggregateByTool not exported by tool-attribution library" }));
+      return;
+    }
+    tools = attribution.aggregateByTool(rows) || [];
+  } catch (err) {
+    res.writeHead(500, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+    res.end(JSON.stringify({ error: String(err && err.message ? err.message : err) }));
+    return;
+  }
+  res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+  res.end(JSON.stringify({
+    spawn_id: spawnId,
+    tools,
+    generated_at: new Date().toISOString(),
+  }));
+}
+
 // ── M42 D3 — kill per-spawn ────────────────────────────────────────────────
 
 function writeTranscriptsIndex(projectDir, idx) {
@@ -394,6 +466,12 @@ function startServer(port, eventsDir, htmlPath, projectDir, transcriptHtmlPath) 
     // POST /transcript/:spawnId/kill — SIGTERM the recorded workerPid
     const killMatch = url.match(/^\/transcript\/([^/]+)\/kill$/);
     if (killMatch && req.method === "POST") return handleTranscriptKill(req, res, decodeURIComponent(killMatch[1]), projDir);
+    // M43 D6 — /transcript/:spawnId/tool-cost — D2 attribution proxy
+    const toolCostMatch = url.match(/^\/transcript\/([^/]+)\/tool-cost$/);
+    if (toolCostMatch) return handleTranscriptToolCost(req, res, decodeURIComponent(toolCostMatch[1]), projDir);
+    // M43 D6 — /transcript/:spawnId/usage — per-turn rows for this spawn
+    const usageMatch = url.match(/^\/transcript\/([^/]+)\/usage$/);
+    if (usageMatch) return handleTranscriptUsage(req, res, decodeURIComponent(usageMatch[1]), projDir);
     // /transcript/:spawnId/stream — SSE tail of per-spawn ndjson
     const streamMatch = url.match(/^\/transcript\/([^/]+)\/stream$/);
     if (streamMatch) return handleTranscriptStream(req, res, decodeURIComponent(streamMatch[1]), projDir);
@@ -421,6 +499,9 @@ module.exports = {
   handleTranscriptStream,
   handleTranscriptPage,
   handleTranscriptKill,
+  handleTranscriptToolCost,
+  handleTranscriptUsage,
+  readSpawnUsageRows,
   transcriptsDir,
   DEFAULT_PORT,
   projectScopedDefaultPort,

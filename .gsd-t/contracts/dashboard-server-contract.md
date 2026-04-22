@@ -1,11 +1,16 @@
 # Dashboard Server Contract
 
+**Version**: 1.2.0 (M43 D6 — transcript viewer as primary surface)
+
 ## Owner
 `server` domain — `scripts/gsd-t-dashboard-server.js`
 
 ## Consumers
 - `dashboard` domain — connects to SSE endpoint to receive events
 - `command` domain — spawns server as detached child process, reads PID file
+- `autostart` module — `scripts/gsd-t-dashboard-autostart.cjs` — ensures the
+  server is running before any spawn prints the live-transcript banner
+- `headless-auto-spawn` — prints the transcript URL banner on every spawn
 
 ---
 
@@ -44,6 +49,47 @@
 - **Response**: `{"status":"stopping"}`
 - **Behavior**: Gracefully shuts down server; used by `gsd-t-visualize stop`
 
+### GET /transcript/:spawnId  (M42 D1)
+- **Response**: Serves `gsd-t-transcript.html` from the same dir as the server script
+- **Content-Type**: `text/html`
+- **Validation**: `spawnId` must match `[A-Za-z0-9_.-]{1,128}`; invalid → 400
+
+### GET /transcript/:spawnId/stream  (M42 D1)
+- **Response**: Server-Sent Events stream tailing the per-spawn ndjson file
+- **Content-Type**: `text/event-stream`
+- **Headers**: `Cache-Control: no-cache`, `Connection: keep-alive`, `Access-Control-Allow-Origin: *`
+- **Behavior**: replays existing lines, then streams new appends; `: keepalive` comment every 15s
+
+### GET /transcript/:spawnId/usage  (M43 D6-T1)
+- **Response**: `{ spawn_id, session_id?, rows: [...], truncated: boolean }`
+- **Content-Type**: `application/json`
+- **Validation**: invalid `spawnId` → 400
+- **Behavior**:
+  1. Reads `.gsd-t/metrics/token-usage.jsonl`
+  2. Filters rows where `row.spawn_id === spawnId` OR (no `spawn_id` column and
+     `row.session_id === spawnId`) — the latter covers M43 D1 Branch B (in-session
+     usage rows tagged by `session_id` only)
+  3. Returns an empty `rows` array when the file is missing
+- **Truncation**: `rows` is capped at 500 most-recent entries; `truncated: true`
+  when the underlying file had more matches
+
+### GET /transcript/:spawnId/tool-cost  (M43 D6-T1)
+- **Response**: `{ spawn_id, tools: [ {tool, calls, attributedIn, attributedOut, attributedTotal, costUsd}, … ] }`
+- **Content-Type**: `application/json`
+- **Validation**: invalid `spawnId` → 400
+- **503 fallback**: if `bin/gsd-t-tool-attribution.cjs` (M43 D2) is not yet on
+  disk, responds with HTTP 503 and `{ error: "tool-attribution library not yet available" }`.
+  This is intentional — D6 ships before D2 in Wave 2; the viewer renders a
+  friendly "tool attribution not yet wired" panel until D2 lands.
+- **Behavior** (when D2 is present):
+  1. Requires `../bin/gsd-t-tool-attribution.cjs`
+  2. Calls `aggregateByTool({ projectDir, spawnId })` to compute per-tool rollups
+  3. Returns the aggregate as JSON sorted by `attributedTotal` desc
+
+### GET /transcript/:spawnId/kill  (M42)
+- **Response**: `{ status, pid? }`
+- **Behavior**: sends SIGTERM to the recorded spawn pid (if discoverable)
+
 ---
 
 ## CLI Interface (when run directly)
@@ -76,8 +122,73 @@ module.exports = {
   parseEventLine(line),                        // returns parsed object or null
   findEventsDir(projectDir),                   // resolves .gsd-t/events/ from cwd or env
   readMetricsData(metricsDir),                 // returns { taskMetrics: [...], rollups: [...] }
+  readTranscriptsIndex, writeTranscriptsIndex, // M42 — spawn-id registry
+  readIndexEntry, isValidSpawnId,              // M42 — spawn-id validation
+  handleTranscriptsList,                       // M42 — GET /transcripts
+  handleTranscriptStream, handleTranscriptPage,// M42 — SSE + viewer HTML
+  handleTranscriptKill,                        // M42 — GET /transcript/:id/kill
+  handleTranscriptToolCost, handleTranscriptUsage,  // M43 D6-T1
+  readSpawnUsageRows,                          // M43 D6-T1 helper
+  projectScopedDefaultPort, resolvePort,       // multi-project isolation (df34eb2)
+  DEFAULT_PORT, transcriptsDir,
 }
 ```
+
+---
+
+## Banner Format (M43 D6-T3)
+
+Every detached spawn from `bin/headless-auto-spawn.cjs` MUST print, on stdout,
+one line in exactly this shape:
+
+```
+▶ Live transcript: http://127.0.0.1:{port}/transcript/{spawn-id}
+```
+
+- `{port}` comes from `ensureDashboardRunning().port` when autostart runs, else
+  from `projectScopedDefaultPort(projectDir)`.
+- `{spawn-id}` is the canonical spawn id returned by `makeSessionId(command, now)`.
+- The banner is best-effort: any failure in autostart or port lookup must NOT
+  crash the spawn. It is printed BEFORE the child is spawned so it appears
+  adjacent to the "gsd-t-headless:" session line.
+
+Consumers (tests, IDE integrations) MAY match on the anchor `▶ Live transcript: `.
+
+---
+
+## Autostart (M43 D6-T4)
+
+Module: `scripts/gsd-t-dashboard-autostart.cjs`
+
+### Contract
+```js
+ensureDashboardRunning({ projectDir, port?, host? })
+  → { port: number, pid: number|null, alreadyRunning: boolean }
+```
+
+### Behavior
+- Resolves `port` via `projectScopedDefaultPort(projectDir)` if not provided
+- Probes whether the port is bound via `_isPortBusySync` — a host-less
+  `net.createServer().listen(port)` probe in a short-lived subprocess
+  (synchronous contract, O(50ms))
+- If busy → returns `{ port, pid: null, alreadyRunning: true }` (no-op)
+- If free → fork-detaches the server:
+  - `spawn(node, [gsd-t-dashboard-server.js, '--port', port], { cwd: projectDir, detached: true, stdio: 'ignore' })`
+  - `child.unref()` so the caller can exit
+  - writes `{pid}` to `.gsd-t/.dashboard.pid` (hyphen removed — distinct from
+    M38's `.gsd-t/dashboard.pid` which is the user-invoked, foreground-detached
+    lifecycle)
+- Idempotent: safe to call on every spawn; back-to-back calls don't double-spawn
+
+### Integration points
+- `bin/headless-auto-spawn.cjs` calls `ensureDashboardRunning({ projectDir })`
+  immediately before printing the banner, so the link is live when a user
+  clicks it.
+
+### Deliberate non-goals
+- Does NOT replace M38's full `gsd-t dashboard start|stop|status` lifecycle
+- Does NOT write structured logs of the child (stdio: 'ignore'); logs are
+  viewable via the dashboard server's own HTTP endpoints once it's running
 
 ---
 

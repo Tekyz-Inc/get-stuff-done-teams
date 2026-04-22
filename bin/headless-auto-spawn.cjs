@@ -124,6 +124,32 @@ function autoSpawnHeadless(opts) {
   ensureDir(path.join(projectDir, LOG_DIR_REL));
   ensureDir(path.join(projectDir, SESSIONS_DIR_REL));
 
+  // M43 D6-T4 — Ensure dashboard is running (idempotent; no-op if already up).
+  // Must happen BEFORE the URL banner print (D6-T3) so the link is live.
+  // Never throws — autostart is best-effort.
+  let autostartInfo = null;
+  try {
+    const { ensureDashboardRunning } = require("../scripts/gsd-t-dashboard-autostart.cjs");
+    autostartInfo = ensureDashboardRunning({ projectDir });
+  } catch (_) {
+    /* best-effort; fall through without banner port info */
+  }
+
+  // M43 D6-T3 — Live transcript URL banner. Printed for every spawn so the
+  // viewer at :PORT is "the" primary watching surface. Never throws.
+  // Text is coordinated with D4 — exact line shape is part of
+  // dashboard-server-contract.md §Banner Format.
+  try {
+    let port = autostartInfo && autostartInfo.port;
+    if (!port) {
+      const { projectScopedDefaultPort } = require("../scripts/gsd-t-dashboard-server.js");
+      port = projectScopedDefaultPort(projectDir);
+    }
+    process.stdout.write(`▶ Live transcript: http://127.0.0.1:${port}/transcript/${id}\n`);
+  } catch (_) {
+    /* best-effort — never crash the spawn on banner failure */
+  }
+
   // Handoff-lock gate (m36 gap-fix T2). Only engaged when the caller
   // supplies a `sessionId` — existing callers that do not pass one keep
   // the pre-m36 behavior unchanged. When engaged, the lock is held
