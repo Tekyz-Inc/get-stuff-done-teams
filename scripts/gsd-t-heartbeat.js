@@ -19,7 +19,7 @@ const SAFE_SID = /^[a-zA-Z0-9_-]+$/; // Allowlist for session_id — blocks path
 const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days — auto-cleanup threshold
 
 // ─── Exports (for testing) ───────────────────────────────────────────────────
-module.exports = { scrubSecrets, scrubUrl, buildEvent, summarize, shortPath, buildEventStreamEntry, appendToEventsFile };
+module.exports = { scrubSecrets, scrubUrl, buildEvent, summarize, shortPath, buildEventStreamEntry, appendToEventsFile, resolveTurnIdFromTranscript };
 
 // ─── Main (stdin processing) ─────────────────────────────────────────────────
 if (require.main === module) {
@@ -222,10 +222,58 @@ function buildEventStreamEntry(hook) {
       reasoning: null, outcome: null };
   }
   if (n === "PostToolUse") {
+    // M43 D2-fix: resolve turn_id (parent assistant message id) from the
+    // transcript via the tool_use_id lookup so downstream tool attribution
+    // can join on (session_id, turn_id) directly instead of the lossy
+    // timestamp-window heuristic. Fast (~0ms) in practice — the matching
+    // tool_use is always near the end of the transcript.
+    const tuid = hook.tool_use_id || null;
+    const turn_id = resolveTurnIdFromTranscript(hook.transcript_path, tuid);
     return { ...base, event_type: "tool_call",
       agent_id: hook.agent_id || hook.session_id || null, parent_agent_id: null,
-      reasoning: hook.tool_name || null, outcome: null };
+      reasoning: hook.tool_name || null, outcome: null,
+      turn_id: turn_id, tool_use_id: tuid };
   }
+  return null;
+}
+
+// ─── Turn-id resolution ──────────────────────────────────────────────────────
+
+/**
+ * Given a transcript path and a tool_use_id, scan the transcript backward to
+ * find the assistant turn (message) that produced this tool_use, and return
+ * its message.id (the canonical turn_id used by per-turn token capture).
+ *
+ * Returns `null` on any failure — never throws. Hooks must not break on a
+ * missing/unreadable transcript.
+ *
+ * Performance note: real-world transcripts are a few MB and the matching
+ * tool_use is always the most recent one the LLM just emitted, so scanning
+ * from the tail finds the match in the first handful of lines (~0ms).
+ */
+function resolveTurnIdFromTranscript(transcriptPath, toolUseId) {
+  if (!transcriptPath || !toolUseId) return null;
+  try {
+    if (!fs.existsSync(transcriptPath)) return null;
+    const text = fs.readFileSync(transcriptPath, "utf8");
+    const lines = text.split("\n");
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const line = lines[i];
+      if (!line) continue;
+      // Cheap string prefilter — skip lines that can't possibly contain the id.
+      if (line.indexOf(toolUseId) === -1) continue;
+      try {
+        const j = JSON.parse(line);
+        if (j && j.type === "assistant" && j.message && Array.isArray(j.message.content)) {
+          for (const c of j.message.content) {
+            if (c && c.type === "tool_use" && c.id === toolUseId) {
+              return j.message.id || null;
+            }
+          }
+        }
+      } catch { /* malformed line — skip */ }
+    }
+  } catch { /* transcript unreadable — bail */ }
   return null;
 }
 

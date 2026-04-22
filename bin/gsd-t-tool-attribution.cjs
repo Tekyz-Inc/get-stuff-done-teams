@@ -163,26 +163,56 @@ function joinTurnsAndEvents(opts) {
     arr.sort((a, b) => (a._ms || 0) - (b._ms || 0));
   }
 
+  // Build a valid (session_id, turn_id) set so we can route events that carry
+  // a turn_id straight to their turn without timestamp-window matching.
+  const turnKeys = new Set();
+  for (const t of turnsDedup) turnKeys.add(`${t.session_id} ${t.turn_id}`);
+
   const eventFiles = _resolveEventFiles(opts.eventsGlob, opts.since);
   const eventsBySession = new Map();
+  // Direct assignments (M43 D2-fix): events that carry turn_id bypass the
+  // timestamp-window heuristic and map straight to (session_id, turn_id).
+  const directAssignments = new Map();
   for (const f of eventFiles) {
     const rows = _readJsonl(f);
     for (const e of rows) {
       if (e.event_type !== 'tool_call') continue;
       const sid = e.agent_id;
       if (!sid || !turnsBySession.has(sid)) continue;
-      if (!eventsBySession.has(sid)) eventsBySession.set(sid, []);
-      eventsBySession.get(sid).push({
+
+      const call = {
         tool_name: e.reasoning || null,
         ts: e.ts,
         bytes: Number.isFinite(e.bytes) ? e.bytes :
                Number.isFinite(e.result_bytes) ? e.result_bytes : 0,
-        _ms: _parseMs(e.ts),
-      });
+      };
+
+      // Prefer direct turn_id join when the event carries it and the turn
+      // exists in the dataset. Events written before this fix won't have
+      // turn_id — they fall through to the timestamp-window matcher below.
+      if (e.turn_id) {
+        const key = `${sid} ${e.turn_id}`;
+        if (turnKeys.has(key)) {
+          if (!directAssignments.has(key)) directAssignments.set(key, []);
+          directAssignments.get(key).push(call);
+          continue;
+        }
+        // turn_id set but no matching turn row — fall through so we still
+        // attribute this event via the window matcher (defensive, rare).
+      }
+
+      if (!eventsBySession.has(sid)) eventsBySession.set(sid, []);
+      eventsBySession.get(sid).push({ ...call, _ms: _parseMs(e.ts) });
     }
   }
 
   const assignments = _assignToolCallsToTurns(turnsBySession, eventsBySession);
+  // Merge direct assignments on top of the window-matched ones. Direct wins
+  // (authoritative) — both shouldn't fire for the same event.
+  for (const [key, calls] of directAssignments.entries()) {
+    if (!assignments.has(key)) assignments.set(key, []);
+    for (const c of calls) assignments.get(key).push(c);
+  }
 
   const out = [];
   for (const [sid, arr] of turnsBySession.entries()) {

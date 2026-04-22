@@ -33,6 +33,24 @@ Every event MUST be a single-line JSON object with exactly these fields:
 - `ts` must be UTC ISO 8601 with milliseconds
 - No multi-line values — strings must be single-line (escape newlines as `\n`)
 
+### Event-type-specific optional fields
+
+Some event types carry additional fields beyond the base schema. These are
+**additive** (older events without the field are still valid):
+
+| event_type  | Extra field    | Type          | Since    | Purpose |
+|-------------|----------------|---------------|----------|---------|
+| `tool_call` | `turn_id`      | string\|null  | v3.17.11 | Parent assistant message id (matches `turn_id` in `.gsd-t/metrics/token-usage.jsonl`). Resolved by the heartbeat hook from the transcript via `tool_use_id`. Enables direct `(session_id, turn_id)` join for per-tool token attribution — bypasses the lossy timestamp-window heuristic that failed when many turns were written in the same ms. |
+| `tool_call` | `tool_use_id`  | string\|null  | v3.17.11 | Claude Code's unique id for the tool invocation (`toolu_*`). Used to resolve `turn_id` and for downstream correlation. |
+
+**Migration gap**: events written before v3.17.11 do NOT carry `turn_id`. The
+per-tool attribution joiner (`bin/gsd-t-tool-attribution.cjs`) still attributes
+these via the original timestamp-window matcher as a back-compat fallback, but
+accuracy on legacy data is reduced (all turns written in the same hook-fire
+instant collapse onto the first turn). A one-shot retro-enrichment job could
+replay transcripts against `.gsd-t/events/*.jsonl` to back-fill `turn_id` —
+tracked separately; not blocking forward progress.
+
 ---
 
 ## Event Types
