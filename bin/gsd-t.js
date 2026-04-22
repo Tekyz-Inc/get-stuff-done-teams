@@ -3717,6 +3717,7 @@ function showHelp() {
   log(`  ${CYAN}stream-feed${RESET}    Localhost stream-json watcher (start|status|stop) — M40 D4`);
   log(`  ${CYAN}design-build${RESET}   Deterministic design→code pipeline (elements → widgets → pages)`);
   log(`  ${CYAN}tool-cost${RESET}      Per-tool token/cost attribution (M43 D2) — group-by tool|command|domain`);
+  log(`  ${CYAN}report tokens${RESET}  Generate token-usage optimization report (Run → Iter → CW → Turn → Tool)`);
   log(`  ${CYAN}help${RESET}           Show this help\n`);
   log(`${BOLD}Examples:${RESET}`);
   log(`  ${DIM}$${RESET} npx @tekyzinc/gsd-t install`);
@@ -4039,6 +4040,57 @@ if (require.main === module) {
     case "tool-cost": {
       const toolCost = require(path.join(__dirname, 'gsd-t-tool-cost.cjs'));
       process.exit(toolCost.run(args.slice(1)));
+      break;
+    }
+    case "report": {
+      // Nested dispatch: `gsd-t report tokens [--date YYYY-MM-DD] [--out PATH]`
+      const sub = args[1];
+      if (!sub || sub === '--help' || sub === '-h') {
+        log('Usage: gsd-t report tokens [--date YYYY-MM-DD] [--out PATH]');
+        log('');
+        log('Subcommands:');
+        log('  tokens   Generate token-usage optimization report (Run → Iter → CW → Turn → Tool).');
+        process.exit(sub ? 0 : 2);
+        break;
+      }
+      if (sub !== 'tokens') {
+        error(`report: unknown subcommand: ${sub}`);
+        log('Usage: gsd-t report tokens [--date YYYY-MM-DD] [--out PATH]');
+        process.exit(2);
+        break;
+      }
+      const rOpts = { projectDir: process.cwd(), date: null, outPath: null };
+      for (let i = 2; i < args.length; i++) {
+        const a = args[i];
+        if (a === '--date' && args[i+1]) { rOpts.date = args[++i]; }
+        else if (a.startsWith('--date=')) { rOpts.date = a.slice(7); }
+        else if (a === '--out' && args[i+1]) { rOpts.outPath = args[++i]; }
+        else if (a.startsWith('--out=')) { rOpts.outPath = a.slice(6); }
+        else if (a === '--project-dir' && args[i+1]) { rOpts.projectDir = args[++i]; }
+        else if (a.startsWith('--project-dir=')) { rOpts.projectDir = a.slice(14); }
+        else if (a === '--help' || a === '-h') {
+          log('Usage: gsd-t report tokens [--date YYYY-MM-DD] [--out PATH]');
+          log('  --date YYYY-MM-DD  Date stamp in output filename (default: today UTC)');
+          log('  --out PATH         Output path (default: .gsd-t/reports/token-usage-{DATE}.md)');
+          process.exit(0);
+        }
+        else {
+          error(`report tokens: unknown arg: ${a}`);
+          process.exit(2);
+        }
+      }
+      try {
+        const rep = require(path.join(__dirname, 'gsd-t-report-tokens.cjs'));
+        const res = rep.generateReport(rOpts);
+        log(`Wrote ${res.path}`);
+        const s = res.summary;
+        log(`  ${s.cws} CW(s) · ${s.turns} turn rows · ${s.compactions} compactions · ${s.sessions} session(s)`);
+        log(`  ${s.compactionEndedCWs}/${s.cws} CW${s.cws === 1 ? '' : 's'} ended by compaction · top tool: ${s.topTool || '—'}`);
+        process.exit(0);
+      } catch (e) {
+        error(e.message || String(e));
+        process.exit(3);
+      }
       break;
     }
     case "scan": {
