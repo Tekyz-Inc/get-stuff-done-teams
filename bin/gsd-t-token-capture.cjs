@@ -94,7 +94,7 @@ function _appendJsonlRecord(jsonlPath, record) {
   fs.appendFileSync(jsonlPath, JSON.stringify(record) + '\n');
 }
 
-function _buildJsonlRecord({ command, step, model, startedAt, endedAt, durationSec, usage, domain, task, notes, ctxPct, milestone, source, sessionId, turnId, sessionType, toolAttribution, compactionPressure }) {
+function _buildJsonlRecord({ command, step, model, startedAt, endedAt, durationSec, usage, domain, task, notes, ctxPct, milestone, source, sessionId, turnId, sessionType, toolAttribution, compactionPressure, cw_id }) {
   const u = usage || {};
   const cost = (typeof u.total_cost_usd === 'number') ? u.total_cost_usd : (typeof u.cost_usd === 'number' ? u.cost_usd : null);
   const rec = {
@@ -124,6 +124,10 @@ function _buildJsonlRecord({ command, step, model, startedAt, endedAt, durationS
   if (sessionType != null) rec.sessionType = sessionType;
   if (Array.isArray(toolAttribution) && toolAttribution.length) rec.tool_attribution = toolAttribution;
   if (compactionPressure && typeof compactionPressure === 'object') rec.compaction_pressure = compactionPressure;
+  // M44 D7 v2.1.0: optional per-Context-Window attribution key.
+  // Omitted (not null, not "") when the caller does not supply it, so
+  // pre-D7 callers continue to produce byte-identical rows.
+  if (cw_id != null && cw_id !== '') rec.cw_id = String(cw_id);
   return rec;
 }
 
@@ -174,6 +178,9 @@ function _parseStartedAt(s) {
  * @param {'in-session'|'headless'} [opts.sessionType]  v2 — channel classifier
  * @param {Array}  [opts.toolAttribution]    v2 — D2 joiner output; usually omitted by spawn callers
  * @param {object} [opts.compactionPressure] v2 — D5 runway snapshot; usually omitted by spawn callers
+ * @param {string} [opts.cw_id]              v2.1.0 — per-Context-Window attribution key (M44 D7).
+ *                                            Pass-through only; the wrapper does not derive it.
+ *                                            Omitted from the row when absent (NOT null, NOT "").
  * @returns {{tokenLogPath: string, jsonlPath: string}}
  */
 function recordSpawnRow(opts) {
@@ -231,6 +238,7 @@ function recordSpawnRow(opts) {
     sessionType: opts.sessionType,
     toolAttribution: opts.toolAttribution,
     compactionPressure: opts.compactionPressure,
+    cw_id: opts.cw_id,
   }));
 
   return { tokenLogPath, jsonlPath };
@@ -293,6 +301,7 @@ async function captureSpawn(opts) {
     sessionType: opts.sessionType,
     toolAttribution: opts.toolAttribution,
     compactionPressure: opts.compactionPressure,
+    cw_id: opts.cw_id,
   });
 
   if (caught) throw caught;
