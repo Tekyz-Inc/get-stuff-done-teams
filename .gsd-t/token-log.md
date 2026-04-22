@@ -1,434 +1,535 @@
-| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Tokens | Compacted | Domain | Task | Ctx% |
-|----------------|--------------|---------|------|-------|-------------|-------|--------|-----------|--------|------|------|
-| 2026-04-01 18:24 | 2026-04-01 18:29 | gsd-t-verify | Step 8 | sonnet | 306s | auto-complete-milestone M32 → v2.53.10, tagged, archived | 0 | null | | | N/A |
-| 2026-04-01 18:11 | 2026-04-01 18:15 | gsd-t-integrate | Step 5 | sonnet | 240s | PASS — 9/9 gates, 0 boundary violations, E2E N/A | 0 | null | | | N/A |
-| 2026-03-09 10:42 | 2026-03-09 10:52 | gsd-t-scan | Step 2-8 | sonnet | 624s | Scan #8 complete — 5-dim parallel analysis, 31 open items confirmed, 205/205 tests pass | 0 | null |
-| 2026-03-09 10:38 | 2026-03-09 10:46 | gsd-t-scan | Step 2-7 | sonnet | 469s | Scan #9 complete — 5-dim analysis, 4 new debt items, visual report generated | 0 | null |
-| 2026-03-04 13:21 | 2026-03-04 13:22 | gsd-t-plan | Step 7 | haiku | 50s | PASS, iteration 1 | 0 | null |
-| 2026-03-04 13:31 | 2026-03-04 13:42 | gsd-t-execute | domain:dashboard | sonnet | 651s | 1 task, pass (176 tests) | 0 | null |
-| 2026-03-04 13:31 | 2026-03-04 13:54 | gsd-t-execute | domain:server | sonnet | 1399s | 1 task, pass (176 tests) | 0 | null |
-| 2026-03-04 13:59 | 2026-03-04 14:43 | gsd-t-execute | domain:command | sonnet | 2451s | 3 tasks, pass (176 tests) | 0 | null |
-| 2026-03-04 11:34 | 2026-03-04 11:34 | gsd-t-plan | Step 7 | haiku | 38s | PASS, iteration 1 | 0 | null |
-| 2026-03-04 11:40 | 2026-03-04 11:47 | gsd-t-execute | domain:event-stream | sonnet | ~420s | 4 tasks, pass (153 tests) | 0 | null |
-| 2026-03-04 11:47 | 2026-03-04 11:47 | gsd-t-execute | domain:learning-loop | sonnet | ~480s | 3 tasks, pass (153 tests) | 0 | null |
-| 2026-03-04 11:47 | 2026-03-04 11:47 | gsd-t-execute | domain:reflect (tasks 1-2) | sonnet | ~600s | 2 tasks, pass (153 tests) | 0 | null |
-| 2026-03-04 11:48 | 2026-03-04 11:58 | gsd-t-execute | domain:reflect (task-3) | sonnet | 600s | 1 task, pass (153 tests) | 0 | null |
-| 2026-03-09 10:29 | 2026-03-09 10:39 | gsd-t-scan | Step 2 (5-dim) | claude-sonnet-4-6 | 621s | Scan #7 post-M14-M17 — 205 tests, 9 new TD items, HTML report generated | N/A | null |
-| 2026-03-20 12:42 | 2026-03-20 12:43 | gsd-t-plan | Step 7 | haiku | 51s | FAIL (4 findings: 2 valid, 2 false-positive), fixed Wave 3 split + estimate | 0 | null |
-| 2026-03-20 15:36 | 2026-03-20 15:49 | gsd-t-brainstorm | Step 3 | sonnet | 733s | deep research: telemetry + autonomous improvement (3 parallel researchers) | 0 | null |
+# GSD-T Token Log
 
-|  | 2026-03-22 15:50 | gsd-t-wave | milestone | sonnet | 254s | M25 milestone defined | 0 | null | | | N/A || 2026-03-23 11:05 | 2026-03-23 11:14 | gsd-t-plan | Step 7 | opus (inline) | ~540s | PASS, iteration 1 — all 5 checks pass (REQ coverage, task completeness, cross-domain deps, contract existence, no CONTEXT.md) | 0 | null |
-
-| 2026-03-23 11:03 | 2026-03-23 11:19 | gsd-t-wave | plan | sonnet | 971s | M25 plan: 16 tasks, 4 domains, 3 waves | 0 | null | | | N/A |
-| 2026-03-23 11:19 | 2026-03-23 11:32 | gsd-t-wave | impact | sonnet | 756s | M25 impact: PROCEED, 0 breaking | 0 | null | | | N/A |
-| 2026-03-23 11:32 | 2026-03-23 12:17 | gsd-t-wave | execute | sonnet | 2713s | M25 execute: 16/16 tasks, 365/365 tests, 4 commits | 0 | null | | | N/A |
-| 2026-03-23 12:18 | 2026-03-23 13:05 | gsd-t-wave | test-sync | sonnet | 2859s | M25 test-sync: 373/373 pass, 8 new, 1 gap filled | 0 | null | | | N/A |
-| 2026-03-23 15:42 | 2026-03-23 15:47 | gsd-t-wave | integrate | sonnet | 354s | M25 integrated: 4 domains wired, 3 contracts verified, 373/373 tests | 0 | null | | | N/A || 2026-03-23 16:04 | 2026-03-23 16:08 | gsd-t-verify | Step 8 | opus | 240s | auto-complete-milestone M25 | 0 | null | | M25 | N/A |
-
-| 2026-03-23 15:58 | 2026-03-23 16:09 | gsd-t-wave | verify+complete | sonnet | 654s | M25 verified + completed: 373/373 tests, 3/3 contracts, v2.43.10 tagged | 0 | null | | | N/A |
-| 2026-03-23 16:09 | 2026-03-23 16:11 | gsd-t-wave | milestone | sonnet | 97s | M26 milestone defined | 0 | null | | | N/A |
-| 2026-03-23 16:11 | 2026-03-23 17:44 | gsd-t-wave | partition | sonnet | 5571s | M26 partitioned: 3 domains, 1 contract, 373/373 tests | 0 | null | | | N/A || 2026-03-23 17:57 | 2026-03-23 17:57 | gsd-t-plan | Step 7 | haiku | 13s | PASS, iteration 1 — 5/5 checks pass (REQ coverage, task completeness, cross-domain deps, contract existence, no locked decisions) | 0 | null | | | N/A |
-
-| 2026-03-23 17:45 | 2026-03-23 17:58 | gsd-t-wave | plan | sonnet | 782s | M26 planned: 13 tasks, 3 domains, 3 waves | 0 | null | | | N/A |
-| 2026-03-23 17:58 | 2026-03-23 18:23 | gsd-t-wave | execute | sonnet | 1529s | M26 executed: 13/13 tasks, 423/423 tests, 50 new | 0 | null | | | N/A |
-| 2026-03-23 18:24 | 2026-03-23 18:32 | gsd-t-wave | test-sync | sonnet | 474s | M26 test-sync: 10 new tests, 433/433 pass | 0 | null | | | N/A |
-| 2026-03-23 18:32 | 2026-03-23 18:40 | gsd-t-wave | integrate | sonnet | 477s | M26 integrated: 3 domains wired, 433/433 tests | 0 | null | | | N/A |
-| 2026-03-23 18:40 | 2026-03-23 18:53 | gsd-t-wave | verify+complete | sonnet | 783s | M26 verified+completed: 433/433 tests, v2.44.10 tagged | 0 | null | | | N/A |
-| 2026-03-23 18:54 | 2026-03-23 21:40 | gsd-t-wave | milestone | sonnet | 9962s | M27 milestone defined | 0 | null | | | N/A |
-| 2026-03-23 21:40 | 2026-03-23 21:51 | gsd-t-wave | partition | sonnet | 674s | M27 partitioned: 3 domains, 1 contract | 0 | null | | | N/A || 2026-03-23 22:03 | 2026-03-23 22:03 | gsd-t-plan | Step 7 | haiku | 30s | PASS, iteration 1 | 0 | null |
-
-| 2026-03-23 21:52 | 2026-03-23 22:08 | gsd-t-wave | plan | sonnet | 1001s | M27 planned: 11 tasks, 3 domains, 3 waves | 0 | null | | | N/A |
-| 2026-03-23 22:09 | 2026-03-24 01:05 | gsd-t-wave | execute | sonnet | 10591s | M27 executed: 11/11 tasks, 471/471 tests, 38 new | 0 | null | | | N/A |
-| 2026-03-24 01:06 | 2026-03-24 01:16 | gsd-t-wave | test-sync | sonnet | 623s | M27 test-sync: 10 new tests, 481/481 pass | 0 | null | | | N/A |
-| 2026-03-24 01:16 | 2026-03-24 01:20 | gsd-t-wave | integrate | sonnet | 223s | M27 integrated: 3 domains wired, 481/481 tests | 0 | null | | | N/A |
-| 2026-03-24 01:20 | 2026-03-24 01:30 | gsd-t-wave | verify+complete | sonnet | 564s | M27 verified+completed: 481/481 tests, v2.45.10 tagged | 0 | null | | | N/A || 2026-03-24 14:44 | 2026-03-24 14:44 | gsd-t-plan | Step 7 | haiku | 33s | PASS (1 gap fixed, 3 false positives) | 0 | null | | | N/A |
-| 2026-03-24 14:46 | 2026-03-24 14:49 | gsd-t-execute | task:1 | sonnet | 189s | pass | 0 | null | doc-ripple-agent | task-1 | N/A |
-
-| 2026-03-24 14:49 | 2026-03-24 14:49 | gsd-t-visualize | Step 0 | sonnet | 42s | dashboard launched | 0 | null | | | N/A || 2026-04-01 17:44 | 2026-04-01 17:44 | gsd-t-plan | Step 7 | haiku | 9s | PASS, iteration 1 | 0 | null | | | N/A |
-| 2026-04-01 17:50 | 2026-04-01 17:55 | gsd-t-execute | M32/all-tasks | sonnet | 332s | PASS — 3/3 tasks, 9/9 gates | 0 | null | quality-persona+design-brief+evaluator-interactivity | task-1x3 | N/A |
-| 2026-04-09 13:20 | 2026-04-09 13:24 | gsd-t-quick | Step 0 | sonnet | 244s | quick: fix ChartDonut stroke-width + label spacing | 59899 | null | elements | chart-donut | N/A |
-| 2026-04-14 12:04 | 2026-04-14 12:08 | gsd-t-execute | task:1 | sonnet | 231s | PASS 13/13 | context-meter-hook | task-1 | 1 |
-| 2026-04-14 12:08 | 2026-04-14 12:11 | gsd-t-execute | task:2 | sonnet | 195s | PASS 11/11 (36/36 suite) | context-meter-hook | task-2 | 2 |
-| 2026-04-14 12:11 | 2026-04-14 12:14 | gsd-t-execute | task:3 | sonnet | 183s | PASS 35/35 (71/71 suite) | context-meter-hook | task-3 | 3 |
-| 2026-04-14 12:14 | 2026-04-14 12:21 | gsd-t-execute | task:4 | sonnet | 425s | PASS 15/15 CP2 SAT (919/919 full) | context-meter-hook | task-4 | 4 |
-| 2026-04-14 12:32 | 2026-04-14 12:37 | gsd-t-execute | ii:task:1 | sonnet | 307s | PASS inventory | installer-integration | task-1 | 1 |
-| 2026-04-14 12:37 | 2026-04-14 12:47 | gsd-t-execute | ii:task:2 | sonnet | 569s | PASS hook install | installer-integration | task-2 | 2 |
-| 2026-04-14 12:47 | 2026-04-14 12:53 | gsd-t-execute | ii:task:3 | sonnet | 393s | PASS doctor checks | installer-integration | task-3 | 3 |
-| 2026-04-14 12:53 | 2026-04-14 12:57 | gsd-t-execute | ii:task:4 | sonnet | 235s | PASS status 7/7 | installer-integration | task-4 | 4 |
-| 2026-04-14 15:27 | 2026-04-14 15:27 | gsd-t-plan | Step 7 | haiku | 10s | PASS — all checks pass, 38 tasks, 7 domains, REQ-069–078 mapped | | | |
-| 2026-04-14 15:17 | 2026-04-14 15:28 | gsd-t-wave | PLAN | sonnet | 691s | phase: PLAN | all7 | n/a | N/A |
-| 2026-04-14 15:29 | 2026-04-14 15:36 | gsd-t-wave | IMPACT | sonnet | 466s | PROCEED WITH CAUTION | all7 | n/a | N/A |
-| 2026-04-14 15:37 | 2026-04-14 15:52 | gsd-t-wave | EXECUTE-W1 | opus | 857s | 5/5 tasks, 954/954 tests | all7 | W1 | N/A |
-<!-- missed_escalation 2026-04-15T00:00:33.862Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T00:00:33.862Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T00:51:10.822Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T00:51:10.822Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T01:03:45.651Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T01:03:45.651Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T01:04:07.310Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T01:04:07.310Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T01:11:36.282Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T01:11:36.282Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T01:14:24.631Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T01:14:24.631Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T01:47:24.688Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T01:47:24.689Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T01:47:57.775Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T01:47:57.775Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T02:19:30.083Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T02:19:30.084Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T02:21:35.554Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T02:21:35.554Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T19:12:52.128Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T19:12:52.128Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T19:13:14.411Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T19:13:14.411Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T19:14:33.357Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T19:14:33.357Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T19:14:57.021Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T19:14:57.021Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T19:16:25.993Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T19:16:25.993Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T19:18:39.059Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T19:18:39.060Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T19:19:00.127Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T19:19:00.127Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T19:19:00.207Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T19:19:00.208Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T19:19:29.136Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T19:19:29.136Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T19:19:41.774Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T19:19:41.774Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T19:19:59.031Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T19:19:59.031Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T19:20:55.207Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T19:20:55.208Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T19:21:20.550Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T19:21:20.551Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T19:21:41.755Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T19:21:41.755Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T19:22:06.990Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T19:22:06.990Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T19:23:46.338Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T19:23:46.338Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T19:29:41.528Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T19:29:41.529Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T19:35:11.281Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T19:35:11.281Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T19:39:07.085Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T19:39:07.086Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T19:46:57.095Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T19:46:57.096Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T19:49:33.367Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T19:49:33.367Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T19:55:36.254Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T19:55:36.254Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T19:56:15.694Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T19:56:15.694Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T20:02:03.231Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T20:02:03.231Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T20:02:36.816Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T20:02:36.817Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T20:03:07.657Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T20:03:07.657Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T20:03:36.280Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T20:03:36.280Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T20:26:06.245Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T20:26:06.245Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T20:26:39.215Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T20:26:39.215Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T21:00:14.271Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T21:00:14.272Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T21:01:01.093Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T21:01:01.094Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T21:04:21.488Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T21:04:21.488Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T21:34:54.381Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T21:34:54.381Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T21:37:08.290Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T21:37:08.290Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T21:38:29.252Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T21:38:29.253Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T21:39:19.616Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T21:39:19.616Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T21:55:15.945Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T21:55:15.945Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T21:55:49.768Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T21:55:49.768Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T21:56:29.090Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T21:56:29.090Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T21:57:07.474Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T21:57:07.474Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T21:58:14.026Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T21:58:14.026Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T21:58:50.435Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T21:58:50.436Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T22:12:25.141Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T22:12:25.141Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T22:13:33.158Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T22:13:33.158Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T22:29:59.784Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T22:29:59.784Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T22:37:15.237Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T22:37:15.238Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T22:38:11.208Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T22:38:11.208Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T22:40:03.054Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T22:40:03.055Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T22:42:37.834Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T22:42:37.834Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T23:07:03.766Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T23:07:03.766Z phase= domain= task= q="(no question provided)" -->
-| 2026-04-15 16:10 | 2026-04-15 16:12 | gsd-t-unattended | Step 2 | sonnet | 126s | supervisor spawned PID 67033 | | | |
-<!-- missed_escalation 2026-04-15T23:24:45.072Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T23:24:45.073Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T23:27:00.135Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T23:27:00.135Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-15T23:35:53.698Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-15T23:35:53.698Z phase= domain= task= q="(no question provided)" -->
-| 2026-04-15 16:43 | 2026-04-15 16:44 | gsd-t-unattended | Step 2 | sonnet | 12s | supervisor spawned PID 26712 | | |  |
-|  | 2026-04-15 17:00 | gsd-t-unattended | Step 2 | sonnet | 5s | supervisor spawned PID 42185 | | |  |
-<!-- missed_escalation 2026-04-16T00:21:53.694Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-16T00:21:53.694Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-16T00:24:01.733Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-16T00:24:01.733Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-16T00:25:30.892Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-16T00:25:30.892Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-16T17:38:05.606Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-16T17:38:05.607Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-16T17:43:05.166Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-16T17:43:05.166Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-16T17:43:27.487Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-16T17:43:27.488Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-16T17:43:44.925Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-16T17:43:44.925Z phase= domain= task= q="(no question provided)" -->
-| 2026-04-16 10:42 | 2026-04-16 10:58 | gsd-t-scan | Step 2-8 | sonnet (lead+inline 5-dim) | 960s | Scan #11 — synthesized 5 dimension files inline (Task subagent spawn primitive unavailable in this harness); 11 new TD items (TD-102→TD-112), 3 HIGH; HTML report rendered; diagrams 0/6 (placeholder mode) | (meta) | scan #11 | N/A |
-<!-- missed_escalation 2026-04-16T21:17:51.584Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-16T21:17:51.584Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-16T21:18:12.355Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-16T21:18:12.355Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-16T21:18:32.783Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-16T21:18:32.784Z phase= domain= task= q="(no question provided)" -->
-| 2026-04-16 14:54 | 2026-04-16 14:54 | gsd-t-unattended | Step 2 | sonnet | ~2s | supervisor spawned PID 93642 | | | |
-<!-- missed_escalation 2026-04-16T22:06:22.507Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-16T22:06:22.507Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-16T22:06:43.649Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-16T22:06:43.649Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-16T22:07:01.082Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-16T22:07:01.082Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-16T22:07:52.826Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-16T22:07:52.827Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-16T22:08:13.934Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-16T22:08:13.934Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-16T22:37:33.341Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-16T22:37:33.341Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-16T22:37:53.444Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-16T22:37:53.445Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-16T22:38:13.648Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-16T22:38:13.648Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-16T23:55:34.899Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-16T23:55:34.900Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-17T00:00:06.143Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-17T00:00:06.143Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-17T00:00:26.591Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-17T00:00:26.592Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-17T05:00:51.901Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-17T05:00:51.901Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-17T05:08:30.516Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-17T05:08:30.516Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-17T05:14:04.827Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-17T05:14:04.827Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-17T05:14:25.048Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-17T05:14:25.048Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-17T15:34:05.180Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-17T15:34:05.180Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-17T15:35:47.572Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-17T15:35:47.572Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-17T15:44:22.383Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-17T15:44:22.383Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-17T17:37:02.329Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-17T17:37:02.329Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-17T17:37:50.435Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-17T17:37:50.435Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-17T17:40:52.940Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-17T17:40:52.941Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-17T17:41:44.087Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-17T17:41:44.087Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-17T17:42:37.053Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-17T17:42:37.054Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-17T18:55:14.307Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-17T18:55:14.308Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-17T18:56:52.017Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-17T18:56:52.017Z phase= domain= task= q="(no question provided)" -->
-| 2026-04-17 11:49 | 2026-04-17 12:02 | gsd-t-debug | Step 0 | opus | 761s | debug: v3.12.13 telemetry regression — spawner env-var gap | - | - | 251 |
-<!-- missed_escalation 2026-04-17T19:05:43.451Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-17T19:05:43.451Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-17T19:27:16.947Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-17T19:27:16.948Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-17T19:28:19.206Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-17T19:28:19.206Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-17T19:29:39.767Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-17T19:29:39.767Z phase= domain= task= q="(no question provided)" -->
-| 2026-04-17 12:23 | 2026-04-17 12:30 | gsd-t-quick | Step 0 | sonnet | 454s | quick: v3.12.15 decision-log trim + progress.md cleanup | 273.3 |
-<!-- missed_escalation 2026-04-17T19:42:54.474Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-17T19:42:54.475Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-17T19:49:13.806Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-17T19:49:13.806Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-17T19:56:41.442Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-17T19:56:41.442Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-17T20:12:08.704Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-17T20:12:08.704Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-17T20:15:04.652Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-17T20:15:04.652Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-17T20:26:05.044Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-17T20:26:05.044Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-17T20:30:23.942Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-17T20:30:23.943Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-17T20:32:38.709Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-17T20:32:38.709Z phase= domain= task= q="(no question provided)" -->
-| 2026-04-17 13:12 | 2026-04-17 13:33 | gsd-t-execute | Step 5.5 Red Team | opus | 1227s | FAIL→fix→GRUDGING PASS (M39 Wave 1; 4 critical/high + 4 low fixes) | M39 | Wave1 RedTeam | N/A |
-<!-- missed_escalation 2026-04-17T20:35:53.720Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-17T20:35:53.720Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-17T20:37:53.935Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-17T20:37:53.935Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-17T21:30:10.004Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-17T21:30:10.004Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-17T21:34:18.001Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-17T21:34:18.002Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-17T21:36:03.455Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-17T21:36:03.455Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-17T21:38:44.999Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-17T21:38:44.999Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-17T21:39:28.589Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-17T21:39:28.589Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-17T21:39:49.393Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-17T21:39:49.393Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-17T21:40:09.114Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-17T21:40:09.114Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-17T21:40:29.287Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-17T21:40:29.288Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-17T21:41:08.748Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-17T21:41:08.749Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-17T21:42:53.892Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-17T21:42:53.893Z phase= domain= task= q="(no question provided)" -->
-| 2026-04-17 14:27 | 2026-04-17 14:44 | gsd-t-debug | Step 0 | opus | 1013s | v3.13.11 triple-fix (watchdog + cwd invariant + IS_STALE) — 1235/1235 pass, Red Team GRUDGING PASS, published | | | N/A |
-<!-- missed_escalation 2026-04-17T22:00:40.204Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-17T22:00:40.204Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-17T22:01:23.073Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-17T22:01:23.073Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-17T22:04:25.165Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-17T22:04:25.166Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-17T22:05:12.443Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-17T22:05:12.444Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-17T22:10:56.785Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-17T22:10:56.785Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-17T22:13:56.640Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-17T22:13:56.640Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-17T22:14:41.925Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-17T22:14:41.925Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-17T22:16:47.387Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-17T22:16:47.387Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-17T22:17:49.395Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-17T22:17:49.395Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-18T03:42:48.298Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-18T03:42:48.298Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-18T03:43:29.619Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-18T03:43:29.619Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-18T20:14:05.720Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-18T20:14:05.720Z phase= domain= task= q="(no question provided)" -->
-| 2026-04-18 13:14 | 2026-04-18 13:14 | gsd-t-verify | Step 2 | opus | 17s | npm test 1240/1240 pass | M39 | full-suite | 10.1 |
-<!-- missed_escalation 2026-04-18T20:19:42.835Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-18T20:19:42.835Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-20T00:16:14.727Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-20T00:16:14.727Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-20T00:23:49.760Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-20T00:23:49.760Z phase= domain= task= q="(no question provided)" -->
-| 2026-04-19 17:29 | 2026-04-19 17:30 | gsd-t-plan | Step 7 | haiku | 43s | PASS iter 1 | | | 28.3 |
-<!-- missed_escalation 2026-04-20T00:41:17.391Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-20T00:41:17.392Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-20T00:42:39.543Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-20T00:42:39.544Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-20T00:48:53.914Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-20T00:48:53.914Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-20T00:51:30.933Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-20T00:51:30.933Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-20T00:53:50.527Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-20T00:53:50.527Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-20T00:54:35.933Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-20T00:54:35.933Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-20T00:55:37.784Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-20T00:55:37.784Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-20T00:55:59.045Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-20T00:55:59.045Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-20T00:56:44.433Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-20T00:56:44.433Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-20T00:58:16.475Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-20T00:58:16.476Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-20T00:58:36.755Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-20T00:58:36.755Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-20T00:58:57.972Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-20T00:58:57.972Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-20T00:59:51.743Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-20T00:59:51.743Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-20T01:00:09.143Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-20T01:00:09.144Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-20T01:00:26.538Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-20T01:00:26.538Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-20T01:00:47.212Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-20T01:00:47.212Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-20T01:02:16.985Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-20T01:02:16.986Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-20T01:02:34.396Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-20T01:02:34.396Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-20T01:02:51.773Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-20T01:02:51.773Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-20T01:03:16.762Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-20T01:03:16.762Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-20T01:15:56.493Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-20T01:15:56.493Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-20T01:16:51.452Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-20T01:16:51.452Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-20T01:17:11.277Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-20T01:17:11.277Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-20T01:17:31.097Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-20T01:17:31.097Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-20T01:27:21.595Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-20T01:27:21.596Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-20T01:30:56.282Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-20T01:30:56.282Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-20T01:31:52.122Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-20T01:31:52.123Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-20T01:34:12.690Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-20T01:34:12.690Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-20T01:34:32.820Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-20T01:34:32.820Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-20T01:34:53.770Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-20T01:34:53.770Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-20T01:41:46.657Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-20T01:41:46.657Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-20T02:01:23.976Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-20T02:01:23.976Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-20T03:35:08.632Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-20T03:35:08.632Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-20T19:52:49.433Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-20T19:52:49.433Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-20T20:13:12.211Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-20T20:13:12.211Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-20T21:02:38.556Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-20T21:02:38.557Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-20T21:17:38.351Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-20T21:17:38.351Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-20T21:22:41.279Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-20T21:22:41.279Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-20T21:26:40.776Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-20T21:26:40.776Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-20T21:38:37.768Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-20T21:38:37.768Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-20T21:44:27.608Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-20T21:44:27.609Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-20T21:46:20.374Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-20T21:46:20.374Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-20T21:48:03.455Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-20T21:48:03.455Z phase= domain= task= q="(no question provided)" -->
-<!-- missed_escalation 2026-04-20T21:49:16.332Z phase= domain= task= q="test" -->
-<!-- missed_escalation 2026-04-20T21:49:16.332Z phase= domain= task= q="(no question provided)" -->
+| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Tokens | Notes | Domain | Task | Ctx% |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-04-21 15:35 | 2026-04-21 15:35 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=212 cr=51132 cc=438 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:35 | 2026-04-21 15:35 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=212 cr=51132 cc=438 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:35 | 2026-04-21 15:35 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=204 cr=51821 cc=1298 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:35 | 2026-04-21 15:35 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=204 cr=51821 cc=1298 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:35 | 2026-04-21 15:35 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=204 cr=51821 cc=1298 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:35 | 2026-04-21 15:35 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=94 cr=65636 cc=489 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:35 | 2026-04-21 15:35 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=306 cr=64306 cc=1330 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:35 | 2026-04-21 15:35 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=306 cr=64306 cc=1330 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:35 | 2026-04-21 15:35 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=306 cr=64306 cc=1330 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:35 | 2026-04-21 15:35 | in-session | turn | claude-opus-4-7 | 0s | in=5 out=359 cr=16612 cc=34520 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:35 | 2026-04-21 15:35 | in-session | turn | claude-opus-4-7 | 0s | in=5 out=359 cr=16612 cc=34520 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:35 | 2026-04-21 15:35 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=297 cr=57075 cc=7231 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:35 | 2026-04-21 15:35 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=297 cr=57075 cc=7231 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:35 | 2026-04-21 15:35 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=297 cr=57075 cc=7231 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:35 | 2026-04-21 15:35 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=297 cr=57075 cc=7231 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:35 | 2026-04-21 15:35 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=336 cr=53729 cc=2071 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:35 | 2026-04-21 15:35 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=336 cr=53729 cc=2071 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:35 | 2026-04-21 15:35 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=336 cr=53729 cc=2071 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:35 | 2026-04-21 15:35 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=336 cr=53729 cc=2071 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:35 | 2026-04-21 15:35 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=404 cr=55800 cc=1275 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:35 | 2026-04-21 15:35 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=404 cr=55800 cc=1275 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:35 | 2026-04-21 15:35 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=404 cr=55800 cc=1275 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:35 | 2026-04-21 15:35 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=1144 cr=51570 cc=251 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:35 | 2026-04-21 15:35 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=1144 cr=51570 cc=251 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:35 | 2026-04-21 15:35 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=1144 cr=51570 cc=251 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:35 | 2026-04-21 15:35 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=1144 cr=51570 cc=251 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:35 | 2026-04-21 15:35 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=1144 cr=51570 cc=251 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:35 | 2026-04-21 15:35 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=215 cr=53119 cc=610 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:35 | 2026-04-21 15:35 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=215 cr=53119 cc=610 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:36 | 2026-04-21 15:36 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=181 cr=75984 cc=592 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:36 | 2026-04-21 15:36 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=181 cr=75984 cc=592 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:36 | 2026-04-21 15:36 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=461 cr=75478 cc=506 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:36 | 2026-04-21 15:36 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=461 cr=75478 cc=506 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:36 | 2026-04-21 15:36 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=315 cr=66125 cc=535 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:36 | 2026-04-21 15:36 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=315 cr=66125 cc=535 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:36 | 2026-04-21 15:36 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=315 cr=66125 cc=535 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:36 | 2026-04-21 15:36 | in-session | turn | claude-opus-4-7 | 0s | in=5 out=481 cr=76793 cc=2255 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:36 | 2026-04-21 15:36 | in-session | turn | claude-opus-4-7 | 0s | in=5 out=481 cr=76793 cc=2255 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:36 | 2026-04-21 15:36 | in-session | turn | claude-opus-4-7 | 0s | in=5 out=481 cr=76793 cc=2255 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:36 | 2026-04-21 15:36 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=276 cr=79048 cc=584 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:36 | 2026-04-21 15:36 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=276 cr=79048 cc=584 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:36 | 2026-04-21 15:36 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=521 cr=66660 cc=8199 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:36 | 2026-04-21 15:36 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=521 cr=66660 cc=8199 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:36 | 2026-04-21 15:36 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=309 cr=76576 cc=217 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:36 | 2026-04-21 15:36 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=319 cr=74859 cc=619 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:36 | 2026-04-21 15:36 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=319 cr=74859 cc=619 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:36 | 2026-04-21 15:36 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=95 cr=79632 cc=460 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:39 | 2026-04-21 15:39 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=321 cr=84960 cc=794 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:39 | 2026-04-21 15:39 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=321 cr=84960 cc=794 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:39 | 2026-04-21 15:39 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=321 cr=84960 cc=794 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:39 | 2026-04-21 15:39 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=583 cr=87317 cc=1341 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:39 | 2026-04-21 15:39 | in-session | turn | claude-opus-4-7 | 0s | in=6 out=367 cr=80092 cc=4868 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:39 | 2026-04-21 15:39 | in-session | turn | claude-opus-4-7 | 0s | in=6 out=367 cr=80092 cc=4868 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:39 | 2026-04-21 15:39 | in-session | turn | claude-opus-4-7 | 0s | in=6 out=367 cr=80092 cc=4868 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:39 | 2026-04-21 15:39 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=475 cr=85754 cc=1563 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:39 | 2026-04-21 15:39 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=475 cr=85754 cc=1563 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:39 | 2026-04-21 15:39 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=475 cr=85754 cc=1563 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:41 | 2026-04-21 15:41 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=2672 cr=96534 cc=191 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:41 | 2026-04-21 15:41 | in-session | turn | claude-opus-4-7 | 0s | in=5 out=169 cr=88658 cc=7876 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:41 | 2026-04-21 15:41 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=317 cr=96725 cc=3944 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:43 | 2026-04-21 15:43 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=334 cr=107403 cc=2550 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:43 | 2026-04-21 15:43 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=334 cr=107403 cc=2550 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:43 | 2026-04-21 15:43 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=198 cr=103628 cc=1138 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:43 | 2026-04-21 15:43 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=198 cr=103628 cc=1138 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:43 | 2026-04-21 15:43 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=273 cr=101527 cc=668 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:43 | 2026-04-21 15:43 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=273 cr=101527 cc=668 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:43 | 2026-04-21 15:43 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=281 cr=101117 cc=410 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:43 | 2026-04-21 15:43 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=281 cr=101117 cc=410 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:43 | 2026-04-21 15:43 | in-session | turn | claude-opus-4-7 | 0s | in=6 out=275 cr=100669 cc=448 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:43 | 2026-04-21 15:43 | in-session | turn | claude-opus-4-7 | 0s | in=6 out=275 cr=100669 cc=448 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:43 | 2026-04-21 15:43 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=140 cr=109953 cc=397 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:43 | 2026-04-21 15:43 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=140 cr=109953 cc=397 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:43 | 2026-04-21 15:43 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=166 cr=105045 cc=2358 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:43 | 2026-04-21 15:43 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=166 cr=105045 cc=2358 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:43 | 2026-04-21 15:43 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=138 cr=104766 cc=279 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:43 | 2026-04-21 15:43 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=121 cr=102195 cc=1433 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:44 | 2026-04-21 15:44 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=134 cr=115803 cc=330 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:44 | 2026-04-21 15:44 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=162 cr=110350 cc=429 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:44 | 2026-04-21 15:44 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=183 cr=114755 cc=1048 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:44 | 2026-04-21 15:44 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=183 cr=114755 cc=1048 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:44 | 2026-04-21 15:44 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=816 cr=113821 cc=934 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:44 | 2026-04-21 15:44 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=816 cr=113821 cc=934 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:44 | 2026-04-21 15:44 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=213 cr=116133 cc=1458 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:44 | 2026-04-21 15:44 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=213 cr=116133 cc=1458 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:44 | 2026-04-21 15:44 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=167 cr=113401 cc=420 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:44 | 2026-04-21 15:44 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=167 cr=113401 cc=420 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:44 | 2026-04-21 15:44 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=350 cr=112794 cc=607 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:44 | 2026-04-21 15:44 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=513 cr=111184 cc=1610 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:44 | 2026-04-21 15:44 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=513 cr=111184 cc=1610 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:44 | 2026-04-21 15:44 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=398 cr=110350 cc=834 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:44 | 2026-04-21 15:44 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=398 cr=110350 cc=834 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:45 | 2026-04-21 15:45 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=220 cr=119472 cc=320 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:45 | 2026-04-21 15:45 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=220 cr=119472 cc=320 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:45 | 2026-04-21 15:45 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=160 cr=118256 cc=1216 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:45 | 2026-04-21 15:45 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=160 cr=118256 cc=1216 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:45 | 2026-04-21 15:45 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=207 cr=120721 cc=217 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:45 | 2026-04-21 15:45 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=140 cr=120938 cc=234 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:45 | 2026-04-21 15:45 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=140 cr=120938 cc=234 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:45 | 2026-04-21 15:45 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=214 cr=119792 cc=406 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:45 | 2026-04-21 15:45 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=217 cr=121785 cc=348 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:45 | 2026-04-21 15:45 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=247 cr=121172 cc=613 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:45 | 2026-04-21 15:45 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=247 cr=121172 cc=613 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:45 | 2026-04-21 15:45 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=1150 cr=117591 cc=665 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:45 | 2026-04-21 15:45 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=199 cr=120198 cc=523 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:46 | 2026-04-21 15:46 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=217 cr=121785 cc=348 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:46 | 2026-04-21 15:46 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=449 cr=122133 cc=333 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:47 | 2026-04-21 15:47 | in-session | turn | claude-opus-4-7 | 0s | in=6 out=434 cr=122466 cc=710 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:47 | 2026-04-21 15:47 | in-session | turn | claude-opus-4-7 | 0s | in=6 out=434 cr=122466 cc=710 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:47 | 2026-04-21 15:47 | in-session | turn | claude-opus-4-7 | 0s | in=6 out=434 cr=122466 cc=710 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:47 | 2026-04-21 15:47 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=588 cr=123176 cc=1864 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:49 | 2026-04-21 15:49 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=145 cr=127176 cc=636 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:49 | 2026-04-21 15:49 | in-session | turn | claude-opus-4-7 | 0s | in=6 out=238 cr=128813 cc=209 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:49 | 2026-04-21 15:49 | in-session | turn | claude-opus-4-7 | 0s | in=6 out=238 cr=128813 cc=209 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:49 | 2026-04-21 15:49 | in-session | turn | claude-opus-4-7 | 0s | in=6 out=238 cr=128813 cc=209 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:49 | 2026-04-21 15:49 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=136 cr=126936 cc=240 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:49 | 2026-04-21 15:49 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=204 cr=126449 cc=487 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:49 | 2026-04-21 15:49 | in-session | turn | claude-opus-4-7 | 0s | in=6 out=257 cr=125040 cc=695 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:49 | 2026-04-21 15:49 | in-session | turn | claude-opus-4-7 | 0s | in=6 out=257 cr=125040 cc=695 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:49 | 2026-04-21 15:49 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=1 cr=128125 cc=688 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:49 | 2026-04-21 15:49 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=200 cr=125735 cc=714 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:49 | 2026-04-21 15:49 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=200 cr=125735 cc=714 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:49 | 2026-04-21 15:49 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=207 cr=127812 cc=313 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:50 | 2026-04-21 15:50 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=69 cr=133807 cc=217 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:50 | 2026-04-21 15:50 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=146 cr=129022 cc=559 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:50 | 2026-04-21 15:50 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=146 cr=129022 cc=559 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:50 | 2026-04-21 15:50 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=479 cr=131800 cc=1016 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:50 | 2026-04-21 15:50 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=133 cr=129581 cc=166 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:50 | 2026-04-21 15:50 | in-session | turn | claude-opus-4-7 | 0s | in=6 out=257 cr=134024 cc=177 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:50 | 2026-04-21 15:50 | in-session | turn | claude-opus-4-7 | 0s | in=6 out=257 cr=134024 cc=177 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:50 | 2026-04-21 15:50 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=114 cr=132816 cc=541 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:50 | 2026-04-21 15:50 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=789 cr=129747 cc=2053 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:50 | 2026-04-21 15:50 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=158 cr=133357 cc=450 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:50 | 2026-04-21 15:50 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=158 cr=133357 cc=450 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:51 | 2026-04-21 15:51 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=85 cr=138383 cc=283 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:51 | 2026-04-21 15:51 | in-session | turn | claude-opus-4-7 | 0s | in=5 out=345 cr=135504 cc=2431 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:51 | 2026-04-21 15:51 | in-session | turn | claude-opus-4-7 | 0s | in=5 out=345 cr=135504 cc=2431 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:51 | 2026-04-21 15:51 | in-session | turn | claude-opus-4-7 | 0s | in=5 out=345 cr=135504 cc=2431 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:51 | 2026-04-21 15:51 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=261 cr=137935 cc=448 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:51 | 2026-04-21 15:51 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=261 cr=137935 cc=448 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:51 | 2026-04-21 15:51 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=183 cr=134201 cc=1084 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:51 | 2026-04-21 15:51 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=183 cr=134201 cc=1084 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:51 | 2026-04-21 15:51 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=322 cr=135285 cc=219 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:52 | 2026-04-21 15:52 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=200 cr=143605 cc=1950 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:52 | 2026-04-21 15:52 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=200 cr=143605 cc=1950 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:52 | 2026-04-21 15:52 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=366 cr=145555 cc=522 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:52 | 2026-04-21 15:52 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=366 cr=145555 cc=522 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:52 | 2026-04-21 15:52 | in-session | turn | claude-opus-4-7 | 0s | in=6 out=422 cr=138666 cc=4939 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:52 | 2026-04-21 15:52 | in-session | turn | claude-opus-4-7 | 0s | in=6 out=422 cr=138666 cc=4939 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:52 | 2026-04-21 15:52 | in-session | turn | claude-opus-4-7 | 0s | in=6 out=422 cr=138666 cc=4939 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:53 | 2026-04-21 15:53 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=142 cr=146077 cc=436 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:53 | 2026-04-21 15:53 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=142 cr=146077 cc=436 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:53 | 2026-04-21 15:53 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=132 cr=146712 cc=435 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:53 | 2026-04-21 15:53 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=172 cr=147147 cc=285 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:53 | 2026-04-21 15:53 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=172 cr=147147 cc=285 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:53 | 2026-04-21 15:53 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=369 cr=146513 cc=199 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:53 | 2026-04-21 15:53 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=323 cr=147432 cc=204 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:54 | 2026-04-21 15:54 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=141 cr=159358 cc=524 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:54 | 2026-04-21 15:54 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=637 cr=155642 cc=2826 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:54 | 2026-04-21 15:54 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=637 cr=155642 cc=2826 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:54 | 2026-04-21 15:54 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=139 cr=154933 cc=1064 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:54 | 2026-04-21 15:54 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=143 cr=158468 cc=890 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:54 | 2026-04-21 15:54 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=361 cr=151341 cc=812 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:54 | 2026-04-21 15:54 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=361 cr=151341 cc=812 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:54 | 2026-04-21 15:54 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=335 cr=152153 cc=2402 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:54 | 2026-04-21 15:54 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=335 cr=152153 cc=2402 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:54 | 2026-04-21 15:54 | in-session | turn | claude-opus-4-7 | 0s | in=6 out=460 cr=147636 cc=3705 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:54 | 2026-04-21 15:54 | in-session | turn | claude-opus-4-7 | 0s | in=6 out=460 cr=147636 cc=3705 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:54 | 2026-04-21 15:54 | in-session | turn | claude-opus-4-7 | 0s | in=6 out=460 cr=147636 cc=3705 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:54 | 2026-04-21 15:54 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=350 cr=154555 cc=378 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:54 | 2026-04-21 15:54 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=350 cr=154555 cc=378 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:54 | 2026-04-21 15:54 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=144 cr=154933 cc=709 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:55 | 2026-04-21 15:55 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=663 cr=159882 cc=1195 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:55 | 2026-04-21 15:55 | in-session | turn | claude-opus-4-7 | 0s | in=5 out=203 cr=161077 cc=7956 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:55 | 2026-04-21 15:55 | in-session | turn | claude-opus-4-7 | 0s | in=5 out=203 cr=161077 cc=7956 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:57 | 2026-04-21 15:57 | in-session | turn | claude-opus-4-7 | 0s | in=6 out=2663 cr=16612 cc=48080 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:58 | 2026-04-21 15:58 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=738 cr=73565 cc=3375 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:58 | 2026-04-21 15:58 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=738 cr=73565 cc=3375 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:58 | 2026-04-21 15:58 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=141 cr=70947 cc=1035 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:58 | 2026-04-21 15:58 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=436 cr=64692 cc=4007 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:58 | 2026-04-21 15:58 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=436 cr=64692 cc=4007 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:58 | 2026-04-21 15:58 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=372 cr=76940 cc=835 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:58 | 2026-04-21 15:58 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=168 cr=69171 cc=1776 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:58 | 2026-04-21 15:58 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=168 cr=69171 cc=1776 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:58 | 2026-04-21 15:58 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=329 cr=68699 cc=472 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:58 | 2026-04-21 15:58 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=329 cr=68699 cc=472 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:58 | 2026-04-21 15:58 | in-session | turn | claude-opus-4-7 | 0s | in=6 out=2663 cr=16612 cc=48080 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:58 | 2026-04-21 15:58 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=242 cr=70947 cc=2618 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:58 | 2026-04-21 15:58 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=242 cr=70947 cc=2618 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:59 | 2026-04-21 15:59 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=481 cr=78220 cc=725 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:59 | 2026-04-21 15:59 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=481 cr=78220 cc=725 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:59 | 2026-04-21 15:59 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=660 cr=79499 cc=527 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:59 | 2026-04-21 15:59 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=660 cr=79499 cc=527 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:59 | 2026-04-21 15:59 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=652 cr=77775 cc=445 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:59 | 2026-04-21 15:59 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=652 cr=77775 cc=445 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:59 | 2026-04-21 15:59 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=454 cr=78945 cc=554 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:59 | 2026-04-21 15:59 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=454 cr=78945 cc=554 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:59 | 2026-04-21 15:59 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=948 cr=80026 cc=892 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:59 | 2026-04-21 15:59 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=948 cr=80026 cc=892 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:59 | 2026-04-21 15:59 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=192 cr=80918 cc=1018 — | in-session turn | - | - | N/A |
+| 2026-04-21 15:59 | 2026-04-21 15:59 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=192 cr=80918 cc=1018 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:00 | 2026-04-21 16:00 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=650 cr=84899 cc=593 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:00 | 2026-04-21 16:00 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=199 cr=83189 cc=261 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:00 | 2026-04-21 16:00 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=527 cr=86208 cc=421 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:00 | 2026-04-21 16:00 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=527 cr=86208 cc=421 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:00 | 2026-04-21 16:00 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=134 cr=84162 cc=737 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:00 | 2026-04-21 16:00 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=951 cr=86629 cc=658 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:00 | 2026-04-21 16:00 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=951 cr=86629 cc=658 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:00 | 2026-04-21 16:00 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=685 cr=83450 cc=712 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:00 | 2026-04-21 16:00 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=685 cr=83450 cc=712 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:00 | 2026-04-21 16:00 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=140 cr=87287 cc=1017 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:00 | 2026-04-21 16:00 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=179 cr=81936 cc=1253 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:00 | 2026-04-21 16:00 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=179 cr=81936 cc=1253 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:00 | 2026-04-21 16:00 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=147 cr=85492 cc=716 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:01 | 2026-04-21 16:01 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=279 cr=92964 cc=757 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:01 | 2026-04-21 16:01 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=279 cr=92964 cc=757 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:01 | 2026-04-21 16:01 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=229 cr=88304 cc=354 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:01 | 2026-04-21 16:01 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=229 cr=88304 cc=354 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:01 | 2026-04-21 16:01 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=179 cr=88917 cc=446 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:01 | 2026-04-21 16:01 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=179 cr=88917 cc=446 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:01 | 2026-04-21 16:01 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=220 cr=94066 cc=385 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:01 | 2026-04-21 16:01 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=220 cr=94066 cc=385 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:01 | 2026-04-21 16:01 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=971 cr=96730 cc=1249 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:01 | 2026-04-21 16:01 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=971 cr=96730 cc=1249 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:01 | 2026-04-21 16:01 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=175 cr=88658 cc=259 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:01 | 2026-04-21 16:01 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=175 cr=88658 cc=259 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:01 | 2026-04-21 16:01 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=330 cr=94451 cc=1192 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:01 | 2026-04-21 16:01 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=330 cr=94451 cc=1192 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:01 | 2026-04-21 16:01 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=140 cr=93721 cc=345 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:01 | 2026-04-21 16:01 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=167 cr=95643 cc=1087 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:01 | 2026-04-21 16:01 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=167 cr=95643 cc=1087 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:01 | 2026-04-21 16:01 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=301 cr=89986 cc=2978 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:01 | 2026-04-21 16:01 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=301 cr=89986 cc=2978 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:01 | 2026-04-21 16:01 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=385 cr=89363 cc=623 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:01 | 2026-04-21 16:01 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=385 cr=89363 cc=623 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:02 | 2026-04-21 16:02 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=163 cr=99016 cc=336 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:02 | 2026-04-21 16:02 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=163 cr=99016 cc=336 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:02 | 2026-04-21 16:02 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=1014 cr=100379 cc=3084 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:02 | 2026-04-21 16:02 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=147 cr=99352 cc=514 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:02 | 2026-04-21 16:02 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=140 cr=97979 cc=1037 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:02 | 2026-04-21 16:02 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=151 cr=99866 cc=513 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:02 | 2026-04-21 16:02 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=151 cr=99866 cc=513 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:03 | 2026-04-21 16:03 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=1014 cr=100379 cc=3084 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:03 | 2026-04-21 16:03 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=276 cr=105248 cc=880 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:03 | 2026-04-21 16:03 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=276 cr=105248 cc=880 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:03 | 2026-04-21 16:03 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=145 cr=103463 cc=1083 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:03 | 2026-04-21 16:03 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=785 cr=104860 cc=388 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:03 | 2026-04-21 16:03 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=785 cr=104860 cc=388 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:03 | 2026-04-21 16:03 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=162 cr=103463 cc=1397 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:03 | 2026-04-21 16:03 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=162 cr=103463 cc=1397 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:04 | 2026-04-21 16:04 | in-session | turn | claude-opus-4-7 | 0s | in=5 out=165 cr=107364 cc=8012 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:04 | 2026-04-21 16:04 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=719 cr=106128 cc=1236 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:04 | 2026-04-21 16:04 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=203 cr=115563 cc=1073 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:04 | 2026-04-21 16:04 | in-session | turn | claude-opus-4-7 | 0s | in=6 out=375 cr=116636 cc=314 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:04 | 2026-04-21 16:04 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=857 cr=115376 cc=187 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:05 | 2026-04-21 16:05 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=143 cr=123902 cc=1287 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:05 | 2026-04-21 16:05 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=143 cr=123902 cc=1287 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:05 | 2026-04-21 16:05 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=139 cr=117586 cc=414 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:05 | 2026-04-21 16:05 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=139 cr=117586 cc=414 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:05 | 2026-04-21 16:05 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=1222 cr=120315 cc=3587 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:05 | 2026-04-21 16:05 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=1222 cr=120315 cc=3587 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:05 | 2026-04-21 16:05 | in-session | turn | claude-opus-4-7 | 0s | in=6 out=130 cr=116950 cc=488 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:05 | 2026-04-21 16:05 | in-session | turn | claude-opus-4-7 | 0s | in=6 out=130 cr=116950 cc=488 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:05 | 2026-04-21 16:05 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=133 cr=118000 cc=2315 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:05 | 2026-04-21 16:05 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=189 cr=117438 cc=148 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:06 | 2026-04-21 16:06 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=1021 cr=127047 cc=747 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:06 | 2026-04-21 16:06 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=204 cr=125440 cc=1607 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:06 | 2026-04-21 16:06 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=584 cr=125189 cc=251 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:06 | 2026-04-21 16:06 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=584 cr=125189 cc=251 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:07 | 2026-04-21 16:07 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=178 cr=129388 cc=3006 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:07 | 2026-04-21 16:07 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=125 cr=128916 cc=472 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:07 | 2026-04-21 16:07 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=125 cr=128916 cc=472 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:07 | 2026-04-21 16:07 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=252 cr=132394 cc=243 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:07 | 2026-04-21 16:07 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=252 cr=132394 cc=243 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:07 | 2026-04-21 16:07 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=252 cr=132394 cc=243 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:07 | 2026-04-21 16:07 | in-session | turn | claude-opus-4-7 | 0s | in=6 out=283 cr=127794 cc=1122 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:07 | 2026-04-21 16:07 | in-session | turn | claude-opus-4-7 | 0s | in=6 out=283 cr=127794 cc=1122 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:08 | 2026-04-21 16:08 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=812 cr=133253 cc=707 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:08 | 2026-04-21 16:08 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=144 cr=134844 cc=326 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:08 | 2026-04-21 16:08 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=144 cr=134844 cc=326 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:08 | 2026-04-21 16:08 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=321 cr=132637 cc=616 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:08 | 2026-04-21 16:08 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=321 cr=132637 cc=616 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:08 | 2026-04-21 16:08 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=105 cr=133960 cc=884 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:09 | 2026-04-21 16:09 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=305 cr=136928 cc=933 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:09 | 2026-04-21 16:09 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=305 cr=136928 cc=933 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:09 | 2026-04-21 16:09 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=171 cr=135754 cc=211 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:09 | 2026-04-21 16:09 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=188 cr=135170 cc=584 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:09 | 2026-04-21 16:09 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=188 cr=135170 cc=584 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:09 | 2026-04-21 16:09 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=815 cr=137861 cc=4393 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:09 | 2026-04-21 16:09 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=139 cr=136239 cc=689 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:09 | 2026-04-21 16:09 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=103 cr=135965 cc=274 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:11 | 2026-04-21 16:11 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=486 cr=147145 cc=971 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:11 | 2026-04-21 16:11 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=486 cr=147145 cc=971 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:11 | 2026-04-21 16:11 | in-session | turn | claude-opus-4-7 | 0s | in=6 out=268 cr=142254 cc=1075 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:11 | 2026-04-21 16:11 | in-session | turn | claude-opus-4-7 | 0s | in=6 out=268 cr=142254 cc=1075 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:11 | 2026-04-21 16:11 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=260 cr=143329 cc=1372 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:11 | 2026-04-21 16:11 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=260 cr=143329 cc=1372 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:11 | 2026-04-21 16:11 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=617 cr=145892 cc=1253 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:11 | 2026-04-21 16:11 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=617 cr=145892 cc=1253 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:11 | 2026-04-21 16:11 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=193 cr=144701 cc=1191 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:12 | 2026-04-21 16:12 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=212 cr=158998 cc=618 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:12 | 2026-04-21 16:12 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=212 cr=158998 cc=618 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:12 | 2026-04-21 16:12 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=592 cr=157566 cc=1432 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:12 | 2026-04-21 16:12 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=592 cr=157566 cc=1432 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:12 | 2026-04-21 16:12 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=177 cr=154659 cc=2204 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:12 | 2026-04-21 16:12 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=177 cr=154659 cc=2204 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:12 | 2026-04-21 16:12 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=138 cr=159616 cc=232 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:12 | 2026-04-21 16:12 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=1362 cr=156863 cc=703 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:12 | 2026-04-21 16:12 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=1583 cr=148116 cc=6543 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:12 | 2026-04-21 16:12 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=1583 cr=148116 cc=6543 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:13 | 2026-04-21 16:13 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=2702 cr=160883 cc=487 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:13 | 2026-04-21 16:13 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=2702 cr=160883 cc=487 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:13 | 2026-04-21 16:13 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=155 cr=160522 cc=361 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:13 | 2026-04-21 16:13 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=152 cr=161370 cc=2771 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:13 | 2026-04-21 16:13 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=148 cr=164141 cc=525 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:13 | 2026-04-21 16:13 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=148 cr=164141 cc=525 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:13 | 2026-04-21 16:13 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=150 cr=159848 cc=674 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:13 | 2026-04-21 16:13 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=150 cr=159848 cc=674 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:14 | 2026-04-21 16:14 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=178 cr=165407 cc=451 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:14 | 2026-04-21 16:14 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=1140 cr=165858 cc=243 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:14 | 2026-04-21 16:14 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=267 cr=164976 cc=431 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:14 | 2026-04-21 16:14 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=267 cr=164976 cc=431 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:14 | 2026-04-21 16:14 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=231 cr=164666 cc=310 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:14 | 2026-04-21 16:14 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=231 cr=164666 cc=310 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:16 | 2026-04-21 16:16 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=151 cr=81389 cc=345 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:16 | 2026-04-21 16:16 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=276 cr=78973 cc=1836 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:16 | 2026-04-21 16:16 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=276 cr=78973 cc=1836 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:16 | 2026-04-21 16:16 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=127 cr=81734 cc=173 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:16 | 2026-04-21 16:16 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=216 cr=80809 cc=580 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:16 | 2026-04-21 16:16 | in-session | turn | claude-opus-4-7 | 0s | in=6 out=393 cr=16612 cc=62361 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:16 | 2026-04-21 16:16 | in-session | turn | claude-opus-4-7 | 0s | in=6 out=393 cr=16612 cc=62361 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:16 | 2026-04-21 16:16 | in-session | turn | claude-opus-4-7 | 0s | in=6 out=393 cr=16612 cc=62361 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:16 | 2026-04-21 16:16 | in-session | turn | claude-opus-4-7 | 0s | in=6 out=393 cr=16612 cc=62361 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:17 | 2026-04-21 16:17 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=124 cr=100039 cc=585 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:17 | 2026-04-21 16:17 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=124 cr=100039 cc=585 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:17 | 2026-04-21 16:17 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=138 cr=81907 cc=604 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:17 | 2026-04-21 16:17 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=337 cr=89900 cc=3581 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:17 | 2026-04-21 16:17 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=337 cr=89900 cc=3581 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:17 | 2026-04-21 16:17 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=337 cr=89900 cc=3581 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:17 | 2026-04-21 16:17 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=1058 cr=101365 cc=965 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:17 | 2026-04-21 16:17 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=318 cr=93481 cc=424 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:17 | 2026-04-21 16:17 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=318 cr=93481 cc=424 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:17 | 2026-04-21 16:17 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=318 cr=93481 cc=424 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:17 | 2026-04-21 16:17 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=318 cr=93481 cc=424 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:17 | 2026-04-21 16:17 | in-session | turn | claude-opus-4-7 | 0s | in=6 out=1012 cr=16705 cc=71856 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:17 | 2026-04-21 16:17 | in-session | turn | claude-opus-4-7 | 0s | in=6 out=1012 cr=16705 cc=71856 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:17 | 2026-04-21 16:17 | in-session | turn | claude-opus-4-7 | 0s | in=6 out=1012 cr=16705 cc=71856 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:17 | 2026-04-21 16:17 | in-session | turn | claude-opus-4-7 | 0s | in=6 out=1012 cr=16705 cc=71856 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:17 | 2026-04-21 16:17 | in-session | turn | claude-opus-4-7 | 0s | in=6 out=1012 cr=16705 cc=71856 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:17 | 2026-04-21 16:17 | in-session | turn | claude-opus-4-7 | 0s | in=6 out=1012 cr=16705 cc=71856 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:17 | 2026-04-21 16:17 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=109 cr=82511 cc=2674 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:17 | 2026-04-21 16:17 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=215 cr=100624 cc=741 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:17 | 2026-04-21 16:17 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=215 cr=100624 cc=741 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:17 | 2026-04-21 16:17 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=176 cr=98819 cc=1220 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:17 | 2026-04-21 16:17 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=176 cr=98819 cc=1220 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:17 | 2026-04-21 16:17 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=148 cr=93905 cc=4914 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:17 | 2026-04-21 16:17 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=148 cr=93905 cc=4914 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:17 | 2026-04-21 16:17 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=212 cr=88561 cc=1339 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:17 | 2026-04-21 16:17 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=212 cr=88561 cc=1339 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:18 | 2026-04-21 16:18 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=311 cr=103913 cc=812 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:18 | 2026-04-21 16:18 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=311 cr=103913 cc=812 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:18 | 2026-04-21 16:18 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=311 cr=103913 cc=812 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:18 | 2026-04-21 16:18 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=311 cr=103913 cc=812 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:18 | 2026-04-21 16:18 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=280 cr=103502 cc=411 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:18 | 2026-04-21 16:18 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=280 cr=103502 cc=411 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:18 | 2026-04-21 16:18 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=280 cr=103502 cc=411 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:18 | 2026-04-21 16:18 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=1058 cr=101365 cc=965 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:18 | 2026-04-21 16:18 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=251 cr=102330 cc=1172 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:18 | 2026-04-21 16:18 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=251 cr=102330 cc=1172 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:18 | 2026-04-21 16:18 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=251 cr=102330 cc=1172 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:18 | 2026-04-21 16:18 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=158 cr=104725 cc=553 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:18 | 2026-04-21 16:18 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=158 cr=104725 cc=553 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:19 | 2026-04-21 16:19 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=239 cr=107525 cc=848 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:19 | 2026-04-21 16:19 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=239 cr=107525 cc=848 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:19 | 2026-04-21 16:19 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=134 cr=105453 cc=169 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:19 | 2026-04-21 16:19 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=155 cr=108719 cc=455 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:19 | 2026-04-21 16:19 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=299 cr=109727 cc=1767 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:19 | 2026-04-21 16:19 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=299 cr=109727 cc=1767 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:19 | 2026-04-21 16:19 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=141 cr=109174 cc=553 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:19 | 2026-04-21 16:19 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=433 cr=105622 cc=1182 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:19 | 2026-04-21 16:19 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=433 cr=105622 cc=1182 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:19 | 2026-04-21 16:19 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=433 cr=105622 cc=1182 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:19 | 2026-04-21 16:19 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=433 cr=105622 cc=1182 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:19 | 2026-04-21 16:19 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=207 cr=108373 cc=346 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:19 | 2026-04-21 16:19 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=146 cr=105278 cc=175 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:19 | 2026-04-21 16:19 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=106 cr=108719 cc=293 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:19 | 2026-04-21 16:19 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=151 cr=106804 cc=721 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:19 | 2026-04-21 16:19 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=151 cr=106804 cc=721 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:20 | 2026-04-21 16:20 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=266 cr=115601 cc=971 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:20 | 2026-04-21 16:20 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=266 cr=115601 cc=971 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:20 | 2026-04-21 16:20 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=220 cr=116572 cc=584 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:20 | 2026-04-21 16:20 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=220 cr=116572 cc=584 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:20 | 2026-04-21 16:20 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=326 cr=111494 cc=1741 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:20 | 2026-04-21 16:20 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=326 cr=111494 cc=1741 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:20 | 2026-04-21 16:20 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=326 cr=111494 cc=1741 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:20 | 2026-04-21 16:20 | in-session | turn | claude-opus-4-7 | 0s | in=6 out=432 cr=114579 cc=1022 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:20 | 2026-04-21 16:20 | in-session | turn | claude-opus-4-7 | 0s | in=6 out=432 cr=114579 cc=1022 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:20 | 2026-04-21 16:20 | in-session | turn | claude-opus-4-7 | 0s | in=6 out=432 cr=114579 cc=1022 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:20 | 2026-04-21 16:20 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=234 cr=114111 cc=468 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:20 | 2026-04-21 16:20 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=234 cr=114111 cc=468 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:20 | 2026-04-21 16:20 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=363 cr=113235 cc=876 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:20 | 2026-04-21 16:20 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=363 cr=113235 cc=876 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:20 | 2026-04-21 16:20 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=208 cr=117403 cc=397 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:20 | 2026-04-21 16:20 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=208 cr=117403 cc=397 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:20 | 2026-04-21 16:20 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=209 cr=117156 cc=247 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:21 | 2026-04-21 16:21 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=423 cr=124042 cc=420 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:21 | 2026-04-21 16:21 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=264 cr=118115 cc=200 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:21 | 2026-04-21 16:21 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=258 cr=118315 cc=4843 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:21 | 2026-04-21 16:21 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=258 cr=118315 cc=4843 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:21 | 2026-04-21 16:21 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=178 cr=117800 cc=315 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:21 | 2026-04-21 16:21 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=315 cr=123158 cc=884 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:21 | 2026-04-21 16:21 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=315 cr=123158 cc=884 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:21 | 2026-04-21 16:21 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=315 cr=123158 cc=884 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:22 | 2026-04-21 16:22 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=279 cr=130270 cc=802 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:22 | 2026-04-21 16:22 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=279 cr=130270 cc=802 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:22 | 2026-04-21 16:22 | in-session | turn | claude-opus-4-7 | 0s | in=6 out=427 cr=124462 cc=4357 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:22 | 2026-04-21 16:22 | in-session | turn | claude-opus-4-7 | 0s | in=6 out=427 cr=124462 cc=4357 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:22 | 2026-04-21 16:22 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=652 cr=128819 cc=1451 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:22 | 2026-04-21 16:22 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=652 cr=128819 cc=1451 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:22 | 2026-04-21 16:22 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=156 cr=131072 cc=305 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:23 | 2026-04-21 16:23 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=139 cr=134309 cc=762 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:23 | 2026-04-21 16:23 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=307 cr=131377 cc=587 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:23 | 2026-04-21 16:23 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=307 cr=131377 cc=587 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:23 | 2026-04-21 16:23 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=806 cr=135071 cc=3855 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:23 | 2026-04-21 16:23 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=679 cr=131964 cc=2345 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:23 | 2026-04-21 16:23 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=679 cr=131964 cc=2345 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:24 | 2026-04-21 16:24 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=162 cr=141494 cc=1282 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:24 | 2026-04-21 16:24 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=242 cr=140426 cc=1068 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:24 | 2026-04-21 16:24 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=242 cr=140426 cc=1068 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:24 | 2026-04-21 16:24 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=1094 cr=142776 cc=227 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:24 | 2026-04-21 16:24 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=1094 cr=142776 cc=227 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:24 | 2026-04-21 16:24 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=1094 cr=142776 cc=227 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:24 | 2026-04-21 16:24 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=1094 cr=142776 cc=227 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:24 | 2026-04-21 16:24 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=1094 cr=142776 cc=227 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:24 | 2026-04-21 16:24 | in-session | turn | claude-opus-4-7 | 0s | in=6 out=601 cr=139838 cc=588 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:24 | 2026-04-21 16:24 | in-session | turn | claude-opus-4-7 | 0s | in=6 out=601 cr=139838 cc=588 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:24 | 2026-04-21 16:24 | in-session | turn | claude-opus-4-7 | 0s | in=6 out=601 cr=139838 cc=588 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:24 | 2026-04-21 16:24 | in-session | turn | claude-opus-4-7 | 0s | in=6 out=601 cr=139838 cc=588 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:24 | 2026-04-21 16:24 | in-session | turn | claude-opus-4-7 | 0s | in=6 out=484 cr=138926 cc=912 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:25 | 2026-04-21 16:25 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=567 cr=147195 cc=8858 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:25 | 2026-04-21 16:25 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=567 cr=147195 cc=8858 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:25 | 2026-04-21 16:25 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=567 cr=147195 cc=8858 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:25 | 2026-04-21 16:25 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=567 cr=147195 cc=8858 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:25 | 2026-04-21 16:25 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=170 cr=143003 cc=1463 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:25 | 2026-04-21 16:25 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=170 cr=143003 cc=1463 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:25 | 2026-04-21 16:25 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=1094 cr=142776 cc=227 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:25 | 2026-04-21 16:25 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=1094 cr=142776 cc=227 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:25 | 2026-04-21 16:25 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=165 cr=157929 cc=604 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:25 | 2026-04-21 16:25 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=165 cr=157929 cc=604 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:25 | 2026-04-21 16:25 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=551 cr=156053 cc=691 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:25 | 2026-04-21 16:25 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=551 cr=156053 cc=691 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:25 | 2026-04-21 16:25 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=315 cr=144877 cc=795 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:25 | 2026-04-21 16:25 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=315 cr=144877 cc=795 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:25 | 2026-04-21 16:25 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=459 cr=145672 cc=874 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:25 | 2026-04-21 16:25 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=459 cr=145672 cc=874 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:25 | 2026-04-21 16:25 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=120 cr=146546 cc=649 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:25 | 2026-04-21 16:25 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=120 cr=146546 cc=649 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:25 | 2026-04-21 16:25 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=504 cr=157389 cc=540 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:25 | 2026-04-21 16:25 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=139 cr=144466 cc=411 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:25 | 2026-04-21 16:25 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=216 cr=156744 cc=645 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:25 | 2026-04-21 16:25 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=216 cr=156744 cc=645 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:26 | 2026-04-21 16:26 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=452 cr=160790 cc=223 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:26 | 2026-04-21 16:26 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=452 cr=160790 cc=223 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:26 | 2026-04-21 16:26 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=452 cr=160790 cc=223 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:26 | 2026-04-21 16:26 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=452 cr=160790 cc=223 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:26 | 2026-04-21 16:26 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=296 cr=159453 cc=554 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:26 | 2026-04-21 16:26 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=296 cr=159453 cc=554 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:26 | 2026-04-21 16:26 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=154 cr=161013 cc=624 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:26 | 2026-04-21 16:26 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=154 cr=161013 cc=624 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:26 | 2026-04-21 16:26 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=210 cr=160337 cc=453 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:26 | 2026-04-21 16:26 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=210 cr=160337 cc=453 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:26 | 2026-04-21 16:26 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=340 cr=158533 cc=251 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:26 | 2026-04-21 16:26 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=340 cr=158533 cc=251 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:26 | 2026-04-21 16:26 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=222 cr=161637 cc=256 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:26 | 2026-04-21 16:26 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=222 cr=161637 cc=256 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:26 | 2026-04-21 16:26 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=331 cr=161893 cc=601 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:26 | 2026-04-21 16:26 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=331 cr=161893 cc=601 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:26 | 2026-04-21 16:26 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=331 cr=161893 cc=601 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:26 | 2026-04-21 16:26 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=285 cr=158784 cc=669 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:26 | 2026-04-21 16:26 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=265 cr=160007 cc=330 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:26 | 2026-04-21 16:26 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=265 cr=160007 cc=330 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:27 | 2026-04-21 16:27 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=240 cr=164840 cc=464 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:27 | 2026-04-21 16:27 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=240 cr=164840 cc=464 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:27 | 2026-04-21 16:27 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=335 cr=165304 cc=595 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:27 | 2026-04-21 16:27 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=335 cr=165304 cc=595 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:27 | 2026-04-21 16:27 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=332 cr=163602 cc=1238 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:27 | 2026-04-21 16:27 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=332 cr=163602 cc=1238 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:27 | 2026-04-21 16:27 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=308 cr=165899 cc=977 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:27 | 2026-04-21 16:27 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=308 cr=165899 cc=977 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:27 | 2026-04-21 16:27 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=308 cr=165899 cc=977 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:27 | 2026-04-21 16:27 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=201 cr=162494 cc=1108 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:27 | 2026-04-21 16:27 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=201 cr=162494 cc=1108 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:29 | 2026-04-21 16:29 | in-session | turn | claude-opus-4-7 | 0s | in=6 out=147 cr=16705 cc=58397 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:29 | 2026-04-21 16:29 | in-session | turn | claude-opus-4-7 | 0s | in=6 out=147 cr=16705 cc=58397 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:30 | 2026-04-21 16:30 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=104 cr=77970 cc=3462 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:30 | 2026-04-21 16:30 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=153 cr=75102 cc=945 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:30 | 2026-04-21 16:30 | in-session | turn | claude-opus-4-7 | 0s | in=6 out=146 cr=78321 cc=5734 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:30 | 2026-04-21 16:30 | in-session | turn | claude-opus-4-7 | 0s | in=6 out=146 cr=78321 cc=5734 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:30 | 2026-04-21 16:30 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=264 cr=76047 cc=603 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:30 | 2026-04-21 16:30 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=264 cr=76047 cc=603 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:30 | 2026-04-21 16:30 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=1545 cr=84055 cc=6425 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:30 | 2026-04-21 16:30 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=144 cr=76650 cc=724 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:30 | 2026-04-21 16:30 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=144 cr=76650 cc=724 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:30 | 2026-04-21 16:30 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=133 cr=84055 cc=171 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:30 | 2026-04-21 16:30 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=133 cr=77970 cc=351 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:30 | 2026-04-21 16:30 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=129 cr=77374 cc=596 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:30 | 2026-04-21 16:30 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=129 cr=77374 cc=596 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:31 | 2026-04-21 16:31 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=241 cr=93373 cc=614 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:31 | 2026-04-21 16:31 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=241 cr=93373 cc=614 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:31 | 2026-04-21 16:31 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=1545 cr=84055 cc=6425 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:31 | 2026-04-21 16:31 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=136 cr=93987 cc=332 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:31 | 2026-04-21 16:31 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=136 cr=93987 cc=332 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:31 | 2026-04-21 16:31 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=807 cr=92114 cc=270 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:31 | 2026-04-21 16:31 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=807 cr=92114 cc=270 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:31 | 2026-04-21 16:31 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=195 cr=92384 cc=989 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:31 | 2026-04-21 16:31 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=195 cr=92384 cc=989 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:31 | 2026-04-21 16:31 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=123 cr=90480 cc=1634 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:31 | 2026-04-21 16:31 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=161 cr=93987 cc=656 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:31 | 2026-04-21 16:31 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=161 cr=93987 cc=656 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:33 | 2026-04-21 16:33 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=248 cr=95106 cc=802 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:33 | 2026-04-21 16:33 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=248 cr=95106 cc=802 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:33 | 2026-04-21 16:33 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=248 cr=95106 cc=802 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:33 | 2026-04-21 16:33 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=177 cr=94643 cc=264 — | in-session turn | - | - | N/A |
+| 2026-04-21 16:33 | 2026-04-21 16:33 | in-session | turn | claude-opus-4-7 | 0s | in=1 out=189 cr=94907 cc=199 — | in-session turn | - | - | N/A |
+| 2026-04-21 23:31 | 2026-04-21 23:38 | gsd-t-resume | supervisor-iter-1 | unknown | 426s | — | supervisor iter=1: exit 4 | - | - | unknown |
+| 2026-04-21 23:42 | 2026-04-22 00:28 | gsd-t-resume | supervisor-iter-1 | claude-opus-4-7 | 2800s | in=44 out=27346 cr=2929058 cc=149739 $30.98 | supervisor iter=1: exit 1 (M43 worker — envelope from transcripts/s-8b329c31.ndjson) | - | - | unknown |
+<!-- missed_escalation 2026-04-22T18:55:51.347Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-22T18:55:51.347Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-22T18:56:12.897Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-22T18:56:12.897Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-22T18:56:34.399Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-22T18:56:34.399Z phase= domain= task= q="(no question provided)" -->
