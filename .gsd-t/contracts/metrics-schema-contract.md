@@ -1,6 +1,7 @@
 # Metrics Schema Contract
 
 ## Version
+- **v2.1.0** (2026-04-22, M44 D7) — `.gsd-t/metrics/token-usage.jsonl` adds optional `cw_id: string` field for per-Context-Window attribution. Backward-compatible (every v2 row is a valid v2.1.0 row; absent `cw_id` is omitted from the row, not `null`). See §Token-Usage JSONL Schema v2.1.0 below.
 - **v2** (2026-04-21, M43 D3) — `.gsd-t/metrics/token-usage.jsonl` schema bumped from v1 → v2. Adds `turn_id`, `session_id`, `sessionType`, `tool_attribution[]`, `compaction_pressure{}`. All fields optional on read; producers are partitioned by ownership (see §Token-Usage JSONL Schema v2 below).
 - **v1** (2026-04-20, M40 D4) — first `.gsd-t/metrics/token-usage.jsonl` schema, per-spawn rows.
 - (pre-v1, M25) — `task-metrics.jsonl` + `rollup.jsonl` schemas documented below (unchanged).
@@ -251,6 +252,55 @@ Post-v2, `.gsd-t/token-log.md` is a **regenerated view** (`gsd-t tokens --regene
 
 ---
 
+## Token-Usage JSONL Schema (v2.1.0 — M44 D7)
+
+v2.1.0 extends v2 additively with one optional field: `cw_id`. **Every v2 row is a valid v2.1.0 row** — `cw_id` is omitted from rows produced by callers that do not supply it. No existing consumer breaks on a v2-shaped row.
+
+```json
+{
+  "schemaVersion": 2,
+
+  // --- all v2 fields (unchanged) ---
+  "ts": "...", "source": "...", "command": "...", "step": "...", "model": "...",
+  "startedAt": "...", "endedAt": "...", "durationMs": 0,
+  "inputTokens": 0, "outputTokens": 0,
+  "cacheReadInputTokens": 0, "cacheCreationInputTokens": 0,
+  "costUSD": null, "domain": null, "task": null, "milestone": null,
+  "ctxPct": null, "notes": null, "hasUsage": false,
+  "session_id": "...", "turn_id": "...", "sessionType": "...",
+  "tool_attribution": [], "compaction_pressure": {},
+
+  // --- v2.1.0 addition (optional) ---
+  "cw_id": "string -- per-Context-Window attribution key. Omitted from row when caller does not supply it (NOT null, NOT empty string)."
+}
+```
+
+### v2.1.0 Field Ownership
+
+| Field    | Producer Domain         | Notes |
+|----------|-------------------------|-------|
+| `cw_id`  | M44 D7 per-CW attribution | Pass-through field. Callers (orchestrator, supervisor, in-session driver) compute and supply the value. The wrapper does not derive it. |
+
+### v2.1.0 `cw_id` Derivation
+
+| Mode          | Derivation                                                                 |
+|---------------|----------------------------------------------------------------------------|
+| `unattended`  | `cw_id` equals the `spawn_id` (one detached `claude -p` worker = one CW).  |
+| `in-session`  | `cw_id` = `session_id + ":" + compaction_index` (compaction_index increments on each `SessionStart source=compact` fire; tracked by the calibration hook). |
+
+### v2.1.0 Rules
+
+1. **Backward compatibility**: every v2 row is a valid v2.1.0 row. Readers MUST treat `cw_id` as optional.
+2. **Absent ≠ null**: when a caller does not supply `cw_id`, the field is OMITTED from the JSONL row entirely. Writers MUST NOT serialize `cw_id: null` or `cw_id: ""`.
+3. **Pass-through only**: `bin/gsd-t-token-capture.cjs` does not derive `cw_id`; it only forwards what the caller supplies.
+4. **Backfill scope**: historical token-usage.jsonl rows (pre-D7) are NOT backfilled with `cw_id`. Consumers fall back to per-iter median for those rows.
+
+### v2.1.0 Changelog
+
+- 2026-04-22 (M44 D7-T1): added optional `cw_id` field. Contract bumped before D6 / D2 begin reading per-CW rollups so they can code against the fixed schema.
+
+---
+
 ## Integration Notes (v2)
 
 - M43 D1 writes `session_id` + `turn_id` + `sessionType` on every per-turn in-session row.
@@ -258,3 +308,4 @@ Post-v2, `.gsd-t/token-log.md` is a **regenerated view** (`gsd-t tokens --regene
 - M43 D5 reads the rolling trajectory of `inputTokens` + `outputTokens` per `session_id` and writes `compaction_pressure` on the next sampled row.
 - M43 D6 surfaces `tool_attribution[]` and `compaction_pressure` in the transcript viewer sidebar.
 - M41 wrapper (`bin/gsd-t-token-capture.cjs`) remains the canonical write entrypoint for spawn rows. Signature extension (D3-T2) is additive — existing callers unchanged.
+- M44 D7 extends the M41 wrapper signature additively (`recordSpawnRow`/`captureSpawn` accept optional `cw_id`). Existing callers continue to work unchanged; rows produced without a `cw_id` argument are byte-identical to pre-D7 v2 rows.
