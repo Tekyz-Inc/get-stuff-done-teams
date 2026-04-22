@@ -1378,6 +1378,8 @@ function _spawnWorker(state, opts) {
         "",
         "Your job: run /gsd-t-resume but skip the unattended supervisor auto-reattach check in Step 0.",
       ].join("\n"),
+      "--output-format", "stream-json",
+      "--verbose",
       "--dangerously-skip-permissions",
     ],
     env: workerEnv,

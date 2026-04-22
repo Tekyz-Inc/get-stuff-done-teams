@@ -54,13 +54,14 @@ const LOG_FILE = path.join(UDIR, 'run.log');
 
 function out(k, v) { console.log(k + '=' + JSON.stringify(v ?? null)); }
 
-// --- PID file ---
+// --- PID file (JSON or legacy bare-integer; canonical reader handles both) ---
 let pid = null;
 let pidFileExists = fs.existsSync(PID_FILE);
 if (pidFileExists) {
   try {
-    pid = parseInt(fs.readFileSync(PID_FILE, 'utf8').trim(), 10);
-    if (!Number.isFinite(pid)) pid = null;
+    const { readPidFile } = require('./bin/supervisor-pid-fingerprint.cjs');
+    const entry = readPidFile(process.cwd());
+    pid = entry && Number.isInteger(entry.pid) ? entry.pid : null;
   } catch (_) { pid = null; }
 }
 out('PID_FILE_EXISTS', pidFileExists);

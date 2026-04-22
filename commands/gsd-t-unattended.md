@@ -43,7 +43,9 @@ if (!fs.existsSync(PID_FILE)) {
 
 let pid = null;
 try {
-  pid = parseInt(fs.readFileSync(PID_FILE, 'utf8').trim(), 10);
+  const { readPidFile } = require('./bin/supervisor-pid-fingerprint.cjs');
+  const entry = readPidFile(process.cwd());
+  pid = entry && Number.isInteger(entry.pid) ? entry.pid : null;
 } catch (_) {}
 
 if (!pid || !Number.isFinite(pid)) {
@@ -361,9 +363,13 @@ while (Date.now() < deadline) {
       alive = e.code === 'EPERM';
     }
   }
-  // Also try reading the PID file the supervisor writes
+  // Also try reading the PID file the supervisor writes (JSON or legacy bare-integer)
   if (fs.existsSync(PID_FILE)) {
-    try { pidFromFile = parseInt(fs.readFileSync(PID_FILE, 'utf8').trim(), 10); } catch (_) {}
+    try {
+      const { readPidFile } = require('./bin/supervisor-pid-fingerprint.cjs');
+      const entry = readPidFile(process.cwd());
+      pidFromFile = entry && Number.isInteger(entry.pid) ? entry.pid : null;
+    } catch (_) {}
   }
   if (alive || pidFromFile) break;
   sleep(POLL_MS);

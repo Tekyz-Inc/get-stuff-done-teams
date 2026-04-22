@@ -151,7 +151,13 @@ function isAlive(pid) {
  */
 function spawnWorker(projectDir, timeoutMs, opts = {}) {
   const bin = opts.bin || resolveClaudePath();
-  const args = opts.args || ["-p", "/gsd-t-resume"];
+  const args = opts.args || [
+    "-p",
+    "/gsd-t-resume",
+    "--output-format", "stream-json",
+    "--verbose",
+    "--dangerously-skip-permissions",
+  ];
   const env = opts.env || process.env;
 
   if (typeof opts.onHeartbeatCheck === "function") {
