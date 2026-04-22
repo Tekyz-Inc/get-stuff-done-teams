@@ -976,7 +976,7 @@ function configureFigmaMcp() {
 
 // ─── Utility Scripts ─────────────────────────────────────────────────────────
 
-const UTILITY_SCRIPTS = ["gsd-t-tools.js", "gsd-t-statusline.js", "gsd-t-event-writer.js", "gsd-t-dashboard-server.js", "gsd-t-dashboard.html"];
+const UTILITY_SCRIPTS = ["gsd-t-tools.js", "gsd-t-statusline.js", "gsd-t-event-writer.js", "gsd-t-dashboard-server.js", "gsd-t-dashboard.html", "gsd-t-transcript.html"];
 
 function installUtilityScripts() {
   ensureDir(SCRIPTS_DIR);
