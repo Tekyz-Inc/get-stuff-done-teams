@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 
 const DEFAULTS = Object.freeze({
-  maxParallel: 3,
+  maxParallel: 10,
   workerTimeoutMs: 270000,
   retryOnFail: true,
   haltOnSecondFail: true

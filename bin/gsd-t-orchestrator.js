@@ -51,7 +51,7 @@ function printHelp() {
     '',
     'Options:',
     '  --milestone <id>         Milestone id (e.g. M40). Required.',
-    '  --max-parallel <n>       Max concurrent workers (default 3, max 15).',
+    '  --max-parallel <n>       Max concurrent workers (default 10, max 15).',
     '  --worker-timeout <ms>    Per-worker timeout in ms (default 270000).',
     '  --project-dir <path>     Project directory (default cwd).',
     '  --resume                 Resume from .gsd-t/orchestrator/state.json.',
