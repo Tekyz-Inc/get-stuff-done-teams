@@ -64,3 +64,71 @@
 - **Type:** ux | **App:** gsd-t | **Category:** commands
 - **Added:** 2026-04-15
 - Redesign `scripts/gsd-t-agent-dashboard.html` to match the reference design (dark card-based layout with colored borders, icons, status indicators). Key changes: (1) Agent names should reflect GSD-T roles (Research, Audit, Impact, Coding, Doc Update, QA, Red Team) — map from events data instead of showing generic types (General, Explore). (2) Each node card shows: agent role name, status indicator (Active/Thinking/Idle/Tool Call), current activity description, model name, elapsed time, tool call count, iteration count, token count. (3) Layout should be a proper directed graph with parent-child edges and clear connection lines — not the current flat row of tiny crammed nodes. (4) Clicking a node opens a right-side detail panel showing: full list of tool calls made by that agent, tokens consumed per tool call, timeline of actions, total duration and token summary. (5) Server (`scripts/gsd-t-agent-dashboard-server.js`) may need enriched SSE events to supply tool-call-level detail per agent. Reference image provided by user 2026-04-15.
+
+## 14. M44 — Cross-Domain & Cross-Task Parallelism (in-session AND unattended)
+- **Type:** milestone | **App:** gsd-t | **Category:** orchestration
+- **Added:** 2026-04-22
+- **Pre-req status:** Q1 (token-log regen `7eefd2c`), Q2a (compaction detector + scanner `940e5a8`/`f7de324`), Q3 (turn→tool join `8f4588b`), optimization report (`b5edff2`), adaptive maxParallel (`969462a`) — all landed. Measurement infrastructure complete; 525 turn rows + 72 compaction events + per-CW report available as calibration corpus.
+
+### Goal
+Deliver task-level parallelism to **both** execution modes on equal footing, with mode-aware gating math. Unattended mode adds the harder contract: **zero compaction across an autonomous M1 → M10 run**.
+
+### Mode contracts (NON-NEGOTIABLE)
+
+**[in-session]** Two objectives:
+1. Speed (wall-clock reduction)
+2. Reduce compaction as much as possible (minimize, can't eliminate)
+
+Hard rule: NEVER throw an interactive pause/resume prompt. Silent compaction is acceptable; demanding user attention is not. The user runs in-session because they want to interrupt or because requirements are partial — the framework must never demand attention back.
+
+**[unattended]** One objective:
+1. Run M1 → M10 (or any multi-milestone chain) end-to-end with zero human involvement and **zero compaction**.
+
+The supervisor process (Node, no CW) orchestrates `claude -p` workers, each with its own clean CW. Per-worker CW headroom is the binding gate. Speed is a side-benefit, not the primary objective.
+
+### Three pre-existing invariants (apply to BOTH modes identically)
+1. **File-disjointness proof BEFORE spawn** — orchestrator proves no shared files between parallel tasks. If unprovable, falls back to sequential.
+2. **100% automatic merges** — zero human intervention. If a parallel run ever requires merge resolution, that's a framework bug.
+3. **Pre-spawn economics check** — orchestrator auto-decides parallel-vs-sequential based on shared-context cost and inter-task dependency needs. Logged to events.jsonl, never prompted.
+
+### Mode-specific gating math
+- **[in-session]** Orchestrator-CW headroom check before fan-out. Worker summaries land in the orchestrator's (= user-facing) CW. Bound BOTH worker count AND result-envelope size by `getSessionStatus().pct + (N × expected_summary_size) ≤ threshold`. If math fails, pump fewer-at-a-time instead of refusing.
+- **[unattended]** Per-worker-CW headroom check. Pre-spawn cost estimator consumes `.gsd-t/metrics/token-usage.jsonl` (525-row calibration corpus, growing) to predict each task's CW footprint. If a single task slice would exceed ~60% of one CW, split into multiple iters (= multiple `claude -p` spawns) instead of one fat iter. Compaction events from `.gsd-t/metrics/compactions.jsonl` are the empirical "we failed" signal that drives estimator calibration.
+
+### Two delivery layers (independent of mode)
+- **Layer 1 — Parallel `claude -p` worker spawns**: K workers in flight, each with its own clean CW. Primary lever for both modes. For [unattended], this is *the* mechanism for compaction-elimination — slicing work into smaller per-worker pieces that never approach the ceiling.
+- **Layer 2 — Parallel tasks within one worker**: M tasks interleaved in one CW. Weaker lever (still bounded by one CW), only used when L1 isn't economic (small tasks, shared context). Same disjointness/economics gates apply at sub-iter granularity.
+
+### Token-cost honesty (so this isn't sold on a false premise)
+Parallel is approximately **token-neutral in steady state** for both modes:
+- Total input/output: same (same work, same answers)
+- Cache-read: same or slightly higher (K caches vs N, same count)
+- Cache-creation: same (one prefix per spawn either way)
+- **Compaction-induced re-input drops to zero** when slicing stays under ceiling — this is where parallel actually saves tokens
+- Wall-clock: `max(worker_durations)` instead of `sum(worker_durations)` — primary win
+
+Rate-limit pressure from running parallel is NOT a con. Hitting the 5-hour ceiling because you got 20× more done is the goal.
+
+### Proposed domains (7)
+- **D1 — Generic task-graph reader**: parses `.gsd-t/domains/*/tasks.md` + cross-domain dependency graph from contracts; emits a DAG of independently-executable task slices. Mode-agnostic.
+- **D2 — `gsd-t parallel` CLI**: new subcommand wrapping the M40 orchestrator with task-level (not just domain-level) parallelism. Honors `--mode in-session|unattended` flag (or auto-detects from caller). Both modes.
+- **D3 — Command-file integration**: `gsd-t-execute`, `gsd-t-wave`, `gsd-t-quick`, `gsd-t-debug`, `gsd-t-integrate` learn to consume the task-graph and dispatch via D2. Both modes.
+- **D4 — Dep-graph validation**: pre-spawn validator that confirms task dependencies are honored; refuses to fan out tasks whose dependencies haven't completed. Both modes.
+- **D5 — File-disjointness prover**: walks each task's expected-touch list against every other concurrent task's list. Sources: domain `scope.md`, prior commit history for similar tasks, optional explicit `touches:` field on tasks. Falls back to sequential when unprovable. Both modes.
+- **D6 — Pre-spawn economics + cost estimator**: queries `.gsd-t/metrics/token-usage.jsonl` for prior-similar-task token cost (matches by command + step + domain), estimates worker CW footprint, decides parallel-vs-sequential. Mode-aware: feeds [in-session] orchestrator-CW gate vs [unattended] per-worker-CW gate.
+- **D7 — Per-CW token attribution + compaction-event integration**: ensures every spawn (parallel or sequential) tags its rows with `cw_id` so the optimization report's per-CW rollup keeps working post-M44. Wires the live compaction detector hook into the supervisor's "we failed to prevent compaction" signal for [unattended] estimator calibration.
+
+### Success criteria
+- **[in-session]** A `gsd-t-execute` run that previously took T minutes serially completes in ≤ T/2 minutes with N workers, with no pause/resume prompts at any point.
+- **[unattended]** A multi-milestone chain (M1 → M5 minimum, ideally M1 → M10) runs end-to-end with **zero compaction events** logged to `.gsd-t/metrics/compactions.jsonl` during the autonomous run. Empirical baseline: 72 compactions over 18 days of mixed-mode work; success = 0 during a measured autonomous chain.
+
+### Explicit non-goals
+- In-session pause/resume prompts under any condition (those are the failure mode, not a feature)
+- Cross-worker context-sharing (each worker stays clean — that's the whole point)
+- Replacing M40 orchestrator (M44 builds on M40, doesn't replace it)
+- Visualizer/dashboard work (separate backlog #13)
+
+### Standing memory references
+- `feedback_parallelism_two_modes.md` — full mode-aware design framing
+- `feedback_unattended_overnight_only.md` (superseded 2026-04-22) — mode-selection criteria
+- `feedback_token_measurement_hierarchy.md` — Run → Iter → CW → Turn → Tool, CW as primary unit
