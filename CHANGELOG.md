@@ -2,6 +2,36 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [3.17.10] - 2026-04-21
+
+### Added — Token Attribution & Always-Headless Inversion (M43)
+
+Every token is now attributable to a specific tool / command / domain, and the framework is locked to a single rule: **the in-session channel is reserved for human↔Claude dialog. All tool-using work spawns. The visualizer is the watching surface.** No flags, no thresholds, no opt-outs — there is no "in-session mode" for commands to enter.
+
+**Part A — Universal Token Attribution**
+
+**In-session usage capture (D1)**: `bin/gsd-t-in-session-usage.cjs` exports `captureInSessionUsage({projectDir, sessionId, turnId, usage, model})` and `processHookPayload({projectDir, payload})`. Branch B locked: Stop hook triggers, Claude Code transcript (`~/.claude/projects/-.../{sessionId}.jsonl`) is the data source. Writes v2-schema JSONL rows with `sessionType: "in-session"` + distinct `turn_id` + parsed `input_tokens`/`output_tokens`/`cache_read_input_tokens`. Idempotent via transcript-line cursor. Live-validated: 523 rows from one 23-min session (`.gsd-t/.hook-probe/` evidence retained).
+
+**Per-tool attribution (D2)**: `.gsd-t/contracts/tool-attribution-contract.md` v1.0.0 + `bin/gsd-t-tool-attribution.cjs` exports `joinTurnsAndEvents` / `attributeTurn` / `aggregateByTool|Command|Domain`. Output-byte ratio algorithm, 4 tie-breakers (zero-byte turn, missing tool_result, no tool calls, null usage). New CLI: `gsd-t tool-cost [--group-by tool|command|domain] [--since YYYY-MM-DD] [--milestone Mxx] [--format table|json]`. Perf gate: 30ms on 3k turns × 30k events fixture (budget 3s). `gsd-t tokens --show-tool-costs` optional integration adds "Top 10 tools by cost" section.
+
+**Sink unification + schema v2 (D3)**: `.gsd-t/contracts/metrics-schema-contract.md` bumped v1 → v2 — adds optional `turn_id`, `session_id`, `sessionType`, `tool_attribution[]`, `compaction_pressure{}`. `recordSpawnRow` / `captureSpawn` pass-through preserves backward compat. `bin/gsd-t-token-regenerate-log.cjs` + `gsd-t tokens --regenerate-log` makes `.gsd-t/token-log.md` a regenerated view (streaming read + deterministic sort).
+
+**Part B — Always-Headless Inversion (Channel Separation)**
+
+**Default headless spawn (D4)**: `bin/headless-auto-spawn.cjs::shouldSpawnHeadless` collapsed to `() => true`. Removed low-water branch, context-meter-driven branching, `--in-session` opt-out parsing. Legacy `watch`/`inSession` params accepted-and-ignored with one-shot stderr deprecation warning. 7 command files stripped of spawn-mode branching (`execute`, `wave`, `integrate`, `quick`, `debug`, `verify`, `scan`). `/gsd` router preserves in-session classification only for dialog-only exploratory turns — all action turns spawn detached. `.gsd-t/contracts/headless-default-contract.md` bumped v1.0.0 → **v2.0.0** (breaking: flag removal). 40 matrix tests.
+
+**Dialog-channel growth meter (D5)**: `bin/runway-estimator.cjs::estimateDialogGrowth({projectDir, sessionId, k = 5, modelContextCap = 200000})` returns `{slope, median_delta, latest_input_tokens, predicted_turns_to_compact, shouldWarn}`. Outlier-resistant median-of-deltas. When `shouldWarn=true`, `/gsd` router appends a one-line blockquote footer suggesting `/compact` or detached spawn. Pure read/warn — never refuses, never reroutes (there's nothing to reroute to under channel separation). Scope collapsed from originally-sketched circuit breaker; `.gsd-t/contracts/context-meter-contract.md` bumped v1.3.0 → v1.4.0 (additive subsection).
+
+**Transcript viewer as primary surface (D6)**: `scripts/gsd-t-dashboard-server.js` gains `GET /transcript/:id/tool-cost` (D2-backed, 503 graceful fallback) + `GET /transcript/:id/usage` (per-turn JSONL rows). `scripts/gsd-t-transcript.html` gains collapsible Tool Cost sidebar panel with live SSE updates. `bin/headless-auto-spawn.cjs` prints `▶ Live transcript: http://127.0.0.1:{port}/transcript/{spawn-id}` on every spawn. New `scripts/gsd-t-dashboard-autostart.cjs` — `ensureDashboardRunning({projectDir})` port-probe + fork-detach + pid file, hooked into spawn start path (idempotent). `.gsd-t/contracts/dashboard-server-contract.md` bumped (routes + banner format + autostart sections).
+
+**Tests**: 1708/1710 pass (2 pre-existing unrelated fails). Net additions across D1–D6: ~90 new test cases.
+
+## [3.16.10] - 2026-04-20
+
+### Added — Live Spawn Transcript Viewer (M42)
+
+Per-spawn live transcript UI on `:7433`: stream-json tee (`bin/gsd-t-transcript-tee.cjs`), SSE route (`/transcript/:id/stream`), Claude-Code-style ndjson renderer (`scripts/gsd-t-transcript.html`), sidebar tree with parent-indent + status dots, per-spawn kill button (POST `/transcript/:id/kill`). 29 M42-specific tests; 1522/1522 suite. Intervene/SIGSTOP deferred to follow-up milestone.
+
 ## [3.15.10] - 2026-04-20
 
 ### Added — Universal Token Capture Across GSD-T (M41)
