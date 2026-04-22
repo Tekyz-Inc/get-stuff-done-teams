@@ -588,6 +588,43 @@ Orchestrator Context Gate — v3.0.0 semantics:
 - `status` — displays `Context: {pct}% of {window} tokens ({band}) — last check {rel}` line
 - `update-all` — one-shot task-counter retirement migration (deletes legacy files, writes `.gsd-t/.task-counter-retired-v1` marker)
 
+## Task-Graph Reader (M44 D1, v3.18.10+)
+
+`bin/gsd-t-task-graph.cjs` — a zero-external-dep CommonJS module that parses every `.gsd-t/domains/*/tasks.md` (and falls back to each domain's `scope.md` `## Files Owned` for missing touch lists) into a typed in-memory DAG. This is the **single shared input** for every M44 parallelism domain — D2 `gsd-t parallel`, D3 command-file integration, D4 dep-graph validation, D5 file-disjointness prover, D6 pre-spawn economics — none of which re-parse `tasks.md` themselves.
+
+```
+.gsd-t/domains/<domain>/tasks.md  ──┐
+.gsd-t/domains/<domain>/scope.md  ──┴──>  buildTaskGraph({projectDir})
+                                              │
+                                              ▼
+                                {nodes, edges, ready, byId, warnings}
+                                              │
+       ┌──────────────────────────────────────┼──────────────────────────────────────┐
+       ▼                                      ▼                                      ▼
+  D2 gsd-t parallel              D4 dep-validate (veto)                D5 disjoint-prove (veto)
+  D3 command-file integ.         D6 pre-spawn economics                 (touches[] overlap check)
+```
+
+**Public API** (`require('./bin/gsd-t-task-graph.cjs')`):
+- `buildTaskGraph({projectDir}) → { nodes, edges, ready, byId, warnings }` — synchronous
+- `getReadyTasks(graph) → TaskNode[]` — node objects whose deps are all DONE
+- `TaskGraphCycleError` — thrown on circular dependency, carries `.cycle: string[]`
+
+**Hard rules** (from `task-graph-contract.md` v1.0.0):
+- Zero external deps — Node built-ins only
+- Cycle detection mandatory (iterative three-color DFS) — never produces partial graph on cycle
+- Read-only — never writes to `tasks.md`, `scope.md`, or contracts
+- Mode-agnostic — knows nothing about in-session vs unattended; pure graph emitter
+- Performance budget < 200 ms for 100-domain / 1000-task project (measured 6 ms / 250 tasks)
+
+**CLI surface** (`bin/gsd-t.js doGraph` → `doGraphTaskOutput`):
+- `gsd-t graph --output json` — pretty-printed DAG to stdout
+- `gsd-t graph --output table` — column-aligned id/domain/wave/status/ready/deps table
+- `gsd-t graph tasks [json|table]` — explicit subcommand form
+- Pre-existing `graph index|status|query` (codebase entity graph via `graph-indexer`) unchanged
+
+**Contract**: `.gsd-t/contracts/task-graph-contract.md` v1.0.0
+
 ## Planned Architecture Changes (M23-M24)
 
 **M23: Headless Mode**

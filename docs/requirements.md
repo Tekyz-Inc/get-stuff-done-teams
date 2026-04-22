@@ -498,3 +498,20 @@ Supporting contracts:
 - `stream-json-sink-contract.md` v1.2.0 — formalizes dialog-channel entry-point (D1)
 - `tool-attribution-contract.md` v1.0.0 — output-byte ratio algorithm (D2, new contract)
 - `headless-default-contract.md` v2.0.0 — always-headless rule (D4, bump pending)
+
+## M44 Task-Graph Reader (D1 — execute phase 2026-04-22)
+
+Milestone 44 D1 ships the shared DAG that all downstream M44 domains (D2 parallel CLI, D3 command-file integration, D4 dep-graph validation, D5 file-disjointness prover, D6 pre-spawn economics) consume. Mode-agnostic: produces only a graph, owns no in-session vs unattended branching.
+
+| REQ-ID | Requirement Summary | Domain | Status |
+|--------|---------------------|--------|--------|
+| REQ-M44-D1-01 | `bin/gsd-t-task-graph.cjs` parses every `.gsd-t/domains/*/tasks.md` into a typed in-memory DAG: nodes `{id, domain, wave, title, status, deps, touches}`, edges `{from, to}`, `ready` mask, `byId` index, `warnings[]` | m44-d1-task-graph-reader | **complete (2026-04-22)** — 22/22 unit tests pass |
+| REQ-M44-D1-02 | Cycle detection mandatory: throws `TaskGraphCycleError` with `.cycle: string[]` path on any circular dep — 3-task ring AND self-loop covered | m44-d1-task-graph-reader | **complete (2026-04-22)** — iterative three-color DFS; tests 3 + 4 |
+| REQ-M44-D1-03 | Touch-list resolution: prefer task `**Touches**` / `**Files touched**`, fall back to domain `scope.md` `## Files Owned`, fall back to `[]` + warning | m44-d1-task-graph-reader | **complete (2026-04-22)** — both fallback paths tested |
+| REQ-M44-D1-04 | Status markers: `[ ]` pending / `[x]` done / `[-]` skipped / `[!]` failed; unknown markers → pending + warning. Only `done` deps satisfy dependents (skipped/failed do NOT) | m44-d1-task-graph-reader | **complete (2026-04-22)** — covered by ready-mask tests |
+| REQ-M44-D1-05 | Read-only invariant: never writes to `tasks.md`, `scope.md`, or any contract file during build/query | m44-d1-task-graph-reader | **complete (2026-04-22)** — sync `readFileSync` only, no `writeFileSync` calls |
+| REQ-M44-D1-06 | Performance: parse + cycle-check + ready-mask in < 200 ms for 100-domain / 1000-task project | m44-d1-task-graph-reader | **complete (2026-04-22)** — measured 6 ms on 50-domain/250-task synthetic; 3 ms on this repo |
+| REQ-M44-D1-07 | CLI debugging surface: `gsd-t graph --output json` (pretty JSON) and `--output table` (id/domain/wave/status/ready/deps), backward-compat with existing `graph index/status/query` | m44-d1-task-graph-reader | **complete (2026-04-22)** — verified live: 33 tasks · 36 edges · 2 ready |
+
+Supporting contract:
+- `task-graph-contract.md` v1.0.0 — locks DAG schema; downstream M44 domains may begin implementation against this contract.
