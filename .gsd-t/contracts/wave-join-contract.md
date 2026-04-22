@@ -13,7 +13,7 @@ Defines the parallelism and ordering semantics of orchestrator waves: how tasks 
 - Waves with no tasks are skipped silently.
 
 ## Within-Wave Parallelism
-- All tasks in wave N start concurrently via `Promise.all`, capped at `maxParallel` (default 3, hard ceiling 15 per Team Mode §15).
+- All tasks in wave N start concurrently via `Promise.all`, capped at `maxParallel` (default: adaptive — `floor(freemem / 2GB)` clamped to floor 3 / ceiling 15 per Team Mode §15).
 - If a wave has more tasks than `maxParallel`, the orchestrator uses a simple worker pool: first `maxParallel` start, next starts when any exits.
 - No task-level priority within a wave. Tasks are independent by contract (partition asserts this).
 
