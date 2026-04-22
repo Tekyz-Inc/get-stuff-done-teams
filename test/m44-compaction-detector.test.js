@@ -182,6 +182,125 @@ describe("M44 compaction detector hook", () => {
     assert.equal(result.status, 0);
   });
 
+  it("scanner dry-run prints but does NOT write", async () => {
+    const proj = mkProject("scanner-dry");
+    const fakeSessionsRoot = fs.mkdtempSync(path.join(baseTmp, "sessions-dry-"));
+    const sess = path.join(fakeSessionsRoot, "s1.jsonl");
+    const boundary = {
+      type: "system",
+      subtype: "compact_boundary",
+      timestamp: "2026-04-20T03:35:04.588Z",
+      uuid: "b-1",
+      logicalParentUuid: "parent-1",
+      sessionId: "scanner-sess-1",
+      cwd: proj,
+      compactMetadata: { trigger: "auto", preTokens: 160000, postTokens: 10000, durationMs: 12345 },
+    };
+    fs.writeFileSync(sess, JSON.stringify(boundary) + "\n");
+
+    const scanner = require(path.join("..", "scripts", "gsd-t-compaction-scanner.js"));
+    let captured = "";
+    const result = await scanner.run({
+      write: false,
+      projectDir: proj,
+      sessionsRoot: fakeSessionsRoot,
+      _stdout: (s) => { captured += s; },
+    });
+    assert.equal(result.scanned, 1);
+    assert.equal(result.found, 1);
+    assert.equal(result.newRows, 1);
+    assert.equal(result.wrote, 0);
+    assert.match(captured, /DRY-RUN/);
+    assert.equal(
+      fs.existsSync(path.join(proj, ".gsd-t", "metrics", "compactions.jsonl")),
+      false,
+      "dry-run must not create output"
+    );
+  });
+
+  it("scanner --write actually writes and dedups on re-run", async () => {
+    const proj = mkProject("scanner-write");
+    const fakeSessionsRoot = fs.mkdtempSync(path.join(baseTmp, "sessions-write-"));
+    const sess = path.join(fakeSessionsRoot, "s2.jsonl");
+    const boundary = {
+      type: "system",
+      subtype: "compact_boundary",
+      timestamp: "2026-04-21T10:00:00.000Z",
+      sessionId: "scanner-sess-write",
+      cwd: proj,
+      logicalParentUuid: "parent-write",
+      compactMetadata: { trigger: "auto", preTokens: 150000, postTokens: 8000, durationMs: 9999 },
+    };
+    // Also include an unrelated non-boundary record to assert the filter.
+    fs.writeFileSync(
+      sess,
+      JSON.stringify({ type: "user", uuid: "x" }) + "\n" +
+        JSON.stringify(boundary) + "\n" +
+        JSON.stringify({ type: "assistant", uuid: "y" }) + "\n"
+    );
+
+    const scanner = require(path.join("..", "scripts", "gsd-t-compaction-scanner.js"));
+    let captured = "";
+    const r1 = await scanner.run({
+      write: true,
+      projectDir: proj,
+      sessionsRoot: fakeSessionsRoot,
+      _stdout: (s) => { captured += s; },
+    });
+    assert.equal(r1.found, 1);
+    assert.equal(r1.newRows, 1);
+    assert.equal(r1.wrote, 1);
+
+    const outPath = path.join(proj, ".gsd-t", "metrics", "compactions.jsonl");
+    const rows = fs.readFileSync(outPath, "utf8").trim().split("\n").map(JSON.parse);
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].source, "compact-backfill");
+    assert.equal(rows[0].ts, "2026-04-21T10:00:00.000Z");
+    assert.equal(rows[0].session_id, "scanner-sess-write");
+    assert.equal(rows[0].prior_session_id, "parent-write");
+    assert.equal(rows[0].trigger, "auto");
+    assert.equal(rows[0].preTokens, 150000);
+    assert.equal(rows[0].postTokens, 8000);
+    assert.equal(rows[0].durationMs, 9999);
+    assert.equal(rows[0].schemaVersion, 1);
+
+    // Second run: must dedup.
+    const r2 = await scanner.run({
+      write: true,
+      projectDir: proj,
+      sessionsRoot: fakeSessionsRoot,
+      _stdout: () => {},
+    });
+    assert.equal(r2.found, 1);
+    assert.equal(r2.newRows, 0);
+    assert.equal(r2.wrote, 0);
+    const rowsAfter = fs.readFileSync(outPath, "utf8").trim().split("\n");
+    assert.equal(rowsAfter.length, 1, "dedup must hold across runs");
+  });
+
+  it("scanner: missing sessions root prints notice and exits cleanly", async () => {
+    const proj = mkProject("scanner-missing");
+    const scanner = require(path.join("..", "scripts", "gsd-t-compaction-scanner.js"));
+    let captured = "";
+    const result = await scanner.run({
+      write: true,
+      projectDir: proj,
+      sessionsRoot: path.join(baseTmp, "does-not-exist"),
+      _stdout: (s) => { captured += s; },
+    });
+    assert.equal(result.scanned, 0);
+    assert.equal(result.found, 0);
+    assert.equal(result.newRows, 0);
+    assert.equal(result.wrote, 0);
+    assert.match(captured, /does not exist/);
+  });
+
+  it("scanner slug derivation matches Claude Code convention", () => {
+    const scanner = require(path.join("..", "scripts", "gsd-t-compaction-scanner.js"));
+    const root = scanner.deriveSessionsRoot("/Users/david/projects/GSD-T");
+    assert.match(root, /\.claude\/projects\/-Users-david-projects-GSD-T$/);
+  });
+
   it("multiple compaction events append, never overwrite", () => {
     const proj = mkProject("append");
     for (let i = 0; i < 3; i++) {

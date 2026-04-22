@@ -107,6 +107,21 @@ existing `compactions.jsonl` by `(ts, session_id)`, and — only when
 
 Default is dry-run: summary counts + sample rows to stdout, no mutation.
 
+**Empirical note (2026-04-22 initial run)**: 72 historical compactions
+found across 112 GSD-T session files spanning Apr 4–21. Older Claude Code
+archives do not consistently include `postTokens`; backfilled rows omit
+the field rather than guessing. Consumers MUST handle missing optional
+fields without error.
+
+**Prior-session-id on backfill**: live detector rows carry Claude Code's
+own `prior_session_id` (when present). Backfill rows map the session
+JSONL's `logicalParentUuid` into this field — it's the UUID of the last
+message in the pre-compact window, NOT a true Claude Code session id, but
+it's the closest stable boundary anchor the archive exposes for in-place
+compactions. Consumers treating this field as "anything that uniquely
+identifies the boundary" are correct; consumers assuming it's always a
+session id are not.
+
 ## Wiring
 
 `~/.claude/settings.json` → `hooks.SessionStart[]` includes **both**:
