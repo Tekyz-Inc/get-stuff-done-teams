@@ -3,7 +3,7 @@
 **Status**: PARTITIONED
 **Date**: 2026-04-22
 **Target version**: 3.18.10
-**Domains**: 8 (D1 task-graph-reader · D2 parallel-cli · D3 command-file-integration · D4 depgraph-validation · D5 file-disjointness-prover · D6 pre-spawn-economics · D7 per-cw-attribution · D8 spawn-plan-visibility)
+**Domains**: 9 (D1 task-graph-reader · D2 parallel-cli · D3 command-file-integration · D4 depgraph-validation · D5 file-disjointness-prover · D6 pre-spawn-economics · D7 per-cw-attribution · D8 spawn-plan-visibility · D9 parallelism-observability)
 **Waves**: 3 (Foundation → Gates → Integration)
 **Rationale source**: M44 scope 2026-04-22 (mode-aware parallelism; see `.gsd-t/progress.md` M44 "Current Milestone" + backlog #14).
 
@@ -50,6 +50,10 @@
 **Responsibility**: right-side two-layer task panel in the dashboard / transcript visualizer. Layer 1 = project tasks (milestone, waves). Layer 2 = active spawn's task slice. Done tasks display token cell (in/out/cr/cc/cost). One protocol, three writers (`captureSpawn`, `autoSpawnHeadless`, unattended worker resume Step 0), one reader (dashboard SSE). Pure observability — zero added LLM token cost (writer derives plan from `partition.md` + `tasks.md` already on disk).
 **Full detail**: `.gsd-t/domains/m44-d8-spawn-plan-visibility/{scope,constraints,tasks}.md`.
 
+### D9 — m44-d9-parallelism-observability
+**Responsibility**: third dashboard panel (left column or below D8's two-layer panel) showing live parallelism state — active workers, ready tasks, parallelism factor, gate decision tally — with color-coded health (green/yellow/red/dimmed). RED when orchestrator is failing to fan out OR wave parallelism factor < 50% of D6 estimate. Full Report button dumps markdown post-mortem (per-spawn table, per-gate decisions, Gantt-ish per-worker timeline, token cost vs. D6 estimate). Stop Supervisor button reuses existing `/gsd-t-unattended-stop` flow. Reader-only consumer of D8 spawn-plans, D4/D5/D6 events, D7 cw_id-tagged rows. Zero added LLM token cost.
+**Full detail**: `.gsd-t/domains/m44-d9-parallelism-observability/{scope,constraints,tasks}.md`.
+
 ## Wave Plan
 
 ### Wave 1 — Foundation
@@ -80,8 +84,9 @@ All three are pre-spawn safety gates and purely read-only against existing artif
 | D2 `gsd-t parallel` CLI | Runs FIRST in Wave 3 (not parallel with D3) | Wires D1 DAG + D4/D5/D6 gates + M40 orchestrator extensions into the new `parallel` subcommand. Also extends `bin/gsd-t-orchestrator-config.cjs` with mode-aware gating math. Must be stable before D3 can call it. |
 | D3 command-file integration | Runs AFTER D2 lands | Edits `commands/gsd-t-{execute,wave,quick,debug,integrate}.md` to dispatch via `gsd-t parallel`. D3 depends on D2's CLI surface being stable. |
 | D8 spawn-plan-visibility | Yes — fully parallel with D2 AND D3 | New files (`bin/spawn-plan-*`, `scripts/gsd-t-post-commit-spawn-plan.sh`, `.gsd-t/spawns/`) + additive edits to `bin/gsd-t-token-capture.cjs`, `bin/headless-auto-spawn.cjs`, `scripts/gsd-t-dashboard-server.js`, `scripts/gsd-t-transcript.html`, `commands/gsd-t-resume.md`. Disjoint with D2/D3 owned files. Depends only on `captureSpawn` and `autoSpawnHeadless` chokepoints (already exist pre-M44). |
+| D9 parallelism-observability | Yes — fully parallel with D2/D3, sequenced AFTER D8-T1 | New files (`bin/parallelism-report.cjs`, `.gsd-t/contracts/parallelism-report-contract.md`, `test/m44-d9-parallelism.test.js`) + additive edits to `scripts/gsd-t-dashboard-server.js` (new `/api/parallelism` + `/api/parallelism/report` endpoints), `scripts/gsd-t-transcript.html` (new third panel), `commands/gsd-t-help.md`, `docs/architecture.md`. Disjoint with D2/D3 owned files. Depends on D8-T1 writer module being live so spawn-plan files exist for the reader. |
 
-**Sequencing in Wave 3**: D2 must land before D3. D8 may run concurrently with either or both (no shared write targets).
+**Sequencing in Wave 3**: D2 must land before D3. D8 may run concurrently with either or both (no shared write targets). D9 may run concurrently with D2/D3, but the D9 reader code path requires D8-T1 (writer module) to have landed so spawn-plan files exist on disk to read.
 
 ## Shared Files & Conflict Map
 
@@ -96,9 +101,11 @@ All three are pre-spawn safety gates and purely read-only against existing artif
 | `commands/gsd-t-integrate.md` | **D3** only | |
 | `bin/gsd-t-token-capture.cjs` | **D7 owns `cw_id` field** + **D8 adds `writeSpawnPlan` call before `spawnFn()`** | Two distinct, non-overlapping additive edits: D7 adds the optional `cw_id` field to the row writer; D8 adds a `writeSpawnPlan({...})` call at the top of `captureSpawn` and `markSpawnEnded({...})` after. Different functions, different code blocks. Sequencing: D7 lands in Wave 1, D8 in Wave 3 — no temporal overlap. |
 | `bin/headless-auto-spawn.cjs` | **D8** only (Wave 3) | Adds `writeSpawnPlan` call before launching the headless child. New code block, no existing logic touched. |
-| `scripts/gsd-t-dashboard-server.js` | **D8** only (Wave 3) | Adds `/api/spawn-plans` endpoint + `spawn-plan-update` SSE channel. Additive — does not change existing endpoints. |
-| `scripts/gsd-t-transcript.html` | **D8** only (Wave 3) | Adds right-side two-layer panel + CSS + SSE consumer + token-cell renderer. Additive — does not change existing transcript stream rendering. |
+| `scripts/gsd-t-dashboard-server.js` | **D8** (Wave 3) + **D9** (Wave 3) | D8 adds `/api/spawn-plans` endpoint + `spawn-plan-update` SSE channel. D9 adds `/api/parallelism` + `/api/parallelism/report?wave=N` endpoints. Two distinct, non-overlapping additive blocks at different endpoint paths. Both additive — neither changes existing endpoints. |
+| `scripts/gsd-t-transcript.html` | **D8** (Wave 3) + **D9** (Wave 3) | D8 adds right-side two-layer panel + CSS + SSE consumer + token-cell renderer. D9 adds a separate parallelism panel (left column or below D8's two-layer panel) with color-state border + Full Report button + Stop Supervisor button. Two distinct, non-overlapping additive DOM regions and CSS class scopes. Both additive — neither changes existing transcript stream rendering. |
 | `commands/gsd-t-resume.md` | **D8** only (Wave 3) | Adds Step 0 `writeSpawnPlan` call under `GSD_T_UNATTENDED_WORKER=1` branch. Additive. |
+| `commands/gsd-t-help.md` | **D9** only (Wave 3) | Single-line note in observability section pointing at parallelism panel + report endpoint. Additive. |
+| `docs/architecture.md` | **D9** only (Wave 3) | New "Parallelism Panel (M44 D9)" subsection under Observability with data-flow diagram and color-state table. Additive. (D2/D6/D4/D5 already added their own sections in earlier waves; D9's section is non-overlapping.) |
 | `.gsd-t/contracts/wave-join-contract.md` | **D2** owns the bump | Mode-aware gating math addition (v1.0.0 → v1.1.0) |
 | `.gsd-t/contracts/metrics-schema-contract.md` | **D7** owns the bump | Adds optional `cw_id` field (v2 → v2.1.0) |
 | `.gsd-t/contracts/compaction-events-contract.md` | **D7** owns the bump | Post-spawn calibration loop wiring (v1.0.0 → v1.1.0) |
