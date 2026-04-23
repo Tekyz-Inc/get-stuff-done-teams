@@ -547,3 +547,32 @@
 <!-- missed_escalation 2026-04-22T21:32:59.026Z phase= domain= task= q="test" -->
 <!-- missed_escalation 2026-04-22T21:32:59.026Z phase= domain= task= q="(no question provided)" -->
 | 2026-04-22 14:29 | 2026-04-22 14:34 | gsd-t-quick | Step 0 | sonnet | 300s | in=1634 out=14599 cr=1776087 cc=85064 — | quick: Q2b visualizer compaction marker | - | - | 20.8 |
+<!-- missed_escalation 2026-04-23T00:52:01.270Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T00:52:01.271Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-23T00:52:22.556Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T00:52:22.556Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-23T00:54:50.724Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T00:54:50.724Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-23T00:55:12.011Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T00:55:12.011Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-23T00:55:29.740Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T00:55:29.740Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-23T00:55:47.362Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T00:55:47.363Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-23T00:56:07.689Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T00:56:07.689Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-23T01:04:37.029Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T01:04:37.029Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-23T01:04:57.398Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T01:04:57.398Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-23T01:05:17.604Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T01:05:17.605Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-23T01:05:44.239Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T01:05:44.239Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-23T01:06:36.471Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T01:06:36.471Z phase= domain= task= q="(no question provided)" -->
+| 2026-04-23 00:58 | 2026-04-23 01:09 | gsd-t-execute | M44 Wave 3 | sonnet | 660s | in=1 out=0 cr=229872 cc=0 — | Wave 3 step 2 D3 subagent — 5 commits, command-file ripple, backlog #15 for smoke tests | m44-d3-command-file-integration | T1-T5 | N/A |
+<!-- missed_escalation 2026-04-23T01:09:50.083Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T01:09:50.084Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-23T01:10:10.715Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T01:10:10.716Z phase= domain= task= q="(no question provided)" -->
