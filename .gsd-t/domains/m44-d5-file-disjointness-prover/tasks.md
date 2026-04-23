@@ -3,7 +3,7 @@
 ## Wave 2 — Gates
 
 ### M44-D5-T1 — Contract skeleton + module scaffold
-- **Status**: [x] done (2026-04-22 · commit `pending`)
+- **Status**: [x] done (2026-04-22 · commit `dfcd4e4`)
 - **Dependencies**: M44-D1-T5 (D1 complete — touch-list field in DAG nodes must be defined)
 - **Acceptance criteria**:
   - `.gsd-t/contracts/file-disjointness-contract.md` exists with proof algorithm description, fallback chain, and event format (v0.1.0 skeleton)
@@ -11,7 +11,7 @@
 - **Files touched**: `.gsd-t/contracts/file-disjointness-contract.md` (new), `bin/gsd-t-file-disjointness.cjs` (new)
 
 ### M44-D5-T2 — Core disjointness prover implementation
-- **Status**: [ ] pending
+- **Status**: [x] done (2026-04-22 · commit `pending`)
 - **Dependencies**: M44-D5-T1
 - **Acceptance criteria**:
   - `proveDisjointness({tasks, projectDir})` returns `{parallel: [...], sequential: [...], unprovable: [...]}` with correct partition for a synthetic 3-task fixture (two disjoint + one overlapping)
