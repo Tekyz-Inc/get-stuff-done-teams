@@ -71,7 +71,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:12
 <div class="hdr">
   <span class="logo">GSD-T Agent Dashboard</span>
   <div id="status" class="status wait"><span class="dot"></span><span id="status-txt">Connecting...</span></div>
-  <a id="livestream-btn" class="livestream-btn disabled" href="#" title="Open the latest live spawn transcript">▶ Live Stream</a>
+  <a id="livestream-btn" class="livestream-btn" href="/transcripts" title="Open the latest live spawn transcript">▶ Live Stream</a>
   <div class="hright"><span id="ev-count">0 events</span></div>
 </div>
 <div class="main">
@@ -275,13 +275,13 @@ ReactDOM.render(React.createElement(Dashboard),document.getElementById('rf-root'
   function refresh(){
     fetch(`http://localhost:${PORT}/transcripts`,{cache:'no-store'}).then(r=>r.ok?r.json():null).then(d=>{
       const latest=d&&pickLatest(d.spawns);
+      btn.classList.remove('disabled');
       if(latest){
         btn.href=`/transcript/${encodeURIComponent(latest.spawnId)}`;
-        btn.classList.remove('disabled');
         const live=latest.status&&!['done','stopped','failed','crashed'].includes(latest.status);
         btn.textContent=(live?'▶ Live Stream':'▶ Latest Transcript')+` · ${latest.spawnId.slice(0,10)}`;
       }else{
-        btn.href='#';btn.classList.add('disabled');btn.textContent='▶ Live Stream (no spawns yet)';
+        btn.href='/transcripts';btn.textContent='▶ Live Stream (no spawns yet)';
       }
     }).catch(()=>{});
   }
