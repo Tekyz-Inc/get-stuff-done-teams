@@ -452,6 +452,94 @@ function handleTranscriptStream(req, res, spawnId, projectDir) {
   req.on("close", () => { clearInterval(timer); if (unwatchFile) unwatchFile(); });
 }
 
+// ── M44 D8 — spawn-plan endpoint + SSE channel ─────────────────────────────
+//
+// Additive; does not change existing endpoints or SSE streams. Reads plan
+// files atomically written by `bin/spawn-plan-writer.cjs` under
+// `.gsd-t/spawns/{spawnId}.json`. A plan is "active" when `endedAt === null`.
+// Contract: .gsd-t/contracts/spawn-plan-contract.md v1.0.0
+
+const SPAWNS_SUBDIR = path.join(".gsd-t", "spawns");
+
+function spawnsDir(projectDir) {
+  return path.join(projectDir, SPAWNS_SUBDIR);
+}
+
+function readSpawnPlanFile(fp) {
+  try {
+    const raw = fs.readFileSync(fp, "utf8");
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return null;
+    return parsed;
+  } catch { return null; }
+}
+
+function listAllSpawnPlans(projectDir) {
+  const dir = spawnsDir(projectDir);
+  if (!fs.existsSync(dir)) return [];
+  let files;
+  try { files = fs.readdirSync(dir).filter((f) => f.endsWith(".json")); } catch { return []; }
+  const out = [];
+  for (const f of files) {
+    const plan = readSpawnPlanFile(path.join(dir, f));
+    if (plan) out.push(plan);
+  }
+  return out;
+}
+
+function listActiveSpawnPlans(projectDir) {
+  return listAllSpawnPlans(projectDir).filter((p) => p && p.endedAt == null);
+}
+
+function handleSpawnPlans(req, res, projectDir) {
+  const plans = listActiveSpawnPlans(projectDir).sort((a, b) => {
+    const ta = Date.parse(a.startedAt) || 0;
+    const tb = Date.parse(b.startedAt) || 0;
+    return tb - ta;
+  });
+  res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+  res.end(JSON.stringify({ plans, generated_at: new Date().toISOString() }));
+}
+
+function handleSpawnPlanUpdates(req, res, projectDir) {
+  res.writeHead(200, SSE_HEADERS);
+  // Initial snapshot: every current active plan.
+  const initial = listActiveSpawnPlans(projectDir);
+  for (const plan of initial) {
+    try { res.write("data: " + JSON.stringify({ spawnId: plan.spawnId, plan }) + "\n\n"); } catch { /* gone */ }
+  }
+
+  const dir = spawnsDir(projectDir);
+  let dirWatcher = null;
+  const emittedCache = new Map(); // spawnId → last-mtime-ms, dedup rapid rename events
+
+  function pushChange(spawnId) {
+    if (!spawnId) return;
+    const fp = path.join(dir, spawnId + ".json");
+    let mtime = 0;
+    try { mtime = fs.statSync(fp).mtimeMs || 0; } catch { /* missing */ }
+    // Dedup rapid-fire rename events — only emit when mtime advances.
+    if (emittedCache.get(spawnId) === mtime && mtime > 0) return;
+    emittedCache.set(spawnId, mtime);
+    const plan = readSpawnPlanFile(fp);
+    if (!plan) return;
+    try { res.write("data: " + JSON.stringify({ spawnId, plan }) + "\n\n"); } catch { /* gone */ }
+  }
+
+  try {
+    if (fs.existsSync(dir)) {
+      dirWatcher = fs.watch(dir, (eventType, filename) => {
+        if (!filename || !filename.endsWith(".json")) return;
+        const spawnId = filename.slice(0, -5);
+        pushChange(spawnId);
+      });
+    }
+  } catch { /* dir may not exist yet; skip watch */ }
+
+  const timer = setInterval(() => { try { res.write(": keepalive\n\n"); } catch { clearInterval(timer); } }, KEEPALIVE_MS);
+  req.on("close", () => { clearInterval(timer); if (dirWatcher) { try { dirWatcher.close(); } catch { /* ok */ } } });
+}
+
 function startServer(port, eventsDir, htmlPath, projectDir, transcriptHtmlPath) {
   const projDir = projectDir || path.resolve(eventsDir, "..", "..");
   const tHtmlPath = transcriptHtmlPath || path.join(path.dirname(htmlPath), "gsd-t-transcript.html");
@@ -463,6 +551,9 @@ function startServer(port, eventsDir, htmlPath, projectDir, transcriptHtmlPath) 
     if (url === "/ping") return handlePing(req, res, port);
     if (url === "/stop") return handleStop(req, res, server);
     if (url === "/transcripts") return handleTranscriptsList(req, res, projDir);
+    // M44 D8 — spawn plans: GET list + SSE change stream
+    if (url === "/api/spawn-plans") return handleSpawnPlans(req, res, projDir);
+    if (url === "/api/spawn-plans/stream") return handleSpawnPlanUpdates(req, res, projDir);
     // POST /transcript/:spawnId/kill — SIGTERM the recorded workerPid
     const killMatch = url.match(/^\/transcript\/([^/]+)\/kill$/);
     if (killMatch && req.method === "POST") return handleTranscriptKill(req, res, decodeURIComponent(killMatch[1]), projDir);
@@ -506,6 +597,13 @@ module.exports = {
   DEFAULT_PORT,
   projectScopedDefaultPort,
   resolvePort,
+  // M44 D8 — spawn-plan visibility
+  listAllSpawnPlans,
+  listActiveSpawnPlans,
+  handleSpawnPlans,
+  handleSpawnPlanUpdates,
+  readSpawnPlanFile,
+  spawnsDir,
 };
 
 if (require.main === module) {
