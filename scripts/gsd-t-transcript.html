@@ -22,10 +22,30 @@
       --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
     }
     * { box-sizing: border-box; }
-    body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--sans); font-size: 14px; line-height: 1.55; display: grid; grid-template-columns: 280px 1fr; grid-template-rows: auto 1fr; min-height: 100vh; }
+    body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--sans); font-size: 14px; line-height: 1.55; display: grid; grid-template-columns: 280px 1fr 320px; grid-template-rows: auto 1fr; min-height: 100vh; }
     body > header { grid-column: 1 / -1; }
-    body > aside { grid-column: 1; grid-row: 2; background: var(--bg-raised); border-right: 1px solid var(--border); padding: 12px 0; overflow-y: auto; max-height: calc(100vh - 50px); position: sticky; top: 49px; align-self: start; }
+    body > aside.left-rail { grid-column: 1; grid-row: 2; background: var(--bg-raised); border-right: 1px solid var(--border); padding: 12px 0; overflow-y: auto; max-height: calc(100vh - 50px); position: sticky; top: 49px; align-self: start; }
     body > main { grid-column: 2; grid-row: 2; }
+    /* M44 D8 — right-side spawn-plan panel (additive; does not alter main stream) */
+    body > aside.spawn-panel { grid-column: 3; grid-row: 2; background: var(--bg-raised); border-left: 1px solid var(--border); padding: 12px 14px; overflow-y: auto; max-height: calc(100vh - 50px); position: sticky; top: 49px; align-self: start; font-size: 12px; }
+    .spawn-panel h2 { margin: 0 0 6px 0; font-size: 11px; text-transform: uppercase; color: var(--fg-xdim); letter-spacing: 0.08em; }
+    .spawn-panel section { border: 1px solid var(--border); border-radius: 4px; padding: 8px 10px; margin-bottom: 10px; background: var(--bg); }
+    .spawn-panel section.dimmed { opacity: 0.45; }
+    .spawn-panel section .sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+    .spawn-panel section .sec-title { font-weight: 600; color: var(--fg); font-size: 12px; }
+    .spawn-panel section .sec-sub { color: var(--fg-xdim); font-family: var(--mono); font-size: 10px; }
+    .spawn-panel section .sec-totals { font-family: var(--mono); font-size: 10px; color: var(--fg-dim); margin-top: 2px; text-align: right; }
+    .spawn-panel .task-row { display: flex; align-items: center; gap: 6px; padding: 2px 0; font-size: 11px; }
+    .spawn-panel .task-row .icon { flex: 0 0 14px; font-family: var(--mono); color: var(--fg-xdim); }
+    .spawn-panel .task-row.status-done .icon { color: var(--green); }
+    .spawn-panel .task-row.status-in-progress .icon { color: var(--accent); }
+    .spawn-panel .task-row .title { flex: 1; color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .spawn-panel .task-row.status-done .title { color: var(--fg-dim); }
+    .spawn-panel .task-row .tokens { flex: 0 0 auto; font-family: var(--mono); font-size: 10px; color: var(--fg-xdim); text-align: right; }
+    .spawn-panel .empty { color: var(--fg-xdim); font-style: italic; padding: 4px 0; font-size: 11px; }
+    .spawn-panel .wave-group { border-top: 1px dashed var(--border); padding-top: 4px; margin-top: 4px; }
+    .spawn-panel .wave-group:first-child { border-top: none; padding-top: 0; margin-top: 0; }
+    .spawn-panel .wave-label { font-size: 10px; color: var(--fg-xdim); font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.05em; margin: 4px 0 2px 0; }
     aside h3 { margin: 0 12px 8px 12px; font-size: 11px; text-transform: uppercase; color: var(--fg-xdim); letter-spacing: 0.08em; }
     aside .tree { font-size: 13px; }
     aside .node { display: flex; align-items: center; padding: 5px 12px; cursor: pointer; gap: 6px; }
@@ -125,7 +145,7 @@
     <label class="auto-follow" title="When ON, snap focus to the most recent live spawn as soon as it appears."><input type="checkbox" id="auto-follow" checked> auto-follow latest</label>
     <div class="status" id="hdr-status"><span class="dot"></span><span class="label">connecting…</span></div>
   </header>
-  <aside>
+  <aside class="left-rail">
     <h3>Spawns</h3>
     <div class="tree" id="tree"></div>
     <details class="panel" id="tool-cost-panel" open>
@@ -136,6 +156,21 @@
     </details>
   </aside>
   <main id="stream"></main>
+  <!-- M44 D8 — Spawn Plan panel: Layer 1 (project) + Layer 2 (active spawn).
+       Additive; does not change the transcript stream rendering. -->
+  <aside class="spawn-panel" id="spawn-plan-panel">
+    <h2>Spawn Plan</h2>
+    <section id="spawn-layer-project">
+      <div class="sec-head"><span class="sec-title" id="project-title">Project</span><span class="sec-sub" id="project-sub">loading…</span></div>
+      <div class="sec-totals" id="project-totals">—</div>
+      <div id="project-tasks"><div class="empty">loading…</div></div>
+    </section>
+    <section id="spawn-layer-active">
+      <div class="sec-head"><span class="sec-title" id="active-title">Active Spawn</span><span class="sec-sub" id="active-sub">—</span></div>
+      <div class="sec-totals" id="active-totals">—</div>
+      <div id="active-tasks"><div class="empty">no active spawn plan</div></div>
+    </section>
+  </aside>
   <button class="jump-to-live" id="jump-btn">↓ Jump to live</button>
 
   <script>
@@ -698,6 +733,192 @@
 
       pollSpawns();
       pollTimer = setInterval(pollSpawns, 3000);
+
+      // ── M44 D8 — Spawn Plan panel ───────────────────────────────────────
+      //
+      // Two-layer right-side panel. Layer 1 shows project-wide task status
+      // (derived from partition + tasks.md); Layer 2 shows the currently-
+      // active spawn's task slice. Both flip live via the SSE channel
+      // `/api/spawn-plans/stream` and the initial GET `/api/spawn-plans`.
+      //
+      // Token cells render as `in=12.5k out=1.7k $0.42` (k-suffix above
+      // 1000, 2-decimal USD). `—` when null, per the "zero is a
+      // measurement, dash is acknowledged gap" rule.
+
+      const STATUS_ICON = { pending: '☐', in_progress: '◐', done: '✓' };
+
+      function fmtK(n) {
+        if (n == null || isNaN(n)) return '0';
+        const num = Number(n);
+        if (Math.abs(num) >= 1000) return (num / 1000).toFixed(1) + 'k';
+        return String(num);
+      }
+      window.__gsdtFmtK = fmtK;
+
+      function fmtTokens(tokens) {
+        if (!tokens || typeof tokens !== 'object') return '—';
+        const ins = fmtK(tokens.in);
+        const out = fmtK(tokens.out);
+        const cost = (typeof tokens.cost_usd === 'number') ? '$' + tokens.cost_usd.toFixed(2) : '';
+        return ['in=' + ins, 'out=' + out, cost].filter(Boolean).join(' ');
+      }
+      window.__gsdtFmtTokens = fmtTokens;
+
+      function sumTokens(tasks) {
+        const acc = { in: 0, out: 0, cr: 0, cc: 0, cost_usd: 0 };
+        let hit = false;
+        for (const t of (tasks || [])) {
+          if (!t || t.status !== 'done' || !t.tokens) continue;
+          acc.in += Number(t.tokens.in || 0);
+          acc.out += Number(t.tokens.out || 0);
+          acc.cr += Number(t.tokens.cr || 0);
+          acc.cc += Number(t.tokens.cc || 0);
+          acc.cost_usd += Number(t.tokens.cost_usd || 0);
+          hit = true;
+        }
+        if (!hit) return null;
+        acc.cost_usd = Math.round(acc.cost_usd * 100) / 100;
+        return acc;
+      }
+      window.__gsdtSumTokens = sumTokens;
+
+      function renderTaskList(container, tasks) {
+        container.innerHTML = '';
+        if (!Array.isArray(tasks) || tasks.length === 0) {
+          const e = document.createElement('div');
+          e.className = 'empty';
+          e.textContent = 'no tasks';
+          container.appendChild(e);
+          return;
+        }
+        for (const t of tasks) {
+          if (!t || !t.id) continue;
+          const row = document.createElement('div');
+          row.className = 'task-row status-' + (t.status || 'pending').replace('_', '-');
+          const icon = document.createElement('span');
+          icon.className = 'icon';
+          icon.textContent = STATUS_ICON[t.status] || '☐';
+          const title = document.createElement('span');
+          title.className = 'title';
+          title.textContent = t.id + ' — ' + (t.title || '');
+          title.title = (t.commit ? 'commit ' + t.commit + ' · ' : '') + (t.title || '');
+          const tok = document.createElement('span');
+          tok.className = 'tokens';
+          tok.textContent = (t.status === 'done') ? fmtTokens(t.tokens) : '';
+          row.appendChild(icon);
+          row.appendChild(title);
+          row.appendChild(tok);
+          container.appendChild(row);
+        }
+      }
+      window.__gsdtRenderTaskList = renderTaskList;
+
+      // Group tasks by wave prefix embedded in the plan (optional); fall
+      // back to a single flat list when no wave is set.
+      function renderProjectLayer(plan) {
+        const titleEl = document.getElementById('project-title');
+        const subEl = document.getElementById('project-sub');
+        const totalsEl = document.getElementById('project-totals');
+        const tasksEl = document.getElementById('project-tasks');
+        if (!plan || !plan.tasks) {
+          titleEl.textContent = 'Project';
+          subEl.textContent = '—';
+          totalsEl.textContent = '—';
+          tasksEl.innerHTML = '<div class="empty">no plan yet</div>';
+          return;
+        }
+        const done = plan.tasks.filter((t) => t && t.status === 'done').length;
+        const total = plan.tasks.length;
+        titleEl.textContent = (plan.milestone || 'Project');
+        subEl.textContent = (plan.wave ? plan.wave + ' · ' : '') + done + '/' + total;
+        const totals = sumTokens(plan.tasks);
+        totalsEl.textContent = totals ? fmtTokens(totals) : '—';
+        renderTaskList(tasksEl, plan.tasks);
+      }
+      window.__gsdtRenderProjectLayer = renderProjectLayer;
+
+      function renderActiveLayer(plan) {
+        const section = document.getElementById('spawn-layer-active');
+        const titleEl = document.getElementById('active-title');
+        const subEl = document.getElementById('active-sub');
+        const totalsEl = document.getElementById('active-totals');
+        const tasksEl = document.getElementById('active-tasks');
+        if (!plan) {
+          section.classList.add('dimmed');
+          titleEl.textContent = 'Active Spawn';
+          subEl.textContent = '—';
+          totalsEl.textContent = '—';
+          tasksEl.innerHTML = '<div class="empty">no active spawn plan</div>';
+          return;
+        }
+        const isActive = plan.endedAt == null;
+        section.classList.toggle('dimmed', !isActive);
+        const done = (plan.tasks || []).filter((t) => t && t.status === 'done').length;
+        const total = (plan.tasks || []).length;
+        titleEl.textContent = (plan.kind || 'spawn');
+        subEl.textContent = (plan.spawnId || '').slice(-10) + ' · ' + done + '/' + total;
+        const totals = sumTokens(plan.tasks || []);
+        totalsEl.textContent = totals ? fmtTokens(totals) : '—';
+        renderTaskList(tasksEl, plan.tasks || []);
+      }
+      window.__gsdtRenderActiveLayer = renderActiveLayer;
+
+      // Project layer is derived from the most-recent active plan that has
+      // any tasks (preferring unattended-worker kind when multiple exist).
+      // Active layer is the same plan — both layers share data for now;
+      // future versions may split project layer off a dedicated endpoint.
+      let spawnPlanState = { plans: [] };
+      function updateSpawnPlanPanel() {
+        const plans = spawnPlanState.plans || [];
+        const byRecency = plans.slice().sort((a, b) => (Date.parse(b.startedAt) || 0) - (Date.parse(a.startedAt) || 0));
+        const active = byRecency.find((p) => p && p.endedAt == null) || null;
+        // Layer 1: use the active plan if available; else the most recent plan.
+        renderProjectLayer(active || byRecency[0] || null);
+        // Layer 2: only the active one.
+        renderActiveLayer(active);
+      }
+      window.__gsdtUpdateSpawnPlanPanel = updateSpawnPlanPanel;
+
+      function applyPlanUpdate(plan) {
+        if (!plan || !plan.spawnId) return;
+        const plans = spawnPlanState.plans || [];
+        const idx = plans.findIndex((p) => p && p.spawnId === plan.spawnId);
+        if (idx >= 0) plans[idx] = plan;
+        else plans.push(plan);
+        spawnPlanState.plans = plans;
+        updateSpawnPlanPanel();
+      }
+      window.__gsdtApplyPlanUpdate = applyPlanUpdate;
+
+      function fetchInitialPlans() {
+        fetch('/api/spawn-plans')
+          .then((r) => r.ok ? r.json() : null)
+          .then((j) => {
+            if (!j) return;
+            spawnPlanState.plans = Array.isArray(j.plans) ? j.plans : [];
+            updateSpawnPlanPanel();
+          })
+          .catch(() => { /* leave empty state */ });
+      }
+
+      function subscribePlanUpdates() {
+        try {
+          const es = new EventSource('/api/spawn-plans/stream');
+          es.onmessage = (ev) => {
+            if (!ev.data) return;
+            try {
+              const msg = JSON.parse(ev.data);
+              if (msg && msg.plan) applyPlanUpdate(msg.plan);
+            } catch { /* ignore */ }
+          };
+          es.onerror = () => { /* auto-reconnect by browser */ };
+        } catch { /* EventSource unsupported; fall back to polling below */ }
+      }
+
+      fetchInitialPlans();
+      subscribePlanUpdates();
+      // Light poll every 10s as a safety net if SSE is disconnected.
+      setInterval(fetchInitialPlans, 10000);
     })();
   </script>
 </body>
