@@ -110,6 +110,12 @@
     .frame.compact-marker .cm-line { flex: 1; height: 1px; background: #d29922; opacity: 0.4; }
     .frame.compact-marker .cm-badge { flex: 0 0 auto; background: rgba(210,153,34,0.15); border: 1px solid #d29922; border-radius: 12px; padding: 3px 10px; font-family: var(--mono); font-size: 11px; color: #d29922; font-weight: 600; cursor: default; white-space: nowrap; }
     .frame.compact-marker .cm-badge:hover { background: rgba(210,153,34,0.28); }
+    /* Per-frame arrival timestamp pill — renders to the LEFT of every frame
+       so a stuck stream is visible at a glance (large gap between consecutive ts). */
+    .frame > .ts { display: inline-block; flex: 0 0 auto; font-family: var(--mono); font-size: 10px; color: var(--fg-xdim); margin-right: 8px; vertical-align: top; min-width: 64px; user-select: none; }
+    .frame.tool-use > .ts, .frame.thinking > .ts { padding: 8px 0 0 12px; }
+    .frame.tool-result > .ts { padding-top: 8px; }
+    .frame.compact-marker > .ts { padding: 0; min-width: 64px; }
   </style>
 </head>
 <body data-spawn-id="__SPAWN_ID__">
@@ -170,24 +176,47 @@
         jumpBtn.classList.remove('visible');
       });
 
-      function appendFrame(el) {
+      // Two-digit zero-pad for timestamp formatting.
+      function pad2(n) { return n < 10 ? '0' + n : '' + n; }
+      // Format a Date as HH:MM:SS — local time, monospace-friendly width.
+      function fmtTs(d) {
+        if (!(d instanceof Date) || isNaN(d.getTime())) d = new Date();
+        return pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds());
+      }
+      window.__gsdtFmtTs = fmtTs;
+
+      // Per-frame arrival timestamp. The renderer captures Date.now() once
+      // per SSE message and threads it through; everything else falls back
+      // to "now" so manually-rendered frames stay visible too. Spotting a
+      // stuck stream is then trivial — adjacent frames will show identical
+      // or far-apart timestamps in the left-margin pill.
+      function appendFrame(el, arrivedAt) {
+        const ts = document.createElement('span');
+        ts.className = 'ts';
+        ts.textContent = fmtTs(arrivedAt instanceof Date ? arrivedAt : new Date());
+        ts.title = (arrivedAt instanceof Date ? arrivedAt : new Date()).toISOString();
+        // Insert as the first child so flex/inline layouts keep working.
+        if (el.firstChild) el.insertBefore(ts, el.firstChild);
+        else el.appendChild(ts);
         stream.appendChild(el);
         if (autoScroll) {
           requestAnimationFrame(() => window.scrollTo(0, document.body.scrollHeight));
         }
       }
 
-      function renderSystem(frame) {
+      function renderSystem(frame, arrivedAt) {
         const div = document.createElement('div');
         div.className = 'frame system';
         const sid = frame.session_id ? ' session=' + frame.session_id.slice(0, 8) : '';
         const model = frame.model ? ' model=' + frame.model : '';
         const subtype = frame.subtype ? ' ' + frame.subtype : '';
-        div.textContent = 'system' + subtype + sid + model;
-        appendFrame(div);
+        const txt = document.createElement('span');
+        txt.textContent = 'system' + subtype + sid + model;
+        div.appendChild(txt);
+        appendFrame(div, arrivedAt);
       }
 
-      function renderUserMessage(content) {
+      function renderUserMessage(content, arrivedAt) {
         const div = document.createElement('div');
         div.className = 'frame user';
         const p = document.createElement('span');
@@ -197,17 +226,19 @@
         const span = document.createElement('span');
         span.textContent = typeof content === 'string' ? content : JSON.stringify(content);
         div.appendChild(span);
-        appendFrame(div);
+        appendFrame(div, arrivedAt);
       }
 
-      function renderAssistantText(text) {
+      function renderAssistantText(text, arrivedAt) {
         const div = document.createElement('div');
         div.className = 'frame assistant-text';
-        div.textContent = text;
-        appendFrame(div);
+        const span = document.createElement('span');
+        span.textContent = text;
+        div.appendChild(span);
+        appendFrame(div, arrivedAt);
       }
 
-      function renderThinking(text) {
+      function renderThinking(text, arrivedAt) {
         const d = document.createElement('details');
         d.className = 'frame thinking';
         const s = document.createElement('summary');
@@ -216,7 +247,7 @@
         const pre = document.createElement('div');
         pre.textContent = text;
         d.appendChild(pre);
-        appendFrame(d);
+        appendFrame(d, arrivedAt);
       }
 
       function toolUsePreview(input) {
@@ -234,7 +265,7 @@
         return '';
       }
 
-      function renderToolUse(block) {
+      function renderToolUse(block, arrivedAt) {
         const d = document.createElement('details');
         d.className = 'frame tool-use';
         const s = document.createElement('summary');
@@ -245,10 +276,10 @@
         catch { pre.textContent = String(block.input); }
         d.appendChild(pre);
         toolUseById.set(block.id, { name: block.name, el: d });
-        appendFrame(d);
+        appendFrame(d, arrivedAt);
       }
 
-      function renderToolResult(block) {
+      function renderToolResult(block, arrivedAt) {
         const div = document.createElement('div');
         div.className = 'frame tool-result';
         const pre = document.createElement('pre');
@@ -269,10 +300,10 @@
           });
           div.appendChild(more);
         }
-        appendFrame(div);
+        appendFrame(div, arrivedAt);
       }
 
-      function renderBoundary(frame) {
+      function renderBoundary(frame, arrivedAt) {
         const div = document.createElement('div');
         div.className = 'frame boundary ' + (frame.state || '');
         const label = document.createElement('span');
@@ -289,17 +320,19 @@
         if (frame.durationMs != null) bits.push('duration=' + Math.round(frame.durationMs/1000) + 's');
         meta.textContent = bits.join('  ');
         div.appendChild(meta);
-        appendFrame(div);
+        appendFrame(div, arrivedAt);
       }
 
-      function renderRaw(line) {
+      function renderRaw(line, arrivedAt) {
         const div = document.createElement('div');
         div.className = 'frame raw';
-        div.textContent = line;
-        appendFrame(div);
+        const span = document.createElement('span');
+        span.textContent = line;
+        div.appendChild(span);
+        appendFrame(div, arrivedAt);
       }
 
-      function renderCompactMarker(frame) {
+      function renderCompactMarker(frame, arrivedAt) {
         const div = document.createElement('div');
         div.className = 'frame compact-marker';
 
@@ -326,46 +359,49 @@
         div.appendChild(lineL);
         div.appendChild(badge);
         div.appendChild(lineR);
-        appendFrame(div);
+        appendFrame(div, arrivedAt);
       }
       window.__gsdtRenderCompactMarker = renderCompactMarker;
 
-      function renderFrame(frame) {
+      function renderFrame(frame, arrivedAt) {
         if (!frame || typeof frame !== 'object') return;
+        const ts = arrivedAt instanceof Date ? arrivedAt : new Date();
         const type = frame.type;
-        if (type === 'compact_marker') { renderCompactMarker(frame); return; }
-        if (type === 'system') { renderSystem(frame); return; }
-        if (type === 'task-boundary') { renderBoundary(frame); return; }
-        if (type === 'raw') { renderRaw(frame.line || ''); return; }
+        if (type === 'compact_marker') { renderCompactMarker(frame, ts); return; }
+        if (type === 'system') { renderSystem(frame, ts); return; }
+        if (type === 'task-boundary') { renderBoundary(frame, ts); return; }
+        if (type === 'raw') { renderRaw(frame.line || '', ts); return; }
         if (type === 'assistant' && frame.message && Array.isArray(frame.message.content)) {
           for (const b of frame.message.content) {
-            if (b.type === 'text') renderAssistantText(b.text || '');
-            else if (b.type === 'thinking') renderThinking(b.thinking || b.text || '');
-            else if (b.type === 'tool_use') renderToolUse(b);
-            else renderRaw(JSON.stringify(b));
+            if (b.type === 'text') renderAssistantText(b.text || '', ts);
+            else if (b.type === 'thinking') renderThinking(b.thinking || b.text || '', ts);
+            else if (b.type === 'tool_use') renderToolUse(b, ts);
+            else renderRaw(JSON.stringify(b), ts);
           }
           return;
         }
         if (type === 'user' && frame.message && Array.isArray(frame.message.content)) {
           for (const b of frame.message.content) {
-            if (b.type === 'tool_result') renderToolResult(b);
-            else if (b.type === 'text') renderUserMessage(b.text || '');
-            else renderRaw(JSON.stringify(b));
+            if (b.type === 'tool_result') renderToolResult(b, ts);
+            else if (b.type === 'text') renderUserMessage(b.text || '', ts);
+            else renderRaw(JSON.stringify(b), ts);
           }
           return;
         }
         if (type === 'user' && typeof frame.message === 'string') {
-          renderUserMessage(frame.message);
+          renderUserMessage(frame.message, ts);
           return;
         }
         if (type === 'result') {
           const d = document.createElement('div');
           d.className = 'frame system';
-          d.textContent = 'result subtype=' + (frame.subtype || '?') + ' duration=' + (frame.duration_ms || 0) + 'ms';
-          appendFrame(d);
+          const span = document.createElement('span');
+          span.textContent = 'result subtype=' + (frame.subtype || '?') + ' duration=' + (frame.duration_ms || 0) + 'ms';
+          d.appendChild(span);
+          appendFrame(d, ts);
           return;
         }
-        renderRaw(JSON.stringify(frame));
+        renderRaw(JSON.stringify(frame), ts);
       }
 
       // ── Sidebar ─────────────────────────────────────────────────────────
@@ -629,9 +665,13 @@
         src.onerror = () => { setStatus('error', 'disconnected'); setToolCostLive(false); };
         src.onmessage = (ev) => {
           if (!ev.data) return;
+          // Capture arrival time once per SSE message — every render call for
+          // this frame stamps the same wall-clock value, so the user can spot
+          // a stuck stream by adjacent identical/far-apart timestamps.
+          const arrivedAt = new Date();
           try {
             const frame = JSON.parse(ev.data);
-            renderFrame(frame);
+            renderFrame(frame, arrivedAt);
             // M43 D6 — refresh tool-cost on turn-complete frames (debounced).
             // Various producers emit different turn-complete markers; accept
             // any of them.
@@ -643,7 +683,7 @@
             )) {
               scheduleToolCostRefresh(id);
             }
-          } catch { renderRaw(ev.data); }
+          } catch { renderRaw(ev.data, arrivedAt); }
         };
       }
 
