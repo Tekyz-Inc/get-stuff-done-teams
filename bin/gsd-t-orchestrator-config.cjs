@@ -15,6 +15,43 @@ const MAX_PARALLEL_CEILING = 15;
 const WORKER_RAM_BUDGET_BYTES = 2 * 1024 * 1024 * 1024;
 const ADAPTIVE_FLOOR = 3;
 
+// ─── M44 D2 — mode-aware gating math ──────────────────────────────────────
+// Contract: `.gsd-t/contracts/wave-join-contract.md` v1.1.0 §Mode-Aware Gating Math.
+
+const IN_SESSION_CW_CEILING_PCT = 85;
+const UNATTENDED_PER_WORKER_CW_PCT = 60;
+const DEFAULT_SUMMARY_SIZE_PCT = 4;
+
+/**
+ * [in-session] headroom gate.
+ *
+ * Returns `{ok, reducedCount}`.
+ *   ok=true if `ctxPct + workerCount * summarySize ≤ IN_SESSION_CW_CEILING_PCT`.
+ *   Otherwise reduces N repeatedly; final floor is N=1. NEVER refuses
+ *   (constraints.md: never throw a pause/resume prompt under any condition).
+ *
+ * T1 stub: implementation lands in T2.
+ */
+function computeInSessionHeadroom(_opts) {
+  // Stub — full implementation in T2.
+  return { ok: true, reducedCount: 1 };
+}
+
+/**
+ * [unattended] per-worker CW gate.
+ *
+ * Returns `{ok, split}`.
+ *   ok=true, split=false if `estimatedCwPct ≤ threshold` (default 60).
+ *   ok=false, split=true otherwise — caller MUST slice the task into
+ *   multiple `claude -p` iters.
+ *
+ * T1 stub: implementation lands in T2.
+ */
+function computeUnattendedGate(_opts) {
+  // Stub — full implementation in T2.
+  return { ok: true, split: false };
+}
+
 function computeAdaptiveMaxParallel(freeBytes) {
   const free = typeof freeBytes === 'number' ? freeBytes : os.freemem();
   if (!Number.isFinite(free) || free <= 0) return ADAPTIVE_FLOOR;
@@ -88,5 +125,11 @@ module.exports = {
   MAX_PARALLEL_CEILING,
   computeAdaptiveMaxParallel,
   WORKER_RAM_BUDGET_BYTES,
-  ADAPTIVE_FLOOR
+  ADAPTIVE_FLOOR,
+  // M44 D2 — mode-aware gating math
+  computeInSessionHeadroom,
+  computeUnattendedGate,
+  IN_SESSION_CW_CEILING_PCT,
+  UNATTENDED_PER_WORKER_CW_PCT,
+  DEFAULT_SUMMARY_SIZE_PCT,
 };

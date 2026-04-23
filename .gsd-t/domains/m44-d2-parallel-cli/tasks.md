@@ -3,7 +3,7 @@
 ## Wave 3 — Integration (D2 runs first within Wave 3)
 
 ### M44-D2-T1 — CLI scaffold + mode-aware config extension skeleton
-- **Status**: [ ] pending
+- **Status**: [x] done (2026-04-23 · commit <pending>)
 - **Dependencies**: M44-D1-T5 (D1 complete), M44-D4-T4 (D4 complete), M44-D5-T4 (D5 complete), M44-D6-T5 (D6 complete), M44-D7-T5 (D7 complete)
 - **Acceptance criteria**:
   - `bin/gsd-t-parallel.cjs` file exists, exports `runParallel({projectDir, mode, milestone, domain, dryRun})`
