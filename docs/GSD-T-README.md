@@ -351,6 +351,44 @@ gsd-t headless --debug-loop [--max-iterations=N] [--test-cmd=CMD] [--fix-scope=P
 
 ---
 
+## Parallel CLI (M44)
+
+Run task-level parallel workers with mode-aware gating (D4 depgraph → D5 file-disjointness → D6 economics + headroom/split).
+
+```bash
+gsd-t parallel --help                           # Usage, flags, gates, contract ref
+gsd-t parallel --dry-run                        # Plan table + worker count + mode (no spawn)
+gsd-t parallel --mode in-session --dry-run      # 85% orchestrator-CW ceiling; N=1 floor
+gsd-t parallel --mode unattended --dry-run      # 60% per-worker ceiling; > 60% → task_split
+gsd-t parallel --milestone M44 --domain m44-d2-parallel-cli --dry-run
+```
+
+**Flags:**
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--mode in-session\|unattended` | auto | auto-detect: `GSD_T_UNATTENDED=1` → unattended, else in-session. Explicit flag overrides env. |
+| `--milestone Mxx` | active | Milestone filter |
+| `--domain <name>` | all | Domain filter |
+| `--dry-run` | false | Print plan table + exit; never spawns workers |
+| `--help / -h` | — | Usage + flags + gates |
+
+**Three upstream gates** (strict sequence before any fan-out):
+1. **D4 depgraph validation** — every task's `Dependencies:` must be `done`; otherwise `gate_veto{gate:"deps"}` → sequential.
+2. **D5 file-disjointness** — tasks' `Touches:` sets must have empty intersection; overlap → `gate_veto{gate:"disjointness"}` for every pair (both sequential).
+3. **D6 economics estimator** — per-task CW footprint prediction from the token-usage corpus; informs but never vetoes on its own.
+
+**Mode-aware final gate:**
+
+| Mode | Threshold | Math | On exceed |
+|------|-----------|------|-----------|
+| in-session | 85% orchestrator-CW | `ctxPct + N × summarySize ≤ 85` | Reduce `N` to fit; floor `N=1` (never refuses) — emits `parallelism_reduced` |
+| unattended | 60% per-worker CW | `estimatedCwPct ≤ 60` | `split=true`; caller slices into iters — emits `task_split` |
+
+**Contract:** `.gsd-t/contracts/wave-join-contract.md` v1.1.0 (§Mode-Aware Gating Math) is the authoritative reference for thresholds, fallback behavior, and event schemas.
+
+---
+
 ## Key Principles
 
 1. **Contracts are the source of truth.** Code implements contracts, not the other way around. If code and contract disagree, fix one or the other — never leave them inconsistent.
