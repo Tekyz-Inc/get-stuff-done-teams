@@ -2,6 +2,12 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [3.18.12] - 2026-04-23
+
+### Fixed
+
+- **Dashboard Live Stream button stuck disabled** — the header button had `cursor:not-allowed` + `pointer-events:none` whenever the `/transcripts` index returned no spawns, including the common case of opening the dashboard before any agent had run. The button now stays enabled in all states. With a live spawn it links to the live transcript; with only finished spawns it links to the most recent one; with no spawn data at all it links to the `/transcripts` JSON index as a discoverable last resort.
+
 ## [3.18.11] - 2026-04-23
 
 ### Fixed
