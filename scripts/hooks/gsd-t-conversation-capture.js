@@ -82,12 +82,17 @@ function _resolveProjectDir(payload) {
 }
 
 function _resolveSessionId(payload) {
-  if (payload && typeof payload.session_id === 'string' && payload.session_id.length > 0) {
+  if (payload && typeof payload.session_id === 'string' && payload.session_id.length > 0
+      && !/[\/\\\0]|\.\./.test(payload.session_id)) {
     return payload.session_id;
   }
   // Fallback: deterministic-ish per-process hash. Stable within one process,
   // different across processes. Keeps the filename non-empty when Claude Code
   // omits session_id (shouldn't happen in practice but we must not explode).
+  // Also used as defense-in-depth for malformed session_ids containing path
+  // separators / `..` that would let path.join collapse the `in-session-`
+  // prefix (protects the filename-prefix discriminator contract with the
+  // viewer + compact-detector).
   const seed = String(process.pid) + ':' + String(started);
   return 'pid-' + crypto.createHash('sha1').update(seed).digest('hex').slice(0, 12);
 }

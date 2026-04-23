@@ -253,4 +253,27 @@ describe("M45 D2 conversation-capture: session-id fallback", () => {
       "fallback session id must use pid- prefix: got " + files[0]
     );
   });
+
+  it("falls through to pid- fallback when session_id contains path separators or '..' (Red Team BUG-1)", () => {
+    // Attack: session_id="a/../b" used to lexically collapse in path.join
+    // and produce transcripts/b.ndjson (no `in-session-` prefix), breaking
+    // the filename-prefix discriminator contract with the viewer + compact-detector.
+    const proj = mkProject("sid-attack");
+    for (const malformed of ["a/../b", "..", "foo/bar", "a\\b", "a\0b"]) {
+      runHook(
+        { hook_event_name: "UserPromptSubmit", session_id: malformed, prompt: "x" },
+        { projectDir: proj }
+      );
+    }
+    const tdir = path.join(proj, ".gsd-t", "transcripts");
+    const files = fs.readdirSync(tdir);
+    // Every file must carry the `in-session-` prefix (no bare `b.ndjson` escapees).
+    for (const f of files) {
+      assert.ok(f.startsWith("in-session-"),
+        "every transcript must keep the in-session- prefix; got " + f);
+    }
+    // And no file is named with the attacker-chosen suffix.
+    assert.ok(!files.includes("b.ndjson"),
+      "bare b.ndjson must never be produced from a malformed session_id");
+  });
 });
