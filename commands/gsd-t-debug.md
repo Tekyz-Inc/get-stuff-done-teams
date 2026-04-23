@@ -316,24 +316,20 @@ Before touching any code:
 node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-debug --step 3 --step-label "Debug (Solo or Team)" 2>/dev/null || true
 ```
 
-### Optional — Parallel Dispatch (M44, lightweight · conditional-only)
+### Parallel Dispatch (MANDATORY — single instrument)
 
-**This block is a no-op for single-domain debug sessions.** Most debug sessions touch one domain (within-domain bug, Category A in Step 2); for those, the sequential Solo Mode path below runs unchanged.
+Delegate to `gsd-t parallel --command` — do NOT re-implement probe-and-branch logic here (M44 D9 Step 3: "create 1 instrument that accomplishes this instead of implementing it in all the commands").
 
-**Trigger conditions (BOTH must hold)**:
-1. This is a multi-domain debug session (Category B contract boundary bug OR Category C contract gap that spans more than one domain), AND
-2. The fix is decomposable into independent tasks across domains that pass D4 depgraph + D5 file-disjointness + D6 economics gates.
+```bash
+node bin/gsd-t.js parallel --command gsd-t-debug && exit 0 || true
+# Exit 0  → multi-domain debug decomposable; N detached children handle fixes.
+# Exit 2+ → single-domain or non-decomposable (the common case for debug).
+#           Fall through to Solo / Team Mode below.
+```
 
-**If either condition fails** — single-domain debug, or a fix that cannot be decomposed cleanly — skip this block entirely. The sequential Solo Mode / Team Mode flow below remains unchanged.
+`runDispatch` owns the D4/D5/D6 gates + disjoint task-id partitioning + `autoSpawnHeadless()` fan-out. Mode auto-detects from `GSD_T_UNATTENDED=1`. No user prompt. Parallel-when-safe + headless-when-possible are both the default.
 
-**If BOTH conditions hold** — dispatch the independent fix tasks via `gsd-t parallel` (mode auto-detected from `GSD_T_UNATTENDED=1`; do not hardcode `--mode`):
-
-- Fallback is silent — any gate veto drops the affected tasks back to the sequential debug path.
-- D2 owns the spawn observability; the parallel path writes the same `.gsd-t/events/YYYY-MM-DD.jsonl` records and `.gsd-t/token-log.md` rows as the sequential path via `captureSpawn`. D3 adds no new spawn machinery.
-- `[unattended]` — D2 enforces the zero-compaction contract by splitting tasks when D6 estimates > 60% per-worker CW.
-- `[in-session]` — NEVER interrupts the user with a pause/resume prompt. If headroom is tight, D2 reduces the worker count (floor N=1). No opt-out flag exists (consistent with M43 D4: `--in-session` / `--headless` were never shipped).
-
-Contract: `.gsd-t/contracts/wave-join-contract.md` v1.1.0.
+Contract: `.gsd-t/contracts/wave-join-contract.md` v1.1.0; `.gsd-t/contracts/headless-default-contract.md` v2.0.0.
 
 ### Deviation Rules
 

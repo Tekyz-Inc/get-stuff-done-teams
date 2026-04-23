@@ -1,4 +1,4 @@
-# Wave Join Contract — v1.1.0
+# Wave Join Contract — v1.2.0
 
 **Milestone**: M40 — External Task Orchestrator (v1.0.0) · M44 — Cross-Domain & Cross-Task Parallelism (v1.1.0)
 **Owner**: d1-orchestrator-core (v1.0.0) · m44-d2-parallel-cli (v1.1.0 addendum)
@@ -140,12 +140,50 @@ identically:
 
 No mode flag bypasses any of these gates.
 
+## Single Instrument — `runDispatch` (M44 D9 Step 3, v1.2.0)
+
+Command files (`gsd-t-execute`, `gsd-t-quick`, `gsd-t-debug`, `gsd-t-integrate`) MUST NOT re-implement probe-and-branch logic. They delegate to `gsd-t parallel --command <slug>` — which internally calls `runDispatch({projectDir, mode, milestone, command})` exported by `bin/gsd-t-parallel.cjs`.
+
+`runDispatch` semantics:
+
+1. Calls `runParallel({dryRun: true})` to compute the plan (§Mode-Aware Gating Math above).
+2. If `workerCount ≥ 2`: round-robin partitions `parallelTasks` into N non-empty subsets (tasks.length caps N). Spawns N detached headless children via `autoSpawnHeadless()` from `bin/headless-auto-spawn.cjs`, passing `{command, env: {GSD_T_WORKER_TASK_IDS, GSD_T_WORKER_INDEX, GSD_T_WORKER_TOTAL}, spawnType: 'primary'}`. Emits one `fan_out` event + one `task_start` event per worker. Returns `{decision: 'fan_out', fanOutCount, workerResults}`.
+3. If `workerCount < 2`: returns `{decision: 'sequential'}` without spawning. The CLI exits 2; the caller shell line `&& exit 0 || true` falls through to the command's legacy single-worker flow.
+4. On planner throw: emits `parallelism_reduced` with `reason: planner_error:*`; returns `{decision: 'sequential', error}`.
+
+CLI exit codes (`gsd-t parallel --command <slug>`):
+
+| Exit | Meaning |
+|------|---------|
+| 0 | Fan-out dispatched; N children running detached. Caller is done. |
+| 2 | Sequential (`N<2` or gate veto). Caller falls through. |
+| 3+ | Invalid/spawn-load failure. Caller falls through defensively. |
+
+Reserved worker env vars (forwarded to every fan-out child; unattended §15a uses the identical names so both modes share the worker contract):
+
+- `GSD_T_WORKER_TASK_IDS` — comma-separated task id list the worker owns.
+- `GSD_T_WORKER_INDEX` — 0-based worker index within the fan-out.
+- `GSD_T_WORKER_TOTAL` — total number of workers in this fan-out.
+
+A worker that sees these env vars MUST scope its work to `GSD_T_WORKER_TASK_IDS` only — no intra-worker Task-subagent fan-out that would produce double concurrency. A worker without these env vars runs the legacy single-worker path.
+
+Verification: `test/m44-run-dispatch.test.js` (dispatch path), `test/m44-parallel-probe.test.js` (JSON probe shape), `test/m44-parallel-cli.test.js` (CLI exit codes + flag surface).
+
 ## Versioning
 - Bump major for changes to the strict-barrier semantics (e.g., speculative next-wave).
 - Bump minor for new frame types, config keys, or new gating math functions.
 
 ## Version History
 
+- **v1.2.0** (2026-04-23, M44 D9 Step 3) — Adds §Single Instrument. Exports
+  `runDispatch` from `bin/gsd-t-parallel.cjs` as the one instrument command
+  files delegate to; they no longer contain their own probe-and-branch logic.
+  Defines CLI exit codes (0/2/3+) and the reserved `GSD_T_WORKER_*` env var
+  contract shared with unattended-supervisor-contract §15a. Adds
+  `bin/gsd-t-parallel-probe.cjs` as a JSON-only read-only sibling for
+  shell-level pre-checks that don't need to spawn. Per user directive
+  2026-04-23: "create 1 instrument that accomplishes this instead of
+  implementing it in all the commands."
 - **v1.1.0** (2026-04-23, M44 D2) — Adds §Mode-Aware Gating Math.
   Introduces `computeInSessionHeadroom`, `computeUnattendedGate`, the
   85% in-session ceiling, the 60% per-worker unattended ceiling, the

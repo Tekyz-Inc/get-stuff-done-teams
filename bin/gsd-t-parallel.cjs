@@ -79,7 +79,7 @@ function detectMode(opts, env) {
 // ─── CLI arg parsing ──────────────────────────────────────────────────────
 
 function parseArgv(argv) {
-  const out = { help: false, dryRun: false, mode: null, milestone: null, domain: null };
+  const out = { help: false, dryRun: false, mode: null, milestone: null, domain: null, command: null };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--help" || a === "-h") out.help = true;
@@ -90,6 +90,8 @@ function parseArgv(argv) {
     else if (a.startsWith("--milestone=")) out.milestone = a.slice("--milestone=".length);
     else if (a === "--domain") out.domain = argv[++i] || null;
     else if (a.startsWith("--domain=")) out.domain = a.slice("--domain=".length);
+    else if (a === "--command") out.command = argv[++i] || null;
+    else if (a.startsWith("--command=")) out.command = a.slice("--command=".length);
   }
   return out;
 }
@@ -107,6 +109,13 @@ Options:
   --domain <name>                  Limit planning to a single domain.
   --dry-run                        Print the proposed worker plan table
                                    and exit without spawning any workers.
+  --command <slug>                 When fan-out is safe (N≥2), spawn N
+                                   detached headless children running the
+                                   named GSD-T command, each with disjoint
+                                   GSD_T_WORKER_TASK_IDS. When N<2, exits 0
+                                   with a "sequential" banner so the caller
+                                   falls through to the in-command flow.
+                                   Omit to get plan-only output.
   --help, -h                       Show this message and exit 0.
 
 Gates applied before any fan-out (in order):
@@ -301,6 +310,182 @@ function runParallel(opts) {
   };
 }
 
+// ─── runDispatch — the single instrument (M44 D9 Step 3) ──────────────────
+
+/**
+ * Round-robin partition of task ids into `workerCount` non-empty subsets.
+ * Kept tiny + pure so unit tests can exercise it without spinning up spawns.
+ */
+function _partitionTaskIds(taskIds, workerCount) {
+  const ids = Array.isArray(taskIds) ? taskIds.filter((x) => typeof x === "string" && x.length) : [];
+  const n = Math.max(0, Math.min(Number(workerCount) || 0, ids.length));
+  if (n === 0) return [];
+  const buckets = Array.from({ length: n }, () => []);
+  for (let i = 0; i < ids.length; i++) buckets[i % n].push(ids[i]);
+  return buckets.filter((b) => b.length > 0);
+}
+
+/**
+ * runDispatch — the single instrument every command delegates to.
+ *
+ * Probes the planner; if N≥2 with green gates, spawns N detached headless
+ * children via `autoSpawnHeadless()` (one per task subset) and returns
+ * `{decision:'fan_out', fanOutCount, workerResults, plan}`. If N<2, returns
+ * `{decision:'sequential', …}` so the caller falls through to its legacy
+ * single-worker path. If planning fails, returns `{decision:'sequential'}`
+ * with a warning — purely additive, never throws.
+ *
+ * Design intent (per user directive 2026-04-23):
+ *   "create 1 instrument that accomplishes this instead of implementing it
+ *    in all the commands."
+ *
+ * Command files invoke this via one bash line; they do not re-implement the
+ * probe-and-branch pattern. The unattended supervisor (v1.5.0 §15a) uses the
+ * same planner + dep-injected spawn but owns its own heartbeat/watchdog — it
+ * does not consume this function.
+ *
+ * Contract: wave-join-contract.md v1.1.0; headless-default-contract v2.0.0.
+ */
+function runDispatch(opts) {
+  const projectDir = (opts && opts.projectDir) || process.cwd();
+  const command = (opts && opts.command) || null;
+  if (!command) {
+    return {
+      decision: "invalid",
+      error: "missing_command",
+      fanOutCount: 0,
+      workerResults: [],
+      plan: [],
+      mode: detectMode(opts, opts && opts.env),
+    };
+  }
+
+  let result;
+  try {
+    result = runParallel({
+      projectDir,
+      mode: (opts && opts.mode) || undefined,
+      milestone: (opts && opts.milestone) || undefined,
+      domain: (opts && opts.domain) || undefined,
+      dryRun: true,
+      env: opts && opts.env,
+    });
+  } catch (e) {
+    appendEvent(projectDir, {
+      type: "parallelism_reduced",
+      source: "dispatch",
+      original_count: null,
+      reduced_count: 1,
+      reason: `planner_error:${(e && e.message) || "unknown"}`,
+      ts: new Date().toISOString(),
+    });
+    return {
+      decision: "sequential",
+      fanOutCount: 1,
+      workerResults: [],
+      plan: [],
+      mode: detectMode(opts, opts && opts.env),
+      error: `planner_error:${(e && e.message) || "unknown"}`,
+    };
+  }
+
+  const workerCount = Number(result.workerCount) || 0;
+  const parallelTasks = Array.isArray(result.parallelTasks) ? result.parallelTasks : [];
+  const subsets = workerCount >= 2 ? _partitionTaskIds(parallelTasks, workerCount) : [];
+
+  if (subsets.length < 2) {
+    return {
+      decision: "sequential",
+      fanOutCount: 1,
+      workerResults: [],
+      plan: result.plan || [],
+      mode: result.mode,
+      parallelTasks,
+    };
+  }
+
+  // Resolve the spawner — tests inject a stub; production uses the real
+  // `autoSpawnHeadless`. Required: `({command, args, projectDir, env}) => {id, pid, …}`.
+  let spawnImpl = opts && opts.spawnHeadlessImpl;
+  if (!spawnImpl) {
+    try {
+      spawnImpl = require(path.join(__dirname, "headless-auto-spawn.cjs")).autoSpawnHeadless;
+    } catch (e) {
+      return {
+        decision: "sequential",
+        fanOutCount: 1,
+        workerResults: [],
+        plan: result.plan || [],
+        mode: result.mode,
+        error: `spawn_load:${(e && e.message) || "unknown"}`,
+        parallelTasks,
+      };
+    }
+  }
+
+  appendEvent(projectDir, {
+    type: "fan_out",
+    source: "dispatch",
+    command,
+    fan_out_count: subsets.length,
+    task_ids: parallelTasks,
+    mode: result.mode,
+    ts: new Date().toISOString(),
+  });
+
+  const workerResults = [];
+  for (let i = 0; i < subsets.length; i++) {
+    const subset = subsets[i];
+    const workerEnv = {
+      GSD_T_WORKER_TASK_IDS: subset.join(","),
+      GSD_T_WORKER_INDEX: String(i),
+      GSD_T_WORKER_TOTAL: String(subsets.length),
+    };
+    let spawnResult = null;
+    let spawnError = null;
+    try {
+      spawnResult = spawnImpl({
+        command,
+        args: [],
+        projectDir,
+        env: workerEnv,
+        spawnType: "primary",
+      });
+    } catch (e) {
+      spawnError = (e && e.message) || "unknown";
+    }
+    appendEvent(projectDir, {
+      type: "task_start",
+      source: "dispatch",
+      worker_index: i,
+      worker_total: subsets.length,
+      task_ids: subset,
+      command,
+      spawn_id: spawnResult && spawnResult.id,
+      pid: spawnResult && spawnResult.pid,
+      error: spawnError,
+      ts: new Date().toISOString(),
+    });
+    workerResults.push({
+      idx: i,
+      taskIds: subset,
+      spawnId: spawnResult && spawnResult.id,
+      pid: spawnResult && spawnResult.pid,
+      logPath: spawnResult && spawnResult.logPath,
+      error: spawnError,
+    });
+  }
+
+  return {
+    decision: "fan_out",
+    fanOutCount: subsets.length,
+    workerResults,
+    plan: result.plan || [],
+    mode: result.mode,
+    parallelTasks,
+  };
+}
+
 // ─── CLI entry ────────────────────────────────────────────────────────────
 
 // ─── dry-run table formatter ──────────────────────────────────────────────
@@ -339,15 +524,17 @@ function runCli(argv, env) {
     return 0;
   }
   const mode = args.mode || detectMode({}, env);
-  const result = runParallel({
-    projectDir: process.cwd(),
-    mode,
-    milestone: args.milestone,
-    domain: args.domain,
-    dryRun: args.dryRun,
-    env,
-  });
+
+  // --dry-run: plan-only output, same as M44 D2 baseline.
   if (args.dryRun) {
+    const result = runParallel({
+      projectDir: process.cwd(),
+      mode,
+      milestone: args.milestone,
+      domain: args.domain,
+      dryRun: true,
+      env,
+    });
     process.stdout.write(formatPlanTable(result.plan));
     process.stdout.write(
       `\nTotal workers: ${result.workerCount}   Mode: ${result.mode}` +
@@ -358,6 +545,50 @@ function runCli(argv, env) {
     );
     return 0;
   }
+
+  // --command: live dispatch. The single instrument that command files
+  // delegate to instead of re-implementing probe-and-branch logic.
+  if (args.command) {
+    const dispatch = runDispatch({
+      projectDir: process.cwd(),
+      mode,
+      milestone: args.milestone,
+      domain: args.domain,
+      command: args.command,
+      env,
+    });
+    if (dispatch.decision === "fan_out") {
+      process.stdout.write(
+        `gsd-t parallel — fan_out command=${args.command} mode=${dispatch.mode} workers=${dispatch.fanOutCount}\n`,
+      );
+      for (const w of dispatch.workerResults) {
+        process.stdout.write(
+          `  worker[${w.idx}] tasks=${w.taskIds.join(",")} spawn=${w.spawnId || "-"} pid=${w.pid || "-"}${w.error ? " error=" + w.error : ""}\n`,
+        );
+      }
+      return 0;
+    }
+    if (dispatch.decision === "sequential") {
+      process.stdout.write(
+        `gsd-t parallel — sequential command=${args.command} mode=${dispatch.mode} (N<2, caller falls through)${dispatch.error ? " error=" + dispatch.error : ""}\n`,
+      );
+      return 2; // non-zero so shell `&&` short-circuits; caller branches on $?
+    }
+    process.stdout.write(
+      `gsd-t parallel — ${dispatch.decision} command=${args.command} mode=${dispatch.mode}\n`,
+    );
+    return 3;
+  }
+
+  // Legacy path: no --dry-run, no --command. Print plan summary only.
+  const result = runParallel({
+    projectDir: process.cwd(),
+    mode,
+    milestone: args.milestone,
+    domain: args.domain,
+    dryRun: false,
+    env,
+  });
   process.stdout.write(
     `gsd-t parallel — mode=${result.mode} workers=${result.workerCount}\n`,
   );
@@ -366,6 +597,7 @@ function runCli(argv, env) {
 
 module.exports = {
   runParallel,
+  runDispatch,
   runCli,
   formatPlanTable,
   PLAN_HEADER,
@@ -373,6 +605,7 @@ module.exports = {
   _parseArgv: parseArgv,
   _detectMode: detectMode,
   _appendEvent: appendEvent,
+  _partitionTaskIds,
   _HELP_TEXT: HELP_TEXT,
 };
 

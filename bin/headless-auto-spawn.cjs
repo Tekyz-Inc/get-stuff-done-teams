@@ -73,7 +73,8 @@ let _deprecatedWatchWarned = false;
  *   sessionContext?: object,
  *   sessionId?: string,
  *   watch?: boolean,
- *   spawnType?: 'primary' | 'validation'
+ *   spawnType?: 'primary' | 'validation',
+ *   env?: object
  * }} opts
  * @returns {{ id: string | null, pid: number | null, logPath: string | null, timestamp: string, mode: 'headless' | 'in-context' }}
  */
@@ -83,6 +84,12 @@ function autoSpawnHeadless(opts) {
   const continue_from = opts.continue_from || ".";
   const projectDir = opts.projectDir || process.cwd();
   const context = opts.context || opts.sessionContext || null;
+  // M44 D9 Step 3 — optional per-call env overrides layered over the inherited
+  // process.env. Used by `runDispatch` in gsd-t-parallel.cjs to forward
+  // GSD_T_WORKER_TASK_IDS / _WORKER_INDEX / _WORKER_TOTAL to each fan-out
+  // child so the child knows which task subset to handle. Purely additive —
+  // callers that don't pass `env` get the pre-M44-D9 behavior unchanged.
+  const envOverride = (opts.env && typeof opts.env === "object") ? opts.env : null;
   // M43 D4 — `watch` is accepted for caller backward-compat but IGNORED.
   // `inSession` was never shipped; accept+ignore for the same reason.
   // Under headless-default-contract v2.0.0 every spawn goes headless; the
@@ -194,6 +201,15 @@ function autoSpawnHeadless(opts) {
     workerEnv.GSD_T_AGENT_ID = "headless-" + id;
     if (process.env.GSD_T_AGENT_ID) {
       workerEnv.GSD_T_PARENT_AGENT_ID = process.env.GSD_T_AGENT_ID;
+    }
+    // M44 D9 Step 3 — caller-supplied env overrides (e.g., fan-out task ids).
+    // Applied AFTER the canonical GSD_T_* keys so a caller can override any
+    // of them if needed; opaque for everything else.
+    if (envOverride) {
+      for (const [k, v] of Object.entries(envOverride)) {
+        if (v == null) continue;
+        workerEnv[k] = String(v);
+      }
     }
 
     const child = spawn("node", childArgs, {

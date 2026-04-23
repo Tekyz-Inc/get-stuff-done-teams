@@ -125,27 +125,21 @@ If QA found issues, append each to `.gsd-t/qa-issues.md` (create with header `| 
 node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-execute --step 3 --step-label "Choose Execution Mode" 2>/dev/null || true
 ```
 
-### Optional — Parallel Dispatch (M44)
+### Parallel Dispatch (MANDATORY — single instrument)
 
-**Conditional check** — if `.gsd-t/domains/` contains more than one pending task that passes the D4 depgraph, D5 file-disjointness, and D6 economics gates, dispatch the ready batch via `gsd-t parallel` instead of the sequential task-dispatcher below. If the conditional fails (single pending task, or any gate vetoes, or disjointness is unprovable), fall through silently to the existing sequential path — there is no user prompt, no pause, no opt-out flag.
-
-- **Mode auto-detection** — mode is auto-detected by `bin/gsd-t-parallel.cjs` from `GSD_T_UNATTENDED=1`. Do not hardcode `--mode` in this command file. Explicit `--mode` overrides env; omitted flag falls back to env; missing env defaults to in-session.
-- **Fallback** — every gate veto (D4 `dep_gate_veto`, D5 `disjointness_fallback`, D6 estimated > threshold) removes the affected task(s) from the parallel batch. Tasks fall back to the sequential task-dispatcher silently; the dry-run plan table still lists them with decision `sequential` or `veto-deps` so the operator can see why.
-- **Observability** — D2 owns the spawn observability. The parallel path writes the same `.gsd-t/events/YYYY-MM-DD.jsonl` event stream (`gate_veto`, `parallelism_reduced`, `task_split`) and the same `.gsd-t/token-log.md` rows that sequential spawns produce via `captureSpawn`. D3 adds no new spawn machinery — integration is purely a dispatch decision.
-- **Zero-compaction invariant (unattended)** — for `[unattended]` runs, D2 enforces the zero-compaction contract by splitting tasks when D6 estimates per-worker CW > 60%. Mid-run compaction is not tolerated; the splitter slices before fan-out.
-- **In-session invariant** — the parallel path NEVER interrupts the user with a pause/resume prompt. If the in-session headroom check reduces the worker count below the requested N, D2 emits `parallelism_reduced` and proceeds at the reduced count. The final floor is N=1 (sequential). If all gates fail, D2 falls back to sequential silently — no opt-out flag exists (consistent with M43 D4: `--in-session` / `--headless` were never shipped).
-
-**Dispatch call** (example; resolve `--mode` via env):
+Delegate the parallel-vs-sequential decision to `gsd-t parallel --command` — do NOT re-implement probe-and-branch logic here. The CLI is the single instrument per M44 D9 Step 3 (user directive: "create 1 instrument that accomplishes this instead of implementing it in all the commands").
 
 ```bash
-# Dry-run first if you want to see the plan table without spawning:
-gsd-t parallel --milestone {milestone} --dry-run
-
-# Live dispatch (mode auto-detected from GSD_T_UNATTENDED):
-gsd-t parallel --milestone {milestone}
+node bin/gsd-t.js parallel --milestone {milestone} --command gsd-t-execute && exit 0 || true
+# Exit 0  → fan-out happened; N detached headless children are running
+#           disjoint task subsets. This agent is done.
+# Exit 2  → sequential (N<2 or gate veto). Fall through to Wave Scheduling below.
+# Exit 3+ → invalid/other; fall through to sequential.
 ```
 
-`runParallel` produces the validated worker plan; the existing M40 orchestrator machinery owns the actual worker spawn, retry policy, wave barriers, and state-file lifecycle. Contract: `.gsd-t/contracts/wave-join-contract.md` v1.1.0. When the conditional is not met — or when every candidate task falls back via veto — proceed to the existing Wave Scheduling + Solo/Team Mode flow below.
+The CLI internally runs `runDispatch()` which: (1) probes the planner via `runParallel({dryRun:true})`, (2) if `workerCount ≥ 2` with D4/D5/D6 gates green, partitions task ids round-robin and spawns N detached headless children via `autoSpawnHeadless()` — each gets `GSD_T_WORKER_TASK_IDS`/`_WORKER_INDEX`/`_WORKER_TOTAL` env vars so the child handles only its assigned subset, (3) else exits 2 so this agent falls through to the legacy single-worker path. Mode is auto-detected from `GSD_T_UNATTENDED=1`. No user prompt. No opt-out flag (parallel-when-safe + headless-when-possible are both the default per headless-default-contract v2.0.0).
+
+Contract: `.gsd-t/contracts/wave-join-contract.md` v1.1.0; `.gsd-t/contracts/headless-default-contract.md` v2.0.0.
 
 ### Wave Scheduling (read first)
 

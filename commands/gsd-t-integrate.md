@@ -103,25 +103,19 @@ If rolled-back domains exist, report them to the user (or if Level 3: log to `.g
 node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-integrate --step 3 --step-label "Wire Integration Points" 2>/dev/null || true
 ```
 
-### Optional — Parallel Dispatch (M44)
+### Parallel Dispatch (MANDATORY — single instrument)
 
-When integration work spans **more than one domain simultaneously** (i.e., the integration-points.md list contains independent integration tasks across multiple domains), the ready batch may be dispatched via `gsd-t parallel` instead of the sequential task-level dispatch below. When integration touches only one domain (single-domain wiring), the conditional is a no-op and the existing sequential path runs unchanged.
-
-- **Conditional check** — only triggers when integrating > 1 domain AND the integration tasks pass D4 depgraph + D5 file-disjointness + D6 economics gates. Otherwise the block is a no-op.
-- **Mode auto-detection** — mode is auto-detected from `GSD_T_UNATTENDED=1` by `bin/gsd-t-parallel.cjs`. Do not hardcode `--mode` in this command file.
-- **Fallback** — any gate veto (unmet deps, overlapping write targets, unprovable disjointness) removes the affected tasks from the parallel batch; they fall back to the sequential task-dispatcher silently. No user prompt.
-- **Observability** — D2 owns the spawn observability. The parallel path writes the same `.gsd-t/events/YYYY-MM-DD.jsonl` records (`gate_veto`, `parallelism_reduced`, `task_split`) and `.gsd-t/token-log.md` rows as the sequential path via `captureSpawn`. D3 adds no new spawn machinery.
-- **Zero-compaction invariant (unattended)** — for `[unattended]` runs, D2 enforces zero-compaction by splitting integration tasks when D6 estimates > 60% per-worker CW.
-- **In-session invariant** — NEVER interrupts the user with a pause/resume prompt. If headroom is tight, D2 reduces the worker count (floor N=1) and emits `parallelism_reduced`. If all gates fail, falls back to sequential silently. No opt-out flag exists (consistent with M43 D4: `--in-session` / `--headless` were never shipped).
-
-Example (mode auto-detected from env):
+Delegate to `gsd-t parallel --command` — do NOT re-implement probe-and-branch logic here (M44 D9 Step 3: "create 1 instrument that accomplishes this instead of implementing it in all the commands").
 
 ```bash
-gsd-t parallel --milestone {milestone} --dry-run   # preview plan, no spawn
-gsd-t parallel --milestone {milestone}             # live dispatch
+node bin/gsd-t.js parallel --milestone {milestone} --command gsd-t-integrate && exit 0 || true
+# Exit 0  → multi-domain integration; N detached children handle disjoint subsets.
+# Exit 2+ → single-domain wiring. Fall through to sequential dispatch below.
 ```
 
-Contract: `.gsd-t/contracts/wave-join-contract.md` v1.1.0.
+`runDispatch` owns the D4/D5/D6 gates + disjoint task-id partitioning + `autoSpawnHeadless()` fan-out. Mode auto-detects from `GSD_T_UNATTENDED=1`. No user prompt. Parallel-when-safe + headless-when-possible are both the default.
+
+Contract: `.gsd-t/contracts/wave-join-contract.md` v1.1.0; `.gsd-t/contracts/headless-default-contract.md` v2.0.0.
 
 **Stack Rules Detection (before spawning subagent):**
 Run via Bash to detect project stack and collect matching rules:
