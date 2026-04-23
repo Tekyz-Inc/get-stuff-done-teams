@@ -226,7 +226,8 @@ describe("startServer", () => {
       res.on("end", () => {
         assert.equal(res.statusCode, 200, "GET / should return 200 when html exists");
         assert.match(body, /id="livestream-btn"/, "button anchor must be present");
-        assert.match(body, /class="livestream-btn[^"]*disabled[^"]*"/, "button starts disabled until /transcripts resolves");
+        assert.doesNotMatch(body, /<a[^>]*id="livestream-btn"[^>]*class="[^"]*\bdisabled\b[^"]*"/,
+          "Live Stream button must NOT ship in disabled state — user contract: always enabled (2026-04-23)");
         assert.match(body, /\/transcripts/, "button JS must reference the /transcripts endpoint");
         assert.match(body, /\/transcript\/\$\{encodeURIComponent\(latest\.spawnId\)\}/, "button must navigate to /transcript/:spawnId");
         assert.match(body, /params\.get\('port'\)\s*\|\|\s*location\.port/, "PORT must default to location.port so SSE works on project-hashed ports, not hardcoded 7433");
