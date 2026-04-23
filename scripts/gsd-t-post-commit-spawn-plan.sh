@@ -49,8 +49,8 @@ printf '%s\n' "$TASK_IDS" | node -e '
 try {
   const path = require("path");
   const fs = require("fs");
-  const projectDir = process.argv[2];
-  const commit = process.argv[3];
+  const projectDir = process.argv[1];
+  const commit = process.argv[2];
   let raw = "";
   process.stdin.setEncoding("utf8");
   process.stdin.on("data", (c) => { raw += c; });

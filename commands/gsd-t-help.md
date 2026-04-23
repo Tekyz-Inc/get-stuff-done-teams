@@ -317,6 +317,7 @@ Use these when user asks for help on a specific command:
 - **Reads**: `.gsd-t/dashboard.pid`, `.gsd-t/events/*.jsonl` (via server)
 - **Creates**: `.gsd-t/dashboard.pid` (when starting server)
 - **Use when**: Monitoring live agent activity during execute/wave phases; run `gsd-t-visualize stop` to stop the server
+- **Spawn-plan panel (M44 D8, v3.18.10+)**: the transcript viewer at `/transcript/{spawnId}` now includes a right-side two-layer task panel (Layer 1 project · Layer 2 active spawn). Status icons `☐` pending, `◐` in_progress, `✓` done. Done tasks show a right-aligned token cell `in=12.5k out=1.7k $0.42` (or `—` when attribution unavailable). Token attribution is sourced from `.gsd-t/token-log.md` via the post-commit hook `scripts/gsd-t-post-commit-spawn-plan.sh`. Endpoints: `GET /api/spawn-plans` + SSE `/api/spawn-plans/stream`. Contract: `.gsd-t/contracts/spawn-plan-contract.md` v1.0.0.
 
 ### metrics
 - **Summary**: View task telemetry, process ELO, signal distribution, domain health, and cross-project comparison (with `--cross-project` flag)
