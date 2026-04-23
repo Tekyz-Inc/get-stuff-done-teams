@@ -12,7 +12,7 @@
 - **Files touched**: `bin/gsd-t-parallel.cjs` (new), `bin/gsd-t-orchestrator-config.cjs` (modified), `bin/gsd-t.js` (add `parallel` subcommand routing)
 
 ### M44-D2-T2 — Mode-aware gating math implementation
-- **Status**: [x] done (2026-04-23 · commit <pending>)
+- **Status**: [x] done (2026-04-23 · commit 3ca41ff)
 - **Dependencies**: M44-D2-T1
 - **Acceptance criteria**:
   - `computeInSessionHeadroom({ctxPct, workerCount, summarySize})` returns `{ok, reducedCount}` — `ok=true` if `ctxPct + workerCount × summarySize ≤ 85`, else suggests reduced count until N=1
@@ -22,7 +22,7 @@
 - **Files touched**: `bin/gsd-t-parallel.cjs`, `bin/gsd-t-orchestrator-config.cjs`
 
 ### M44-D2-T3 — `--dry-run` output + end-to-end gate wiring
-- **Status**: [ ] pending
+- **Status**: [x] done (2026-04-23 · commit <pending>)
 - **Dependencies**: M44-D2-T2
 - **Acceptance criteria**:
   - `gsd-t parallel --dry-run` prints: proposed worker plan table (task id | domain | estimated CW% | disjoint? | deps ok? | decision), total worker count, mode used

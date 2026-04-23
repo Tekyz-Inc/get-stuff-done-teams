@@ -303,6 +303,35 @@ function runParallel(opts) {
 
 // ─── CLI entry ────────────────────────────────────────────────────────────
 
+// ─── dry-run table formatter ──────────────────────────────────────────────
+
+const PLAN_HEADER = ["task_id", "domain", "estimated CW%", "disjoint?", "deps ok?", "decision"];
+
+function formatPlanTable(plan) {
+  const rows = [PLAN_HEADER.slice()];
+  for (const r of plan) {
+    rows.push([
+      String(r.task_id),
+      String(r.domain || "-"),
+      r.estimatedCwPct == null ? "-" : String(Math.round(r.estimatedCwPct)),
+      r.disjoint == null ? "-" : (r.disjoint ? "yes" : "no"),
+      r.depsOk ? "yes" : "no",
+      String(r.decision),
+    ]);
+  }
+  const widths = PLAN_HEADER.map((_, col) =>
+    rows.reduce((w, row) => Math.max(w, String(row[col]).length), 0),
+  );
+  const sep = widths.map((w) => "-".repeat(w)).join("  ");
+  const lines = [];
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i].map((cell, col) => String(cell).padEnd(widths[col])).join("  ");
+    lines.push(row);
+    if (i === 0) lines.push(sep);
+  }
+  return lines.join("\n") + "\n";
+}
+
 function runCli(argv, env) {
   const args = parseArgv(argv || []);
   if (args.help) {
@@ -310,7 +339,7 @@ function runCli(argv, env) {
     return 0;
   }
   const mode = args.mode || detectMode({}, env);
-  const plan = runParallel({
+  const result = runParallel({
     projectDir: process.cwd(),
     mode,
     milestone: args.milestone,
@@ -318,10 +347,19 @@ function runCli(argv, env) {
     dryRun: args.dryRun,
     env,
   });
-  // T3 implements the full dry-run table; T1 scaffold prints a minimal line.
+  if (args.dryRun) {
+    process.stdout.write(formatPlanTable(result.plan));
+    process.stdout.write(
+      `\nTotal workers: ${result.workerCount}   Mode: ${result.mode}` +
+        (result.reducedCount != null && result.reducedCount !== result.parallelTasks.length + (result.parallelTasks.length === 0 ? 0 : 0)
+          ? `   reducedCount: ${result.reducedCount}`
+          : "") +
+        "\n",
+    );
+    return 0;
+  }
   process.stdout.write(
-    `gsd-t parallel — mode=${plan.mode} workers=${plan.workerCount}` +
-      (plan.dryRun ? " (dry-run)\n" : "\n"),
+    `gsd-t parallel — mode=${result.mode} workers=${result.workerCount}\n`,
   );
   return 0;
 }
@@ -329,6 +367,8 @@ function runCli(argv, env) {
 module.exports = {
   runParallel,
   runCli,
+  formatPlanTable,
+  PLAN_HEADER,
   // Exposed for tests:
   _parseArgv: parseArgv,
   _detectMode: detectMode,
