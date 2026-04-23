@@ -79,7 +79,7 @@ function detectMode(opts, env) {
 // ─── CLI arg parsing ──────────────────────────────────────────────────────
 
 function parseArgv(argv) {
-  const out = { help: false, dryRun: false, mode: null, milestone: null, domain: null, command: null };
+  const out = { help: false, dryRun: false, mode: null, milestone: null, domain: null, command: null, maxWorkers: null, stagger: null };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--help" || a === "-h") out.help = true;
@@ -92,6 +92,10 @@ function parseArgv(argv) {
     else if (a.startsWith("--domain=")) out.domain = a.slice("--domain=".length);
     else if (a === "--command") out.command = argv[++i] || null;
     else if (a.startsWith("--command=")) out.command = a.slice("--command=".length);
+    else if (a === "--max-workers") out.maxWorkers = parseInt(argv[++i], 10);
+    else if (a.startsWith("--max-workers=")) out.maxWorkers = parseInt(a.slice("--max-workers=".length), 10);
+    else if (a === "--stagger") out.stagger = parseInt(argv[++i], 10);
+    else if (a.startsWith("--stagger=")) out.stagger = parseInt(a.slice("--stagger=".length), 10);
   }
   return out;
 }
@@ -452,8 +456,30 @@ function runDispatch(opts) {
     };
   }
 
-  const workerCount = Number(result.workerCount) || 0;
+  const plannerWorkerCount = Number(result.workerCount) || 0;
   const parallelTasks = Array.isArray(result.parallelTasks) ? result.parallelTasks : [];
+
+  // Concurrency cap (v3.18.19) — caller may clamp the planner-selected worker
+  // count via `opts.maxWorkers`. Motivated by 2026-04-23 incident: the Max
+  // subscription concurrent-session throttle rate-limits `claude -p` bursts
+  // regardless of model choice (since all spawns inherit the parent's Max
+  // OAuth, not an API key — see feedback_anthropic_key_measurement_only). The
+  // planner has no knowledge of this throttle; callers who know they're near
+  // the ceiling need a direct cap.
+  const cap = Number.isFinite(opts && opts.maxWorkers) && opts.maxWorkers > 0
+    ? Math.floor(opts.maxWorkers)
+    : Infinity;
+  const workerCount = Math.min(plannerWorkerCount, cap);
+  if (workerCount < plannerWorkerCount) {
+    appendEvent(projectDir, {
+      type: "parallelism_reduced",
+      source: "dispatch_max_workers_cap",
+      original_count: plannerWorkerCount,
+      reduced_count: workerCount,
+      reason: `max_workers_cap:${cap}`,
+      ts: new Date().toISOString(),
+    });
+  }
   const subsets = workerCount >= 2 ? _partitionTaskIds(parallelTasks, workerCount) : [];
 
   if (subsets.length < 2) {
@@ -694,14 +720,21 @@ function runCli(argv, env) {
   // --command: live dispatch. The single instrument that command files
   // delegate to instead of re-implementing probe-and-branch logic.
   if (args.command) {
-    const dispatch = runDispatch({
+    const dispatchOpts = {
       projectDir: process.cwd(),
       mode,
       milestone: args.milestone,
       domain: args.domain,
       command: args.command,
       env,
-    });
+    };
+    if (Number.isFinite(args.maxWorkers) && args.maxWorkers > 0) {
+      dispatchOpts.maxWorkers = args.maxWorkers;
+    }
+    if (Number.isFinite(args.stagger) && args.stagger >= 0) {
+      dispatchOpts.spawnStaggerMs = args.stagger * 1000;
+    }
+    const dispatch = runDispatch(dispatchOpts);
     if (dispatch.decision === "fan_out") {
       process.stdout.write(
         `gsd-t parallel — fan_out command=${args.command} mode=${dispatch.mode} workers=${dispatch.fanOutCount}\n`,
