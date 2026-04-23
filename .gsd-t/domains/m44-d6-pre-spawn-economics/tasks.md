@@ -22,7 +22,7 @@
 - **Files touched**: `bin/gsd-t-economics.cjs`
 
 ### M44-D6-T3 — Calibrate estimator against the existing 525-row token-usage.jsonl + 72-event compactions.jsonl corpus
-- **Status**: [x] done (2026-04-22 · commit `pending`)
+- **Status**: [x] done (2026-04-22 · commit `0f4ca75`)
 - **Dependencies**: M44-D6-T2
 - **Acceptance criteria**:
   - Accuracy documented in `.gsd-t/contracts/economics-estimator-contract.md`: for each confidence tier, report mean-absolute-error % vs actual CW usage on a held-out subset of the corpus
