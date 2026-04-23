@@ -134,14 +134,13 @@ test('isMilestoneComplete recognizes COMPLETED, DONE, VERIFIED as terminal', () 
   }
 });
 
-test('isMilestoneComplete reads the live progress.md correctly: M43=false, M42=true', () => {
-  // Sanity: the live file in the repo right now reflects M43 still in
-  // flight after the supervisor incident. This test guards against
-  // regressions of the prose-grep impl that would flip M43 to true.
+test('isMilestoneComplete reads the live progress.md for M42 (always-complete sanity)', () => {
+  // M42 is the oldest stable terminal milestone we can rely on as a fixed
+  // anchor. Newer milestones (M43, M44, ...) cycle through PARTITIONED ->
+  // COMPLETE on the live file, so asserting their state here turns this
+  // into a snapshot test that silently goes stale every release.
   const repoDir = path.resolve(__dirname, '..');
   if (!fs.existsSync(path.join(repoDir, '.gsd-t', 'progress.md'))) return;
-  assert.equal(isMilestoneComplete(repoDir, 'M43'), false,
-    'live progress.md says M43 is still in flight (PARTITIONED)');
   assert.equal(isMilestoneComplete(repoDir, 'M42'), true,
     'live progress.md says M42 is COMPLETE');
 });

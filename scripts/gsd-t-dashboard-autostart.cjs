@@ -101,7 +101,7 @@ function _isPortBusySync(port, host) {
     srv.listen(${listenArgs});
   `;
   try {
-    const r = spawnSync(process.execPath, ['-e', script], { timeout: 2000, stdio: 'ignore' });
+    const r = spawnSync(process.execPath, ['-e', script], { timeout: 10000, stdio: 'ignore' });
     return r.status === 1;
   } catch (_) {
     return false;

@@ -2,6 +2,37 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [3.18.11] - 2026-04-23
+
+### Fixed
+
+- **Flaky `m43-dashboard-autostart` test under load** — bumped `_isPortBusySync` spawnSync timeout from 2s → 10s. Under saturated full-suite execution the 2s budget could expire before the probe child even reported back, causing a falsely-free port reading and intermittent assertion failures. The 10s budget is comfortably above any observed real-world probe latency while still bounding hung-child cases.
+- **Stale snapshot test in `m43-milestone-complete-detection`** — replaced the live-state assertion that hard-coded `M43=PARTITIONED` (true at the time the test was written, false ever since M43 completed) with an M42-only sanity check. M42 is the oldest stable terminal milestone and serves as a fixed anchor that won't go stale every release. The other 7 tests in the file already cover the actual `isMilestoneComplete` matcher logic via `withTmpProgress` fixtures.
+
+## [3.18.10] - 2026-04-23
+
+### Added — Cross-Domain & Cross-Task Parallelism (M44)
+
+Task-level parallelism shipped to **both** execution modes (in-session and unattended) on equal footing, with mode-aware gating math. 8 of 9 domains landed (D1–D8 DONE; D9 parallelism-observability grafted as backlog #16 follow-up). 3 waves, 1903/1907 tests pass (4 pre-existing unrelated fails).
+
+**Wave 1 foundation:**
+- **D1 — Generic task-graph reader**: typed DAG + cycle detection + `gsd-t graph` CLI. 22/22 tests, contract v1.0.0.
+- **D7 — Per-CW token attribution**: `cw_id` pass-through + post-spawn calibration hook. 19/19 tests; contracts metrics-schema v2.1.0 + compaction-events v1.1.0.
+
+**Wave 2 parallel:**
+- **D4 — Dep-graph veto gate**: refuses fan-out when deps unmet. 4/4 tasks, 13/13 tests.
+- **D5 — File-disjointness prover**: union-find + git-history fallback. 4/4 tasks, 11/11 tests.
+- **D6 — Pre-spawn economics estimator**: 3-tier corpus lookup (mode-aware 85%/60% thresholds) calibrated against 528-row corpus. 5/5 tasks, 9/9 tests, contract v1.0.0.
+
+**Wave 3:**
+- **D2 — `gsd-t parallel` CLI**: mode-aware gating math (in-session 85% + N=1 floor; unattended 60% + task_split signal). 5/5 tasks, 21/21 tests; wave-join-contract v1.0.0 → v1.1.0.
+- **D8 — Spawn-plan-visibility**: right-side two-layer panel + `/api/spawn-plans` endpoint + SSE + post-commit token attribution hook. 7/7 tasks, 36/36 tests, contract v1.0.0.
+- **D3 — Command-file integration**: additive "Optional — Parallel Dispatch (M44)" blocks in `execute`/`wave`/`quick`/`debug`/`integrate`. No hardcoded `--mode`; silent fallback to sequential. 5/5 tasks; smoke-test fixtures deferred to backlog #15.
+
+**Mode contracts (NON-NEGOTIABLE):**
+- **[in-session]** Speed + reduce compaction as much as possible. Hard rule: NEVER throw an interactive pause/resume prompt.
+- **[unattended]** Run M1 → M10 end-to-end with zero human involvement and zero compaction. Per-worker CW headroom is the binding gate.
+
 ## [3.17.10] - 2026-04-21
 
 ### Added — Token Attribution & Always-Headless Inversion (M43)

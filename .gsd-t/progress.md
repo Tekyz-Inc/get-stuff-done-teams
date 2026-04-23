@@ -3,7 +3,7 @@
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: M44 COMPLETED — Cross-Domain & Cross-Task Parallelism (D1–D8 landed; D9 follow-up in backlog #16)
 ## Date: 2026-04-23
-## Version: 3.18.10
+## Version: 3.18.11
 
 ## Current Milestone
 
