@@ -1,4 +1,4 @@
-# Task Graph Contract — v1.0.0
+# Task Graph Contract — v1.1.0
 
 **Milestone**: M44 — Cross-Domain & Cross-Task Parallelism (in-session AND unattended)
 **Owner**: m44-d1-task-graph-reader
@@ -120,6 +120,35 @@ Coarseness tradeoff: scope.md gives the WHOLE-DOMAIN file list, not per-task. Th
 
 An explicit empty `**Touches**:` line in `tasks.md` is honored as `[]` and does NOT trigger the fallback. (Empty was a deliberate declaration; absent was an oversight.)
 
+## 7.5 Recognized Task Heading Shapes
+
+The parser accepts two task-heading shapes. Future `gsd-t partition`/`plan`/`execute` output SHOULD emit Shape D (canonical); Shape C is retained for existing hand-authored tasks.md files using checkbox bullets.
+
+### Shape D — canonical H3 heading (v1.0.0)
+
+```
+### M44-D1-T2 — Core parser
+- **Status**: [x] done
+- **Dependencies**: M44-D1-T1
+- **Touches**: bin/gsd-t-task-graph.cjs
+```
+
+Status, deps, and touches come from `- **Field**:` bullets below the heading.
+
+### Shape C — bullet-with-bold-id (v1.1.0)
+
+```
+- [ ] **M44-D9-T1** — bin/parallelism-report.cjs
+  - touches: bin/parallelism-report.cjs, .gsd-t/contracts/parallelism-report-contract.md
+  - deps: M44-D8-T3
+```
+
+Status comes from the `[ ]` / `[x]` / `[-]` / `[!]` checkbox in the task heading itself (§8). Dependencies and touches come from indented sub-bullets (`  - deps: …`, `  - touches: …`) — these are plain field names, not bolded. Field aliases (`dependencies`, `files touched`, `touched`) are also accepted.
+
+### Warnings for unsupported shapes
+
+If a `tasks.md` file exists but produces 0 tasks, the parser emits a warning identifying the most likely unsupported shape it saw: `### D1-T1` (legacy, no milestone prefix) or `## T-1:` (section headings). Callers MUST treat these as authoring bugs, not parser bugs — fix the tasks.md file to use Shape C or D.
+
 ## 8. Status Markers
 
 | Marker | Status |
@@ -175,5 +204,6 @@ The pre-existing `gsd-t graph index|status|query` (codebase entity graph) subcom
 
 ## Version History
 
+- **v1.1.0** (2026-04-23) — Shape C recognized (`- [ ] **Mxx-Dx-Tx**` bullet with checkbox-in-heading). Status derives from the task-bullet checkbox; deps/touches come from indented sub-bullets. Targeted warnings emitted when `tasks.md` exists but produces 0 tasks (likely legacy `### D1-T1` or sectioned `## T-1:` shapes). No breaking changes to Shape D consumers. Unblocks `gsd-t parallel --dry-run` against the live `.gsd-t/domains/m44-d9-parallelism-observability/` domain, which used Shape C.
 - **v1.0.0** (2026-04-22, D1-T2) — Full schema locked. Real parser, cycle detection, scope.md touch fallback. Downstream domains may now begin implementation.
 - **v0.1.0** (2026-04-22, D1-T1) — Skeleton: interface + section headings only.

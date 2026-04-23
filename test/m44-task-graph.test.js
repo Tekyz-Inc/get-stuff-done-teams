@@ -445,3 +445,77 @@ test("live repo: parses without throwing", () => {
   assert.ok(g.byId && typeof g.byId === "object", "graph has a byId map");
   assert.ok(Array.isArray(g.warnings), "graph has a warnings array");
 });
+
+// ─── Shape C: bullet-with-bold-id (checkbox in heading) ────────────────
+
+test("Shape C parse: '- [ ] **M99-D1-T1**' bullets produce nodes with correct status + touches", () => {
+  const root = mkProject();
+  mkDomain(root, "m99-d1-bullet", {
+    tasksMd: `# M99-D1 — Bullet-shape tasks
+
+## Wave 2 (parallel-safe)
+
+- [ ] **M99-D1-T1** — first pending
+  - Acceptance: thing happens
+  - touches: bin/a.cjs, bin/b.cjs
+
+- [x] **M99-D1-T2** — second done
+  - touches: \`bin/c.cjs\`
+
+- [ ] **M99-D1-T3** — third pending with deps
+  - deps: M99-D1-T1
+  - touches: bin/d.cjs
+`,
+  });
+  const g = buildTaskGraph({ projectDir: root });
+  assert.equal(g.nodes.length, 3);
+  assert.equal(g.byId["M99-D1-T1"].status, "pending");
+  assert.equal(g.byId["M99-D1-T1"].wave, 2);
+  assert.equal(g.byId["M99-D1-T1"].title, "first pending");
+  assert.deepEqual(g.byId["M99-D1-T1"].touches, ["bin/a.cjs", "bin/b.cjs"]);
+  assert.equal(g.byId["M99-D1-T2"].status, "done");
+  assert.deepEqual(g.byId["M99-D1-T2"].touches, ["bin/c.cjs"]);
+  assert.deepEqual(g.byId["M99-D1-T3"].deps, ["M99-D1-T1"]);
+  // T1 ready (no deps), T3 blocked on T1, T2 done so not ready
+  assert.deepEqual(g.ready.sort(), ["M99-D1-T1"]);
+});
+
+// ─── unparseable-format warning ────────────────────────────────────────
+
+test("tasks.md with legacy '### D1-T1' (no milestone prefix) emits a targeted warning", () => {
+  const root = mkProject();
+  mkDomain(root, "m99-d1-legacy", {
+    tasksMd: `# Tasks: m99-d1-legacy
+
+## Wave 1
+
+### D1-T1 — legacy shape, no milestone prefix
+**Status**: DONE
+`,
+  });
+  const g = buildTaskGraph({ projectDir: root });
+  assert.equal(g.nodes.length, 0);
+  assert.ok(
+    g.warnings.some((w) => /legacy, no milestone prefix/.test(w)),
+    `expected legacy-prefix warning in: ${JSON.stringify(g.warnings)}`,
+  );
+});
+
+test("tasks.md with '## T-1:' section headings emits a targeted warning", () => {
+  const root = mkProject();
+  mkDomain(root, "m99-d1-sectioned", {
+    tasksMd: `# Tasks
+
+## T-1: Do the thing
+
+- [x] did it
+`,
+  });
+  const g = buildTaskGraph({ projectDir: root });
+  assert.equal(g.nodes.length, 0);
+  assert.ok(
+    g.warnings.some((w) => /T-1/.test(w) && /parser requires/.test(w)),
+    `expected section-heading warning in: ${JSON.stringify(g.warnings)}`,
+  );
+});
+

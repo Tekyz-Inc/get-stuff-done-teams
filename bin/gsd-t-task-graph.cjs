@@ -79,7 +79,7 @@ function parseTasksMd(absPath, domainName) {
       continue;
     }
 
-    // Task heading: "### M44-D1-T1 — Title"  (em-dash, en-dash, hyphen all OK)
+    // Task heading (Shape D — parser-canonical): "### M44-D1-T1 — Title"
     const taskMatch = line.match(/^###\s+([A-Z]\d+-D\d+-T\d+)\s*[—–\-]?\s*(.*)$/);
     if (taskMatch) {
       flush();
@@ -92,33 +92,77 @@ function parseTasksMd(absPath, domainName) {
         deps: [],
         touches: null, // null = unset (will fall back to scope.md); [] = explicit empty
         statusWarning: null,
+        shape: "D",
+      };
+      continue;
+    }
+
+    // Task bullet (Shape C — bullet-with-bold-id, checkbox in heading):
+    //   "- [ ] **M44-D9-T1** — Title"
+    // Dependencies absent in Shape C source; touches come from an indented
+    // "  - touches: a, b" sub-bullet below the task.
+    const bulletMatch = line.match(/^-\s+\[(.)\]\s+\*\*([A-Z]\d+-D\d+-T\d+)\*\*\s*[—–\-]?\s*(.*)$/);
+    if (bulletMatch) {
+      flush();
+      const marker = bulletMatch[1];
+      let status = "pending";
+      let statusWarning = null;
+      if (STATUS_MAP[marker]) {
+        status = STATUS_MAP[marker];
+      } else {
+        statusWarning = `unknown status marker '[${marker}]' on ${bulletMatch[2]} — treating as pending`;
+      }
+      cur = {
+        id: bulletMatch[2],
+        domain: domainName,
+        wave: currentWave,
+        title: (bulletMatch[3] || "").trim(),
+        status,
+        deps: [],
+        touches: null,
+        statusWarning,
+        shape: "C",
       };
       continue;
     }
 
     if (!cur) continue;
 
-    // Field lines look like:  "- **Status**: [ ] pending"
+    // Shape D field line: "- **Status**: [ ] pending"
     const fieldMatch = line.match(/^\s*-\s+\*\*([A-Za-z][\w\s]*?)\*\*\s*:\s*(.*)$/);
-    if (!fieldMatch) continue;
-    const key = fieldMatch[1].trim().toLowerCase();
-    const val = fieldMatch[2].trim();
+    if (fieldMatch) {
+      const key = fieldMatch[1].trim().toLowerCase();
+      const val = fieldMatch[2].trim();
 
-    if (key === "status") {
-      const m = val.match(/\[(.)\]/);
-      if (m) {
-        const marker = m[1];
-        if (STATUS_MAP[marker]) {
-          cur.status = STATUS_MAP[marker];
-        } else {
-          cur.status = "pending";
-          cur.statusWarning = `unknown status marker '[${marker}]' on ${cur.id} — treating as pending`;
+      if (key === "status") {
+        const m = val.match(/\[(.)\]/);
+        if (m) {
+          const marker = m[1];
+          if (STATUS_MAP[marker]) {
+            cur.status = STATUS_MAP[marker];
+          } else {
+            cur.status = "pending";
+            cur.statusWarning = `unknown status marker '[${marker}]' on ${cur.id} — treating as pending`;
+          }
         }
+      } else if (key === "dependencies" || key === "deps") {
+        cur.deps = parseDepList(val);
+      } else if (key === "touches" || key === "files touched" || key === "touched") {
+        cur.touches = parseFileList(val);
       }
-    } else if (key === "dependencies" || key === "deps") {
-      cur.deps = parseDepList(val);
-    } else if (key === "touches" || key === "files touched" || key === "touched") {
-      cur.touches = parseFileList(val);
+      continue;
+    }
+
+    // Shape C sub-bullet field: "  - touches: a, b" or "  - deps: X, Y"
+    const subFieldMatch = line.match(/^\s+-\s+([a-zA-Z][\w\s]*?)\s*:\s*(.*)$/);
+    if (subFieldMatch && cur.shape === "C") {
+      const key = subFieldMatch[1].trim().toLowerCase();
+      const val = subFieldMatch[2].trim();
+      if (key === "touches" || key === "files touched" || key === "touched") {
+        cur.touches = parseFileList(val);
+      } else if (key === "dependencies" || key === "deps") {
+        cur.deps = parseDepList(val);
+      }
     }
   }
   flush();
@@ -126,6 +170,7 @@ function parseTasksMd(absPath, domainName) {
   for (const t of tasks) {
     if (t.statusWarning) warnings.push(t.statusWarning);
     delete t.statusWarning;
+    delete t.shape;
   }
   return { tasks, warnings };
 }
@@ -292,6 +337,22 @@ function buildTaskGraph(opts) {
     if (!fs.existsSync(tasksPath)) continue;
     const { tasks, warnings: ws } = parseTasksMd(tasksPath, domain);
     for (const w of ws) warnings.push(w);
+    if (tasks.length === 0) {
+      // tasks.md exists but no tasks matched any known shape. Heuristic check
+      // for an unsupported shape so the caller knows to author in Shape C or D.
+      let src = "";
+      try { src = fs.readFileSync(tasksPath, "utf8"); } catch {}
+      const hasLegacyNoMilestoneH3 = /^###\s+D\d+-T\d+\b/m.test(src);
+      const hasBareSection = /^##\s+T-\d+\b/m.test(src);
+      if (hasLegacyNoMilestoneH3) {
+        warnings.push(`${domain}/tasks.md uses '### D1-T1' (legacy, no milestone prefix) — parser requires '### Mxx-D1-T1' or '- [.] **Mxx-D1-T1**' form; 0 tasks read`);
+      } else if (hasBareSection) {
+        warnings.push(`${domain}/tasks.md uses '## T-1:' section headings — parser requires task-id shape 'Mxx-Dx-Tx' in '###' heading or '- [.] **...**' bullet; 0 tasks read`);
+      } else {
+        warnings.push(`${domain}/tasks.md parsed 0 tasks — no '### Mxx-Dx-Tx' heading nor '- [.] **Mxx-Dx-Tx**' bullet found`);
+      }
+      continue;
+    }
     for (const t of tasks) {
       if (byId[t.id]) {
         warnings.push(`duplicate task id ${t.id} (domain ${domain}) — first wins`);
