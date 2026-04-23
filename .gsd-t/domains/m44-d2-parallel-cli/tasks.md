@@ -22,7 +22,7 @@
 - **Files touched**: `bin/gsd-t-parallel.cjs`, `bin/gsd-t-orchestrator-config.cjs`
 
 ### M44-D2-T3 — `--dry-run` output + end-to-end gate wiring
-- **Status**: [x] done (2026-04-23 · commit <pending>)
+- **Status**: [x] done (2026-04-23 · commit deff6a6)
 - **Dependencies**: M44-D2-T2
 - **Acceptance criteria**:
   - `gsd-t parallel --dry-run` prints: proposed worker plan table (task id | domain | estimated CW% | disjoint? | deps ok? | decision), total worker count, mode used
