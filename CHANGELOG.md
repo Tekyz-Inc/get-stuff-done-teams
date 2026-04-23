@@ -2,6 +2,20 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [3.18.14] - 2026-04-23
+
+### Added — M45 Conversation-Stream Observability
+
+- **Orchestrator dialog visible in the transcript viewer** — new hook `scripts/hooks/gsd-t-conversation-capture.js` (SessionStart + UserPromptSubmit + Stop + opt-in PostToolUse via `GSD_T_CAPTURE_TOOL_USES=1`) writes typed NDJSON frames to `.gsd-t/transcripts/in-session-{sessionId}.ndjson` for every human↔Claude turn. The visualizer's left rail now lists those entries with a `💬 conversation` badge alongside the `▶ spawn` entries, so users can watch their own dialog in the same surface as spawned work.
+- **Compact marker fallback target-selection** — `scripts/gsd-t-compact-detector.js::findActiveTranscript` now prefers a fresh spawn NDJSON when one has been modified within 30s, and falls back to the most recent `in-session-*.ndjson` otherwise. Mid-conversation `/compact` events land in the correct transcript instead of a random stale spawn file.
+- **New contract** `.gsd-t/contracts/conversation-capture-contract.md` v1.0.0 — documents the frame schema (`session_start` / `user_turn` / `assistant_turn` / `tool_use`), file-naming (`in-session-` prefix as the viewer + compact-detector discriminator), hook entry points, session-id source + fallback, and 16 KB content cap.
+- **Settings.json hook wiring documented** — `templates/CLAUDE-global.md` gains an "In-Session Conversation Capture (M45 D2)" section so users who install/update pick up the hook alongside the existing in-session token-usage hook.
+
+### Fixed — M45 D1 Viewer Route
+
+- **`GET /transcripts` now serves the real transcript viewer** — reverts the standalone `renderTranscriptsHtml` index page shipped in v3.18.13. The route now reads `scripts/gsd-t-transcript.html` with `__SPAWN_ID__` → `""`, giving users the same left-rail + main + right-panel surface they get at `/transcript/:id`. JSON back-compat preserved: `Accept: application/json` and `*/*` continue to return `{spawns: [...]}`.
+- **Session-id path-separator sanitization (Red Team BUG-1)** — `_resolveSessionId` in the new conversation-capture hook now rejects session_ids containing `/`, `\`, `\0`, or `..` and falls through to the pid-hash fallback. Prior behavior let `session_id="a/../b"` lexically collapse via `path.join` to produce `transcripts/b.ndjson` without the `in-session-` prefix, breaking the filename-prefix discriminator contract with the viewer + compact-detector.
+
 ## [3.18.13] - 2026-04-23
 
 ### Fixed
