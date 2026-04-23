@@ -1,13 +1,41 @@
 # GSD-T Progress
 
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
-## Status: M44 COMPLETED — Cross-Domain & Cross-Task Parallelism (D1–D8 landed; D9 follow-up in backlog #16)
+## Status: M45 PARTITIONED — Conversation-Stream Observability (test fixture for M44 parallel + unattended)
 ## Date: 2026-04-23
 ## Version: 3.18.13
 
 ## Current Milestone
 
-**M44 Cross-Domain & Cross-Task Parallelism (in-session AND unattended)** — IN PROGRESS (7 proposed domains, scoped in backlog #14). Target: v3.18.10.
+**M45 Conversation-Stream Observability** — IN PROGRESS. Target: v3.18.14.
+
+**Goal**: Make the orchestrator session's conversational turns visible in the visualizer transcript stream alongside spawned-agent transcripts, so the user can watch their own dialog (router routing decisions, conversational replies, planning discussions) in the same surface as the spawned work — and so mid-conversation compactions have a transcript to anchor to.
+
+**Why now**: The user can compact mid-conversation while discussing scope/design. M43 D1 already captures in-session token *usage* to `.gsd-t/metrics/token-usage.jsonl`, but the conversation *content* never lands in any transcript NDJSON, so the visualizer renders nothing for the orchestrator session. When the visualizer's "Live Stream" button has no spawn data, it currently falls through to a standalone `/transcripts` index page that doesn't match the user's mental model — they expect the existing left-rail/main/right-panel viewer (`scripts/gsd-t-transcript.html`, M44-D8) at all times.
+
+**Two coupled deliverables (file-disjoint, parallel-eligible)**:
+
+- **D1 — Viewer route fix**: serve `gsd-t-transcript.html` at `/transcripts` (revert standalone `renderTranscriptsHtml` index from v3.18.13). The viewer's left rail handles its own empty state. Files: `scripts/gsd-t-dashboard-server.js`, refactor `test/transcripts-html-page.test.js`.
+
+- **D2 — In-session conversation transcript capture**: new SessionStart/UserPromptSubmit/Stop/PostToolUse hook (`scripts/hooks/gsd-t-conversation-capture.js`) writes `{type: "user_turn"|"assistant_turn"|"tool_use", ts, session_id, content, message_id}` frames to `.gsd-t/transcripts/in-session-{sessionId}.ndjson`. Viewer left-rail (`scripts/gsd-t-transcript.html`) lists in-session sessions distinctly from spawn entries (label "💬 conversation" vs "▶ spawn"). Q2b's `compact_marker` writer (`scripts/gsd-t-compact-detector.js`) extended to write into the active in-session NDJSON when no spawn ndjson is the most-recently-modified, so mid-conversation compactions show up in the right transcript. Settings.json hook block in `templates/CLAUDE-global.md` updated to wire the new hook script.
+
+**Test of M44 parallelism**: file-disjoint; D1 owns server route + test refactor, D2 owns hook + viewer left-rail + compact-detector + template settings. D2 has zero hard dep on D1 (the hook + capture work runs independently); only D2's viewer-left-rail step needs D1's route landed. Per-worker CW estimates expected well under 60% (in-session gate threshold) and well under 60% (unattended gate threshold) — both should provably parallelize. This is also a real exercise of M44 D5 (file-disjointness prover) and D6 (pre-spawn economics).
+
+**Success criteria**:
+- `/transcripts` serves the real viewer (left rail + main + right spawn-plan panel) — never raw JSON, never the standalone empty-state page
+- After landing, the in-session conversation that produced this very milestone shows up as a transcript entry in the visualizer's left rail, distinct from spawn entries
+- A simulated mid-conversation compaction event lands `compact_marker` in the in-session NDJSON (not in some unrelated spawn file)
+- Tests: 1914 + new tests all green; manual smoke confirms the visualizer shows the live conversation stream
+
+**Recommended flow**: `partition` (auto — 2 domains, file-disjoint) → `plan` → `execute` (parallel wave) → `verify` → `complete-milestone` → bump 3.18.14.
+
+**Previous milestone (M44)** completed 2026-04-23, v3.18.10 → v3.18.13 patches (button fix + content negotiation). Reference DEFINED block preserved below.
+
+---
+
+## Previous Milestone (M44) — Reference
+
+**M44 Cross-Domain & Cross-Task Parallelism (in-session AND unattended)** — COMPLETED (7 proposed domains, scoped in backlog #14). Tagged v3.18.10.
 
 **Goal**: Deliver task-level parallelism to **both** execution modes on equal footing, with mode-aware gating math. Unattended mode adds the harder contract: **zero compaction across an autonomous M1 → M10 run**.
 
@@ -119,6 +147,8 @@ Older milestones (M33 and earlier) archived under `.gsd-t/milestones/` — see d
 ## Decision Log
 
 > Prior decision log entries preserved in `.gsd-t/milestones/*/progress.md` — see archive snapshots (most recently `M40-external-task-orchestrator-2026-04-20/progress.md`) for pre-M40 history.
+
+- 2026-04-23 03:33: [partition M45 · unattended iter 1] M45 partitioned into 2 file-disjoint domains. **D1 m45-d1-viewer-route-fix**: revert v3.18.13's standalone `renderTranscriptsHtml` page at `GET /transcripts`; serve `scripts/gsd-t-transcript.html` (the real viewer used at `/transcript/:id`) with an empty spawn-id substitution. Files owned: `scripts/gsd-t-dashboard-server.js` (`handleTranscriptsList` text/html branch), `test/transcripts-html-page.test.js` (refactor), optional new `test/m45-d1-transcripts-route-viewer.test.js`. Back-compat JSON branch preserved. **D2 m45-d2-in-session-conversation-capture**: new hook `scripts/hooks/gsd-t-conversation-capture.js` dispatching on SessionStart / UserPromptSubmit / Stop (PostToolUse optional behind env flag) writes `user_turn`/`assistant_turn` frames to `.gsd-t/transcripts/in-session-{sessionId}.ndjson`. Additive edits to `scripts/gsd-t-compact-detector.js` (fallback target-selection when no spawn NDJSON is fresh), `scripts/gsd-t-transcript.html` (left-rail `💬 conversation` vs `▶ spawn` label discriminator by filename prefix), `templates/CLAUDE-global.md` (settings.json hook block). New contract `.gsd-t/contracts/conversation-capture-contract.md` v1.0.0. Three new test files. **Wave plan**: single parallel wave (D1 + D2 concurrent; file-disjoint per shared-files map). This milestone is a deliberate test fixture for M44 parallelism (both domains provably under M44 D6 economics gates). **Prereqs all landed**: M42 viewer, M44 D8 spawn-plan panel, M44 Q2b compact_marker frame, stream-json-sink v1.2.0 dialog-channel entry point. **Next**: `/gsd-t-plan` (or skip straight to `/gsd-t-execute` with parallel dispatch; per-domain tasks.md task bodies are already concrete enough in the partition).
 
 - 2026-04-23 20:30: [quick · v3.18.13] dashboard `/transcripts` content negotiation. After v3.18.12's always-enabled Live Stream button fix, the empty-spawns fallback dropped users on raw `{"spawns":[]}` JSON when they clicked through. `scripts/gsd-t-dashboard-server.js::handleTranscriptsList` now inspects the request `Accept` header — `text/html` returns a dark-themed HTML index page (`renderTranscriptsHtml`, exported for testability) with either a sortable spawn table or a friendly empty state including a `/gsd-t-quick` CTA and a back-to-dashboard link; `*/*` (fetch's default) and `application/json` keep returning the existing `{spawns: [...]}` JSON shape so the dashboard's polling JS is unaffected. New `test/transcripts-html-page.test.js` covers all three Accept variants + empty/populated/escape cases — 7/7 pass; full suite 1914/1914 green. Files: `scripts/gsd-t-dashboard-server.js` (added content negotiation + `renderTranscriptsHtml`), `test/transcripts-html-page.test.js` (new).
 
