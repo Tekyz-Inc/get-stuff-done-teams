@@ -3,7 +3,7 @@
 ## Wave 3 — Integration (D2 runs first within Wave 3)
 
 ### M44-D2-T1 — CLI scaffold + mode-aware config extension skeleton
-- **Status**: [x] done (2026-04-23 · commit <pending>)
+- **Status**: [x] done (2026-04-23 · commit 3d6a809)
 - **Dependencies**: M44-D1-T5 (D1 complete), M44-D4-T4 (D4 complete), M44-D5-T4 (D5 complete), M44-D6-T5 (D6 complete), M44-D7-T5 (D7 complete)
 - **Acceptance criteria**:
   - `bin/gsd-t-parallel.cjs` file exists, exports `runParallel({projectDir, mode, milestone, domain, dryRun})`
@@ -12,7 +12,7 @@
 - **Files touched**: `bin/gsd-t-parallel.cjs` (new), `bin/gsd-t-orchestrator-config.cjs` (modified), `bin/gsd-t.js` (add `parallel` subcommand routing)
 
 ### M44-D2-T2 — Mode-aware gating math implementation
-- **Status**: [ ] pending
+- **Status**: [x] done (2026-04-23 · commit <pending>)
 - **Dependencies**: M44-D2-T1
 - **Acceptance criteria**:
   - `computeInSessionHeadroom({ctxPct, workerCount, summarySize})` returns `{ok, reducedCount}` — `ok=true` if `ctxPct + workerCount × summarySize ≤ 85`, else suggests reduced count until N=1

@@ -129,9 +129,10 @@ Contract: .gsd-t/contracts/wave-join-contract.md v1.1.0
 /**
  * runParallel({projectDir, mode, milestone, domain, dryRun}) → plan object
  *
- * T1 scaffold: returns the ready-task set from D1 and echoes mode. T2
- * layers in the gating math + event emission; T3 wires dry-run output
- * and the three-gate sequence.
+ * Applies D4 dep-graph + D5 disjointness + D6 economics gates, then the
+ * mode-aware headroom/split gate, and returns the resolved worker plan.
+ *
+ * Does not spawn. The caller (M40 orchestrator) owns actual worker launch.
  */
 function runParallel(opts) {
   const projectDir = (opts && opts.projectDir) || process.cwd();
@@ -139,27 +140,163 @@ function runParallel(opts) {
   const milestone = (opts && opts.milestone) || null;
   const domain = (opts && opts.domain) || null;
   const dryRun = !!(opts && opts.dryRun);
+  const summarySize = Number.isFinite(opts && opts.summarySize)
+    ? opts.summarySize
+    : require(path.join(__dirname, "gsd-t-orchestrator-config.cjs")).DEFAULT_SUMMARY_SIZE_PCT;
 
   const graph = buildTaskGraph({ projectDir });
-  const ready = getReadyTasks(graph);
+  let candidates = getReadyTasks(graph);
 
-  // T2+ gating math is implemented below by later commits. In the scaffold
-  // we simply return the pre-gate ready set so tests can assert the shape.
+  // Optional filtering by milestone / domain.
+  if (domain) candidates = candidates.filter((t) => t.domain === domain);
+  if (milestone) {
+    // Milestone id prefixes task ids in this codebase (M44-D2-T1 → M44).
+    const prefix = String(milestone).toUpperCase();
+    candidates = candidates.filter((t) => String(t.id).toUpperCase().startsWith(prefix + "-"));
+  }
+
+  // ── D4 depgraph gate ──
+  const depResult = validateDepGraph({ graph: { ...graph, ready: candidates.map((t) => t.id) }, projectDir });
+  const depReady = depResult.ready;
+  const depVetoed = depResult.vetoed || [];
+  for (const v of depVetoed) {
+    appendEvent(projectDir, {
+      type: "gate_veto",
+      task_id: v.task && v.task.id,
+      gate: "depgraph",
+      reason: `unmet_deps:${(v.unmet_deps || []).join(",")}`,
+      ts: new Date().toISOString(),
+    });
+  }
+
+  // ── D5 disjointness gate ──
+  const disj = proveDisjointness({ tasks: depReady, projectDir });
+  const disjointTaskIds = new Set();
+  for (const group of disj.parallel || []) {
+    for (const t of group) disjointTaskIds.add(t.id);
+  }
+  // Sequential groups + unprovable are NOT candidates for parallel fan-out
+  // but still allowed as single-worker (sequential) — surfaced as gate_veto
+  // events so "why wasn't this parallelized?" is observable.
+  const sequentialFallback = new Set();
+  for (const group of disj.sequential || []) {
+    for (const t of group) {
+      sequentialFallback.add(t.id);
+      appendEvent(projectDir, {
+        type: "gate_veto",
+        task_id: t.id,
+        gate: "disjointness",
+        reason: "write-target-overlap-or-unprovable",
+        ts: new Date().toISOString(),
+      });
+    }
+  }
+
+  // ── D6 economics gate (per-task estimate) ──
+  const perTask = new Map();
+  for (const t of depReady) {
+    let est;
+    try {
+      est = estimateTaskFootprint({ taskNode: t, mode, projectDir });
+    } catch {
+      est = { estimatedCwPct: 0, parallelOk: true, split: false, workerCount: 1, confidence: "low" };
+    }
+    perTask.set(t.id, est);
+  }
+
+  // ── Mode-aware gating math ──
+  let finalParallelTasks = [];
+  let reducedCount = null;
+  let ctxPctObserved = null;
+  if (mode === "unattended") {
+    // Each parallel-candidate task gets an unattended gate check.
+    for (const t of depReady) {
+      const est = perTask.get(t.id);
+      if (!disjointTaskIds.has(t.id)) continue; // already sequential
+      const gate = computeUnattendedGate({ estimatedCwPct: est.estimatedCwPct, threshold: 60 });
+      if (gate.split) {
+        appendEvent(projectDir, {
+          type: "task_split",
+          task_id: t.id,
+          estimatedCwPct: est.estimatedCwPct,
+          ts: new Date().toISOString(),
+        });
+        // Actual slicing is the caller's responsibility — the task stays in
+        // the parallel set; the orchestrator (or caller) treats it as
+        // "needs split". Per D2-T2 acceptance: emitting the event and
+        // returning the plan is sufficient.
+      }
+      finalParallelTasks.push(t);
+    }
+  } else {
+    // in-session path
+    const tb = loadTokenBudget();
+    let status;
+    try { status = tb.getSessionStatus(projectDir); } catch { status = { pct: 0 }; }
+    const ctxPct = Number.isFinite(status && status.pct) ? status.pct : 0;
+    ctxPctObserved = ctxPct;
+    const parallelCandidates = depReady.filter((t) => disjointTaskIds.has(t.id));
+    const requested = parallelCandidates.length;
+    const headroom = computeInSessionHeadroom({ ctxPct, workerCount: requested, summarySize });
+    reducedCount = headroom.reducedCount;
+    if (reducedCount < requested) {
+      appendEvent(projectDir, {
+        type: "parallelism_reduced",
+        original_count: requested,
+        reduced_count: reducedCount,
+        reason: "in_session_headroom",
+        ts: new Date().toISOString(),
+      });
+    }
+    finalParallelTasks = parallelCandidates.slice(0, reducedCount);
+  }
+
+  // Build the plan table rows (all ready tasks, labeled by decision).
+  const plan = depReady.map((t) => {
+    const est = perTask.get(t.id) || {};
+    const disjointOk = disjointTaskIds.has(t.id);
+    const isFinalParallel = finalParallelTasks.some((x) => x.id === t.id);
+    let decision;
+    if (isFinalParallel) {
+      decision = mode === "unattended" && est.split ? "parallel-split" : "parallel";
+    } else if (sequentialFallback.has(t.id)) {
+      decision = "sequential";
+    } else {
+      decision = "sequential";
+    }
+    return {
+      task_id: t.id,
+      domain: t.domain,
+      estimatedCwPct: Number.isFinite(est.estimatedCwPct) ? est.estimatedCwPct : null,
+      disjoint: disjointOk,
+      depsOk: true,
+      decision,
+    };
+  });
+  // Also show dep-vetoed tasks so the dry-run table is complete.
+  for (const v of depVetoed) {
+    if (!v.task) continue;
+    plan.push({
+      task_id: v.task.id,
+      domain: v.task.domain,
+      estimatedCwPct: null,
+      disjoint: null,
+      depsOk: false,
+      decision: "veto-deps",
+    });
+  }
+
   return {
     mode,
     milestone,
     domain,
     dryRun,
     projectDir,
-    plan: ready.map((t) => ({
-      task_id: t.id,
-      domain: t.domain,
-      estimatedCwPct: null,
-      disjoint: null,
-      depsOk: true,
-      decision: "pending",
-    })),
-    workerCount: ready.length,
+    plan,
+    workerCount: finalParallelTasks.length || (plan.length ? 1 : 0),
+    parallelTasks: finalParallelTasks.map((t) => t.id),
+    reducedCount,
+    ctxPct: ctxPctObserved,
     warnings: graph.warnings || [],
   };
 }
