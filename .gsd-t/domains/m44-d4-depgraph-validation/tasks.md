@@ -29,7 +29,7 @@
 - **Files touched**: `test/m44-depgraph-validate.test.js` (new)
 
 ### M44-D4-T4 — Doc-ripple + tests-pass commit
-- **Status**: [x] done (2026-04-22 · commit `__T4_SHA__`)
+- **Status**: [x] done (2026-04-22 · commit `bf26012`)
 - **Dependencies**: M44-D4-T3
 - **Acceptance criteria**:
   - `docs/requirements.md` updated with §"M44 Dep-Graph Validation" requirement entry
