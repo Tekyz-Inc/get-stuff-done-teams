@@ -253,6 +253,60 @@ This gives the user real-time visibility into which model is handling each opera
 
 **Context Meter (M34/M38, v3.12.10+)** — The real context-window measurement feeding the headless-default spawn decision. A PostToolUse hook (`scripts/gsd-t-context-meter.js`) runs after every tool call, uses local token estimation to write the current input-token count into `.gsd-t/.context-meter-state.json`. `getSessionStatus()` reads that state file (fresh window = 5 minutes) with a historical heuristic fallback when the file is missing or stale. Command files consume the signal via a small bash shim (`CTX_PCT=$(node -e "…tb.getSessionStatus('.').pct")`). **Single-band model** (context-meter-contract v1.3.0): there's one threshold (default 85%) and one action — hand off to a detached headless spawn. No three-band routing, no silent downgrades, no MANDATORY STOP prose. The meter exists to inform spawn-time routing, not to pause work in-flight.
 
+## In-Session Conversation Capture (M45 D2)
+
+The orchestrator session's user↔assistant dialog is captured into
+`.gsd-t/transcripts/in-session-{sessionId}.ndjson` via a dedicated hook
+script (`scripts/hooks/gsd-t-conversation-capture.js`). The viewer's left
+rail labels these entries `💬 conversation` (front-end-only discriminator
+— the `in-session-` filename prefix is the contract).
+
+This hook captures **content** (user prompts + assistant replies). It is
+complementary to `scripts/hooks/gsd-t-in-session-usage-hook.js` (M43 D1),
+which captures per-turn **token usage** into
+`.gsd-t/metrics/token-usage.jsonl`. Both hooks coexist on the same events.
+
+**Install block** (append to `~/.claude/settings.json` alongside the existing
+context-meter, version-check, compact-detector, and in-session-usage hooks):
+
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      { "matcher": "",
+        "hooks": [{ "type": "command",
+                    "command": "node \"$HOME/.claude/scripts/hooks/gsd-t-conversation-capture.js\"",
+                    "async": true }] }
+    ],
+    "UserPromptSubmit": [
+      { "matcher": "",
+        "hooks": [{ "type": "command",
+                    "command": "node \"$HOME/.claude/scripts/hooks/gsd-t-conversation-capture.js\"",
+                    "async": true }] }
+    ],
+    "Stop": [
+      { "matcher": "",
+        "hooks": [{ "type": "command",
+                    "command": "node \"$HOME/.claude/scripts/hooks/gsd-t-conversation-capture.js\"",
+                    "async": true }] }
+    ],
+    "PostToolUse": [
+      { "matcher": "",
+        "hooks": [{ "type": "command",
+                    "command": "GSD_T_CAPTURE_TOOL_USES=1 node \"$HOME/.claude/scripts/hooks/gsd-t-conversation-capture.js\"",
+                    "async": true }] }
+    ]
+  }
+}
+```
+
+The `PostToolUse` entry is **opt-in** via `GSD_T_CAPTURE_TOOL_USES=1`. Leave it
+unset unless you want per-tool frames in the NDJSON (full tool payloads are
+already recorded in `events/*.jsonl`).
+
+Contract: `.gsd-t/contracts/conversation-capture-contract.md` v1.0.0. Frame
+schema, file-naming, and session-id resolution rules are locked there.
+
 ## Observability Logging (MANDATORY)
 
 Every command that spawns a Task subagent, invokes `claude -p`, or calls `spawn('claude', ...)` MUST route the spawn through `bin/gsd-t-token-capture.cjs` so the real token-usage envelope is parsed and recorded. This is the M41 canonical pattern — the pre-M41 bash block that wrote `| N/A |` is retired.

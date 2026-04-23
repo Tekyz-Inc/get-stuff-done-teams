@@ -76,6 +76,10 @@
     aside .tool-row .tool-tokens { color: var(--fg-dim); flex: 0 0 auto; }
     aside .tool-empty { color: var(--fg-xdim); font-size: 11px; font-style: italic; }
     aside .tool-error { color: var(--yellow); font-size: 11px; font-style: italic; }
+    /* M45 D2 — in-session conversation left-rail badge */
+    aside .node.in-session .name { color: var(--yellow); }
+    aside .node.in-session.active .name { color: var(--accent-warm, var(--yellow)); }
+    aside .node .label-in-session { color: var(--yellow); margin-right: 4px; }
     @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
     /* 10s attention-pulse for a freshly-arrived spawn — fires once when
        auto-follow snaps focus to a new session, then self-removes. */
@@ -483,14 +487,33 @@
           return;
         }
         const currentId = (location.hash || '#').slice(1) || spawnId;
+        // M45 D2: in-session conversation NDJSONs are distinguished by the
+        // `in-session-` spawn-id prefix. The viewer labels them with
+        // `💬 conversation` instead of the default `▶ spawn`. This is a
+        // front-end-only discriminator — no server-side type field is
+        // required; the filename prefix (== spawn-id) is the contract.
+        function isInSession(node) {
+          return typeof node.spawnId === 'string' && node.spawnId.indexOf('in-session-') === 0;
+        }
         function render(node, depth) {
           const el = document.createElement('div');
           el.className = 'node ' + statusClass(node);
+          if (isInSession(node)) el.classList.add('in-session');
           if (node.spawnId === currentId) el.classList.add('active');
           el.style.paddingLeft = (12 + depth * 14) + 'px';
           const dot = document.createElement('span'); dot.className = 'dot';
           const name = document.createElement('span'); name.className = 'name';
-          name.textContent = (node.command || 'spawn') + ' · ' + node.spawnId.slice(-8);
+          if (isInSession(node)) {
+            const badge = document.createElement('span');
+            badge.className = 'label-in-session';
+            badge.textContent = '💬 conversation';
+            name.appendChild(badge);
+            const tail = document.createElement('span');
+            tail.textContent = ' · ' + node.spawnId.slice(-8);
+            name.appendChild(tail);
+          } else {
+            name.textContent = (node.command || 'spawn') + ' · ' + node.spawnId.slice(-8);
+          }
           name.title = (node.description || node.spawnId) + '\n' + (node.startedAt || '');
           const kill = document.createElement('button');
           kill.className = 'kill';

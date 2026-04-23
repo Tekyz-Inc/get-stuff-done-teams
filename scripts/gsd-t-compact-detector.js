@@ -131,7 +131,20 @@ function writeRow(payload) {
 /**
  * Find the most-recently-modified .ndjson in <cwd>/.gsd-t/transcripts/.
  * Returns the absolute path, or null if none exists or the directory is absent.
+ *
+ * Target-selection rules (M45 D2):
+ * 1. Default: prefer the most-recently-modified SPAWN NDJSON (any file whose
+ *    basename does NOT start with `in-session-`).
+ * 2. Fallback: if no spawn NDJSON has been modified within the last
+ *    IN_SESSION_FALLBACK_MS (30s) AND a fresh `in-session-*.ndjson` exists,
+ *    target that file instead. Log the decision to stderr so regressions
+ *    are obvious during debugging.
+ * 3. Last resort: if only in-session NDJSONs exist, pick the newest one
+ *    (covers the edge case where a user triggers /compact during a pure
+ *    conversation session with no spawns in flight).
  */
+const IN_SESSION_FALLBACK_MS = 30 * 1000; // 30 seconds
+
 function findActiveTranscript(cwd) {
   const transcriptsDir = path.join(cwd, ".gsd-t", "transcripts");
   let entries;
@@ -143,21 +156,51 @@ function findActiveTranscript(cwd) {
   const ndjsons = entries.filter((e) => e.endsWith(".ndjson"));
   if (!ndjsons.length) return null;
 
-  let newest = null;
-  let newestMtime = -1;
+  let newestSpawn = null;
+  let newestSpawnMtime = -1;
+  let newestInSession = null;
+  let newestInSessionMtime = -1;
   for (const name of ndjsons) {
     const full = path.join(transcriptsDir, name);
+    let mtimeMs;
     try {
-      const stat = fs.statSync(full);
-      if (stat.mtimeMs > newestMtime) {
-        newestMtime = stat.mtimeMs;
-        newest = full;
-      }
+      mtimeMs = fs.statSync(full).mtimeMs;
     } catch {
-      // skip unreadable entries
+      continue;
+    }
+    const isInSession = name.indexOf("in-session-") === 0;
+    if (isInSession) {
+      if (mtimeMs > newestInSessionMtime) {
+        newestInSessionMtime = mtimeMs;
+        newestInSession = full;
+      }
+    } else {
+      if (mtimeMs > newestSpawnMtime) {
+        newestSpawnMtime = mtimeMs;
+        newestSpawn = full;
+      }
     }
   }
-  return newest;
+
+  const now = Date.now();
+  const spawnFresh = newestSpawn != null && (now - newestSpawnMtime) < IN_SESSION_FALLBACK_MS;
+
+  if (spawnFresh) return newestSpawn;
+
+  if (newestInSession != null) {
+    try {
+      process.stderr.write(
+        "compact-detector: targeting " + path.basename(newestInSession) + " (fallback)\n"
+      );
+    } catch {
+      // silent — stderr write must never break the hook
+    }
+    return newestInSession;
+  }
+
+  // No fresh spawn, no in-session — fall back to the newest spawn (even if stale)
+  // so v1.0.0 behavior is preserved for legacy projects with no in-session file.
+  return newestSpawn;
 }
 
 /**
