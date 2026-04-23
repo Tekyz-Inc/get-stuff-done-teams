@@ -102,7 +102,16 @@ gsd-t headless --debug-loop --max-iterations=10         # Cap at 10 iterations
 gsd-t headless --debug-loop --test-cmd="npm test"       # Override test command
 gsd-t headless --debug-loop --fix-scope="src/auth/**"   # Limit fix scope
 gsd-t headless --debug-loop --json --log                # Structured output + per-iteration logs
+
+# Parallel CLI (M44 D2 — task-level parallelism, mode-aware gating)
+gsd-t parallel --help                                   # Usage, flags, gates, contract ref
+gsd-t parallel --dry-run                                # Print worker plan table + exit (no spawn)
+gsd-t parallel --mode in-session --dry-run              # 85% orchestrator-CW ceiling; N=1 floor
+gsd-t parallel --mode unattended --dry-run              # 60% per-worker ceiling; > 60% → task_split
+gsd-t parallel --milestone M44 --domain m44-d2-parallel-cli --dry-run
 ```
+
+`gsd-t parallel` consumes the M44 task-graph (D1) and applies three pre-spawn gates (D4 depgraph validation → D5 file-disjointness → D6 economics) followed by mode-aware headroom/split math. Extends — does not replace — the M40 orchestrator. Contract: `.gsd-t/contracts/wave-join-contract.md` v1.1.0.
 
 Each iteration runs as a fresh `claude -p` session. A cumulative debug ledger (`.gsd-t/debug-state.jsonl`) preserves hypothesis/fix/learning history across sessions. An anti-repetition preamble prevents retrying failed approaches.
 

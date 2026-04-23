@@ -801,6 +801,72 @@ The hook ALWAYS exits 0 — throwing breaks Claude Code SessionStart. It include
 
 **Tests**: `test/m44-economics.test.js` (9 tests covering HIGH/MEDIUM/LOW/FALLBACK tiers, both mode thresholds under and over the boundary, economics_decision event shape, corpus cache identity, and empty-corpus behaviour).
 
+## Parallel CLI (M44 D2, v3.18.10+)
+
+`bin/gsd-t-parallel.cjs` — the `gsd-t parallel` subcommand dispatch. Wraps the M40 orchestrator with task-level (not just domain-level) parallelism and layers in mode-aware gating math. Extends, does not replace, `bin/gsd-t-orchestrator.js`; zero external runtime deps.
+
+**Surface**:
+- Module: `runParallel({projectDir, mode, milestone, domain, dryRun})` and `runCli(argv, env)`.
+- CLI: `gsd-t parallel [--mode in-session|unattended] [--milestone Mxx] [--domain <name>] [--dry-run] [--help]`.
+- Config extension in `bin/gsd-t-orchestrator-config.cjs`: `computeInSessionHeadroom`, `computeUnattendedGate`, and the exported constants `IN_SESSION_CW_CEILING_PCT=85`, `UNATTENDED_PER_WORKER_CW_PCT=60`, `DEFAULT_SUMMARY_SIZE_PCT=4`.
+
+**Dispatch flow**:
+
+```
+    gsd-t parallel --mode … [--dry-run]
+         │
+         ├──► D1 buildTaskGraph(projectDir) ─────────────┐
+         │    (bin/gsd-t-task-graph.cjs)                  │
+         │                                                │ ready tasks
+         ├──► D4 validateDepGraph(graph)  ◄───────────────┘
+         │    (bin/gsd-t-depgraph-validate.cjs)
+         │    → emits gate_veto on unmet deps
+         │
+         ├──► D5 proveDisjointness(readyTasks)
+         │    (bin/gsd-t-file-disjointness.cjs)
+         │    → emits gate_veto on overlap / unprovable
+         │
+         ├──► D6 estimateTaskFootprint(task, mode) × N
+         │    (bin/gsd-t-economics.cjs)
+         │    → per-task {estimatedCwPct, parallelOk, split, confidence}
+         │
+         ├──► Mode-aware gating math (config.cjs)
+         │    ├─ in-session: computeInSessionHeadroom
+         │    │  ctxPct from token-budget.getSessionStatus()
+         │    │  → reducedCount; emits parallelism_reduced on N < requested
+         │    └─ unattended: computeUnattendedGate(estimatedCwPct)
+         │       → emits task_split on > 60%
+         │
+         └──► plan{ workerCount, parallelTasks, plan[] }
+              → dry-run renders the 6-col table + mode/totals
+              → non-dry-run: hands off to M40 orchestrator machinery
+```
+
+**Mode contracts** (from `.gsd-t/contracts/wave-join-contract.md` v1.1.0):
+
+| Mode | Threshold | Math | On exceed |
+|------|-----------|------|-----------|
+| in-session | 85% orchestrator-CW | `ctxPct + N × summarySize ≤ 85` | Reduce N; floor=1 (never refuses) |
+| unattended | 60% per-worker CW | `estimatedCwPct ≤ 60` | `split=true`; caller slices |
+
+**Integration with the M40 path**: `runParallel` produces a plan object; it does **not** replace `bin/gsd-t-orchestrator.js`. The existing orchestrator machinery owns actual worker spawn, retry policy, wave barriers, merging, and the state-file lifecycle. D2 is the pre-spawn planning layer.
+
+**Event schemas** (all written best-effort to `.gsd-t/events/YYYY-MM-DD.jsonl`; failures never break control flow):
+- `gate_veto{type, task_id, gate, reason, ts}` — D4 or D5 rejection.
+- `parallelism_reduced{type, original_count, reduced_count, reason:'in_session_headroom', ts}` — in-session headroom forced a smaller N.
+- `task_split{type, task_id, estimatedCwPct, ts}` — unattended over-threshold.
+
+**Hard invariants** (from m44-d2 constraints.md):
+1. Zero external npm runtime deps.
+2. `bin/gsd-t-orchestrator.js` is never replaced; only extended via the config module.
+3. All three pre-existing invariants (disjointness, auto-merge, economics) apply to BOTH modes. No mode flag bypasses any gate.
+4. In-session mode NEVER throws pause/resume; N=1 is the irreducible floor.
+5. Adaptive `maxParallel` (`computeAdaptiveMaxParallel`) is untouched — D2 layers on top, not under.
+
+**Contract**: `.gsd-t/contracts/wave-join-contract.md` v1.1.0.
+
+**Tests**: `test/m44-parallel-cli.test.js` (21 tests covering headroom ok/reduced/floor, unattended gate ok/split/boundary, plan-table format, runParallel in-session fan-out, disjointness gate-veto fallback, mode auto-detect, explicit-mode override, headroom reduction end-to-end with a 5-domain fixture at 70% ctxPct, and CLI arg parsing).
+
 ## Planned Architecture Changes (M23-M24)
 
 **M23: Headless Mode**

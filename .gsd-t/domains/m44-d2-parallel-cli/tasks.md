@@ -31,7 +31,7 @@
 - **Files touched**: `bin/gsd-t-parallel.cjs`
 
 ### M44-D2-T4 — wave-join-contract bump + unit tests
-- **Status**: [x] done (2026-04-23 · commit <pending>)
+- **Status**: [x] done (2026-04-23 · commit 01ea87f)
 - **Dependencies**: M44-D2-T3
 - **Acceptance criteria**:
   - `.gsd-t/contracts/wave-join-contract.md` bumped to v1.1.0 with §"Mode-Aware Gating Math" section describing both mode paths, thresholds, and fallback behavior
@@ -40,7 +40,7 @@
 - **Files touched**: `.gsd-t/contracts/wave-join-contract.md`, `test/m44-parallel-cli.test.js` (new)
 
 ### M44-D2-T5 — Doc-ripple + tests-pass commit
-- **Status**: [ ] pending
+- **Status**: [x] done (2026-04-23 · commit <pending>)
 - **Dependencies**: M44-D2-T4
 - **Acceptance criteria**:
   - `docs/requirements.md` updated with §"M44 Parallel CLI" requirement entry

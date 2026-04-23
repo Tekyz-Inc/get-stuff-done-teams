@@ -592,3 +592,28 @@ Out of scope for D6:
 - Dep-graph validation (D4) and file disjointness (D5)
 - Writing back to `token-usage.jsonl` (read-only)
 - Multi-iter task slicing (D6 recommends `split=true`; the caller plans the iter breakdown)
+
+## M44 Parallel CLI (D2 — Wave 3 integration, 2026-04-23)
+
+Milestone 44 D2 ships the `gsd-t parallel` subcommand: a CLI wrapping the M40 orchestrator with task-level (not just domain-level) parallelism and mode-aware gating math. D2 consumes D1 (DAG), D4 (depgraph validation), D5 (disjointness prover), and D6 (economics estimator) and produces a validated worker plan. Extends — does not replace — the M40 orchestrator.
+
+| REQ-ID | Requirement Summary | Domain | Status |
+|--------|---------------------|--------|--------|
+| REQ-M44-D2-01 | `bin/gsd-t-parallel.cjs` exports `runParallel({projectDir, mode, milestone, domain, dryRun})` and `runCli(argv, env)`. Node built-ins only; zero external runtime deps. | m44-d2-parallel-cli | **complete (2026-04-23)** |
+| REQ-M44-D2-02 | `gsd-t parallel --help` prints usage (flags + gates + modes + contract reference) and exits 0 without side effects. | m44-d2-parallel-cli | **complete (2026-04-23)** |
+| REQ-M44-D2-03 | `--mode in-session\|unattended` flag; auto-detect fallback: `GSD_T_UNATTENDED=1` → `unattended`, else `in-session`. Explicit `--mode` overrides env. Additional flags: `--milestone Mxx`, `--domain <name>`, `--dry-run`. | m44-d2-parallel-cli | **complete (2026-04-23)** |
+| REQ-M44-D2-04 | `bin/gsd-t-orchestrator-config.cjs` exports `computeInSessionHeadroom({ctxPct, workerCount, summarySize})` → `{ok, reducedCount}`. `ok=true` iff `ctxPct + workerCount × summarySize ≤ 85`; otherwise reduce N until it fits. Final floor is N=1 — NEVER returns `ok=false` (in-session must never throw pause/resume). | m44-d2-parallel-cli | **complete (2026-04-23)** |
+| REQ-M44-D2-05 | `bin/gsd-t-orchestrator-config.cjs` exports `computeUnattendedGate({estimatedCwPct, threshold=60})` → `{ok, split}`. `split=true` when `estimatedCwPct > threshold`; caller MUST slice into multiple iters. Actual slicing is orchestrator responsibility. | m44-d2-parallel-cli | **complete (2026-04-23)** |
+| REQ-M44-D2-06 | `runParallel` wires three gates in sequence BEFORE any fan-out: D4 depgraph → D5 disjointness → D6 economics. Any veto emits `gate_veto` event `{type, task_id, gate, reason, ts}` and the task drops from the parallel batch (decision="sequential" or "veto-deps"). | m44-d2-parallel-cli | **complete (2026-04-23)** |
+| REQ-M44-D2-07 | In-session mode reads `ctxPct` from `bin/token-budget.cjs::getSessionStatus()`. On reduction (`reducedCount < workerCount`), emits `parallelism_reduced` event `{type, original_count, reduced_count, reason:'in_session_headroom', ts}`. | m44-d2-parallel-cli | **complete (2026-04-23)** |
+| REQ-M44-D2-08 | Unattended mode calls D6 `estimateTaskFootprint` per task + `computeUnattendedGate`. On split, emits `task_split` event `{type, task_id, estimatedCwPct, ts}`. | m44-d2-parallel-cli | **complete (2026-04-23)** |
+| REQ-M44-D2-09 | `--dry-run` prints a fixed-width 6-column plan table (`task_id`, `domain`, `estimated CW%`, `disjoint?`, `deps ok?`, `decision`) followed by total worker count and mode; exits without spawning any workers. | m44-d2-parallel-cli | **complete (2026-04-23)** |
+| REQ-M44-D2-10 | `.gsd-t/contracts/wave-join-contract.md` bumped v1.0.0 → v1.1.0 with §Mode-Aware Gating Math documenting both thresholds, `reducedCount` fallback behavior, the three event schemas, and invariant preservation. | m44-d2-parallel-cli | **complete (2026-04-23)** |
+
+Supporting contract:
+- `wave-join-contract.md` v1.1.0 — M44 D2 addendum locks the gating math surface, thresholds, and event schemas.
+
+Out of scope for D2:
+- Command file wiring (`commands/gsd-t-execute.md`, `gsd-t-wave.md`, etc.) — that is D3
+- Actual task slicing implementation (D2 only emits `task_split`; orchestrator executes)
+- Replacing or rewriting `bin/gsd-t-orchestrator.js` — M44 builds on M40
