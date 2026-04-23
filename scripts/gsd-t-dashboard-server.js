@@ -513,6 +513,116 @@ function listActiveSpawnPlans(projectDir) {
   return listAllSpawnPlans(projectDir).filter((p) => p && p.endedAt == null);
 }
 
+// ── M44 D9 — Parallelism observability ──────────────────────────────────────
+// Additive endpoints powered by bin/parallelism-report.cjs (v1.0.0 contract).
+// Pure read-only observer; never writes, never spawns. 5-second per-response
+// cache so rapid panel polls don't hammer the filesystem.
+
+const PARALLELISM_CACHE_MS = 5000;
+const _parallelismCache = { metrics: { at: 0, body: null, wave: null }, report: new Map() };
+
+function _loadParallelismReporter() {
+  try {
+    // Resolve at call-time so tests that don't install the module don't break
+    // unrelated endpoints. Require is cached by Node after first success.
+    return require(path.join(__dirname, "..", "bin", "parallelism-report.cjs"));
+  } catch (err) {
+    return { _loadError: err && err.message || String(err) };
+  }
+}
+
+function handleParallelism(req, res, projectDir) {
+  const urlObj = req.url ? req.url.split("?") : ["", ""];
+  const qs = urlObj[1] || "";
+  const params = new URLSearchParams(qs);
+  const wave = params.get("wave") || null;
+  const now = Date.now();
+  const cache = _parallelismCache.metrics;
+  if (cache.body && cache.wave === wave && (now - cache.at) < PARALLELISM_CACHE_MS) {
+    res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*", "X-Cache": "hit" });
+    res.end(cache.body);
+    return;
+  }
+  const reporter = _loadParallelismReporter();
+  if (reporter._loadError) {
+    res.writeHead(500, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "parallelism-report module unavailable", detail: reporter._loadError }));
+    return;
+  }
+  let metrics;
+  try {
+    metrics = reporter.computeParallelismMetrics({ projectDir, wave: wave || undefined });
+  } catch (err) {
+    // Contract says silent-fail; a thrown error here means contract regression.
+    res.writeHead(500, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "computeParallelismMetrics threw", detail: err && err.message || String(err) }));
+    return;
+  }
+  const body = JSON.stringify(metrics);
+  cache.at = now;
+  cache.wave = wave;
+  cache.body = body;
+  res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*", "X-Cache": "miss" });
+  res.end(body);
+}
+
+function handleParallelismReport(req, res, projectDir) {
+  const urlObj = req.url ? req.url.split("?") : ["", ""];
+  const qs = urlObj[1] || "";
+  const params = new URLSearchParams(qs);
+  const wave = params.get("wave") || null;
+  const cacheKey = wave || "__all__";
+  const now = Date.now();
+  const cached = _parallelismCache.report.get(cacheKey);
+  if (cached && (now - cached.at) < PARALLELISM_CACHE_MS) {
+    res.writeHead(200, { "Content-Type": "text/markdown; charset=utf-8", "Access-Control-Allow-Origin": "*", "X-Cache": "hit" });
+    res.end(cached.body);
+    return;
+  }
+  const reporter = _loadParallelismReporter();
+  if (reporter._loadError) {
+    res.writeHead(500, { "Content-Type": "text/plain" });
+    res.end("parallelism-report module unavailable: " + reporter._loadError);
+    return;
+  }
+  let md;
+  try {
+    md = reporter.buildFullReport({ projectDir, wave: wave || undefined });
+  } catch (err) {
+    res.writeHead(500, { "Content-Type": "text/plain" });
+    res.end("buildFullReport threw: " + (err && err.message || String(err)));
+    return;
+  }
+  _parallelismCache.report.set(cacheKey, { at: now, body: md });
+  res.writeHead(200, { "Content-Type": "text/markdown; charset=utf-8", "Access-Control-Allow-Origin": "*", "X-Cache": "miss" });
+  res.end(md);
+}
+
+// POST /api/unattended-stop — proxies to the existing stop-sentinel flow so
+// the transcript panel's "Stop Supervisor" button reuses the canonical
+// kill path. Writes `.gsd-t/.unattended/stop` sentinel; supervisor polls
+// it and self-exits. Contract reminder: D9 does NOT implement its own
+// stop logic, does NOT PID-kill.
+function handleUnattendedStop(req, res, projectDir) {
+  if (req.method !== "POST") {
+    res.writeHead(405, { "Content-Type": "application/json", "Allow": "POST" });
+    res.end(JSON.stringify({ error: "method not allowed" }));
+    return;
+  }
+  const stopDir = path.join(projectDir, ".gsd-t", ".unattended");
+  const stopFile = path.join(stopDir, "stop");
+  try {
+    fs.mkdirSync(stopDir, { recursive: true });
+    fs.writeFileSync(stopFile, new Date().toISOString() + "\n");
+  } catch (err) {
+    res.writeHead(500, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "failed to write stop sentinel", detail: err && err.message || String(err) }));
+    return;
+  }
+  res.writeHead(200, { "Content-Type": "application/json" });
+  res.end(JSON.stringify({ ok: true, sentinel: stopFile }));
+}
+
 function handleSpawnPlans(req, res, projectDir) {
   const plans = listActiveSpawnPlans(projectDir).sort((a, b) => {
     const ta = Date.parse(a.startedAt) || 0;
@@ -576,6 +686,11 @@ function startServer(port, eventsDir, htmlPath, projectDir, transcriptHtmlPath) 
     // M44 D8 — spawn plans: GET list + SSE change stream
     if (url === "/api/spawn-plans") return handleSpawnPlans(req, res, projDir);
     if (url === "/api/spawn-plans/stream") return handleSpawnPlanUpdates(req, res, projDir);
+    // M44 D9 — parallelism observability (additive, read-only)
+    if (url === "/api/parallelism") return handleParallelism(req, res, projDir);
+    if (url === "/api/parallelism/report") return handleParallelismReport(req, res, projDir);
+    // M44 D9 — stop-supervisor proxy (POST only; reuses existing sentinel flow)
+    if (url === "/api/unattended-stop") return handleUnattendedStop(req, res, projDir);
     // POST /transcript/:spawnId/kill — SIGTERM the recorded workerPid
     const killMatch = url.match(/^\/transcript\/([^/]+)\/kill$/);
     if (killMatch && req.method === "POST") return handleTranscriptKill(req, res, decodeURIComponent(killMatch[1]), projDir);
@@ -626,6 +741,10 @@ module.exports = {
   handleSpawnPlanUpdates,
   readSpawnPlanFile,
   spawnsDir,
+  // M44 D9 — parallelism observability
+  handleParallelism,
+  handleParallelismReport,
+  handleUnattendedStop,
 };
 
 if (require.main === module) {

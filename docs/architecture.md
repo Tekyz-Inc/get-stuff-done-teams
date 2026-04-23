@@ -978,6 +978,72 @@ means in-flight.
 `test/m44-d8-dashboard-spawn-plans-endpoint.test.js`,
 `test/m44-d8-transcript-renderer-panel.test.js` — 36 tests total.
 
+## Parallelism Panel (M44 D9, v3.19.0+)
+
+Pure-observer readout answering two questions:
+
+> *Is the orchestrator actually fanning out, or serializing despite parallelism being available?*
+
+> *When this wave finishes, did it hit the parallelism factor D6 estimated?*
+
+Zero added LLM token cost — every number is derived from files the other
+M44 domains already write: D8 spawn-plan files, D4/D5/D6 event rows, and
+D7 `cw_id` columns in `.gsd-t/token-log.md`.
+
+**Module**: `bin/parallelism-report.cjs` —
+`computeParallelismMetrics({projectDir, wave?, now?})` returns the shape
+defined in `.gsd-t/contracts/parallelism-report-contract.md` v1.0.0.
+`buildFullReport(...)` returns a post-mortem markdown string with Summary,
+Per-spawn timeline, Per-gate decisions, Per-worker Gantt, Token cost, and
+Notes sections.
+
+**Data flow**:
+
+```
+  .gsd-t/spawns/*.json  ─┐                     (D8 writer)
+  .gsd-t/events/*.jsonl ─┼─▶  bin/parallelism-report.cjs
+  .gsd-t/domains/*/tasks.md ┤       │
+  .gsd-t/token-log.md   ─┘       (pure I/O — never writes, never spawns)
+                                    │
+                                    ▼
+                    scripts/gsd-t-dashboard-server.js
+                    (5s in-memory cache per wave param)
+                      ├── GET /api/parallelism           → JSON metrics
+                      ├── GET /api/parallelism/report    → markdown
+                      └── POST /api/unattended-stop      → writes sentinel
+                                    │
+                                    ▼
+                    scripts/gsd-t-transcript.html
+                    `<aside class="spawn-panel"> .parallelism-panel`
+                    polls /api/parallelism every 5s
+```
+
+**Color thresholds** (worst-of across five per-signal colors, from contract §color_state):
+
+| Signal | Green | Yellow | Red |
+|--------|-------|--------|-----|
+| activeWorkers / readyTasks | ≥80% | 50–80% | <50% AND >10 min since last spawn |
+| Gate veto rate (D4) | <10% | 10–30% | >30% |
+| parallelism_factor vs. D6 estimate | ≥80% | 50–80% | <50% |
+| Spawn age (any active worker) | <30 min | 30–45 min | >45 min |
+| Time since last `spawn_started` (when ready>0) | <5 min | 5–10 min | >10 min |
+
+Special: `color_state === "dimmed"` when no spawn-plan files exist (idle
+project) — never red.
+
+**Silent-fail invariant**: malformed spawn-plan JSON, corrupt JSONL event
+lines, missing `.gsd-t/domains/`, missing `.gsd-t/token-log.md` — every
+case logs a note to `metrics.notes` / Full Report `## Notes` and continues
+with partial data. Observer must never throw when watching a live system.
+
+**Contract**: `.gsd-t/contracts/parallelism-report-contract.md` v1.0.0.
+
+**Tests**: `test/m44-d9-parallelism.test.js` — 16 tests covering metric
+shape, parallelism_factor math (live 1-worker, 4-worker, mixed-duration,
+post-wave), color-state thresholds, silent-fail on malformed inputs, Full
+Report markdown sections, and `/api/parallelism*` endpoint shape + 5s
+cache behaviour.
+
 ## Planned Architecture Changes (M23-M24)
 
 **M23: Headless Mode**

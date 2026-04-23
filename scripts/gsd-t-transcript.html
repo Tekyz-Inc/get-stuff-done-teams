@@ -45,6 +45,27 @@
     .spawn-panel .empty { color: var(--fg-xdim); font-style: italic; padding: 4px 0; font-size: 11px; }
     .spawn-panel .wave-group { border-top: 1px dashed var(--border); padding-top: 4px; margin-top: 4px; }
     .spawn-panel .wave-group:first-child { border-top: none; padding-top: 0; margin-top: 0; }
+    /* M44 D9 — parallelism panel (additive; scoped to its own class). */
+    .parallelism-panel { margin-top: 14px; border: 1px solid var(--border); border-radius: 4px; padding: 10px 12px; background: var(--bg); transition: border-color 200ms ease; }
+    .parallelism-panel.color-green { border-color: #10b981; }
+    .parallelism-panel.color-yellow { border-color: #f59e0b; }
+    .parallelism-panel.color-red { border-color: #ef4444; }
+    .parallelism-panel.color-dimmed { border-color: #374151; opacity: 0.5; }
+    .parallelism-panel h3 { margin: 0 0 6px 0; font-size: 11px; text-transform: uppercase; color: var(--fg-xdim); letter-spacing: 0.08em; display: flex; justify-content: space-between; align-items: baseline; }
+    .parallelism-panel h3 .pp-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: currentColor; margin-right: 6px; vertical-align: middle; }
+    .parallelism-panel .pp-dot.dot-green { color: #10b981; }
+    .parallelism-panel .pp-dot.dot-yellow { color: #f59e0b; }
+    .parallelism-panel .pp-dot.dot-red { color: #ef4444; }
+    .parallelism-panel .pp-dot.dot-dimmed { color: #374151; }
+    .parallelism-panel .pp-row { display: flex; justify-content: space-between; font-size: 11px; padding: 2px 0; font-family: var(--mono); }
+    .parallelism-panel .pp-row .pp-k { color: var(--fg-xdim); }
+    .parallelism-panel .pp-row .pp-v { color: var(--fg); }
+    .parallelism-panel .pp-gates { margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--border); font-size: 11px; font-family: var(--mono); color: var(--fg-dim); }
+    .parallelism-panel .pp-gates span { margin-right: 8px; }
+    .parallelism-panel .pp-actions { display: flex; gap: 6px; margin-top: 8px; }
+    .parallelism-panel .pp-actions button { flex: 1; padding: 4px 8px; font-size: 11px; background: var(--bg-raised); color: var(--fg); border: 1px solid var(--border); border-radius: 3px; cursor: pointer; font-family: var(--sans); }
+    .parallelism-panel .pp-actions button:hover { border-color: var(--accent); }
+    .parallelism-panel .pp-actions button.danger:hover { border-color: #ef4444; color: #ef4444; }
     .spawn-panel .wave-label { font-size: 10px; color: var(--fg-xdim); font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.05em; margin: 4px 0 2px 0; }
     aside h3 { margin: 0 12px 8px 12px; font-size: 11px; text-transform: uppercase; color: var(--fg-xdim); letter-spacing: 0.08em; }
     aside .tree { font-size: 13px; }
@@ -174,6 +195,20 @@
       <div class="sec-totals" id="active-totals">—</div>
       <div id="active-tasks"><div class="empty">no active spawn plan</div></div>
     </section>
+    <!-- M44 D9 — parallelism panel (additive). Reads /api/parallelism every 5s.
+         Color border reflects color_state (green/yellow/red/dimmed). -->
+    <div class="parallelism-panel color-dimmed" id="parallelism-panel">
+      <h3><span><span class="pp-dot dot-dimmed" id="pp-dot"></span>Parallelism</span><span id="pp-mode" style="font-size:10px;color:var(--fg-xdim);">idle</span></h3>
+      <div class="pp-row"><span class="pp-k">active workers</span><span class="pp-v" id="pp-active">—</span></div>
+      <div class="pp-row"><span class="pp-k">ready tasks</span><span class="pp-v" id="pp-ready">—</span></div>
+      <div class="pp-row"><span class="pp-k">parallelism factor</span><span class="pp-v" id="pp-factor">—</span></div>
+      <div class="pp-row"><span class="pp-k">oldest spawn</span><span class="pp-v" id="pp-oldest">—</span></div>
+      <div class="pp-gates" id="pp-gates"><span>dep: —</span><span>disj: —</span><span>eco: —</span></div>
+      <div class="pp-actions">
+        <button id="pp-report-btn" title="Download full parallelism post-mortem for the current wave">📄 Full Report</button>
+        <button id="pp-stop-btn" class="danger" title="Write .gsd-t/.unattended/stop sentinel to halt an active supervisor">Stop Supervisor</button>
+      </div>
+    </div>
   </aside>
   <button class="jump-to-live" id="jump-btn">↓ Jump to live</button>
 
@@ -942,6 +977,99 @@
       subscribePlanUpdates();
       // Light poll every 10s as a safety net if SSE is disconnected.
       setInterval(fetchInitialPlans, 10000);
+
+      // ── M44 D9 — Parallelism panel ─────────────────────────────────────────
+      // Polls /api/parallelism every 5s. Color border reflects color_state.
+      // Full Report button fetches /api/parallelism/report and downloads the
+      // markdown. Stop Supervisor POSTs /api/unattended-stop (writes sentinel).
+      (function wireParallelismPanel() {
+        const panel = document.getElementById('parallelism-panel');
+        if (!panel) return;
+        const dot = document.getElementById('pp-dot');
+        const modeEl = document.getElementById('pp-mode');
+        const activeEl = document.getElementById('pp-active');
+        const readyEl = document.getElementById('pp-ready');
+        const factorEl = document.getElementById('pp-factor');
+        const oldestEl = document.getElementById('pp-oldest');
+        const gatesEl = document.getElementById('pp-gates');
+        const reportBtn = document.getElementById('pp-report-btn');
+        const stopBtn = document.getElementById('pp-stop-btn');
+
+        function fmtAge(s) {
+          if (s == null || !isFinite(s)) return '—';
+          if (s < 60) return s + 's';
+          const m = Math.floor(s / 60), rs = s % 60;
+          if (m < 60) return m + 'm ' + rs + 's';
+          const h = Math.floor(m / 60), rm = m % 60;
+          return h + 'h ' + rm + 'm';
+        }
+
+        function applyColor(state) {
+          const colors = ['color-green', 'color-yellow', 'color-red', 'color-dimmed'];
+          const dots = ['dot-green', 'dot-yellow', 'dot-red', 'dot-dimmed'];
+          for (const c of colors) panel.classList.remove(c);
+          for (const d of dots) dot.classList.remove(d);
+          const cls = 'color-' + (state || 'dimmed');
+          const dcls = 'dot-' + (state || 'dimmed');
+          panel.classList.add(cls);
+          dot.classList.add(dcls);
+        }
+
+        function renderGates(g) {
+          if (!g) { gatesEl.textContent = 'gates: —'; return; }
+          const dep = g.dep_gate_veto || { count: 0 };
+          const dis = g.disjointness_fallback || { count: 0 };
+          const eco = g.economics_decision || { count: 0 };
+          function tally(c) { return c === 0 ? '✓ 0' : (c <= 3 ? '⚠ ' + c : '❌ ' + c); }
+          gatesEl.innerHTML = '<span>dep: ' + tally(dep.count) + '</span>' +
+                              '<span>disj: ' + tally(dis.count) + '</span>' +
+                              '<span>eco: ' + eco.count + '</span>';
+        }
+
+        async function poll() {
+          try {
+            const r = await fetch('/api/parallelism');
+            if (!r.ok) return;
+            const m = await r.json();
+            applyColor(m.color_state);
+            modeEl.textContent = m.parallelism_factor_mode || 'idle';
+            activeEl.textContent = String(m.activeWorkers);
+            readyEl.textContent = String(m.readyTasks);
+            factorEl.textContent = (typeof m.parallelism_factor === 'number' ? m.parallelism_factor.toFixed(1) : '—') + '×';
+            const oldest = (m.activeSpawnAges_s && m.activeSpawnAges_s.length) ? m.activeSpawnAges_s[0] : null;
+            oldestEl.textContent = fmtAge(oldest);
+            renderGates(m.gate_decisions);
+          } catch { /* keep last state on transient failure */ }
+        }
+
+        async function downloadReport() {
+          try {
+            const r = await fetch('/api/parallelism/report');
+            if (!r.ok) return;
+            const md = await r.text();
+            const blob = new Blob([md], { type: 'text/markdown' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'parallelism-report-' + new Date().toISOString().slice(0, 19).replace(/:/g, '-') + '.md';
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+          } catch { /* swallow */ }
+        }
+
+        async function stopSupervisor() {
+          if (!confirm('Write .gsd-t/.unattended/stop sentinel? Active supervisor will exit on next poll.')) return;
+          try {
+            const r = await fetch('/api/unattended-stop', { method: 'POST' });
+            if (r.ok) { stopBtn.textContent = 'Stop sent ✓'; setTimeout(() => { stopBtn.textContent = 'Stop Supervisor'; }, 3000); }
+          } catch { /* swallow */ }
+        }
+
+        if (reportBtn) reportBtn.addEventListener('click', downloadReport);
+        if (stopBtn) stopBtn.addEventListener('click', stopSupervisor);
+        poll();
+        setInterval(poll, 5000);
+      })();
     })();
   </script>
 </body>
