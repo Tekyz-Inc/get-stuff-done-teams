@@ -3,7 +3,7 @@
 ## Wave 2 — Gates
 
 ### M44-D4-T1 — Contract skeleton + module scaffold
-- **Status**: [x] done (2026-04-22 · commit `__T1_SHA__`)
+- **Status**: [x] done (2026-04-22 · commit `5c3844a`)
 - **Dependencies**: M44-D1-T5 (D1 complete — DAG emitter must exist)
 - **Acceptance criteria**:
   - `.gsd-t/contracts/depgraph-validation-contract.md` exists with veto semantics, event format, and non-throwing guarantee (v0.1.0 skeleton)
@@ -11,7 +11,7 @@
 - **Files touched**: `.gsd-t/contracts/depgraph-validation-contract.md` (new), `bin/gsd-t-depgraph-validate.cjs` (new)
 
 ### M44-D4-T2 — Core validator implementation
-- **Status**: [ ] pending
+- **Status**: [x] done (2026-04-22 · commit `__T2_SHA__`)
 - **Dependencies**: M44-D4-T1
 - **Acceptance criteria**:
   - `validateDepGraph({graph, projectDir})` returns `{ready: [...], vetoed: [...]}` where `vetoed` contains all tasks with at least one unmet dependency
