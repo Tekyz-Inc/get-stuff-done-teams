@@ -40,7 +40,7 @@
 - **Files touched**: `test/m44-economics.test.js` (new)
 
 ### M44-D6-T5 — Doc-ripple + tests-pass commit
-- **Status**: [x] done (2026-04-22 · commit `pending`)
+- **Status**: [x] done (2026-04-22 · commit `272a1bc`)
 - **Dependencies**: M44-D6-T4
 - **Acceptance criteria**:
   - `docs/requirements.md` updated with §"M44 Pre-Spawn Economics Estimator" requirement entry
