@@ -2,6 +2,17 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [Unreleased] — v3.19.00 pending
+
+### Measured — Dispatcher T/2 criterion (backlog #15, leg 1 of 2)
+
+- **`bin/m44-proof-measure.cjs`** runs a falsifiable measurement of the v3.19.00 parallel dispatcher using a synthetic spawner (`test/fixtures/m44-proof/worker-sim.js`) injected into `runDispatch` via `opts.spawnHeadlessImpl`. Fixture (`test/fixtures/m44-proof/fixture.tasks.md`): 4 file-disjoint tasks with explicit `- touches:` sub-bullets (D5 disjointness requirement). Each worker sleeps `WORKER_DURATION_MS` (default 8000ms) then writes a JSON `.done` marker — zero LLM calls, zero network, zero side effects outside `OUT_DIR`. **Result**: T_par = **8111.1 ms**, T_seq = **32146.1 ms**, speedup **3.96×**, parallelism_factor **3.95** (ideal = 4), dispatch overhead **8.2 ms**. Criterion `T_par ≤ T_seq/2` → **MET ✓**. Report JSON at `.gsd-t/m44-proof-report.json`. This proves the dispatcher fans out concurrently; it does NOT prove N Claude workers produce correct code in T/N (a separate experiment, deferred to a follow-up backlog item).
+
+### Pending — Zero-compaction criterion (backlog #15, leg 2 of 2)
+
+- **NOT YET MEASURED.** Requires an unattended supervisor run over a workload that historically would have triggered mid-run `/compact`, producing zero `type:"compaction_post_spawn"` rows in `.gsd-t/metrics/compactions.jsonl` under the fully-wired v3.19.00 surface (`ca20477` supervisor→planner + `799a8af` single-instrument + `19eb3eb` D9 observability panel). Existing 81 rows in the compactions log contain 0 `compaction_post_spawn` entries, but the only post-19eb3eb unattended state predates the D9 landing and is therefore not a valid sample.
+- **`v3.19.00` tag deferred** until the zero-compaction leg completes. Per user standing directive `feedback_measure_dont_claim.md`: "milestones with measurable success criteria are not complete until measurement is run AND reported."
+
 ## [3.18.15] - 2026-04-23
 
 ### Fixed — Supervisor false-failed marker (M45 follow-up)

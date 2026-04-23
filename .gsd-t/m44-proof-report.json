@@ -1,0 +1,90 @@
+{
+  "generatedAt": "2026-04-23T19:43:11.925Z",
+  "workerDurationMs": 8000,
+  "sequential": {
+    "mode": "sequential",
+    "taskCount": 4,
+    "wallClockMs": 32146.13125,
+    "perWorkerDurationMs": [
+      8001.437,
+      8001.331208,
+      8001.531291,
+      8001.757666
+    ],
+    "sumWorkerDurationMs": 32006.057165000002
+  },
+  "parallel": {
+    "mode": "parallel",
+    "fanOutCount": 4,
+    "launched": 4,
+    "wallClockMs": 8111.071333,
+    "dispatchOverheadMs": 8.206,
+    "perWorkerDurationMs": [
+      8001.17175,
+      8001.372333,
+      8000.814459,
+      8000.590708
+    ],
+    "sumWorkerDurationMs": 32003.94925,
+    "workerPids": [
+      59551,
+      59552,
+      59553,
+      59554
+    ],
+    "markers": [
+      {
+        "workerIndex": 0,
+        "workerTotal": 4,
+        "taskIds": [
+          "M99-D1-T1"
+        ],
+        "startedAt": "2026-04-23T19:43:03.850Z",
+        "endedAt": "2026-04-23T19:43:11.852Z",
+        "durationMs": 8001.17175,
+        "requestedMs": 8000,
+        "pid": 59551
+      },
+      {
+        "workerIndex": 1,
+        "workerTotal": 4,
+        "taskIds": [
+          "M99-D1-T2"
+        ],
+        "startedAt": "2026-04-23T19:43:03.855Z",
+        "endedAt": "2026-04-23T19:43:11.857Z",
+        "durationMs": 8001.372333,
+        "requestedMs": 8000,
+        "pid": 59552
+      },
+      {
+        "workerIndex": 2,
+        "workerTotal": 4,
+        "taskIds": [
+          "M99-D1-T3"
+        ],
+        "startedAt": "2026-04-23T19:43:03.857Z",
+        "endedAt": "2026-04-23T19:43:11.859Z",
+        "durationMs": 8000.814459,
+        "requestedMs": 8000,
+        "pid": 59553
+      },
+      {
+        "workerIndex": 3,
+        "workerTotal": 4,
+        "taskIds": [
+          "M99-D1-T4"
+        ],
+        "startedAt": "2026-04-23T19:43:03.862Z",
+        "endedAt": "2026-04-23T19:43:11.863Z",
+        "durationMs": 8000.590708,
+        "requestedMs": 8000,
+        "pid": 59554
+      }
+    ]
+  },
+  "ratio": 0.25231874000390014,
+  "speedup": 3.963241097290446,
+  "parallelismFactor": 3.9457117236525234,
+  "criterionMet": true
+}
