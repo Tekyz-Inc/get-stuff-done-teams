@@ -40,7 +40,7 @@
 - **Files touched**: `.gsd-t/contracts/wave-join-contract.md`, `test/m44-parallel-cli.test.js` (new)
 
 ### M44-D2-T5 — Doc-ripple + tests-pass commit
-- **Status**: [x] done (2026-04-23 · commit <pending>)
+- **Status**: [x] done (2026-04-23 · commit d411d0c)
 - **Dependencies**: M44-D2-T4
 - **Acceptance criteria**:
   - `docs/requirements.md` updated with §"M44 Parallel CLI" requirement entry
