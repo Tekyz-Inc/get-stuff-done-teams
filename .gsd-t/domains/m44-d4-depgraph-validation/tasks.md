@@ -11,7 +11,7 @@
 - **Files touched**: `.gsd-t/contracts/depgraph-validation-contract.md` (new), `bin/gsd-t-depgraph-validate.cjs` (new)
 
 ### M44-D4-T2 — Core validator implementation
-- **Status**: [x] done (2026-04-22 · commit `__T2_SHA__`)
+- **Status**: [x] done (2026-04-22 · commit `49d1d5e`)
 - **Dependencies**: M44-D4-T1
 - **Acceptance criteria**:
   - `validateDepGraph({graph, projectDir})` returns `{ready: [...], vetoed: [...]}` where `vetoed` contains all tasks with at least one unmet dependency
@@ -21,7 +21,7 @@
 - **Files touched**: `bin/gsd-t-depgraph-validate.cjs`, `.gsd-t/contracts/depgraph-validation-contract.md`
 
 ### M44-D4-T3 — Unit test suite
-- **Status**: [ ] pending
+- **Status**: [x] done (2026-04-22 · commit `__T3_SHA__`)
 - **Dependencies**: M44-D4-T2
 - **Acceptance criteria**:
   - `test/m44-depgraph-validate.test.js` covers: all deps done (full ready set), one dep unmet (that task vetoed, others unaffected), three-task chain with only first done (only second ready, third vetoed), empty graph (returns empty ready set), unknown dep reference (treated as unmet)
