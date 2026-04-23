@@ -867,6 +867,73 @@ The hook ALWAYS exits 0 — throwing breaks Claude Code SessionStart. It include
 
 **Tests**: `test/m44-parallel-cli.test.js` (21 tests covering headroom ok/reduced/floor, unattended gate ok/split/boundary, plan-table format, runParallel in-session fan-out, disjointness gate-veto fallback, mode auto-detect, explicit-mode override, headroom reduction end-to-end with a 5-domain fixture at 70% ctxPct, and CLI arg parsing).
 
+## Spawn Plan Visibility (M44 D8, v3.18.10+)
+
+Right-side two-layer task panel in the dashboard / transcript visualizer.
+Answers exactly one question: *"Of the tasks that were supposed to happen
+in this spawn, which are done, which are in flight, which are pending?"*
+Observability-only; zero added LLM token cost.
+
+**Writers (3 chokepoints; all wrapped in try/catch — plan-write failure NEVER blocks the spawn)**:
+- `bin/gsd-t-token-capture.cjs` — `captureSpawn()` calls `writeSpawnPlan`
+  before `await spawnFn()` and `markSpawnEnded` in both success/error paths.
+- `bin/headless-auto-spawn.cjs` — `autoSpawnHeadless()` calls
+  `writeSpawnPlan` before the detached child launches; `markSessionCompleted`
+  now also closes the plan.
+- `commands/gsd-t-resume.md` Step 0 — under `GSD_T_UNATTENDED_WORKER=1`,
+  every worker iteration writes a plan at iteration start.
+
+**Derivation**: `bin/spawn-plan-derive.cjs` reads `.gsd-t/partition.md` +
+`.gsd-t/domains/*/tasks.md` and emits `{milestone, wave, domains, tasks}`.
+Deterministic projection — no LLM calls, no prompts. Silent-fails to an
+empty slice when partition is absent.
+
+**Status updater**: `bin/spawn-plan-status-updater.cjs` — atomic JSON
+patches:
+- `markTaskDone({spawnId, taskId, commit, tokens?, projectDir})`
+- `markSpawnEnded({spawnId, endedReason, projectDir})`
+- `sumTokensForTask(...)` — parses `.gsd-t/token-log.md` rows where
+  `Task` column matches the id AND `Datetime-start >= spawn.startedAt`.
+
+**Post-commit hook**: `scripts/gsd-t-post-commit-spawn-plan.sh` (+ template
+at `templates/hooks/post-commit-spawn-plan.sh`). Greps commit message for
+all `[M\d+-D\d+-T\d+]` ids; for each active plan, calls `markTaskDone`
+with token attribution. Silent-fail: always `exit 0`.
+
+**Reader surface**:
+- `GET /api/spawn-plans` — active plans (where `endedAt === null`),
+  newest-first.
+- SSE channel `/api/spawn-plans/stream` — `fs.watch` on
+  `.gsd-t/spawns/*.json` emits `{spawnId, plan}` on every change.
+- `scripts/gsd-t-transcript.html` — right-side `<aside class="spawn-panel">`
+  with Layer 1 (project) + Layer 2 (active spawn). Status icons
+  `☐` pending / `◐` in_progress / `✓` done. Token cells render as
+  `in=12.5k out=1.7k $0.42` (k-suffix above 1000, 2-decimal USD); `—` when
+  attribution returned null.
+
+**Storage**: `.gsd-t/spawns/{spawnId}.json`. Schema v1. Atomic writes
+(temp file + rename). `spawnId` is filesystem-safe
+(`^[A-Za-z0-9._-]{1,200}$`). One ACTIVE plan per spawn; `endedAt === null`
+means in-flight.
+
+**Invariants** (from `.gsd-t/domains/m44-d8-spawn-plan-visibility/constraints.md`):
+1. Writer DERIVES, never decides.
+2. Spawn must launch even if writer fails.
+3. Atomic writes only.
+4. Post-commit hook silent-fail.
+5. Zero new LLM token cost.
+6. Additive edits to existing files only.
+7. No transcript-derivation fallback — missing plan file → *"no active
+   spawn plan"*, never reconstruct from transcript heuristics.
+
+**Contract**: `.gsd-t/contracts/spawn-plan-contract.md` v1.0.0.
+
+**Tests**: `test/m44-d8-spawn-plan-writer.test.js`,
+`test/m44-d8-spawn-plan-status-updater.test.js`,
+`test/m44-d8-post-commit-hook.test.js`,
+`test/m44-d8-dashboard-spawn-plans-endpoint.test.js`,
+`test/m44-d8-transcript-renderer-panel.test.js` — 36 tests total.
+
 ## Planned Architecture Changes (M23-M24)
 
 **M23: Headless Mode**
