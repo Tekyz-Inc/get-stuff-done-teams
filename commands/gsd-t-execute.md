@@ -125,6 +125,28 @@ If QA found issues, append each to `.gsd-t/qa-issues.md` (create with header `| 
 node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-execute --step 3 --step-label "Choose Execution Mode" 2>/dev/null || true
 ```
 
+### Optional — Parallel Dispatch (M44)
+
+**Conditional check** — if `.gsd-t/domains/` contains more than one pending task that passes the D4 depgraph, D5 file-disjointness, and D6 economics gates, dispatch the ready batch via `gsd-t parallel` instead of the sequential task-dispatcher below. If the conditional fails (single pending task, or any gate vetoes, or disjointness is unprovable), fall through silently to the existing sequential path — there is no user prompt, no pause, no opt-out flag.
+
+- **Mode auto-detection** — mode is auto-detected by `bin/gsd-t-parallel.cjs` from `GSD_T_UNATTENDED=1`. Do not hardcode `--mode` in this command file. Explicit `--mode` overrides env; omitted flag falls back to env; missing env defaults to in-session.
+- **Fallback** — every gate veto (D4 `dep_gate_veto`, D5 `disjointness_fallback`, D6 estimated > threshold) removes the affected task(s) from the parallel batch. Tasks fall back to the sequential task-dispatcher silently; the dry-run plan table still lists them with decision `sequential` or `veto-deps` so the operator can see why.
+- **Observability** — D2 owns the spawn observability. The parallel path writes the same `.gsd-t/events/YYYY-MM-DD.jsonl` event stream (`gate_veto`, `parallelism_reduced`, `task_split`) and the same `.gsd-t/token-log.md` rows that sequential spawns produce via `captureSpawn`. D3 adds no new spawn machinery — integration is purely a dispatch decision.
+- **Zero-compaction invariant (unattended)** — for `[unattended]` runs, D2 enforces the zero-compaction contract by splitting tasks when D6 estimates per-worker CW > 60%. Mid-run compaction is not tolerated; the splitter slices before fan-out.
+- **In-session invariant** — the parallel path NEVER interrupts the user with a pause/resume prompt. If the in-session headroom check reduces the worker count below the requested N, D2 emits `parallelism_reduced` and proceeds at the reduced count. The final floor is N=1 (sequential). If all gates fail, D2 falls back to sequential silently — no `--in-session` opt-out flag exists.
+
+**Dispatch call** (example; resolve `--mode` via env):
+
+```bash
+# Dry-run first if you want to see the plan table without spawning:
+gsd-t parallel --milestone {milestone} --dry-run
+
+# Live dispatch (mode auto-detected from GSD_T_UNATTENDED):
+gsd-t parallel --milestone {milestone}
+```
+
+`runParallel` produces the validated worker plan; the existing M40 orchestrator machinery owns the actual worker spawn, retry policy, wave barriers, and state-file lifecycle. Contract: `.gsd-t/contracts/wave-join-contract.md` v1.1.0. When the conditional is not met — or when every candidate task falls back via veto — proceed to the existing Wave Scheduling + Solo/Team Mode flow below.
+
 ### Wave Scheduling (read first)
 
 Before choosing solo or team mode, read the `## Wave Execution Groups` section in `.gsd-t/contracts/integration-points.md` (added by the plan phase).
