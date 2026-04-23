@@ -103,6 +103,26 @@ If rolled-back domains exist, report them to the user (or if Level 3: log to `.g
 node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-integrate --step 3 --step-label "Wire Integration Points" 2>/dev/null || true
 ```
 
+### Optional — Parallel Dispatch (M44)
+
+When integration work spans **more than one domain simultaneously** (i.e., the integration-points.md list contains independent integration tasks across multiple domains), the ready batch may be dispatched via `gsd-t parallel` instead of the sequential task-level dispatch below. When integration touches only one domain (single-domain wiring), the conditional is a no-op and the existing sequential path runs unchanged.
+
+- **Conditional check** — only triggers when integrating > 1 domain AND the integration tasks pass D4 depgraph + D5 file-disjointness + D6 economics gates. Otherwise the block is a no-op.
+- **Mode auto-detection** — mode is auto-detected from `GSD_T_UNATTENDED=1` by `bin/gsd-t-parallel.cjs`. Do not hardcode `--mode` in this command file.
+- **Fallback** — any gate veto (unmet deps, overlapping write targets, unprovable disjointness) removes the affected tasks from the parallel batch; they fall back to the sequential task-dispatcher silently. No user prompt.
+- **Observability** — D2 owns the spawn observability. The parallel path writes the same `.gsd-t/events/YYYY-MM-DD.jsonl` records (`gate_veto`, `parallelism_reduced`, `task_split`) and `.gsd-t/token-log.md` rows as the sequential path via `captureSpawn`. D3 adds no new spawn machinery.
+- **Zero-compaction invariant (unattended)** — for `[unattended]` runs, D2 enforces zero-compaction by splitting integration tasks when D6 estimates > 60% per-worker CW.
+- **In-session invariant** — NEVER interrupts the user with a pause/resume prompt. If headroom is tight, D2 reduces the worker count (floor N=1) and emits `parallelism_reduced`. If all gates fail, falls back to sequential silently. No `--in-session` opt-out flag exists.
+
+Example (mode auto-detected from env):
+
+```bash
+gsd-t parallel --milestone {milestone} --dry-run   # preview plan, no spawn
+gsd-t parallel --milestone {milestone}             # live dispatch
+```
+
+Contract: `.gsd-t/contracts/wave-join-contract.md` v1.1.0.
+
 **Stack Rules Detection (before spawning subagent):**
 Run via Bash to detect project stack and collect matching rules:
 `GSD_T_DIR=$(npm root -g 2>/dev/null)/@tekyzinc/gsd-t; STACKS_DIR="$GSD_T_DIR/templates/stacks"; STACK_RULES=""; if [ -d "$STACKS_DIR" ]; then for f in "$STACKS_DIR"/_*.md; do [ -f "$f" ] && STACK_RULES="${STACK_RULES}$(cat "$f")"$'\n\n'; done; if [ -f "package.json" ]; then grep -q '"react"' package.json 2>/dev/null && [ -f "$STACKS_DIR/react.md" ] && STACK_RULES="${STACK_RULES}$(cat "$STACKS_DIR/react.md")"$'\n\n'; (grep -q '"typescript"' package.json 2>/dev/null || [ -f "tsconfig.json" ]) && [ -f "$STACKS_DIR/typescript.md" ] && STACK_RULES="${STACK_RULES}$(cat "$STACKS_DIR/typescript.md")"$'\n\n'; grep -qE '"(express|fastify|hono|koa)"' package.json 2>/dev/null && [ -f "$STACKS_DIR/node-api.md" ] && STACK_RULES="${STACK_RULES}$(cat "$STACKS_DIR/node-api.md")"$'\n\n'; fi; [ -f "requirements.txt" ] || [ -f "pyproject.toml" ] && [ -f "$STACKS_DIR/python.md" ] && STACK_RULES="${STACK_RULES}$(cat "$STACKS_DIR/python.md")"$'\n\n'; [ -f "go.mod" ] && [ -f "$STACKS_DIR/go.md" ] && STACK_RULES="${STACK_RULES}$(cat "$STACKS_DIR/go.md")"$'\n\n'; [ -f "Cargo.toml" ] && [ -f "$STACKS_DIR/rust.md" ] && STACK_RULES="${STACK_RULES}$(cat "$STACKS_DIR/rust.md")"$'\n\n'; ([ -f ".gsd-t/contracts/design-contract.md" ] || [ -f "design-tokens.json" ] || [ -d "design-tokens" ] || [ -f ".figmarc" ] || [ -f "figma.config.json" ] || grep -q '"figma"' ~/.claude/settings.json 2>/dev/null) && [ -f "$STACKS_DIR/design-to-code.md" ] && STACK_RULES="${STACK_RULES}$(cat "$STACKS_DIR/design-to-code.md")"$'\n\n'; fi`

@@ -210,6 +210,20 @@ Spawn agent → `commands/gsd-t-impact.md`
 #### 5. EXECUTE
 Spawn agent → `commands/gsd-t-execute.md`
 - This is the heaviest phase. The execute agent uses **task-level dispatch** (fresh-dispatch-contract.md): one Task subagent per task within each domain, each receiving only scope.md + relevant contracts + single task + graph context + up to 5 prior summaries. The execute agent handles domain task-dispatching and QA internally.
+
+##### Optional — Parallel Dispatch (M44)
+
+The spawned execute agent will itself decide whether to dispatch parallel workers via `gsd-t parallel` (see `commands/gsd-t-execute.md` Step 3 → "Optional — Parallel Dispatch (M44)"). The wave orchestrator does not need to configure this — it is automatic:
+
+- If `.gsd-t/domains/` contains more than one pending task passing D4/D5/D6 gates, the execute agent dispatches via `gsd-t parallel` instead of sequentially.
+- Mode is auto-detected from `GSD_T_UNATTENDED=1` — the wave orchestrator inherits this env from its own spawn. Do not hardcode `--mode`.
+- Fallback is silent: any gate veto, unprovable disjointness, or single-task scope drops back to the sequential execute path without a user prompt.
+- D2 owns the spawn observability; the parallel path writes the same `.gsd-t/events/YYYY-MM-DD.jsonl` records and `.gsd-t/token-log.md` rows as the sequential path via `captureSpawn`. D3 adds no new spawn machinery.
+- `[unattended]` — D2 enforces the zero-compaction contract by splitting tasks when D6 estimates per-worker CW > 60%.
+- `[in-session]` — NEVER interrupts the user with pause/resume. If headroom is tight, D2 reduces the worker count (floor N=1) and emits `parallelism_reduced`.
+
+No wave-orchestrator-level flag exists to opt out; the parallel-vs-sequential decision is owned by the execute agent and the D2 gating math. Contract: `.gsd-t/contracts/wave-join-contract.md` v1.1.0.
+
 - **Adaptive replanning**: After each domain completes, the execute agent runs a replan check (per `adaptive-replan-contract.md`). If a completed domain's task summaries reveal new constraints (e.g., deprecated API, wrong column name, incompatible library), the execute agent checks remaining domains' `tasks.md` files for invalidated assumptions and revises them on disk before dispatching the next domain. Maximum 2 replan cycles per execute run — if exceeded, execution pauses for user input. All replan decisions are logged to the Decision Log in `progress.md`. The wave phase summary includes any replan actions taken.
 - **Team/parallel mode**: If the plan defines parallel domains (same wave), the execute agent dispatches each domain teammate with `isolation: "worktree"` (per worktree-isolation-contract.md). Each domain works in an isolated git worktree. After all domains complete, the execute agent runs the Sequential Merge Protocol: merge domain A → test → merge domain B → test. Per-domain rollback if tests fail. Worktrees are cleaned up after all merges complete.
 - After: Read `progress.md`, verify status = EXECUTED. Phase summary must include replan actions if any occurred:

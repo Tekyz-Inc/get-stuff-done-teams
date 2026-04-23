@@ -3,7 +3,7 @@
 ## Wave 3 — Integration (D3 runs after D2 lands)
 
 ### M44-D3-T1 — Integration block design + execute.md integration
-- **Status**: [x] done (2026-04-23 · commit pending)
+- **Status**: [x] done (2026-04-23 · commit 114895b)
 - **Dependencies**: M44-D2-T5 (D2 fully complete)
 - **Acceptance criteria**:
   - Standard integration block prose drafted (reusable template for all 5 files): conditional check, mode auto-detection, fallback behavior, observability note, zero-compaction invariant note for unattended
@@ -12,7 +12,7 @@
 - **Files touched**: `commands/gsd-t-execute.md`
 
 ### M44-D3-T2 — wave.md + integrate.md integration
-- **Status**: [ ] pending
+- **Status**: [x] done (2026-04-23 · commit pending)
 - **Dependencies**: M44-D3-T1
 - **Acceptance criteria**:
   - `commands/gsd-t-wave.md` execution-phase step updated with integration block (matches the execute.md pattern, adjusted for wave context)
