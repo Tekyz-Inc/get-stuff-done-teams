@@ -74,7 +74,8 @@ let _deprecatedWatchWarned = false;
  *   sessionId?: string,
  *   watch?: boolean,
  *   spawnType?: 'primary' | 'validation',
- *   env?: object
+ *   env?: object,
+ *   workerModel?: string
  * }} opts
  * @returns {{ id: string | null, pid: number | null, logPath: string | null, timestamp: string, mode: 'headless' | 'in-context' }}
  */
@@ -210,6 +211,14 @@ function autoSpawnHeadless(opts) {
         if (v == null) continue;
         workerEnv[k] = String(v);
       }
+    }
+    // Worker-model override (v3.18.18) — let `runDispatch` fan-outs default to
+    // Sonnet while the orchestrator stays on whatever the parent runs (often
+    // Opus). Moves mechanical fan-out work onto a separate rate-limit bucket,
+    // raising the provider concurrency ceiling from ~3 to ~6+ per the
+    // Max-subscription concurrency analysis (2026-04-23).
+    if (typeof opts.workerModel === "string" && opts.workerModel) {
+      workerEnv.ANTHROPIC_MODEL = opts.workerModel;
     }
 
     const child = spawn("node", childArgs, {

@@ -2,6 +2,29 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [3.18.18] - 2026-04-23
+
+### Added — Model-aware worker spawn in `runDispatch`
+
+- **`bin/gsd-t-parallel.cjs::runDispatch`**: fan-out workers now default to `claude-sonnet-4-6` via new constant `DEFAULT_WORKER_MODEL` (was: inherit the orchestrator's `ANTHROPIC_MODEL`, which is `claude-opus-4-7` in this user's global settings). Caller overrides via `opts.workerModel`: alias strings (`"opus"` / `"sonnet"` / `"haiku"`) resolve to full model IDs; explicit full IDs pass through; `workerModel: false` opts out of the override entirely and inherits parent. **Why**: the 2026-04-23 M46 Wave 1 dispatch rate-limited all 8 Opus workers (Max 20x subscription concurrent-session throttle). Sonnet lives in a separate rate bucket, so orchestrator Opus + worker Sonnet lifts the concurrency ceiling. Per-task Opus opt-in via `[opus]` marker on tasks.md lines is future work (surfaces in planner metadata).
+- **`bin/headless-auto-spawn.cjs::autoSpawnHeadless`**: accepts `workerModel?: string` and sets `ANTHROPIC_MODEL` in the child env after the caller's `envOverride` merge (so caller always wins if they explicitly set `ANTHROPIC_MODEL` in `env`).
+
+### Added — Spawn stagger to avoid burst spikes
+
+- **`bin/gsd-t-parallel.cjs::runDispatch`**: new `opts.spawnStaggerMs` (default **3000** ms) delays each spawn after the first. Implemented via `Atomics.wait` on a `SharedArrayBuffer` so the blocking wait releases the CPU (no spin loop). 2026-04-23 observation: 8 concurrent `claude -p` spawned within 700 ms → all 429 rate-limited; 3 s stagger avoids the burst. Set `spawnStaggerMs: 0` for pre-v3.18.18 behavior.
+
+### Added — Cache-warming probe (opt-in)
+
+- **`bin/gsd-t-parallel.cjs::_runCacheWarmProbe`** + opt-in flag `opts.cacheWarm` / env `GSD_T_CACHE_WARM=1`. Before fan-out, fires a short `claude -p` that reads CLAUDE.md + progress.md + top-level contracts using the **same model** the workers will run, so Anthropic's 5-minute prompt cache is populated and the workers' identical initial reads return cache-read tokens (free for ITPM budget, lower rate-limit pressure). Probe is synchronous (workers land inside the warm window, not racing it), 60 s timeout, failure does not block fan-out. Dependency-injection hook `opts.cacheWarmProbeImpl` for tests. Gated behind opt-in until backlog #23 (mitmproxy header instrumentation) measures the actual delta; flips to default-on if measurement confirms the ITPM savings are real.
+
+### Tests
+
+- **`test/m44-run-dispatch.test.js`**: 4 new tests for model selection (default Sonnet / alias resolution / explicit opt-out / stagger timing) + 3 new tests for cache-warming (opt-in gating / probe model matches workers / probe failure does not block fan-out). Full suite **2023/2023** pass (baseline 2016 + 7 new).
+
+### Incident — 2026-04-23 M46 Wave 1 rate-limit
+
+- Root cause: all 8 headless workers inherited `ANTHROPIC_MODEL=claude-opus-4-7` from `~/.claude/settings.json` (this user runs Max 20x on Opus globally) and spawned in a 700 ms burst. Max subscription's concurrent-session throttle fired ~1 s into each worker's first tool call. Anthropic Console dashboards showed flat-zero API usage — confirmed the throttle is subscription-side, not API-key-side. Mitigations shipped in this release (model-mix + stagger + opt-in cache-warm) + scoped backlog items #22 (coord-gate runtime coordination) and #23 (mitmproxy header instrumentation for calibration).
+
 ## [3.18.17] - 2026-04-23
 
 ### Fixed — `npm test` picks up `worker-sim.js` fixture

@@ -188,6 +188,183 @@ test("_partitionTaskIds — caps workerCount at tasks.length", () => {
 // Suite 4: Per-worker spawn isolation
 // ─────────────────────────────────────────────────────────────────────────
 
+// ─────────────────────────────────────────────────────────────────────────
+// Suite 4.5: Worker model + spawn stagger (v3.18.18)
+// ─────────────────────────────────────────────────────────────────────────
+
+test("runDispatch — default workerModel is sonnet (Max-concurrency ceiling workaround)", () => {
+  const repoRoot = path.join(__dirname, "..");
+  if (!fs.existsSync(path.join(repoRoot, ".gsd-t", "domains"))) return;
+
+  const spawnCalls = [];
+  const out = runDispatch({
+    projectDir: repoRoot,
+    command: "gsd-t-execute",
+    milestone: "M44",
+    spawnStaggerMs: 0, // keep the test fast
+    spawnHeadlessImpl: (o) => {
+      spawnCalls.push(o);
+      return { id: "stub", pid: 1 };
+    },
+  });
+
+  if (out.decision !== "fan_out") return;
+  for (const c of spawnCalls) {
+    assert.equal(
+      c.workerModel,
+      "claude-sonnet-4-6",
+      "fan-out workers default to Sonnet so they don't all land in the Opus rate-limit bucket",
+    );
+  }
+});
+
+test("runDispatch — workerModel alias 'opus' resolves to full model id", () => {
+  const repoRoot = path.join(__dirname, "..");
+  if (!fs.existsSync(path.join(repoRoot, ".gsd-t", "domains"))) return;
+
+  const spawnCalls = [];
+  const out = runDispatch({
+    projectDir: repoRoot,
+    command: "gsd-t-execute",
+    milestone: "M44",
+    workerModel: "opus",
+    spawnStaggerMs: 0,
+    spawnHeadlessImpl: (o) => {
+      spawnCalls.push(o);
+      return { id: "stub", pid: 1 };
+    },
+  });
+
+  if (out.decision !== "fan_out") return;
+  for (const c of spawnCalls) {
+    assert.equal(c.workerModel, "claude-opus-4-7");
+  }
+});
+
+test("runDispatch — workerModel:false inherits parent ANTHROPIC_MODEL (no override)", () => {
+  const repoRoot = path.join(__dirname, "..");
+  if (!fs.existsSync(path.join(repoRoot, ".gsd-t", "domains"))) return;
+
+  const spawnCalls = [];
+  const out = runDispatch({
+    projectDir: repoRoot,
+    command: "gsd-t-execute",
+    milestone: "M44",
+    workerModel: false,
+    spawnStaggerMs: 0,
+    spawnHeadlessImpl: (o) => {
+      spawnCalls.push(o);
+      return { id: "stub", pid: 1 };
+    },
+  });
+
+  if (out.decision !== "fan_out") return;
+  for (const c of spawnCalls) {
+    assert.equal(c.workerModel, null, "caller opt-out preserved — child inherits parent model");
+  }
+});
+
+test("runDispatch — spawnStaggerMs delays subsequent spawns", () => {
+  const repoRoot = path.join(__dirname, "..");
+  if (!fs.existsSync(path.join(repoRoot, ".gsd-t", "domains"))) return;
+
+  const spawnTs = [];
+  const out = runDispatch({
+    projectDir: repoRoot,
+    command: "gsd-t-execute",
+    milestone: "M44",
+    spawnStaggerMs: 150, // short enough for the test suite
+    spawnHeadlessImpl: () => {
+      spawnTs.push(Date.now());
+      return { id: "stub", pid: 1 };
+    },
+  });
+
+  if (out.decision !== "fan_out" || spawnTs.length < 2) return;
+  for (let i = 1; i < spawnTs.length; i++) {
+    const gap = spawnTs[i] - spawnTs[i - 1];
+    assert.ok(
+      gap >= 120,
+      `stagger gap ${gap}ms between spawn ${i - 1} and ${i} — expected >= 120ms (150ms target with 30ms jitter)`,
+    );
+  }
+});
+
+test("runDispatch — cache-warm probe is opt-in (default off)", () => {
+  const repoRoot = path.join(__dirname, "..");
+  if (!fs.existsSync(path.join(repoRoot, ".gsd-t", "domains"))) return;
+
+  let probeCalls = 0;
+  runDispatch({
+    projectDir: repoRoot,
+    command: "gsd-t-execute",
+    milestone: "M44",
+    spawnStaggerMs: 0,
+    env: {}, // no GSD_T_CACHE_WARM
+    spawnHeadlessImpl: () => ({ id: "stub", pid: 1 }),
+    cacheWarmProbeImpl: () => {
+      probeCalls++;
+      return { ok: true, filesRead: ["CLAUDE.md"] };
+    },
+  });
+
+  assert.equal(probeCalls, 0, "probe must not run when cacheWarm is unset");
+});
+
+test("runDispatch — cache-warm probe fires when opts.cacheWarm=true", () => {
+  const repoRoot = path.join(__dirname, "..");
+  if (!fs.existsSync(path.join(repoRoot, ".gsd-t", "domains"))) return;
+
+  let probeCalls = 0;
+  let probeModel = null;
+  const out = runDispatch({
+    projectDir: repoRoot,
+    command: "gsd-t-execute",
+    milestone: "M44",
+    spawnStaggerMs: 0,
+    cacheWarm: true,
+    spawnHeadlessImpl: () => ({ id: "stub", pid: 1 }),
+    cacheWarmProbeImpl: (o) => {
+      probeCalls++;
+      probeModel = o.model;
+      return { ok: true, filesRead: ["CLAUDE.md"] };
+    },
+  });
+
+  if (out.decision !== "fan_out") return;
+  assert.equal(probeCalls, 1, "probe runs exactly once per dispatch");
+  assert.equal(
+    probeModel,
+    "claude-sonnet-4-6",
+    "probe uses the same model as workers so cache key matches",
+  );
+});
+
+test("runDispatch — cache-warm probe failure does not block fan-out", () => {
+  const repoRoot = path.join(__dirname, "..");
+  if (!fs.existsSync(path.join(repoRoot, ".gsd-t", "domains"))) return;
+
+  let spawnCount = 0;
+  const out = runDispatch({
+    projectDir: repoRoot,
+    command: "gsd-t-execute",
+    milestone: "M44",
+    spawnStaggerMs: 0,
+    cacheWarm: true,
+    spawnHeadlessImpl: () => {
+      spawnCount++;
+      return { id: "stub", pid: 1 };
+    },
+    cacheWarmProbeImpl: () => {
+      throw new Error("simulated probe failure");
+    },
+  });
+
+  if (out.decision !== "fan_out") return;
+  assert.equal(out.decision, "fan_out", "probe failure must not change decision");
+  assert.ok(spawnCount >= 2, "workers still spawn after probe failure");
+});
+
 test("runDispatch — one spawn throwing does not kill siblings", () => {
   const repoRoot = path.join(__dirname, "..");
   if (!fs.existsSync(path.join(repoRoot, ".gsd-t", "domains"))) return;

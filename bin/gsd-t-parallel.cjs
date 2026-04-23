@@ -326,6 +326,69 @@ function _partitionTaskIds(taskIds, workerCount) {
 }
 
 /**
+ * _runCacheWarmProbe — fire a single short `claude -p` before fan-out so the
+ * Anthropic prompt cache (5-min TTL) is pre-populated with the files every
+ * worker will read. When workers spawn within the warm window, their initial
+ * Read(CLAUDE.md), Read(progress.md), Read(contracts/*.md) return cache-read
+ * tokens (free for ITPM budget, lower rate-limit pressure).
+ *
+ * Returns `{ok, filesRead, error}`. Best-effort; failures do not block fan-out.
+ *
+ * The probe reads the existing files (skips missing ones silently) and asks
+ * the child to print the literal string "warm" — cheap, deterministic, fast.
+ * Cache key matches exactly when `model` equals the workers' model and the
+ * workers use the same tool-call shape (Read on the same paths) within TTL.
+ */
+function _runCacheWarmProbe(opts) {
+  const projectDir = (opts && opts.projectDir) || process.cwd();
+  const model = opts && opts.model;
+  const timeoutMs = Number.isFinite(opts && opts.timeoutMs) ? opts.timeoutMs : 60000;
+
+  const candidates = [
+    "CLAUDE.md",
+    ".gsd-t/progress.md",
+    ".gsd-t/contracts/headless-default-contract.md",
+    ".gsd-t/contracts/wave-join-contract.md",
+  ];
+  const filesRead = candidates.filter((rel) => {
+    try {
+      return fs.statSync(path.join(projectDir, rel)).isFile();
+    } catch {
+      return false;
+    }
+  });
+  if (filesRead.length === 0) return { ok: false, filesRead: [], error: "no_warm_files" };
+
+  const { spawnSync } = require("node:child_process");
+  const prompt =
+    "Read the following files so they enter the prompt cache for subsequent workers, " +
+    "then reply with the single word `warm` and nothing else:\n" +
+    filesRead.map((f) => `- ${f}`).join("\n");
+
+  const env = Object.assign({}, process.env);
+  if (model) env.ANTHROPIC_MODEL = model;
+
+  try {
+    const r = spawnSync(
+      "claude",
+      ["-p", prompt, "--dangerously-skip-permissions"],
+      {
+        cwd: projectDir,
+        env,
+        encoding: "utf8",
+        timeout: timeoutMs,
+        stdio: ["ignore", "pipe", "pipe"],
+      },
+    );
+    if (r.error) return { ok: false, filesRead, error: r.error.message };
+    if (r.status !== 0) return { ok: false, filesRead, error: `exit_${r.status}` };
+    return { ok: true, filesRead };
+  } catch (e) {
+    return { ok: false, filesRead, error: (e && e.message) || "spawn_error" };
+  }
+}
+
+/**
  * runDispatch — the single instrument every command delegates to.
  *
  * Probes the planner; if N≥2 with green gates, spawns N detached headless
@@ -433,8 +496,89 @@ function runDispatch(opts) {
     ts: new Date().toISOString(),
   });
 
+  // Worker model selection (v3.18.18) — mechanical fan-out defaults to Sonnet
+  // so the orchestrator's Opus bucket isn't the bottleneck. Caller may
+  // override via `opts.workerModel` ("opus" | "sonnet" | "haiku" | full ID).
+  // A task can opt back to Opus by declaring "[opus]" in its tasks.md line;
+  // the planner surfaces this via per-task metadata (future; today the per-
+  // subset opt-in is an all-or-nothing knob passed by the caller).
+  const DEFAULT_WORKER_MODEL = "claude-sonnet-4-6";
+  const modelAlias = {
+    opus: "claude-opus-4-7",
+    sonnet: "claude-sonnet-4-6",
+    haiku: "claude-haiku-4-5-20251001",
+  };
+  const callerModel = opts && opts.workerModel;
+  const workerModel = callerModel === false
+    ? null // explicit opt-out: inherit parent's ANTHROPIC_MODEL
+    : (modelAlias[callerModel] || callerModel || DEFAULT_WORKER_MODEL);
+
+  // Stagger between spawns (v3.18.18) — 3s default avoids the burst spike
+  // that trips the Max-subscription concurrent-session throttle (observed
+  // 2026-04-23: 8 concurrent `claude -p` within 700ms → all 429). Caller
+  // may override via `opts.spawnStaggerMs` (0 = no delay, previous behavior).
+  const staggerMs = Number.isFinite(opts && opts.spawnStaggerMs)
+    ? Math.max(0, opts.spawnStaggerMs)
+    : 3000;
+  const busyWait = (ms) => {
+    if (!ms) return;
+    // Synchronous sleep that releases the CPU (Atomics.wait on a dummy
+    // SharedArrayBuffer — pattern used in Node REPL/sync-sleep helpers).
+    // Keeps runDispatch's sync return contract without pegging a core.
+    // Total wall-clock added to startup: (subsets-1) * staggerMs.
+    try {
+      const sab = new SharedArrayBuffer(4);
+      const view = new Int32Array(sab);
+      Atomics.wait(view, 0, 0, ms);
+    } catch (_) {
+      // Atomics unavailable — fall back to a coarse spin.
+      const until = Date.now() + ms;
+      while (Date.now() < until) { /* spin */ }
+    }
+  };
+
+  // Cache-warming probe (v3.18.19) — opt-in via GSD_T_CACHE_WARM=1 or
+  // opts.cacheWarm. Anthropic's prompt cache has a 5-minute TTL keyed on the
+  // exact system-prompt + tool-call prefix. One leader probe that reads the
+  // same foundational files every worker will read (CLAUDE.md, progress.md,
+  // top-level contracts) populates the cache so the first N seconds of every
+  // subsequent worker hit cache-read tokens (free for ITPM budget, lower
+  // rate-limit pressure). Probe runs synchronously so workers land inside
+  // the warm window rather than racing it. Gated behind opt-in until
+  // backlog #23 (mitmproxy instrumentation) measures the actual delta.
+  const warmEnv = (opts && opts.env) || process.env;
+  const cacheWarmEnabled =
+    (opts && opts.cacheWarm === true) ||
+    (!(opts && opts.cacheWarm === false) && warmEnv.GSD_T_CACHE_WARM === "1");
+  if (cacheWarmEnabled) {
+    const warmStart = Date.now();
+    let warmResult = { ok: false, error: "not_run" };
+    try {
+      const probeImpl = (opts && opts.cacheWarmProbeImpl) || _runCacheWarmProbe;
+      warmResult = probeImpl({
+        projectDir,
+        model: workerModel, // same model as workers so cache key matches
+        timeoutMs: (opts && Number.isFinite(opts.cacheWarmTimeoutMs))
+          ? opts.cacheWarmTimeoutMs
+          : 60000,
+      });
+    } catch (e) {
+      warmResult = { ok: false, error: (e && e.message) || "unknown" };
+    }
+    appendEvent(projectDir, {
+      type: "cache_warm_probe",
+      source: "dispatch",
+      ok: !!warmResult.ok,
+      duration_ms: Date.now() - warmStart,
+      error: warmResult.error,
+      files_read: warmResult.filesRead,
+      ts: new Date().toISOString(),
+    });
+  }
+
   const workerResults = [];
   for (let i = 0; i < subsets.length; i++) {
+    if (i > 0) busyWait(staggerMs);
     const subset = subsets[i];
     const workerEnv = {
       GSD_T_WORKER_TASK_IDS: subset.join(","),
@@ -450,6 +594,7 @@ function runDispatch(opts) {
         projectDir,
         env: workerEnv,
         spawnType: "primary",
+        workerModel,
       });
     } catch (e) {
       spawnError = (e && e.message) || "unknown";
@@ -606,6 +751,7 @@ module.exports = {
   _detectMode: detectMode,
   _appendEvent: appendEvent,
   _partitionTaskIds,
+  _runCacheWarmProbe,
   _HELP_TEXT: HELP_TEXT,
 };
 

@@ -137,3 +137,142 @@ Rate-limit pressure from running parallel is NOT a con. Hitting the 5-hour ceili
 - **Type:** improvement | **App:** gsd-t | **Category:** tests
 - **Added:** 2026-04-23
 - Build the in-session + unattended smoke-test fixtures deferred from M44-D3-T5: a small multi-domain fixture proving `gsd-t parallel` completes in ≤ T/2 of the sequential baseline with zero pause/resume prompts, plus an unattended `gsd-t unattended --max-iterations 5` fixture producing zero new entries in `.gsd-t/metrics/compactions.jsonl` during the run. Blocked on: actual fixtures not yet authored in the repo. Follow-up quick task.
+
+## 16. Main + worker chat display — wire conversation-capture hook
+- **Type:** improvement | **App:** gsd-t | **Category:** observability
+- **Added:** 2026-04-23
+- Five-surface parallelism audit gap #3. `scripts/hooks/gsd-t-conversation-capture.js` writes `in-session-{sessionId}.ndjson` for the main chat and the viewer discriminates with the 💬 badge at `scripts/gsd-t-transcript.html:531`, but `~/.claude/settings.json` today only registers the token-probe hook, so the conversation-capture hook never fires and `.gsd-t/transcripts/` contains only `s-*.ndjson` (spawn-tee). Net: main-chat dialog is not visible in the viewer until the hook block from `CLAUDE.md § In-Session Conversation Capture (M45 D2)` is appended to `~/.claude/settings.json`. Fix is configuration-only (a small `update-config` skill invocation); no framework code changes. Out of scope: capturing worker-child dialog — workers emit `s-*.ndjson` via spawn-tee, which is correct and already visible.
+
+## 17. Visualizer counts by kind — expose spawn-kind breakdown
+- **Type:** improvement | **App:** gsd-t | **Category:** ux
+- **Added:** 2026-04-23
+- Five-surface parallelism audit gap #4. Spawn plans already tag a `kind` field with three values (`unattended-worker` | `headless-detached` | `in-session-subagent`) at `bin/spawn-plan-writer.cjs:44`, but `computeParallelismMetrics` in `bin/parallelism-report.cjs` returns a flat shape that the D9 panel renders as a single `activeWorkers` count. Add per-kind counters (`activeWorkers.byKind = {unattendedWorker: N, headlessDetached: M, inSessionSubagent: K}`) to the report, surface them in the D9 panel header, and update contract `parallelism-report-contract.md` (currently v1.0.0) to v1.1.0 additive. Non-breaking: existing `activeWorkers` number stays; new field is additive.
+
+## 18. Multi-parent segmentation — group parallelism-report by parent/session
+- **Type:** feature | **App:** gsd-t | **Category:** ux
+- **Added:** 2026-04-23
+- Five-surface parallelism audit gap #5. `bin/parallelism-report.cjs:43` unions all active spawn plans (filtered only by `endedAt === null`) with zero references to `parent_id`, `session_id`, or `sessionId`. If an in-session chat dispatches N workers and an unattended supervisor runs M workers concurrently, the D9 panel displays a single N+M aggregate with no grouping. Introduce grouping by `session_id` (or `parent_id` when present in the spawn-plan record) so the viewer's right panel can render one row per concurrently-running orchestrator. Requires: (a) spawn-plan-writer emits `parent_id` + `session_id` on every plan, (b) parallelism-report returns `groups: [{id, kind, workers, ...}]`, (c) viewer right panel renders groups. Precursor for item #17 (per-kind counts become per-group-per-kind).
+
+## 19. Auto-prevent context-heavy file growth (progress.md + siblings)
+- **Type:** feature | **App:** gsd-t | **Category:** context-hygiene
+- **Added:** 2026-04-23
+- **Observation (2026-04-23)**: `.gsd-t/progress.md` reached **229.4 KB / 95 Decision Log entries** before the manual archiver was run — a single `Read` of that file burned ~60k input tokens (~10% of a 200k CW). `bin/archive-progress.cjs` exists and solved it in one shot (229.4 KB → 43.9 KB), but it is a **manual tool**, not auto-invoked. `gsd-t-complete-milestone` Step 7 has a milestone-start-date trim clause, but in practice it leaves 90+ entries in place when the milestone ran long or multiple milestones shipped in one day. **Cost is huge and recurring** — every `resume`/`milestone`/`partition`/`plan` pays it. **Scope**:
+  1. **Auto-archive trigger**: wire `bin/archive-progress.cjs` into a PreCompact + Stop hook (or a SessionStart guard) so the live file is trimmed whenever it exceeds a threshold (suggest: 40 KB OR > 10 Decision Log entries, whichever hits first). Hook MUST be fail-open and silent when below threshold.
+  2. **Size-band warning**: extend `bin/token-budget.cjs` or the context-meter to emit a one-line warning when any file in the **governed list** crosses its band. Governed list with **measured sizes (2026-04-23)** and **band**:
+     - `CHANGELOG.md` — **207 KB** (critical — biggest un-archived state doc; release-time reads load the whole thing). Band: archive chunks older than last minor release into `.gsd-t/changelog-archive/` when > 80 KB.
+     - `docs/requirements.md` — **86 KB** (ripple-read by most commands via "No Re-Research" rule). Band: warn at 60 KB, archive completed-milestone sections into `docs/requirements-archive/NNN-<milestone>.md`.
+     - `docs/architecture.md` — **80 KB** (ripple-read; ADR-style sections accumulate). Band: warn at 60 KB, archive superseded ADRs to `docs/architecture-archive/`.
+     - `.gsd-t/backlog.md` — **28 KB** (trending up; new items only append). Band: warn at 40 KB, archive resolved/promoted items to `.gsd-t/backlog-archive/`.
+     - `.gsd-t/progress.md` — **44 KB post-archive** (was 229 KB). Band: already covered by `archive-progress.cjs`; just wire the threshold trigger.
+     - `.gsd-t/techdebt.md` — **15 KB** (safe). Band: warn at 40 KB, archive resolved items.
+     - `docs/infrastructure.md` — **19 KB** (safe). Band: warn at 40 KB.
+     - `docs/workflows.md` — **12 KB** (safe). Band: warn at 40 KB.
+     - `CLAUDE.md` — **9 KB** (safe; kept tight by design). Band: warn at 20 KB.
+     Warning lands in the same footer channel as the M43 D5 dialog-growth meter — read-only, never refuses.
+  3. **Write-time guardrail in `gsd-t-complete-milestone`**: before Step 7 trim, capture pre-trim size; after Step 7 trim, assert live file is < 50 KB; if not, invoke `archive-progress.cjs` programmatically as a second pass.
+  4. **Apply the same pattern to sibling files** that grow. Archiver implementations needed for each governed file type (progress.md archiver exists as reference):
+     - `bin/archive-changelog.cjs` — splits CHANGELOG.md at minor-version boundaries, writes `.gsd-t/changelog-archive/vM.N.x.md`.
+     - `bin/archive-requirements.cjs` — splits docs/requirements.md by completed-milestone sections (uses progress.md milestone status).
+     - `bin/archive-architecture.cjs` — splits docs/architecture.md by superseded ADR marker (look for `**Status**: superseded` headers).
+     - `bin/archive-backlog.cjs` — moves items marked `[promoted]` or `[resolved]` to `.gsd-t/backlog-archive/`.
+     - `bin/archive-techdebt.cjs` — moves `[resolved]` items to `.gsd-t/techdebt-archive/`.
+     All archivers share the `archive-progress.cjs` idempotent-replay pattern: `--dry-run` flag, summary output, preserves git blame by archiving to new files rather than rewriting in place.
+  5. **Contract**: new `.gsd-t/contracts/context-hygiene-contract.md` documenting the size thresholds, which files are governed, archive locations, and the fail-open invariant.
+- **Success criteria**: after a 50-entry Decision Log burst, the live `progress.md` MUST settle back to ≤ 40 KB within 1 session-start tick. A `Read` of any governed file MUST never exceed 15k tokens in steady state.
+- **Why this matters**: context cost on large files is O(tokens_read × turns_where_read_happens). Progress.md is read in 7+ commands per milestone; a 60k-token read × 7 commands = 420k tokens per milestone just from staleness. The archiver already exists — this is pure wiring + thresholds.
+- **Related**: `docs/context-budget-recovery-plan.md` CUT #1 (where the 40k-token figure was measured); `bin/archive-progress.cjs` (existing tool); `gsd-t-complete-milestone.md` Step 7 (existing but insufficient trim); M43 D5 `estimateDialogGrowth` (warning-channel precedent).
+
+## 20. Slim the `/gsd` router skill body (14 KB → ~5 KB)
+- **Type:** improvement | **App:** gsd-t | **Category:** context-hygiene
+- **Added:** 2026-04-23
+- **Observation (2026-04-23)**: `commands/gsd.md` is 263 lines / 13,934 bytes and gets re-injected **on every plain-text turn** via the `[GSD-T AUTO-ROUTE]` UserPromptSubmit hook. Over a 20-message session that's ~70k tokens of router prose repeatedly re-paid in context. The skill does five things but only routes — most of the bulk is inlined reasoning/examples that the router consults once per request but pays for on every turn.
+- **Four cuts, paired with item #19 (context hygiene)**:
+  1. **Move Step 2.5 conversational-trigger reasoning to a reference doc**. New `docs/router-conversation-patterns.md` owns the conversational-trigger list, examples, and framing language (currently ~80 lines inlined in `gsd.md`). Router replaces that block with: "For conversational triggers, consult `docs/router-conversation-patterns.md`." Router prompt shrinks by ~80 lines.
+  2. **Extract the RIGHT/WRONG examples into `test/router-routing.test.js`**. The `WRONG ❌` / `RIGHT ✅` comparison blocks in Step 3 are assertions about valid command slugs — they belong as runtime unit tests, not as prompt prose. Tests fire on build; prompt stays slim. Saves ~30 lines.
+  3. **Collapse the design-to-code pipeline block to a one-liner** that delegates to a new helper: `commands/gsd.md` says "If the request involves a design contract/Figma URL/mockup, route via `bin/gsd-t-design-route.cjs`." The pipeline entry table + clean-step inline notes + fallback routing (currently ~40 lines) move into that CJS helper which the router calls when design-keywords are detected. Router stays stack-agnostic; design logic lives in one place.
+  4. **Replace the Step 5 node -e block with `bin/runway-warn.cjs`**. The embedded 15-line node script that reads `.gsd-t/metrics/token-usage.jsonl` and prints the dialog-pressure warning becomes a single subprocess call: `node bin/runway-warn.cjs` (exits 0 with optional stdout warning, matching today's contract). Saves ~20 lines + removes the need for the model to re-read the same node code on every turn.
+- **Scope (this is the new `bin/gsd-t-design-route.cjs` + `bin/runway-warn.cjs` + refactored `gsd.md`)**: ~5 new files (2 CJS helpers, 1 reference doc, 1 test file, refactored gsd.md). All additive; the router's contract (routing header format, continuation format, conversational fallback) is unchanged. No behavior change for end users.
+- **Success criteria**: `wc -c commands/gsd.md` ≤ 6000 bytes after refactor (down from 13934). Router-body re-injection cost per turn ≤ 1500 tokens. All existing `/gsd` routing paths still route to the same command slugs. New `test/router-routing.test.js` replaces the inline WRONG/RIGHT examples with 8+ assertions covering the same cases.
+- **Why this matters**: the router is the hottest skill in the framework — it runs on every plain-text message in a GSD-T project. A 64% size reduction compounds across every conversational turn. Pairs with item #19: #19 trims state files, #20 trims the runtime-injected skill prose.
+- **Related**: `commands/gsd.md` (current 263-line router), `commands/gsd-t-help.md` (29 KB — also a re-injection candidate if users invoke `/gsd-t-help` repeatedly), `bin/runway-estimator.cjs::estimateDialogGrowth` (already exists; `runway-warn.cjs` is a 20-line CLI over it), M43 D5 (where the growth-meter footer was added).
+
+## 21. Spawn-by-default enforcement (mechanical hooks, not prose directives)
+- **Type:** feature | **App:** gsd-t | **Category:** context-hygiene · enforcement
+- **Added:** 2026-04-23
+- **Root problem**: `feedback_parallel_headless_by_default.md` + `headless-default-contract.md` v2.0.0 say "every command spawns detached, parallel where safe," but enforcement is LLM prose. The orchestrator (Claude) repeatedly drifts into inline Read/Edit/Write/Bash work on governed files because each individual edit looks cheap. Cumulative cost is invisible until compaction hits. Evidence: this session (2026-04-23 post-resume) compacted after ~8 turns because orchestrator-side M46 definition + backlog edits + archive-progress ran inline instead of in a detached spawn. Measured: progress.md reads alone consumed ~60k tokens of orchestrator context.
+- **Directive (as corrected in dialog)**: **Default = detached headless spawn, parallel where safe.** Dialog channel is reserved for: (a) Claude reporting state, (b) Claude asking for a decision, (c) user asking for details (Claude elaborates). Everything else — reads, edits, writes, bash bookkeeping, "thinking-through-the-problem" work — goes to a headless child. User watches the work in the visualizer if desired. No byte budget, no file-size threshold. Classification-based, not size-based.
+- **Two mechanical hooks** (PreToolUse + PostToolUse in `~/.claude/settings.json`, same surface as context-meter and token-probe):
+  1. **`orchestrator-work-guard.js` (PreToolUse on Read/Edit/Write/Bash)** — deny the tool call unless it matches a narrow allow-list:
+     - Reads: only if current turn started with a user question AND file is <10 KB (safety rail for giant-file reads, not a work budget)
+     - Edits/Writes: only if user's last message contains an explicit inline directive (e.g., "edit this inline", "change X to Y here", "add this to backlog")
+     - Bash: only status probes from a fixed list (`git status`, `git diff --stat`, `ls`, `wc`, `pwd`, `cat` on <5KB files for reference lookups)
+     - Everything else → deny with structured error: `{"deny": true, "reason": "This action requires a headless spawn. Dialog-channel work forbidden by orchestrator-work-guard. Spawn via /gsd-t-<command> instead."}` The LLM cannot argue with a hook-denied tool call.
+  2. **`workflow-must-spawn.js` (PostToolUse after router classification)** — if `/gsd` router Step 2.5 classified the turn as `workflow`, the next non-reply tool call MUST be a spawn (Task tool with detached subagent, or Bash invoking `claude -p`, or `spawn-headless` helper). Any other tool call after a `workflow` classification = hook-denied error: `"Classification was workflow. Must spawn. Got <ToolName> instead."`
+- **Failure-handling protocol (from dialog)**:
+  1. Spawn fails with recoverable error (wrong filename, typo, bash error) → the child self-corrects in its own context, same as today's in-session loops
+  2. Spawn fails unrecoverably → orchestrator reads last 20 lines of child stderr + the session's JSONL transcript, determines root cause, re-spawns with corrected context injected
+  3. Spawn needs a mid-flight decision → child writes `.decision-request.json`, exits code 7, orchestrator surfaces the question in dialog, user answers, orchestrator re-spawns with answer injected. **Alternative (preferred if M45-era chat-injector lands)**: visualizer chat-injector feeds the answer directly to the running detached session without restart.
+  4. User wants to course-correct mid-work → user says "abort and redo with X" in dialog, orchestrator writes `.abort-requested` flag in spawn workspace, spawn checks flag at natural checkpoints (between tasks, between domains), exits cleanly, orchestrator re-spawns with new instructions.
+- **Coherence-vs-disjointness refinement**: `bin/gsd-t-parallel.cjs::runParallel` already checks file-disjointness (a safety property). Add a coherence check for refactors that span 5+ files where each change informs the next — when coherence fails, recommend a **single** headless spawn (not parallel) for the whole task. Still headless-by-default; just not parallel. Prevents locally-correct, globally-inconsistent output from N disjoint workers.
+- **Visualizer health guard**: visualizer process becomes load-bearing under this directive (dialog no longer shows 90%+ of work). Session-start check: if `:7433` not responding, launcher starts it automatically. Already mostly implemented — needs to become mandatory.
+- **Scope** (new files):
+  - `scripts/hooks/orchestrator-work-guard.js` (PreToolUse hook)
+  - `scripts/hooks/workflow-must-spawn.js` (PostToolUse hook)
+  - `.gsd-t/contracts/spawn-by-default-contract.md` v1.0.0 (allow-list definition, deny-error format, failure-handling protocol, coherence check criteria)
+  - Extension to `bin/gsd-t-parallel.cjs` — add `checkCoherence()` alongside existing `checkDisjointness()`
+  - Extension to `scripts/gsd-t-transcript.html` / backend — chat-injector for detached sessions (feeds user decisions into running child without restart; supersedes `.decision-request.json` round-trip for simple cases)
+  - Install block in `templates/CLAUDE-global.md` wiring the two new hooks into `~/.claude/settings.json` alongside existing hooks
+- **Success criteria**:
+  1. A GSD-T session of 50 user turns produces **≤5 non-reply orchestrator-side tool calls** (reads-to-answer-questions count against the 5; orchestrator-side Edit/Write count as violations, not allowances)
+  2. Zero context-exhaustion compactions on sessions where the user's work is ≤20 KB of content and all workflow work is spawned
+  3. `workflow`-classified turns that fail to spawn on the next tool call = 0 across a 100-turn test suite (hook denies them mechanically)
+  4. Failure-handling protocol items 1-4 each have a dedicated test fixture in `test/spawn-enforcement/*`
+  5. Red Team probes: (a) LLM tries to justify an inline edit → hook denies; (b) LLM tries to chain 10 small reads → guard flags; (c) spawn crashes and orchestrator correctly diagnoses from JSONL; (d) mid-flight decision request round-trips cleanly
+- **Why not a byte budget** (previous iteration's mistake): a byte budget re-introduces "some inline is fine" through the side door. User corrected this explicitly: "The number isn't 10 KB. The number is zero, with narrow, named exceptions." Classification (what kind of work) beats measurement (how big).
+- **Pairs with**: #19 (context hygiene — trims governed files), #20 (router slimming — trims skill re-injection). #21 is the enforcement layer — #19/#20 are the surface-area reductions.
+- **Non-goals**: changing `bin/gsd-t-parallel.cjs::runDispatch` itself (that's the production-verified in-session dispatcher); changing the transcript viewer UI shape; retrofitting old command files (the hooks govern at the tool-call layer, so command files don't need per-command changes).
+- **Related memory**: `feedback_parallel_headless_by_default.md` (the directive this item mechanizes), `feedback_unattended_overnight_only.md` (superseded — both modes first-class), `feedback_no_silent_degradation.md` (same enforcement philosophy applied to model-selection), `project_compaction_regression.md` (the failure mode this prevents).
+
+## 22. Coord-Gate — cooperative rate-limit shaping across concurrent sessions
+
+- **Problem**: Even with model-mixing (v3.18.18) + 3s stagger, N concurrent workers all firing heavy tool calls in the same 5-second window trip the Max subscription concurrent-session throttle. Current mitigations are statistical (stagger, model split); they don't coordinate when workers actually compete. A deterministic hold on the worker side would let 10–15 sessions coexist where today 5–6 is the ceiling.
+- **Idea** (from user 2026-04-23): PreToolUse hook on every worker process. Before any tool call the hook classifies the tool as heavy (Task spawn, large Read, Bash running an LLM, WebFetch, long Grep) or light. On heavy, the hook takes a short lease on a shared coord file (`.gsd-t/.coord-gate/lease.json`). If the lease count is already ≥ `MAX_CONCURRENT_HEAVY` (default 3), the hook blocks (bounded spinwait with `Atomics.wait`) until a slot opens, then proceeds. Light tool calls bypass the gate entirely.
+- **Why it works**: it turns the implicit contention into an explicit queue. Sessions don't step on each other at the subscription layer because only K of N are ever doing the expensive thing at once. The other N-K are holding cheap reads or idle. Max subscription's concurrent-session throttle fires on actual API pressure, not on process count — if pressure is capped, process count can grow.
+- **Scope**:
+  - `scripts/hooks/gsd-t-coord-gate.js` — PreToolUse hook. Reads tool name from the hook payload, classifies heavy/light via a table (heavy set: `Task`, `WebFetch`, `Bash` when command matches `/claude|npm test|playwright/`, `Read` when path size > 50 KB, `Grep` when pattern is multiline). Acquires/releases lease via file lock + `Atomics.wait` backoff (max 30s before giving up and proceeding fail-open).
+  - `bin/gsd-t-coord-gate.cjs` — helper module (lease I/O, classifier table, clean-up of abandoned leases > 60s old).
+  - Install block in `~/.claude/settings.json`: `PreToolUse` + `PostToolUse` for the hook.
+  - Opt-in via env: `GSD_T_COORD_GATE=1` or `.gsd-t/coord-gate.enabled` file.
+- **Success criteria**:
+  1. With `MAX_CONCURRENT_HEAVY=3`, 10 concurrent workers firing mixed tool calls → 0 rate-limit 429s across a 10-minute test run, vs ≥3 429s without the gate (measured via the mitmproxy instrumentation in #23).
+  2. P50 tool-call latency increase ≤ 30% for heavy tools (the gate waits, but only when saturated).
+  3. P50 light-tool latency overhead ≤ 5ms (classifier + early-return).
+  4. Deadlock test: two workers each holding a lease call a second heavy tool that needs a lease → no deadlock (lease is per-worker, not per-tool; nested heavy calls reuse the holder's slot).
+  5. Cache-TTL test: gate hold time never exceeds the 5-min prompt cache window for the waiting worker (if it would, worker proceeds fail-open and logs a `coord-gate-cache-ttl-pressure` event).
+  6. Stall upper bound: worker cannot be blocked > 30 seconds total across a single tool call — escape valve returns "proceed" with a telemetry event so no worker hangs indefinitely.
+- **Non-goals**: replacing the stagger (it still prevents the initial burst before any worker has measured anything); replacing the model-split (different rate buckets = different pressure); applying to non-GSD-T projects (the hook early-returns when `.gsd-t/` is absent).
+- **Pairs with**: #21 (spawn-enforcement — this is the runtime complement to the spawn-classifier), v3.18.18 model-mixing (same problem, different layer), #23 (provides the measured rate-limit headers that calibrate `MAX_CONCURRENT_HEAVY`).
+- **Open question**: whether to classify purely by tool name or also peek at tool args (Bash command inspection). Arg inspection is more accurate but couples the hook to tool-arg shape changes. Start name-only; revisit after #23 data is in.
+- **Related memory**: `feedback_parallelism_two_modes.md` (both modes need this), `feedback_token_measurement_hierarchy.md` (CW is the binding constraint — the gate enforces CW-aware pacing at the tool-call layer).
+
+## 23. Rate-limit header instrumentation via mitmproxy (one afternoon)
+
+- **Problem**: Every concurrency decision we make today — stagger ms, `MAX_CONCURRENT_HEAVY`, model-split ratio, backoff on 429 — is calibrated against *estimated* Max subscription rate-limit numbers (synthesized from public blog posts, Reddit, Anthropic docs). We do not measure the actual `anthropic-ratelimit-requests-remaining`, `anthropic-ratelimit-tokens-remaining`, or retry-after headers that the subscription returns in real time. The 2026-04-23 rate-limit incident showed we don't know our real ceiling — we only know when we cross it.
+- **Idea** (from user 2026-04-23): Run mitmproxy as a local man-in-the-middle for one afternoon. Point the Claude Code binary at `HTTPS_PROXY=http://127.0.0.1:8080`. Capture every request/response header for Anthropic API calls during a heavy multi-session GSD-T run. Export the `anthropic-ratelimit-*` headers to `.gsd-t/metrics/rate-limit-headers.jsonl`. Replace estimates in every tunable with measured numbers.
+- **Scope**:
+  - `bin/gsd-t-ratelimit-instrument.cjs` — one-shot harness: configures mitmproxy with a capture script, spawns a known workload (e.g., 10-worker M46-style dispatch), collects headers for the run duration, writes `.gsd-t/metrics/rate-limit-headers.jsonl` (one row per API response).
+  - `scripts/mitm-capture.py` — mitmproxy addon that parses headers and POSTs to a local sink (no LLM inference leaves the machine; headers only).
+  - `bin/gsd-t-ratelimit-report.cjs` — reads the JSONL, emits `docs/ratelimit-measured.md` with: actual RPM ceiling observed, actual ITPM/OTPM ceilings, cache-read offsets, concurrent-session throttle behavior (when multiple sessions get throttled vs individually).
+  - One-time setup doc: `docs/instrumentation-setup.md` (install mitmproxy, trust CA, set `HTTPS_PROXY`, tear-down).
+- **Success criteria**:
+  1. `.gsd-t/metrics/rate-limit-headers.jsonl` contains at least 500 rows covering ≥3 workload profiles (light reads, heavy Task spawns, mixed).
+  2. `docs/ratelimit-measured.md` replaces every "estimated" number in `docs/architecture.md` and `docs/infrastructure.md` with a measured range.
+  3. `MAX_CONCURRENT_HEAVY` (#22) is calibrated from measured data, not guessed.
+  4. v3.18.18 stagger-ms default is re-evaluated: is 3s optimal? Under-tight? Over-loose?
+  5. Teardown is clean: mitmproxy process killed, `HTTPS_PROXY` unset, CA cert removed from trust store — no lingering MITM after the session.
+- **Non-goals**: long-running production instrumentation (this is a one-afternoon measurement, not a standing telemetry pipeline); logging request bodies (headers only — no prompt content leaves the machine, explicitly); replacing the Anthropic Console as the source of truth for billing.
+- **Pairs with**: #22 (this provides the calibration data), v3.18.18 (this validates the stagger+model-mixing decisions), `feedback_anthropic_key_measurement_only.md` (same spirit: measure, don't estimate).
+- **Open questions**:
+  1. Does the Max subscription expose the same `anthropic-ratelimit-*` headers as API-key access? If not, we need a different signal (e.g., observe 429 timing patterns vs header values).
+  2. Is the concurrent-session throttle visible in a header, or only inferable from response timing? (If only timing, we measure inter-response gaps under load.)
+- **Related memory**: `feedback_measure_dont_claim.md` (the philosophy this item operationalizes), `feedback_anthropic_key_measurement_only.md` (measurement infra is separate from inference infra).
