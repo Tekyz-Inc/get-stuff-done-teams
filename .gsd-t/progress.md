@@ -1,7 +1,7 @@
 # GSD-T Progress
 
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
-## Status: M44 VERIFYING — Cross-Domain & Cross-Task Parallelism (D1–D8 landed; D9 pending as follow-up)
+## Status: M44 VERIFIED-WITH-WARNINGS — Cross-Domain & Cross-Task Parallelism (D1–D8 landed; D9 pending as follow-up)
 ## Date: 2026-04-23
 ## Version: 3.17.10 → 3.18.10 (complete-milestone pending)
 
