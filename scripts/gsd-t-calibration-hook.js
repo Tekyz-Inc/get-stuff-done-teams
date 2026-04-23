@@ -43,27 +43,29 @@ const MAX_STDIN = 1024 * 1024; // 1 MiB
 const SCHEMA_VERSION = 1;
 const DEFAULT_CW_CEILING_TOKENS = 200000; // input-token budget per CW
 
-let input = "";
-let aborted = false;
+if (require.main === module) {
+  let input = "";
+  let aborted = false;
 
-process.stdin.setEncoding("utf8");
-process.stdin.on("data", (chunk) => {
-  input += chunk;
-  if (input.length > MAX_STDIN) {
-    aborted = true;
-    try { process.stdin.destroy(); } catch { /* noop */ }
-  }
-});
-process.stdin.on("error", () => { /* silent */ });
-process.stdin.on("end", () => {
-  if (aborted) { exitClean(); return; }
-  try {
-    handle(input);
-  } catch {
-    // silent — never throw from a SessionStart hook
-  }
-  exitClean();
-});
+  process.stdin.setEncoding("utf8");
+  process.stdin.on("data", (chunk) => {
+    input += chunk;
+    if (input.length > MAX_STDIN) {
+      aborted = true;
+      try { process.stdin.destroy(); } catch { /* noop */ }
+    }
+  });
+  process.stdin.on("error", () => { /* silent */ });
+  process.stdin.on("end", () => {
+    if (aborted) { exitClean(); return; }
+    try {
+      handle(input);
+    } catch {
+      // silent — never throw from a SessionStart hook
+    }
+    exitClean();
+  });
+}
 
 /**
  * Handle a single SessionStart payload. Pure-ish: I/O is via fs but no

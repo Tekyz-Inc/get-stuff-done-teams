@@ -3,7 +3,7 @@
 ## Wave 1 — Foundation
 
 ### M44-D1-T1 — Contract skeleton + task-graph module scaffold
-- **Status**: [ ] pending
+- **Status**: [x] done (2026-04-22 · commit `26979df`)
 - **Dependencies**: none
 - **Acceptance criteria**:
   - `.gsd-t/contracts/task-graph-contract.md` exists with node schema, edge schema, and ready-mask semantics (may be incomplete stubs at this stage)
@@ -12,7 +12,7 @@
 - **Files touched**: `bin/gsd-t-task-graph.cjs` (new), `.gsd-t/contracts/task-graph-contract.md` (new)
 
 ### M44-D1-T2 — Core parser: tasks.md + scope.md → DAG
-- **Status**: [ ] pending
+- **Status**: [x] done (2026-04-22 · commit `57076d6`)
 - **Dependencies**: M44-D1-T1
 - **Acceptance criteria**:
   - `buildTaskGraph({projectDir})` correctly parses all `.gsd-t/domains/*/tasks.md` files present in the repo
@@ -23,7 +23,7 @@
 - **Files touched**: `bin/gsd-t-task-graph.cjs`, `.gsd-t/contracts/task-graph-contract.md`
 
 ### M44-D1-T3 — Unit test suite
-- **Status**: [ ] pending
+- **Status**: [x] done (2026-04-22 · commit `b799e83` · 22/22 pass)
 - **Dependencies**: M44-D1-T2
 - **Acceptance criteria**:
   - `test/m44-task-graph.test.js` covers: single-domain parse, multi-domain parse with cross-domain dep edges, cycle detection throws, ready-mask correct after marking a dep DONE, `touches: []` fallback path, unknown status marker warning
@@ -31,7 +31,7 @@
 - **Files touched**: `test/m44-task-graph.test.js` (new)
 
 ### M44-D1-T4 — CLI debugging subcommand (`gsd-t graph`)
-- **Status**: [ ] pending
+- **Status**: [x] done (2026-04-22 · commit `f5ee283`)
 - **Dependencies**: M44-D1-T3
 - **Acceptance criteria**:
   - `gsd-t graph --output json` prints the full DAG as indented JSON to stdout
@@ -40,7 +40,7 @@
 - **Files touched**: `bin/gsd-t.js` (add `graph` subcommand routing)
 
 ### M44-D1-T5 — Doc-ripple + tests-pass commit
-- **Status**: [ ] pending
+- **Status**: [x] done (2026-04-22 · commit `6bbfa4a`)
 - **Dependencies**: M44-D1-T4
 - **Acceptance criteria**:
   - `docs/requirements.md` updated with §"M44 Task-Graph Reader" requirement entry

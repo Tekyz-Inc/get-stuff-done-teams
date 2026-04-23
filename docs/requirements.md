@@ -515,3 +515,25 @@ Milestone 44 D1 ships the shared DAG that all downstream M44 domains (D2 paralle
 
 Supporting contract:
 - `task-graph-contract.md` v1.0.0 — locks DAG schema; downstream M44 domains may begin implementation against this contract.
+
+## M44 Per-CW Attribution (D7 — Wave 1 foundation, 2026-04-22)
+
+Milestone 44 D7 ships the per-Context-Window attribution surface that downstream consumers (D6 estimator calibration, the per-CW rollup in `gsd-t metrics`, the optimization report) need to keep working post-M44. Without `cw_id` on token-usage rows, every iter looks like a single CW even when Claude Code compacted mid-run; the calibration loop also needs a post-spawn signal so D6 can self-correct from the delta between predicted and observed CW utilization.
+
+| REQ-ID | Requirement Summary | Domain | Status |
+|--------|---------------------|--------|--------|
+| REQ-M44-D7-01 | `bin/gsd-t-token-capture.cjs` accepts an optional `cw_id` field on `recordSpawnRow` / `captureSpawn`. When supplied, written to the JSONL row; when absent, omitted (NOT null, NOT ""). Pass-through only — wrapper does not derive `cw_id`. | m44-d7-per-cw-attribution | **complete (2026-04-22)** — 15/15 existing m41-token-capture tests still pass unchanged |
+| REQ-M44-D7-02 | `metrics-schema-contract.md` bumped v2 → v2.1.0 documenting `cw_id` field + derivation rules (unattended: `cw_id == spawn_id`; in-session: `session_id + ":" + compaction_index`) | m44-d7-per-cw-attribution | **complete (2026-04-22)** |
+| REQ-M44-D7-03 | `compaction-events-contract.md` bumped v1.0.0 → v1.1.0 adding `compaction_post_spawn` calibration event type appended to the same sink (`compactions.jsonl`); pairs `estimatedCwPct` with `actualCwPct` | m44-d7-per-cw-attribution | **complete (2026-04-22)** |
+| REQ-M44-D7-04 | `scripts/gsd-t-calibration-hook.js` SessionStart hook: on `source=compact`, correlates with active spawn from `.gsd-t/.unattended/state.json`, derives `actualCwPct` from `payload.input_tokens` ÷ CW ceiling, appends one calibration row. Silent no-op when no active spawn (supervisor not running). | m44-d7-per-cw-attribution | **complete (2026-04-22)** — 19/19 unit tests in `test/m44-cw-attribution.test.js` |
+| REQ-M44-D7-05 | Calibration hook safe to register alongside `scripts/gsd-t-compact-detector.js` — both fire on SessionStart, both write to the same sink, neither reads/writes the other's rows. Hook always exits 0 (throwing breaks Claude Code session start). | m44-d7-per-cw-attribution | **complete (2026-04-22)** — coexistence test verifies v1.0.0 detector rows remain intact when calibration row appended |
+| REQ-M44-D7-06 | Backward compatibility: every pre-D7 v2 row remains a valid v2.1.0 row. Pre-D7 callers (no `cw_id` supplied) produce byte-identical output. Historical `token-usage.jsonl` rows are NOT backfilled with `cw_id`. | m44-d7-per-cw-attribution | **complete (2026-04-22)** |
+
+Supporting contracts:
+- `metrics-schema-contract.md` v2.1.0 — adds optional `cw_id` field; documents producer ownership (M44 D7) and derivation rules
+- `compaction-events-contract.md` v1.1.0 — adds `compaction_post_spawn` calibration event; documents the calibration hook's lifecycle and guardrails
+
+Out of scope for D7:
+- Backfilling historical `token-usage.jsonl` rows with `cw_id` (consumers fall back to per-iter median for pre-D7 rows)
+- Modifying `scripts/gsd-t-compact-detector.js` (D7 adds a companion hook only)
+- Any economics logic (D6) or parallel dispatch logic (D2)

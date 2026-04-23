@@ -625,6 +625,47 @@ Orchestrator Context Gate — v3.0.0 semantics:
 
 **Contract**: `.gsd-t/contracts/task-graph-contract.md` v1.0.0
 
+## Per-CW Attribution (M44 D7, v3.18.10+)
+
+Per-Context-Window (CW) attribution lets the optimization report, the per-CW rollup in `gsd-t metrics`, and D6's pre-spawn estimator distinguish multiple CWs within one iter — necessary because Claude Code can compact mid-run, silently splitting one iter into two CWs that pre-D7 metrics treated as a single unit.
+
+```
+spawn site (orchestrator | supervisor | in-session driver)
+   │ supplies cw_id (= spawn_id for unattended; = session_id+":"+compaction_index for in-session)
+   ▼
+bin/gsd-t-token-capture.cjs::recordSpawnRow / captureSpawn
+   │ pass-through; serializes cw_id into the JSONL row when supplied
+   ▼
+.gsd-t/metrics/token-usage.jsonl   (schema v2.1.0 — cw_id optional)
+   │
+   ▼  consumers (D6 calibration, gsd-t metrics rollup, optimization report)
+
+Claude Code SessionStart  (source=compact)
+   ├──> scripts/gsd-t-compact-detector.js   (v1.0.0 — boundary row, unchanged)
+   └──> scripts/gsd-t-calibration-hook.js   (v1.1.0 — calibration row)
+              │ correlates with active spawn from .gsd-t/.unattended/state.json
+              │ derives actualCwPct from payload.input_tokens ÷ CW ceiling
+              ▼
+        .gsd-t/metrics/compactions.jsonl
+        ({type: "compaction_post_spawn", cw_id, task_id, spawn_id,
+          estimatedCwPct, actualCwPct, ts, schemaVersion: 1})
+```
+
+**`bin/gsd-t-token-capture.cjs` extension** — additive optional `cw_id` opt on `recordSpawnRow` and `captureSpawn`. The wrapper does not derive `cw_id`; it only forwards what the caller supplies. When absent (undefined / null / "") the field is omitted from the JSONL row entirely (NOT serialized as `null` or `""`). Pre-D7 callers produce byte-identical output. The serialization branch follows the existing `session_id` / `turn_id` pattern (`if (cw_id != null && cw_id !== '') rec.cw_id = String(cw_id);`).
+
+**`scripts/gsd-t-calibration-hook.js`** — zero-external-dep SessionStart hook handler that complements (does not replace) `scripts/gsd-t-compact-detector.js`. Both hooks fire on the same payload; both write to `.gsd-t/metrics/compactions.jsonl`; neither reads or writes the other's rows. The calibration hook silently no-ops when:
+- `payload.source !== "compact"`
+- `<cwd>/.gsd-t/` does not exist (off-switch)
+- `.gsd-t/.unattended/state.json` is missing / unparseable / `status !== "running"`
+- No `spawn_id` derivable from state
+- No `input_tokens` derivable from the compaction payload
+
+The hook ALWAYS exits 0 — throwing breaks Claude Code SessionStart. It includes a 1 MiB stdin cap, a path-traversal guard on the output sink, and a non-absolute-cwd guard mirroring the detector. Hard rules (from `compaction-events-contract.md` v1.1.0) specify the `compaction_post_spawn` row schema, the calibration sink coexistence rules, and the CW-ceiling override (`state.cwCeilingTokens` → defaults to `200000` input tokens).
+
+**Contracts**: `.gsd-t/contracts/metrics-schema-contract.md` v2.1.0 (`cw_id` field), `.gsd-t/contracts/compaction-events-contract.md` v1.1.0 (calibration event)
+
+**Tests**: `test/m44-cw-attribution.test.js` (19 tests covering pass-through with/without `cw_id`, calibration hook with/without active spawn, malformed state, non-compact sources, derivation fallback to `compactMetadata.preTokens`, ceiling overrides, coexistence with v1.0.0 detector rows, and zero-deps verification).
+
 ## Planned Architecture Changes (M23-M24)
 
 **M23: Headless Mode**

@@ -3,7 +3,7 @@
 ## Wave 1 — Foundation
 
 ### M44-D7-T1 — Contract skeletons: metrics-schema v2.1.0 + compaction-events v1.1.0
-- **Status**: [ ] pending
+- **Status**: [x] done (2026-04-22 · commit `7c3e571`)
 - **Dependencies**: none (D7 is Wave 1, no upstream M44 deps)
 - **Acceptance criteria**:
   - `.gsd-t/contracts/metrics-schema-contract.md` bumped to v2.1.0 with `cw_id: string (optional)` field added to the token-usage row schema section
@@ -12,7 +12,7 @@
 - **Files touched**: `.gsd-t/contracts/metrics-schema-contract.md`, `.gsd-t/contracts/compaction-events-contract.md`
 
 ### M44-D7-T2 — `cw_id` pass-through in token-capture
-- **Status**: [ ] pending
+- **Status**: [x] done (2026-04-22 · commit `3d784ed`)
 - **Dependencies**: M44-D7-T1
 - **Acceptance criteria**:
   - `bin/gsd-t-token-capture.cjs` `recordSpawnRow` (and `captureSpawn`) accept an optional `cw_id` field in the row options object
@@ -22,7 +22,7 @@
 - **Files touched**: `bin/gsd-t-token-capture.cjs`
 
 ### M44-D7-T3 — Calibration hook: compact-detector → supervisor signal
-- **Status**: [ ] pending
+- **Status**: [x] done (2026-04-22 · commit `64301ed`)
 - **Dependencies**: M44-D7-T2
 - **Acceptance criteria**:
   - `scripts/gsd-t-calibration-hook.js` exists as a SessionStart hook handler
@@ -32,7 +32,7 @@
 - **Files touched**: `scripts/gsd-t-calibration-hook.js` (new)
 
 ### M44-D7-T4 — Unit test suite
-- **Status**: [ ] pending
+- **Status**: [x] done (2026-04-22 · 19/19 pass isolated)
 - **Dependencies**: M44-D7-T3
 - **Acceptance criteria**:
   - `test/m44-cw-attribution.test.js` covers: `recordSpawnRow` with `cw_id` present (field in row), `recordSpawnRow` without `cw_id` (field absent, other fields unchanged), calibration hook with active spawn (calibration event written), calibration hook without active spawn (no-op, no file written)
@@ -40,7 +40,7 @@
 - **Files touched**: `test/m44-cw-attribution.test.js` (new)
 
 ### M44-D7-T5 — Doc-ripple + tests-pass commit
-- **Status**: [ ] pending
+- **Status**: [x] done (2026-04-22 · this commit)
 - **Dependencies**: M44-D7-T4
 - **Acceptance criteria**:
   - `docs/requirements.md` updated with §"M44 Per-CW Attribution" requirement entry
