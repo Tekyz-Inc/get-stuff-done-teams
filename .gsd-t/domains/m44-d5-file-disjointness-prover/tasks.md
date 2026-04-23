@@ -21,7 +21,7 @@
 - **Files touched**: `bin/gsd-t-file-disjointness.cjs`, `.gsd-t/contracts/file-disjointness-contract.md`
 
 ### M44-D5-T3 — Unit test suite
-- **Status**: [ ] pending
+- **Status**: [x] done (2026-04-22 · commit `pending`)
 - **Dependencies**: M44-D5-T2
 - **Acceptance criteria**:
   - `test/m44-file-disjointness.test.js` covers: two tasks no overlap (parallel), two tasks sharing one file (sequential), unprovable task (sequential with reason="unprovable"), three-task set with one unprovable (unprovable→sequential, other two parallel if disjoint), scope.md fallback used when no explicit `touches:` field
