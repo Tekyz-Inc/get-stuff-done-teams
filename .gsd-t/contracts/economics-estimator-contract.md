@@ -1,9 +1,9 @@
-# Economics Estimator Contract — v0.1.0
+# Economics Estimator Contract — v1.0.0
 
 **Milestone**: M44 — Cross-Domain & Cross-Task Parallelism (in-session AND unattended)
 **Owner**: m44-d6-pre-spawn-economics
 **Consumers**: m44-d2-parallel-cli (reads `estimateTaskFootprint` output as a HINT into the gating math)
-**Status**: SKELETON — v0.1.0 (T1) — fields and sections frozen; numbers filled in by T2/T3.
+**Status**: ACTIVE — v1.0.0 (2026-04-22, D6-T3) — implementation landed (T2), calibrated against real 528-row corpus (T3).
 
 ---
 
@@ -76,12 +76,17 @@ Nulls in the corpus (`domain: null`) are treated as the literal sentinel `'-'` f
 
 `split` is always `false` for in-session mode. `workerCount` defaults to `1` and is reduced when confidence is LOW/FALLBACK (§5 guidance), but the final-count decision belongs to D2.
 
-## 7. Known-Failure Modes (placeholder — calibrated in T3)
+## 7. Known-Failure Modes
 
-- **Novel task types (FALLBACK tier)** — no command/step/domain match in corpus → global median. Large MAE expected.
-- **Tasks that inherently exceed 60% CW** — always-sequential by nature (large audits, corpus scans). `split=true` is the correct recommendation but the caller must handle multi-iter planning; D6 does not slice.
-- **Mixed-mode corpus bias (pre-D7 rows lack `cw_id`)** — per-CW granularity is only available on post-D7 rows; historical rows provide per-iter estimates, which over-estimate per-worker CW for in-session turns and under-estimate for long unattended iters.
-- **Cache-heavy rows inflate total tokens** — cacheRead dominates many rows and is "free" in real CW accounting; the estimator uses raw totals as a conservative upper bound. Calibration (T3) documents the over-estimation bias.
+See §10 "Known-Failure Modes (confirmed during calibration)" for the full
+list with measured characteristics from the 2026-04-22 calibration run.
+Summary:
+
+- Novel task types (FALLBACK tier) — no command/step/domain match → global median (~15 % MAE).
+- Tasks that inherently exceed 60 % CW — always-sequential; D6 recommends but does not slice.
+- Mixed-mode corpus bias — pre-D7 rows lack `cw_id`; per-CW granularity grows as D7 rows accumulate.
+- Cache-heavy rows inflate totals — conservative upper bound by design.
+- FALLBACK bias toward the majority bucket when the corpus is highly skewed.
 
 ## 8. Event Emission
 
@@ -108,19 +113,61 @@ Each `estimateTaskFootprint` call appends one row to `.gsd-t/events/YYYY-MM-DD.j
 
 Historical rows without `cw_id` are included in the per-iter-level median; post-D7 rows with `cw_id` populate the per-CW-level signal (once D7 rows accumulate).
 
-## 10. Calibration Procedure (placeholder — filled in T3)
+## 10. Calibration Results (2026-04-22, T3)
 
-T3 will run an 80/20 held-out split against `token-usage.jsonl` and report
-**mean-absolute-error (MAE) % vs observed CW usage** per confidence tier.
+Calibration was run against the live `.gsd-t/metrics/token-usage.jsonl`
+corpus (528 rows, schemaVersion 2, from M43 in-session usage capture).
+Methodology combines an 80/20 held-out split (HIGH tier) with targeted
+per-tier simulation (MEDIUM/LOW/FALLBACK) because the corpus is skewed:
+523/528 rows share the `in-session|turn|-` triplet, so a naive 80/20
+split only exercises the HIGH bucket.
 
-| Tier     | MAE (%) | n    | Notes |
-|----------|---------|------|-------|
-| HIGH     | _TBD_   | _TBD_ | _TBD_ |
-| MEDIUM   | _TBD_   | _TBD_ | _TBD_ |
-| LOW      | _TBD_   | _TBD_ | _TBD_ |
-| FALLBACK | _TBD_   | _TBD_ | _TBD_ |
+**Per-tier mean-absolute-error (MAE), in % of 200 K-token CW ceiling:**
 
-Coverage check: confirm corpus is sufficient to produce HIGH or MEDIUM confidence on common GSD-T patterns (`gsd-t-execute`, `gsd-t-wave`, `gsd-t-quick` commands). Documented in T3.
+| Tier     | MAE (%) | n   | Method |
+|----------|---------|-----|--------|
+| HIGH     | 12.89   | 106 | 80/20 held-out split; test set ⊂ `in-session\|turn\|-`. |
+| MEDIUM   | 0.00    | 5   | Self-lookup (keys with 1–4 rows — median of ≤4 values is each value by construction). Real MAE will be higher once larger MEDIUM buckets accumulate; current number reflects the degenerate small-n case. |
+| LOW      | 13.08   | 523 | Forced command-only fuzzy on the `in-session` row population; predict = median of byCommand(cmd), score against each actual. |
+| FALLBACK | 15.06   | 528 | Every row predicted = global median; score against each actual. Baseline "no signal" performance. |
+
+**Corpus diagnostic (2026-04-22):**
+
+- Distinct exact triplet keys: **5** (tiny — corpus is dominated by one key).
+- Keys with ≥5 rows (HIGH tier eligible): **1** (`in-session|turn|-`, 523 rows).
+- Keys with 1–4 rows (MEDIUM tier eligible): **4**.
+- Global median: **114,475 tokens** ≈ **57.24%** of CW ceiling.
+
+### Coverage Assessment
+
+**Common GSD-T task patterns — `gsd-t-execute`, `gsd-t-wave`, `gsd-t-quick`:**
+
+- `gsd-t-execute` — **no corpus signal yet** (0 rows). Estimator tier = FALLBACK (15 % MAE baseline).
+- `gsd-t-wave` — **no corpus signal yet** (0 rows). Estimator tier = FALLBACK.
+- `gsd-t-quick` — 1 row present, 1 exact-match key ⇒ MEDIUM confidence.
+
+The current corpus is calibrated by M43 in-session turn telemetry only.
+D6 therefore lands functionally correct but produces FALLBACK for most
+non-trivial GSD-T command lookups. As D7's `cw_id` enrichment accumulates
+(M44 and beyond) and command-level rows flow from execute/wave/quick
+spawns, the HIGH/MEDIUM buckets will populate. The estimator is designed
+to grow in signal without code changes — only the corpus evolves.
+
+This is acknowledged and acceptable: FALLBACK confidence returns the
+global-median estimate (57.24 % of CW), which is *conservative* for the
+in-session 85 % gate (PASS for parallelism) and *near-threshold* for the
+unattended 60 % gate (recommends `split=false` but is on the edge — D2's
+additional headroom check catches the edge cases). D6's contract commits
+to "never return undefined" and that invariant holds at every tier.
+
+### Known-Failure Modes (confirmed during calibration)
+
+- **FALLBACK bias toward the majority bucket**: because 523 rows share one key, the global median ≈ the median of that one bucket. Novel task types get the "an in-session turn" estimate (~57% CW), which is reasonable as a default but systematically wrong for tasks that are either much smaller (routing, tool-dispatch) or much larger (wave-level orchestration).
+- **Cache-heavy inflation**: row totals include `cacheReadInputTokens` + `cacheCreationInputTokens`. Cache reads are ~free in real CW accounting; the estimator's totals are a *conservative upper bound* on actual CW footprint. HIGH-tier MAE of 12.89 % reflects this inflation. Future corpus-shape work can track non-cache CW directly; for now the conservatism is deliberate.
+- **MEDIUM tier MAE is artificially low**: when a key has 1–4 rows, the median equals every row (small-n tautology). Real MAE at MEDIUM will rise to the 5–15 % range once buckets broaden.
+- **Mixed-mode corpus bias (pre-D7)**: no rows in the current corpus carry `cw_id`; per-CW granularity is not yet available. Historical rows provide per-iter estimates. This improves as D7 rows accumulate.
+- **Novel task types (FALLBACK)**: unknown `command + step + domain` → global median. ~15 % MAE.
+- **Tasks that inherently exceed 60 % CW**: e.g., large audits, corpus scans. Always-sequential by nature. `split=true` is the correct recommendation; D6 does not slice (caller responsibility).
 
 ## 11. Hard Invariants
 
@@ -135,4 +182,5 @@ Coverage check: confirm corpus is sufficient to produce HIGH or MEDIUM confidenc
 
 ## Version History
 
+- **v1.0.0** (2026-04-22, D6-T3) — Real implementation landed (T2); calibrated against the live 528-row `token-usage.jsonl` corpus with per-tier MAE numbers and known-failure modes documented in §10. Contract active for D2 consumption.
 - **v0.1.0** (2026-04-22, D6-T1) — Skeleton: interface + section headings + placeholder numbers. Downstream (T2 implementation) may begin.

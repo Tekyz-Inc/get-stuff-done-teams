@@ -11,7 +11,7 @@
 - **Files touched**: `.gsd-t/contracts/economics-estimator-contract.md` (new), `bin/gsd-t-economics.cjs` (new)
 
 ### M44-D6-T2 — Core estimator implementation
-- **Status**: [x] done (2026-04-22 · commit `pending`)
+- **Status**: [x] done (2026-04-22 · commit `d0bcbf8`)
 - **Dependencies**: M44-D6-T1
 - **Acceptance criteria**:
   - `estimateTaskFootprint({taskNode, mode, projectDir})` returns `{estimatedCwPct, parallelOk, split, workerCount, matchedRows, confidence}` with correct values for a test lookup against the real corpus
@@ -22,7 +22,7 @@
 - **Files touched**: `bin/gsd-t-economics.cjs`
 
 ### M44-D6-T3 — Calibrate estimator against the existing 525-row token-usage.jsonl + 72-event compactions.jsonl corpus
-- **Status**: [ ] pending
+- **Status**: [x] done (2026-04-22 · commit `pending`)
 - **Dependencies**: M44-D6-T2
 - **Acceptance criteria**:
   - Accuracy documented in `.gsd-t/contracts/economics-estimator-contract.md`: for each confidence tier, report mean-absolute-error % vs actual CW usage on a held-out subset of the corpus
