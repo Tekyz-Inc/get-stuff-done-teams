@@ -24,7 +24,9 @@ const workerIndex = process.env.GSD_T_WORKER_INDEX || '0';
 const taskIds = process.env.GSD_T_WORKER_TASK_IDS || '';
 const workerTotal = process.env.GSD_T_WORKER_TOTAL || '1';
 
-if (!outDir) { process.stderr.write('OUT_DIR required\n'); process.exit(2); }
+// Exit cleanly when invoked without env vars (e.g. by `node --test` fixture sweep).
+// This is a fixture worker, not a test — the proof driver always supplies OUT_DIR.
+if (!outDir) { process.exit(0); }
 fs.mkdirSync(outDir, { recursive: true });
 
 const startedAt = new Date().toISOString();

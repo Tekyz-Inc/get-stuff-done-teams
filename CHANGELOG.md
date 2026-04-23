@@ -2,6 +2,12 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [3.18.17] - 2026-04-23
+
+### Fixed — `npm test` picks up `worker-sim.js` fixture
+
+- **`test/fixtures/m44-proof/worker-sim.js`** was being globbed by `node --test`'s default test-directory matcher (anything under `test/` with a `.js` extension), and failed because the fixture requires `OUT_DIR` to be set. The fixture now exits `0` when env vars are absent instead of `2` — it's a worker fixture, not a test. Full suite back to 2016/2016 green. Required to unblock the v3.18.16 publish.
+
 ## [3.18.16] - 2026-04-23
 
 ### Added — Proof measurement `--visualize` flag

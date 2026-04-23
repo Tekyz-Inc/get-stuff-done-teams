@@ -3,7 +3,7 @@
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: M45 COMPLETE — Conversation-Stream Observability (v3.18.14) · M44 D9 shipped (v3.18.16) · v3.19.00 pending zero-compaction measurement
 ## Date: 2026-04-23
-## Version: 3.18.16
+## Version: 3.18.17
 
 ## Current Milestone
 
