@@ -245,7 +245,7 @@ This will replace changed command files, back up your CLAUDE.md if customized, a
 | **Discuss** | Explore design decisions | Both |
 | **Plan** | Create atomic task lists | Solo (always) |
 | **Impact** | Downstream effect analysis | Solo |
-| **Execute** | Build it | Both |
+| **Execute** | Build it — task-level parallelism via `gsd-t parallel --help` (M44 D2/D3); conditional on >1 gate-passing task, falls back to sequential silently | Both |
 | **Test-Sync** | Maintain test coverage | Solo |
 | **Integrate** | Wire domains together | Solo (always) |
 | **Verify** | Quality gates | Both |

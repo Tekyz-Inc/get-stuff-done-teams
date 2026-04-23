@@ -617,3 +617,30 @@ Out of scope for D2:
 - Command file wiring (`commands/gsd-t-execute.md`, `gsd-t-wave.md`, etc.) — that is D3
 - Actual task slicing implementation (D2 only emits `task_split`; orchestrator executes)
 - Replacing or rewriting `bin/gsd-t-orchestrator.js` — M44 builds on M40
+
+## M44 Command-File Integration (D3 — Wave 3, 2026-04-23)
+
+Milestone 44 D3 wires the five primary GSD-T command files to the D2 `gsd-t parallel` CLI so task-level parallel dispatch becomes available from the standard workflow. D3 is purely additive doc-ripple + integration blocks — no new library code, no new spawns. Existing sequential code paths remain intact; the parallel path is a conditional that falls back silently when any gate vetoes or when only a single task is pending.
+
+| REQ-ID | Requirement Summary | Domain | Status |
+|--------|---------------------|--------|--------|
+| REQ-M44-D3-01 | `commands/gsd-t-execute.md` Step 3 gains an "Optional — Parallel Dispatch (M44)" block documenting the >1-pending-task + D4/D5/D6 gate conditional, `GSD_T_UNATTENDED` mode auto-detection (no hardcoded `--mode`), silent fallback to sequential, D2-owned observability, unattended zero-compaction invariant, and in-session never-interrupt invariant. | m44-d3-command-file-integration | **complete (2026-04-23)** |
+| REQ-M44-D3-02 | `commands/gsd-t-wave.md` EXECUTE phase (Step 3 Phase Orchestration Loop) documents that the spawned execute agent owns the parallel-vs-sequential decision internally; wave orchestrator inherits `GSD_T_UNATTENDED` and does not configure mode. | m44-d3-command-file-integration | **complete (2026-04-23)** |
+| REQ-M44-D3-03 | `commands/gsd-t-integrate.md` Step 3 (Wire Integration Points) gains a conditional block triggering only when integrating >1 domain simultaneously; single-domain wiring is unchanged. | m44-d3-command-file-integration | **complete (2026-04-23)** |
+| REQ-M44-D3-04 | `commands/gsd-t-quick.md` Step 3 (Execute) gains a lightweight conditional block — no-op for single-task quick invocations (the common case); triggers only when >1 pending task AND all gates pass. | m44-d3-command-file-integration | **complete (2026-04-23)** |
+| REQ-M44-D3-05 | `commands/gsd-t-debug.md` Step 3 (Debug Solo or Team) gains a conditional block triggering only for multi-domain contract-boundary/gap debug sessions; single-domain debug runs unchanged. | m44-d3-command-file-integration | **complete (2026-04-23)** |
+| REQ-M44-D3-06 | `commands/gsd-t-help.md` documents the `gsd-t parallel` CLI entry and detailed command block mirroring the style of adjacent entries (flags, reads/writes, contract reference). | m44-d3-command-file-integration | **complete (2026-04-23)** |
+| REQ-M44-D3-07 | `docs/GSD-T-README.md` commands table reflects M44 D3 parallel-dispatch behavior in the rows for execute, wave, quick, debug, and integrate (1-line note per command). | m44-d3-command-file-integration | **complete (2026-04-23)** |
+| REQ-M44-D3-08 | `README.md` Workflow Phases table mentions task-level parallelism via `gsd-t parallel --help` in the Execute row. | m44-d3-command-file-integration | **complete (2026-04-23)** |
+| REQ-M44-D3-09 | No command file hardcodes `--mode` — every integration block explicitly states that mode is auto-detected from `GSD_T_UNATTENDED=1`. No `--in-session` opt-out flag exists in any of the 5 command files. | m44-d3-command-file-integration | **complete (2026-04-23)** |
+| REQ-M44-D3-10 | `docs/architecture.md` documents the parallel dispatch decision flow (command file → D2 `gsd-t parallel` → D4/D5/D6 gates → M40 orchestrator → workers) as a single authoritative diagram. | m44-d3-command-file-integration | **complete (2026-04-23)** |
+
+Supporting contract:
+- `wave-join-contract.md` v1.1.0 — the D2 CLI surface referenced by every D3 integration block.
+
+Out of scope for D3:
+- The parallel execution logic (D2 owns it)
+- Any gate logic (D4 depgraph, D5 file-disjointness, D6 economics)
+- Modifying `bin/gsd-t.js` or any other CLI router (D2-owned)
+- Creating new test files — command files are validated by use per project CLAUDE.md conventions
+- Modifying the commands' non-parallel code paths — integration blocks are ADDITIVE only

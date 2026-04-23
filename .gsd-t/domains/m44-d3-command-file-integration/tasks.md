@@ -21,7 +21,7 @@
 - **Files touched**: `commands/gsd-t-wave.md`, `commands/gsd-t-integrate.md`
 
 ### M44-D3-T3 — quick.md + debug.md integration
-- **Status**: [x] done (2026-04-23 · commit pending)
+- **Status**: [x] done (2026-04-23 · commit 1356239)
 - **Dependencies**: M44-D3-T2
 - **Acceptance criteria**:
   - `commands/gsd-t-quick.md` updated with lightweight integration block (only triggers for > 1 pending task AND all gates pass)
@@ -30,7 +30,7 @@
 - **Files touched**: `commands/gsd-t-quick.md`, `commands/gsd-t-debug.md`
 
 ### M44-D3-T4 — Doc-ripple: help + README + GSD-T-README
-- **Status**: [ ] pending
+- **Status**: [x] done (2026-04-23 · commit pending)
 - **Dependencies**: M44-D3-T3
 - **Acceptance criteria**:
   - `commands/gsd-t-help.md` updated with `gsd-t parallel` entry in the commands reference table

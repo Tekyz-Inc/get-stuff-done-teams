@@ -101,12 +101,12 @@ GSD-T reads all state files and tells you exactly where you left off.
 | `/gsd-t-discuss` | Multi-perspective design exploration | In wave |
 | `/gsd-t-plan` | Create atomic task lists per domain (tasks auto-split to fit one context window) | In wave |
 | `/gsd-t-impact` | Analyze downstream effects | In wave |
-| `/gsd-t-execute` | Run tasks — task-level fresh dispatch, worktree isolation, adaptive replanning, stack rules injection | In wave |
+| `/gsd-t-execute` | Run tasks — task-level fresh dispatch, worktree isolation, adaptive replanning, stack rules injection. M44 (D3): conditionally dispatches >1 gate-passing task via `gsd-t parallel`; single-task or veto falls back to sequential silently. | In wave |
 | `/gsd-t-test-sync` | Sync tests with code changes | In wave |
 | `/gsd-t-qa` | QA agent — test generation, execution, gap reporting | Auto-spawned |
 | *Red Team* | Adversarial QA — spawns after QA passes to find bugs the builder missed | Auto-spawned |
 | `/gsd-t-doc-ripple` | Automated document ripple — update downstream docs after code changes | Auto-spawned |
-| `/gsd-t-integrate` | Wire domains together | In wave |
+| `/gsd-t-integrate` | Wire domains together. M44 (D3): conditionally dispatches multi-domain integration tasks via `gsd-t parallel`; single-domain wiring unchanged. | In wave |
 | `/gsd-t-verify` | Run quality gates + goal-backward verification → auto-invokes complete-milestone | In wave |
 | `/gsd-t-complete-milestone` | Archive + git tag (auto-invoked by verify, also standalone) | In wave |
 
@@ -117,12 +117,12 @@ GSD-T reads all state files and tells you exactly where you left off.
 | `/gsd-t-unattended` | Launch detached supervisor — runs active milestone to completion with zero human intervention | Manual |
 | `/gsd-t-unattended-watch` | Watch tick — fires every 270s via ScheduleWakeup, reports supervisor status | Auto |
 | `/gsd-t-unattended-stop` | Touch stop sentinel — supervisor halts after current worker finishes | Manual |
-| `/gsd-t-wave` | Full cycle, auto-advances all phases | Manual |
+| `/gsd-t-wave` | Full cycle, auto-advances all phases. M44 (D3): EXECUTE phase inherits parallel dispatch from execute agent; no wave-level flag needed — mode auto-detected from `GSD_T_UNATTENDED`. | Manual |
 | `/gsd-t-status` | Cross-domain progress view with token breakdown, global ELO and cross-project rankings | Manual |
 | `/gsd-t-resume` | Restore context, continue | Manual |
-| `/gsd-t-quick` | Fast task with GSD-T guarantees | Manual |
+| `/gsd-t-quick` | Fast task with GSD-T guarantees. M44 (D3): lightweight — conditional parallel dispatch only when >1 pending task AND all gates pass; single-task (the common case) runs sequentially unchanged. | Manual |
 | `/gsd-t-visualize` | Launch browser dashboard — SSE server + React Flow agent visualization | Manual |
-| `/gsd-t-debug` | Systematic debugging with state | Manual |
+| `/gsd-t-debug` | Systematic debugging with state. M44 (D3): conditional parallel dispatch only for multi-domain contract-boundary/gap debug sessions; single-domain debug runs sequentially unchanged. | Manual |
 | `/gsd-t-metrics` | View task telemetry, process ELO, signal distribution, domain health, and cross-project comparison (`--cross-project`) | Manual |
 | `/gsd-t-health` | Validate .gsd-t/ structure, optionally repair | Manual |
 | `/gsd-t-pause` | Save exact position for reliable resume | Manual |

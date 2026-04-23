@@ -72,6 +72,7 @@ HEADLESS (CI/CD)                                                       CLI
   headless exec       Run any GSD-T command non-interactively via claude -p
   headless query      Read project state without LLM (<100ms)
   headless --debug-loop  Compaction-proof test-fix-retest loop (fresh sessions)
+  parallel            Task-level parallel dispatch with mode-aware gating (M44)
 
 BACKLOG                                                                Manual
 ───────────────────────────────────────────────────────────────────────────────
@@ -339,6 +340,15 @@ Use these when user asks for help on a specific command:
 - **Exit codes**: `0` pass · `1` max iterations · `2` compaction error · `3` process error · `4` needs human
 - **Creates**: `.gsd-t/debug-state.jsonl`, optional `.gsd-t/headless-{ts}.log`
 - **Use when**: Running automated fix loops in CI, or delegated from in-context commands that exhausted fix attempts
+
+### parallel
+- **Summary**: Task-level parallel dispatch with mode-aware gating math (M44 D2) — wraps the M40 orchestrator with D4 depgraph + D5 file-disjointness + D6 economics gates and in-session headroom / unattended task-split decisions
+- **Auto-invoked**: Conditionally — from `execute`, `wave`, `integrate`, `quick`, and `debug` integration blocks when >1 pending task passes all three gates. Single-task or veto paths fall back to sequential silently.
+- **Flags**: `--mode in-session|unattended` (auto-detects from `GSD_T_UNATTENDED=1` when omitted), `--milestone Mxx`, `--domain <name>`, `--dry-run`, `--help/-h`
+- **Reads**: `.gsd-t/domains/*/tasks.md` (via D1 task-graph), `.gsd-t/token-log.md` / `.gsd-t/metrics/token-usage.jsonl` (D6 corpus), `.gsd-t/.context-meter-state.json` (in-session ctxPct)
+- **Writes**: `.gsd-t/events/YYYY-MM-DD.jsonl` — `gate_veto`, `parallelism_reduced`, `task_split` events (best-effort). Never writes to tasks.md.
+- **Use when**: Usually auto-invoked by the integration blocks. Standalone use: preview a plan with `gsd-t parallel --dry-run`, or force a specific milestone/domain filter.
+- **Contract**: `.gsd-t/contracts/wave-join-contract.md` v1.1.0 (§Mode-Aware Gating Math)
 
 ### promote-debt
 - **Summary**: Convert techdebt.md items into milestones
