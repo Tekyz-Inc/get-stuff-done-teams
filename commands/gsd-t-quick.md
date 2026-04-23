@@ -199,7 +199,7 @@ node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-
 - Fallback is silent — any gate veto drops the affected tasks back to the sequential quick path.
 - D2 owns the spawn observability; the parallel path writes the same `.gsd-t/events/YYYY-MM-DD.jsonl` records and `.gsd-t/token-log.md` rows via `captureSpawn`. D3 adds no new spawn machinery.
 - `[unattended]` — D2 enforces the zero-compaction contract by splitting tasks when D6 estimates > 60% per-worker CW.
-- `[in-session]` — NEVER interrupts the user with a pause/resume prompt. If headroom is tight, D2 reduces the worker count (floor N=1). No `--in-session` opt-out flag exists.
+- `[in-session]` — NEVER interrupts the user with a pause/resume prompt. If headroom is tight, D2 reduces the worker count (floor N=1). No opt-out flag exists (consistent with M43 D4: `--in-session` / `--headless` were never shipped).
 
 Contract: `.gsd-t/contracts/wave-join-contract.md` v1.1.0.
 

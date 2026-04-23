@@ -112,7 +112,7 @@ When integration work spans **more than one domain simultaneously** (i.e., the i
 - **Fallback** — any gate veto (unmet deps, overlapping write targets, unprovable disjointness) removes the affected tasks from the parallel batch; they fall back to the sequential task-dispatcher silently. No user prompt.
 - **Observability** — D2 owns the spawn observability. The parallel path writes the same `.gsd-t/events/YYYY-MM-DD.jsonl` records (`gate_veto`, `parallelism_reduced`, `task_split`) and `.gsd-t/token-log.md` rows as the sequential path via `captureSpawn`. D3 adds no new spawn machinery.
 - **Zero-compaction invariant (unattended)** — for `[unattended]` runs, D2 enforces zero-compaction by splitting integration tasks when D6 estimates > 60% per-worker CW.
-- **In-session invariant** — NEVER interrupts the user with a pause/resume prompt. If headroom is tight, D2 reduces the worker count (floor N=1) and emits `parallelism_reduced`. If all gates fail, falls back to sequential silently. No `--in-session` opt-out flag exists.
+- **In-session invariant** — NEVER interrupts the user with a pause/resume prompt. If headroom is tight, D2 reduces the worker count (floor N=1) and emits `parallelism_reduced`. If all gates fail, falls back to sequential silently. No opt-out flag exists (consistent with M43 D4: `--in-session` / `--headless` were never shipped).
 
 Example (mode auto-detected from env):
 

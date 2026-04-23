@@ -867,6 +867,50 @@ The hook ALWAYS exits 0 — throwing breaks Claude Code SessionStart. It include
 
 **Tests**: `test/m44-parallel-cli.test.js` (21 tests covering headroom ok/reduced/floor, unattended gate ok/split/boundary, plan-table format, runParallel in-session fan-out, disjointness gate-veto fallback, mode auto-detect, explicit-mode override, headroom reduction end-to-end with a 5-domain fixture at 70% ctxPct, and CLI arg parsing).
 
+## Command-File Integration (M44 D3, v3.18.10+)
+
+Wires the five primary GSD-T command files — `commands/gsd-t-execute.md`, `gsd-t-wave.md`, `gsd-t-integrate.md`, `gsd-t-quick.md`, `gsd-t-debug.md` — to the D2 `gsd-t parallel` CLI so task-level parallel dispatch becomes available from the standard workflow. Purely additive doc-ripple + conditional integration blocks; no new library code, no new spawns. Every existing sequential code path remains intact.
+
+**Dispatch decision flow**:
+
+```
+  command file                                 bin/gsd-t-parallel.cjs      bin/gsd-t-orchestrator.js
+  ────────────────                             ────────────────────       ────────────────────────
+  execute   ┐
+  wave      │   "Optional — Parallel               ┌─ D4 depgraph-validate ─┐
+  integrate ├─► Dispatch (M44)" block ───► runParallel │ (veto on unmet deps)  │
+  quick     │   (conditional: >1 pending       (D2)     ├─ D5 disjointness ──────┤──► validated plan
+  debug     ┘    task + D4/D5/D6 gates                  │ (veto on overlap)     │    ────► M40 orchestrator
+                 pass). Mode auto-detected              ├─ D6 economics (hint)  │          (spawns workers,
+                 from GSD_T_UNATTENDED.                 └─ mode-aware final     │          retries, wave
+                 Single-task or veto →                    gate (85% / 60%)      │          barriers, state
+                 silent sequential fallback.                                    │          lifecycle)
+                                                         emits gate_veto,
+                                                         parallelism_reduced,
+                                                         task_split events
+                                                         (best-effort JSONL)
+```
+
+**Per-file integration points**:
+
+| Command file | Step | Trigger | Behavior when no trigger |
+|-------------|------|---------|-------------------------|
+| `gsd-t-execute.md` | Step 3 (Choose Execution Mode) | >1 pending task + gates pass | Existing Wave Scheduling + Solo/Team Mode sequential path |
+| `gsd-t-wave.md` | Step 3 EXECUTE phase (#5) | Inherited from execute agent | Wave orchestrator does not configure mode |
+| `gsd-t-integrate.md` | Step 3 (Wire Integration Points) | Integrating >1 domain + gates pass | Sequential task-level dispatch |
+| `gsd-t-quick.md` | Step 3 (Execute) | >1 pending task + gates pass (uncommon for quick) | Sequential single-subagent (the common case) |
+| `gsd-t-debug.md` | Step 3 (Debug Solo or Team) | Multi-domain contract-boundary/gap debug | Sequential Solo Mode / Team Mode |
+
+**Invariants** (enforced by D2; documented in every D3 integration block):
+1. **Mode auto-detection** — mode comes from `GSD_T_UNATTENDED=1`; no command file hardcodes `--mode`.
+2. **Silent fallback** — gate vetoes, unprovable disjointness, and single-task scope ALL drop to sequential without a user prompt.
+3. **No opt-out flag** — no `--in-session`/`--headless` flag exists (consistent with M43 D4).
+4. **In-session: never interrupt** — headroom pressure reduces worker count to N=1 floor; never pauses.
+5. **Unattended: zero-compaction** — D2 enforces by splitting when D6 estimates > 60% per-worker CW.
+6. **Observability** — D2 owns spawn observability; D3 adds zero new spawns.
+
+**Contract**: `.gsd-t/contracts/wave-join-contract.md` v1.1.0 (surface referenced by every integration block).
+
 ## Spawn Plan Visibility (M44 D8, v3.18.10+)
 
 Right-side two-layer task panel in the dashboard / transcript visualizer.

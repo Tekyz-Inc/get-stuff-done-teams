@@ -30,7 +30,7 @@
 - **Files touched**: `commands/gsd-t-quick.md`, `commands/gsd-t-debug.md`
 
 ### M44-D3-T4 — Doc-ripple: help + README + GSD-T-README
-- **Status**: [x] done (2026-04-23 · commit pending)
+- **Status**: [x] done (2026-04-23 · commit 3fa617e)
 - **Dependencies**: M44-D3-T3
 - **Acceptance criteria**:
   - `commands/gsd-t-help.md` updated with `gsd-t parallel` entry in the commands reference table
@@ -40,7 +40,7 @@
 - **Files touched**: `commands/gsd-t-help.md`, `GSD-T-README.md`, `README.md`, `docs/requirements.md`
 
 ### M44-D3-T5 — In-session + unattended smoke test validation + doc-ripple commit
-- **Status**: [ ] pending
+- **Status**: [x] done (2026-04-23 · commit pending)
 - **Dependencies**: M44-D3-T4
 - **Acceptance criteria**:
   - In-session smoke test passes: `gsd-t-execute` against a small multi-domain fixture using the parallel path completes in ≤ T/2 of the sequential baseline with zero pause/resume prompts

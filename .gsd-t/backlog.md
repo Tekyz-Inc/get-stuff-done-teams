@@ -132,3 +132,8 @@ Rate-limit pressure from running parallel is NOT a con. Hitting the 5-hour ceili
 - `feedback_parallelism_two_modes.md` — full mode-aware design framing
 - `feedback_unattended_overnight_only.md` (superseded 2026-04-22) — mode-selection criteria
 - `feedback_token_measurement_hierarchy.md` — Run → Iter → CW → Turn → Tool, CW as primary unit
+
+## 15. m44-wave3-smoke-tests
+- **Type:** improvement | **App:** gsd-t | **Category:** tests
+- **Added:** 2026-04-23
+- Build the in-session + unattended smoke-test fixtures deferred from M44-D3-T5: a small multi-domain fixture proving `gsd-t parallel` completes in ≤ T/2 of the sequential baseline with zero pause/resume prompts, plus an unattended `gsd-t unattended --max-iterations 5` fixture producing zero new entries in `.gsd-t/metrics/compactions.jsonl` during the run. Blocked on: actual fixtures not yet authored in the repo. Follow-up quick task.
