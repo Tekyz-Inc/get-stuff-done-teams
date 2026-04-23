@@ -644,3 +644,23 @@ Out of scope for D3:
 - Modifying `bin/gsd-t.js` or any other CLI router (D2-owned)
 - Creating new test files — command files are validated by use per project CLAUDE.md conventions
 - Modifying the commands' non-parallel code paths — integration blocks are ADDITIVE only
+
+## M44 Spawn Plan Visibility (D8 — Wave 3 observability, 2026-04-23)
+
+Milestone 44 D8 delivers a right-side two-layer task panel in the dashboard and transcript visualizer. Layer 1 surfaces the full project/milestone task plan; Layer 2 scopes down to the currently-active spawn. Done tasks display a compact token cell (`in=Nk out=Nk $X.XX`). A post-commit git hook flips task status to `done` and performs token attribution by scanning `.gsd-t/token-log.md` rows within the spawn's time window. One protocol, three writers (`captureSpawn`, `autoSpawnHeadless`, unattended worker resume Step 0), one reader (dashboard SSE + transcript HTML panel).
+
+| REQ-ID | Requirement Summary | Domain | Status |
+|--------|---------------------|--------|--------|
+| REQ-M44-D8-01 | `bin/spawn-plan-writer.cjs` exports `writeSpawnPlan({spawnId, kind, milestone, wave, domains, tasks, projectDir})` with atomic temp+rename writes into `.gsd-t/spawns/{spawnId}.json`. | m44-d8-spawn-plan-visibility | **complete (2026-04-23)** |
+| REQ-M44-D8-02 | `bin/spawn-plan-status-updater.cjs` exports `markTaskDone({spawnId, taskId, commit, tokens?, projectDir})` and `markSpawnEnded({spawnId, endedReason, projectDir})` with atomic rewrites. | m44-d8-spawn-plan-visibility | **complete (2026-04-23)** |
+| REQ-M44-D8-03 | Post-commit hook (`scripts/gsd-t-post-commit-spawn-plan.sh` + template `templates/hooks/post-commit-spawn-plan.sh`) greps commit messages for `[M\d+-D\d+-T\d+]` matches and flips matching tasks in every active spawn plan (where `endedAt === null`). Silent-fail (exit 0) on any error. | m44-d8-spawn-plan-visibility | **complete (2026-04-23)** |
+| REQ-M44-D8-04 | Token attribution: hook parses `.gsd-t/token-log.md` rows where `Task` column matches the task id AND `Datetime-start >= spawn.startedAt`, sums `in/out/cr/cc/cost_usd`, writes to the task's `tokens` field. Null renders as `—` per the "zero is a measurement, dash is a gap" rule. | m44-d8-spawn-plan-visibility | **complete (2026-04-23)** |
+| REQ-M44-D8-05 | Writer integration at 3 chokepoints — `bin/gsd-t-token-capture.cjs` `captureSpawn` calls `writeSpawnPlan` before `spawnFn()` and `markSpawnEnded` after (success + error both); `bin/headless-auto-spawn.cjs` before child launch; `commands/gsd-t-resume.md` Step 0 under `GSD_T_UNATTENDED_WORKER=1`. All try/catch-wrapped — writer failure never blocks the spawn. | m44-d8-spawn-plan-visibility | **complete (2026-04-23)** |
+| REQ-M44-D8-06 | `bin/spawn-plan-derive.cjs` exports `derivePlanFromPartition({projectDir, milestone, currentIter})` that reads `.gsd-t/partition.md` + `.gsd-t/domains/*/tasks.md` and returns the `{wave, domains, tasks}` slice for the current incomplete-tasks wave. | m44-d8-spawn-plan-visibility | **complete (2026-04-23)** |
+| REQ-M44-D8-07 | Dashboard server gains `GET /api/spawn-plans` (returns array of plan files where `endedAt === null`) and a `spawn-plan-update` SSE channel (fs.watch on `.gsd-t/spawns/*.json` with mtime-deduplicated emits). Additive — existing endpoints and SSE channels unchanged. | m44-d8-spawn-plan-visibility | **complete (2026-04-23)** |
+| REQ-M44-D8-08 | `scripts/gsd-t-transcript.html` gains a right-side `<aside class="spawn-panel">` with two `<section>` layers, status icons `☐ ◐ ✓` (only one `◐` per spawn at a time), and the `fmtTokens({in,out,cr,cc,cost_usd})` renderer producing `in=12.5k out=1.7k $0.42` with k-suffix above 1000 and 2-decimal USD. Cumulative totals computed at milestone and spawn scope. | m44-d8-spawn-plan-visibility | **complete (2026-04-23)** |
+| REQ-M44-D8-09 | No new LLM token cost — all writers derive plans deterministically from partition.md + tasks.md; reader is browser-only; status updater is shell + node. | m44-d8-spawn-plan-visibility | **complete (2026-04-23)** |
+| REQ-M44-D8-10 | 5 test suites covering writer, status updater, post-commit hook (including token-log attribution), dashboard endpoint + SSE, and transcript renderer panel — 36 tests, all passing. | m44-d8-spawn-plan-visibility | **complete (2026-04-23)** |
+
+Supporting contract:
+- `.gsd-t/contracts/spawn-plan-contract.md` v1.0.0 — schema + writer/reader/updater protocol + silent-fail rules.

@@ -431,10 +431,17 @@ test("perf: < 200ms for 50-domain / 250-task project", () => {
 
 // ─── live repo smoke ───────────────────────────────────────────────────
 
-test("live repo: parses without throwing and produces non-empty graph", () => {
+test("live repo: parses without throwing", () => {
   const root = path.resolve(__dirname, "..");
   const g = buildTaskGraph({ projectDir: root });
-  assert.ok(g.nodes.length > 0, "live repo has at least one task");
-  // M44-D1-T1 must exist in the graph (this is us, after all)
-  assert.ok(g.byId["M44-D1-T1"], "M44-D1-T1 present in live graph");
+  // The live repo may have zero in-flight domains right after a
+  // complete-milestone cleans `.gsd-t/domains/`; the contract is just
+  // that buildTaskGraph returns a well-formed graph object, not that
+  // it contains any specific task id (those come and go as milestones
+  // begin and archive).
+  assert.ok(Array.isArray(g.nodes), "graph has a nodes array");
+  assert.ok(Array.isArray(g.edges), "graph has an edges array");
+  assert.ok(Array.isArray(g.ready), "graph has a ready array");
+  assert.ok(g.byId && typeof g.byId === "object", "graph has a byId map");
+  assert.ok(Array.isArray(g.warnings), "graph has a warnings array");
 });
