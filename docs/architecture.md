@@ -625,6 +625,43 @@ Orchestrator Context Gate — v3.0.0 semantics:
 
 **Contract**: `.gsd-t/contracts/task-graph-contract.md` v1.0.0
 
+## File-Disjointness Prover (M44 D5, v3.18.10+)
+
+`bin/gsd-t-file-disjointness.cjs` — the pre-spawn gate that, given a candidate parallel set of task nodes from D1's DAG, partitions them into `parallel` / `sequential` / `unprovable` groups based on declared write-target overlap. Mode-agnostic: same function used by the in-session D2 parallel CLI and the unattended D6 economics path.
+
+```
+D1 task-graph nodes (touches[])                    safe-default
+       │                                      (unprovable → sequential)
+       ▼                                                ▲
+ proveDisjointness({tasks, projectDir}) ────────────────┤
+       │                                                │
+       ├─→ resolveTouches()  (declared → git-history → none)
+       ├─→ groupByOverlap()  (union-find on touches[])
+       │
+       ▼
+ { parallel: TaskNode[][],  (singletons only in v1.0.0 — no multi-task "parallel clusters")
+   sequential: TaskNode[][], (overlap groups + unprovable singletons)
+   unprovable: TaskNode[] }
+       │
+       ▼
+ .gsd-t/events/YYYY-MM-DD.jsonl
+   { type: "disjointness_fallback", task_id, reason, ts }
+   reason ∈ { "unprovable", "write-target-overlap" }
+```
+
+**Public API** (`require('./bin/gsd-t-file-disjointness.cjs')`):
+- `proveDisjointness({tasks, projectDir}) → { parallel, sequential, unprovable }` — synchronous, never throws
+
+**Hard rules** (from `file-disjointness-contract.md` v1.0.0):
+- Unprovable is ALWAYS sequential — never assume disjointness
+- Zero external runtime deps; git invoked via `child_process.execSync` in a try/catch
+- Read-only on all domain artifacts; only write surface is the event JSONL append
+- Checks WRITE targets only — read-only file access is never a conflict
+- Git-history fallback bounded to 100 commits (`git log -n 100`)
+- Mode-agnostic — downstream (D2 / D6) decides what to do with sequential + unprovable groups
+
+**Contract**: `.gsd-t/contracts/file-disjointness-contract.md` v1.0.0
+
 ## Per-CW Attribution (M44 D7, v3.18.10+)
 
 Per-Context-Window (CW) attribution lets the optimization report, the per-CW rollup in `gsd-t metrics`, and D6's pre-spawn estimator distinguish multiple CWs within one iter — necessary because Claude Code can compact mid-run, silently splitting one iter into two CWs that pre-D7 metrics treated as a single unit.

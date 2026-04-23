@@ -516,6 +516,22 @@ Milestone 44 D1 ships the shared DAG that all downstream M44 domains (D2 paralle
 Supporting contract:
 - `task-graph-contract.md` v1.0.0 — locks DAG schema; downstream M44 domains may begin implementation against this contract.
 
+## M44 File-Disjointness Prover (D5 — Wave 2 gate, 2026-04-22)
+
+Milestone 44 D5 ships the pre-spawn gate that proves every candidate parallel-spawn set writes disjoint files. If two tasks would both write the same file, D5 removes them from the parallel set and routes them to a sequential queue. Unprovable tasks (no touch-list source) are always routed sequential as singletons — safe-default, never assume disjoint. Mode-agnostic: same function used by in-session (D2) and unattended (D6) consumers.
+
+| REQ-ID | Requirement Summary | Domain | Status |
+|--------|---------------------|--------|--------|
+| REQ-M44-D5-01 | `bin/gsd-t-file-disjointness.cjs` exports `proveDisjointness({tasks, projectDir})` → `{parallel: TaskNode[][], sequential: TaskNode[][], unprovable: TaskNode[]}`. Synchronous. Never throws. | m44-d5-file-disjointness-prover | **complete (2026-04-22)** — 11/11 unit tests pass |
+| REQ-M44-D5-02 | Touch-list source priority: (1) explicit `touches` populated by D1, (2) git-history heuristic bounded to 100 commits via `git log --name-only -n 100 -- .gsd-t/domains/<domain>/` intersecting with commit subjects containing the task id, (3) unprovable → always sequential | m44-d5-file-disjointness-prover | **complete (2026-04-22)** — fallback chain covered by `_resolveTouches` tests |
+| REQ-M44-D5-03 | Union-find grouping over the pairwise write-target overlap relation: component size 1 → parallel; component size ≥ 2 → sequential (transitive closure) | m44-d5-file-disjointness-prover | **complete (2026-04-22)** — 3-task transitive-closure test verified |
+| REQ-M44-D5-04 | For every task routed sequential (including unprovable singletons), append `{type:'disjointness_fallback', task_id, reason, ts}` to `.gsd-t/events/YYYY-MM-DD.jsonl`. Reasons: `unprovable` or `write-target-overlap`. Best-effort (silent on FS failure). | m44-d5-file-disjointness-prover | **complete (2026-04-22)** — event shape asserted in 3 tests |
+| REQ-M44-D5-05 | Read-only on all domain artifacts. Only write surface is the event stream. Git subprocess wrapped in try/catch. Zero external runtime deps. | m44-d5-file-disjointness-prover | **complete (2026-04-22)** |
+| REQ-M44-D5-06 | Robust input handling: `opts.tasks` missing/null, task missing `touches` field, empty candidate set — all return a valid partition without throwing | m44-d5-file-disjointness-prover | **complete (2026-04-22)** — robustness tests cover all four paths |
+
+Supporting contract:
+- `file-disjointness-contract.md` v1.0.0 — locks prover interface, fallback chain, and event format. Downstream D2/D6 may wire in.
+
 ## M44 Per-CW Attribution (D7 — Wave 1 foundation, 2026-04-22)
 
 Milestone 44 D7 ships the per-Context-Window attribution surface that downstream consumers (D6 estimator calibration, the per-CW rollup in `gsd-t metrics`, the optimization report) need to keep working post-M44. Without `cw_id` on token-usage rows, every iter looks like a single CW even when Claude Code compacted mid-run; the calibration loop also needs a post-spawn signal so D6 can self-correct from the delta between predicted and observed CW utilization.
