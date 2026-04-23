@@ -184,6 +184,25 @@ Proceed.
 node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-quick --step 3 --step-label "Execute" 2>/dev/null || true
 ```
 
+### Optional — Parallel Dispatch (M44, lightweight · conditional-only)
+
+**This block is a no-op for the typical quick invocation.** `gsd-t-quick` is designed for single-focus work; forcing parallel on every quick invocation would add gate overhead without benefit.
+
+**Trigger conditions (BOTH must hold)**:
+1. `.gsd-t/domains/` contains more than one pending task, AND
+2. All three gates (D4 depgraph + D5 file-disjointness + D6 economics) pass for the candidate batch.
+
+**If either condition fails** — and that includes the common case of a single-task quick invocation — skip this block entirely. The sequential single-subagent path in Step 0.1 remains unchanged.
+
+**If BOTH conditions hold** — dispatch the ready batch via `gsd-t parallel` (mode auto-detected from `GSD_T_UNATTENDED=1`; do not hardcode `--mode`):
+
+- Fallback is silent — any gate veto drops the affected tasks back to the sequential quick path.
+- D2 owns the spawn observability; the parallel path writes the same `.gsd-t/events/YYYY-MM-DD.jsonl` records and `.gsd-t/token-log.md` rows via `captureSpawn`. D3 adds no new spawn machinery.
+- `[unattended]` — D2 enforces the zero-compaction contract by splitting tasks when D6 estimates > 60% per-worker CW.
+- `[in-session]` — NEVER interrupts the user with a pause/resume prompt. If headroom is tight, D2 reduces the worker count (floor N=1). No `--in-session` opt-out flag exists.
+
+Contract: `.gsd-t/contracts/wave-join-contract.md` v1.1.0.
+
 ### Deviation Rules
 
 When you encounter unexpected situations:

@@ -12,7 +12,7 @@
 - **Files touched**: `commands/gsd-t-execute.md`
 
 ### M44-D3-T2 — wave.md + integrate.md integration
-- **Status**: [x] done (2026-04-23 · commit pending)
+- **Status**: [x] done (2026-04-23 · commit dd350cc)
 - **Dependencies**: M44-D3-T1
 - **Acceptance criteria**:
   - `commands/gsd-t-wave.md` execution-phase step updated with integration block (matches the execute.md pattern, adjusted for wave context)
@@ -21,7 +21,7 @@
 - **Files touched**: `commands/gsd-t-wave.md`, `commands/gsd-t-integrate.md`
 
 ### M44-D3-T3 — quick.md + debug.md integration
-- **Status**: [ ] pending
+- **Status**: [x] done (2026-04-23 · commit pending)
 - **Dependencies**: M44-D3-T2
 - **Acceptance criteria**:
   - `commands/gsd-t-quick.md` updated with lightweight integration block (only triggers for > 1 pending task AND all gates pass)

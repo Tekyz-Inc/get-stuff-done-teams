@@ -316,6 +316,25 @@ Before touching any code:
 node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-debug --step 3 --step-label "Debug (Solo or Team)" 2>/dev/null || true
 ```
 
+### Optional — Parallel Dispatch (M44, lightweight · conditional-only)
+
+**This block is a no-op for single-domain debug sessions.** Most debug sessions touch one domain (within-domain bug, Category A in Step 2); for those, the sequential Solo Mode path below runs unchanged.
+
+**Trigger conditions (BOTH must hold)**:
+1. This is a multi-domain debug session (Category B contract boundary bug OR Category C contract gap that spans more than one domain), AND
+2. The fix is decomposable into independent tasks across domains that pass D4 depgraph + D5 file-disjointness + D6 economics gates.
+
+**If either condition fails** — single-domain debug, or a fix that cannot be decomposed cleanly — skip this block entirely. The sequential Solo Mode / Team Mode flow below remains unchanged.
+
+**If BOTH conditions hold** — dispatch the independent fix tasks via `gsd-t parallel` (mode auto-detected from `GSD_T_UNATTENDED=1`; do not hardcode `--mode`):
+
+- Fallback is silent — any gate veto drops the affected tasks back to the sequential debug path.
+- D2 owns the spawn observability; the parallel path writes the same `.gsd-t/events/YYYY-MM-DD.jsonl` records and `.gsd-t/token-log.md` rows as the sequential path via `captureSpawn`. D3 adds no new spawn machinery.
+- `[unattended]` — D2 enforces the zero-compaction contract by splitting tasks when D6 estimates > 60% per-worker CW.
+- `[in-session]` — NEVER interrupts the user with a pause/resume prompt. If headroom is tight, D2 reduces the worker count (floor N=1). No `--in-session` opt-out flag exists.
+
+Contract: `.gsd-t/contracts/wave-join-contract.md` v1.1.0.
+
 ### Deviation Rules
 
 When you encounter unexpected situations during the fix:
