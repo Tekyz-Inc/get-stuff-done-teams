@@ -11,7 +11,7 @@
 - **Files touched**: `.gsd-t/contracts/file-disjointness-contract.md` (new), `bin/gsd-t-file-disjointness.cjs` (new)
 
 ### M44-D5-T2 — Core disjointness prover implementation
-- **Status**: [x] done (2026-04-22 · commit `pending`)
+- **Status**: [x] done (2026-04-22 · commit `ed8a9e8`)
 - **Dependencies**: M44-D5-T1
 - **Acceptance criteria**:
   - `proveDisjointness({tasks, projectDir})` returns `{parallel: [...], sequential: [...], unprovable: [...]}` with correct partition for a synthetic 3-task fixture (two disjoint + one overlapping)
@@ -29,7 +29,7 @@
 - **Files touched**: `test/m44-file-disjointness.test.js` (new)
 
 ### M44-D5-T4 — Doc-ripple + tests-pass commit
-- **Status**: [ ] pending
+- **Status**: [x] done (2026-04-22 · commit `f3ab261`)
 - **Dependencies**: M44-D5-T3
 - **Acceptance criteria**:
   - `docs/requirements.md` updated with §"M44 File-Disjointness Prover" requirement entry
