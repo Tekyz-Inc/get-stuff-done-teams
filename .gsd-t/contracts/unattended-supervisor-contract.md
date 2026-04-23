@@ -1,6 +1,6 @@
 # Contract: Unattended Supervisor
 
-**Version**: 1.4.1
+**Version**: 1.5.0
 **Status**: ACTIVE for M43
 **Owner**: m36-supervisor-core + m36-watch-loop (shared)
 **Consumers**: m36-supervisor-core, m36-watch-loop, m36-safety-rails, m36-cross-platform, m36-m35-gap-fixes, m36-docs-and-tests
@@ -89,6 +89,9 @@ The directory is created on first supervisor launch. `.gsd-t/.handoff/` (owned b
 | `sleepPreventionHandle` | integer or null | no | Opaque handle (PID of `caffeinate` on darwin, null elsewhere). Released on exit. |
 | `platform` | enum | yes | `darwin`, `linux`, `win32`. |
 | `claudeBin` | string | yes | Resolved path to the `claude` binary (or `claude.cmd` on win32). |
+| `lastExits` | `Array<{idx, code, taskIds, elapsedMs, spawnId}>` | no | v1.5.0 — present only on fan-out iters. Per-worker outcomes from the last multi-worker iter. Omitted on N=1 iters. See §15a. |
+| `workerPids` | `Array<string\|null>` | no | v1.5.0 — present only on fan-out iters. Per-worker transcript-tee spawn IDs aligned with `lastExits[i]`. See §15a. |
+| `lastFanOutCount` | integer | no | v1.5.0 — present only on fan-out iters. N workers. See §15a. |
 
 ### Write semantics
 
@@ -402,6 +405,74 @@ capability, not a supervisor-level one.
    the supervisor relay. §15 plus the prompt edit in `_spawnWorker` close
    that gap without touching the supervisor control loop or event schema.
 
+## 15a. Planner-Driven Multi-Worker Iter Fan-Out (v1.5.0)
+
+Added in v1.5.0 (M44 D9) to deliver the supervisor-level parallelism called for
+in the `continue-here-2026-04-23T223000.md` Step 2 charter. §15 Worker Team
+Mode was a worker-level shim delegating intra-wave parallelism to the LLM via
+prompt prose ("spawn up to 15 Task subagents"). Per the
+`feedback_deterministic_orchestration` memory ("prompt-based blocking doesn't
+work; use JS orchestrators for gates/waits"), that shim is the anti-pattern
+§15a replaces for multi-task iters. §15 survives as the *single-task-worker*
+fallback, scoped explicitly below.
+
+### Decision flow (runs before every worker iter, inside `runMainLoop`)
+
+1. **Plan**: supervisor calls `runParallel({projectDir, mode:'unattended', milestone, dryRun:true})` from `bin/gsd-t-parallel.cjs`. Plan applies all three upstream gates: D4 dep-graph validation, D5 file-disjointness prover, D6 per-task CW% economics (≤ 60% threshold for unattended mode; tasks over the threshold emit `task_split` events and the orchestrator is expected to slice them).
+2. **Branch**:
+   - `plan.workerCount >= 2` → **FAN-OUT path**: partition `plan.parallelTasks` via round-robin into N disjoint subsets, spawn N concurrent workers via `Promise.all`, each receiving its subset via env var `GSD_T_WORKER_TASK_IDS`. Emit `fan_out` event (`{type, iter, worker_count, task_ids}`).
+   - Otherwise → **SEQUENTIAL fallback**: spawn exactly one worker via the v1.4.x `_spawnWorker` path, byte-for-byte identical behavior.
+3. **Planner failure** (thrown exception, missing module) → emit `parallelism_reduced` with `reason: planner_error:…`, fall through to sequential. The parallel path is purely additive — zero failure modes introduced at the supervisor level.
+4. **Join**: supervisor awaits all N workers before advancing. Iter counter increments ONCE per fan-out regardless of N. Merged result obeys the single-worker result schema (status = worst exit; stdout = per-worker blocks tagged `[WORKER i/N tasks=…]`; stderr concatenated; `staleHeartbeat`/`timedOut` = any worker).
+
+### Worker Env Additions (v1.5.0)
+
+On the fan-out path, each spawned worker receives these additional env vars (in addition to the §14b set):
+
+| Var | Value | Meaning |
+|-----|-------|---------|
+| `GSD_T_WORKER_TASK_IDS` | comma-separated task IDs | The worker's disjoint assigned subset. Worker executes ONLY these task IDs. |
+| `GSD_T_WORKER_INDEX` | integer | This worker's zero-based index in the fan-out (0..N-1). |
+| `GSD_T_WORKER_TOTAL` | integer | Total N for this iter's fan-out. |
+| `GSD_T_AGENT_ID` | `supervisor-iter-{iter}-w{idx}` | Per-worker agent id (§14b variant). The un-suffixed form still applies on N=1 iters. |
+
+When `GSD_T_WORKER_TASK_IDS` is SET the worker MUST NOT spawn Task subagents to re-fan-out — supervisor already did. Worker executes its assigned task IDs sequentially and returns. This prevents double fan-out (super-linear subagent explosion when 15-cap Team Mode fires inside an already-4-worker fan-out).
+
+### state.json Schema Additions (v1.5.0)
+
+Additive-only. v1.4.x consumers continue to read the single-worker fields unchanged on N=1 iters; on fan-out iters they see the single-worker fields AS WELL AS the new multi-worker aggregates (or they can ignore the new fields entirely).
+
+| Field | Type | Required | Present when | Meaning |
+|-------|------|----------|--------------|---------|
+| `lastExits` | `Array<{idx, code, taskIds, elapsedMs, spawnId}>` | no | fan-out iter only | Per-worker outcomes from the last iter's multi-worker spawn. Omitted on N=1 iters so single-worker readers stay clean. |
+| `workerPids` | `Array<string\|null>` | no | fan-out iter only | Per-worker spawn IDs (the transcript-tee spawn-id, not OS PIDs, since the spawn layer is driven by transcript allocation). Aligned with `lastExits[i]`. |
+| `lastFanOutCount` | integer | no | fan-out iter only | N. Omitted on N=1 iters. |
+
+On the SEQUENTIAL fallback path, `runMainLoop` explicitly `delete`s these three fields from `state` before `writeState` so a fan-out iter followed by a sequential iter does not leave stale data. `lastExit` (singular, v1.0.0 field) is always updated — it reflects the merged worst-exit on fan-out iters.
+
+### Interaction with §15 Worker Team Mode
+
+| This iter's state | §15a decision | §15 (worker's own Team Mode) |
+|--|--|--|
+| ≥2 parallel-safe tasks, gates pass | Fan-out N workers | SUPPRESSED — each worker sees `GSD_T_WORKER_TASK_IDS` set and skips Task-subagent spawn |
+| 1 parallel-safe task OR gates veto | Sequential single worker | ACTIVE — worker may still spawn Task subagents for multi-domain waves per §15 |
+| Planner error | Sequential fallback | ACTIVE |
+
+§15 is NOT retired — it remains the worker-internal parallelism lever for single-task iters where the current wave still has multiple independent domains. What §15a eliminates is the *double-parallelism* pathology where the supervisor already fanned out N workers and each worker then tried to spawn 15 more subagents.
+
+### Contract References
+
+- Planner: `bin/gsd-t-parallel.cjs` (M44 D2), contract `wave-join-contract.md` v1.1.0.
+- Gates: `bin/gsd-t-depgraph-validate.cjs` (D4), `bin/gsd-t-file-disjointness.cjs` (D5), `bin/gsd-t-economics.cjs` (D6).
+- Event schema: `unattended-event-stream-contract.md` (existing `fan_out` / `parallelism_reduced` / `task_split` frames; no new types introduced).
+
+### Verification
+
+- Unit coverage: `test/m44-wire-unattended-to-planner.test.js` asserts (a) N=4 disjoint-fixture plan → 4 concurrent stub spawns joined before iter++; (b) economics-vetoed plan → N=1 fallback, single-worker behavior byte-identical to pre-wire; (c) state.json correctly reflects N workers across iters (fan-out iter writes `lastExits[]`, subsequent sequential iter clears them).
+- Integration: a real M44 milestone running unattended must show `fan_out` events in `.gsd-t/events/*.jsonl` and multi-worker aggregates in state.json on iters where the graph supports it.
+
+---
+
 ## 16. Cache-Warm Pacing (v1.3.0, superseded-as-primary by §16a in v1.4.0)
 
 Added in v1.3.0 (M39) as the sibling of §15 (D3 Worker Team Mode). Both
@@ -551,6 +622,7 @@ See `test/m43-heartbeat-watchdog.test.js` for the full coverage matrix.
 | 1.3.1 | 2026-04-17 | §16 bullet 3 gains a v3.13.11 diagnostic tag: `runMainLoop` writes an explicit `[worker_timeout] iter=N budget=Nms elapsed=Nms` line to `run.log` when the watchdog fires, so timeout-induced cache misses surface in log tails without requiring state.json inspection | v3.13.11 (bee-poc hang triple-fix) |
 | 1.4.0 | 2026-04-21 | **M43 Heartbeat Watchdog**. Added §16a — events.jsonl mtime polled every 60s during each worker iter, SIGTERM on staleness > 5 min (default). Added exit code 125 (`stale-heartbeat`) and `state.lastExitReason` field. Raised `workerTimeoutMs` default from 270s to 1h (absolute backstop only). §16 (cache-warm pacing) retained as the inter-iter sleep invariant but no longer the worker-timeout rationale. New CLI flag `--stale-heartbeat-ms`; new config.json key `staleHeartbeatMs`. | M43 quick |
 | 1.4.1 | 2026-04-21 | PID file upgraded to JSON fingerprint `{pid, projectDir, startedAt}` via `bin/supervisor-pid-fingerprint.cjs`; resume Step 0 liveness check verifies project + ps command line to distinguish "our supervisor" from macOS PID recycling. Legacy bare-integer files still readable (five-outcome resolution: no_pid_file / dead / alive_verified / alive_legacy_pid / alive_but_stale). | multi-project isolation quick |
+| 1.5.0 | 2026-04-23 | **M44 D9 planner-driven multi-worker iter fan-out.** Added §15a. Before each iter, supervisor calls `runParallel({mode:'unattended', dryRun:true})` from `bin/gsd-t-parallel.cjs`. If `plan.workerCount ≥ 2` AND all three upstream gates pass (D4 deps, D5 disjointness, D6 per-task CW ≤ 60%), supervisor spawns N concurrent `claude -p` workers via `Promise.all`. Each worker carries its disjoint task-id subset via env var `GSD_T_WORKER_TASK_IDS` and skips the intra-worker Team Mode block (double fan-out prevention). Planner veto OR N=1 → bit-identical fallback to v1.4.x single-worker path. state.json adds optional `lastExits: [{idx, code, taskIds, elapsedMs, spawnId}]` + `workerPids: [...]` + `lastFanOutCount` fields on multi-worker iters; absent on single-worker iters so v1.4.x readers remain compatible. Iter still counts ONCE per fan-out regardless of N. §15 Team Mode retained but now explicitly scoped to single-task workers that may internally parallelize domains (never both simultaneously). | M44 D9 + continue-here-2026-04-23T223000 Step 2 |
 
 ---
 

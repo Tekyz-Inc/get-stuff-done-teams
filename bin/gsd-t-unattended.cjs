@@ -62,6 +62,19 @@ function _emit(projectDir, ev) {
   try { _esAppendEvent(projectDir, ev); } catch (_) { /* never halt the loop */ }
 }
 
+// M44 D9 (v1.5.0) — planner-driven multi-worker fan-out. Lazy-loaded so unit
+// tests can stub via deps._runParallel without touching the real module.
+let _parallelModule = null;
+function _loadRunParallel() {
+  if (_parallelModule) return _parallelModule;
+  try {
+    _parallelModule = require("./gsd-t-parallel.cjs");
+  } catch {
+    _parallelModule = { runParallel: () => ({ workerCount: 0, parallelTasks: [], plan: [] }) };
+  }
+  return _parallelModule;
+}
+
 // M42 D1 — transcript tee. Captures each worker's stdout lines to an ndjson
 // file and registers the spawn so the dashboard sidebar can list + render it.
 // Best-effort: every call is swallowed so tee failures never halt the loop.
@@ -73,7 +86,7 @@ const { checkHeartbeat: _checkHeartbeat } = require("./gsd-t-unattended-heartbea
 
 // ── Constants ───────────────────────────────────────────────────────────────
 
-const CONTRACT_VERSION = "1.4.0";
+const CONTRACT_VERSION = "1.5.0";
 const UNATTENDED_DIR_REL = path.join(".gsd-t", ".unattended");
 const PID_FILE = "supervisor.pid";
 const STATE_FILE = "state.json";
@@ -122,6 +135,8 @@ module.exports = {
   releaseSleepPrevention,
   runMainLoop,
   _spawnWorker,
+  _spawnWorkerFanOut,
+  _partitionTasks,
   _appendRunLog,
   CONTRACT_VERSION,
   UNATTENDED_DIR_REL,
@@ -927,6 +942,10 @@ async function runMainLoop(state, dir, opts, deps, ctx) {
     deps._spawnWorker || (useTestStub ? _testModeSpawnWorker : _spawnWorker);
   const milestoneComplete =
     deps._isMilestoneComplete || (useTestStub ? () => true : isMilestoneComplete);
+  // M44 D9 (v1.5.0) — planner injected for multi-worker iter fan-out.
+  // Tests stub via deps._runParallel; production lazy-loads from gsd-t-parallel.cjs.
+  const runParallelImpl =
+    deps._runParallel || ((o) => _loadRunParallel().runParallel(o));
   const stopCheck = deps._stopRequested || stopRequested;
   const workerTimeoutMs = opts.workerTimeoutMs || DEFAULT_WORKER_TIMEOUT_MS;
   const staleHeartbeatMs =
@@ -1001,15 +1020,61 @@ async function runMainLoop(state, dir, opts, deps, ctx) {
           heartbeatPollMs,
         }
       : {};
+
+    // M44 D9 (v1.5.0) — planner-driven fan-out decision for this iter.
+    // Ask runParallel whether the current task graph supports ≥2 concurrent
+    // workers. Any failure in the planner path MUST fall back to the single-
+    // worker spawn — the parallel path is purely additive.
+    let iterPlan = null;
     try {
-      res = spawnWorker(state, {
-        cwd: projectDir,
-        timeout: workerTimeoutMs,
-        verbose: !!opts.verbose,
-        ...hbOpts,
+      iterPlan = runParallelImpl({
+        projectDir,
+        mode: "unattended",
+        milestone: state.milestone || null,
+        dryRun: true,
       });
-      if (res && typeof res.then === "function") {
-        res = await res;
+    } catch (e) {
+      iterPlan = null;
+      _emit(projectDir, {
+        iter: state.iter,
+        type: "parallelism_reduced",
+        source: "supervisor",
+        original_count: null,
+        reduced_count: 1,
+        reason: `planner_error:${(e && e.message) || "unknown"}`,
+      });
+    }
+    const fanOutCount = iterPlan && Number(iterPlan.workerCount) >= 2 ? Number(iterPlan.workerCount) : 1;
+    const parallelTaskIds = iterPlan && Array.isArray(iterPlan.parallelTasks) ? iterPlan.parallelTasks : [];
+    const subsets = fanOutCount >= 2 ? _partitionTasks(parallelTaskIds, fanOutCount) : null;
+    const useFanOut = !!(subsets && subsets.length >= 2);
+
+    try {
+      if (useFanOut) {
+        _emit(projectDir, {
+          ts: workerStart.toISOString(),
+          iter: state.iter,
+          type: "fan_out",
+          source: "supervisor",
+          worker_count: subsets.length,
+          task_ids: parallelTaskIds,
+        });
+        res = await _spawnWorkerFanOut(state, {
+          cwd: projectDir,
+          timeout: workerTimeoutMs,
+          verbose: !!opts.verbose,
+          ...hbOpts,
+        }, spawnWorker, subsets);
+      } else {
+        res = spawnWorker(state, {
+          cwd: projectDir,
+          timeout: workerTimeoutMs,
+          verbose: !!opts.verbose,
+          ...hbOpts,
+        });
+        if (res && typeof res.then === "function") {
+          res = await res;
+        }
       }
     } catch (e) {
       // Defensive: a real spawnSync shouldn't throw, but a shim could.
@@ -1082,6 +1147,26 @@ async function runMainLoop(state, dir, opts, deps, ctx) {
       state.lastExitReason = "clean";
     } else {
       state.lastExitReason = `exit_${exitCode}`;
+    }
+    // M44 D9 (v1.5.0) — per-iter multi-worker aggregates. Present only when the
+    // planner selected fan-out; single-worker iters omit these fields so the
+    // state schema stays backward-compatible with v1.4.x readers.
+    if (useFanOut && Array.isArray(res.workerResults)) {
+      state.lastExits = res.workerResults.map((w) => ({
+        idx: w.idx,
+        code: typeof w.status === "number" ? w.status : null,
+        taskIds: w.taskIds || [],
+        elapsedMs: w.elapsedMs,
+        spawnId: w.spawnId || null,
+      }));
+      state.workerPids = res.workerResults.map((w) => w.spawnId || null);
+      state.lastFanOutCount = res.workerResults.length;
+    } else {
+      // Clear stale multi-worker fields on single-worker iters so readers
+      // never see a mix of regimes.
+      if (state.lastExits) delete state.lastExits;
+      if (state.workerPids) delete state.workerPids;
+      if (state.lastFanOutCount) delete state.lastFanOutCount;
     }
     writeState(state, dir);
 
@@ -1285,9 +1370,22 @@ function _spawnWorker(state, opts) {
   // id as parent, so shims inside the worker write state files that the tree
   // builder can attach under the supervisor root.
   workerEnv.GSD_T_AGENT_ID =
-    "supervisor-iter-" + (state && state.iter ? state.iter : Date.now());
+    "supervisor-iter-" + (state && state.iter ? state.iter : Date.now()) +
+    (state && typeof state._workerIndex === "number" ? `-w${state._workerIndex}` : "");
   if (process.env.GSD_T_AGENT_ID) {
     workerEnv.GSD_T_PARENT_AGENT_ID = process.env.GSD_T_AGENT_ID;
+  }
+
+  // M44 D9 (v1.5.0) — planner-driven fan-out: when the supervisor partitions
+  // the iter's task graph across N workers, each worker carries its disjoint
+  // task-id subset via env var. The worker prompt consumes this to (a) skip
+  // the intra-worker Team Mode block (the fan-out is the team), (b) restrict
+  // itself to its assigned task IDs.
+  const assignedTaskIds = Array.isArray(opts && opts.taskIds) ? opts.taskIds : null;
+  if (assignedTaskIds && assignedTaskIds.length > 0) {
+    workerEnv.GSD_T_WORKER_TASK_IDS = assignedTaskIds.join(",");
+    workerEnv.GSD_T_WORKER_INDEX = String((state && state._workerIndex) || 0);
+    workerEnv.GSD_T_WORKER_TOTAL = String((state && state._workerTotal) || 1);
   }
 
   // M42 D1 — allocate a spawn-id + open transcript before spawning. parentId
@@ -1352,6 +1450,18 @@ function _spawnWorker(state, opts) {
         "    cd some/subdir && run-command        # UNSAFE — leaks cwd",
         "",
         "# Team Mode (Intra-Wave Parallelism)",
+        "",
+        "M44 D9 (v1.5.0+) — check env `GSD_T_WORKER_TASK_IDS` FIRST. If SET, you",
+        "are one of N planner-assigned workers in a supervisor-level fan-out.",
+        "The value is your disjoint task-id subset. DO NOT spawn Task subagents",
+        "to re-fan-out (the supervisor already did). Execute ONLY your assigned",
+        "task IDs sequentially in this worker, then return. Skip the rest of",
+        "this block.",
+        "",
+        "If GSD_T_WORKER_TASK_IDS is UNSET, the supervisor's planner decided",
+        "N=1 for this iter (sequential fallback: gates vetoed, file-disjointness",
+        "unprovable, or est CW% too high). Proceed with the legacy worker-level",
+        "Team Mode below:",
         "",
         "Before executing tasks for this iteration, read `.gsd-t/partition.md` to",
         "identify the current wave and which domains belong to it.",
@@ -1425,6 +1535,97 @@ function _spawnWorker(state, opts) {
     return spawnResult.then(finalize);
   }
   return finalize(spawnResult);
+}
+
+// ── _spawnWorkerFanOut (M44 D9, contract v1.5.0) ────────────────────────────
+
+/**
+ * Planner-driven multi-worker fan-out. Spawns N concurrent workers via the
+ * injected `spawnWorker` shim, each receiving a disjoint subset of the iter's
+ * parallel task IDs (passed through `opts.taskIds`). Waits on all via
+ * Promise.all before returning a merged result shape compatible with the
+ * single-worker path.
+ *
+ * Merge semantics:
+ *   - `status`        — 0 if every worker cleanly returned 0, else the first
+ *                       non-zero status encountered (worst exit wins).
+ *   - `stdout`        — per-worker blocks joined by `[WORKER i/N tasks=...]` headers.
+ *   - `stderr`        — concatenated.
+ *   - `staleHeartbeat`/`timedOut` — true if any worker triggered them.
+ *   - `workerResults` — array of per-worker {status, taskIds, pid, spawnId, elapsedMs}
+ *                       for state.json aggregation.
+ *
+ * The caller (runMainLoop) treats this result exactly like a single-worker
+ * result for downstream classification. Multi-worker observability lives in
+ * the `workerResults` array, not in new control-flow branches.
+ */
+async function _spawnWorkerFanOut(state, opts, spawnWorker, subsets) {
+  const launches = subsets.map((taskIds, i) => {
+    const subState = { ...state, _workerIndex: i, _workerTotal: subsets.length, _workerTaskIds: taskIds };
+    const started = Date.now();
+    return Promise.resolve()
+      .then(() => spawnWorker(subState, { ...opts, taskIds }))
+      .then((r) => ({ r: r || {}, taskIds, started, ended: Date.now(), idx: i }))
+      .catch((e) => ({
+        r: { status: 3, stdout: "", stderr: String((e && e.message) || e), signal: null },
+        taskIds, started, ended: Date.now(), idx: i,
+      }));
+  });
+  const outcomes = await Promise.all(launches);
+  outcomes.sort((a, b) => a.idx - b.idx);
+
+  let mergedStatus = 0;
+  let stale = false;
+  let timedOut = false;
+  let heartbeatReason = null;
+  const stdoutBlocks = [];
+  const stderrBlocks = [];
+  const workerResults = [];
+
+  for (const o of outcomes) {
+    const s = typeof o.r.status === "number" ? o.r.status : null;
+    if (mergedStatus === 0 && s !== 0) mergedStatus = s === null ? 1 : s;
+    if (o.r.staleHeartbeat) stale = true;
+    if (o.r.timedOut) timedOut = true;
+    if (!heartbeatReason && o.r.heartbeatReason) heartbeatReason = o.r.heartbeatReason;
+    const tag = `[WORKER ${o.idx + 1}/${outcomes.length} tasks=${(o.taskIds || []).join(",") || "-"}]`;
+    stdoutBlocks.push(`${tag}\n${o.r.stdout || ""}`);
+    if (o.r.stderr) stderrBlocks.push(`${tag}\n${o.r.stderr}`);
+    workerResults.push({
+      idx: o.idx,
+      status: s,
+      taskIds: o.taskIds,
+      spawnId: o.r.spawnId || null,
+      signal: o.r.signal || null,
+      elapsedMs: o.ended - o.started,
+      staleHeartbeat: !!o.r.staleHeartbeat,
+      timedOut: !!o.r.timedOut,
+    });
+  }
+
+  return {
+    status: mergedStatus,
+    stdout: stdoutBlocks.join("\n"),
+    stderr: stderrBlocks.join("\n"),
+    signal: null,
+    timedOut,
+    staleHeartbeat: stale,
+    heartbeatReason,
+    workerResults,
+    fanOutCount: outcomes.length,
+  };
+}
+
+/**
+ * Partition a task-id list into `workerCount` roughly-equal subsets. Simple
+ * round-robin — each subset is non-empty as long as `tasks.length >= workerCount`.
+ */
+function _partitionTasks(tasks, workerCount) {
+  if (!Array.isArray(tasks) || tasks.length === 0 || workerCount < 1) return [];
+  const n = Math.min(workerCount, tasks.length);
+  const subsets = Array.from({ length: n }, () => []);
+  for (let i = 0; i < tasks.length; i++) subsets[i % n].push(tasks[i]);
+  return subsets;
 }
 
 // ── _testModeSpawnWorker ────────────────────────────────────────────────────
