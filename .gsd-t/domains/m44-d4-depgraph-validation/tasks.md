@@ -21,7 +21,7 @@
 - **Files touched**: `bin/gsd-t-depgraph-validate.cjs`, `.gsd-t/contracts/depgraph-validation-contract.md`
 
 ### M44-D4-T3 — Unit test suite
-- **Status**: [x] done (2026-04-22 · commit `__T3_SHA__`)
+- **Status**: [x] done (2026-04-22 · commit `60778d7`)
 - **Dependencies**: M44-D4-T2
 - **Acceptance criteria**:
   - `test/m44-depgraph-validate.test.js` covers: all deps done (full ready set), one dep unmet (that task vetoed, others unaffected), three-task chain with only first done (only second ready, third vetoed), empty graph (returns empty ready set), unknown dep reference (treated as unmet)
@@ -29,7 +29,7 @@
 - **Files touched**: `test/m44-depgraph-validate.test.js` (new)
 
 ### M44-D4-T4 — Doc-ripple + tests-pass commit
-- **Status**: [ ] pending
+- **Status**: [x] done (2026-04-22 · commit `__T4_SHA__`)
 - **Dependencies**: M44-D4-T3
 - **Acceptance criteria**:
   - `docs/requirements.md` updated with §"M44 Dep-Graph Validation" requirement entry
