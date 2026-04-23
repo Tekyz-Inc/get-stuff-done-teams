@@ -3958,13 +3958,6 @@ if (require.main === module) {
       });
       process.exit(res.status == null ? 1 : res.status);
     }
-    case "parallel": {
-      // M44 D2 — `gsd-t parallel` wraps M40 orchestrator with task-level
-      // parallelism + mode-aware gating math. Extends, does not replace.
-      const { runCli: runParallelCli } = require(path.join(__dirname, "gsd-t-parallel.cjs"));
-      const code = runParallelCli(args.slice(1), process.env);
-      process.exit(code);
-    }
     case "benchmark-orchestrator": {
       const { spawnSync } = require("child_process");
       const js = path.join(__dirname, "gsd-t-benchmark-orchestrator.js");
