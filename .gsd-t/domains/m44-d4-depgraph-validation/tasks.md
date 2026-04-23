@@ -3,7 +3,7 @@
 ## Wave 2 — Gates
 
 ### M44-D4-T1 — Contract skeleton + module scaffold
-- **Status**: [ ] pending
+- **Status**: [x] done (2026-04-22 · commit `__T1_SHA__`)
 - **Dependencies**: M44-D1-T5 (D1 complete — DAG emitter must exist)
 - **Acceptance criteria**:
   - `.gsd-t/contracts/depgraph-validation-contract.md` exists with veto semantics, event format, and non-throwing guarantee (v0.1.0 skeleton)
