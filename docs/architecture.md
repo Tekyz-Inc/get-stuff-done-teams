@@ -625,6 +625,44 @@ Orchestrator Context Gate — v3.0.0 semantics:
 
 **Contract**: `.gsd-t/contracts/task-graph-contract.md` v1.0.0
 
+## Dep-Graph Validation (M44 D4, v3.18.10+)
+
+`bin/gsd-t-depgraph-validate.cjs` — a zero-external-dep CommonJS module that runs as the **first pre-spawn gate** between D1's DAG emitter and the parallel dispatcher. Given `graph.ready` (the DAG's candidate set), it filters down to tasks whose declared `deps[]` are all in DONE status, emits one `dep_gate_veto` event per task it removes, and returns the reduced ready set plus the veto list. The caller (D2) decides whether to spawn the smaller batch or fall back to sequential — D4 itself is a pure filter with no spawn authority.
+
+```
+D1 graph (graph.ready, graph.byId)
+      │
+      ▼
+  D4 validateDepGraph              ← this module (filter-only; never throws on unmet deps)
+      │            │
+ ready[] (OK)   vetoed[] ──────>  .gsd-t/events/YYYY-MM-DD.jsonl  (one dep_gate_veto per task)
+      │
+      ▼
+  D5 disjointness check            ← next pre-spawn gate
+      │
+      ▼
+  D6 economics                     ← final pre-spawn gate
+      │
+      ▼
+  D2 parallel dispatch
+```
+
+**Public API** (`require('./bin/gsd-t-depgraph-validate.cjs')`):
+- `validateDepGraph({graph, projectDir}) → { ready: TaskNode[], vetoed: {task, unmet_deps[]}[] }` — synchronous
+
+**Veto rule** (locked in `depgraph-validation-contract.md` §3): a dep is satisfied iff `graph.byId[depId]` exists AND `status === 'done'`. Pending / skipped / failed / unknown all veto the dependent. Every vetoed task emits exactly one `dep_gate_veto` JSONL record on the event stream.
+
+**Event payload** (`dep_gate_veto`): base `event-schema-contract.md` fields (ts ISO 8601, event_type, command/phase/agent_id/parent_agent_id/trace_id/model set to null when D4 doesn't own them, reasoning="unmet deps: …", outcome="deferred") PLUS additive `task_id`, `domain`, `unmet_deps[]`.
+
+**Hard rules** (from `depgraph-validation-contract.md` v1.0.0):
+- Zero external deps — Node built-ins only
+- Never throws on unmet deps, unknown dep ids, or event-log I/O failure (only throws on malformed `opts`)
+- Read-only on `tasks.md` / `scope.md` / contracts — only write surface is appending JSONL lines (events dir created on demand)
+- Synchronous; < 50 ms on realistic 100-domain / 1000-task graphs
+- Mode-agnostic — same call shape in [in-session] and [unattended]; what to do with the reduced set is D2's call
+
+**Contract**: `.gsd-t/contracts/depgraph-validation-contract.md` v1.0.0
+
 ## File-Disjointness Prover (M44 D5, v3.18.10+)
 
 `bin/gsd-t-file-disjointness.cjs` — the pre-spawn gate that, given a candidate parallel set of task nodes from D1's DAG, partitions them into `parallel` / `sequential` / `unprovable` groups based on declared write-target overlap. Mode-agnostic: same function used by the in-session D2 parallel CLI and the unattended D6 economics path.
@@ -702,6 +740,66 @@ The hook ALWAYS exits 0 — throwing breaks Claude Code SessionStart. It include
 **Contracts**: `.gsd-t/contracts/metrics-schema-contract.md` v2.1.0 (`cw_id` field), `.gsd-t/contracts/compaction-events-contract.md` v1.1.0 (calibration event)
 
 **Tests**: `test/m44-cw-attribution.test.js` (19 tests covering pass-through with/without `cw_id`, calibration hook with/without active spawn, malformed state, non-compact sources, derivation fallback to `compactMetadata.preTokens`, ceiling overrides, coexistence with v1.0.0 detector rows, and zero-deps verification).
+
+## Pre-Spawn Economics Estimator (M44 D6, v3.18.10+)
+
+`bin/gsd-t-economics.cjs` — the pre-spawn gate component that predicts each candidate task's Context-Window (CW) footprint and feeds the D2 parallel-CLI gating math with a per-task recommendation. Zero external deps; loaded once per `projectDir` (sync cached corpus read); never returns `undefined` for numeric fields (global-median fallback is mandatory).
+
+**Core function**: `estimateTaskFootprint({taskNode, mode, projectDir})` → `{estimatedCwPct, parallelOk, split, workerCount, matchedRows, confidence}`.
+
+**Three-tier lookup** over the in-memory corpus index:
+
+1. **Exact** `command|step|domain` triplet — HIGH (≥5 rows) or MEDIUM (1–4 rows).
+2. **Fuzzy** — domain-only match, then command-only match → LOW confidence.
+3. **Global median** — `median(totals)` across every row → FALLBACK confidence. Mandatory floor; guarantees no undefined result.
+
+```
+     D1 task graph            ┌──────────────────────────────┐
+  ┌─ taskNode{cmd,step,dom} ──┤ bin/gsd-t-economics.cjs      │
+  │                           │  estimateTaskFootprint       │
+  │                           │  - corpus cache (per projDir)│
+  │                           │  - triplet lookup            │
+  │                           │  - fuzzy fallback            │
+  │                           │  - global median fallback    │
+  │                           │  - mode-specific gate math   │
+  │                           └───┬──────────────────────────┘
+  │                               │ {estimatedCwPct,
+  │                               │  parallelOk, split,
+  │                               │  workerCount, matchedRows,
+  │                               │  confidence}
+  │                               ↓
+  │                       D2 gating math (owns final decision)
+  │                               │
+  │                               └──→ appends economics_decision
+  │                                    event to .gsd-t/events/*.jsonl
+  │
+  └─ corpus sources: .gsd-t/metrics/token-usage.jsonl (v2.1.0)
+                     .gsd-t/metrics/compactions.jsonl (v1.1.0; calibration signal)
+```
+
+**Mode awareness**: `estimatedCwPct` is mode-agnostic (same tokens → same %). Gates differ:
+
+| Mode        | `parallelOk` threshold | `split` threshold | Rationale |
+|-------------|------------------------|-------------------|-----------|
+| in-session  | `≤ 85%`                | always `false`    | 85 % matches orchestrator-CW headroom check (D2); over-limit tasks still run with fewer workers. |
+| unattended  | `≤ 60%`                | `> 60%` → `true`  | Per-worker CW gate; heavy tasks are sliced into multiple `claude -p` iters by the caller (D6 recommends, does not slice). |
+
+**CW ceiling**: `200_000` input tokens — matches `bin/token-budget.cjs`, `bin/context-meter-config.cjs`, and `bin/runway-estimator.cjs`. Row totals = `inputTokens + outputTokens + cacheReadInputTokens + cacheCreationInputTokens` (a deliberately conservative upper bound; cache-read tokens are ~free in real CW accounting and inflate the estimate).
+
+**Calibration** (2026-04-22): run against the live 528-row `token-usage.jsonl` corpus. Per-tier MAE (% of CW ceiling): HIGH 12.89 %, MEDIUM 0.00 % (small-n tautology — 4 keys with 1–4 rows each), LOW 13.08 %, FALLBACK 15.06 %. Current corpus is skewed (523 rows on one triplet); `gsd-t-execute` and `gsd-t-wave` have no corpus signal yet and resolve to FALLBACK. Coverage grows as D7 `cw_id`-tagged rows accumulate from real-world spawns — the estimator's signal improves without code changes.
+
+**Hard invariants** (from `.gsd-t/contracts/economics-estimator-contract.md` v1.0.0):
+
+1. D6 is a HINT, not a veto — D2 retains gate authority.
+2. Corpus loaded ONCE per `projectDir` (cache via `Map`; `_resetCorpusCache()` exposed for tests).
+3. Never returns `undefined` for numeric fields — global-median fallback is mandatory.
+4. Mode-aware for gates; mode-agnostic for `estimatedCwPct`.
+5. Event emission is best-effort; FS failures never fail the estimate.
+6. Zero external npm runtime deps (Node built-ins only).
+
+**Contract**: `.gsd-t/contracts/economics-estimator-contract.md` v1.0.0.
+
+**Tests**: `test/m44-economics.test.js` (9 tests covering HIGH/MEDIUM/LOW/FALLBACK tiers, both mode thresholds under and over the boundary, economics_decision event shape, corpus cache identity, and empty-corpus behaviour).
 
 ## Planned Architecture Changes (M23-M24)
 

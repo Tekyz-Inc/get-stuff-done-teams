@@ -32,7 +32,7 @@
 - **Files touched**: `.gsd-t/contracts/economics-estimator-contract.md`
 
 ### M44-D6-T4 — Unit test suite
-- **Status**: [ ] pending
+- **Status**: [x] done (2026-04-22 · commit `8d84245`)
 - **Dependencies**: M44-D6-T3
 - **Acceptance criteria**:
   - `test/m44-economics.test.js` covers: exact-match returns HIGH confidence + plausible CwPct, no-match returns FALLBACK + global median, in-session mode uses 85% threshold for parallelOk, unattended mode uses 60% threshold, economics_decision event written to event stream
@@ -40,7 +40,7 @@
 - **Files touched**: `test/m44-economics.test.js` (new)
 
 ### M44-D6-T5 — Doc-ripple + tests-pass commit
-- **Status**: [ ] pending
+- **Status**: [x] done (2026-04-22 · commit `pending`)
 - **Dependencies**: M44-D6-T4
 - **Acceptance criteria**:
   - `docs/requirements.md` updated with §"M44 Pre-Spawn Economics Estimator" requirement entry

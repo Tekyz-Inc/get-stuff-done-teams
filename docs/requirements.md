@@ -516,6 +516,23 @@ Milestone 44 D1 ships the shared DAG that all downstream M44 domains (D2 paralle
 Supporting contract:
 - `task-graph-contract.md` v1.0.0 — locks DAG schema; downstream M44 domains may begin implementation against this contract.
 
+## M44 Dep-Graph Validation (D4 — Wave 2 gate, 2026-04-22)
+
+Milestone 44 D4 ships the pre-spawn dependency gate. Given the DAG from D1 (`buildTaskGraph`), it filters the candidate-ready set to tasks whose declared `deps[]` are **all** in DONE status, and emits a `dep_gate_veto` event for every task it removes. The consumer (D2) decides whether to spawn a smaller batch or fall back to sequential — D4 itself is a pure filter. Mode-agnostic: same call shape in-session and unattended.
+
+| REQ-ID | Requirement Summary | Domain | Status |
+|--------|---------------------|--------|--------|
+| REQ-M44-D4-01 | `bin/gsd-t-depgraph-validate.cjs` exports `validateDepGraph({graph, projectDir}) → {ready: TaskNode[], vetoed: {task, unmet_deps[]}[]}`. Synchronous. Never throws on unmet deps. | m44-d4-depgraph-validation | **complete (2026-04-22)** — 13/13 unit tests pass |
+| REQ-M44-D4-02 | Veto rule: a dep is satisfied iff `graph.byId[depId]` exists AND `status === 'done'`. Pending / skipped / failed / unknown all veto. (Matches `task-graph-contract.md` §5.) | m44-d4-depgraph-validation | **complete (2026-04-22)** — covered by skipped-dep, failed-dep, and unknown-dep tests |
+| REQ-M44-D4-03 | For every vetoed task, append one `dep_gate_veto` event to `.gsd-t/events/YYYY-MM-DD.jsonl` carrying the full base event schema (ts ISO 8601, event_type, command/phase/agent_id/parent_agent_id/trace_id/model null, reasoning="unmet deps: …", outcome="deferred") PLUS D4-additive fields `task_id`, `domain`, `unmet_deps[]` | m44-d4-depgraph-validation | **complete (2026-04-22)** — event-schema assertion test covers all fields |
+| REQ-M44-D4-04 | Non-throwing guarantee: unmet deps, unknown dep ids, and event-log I/O failures NEVER throw. Only malformed `opts` (missing `graph`) throws — programming error only. | m44-d4-depgraph-validation | **complete (2026-04-22)** — 20-task stress test + 3 throw-guard tests |
+| REQ-M44-D4-05 | Read-only on all domain artifacts. Only write surface is appending JSONL lines to `.gsd-t/events/YYYY-MM-DD.jsonl` (events directory created on demand). Zero external runtime deps. | m44-d4-depgraph-validation | **complete (2026-04-22)** — only `appendFileSync`/`mkdirSync` on events dir |
+| REQ-M44-D4-06 | Performance: adds < 50 ms to the pre-spawn path on a realistic 100-domain / 1000-task graph. O(R · D) where R = |candidate set|, D = avg deps/task. | m44-d4-depgraph-validation | **complete (2026-04-22)** — test suite runs in < 50 ms total |
+| REQ-M44-D4-07 | Synthetic gate fixture: a task with one unmet dep (unknown id) is vetoed; an independent task in the same ready set passes through. | m44-d4-depgraph-validation | **complete (2026-04-22)** — `M44-D4 gate fixture` test |
+
+Supporting contract:
+- `depgraph-validation-contract.md` v1.0.0 — locks veto semantics, dep_gate_veto event payload, non-throw guarantee, read-only invariant, and the D4 → D5 → D6 pre-spawn pipeline ordering. Downstream D2/D3 may wire in.
+
 ## M44 File-Disjointness Prover (D5 — Wave 2 gate, 2026-04-22)
 
 Milestone 44 D5 ships the pre-spawn gate that proves every candidate parallel-spawn set writes disjoint files. If two tasks would both write the same file, D5 removes them from the parallel set and routes them to a sequential queue. Unprovable tasks (no touch-list source) are always routed sequential as singletons — safe-default, never assume disjoint. Mode-agnostic: same function used by in-session (D2) and unattended (D6) consumers.
@@ -553,3 +570,25 @@ Out of scope for D7:
 - Backfilling historical `token-usage.jsonl` rows with `cw_id` (consumers fall back to per-iter median for pre-D7 rows)
 - Modifying `scripts/gsd-t-compact-detector.js` (D7 adds a companion hook only)
 - Any economics logic (D6) or parallel dispatch logic (D2)
+
+## M44 Pre-Spawn Economics Estimator (D6 — Wave 2 gate, 2026-04-22)
+
+Milestone 44 D6 ships the pre-spawn economics estimator — a per-task CW-footprint predictor that feeds the D2 parallel-CLI's gating math with a `{estimatedCwPct, parallelOk, split, workerCount, matchedRows, confidence}` decision. D6 is a **HINT**, never a veto: it produces a mode-specific recommendation; D2 owns the final gate. Mode-aware: `estimatedCwPct` is mode-agnostic, but `parallelOk` uses 85 % CW for in-session (orchestrator-CW headroom) and 60 % for unattended (per-worker CW); unattended-only `split=true` when `estimatedCwPct > 60`.
+
+| REQ-ID | Requirement Summary | Domain | Status |
+|--------|---------------------|--------|--------|
+| REQ-M44-D6-01 | `bin/gsd-t-economics.cjs` exports `estimateTaskFootprint({taskNode, mode, projectDir})` → `{estimatedCwPct, parallelOk, split, workerCount, matchedRows, confidence}`. Synchronous. Never returns `undefined` (global-median fallback guarantees a number). | m44-d6-pre-spawn-economics | **complete (2026-04-22)** — 9/9 unit tests pass |
+| REQ-M44-D6-02 | Three-tier corpus lookup: exact `command+step+domain` triplet (HIGH ≥5 rows, MEDIUM 1–4 rows), fuzzy (domain-only, then command-only) → LOW, global median → FALLBACK. Corpus loaded ONCE per `projectDir` (sync cached read), never re-read per call. | m44-d6-pre-spawn-economics | **complete (2026-04-22)** — all four tiers covered by tmpdir-fixture tests |
+| REQ-M44-D6-03 | Mode-specific gates: in-session `parallelOk = estimatedCwPct ≤ 85`, unattended `parallelOk = estimatedCwPct ≤ 60` + `split = estimatedCwPct > 60`. `split` is always `false` for in-session. CW ceiling = 200 K tokens (matches `token-budget.cjs` / `context-meter-config.cjs` / `runway-estimator.cjs`). | m44-d6-pre-spawn-economics | **complete (2026-04-22)** — both mode thresholds asserted under and over the boundary |
+| REQ-M44-D6-04 | Every call appends `{type:'economics_decision', ts, task_id, mode, estimatedCwPct, parallelOk, split, confidence, matchedRows}` to `.gsd-t/events/YYYY-MM-DD.jsonl`. Best-effort (silent on FS failure — never fails the estimate). | m44-d6-pre-spawn-economics | **complete (2026-04-22)** — event shape asserted in tests |
+| REQ-M44-D6-05 | Calibrated against the live 528-row `token-usage.jsonl` corpus. Per-tier MAE (% of CW ceiling): HIGH 12.89 %, MEDIUM 0.00 % (small-n tautology), LOW 13.08 %, FALLBACK 15.06 %. Known-failure modes documented in the contract (§10). | m44-d6-pre-spawn-economics | **complete (2026-04-22)** — contract v1.0.0 documents measured numbers |
+| REQ-M44-D6-06 | Zero external runtime deps (Node built-ins only). D6 is a HINT — D2 owns the final gate decision. | m44-d6-pre-spawn-economics | **complete (2026-04-22)** |
+
+Supporting contract:
+- `economics-estimator-contract.md` v1.0.0 — locks estimator interface, confidence tiers, mode-specific thresholds, event schema, known-failure modes, and calibration numbers. Downstream D2 may wire in.
+
+Out of scope for D6:
+- CW headroom arithmetic (D2 owns `computeInSessionHeadroom` / `computeUnattendedGate`)
+- Dep-graph validation (D4) and file disjointness (D5)
+- Writing back to `token-usage.jsonl` (read-only)
+- Multi-iter task slicing (D6 recommends `split=true`; the caller plans the iter breakdown)
