@@ -1,11 +1,16 @@
 'use strict';
-// /transcripts content negotiation: browsers (Accept: text/html) get an HTML
-// index page; programmatic clients (fetch's default Accept */* or explicit
-// application/json) keep getting the JSON shape the dashboard JS already
-// consumes. Regression: prior to v3.18.13 the route ALWAYS returned raw JSON,
-// so when the Live Stream button (always-enabled per 2026-04-23 user contract)
-// had no spawn data and fell through to /transcripts, the browser landed on
-// `{"spawns":[]}` — bad UX.
+// /transcripts content negotiation: browsers (Accept: text/html) get the real
+// transcript viewer (same HTML as /transcript/:id) with an empty spawn-id so
+// the left rail + right spawn-plan panel render and the user can pick a spawn.
+// Programmatic clients (fetch's default Accept */* or explicit
+// application/json) keep getting the { spawns: [...] } JSON shape the
+// dashboard JS already consumes.
+//
+// M45 D1 (2026-04-23) retired the v3.18.13 standalone `renderTranscriptsHtml`
+// index page — the standalone-index assertions that previously lived in this
+// file are gone. See test/m45-d1-transcripts-route-viewer.test.js for the
+// positive viewer-route test set; this file focuses on route-level content
+// negotiation invariants.
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -27,7 +32,8 @@ function withServer(spawns, fn) {
     );
   }
   const htmlPath = path.join(__dirname, '..', 'scripts', 'gsd-t-dashboard.html');
-  const { server } = srv.startServer(0, path.join(tmp, '.gsd-t', 'events'), htmlPath, tmp);
+  const transcriptHtmlPath = path.join(__dirname, '..', 'scripts', 'gsd-t-transcript.html');
+  const { server } = srv.startServer(0, path.join(tmp, '.gsd-t', 'events'), htmlPath, tmp, transcriptHtmlPath);
   const port = server.address().port;
   return Promise.resolve(fn(port)).finally(() => {
     server.close();
@@ -45,39 +51,16 @@ function fetchUrl(port, accept) {
   });
 }
 
-test('renderTranscriptsHtml — empty list shows clear empty state', () => {
-  const html = srv.renderTranscriptsHtml([]);
-  assert.match(html, /No spawn transcripts yet/);
-  assert.match(html, /\/gsd-t-quick/, 'empty state should hint at how to generate one');
-  assert.match(html, /href="\/"/, 'empty state should link back to dashboard');
-});
-
-test('renderTranscriptsHtml — populated list renders rows with transcript links', () => {
-  const html = srv.renderTranscriptsHtml([
-    { spawnId: 's-abc', command: 'gsd-t-quick', description: 'demo', status: 'running', startedAt: new Date().toISOString(), endedAt: null },
-    { spawnId: 's-def', command: 'gsd-t-execute', description: 'd2', status: 'done', startedAt: '2026-04-23T00:00:00Z', endedAt: '2026-04-23T00:01:00Z' },
-  ]);
-  assert.match(html, /href="\/transcript\/s-abc"/);
-  assert.match(html, /href="\/transcript\/s-def"/);
-  assert.match(html, /status-running/);
-  assert.match(html, /status-done/);
-  assert.match(html, /2 spawns/);
-});
-
-test('renderTranscriptsHtml — escapes HTML in spawn metadata', () => {
-  const html = srv.renderTranscriptsHtml([
-    { spawnId: 's-x', command: 'q', description: '<script>alert(1)</script>', status: 'done', startedAt: '2026-04-23T00:00:00Z', endedAt: null },
-  ]);
-  assert.doesNotMatch(html, /<script>alert\(1\)<\/script>/);
-  assert.match(html, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
-});
-
-test('GET /transcripts with Accept: text/html returns HTML page', async () => {
+test('GET /transcripts with Accept: text/html returns the viewer HTML', async () => {
   await withServer(null, async (port) => {
     const r = await fetchUrl(port, 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8');
     assert.equal(r.status, 200);
     assert.match(r.type, /text\/html/);
-    assert.match(r.body, /No spawn transcripts yet/);
+    // Viewer stable DOM markers (from scripts/gsd-t-transcript.html):
+    assert.match(r.body, /<main id="stream">/, 'viewer main stream container present');
+    assert.match(r.body, /id="tree"/, 'viewer left-rail tree container present');
+    // Placeholder must have been substituted; literal string must be absent.
+    assert.doesNotMatch(r.body, /__SPAWN_ID__/);
   });
 });
 
@@ -98,18 +81,5 @@ test('GET /transcripts with Accept: application/json returns JSON', async () => 
     assert.equal(r.status, 200);
     assert.match(r.type, /application\/json/);
     assert.deepEqual(JSON.parse(r.body), { spawns: [] });
-  });
-});
-
-test('GET /transcripts HTML page lists populated spawns from index', async () => {
-  await withServer([
-    { spawnId: 's-live', command: 'gsd-t-execute', description: 'task one', status: 'running', startedAt: new Date().toISOString(), endedAt: null },
-  ], async (port) => {
-    const r = await fetchUrl(port, 'text/html');
-    assert.equal(r.status, 200);
-    assert.match(r.body, /s-live/);
-    assert.match(r.body, /gsd-t-execute/);
-    assert.match(r.body, /task one/);
-    assert.match(r.body, /href="\/transcript\/s-live"/);
   });
 });

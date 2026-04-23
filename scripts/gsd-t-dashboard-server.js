@@ -176,100 +176,35 @@ function isValidSpawnId(id) {
   return typeof id === "string" && /^[a-zA-Z0-9._-]+$/.test(id) && id.length <= 200;
 }
 
-function handleTranscriptsList(req, res, projectDir) {
+function handleTranscriptsList(req, res, projectDir, transcriptHtmlPath) {
   const idx = readTranscriptsIndex(projectDir);
   const sorted = idx.spawns
     .slice()
     .sort((a, b) => (Date.parse(b.startedAt) || 0) - (Date.parse(a.startedAt) || 0));
 
   // Content negotiation: browser navigations send Accept: text/html, fetch()
-  // defaults to */*. We serve HTML only when the client explicitly asks for it,
-  // so the existing dashboard fetch (which expects JSON) stays unaffected.
+  // defaults to */*. For text/html we serve the viewer (same HTML as
+  // /transcript/:id) with an empty spawn-id placeholder — the viewer's left
+  // rail populates from /api/spawns-index and the main pane defers until the
+  // user clicks a spawn. Programmatic clients (fetch's default */* or explicit
+  // application/json) continue to get the JSON shape the dashboard JS already
+  // consumes.
   const accept = String(req.headers["accept"] || "");
-  if (accept.includes("text/html")) {
-    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-    res.end(renderTranscriptsHtml(sorted));
+  if (accept.includes("text/html") && transcriptHtmlPath) {
+    fs.readFile(transcriptHtmlPath, (err, data) => {
+      if (err) { res.writeHead(404); res.end("Transcript UI not found"); return; }
+      // Substitute the __SPAWN_ID__ placeholder with an empty string; the
+      // viewer's initialId logic falls through to location.hash (also empty)
+      // and connect('') is a no-op beyond a 404 SSE attempt — harmless, since
+      // the left rail polls /api/spawns-index independently.
+      const html = data.toString("utf8").replace(/__SPAWN_ID__/g, "");
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+      res.end(html);
+    });
     return;
   }
   res.writeHead(200, { "Content-Type": "application/json" });
   res.end(JSON.stringify({ spawns: sorted }));
-}
-
-function renderTranscriptsHtml(spawns) {
-  const escape = (s) => String(s == null ? "" : s)
-    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-  const fmtDuration = (a, b) => {
-    const start = Date.parse(a); const end = Date.parse(b || "") || Date.now();
-    if (!Number.isFinite(start)) return "—";
-    const ms = Math.max(0, end - start);
-    const s = Math.floor(ms / 1000); const m = Math.floor(s / 60); const r = s % 60;
-    return m > 0 ? `${m}m ${r}s` : `${r}s`;
-  };
-  const fmtTime = (s) => { const d = new Date(s); return Number.isFinite(d.getTime()) ? d.toLocaleString() : "—"; };
-  const liveStatuses = new Set(["initializing", "running"]);
-  const isLive = (s) => liveStatuses.has(s);
-
-  const rows = spawns.map((s) => {
-    const live = isLive(s.status);
-    const statusBadge = `<span class="status status-${escape(s.status || 'unknown')}">${escape(s.status || 'unknown')}</span>`;
-    return `<tr class="${live ? 'row-live' : ''}">
-      <td><a href="/transcript/${encodeURIComponent(s.spawnId)}">${escape(s.spawnId)}</a></td>
-      <td>${escape(s.command || '—')}</td>
-      <td>${escape(s.description || '—')}</td>
-      <td>${statusBadge}</td>
-      <td>${escape(fmtTime(s.startedAt))}</td>
-      <td>${escape(fmtDuration(s.startedAt, s.endedAt))}</td>
-    </tr>`;
-  }).join("");
-
-  const empty = `<div class="empty">
-    <h2>No spawn transcripts yet</h2>
-    <p>Transcripts appear here as soon as the first agent spawns. Run any GSD-T command (for example <code>/gsd-t-quick</code>) to generate one.</p>
-    <p><a href="/">← Back to dashboard</a></p>
-  </div>`;
-
-  const table = spawns.length ? `<table>
-    <thead><tr><th>Spawn ID</th><th>Command</th><th>Description</th><th>Status</th><th>Started</th><th>Duration</th></tr></thead>
-    <tbody>${rows}</tbody>
-  </table>` : empty;
-
-  return `<!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"><title>GSD-T Transcripts</title>
-<style>
-:root{--bg:#0d1117;--surface:#161b22;--border:#30363d;--text:#e6edf3;--muted:#7d8590;
-  --green:#3fb950;--green-bg:#1a3a1e;--blue:#388bfd;--blue-bg:#1f3a5f;--yellow:#d29922;--red:#f85149;
-  --font:'SF Mono','Fira Code',Menlo,monospace;}
-*{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13px;padding:20px;line-height:1.5}
-.hdr{display:flex;align-items:center;gap:12px;margin-bottom:18px;padding-bottom:12px;border-bottom:1px solid var(--border)}
-.logo{color:var(--blue);font-weight:bold;font-size:14px}
-.hright{margin-left:auto;color:var(--muted);font-size:11px}
-a{color:var(--blue);text-decoration:none}a:hover{text-decoration:underline}
-table{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--border);border-radius:6px;overflow:hidden}
-th,td{padding:8px 12px;text-align:left;border-bottom:1px solid var(--border);font-size:12px}
-th{background:#1c2128;color:var(--muted);text-transform:uppercase;font-size:10px;letter-spacing:0.5px}
-tbody tr:last-child td{border-bottom:none}
-tbody tr:hover{background:#1c2128}
-tr.row-live{background:var(--green-bg)}
-.status{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;text-transform:uppercase;letter-spacing:0.5px;border:1px solid}
-.status-running,.status-initializing{background:var(--green-bg);color:var(--green);border-color:var(--green)}
-.status-done{background:var(--blue-bg);color:var(--blue);border-color:var(--blue)}
-.status-stopped{background:#2a2a2a;color:var(--muted);border-color:var(--border)}
-.status-failed,.status-crashed{background:#3a1a1a;color:var(--red);border-color:var(--red)}
-.status-unknown{color:var(--muted);border-color:var(--border)}
-.empty{text-align:center;padding:60px 20px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:6px}
-.empty h2{color:var(--text);margin-bottom:12px;font-size:16px}
-.empty p{margin-bottom:8px}
-.empty code{background:#1c2128;padding:2px 6px;border-radius:3px;color:var(--green)}
-</style></head><body>
-<div class="hdr">
-  <span class="logo">GSD-T Transcripts</span>
-  <a href="/" style="font-size:11px">← Dashboard</a>
-  <span class="hright">${spawns.length} spawn${spawns.length === 1 ? '' : 's'}</span>
-</div>
-${table}
-</body></html>`;
 }
 
 function handleTranscriptPage(req, res, spawnId, transcriptHtmlPath) {
@@ -637,7 +572,7 @@ function startServer(port, eventsDir, htmlPath, projectDir, transcriptHtmlPath) 
     if (url === "/metrics") return handleMetrics(req, res, projDir);
     if (url === "/ping") return handlePing(req, res, port);
     if (url === "/stop") return handleStop(req, res, server);
-    if (url === "/transcripts") return handleTranscriptsList(req, res, projDir);
+    if (url === "/transcripts") return handleTranscriptsList(req, res, projDir, tHtmlPath);
     // M44 D8 — spawn plans: GET list + SSE change stream
     if (url === "/api/spawn-plans") return handleSpawnPlans(req, res, projDir);
     if (url === "/api/spawn-plans/stream") return handleSpawnPlanUpdates(req, res, projDir);
@@ -674,7 +609,6 @@ module.exports = {
   readIndexEntry,
   isValidSpawnId,
   handleTranscriptsList,
-  renderTranscriptsHtml,
   handleTranscriptStream,
   handleTranscriptPage,
   handleTranscriptKill,
