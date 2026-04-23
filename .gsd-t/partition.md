@@ -3,7 +3,7 @@
 **Status**: PARTITIONED
 **Date**: 2026-04-22
 **Target version**: 3.18.10
-**Domains**: 7 (D1 task-graph-reader · D2 parallel-cli · D3 command-file-integration · D4 depgraph-validation · D5 file-disjointness-prover · D6 pre-spawn-economics · D7 per-cw-attribution)
+**Domains**: 8 (D1 task-graph-reader · D2 parallel-cli · D3 command-file-integration · D4 depgraph-validation · D5 file-disjointness-prover · D6 pre-spawn-economics · D7 per-cw-attribution · D8 spawn-plan-visibility)
 **Waves**: 3 (Foundation → Gates → Integration)
 **Rationale source**: M44 scope 2026-04-22 (mode-aware parallelism; see `.gsd-t/progress.md` M44 "Current Milestone" + backlog #14).
 
@@ -46,6 +46,10 @@
 **Responsibility**: ensure every spawn (parallel or sequential) tags its token-usage rows with `cw_id` so the per-CW rollup keeps working post-M44. Wire the existing `scripts/gsd-t-compact-detector.js` hook output into the supervisor's "we failed to prevent compaction" signal for [unattended] estimator calibration.
 **Full detail**: `.gsd-t/domains/m44-d7-per-cw-attribution/{scope,constraints,tasks}.md`.
 
+### D8 — m44-d8-spawn-plan-visibility
+**Responsibility**: right-side two-layer task panel in the dashboard / transcript visualizer. Layer 1 = project tasks (milestone, waves). Layer 2 = active spawn's task slice. Done tasks display token cell (in/out/cr/cc/cost). One protocol, three writers (`captureSpawn`, `autoSpawnHeadless`, unattended worker resume Step 0), one reader (dashboard SSE). Pure observability — zero added LLM token cost (writer derives plan from `partition.md` + `tasks.md` already on disk).
+**Full detail**: `.gsd-t/domains/m44-d8-spawn-plan-visibility/{scope,constraints,tasks}.md`.
+
 ## Wave Plan
 
 ### Wave 1 — Foundation
@@ -69,14 +73,15 @@ All three are pre-spawn safety gates and purely read-only against existing artif
 
 **Gate to Wave 3**: D4 + D5 gates exercised end-to-end against a synthetic 2-task fixture; D6 estimator produces a decision against a real D7-tagged dataset slice (at minimum: the existing 525-row corpus now enriched with `cw_id`).
 
-### Wave 3 — Integration (D2 first, then D3)
+### Wave 3 — Integration (D2 first, then D3; D8 parallel with both)
 
 | Domain | Parallel-safe? | Notes |
 |--------|----------------|-------|
 | D2 `gsd-t parallel` CLI | Runs FIRST in Wave 3 (not parallel with D3) | Wires D1 DAG + D4/D5/D6 gates + M40 orchestrator extensions into the new `parallel` subcommand. Also extends `bin/gsd-t-orchestrator-config.cjs` with mode-aware gating math. Must be stable before D3 can call it. |
 | D3 command-file integration | Runs AFTER D2 lands | Edits `commands/gsd-t-{execute,wave,quick,debug,integrate}.md` to dispatch via `gsd-t parallel`. D3 depends on D2's CLI surface being stable. |
+| D8 spawn-plan-visibility | Yes — fully parallel with D2 AND D3 | New files (`bin/spawn-plan-*`, `scripts/gsd-t-post-commit-spawn-plan.sh`, `.gsd-t/spawns/`) + additive edits to `bin/gsd-t-token-capture.cjs`, `bin/headless-auto-spawn.cjs`, `scripts/gsd-t-dashboard-server.js`, `scripts/gsd-t-transcript.html`, `commands/gsd-t-resume.md`. Disjoint with D2/D3 owned files. Depends only on `captureSpawn` and `autoSpawnHeadless` chokepoints (already exist pre-M44). |
 
-**No within-Wave-3 parallelism**: D3 starts only after D2's gate passes.
+**Sequencing in Wave 3**: D2 must land before D3. D8 may run concurrently with either or both (no shared write targets).
 
 ## Shared Files & Conflict Map
 
@@ -89,7 +94,11 @@ All three are pre-spawn safety gates and purely read-only against existing artif
 | `commands/gsd-t-quick.md` | **D3** only | |
 | `commands/gsd-t-debug.md` | **D3** only | |
 | `commands/gsd-t-integrate.md` | **D3** only | |
-| `bin/gsd-t-token-capture.cjs` | **D7** only | Adds optional `cw_id` field to the row writer and pass-through. No other domain touches this file in M44. |
+| `bin/gsd-t-token-capture.cjs` | **D7 owns `cw_id` field** + **D8 adds `writeSpawnPlan` call before `spawnFn()`** | Two distinct, non-overlapping additive edits: D7 adds the optional `cw_id` field to the row writer; D8 adds a `writeSpawnPlan({...})` call at the top of `captureSpawn` and `markSpawnEnded({...})` after. Different functions, different code blocks. Sequencing: D7 lands in Wave 1, D8 in Wave 3 — no temporal overlap. |
+| `bin/headless-auto-spawn.cjs` | **D8** only (Wave 3) | Adds `writeSpawnPlan` call before launching the headless child. New code block, no existing logic touched. |
+| `scripts/gsd-t-dashboard-server.js` | **D8** only (Wave 3) | Adds `/api/spawn-plans` endpoint + `spawn-plan-update` SSE channel. Additive — does not change existing endpoints. |
+| `scripts/gsd-t-transcript.html` | **D8** only (Wave 3) | Adds right-side two-layer panel + CSS + SSE consumer + token-cell renderer. Additive — does not change existing transcript stream rendering. |
+| `commands/gsd-t-resume.md` | **D8** only (Wave 3) | Adds Step 0 `writeSpawnPlan` call under `GSD_T_UNATTENDED_WORKER=1` branch. Additive. |
 | `.gsd-t/contracts/wave-join-contract.md` | **D2** owns the bump | Mode-aware gating math addition (v1.0.0 → v1.1.0) |
 | `.gsd-t/contracts/metrics-schema-contract.md` | **D7** owns the bump | Adds optional `cw_id` field (v2 → v2.1.0) |
 | `.gsd-t/contracts/compaction-events-contract.md` | **D7** owns the bump | Post-spawn calibration loop wiring (v1.0.0 → v1.1.0) |
@@ -119,9 +128,9 @@ All three are pre-spawn safety gates and purely read-only against existing artif
 2. **Wave 1 gate** — D1 DAG emits cleanly + D7 `cw_id` field confirmed in token-capture.
 3. **Wave 2** — D4 + D5 + D6 in parallel (all read-only against existing artifacts, no shared writes).
 4. **Wave 2 gate** — D4/D5 synthetic fixture gates pass + D6 produces a decision from real corpus slice.
-5. **Wave 3, step 1** — D2 alone (extends orchestrator + config; lands `gsd-t parallel` CLI; bumps wave-join-contract v1.1.0).
-6. **Wave 3, step 2** — D3 alone (edits 5 command files to dispatch via D2).
-7. **Wave 3 gate** — in-session + unattended smoke tests above pass.
+5. **Wave 3, step 1** — D2 alone (extends orchestrator + config; lands `gsd-t parallel` CLI; bumps wave-join-contract v1.1.0). D8 may run in parallel with D2.
+6. **Wave 3, step 2** — D3 alone (edits 5 command files to dispatch via D2). D8 may run in parallel with D3.
+7. **Wave 3 gate** — in-session + unattended smoke tests above pass + D8 dashboard panel renders both layers correctly against a real spawn (writer + reader + post-commit hook all functional, token attribution populates).
 8. `/gsd-t-integrate` → `/gsd-t-verify` → auto-invokes `/gsd-t-complete-milestone` → tag v3.18.10.
 9. `npm publish` → `/gsd-t-version-update-all`.
 
