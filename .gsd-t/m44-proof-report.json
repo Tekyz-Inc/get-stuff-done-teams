@@ -1,36 +1,36 @@
 {
-  "generatedAt": "2026-04-23T19:43:11.925Z",
-  "workerDurationMs": 8000,
+  "generatedAt": "2026-04-23T20:27:41.550Z",
+  "workerDurationMs": 20000,
   "sequential": {
     "mode": "sequential",
     "taskCount": 4,
-    "wallClockMs": 32146.13125,
+    "wallClockMs": 80185.663208,
     "perWorkerDurationMs": [
-      8001.437,
-      8001.331208,
-      8001.531291,
-      8001.757666
+      20001.509709,
+      20000.517083,
+      20001.238584,
+      20001.468334
     ],
-    "sumWorkerDurationMs": 32006.057165000002
+    "sumWorkerDurationMs": 80004.73371
   },
   "parallel": {
     "mode": "parallel",
     "fanOutCount": 4,
     "launched": 4,
-    "wallClockMs": 8111.071333,
-    "dispatchOverheadMs": 8.206,
+    "wallClockMs": 20145.586834,
+    "dispatchOverheadMs": 12.443917,
     "perWorkerDurationMs": [
-      8001.17175,
-      8001.372333,
-      8000.814459,
-      8000.590708
+      20001.735083,
+      20001.721417,
+      20001.585542,
+      20001.085375
     ],
-    "sumWorkerDurationMs": 32003.94925,
+    "sumWorkerDurationMs": 80006.127417,
     "workerPids": [
-      59551,
-      59552,
-      59553,
-      59554
+      64460,
+      64461,
+      64462,
+      64463
     ],
     "markers": [
       {
@@ -39,11 +39,11 @@
         "taskIds": [
           "M99-D1-T1"
         ],
-        "startedAt": "2026-04-23T19:43:03.850Z",
-        "endedAt": "2026-04-23T19:43:11.852Z",
-        "durationMs": 8001.17175,
-        "requestedMs": 8000,
-        "pid": 59551
+        "startedAt": "2026-04-23T20:27:21.437Z",
+        "endedAt": "2026-04-23T20:27:41.439Z",
+        "durationMs": 20001.735083,
+        "requestedMs": 20000,
+        "pid": 64460
       },
       {
         "workerIndex": 1,
@@ -51,11 +51,11 @@
         "taskIds": [
           "M99-D1-T2"
         ],
-        "startedAt": "2026-04-23T19:43:03.855Z",
-        "endedAt": "2026-04-23T19:43:11.857Z",
-        "durationMs": 8001.372333,
-        "requestedMs": 8000,
-        "pid": 59552
+        "startedAt": "2026-04-23T20:27:21.441Z",
+        "endedAt": "2026-04-23T20:27:41.443Z",
+        "durationMs": 20001.721417,
+        "requestedMs": 20000,
+        "pid": 64461
       },
       {
         "workerIndex": 2,
@@ -63,11 +63,11 @@
         "taskIds": [
           "M99-D1-T3"
         ],
-        "startedAt": "2026-04-23T19:43:03.857Z",
-        "endedAt": "2026-04-23T19:43:11.859Z",
-        "durationMs": 8000.814459,
-        "requestedMs": 8000,
-        "pid": 59553
+        "startedAt": "2026-04-23T20:27:21.447Z",
+        "endedAt": "2026-04-23T20:27:41.449Z",
+        "durationMs": 20001.585542,
+        "requestedMs": 20000,
+        "pid": 64462
       },
       {
         "workerIndex": 3,
@@ -75,16 +75,16 @@
         "taskIds": [
           "M99-D1-T4"
         ],
-        "startedAt": "2026-04-23T19:43:03.862Z",
-        "endedAt": "2026-04-23T19:43:11.863Z",
-        "durationMs": 8000.590708,
-        "requestedMs": 8000,
-        "pid": 59554
+        "startedAt": "2026-04-23T20:27:21.451Z",
+        "endedAt": "2026-04-23T20:27:41.453Z",
+        "durationMs": 20001.085375,
+        "requestedMs": 20000,
+        "pid": 64463
       }
     ]
   },
-  "ratio": 0.25231874000390014,
-  "speedup": 3.963241097290446,
-  "parallelismFactor": 3.9457117236525234,
+  "ratio": 0.251236767621947,
+  "speedup": 3.9803091301698634,
+  "parallelismFactor": 3.971397213506458,
   "criterionMet": true
 }

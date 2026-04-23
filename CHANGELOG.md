@@ -2,6 +2,13 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [3.18.16] - 2026-04-23
+
+### Added — Proof measurement `--visualize` flag
+
+- **`bin/m44-proof-measure.cjs --visualize`** writes synthetic spawn-plan files into the project's `.gsd-t/spawns/` directory as each simulated worker launches and calls `markTaskDone` + `markSpawnEnded` when they finish, so the M44 D9 parallelism panel (`scripts/gsd-t-transcript.html`, endpoint `/api/parallelism`) renders the fan-out live. Off by default — the unflagged measurement still writes spawn-plans only under the temp fixture root. Enables end-to-end visualizer observation of the dispatcher without burning API tokens.
+- **Reproducibility**: three consecutive 20s-worker runs (13:08, 13:09, 13:27 local) produced identical `T_par / T_seq ≈ 0.251`, `speedup ≈ 3.98×`, `parallelism_factor ≈ 3.97`, `parallelism_factor_mode: "live"` with `activeWorkers: 4` for the full 20s parallel window. Panel transitions IDLE → live → IDLE confirmed by `/api/parallelism` polling.
+
 ## [Unreleased] — v3.19.00 pending
 
 ### Measured — Dispatcher T/2 criterion (backlog #15, leg 1 of 2)

@@ -29,6 +29,15 @@ const os = require('os');
 const { spawn } = require('child_process');
 
 const { runDispatch } = require(path.join(__dirname, 'gsd-t-parallel.cjs'));
+const { writeSpawnPlan } = require(path.join(__dirname, 'spawn-plan-writer.cjs'));
+const { markTaskDone, markSpawnEnded } = require(path.join(__dirname, 'spawn-plan-status-updater.cjs'));
+
+// When invoked with --visualize, write spawn-plan files into the REAL project
+// directory (not the temp fixture dir) so the live dashboard at :7455 can
+// render the fan-out in real time. Off by default to keep the measurement
+// directory clean.
+const VISUALIZE = process.argv.includes('--visualize');
+const REAL_PROJECT_DIR = path.resolve(__dirname, '..');
 
 // ── fixture setup ───────────────────────────────────────────────────────────
 
@@ -74,15 +83,43 @@ function makeSpawner({ outDir, workerDurationMs }) {
       env: childEnv, detached: true, stdio: 'ignore',
     });
     child.unref();
-    const spawnId = 'proof-' + env.GSD_T_WORKER_INDEX + '-' + Date.now();
+    const spawnId = 'm44-proof-' + env.GSD_T_WORKER_INDEX + '-' + Date.now();
+    const taskIds = env.GSD_T_WORKER_TASK_IDS.split(',');
+
+    if (VISUALIZE) {
+      try {
+        writeSpawnPlan({
+          spawnId,
+          kind: 'headless-detached',
+          milestone: 'M99',
+          wave: 'wave-1',
+          domains: ['m99-d1-proof'],
+          tasks: taskIds.map((id) => ({ id, title: 'Proof ' + id, status: 'in_flight' })),
+          projectDir: REAL_PROJECT_DIR,
+        });
+      } catch (e) { process.stderr.write('[visualize] writeSpawnPlan failed: ' + e.message + '\n'); }
+    }
+
     launched.push({
       spawnId, pid: child.pid,
-      taskIds: env.GSD_T_WORKER_TASK_IDS.split(','),
+      taskIds,
       launchedAt: process.hrtime.bigint(),
     });
     return { id: spawnId, pid: child.pid, logPath: null };
   };
   return { spawner, launched };
+}
+
+function markLaunchedDone(launched) {
+  if (!VISUALIZE) return;
+  for (const l of launched) {
+    try {
+      for (const id of l.taskIds) {
+        markTaskDone({ spawnId: l.spawnId, taskId: id, projectDir: REAL_PROJECT_DIR, commit: 'proof-sim', tokens: null });
+      }
+      markSpawnEnded({ spawnId: l.spawnId, projectDir: REAL_PROJECT_DIR });
+    } catch (e) { process.stderr.write('[visualize] mark-done failed: ' + e.message + '\n'); }
+  }
 }
 
 // ── wait for all .done markers ─────────────────────────────────────────────
@@ -132,6 +169,8 @@ async function runParallelPass(workerDurationMs) {
 
   await waitForMarkers(outDir, result.fanOutCount);
   const t1 = process.hrtime.bigint();
+
+  markLaunchedDone(launched);
 
   const markers = readMarkers(outDir);
   const wallClockMs = Number(t1 - t0) / 1e6;
