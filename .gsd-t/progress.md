@@ -3,7 +3,7 @@
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: M44 COMPLETED — Cross-Domain & Cross-Task Parallelism (D1–D8 landed; D9 follow-up in backlog #16)
 ## Date: 2026-04-23
-## Version: 3.18.12
+## Version: 3.18.13
 
 ## Current Milestone
 
@@ -119,6 +119,8 @@ Older milestones (M33 and earlier) archived under `.gsd-t/milestones/` — see d
 ## Decision Log
 
 > Prior decision log entries preserved in `.gsd-t/milestones/*/progress.md` — see archive snapshots (most recently `M40-external-task-orchestrator-2026-04-20/progress.md`) for pre-M40 history.
+
+- 2026-04-23 20:30: [quick · v3.18.13] dashboard `/transcripts` content negotiation. After v3.18.12's always-enabled Live Stream button fix, the empty-spawns fallback dropped users on raw `{"spawns":[]}` JSON when they clicked through. `scripts/gsd-t-dashboard-server.js::handleTranscriptsList` now inspects the request `Accept` header — `text/html` returns a dark-themed HTML index page (`renderTranscriptsHtml`, exported for testability) with either a sortable spawn table or a friendly empty state including a `/gsd-t-quick` CTA and a back-to-dashboard link; `*/*` (fetch's default) and `application/json` keep returning the existing `{spawns: [...]}` JSON shape so the dashboard's polling JS is unaffected. New `test/transcripts-html-page.test.js` covers all three Accept variants + empty/populated/escape cases — 7/7 pass; full suite 1914/1914 green. Files: `scripts/gsd-t-dashboard-server.js` (added content negotiation + `renderTranscriptsHtml`), `test/transcripts-html-page.test.js` (new).
 
 - 2026-04-23 19:15: [quick · v3.18.12] dashboard Live Stream button always enabled (`8791ff7`). Removed the `disabled` class + `pointer-events:none` gate when no spawn data is available; button now stays clickable in all states. With no live spawn → links to most recent spawn transcript; with no spawns at all → links to `/transcripts` JSON index as a discoverable fallback. Side discovery: dashboard server PID 15252 was running with cwd in a stale telemetry-test temp dir (`/private/var/folders/.../gsd-t-telem-env-XILEXa`), so `process.cwd()`-rooted lookups returned empty `{spawns:[]}`. Restarted server with cwd=project; `/transcripts` now serves the real index. Operational fix only — server CWD is operator concern, not code change. Single file: `scripts/gsd-t-dashboard.html`.
 

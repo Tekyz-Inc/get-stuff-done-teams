@@ -2,6 +2,12 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [3.18.13] - 2026-04-23
+
+### Fixed
+
+- **Dashboard `/transcripts` returned raw JSON to browsers** — after the v3.18.12 always-enabled Live Stream button fix, opening the dashboard with no spawn data and clicking Live Stream landed the user on `{"spawns":[]}` because `/transcripts` always served JSON. The route now does Accept-header content negotiation: browsers (`Accept: text/html`) get a proper dark-themed HTML index page with a sortable table of spawns (or a friendly empty state with a `/gsd-t-quick` CTA when no transcripts exist); programmatic clients (`fetch()` default `*/*`, or explicit `application/json`) keep getting the JSON shape the dashboard polling code already consumes — full back-compat.
+
 ## [3.18.12] - 2026-04-23
 
 ### Fixed
