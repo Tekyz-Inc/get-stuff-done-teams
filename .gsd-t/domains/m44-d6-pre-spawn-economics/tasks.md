@@ -3,7 +3,7 @@
 ## Wave 2 — Gates
 
 ### M44-D6-T1 — Contract skeleton + estimator module scaffold
-- **Status**: [ ] pending
+- **Status**: [x] done (2026-04-22 · commit `pending`)
 - **Dependencies**: M44-D1-T5 (D1 complete), M44-D7-T5 (D7 complete — `cw_id` enrichment must be landing in new rows before calibration)
 - **Acceptance criteria**:
   - `.gsd-t/contracts/economics-estimator-contract.md` exists with algorithm description, confidence tiers, known-failure modes placeholder, mode-specific threshold table (v0.1.0 skeleton)
