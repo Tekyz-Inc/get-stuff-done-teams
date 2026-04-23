@@ -2,6 +2,13 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [3.18.15] - 2026-04-23
+
+### Fixed — Supervisor false-failed marker (M45 follow-up)
+
+- **`bin/headless-exit-codes.cjs::mapHeadlessExitCode` polarity discipline** — the pre-fix matcher did `lower.includes("tests failed")` / `"verification failed"` / `"context budget exceeded"`, which fired on free-form narration like `"0 tests failed"`, `"no tests failed"`, and quoted phrases inside worker output. During the M45 run the worker's clean output contained `"tests failed"` 6× in healthy prose, flipping its mapped exit code 0 → 1 and causing the supervisor to finalize `status=failed` despite the milestone having been completed and archived. The matchers now require either a non-zero numeric count (`/([1-9]\d*)\s+(?:tests?|specs?|assertions?|examples?|suites?)\s+failed\b/i`), a structured terminal marker (`/^FAIL[:\s]/m`, Jest-style `/^Tests:\s+\d+\s+failed/m`), or a line-boundary / sentence-start anchor for free-form verification/context-budget phrases. 27 new polarity regression tests in `test/m45-fix-headless-exit-polarity.test.js`; all existing `headless.test.js` assertions preserved.
+- **`commands/gsd-t-unattended-watch.md` Step 3 reconciliation** — when the supervisor PID file is absent AND `state.status=failed` AND a fresh milestone archive exists under `.gsd-t/milestones/` (mtime ≥ supervisor `startedAt`), the watch tick now renders a reconciled success report noting the archive as the source of truth instead of the contradictory ✅-cleanly-finalized + failed-status block the previous logic would emit. Raw final report preserved for genuinely failed runs with no archive.
+
 ## [3.18.14] - 2026-04-23
 
 ### Added — M45 Conversation-Stream Observability

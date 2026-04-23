@@ -207,7 +207,64 @@ out('DOMAIN_SUMMARY', domainSummary.join(' | '));
 
 If `PID_FILE_EXISTS=false`:
 
-The supervisor has finalized cleanly and removed its own PID file. Read the final `state.json` status and iter, then print the terminal report:
+The supervisor has finalized cleanly and removed its own PID file.
+
+### Step 3a: Reconciliation probe
+
+Before emitting a report, check whether the supervisor's final `status` agrees with the on-disk milestone evidence. A `status=failed` with a **fresh matching milestone archive** is the M45-class false-failed-marker pathology: the worker completed the milestone (including the archive rename under `.gsd-t/milestones/`) but a polarity-unsound exit-code matcher mapped the worker's clean exit to `1`, which the supervisor then finalized as `status=failed`.
+
+```bash
+node -e "
+const fs = require('fs');
+const path = require('path');
+const state = JSON.parse(fs.readFileSync('.gsd-t/.unattended/state.json', 'utf8'));
+const milestone = (state.milestone || '').toLowerCase();
+let reconciled = false;
+if (state.status === 'failed' && milestone) {
+  // Look for a fresh archive directory matching the milestone slug.
+  // Pattern: .gsd-t/milestones/{slug}-YYYY-MM-DD where slug contains the
+  // milestone identifier (e.g. 'M45' → 'm45-conversation-stream-observability-2026-04-23').
+  try {
+    const archives = fs.readdirSync('.gsd-t/milestones')
+      .filter(n => n.toLowerCase().includes(milestone));
+    if (archives.length > 0) {
+      // Check the most recent archive's mtime is within the supervisor's run window.
+      const recent = archives
+        .map(n => ({ n, mtime: fs.statSync(path.join('.gsd-t/milestones', n)).mtimeMs }))
+        .sort((a, b) => b.mtime - a.mtime)[0];
+      const runStart = Date.parse(state.startedAt || 0);
+      if (recent && recent.mtime >= runStart) {
+        reconciled = true;
+        console.log('RECONCILED=true');
+        console.log('RECONCILED_ARCHIVE=' + recent.n);
+      }
+    }
+  } catch (_) {}
+}
+if (!reconciled) console.log('RECONCILED=false');
+"
+```
+
+### Step 3b: Render reconciled or raw report
+
+If `RECONCILED=true` AND `STATUS=failed`, the archive is the authority — render the reconciled success report:
+
+```
+✅  Unattended supervisor finalized — milestone completed (auto-reconciled).
+
+   Session:       {SESSION}
+   Milestone:     {MILESTONE} — archived as {RECONCILED_ARCHIVE}
+   Supervisor flag: status=failed (not trusted — archive present)
+   Iterations:    {ITER} / {MAX_ITER}
+   Total elapsed: {Hh Mm — formatted from ELAPSED_MS}
+   Log:           {LOG_PATH}
+   State:         .gsd-t/.unattended/state.json
+
+   Note: the worker completed the milestone, but a polarity-unsound exit-code
+   matcher mapped clean exit → failed. Treat the archive as the source of truth.
+```
+
+Otherwise (no reconciliation — `STATUS` is genuinely terminal `done`, `failed` without archive, or `stopped`), render the raw final report:
 
 ```
 ✅  Unattended supervisor finalized cleanly.

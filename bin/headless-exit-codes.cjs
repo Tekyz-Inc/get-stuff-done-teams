@@ -19,29 +19,47 @@
 
 "use strict";
 
+// Match terminal markers, not narration. A bare "tests failed" substring will
+// appear in healthy output ("0 tests failed", "no tests failed", quoted as an
+// example in prose). Require either a non-zero count prefix or a structured
+// terminal marker (start of line, uppercase-FAIL prefix, Jest-style summary).
+// Bug history: M45 worker output contained "tests failed" 6× in narration,
+// causing the supervisor to map exit 0 → exit 1 and halt a successful run.
+
+const NONZERO_FAILURE_COUNT_RE =
+  /(?:^|\b)([1-9]\d*)\s+(?:tests?|specs?|assertions?|examples?|suites?)\s+failed\b/i;
+const STRUCTURED_FAIL_RE = /^FAIL[:\s]/m;
+const JEST_SUMMARY_FAIL_RE = /^Tests:\s+\d+\s+failed/im;
+
+// Verification-phrase matchers: require the phrase at a line boundary or
+// preceded by a sentence-start punctuation — not mid-prose. Each phrase is
+// distinctive enough that start-of-line / post-punctuation is a reliable
+// terminal-marker signal.
+const VERIFICATION_FAILED_RE =
+  /(?:^|[.!?]\s+)(?:verification|verify|quality gate)\s+failed\b/im;
+
+// Context-budget phrases — same polarity discipline. Tolerant of surrounding
+// punctuation (— / :) but requires the phrase at a line boundary.
+const CONTEXT_BUDGET_RE =
+  /(?:^|[.!?]\s+)(?:context budget exceeded|context window exceeded|budget exceeded|token limit)\b/im;
+
+// Blocker compound: "blocked" within 80 chars of a human-gate phrase, both
+// anchored to recognizable boundaries. The 80-char proximity keeps unrelated
+// mentions from compounding.
+const BLOCKED_HUMAN_RE =
+  /\bblocked\b[\s\S]{0,80}?\b(?:needs? human|human input|human approval)\b/i;
+
 function mapHeadlessExitCode(processExitCode, output) {
   if (processExitCode !== 0 && processExitCode !== null) return 3;
   const raw = output || "";
-  const lower = raw.toLowerCase();
   if (/^unknown command:/im.test(raw)) return 5;
+  if (CONTEXT_BUDGET_RE.test(raw)) return 2;
+  if (BLOCKED_HUMAN_RE.test(raw)) return 4;
   if (
-    lower.includes("context budget exceeded") ||
-    lower.includes("context window exceeded") ||
-    lower.includes("budget exceeded") ||
-    lower.includes("token limit")
-  ) return 2;
-  if (
-    lower.includes("blocked") &&
-    (lower.includes("needs human") ||
-      lower.includes("need human") ||
-      lower.includes("human input") ||
-      lower.includes("human approval"))
-  ) return 4;
-  if (
-    lower.includes("verification failed") ||
-    lower.includes("verify failed") ||
-    lower.includes("quality gate failed") ||
-    lower.includes("tests failed")
+    VERIFICATION_FAILED_RE.test(raw) ||
+    NONZERO_FAILURE_COUNT_RE.test(raw) ||
+    STRUCTURED_FAIL_RE.test(raw) ||
+    JEST_SUMMARY_FAIL_RE.test(raw)
   ) return 1;
   return 0;
 }
