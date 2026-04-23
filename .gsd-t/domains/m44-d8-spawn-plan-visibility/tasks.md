@@ -41,7 +41,7 @@
   - Cumulative totals: Layer 1 milestone header sums all done-task tokens; Layer 2 spawn header sums spawn's done-task tokens
   - touches: `scripts/gsd-t-transcript.html`
 
-- [x] done (2026-04-23 · commit pending) **M44-D8-T7** — Tests + doc ripple
+- [x] done (2026-04-23 · commit 110686f) **M44-D8-T7** — Tests + doc ripple
   - `test/m44-d8-spawn-plan-writer.test.js`
   - `test/m44-d8-spawn-plan-status-updater.test.js` — covers tokens field write
   - `test/m44-d8-post-commit-hook.test.js` — covers token-log attribution lookup
