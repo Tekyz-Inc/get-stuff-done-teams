@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 'use strict';
 
 /**
@@ -145,3 +146,66 @@ module.exports = {
   _areFileDisjoint,
   SPAWN_PLAN_KIND,
 };
+
+if (require.main === module) {
+  (async () => {
+    const fs = require('fs');
+    const argv = process.argv.slice(2);
+    let parentSessionId = null;
+    let tasksPath = null;
+    let maxParallel = DEFAULT_MAX_PARALLEL;
+    for (let i = 0; i < argv.length; i++) {
+      const a = argv[i];
+      if (a === '--parent-session') {
+        parentSessionId = argv[++i];
+      } else if (a === '--tasks') {
+        tasksPath = argv[++i];
+      } else if (a === '--max-parallel') {
+        const n = parseInt(argv[++i], 10);
+        if (Number.isFinite(n) && n > 0) maxParallel = n;
+      }
+    }
+    if (!parentSessionId) {
+      process.stderr.write('error: --parent-session required\n');
+      process.exit(2);
+    }
+    if (!tasksPath) {
+      process.stderr.write('error: --tasks required\n');
+      process.exit(2);
+    }
+    let raw;
+    try {
+      raw = fs.readFileSync(tasksPath, 'utf8');
+    } catch (e) {
+      process.stderr.write(`error: cannot read tasks file ${tasksPath}: ${(e && e.message) || e}\n`);
+      process.exit(2);
+    }
+    let tasks;
+    try {
+      tasks = JSON.parse(raw);
+    } catch (e) {
+      process.stderr.write(`error: malformed tasks JSON: ${(e && e.message) || e}\n`);
+      process.exit(2);
+    }
+    if (!Array.isArray(tasks)) {
+      process.stderr.write('error: tasks JSON must be an array\n');
+      process.exit(2);
+    }
+    const projectDir = process.cwd();
+    try {
+      const result = await dispatchWorkerTasks({
+        projectDir,
+        parentSessionId,
+        tasks,
+        maxParallel,
+      });
+      process.stdout.write(JSON.stringify(result) + '\n');
+      const anyFailed = Array.isArray(result && result.taskResults)
+        && result.taskResults.some((r) => r && (r.exitCode !== 0 && r.exitCode != null));
+      process.exit(anyFailed ? 1 : 0);
+    } catch (e) {
+      process.stderr.write(`error: dispatch threw: ${(e && e.message) || e}\n`);
+      process.exit(1);
+    }
+  })();
+}

@@ -664,3 +664,23 @@ Milestone 44 D8 delivers a right-side two-layer task panel in the dashboard and 
 
 Supporting contract:
 - `.gsd-t/contracts/spawn-plan-contract.md` v1.0.0 — schema + writer/reader/updater protocol + silent-fail rules.
+
+### M46 D2 Worker Sub-Dispatch
+
+A supervisor worker iteration assigned more than one ready task MUST fan those tasks out as concurrent sub-workers via the M44-verified `runDispatch` instrument rather than running them serially, provided the task set is pairwise file-disjoint and the iteration is running inside an unattended worker child (`GSD_T_UNATTENDED_WORKER=1`). This closes the parallelism gap where unattended workers historically executed their assigned tasks one-at-a-time even when the disjointness precondition held, defeating the purpose of the M44 dispatch infrastructure for all unattended runs. The sub-dispatch path is a new consumer of `bin/gsd-t-parallel.cjs::runDispatch` — no changes to the in-session planner's call site, no new disjointness predicate, and no new dispatch logic. Distinguished in telemetry via the new spawn-plan `kind: 'unattended-worker-sub'` value.
+
+Acceptance:
+- `bin/gsd-t-worker-dispatch.cjs` exists and exports `dispatchWorkerTasks` plus the `_areFileDisjoint` helper and the `SPAWN_PLAN_KIND` constant (`'unattended-worker-sub'`).
+- Unit + integration tests in `test/m46-d2-worker-subdispatch.test.js` pass (trigger-condition matrix, disjointness predicate, runDispatch delegation, spawn-plan frame emission, serial fallback on overlap/single-task).
+- Proof measurement recorded in `.gsd-t/metrics/m46-worker-proof.json` shows a parallel-vs-serial speedup of at least **2.5×** on a representative file-disjoint worker iteration.
+- `.gsd-t/contracts/headless-default-contract.md` v2.1.0 §Worker Sub-Dispatch present as the locked source of truth.
+
+### M46 D1 Iteration Parallelism
+
+The unattended supervisor main loop MUST expose iter-level parallelism machinery via four extracted helpers — `_runOneIter`, `_computeIterBatchSize`, `_runIterParallel`, `_reconcile` — so unit tests and future callers can exercise batched iteration deterministically, with `_runIterParallel` using `Promise.allSettled` so a single rejected slice does not cancel siblings and `_reconcile` merging `IterResult[]` into state with append-only `completedTasks`, last-writer-wins `status`, OR across `verifyNeeded`, append on `artifacts`, and overwrite `lastBatch` metadata. The production main loop default remains serial (`batchSize = 1` always, via `_computeIterBatchSize` returning `1` whenever `opts.maxIterParallel` is not a number) pending the state-clone-safety follow-up tracked in backlog #24 — that work must land before the supervisor CLI sets a non-1 default.
+
+Acceptance:
+- `_runOneIter`, `_computeIterBatchSize`, `_runIterParallel`, and `_reconcile` are all exported via `module.exports.__test__` on `bin/gsd-t-unattended.cjs`.
+- Tests in `test/m46-d1-iter-parallel.test.js` pass (serial fallback, parallel batch, mode-safety gate, error isolation, state reconciliation).
+- Proof speedup ≥ **3.0×** recorded in `.gsd-t/metrics/m46-iter-proof.json` — a synthetic `batchSize = 4` measurement of the `_runIterParallel` driver, not the production main loop (which remains serial until backlog #24 lands).
+- `.gsd-t/contracts/iter-parallel-contract.md` v1.0.0 present as the locked source of truth.

@@ -1,0 +1,14 @@
+{
+  "timestamp": "2026-04-24T00:21:02.318Z",
+  "iter_count": 10,
+  "iter_sleep_ms": 200,
+  "batch_size_serial": 1,
+  "batch_size_parallel": 4,
+  "T_serial_ms": 2022.576541,
+  "T_par_ms": 602.870667,
+  "speedup": 3.3549095215806872,
+  "parallelism_factor": 3.31746112305046,
+  "threshold_T_par_over_T_serial": 0.35,
+  "threshold_speedup": 3,
+  "passed": true
+}

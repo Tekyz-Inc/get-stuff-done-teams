@@ -12,6 +12,38 @@ node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-
 
 **Worker bypass**: If the environment variable `GSD_T_UNATTENDED_WORKER=1` is set, this resume is being invoked by the unattended supervisor as a worker iteration. **SKIP this entire Step 0** — do NOT check for supervisor.pid, do NOT auto-reattach, do NOT schedule a watch tick. Fall through directly to Step 0.1. The worker's job is to do actual work, not watch itself.
 
+### Worker Sub-Dispatch (M46-D2)
+
+When the worker bypass above applies (`GSD_T_UNATTENDED_WORKER=1` is set), the worker performs an **additional deterministic check** BEFORE falling through to Step 0.1. This lets a worker with multiple file-disjoint tasks fan out its own work as concurrent headless sub-workers, rather than running its task set serially.
+
+Decision rule (all conditions must hold):
+- `GSD_T_WORKER_TASK_IDS` is present in the environment (the supervisor declared the task set for this worker).
+- The worker has **more than one task** to run (`tasks.length > 1`).
+- The supervisor has exported the worker's task list to a JSON file on disk (the tasks file path is provided via env or the worker's continue-here block).
+- The tasks are pairwise **file-disjoint** per `.gsd-t/contracts/file-disjointness-rules.md` (the dispatcher re-verifies this internally; the worker does not need to pre-check).
+
+If all conditions hold, the worker invokes:
+
+```bash
+node bin/gsd-t-worker-dispatch.cjs \
+  --parent-session "$GSD_T_PARENT_AGENT_ID" \
+  --tasks <path-to-tasks-json>
+```
+
+Interpret the exit code as follows:
+- **Exit 0** → every sub-worker succeeded. Aggregate the stdout JSON result (which contains `{parallel, taskResults, wallClockMs, reason}`) and report completion of the worker iteration with all taskIds marked done. Do NOT fall through to the serial pre-M46 path.
+- **Exit 1** → at least one sub-worker failed. Report mixed status for the worker iteration, listing the failed `taskId`s from the aggregated `taskResults` (any entry with a non-zero, non-null `exitCode`). The sibling sub-workers' successful results still count — do NOT re-run them. Do NOT fall through to the serial path.
+- **Exit 2** → precondition failure (missing `--parent-session`, unreadable or malformed tasks JSON). Log the stderr reason and **fall through to the current (pre-M46) worker behavior** — the serial path that existed before D2.
+
+Skip sub-dispatch and fall through to the current behavior when:
+- `tasks.length <= 1` (single-task or empty workloads have nothing to parallelize — the dispatcher itself returns early with `reason: 'single-task'` / `'no-tasks'`, but the worker can short-circuit without spawning the adapter at all).
+- Tasks are not file-disjoint per the disjointness contract (the dispatcher will return `parallel: false, reason: 'file-overlap'`; the worker treats this identically to the serial fallback).
+- The tasks file was not written by the supervisor (no sub-dispatch surface available this iteration).
+
+**Rationale** — Per `.gsd-t/contracts/headless-default-contract.md` §Worker Sub-Dispatch (v2.1.0), this hand-off is the third parallelism layer (iter-parallel → supervisor fan-out → worker sub-dispatch). It is a deterministic, file-disjointness-gated consumer of the M44-verified `runDispatch` instrument — not a modification of it. The in-session dispatch path is byte-identical; this sub-section only adds a new invocation site on the unattended worker leg.
+
+---
+
 Check whether an unattended supervisor is actively running for this project:
 
 1. Check if `.gsd-t/.unattended/supervisor.pid` exists.

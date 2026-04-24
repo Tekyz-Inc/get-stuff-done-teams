@@ -41,7 +41,7 @@ const SPAWN_PLAN_SCHEMA_VERSION = 1;
  *
  * @param {object} opts
  * @param {string} opts.spawnId                       filesystem-safe id
- * @param {'unattended-worker'|'headless-detached'|'in-session-subagent'} opts.kind
+ * @param {'unattended-worker'|'headless-detached'|'in-session-subagent'|'unattended-worker-sub'} opts.kind
  * @param {string} [opts.milestone]                   e.g. 'M44'
  * @param {string} [opts.wave]                        e.g. 'wave-3'
  * @param {string[]} [opts.domains]                   domain names involved

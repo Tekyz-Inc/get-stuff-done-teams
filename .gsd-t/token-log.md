@@ -576,3 +576,344 @@
 <!-- missed_escalation 2026-04-23T01:09:50.084Z phase= domain= task= q="(no question provided)" -->
 <!-- missed_escalation 2026-04-23T01:10:10.715Z phase= domain= task= q="test" -->
 <!-- missed_escalation 2026-04-23T01:10:10.716Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-23T01:12:18.139Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T01:12:18.139Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-23T01:18:28.797Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T01:18:28.798Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-23T01:18:51.289Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T01:18:51.290Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-23T01:19:45.862Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T01:19:45.862Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-23T01:39:24.321Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T01:39:24.322Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-23T01:40:23.600Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T01:40:23.600Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-23T01:40:46.086Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T01:40:46.086Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-23T01:41:09.615Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T01:41:09.615Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-23T01:41:32.676Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T01:41:32.677Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-23T01:42:04.099Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T01:42:04.099Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-23T01:43:01.427Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T01:43:01.428Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-23T01:43:40.819Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T01:43:40.819Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-23T01:45:20.911Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T01:45:20.912Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-23T01:45:51.524Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T01:45:51.525Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-23T01:46:15.483Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T01:46:15.483Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-23T02:04:13.835Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T02:04:13.836Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-23T02:18:55.426Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T02:18:55.426Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-23T02:40:18.275Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T02:40:18.276Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-23T02:54:47.926Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T02:54:47.927Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-23T02:57:34.743Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T02:57:34.743Z phase= domain= task= q="(no question provided)" -->
+| undefined | undefined | gsd-t-unattended | Step 2 | sonnet | 0s | — | M45 supervisor spawned PID 33985 | - | - | N/A |
+| 2026-04-23 03:33 | 2026-04-23 03:40 | gsd-t-resume | supervisor-iter-1 | unknown | 402s | supervisor iter=1: exit 1 | - | - | unknown |
+| undefined | undefined | gsd-t-unattended | Relaunch | sonnet | 0s | — | auto-relaunch after iter1 supervisor=failed/worker=clean (M45 PARTITIONED, dispatching Wave 1) | - | - | N/A |
+<!-- missed_escalation 2026-04-23T03:48:14.528Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T03:48:14.529Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-23T03:52:10.269Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T03:52:10.270Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-23T03:52:31.527Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T03:52:31.527Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-23T03:52:53.490Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T03:52:53.490Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-23T03:53:14.791Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T03:53:14.791Z phase= domain= task= q="(no question provided)" -->
+| 2026-04-23 03:45 | 2026-04-23 03:53 | gsd-t-execute | Wave 1 parallel | sonnet | 480s | in=96985 out=0 cr=0 cc=0 — | D1 parallel subagent — viewer-route-fix; 7/7 targeted, 1912/1914 full; commit 9e5d955 | m45-d1-viewer-route-fix | T-1..T-4 | 45 |
+| 2026-04-23 03:45 | 2026-04-23 03:53 | gsd-t-execute | Wave 1 parallel | sonnet | 480s | in=151605 out=0 cr=0 cc=0 — | D2 parallel subagent — conversation-capture; 20 new tests, 1932/1934 full; commit e1e1fd2 | m45-d2-in-session-conversation-capture | T-1..T-6 | 45 |
+<!-- missed_escalation 2026-04-23T03:55:21.943Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T03:55:21.943Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-23T03:55:46.108Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T03:55:46.108Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-23T03:56:11.246Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T03:56:11.247Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-23T03:56:31.928Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T03:56:31.929Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-23T03:56:53.591Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T03:56:53.591Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-23T03:58:33.442Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T03:58:33.443Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-23T04:03:03.475Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T04:03:03.476Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-23T04:05:28.510Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T04:05:28.511Z phase= domain= task= q="(no question provided)" -->
+| 2026-04-23 03:44 | 2026-04-23 04:09 | gsd-t-resume | supervisor-iter-1 | unknown | 1458s | supervisor iter=1: exit 1 | - | - | unknown |
+| 2026-04-23 04:17 | 2026-04-23 04:17 | gsd-t-quick | headless | unknown | 8s | headless exec: ok | - | - | unknown |
+| 2026-04-22 21:17 | undefined | gsd-t-quick | Step 0 | sonnet | 58s | — | fix M44 D8 T3 wire-up regression — writeSpawnPlan callers (PID 27018) | - | - | N/A |
+<!-- missed_escalation 2026-04-23T04:24:16.562Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T04:24:16.563Z phase= domain= task= q="(no question provided)" -->
+| 2026-04-23 04:30 | 2026-04-23 04:30 | gsd-t-quick | headless | unknown | 47s | headless exec: ok | - | - | unknown |
+<!-- missed_escalation 2026-04-23T05:38:46.076Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T05:38:46.077Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-23T06:06:22.979Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T06:06:22.980Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-23T15:41:48.301Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T15:41:48.301Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-23T15:42:56.115Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T15:42:56.116Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-23T15:43:25.043Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T15:43:25.043Z phase= domain= task= q="(no question provided)" -->
+| 2026-04-23 08:46 | 2026-04-23 08:47 | gsd-t-visualize | Step 0 | sonnet | 60s | — | dashboard launched (already running) | - | - | N/A |
+<!-- missed_escalation 2026-04-23T15:58:27.313Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T15:58:27.315Z phase= domain= task= q="(no question provided)" -->
+| 2026-04-23 17:20 | 2026-04-23 17:20 | gsd-t-gsd-t-execute | headless | unknown | 4s | headless exec: exit 5 | - | - | unknown |
+| 2026-04-23 17:20 | 2026-04-23 17:22 | gsd-t-execute | headless | unknown | 93s | headless exec: ok | - | - | unknown |
+| 2026-04-23 17:22 | 2026-04-23 17:22 | gsd-t-execute | headless | unknown | 38s | headless exec: ok | - | - | unknown |
+| 2026-04-23 17:20 | 2026-04-23 17:23 | gsd-t-execute | headless | unknown | 129s | headless exec: ok | - | - | unknown |
+<!-- missed_escalation 2026-04-23T17:23:48.196Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T17:23:48.196Z phase= domain= task= q="(no question provided)" -->
+| 2026-04-23 17:22 | 2026-04-23 17:23 | gsd-t-execute | headless | unknown | 92s | headless exec: ok | - | - | unknown |
+| 2026-04-23 17:22 | 2026-04-23 17:24 | gsd-t-execute | headless | unknown | 103s | headless exec: ok | - | - | unknown |
+<!-- missed_escalation 2026-04-23T17:24:41.917Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T17:24:41.918Z phase= domain= task= q="(no question provided)" -->
+| 2026-04-23 17:22 | 2026-04-23 17:24 | gsd-t-execute | headless | unknown | 151s | headless exec: ok | - | - | unknown |
+| 2026-04-23 17:22 | 2026-04-23 17:25 | gsd-t-execute | headless | unknown | 156s | headless exec: ok | - | - | unknown |
+| 2026-04-23 17:22 | 2026-04-23 17:25 | gsd-t-execute | headless | unknown | 175s | headless exec: ok | - | - | unknown |
+| 2026-04-23 17:22 | 2026-04-23 17:25 | gsd-t-execute | headless | unknown | 175s | headless exec: ok | - | - | unknown |
+| 2026-04-23 17:23 | 2026-04-23 17:25 | gsd-t-execute | headless | unknown | 142s | headless exec: ok | - | - | unknown |
+| 2026-04-23 17:20 | 2026-04-23 17:25 | gsd-t-execute | headless | unknown | 301s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 17:20 | 2026-04-23 17:25 | gsd-t-execute | headless | unknown | 302s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 17:23 | 2026-04-23 17:25 | gsd-t-execute | headless | unknown | 151s | headless exec: ok | - | - | unknown |
+| 2026-04-23 17:24 | 2026-04-23 17:26 | gsd-t-execute | headless | unknown | 90s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 17:22 | 2026-04-23 17:26 | gsd-t-execute | headless | unknown | 216s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 10:25 | 2026-04-23 10:25 | gsd-t-execute | M44 D9 fan-out | sonnet | 0s | — | fan_out via gsd-t parallel --command — 4 headless workers, exit 0 in 1s (dispatch only; workers continue detached, PIDs 21603/21621/21641/21662) | m44-d9-parallelism-observability | T1-T4 | 0 |
+| 2026-04-23 17:25 | 2026-04-23 17:26 | gsd-t-execute | headless | unknown | 25s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 17:25 | 2026-04-23 17:26 | gsd-t-execute | headless | unknown | 25s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 17:24 | 2026-04-23 17:26 | gsd-t-execute | headless | unknown | 92s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 17:25 | 2026-04-23 17:26 | gsd-t-execute | headless | unknown | 26s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 17:24 | 2026-04-23 17:26 | gsd-t-execute | headless | unknown | 96s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 17:25 | 2026-04-23 17:26 | gsd-t-execute | headless | unknown | 20s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 17:23 | 2026-04-23 17:26 | gsd-t-execute | headless | unknown | 127s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 17:25 | 2026-04-23 17:26 | gsd-t-execute | headless | unknown | 21s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 17:25 | 2026-04-23 17:26 | gsd-t-execute | headless | unknown | 16s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 17:23 | 2026-04-23 17:26 | gsd-t-execute | headless | unknown | 160s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 17:22 | 2026-04-23 17:26 | gsd-t-execute | headless | unknown | 219s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 17:24 | 2026-04-23 17:26 | gsd-t-execute | headless | unknown | 125s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 17:23 | 2026-04-23 17:26 | gsd-t-execute | headless | unknown | 127s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 17:23 | 2026-04-23 17:26 | gsd-t-execute | headless | unknown | 160s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 17:25 | 2026-04-23 17:26 | gsd-t-execute | headless | unknown | 29s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 17:24 | 2026-04-23 17:26 | gsd-t-execute | headless | unknown | 125s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 17:25 | 2026-04-23 17:26 | gsd-t-execute | headless | unknown | 36s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 17:25 | 2026-04-23 17:26 | gsd-t-execute | headless | unknown | 10s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 17:25 | 2026-04-23 17:26 | gsd-t-execute | headless | unknown | 23s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 17:23 | 2026-04-23 17:26 | gsd-t-execute | headless | unknown | 160s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 17:25 | 2026-04-23 17:26 | gsd-t-execute | headless | unknown | 37s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 17:23 | 2026-04-23 17:26 | gsd-t-execute | headless | unknown | 160s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 17:25 | 2026-04-23 17:26 | gsd-t-execute | headless | unknown | 37s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 17:25 | 2026-04-23 17:26 | gsd-t-execute | headless | unknown | 11s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 17:22 | 2026-04-23 17:26 | gsd-t-execute | headless | unknown | 222s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 17:23 | 2026-04-23 17:26 | gsd-t-execute | headless | unknown | 162s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 17:25 | 2026-04-23 17:26 | gsd-t-execute | headless | unknown | 20s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 17:25 | 2026-04-23 17:26 | gsd-t-execute | headless | unknown | 25s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 17:25 | 2026-04-23 17:26 | gsd-t-execute | headless | unknown | 12s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 17:25 | 2026-04-23 17:26 | gsd-t-execute | headless | unknown | 20s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 17:22 | 2026-04-23 17:26 | gsd-t-execute | headless | unknown | 234s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 17:24 | 2026-04-23 17:26 | gsd-t-execute | headless | unknown | 99s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 17:23 | 2026-04-23 17:26 | gsd-t-execute | headless | unknown | 166s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 17:25 | 2026-04-23 17:26 | gsd-t-execute | headless | unknown | 17s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 17:25 | 2026-04-23 17:26 | gsd-t-execute | headless | unknown | 28s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 17:25 | 2026-04-23 17:26 | gsd-t-execute | headless | unknown | 50s | headless exec: exit 3 | - | - | unknown |
+<!-- missed_escalation 2026-04-23T17:26:53.486Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T17:26:53.487Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-23T17:27:35.323Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T17:27:35.325Z phase= domain= task= q="(no question provided)" -->
+| 2026-04-23 17:22 | 2026-04-23 17:27 | gsd-t-execute | headless | unknown | 300s | headless exec: exit 3 | - | - | unknown |
+<!-- missed_escalation 2026-04-23T18:24:32.606Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T18:24:32.608Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-23T20:31:55.339Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T20:31:55.339Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-23T20:32:55.206Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T20:32:55.207Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-23T20:33:27.797Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T20:33:27.797Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-23T20:34:16.611Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T20:34:16.611Z phase= domain= task= q="(no question provided)" -->
+| 2026-04-23 21:46 | 2026-04-23 21:47 | gsd-t-execute | headless | unknown | 6s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 21:46 | 2026-04-23 21:47 | gsd-t-execute | headless | unknown | 42s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 21:46 | 2026-04-23 21:47 | gsd-t-execute | headless | unknown | 13s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 21:46 | 2026-04-23 21:47 | gsd-t-execute | headless | unknown | 42s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 21:46 | 2026-04-23 21:47 | gsd-t-execute | headless | unknown | 41s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 21:46 | 2026-04-23 21:47 | gsd-t-execute | headless | unknown | 13s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 21:46 | 2026-04-23 21:47 | gsd-t-execute | headless | unknown | 14s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 21:47 | 2026-04-23 21:47 | gsd-t-execute | headless | unknown | 3s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 21:46 | 2026-04-23 21:47 | gsd-t-execute | headless | unknown | 15s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 21:46 | 2026-04-23 21:47 | gsd-t-execute | headless | unknown | 42s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 21:46 | 2026-04-23 21:47 | gsd-t-execute | headless | unknown | 42s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 21:47 | 2026-04-23 21:47 | gsd-t-execute | headless | unknown | 3s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 21:47 | 2026-04-23 21:47 | gsd-t-execute | headless | unknown | 3s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 21:46 | 2026-04-23 21:47 | gsd-t-execute | headless | unknown | 15s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 21:46 | 2026-04-23 21:47 | gsd-t-execute | headless | unknown | 15s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 21:47 | 2026-04-23 21:47 | gsd-t-execute | headless | unknown | 3s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 21:47 | 2026-04-23 21:47 | gsd-t-execute | headless | unknown | 4s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 21:47 | 2026-04-23 21:47 | gsd-t-execute | headless | unknown | 3s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 21:47 | 2026-04-23 21:47 | gsd-t-execute | headless | unknown | 4s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 21:47 | 2026-04-23 21:47 | gsd-t-execute | headless | unknown | 3s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 21:46 | 2026-04-23 21:47 | gsd-t-execute | headless | unknown | 43s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 21:46 | 2026-04-23 21:47 | gsd-t-execute | headless | unknown | 17s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 21:46 | 2026-04-23 21:47 | gsd-t-execute | headless | unknown | 16s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 21:46 | 2026-04-23 21:47 | gsd-t-execute | headless | unknown | 9s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 21:46 | 2026-04-23 21:47 | gsd-t-execute | headless | unknown | 44s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 21:46 | 2026-04-23 21:47 | gsd-t-execute | headless | unknown | 10s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 21:46 | 2026-04-23 21:47 | gsd-t-execute | headless | unknown | 10s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 21:46 | 2026-04-23 21:47 | gsd-t-execute | headless | unknown | 10s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 21:46 | 2026-04-23 21:47 | gsd-t-execute | headless | unknown | 10s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 21:46 | 2026-04-23 21:47 | gsd-t-execute | headless | unknown | 11s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 21:46 | 2026-04-23 21:47 | gsd-t-execute | headless | unknown | 10s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 21:46 | 2026-04-23 21:47 | gsd-t-execute | headless | unknown | 48s | headless exec: exit 3 | - | - | unknown |
+<!-- missed_escalation 2026-04-23T22:53:47.670Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T22:53:47.670Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-23T23:06:03.073Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T23:06:03.073Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-23T23:18:28.803Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-23T23:18:28.803Z phase= domain= task= q="(no question provided)" -->
+| 2026-04-23 23:17 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 83s | headless exec: ok | - | - | unknown |
+| 2026-04-23 23:19 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 18s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:18 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 31s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:19 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 7s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:17 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 85s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:19 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 12s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:19 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 3s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:19 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 3s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:18 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 49s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:19 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 3s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:19 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 16s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:19 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 3s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:19 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 12s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:17 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 104s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:18 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 31s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:19 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 7s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:18 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 59s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:19 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 3s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:19 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 3s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:19 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 14s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:19 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 17s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:19 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 8s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:18 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 29s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:18 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 57s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:19 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 3s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:19 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 24s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:19 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 10s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:19 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 3s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:19 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 3s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:19 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 13s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:19 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 16s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:19 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 4s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:19 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 3s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:19 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 9s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:19 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 13s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:19 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 10s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:19 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 9s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:19 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 3s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:19 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 3s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:19 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 9s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:19 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 3s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:19 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 4s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:19 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 15s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:19 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 3s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:19 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 3s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:19 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 3s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:18 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 89s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:19 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 3s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:19 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 3s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:19 | 2026-04-23 23:19 | gsd-t-execute | Step 3 | sonnet | 0s | — | M46 parallel fan-out dispatched — 8 headless workers (D1+D2 file-disjoint), PIDs 45333/46000/46703/48427/50402/52208/52582/52841 | m46-wave1 | 8 workers | 11 |
+| 2026-04-23 23:17 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 121s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:17 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 115s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:17 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 118s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:19 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 8s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:19 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 14s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:19 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 12s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:19 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 11s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:19 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 14s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:18 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 69s | headless exec: ok | - | - | unknown |
+| 2026-04-23 23:19 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 17s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:19 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 3s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:17 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 111s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:19 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 13s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:19 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 10s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:19 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 11s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:19 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 17s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:19 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 15s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:19 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 15s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:19 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 19s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:19 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 9s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:19 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 20s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:19 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 12s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:18 | 2026-04-23 23:19 | gsd-t-execute | headless | unknown | 68s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:33 | 2026-04-23 23:34 | gsd-t-execute | headless | unknown | 72s | headless exec: ok | - | - | unknown |
+| 2026-04-23 23:34 | 2026-04-23 23:34 | gsd-t-execute | headless | unknown | 3s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:34 | 2026-04-23 23:34 | gsd-t-execute | headless | unknown | 34s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:33 | 2026-04-23 23:34 | gsd-t-execute | headless | unknown | 64s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:34 | 2026-04-23 23:34 | gsd-t-execute | headless | unknown | 8s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:34 | 2026-04-23 23:34 | gsd-t-execute | headless | unknown | 19s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:34 | 2026-04-23 23:34 | gsd-t-execute | headless | unknown | 17s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:34 | 2026-04-23 23:34 | gsd-t-execute | headless | unknown | 3s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:34 | 2026-04-23 23:34 | gsd-t-execute | headless | unknown | 8s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:34 | 2026-04-23 23:34 | gsd-t-execute | headless | unknown | 12s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:34 | 2026-04-23 23:34 | gsd-t-execute | headless | unknown | 3s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:34 | 2026-04-23 23:34 | gsd-t-execute | headless | unknown | 8s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:34 | 2026-04-23 23:34 | gsd-t-execute | headless | unknown | 15s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:34 | 2026-04-23 23:34 | gsd-t-execute | headless | unknown | 4s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:34 | 2026-04-23 23:34 | gsd-t-execute | headless | unknown | 8s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:34 | 2026-04-23 23:34 | gsd-t-execute | headless | unknown | 23s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:33 | 2026-04-23 23:34 | gsd-t-execute | headless | unknown | 76s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:34 | 2026-04-23 23:34 | gsd-t-execute | headless | unknown | 4s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:34 | 2026-04-23 23:34 | gsd-t-execute | headless | unknown | 3s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:33 | 2026-04-23 23:34 | gsd-t-execute | headless | unknown | 87s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:33 | 2026-04-23 23:34 | gsd-t-execute | headless | unknown | 53s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:34 | 2026-04-23 23:34 | gsd-t-execute | headless | unknown | 3s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:34 | 2026-04-23 23:34 | gsd-t-execute | headless | unknown | 13s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:34 | 2026-04-23 23:34 | gsd-t-execute | headless | unknown | 16s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:34 | 2026-04-23 23:34 | gsd-t-execute | headless | unknown | 3s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:34 | 2026-04-23 23:34 | gsd-t-execute | headless | unknown | 3s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:33 | 2026-04-23 23:34 | gsd-t-execute | headless | unknown | 57s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:34 | 2026-04-23 23:34 | gsd-t-execute | headless | unknown | 45s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:34 | 2026-04-23 23:34 | gsd-t-execute | headless | unknown | 8s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:34 | 2026-04-23 23:34 | gsd-t-execute | headless | unknown | 10s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:34 | 2026-04-23 23:34 | gsd-t-execute | headless | unknown | 3s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:34 | 2026-04-23 23:34 | gsd-t-execute | headless | unknown | 4s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:34 | 2026-04-23 23:34 | gsd-t-execute | headless | unknown | 21s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:34 | 2026-04-23 23:34 | gsd-t-execute | headless | unknown | 10s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:34 | 2026-04-23 23:34 | gsd-t-execute | headless | unknown | 3s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:34 | 2026-04-23 23:34 | gsd-t-execute | headless | unknown | 3s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:34 | 2026-04-23 23:34 | gsd-t-execute | headless | unknown | 3s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:33 | 2026-04-23 23:34 | gsd-t-execute | headless | unknown | 60s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:34 | 2026-04-23 23:34 | gsd-t-execute | headless | unknown | 12s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:34 | 2026-04-23 23:34 | gsd-t-execute | headless | unknown | 3s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:34 | 2026-04-23 23:34 | gsd-t-execute | headless | unknown | 19s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:34 | 2026-04-23 23:34 | gsd-t-execute | headless | unknown | 3s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:34 | 2026-04-23 23:34 | gsd-t-execute | headless | unknown | 52s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:34 | 2026-04-23 23:34 | gsd-t-execute | headless | unknown | 3s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:34 | 2026-04-23 23:34 | gsd-t-execute | headless | unknown | 3s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:34 | 2026-04-23 23:34 | gsd-t-execute | headless | unknown | 3s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:33 | 2026-04-23 23:34 | gsd-t-execute | headless | unknown | 66s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:34 | 2026-04-23 23:34 | gsd-t-execute | headless | unknown | 3s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:34 | 2026-04-23 23:35 | gsd-t-execute | headless | unknown | 3s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:34 | 2026-04-23 23:35 | gsd-t-execute | headless | unknown | 4s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:34 | 2026-04-23 23:35 | gsd-t-execute | headless | unknown | 4s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:34 | 2026-04-23 23:35 | gsd-t-execute | headless | unknown | 4s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:34 | 2026-04-23 23:35 | gsd-t-execute | headless | unknown | 62s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:35 | 2026-04-23 23:35 | gsd-t-execute | headless | unknown | 3s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:34 | 2026-04-23 23:35 | gsd-t-execute | headless | unknown | 54s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:35 | 2026-04-23 23:35 | gsd-t-execute | headless | unknown | 4s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:35 | 2026-04-23 23:35 | gsd-t-execute | headless | unknown | 3s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:34 | 2026-04-23 23:35 | gsd-t-execute | headless | unknown | 26s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:35 | 2026-04-23 23:35 | gsd-t-execute | headless | unknown | 3s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:35 | 2026-04-23 23:35 | gsd-t-execute | headless | unknown | 3s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:34 | 2026-04-23 23:35 | gsd-t-execute | headless | unknown | 64s | headless exec: exit 3 | - | - | unknown |
+| 2026-04-23 23:35 | 2026-04-23 23:35 | gsd-t-execute | headless | unknown | 3s | headless exec: exit 3 | - | - | unknown |
+<!-- missed_escalation 2026-04-24T00:20:23.644Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-24T00:20:23.644Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-24T00:23:18.406Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-24T00:23:18.407Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-04-24T00:28:05.968Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-04-24T00:28:05.968Z phase= domain= task= q="(no question provided)" -->

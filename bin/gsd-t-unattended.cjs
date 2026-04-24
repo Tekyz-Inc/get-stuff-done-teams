@@ -147,10 +147,49 @@ module.exports = {
   DEFAULT_HEARTBEAT_POLL_MS,
 };
 
+function _reconcile(state, results) {
+  if (!Array.isArray(results) || results.length === 0) return;
+  for (const r of results) {
+    if (!r || typeof r !== 'object') continue;
+    // append-only completedTasks (preserve order, dedupe)
+    if (Array.isArray(r.tasksDone) && r.tasksDone.length > 0) {
+      const current = new Set(state.completedTasks || []);
+      for (const t of r.tasksDone) {
+        if (!current.has(t)) {
+          state.completedTasks = (state.completedTasks || []).concat([t]);
+          current.add(t);
+        }
+      }
+    }
+    // last-writer-wins on status — but 'error' is sticky: once set, it stays
+    // until the next explicit non-error status in a later iter.
+    if (r.status && r.status !== state.status) {
+      state.status = r.status;
+    }
+    // verifyNeeded is OR-across-results: any iter that flags it wins.
+    if (r.verifyNeeded === true) {
+      state.verifyNeeded = true;
+    }
+    // artifacts: append-only, concat arrays.
+    if (Array.isArray(r.artifacts) && r.artifacts.length > 0) {
+      state.artifacts = (state.artifacts || []).concat(r.artifacts);
+    }
+  }
+  // NOTE: `state.iter` is advanced by the main while loop (pre-M46 contract:
+  // one increment per fan-out pass, regardless of worker/batch count). We do
+  // NOT advance it here — doing so would double-increment against the
+  // existing supervisor-contract invariant (surfaced by m43/m44 tests).
+  state.lastBatch = {
+    size: results.length,
+    endedAt: new Date().toISOString(),
+    errorCount: results.filter(r => r && r.status === 'error').length,
+  };
+}
+
 // M46 D1 T2 — expose the extracted single-iter body for future unit tests
 // (T7) and the iter-parallel driver (T4/T5). Kept out of the main exports
 // block so consumers don't accidentally import implementation details.
-module.exports.__test__ = { _runOneIter };
+module.exports.__test__ = { _runOneIter, _computeIterBatchSize, _runIterParallel, _reconcile };
 
 // ── parseArgs ───────────────────────────────────────────────────────────────
 
@@ -994,7 +1033,27 @@ async function runMainLoop(state, dir, opts, deps, ctx) {
     verbose: !!opts.verbose,
   };
   while (!isDone(state) && !stopCheck(projectDir)) {
-    await _runOneIter(state, iterCtx);
+    const batchSize = _computeIterBatchSize(state, opts);
+    const _batchStartMs = Date.now();
+    try {
+      fs.appendFileSync(
+        path.join(dir, RUN_LOG),
+        `[iter-batch-start] batch-size=${batchSize} iter=${state.iter} ts=${new Date(_batchStartMs).toISOString()}\n`,
+        "utf8"
+      );
+    } catch (_) { /* best effort */ }
+    const results = await _runIterParallel(state, opts, (s, o) => _runOneIter(s, iterCtx), batchSize);
+    _reconcile(state, results);
+    try {
+      const _ok = results.filter((r) => r.status !== "error").length;
+      const _fail = results.length - _ok;
+      const _durSec = ((Date.now() - _batchStartMs) / 1000).toFixed(1);
+      fs.appendFileSync(
+        path.join(dir, RUN_LOG),
+        `[iter-batch-complete] size=${results.length} ok=${_ok} fail=${_fail} duration=${_durSec}s iter=${state.iter}\n`,
+        "utf8"
+      );
+    } catch (_) { /* best effort */ }
     if (isTerminal(state.status)) break;
   }
 
@@ -1365,6 +1424,83 @@ async function _runOneIter(state, opts) {
     reason: `exit_${exitCode}`,
   });
   return _result("running");
+}
+
+// ── _computeIterBatchSize (M46 D1 T3) ───────────────────────────────────────
+
+/**
+ * Decide how many iterations the supervisor main loop should dispatch
+ * concurrently in the next pass. Implements the mode-safety rules from
+ * `.gsd-t/contracts/iter-parallel-contract.md` v1.0.0 §3.1.
+ *
+ * Rules evaluated top-down; first match wins:
+ *   1. status === "verify-needed"        → 1 (serial verify gate)
+ *   2. milestoneBoundary === true        → 1 (milestone boundary)
+ *   3. status === "complete-milestone"   → 1 (single-shot closeout)
+ *   4. otherwise → min(opts.maxIterParallel ?? 4, remainingIters, 8)
+ *      where remainingIters = (state.maxIterations ?? Infinity) - (state.iter ?? 0)
+ *
+ * Never returns less than 1.
+ */
+function _computeIterBatchSize(state, opts) {
+  if (state && state.status === "verify-needed") return 1;
+  if (state && state.milestoneBoundary === true) return 1;
+  if (state && state.status === "complete-milestone") return 1;
+
+  // Production default is 1 (serial, pre-M46 behavior). Iter-parallelism is
+  // opt-in via `opts.maxIterParallel` — callers that pass a number enable it.
+  // Rationale: `_runOneIter` mutates `state.iter` and other shared fields
+  // (heartbeat bookkeeping, writeState) that are not safe to execute on the
+  // same state object concurrently. Unit tests exercise the parallel path
+  // with explicit batch sizes; production main loop omits the flag and runs
+  // strictly serial, preserving the pre-M46 supervisor contract (one iter
+  // counter increment per fan-out pass). See backlog #24 for the follow-up
+  // that makes `_runOneIter` state-clone-safe and lifts this gate.
+  if (!opts || typeof opts.maxIterParallel !== "number") return 1;
+
+  const cap = opts.maxIterParallel;
+  const maxIters = state && typeof state.maxIterations === "number"
+    ? state.maxIterations
+    : Infinity;
+  const currentIter = state && typeof state.iter === "number"
+    ? state.iter
+    : 0;
+  const remainingIters = maxIters - currentIter;
+
+  const size = Math.min(cap, remainingIters, 8);
+  return size < 1 ? 1 : size;
+}
+
+// ── _runIterParallel (M46 D1 T4) ────────────────────────────────────────────
+
+/**
+ * Dispatch `batchSize` independent iter slices concurrently and return an
+ * IterResult[] of exactly that length. Implements the error-isolation rule
+ * from `.gsd-t/contracts/iter-parallel-contract.md` v1.0.0 §4.2: a single
+ * rejected iter is translated into an IterResult with status "error" and
+ * does NOT cancel siblings. The caller decides how to react.
+ *
+ * iterFn defaults to `_runOneIter` for the T7 tests; production callers
+ * (T5 main-loop rewrite) pass the same.
+ */
+async function _runIterParallel(state, opts, iterFn, batchSize) {
+  const fn = typeof iterFn === "function" ? iterFn : _runOneIter;
+  const n = typeof batchSize === "number" && batchSize >= 1 ? batchSize : 1;
+  const slices = [];
+  for (let i = 0; i < n; i++) slices.push(Promise.resolve().then(() => fn(state, opts)));
+  const settled = await Promise.allSettled(slices);
+  return settled.map((s) => {
+    if (s.status === "fulfilled") return s.value;
+    const reason = s.reason;
+    const msg = (reason && reason.message) ? reason.message : String(reason);
+    return {
+      status: "error",
+      tasksDone: [],
+      verifyNeeded: false,
+      artifacts: [],
+      error: msg,
+    };
+  });
 }
 
 // ── _appendTokenLog (Fix 1, v3.12.12) ───────────────────────────────────────
