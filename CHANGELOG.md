@@ -2,6 +2,52 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [3.19.00] - 2026-04-23
+
+### Added — M46 Milestone: Unattended Iter-Parallel + Worker Fan-Out Completion
+
+Closes the two biggest gaps from the 2026-04-23 five-surface parallelism audit: (2A) unattended multi-iteration parallelism and (2B) worker-side sub-fan-out.
+
+**D1 — Iteration-parallel supervisor scaffold (`bin/gsd-t-unattended.cjs`):**
+- `_runOneIter(state, opts) → IterResult` — extracted from the while-loop body at line 969 (68-line delta, zero behavior change when called sequentially)
+- `_computeIterBatchSize(state, opts) → number` — mode-safety gates: `verify-needed → 1`, `milestone-boundary → 1`, `complete-milestone → 1`. Production default returns 1 (serial) unless caller passes `opts.maxIterParallel` — opt-in gate on the iter-parallel engagement pending full concurrent-state-safety rewrite (backlog #24).
+- `_runIterParallel(state, opts, iterFn, batchSize) → Promise<IterResult[]>` — uses `Promise.allSettled` for per-iter error isolation; one rejection does not cancel siblings.
+- `_reconcile(state, results)` — deduped union on `completedTasks`, OR on `verifyNeeded`, append-only `artifacts`, last-writer-wins `status`, writes `lastBatch` metadata. **Does NOT advance `state.iter`** — that invariant is owned by the main while loop via `_runOneIter`.
+- `module.exports.__test__` exposes all four helpers to unit tests.
+
+**D2 — Worker sub-dispatch production path (`bin/gsd-t-worker-dispatch.cjs`):**
+- `dispatchWorkerTasks({projectDir, parentSessionId, tasks, maxParallel=4}) → Promise<{parallel, taskResults, wallClockMs, reason}>` — deterministic probe + delegation to `bin/gsd-t-parallel.cjs::runDispatch` when the task graph is file-disjoint and `tasks.length > 1`.
+- Short-circuits with reason strings: `no-tasks`, `single-task`, `file-overlap`, `dispatch-error:*`, `dispatched`.
+- CLI entry: `node bin/gsd-t-worker-dispatch.cjs --parent-session <id> --tasks <path> --max-parallel <n>` — emits JSON result to stdout.
+- `commands/gsd-t-resume.md` Step 0 `GSD_T_UNATTENDED_WORKER=1` branch gains an additive sub-dispatch block (no deletion from existing prose).
+- `bin/spawn-plan-writer.cjs` kind enum extended with `unattended-worker-sub`.
+
+### Contracts
+
+- **`.gsd-t/contracts/iter-parallel-contract.md`** — NEW v1.0.0. Batch semantics, `IterResult` shape, reconciliation rule, stop-check batch-boundary invariant (stop-check is never polled mid-batch).
+- **`.gsd-t/contracts/headless-default-contract.md`** — v2.0.0 → v2.1.0 (additive §Worker Sub-Dispatch documenting the `unattended-worker-sub` kind and the resume-path hand-off).
+
+### Measurements — both proofs passed thresholds
+
+- **D1 iter-proof (`bin/m46-iter-proof.cjs`)**: 10-iter synthetic workload, 200ms work per iter, batch=4 vs serial. Result: `T_serial=2022.6ms`, `T_par=602.9ms`, **speedup=3.35×**, `T_par/T_serial=0.298` — passes thresholds `speedup ≥ 3.0` and `T_par/T_serial ≤ 0.35`.
+- **D2 worker-proof (`bin/m46-worker-proof.cjs`)**: 6-task file-disjoint synthetic workload, serial vs fan-out via `runDispatch`. Result: `T_serial=12134ms`, `T_par=2034ms`, **speedup=5.96×** — passes threshold `speedup ≥ 2.5`.
+- Reports: `.gsd-t/metrics/m46-iter-proof.json` + `.gsd-t/metrics/m46-worker-proof.json`.
+
+### Tests
+
+- **`test/m46-d1-iter-parallel.test.js`** — 12 unit tests covering serial fallback, 3-way parallel batch concurrency (<200ms for three 100ms iters), mode-safety gates (verify-needed / complete-milestone / milestoneBoundary), error isolation (one rejection, two siblings succeed), stop-check batch-boundary invariant, and `_reconcile` semantics.
+- **`test/m46-d2-worker-subdispatch.test.js`** — 6 unit tests covering disjoint fan-out, single-task short-circuit, file-overlap detection, dispatcher error surfacing, and CLI JSON-stdout contract.
+- Full suite: **1946/1946 pass**, zero regressions (M43 heartbeat-watchdog + M44 planner-wire + M45 suites all green).
+
+### Regression caught and fixed mid-milestone
+
+- **Double-increment of `state.iter`** between `_reconcile` and `_runOneIter` tripped 4 tests (m43-heartbeat-watchdog `staleHeartbeat res → exitCode 125`, m44-wire-unattended-to-planner iter-count / fallback / sequential). Root cause: `_reconcile` was advancing `state.iter` by `results.length` while `_runOneIter` already advanced it by 1. Fix: `_reconcile` leaves `state.iter` untouched (main loop owns the invariant); two m46-d1 tests updated to match new contract.
+
+### Follow-up backlog
+
+- **#24 — Dynamic work-stealing rewrite** (full concurrent-safe state isolation for `_runIterParallel` >1 batch). Covers the `state.iter` / heartbeat / writeState shared-mutation issue that keeps the iter-parallel engagement opt-in rather than default-on.
+- **D2-T11 integration smoke** deferred — unit tests + proof harness cover the surface.
+
 ## [3.18.18] - 2026-04-23
 
 ### Added — Model-aware worker spawn in `runDispatch`

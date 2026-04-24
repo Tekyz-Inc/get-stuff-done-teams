@@ -1,0 +1,10 @@
+{
+  "timestamp": "2026-04-24T00:17:22.494Z",
+  "task_count": 6,
+  "T_serial_ms": 12134.019709,
+  "T_par_ms": 2034.365958,
+  "speedup": 5.964521605015964,
+  "parallelism_factor": 5.964454957715135,
+  "threshold": 2.5,
+  "passed": true
+}
