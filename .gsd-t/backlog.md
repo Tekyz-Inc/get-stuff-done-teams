@@ -276,3 +276,32 @@ Rate-limit pressure from running parallel is NOT a con. Hitting the 5-hour ceili
   1. Does the Max subscription expose the same `anthropic-ratelimit-*` headers as API-key access? If not, we need a different signal (e.g., observe 429 timing patterns vs header values).
   2. Is the concurrent-session throttle visible in a header, or only inferable from response timing? (If only timing, we measure inter-response gaps under load.)
 - **Related memory**: `feedback_measure_dont_claim.md` (the philosophy this item operationalizes), `feedback_anthropic_key_measurement_only.md` (measurement infra is separate from inference infra).
+
+## 24. Dynamic work-stealing in `runDispatch` (2-concurrent + min-interval sliding window)
+
+- **Problem**: Today's `runDispatch` partitions tasks across N workers up front, then launches them all with a simple between-spawn sleep (v3.18.19 defaults: `maxWorkers=2`, `staggerMs=10000`). When `N > 2`, the current code only launches the first 2 and sleeps 10s between them — there is no queue-pull-on-completion semantics. If worker 0 finishes in 20s but worker 1 is still running at 3 minutes, no third worker starts even though a slot is free AND the 10s interval has elapsed. This wastes concurrency capacity the moment partitioning is uneven.
+- **User directive (2026-04-23)**: "when launching two workers stagger them by 10 seconds. If one completes first and there's more work to do, launch the next one immediately. If the last worker was launched less than 10 seconds ago, wait 10 seconds before you launch it." — i.e., a sliding-window dispatcher where the rules are:
+  1. `max_concurrent = 2` (hard cap on in-flight workers).
+  2. `min_spawn_interval = 10000ms` between any two consecutive launches.
+  3. When a slot frees and a queued subset exists: if `now - lastLaunchAt >= 10000` → spawn immediately; else wait `10000 - (now - lastLaunchAt)` ms, then spawn.
+  4. Workload is a queue of task-subsets, not a pre-partitioned fixed array.
+- **Current shortcut (landed 2026-04-23)**: Defaults changed to `maxWorkers=2` + `staggerMs=10000`. This satisfies the common N≤2 case (where the two workers are partitioned once, launched 10s apart, and that's that). It does NOT implement dynamic refill for N>2 subsets. Explicitly deferred per option C in the discussion.
+- **Scope**:
+  - Refactor `runDispatch` in `bin/gsd-t-parallel.cjs` so `subsets` is a queue, not a fixed array consumed in a for-loop.
+  - Introduce a small scheduler: `activeWorkers` set, `lastLaunchAt` timestamp, `while (queue.length > 0 || activeWorkers.size > 0)` loop that spawns-when-eligible.
+  - Preserve `spawnStaggerMs` semantics (0 = no delay bypasses the wait).
+  - Preserve `maxWorkers` semantics as the concurrency cap (not the total count).
+  - Event stream: emit `worker_slot_free` and `worker_launch_deferred` events so observability tracks real timing.
+  - Full suite must stay green. New test cases:
+    1. 4 subsets, `maxWorkers=2` → launches go 0s, 10s, (waits for completion), 10s after next slot free.
+    2. Worker completes before 10s elapses → next spawn waits `10000 - elapsed` ms.
+    3. Worker completes after 10s elapses → next spawn fires immediately.
+    4. All workers complete → scheduler exits cleanly.
+    5. One spawn throwing does not block the queue.
+- **Success criteria**:
+  1. For N=4 subsets with `maxWorkers=2`, measured wall-clock is within 5% of the ideal `max(launch_0, launch_1) + sum(sequential_pulls)`.
+  2. Zero rate-limit errors across a 20-task synthetic workload at the new defaults.
+  3. `parallelism-report.cjs` shows active-worker-count saturating at 2 for the duration of the run (not falling to 0 then 1 then 2 as subsets complete).
+- **Non-goals**: cross-mode queue sharing (in-session + unattended remain separate dispatchers); priority queuing (FIFO only); task-level retry on failure (that's `gsd-t-debug`'s job).
+- **Pairs with**: #22 (coord-gate is the account-wide rate limiter; this is the per-dispatch scheduler), #23 (measured rate-limit data will tell us whether 10s is the right interval or should be adaptive).
+- **Related memory**: `feedback_measure_dont_claim.md` (the landed shortcut was measured; the full rewrite needs its own measurement before we claim 5× saturation).

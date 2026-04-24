@@ -1,7 +1,7 @@
 # Contract: headless-default-contract
 
-**Version**: 2.0.0
-**Status**: ACTIVE — M43 D4 (channel-separation inversion; Wave 3, 2026-04-21)
+**Version**: 2.1.0
+**Status**: ACTIVE — M43 D4 (channel-separation inversion; Wave 3, 2026-04-21) + M46 D2 (worker sub-dispatch; 2026-04-23)
 **Owner**: m43-d4-default-headless-inversion
 **Predecessor**: v1.0.0 (M38 Domain 1, 2026-04-16) — `.gsd-t/contracts/_archived/headless-default-contract-v1.0.0.md` if archived; otherwise this file's §Version History preserves the prior semantics.
 **Consumers**: every command file that spawns subagents (`gsd-t-execute`, `gsd-t-wave`, `gsd-t-quick`, `gsd-t-integrate`, `gsd-t-debug`, `gsd-t-verify`, `gsd-t-scan`, `gsd-t-test-sync`, `gsd-t-complete-milestone`, `gsd-t-gap-analysis`, `gsd-t-populate`, `gsd-t-feature`, `gsd-t-project`, `gsd-t-partition`); the `/gsd` router (Step 2 action-turn handoff).
@@ -115,7 +115,56 @@ The router (`commands/gsd.md`) is the single in-session surface.
 - `test/m43-headless-default-inversion.test.js` — NEW — matrix across the 14 command files + `/gsd` router, asserting every action-turn row resolves to headless; grep-assertion that `--in-session` / `--headless` appear in zero operational command-file prose.
 - `test/m43-url-banner.test.js` — D6 transcript URL banner preserved (unchanged).
 
+## §Worker Sub-Dispatch (M46)
+
+Added in v2.1.0. Defines how a single unattended worker iteration may itself fan out across file-disjoint tasks by reusing the M44-verified in-session dispatch instrument. **This section is purely additive** — no v2.0.0 invariant is altered.
+
+### Trigger condition
+
+A worker iteration sub-dispatches when **all** of the following hold:
+
+1. `process.env.GSD_T_UNATTENDED_WORKER === '1'` — the iteration is running inside the unattended supervisor's worker child (not the orchestrator's in-session router, not a one-off headless detached spawn).
+2. `tasks.length > 1` — there is more than one ready task assigned to the iteration.
+3. The task set is **file-disjoint** per the existing disjointness contract (no two ready tasks declare overlapping file scopes). Disjointness is evaluated by the same predicate the in-session planner uses; the worker does not introduce a second predicate.
+
+If any condition is false, the worker executes serially as before. Sub-dispatch is opt-in by environment + data shape; there is no flag a user sets.
+
+### Delegation path
+
+When the trigger fires, the worker invokes `bin/gsd-t-worker-dispatch.cjs`. That module is a thin adapter that:
+
+1. Resolves the disjoint task set into the dispatch payload shape `runDispatch` already accepts.
+2. Calls `bin/gsd-t-parallel.cjs::runDispatch(...)` — **the same M44-verified instrument** the in-session planner uses for its own fan-out.
+3. Returns the per-task result envelopes back to the worker iteration for normal post-task accounting (token capture, event-stream rows, progress.md ripple).
+
+D2 ships **no new dispatch logic.** It ships a new caller of `runDispatch`.
+
+### Spawn-plan kind enum
+
+The spawn-plan `kind` enum gains one value in v2.1.0:
+
+| Kind | Meaning | Introduced |
+|------|---------|------------|
+| `unattended-worker` | Detached supervisor-launched worker child running an iteration. | M43 (v2.0.0) |
+| `headless-detached` | One-shot detached headless spawn from a command file or router. | M43 (v2.0.0) |
+| `in-session-subagent` | Subagent invoked inside the orchestrator dialog (router-classified action turn that runs `runDispatch` directly). | M44 |
+| **`unattended-worker-sub`** | **NEW (v2.1.0).** A sub-task spawn produced by a worker iteration that delegated to `runDispatch` via `bin/gsd-t-worker-dispatch.cjs`. Distinguishes worker-originated fan-out children from orchestrator-originated `in-session-subagent` children for telemetry, event-stream filtering, and dashboard grouping. |
+
+The new kind is observational. It does not gate any decision in `autoSpawnHeadless`, the supervisor, or the router; it exists so consumers (event stream, dashboard, token-log notes, replay tooling) can attribute a sub-task to its worker-iteration parent rather than to the orchestrator.
+
+### Invariant: in-session dispatch path is unchanged
+
+D2 is a **new consumer** of `runDispatch`, not a modifier of it. Specifically:
+
+- `bin/gsd-t-parallel.cjs::runDispatch` accepts the same inputs and produces the same outputs it did under M44.
+- The in-session planner's call site is byte-identical post-D2 — the worker adapter is a sibling caller, not a wrapper.
+- Disjointness evaluation remains the single predicate it has been; the worker imports it rather than reimplementing.
+- All M44 telemetry, token capture, and red-team gating behave identically for both callers; only the `kind` field on emitted spawn-plan rows differs.
+
+Any future change that must alter `runDispatch` semantics is out of scope for v2.1.0 and requires its own contract version bump.
+
 ## Version History
 
+- **2.1.0** (M46 D2, 2026-04-23) — Worker Sub-Dispatch. Additive §Worker Sub-Dispatch documents the rule that a worker iteration with `GSD_T_UNATTENDED_WORKER=1` + `tasks.length > 1` + file-disjoint tasks delegates to `bin/gsd-t-worker-dispatch.cjs` → `bin/gsd-t-parallel.cjs::runDispatch`. New spawn-plan kind enum value `unattended-worker-sub` distinguishes worker-originated fan-out children from orchestrator-originated `in-session-subagent` children. The in-session dispatch path is unchanged; D2 is a new CONSUMER of `runDispatch`, not a modifier.
 - **2.0.0** (M43 D4, target v3.16.x) — NEW. Channel-separation inversion: every command spawns, unconditionally. `watch` / `inSession` deprecated (accepted-and-ignored; scheduled removal in v3.0.0). `shouldSpawnHeadless` collapsed to `() => true`. Threshold-driven rerouting prose stripped from command files; context-meter bands are observational only. Router (`/gsd`) is the single in-session surface, only for dialog-only turns.
 - **1.0.0** (M38, v3.12.10, 2026-04-16) — Initial headless-by-default. Introduced `--watch` opt-in for primary spawns; validation spawns always headless. Folded three M35-era contracts. Threshold band (§4) silently rerouted the next spawn.

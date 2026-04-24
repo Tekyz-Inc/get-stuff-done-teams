@@ -468,7 +468,7 @@ function runDispatch(opts) {
   // the ceiling need a direct cap.
   const cap = Number.isFinite(opts && opts.maxWorkers) && opts.maxWorkers > 0
     ? Math.floor(opts.maxWorkers)
-    : Infinity;
+    : 2;
   const workerCount = Math.min(plannerWorkerCount, cap);
   if (workerCount < plannerWorkerCount) {
     appendEvent(projectDir, {
@@ -539,13 +539,14 @@ function runDispatch(opts) {
     ? null // explicit opt-out: inherit parent's ANTHROPIC_MODEL
     : (modelAlias[callerModel] || callerModel || DEFAULT_WORKER_MODEL);
 
-  // Stagger between spawns (v3.18.18) — 3s default avoids the burst spike
-  // that trips the Max-subscription concurrent-session throttle (observed
-  // 2026-04-23: 8 concurrent `claude -p` within 700ms → all 429). Caller
-  // may override via `opts.spawnStaggerMs` (0 = no delay, previous behavior).
+  // Stagger between spawns — 10s default empirically-validated against the
+  // Max-subscription concurrent-session throttle (2026-04-23 M46 probe: two
+  // 10s-staggered 2-parallel rounds of real work, both exit 0, no 429; prior
+  // 3s default burst at >2 workers hit rate limits). Caller may override via
+  // `opts.spawnStaggerMs` (0 = no delay, previous burst behavior).
   const staggerMs = Number.isFinite(opts && opts.spawnStaggerMs)
     ? Math.max(0, opts.spawnStaggerMs)
-    : 3000;
+    : 10000;
   const busyWait = (ms) => {
     if (!ms) return;
     // Synchronous sleep that releases the CPU (Atomics.wait on a dummy

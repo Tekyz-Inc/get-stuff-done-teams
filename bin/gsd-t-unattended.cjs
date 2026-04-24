@@ -147,6 +147,11 @@ module.exports = {
   DEFAULT_HEARTBEAT_POLL_MS,
 };
 
+// M46 D1 T2 — expose the extracted single-iter body for future unit tests
+// (T7) and the iter-parallel driver (T4/T5). Kept out of the main exports
+// block so consumers don't accidentally import implementation details.
+module.exports.__test__ = { _runOneIter };
+
 // ── parseArgs ───────────────────────────────────────────────────────────────
 
 /**
@@ -966,325 +971,31 @@ async function runMainLoop(state, dir, opts, deps, ctx) {
   const heartbeatEnabled = !deps._disableHeartbeat && !useTestStub;
   const projectDir = state.projectDir;
 
+  // M46 D1 T2 — pure extract-method refactor. The body of each iteration
+  // now lives in the top-level `_runOneIter` helper (below). The while loop
+  // itself is unchanged in semantics: stop-check and isDone evaluate per
+  // pass, and any terminal state.status ({"done","failed"}) written by the
+  // iter body causes us to break, matching every pre-refactor `break` path.
+  // Non-terminal outcomes fall through to the next iteration, matching the
+  // pre-refactor `continue` paths.
+  const iterCtx = {
+    dir,
+    fn,
+    config,
+    spawnWorker,
+    milestoneComplete,
+    runParallelImpl,
+    workerTimeoutMs,
+    heartbeatImpl,
+    heartbeatEnabled,
+    staleHeartbeatMs,
+    heartbeatPollMs,
+    projectDir,
+    verbose: !!opts.verbose,
+  };
   while (!isDone(state) && !stopCheck(projectDir)) {
-    // ── PRE-WORKER HOOK (contract §12) ─────────────────────────────────────
-    // Refusal → halt with status=failed, lastExit=6 (caps) or 2 (validate).
-    const capIter = fn.checkIterationCap(state, config);
-    if (!capIter.ok) {
-      state.status = "failed";
-      state.lastExit = capIter.code || 6;
-      writeState(state, dir);
-      break;
-    }
-    const capWall = fn.checkWallClockCap(state, config);
-    if (!capWall.ok) {
-      state.status = "failed";
-      state.lastExit = capWall.code || 6;
-      writeState(state, dir);
-      break;
-    }
-    const vRes = fn.validateState(state);
-    if (!vRes.ok) {
-      state.status = "failed";
-      state.lastExit = vRes.code || 2;
-      writeState(state, dir);
-      break;
-    }
-
-    // Pre-spawn bookkeeping
-    state.iter = (state.iter || 0) + 1;
-    const workerStart = new Date();
-    state.lastWorkerStartedAt = workerStart.toISOString();
-    writeState(state, dir);
-
-    _emit(projectDir, {
-      ts: workerStart.toISOString(),
-      iter: state.iter,
-      type: "task_start",
-      source: "supervisor",
-      milestone: state.milestone || "",
-      wave: state.wave || "",
-      task: state.nextTask || "",
-    });
-
-    let res;
-    const workerStartMs = workerStart.getTime();
-    const hbOpts = heartbeatEnabled
-      ? {
-          onHeartbeatCheck: () =>
-            heartbeatImpl({
-              projectDir,
-              workerStartedAt: workerStartMs,
-              staleHeartbeatMs,
-            }),
-          heartbeatPollMs,
-        }
-      : {};
-
-    // M44 D9 (v1.5.0) — planner-driven fan-out decision for this iter.
-    // Ask runParallel whether the current task graph supports ≥2 concurrent
-    // workers. Any failure in the planner path MUST fall back to the single-
-    // worker spawn — the parallel path is purely additive.
-    let iterPlan = null;
-    try {
-      iterPlan = runParallelImpl({
-        projectDir,
-        mode: "unattended",
-        milestone: state.milestone || null,
-        dryRun: true,
-      });
-    } catch (e) {
-      iterPlan = null;
-      _emit(projectDir, {
-        iter: state.iter,
-        type: "parallelism_reduced",
-        source: "supervisor",
-        original_count: null,
-        reduced_count: 1,
-        reason: `planner_error:${(e && e.message) || "unknown"}`,
-      });
-    }
-    const fanOutCount = iterPlan && Number(iterPlan.workerCount) >= 2 ? Number(iterPlan.workerCount) : 1;
-    const parallelTaskIds = iterPlan && Array.isArray(iterPlan.parallelTasks) ? iterPlan.parallelTasks : [];
-    const subsets = fanOutCount >= 2 ? _partitionTasks(parallelTaskIds, fanOutCount) : null;
-    const useFanOut = !!(subsets && subsets.length >= 2);
-
-    try {
-      if (useFanOut) {
-        _emit(projectDir, {
-          ts: workerStart.toISOString(),
-          iter: state.iter,
-          type: "fan_out",
-          source: "supervisor",
-          worker_count: subsets.length,
-          task_ids: parallelTaskIds,
-        });
-        res = await _spawnWorkerFanOut(state, {
-          cwd: projectDir,
-          timeout: workerTimeoutMs,
-          verbose: !!opts.verbose,
-          ...hbOpts,
-        }, spawnWorker, subsets);
-      } else {
-        res = spawnWorker(state, {
-          cwd: projectDir,
-          timeout: workerTimeoutMs,
-          verbose: !!opts.verbose,
-          ...hbOpts,
-        });
-        if (res && typeof res.then === "function") {
-          res = await res;
-        }
-      }
-    } catch (e) {
-      // Defensive: a real spawnSync shouldn't throw, but a shim could.
-      res = { status: 3, stdout: "", stderr: String((e && e.message) || e), signal: null };
-    }
-    res = res || { status: null, stdout: "", stderr: "", signal: null };
-
-    const workerEnd = new Date();
-    const elapsedMs = workerEnd.getTime() - workerStart.getTime();
-    const stdout = typeof res.stdout === "string" ? res.stdout : "";
-    const stderr = typeof res.stderr === "string" ? res.stderr : "";
-
-    // Kill-path detection (M43 heartbeat watchdog precedes wall-clock timeout):
-    //   - res.staleHeartbeat === true → heartbeat fired, code 125 (new)
-    //   - res.timedOut === true OR status=null+SIGTERM → wall-clock, code 124
-    // Heartbeat wins on ties because it's the more specific signal.
-    let exitCode;
-    let lastExitReason = null;
-    if (res.staleHeartbeat === true) {
-      exitCode = 125;
-      lastExitReason = "stale_heartbeat";
-    } else if (res.timedOut === true || res.status === null || res.signal === "SIGTERM") {
-      exitCode = 124;
-      lastExitReason = "worker_timeout";
-    } else {
-      exitCode = mapHeadlessExitCode(res.status, stdout + "\n" + stderr);
-    }
-
-    // v3.13.11 Bug 1: when a watchdog fires, make the event explicit in
-    // run.log so operators can see WHICH iteration was cut without inferring
-    // from exit codes. The marker is prepended to stdout and written in the
-    // single per-iter run.log append (no duplicate header).
-    let loggedStdout = stdout;
-    if (exitCode === 124) {
-      const marker =
-        `[worker_timeout] iter=${state.iter} budget=${workerTimeoutMs}ms ` +
-        `elapsed=${elapsedMs}ms — absolute-backstop SIGTERM delivered, ` +
-        `supervisor continues relay per contract §16.\n`;
-      loggedStdout = marker + (stdout || "");
-    } else if (exitCode === 125) {
-      const reason = res.heartbeatReason || "no recent events.jsonl writes";
-      const marker =
-        `[stale_heartbeat] iter=${state.iter} threshold=${staleHeartbeatMs}ms ` +
-        `elapsed=${elapsedMs}ms reason="${reason}" — ` +
-        `heartbeat watchdog SIGTERM delivered, supervisor continues relay.\n`;
-      loggedStdout = marker + (stdout || "");
-    }
-
-    // Append the full worker output to run.log (never truncate).
-    _appendRunLog(dir, state.iter, workerEnd, exitCode, loggedStdout, stderr);
-
-    // Append to token-log.md (Fix 1, v3.12.12) — supervisor workers write rows
-    // so the log captures headless/unattended activity, not just interactive spawns.
-    _appendTokenLog(projectDir, {
-      dtStart: workerStart.toISOString().slice(0, 16).replace("T", " "),
-      dtEnd: workerEnd.toISOString().slice(0, 16).replace("T", " "),
-      command: "gsd-t-resume",
-      durationS: Math.round(elapsedMs / 1000),
-      exitCode,
-      iter: state.iter,
-    });
-
-    // Post-spawn state update
-    state.lastExit = exitCode;
-    state.lastWorkerFinishedAt = workerEnd.toISOString();
-    state.lastElapsedMs = elapsedMs;
-    if (lastExitReason) {
-      state.lastExitReason = lastExitReason;
-    } else if (exitCode === 0) {
-      state.lastExitReason = "clean";
-    } else {
-      state.lastExitReason = `exit_${exitCode}`;
-    }
-    // M44 D9 (v1.5.0) — per-iter multi-worker aggregates. Present only when the
-    // planner selected fan-out; single-worker iters omit these fields so the
-    // state schema stays backward-compatible with v1.4.x readers.
-    if (useFanOut && Array.isArray(res.workerResults)) {
-      state.lastExits = res.workerResults.map((w) => ({
-        idx: w.idx,
-        code: typeof w.status === "number" ? w.status : null,
-        taskIds: w.taskIds || [],
-        elapsedMs: w.elapsedMs,
-        spawnId: w.spawnId || null,
-      }));
-      state.workerPids = res.workerResults.map((w) => w.spawnId || null);
-      state.lastFanOutCount = res.workerResults.length;
-    } else {
-      // Clear stale multi-worker fields on single-worker iters so readers
-      // never see a mix of regimes.
-      if (state.lastExits) delete state.lastExits;
-      if (state.workerPids) delete state.workerPids;
-      if (state.lastFanOutCount) delete state.lastFanOutCount;
-    }
-    writeState(state, dir);
-
-    // Event-stream: task_complete on success, error on non-zero.
-    const durationS = Math.round(elapsedMs / 1000);
-    if (exitCode === 0) {
-      _emit(projectDir, {
-        ts: workerEnd.toISOString(),
-        iter: state.iter,
-        type: "task_complete",
-        source: "supervisor",
-        task: state.nextTask || "",
-        verdict: "pass",
-        duration_s: durationS,
-      });
-    } else {
-      _emit(projectDir, {
-        ts: workerEnd.toISOString(),
-        iter: state.iter,
-        type: "error",
-        source: "supervisor",
-        error: `worker exit ${exitCode}`,
-        recoverable: exitCode !== 4 && exitCode !== 5,
-      });
-    }
-
-    // ── POST-WORKER HOOK (contract §12) ────────────────────────────────────
-    // Read the tail of run.log for pattern detection. ~200 lines is enough
-    // to span the last several iteration blocks for the gutter detector.
-    let runLogTail = "";
-    try {
-      const logPath = path.join(dir, RUN_LOG);
-      if (fs.existsSync(logPath)) {
-        const all = fs.readFileSync(logPath, "utf8");
-        const lines = all.split(/\r?\n/);
-        runLogTail = lines.slice(-200).join("\n");
-      }
-    } catch (_) {
-      // best effort — tail read failure does not halt the loop
-    }
-    const blocker = fn.detectBlockerSentinel(runLogTail);
-    if (!blocker.ok) {
-      state.status = "failed";
-      state.lastExit = blocker.code || 6;
-      writeState(state, dir);
-      break;
-    }
-    const gutter = fn.detectGutter(state, runLogTail, config);
-    if (!gutter.ok) {
-      state.status = "failed";
-      state.lastExit = gutter.code || 6;
-      writeState(state, dir);
-      break;
-    }
-
-    // Terminal exit classification
-    if (exitCode === 0) {
-      // Success — check if the milestone is now complete.
-      if (milestoneComplete(projectDir, state.milestone)) {
-        state.status = "done";
-        writeState(state, dir);
-        break;
-      }
-      // Not yet done — continue relay.
-      _emit(projectDir, {
-        iter: state.iter,
-        type: "retry",
-        source: "supervisor",
-        attempt: state.iter,
-        reason: "milestone_incomplete",
-      });
-      continue;
-    }
-    if (exitCode === 4) {
-      // Unrecoverable blocker.
-      state.status = "failed";
-      writeState(state, dir);
-      break;
-    }
-    if (exitCode === 5) {
-      // Command dispatch failure — worker invocation is broken.
-      state.status = "failed";
-      writeState(state, dir);
-      break;
-    }
-    if (exitCode === 124) {
-      // Timeout — continue unless the iter cap is hit on the next check.
-      _emit(projectDir, {
-        iter: state.iter,
-        type: "retry",
-        source: "supervisor",
-        attempt: state.iter,
-        reason: "timeout",
-      });
-      continue;
-    }
-    if (exitCode === 125) {
-      // Stale heartbeat (M43) — continue unless the iter cap hits. The
-      // heartbeat kill is recoverable by definition: the worker was not
-      // emitting events, which is the most common class of stuck iteration
-      // (e.g. child stuck on a long Bash call with no tool_call emits).
-      _emit(projectDir, {
-        iter: state.iter,
-        type: "retry",
-        source: "supervisor",
-        attempt: state.iter,
-        reason: "stale_heartbeat",
-      });
-      continue;
-    }
-    // Non-terminal (1/2/3) — continue the relay.
-    _emit(projectDir, {
-      iter: state.iter,
-      type: "retry",
-      source: "supervisor",
-      attempt: state.iter,
-      reason: `exit_${exitCode}`,
-    });
+    await _runOneIter(state, iterCtx);
+    if (isTerminal(state.status)) break;
   }
 
   // If we exited because the user dropped a stop sentinel and no terminal
@@ -1297,6 +1008,363 @@ async function runMainLoop(state, dir, opts, deps, ctx) {
     writeState(state, dir);
   }
   return state;
+}
+
+// ── _runOneIter (M46 D1 T2) ─────────────────────────────────────────────────
+
+/**
+ * Body of a single supervisor iteration, extracted verbatim from the
+ * `runMainLoop` while-loop (pre-M46-D1). Mutates `state` in place exactly as
+ * the original body did — all writeState calls, event-stream emits, run.log
+ * and token-log appends, heartbeat wiring, fan-out dispatch, and exit-code
+ * classification are preserved line-for-line.
+ *
+ * `opts` here is the per-iter context bundle assembled in runMainLoop (not
+ * the supervisor-level opts object). It carries the closure values the body
+ * used to read from the enclosing scope: fn, config, dir, projectDir,
+ * spawnWorker, milestoneComplete, runParallelImpl, workerTimeoutMs,
+ * heartbeatImpl, heartbeatEnabled, staleHeartbeatMs, heartbeatPollMs, verbose.
+ *
+ * Returns an IterResult per iter-parallel-contract.md v1.0.0 §4. T2 emits a
+ * minimal shape (tasksDone = []) — T4/T5 will populate tasksDone and use
+ * `status` to drive `_computeIterBatchSize`. For now the while-loop driver
+ * consumes only `isTerminal(state.status)`; the returned value is forward-
+ * compatible scaffolding.
+ */
+async function _runOneIter(state, opts) {
+  const {
+    dir, fn, config, spawnWorker, milestoneComplete, runParallelImpl,
+    workerTimeoutMs, heartbeatImpl, heartbeatEnabled,
+    staleHeartbeatMs, heartbeatPollMs, projectDir,
+  } = opts;
+
+  const _result = (status, extras) => ({
+    iter: state.iter,
+    status,
+    tasksDone: [],
+    verifyNeeded: status === "verify-needed",
+    artifacts: extras || {},
+  });
+
+  // ── PRE-WORKER HOOK (contract §12) ─────────────────────────────────────
+  // Refusal → halt with status=failed, lastExit=6 (caps) or 2 (validate).
+  const capIter = fn.checkIterationCap(state, config);
+  if (!capIter.ok) {
+    state.status = "failed";
+    state.lastExit = capIter.code || 6;
+    writeState(state, dir);
+    return _result("failed", { errorMessage: `iteration_cap:${state.lastExit}` });
+  }
+  const capWall = fn.checkWallClockCap(state, config);
+  if (!capWall.ok) {
+    state.status = "failed";
+    state.lastExit = capWall.code || 6;
+    writeState(state, dir);
+    return _result("failed", { errorMessage: `wall_clock_cap:${state.lastExit}` });
+  }
+  const vRes = fn.validateState(state);
+  if (!vRes.ok) {
+    state.status = "failed";
+    state.lastExit = vRes.code || 2;
+    writeState(state, dir);
+    return _result("failed", { errorMessage: `validate_state:${state.lastExit}` });
+  }
+
+  // Pre-spawn bookkeeping
+  state.iter = (state.iter || 0) + 1;
+  const workerStart = new Date();
+  state.lastWorkerStartedAt = workerStart.toISOString();
+  writeState(state, dir);
+
+  _emit(projectDir, {
+    ts: workerStart.toISOString(),
+    iter: state.iter,
+    type: "task_start",
+    source: "supervisor",
+    milestone: state.milestone || "",
+    wave: state.wave || "",
+    task: state.nextTask || "",
+  });
+
+  let res;
+  const workerStartMs = workerStart.getTime();
+  const hbOpts = heartbeatEnabled
+    ? {
+        onHeartbeatCheck: () =>
+          heartbeatImpl({
+            projectDir,
+            workerStartedAt: workerStartMs,
+            staleHeartbeatMs,
+          }),
+        heartbeatPollMs,
+      }
+    : {};
+
+  // M44 D9 (v1.5.0) — planner-driven fan-out decision for this iter.
+  // Ask runParallel whether the current task graph supports ≥2 concurrent
+  // workers. Any failure in the planner path MUST fall back to the single-
+  // worker spawn — the parallel path is purely additive.
+  let iterPlan = null;
+  try {
+    iterPlan = runParallelImpl({
+      projectDir,
+      mode: "unattended",
+      milestone: state.milestone || null,
+      dryRun: true,
+    });
+  } catch (e) {
+    iterPlan = null;
+    _emit(projectDir, {
+      iter: state.iter,
+      type: "parallelism_reduced",
+      source: "supervisor",
+      original_count: null,
+      reduced_count: 1,
+      reason: `planner_error:${(e && e.message) || "unknown"}`,
+    });
+  }
+  const fanOutCount = iterPlan && Number(iterPlan.workerCount) >= 2 ? Number(iterPlan.workerCount) : 1;
+  const parallelTaskIds = iterPlan && Array.isArray(iterPlan.parallelTasks) ? iterPlan.parallelTasks : [];
+  const subsets = fanOutCount >= 2 ? _partitionTasks(parallelTaskIds, fanOutCount) : null;
+  const useFanOut = !!(subsets && subsets.length >= 2);
+
+  try {
+    if (useFanOut) {
+      _emit(projectDir, {
+        ts: workerStart.toISOString(),
+        iter: state.iter,
+        type: "fan_out",
+        source: "supervisor",
+        worker_count: subsets.length,
+        task_ids: parallelTaskIds,
+      });
+      res = await _spawnWorkerFanOut(state, {
+        cwd: projectDir,
+        timeout: workerTimeoutMs,
+        verbose: !!opts.verbose,
+        ...hbOpts,
+      }, spawnWorker, subsets);
+    } else {
+      res = spawnWorker(state, {
+        cwd: projectDir,
+        timeout: workerTimeoutMs,
+        verbose: !!opts.verbose,
+        ...hbOpts,
+      });
+      if (res && typeof res.then === "function") {
+        res = await res;
+      }
+    }
+  } catch (e) {
+    // Defensive: a real spawnSync shouldn't throw, but a shim could.
+    res = { status: 3, stdout: "", stderr: String((e && e.message) || e), signal: null };
+  }
+  res = res || { status: null, stdout: "", stderr: "", signal: null };
+
+  const workerEnd = new Date();
+  const elapsedMs = workerEnd.getTime() - workerStart.getTime();
+  const stdout = typeof res.stdout === "string" ? res.stdout : "";
+  const stderr = typeof res.stderr === "string" ? res.stderr : "";
+
+  // Kill-path detection (M43 heartbeat watchdog precedes wall-clock timeout):
+  //   - res.staleHeartbeat === true → heartbeat fired, code 125 (new)
+  //   - res.timedOut === true OR status=null+SIGTERM → wall-clock, code 124
+  // Heartbeat wins on ties because it's the more specific signal.
+  let exitCode;
+  let lastExitReason = null;
+  if (res.staleHeartbeat === true) {
+    exitCode = 125;
+    lastExitReason = "stale_heartbeat";
+  } else if (res.timedOut === true || res.status === null || res.signal === "SIGTERM") {
+    exitCode = 124;
+    lastExitReason = "worker_timeout";
+  } else {
+    exitCode = mapHeadlessExitCode(res.status, stdout + "\n" + stderr);
+  }
+
+  // v3.13.11 Bug 1: when a watchdog fires, make the event explicit in
+  // run.log so operators can see WHICH iteration was cut without inferring
+  // from exit codes. The marker is prepended to stdout and written in the
+  // single per-iter run.log append (no duplicate header).
+  let loggedStdout = stdout;
+  if (exitCode === 124) {
+    const marker =
+      `[worker_timeout] iter=${state.iter} budget=${workerTimeoutMs}ms ` +
+      `elapsed=${elapsedMs}ms — absolute-backstop SIGTERM delivered, ` +
+      `supervisor continues relay per contract §16.\n`;
+    loggedStdout = marker + (stdout || "");
+  } else if (exitCode === 125) {
+    const reason = res.heartbeatReason || "no recent events.jsonl writes";
+    const marker =
+      `[stale_heartbeat] iter=${state.iter} threshold=${staleHeartbeatMs}ms ` +
+      `elapsed=${elapsedMs}ms reason="${reason}" — ` +
+      `heartbeat watchdog SIGTERM delivered, supervisor continues relay.\n`;
+    loggedStdout = marker + (stdout || "");
+  }
+
+  // Append the full worker output to run.log (never truncate).
+  _appendRunLog(dir, state.iter, workerEnd, exitCode, loggedStdout, stderr);
+
+  // Append to token-log.md (Fix 1, v3.12.12) — supervisor workers write rows
+  // so the log captures headless/unattended activity, not just interactive spawns.
+  _appendTokenLog(projectDir, {
+    dtStart: workerStart.toISOString().slice(0, 16).replace("T", " "),
+    dtEnd: workerEnd.toISOString().slice(0, 16).replace("T", " "),
+    command: "gsd-t-resume",
+    durationS: Math.round(elapsedMs / 1000),
+    exitCode,
+    iter: state.iter,
+  });
+
+  // Post-spawn state update
+  state.lastExit = exitCode;
+  state.lastWorkerFinishedAt = workerEnd.toISOString();
+  state.lastElapsedMs = elapsedMs;
+  if (lastExitReason) {
+    state.lastExitReason = lastExitReason;
+  } else if (exitCode === 0) {
+    state.lastExitReason = "clean";
+  } else {
+    state.lastExitReason = `exit_${exitCode}`;
+  }
+  // M44 D9 (v1.5.0) — per-iter multi-worker aggregates. Present only when the
+  // planner selected fan-out; single-worker iters omit these fields so the
+  // state schema stays backward-compatible with v1.4.x readers.
+  if (useFanOut && Array.isArray(res.workerResults)) {
+    state.lastExits = res.workerResults.map((w) => ({
+      idx: w.idx,
+      code: typeof w.status === "number" ? w.status : null,
+      taskIds: w.taskIds || [],
+      elapsedMs: w.elapsedMs,
+      spawnId: w.spawnId || null,
+    }));
+    state.workerPids = res.workerResults.map((w) => w.spawnId || null);
+    state.lastFanOutCount = res.workerResults.length;
+  } else {
+    // Clear stale multi-worker fields on single-worker iters so readers
+    // never see a mix of regimes.
+    if (state.lastExits) delete state.lastExits;
+    if (state.workerPids) delete state.workerPids;
+    if (state.lastFanOutCount) delete state.lastFanOutCount;
+  }
+  writeState(state, dir);
+
+  // Event-stream: task_complete on success, error on non-zero.
+  const durationS = Math.round(elapsedMs / 1000);
+  if (exitCode === 0) {
+    _emit(projectDir, {
+      ts: workerEnd.toISOString(),
+      iter: state.iter,
+      type: "task_complete",
+      source: "supervisor",
+      task: state.nextTask || "",
+      verdict: "pass",
+      duration_s: durationS,
+    });
+  } else {
+    _emit(projectDir, {
+      ts: workerEnd.toISOString(),
+      iter: state.iter,
+      type: "error",
+      source: "supervisor",
+      error: `worker exit ${exitCode}`,
+      recoverable: exitCode !== 4 && exitCode !== 5,
+    });
+  }
+
+  // ── POST-WORKER HOOK (contract §12) ────────────────────────────────────
+  // Read the tail of run.log for pattern detection. ~200 lines is enough
+  // to span the last several iteration blocks for the gutter detector.
+  let runLogTail = "";
+  try {
+    const logPath = path.join(dir, RUN_LOG);
+    if (fs.existsSync(logPath)) {
+      const all = fs.readFileSync(logPath, "utf8");
+      const lines = all.split(/\r?\n/);
+      runLogTail = lines.slice(-200).join("\n");
+    }
+  } catch (_) {
+    // best effort — tail read failure does not halt the loop
+  }
+  const blocker = fn.detectBlockerSentinel(runLogTail);
+  if (!blocker.ok) {
+    state.status = "failed";
+    state.lastExit = blocker.code || 6;
+    writeState(state, dir);
+    return _result("failed", { errorMessage: `blocker_sentinel:${state.lastExit}` });
+  }
+  const gutter = fn.detectGutter(state, runLogTail, config);
+  if (!gutter.ok) {
+    state.status = "failed";
+    state.lastExit = gutter.code || 6;
+    writeState(state, dir);
+    return _result("failed", { errorMessage: `gutter:${state.lastExit}` });
+  }
+
+  // Terminal exit classification
+  if (exitCode === 0) {
+    // Success — check if the milestone is now complete.
+    if (milestoneComplete(projectDir, state.milestone)) {
+      state.status = "done";
+      writeState(state, dir);
+      return _result("done");
+    }
+    // Not yet done — continue relay.
+    _emit(projectDir, {
+      iter: state.iter,
+      type: "retry",
+      source: "supervisor",
+      attempt: state.iter,
+      reason: "milestone_incomplete",
+    });
+    return _result("running");
+  }
+  if (exitCode === 4) {
+    // Unrecoverable blocker.
+    state.status = "failed";
+    writeState(state, dir);
+    return _result("failed", { errorMessage: "exit_4_unrecoverable" });
+  }
+  if (exitCode === 5) {
+    // Command dispatch failure — worker invocation is broken.
+    state.status = "failed";
+    writeState(state, dir);
+    return _result("failed", { errorMessage: "exit_5_dispatch_failure" });
+  }
+  if (exitCode === 124) {
+    // Timeout — continue unless the iter cap is hit on the next check.
+    _emit(projectDir, {
+      iter: state.iter,
+      type: "retry",
+      source: "supervisor",
+      attempt: state.iter,
+      reason: "timeout",
+    });
+    return _result("running");
+  }
+  if (exitCode === 125) {
+    // Stale heartbeat (M43) — continue unless the iter cap hits. The
+    // heartbeat kill is recoverable by definition: the worker was not
+    // emitting events, which is the most common class of stuck iteration
+    // (e.g. child stuck on a long Bash call with no tool_call emits).
+    _emit(projectDir, {
+      iter: state.iter,
+      type: "retry",
+      source: "supervisor",
+      attempt: state.iter,
+      reason: "stale_heartbeat",
+    });
+    return _result("running");
+  }
+  // Non-terminal (1/2/3) — continue the relay.
+  _emit(projectDir, {
+    iter: state.iter,
+    type: "retry",
+    source: "supervisor",
+    attempt: state.iter,
+    reason: `exit_${exitCode}`,
+  });
+  return _result("running");
 }
 
 // ── _appendTokenLog (Fix 1, v3.12.12) ───────────────────────────────────────
