@@ -137,6 +137,24 @@ function autoSpawnHeadless(opts) {
     /* best-effort; fall through without banner port info */
   }
 
+  // M46 follow-up — Date + version banner. Printed before the transcript URL
+  // so multi-day-old read-backs are immediately dated. Best-effort.
+  try {
+    const { dateStamp } = require("../scripts/gsd-t-update-check.js");
+    const fsLocal = require("fs");
+    const osLocal = require("os");
+    const pathLocal = require("path");
+    let v = "unknown";
+    try {
+      v = fsLocal.readFileSync(
+        pathLocal.join(osLocal.homedir(), ".claude/.gsd-t-version"), "utf8"
+      ).trim();
+    } catch (_) { /* fall through with "unknown" */ }
+    process.stdout.write(`${dateStamp()}GSD-T v${v} — CURRENT\n`);
+  } catch (_) {
+    /* best-effort — never crash the spawn on banner failure */
+  }
+
   // M43 D6-T3 — Live transcript URL banner. Printed for every spawn so the
   // viewer at :PORT is "the" primary watching surface. Never throws.
   // Text is coordinated with D4 — exact line shape is part of

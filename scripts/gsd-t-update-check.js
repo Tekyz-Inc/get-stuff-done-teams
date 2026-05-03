@@ -14,6 +14,15 @@ const CACHE_FILE = path.join(CLAUDE_DIR, ".gsd-t-update-check");
 const CHANGELOG = "https://github.com/Tekyz-Inc/get-stuff-done-teams/blob/main/CHANGELOG.md";
 const SEMVER_RE = /^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?$/;
 
+// Local-time date stamp prefix for the version banner: "Tue: Mar 26, 2026,  "
+// The trailing two spaces are intentional — separates the date from the [GSD-T*] tag.
+function dateStamp(now = new Date()) {
+  const day = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][now.getDay()];
+  const mon = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+               "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][now.getMonth()];
+  return `${day}: ${mon} ${now.getDate()}, ${now.getFullYear()},  `;
+}
+
 function isNewer(a, b) {
   const ap = a.split(".").map(Number);
   const bp = b.split(".").map(Number);
@@ -47,9 +56,9 @@ function doAutoUpdate(latest, installed) {
     const updated = fs.existsSync(VERSION_FILE)
       ? fs.readFileSync(VERSION_FILE, "utf8").trim()
       : latest;
-    console.log(`[GSD-T AUTO-UPDATE] v${installed} → v${updated}. Changelog: ${CHANGELOG}`);
+    console.log(`${dateStamp()}[GSD-T AUTO-UPDATE] v${installed} → v${updated}. Changelog: ${CHANGELOG}`);
   } catch {
-    console.log(`[GSD-T UPDATE] v${installed} — update available (v${installed} → v${latest}). Auto-update failed — run manually: /gsd-t-version-update-all. Changelog: ${CHANGELOG}`);
+    console.log(`${dateStamp()}[GSD-T UPDATE] v${installed} — update available (v${installed} → v${latest}). Auto-update failed — run manually: /gsd-t-version-update-all. Changelog: ${CHANGELOG}`);
   }
 }
 
@@ -86,7 +95,7 @@ function run() {
   if (cached && cached.latest && isNewer(cached.latest, installed)) {
     doAutoUpdate(cached.latest, installed);
   } else {
-    console.log(`[GSD-T] v${installed} — up to date. Changelog: ${CHANGELOG}`);
+    console.log(`${dateStamp()}[GSD-T] v${installed} — CURRENT. Changelog: ${CHANGELOG}`);
   }
 }
 
@@ -95,4 +104,4 @@ if (require.main === module) {
   try { run(); } catch { /* graceful failure — don't block session start */ }
 }
 
-module.exports = { isNewer, fetchLatestVersion, doAutoUpdate, run };
+module.exports = { isNewer, fetchLatestVersion, doAutoUpdate, run, dateStamp };

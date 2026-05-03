@@ -19,6 +19,16 @@ Wait for the subagent to complete. Relay its output to the user. **Do not read f
 **If you are the spawned subagent** (your prompt says "running gsd-t-status"):
 Continue below.
 
+## Step 0.0: Date + Version Banner (MANDATORY)
+
+Before anything else, print the current date and GSD-T version so a multi-day-old session is immediately dated when the user reads the output:
+
+```bash
+node -e "const{dateStamp}=require('./scripts/gsd-t-update-check.js');const fs=require('fs'),os=require('os'),path=require('path');const v=(()=>{try{return fs.readFileSync(path.join(os.homedir(),'.claude/.gsd-t-version'),'utf8').trim()}catch{return 'unknown'}})();process.stdout.write(dateStamp()+'GSD-T v'+v+' — CURRENT\n')" 2>/dev/null || true
+```
+
+Format: `Tue: Mar 26, 2026,  GSD-T v3.19.00 — CURRENT`. Currency claim is best-effort — the canonical authority is the `~/.claude/.gsd-t-update-check` cache consulted by the SessionStart hook; status mode trusts the installed version label.
+
 ## Step 0: Headless Read-Back Banner (MANDATORY)
 
 Before reading any files, surface any completed headless sessions the user hasn't seen yet. Run this once at the start of every status invocation:
