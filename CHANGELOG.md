@@ -2,6 +2,51 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [3.20.10] - 2026-05-03
+
+### Added — Live-clock dated banner + PreToolUse date guard
+
+Solves the multi-day-session date-drift problem. Long sessions span days; without a fresh time signal every turn, hand-written timestamps (decision log entries, `continue-here-{ts}.md` filenames, memory entries, banners) silently drift to the session-start date.
+
+**Hook — `scripts/gsd-t-auto-route.js` (UserPromptSubmit):**
+- Now emits `[GSD-T NOW] Day: Mon DD, YYYY HH:MM:SS TZ` at the start of every user turn (every project, regardless of GSD-T detection).
+- Existing `[GSD-T AUTO-ROUTE]` behavior preserved (still GSD-T-project-only, plain-text-prompts-only).
+- Exports `liveTimestamp()` for test reuse.
+
+**Hook — `scripts/gsd-t-date-guard.js` (PreToolUse on Write|Edit, NEW):**
+- Blocks Write/Edit calls whose content contains timestamps drifting more than ±5 minutes from the live system clock.
+- High-signal patterns validated: decision-log entries (`- YYYY-MM-DD HH:MM:`), `continue-here-YYYY-MM-DDTHHMMSS` filenames, banners (`Day: Mon DD, YYYY HH:MM`), labeled stamps (`Date:`, `Updated:`, `Created:`, etc.).
+- For Edit: timestamps appearing in BOTH `old_string` and `new_string` are pre-existing context — never flagged.
+- Allowlist: machine-written and historical-frozen paths (`.gsd-t/events/`, `.gsd-t/transcripts/`, `.gsd-t/metrics/`, `.gsd-t/.unattended/`, `.gsd-t/headless-*.log`, `.gsd-t/dashboard.log`, `.gsd-t/progress-archive/`, `.gsd-t/milestones/`, `.gsd-t/scan/`, `.git/`, `node_modules/`, `CHANGELOG.md`, `.gsd-t/token-log.md`, `.gsd-t/qa-issues.md`, existing `continue-here-*.md`).
+- Fails open on internal error — broken tool calls are worse than drift.
+- 10/10 smoke tests pass.
+
+**Banner change — `scripts/gsd-t-update-check.js`:**
+- CURRENT-state banner no longer ships the changelog URL — pure noise when there's no update to read about. Action-required banners (AUTO-UPDATE, UPDATE) keep the link.
+
+**Spec — `~/.claude/CLAUDE.md` + `templates/CLAUDE-global.md` (rewritten §Update Notices + new §Live Clock Rule):**
+- Dated banner mandated as the first line of EVERY response, sourced from `[GSD-T NOW]` only — never `currentDate` (frozen) or SessionStart (frozen).
+- Live Clock Rule: any timestamp written to disk MUST come from live system clock. Date guard mechanically enforces this.
+- Format tightened to `Day: Mon DD, YYYY HH:MM TZ` (HH:MM displayed; seconds emitted but trimmed).
+
+### Why
+
+Hand-written timestamps were being sourced from `currentDate` in Claude's context — a string injected once at session start. Multi-day sessions (the user reported they happen often) meant decision-log entries, archive filenames, and memory entries were silently dated wrong by N days.
+
+Red Team principle applied: directives in CLAUDE.md are not safety properties. The PreToolUse hook is the enforcement.
+
+### Settings install
+
+Add to `~/.claude/settings.json` (in the `hooks` block, before `PostToolUse`):
+
+```json
+"PreToolUse": [
+  { "matcher": "Write|Edit",
+    "hooks": [{ "type": "command",
+                "command": "node \"$HOME/.claude/scripts/gsd-t-date-guard.js\"" }] }
+]
+```
+
 ## [3.19.00] - 2026-04-23
 
 ### Added — M46 Milestone: Unattended Iter-Parallel + Worker Fan-Out Completion

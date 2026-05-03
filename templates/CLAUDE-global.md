@@ -120,27 +120,59 @@ Even in development, the user may have:
 
 ## Update Notices
 
-On session start, a version check hook auto-updates GSD-T and outputs a status message. Show the result to the user at the **beginning** of your first response:
+The hook output at session start is NOT visible to the user — only your response text is. So you MUST emit a dated status banner as the **very first line of every response** (every turn, not just the first), above any routing header or other content.
 
-- If `[GSD-T AUTO-UPDATE]` appears → GSD-T was just auto-updated. Show:
-  ```
-  ✅ GSD-T auto-updated: v{old} → v{new}
-     Changelog: https://github.com/Tekyz-Inc/get-stuff-done-teams/blob/main/CHANGELOG.md
-  ```
+**Date source — MANDATORY**: use the timestamp from the most recent `[GSD-T NOW]` signal in your context. The UserPromptSubmit hook (`scripts/gsd-t-auto-route.js`) emits `[GSD-T NOW] Day: Mon DD, YYYY HH:MM:SS TZ` at the start of every turn — this is live system clock. Do NOT use:
+- The SessionStart banner (frozen at session start — wrong on day 2 of a long session)
+- The `currentDate` field in your context (frozen at session start — same problem)
+- Your training-cutoff intuition (always wrong)
 
-- If `[GSD-T UPDATE]` appears → update available but auto-update failed. Show:
+If `[GSD-T NOW]` is absent for any reason, fall back to `currentDate` and flag the gap.
+
+**Format** — one line, no changelog noise in steady state:
+
+- Steady state (`[GSD-T]` token seen at session start, or no version-check token — default):
   ```
-  ⬆️  GSD-T update available: v{installed} → v{latest} (auto-update failed)
-     Run: /gsd-t-version-update-all
-     Changelog: https://github.com/Tekyz-Inc/get-stuff-done-teams/blob/main/CHANGELOG.md
+  Day: Mon DD, YYYY HH:MM TZ — GSD-T v{version} — CURRENT
+  ```
+  Example: `Sun: May 3, 2026 12:21 PDT — GSD-T v3.19.00 — CURRENT`
+
+- Auto-updated this session (`[GSD-T AUTO-UPDATE]` token seen at session start):
+  ```
+  Day: Mon DD, YYYY HH:MM TZ — GSD-T v{old} → v{new} ✅ AUTO-UPDATED
+  Changelog: https://github.com/Tekyz-Inc/get-stuff-done-teams/blob/main/CHANGELOG.md
+  ```
+  (The changelog link earns its place here — there's new code to read about.)
+
+- Update available, auto-update failed (`[GSD-T UPDATE]` token seen at session start):
+  ```
+  Day: Mon DD, YYYY HH:MM TZ — GSD-T v{installed} → v{latest} ⬆️ UPDATE AVAILABLE (auto-update failed)
+  Run: /gsd-t-version-update-all
+  Changelog: https://github.com/Tekyz-Inc/get-stuff-done-teams/blob/main/CHANGELOG.md
   ```
   Also repeat at the **end** of your first response.
 
-- If `[GSD-T]` appears → up to date. Show:
-  ```
-  GSD-T v{version} — up to date
-  Changelog: https://github.com/Tekyz-Inc/get-stuff-done-teams/blob/main/CHANGELOG.md
-  ```
+(Drop seconds from the displayed banner — keep it to `HH:MM TZ` for readability. The hook emits seconds; you trim.)
+
+**Why every response, not just the first**: long sessions span multiple days. A dated header on every turn means the user can scroll back and immediately see when any exchange happened, without inferring from context.
+
+**Order**: dated status banner FIRST. Then routing header (if any). Then your response body.
+
+## Live Clock Rule (MANDATORY)
+
+Whenever you write a date or timestamp to any file — decision log entries in `progress.md`, `continue-here-{ts}.md` filenames, memory entries, banners, "Updated:" / "Date:" frontmatter, archive headings, anything visible — source it from **the live system clock**. Never from `currentDate` (frozen at session start), the SessionStart banner (frozen), or your intuition (unreliable).
+
+**How to obtain the live clock**:
+1. Read the most recent `[GSD-T NOW]` signal from your context (UserPromptSubmit hook emits it every turn).
+2. If absent, run `node -e "console.log(new Date().toISOString())"` via Bash before writing.
+
+**Enforcement**: a PreToolUse hook (`scripts/gsd-t-date-guard.js`) blocks Write/Edit calls whose content contains timestamps drifting more than ±5 minutes from the live system clock. The guard:
+- Validates decision-log entries (`- YYYY-MM-DD HH:MM:`), filename timestamps (`continue-here-YYYY-MM-DDTHHMMSS`), banners (`Day: Mon DD, YYYY HH:MM`), and labeled stamps (`Date:`, `Updated:`, `Created:`, etc.).
+- For Edit, ignores timestamps that appear in BOTH `old_string` and `new_string` (pre-existing context, not new writes).
+- Allowlists machine-written paths (`.gsd-t/events/`, `.gsd-t/transcripts/`, `.gsd-t/metrics/`, `.git/`, `node_modules/`, archives, log files).
+- Fails open on internal error — broken tool calls would be worse than drift.
+
+If the guard blocks your write, do NOT bypass it. Re-read `[GSD-T NOW]`, regenerate the timestamp, retry.
 
 ## Conversation vs. Work
 

@@ -95,7 +95,7 @@ function run() {
   if (cached && cached.latest && isNewer(cached.latest, installed)) {
     doAutoUpdate(cached.latest, installed);
   } else {
-    console.log(`${dateStamp()}[GSD-T] v${installed} — CURRENT. Changelog: ${CHANGELOG}`);
+    console.log(`${dateStamp()}[GSD-T] v${installed} — CURRENT.`);
   }
 }
 

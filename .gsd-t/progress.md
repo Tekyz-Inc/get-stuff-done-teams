@@ -2,8 +2,8 @@
 
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: Ready for next milestone
-## Date: 2026-04-23
-## Version: 3.19.00
+## Date: 2026-05-03
+## Version: 3.20.10
 
 ## Current Milestone
 
@@ -59,3 +59,4 @@ Older milestones (M33 and earlier) archived under `.gsd-t/milestones/` — see d
 
 - 2026-04-23: [success] Milestone "M46 Unattended Iter-Parallel + Worker Fan-Out Completion" completed — 2 domains file-disjoint, same-day in-session build. D1 iter-parallel supervisor scaffold (4 helpers + contract v1.0.0 + 12 tests + 3.35× proof). D2 worker sub-dispatch (new `bin/gsd-t-worker-dispatch.cjs` + contract v2.0.0→v2.1.0 + 6 tests + 5.96× proof). Audit surfaces 2A (✗→✓) + 2B (⚠→✓) closed. Production default for iter-parallel gated serial pending concurrent-safe rewrite (backlog #24). Full suite 1946/1946 pass. v3.19.00.
 - 2026-05-03: [feature] Date+version+currency banner unified across 3 emission sites — `dateStamp()` helper added to `scripts/gsd-t-update-check.js` (exported); session-start hook, `/gsd-t-status` Step 0.0, and `bin/headless-auto-spawn.cjs` orchestrator banner all now emit `Day: Mon DD, YYYY,  GSD-T v{version} — CURRENT` (system local time). "up to date" → "CURRENT" everywhere in version-status output. `~/.claude/CLAUDE.md` Update Notices section updated to match. Solves multi-day session continuity — every read-back is dated at the top. Suite 1946/1946 pass post-change.
+- 2026-05-03: [feature] Live-clock dated banner + PreToolUse date guard (v3.20.10) — `scripts/gsd-t-auto-route.js` UserPromptSubmit hook now emits `[GSD-T NOW] Day: Mon DD, YYYY HH:MM:SS TZ` once per user turn (live system clock, every project). New `scripts/gsd-t-date-guard.js` PreToolUse hook on Write|Edit blocks any tool call whose content contains a timestamp drifting more than ±5 min from the live clock. Validates decision-log entries, `continue-here` filenames, banners, and labeled stamps; ignores pre-existing context in Edit; allowlists machine-written paths (`events/`, `transcripts/`, `metrics/`, archives, log files); fails open on internal error. 10/10 smoke tests pass. CURRENT-state version banner stripped of changelog URL (was noise — kept on UPDATE/AUTO-UPDATE). `~/.claude/CLAUDE.md` + `templates/CLAUDE-global.md` rewritten: §Update Notices now mandates `[GSD-T NOW]` as the only date source; new §Live Clock Rule documents the guard. Why: hand-written timestamps were silently sourced from `currentDate` (frozen at session start), corrupting decision logs / archive filenames / memory entries on multi-day sessions. Red Team principle applied — directives are not safety properties; the hook is the enforcement.
