@@ -936,6 +936,106 @@ function configureAutoRouteHook(scriptPath) {
   }
 }
 
+// ─── In-Session Hooks (M43 D1 token usage + M45 D2 conversation capture) ────
+
+const HOOKS_DIR = path.join(SCRIPTS_DIR, "hooks");
+const PKG_HOOKS = path.join(PKG_SCRIPTS, "hooks");
+
+// Each entry: { script, events, async } — `events` is the array of hook event
+// names this script must be wired into. The `gsd-t-conversation-capture.js`
+// hook runs on SessionStart, UserPromptSubmit, and Stop (per the global
+// CLAUDE.md M45 D2 install block — PostToolUse stays opt-in via the
+// GSD_T_CAPTURE_TOOL_USES env flag, so we don't auto-register it).
+// `gsd-t-in-session-usage-hook.js` runs on Stop (per M43 D1 contract).
+const IN_SESSION_HOOKS = [
+  {
+    script: "gsd-t-conversation-capture.js",
+    events: ["SessionStart", "UserPromptSubmit", "Stop"],
+    async: true,
+  },
+  {
+    script: "gsd-t-in-session-usage-hook.js",
+    events: ["Stop"],
+    async: true,
+  },
+];
+
+function installInSessionHooks() {
+  ensureDir(SCRIPTS_DIR);
+  ensureDir(HOOKS_DIR);
+
+  if (!fs.existsSync(PKG_HOOKS)) {
+    info("No scripts/hooks/ in package — skipping in-session hooks");
+    return;
+  }
+
+  // Copy each script into ~/.claude/scripts/hooks/
+  for (const hook of IN_SESSION_HOOKS) {
+    const src = path.join(PKG_HOOKS, hook.script);
+    const dest = path.join(HOOKS_DIR, hook.script);
+    if (!fs.existsSync(src)) {
+      warn(`In-session hook source missing: ${hook.script} — skipping`);
+      continue;
+    }
+    const srcContent = fs.readFileSync(src, "utf8");
+    const destContent = fs.existsSync(dest) ? fs.readFileSync(dest, "utf8") : "";
+    if (normalizeEol(srcContent) !== normalizeEol(destContent)) {
+      copyFile(src, dest, `hooks/${hook.script}`);
+      try { fs.chmodSync(dest, 0o755); } catch {}
+    } else {
+      info(`In-session hook unchanged: ${hook.script}`);
+    }
+  }
+
+  configureInSessionHooks();
+}
+
+function configureInSessionHooks() {
+  const parsed = readSettingsJson();
+  if (parsed === null && fs.existsSync(SETTINGS_JSON)) {
+    warn("settings.json has invalid JSON — cannot configure in-session hooks");
+    return;
+  }
+  const settings = parsed || {};
+  if (!settings.hooks) settings.hooks = {};
+
+  let added = 0;
+  for (const hook of IN_SESSION_HOOKS) {
+    const scriptPath = path.join(HOOKS_DIR, hook.script);
+    const cmd = `node "${scriptPath.replace(/\\/g, "\\\\")}"`;
+
+    for (const event of hook.events) {
+      if (!settings.hooks[event]) settings.hooks[event] = [];
+      const already = settings.hooks[event].some((entry) =>
+        entry.hooks && entry.hooks.some((h) => h.command && h.command.includes(hook.script))
+      );
+      if (already) continue;
+      const hookEntry = { type: "command", command: cmd };
+      if (hook.async) hookEntry.async = true;
+      settings.hooks[event].push({
+        matcher: "",
+        hooks: [hookEntry],
+      });
+      added++;
+    }
+  }
+
+  if (added === 0) {
+    info("In-session hooks already configured");
+    return;
+  }
+  if (isSymlink(SETTINGS_JSON)) {
+    warn("Skipping settings.json write — target is a symlink");
+    return;
+  }
+  try {
+    fs.writeFileSync(SETTINGS_JSON, JSON.stringify(settings, null, 2));
+    success(`${added} in-session hook entr${added === 1 ? "y" : "ies"} configured in settings.json`);
+  } catch (e) {
+    warn(`Failed to write settings.json: ${e.message}`);
+  }
+}
+
 // ─── Figma MCP ──────────────────────────────────────────────────────────────
 
 const FIGMA_MCP_URL = "https://mcp.figma.com/mcp";
@@ -1320,6 +1420,9 @@ async function doInstall(opts = {}) {
 
   heading("Auto-Route (UserPromptSubmit)");
   installAutoRoute();
+
+  heading("In-Session Hooks (Conversation Capture + Token Usage)");
+  installInSessionHooks();
 
   heading("Figma MCP (Design-to-Code)");
   configureFigmaMcp();

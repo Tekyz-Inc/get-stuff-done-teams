@@ -2,6 +2,23 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [3.20.12] - 2026-05-05
+
+### Fixed — install: auto-configure M43 D1 + M45 D2 in-session hooks
+
+`gsd-t install` did not deploy or wire up the M43 D1 token-usage hook (`gsd-t-in-session-usage-hook.js`) or the M45 D2 conversation-capture hook (`gsd-t-conversation-capture.js`), even though the global CLAUDE.md "In-Session Conversation Capture" section documented these as mandatory. Result: the dashboard's `/transcripts` left rail never showed `💬 conversation` entries for in-session orchestrator dialog (this conversation right now); discovered when the live chat feed showed "no spawns yet" while the project's `.gsd-t/transcripts/` was missing entirely.
+
+**Changes:**
+- `bin/gsd-t.js`: new `installInSessionHooks()` + `configureInSessionHooks()` functions copy `scripts/hooks/gsd-t-conversation-capture.js` and `scripts/hooks/gsd-t-in-session-usage-hook.js` to `~/.claude/scripts/hooks/`, then register them in `~/.claude/settings.json` on the right events:
+  - `gsd-t-conversation-capture.js` → SessionStart, UserPromptSubmit, Stop (PostToolUse stays opt-in via the `GSD_T_CAPTURE_TOOL_USES=1` env flag)
+  - `gsd-t-in-session-usage-hook.js` → Stop
+- New install heading **In-Session Hooks (Conversation Capture + Token Usage)** runs in the install pipeline immediately after Auto-Route.
+- `test/filesystem.test.js`: bumped command-count assertions (54 → 55, utility 5 → 6) for the `cpua.md` command added in this session.
+
+**Migration:** existing installs pick up the wiring on next `gsd-t update-all` or `gsd-t install` run. The configure step is idempotent; re-running is safe. Suite: 2042/2042 pass.
+
+**Why this matters:** the conversation-capture hook is the only thing that lets you scroll back through your visualizer's `/transcripts` view and see chat with Claude in this session — without it, the dashboard's left rail is permanently empty for the in-session conversation. The token-usage hook records per-turn cost so the meter and economics dashboards have real data.
+
 ## [3.20.11] - 2026-05-05
 
 ### Fixed — install: ship `gsd-t-token-capture.cjs` to every project

@@ -270,16 +270,17 @@ describe("command listing functions", () => {
 
   // M38 deleted 7 commands: gsd-t-prompt, gsd-t-brainstorm, gsd-t-discuss (RC);
   // gsd-t-optimization-apply, gsd-t-optimization-reject, gsd-t-reflect, gsd-t-audit (CD).
-  it("total command count is 54", () => {
-    assert.equal(getCommandFiles().length, 54);
+  // v3.20.11 added cpua (utility command).
+  it("total command count is 55", () => {
+    assert.equal(getCommandFiles().length, 55);
   });
 
   it("gsd-t command count is 49", () => {
     assert.equal(getGsdtCommands().length, 49);
   });
 
-  it("utility command count is 5", () => {
-    assert.equal(getUtilityCommands().length, 5);
+  it("utility command count is 6", () => {
+    assert.equal(getUtilityCommands().length, 6);
   });
 });
 
