@@ -176,9 +176,47 @@ function isValidSpawnId(id) {
   return typeof id === "string" && /^[a-zA-Z0-9._-]+$/.test(id) && id.length <= 200;
 }
 
+// M45 D2 follow-up: filesystem-walk fallback for in-session conversation NDJSONs.
+// The conversation-capture hook writes `in-session-{sessionId}.ndjson` directly
+// to `transcripts/`, but does NOT update `.index.json` (the index is owned by
+// the spawn lifecycle, not by the in-session hook). Without this scan, the
+// dashboard's left rail never shows in-session conversations even though the
+// NDJSONs are on disk. Synthesizes a spawn-shaped entry per in-session file
+// using filesystem timestamps; the viewer's `in-session-` prefix detection
+// then labels it as `💬 conversation`.
+function listInSessionTranscripts(projectDir) {
+  const dir = transcriptsDir(projectDir);
+  let files;
+  try { files = fs.readdirSync(dir); } catch { return []; }
+  const out = [];
+  for (const f of files) {
+    if (!f.startsWith("in-session-") || !f.endsWith(".ndjson")) continue;
+    const spawnId = f.slice(0, -".ndjson".length); // "in-session-{sessionId}"
+    if (!isValidSpawnId(spawnId)) continue;
+    let stat;
+    try { stat = fs.statSync(path.join(dir, f)); } catch { continue; }
+    out.push({
+      spawnId,
+      command: "in-session conversation",
+      startedAt: stat.birthtime ? stat.birthtime.toISOString() : stat.mtime.toISOString(),
+      lastUpdatedAt: stat.mtime.toISOString(),
+      status: "active", // best-effort; the viewer doesn't currently use this field
+      kind: "in-session",
+    });
+  }
+  return out;
+}
+
 function handleTranscriptsList(req, res, projectDir, transcriptHtmlPath) {
   const idx = readTranscriptsIndex(projectDir);
-  const sorted = idx.spawns
+
+  // Merge index entries with in-session NDJSONs from the filesystem.
+  // De-dupe by spawnId — index entries take precedence (richer metadata).
+  const known = new Set(idx.spawns.map((s) => s.spawnId));
+  const inSession = listInSessionTranscripts(projectDir).filter((s) => !known.has(s.spawnId));
+  const merged = idx.spawns.concat(inSession);
+
+  const sorted = merged
     .slice()
     .sort((a, b) => (Date.parse(b.startedAt) || 0) - (Date.parse(a.startedAt) || 0));
 
@@ -723,6 +761,7 @@ module.exports = {
   writeTranscriptsIndex,
   readIndexEntry,
   isValidSpawnId,
+  listInSessionTranscripts,
   handleTranscriptsList,
   handleTranscriptStream,
   handleTranscriptPage,

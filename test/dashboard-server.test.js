@@ -17,6 +17,7 @@ const {
   startServer,
   tailEventsFile,
   readMetricsData,
+  listInSessionTranscripts,
 } = require("../scripts/gsd-t-dashboard-server.js");
 
 let tmpDir;
@@ -405,5 +406,91 @@ describe("GET /metrics endpoint", () => {
         server.close(() => { fs.rmSync(projRoot, { recursive: true, force: true }); done(); });
       });
     }).on("error", (err) => { server.close(); done(err); });
+  });
+});
+
+// ─── In-Session Transcripts Filesystem Fallback (v3.20.13) ──────────────────
+
+describe("listInSessionTranscripts — filesystem fallback for in-session NDJSONs", () => {
+  it("returns empty array when transcripts dir doesn't exist", () => {
+    const projRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gsd-t-insess-empty-"));
+    try {
+      const found = listInSessionTranscripts(projRoot);
+      assert.deepEqual(found, []);
+    } finally {
+      fs.rmSync(projRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("returns empty array when transcripts dir is empty", () => {
+    const projRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gsd-t-insess-emptydir-"));
+    try {
+      fs.mkdirSync(path.join(projRoot, ".gsd-t", "transcripts"), { recursive: true });
+      const found = listInSessionTranscripts(projRoot);
+      assert.deepEqual(found, []);
+    } finally {
+      fs.rmSync(projRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("finds in-session-*.ndjson files and returns spawn-shaped entries", () => {
+    const projRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gsd-t-insess-find-"));
+    try {
+      const tdir = path.join(projRoot, ".gsd-t", "transcripts");
+      fs.mkdirSync(tdir, { recursive: true });
+      fs.writeFileSync(path.join(tdir, "in-session-abc-123.ndjson"), '{"type":"user_turn"}\n');
+      fs.writeFileSync(path.join(tdir, "in-session-def-456.ndjson"), '{"type":"assistant_turn"}\n');
+      const found = listInSessionTranscripts(projRoot);
+      assert.equal(found.length, 2);
+      const ids = found.map((e) => e.spawnId).sort();
+      assert.deepEqual(ids, ["in-session-abc-123", "in-session-def-456"]);
+      // Each entry must have the in-session-prefixed spawnId so the viewer's
+      // left-rail isInSession check applies the `💬 conversation` label.
+      for (const e of found) {
+        assert.ok(e.spawnId.startsWith("in-session-"));
+        assert.equal(e.kind, "in-session");
+        assert.ok(e.startedAt);
+        assert.ok(e.lastUpdatedAt);
+      }
+    } finally {
+      fs.rmSync(projRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("ignores non-in-session files in transcripts dir", () => {
+    const projRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gsd-t-insess-mixed-"));
+    try {
+      const tdir = path.join(projRoot, ".gsd-t", "transcripts");
+      fs.mkdirSync(tdir, { recursive: true });
+      fs.writeFileSync(path.join(tdir, "in-session-real.ndjson"), "{}\n");
+      fs.writeFileSync(path.join(tdir, "other-spawn.ndjson"), "{}\n"); // detached spawn — owned by index
+      fs.writeFileSync(path.join(tdir, ".index.json"), '{"spawns":[]}');
+      fs.writeFileSync(path.join(tdir, "readme.md"), "");
+      const found = listInSessionTranscripts(projRoot);
+      assert.equal(found.length, 1);
+      assert.equal(found[0].spawnId, "in-session-real");
+    } finally {
+      fs.rmSync(projRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects malformed in-session-*.ndjson filenames (path-traversal guard)", () => {
+    const projRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gsd-t-insess-malformed-"));
+    try {
+      const tdir = path.join(projRoot, ".gsd-t", "transcripts");
+      fs.mkdirSync(tdir, { recursive: true });
+      // Valid id chars are [a-zA-Z0-9._-] per isValidSpawnId.
+      // Filenames with other chars must be skipped.
+      fs.writeFileSync(path.join(tdir, "in-session-ok.ndjson"), "{}\n");
+      // Files containing a space won't pass isValidSpawnId after filename slice.
+      // Note: writing a literal "/" in the name would create a subdir, so we
+      // can't test that here — but isValidSpawnId rejects "/" as well.
+      fs.writeFileSync(path.join(tdir, "in-session-bad name.ndjson"), "{}\n");
+      const found = listInSessionTranscripts(projRoot);
+      assert.equal(found.length, 1);
+      assert.equal(found[0].spawnId, "in-session-ok");
+    } finally {
+      fs.rmSync(projRoot, { recursive: true, force: true });
+    }
   });
 });

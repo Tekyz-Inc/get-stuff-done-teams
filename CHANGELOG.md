@@ -2,6 +2,22 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [3.20.13] - 2026-05-05
+
+### Fixed — visualizer: surface in-session NDJSONs when `.index.json` is empty
+
+The dashboard's `/transcripts` endpoint only read `.gsd-t/transcripts/.index.json` to populate the left-rail spawn list. The M45 D2 conversation-capture hook writes `in-session-{sessionId}.ndjson` directly to `transcripts/` but does NOT update the index — the index is owned by the spawn lifecycle, not the in-session hook. Result: the visualizer's left rail showed "no spawns yet" even when the in-session conversation was actively being captured to disk. Discovered when the M43 D1 + M45 D2 hooks were installed (v3.20.12) and the conversation NDJSONs were appearing on disk but invisible in the UI.
+
+**Changes:**
+- `scripts/gsd-t-dashboard-server.js`: new `listInSessionTranscripts(projectDir)` function scans `transcripts/` for `in-session-*.ndjson` files and returns spawn-shaped entries with `spawnId: in-session-{sessionId}`. Filenames are validated through `isValidSpawnId` for path-traversal safety. `handleTranscriptsList` merges these with the index entries (index takes precedence on dup `spawnId`). The viewer's existing `in-session-` prefix detection then applies the `💬 conversation` badge.
+- `test/dashboard-server.test.js`: 5 new regression tests covering the empty-dir case, missing-dir case, find/filter behavior, mixed file types, and malformed-filename rejection.
+
+**Migration:** existing dashboards picking up the new code will surface in-session conversations automatically on next refresh of `/transcripts`. No state migration needed; the index is read-only here.
+
+**Suite:** 2047/2047 pass.
+
+**Side cleanup:** killed 144 + 20 orphan `gsd-t-dashboard-server.js` processes (164 total) accumulated from prior detached spawns whose parents had exited and been reparented to launchd. 3 stale pidfiles cleaned. Per-project `transcripts/` directories pre-created in 15 GSD-T projects so the M45 D2 hook can write without first-run delay.
+
 ## [3.20.12] - 2026-05-05
 
 ### Fixed — install: auto-configure M43 D1 + M45 D2 in-session hooks
