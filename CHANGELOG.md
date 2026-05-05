@@ -2,6 +2,18 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [3.20.11] - 2026-05-05
+
+### Fixed — install: ship `gsd-t-token-capture.cjs` to every project
+
+`bin/gsd-t.js::PROJECT_BIN_TOOLS` was missing `gsd-t-token-capture.cjs` — the wrapper that the **Token Capture Rule (MANDATORY)** in `CLAUDE.md` requires every Task spawn to flow through. Result: `gsd-t init` and `gsd-t update-all` shipped 11 other `bin/*.cjs` runtime files but silently skipped this one. Discovered when an audit of 18 registered projects found 15 of them missing the wrapper at `bin/gsd-t-token-capture.cjs` — the contract was effectively advisory in installed projects.
+
+**Changes:**
+- `bin/gsd-t.js`: `PROJECT_BIN_TOOLS` now includes `gsd-t-token-capture.cjs`.
+- `test/m41-canonical-block-drift.test.js`: new regression test asserts the wrapper is in `PROJECT_BIN_TOOLS`. Catches the same bug if it ever re-emerges (e.g., array reformat clobbers an entry).
+
+**Migration:** existing projects fix automatically on next `gsd-t update-all` run — the wrapper gets copied alongside the other bin tools. Test suite 2042/2042 pass.
+
 ## [3.20.10] - 2026-05-03
 
 ### Added — Live-clock dated banner + PreToolUse date guard

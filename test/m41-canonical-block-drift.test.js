@@ -67,3 +67,17 @@ test('project CLAUDE.md and templates/CLAUDE-global.md both reference bin/gsd-t-
   assert.match(projectClaude, /gsd-t-token-capture\.cjs/);
   assert.match(globalTemplate, /gsd-t-token-capture\.cjs/);
 });
+
+test('PROJECT_BIN_TOOLS in bin/gsd-t.js includes gsd-t-token-capture.cjs', () => {
+  // Token Capture Rule (CLAUDE.md): every Task spawn MUST flow through
+  // bin/gsd-t-token-capture.cjs. For that contract to hold in installed projects,
+  // the installer's PROJECT_BIN_TOOLS array MUST list the wrapper. Without this
+  // guard, init/update-all silently ships projects without the wrapper, every
+  // Task subagent spawn fails to find it, and the rule degrades to advisory.
+  // (Discovered 2026-05-05 across 15 of 18 registered projects.)
+  const installer = fs.readFileSync(path.join(repoRoot, 'bin', 'gsd-t.js'), 'utf8');
+  const block = installer.match(/const PROJECT_BIN_TOOLS = \[([\s\S]*?)\];/);
+  assert.ok(block, 'PROJECT_BIN_TOOLS array not found in bin/gsd-t.js');
+  assert.match(block[1], /["']gsd-t-token-capture\.cjs["']/,
+    'PROJECT_BIN_TOOLS must include "gsd-t-token-capture.cjs" — the Token Capture Rule depends on every project having the wrapper at bin/gsd-t-token-capture.cjs');
+});

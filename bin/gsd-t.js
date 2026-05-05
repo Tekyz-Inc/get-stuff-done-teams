@@ -2178,6 +2178,7 @@ function updateSingleProject(projectDir, counts) {
 const PROJECT_BIN_TOOLS = [
   "archive-progress.cjs", "log-tail.cjs", "context-budget-audit.cjs",
   "context-meter-config.cjs", "token-budget.cjs",
+  "gsd-t-token-capture.cjs",
   "gsd-t-unattended.cjs", "gsd-t-unattended-platform.cjs", "gsd-t-unattended-safety.cjs",
   "handoff-lock.cjs", "headless-auto-spawn.cjs",
   "headless-exit-codes.cjs",
