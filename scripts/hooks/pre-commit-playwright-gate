@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+# GSD-T Playwright gate (M50 D2)
+# Blocks commits that touch viewer/UI source files when Playwright tests have
+# not passed since the most recent change. Reads `.gsd-t/.last-playwright-pass`
+# (Unix epoch ms in a single line) — written by `npx playwright test` post-pass.
+#
+# Install (opt-in):  gsd-t doctor --install-hooks
+# Remove:            rm .git/hooks/pre-commit  (or remove this block if merged
+#                    into an existing hook)
+#
+# Exit codes:
+#   0 — clean (no viewer-source files staged, OR fresh pass, OR fail-open path)
+#   1 — blocked (viewer-source modified after the last playwright pass)
+#
+# Fail-open philosophy (per m50 D2 constraints): a broken hook is worse than a
+# permissive one. Missing or corrupt `.last-playwright-pass` → exit 0 with a
+# stderr warning, never block.
+
+set -e
+
+# Resolve the project root (the dir that contains the repository's .git).
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+PASS_FILE="$ROOT/.gsd-t/.last-playwright-pass"
+
+# Patterns that count as "viewer/UI source" for gating purposes. Globs are
+# checked against the staged file list returned by git.
+VIEWER_SOURCE_PATTERNS=(
+  "scripts/gsd-t-transcript.html"
+  "scripts/gsd-t-dashboard-server.js"
+  "e2e/viewer/"
+)
+
+# Load staged file list (only added/modified — deletions don't need testing).
+STAGED="$(git diff --cached --name-only --diff-filter=AM 2>/dev/null || true)"
+
+# Quick exit when nothing is staged.
+[ -z "$STAGED" ] && exit 0
+
+# Find any staged path matching a viewer-source pattern.
+matches=""
+while IFS= read -r f; do
+  for p in "${VIEWER_SOURCE_PATTERNS[@]}"; do
+    case "$f" in
+      "$p"|"$p"*) matches="$matches $f"; break ;;
+    esac
+  done
+done <<EOF
+$STAGED
+EOF
+
+# No viewer-source files staged → silent pass.
+if [ -z "$matches" ]; then
+  exit 0
+fi
+
+# Viewer-source staged. Now require a fresh pass.
+if [ ! -f "$PASS_FILE" ]; then
+  echo "[playwright-gate] WARNING: .gsd-t/.last-playwright-pass missing — fail-open. Run 'npx playwright test' to record a pass." >&2
+  exit 0
+fi
+
+# Read timestamp; fail-open on corrupt content.
+LAST_PASS="$(tr -d '[:space:]' < "$PASS_FILE")"
+if ! echo "$LAST_PASS" | grep -Eq '^[0-9]+$'; then
+  echo "[playwright-gate] WARNING: .gsd-t/.last-playwright-pass is not a valid timestamp — fail-open." >&2
+  exit 0
+fi
+
+# Compare each staged viewer-source file's mtime (in ms) against LAST_PASS.
+# If any file has mtime > LAST_PASS, block.
+stale=""
+for f in $matches; do
+  fpath="$ROOT/$f"
+  if [ -f "$fpath" ]; then
+    # GNU stat: -c %Y (seconds); BSD stat: -f %m. We want milliseconds.
+    if mtime_s=$(stat -c %Y "$fpath" 2>/dev/null) || mtime_s=$(stat -f %m "$fpath" 2>/dev/null); then
+      mtime_ms=$((mtime_s * 1000))
+      if [ "$mtime_ms" -gt "$LAST_PASS" ]; then
+        stale="$stale $f"
+      fi
+    fi
+  fi
+done
+
+if [ -n "$stale" ]; then
+  echo "[playwright-gate] BLOCKED: viewer-source modified since last playwright pass." >&2
+  echo "  Stale files:$stale" >&2
+  echo "  Last pass:  $(date -r "$((LAST_PASS / 1000))" 2>/dev/null || echo "$LAST_PASS")" >&2
+  echo "" >&2
+  echo "  Run 'npx playwright test' before committing, or run 'gsd-t doctor --install-playwright' if Playwright isn't set up." >&2
+  exit 1
+fi
+
+exit 0

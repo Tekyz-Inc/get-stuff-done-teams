@@ -332,25 +332,23 @@ After initialization, verify all created documentation is consistent:
 
 ## Step 11: Playwright Setup (MANDATORY)
 
-Every GSD-T project must have Playwright ready for E2E testing. If `playwright.config.*` does not exist:
+M50: this step is now executable code, not prose. The `bin/gsd-t.js init` flow calls `installPlaywright(projectDir)` from `bin/playwright-bootstrap.cjs` automatically when `hasUI(projectDir) && !hasPlaywright(projectDir)`. See `.gsd-t/contracts/playwright-bootstrap-contract.md`.
 
-1. **Detect package manager**: Check for `bun.lockb` (bun), `yarn.lock` (yarn), `pnpm-lock.yaml` (pnpm), `package-lock.json` or `package.json` (npm), `requirements.txt`/`pyproject.toml` (Python)
-2. **Install Playwright**:
-   - bun: `bun add -d @playwright/test && bunx playwright install chromium`
-   - npm: `npm install -D @playwright/test && npx playwright install chromium`
-   - yarn: `yarn add -D @playwright/test && yarn playwright install chromium`
-   - pnpm: `pnpm add -D @playwright/test && pnpm exec playwright install chromium`
-   - Python: `pip install playwright && playwright install chromium`
-   - No package manager detected: `npm init -y && npm install -D @playwright/test && npx playwright install chromium`
-3. **Create `playwright.config.ts`** (or `.js` if not using TypeScript) with sensible defaults:
-   - `testDir: './e2e'` (or `./tests/e2e`)
-   - `use: { baseURL: 'http://localhost:3000' }` (adjust based on project)
-   - Chromium only (keep it fast; user can add more browsers later)
-   - Screenshot on failure enabled
-4. **Create the E2E test directory** (`e2e/` or `tests/e2e/`) with a placeholder spec
-5. **Add test script** to `package.json` if it exists: `"test:e2e": "playwright test"`
+The installer:
+1. Detects the package manager via `detectPackageManager(projectDir)` (`pnpm-lock.yaml` → `pnpm`; `yarn.lock` → `yarn`; `bun.lockb` → `bun`; default `npm`).
+2. Installs `@playwright/test` as a devDependency + `npx playwright install chromium`.
+3. Writes `playwright.config.ts` (testDir `./e2e`, chromium project) idempotently — does NOT overwrite an existing config.
+4. Creates `e2e/__placeholder.spec.ts` (empty `test.skip`) when `e2e/` is absent or empty.
 
-Skip silently if `playwright.config.*` already exists.
+Fallback (when not running through `bin/gsd-t.js init`):
+- bun: `bun add -d @playwright/test && bunx playwright install chromium`
+- npm: `npm install -D @playwright/test && npx playwright install chromium`
+- yarn: `yarn add -D @playwright/test && yarn playwright install chromium`
+- pnpm: `pnpm add -D @playwright/test && pnpm exec playwright install chromium`
+
+Operator overrides: `gsd-t setup-playwright [path]` (explicit single-project install) or `gsd-t doctor --install-playwright`.
+
+The spawn-time gate in `bin/headless-auto-spawn.cjs` re-runs the install on first need if the project skipped this step (e.g., older project that pre-dates M50).
 
 ## Step 12: Test Verification
 

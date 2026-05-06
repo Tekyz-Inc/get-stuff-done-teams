@@ -1,7 +1,7 @@
 # GSD-T Progress
 
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
-## Status: M50 IN-PROGRESS — D1 complete (5/15)
+## Status: M50 EXECUTED — D1+D2 complete (15/15)
 ## Date: 2026-05-06
 ## Version: 3.21.12
 
@@ -13,7 +13,7 @@
 | Domain | Status | Tasks | Completed |
 |--------|--------|-------|-----------|
 | m50-bootstrap-and-detection | complete | 5 | 5 |
-| m50-gates-and-specs | planned | 10 | 0 |
+| m50-gates-and-specs | complete | 10 | 10 |
 
 ### Contracts
 - [x] `playwright-bootstrap-contract.md` v1.0.0 (D1 library API)
@@ -22,8 +22,8 @@
 
 ### Integration Checkpoints
 - [x] D1 publishes `bin/playwright-bootstrap.cjs` + `bin/ui-detection.cjs` + CLI wiring + D1 tests passing — published 2026-05-06 14:15 PDT (43/43 D1 tests pass).
-- [ ] D2 spawn-gate fixture test passes (UI fixture without Playwright triggers a successful install pre-spawn).
-- [ ] D2 pre-commit-hook fixture test passes (stale viewer-source commit blocked, fresh-viewer-source commit succeeds).
+- [x] D2 spawn-gate fixture test passes (UI fixture without Playwright triggers a successful install pre-spawn) — 9/9 in test/m50-d2-spawn-gate.test.js.
+- [x] D2 pre-commit-hook fixture test passes (stale viewer-source commit blocked, fresh-viewer-source commit succeeds) — 6/6 in test/m50-d2-pre-commit-hook.test.js.
 
 ## Milestones
 
@@ -77,6 +77,13 @@ Older milestones (M33 and earlier) archived under `.gsd-t/milestones/` — see d
 - 2026-05-06 14:15: [success] M50 D1 task-3 — installPlaywright() landed on bin/playwright-bootstrap.cjs. Idempotent installer per contract §3+§6+§7+§8. Added 9 install-path tests to test/m50-d1-playwright-bootstrap.test.js (idempotent short-circuit, 4 package-manager paths, config-template verbatim write, existing-config preservation, existing-e2e/ preservation, install-failure → hint, chromium-failure → partial:true). 20/20 in this file pass.
 - 2026-05-06 14:15: [success] M50 D1 task-4 — bin/gsd-t.js wired. Inline hasPlaywright (lines 201-204) replaced with require('./playwright-bootstrap.cjs'); init flow auto-installs Playwright when hasUI && !hasPlaywright; checkProjectHealth made async + auto-installs across registered projects + reports counts in update-all summary; checkDoctorProject made async + supports --install-playwright flag; new `gsd-t setup-playwright [path]` subcommand wraps installPlaywright with --force escape hatch for non-UI projects. New test/m50-d1-cli-integration.test.js (5/5 pass).
 - 2026-05-06 14:15: [checkpoint] M50 D1 published — exports verified, 43/43 D1 tests passing (18 ui-detection + 20 playwright-bootstrap + 5 cli-integration), `gsd-t doctor --install-playwright` flag recognized, `gsd-t setup-playwright` subcommand functional. m50-integration-points.md flipped to PUBLISHED. D2 may now import from bin/playwright-bootstrap.cjs and bin/ui-detection.cjs.
+- 2026-05-06 14:25: [success] M50 D2 task-1 — playwright.config.ts at GSD-T project root (testDir './e2e', chromium project, webServer omitted), e2e/__placeholder.spec.ts, package.json scripts ('e2e', 'e2e:install') + @playwright/test in devDependencies (zero runtime-deps preserved). 4/4 in test/m50-d2-viewer-specs-smoke.test.js.
+- 2026-05-06 14:25: [success] M50 D2 task-2 — spawn-gate landed in bin/headless-auto-spawn.cjs::autoSpawnHeadless. New TESTING_OR_UI_COMMANDS Set (9 commands). Gate fires when isTestingOrUICommand && hasUI && !hasPlaywright; calls installPlaywrightSync (added to bin/playwright-bootstrap.cjs alongside async installPlaywright); on install failure writes mode:'blocked-needs-human' + reason + err + hint to the headless session-state file and process.exit(4). Test injection points: _gateInstaller, _gateProbes, _gateExit. 9/9 in test/m50-d2-spawn-gate.test.js. 101/101 in pre-existing headless test files (no regressions).
+- 2026-05-06 14:25: [success] M50 D2 task-3 — scripts/hooks/pre-commit-playwright-gate (executable bash, mode 0755) reads .gsd-t/.last-playwright-pass and blocks viewer-source commits when staged-file mtime > the timestamp. Patterns: scripts/gsd-t-transcript.html, scripts/gsd-t-dashboard-server.js, e2e/viewer/. Fail-open on missing/corrupt timestamps. New `gsd-t doctor --install-hooks` flag (idempotent install via PLAYWRIGHT_GATE_HOOK_MARKER pattern, mirrors capture-lint hook approach). 6/6 in test/m50-d2-pre-commit-hook.test.js.
+- 2026-05-06 14:25: [success] M50 D2 tasks 4-8 — 5 viewer E2E specs landed in e2e/viewer/: title.spec.ts (M48 Bug 1: project basename in <title>/.title for /transcripts and /transcripts/{spawn-id} + $&/$1 backref defense), timestamps.spec.ts (M48 Bug 2: distinct ts → distinct rendered HH:MM:SS), chat-bubbles.spec.ts (M48 Bug 3: user_turn/assistant_turn/session_start/tool_use_line render as bubbles, not JSON.stringify dumps), dual-pane.spec.ts (M48 Bug 4: bottom pane never connects to in-session-* SSE; uses EventSource constructor patch), lazy-dashboard.spec.ts (M49 banner shape: file path + visualize hint vs Live transcript URL).
+- 2026-05-06 14:25: [success] M50 D2 task-9 — doc-ripple complete in single pass: ~/.claude/CLAUDE.md + templates/CLAUDE-global.md (Playwright Readiness Guard collapsed to layered referral), commands/gsd-t-init.md Step 11 (points at installPlaywright()), docs/architecture.md (new "Playwright Deterministic Enforcement (M50)" subsection), CHANGELOG.md (full M50 entry under [Unreleased]).
+- 2026-05-06 14:25: [success] M50 D2 task-10 — playwright-bootstrap-contract.md Status flipped PROPOSED→STABLE. 16 REQ-M50-D1/D2 traceability rows flipped from 'planned' to 'done' in docs/requirements.md. REQ-M50-VERIFY stays 'planned' (verified by /gsd-t-verify, not by execute).
+- 2026-05-06 14:25: [milestone-executed] M50 EXECUTED — both domains complete (15/15 tasks). Full suite: 2163 pass / 3 known env-flakes (buildEventStreamEntry, writer_shim_safe_empty_agent_id_auto_mints_id, ensureDashboardRunning idempotent — all pre-existing, env-sensitive when run via the parent execute context). 62 new M50 tests pass cleanly. Zero regressions. Awaiting verify gate.
 
 - 2026-05-06 09:02: [planned] M47 Focused Visualizer Redesign — PLANNED. 2 file-disjoint domains, 12 total tasks. D1 viewer-redesign (7 tasks, single file `scripts/gsd-t-transcript.html`). D2 server-helpers (5 tasks, single file `scripts/gsd-t-dashboard-server.js`). 1 cross-domain checkpoint after D2 publishes status field + `/api/main-session`. 11 REQ entries appended to docs/requirements.md.
 - 2026-05-06 09:24: [success] M47 EXECUTED — all 12 tasks landed. D2 (5/5): 30s-window `status` field derivation; new `handleMainSession` + `GET /api/main-session` (path-traversal guarded via `isValidSpawnId`, `Cache-Control: no-store`); contract bumped to v1.3.0. D1 (7/7): split-pane scaffolding; 3-section left rail; dual SSE (`connectMain` + bottom-pane `connect`); rail bucketing consumes D2 status; mouse + keyboard splitter; 4 sessionStorage keys; right-rail collapse; 4 final-fence tests. Suite 2058/2060 (M47 +13/+13; 2 pre-existing flakes preserved). 4 existing viewer-route tests updated for new structure (regex relaxation, sandbox-friendly `_ssGet/_ssSet`).

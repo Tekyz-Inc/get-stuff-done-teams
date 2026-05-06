@@ -23,7 +23,12 @@
   },
   "scripts": {
     "test": "node --test",
+    "e2e": "playwright test",
+    "e2e:install": "playwright install chromium",
     "prepublishOnly": "npm test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0"
   },
   "files": [
     "bin/",

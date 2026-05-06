@@ -1,7 +1,7 @@
 # Contract: playwright-bootstrap-contract
 
 **Version**: 1.0.0
-**Status**: PROPOSED — M50 D1
+**Status**: STABLE — landed in M50 (2026-05-06), v3.21.x
 **Owner**: m50-bootstrap-and-detection
 **Consumers**: m50-gates-and-specs (spawn-gate); `bin/gsd-t.js` (init / update-all / doctor / setup-playwright); future GSD-T commands that need to verify Playwright readiness.
 

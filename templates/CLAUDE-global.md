@@ -194,15 +194,19 @@ If any are missing:
 
 **Exempt commands** (do not trigger auto-init): `gsd-t-init`, `gsd-t-init-scan-setup`, `gsd-t-help`, `gsd-t-version-update`, `gsd-t-version-update-all`.
 
-## Playwright Readiness Guard
+## Playwright Readiness Guard (M50 — deterministic enforcement)
 
-Before any command that involves testing (`gsd-t-execute`, `gsd-t-test-sync`, `gsd-t-verify`, `gsd-t-quick`, `gsd-t-wave`, `gsd-t-milestone`, `gsd-t-complete-milestone`, `gsd-t-debug`), check if `playwright.config.*` exists in the project. If it does not:
-1. Detect the package manager and install Playwright (`@playwright/test` + chromium)
-2. Create a basic `playwright.config.ts` with sensible defaults
-3. Create the E2E test directory with a placeholder spec
-4. Then continue with the original command
+Playwright readiness is enforced by executable code, not prose. Three layers:
 
-Playwright must always be ready before any testing occurs. Do not skip this check. Do not defer setup to "later."
+1. **Bootstrap library** — `bin/playwright-bootstrap.cjs` exports `hasPlaywright`, `detectPackageManager`, `installPlaywright`, `verifyPlaywrightHealth`. `bin/ui-detection.cjs` exports `hasUI`, `detectUIFlavor`. See `.gsd-t/contracts/playwright-bootstrap-contract.md`.
+2. **Spawn-time gate** — `bin/headless-auto-spawn.cjs::autoSpawnHeadless()` auto-installs Playwright before the spawn proceeds, when the command being run is in the testing/UI whitelist (`gsd-t-execute`, `gsd-t-test-sync`, `gsd-t-verify`, `gsd-t-quick`, `gsd-t-wave`, `gsd-t-milestone`, `gsd-t-complete-milestone`, `gsd-t-debug`, `gsd-t-integrate`) AND `hasUI(projectDir)` AND `!hasPlaywright(projectDir)`. On install failure, the gate writes `mode: 'blocked-needs-human'` to the headless session-state file and exits 4.
+3. **Commit-time gate** — `scripts/hooks/pre-commit-playwright-gate` (opt-in via `gsd-t doctor --install-hooks`) blocks commits that touch viewer/UI source files when Playwright tests have not passed since the most recent change. Reads `.gsd-t/.last-playwright-pass`; fails open on missing/corrupt timestamps.
+
+Operator overrides:
+- Manual install: `gsd-t setup-playwright [path]` (or `gsd-t doctor --install-playwright`).
+- Health check: `gsd-t doctor` reports `playwright missing` for any UI project without `playwright.config.*`.
+
+You no longer need to run a check yourself before testing commands — the gate runs every spawn.
 
 ### Playwright Cleanup
 

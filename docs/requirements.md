@@ -700,3 +700,30 @@ Acceptance:
 | REQ-M47-D2-02 | New `GET /api/main-session` endpoint returns `{ filename, sessionId, mtimeMs }` for the most-recently-modified `in-session-*.ndjson` (or `{ null, null, null }` when none exist); path-traversal-guarded; no caching. | m47-d2-server-helpers | T2, T5 | done |
 | REQ-M47-D2-03 | `dashboard-server-contract.md` bumped to v1.3.0 documenting the additive `status` field semantics + `/api/main-session` schema; module exports updated. | m47-d2-server-helpers | T3 | done |
 | REQ-M47-D2-04 | Test suite passes baseline 2045/2047 + new M47 tests (D1 + D2 net add); no NEW regressions in the 7 existing viewer-route/HTML tests (success criterion 5). | m47-d1-viewer-redesign + m47-d2-server-helpers | D1 T7, D2 T4–T5 | done |
+
+
+## M50 Universal Playwright Bootstrap + Deterministic UI Enforcement (planned — 2026-05-06)
+
+| REQ-ID | Requirement Summary | Domain | Task(s) | Status |
+|--------|---------------------|--------|---------|--------|
+| REQ-M50-D1-01 | `bin/playwright-bootstrap.cjs` exports `hasPlaywright`, `detectPackageManager`, `installPlaywright` (idempotent), `verifyPlaywrightHealth`. Zero external runtime deps. | m50-bootstrap-and-detection | T2, T3 | done |
+| REQ-M50-D1-02 | `bin/ui-detection.cjs` exports `hasUI` (depth-bounded, short-circuits on first hit) + `detectUIFlavor`. Recognizes React/Vue/Svelte/Next/Angular/Flutter/Tailwind/css-only. | m50-bootstrap-and-detection | T1 | done |
+| REQ-M50-D1-03 | `bin/gsd-t.js` migrates inline `hasPlaywright` (line 201-204) to `require('./playwright-bootstrap.cjs')`; `init`/`update-all`/`doctor` invoke `installPlaywright` when `hasUI && !hasPlaywright`. | m50-bootstrap-and-detection | T4 | done |
+| REQ-M50-D1-04 | New `gsd-t setup-playwright` subcommand: explicit one-shot `installPlaywright(cwd)` invocation with verbose output. | m50-bootstrap-and-detection | T4 | done |
+| REQ-M50-D1-05 | New flag `gsd-t doctor --install-playwright` directly invokes `installPlaywright(cwd)`. Fixes all 14 of 19 registered projects flagged Playwright-missing in one command. | m50-bootstrap-and-detection | T4 | done |
+| REQ-M50-D1-06 | ~25 unit tests across `test/m50-d1-playwright-bootstrap.test.js` + `test/m50-d1-ui-detection.test.js` + `test/m50-d1-cli-integration.test.js` pass. | m50-bootstrap-and-detection | T1, T2, T3, T4, T5 | done |
+| REQ-M50-D2-01 | `bin/headless-auto-spawn.cjs::autoSpawnHeadless()` inserts a spawn-gate: when `isTestingOrUICommand && hasUI && !hasPlaywright`, auto-installs; on install fail, exits with `mode: 'blocked-needs-human'` (exit code 4). Hot-path overhead ≤ 10ms when no install is needed. | m50-gates-and-specs | T2 | done |
+| REQ-M50-D2-02 | `scripts/hooks/pre-commit-playwright-gate` (opt-in via `gsd-t doctor --install-hooks`) reads `.gsd-t/.last-playwright-pass` and blocks viewer-source commits when any touched viewer-source file's mtime > the timestamp. Fail-open on config errors. | m50-gates-and-specs | T3 | done |
+| REQ-M50-D2-03 | `playwright.config.ts` at GSD-T project root with `testDir: 'e2e'`, chromium project, `webServer: undefined` (specs manage their own server lifecycle). | m50-gates-and-specs | T1 | done |
+| REQ-M50-D2-04 | `e2e/viewer/title.spec.ts` regression-tests M48 Bug 1 (project basename in `<title>` + header `.title` for `/transcripts` and `/transcripts/{spawnId}`). | m50-gates-and-specs | T4 | done |
+| REQ-M50-D2-05 | `e2e/viewer/timestamps.spec.ts` regression-tests M48 Bug 2 (per-frame timestamps from `frame.ts`, not per-batch `new Date()`). | m50-gates-and-specs | T5 | done |
+| REQ-M50-D2-06 | `e2e/viewer/chat-bubbles.spec.ts` regression-tests M48 Bug 3 (`user_turn`/`assistant_turn`/`session_start`/`tool_use_line` render as styled bubbles, not `JSON.stringify` dumps). | m50-gates-and-specs | T6 | done |
+| REQ-M50-D2-07 | `e2e/viewer/dual-pane.spec.ts` regression-tests M48 Bug 4 (clicking `in-session-*` rail entry pins to top pane only; bottom pane stays on its own SSE stream). | m50-gates-and-specs | T7 | done |
+| REQ-M50-D2-08 | `e2e/viewer/lazy-dashboard.spec.ts` regression-tests M49 banner (URL banner when dashboard alive; fallback "Transcript file:" banner when not). | m50-gates-and-specs | T8 | done |
+| REQ-M50-D2-09 | ~14 unit tests across `test/m50-d2-spawn-gate.test.js` + `test/m50-d2-pre-commit-hook.test.js` + `test/m50-d2-viewer-specs-smoke.test.js` pass. | m50-gates-and-specs | T1, T2, T3 | done |
+| REQ-M50-D2-10 | Doc-ripple: `~/.claude/CLAUDE.md` + `templates/CLAUDE-global.md` + 8 command files (`gsd-t-execute`, `gsd-t-test-sync`, `gsd-t-verify`, `gsd-t-quick`, `gsd-t-wave`, `gsd-t-milestone`, `gsd-t-complete-milestone`, `gsd-t-debug`) + `docs/architecture.md` + `CHANGELOG.md`. Replace prose Playwright reminders with referrals to `playwright-bootstrap-contract.md`. | m50-gates-and-specs | T9 | done |
+| REQ-M50-VERIFY | Full unit suite: 2104 baseline + ~25 D1 + ~14 D2 = ~2143 expected, ≥2141 passing (preserves 2 known env-sensitive flakes). All 5 E2E specs pass. Spawn-gate fixture + pre-commit-hook fixture pass. | both | T10 (D2) | planned |
+
+Supporting contracts:
+- `.gsd-t/contracts/playwright-bootstrap-contract.md` v1.0.0 — D1 library API + CLI wiring + idempotency invariants + error-path contract.
+- `.gsd-t/contracts/m50-integration-points.md` — D1↔D2 cross-domain checkpoint, the `bin/gsd-t.js` file-overlap coordination rules, and the doc-ripple ordering.

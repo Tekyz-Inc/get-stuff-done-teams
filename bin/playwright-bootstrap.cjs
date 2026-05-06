@@ -2,7 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { exec, spawn } = require('child_process');
+const { exec, spawn, spawnSync } = require('child_process');
 
 function hasPlaywright(projectDir) {
   const configs = ['playwright.config.ts', 'playwright.config.js', 'playwright.config.mjs'];
@@ -232,11 +232,82 @@ async function installPlaywright(projectDir, opts) {
   return { ok: true };
 }
 
+// ── installPlaywrightSync ────────────────────────────────────────────────────
+//
+// Synchronous variant of installPlaywright(). Same idempotency + template +
+// error-classifier semantics as the async form, implemented with `spawnSync`
+// so it can be embedded inside synchronous code paths (notably the M50 D2
+// spawn-gate in bin/headless-auto-spawn.cjs::autoSpawnHeadless, which must
+// remain sync to preserve the existing return-value contract relied on by
+// bin/gsd-t-parallel.cjs::runDispatch).
+//
+// Returns the same shape as installPlaywright(): {ok: true} or
+// {ok: false, err, hint, partial?: true}. Tests inject opts.runner the same
+// way; production callers omit it.
+
+function _runSubprocessSync(cmd, args, cwd) {
+  let res;
+  try {
+    res = spawnSync(cmd, args, {
+      cwd,
+      env: process.env,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      encoding: 'utf8',
+    });
+  } catch (err) {
+    return { code: 127, stdout: '', stderr: err.message || String(err) };
+  }
+  if (res.error) {
+    return { code: 127, stdout: '', stderr: res.error.message || String(res.error) };
+  }
+  return {
+    code: res.status == null ? 1 : res.status,
+    stdout: res.stdout || '',
+    stderr: res.stderr || '',
+  };
+}
+
+function installPlaywrightSync(projectDir, opts) {
+  if (hasPlaywright(projectDir)) return { ok: true };
+
+  const pm = detectPackageManager(projectDir);
+  const install = INSTALL_COMMANDS[pm] || INSTALL_COMMANDS.npm;
+  const runner = (opts && opts.runner) || _runSubprocessSync;
+
+  let r = runner(install.cmd, install.args, projectDir);
+  if (r.code !== 0) {
+    const c = _classifyError(r.stderr, r.code, install.cmd);
+    return { ok: false, err: c.err, hint: c.hint };
+  }
+
+  r = runner('npx', ['playwright', 'install', 'chromium'], projectDir);
+  if (r.code !== 0) {
+    const c = _classifyError(r.stderr, r.code, 'npx');
+    return { ok: false, err: c.err, hint: c.hint, partial: true };
+  }
+
+  const configPath = path.join(projectDir, 'playwright.config.ts');
+  const cfgWrite = _writeIfAbsent(configPath, PLAYWRIGHT_CONFIG_TEMPLATE);
+  if (!cfgWrite.ok) {
+    const c = _classifyError(cfgWrite.error, 1, 'fs.writeFile');
+    return { ok: false, err: c.err, hint: c.hint };
+  }
+
+  const placeholderWrite = _ensureE2EPlaceholder(projectDir);
+  if (!placeholderWrite.ok) {
+    const c = _classifyError(placeholderWrite.error, 1, 'fs.writeFile');
+    return { ok: false, err: c.err, hint: c.hint };
+  }
+
+  return { ok: true };
+}
+
 module.exports = {
   hasPlaywright,
   detectPackageManager,
   verifyPlaywrightHealth,
   installPlaywright,
+  installPlaywrightSync,
   // Exposed for tests; treat as private.
   _PLAYWRIGHT_CONFIG_TEMPLATE: PLAYWRIGHT_CONFIG_TEMPLATE,
   _PLACEHOLDER_SPEC_TEMPLATE: PLACEHOLDER_SPEC_TEMPLATE,

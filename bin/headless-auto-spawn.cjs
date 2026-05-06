@@ -42,6 +42,31 @@ const {
 const SESSIONS_DIR_REL = path.join(".gsd-t", "headless-sessions");
 const LOG_DIR_REL = ".gsd-t"; // headless-{id}.log lives directly in .gsd-t
 
+// M50 D2 — Whitelist of commands that touch UI / tests. Centralized constant
+// referenced by the spawn-gate (`_isTestingOrUICommand`). When any of these
+// commands is about to spawn for a project where `hasUI(projectDir) === true`
+// and `hasPlaywright(projectDir) === false`, the gate auto-installs Playwright
+// before the spawn proceeds. See playwright-bootstrap-contract.md §3 +
+// m50-integration-points.md "E2E Specs Server Lifecycle".
+const TESTING_OR_UI_COMMANDS = new Set([
+  "gsd-t-execute",
+  "gsd-t-test-sync",
+  "gsd-t-verify",
+  "gsd-t-quick",
+  "gsd-t-wave",
+  "gsd-t-milestone",
+  "gsd-t-complete-milestone",
+  "gsd-t-debug",
+  "gsd-t-integrate",
+]);
+
+function _isTestingOrUICommand(command) {
+  if (typeof command !== "string" || !command) return false;
+  // Accept both raw command names and prefixed variants ("execute" or "gsd-t-execute").
+  const normalized = command.startsWith("gsd-t-") ? command : `gsd-t-${command}`;
+  return TESTING_OR_UI_COMMANDS.has(normalized);
+}
+
 // ── Exports ──────────────────────────────────────────────────────────────────
 
 module.exports = {
@@ -57,6 +82,9 @@ module.exports = {
   shouldSpawnHeadless: () => true,
   // M49 — exported for tests. Synchronous probe; never throws.
   _probeDashboardLazy,
+  // M50 D2 — exported for tests. Whitelist + classifier, both synchronous.
+  TESTING_OR_UI_COMMANDS,
+  _isTestingOrUICommand,
 };
 
 // M43 D4 — one-shot deprecation banner when a caller still passes `watch`
@@ -119,6 +147,99 @@ function autoSpawnHeadless(opts) {
     throw new Error(
       `autoSpawnHeadless: \`spawnType\` must be 'primary' or 'validation' (got ${JSON.stringify(spawnType)})`,
     );
+  }
+
+  // M50 D2 — Spawn-time Playwright gate. When the command being spawned is a
+  // testing/UI-touching command AND the project has a UI signal AND there's
+  // no playwright.config.* yet, auto-install Playwright before the spawn
+  // proceeds. On install failure, write a `mode: 'blocked-needs-human'`
+  // session-state file (read by gsd-t-resume Step 0 + read-back banner) and
+  // exit 4. See playwright-bootstrap-contract.md §3 + §8 and
+  // m50-integration-points.md for the full protocol.
+  //
+  // Hot path: the gate evaluates `_isTestingOrUICommand` (Set lookup) →
+  // `hasUI` (depth-bounded fs walk) → `hasPlaywright` (existsSync). When the
+  // gate does NOT fire (non-testing command, non-UI project, or already
+  // configured), overhead is the cost of three fast filesystem checks.
+  // Tests inject `opts._gateInstaller` to substitute a stub installer; tests
+  // also inject `opts._gateProbes` to override `hasUI`/`hasPlaywright` for
+  // non-fixture-based assertions.
+  if (_isTestingOrUICommand(command)) {
+    const probes = (opts && opts._gateProbes) || null;
+    let projectHasUI;
+    let projectHasPlaywright;
+    try {
+      const ui = probes && probes.hasUI ? probes.hasUI : require("./ui-detection.cjs").hasUI;
+      const pw = probes && probes.hasPlaywright ? probes.hasPlaywright : require("./playwright-bootstrap.cjs").hasPlaywright;
+      projectHasUI = !!ui(projectDir);
+      projectHasPlaywright = !!pw(projectDir);
+    } catch (_e) {
+      // Probe failure → fail open: skip the gate. A broken probe is worse
+      // than a permissive one (we don't want to block every spawn on a stale
+      // import path).
+      projectHasUI = false;
+      projectHasPlaywright = true;
+    }
+    if (projectHasUI && !projectHasPlaywright) {
+      let installer;
+      try {
+        installer = (opts && opts._gateInstaller) ||
+          require("./playwright-bootstrap.cjs").installPlaywrightSync;
+      } catch (_e) {
+        installer = null;
+      }
+      if (typeof installer === "function") {
+        const result = installer(projectDir);
+        if (result && result.ok) {
+          try {
+            // Concise stdout signal so the user sees the gate fired.
+            process.stdout.write(
+              `▶ Playwright auto-installed (${path.relative(projectDir, path.join(projectDir, "playwright.config.ts"))})\n`,
+            );
+          } catch (_) { /* best-effort */ }
+        } else {
+          // Install failed → mode: 'blocked-needs-human', exit 4.
+          const blockedId = makeSessionId(command, new Date());
+          try {
+            ensureDir(path.join(projectDir, SESSIONS_DIR_REL));
+            writeSessionFile(projectDir, {
+              id: blockedId,
+              pid: null,
+              logPath: null,
+              startTimestamp: new Date().toISOString(),
+              command,
+              args,
+              status: "blocked",
+              mode: "blocked-needs-human",
+              reason: "playwright-install-failed",
+              err: (result && result.err) || "unknown",
+              hint: (result && result.hint) || null,
+              continueFromPath: continue_from,
+              surfaced: false,
+            });
+          } catch (_) { /* best-effort */ }
+          try {
+            process.stderr.write(
+              `[m50-spawn-gate] Playwright install failed (${(result && result.err) || "unknown"}). ` +
+              `Run \`gsd-t doctor --install-playwright\` to retry. Spawn aborted.\n`,
+            );
+          } catch (_) { /* best-effort */ }
+          // In test runs we don't want to actually exit the test harness;
+          // tests inject `opts._gateExit` to capture the exit instead.
+          if (opts && typeof opts._gateExit === "function") {
+            opts._gateExit(4);
+            return {
+              id: blockedId,
+              pid: null,
+              logPath: null,
+              timestamp: new Date().toISOString(),
+              mode: "blocked-needs-human",
+            };
+          }
+          process.exit(4);
+        }
+      }
+    }
   }
 
   const timestamp = new Date().toISOString();

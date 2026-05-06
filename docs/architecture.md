@@ -1086,3 +1086,17 @@ Contract: `.gsd-t/contracts/headless-default-contract.md` v2.1.0 §Worker Sub-Di
 The production main loop currently runs exactly one iter per pass (`batchSize === 1`) always, unless a caller explicitly threads `opts.maxIterParallel` as a number through `_computeIterBatchSize` — which today's supervisor CLI does not. The four helpers are exported via `module.exports.__test__` so the T7 unit suite and any future caller can exercise batched iteration deterministically, but iter-parallelism at this layer is **scaffolded, not engaged in production**. The gate is intentional: `_runOneIter` mutates shared `state` fields (`state.iter`, heartbeat bookkeeping, the `writeState` side effect) that are not safe to execute concurrently against the same state object. Backlog #24 tracks the follow-up to make `_runOneIter` state-clone-safe and lift the production gate so the supervisor CLI can set a non-1 default.
 
 Contract: `.gsd-t/contracts/iter-parallel-contract.md` v1.0.0.
+
+## Playwright Deterministic Enforcement (M50, v3.21.x+)
+
+M50 retires the prose-only "Playwright Readiness Guard" in favor of executable enforcement. Three layers, each runnable from the CLI or from any caller via the exported library:
+
+1. **Bootstrap library** (`bin/playwright-bootstrap.cjs` + `bin/ui-detection.cjs`) — single-source library exposing `hasPlaywright`, `detectPackageManager`, `installPlaywright`, `installPlaywrightSync`, `verifyPlaywrightHealth`, `hasUI`, `detectUIFlavor`. Zero external runtime dependencies. The async + sync install variants share the same template, error classifier, and idempotency invariants per `playwright-bootstrap-contract.md` §3-§8.
+
+2. **Spawn-time gate** (`bin/headless-auto-spawn.cjs::autoSpawnHeadless`) — when the command being spawned is in the `TESTING_OR_UI_COMMANDS` whitelist (`gsd-t-execute`, `gsd-t-test-sync`, `gsd-t-verify`, `gsd-t-quick`, `gsd-t-wave`, `gsd-t-milestone`, `gsd-t-complete-milestone`, `gsd-t-debug`, `gsd-t-integrate`) AND `hasUI(projectDir)` AND `!hasPlaywright(projectDir)`, the gate auto-installs via `installPlaywrightSync`. On install failure, the gate writes `mode: 'blocked-needs-human'` to the headless session-state file and exits with code 4. Hot-path overhead: three filesystem checks (Set lookup + depth-bounded fs walk + existsSync).
+
+3. **Commit-time gate** (`scripts/hooks/pre-commit-playwright-gate`) — opt-in via `gsd-t doctor --install-hooks`. The bash hook reads `.gsd-t/.last-playwright-pass` (Unix epoch ms) and blocks commits that touch viewer-source files (`scripts/gsd-t-transcript.html`, `scripts/gsd-t-dashboard-server.js`, `e2e/viewer/**`) when any staged file's mtime exceeds the recorded pass. Fails open on missing/corrupt timestamps — a broken hook is worse than a permissive one.
+
+CLI surface added in M50: `gsd-t setup-playwright [path]` (single-project explicit installer), `gsd-t doctor --install-playwright` (fix-it-now flag), `gsd-t doctor --install-hooks` (pre-commit-gate installer). `gsd-t init` and `gsd-t update-all` invoke `installPlaywright` automatically for any UI project that's missing it.
+
+Contract: `.gsd-t/contracts/playwright-bootstrap-contract.md` v1.0.0.

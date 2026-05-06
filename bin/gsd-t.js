@@ -576,6 +576,47 @@ function installContextMeter(projectDir) {
 // to .git/hooks/pre-commit; if the file doesn't exist, copies our stock
 // script. Never overwrites an existing hook.
 const CAPTURE_LINT_HOOK_MARKER = "# GSD-T capture lint";
+// M50 D2 — Playwright pre-commit gate marker. Installed via
+// `gsd-t doctor --install-hooks`. Idempotent: appends a delimited block to
+// `.git/hooks/pre-commit` if the marker isn't already present.
+const PLAYWRIGHT_GATE_HOOK_MARKER = "# GSD-T playwright gate";
+
+function installPlaywrightGateHook(projectDir) {
+  const gitDir = path.join(projectDir, ".git");
+  if (!fs.existsSync(gitDir)) {
+    warn("No .git directory — not a git repo; skipping playwright-gate install");
+    return false;
+  }
+  const hooksDir = path.join(gitDir, "hooks");
+  try { fs.mkdirSync(hooksDir, { recursive: true }); } catch (_) {}
+  const hookPath = path.join(hooksDir, "pre-commit");
+  const stockSrc = path.join(PKG_ROOT, "scripts", "hooks", "pre-commit-playwright-gate");
+  let stock = "";
+  try { stock = fs.readFileSync(stockSrc, "utf8"); } catch (_) {
+    warn("Could not read pre-commit-playwright-gate script from package");
+    return false;
+  }
+  if (!fs.existsSync(hookPath)) {
+    fs.writeFileSync(hookPath, stock);
+    try { fs.chmodSync(hookPath, 0o755); } catch (_) {}
+    success(`Playwright gate installed at ${path.relative(projectDir, hookPath)}`);
+    info("The hook reads .gsd-t/.last-playwright-pass to gate viewer-source commits");
+    return true;
+  }
+  const existing = fs.readFileSync(hookPath, "utf8");
+  if (existing.includes(PLAYWRIGHT_GATE_HOOK_MARKER)) {
+    info("Playwright-gate block already present in pre-commit hook — no change");
+    return true;
+  }
+  const appended = existing.trimEnd() +
+    "\n\n" + PLAYWRIGHT_GATE_HOOK_MARKER + "\n" +
+    stock.replace(/^#!.*\n/, "") + "\n";
+  fs.writeFileSync(hookPath, appended);
+  try { fs.chmodSync(hookPath, 0o755); } catch (_) {}
+  success(`Playwright-gate block appended to ${path.relative(projectDir, hookPath)}`);
+  return true;
+}
+
 function installCaptureLintHook(projectDir) {
   const gitDir = path.join(projectDir, ".git");
   if (!fs.existsSync(gitDir)) {
@@ -3008,6 +3049,12 @@ async function doDoctor(opts) {
   issues += checkDoctorCgc();
   issues += await checkDoctorContextMeter(process.cwd());
   issues += checkDoctorDashboardOrphans(opts);
+  // M50 D2: opt-in install of the playwright-gate pre-commit hook.
+  if (opts && opts.installHooks) {
+    log("");
+    heading("Installing pre-commit hooks");
+    installPlaywrightGateHook(process.cwd());
+  }
   log("");
   if (issues === 0) {
     log(`${GREEN}${BOLD}  All checks passed!${RESET}`);
@@ -4278,10 +4325,11 @@ if (require.main === module) {
       doUninstall();
       break;
     case "doctor": {
-      const doctorOpts = { prune: false, installPlaywright: false };
+      const doctorOpts = { prune: false, installPlaywright: false, installHooks: false };
       for (let i = 1; i < args.length; i++) {
         if (args[i] === "--prune") doctorOpts.prune = true;
         if (args[i] === "--install-playwright") doctorOpts.installPlaywright = true;
+        if (args[i] === "--install-hooks") doctorOpts.installHooks = true;
       }
       doDoctor(doctorOpts).catch((e) => { error(e.message || String(e)); process.exit(1); });
       break;

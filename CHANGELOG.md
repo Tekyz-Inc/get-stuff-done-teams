@@ -2,6 +2,49 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [Unreleased] — M50 Universal Playwright Bootstrap + Deterministic UI Enforcement
+
+### Added — three deterministic enforcement layers replace prose-only Playwright Readiness Guard
+
+Closes the gap that allowed M48 viewer fixes to ship without Playwright tests despite the existing prose Readiness Guard. Prior pattern was prose in `~/.claude/CLAUDE.md` + per-command-file reminders that agents could read and decide to skip. M50 converts every layer to executable code so agents cannot self-approve their way around it.
+
+**Layer 1 — Bootstrap library (D1):**
+- `bin/playwright-bootstrap.cjs` (new) — `hasPlaywright`, `detectPackageManager`, `installPlaywright`, `installPlaywrightSync`, `verifyPlaywrightHealth`. Idempotent installer: detects package manager (npm/pnpm/yarn/bun), installs `@playwright/test` + chromium, writes `playwright.config.ts` from a single-source template (contract §6), scaffolds `e2e/__placeholder.spec.ts`. Preserves existing config + e2e contents on re-run. Error classifier maps subprocess stderr to `{package-manager-not-found, network, chromium, disk}` with caller-actionable hints; chromium-failure surfaces `partial: true`. Zero external runtime deps.
+- `bin/ui-detection.cjs` (new) — `hasUI`, `detectUIFlavor`. Synchronous, depth-bounded ≤3 BFS, never throws. Detects React/Vue/Svelte/Next/Angular/Flutter/Tailwind via `package.json`, `pubspec.yaml`, `tailwind.config.{js,ts,mjs,cjs}`, or any UI extension (`.tsx`/`.jsx`/`.vue`/`.svelte`/`.css`/`.scss`).
+- `bin/gsd-t.js`: inline `hasPlaywright` (was lines 201-204) replaced with `require('./playwright-bootstrap.cjs')`. `init` flow auto-installs Playwright when `hasUI && !hasPlaywright`. `update-all` auto-installs across all registered UI projects + reports counts (`Auto-installed Playwright in: N project(s)`). New `gsd-t setup-playwright [path] [--force]` subcommand. New `gsd-t doctor --install-playwright` flag. New `gsd-t doctor --install-hooks` flag (D2).
+
+**Layer 2 — Spawn-time gate (D2):**
+- `bin/headless-auto-spawn.cjs::autoSpawnHeadless()`: new gate runs before the spawn. When the command is in the `TESTING_OR_UI_COMMANDS` whitelist (9 commands: execute, test-sync, verify, quick, wave, milestone, complete-milestone, debug, integrate) AND `hasUI(projectDir)` AND `!hasPlaywright(projectDir)`, the gate calls `installPlaywrightSync(projectDir)` synchronously. On install failure, writes `mode: 'blocked-needs-human'` + `reason: 'playwright-install-failed'` to the headless session-state file and exits 4. Hot path: three filesystem checks; no install attempt when gate doesn't fire.
+
+**Layer 3 — Commit-time gate (D2):**
+- `scripts/hooks/pre-commit-playwright-gate` (new, executable bash) — opt-in via `gsd-t doctor --install-hooks`. Reads `.gsd-t/.last-playwright-pass` (Unix epoch ms in a single line). Detects staged viewer-source files (`scripts/gsd-t-transcript.html`, `scripts/gsd-t-dashboard-server.js`, `e2e/viewer/**`); if any file's mtime exceeds the last-pass timestamp, blocks the commit (exit 1 + clear stderr message). Fails open on missing/corrupt timestamps — broken hook is worse than a permissive one.
+
+**E2E specs delivered (the M47/M48/M49 viewer specs we owed):**
+- `playwright.config.ts` (root) — testDir `./e2e`, chromium project, `webServer` omitted (specs manage their own server lifecycle).
+- `e2e/viewer/title.spec.ts` — M48 Bug 1 regression (project basename in `<title>` + header `.title` for `/transcripts` and `/transcripts/{spawn-id}`).
+- `e2e/viewer/timestamps.spec.ts` — M48 Bug 2 regression (per-frame `frame.ts`, not per-batch `new Date()`).
+- `e2e/viewer/chat-bubbles.spec.ts` — M48 Bug 3 regression (`user_turn`/`assistant_turn`/`session_start`/`tool_use_line` render as bubbles, not JSON.stringify dumps).
+- `e2e/viewer/dual-pane.spec.ts` — M48 Bug 4 regression (bottom pane never connects to in-session-* SSE).
+- `e2e/viewer/lazy-dashboard.spec.ts` — M49 banner regression (file-path + visualize hint when no dashboard; URL when alive).
+
+**Tests:**
+- `test/m50-d1-ui-detection.test.js` — 18 unit tests (8 mandatory fixtures + 4 hardening + 6 Red Team regressions).
+- `test/m50-d1-playwright-bootstrap.test.js` — 20 unit tests (`hasPlaywright`, `detectPackageManager`, `verifyPlaywrightHealth`, 9 install-path branches).
+- `test/m50-d1-cli-integration.test.js` — 5 CLI wire-up tests (re-export, init gate, doctor flag, setup-playwright).
+- `test/m50-d2-viewer-specs-smoke.test.js` — 4 meta-tests (config + scripts + zero-runtime-dep invariant).
+- `test/m50-d2-spawn-gate.test.js` — 9 gate-firing matrix tests (whitelist + 5 firing scenarios + hot-path overhead).
+- `test/m50-d2-pre-commit-hook.test.js` — 6 hook-behavior tests (clean / blocked / fresh / missing / corrupt / e2e/viewer pattern).
+
+Total: 62 new M50 tests; full suite 2163/2166 (3 pre-existing env-flakes preserved). Zero regressions.
+
+**Doc-ripple:**
+- `~/.claude/CLAUDE.md` § Playwright Readiness Guard — collapsed to a layered referral.
+- `templates/CLAUDE-global.md` — mirror.
+- `commands/gsd-t-init.md` Step 11 — points at `installPlaywright()` instead of carrying inline package-manager commands.
+- `docs/architecture.md` — new "Playwright Deterministic Enforcement (M50)" subsection.
+- `.gsd-t/contracts/playwright-bootstrap-contract.md` v1.0.0 — new contract.
+- `.gsd-t/contracts/m50-integration-points.md` — D1→D2 checkpoint flipped to PUBLISHED.
+
 ## [3.21.12] - 2026-05-06
 
 ### Fixed — dashboard orphan accumulation (M49 lazy autostart + idle-TTL + doctor-prune)
