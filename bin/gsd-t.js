@@ -198,10 +198,15 @@ function copyFile(src, dest, label) {
   }
 }
 
-function hasPlaywright(projectDir) {
-  const configs = ["playwright.config.ts", "playwright.config.js", "playwright.config.mjs"];
-  return configs.some((f) => fs.existsSync(path.join(projectDir, f)));
-}
+// M50 D1: hasPlaywright migrated to bin/playwright-bootstrap.cjs.
+// Re-exported here for back-compat with any caller still requiring it via
+// bin/gsd-t.js. See .gsd-t/contracts/playwright-bootstrap-contract.md §3.
+const {
+  hasPlaywright,
+  installPlaywright,
+  detectPackageManager: _detectPlaywrightPackageManager,
+} = require("./playwright-bootstrap.cjs");
+const { hasUI } = require("./ui-detection.cjs");
 
 function readProjectDeps(projectDir) {
   const pkgPath = path.join(projectDir, "package.json");
@@ -1655,6 +1660,25 @@ async function doInit(projectName) {
 
   if (registerProject(projectDir)) success("Registered in ~/.claude/.gsd-t-projects");
 
+  // M50 D1: Universal Playwright bootstrap. If the project has UI signal but
+  // no playwright.config.*, install @playwright/test + chromium and scaffold
+  // playwright.config.ts + e2e/. See playwright-bootstrap-contract.md §5.
+  if (hasUI(projectDir) && !hasPlaywright(projectDir)) {
+    info("Installing Playwright (chromium)…");
+    try {
+      const r = await installPlaywright(projectDir);
+      if (r.ok) {
+        success("Playwright installed (playwright.config.ts + e2e/ scaffold)");
+      } else {
+        warn(`Playwright install failed: ${r.err}`);
+        if (r.hint) info(r.hint);
+      }
+    } catch (e) {
+      warn(`Playwright install errored: ${e.message || e}`);
+      info("Re-run with: gsd-t doctor --install-playwright");
+    }
+  }
+
   showInitTree(projectDir);
 }
 
@@ -1968,10 +1992,12 @@ function createProjectChangelog(projectDir, projectName) {
   }
 }
 
-function checkProjectHealth(projects) {
+async function checkProjectHealth(projects) {
   heading("Project Health");
   const playwrightMissing = [];
   const swaggerMissing = [];
+  const playwrightAutoInstalled = [];
+  const playwrightInstallFailed = [];
 
   for (const projectDir of projects) {
     if (!fs.existsSync(projectDir)) continue;
@@ -1980,19 +2006,56 @@ function checkProjectHealth(projects) {
     if (hasApi(projectDir) && !hasSwagger(projectDir)) swaggerMissing.push(name);
   }
 
+  // M50 D1: auto-install Playwright for any UI project that's missing it.
+  // Non-UI projects stay missing — they don't need Playwright.
+  for (const projectDir of projects) {
+    if (!fs.existsSync(projectDir)) continue;
+    if (hasPlaywright(projectDir)) continue;
+    if (!hasUI(projectDir)) continue;
+    const name = path.basename(projectDir);
+    try {
+      const r = await installPlaywright(projectDir);
+      if (r.ok) playwrightAutoInstalled.push(name);
+      else playwrightInstallFailed.push({ name, err: r.err, hint: r.hint });
+    } catch (e) {
+      playwrightInstallFailed.push({ name, err: e.message || String(e) });
+    }
+  }
+
   if (playwrightMissing.length === 0 && swaggerMissing.length === 0) {
     success("All projects have Playwright and Swagger configured");
   } else {
     if (playwrightMissing.length > 0) {
       warn(`Playwright missing: ${playwrightMissing.join(", ")}`);
-      info("Playwright will be auto-installed when you run a GSD-T command in each project");
+      if (playwrightAutoInstalled.length > 0) {
+        success(`Auto-installed Playwright in: ${playwrightAutoInstalled.join(", ")}`);
+      }
+      if (playwrightInstallFailed.length > 0) {
+        for (const f of playwrightInstallFailed) {
+          warn(`  ${f.name} — install failed: ${f.err}`);
+          if (f.hint) info(`  ${f.hint}`);
+        }
+      }
+      const stillMissing = playwrightMissing.filter(
+        (n) => !playwrightAutoInstalled.includes(n),
+      );
+      if (stillMissing.length > 0) {
+        info(
+          `Remaining (no UI signal — skipped): ${stillMissing.join(", ")}`,
+        );
+      }
     }
     if (swaggerMissing.length > 0) {
       warn(`Swagger/OpenAPI missing (API detected): ${swaggerMissing.join(", ")}`);
       info("Swagger will be auto-configured when an API endpoint is created or modified");
     }
   }
-  return { playwrightMissing, swaggerMissing };
+  return {
+    playwrightMissing,
+    swaggerMissing,
+    playwrightAutoInstalled,
+    playwrightInstallFailed,
+  };
 }
 
 // ── Global Rule Sync (M27) ──────────────────────────────────────────────────
@@ -2163,8 +2226,19 @@ async function doUpdateAll() {
   // Global rule sync — propagate proven rules across projects
   const syncCount = syncGlobalRules(projects);
 
-  const { playwrightMissing, swaggerMissing } = checkProjectHealth(projects);
-  showUpdateAllSummary(projects.length, counts, playwrightMissing, swaggerMissing, syncCount);
+  const {
+    playwrightMissing,
+    swaggerMissing,
+    playwrightAutoInstalled,
+  } = await checkProjectHealth(projects);
+  showUpdateAllSummary(
+    projects.length,
+    counts,
+    playwrightMissing,
+    swaggerMissing,
+    syncCount,
+    playwrightAutoInstalled,
+  );
 }
 
 // Upgrade the globally-installed @tekyzinc/gsd-t to @latest. Returns
@@ -2510,7 +2584,14 @@ function ensureUnattendedGitignore(projectDir, projectName) {
   return added;
 }
 
-function showUpdateAllSummary(total, counts, playwrightMissing, swaggerMissing, syncCount) {
+function showUpdateAllSummary(
+  total,
+  counts,
+  playwrightMissing,
+  swaggerMissing,
+  syncCount,
+  playwrightAutoInstalled,
+) {
   log("");
   heading("Update All Complete");
   log(`  Projects registered: ${total}`);
@@ -2519,6 +2600,9 @@ function showUpdateAllSummary(total, counts, playwrightMissing, swaggerMissing, 
   if (counts.missing > 0) log(`  Not found:           ${counts.missing}`);
   if (counts.errors > 0) log(`  Errors:              ${counts.errors}`);
   if (playwrightMissing.length > 0) log(`  Missing Playwright:  ${playwrightMissing.length}`);
+  if (Array.isArray(playwrightAutoInstalled) && playwrightAutoInstalled.length > 0) {
+    log(`  Auto-installed Playwright in: ${playwrightAutoInstalled.length} project(s)`);
+  }
   if (swaggerMissing.length > 0) log(`  Missing Swagger:     ${swaggerMissing.length}`);
   if (syncCount > 0) log(`  Global rules synced: ${syncCount}`);
   log("");
@@ -2604,14 +2688,32 @@ function checkDoctorEncoding(installed) {
   return 0;
 }
 
-function checkDoctorProject() {
+async function checkDoctorProject(opts) {
   let issues = 0;
   const cwd = process.cwd();
+  const installFlag = !!(opts && opts.installPlaywright);
   if (hasPlaywright(cwd)) {
     success("Playwright configured");
+  } else if (installFlag && hasUI(cwd)) {
+    info("Installing Playwright (chromium)…");
+    try {
+      const r = await installPlaywright(cwd);
+      if (r.ok) {
+        success("Playwright installed (playwright.config.ts + e2e/ scaffold)");
+      } else {
+        error(`Playwright install failed: ${r.err}`);
+        if (r.hint) info(r.hint);
+        issues++;
+      }
+    } catch (e) {
+      error(`Playwright install errored: ${e.message || e}`);
+      issues++;
+    }
+  } else if (installFlag && !hasUI(cwd)) {
+    info("Playwright skipped — no UI signal in this project");
   } else {
     warn("Playwright not configured in this project");
-    info("Will be auto-installed when you run a GSD-T testing command");
+    info("Re-run with --install-playwright, or run any GSD-T testing command (auto-install)");
     issues++;
   }
   if (hasApi(cwd)) {
@@ -2902,7 +3004,7 @@ async function doDoctor(opts) {
   let issues = 0;
   issues += checkDoctorEnvironment();
   issues += checkDoctorInstallation();
-  issues += checkDoctorProject();
+  issues += await checkDoctorProject(opts);
   issues += checkDoctorCgc();
   issues += await checkDoctorContextMeter(process.cwd());
   issues += checkDoctorDashboardOrphans(opts);
@@ -4176,11 +4278,48 @@ if (require.main === module) {
       doUninstall();
       break;
     case "doctor": {
-      const doctorOpts = { prune: false };
+      const doctorOpts = { prune: false, installPlaywright: false };
       for (let i = 1; i < args.length; i++) {
         if (args[i] === "--prune") doctorOpts.prune = true;
+        if (args[i] === "--install-playwright") doctorOpts.installPlaywright = true;
       }
       doDoctor(doctorOpts).catch((e) => { error(e.message || String(e)); process.exit(1); });
+      break;
+    }
+    case "setup-playwright": {
+      // Single-project explicit installer. Thin wrapper around installPlaywright().
+      const targetDir = args[1] && !args[1].startsWith("-") ? path.resolve(args[1]) : process.cwd();
+      heading(`Setup Playwright: ${targetDir}`);
+      log("");
+      if (!fs.existsSync(targetDir)) {
+        error(`Path not found: ${targetDir}`);
+        process.exit(1);
+      }
+      if (hasPlaywright(targetDir)) {
+        info("Playwright already configured (playwright.config.* present)");
+        process.exit(0);
+      }
+      if (!hasUI(targetDir)) {
+        warn("No UI signal detected. Installing anyway? Re-run with --force to install regardless.");
+        const force = args.includes("--force");
+        if (!force) {
+          info("Skipping. Use --force to install Playwright in a non-UI project.");
+          process.exit(0);
+        }
+      }
+      info("Installing Playwright (chromium)…");
+      installPlaywright(targetDir)
+        .then((r) => {
+          if (r.ok) {
+            success("Playwright installed (playwright.config.ts + e2e/ scaffold)");
+            process.exit(0);
+          } else {
+            error(`Playwright install failed: ${r.err}`);
+            if (r.hint) info(r.hint);
+            process.exit(1);
+          }
+        })
+        .catch((e) => { error(e.message || String(e)); process.exit(1); });
       break;
     }
     case "changelog":

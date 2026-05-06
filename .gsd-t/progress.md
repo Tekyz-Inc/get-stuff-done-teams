@@ -1,7 +1,7 @@
 # GSD-T Progress
 
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
-## Status: M50 IN-PROGRESS — D1 T1 complete (1/15)
+## Status: M50 IN-PROGRESS — D1 complete (5/15)
 ## Date: 2026-05-06
 ## Version: 3.21.12
 
@@ -12,7 +12,7 @@
 ### Domains
 | Domain | Status | Tasks | Completed |
 |--------|--------|-------|-----------|
-| m50-bootstrap-and-detection | in-progress | 5 | 1 |
+| m50-bootstrap-and-detection | complete | 5 | 5 |
 | m50-gates-and-specs | planned | 10 | 0 |
 
 ### Contracts
@@ -21,7 +21,7 @@
 - [ ] `headless-default-contract.md` v2.1.0 — UNCHANGED (D2's spawn-gate is additive, captured in m50-integration-points; no version bump)
 
 ### Integration Checkpoints
-- [ ] D1 publishes `bin/playwright-bootstrap.cjs` + `bin/ui-detection.cjs` + CLI wiring + D1 tests passing — blocks D2's spawn-gate import.
+- [x] D1 publishes `bin/playwright-bootstrap.cjs` + `bin/ui-detection.cjs` + CLI wiring + D1 tests passing — published 2026-05-06 14:15 PDT (43/43 D1 tests pass).
 - [ ] D2 spawn-gate fixture test passes (UI fixture without Playwright triggers a successful install pre-spawn).
 - [ ] D2 pre-commit-hook fixture test passes (stale viewer-source commit blocked, fresh-viewer-source commit succeeds).
 
@@ -73,6 +73,10 @@ Older milestones (M33 and earlier) archived under `.gsd-t/milestones/` — see d
 ## Decision Log
 
 > Prior decision log entries preserved in `.gsd-t/milestones/*/progress.md` — see archive snapshots for pre-M47 history.
+
+- 2026-05-06 14:15: [success] M50 D1 task-3 — installPlaywright() landed on bin/playwright-bootstrap.cjs. Idempotent installer per contract §3+§6+§7+§8. Added 9 install-path tests to test/m50-d1-playwright-bootstrap.test.js (idempotent short-circuit, 4 package-manager paths, config-template verbatim write, existing-config preservation, existing-e2e/ preservation, install-failure → hint, chromium-failure → partial:true). 20/20 in this file pass.
+- 2026-05-06 14:15: [success] M50 D1 task-4 — bin/gsd-t.js wired. Inline hasPlaywright (lines 201-204) replaced with require('./playwright-bootstrap.cjs'); init flow auto-installs Playwright when hasUI && !hasPlaywright; checkProjectHealth made async + auto-installs across registered projects + reports counts in update-all summary; checkDoctorProject made async + supports --install-playwright flag; new `gsd-t setup-playwright [path]` subcommand wraps installPlaywright with --force escape hatch for non-UI projects. New test/m50-d1-cli-integration.test.js (5/5 pass).
+- 2026-05-06 14:15: [checkpoint] M50 D1 published — exports verified, 43/43 D1 tests passing (18 ui-detection + 20 playwright-bootstrap + 5 cli-integration), `gsd-t doctor --install-playwright` flag recognized, `gsd-t setup-playwright` subcommand functional. m50-integration-points.md flipped to PUBLISHED. D2 may now import from bin/playwright-bootstrap.cjs and bin/ui-detection.cjs.
 
 - 2026-05-06 09:02: [planned] M47 Focused Visualizer Redesign — PLANNED. 2 file-disjoint domains, 12 total tasks. D1 viewer-redesign (7 tasks, single file `scripts/gsd-t-transcript.html`). D2 server-helpers (5 tasks, single file `scripts/gsd-t-dashboard-server.js`). 1 cross-domain checkpoint after D2 publishes status field + `/api/main-session`. 11 REQ entries appended to docs/requirements.md.
 - 2026-05-06 09:24: [success] M47 EXECUTED — all 12 tasks landed. D2 (5/5): 30s-window `status` field derivation; new `handleMainSession` + `GET /api/main-session` (path-traversal guarded via `isValidSpawnId`, `Cache-Control: no-store`); contract bumped to v1.3.0. D1 (7/7): split-pane scaffolding; 3-section left rail; dual SSE (`connectMain` + bottom-pane `connect`); rail bucketing consumes D2 status; mouse + keyboard splitter; 4 sessionStorage keys; right-rail collapse; 4 final-fence tests. Suite 2058/2060 (M47 +13/+13; 2 pre-existing flakes preserved). 4 existing viewer-route tests updated for new structure (regex relaxation, sandbox-friendly `_ssGet/_ssSet`).
