@@ -2,6 +2,27 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [3.22.11] - 2026-05-06
+
+### Fixed — viewer Playwright specs are now actually rigorous + adversarially proven (M51)
+
+The 5 viewer specs shipped in M50 used substring/existence assertions that would pass on a broken implementation — exactly the M48 BUG-3 LOW pattern that was flagged but never propagated forward. M51 strengthens all 5 specs to outcome-based assertions and proves they catch broken implementations via an adversarial Red Team that writes deliberately-broken viewer code and verifies the specs fail.
+
+**Changes:**
+- `e2e/viewer/title.spec.ts`: exact `<title>` equality (not regex); literal `$&` backref defence positive test using a fixture dir literally renamed to contain `$&`.
+- `e2e/viewer/timestamps.spec.ts`: `distinct.size === 3` exactly (not `>= 2`); each rendered timestamp matches the actual `frame.ts` wall-clock value; new missing-`ts` fallback test exercises `arrivedAt` branch.
+- `e2e/viewer/chat-bubbles.spec.ts`: CSS class membership assertions (`.frame.user.user-turn`, `.frame.assistant-turn`, etc.); structural assertions on `.body`/`.prefix`/`.badge`/`.truncated-tag`; `tool_use` 4th renderer coverage.
+- `e2e/viewer/dual-pane.spec.ts`: TEST-M50-001 fix — `MutationObserver` per pane attributes frames by DOM target instead of filtering raw URLs (top pane's `connectMain` URL legitimately contains the in-session id); positive top-pane SSE assertion; hashchange-doesn't-pin-bottom test.
+- `e2e/viewer/lazy-dashboard.spec.ts`: exact regex on banner shape (not substring); dead-pid branch coverage (today's spec only had live + missing).
+- `.gsd-t/red-team-report.md`: new "M51 RED TEAM FINDINGS" section enumerating 5 broken-viewer adversary attempts and confirming all 5 caught.
+- Bonus: fixture port allocation switched from `Math.random()*100` to `port: 0` + `server.address().port` readback (eliminates EADDRINUSE collisions across parallel Playwright workers).
+
+**Adversarial Red Team result:** 5 broken viewer impls written, 5 caught by strengthened specs. Production viewer code unchanged — this was pure test-suite rigor work, no real app bugs found behind adversary patches.
+
+**Suite:** 2166/2166 pass; E2E 19/19 pass (was 9 — 5 specs grew from 9 tests to 19).
+
+**Migration:** none. Specs are stricter; existing v3.22.10 viewer continues to pass.
+
 ## [3.22.10] — M50 Universal Playwright Bootstrap + Deterministic UI Enforcement
 
 ### Added — three deterministic enforcement layers replace prose-only Playwright Readiness Guard
