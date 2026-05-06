@@ -722,7 +722,7 @@ Acceptance:
 | REQ-M50-D2-08 | `e2e/viewer/lazy-dashboard.spec.ts` regression-tests M49 banner (URL banner when dashboard alive; fallback "Transcript file:" banner when not). | m50-gates-and-specs | T8 | done |
 | REQ-M50-D2-09 | ~14 unit tests across `test/m50-d2-spawn-gate.test.js` + `test/m50-d2-pre-commit-hook.test.js` + `test/m50-d2-viewer-specs-smoke.test.js` pass. | m50-gates-and-specs | T1, T2, T3 | done |
 | REQ-M50-D2-10 | Doc-ripple: `~/.claude/CLAUDE.md` + `templates/CLAUDE-global.md` + 8 command files (`gsd-t-execute`, `gsd-t-test-sync`, `gsd-t-verify`, `gsd-t-quick`, `gsd-t-wave`, `gsd-t-milestone`, `gsd-t-complete-milestone`, `gsd-t-debug`) + `docs/architecture.md` + `CHANGELOG.md`. Replace prose Playwright reminders with referrals to `playwright-bootstrap-contract.md`. | m50-gates-and-specs | T9 | done |
-| REQ-M50-VERIFY | Full unit suite: 2104 baseline + ~25 D1 + ~14 D2 = ~2143 expected, ≥2141 passing (preserves 2 known env-sensitive flakes). All 5 E2E specs pass. Spawn-gate fixture + pre-commit-hook fixture pass. | both | T10 (D2) | planned |
+| REQ-M50-VERIFY | Full unit suite: 2104 baseline + ~25 D1 + ~14 D2 = ~2143 expected, ≥2141 passing (preserves 2 known env-sensitive flakes). All 5 E2E specs pass. Spawn-gate fixture + pre-commit-hook fixture pass. | both | T10 (D2) | done |
 
 Supporting contracts:
 - `.gsd-t/contracts/playwright-bootstrap-contract.md` v1.0.0 — D1 library API + CLI wiring + idempotency invariants + error-path contract.

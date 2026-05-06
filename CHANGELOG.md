@@ -2,7 +2,7 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
-## [Unreleased] — M50 Universal Playwright Bootstrap + Deterministic UI Enforcement
+## [3.22.10] — M50 Universal Playwright Bootstrap + Deterministic UI Enforcement
 
 ### Added — three deterministic enforcement layers replace prose-only Playwright Readiness Guard
 

@@ -1039,3 +1039,24 @@
 | 2026-05-06 13:59 | 2026-05-06 14:00 | gsd-t-execute | Step 2 (QA) | sonnet | 60s | in=51177 out=0 cr=0 cc=0 — | PASS — 12/12 tests, behavioral coverage confirmed; 3 LOW additive gaps (angular/.mjs/.ts fixtures) | m50-bootstrap-and-detection | task-1 | 12 |
 | 2026-05-06 13:59 | 2026-05-06 14:04 | gsd-t-execute | Step 5.5 (Red Team) | opus | 300s | in=80901 out=0 cr=0 cc=0 — | FAIL → fixes → GRUDGING PASS. Cycle 1 found 7 bugs (2H/3M/2L); 3 fixed in cycle, 2 deferred (Astro/Nuxt — contract amendment), 2 LOW closed by added tests | m50-bootstrap-and-detection | task-1 | 12 |
 | 2026-05-06 14:04 | 2026-05-06 14:06 | gsd-t-execute | Step 5.5 (Red Team re-verify) | opus | 120s | in=59164 out=0 cr=0 cc=0 — | GRUDGING PASS — all 4 fixes confirmed; 22 fresh adversarial probes; 0 new bugs introduced | m50-bootstrap-and-detection | task-1 | 13 |
+<!-- missed_escalation 2026-05-06T21:24:22.898Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-06T21:24:22.898Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-06T21:24:43.232Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-06T21:24:43.232Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-06T21:25:04.508Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-06T21:25:04.508Z phase= domain= task= q="(no question provided)" -->
+| 2026-05-06 21:08 | 2026-05-06 21:31 | gsd-t-execute | headless | unknown | 1371s | headless exec: ok | - | - | unknown |
+<!-- missed_escalation 2026-05-06T21:34:07.039Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-06T21:34:07.040Z phase= domain= task= q="(no question provided)" -->
+| 2026-05-06 21:33 | 2026-05-06 21:38 | gsd-t-test-sync | headless | unknown | 282s | headless exec: ok | - | - | unknown |
+| 2026-05-06 14:39 | 2026-05-06 14:39 | gsd-t-verify | cron-chain | opus | 0s | — | M50 verify cron-chain after test-sync handoff (status didnt flip but test-sync done), 1800s timeout | - | - | N/A |
+<!-- missed_escalation 2026-05-06T21:40:06.268Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-06T21:40:06.268Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-06T21:40:26.441Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-06T21:40:26.441Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-06T21:45:53.886Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-06T21:45:53.886Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-06T21:46:13.998Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-06T21:46:13.998Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-06T21:52:53.694Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-06T21:52:53.694Z phase= domain= task= q="(no question provided)" -->
