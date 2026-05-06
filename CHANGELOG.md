@@ -2,6 +2,27 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [3.21.11] - 2026-05-06
+
+### Fixed — viewer: 4 rendering regressions surfaced post-M47
+
+The M47 viewer redesign shipped four user-visible rendering bugs that only became apparent when a project's in-session conversation was actually being viewed against a non-GSD-T project. Discovered when the dashboard for `Move-Zoom-Recordings-to-GDrive` showed three captured `in-session-*.ndjson` files but rendered them with a hardcoded "GSD-T Transcript" header, identical timestamps on every frame, raw `JSON.stringify` dumps in place of chat turns, and the same content in both top and bottom panes.
+
+**Changes:**
+- `scripts/gsd-t-dashboard-server.js`: `<title>` and `.title` div now carry a `__PROJECT_NAME__` placeholder substituted server-side via `path.basename(path.resolve(projectDir))` in both `handleTranscriptsList` and `handleTranscriptPage`. New `_escapeHtml()` helper escapes `<` / `&` / `"` in basenames; the substitution uses the function form of `replace` to defuse `$&` / `$1` / `$$` backreference patterns in basenames (Red Team BUG-1).
+- `scripts/gsd-t-transcript.html`:
+  - `frameTs(frame, fallback)` parses each frame's ISO `ts` field and only falls back to the SSE-handler-captured `arrivedAt` when absent or invalid. `connect()` and `connectMain()` now thread `renderAt = frameTs(frame, arrivedAt)` to `renderFrame`. Initial-replay batches no longer collapse 200 distinct timestamps into one.
+  - 4 new render helpers (`renderUserTurn` / `renderAssistantTurn` / `renderSessionStart` / `renderToolUseLine`) plus dispatch arms in `renderFrameInner` BEFORE the `JSON.stringify` fallback. New CSS for `.frame.assistant-turn` (green border-left), `.frame.session-start` (small inline badge), `.frame.tool-call-line`, `.frame.truncated-tag`. `user_turn` reuses `.frame.user` bubble styling. Truncated content gets a "(truncated)" tag.
+  - 5 separate guards keep `in-session-*` ids out of the bottom pane: `renderRailEntry` click handler returns early on `isInSession`; initial bottom-pane resolution scrubs `in-session-*` from `SS_KEY_SELECTED` sessionStorage before `connect()`; `hashchange` handler returns early; `maybeAutoFollow` filters in-session spawns out; legacy `renderTree` click handler in the live-bucket fallback path also gets the guard (Red Team BUG-2).
+- `test/m48-viewer-rendering-fixes.test.js`: 23 new regression tests — 5 Bug-1, 5 Bug-2 (incl. functional `frameTs` eval-extract probe), 7 Bug-3, 5 Bug-4, 1 functional probe (Red Team test-quality concern). Includes explicit `$&` and `$1` regression tests for the BUG-1 fix.
+- `test/m44-transcript-timestamp.test.js`: updated for the `renderAt` / `arrivedAt` rename — semantics preserved (`arrivedAt` is now the fallback layer beneath parsed `frame.ts`).
+
+**Migration:** existing dashboards pick up the new code on next refresh after `gsd-t update-all` propagates the package; the per-project transcript page reflects the project's directory basename automatically. No state migration.
+
+**Suite:** 2083/2083 pass — both pre-existing M47-baseline flakes resolved on the release run.
+
+**Red Team adversarial QA (opus):** initial sweep found 1 MEDIUM (`$&`-corruption in basename → fixed via function-form replace) + 1 LOW (legacy `renderTree` click handler → fixed via `isInSession` guard) + 1 test-quality recommendation (addressed via functional `frameTs` probe). Re-verification: GRUDGING PASS — no new bugs introduced.
+
 ## [3.20.13] - 2026-05-05
 
 ### Fixed — visualizer: surface in-session NDJSONs when `.index.json` is empty
