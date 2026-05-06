@@ -1,3 +1,69 @@
+# M51 RED TEAM FINDINGS — Adversarial Test-Quality Audit of Viewer Specs
+
+**Date**: 2026-05-06
+**Target**: 5 viewer Playwright specs in `e2e/viewer/` (M50 D2 deliverables)
+**Methodology**: For each spec, write a deliberately-broken patch to the production
+viewer code that introduces a real user-observable bug, then run the strengthened
+spec against the broken impl. A spec that fails to catch the broken impl is itself
+broken; tighten until every adversary patch is rejected.
+
+---
+
+## VERDICT: GRUDGING PASS — 5/5 adversaries caught by strengthened specs
+
+Every adversary patch was caught by at least one strengthened assertion. No
+production bug was discovered behind the adversary patches; this audit was about
+the **test suite's** rigor, not the viewer's correctness. Pre-strengthening, all
+5 broken impls would have slipped through the M50 specs (now superseded).
+
+| # | Spec | Adversary patch | Caught by | User-observable bug |
+|---|------|-----------------|-----------|---------------------|
+| 1 | `title.spec.ts` | Hardcode `gsd-t-fixture` instead of substituting `path.basename(projectDir)` | `M48 Bug 1: literal $& in basename survives function-form replacement` | Wrong project name in `<title>` for any project not named `gsd-t-fixture`; `$&` defence broken |
+| 2 | `timestamps.spec.ts` | Cache the FIRST `frame.ts` value and reuse it for all 3 frames (so `frame.ts` is technically referenced) | `3 distinct ts → 3 distinct rendered timestamps (exact equality)` + `M51 strengthen: missing frame.ts falls back to arrivedAt` | All rendered rows show the same HH:MM:SS — useless for spotting stuck/stale streams |
+| 3 | `chat-bubbles.spec.ts` | Strip type-specific CSS classes (`.user.user-turn`, `.body`, `.prefix`); keep only generic `.frame` + raw text | `user_turn renders as .frame.user.user-turn with .body content` + `truncated user_turn shows .truncated-tag span` | Frames render as unstyled raw text; truncation marker disappears |
+| 4 | `dual-pane.spec.ts` | Remove the `in-session-` guard from `hashchange` (keep it on rail click + initial-load only) | `M51 strengthen: hashchange to in-session id does NOT change bottom-pane content` | Bottom pane gets pinned to in-session stream when user navigates via hash bookmark |
+| 5 | `lazy-dashboard.spec.ts` | Print BOTH banners regardless of dashboard state (so any substring assertion passes) | All 3 lazy-dashboard tests caught it (exact-shape regex on `▶ Live transcript:` / `▶ Transcript file:`) | User sees a fake live URL pointing at port 7433 even when no dashboard is running |
+
+## What changed in the specs
+
+**Before (M50)**: 9 tests across 5 files. Substring-only assertions. Loose tolerances.
+- `title.spec.ts:68` asserted `html).not.toMatch(/\$&/)` — passes on a totally empty page.
+- `timestamps.spec.ts:70` asserted `distinct.size >= 2` — half-collapsed regressions slip past.
+- `chat-bubbles.spec.ts:48` asserted `streamText.includes('hello')` — a `<div>hello</div>` with NO classes passes.
+- `dual-pane.spec.ts:51` filtered ALL EventSource URLs and rejected any containing the in-session id — the TOP pane's URL legitimately contains it (TEST-M50-001 false positive).
+- `lazy-dashboard.spec.ts:43` used `banner.toContain('Transcript file:')` — passes when both banners print.
+
+**After (M51)**: 19 tests across 5 files. Outcome-based assertions:
+- Exact `<title>` equality, literal `$&` survival positive test, header `.title` DOM
+  text equality.
+- `distinct.size === 3`, each timestamp must equal the wall-clock derived from
+  `frame.ts`, missing-ts fallback test added.
+- CSS class membership: `.frame.user.user-turn`, `.frame.assistant-turn`,
+  `.frame.session-start`, `.frame.tool-call-line`, plus `.body` / `.prefix` /
+  `.badge` / `.truncated-tag` structural assertions.
+- Pane attribution via MutationObserver on each pane element (top frames in
+  `#main-stream`, bottom frames in `#stream`); positive assertions of intended
+  behavior (top pane DOES connect to in-session, bottom DOES connect to its own
+  spawn). Hashchange-doesn't-change-bottom test added.
+- Exact regex on `▶ Live transcript: http://…` and `▶ Transcript file: …\n  (to view live: …)` shapes; dead-pid branch covered.
+
+## Quality bar
+
+A test passes the M51 bar iff **a deliberately-broken implementation that
+satisfies the literal assertions while breaking user-observable behavior cannot
+be constructed**. Every assertion now answers the question "did the user-visible
+behavior actually happen?" — not "does some element exist?"
+
+## Reproduction
+
+The 5 adversary patches are documented inline above. To reproduce: apply each
+patch to the named source file, run `npx playwright test e2e/viewer/{spec}.spec.ts`,
+verify exit code is non-zero. Revert. Repeat for the next adversary. All 5
+adversaries were exercised in the M51 D3 phase; live runs preserved in
+`test-results/` until the next CI clean.
+
+---
+
 # Red Team Report — M50 D1 Task 1: `bin/ui-detection.cjs`
 
 **Date**: 2026-05-06
