@@ -2758,7 +2758,145 @@ async function checkDoctorContextMeter(projectDir) {
   return issues;
 }
 
-async function doDoctor() {
+// M49 — Detect dashboard server processes whose pidfile is missing or
+// mismatched ("orphans"). The lazy-dashboard + idle-TTL changes prevent new
+// orphans from accumulating, but recovery is still needed for any that piled
+// up under earlier versions. With `--prune`, kills the orphan PIDs.
+//
+// "Orphan" = a `gsd-t-dashboard-server.js` process whose pidfile (at
+// `{projectDir}/.gsd-t/.dashboard.pid` resolved from the process's cwd / the
+// `GSD_T_PROJECT_DIR` env / the registered-projects list) doesn't list the pid.
+//
+// Detection is best-effort across platforms — `ps` shape varies. We use:
+//   - macOS / Linux:  `ps -eo pid,command` (no `=`-stripped header)
+//   - Windows:        unsupported here (logged as N/A)
+//
+// Returns an issue count (0 if clean, 1 if orphans found and not pruned).
+function checkDoctorDashboardOrphans(opts) {
+  const prune = !!(opts && opts.prune);
+  let issues = 0;
+  heading("Dashboard Orphans");
+
+  if (process.platform === "win32") {
+    info("Skipping (Windows process inventory not yet supported)");
+    return 0;
+  }
+
+  let psOut;
+  try {
+    psOut = execFileSync("ps", ["-eo", "pid,command"], {
+      encoding: "utf8",
+      timeout: 5000,
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+  } catch {
+    warn("Could not run `ps -eo pid,command` — orphan detection skipped");
+    return 0;
+  }
+
+  const dashPids = [];
+  for (const line of psOut.split("\n")) {
+    const t = line.trim();
+    if (!t) continue;
+    if (!t.includes("gsd-t-dashboard-server.js")) continue;
+    if (t.includes("ps -eo")) continue; // never list ourselves
+    if (t.includes("grep")) continue;
+    const m = t.match(/^(\d+)\s+(.+)$/);
+    if (!m) continue;
+    const pid = parseInt(m[1], 10);
+    if (!Number.isFinite(pid) || pid <= 0) continue;
+    // Red Team — only treat as a dashboard process if the first argv token is
+    // a `node`-flavored binary AND the second token ends with the script
+    // filename. Filters out e.g. `cat gsd-t-dashboard-server.js`,
+    // `vim gsd-t-dashboard-server.js`, etc. that happen to mention the path.
+    const argv = m[2].trim().split(/\s+/);
+    if (argv.length < 2) continue;
+    const exe = argv[0];
+    const script = argv[1] || "";
+    const exeIsNode = /(^|\/)node([0-9.]+)?$/.test(exe);
+    const scriptMatches = script.endsWith("gsd-t-dashboard-server.js");
+    if (!exeIsNode || !scriptMatches) continue;
+    dashPids.push({ pid, cmd: m[2] });
+  }
+
+  if (dashPids.length === 0) {
+    success("No dashboard processes running");
+    return 0;
+  }
+
+  // Collect candidate pidfiles. We probe (a) cwd + GSD_T_PROJECT_DIR for the
+  // current shell, (b) each registered project. Each contributes one
+  // {projectDir → pidfile pid} mapping. An orphan is a live dashboard pid
+  // that doesn't match any pidfile we found.
+  const projects = new Set();
+  projects.add(process.cwd());
+  if (process.env.GSD_T_PROJECT_DIR) projects.add(process.env.GSD_T_PROJECT_DIR);
+  try {
+    for (const p of getRegisteredProjects()) projects.add(p);
+  } catch { /* registry may not exist */ }
+
+  const knownPids = new Set();
+  for (const proj of projects) {
+    const pidFile = path.join(proj, ".gsd-t", ".dashboard.pid");
+    try {
+      const raw = fs.readFileSync(pidFile, "utf8").trim();
+      const pid = parseInt(raw, 10);
+      if (Number.isFinite(pid) && pid > 0) knownPids.add(pid);
+    } catch { /* missing or unreadable */ }
+    // Also accept the older M38 pidfile (no leading dot).
+    const legacyPidFile = path.join(proj, ".gsd-t", "dashboard.pid");
+    try {
+      const raw = fs.readFileSync(legacyPidFile, "utf8").trim();
+      const pid = parseInt(raw, 10);
+      if (Number.isFinite(pid) && pid > 0) knownPids.add(pid);
+    } catch { /* missing */ }
+  }
+
+  const orphans = dashPids.filter((d) => !knownPids.has(d.pid));
+
+  log(`  Detected ${dashPids.length} dashboard process${dashPids.length === 1 ? "" : "es"} ` +
+      `(${knownPids.size} tracked via pidfile, ${orphans.length} orphan${orphans.length === 1 ? "" : "s"})`);
+
+  if (orphans.length === 0) {
+    success("No orphans");
+    return 0;
+  }
+
+  for (const o of orphans) {
+    log(`  ${YELLOW}orphan${RESET} pid=${o.pid}`);
+  }
+
+  if (prune) {
+    let killed = 0;
+    let failed = 0;
+    for (const o of orphans) {
+      try {
+        process.kill(o.pid, "SIGTERM");
+        killed++;
+      } catch (err) {
+        if (err && err.code === "ESRCH") {
+          // Already gone — count as success.
+          killed++;
+        } else {
+          failed++;
+        }
+      }
+    }
+    if (failed === 0) {
+      success(`Pruned ${killed} orphan${killed === 1 ? "" : "s"}`);
+    } else {
+      warn(`Pruned ${killed}, failed ${failed}`);
+      issues++;
+    }
+  } else {
+    info("Run `gsd-t doctor --prune` to kill orphans");
+    issues++;
+  }
+
+  return issues;
+}
+
+async function doDoctor(opts) {
   heading("GSD-T Doctor");
   log("");
   let issues = 0;
@@ -2767,6 +2905,7 @@ async function doDoctor() {
   issues += checkDoctorProject();
   issues += checkDoctorCgc();
   issues += await checkDoctorContextMeter(process.cwd());
+  issues += checkDoctorDashboardOrphans(opts);
   log("");
   if (issues === 0) {
     log(`${GREEN}${BOLD}  All checks passed!${RESET}`);
@@ -3881,7 +4020,7 @@ function showHelp() {
   log(`  ${CYAN}register${RESET}       Register current directory as a GSD-T project`);
   log(`  ${CYAN}status${RESET}         Show installation status + check for updates`);
   log(`  ${CYAN}uninstall${RESET}      Remove GSD-T commands (keeps project files)`);
-  log(`  ${CYAN}doctor${RESET}         Diagnose common issues`);
+  log(`  ${CYAN}doctor${RESET}         Diagnose common issues (use --prune to kill dashboard orphans)`);
   log(`  ${CYAN}changelog${RESET}      Open changelog in the browser`);
   log(`  ${CYAN}graph${RESET}          Code graph operations (index, status, query)`);
   log(`  ${CYAN}headless${RESET}       Non-interactive execution via claude -p + fast state queries`);
@@ -3946,6 +4085,8 @@ module.exports = {
   checkDoctorClaudeMd,
   checkDoctorSettings,
   checkDoctorEncoding,
+  checkDoctorDashboardOrphans,
+  doDoctor,
   mergeGsdtSection,
   migrateToMarkers,
   appendGsdtToClaudeMd,
@@ -4034,9 +4175,14 @@ if (require.main === module) {
     case "uninstall":
       doUninstall();
       break;
-    case "doctor":
-      doDoctor().catch((e) => { error(e.message || String(e)); process.exit(1); });
+    case "doctor": {
+      const doctorOpts = { prune: false };
+      for (let i = 1; i < args.length; i++) {
+        if (args[i] === "--prune") doctorOpts.prune = true;
+      }
+      doDoctor(doctorOpts).catch((e) => { error(e.message || String(e)); process.exit(1); });
       break;
+    }
     case "changelog":
       doChangelog();
       break;

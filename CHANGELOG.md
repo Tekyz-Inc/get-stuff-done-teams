@@ -2,6 +2,30 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [Unreleased] — M49 lazy dashboard + idle-TTL + doctor-prune
+
+### Fixed — dashboard orphan accumulation
+
+88 dead `gsd-t-dashboard-server.js` processes accumulated under v3.21.11 (164 under v3.20.13). Root cause: `bin/headless-auto-spawn.cjs::autoSpawnHeadless()` called `ensureDashboardRunning()` on every spawn, fork-detaching a fresh dashboard for every gsd-t-execute / gsd-t-debug / gsd-t-wave invocation across any project across any session. 99% of those autostarted dashboards are never opened by the user (the live-transcript URL banner is just-in-case observability), so they accumulated on the project-scoped port range 7433–7532 until the user manually killed them.
+
+**Changes:**
+- `bin/headless-auto-spawn.cjs::autoSpawnHeadless()`: removed the `ensureDashboardRunning()` call. Spawns no longer autostart dashboards. New synchronous `_probeDashboardLazy(projectDir)` reads `.gsd-t/.dashboard.pid` and verifies the pid is alive via `process.kill(pid, 0)` (cheap; runs on every spawn). Banner is now conditional:
+  - Dashboard running: `▶ Live transcript: http://127.0.0.1:{port}/transcript/{spawn-id}` (existing M43 D6-T3 shape).
+  - No dashboard: `▶ Transcript file: {logPath}\n  (to view live: gsd-t-visualize)` — points at the on-disk log + tells the user how to open the dashboard if they want it.
+- `scripts/gsd-t-dashboard-server.js`: idle-TTL self-shutdown. Default 4 hours, configurable via env `GSD_T_DASHBOARD_IDLE_TTL_MS` or `--idle-ttl-ms` flag. "Idle" means zero HTTP requests AND zero active SSE connections for the full TTL window. setInterval check every 60s; on shutdown, removes `.gsd-t/.dashboard.pid` so the lazy probe sees a clean state. SSE-active dashboards never exit — `_wrapSseHandler` increments/decrements an active-connection counter on req/res `close` events.
+- `bin/gsd-t.js doctor`: new `Dashboard Orphans` check + `--prune` flag. Scans for live `gsd-t-dashboard-server.js` processes via `ps -eo pid,command`; cross-references each pid against pidfiles in cwd, `GSD_T_PROJECT_DIR`, and the registered-projects list. Reports orphans (process running, pidfile missing or mismatched). With `--prune`, sends SIGTERM to each orphan. Recovery for any orphans that piled up under earlier versions.
+- `commands/gsd-t-visualize.md` (unchanged): the explicit user opt-in path still calls `ensureDashboardRunning()` via `--detach` — the dashboard starts when (and only when) the user runs `/gsd-t-visualize`.
+
+**Tests:**
+- `test/m49-lazy-dashboard.test.js` (9): probe correctness across 5 pidfile states (missing / dead / live / garbage / empty), probe speed (< 50ms for 100 calls), `autoSpawnHeadless` does NOT invoke `ensureDashboardRunning` (require-cache stub), URL banner shape when running, file-path banner shape when not running.
+- `test/m49-dashboard-idle-ttl.test.js` (7): `tracker.bump` resets `lastActivity`, SSE connect/disconnect counter, TTL fires when window elapses with no SSE, TTL does NOT fire while `activeSseConnections > 0`, recent `bump` prevents fire, `_wrapSseHandler` tracks idempotently on close, `startServer` accepts `idleTtlMs` opt without crashing.
+- `test/m49-doctor-orphan-check.test.js` (4): no-process baseline, fake-dashboard process detected as orphan, `--prune` actually kills the orphan PID, tracked dashboard (pidfile lists pid) is NOT an orphan.
+- `test/m43-url-banner.test.js`: updated for M49 — file-path banner expected by default; URL banner exercised with a pre-written pidfile pointing at the test runner's pid (proxy for "live").
+
+**Migration:** existing autostarted dashboards stay running until they hit the 4h idle-TTL or are pruned via `gsd-t doctor --prune`. New spawns no longer add to the count. Re-running `/gsd-t-visualize` continues to work as before.
+
+**Suite:** 2103/2105 (2 pre-existing env-sensitive flakes preserved per M47/M48 baseline). +20 new M49 tests, 0 regressions.
+
 ## [3.21.11] - 2026-05-06
 
 ### Fixed — viewer: 4 rendering regressions surfaced post-M47

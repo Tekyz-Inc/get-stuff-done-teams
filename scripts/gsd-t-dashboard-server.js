@@ -773,13 +773,106 @@ function handleSpawnPlanUpdates(req, res, projectDir) {
   req.on("close", () => { clearInterval(timer); if (dirWatcher) { try { dirWatcher.close(); } catch { /* ok */ } } });
 }
 
-function startServer(port, eventsDir, htmlPath, projectDir, transcriptHtmlPath) {
+// ── M49 — Idle-TTL self-shutdown ────────────────────────────────────────────
+//
+// A dashboard with zero HTTP requests AND zero active SSE connections for the
+// full TTL window self-exits cleanly. Safety net for any dashboard that
+// somehow gets started and then walks away — even if a future bug lets one
+// be auto-started, it dies on its own. Configurable via env
+// `GSD_T_DASHBOARD_IDLE_TTL_MS` or `--idle-ttl-ms` flag.
+//
+// "Idle" means: zero HTTP requests AND zero active SSE connections for the
+// full TTL window. `lastActivity` is bumped on every HTTP request handler
+// entry and on SSE connect/disconnect. SSE-active dashboards never exit.
+//
+// On shutdown, removes `.gsd-t/.dashboard.pid` so the lazy probe (M49 in
+// `bin/headless-auto-spawn.cjs`) sees a clean state.
+
+const DEFAULT_IDLE_TTL_MS = 4 * 60 * 60 * 1000; // 4 hours
+const IDLE_CHECK_INTERVAL_MS = 60 * 1000;        // 60s
+
+function _activityTracker() {
+  let lastActivity = Date.now();
+  let activeSseConnections = 0;
+  return {
+    bump() { lastActivity = Date.now(); },
+    sseConnect() { activeSseConnections++; lastActivity = Date.now(); },
+    sseDisconnect() {
+      if (activeSseConnections > 0) activeSseConnections--;
+      lastActivity = Date.now();
+    },
+    snapshot() { return { lastActivity, activeSseConnections }; },
+  };
+}
+
+/**
+ * Wrap an SSE handler so it bumps the connect/disconnect counters.
+ */
+function _wrapSseHandler(handler, tracker) {
+  return function (req, res, ...rest) {
+    tracker.sseConnect();
+    let closed = false;
+    const onClose = () => {
+      if (closed) return;
+      closed = true;
+      tracker.sseDisconnect();
+    };
+    req.on("close", onClose);
+    res.on("close", onClose);
+    res.on("finish", onClose);
+    return handler(req, res, ...rest);
+  };
+}
+
+/**
+ * @param {object} opts { ttlMs, intervalMs, projectDir, server }
+ * @returns timer handle (so callers can clearInterval in tests).
+ */
+function _startIdleTtlTimer({ ttlMs, intervalMs, projectDir, server, tracker, onShutdown }) {
+  const interval = setInterval(() => {
+    const { lastActivity, activeSseConnections } = tracker.snapshot();
+    const idle = Date.now() - lastActivity;
+    if (activeSseConnections === 0 && idle >= ttlMs) {
+      clearInterval(interval);
+      try {
+        // Remove pid file so the lazy probe in headless-auto-spawn sees clean state.
+        if (projectDir) {
+          const pidFile = path.join(projectDir, ".gsd-t", ".dashboard.pid");
+          try { fs.unlinkSync(pidFile); } catch { /* may not exist */ }
+        }
+      } catch { /* best-effort */ }
+      try { if (typeof onShutdown === "function") onShutdown(); } catch { /* best-effort */ }
+      try {
+        if (server) server.close(() => process.exit(0));
+        else process.exit(0);
+      } catch { process.exit(0); }
+    }
+  }, intervalMs);
+  if (typeof interval.unref === "function") interval.unref();
+  return interval;
+}
+
+function startServer(port, eventsDir, htmlPath, projectDir, transcriptHtmlPath, opts) {
   const projDir = projectDir || path.resolve(eventsDir, "..", "..");
   const tHtmlPath = transcriptHtmlPath || path.join(path.dirname(htmlPath), "gsd-t-transcript.html");
+  const tracker = _activityTracker();
+  const ttlMs = (opts && Number.isFinite(opts.idleTtlMs))
+    ? opts.idleTtlMs
+    : (Number.parseInt(process.env.GSD_T_DASHBOARD_IDLE_TTL_MS || "", 10) || DEFAULT_IDLE_TTL_MS);
+  const intervalMs = (opts && Number.isFinite(opts.idleCheckIntervalMs))
+    ? opts.idleCheckIntervalMs
+    : IDLE_CHECK_INTERVAL_MS;
+
+  // Wrap the three SSE handlers with the connect/disconnect tracker.
+  const handleEventsSse = _wrapSseHandler(handleEvents, tracker);
+  const handleTranscriptStreamSse = _wrapSseHandler(handleTranscriptStream, tracker);
+  const handleSpawnPlanUpdatesSse = _wrapSseHandler(handleSpawnPlanUpdates, tracker);
+
   const server = http.createServer((req, res) => {
+    tracker.bump(); // bump on every HTTP request handler entry
     const url = req.url.split("?")[0];
     if (url === "/" || url === "") return handleRoot(req, res, htmlPath);
-    if (url === "/events") return handleEvents(req, res, eventsDir);
+    if (url === "/events") return handleEventsSse(req, res, eventsDir);
     if (url === "/metrics") return handleMetrics(req, res, projDir);
     if (url === "/ping") return handlePing(req, res, port);
     if (url === "/stop") return handleStop(req, res, server);
@@ -788,7 +881,7 @@ function startServer(port, eventsDir, htmlPath, projectDir, transcriptHtmlPath) 
     if (url === "/api/main-session") return handleMainSession(req, res, projDir);
     // M44 D8 — spawn plans: GET list + SSE change stream
     if (url === "/api/spawn-plans") return handleSpawnPlans(req, res, projDir);
-    if (url === "/api/spawn-plans/stream") return handleSpawnPlanUpdates(req, res, projDir);
+    if (url === "/api/spawn-plans/stream") return handleSpawnPlanUpdatesSse(req, res, projDir);
     // M44 D9 — parallelism observability (additive, read-only)
     if (url === "/api/parallelism") return handleParallelism(req, res, projDir);
     if (url === "/api/parallelism/report") return handleParallelismReport(req, res, projDir);
@@ -805,14 +898,30 @@ function startServer(port, eventsDir, htmlPath, projectDir, transcriptHtmlPath) 
     if (usageMatch) return handleTranscriptUsage(req, res, decodeURIComponent(usageMatch[1]), projDir);
     // /transcript/:spawnId/stream — SSE tail of per-spawn ndjson
     const streamMatch = url.match(/^\/transcript\/([^/]+)\/stream$/);
-    if (streamMatch) return handleTranscriptStream(req, res, decodeURIComponent(streamMatch[1]), projDir);
+    if (streamMatch) return handleTranscriptStreamSse(req, res, decodeURIComponent(streamMatch[1]), projDir);
     // /transcript/:spawnId — HTML viewer page
     const pageMatch = url.match(/^\/transcript\/([^/]+)$/);
     if (pageMatch) return handleTranscriptPage(req, res, decodeURIComponent(pageMatch[1]), tHtmlPath, projDir);
     res.writeHead(404); res.end("Not found");
   });
   server.listen(port);
-  return { server, url: `http://localhost:${port}` };
+
+  // M49 — install idle-TTL self-shutdown timer. Skipped only when caller
+  // explicitly passes `idleTtlMs: 0` (used by tests that don't want the
+  // server to self-exit mid-test).
+  let idleTimer = null;
+  if (ttlMs > 0) {
+    idleTimer = _startIdleTtlTimer({
+      ttlMs,
+      intervalMs,
+      projectDir: projDir,
+      server,
+      tracker,
+      onShutdown: opts && opts.onShutdown,
+    });
+  }
+
+  return { server, url: `http://localhost:${port}`, tracker, idleTimer };
 }
 
 module.exports = {
@@ -850,6 +959,11 @@ module.exports = {
   handleParallelism,
   handleParallelismReport,
   handleUnattendedStop,
+  // M49 — idle-TTL exports for tests
+  _activityTracker,
+  _wrapSseHandler,
+  _startIdleTtlTimer,
+  DEFAULT_IDLE_TTL_MS,
 };
 
 if (require.main === module) {
@@ -875,9 +989,25 @@ if (require.main === module) {
     fs.writeFileSync(pidFile, String(child.pid));
     process.exit(0);
   }
-  const { server, url } = startServer(port, eventsDir, htmlPath, projectDir, transcriptHtmlPath);
+  // M49 — idle-TTL flag/env override. Falls through to startServer's default
+  // (env var GSD_T_DASHBOARD_IDLE_TTL_MS or 4h).
+  const ttlArg = getArg("--idle-ttl-ms");
+  const startOpts = {};
+  if (ttlArg != null && ttlArg !== "") {
+    const n = Number.parseInt(ttlArg, 10);
+    if (Number.isFinite(n)) startOpts.idleTtlMs = n;
+  }
+
+  const { server, url } = startServer(port, eventsDir, htmlPath, projectDir, transcriptHtmlPath, startOpts);
   process.stdout.write("GSD-T Dashboard: " + url + "\n");
-  function cleanup() { try { fs.unlinkSync(pidFile); } catch { /* ok */ } server.close(() => process.exit(0)); }
+  function cleanup() {
+    try { fs.unlinkSync(pidFile); } catch { /* ok */ }
+    // M49 — also remove the lazy-probe pidfile so headless-auto-spawn sees clean state.
+    try {
+      fs.unlinkSync(path.join(projectDir, ".gsd-t", ".dashboard.pid"));
+    } catch { /* ok */ }
+    server.close(() => process.exit(0));
+  }
   process.on("SIGTERM", cleanup);
   process.on("SIGINT", cleanup);
 }

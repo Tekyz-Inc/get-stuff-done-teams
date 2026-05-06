@@ -55,6 +55,8 @@ module.exports = {
   // it now unconditionally returns true. See headless-default-contract
   // v2.0.0 §Invariants.
   shouldSpawnHeadless: () => true,
+  // M49 — exported for tests. Synchronous probe; never throws.
+  _probeDashboardLazy,
 };
 
 // M43 D4 — one-shot deprecation banner when a caller still passes `watch`
@@ -126,16 +128,18 @@ function autoSpawnHeadless(opts) {
   ensureDir(path.join(projectDir, LOG_DIR_REL));
   ensureDir(path.join(projectDir, SESSIONS_DIR_REL));
 
-  // M43 D6-T4 — Ensure dashboard is running (idempotent; no-op if already up).
-  // Must happen BEFORE the URL banner print (D6-T3) so the link is live.
-  // Never throws — autostart is best-effort.
-  let autostartInfo = null;
-  try {
-    const { ensureDashboardRunning } = require("../scripts/gsd-t-dashboard-autostart.cjs");
-    autostartInfo = ensureDashboardRunning({ projectDir });
-  } catch (_) {
-    /* best-effort; fall through without banner port info */
-  }
+  // M49 — Lazy dashboard. Spawns no longer autostart the dashboard. Each
+  // spawn would otherwise fork-detach a fresh `gsd-t-dashboard-server.js`
+  // (M43 D6-T4); 99% of those banners are never opened so they accumulated
+  // to 88+ orphans on the project-scoped port range. The dashboard now only
+  // starts when the user explicitly invokes `/gsd-t-visualize`. The banner
+  // below remains, but becomes conditional on whether a dashboard is already
+  // listening on the project's scoped port.
+  //
+  // Probe is sync + cheap: read `.gsd-t/.dashboard.pid` and `process.kill(pid, 0)`.
+  // Falls back to "no dashboard" on any error — never throws.
+  // See .gsd-t/contracts/headless-default-contract.md v2.0.0 §M49 (lazy banner).
+  const dashboardInfo = _probeDashboardLazy(projectDir);
 
   // M46 follow-up — Date + version banner. Printed before the transcript URL
   // so multi-day-old read-backs are immediately dated. Best-effort.
@@ -155,17 +159,27 @@ function autoSpawnHeadless(opts) {
     /* best-effort — never crash the spawn on banner failure */
   }
 
-  // M43 D6-T3 — Live transcript URL banner. Printed for every spawn so the
-  // viewer at :PORT is "the" primary watching surface. Never throws.
-  // Text is coordinated with D4 — exact line shape is part of
-  // dashboard-server-contract.md §Banner Format.
+  // M49 — Conditional transcript banner. If a dashboard is already running
+  // on the project's scoped port, point at the live URL (M43 D6-T3 shape).
+  // Otherwise, point at the on-disk log path and hint at /gsd-t-visualize so
+  // the user knows how to open the viewer if they want it. The viewer URL
+  // is no longer printed for spawns where no listener exists — that is what
+  // caused users to assume one was running and accumulated orphans on retry.
+  //
+  // Text is coordinated with D4 — banner format spec in
+  // .gsd-t/contracts/dashboard-server-contract.md v1.3.0 §Banner Format
+  // and headless-default-contract.md v2.0.0 §M49.
   try {
-    let port = autostartInfo && autostartInfo.port;
-    if (!port) {
-      const { projectScopedDefaultPort } = require("../scripts/gsd-t-dashboard-server.js");
-      port = projectScopedDefaultPort(projectDir);
+    if (dashboardInfo.running && dashboardInfo.port) {
+      process.stdout.write(
+        `▶ Live transcript: http://127.0.0.1:${dashboardInfo.port}/transcript/${id}\n`,
+      );
+    } else {
+      const relLog = path.relative(projectDir, logPath);
+      process.stdout.write(
+        `▶ Transcript file: ${relLog}\n  (to view live: gsd-t-visualize)\n`,
+      );
     }
-    process.stdout.write(`▶ Live transcript: http://127.0.0.1:${port}/transcript/${id}\n`);
   } catch (_) {
     /* best-effort — never crash the spawn on banner failure */
   }
@@ -514,6 +528,57 @@ function appendTokenLog(projectDir, entry) {
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * M49 — Cheap synchronous probe: is a dashboard listening on this project's
+ * scoped port? Strategy: read `.gsd-t/.dashboard.pid`; if the pid is alive
+ * (`process.kill(pid, 0)` doesn't throw), assume the dashboard is up and
+ * resolve the port via `projectScopedDefaultPort(projectDir)`. No child
+ * process forking — this runs on every spawn and must be cheap.
+ *
+ * Returns `{ running: boolean, port: number|null, pid: number|null }`. Never
+ * throws. A return of `{ running: false }` is the safe fallback that drives
+ * the file-path-only banner.
+ *
+ * @param {string} projectDir
+ * @returns {{ running: boolean, port: number|null, pid: number|null }}
+ */
+function _probeDashboardLazy(projectDir) {
+  const out = { running: false, port: null, pid: null };
+  try {
+    const pidFile = path.join(projectDir, ".gsd-t", ".dashboard.pid");
+    if (!fs.existsSync(pidFile)) return out;
+    const raw = fs.readFileSync(pidFile, "utf8").trim();
+    const pid = parseInt(raw, 10);
+    if (!pid || Number.isNaN(pid) || pid <= 0) return out;
+    // process.kill(pid, 0) — signal 0 only checks for existence/permission.
+    // Throws ESRCH if no such process; EPERM if process exists but owned by
+    // someone else. EPERM still implies "alive", so treat both ESRCH-only as
+    // dead.
+    try {
+      process.kill(pid, 0);
+    } catch (err) {
+      if (err && err.code === "EPERM") {
+        // Alive but not owned by us — still a live listener; treat as running.
+      } else {
+        return out; // ESRCH or unknown — treat as dead.
+      }
+    }
+    out.pid = pid;
+    out.running = true;
+    try {
+      const { projectScopedDefaultPort } = require("../scripts/gsd-t-dashboard-server.js");
+      out.port = projectScopedDefaultPort(projectDir);
+    } catch (_) {
+      // Without the port we can't render the URL — fall back to file banner.
+      out.running = false;
+      out.port = null;
+    }
+  } catch (_) {
+    /* probe is best-effort */
+  }
+  return out;
+}
 
 function ensureDir(d) {
   if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
