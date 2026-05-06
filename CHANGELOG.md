@@ -2,9 +2,9 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
-## [Unreleased] — M49 lazy dashboard + idle-TTL + doctor-prune
+## [3.21.12] - 2026-05-06
 
-### Fixed — dashboard orphan accumulation
+### Fixed — dashboard orphan accumulation (M49 lazy autostart + idle-TTL + doctor-prune)
 
 88 dead `gsd-t-dashboard-server.js` processes accumulated under v3.21.11 (164 under v3.20.13). Root cause: `bin/headless-auto-spawn.cjs::autoSpawnHeadless()` called `ensureDashboardRunning()` on every spawn, fork-detaching a fresh dashboard for every gsd-t-execute / gsd-t-debug / gsd-t-wave invocation across any project across any session. 99% of those autostarted dashboards are never opened by the user (the live-transcript URL banner is just-in-case observability), so they accumulated on the project-scoped port range 7433–7532 until the user manually killed them.
 
