@@ -18,6 +18,8 @@ const {
   tailEventsFile,
   readMetricsData,
   listInSessionTranscripts,
+  handleMainSession,
+  handleTranscriptsList,
 } = require("../scripts/gsd-t-dashboard-server.js");
 
 let tmpDir;
@@ -489,6 +491,342 @@ describe("listInSessionTranscripts — filesystem fallback for in-session NDJSON
       const found = listInSessionTranscripts(projRoot);
       assert.equal(found.length, 1);
       assert.equal(found[0].spawnId, "in-session-ok");
+    } finally {
+      fs.rmSync(projRoot, { recursive: true, force: true });
+    }
+  });
+});
+
+// ─── M47 D2 — listInSessionTranscripts status field (T4) ──────────────────────
+
+describe("listInSessionTranscripts — status field (M47 D2)", () => {
+  function mkProject() {
+    const projRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gsd-t-m47-status-"));
+    const tdir = path.join(projRoot, ".gsd-t", "transcripts");
+    fs.mkdirSync(tdir, { recursive: true });
+    return { projRoot, tdir };
+  }
+
+  it("file with mtime now → status 'active'", () => {
+    const { projRoot, tdir } = mkProject();
+    try {
+      fs.writeFileSync(path.join(tdir, "in-session-fresh.ndjson"), "{}\n");
+      const out = listInSessionTranscripts(projRoot);
+      assert.equal(out.length, 1);
+      assert.equal(out[0].status, "active");
+    } finally {
+      fs.rmSync(projRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("file with mtime older than 30s → status 'completed'", () => {
+    const { projRoot, tdir } = mkProject();
+    try {
+      const fp = path.join(tdir, "in-session-old.ndjson");
+      fs.writeFileSync(fp, "{}\n");
+      // Backdate to 60s ago — well outside the 30s active window.
+      const past = (Date.now() - 60_000) / 1000;
+      fs.utimesSync(fp, past, past);
+      const out = listInSessionTranscripts(projRoot);
+      assert.equal(out.length, 1);
+      assert.equal(out[0].status, "completed");
+    } finally {
+      fs.rmSync(projRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("boundary at exactly 30s — accepts either active or completed", () => {
+    const { projRoot, tdir } = mkProject();
+    try {
+      const fp = path.join(tdir, "in-session-boundary.ndjson");
+      fs.writeFileSync(fp, "{}\n");
+      // mtime exactly 30s ago — boundary semantics intentionally fuzzy.
+      const at = (Date.now() - 30_000) / 1000;
+      fs.utimesSync(fp, at, at);
+      const out = listInSessionTranscripts(projRoot);
+      assert.equal(out.length, 1);
+      assert.ok(out[0].status === "active" || out[0].status === "completed",
+        `boundary status must be 'active' or 'completed', got: ${out[0].status}`);
+    } finally {
+      fs.rmSync(projRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("handleTranscriptsList JSON response includes status on in-session entries", async () => {
+    const { projRoot, tdir } = mkProject();
+    try {
+      fs.writeFileSync(path.join(tdir, "in-session-active.ndjson"), "{}\n");
+      const oldfp = path.join(tdir, "in-session-stale.ndjson");
+      fs.writeFileSync(oldfp, "{}\n");
+      const past = (Date.now() - 60_000) / 1000;
+      fs.utimesSync(oldfp, past, past);
+      const eventsDir = path.join(projRoot, ".gsd-t", "events");
+      fs.mkdirSync(eventsDir, { recursive: true });
+      const htmlPath = path.join(projRoot, "dashboard.html");
+      const tHtmlPath = path.join(projRoot, "transcript.html");
+      fs.writeFileSync(htmlPath, "<html></html>");
+      fs.writeFileSync(tHtmlPath, '<html data-spawn-id="__SPAWN_ID__"></html>');
+      const { server } = startServer(0, eventsDir, htmlPath, projRoot, tHtmlPath);
+      try {
+        const port = server.address().port;
+        const data = await new Promise((resolve, reject) => {
+          http.get(`http://localhost:${port}/transcripts`, (res) => {
+            let body = ""; res.on("data", (c) => body += c);
+            res.on("end", () => { try { resolve(JSON.parse(body)); } catch (e) { reject(e); } });
+          }).on("error", reject);
+        });
+        assert.ok(Array.isArray(data.spawns));
+        const active = data.spawns.find((s) => s.spawnId === "in-session-active");
+        const stale = data.spawns.find((s) => s.spawnId === "in-session-stale");
+        assert.ok(active, "active entry present");
+        assert.ok(stale, "stale entry present");
+        assert.equal(active.status, "active");
+        assert.equal(stale.status, "completed");
+      } finally {
+        await new Promise((r) => server.close(r));
+      }
+    } finally {
+      fs.rmSync(projRoot, { recursive: true, force: true });
+    }
+  });
+});
+
+// ─── M47 D2 — GET /api/main-session (T5) ──────────────────────────────────────
+
+describe("GET /api/main-session (M47 D2)", () => {
+  function startTestServer(projRoot) {
+    const eventsDir = path.join(projRoot, ".gsd-t", "events");
+    fs.mkdirSync(eventsDir, { recursive: true });
+    fs.mkdirSync(path.join(projRoot, ".gsd-t", "transcripts"), { recursive: true });
+    const htmlPath = path.join(projRoot, "dashboard.html");
+    const tHtmlPath = path.join(projRoot, "transcript.html");
+    fs.writeFileSync(htmlPath, "<html></html>");
+    fs.writeFileSync(tHtmlPath, '<html data-spawn-id="__SPAWN_ID__"></html>');
+    return startServer(0, eventsDir, htmlPath, projRoot, tHtmlPath);
+  }
+
+  function getJSON(port, path) {
+    return new Promise((resolve, reject) => {
+      http.get(`http://localhost:${port}${path}`, (res) => {
+        let body = ""; res.on("data", (c) => body += c);
+        res.on("end", () => {
+          try { resolve({ status: res.statusCode, headers: res.headers, body: JSON.parse(body) }); }
+          catch (e) { reject(e); }
+        });
+      }).on("error", reject);
+    });
+  }
+
+  it("empty transcripts dir → { filename: null, sessionId: null, mtimeMs: null } HTTP 200", async () => {
+    const projRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gsd-t-m47-mainses-empty-"));
+    try {
+      const { server } = startTestServer(projRoot);
+      try {
+        const port = server.address().port;
+        const r = await getJSON(port, "/api/main-session");
+        assert.equal(r.status, 200);
+        assert.equal(r.body.filename, null);
+        assert.equal(r.body.sessionId, null);
+        assert.equal(r.body.mtimeMs, null);
+      } finally {
+        await new Promise((res) => server.close(res));
+      }
+    } finally {
+      fs.rmSync(projRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("single in-session-abc.ndjson → returns that file with sessionId 'abc'", async () => {
+    const projRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gsd-t-m47-mainses-one-"));
+    try {
+      const { server } = startTestServer(projRoot);
+      try {
+        const port = server.address().port;
+        const fp = path.join(projRoot, ".gsd-t", "transcripts", "in-session-abc.ndjson");
+        fs.writeFileSync(fp, "{}\n");
+        const expectedMtime = fs.statSync(fp).mtimeMs;
+        const r = await getJSON(port, "/api/main-session");
+        assert.equal(r.status, 200);
+        assert.equal(r.body.filename, "in-session-abc.ndjson");
+        assert.equal(r.body.sessionId, "abc");
+        assert.equal(r.body.mtimeMs, expectedMtime);
+      } finally {
+        await new Promise((res) => server.close(res));
+      }
+    } finally {
+      fs.rmSync(projRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("two files, second written later → returns the newer file", async () => {
+    const projRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gsd-t-m47-mainses-two-"));
+    try {
+      const { server } = startTestServer(projRoot);
+      try {
+        const port = server.address().port;
+        const tdir = path.join(projRoot, ".gsd-t", "transcripts");
+        const oldFp = path.join(tdir, "in-session-old.ndjson");
+        const newFp = path.join(tdir, "in-session-new.ndjson");
+        fs.writeFileSync(oldFp, "{}\n");
+        fs.writeFileSync(newFp, "{}\n");
+        // Bump newFp to a clearly-later mtime.
+        const past = (Date.now() - 60_000) / 1000;
+        const future = (Date.now() + 1_000) / 1000;
+        fs.utimesSync(oldFp, past, past);
+        fs.utimesSync(newFp, future, future);
+        const r = await getJSON(port, "/api/main-session");
+        assert.equal(r.body.filename, "in-session-new.ndjson");
+        assert.equal(r.body.sessionId, "new");
+      } finally {
+        await new Promise((res) => server.close(res));
+      }
+    } finally {
+      fs.rmSync(projRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("malformed filename (space) is filtered out by isValidSpawnId", async () => {
+    const projRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gsd-t-m47-mainses-bad-"));
+    try {
+      const { server } = startTestServer(projRoot);
+      try {
+        const port = server.address().port;
+        const tdir = path.join(projRoot, ".gsd-t", "transcripts");
+        // Filename with a space — fails isValidSpawnId after slice.
+        fs.writeFileSync(path.join(tdir, "in-session-bad name.ndjson"), "{}\n");
+        const r = await getJSON(port, "/api/main-session");
+        assert.equal(r.body.filename, null);
+        assert.equal(r.body.sessionId, null);
+      } finally {
+        await new Promise((res) => server.close(res));
+      }
+    } finally {
+      fs.rmSync(projRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("response includes Cache-Control: no-store header", async () => {
+    const projRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gsd-t-m47-mainses-cache-"));
+    try {
+      const { server } = startTestServer(projRoot);
+      try {
+        const port = server.address().port;
+        const r = await getJSON(port, "/api/main-session");
+        assert.equal(r.headers["cache-control"], "no-store");
+      } finally {
+        await new Promise((res) => server.close(res));
+      }
+    } finally {
+      fs.rmSync(projRoot, { recursive: true, force: true });
+    }
+  });
+});
+
+// ─── M47 D1 — viewer HTML structural markers (T7) ─────────────────────────────
+
+describe("M47 D1 viewer HTML structural markers", () => {
+  function startWithRealHtml(projRoot) {
+    const eventsDir = path.join(projRoot, ".gsd-t", "events");
+    fs.mkdirSync(eventsDir, { recursive: true });
+    fs.mkdirSync(path.join(projRoot, ".gsd-t", "transcripts"), { recursive: true });
+    const htmlPath = path.join(projRoot, "dashboard.html");
+    fs.writeFileSync(htmlPath, "<html></html>");
+    // Use the real shipped viewer HTML so structural markers are exercised.
+    const tHtmlPath = path.join(__dirname, "..", "scripts", "gsd-t-transcript.html");
+    return startServer(0, eventsDir, htmlPath, projRoot, tHtmlPath);
+  }
+
+  function getText(port, urlPath, headers) {
+    return new Promise((resolve, reject) => {
+      const req = http.request({ host: "localhost", port, path: urlPath, method: "GET", headers: headers || {} }, (res) => {
+        let body = ""; res.on("data", (c) => body += c);
+        res.on("end", () => resolve({ status: res.statusCode, headers: res.headers, body }));
+      });
+      req.on("error", reject);
+      req.end();
+    });
+  }
+
+  it("GET /transcript/:spawnId returns HTML with all M47 structural markers", async () => {
+    const projRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gsd-t-m47-t7-page-"));
+    try {
+      const { server } = startWithRealHtml(projRoot);
+      try {
+        const port = server.address().port;
+        const r = await getText(port, "/transcript/some-spawn");
+        assert.equal(r.status, 200);
+        // Required structural markers per M47 acceptance criteria.
+        assert.match(r.body, /data-rail-section="main"/, "missing main rail section marker");
+        assert.match(r.body, /data-rail-section="live"/, "missing live rail section marker");
+        assert.match(r.body, /data-rail-section="completed"/, "missing completed rail section marker");
+        assert.match(r.body, /role="separator"/, "missing splitter role=separator");
+        assert.match(r.body, /id="main-stream"/, "missing main-stream id");
+        assert.match(r.body, /id="spawn-stream"/, "missing spawn-stream id");
+        assert.match(r.body, /id="splitter"/, "missing splitter id");
+        // Server-side spawn-id substitution still works.
+        assert.match(r.body, /data-spawn-id="some-spawn"/, "missing data-spawn-id substitution");
+      } finally {
+        await new Promise((res) => server.close(res));
+      }
+    } finally {
+      fs.rmSync(projRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("GET /transcripts (Accept: text/html) returns viewer with empty data-spawn-id", async () => {
+    const projRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gsd-t-m47-t7-list-"));
+    try {
+      const { server } = startWithRealHtml(projRoot);
+      try {
+        const port = server.address().port;
+        const r = await getText(port, "/transcripts", { Accept: "text/html" });
+        assert.equal(r.status, 200);
+        assert.match(r.body, /data-spawn-id=""/, "back-compat shim should emit empty data-spawn-id for /transcripts HTML branch");
+        // M47 markers also present in this HTML branch.
+        assert.match(r.body, /data-rail-section="main"/);
+        assert.match(r.body, /id="main-stream"/);
+      } finally {
+        await new Promise((res) => server.close(res));
+      }
+    } finally {
+      fs.rmSync(projRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("HTML source contains all four sessionStorage keys", async () => {
+    const projRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gsd-t-m47-t7-keys-"));
+    try {
+      const { server } = startWithRealHtml(projRoot);
+      try {
+        const port = server.address().port;
+        const r = await getText(port, "/transcript/x");
+        assert.match(r.body, /gsd-t\.viewer\.selectedSpawnId/);
+        assert.match(r.body, /gsd-t\.viewer\.splitterPct/);
+        assert.match(r.body, /gsd-t\.viewer\.completedExpanded/);
+        assert.match(r.body, /gsd-t\.viewer\.rightRailCollapsed/);
+      } finally {
+        await new Promise((res) => server.close(res));
+      }
+    } finally {
+      fs.rmSync(projRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("CSS rule for collapsed completed section is present in the source", async () => {
+    const projRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gsd-t-m47-t7-css-"));
+    try {
+      const { server } = startWithRealHtml(projRoot);
+      try {
+        const port = server.address().port;
+        const r = await getText(port, "/transcript/x");
+        // Either form of the toggle CSS rule satisfies the contract — the
+        // declaration must hide .rail-body when [data-expanded="false"].
+        assert.match(r.body,
+          /rail-completed\[data-expanded="false"\]\s+\.rail-body\s*\{[^}]*display:\s*none/i,
+          "missing CSS rule that hides .rail-body when completed section is collapsed");
+      } finally {
+        await new Promise((res) => server.close(res));
+      }
     } finally {
       fs.rmSync(projRoot, { recursive: true, force: true });
     }

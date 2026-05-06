@@ -51,7 +51,10 @@ test('GET /transcripts with Accept: text/html returns the viewer with empty spaw
     assert.equal(r.status, 200);
     assert.match(r.type, /text\/html/);
     // Stable DOM markers from scripts/gsd-t-transcript.html viewer:
-    assert.match(r.body, /<main id="stream">/, 'viewer main stream container present');
+    // M47 D1 — `#stream` moved inside `#spawn-stream` (split-pane layout).
+    // Either form satisfies the contract: the legacy single-pane `<main id="stream">`
+    // OR the post-M47 nested `<div id="stream">` inside the bottom pane.
+    assert.match(r.body, /id="stream"/, 'viewer main stream container present');
     assert.match(r.body, /id="tree"/, 'viewer left-rail tree container present');
     assert.match(r.body, /id="spawn-plan-panel"/, 'viewer right-panel spawn-plan container present');
     // Placeholder substitution succeeded:

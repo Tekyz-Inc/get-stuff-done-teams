@@ -184,10 +184,18 @@ function isValidSpawnId(id) {
 // NDJSONs are on disk. Synthesizes a spawn-shaped entry per in-session file
 // using filesystem timestamps; the viewer's `in-session-` prefix detection
 // then labels it as `💬 conversation`.
+//
+// M47 D2: `status` is derived per-entry from mtime. A file modified within the
+// last 30 seconds is `active` (the conversation hook is still appending);
+// otherwise `completed`. The viewer (M47 D1) buckets entries by this field
+// into Live vs Completed rail sections. The `success | failed | killed`
+// taxonomy is intentionally out of scope here — see contract v1.3.0.
+const IN_SESSION_ACTIVE_WINDOW_MS = 30_000;
 function listInSessionTranscripts(projectDir) {
   const dir = transcriptsDir(projectDir);
   let files;
   try { files = fs.readdirSync(dir); } catch { return []; }
+  const now = Date.now();
   const out = [];
   for (const f of files) {
     if (!f.startsWith("in-session-") || !f.endsWith(".ndjson")) continue;
@@ -195,16 +203,46 @@ function listInSessionTranscripts(projectDir) {
     if (!isValidSpawnId(spawnId)) continue;
     let stat;
     try { stat = fs.statSync(path.join(dir, f)); } catch { continue; }
+    const status = (now - stat.mtimeMs) < IN_SESSION_ACTIVE_WINDOW_MS ? "active" : "completed";
     out.push({
       spawnId,
       command: "in-session conversation",
       startedAt: stat.birthtime ? stat.birthtime.toISOString() : stat.mtime.toISOString(),
       lastUpdatedAt: stat.mtime.toISOString(),
-      status: "active", // best-effort; the viewer doesn't currently use this field
+      status,
       kind: "in-session",
     });
   }
   return out;
+}
+
+// M47 D2: Resolve the most-recently-modified `in-session-*.ndjson` file. Used
+// by the viewer's top-pane default load (zero-click main-conversation stream).
+// Reuses `isValidSpawnId` for path-traversal safety.
+function handleMainSession(req, res, projectDir) {
+  const dir = transcriptsDir(projectDir);
+  let files;
+  try { files = fs.readdirSync(dir); } catch { files = []; }
+  let best = null;
+  for (const f of files) {
+    if (!f.startsWith("in-session-") || !f.endsWith(".ndjson")) continue;
+    const spawnId = f.slice(0, -".ndjson".length);
+    if (!isValidSpawnId(spawnId)) continue;
+    let stat;
+    try { stat = fs.statSync(path.join(dir, f)); } catch { continue; }
+    if (!best || stat.mtimeMs > best.mtimeMs) {
+      best = { filename: f, sessionId: f.slice("in-session-".length, -".ndjson".length), mtimeMs: stat.mtimeMs };
+    }
+  }
+  res.writeHead(200, {
+    "Content-Type": "application/json",
+    "Cache-Control": "no-store",
+  });
+  if (!best) {
+    res.end(JSON.stringify({ filename: null, sessionId: null, mtimeMs: null }));
+    return;
+  }
+  res.end(JSON.stringify(best));
 }
 
 function handleTranscriptsList(req, res, projectDir, transcriptHtmlPath) {
@@ -721,6 +759,8 @@ function startServer(port, eventsDir, htmlPath, projectDir, transcriptHtmlPath) 
     if (url === "/ping") return handlePing(req, res, port);
     if (url === "/stop") return handleStop(req, res, server);
     if (url === "/transcripts") return handleTranscriptsList(req, res, projDir, tHtmlPath);
+    // M47 D2 — most-recent in-session NDJSON for the viewer top-pane default load
+    if (url === "/api/main-session") return handleMainSession(req, res, projDir);
     // M44 D8 — spawn plans: GET list + SSE change stream
     if (url === "/api/spawn-plans") return handleSpawnPlans(req, res, projDir);
     if (url === "/api/spawn-plans/stream") return handleSpawnPlanUpdates(req, res, projDir);
@@ -762,6 +802,7 @@ module.exports = {
   readIndexEntry,
   isValidSpawnId,
   listInSessionTranscripts,
+  handleMainSession,
   handleTranscriptsList,
   handleTranscriptStream,
   handleTranscriptPage,

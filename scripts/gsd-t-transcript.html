@@ -22,10 +22,46 @@
       --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
     }
     * { box-sizing: border-box; }
-    body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--sans); font-size: 14px; line-height: 1.55; display: grid; grid-template-columns: 280px 1fr 320px; grid-template-rows: auto 1fr; min-height: 100vh; }
+    /* M47 D1: split-pane layout. Top pane = main in-session conversation
+       (zero-click default), bottom pane = user-selected spawn. Splitter
+       handle in the middle is keyboard- + mouse-draggable; persisted via
+       sessionStorage. Right-rail collapsibility is also persisted. */
+    :root {
+      --main-pane-pct: 50;             /* clamped 10–90 by JS */
+      --right-rail-w: 320px;           /* 0 when collapsed via [data-collapsed] */
+    }
+    body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--sans); font-size: 14px; line-height: 1.55; display: grid; grid-template-columns: 280px 1fr var(--right-rail-w); grid-template-rows: auto 1fr; min-height: 100vh; }
     body > header { grid-column: 1 / -1; }
     body > aside.left-rail { grid-column: 1; grid-row: 2; background: var(--bg-raised); border-right: 1px solid var(--border); padding: 12px 0; overflow-y: auto; max-height: calc(100vh - 50px); position: sticky; top: 49px; align-self: start; }
-    body > main { grid-column: 2; grid-row: 2; }
+    /* M47 D1: <main> becomes a vertical flex container holding the two streams + splitter handle. */
+    body > main { grid-column: 2; grid-row: 2; display: flex; flex-direction: column; min-height: calc(100vh - 50px); }
+    /* M47 D1 — when the right rail is collapsed, the body grid track becomes 0. */
+    body[data-right-rail-collapsed="true"] { --right-rail-w: 0px; }
+    body[data-right-rail-collapsed="true"] > aside.spawn-panel { display: none; }
+    /* M47 D1 — split-pane: top + bottom share calc(100vh - 50px - splitter) by var %. */
+    main #main-stream, main #spawn-stream { overflow-y: auto; padding: 16px; padding-bottom: 80px; max-width: 960px; margin: 0 auto; width: 100%; box-sizing: border-box; }
+    main #main-stream { flex: 0 0 calc(var(--main-pane-pct) * 1%); border-bottom: none; }
+    main #spawn-stream { flex: 1 1 auto; }
+    main .splitter { flex: 0 0 6px; background: var(--border); cursor: row-resize; user-select: none; outline: none; transition: background 120ms ease; }
+    main .splitter:hover, main .splitter:focus { background: var(--accent); }
+    main .splitter:focus-visible { box-shadow: inset 0 0 0 1px var(--accent); }
+    main .pane-empty { color: var(--fg-xdim); font-style: italic; padding: 12px; font-size: 13px; }
+    /* M47 D1 — left-rail 3 sections (Main / Live / Completed). */
+    aside.left-rail .rail-main, aside.left-rail .rail-live, aside.left-rail .rail-completed { padding: 0 0 8px 0; }
+    aside.left-rail .rail-header { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px 4px 12px; font-size: 11px; text-transform: uppercase; color: var(--fg-xdim); letter-spacing: 0.08em; }
+    aside.left-rail .rail-header .chevron { background: transparent; border: 0; color: var(--fg-xdim); cursor: pointer; font-family: var(--mono); font-size: 11px; padding: 0 4px; }
+    aside.left-rail .rail-header .chevron:hover { color: var(--fg); }
+    aside.left-rail .rail-completed[data-expanded="false"] .rail-body { display: none; }
+    aside.left-rail .rail-completed[data-expanded="false"] .rail-header .chevron { transform: rotate(-90deg); display: inline-block; }
+    /* M47 D1 — status badge dots on completed entries. */
+    aside .node .badge-status { flex: 0 0 auto; font-family: var(--mono); font-size: 9px; padding: 1px 5px; border-radius: 8px; margin-right: 4px; border: 1px solid var(--border); color: var(--fg-xdim); background: var(--bg); }
+    aside .node .badge-status.success { color: var(--green); border-color: var(--green); }
+    aside .node .badge-status.failed  { color: var(--red); border-color: var(--red); }
+    aside .node .badge-status.killed  { color: var(--fg-xdim); border-color: var(--fg-xdim); }
+    aside .node .badge-status.completed { color: var(--fg-dim); border-color: var(--border); }
+    /* M47 D1 — right-rail collapse toggle */
+    .spawn-panel .panel-toggle { background: transparent; border: 1px solid var(--border); color: var(--fg-xdim); font-family: var(--mono); font-size: 11px; padding: 1px 6px; cursor: pointer; border-radius: 3px; }
+    .spawn-panel .panel-toggle:hover { color: var(--fg); border-color: var(--accent); }
     /* M44 D8 — right-side spawn-plan panel (additive; does not alter main stream) */
     body > aside.spawn-panel { grid-column: 3; grid-row: 2; background: var(--bg-raised); border-left: 1px solid var(--border); padding: 12px 14px; overflow-y: auto; max-height: calc(100vh - 50px); position: sticky; top: 49px; align-self: start; font-size: 12px; }
     .spawn-panel h2 { margin: 0 0 6px 0; font-size: 11px; text-transform: uppercase; color: var(--fg-xdim); letter-spacing: 0.08em; }
@@ -121,7 +157,8 @@
     header .status.ended .dot { background: var(--fg-xdim); }
     header .status.error .dot { background: var(--red); }
 
-    main { padding: 16px; padding-bottom: 120px; max-width: 960px; margin: 0 auto; width: 100%; }
+    /* M47 D1 — padding moved onto the inner #main-stream / #spawn-stream containers
+       so the splitter sits flush between them. The outer <main> is a flex column. */
     .frame { margin: 8px 0; }
     .frame.system { color: var(--fg-xdim); font-style: italic; font-size: 12px; padding: 2px 0; }
     .frame.user { border-left: 3px solid var(--accent); padding: 6px 12px; background: var(--bg-raised); border-radius: 0 4px 4px 0; }
@@ -171,8 +208,25 @@
     <div class="status" id="hdr-status"><span class="dot"></span><span class="label">connecting…</span></div>
   </header>
   <aside class="left-rail">
-    <h3>Spawns</h3>
-    <div class="tree" id="tree"></div>
+    <!-- M47 D1 — three pre-rendered sections. Bucketing logic in Task 5
+         consumes D2's `status` field; until then, in-session entries land
+         in Main Session and everything else falls through to Live Spawns. -->
+    <section class="rail-main" data-rail-section="main">
+      <div class="rail-header"><span>★ Main Session</span></div>
+      <div class="rail-body" id="rail-main-body"><div class="empty">No in-session conversation captured yet.</div></div>
+    </section>
+    <section class="rail-live" data-rail-section="live">
+      <div class="rail-header"><span>Live Spawns</span></div>
+      <div class="rail-body">
+        <!-- Legacy mount point: existing renderTree() writes into #tree as a
+             no-op fallback while Task 5 bucketing rolls out. -->
+        <div class="tree" id="tree"></div>
+      </div>
+    </section>
+    <section class="rail-completed" data-rail-section="completed" data-expanded="true">
+      <div class="rail-header"><span>Completed</span><button class="chevron" id="rail-completed-toggle" aria-label="Toggle completed section">▾</button></div>
+      <div class="rail-body" id="rail-completed-body"><div class="empty">No completed spawns yet.</div></div>
+    </section>
     <details class="panel" id="tool-cost-panel" open>
       <summary>Tool Cost <span class="live-badge" id="tool-cost-live">off</span></summary>
       <div class="panel-body" id="tool-cost-body">
@@ -180,11 +234,28 @@
       </div>
     </details>
   </aside>
-  <main id="stream"></main>
+  <main>
+    <!-- M47 D1 — top pane: main in-session conversation (zero-click default).
+         Wired by Task 4 to /api/main-session + /transcript/in-session-:id/stream. -->
+    <section id="main-stream" aria-label="Main session conversation">
+      <div class="pane-empty">No in-session conversation captured yet.</div>
+    </section>
+    <!-- Splitter: keyboard accessible (ArrowUp/ArrowDown nudge ±5%, Home/End snap). -->
+    <div class="splitter" id="splitter" role="separator" tabindex="0" aria-orientation="horizontal" aria-label="Resize main vs spawn pane"></div>
+    <!-- Bottom pane: user-selected spawn. Existing #stream id preserved so
+         legacy selectors keep working — it now lives inside #spawn-stream. -->
+    <section id="spawn-stream" aria-label="Selected spawn transcript">
+      <div id="stream"></div>
+    </section>
+  </main>
   <!-- M44 D8 — Spawn Plan panel: Layer 1 (project) + Layer 2 (active spawn).
-       Additive; does not change the transcript stream rendering. -->
-  <aside class="spawn-panel" id="spawn-plan-panel">
-    <h2>Spawn Plan</h2>
+       Additive; does not change the transcript stream rendering.
+       M47 D1 — wrapped in <aside class="spawn-panel" data-collapsed> with a toggle. -->
+  <aside class="spawn-panel" id="spawn-plan-panel" data-collapsed="false">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+      <h2 style="margin:0;">Spawn Plan</h2>
+      <button class="panel-toggle" id="spawn-panel-toggle" aria-label="Collapse right rail">⟶</button>
+    </div>
     <section id="spawn-layer-project">
       <div class="sec-head"><span class="sec-title" id="project-title">Project</span><span class="sec-sub" id="project-sub">loading…</span></div>
       <div class="sec-totals" id="project-totals">—</div>
@@ -223,6 +294,116 @@
       const statusEl = document.getElementById('hdr-status');
       const statusLabel = statusEl.querySelector('.label');
       const jumpBtn = document.getElementById('jump-btn');
+
+      // M47 D1 — sessionStorage keys (centralized so tests can grep them).
+      const SS_KEY_SELECTED      = 'gsd-t.viewer.selectedSpawnId';
+      const SS_KEY_SPLITTER      = 'gsd-t.viewer.splitterPct';
+      const SS_KEY_COMPLETED     = 'gsd-t.viewer.completedExpanded';
+      const SS_KEY_RIGHT_RAIL    = 'gsd-t.viewer.rightRailCollapsed';
+
+      // M47 D1 — sessionStorage helpers: wrapped so private-mode (or test
+      // sandboxes that don't provide a sessionStorage shim) fall through to
+      // safe defaults instead of throwing during IIFE init.
+      function _ssGet(key)        { try { return (typeof sessionStorage !== 'undefined') ? sessionStorage.getItem(key) : null; } catch { return null; } }
+      function _ssSet(key, value) { try { if (typeof sessionStorage !== 'undefined') sessionStorage.setItem(key, value); } catch { /* private mode */ } }
+
+      // M47 D1 — splitter: restore persisted pct BEFORE first paint to avoid layout shift.
+      (function initSplitterPct() {
+        const raw = _ssGet(SS_KEY_SPLITTER);
+        let pct = 50;
+        const n = parseFloat(raw);
+        if (isFinite(n)) pct = Math.max(10, Math.min(90, n));
+        if (document.documentElement && document.documentElement.style) {
+          document.documentElement.style.setProperty('--main-pane-pct', String(pct));
+        }
+      })();
+
+      // M47 D1 — right-rail collapse: restore persisted state.
+      (function initRightRailCollapsed() {
+        const flag = _ssGet(SS_KEY_RIGHT_RAIL) === '1';
+        if (document.body && document.body.setAttribute) {
+          document.body.setAttribute('data-right-rail-collapsed', flag ? 'true' : 'false');
+        }
+        const panel = document.getElementById('spawn-plan-panel');
+        if (panel && panel.setAttribute) panel.setAttribute('data-collapsed', flag ? 'true' : 'false');
+      })();
+
+      // M47 D1 — completed section: restore persisted state.
+      (function initCompletedExpanded() {
+        const flagRaw = _ssGet(SS_KEY_COMPLETED);
+        const expanded = flagRaw === null ? true : flagRaw === '1';
+        const sec = (document.querySelector ? document.querySelector('section.rail-completed') : null);
+        if (sec && sec.setAttribute) sec.setAttribute('data-expanded', expanded ? 'true' : 'false');
+      })();
+
+      // M47 D1 — splitter wiring (mouse + keyboard).
+      (function wireSplitter() {
+        const splitter = document.getElementById('splitter');
+        if (!splitter || !splitter.addEventListener) return;
+        function setPct(pct) {
+          const clamped = Math.max(10, Math.min(90, pct));
+          if (document.documentElement && document.documentElement.style) {
+            document.documentElement.style.setProperty('--main-pane-pct', String(clamped));
+          }
+          _ssSet(SS_KEY_SPLITTER, String(clamped));
+        }
+        let dragging = false;
+        function onMove(ev) {
+          if (!dragging) return;
+          const main = document.querySelector ? document.querySelector('body > main') : null;
+          if (!main || !main.getBoundingClientRect) return;
+          const r = main.getBoundingClientRect();
+          if (r.height <= 0) return;
+          const pct = ((ev.clientY - r.top) / r.height) * 100;
+          setPct(pct);
+        }
+        function onUp() { dragging = false; if (document.body && document.body.style) document.body.style.cursor = ''; window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); }
+        splitter.addEventListener('mousedown', (ev) => {
+          ev.preventDefault();
+          dragging = true;
+          if (document.body && document.body.style) document.body.style.cursor = 'row-resize';
+          window.addEventListener('mousemove', onMove);
+          window.addEventListener('mouseup', onUp);
+        });
+        splitter.addEventListener('keydown', (ev) => {
+          let cur = 50;
+          if (typeof getComputedStyle === 'function' && document.documentElement) {
+            const v = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--main-pane-pct'));
+            if (isFinite(v)) cur = v;
+          }
+          if (ev.key === 'ArrowUp')      { ev.preventDefault(); setPct(cur - 5); }
+          else if (ev.key === 'ArrowDown') { ev.preventDefault(); setPct(cur + 5); }
+          else if (ev.key === 'Home')    { ev.preventDefault(); setPct(20); }
+          else if (ev.key === 'End')     { ev.preventDefault(); setPct(80); }
+        });
+      })();
+
+      // M47 D1 — right-rail collapse toggle.
+      (function wireRightRailToggle() {
+        const btn = document.getElementById('spawn-panel-toggle');
+        const panel = document.getElementById('spawn-plan-panel');
+        if (!btn || !panel || !btn.addEventListener) return;
+        btn.addEventListener('click', () => {
+          const collapsed = panel.getAttribute && panel.getAttribute('data-collapsed') === 'true';
+          const next = !collapsed;
+          if (panel.setAttribute) panel.setAttribute('data-collapsed', next ? 'true' : 'false');
+          if (document.body && document.body.setAttribute) document.body.setAttribute('data-right-rail-collapsed', next ? 'true' : 'false');
+          _ssSet(SS_KEY_RIGHT_RAIL, next ? '1' : '0');
+        });
+      })();
+
+      // M47 D1 — completed section toggle.
+      (function wireCompletedToggle() {
+        const btn = document.getElementById('rail-completed-toggle');
+        const sec = document.querySelector ? document.querySelector('section.rail-completed') : null;
+        if (!btn || !sec || !btn.addEventListener) return;
+        btn.addEventListener('click', () => {
+          const expanded = sec.getAttribute && sec.getAttribute('data-expanded') !== 'false';
+          const next = !expanded;
+          if (sec.setAttribute) sec.setAttribute('data-expanded', next ? 'true' : 'false');
+          _ssSet(SS_KEY_COMPLETED, next ? '1' : '0');
+        });
+      })();
 
       // Pair tool_result → tool_use by tool_use_id so the renderer can place
       // the result next to the call even when they come as separate frames.
@@ -264,6 +445,13 @@
       // to "now" so manually-rendered frames stay visible too. Spotting a
       // stuck stream is then trivial — adjacent frames will show identical
       // or far-apart timestamps in the left-margin pill.
+      //
+      // M47 D1: appendFrame writes to a module-scope `renderTarget`. The
+      // renderFrame entry point swaps it per-call so the same code paths
+      // render into either the top pane (#main-stream — main-conversation
+      // SSE) or the bottom pane (#stream inside #spawn-stream — selected
+      // spawn SSE).
+      let renderTarget = stream;
       function appendFrame(el, arrivedAt) {
         const ts = document.createElement('span');
         ts.className = 'ts';
@@ -272,9 +460,19 @@
         // Insert as the first child so flex/inline layouts keep working.
         if (el.firstChild) el.insertBefore(ts, el.firstChild);
         else el.appendChild(ts);
-        stream.appendChild(el);
-        if (autoScroll) {
+        (renderTarget || stream).appendChild(el);
+        // Auto-scroll only applies to the bottom pane (where the user is
+        // actively focused). The top pane scrolls within itself; we let the
+        // user's scrollbar manage it without yanking focus.
+        if (renderTarget === stream && autoScroll) {
           requestAnimationFrame(() => window.scrollTo(0, document.body.scrollHeight));
+        } else if (renderTarget && renderTarget !== stream) {
+          // Auto-scroll the top pane only when its viewport is at-bottom (similar
+          // logic to atBottom() but pane-local).
+          const pane = renderTarget.parentElement || renderTarget;
+          if (pane && pane.scrollHeight - pane.scrollTop - pane.clientHeight < 60) {
+            requestAnimationFrame(() => { pane.scrollTop = pane.scrollHeight; });
+          }
         }
       }
 
@@ -437,7 +635,16 @@
       }
       window.__gsdtRenderCompactMarker = renderCompactMarker;
 
-      function renderFrame(frame, arrivedAt) {
+      // M47 D1: optional `target` element switches render destination for the
+      // duration of this call (top pane = #main-stream, bottom pane = #stream).
+      function renderFrame(frame, arrivedAt, target) {
+        if (!frame || typeof frame !== 'object') return;
+        const prev = renderTarget;
+        if (target) renderTarget = target;
+        try { return renderFrameInner(frame, arrivedAt); }
+        finally { renderTarget = prev; }
+      }
+      function renderFrameInner(frame, arrivedAt) {
         if (!frame || typeof frame !== 'object') return;
         const ts = arrivedAt instanceof Date ? arrivedAt : new Date();
         const type = frame.type;
@@ -635,13 +842,130 @@
         pulseNode(latest.spawnId);
       }
 
+      // M47 D1 — render a single rail entry (used by bucketing).
+      function renderRailEntry(node, container, opts) {
+        const isInSession = typeof node.spawnId === 'string' && node.spawnId.indexOf('in-session-') === 0;
+        const currentId = (location.hash || '').slice(1) || spawnId;
+        const el = document.createElement('div');
+        el.className = 'node ' + statusClass(node);
+        if (isInSession) el.classList.add('in-session');
+        if (node.spawnId === currentId) el.classList.add('active');
+        el.style.paddingLeft = '12px';
+        const dot = document.createElement('span'); dot.className = 'dot';
+        const name = document.createElement('span'); name.className = 'name';
+        // M47 D1 — status badge (gated to completed-section entries; others
+        // already use the running/stopped/failed `dot` for state).
+        if (opts && opts.showBadge) {
+          const badgeKind = (function () {
+            const s = node.status;
+            if (s === 'success' || s === 'failed' || s === 'killed') return s;
+            return 'completed'; // neutral fallback for any other terminal value
+          })();
+          const badge = document.createElement('span');
+          badge.className = 'badge-status ' + badgeKind;
+          badge.textContent = badgeKind;
+          name.appendChild(badge);
+        }
+        if (isInSession) {
+          const tag = document.createElement('span');
+          tag.className = 'label-in-session';
+          tag.textContent = '💬 conversation';
+          name.appendChild(tag);
+          const tail = document.createElement('span');
+          tail.textContent = ' · ' + node.spawnId.slice(-8);
+          name.appendChild(tail);
+        } else {
+          const tail = document.createElement('span');
+          tail.textContent = (node.command || 'spawn') + ' · ' + node.spawnId.slice(-8);
+          name.appendChild(tail);
+        }
+        name.title = (node.description || node.spawnId) + '\n' + (node.startedAt || '');
+        const kill = document.createElement('button');
+        kill.className = 'kill';
+        kill.textContent = 'kill';
+        kill.disabled = node.status !== 'running' || !node.workerPid;
+        kill.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          if (!confirm('SIGTERM spawn ' + node.spawnId + ' (pid ' + node.workerPid + ')?')) return;
+          fetch('/transcript/' + encodeURIComponent(node.spawnId) + '/kill', { method: 'POST' })
+            .then((r) => r.json())
+            .then((j) => { kill.textContent = j.status || 'killed'; })
+            .catch(() => { kill.textContent = 'err'; });
+        });
+        el.appendChild(dot); el.appendChild(name); el.appendChild(kill);
+        el.addEventListener('click', () => {
+          if (node.spawnId === currentId) return;
+          _ssSet(SS_KEY_SELECTED, node.spawnId);
+          location.hash = node.spawnId;
+        });
+        container.appendChild(el);
+      }
+      window.__gsdtRenderRailEntry = renderRailEntry;
+
+      const COMPLETED_RAIL_CAP = 100;
+      // M47 D1 — top-level bucketing into the 3 rail sections.
+      // Bucketing rules (per m47-integration-points.md):
+      //   - in-session-* AND most-recent     → Main Session (★)
+      //   - status === 'active'              → Live Spawns
+      //   - any other (default 'completed')  → Completed (capped 100)
+      function bucketAndRender(spawns) {
+        const mainBody = document.getElementById('rail-main-body');
+        const liveTree = document.getElementById('tree');
+        const completedBody = document.getElementById('rail-completed-body');
+        if (!mainBody || !liveTree || !completedBody) return;
+        const sortedByMtime = spawns.slice().sort(
+          (a, b) => (Date.parse(b.lastUpdatedAt || b.startedAt) || 0) - (Date.parse(a.lastUpdatedAt || a.startedAt) || 0)
+        );
+        const inSessionSorted = sortedByMtime.filter((s) => typeof s.spawnId === 'string' && s.spawnId.indexOf('in-session-') === 0);
+        const mainEntry = inSessionSorted[0] || null;
+        const others = spawns.filter((s) => s !== mainEntry);
+        // Live: status === 'active' OR (status absent AND not terminal — preserve
+        // legacy spawn-index entries that never had a status field).
+        const live = [];
+        const completed = [];
+        for (const s of others) {
+          if (s.status === 'completed' || s.status === 'success' || s.status === 'failed' || s.status === 'killed') {
+            completed.push(s);
+          } else {
+            live.push(s);
+          }
+        }
+        // Main rail body
+        mainBody.innerHTML = '';
+        if (mainEntry) {
+          renderRailEntry(mainEntry, mainBody, { showBadge: false });
+        } else {
+          const e = document.createElement('div'); e.className = 'empty';
+          e.textContent = 'No in-session conversation captured yet.';
+          mainBody.appendChild(e);
+        }
+        // Live rail (legacy #tree mount — preserves existing tests / selectors).
+        // Build a parent-indented tree from `live` only so completed-only
+        // entries don't duplicate.
+        renderTree(buildTree(live));
+        // Completed rail (capped 100, newest first by startedAt desc).
+        completedBody.innerHTML = '';
+        const completedSorted = completed
+          .slice()
+          .sort((a, b) => (Date.parse(b.startedAt) || 0) - (Date.parse(a.startedAt) || 0))
+          .slice(0, COMPLETED_RAIL_CAP);
+        if (completedSorted.length === 0) {
+          const e = document.createElement('div'); e.className = 'empty';
+          e.textContent = 'No completed spawns yet.';
+          completedBody.appendChild(e);
+        } else {
+          for (const s of completedSorted) renderRailEntry(s, completedBody, { showBadge: true });
+        }
+      }
+      window.__gsdtBucketAndRender = bucketAndRender;
+
       let pollTimer = null;
       function pollSpawns() {
         fetch('/transcripts')
           .then((r) => r.json())
           .then((j) => {
             const spawns = j.spawns || [];
-            renderTree(buildTree(spawns));
+            bucketAndRender(spawns);
             maybeAutoFollow(spawns);
           })
           .catch(() => { /* keep last render */ });
@@ -740,9 +1064,27 @@
       window.__gsdtFetchToolCost = fetchToolCost;
 
       // ── SSE connection (reconnectable on hash change) ───────────────────
+      //
+      // M47 D1: dual-pane wiring.
+      //   - connect(id)         → bottom pane (#stream inside #spawn-stream)
+      //   - connectMain(sid)    → top pane    (#main-stream)
+      //
+      // The two channels are independent — each owns its own EventSource. The
+      // bottom pane preserves all M42/M43 behavior (auto-follow, hash
+      // bookmarks, tool-cost refresh). The top pane is read-only-style: it
+      // renders the in-session conversation NDJSON via /transcript/in-session-{sid}/stream.
 
       let src = null;
       function connect(id) {
+        if (!id) {
+          // Empty bottom pane — show the click-to-focus empty state.
+          if (src) { try { src.close(); } catch { /* gone */ } src = null; }
+          stream.innerHTML = '<div class="pane-empty">Click any spawn in the rail to focus it here.</div>';
+          toolUseById.clear();
+          document.getElementById('hdr-spawn-id').textContent = '';
+          setStatus('', 'idle');
+          return;
+        }
         if (src) { try { src.close(); } catch { /* gone */ } src = null; }
         stream.innerHTML = '';
         toolUseById.clear();
@@ -750,6 +1092,8 @@
         jumpBtn.classList.remove('visible');
         document.getElementById('hdr-spawn-id').textContent = id;
         setStatus('', 'connecting…');
+        // M47 D1 — persist selection across reload.
+        _ssSet(SS_KEY_SELECTED, id);
         // M43 D6 — kick off an initial tool-cost fetch for this spawn.
         fetchToolCost(id);
         setToolCostLive(false);
@@ -764,6 +1108,7 @@
           const arrivedAt = new Date();
           try {
             const frame = JSON.parse(ev.data);
+            // Bottom pane = default renderTarget = #stream.
             renderFrame(frame, arrivedAt);
             // M43 D6 — refresh tool-cost on turn-complete frames (debounced).
             // Various producers emit different turn-complete markers; accept
@@ -780,14 +1125,74 @@
         };
       }
 
+      // M47 D1 — top pane: main in-session conversation stream. Independent
+      // from the bottom pane's `connect()`. Uses its own EventSource and
+      // renders into #main-stream via the renderTarget swap inside renderFrame.
+      let mainSrc = null;
+      const mainStreamEl = document.getElementById('main-stream');
+      function connectMain(sessionId) {
+        if (mainSrc) { try { mainSrc.close(); } catch { /* gone */ } mainSrc = null; }
+        if (!mainStreamEl) return;
+        mainStreamEl.innerHTML = '';
+        if (!sessionId) {
+          mainStreamEl.innerHTML = '<div class="pane-empty">No in-session conversation captured yet.</div>';
+          return;
+        }
+        const spawnId = 'in-session-' + sessionId;
+        try {
+          mainSrc = new EventSource('/transcript/' + encodeURIComponent(spawnId) + '/stream');
+          mainSrc.onmessage = (ev) => {
+            if (!ev.data) return;
+            const arrivedAt = new Date();
+            try {
+              const frame = JSON.parse(ev.data);
+              renderFrame(frame, arrivedAt, mainStreamEl);
+            } catch {
+              const prev = renderTarget; renderTarget = mainStreamEl;
+              try { renderRaw(ev.data, arrivedAt); } finally { renderTarget = prev; }
+            }
+          };
+          // Errors are silent — the top pane is best-effort; bottom pane drives status.
+        } catch { /* EventSource unsupported */ }
+      }
+      window.__gsdtConnectMain = connectMain;
+
+      function fetchMainSession() {
+        const t0 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+        return fetch('/api/main-session')
+          .then((r) => r.ok ? r.json() : null)
+          .then((j) => {
+            if (j && j.sessionId) {
+              connectMain(j.sessionId);
+              const t1 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+              try { console.debug('[m47] top-pane connected in', Math.round(t1 - t0), 'ms'); } catch { /* ok */ }
+            } else {
+              connectMain(null);
+            }
+          })
+          .catch(() => { connectMain(null); });
+      }
+
       window.addEventListener('hashchange', () => {
         const id = (location.hash || '').slice(1);
         if (id) { connect(id); pollSpawns(); }
       });
 
-      const initialId = (location.hash || '').slice(1) || spawnId;
-      if (!location.hash && spawnId) location.hash = spawnId;
-      connect(initialId);
+      // M47 D1 — initial bottom-pane resolution:
+      //   1. data-spawn-id non-empty → connect that (bookmark flow)
+      //   2. else sessionStorage.selectedSpawnId → connect that
+      //   3. else show empty state
+      let initialBottomId = '';
+      if (spawnId) {
+        initialBottomId = spawnId;
+      } else {
+        initialBottomId = _ssGet(SS_KEY_SELECTED) || '';
+      }
+      if (initialBottomId && !location.hash) location.hash = initialBottomId;
+      connect(initialBottomId);
+
+      // M47 D1 — top pane: always populate via /api/main-session.
+      fetchMainSession();
 
       pollSpawns();
       pollTimer = setInterval(pollSpawns, 3000);

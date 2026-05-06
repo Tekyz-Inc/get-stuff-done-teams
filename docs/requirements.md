@@ -684,3 +684,19 @@ Acceptance:
 - Tests in `test/m46-d1-iter-parallel.test.js` pass (serial fallback, parallel batch, mode-safety gate, error isolation, state reconciliation).
 - Proof speedup ≥ **3.0×** recorded in `.gsd-t/metrics/m46-iter-proof.json` — a synthetic `batchSize = 4` measurement of the `_runIterParallel` driver, not the production main loop (which remains serial until backlog #24 lands).
 - `.gsd-t/contracts/iter-parallel-contract.md` v1.0.0 present as the locked source of truth.
+
+## M47 Focused Visualizer Redesign (executed — 2026-05-06)
+
+| REQ-ID | Requirement Summary | Domain | Task(s) | Status |
+|--------|---------------------|--------|---------|--------|
+| REQ-M47-D1-01 | Default `/transcripts` landing shows the main in-session conversation streaming in the top pane within 3s, zero clicks (success criterion 1). | m47-d1-viewer-redesign | T2, T4 | done |
+| REQ-M47-D1-02 | Click any rail entry → loads it into the bottom pane within 1s; `gsd-t.viewer.selectedSpawnId` sessionStorage key persists selection across reload (success criterion 2). | m47-d1-viewer-redesign | T3, T5 | done |
+| REQ-M47-D1-03 | Reactive Live → Completed transition without full reload; if the user is currently focused on the transitioning spawn, focus stays (no auto-revert) (success criterion 3). | m47-d1-viewer-redesign | T5 | done |
+| REQ-M47-D1-04 | Completed section displays at least 100 historical spawns capped, sorted newest-first, with status badges; toggle collapses/expands; `gsd-t.viewer.completedExpanded` persists state (success criterion 4). | m47-d1-viewer-redesign | T3, T5 | done |
+| REQ-M47-D1-05 | Splitter is mouse-draggable + keyboard-accessible (ArrowUp/Down ±5%, Home/End snap to 20/80); position persists in `gsd-t.viewer.splitterPct` sessionStorage. | m47-d1-viewer-redesign | T2, T6 | done |
+| REQ-M47-D1-06 | Right rail (Spawn Plan / Parallelism / Tool Cost) preserved under collapsible toggle; `gsd-t.viewer.rightRailCollapsed` sessionStorage key. | m47-d1-viewer-redesign | T2 | done |
+| REQ-M47-D1-07 | Back-compat: `data-spawn-id="__SPAWN_ID__"` server-side substitution preserved; bookmarks to `/transcript/:spawnId` land with that spawn pre-selected in the bottom pane. Existing 7 viewer-route/HTML tests stay green. | m47-d1-viewer-redesign | T2, T7 | done |
+| REQ-M47-D2-01 | `listInSessionTranscripts` (and the merged `handleTranscriptsList` payload) returns each in-session entry with `status: 'active' \| 'completed'` derived from a 30s mtime window. | m47-d2-server-helpers | T1, T4 | done |
+| REQ-M47-D2-02 | New `GET /api/main-session` endpoint returns `{ filename, sessionId, mtimeMs }` for the most-recently-modified `in-session-*.ndjson` (or `{ null, null, null }` when none exist); path-traversal-guarded; no caching. | m47-d2-server-helpers | T2, T5 | done |
+| REQ-M47-D2-03 | `dashboard-server-contract.md` bumped to v1.3.0 documenting the additive `status` field semantics + `/api/main-session` schema; module exports updated. | m47-d2-server-helpers | T3 | done |
+| REQ-M47-D2-04 | Test suite passes baseline 2045/2047 + new M47 tests (D1 + D2 net add); no NEW regressions in the 7 existing viewer-route/HTML tests (success criterion 5). | m47-d1-viewer-redesign + m47-d2-server-helpers | D1 T7, D2 T4–T5 | done |

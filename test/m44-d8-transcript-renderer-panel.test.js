@@ -30,7 +30,10 @@ test('CSS — defines the .spawn-panel right-side rail', () => {
   const html = readHtml();
   assert.match(html, /body\s*>\s*aside\.spawn-panel\s*\{/);
   // Grid column 3 so it sits to the right of main; existing rail stays at column 1.
-  assert.match(html, /grid-template-columns:\s*280px\s+1fr\s+320px/);
+  // M47 D1 — the third track became `var(--right-rail-w)` (default 320px) so it
+  // can collapse via [data-right-rail-collapsed]. Either form satisfies the contract:
+  // the rail is at grid column 3, the panel exists, and the dimmed state ships.
+  assert.match(html, /grid-template-columns:\s*280px\s+1fr\s+(?:320px|var\(--right-rail-w\))/);
   // Dimmed state class for inactive spawn card
   assert.match(html, /\.spawn-panel\s+section\.dimmed\s*\{/);
 });
