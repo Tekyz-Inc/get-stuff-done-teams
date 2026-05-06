@@ -1,0 +1,22 @@
+## Task 1 Summary — m50-bootstrap-and-detection
+
+- **Status**: PASS
+- **Files modified**:
+  - `bin/ui-detection.cjs` (new — 132 lines, zero deps, sync API)
+  - `test/m50-d1-ui-detection.test.js` (new — 18 tests covering all 8 mandatory acceptance fixtures + 4 hardening + 6 Red Team regressions)
+  - `.gsd-t/qa-issues.md` (appended 5 Red Team rows)
+  - `.gsd-t/deferred-items.md` (created/appended — Astro + Nuxt contract amendments deferred)
+- **Constraints discovered**:
+  - Contract §4's IGNORED_DIRS is enumerated, not "all dotfiles" — defensive `name.startsWith(".")` short-circuits would silently drop `.storybook/` UI code (Red Team BUG-2). Code now uses ONLY the contract-listed set.
+  - Sentinel-file probes (`pubspec.yaml`, `tailwind.config.*`) need `statSync().isFile()` not `existsSync()` to reject directories with the same name (Red Team BUG-1).
+  - Astro and Nuxt detection are real-world gaps but live OUTSIDE contract v1.0.0's framework enumeration. Adding them mid-task would silently expand contract scope; deferred to a v1.1.0 amendment.
+- **Tests**: 18/18 PASS for T1 unit tests; full suite 2130/2132 (2 pre-existing flakes — `event-stream` and `watch-progress-writer` — same as M50 baseline).
+- **QA subagent**: PASS — 12/12 functional behavioral tests (pre-fix run); 3 LOW additive coverage gaps recorded.
+- **Red Team**: cycle 1 → FAIL (2 HIGH + 3 MEDIUM + 2 LOW); fixes applied (3 of 5 in-cycle, 2 deferred); cycle 2 → GRUDGING PASS, 22 fresh adversarial probes, 0 new bugs.
+- **Commit**: see decision log entry timestamp.
+- **Notes**:
+  - `_isFile()` helper centralizes the directory-vs-file rejection. Reused for `_hasFlutter` and `_hasTailwindConfig`.
+  - Iterative BFS (not recursion) keeps the depth bound mechanical and tolerant of pathological symlink loops without depending on a `visited` set.
+  - Probe order matches contract §4: `package.json` deps → `pubspec.yaml` → `tailwind.config.*` → file-walk fallback. `next` precedes `react` (Next ships React).
+  - `peerDependencies` deliberately ignored per contract §4 (component libraries that declare peer-only React are not UI apps); flagged in QA's LOW report but no code change recommended.
+  - Down-stream import surface ready for T2 (`bin/playwright-bootstrap.cjs`) and T4 (`bin/gsd-t.js` wiring) — both will `require('./ui-detection.cjs')`.

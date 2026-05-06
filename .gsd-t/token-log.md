@@ -971,3 +971,71 @@
 <!-- missed_escalation 2026-05-06T18:03:41.087Z phase= domain= task= q="(no question provided)" -->
 <!-- missed_escalation 2026-05-06T18:04:02.414Z phase= domain= task= q="test" -->
 <!-- missed_escalation 2026-05-06T18:04:02.414Z phase= domain= task= q="(no question provided)" -->
+| 2026-05-06 17:37 | 2026-05-06 18:08 | gsd-t-debug | headless | unknown | 1807s | headless exec: ok | - | - | unknown |
+<!-- missed_escalation 2026-05-06T19:37:11.942Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-06T19:37:11.943Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-06T19:39:16.777Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-06T19:39:16.778Z phase= domain= task= q="(no question provided)" -->
+| 2026-05-06 12:52 | 2026-05-06 12:52 | gsd-t-debug | Step 0 | opus | 0s | — | M49: lazy dashboard autostart + idle TTL + doctor prune (pid 40409) | dashboard | - | 0 |
+<!-- missed_escalation 2026-05-06T20:00:20.940Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-06T20:00:20.941Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-06T20:02:41.585Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-06T20:02:41.585Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-06T20:03:04.727Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-06T20:03:04.727Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-06T20:03:33.873Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-06T20:03:33.874Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-06T20:06:45.999Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-06T20:06:46.000Z phase= domain= task= q="(no question provided)" -->
+| 2026-05-06 19:52 | 2026-05-06 20:07 | gsd-t-debug | headless | unknown | 927s | headless exec: ok | - | - | unknown |
+<!-- missed_escalation 2026-05-06T20:10:53.010Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-06T20:10:53.010Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-06T20:12:55.723Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-06T20:12:55.723Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-06T20:14:15.085Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-06T20:14:15.085Z phase= domain= task= q="(no question provided)" -->
+| 2026-05-06 13:34 | 2026-05-06 13:34 | gsd-t-milestone | router-kickoff | opus | 0s | — | M50: Universal Playwright Bootstrap + Deterministic UI Enforcement (pid 24057) | - | - | 0 |
+<!-- missed_escalation 2026-05-06T20:35:43.291Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-06T20:35:43.291Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-06T20:36:06.042Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-06T20:36:06.043Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-06T20:36:28.553Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-06T20:36:28.553Z phase= domain= task= q="(no question provided)" -->
+| 2026-05-06 20:34 | 2026-05-06 20:37 | gsd-t-milestone | headless | unknown | 161s | headless exec: ok | - | - | unknown |
+| 2026-05-06 13:39 | 2026-05-06 13:39 | gsd-t-partition | cron-chain | opus | 0s | — | M50 partition cron-chain after M50 DEFINED, 1800s timeout | - | - | 0 |
+| 2026-05-06 20:39 | 2026-05-06 20:48 | gsd-t-partition | headless | unknown | 522s | headless exec: ok | - | - | unknown |
+| 2026-05-06 13:48 | 2026-05-06 13:48 | gsd-t-plan | cron-chain | sonnet | 0s | — | M50 plan cron-chain after PARTITIONED, 1800s timeout | - | - | N/A |
+| 2026-05-06 13:53 | 2026-05-06 13:54 | gsd-t-plan | Step 7 | haiku | 60s | in=70603 out=0 cr=0 cc=0 — | M50 plan validation — PASS (6/6 checks, Locked Decisions N/A) | - | - | N/A |
+| 2026-05-06 20:48 | 2026-05-06 20:54 | gsd-t-plan | headless | unknown | 369s | headless exec: ok | - | - | unknown |
+| 2026-05-06 13:57 | 2026-05-06 13:57 | gsd-t-execute | cron-chain | sonnet | 0s | — | M50 execute cron-chain after PLANNED, 3600s timeout | - | - | N/A |
+| 2026-05-06 20:57 | 2026-05-06 20:58 | gsd-t-execute | headless | unknown | 76s | headless exec: ok | - | - | unknown |
+<!-- missed_escalation 2026-05-06T21:00:02.928Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-06T21:00:02.929Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-06T21:00:27.427Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-06T21:00:27.428Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-06T21:00:51.511Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-06T21:00:51.512Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-06T21:01:25.152Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-06T21:01:25.152Z phase= domain= task= q="(no question provided)" -->
+| 2026-05-06 13:58 | 2026-05-06 14:01 | gsd-t-execute | task:m50-d1-task-1 | sonnet | 180s | — | PASS — bin/ui-detection.cjs + 12 tests (8 mandatory + 4 hardening) all green; full suite 2114/2116 (2 pre-existing flakes preserved) | m50-bootstrap-and-detection | task-1 | 12 |
+<!-- missed_escalation 2026-05-06T21:01:48.805Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-06T21:01:48.805Z phase= domain= task= q="(no question provided)" -->
+| 2026-05-06 13:59 | 2026-05-06 14:03 | gsd-t-execute | task:m50-d1-task-2 | sonnet | 240s | in=58782 out=0 cr=0 cc=0 — | PASS — 10/10 tests pass; full suite 2124/2126 (2 pre-existing flakes preserved) | m50-bootstrap-and-detection | task-2 | 16.2 |
+<!-- missed_escalation 2026-05-06T21:08:08.585Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-06T21:08:08.585Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-06T21:08:34.220Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-06T21:08:34.220Z phase= domain= task= q="(no question provided)" -->
+| 2026-05-06 14:08 | 2026-05-06 14:08 | gsd-t-execute | cron-chain-retry | sonnet | 0s | — | M50 execute RETRY after self-abort (pid 14301), guardrails added, content/ stashed | - | - | N/A |
+<!-- missed_escalation 2026-05-06T21:08:58.791Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-06T21:08:58.791Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-06T21:09:26.026Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-06T21:09:26.026Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-06T21:09:51.164Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-06T21:09:51.164Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-06T21:09:56.844Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-06T21:09:56.844Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-06T21:10:38.751Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-06T21:10:38.751Z phase= domain= task= q="(no question provided)" -->
+| 2026-05-06 13:59 | 2026-05-06 14:00 | gsd-t-execute | Step 2 (QA) | sonnet | 60s | in=51177 out=0 cr=0 cc=0 — | PASS — 12/12 tests, behavioral coverage confirmed; 3 LOW additive gaps (angular/.mjs/.ts fixtures) | m50-bootstrap-and-detection | task-1 | 12 |
+| 2026-05-06 13:59 | 2026-05-06 14:04 | gsd-t-execute | Step 5.5 (Red Team) | opus | 300s | in=80901 out=0 cr=0 cc=0 — | FAIL → fixes → GRUDGING PASS. Cycle 1 found 7 bugs (2H/3M/2L); 3 fixed in cycle, 2 deferred (Astro/Nuxt — contract amendment), 2 LOW closed by added tests | m50-bootstrap-and-detection | task-1 | 12 |
+| 2026-05-06 14:04 | 2026-05-06 14:06 | gsd-t-execute | Step 5.5 (Red Team re-verify) | opus | 120s | in=59164 out=0 cr=0 cc=0 — | GRUDGING PASS — all 4 fixes confirmed; 22 fresh adversarial probes; 0 new bugs introduced | m50-bootstrap-and-detection | task-1 | 13 |
