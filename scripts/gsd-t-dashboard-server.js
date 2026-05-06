@@ -273,7 +273,14 @@ function handleTranscriptsList(req, res, projectDir, transcriptHtmlPath) {
       // viewer's initialId logic falls through to location.hash (also empty)
       // and connect('') is a no-op beyond a 404 SSE attempt — harmless, since
       // the left rail polls /api/spawns-index independently.
-      const html = data.toString("utf8").replace(/__SPAWN_ID__/g, "");
+      const projectName = path.basename(path.resolve(projectDir || "."));
+      // Function-form replacement: a string replacement would interpret
+      // `$&`, `$1`, `$$`, etc. in the project basename as backreferences,
+      // re-injecting the placeholder or fragments of it (Red Team BUG-1).
+      const escapedName = _escapeHtml(projectName);
+      const html = data.toString("utf8")
+        .replace(/__SPAWN_ID__/g, () => "")
+        .replace(/__PROJECT_NAME__/g, () => escapedName);
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
       res.end(html);
     });
@@ -283,16 +290,34 @@ function handleTranscriptsList(req, res, projectDir, transcriptHtmlPath) {
   res.end(JSON.stringify({ spawns: sorted }));
 }
 
-function handleTranscriptPage(req, res, spawnId, transcriptHtmlPath) {
+function handleTranscriptPage(req, res, spawnId, transcriptHtmlPath, projectDir) {
   if (!isValidSpawnId(spawnId)) { res.writeHead(400); res.end("Invalid spawn id"); return; }
   fs.readFile(transcriptHtmlPath, (err, data) => {
     if (err) { res.writeHead(404); res.end("Transcript UI not found"); return; }
     // Inject the spawn-id as a data attribute on <body> by string replacement;
     // the HTML ships with a placeholder `data-spawn-id="__SPAWN_ID__"`.
-    const html = data.toString("utf8").replace(/__SPAWN_ID__/g, spawnId);
+    const projectName = path.basename(path.resolve(projectDir || "."));
+    // Function-form replacement: see comment in handleTranscriptsList. Even
+    // though isValidSpawnId guards spawnId against `$`, defence in depth.
+    const escapedName = _escapeHtml(projectName);
+    const html = data.toString("utf8")
+      .replace(/__SPAWN_ID__/g, () => spawnId)
+      .replace(/__PROJECT_NAME__/g, () => escapedName);
     res.writeHead(200, { "Content-Type": "text/html" });
     res.end(html);
   });
+}
+
+// HTML-escape just enough to make a directory basename safe in <title> and
+// <div class="title">. Project basenames effectively never contain quotes or
+// angle brackets, but we still escape to keep the surface tight.
+function _escapeHtml(s) {
+  return String(s == null ? "" : s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 function tailTranscriptFile(filePath, callback) {
@@ -783,7 +808,7 @@ function startServer(port, eventsDir, htmlPath, projectDir, transcriptHtmlPath) 
     if (streamMatch) return handleTranscriptStream(req, res, decodeURIComponent(streamMatch[1]), projDir);
     // /transcript/:spawnId — HTML viewer page
     const pageMatch = url.match(/^\/transcript\/([^/]+)$/);
-    if (pageMatch) return handleTranscriptPage(req, res, decodeURIComponent(pageMatch[1]), tHtmlPath);
+    if (pageMatch) return handleTranscriptPage(req, res, decodeURIComponent(pageMatch[1]), tHtmlPath, projDir);
     res.writeHead(404); res.end("Not found");
   });
   server.listen(port);

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GSD-T Transcript</title>
+  <title>__PROJECT_NAME__</title>
   <style>
     :root {
       --bg: #0d1117;
@@ -183,6 +183,17 @@
     .frame.boundary.done .label { color: var(--green); }
     .frame.boundary.failed .label { color: var(--red); }
     .frame.boundary .meta { color: var(--fg-dim); font-family: var(--mono); font-size: 12px; }
+    /* M48 — chat-bubble frame types emitted by the in-session conversation
+       capture hook. user_turn reuses .frame.user styling; assistant_turn
+       gets a softer right-aligned-feel bubble; session_start is a tiny badge. */
+    .frame.assistant-turn { border-left: 3px solid var(--green); padding: 6px 12px; background: var(--bg-raised); border-radius: 0 4px 4px 0; }
+    .frame.assistant-turn .prefix { color: var(--green); font-weight: 600; margin-right: 6px; font-family: var(--mono); }
+    .frame.assistant-turn .body { white-space: pre-wrap; word-break: break-word; }
+    .frame.user-turn .body { white-space: pre-wrap; word-break: break-word; }
+    .frame.session-start { display: inline-flex; align-items: center; gap: 6px; margin: 8px 0; padding: 3px 10px; background: rgba(88,166,255,0.10); border: 1px solid var(--border); border-radius: 12px; font-family: var(--mono); font-size: 11px; color: var(--fg-dim); }
+    .frame.session-start .badge { color: var(--accent); font-weight: 600; }
+    .frame.tool-call-line { font-family: var(--mono); font-size: 12px; color: var(--accent-warm); padding: 2px 0; }
+    .frame.truncated-tag { color: var(--fg-xdim); font-style: italic; font-size: 11px; margin-left: 6px; }
 
     .jump-to-live { position: fixed; bottom: 24px; right: 24px; background: var(--accent); color: #fff; border: none; padding: 10px 16px; border-radius: 20px; cursor: pointer; font-size: 13px; font-family: var(--sans); font-weight: 600; box-shadow: 0 4px 12px rgba(0,0,0,0.4); display: none; z-index: 20; }
     .jump-to-live.visible { display: block; }
@@ -202,7 +213,7 @@
 </head>
 <body data-spawn-id="__SPAWN_ID__">
   <header>
-    <div class="title">GSD-T Transcript</div>
+    <div class="title">__PROJECT_NAME__</div>
     <div class="spawn-id" id="hdr-spawn-id"></div>
     <label class="auto-follow" title="When ON, snap focus to the most recent live spawn as soon as it appears."><input type="checkbox" id="auto-follow" checked> auto-follow latest</label>
     <div class="status" id="hdr-status"><span class="dot"></span><span class="label">connecting…</span></div>
@@ -440,17 +451,26 @@
       }
       window.__gsdtFmtTs = fmtTs;
 
-      // Per-frame arrival timestamp. The renderer captures Date.now() once
-      // per SSE message and threads it through; everything else falls back
-      // to "now" so manually-rendered frames stay visible too. Spotting a
-      // stuck stream is then trivial — adjacent frames will show identical
-      // or far-apart timestamps in the left-margin pill.
+      // Per-frame timestamp. We prefer the producer-side `frame.ts`
+      // (ISO string written by the conversation-capture hook) when it
+      // parses cleanly, and only fall back to SSE arrival time when no
+      // `ts` field is present. Without this, an initial-load replay of
+      // N frames all arrives within one millisecond and every row shows
+      // the same HH:MM:SS — useless for spotting stuck or stale streams.
       //
       // M47 D1: appendFrame writes to a module-scope `renderTarget`. The
       // renderFrame entry point swaps it per-call so the same code paths
       // render into either the top pane (#main-stream — main-conversation
       // SSE) or the bottom pane (#stream inside #spawn-stream — selected
       // spawn SSE).
+      function frameTs(frame, fallback) {
+        if (frame && typeof frame.ts === 'string') {
+          const d = new Date(frame.ts);
+          if (!isNaN(d.getTime())) return d;
+        }
+        return fallback instanceof Date ? fallback : new Date();
+      }
+      window.__gsdtFrameTs = frameTs;
       let renderTarget = stream;
       function appendFrame(el, arrivedAt) {
         const ts = document.createElement('span');
@@ -604,6 +624,74 @@
         appendFrame(div, arrivedAt);
       }
 
+      // M48 — chat-bubble renderers for the in-session conversation NDJSON.
+      // The conversation-capture hook emits frames of type
+      // `user_turn`, `assistant_turn`, `session_start`, and `tool_use`.
+      // Without explicit handling these fall through to renderRaw and the
+      // user sees a JSON.stringify dump per row.
+      function _appendTruncatedTag(div, frame) {
+        if (!frame || !frame.truncated) return;
+        const tag = document.createElement('span');
+        tag.className = 'truncated-tag';
+        tag.textContent = '(truncated)';
+        div.appendChild(tag);
+      }
+      function renderUserTurn(frame, arrivedAt) {
+        const div = document.createElement('div');
+        div.className = 'frame user user-turn';
+        const p = document.createElement('span');
+        p.className = 'prefix';
+        p.textContent = '>';
+        div.appendChild(p);
+        const body = document.createElement('span');
+        body.className = 'body';
+        body.textContent = (frame && typeof frame.content === 'string') ? frame.content : '';
+        div.appendChild(body);
+        _appendTruncatedTag(div, frame);
+        appendFrame(div, arrivedAt);
+      }
+      function renderAssistantTurn(frame, arrivedAt) {
+        const div = document.createElement('div');
+        div.className = 'frame assistant-turn';
+        const p = document.createElement('span');
+        p.className = 'prefix';
+        p.textContent = '⏺';
+        div.appendChild(p);
+        const body = document.createElement('span');
+        body.className = 'body';
+        body.textContent = (frame && typeof frame.content === 'string') ? frame.content : '';
+        div.appendChild(body);
+        _appendTruncatedTag(div, frame);
+        appendFrame(div, arrivedAt);
+      }
+      function renderSessionStart(frame, arrivedAt) {
+        const div = document.createElement('div');
+        div.className = 'frame session-start';
+        const badge = document.createElement('span');
+        badge.className = 'badge';
+        badge.textContent = '◆ session';
+        div.appendChild(badge);
+        if (frame && typeof frame.session_id === 'string') {
+          const sid = document.createElement('span');
+          sid.textContent = frame.session_id.slice(0, 8);
+          div.appendChild(sid);
+        }
+        appendFrame(div, arrivedAt);
+      }
+      function renderToolUseLine(frame, arrivedAt) {
+        const div = document.createElement('div');
+        div.className = 'frame tool-call-line';
+        const span = document.createElement('span');
+        const name = (frame && typeof frame.name === 'string') ? frame.name : 'tool';
+        span.textContent = '⎿ ' + name + '()';
+        div.appendChild(span);
+        appendFrame(div, arrivedAt);
+      }
+      window.__gsdtRenderUserTurn       = renderUserTurn;
+      window.__gsdtRenderAssistantTurn  = renderAssistantTurn;
+      window.__gsdtRenderSessionStart   = renderSessionStart;
+      window.__gsdtRenderToolUseLine    = renderToolUseLine;
+
       function renderCompactMarker(frame, arrivedAt) {
         const div = document.createElement('div');
         div.className = 'frame compact-marker';
@@ -646,12 +734,23 @@
       }
       function renderFrameInner(frame, arrivedAt) {
         if (!frame || typeof frame !== 'object') return;
-        const ts = arrivedAt instanceof Date ? arrivedAt : new Date();
+        // Defense in depth: if a caller passes a non-Date `arrivedAt`, still
+        // try to derive a real timestamp from frame.ts before falling back
+        // to "now". Without this guard, every renderFrame() call from a
+        // non-SSE path (e.g. tests, manual dispatch) collapses to one Date.
+        const ts = (arrivedAt instanceof Date && !isNaN(arrivedAt.getTime()))
+          ? arrivedAt
+          : frameTs(frame, new Date());
         const type = frame.type;
         if (type === 'compact_marker') { renderCompactMarker(frame, ts); return; }
         if (type === 'system') { renderSystem(frame, ts); return; }
         if (type === 'task-boundary') { renderBoundary(frame, ts); return; }
         if (type === 'raw') { renderRaw(frame.line || '', ts); return; }
+        // M48 — in-session conversation-capture frame types.
+        if (type === 'session_start')   { renderSessionStart(frame, ts); return; }
+        if (type === 'user_turn')       { renderUserTurn(frame, ts); return; }
+        if (type === 'assistant_turn')  { renderAssistantTurn(frame, ts); return; }
+        if (type === 'tool_use')        { renderToolUseLine(frame, ts); return; }
         if (type === 'assistant' && frame.message && Array.isArray(frame.message.content)) {
           for (const b of frame.message.content) {
             if (b.type === 'text') renderAssistantText(b.text || '', ts);
@@ -771,6 +870,14 @@
           });
           el.appendChild(dot); el.appendChild(name); el.appendChild(kill);
           el.addEventListener('click', () => {
+            // M48 — symmetric with renderRailEntry: in-session entries
+            // belong to the TOP pane only. Without this guard the legacy
+            // renderTree path (called for the `live` bucket when ≥2
+            // in-session NDJSONs exist) would mutate location.hash to an
+            // in-session-* value, polluting the URL and the rail's active
+            // highlight even though the hashchange handler now blocks
+            // bottom-pane SSE pinning.
+            if (isInSession(node)) return;
             if (node.spawnId === currentId) return;
             location.hash = node.spawnId;
           });
@@ -822,9 +929,14 @@
       function maybeAutoFollow(spawns) {
         if (!autoFollowEl.checked) return;
         const currentId = (location.hash || '').slice(1) || spawnId;
+        // M48 — auto-follow drives the BOTTOM pane (selected-spawn). The
+        // top pane is owned by /api/main-session and shows in-session-*
+        // entries automatically. Excluding them here prevents the auto-
+        // follow loop from also pinning them into the bottom pane.
         // Most recent running spawn by startedAt (descending).
         const running = spawns
           .filter((s) => s.status === 'running')
+          .filter((s) => !(typeof s.spawnId === 'string' && s.spawnId.indexOf('in-session-') === 0))
           .sort((a, b) => (Date.parse(b.startedAt) || 0) - (Date.parse(a.startedAt) || 0));
         if (!running.length) return;
         const latest = running[0];
@@ -894,6 +1006,12 @@
         });
         el.appendChild(dot); el.appendChild(name); el.appendChild(kill);
         el.addEventListener('click', () => {
+          // M48 — in-session conversation entries belong in the TOP pane only.
+          // The top pane is wired to /api/main-session and streams the
+          // current orchestrator session. Routing them through location.hash
+          // would also load them into the bottom pane (the SELECTED-SPAWN
+          // pane), making both panes show identical content.
+          if (isInSession) return;
           if (node.spawnId === currentId) return;
           _ssSet(SS_KEY_SELECTED, node.spawnId);
           location.hash = node.spawnId;
@@ -1102,14 +1220,15 @@
         src.onerror = () => { setStatus('error', 'disconnected'); setToolCostLive(false); };
         src.onmessage = (ev) => {
           if (!ev.data) return;
-          // Capture arrival time once per SSE message — every render call for
-          // this frame stamps the same wall-clock value, so the user can spot
-          // a stuck stream by adjacent identical/far-apart timestamps.
+          // Arrival time is the FALLBACK; we prefer the producer-side
+          // frame.ts so a 200-frame initial replay shows actual event
+          // times (spread out over minutes), not the same millisecond.
           const arrivedAt = new Date();
           try {
             const frame = JSON.parse(ev.data);
+            const renderAt = frameTs(frame, arrivedAt);
             // Bottom pane = default renderTarget = #stream.
-            renderFrame(frame, arrivedAt);
+            renderFrame(frame, renderAt);
             // M43 D6 — refresh tool-cost on turn-complete frames (debounced).
             // Various producers emit different turn-complete markers; accept
             // any of them.
@@ -1146,7 +1265,8 @@
             const arrivedAt = new Date();
             try {
               const frame = JSON.parse(ev.data);
-              renderFrame(frame, arrivedAt, mainStreamEl);
+              const renderAt = frameTs(frame, arrivedAt);
+              renderFrame(frame, renderAt, mainStreamEl);
             } catch {
               const prev = renderTarget; renderTarget = mainStreamEl;
               try { renderRaw(ev.data, arrivedAt); } finally { renderTarget = prev; }
@@ -1175,6 +1295,8 @@
 
       window.addEventListener('hashchange', () => {
         const id = (location.hash || '').slice(1);
+        // M48 — keep in-session-* ids out of the bottom pane (top pane only).
+        if (id && id.indexOf('in-session-') === 0) { return; }
         if (id) { connect(id); pollSpawns(); }
       });
 
@@ -1182,11 +1304,18 @@
       //   1. data-spawn-id non-empty → connect that (bookmark flow)
       //   2. else sessionStorage.selectedSpawnId → connect that
       //   3. else show empty state
+      // M48 — never seed the bottom pane with an in-session-* id; the top
+      // pane already owns the main session, and showing it in both panes
+      // is one of the regressions Bug 4 fixes.
       let initialBottomId = '';
       if (spawnId) {
         initialBottomId = spawnId;
       } else {
         initialBottomId = _ssGet(SS_KEY_SELECTED) || '';
+      }
+      if (typeof initialBottomId === 'string' && initialBottomId.indexOf('in-session-') === 0) {
+        initialBottomId = '';
+        _ssSet(SS_KEY_SELECTED, '');
       }
       if (initialBottomId && !location.hash) location.hash = initialBottomId;
       connect(initialBottomId);

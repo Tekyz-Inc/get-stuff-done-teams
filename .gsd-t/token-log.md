@@ -917,3 +917,57 @@
 <!-- missed_escalation 2026-04-24T00:23:18.407Z phase= domain= task= q="(no question provided)" -->
 <!-- missed_escalation 2026-04-24T00:28:05.968Z phase= domain= task= q="test" -->
 <!-- missed_escalation 2026-04-24T00:28:05.968Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-06T16:00:08.394Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-06T16:00:08.394Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-06T16:00:30.807Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-06T16:00:30.807Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-06T16:00:53.168Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-06T16:00:53.168Z phase= domain= task= q="(no question provided)" -->
+| 2026-05-06 09:03 | 2026-05-06 09:03 | gsd-t-plan | Step 7 | haiku | 0s | — | M47 plan validation, iteration 1 — pending haiku spawn | - | - | 0 |
+| 2026-05-06 15:52 | 2026-05-06 16:05 | gsd-t-plan | headless | unknown | 776s | headless exec: ok | - | - | unknown |
+| 2026-05-06 09:07 | 2026-05-06 09:07 | gsd-t-execute | cron-chain | sonnet | 0s | — | M47 execute detached spawn (pid 23684) — chain after PLANNED, 3600s timeout | - | - | 0 |
+<!-- missed_escalation 2026-05-06T16:18:55.119Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-06T16:18:55.120Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-06T16:19:20.904Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-06T16:19:20.905Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-06T16:19:47.045Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-06T16:19:47.045Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-06T16:20:08.643Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-06T16:20:08.643Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-06T16:23:01.087Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-06T16:23:01.087Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-06T16:27:44.814Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-06T16:27:44.814Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-06T16:38:07.710Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-06T16:38:07.710Z phase= domain= task= q="(no question provided)" -->
+| 2026-05-06 16:07 | 2026-05-06 16:39 | gsd-t-execute | headless | unknown | 1950s | headless exec: ok | - | - | unknown |
+<!-- missed_escalation 2026-05-06T17:13:03.861Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-06T17:13:03.861Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-06T17:13:37.998Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-06T17:13:37.998Z phase= domain= task= q="(no question provided)" -->
+| 2026-05-06 17:37 | 2026-05-06 17:37 | gsd-t-debug | headless | unknown | 10s | headless exec: ok | - | - | unknown |
+| 2026-05-06 10:37 | 2026-05-06 10:37 | gsd-t-debug | Step 0 | opus | 0s | — | Viewer regressions: title/ts/format/dual-pane (pid 5629) — debug + Red Team, 3600s timeout | viewer | - | 0 |
+<!-- missed_escalation 2026-05-06T17:45:32.890Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-06T17:45:32.891Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-06T17:45:55.902Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-06T17:45:55.902Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-06T17:46:18.178Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-06T17:46:18.178Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-06T17:46:41.893Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-06T17:46:41.893Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-06T17:47:32.110Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-06T17:47:32.110Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-06T17:48:14.502Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-06T17:48:14.503Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-06T17:50:47.578Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-06T17:50:47.578Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-06T17:56:13.763Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-06T17:56:13.764Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-06T17:56:35.937Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-06T17:56:35.937Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-06T18:02:35.341Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-06T18:02:35.341Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-06T18:03:41.087Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-06T18:03:41.087Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-06T18:04:02.414Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-06T18:04:02.414Z phase= domain= task= q="(no question provided)" -->

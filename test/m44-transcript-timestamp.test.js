@@ -50,11 +50,15 @@ test("renderer — fmtTs produces HH:MM:SS with zero padding", () => {
 
 test("SSE handler — captures arrival time once per frame and forwards it", () => {
   const html = readHtml();
-  // Capture
+  // Capture: SSE arrival time is still the fallback (M48 Bug 2 added an
+  // additional layer that prefers frame.ts when present, but arrivedAt
+  // remains the bedrock).
   assert.match(html, /const arrivedAt\s*=\s*new Date\(\)/);
-  // Forward to renderFrame
-  assert.match(html, /renderFrame\(frame,\s*arrivedAt\)/);
-  // Forward to the raw fallback too
+  // Forward to renderFrame — post-M48 the threaded value is `renderAt`,
+  // which is `frameTs(frame, arrivedAt)` (i.e. arrivedAt as fallback).
+  assert.match(html, /renderFrame\(\s*frame\s*,\s*(?:arrivedAt|renderAt)\b/);
+  // Forward to the raw fallback too — still arrivedAt because there's no
+  // parsable frame in the JSON-error branch.
   assert.match(html, /renderRaw\(ev\.data,\s*arrivedAt\)/);
 });
 
