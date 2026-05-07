@@ -1008,6 +1008,15 @@ defined in `.gsd-t/contracts/parallelism-report-contract.md` v1.0.0.
 Per-spawn timeline, Per-gate decisions, Per-worker Gantt, Token cost, and
 Notes sections.
 
+**Install location**: the dashboard server (installed at
+`~/.claude/scripts/gsd-t-dashboard-server.js`) resolves
+`require(path.join(__dirname, "..", "bin", "parallelism-report.cjs"))` at
+request time, so the module must live at **`~/.claude/bin/parallelism-report.cjs`**.
+The installer handles this via `installGlobalBinTools()` (driven by
+`GLOBAL_BIN_TOOLS` in `bin/gsd-t.js`), and `gsd-t doctor` flags any missing
+entry. This is distinct from `PROJECT_BIN_TOOLS`, which copies into each
+registered project's local `bin/`.
+
 **Data flow**:
 
 ```

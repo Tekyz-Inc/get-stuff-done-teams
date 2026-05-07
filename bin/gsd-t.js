@@ -45,6 +45,7 @@ const { mapHeadlessExitCode } = require(path.join(__dirname, "headless-exit-code
 const CLAUDE_DIR = path.join(os.homedir(), ".claude");
 const COMMANDS_DIR = path.join(CLAUDE_DIR, "commands");
 const SCRIPTS_DIR = path.join(CLAUDE_DIR, "scripts");
+const GLOBAL_BIN_DIR = path.join(CLAUDE_DIR, "bin");
 const CLAUDE_TEMPLATES_DIR = path.join(CLAUDE_DIR, "templates");
 const GLOBAL_CLAUDE_MD = path.join(CLAUDE_DIR, "CLAUDE.md");
 const SETTINGS_JSON = path.join(CLAUDE_DIR, "settings.json");
@@ -1169,6 +1170,33 @@ function installUtilityScripts() {
   }
 }
 
+// ─── Global Bin Tools (~/.claude/bin/) ───────────────────────────────────────
+// Modules resolved by globally-installed scripts via
+// `path.join(__dirname, "..", "bin", <tool>)` (e.g. gsd-t-dashboard-server.js
+// → parallelism-report.cjs). Distinct from PROJECT_BIN_TOOLS, which copy into
+// each registered project's bin/.
+const GLOBAL_BIN_TOOLS = ["parallelism-report.cjs"];
+
+function installGlobalBinTools() {
+  ensureDir(GLOBAL_BIN_DIR);
+  for (const tool of GLOBAL_BIN_TOOLS) {
+    const src = path.join(PKG_ROOT, "bin", tool);
+    const dest = path.join(GLOBAL_BIN_DIR, tool);
+    if (!fs.existsSync(src)) {
+      warn(`Global bin tool source missing: ${tool} — skipping`);
+      continue;
+    }
+    const srcContent = fs.readFileSync(src, "utf8");
+    const destContent = fs.existsSync(dest) ? fs.readFileSync(dest, "utf8") : "";
+    if (normalizeEol(srcContent) !== normalizeEol(destContent)) {
+      copyFile(src, dest, `bin/${tool}`);
+      try { fs.chmodSync(dest, 0o755); } catch {}
+    } else {
+      info(`bin/${tool} unchanged`);
+    }
+  }
+}
+
 // ─── CGC (CodeGraphContext) ──────────────────────────────────────────────────
 
 function installCgc() {
@@ -1507,6 +1535,9 @@ async function doInstall(opts = {}) {
 
   heading("Utility Scripts");
   installUtilityScripts();
+
+  heading("Global Bin Tools (~/.claude/bin/)");
+  installGlobalBinTools();
 
   heading("Context Meter (PostToolUse)");
   const cmHook = configureContextMeterHooks(SETTINGS_JSON);
@@ -2725,6 +2756,20 @@ function checkDoctorInstallation() {
   issues += checkDoctorClaudeMd();
   issues += checkDoctorSettings();
   issues += checkDoctorEncoding(installed);
+  issues += checkDoctorGlobalBin();
+  return issues;
+}
+
+function checkDoctorGlobalBin() {
+  let issues = 0;
+  const missing = GLOBAL_BIN_TOOLS.filter((tool) => !fs.existsSync(path.join(GLOBAL_BIN_DIR, tool)));
+  if (missing.length === 0) {
+    success(`All ${GLOBAL_BIN_TOOLS.length} global bin tool${GLOBAL_BIN_TOOLS.length === 1 ? "" : "s"} installed (~/.claude/bin/)`);
+  } else {
+    warn(`Missing global bin tool${missing.length === 1 ? "" : "s"} in ~/.claude/bin/: ${missing.join(", ")}`);
+    info("Fix: re-run `npx @tekyzinc/gsd-t install` (or `update`)");
+    issues++;
+  }
   return issues;
 }
 
