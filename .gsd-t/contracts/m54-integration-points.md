@@ -66,38 +66,128 @@ The two domains are **file-disjoint at every owned path**. Cross-domain dependen
 
 **Why this gate exists**: M54 success criterion (5) is "Red Team GRUDGING PASS — ≥5 broken patches, all caught." This checkpoint is the executable attestation of that criterion.
 
-## Wave Execution Groups
+## Wave Execution Order (PLAN — 2026-05-07)
 
-Waves allow parallel execution within a wave and sequential execution between waves. Each wave contains tasks that can safely run in parallel (no shared files, no cross-domain dependencies within the wave).
+Waves allow parallel execution within a wave and sequential execution between waves. Each wave contains tasks that can safely run in parallel (no shared files, no cross-domain dependencies within the wave). M54 has no intra-wave parallelism — every wave is a single sequential task.
 
-### Wave 1 — D1 Build-Out (sequential within domain)
+### Wave 1 — D1 T1: `bin/live-activity-report.cjs` core detector
 
-- **m54-d1-server-and-detector**: Task 1 (`bin/live-activity-report.cjs` + unit tests), Task 2 (`/api/live-activity` handler + 5s cache), Task 3 (`/api/live-activity/<id>/tail` + `/stream` handlers + path-traversal guard), Task 4 (`bin/gsd-t.js` `GLOBAL_BIN_TOOLS` array entry), Task 5 (contract STABLE + Checkpoint 1 publication + arch-doc finalisation).
-- **Shared files**: D1 alone (D2 has no work in this wave).
-- **Sequential within D1**: T1 → T2 → T3 → T4 → T5 (T2 needs T1's detector exports; T3 needs T2's handler shape; T4 needs T1's module file to exist; T5 publishes after all above land).
-- **Completes when**: Checkpoint 1 PUBLISHED — contract STABLE, endpoints live, module installed.
+- **Domain**: m54-d1-server-and-detector
+- **Task**: D1 T1 — Write `bin/live-activity-report.cjs` with `computeLiveActivities({projectDir, now?})`, 4 kind detectors (bash/monitor/tool/spawn), skeleton dedup + falsifier wiring, events-only source (orchestrator JSONL wired in Wave 2). Mirror `bin/parallelism-report.cjs` shape. Silent-fail invariant. Zero external deps.
+- **REQ**: REQ-M54-D1-01, REQ-M54-D1-03
+- **Gates on**: nothing (first wave)
+- **Blocks**: Wave 2
 
-### Wave 2 — After Checkpoint 1 (sequential within D2)
+### Wave 2 — D1 T2: orchestrator JSONL source + cross-stream dedup
 
-- **CHECKPOINT 1**: Lead verifies (a) `live-activity-contract.md` STABLE, (b) all 3 endpoints return 200 against the running dashboard, (c) `~/.claude/bin/live-activity-report.cjs` exists, (d) `m54-integration-points.md` Checkpoint 1 flipped to PUBLISHED.
-- **m54-d2-rail-and-spec**: Task 1 (rail markup + CSS + pulse keyframes), Task 2 (polling consumer + render helpers + click handler), Task 3 (2 live-journey specs + manifest entries + Checkpoint 2 publication).
-- **Shared files**: `scripts/gsd-t-transcript.html` (D2 alone, sequential T1 → T2). `.gsd-t/journey-manifest.json` (D2 alone, T3).
-- **Completes when**: Checkpoint 2 PUBLISHED — rail renders, 2 specs pass, manifest at +2 entries, `gsd-t check-coverage` `OK: 20 listeners, 16 specs`.
+- **Domain**: m54-d1-server-and-detector
+- **Task**: D1 T2 — Extend `bin/live-activity-report.cjs` to also read `~/.claude/projects/<slug>/<sid>.jsonl` via `_slugFromTranscriptPath` / `_slugToProjectDir` imported from `scripts/hooks/gsd-t-conversation-capture.js`. Full dedup: `tool_use_id` priority, `(kind, label, startedAt)` tuple fallback.
+- **REQ**: REQ-M54-D1-02
+- **Gates on**: Wave 1 (D1 T1)
+- **Blocks**: Wave 3
 
-### Wave 3 — Red Team Adversarial Pass (sequential, single task)
+### Wave 3 — D1 T3: 3 dashboard handlers + URL routes + 5s cache
 
-- **CHECKPOINT 2**: Lead verifies the rail renders the LIVE ACTIVITY section, both live-journey specs pass, manifest has 2 new entries, `gsd-t check-coverage` reports `OK: 20 listeners, 16 specs`.
-- **`/gsd-t-verify` Red Team**: spawn Red Team subagent per `templates/prompts/red-team-subagent.md`; ≥5 broken patches authored; verify each is caught.
-- **Shared files**: `.gsd-t/red-team-report.md` (append-only).
-- **Completes when**: Checkpoint 3 PUBLISHED — VERDICT: GRUDGING PASS, all ≥5 patches caught, no CRITICAL/HIGH deferred.
+- **Domain**: m54-d1-server-and-detector
+- **Task**: D1 T3 — Add `handleLiveActivity` (5s response cache), `handleLiveActivityTail` (last 64 KB bash / last 200 lines monitor; per-id 5s cache; `isValidActivityId` path-traversal guard), `handleLiveActivityStream` (SSE follow-up; uncached) to `scripts/gsd-t-dashboard-server.js`. 3 new route lines in the dispatcher block. Additive only.
+- **REQ**: REQ-M54-D1-04
+- **Gates on**: Wave 2 (D1 T2)
+- **Blocks**: Wave 4
 
-## Execution Order (for solo mode)
+### Wave 4 — D1 T4: `bin/gsd-t.js` `GLOBAL_BIN_TOOLS` + hot-patch
 
-1. **Wave 1 sequential**: D1 T1 → D1 T2 → D1 T3 → D1 T4 → D1 T5 (Checkpoint 1 published).
-2. **CHECKPOINT 1 verification**.
-3. **Wave 2 sequential**: D2 T1 → D2 T2 → D2 T3 (Checkpoint 2 published).
-4. **CHECKPOINT 2 verification**.
-5. **Wave 3**: Red Team adversarial pass (Checkpoint 3 published).
+- **Domain**: m54-d1-server-and-detector
+- **Task**: D1 T4 — Add `"live-activity-report.cjs"` to `GLOBAL_BIN_TOOLS` array in `bin/gsd-t.js` (1-line edit). Hot-patch `~/.claude/bin/live-activity-report.cjs`. Verify `gsd-t doctor --check-global-bin` reports OK. Zero new wiring code.
+- **REQ**: REQ-M54-D1-05
+- **Gates on**: Wave 1 (D1 T1 — module file must exist before install copies it)
+- **Note**: T4 depends on T1 for the module file, but in the sequential wave order, Wave 1 always precedes Wave 4. Wave 4 runs after Wave 3 to keep commits orderly.
+- **Blocks**: Wave 5
+
+### Wave 5 — D1 T5: unit tests + contract STABLE + Checkpoint 1 (PROPOSED → PUBLISHED)
+
+- **Domain**: m54-d1-server-and-detector
+- **Task**: D1 T5 — Write `test/m54-d1-live-activity-report.test.js` (≥10 cases: 4 kind detectors, dedup-by-tool_use_id, dedup-tuple-fallback, PID falsifier, mtime falsifier, terminator falsifier, malformed-JSONL silent-fail, missing-slug silent-fail, unreadable-file silent-fail) + `test/m54-d1-dashboard-handlers.test.js` (≥8 cases: 200 envelope, populated activities, 5s cache hit/miss, `<id>` path-traversal rejection, SSE 200 + event-stream content-type, 500 on contract regression, 404 unknown id, 200 with valid id tail). Flip `live-activity-contract.md` v0.1.0 PROPOSED → v1.0.0 STABLE. Publish Checkpoint 1 (PROPOSED → PUBLISHED with timestamp) in this file.
+- **REQ**: REQ-M54-D1-06
+- **Gates on**: Waves 1–4 (all D1 implementation complete)
+- **Blocks**: Wave 6 (D2 cannot start before Checkpoint 1 is PUBLISHED)
+
+### Wave 6 — D2 T1: rail section markup + CSS + @keyframes + icons (gated on C1)
+
+- **Domain**: m54-d2-rail-and-spec
+- **GATE**: Checkpoint 1 must be PUBLISHED before this wave starts. Verify: (a) `live-activity-contract.md` header shows `Status: STABLE`, (b) `GET /api/live-activity` returns 200 against running :7488, (c) `~/.claude/bin/live-activity-report.cjs` exists, (d) Checkpoint 1 row in this file shows PUBLISHED.
+- **Task**: D2 T1 — Extend `scripts/gsd-t-transcript.html` with new `<section id="rail-live-activity">` between MAIN SESSION and LIVE SPAWNS. Markup + CSS `@keyframes accent-pulse` (~1.5s cycle) scoped to `.la-pulsing`. Status-dot variants (`.la-dot-running` green, `.la-dot-stale` dimmed). Kind-icon CSS (bash `$`, monitor `👁`, tool `🔧`, spawn `↳`). Layout grid: dot · icon · 40-char truncated label · duration counter. Additive only.
+- **REQ**: REQ-M54-D2-01, REQ-M54-D2-03
+- **Gates on**: Wave 5 (Checkpoint 1 PUBLISHED)
+- **Blocks**: Wave 7
+
+### Wave 7 — D2 T2: polling consumer + render helpers + click handler + pulse-stop
+
+- **Domain**: m54-d2-rail-and-spec
+- **Task**: D2 T2 — Add 5s polling JS to `scripts/gsd-t-transcript.html`: `fetchLiveActivity()` → `reconcile(activities)` → `appendActivity(entry)` / `removeActivity(id)` / `updateDuration(id, startedAt)`. Click handler: `stopPulse(id)` + `loadTailUrl(tailUrl)`. Pulse stop on: (a) click, (b) entry absent in next response, (c) 30s elapsed. NO auto-switch of bottom pane on arrival. Empty / 500 response → graceful (no crash, no console error). Additive only.
+- **REQ**: REQ-M54-D2-02
+- **Gates on**: Wave 6 (D2 T1 — JS targets `#la-list` created in T1)
+- **Blocks**: Wave 8
+
+### Wave 8 — D2 T3: 2 live-journey specs + manifest entries + Checkpoint 2 (PROPOSED → PUBLISHED)
+
+- **Domain**: m54-d2-rail-and-spec
+- **Task**: D2 T3 — Write `e2e/live-journeys/live-activity.spec.ts` (single-bash test: spawn `bash -c "sleep 30"`, assert entry within 5s, `.la-pulsing`, duration tick, click loads tail, kill → disappears within 5s; `test.skip()` when no dashboard reachable; teardown kills bash) + `e2e/live-journeys/live-activity-multikind.spec.ts` (bash + synthetic Monitor event + synthetic tool_use_started 31s-old; assert all 3 appear, pulse independently; dedup correct when bash tool_use_id duplicated in orchestrator JSONL; teardown cleans events JSONL). Add 2 entries with `covers: []` to `.gsd-t/journey-manifest.json`. Publish Checkpoint 2 (PROPOSED → PUBLISHED with timestamp) in this file.
+- **REQ**: REQ-M54-D2-04, REQ-M54-D2-05
+- **Gates on**: Waves 6–7 (D2 T1 + T2 must exist for specs to assert against rail rendering)
+- **Blocks**: Post-wave Red Team
+
+### Post-Wave — Red Team Adversarial Pass (Checkpoint 3)
+
+- **GATE**: Checkpoint 2 must be PUBLISHED before Red Team starts. Verify: (a) `scripts/gsd-t-transcript.html` renders LIVE ACTIVITY section, (b) both live-journey specs pass (or self-skip cleanly), (c) `journey-manifest.json` has 2 new entries, (d) `gsd-t check-coverage` reports `OK: 20 listeners, 16 specs`, (e) Checkpoint 2 row shows PUBLISHED.
+- **Task**: Red Team — spawn Red Team subagent per `templates/prompts/red-team-subagent.md`. Author ≥5 broken patches: `dedupe-disabled`, `PID-stub-true`, `mtime-fallback-removed`, `pulse-never-clears`, `tool_use_id-collision-unhandled`. Verify each is caught by ≥1 D1 unit test or D2 live-journey spec. VERDICT: GRUDGING PASS. Findings in `.gsd-t/red-team-report.md` § "M54 LIVE-ACTIVITY RED TEAM". No CRITICAL/HIGH deferred. Publish Checkpoint 3.
+- **REQ**: REQ-M54-VERIFY (Red Team component)
+- **Gates on**: Wave 8 (Checkpoint 2 PUBLISHED)
+- **Blocks**: `/gsd-t-complete-milestone`
+
+## Execution Order Summary
+
+```
+Wave 1: D1 T1 — bin/live-activity-report.cjs core
+Wave 2: D1 T2 — orchestrator JSONL + cross-stream dedup
+Wave 3: D1 T3 — 3 dashboard handlers + URL routes + 5s cache
+Wave 4: D1 T4 — bin/gsd-t.js GLOBAL_BIN_TOOLS + hot-patch
+Wave 5: D1 T5 — unit tests + contract STABLE + Checkpoint 1 PUBLISHED
+         ↓ [GATE: Checkpoint 1 verified]
+Wave 6: D2 T1 — rail section markup + CSS + icons (gated on C1)
+Wave 7: D2 T2 — polling consumer + render helpers + click handler
+Wave 8: D2 T3 — 2 live-journey specs + manifest + Checkpoint 2 PUBLISHED
+         ↓ [GATE: Checkpoint 2 verified]
+Post:   Red Team — ≥5 broken patches + Checkpoint 3 PUBLISHED
+         ↓ [GATE: Checkpoint 3 verified]
+        /gsd-t-complete-milestone
+```
+
+## Wave Grouping Rules Applied
+
+- **No D1+D2 parallel wave**: D2 cannot start before C1 (contract STABLE + endpoint live). The dependency is one-way and absolute. No parallelism is safely achievable in M54.
+- **D1 T1..T5 sequential**: T2 depends on T1's detector exports; T3 depends on T2's handler shape (cache + envelope); T4 depends on T1's module file existing on disk; T5 publishes Checkpoint 1 after all D1 work lands.
+- **D2 T1..T3 sequential**: T1 markup must exist before T2's JS targets it; T3 specs assert against the rendering produced by T1 + T2.
+- **Checkpoints between waves**: lead verifies contract publication before unlocking the next wave.
+- **Each wave = one commit**: Pre-Commit Gate runs on each wave's deliverables before the next wave starts.
+
+## Cross-domain non-overlap proof
+
+```
+$ ls -1 .gsd-t/domains/m54-d1-server-and-detector/scope.md
+$ ls -1 .gsd-t/domains/m54-d2-rail-and-spec/scope.md
+```
+
+D1 owns: `bin/live-activity-report.cjs`, `scripts/gsd-t-dashboard-server.js` (additive),
+`bin/gsd-t.js` (additive 1-line array entry), `.gsd-t/contracts/live-activity-contract.md`,
+`test/m54-d1-*.test.js`.
+
+D2 owns: `scripts/gsd-t-transcript.html` (additive), `e2e/live-journeys/live-activity*.spec.ts`,
+`.gsd-t/journey-manifest.json` (additive entries).
+
+Intersection (set of files both could touch): {} (empty set).
+
+Confirmed disjoint. The cross-domain interface is exclusively the STABLE contract +
+the 3 new HTTP endpoints — both observable boundaries, neither a shared file.
 
 ## Wave Grouping Rules Applied
 
