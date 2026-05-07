@@ -42,3 +42,56 @@ Summary:
 - VERDICT: `FAIL` ({N} bugs found) | `GRUDGING PASS` (exhaustive search, nothing found)
 
 Write findings to `.gsd-t/red-team-report.md`. If bugs found, also append to `.gsd-t/qa-issues.md`.
+
+## Test Pass-Through — Journey Edition (M52)
+
+**Activates when**: `.gsd-t/journey-manifest.json` exists AND `e2e/journeys/` is non-empty (M52 D2 has landed).
+
+**Goal**: Prove the journey specs catch real regressions in the journeys they
+claim to cover. A journey spec that only checks "the button exists and is
+clickable" passes through any breakage to the user — that is what this
+category attacks.
+
+**Protocol**:
+
+1. For each spec in `.gsd-t/journey-manifest.json`, identify the listener(s) it covers.
+2. Write a deliberately-broken patch to `scripts/gsd-t-transcript.html` that
+   targets that listener — examples:
+   - Remove the listener entirely (`addEventListener` line stripped).
+   - Comment out the side-effect inside the handler (e.g. `_ssSet` call).
+   - Swap a sessionStorage key name (e.g. splitterPct key → `'XXX'`).
+   - Stub the handler to early-return (`if (true) return;` at top).
+   - Reverse a state mutation (`next ? 'true' : 'false'` → `next ? 'false' : 'true'`).
+3. Run the journey spec against the broken viewer.
+4. **PASS**: spec FAILS (red) → revert patch → spec PASSES (green). Record `caught`.
+5. **FAIL**: spec PASSES with broken viewer → SHALLOW SPEC, must be tightened.
+   Record `pass-through` and rewrite the assertion to verify state change /
+   data flow / content load.
+6. Write at least 5 broken patches across different specs. Each pass-through
+   is a verdict-level FAIL until rewritten.
+
+**Hook end-to-end exercise** (also part of this category):
+- Stage a viewer-source diff that adds a NEW listener with no manifest entry.
+- Confirm `pre-commit-journey-coverage` blocks the commit (exit 1).
+- Update `.gsd-t/journey-manifest.json` with a covering entry.
+- Confirm the hook now allows the commit (exit 0).
+- Both transitions logged in `.gsd-t/red-team-report.md` § "M52 JOURNEY-EDITION RED TEAM".
+
+**Findings format** in `.gsd-t/red-team-report.md` (append-only section):
+```
+## M52 JOURNEY-EDITION RED TEAM — {date}
+
+### Patch {N}: {short-name}
+- **Spec**: {spec-name}
+- **Broken-line(s)**: file:line — {one-line description of patch}
+- **Expected**: spec FAILS, caught the regression
+- **Actual**: {fail|pass-through}
+- **Verdict**: caught | PASS-THROUGH (must rewrite spec)
+
+### Hook end-to-end
+- Block exercise: {git diff details, exit code, stderr summary}
+- Unblock exercise: {manifest update, exit code, stderr summary}
+
+### VERDICT
+{GRUDGING PASS — N patches written, all caught | FAIL — {M} pass-through(s)}
+```

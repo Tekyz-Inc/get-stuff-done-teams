@@ -253,3 +253,113 @@ the top pane after passing the positive check.
   Added 1 new test for the fetchMainSession seed-collision callback.
 
 **Final state**: E2E 23/23 + 1 placeholder skip; unit 2167/2167 (added 1 net test).
+
+---
+
+# M52 JOURNEY-EDITION RED TEAM — Adversarial Validation of 12 Journey Specs
+
+**Date**: 2026-05-06
+**Target**: All 12 specs in `e2e/journeys/` + the `pre-commit-journey-coverage` hook end-to-end.
+
+**Methodology**: Snapshot good `scripts/gsd-t-transcript.html`. Apply each broken
+patch in turn, run only the targeted spec(s), restore. A patch that the spec
+DOESN'T catch is a SHALLOW SPEC and a verdict-level FAIL until the spec is
+tightened.
+
+## VERDICT: GRUDGING PASS — 5/5 patches caught + hook end-to-end exercised cleanly
+
+### Patch 1: splitter:mousedown drag handler stripped
+- **Spec**: `e2e/journeys/splitter-drag.spec.ts`
+- **Broken-line(s)**: `scripts/gsd-t-transcript.html:362-370` — replaced full
+  `onMove` body (getBoundingClientRect → setPct call) with a single comment
+  line `RED-TEAM PATCH 1: setPct call removed — drag should be a no-op`.
+- **Expected**: spec FAILS — splitter-drag's `waitForFunction` for `--main-pane-pct`
+  change should time out.
+- **Actual**: caught — TimeoutError on the wait-for-pct-change assertion.
+- **Verdict**: caught ✓
+
+### Patch 2: SS_KEY_SPLITTER write redirected to wrong key
+- **Specs**: `e2e/journeys/splitter-drag.spec.ts`, `e2e/journeys/splitter-keyboard.spec.ts`
+- **Broken-line(s)**: `scripts/gsd-t-transcript.html:359` — `_ssSet(SS_KEY_SPLITTER, ...)`
+  → `_ssSet('XXX-broken-key', ...)`.
+- **Expected**: both splitter specs FAIL — they assert
+  `gsd-t.viewer.splitterPct` is set after the interaction.
+- **Actual**: caught — both specs FAIL on `expect(stored).not.toBeNull()` (drag) and
+  `expect(parseFloat(finalStored)).toBeCloseTo(80, 0)` (keyboard).
+- **Verdict**: caught ✓ (sessionstorage-persistence still passes — it sets the
+  key directly, doesn't depend on the splitter handler — by design, that's a
+  different journey)
+
+### Patch 3: right-rail toggle handler stubbed to early-return
+- **Spec**: `e2e/journeys/right-rail-toggle.spec.ts`
+- **Broken-line(s)**: `scripts/gsd-t-transcript.html:397-403` — entire click
+  handler body (data-collapsed flip + body attribute flip + sessionStorage write)
+  replaced with `return;`.
+- **Expected**: spec FAILS — `waitForFunction` for `data-collapsed` change
+  should time out.
+- **Actual**: caught — TimeoutError on the wait-for-attribute-change assertion.
+- **Verdict**: caught ✓
+
+### Patch 4: M52 narrow-guard reverted to broken M48 wide-guard
+- **Spec**: `e2e/journeys/click-completed-conversation.spec.ts`
+- **Broken-line(s)**: `scripts/gsd-t-transcript.html:1011` — narrowed guard
+  `if (isInSession && node.spawnId === ('in-session-' + window.__mainSessionId)) return;`
+  → wide guard `if (isInSession) return;`.
+- **Expected**: spec FAILS — clicking a Completed in-session entry no longer
+  loads it into the bottom pane.
+- **Actual**: caught — TimeoutError waiting for `COMPLETED_TAG` to appear in
+  `#spawn-stream`.
+- **Verdict**: caught ✓ (this was the M52 root-cause regression itself —
+  the spec catches the regression that the milestone exists to prevent)
+
+### Patch 5: auto-follow change handler localStorage write removed
+- **Spec**: `e2e/journeys/auto-follow-toggle.spec.ts`
+- **Broken-line(s)**: `scripts/gsd-t-transcript.html:899-901` — change handler
+  body `localStorage.setItem(AUTOFOLLOW_KEY, ...)` removed.
+- **Expected**: spec FAILS — `gsdt.autoFollow` localStorage assertion fires
+  with `null`.
+- **Actual**: caught — `expect(['0', '1']).toContain(after.stored)` fails
+  because `after.stored` is `null`.
+- **Verdict**: caught ✓
+
+## Hook end-to-end exercise
+
+### Block transition
+- **Setup**: appended a synthetic `fakeBtn:click` listener to
+  `scripts/gsd-t-transcript.html:1617` (after the existing stopBtn handler);
+  `git add scripts/gsd-t-transcript.html`.
+- **Action**: ran `bash .git/hooks/pre-commit` directly.
+- **Result**: exit code 1, stderr:
+  ```
+  [journey-coverage] BLOCKED: uncovered viewer listener in staged files.
+  GAP: scripts/gsd-t-transcript.html:1617  fakeBtn:click  (addEventListener)  no spec covers this
+  
+    Add a journey spec under e2e/journeys/ and update .gsd-t/journey-manifest.json.
+  ```
+- **Verdict**: hook correctly BLOCKED the commit with a structured GAP report. ✓
+
+### Unblock transition
+- **Setup**: appended a covering entry to `.gsd-t/journey-manifest.json`
+  (added `{file, selector: "fakeBtn:click", kind: "addEventListener"}` to the
+  hashchange spec's covers[] array); `git add .gsd-t/journey-manifest.json`.
+- **Action**: re-ran `bash .git/hooks/pre-commit`.
+- **Result**: exit code 0, no stderr.
+- **Verdict**: hook correctly UNBLOCKED the commit once the manifest covered
+  the listener. ✓
+
+## Files modified during this run
+- `scripts/gsd-t-transcript.html` — patched and reverted 5 times across the
+  adversarial run, then snapshotted-back to the v3.22.11 production state.
+  Final `git diff` against pre-Wave-4 state: empty.
+- `.gsd-t/journey-manifest.json` — temporarily extended for hook end-to-end
+  exercise, then reverted to its 12-entry post-Wave-3 form.
+- `templates/prompts/red-team-subagent.md` — additive: appended new
+  "Test Pass-Through — Journey Edition (M52)" subsection (no deletions, no
+  reorders to existing categories).
+- `.gsd-t/red-team-report.md` — append-only: this section.
+
+## Final state
+- 12/12 journey specs pass (full E2E 35/35 + 1 skip preserved)
+- `gsd-t check-coverage`: `OK: 20 listeners, 12 specs` (zero gaps)
+- Hook gate is LIVE and proven to block uncovered listeners
+- Production viewer code unchanged (zero net diff after this run)

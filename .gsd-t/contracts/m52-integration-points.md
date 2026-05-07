@@ -60,16 +60,18 @@ gaps") cannot be verified before this checkpoint.
 
 ### Checkpoint 3 — Red Team adversarial pass (D2-led, both domains assert)
 
+**Status**: PUBLISHED — 2026-05-06 18:30
+
 **Blocks**: `/gsd-t-complete-milestone` for M52.
 
 **Definition of done**:
-- Adversarial run writes ≥ 5 broken viewer patches.
-- Each patch is caught by ≥ 1 journey spec.
-- Findings captured in `.gsd-t/red-team-report.md` § "M52 JOURNEY-EDITION
+- ✅ Adversarial run writes 5 broken viewer patches.
+- ✅ Each patch caught by ≥1 journey spec (all 5 caught — VERDICT: GRUDGING PASS).
+- ✅ Findings captured in `.gsd-t/red-team-report.md` § "M52 JOURNEY-EDITION
   RED TEAM" using the M51 structural template.
-- Pre-commit-journey-coverage hook is exercised end-to-end: stage a
-  viewer-source diff that introduces an uncovered listener → confirm the
-  hook blocks → confirm it unblocks once the manifest is updated.
+- ✅ Pre-commit-journey-coverage hook exercised end-to-end: synthetic
+  `fakeBtn:click` listener staged → hook BLOCKED with exit 1 + GAP report;
+  manifest updated with covering entry → hook UNBLOCKED with exit 0.
 
 ## Wave Execution Groups
 
