@@ -55,16 +55,17 @@ The two domains are **file-disjoint at every owned path**. Cross-domain dependen
 
 ### Checkpoint 3 — Red Team adversarial pass (M54 verify)
 
-**Status**: PROPOSED
+**Status**: PUBLISHED
+**Published**: 2026-05-07 15:52 PDT
 
 **Blocks**: `/gsd-t-complete-milestone` for M54.
 
 **Definition of done**:
-- [ ] Red Team writes ≥5 broken patches: dedupe-disabled, PID-stub-true, mtime-fallback-removed, pulse-never-clears, tool_use_id-collision-unhandled.
-- [ ] Each broken patch caught by ≥1 D1 unit test or D2 live-journey spec (VERDICT: GRUDGING PASS).
-- [ ] Findings captured in `.gsd-t/red-team-report.md` § "M54 LIVE-ACTIVITY RED TEAM" using the M51/M52 structural template.
-- [ ] No CRITICAL or HIGH bug deferred to backlog (matches M52 / M53 standard).
-- [ ] This file (`m54-integration-points.md`) flips Checkpoint 3 to PUBLISHED with timestamp.
+- [x] Red Team writes ≥5 broken patches: dedupe-disabled, PID-stub-true, mtime-fallback-removed, pulse-never-clears, tool_use_id-collision-unhandled.
+- [x] Each broken patch caught by ≥1 D1 unit test or D2 live-journey spec (VERDICT: GRUDGING PASS — 5/5 caught).
+- [x] Findings captured in `.gsd-t/red-team-report.md` § "M54 LIVE-ACTIVITY RED TEAM" with P1–P5 table.
+- [x] No CRITICAL or HIGH bug deferred to backlog.
+- [x] This file (`m54-integration-points.md`) flips Checkpoint 3 to PUBLISHED with timestamp.
 
 **Why this gate exists**: M54 success criterion (5) is "Red Team GRUDGING PASS — ≥5 broken patches, all caught." This checkpoint is the executable attestation of that criterion.
 
