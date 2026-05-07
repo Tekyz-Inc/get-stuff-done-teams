@@ -42,16 +42,17 @@ plus a green-coverage check pass without `gsd-t check-coverage` existing.
 
 ### Checkpoint 2 — D2 publishes 12 specs + manifest + 3 fixtures
 
+**Status**: PUBLISHED — 2026-05-06 18:25
+
 **Blocks**: M52 verify (Red Team adversarial pass + final coverage check).
 
 **Definition of done**:
-- All 12 `e2e/journeys/*.spec.ts` files exist and pass (12/12 green).
-- `.gsd-t/journey-manifest.json` has 12 entries that 1:1 map to the spec
-  files.
-- 3 NDJSON fixtures live under `e2e/fixtures/journeys/`.
-- `gsd-t check-coverage` against the live viewer source returns exit 0
-  (no gaps, no stale entries).
-- This file (`m52-integration-points.md`) flips Checkpoint 2 to PUBLISHED.
+- ✅ All 12 `e2e/journeys/*.spec.ts` files exist and pass (12/12 green; <1s total).
+- ✅ `.gsd-t/journey-manifest.json` has 12 entries that 1:1 map to the spec files.
+- ✅ 3 NDJSON fixtures live under `e2e/fixtures/journeys/`.
+- ✅ `gsd-t check-coverage` against the live viewer source returns exit 0:
+  `OK: 20 listeners, 12 specs` (no gaps, no stale entries).
+- ✅ This file (`m52-integration-points.md`) flips Checkpoint 2 to PUBLISHED.
 
 **Why this gate exists**: D1's tooling is theoretical until proven against
 a populated manifest from D2. The M52 success criterion ("zero coverage

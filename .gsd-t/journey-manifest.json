@@ -1,0 +1,94 @@
+{
+  "version": "0.1.0",
+  "specs": [
+    {
+      "name": "main-session-stream",
+      "spec": "e2e/journeys/main-session-stream.spec.ts",
+      "covers": [
+        { "file": "scripts/gsd-t-transcript.html", "selector": "connectMain", "kind": "function-call" },
+        { "file": "scripts/gsd-t-transcript.html", "selector": "fetchMainSession", "kind": "function-call" }
+      ]
+    },
+    {
+      "name": "click-completed-conversation",
+      "spec": "e2e/journeys/click-completed-conversation.spec.ts",
+      "covers": [
+        { "file": "scripts/gsd-t-transcript.html", "selector": "el:click", "kind": "addEventListener" }
+      ]
+    },
+    {
+      "name": "click-spawn-entry",
+      "spec": "e2e/journeys/click-spawn-entry.spec.ts",
+      "covers": [
+        { "file": "scripts/gsd-t-transcript.html", "selector": "connect", "kind": "function-call" }
+      ]
+    },
+    {
+      "name": "splitter-drag",
+      "spec": "e2e/journeys/splitter-drag.spec.ts",
+      "covers": [
+        { "file": "scripts/gsd-t-transcript.html", "selector": "splitter:mousedown", "kind": "addEventListener" },
+        { "file": "scripts/gsd-t-transcript.html", "selector": "window:mousemove", "kind": "addEventListener" },
+        { "file": "scripts/gsd-t-transcript.html", "selector": "window:mouseup", "kind": "addEventListener" }
+      ]
+    },
+    {
+      "name": "splitter-keyboard",
+      "spec": "e2e/journeys/splitter-keyboard.spec.ts",
+      "covers": [
+        { "file": "scripts/gsd-t-transcript.html", "selector": "splitter:keydown", "kind": "addEventListener" }
+      ]
+    },
+    {
+      "name": "right-rail-toggle",
+      "spec": "e2e/journeys/right-rail-toggle.spec.ts",
+      "covers": [
+        { "file": "scripts/gsd-t-transcript.html", "selector": "btn:click", "kind": "addEventListener" }
+      ]
+    },
+    {
+      "name": "completed-collapse-toggle",
+      "spec": "e2e/journeys/completed-collapse-toggle.spec.ts",
+      "covers": [
+        { "file": "scripts/gsd-t-transcript.html", "selector": "more:click", "kind": "addEventListener" }
+      ]
+    },
+    {
+      "name": "auto-follow-toggle",
+      "spec": "e2e/journeys/auto-follow-toggle.spec.ts",
+      "covers": [
+        { "file": "scripts/gsd-t-transcript.html", "selector": "autoFollowEl:change", "kind": "addEventListener" }
+      ]
+    },
+    {
+      "name": "kill-button",
+      "spec": "e2e/journeys/kill-button.spec.ts",
+      "covers": [
+        { "file": "scripts/gsd-t-transcript.html", "selector": "kill:click", "kind": "addEventListener" }
+      ]
+    },
+    {
+      "name": "sessionstorage-persistence",
+      "spec": "e2e/journeys/sessionstorage-persistence.spec.ts",
+      "covers": [
+        { "file": "scripts/gsd-t-transcript.html", "selector": "jumpBtn:click", "kind": "addEventListener" },
+        { "file": "scripts/gsd-t-transcript.html", "selector": "reportBtn:click", "kind": "addEventListener" },
+        { "file": "scripts/gsd-t-transcript.html", "selector": "stopBtn:click", "kind": "addEventListener" }
+      ]
+    },
+    {
+      "name": "keyboard-shortcuts",
+      "spec": "e2e/journeys/keyboard-shortcuts.spec.ts",
+      "covers": [
+        { "file": "scripts/gsd-t-transcript.html", "selector": "window:scroll", "kind": "addEventListener" }
+      ]
+    },
+    {
+      "name": "hashchange",
+      "spec": "e2e/journeys/hashchange.spec.ts",
+      "covers": [
+        { "file": "scripts/gsd-t-transcript.html", "selector": "window:hashchange", "kind": "hashchange" }
+      ]
+    }
+  ]
+}

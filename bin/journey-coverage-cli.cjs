@@ -71,16 +71,18 @@ function main(argv) {
   const opts = parseArgs(argv);
   const projectDir = opts.projectDir;
 
-  let files;
+  // --staged-only is a gate: only RUN when at least one viewer-source file is
+  // staged. The actual scan always covers the full viewer source — otherwise
+  // a commit that touches only spec files would falsely flag every manifest
+  // entry as stale (because the staged-only file list contains no listeners).
   if (opts.stagedOnly) {
-    files = discoverStagedViewerFiles(projectDir);
-    if (files.length === 0) {
+    const staged = discoverStagedViewerFiles(projectDir);
+    if (staged.length === 0) {
       if (!opts.quiet) process.stdout.write('OK: 0 listeners, 0 specs (no staged viewer files)\n');
       process.exit(0);
     }
-  } else {
-    files = discoverViewerFiles(projectDir);
   }
+  const files = discoverViewerFiles(projectDir);
 
   const listeners = jc.detectListeners(files, { projectDir });
 
