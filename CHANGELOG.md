@@ -2,7 +2,20 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
-## [Unreleased]
+## [3.23.11] - 2026-05-07
+
+### Fixed — `/api/parallelism` 500 — install `parallelism-report.cjs` to `~/.claude/bin/`
+
+- **Root cause**: `scripts/gsd-t-dashboard-server.js::_loadParallelismReporter` resolves `require(path.join(__dirname, "..", "bin", "parallelism-report.cjs"))`. With `__dirname = ~/.claude/scripts/`, it looks for `~/.claude/bin/parallelism-report.cjs` — but no installer code path ever populated `~/.claude/bin/`. Every dashboard 500'd on `/api/parallelism` with `Cannot find module …/parallelism-report.cjs`; the right-rail PARALLELISM panel silently dimmed for every project. The break suggests `~/.claude/bin/` propagation has been silently broken since the M44 D9 panel shipped.
+- **Fix** (`bin/gsd-t.js`, ~30 LOC additive): new `GLOBAL_BIN_DIR = ~/.claude/bin` constant; new `GLOBAL_BIN_TOOLS = ["parallelism-report.cjs"]` array; new `installGlobalBinTools()` mirroring `installUtilityScripts` shape (symlink-safe `copyFile`, eol-normalised idempotent compare, `+x` chmod). Wired into `doInstall()` between Utility Scripts and Context Meter so it runs on both `install` and `update`. `gsd-t doctor` gains `checkDoctorGlobalBin()` flagging missing tools with a clear "re-run install" hint.
+- **Hot-patch**: `mkdir -p ~/.claude/bin && cp bin/parallelism-report.cjs ~/.claude/bin/` applied immediately so the live dashboard recovers without waiting for npm publish. Verified `curl http://localhost:7488/api/parallelism` returns 200 with the schema-versioned envelope (was 500 module-unavailable).
+- **Doctrinal shift**: per the user's "test the real setup" directive, the regression spec lives under a new `e2e/live-journeys/` tree that probes the **running** dashboard instead of an in-process `startServer(0, ...)` fixture. Two specs added:
+  - `e2e/live-journeys/parallelism-endpoint.spec.ts` (4 tests) — schema envelope, no-500 sentinel, right-rail DOM populates from `/transcripts`, file-system regression sentinel for `~/.claude/bin/parallelism-report.cjs` existence.
+  - `e2e/live-journeys/dashboard-endpoint-coverage.spec.ts` (12 tests) — covers every dashboard route (`/`, `/transcripts`, `/ping`, `/metrics`, `/api/main-session`, `/api/spawn-plans`, `/api/parallelism`, `/api/parallelism/report`, `/events`, `/api/spawn-plans/stream`, 404 catch-all) plus a regression sentinel for the "parallelism-report module unavailable" string.
+  - Both specs `test.skip()` cleanly when no dashboard is reachable (`GSD_T_LIVE_DASHBOARD_URL` env override; default `http://localhost:7488`), keeping non-local CI green.
+- **Adversarial Red Team** (focused, in-session): reviewed `update-all` self-heal gap (mitigated by `gsd-t doctor`), symlink safety (covered via `copyFile`), cross-platform path resolution (covered via `os.homedir()`), project-bin sweep collision (`parallelism-report.cjs` not in `DEPRECATED_BIN_STRAYS` so existing project copies are untouched). VERDICT: GRUDGING PASS — 0 blocking issues.
+- **Verification**: unit suite **2233/2233 pass** (zero regressions). Playwright `e2e/journeys/` + `e2e/viewer/` **43/43 pass + 1 placeholder skip**. New live spec **4/4 pass** against the running :7488 dashboard.
+- **Architecture doc**: `docs/architecture.md` Parallelism Observability section now records the install location and the distinction between `GLOBAL_BIN_TOOLS` (`~/.claude/bin/`) and `PROJECT_BIN_TOOLS` (per-project `bin/`).
 
 ### Fixed — M53b conversation-capture project-routing: parallel sessions cross-talk
 
