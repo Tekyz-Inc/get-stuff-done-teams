@@ -16,11 +16,14 @@
  * - Never throws to the caller — catches all errors, logs to stderr, exits 0.
  * - `content` is capped at 16 KB per frame; over-cap writes `truncated: true`.
  * - Append-only; never overwrites an existing in-session NDJSON file.
- * - Project-dir discovery: prefers `GSD_T_PROJECT_DIR`, then `payload.cwd`,
+ * - Project-dir discovery: prefers `GSD_T_PROJECT_DIR`, then decodes
+ *   `payload.transcript_path`'s `~/.claude/projects/{slug}` to a real project
+ *   root (session-specific signal — required when multiple parallel Claude
+ *   Code sessions share one node-runtime hook process), then `payload.cwd`,
  *   then walks up from `process.cwd()` looking for `.gsd-t/progress.md`.
  *   Silent no-op if no project dir found.
  *
- * Contract: .gsd-t/contracts/conversation-capture-contract.md v1.0.0
+ * Contract: .gsd-t/contracts/conversation-capture-contract.md v1.2.0
  */
 
 const fs = require('fs');
@@ -70,15 +73,102 @@ function _walkUpForProject(startDir) {
   return null;
 }
 
+// Decode a Claude Code project slug (the directory name under
+// `~/.claude/projects/`) back to an absolute project root that contains a
+// `.gsd-t/` directory. The slug encoding is lossy — `/` and literal `-` both
+// map to `-` — so we DFS-walk the filesystem, greedily consuming token runs as
+// directory names. First match whose `.gsd-t/` exists wins. Returns null if
+// nothing matches or the slug is malformed.
+//
+// Why this exists: Claude Code Stop hook payloads carry `transcript_path` =
+// `~/.claude/projects/{slug}/{sessionId}.jsonl`. The hook runs as one shared
+// node-runtime process across parallel Claude Code sessions, so `process.cwd()`
+// can resolve to the wrong project. The slug is the only *session-specific*
+// signal we have for project routing.
+function _slugToProjectDir(slug) {
+  if (typeof slug !== 'string' || slug.length === 0) return null;
+  if (slug[0] !== '-') return null; // must encode leading '/'
+  // Reject anything that could traversal-escape after decode.
+  if (slug.includes('/') || slug.includes('\\') || slug.includes('\0')) return null;
+  if (slug.includes('..')) return null;
+  const tokens = slug.slice(1).split('-'); // strip leading '-' (the leading '/')
+  if (tokens.length === 0 || tokens.some((t) => t.length === 0)) return null;
+  // DFS over how many '-'-separated tokens form each directory segment.
+  // Greedy preference: try fewest tokens first (most '/' separators) so deeper
+  // paths win when both interpretations exist.
+  function walk(prefix, idx) {
+    if (idx >= tokens.length) {
+      try {
+        if (fs.existsSync(path.join(prefix, '.gsd-t'))) return prefix;
+      } catch (_) { /* swallow */ }
+      return null;
+    }
+    for (let k = 1; k <= tokens.length - idx; k++) {
+      const seg = tokens.slice(idx, idx + k).join('-');
+      const next = path.join(prefix, seg);
+      // Re-validate after path.join — defense against weird inputs.
+      if (next.includes('..')) continue;
+      let exists = false;
+      try { exists = fs.existsSync(next); } catch (_) { exists = false; }
+      if (!exists) continue;
+      const found = walk(next, idx + k);
+      if (found) return found;
+    }
+    return null;
+  }
+  return walk('/', 0);
+}
+
+// Extract the slug ({dir-name} under `~/.claude/projects/`) from a
+// transcript_path. Returns null on malformed input.
+function _slugFromTranscriptPath(p) {
+  if (typeof p !== 'string' || !path.isAbsolute(p)) return null;
+  const home = process.env.HOME || os.homedir();
+  if (!home) return null;
+  const root = path.resolve(home, '.claude', 'projects') + path.sep;
+  const resolved = path.resolve(p);
+  if (!resolved.startsWith(root)) return null;
+  const rest = resolved.slice(root.length);
+  // First path segment after the projects/ root is the slug.
+  const sep = rest.indexOf(path.sep);
+  const slug = sep === -1 ? rest : rest.slice(0, sep);
+  if (!slug) return null;
+  return slug;
+}
+
 function _resolveProjectDir(payload) {
+  // 1. Explicit env override (preserved for tests + operator overrides).
   const env = process.env.GSD_T_PROJECT_DIR;
   if (env && fs.existsSync(path.join(env, '.gsd-t'))) return env;
+  // 2. Session-specific signal: decode the transcript_path slug. This is the
+  //    ONLY source that's per-session under parallel Claude Code instances —
+  //    cwd / walk-up resolve to whichever project the hook process happens to
+  //    inherit, which misroutes frames across projects.
+  if (payload && typeof payload.transcript_path === 'string') {
+    const slug = _slugFromTranscriptPath(payload.transcript_path);
+    if (slug) {
+      const fromSlug = _slugToProjectDir(slug);
+      if (fromSlug) return fromSlug;
+    }
+  }
+  // 3. payload.cwd (Claude Code may carry it on some events).
   if (payload && typeof payload.cwd === 'string' && path.isAbsolute(payload.cwd)
       && fs.existsSync(path.join(payload.cwd, '.gsd-t'))) {
     return payload.cwd;
   }
+  // 4. Last resort: walk up from process.cwd(). Known-unreliable for parallel
+  //    sessions sharing a node-runtime hook process — emit a one-line warning
+  //    so misroutes are diagnosable from stderr.
   const walked = _walkUpForProject(process.cwd());
-  if (walked) return walked;
+  if (walked) {
+    try {
+      process.stderr.write(
+        'gsd-t-conversation-capture: project-dir resolved via cwd walk-up (' +
+        walked + ') — unreliable for parallel sessions\n'
+      );
+    } catch (_) { /* noop */ }
+    return walked;
+  }
   return null;
 }
 
@@ -342,6 +432,8 @@ module.exports = {
     _readAssistantFromTranscript,
     _safeTranscriptPath,
     _readFileTail,
+    _slugFromTranscriptPath,
+    _slugToProjectDir,
     CONTENT_CAP_BYTES,
   },
 };

@@ -18,6 +18,11 @@
       ]
     },
     {
+      "name": "conversation-routing",
+      "spec": "e2e/journeys/conversation-routing.spec.ts",
+      "covers": []
+    },
+    {
       "name": "click-completed-conversation",
       "spec": "e2e/journeys/click-completed-conversation.spec.ts",
       "covers": [

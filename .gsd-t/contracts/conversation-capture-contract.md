@@ -1,11 +1,12 @@
 # Conversation Capture Contract
 
-**Status**: v1.1.0 — assistant-body extraction reads `transcript_path` (M53 fix 2026-05-07)
+**Status**: v1.2.0 — project-dir resolution decodes `transcript_path` slug for parallel-session routing (M53b fix 2026-05-07)
 **Sink**: `.gsd-t/transcripts/in-session-{sessionId}.ndjson`
 **Producer**: `scripts/hooks/gsd-t-conversation-capture.js` — Claude Code hook script registered for `SessionStart`, `UserPromptSubmit`, `Stop`, and (opt-in) `PostToolUse`.
 
 ## Versions
 
+- **v1.2.0** (2026-05-07) — project-dir resolution adds session-specific slug-decode. Two parallel Claude Code sessions sharing one node-runtime hook process previously misrouted frames: `process.cwd()` / `payload.cwd` resolve to whichever project the hook process inherited, not the per-session project root. The hook now decodes `payload.transcript_path` (`~/.claude/projects/{slug}/{sid}.jsonl`) by extracting the slug and DFS-walking the filesystem to the matching project root that contains `.gsd-t/`. Slug encoding is `path.replace(/\//g, '-')` with a leading `-` for the leading `/`; literal hyphens in directory names (e.g. `Move-Zoom-Recordings-to-GDrive`) are disambiguated by consulting the disk. Path-traversal slugs (`..`, `/`, `\0`) are rejected. Walk-up from `process.cwd()` remains as last-resort fallback but now logs a one-line stderr warning so misroutes are diagnosable. Schema unchanged.
 - **v1.1.0** (2026-05-07) — assistant-body extraction protocol. Stop hook payload from Claude Code does NOT carry the assistant body — it carries `transcript_path`. The hook now reads the latest non-sidechain `type:"assistant"` row from the tail of the transcript JSONL and concatenates all `text`-type content blocks. Path is locked to `~/.claude/projects/` (path-traversal guard). Tail-read cap 64 KB. Falls through to legacy payload shapes (`assistant_message`, `message.content`, `content`) for non-Claude-Code payloads / tests. Schema is unchanged from v1.0.0 — same `assistant_turn` frame, just populated where v1.0.0 was bodyless. Frames written by v1.0.0 hooks remain readable; new frames carry real content.
 - **v1.0.0** (2026-04-23, M45 D2) — initial schema. Frames: `session_start`, `user_turn`, `assistant_turn`, `tool_use`. File-name prefix `in-session-` is the viewer-left-rail discriminator.
 
@@ -155,17 +156,56 @@ the literal settings.json block.
    fallback should never fire in practice; it exists so a malformed payload
    does not crash the hook or produce `in-session-.ndjson`.
 
-## Project-dir resolution
+## Project-dir resolution (v1.2.0+)
 
 The hook writes to `<projectDir>/.gsd-t/transcripts/…`. `projectDir` is
 resolved in order:
 
-1. `GSD_T_PROJECT_DIR` env var, if set and `<dir>/.gsd-t` exists.
-2. `payload.cwd`, if absolute and `<cwd>/.gsd-t` exists.
-3. Walk up from `process.cwd()` (up to 10 levels) looking for
-   `.gsd-t/progress.md`.
-4. If none: **silent no-op**. The hook must never interrupt a non-GSD-T
+1. **`GSD_T_PROJECT_DIR` env var**, if set and `<dir>/.gsd-t` exists. Operator
+   override; preserved for tests and explicit redirection.
+2. **`payload.transcript_path` slug-decode** — REQUIRED for correct routing
+   under parallel Claude Code sessions sharing one node-runtime hook process.
+   Algorithm:
+   - Validate `transcript_path` is absolute and lives under
+     `${HOME}/.claude/projects/`. (Reuses the v1.1.0 path-traversal guard.)
+   - Extract the first path segment after `projects/` as the slug (e.g.
+     `-Users-david-projects-GSD-T`).
+   - Reject slugs containing `..`, `/`, `\\`, or `\0`.
+   - Reject slugs not starting with `-` (must encode the leading `/`).
+   - DFS-walk the filesystem from `/`: at each level, greedily consume 1+
+     `-`-separated tokens as a directory name; prefer fewer tokens (more `/`
+     separators) so deeper, more-specific paths win; first leaf whose
+     `.gsd-t/` directory exists is returned.
+   - This handles project names containing literal `-` (e.g.
+     `Move-Zoom-Recordings-to-GDrive`) — the disk is the oracle for
+     disambiguation.
+3. **`payload.cwd`**, if absolute and `<cwd>/.gsd-t` exists. Used when the
+   payload doesn't carry a `transcript_path` (e.g. SessionStart on older
+   Claude Code builds).
+4. **Walk up from `process.cwd()`** (up to 10 levels) looking for
+   `.gsd-t/progress.md`. Last resort. **Known unreliable** for parallel
+   sessions sharing a hook process — emits a one-line stderr warning when
+   it fires so misroutes are diagnosable.
+5. If none: **silent no-op**. The hook must never interrupt a non-GSD-T
    Claude Code session.
+
+### Why slug-decode is priority 2 (and not 1)
+
+`GSD_T_PROJECT_DIR` is an explicit operator/test signal — it must win. After
+that, `transcript_path` is the only **session-specific** signal: it identifies
+which Claude Code session generated the payload, not which project the hook
+process happens to be running under. Cwd-based fallbacks are session-agnostic
+and therefore unsafe under parallel sessions.
+
+### Defenses against slug-decode pitfalls
+
+| Failure mode | Defense |
+|--------------|---------|
+| Slug used literally as a directory name (no `-`→`/` decode) | Decoder always walks the filesystem; never returns the literal slug path |
+| Slug points at a non-GSD-T directory (decoded path lacks `.gsd-t/`) | DFS only returns leaves where `.gsd-t/` exists; missing target → fall through to next priority |
+| Naive `-`→`/` replacement on literal-hyphen project names | DFS tries multiple token-count splittings per level; consults the disk to disambiguate |
+| Path-traversal injection (`-..-etc-passwd`) | Slug pre-checked for `..`, `/`, `\\`, `\0` before DFS |
+| Pathological slug with many dashes (combinatoric explosion) | DFS prunes via `fs.existsSync` at each level; in practice 1–3 fs calls per segment |
 
 ## Contract with the viewer
 
