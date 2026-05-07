@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+# GSD-T journey-coverage gate (M52 D1)
+# Blocks commits that touch viewer-source files when uncovered listeners are
+# detected by `bin/journey-coverage-cli.cjs --staged-only`.
+#
+# Install (opt-in):  gsd-t doctor --install-journey-hook
+# Remove:            rm .git/hooks/pre-commit  (or remove the marker block if
+#                    merged into an existing hook)
+#
+# Exit codes:
+#   0 — clean (no viewer-source files staged, OR coverage clean, OR fail-open)
+#   1 — blocked (uncovered listener in staged viewer-source files)
+#
+# Fail-open philosophy: a broken hook is worse than a permissive one. Detector
+# internal exception → exit 0 with a stderr warning, never block.
+
+set -e
+
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+
+VIEWER_SOURCE_PATTERNS=(
+  "scripts/gsd-t-transcript.html"
+  "scripts/gsd-t-dashboard-server.js"
+  "bin/gsd-t-dashboard"
+  "e2e/journeys/"
+  "e2e/viewer/"
+)
+
+STAGED="$(git diff --cached --name-only --diff-filter=AM 2>/dev/null || true)"
+[ -z "$STAGED" ] && exit 0
+
+matches=""
+while IFS= read -r f; do
+  for p in "${VIEWER_SOURCE_PATTERNS[@]}"; do
+    case "$f" in
+      "$p"|"$p"*) matches="$matches $f"; break ;;
+    esac
+  done
+done <<EOF
+$STAGED
+EOF
+
+if [ -z "$matches" ]; then
+  exit 0
+fi
+
+CLI="$ROOT/bin/journey-coverage-cli.cjs"
+if [ ! -f "$CLI" ]; then
+  echo "[journey-coverage] WARNING: $CLI not found — fail-open." >&2
+  exit 0
+fi
+
+# Run the CLI in --staged-only mode. Capture stdout+stderr; rely on exit code.
+set +e
+OUT="$(node "$CLI" --staged-only --project-dir "$ROOT" 2>&1)"
+RC=$?
+set -e
+
+case "$RC" in
+  0)
+    exit 0
+    ;;
+  4)
+    echo "[journey-coverage] BLOCKED: uncovered viewer listener in staged files." >&2
+    echo "$OUT" >&2
+    echo "" >&2
+    echo "  Add a journey spec under e2e/journeys/ and update .gsd-t/journey-manifest.json." >&2
+    exit 1
+    ;;
+  2)
+    echo "[journey-coverage] BLOCKED: manifest missing/unreadable." >&2
+    echo "$OUT" >&2
+    exit 1
+    ;;
+  *)
+    # Unknown exit — fail-open so a detector bug doesn't break workflow.
+    echo "[journey-coverage] WARNING: detector exited $RC (fail-open):" >&2
+    echo "$OUT" >&2
+    exit 0
+    ;;
+esac

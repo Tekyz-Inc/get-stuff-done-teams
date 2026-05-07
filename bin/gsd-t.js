@@ -657,6 +657,35 @@ function installCaptureLintHook(projectDir) {
   return true;
 }
 
+// M52 D1 — journey-coverage gate hook installer. Block-delimited so uninstall
+// is a clean string excise. Stock script lives at scripts/hooks/pre-commit-journey-coverage.
+const JOURNEY_COVERAGE_HOOK_BEGIN = "# >>> GSD-T journey-coverage gate >>>";
+const JOURNEY_COVERAGE_HOOK_END = "# <<< GSD-T journey-coverage gate <<<";
+
+function installJourneyCoverageHook(projectDir) {
+  const gitDir = path.join(projectDir, ".git");
+  if (!fs.existsSync(gitDir)) { warn("No .git directory — skipping journey-coverage hook install"); return false; }
+  const hooksDir = path.join(gitDir, "hooks");
+  try { fs.mkdirSync(hooksDir, { recursive: true }); } catch (_) {}
+  const hookPath = path.join(hooksDir, "pre-commit");
+  const stockSrc = path.join(PKG_ROOT, "scripts", "hooks", "pre-commit-journey-coverage");
+  let stock;
+  try { stock = fs.readFileSync(stockSrc, "utf8"); } catch (_) { warn("Could not read pre-commit-journey-coverage script"); return false; }
+  const block = JOURNEY_COVERAGE_HOOK_BEGIN + "\n" + stock.replace(/^#!.*\n/, "") + "\n" + JOURNEY_COVERAGE_HOOK_END + "\n";
+  if (!fs.existsSync(hookPath)) {
+    fs.writeFileSync(hookPath, "#!/usr/bin/env bash\nset -e\n\n" + block);
+    try { fs.chmodSync(hookPath, 0o755); } catch (_) {}
+    success(`Journey-coverage gate installed at ${path.relative(projectDir, hookPath)}`);
+    return true;
+  }
+  const existing = fs.readFileSync(hookPath, "utf8");
+  if (existing.includes(JOURNEY_COVERAGE_HOOK_BEGIN)) { info("Journey-coverage block already present — no change"); return true; }
+  fs.writeFileSync(hookPath, existing.trimEnd() + "\n\n" + block);
+  try { fs.chmodSync(hookPath, 0o755); } catch (_) {}
+  success(`Journey-coverage block appended to ${path.relative(projectDir, hookPath)}`);
+  return true;
+}
+
 // Idempotent — if an existing hook references CONTEXT_METER_HOOK_MARKER the
 // command string is refreshed/migrated in-place to the canonical form.
 // Stale entries matching CONTEXT_METER_STALE_PATTERNS are migrated on the spot.
@@ -1719,6 +1748,9 @@ async function doInit(projectName) {
       info("Re-run with: gsd-t doctor --install-playwright");
     }
   }
+
+  // M52 D1: auto-install the journey-coverage gate. Idempotent — no-op if marker present.
+  if (hasUI(projectDir)) installJourneyCoverageHook(projectDir);
 
   showInitTree(projectDir);
 }
@@ -3055,6 +3087,12 @@ async function doDoctor(opts) {
     heading("Installing pre-commit hooks");
     installPlaywrightGateHook(process.cwd());
   }
+  // M52 D1: opt-in install of the journey-coverage pre-commit hook.
+  if (opts && opts.installJourneyHook) {
+    log("");
+    heading("Installing journey-coverage pre-commit hook");
+    installJourneyCoverageHook(process.cwd());
+  }
   log("");
   if (issues === 0) {
     log(`${GREEN}${BOLD}  All checks passed!${RESET}`);
@@ -4325,14 +4363,21 @@ if (require.main === module) {
       doUninstall();
       break;
     case "doctor": {
-      const doctorOpts = { prune: false, installPlaywright: false, installHooks: false };
+      const doctorOpts = { prune: false, installPlaywright: false, installHooks: false, installJourneyHook: false };
       for (let i = 1; i < args.length; i++) {
         if (args[i] === "--prune") doctorOpts.prune = true;
         if (args[i] === "--install-playwright") doctorOpts.installPlaywright = true;
         if (args[i] === "--install-hooks") doctorOpts.installHooks = true;
+        if (args[i] === "--install-journey-hook") doctorOpts.installJourneyHook = true;
       }
       doDoctor(doctorOpts).catch((e) => { error(e.message || String(e)); process.exit(1); });
       break;
+    }
+    case "check-coverage": {
+      const cli = path.join(__dirname, "journey-coverage-cli.cjs");
+      const { spawnSync } = require("child_process");
+      const res = spawnSync(process.execPath, [cli, ...args.slice(1)], { stdio: "inherit" });
+      process.exit(res.status == null ? 1 : res.status);
     }
     case "setup-playwright": {
       // Single-project explicit installer. Thin wrapper around installPlaywright().
