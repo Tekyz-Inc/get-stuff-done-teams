@@ -4,6 +4,34 @@ All notable changes to GSD-T are documented here. Updated with each release.
 
 ## [Unreleased]
 
+## [3.23.10] - 2026-05-06
+
+### Added — Rigorous User-Journey Coverage + Anti-Drift Test Quality (M52)
+
+Closes the M48→M49→M50→M51 drift pattern where each test round caught the bug shape the previous round named, never the unnamed shape. M52's architectural fix is two-fold: (a) MECHANICAL coverage via a regex-based listener detector + pre-commit gate that blocks viewer-source commits with uncovered listeners; (b) DOCTRINAL change to what "rigorous" means — journey specs walk every interactive surface end-to-end with assertions on user-visible state, real-data NDJSON fixtures, adversarial Red Team scoped to JOURNEYS not lines.
+
+**D1 — Journey-coverage tooling:**
+- `bin/journey-coverage.cjs` (308 lines) — regex listener detector with single-pass string-mask precomputation (handles JS strings + HTML/JS comments). Recognises 6 listener kinds per contract §3. Zero parser deps. Sub-100ms on the full viewer file set.
+- `bin/journey-coverage-cli.cjs` (107 lines) → `gsd-t check-coverage` — supports `--staged-only`, `--manifest PATH`, `--quiet`. Exit 0 (clean) / 4 (gap or stale) / 2 (manifest missing).
+- `scripts/hooks/pre-commit-journey-coverage` (mode 0755, `set -e`) — viewer-source pattern set per contract §4. Marker block `# >>> GSD-T journey-coverage gate >>>` mirrors M50 idiom. Fail-open on detector internal exception.
+- `bin/gsd-t.js` wiring (+46 lines under 50-line budget): `installJourneyCoverageHook` (idempotent), `gsd-t check-coverage` CLI dispatch, `gsd-t doctor --install-journey-hook` flag. Hook auto-installed by `init` after Playwright install for UI projects.
+- `.gsd-t/contracts/journey-coverage-contract.md` v1.0.0 (PROPOSED → STABLE on D1 task-5).
+
+**D2 — Journey specs + fixtures:**
+- `e2e/journeys/` — 12 inaugural journey specs (`main-session-stream`, `click-completed-conversation`, `click-spawn-entry`, `splitter-drag`, `splitter-keyboard`, `right-rail-toggle`, `completed-collapse-toggle`, `auto-follow-toggle`, `kill-button`, `sessionstorage-persistence`, `keyboard-shortcuts`, `hashchange`). Every assertion verifies state changed / data flowed / content loaded / widget responded — zero `toBeVisible`/`toBeAttached` shallow assertions.
+- `.gsd-t/journey-manifest.json` (new) — 12 entries 1:1 with the spec files; `covers[]` arrays span all 17 distinct viewer listeners (multiple listeners per spec where appropriate).
+- `e2e/fixtures/journeys/` — 3 real-data NDJSONs sliced from captured `in-session-*.ndjson` (~50 / ~150 / ~80 frames). PII scrub: any user content > 200 chars truncated with `[…truncated]` marker.
+- `e2e/fixtures/journeys/replay-helpers.ts` — `startReplayServer({fixture, asSessionId, inSession})` mounts the fixture into a temp project, starts the dashboard server with `port: 0` ephemeral, returns `{baseUrl, dispose}`. Zero new runtime deps.
+- `templates/prompts/red-team-subagent.md` — additive new category "Test Pass-Through — Journey Edition" (existing categories untouched). Adversarial mandate: write ≥5 broken viewer patches, run the journey specs, every patch must be caught.
+
+**Adversarial Red Team result:** 5 broken viewer patches written, all 5 caught by journey specs (P1: splitter:mousedown drag handler stripped → splitter-drag FAILS as expected; P2: `_ssSet(SS_KEY_SPLITTER, ...)` redirected to wrong key → splitter-drag + splitter-keyboard FAIL; P3: right-rail toggle handler stubbed to early-return → right-rail-toggle FAILS; P4: M52 narrowed-guard reverted to broken M48 wide-guard → click-completed-conversation FAILS, catching the M52 root-cause regression itself; P5: auto-follow change handler localStorage write removed → auto-follow-toggle FAILS). VERDICT: GRUDGING PASS. See `.gsd-t/red-team-report.md` § "M52 JOURNEY-EDITION RED TEAM".
+
+**Hook end-to-end exercise:** synthetic `fakeBtn:click` listener appended to `scripts/gsd-t-transcript.html:1617` + staged → `bash .git/hooks/pre-commit` exit 1 with structured GAP report (`GAP: scripts/gsd-t-transcript.html:1617  fakeBtn:click  (addEventListener)  no spec covers this`); manifest extended with covering entry → re-run hook exit 0. Block + unblock paths both logged.
+
+**Suite:** unit 2195/2195 pass (was 2167; +28 from M52 D1 detector + CLI + hook + helpers). E2E 35/35 + 1 skip preserved (was 23/35; +12 journey specs). `gsd-t check-coverage` reports `OK: 20 listeners, 12 specs` (exit 0, zero gaps, zero stale entries).
+
+**Migration:** none. Hook is auto-installed on `gsd-t init` and re-installable via `gsd-t doctor --install-journey-hook`. Existing projects pick it up on next `gsd-t update-all`.
+
 ### Fixed — historical in-session conversations are clickable again (M52 quick patch)
 
 The M48 Bug 4 dual-pane mirror prevention was overcorrected: `scripts/gsd-t-transcript.html` early-returned for ANY rail entry whose spawn-id began with `in-session-`. But every COMPLETED rail entry is `in-session-*` (that's how the M45 D2 hook captures conversations), so clicking ANY completed conversation did nothing — there was no pane that would load it.
