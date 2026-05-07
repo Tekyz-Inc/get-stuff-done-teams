@@ -207,3 +207,49 @@ The code never throws (key safety invariant ✅), the depth bound is correctly e
 ---
 
 **Probe scripts retained at**: `/tmp/redteam-probe.cjs`, `/tmp/redteam-probe2.cjs`
+
+---
+
+# M52 RED TEAM FINDINGS — Adversarial Validation of click-completed.spec.ts
+
+**Date**: 2026-05-06
+**Target**: New journey spec `e2e/viewer/click-completed.spec.ts` (4 tests) + the
+narrowed M48 Bug 4 guards in `scripts/gsd-t-transcript.html` (click handler line ~1011,
+hashchange line ~1303, legacy renderTree click line ~880, fetchMainSession line ~1284,
+initial-bottom-id seed line ~1310).
+
+**Methodology**: Snapshot the good `gsd-t-transcript.html`, apply each adversary patch
+in turn, run only the new journey spec, restore. A spec that doesn't catch the patch
+is itself broken; tighten until every adversary fails.
+
+## VERDICT: GRUDGING PASS — 3/3 adversaries caught
+
+| # | Adversary patch                                                                                           | Result               | Caught by                                            |
+|---|-----------------------------------------------------------------------------------------------------------|----------------------|------------------------------------------------------|
+| a | Both checks reverted to `if (isInSession) return;` (the original pre-M52 bug)                             | 2 tests FAIL ✓        | "clicking each completed entry" + "sessionStorage persists across reload" |
+| b | `connect(id)` short-circuits when `id.indexOf('in-session-') === 0`                                       | 2 tests FAIL ✓        | same 2 — bottom pane never receives the marker        |
+| c | Click handler routes in-session entries to TOP pane via `connectMain(...)` (clobbers main session)        | 2 tests FAIL ✓        | bottom-pane-receives-marker positive assertion fires before the new top-pane-stays-on-main negative assertion |
+
+**Note on (c)**: The new strengthened click-completed test asserts BOTH the positive
+(bottom pane gets the conversation tag) AND the negative (top pane is not clobbered
+with completed-conversation tags). The positive assertion fires first because the
+broken impl never writes to the bottom pane at all — but the negative assertion is
+in the same test body and would fire on any impl that writes the click target into
+the top pane after passing the positive check.
+
+## Files modified for M52
+- `scripts/gsd-t-transcript.html` — narrowed 4 guards from `isInSession` (any) to
+  `isInSession && spawnId === in-session-{__mainSessionId}` (live main only).
+  Added `window.__mainSessionId` exposure inside `connectMain`. Removed the
+  unconditional in-session-* scrub from initial-bottom-id seeding. Added
+  fetchMainSession callback to clear seeded selection that collides with live
+  main session id.
+- `e2e/viewer/click-completed.spec.ts` (new) — 4-test journey covering rail
+  rendering, completed-entry click → bottom pane content, main-entry click → no
+  bottom-pane mutation + top-pane unchanged, sessionStorage persistence across
+  reload.
+- `test/m48-viewer-rendering-fixes.test.js` — flipped 5 source-pinned assertions
+  from "asserts pre-M52 unconditional bail" to "asserts M52 narrowed live-main check".
+  Added 1 new test for the fetchMainSession seed-collision callback.
+
+**Final state**: E2E 23/23 + 1 placeholder skip; unit 2167/2167 (added 1 net test).

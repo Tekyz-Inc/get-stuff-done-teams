@@ -257,32 +257,58 @@ describe('M48 Bug 3 — user_turn / assistant_turn / session_start render as cha
 
 // ── Bug 4 — top vs bottom pane separation ────────────────────────────────────
 
-describe('M48 Bug 4 — clicking the in-session rail entry must NOT load it into the bottom pane', () => {
-  it('renderRailEntry click handler returns early for in-session entries', () => {
+describe('M48 Bug 4 (M52-narrowed) — only the LIVE main session is blocked from the bottom pane', () => {
+  it('renderRailEntry click handler blocks ONLY the live main session id (in-session-* === window.__mainSessionId)', () => {
     const html = readHtml();
-    // The renderRailEntry function defines `isInSession` already; the click
-    // handler must consult it and bail out before mutating location.hash.
+    // The renderRailEntry click handler must NOT bail on every in-session-*
+    // entry (the pre-M52 bug — historical conversations were unclickable).
+    // It must check the entry against the LIVE main session id specifically.
     const clickBlock = html.match(/el\.addEventListener\(['"]click['"][\s\S]*?container\.appendChild\(el\)/);
     assert.ok(clickBlock, 'rail-entry click handler present');
-    assert.match(clickBlock[0], /if\s*\(\s*isInSession\s*\)\s*return/);
-  });
-
-  it('initial bottom-pane resolution drops in-session-* selections', () => {
-    const html = readHtml();
-    // Block that scrubs an in-session-* SS_KEY_SELECTED value before connect().
     assert.match(
-      html,
-      /initialBottomId\.indexOf\(['"]in-session-['"]\)\s*===\s*0[\s\S]*?initialBottomId\s*=\s*['"]['"]/,
+      clickBlock[0],
+      /isInSession\s*&&\s*node\.spawnId\s*===\s*\(\s*['"]in-session-['"]\s*\+\s*window\.__mainSessionId\s*\)/,
+      'click handler must compare entry id to in-session-{__mainSessionId}, not bail on all in-session-* entries',
     );
   });
 
-  it('hashchange handler ignores in-session-* hashes', () => {
+  it('initial bottom-pane resolution allows historical in-session-* selections to seed', () => {
     const html = readHtml();
-    // The handler must early-return before calling connect(id) when the id
-    // begins with `in-session-`.
+    // M52: the seeded id is no longer scrubbed for being in-session-*. The
+    // live-main collision is handled later by fetchMainSession's callback.
+    // Assert the OLD scrub block is gone.
+    assert.doesNotMatch(
+      html,
+      /initialBottomId\.indexOf\(['"]in-session-['"]\)\s*===\s*0[\s\S]*?initialBottomId\s*=\s*['"]['"]/,
+      'pre-M52 unconditional scrub of in-session-* seed must be removed',
+    );
+  });
+
+  it('fetchMainSession callback clears the bottom-pane seed when it collides with the live main session id', () => {
+    const html = readHtml();
+    const fmBlock = html.match(/function fetchMainSession\(\)[\s\S]*?\n\s+\}/);
+    assert.ok(fmBlock, 'fetchMainSession defined');
+    // The callback must compare the seeded SS_KEY_SELECTED to in-session-{sessionId}
+    // and clear it when they match (so the bottom pane never mirrors top).
+    assert.match(fmBlock[0], /['"]in-session-['"]\s*\+\s*j\.sessionId/);
+    assert.match(fmBlock[0], /SS_KEY_SELECTED/);
+  });
+
+  it('hashchange handler blocks ONLY the live main session id, not all in-session-* hashes', () => {
+    const html = readHtml();
     const hashBlock = html.match(/window\.addEventListener\(['"]hashchange['"][\s\S]*?\}\)/);
     assert.ok(hashBlock, 'hashchange handler present');
-    assert.match(hashBlock[0], /id\.indexOf\(['"]in-session-['"]\)\s*===\s*0/);
+    // The pre-M52 unconditional `id.indexOf('in-session-') === 0` block is gone.
+    assert.doesNotMatch(
+      hashBlock[0],
+      /id\.indexOf\(['"]in-session-['"]\)\s*===\s*0/,
+      'pre-M52 unconditional in-session-* prefix bail must be removed',
+    );
+    // Replaced with an exact-match check against in-session-{__mainSessionId}.
+    assert.match(
+      hashBlock[0],
+      /id\s*===\s*\(\s*['"]in-session-['"]\s*\+\s*window\.__mainSessionId\s*\)/,
+    );
     assert.match(hashBlock[0], /return/);
   });
 
@@ -293,22 +319,20 @@ describe('M48 Bug 4 — clicking the in-session rail entry must NOT load it into
     assert.match(autoBlock[0], /\.filter\([\s\S]*?indexOf\(['"]in-session-['"]\)\s*===\s*0/);
   });
 
-  it('regression — legacy renderTree click handler also bails on in-session entries (Red Team BUG-2)', () => {
+  it('regression — legacy renderTree click handler also gates only on the live main session (M52)', () => {
     const html = readHtml();
-    // Locate the renderTree() function — distinct from renderRailEntry —
-    // and assert its inner `el.addEventListener('click', ...)` consults
-    // isInSession(node) before mutating location.hash.
     const start = html.indexOf('function renderTree(');
     assert.ok(start > 0, 'renderTree function present');
     const after = html.slice(start);
-    // Slice up to the auto-follow comment block.
     const block = after.slice(0, after.indexOf('// ── Auto-follow latest spawn'));
     assert.ok(block.length > 100, 'renderTree body extracted');
-    // Click handler must include `if (isInSession(node)) return;` BEFORE
-    // any `location.hash = node.spawnId` assignment.
-    const guardIdx = block.indexOf('if (isInSession(node)) return');
+    // Click handler must consult isInSession(node) AND compare to the live
+    // main session id — the M52 narrowed pattern (not the pre-M52 unconditional bail).
+    const guardIdx = block.search(/if\s*\(\s*isInSession\(node\)\s*&&\s*node\.spawnId\s*===\s*\(\s*['"]in-session-['"]\s*\+\s*window\.__mainSessionId\s*\)\s*\)\s*return/);
     const hashIdx = block.indexOf('location.hash = node.spawnId');
-    assert.ok(guardIdx > 0, 'renderTree click handler must guard isInSession');
-    assert.ok(hashIdx > guardIdx, 'isInSession guard must precede the location.hash mutation');
+    assert.ok(guardIdx > 0, 'renderTree click handler must use the M52 narrowed isInSession + main-session check');
+    assert.ok(hashIdx > guardIdx, 'narrowed isInSession guard must precede the location.hash mutation');
+    // Pre-M52 unconditional `if (isInSession(node)) return;` (no main-session check) is gone.
+    assert.doesNotMatch(block, /if\s*\(\s*isInSession\(node\)\s*\)\s*return/);
   });
 });

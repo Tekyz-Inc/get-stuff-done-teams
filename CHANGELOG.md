@@ -2,6 +2,34 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [Unreleased]
+
+### Fixed — historical in-session conversations are clickable again (M52 quick patch)
+
+The M48 Bug 4 dual-pane mirror prevention was overcorrected: `scripts/gsd-t-transcript.html` early-returned for ANY rail entry whose spawn-id began with `in-session-`. But every COMPLETED rail entry is `in-session-*` (that's how the M45 D2 hook captures conversations), so clicking ANY completed conversation did nothing — there was no pane that would load it.
+
+**Mental model fix:** Top pane is for the LIVE main session (owned by `/api/main-session`). Bottom pane is for ANYTHING else the user clicks — regular spawns OR historical in-session conversations. Only the LIVE main session's spawn id should be blocked from the bottom pane (that's the actual M48 Bug 4 case).
+
+**Source narrowing in `scripts/gsd-t-transcript.html`:**
+- `connectMain(sessionId)` exposes `window.__mainSessionId` so click + hashchange handlers can discriminate.
+- renderRailEntry click handler: `if (isInSession && node.spawnId === ('in-session-' + window.__mainSessionId)) return;` — was `if (isInSession) return;`.
+- hashchange handler: `if (id && id === ('in-session-' + window.__mainSessionId)) { return; }` — was `if (id && id.indexOf('in-session-') === 0) { return; }`.
+- Legacy renderTree click handler: same narrowed pattern.
+- Removed unconditional in-session-* scrub from initial-bottom-id seeding (historical sessionStorage selections survive reload now).
+- Added `fetchMainSession` callback that clears the bottom-pane seed when it collides with the live main session id (preserves M48 Bug 4 mirror prevention).
+
+**New journey spec `e2e/viewer/click-completed.spec.ts` (4 tests):**
+- Rail renders 1 main session + 3 completed in-session entries.
+- Clicking each completed entry loads it into the BOTTOM pane (and TOP pane stays on the live main session).
+- Clicking the live MAIN entry does NOT load it into the bottom pane.
+- sessionStorage persists across reload — bottom pane resumes the previously-clicked entry.
+
+**Adversarial Red Team (3 broken patches, all caught):** (a) revert both checks to `if (isInSession) return;`; (b) `connect(id)` short-circuits on in-session prefix; (c) click handler routes in-session entries to TOP pane via `connectMain(...)` (clobbers main session). See `.gsd-t/red-team-report.md` § M52 RED TEAM FINDINGS.
+
+**Unit-test ripple:** 5 source-pinned assertions in `test/m48-viewer-rendering-fixes.test.js` flipped from "asserts pre-M52 unconditional bail" to "asserts M52 narrowed live-main check". 1 new test for the fetchMainSession seed-collision callback.
+
+**Suite:** 2167/2167 unit pass (added 1); E2E 23/23 + 1 placeholder skip (added 4 journey tests).
+
 ## [3.22.11] - 2026-05-06
 
 ### Fixed — viewer Playwright specs are now actually rigorous + adversarially proven (M51)

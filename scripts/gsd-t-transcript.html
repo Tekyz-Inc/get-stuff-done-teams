@@ -870,14 +870,10 @@
           });
           el.appendChild(dot); el.appendChild(name); el.appendChild(kill);
           el.addEventListener('click', () => {
-            // M48 — symmetric with renderRailEntry: in-session entries
-            // belong to the TOP pane only. Without this guard the legacy
-            // renderTree path (called for the `live` bucket when ≥2
-            // in-session NDJSONs exist) would mutate location.hash to an
-            // in-session-* value, polluting the URL and the rail's active
-            // highlight even though the hashchange handler now blocks
-            // bottom-pane SSE pinning.
-            if (isInSession(node)) return;
+            // M52 — symmetric with renderRailEntry: only the LIVE main
+            // session id is blocked from the bottom pane. Historical /
+            // additional in-session entries route normally.
+            if (isInSession(node) && node.spawnId === ('in-session-' + window.__mainSessionId)) return;
             if (node.spawnId === currentId) return;
             location.hash = node.spawnId;
           });
@@ -1006,12 +1002,13 @@
         });
         el.appendChild(dot); el.appendChild(name); el.appendChild(kill);
         el.addEventListener('click', () => {
-          // M48 — in-session conversation entries belong in the TOP pane only.
-          // The top pane is wired to /api/main-session and streams the
-          // current orchestrator session. Routing them through location.hash
-          // would also load them into the bottom pane (the SELECTED-SPAWN
-          // pane), making both panes show identical content.
-          if (isInSession) return;
+          // M52 — narrow the M48 Bug 4 guard. The TOP pane streams the LIVE
+          // main session via /api/main-session; only THAT specific in-session
+          // id should be blocked from the bottom pane (otherwise both panes
+          // would show identical content). Historical in-session conversations
+          // (the entire COMPLETED rail) are tagged in-session-* but are NOT
+          // the live main session — they must load into the bottom pane.
+          if (isInSession && node.spawnId === ('in-session-' + window.__mainSessionId)) return;
           if (node.spawnId === currentId) return;
           _ssSet(SS_KEY_SELECTED, node.spawnId);
           location.hash = node.spawnId;
@@ -1251,6 +1248,10 @@
       const mainStreamEl = document.getElementById('main-stream');
       function connectMain(sessionId) {
         if (mainSrc) { try { mainSrc.close(); } catch { /* gone */ } mainSrc = null; }
+        // M52 — expose the active main session id so the bottom-pane click +
+        // hashchange handlers can distinguish the LIVE main session (must stay
+        // top-only) from HISTORICAL in-session conversations (loadable below).
+        window.__mainSessionId = sessionId || null;
         if (!mainStreamEl) return;
         mainStreamEl.innerHTML = '';
         if (!sessionId) {
@@ -1284,6 +1285,18 @@
           .then((j) => {
             if (j && j.sessionId) {
               connectMain(j.sessionId);
+              // M52 — if the bottom pane was seeded with the live main
+              // session's id (e.g., from sessionStorage on reload), clear it
+              // out to prevent the M48 Bug 4 dual-pane mirror.
+              const liveId = 'in-session-' + j.sessionId;
+              const seededId = _ssGet(SS_KEY_SELECTED) || '';
+              if (seededId === liveId) {
+                _ssSet(SS_KEY_SELECTED, '');
+                if ((location.hash || '').slice(1) === liveId) {
+                  try { history.replaceState(null, '', location.pathname + location.search); } catch { /* ok */ }
+                }
+                connect('');
+              }
               const t1 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
               try { console.debug('[m47] top-pane connected in', Math.round(t1 - t0), 'ms'); } catch { /* ok */ }
             } else {
@@ -1295,8 +1308,10 @@
 
       window.addEventListener('hashchange', () => {
         const id = (location.hash || '').slice(1);
-        // M48 — keep in-session-* ids out of the bottom pane (top pane only).
-        if (id && id.indexOf('in-session-') === 0) { return; }
+        // M52 — narrow the M48 Bug 4 guard. Only the LIVE main session's
+        // in-session id is blocked; historical in-session-* hashes load into
+        // the bottom pane normally (connect() already handles the SSE).
+        if (id && id === ('in-session-' + window.__mainSessionId)) { return; }
         if (id) { connect(id); pollSpawns(); }
       });
 
@@ -1304,18 +1319,14 @@
       //   1. data-spawn-id non-empty → connect that (bookmark flow)
       //   2. else sessionStorage.selectedSpawnId → connect that
       //   3. else show empty state
-      // M48 — never seed the bottom pane with an in-session-* id; the top
-      // pane already owns the main session, and showing it in both panes
-      // is one of the regressions Bug 4 fixes.
+      // M52 — historical in-session-* ids may seed the bottom pane (the M48
+      // Bug 4 case is now narrowed to the LIVE main session only, handled by
+      // the click + hashchange + fetchMainSession callback).
       let initialBottomId = '';
       if (spawnId) {
         initialBottomId = spawnId;
       } else {
         initialBottomId = _ssGet(SS_KEY_SELECTED) || '';
-      }
-      if (typeof initialBottomId === 'string' && initialBottomId.indexOf('in-session-') === 0) {
-        initialBottomId = '';
-        _ssSet(SS_KEY_SELECTED, '');
       }
       if (initialBottomId && !location.hash) location.hash = initialBottomId;
       connect(initialBottomId);
