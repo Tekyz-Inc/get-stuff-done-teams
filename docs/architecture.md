@@ -1126,3 +1126,41 @@ A new Red Team category — "Test Pass-Through — Journey Edition" — extends 
 
 Contract: `.gsd-t/contracts/journey-coverage-contract.md` v1.0.0.
 
+## Live Activity Observability (M54, planned — v3.24.x+)
+
+The dashboard left rail today only catches detached `claude -p` workers via `.gsd-t/spawns/*.json`. Heavy in-session work (a backgrounded `Bash`, a `Monitor` watch, a slow tool_use) has no rail representation, leaving the user blind to what's running. M54 adds a "LIVE ACTIVITY" section between MAIN SESSION and LIVE SPAWNS that surfaces all four kinds in one place.
+
+**Module**: `bin/live-activity-report.cjs` — `computeLiveActivities({projectDir, now?})` returns the contract shape. Pure read-only, silent-fail. Mirrors `bin/parallelism-report.cjs` shape; installed via `installGlobalBinTools()` to `~/.claude/bin/live-activity-report.cjs`.
+
+**Data flow**:
+
+```
+  .gsd-t/events/*.jsonl              ─┐         (heartbeat-emitted tool events)
+  ~/.claude/projects/<slug>/<sid>.jsonl ┼─▶  bin/live-activity-report.cjs
+  .gsd-t/spawns/*.json               ─┘            │  (dedupe by tool_use_id)
+                                                   ▼
+                              scripts/gsd-t-dashboard-server.js
+                              (5s in-memory cache, additive endpoints)
+                                ├── GET /api/live-activity            → JSON index
+                                ├── GET /api/live-activity/<id>/tail  → last 64 KB stdout/stderr
+                                └── GET /api/live-activity/<id>/stream → SSE follow-up
+                                                   │
+                                                   ▼
+                              scripts/gsd-t-transcript.html
+                              `<aside class="left-rail">` — new section "LIVE ACTIVITY"
+                              polls /api/live-activity every 5s; pulses new entries
+```
+
+**Liveness falsifiers** (any → entry leaves activities[]):
+1. Explicit terminating event (tool_result, monitor_stopped, spawn_completed).
+2. PID check fails (`process.kill(pid, 0)` throws ESRCH) for kinds with a recorded PID.
+3. Source file mtime > 60s old.
+
+**Pulse semantics**: new entries get class `.la-pulsing`. Pulse stops on click OR on liveness loss OR after 30s — whichever first. No auto-switch of the bottom pane on entry arrival; only the pulse signals attention.
+
+**Silent-fail invariant**: malformed events JSONL, missing slug-decoded transcript, unreadable spawn-plan JSON — every case logs to `metrics.notes` and continues with partial data. Observer must never throw when watching a live system.
+
+**Out of scope**: cross-project aggregation (read OTHER projects' transcripts) is M55 candidate territory.
+
+Contract: `.gsd-t/contracts/live-activity-contract.md` v1.0.0 (planned — written during D1 T5).
+
