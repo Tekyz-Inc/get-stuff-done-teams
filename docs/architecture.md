@@ -1100,3 +1100,20 @@ M50 retires the prose-only "Playwright Readiness Guard" in favor of executable e
 CLI surface added in M50: `gsd-t setup-playwright [path]` (single-project explicit installer), `gsd-t doctor --install-playwright` (fix-it-now flag), `gsd-t doctor --install-hooks` (pre-commit-gate installer). `gsd-t init` and `gsd-t update-all` invoke `installPlaywright` automatically for any UI project that's missing it.
 
 Contract: `.gsd-t/contracts/playwright-bootstrap-contract.md` v1.0.0.
+
+## Journey Coverage Enforcement (M52, v3.22.x+)
+
+M52 layers a journey-coverage gate on top of M50's Playwright enforcement. M50 makes sure Playwright runs; M52 makes sure every interactive viewer surface has a journey spec asserting user-visible state change. Three components:
+
+1. **Listener detector** (`bin/journey-coverage.cjs`) — regex-based source-form scanner with single-pass string-mask precomputation (handles `//`, `/*…*/`, `<!-- -->`, `'`/`"`/template literals). Recognises 6 listener kinds per `journey-coverage-contract.md` §3: `addEventListener`, `inline-handler`, `function-call`, `mutation-observer`, `hashchange`, `delegated`. Exports `detectListeners`, `loadManifest`, `findGaps`, `formatReport`. Zero parser deps (no acorn/babel). Sub-100ms on the full viewer file set.
+
+2. **CLI** (`bin/journey-coverage-cli.cjs` → `gsd-t check-coverage`) — supports `--staged-only`, `--manifest PATH`, `--quiet`. Exit codes per contract §5: 0 = clean, 4 = coverage gap or stale entry, 2 = manifest missing/unreadable. Vacuous-pass when zero listeners + zero specs.
+
+3. **Commit-time gate** (`scripts/hooks/pre-commit-journey-coverage`) — auto-installed by `gsd-t install` and `gsd-t init`, manually re-installable via `gsd-t doctor --install-journey-hook`. Fires when staged files match the viewer-source pattern set (`scripts/gsd-t-transcript.html`, `scripts/gsd-t-dashboard-server.js`, `bin/gsd-t-dashboard*.cjs`, `e2e/journeys/`, `e2e/viewer/`). Idempotent install via `# >>> GSD-T journey-coverage gate >>>` marker block (mirrors M50 idiom). Fail-open on detector internal exception.
+
+The content layer that the enforcer measures against ships in M52 D2: 12 inaugural journey specs in `e2e/journeys/` (one per interactive surface), `.gsd-t/journey-manifest.json` with 12 entries 1:1 with the spec files, and 3 real-data NDJSON fixtures in `e2e/fixtures/journeys/` (sliced from captured `.gsd-t/transcripts/in-session-*.ndjson` files with PII scrub applied). Every assertion verifies state changed / data flowed / content loaded / widget responded — zero `toBeVisible`/`toBeAttached` shallow assertions across the 12 specs.
+
+A new Red Team category — "Test Pass-Through — Journey Edition" — extends `templates/prompts/red-team-subagent.md` to mandate adversarial validation: write ≥5 broken viewer patches, run the journey specs, every patch must be caught (verdict FAIL otherwise).
+
+Contract: `.gsd-t/contracts/journey-coverage-contract.md` v1.0.0.
+
