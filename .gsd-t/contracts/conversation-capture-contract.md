@@ -1,11 +1,12 @@
 # Conversation Capture Contract
 
-**Status**: v1.0.0 — M45 D2 (initial release 2026-04-23)
+**Status**: v1.1.0 — assistant-body extraction reads `transcript_path` (M53 fix 2026-05-07)
 **Sink**: `.gsd-t/transcripts/in-session-{sessionId}.ndjson`
 **Producer**: `scripts/hooks/gsd-t-conversation-capture.js` — Claude Code hook script registered for `SessionStart`, `UserPromptSubmit`, `Stop`, and (opt-in) `PostToolUse`.
 
 ## Versions
 
+- **v1.1.0** (2026-05-07) — assistant-body extraction protocol. Stop hook payload from Claude Code does NOT carry the assistant body — it carries `transcript_path`. The hook now reads the latest non-sidechain `type:"assistant"` row from the tail of the transcript JSONL and concatenates all `text`-type content blocks. Path is locked to `~/.claude/projects/` (path-traversal guard). Tail-read cap 64 KB. Falls through to legacy payload shapes (`assistant_message`, `message.content`, `content`) for non-Claude-Code payloads / tests. Schema is unchanged from v1.0.0 — same `assistant_turn` frame, just populated where v1.0.0 was bodyless. Frames written by v1.0.0 hooks remain readable; new frames carry real content.
 - **v1.0.0** (2026-04-23, M45 D2) — initial schema. Frames: `session_start`, `user_turn`, `assistant_turn`, `tool_use`. File-name prefix `in-session-` is the viewer-left-rail discriminator.
 
 ## Why this exists
@@ -74,13 +75,41 @@ No additional fields.
 
 | Field        | Type    | Required | Notes |
 |--------------|---------|----------|-------|
-| `content`    | string  | no       | The assistant's final message text. Capped at 16 KB. Absent if the hook payload did not carry it (Stop hooks sometimes don't). |
+| `content`    | string  | no       | The assistant's final message text. Capped at 16 KB. v1.1.0+: extracted from `payload.transcript_path` (Claude Code Stop hook). Absent only when transcript-read fails AND no fallback shape is present. |
 | `truncated`  | boolean | no       | As above. |
 | `message_id` | string  | no       | As above. |
 
-A `Stop` event with no assistant content still writes a stub frame with
-only `type` + `ts` + `session_id`. The stub matters — it tells the viewer
-the turn completed.
+#### Assistant-body extraction protocol (v1.1.0+)
+
+`_extractAssistantContent(payload)` resolves in this order:
+
+1. **Primary** — `payload.transcript_path`:
+   - Path must be absolute and resolve under `${HOME}/.claude/projects/`. Any
+     other root → reject (path-traversal guard).
+   - Read the last 64 KB of the file (sufficient for one assistant turn even
+     at the 16 KB content cap with headroom). Do NOT load the whole file —
+     transcripts can be multi-MB.
+   - Drop a leading mid-line partial (split on `\n`, discard the head if the
+     read started past offset 0).
+   - Scan lines from the bottom up; for each line: try `JSON.parse`, skip
+     parse failures (corrupt line).
+   - Match the latest row with `type === 'assistant'` AND `isSidechain !== true`.
+     Sidechain rows are subagent transcripts that share the orchestrator
+     JSONL — they belong to a different session.
+   - Body extraction: if `message.content` is a string, use it directly;
+     otherwise iterate `message.content` (array of blocks) and concatenate
+     ALL blocks where `b.type === 'text'`. Ignore `tool_use`, `tool_result`,
+     `thinking`, etc. — those are separate `tool_use` frames.
+   - If a candidate row has zero `text` blocks (tool_use-only turn), keep
+     scanning earlier rows.
+2. **Fallback** — `payload.assistant_message` (string).
+3. **Fallback** — `payload.message.content` (string).
+4. **Fallback** — `payload.content` (string).
+5. **None matched** → return `null`. Hook still writes a stub frame.
+
+A `Stop` event whose payload has no `transcript_path` AND no fallback shape
+still writes a stub frame with only `type` + `ts` + `session_id`. The stub
+matters — it tells the viewer the turn completed.
 
 ### `tool_use` (opt-in)
 

@@ -119,7 +119,7 @@ describe("M45 D2 conversation-capture: UserPromptSubmit", () => {
 });
 
 describe("M45 D2 conversation-capture: Stop", () => {
-  it("writes an assistant_turn frame with content when payload carries it", () => {
+  it("writes an assistant_turn frame with content when payload carries it (legacy fallback shape)", () => {
     const proj = mkProject("stop-with-content");
     const sid = "sess-stop-444";
     runHook(
@@ -136,7 +136,7 @@ describe("M45 D2 conversation-capture: Stop", () => {
     assert.equal(frames[0].content, "done.");
   });
 
-  it("writes a stub assistant_turn frame (no content) when payload omits content", () => {
+  it("writes a stub assistant_turn frame (no content) when payload omits content AND transcript_path", () => {
     const proj = mkProject("stop-stub");
     const sid = "sess-stop-555";
     runHook(
@@ -148,6 +148,247 @@ describe("M45 D2 conversation-capture: Stop", () => {
     assert.equal(frames[0].type, "assistant_turn");
     assert.ok(!("content" in frames[0]), "stub frame must omit content");
     assert.ok(typeof frames[0].ts === "string" && frames[0].ts.length > 0);
+  });
+});
+
+describe("M45 D2 conversation-capture: Stop reads transcript_path (M53 D? regression)", () => {
+  // The Claude Code Stop hook payload is {session_id, transcript_path, ...}
+  // — the message body is in the transcript JSONL, not the payload itself.
+  // These tests pin the new behavior: hook reads the assistant row from the
+  // transcript tail and extracts the body.
+
+  function mkFakeTranscriptHome() {
+    // Mirror the real layout: ~/.claude/projects/<dir>/<sid>.jsonl. Tests
+    // override $HOME so _safeTranscriptPath's allow-root check passes
+    // against the temp tree.
+    const home = fs.mkdtempSync(path.join(baseTmp, "fake-home-"));
+    const projects = path.join(home, ".claude", "projects", "fake-proj");
+    fs.mkdirSync(projects, { recursive: true });
+    return { home, projectsDir: projects };
+  }
+
+  function writeTranscript(projectsDir, name, lines) {
+    const p = path.join(projectsDir, name);
+    fs.writeFileSync(p, lines.map((l) => JSON.stringify(l)).join("\n") + "\n", "utf8");
+    return p;
+  }
+
+  it("extracts assistant content from a real-shaped transcript JSONL", () => {
+    const proj = mkProject("stop-transcript-happy");
+    const sid = "sess-stop-tr-001";
+    const { home, projectsDir } = mkFakeTranscriptHome();
+    const tp = writeTranscript(projectsDir, sid + ".jsonl", [
+      { type: "user", message: { role: "user", content: "hi" } },
+      {
+        type: "assistant",
+        isSidechain: false,
+        message: {
+          role: "assistant",
+          content: [
+            { type: "text", text: "Hello from the orchestrator." },
+          ],
+        },
+      },
+    ]);
+    runHook(
+      { hook_event_name: "Stop", session_id: sid, transcript_path: tp },
+      { projectDir: proj, env: { HOME: home } }
+    );
+    const frames = readNdjson(ndjsonPath(proj, sid));
+    assert.equal(frames.length, 1);
+    assert.equal(frames[0].type, "assistant_turn");
+    assert.equal(frames[0].content, "Hello from the orchestrator.");
+  });
+
+  it("concatenates multiple text blocks; ignores tool_use blocks", () => {
+    const proj = mkProject("stop-transcript-mixed");
+    const sid = "sess-stop-tr-002";
+    const { home, projectsDir } = mkFakeTranscriptHome();
+    const tp = writeTranscript(projectsDir, sid + ".jsonl", [
+      {
+        type: "assistant",
+        isSidechain: false,
+        message: {
+          role: "assistant",
+          content: [
+            { type: "text", text: "First. " },
+            { type: "tool_use", id: "tu_1", name: "Bash", input: { cmd: "ls" } },
+            { type: "text", text: "Second." },
+          ],
+        },
+      },
+    ]);
+    runHook(
+      { hook_event_name: "Stop", session_id: sid, transcript_path: tp },
+      { projectDir: proj, env: { HOME: home } }
+    );
+    const frames = readNdjson(ndjsonPath(proj, sid));
+    assert.equal(frames[0].content, "First. Second.");
+    assert.ok(!frames[0].content.includes("Bash"), "tool_use blocks must not bleed into content");
+    assert.ok(!frames[0].content.includes("tu_1"), "tool_use ids must not bleed into content");
+  });
+
+  it("picks the LAST orchestrator assistant row when transcript has many", () => {
+    const proj = mkProject("stop-transcript-latest");
+    const sid = "sess-stop-tr-003";
+    const { home, projectsDir } = mkFakeTranscriptHome();
+    const tp = writeTranscript(projectsDir, sid + ".jsonl", [
+      { type: "assistant", isSidechain: false, message: { role: "assistant", content: [{ type: "text", text: "earlier turn" }] } },
+      { type: "user", message: { role: "user", content: "follow-up" } },
+      { type: "assistant", isSidechain: false, message: { role: "assistant", content: [{ type: "text", text: "LATEST TURN" }] } },
+    ]);
+    runHook(
+      { hook_event_name: "Stop", session_id: sid, transcript_path: tp },
+      { projectDir: proj, env: { HOME: home } }
+    );
+    const frames = readNdjson(ndjsonPath(proj, sid));
+    assert.equal(frames[0].content, "LATEST TURN");
+  });
+
+  it("skips sidechain (subagent) assistant rows", () => {
+    const proj = mkProject("stop-transcript-sidechain");
+    const sid = "sess-stop-tr-004";
+    const { home, projectsDir } = mkFakeTranscriptHome();
+    const tp = writeTranscript(projectsDir, sid + ".jsonl", [
+      { type: "assistant", isSidechain: false, message: { role: "assistant", content: [{ type: "text", text: "ORCHESTRATOR REPLY" }] } },
+      // Newer-but-sidechain row: must be skipped.
+      { type: "assistant", isSidechain: true, message: { role: "assistant", content: [{ type: "text", text: "subagent reply" }] } },
+    ]);
+    runHook(
+      { hook_event_name: "Stop", session_id: sid, transcript_path: tp },
+      { projectDir: proj, env: { HOME: home } }
+    );
+    const frames = readNdjson(ndjsonPath(proj, sid));
+    assert.equal(frames[0].content, "ORCHESTRATOR REPLY");
+  });
+
+  it("skips tool_use-only assistant rows and falls back to an earlier text-bearing row", () => {
+    const proj = mkProject("stop-transcript-tool-only");
+    const sid = "sess-stop-tr-005";
+    const { home, projectsDir } = mkFakeTranscriptHome();
+    const tp = writeTranscript(projectsDir, sid + ".jsonl", [
+      { type: "assistant", isSidechain: false, message: { role: "assistant", content: [{ type: "text", text: "the real answer" }] } },
+      // Newer assistant row but tool_use-only — should be skipped.
+      { type: "assistant", isSidechain: false, message: { role: "assistant", content: [{ type: "tool_use", id: "t", name: "Read", input: {} }] } },
+    ]);
+    runHook(
+      { hook_event_name: "Stop", session_id: sid, transcript_path: tp },
+      { projectDir: proj, env: { HOME: home } }
+    );
+    const frames = readNdjson(ndjsonPath(proj, sid));
+    assert.equal(frames[0].content, "the real answer");
+  });
+
+  it("rejects path-traversal transcript_path (e.g. /etc/passwd) and returns stub", () => {
+    const proj = mkProject("stop-transcript-attack");
+    const sid = "sess-stop-tr-006";
+    const { home } = mkFakeTranscriptHome();
+    runHook(
+      { hook_event_name: "Stop", session_id: sid, transcript_path: "/etc/passwd" },
+      { projectDir: proj, env: { HOME: home } }
+    );
+    const frames = readNdjson(ndjsonPath(proj, sid));
+    assert.equal(frames.length, 1);
+    assert.equal(frames[0].type, "assistant_turn");
+    assert.ok(!("content" in frames[0]),
+      "outside-allowed-root paths must be rejected — frame should be a stub, not /etc/passwd contents");
+  });
+
+  it("rejects relative transcript_path and returns stub", () => {
+    const proj = mkProject("stop-transcript-relative");
+    const sid = "sess-stop-tr-007";
+    const { home } = mkFakeTranscriptHome();
+    runHook(
+      { hook_event_name: "Stop", session_id: sid, transcript_path: "../../etc/passwd" },
+      { projectDir: proj, env: { HOME: home } }
+    );
+    const frames = readNdjson(ndjsonPath(proj, sid));
+    assert.ok(!("content" in frames[0]));
+  });
+
+  it("transcript_path missing → falls through to legacy assistant_message shape", () => {
+    const proj = mkProject("stop-transcript-fallback");
+    const sid = "sess-stop-tr-008";
+    runHook(
+      { hook_event_name: "Stop", session_id: sid, assistant_message: "fallback wins" },
+      { projectDir: proj }
+    );
+    const frames = readNdjson(ndjsonPath(proj, sid));
+    assert.equal(frames[0].content, "fallback wins");
+  });
+
+  it("transcript file unreadable → returns stub, doesn't crash", () => {
+    const proj = mkProject("stop-transcript-unreadable");
+    const sid = "sess-stop-tr-009";
+    const { home, projectsDir } = mkFakeTranscriptHome();
+    // Path is under the allowed root but the file does not exist.
+    const tp = path.join(projectsDir, "does-not-exist.jsonl");
+    const result = runHook(
+      { hook_event_name: "Stop", session_id: sid, transcript_path: tp },
+      { projectDir: proj, env: { HOME: home } }
+    );
+    assert.equal(result.status, 0, "hook must not crash on missing transcript file");
+    const frames = readNdjson(ndjsonPath(proj, sid));
+    assert.equal(frames.length, 1);
+    assert.ok(!("content" in frames[0]));
+  });
+
+  it("very large transcript: only the tail is read (no full-file load)", () => {
+    const proj = mkProject("stop-transcript-large");
+    const sid = "sess-stop-tr-010";
+    const { home, projectsDir } = mkFakeTranscriptHome();
+    const tp = path.join(projectsDir, sid + ".jsonl");
+
+    // Build a >1 MB file. Most lines are large user/text payloads; the LAST
+    // line is the only assistant row. The hook caps tail-read at 64 KB, so
+    // reading must not require seeing earlier lines.
+    const filler = "x".repeat(2048); // 2 KB per line
+    const stream = fs.openSync(tp, "w");
+    try {
+      // ~1.2 MB of filler.
+      for (let i = 0; i < 600; i++) {
+        const line = JSON.stringify({ type: "user", message: { role: "user", content: filler + ":" + i } }) + "\n";
+        fs.writeSync(stream, line);
+      }
+      const last = JSON.stringify({
+        type: "assistant",
+        isSidechain: false,
+        message: { role: "assistant", content: [{ type: "text", text: "TAIL-ONLY MARKER" }] },
+      }) + "\n";
+      fs.writeSync(stream, last);
+    } finally {
+      fs.closeSync(stream);
+    }
+
+    const { size } = fs.statSync(tp);
+    assert.ok(size > 1024 * 1024, "fixture transcript must exceed 1 MB to exercise tail-only read; got " + size);
+
+    runHook(
+      { hook_event_name: "Stop", session_id: sid, transcript_path: tp },
+      { projectDir: proj, env: { HOME: home } }
+    );
+    const frames = readNdjson(ndjsonPath(proj, sid));
+    assert.equal(frames[0].content, "TAIL-ONLY MARKER");
+  });
+
+  it("transcript_path with corrupt JSON lines: skip them, find the next valid assistant row", () => {
+    const proj = mkProject("stop-transcript-corrupt");
+    const sid = "sess-stop-tr-011";
+    const { home, projectsDir } = mkFakeTranscriptHome();
+    const tp = path.join(projectsDir, sid + ".jsonl");
+    const goodLine = JSON.stringify({
+      type: "assistant",
+      isSidechain: false,
+      message: { role: "assistant", content: [{ type: "text", text: "survived corruption" }] },
+    });
+    fs.writeFileSync(tp, goodLine + "\n" + "{not valid json,," + "\n", "utf8");
+
+    runHook(
+      { hook_event_name: "Stop", session_id: sid, transcript_path: tp },
+      { projectDir: proj, env: { HOME: home } }
+    );
+    const frames = readNdjson(ndjsonPath(proj, sid));
+    assert.equal(frames[0].content, "survived corruption");
   });
 });
 

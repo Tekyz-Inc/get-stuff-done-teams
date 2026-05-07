@@ -4,6 +4,20 @@ All notable changes to GSD-T are documented here. Updated with each release.
 
 ## [Unreleased]
 
+### Fixed — M45 D2 conversation-capture regression: bodyless `assistant_turn` frames
+
+- **Root cause**: `scripts/hooks/gsd-t-conversation-capture.js::_extractAssistantContent` tried payload shapes (`assistant_message`, `message.content`, `content`) that Claude Code's Stop hook never sends. Stop hook payload is `{session_id, transcript_path, hook_event_name, stop_hook_active}` — message body lives in the transcript JSONL at `transcript_path`. Function fell through to `null`; every `assistant_turn` frame written since v3.18.14 (M45 D2 ship 2026-04-23) was bodyless. Two weeks of broken capture; viewer correctly rendered empty bubbles.
+- **Fix**: hook now reads the assistant body from `transcript_path`. New helpers:
+  - `_safeTranscriptPath(p)` — locks the path to `${HOME}/.claude/projects/`. Path-traversal attempts (`/etc/passwd`, relative paths) fail open (`return null`).
+  - `_readFileTail(filePath, 64*1024)` — opens fd, reads last 64 KB, drops leading mid-line partial. Multi-MB transcripts never get fully loaded.
+  - `_readAssistantFromTranscript(transcriptPath)` — scans tail bottom-up, parses each line as JSON (skips corrupt), picks the latest `type === 'assistant' && isSidechain !== true` row, concatenates all `text`-type content blocks (ignores `tool_use` / `tool_result` / `thinking`), skips tool_use-only rows.
+  - `_extractAssistantContent(payload)` — transcript-first; original 3 fallback shapes preserved for legacy/test payloads.
+- **Tests**: `test/m45-d2-conversation-capture.test.js` +11 cases (transcript happy-path, multi-block concatenation, latest-row selection, sidechain skipping, tool_use-only skipping, /etc/passwd rejection, relative-path rejection, missing transcript_path → fallback, unreadable file → stub, >1 MB tail-only read, corrupt-JSON line skipping). `test/m53-conversation-content-redteam.test.js` (new, 4 tests) — three broken extractor variants (regress-to-old-code, picks-user-message, first-text-block-only) each violate one of three named invariants (I1 non-empty / I2 marker-match / I3 tail-marker-present), with a positive control proving the harness isn't trivially broken.
+- **Journey spec**: `e2e/journeys/conversation-content.spec.ts` — writes a 7-frame in-session NDJSON fixture with 3 assistant_turn frames (one multi-paragraph with HEAD + TAIL markers); navigates to `/transcripts`; asserts `#main-stream .frame.assistant-turn` count = 3, every `.body` non-empty, each carries its expected marker, multi-paragraph TAIL marker present, USER-PROMPT marker absent from any assistant bubble, no `.frame.raw` JSON-dump fallback.
+- **Verification**: full unit suite **2210/2210 pass** (was 2195; +11 M45 D2 + 4 M53 redteam = +15, zero regressions). Playwright `e2e/journeys/` + `e2e/viewer/` **36/36 pass** (was 35; +1 conversation-content).
+- **Note**: existing 6 bodyless NDJSONs (`Move-Zoom-Recordings-to-GDrive/.gsd-t/transcripts/`) remain — historical records, acceptable. Going-forward NDJSONs will be populated. The installed hook at `~/.claude/scripts/hooks/gsd-t-conversation-capture.js` syncs on next `npm publish` + `/gsd-t-version-update-all`.
+- **Contract**: `conversation-capture-contract.md` v1.0.0 → v1.1.0 (assistant-body extraction protocol documented; schema unchanged — same `assistant_turn` frame, just populated where v1.0.0 was bodyless).
+
 ## [3.23.10] - 2026-05-06
 
 ### Added — Rigorous User-Journey Coverage + Anti-Drift Test Quality (M52)

@@ -10,6 +10,14 @@
       ]
     },
     {
+      "name": "conversation-content",
+      "spec": "e2e/journeys/conversation-content.spec.ts",
+      "covers": [
+        { "file": "scripts/gsd-t-transcript.html", "selector": "connectMain", "kind": "function-call" },
+        { "file": "scripts/gsd-t-transcript.html", "selector": "fetchMainSession", "kind": "function-call" }
+      ]
+    },
+    {
       "name": "click-completed-conversation",
       "spec": "e2e/journeys/click-completed-conversation.spec.ts",
       "covers": [

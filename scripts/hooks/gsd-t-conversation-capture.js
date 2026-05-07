@@ -26,6 +26,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const os = require('os');
 
 const DEFAULT_SCRIPT_GUARD_MS = 5000;
 const CONTENT_CAP_BYTES = 16 * 1024; // 16 KB
@@ -134,9 +135,93 @@ function _extractUserContent(payload) {
   return null;
 }
 
+// Tail-read the last `bytes` of a file as UTF-8. Returns '' on any error.
+// Used so multi-MB transcripts don't get fully loaded into RAM.
+function _readFileTail(filePath, bytes) {
+  let fd = -1;
+  try {
+    const st = fs.statSync(filePath);
+    if (!st.isFile()) return '';
+    const size = st.size;
+    if (size === 0) return '';
+    const want = Math.min(bytes, size);
+    const start = size - want;
+    fd = fs.openSync(filePath, 'r');
+    const buf = Buffer.alloc(want);
+    fs.readSync(fd, buf, 0, want, start);
+    let str = buf.toString('utf8');
+    // If we sliced mid-line, drop the (possibly malformed) leading partial.
+    if (start > 0) {
+      const nl = str.indexOf('\n');
+      if (nl >= 0) str = str.slice(nl + 1);
+    }
+    return str;
+  } catch (_) {
+    return '';
+  } finally {
+    if (fd >= 0) { try { fs.closeSync(fd); } catch (_) { /* noop */ } }
+  }
+}
+
+// Validate `transcript_path` from a hook payload before reading. Stop hooks
+// from Claude Code put the file under `~/.claude/projects/`; we lock to that
+// to defeat path-traversal attempts (BUG-1 sanitizer pattern). Fail open
+// (return null) on anything suspicious.
+function _safeTranscriptPath(p) {
+  if (typeof p !== 'string' || p.length === 0) return null;
+  if (!path.isAbsolute(p)) return null;
+  const home = process.env.HOME || os.homedir();
+  if (!home) return null;
+  const allowedRoot = path.resolve(home, '.claude', 'projects') + path.sep;
+  const resolved = path.resolve(p);
+  if (!resolved.startsWith(allowedRoot)) return null;
+  return resolved;
+}
+
+// Pull the assistant body out of a Claude Code transcript JSONL by scanning
+// from the tail. Each line is one event; the latest `type === 'assistant'`
+// row carries the message. Concatenate all `text`-type content blocks; ignore
+// tool_use / tool_result / thinking blocks. Returns null if no assistant row
+// is found or every candidate is body-less (tool_use only).
+function _readAssistantFromTranscript(transcriptPath) {
+  const safe = _safeTranscriptPath(transcriptPath);
+  if (!safe) return null;
+  const tail = _readFileTail(safe, 64 * 1024);
+  if (!tail) return null;
+  const lines = tail.split('\n');
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const line = lines[i];
+    if (!line) continue;
+    let row;
+    try { row = JSON.parse(line); } catch (_) { continue; }
+    if (!row || row.type !== 'assistant') continue;
+    // Skip subagent turns — orchestrator transcripts record both, but only
+    // the orchestrator's own assistant turn belongs in this in-session file.
+    if (row.isSidechain === true) continue;
+    const msg = row.message;
+    if (!msg) continue;
+    const blocks = msg.content;
+    if (typeof blocks === 'string') return blocks;
+    if (!Array.isArray(blocks)) continue;
+    const texts = [];
+    for (const b of blocks) {
+      if (b && b.type === 'text' && typeof b.text === 'string') texts.push(b.text);
+    }
+    if (texts.length === 0) continue; // tool_use-only turn — keep scanning
+    return texts.join('');
+  }
+  return null;
+}
+
 function _extractAssistantContent(payload) {
-  // Stop hook payloads vary. Try the common shapes; fall back to null so we
-  // still emit a stub frame (ts + session_id only).
+  // PRIMARY: Claude Code Stop hook payload carries `transcript_path` to the
+  // orchestrator's JSONL. Read the most recent assistant row from the tail.
+  if (payload && typeof payload.transcript_path === 'string') {
+    const fromTranscript = _readAssistantFromTranscript(payload.transcript_path);
+    if (fromTranscript != null) return fromTranscript;
+  }
+  // Fallback shapes — kept so older / non-Claude-Code payload shapes still
+  // work (and so unit tests can exercise the hook without a real transcript).
   if (payload && typeof payload.assistant_message === 'string') return payload.assistant_message;
   if (payload && payload.message && typeof payload.message.content === 'string') {
     return payload.message.content;
@@ -253,6 +338,10 @@ module.exports = {
     _buildToolUseFrame,
     _appendFrame,
     _handle,
+    _extractAssistantContent,
+    _readAssistantFromTranscript,
+    _safeTranscriptPath,
+    _readFileTail,
     CONTENT_CAP_BYTES,
   },
 };
