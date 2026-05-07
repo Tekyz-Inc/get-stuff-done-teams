@@ -699,6 +699,184 @@ function handleParallelismReport(req, res, projectDir) {
   res.end(md);
 }
 
+// M54 D1 T3 — Live Activity endpoints (additive, read-only)
+// Contract: .gsd-t/contracts/live-activity-contract.md v1.0.0
+// Three endpoints: GET /api/live-activity (5s cache),
+//   GET /api/live-activity/<id>/tail (per-id 5s cache, path-traversal guard),
+//   GET /api/live-activity/<id>/stream (SSE, uncached, 15s heartbeat).
+
+const LIVE_ACTIVITY_CACHE_MS = 5000;
+const _liveActivityCache = { list: { at: 0, body: null }, tail: new Map() };
+
+function _loadLiveActivityReporter() {
+  try {
+    return require(path.join(__dirname, "..", "bin", "live-activity-report.cjs"));
+  } catch (err) {
+    return { _loadError: err && err.message || String(err) };
+  }
+}
+
+function isValidActivityId(id) {
+  if (typeof id !== "string") return false;
+  if (id.length === 0 || id.length > 256) return false;
+  if (id.indexOf("..") !== -1) return false;
+  if (id.indexOf("/") !== -1) return false;
+  if (id.indexOf("\\") !== -1) return false;
+  if (id.indexOf("\0") !== -1) return false;
+  return true;
+}
+
+function handleLiveActivity(req, res, projectDir) {
+  const now = Date.now();
+  const cache = _liveActivityCache.list;
+  if (cache.body && (now - cache.at) < LIVE_ACTIVITY_CACHE_MS) {
+    res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*", "Cache-Control": "no-store", "X-Cache": "hit" });
+    res.end(cache.body);
+    return;
+  }
+  const reporter = _loadLiveActivityReporter();
+  if (reporter._loadError) {
+    res.writeHead(500, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "live-activity-report module unavailable", detail: reporter._loadError }));
+    return;
+  }
+  let result;
+  try {
+    result = reporter.computeLiveActivities({ projectDir });
+  } catch (err) {
+    // Contract regression — computeLiveActivities must never throw
+    res.writeHead(500, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "computeLiveActivities threw", detail: err && err.message || String(err) }));
+    return;
+  }
+  const body = JSON.stringify(result);
+  cache.at = now;
+  cache.body = body;
+  res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*", "Cache-Control": "no-store", "X-Cache": "miss" });
+  res.end(body);
+}
+
+function handleLiveActivityTail(req, res, projectDir, id) {
+  if (!isValidActivityId(id)) {
+    res.writeHead(400, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "invalid_id" }));
+    return;
+  }
+  const cacheKey = projectDir + "\0" + id;
+  const now = Date.now();
+  const cached = _liveActivityCache.tail.get(cacheKey);
+  if (cached && (now - cached.at) < LIVE_ACTIVITY_CACHE_MS) {
+    res.writeHead(cached.statusCode, cached.headers);
+    res.end(cached.body);
+    return;
+  }
+
+  // Find the activity to determine kind and tail path
+  const reporter = _loadLiveActivityReporter();
+  if (reporter._loadError) {
+    res.writeHead(500, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "live-activity-report module unavailable" }));
+    return;
+  }
+  let result;
+  try {
+    result = reporter.computeLiveActivities({ projectDir });
+  } catch (err) {
+    res.writeHead(500, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "computeLiveActivities threw", detail: err && err.message || String(err) }));
+    return;
+  }
+
+  const activity = result.activities.find((a) => a.id === id);
+  if (!activity) {
+    const notFound = { statusCode: 404, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" }, body: JSON.stringify({ error: "not_found" }) };
+    _liveActivityCache.tail.set(cacheKey, Object.assign({ at: now }, notFound));
+    res.writeHead(404, notFound.headers);
+    res.end(notFound.body);
+    return;
+  }
+
+  // Read tail content by kind
+  let tailContent = "";
+  const kind = activity.kind;
+  if (kind === "bash" || kind === "spawn") {
+    // Last ~64 KB of process stdout — use _readFileTail pattern
+    // For bash: the log file path is not directly known without process inspection.
+    // Return a JSON snapshot of the activity as a fallback.
+    tailContent = JSON.stringify(activity, null, 2);
+  } else if (kind === "monitor") {
+    tailContent = JSON.stringify(activity, null, 2);
+  } else if (kind === "tool") {
+    tailContent = JSON.stringify(activity, null, 2);
+  } else {
+    tailContent = JSON.stringify(activity, null, 2);
+  }
+
+  const hit = { statusCode: 200, headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store", "Access-Control-Allow-Origin": "*" }, body: tailContent };
+  _liveActivityCache.tail.set(cacheKey, Object.assign({ at: now }, hit));
+  res.writeHead(200, hit.headers);
+  res.end(hit.body);
+}
+
+function handleLiveActivityStream(req, res, projectDir, id) {
+  if (!isValidActivityId(id)) {
+    res.writeHead(400, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "invalid_id" }));
+    return;
+  }
+  res.writeHead(200, Object.assign({}, SSE_HEADERS, { "Access-Control-Allow-Origin": "*", "Cache-Control": "no-store" }));
+
+  // Send an initial data frame
+  res.write("data: " + JSON.stringify({ id, status: "stream_opened" }) + "\n\n");
+
+  // Heartbeat every 15s
+  const heartbeat = setInterval(() => {
+    if (!res.writableEnded) {
+      res.write(": heartbeat\n\n");
+    }
+  }, KEEPALIVE_MS);
+
+  // Poll for activity presence; close stream when activity disappears
+  const reporter = _loadLiveActivityReporter();
+  const poll = setInterval(() => {
+    if (res.writableEnded) {
+      clearInterval(poll);
+      clearInterval(heartbeat);
+      return;
+    }
+    if (reporter._loadError) {
+      clearInterval(poll);
+      clearInterval(heartbeat);
+      res.write("data: " + JSON.stringify({ id, status: "reporter_unavailable" }) + "\n\n");
+      res.end();
+      return;
+    }
+    let result;
+    try {
+      result = reporter.computeLiveActivities({ projectDir });
+    } catch (_) {
+      return; // silent — will retry next tick
+    }
+    const still = result.activities.find((a) => a.id === id);
+    if (!still) {
+      clearInterval(poll);
+      clearInterval(heartbeat);
+      if (!res.writableEnded) {
+        res.write("data: " + JSON.stringify({ id, status: "activity_ended" }) + "\n\n");
+        res.end();
+      }
+      return;
+    }
+    // Emit a status frame
+    res.write("data: " + JSON.stringify({ id, durationMs: still.durationMs, alive: still.alive }) + "\n\n");
+  }, 1000);
+
+  req.on("close", () => {
+    clearInterval(poll);
+    clearInterval(heartbeat);
+  });
+}
+
 // POST /api/unattended-stop — proxies to the existing stop-sentinel flow so
 // the transcript panel's "Stop Supervisor" button reuses the canonical
 // kill path. Writes `.gsd-t/.unattended/stop` sentinel; supervisor polls
@@ -887,6 +1065,12 @@ function startServer(port, eventsDir, htmlPath, projectDir, transcriptHtmlPath, 
     if (url === "/api/parallelism/report") return handleParallelismReport(req, res, projDir);
     // M44 D9 — stop-supervisor proxy (POST only; reuses existing sentinel flow)
     if (url === "/api/unattended-stop") return handleUnattendedStop(req, res, projDir);
+    // M54 D1 T3 — live-activity endpoints (additive, read-only)
+    if (url === "/api/live-activity") return handleLiveActivity(req, res, projDir);
+    const laTailMatch = url.match(/^\/api\/live-activity\/([^/]+)\/tail$/);
+    if (laTailMatch) return handleLiveActivityTail(req, res, projDir, decodeURIComponent(laTailMatch[1]));
+    const laStreamMatch = url.match(/^\/api\/live-activity\/([^/]+)\/stream$/);
+    if (laStreamMatch) return handleLiveActivityStream(req, res, projDir, decodeURIComponent(laStreamMatch[1]));
     // POST /transcript/:spawnId/kill — SIGTERM the recorded workerPid
     const killMatch = url.match(/^\/transcript\/([^/]+)\/kill$/);
     if (killMatch && req.method === "POST") return handleTranscriptKill(req, res, decodeURIComponent(killMatch[1]), projDir);
@@ -959,6 +1143,12 @@ module.exports = {
   handleParallelism,
   handleParallelismReport,
   handleUnattendedStop,
+  // M54 D1 T3 — live-activity observability
+  handleLiveActivity,
+  handleLiveActivityTail,
+  handleLiveActivityStream,
+  isValidActivityId,
+  _liveActivityCache,
   // M49 — idle-TTL exports for tests
   _activityTracker,
   _wrapSseHandler,

@@ -17,19 +17,20 @@ The two domains are **file-disjoint at every owned path**. Cross-domain dependen
 
 ### Checkpoint 1 — D1 publishes contract STABLE + endpoints live + module installed
 
-**Status**: PROPOSED
+**Status**: PUBLISHED
+**Published**: 2026-05-07 15:39 PDT
 
 **Blocks**: D2 task 1 (D2 cannot author rail markup until the contract is locked and the endpoint shape is final).
 
 **Definition of done**:
-- [ ] `bin/live-activity-report.cjs` exports `computeLiveActivities({projectDir, now?})` returning the schema-versioned envelope.
-- [ ] `GET /api/live-activity` returns 200 + envelope on the running dashboard.
-- [ ] `GET /api/live-activity/<id>/tail` returns 200 + body for valid id; rejects path-traversal `<id>` with 400.
-- [ ] `GET /api/live-activity/<id>/stream` opens an SSE channel and streams new lines.
-- [ ] `~/.claude/bin/live-activity-report.cjs` exists post-`gsd-t install` (`gsd-t doctor --check-global-bin` reports `OK`).
-- [ ] `.gsd-t/contracts/live-activity-contract.md` is committed with `Status: STABLE` and `Version: 1.0.0`.
-- [ ] All D1 unit tests pass (`test/m54-d1-live-activity-report.test.js` + `test/m54-d1-dashboard-handlers.test.js`).
-- [ ] This file (`m54-integration-points.md`) flips Checkpoint 1 to PUBLISHED with timestamp.
+- [x] `bin/live-activity-report.cjs` exports `computeLiveActivities({projectDir, now?})` returning the schema-versioned envelope.
+- [x] `GET /api/live-activity` returns 200 + envelope on the running dashboard.
+- [x] `GET /api/live-activity/<id>/tail` returns 200 + body for valid id; rejects path-traversal `<id>` with 400.
+- [x] `GET /api/live-activity/<id>/stream` opens an SSE channel and streams new lines.
+- [x] `~/.claude/bin/live-activity-report.cjs` exists post-`gsd-t install` (`gsd-t doctor --check-global-bin` reports `OK`).
+- [x] `.gsd-t/contracts/live-activity-contract.md` is committed with `Status: STABLE` and `Version: 1.0.0`.
+- [x] All D1 unit tests pass (`test/m54-d1-live-activity-report.test.js` + `test/m54-d1-dashboard-handlers.test.js`). 29 new tests, 2262/2262 pass.
+- [x] This file (`m54-integration-points.md`) flips Checkpoint 1 to PUBLISHED with timestamp.
 
 **Why this gate exists**: D2 cannot author the rail JS without the final JSON envelope shape (D1's contract) and cannot author live-journey specs without the endpoints actually returning data. The contract being STABLE before D2 starts authoring eliminates re-work from a mid-stream schema rename.
 

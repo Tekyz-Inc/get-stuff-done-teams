@@ -1126,7 +1126,7 @@ A new Red Team category — "Test Pass-Through — Journey Edition" — extends 
 
 Contract: `.gsd-t/contracts/journey-coverage-contract.md` v1.0.0.
 
-## Live Activity Observability (M54, planned — v3.24.x+)
+## Live Activity Observability (M54 — v3.24.10)
 
 The dashboard left rail today only catches detached `claude -p` workers via `.gsd-t/spawns/*.json`. Heavy in-session work (a backgrounded `Bash`, a `Monitor` watch, a slow tool_use) has no rail representation, leaving the user blind to what's running. M54 adds a "LIVE ACTIVITY" section between MAIN SESSION and LIVE SPAWNS that surfaces all four kinds in one place.
 
@@ -1162,5 +1162,14 @@ The dashboard left rail today only catches detached `claude -p` workers via `.gs
 
 **Out of scope**: cross-project aggregation (read OTHER projects' transcripts) is M55 candidate territory.
 
-Contract: `.gsd-t/contracts/live-activity-contract.md` v1.0.0 (planned — written during D1 T5).
+Contract: `.gsd-t/contracts/live-activity-contract.md` v1.0.0 STABLE (D1 complete 2026-05-07).
+
+**Endpoint signatures** (D1 implemented):
+- `GET /api/live-activity` → `handleLiveActivity(req, res, projectDir)` — 5s cache, `Cache-Control: no-store`, returns JSON envelope `{schemaVersion:1, activities:[], notes:[]}`
+- `GET /api/live-activity/<id>/tail` → `handleLiveActivityTail(req, res, projectDir, id)` — 5s per-id cache, path-traversal guard via `isValidActivityId`, 400 on invalid id, 404 on unknown id
+- `GET /api/live-activity/<id>/stream` → `handleLiveActivityStream(req, res, projectDir, id)` — SSE, uncached, 15s heartbeat, closes when activity removed
+
+**Install path**: `~/.claude/bin/live-activity-report.cjs` (via `GLOBAL_BIN_TOOLS` in `bin/gsd-t.js`, installed by `installGlobalBinTools()`).
+
+**D2 rail section** (planned — D2 will append full rail + spec narrative here on completion).
 

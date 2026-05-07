@@ -1,7 +1,7 @@
 # Live Activity Contract
 
-- **Version**: 0.1.0
-- **Status**: PROPOSED  (flips to STABLE v1.0.0 on D1 task-5)
+- **Version**: 1.0.0
+- **Status**: STABLE
 - **Owner**: `m54-d1-server-and-detector`
 - **Consumers**: `m54-d2-rail-and-spec` (rail JS + 2 live-journey specs), future cross-project aggregation (M55 candidate)
 - **Last updated**: 2026-05-07
@@ -206,7 +206,7 @@ The global dashboard at `~/.claude/scripts/gsd-t-dashboard-server.js` resolves t
 ## §10 — Versioning + Backward Compatibility
 
 - **v0.1.0 PROPOSED** (this file at partition time): the locked shape D2 plans against. No D1 implementation yet.
-- **v1.0.0 STABLE** (D1 task-5): contract flipped after T1–T4 implementations match the schema 1:1.
+- **v1.0.0 STABLE** (D1 task-5, 2026-05-07): contract flipped after T1–T4 implementations match the schema 1:1. All 29 unit tests pass.
 - **Future minor bumps** (v1.x.0): additive fields on `Activity` (e.g., a `cpuPercent` for monitor) — never rename, never remove.
 - **Future major bumps** (v2.0.0): would require a `schemaVersion: 2` in the envelope and a coordinated D2 + cross-project consumer migration. Deferred until cross-project aggregation (M55 candidate) is in scope.
 

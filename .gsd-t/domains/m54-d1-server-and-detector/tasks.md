@@ -12,7 +12,7 @@ Build the live-activity detector module + 3 dashboard endpoints + global-bin ins
 
 | Field | Value |
 |-------|-------|
-| **Status** | planned |
+| **Status** | done (2026-05-07 15:33 PDT) |
 | **REQ** | REQ-M54-D1-01, REQ-M54-D1-03 |
 | **Dependencies** | none |
 
@@ -82,7 +82,7 @@ Build the live-activity detector module + 3 dashboard endpoints + global-bin ins
 
 | Field | Value |
 |-------|-------|
-| **Status** | planned |
+| **Status** | done (2026-05-07 15:35 PDT) |
 | **REQ** | REQ-M54-D1-02 |
 | **Dependencies** | T1 (detector module must exist) |
 
@@ -122,7 +122,7 @@ UNION(events_activities, orchestrator_activities)
 
 | Field | Value |
 |-------|-------|
-| **Status** | planned |
+| **Status** | done (2026-05-07 15:36 PDT) |
 | **REQ** | REQ-M54-D1-04 |
 | **Dependencies** | T2 (detector must be fully wired before handlers call it) |
 
@@ -186,7 +186,7 @@ Applied at the start of `handleLiveActivityTail` and `handleLiveActivityStream` 
 
 | Field | Value |
 |-------|-------|
-| **Status** | planned |
+| **Status** | done (2026-05-07 15:36 PDT) |
 | **REQ** | REQ-M54-D1-05 |
 | **Dependencies** | T1 (module file must exist on disk before install machinery copies it) |
 
@@ -216,7 +216,7 @@ Applied at the start of `handleLiveActivityTail` and `handleLiveActivityStream` 
 
 | Field | Value |
 |-------|-------|
-| **Status** | planned |
+| **Status** | done (2026-05-07 15:39 PDT) |
 | **REQ** | REQ-M54-D1-06 |
 | **Dependencies** | T1, T2, T3, T4 (all D1 implementation complete before contract flips) |
 

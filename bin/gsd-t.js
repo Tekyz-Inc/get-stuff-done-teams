@@ -1175,7 +1175,7 @@ function installUtilityScripts() {
 // `path.join(__dirname, "..", "bin", <tool>)` (e.g. gsd-t-dashboard-server.js
 // → parallelism-report.cjs). Distinct from PROJECT_BIN_TOOLS, which copy into
 // each registered project's bin/.
-const GLOBAL_BIN_TOOLS = ["parallelism-report.cjs"];
+const GLOBAL_BIN_TOOLS = ["parallelism-report.cjs", "live-activity-report.cjs"];
 
 function installGlobalBinTools() {
   ensureDir(GLOBAL_BIN_DIR);
