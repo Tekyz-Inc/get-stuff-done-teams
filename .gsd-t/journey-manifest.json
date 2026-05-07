@@ -102,6 +102,26 @@
       "covers": [
         { "file": "scripts/gsd-t-transcript.html", "selector": "window:hashchange", "kind": "hashchange" }
       ]
+    },
+    {
+      "id": "live-activity-single-bash",
+      "name": "live-activity-single-bash",
+      "spec": "e2e/live-journeys/live-activity.spec.ts",
+      "description": "Single bash backgrounder appears in rail, pulses, duration ticks, click loads tail, kill removes",
+      "covers": [
+        { "file": "scripts/gsd-t-transcript.html", "selector": "li:click", "kind": "addEventListener" }
+      ],
+      "type": "live-journey",
+      "addedAt": "2026-05-07"
+    },
+    {
+      "id": "live-activity-multikind",
+      "name": "live-activity-multikind",
+      "spec": "e2e/live-journeys/live-activity-multikind.spec.ts",
+      "description": "3 concurrent kinds (bash + monitor + tool) appear independently; dedup correct on orchestrator+events overlap",
+      "covers": [],
+      "type": "live-journey",
+      "addedAt": "2026-05-07"
     }
   ]
 }

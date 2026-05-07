@@ -209,6 +209,32 @@
     .frame.tool-use > .ts, .frame.thinking > .ts { padding: 8px 0 0 12px; }
     .frame.tool-result > .ts { padding-top: 8px; }
     .frame.compact-marker > .ts { padding: 0; min-width: 64px; }
+
+    /* M54 D2 T1 — LIVE ACTIVITY rail section.
+       Additive only. No existing CSS renamed or removed. */
+    #rail-live-activity { padding: 0 0 8px 0; border-bottom: 1px solid var(--border); margin-bottom: 4px; }
+    #rail-live-activity .la-heading { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px 4px 12px; font-size: 11px; text-transform: uppercase; color: var(--fg-xdim); letter-spacing: 0.08em; }
+    .la-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+    .la-entry { display: grid; grid-template-columns: 10px 18px 1fr auto; align-items: center; gap: 4px; padding: 5px 12px; cursor: pointer; border-radius: 4px; font-size: 12px; }
+    .la-entry:hover { background: var(--bg-soft); }
+    .la-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .la-dot-running { background: #2dd4bf; }
+    .la-dot-stale { background: var(--fg-xdim, #6b7280); }
+    .la-icon { font-family: var(--mono); font-size: 13px; text-align: center; color: var(--fg-dim); }
+    .la-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 40ch; color: var(--fg); font-family: var(--mono); font-size: 11px; }
+    .la-duration { font-family: var(--mono); font-size: 11px; color: var(--fg-xdim); text-align: right; white-space: nowrap; }
+    .la-empty { padding: 4px 12px 0 12px; color: var(--fg-xdim); font-size: 11px; font-style: italic; }
+    /* Kind icon slots — glyphs set in JS via KIND_ICONS map */
+    .la-icon-bash   { color: var(--accent-warm, #f0a500); }
+    .la-icon-monitor { color: var(--accent, #58a6ff); }
+    .la-icon-tool   { color: var(--fg-dim, #8b949e); }
+    .la-icon-spawn  { color: var(--green, #3fb950); }
+    @keyframes accent-pulse {
+      0%   { box-shadow: inset 2px 0 0 0 #2dd4bf; opacity: 1; }
+      50%  { box-shadow: inset 2px 0 0 0 #2dd4bf; opacity: 0.6; }
+      100% { box-shadow: inset 2px 0 0 0 #2dd4bf; opacity: 1; }
+    }
+    .la-pulsing { animation: accent-pulse 1.5s ease-in-out infinite; }
   </style>
 </head>
 <body data-spawn-id="__SPAWN_ID__">
@@ -225,6 +251,15 @@
     <section class="rail-main" data-rail-section="main">
       <div class="rail-header"><span>★ Main Session</span></div>
       <div class="rail-body" id="rail-main-body"><div class="empty">No in-session conversation captured yet.</div></div>
+    </section>
+    <!-- M54 D2 T1 — LIVE ACTIVITY section (additive, between Main Session and Live Spawns).
+         Populated by 5s polling JS (D2 T2). CSS @keyframes accent-pulse in <style> block above. -->
+    <section id="rail-live-activity">
+      <div class="la-heading"><span>⚡ Live Activity</span></div>
+      <ul id="la-list" class="la-list">
+        <!-- Entries injected by polling JS (T2). Empty section header visible when list is empty. -->
+      </ul>
+      <div class="la-empty" id="la-empty-msg">No active operations detected.</div>
     </section>
     <section class="rail-live" data-rail-section="live">
       <div class="rail-header"><span>Live Spawns</span></div>
@@ -1612,6 +1647,171 @@
 
         if (reportBtn) reportBtn.addEventListener('click', downloadReport);
         if (stopBtn) stopBtn.addEventListener('click', stopSupervisor);
+        poll();
+        setInterval(poll, 5000);
+      })();
+
+      // ── M54 D2 T2 — Live Activity Rail ────────────────────────────────────
+      // Polls /api/live-activity every 5s (same cadence as /api/parallelism).
+      // Appends entries to #la-list, applies .la-pulsing on new entries,
+      // removes entries when they disappear from the API response.
+      // Click handler: stopPulse + loadTailUrl (NO auto-switch on arrival).
+      // Additive only — no existing function renamed or removed.
+      (function wireLiveActivity() {
+        const laList = document.getElementById('la-list');
+        const laEmpty = document.getElementById('la-empty-msg');
+        if (!laList) return; // section not present in this page variant
+
+        // Map of id → { element, startedAt, stopPulseTimer }
+        const _current = new Map();
+
+        // Format duration in seconds as human-readable string
+        function fmtDuration(ms) {
+          const s = Math.floor(ms / 1000);
+          if (s < 60) return s + 's';
+          const m = Math.floor(s / 60), rs = s % 60;
+          if (m < 60) return m + 'm ' + rs + 's';
+          const h = Math.floor(m / 60), rm = m % 60;
+          return h + 'h ' + rm + 'm';
+        }
+
+        // Kind icon mapping
+        const KIND_ICONS = { bash: '$', monitor: '👁', tool: '🔧', spawn: '↳' };
+
+        // Load the tailUrl content into the bottom pane (mirrors existing bottom-pane loaders)
+        function loadTailUrl(tailUrl) {
+          const streamEl = document.getElementById('stream');
+          if (!streamEl) return;
+          fetch(tailUrl)
+            .then(function(r) { return r.text(); })
+            .then(function(text) {
+              streamEl.innerHTML = '<pre style="margin:0;padding:12px;font-family:var(--mono);font-size:12px;white-space:pre-wrap;word-break:break-word;">' + _esc(text) + '</pre>';
+            })
+            .catch(function(err) {
+              console.log('[la] tail load error:', err && err.message);
+            });
+        }
+
+        function _esc(s) {
+          return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        }
+
+        // Remove .la-pulsing from entry element
+        function stopPulse(id) {
+          const item = _current.get(id);
+          if (!item || !item.element) return;
+          item.element.classList.remove('la-pulsing');
+          if (item.stopPulseTimer) { clearTimeout(item.stopPulseTimer); item.stopPulseTimer = null; }
+        }
+
+        // Append a new .la-entry to #la-list
+        function appendActivity(entry) {
+          const li = document.createElement('li');
+          li.className = 'la-entry la-pulsing';
+          li.setAttribute('data-id', entry.id);
+          li.setAttribute('data-kind', entry.kind);
+          li.setAttribute('data-tail-url', entry.tailUrl || '');
+
+          const dot = document.createElement('span');
+          dot.className = 'la-dot la-dot-running';
+          li.appendChild(dot);
+
+          const icon = document.createElement('span');
+          icon.className = 'la-icon la-icon-' + entry.kind;
+          icon.textContent = KIND_ICONS[entry.kind] || '?';
+          li.appendChild(icon);
+
+          const label = document.createElement('span');
+          label.className = 'la-label';
+          const labelText = String(entry.label || '').slice(0, 40);
+          label.textContent = labelText;
+          label.title = entry.label || '';
+          li.appendChild(label);
+
+          const dur = document.createElement('span');
+          dur.className = 'la-duration';
+          dur.textContent = fmtDuration(entry.durationMs || 0);
+          li.appendChild(dur);
+
+          li.addEventListener('click', function() {
+            stopPulse(entry.id);
+            if (entry.tailUrl) loadTailUrl(entry.tailUrl);
+          });
+
+          laList.appendChild(li);
+
+          // Schedule pulse stop after 30s (condition c)
+          const timer = setTimeout(function() { stopPulse(entry.id); }, 30000);
+          _current.set(entry.id, { element: li, startedAt: entry.startedAt, stopPulseTimer: timer });
+
+          if (laEmpty) laEmpty.style.display = 'none';
+        }
+
+        // Remove a .la-entry from #la-list
+        function removeActivity(id) {
+          const item = _current.get(id);
+          if (!item) return;
+          if (item.stopPulseTimer) clearTimeout(item.stopPulseTimer);
+          if (item.element && item.element.parentNode) item.element.parentNode.removeChild(item.element);
+          _current.delete(id);
+          if (laEmpty && _current.size === 0) laEmpty.style.display = '';
+        }
+
+        // Update the duration counter for an existing entry
+        function updateDuration(id, startedAt) {
+          const item = _current.get(id);
+          if (!item || !item.element) return;
+          const dur = item.element.querySelector('.la-duration');
+          if (!dur) return;
+          const start = startedAt ? new Date(startedAt).getTime() : 0;
+          const elapsed = start ? Math.max(0, Date.now() - start) : 0;
+          dur.textContent = fmtDuration(elapsed);
+        }
+
+        // Fetch /api/live-activity, return envelope (or {activities:[]} on error)
+        async function fetchLiveActivity() {
+          try {
+            const r = await fetch('/api/live-activity');
+            if (!r.ok) {
+              console.log('[la] /api/live-activity returned', r.status);
+              return { activities: [] };
+            }
+            return await r.json();
+          } catch (err) {
+            console.log('[la] fetch error:', err && err.message);
+            return { activities: [] };
+          }
+        }
+
+        // Reconcile current DOM state with new API response
+        function reconcile(activities) {
+          // Build a Map of new activities by id
+          const newById = new Map();
+          for (const entry of (activities || [])) {
+            newById.set(entry.id, entry);
+          }
+
+          // Remove entries no longer present
+          for (const id of Array.from(_current.keys())) {
+            if (!newById.has(id)) removeActivity(id);
+          }
+
+          // Add new entries; update durations for existing ones
+          for (const [id, entry] of newById) {
+            if (_current.has(id)) {
+              updateDuration(id, entry.startedAt);
+            } else {
+              appendActivity(entry);
+            }
+          }
+        }
+
+        // Initial poll + 5s interval (same cadence as /api/parallelism)
+        async function poll() {
+          const data = await fetchLiveActivity();
+          reconcile(data.activities);
+        }
+
         poll();
         setInterval(poll, 5000);
       })();

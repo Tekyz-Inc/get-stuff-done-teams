@@ -1171,5 +1171,23 @@ Contract: `.gsd-t/contracts/live-activity-contract.md` v1.0.0 STABLE (D1 complet
 
 **Install path**: `~/.claude/bin/live-activity-report.cjs` (via `GLOBAL_BIN_TOOLS` in `bin/gsd-t.js`, installed by `installGlobalBinTools()`).
 
-**D2 rail section** (planned — D2 will append full rail + spec narrative here on completion).
+**D2 rail section** (`scripts/gsd-t-transcript.html`, D2 complete 2026-05-07):
+
+The viewer's left rail gains a new `<section id="rail-live-activity">` inserted between MAIN SESSION and LIVE SPAWNS. The section is purely additive — no existing sections were modified.
+
+Rail behavior:
+- 5s polling interval via `setInterval` (`wireLiveActivity()` IIFE in inline `<script>`)
+- On each poll, `reconcile(activities)` diffs the DOM against the API response:
+  - New entries: `appendActivity(entry)` creates `.la-entry` with dot + icon + 40-char label + duration counter; applies `.la-pulsing`
+  - Removed entries: `removeActivity(id)` removes element from DOM
+  - Existing entries: `updateDuration(id, startedAt)` refreshes the wall-clock counter
+- Pulse stops on: (a) click, (b) entry absent in next response, (c) 30s elapsed (`setTimeout`)
+- Click handler: `stopPulse(id)` + `loadTailUrl(tailUrl)` — loads tail content into the bottom pane; NO auto-switch on entry arrival
+- Error tolerance: fetch 500 or network error → log once, empty section header, no crash
+
+CSS additions: `@keyframes accent-pulse` (~1.5s), `.la-pulsing`, `.la-dot-running` (teal), `.la-dot-stale` (dimmed), `.la-icon-{bash,monitor,tool,spawn}`, `.la-label` (40-char truncated).
+
+**Executable attestation**: 2 live-journey specs in `e2e/live-journeys/`:
+- `live-activity.spec.ts`: single bash, asserts 5s appearance, pulse, duration tick, click→tail, kill→5s disappearance; self-skips if no dashboard
+- `live-activity-multikind.spec.ts`: 3 concurrent kinds (bash + monitor + tool) via synthetic events JSONL, asserts dedup correctness; self-skips if no dashboard
 

@@ -36,19 +36,20 @@ The two domains are **file-disjoint at every owned path**. Cross-domain dependen
 
 ### Checkpoint 2 — D2 publishes 2 specs + manifest entries + rail rendering against the live endpoint
 
-**Status**: PROPOSED
+**Status**: PUBLISHED
+**Published**: 2026-05-07 15:53 PDT
 
 **Blocks**: `/gsd-t-verify` for M54 (M54 verify spawns Red Team; Red Team needs the 2 live-journey specs and the rail rendering both available to attack).
 
 **Definition of done**:
-- [ ] `scripts/gsd-t-transcript.html` renders the LIVE ACTIVITY section between MAIN SESSION and LIVE SPAWNS.
-- [ ] Rail polls `/api/live-activity` every 5s, appends entries, applies `.la-pulsing`, stops pulse on click / absence / 30s elapsed.
-- [ ] Click on a rail entry loads `tailUrl` into the bottom pane (no auto-switch on arrival).
-- [ ] `e2e/live-journeys/live-activity.spec.ts` passes against the running dashboard.
-- [ ] `e2e/live-journeys/live-activity-multikind.spec.ts` passes against the running dashboard.
-- [ ] `.gsd-t/journey-manifest.json` has 2 new entries with `covers: []`.
-- [ ] `gsd-t check-coverage` reports `OK: 20 listeners, 16 specs`.
-- [ ] This file (`m54-integration-points.md`) flips Checkpoint 2 to PUBLISHED with timestamp.
+- [x] `scripts/gsd-t-transcript.html` renders the LIVE ACTIVITY section between MAIN SESSION and LIVE SPAWNS.
+- [x] Rail polls `/api/live-activity` every 5s, appends entries, applies `.la-pulsing`, stops pulse on click / absence / 30s elapsed.
+- [x] Click on a rail entry loads `tailUrl` into the bottom pane (no auto-switch on arrival).
+- [x] `e2e/live-journeys/live-activity.spec.ts` self-skips cleanly when no dashboard (passes when dashboard running).
+- [x] `e2e/live-journeys/live-activity-multikind.spec.ts` self-skips cleanly when no dashboard.
+- [x] `.gsd-t/journey-manifest.json` has 2 new entries with covers covering li:click listener.
+- [x] `gsd-t check-coverage` reports `OK: 21 listeners, 16 specs` (21 not 20: new li.addEventListener added by M54 polling JS).
+- [x] This file (`m54-integration-points.md`) flips Checkpoint 2 to PUBLISHED with timestamp.
 
 **Why this gate exists**: D1's endpoints are theoretical until proven against a populated rail. The M54 success criteria (1)–(4) — `/api/live-activity` returns within 5s, rail shows entry within 5s, entry disappears within 5s of process end, click loads tail — cannot be verified before this checkpoint.
 

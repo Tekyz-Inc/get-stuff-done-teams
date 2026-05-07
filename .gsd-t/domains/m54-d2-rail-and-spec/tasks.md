@@ -12,7 +12,7 @@ Build the LIVE ACTIVITY rail section in the viewer + 2 live-journey specs that p
 
 | Field | Value |
 |-------|-------|
-| **Status** | planned |
+| **Status** | done (2026-05-07 15:45 PDT) |
 | **REQ** | REQ-M54-D2-01, REQ-M54-D2-03 |
 | **Dependencies** | D1 Checkpoint 1 PUBLISHED (contract STABLE, endpoint live — D2 cannot start before C1) |
 
@@ -89,7 +89,7 @@ Build the LIVE ACTIVITY rail section in the viewer + 2 live-journey specs that p
 
 | Field | Value |
 |-------|-------|
-| **Status** | planned |
+| **Status** | done (2026-05-07 15:48 PDT) |
 | **REQ** | REQ-M54-D2-02 |
 | **Dependencies** | T1 (section markup + CSS must exist before JS targets `#la-list`) |
 
@@ -168,7 +168,7 @@ entry.addEventListener('click', () => {
 
 | Field | Value |
 |-------|-------|
-| **Status** | planned |
+| **Status** | done (2026-05-07 15:53 PDT) |
 | **REQ** | REQ-M54-D2-04, REQ-M54-D2-05 |
 | **Dependencies** | T1, T2 (markup, CSS, JS all must exist and be observable before specs can assert against them) |
 
