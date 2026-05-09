@@ -1,0 +1,5 @@
+# Per-spawn context briefs are ephemera — never committed.
+# This file ensures the directory exists in-repo so `bin/gsd-t-context-brief.cjs`
+# can write into it without having to mkdir at runtime.
+*
+!.gitignore
