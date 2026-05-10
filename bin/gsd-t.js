@@ -1183,6 +1183,8 @@ const GLOBAL_BIN_TOOLS = [
   "gsd-t-context-brief.cjs",
   "gsd-t-verify-gate.cjs",
   "gsd-t-verify-gate-judge.cjs",
+  // M55 D2 substrate — parallel-cli engine (added v3.25.11 patch — missed in initial M55 D5 wire-in).
+  "parallel-cli.cjs",
 ];
 
 function installGlobalBinTools() {
@@ -2456,7 +2458,11 @@ function updateSingleProject(projectDir, counts) {
   if (guardAdded || changelogCreated || binToolsCopied || archiveRan || taskCounterRetired || unattendedConfigCreated || gitignoreUpdated) {
     counts.updated++;
   } else {
-    info(`${projectName} — already up to date`);
+    // The "no mutator ran" branch — distinct from "running latest GSD-T version".
+    // Be explicit: this only means the 7 migration ops were no-ops. The slash
+    // commands and global CLI come from the npm-global install, not from any
+    // per-project artifact, so this status doesn't claim or imply a version.
+    info(`${projectName} — no migrations needed (CLAUDE.md guard, CHANGELOG, bin tools, unattended config all current)`);
     counts.skipped++;
   }
 }
@@ -2471,6 +2477,12 @@ const PROJECT_BIN_TOOLS = [
   "gsd-t-unattended.cjs", "gsd-t-unattended-platform.cjs", "gsd-t-unattended-safety.cjs",
   "handoff-lock.cjs", "headless-auto-spawn.cjs",
   "headless-exit-codes.cjs",
+  // M55 — preflight + parallel-cli + brief + verify-gate libraries copied to project bin/
+  // so per-project workflows can `require('./bin/cli-preflight.cjs')` etc. without
+  // depending on the globally-installed gsd-t CLI being on PATH.
+  "cli-preflight.cjs", "parallel-cli.cjs", "parallel-cli-tee.cjs",
+  "gsd-t-context-brief.cjs",
+  "gsd-t-verify-gate.cjs", "gsd-t-verify-gate-judge.cjs",
 ];
 
 // Files that older versions of this installer copied into project bin/ but

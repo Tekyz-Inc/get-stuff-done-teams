@@ -2,6 +2,18 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [3.25.11] - 2026-05-09
+
+### Fixed — M55 propagation gaps + misleading update-all status
+
+Three small fixes to `bin/gsd-t.js`, all caught immediately post-v3.25.10 ship by the user noticing "18 already current" couldn't possibly be right one minute after publish.
+
+- **Patch 1**: Added `parallel-cli.cjs` to `GLOBAL_BIN_TOOLS`. M55 D5 wired 4 of 5 new substrate binaries into the global propagation list (`cli-preflight`, `gsd-t-context-brief`, `gsd-t-verify-gate`, `gsd-t-verify-gate-judge`) but missed `parallel-cli.cjs` — the substrate engine itself. Result: `~/.claude/bin/parallel-cli.cjs` was missing on every install. Now propagates.
+- **Patch 2**: Added 6 M55 binaries to `PROJECT_BIN_TOOLS` (`cli-preflight.cjs`, `parallel-cli.cjs`, `parallel-cli-tee.cjs`, `gsd-t-context-brief.cjs`, `gsd-t-verify-gate.cjs`, `gsd-t-verify-gate-judge.cjs`). M55 D5 only added them to the global tier — projects had to reach for the global CLI for every M55 dispatch. Now they're available locally per-project too, enabling `node bin/cli-preflight.cjs` style invocations from project workflows. Each registered project gets these copied on the next `gsd-t update-all`.
+- **Patch 3**: Replaced `"X — already up to date"` with `"X — no migrations needed (CLAUDE.md guard, CHANGELOG, bin tools, unattended config all current)"` in `updateSingleProject`. The previous string falsely implied the project was at the latest GSD-T version, but the function only checks 7 specific migration ops — a project showing "already up to date" was just one whose 7 migrations had already run, not one running v3.25.10. Honest message now explains what was actually checked.
+- **Tests**: 2487 / 2487 pass clean (zero regressions).
+- **Why a same-day patch and not a defer**: M55's whole point is making the new substrate available for M56 to wire into Quick + Debug + upper-stage commands. Shipping with the binaries half-propagated would force M56 to wait on a propagation fix anyway. Better to land the fix now and have a clean foundation.
+
 ## [3.25.10] - 2026-05-09
 
 ### Added — M55 CLI-Preflight Pattern + Parallel-CLI Substrate + Rate-Limit Map + Context Briefs + Verify-Gate (minor: new feature milestone)
