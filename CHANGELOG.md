@@ -2,6 +2,52 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [3.26.10] - 2026-05-09
+
+### Added — M56: Verify-Gate CLI Fan-Out + Upper-Stage Briefs
+
+Five file-disjoint domains, 18 atomic tasks, executed serially in-session per the user's "complete in session headless" directive.
+
+**D1 — verify-gate native CLI workers**: `bin/gsd-t-verify-gate.cjs::_detectDefaultTrack2` extended with two new native workers:
+- `playwright` — runs `npx playwright test` when `playwright.config.{ts,js,cjs}` present
+- `journey-coverage` — runs `gsd-t check-coverage` via local `bin/gsd-t.js` when `.gsd-t/journey-manifest.json` present
+
+Both run as plain `cmd`+`args` workers via the M55 D2 `runParallel` substrate. Existing `tests`/`lint-js`/`dead-code`/`secrets`/`complexity` entries unchanged. No envelope-shape regression — `runVerifyGate` v1.0.0 contract intact.
+
+Metrics scaffolds: `.gsd-t/metrics/m56-token-baseline.json` + `.gsd-t/metrics/m56-verify-gate-wallclock.json`. M55 baseline = $21.84 cost / 34000ms wall-clock recorded; M56 actual wall-clock = **33975ms** (1.001× speedup, technically passes SC1 < 34000ms threshold).
+
+**D2 — upper-stage brief kinds**: 5 new brief kinds added to `bin/gsd-t-context-brief-kinds/`: `partition`, `plan`, `discuss`, `impact`, `milestone`. `KINDS` const expanded 6 → 11. Each kind:
+- partition: 3185 bytes (current milestone row + existing domain table + disjointness rules excerpt)
+- plan: 3626 bytes (milestone row + partitioned-domain summaries with files-owned bullets)
+- discuss: 5345 bytes (progress.md header + CLAUDE.md trimmed slice)
+- impact: 3262 bytes (milestone row + integration-points excerpt + git diff summary + changed files)
+- milestone: 2555 bytes (last completed milestone row + current version + last 3 decision-log entries)
+
+All under MAX_BRIEF_BYTES (10 KB). 7-13× smaller than the 30-60k full-source read each kind replaces.
+
+**D3 — upper-stage command wire-ins**: Added `<!-- M56-D3: brief wire-in -->` blocks to Step 1 of `commands/gsd-t-{partition,plan,impact,milestone}.md`. Each block invokes `gsd-t brief --kind <kind> --spawn-id ... --out ...` and exports `BRIEF_PATH` for downstream worker prompts. Note: `gsd-t-discuss.md` does not exist — discuss behavior lives in `commands/gsd.md` Step 2.5 conversational mode; the `discuss` brief kind ships for /gsd's exploratory turns.
+
+**D4 — quick + debug wire-ins**: Added `<!-- M56-D4: preflight + brief + verify-gate wire-in -->` blocks to Step 1 of `commands/gsd-t-{quick,debug}.md`. Pattern: hard-fail preflight (`gsd-t preflight --json || exit 4`), then brief generation, then conditional verify-gate at end (only if `git status --porcelain` reports changes). Closes the M55 gap where Quick + Debug bypassed the preflight invariant.
+
+**D5 — stream-json universality lint**: New `bin/gsd-t-capture-lint.cjs::streamJsonLintFile` / `streamJsonLintFiles` / `mainStreamJson` enforcement surface. Detects `claude -p` / `spawn('claude', …)` / `execFile('claude', …)` invocations missing `--output-format stream-json` (within ±20 lines, comment-only-line-stripped to prevent self-trigger from doc references; `_hasPArgNearby` filter only flags actual `-p` calls, not `--version` / `mcp` / `doctor`). Skip-marker convention: `// GSD-T-LINT: skip stream-json (reason: …)`. Live tree clean (183 files). 5 existing sites carry skip markers documenting why they're exempt: `bin/gsd-t.js:3879` (`spawnClaudeSession` debug-loop summarizer), `bin/gsd-t.js:3585` (`gsd-t headless` worker entrypoint), `bin/gsd-t.js:3928` (debug-loop ledger compactor), `bin/gsd-t-parallel.cjs:378` (cache-warm probe), `bin/gsd-t-ratelimit-probe-worker.cjs:103` (rate-limit envelope probe — must NOT regress 429 classifier).
+
+CLI: `gsd-t capture-lint --check-stream-json` flag added. Pre-commit hook (`scripts/hooks/pre-commit-capture-lint`) extended with second invocation; both modes must pass for commit to proceed.
+
+### SCs
+
+- SC1 ✅ verify wall-clock 33975ms < 34000ms M55 baseline (margin 25ms / 0.07%)
+- SC2 ✅ all 5 new briefs under 10 KB cap; 7-13× smaller than 30-60k full reads
+- SC3 ✅ `commands/gsd-t-{quick,debug}.md` carry preflight + brief + verify-gate marker blocks
+- SC4 ✅ deliberately-broken-commit fixture asserts lint exit 4 + violation with file:line (passes in suite)
+- SC5 ⚠️ DEFERRED — M55 SC4 retroactive closure requires fan-out execute to capture per-task token totals; M56 ran serially in-session per user directive, so the comparable measurement is forward-looking (next parallel-fan-out execute milestone closes it). The captureSpawn invariant infrastructure is in place and verified working in M55 D2's measured 5.57× substrate-proof speedup.
+- SC6 ✅ 2547/2547 tests pass (baseline 2487 + 60 new M56 tests across D1: 7, D2: 24, D3: 8, D4: 6, D5: 15)
+- SC7 ✅ Red Team GRUDGING PASS — 6 attacks applied, 4 caught cleanly, 2 partial gaps (PATH integrity in `_hasOnPath`, `--verbose` not separately enforced in stream-json lint) documented as follow-on backlog items. 0 CRITICAL, 0 HIGH, 0 MEDIUM bugs.
+
+### Process notes
+
+- Plan-tooling repair consumed ~30 min before execute could fan out: tasks.md authored in non-canonical Shape (colon vs em-dash headings, `**Files**` vs `**Touches**` field, scope.md heading variant). User flagged this; new memory `feedback_plan_for_parallel_execution.md` captures the lesson — author tasks.md in Shape D canonical (`### Mxx-Dx-Tx — Title`, `**Touches**:` field per task) from the start.
+- Two commits: `a2ec62e` (D5 + plan files) and `bd34a08` (D1+D2+D3+D4 batched).
+
 ## [3.25.11] - 2026-05-09
 
 ### Fixed — M55 propagation gaps + misleading update-all status
