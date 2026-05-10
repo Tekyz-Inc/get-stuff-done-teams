@@ -262,6 +262,164 @@ function main(opts) {
   };
 }
 
+// ─── M56 D5: stream-json universality lint ─────────────────────────────────
+//
+// The token-capture lint above enforces "every Task(...) / claude -p / spawn('claude', ...)
+// goes through captureSpawn". This second lint enforces a different invariant:
+// every claude -p / spawn('claude', ...) invocation MUST pass the
+// `--output-format stream-json --verbose` flag pair so the orchestrator can
+// observe progress in real time. Allowlist sites that genuinely don't emit
+// user-watchable progress (probes measuring rate-limit envelope, single-word
+// cache-warm pings, internal debug-loop summarizers) declare themselves via
+// the `GSD-T-LINT: skip stream-json` marker comment with a reason.
+//
+// Contract: per memory feedback_claude_p_stream_json.md and the M56 partition
+// charter. Surface mirrors the M41 capture-lint surface (same patterns,
+// whitelist, skip-marker, fence-map, _matchInsideStringLiteral helpers).
+
+// Patterns: spawn shapes that need --output-format stream-json. Only flag
+// invocations that are actually `claude -p` runs — `claude --version`,
+// `claude mcp add`, `claude doctor` etc. don't produce streamable progress.
+// We require `-p` to appear in the spawn args (within ±15 lines for arg-array
+// spreads) before flagging, mirroring how the M41 capture-lint applies.
+const STREAM_JSON_SPAWN_PATTERNS = [
+  // spawn('claude', ...) / spawn("claude", ...) — but only when -p is in the call
+  { name: "spawn('claude') (no stream-json)", re: /\bspawn\(\s*['"]claude['"]\s*,/, requirePArg: true },
+  // execFileSync('claude', ...) / execFile('claude', ...) — same -p requirement
+  { name: "execFile('claude') (no stream-json)", re: /\bexec(?:File|FileSync)\(\s*['"]claude['"]\s*,/, requirePArg: true },
+  // `claude -p` as an actual shell command — already requires -p in the regex
+  { name: 'claude -p (no stream-json)', re: /(?:^|\s|[;&|`$(])claude\s+-p\b/, requirePArg: false },
+];
+
+const P_ARG_RADIUS = 15;
+const P_ARG_RE = /['"`]-p['"`]/;
+
+function _hasPArgNearby(lines, idx) {
+  const lo = Math.max(0, idx - P_ARG_RADIUS);
+  const hi = Math.min(lines.length - 1, idx + P_ARG_RADIUS);
+  for (let j = lo; j <= hi; j++) {
+    if (P_ARG_RE.test(lines[j])) return true;
+  }
+  return false;
+}
+
+// We require BOTH `--output-format` and `stream-json` near the spawn site.
+// Looking ±20 lines (same window as wrapper detection) catches multi-line
+// arg-array spreads. Fence map already restricts markdown matching.
+const STREAM_JSON_FLAGS = /--output-format[\s\S]{0,80}stream-json|stream-json[\s\S]{0,80}--output-format/;
+const STREAM_JSON_SKIP_MARKER = 'GSD-T-LINT: skip stream-json';
+const STREAM_JSON_RADIUS = 20;
+
+function _hasStreamJsonFlagNearby(lines, idx) {
+  const lo = Math.max(0, idx - STREAM_JSON_RADIUS);
+  const hi = Math.min(lines.length - 1, idx + STREAM_JSON_RADIUS);
+  // Strip comment-only lines so a comment that mentions `--output-format
+  // stream-json` (e.g. "// Deliberately omits the flag pair") doesn't trick
+  // the lint into thinking the flag is actually wired.
+  const codeLines = [];
+  for (let j = lo; j <= hi; j++) {
+    if (!_isCommentOnlyLine(lines[j])) codeLines.push(lines[j]);
+  }
+  const window = codeLines.join('\n');
+  return STREAM_JSON_FLAGS.test(window);
+}
+
+function _hasStreamJsonSkipMarkerNearby(lines, idx) {
+  const lo = Math.max(0, idx - STREAM_JSON_RADIUS);
+  const hi = Math.min(lines.length - 1, idx + STREAM_JSON_RADIUS);
+  for (let j = lo; j <= hi; j++) {
+    if (lines[j].includes(STREAM_JSON_SKIP_MARKER)) return true;
+  }
+  return false;
+}
+
+/**
+ * Lint a single file for stream-json universality.
+ * @param {string} absPath
+ * @param {string} projectDir
+ * @returns {Array<{file, line, pattern, message}>}
+ */
+function streamJsonLintFile(absPath, projectDir) {
+  const relPath = path.relative(projectDir, absPath);
+  if (_isWhitelistedPath(relPath)) return [];
+
+  let src;
+  try {
+    src = fs.readFileSync(absPath, 'utf8');
+  } catch (_) {
+    return [];
+  }
+
+  const lines = src.split('\n');
+  const isMarkdown = absPath.endsWith('.md');
+  const executable = _buildFenceMap(lines, isMarkdown);
+
+  const violations = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (!executable[i]) continue;
+    const line = lines[i];
+    if (_isCommentOnlyLine(line)) continue;
+    if (_hasStreamJsonSkipMarkerNearby(lines, i)) continue;
+
+    for (const { name, re, requirePArg } of STREAM_JSON_SPAWN_PATTERNS) {
+      const m = line.match(re);
+      if (m) {
+        if (!isMarkdown && _matchInsideStringLiteral(line, m[0])) break;
+        // Only flag if this is actually a `claude -p` invocation (not --version, mcp add, etc.)
+        if (requirePArg && !_hasPArgNearby(lines, i)) break;
+        if (!_hasStreamJsonFlagNearby(lines, i)) {
+          violations.push({
+            file: relPath,
+            line: i + 1,
+            pattern: name,
+            message: `${name}: missing --output-format stream-json --verbose flag pair (or skip marker)`,
+          });
+        }
+        break;
+      }
+    }
+  }
+
+  return violations;
+}
+
+/**
+ * Lint a list of paths for stream-json universality.
+ */
+function streamJsonLintFiles(paths, opts) {
+  const projectDir = (opts && opts.projectDir) || process.cwd();
+  const all = [];
+  for (const p of paths) {
+    const abs = path.isAbsolute(p) ? p : path.join(projectDir, p);
+    if (!fs.existsSync(abs)) continue;
+    const st = fs.statSync(abs);
+    if (!st.isFile()) continue;
+    all.push(...streamJsonLintFile(abs, projectDir));
+  }
+  return { violations: all };
+}
+
+/**
+ * CLI entry point for stream-json mode. Exit 0 on clean, 4 on violation,
+ * 2 on internal error.
+ */
+function mainStreamJson(opts) {
+  const projectDir = opts.projectDir || process.cwd();
+  const mode = opts.mode || 'staged';
+  let files;
+  try {
+    files = mode === 'all' ? _listAll(projectDir) : _listStaged(projectDir);
+  } catch (e) {
+    return { exitCode: 2, violations: [], files: [], error: e.message || String(e) };
+  }
+  const { violations } = streamJsonLintFiles(files, { projectDir });
+  return {
+    exitCode: violations.length === 0 ? 0 : 4,
+    violations,
+    files,
+  };
+}
+
 module.exports = {
   lintFile,
   lintFiles,
@@ -273,4 +431,10 @@ module.exports = {
   _hasWrapperNearby,
   _hasSkipMarkerNearby,
   _matchInsideStringLiteral,
+  // M56 D5
+  streamJsonLintFile,
+  streamJsonLintFiles,
+  mainStreamJson,
+  STREAM_JSON_SPAWN_PATTERNS,
+  STREAM_JSON_SKIP_MARKER,
 };

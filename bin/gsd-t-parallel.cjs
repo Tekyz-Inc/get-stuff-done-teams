@@ -373,6 +373,7 @@ function _runCacheWarmProbe(opts) {
   if (model) env.ANTHROPIC_MODEL = model;
 
   try {
+    // GSD-T-LINT: skip stream-json (reason: cache-warm probe — single-word "warm" reply, no progress to stream)
     const r = spawnSync(
       "claude",
       ["-p", prompt, "--dangerously-skip-permissions"],

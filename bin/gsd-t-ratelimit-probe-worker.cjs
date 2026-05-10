@@ -101,6 +101,7 @@ async function runOneProbe({ fixturePath, cwd, claudeBin, model }) {
 
     let child;
     try {
+      // GSD-T-LINT: skip stream-json (reason: probe measures rate-limit envelope via API result fields stop_reason/is_error/api_error_status — switching to stream-json would require rewriting the 429 classifier from M55 D3, charter prohibits regression)
       child = spawn(claudeBin, args, {
         cwd: cwd || process.cwd(),
         stdio: ['ignore', 'pipe', 'pipe'],

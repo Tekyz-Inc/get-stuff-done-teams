@@ -24,3 +24,16 @@ if ! $GSD_T_BIN capture-lint --staged; then
   echo "Wrap spawns with captureSpawn({…, spawnFn}) or add GSD-T-CAPTURE-LINT: skip" >&2
   exit 1
 fi
+
+# M56 D5: stream-json universality lint — every `claude -p` / `spawn('claude', …)`
+# spawn must pass `--output-format stream-json --verbose` so progress is
+# observable in real-time, OR carry a `GSD-T-LINT: skip stream-json` marker
+# explaining why streaming isn't applicable (probe envelope, single-shot
+# buffered consumer, etc.).
+if ! $GSD_T_BIN capture-lint --staged --check-stream-json; then
+  echo ""
+  echo "Stream-json universality lint failed — see paths above."
+  echo "Add --output-format stream-json --verbose to the spawn args, OR"
+  echo "add a 'GSD-T-LINT: skip stream-json (reason: …)' marker comment near the spawn." >&2
+  exit 1
+fi

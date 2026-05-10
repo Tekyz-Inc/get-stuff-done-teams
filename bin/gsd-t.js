@@ -3582,6 +3582,7 @@ function doHeadlessExec(command, cmdArgs, flags) {
   if (process.env.GSD_T_MODEL) workerEnv.GSD_T_MODEL = process.env.GSD_T_MODEL;
 
   try {
+    // GSD-T-LINT: skip stream-json (reason: gsd-t headless one-shot entrypoint — output is buffered into one string by callers, not user-watchable progress)
     const result = execFileSync("claude", ["-p", "--dangerously-skip-permissions", prompt], {
       encoding: "utf8",
       timeout: timeoutMs,
@@ -3876,6 +3877,7 @@ function spawnClaudeSession(prompt, model) {
     });
     if (env.GSD_T_MODEL === null) delete env.GSD_T_MODEL;
     if (process.env.GSD_T_TRACE_ID) env.GSD_T_TRACE_ID = process.env.GSD_T_TRACE_ID;
+    // GSD-T-LINT: skip stream-json (reason: internal debug-loop summarizer; output is consumed as one buffered string by parseTestResult — no progress to stream)
     return execFileSync("claude", ["-p", prompt, "--model", model], {
       encoding: "utf8", timeout: 300000,
       stdio: ["pipe", "pipe", "pipe"],
@@ -3924,6 +3926,7 @@ function runLedgerCompaction(projectDir, jsonMode) {
       GSD_T_PROJECT_DIR: process.env.GSD_T_PROJECT_DIR || projectDir,
     });
     if (process.env.GSD_T_TRACE_ID) env.GSD_T_TRACE_ID = process.env.GSD_T_TRACE_ID;
+    // GSD-T-LINT: skip stream-json (reason: debug-loop ledger compaction — single-shot summarizer, output consumed as one trimmed string)
     const out = execFileSync("claude", ["-p", compactPrompt, "--model", "haiku"], {
       encoding: "utf8", timeout: 120000, stdio: ["pipe", "pipe", "pipe"],
       env,
@@ -4590,14 +4593,23 @@ if (require.main === module) {
     }
     case "capture-lint": {
       const clOpts = { projectDir: process.cwd(), mode: 'staged' };
+      let checkStreamJson = false;
       for (let i = 1; i < args.length; i++) {
         const a = args[i];
         if (a === '--staged') { clOpts.mode = 'staged'; }
         else if (a === '--all') { clOpts.mode = 'all'; }
+        else if (a === '--check-stream-json') { checkStreamJson = true; }
         else if (a === '--project-dir' && args[i+1]) { clOpts.projectDir = args[++i]; }
         else if (a.startsWith('--project-dir=')) { clOpts.projectDir = a.slice(14); }
         else if (a === '--help' || a === '-h') {
-          log('Usage: gsd-t capture-lint [--staged] [--all] [--project-dir PATH]');
+          log('Usage: gsd-t capture-lint [--staged] [--all] [--check-stream-json] [--project-dir PATH]');
+          log('');
+          log('Default mode (M41 D5): rejects bare Task() / claude -p / spawn() calls');
+          log('   missing the captureSpawn / recordSpawnRow wrapper.');
+          log('');
+          log('--check-stream-json (M56 D5): rejects claude -p / spawn(claude, ...) invocations');
+          log('   missing --output-format stream-json --verbose flag pair.');
+          log('   Allowlist via marker comment: GSD-T-LINT: skip stream-json (reason: …)');
           process.exit(0);
         }
         else {
@@ -4607,7 +4619,7 @@ if (require.main === module) {
       }
       try {
         const linter = require(path.join(__dirname, 'gsd-t-capture-lint.cjs'));
-        const res = linter.main(clOpts);
+        const res = checkStreamJson ? linter.mainStreamJson(clOpts) : linter.main(clOpts);
         if (res.error) {
           error(`capture-lint: ${res.error}`);
           process.exit(2);
@@ -4615,10 +4627,11 @@ if (require.main === module) {
         for (const v of res.violations) {
           log(`${v.file}:${v.line}: ${v.message}`);
         }
+        const modeLabel = checkStreamJson ? 'stream-json' : 'capture';
         if (res.violations.length === 0) {
-          log(`capture-lint: ${res.files.length} file(s) checked — clean`);
+          log(`${modeLabel}-lint: ${res.files.length} file(s) checked — clean`);
         } else {
-          log(`capture-lint: ${res.violations.length} violation(s) across ${res.files.length} file(s)`);
+          log(`${modeLabel}-lint: ${res.violations.length} violation(s) across ${res.files.length} file(s)`);
         }
         process.exit(res.exitCode);
       } catch (e) {
