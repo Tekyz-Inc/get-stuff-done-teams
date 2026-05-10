@@ -84,6 +84,37 @@ Identify:
 - Which tasks are unblocked (no pending dependencies)
 - Which tasks are blocked (waiting on checkpoints)
 
+<!-- M55-D5: preflight + brief wire-in -->
+**M55 Preflight + Context-Brief (mandatory before fan-out):**
+
+Once per execute invocation, before spawning ANY worker subagent:
+
+1. Run state preflight:
+   ```bash
+   gsd-t preflight --json > /tmp/gsd-t-preflight.json || true
+   ```
+   If exit code is `4`, STOP. Read `/tmp/gsd-t-preflight.json`, surface the failed
+   `severity:"error"` checks (wrong branch, occupied port, etc.) to the user, and
+   do NOT spawn any workers. The verify-gate (Track 1) will hard-fail the same
+   way at verify time — fail-early here saves the round-trip.
+
+2. For each domain `D` about to receive a worker spawn, generate a context brief
+   ONCE per domain per spawn (replaces 30–60k context re-read with ≤2,500-token
+   JSON snapshot — M55 charter Pattern B):
+   ```bash
+   SPAWN_ID="execute-${D}-$(date -u +%Y%m%dT%H%M%SZ)"
+   gsd-t brief --kind execute --domain "${D}" --spawn-id "${SPAWN_ID}" --out ".gsd-t/briefs/${SPAWN_ID}.json"
+   export BRIEF_PATH=".gsd-t/briefs/${SPAWN_ID}.json"
+   ```
+
+3. Pass `$BRIEF_PATH` into each worker's prompt scaffold so the worker greps the
+   brief instead of re-walking the repo. Workers receive the canonical
+   instruction "check the brief first" via the subagent protocols
+   (`templates/prompts/{qa,red-team,design-verify}-subagent.md`).
+
+The `.gsd-t/briefs/` directory is gitignored — briefs are per-spawn ephemera,
+not committed artifacts.
+
 ## Step 1.5: Graph-Enhanced Domain Isolation Check (if available)
 
 ```bash

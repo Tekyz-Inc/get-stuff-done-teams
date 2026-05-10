@@ -1175,7 +1175,15 @@ function installUtilityScripts() {
 // `path.join(__dirname, "..", "bin", <tool>)` (e.g. gsd-t-dashboard-server.js
 // → parallelism-report.cjs). Distinct from PROJECT_BIN_TOOLS, which copy into
 // each registered project's bin/.
-const GLOBAL_BIN_TOOLS = ["parallelism-report.cjs", "live-activity-report.cjs"];
+const GLOBAL_BIN_TOOLS = [
+  "parallelism-report.cjs",
+  "live-activity-report.cjs",
+  // M55 D5 — preflight + brief + verify-gate dispatch targets propagated to ~/.claude/bin/.
+  "cli-preflight.cjs",
+  "gsd-t-context-brief.cjs",
+  "gsd-t-verify-gate.cjs",
+  "gsd-t-verify-gate-judge.cjs",
+];
 
 function installGlobalBinTools() {
   ensureDir(GLOBAL_BIN_DIR);
@@ -4495,6 +4503,42 @@ if (require.main === module) {
     case "benchmark-orchestrator": {
       const { spawnSync } = require("child_process");
       const js = path.join(__dirname, "gsd-t-benchmark-orchestrator.js");
+      const res = spawnSync(process.execPath, [js, ...args.slice(1)], {
+        stdio: "inherit",
+      });
+      process.exit(res.status == null ? 1 : res.status);
+    }
+    case "preflight": {
+      // M55 D5 — `gsd-t preflight` thin dispatcher to bin/cli-preflight.cjs.
+      const { spawnSync } = require("child_process");
+      const js = path.join(__dirname, "cli-preflight.cjs");
+      const res = spawnSync(process.execPath, [js, ...args.slice(1)], {
+        stdio: "inherit",
+      });
+      process.exit(res.status == null ? 1 : res.status);
+    }
+    case "brief": {
+      // M55 D5 — `gsd-t brief` thin dispatcher to bin/gsd-t-context-brief.cjs.
+      const { spawnSync } = require("child_process");
+      const js = path.join(__dirname, "gsd-t-context-brief.cjs");
+      const res = spawnSync(process.execPath, [js, ...args.slice(1)], {
+        stdio: "inherit",
+      });
+      process.exit(res.status == null ? 1 : res.status);
+    }
+    case "verify-gate": {
+      // M55 D5 — `gsd-t verify-gate` thin dispatcher to bin/gsd-t-verify-gate.cjs.
+      const { spawnSync } = require("child_process");
+      const js = path.join(__dirname, "gsd-t-verify-gate.cjs");
+      const res = spawnSync(process.execPath, [js, ...args.slice(1)], {
+        stdio: "inherit",
+      });
+      process.exit(res.status == null ? 1 : res.status);
+    }
+    case "verify-gate-judge": {
+      // M55 D5 — `gsd-t verify-gate-judge` thin dispatcher to bin/gsd-t-verify-gate-judge.cjs.
+      const { spawnSync } = require("child_process");
+      const js = path.join(__dirname, "gsd-t-verify-gate-judge.cjs");
       const res = spawnSync(process.execPath, [js, ...args.slice(1)], {
         stdio: "inherit",
       });

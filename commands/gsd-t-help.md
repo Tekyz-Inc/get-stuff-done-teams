@@ -434,6 +434,27 @@ Use these when user asks for help on a specific command:
 - **Files**: `.gsd-t/backlog-settings.md`
 - **Use when**: Customizing the classification dimensions for your project
 
+### preflight (M55)
+- **Summary**: Deterministic state-precondition check (`bin/cli-preflight.cjs`); 6 built-in checks (branch-guard, contracts-stable, deps-installed, manifest-fresh, ports-free, working-tree-state). Exit 0/4. Pluggable, zero-dep, captureSpawn-exempt.
+- **Auto-invoked**: Yes — by `gsd-t-execute` Step 1 and `gsd-t verify-gate` Track 1
+- **Files**: `bin/cli-preflight.cjs`, `bin/cli-preflight-checks/`
+- **Use when**: Before any worker spawn or verify run — catches drift (wrong branch, port collision, DRAFT contracts) early.
+- **CLI**: `gsd-t preflight [--project DIR] [--json | --text] [--skip id1,id2]`
+
+### brief (M55)
+- **Summary**: Generate a ≤10 KB / ≤2,500-token context brief for a worker spawn (`bin/gsd-t-context-brief.cjs`); 6 kinds (`execute`, `verify`, `qa`, `red-team`, `design-verify`, `scan`). Replaces 30–60k context re-read with structured JSON snapshot.
+- **Auto-invoked**: Yes — by `gsd-t-execute` Step 1 (one brief per domain spawn)
+- **Files**: `bin/gsd-t-context-brief.cjs`, `bin/gsd-t-context-brief-kinds/`, `.gsd-t/briefs/` (gitignored)
+- **Use when**: Replacing repo re-reads with a structured snapshot for parallel workers.
+- **CLI**: `gsd-t brief --kind X --domain Y --spawn-id Z [--out PATH] [--strict]`
+
+### verify-gate (M55)
+- **Summary**: Two-track verify-gate (`bin/gsd-t-verify-gate.cjs`); Track 1 runs preflight (hard-fail on severity:error), Track 2 fans out tsc/lint/tests/dead-code/secrets/complexity via `bin/parallel-cli.cjs::runParallel`. Returns ≤500-token JSON summary an LLM judges. Defensive on missing `.gsd-t/ratelimit-map.json`.
+- **Auto-invoked**: Yes — by `gsd-t-verify` Step 2
+- **Files**: `bin/gsd-t-verify-gate.cjs`, `bin/gsd-t-verify-gate-judge.cjs`
+- **Use when**: Final pre-merge gate. Both tracks always run; both report. `ok` is purely deterministic — LLM verdict is advisory.
+- **CLI**: `gsd-t verify-gate [--skip-track1] [--skip-track2] [--max-concurrency N] [--fail-fast] [--json]`. Exit 0/4/2/3.
+
 ## Unknown Command
 
 If user asks for help on unrecognized command:

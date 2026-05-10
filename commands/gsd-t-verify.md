@@ -64,6 +64,44 @@ Run the full test audit directly:
 
 Verification cannot complete if any test fails or critical contract gaps remain.
 
+<!-- M55-D5: verify-gate wire-in -->
+**M55 Verify-Gate (mandatory two-track gate):**
+
+Before finalizing the verify report, invoke the M55 verify-gate. It runs Track 1
+(`bin/cli-preflight.cjs::runPreflight` — preflight envelope; hard-fails on any
+`severity:"error"` check) AND Track 2 (`bin/parallel-cli.cjs::runParallel` fans
+out off-the-shelf CLIs: tsc, biome/ruff, npm test, knip, gitleaks, scc/lizard).
+Both tracks always run; both report. The gate's `ok` flag is purely
+deterministic (`track1.ok && track2.ok`) — the LLM judge's verdict is advisory.
+
+```bash
+gsd-t verify-gate --json > /tmp/gsd-t-verify-gate.json || true
+GATE_OK=$(node -e "const e=require('/tmp/gsd-t-verify-gate.json');console.log(e.ok?'true':'false')")
+```
+
+If `GATE_OK=false`, surface the failed track to the user and do NOT mark verify
+complete. The summary in the envelope is ≤500 tokens — pipe it to the LLM judge
+for a confirming verdict:
+
+```bash
+cat /tmp/gsd-t-verify-gate.json | gsd-t verify-gate-judge > /tmp/gsd-t-verify-gate-prompt.txt
+```
+
+The judge prompt (`bin/gsd-t-verify-gate-judge.cjs`) is ≤500 tokens regardless
+of envelope size — feed it to the LLM judge to render a `PASS` / `FAIL` verdict
+on the deterministic summary. The LLM verdict NEVER overrides `ok` — it
+confirms or contradicts. A contradiction is a Red Team finding, not a gate
+override.
+
+Raw worker output stays at `.gsd-t/verify-gate/{runId}/{workerId}.{stdout,stderr}.ndjson`
+for human-only inspection. The directory is gitignored.
+
+Defensive on missing `.gsd-t/ratelimit-map.json` — verify-gate falls back to
+`maxConcurrency=2` and logs a structured note. Override with
+`gsd-t verify-gate --max-concurrency N --json` if needed.
+
+Contract: `.gsd-t/contracts/verify-gate-contract.md` v1.0.0 STABLE.
+
 ## Step 2.5: High-Risk Domain Gate (MANDATORY — Categories 2 and 7)
 
 ```bash

@@ -412,6 +412,52 @@ No command file ships a bare `Task(...)` or `claude -p` line outside of a wrappe
 
 Rationale: the pre-M41 convention silently wrote `N/A` tokens because no caller parsed the `usage` envelope. The wrapper is the single place that parses it. Bypassing the wrapper re-introduces blind spots.
 
+## Mandatory Preflight Before Spawn (M55 — v3.25.10+)
+
+Every command that spawns a Task subagent or invokes `claude -p` MUST run `gsd-t preflight` first. Hard-fails on any `severity:"error"` check (wrong branch, occupied required port). Non-error checks (warn/info) record but do not block.
+
+```bash
+gsd-t preflight --json > /tmp/gsd-t-preflight.json || exit 4
+```
+
+Catches drift early — wrong branch, port collision, DRAFT contracts past PARTITIONED — before any LLM work fires. Same envelope is consumed by `gsd-t verify-gate` Track 1, so failing fast at execute time saves the verify round-trip.
+
+Library: `bin/cli-preflight.cjs::runPreflight({projectDir, checks?})`.
+Contract: `.gsd-t/contracts/cli-preflight-contract.md` v1.0.0 STABLE.
+
+## Brief-First Worker Rule (M55 — v3.25.10+)
+
+Every parallel worker prompt scaffold MUST thread `$BRIEF_PATH` — a ≤2,500-token JSON snapshot generated once per spawn by `bin/gsd-t-context-brief.cjs`. The brief replaces the 30–60k context re-read every parallel worker would otherwise perform (CLAUDE.md + contracts + scope + relevant code) — the dominant ITPM-relief lever in M55.
+
+```bash
+SPAWN_ID="execute-${DOMAIN}-$(date -u +%Y%m%dT%H%M%SZ)"
+gsd-t brief --kind execute --domain "${DOMAIN}" --spawn-id "${SPAWN_ID}" --out ".gsd-t/briefs/${SPAWN_ID}.json"
+export BRIEF_PATH=".gsd-t/briefs/${SPAWN_ID}.json"
+```
+
+The 3 validation-subagent protocols (`templates/prompts/{qa,red-team,design-verify}-subagent.md`) carry the canonical instruction "If you're about to grep, read, or run a test, check the brief first at `$BRIEF_PATH`." Workers grep the brief instead of re-walking the repo.
+
+`.gsd-t/briefs/` is gitignored — briefs are per-spawn ephemera, not committed artifacts.
+
+Library: `bin/gsd-t-context-brief.cjs::generateBrief(...)`.
+Contract: `.gsd-t/contracts/context-brief-contract.md` v1.0.0 STABLE.
+
+## Two-Track Verify-Gate (M55 — v3.25.10+)
+
+`gsd-t verify-gate --json` is the canonical pre-merge gate. Track 1 = D1 preflight envelope (hard-fail on any `severity:"error"` check). Track 2 = D2 parallel-CLI substrate fans out off-the-shelf CLIs (`tsc`, `biome`/`ruff`, `npm test`, `knip`, `gitleaks`, `scc`/`lizard`). Both tracks always run; both report.
+
+```bash
+gsd-t verify-gate --json > /tmp/gate.json || exit 4
+cat /tmp/gate.json | gsd-t verify-gate-judge > /tmp/judge-prompt.txt
+```
+
+`top-level ok = (skipTrack1 || track1.ok) && (skipTrack2 || track2.ok)` — purely deterministic. The LLM judge sees only the ≤500-token deterministic `summary`; never raw stdout/stderr. The judge confirms or contradicts the deterministic verdict; it never overrides `ok`.
+
+Defensive on missing `.gsd-t/ratelimit-map.json` → fallback `maxConcurrency=2` with a structured note.
+
+Library: `bin/gsd-t-verify-gate.cjs::runVerifyGate(...)` + `bin/gsd-t-verify-gate-judge.cjs::buildJudgePrompt(...)`.
+Contract: `.gsd-t/contracts/verify-gate-contract.md` v1.0.0 STABLE.
+
 ## Always-Headless Spawn (M43 D4, v3.16.x+) — Channel Separation
 
 Every GSD-T command spawns detached, unconditionally. There is no `--watch`, no `--in-session`, no `--headless` opt-in, no context-meter threshold that reroutes, no low-water-mark bypass. The dialog channel is reserved for human↔Claude conversation; everything else is a detached headless child. Interactive session shows a launch banner + live-transcript URL + event-stream path, then exits. Results surface via the read-back banner on the user's next message.

@@ -1191,3 +1191,132 @@ CSS additions: `@keyframes accent-pulse` (~1.5s), `.la-pulsing`, `.la-dot-runnin
 - `live-activity.spec.ts`: single bash, asserts 5s appearance, pulse, duration tick, click→tail, kill→5s disappearance; self-skips if no dashboard
 - `live-activity-multikind.spec.ts`: 3 concurrent kinds (bash + monitor + tool) via synthetic events JSONL, asserts dedup correctness; self-skips if no dashboard
 
+## CLI-Preflight Pattern + Verify-Gate (M55 — v3.25.10)
+
+M55 ships a deterministic, pluggable state-precondition library + parallel-CLI
+substrate + two-track verify-gate that lift the practical parallelism ceiling
+from ~3 LLM workers to ~6–10 mixed workers (1 LLM judge + N CLIs) by replacing
+deterministic LLM work with deterministic CLI work, prove the lift via empirical
+measurement, and gate every spawn with deterministic state checks.
+
+### Five domains, three waves
+
+| Domain | Owns | Wave |
+|--------|------|------|
+| D1 — `m55-d1-state-precondition-library` | `bin/cli-preflight.cjs` + 6 checks under `bin/cli-preflight-checks/` + `cli-preflight-contract.md` | Wave 1 (parallel) |
+| D2 — `m55-d2-parallel-cli-substrate` | `bin/parallel-cli.cjs` + `bin/parallel-cli-tee.cjs` + `bin/m55-substrate-proof.cjs` + `parallel-cli-contract.md` | Wave 2 |
+| D3 — `m55-d3-ratelimit-probe-map` | `bin/gsd-t-ratelimit-probe.cjs` + worker + 4 fixtures + `.gsd-t/ratelimit-map.json` + `ratelimit-map-contract.md` | Wave 1 (parallel) |
+| D4 — `m55-d4-context-brief-generator` | `bin/gsd-t-context-brief.cjs` + 6 kind collectors + `context-brief-contract.md` | Wave 1 (parallel) |
+| D5 — `m55-d5-verify-gate-and-wirein` | `bin/gsd-t-verify-gate.cjs` + judge companion + 3 e2e/journeys SC3 specs + all wire-ins + doc ripple + `verify-gate-contract.md` | Wave 3 |
+
+### Pattern A — State Preflight (D1)
+
+`bin/cli-preflight.cjs::runPreflight({projectDir, checks?})` returns a versioned
+envelope `{schemaVersion: '1.0.0', ok, checks: [], notes: []}`. Six built-in
+checks (kebab-case ids; severity `error`/`warn`/`info`):
+
+- `branch-guard` (error) — reads project CLAUDE.md `Expected branch:` line, compares to `git branch --show-current`
+- `contracts-stable` (warn) — flags `Status: DRAFT`/`PROPOSED` contracts past PARTITIONED
+- `deps-installed` (warn) — `node_modules/` present + lockfile mtime ≥ manifest mtime
+- `manifest-fresh` (info) — `.gsd-t/journey-manifest.json` mtime ≥ every `e2e/journeys/*` mtime
+- `ports-free` (error) — `requiredFreePorts: number[]` from `.gsd-t/.unattended/config.json` not occupied
+- `working-tree-state` (warn) — `git status --porcelain` clean (or whitelisted)
+
+Top-level `ok` flips to `false` only when at least one `severity:"error"`
+check fails. Non-error failures (warn/info) record but do not block. Adding a
+new check is a single-file drop into `bin/cli-preflight-checks/`. CLI exit
+codes: 0 = ok, 4 = fail. captureSpawn-exempt (pure inspection, no LLM spawn).
+
+### Pattern B — Context Brief (D4)
+
+`bin/gsd-t-context-brief.cjs::generateBrief({projectDir, kind, domain, spawnId})`
+generates a ≤10 KB / ≤2,500-token JSON snapshot that replaces the 30–60k context
+re-read every parallel worker would otherwise perform — the dominant ITPM-relief
+lever in M55. Six kinds: `execute`, `verify`, `qa`, `red-team`,
+`design-verify`, `scan`. Schema includes `sourceMtimes` for freshness and
+ALPHABETICAL top-level keys for deterministic byte-identical re-runs.
+
+Briefs land at `.gsd-t/briefs/{spawnId}.json` (gitignored — per-spawn
+ephemera). Workers receive `$BRIEF_PATH` in their prompt scaffold.
+
+`qa`, `red-team`, and `design-verify` kinds fail-closed on missing required
+sources. `--strict` upgrades fail-open kinds (`execute`, `verify`, `scan`) to
+fail-closed. Path safety: `--domain` and `--spawn-id` accept ONLY `^[a-zA-Z0-9_-]+$`.
+
+### Pattern C — Empirical Rate-Limit Map (D3)
+
+`bin/gsd-t-ratelimit-probe.cjs` sweeps a `{1,2,3,4,5,6,8} workers × {10k,30k,60k,100k} context` matrix
+across real Claude Max OAuth spawns. The published `.gsd-t/ratelimit-map.json`
+declares: `peakConcurrency=8`, `safeConcurrencyAt60kContext=5`,
+`perWorkerContextBudgetTokens=30000`, `backoffMs=0`,
+`steadyState3Workers5MinPass=true`, **0/84 total 429s**.
+
+D5's verify-gate reads `recommended.peakConcurrency` and passes it to
+`runParallel`'s `maxConcurrency`. If the map is missing,
+verify-gate falls back to `maxConcurrency=2` and logs a structured note.
+
+Account masking enforced: `oauth-c2cc7a8131c440c8`-prefix only, never raw
+token, per `ratelimit-map-contract.md` § Account Masking.
+
+### Pattern D — Parallel-CLI Substrate (D2)
+
+`bin/parallel-cli.cjs::runParallel({workers, maxConcurrency, failFast?, teeDir?})`
+is the engine D5's verify-gate fans out through. Every worker spawn flows
+through `bin/gsd-t-token-capture.cjs::captureSpawn` (CLIs render `—` in the
+Tokens cell — never `0`, never `N/A`). Per-worker NDJSON tee via
+`bin/parallel-cli-tee.cjs`. Per-worker timeout cancels only that worker;
+fail-fast SIGTERM in-flight + 5s grace SIGKILL.
+
+`bin/m55-substrate-proof.cjs` records the empirical speedup: **5.57×** wall-clock
+reduction (T_serial=1813.3ms vs T_par=325.6ms across 6 sleep=250ms workers).
+
+### Two-Track Verify-Gate (D5)
+
+`bin/gsd-t-verify-gate.cjs::runVerifyGate(...)` runs BOTH tracks unconditionally
+unless explicitly skipped via `--skip-track1`/`--skip-track2` (diagnostic-only).
+
+- **Track 1** = D1 preflight envelope; hard-fails on any `severity:"error"` check.
+- **Track 2** = D2 `runParallel` fans out off-the-shelf CLIs: `tsc` (typecheck),
+  `biome`/`ruff` (lint), `npm test` (tests), `knip` (dead-code), `gitleaks` (secrets),
+  `scc`/`lizard` (complexity). Detected via `node_modules/.bin/` and PATH probes —
+  D5 NEVER auto-installs.
+
+`top-level ok = (skipTrack1 || track1.ok) && (skipTrack2 || track2.ok)` —
+purely deterministic. The LLM judge sees only the `summary` field (≤500 tokens,
+head-and-tail snippets per worker; raw stdout/stderr stays at
+`.gsd-t/verify-gate/{runId}/{workerId}.{stdout,stderr}.ndjson` for human-only
+inspection). The judge confirms or contradicts the deterministic verdict; it
+never overrides `ok`.
+
+`bin/gsd-t-verify-gate-judge.cjs` produces the ≤500-token LLM prompt scaffold,
+shrinking failedWorkers/failedChecks lists and snippets iteratively to fit
+the budget regardless of envelope size.
+
+### Wire-Ins
+
+Four CLI subcommands in `bin/gsd-t.js`: `gsd-t preflight`, `gsd-t brief`,
+`gsd-t verify-gate`, `gsd-t verify-gate-judge`. All four added to
+`GLOBAL_BIN_TOOLS` so `~/.claude/bin/` updates propagate via `gsd-t update-all`.
+
+Command-file additive blocks (gated by `<!-- M55-D5: ... -->` markers asserted
+by 3 wire-in tests):
+- `commands/gsd-t-execute.md` Step 1 — preflight + brief invocation, threads
+  `$BRIEF_PATH` into worker prompt scaffolds
+- `commands/gsd-t-verify.md` Step 2 — verify-gate invocation + judge pipe
+- `templates/prompts/{qa,red-team,design-verify}-subagent.md` — "brief first"
+  rule directs workers to grep the ≤2,500-token snapshot before re-walking the repo
+
+### Success Criteria — Falsifiable
+
+1. ✓ State-preflight envelope schema published as STABLE contract (D1)
+2. ✓ Substrate proves ≥3× speedup — measured 5.57× (D2)
+3. ✓ Verify-gate blocks ≥3 distinct preflight failure classes — wrong branch +
+   port conflict + DRAFT contract, evidenced by 3 e2e/journeys specs (D5)
+4. ☐ ≥40% token reduction per milestone for execute+verify cycles (measured
+   during integrate phase)
+5. ✓ Zero 429 errors at parallelism level D3 declared safe + peak parallelism
+   ≥6 — measured 0/84 errors at peak 8 (D3)
+6. ☐ Verify-gate wall-clock ≤ ½ trailing-3 median (measured during integrate)
+7. ☐ Red Team GRUDGING PASS — ≥5 broken patches, all caught (post-wave)
+8. ☐ Zero regressions on `npm test` baseline (verified pre-tag)
+

@@ -122,6 +122,33 @@
       "covers": [],
       "type": "live-journey",
       "addedAt": "2026-05-07"
+    },
+    {
+      "id": "verify-gate-blocks-wrong-branch",
+      "name": "verify-gate-blocks-wrong-branch",
+      "spec": "e2e/journeys/verify-gate-blocks-wrong-branch.spec.ts",
+      "description": "M55 D5 SC3 evidence — verify-gate Track 1 branch-guard fails when project is off the expected branch; ok flips to false",
+      "covers": [],
+      "type": "journey",
+      "addedAt": "2026-05-09"
+    },
+    {
+      "id": "verify-gate-blocks-port-conflict",
+      "name": "verify-gate-blocks-port-conflict",
+      "spec": "e2e/journeys/verify-gate-blocks-port-conflict.spec.ts",
+      "description": "M55 D5 SC3 evidence — verify-gate Track 1 ports-free fails when a required port is occupied; ok flips to false",
+      "covers": [],
+      "type": "journey",
+      "addedAt": "2026-05-09"
+    },
+    {
+      "id": "verify-gate-blocks-contract-draft",
+      "name": "verify-gate-blocks-contract-draft",
+      "spec": "e2e/journeys/verify-gate-blocks-contract-draft.spec.ts",
+      "description": "M55 D5 SC3 evidence — verify-gate Track 1 contracts-stable fires (severity:warn) when DRAFT contracts persist past PARTITIONED; surfaces in failedChecks",
+      "covers": [],
+      "type": "journey",
+      "addedAt": "2026-05-09"
     }
   ]
 }

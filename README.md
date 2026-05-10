@@ -112,6 +112,13 @@ gsd-t parallel --dry-run                                # Print worker plan tabl
 gsd-t parallel --mode in-session --dry-run              # 85% orchestrator-CW ceiling; N=1 floor
 gsd-t parallel --mode unattended --dry-run              # 60% per-worker ceiling; > 60% → task_split
 gsd-t parallel --milestone M44 --domain m44-d2-parallel-cli --dry-run
+
+# CLI-Preflight + Brief + Verify-Gate (M55 — deterministic state checks + parallel substrate)
+gsd-t preflight --json                                  # 6 built-in state checks; exit 0/4
+gsd-t brief --kind execute --domain X --spawn-id Y      # ≤2,500-token JSON snapshot for worker spawn
+gsd-t verify-gate --json                                # Two-track gate: D1 preflight + D2 parallel CLIs
+gsd-t verify-gate --skip-track1 --json                  # Diagnostic: Track 2 only
+gsd-t verify-gate --max-concurrency 4 --json            # Override D3-map default
 ```
 
 `gsd-t parallel` consumes the M44 task-graph (D1) and applies three pre-spawn gates (D4 depgraph validation → D5 file-disjointness → D6 economics) followed by mode-aware headroom/split math. Extends — does not replace — the M40 orchestrator. Contract: `.gsd-t/contracts/wave-join-contract.md` v1.1.0.

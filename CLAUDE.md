@@ -126,6 +126,36 @@ No command file ships a bare `Task(...)` or `claude -p` line outside of a wrappe
 
 Rationale: the pre-M41 convention silently wrote `N/A` tokens because no caller parsed the `usage` envelope. The wrapper is the single place that parses it. Bypassing the wrapper re-introduces blind spots.
 
+## Mandatory Preflight Before Spawn (M55)
+
+Every command that spawns a Task subagent or invokes `claude -p` MUST run `gsd-t preflight` first. Hard-fails on any `severity:"error"` check (wrong branch, occupied required port). Non-error checks (warn/info) record but do not block.
+
+```bash
+gsd-t preflight --json > /tmp/gsd-t-preflight.json || exit 4
+```
+
+This catches drift early — wrong branch, port collision, DRAFT contracts past PARTITIONED — before any LLM work fires. Same envelope is consumed by `gsd-t verify-gate` Track 1, so failing fast at execute time saves the verify round-trip.
+
+Library: `bin/cli-preflight.cjs::runPreflight({projectDir, checks?})`.
+Contract: `.gsd-t/contracts/cli-preflight-contract.md` v1.0.0 STABLE.
+
+## Brief-First Worker Rule (M55)
+
+Every parallel worker prompt scaffold MUST thread `$BRIEF_PATH` — a ≤2,500-token JSON snapshot generated once per spawn by `bin/gsd-t-context-brief.cjs`. The brief replaces the 30–60k context re-read every parallel worker would otherwise perform (CLAUDE.md + contracts + scope + relevant code) — the dominant ITPM-relief lever in M55.
+
+```bash
+SPAWN_ID="execute-${DOMAIN}-$(date -u +%Y%m%dT%H%M%SZ)"
+gsd-t brief --kind execute --domain "${DOMAIN}" --spawn-id "${SPAWN_ID}" --out ".gsd-t/briefs/${SPAWN_ID}.json"
+export BRIEF_PATH=".gsd-t/briefs/${SPAWN_ID}.json"
+```
+
+The 3 validation-subagent protocols (`templates/prompts/{qa,red-team,design-verify}-subagent.md`) carry the canonical instruction "If you're about to grep, read, or run a test, check the brief first at `$BRIEF_PATH`." Workers grep the brief instead of re-walking the repo.
+
+`.gsd-t/briefs/` is gitignored — briefs are per-spawn ephemera, not committed artifacts.
+
+Library: `bin/gsd-t-context-brief.cjs::generateBrief(...)`.
+Contract: `.gsd-t/contracts/context-brief-contract.md` v1.0.0 STABLE.
+
 
 # Destructive Action Guard (MANDATORY)
 
