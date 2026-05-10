@@ -1,0 +1,11 @@
+{
+  "timestamp": "2026-05-10T00:00:42.030Z",
+  "n_workers": 6,
+  "sleep_ms": 250,
+  "T_serial_ms": 1813.302709,
+  "T_par_ms": 325.594083,
+  "speedup": 5.569212721227492,
+  "parallelism_factor": 4.606963327401745,
+  "threshold_speedup": 3,
+  "passed": true
+}
