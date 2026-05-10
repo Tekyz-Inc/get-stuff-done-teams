@@ -182,7 +182,7 @@ function loadKindRegistry() {
   return out;
 }
 
-const KINDS = ['design-verify', 'execute', 'qa', 'red-team', 'scan', 'verify'];
+const KINDS = ['design-verify', 'discuss', 'execute', 'impact', 'milestone', 'partition', 'plan', 'qa', 'red-team', 'scan', 'verify'];
 
 /**
  * Deterministic JSON stringifier — alphabetical keys at every nesting level,

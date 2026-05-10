@@ -70,8 +70,11 @@ test('MAX_BRIEF_BYTES is 10240', () => {
   assert.equal(lib.MAX_BRIEF_BYTES, 10240);
 });
 
-test('KINDS contains the 6 declared kinds', () => {
-  const expected = ['design-verify', 'execute', 'qa', 'red-team', 'scan', 'verify'];
+test('KINDS contains all declared kinds (M55 D4: 6 + M56 D2: 5 = 11)', () => {
+  const expected = [
+    'design-verify', 'discuss', 'execute', 'impact', 'milestone',
+    'partition', 'plan', 'qa', 'red-team', 'scan', 'verify',
+  ];
   assert.deepEqual(lib.KINDS.slice().sort(), expected);
 });
 
@@ -105,10 +108,13 @@ test('generateBrief returns v1.0.0 envelope shape', () => {
 
 // ── Kind dispatch ───────────────────────────────────────────────────────────
 
-test('loadKindRegistry returns 6 kinds, name === filename stem', () => {
+test('loadKindRegistry returns all kinds, name === filename stem', () => {
   const reg = lib.loadKindRegistry();
   const names = reg.map((k) => k.name).sort();
-  assert.deepEqual(names, ['design-verify', 'execute', 'qa', 'red-team', 'scan', 'verify']);
+  assert.deepEqual(names, [
+    'design-verify', 'discuss', 'execute', 'impact', 'milestone',
+    'partition', 'plan', 'qa', 'red-team', 'scan', 'verify',
+  ]);
   for (const k of reg) {
     assert.equal(typeof k.collect, 'function');
     assert.ok(Array.isArray(k.requiresSources));

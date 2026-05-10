@@ -16,6 +16,18 @@ Read:
 
 If run standalone, ask: "What changes are you considering?"
 
+<!-- M56-D3: brief wire-in -->
+**M56 Context-Brief (surfaces git diff + integration-points excerpt without re-walking the repo):**
+
+```bash
+SPAWN_ID="impact-${MILESTONE:-default}-$(date -u +%Y%m%dT%H%M%SZ)"
+gsd-t brief --kind impact --spawn-id "${SPAWN_ID}" --out ".gsd-t/briefs/${SPAWN_ID}.json" || true
+export BRIEF_PATH=".gsd-t/briefs/${SPAWN_ID}.json"
+```
+
+The `impact` brief includes `gitDiffSummary`, `changedFiles[]`, and the milestone's `integrationPointsExcerpt` so downstream workers can scan blast radius without re-reading the contract dir.
+<!-- /M56-D3: brief wire-in -->
+
 ## Step 2: Identify Changed Files
 
 From the plan or user description, list:

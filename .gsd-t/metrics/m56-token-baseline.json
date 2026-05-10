@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "1.0.0",
+  "description": "M55 baseline + M56 actual token totals for SC4 retroactive closure",
+  "m55Baseline": {
+    "totalCostUsd": 21.84,
+    "source": "run.log iters 1-5 + supervisor envelopes",
+    "verifyGateWallClockMs": 34000,
+    "note": "Trailing-3 milestones M50/M52/M54 did not capture comparable token totals; M55 was the first measurable verify-gate run. Per-task token totals were sparse — M56 first execute+verify cycle produces the comparable measurement."
+  },
+  "m56Actual": null,
+  "tokenDeltaUsd": null,
+  "generatedAt": "2026-05-10T03:45Z"
+}

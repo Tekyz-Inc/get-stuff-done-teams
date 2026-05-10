@@ -51,6 +51,18 @@ If `.gsd-t/` doesn't exist, create the full directory structure:
 └── progress.md
 ```
 
+<!-- M56-D3: brief wire-in -->
+**M56 Context-Brief (replaces 30–60k context re-read with ≤2,500-token JSON snapshot):**
+
+```bash
+SPAWN_ID="partition-${MILESTONE:-default}-$(date -u +%Y%m%dT%H%M%SZ)"
+gsd-t brief --kind partition --spawn-id "${SPAWN_ID}" --out ".gsd-t/briefs/${SPAWN_ID}.json" || true
+export BRIEF_PATH=".gsd-t/briefs/${SPAWN_ID}.json"
+```
+
+Pass `$BRIEF_PATH` into any worker prompts spawned downstream so they grep the brief instead of re-walking the repo.
+<!-- /M56-D3: brief wire-in -->
+
 ## Step 1.5: Assumption Audit (MANDATORY — complete before domain work begins)
 
 ```bash

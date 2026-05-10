@@ -139,6 +139,28 @@ Read:
 3. `.gsd-t/contracts/` — all contracts
 4. `.gsd-t/domains/*/scope.md` — domain boundaries
 
+<!-- M56-D4: preflight + brief + verify-gate wire-in -->
+**M56 Preflight + Context-Brief (mandatory before any debug investigation):**
+
+```bash
+gsd-t preflight --json > /tmp/gsd-t-preflight.json || exit 4
+
+SPAWN_ID="debug-${ARG_OR_DEFAULT:-investigation}-$(date -u +%Y%m%dT%H%M%SZ)"
+gsd-t brief --kind debug --out ".gsd-t/briefs/${SPAWN_ID}.json" || true
+export BRIEF_PATH=".gsd-t/briefs/${SPAWN_ID}.json"
+```
+
+If preflight exits 4, surface the failed `severity:"error"` checks (wrong branch, occupied required port) to the user and STOP — do NOT proceed with the debug investigation. The brief replaces the 30–60k context re-read with a ≤2,500-token JSON snapshot.
+
+**Verify-gate at end** (only if debug fix produced code changes):
+
+```bash
+if git status --porcelain | grep -q .; then
+  gsd-t verify-gate --json > /tmp/gsd-t-verify-gate.json || exit 4
+fi
+```
+<!-- /M56-D4: preflight + brief + verify-gate wire-in -->
+
 ## Step 1.5: Debug Loop Detection (MANDATORY)
 
 ```bash

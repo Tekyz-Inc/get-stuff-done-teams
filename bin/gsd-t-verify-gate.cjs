@@ -278,6 +278,26 @@ function _detectDefaultTrack2(projectDir, notes) {
     });
   }
 
+  // M56 D1: playwright e2e — native CLI worker (not Task subagent wrapper)
+  if (has('playwright.config.ts') || has('playwright.config.js') || has('playwright.config.cjs')) {
+    plan.push({
+      id: 'playwright',
+      cmd: 'npx',
+      args: ['--no-install', 'playwright', 'test'],
+      timeoutMs: 600000,
+    });
+  }
+
+  // M56 D1: journey coverage — gsd-t check-coverage (native CLI, no LLM)
+  if (has('.gsd-t/journey-manifest.json')) {
+    plan.push({
+      id: 'journey-coverage',
+      cmd: 'node',
+      args: ['./bin/gsd-t.js', 'check-coverage'],
+      timeoutMs: 30000,
+    });
+  }
+
   // secrets — gitleaks (PATH detection deferred to runtime)
   if (_hasOnPath('gitleaks')) {
     plan.push({

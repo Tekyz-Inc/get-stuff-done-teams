@@ -15,6 +15,18 @@ Read:
 
 If `.gsd-t/` doesn't exist, run the init workflow first.
 
+<!-- M56-D3: brief wire-in -->
+**M56 Context-Brief (surfaces last completed milestone + version + recent decision log without re-reading progress.md):**
+
+```bash
+SPAWN_ID="milestone-${ARG_OR_DEFAULT:-define}-$(date -u +%Y%m%dT%H%M%SZ)"
+gsd-t brief --kind milestone --spawn-id "${SPAWN_ID}" --out ".gsd-t/briefs/${SPAWN_ID}.json" || true
+export BRIEF_PATH=".gsd-t/briefs/${SPAWN_ID}.json"
+```
+
+The `milestone` brief includes `lastCompletedMilestoneRow`, `currentVersion`, and the last 3 decision-log entries so the milestone-definition step can derive version-bump rationale + scope baseline without paging in the full progress history.
+<!-- /M56-D3: brief wire-in -->
+
 ## Step 2: Define the Milestone
 
 ```bash

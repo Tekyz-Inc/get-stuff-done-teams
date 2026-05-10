@@ -146,6 +146,28 @@ Read:
 2. `.gsd-t/progress.md` (if exists)
 3. `.gsd-t/contracts/` (if exists) — scan for relevant contracts
 
+<!-- M56-D4: preflight + brief + verify-gate wire-in -->
+**M56 Preflight + Context-Brief (mandatory before any quick-task work):**
+
+```bash
+gsd-t preflight --json > /tmp/gsd-t-preflight.json || exit 4
+
+SPAWN_ID="quick-${ARG_OR_DEFAULT:-task}-$(date -u +%Y%m%dT%H%M%SZ)"
+gsd-t brief --kind quick --out ".gsd-t/briefs/${SPAWN_ID}.json" || true
+export BRIEF_PATH=".gsd-t/briefs/${SPAWN_ID}.json"
+```
+
+If preflight exits 4, surface the failed `severity:"error"` checks (wrong branch, occupied required port) to the user and STOP — do NOT proceed with the quick task. The brief replaces the 30–60k context re-read with a ≤2,500-token JSON snapshot.
+
+**Verify-gate at end** (only if quick task produced code changes):
+
+```bash
+if git status --porcelain | grep -q .; then
+  gsd-t verify-gate --json > /tmp/gsd-t-verify-gate.json || exit 4
+fi
+```
+<!-- /M56-D4: preflight + brief + verify-gate wire-in -->
+
 ## Step 1.5: Graph-Enhanced Scope Check
 
 ```bash

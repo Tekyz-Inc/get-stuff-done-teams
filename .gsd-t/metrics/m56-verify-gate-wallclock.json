@@ -1,0 +1,9 @@
+{
+  "schemaVersion": "1.0.0",
+  "description": "M55 baseline + M56 actual verify-gate dogfood wall-clock",
+  "m55BaselineMs": 34000,
+  "m55BaselineSource": "M55 D5 verify-gate dogfood, recorded 2026-05-09 17:31 PDT",
+  "m56ActualMs": null,
+  "speedupFactor": null,
+  "generatedAt": "2026-05-10T03:45Z"
+}

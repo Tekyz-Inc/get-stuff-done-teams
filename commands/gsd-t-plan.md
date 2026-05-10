@@ -27,6 +27,18 @@ Read ALL of these:
 
 **If CONTEXT.md exists:** Every Locked Decision listed in it MUST be mapped to at least one task in Step 2. Do NOT proceed to execute if any Locked Decision is unmapped.
 
+<!-- M56-D3: brief wire-in -->
+**M56 Context-Brief (replaces 30–60k context re-read with ≤2,500-token JSON snapshot):**
+
+```bash
+SPAWN_ID="plan-${MILESTONE:-default}-$(date -u +%Y%m%dT%H%M%SZ)"
+gsd-t brief --kind plan --spawn-id "${SPAWN_ID}" --out ".gsd-t/briefs/${SPAWN_ID}.json" || true
+export BRIEF_PATH=".gsd-t/briefs/${SPAWN_ID}.json"
+```
+
+Pass `$BRIEF_PATH` into any worker prompts spawned downstream (validation subagents read it via `templates/prompts/{qa,red-team,design-verify}-subagent.md`).
+<!-- /M56-D3: brief wire-in -->
+
 ## Step 1.5: Graph-Enhanced Dependency Detection
 
 ```bash
