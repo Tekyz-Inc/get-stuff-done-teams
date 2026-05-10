@@ -6461,11 +6461,14 @@
     "ok": true
   },
   "recommended": {
-    "safeConcurrencyAt60kContext": 5,
-    "peakConcurrency": 8,
+    "safeConcurrencyAt60kContext": 11,
+    "peakConcurrency": 12,
     "perWorkerContextBudgetTokens": 30000,
     "backoffMs": 0,
-    "steadyState3Workers5MinPass": true
+    "steadyState3Workers5MinPass": true,
+    "notes": [
+      "2026-05-09 18:45 PDT: bumped peakConcurrency 8→12 + safeConcurrencyAt60kContext 5→11 per user directive — most workloads will be Sonnet (cliff not found through N=11, evidence in m55-cliff-claude-sonnet-4-6.json), with occasional Opus (≥7 confirmed clean, full ramp not completed due to plan usage cap)."
+    ]
   },
   "notes": [
     "authPath: oauth-claude-max",
