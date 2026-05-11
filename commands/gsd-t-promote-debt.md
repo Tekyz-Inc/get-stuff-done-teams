@@ -67,7 +67,7 @@ Append to `.gsd-t/roadmap.md`:
 - [ ] {each debt item resolved and verified}
 - [ ] No regression in existing functionality
 - [ ] {item-specific criteria from techdebt.md}
-**Estimated effort**: {combined effort assessment}
+**Estimated scope**: {N domains} / {N waves} / $X-Y token-spend (express in GSD-T units only — never developer-hours/days/sprints per `feedback_no_human_hour_estimates.md`)
 **Priority**: {CRITICAL — before next feature | HIGH — soon | MEDIUM — planned}
 ```
 

@@ -176,7 +176,7 @@ MANDATORY:
   │
   ├── For each design requirement, assess:
   │     Supported → stack handles this natively, proceed
-  │     Partial → needs an addon/library — name it, estimate effort
+  │     Partial → needs an addon/library — name it, scope in GSD-T units (domain/wave/spawn/token, NOT dev-hours)
   │     Unsupported → stack CANNOT achieve this — flag as a blocker
   │
   ├── If ANY requirement is Unsupported:

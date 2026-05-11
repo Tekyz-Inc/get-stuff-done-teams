@@ -572,6 +572,30 @@ BEFORE reporting "done" or presenting a summary:
 
 **The test for this gate**: If the user asks "did you update all the documents?" and the answer would be "no, I missed some" — you failed this gate. The user should never need to ask.
 
+## Effort Estimates — GSD-T-Native Units (MANDATORY)
+
+**NEVER express effort or scope in developer-hours, dev-days, sprints, story points, or person-weeks.** GSD-T operates on a different cost model — the worker is Claude, not a human team — and human-time estimates have no predictive value for GSD-T workflows. They actively mislead by suggesting a calendar shape that doesn't match how the system runs.
+
+Use GSD-T-native units instead:
+
+| Unit | When to use |
+|------|-------------|
+| **Domain count** | Milestone scope (1-2 simple, 3-4 medium, 5+ complex) |
+| **Wave count** | Cross-domain dependency depth — how many serial gates exist |
+| **Parallel-domain count** | How many domains can run concurrently (file-disjoint) |
+| **Spawn count** | Estimated `claude -p` / Task subagent invocations |
+| **Token-spend range** | `$X-Y` dollars based on trailing-3 comparable milestones in `.gsd-t/token-log.md` |
+| **Rate-limit-window count** | If the work might span > 1 5h Claude Max window |
+
+Where this applies:
+- `/gsd-t-milestone` Step 4 — Pre-Partition Assessment
+- `/gsd-t-scan` techdebt milestone suggestions
+- `/gsd-t-promote-debt` effort fields
+- `docs/requirements.md`, `progress.md` Decision Log entries
+- Any internal estimate the user might read
+
+Acceptable: machine-time references (e.g. "5 min cache TTL", "5h rate-limit window", "14 day staleness threshold") — these are concrete system properties, not effort estimates. The rule applies to **effort/scope**, not to **system timeouts**.
+
 ## Execution Behavior
 - ALWAYS check docs/architecture.md before adding or modifying components.
 - ALWAYS check docs/workflows.md before changing any multi-step process.

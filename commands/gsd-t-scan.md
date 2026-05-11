@@ -351,7 +351,7 @@ Synthesize ALL findings into a **fresh** `.gsd-t/techdebt.md` (the previous vers
 - High priority: {N}
 - Medium priority: {N}
 - Low priority: {N}
-- Total estimated effort: {rough assessment}
+- Total estimated scope: {N domains} / {N waves} / $X-Y token-spend (GSD-T units only — see `feedback_no_human_hour_estimates.md`)
 - Previous scan archive: techdebt_{previous-date}.md
 
 ---
@@ -461,22 +461,22 @@ Review all items marked `Milestone candidate: YES` and group them into logical m
 
 ### Suggested: Security Hardening (Critical)
 Combines: TD-001, TD-003, TD-005
-Estimated effort: {assessment}
+Estimated scope: {domain-count} domains, {wave-count} waves, $X-Y token-spend (express in GSD-T units — domain/wave/spawn/token — never human-hours/days/sprints per `feedback_no_human_hour_estimates.md`)
 Should be prioritized: BEFORE next feature milestone
 
 ### Suggested: Performance Optimization (High)
 Combines: TD-010, TD-012, TD-015
-Estimated effort: {assessment}
+Estimated scope: {domain-count} domains, {wave-count} waves, $X-Y token-spend (express in GSD-T units — domain/wave/spawn/token — never human-hours/days/sprints per `feedback_no_human_hour_estimates.md`)
 Can be scheduled: AFTER current feature work
 
-### Suggested: Dependency Update Sprint (Medium)
+### Suggested: Dependency Update (Medium)
 Combines: TD-020, dependency table items with breaking=yes
-Estimated effort: {assessment}
+Estimated scope: {domain-count} domains, {wave-count} waves, $X-Y token-spend (express in GSD-T units — domain/wave/spawn/token — never human-hours/days/sprints per `feedback_no_human_hour_estimates.md`)
 Can be scheduled: During next maintenance window
 
 ### Suggested: Shared Service Extraction (if candidates found)
 Combines: all "Shared Service Candidates" from quality.md Reusability Analysis
-Estimated effort: {assessment}
+Estimated scope: {domain-count} domains, {wave-count} waves, $X-Y token-spend (express in GSD-T units — domain/wave/spawn/token — never human-hours/days/sprints per `feedback_no_human_hour_estimates.md`)
 Should be prioritized: BEFORE adding new consumer surfaces to the system
 Note: Use `/gsd-t-partition` Step 1.6 to design the SharedCore domain
 ```

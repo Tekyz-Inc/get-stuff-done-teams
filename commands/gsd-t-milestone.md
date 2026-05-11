@@ -68,13 +68,29 @@ Ask user: "Milestone {N-1} is still {status}. Archive it and start new? Or compl
 node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-milestone --step 4 --step-label "Pre-Partition Assessment" 2>/dev/null || true
 ```
 
-Before formal partitioning, do a quick assessment:
+Before formal partitioning, do a quick assessment.
 
-- **Complexity estimate**: Simple (1-2 domains), Medium (3-4), Complex (5+)
+**Express scope in GSD-T-native units only.** Per `feedback_no_human_hour_estimates.md` (memory): never use developer-hours, dev-days, sprints, story points, or person-weeks. Use these instead:
+
+| Unit | Use for |
+|------|---------|
+| **Domain count** | Partition coarseness (1-2 / 3-4 / 5+) |
+| **Wave count** | How many serial gates the milestone needs |
+| **Spawn count** | Estimated `claude -p` / Task subagent invocations |
+| **Token-spend range** | `$X-Y` based on prior comparable milestones |
+| **Rate-limit-window count** | If the milestone might span > 1 5h Claude Max window |
+| **Parallel-domain count** | How many domains can run concurrently (file-disjoint) |
+
+Assessment template:
+
+- **Domain count**: Simple (1-2 domains), Medium (3-4), Complex (5+)
+- **Wave count**: estimated based on cross-domain dependencies
+- **Parallel-domain count**: how many can run in the same wave
+- **Token-spend range**: $X-Y based on prior comparable milestones (read `.gsd-t/token-log.md` for trailing-3 comparison)
 - **Recommended approach**:
-  - Simple: Consider using /gsd-t-quick for each piece
-  - Medium: Standard partition → plan → execute flow
-  - Complex: Partition → discuss → plan → execute → integrate → verify
+  - 1-2 domains: Consider using /gsd-t-quick for each piece
+  - 3-4 domains: Standard partition → plan → execute flow
+  - 5+ domains: Partition → discuss → plan → execute → integrate → verify
 
 Present the assessment and ask: "Ready to partition into domains now, or want to discuss first?"
 

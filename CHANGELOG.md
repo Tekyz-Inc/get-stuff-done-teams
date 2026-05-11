@@ -2,6 +2,23 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [3.26.11] - 2026-05-11
+
+### Changed — Effort estimates in GSD-T-native units
+
+Promoted `feedback_no_human_hour_estimates.md` from per-user memory to canonical global rule. Replaced all 7 `Estimated effort: {assessment}` placeholders that were silently producing developer-hour / dev-day / sprint output with explicit GSD-T-unit prompts.
+
+- `~/.claude/CLAUDE.md` + `templates/CLAUDE-global.md`: new MANDATORY section "Effort Estimates — GSD-T-Native Units" with the unit table (domain count, wave count, parallel-domain count, spawn count, token-spend range, rate-limit-window count) + acceptable-machine-time-references carve-out (5 min cache TTL, 14 day staleness, etc.) so the rule doesn't break legitimate system-timeout language.
+- `commands/gsd-t-milestone.md` Step 4: Pre-Partition Assessment now requires GSD-T units, presents the unit table inline.
+- `commands/gsd-t-scan.md`: 5 `Estimated effort: {assessment}` placeholders replaced with `Estimated scope: {N domains}/{N waves}/$X-Y token-spend` + memory reference.
+- `commands/gsd-t-promote-debt.md`: same swap.
+- `commands/gsd-t-scan.md`: "Dependency Update Sprint" → "Dependency Update".
+- `templates/stacks/design-to-code.md`: "estimate effort" → "scope in GSD-T units".
+
+Rationale: human-hour estimates ("30-min task", "2-3 day window") create false mental models for GSD-T workflows where the worker is Claude, not a human team. Token-spend, parallel-domain count, and rate-limit-window count are the actually-predictive units.
+
+Tests: 2547/2547 (unchanged — doc-only change).
+
 ## [3.26.10] - 2026-05-09
 
 ### Added — M56: Verify-Gate CLI Fan-Out + Upper-Stage Briefs
