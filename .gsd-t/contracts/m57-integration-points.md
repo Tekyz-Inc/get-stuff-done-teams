@@ -4,6 +4,30 @@ Milestone: M57 — CI-Parity Verify Gate
 Domains: m57-d1-build-coverage-check, m57-d2-ci-command-parity
 Wave plan: **1 parallel wave (D1 ∥ D2)** → integrate → verify → complete-milestone
 
+## Dependency Graph
+
+### Wave 1 — Independent (parallel): D1 ∥ D2
+- m57-d1-build-coverage-check: M57-D1-T1 … T5 (intra-domain serial T1→T2→T3→T4→T5)
+- m57-d2-ci-command-parity: M57-D2-T1 … T5 (intra-domain serial T1→T2→T3→T4→T5)
+- **Shared files**: NONE within the wave — D1 and D2 own strictly disjoint files
+- **Cross-domain deps**: NONE — neither domain reads the other's output at execute time
+- **Completes when**: both domains' T5 (contract STABLE) done + tests green
+
+### Integration (serial, after Wave 1)
+- CHECKPOINT C1: D1 execute clean → D1 wire-in unblocked
+- CHECKPOINT C2: D2 execute clean → D2 wire-in unblocked
+- INTEGRATION: serially edit the two SHARED files (`bin/gsd-t.js` dispatch +
+  global-bin arrays; `commands/gsd-t-verify.md` FAIL-blocking gate) — D1 wire-in
+  then D2 wire-in, single agent, no parallelism (same files)
+- CHECKPOINT C3: both wire-ins landed → verify unblocked
+
+### Solo-mode execution order
+1. Wave 1: D1 T1-T5 and D2 T1-T5 (parallel-safe — run concurrently or interleaved)
+2. CHECKPOINT C1 + C2: both domains green
+3. Integration: gsd-t.js dispatch + verify.md gate (serial, single agent)
+4. CHECKPOINT C3
+5. Verify → complete-milestone
+
 ## File-Disjointness (parallel wave safety)
 
 D1 and D2 own strictly disjoint files during the execute wave:
