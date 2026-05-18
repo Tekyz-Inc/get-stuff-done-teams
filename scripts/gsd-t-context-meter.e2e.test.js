@@ -74,7 +74,7 @@ class Sandbox {
    * The charCount parameter controls how many characters of text content
    * are in the transcript, which determines the estimated token count.
    */
-  writeTranscript(filename = "transcript.jsonl", charCount = 100) {
+  writeTranscript(filename = "transcript.jsonl", charCount = 100, model = "claude-opus-4-6") {
     const userText = "x".repeat(Math.floor(charCount / 2));
     const assistantText = "y".repeat(Math.ceil(charCount / 2));
     const lines = [
@@ -89,7 +89,7 @@ class Sandbox {
         message: {
           role: "assistant",
           content: [{ type: "text", text: assistantText }],
-          model: "claude-opus-4-6",
+          model,
         },
         uuid: "a1",
         sessionId: "sess-1",
@@ -231,7 +231,9 @@ afterEach(async () => {
 /* ──────────────────────────── tests ──────────────────────────── */
 
 test("E2E 1. below threshold — stdout {} and state reflects estimate", async () => {
-  // 100 chars of text content → ~29 tokens (100/3.5) → 0.014% of 200K window
+  // 100 chars → ~29 tokens. The transcript declares claude-opus-4-6, so the
+  // EFFECTIVE window is the real 1M (model-aware sizing), not the config's
+  // legacy 200K — ~0.003% of 1M, well below threshold.
   sandbox.writeConfig({ thresholdPct: 75, modelWindowSize: 200000, checkFrequency: 1 });
   const transcriptPath = sandbox.writeTranscript("transcript.jsonl", 100);
 
@@ -248,7 +250,11 @@ test("E2E 1. below threshold — stdout {} and state reflects estimate", async (
   assert.equal(state.version, 1);
   assert.ok(state.inputTokens > 0, "should have estimated some tokens");
   assert.ok(state.inputTokens < 1000, "small transcript should estimate < 1K tokens");
-  assert.equal(state.modelWindowSize, 200000);
+  assert.equal(
+    state.modelWindowSize,
+    1_000_000,
+    "window resolved from the transcript's claude-opus-4-6 model (1M), not config 200K"
+  );
   assert.ok(state.pct < 1, "pct should be well below threshold");
   assert.equal(state.threshold, "normal");
   assert.equal(state.checkCount, 1);
@@ -258,9 +264,15 @@ test("E2E 1. below threshold — stdout {} and state reflects estimate", async (
 });
 
 test("E2E 2. above threshold — stdout additionalContext with large transcript", async () => {
-  // 600K chars → ~171K tokens → 85.7% of 200K window → warn band + additionalContext
+  // Haiku → real 200K window. 600K chars → ~171K tokens → ~85.7% of 200K →
+  // threshold band + additionalContext. (Model-aware sizing means we pin a
+  // 200K-window model here rather than relying on a stale config default.)
   sandbox.writeConfig({ thresholdPct: 75, modelWindowSize: 200000, checkFrequency: 1 });
-  const transcriptPath = sandbox.writeTranscript("transcript.jsonl", 600000);
+  const transcriptPath = sandbox.writeTranscript(
+    "transcript.jsonl",
+    600000,
+    "claude-haiku-4-5-20251001"
+  );
 
   const { stdout, code } = await sandbox.runHook({
     payload: { session_id: "test-above", transcript_path: transcriptPath },
@@ -281,6 +293,33 @@ test("E2E 2. above threshold — stdout additionalContext with large transcript"
   assert.equal(state.checkCount, 1);
   assert.equal(state.lastError, null);
   assert.equal(sandbox.tmpFileExists(), false);
+});
+
+test("E2E 2b. REGRESSION — large Opus transcript stays 'normal' on the 1M window", async () => {
+  // The reported bug, end-to-end: ~600K chars → ~171K tokens. Under the old
+  // hardcoded 200K window this read as ~85% → false headless handoff while
+  // ~64% of context REMAINED. With model-aware sizing (claude-opus-4-7 → 1M),
+  // 171K is only ~17% → stdout {} → no premature handoff.
+  sandbox.writeConfig({ thresholdPct: 75, modelWindowSize: 200000, checkFrequency: 1 });
+  const transcriptPath = sandbox.writeTranscript(
+    "transcript.jsonl",
+    600000,
+    "claude-opus-4-7"
+  );
+
+  const { stdout, code } = await sandbox.runHook({
+    payload: { session_id: "test-regression", transcript_path: transcriptPath },
+  });
+
+  assert.equal(code, 0);
+  const parsed = JSON.parse(stdout || "{}");
+  assert.deepEqual(parsed, {}, "must NOT hand off — the reported regression");
+
+  const state = sandbox.readState();
+  assert.equal(state.modelWindowSize, 1_000_000);
+  assert.ok(state.inputTokens > 100000, "large transcript, >100K tokens");
+  assert.ok(state.pct < 75, `pct ${state.pct} must be below threshold on a 1M window`);
+  assert.equal(state.threshold, "normal");
 });
 
 test("E2E 3. missing transcript — stdout {}, state has parse error", async () => {
