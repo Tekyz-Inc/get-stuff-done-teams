@@ -1,0 +1,17 @@
+GSD-T Headless Log
+Command: quick
+Args: 
+Timestamp: 2026-04-23T04:17:46.699Z
+Duration: 7837ms
+Exit Code: 0
+---
+GSD-T v3.18.13 — up to date
+Changelog: https://github.com/Tekyz-Inc/get-stuff-done-teams/blob/main/CHANGELOG.md
+
+I need a task description to proceed with `/gsd-t-quick`. The command was invoked without arguments.
+
+What quick task would you like me to run? For example:
+- A bug fix
+- A small config change
+- A minor feature addition
+- An ad-hoc code change

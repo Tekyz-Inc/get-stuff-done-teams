@@ -1,0 +1,11 @@
+{
+  "id": "gsd-t-wave-2026-05-06-08-35-39",
+  "pid": 58655,
+  "logPath": ".gsd-t/headless-gsd-t-wave-2026-05-06-08-35-39.log",
+  "startTimestamp": "2026-05-06T15:35:39.014Z",
+  "command": "gsd-t-wave",
+  "args": [],
+  "status": "running",
+  "continueFromPath": ".",
+  "surfaced": false
+}

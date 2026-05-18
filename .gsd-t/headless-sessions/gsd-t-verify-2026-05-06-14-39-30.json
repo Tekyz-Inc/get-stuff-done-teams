@@ -1,0 +1,13 @@
+{
+  "id": "gsd-t-verify-2026-05-06-14-39-30",
+  "pid": 8340,
+  "logPath": ".gsd-t/headless-gsd-t-verify-2026-05-06-14-39-30.log",
+  "startTimestamp": "2026-05-06T21:39:30.390Z",
+  "command": "gsd-t-verify",
+  "args": [
+    "--timeout=1800"
+  ],
+  "status": "running",
+  "continueFromPath": ".",
+  "surfaced": false
+}

@@ -1,0 +1,14 @@
+{
+  "id": "gsd-t-milestone-2026-05-06-17-17-22",
+  "pid": 54230,
+  "logPath": ".gsd-t/headless-gsd-t-milestone-2026-05-06-17-17-22.log",
+  "startTimestamp": "2026-05-07T00:17:22.054Z",
+  "command": "gsd-t-milestone",
+  "args": [
+    "Read /tmp/m52-milestone-prompt.txt — formalize M52 Rigorous User-Journey Coverage milestone.",
+    "--timeout=1800"
+  ],
+  "status": "running",
+  "continueFromPath": ".",
+  "surfaced": false
+}

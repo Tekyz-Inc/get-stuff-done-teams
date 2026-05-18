@@ -1,0 +1,8 @@
+GSD-T Headless Log
+Command: execute
+Args: 
+Timestamp: 2026-04-23T17:20:56.540Z
+Duration: 92923ms
+Exit Code: 0
+---
+Wake-up scheduled in 270s. Will check worker completion then; supervisor is not running, so I'm relying on the headless read-back banner at resume to surface their exits.

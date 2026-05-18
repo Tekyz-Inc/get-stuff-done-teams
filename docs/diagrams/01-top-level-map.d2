@@ -1,0 +1,77 @@
+...@_theme.d2
+
+
+user: User input { class: endpoint }
+
+router: "/gsd\nsmart router" { class: router }
+
+user -> router: types
+
+continuation: continue last command { class: cmd }
+talk: dialog only\n(no spawn) { class: subagent }
+entry: Entry kind? { class: decision }
+
+router -> continuation: continuation
+router -> talk: conversational
+router -> entry: workflow
+
+onboard: {
+  class: group
+  label: Onboarding
+  iss: "/gsd-t-init-scan-setup" { class: cmd }
+  init: "/gsd-t-init" { class: cmd }
+  scan: "/gsd-t-scan" { class: cmd }
+  setup: "/gsd-t-setup" { class: cmd }
+  iss -> init -> scan -> setup
+}
+
+design: {
+  class: group
+  label: Design pipeline
+  dd: "/gsd-t-design-decompose" { class: cmd }
+  db: "/gsd-t-design-build" { class: cmd }
+  dr: "/gsd-t-design-review" { class: cmd }
+  da: "/gsd-t-design-audit" { class: cmd }
+  dd -> db -> dr
+  db -> da: optional { style.stroke-dash: 3 }
+}
+
+backlog: {
+  class: group
+  label: Backlog
+  badd: "/gsd-t-backlog-add" { class: cmd }
+  bpromo: "/gsd-t-backlog-promote" { class: cmd }
+  badd -> bpromo
+}
+
+proj: "/gsd-t-project" { class: cmd }
+feat: "/gsd-t-feature" { class: cmd }
+gap: "/gsd-t-gap-analysis" { class: cmd }
+quick: "/gsd-t-quick" { class: cmd }
+debug: "/gsd-t-debug" { class: cmd }
+stat: "/gsd-t-status" { class: cmd }
+
+mile: "/gsd-t-milestone" { class: cmd; style.bold: true }
+auto: Hands-off? { class: decision }
+wave: "/gsd-t-wave\n(full cycle)" { class: cmd; style.bold: true }
+part: "/gsd-t-partition" { class: cmd }
+
+entry -> proj: greenfield
+entry -> onboard.iss: onboard repo
+entry -> feat: new feature
+entry -> gap: spec vs code
+entry -> quick: small task
+entry -> debug: bug
+entry -> design.dd: design-to-code
+entry -> backlog.badd: capture idea
+entry -> stat: status
+
+proj -> mile
+feat -> mile
+gap -> mile: gaps found { style.stroke-dash: 3 }
+onboard.scan -> mile: techdebt { style.stroke-dash: 3 }
+backlog.bpromo -> mile
+
+mile -> auto
+auto -> wave: yes
+auto -> part: step-by-step

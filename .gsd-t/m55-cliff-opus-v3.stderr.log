@@ -1,0 +1,19 @@
+[cliff-v3] model: claude-opus-4-7
+[cliff-v3] fixture: 30kb real prose
+[cliff-v3] === SMOKE: N=1 ===
+
+[cliff-v3] === N=1 starting ===
+[cliff-v3] N=1 done in 7.5s: {"success":1}
+  success sample: n1-w0 exit=0 wall=7.5s stop=end_turn apiErr=null preview="Sat: May 9, 2026 18:26 PDT — GSD-T v3.24.10 — CURRENT\n\nWrap "
+
+[cliff-v3] ✅ SMOKE OK — climbing.
+
+[cliff-v3] === N=7 starting ===
+[cliff-v3] N=7 done in 11.0s: {"success":7}
+  success sample: n7-w0 exit=0 wall=10.1s stop=end_turn apiErr=null preview="Sat: May 9, 2026 18:26 PDT — GSD-T v3.24.10 — CURRENT\n\nRoute"
+
+[cliff-v3] === N=9 starting ===
+[cliff-v3] N=9 done in 12.9s: {"success":9}
+  success sample: n9-w0 exit=0 wall=8.9s stop=end_turn apiErr=null preview="Sat: May 9, 2026 18:26 PDT — GSD-T v3.24.10 — CURRENT\n\nWrap "
+
+[cliff-v3] === N=10 starting ===

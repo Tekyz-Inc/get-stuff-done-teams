@@ -1,0 +1,48 @@
+flowchart TD
+    USER([User input])
+
+    USER --> ROUTER{{"/gsd<br/>(smart router)"}}
+
+    ROUTER -->|"plain text<br/>(auto-route hook)"| ROUTER
+    ROUTER -->|continuation| RESUME["/gsd-t-resume"]
+    ROUTER -->|conversational| TALK["dialog-only<br/>no spawn"]
+    ROUTER -->|workflow| ENTRY{Entry kind?}
+
+    ENTRY -->|new greenfield| PROJ["/gsd-t-project"]
+    ENTRY -->|existing repo onboard| ISS["/gsd-t-init-scan-setup"]
+    ENTRY -->|new feature| FEAT["/gsd-t-feature"]
+    ENTRY -->|spec vs code| GAP["/gsd-t-gap-analysis"]
+    ENTRY -->|small task| QUICK["/gsd-t-quick"]
+    ENTRY -->|bug| DEBUG["/gsd-t-debug"]
+    ENTRY -->|design-to-code| DD["/gsd-t-design-decompose"]
+    ENTRY -->|backlog idea| BADD["/gsd-t-backlog-add"]
+    ENTRY -->|status check| STAT["/gsd-t-status"]
+
+    ISS --> INIT["/gsd-t-init"]
+    INIT --> SCAN["/gsd-t-scan"]
+    SCAN --> SETUP["/gsd-t-setup"]
+    SCAN -.->|techdebt found| PROMO["/gsd-t-promote-debt"]
+
+    PROJ --> MILE["/gsd-t-milestone"]
+    FEAT --> MILE
+    GAP -.->|gaps found| MILE
+    PROMO --> MILE
+    BADD --> BPROMO["/gsd-t-backlog-promote"]
+    BPROMO --> MILE
+    BPROMO -.->|small| QUICK
+    BPROMO -.->|bug| DEBUG
+
+    MILE --> WAVE_OR_MANUAL{Auto or manual?}
+    WAVE_OR_MANUAL -->|hands-off| WAVE["/gsd-t-wave<br/>(full cycle)"]
+    WAVE_OR_MANUAL -->|step-by-step| PART["/gsd-t-partition"]
+
+    DD --> DB["/gsd-t-design-build"]
+    DB --> DR["/gsd-t-design-review"]
+    DB -.-> DA["/gsd-t-design-audit"]
+
+    classDef entry fill:#e1f5ff,stroke:#0288d1
+    classDef milestone fill:#fff4e1,stroke:#f57c00
+    classDef router fill:#f3e5f5,stroke:#7b1fa2
+    class PROJ,ISS,FEAT,GAP,QUICK,DEBUG,DD,BADD,STAT entry
+    class MILE,WAVE,PART milestone
+    class ROUTER,ENTRY,WAVE_OR_MANUAL router

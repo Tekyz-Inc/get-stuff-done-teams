@@ -1,0 +1,32 @@
+
+[1mGSD-T Headless — debug[0m
+[36m  ℹ[0m Prompt: /gsd-t-debug Read /tmp/m53b-debug-prompt.txt — fix project-root misrouting in conversation-capture hook + journey spec + adversarial RT.
+[36m  ℹ[0m Timeout: 3600s
+[36m  ℹ[0m Log: /Users/david/projects/GSD-T/.gsd-t/headless-1778179193514.log
+
+All steps complete. Let me give the user a final summary report.
+
+## M53b Debug Complete — Project-Routing Fix
+
+**Root cause**: `_resolveProjectDir` in `scripts/hooks/gsd-t-conversation-capture.js` resolved via `process.cwd()` walk-up when env+cwd were absent. Under parallel Claude Code sessions, one shared node-runtime hook process inherited the wrong project's cwd and cross-routed frames. GSD-T orchestrator's NDJSON was confirmed landing in `Move-Zoom-Recordings-to-GDrive/.gsd-t/transcripts/`.
+
+**Fix** — new helpers in `scripts/hooks/gsd-t-conversation-capture.js`:
+- `_slugFromTranscriptPath` extracts the slug from `~/.claude/projects/{slug}/{sid}.jsonl`
+- `_slugToProjectDir` DFS-walks the filesystem to disambiguate literal-hyphen names (`Move-Zoom-Recordings-to-GDrive`); first leaf containing `.gsd-t/` wins
+- New priority: env → transcript_path slug → `payload.cwd` → walk-up (with stderr warning)
+
+**Tests/Specs**:
+- `test/m53b-conversation-routing.test.js` — 16 unit tests (happy-path, parallel sessions, literal-hyphen, fallthrough, traversal, env priority, helper-level)
+- `test/m53b-conversation-routing-redteam.test.js` — 7 adversarial tests across 3 broken `_resolveProjectDir` variants + 2 positive controls
+- `e2e/journeys/conversation-routing.spec.ts` — 3 end-to-end Playwright tests spawning the real hook process; manifest entry added
+
+**Verification**:
+- Unit suite: **2226/2226 pass** (was 2210; +23 new, zero regressions; 2 pre-existing debug-env flakes unchanged)
+- Playwright journeys: **16/16 pass** (was 13; +3 routing)
+- Live hook smoke test: slug-routes correctly to expected project
+
+**Doc-ripple complete**: `conversation-capture-contract.md` v1.1.0→v1.2.0 (slug-decode protocol + defenses table), `CHANGELOG.md` Unreleased entry, `.gsd-t/progress.md` decision log entry, `.gsd-t/journey-manifest.json` updated.
+
+**Hot-patch applied**: `~/.claude/scripts/hooks/gsd-t-conversation-capture.js` now matches the fixed repo hook — next Stop fires from THIS session will route to GSD-T's transcripts dir, not Move-Zoom's.
+
+**Red Team verdict**: GRUDGING PASS — three named adversaries (walk-up only / naive slug-decode / literal-slug-as-path) all caught by spec invariants I1–I4; no bugs found in real implementation.

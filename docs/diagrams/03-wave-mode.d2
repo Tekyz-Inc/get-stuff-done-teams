@@ -1,0 +1,33 @@
+...@_theme.d2
+
+
+direction: right
+
+start: wave triggered { class: endpoint }
+p1: partition { class: cmd }
+p2: plan { class: cmd }
+p3: impact { class: cmd }
+p4: execute { class: cmd }
+p5: test-sync { class: cmd }
+p6: integrate { class: cmd }
+p7: verify { class: cmd }
+p8: complete-milestone { class: cmd }
+end: milestone shipped { class: endpoint }
+
+start -> p1 -> p2 -> p3 -> p4 -> p5 -> p6 -> p7 -> p8 -> end
+
+aux: {
+  class: group
+  label: Auto-spawned
+  qa: qa { class: subagent }
+  ripple: doc-ripple { class: subagent }
+  par: parallel\ndispatch { class: subagent }
+  rt: Red Team { class: gate }
+  dv: Design Verify { class: gate }
+}
+
+p4 -> aux.qa: spawned { style.stroke-dash: 3 }
+p4 -> aux.ripple: spawned { style.stroke-dash: 3 }
+p4 -> aux.par: parallel { style.stroke-dash: 3 }
+p7 -> aux.rt: gate { style.stroke-dash: 3 }
+p7 -> aux.dv: gate { style.stroke-dash: 3 }

@@ -1,0 +1,40 @@
+
+[1mGSD-T Headless — execute[0m
+
+[1mGSD-T Headless — execute[0m
+[36m  ℹ[0m Prompt: /gsd-t-execute
+[36m  ℹ[0m Timeout: 300s
+[36m  ℹ[0m Log: /Users/david/projects/GSD-T/.gsd-t/headless-1776964856313.log
+
+[36m  ℹ[0m Prompt: /gsd-t-execute
+[36m  ℹ[0m Timeout: 300s
+[36m  ℹ[0m Log: /Users/david/projects/GSD-T/.gsd-t/headless-1776964856659.log
+
+
+[1mGSD-T Headless — execute[0m
+[36m  ℹ[0m Prompt: /gsd-t-execute
+[36m  ℹ[0m Timeout: 300s
+[36m  ℹ[0m Log: /Users/david/projects/GSD-T/.gsd-t/headless-1776964856426.log
+
+
+[1mGSD-T Headless — execute[0m
+[36m  ℹ[0m Prompt: /gsd-t-execute
+[36m  ℹ[0m Timeout: 300s
+[36m  ℹ[0m Log: /Users/david/projects/GSD-T/.gsd-t/headless-1776964856540.log
+
+Wake-up scheduled in 270s. Will check worker completion then; supervisor is not running, so I'm relying on the headless read-back banner at resume to surface their exits.
+**Status**:
+- M44 D9 — all 4 tasks (T1 `parallelism-report.cjs` module, T2 dashboard endpoints, T3 transcript panel, T4 tests+docs) dispatched as detached headless workers via `gsd-t parallel --command gsd-t-execute`. 
+- Dispatch exited 0 (fan_out), 4 workers live (pids 93099/93141/93191/93260), each gets one task via `GSD_T_WORKER_TASK_IDS`.
+- This run dogfoods Step 3's `runDispatch` instrument AND advances Step 5 (ship D9 T1–T4) simultaneously, producing a real in-session proof fixture for Step 6 measurement.
+- Minor observability note: CLI banner printed the last session URL 4× instead of 4 distinct URLs (underlying spawn records are actually unique — 10-22-16/-17/-26/-36). Worth a D9-T1 follow-up.
+
+**Next**: wake at 10:43 to check worker completion, then verify T1–T4 output, run tests, and move to Step 6 measurement.
+
+[headless: process timed out]
+
+[33m  ⚠[0m Exit code: 3
+
+[headless: process timed out]
+
+[33m  ⚠[0m Exit code: 3

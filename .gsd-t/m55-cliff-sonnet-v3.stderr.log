@@ -1,0 +1,29 @@
+[cliff-v3] model: claude-sonnet-4-6
+[cliff-v3] fixture: 30kb real prose
+[cliff-v3] === SMOKE: N=1 ===
+
+[cliff-v3] === N=1 starting ===
+[cliff-v3] N=1 done in 6.8s: {"success":1}
+  success sample: n1-w0 exit=0 wall=6.8s stop=end_turn apiErr=null preview="Sat: May 9, 2026 18:23 PDT — GSD-T v3.24.10 — CURRENT\n\nWrap "
+
+[cliff-v3] ✅ SMOKE OK — climbing.
+
+[cliff-v3] === N=7 starting ===
+[cliff-v3] N=7 done in 7.8s: {"success":7}
+  success sample: n7-w0 exit=0 wall=6.8s stop=end_turn apiErr=null preview="Sat: May 9, 2026 18:23 PDT — GSD-T v3.24.10 — CURRENT\n\nWrap "
+
+[cliff-v3] === N=9 starting ===
+[cliff-v3] N=9 done in 9.6s: {"success":9}
+  success sample: n9-w0 exit=0 wall=7.2s stop=end_turn apiErr=null preview="Sat: May 9, 2026 18:23 PDT — GSD-T v3.24.10 — CURRENT\n\nWrap "
+
+[cliff-v3] === N=10 starting ===
+[cliff-v3] N=10 done in 10.2s: {"success":10}
+  success sample: n10-w0 exit=0 wall=7.6s stop=end_turn apiErr=null preview="Sat: May 9, 2026 18:24 PDT — GSD-T v3.24.10 — CURRENT\n\nEvery"
+
+[cliff-v3] === N=11 starting ===
+[cliff-v3] N=11 done in 11.1s: {"success":11}
+  success sample: n11-w0 exit=0 wall=6.4s stop=end_turn apiErr=null preview="Sat: May 9, 2026 18:24 PDT — GSD-T v3.24.10 — CURRENT\n\nWrap "
+
+[cliff-v3] wrote /Users/david/projects/GSD-T/.gsd-t/m55-cliff-claude-sonnet-4-6.json
+[cliff-v3] no cliff up to N=11
+[cliff-v3] safe parallelism: 11

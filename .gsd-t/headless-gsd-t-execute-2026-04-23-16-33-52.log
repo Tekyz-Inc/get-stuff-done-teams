@@ -1,0 +1,9 @@
+
+[1mGSD-T Headless — execute[0m
+[36m  ℹ[0m Prompt: /gsd-t-execute
+[36m  ℹ[0m Timeout: 300s
+[36m  ℹ[0m Log: /Users/david/projects/GSD-T/.gsd-t/headless-1776987232485.log
+
+API Error: Server is temporarily limiting requests (not your usage limit) · Rate limited
+
+[33m  ⚠[0m Exit code: 3

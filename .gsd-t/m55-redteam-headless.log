@@ -1,0 +1,16 @@
+## VERDICT: GRUDGING PASS
+
+**Bug count**: 0 real bugs found across all 5 M55 domains (D1–D5).
+
+**Patch-catch summary** (6/6 caught — exceeds ≥5 target):
+
+| # | Patch | Domain | Test that caught it |
+|---|---|---|---|
+| 1 | preflight-skip-on-error | D1 (`cli-preflight.cjs`) | `_runOneCheck: throws caught and recorded as ok:false synthetic entry` |
+| 2 | parallel-substrate-bypasses-capture | D2 (`parallel-cli.cjs`) | `runParallel: every worker writes a token-log row (captureSpawn invariant)` |
+| 3 | verify-gate-falsy-true | D5 (`gsd-t-verify-gate.cjs`) | `runVerifyGate: track1 ok + track2 fail → ok false` |
+| 4 | branch-guard-typo | D1 (`branch-guard.cjs`) | `_extractExpectedBranch: matches plain "Expected branch: main"` + 3 collateral |
+| 5 | contract-staleness-ignored | D1 (`contracts-stable.cjs`) | `contracts-stable fail: post-PARTITIONED with DRAFT → ok:false` + 3 collateral |
+| 6 | brief-staleness-ignored | D4 (`gsd-t-context-brief.cjs`) | `freshness: sourceMtimes records every read source` + 1 collateral |
+
+Final `npm test`: 2487/2487 pass post-revert. Zero regression. Report committed as `fce2f18`. M55 falsifiable success criterion #7 **satisfied**.

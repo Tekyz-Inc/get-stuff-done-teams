@@ -1,0 +1,35 @@
+...@_theme.d2
+
+
+req: Design-to-code request { class: endpoint }
+check: Existing\ncontracts? { class: decision }
+clean: clean UI assets\n(inline) { class: subagent }
+dd: "/gsd-t-design-decompose" { class: cmd }
+
+contracts: ".gsd-t/contracts/design/\nelements · widgets · pages\nINDEX.md" { class: artifact }
+
+db: "/gsd-t-design-build\ntwo-terminal review" { class: cmd; style.bold: true }
+
+review: {
+  class: group
+  label: Review loop
+  t1: Term 1\nbuilder { class: cmd }
+  t2: "/gsd-t-design-review\nTerm 2 reviewer" { class: cmd }
+  t1 <-> t2: review
+}
+
+ship: All gates\npass? { class: decision }
+done: UI shipped { class: endpoint }
+da: "/gsd-t-design-audit\nbuilt vs Figma" { class: cmd }
+
+req -> check
+check -> clean: start over
+check -> dd: none
+check -> db: present
+clean -> dd
+dd -> contracts -> db
+db -> review.t1
+review.t2 -> ship
+ship -> review.t1: no { style.stroke-dash: 3 }
+ship -> done: yes
+done -> da: optional { style.stroke-dash: 3 }

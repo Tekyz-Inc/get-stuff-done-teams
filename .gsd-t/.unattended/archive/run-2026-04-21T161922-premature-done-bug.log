@@ -1,0 +1,43 @@
+--- ITER 1 @ 2026-04-21T22:31:23.029Z exit=0 ---
+Worker session resumed. Here's the status:
+
+**Active state:**
+- M43 DEFINED (Token Attribution & Always-Headless Inversion, target v3.17.10)
+- 6 M43 domains have scope/tasks/constraints on disk
+- Supervisor PID 41853 alive — but invoked with `--help` (anomaly worth flagging)
+- 859 events written to today's JSONL
+- `partition.md` exists, `plan.md` does not
+
+**Concern:** The current supervisor process is `node bin/gsd-t-unattended.cjs --help` (started 20s before I checked). `--help` typically prints usage and exits, so this may be an orphan or the supervisor auto-spawned me despite being in help mode. The continue-here file also noted the previous supervisor (PID 27196) ran via `--help` — apparently a recurring issue where `--help` is being ignored in favor of default args.
+
+You interrupted the investigation mid-stream. What would you like me to do?
+
+- Continue the resume and proceed to `/gsd-t-partition M43` → plan → execute as the worker iteration
+- Stop and investigate the `--help` supervisor anomaly first
+- Something else
+--- ITER 1 @ 2026-04-21T22:36:40.673Z exit=0 ---
+Partition committed. Per CLAUDE.md successor map: `partition → plan`. This worker iteration has advanced M43 from DEFINED → PARTITIONED. The next worker iteration will pick up from `/gsd-t-plan M43` (or go straight to execute Wave 1 starting with D3 since plan for this milestone is mostly pre-written in the tasks.md files).
+
+Returning control to the supervisor — this iteration's work is committed at `4b45114`.
+
+**Summary**: M43 DEFINED → PARTITIONED.
+- Rewrote `.gsd-t/partition.md` (was stale M39 content) with the revised 6-domain/3-wave plan
+- Updated progress.md status header, milestones table row, and Decision Log
+- Batched pre-existing staged work from earlier iters: `metrics-schema-contract.md` v1→v2 bump (D3) and D4 scope dependency fix ("final wave alone")
+- Commit: `4b45114`
+- Next chain step: `/gsd-t-plan M43` → `/gsd-t-execute` Wave 1 (D3 first, then D1)
+--- ITER 1 @ 2026-04-21T23:00:18.161Z exit=0 ---
+Worker iteration committed at `a1ec5ce`. Summary:
+
+**M43 D3 Wave 1 Foundation — landed.**
+- D3-T2: schema v2 pass-through in `bin/gsd-t-token-capture.cjs` (`SCHEMA_VERSION` 1→2; 5 new optional fields forwarded, emit-only-when-provided, v1 callers unchanged).
+- D3-T3: `bin/gsd-t-token-regenerate-log.cjs` + `gsd-t tokens --regenerate-log` CLI (deterministic sort, idempotent).
+- D3-T5: `test/m43-schema-v2.test.js` — 9/9 pass.
+- D3-T4: dry-run backfill parsed 0 envelopes — **parser gap documented** as D3-T4.1 follow-up. Regenerating against current JSONL would truncate the hand-maintained 434-line log; verified empirically, restored from HEAD.
+- D3-T6: architecture.md Token Pipeline block + progress Decision Log + D3 tasks.md check-offs.
+
+Tests: token cluster 60/60 (+9 new). Full suite 1569/1571 (2 pre-existing fails confirmed unrelated).
+
+**Wave 1 gate status**: D3 Foundation done. D1-T1 still BLOCKED on settings.json permission for hook wire-up (same blocker noted in prior iters). Wave 2 cannot start until D1 branch is locked.
+
+**Next iter pick-up**: D1 hook wire-up (needs interactive session or settings permission), or D3-T4.1 backfill parser extension (fully autonomous).

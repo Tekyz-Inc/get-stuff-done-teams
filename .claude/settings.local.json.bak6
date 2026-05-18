@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(sed -i '' 's|/user:|/|g' ~/.claude/CLAUDE.md)",
+      "Read(//Users/david/.claude/**)",
+      "Bash(rm ~/.claude/.gsd-t-version)",
+      "Bash(gsd-t update-all *)"
+    ]
+  }
+}

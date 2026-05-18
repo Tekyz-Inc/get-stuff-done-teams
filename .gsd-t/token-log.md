@@ -1088,3 +1088,116 @@
 <!-- missed_escalation 2026-05-06T22:35:02.726Z phase= domain= task= q="(no question provided)" -->
 <!-- missed_escalation 2026-05-06T22:35:37.709Z phase= domain= task= q="test" -->
 <!-- missed_escalation 2026-05-06T22:35:37.709Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-10T00:03:32.872Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-10T00:03:32.872Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-10T00:06:17.488Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-10T00:06:17.488Z phase= domain= task= q="(no question provided)" -->
+| 2026-05-09 23:52 | 2026-05-10 00:08 | gsd-t-resume | supervisor-iter-4 | unknown | 924s | supervisor iter=4: ok | - | - | unknown |
+<!-- missed_escalation 2026-05-10T00:29:03.850Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-10T00:29:03.850Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-10T00:29:40.362Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-10T00:29:40.362Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-10T00:30:16.634Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-10T00:30:16.634Z phase= domain= task= q="(no question provided)" -->
+| 2026-05-10 00:08 | 2026-05-10 00:33 | gsd-t-resume | supervisor-iter-5 | unknown | 1500s | supervisor iter=5: ok | - | - | unknown |
+<!-- missed_escalation 2026-05-10T00:35:06.123Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-10T00:35:06.123Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-10T00:39:01.029Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-10T00:39:01.030Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-10T00:48:22.494Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-10T00:48:22.494Z phase= domain= task= q="(no question provided)" -->
+| 2026-05-09 17:48 | 2026-05-09 17:48 | gsd-t-verify-gate | Track 2 | cli | 0s | — | parallel-cli worker | m55-d5 | - | 250.9 |
+<!-- missed_escalation 2026-05-10T00:49:05.020Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-10T00:49:05.020Z phase= domain= task= q="(no question provided)" -->
+| 2026-05-09 17:49 | 2026-05-09 17:49 | gsd-t-verify-gate | Track 2 | cli | 0s | — | parallel-cli worker | m55-d5 | - | 250.9 |
+| 2026-05-09 18:00 | 2026-05-09 18:00 | gsd-t-ratelimit-probe | sweep | haiku | 0s | — | cell w=1 c=10000 run=0 | m55-d3 | T6-sweep | 0 |
+| 2026-05-09 18:00 | 2026-05-09 18:00 | gsd-t-ratelimit-probe | sweep | haiku | 0s | — | cell w=1 c=10000 run=1 | m55-d3 | T6-sweep | 0 |
+| 2026-05-09 18:00 | 2026-05-09 18:00 | gsd-t-ratelimit-probe | sweep | haiku | 0s | — | cell w=1 c=10000 run=2 | m55-d3 | T6-sweep | 0 |
+| 2026-05-09 18:00 | 2026-05-09 18:00 | gsd-t-ratelimit-probe | sweep | haiku | 0s | — | cell w=1 c=30000 run=0 | m55-d3 | T6-sweep | 0 |
+| 2026-05-09 18:00 | 2026-05-09 18:00 | gsd-t-ratelimit-probe | sweep | haiku | 0s | — | cell w=1 c=30000 run=1 | m55-d3 | T6-sweep | 0 |
+| 2026-05-09 18:00 | 2026-05-09 18:00 | gsd-t-ratelimit-probe | sweep | haiku | 0s | — | cell w=1 c=30000 run=2 | m55-d3 | T6-sweep | 0 |
+| 2026-05-09 18:00 | 2026-05-09 18:00 | gsd-t-ratelimit-probe | sweep | haiku | 0s | — | cell w=1 c=60000 run=0 | m55-d3 | T6-sweep | 0 |
+| 2026-05-09 18:00 | 2026-05-09 18:00 | gsd-t-ratelimit-probe | sweep | haiku | 0s | — | cell w=1 c=60000 run=1 | m55-d3 | T6-sweep | 0 |
+| 2026-05-09 18:00 | 2026-05-09 18:00 | gsd-t-ratelimit-probe | sweep | haiku | 0s | — | cell w=1 c=60000 run=2 | m55-d3 | T6-sweep | 0 |
+| 2026-05-09 18:00 | 2026-05-09 18:00 | gsd-t-ratelimit-probe | sweep | haiku | 0s | — | cell w=1 c=100000 run=0 | m55-d3 | T6-sweep | 0 |
+| 2026-05-09 18:00 | 2026-05-09 18:01 | gsd-t-ratelimit-probe | sweep | haiku | 60s | — | cell w=1 c=100000 run=1 | m55-d3 | T6-sweep | 0 |
+| 2026-05-09 18:01 | 2026-05-09 18:01 | gsd-t-ratelimit-probe | sweep | haiku | 0s | — | cell w=1 c=100000 run=2 | m55-d3 | T6-sweep | 0 |
+| 2026-05-09 18:01 | 2026-05-09 18:01 | gsd-t-ratelimit-probe | sweep | haiku | 0s | — | cell w=2 c=10000 run=0 | m55-d3 | T6-sweep | 0 |
+| 2026-05-09 18:01 | 2026-05-09 18:01 | gsd-t-ratelimit-probe | sweep | haiku | 0s | — | cell w=2 c=10000 run=0 | m55-d3 | T6-sweep | 0 |
+| 2026-05-09 18:01 | 2026-05-09 18:01 | gsd-t-ratelimit-probe | sweep | haiku | 0s | — | cell w=2 c=10000 run=1 | m55-d3 | T6-sweep | 0 |
+| 2026-05-09 18:01 | 2026-05-09 18:01 | gsd-t-ratelimit-probe | sweep | haiku | 0s | — | cell w=2 c=10000 run=1 | m55-d3 | T6-sweep | 0 |
+| 2026-05-09 18:01 | 2026-05-09 18:01 | gsd-t-ratelimit-probe | sweep | haiku | 0s | — | cell w=2 c=10000 run=2 | m55-d3 | T6-sweep | 0 |
+| 2026-05-09 18:01 | 2026-05-09 18:01 | gsd-t-ratelimit-probe | sweep | haiku | 0s | — | cell w=2 c=10000 run=2 | m55-d3 | T6-sweep | 0 |
+| 2026-05-09 18:01 | 2026-05-09 18:01 | gsd-t-ratelimit-probe | sweep | haiku | 0s | — | cell w=2 c=30000 run=0 | m55-d3 | T6-sweep | 0 |
+| 2026-05-09 18:01 | 2026-05-09 18:01 | gsd-t-ratelimit-probe | sweep | haiku | 0s | — | cell w=2 c=30000 run=0 | m55-d3 | T6-sweep | 0 |
+| 2026-05-09 18:01 | 2026-05-09 18:01 | gsd-t-ratelimit-probe | sweep | haiku | 0s | — | cell w=2 c=30000 run=1 | m55-d3 | T6-sweep | 0 |
+| 2026-05-09 18:01 | 2026-05-09 18:01 | gsd-t-ratelimit-probe | sweep | haiku | 0s | — | cell w=2 c=30000 run=1 | m55-d3 | T6-sweep | 0 |
+| 2026-05-09 18:01 | 2026-05-09 18:01 | gsd-t-ratelimit-probe | sweep | haiku | 0s | — | cell w=2 c=30000 run=2 | m55-d3 | T6-sweep | 0 |
+| 2026-05-09 18:01 | 2026-05-09 18:01 | gsd-t-ratelimit-probe | sweep | haiku | 0s | — | cell w=2 c=30000 run=2 | m55-d3 | T6-sweep | 0 |
+| 2026-05-09 18:01 | 2026-05-09 18:01 | gsd-t-ratelimit-probe | sweep | haiku | 0s | — | cell w=2 c=60000 run=0 | m55-d3 | T6-sweep | 0 |
+| 2026-05-09 18:01 | 2026-05-09 18:01 | gsd-t-ratelimit-probe | sweep | haiku | 0s | — | cell w=2 c=60000 run=0 | m55-d3 | T6-sweep | 0 |
+| 2026-05-10 01:30 | 2026-05-10 01:30 | gsd-t-gsd-t-complete-milestone | headless | unknown | 2s | headless exec: exit 5 | - | - | unknown |
+| 2026-05-10 01:30 | 2026-05-10 01:30 | gsd-t-complete-milestone | headless | unknown | 49s | headless exec: ok | - | - | unknown |
+<!-- missed_escalation 2026-05-10T01:58:21.560Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-10T01:58:21.561Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-10T01:59:29.224Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-10T01:59:29.225Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-10T02:00:12.635Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-10T02:00:12.635Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-10T02:06:08.673Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-10T02:06:08.674Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-10T02:06:51.235Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-10T02:06:51.235Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-10T02:08:03.025Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-10T02:08:03.025Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-10T02:33:12.920Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-10T02:33:12.920Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-10T02:57:10.649Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-10T02:57:10.650Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-10T03:46:27.453Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-10T03:46:27.454Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-10T03:47:26.733Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-10T03:47:26.733Z phase= domain= task= q="(no question provided)" -->
+| 2026-05-09 20:49 | 2026-05-09 20:49 | gsd-t-verify-gate | Track 2 | cli | 0s | — | parallel-cli worker | m55-d5 | - | 86.9 |
+<!-- missed_escalation 2026-05-10T03:49:03.886Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-10T03:49:03.886Z phase= domain= task= q="(no question provided)" -->
+| 2026-05-09 20:49 | 2026-05-09 20:49 | gsd-t-verify-gate | Track 2 | cli | 0s | — | parallel-cli worker | m55-d5 | - | 86.9 |
+| 2026-05-09 20:49 | 2026-05-09 20:49 | gsd-t-verify-gate | Track 2 | cli | 0s | — | parallel-cli worker | m55-d5 | - | 86.9 |
+<!-- missed_escalation 2026-05-10T05:37:24.843Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-10T05:37:24.843Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-10T05:38:14.947Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-10T05:38:14.947Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-10T05:38:55.918Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-10T05:38:55.918Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-10T05:39:33.694Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-10T05:39:33.695Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-10T05:40:11.927Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-10T05:40:11.927Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-10T05:40:49.867Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-10T05:40:49.867Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-10T05:41:39.876Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-10T05:41:39.876Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-10T05:42:17.124Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-10T05:42:17.124Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-10T05:42:57.152Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-10T05:42:57.152Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-11T14:46:14.118Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-11T14:46:14.119Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-11T16:45:04.196Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-11T16:45:04.196Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-11T16:45:58.454Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-11T16:45:58.454Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-11T16:46:54.660Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-11T16:46:54.661Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-11T16:47:49.232Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-11T16:47:49.232Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-11T16:48:29.560Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-11T16:48:29.560Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-11T16:49:13.002Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-11T16:49:13.002Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-11T16:50:26.269Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-11T16:50:26.270Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-18T21:31:00.745Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-18T21:31:00.745Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-18T21:34:59.256Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-18T21:34:59.257Z phase= domain= task= q="(no question provided)" -->

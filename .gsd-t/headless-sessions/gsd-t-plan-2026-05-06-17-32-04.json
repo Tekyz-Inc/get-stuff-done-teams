@@ -1,0 +1,13 @@
+{
+  "id": "gsd-t-plan-2026-05-06-17-32-04",
+  "pid": 14342,
+  "logPath": ".gsd-t/headless-gsd-t-plan-2026-05-06-17-32-04.log",
+  "startTimestamp": "2026-05-07T00:32:04.156Z",
+  "command": "gsd-t-plan",
+  "args": [
+    "--timeout=1800"
+  ],
+  "status": "running",
+  "continueFromPath": ".",
+  "surfaced": false
+}

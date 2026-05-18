@@ -1,0 +1,38 @@
+GSD-T Headless Log
+Command: debug
+Args: Read /tmp/m53-debug-prompt.txt — fix assistant_turn bodyless frames + journey spec + adversarial RT.
+Timestamp: 2026-05-07T16:55:03.697Z
+Duration: 769287ms
+Exit Code: 0
+---
+## Summary
+
+**M53 conversation-capture regression fixed.** Bodyless `assistant_turn` frames since v3.18.14 (M45 D2 ship 2026-04-23) — Stop hook payload doesn't carry the message body; the hook now reads from `payload.transcript_path`.
+
+### Changes
+- `scripts/hooks/gsd-t-conversation-capture.js` — three new private fns (`_safeTranscriptPath` allow-rooted to `~/.claude/projects/`, `_readFileTail` 64 KB tail-only, `_readAssistantFromTranscript` bottom-up scan, latest non-sidechain assistant row, all `text`-blocks concatenated, tool_use rows skipped). `_extractAssistantContent` is transcript-first; legacy fallbacks preserved.
+- `test/m45-d2-conversation-capture.test.js` — +11 cases covering transcript happy-path, multi-block concat, latest-row + sidechain + tool_use-only skipping, /etc/passwd + relative-path rejection, missing-fallback path, unreadable file, >1 MB tail-only read, corrupt-line skipping.
+- `test/m53-conversation-content-redteam.test.js` (new) — three broken extractors each violate one of three named invariants (I1 non-empty / I2 marker-match / I3 tail-marker-present); positive control proves the harness isn't trivially broken.
+- `e2e/journeys/conversation-content.spec.ts` (new) — 7-frame in-session NDJSON, 3 assistant_turn frames with unique markers (one multi-paragraph), asserts `#main-stream .frame.assistant-turn` ×3, every `.body` non-empty, markers present, tail marker present, user-prompt marker absent, no `.frame.raw`.
+- `.gsd-t/contracts/conversation-capture-contract.md` — v1.0.0 → v1.1.0, full extraction protocol documented.
+- `.gsd-t/journey-manifest.json` — entry added (12 → 13 specs).
+- `CHANGELOG.md` Unreleased + `.gsd-t/progress.md` Decision Log entries.
+
+### Verification
+- Unit suite **2210/2210 pass** (vs 2195 baseline; +15 new, zero regressions). The two failures seen in raw `npm test` output are pre-existing flakes triggered by `GSD_T_COMMAND=gsd-t-debug`/`GSD_T_PHASE=execute` env vars set by the debug command itself; both pass when those vars are unset.
+- Playwright `e2e/journeys/` + `e2e/viewer/` **36/36 pass** (vs 35; +1 conversation-content).
+- `gsd-t check-coverage`: `OK: 20 listeners, 13 specs`.
+- Red Team **GRUDGING PASS** — three broken impls each fail the spec; real impl passes all invariants.
+
+### Note
+Installed hook at `~/.claude/scripts/hooks/gsd-t-conversation-capture.js` is still the buggy version. Sync via next `npm publish` + `/gsd-t-version-update-all`. Existing 6 bodyless NDJSONs in the Zoom project remain (acceptable historical records); going-forward NDJSONs will be populated.
+
+───────────────────────────────────────────────────────────────
+
+## ▶ Next Up
+
+**Publish + propagate** — bump patch version, publish, and run `/gsd-t-version-update-all` so the installed hook picks up the fix.
+
+`/cpua`
+
+───────────────────────────────────────────────────────────────

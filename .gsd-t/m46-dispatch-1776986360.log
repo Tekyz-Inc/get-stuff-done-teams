@@ -1,0 +1,17 @@
+▶ Live transcript: http://127.0.0.1:7455/transcript/gsd-t-execute-2026-04-23-16-19-20
+▶ Live transcript: http://127.0.0.1:7455/transcript/gsd-t-execute-2026-04-23-16-19-23
+▶ Live transcript: http://127.0.0.1:7455/transcript/gsd-t-execute-2026-04-23-16-19-26
+▶ Live transcript: http://127.0.0.1:7455/transcript/gsd-t-execute-2026-04-23-16-19-29
+▶ Live transcript: http://127.0.0.1:7455/transcript/gsd-t-execute-2026-04-23-16-19-33
+▶ Live transcript: http://127.0.0.1:7455/transcript/gsd-t-execute-2026-04-23-16-19-36
+▶ Live transcript: http://127.0.0.1:7455/transcript/gsd-t-execute-2026-04-23-16-19-39
+▶ Live transcript: http://127.0.0.1:7455/transcript/gsd-t-execute-2026-04-23-16-19-42
+gsd-t parallel — fan_out command=gsd-t-execute mode=in-session workers=8
+  worker[0] tasks=M46-D1-T1 spawn=gsd-t-execute-2026-04-23-16-19-20 pid=48453
+  worker[1] tasks=M46-D1-T7 spawn=gsd-t-execute-2026-04-23-16-19-23 pid=50533
+  worker[2] tasks=M46-D1-T10 spawn=gsd-t-execute-2026-04-23-16-19-26 pid=52249
+  worker[3] tasks=M46-D2-T1 spawn=gsd-t-execute-2026-04-23-16-19-29 pid=52603
+  worker[4] tasks=M46-D2-T4 spawn=gsd-t-execute-2026-04-23-16-19-33 pid=52868
+  worker[5] tasks=M46-D2-T5 spawn=gsd-t-execute-2026-04-23-16-19-36 pid=53716
+  worker[6] tasks=M46-D2-T6 spawn=gsd-t-execute-2026-04-23-16-19-39 pid=55336
+  worker[7] tasks=M46-D2-T7 spawn=gsd-t-execute-2026-04-23-16-19-42 pid=57162

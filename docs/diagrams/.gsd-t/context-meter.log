@@ -1,0 +1,9 @@
+2026-05-08T16:23:08.224Z INFO measure tokens=69123 pct=34.6 band=normal
+2026-05-08T16:23:17.818Z INFO measure tokens=70098 pct=35.0 band=normal
+2026-05-08T21:51:23.165Z INFO measure tokens=265016 pct=132.5 band=threshold
+2026-05-08T21:51:54.256Z INFO measure tokens=291845 pct=145.9 band=threshold
+2026-05-08T21:52:36.042Z INFO measure tokens=294072 pct=147.0 band=threshold
+2026-05-08T21:53:30.736Z INFO measure tokens=436660 pct=218.3 band=threshold
+2026-05-08T21:54:10.654Z INFO measure tokens=490907 pct=245.5 band=threshold
+2026-05-08T21:54:31.984Z INFO measure tokens=567731 pct=283.9 band=threshold
+2026-05-08T21:54:51.784Z INFO measure tokens=568337 pct=284.2 band=threshold

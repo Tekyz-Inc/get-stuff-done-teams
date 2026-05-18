@@ -1,0 +1,9 @@
+GSD-T Headless Log
+Command: partition
+Args: 
+Timestamp: 2026-05-06T15:39:01.502Z
+Duration: 301973ms
+Exit Code: 3
+---
+
+[headless: process timed out]

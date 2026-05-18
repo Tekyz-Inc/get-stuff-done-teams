@@ -1,0 +1,29 @@
+flowchart TD
+    REQ([Design-to-code request])
+
+    REQ --> CHECK{Existing<br/>contracts?}
+    CHECK -->|"start over"| CLEAN[clean UI assets<br/>inline]
+    CHECK -->|none| DD
+    CHECK -->|present| DB
+
+    CLEAN --> DD["/gsd-t-design-decompose<br/>elements → widgets → pages"]
+
+    DD --> DDOUT[".gsd-t/contracts/design/<br/>elements/*.contract.md<br/>widgets/*.contract.md<br/>pages/*.contract.md<br/>INDEX.md"]
+
+    DDOUT --> DB["/gsd-t-design-build<br/>two-terminal review"]
+
+    DB --> T1[Term 1<br/>builder]
+    DB --> T2["/gsd-t-design-review<br/>Term 2 reviewer"]
+
+    T1 <-->|review loop| T2
+
+    T2 --> SHIP{All gates pass?}
+    SHIP -->|no| T1
+    SHIP -->|yes| DONE([UI shipped])
+
+    DONE -.optional.-> DA["/gsd-t-design-audit<br/>compare built vs Figma"]
+
+    classDef pipe fill:#e1f5ff,stroke:#0288d1
+    classDef art fill:#f3e5f5,stroke:#7b1fa2
+    class DD,DB,T1,T2,DA,CLEAN pipe
+    class DDOUT art

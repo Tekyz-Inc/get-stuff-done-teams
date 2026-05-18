@@ -1,0 +1,9 @@
+GSD-T Headless Log
+Command: execute
+Args: 
+Timestamp: 2026-04-23T17:22:36.415Z
+Duration: 300290ms
+Exit Code: 3
+---
+
+[headless: process timed out]

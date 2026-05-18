@@ -1,0 +1,23 @@
+{
+  "version": "1.4.0",
+  "sessionId": "unattended-2026-04-21-2331-5acd",
+  "projectDir": "/Users/david/projects/GSD-T",
+  "status": "failed",
+  "milestone": "M43",
+  "iter": 1,
+  "maxIterations": 200,
+  "startedAt": "2026-04-21T23:31:34.912Z",
+  "lastTick": "2026-04-21T23:38:40.520Z",
+  "hours": 12,
+  "wallClockElapsedMs": 425608,
+  "supervisorPid": 13985,
+  "logPath": ".gsd-t/.unattended/run.log",
+  "sleepPreventionHandle": null,
+  "platform": "darwin",
+  "claudeBin": "claude",
+  "lastWorkerStartedAt": "2026-04-21T23:31:34.924Z",
+  "lastExit": 6,
+  "lastWorkerFinishedAt": "2026-04-21T23:38:40.514Z",
+  "lastElapsedMs": 425590,
+  "lastExitReason": "exit_4"
+}

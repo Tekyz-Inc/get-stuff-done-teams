@@ -305,3 +305,28 @@ Rate-limit pressure from running parallel is NOT a con. Hitting the 5-hour ceili
 - **Non-goals**: cross-mode queue sharing (in-session + unattended remain separate dispatchers); priority queuing (FIFO only); task-level retry on failure (that's `gsd-t-debug`'s job).
 - **Pairs with**: #22 (coord-gate is the account-wide rate limiter; this is the per-dispatch scheduler), #23 (measured rate-limit data will tell us whether 10s is the right interval or should be adaptive).
 - **Related memory**: `feedback_measure_dont_claim.md` (the landed shortcut was measured; the full rewrite needs its own measurement before we claim 5× saturation).
+
+## 25. gsd-t-bench — A/B eval harness for methodology changes
+
+- **Type:** feature | **App:** gsd-t | **Category:** commands
+- **Added:** 2026-05-13
+- **Problem**: GSD-T is a methodology product, but methodology changes ship on vibes. Today the only measurements are operational (token-log, ELO rollup) and defect-based (qa-issues). There is no controlled A/B harness to answer "did this edit to gsd-t-execute.md / templates/stacks/playwright.md / model assignment make GSD-T better or worse?" The gap shows up most when stack rules are added (do they earn their context cost?) and when commands are tuned (is the new prompt actually winning?).
+- **Pattern source**: `anthropics/skills` repo `skill-creator` eval harness (reviewed 2026-05-13). Adapt — do not import. Key primitives worth adopting: paired with/without runs spawned in same turn, `evals/evals.json` schema with `prompt + expected_output + files + assertions[]`, `assertions[]` graded with `text/passed/evidence` fields, `benchmark.json` aggregating pass_rate + duration + tokens with mean ± stddev, analyst pass surfacing non-discriminating assertions and high-variance evals, generate_review-style side-by-side viewer.
+- **Four use cases (in scope for this milestone)**:
+  1. **Command-file edit A/B** — paired runs (new command file vs previous git revision) against a fixed eval set; benchmark.json compares pass rate, tokens, duration; analyst flags regressions.
+  2. **Model routing eval** — per-command sweep across haiku/sonnet/opus on the same eval set; output drives the haiku/sonnet/opus assignments in CLAUDE.md (e.g. "this command can drop from sonnet to haiku without regression").
+  3. **Stack-rule effectiveness** — per-rule with/without comparison for each `templates/stacks/*.md`; identifies rules that earn their context cost vs. dead weight.
+  4. **Pre-publish regression gate** — bench runs as a release gate inside `/cpua` / `gsd-t-version-update-all`; canonical eval set must not regress before publish.
+- **Trigger**: pre-commit gate auto-runs when files under `commands/**` or `templates/**` change. Blocks commit on regression (configurable threshold). Manual `gsd-t-bench` command also available for ad-hoc runs.
+- **Scope (sized 2-3 domains)**:
+  - **D1 — Harness core**: `bin/gsd-t-bench.cjs` with paired-spawn runner, evals.json schema, assertion grader, benchmark.json aggregator. Library-first (consumable by other commands).
+  - **D2 — Pre-commit gate + canonical eval set**: git hook installed by `gsd-t install`; seed eval set covering top-5 commands; threshold config in `.gsd-t/bench-settings.md`.
+  - **D3 — Viewer + analyst pass**: side-by-side output viewer (adapt skill-creator's generate_review pattern); analyst surfaces non-discriminating assertions and flaky evals; integrate with `/cpua` release gate.
+- **Success criteria** (measured, per `feedback_measure_dont_claim`):
+  1. A deliberate regression to a command file (e.g. removing a required step) is caught by the harness with pass_rate delta ≤ -0.10 and the gate blocks the commit.
+  2. A model-routing sweep across 3 commands produces actionable verdicts (haiku/sonnet/opus per command) with stddev tight enough to be load-bearing.
+  3. At least one `templates/stacks/*.md` rule is empirically validated or retired based on bench data within the milestone's verify phase.
+  4. `/cpua` integration: a synthetic regression in a pre-publish run halts the publish step.
+- **Non-goals**: skill creation (this is for GSD-T commands, not Agent Skills); UI eval (covered by existing design-verify); production user telemetry (out of scope — bench runs on canonical synthetic evals).
+- **Pairs with**: `feedback_measure_dont_claim` (the philosophy this operationalizes for methodology changes); existing `qa-issues.md` (bench measures *intended* outcomes; qa catches *unintended* defects — complementary).
+- **Defer until**: M44 cross-domain parallelism is integrated. Bench wants the parallel substrate to spawn paired runs concurrently; doing this before M44 lands means rebuilding the spawn layer.

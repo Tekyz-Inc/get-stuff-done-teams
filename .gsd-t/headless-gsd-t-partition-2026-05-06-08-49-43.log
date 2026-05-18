@@ -1,0 +1,16 @@
+
+[1mGSD-T Headless — partition[0m
+[36m  ℹ[0m Prompt: /gsd-t-partition
+[36m  ℹ[0m Timeout: 1800s
+[36m  ℹ[0m Log: /Users/david/projects/GSD-T/.gsd-t/headless-1778082583901.log
+
+Partition artifacts for M47 are already complete: progress.md status `M47 PARTITIONED`, both domains have `scope.md` / `constraints.md` / `tasks.md`, and `.gsd-t/contracts/m47-integration-points.md` is in place.
+
+**Re-running `/gsd-t-partition` would overwrite existing partition work** — that's a destructive structural action requiring explicit approval per the Destructive Action Guard.
+
+Two paths forward — which do you want?
+
+1. **Skip partition, advance to next phase** (`/gsd-t-plan` or `/gsd-t-execute` — tasks.md files exist, so plan may already be done; can verify and skip to execute)
+2. **Re-run partition fresh** (you'd need to confirm — this overwrites the 3 scope/constraint/tasks files in each M47 domain plus `m47-integration-points.md`)
+
+Most likely you actually want option 1 — the SessionStart hook even routed you to `/user:gsd-t-resume` which suggests resuming, not re-partitioning. Want me to run `/gsd-t-resume` instead to continue from M47's current position?

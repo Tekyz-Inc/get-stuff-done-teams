@@ -1,0 +1,13 @@
+{
+  "id": "gsd-t-test-sync-2026-05-06-14-33-34",
+  "pid": 94624,
+  "logPath": ".gsd-t/headless-gsd-t-test-sync-2026-05-06-14-33-34.log",
+  "startTimestamp": "2026-05-06T21:33:34.702Z",
+  "command": "gsd-t-test-sync",
+  "args": [
+    "--timeout=1800"
+  ],
+  "status": "running",
+  "continueFromPath": ".",
+  "surfaced": false
+}

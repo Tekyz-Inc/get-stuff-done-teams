@@ -1,0 +1,14 @@
+{
+  "id": "gsd-t-quick-2026-05-06-17-17-22",
+  "pid": 54224,
+  "logPath": ".gsd-t/headless-gsd-t-quick-2026-05-06-17-17-22.log",
+  "startTimestamp": "2026-05-07T00:17:22.041Z",
+  "command": "gsd-t-quick",
+  "args": [
+    "Read /tmp/m52-quick-prompt.txt — fix click-completed bug + journey spec + 3 adversary patches.",
+    "--timeout=2400"
+  ],
+  "status": "running",
+  "continueFromPath": ".",
+  "surfaced": false
+}

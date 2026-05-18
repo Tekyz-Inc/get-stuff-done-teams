@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "1.0.0",
+  "generatedAt": "2026-05-10T01:13:32.121Z",
+  "model": "claude-opus-4-7",
+  "smoke": {
+    "N": 1,
+    "wallMs": 11254,
+    "results": [
+      {
+        "workerId": "n1-w0",
+        "elapsedMs": 11254,
+        "ttftMs": 2985,
+        "exitCode": 0,
+        "status429": true,
+        "authFail": false,
+        "refusal": false,
+        "stopReason": "end_turn",
+        "isError": false,
+        "resultPreview": "Sat: May 9, 2026 18:13 PDT — GSD-T v3.24.10 — CURRENT\n\nWrap the spawn with `captureSpawn({..., spawn",
+        "stderrSnippet": ""
+      }
+    ],
+    "ok": 0,
+    "c429": 1,
+    "cAuth": 0,
+    "cRefusal": 0
+  },
+  "cliff": null,
+  "aborted": "smoke-failed"
+}

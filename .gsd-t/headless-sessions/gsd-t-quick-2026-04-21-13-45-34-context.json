@@ -1,0 +1,5 @@
+{
+  "task": "transcript-sse-replay-and-tests",
+  "contextPath": "/tmp/transcript-fix-context.md",
+  "instructions": "Read /tmp/transcript-fix-context.md for pre-scoped fix details. Execute per the 5 steps there. Do NOT modify the producer side."
+}

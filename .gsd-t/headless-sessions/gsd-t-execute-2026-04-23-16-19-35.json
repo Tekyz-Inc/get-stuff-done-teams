@@ -1,0 +1,11 @@
+{
+  "id": "gsd-t-execute-2026-04-23-16-19-35",
+  "pid": 53367,
+  "logPath": ".gsd-t/headless-gsd-t-execute-2026-04-23-16-19-35.log",
+  "startTimestamp": "2026-04-23T23:19:35.315Z",
+  "command": "gsd-t-execute",
+  "args": [],
+  "status": "running",
+  "continueFromPath": ".",
+  "surfaced": false
+}

@@ -1,0 +1,10 @@
+
+[1mGSD-T Headless — wave[0m
+[36m  ℹ[0m Prompt: /gsd-t-wave
+[36m  ℹ[0m Timeout: 300s
+[36m  ℹ[0m Log: /Users/david/projects/GSD-T/.gsd-t/headless-1778081739105.log
+
+
+[headless: process timed out]
+
+[33m  ⚠[0m Exit code: 3

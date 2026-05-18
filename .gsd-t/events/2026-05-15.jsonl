@@ -1,0 +1,2 @@
+{"ts":"2026-05-15T00:52:45.043Z","command":null,"phase":null,"trace_id":null,"event_type":"subagent_complete","agent_id":"ac587b06311399010","parent_agent_id":"e281a0dd-3803-4513-bbe7-6844d98f5850","reasoning":null,"outcome":null}
+{"ts":"2026-05-15T01:06:14.299Z","command":null,"phase":null,"trace_id":null,"event_type":"tool_call","agent_id":"e281a0dd-3803-4513-bbe7-6844d98f5850","parent_agent_id":null,"reasoning":"Bash","outcome":null,"turn_id":null,"tool_use_id":"toolu_01Y84ZEbmcHn2L7bCKEBfvTY"}

@@ -1,0 +1,5 @@
+{"ts":"2026-05-07T00:47:35.045Z","sid":"d978769b-a914-433b-85ec-bdb05757da9c","evt":"tool","tool":"Bash","agent_id":null,"data":{"cmd":"for f in .gsd-t/transcripts/in-session-*.ndjson; do lc=$(wc -l < \"$f\"); echo \"$lc $f\"; done | sort -n | tail -10","desc":"Find larger transcripts"}}
+{"ts":"2026-05-07T00:47:40.426Z","sid":"d978769b-a914-433b-85ec-bdb05757da9c","evt":"tool","tool":"Bash","agent_id":null,"data":{"cmd":"ls .gsd-t/transcripts/ | head -5; ls .gsd-t/ | head -10","desc":"Check transcripts dir"}}
+{"ts":"2026-05-07T00:47:46.445Z","sid":"d978769b-a914-433b-85ec-bdb05757da9c","evt":"tool","tool":"Glob","agent_id":null,"data":{"pattern":".gsd-t/**/in-session-*.ndjson"}}
+{"ts":"2026-05-07T00:47:50.823Z","sid":"d978769b-a914-433b-85ec-bdb05757da9c","evt":"tool","tool":"Glob","agent_id":null,"data":{"pattern":"**/in-session-*.ndjson"}}
+{"ts":"2026-05-07T00:47:56.502Z","sid":"d978769b-a914-433b-85ec-bdb05757da9c","evt":"tool","tool":"Bash","agent_id":null,"data":{"cmd":"ls -la in-session-7f70cab9-62d0-4e20-8594-e1d49064d3ff.ndjson 2>&1 | head; pwd","desc":"Check transcript file location"}}

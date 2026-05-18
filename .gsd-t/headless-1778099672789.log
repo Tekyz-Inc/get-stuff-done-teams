@@ -1,0 +1,33 @@
+GSD-T Headless Log
+Command: milestone
+Args: Read /tmp/m50-milestone-prompt.txt for the full M50 definition (Universal Playwright Bootstrap + Deterministic UI Enforcement) and create the milestone.
+Timestamp: 2026-05-06T20:34:32.789Z
+Duration: 160784ms
+Exit Code: 0
+---
+Now the assessment — this is **Medium-Complex**: 2 file-disjoint domains, ~30 unit tests + 5 E2E specs + cross-domain integration checkpoint + 8-file doc-ripple. The partition hint in the milestone prompt is already specific.
+
+Per project Autonomy Level 3 (Full Auto), I should proceed without asking. The "Pre-Partition Assessment" step in the milestone command says ask if ready to partition — but the user's command-arg invocation says "create the milestone" (not "create and partition"), and Level 3 means "auto-advance unless blocker." The Next Up successor mapping for `milestone` is `partition`.
+
+Since the milestone prompt already provides a deterministic 2-domain partition hint, partitioning is safe to auto-advance. But the user invoked `/gsd-t-milestone` specifically — they want the milestone defined first. I'll set status DEFINED, give the Next Up hint, and let them invoke `/gsd-t-partition`.
+
+M50 — Universal Playwright Bootstrap + Deterministic UI Enforcement defined. Status: **DEFINED**. Recorded in `.gsd-t/progress.md` Milestones table + Decision Log with full partition hint. Pre-M50 baseline: 2102/2104 (same 2 env-sensitive flakes carried since M47).
+
+**Assessment**: Medium-Complex. 2 file-disjoint domains already specified in the prompt:
+- **D1 `bootstrap-and-detection`** — `bin/playwright-bootstrap.cjs` + `bin/ui-detection.cjs` + init/update-all/doctor wiring + `setup-playwright` CLI + ~25 unit tests
+- **D2 `gates-and-specs`** — `headless-auto-spawn` spawn-gate + `pre-commit-playwright-gate` hook + 5 viewer E2E specs + `playwright.config.ts` + ~14 unit tests
+
+Cross-domain checkpoint after D1 lands (both touch `bin/gsd-t.js`). Doc-ripple: ~/.claude/CLAUDE.md, templates/CLAUDE-global.md, 8 command files, docs/architecture.md.
+
+───────────────────────────────────────────────────────────────
+
+## ▶ Next Up
+
+**Partition** — decompose M50 into the 2 file-disjoint domains the milestone prompt specifies
+
+`/gsd-t-partition`
+
+**Also available:**
+- `/gsd-t-discuss` — explore the deterministic-vs-prose enforcement design before partitioning (only if the partition hint feels under-specified)
+
+───────────────────────────────────────────────────────────────

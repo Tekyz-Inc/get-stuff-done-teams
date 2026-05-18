@@ -1,0 +1,21 @@
+flowchart LR
+    START([wave triggered]) --> P1[partition]
+    P1 --> P2[plan]
+    P2 --> P3[impact]
+    P3 --> P4[execute]
+    P4 --> P5[test-sync]
+    P5 --> P6[integrate]
+    P6 --> P7[verify]
+    P7 --> P8[complete-milestone]
+    P8 --> END([milestone shipped])
+
+    P4 -.spawned.-> SUB1[qa]
+    P4 -.spawned.-> SUB2[doc-ripple]
+    P4 -.parallel.-> PAR[parallel<br/>task dispatch]
+    P7 -.gates.-> GATE1[Red Team]
+    P7 -.gates.-> GATE2[Design Verify]
+
+    classDef phase fill:#e8f5e9,stroke:#388e3c
+    classDef sub fill:#fff9c4,stroke:#f9a825
+    class P1,P2,P3,P4,P5,P6,P7,P8 phase
+    class SUB1,SUB2,PAR,GATE1,GATE2 sub

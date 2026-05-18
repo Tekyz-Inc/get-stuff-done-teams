@@ -1,0 +1,38 @@
+...@_theme.d2
+
+
+direction: right
+
+mile: "/gsd-t-milestone" { class: cmd }
+part: "/gsd-t-partition" { class: cmd }
+plan: "/gsd-t-plan" { class: cmd }
+impact: "/gsd-t-impact" { class: cmd }
+exec: "/gsd-t-execute" { class: cmd }
+ts: "/gsd-t-test-sync" { class: cmd }
+integ: "/gsd-t-integrate" { class: cmd }
+verify: "/gsd-t-verify" { class: cmd }
+cm: "/gsd-t-complete-milestone" { class: cmd }
+done: Project complete { class: endpoint }
+
+mile -> part -> plan
+plan -> impact: risky { style.stroke-dash: 3 }
+plan -> exec
+impact -> exec
+exec -> ts -> integ -> verify
+verify -> cm -> done
+
+subagents: {
+  class: group
+  label: Auto-spawned subagents
+  qa: qa { class: subagent }
+  ripple: doc-ripple { class: subagent }
+  loop: headless\n--debug-loop { class: subagent }
+  redteam: Red Team { class: gate }
+  designv: Design Verify { class: gate }
+}
+
+exec -> subagents.qa: spawned { style.stroke-dash: 3 }
+exec -> subagents.ripple: spawned { style.stroke-dash: 3 }
+exec -> subagents.loop: 2 fails { style.stroke-dash: 3 }
+verify -> subagents.redteam: gates { style.stroke-dash: 3 }
+verify -> subagents.designv: if design { style.stroke-dash: 3 }

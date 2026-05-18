@@ -1,0 +1,14 @@
+{
+  "id": "gsd-t-debug-2026-05-07-09-55-03",
+  "pid": 2606,
+  "logPath": ".gsd-t/headless-gsd-t-debug-2026-05-07-09-55-03.log",
+  "startTimestamp": "2026-05-07T16:55:03.626Z",
+  "command": "gsd-t-debug",
+  "args": [
+    "Read /tmp/m53-debug-prompt.txt — fix assistant_turn bodyless frames + journey spec + adversarial RT.",
+    "--timeout=3600"
+  ],
+  "status": "running",
+  "continueFromPath": ".",
+  "surfaced": false
+}

@@ -1,0 +1,13 @@
+{
+  "id": "gsd-t-execute-2026-04-16-15-41-34",
+  "pid": 38281,
+  "logPath": ".gsd-t/headless-gsd-t-execute-2026-04-16-15-41-34.log",
+  "startTimestamp": "2026-04-16T22:41:34.725Z",
+  "command": "gsd-t-execute",
+  "args": [
+    "m38-meter-reduction"
+  ],
+  "status": "running",
+  "continueFromPath": ".",
+  "surfaced": false
+}

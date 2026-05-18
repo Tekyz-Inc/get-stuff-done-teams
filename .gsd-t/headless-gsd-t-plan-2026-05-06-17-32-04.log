@@ -1,0 +1,36 @@
+
+[1mGSD-T Headless — plan[0m
+[36m  ℹ[0m Prompt: /gsd-t-plan
+[36m  ℹ[0m Timeout: 1800s
+[36m  ℹ[0m Log: /Users/david/projects/GSD-T/.gsd-t/headless-1778113924237.log
+
+✅ Plan complete — 10 tasks across 2 file-disjoint domains, 4 waves with 3 checkpoints, plan validation PASS (haiku, recorded to token-log).
+
+**Domain task counts:**
+- m52-d1-journey-coverage-tooling: 5 tasks (T1 detector, T2 contract STABLE, T3 CLI, T4 hook, T5 `bin/gsd-t.js` wiring + Checkpoint 1)
+- m52-d2-journey-specs-and-fixtures: 5 tasks (T1 fixtures + replay-helpers, T2 specs 1–4 + manifest, T3 specs 5–8, T4 specs 9–12 + Checkpoint 2, T5 Red Team + Checkpoint 3)
+
+**Dependency graph & waves** (`m52-integration-points.md`):
+- **Wave 1 parallel**: D1 T1 ‖ D2 T1 (file-disjoint)
+- **Wave 2 sequential**: D1 T2 → T3 → T4 → T5 → CHECKPOINT 1
+- **Wave 3 sequential**: D2 T2 → T3 → T4 → CHECKPOINT 2
+- **Wave 4**: D2 T5 → CHECKPOINT 3
+
+**Recommended execution mode**: **Solo interleaved** — 10 total tasks; only Wave 1 has cross-domain parallelism (D1 T1 ‖ D2 T1, ~30-min savings). The remaining waves are sequential due to the manifest serialization in D2 and the contract/CLI/hook/wiring chain in D1. Team-parallel mode would not yield benefit beyond Wave 1.
+
+**Test baseline**: unit 2161/2166 (5 documented env-bleed failures, not regressions).
+
+Auto-clear is encoded in command, but per Level 3 autonomy I'll auto-advance to execute.
+
+───────────────────────────────────────────────────────────────
+
+## ▶ Next Up
+
+**Execute** — run domain tasks across the 4 waves with parallel-safe Wave 1 (D1 T1 ‖ D2 T1).
+
+`/gsd-t-execute`
+
+**Also available:**
+- `/gsd-t-impact` — downstream effect analysis if deeper risk review is wanted before execute
+
+───────────────────────────────────────────────────────────────

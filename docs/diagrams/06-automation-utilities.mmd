@@ -1,0 +1,47 @@
+flowchart TD
+    subgraph UNATTENDED [Unattended supervision]
+        UN["/gsd-t-unattended<br/>detached supervisor"]
+        UNW["/gsd-t-unattended-watch<br/>live status (270s reschedule)"]
+        UNS["/gsd-t-unattended-stop<br/>graceful halt"]
+        UN -.feeds.-> UNW
+        UNS -.signals.-> UN
+    end
+
+    subgraph OBS [Observability]
+        VIZ["/gsd-t-visualize<br/>SSE + React Flow"]
+        MET["/gsd-t-metrics<br/>ELO + signal dist"]
+        STAT["/gsd-t-status<br/>cross-domain progress"]
+        HEALTH["/gsd-t-health<br/>validate .gsd-t/"]
+    end
+
+    subgraph SESSION [Session control]
+        RES["/gsd-t-resume"]
+        PAUSE["/gsd-t-pause"]
+        LOG["/gsd-t-log<br/>sync Decision Log"]
+    end
+
+    subgraph MAINT [Maintenance]
+        VU["/gsd-t-version-update"]
+        VUA["/gsd-t-version-update-all"]
+        GC["/gsd-t-global-change"]
+        TM["/gsd-t-triage-and-merge"]
+        POP["/gsd-t-populate<br/>docs from code"]
+    end
+
+    subgraph HEAD [Headless / CI]
+        HEX["headless exec"]
+        HQ["headless query"]
+        HDL["headless --debug-loop"]
+        PAR["parallel<br/>task dispatch"]
+    end
+
+    classDef u fill:#e3f2fd,stroke:#1565c0
+    classDef o fill:#f1f8e9,stroke:#558b2f
+    classDef s fill:#fce4ec,stroke:#ad1457
+    classDef m fill:#ede7f6,stroke:#4527a0
+    classDef h fill:#fff8e1,stroke:#ff6f00
+    class UN,UNW,UNS u
+    class VIZ,MET,STAT,HEALTH o
+    class RES,PAUSE,LOG s
+    class VU,VUA,GC,TM,POP m
+    class HEX,HQ,HDL,PAR h

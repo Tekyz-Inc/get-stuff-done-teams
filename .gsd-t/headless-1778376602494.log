@@ -1,0 +1,8 @@
+GSD-T Headless Log
+Command: gsd-t-complete-milestone
+Args: 
+Timestamp: 2026-05-10T01:30:02.494Z
+Duration: 2102ms
+Exit Code: 5
+---
+Unknown command: /gsd-t-gsd-t-complete-milestone

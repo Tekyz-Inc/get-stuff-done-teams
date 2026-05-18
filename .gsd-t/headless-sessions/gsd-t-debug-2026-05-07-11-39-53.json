@@ -1,0 +1,14 @@
+{
+  "id": "gsd-t-debug-2026-05-07-11-39-53",
+  "pid": 63120,
+  "logPath": ".gsd-t/headless-gsd-t-debug-2026-05-07-11-39-53.log",
+  "startTimestamp": "2026-05-07T18:39:53.447Z",
+  "command": "gsd-t-debug",
+  "args": [
+    "Read /tmp/m53b-debug-prompt.txt — fix project-root misrouting in conversation-capture hook + journey spec + adversarial RT.",
+    "--timeout=3600"
+  ],
+  "status": "running",
+  "continueFromPath": ".",
+  "surfaced": false
+}

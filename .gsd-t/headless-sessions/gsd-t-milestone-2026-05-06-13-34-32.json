@@ -1,0 +1,14 @@
+{
+  "id": "gsd-t-milestone-2026-05-06-13-34-32",
+  "pid": 24057,
+  "logPath": ".gsd-t/headless-gsd-t-milestone-2026-05-06-13-34-32.log",
+  "startTimestamp": "2026-05-06T20:34:32.724Z",
+  "command": "gsd-t-milestone",
+  "args": [
+    "Read /tmp/m50-milestone-prompt.txt for the full M50 definition (Universal Playwright Bootstrap + Deterministic UI Enforcement) and create the milestone.",
+    "--timeout=1800"
+  ],
+  "status": "running",
+  "continueFromPath": ".",
+  "surfaced": false
+}

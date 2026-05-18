@@ -1,0 +1,20 @@
+flowchart LR
+    IDEA([User has idea]) --> BADD["/gsd-t-backlog-add"]
+    BADD --> BL[".gsd-t/backlog.md"]
+
+    BL --> VIEW["/gsd-t-backlog-list<br/>filtered view"]
+    BL --> EDIT["/gsd-t-backlog-edit"]
+    BL --> MOVE["/gsd-t-backlog-move<br/>reorder priority"]
+    BL --> RM["/gsd-t-backlog-remove"]
+    BL --> PROMO["/gsd-t-backlog-promote"]
+
+    PROMO --> ROUTE{Classify}
+    ROUTE -->|big| MILE["/gsd-t-milestone"]
+    ROUTE -->|small| QUICK["/gsd-t-quick"]
+    ROUTE -->|bug| DEBUG["/gsd-t-debug"]
+    ROUTE -->|feature| FEAT["/gsd-t-feature"]
+
+    SETTINGS["/gsd-t-backlog-settings"] -.configures.-> BADD
+
+    classDef backlog fill:#fff3e0,stroke:#ef6c00
+    class BADD,VIEW,EDIT,MOVE,RM,PROMO,SETTINGS backlog

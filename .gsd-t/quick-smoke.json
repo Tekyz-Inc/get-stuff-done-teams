@@ -1,0 +1,51 @@
+{
+  "schemaVersion": "1.0.0",
+  "generatedAt": "2026-05-09T23:27:34.032Z",
+  "claudeCliVersion": "2.1.138",
+  "account": "oauth-c2cc7a8131c440c8",
+  "accountTier": "default_claude_max_20x",
+  "authPath": "oauth-claude-max",
+  "matrix": [
+    {
+      "workers": 1,
+      "contextTokens": 10000,
+      "runs": [
+        {
+          "workerId": "w0-r0",
+          "cellWorkers": 1,
+          "cellContextTokens": 10000,
+          "runIdx": 0,
+          "ttftMs": 7631.087041,
+          "totalMs": 8025.704833,
+          "status429": false,
+          "retryAfterMs": null,
+          "exitCode": 0,
+          "failedReason": null,
+          "startedAt": "2026-05-09T23:27:25.994Z",
+          "endedAt": "2026-05-09T23:27:34.020Z",
+          "model": "claude-haiku-4-5",
+          "fixturePath": "/Users/david/projects/GSD-T/.gsd-t/fixtures/ratelimit-probe/context-10k.txt"
+        }
+      ],
+      "summary": {
+        "p50TtftMs": 7631,
+        "p95TtftMs": 7631,
+        "total429": 0,
+        "declaredSafe": true
+      }
+    }
+  ],
+  "backoffProbe": null,
+  "steadyState": null,
+  "recommended": {
+    "safeConcurrencyAt60kContext": 1,
+    "peakConcurrency": 1,
+    "perWorkerContextBudgetTokens": 10000,
+    "backoffMs": 30000,
+    "steadyState3Workers5MinPass": false
+  },
+  "notes": [
+    "authPath: oauth-claude-max",
+    "claudeCliVersion: 2.1.138"
+  ]
+}
