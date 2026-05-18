@@ -39,9 +39,16 @@
 const fs = require("fs");
 const path = require("path");
 
+const { SAFE_DEFAULT_WINDOW } = require("../bin/model-windows.cjs");
+
 const MAX_STDIN = 1024 * 1024; // 1 MiB
 const SCHEMA_VERSION = 1;
-const DEFAULT_CW_CEILING_TOKENS = 200000; // input-token budget per CW
+// Input-token budget per CW = the model context window. Default to the
+// model-aware safe window (1M); the old 200K literal was correct only for
+// pre-4 models and skewed every actualCwPct calibration ratio 5× on
+// Opus/Sonnet. Event state may still override via cwCeilingTokens (the
+// economics estimator records the model-aware ceiling it actually used).
+const DEFAULT_CW_CEILING_TOKENS = SAFE_DEFAULT_WINDOW;
 
 if (require.main === module) {
   let input = "";

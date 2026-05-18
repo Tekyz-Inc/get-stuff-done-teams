@@ -26,12 +26,43 @@
 
 const fs = require('fs');
 const path = require('path');
+const { SAFE_DEFAULT_WINDOW } = require('./model-windows.cjs');
 
 const DEFAULT_K = 5;
-const DEFAULT_MODEL_CONTEXT_CAP = 200000;
+// The model context cap IS the model's true window. Default to the model-aware
+// safe LARGE window (1M) — the old 200K literal was correct only for pre-4
+// models and made turn-to-compact predictions fire 5× too early on Opus/Sonnet.
+// Callers may still pass an explicit `modelContextCap`, and resolveContextCap()
+// below prefers a fresh Context Meter reading when available.
+const DEFAULT_MODEL_CONTEXT_CAP = SAFE_DEFAULT_WINDOW;
 // Claude Code starts auto-compacting ~8% before the model window fills, so the
 // effective dialog ceiling is 0.92 × modelContextCap.
 const PRE_COMPACT_HEADROOM = 0.92;
+// Context Meter state — its modelWindowSize is model-aware (bin/model-windows.cjs).
+const METER_STATE_REL = '.gsd-t/.context-meter-state.json';
+const METER_STATE_STALE_MS = 5 * 60 * 1000;
+
+/**
+ * Resolve the effective model context cap. Priority:
+ *   1. explicit opts.modelContextCap (caller override)
+ *   2. fresh Context Meter state modelWindowSize (model-aware, written by the
+ *      meter hook from the running model)
+ *   3. DEFAULT_MODEL_CONTEXT_CAP (safe large fallback)
+ */
+function resolveContextCap(projectDir, optCap) {
+  if (Number.isFinite(optCap) && optCap > 0) return optCap;
+  try {
+    const fp = path.join(projectDir || '.', METER_STATE_REL);
+    const s = JSON.parse(fs.readFileSync(fp, 'utf8'));
+    if (s && typeof s.modelWindowSize === 'number' && s.modelWindowSize > 0 && s.timestamp) {
+      const age = Date.now() - Date.parse(s.timestamp);
+      if (!isNaN(age) && age >= 0 && age <= METER_STATE_STALE_MS) {
+        return s.modelWindowSize;
+      }
+    }
+  } catch (_) { /* fall through to default */ }
+  return DEFAULT_MODEL_CONTEXT_CAP;
+}
 const DEFAULT_WARN_THRESHOLD_TURNS = 5;
 const MIN_HISTORY = 3;
 
@@ -107,7 +138,8 @@ function _sortTurns(rows) {
  * @param {string} opts.projectDir
  * @param {string} opts.sessionId                required
  * @param {number} [opts.k]                      default 5 (last K turns)
- * @param {number} [opts.modelContextCap]        default 200000
+ * @param {number} [opts.modelContextCap]        default: fresh Context Meter
+ *        modelWindowSize if available, else the model-aware safe window (1M)
  * @param {number} [opts.warnThresholdTurns]     default 5
  * @returns {{
  *   shouldWarn: boolean,
@@ -124,9 +156,7 @@ function estimateDialogGrowth(opts) {
   const projectDir = (opts && opts.projectDir) || '.';
   const sessionId = opts && opts.sessionId;
   const k = (opts && Number.isFinite(opts.k) && opts.k > 0) ? Math.floor(opts.k) : DEFAULT_K;
-  const cap = (opts && Number.isFinite(opts.modelContextCap) && opts.modelContextCap > 0)
-    ? opts.modelContextCap
-    : DEFAULT_MODEL_CONTEXT_CAP;
+  const cap = resolveContextCap(projectDir, opts && opts.modelContextCap);
   const warnThreshold = (opts && Number.isFinite(opts.warnThresholdTurns) && opts.warnThresholdTurns > 0)
     ? opts.warnThresholdTurns
     : DEFAULT_WARN_THRESHOLD_TURNS;

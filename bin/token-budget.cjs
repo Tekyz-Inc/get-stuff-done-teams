@@ -26,10 +26,17 @@
 
 const fs = require("fs");
 const path = require("path");
+const { SAFE_DEFAULT_WINDOW } = require("./model-windows.cjs");
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
 const MODEL_RATIOS = { haiku: 1, sonnet: 5, opus: 25 };
+
+// Fallback context window when no per-model signal is available. Uses the
+// model-windows safe LARGE default (1M) rather than a bare 200K literal: a
+// too-small fallback re-introduces the premature-headless-handoff bug the
+// model-aware sizing was added to fix. See bin/model-windows.cjs.
+const FALLBACK_WINDOW = SAFE_DEFAULT_WINDOW;
 
 // Base token estimates per task type (in haiku-equivalent units)
 const BASE_ESTIMATES = {
@@ -106,7 +113,9 @@ function getSessionStatus(projectDir) {
   const real = readContextMeterState(dir);
   if (real) {
     const consumed = real.inputTokens;
-    const window = real.modelWindowSize > 0 ? real.modelWindowSize : 200000;
+    // Primary: the Context Meter writes a model-aware modelWindowSize into
+    // state (bin/model-windows.cjs). Fallback only when state predates that.
+    const window = real.modelWindowSize > 0 ? real.modelWindowSize : FALLBACK_WINDOW;
     const estimated_remaining = Math.max(0, window - consumed);
     const pct = Math.round(real.pct * 10) / 10;
     const threshold = bandFor(pct, thresholdPct);
@@ -145,7 +154,7 @@ function resolveThresholdPct(dir) {
 }
 
 function getSessionStatusHeuristic(dir, thresholdPct) {
-  const window = 200000;
+  const window = FALLBACK_WINDOW;
   const consumed = readSessionConsumed(dir);
   const estimated_remaining = Math.max(0, window - consumed);
   const pct = window > 0 ? Math.round((consumed / window) * 100 * 10) / 10 : 0;
@@ -180,7 +189,7 @@ function recordUsage(usage) {
  */
 function estimateMilestoneCost(remainingTasks, projectDir) {
   const status = getSessionStatus(projectDir);
-  const window = status.consumed + status.estimated_remaining || 200000;
+  const window = status.consumed + status.estimated_remaining || FALLBACK_WINDOW;
   const estimatedTokens = remainingTasks.reduce((sum, t) => {
     return sum + estimateCost(t.model, t.taskType, { complexity: t.complexity, projectDir });
   }, 0);

@@ -9,15 +9,29 @@
 //   node bin/context-budget-audit.js --json           # JSON output for tooling
 //   node bin/context-budget-audit.js --top 20         # top N largest files
 //   node bin/context-budget-audit.js --threshold 5000 # flag files above N tokens
+//   node bin/context-budget-audit.js --model claude-opus-4-7  # size % to a model's window (default: 1M)
 
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
+const { windowForModel, SAFE_DEFAULT_WINDOW } = require('./model-windows.cjs');
+
 // Token estimation: GPT/Claude tokenizers average ~4 chars/token for English+code.
 // This is a fast deterministic estimate, not a true tokenizer call. Within ~10%.
 const CHARS_PER_TOKEN = 4;
-const CONTEXT_WINDOW = 200_000; // claude-opus-4-6 default
+
+// Context window for the "% of window" math. This is a static-analysis CLI with
+// no live transcript, so the model is resolved from --model / GSD_T_MODEL when
+// provided, else the model-windows safe LARGE default (1M). A bare 200K literal
+// (the old value) overstated every percentage 5× for Opus/Sonnet sessions.
+let CONTEXT_WINDOW = (() => {
+  const fromEnv = typeof process.env.GSD_T_MODEL === 'string' ? process.env.GSD_T_MODEL : '';
+  const argIdx = process.argv.indexOf('--model');
+  const fromArg = argIdx !== -1 ? process.argv[argIdx + 1] : '';
+  const modelId = fromArg || fromEnv;
+  return modelId ? windowForModel(modelId) : SAFE_DEFAULT_WINDOW;
+})();
 
 function estimateTokens(bytes) {
   return Math.round(bytes / CHARS_PER_TOKEN);
@@ -414,8 +428,9 @@ function main() {
     else if (a === '--threshold') opts.threshold = parseInt(args[++i], 10);
     else if (a === '--project') opts.projectDir = path.resolve(args[++i]);
     else if (a === '--global') opts.globalDir = path.resolve(args[++i]);
+    else if (a === '--model') i++; // consumed at init for window sizing; skip value
     else if (a === '--help' || a === '-h') {
-      console.log('Usage: node bin/context-budget-audit.js [--json] [--top N] [--threshold N]');
+      console.log('Usage: node bin/context-budget-audit.js [--json] [--top N] [--threshold N] [--model <claude-model-id>]');
       process.exit(0);
     }
   }

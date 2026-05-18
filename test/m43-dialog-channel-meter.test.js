@@ -86,8 +86,10 @@ test('steep linear growth → shouldWarn=true with sensible horizon', () => {
     const sid = 'sess-steep';
     const rows = [];
     const base = new Date('2026-04-21T10:00:00Z').getTime();
-    // 6 turns growing by 20K each; latest = 180000. cap = 200K * 0.92 = 184000.
-    // headroom at latest = 4000; slope = 20000 → ceil(4000/20000) = 1 turn.
+    // 6 turns growing by 20K each; latest = 180000. We pass an explicit
+    // modelContextCap of 200K so this test pins the WARN MATH, not the
+    // (now model-aware, 1M) default: cap*0.92 = 184000, headroom at latest
+    // = 4000, slope = 20000 → ceil(4000/20000) = 1 turn.
     for (let i = 0; i < 6; i++) {
       rows.push(row({
         sessionId: sid,
@@ -98,7 +100,11 @@ test('steep linear growth → shouldWarn=true with sensible horizon', () => {
     }
     writeRows(dir, rows);
 
-    const r = estimateDialogGrowth({ projectDir: dir, sessionId: sid });
+    const r = estimateDialogGrowth({
+      projectDir: dir,
+      sessionId: sid,
+      modelContextCap: 200000,
+    });
     assert.equal(r.shouldWarn, true);
     assert.equal(r.median_delta, 20000);
     assert.equal(r.slope, 20000);

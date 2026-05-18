@@ -23,7 +23,14 @@ const {
   getModelCostRatios,
 } = require("../bin/token-budget.cjs");
 
+const { SAFE_DEFAULT_WINDOW } = require("../bin/model-windows.cjs");
+
+// Window the test explicitly writes into meter state (test controls this).
 const MODEL_WINDOW = 200000;
+// Window the heuristic falls back to when no per-model signal exists. Model-
+// aware safe LARGE default — a too-small fallback re-introduces the premature
+// headless-handoff bug. Must track bin/token-budget.cjs::FALLBACK_WINDOW.
+const HEURISTIC_FALLBACK_WINDOW = SAFE_DEFAULT_WINDOW;
 const DEFAULT_THRESHOLD_PCT = 75;
 let tmpDir;
 
@@ -221,7 +228,8 @@ describe("getSessionStatus (single-band v3.12)", () => {
     const status = getSessionStatus(tmpDir);
     assert.equal(status.consumed, 0);
     assert.equal(status.threshold, "normal");
-    assert.equal(status.estimated_remaining, MODEL_WINDOW);
+    // Heuristic uses the model-aware safe fallback window (not the legacy 200K).
+    assert.equal(status.estimated_remaining, HEURISTIC_FALLBACK_WINDOW);
   });
 
   it("falls back to heuristic when state file is older than 5min (no stale band)", () => {
@@ -274,9 +282,10 @@ describe("getSessionStatus (single-band v3.12)", () => {
     ]);
     const status = getSessionStatus(tmpDir);
     assert.equal(status.consumed, 150000);
-    assert.equal(status.pct, 75);
-    // 75% reaches default threshold (75)
-    assert.equal(status.threshold, "threshold");
+    // 150K / 1M safe fallback = 15% → normal (was 75% under the legacy 200K
+    // window — that 5× overcount was exactly the reported regression).
+    assert.equal(status.pct, 15);
+    assert.equal(status.threshold, "normal");
   });
 
   it("reports consumed=0 on missing state and empty log", () => {
