@@ -384,3 +384,88 @@ test("12. clock injection — timestamp uses injected clock", async () => {
   const state = JSON.parse(fs.readFileSync(stateFile(tmpRoot), "utf8"));
   assert.equal(state.timestamp, fixed.toISOString());
 });
+
+/* ── M-fix: model-aware context window (the reported regression) ───────── */
+
+test("13. Opus 4.7 @ ~36% of a 1M window stays 'normal' (regression repro)", async () => {
+  // The exact reported symptom: ~360k tokens used on an Opus 4.7 session.
+  // With the old hardcoded 200k window this computed 180% → premature
+  // headless handoff at ~64% of context REMAINING. With model-aware sizing
+  // the window is 1M, so 360k = 36% = normal, no handoff.
+  seedState(tmpRoot, { checkCount: 4 });
+
+  const out = await runMeter({
+    payload: makePayload(),
+    projectRoot: tmpRoot,
+    _loadConfig: () => makeConfig(), // config still says 200k — must be overridden
+    _parseTranscript: async () => ({ ...FAKE_PARSED, model: "claude-opus-4-7" }),
+    _estimateTokens: () => ({ inputTokens: 360000 }),
+  });
+
+  // No handoff marker — this is the whole point of the fix.
+  assert.deepEqual(out, {});
+
+  const state = JSON.parse(fs.readFileSync(stateFile(tmpRoot), "utf8"));
+  assert.equal(state.modelWindowSize, 1_000_000, "window resolved from model, not config");
+  assert.equal(state.pct, 36, "360k / 1M = 36%");
+  assert.equal(state.threshold, "normal");
+});
+
+test("14. Opus 4.7 @ 80% of the true 1M window DOES hand off", async () => {
+  // The handoff must still fire at the real 75% threshold against the
+  // corrected window — we keep the guard, we just size it correctly.
+  seedState(tmpRoot, { checkCount: 4 });
+
+  const out = await runMeter({
+    payload: makePayload(),
+    projectRoot: tmpRoot,
+    _loadConfig: () => makeConfig(),
+    _parseTranscript: async () => ({ ...FAKE_PARSED, model: "claude-opus-4-7-20260115" }),
+    _estimateTokens: () => ({ inputTokens: 800000 }), // 80% of 1M > 75%
+  });
+
+  assert.equal(out.additionalContext, "next-spawn-headless:true");
+  const state = JSON.parse(fs.readFileSync(stateFile(tmpRoot), "utf8"));
+  assert.equal(state.modelWindowSize, 1_000_000);
+  assert.equal(state.pct, 80);
+  assert.equal(state.threshold, "threshold");
+});
+
+test("15. no model in transcript → falls back to config window (back-compat)", async () => {
+  // Existing transcripts / stubs without a model field must behave exactly
+  // as before: config's modelWindowSize governs.
+  seedState(tmpRoot, { checkCount: 4 });
+
+  const out = await runMeter({
+    payload: makePayload(),
+    projectRoot: tmpRoot,
+    _loadConfig: () => makeConfig({ modelWindowSize: 200000 }),
+    _parseTranscript: async () => FAKE_PARSED, // no `model` key
+    _estimateTokens: () => ({ inputTokens: 160000 }), // 80% of 200k
+  });
+
+  assert.equal(out.additionalContext, "next-spawn-headless:true");
+  const state = JSON.parse(fs.readFileSync(stateFile(tmpRoot), "utf8"));
+  assert.equal(state.modelWindowSize, 200000);
+  assert.equal(state.pct, 80);
+});
+
+test("16. Haiku session correctly sized at 200k (not over-large 1M)", async () => {
+  seedState(tmpRoot, { checkCount: 4 });
+
+  const out = await runMeter({
+    payload: makePayload(),
+    projectRoot: tmpRoot,
+    _loadConfig: () => makeConfig(),
+    _parseTranscript: async () => ({
+      ...FAKE_PARSED,
+      model: "claude-haiku-4-5-20251001",
+    }),
+    _estimateTokens: () => ({ inputTokens: 170000 }), // 85% of 200k
+  });
+
+  assert.equal(out.additionalContext, "next-spawn-headless:true");
+  const state = JSON.parse(fs.readFileSync(stateFile(tmpRoot), "utf8"));
+  assert.equal(state.modelWindowSize, 200000);
+  assert.equal(state.pct, 85);
+});

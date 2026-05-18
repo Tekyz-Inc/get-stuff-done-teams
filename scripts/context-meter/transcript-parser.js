@@ -82,9 +82,12 @@ const readline = require("readline");
  * Parse a Claude Code transcript JSONL file.
  *
  * @param {string} transcriptPath - absolute path to a Claude Code transcript .jsonl
- * @returns {Promise<{system: string, messages: Array<{role: string, content: Array}>} | null>}
+ * @returns {Promise<{system: string, messages: Array<{role: string, content: Array}>, model: string|null} | null>}
  *          Resolves to the reconstructed body, or `null` on unreadable file /
  *          catastrophic parse failure. Caller treats `null` as "bail out, fail open".
+ *          `model` is the last-seen assistant `message.model` id (the model the
+ *          orchestrator session is running) or `null` if none observed — the
+ *          context meter uses it to size the context window correctly.
  */
 async function parseTranscript(transcriptPath) {
   if (typeof transcriptPath !== "string" || transcriptPath.length === 0) {
@@ -101,6 +104,10 @@ async function parseTranscript(transcriptPath) {
 
   const messages = [];
   let system = "";
+  // Last-seen assistant model id. Claude Code records `message.model` on every
+  // assistant turn; the orchestrator session runs one model for its lifetime,
+  // so the last value is authoritative for sizing the context window.
+  let model = null;
 
   let stream;
   try {
@@ -136,6 +143,9 @@ async function parseTranscript(transcriptPath) {
         if (!msg || typeof msg !== "object") continue;
 
         const role = msg.role || type;
+        if (type === "assistant" && typeof msg.model === "string" && msg.model.length > 0) {
+          model = msg.model;
+        }
         const content = normalizeContent(msg.content, role);
         if (content === null) continue;
 
@@ -152,7 +162,7 @@ async function parseTranscript(transcriptPath) {
     return null;
   }
 
-  return { system, messages: sanitizeToolPairs(messages) };
+  return { system, messages: sanitizeToolPairs(messages), model };
 }
 
 /**

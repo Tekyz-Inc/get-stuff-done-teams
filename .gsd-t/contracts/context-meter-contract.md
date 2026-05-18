@@ -1,11 +1,12 @@
 # Contract: Context Meter
 
-## Version: 1.4.0
+## Version: 1.5.0
 ## Status: ACTIVE
 ## Owner: m38-meter-reduction domain (core); m43-d5-dialog-channel-meter (§Dialog Growth Meter)
 ## Consumers: context-meter-hook (reads config), token-budget (reads state file), installer-integration (installs hook, validates config), orchestrator (reads threshold band to trigger silent headless handoff), `/gsd` router (reads dialog growth signal for end-of-turn footer)
 
 ## Changelog
+- **v1.5.0** (2026-05-18) — **Model-aware window sizing (system-wide)**. The effective context window is now resolved at runtime from the model the orchestrator session is running (parsed from the transcript's last assistant `message.model`), via the new `bin/model-windows.cjs` map. `modelWindowSize` in config is demoted to a fallback used only when the transcript reports no model. Fixes a regression where the hardcoded 200K window (correct for pre-4 models, wrong for Opus 4.6/4.7 + Sonnet 4.x which ship a 1M window) made the meter overcount usage 5× and fire the silent headless handoff at ~64% of context *remaining*. Additive: API surface and state schema unchanged; back-compat preserved (no model → config value, exactly as before). New transcript-parser return field `model: string|null`. Threshold semantics unchanged (still `thresholdPct` % of the effective window). **All 5 downstream budget sites re-baselined to model-aware in the same change**: `bin/token-budget.cjs` + `bin/context-budget-audit.cjs` (Category A — true window measurement, fallback now the safe 1M default; audit gains a `--model` flag); `bin/runway-estimator.cjs` + `bin/gsd-t-economics.cjs` + `scripts/gsd-t-calibration-hook.js` (Category B — CW cost/runway ceilings; default re-baselined to the safe 1M window and each now prefers a fresh Context Meter `modelWindowSize` reading when present). Net effect: turn-to-compact predictions, parallel-mode economics gates, and compaction-calibration ratios all scale with the real model window instead of a 5×-too-small constant.
 - **v1.4.0** (2026-04-21) — **Dialog Growth Meter** (M43 D5). Adds §Dialog Growth Meter subsection: `bin/runway-estimator.cjs::estimateDialogGrowth` surfaces a router-only one-line "~N turns to `/compact`" warning when median-of-deltas turn-over-turn growth predicts the pre-auto-compact ceiling within 5 turns. Pure read/warn — never refuses, never reroutes. Consumed by `commands/gsd.md` Step 5. Additive change; existing consumers and API surface unaffected.
 - **v1.3.0** (2026-04-16) — **Meter Reduction** (M38). Collapses three-band model to single-band: `normal` and `threshold` only. Deletes `warn`, `stop`, `downgrade`, `conserve`, `dead-meter`, `stale` bands. Deletes `getDegradationActions`. Deletes Universal Auto-Pause MANDATORY STOP banner in `additionalContext` — replaced with silent marker consumed by the orchestrator to trigger `autoSpawnHeadless()` on the next subagent spawn. Deletes resume-time health check (Step 0.6). Deletes `deadReason` field from state and gate return. Rationale: M37's elevation was the right symptom fix but wrong enforcement layer — M38 moves overflow prevention into structure (headless-by-default) instead of runtime banners Claude routinely ignored. See M38 milestone notes.
 - **v1.2.0** (2026-04-16) — [SUPERSEDED] Universal Auto-Pause (M37). Made `additionalContext` a multi-line MANDATORY STOP. Removed in v1.3.0.
@@ -46,11 +47,43 @@ Shipped template lives at `templates/context-meter-config.json`. Copied into dow
 |-------|------|---------|---------|
 | `version` | integer | `1` | Schema version. Loader rejects unknown major versions. |
 | `thresholdPct` | number (0 < n < 100) | `75` | Percentage of `modelWindowSize` at which the band flips from `normal` to `threshold`. |
-| `modelWindowSize` | integer > 0 | `200000` | Model's context window in tokens (Opus 4.6+, Sonnet 4.6 = 200K). |
+| `modelWindowSize` | integer > 0 | `200000` | **Fallback only.** The effective window is resolved at runtime from the model the orchestrator session is actually running (see *Model-aware window sizing* below). This config value is used only when the transcript reports no model. Opus 4.6/4.7 and Sonnet 4.x = 1,000,000 tokens; Haiku 4.x = 200,000. |
 | `checkFrequency` | integer ≥ 1 | `5` | Hook runs estimation every Nth PostToolUse invocation (1 = every tool call). |
 | `statePath` | relative path | `".gsd-t/.context-meter-state.json"` | Where the hook writes the latest reading for consumers. |
 | `logPath` | relative path | `".gsd-t/context-meter.log"` | Diagnostic log (hook failures, parse errors). Never logs message content. |
 | `timeoutMs` | integer > 0 | `2000` | Hard timeout on transcript parsing + estimation. Hook fails open on timeout. |
+
+### Model-aware window sizing (v1.5.0)
+
+GSD-T jumps between models per-subagent, so a static config window is wrong.
+The orchestrator session whose transcript the meter reads, however, runs a
+**single model for its lifetime**, and every assistant message in the
+transcript records its `model` id. The meter resolves the effective window
+from that id:
+
+1. `scripts/context-meter/transcript-parser.js` surfaces the last-seen
+   assistant `message.model` as `parsed.model` (`string | null`).
+2. `scripts/gsd-t-context-meter.js` calls
+   `bin/model-windows.cjs::windowForModel(parsed.model)` to get the window.
+3. The resolved window overrides `cfg.modelWindowSize` for `pct`, band, and
+   `additionalContext`. If `parsed.model` is null/absent, `cfg.modelWindowSize`
+   is used unchanged (full back-compat).
+
+Window map (longest-prefix match, case-insensitive, defensive `-DATE` suffix
+tolerance):
+
+| Model family | Window |
+|--------------|--------|
+| `claude-opus-4-6`, `claude-opus-4-7`, `claude-opus-4*` | 1,000,000 |
+| `claude-sonnet-4*` | 1,000,000 |
+| `claude-haiku-4*` | 200,000 |
+| pre-4 (`claude-3-*`) | 200,000 |
+| unknown / missing | 1,000,000 (safe large default — never re-introduce premature handoff) |
+
+The safe default is deliberately the **large** window: the failure mode being
+fixed is premature handoff from a too-small assumed window. An over-large
+window degrades gracefully (handoff slightly late); an under-small one breaks
+the workflow (handoff far too early — the reported symptom).
 
 ### Validation rules (enforced by loader)
 

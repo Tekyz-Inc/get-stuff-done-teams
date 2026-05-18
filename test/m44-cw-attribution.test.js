@@ -198,6 +198,9 @@ test('calibration hook: source=compact + active spawn → calibration row writte
       iter: 1,
       activeTask: 'M44-D7-T3',
       estimatedCwPct: 0.85,
+      // Pin the 200K ceiling explicitly — the default is now model-aware (1M);
+      // this test asserts the actualCwPct math against a 200K window.
+      cwCeilingTokens: 200000,
     });
     const payload = JSON.stringify({
       source: 'compact',
@@ -229,6 +232,8 @@ test('calibration hook: payload.input_tokens missing → falls back to compactMe
   try {
     writeUnattendedState(dir, {
       sessionId: 's-1', status: 'running', activeTask: 'T-1',
+      // Pin 200K ceiling (default is now model-aware 1M).
+      cwCeilingTokens: 200000,
     });
     const payload = JSON.stringify({
       source: 'compact',

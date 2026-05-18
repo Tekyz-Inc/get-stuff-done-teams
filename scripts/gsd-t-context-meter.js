@@ -37,6 +37,7 @@ const { loadConfig: realLoadConfig } = require("../bin/context-meter-config.cjs"
 const { parseTranscript: realParseTranscript } = require("./context-meter/transcript-parser");
 const { estimateTokens: realEstimateTokens } = require("./context-meter/estimate-tokens");
 const { computePct, bandFor, buildAdditionalContext } = require("./context-meter/threshold");
+const { windowForModel } = require("../bin/model-windows.cjs");
 
 const STATE_VERSION = 1;
 
@@ -208,6 +209,18 @@ async function runMeter(opts) {
       return {};
     }
 
+    // 5b. Resolve the EFFECTIVE context window from the model the orchestrator
+    // session is actually running (parsed.model). Opus 4.6/4.7 and Sonnet 4.x
+    // ship a 1M window; the config default (200k) is a legacy fallback that
+    // overcounts usage 5× and fires the headless handoff far too early. We
+    // only override when the transcript reports a model — a missing model or
+    // an explicit project config value falls through to cfg.modelWindowSize.
+    const effectiveWindow =
+      typeof parsed.model === "string" && parsed.model.length > 0
+        ? windowForModel(parsed.model)
+        : cfg.modelWindowSize;
+    state.modelWindowSize = effectiveWindow;
+
     // 6. Estimate tokens locally (no API call, zero cost).
     let tokenResp;
     try {
@@ -237,7 +250,7 @@ async function runMeter(opts) {
     // 8. Success path — compute pct, band, possibly emit additionalContext.
     const pct = computePct({
       inputTokens: tokenResp.inputTokens,
-      modelWindowSize: cfg.modelWindowSize,
+      modelWindowSize: effectiveWindow,
     });
     const band = bandFor(pct, cfg.thresholdPct);
 
@@ -251,13 +264,14 @@ async function runMeter(opts) {
       logPath,
       "INFO",
       "measure",
-      `tokens=${tokenResp.inputTokens} pct=${pct.toFixed(1)} band=${band}`,
+      `tokens=${tokenResp.inputTokens} pct=${pct.toFixed(1)} band=${band} ` +
+        `window=${effectiveWindow}${parsed.model ? ` model=${parsed.model}` : ""}`,
       clock
     );
 
     const additionalContext = buildAdditionalContext({
       pct,
-      modelWindowSize: cfg.modelWindowSize,
+      modelWindowSize: effectiveWindow,
       thresholdPct: cfg.thresholdPct,
     });
     if (additionalContext) {

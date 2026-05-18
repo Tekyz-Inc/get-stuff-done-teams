@@ -18,13 +18,40 @@ const path = require("node:path");
 
 // ─── Constants ────────────────────────────────────────────────────────────
 
+const { SAFE_DEFAULT_WINDOW } = require("./model-windows.cjs");
+
 /**
- * Effective CW ceiling in tokens. Matches:
- *   - bin/token-budget.cjs (200000)
- *   - bin/context-meter-config.cjs (modelWindowSize: 200000)
- *   - bin/runway-estimator.cjs (DEFAULT_MODEL_CONTEXT_CAP = 200000)
+ * Effective CW ceiling in tokens. This IS the model context window, used for
+ * `tokens / ceiling` percentages and parallel-mode gate decisions. Resolved
+ * model-aware (see resolveCwCeiling) — the old hardcoded 200K was correct only
+ * for pre-4 models and overstated every CW% 5× on Opus/Sonnet (1M window),
+ * skewing parallel-mode gates. Kept as the safe fallback when no meter state.
+ *   - bin/token-budget.cjs            (FALLBACK_WINDOW = model-windows safe)
+ *   - bin/context-meter-config.cjs    (modelWindowSize default 200000, now a fallback)
+ *   - bin/runway-estimator.cjs        (DEFAULT_MODEL_CONTEXT_CAP = model-windows safe)
  */
-const CW_CEILING_TOKENS = 200000;
+const CW_CEILING_TOKENS = SAFE_DEFAULT_WINDOW;
+const METER_STATE_REL = ".gsd-t/.context-meter-state.json";
+const METER_STATE_STALE_MS = 5 * 60 * 1000;
+
+/**
+ * Resolve the effective CW ceiling for a project. Prefers a fresh Context
+ * Meter reading (model-aware modelWindowSize, written by the meter hook from
+ * the running model), else the safe large default.
+ */
+function resolveCwCeiling(projectDir) {
+  try {
+    const fp = path.join(projectDir || ".", METER_STATE_REL);
+    const s = JSON.parse(fs.readFileSync(fp, "utf8"));
+    if (s && typeof s.modelWindowSize === "number" && s.modelWindowSize > 0 && s.timestamp) {
+      const age = Date.now() - Date.parse(s.timestamp);
+      if (!isNaN(age) && age >= 0 && age <= METER_STATE_STALE_MS) {
+        return s.modelWindowSize;
+      }
+    }
+  } catch (_) { /* fall through */ }
+  return CW_CEILING_TOKENS;
+}
 
 /** Confidence tier cutoffs (exact-match row counts). */
 const HIGH_CONFIDENCE_MIN = 5; // ≥5 exact matches
@@ -95,7 +122,7 @@ function loadCorpus(projectDir) {
   }
 
   const globalMedian = median(allTotals);
-  const globalPct = tokensToCwPct(globalMedian);
+  const globalPct = tokensToCwPct(globalMedian, resolveCwCeiling(projectDir));
 
   const idx = { rows, exact, byDomain, byCommand, globalMedian, globalPct };
   _corpusCache.set(projectDir, idx);
@@ -122,9 +149,10 @@ function median(arr) {
   return a.length % 2 === 1 ? a[mid] : (a[mid - 1] + a[mid]) / 2;
 }
 
-function tokensToCwPct(tokens) {
+function tokensToCwPct(tokens, ceiling) {
   if (!Number.isFinite(tokens) || tokens <= 0) return 0;
-  return (tokens / CW_CEILING_TOKENS) * 100;
+  const c = Number.isFinite(ceiling) && ceiling > 0 ? ceiling : CW_CEILING_TOKENS;
+  return (tokens / c) * 100;
 }
 
 // ─── Event emission (best-effort) ─────────────────────────────────────────
@@ -247,7 +275,7 @@ function estimateTaskFootprint(opts) {
   const corpus = loadCorpus(projectDir);
 
   const { estimatedTokens, matchedRows, confidence } = lookupInCorpus(taskNode, corpus);
-  const estimatedCwPct = tokensToCwPct(estimatedTokens);
+  const estimatedCwPct = tokensToCwPct(estimatedTokens, resolveCwCeiling(projectDir));
 
   const { parallelOk, split, workerCount } = decideGates(mode, estimatedCwPct, confidence);
 

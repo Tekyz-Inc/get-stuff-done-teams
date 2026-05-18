@@ -39,17 +39,17 @@ test("empty path / non-string → returns null", async () => {
   assert.equal(await parseTranscript(undefined), null);
 });
 
-test("empty file → returns { system:'', messages:[] }", async () => {
+test("empty file → returns { system:'', messages:[], model:null }", async () => {
   const { dir, file } = mkTmpFile([]);
   try {
     const got = await parseTranscript(file);
-    assert.deepEqual(got, { system: "", messages: [] });
+    assert.deepEqual(got, { system: "", messages: [], model: null });
   } finally {
     cleanup(dir);
   }
 });
 
-test("file with only unknown event types → { system:'', messages:[] }", async () => {
+test("file with only unknown event types → { system:'', messages:[], model:null }", async () => {
   const { dir, file } = mkTmpFile([
     { type: "summary", foo: "bar" },
     { type: "system", subtype: "hook", hookInfos: [] },
@@ -60,7 +60,7 @@ test("file with only unknown event types → { system:'', messages:[] }", async 
   ]);
   try {
     const got = await parseTranscript(file);
-    assert.deepEqual(got, { system: "", messages: [] });
+    assert.deepEqual(got, { system: "", messages: [], model: null });
   } finally {
     cleanup(dir);
   }
@@ -99,6 +99,53 @@ test("normal conversation — string-content user + text assistant", async () =>
       role: "assistant",
       content: [{ type: "text", text: "Hi there!" }],
     });
+  } finally {
+    cleanup(dir);
+  }
+});
+
+test("captures last-seen assistant model id (for window sizing)", async () => {
+  const { dir, file } = mkTmpFile([
+    { type: "user", message: { role: "user", content: "hi" } },
+    {
+      type: "assistant",
+      message: {
+        role: "assistant",
+        model: "claude-opus-4-7",
+        content: [{ type: "text", text: "first" }],
+      },
+    },
+    { type: "user", message: { role: "user", content: "more" } },
+    {
+      type: "assistant",
+      message: {
+        role: "assistant",
+        model: "claude-opus-4-7-20260115",
+        content: [{ type: "text", text: "second" }],
+      },
+    },
+  ]);
+  try {
+    const got = await parseTranscript(file);
+    // Last assistant model wins (orchestrator session is single-model, but the
+    // last value is authoritative if a dated id supersedes a bare one).
+    assert.equal(got.model, "claude-opus-4-7-20260115");
+  } finally {
+    cleanup(dir);
+  }
+});
+
+test("model stays null when no assistant message carries one", async () => {
+  const { dir, file } = mkTmpFile([
+    { type: "user", message: { role: "user", content: "hi" } },
+    {
+      type: "assistant",
+      message: { role: "assistant", content: [{ type: "text", text: "no model field" }] },
+    },
+  ]);
+  try {
+    const got = await parseTranscript(file);
+    assert.equal(got.model, null);
   } finally {
     cleanup(dir);
   }

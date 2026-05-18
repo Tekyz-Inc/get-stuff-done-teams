@@ -22,6 +22,23 @@ function mkTmpProject() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gsd-t-m44-d6-'));
   fs.mkdirSync(path.join(dir, '.gsd-t', 'metrics'), { recursive: true });
   fs.mkdirSync(path.join(dir, '.gsd-t', 'events'), { recursive: true });
+  // Seed a fresh Context Meter state with the legacy 200K window. Economics
+  // resolves the CW ceiling model-aware (prefers fresh meter state, else the
+  // safe 1M default); these tests pin CW% math against a 200K ceiling, so we
+  // make that ceiling explicit rather than relying on a now-changed default.
+  fs.writeFileSync(
+    path.join(dir, '.gsd-t', '.context-meter-state.json'),
+    JSON.stringify({
+      version: 1,
+      timestamp: new Date().toISOString(),
+      inputTokens: 0,
+      modelWindowSize: 200000,
+      pct: 0,
+      threshold: 'normal',
+      checkCount: 1,
+      lastError: null,
+    })
+  );
   return dir;
 }
 
