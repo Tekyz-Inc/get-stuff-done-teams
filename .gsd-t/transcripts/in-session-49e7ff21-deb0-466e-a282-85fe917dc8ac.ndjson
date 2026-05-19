@@ -1,0 +1,3 @@
+{"type":"session_start","ts":"2026-05-06T22:20:53.425Z","session_id":"49e7ff21-deb0-466e-a282-85fe917dc8ac"}
+{"type":"user_turn","ts":"2026-05-06T22:20:56.602Z","session_id":"49e7ff21-deb0-466e-a282-85fe917dc8ac","content":"/gsd-t-debug Read /tmp/m51-debug-prompt.txt for the full issue. Fix TEST-M50-001 + strengthen all 5 viewer specs + run adversarial Red Team that writes broken implementations and proves the specs catch them."}
+{"type":"assistant_turn","ts":"2026-05-06T22:37:56.390Z","session_id":"49e7ff21-deb0-466e-a282-85fe917dc8ac"}

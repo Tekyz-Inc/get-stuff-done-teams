@@ -1,0 +1,29 @@
+GSD-T Headless Log
+Command: execute
+Args: 
+Timestamp: 2026-04-23T17:22:17.271Z
+Duration: 91913ms
+Exit Code: 0
+---
+## Resumed via `runDispatch` — 4 parallel workers launched (headless)
+
+**Honoring the charter directive** (continue-here-2026-04-23T091849): this session's work should not run in-session. Handed off to the single instrument — `gsd-t parallel --command gsd-t-execute --milestone M44`.
+
+**Planner decision** (in-session mode auto-detected, D4/D5/D6 gates all green):
+
+| Task | Domain | Est. CW% | Disjoint | Deps | Decision | PID |
+|---|---|---|---|---|---|---|
+| M44-D9-T1 | parallelism-observability | 57 | ✓ | ✓ | parallel | 98297 |
+| M44-D9-T2 | parallelism-observability | 57 | ✓ | ✓ | parallel | 98352 |
+| M44-D9-T3 | parallelism-observability | 57 | ✓ | ✓ | parallel | 98387 |
+| M44-D9-T4 | parallelism-observability | 57 | ✓ | ✓ | parallel | 98424 |
+
+**Live transcripts**:
+- Workers 0-1 (T1, T2): http://127.0.0.1:7455/transcript/gsd-t-execute-2026-04-23-10-23-26
+- Workers 2-3 (T3, T4): http://127.0.0.1:7455/transcript/gsd-t-execute-2026-04-23-10-23-27
+
+**What's covered**: Step 5 of the M44 D9 charter (ship the observability domain — `bin/parallelism-report.cjs` + dashboard endpoints + transcript panel + tests/doc-ripple).
+
+**What remains for the next in-session turn**: Step 4 proof fixtures (backlog #15 — T/2 in-session + zero-compaction unattended) and Step 6 measurement + tag v3.19.00. Those are decision/measurement work — dialog-appropriate — and should follow once D9 lands on main so the observability numbers are available to measure against.
+
+Completion of the 4 workers will surface as a read-back banner on your next message.

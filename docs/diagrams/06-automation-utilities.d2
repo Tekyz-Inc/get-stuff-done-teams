@@ -1,0 +1,48 @@
+...@_theme.d2
+
+
+unattended: {
+  class: group
+  label: Unattended supervision
+  un: "/gsd-t-unattended\ndetached supervisor" { class: cmd }
+  unw: "/gsd-t-unattended-watch\nlive status" { class: cmd }
+  uns: "/gsd-t-unattended-stop\ngraceful halt" { class: cmd }
+  un -> unw: feeds { style.stroke-dash: 3 }
+  uns -> un: signals { style.stroke-dash: 3 }
+}
+
+obs: {
+  class: group
+  label: Observability
+  viz: "/gsd-t-visualize" { class: cmd }
+  met: "/gsd-t-metrics" { class: cmd }
+  stat: "/gsd-t-status" { class: cmd }
+  health: "/gsd-t-health" { class: cmd }
+}
+
+session: {
+  class: group
+  label: Session control
+  res: "/gsd-t-resume" { class: cmd }
+  pause: "/gsd-t-pause" { class: cmd }
+  log: "/gsd-t-log" { class: cmd }
+}
+
+maint: {
+  class: group
+  label: Maintenance
+  vu: "/gsd-t-version-update" { class: cmd }
+  vua: "/gsd-t-version-update-all" { class: cmd }
+  gc: "/gsd-t-global-change" { class: cmd }
+  tm: "/gsd-t-triage-and-merge" { class: cmd }
+  pop: "/gsd-t-populate" { class: cmd }
+}
+
+headless: {
+  class: group
+  label: Headless / CI
+  hex: headless exec { class: cmd }
+  hq: headless query { class: cmd }
+  hdl: headless --debug-loop { class: cmd }
+  par: parallel { class: cmd }
+}

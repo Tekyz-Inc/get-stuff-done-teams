@@ -1,0 +1,11 @@
+[opus-cliff-v2] fixture: real prose, trimmed to 30kb
+[opus-cliff-v2] model: claude-opus-4-7
+[opus-cliff-v2] === SMOKE: 1 worker, confirm Opus engages normally ===
+
+[opus-cliff-v2] === Cell N=1 starting (1 parallel Opus, ~30kb each) ===
+[opus-cliff-v2] cell N=1 done in 11.3s:
+  ok=0/1  429=1  refusal=0  authFail=0
+
+[opus-cliff-v2] SMOKE FAILED — single Opus worker did not succeed.
+  429=1 refusal=0 authFail=0
+  Diagnosis: account already rate-limited from prior probe runs. Wait and retry.

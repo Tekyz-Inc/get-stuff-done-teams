@@ -1,0 +1,3 @@
+{"type":"session_start","ts":"2026-05-06T17:37:12.006Z","session_id":"c54afbb4-5615-4f13-a2ea-79115b121f39"}
+{"type":"user_turn","ts":"2026-05-06T17:37:14.931Z","session_id":"c54afbb4-5615-4f13-a2ea-79115b121f39","content":"/gsd-t-debug"}
+{"type":"assistant_turn","ts":"2026-05-06T17:37:21.224Z","session_id":"c54afbb4-5615-4f13-a2ea-79115b121f39"}

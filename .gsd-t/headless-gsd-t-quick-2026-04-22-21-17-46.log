@@ -1,0 +1,16 @@
+
+[1mGSD-T Headless — quick[0m
+[36m  ℹ[0m Prompt: /gsd-t-quick
+[36m  ℹ[0m Timeout: 300s
+[36m  ℹ[0m Log: /Users/david/projects/GSD-T/.gsd-t/headless-1776917866699.log
+
+GSD-T v3.18.13 — up to date
+Changelog: https://github.com/Tekyz-Inc/get-stuff-done-teams/blob/main/CHANGELOG.md
+
+I need a task description to proceed with `/gsd-t-quick`. The command was invoked without arguments.
+
+What quick task would you like me to run? For example:
+- A bug fix
+- A small config change
+- A minor feature addition
+- An ad-hoc code change

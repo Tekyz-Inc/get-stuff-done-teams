@@ -1,0 +1,8 @@
+GSD-T Headless Log
+Command: execute
+Args: 
+Timestamp: 2026-04-23T17:22:36.527Z
+Duration: 174636ms
+Exit Code: 0
+---
+4 parallel `claude -p` workers spawned (PIDs 4064, 4208, 4472, 4658) — one per M44-D9 task. This is the exact dogfood test of M44: planner produces the plan, `gsd-t parallel --command` spawns N detached headless children via the Step 3 `runDispatch` pipeline that landed in commit `799a8af`. Will check back in ~4 minutes.

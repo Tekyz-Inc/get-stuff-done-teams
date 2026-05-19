@@ -1,0 +1,8 @@
+GSD-T Headless Log
+Command: gsd-t-execute
+Args: 
+Timestamp: 2026-04-23T17:20:14.340Z
+Duration: 4045ms
+Exit Code: 5
+---
+Unknown command: /gsd-t-gsd-t-execute

@@ -1,0 +1,20 @@
+
+[1mGSD-T Headless — execute[0m
+[36m  ℹ[0m Prompt: /gsd-t-execute
+[36m  ℹ[0m Timeout: 3600s
+[36m  ℹ[0m Log: /Users/david/projects/GSD-T/.gsd-t/headless-1778101059221.log
+
+That's the article-intro draft from a different effort — unrelated to M50. I'll stop and ask the user before touching it. The proper move is to ask the user how to handle this since it's their work.
+
+Pausing to confirm — the unattended supervisor refuses to start because of an untracked file outside the M50 scope:
+
+**`content/articles/00-series-intros.md`** — looks like a draft for the GSD-T article series (20 article intros, ~80-120 words each). Not part of M50.
+
+Three options:
+1. **Commit it** — `chore(content): add series intros draft` (preserves it in git history)
+2. **Gitignore `content/`** — if this is staging-only working material  
+3. **Move it aside** — to `~/scratch/` or similar so the supervisor preflight passes
+
+Which do you want? Once that's resolved, the M50 supervisor will launch and dispatch D1 Wave 1 (Tasks 1+2 in parallel).
+
+Note: orchestrator context is at 135% so I cannot do task work in this session — every M50 task needs to run as a detached headless child via the supervisor.

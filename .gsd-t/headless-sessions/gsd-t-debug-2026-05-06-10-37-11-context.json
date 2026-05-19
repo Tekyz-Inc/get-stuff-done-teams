@@ -1,0 +1,11 @@
+{
+  "intent": "Viewer rendering regressions in scripts/gsd-t-transcript.html (post-M47)",
+  "bugs": [
+    "1. Header hardcoded \"GSD-T Transcript\" — should be project name (directory basename, e.g. Move-Zoom-Recordings-to-GDrive)",
+    "2. Frame timestamps identical within a render batch — per-batch Date() used instead of each frames ts field",
+    "3. Frames render as raw JSON.stringify instead of formatted user/assistant chat turns",
+    "4. Top (main session) and bottom (selected spawn) panes show identical content"
+  ],
+  "requestedBy": "user via /gsd router with explicit \"properly tested and Red Teamed\" requirement",
+  "constraint": "M47 spec: top=main session, bottom=selected spawn. Match Claude Code chat layout."
+}

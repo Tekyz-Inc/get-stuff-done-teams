@@ -1,0 +1,21 @@
+
+[1mGSD-T Headless — debug[0m
+[36m  ℹ[0m Prompt: /gsd-t-debug
+[36m  ℹ[0m Timeout: 3600s
+[36m  ℹ[0m Log: /Users/david/projects/GSD-T/.gsd-t/headless-1778089031700.log
+
+Wed: May 6, 2026 10:37 PDT — GSD-T v3.21.10 — CURRENT
+
+The `/gsd-t-debug` command requires an issue description as an argument. You invoked it without one.
+
+**Usage:**
+```
+/gsd-t-debug {description of the bug or issue}
+```
+
+**Examples:**
+- `/gsd-t-debug auth tokens expire after 5 minutes instead of 1 hour`
+- `/gsd-t-debug visualizer left rail shows empty list when in-session NDJSON has entries`
+- `/gsd-t-debug headless spawn exits immediately without --dangerously-skip-permissions`
+
+What's the issue you'd like me to debug?

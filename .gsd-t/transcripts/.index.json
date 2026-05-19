@@ -1,0 +1,70 @@
+{
+  "spawns": [
+    {
+      "spawnId": "s-28c634aa",
+      "parentId": null,
+      "command": "gsd-t-unattended-worker",
+      "description": "iter=1 milestone=M55",
+      "model": null,
+      "workerPid": null,
+      "startedAt": "2026-05-09T22:34:19.759Z",
+      "endedAt": null,
+      "status": "running"
+    },
+    {
+      "spawnId": "s-c94b7022",
+      "parentId": null,
+      "command": "gsd-t-unattended-worker",
+      "description": "iter=1 milestone=M55",
+      "model": null,
+      "workerPid": null,
+      "startedAt": "2026-05-09T22:37:01.255Z",
+      "endedAt": "2026-05-09T22:48:13.486Z",
+      "status": "done"
+    },
+    {
+      "spawnId": "s-16bd3903",
+      "parentId": null,
+      "command": "gsd-t-unattended-worker",
+      "description": "iter=2 milestone=M55",
+      "model": null,
+      "workerPid": null,
+      "startedAt": "2026-05-09T22:48:13.496Z",
+      "endedAt": "2026-05-09T23:48:13.692Z",
+      "status": "stopped"
+    },
+    {
+      "spawnId": "s-d6920ac6",
+      "parentId": null,
+      "command": "gsd-t-unattended-worker",
+      "description": "iter=3 milestone=M55",
+      "model": null,
+      "workerPid": null,
+      "startedAt": "2026-05-09T23:48:13.705Z",
+      "endedAt": "2026-05-09T23:52:59.121Z",
+      "status": "done"
+    },
+    {
+      "spawnId": "s-9ea5ac53",
+      "parentId": null,
+      "command": "gsd-t-unattended-worker",
+      "description": "iter=4 milestone=M55",
+      "model": null,
+      "workerPid": null,
+      "startedAt": "2026-05-09T23:52:59.134Z",
+      "endedAt": "2026-05-10T00:08:23.242Z",
+      "status": "done"
+    },
+    {
+      "spawnId": "s-aff84ec0",
+      "parentId": null,
+      "command": "gsd-t-unattended-worker",
+      "description": "iter=5 milestone=M55",
+      "model": null,
+      "workerPid": null,
+      "startedAt": "2026-05-10T00:08:23.255Z",
+      "endedAt": "2026-05-10T00:33:23.637Z",
+      "status": "done"
+    }
+  ]
+}

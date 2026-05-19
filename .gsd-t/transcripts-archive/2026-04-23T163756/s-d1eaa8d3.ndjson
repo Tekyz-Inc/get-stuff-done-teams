@@ -1,0 +1,12 @@
+{"type":"raw","line":"Worker session resumed. Here's the status:"}
+{"type":"raw","line":"**Active state:**"}
+{"type":"raw","line":"- M43 DEFINED (Token Attribution & Always-Headless Inversion, target v3.17.10)"}
+{"type":"raw","line":"- 6 M43 domains have scope/tasks/constraints on disk"}
+{"type":"raw","line":"- Supervisor PID 41853 alive — but invoked with `--help` (anomaly worth flagging)"}
+{"type":"raw","line":"- 859 events written to today's JSONL"}
+{"type":"raw","line":"- `partition.md` exists, `plan.md` does not"}
+{"type":"raw","line":"**Concern:** The current supervisor process is `node bin/gsd-t-unattended.cjs --help` (started 20s before I checked). `--help` typically prints usage and exits, so this may be an orphan or the supervisor auto-spawned me despite being in help mode. The continue-here file also noted the previous supervisor (PID 27196) ran via `--help` — apparently a recurring issue where `--help` is being ignored in favor of default args."}
+{"type":"raw","line":"You interrupted the investigation mid-stream. What would you like me to do?"}
+{"type":"raw","line":"- Continue the resume and proceed to `/gsd-t-partition M43` → plan → execute as the worker iteration"}
+{"type":"raw","line":"- Stop and investigate the `--help` supervisor anomaly first"}
+{"type":"raw","line":"- Something else"}

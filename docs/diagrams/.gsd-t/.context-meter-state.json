@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "timestamp": "2026-05-08T21:54:51.779Z",
+  "inputTokens": 568337,
+  "modelWindowSize": 200000,
+  "pct": 284.1685,
+  "threshold": "threshold",
+  "checkCount": 46,
+  "lastError": null
+}

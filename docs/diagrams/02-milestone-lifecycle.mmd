@@ -1,0 +1,36 @@
+flowchart TD
+    MILE["/gsd-t-milestone<br/>define deliverable"]
+
+    MILE --> PART["/gsd-t-partition<br/>milestone → domains + contracts"]
+    PART -.->|complex| DISC["conversational mode<br/>(via /gsd)"]
+    DISC --> PLAN
+
+    PART --> PLAN["/gsd-t-plan<br/>atomic task lists per domain"]
+    PLAN -.->|risky| IMPACT["/gsd-t-impact<br/>downstream effect analysis"]
+    PLAN --> EXEC
+    IMPACT --> EXEC["/gsd-t-execute<br/>run tasks (solo or team)"]
+
+    EXEC -.->|after code| TS["/gsd-t-test-sync<br/>tests ↔ code"]
+    EXEC -.->|spawned| QA["/gsd-t-qa<br/>(subagent)"]
+    EXEC -.->|spawned| DR2["doc-ripple<br/>(subagent)"]
+    EXEC -.->|2 fails| DBGLOOP["headless --debug-loop"]
+
+    TS --> INTEG["/gsd-t-integrate<br/>wire domains together"]
+    INTEG --> VERIFY["/gsd-t-verify<br/>quality gates"]
+
+    VERIFY --> RT["Red Team<br/>adversarial QA"]
+    VERIFY --> DV["Design Verification<br/>(if design contract)"]
+
+    RT --> CM["/gsd-t-complete-milestone<br/>archive + git tag"]
+    DV --> CM
+
+    CM --> NEXT{More milestones?}
+    NEXT -->|yes| MILE
+    NEXT -->|no| DONE([Project complete])
+
+    classDef phase fill:#e8f5e9,stroke:#388e3c
+    classDef sub fill:#fff9c4,stroke:#f9a825
+    classDef gate fill:#ffebee,stroke:#c62828
+    class MILE,PART,PLAN,EXEC,TS,INTEG,VERIFY,CM phase
+    class QA,DR2,DBGLOOP,RT,DV,DISC sub
+    class IMPACT,NEXT gate

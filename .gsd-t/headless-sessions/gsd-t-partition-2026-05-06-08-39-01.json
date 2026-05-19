@@ -1,0 +1,11 @@
+{
+  "id": "gsd-t-partition-2026-05-06-08-39-01",
+  "pid": 59720,
+  "logPath": ".gsd-t/headless-gsd-t-partition-2026-05-06-08-39-01.log",
+  "startTimestamp": "2026-05-06T15:39:01.413Z",
+  "command": "gsd-t-partition",
+  "args": [],
+  "status": "running",
+  "continueFromPath": ".",
+  "surfaced": false
+}

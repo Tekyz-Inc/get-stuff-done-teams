@@ -1,0 +1,23 @@
+
+[1mGSD-T Headless — execute[0m
+[36m  ℹ[0m Prompt: /gsd-t-execute m38-meter-reduction
+[36m  ℹ[0m Timeout: 300s
+[36m  ℹ[0m Log: /Users/david/projects/GSD-T/.gsd-t/headless-1776379294803.log
+
+Given the situation — an 8-task sequential domain that rewrites core meter files and sweeps 11 command files, plus the Bash permission denial for the runway-estimator — I need to present the situation to the user before proceeding. The right call here is to hand off to headless since this is exactly what M38 is trying to enable (and the supervisor's last run even failed with "Prompt is too long" on this work).
+
+I should pause and confirm direction rather than chew through context on setup work.
+
+---
+
+**m38-meter-reduction status check:**
+
+- **Unblocked**: H1-T7 / M38-CP1 was bundled into v3.11.12 (last commit), per progress.md
+- **Scope**: 8 sequential tasks — rewrite `bin/token-budget.cjs`, simplify `scripts/gsd-t-context-meter.js`, update supervisor callsites, delete `runway-estimator.cjs` + `token-telemetry.cjs/.js`, sweep ~11 command files stripping Step 0 / Step 0.2 / per-spawn token brackets, rewrite 7 TD-102 tests, update contract to v1.3.0
+- **Risk**: this is exactly the domain the last unattended Iter 1 died on with "Prompt is too long" (meter bloat in the orchestrator prompt) — running it in-context here will likely repeat that failure
+
+**Recommendation**: hand off to `autoSpawnHeadless` — MR is large, heavily sequential, and its whole point is to reduce the meter bloat that kills long in-context runs. The runway estimator would almost certainly return `can_start: false` for 8 tasks at current context.
+
+**Before I do that, I need your call on two things:**
+1. **Permission to run `node ./bin/runway-estimator.cjs` / `./bin/headless-auto-spawn.cjs`** — you denied the combined runway-check Bash. Re-allow, or want me to skip the gate and spawn headless directly?
+2. **Headless vs in-context** — proceed to `autoSpawnHeadless({command: 'gsd-t-execute', args: ['m38-meter-reduction']})` and let you continue other work while it runs? Or force in-context (high risk of context exhaustion mid-domain)?

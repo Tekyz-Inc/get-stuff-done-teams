@@ -1,0 +1,11 @@
+[sonnet-cliff] fixture: real prose, trimmed to 30kb
+[sonnet-cliff] model: claude-sonnet-4-6
+[sonnet-cliff] === SMOKE: 1 worker, confirm Opus engages normally ===
+
+[sonnet-cliff] === Cell N=1 starting (1 parallel Opus, ~30kb each) ===
+[sonnet-cliff] cell N=1 done in 7.8s:
+  ok=0/1  429=1  refusal=0  authFail=0
+
+[sonnet-cliff] SMOKE FAILED — single Opus worker did not succeed.
+  429=1 refusal=0 authFail=0
+  Diagnosis: account already rate-limited from prior probe runs. Wait and retry.

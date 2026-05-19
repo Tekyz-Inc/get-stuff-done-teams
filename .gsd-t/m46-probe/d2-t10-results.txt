@@ -1,0 +1,26 @@
+M46-D2-T10 — Full Test Suite Results
+=====================================
+
+Pass:      2037
+Fail:      4
+Skipped:   0
+Cancelled: 0
+Todo:      0
+Suites:    301
+Tests:     2041
+Duration:  37027.83 ms
+
+Verdict: FAIL (pass >= 2016 ✓, but fail != 0)
+
+Failed test files:
+- test/m43-heartbeat-watchdog.test.js (1 failure)
+    • maps staleHeartbeat res → exitCode 125 + lastExitReason=stale_heartbeat
+      (expected 125, got 6)
+
+- test/m44-wire-unattended-to-planner.test.js (3 failures)
+    • calls runParallel before each iter and spawns N concurrent workers via Promise.all
+      (expected iter count 1, got 8 — iter counted once per worker instead of once per fan-out)
+    • falls back when plan.workerCount = 0 (empty graph)
+      (expected 1, got 2)
+    • removes lastExits/workerPids/lastFanOutCount when a sequential iter follows a fan-out iter
+      (expected 2, got 12)

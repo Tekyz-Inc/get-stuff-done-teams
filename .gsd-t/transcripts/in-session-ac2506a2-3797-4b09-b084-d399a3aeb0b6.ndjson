@@ -1,0 +1,3 @@
+{"type":"session_start","ts":"2026-05-10T01:38:23.616Z","session_id":"ac2506a2-3797-4b09-b084-d399a3aeb0b6"}
+{"type":"user_turn","ts":"2026-05-10T01:38:25.078Z","session_id":"ac2506a2-3797-4b09-b084-d399a3aeb0b6","content":"test\n"}
+{"type":"assistant_turn","ts":"2026-05-10T01:38:33.502Z","session_id":"ac2506a2-3797-4b09-b084-d399a3aeb0b6","content":"Sat: May 9, 2026 18:38 PDT — GSD-T v3.24.10 — CURRENT\n\n[GSD-T AUTO-ROUTE → /gsd test]"}

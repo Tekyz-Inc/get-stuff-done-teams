@@ -1,0 +1,29 @@
+GSD-T Headless Log
+Command: plan
+Args: 
+Timestamp: 2026-05-06T20:48:43.520Z
+Duration: 369389ms
+Exit Code: 0
+---
+✅ **M50 Plan complete** — 15 tasks across 2 domains, 8 waves. Validation PASS 6/6 (REQ coverage 17/17; task completeness 15/15; cross-domain deps; contract existence; file-overlap coord; Locked Decisions N/A).
+
+**D1 m50-bootstrap-and-detection** (5 tasks): ui-detection module → playwright-bootstrap exports → installPlaywright (idempotent, chromium, config, e2e/) → `bin/gsd-t.js` wiring + new `setup-playwright` subcommand → cross-domain checkpoint that gates D2 entirely.
+
+**D2 m50-gates-and-specs** (10 tasks): root `playwright.config.ts` → spawn-gate (≤10ms hot-path budget; `mode:'blocked-needs-human'` exit 4 on install fail) → pre-commit hook + `--install-hooks` flag (fail-open) → 5 viewer specs (M48 Bug 1/2/3/4 + M49 banner) all parallel in Wave 6 → single-pass doc-ripple across 11 files → contract Status flip + REQ rows → done.
+
+Recommended execution mode: **team parallel** (15 tasks, 5 spec tasks fully parallelizable in Wave 6 + 3 D2-setup tasks parallelizable in Wave 5; D1 sequential). Auto-advancing to execute per Level 3.
+
+───────────────────────────────────────────────────────────────
+
+## ▶ Next Up
+
+**Execute** — run domain tasks (solo or parallel) per the wave plan in `.gsd-t/contracts/m50-integration-points.md`.
+
+`/gsd-t-execute`
+
+**Also available:**
+- `/gsd-t-impact` — downstream-effect analysis before execute (recommended for the spawn-gate insertion in `bin/headless-auto-spawn.cjs` and the doc-ripple across 11 files)
+
+───────────────────────────────────────────────────────────────
+
+`/clear`

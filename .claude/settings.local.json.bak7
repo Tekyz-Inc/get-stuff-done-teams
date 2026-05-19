@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "defaultMode": "bypassPermissions",
+    "allow": [
+      "Bash(claude-mux)",
+      "Bash(claude-mux *)",
+      "Bash(/opt/homebrew/bin/claude-mux)",
+      "Bash(/opt/homebrew/bin/claude-mux *)"
+    ]
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/opt/homebrew/bin/claude-mux --tipotd",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

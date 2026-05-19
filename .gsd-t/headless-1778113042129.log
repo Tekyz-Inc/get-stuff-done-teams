@@ -1,0 +1,43 @@
+GSD-T Headless Log
+Command: milestone
+Args: Read /tmp/m52-milestone-prompt.txt — formalize M52 Rigorous User-Journey Coverage milestone.
+Timestamp: 2026-05-07T00:17:22.129Z
+Duration: 208831ms
+Exit Code: 0
+---
+Step 7 — Auto-Partition. Per Level 3 autonomy + Prime Rule (KEEP GOING) + the partition hint already in the prompt giving 2 file-disjoint domains, I'll set status to DEFINED and surface the Next Up. The partition hint is explicit enough that the user clearly intends to proceed — but the milestone command's contract is "ask before auto-partitioning" so I'll surface it.
+
+## M52 Defined ✅
+
+**Milestone**: Rigorous User-Journey Coverage + Anti-Drift Test Quality
+
+**Goal**: End the M48→M51 drift pattern. Make "rigorous" mean: every interactive surface clicked, every user journey walked end-to-end, every assertion proves user-visible state changed, with adversarial Red Team scoped to JOURNEYS not lines. Mechanical enforcement (journey-coverage detector + pre-commit hook) + doctrinal change (formal "rigorous" definition baked into framework docs).
+
+**Scope** — 5 sub-deliverables across 2 file-disjoint domains:
+- **D1+D5 enforcement-and-doc-ripple** (~5 tasks) — `bin/journey-coverage.cjs` listener detector + `e2e/journeys/JOURNEYS.md` catalog + `scripts/hooks/pre-commit-journey-coverage` hook + `gsd-t doctor --install-hooks` wiring + 8-file doc-ripple
+- **D2+D3+D4 journeys-and-fixtures** (~16 tasks) — 12 inaugural journey specs + Red Team "Test Pass-Through — Journey Edition" mode + adversarial run + 3 real-data NDJSON fixtures + replay spec
+
+**Non-goals**: auto-generating spec bodies; touching unit tests; modifying the M50 spawn-time gate.
+
+**Success criteria** (all measurable): 12 D2 specs green; `journey-coverage.cjs` zero gaps; pre-commit hook blocks deliberate handler-without-spec; ≥5 Red Team breakages all caught; 3 real-data replays pass; suite 2166 + ~12 + 3 all green.
+
+**Pre-Partition Assessment**: **Medium-Complex** (2 domains, 5 sub-deliverables, ~21 tasks, file-disjoint with one cross-domain checkpoint on `bin/gsd-t.js` installer wiring after D1 lands). Standard partition → plan → execute → integrate → verify flow. The partition hint in the prompt is already concrete enough to plan against directly.
+
+**Test baseline**: 2161/2166 pass; 5 documented env-bleed failures (M51 known pattern, not a regression).
+
+**Files updated this turn**:
+- `.gsd-t/progress.md` — milestones table + decision log (DEFINED + baseline)
+- `docs/requirements.md` — 13 new REQ-M52-* rows under "M52 Rigorous User-Journey Coverage" section
+
+───────────────────────────────────────────────────────────────
+
+## ▶ Next Up
+
+**Partition** — decompose M52 into the 2 file-disjoint domains (`m52-enforcement-and-doc-ripple`, `m52-journeys-and-fixtures`) with scope.md + tasks.md + cross-domain checkpoint contract.
+
+`/gsd-t-partition`
+
+**Also available:**
+- `/gsd-t-discuss` — explore the journey-spec doctrine and the listener-detector strategy before committing to the partition (probably unnecessary — the spec is unusually concrete).
+
+───────────────────────────────────────────────────────────────

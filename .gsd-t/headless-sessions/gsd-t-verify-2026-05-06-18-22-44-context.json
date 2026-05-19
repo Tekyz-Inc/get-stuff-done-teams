@@ -1,0 +1,4 @@
+{
+  "intent": "M52 verify after EXECUTED — auto-invokes complete-milestone on PASS",
+  "milestone": "M52"
+}

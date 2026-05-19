@@ -1,0 +1,14 @@
+{
+  "id": "gsd-t-execute-2026-05-06-14-08-28",
+  "pid": 14301,
+  "logPath": ".gsd-t/headless-gsd-t-execute-2026-05-06-14-08-28.log",
+  "startTimestamp": "2026-05-06T21:08:28.387Z",
+  "command": "gsd-t-execute",
+  "args": [
+    "Read /tmp/m50-execute-retry-prompt.txt for retry guardrails. Execute both D1 + D2 of M50 (Universal Playwright Bootstrap). Do not abort.",
+    "--timeout=3600"
+  ],
+  "status": "running",
+  "continueFromPath": ".",
+  "surfaced": false
+}

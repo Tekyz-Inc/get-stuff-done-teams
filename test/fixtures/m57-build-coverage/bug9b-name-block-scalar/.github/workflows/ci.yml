@@ -1,0 +1,20 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: |
+          Set up hooks/ directory
+          for git client-side validation
+        run: npm ci
+      - name: Build src
+        run: cp -r src/ out/
+      - name: Package
+        working-directory: src
+        run: npm run build

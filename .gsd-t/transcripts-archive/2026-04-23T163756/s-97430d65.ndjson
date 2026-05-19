@@ -1,0 +1,10 @@
+{"type":"raw","line":"Worker iteration committed at `a1ec5ce`. Summary:"}
+{"type":"raw","line":"**M43 D3 Wave 1 Foundation — landed.**"}
+{"type":"raw","line":"- D3-T2: schema v2 pass-through in `bin/gsd-t-token-capture.cjs` (`SCHEMA_VERSION` 1→2; 5 new optional fields forwarded, emit-only-when-provided, v1 callers unchanged)."}
+{"type":"raw","line":"- D3-T3: `bin/gsd-t-token-regenerate-log.cjs` + `gsd-t tokens --regenerate-log` CLI (deterministic sort, idempotent)."}
+{"type":"raw","line":"- D3-T5: `test/m43-schema-v2.test.js` — 9/9 pass."}
+{"type":"raw","line":"- D3-T4: dry-run backfill parsed 0 envelopes — **parser gap documented** as D3-T4.1 follow-up. Regenerating against current JSONL would truncate the hand-maintained 434-line log; verified empirically, restored from HEAD."}
+{"type":"raw","line":"- D3-T6: architecture.md Token Pipeline block + progress Decision Log + D3 tasks.md check-offs."}
+{"type":"raw","line":"Tests: token cluster 60/60 (+9 new). Full suite 1569/1571 (2 pre-existing fails confirmed unrelated)."}
+{"type":"raw","line":"**Wave 1 gate status**: D3 Foundation done. D1-T1 still BLOCKED on settings.json permission for hook wire-up (same blocker noted in prior iters). Wave 2 cannot start until D1 branch is locked."}
+{"type":"raw","line":"**Next iter pick-up**: D1 hook wire-up (needs interactive session or settings permission), or D3-T4.1 backfill parser extension (fully autonomous)."}

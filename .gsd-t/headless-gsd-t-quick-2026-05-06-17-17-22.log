@@ -1,0 +1,21 @@
+
+[1mGSD-T Headless — quick[0m
+[36m  ℹ[0m Prompt: /gsd-t-quick Read /tmp/m52-quick-prompt.txt — fix click-completed bug + journey spec + 3 adversary patches.
+[36m  ℹ[0m Timeout: 2400s
+[36m  ℹ[0m Log: /Users/david/projects/GSD-T/.gsd-t/headless-1778113042108.log
+
+All success criteria met:
+
+1. ✅ Clicking each completed in-session entry loads it into the bottom pane
+2. ✅ Clicking the MAIN SESSION rail entry does NOT load it into the bottom pane
+3. ✅ `e2e/viewer/click-completed.spec.ts` (4 tests) passes; all 3 adversary patches fail it
+4. ✅ Existing 19 viewer specs continue to pass (E2E 23/23 + 1 placeholder skip)
+5. ✅ Suite green: unit 2167/2167 + E2E 23/23
+
+**Summary of changes (commit `7bd9275`):**
+- `scripts/gsd-t-transcript.html` — narrowed 4 in-session-* guards to compare against `window.__mainSessionId`; exposed `__mainSessionId` from `connectMain`; added fetchMainSession seed-collision callback; removed unconditional in-session-* scrub from initial-bottom-id seed.
+- `e2e/viewer/click-completed.spec.ts` (new) — 4-test journey covering rail render, completed-entry click, main-entry click negative, sessionStorage reload-persistence.
+- `test/m48-viewer-rendering-fixes.test.js` — 5 assertions flipped from old broken-behavior pattern to M52 narrowed pattern; +1 new test for fetchMainSession callback.
+- `.gsd-t/red-team-report.md` — appended M52 RED TEAM FINDINGS (3/3 caught).
+- `CHANGELOG.md` — Unreleased section.
+- `.gsd-t/progress.md` — decision log entry.

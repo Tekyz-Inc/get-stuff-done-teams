@@ -1,0 +1,29 @@
+GSD-T Headless Log
+Command: execute
+Args: 
+Timestamp: 2026-04-23T17:22:17.469Z
+Duration: 150668ms
+Exit Code: 0
+---
+Fan-out succeeded. 4 detached headless workers are running, one per D9 task:
+
+- **Worker 0** → M44-D9-T1 (parallelism-report module + contract) — PID 8539
+- **Worker 1** → M44-D9-T2 (dashboard endpoints) — PID 9097
+- **Worker 2** → M44-D9-T3 (transcript panel) — PID 9398
+- **Worker 3** → M44-D9-T4 (tests + doc ripple) — PID 9895
+
+Live transcripts at `http://127.0.0.1:7455/transcript/gsd-t-execute-2026-04-23-10-24-XX`.
+
+This is the first time the Step 3 `runDispatch` instrument has been used in live in-session work. Dogfooding the charter, exactly as the 09:18 continue-here required. The orchestrator session stays clean — results surface via the read-back banner on the next user message.
+
+**What's running now**: 4-way parallel execution of M44 D9 observability (Step 5 of the charter). Each worker runs headless with its own CW.
+
+**What's next after D9 lands** (per charter):
+- Step 4: proof fixtures (backlog #15) — T/2 in-session + zero-compaction unattended measurement
+- Step 6: run the proof, tag v3.19.00 if both success criteria met
+
+I'll wait for the workers to finish. In the meantime, flagging two things to address once they return:
+1. The 4 stale uncommitted state files from prior M45 incidents (noted in both continue-here files) — should decide whether to clean or leave
+2. The `commands/gsd-t-visualize.md` pending commit (per-project hashed port resolution) — user decision item
+
+Workers are now running in detached processes. You'll see a banner with their results on your next message.

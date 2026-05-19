@@ -1,0 +1,3 @@
+{"type":"session_start","ts":"2026-05-06T20:34:33.131Z","session_id":"284158a5-7edd-4726-beea-59569ebfa867"}
+{"type":"user_turn","ts":"2026-05-06T20:34:35.372Z","session_id":"284158a5-7edd-4726-beea-59569ebfa867","content":"/gsd-t-milestone Read /tmp/m50-milestone-prompt.txt for the full M50 definition (Universal Playwright Bootstrap + Deterministic UI Enforcement) and create the milestone."}
+{"type":"assistant_turn","ts":"2026-05-06T20:37:13.344Z","session_id":"284158a5-7edd-4726-beea-59569ebfa867"}

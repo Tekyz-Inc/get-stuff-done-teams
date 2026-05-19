@@ -1,0 +1,40 @@
+...@_theme.d2
+
+
+direction: right
+
+idea: User has idea { class: endpoint }
+badd: "/gsd-t-backlog-add" { class: cmd }
+bl: ".gsd-t/backlog.md" { class: artifact }
+
+ops: {
+  class: group
+  label: Manage
+  view: "/gsd-t-backlog-list" { class: cmd }
+  edit: "/gsd-t-backlog-edit" { class: cmd }
+  move: "/gsd-t-backlog-move" { class: cmd }
+  rm: "/gsd-t-backlog-remove" { class: cmd }
+}
+
+promo: "/gsd-t-backlog-promote" { class: cmd; style.bold: true }
+classify: Classify { class: decision }
+
+mile: "/gsd-t-milestone" { class: cmd }
+quick: "/gsd-t-quick" { class: cmd }
+debug: "/gsd-t-debug" { class: cmd }
+feat: "/gsd-t-feature" { class: cmd }
+
+settings: "/gsd-t-backlog-settings" { class: cmd }
+
+idea -> badd -> bl
+bl -> ops.view
+bl -> ops.edit
+bl -> ops.move
+bl -> ops.rm
+bl -> promo
+promo -> classify
+classify -> mile: big
+classify -> quick: small
+classify -> debug: bug
+classify -> feat: feature
+settings -> badd: configures { style.stroke-dash: 3 }

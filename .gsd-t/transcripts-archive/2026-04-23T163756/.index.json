@@ -1,0 +1,213 @@
+{
+  "spawns": [
+    {
+      "spawnId": "s-5c48aaf1",
+      "parentId": null,
+      "command": "gsd-t-unattended-worker",
+      "description": "iter=1 milestone=M43",
+      "model": null,
+      "workerPid": null,
+      "startedAt": "2026-04-21T19:44:17.788Z",
+      "endedAt": "2026-04-21T19:48:47.979Z",
+      "status": "stopped"
+    },
+    {
+      "spawnId": "s-5fb529f7",
+      "parentId": null,
+      "command": "gsd-t-unattended-worker",
+      "description": "iter=2 milestone=M43",
+      "model": null,
+      "workerPid": null,
+      "startedAt": "2026-04-21T19:48:47.982Z",
+      "endedAt": "2026-04-21T19:53:18.177Z",
+      "status": "stopped"
+    },
+    {
+      "spawnId": "s-4afde5ae",
+      "parentId": null,
+      "command": "gsd-t-unattended-worker",
+      "description": "iter=3 milestone=M43",
+      "model": null,
+      "workerPid": null,
+      "startedAt": "2026-04-21T19:53:18.179Z",
+      "endedAt": "2026-04-21T19:57:48.347Z",
+      "status": "stopped"
+    },
+    {
+      "spawnId": "s-cf090c08",
+      "parentId": null,
+      "command": "gsd-t-unattended-worker",
+      "description": "iter=4 milestone=M43",
+      "model": null,
+      "workerPid": null,
+      "startedAt": "2026-04-21T19:57:48.348Z",
+      "endedAt": "2026-04-21T20:02:18.664Z",
+      "status": "stopped"
+    },
+    {
+      "spawnId": "s-d1eaa8d3",
+      "parentId": null,
+      "command": "gsd-t-unattended-worker",
+      "description": "iter=1 milestone=M43",
+      "model": null,
+      "workerPid": null,
+      "startedAt": "2026-04-21T22:30:43.059Z",
+      "endedAt": "2026-04-21T22:31:23.029Z",
+      "status": "done"
+    },
+    {
+      "spawnId": "s-5cef5322",
+      "parentId": null,
+      "command": "gsd-t-unattended-worker",
+      "description": "iter=1 milestone=M43",
+      "model": null,
+      "workerPid": null,
+      "startedAt": "2026-04-21T22:32:45.625Z",
+      "endedAt": "2026-04-21T22:36:40.673Z",
+      "status": "done"
+    },
+    {
+      "spawnId": "s-97430d65",
+      "parentId": null,
+      "command": "gsd-t-unattended-worker",
+      "description": "iter=1 milestone=M43",
+      "model": null,
+      "workerPid": null,
+      "startedAt": "2026-04-21T22:50:58.058Z",
+      "endedAt": "2026-04-21T23:00:18.161Z",
+      "status": "done"
+    },
+    {
+      "spawnId": "s-7913bc7f",
+      "parentId": null,
+      "command": "gsd-t-unattended-worker",
+      "description": "iter=1 milestone=M43",
+      "model": null,
+      "workerPid": null,
+      "startedAt": "2026-04-21T23:20:11.517Z",
+      "endedAt": null,
+      "status": "running"
+    },
+    {
+      "spawnId": "s-f8396953",
+      "parentId": null,
+      "command": "gsd-t-unattended-worker",
+      "description": "iter=1 milestone=M43",
+      "model": null,
+      "workerPid": null,
+      "startedAt": "2026-04-21T23:20:41.744Z",
+      "endedAt": null,
+      "status": "running"
+    },
+    {
+      "spawnId": "s-54fa0fb1",
+      "parentId": null,
+      "command": "gsd-t-unattended-worker",
+      "description": "iter=1 milestone=M43",
+      "model": null,
+      "workerPid": null,
+      "startedAt": "2026-04-21T23:31:34.925Z",
+      "endedAt": "2026-04-21T23:38:40.513Z",
+      "status": "done"
+    },
+    {
+      "spawnId": "s-8b329c31",
+      "parentId": null,
+      "command": "gsd-t-unattended-worker",
+      "description": "iter=1 milestone=M43",
+      "model": null,
+      "workerPid": null,
+      "startedAt": "2026-04-21T23:42:05.517Z",
+      "endedAt": "2026-04-22T00:28:45.070Z",
+      "status": "done"
+    },
+    {
+      "spawnId": "s-895392a7",
+      "parentId": null,
+      "command": "gsd-t-unattended-worker",
+      "description": "iter=1 milestone=M44",
+      "model": null,
+      "workerPid": null,
+      "startedAt": "2026-04-22T22:29:14.319Z",
+      "endedAt": "2026-04-22T22:42:55.437Z",
+      "status": "failed"
+    },
+    {
+      "spawnId": "s-906b712f",
+      "parentId": null,
+      "command": "gsd-t-unattended-worker",
+      "description": "iter=1 milestone=M44",
+      "model": null,
+      "workerPid": null,
+      "startedAt": "2026-04-22T22:52:35.828Z",
+      "endedAt": "2026-04-22T23:52:36.056Z",
+      "status": "stopped"
+    },
+    {
+      "spawnId": "s-6a4a8936",
+      "parentId": null,
+      "command": "gsd-t-unattended-worker",
+      "description": "iter=2 milestone=M44",
+      "model": null,
+      "workerPid": null,
+      "startedAt": "2026-04-22T23:52:36.061Z",
+      "endedAt": "2026-04-23T00:10:28.189Z",
+      "status": "done"
+    },
+    {
+      "spawnId": "s-c6649b1b",
+      "parentId": null,
+      "command": "gsd-t-unattended-worker",
+      "description": "iter=3 milestone=M44",
+      "model": null,
+      "workerPid": null,
+      "startedAt": "2026-04-23T00:10:28.200Z",
+      "endedAt": null,
+      "status": "running"
+    },
+    {
+      "spawnId": "s-2de2ffc1",
+      "parentId": null,
+      "command": "gsd-t-unattended-worker",
+      "description": "iter=1 milestone=M44",
+      "model": null,
+      "workerPid": null,
+      "startedAt": "2026-04-23T00:36:10.030Z",
+      "endedAt": null,
+      "status": "running"
+    },
+    {
+      "spawnId": "s-0cc61aae",
+      "parentId": null,
+      "command": "gsd-t-unattended-worker",
+      "description": "iter=1 milestone=M44",
+      "model": null,
+      "workerPid": null,
+      "startedAt": "2026-04-23T00:56:46.529Z",
+      "endedAt": null,
+      "status": "running"
+    },
+    {
+      "spawnId": "s-1936579d",
+      "parentId": null,
+      "command": "gsd-t-unattended-worker",
+      "description": "iter=1 milestone=M45",
+      "model": null,
+      "workerPid": null,
+      "startedAt": "2026-04-23T03:33:33.613Z",
+      "endedAt": "2026-04-23T03:40:15.152Z",
+      "status": "done"
+    },
+    {
+      "spawnId": "s-0c00aef5",
+      "parentId": null,
+      "command": "gsd-t-unattended-worker",
+      "description": "iter=1 milestone=M45",
+      "model": null,
+      "workerPid": null,
+      "startedAt": "2026-04-23T03:44:51.299Z",
+      "endedAt": "2026-04-23T04:09:09.019Z",
+      "status": "done"
+    }
+  ]
+}

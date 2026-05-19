@@ -1,0 +1,3 @@
+{"type":"session_start","ts":"2026-05-07T18:39:53.853Z","session_id":"de881136-7d93-4345-916a-c4a6a8da4b73"}
+{"type":"user_turn","ts":"2026-05-07T18:39:55.930Z","session_id":"de881136-7d93-4345-916a-c4a6a8da4b73","content":"/gsd-t-debug Read /tmp/m53b-debug-prompt.txt — fix project-root misrouting in conversation-capture hook + journey spec + adversarial RT."}
+{"type":"assistant_turn","ts":"2026-05-07T18:52:33.273Z","session_id":"de881136-7d93-4345-916a-c4a6a8da4b73","content":"Live hook routes correctly via slug-decode."}

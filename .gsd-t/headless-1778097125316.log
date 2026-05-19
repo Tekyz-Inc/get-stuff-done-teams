@@ -1,0 +1,25 @@
+GSD-T Headless Log
+Command: debug
+Args: Read /tmp/m49-debug-prompt.txt for the full issue description and proceed with the lazy-dashboard + idle-TTL + doctor-prune fix.
+Timestamp: 2026-05-06T19:52:05.316Z
+Duration: 927394ms
+Exit Code: 0
+---
+M49 is complete and verified. Here's the final state:
+
+**Files changed (5):**
+- `bin/headless-auto-spawn.cjs` — removed `ensureDashboardRunning()` autostart; new `_probeDashboardLazy()` + conditional banner (URL when alive, file-path + visualize hint otherwise)
+- `scripts/gsd-t-dashboard-server.js` — idle-TTL self-shutdown (4h default, env + `--idle-ttl-ms` configurable); SSE connect/disconnect counter; cleanup of `.gsd-t/.dashboard.pid` on shutdown
+- `bin/gsd-t.js` — new `checkDoctorDashboardOrphans()` + `gsd-t doctor --prune`; node+script-name argv guard against killing unrelated processes
+- `docs/architecture.md` — updated URL banner + autostart sections for M49
+- `CHANGELOG.md` — Unreleased M49 entry
+
+**Tests added (21 new, 0 regressions):**
+- `test/m49-lazy-dashboard.test.js` (9): probe correctness, speed (<50ms/100 calls), `autoSpawnHeadless` does NOT call `ensureDashboardRunning`, banner shapes
+- `test/m49-dashboard-idle-ttl.test.js` (7): tracker bump, SSE counter, TTL fires when idle, TTL blocked while SSE active, recent bump prevents fire, idempotent close, `idleTtlMs:0` disables timer
+- `test/m49-doctor-orphan-check.test.js` (5): baseline, orphan detection, `--prune` kills, **Red Team regression** (non-node process is NOT killed), tracked pid is NOT orphan
+- `test/m43-url-banner.test.js`: updated 3 tests for the new conditional banner
+
+**Suite:** 2104/2106 pass (2 pre-existing env-sensitive flakes carried from M47/M48 baseline).
+
+**Decision log + CHANGELOG updated.** Not committing per the global Pre-Commit Gate — the user can run `/checkin` or commit manually when ready.

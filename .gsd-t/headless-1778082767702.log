@@ -1,0 +1,52 @@
+GSD-T Headless Log
+Command: plan
+Args: 
+Timestamp: 2026-05-06T15:52:47.702Z
+Duration: 776341ms
+Exit Code: 0
+---
+Step 9: Level 3 Full Auto — log status and auto-advance to execute. Per `~/.claude/CLAUDE.md` Always-Headless Spawn rule, every command spawns detached. The `/gsd-t-plan` command's report says "auto-advance to the next phase" — but autonomous execution from a slash command is owned by the caller. I'll surface the next-up block since the user invoked `/gsd-t-plan` interactively, and they decide whether to chain `/gsd-t-execute`.
+
+✅ M47 plan complete — 12 tasks across 2 file-disjoint domains, 1 cross-domain checkpoint, single parallel wave (3 sub-waves).
+
+**Plan summary**:
+
+| Domain | Tasks | Cross-domain blocks |
+|---|---|---|
+| `m47-d1-viewer-redesign` | 7 (read → split-pane scaffold → 3-section rail → dual SSE → bucketing → splitter → E2E tests) | T4 blocks on D2 T2; T5 blocks on D2 T1 |
+| `m47-d2-server-helpers` | 5 (status field → `/api/main-session` → contract → 2 test groups) | none |
+
+**Dependency graph** (`.gsd-t/contracts/m47-integration-points.md`):
+- **Wave 1** parallel: D1 T1–T3, T6 + D2 T1–T3
+- **Checkpoint**: D2 publishes `status` field + `GET /api/main-session`
+- **Wave 2** parallel: D1 T4 (top-pane SSE) + D1 T5 (rail bucketing) + D2 T4–T5 (regression tests)
+- **Wave 3** sequential fence: D1 T7 (E2E + final test sweep)
+
+**Validation**: haiku subagent — 7/7 checks PASS after re-appending dropped REQ table.
+
+**Baseline finding**: Pre-existing `npm test` at HEAD = **2045/2047** (2 unrelated `watch-progress-writer.test.js` flakes). Success criterion 5 in `progress.md` adjusted to baseline-aware target. Tracked as separate tech debt — not introduced by M47.
+
+**Plan correction**: D1 scope mentioned `templates/gsd-t-transcript.html` lockstep co-edit; inspection of `bin/gsd-t.js::UTILITY_SCRIPTS` (line 1079) shows the viewer ships from `scripts/` only — single source of truth. Documented in `m47-integration-points.md` and D1 `tasks.md` preamble.
+
+**Files written/updated**:
+- `.gsd-t/domains/m47-d1-viewer-redesign/tasks.md` (7 tasks, scope-validated)
+- `.gsd-t/domains/m47-d2-server-helpers/tasks.md` (5 tasks)
+- `.gsd-t/contracts/m47-integration-points.md` (added Dependency Graph + 3-wave execution + correction note)
+- `docs/requirements.md` (11 REQ-M47-* rows appended)
+- `.gsd-t/progress.md` (status → M47 PLANNED, decision-log entry)
+- `.gsd-t/qa-issues.md` (validator finding + remediation)
+- `.gsd-t/token-log.md` (haiku validator row via `recordSpawnRow`)
+
+───────────────────────────────────────────────────────────────
+
+## ▶ Next Up
+
+**Execute** — run domain tasks in parallel, gated by the D2→D1 cross-domain checkpoint. 12 tasks, 1 checkpoint, single parallel wave with 3 sub-waves.
+
+`/gsd-t-execute`
+
+**Also available:**
+- `/gsd-t-impact` — downstream effect analysis if you want to surface broader risk before executing
+- `/clear` — free context window before kicking off execute (the executor spawns detached headless workers per `~/.claude/CLAUDE.md` Always-Headless Spawn; not strictly required, but clean)
+
+───────────────────────────────────────────────────────────────

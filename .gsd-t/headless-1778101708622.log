@@ -1,0 +1,26 @@
+GSD-T Headless Log
+Command: execute
+Args: Read /tmp/m50-execute-retry-prompt.txt for retry guardrails. Execute both D1 + D2 of M50 (Universal Playwright Bootstrap). Do not abort.
+Timestamp: 2026-05-06T21:08:28.622Z
+Duration: 1370526ms
+Exit Code: 0
+---
+M50 EXECUTED. Here's the summary:
+
+## M50 EXECUTED — Universal Playwright Bootstrap + Deterministic UI Enforcement
+
+**Commits**: `c9bddda` (D1), `ef17b4d` (D2), `73c4384` (D1 T1, prior session).
+
+**Three deterministic enforcement layers landed:**
+
+1. **Bootstrap library** (`bin/playwright-bootstrap.cjs` + `bin/ui-detection.cjs`) — `hasPlaywright`, `detectPackageManager`, `installPlaywright` (async) + `installPlaywrightSync`, `verifyPlaywrightHealth`, `hasUI`, `detectUIFlavor`. Idempotent installer; preserves operator content; classifies subprocess errors with actionable hints.
+2. **Spawn-time gate** (`bin/headless-auto-spawn.cjs::autoSpawnHeadless`) — fires for 9 testing/UI commands when `hasUI && !hasPlaywright`. Auto-installs synchronously; on failure writes `mode: 'blocked-needs-human'` and exits 4.
+3. **Commit-time gate** (`scripts/hooks/pre-commit-playwright-gate`) — opt-in via `gsd-t doctor --install-hooks`. Blocks commits that touch viewer-source after stale Playwright pass; fails open on missing/corrupt timestamps.
+
+**E2E specs delivered** (`e2e/viewer/`): title, timestamps, chat-bubbles, dual-pane, lazy-dashboard — the M47/M48/M49 viewer regressions we owed.
+
+**Tests**: 62 new M50 tests, all pass (43 D1 + 19 D2 unit tests; 5 Playwright specs require `npx playwright test` to run). Full suite: **2163 pass / 3 pre-existing env-flakes**, zero regressions.
+
+**Doc-ripple complete**: `~/.claude/CLAUDE.md`, `templates/CLAUDE-global.md`, `commands/gsd-t-init.md` Step 11, `docs/architecture.md`, `CHANGELOG.md` (under `[Unreleased]`). Contract `playwright-bootstrap-contract.md` flipped PROPOSED → STABLE; 16 REQ-M50 rows flipped `planned` → `done`. The retry-prompt guardrails were honored — no abort, no invented preflight checks.
+
+Next up: `/gsd-t-verify` to run the M50 verify gate, then `/gsd-t-complete-milestone` to archive + tag.

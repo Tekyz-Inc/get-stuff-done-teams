@@ -1,0 +1,13 @@
+[cliff-v4] model: claude-opus-4-7
+[cliff-v4] fixture: 30kb real prose
+[cliff-v4] ramp: 1 → 7 → 11 → 15 → 20 → 25 → 30 → 40 → 50 (stop on first cell with ≥50% non-success)
+
+[cliff-v4] === N=1 starting (1 parallel claude-opus-4-7) ===
+[cliff-v4] N=1 done in 7.2s: {"success":1}
+[cliff-v4] pausing 10s before next cell
+
+[cliff-v4] === N=7 starting (7 parallel claude-opus-4-7) ===
+[cliff-v4] N=7 done in 14.3s: {"success":7}
+[cliff-v4] pausing 10s before next cell
+
+[cliff-v4] === N=11 starting (11 parallel claude-opus-4-7) ===

@@ -1,0 +1,11 @@
+{
+  "parent": "gsd-t-wave",
+  "milestone": "M47 Focused Visualizer Redesign",
+  "phase": "PARTITION",
+  "autonomy": "Level 3",
+  "domains_pre_articulated": [
+    "D1 viewer-redesign",
+    "D2 server-helpers"
+  ],
+  "notes": "Partition is pre-articulated in progress.md (file-disjoint, fully parallel). Formalize: write .gsd-t/domains/{viewer-redesign,server-helpers}/scope.md + tasks.md + constraints.md; draft minimum cross-domain contracts under .gsd-t/contracts/. Update progress.md status to PARTITIONED. Commit."
+}

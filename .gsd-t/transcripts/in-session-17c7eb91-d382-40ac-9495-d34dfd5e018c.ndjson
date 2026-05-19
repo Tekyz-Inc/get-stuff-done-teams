@@ -1,0 +1,3 @@
+{"type":"session_start","ts":"2026-05-06T19:52:05.703Z","session_id":"17c7eb91-d382-40ac-9495-d34dfd5e018c"}
+{"type":"user_turn","ts":"2026-05-06T19:52:07.455Z","session_id":"17c7eb91-d382-40ac-9495-d34dfd5e018c","content":"/gsd-t-debug Read /tmp/m49-debug-prompt.txt for the full issue description and proceed with the lazy-dashboard + idle-TTL + doctor-prune fix."}
+{"type":"assistant_turn","ts":"2026-05-06T20:07:32.441Z","session_id":"17c7eb91-d382-40ac-9495-d34dfd5e018c"}

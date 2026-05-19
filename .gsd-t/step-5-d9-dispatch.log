@@ -1,0 +1,9 @@
+▶ Live transcript: http://127.0.0.1:7455/transcript/gsd-t-execute-2026-04-23-10-24-06
+▶ Live transcript: http://127.0.0.1:7455/transcript/gsd-t-execute-2026-04-23-10-24-17
+▶ Live transcript: http://127.0.0.1:7455/transcript/gsd-t-execute-2026-04-23-10-24-27
+▶ Live transcript: http://127.0.0.1:7455/transcript/gsd-t-execute-2026-04-23-10-24-31
+gsd-t parallel — fan_out command=gsd-t-execute mode=in-session workers=4
+  worker[0] tasks=M44-D9-T1 spawn=gsd-t-execute-2026-04-23-10-24-06 pid=8539
+  worker[1] tasks=M44-D9-T2 spawn=gsd-t-execute-2026-04-23-10-24-17 pid=9097
+  worker[2] tasks=M44-D9-T3 spawn=gsd-t-execute-2026-04-23-10-24-27 pid=9398
+  worker[3] tasks=M44-D9-T4 spawn=gsd-t-execute-2026-04-23-10-24-31 pid=9895

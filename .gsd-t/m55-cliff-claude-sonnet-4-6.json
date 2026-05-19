@@ -1,0 +1,514 @@
+{
+  "schemaVersion": "1.0.0",
+  "generatedAt": "2026-05-10T01:24:42.816Z",
+  "model": "claude-sonnet-4-6",
+  "fixtureKb": 30,
+  "fixtureSource": "real prose",
+  "smokeOk": true,
+  "sweep": [
+    {
+      "N": 1,
+      "wallMs": 6797,
+      "results": [
+        {
+          "workerId": "n1-w0",
+          "classification": "success",
+          "exitCode": 0,
+          "elapsedMs": 6797,
+          "ttftMs": 1701,
+          "stopReason": "end_turn",
+          "isError": false,
+          "apiErrorStatus": null,
+          "resultPreview": "Sat: May 9, 2026 18:23 PDT — GSD-T v3.24.10 — CURRENT\n\nWrap the spawn with `capt",
+          "stderrSnippet": ""
+        }
+      ],
+      "buckets": {
+        "success": 1
+      }
+    },
+    {
+      "N": 7,
+      "wallMs": 7819,
+      "results": [
+        {
+          "workerId": "n7-w0",
+          "classification": "success",
+          "exitCode": 0,
+          "elapsedMs": 6842,
+          "ttftMs": 1667,
+          "stopReason": "end_turn",
+          "isError": false,
+          "apiErrorStatus": null,
+          "resultPreview": "Sat: May 9, 2026 18:23 PDT — GSD-T v3.24.10 — CURRENT\n\nWrap it with `captureSpaw",
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n7-w1",
+          "classification": "success",
+          "exitCode": 0,
+          "elapsedMs": 6466,
+          "ttftMs": 1707,
+          "stopReason": "end_turn",
+          "isError": false,
+          "apiErrorStatus": null,
+          "resultPreview": "Sat: May 9, 2026 18:23 PDT — GSD-T v3.24.10 — CURRENT\n\nWrap the spawn with `capt",
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n7-w2",
+          "classification": "success",
+          "exitCode": 0,
+          "elapsedMs": 7204,
+          "ttftMs": 1738,
+          "stopReason": "end_turn",
+          "isError": false,
+          "apiErrorStatus": null,
+          "resultPreview": "Sat: May 9, 2026 18:23 PDT — GSD-T v3.24.10 — CURRENT\n\nEvery Task subagent spawn",
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n7-w3",
+          "classification": "success",
+          "exitCode": 0,
+          "elapsedMs": 7571,
+          "ttftMs": 1593,
+          "stopReason": "end_turn",
+          "isError": false,
+          "apiErrorStatus": null,
+          "resultPreview": "Sat: May 9, 2026 18:23 PDT — GSD-T v3.24.10 — CURRENT\n\nWrap the spawn in `captur",
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n7-w4",
+          "classification": "success",
+          "exitCode": 0,
+          "elapsedMs": 7695,
+          "ttftMs": 1642,
+          "stopReason": "end_turn",
+          "isError": false,
+          "apiErrorStatus": null,
+          "resultPreview": "Sat: May 9, 2026 18:23 PDT — GSD-T v3.24.10 — CURRENT\n\nWrap the spawn with `capt",
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n7-w5",
+          "classification": "success",
+          "exitCode": 0,
+          "elapsedMs": 6854,
+          "ttftMs": 1758,
+          "stopReason": "end_turn",
+          "isError": false,
+          "apiErrorStatus": null,
+          "resultPreview": "Sat: May 9, 2026 18:23 PDT — GSD-T v3.24.10 — CURRENT\n\nEvery Task subagent spawn",
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n7-w6",
+          "classification": "success",
+          "exitCode": 0,
+          "elapsedMs": 7812,
+          "ttftMs": 1691,
+          "stopReason": "end_turn",
+          "isError": false,
+          "apiErrorStatus": null,
+          "resultPreview": "Sat: May 9, 2026 18:23 PDT — GSD-T v3.24.10 — CURRENT\n\nWrap the spawn with `capt",
+          "stderrSnippet": ""
+        }
+      ],
+      "buckets": {
+        "success": 7
+      }
+    },
+    {
+      "N": 9,
+      "wallMs": 9603,
+      "results": [
+        {
+          "workerId": "n9-w0",
+          "classification": "success",
+          "exitCode": 0,
+          "elapsedMs": 7237,
+          "ttftMs": 1912,
+          "stopReason": "end_turn",
+          "isError": false,
+          "apiErrorStatus": null,
+          "resultPreview": "Sat: May 9, 2026 18:23 PDT — GSD-T v3.24.10 — CURRENT\n\nWrap every Task subagent ",
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n9-w1",
+          "classification": "success",
+          "exitCode": 0,
+          "elapsedMs": 6646,
+          "ttftMs": 1673,
+          "stopReason": "end_turn",
+          "isError": false,
+          "apiErrorStatus": null,
+          "resultPreview": "Sat: May 9, 2026 18:23 PDT — GSD-T v3.24.10 — CURRENT\n\nWrap the spawn with `capt",
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n9-w2",
+          "classification": "success",
+          "exitCode": 0,
+          "elapsedMs": 7428,
+          "ttftMs": 1744,
+          "stopReason": "end_turn",
+          "isError": false,
+          "apiErrorStatus": null,
+          "resultPreview": "Sat: May 9, 2026 18:23 PDT — GSD-T v3.24.10 — CURRENT\n\nEvery Task subagent spawn",
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n9-w3",
+          "classification": "success",
+          "exitCode": 0,
+          "elapsedMs": 7118,
+          "ttftMs": 1747,
+          "stopReason": "end_turn",
+          "isError": false,
+          "apiErrorStatus": null,
+          "resultPreview": "Sat: May 9, 2026 18:23 PDT — GSD-T v3.24.10 — CURRENT\n\nWrap the spawn with `capt",
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n9-w4",
+          "classification": "success",
+          "exitCode": 0,
+          "elapsedMs": 8558,
+          "ttftMs": 1756,
+          "stopReason": "end_turn",
+          "isError": false,
+          "apiErrorStatus": null,
+          "resultPreview": "Sat: May 9, 2026 18:23 PDT — GSD-T v3.24.10 — CURRENT\n\nWrap every Task subagent ",
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n9-w5",
+          "classification": "success",
+          "exitCode": 0,
+          "elapsedMs": 8016,
+          "ttftMs": 1684,
+          "stopReason": "end_turn",
+          "isError": false,
+          "apiErrorStatus": null,
+          "resultPreview": "Sat: May 9, 2026 18:23 PDT — GSD-T v3.24.10 — CURRENT\n\nEvery Task subagent spawn",
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n9-w6",
+          "classification": "success",
+          "exitCode": 0,
+          "elapsedMs": 7813,
+          "ttftMs": 1691,
+          "stopReason": "end_turn",
+          "isError": false,
+          "apiErrorStatus": null,
+          "resultPreview": "Sat: May 9, 2026 18:23 PDT — GSD-T v3.24.10 — CURRENT\n\nWrap the spawn with `capt",
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n9-w7",
+          "classification": "success",
+          "exitCode": 0,
+          "elapsedMs": 9587,
+          "ttftMs": 1715,
+          "stopReason": "end_turn",
+          "isError": false,
+          "apiErrorStatus": null,
+          "resultPreview": "Sat: May 9, 2026 18:23 PDT — GSD-T v3.24.10 — CURRENT\n\nWrap the spawn in `captur",
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n9-w8",
+          "classification": "success",
+          "exitCode": 0,
+          "elapsedMs": 8230,
+          "ttftMs": 1898,
+          "stopReason": "end_turn",
+          "isError": false,
+          "apiErrorStatus": null,
+          "resultPreview": "Sat: May 9, 2026 18:23 PDT — GSD-T v3.24.10 — CURRENT\n\nWrap the spawn in `captur",
+          "stderrSnippet": ""
+        }
+      ],
+      "buckets": {
+        "success": 9
+      }
+    },
+    {
+      "N": 10,
+      "wallMs": 10240,
+      "results": [
+        {
+          "workerId": "n10-w0",
+          "classification": "success",
+          "exitCode": 0,
+          "elapsedMs": 7566,
+          "ttftMs": 2088,
+          "stopReason": "end_turn",
+          "isError": false,
+          "apiErrorStatus": null,
+          "resultPreview": "Sat: May 9, 2026 18:24 PDT — GSD-T v3.24.10 — CURRENT\n\nEvery Task subagent spawn",
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n10-w1",
+          "classification": "success",
+          "exitCode": 0,
+          "elapsedMs": 10230,
+          "ttftMs": 2093,
+          "stopReason": "end_turn",
+          "isError": false,
+          "apiErrorStatus": null,
+          "resultPreview": "Sat: May 9, 2026 18:24 PDT — GSD-T v3.24.10 — CURRENT\n\nWrap the spawn with `capt",
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n10-w2",
+          "classification": "success",
+          "exitCode": 0,
+          "elapsedMs": 9089,
+          "ttftMs": 1782,
+          "stopReason": "end_turn",
+          "isError": false,
+          "apiErrorStatus": null,
+          "resultPreview": "Sat: May 9, 2026 18:24 PDT — GSD-T v3.24.10 — CURRENT\n\nWrap the spawn with `capt",
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n10-w3",
+          "classification": "success",
+          "exitCode": 0,
+          "elapsedMs": 7342,
+          "ttftMs": 1896,
+          "stopReason": "end_turn",
+          "isError": false,
+          "apiErrorStatus": null,
+          "resultPreview": "Sat: May 9, 2026 18:24 PDT — GSD-T v3.24.10 — CURRENT\n\nWrap the spawn with `capt",
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n10-w4",
+          "classification": "success",
+          "exitCode": 0,
+          "elapsedMs": 6406,
+          "ttftMs": 1844,
+          "stopReason": "end_turn",
+          "isError": false,
+          "apiErrorStatus": null,
+          "resultPreview": "Sat: May 9, 2026 18:24 PDT — GSD-T v3.24.10 — CURRENT\n\nWrap the spawn with `capt",
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n10-w5",
+          "classification": "success",
+          "exitCode": 0,
+          "elapsedMs": 7873,
+          "ttftMs": 1866,
+          "stopReason": "end_turn",
+          "isError": false,
+          "apiErrorStatus": null,
+          "resultPreview": "Sat: May 9, 2026 18:24 PDT — GSD-T v3.24.10 — CURRENT\n\nWrap the spawn with `capt",
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n10-w6",
+          "classification": "success",
+          "exitCode": 0,
+          "elapsedMs": 8358,
+          "ttftMs": 2065,
+          "stopReason": "end_turn",
+          "isError": false,
+          "apiErrorStatus": null,
+          "resultPreview": "Sat: May 9, 2026 18:24 PDT — GSD-T v3.24.10 — CURRENT\n\nEvery Task subagent spawn",
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n10-w7",
+          "classification": "success",
+          "exitCode": 0,
+          "elapsedMs": 8611,
+          "ttftMs": 1723,
+          "stopReason": "end_turn",
+          "isError": false,
+          "apiErrorStatus": null,
+          "resultPreview": "Sat: May 9, 2026 18:24 PDT — GSD-T v3.24.10 — CURRENT\n\nEvery Task subagent spawn",
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n10-w8",
+          "classification": "success",
+          "exitCode": 0,
+          "elapsedMs": 8782,
+          "ttftMs": 1835,
+          "stopReason": "end_turn",
+          "isError": false,
+          "apiErrorStatus": null,
+          "resultPreview": "Sat: May 9, 2026 18:24 PDT — GSD-T v3.24.10 — CURRENT\n\nWrap the spawn in `captur",
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n10-w9",
+          "classification": "success",
+          "exitCode": 0,
+          "elapsedMs": 7004,
+          "ttftMs": 1872,
+          "stopReason": "end_turn",
+          "isError": false,
+          "apiErrorStatus": null,
+          "resultPreview": "Sat: May 9, 2026 18:24 PDT — GSD-T v3.24.10 — CURRENT\n\nWrap the spawn with `capt",
+          "stderrSnippet": ""
+        }
+      ],
+      "buckets": {
+        "success": 10
+      }
+    },
+    {
+      "N": 11,
+      "wallMs": 11089,
+      "results": [
+        {
+          "workerId": "n11-w0",
+          "classification": "success",
+          "exitCode": 0,
+          "elapsedMs": 6424,
+          "ttftMs": 1864,
+          "stopReason": "end_turn",
+          "isError": false,
+          "apiErrorStatus": null,
+          "resultPreview": "Sat: May 9, 2026 18:24 PDT — GSD-T v3.24.10 — CURRENT\n\nWrap the spawn with `capt",
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n11-w1",
+          "classification": "success",
+          "exitCode": 0,
+          "elapsedMs": 7457,
+          "ttftMs": 1953,
+          "stopReason": "end_turn",
+          "isError": false,
+          "apiErrorStatus": null,
+          "resultPreview": "Sat: May 9, 2026 18:24 PDT — GSD-T v3.24.10 — CURRENT\n\nEvery Task subagent spawn",
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n11-w2",
+          "classification": "success",
+          "exitCode": 0,
+          "elapsedMs": 11082,
+          "ttftMs": 1793,
+          "stopReason": "end_turn",
+          "isError": false,
+          "apiErrorStatus": null,
+          "resultPreview": "Sat: May 9, 2026 18:24 PDT — GSD-T v3.24.10 — CURRENT\n\nWrap the spawn in `captur",
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n11-w3",
+          "classification": "success",
+          "exitCode": 0,
+          "elapsedMs": 8394,
+          "ttftMs": 2075,
+          "stopReason": "end_turn",
+          "isError": false,
+          "apiErrorStatus": null,
+          "resultPreview": "Sat: May 9, 2026 18:24 PDT — GSD-T v3.24.10 — CURRENT\n\nWrap the spawn with `capt",
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n11-w4",
+          "classification": "success",
+          "exitCode": 0,
+          "elapsedMs": 7155,
+          "ttftMs": 1797,
+          "stopReason": "end_turn",
+          "isError": false,
+          "apiErrorStatus": null,
+          "resultPreview": "Sat: May 9, 2026 18:24 PDT — GSD-T v3.24.10 — CURRENT\n\nWrap the spawn in `captur",
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n11-w5",
+          "classification": "success",
+          "exitCode": 0,
+          "elapsedMs": 7922,
+          "ttftMs": 1733,
+          "stopReason": "end_turn",
+          "isError": false,
+          "apiErrorStatus": null,
+          "resultPreview": "Sat: May 9, 2026 18:24 PDT — GSD-T v3.24.10 — CURRENT\n\nWrap the spawn with `capt",
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n11-w6",
+          "classification": "success",
+          "exitCode": 0,
+          "elapsedMs": 8076,
+          "ttftMs": 2004,
+          "stopReason": "end_turn",
+          "isError": false,
+          "apiErrorStatus": null,
+          "resultPreview": "Sat: May 9, 2026 18:24 PDT — GSD-T v3.24.10 — CURRENT\n\nWrap every Task subagent ",
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n11-w7",
+          "classification": "success",
+          "exitCode": 0,
+          "elapsedMs": 8408,
+          "ttftMs": 1807,
+          "stopReason": "end_turn",
+          "isError": false,
+          "apiErrorStatus": null,
+          "resultPreview": "Sat: May 9, 2026 18:24 PDT — GSD-T v3.24.10 — CURRENT\n\nWrap the spawn in `captur",
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n11-w8",
+          "classification": "success",
+          "exitCode": 0,
+          "elapsedMs": 7083,
+          "ttftMs": 1773,
+          "stopReason": "end_turn",
+          "isError": false,
+          "apiErrorStatus": null,
+          "resultPreview": "Sat: May 9, 2026 18:24 PDT — GSD-T v3.24.10 — CURRENT\n\nWrap the spawn with `capt",
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n11-w9",
+          "classification": "success",
+          "exitCode": 0,
+          "elapsedMs": 7344,
+          "ttftMs": 1935,
+          "stopReason": "end_turn",
+          "isError": false,
+          "apiErrorStatus": null,
+          "resultPreview": "Sat: May 9, 2026 18:24 PDT — GSD-T v3.24.10 — CURRENT\n\nWrap the spawn with `capt",
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n11-w10",
+          "classification": "success",
+          "exitCode": 0,
+          "elapsedMs": 6212,
+          "ttftMs": 1756,
+          "stopReason": "end_turn",
+          "isError": false,
+          "apiErrorStatus": null,
+          "resultPreview": "Sat: May 9, 2026 18:24 PDT — GSD-T v3.24.10 — CURRENT\n\nWrap every Task subagent ",
+          "stderrSnippet": ""
+        }
+      ],
+      "buckets": {
+        "success": 11
+      }
+    }
+  ],
+  "cliff": null,
+  "cliffSummary": "no cliff up to N=11",
+  "safeRecommended": 11
+}

@@ -1,0 +1,14 @@
+{
+  "id": "gsd-t-debug-2026-05-06-12-52-05",
+  "pid": 40409,
+  "logPath": ".gsd-t/headless-gsd-t-debug-2026-05-06-12-52-05.log",
+  "startTimestamp": "2026-05-06T19:52:05.223Z",
+  "command": "gsd-t-debug",
+  "args": [
+    "Read /tmp/m49-debug-prompt.txt for the full issue description and proceed with the lazy-dashboard + idle-TTL + doctor-prune fix.",
+    "--timeout=3600"
+  ],
+  "status": "running",
+  "continueFromPath": ".",
+  "surfaced": false
+}

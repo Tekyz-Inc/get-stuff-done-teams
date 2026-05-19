@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "1.0.0",
+  "generatedAt": "2026-05-10T01:20:42.209Z",
+  "model": "claude-sonnet-4-6",
+  "smoke": {
+    "N": 1,
+    "wallMs": 7796,
+    "results": [
+      {
+        "workerId": "n1-w0",
+        "elapsedMs": 7796,
+        "ttftMs": 1911,
+        "exitCode": 0,
+        "status429": true,
+        "authFail": false,
+        "refusal": false,
+        "stopReason": "end_turn",
+        "isError": false,
+        "resultPreview": "Sat: May 9, 2026 18:20 PDT — GSD-T v3.24.10 — CURRENT\n\nWrap every spawn with `captureSpawn({..., spa",
+        "stderrSnippet": ""
+      }
+    ],
+    "ok": 0,
+    "c429": 1,
+    "cAuth": 0,
+    "cRefusal": 0
+  },
+  "cliff": null,
+  "aborted": "smoke-failed"
+}

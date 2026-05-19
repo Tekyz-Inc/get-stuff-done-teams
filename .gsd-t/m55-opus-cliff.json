@@ -1,0 +1,380 @@
+{
+  "schemaVersion": "1.0.0",
+  "generatedAt": "2026-05-10T01:04:45.736Z",
+  "model": "claude-opus-4-7",
+  "fixtureKb": 117,
+  "sweep": [
+    {
+      "N": 1,
+      "wallMs": 8162,
+      "results": [
+        {
+          "workerId": "n1-w0",
+          "elapsedMs": 8162,
+          "exitCode": 1,
+          "status429": false,
+          "authFail": false,
+          "stdoutLen": 352,
+          "stderrSnippet": ""
+        }
+      ],
+      "any429": false,
+      "anyAuth": false,
+      "allOk": false
+    },
+    {
+      "N": 3,
+      "wallMs": 8523,
+      "results": [
+        {
+          "workerId": "n3-w0",
+          "elapsedMs": 7667,
+          "exitCode": 1,
+          "status429": false,
+          "authFail": false,
+          "stdoutLen": 352,
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n3-w1",
+          "elapsedMs": 8519,
+          "exitCode": 1,
+          "status429": false,
+          "authFail": false,
+          "stdoutLen": 352,
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n3-w2",
+          "elapsedMs": 8315,
+          "exitCode": 1,
+          "status429": false,
+          "authFail": false,
+          "stdoutLen": 352,
+          "stderrSnippet": ""
+        }
+      ],
+      "any429": false,
+      "anyAuth": false,
+      "allOk": false
+    },
+    {
+      "N": 5,
+      "wallMs": 11580,
+      "results": [
+        {
+          "workerId": "n5-w0",
+          "elapsedMs": 6408,
+          "exitCode": 1,
+          "status429": false,
+          "authFail": false,
+          "stdoutLen": 352,
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n5-w1",
+          "elapsedMs": 6906,
+          "exitCode": 1,
+          "status429": false,
+          "authFail": false,
+          "stdoutLen": 352,
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n5-w2",
+          "elapsedMs": 11568,
+          "exitCode": 1,
+          "status429": false,
+          "authFail": false,
+          "stdoutLen": 352,
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n5-w3",
+          "elapsedMs": 6457,
+          "exitCode": 1,
+          "status429": false,
+          "authFail": false,
+          "stdoutLen": 352,
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n5-w4",
+          "elapsedMs": 5280,
+          "exitCode": 1,
+          "status429": false,
+          "authFail": false,
+          "stdoutLen": 352,
+          "stderrSnippet": ""
+        }
+      ],
+      "any429": false,
+      "anyAuth": false,
+      "allOk": false
+    },
+    {
+      "N": 7,
+      "wallMs": 10497,
+      "results": [
+        {
+          "workerId": "n7-w0",
+          "elapsedMs": 7224,
+          "exitCode": 1,
+          "status429": false,
+          "authFail": false,
+          "stdoutLen": 352,
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n7-w1",
+          "elapsedMs": 8699,
+          "exitCode": 1,
+          "status429": false,
+          "authFail": false,
+          "stdoutLen": 352,
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n7-w2",
+          "elapsedMs": 5945,
+          "exitCode": 1,
+          "status429": false,
+          "authFail": false,
+          "stdoutLen": 352,
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n7-w3",
+          "elapsedMs": 6133,
+          "exitCode": 1,
+          "status429": false,
+          "authFail": false,
+          "stdoutLen": 352,
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n7-w4",
+          "elapsedMs": 10484,
+          "exitCode": 1,
+          "status429": false,
+          "authFail": false,
+          "stdoutLen": 352,
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n7-w5",
+          "elapsedMs": 7332,
+          "exitCode": 1,
+          "status429": false,
+          "authFail": false,
+          "stdoutLen": 352,
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n7-w6",
+          "elapsedMs": 7828,
+          "exitCode": 1,
+          "status429": false,
+          "authFail": false,
+          "stdoutLen": 352,
+          "stderrSnippet": ""
+        }
+      ],
+      "any429": false,
+      "anyAuth": false,
+      "allOk": false
+    },
+    {
+      "N": 9,
+      "wallMs": 11922,
+      "results": [
+        {
+          "workerId": "n9-w0",
+          "elapsedMs": 6939,
+          "exitCode": 1,
+          "status429": false,
+          "authFail": false,
+          "stdoutLen": 352,
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n9-w1",
+          "elapsedMs": 11910,
+          "exitCode": 1,
+          "status429": false,
+          "authFail": false,
+          "stdoutLen": 352,
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n9-w2",
+          "elapsedMs": 9152,
+          "exitCode": 1,
+          "status429": false,
+          "authFail": false,
+          "stdoutLen": 352,
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n9-w3",
+          "elapsedMs": 8078,
+          "exitCode": 1,
+          "status429": false,
+          "authFail": false,
+          "stdoutLen": 352,
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n9-w4",
+          "elapsedMs": 7242,
+          "exitCode": 1,
+          "status429": false,
+          "authFail": false,
+          "stdoutLen": 352,
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n9-w5",
+          "elapsedMs": 6502,
+          "exitCode": 1,
+          "status429": false,
+          "authFail": false,
+          "stdoutLen": 352,
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n9-w6",
+          "elapsedMs": 11639,
+          "exitCode": 1,
+          "status429": false,
+          "authFail": false,
+          "stdoutLen": 352,
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n9-w7",
+          "elapsedMs": 6978,
+          "exitCode": 1,
+          "status429": false,
+          "authFail": false,
+          "stdoutLen": 352,
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n9-w8",
+          "elapsedMs": 5846,
+          "exitCode": 1,
+          "status429": false,
+          "authFail": false,
+          "stdoutLen": 352,
+          "stderrSnippet": ""
+        }
+      ],
+      "any429": false,
+      "anyAuth": false,
+      "allOk": false
+    },
+    {
+      "N": 10,
+      "wallMs": 3585,
+      "results": [
+        {
+          "workerId": "n10-w0",
+          "elapsedMs": 3262,
+          "exitCode": 1,
+          "status429": true,
+          "authFail": false,
+          "stdoutLen": 89,
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n10-w1",
+          "elapsedMs": 3106,
+          "exitCode": 1,
+          "status429": true,
+          "authFail": false,
+          "stdoutLen": 89,
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n10-w2",
+          "elapsedMs": 3131,
+          "exitCode": 1,
+          "status429": true,
+          "authFail": false,
+          "stdoutLen": 89,
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n10-w3",
+          "elapsedMs": 3153,
+          "exitCode": 1,
+          "status429": true,
+          "authFail": false,
+          "stdoutLen": 89,
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n10-w4",
+          "elapsedMs": 3461,
+          "exitCode": 1,
+          "status429": true,
+          "authFail": false,
+          "stdoutLen": 89,
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n10-w5",
+          "elapsedMs": 3435,
+          "exitCode": 1,
+          "status429": true,
+          "authFail": false,
+          "stdoutLen": 89,
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n10-w6",
+          "elapsedMs": 3171,
+          "exitCode": 1,
+          "status429": true,
+          "authFail": false,
+          "stdoutLen": 89,
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n10-w7",
+          "elapsedMs": 3568,
+          "exitCode": 1,
+          "status429": true,
+          "authFail": false,
+          "stdoutLen": 89,
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n10-w8",
+          "elapsedMs": 3029,
+          "exitCode": 1,
+          "status429": true,
+          "authFail": false,
+          "stdoutLen": 89,
+          "stderrSnippet": ""
+        },
+        {
+          "workerId": "n10-w9",
+          "elapsedMs": 3129,
+          "exitCode": 1,
+          "status429": true,
+          "authFail": false,
+          "stdoutLen": 89,
+          "stderrSnippet": ""
+        }
+      ],
+      "any429": true,
+      "anyAuth": false,
+      "allOk": false
+    }
+  ],
+  "cliff": 10,
+  "cliffSummary": "First 429 observed at N=10 parallel Opus workers",
+  "safeRecommended": 8
+}

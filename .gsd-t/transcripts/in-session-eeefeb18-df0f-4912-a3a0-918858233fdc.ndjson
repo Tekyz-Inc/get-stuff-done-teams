@@ -1,0 +1,4 @@
+{"type":"session_start","ts":"2026-05-06T15:35:39.779Z","session_id":"eeefeb18-df0f-4912-a3a0-918858233fdc"}
+{"type":"user_turn","ts":"2026-05-06T15:35:42.028Z","session_id":"eeefeb18-df0f-4912-a3a0-918858233fdc","content":"/gsd-t-wave"}
+{"type":"assistant_turn","ts":"2026-05-06T15:40:19.871Z","session_id":"eeefeb18-df0f-4912-a3a0-918858233fdc"}
+{"type":"user_turn","ts":"2026-05-06T15:40:39.567Z","session_id":"eeefeb18-df0f-4912-a3a0-918858233fdc","content":"<task-notification>\n<task-id>by5okfmpg</task-id>\n<tool-use-id>toolu_01B182S7YS8DtjEFHqaYs1YJ</tool-use-id>\n<output-file>/private/tmp/claude-501/-Users-david-projects-GSD-T/eeefeb18-df0f-4912-a3a0-918858233fdc/tasks/by5okfmpg.output</output-file>\n<status>killed</status>\n<summary>Background command \"Wait for partition phase to complete (5s poll)\" was stopped</summary>\n</task-notification>"}

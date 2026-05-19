@@ -1,0 +1,35 @@
+
+[1mGSD-T Headless — test-sync[0m
+[36m  ℹ[0m Prompt: /gsd-t-test-sync
+[36m  ℹ[0m Timeout: 1800s
+[36m  ℹ[0m Log: /Users/david/projects/GSD-T/.gsd-t/headless-1778103214771.log
+
+Test-sync complete. Per Level 3, auto-advance to verify.
+
+## 🧪 Test Sync Complete
+
+**Unit/Integration**:
+- Clean env: **2166/2166 pass** (`env -i HOME PATH node --test`)
+- Under test-sync env: 2164/2166 — 2 env-pollution flakes (`event-stream.test.js:341` + `watch-progress-writer.test.js:222` assert `GSD_T_*` are unset; this command's own env trips them). Not production bugs.
+
+**E2E (Playwright viewer)**:
+- 8/9 functional specs pass (placeholder skipped)
+- 1 finding: `e2e/viewer/dual-pane.spec.ts:51` is a faulty test, not a faulty app — its URL filter `urls.filter(u => u.includes('/transcript/') && u.includes('/stream'))` doesn't separate top-pane (`connectMain`, intentional) from bottom-pane (`connect`, the M48 Bug 4 surface). Unit guards (5 tests in `m48-viewer-rendering-fixes.test.js`) confirm production behavior is correct.
+
+**Coverage**: Zero gaps across M48/M49/M50 changed code (6 source files → 137 unit test files + 5 viewer E2E specs).
+
+**Generated tasks**:
+- TEST-M50-001 (MEDIUM): tighten dual-pane spec to bottom pane only
+- TEST-EVENT-001 / TEST-WRITER-001 (LOW): optional env-isolation hardening
+
+Files updated: `.gsd-t/test-coverage.md` (new), `.gsd-t/progress.md` (decision log entry).
+
+───────────────────────────────────────────────────────────────
+
+## ▶ Next Up
+
+**Verify** — quality gates: REQ traceability, contract coverage, Goal-Backward, Red Team, design verify (where applicable). Auto-invokes complete-milestone on PASS.
+
+`/gsd-t-verify`
+
+───────────────────────────────────────────────────────────────

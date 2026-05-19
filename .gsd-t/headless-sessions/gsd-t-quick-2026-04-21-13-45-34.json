@@ -1,0 +1,11 @@
+{
+  "id": "gsd-t-quick-2026-04-21-13-45-34",
+  "pid": 5115,
+  "logPath": ".gsd-t/headless-gsd-t-quick-2026-04-21-13-45-34.log",
+  "startTimestamp": "2026-04-21T20:45:34.524Z",
+  "command": "gsd-t-quick",
+  "args": [],
+  "status": "running",
+  "continueFromPath": ".",
+  "surfaced": false
+}

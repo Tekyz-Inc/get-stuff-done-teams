@@ -1,0 +1,2237 @@
+<!-- GSD-T:START — Do not remove this marker. Content between START/END is managed by gsd-t update. -->
+# Prime Directives
+
+1. SIMPLICITY ABOVE ALL. Every change should be minimal and impact as little code as possible. No massive refactors.
+2. ALWAYS check for unwanted downstream effects before writing any new code or changing existing code.
+3. ALWAYS check for completeness that any code creation/change/deletion is implemented thoroughly in every relevant file.
+4. ALWAYS work autonomously. ONLY ask for user input when truly blocked.
+
+
+# GSD-T: Contract-Driven Development
+
+## Work Hierarchy
+
+```
+PROJECT or FEATURE or SCAN
+  └── MILESTONE (major deliverable)
+      └── PARTITION → DISCUSS → PLAN → IMPACT → EXECUTE → TEST-SYNC → INTEGRATE → VERIFY → COMPLETE
+```
+
+- **Project**: Full greenfield project → decomposed into milestones
+- **Feature**: Major new feature for existing codebase → impact analysis → milestones
+- **Scan**: Deep codebase analysis → techdebt.md → promotable to milestones
+- **Milestone**: A significant deliverable (e.g., "User Authentication Complete")
+- **Domain**: An independent area of responsibility within a milestone, with its own scope, tasks, and file boundaries
+- **Contract**: The documented interface between domains — API shapes, schemas, component props
+
+## Commands Reference
+
+See `/gsd-t-help` for the complete command list.
+
+
+# Living Documents
+
+These documents MUST be maintained and referenced throughout development:
+
+| Document | Location | Purpose |
+|----------|----------|---------|
+| **Requirements** | `docs/requirements.md` | Functional and technical requirements |
+| **Architecture** | `docs/architecture.md` | System design, components, data flow, decisions |
+| **Workflows** | `docs/workflows.md` | User journeys and technical process flows |
+| **Infrastructure** | `docs/infrastructure.md` | Commands, DB setup, server access, creds |
+| **README** | `README.md` | Project overview, setup, features |
+| **Progress** | `.gsd-t/progress.md` | Current milestone/phase state + version |
+| **Contracts** | `.gsd-t/contracts/` | Interfaces between domains |
+| **Tech Debt** | `.gsd-t/techdebt.md` | Debt register from scans |
+
+## The "No Re-Research" Rule
+
+**BEFORE researching how something works, CHECK THE DOCS FIRST.**
+
+```
+NEED TO UNDERSTAND SOMETHING?
+  ├── Is it about system structure/components? → Read docs/architecture.md
+  ├── Is it about how a process flows? → Read docs/workflows.md
+  ├── Is it about what to build? → Read docs/requirements.md
+  ├── Is it about how to deploy/operate? → Read docs/infrastructure.md
+  ├── Is it about domain interfaces? → Read .gsd-t/contracts/
+  └── Not documented? → Research, then DOCUMENT IT
+```
+
+
+# Versioning
+
+GSD-T tracks project version in `.gsd-t/progress.md` using semantic versioning: `Major.Minor.Patch`
+
+| Segment | Bumped When | Example |
+|---------|-------------|---------|
+| **Major** | Breaking changes, major rework, v1 launch | 1.0.10 → 2.0.10 |
+| **Minor** | New features, completed feature milestones | 1.10.10 → 1.11.10 |
+| **Patch** | Bug fixes, minor improvements, cleanup | 1.1.10 → 1.1.11 |
+
+**Patch convention**: Patch numbers are always 2 digits (≥10). When resetting after a minor or major bump, start at **10** (not 0). This keeps patches always 2 characters without leading zeros, so semver stays valid.
+
+- Version is set during `gsd-t-init`:
+  - **New project** (no existing manifest version): starts at `0.1.00` — first `complete-milestone` resets patch to `0.1.10`
+  - **Existing repo** (has `package.json`, `pyproject.toml`, `Cargo.toml`, etc. with a version): use that version as the starting point
+- Version is bumped during `gsd-t-complete-milestone` based on milestone scope
+- Version is reflected in: `progress.md`, `README.md`, package manifest (if any), and git tags (`v{version}`)
+
+
+# Destructive Action Guard (MANDATORY)
+
+**NEVER perform destructive or structural changes without explicit user approval.** This applies at ALL autonomy levels, including Level 3.
+
+```
+BEFORE any of these actions, STOP and ask the user:
+  ├── DROP TABLE, DROP COLUMN, DROP INDEX, TRUNCATE, DELETE without WHERE
+  ├── Renaming or removing database tables or columns
+  ├── Schema migrations that lose data or break existing queries
+  ├── Replacing an existing architecture pattern (e.g., normalized → denormalized)
+  ├── Removing or replacing existing files/modules that contain working functionality
+  ├── Changing ORM models in ways that conflict with the existing database schema
+  ├── Removing API endpoints or changing response shapes that existing clients depend on
+  ├── Replacing a dependency or framework with a different one
+  └── Any change that would require other parts of the system to be rewritten
+```
+
+### How to handle schema/architecture mismatches:
+1. **READ the existing schema/code first** — understand what exists before proposing changes
+2. **Adapt new code to match existing structures** — not the other way around
+3. **If restructuring is truly needed**, present the case to the user with:
+   - What exists today and why it might have been designed that way
+   - What you want to change and why
+   - What will break if you make the change
+   - What data or functionality will be lost
+   - A migration path that preserves existing data
+4. **Wait for explicit approval** before proceeding
+
+### Why this matters:
+Even in development, the user may have:
+- Working functionality they've tested and rely on
+- Data they've carefully set up (seed data, test accounts, configuration)
+- Other code that depends on the current structure
+- Design decisions made for reasons not documented
+
+**"Adapt to what exists" is always safer than "replace what exists."**
+
+
+# Autonomous Execution Rules
+
+## Update Notices
+
+The hook output at session start is NOT visible to the user — only your response text is. So you MUST emit a dated status banner as the **very first line of every response** (every turn, not just the first), above any routing header or other content.
+
+**Date source — MANDATORY**: use the timestamp from the most recent `[GSD-T NOW]` signal in your context. The UserPromptSubmit hook (`scripts/gsd-t-auto-route.js`) emits `[GSD-T NOW] Day: Mon DD, YYYY HH:MM:SS TZ` at the start of every turn — this is live system clock. Do NOT use:
+- The SessionStart banner (frozen at session start — wrong on day 2 of a long session)
+- The `currentDate` field in your context (frozen at session start — same problem)
+- Your training-cutoff intuition (always wrong)
+
+If `[GSD-T NOW]` is absent for any reason, fall back to `currentDate` and flag the gap.
+
+**Format** — one line, no changelog noise in steady state:
+
+- Steady state (`[GSD-T]` token seen at session start, or no version-check token — default):
+  ```
+  Day: Mon DD, YYYY HH:MM TZ — GSD-T v{version} — CURRENT
+  ```
+  Example: `Sun: May 3, 2026 12:21 PDT — GSD-T v3.19.00 — CURRENT`
+
+- Auto-updated this session (`[GSD-T AUTO-UPDATE]` token seen at session start):
+  ```
+  Day: Mon DD, YYYY HH:MM TZ — GSD-T v{old} → v{new} ✅ AUTO-UPDATED
+  Changelog: https://github.com/Tekyz-Inc/get-stuff-done-teams/blob/main/CHANGELOG.md
+  ```
+  (The changelog link earns its place here — there's new code to read about.)
+
+- Update available, auto-update failed (`[GSD-T UPDATE]` token seen at session start):
+  ```
+  Day: Mon DD, YYYY HH:MM TZ — GSD-T v{installed} → v{latest} ⬆️ UPDATE AVAILABLE (auto-update failed)
+  Run: /gsd-t-version-update-all
+  Changelog: https://github.com/Tekyz-Inc/get-stuff-done-teams/blob/main/CHANGELOG.md
+  ```
+  Also repeat at the **end** of your first response.
+
+(Drop seconds from the displayed banner — keep it to `HH:MM TZ` for readability. The hook emits seconds; you trim.)
+
+**Why every response, not just the first**: long sessions span multiple days. A dated header on every turn means the user can scroll back and immediately see when any exchange happened, without inferring from context.
+
+**Order**: dated status banner FIRST. Then routing header (if any). Then your response body.
+
+## Live Clock Rule (MANDATORY)
+
+Whenever you write a date or timestamp to any file — decision log entries in `progress.md`, `continue-here-{ts}.md` filenames, memory entries, banners, "Updated:" / "Date:" frontmatter, archive headings, anything visible — source it from **the live system clock**. Never from `currentDate` (frozen at session start), the SessionStart banner (frozen), or your intuition (unreliable).
+
+**How to obtain the live clock**:
+1. Read the most recent `[GSD-T NOW]` signal from your context (UserPromptSubmit hook emits it every turn).
+2. If absent, run `node -e "console.log(new Date().toISOString())"` via Bash before writing.
+
+**Enforcement**: a PreToolUse hook (`scripts/gsd-t-date-guard.js`) blocks Write/Edit calls whose content contains timestamps drifting more than ±5 minutes from the live system clock. The guard:
+- Validates decision-log entries (`- YYYY-MM-DD HH:MM:`), filename timestamps (`continue-here-YYYY-MM-DDTHHMMSS`), banners (`Day: Mon DD, YYYY HH:MM`), and labeled stamps (`Date:`, `Updated:`, `Created:`, etc.).
+- For Edit, ignores timestamps that appear in BOTH `old_string` and `new_string` (pre-existing context, not new writes).
+- Allowlists machine-written paths (`.gsd-t/events/`, `.gsd-t/transcripts/`, `.gsd-t/metrics/`, `.git/`, `node_modules/`, archives, log files).
+- Fails open on internal error — broken tool calls would be worse than drift.
+
+If the guard blocks your write, do NOT bypass it. Re-read `[GSD-T NOW]`, regenerate the timestamp, retry.
+
+## Conversation vs. Work
+
+Only execute GSD-T workflow behavior when a `/gsd-t-*` command is invoked or when actively mid-phase (resumed via `/gsd-t-resume`). **Plain text messages — especially questions — should be answered conversationally.** Do not launch into workflow execution, file reading, or phase advancement from a question or comment. If the user wants work done, they will invoke a command.
+
+**Exception — Auto-Route signal**: When `[GSD-T AUTO-ROUTE]` appears in your context (injected by the UserPromptSubmit hook), the user's plain text message should be treated as a `/gsd {message}` invocation. Execute the `/gsd` smart router with the user's full message as the argument instead of replying conversationally. The hook only fires in GSD-T projects (directories containing `.gsd-t/progress.md`) — it silently passes through in all other directories.
+
+## Auto-Init Guard
+
+Before executing any GSD-T workflow command, check if **any** of these files are missing in the current project:
+- `.gsd-t/progress.md`, `.gsd-t/backlog.md`, `.gsd-t/backlog-settings.md`
+- `.gsd-t/contracts/`, `.gsd-t/domains/`
+- `CLAUDE.md`, `README.md`
+- `docs/requirements.md`, `docs/architecture.md`, `docs/workflows.md`, `docs/infrastructure.md`
+
+If any are missing:
+1. Run `gsd-t-init` automatically (it skips files that already exist)
+2. Then continue with the originally requested command
+
+**Exempt commands** (do not trigger auto-init): `gsd-t-init`, `gsd-t-init-scan-setup`, `gsd-t-help`, `gsd-t-version-update`, `gsd-t-version-update-all`.
+
+## Playwright Readiness Guard (M50 — deterministic enforcement)
+
+Playwright readiness is enforced by executable code, not prose. Three layers:
+
+1. **Bootstrap library** — `bin/playwright-bootstrap.cjs` exports `hasPlaywright`, `detectPackageManager`, `installPlaywright`, `verifyPlaywrightHealth`. `bin/ui-detection.cjs` exports `hasUI`, `detectUIFlavor`. See `.gsd-t/contracts/playwright-bootstrap-contract.md`.
+2. **Spawn-time gate** — `bin/headless-auto-spawn.cjs::autoSpawnHeadless()` auto-installs Playwright before the spawn proceeds, when the command being run is in the testing/UI whitelist (`gsd-t-execute`, `gsd-t-test-sync`, `gsd-t-verify`, `gsd-t-quick`, `gsd-t-wave`, `gsd-t-milestone`, `gsd-t-complete-milestone`, `gsd-t-debug`, `gsd-t-integrate`) AND `hasUI(projectDir)` AND `!hasPlaywright(projectDir)`. On install failure, the gate writes `mode: 'blocked-needs-human'` to the headless session-state file and exits 4.
+3. **Commit-time gate** — `scripts/hooks/pre-commit-playwright-gate` (opt-in via `gsd-t doctor --install-hooks`) blocks commits that touch viewer/UI source files when Playwright tests have not passed since the most recent change. Reads `.gsd-t/.last-playwright-pass`; fails open on missing/corrupt timestamps.
+
+Operator overrides:
+- Manual install: `gsd-t setup-playwright [path]` (or `gsd-t doctor --install-playwright`).
+- Health check: `gsd-t doctor` reports `playwright missing` for any UI project without `playwright.config.*`.
+
+You no longer need to run a check yourself before testing commands — the gate runs every spawn.
+
+### Playwright Cleanup
+
+After Playwright tests finish (pass or fail), **kill any app/server processes that were started for the tests**. Playwright often launches a dev server (via `webServer` config or manually). These processes must not be left running:
+1. Check for any dev server processes spawned during the test run
+2. Kill them (e.g., `npx kill-port`, or terminate the process directly)
+3. Verify the port is free before proceeding
+
+This applies everywhere Playwright tests are executed: execute, test-sync, verify, quick, wave, debug, complete-milestone, and integrate.
+
+### E2E Enforcement Rule (MANDATORY)
+
+**Running only unit tests when E2E tests exist is a test failure.** This is non-negotiable.
+
+```
+BEFORE reporting "tests pass" for ANY task:
+  ├── Does playwright.config.* or cypress.config.* exist?
+  │     YES → You MUST run the full E2E suite. Unit-only results are INCOMPLETE.
+  │     NO  → Unit/integration tests are sufficient.
+  ├── Did you run every detected test runner?
+  │     NO → Run it now. Do not commit until ALL suites pass.
+  └── Report format MUST include all suites:
+        "Unit: X/Y pass | E2E: X/Y pass" (or "E2E: N/A — no config")
+```
+
+The conditional "if UI/routes/flows changed" in command files applies to **writing new E2E specs**, not to **running existing ones**. You always run existing E2E specs. Always.
+
+### E2E Test Quality Standard (MANDATORY)
+
+**E2E tests must be FUNCTIONAL tests, not LAYOUT tests.** This is non-negotiable.
+
+A layout test checks that elements exist (`isVisible`, `toBeAttached`, `toBeEnabled`, `toHaveCount`). A functional test checks that features work — actions produce correct outcomes.
+
+```
+LAYOUT TEST (WRONG — passes even if every feature is broken):
+  await expect(page.locator('#tab-sessions')).toBeVisible();
+  await page.click('#tab-sessions');
+  // ← No assertion that the tab's content actually loaded
+
+FUNCTIONAL TEST (RIGHT — fails if the feature is broken):
+  await page.click('#tab-sessions');
+  await expect(page.locator('.session-list')).toContainText('Session 1');
+  // ← Proves clicking the tab loaded the session data
+```
+
+Every Playwright assertion must verify one of:
+- **State changed**: After click/type/submit, the app state is different (new content, updated data, changed status)
+- **Data flowed**: User input → API call → response rendered (use `page.waitForResponse` or assert on rendered data)
+- **Content loaded**: Navigation/tab switch → destination content appeared (assert on text/data unique to destination)
+- **Widget responded**: Terminal accepted keystrokes and produced output, editor saved changes, form submitted and data persisted
+
+**If a test would pass on an empty HTML page with the correct element IDs and no JavaScript, it is not a functional test.** Rewrite it.
+
+## QA Agent (Mandatory)
+
+Every code-producing/validating phase MUST run QA. QA writes ZERO feature code — it generates, runs, and gap-reports tests. Failure (or any shallow E2E test) blocks phase completion.
+Protocol: `templates/prompts/qa-subagent.md`. Contract: `.gsd-t/contracts/qa-agent-contract.md`.
+
+## Design Verification Agent (Mandatory when design contract exists)
+
+When `.gsd-t/contracts/design-contract.md` or `.gsd-t/contracts/design/` exists, a dedicated agent opens a browser, compares the build against the design, and writes a structured element-by-element MATCH/DEVIATION table. Writes ZERO feature code. Deviations (or missing verification artifact) block phase completion.
+Protocol: `templates/prompts/design-verify-subagent.md`.
+
+## Red Team — Adversarial QA (Mandatory)
+
+After QA + Design Verification pass, every code-producing command spawns an adversarial subagent whose success is measured by bugs found, not tests passed. VERDICT is `FAIL` (bugs — blocks completion) or `GRUDGING PASS` (exhaustive search, nothing found). CRITICAL/HIGH bugs get up to 2 fix cycles before deferral.
+Protocol: `templates/prompts/red-team-subagent.md`.
+
+## Model Display (MANDATORY)
+
+**Before every subagent spawn, display the model being used to the user:**
+`⚙ [{model}] {command} → {brief description}` (e.g., `⚙ [sonnet] gsd-t-execute → domain: auth-service`, `⚙ [haiku] gsd-t-execute → QA validation`)
+
+This gives the user real-time visibility into which model is handling each operation.
+
+**Model assignments:**
+- `model: haiku` — strictly mechanical tasks: run test suites and report counts, check file existence, validate JSON structure, branch guard checks
+- `model: sonnet` — mid-tier reasoning: routine code changes, standard refactors, test writing, QA evaluation, straightforward synthesis
+- `model: opus` — high-stakes reasoning: architecture decisions, security analysis, complex debugging, cross-module refactors, Red Team adversarial QA, quality judgment on critical paths
+
+**Context Meter (M34/M38, v3.12.10+)** — The real context-window measurement feeding the headless-default spawn decision. A PostToolUse hook (`scripts/gsd-t-context-meter.js`) runs after every tool call, uses local token estimation to write the current input-token count into `.gsd-t/.context-meter-state.json`. `getSessionStatus()` reads that state file (fresh window = 5 minutes) with a historical heuristic fallback when the file is missing or stale. Command files consume the signal via a small bash shim (`CTX_PCT=$(node -e "…tb.getSessionStatus('.').pct")`). **Single-band model** (context-meter-contract v1.3.0): there's one threshold (default 85%) and one action — hand off to a detached headless spawn. No three-band routing, no silent downgrades, no MANDATORY STOP prose. The meter exists to inform spawn-time routing, not to pause work in-flight.
+
+## In-Session Conversation Capture (M45 D2)
+
+The orchestrator session's user↔assistant dialog is captured into
+`.gsd-t/transcripts/in-session-{sessionId}.ndjson` via a dedicated hook
+script (`scripts/hooks/gsd-t-conversation-capture.js`). The viewer's left
+rail labels these entries `💬 conversation` (front-end-only discriminator
+— the `in-session-` filename prefix is the contract).
+
+This hook captures **content** (user prompts + assistant replies). It is
+complementary to `scripts/hooks/gsd-t-in-session-usage-hook.js` (M43 D1),
+which captures per-turn **token usage** into
+`.gsd-t/metrics/token-usage.jsonl`. Both hooks coexist on the same events.
+
+**Install block** (append to `~/.claude/settings.json` alongside the existing
+context-meter, version-check, compact-detector, and in-session-usage hooks):
+
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      { "matcher": "",
+        "hooks": [{ "type": "command",
+                    "command": "node \"$HOME/.claude/scripts/hooks/gsd-t-conversation-capture.js\"",
+                    "async": true }] }
+    ],
+    "UserPromptSubmit": [
+      { "matcher": "",
+        "hooks": [{ "type": "command",
+                    "command": "node \"$HOME/.claude/scripts/hooks/gsd-t-conversation-capture.js\"",
+                    "async": true }] }
+    ],
+    "Stop": [
+      { "matcher": "",
+        "hooks": [{ "type": "command",
+                    "command": "node \"$HOME/.claude/scripts/hooks/gsd-t-conversation-capture.js\"",
+                    "async": true }] }
+    ],
+    "PostToolUse": [
+      { "matcher": "",
+        "hooks": [{ "type": "command",
+                    "command": "GSD_T_CAPTURE_TOOL_USES=1 node \"$HOME/.claude/scripts/hooks/gsd-t-conversation-capture.js\"",
+                    "async": true }] }
+    ]
+  }
+}
+```
+
+The `PostToolUse` entry is **opt-in** via `GSD_T_CAPTURE_TOOL_USES=1`. Leave it
+unset unless you want per-tool frames in the NDJSON (full tool payloads are
+already recorded in `events/*.jsonl`).
+
+Contract: `.gsd-t/contracts/conversation-capture-contract.md` v1.0.0. Frame
+schema, file-naming, and session-id resolution rules are locked there.
+
+## Observability Logging (MANDATORY)
+
+Every command that spawns a Task subagent, invokes `claude -p`, or calls `spawn('claude', ...)` MUST route the spawn through `bin/gsd-t-token-capture.cjs` so the real token-usage envelope is parsed and recorded. This is the M41 canonical pattern — the pre-M41 bash block that wrote `| N/A |` is retired.
+
+### Pattern A — wrap a spawn callable with `captureSpawn`
+
+Preferred for new spawn sites. The wrapper owns the before/after timing, model banner, envelope parse, row write, and JSONL record.
+
+```
+node -e "
+const { captureSpawn } = require('./bin/gsd-t-token-capture.cjs');
+(async () => {
+  await captureSpawn({
+    command: 'gsd-t-execute',
+    step: 'Step 4',
+    model: 'sonnet',
+    description: 'domain: auth-service',
+    projectDir: '.',
+    domain: 'auth-service',
+    task: 'T-3',
+    spawnFn: async () => { /* actual Task(...) or spawn('claude', ...) call */ },
+  });
+})();
+"
+```
+
+### Pattern B — record after the result envelope is already in hand
+
+For command files where the Task subagent already ran and the caller has the result object. Identical row format, no timing wrap.
+
+```
+node -e "
+const { recordSpawnRow } = require('./bin/gsd-t-token-capture.cjs');
+recordSpawnRow({
+  projectDir: '.',
+  command: 'gsd-t-verify',
+  step: 'Step 4',
+  model: 'haiku',
+  startedAt: '2026-04-21 10:00',
+  endedAt:   '2026-04-21 10:02',
+  usage: result.usage, // may be undefined — wrapper handles with '—'
+  domain: '-', task: '-',
+  ctxPct: 42,
+  notes: 'test audit + contract review',
+});
+"
+```
+
+### Canonical `.gsd-t/token-log.md` header
+
+```
+| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Tokens | Notes | Domain | Task | Ctx% |
+```
+
+The wrapper detects old headers (no `Tokens` column) and upgrades in place, preserving existing rows. The **Tokens** cell renders as `in=N out=N cr=N cc=N $X.XX` when usage is present, or `—` when absent. Never `0`. Never `N/A`. A zero is a measurement; a dash is an acknowledged gap.
+
+For QA/validation subagents, append findings to `.gsd-t/qa-issues.md`:
+```
+| Date | Command | Step | Model | Duration(s) | Severity | Finding |
+```
+
+## Token Capture Rule (MANDATORY)
+
+Every `Task(...)` subagent spawn, every `claude -p` child process, and every `spawn('claude', ...)` call MUST flow through `bin/gsd-t-token-capture.cjs`. Either wrap with `captureSpawn({..., spawnFn})` or record explicitly with `recordSpawnRow({...})` after the call returns.
+
+No command file ships a bare `Task(...)` or `claude -p` line outside of a wrapper call. `gsd-t capture-lint` (D5) enforces this mechanically; violations fail the opt-in pre-commit hook.
+
+Rationale: the pre-M41 convention silently wrote `N/A` tokens because no caller parsed the `usage` envelope. The wrapper is the single place that parses it. Bypassing the wrapper re-introduces blind spots.
+
+## Always-Headless Spawn (M43 D4, v3.16.x+) — Channel Separation
+
+Every GSD-T command spawns detached, unconditionally. There is no `--watch`, no `--in-session`, no `--headless` opt-in, no context-meter threshold that reroutes, no low-water-mark bypass. The dialog channel is reserved for human↔Claude conversation; everything else is a detached headless child. Interactive session shows a launch banner + live-transcript URL + event-stream path, then exits. Results surface via the read-back banner on the user's next message.
+
+The only in-session surface is the `/gsd` router (`commands/gsd.md`), and only for dialog-only exploratory turns. The moment Step 2.5 classifies a turn as `workflow`, the router hands off to a detached spawn.
+
+Legacy `watch` / `inSession` params are accepted-and-ignored with a one-shot stderr deprecation warning (scheduled removal in v3.0.0 of the contract). `shouldSpawnHeadless` is a constant `() => true`.
+
+Contract: `.gsd-t/contracts/headless-default-contract.md` v2.0.0 (see also `unattended-event-stream-contract.md`, `unattended-supervisor-contract.md`).
+
+## API Documentation Guard (Swagger/OpenAPI)
+
+**Every API endpoint MUST be documented in a Swagger/OpenAPI spec. No exceptions.**
+
+When any GSD-T command creates or modifies an API endpoint:
+1. **If no Swagger/OpenAPI spec exists**: Set one up immediately
+   - Detect the framework (Express, Fastify, Hono, Django, FastAPI, etc.)
+   - Install the appropriate Swagger integration (e.g., `swagger-jsdoc` + `swagger-ui-express`, `@fastify/swagger`, FastAPI's built-in OpenAPI)
+   - Create the OpenAPI spec file or configure auto-generation from code
+   - Add a `/docs` or `/api-docs` route serving the Swagger UI
+2. **Update the spec**: Every new or changed endpoint must be reflected in the Swagger/OpenAPI spec — routes, request/response schemas, auth requirements, error responses
+3. **Publish the Swagger URL**: The Swagger/API docs URL MUST appear in:
+   - `CLAUDE.md` — under Documentation or Infrastructure section
+   - `README.md` — under API section or Getting Started
+   - `docs/infrastructure.md` — under API documentation
+4. **Verify**: After any API change, confirm the Swagger UI loads and reflects the current endpoints
+
+This applies during: `gsd-t-execute`, `gsd-t-quick`, `gsd-t-integrate`, `gsd-t-wave`, and any command that touches API code.
+
+## Prime Rule
+KEEP GOING. Only stop for:
+1. Unrecoverable errors after 2 fix attempts (delegate to `gsd-t headless --debug-loop` first — only stop if exit code 4)
+2. Ambiguity that fundamentally changes project direction
+3. Milestone completion (checkpoint for user review)
+4. Destructive actions (see Destructive Action Guard above — ALWAYS stop)
+
+## Pre-Commit Gate (MANDATORY)
+
+NEVER commit code without running this checklist. This is not optional.
+
+```
+BEFORE EVERY COMMIT:
+  ├── Am I on the correct branch?
+  │     CHECK → Run `git branch --show-current`
+  │     Compare against "Expected branch" in project CLAUDE.md
+  │     WRONG BRANCH → STOP. Do NOT commit. Switch to the correct branch first.
+  │     No guard set → Proceed (but warn user to set one)
+  ├── Did I create or change an API endpoint or response shape?
+  │     YES → Update .gsd-t/contracts/api-contract.md
+  │     YES → Update Swagger/OpenAPI spec (see API Documentation Guard below)
+  │     YES → Verify Swagger URL is in CLAUDE.md and README.md
+  ├── Did I change the database schema?
+  │     YES → Update .gsd-t/contracts/schema-contract.md AND docs/schema.md
+  ├── Did I add/change a UI component interface?
+  │     YES → Update .gsd-t/contracts/component-contract.md
+  ├── Did I add new files or directories?
+  │     YES → Update the owning domain's scope.md
+  ├── Did I implement or change a requirement?
+  │     YES → Update docs/requirements.md (mark complete or revise)
+  ├── Did I add/change/remove a component or change data flow?
+  │     YES → Update docs/architecture.md
+  ├── Did I modify any document, script, or code file?
+  │     YES → Add timestamped entry to .gsd-t/progress.md Decision Log
+  │     Format: `- YYYY-MM-DD HH:MM: {what was done} — {brief context or result}`
+  │     This includes ALL file-modifying activities:
+  │       project, feature, scan, gap-analysis, milestone, partition, discuss,
+  │       plan, impact, execute, test-sync, integrate, verify, complete-milestone,
+  │       wave, quick, debug, promote-debt, populate, setup, init, init-scan-setup,
+  │       backlog-add/edit/move/remove/promote/settings, and any manual code changes
+  ├── Did I make an architectural or design decision?
+  │     YES → Also include decision rationale in the progress.md entry
+  ├── Did I discover or fix tech debt?
+  │     YES → Update .gsd-t/techdebt.md
+  ├── Did I establish a pattern future work should follow?
+  │     YES → Update CLAUDE.md or domain constraints.md
+  ├── Did I add/change tests?
+  │     YES → Verify test names and paths are referenced in requirements
+  ├── Did I change UI, routes, or user flows?
+  │     YES → Update affected E2E test specs (Playwright/Cypress)
+  ├── Did I change a file the M55 context-brief (`bin/gsd-t-context-brief.cjs`) reads?
+  │     YES → Brief regenerated if preflight inputs changed.
+  │           Stale brief = stale worker view. Run `gsd-t brief --kind X --domain Y --spawn-id Z`
+  │           against affected domains, OR delete `.gsd-t/briefs/*.json` so workers
+  │           regenerate on next spawn. mtime drift detected by `bin/gsd-t-context-brief.cjs`.
+  └── Did I run the affected tests?
+        YES → Verify they pass. NO → Run them now.
+```
+
+If ANY answer is YES and the doc is NOT updated, update it BEFORE committing. No exceptions.
+
+## Document Ripple Completion Gate (MANDATORY)
+
+**NEVER report a task as "done" or present a summary until ALL downstream documents are updated.** This is not optional.
+
+When a change affects multiple files (e.g., a new standard that applies across command files, a renamed API, a new convention), you MUST:
+
+1. **Identify the full blast radius BEFORE starting**: List every file that needs the change
+2. **Complete ALL updates in one pass**: Do not update 3 of 8 files and then present a summary
+3. **Run the Pre-Commit Gate on the COMPLETE changeset**: Not on a partial subset
+4. **Only THEN report completion**
+
+```
+BEFORE reporting "done" or presenting a summary:
+  ├── Did this change establish a new standard, rule, or convention?
+  │     YES → Grep for every file that should enforce it. Update ALL of them.
+  ├── Did this change modify a pattern used in multiple command files?
+  │     YES → Find and update EVERY command file that uses that pattern.
+  ├── Did this change affect a template (CLAUDE-global, CLAUDE-project, etc.)?
+  │     YES → The template AND the live equivalent (~/.claude/CLAUDE.md) must match.
+  ├── Did this change add a new requirement?
+  │     YES → Add to docs/requirements.md in the same pass.
+  ├── Have I checked EVERY file in the blast radius?
+  │     NO → Keep going. Do not present partial work.
+  └── Am I about to say "want me to also update X?" or "should I check Y?"
+        YES → STOP. Just update X and check Y. Then report done.
+```
+
+**The test for this gate**: If the user asks "did you update all the documents?" and the answer would be "no, I missed some" — you failed this gate. The user should never need to ask.
+
+## Execution Behavior
+- ALWAYS check docs/architecture.md before adding or modifying components.
+- ALWAYS check docs/workflows.md before changing any multi-step process.
+- ALWAYS update docs as part of completing work — not as an afterthought.
+- ALWAYS self-verify work by running tests and verification commands.
+- NEVER re-research how something works if you built it — it should be documented.
+- NEVER pause to show verification steps — execute them.
+- NEVER ask "should I continue?" — just continue.
+- NEVER summarize what you're "about to do" — just do it.
+- IF a test fails, fix it immediately (up to 2 attempts) before reporting. If both attempts fail, delegate to `gsd-t headless --debug-loop` before stopping.
+
+## Autonomy Levels
+
+Projects can specify an autonomy level in their project CLAUDE.md:
+
+| Level | Behavior |
+|-------|----------|
+| **Level 1: Supervised** | Pause at each phase for confirmation |
+| **Level 2: Standard** | Pause only at milestones |
+| **Level 3: Full Auto** | Only pause for blockers or project completion (default) |
+
+If not specified, use Level 3.
+
+## Workflow Preferences (Defaults — override in project CLAUDE.md)
+
+### Research Policy
+Before planning a phase, evaluate whether research is needed:
+
+**Run research when:**
+- Phase involves unfamiliar libraries, APIs, or services
+- Architectural decisions are required
+- Integrating external systems
+- Phase scope is ambiguous or complex
+
+**Skip research when:**
+- Patterns are already established from earlier phases
+- Straightforward CRUD, UI, or config work
+- Domain is well understood
+- Phase builds directly on existing code patterns
+
+If in doubt, skip research and proceed — research if execution reveals gaps.
+
+### Phase Flow
+- Upon completing a phase, automatically proceed to the next phase
+- ONLY run Discussion phase if truly required (clear path → skip to Plan)
+- ALWAYS self-verify work by running verification commands
+- NEVER pause to show verification steps — execute them
+
+### Next Command Hint
+
+When a GSD-T command completes (and does NOT auto-advance to the next phase), display a "Next Up" block at the very end of your response. This format is designed to trigger Claude Code's prompt suggestion engine — making the next command appear as ghost text in the user's input field.
+
+**MANDATORY format** — use this exact structure:
+
+```
+───────────────────────────────────────────────────────────────
+
+## ▶ Next Up
+
+**{Phase Name}** — {one-line description of what happens next}
+
+`/gsd-t-{command}`
+
+───────────────────────────────────────────────────────────────
+```
+
+If there are alternative commands that also make sense, add them:
+
+```
+**Also available:**
+- `/gsd-t-{alt-1}` — {description}
+- `/gsd-t-{alt-2}` — {description}
+```
+
+Successor mapping:
+| Completed | Next | Also available |
+|-----------|------|----------------|
+| `project` | `milestone` | |
+| `feature` | `milestone` | |
+| `milestone` | `partition` | |
+| `partition` | `plan` | `discuss` (if complex) |
+| `discuss` | `plan` | |
+| `plan` | `execute` | `impact` (if risky) |
+| `impact` | `execute` | |
+| `execute` | `test-sync` | |
+| `test-sync` | `verify` | `integrate` (if multi-domain) |
+| `integrate` | `verify` | |
+| `verify` | *(auto-invokes complete-milestone)* | |
+| `complete-milestone` | `status` | |
+| `scan` | `promote-debt` | `milestone` |
+| `init` | `scan` | `milestone` |
+| `init-scan-setup` | `milestone` | |
+| `gap-analysis` | `milestone` | `feature` |
+| `populate` | `status` | |
+| `setup` | `status` | |
+| `design-decompose` | `design-build` | `partition` (if domains needed first) |
+
+Commands with no successor (standalone): `quick`, `debug`, `brainstorm`, `status`, `help`, `resume`, `prompt`, `log`, `health`, `pause`, backlog commands.
+
+Skip the hint if auto-advancing (Level 3 mid-wave) — only show when the user needs to manually invoke the next step.
+
+
+# Don't Do These Things
+
+- NEVER perform destructive or structural changes without explicit user approval (see Destructive Action Guard above).
+- NEVER drop database tables, remove columns, or run destructive SQL on an existing database — adapt new code to the existing schema.
+- NEVER replace existing architecture patterns (e.g., normalized → denormalized) without user approval — even if you think the new way is better.
+- NEVER commit code without running the Pre-Commit Gate checklist. EVERY commit.
+- NEVER batch doc updates for later — update docs as part of the same commit as the code change.
+- NEVER start a phase without reading contracts and relevant docs first.
+- NEVER complete a phase without running document ripple on affected docs.
+- NEVER re-research how a component works — read architecture.md and contracts.
+- NEVER let code and contract disagree — fix one or the other immediately.
+- NEVER make changes that touch more than 3 files without pausing to confirm approach.
+
+
+# Code Standards (Defaults — override in project CLAUDE.md)
+
+## Patterns
+- Type hints required on all function signatures
+- Dataclasses/interfaces for data models, not raw dicts
+- Functions under 30 lines — split if longer
+- Files under 200 lines — create new modules if needed
+- Enums for state management and fixed option sets
+
+## Naming
+```
+files:      snake_case        (user_service.py)
+classes:    PascalCase        (UserService)
+functions:  snake_case        (get_user)
+constants:  UPPER_SNAKE_CASE  (MAX_RETRIES)
+private:    _underscore       (_internal_method)
+```
+
+## Markdown Tables
+
+Markdown table emoji-padding rules live in `templates/stacks/_markdown.md` (auto-injected via Stack Rules Engine).
+
+
+## Stack Rules Engine
+
+GSD-T auto-detects project tech stack at subagent spawn time and injects mandatory best-practice rules into the subagent prompt.
+
+**Detection sources**: `package.json` (React, TypeScript, Node API), `requirements.txt`/`pyproject.toml` (Python), `go.mod` (Go), `Cargo.toml` (Rust).
+
+**Universal rules**: Templates prefixed with `_` (e.g., `_security.md`) are **always** injected, regardless of stack.
+
+**Stack-specific rules**: Injected only when the matching stack is detected (e.g., `react.md` when `"react"` is in `package.json`).
+
+**Design-to-code**: Activated when `.gsd-t/contracts/design-contract.md` (flat), `.gsd-t/contracts/design/` (hierarchical element/widget/page contracts — bootstrap via `/gsd-t-design-decompose`), `design-tokens.json`, `design-tokens/`, `.figmarc`, or `figma.config.json` exists, OR when Figma MCP is configured in `~/.claude/settings.json`. Auto-bootstrapped during partition when Figma URLs or design references are detected in requirements. Enforces pixel-perfect frontend implementation from designs with: Figma MCP auto-detection, design token extraction protocol, stack capability evaluation (recommends alternatives if stack can't achieve the design), component decomposition, responsive breakpoint strategy, and a mandatory visual verification loop — every implemented screen must be rendered in a real browser, screenshotted at mobile/tablet/desktop breakpoints, and compared pixel-by-pixel against the Figma design. Visual deviations block task completion.
+
+**Enforcement**: Stack rule violations have the same weight as contract violations — they are task failures, not warnings.
+
+**Extensible**: Drop a `.md` file into `templates/stacks/` in the GSD-T package to add rules for a new stack. If the directory is missing, detection skips silently.
+
+**Commands that inject stack rules**: `gsd-t-execute`, `gsd-t-quick`, `gsd-t-integrate`, `gsd-t-wave`, `gsd-t-debug`.
+
+
+# Recovery After Interruption
+
+When resuming work (new session or after /clear):
+1. Read `.gsd-t/progress.md` for current state
+2. Read `docs/requirements.md` for what's left to build
+3. Read `docs/architecture.md` for how the system is structured
+4. Read `.gsd-t/contracts/` for domain interfaces
+5. Verify last task's work is intact (files exist, tests pass)
+6. Continue from current task — don't restart the phase
+
+**CRITICAL: Do NOT research how the system works. The docs tell you. Read them.**
+<!-- GSD-T:END — Do not remove this marker. -->
+
+---
+
+# GSD-T Framework (@tekyzinc/gsd-t)
+
+Prime Directives, core guards, and workflow rules live in `~/.claude/CLAUDE.md`. This file covers what's specific to this repo.
+
+## Overview
+
+Contract-driven development methodology for Claude Code. npm package providing slash commands, a CLI installer, templates, and stack rules for reliable parallelizable AI-assisted development.
+
+## Autonomy Level
+
+> Overrides global: pins the default from `~/.claude/CLAUDE.md` § Autonomy Levels.
+
+**Level 3 — Full Auto**. Only pause for blockers, destructive actions, or project completion.
+
+## Tech Stack
+
+- **Language**: JavaScript (Node.js >= 16), zero external runtime deps for the installer
+- **Distribution**: npm package `@tekyzinc/gsd-t`
+- **CLI**: `bin/gsd-t.js` (install, update, init, status, uninstall, doctor, graph, headless, …)
+- **Testing**: `npm test` (Node built-in test runner) + manual CLI testing
+
+## Project Structure
+
+```
+bin/                     — CLI entry (gsd-t.js) + orchestrators (orchestrator.js, design-orchestrator.js)
+                           + support modules (headless-auto-spawn.cjs, token-budget.cjs, model-selector.js, …)
+commands/                — slash commands for Claude Code (GSD-T workflow + utility)
+templates/               — document + prompt + stack templates
+  CLAUDE-{global,project}.md, requirements.md, architecture.md, workflows.md,
+  infrastructure.md, progress.md, backlog.md, backlog-settings.md, design-contract.md
+  prompts/               — validation subagent protocols (qa, red-team, design-verify)
+  stacks/                — Stack Rules Engine templates (injected at spawn time)
+scripts/                 — runtime scripts (design review, context meter hook, event writer)
+examples/                — example project structure + settings
+docs/methodology.md      — GSD → GSD-T evolution and concepts
+package.json, README.md, GSD-T-README.md, CHANGELOG.md
+```
+
+Exact command list: `ls commands/`. Exact stack rule set: `ls templates/stacks/`. Don't hand-maintain counts in docs.
+
+## Meta-Project Notes
+
+- The "source" is the `.md` files in `commands/` + `templates/` and the JS in `bin/` + `scripts/`. There is no `src/`.
+- Changes to command files change the methodology itself — treat them as code; verify by running the workflow.
+- The `.gsd-t/` state dir coexists with the commands that *define* `.gsd-t/` — intentional.
+- `bin/gsd-t.js` is the primary testable surface; command files are validated by use.
+
+## Conventions
+
+**CLI** — ANSI colors via escape codes, zero external deps, sync file APIs, version tracked in `package.json` and `~/.claude/.gsd-t-version`.
+
+**Command files** — pure markdown, no frontmatter, accept `$ARGUMENTS`, step-numbered workflow, include a Document Ripple section when they modify files. Any step that spawns a Task subagent or agent team MUST include the OBSERVABILITY LOGGING block (copy from `commands/gsd-t-execute.md`). Keep validation-subagent protocol bodies in `templates/prompts/*-subagent.md` — command files resolve the path and spawn with a short referral prompt; don't inline the protocol.
+
+**Templates** — `{Project Name}`, `{Date}`, `{description}` replacement tokens; tables for structured data.
+
+**Directory structure** — `.gsd-t/contracts/` (domain interfaces), `.gsd-t/domains/{name}/` (scope/tasks/constraints), `.gsd-t/milestones/` (archives), `.gsd-t/scan/` (analysis outputs).
+
+**Publishing** — after `npm publish`, ALWAYS run `/gsd-t-version-update-all` to propagate to registered projects.
+
+## Observability Logging (MANDATORY)
+
+Every command that spawns a Task subagent, invokes `claude -p`, or calls `spawn('claude', ...)` MUST route the spawn through `bin/gsd-t-token-capture.cjs` so the real token-usage envelope is parsed and recorded. This is the M41 canonical pattern — the pre-M41 bash block that wrote `| N/A |` is retired.
+
+### Pattern A — wrap a spawn callable with `captureSpawn`
+
+Preferred for new spawn sites. The wrapper owns the before/after timing, model banner, envelope parse, row write, and JSONL record.
+
+```
+node -e "
+const { captureSpawn } = require('./bin/gsd-t-token-capture.cjs');
+(async () => {
+  await captureSpawn({
+    command: 'gsd-t-execute',
+    step: 'Step 4',
+    model: 'sonnet',
+    description: 'domain: auth-service',
+    projectDir: '.',
+    domain: 'auth-service',
+    task: 'T-3',
+    spawnFn: async () => { /* actual Task(...) or spawn('claude', ...) call */ },
+  });
+})();
+"
+```
+
+### Pattern B — record after the result envelope is already in hand
+
+For command files where the Task subagent already ran and the caller has the result object. Identical row format, no timing wrap.
+
+```
+node -e "
+const { recordSpawnRow } = require('./bin/gsd-t-token-capture.cjs');
+recordSpawnRow({
+  projectDir: '.',
+  command: 'gsd-t-verify',
+  step: 'Step 4',
+  model: 'haiku',
+  startedAt: '2026-04-21 10:00',
+  endedAt:   '2026-04-21 10:02',
+  usage: result.usage, // may be undefined — wrapper handles with '—'
+  domain: '-', task: '-',
+  ctxPct: 42,
+  notes: 'test audit + contract review',
+});
+"
+```
+
+### Canonical `.gsd-t/token-log.md` header
+
+```
+| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Tokens | Notes | Domain | Task | Ctx% |
+```
+
+The wrapper detects old headers (no `Tokens` column) and upgrades in place, preserving existing rows. The **Tokens** cell renders as `in=N out=N cr=N cc=N $X.XX` when usage is present, or `—` when absent. Never `0`. Never `N/A`. A zero is a measurement; a dash is an acknowledged gap.
+
+For QA/validation subagents, append findings to `.gsd-t/qa-issues.md`:
+```
+| Date | Command | Step | Model | Duration(s) | Severity | Finding |
+```
+
+## Token Capture Rule (MANDATORY)
+
+Every `Task(...)` subagent spawn, every `claude -p` child process, and every `spawn('claude', ...)` call MUST flow through `bin/gsd-t-token-capture.cjs`. Either wrap with `captureSpawn({..., spawnFn})` or record explicitly with `recordSpawnRow({...})` after the call returns.
+
+No command file ships a bare `Task(...)` or `claude -p` line outside of a wrapper call. `gsd-t capture-lint` (D5) enforces this mechanically; violations fail the opt-in pre-commit hook.
+
+Rationale: the pre-M41 convention silently wrote `N/A` tokens because no caller parsed the `usage` envelope. The wrapper is the single place that parses it. Bypassing the wrapper re-introduces blind spots.
+
+## Mandatory Preflight Before Spawn (M55)
+
+Every command that spawns a Task subagent or invokes `claude -p` MUST run `gsd-t preflight` first. Hard-fails on any `severity:"error"` check (wrong branch, occupied required port). Non-error checks (warn/info) record but do not block.
+
+```bash
+gsd-t preflight --json > /tmp/gsd-t-preflight.json || exit 4
+```
+
+This catches drift early — wrong branch, port collision, DRAFT contracts past PARTITIONED — before any LLM work fires. Same envelope is consumed by `gsd-t verify-gate` Track 1, so failing fast at execute time saves the verify round-trip.
+
+Library: `bin/cli-preflight.cjs::runPreflight({projectDir, checks?})`.
+Contract: `.gsd-t/contracts/cli-preflight-contract.md` v1.0.0 STABLE.
+
+## Brief-First Worker Rule (M55)
+
+Every parallel worker prompt scaffold MUST thread `$BRIEF_PATH` — a ≤2,500-token JSON snapshot generated once per spawn by `bin/gsd-t-context-brief.cjs`. The brief replaces the 30–60k context re-read every parallel worker would otherwise perform (CLAUDE.md + contracts + scope + relevant code) — the dominant ITPM-relief lever in M55.
+
+```bash
+SPAWN_ID="execute-${DOMAIN}-$(date -u +%Y%m%dT%H%M%SZ)"
+gsd-t brief --kind execute --domain "${DOMAIN}" --spawn-id "${SPAWN_ID}" --out ".gsd-t/briefs/${SPAWN_ID}.json"
+export BRIEF_PATH=".gsd-t/briefs/${SPAWN_ID}.json"
+```
+
+The 3 validation-subagent protocols (`templates/prompts/{qa,red-team,design-verify}-subagent.md`) carry the canonical instruction "If you're about to grep, read, or run a test, check the brief first at `$BRIEF_PATH`." Workers grep the brief instead of re-walking the repo.
+
+`.gsd-t/briefs/` is gitignored — briefs are per-spawn ephemera, not committed artifacts.
+
+Library: `bin/gsd-t-context-brief.cjs::generateBrief(...)`.
+Contract: `.gsd-t/contracts/context-brief-contract.md` v1.0.0 STABLE.
+
+
+# Destructive Action Guard (MANDATORY)
+
+**NEVER perform destructive or structural changes without explicit user approval.** This applies at ALL autonomy levels.
+
+Before any of these actions, STOP and ask the user:
+- DROP TABLE, DROP COLUMN, DROP INDEX, TRUNCATE, DELETE without WHERE
+- Renaming or removing database tables or columns
+- Schema migrations that lose data or break existing queries
+- Replacing an existing architecture pattern (e.g., normalized → denormalized)
+- Removing or replacing existing files/modules that contain working functionality
+- Changing ORM models in ways that conflict with the existing database schema
+- Removing API endpoints or changing response shapes that existing clients depend on
+- Any change that would require other parts of the system to be rewritten
+
+**Rule: "Adapt new code to existing structures, not the other way around."**
+
+## Pre-Commit Gate (project-specific additions)
+
+The global gate applies first (see `~/.claude/CLAUDE.md`). Additionally for this repo:
+
+- **Command file interface/behavior changed** → update `GSD-T-README.md` + `README.md` commands table + `templates/CLAUDE-global.md` + `commands/gsd-t-help.md`.
+- **Command added/removed** → update all 4 files above, bump `package.json`, update any command-counting logic in `bin/gsd-t.js`.
+- **New command spawns a subagent** → verify OBSERVABILITY LOGGING block is present.
+- **CLI installer changed** → smoke test `install`, `update`, `status`, `doctor`, `init`, `uninstall`.
+- **Template changed** → verify `gsd-t-init` still produces correct output.
+- **Wave flow changed (phases added/removed/reordered)** → update `gsd-t-wave.md`, `GSD-T-README.md` wave diagram, `README.md` workflow section.
+- **Contract or domain boundary changed** → update `.gsd-t/contracts/` and owning `scope.md`.
+
+## Don't
+
+- NEVER add external npm runtime dependencies to the installer — zero-dep invariant.
+- NEVER rename a command without updating all 4 reference files above.
+- NEVER modify wave phase sequence without updating wave, README, GSD-T-README in the same commit.
+- NEVER let installer's command count diverge from `commands/` directory reality.
+- NEVER spawn a Task subagent without OBSERVABILITY LOGGING.
+- NEVER inline validation-subagent protocol bodies into command files — path-reference `templates/prompts/*-subagent.md`.
+
+## Recovery After Interruption
+
+1. Read `.gsd-t/progress.md`
+2. Read `README.md` for what the package delivers
+3. Check `commands/` and `package.json` for current state
+4. Continue from current task; don't restart the phase
+
+## Current Status
+
+See `.gsd-t/progress.md`.
+
+---
+
+# Architecture — GSD-T Framework (@tekyzinc/gsd-t)
+
+## Last Updated: 2026-03-22 (M23 — Headless Mode)
+
+> **Scan #11 note (2026-04-16, v3.11.11)**: this doc is partially stale relative to
+> M34 (Context Meter), M35 (Runway-Protected Execution), M36 (Unattended Supervisor),
+> M37 (Universal Auto-Pause), and the v3.11.11 switch to local token estimation.
+> See `.gsd-t/scan/architecture.md` for the current architecture snapshot and
+> `.gsd-t/techdebt.md` TD-103 for the doc-ripple milestone candidate.
+
+## System Overview
+
+GSD-T is an npm-distributed methodology framework for Claude Code. It provides slash commands (markdown files), a CLI installer (Node.js), and document templates that together enable contract-driven development with AI assistance.
+
+The framework has no runtime — it is consumed entirely by Claude Code's slash command system and the user's shell. The CLI handles installation, updates, and diagnostics. The command files define the workflow methodology that Claude Code follows.
+
+**Architecture Pattern**: Distributed Markdown Instruction System with CLI Lifecycle Manager. Command files are the "source code" interpreted by Claude Code. The CLI is a lifecycle manager (install/update/init/status/doctor/uninstall). State files persist across sessions as git-tracked Markdown.
+
+## Components
+
+### CLI Installer (bin/gsd-t.js)
+- **Purpose**: Install, update, diagnose, and manage GSD-T across projects
+- **Location**: `bin/gsd-t.js` (1,798 lines, 90+ functions, all ≤ 30 lines)
+- **Dependencies**: Node.js built-ins only (fs, path, os, child_process, https, crypto)
+- **Subcommands**: install, update, status, doctor, init, uninstall, update-all, register, changelog, graph (index/status/query), headless (exec/query/--debug-loop)
+- **Organization**: Configuration → Guard section → Helpers → Heartbeat → Commands → Install/Update → Init → Status → Uninstall → Update-All → Doctor → Register → Update Check → Help → Main dispatch
+- **All functions ≤ 30 lines** (M6 refactoring). Largest: `doRegister()` at 30 lines, `summarize()` at 30 lines.
+
+### Slash Commands (commands/*.md)
+- **Purpose**: Define the GSD-T methodology as executable workflows for Claude Code
+- **Location**: `commands/`
+- **Count**: 49 (45 GSD-T workflow + 4 utility: gsd, branch, checkin, Claude-md, global-change) — includes gsd-t-health, gsd-t-pause (M13), gsd-t-reflect (M14), gsd-t-visualize (M15), gsd-t-prd (M16), global-change (M20)
+- **Format**: Pure markdown with step-numbered instructions, team mode blocks, document ripple sections, and $ARGUMENTS terminator
+
+### Templates (templates/*.md)
+- **Purpose**: Starter files for project initialization
+- **Location**: `templates/`
+- **Count**: 9 (CLAUDE-global, CLAUDE-project, requirements, architecture, workflows, infrastructure, progress, backlog, backlog-settings)
+- **Tokens**: `{Project Name}` and `{Date}` replaced during init via `applyTokens()`
+
+### Hook Scripts (scripts/)
+- **gsd-t-heartbeat.js** (181 lines, 6 functions, 5 exports): Real-time event logging via Claude Code hooks. Captures 9 event types as structured JSONL. Input capped at 1MB. Session ID validated. Path traversal protection. Secret scrubbing via `scrubSecrets()`/`scrubUrl()` (M5). Notification message + title scrubbing (M8/M9). EVENT_HANDLERS map pattern (M6). Auto-cleanup after 7 days (SessionStart only, M6). M14: added `buildEventStreamEntry()` (maps SubagentStart/Stop/PostToolUse → events/ schema) and `appendToEventsFile()` (daily-rotated JSONL in `.gsd-t/events/`, symlink-safe).
+- **gsd-t-event-writer.js** (124 lines, 3 exports, NEW in M14): Zero-dep CLI tool + module for structured JSONL event appends to `.gsd-t/events/`. Exports: `validateEvent()`, `resolveEventsFile()`, `appendEvent()`. CLI: `--type`, `--command`, `--phase`, `--reasoning`, `--outcome`, `--agent-id`. Validates all 8 event_type values and 5 outcome values from event-schema-contract. Installed to `~/.claude/scripts/` by CLI installer. Exit codes: 0 success, 1 write error, 2 validation error.
+- **npm-update-check.js** (43 lines): Background npm registry version checker. Spawned detached by CLI when update cache is stale. Path validation within `~/.claude/` (M5). Symlink check before write (M5). 1MB response limit (M5).
+- **gsd-t-fetch-version.js** (26 lines, NEW in M6): Synchronous npm registry fetch. Called by `fetchVersionSync()` via `execFileSync`. HTTPS-only, 5s timeout, 1MB limit. Silent failure on errors (caller validates).
+- **gsd-t-tools.js** (163 lines, NEW in M13): State utility CLI returning compact JSON. Subcommands: state get/set (progress.md), validate (required file presence), parse progress --section, list domains/contracts, git pre-commit-check, template scope/tasks. Zero external dependencies. NOTE: No module.exports — untestable as module (TD-066).
+- **gsd-t-statusline.js** (94 lines, NEW in M13): Context usage bar + project state for Claude Code `statusLine` setting. Reads CLAUDE_CONTEXT_TOKENS_USED/MAX env vars for usage percentage. Color-coded bar (green <50%, yellow <70%, orange <85%, red ≥85%). NOTE: No module.exports — untestable as module (TD-066).
+
+### Execution Intelligence Layer (M14 — complete)
+- **`.gsd-t/events/YYYY-MM-DD.jsonl`**: Append-only event stream. One event per line. Schema: `ts`, `event_type`, `command`, `phase`, `agent_id`, `parent_agent_id`, `trace_id`, `reasoning`, `outcome`. Written by hooks (SubagentStart/Stop, PostToolUse via heartbeat.js) and command files at phase transitions.
+- **Outcome-tagged Decision Log**: New Decision Log entries use `[success]`/`[failure]`/`[learning]`/`[deferred]` prefixes for machine-readable filtering (execute, debug, wave, complete-milestone).
+- **Pre-task experience retrieval (execute, debug)**: Grep Decision Log for `[failure]`/`[learning]` entries matching current domain before spawning subagent — Reflexion pattern without fine-tuning. Writes `experience_retrieval` event.
+- **Distillation step (complete-milestone Step 2.5)**: Scans `.gsd-t/events/*.jsonl` for patterns seen ≥3 times, proposes CLAUDE.md / constraints.md rule additions, user confirms before write.
+### Auto-Route + Auto-Update Hooks (M16 — complete)
+- **`scripts/gsd-t-auto-route.js`** (39 lines): UserPromptSubmit hook. Reads JSON from stdin (`{ prompt, cwd, session_id }`). If `.gsd-t/progress.md` does not exist in cwd → exits silently. If prompt starts with `/` → exits silently. If plain text in a GSD-T project → emits `[GSD-T AUTO-ROUTE]` signal to Claude's context, routing the message through `/gsd`. Catches all exceptions — never blocks the prompt.
+- **`scripts/gsd-t-update-check.js`** (79 lines): SessionStart hook. Reads `~/.claude/.gsd-t-version`. Reads/refreshes `~/.claude/.gsd-t-update-check` cache (1h TTL). If newer version available: runs `npm install -g @tekyzinc/gsd-t@{latest}` + `gsd-t update-all` via execSync. Outputs `[GSD-T AUTO-UPDATE]`, `[GSD-T UPDATE]`, or `[GSD-T]` banner. NOTE: No module.exports — untestable as module (TD-081). Version string not validated before execSync (SEC-N28).
+
+### Scan Visual Output (M17 — complete v2.34.10)
+- **`bin/scan-schema.js`** (77 lines): ORM detector + schema extractor. Detects 7 ORM types (Prisma, TypeORM, Drizzle, Mongoose, Sequelize, SQLAlchemy, raw-SQL). Delegates to scan-schema-parsers.js. Returns SchemaData: `{ detected, ormType, entities[], parseWarnings[] }`. Never throws.
+- **`bin/scan-schema-parsers.js`** (199 lines): 7 parser functions (parsePrisma, parseTypeOrm, parseDrizzle, parseMongoose, parseSequelize, parseSqlAlchemy, parseRawSql). Returns Entity[] for each ORM type.
+- **`bin/scan-diagrams.js`** (77 lines): Diagram orchestrator. Calls scan-diagrams-generators.js for each of 6 types. Calls scan-renderer.js to render Mermaid to SVG. Always returns exactly 6 DiagramResult objects. Failed diagrams get placeholder HTML.
+- **`bin/scan-diagrams-generators.js`** (102 lines): Mermaid DSL source generators for 6 types: genSystemArchitecture, genAppArchitecture, genWorkflow, genDataFlow, genSequence, genDatabaseSchema. Falls back to generic diagram if analysisData lacks specific fields.
+- **`bin/scan-renderer.js`** (92 lines): Sync render chain: tryMmdc() → tryD2() → placeholder. Also contains tryKroki() (async, currently dormant — never called in sync path). Uses execSync (not execFileSync — see TD-084/SEC-N30).
+- **`bin/scan-report.js`** (116 lines): Generates self-contained HTML scan report. No external CSS/JS (all inline). Output: `{projectRoot}/scan-report.html` (see TD-092 for placement issue). Exports: generateReport(), buildCss(), buildSidebar(), buildHtmlSkeleton() + section builders.
+- **`bin/scan-report-sections.js`** (74 lines): HTML section builders: buildMetricCards, buildDomainHealth, buildDiagramSection, buildTechDebt, buildFindings.
+- **`bin/scan-export.js`** (49 lines): Export subcommand — DOCX via pandoc, PDF via md-to-pdf. Checks tool availability before attempting. Uses execSync (not execFileSync — see TD-084/SEC-N29).
+
+### Real-Time Agent Dashboard (M15 — complete v2.33.10)
+- **`scripts/gsd-t-dashboard-server.js`** (141 lines, zero external deps): Node.js SSE server watching `.gsd-t/events/*.jsonl`. Exports: `startServer(port, eventsDir, htmlPath)`, `tailEventsFile(filePath, callback)`, `readExistingEvents(eventsDir, maxEvents)`, `parseEventLine(line)`, `findEventsDir(projectDir)`. HTTP endpoints: `GET /` (serve dashboard HTML), `GET /events` (SSE stream, max 500 events on connect + tail for new), `GET /ping` (health check), `GET /stop` (graceful shutdown). CLI: `--port`, `--events`, `--detach` (writes PID to `.gsd-t/dashboard.pid`), `--stop` (kills running server). Symlink protection via `lstatSync` pattern. 23 unit tests in `test/dashboard-server.test.js`.
+- **`scripts/gsd-t-dashboard.html`** (194 lines): React 17 + React Flow v11.11.4 + Dagre via CDN (no build step, no npm deps). Dark theme (`#0d1117`). Renders agent hierarchy as directed graph from `parent_agent_id` relationships. Live event feed (max 200, outcome color-coded). Auto-reconnects on SSE disconnect. Port configurable via `?port=` URL param.
+- **`commands/gsd-t-visualize.md`** (104 lines, 48th command): Starts server via `--detach`, polls `/ping` up to 5s, opens browser cross-platform (win32/darwin/linux). Accepts `stop` argument to shut down server. Step 0 self-spawn with OBSERVABILITY LOGGING.
+
+### Transcript Viewer as Primary Surface (M43 D6 — complete v3.16.13)
+- **Dashboard server additions** (`scripts/gsd-t-dashboard-server.js`): two new HTTP routes for the per-spawn viewer. `GET /transcript/:id/usage` → `{spawn_id, rows, truncated}` filtered from `.gsd-t/metrics/token-usage.jsonl` by `row.spawn_id === id` OR (no `spawn_id` column + `row.session_id === id` — the session-id branch covers M43 D1 Branch B in-session rows). `GET /transcript/:id/tool-cost` → proxies to `bin/gsd-t-tool-attribution.cjs::aggregateByTool` (M43 D2); returns 503 `{error: "tool-attribution library not yet available"}` when D2 isn't on disk so D6 could ship before D2 in Wave 2 without crashing callers.
+- **Transcript viewer panel** (`scripts/gsd-t-transcript.html`): collapsible "Tool Cost" sidebar panel that fetches `/transcript/:id/tool-cost` on viewer load and debounces a 2s refresh on each SSE `turn_complete` / `result` frame. Renders top-N tools sorted by attributed tokens with name, call count, tokens, and USD cost. Live badge green while SSE is open, muted otherwise. 503 → friendly "tool attribution not yet wired" row. `window.__gsdtRenderToolCostPanel` exposed for DOM tests.
+- **URL banner** (`bin/headless-auto-spawn.cjs`, M49 — lazy): every detached spawn prints either `▶ Live transcript: http://127.0.0.1:{port}/transcript/{spawn-id}` (when a dashboard is already listening, detected via `_probeDashboardLazy()` reading `.gsd-t/.dashboard.pid` + `process.kill(pid, 0)`) OR `▶ Transcript file: {logPath}\n  (to view live: gsd-t-visualize)` (when no dashboard is up). Pre-M49 the spawn unconditionally autostarted a dashboard via `ensureDashboardRunning()` and printed the URL — that accumulated 88+ orphan dashboard processes because 99% of those URLs are never opened. M49 removed the autostart from the spawn path; the dashboard now only starts when the user explicitly invokes `/gsd-t-visualize`. Best-effort — banner failure never crashes the spawn.
+- **Dashboard autostart** (`scripts/gsd-t-dashboard-autostart.cjs`, ~160 lines, zero deps): `ensureDashboardRunning({projectDir, port?})` probes the port synchronously via a short-lived subprocess (`_isPortBusySync` issues `net.createServer().listen(port)` host-less — matches the server's IPv6-wildcard bind on macOS dual-stack; specifying `127.0.0.1` would falsely report free). If free, fork-detaches the server with `spawn(…, {detached:true, stdio:'ignore'})` + `child.unref()` + writes `.gsd-t/.dashboard.pid` (hyphen → dot distinguishes this lifecycle from M38's `.gsd-t/dashboard.pid`). Idempotent on repeated invocation. **M49 — only called by `/gsd-t-visualize` now**, never by the spawn path; combined with the dashboard's idle-TTL self-shutdown (4-hour default, configurable via `GSD_T_DASHBOARD_IDLE_TTL_MS` or `--idle-ttl-ms`) this caps the long-tail orphan accumulation.
+- **Contract**: `.gsd-t/contracts/dashboard-server-contract.md` v1.2.0 — new §HTTP Endpoints entries, §Banner Format, §Autostart sections. (Bumped to v1.3.0 in M47 — see Focused Visualizer Redesign below.)
+- **Tests**: `test/m43-dashboard-tool-cost-route.test.js` (9), `test/m43-transcript-panel.test.js` (12), `test/m43-dashboard-autostart.test.js` (6), `test/m43-url-banner.test.js` (3).
+
+### Focused Visualizer Redesign (M47, v3.21.10)
+- **Server endpoint** (`scripts/gsd-t-dashboard-server.js::handleMainSession`): new `GET /api/main-session` returns `{ filename, sessionId, mtimeMs }` for the most-recently-modified `in-session-*.ndjson` file in `transcripts/`, or `{ null, null, null }` when none exist. Path-traversal guarded by reusing `isValidSpawnId` on each candidate filename. Sets `Cache-Control: no-store` (the viewer hits this on every page load, never cached). Wired alongside the existing `/transcripts` route.
+- **Status field derivation** (`listInSessionTranscripts`): each in-session entry now carries `status: 'active' | 'completed'` derived from a 30-second mtime window (`Date.now() - stat.mtimeMs < 30_000` → `active`). Replaces the prior hardcoded `"active"` literal. Propagates through `handleTranscriptsList` to the merged `/transcripts` JSON. Future `success | failed | killed` taxonomy is a one-file change here — the viewer code branches on the field, neutral fallback for unrecognized values.
+- **Dual-pane viewer** (`scripts/gsd-t-transcript.html`): `<main>` becomes a vertical flex container holding `<section id="main-stream">` (top — auto-streams the orchestrator's main in-session conversation via `/api/main-session` + `/transcript/in-session-{sid}/stream`) + `<div class="splitter" role="separator">` (keyboard- and mouse-resizable, ArrowUp/Down ±5%, Home/End snap 20/80, position persisted in `sessionStorage` under `gsd-t.viewer.splitterPct`) + `<section id="spawn-stream">` (bottom — the user-selected spawn; legacy `<div id="stream">` lives inside, preserving all existing renderer code paths). Shared frame renderer threads an optional target via a module-scope `renderTarget` swap inside `renderFrame(frame, arrivedAt, target)`.
+- **3-section left rail**: `★ Main Session` / `Live Spawns` / `Completed` (last 100 newest first, status-badged, collapsible). Bucketing in `bucketAndRender(spawns)` consumes D2's `status` field — D1 never computes status itself. Live → Completed transition is reactive (DOM diff via `data-spawn-id` lookups); selected spawn stays selected if it transitions sections.
+- **sessionStorage persistence** (4 keys): `gsd-t.viewer.selectedSpawnId`, `gsd-t.viewer.splitterPct`, `gsd-t.viewer.completedExpanded`, `gsd-t.viewer.rightRailCollapsed`. `_ssGet`/`_ssSet` wrappers fail-soft so the IIFE init survives DOM-shim test sandboxes that don't provide a `sessionStorage` shim.
+- **Right-rail collapse**: `<aside class="spawn-panel" data-collapsed>` toggle button flips `data-right-rail-collapsed` on `<body>`, which collapses the third grid track via `--right-rail-w: 0px` rule.
+- **Contract**: `.gsd-t/contracts/dashboard-server-contract.md` **v1.3.0** — additive §`GET /api/main-session` and §`In-Session Entry Status Field` sections; `handleMainSession` added to Module Exports.
+- **Integration contract**: `.gsd-t/contracts/m47-integration-points.md` — D1↔D2 wiring, dependency graph, single-wave parallel execution plan.
+- **Tests**: `test/dashboard-server.test.js` — 13 new assertions across 3 describe blocks (4 status-field tests, 5 `/api/main-session` tests, 4 HTML structural-marker / sessionStorage-key / CSS toggle tests). Suite total 2058 / 2060 (M47 +13/+13; 2 pre-existing flakes preserved). Existing 5 viewer-route tests updated for new structure (regex relaxation: `grid-template-columns` allows `var(--right-rail-w)`; `<main id="stream">` allows `id="stream"` regardless of element).
+
+### Headless Mode (M23 — complete)
+- **doHeadless(args)**: Dispatch function for the `headless` CLI subcommand.
+- **doHeadlessExec(command, cmdArgs, flags)**: Wraps `claude -p "/gsd-t-{command}"` via `execFileSync`. Verifies claude CLI availability, enforces timeout, writes log file if `--log` requested. Returns structured JSON if `--json` flag set. (M36 Phase 0: prompt form is `/gsd-t-X`, NOT `/gsd-t-X` — non-interactive mode rejects the `/` namespace prefix.)
+- **parseHeadlessFlags(args)**: Extracts `--json`, `--timeout=N`, `--log` from raw args. Returns `{ flags, positional }`.
+- **buildHeadlessCmd(command, cmdArgs)**: Builds the bare `/gsd-t-{command}` prompt string. Interactive-mode `/` prefix deliberately omitted — see `.gsd-t/M36-spike-findings.md` Spike A.
+- **mapHeadlessExitCode(processExitCode, output)**: Maps process exit code + output text patterns to GSD-T exit codes (0–5).
+- **headlessLogPath(projectDir, timestamp)**: Generates `.gsd-t/headless-{timestamp}.log` path.
+- **doHeadlessQuery(type)**: Dispatches to one of 7 query functions. All pure Node.js file reads, no LLM calls, <100ms.
+- **Query functions** (7): `queryStatus`, `queryDomains`, `queryContracts`, `queryDebt`, `queryContext`, `queryBacklog`, `queryGraph` — each reads corresponding `.gsd-t/` file and returns typed JSON result.
+- **Exit codes**: 0=success, 1=verify-fail, 2=context-budget-exceeded, 3=error, 4=blocked-needs-human, 5=command-dispatch-failed (M36 Phase 0 — `claude -p` returned `Unknown command:` for the slash command; caller should treat as a bug not a transient failure)
+- **CI/CD examples**: `docs/ci-examples/github-actions.yml` (GitHub Actions), `docs/ci-examples/gitlab-ci.yml` (GitLab CI)
+
+### Compaction-Proof Debug Loop (M29 — complete)
+- **bin/debug-ledger.js** (193 lines): JSONL-based debug persistence layer. 6 exported functions: `readLedger`, `appendEntry`, `compactLedger`, `generateAntiRepetitionPreamble`, `getLedgerStats`, `clearLedger`. Ledger file: `.gsd-t/debug-state.jsonl` (11-field schema per entry). Compaction triggers at 50KB — haiku session condenses history, last 5 raw entries preserved. Anti-repetition preamble lists all STILL_FAILS hypotheses, current narrowing direction, and tests still failing. Zero external deps.
+- **doHeadlessDebugLoop(flags)**: External iteration manager in `bin/gsd-t.js`. Runs test-fix-retest as separate `claude -p` sessions — each session starts with zero accumulated context. Escalation tiers: sonnet (iterations 1-5), opus (6-15), STOP with full diagnostic output (16-20). `--max-iterations N` flag (default 20) enforced by external process.
+- **parseDebugLoopFlags(args)**: Extracts `--max-iterations`, `--test-cmd`, `--fix-scope`, `--json`, `--log` from args. Defaults: maxIterations=20.
+- **getEscalationModel(iteration)**: Returns "sonnet" for 1-5, "opus" for 6-15, null for 16-20 (STOP tier).
+- **Command integration**: execute, wave, test-sync, verify, debug all delegate fix-retest loops to `gsd-t headless --debug-loop` after 2 in-context fix attempts.
+- **Exit codes (debug-loop specific)**: 0=all tests pass (ledger cleared), 1=max iterations reached, 3=process error, 4=escalation stop (needs human)
+
+### Graph Engine (M20 — complete)
+- **`bin/graph-store.js`** (147 lines): File-based graph storage in `.gsd-t/graph/`. 8 JSON files (index, calls, imports, contracts, requirements, tests, surfaces, meta). Read/write operations, MD5 file hashing for incremental indexing, staleness detection. Zero external deps. Note: no symlink protection (TD-099).
+- **`bin/graph-parsers.js`** (327 lines): Language-specific entity parsers. JS/TS: function declarations, arrow functions, classes, methods, imports (ES/CJS), exports. Python: def/class/import. Regex-based (no Tree-sitter). Returns `{ entities, imports, calls }`.
+- **`bin/graph-overlay.js`** (195 lines): GSD-T context mapper. Enriches code entities with: domain ownership (from scope.md), contract mapping (from contracts/*.md), requirement traceability (from requirements.md), test mapping (from test/ files), debt mapping (from techdebt.md), surface detection (from directory structure). 8 exports. No dedicated test file (TD-100).
+- **`bin/graph-indexer.js`** (147 lines): Project indexer. Walks source files, calls parsers, builds overlay, writes to storage. Incremental (skips unchanged files via content hash). Exports `indexProject(root, options)`.
+- **`bin/graph-query.js`** (400 lines): Graph abstraction layer. Unified `query(type, params, root)` interface with 21 query types. 3-provider fallback: CGC MCP → native → grep. Provider registry with priority-based selection. Auto-triggers reindex on stale data. WARNING: grep fallback uses execSync with string interpolation — command injection risk (TD-097/SEC-C01).
+- **`bin/graph-cgc.js`** (510 lines): CodeGraphContext MCP provider — fully integrated end-to-end. Communicates via JSON-RPC/stdio MCP protocol with CGC server backed by Neo4j (Docker container `gsd-t-neo4j`). 12+ query types: getCallers, getTransitiveCallers, getCallees, getTransitiveCallees, findDeadCode, findComplexFunctions, getComplexity, findDuplicates, findCircularDeps, getEntity, getCallChain, getModuleDeps, getClassHierarchy, getStats, cypher. Health detection (3s timeout, session-cached). Overlay enrichment maps CGC results to GSD-T domains/contracts/requirements. Auto-installed by `gsd-t install`.
+- **`bin/scan-data-collector.js`** (153 lines, NEW in M20): Aggregates scan markdown files into structured data for report generation.
+- **Storage**: `.gsd-t/graph/` directory (git-ignored). JSON files: index.json (entities), calls.json (edges), imports.json, contracts.json, requirements.json, tests.json, surfaces.json, meta.json (file hashes + stats).
+
+### Examples (examples/)
+- **Purpose**: Reference project structure and settings
+- **Location**: `examples/`
+- **Contents**: settings.json, .gsd-t/ with sample contracts and domain structure
+
+## Data Flow
+
+### Installation Flow
+```
+npm install @tekyzinc/gsd-t → bin/gsd-t.js install
+  ├── Copy commands/*.md → ~/.claude/commands/
+  ├── Copy/append templates/CLAUDE-global.md → ~/.claude/CLAUDE.md
+  ├── Copy scripts/gsd-t-heartbeat.js → ~/.claude/scripts/
+  ├── Configure 9 hooks in ~/.claude/settings.json
+  ├── Copy scripts/gsd-t-tools.js → ~/.claude/scripts/    (installUtilityScripts, M13)
+  ├── Copy scripts/gsd-t-statusline.js → ~/.claude/scripts/ (installUtilityScripts, M13)
+  └── Write version to ~/.claude/.gsd-t-version
+```
+
+### Project Initialization Flow
+```
+gsd-t init [name] → templates/ → applyTokens()
+  ├── → {project}/CLAUDE.md
+  ├── → {project}/docs/{requirements,architecture,workflows,infrastructure}.md
+  ├── → {project}/.gsd-t/{progress,backlog,backlog-settings}.md
+  └── → {project}/.gsd-t/{contracts,domains}/.gitkeep
+```
+
+### Runtime Command Execution (within Claude Code)
+```
+User types /gsd-t-{command} [args]
+  → Claude Code loads ~/.claude/commands/gsd-t-{command}.md
+  → Claude interprets step-by-step instructions
+  → Reads state files → Executes workflow → Pre-Commit Gate → Updates progress.md
+```
+
+### Update Check Flow
+```
+CLI command → Read cache (~/.claude/.gsd-t-update-check)
+  ├── Fresh (<1h): Show notice if latest > installed
+  ├── No cache: Synchronous fetch → cache → show notice
+  └── Stale (>1h): Spawn background scripts/npm-update-check.js
+```
+
+## Configuration Model
+
+Three-tier configuration:
+
+| Layer | Location | Purpose |
+|-------|----------|---------|
+| **Global** | `~/.claude/CLAUDE.md` | Framework defaults: autonomy rules, code standards, pre-commit gate |
+| **Project** | `{cwd}/CLAUDE.md` | Project-specific: tech stack, branch guard, conventions, overrides |
+| **State** | `{cwd}/.gsd-t/` | Live state: progress, contracts, domains, backlog, scan results |
+
+## State Files
+
+| File | Purpose | Read By | Written By |
+|------|---------|---------|------------|
+| `progress.md` | Master state, version, decision log | All commands | Most commands |
+| `contracts/*.md` | Domain interfaces | execute, integrate, verify | partition |
+| `domains/{name}/scope.md` | File ownership | execute, quick | partition |
+| `domains/{name}/tasks.md` | Task list | execute, status, resume | plan, execute |
+| `backlog.md` | Priority-ordered backlog | backlog-list, status | backlog-add/edit/move/remove |
+| `backlog-settings.md` | Types, apps, categories | backlog-add/edit/settings | backlog-settings, init |
+| `techdebt.md` | Prioritized tech debt | promote-debt, scan | scan |
+| `scan/*.md` | Codebase analysis | scan (synthesis), setup | scan (teammates) |
+| `CONTEXT.md` | Discuss phase output — Locked Decisions, Deferred Ideas | plan (reads + enforces) | discuss |
+| `continue-here-{ts}.md` | Pause/resume checkpoint — exact position | resume (reads + deletes) | pause |
+| `deferred-items.md` | Log of unresolved issues from execute/quick/debug | (manual review) | execute, quick, debug |
+
+## Data Models
+
+### Progress State (.gsd-t/progress.md)
+| Field | Type | Notes |
+|-------|------|-------|
+| Project | string | Name from CLAUDE.md |
+| Version | semver | Major.Minor.Patch |
+| Status | enum | READY, INITIALIZED, PARTITIONED, DISCUSSED, PLANNED, IMPACT_ANALYZED, EXECUTING, EXECUTED, TESTS_SYNCED, INTEGRATED, VERIFIED, VERIFY_FAILED, COMPLETED |
+| Current Milestone | string | Active milestone name or "None" |
+| Decision Log | entries | Timestamped log of all changes |
+
+### Backlog (.gsd-t/backlog.md)
+| Field | Type | Notes |
+|-------|------|-------|
+| Position | integer | Sequential, 1 = highest priority |
+| Type | enum | bug, feature, improvement, ux, architecture |
+| App | string | Target application |
+| Category | string | Domain/module category |
+| Description | string | Item summary |
+
+### Contracts (.gsd-t/contracts/)
+| Contract | Purpose |
+|----------|---------|
+| backlog-command-interface.md | Backlog command interface and promote flow |
+| integration-points.md | How components connect |
+| backlog-file-formats.md | Backlog markdown structure (authoritative — duplicate file-format-contract.md deleted in M9) |
+| domain-structure.md | Domain directory layout |
+| pre-commit-gate.md | Commit checklist contract |
+| progress-file-format.md | Progress.md structure |
+| wave-phase-sequence.md | Phase ordering rules |
+| qa-agent-contract.md | QA agent spawn interface, output per phase, communication protocol |
+
+## Workflow Phase Architecture
+
+```
+PARTITION → DISCUSS → PLAN → IMPACT → EXECUTE → TEST-SYNC → INTEGRATE → VERIFY → COMPLETE
+```
+
+| Phase | Mode | QA Agent | Why |
+|-------|------|----------|-----|
+| Partition | Solo only | NO (removed M10) | Was unnecessary overhead |
+| Discuss | Solo only | No | Always pauses for user input (even Level 3) |
+| Plan | Solo only | NO (removed M10) | Was unnecessary overhead |
+| Impact | Solo only | No | Cross-cutting analysis |
+| Execute | Solo or Team | Task subagent (M10) | Each task gets QA after completion |
+| Test-Sync | Solo only | Inline (M10) | Sequential contract coverage audit |
+| Integrate | Solo only | Task subagent (M10) | Cross-domain integration tests |
+| Verify | Solo or Team | Inline (M10) | Full audit runs directly |
+| Complete | Solo only | Inline (M10) | Final gate runs directly |
+
+### Wave Orchestrator (Agent-Per-Phase Model)
+
+The wave command spawns an independent agent for each phase via the Task tool with `bypassPermissions`. Each phase agent gets a fresh ~200K token context window, eliminating context accumulation and mid-wave compaction. The orchestrator itself stays lightweight (~30KB), reading only `progress.md` and `CLAUDE.md`. State handoff between phases occurs through `.gsd-t/` files.
+
+### QA Agent Integration (Updated M10)
+
+QA runs inline or as Task subagent depending on phase (M10 refactor). Removed from partition and plan (were unnecessary). execute and integrate spawn QA as Task subagent after each domain checkpoint. test-sync, verify, and complete-milestone run QA inline. QA failure blocks phase completion (user override available).
+
+### Execution Quality (M11)
+
+**Deviation Rules**: 4-rule protocol added to execute, quick, debug: (1) Bug → fix up to 3 attempts, then defer; (2) Missing dependency → add minimum; (3) Blocker → fix and log; (4) Architectural change → STOP, apply Destructive Action Guard.
+
+**Per-Task Commits**: execute enforces `feat({domain}/task-{N})` commit format after each task. Wave spot-check verifies commits were made.
+
+**Between-Phase Spot-Check (Wave)**: After each phase agent completes, wave reads progress.md (status), runs git log (commits), and verifies filesystem output. Re-spawns phase agent once on failure. Stops and reports to user if still failing.
+
+### Planning Intelligence (M12)
+
+**CONTEXT.md**: discuss phase creates `.gsd-t/CONTEXT.md` with three sections: Locked Decisions (plan MUST implement), Deferred Ideas (plan must NOT implement), Claude's Discretion (implementation details left to executor). Plan reads CONTEXT.md and fails validation if any Locked Decision has no task mapping.
+
+**Plan Validation**: After creating task lists, plan spawns a Task subagent to validate REQ coverage, Locked Decision mapping, task completeness, contract existence. Max 3 fix iterations before stopping and reporting to user.
+
+**REQ Traceability**: Plan writes a traceability table to docs/requirements.md mapping REQ-IDs to domain/task/status. Verify marks matched requirements complete.
+
+### Tooling & UX (M13)
+
+**gsd-t-tools.js**: State utility CLI for Claude Code agents. Reduces token-heavy markdown parsing with compact JSON responses. Installed to `~/.claude/scripts/`. See Hook Scripts section.
+
+**gsd-t-statusline.js**: Visual context usage bar for Claude Code `statusLine` setting. Shows milestone, status, version, and context percentage. Installed to `~/.claude/scripts/`.
+
+**gsd-t-health**: New command — validates .gsd-t/ structure against 12 required items. `--repair` creates missing files from templates. Step 0 subagent pattern.
+
+**gsd-t-pause**: New command — creates `.gsd-t/continue-here-{timestamp}.md` with exact position snapshot. More precise than progress.md alone.
+
+**gsd-t-resume** (updated): Reads continue-here files first (most recent by timestamp), falls back to progress.md. Deletes continue-here file after reading.
+
+### Test Suite (test/)
+- **helpers.test.js** (27 tests): Pure helper functions — validateProjectName, applyTokens, isNewerVersion, normalizeEol, etc.
+- **filesystem.test.js** (37 tests): Filesystem helpers + CLI subcommand integration — ensureDir, isSymlink, writeTemplateFile, status/doctor/help outputs
+- **security.test.js** (30 tests): Security functions — scrubSecrets (18), scrubUrl (5), summarize integration (4), hasSymlinkInPath (3)
+- **cli-quality.test.js** (22 tests): M6 refactored functions — buildEvent (10), readProjectDeps (3), readPyContent (2), insertGuardSection (3), readUpdateCache (1), addHeartbeatHook (3)
+- **Runner**: Node.js built-in (`node --test`), zero test dependencies
+- **Total**: 125 tests, all passing (post-M9)
+
+## Security Model
+
+- **Zero dependencies**: No supply chain attack surface
+- **Symlink protection**: `isSymlink()` at 15+ write sites + `hasSymlinkInPath()` for parent directory validation (M5)
+- **Secret scrubbing**: `scrubSecrets()` masks passwords/tokens/API keys in heartbeat logs; `scrubUrl()` masks URL query params (M5)
+- **Input validation**: Project names, version strings, session IDs, project paths all validated
+- **Path traversal prevention**: Heartbeat validates session_id regex, resolves paths, verifies containment; npm-update-check validates cache path within `~/.claude/` (M5)
+- **Command injection mitigation**: `execFileSync` with array args (not `execSync`)
+- **Exclusive file creation**: Init uses `{ flag: "wx" }` for atomic create-or-fail
+- **Resource limits**: Heartbeat stdin capped at 1MB, HTTP responses capped at 1MB (M5), 5s/8s timeouts, 7-day file cleanup
+- **Wave security**: `bypassPermissions` mode documented with attack surface analysis and mitigations (M5)
+
+## Unattended Supervisor (M36)
+
+The unattended supervisor is a cross-session relay engine that runs an active GSD-T milestone to completion over hours or days without human intervention. It spans the boundary between the interactive Claude session and the OS process layer.
+
+### Component Diagram
+
+```
+Interactive Claude session
+  └── /gsd-t-unattended (launch command)
+        ├── Pre-flight safety checks (branch, dirty tree)
+        └── spawn(detached) → Supervisor process (bin/gsd-t-unattended.js)
+                               ├── writes .gsd-t/.unattended/supervisor.pid
+                               ├── writes .gsd-t/.unattended/state.json  (atomic rewrite each iter)
+                               ├── appends .gsd-t/.unattended/run.log    (worker stdout+stderr)
+                               ├── checks .gsd-t/.unattended/stop        (sentinel — presence = halt)
+                               └── relay loop:
+                                    spawnSync('claude -p "/gsd-t-resume"')
+                                      → worker exits → post-worker safety check → next iter
+
+In-session watch loop (every 270s via ScheduleWakeup)
+  └── /gsd-t-unattended-watch
+        ├── reads supervisor.pid  (kill -0 liveness)
+        ├── reads state.json      (status, iter, lastTick)
+        └── reschedules or reports final status
+```
+
+### State Directory Layout
+
+```
+.gsd-t/.unattended/
+├── supervisor.pid   — Integer PID. Exists ONLY while supervisor is alive.
+├── state.json       — Live state snapshot. Atomically rewritten between iterations.
+├── run.log          — Append-only worker stdout+stderr. Never truncated during a run.
+├── stop             — Sentinel file. Absence = run. Presence = user-requested stop.
+└── config.json      — Optional per-project config overrides (maxIterations, hours, etc.)
+```
+
+Sibling: `.gsd-t/.handoff/` — owned by M35-gap-fixes for single-shot handoff locks (see below).
+
+### Contract
+
+`.gsd-t/contracts/unattended-supervisor-contract.md` v1.0.0 — authoritative source for: state schema, status enum, exit-code table, launch handshake, watch tick decision tree, resume auto-reattach handshake, stop mechanism, safety-rails hook points, and CLI surface.
+
+### Platform Abstraction Layer (`bin/gsd-t-unattended-platform.js`)
+
+Exports four cross-platform functions:
+
+| Export | macOS | Linux | Windows |
+|--------|-------|-------|---------|
+| `spawnSupervisor(args)` | `spawn(node, ...)` detached | same | same (`windowsHide:true`) |
+| `preventSleep()` | `caffeinate -i` subprocess | `systemd-inhibit` or no-op | no-op (not supported — see docs/unattended-windows-caveats.md) |
+| `releaseSleep(handle)` | kill caffeinate PID | release inhibit or no-op | no-op |
+| `notify(title, msg, level)` | `osascript` | `notify-send` | no-op |
+| `resolveClaudePath()` | PATH lookup | PATH lookup | `claude.cmd` via PATH |
+
+### Safety Rails (`bin/gsd-t-unattended-safety.js`)
+
+Called at four supervisor hook points (pre-launch, supervisor-init, pre-worker, post-worker):
+
+- **Gutter detection**: stall pattern — repeated identical errors or no file changes for N iterations
+- **Blocker sentinels**: scan worker stdout for unrecoverable-error markers (`BLOCKED_NEEDS_HUMAN`, `DISPATCH_FAILED`)
+- **Iteration cap**: `maxIterations` guard (default 200)
+- **Wall-clock cap**: `hours` guard (default 24h)
+- **Branch/dirty-tree pre-flight**: refuses to start on protected branches or uncleaned worktrees
+
+Each check returns `{ ok, reason?, code? }`. A `false` result halts with `status = 'failed'` and the corresponding exit code (6=gutter, 7=protected-branch, 8=dirty-tree).
+
+### Handoff-Lock Primitive (`bin/handoff-lock.js`)
+
+Closes the M35 parent/child race in `bin/headless-auto-spawn.js`. When the runway estimator fires `autoSpawnHeadless()`, the parent session writes a lock file in `.gsd-t/.handoff/` before spawning the child and removes it only after the child has confirmed PID + state-ready. Prevents the child from beginning execution before the parent has cleanly exited — eliminating the race where both sessions wrote to the same `.gsd-t/` files simultaneously.
+
+### Resume Auto-Reattach
+
+`/gsd-t-resume` Step 0 checks for a live supervisor before any other resume logic. If `supervisor.pid` exists and `kill -0` succeeds and `state.json.status` is non-terminal, the resume command skips normal resume flow entirely, prints the current watch block, and calls `ScheduleWakeup(270, '/gsd-t-unattended-watch', ...)`. The user transparently re-enters the watch loop without any manual step.
+
+---
+
+## Design Decisions
+
+| Date | Decision | Rationale | Alternatives Considered |
+|------|----------|-----------|------------------------|
+| 2026-02-07 | Zero external dependencies for CLI | Simplicity, no install failures, no supply chain risk | Using commander.js, yargs |
+| 2026-02-07 | Markdown-only command files | Claude Code native format, no build step, human-readable | YAML frontmatter, JSON config |
+| 2026-02-09 | Semantic versioning with git tags | Standard npm practice, enables update checks | CalVer, build numbers |
+| 2026-02-12 | Heartbeat via Claude Code hooks | Non-invasive monitoring, no command file changes needed | Polling, WebSocket |
+| 2026-02-13 | Semantic router over keyword matching | Better intent detection, fewer misroutes | Regex patterns, ML classifier |
+| 2026-02-16 | Mandatory Playwright for all projects | Consistent E2E testing, no "we'll add tests later" | Optional testing, Jest-only |
+| 2026-02-16 | Team mode default for scan | Parallel scanning faster, better results | Solo sequential scan |
+| 2026-02-17 | QA Agent as cross-cutting concern | Mandatory test-driven contracts for all code phases | Optional testing, deferred testing |
+| 2026-02-17 | Agent-per-phase wave orchestration | Fresh context window per phase, eliminates compaction | Inline execution (original approach) |
+| 2026-02-18 | QA refactor — remove from partition/plan, Task subagent for execute/integrate | QA on partition/plan added overhead with little value; Task subagent gives QA fresh context | Teammate QA (original), no QA |
+| 2026-02-18 | Deviation Rules + 3-attempt limit | Prevents infinite loops; auto-fixes bugs without blocking; escalates architectural changes | Manual escalation only, no auto-fix |
+| 2026-02-18 | CONTEXT.md from discuss phase | Structured handoff between discuss and plan; fidelity enforcement on Locked Decisions | Free-form decisions in progress.md |
+| 2026-02-18 | gsd-t-tools.js as state utility CLI | Reduces token-heavy markdown parsing; compact JSON responses save ~50K tokens/wave | Parsing progress.md inline (original) |
+| 2026-02-18 | continue-here files for pause/resume | More precise than progress.md; captures exact task+next-action, not just phase | progress.md alone (less precise) |
+
+### GSD 2 Tier 1 — Execution Quality (M22 — complete v2.40.10)
+
+Five interlocking capabilities eliminate context rot, enable safe parallel execution, and verify behavior rather than structure alone.
+
+**Task-Level Fresh Dispatch**
+
+Execute dispatches one subagent per TASK (not per domain). Each task agent gets a fresh context window containing only: domain scope.md, relevant contracts, the single current task, graph context for touched files, and prior task summaries (10-20 lines each). Context utilization per task: ~10-20% (down from 60-75% cumulative per domain). Compaction never triggers. The domain dispatcher (lightweight orchestrator) sequences tasks and passes summaries — it never accumulates full task context.
+
+```
+Execute orchestrator (summaries only — ~4-8% ctx)
+  └── Domain-A task-dispatcher
+       ├── Task 1 subagent (fresh, 10-20% ctx) → summary → dies
+       ├── Task 2 subagent (fresh + task 1 summary) → summary → dies
+       └── Task N subagent (fresh + prior summaries) → summary → dies
+```
+
+**Plan command constraint** (added M22): Every task must fit in one context window. If estimated scope exceeds 70% context, plan splits the task automatically.
+
+**Worktree Isolation**
+
+Parallel domain agents work in isolated git worktrees via Agent tool's `isolation: "worktree"` parameter. No shared filesystem — domains cannot step on each other's files. Merges are sequential and atomic:
+
+```
+Dispatch N domains (isolation: "worktree") → parallel execution
+  └── Domain A completes → merge A → run integration tests
+  └── Domain B completes → merge B → run integration tests
+  └── Conflict or test failure → rollback that domain, others unaffected
+```
+
+Rollback granularity is per-domain (not per-commit). Worktrees are cleaned up after all merges complete.
+
+**Goal-Backward Verification**
+
+After all structural quality gates pass (tests, contracts, file existence), a goal-backward pass verifies behavior. Reads milestone goals, traces each requirement to code, and checks for placeholders:
+- `console.log("TODO")` / `console.log("implement X")`
+- Hardcoded return values (`return "Synced"`, `return 200` on a path that should compute)
+- `// TODO`, `// FIXME`, `// PLACEHOLDER` comments in critical paths
+- UI components rendering static strings where dynamic data is required
+
+Applied in: `verify`, `complete-milestone`, `wave` (verification phase).
+
+**Adaptive Replanning**
+
+After each domain completes in execute, the orchestrator reads the domain's result summary and evaluates whether remaining domain plans remain valid. If execution revealed new constraints (deprecated API, schema mismatch, missing dependency, incompatible library), affected domain `tasks.md` files are rewritten on disk before the next domain is dispatched.
+
+Guard: max 2 replanning cycles per execute run. After that, pause for user input (prevents new-constraint → replan → new-constraint loops).
+
+**Context Observability**
+
+Extended token-log.md format (M22) includes `Domain`, `Task`, and `Ctx%` columns:
+
+```
+| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Notes | Tokens | Compacted | Domain | Task | Ctx% |
+```
+
+Alert thresholds (inline display):
+- `Ctx% >= 70%` → warning: task approaching compaction, consider splitting
+- `Ctx% >= 85%` → critical: compaction likely, task MUST be split
+
+`gsd-t-status` displays token breakdown by domain/task/phase. `gsd-t-visualize` consumes the same data for dashboard rendering.
+
+**Token Pipeline (M40 → M41 → M43 D3 → M43 D2)**
+
+Canonical store: `.gsd-t/metrics/token-usage.jsonl` (append-only JSONL; schema in `.gsd-t/contracts/metrics-schema-contract.md` — v1 M40, v2 M43 additive).
+
+```
+producers ─┬─► .gsd-t/metrics/token-usage.jsonl ─┬─► gsd-t tokens                 (dashboard)
+           │                                     ├─► gsd-t tokens --regenerate-log (→ token-log.md)
+           │                                     ├─► gsd-t tokens --show-tool-costs (adds D2 section)
+           │                                     └─► gsd-t tool-cost (M43 D2)
+           ├── scripts/gsd-t-token-aggregator.js     (M40 worker stream-json)
+           ├── bin/gsd-t-token-capture.cjs           (M41 recordSpawnRow / captureSpawn)
+           ├── bin/gsd-t-token-backfill.cjs          (M41 D3 historical recovery)
+           └── bin/gsd-t-in-session-usage.cjs       (M43 D1 — Branch B: Stop-hook trigger + transcript-sourced)
+```
+
+Under v2, `.gsd-t/token-log.md` is a **regenerated view** (`gsd-t tokens --regenerate-log`), not hand-maintained. Wrapper still appends in real time for live visibility; regeneration is an explicit operator step that requires the JSONL to be fully backfilled first. Regeneration is idempotent and deterministic (sort order: `startedAt` asc → `session_id` asc → `turn_id` asc, numeric when both turn IDs parse).
+
+**Per-Tool Attribution (M43 D2)**
+
+`bin/gsd-t-tool-attribution.cjs` + `bin/gsd-t-tool-cost.cjs` + `gsd-t tool-cost` CLI join per-turn usage rows with tool-call events and attribute each turn's tokens across the tools called in that turn. Contract: `.gsd-t/contracts/tool-attribution-contract.md` v1.0.0 defines the output-byte ratio algorithm with four tie-breakers (zero-byte turn → equal split, missing tool_result → zero weight flagged, no tool calls → no-tool bucket, null turn tokens → skipped).
+
+```
+.gsd-t/metrics/token-usage.jsonl ─┐
+                                  ├─► joinTurnsAndEvents (session_id + ts window)
+.gsd-t/events/YYYY-MM-DD.jsonl ───┘            │
+                                               ▼
+                                    attributeTurn → attributions[]
+                                               │
+                                               ▼
+                             aggregateByTool / aggregateByCommand / aggregateByDomain
+                                               │
+                                               ▼
+                                         gsd-t tool-cost CLI
+                                  (table / json, --group-by, --since, --milestone)
+```
+
+Zero-dep, sync filesystem I/O. Perf gate: 3k turns × 30k events join+aggregate in <3s (measured ~30ms on a dev laptop). The current event schema does not carry `tool_result` bytes, so the zero-byte tie-breaker fires and tools-in-turn split equally. A future event-schema extension that records bytes will activate the ratio with no library change.
+
+### GSD 2 Tier 3 — Quality Culture & Design (M32 — complete v2.53.10)
+
+Three enhancements for project-level quality identity and design consistency.
+
+**Quality North Star**
+
+Projects define a `## Quality North Star` section in their CLAUDE.md (1-3 sentences describing the quality identity). Auto-detected preset options: `library`, `web-app`, `cli`. Configured by `gsd-t-init` (auto-detects from package.json signals: `bin` → cli, React/Vue/Next → web-app, `main` + no `scripts.dev` → library) and `gsd-t-setup` (interactive config for existing projects). Subagents read this section as a quality lens. Silent skip when section absent (backward compatible — no migration required).
+
+**Design Brief Artifact**
+
+During partition, UI/frontend projects automatically receive `.gsd-t/contracts/design-brief.md` with: color palette, typography, spacing system, component patterns, layout principles, interaction patterns, and tone/voice. Trigger signals: React/Vue/Svelte/Next.js in package.json deps, `pubspec.yaml` exists (Flutter), `.css`/`.scss`/`.jsx`/`.tsx`/`.svelte`/`.vue` files, Tailwind config. Source priority: Tailwind config → theme/token files → Quality North Star for tone → sensible defaults. Non-UI projects: no artifact, no step shown. Preservation rule: if brief already exists, never overwrite (user-authoritative).
+
+**Exploratory Testing (Playwright MCP)**
+
+When Playwright MCP is registered in Claude Code settings, QA agents get 3 minutes of interactive exploration and Red Team gets 5 minutes after all scripted tests pass. Findings are tagged `[EXPLORATORY]` in qa-issues.md and red-team-report.md, and tracked separately in QA calibration (category key: `exploratory` — does NOT count against scripted pass/fail ratio). Silent skip when Playwright MCP absent. Wired into: execute, quick, integrate, debug.
+
+## Context Meter Architecture (M34, v2.75.10+)
+
+The Context Meter is the authoritative source for session context-burn measurement in GSD-T. It replaces the v2.74.12 `bin/task-counter.cjs` proxy (and the pre-v2.74.12 `CLAUDE_CONTEXT_TOKENS_USED` env-var approach, which never worked because Claude Code does not export those vars).
+
+**Data flow:**
+
+```
+Claude Code tool call finishes
+  │
+  ▼
+PostToolUse hook (~/.claude/settings.json registered)
+  │
+  ▼
+scripts/gsd-t-context-meter.js (runMeter)
+  │
+  ├── 1. loadConfig(.gsd-t/context-meter-config.json)
+  ├── 2. check-frequency gate — short-circuits if tool-call % freq != 0
+  ├── 3. parseTranscript(hook.transcript_path)
+  │         → { system, messages } shaped for count_tokens
+  ├── 4. countTokens({apiKey, model, system, messages, timeoutMs:200})
+  │         → POST https://api.anthropic.com/v1/messages/count_tokens
+  │         → 200 { input_tokens }  |  failure → null
+  ├── 5. computePct(inputTokens, modelWindowSize)
+  ├── 6. bandFor(pct) → "normal" | "warn" | "stop"   (v3.0.0 three-band model)
+  └── 7. atomic write .gsd-t/.context-meter-state.json
+           { version, timestamp, inputTokens, modelWindowSize, pct, threshold, checkCount, lastError? }
+  │
+  ▼
+bin/token-budget.js getSessionStatus(projectDir)      ── v3.0.0: normal/warn/stop only
+  │
+  ├── readContextMeterState(dir)
+  │      if fresh (timestamp within 5 min):
+  │        return { consumed, estimated_remaining, pct, threshold }
+  │      else: null
+  │
+  └── fallback: readSessionConsumed(dir) from .gsd-t/token-log.md (heuristic)
+  │
+  ▼
+bin/runway-estimator.js estimateRunway({command, domain_type, remaining_tasks})
+  │        reads current_pct from .context-meter-state.json
+  │        queries .gsd-t/token-metrics.jsonl for historical pct-delta per spawn
+  │        projects current_pct + pct_per_task × remaining_tasks × skew
+  │        confidence: high ≥50 records, medium ≥10, low <10 (+1.25× skew)
+  │        returns {can_start, projected_end_pct, confidence, recommendation}
+  ▼
+Command file Step 0 — runway gate (execute/wave/quick/integrate/debug):
+  if (!decision.can_start) {
+    print ⛔ banner
+    autoSpawnHeadless({command, continue_from: '.'})    ── bin/headless-auto-spawn.js
+    process.exit(0)                                      ── never prompts user
+  } else {
+    proceed to Step 0.1 (Verify Context Gate Readiness) and Step 1
+  }
+  │
+  ▼
+bin/headless-auto-spawn.js (when refused)
+  │        detached child: node bin/gsd-t.js headless {command} --log
+  │        child.unref(); interactive session returns immediately
+  │        writes .gsd-t/headless-sessions/{id}.json (status: "running")
+  │        2s poll watcher: process.kill(pid, 0) → mac osascript notification on exit
+  │
+  ▼
+Orchestrator Context Gate — v3.0.0 semantics:
+  normal → proceed
+  warn   → log to .gsd-t/token-log.md, proceed at full quality (informational only)
+  stop   → halt cleanly, runway estimator hands off to headless-auto-spawn
+```
+
+**Key constraints:**
+- **Fail-open**: every stage catches errors and writes a partial state file. Never crashes Claude Code.
+- **No message content in state or log files** — only token counts, band names, error codes.
+- **Never logs or writes the API key** anywhere.
+- **State staleness window**: 5 minutes — after that, heuristic fallback takes over.
+- **Hook latency budget**: 200ms (timeoutMs on the HTTP call), enforced by `req.setTimeout` + `req.destroy()`.
+
+**Contracts:**
+- `.gsd-t/contracts/context-meter-contract.md` — schema, state file format, hook I/O
+- `.gsd-t/contracts/context-observability-contract.md` v2.0.0 — Ctx% as the real session-wide signal (replaces Tasks-Since-Reset)
+- `.gsd-t/contracts/token-budget-contract.md` v3.0.0 — single-band stop-at-85 (M38 collapsed the three-band degradation model)
+- `.gsd-t/contracts/headless-default-contract.md` v1.0.0 — detached-by-default spawn primitive (M38; folds-and-supersedes headless-auto-spawn-contract v1.0.0 and obviates the runway-estimator / token-telemetry contracts deleted in M38)
+- `.gsd-t/contracts/model-selection-contract.md` v1.0.0 — per-phase tier mapping + complexity-signal escalation, consumed by `bin/model-selector.js`
+
+**Supporting components** (outside the context-meter dataflow):
+- `bin/model-selector.js` — declarative rules table mapping phases to haiku/sonnet/opus; consulted at plan time, never at runtime under pressure
+- `bin/check-headless-sessions.js` — renders the read-back banner on `/gsd-t-resume` and `/gsd-t-status` for completed-but-not-yet-surfaced headless sessions
+- `bin/event-stream.cjs` (M38) — shared library for JSONL event emission and cursor-based tailing; used by supervisor, watch tick, and dashboard
+
+**Installer integration** (`bin/gsd-t.js`):
+- `install` / `init` — copy hook runtime, merge PostToolUse entry into `~/.claude/settings.json`, copy config template, prompt for API key (skippable, TTY-only)
+- `doctor` — RED on missing API key, missing hook, missing script, invalid config, failed count_tokens dry-run
+- `status` — displays `Context: {pct}% of {window} tokens ({band}) — last check {rel}` line
+- `update-all` — one-shot task-counter retirement migration (deletes legacy files, writes `.gsd-t/.task-counter-retired-v1` marker)
+
+## Task-Graph Reader (M44 D1, v3.18.10+)
+
+`bin/gsd-t-task-graph.cjs` — a zero-external-dep CommonJS module that parses every `.gsd-t/domains/*/tasks.md` (and falls back to each domain's `scope.md` `## Files Owned` for missing touch lists) into a typed in-memory DAG. This is the **single shared input** for every M44 parallelism domain — D2 `gsd-t parallel`, D3 command-file integration, D4 dep-graph validation, D5 file-disjointness prover, D6 pre-spawn economics — none of which re-parse `tasks.md` themselves.
+
+```
+.gsd-t/domains/<domain>/tasks.md  ──┐
+.gsd-t/domains/<domain>/scope.md  ──┴──>  buildTaskGraph({projectDir})
+                                              │
+                                              ▼
+                                {nodes, edges, ready, byId, warnings}
+                                              │
+       ┌──────────────────────────────────────┼──────────────────────────────────────┐
+       ▼                                      ▼                                      ▼
+  D2 gsd-t parallel              D4 dep-validate (veto)                D5 disjoint-prove (veto)
+  D3 command-file integ.         D6 pre-spawn economics                 (touches[] overlap check)
+```
+
+**Public API** (`require('./bin/gsd-t-task-graph.cjs')`):
+- `buildTaskGraph({projectDir}) → { nodes, edges, ready, byId, warnings }` — synchronous
+- `getReadyTasks(graph) → TaskNode[]` — node objects whose deps are all DONE
+- `TaskGraphCycleError` — thrown on circular dependency, carries `.cycle: string[]`
+
+**Hard rules** (from `task-graph-contract.md` v1.0.0):
+- Zero external deps — Node built-ins only
+- Cycle detection mandatory (iterative three-color DFS) — never produces partial graph on cycle
+- Read-only — never writes to `tasks.md`, `scope.md`, or contracts
+- Mode-agnostic — knows nothing about in-session vs unattended; pure graph emitter
+- Performance budget < 200 ms for 100-domain / 1000-task project (measured 6 ms / 250 tasks)
+
+**CLI surface** (`bin/gsd-t.js doGraph` → `doGraphTaskOutput`):
+- `gsd-t graph --output json` — pretty-printed DAG to stdout
+- `gsd-t graph --output table` — column-aligned id/domain/wave/status/ready/deps table
+- `gsd-t graph tasks [json|table]` — explicit subcommand form
+- Pre-existing `graph index|status|query` (codebase entity graph via `graph-indexer`) unchanged
+
+**Contract**: `.gsd-t/contracts/task-graph-contract.md` v1.0.0
+
+## Dep-Graph Validation (M44 D4, v3.18.10+)
+
+`bin/gsd-t-depgraph-validate.cjs` — a zero-external-dep CommonJS module that runs as the **first pre-spawn gate** between D1's DAG emitter and the parallel dispatcher. Given `graph.ready` (the DAG's candidate set), it filters down to tasks whose declared `deps[]` are all in DONE status, emits one `dep_gate_veto` event per task it removes, and returns the reduced ready set plus the veto list. The caller (D2) decides whether to spawn the smaller batch or fall back to sequential — D4 itself is a pure filter with no spawn authority.
+
+```
+D1 graph (graph.ready, graph.byId)
+      │
+      ▼
+  D4 validateDepGraph              ← this module (filter-only; never throws on unmet deps)
+      │            │
+ ready[] (OK)   vetoed[] ──────>  .gsd-t/events/YYYY-MM-DD.jsonl  (one dep_gate_veto per task)
+      │
+      ▼
+  D5 disjointness check            ← next pre-spawn gate
+      │
+      ▼
+  D6 economics                     ← final pre-spawn gate
+      │
+      ▼
+  D2 parallel dispatch
+```
+
+**Public API** (`require('./bin/gsd-t-depgraph-validate.cjs')`):
+- `validateDepGraph({graph, projectDir}) → { ready: TaskNode[], vetoed: {task, unmet_deps[]}[] }` — synchronous
+
+**Veto rule** (locked in `depgraph-validation-contract.md` §3): a dep is satisfied iff `graph.byId[depId]` exists AND `status === 'done'`. Pending / skipped / failed / unknown all veto the dependent. Every vetoed task emits exactly one `dep_gate_veto` JSONL record on the event stream.
+
+**Event payload** (`dep_gate_veto`): base `event-schema-contract.md` fields (ts ISO 8601, event_type, command/phase/agent_id/parent_agent_id/trace_id/model set to null when D4 doesn't own them, reasoning="unmet deps: …", outcome="deferred") PLUS additive `task_id`, `domain`, `unmet_deps[]`.
+
+**Hard rules** (from `depgraph-validation-contract.md` v1.0.0):
+- Zero external deps — Node built-ins only
+- Never throws on unmet deps, unknown dep ids, or event-log I/O failure (only throws on malformed `opts`)
+- Read-only on `tasks.md` / `scope.md` / contracts — only write surface is appending JSONL lines (events dir created on demand)
+- Synchronous; < 50 ms on realistic 100-domain / 1000-task graphs
+- Mode-agnostic — same call shape in [in-session] and [unattended]; what to do with the reduced set is D2's call
+
+**Contract**: `.gsd-t/contracts/depgraph-validation-contract.md` v1.0.0
+
+## File-Disjointness Prover (M44 D5, v3.18.10+)
+
+`bin/gsd-t-file-disjointness.cjs` — the pre-spawn gate that, given a candidate parallel set of task nodes from D1's DAG, partitions them into `parallel` / `sequential` / `unprovable` groups based on declared write-target overlap. Mode-agnostic: same function used by the in-session D2 parallel CLI and the unattended D6 economics path.
+
+```
+D1 task-graph nodes (touches[])                    safe-default
+       │                                      (unprovable → sequential)
+       ▼                                                ▲
+ proveDisjointness({tasks, projectDir}) ────────────────┤
+       │                                                │
+       ├─→ resolveTouches()  (declared → git-history → none)
+       ├─→ groupByOverlap()  (union-find on touches[])
+       │
+       ▼
+ { parallel: TaskNode[][],  (singletons only in v1.0.0 — no multi-task "parallel clusters")
+   sequential: TaskNode[][], (overlap groups + unprovable singletons)
+   unprovable: TaskNode[] }
+       │
+       ▼
+ .gsd-t/events/YYYY-MM-DD.jsonl
+   { type: "disjointness_fallback", task_id, reason, ts }
+   reason ∈ { "unprovable", "write-target-overlap" }
+```
+
+**Public API** (`require('./bin/gsd-t-file-disjointness.cjs')`):
+- `proveDisjointness({tasks, projectDir}) → { parallel, sequential, unprovable }` — synchronous, never throws
+
+**Hard rules** (from `file-disjointness-contract.md` v1.0.0):
+- Unprovable is ALWAYS sequential — never assume disjointness
+- Zero external runtime deps; git invoked via `child_process.execSync` in a try/catch
+- Read-only on all domain artifacts; only write surface is the event JSONL append
+- Checks WRITE targets only — read-only file access is never a conflict
+- Git-history fallback bounded to 100 commits (`git log -n 100`)
+- Mode-agnostic — downstream (D2 / D6) decides what to do with sequential + unprovable groups
+
+**Contract**: `.gsd-t/contracts/file-disjointness-contract.md` v1.0.0
+
+## Per-CW Attribution (M44 D7, v3.18.10+)
+
+Per-Context-Window (CW) attribution lets the optimization report, the per-CW rollup in `gsd-t metrics`, and D6's pre-spawn estimator distinguish multiple CWs within one iter — necessary because Claude Code can compact mid-run, silently splitting one iter into two CWs that pre-D7 metrics treated as a single unit.
+
+```
+spawn site (orchestrator | supervisor | in-session driver)
+   │ supplies cw_id (= spawn_id for unattended; = session_id+":"+compaction_index for in-session)
+   ▼
+bin/gsd-t-token-capture.cjs::recordSpawnRow / captureSpawn
+   │ pass-through; serializes cw_id into the JSONL row when supplied
+   ▼
+.gsd-t/metrics/token-usage.jsonl   (schema v2.1.0 — cw_id optional)
+   │
+   ▼  consumers (D6 calibration, gsd-t metrics rollup, optimization report)
+
+Claude Code SessionStart  (source=compact)
+   ├──> scripts/gsd-t-compact-detector.js   (v1.0.0 — boundary row, unchanged)
+   └──> scripts/gsd-t-calibration-hook.js   (v1.1.0 — calibration row)
+              │ correlates with active spawn from .gsd-t/.unattended/state.json
+              │ derives actualCwPct from payload.input_tokens ÷ CW ceiling
+              ▼
+        .gsd-t/metrics/compactions.jsonl
+        ({type: "compaction_post_spawn", cw_id, task_id, spawn_id,
+          estimatedCwPct, actualCwPct, ts, schemaVersion: 1})
+```
+
+**`bin/gsd-t-token-capture.cjs` extension** — additive optional `cw_id` opt on `recordSpawnRow` and `captureSpawn`. The wrapper does not derive `cw_id`; it only forwards what the caller supplies. When absent (undefined / null / "") the field is omitted from the JSONL row entirely (NOT serialized as `null` or `""`). Pre-D7 callers produce byte-identical output. The serialization branch follows the existing `session_id` / `turn_id` pattern (`if (cw_id != null && cw_id !== '') rec.cw_id = String(cw_id);`).
+
+**`scripts/gsd-t-calibration-hook.js`** — zero-external-dep SessionStart hook handler that complements (does not replace) `scripts/gsd-t-compact-detector.js`. Both hooks fire on the same payload; both write to `.gsd-t/metrics/compactions.jsonl`; neither reads or writes the other's rows. The calibration hook silently no-ops when:
+- `payload.source !== "compact"`
+- `<cwd>/.gsd-t/` does not exist (off-switch)
+- `.gsd-t/.unattended/state.json` is missing / unparseable / `status !== "running"`
+- No `spawn_id` derivable from state
+- No `input_tokens` derivable from the compaction payload
+
+The hook ALWAYS exits 0 — throwing breaks Claude Code SessionStart. It includes a 1 MiB stdin cap, a path-traversal guard on the output sink, and a non-absolute-cwd guard mirroring the detector. Hard rules (from `compaction-events-contract.md` v1.1.0) specify the `compaction_post_spawn` row schema, the calibration sink coexistence rules, and the CW-ceiling override (`state.cwCeilingTokens` → defaults to `200000` input tokens).
+
+**Contracts**: `.gsd-t/contracts/metrics-schema-contract.md` v2.1.0 (`cw_id` field), `.gsd-t/contracts/compaction-events-contract.md` v1.1.0 (calibration event)
+
+**Tests**: `test/m44-cw-attribution.test.js` (19 tests covering pass-through with/without `cw_id`, calibration hook with/without active spawn, malformed state, non-compact sources, derivation fallback to `compactMetadata.preTokens`, ceiling overrides, coexistence with v1.0.0 detector rows, and zero-deps verification).
+
+## Pre-Spawn Economics Estimator (M44 D6, v3.18.10+)
+
+`bin/gsd-t-economics.cjs` — the pre-spawn gate component that predicts each candidate task's Context-Window (CW) footprint and feeds the D2 parallel-CLI gating math with a per-task recommendation. Zero external deps; loaded once per `projectDir` (sync cached corpus read); never returns `undefined` for numeric fields (global-median fallback is mandatory).
+
+**Core function**: `estimateTaskFootprint({taskNode, mode, projectDir})` → `{estimatedCwPct, parallelOk, split, workerCount, matchedRows, confidence}`.
+
+**Three-tier lookup** over the in-memory corpus index:
+
+1. **Exact** `command|step|domain` triplet — HIGH (≥5 rows) or MEDIUM (1–4 rows).
+2. **Fuzzy** — domain-only match, then command-only match → LOW confidence.
+3. **Global median** — `median(totals)` across every row → FALLBACK confidence. Mandatory floor; guarantees no undefined result.
+
+```
+     D1 task graph            ┌──────────────────────────────┐
+  ┌─ taskNode{cmd,step,dom} ──┤ bin/gsd-t-economics.cjs      │
+  │                           │  estimateTaskFootprint       │
+  │                           │  - corpus cache (per projDir)│
+  │                           │  - triplet lookup            │
+  │                           │  - fuzzy fallback            │
+  │                           │  - global median fallback    │
+  │                           │  - mode-specific gate math   │
+  │                           └───┬──────────────────────────┘
+  │                               │ {estimatedCwPct,
+  │                               │  parallelOk, split,
+  │                               │  workerCount, matchedRows,
+  │                               │  confidence}
+  │                               ↓
+  │                       D2 gating math (owns final decision)
+  │                               │
+  │                               └──→ appends economics_decision
+  │                                    event to .gsd-t/events/*.jsonl
+  │
+  └─ corpus sources: .gsd-t/metrics/token-usage.jsonl (v2.1.0)
+                     .gsd-t/metrics/compactions.jsonl (v1.1.0; calibration signal)
+```
+
+**Mode awareness**: `estimatedCwPct` is mode-agnostic (same tokens → same %). Gates differ:
+
+| Mode        | `parallelOk` threshold | `split` threshold | Rationale |
+|-------------|------------------------|-------------------|-----------|
+| in-session  | `≤ 85%`                | always `false`    | 85 % matches orchestrator-CW headroom check (D2); over-limit tasks still run with fewer workers. |
+| unattended  | `≤ 60%`                | `> 60%` → `true`  | Per-worker CW gate; heavy tasks are sliced into multiple `claude -p` iters by the caller (D6 recommends, does not slice). |
+
+**CW ceiling**: `200_000` input tokens — matches `bin/token-budget.cjs`, `bin/context-meter-config.cjs`, and `bin/runway-estimator.cjs`. Row totals = `inputTokens + outputTokens + cacheReadInputTokens + cacheCreationInputTokens` (a deliberately conservative upper bound; cache-read tokens are ~free in real CW accounting and inflate the estimate).
+
+**Calibration** (2026-04-22): run against the live 528-row `token-usage.jsonl` corpus. Per-tier MAE (% of CW ceiling): HIGH 12.89 %, MEDIUM 0.00 % (small-n tautology — 4 keys with 1–4 rows each), LOW 13.08 %, FALLBACK 15.06 %. Current corpus is skewed (523 rows on one triplet); `gsd-t-execute` and `gsd-t-wave` have no corpus signal yet and resolve to FALLBACK. Coverage grows as D7 `cw_id`-tagged rows accumulate from real-world spawns — the estimator's signal improves without code changes.
+
+**Hard invariants** (from `.gsd-t/contracts/economics-estimator-contract.md` v1.0.0):
+
+1. D6 is a HINT, not a veto — D2 retains gate authority.
+2. Corpus loaded ONCE per `projectDir` (cache via `Map`; `_resetCorpusCache()` exposed for tests).
+3. Never returns `undefined` for numeric fields — global-median fallback is mandatory.
+4. Mode-aware for gates; mode-agnostic for `estimatedCwPct`.
+5. Event emission is best-effort; FS failures never fail the estimate.
+6. Zero external npm runtime deps (Node built-ins only).
+
+**Contract**: `.gsd-t/contracts/economics-estimator-contract.md` v1.0.0.
+
+**Tests**: `test/m44-economics.test.js` (9 tests covering HIGH/MEDIUM/LOW/FALLBACK tiers, both mode thresholds under and over the boundary, economics_decision event shape, corpus cache identity, and empty-corpus behaviour).
+
+## Parallel CLI (M44 D2, v3.18.10+)
+
+`bin/gsd-t-parallel.cjs` — the `gsd-t parallel` subcommand dispatch. Wraps the M40 orchestrator with task-level (not just domain-level) parallelism and layers in mode-aware gating math. Extends, does not replace, `bin/gsd-t-orchestrator.js`; zero external runtime deps.
+
+**Surface**:
+- Module: `runParallel({projectDir, mode, milestone, domain, dryRun})` and `runCli(argv, env)`.
+- CLI: `gsd-t parallel [--mode in-session|unattended] [--milestone Mxx] [--domain <name>] [--dry-run] [--help]`.
+- Config extension in `bin/gsd-t-orchestrator-config.cjs`: `computeInSessionHeadroom`, `computeUnattendedGate`, and the exported constants `IN_SESSION_CW_CEILING_PCT=85`, `UNATTENDED_PER_WORKER_CW_PCT=60`, `DEFAULT_SUMMARY_SIZE_PCT=4`.
+
+**Dispatch flow**:
+
+```
+    gsd-t parallel --mode … [--dry-run]
+         │
+         ├──► D1 buildTaskGraph(projectDir) ─────────────┐
+         │    (bin/gsd-t-task-graph.cjs)                  │
+         │                                                │ ready tasks
+         ├──► D4 validateDepGraph(graph)  ◄───────────────┘
+         │    (bin/gsd-t-depgraph-validate.cjs)
+         │    → emits gate_veto on unmet deps
+         │
+         ├──► D5 proveDisjointness(readyTasks)
+         │    (bin/gsd-t-file-disjointness.cjs)
+         │    → emits gate_veto on overlap / unprovable
+         │
+         ├──► D6 estimateTaskFootprint(task, mode) × N
+         │    (bin/gsd-t-economics.cjs)
+         │    → per-task {estimatedCwPct, parallelOk, split, confidence}
+         │
+         ├──► Mode-aware gating math (config.cjs)
+         │    ├─ in-session: computeInSessionHeadroom
+         │    │  ctxPct from token-budget.getSessionStatus()
+         │    │  → reducedCount; emits parallelism_reduced on N < requested
+         │    └─ unattended: computeUnattendedGate(estimatedCwPct)
+         │       → emits task_split on > 60%
+         │
+         └──► plan{ workerCount, parallelTasks, plan[] }
+              → dry-run renders the 6-col table + mode/totals
+              → non-dry-run: hands off to M40 orchestrator machinery
+```
+
+**Mode contracts** (from `.gsd-t/contracts/wave-join-contract.md` v1.1.0):
+
+| Mode | Threshold | Math | On exceed |
+|------|-----------|------|-----------|
+| in-session | 85% orchestrator-CW | `ctxPct + N × summarySize ≤ 85` | Reduce N; floor=1 (never refuses) |
+| unattended | 60% per-worker CW | `estimatedCwPct ≤ 60` | `split=true`; caller slices |
+
+**Integration with the M40 path**: `runParallel` produces a plan object; it does **not** replace `bin/gsd-t-orchestrator.js`. The existing orchestrator machinery owns actual worker spawn, retry policy, wave barriers, merging, and the state-file lifecycle. D2 is the pre-spawn planning layer.
+
+**Event schemas** (all written best-effort to `.gsd-t/events/YYYY-MM-DD.jsonl`; failures never break control flow):
+- `gate_veto{type, task_id, gate, reason, ts}` — D4 or D5 rejection.
+- `parallelism_reduced{type, original_count, reduced_count, reason:'in_session_headroom', ts}` — in-session headroom forced a smaller N.
+- `task_split{type, task_id, estimatedCwPct, ts}` — unattended over-threshold.
+
+**Hard invariants** (from m44-d2 constraints.md):
+1. Zero external npm runtime deps.
+2. `bin/gsd-t-orchestrator.js` is never replaced; only extended via the config module.
+3. All three pre-existing invariants (disjointness, auto-merge, economics) apply to BOTH modes. No mode flag bypasses any gate.
+4. In-session mode NEVER throws pause/resume; N=1 is the irreducible floor.
+5. Adaptive `maxParallel` (`computeAdaptiveMaxParallel`) is untouched — D2 layers on top, not under.
+
+**Contract**: `.gsd-t/contracts/wave-join-contract.md` v1.1.0.
+
+**Tests**: `test/m44-parallel-cli.test.js` (21 tests covering headroom ok/reduced/floor, unattended gate ok/split/boundary, plan-table format, runParallel in-session fan-out, disjointness gate-veto fallback, mode auto-detect, explicit-mode override, headroom reduction end-to-end with a 5-domain fixture at 70% ctxPct, and CLI arg parsing).
+
+## Command-File Integration (M44 D3, v3.18.10+)
+
+Wires the five primary GSD-T command files — `commands/gsd-t-execute.md`, `gsd-t-wave.md`, `gsd-t-integrate.md`, `gsd-t-quick.md`, `gsd-t-debug.md` — to the D2 `gsd-t parallel` CLI so task-level parallel dispatch becomes available from the standard workflow. Purely additive doc-ripple + conditional integration blocks; no new library code, no new spawns. Every existing sequential code path remains intact.
+
+**Dispatch decision flow**:
+
+```
+  command file                                 bin/gsd-t-parallel.cjs      bin/gsd-t-orchestrator.js
+  ────────────────                             ────────────────────       ────────────────────────
+  execute   ┐
+  wave      │   "Optional — Parallel               ┌─ D4 depgraph-validate ─┐
+  integrate ├─► Dispatch (M44)" block ───► runParallel │ (veto on unmet deps)  │
+  quick     │   (conditional: >1 pending       (D2)     ├─ D5 disjointness ──────┤──► validated plan
+  debug     ┘    task + D4/D5/D6 gates                  │ (veto on overlap)     │    ────► M40 orchestrator
+                 pass). Mode auto-detected              ├─ D6 economics (hint)  │          (spawns workers,
+                 from GSD_T_UNATTENDED.                 └─ mode-aware final     │          retries, wave
+                 Single-task or veto →                    gate (85% / 60%)      │          barriers, state
+                 silent sequential fallback.                                    │          lifecycle)
+                                                         emits gate_veto,
+                                                         parallelism_reduced,
+                                                         task_split events
+                                                         (best-effort JSONL)
+```
+
+**Per-file integration points**:
+
+| Command file | Step | Trigger | Behavior when no trigger |
+|-------------|------|---------|-------------------------|
+| `gsd-t-execute.md` | Step 3 (Choose Execution Mode) | >1 pending task + gates pass | Existing Wave Scheduling + Solo/Team Mode sequential path |
+| `gsd-t-wave.md` | Step 3 EXECUTE phase (#5) | Inherited from execute agent | Wave orchestrator does not configure mode |
+| `gsd-t-integrate.md` | Step 3 (Wire Integration Points) | Integrating >1 domain + gates pass | Sequential task-level dispatch |
+| `gsd-t-quick.md` | Step 3 (Execute) | >1 pending task + gates pass (uncommon for quick) | Sequential single-subagent (the common case) |
+| `gsd-t-debug.md` | Step 3 (Debug Solo or Team) | Multi-domain contract-boundary/gap debug | Sequential Solo Mode / Team Mode |
+
+**Invariants** (enforced by D2; documented in every D3 integration block):
+1. **Mode auto-detection** — mode comes from `GSD_T_UNATTENDED=1`; no command file hardcodes `--mode`.
+2. **Silent fallback** — gate vetoes, unprovable disjointness, and single-task scope ALL drop to sequential without a user prompt.
+3. **No opt-out flag** — no `--in-session`/`--headless` flag exists (consistent with M43 D4).
+4. **In-session: never interrupt** — headroom pressure reduces worker count to N=1 floor; never pauses.
+5. **Unattended: zero-compaction** — D2 enforces by splitting when D6 estimates > 60% per-worker CW.
+6. **Observability** — D2 owns spawn observability; D3 adds zero new spawns.
+
+**Contract**: `.gsd-t/contracts/wave-join-contract.md` v1.1.0 (surface referenced by every integration block).
+
+## Spawn Plan Visibility (M44 D8, v3.18.10+)
+
+Right-side two-layer task panel in the dashboard / transcript visualizer.
+Answers exactly one question: *"Of the tasks that were supposed to happen
+in this spawn, which are done, which are in flight, which are pending?"*
+Observability-only; zero added LLM token cost.
+
+**Writers (3 chokepoints; all wrapped in try/catch — plan-write failure NEVER blocks the spawn)**:
+- `bin/gsd-t-token-capture.cjs` — `captureSpawn()` calls `writeSpawnPlan`
+  before `await spawnFn()` and `markSpawnEnded` in both success/error paths.
+- `bin/headless-auto-spawn.cjs` — `autoSpawnHeadless()` calls
+  `writeSpawnPlan` before the detached child launches; `markSessionCompleted`
+  now also closes the plan.
+- `commands/gsd-t-resume.md` Step 0 — under `GSD_T_UNATTENDED_WORKER=1`,
+  every worker iteration writes a plan at iteration start.
+
+**Derivation**: `bin/spawn-plan-derive.cjs` reads `.gsd-t/partition.md` +
+`.gsd-t/domains/*/tasks.md` and emits `{milestone, wave, domains, tasks}`.
+Deterministic projection — no LLM calls, no prompts. Silent-fails to an
+empty slice when partition is absent.
+
+**Status updater**: `bin/spawn-plan-status-updater.cjs` — atomic JSON
+patches:
+- `markTaskDone({spawnId, taskId, commit, tokens?, projectDir})`
+- `markSpawnEnded({spawnId, endedReason, projectDir})`
+- `sumTokensForTask(...)` — parses `.gsd-t/token-log.md` rows where
+  `Task` column matches the id AND `Datetime-start >= spawn.startedAt`.
+
+**Post-commit hook**: `scripts/gsd-t-post-commit-spawn-plan.sh` (+ template
+at `templates/hooks/post-commit-spawn-plan.sh`). Greps commit message for
+all `[M\d+-D\d+-T\d+]` ids; for each active plan, calls `markTaskDone`
+with token attribution. Silent-fail: always `exit 0`.
+
+**Reader surface**:
+- `GET /api/spawn-plans` — active plans (where `endedAt === null`),
+  newest-first.
+- SSE channel `/api/spawn-plans/stream` — `fs.watch` on
+  `.gsd-t/spawns/*.json` emits `{spawnId, plan}` on every change.
+- `scripts/gsd-t-transcript.html` — right-side `<aside class="spawn-panel">`
+  with Layer 1 (project) + Layer 2 (active spawn). Status icons
+  `☐` pending / `◐` in_progress / `✓` done. Token cells render as
+  `in=12.5k out=1.7k $0.42` (k-suffix above 1000, 2-decimal USD); `—` when
+  attribution returned null.
+
+**Storage**: `.gsd-t/spawns/{spawnId}.json`. Schema v1. Atomic writes
+(temp file + rename). `spawnId` is filesystem-safe
+(`^[A-Za-z0-9._-]{1,200}$`). One ACTIVE plan per spawn; `endedAt === null`
+means in-flight.
+
+**Invariants** (from `.gsd-t/domains/m44-d8-spawn-plan-visibility/constraints.md`):
+1. Writer DERIVES, never decides.
+2. Spawn must launch even if writer fails.
+3. Atomic writes only.
+4. Post-commit hook silent-fail.
+5. Zero new LLM token cost.
+6. Additive edits to existing files only.
+7. No transcript-derivation fallback — missing plan file → *"no active
+   spawn plan"*, never reconstruct from transcript heuristics.
+
+**Contract**: `.gsd-t/contracts/spawn-plan-contract.md` v1.0.0.
+
+**Tests**: `test/m44-d8-spawn-plan-writer.test.js`,
+`test/m44-d8-spawn-plan-status-updater.test.js`,
+`test/m44-d8-post-commit-hook.test.js`,
+`test/m44-d8-dashboard-spawn-plans-endpoint.test.js`,
+`test/m44-d8-transcript-renderer-panel.test.js` — 36 tests total.
+
+## Parallelism Panel (M44 D9, v3.19.0+)
+
+Pure-observer readout answering two questions:
+
+> *Is the orchestrator actually fanning out, or serializing despite parallelism being available?*
+
+> *When this wave finishes, did it hit the parallelism factor D6 estimated?*
+
+Zero added LLM token cost — every number is derived from files the other
+M44 domains already write: D8 spawn-plan files, D4/D5/D6 event rows, and
+D7 `cw_id` columns in `.gsd-t/token-log.md`.
+
+**Module**: `bin/parallelism-report.cjs` —
+`computeParallelismMetrics({projectDir, wave?, now?})` returns the shape
+defined in `.gsd-t/contracts/parallelism-report-contract.md` v1.0.0.
+`buildFullReport(...)` returns a post-mortem markdown string with Summary,
+Per-spawn timeline, Per-gate decisions, Per-worker Gantt, Token cost, and
+Notes sections.
+
+**Install location**: the dashboard server (installed at
+`~/.claude/scripts/gsd-t-dashboard-server.js`) resolves
+`require(path.join(__dirname, "..", "bin", "parallelism-report.cjs"))` at
+request time, so the module must live at **`~/.claude/bin/parallelism-report.cjs`**.
+The installer handles this via `installGlobalBinTools()` (driven by
+`GLOBAL_BIN_TOOLS` in `bin/gsd-t.js`), and `gsd-t doctor` flags any missing
+entry. This is distinct from `PROJECT_BIN_TOOLS`, which copies into each
+registered project's local `bin/`.
+
+**Data flow**:
+
+```
+  .gsd-t/spawns/*.json  ─┐                     (D8 writer)
+  .gsd-t/events/*.jsonl ─┼─▶  bin/parallelism-report.cjs
+  .gsd-t/domains/*/tasks.md ┤       │
+  .gsd-t/token-log.md   ─┘       (pure I/O — never writes, never spawns)
+                                    │
+                                    ▼
+                    scripts/gsd-t-dashboard-server.js
+                    (5s in-memory cache per wave param)
+                      ├── GET /api/parallelism           → JSON metrics
+                      ├── GET /api/parallelism/report    → markdown
+                      └── POST /api/unattended-stop      → writes sentinel
+                                    │
+                                    ▼
+                    scripts/gsd-t-transcript.html
+                    `<aside class="spawn-panel"> .parallelism-panel`
+                    polls /api/parallelism every 5s
+```
+
+**Color thresholds** (worst-of across five per-signal colors, from contract §color_state):
+
+| Signal | Green | Yellow | Red |
+|--------|-------|--------|-----|
+| activeWorkers / readyTasks | ≥80% | 50–80% | <50% AND >10 min since last spawn |
+| Gate veto rate (D4) | <10% | 10–30% | >30% |
+| parallelism_factor vs. D6 estimate | ≥80% | 50–80% | <50% |
+| Spawn age (any active worker) | <30 min | 30–45 min | >45 min |
+| Time since last `spawn_started` (when ready>0) | <5 min | 5–10 min | >10 min |
+
+Special: `color_state === "dimmed"` when no spawn-plan files exist (idle
+project) — never red.
+
+**Silent-fail invariant**: malformed spawn-plan JSON, corrupt JSONL event
+lines, missing `.gsd-t/domains/`, missing `.gsd-t/token-log.md` — every
+case logs a note to `metrics.notes` / Full Report `## Notes` and continues
+with partial data. Observer must never throw when watching a live system.
+
+**Contract**: `.gsd-t/contracts/parallelism-report-contract.md` v1.0.0.
+
+**Tests**: `test/m44-d9-parallelism.test.js` — 16 tests covering metric
+shape, parallelism_factor math (live 1-worker, 4-worker, mixed-duration,
+post-wave), color-state thresholds, silent-fail on malformed inputs, Full
+Report markdown sections, and `/api/parallelism*` endpoint shape + 5s
+cache behaviour.
+
+## Planned Architecture Changes (M23-M24)
+
+**M23: Headless Mode**
+- New `gsd-t headless` CLI subcommand wrapping `claude -p` for unattended execution.
+- New `gsd-t headless query` for instant JSON state access (no LLM).
+
+**M24: Docker**
+- Dockerfile + docker-compose for containerized enterprise execution.
+
+## Known Architecture Concerns
+
+1. **CLI single-file size**: bin/gsd-t.js at 1,438 lines exceeds the 200-line convention, but splitting adds complexity for questionable benefit given zero-dependency constraint. Accepted deviation.
+2. **Four-file synchronization**: Any command change requires updating README, GSD-T-README, CLAUDE-global template, and gsd-t-help. Manual process — no automated validation.
+3. **Pre-Commit Gate unenforced**: Mental checklist in CLAUDE.md, not a git hook or CI check.
+4. **Progress.md Decision Log growth**: Unbounded append-only log. May need periodic archival strategy for long-lived projects.
+
+## M46 Worker Sub-Dispatch
+
+`bin/gsd-t-worker-dispatch.cjs` lets an unattended supervisor worker iteration fan out its own file-disjoint tasks as concurrent sub-workers. The module's `dispatchWorkerTasks({projectDir, parentSessionId, tasks, maxParallel})` entry point gates on three conditions: `process.env.GSD_T_UNATTENDED_WORKER === '1'` (caller runs inside a supervisor-launched worker child), `tasks.length > 1`, and pairwise file-disjointness across the task set's `files` arrays. When all three hold, it emits a spawn-plan frame with `kind: 'unattended-worker-sub'` and delegates execution to `bin/gsd-t-parallel.cjs::runDispatch` — the same M44-verified instrument the in-session planner uses. When any condition fails it returns `{parallel: false, reason}` and the worker falls through to its existing serial path.
+
+Architecturally the module is a **new consumer** of `runDispatch`, not a modifier. The in-session dispatch call site is byte-identical post-D2; the worker adapter is a sibling caller. This completes the three-layer unattended parallelism model: supervisor iterations run in parallel (M46 D1 iter-parallel), each iteration's worker may sub-dispatch its disjoint tasks (M46 D2), and within the orchestrator the `/gsd` router still fans out via `runDispatch` for in-session action turns (M44). All three layers share one dispatch instrument and one disjointness predicate.
+
+Contract: `.gsd-t/contracts/headless-default-contract.md` v2.1.0 §Worker Sub-Dispatch.
+
+## M46 Iteration-Parallel Supervisor
+
+`bin/gsd-t-unattended.cjs` ships four helpers that scaffold iteration-level parallelism in the supervisor main loop: `_runOneIter(state, opts)` is the extract-method of the single-iter body (one `claude -p` dispatch, heartbeat bookkeeping, state mutation) and returns an `IterResult` envelope; `_computeIterBatchSize(state, opts)` is the mode-safety gate that returns `1` when `state.status === "verify-needed"`, when `state.milestoneBoundary === true`, when `state.status === "complete-milestone"`, or when the caller did not pass `opts.maxIterParallel` as a number, and otherwise returns `min(opts.maxIterParallel, remainingIters, 8)` with a hard ceiling of 8; `_runIterParallel(state, opts, iterFn, batchSize)` is the concurrent driver — it builds `batchSize` promises, awaits them with `Promise.allSettled` so a rejected slice does not cancel siblings, and maps rejections into `{status: "error", tasksDone: [], verifyNeeded: false, artifacts: [], error}` envelopes; `_reconcile(state, results)` folds the `IterResult[]` back into canonical state with append-only union on `completedTasks`, last-writer-wins on `status`, OR across `verifyNeeded`, append on `artifacts`, and an overwrite `lastBatch` metadata block.
+
+The production main loop currently runs exactly one iter per pass (`batchSize === 1`) always, unless a caller explicitly threads `opts.maxIterParallel` as a number through `_computeIterBatchSize` — which today's supervisor CLI does not. The four helpers are exported via `module.exports.__test__` so the T7 unit suite and any future caller can exercise batched iteration deterministically, but iter-parallelism at this layer is **scaffolded, not engaged in production**. The gate is intentional: `_runOneIter` mutates shared `state` fields (`state.iter`, heartbeat bookkeeping, the `writeState` side effect) that are not safe to execute concurrently against the same state object. Backlog #24 tracks the follow-up to make `_runOneIter` state-clone-safe and lift the production gate so the supervisor CLI can set a non-1 default.
+
+Contract: `.gsd-t/contracts/iter-parallel-contract.md` v1.0.0.
+
+## Playwright Deterministic Enforcement (M50, v3.21.x+)
+
+M50 retires the prose-only "Playwright Readiness Guard" in favor of executable enforcement. Three layers, each runnable from the CLI or from any caller via the exported library:
+
+1. **Bootstrap library** (`bin/playwright-bootstrap.cjs` + `bin/ui-detection.cjs`) — single-source library exposing `hasPlaywright`, `detectPackageManager`, `installPlaywright`, `installPlaywrightSync`, `verifyPlaywrightHealth`, `hasUI`, `detectUIFlavor`. Zero external runtime dependencies. The async + sync install variants share the same template, error classifier, and idempotency invariants per `playwright-bootstrap-contract.md` §3-§8.
+
+2. **Spawn-time gate** (`bin/headless-auto-spawn.cjs::autoSpawnHeadless`) — when the command being spawned is in the `TESTING_OR_UI_COMMANDS` whitelist (`gsd-t-execute`, `gsd-t-test-sync`, `gsd-t-verify`, `gsd-t-quick`, `gsd-t-wave`, `gsd-t-milestone`, `gsd-t-complete-milestone`, `gsd-t-debug`, `gsd-t-integrate`) AND `hasUI(projectDir)` AND `!hasPlaywright(projectDir)`, the gate auto-installs via `installPlaywrightSync`. On install failure, the gate writes `mode: 'blocked-needs-human'` to the headless session-state file and exits with code 4. Hot-path overhead: three filesystem checks (Set lookup + depth-bounded fs walk + existsSync).
+
+3. **Commit-time gate** (`scripts/hooks/pre-commit-playwright-gate`) — opt-in via `gsd-t doctor --install-hooks`. The bash hook reads `.gsd-t/.last-playwright-pass` (Unix epoch ms) and blocks commits that touch viewer-source files (`scripts/gsd-t-transcript.html`, `scripts/gsd-t-dashboard-server.js`, `e2e/viewer/**`) when any staged file's mtime exceeds the recorded pass. Fails open on missing/corrupt timestamps — a broken hook is worse than a permissive one.
+
+CLI surface added in M50: `gsd-t setup-playwright [path]` (single-project explicit installer), `gsd-t doctor --install-playwright` (fix-it-now flag), `gsd-t doctor --install-hooks` (pre-commit-gate installer). `gsd-t init` and `gsd-t update-all` invoke `installPlaywright` automatically for any UI project that's missing it.
+
+Contract: `.gsd-t/contracts/playwright-bootstrap-contract.md` v1.0.0.
+
+## Journey Coverage Enforcement (M52, v3.22.x+)
+
+M52 layers a journey-coverage gate on top of M50's Playwright enforcement. M50 makes sure Playwright runs; M52 makes sure every interactive viewer surface has a journey spec asserting user-visible state change. Three components:
+
+1. **Listener detector** (`bin/journey-coverage.cjs`) — regex-based source-form scanner with single-pass string-mask precomputation (handles `//`, `/*…*/`, `<!-- -->`, `'`/`"`/template literals). Recognises 6 listener kinds per `journey-coverage-contract.md` §3: `addEventListener`, `inline-handler`, `function-call`, `mutation-observer`, `hashchange`, `delegated`. Exports `detectListeners`, `loadManifest`, `findGaps`, `formatReport`. Zero parser deps (no acorn/babel). Sub-100ms on the full viewer file set.
+
+2. **CLI** (`bin/journey-coverage-cli.cjs` → `gsd-t check-coverage`) — supports `--staged-only`, `--manifest PATH`, `--quiet`. Exit codes per contract §5: 0 = clean, 4 = coverage gap or stale entry, 2 = manifest missing/unreadable. Vacuous-pass when zero listeners + zero specs.
+
+3. **Commit-time gate** (`scripts/hooks/pre-commit-journey-coverage`) — auto-installed by `gsd-t install` and `gsd-t init`, manually re-installable via `gsd-t doctor --install-journey-hook`. Fires when staged files match the viewer-source pattern set (`scripts/gsd-t-transcript.html`, `scripts/gsd-t-dashboard-server.js`, `bin/gsd-t-dashboard*.cjs`, `e2e/journeys/`, `e2e/viewer/`). Idempotent install via `# >>> GSD-T journey-coverage gate >>>` marker block (mirrors M50 idiom). Fail-open on detector internal exception.
+
+The content layer that the enforcer measures against ships in M52 D2: 12 inaugural journey specs in `e2e/journeys/` (one per interactive surface), `.gsd-t/journey-manifest.json` with 12 entries 1:1 with the spec files, and 3 real-data NDJSON fixtures in `e2e/fixtures/journeys/` (sliced from captured `.gsd-t/transcripts/in-session-*.ndjson` files with PII scrub applied). Every assertion verifies state changed / data flowed / content loaded / widget responded — zero `toBeVisible`/`toBeAttached` shallow assertions across the 12 specs.
+
+A new Red Team category — "Test Pass-Through — Journey Edition" — extends `templates/prompts/red-team-subagent.md` to mandate adversarial validation: write ≥5 broken viewer patches, run the journey specs, every patch must be caught (verdict FAIL otherwise).
+
+Contract: `.gsd-t/contracts/journey-coverage-contract.md` v1.0.0.
+
+## Live Activity Observability (M54 — v3.24.10)
+
+The dashboard left rail today only catches detached `claude -p` workers via `.gsd-t/spawns/*.json`. Heavy in-session work (a backgrounded `Bash`, a `Monitor` watch, a slow tool_use) has no rail representation, leaving the user blind to what's running. M54 adds a "LIVE ACTIVITY" section between MAIN SESSION and LIVE SPAWNS that surfaces all four kinds in one place.
+
+**Module**: `bin/live-activity-report.cjs` — `computeLiveActivities({projectDir, now?})` returns the contract shape. Pure read-only, silent-fail. Mirrors `bin/parallelism-report.cjs` shape; installed via `installGlobalBinTools()` to `~/.claude/bin/live-activity-report.cjs`.
+
+**Data flow**:
+
+```
+  .gsd-t/events/*.jsonl              ─┐         (heartbeat-emitted tool events)
+  ~/.claude/projects/<slug>/<sid>.jsonl ┼─▶  bin/live-activity-report.cjs
+  .gsd-t/spawns/*.json               ─┘            │  (dedupe by tool_use_id)
+                                                   ▼
+                              scripts/gsd-t-dashboard-server.js
+                              (5s in-memory cache, additive endpoints)
+                                ├── GET /api/live-activity            → JSON index
+                                ├── GET /api/live-activity/<id>/tail  → last 64 KB stdout/stderr
+                                └── GET /api/live-activity/<id>/stream → SSE follow-up
+                                                   │
+                                                   ▼
+                              scripts/gsd-t-transcript.html
+                              `<aside class="left-rail">` — new section "LIVE ACTIVITY"
+                              polls /api/live-activity every 5s; pulses new entries
+```
+
+**Liveness falsifiers** (any → entry leaves activities[]):
+1. Explicit terminating event (tool_result, monitor_stopped, spawn_completed).
+2. PID check fails (`process.kill(pid, 0)` throws ESRCH) for kinds with a recorded PID.
+3. Source file mtime > 60s old.
+
+**Pulse semantics**: new entries get class `.la-pulsing`. Pulse stops on click OR on liveness loss OR after 30s — whichever first. No auto-switch of the bottom pane on entry arrival; only the pulse signals attention.
+
+**Silent-fail invariant**: malformed events JSONL, missing slug-decoded transcript, unreadable spawn-plan JSON — every case logs to `metrics.notes` and continues with partial data. Observer must never throw when watching a live system.
+
+**Out of scope**: cross-project aggregation (read OTHER projects' transcripts) is M55 candidate territory.
+
+Contract: `.gsd-t/contracts/live-activity-contract.md` v1.0.0 STABLE (D1 complete 2026-05-07).
+
+**Endpoint signatures** (D1 implemented):
+- `GET /api/live-activity` → `handleLiveActivity(req, res, projectDir)` — 5s cache, `Cache-Control: no-store`, returns JSON envelope `{schemaVersion:1, activities:[], notes:[]}`
+- `GET /api/live-activity/<id>/tail` → `handleLiveActivityTail(req, res, projectDir, id)` — 5s per-id cache, path-traversal guard via `isValidActivityId`, 400 on invalid id, 404 on unknown id
+- `GET /api/live-activity/<id>/stream` → `handleLiveActivityStream(req, res, projectDir, id)` — SSE, uncached, 15s heartbeat, closes when activity removed
+
+**Install path**: `~/.claude/bin/live-activity-report.cjs` (via `GLOBAL_BIN_TOOLS` in `bin/gsd-t.js`, installed by `installGlobalBinTools()`).
+
+**D2 rail section** (`scripts/gsd-t-transcript.html`, D2 complete 2026-05-07):
+
+The viewer's left rail gains a new `<section id="rail-live-activity">` inserted between MAIN SESSION and LIVE SPAWNS. The section is purely additive — no existing sections were modified.
+
+Rail behavior:
+- 5s polling interval via `setInterval` (`wireLiveActivity()` IIFE in inline `<script>`)
+- On each poll, `reconcile(activities)` diffs the DOM against the API response:
+  - New entries: `appendActivity(entry)` creates `.la-entry` with dot + icon + 40-char label + duration counter; applies `.la-pulsing`
+  - Removed entries: `removeActivity(id)` removes element from DOM
+  - Existing entries: `updateDuration(id, startedAt)` refreshes the wall-clock counter
+- Pulse stops on: (a) click, (b) entry absent in next response, (c) 30s elapsed (`setTimeout`)
+- Click handler: `stopPulse(id)` + `loadTailUrl(tailUrl)` — loads tail content into the bottom pane; NO auto-switch on entry arrival
+- Error tolerance: fetch 500 or network error → log once, empty section header, no crash
+
+CSS additions: `@keyframes accent-pulse` (~1.5s), `.la-pulsing`, `.la-dot-running` (teal), `.la-dot-stale` (dimmed), `.la-icon-{bash,monitor,tool,spawn}`, `.la-label` (40-char truncated).
+
+**Executable attestation**: 2 live-journey specs in `e2e/live-journeys/`:
+- `live-activity.spec.ts`: single bash, asserts 5s appearance, pulse, duration tick, click→tail, kill→5s disappearance; self-skips if no dashboard
+- `live-activity-multikind.spec.ts`: 3 concurrent kinds (bash + monitor + tool) via synthetic events JSONL, asserts dedup correctness; self-skips if no dashboard
+
+## CLI-Preflight Pattern + Verify-Gate (M55 — v3.25.10)
+
+M55 ships a deterministic, pluggable state-precondition library + parallel-CLI
+substrate + two-track verify-gate that lift the practical parallelism ceiling
+from ~3 LLM workers to ~6–10 mixed workers (1 LLM judge + N CLIs) by replacing
+deterministic LLM work with deterministic CLI work, prove the lift via empirical
+measurement, and gate every spawn with deterministic state checks.
+
+### Five domains, three waves
+
+| Domain | Owns | Wave |
+|--------|------|------|
+| D1 — `m55-d1-state-precondition-library` | `bin/cli-preflight.cjs` + 6 checks under `bin/cli-preflight-checks/` + `cli-preflight-contract.md` | Wave 1 (parallel) |
+| D2 — `m55-d2-parallel-cli-substrate` | `bin/parallel-cli.cjs` + `bin/parallel-cli-tee.cjs` + `bin/m55-substrate-proof.cjs` + `parallel-cli-contract.md` | Wave 2 |
+| D3 — `m55-d3-ratelimit-probe-map` | `bin/gsd-t-ratelimit-probe.cjs` + worker + 4 fixtures + `.gsd-t/ratelimit-map.json` + `ratelimit-map-contract.md` | Wave 1 (parallel) |
+| D4 — `m55-d4-context-brief-generator` | `bin/gsd-t-context-brief.cjs` + 6 kind collectors + `context-brief-contract.md` | Wave 1 (parallel) |
+| D5 — `m55-d5-verify-gate-and-wirein` | `bin/gsd-t-verify-gate.cjs` + judge companion + 3 e2e/journeys SC3 specs + all wire-ins + doc ripple + `verify-gate-contract.md` | Wave 3 |
+
+### Pattern A — State Preflight (D1)
+
+`bin/cli-preflight.cjs::runPreflight({projectDir, checks?})` returns a versioned
+envelope `{schemaVersion: '1.0.0', ok, checks: [], notes: []}`. Six built-in
+checks (kebab-case ids; severity `error`/`warn`/`info`):
+
+- `branch-guard` (error) — reads project CLAUDE.md `Expected branch:` line, compares to `git branch --show-current`
+- `contracts-stable` (warn) — flags `Status: DRAFT`/`PROPOSED` contracts past PARTITIONED
+- `deps-installed` (warn) — `node_modules/` present + lockfile mtime ≥ manifest mtime
+- `manifest-fresh` (info) — `.gsd-t/journey-manifest.json` mtime ≥ every `e2e/journeys/*` mtime
+- `ports-free` (error) — `requiredFreePorts: number[]` from `.gsd-t/.unattended/config.json` not occupied
+- `working-tree-state` (warn) — `git status --porcelain` clean (or whitelisted)
+
+Top-level `ok` flips to `false` only when at least one `severity:"error"`
+check fails. Non-error failures (warn/info) record but do not block. Adding a
+new check is a single-file drop into `bin/cli-preflight-checks/`. CLI exit
+codes: 0 = ok, 4 = fail. captureSpawn-exempt (pure inspection, no LLM spawn).
+
+### Pattern B — Context Brief (D4)
+
+`bin/gsd-t-context-brief.cjs::generateBrief({projectDir, kind, domain, spawnId})`
+generates a ≤10 KB / ≤2,500-token JSON snapshot that replaces the 30–60k context
+re-read every parallel worker would otherwise perform — the dominant ITPM-relief
+lever in M55. Six kinds: `execute`, `verify`, `qa`, `red-team`,
+`design-verify`, `scan`. Schema includes `sourceMtimes` for freshness and
+ALPHABETICAL top-level keys for deterministic byte-identical re-runs.
+
+Briefs land at `.gsd-t/briefs/{spawnId}.json` (gitignored — per-spawn
+ephemera). Workers receive `$BRIEF_PATH` in their prompt scaffold.
+
+`qa`, `red-team`, and `design-verify` kinds fail-closed on missing required
+sources. `--strict` upgrades fail-open kinds (`execute`, `verify`, `scan`) to
+fail-closed. Path safety: `--domain` and `--spawn-id` accept ONLY `^[a-zA-Z0-9_-]+$`.
+
+### Pattern C — Empirical Rate-Limit Map (D3)
+
+`bin/gsd-t-ratelimit-probe.cjs` sweeps a `{1,2,3,4,5,6,8} workers × {10k,30k,60k,100k} context` matrix
+across real Claude Max OAuth spawns. The published `.gsd-t/ratelimit-map.json`
+declares: `peakConcurrency=8`, `safeConcurrencyAt60kContext=5`,
+`perWorkerContextBudgetTokens=30000`, `backoffMs=0`,
+`steadyState3Workers5MinPass=true`, **0/84 total 429s**.
+
+D5's verify-gate reads `recommended.peakConcurrency` and passes it to
+`runParallel`'s `maxConcurrency`. If the map is missing,
+verify-gate falls back to `maxConcurrency=2` and logs a structured note.
+
+Account masking enforced: `oauth-c2cc7a8131c440c8`-prefix only, never raw
+token, per `ratelimit-map-contract.md` § Account Masking.
+
+### Pattern D — Parallel-CLI Substrate (D2)
+
+`bin/parallel-cli.cjs::runParallel({workers, maxConcurrency, failFast?, teeDir?})`
+is the engine D5's verify-gate fans out through. Every worker spawn flows
+through `bin/gsd-t-token-capture.cjs::captureSpawn` (CLIs render `—` in the
+Tokens cell — never `0`, never `N/A`). Per-worker NDJSON tee via
+`bin/parallel-cli-tee.cjs`. Per-worker timeout cancels only that worker;
+fail-fast SIGTERM in-flight + 5s grace SIGKILL.
+
+`bin/m55-substrate-proof.cjs` records the empirical speedup: **5.57×** wall-clock
+reduction (T_serial=1813.3ms vs T_par=325.6ms across 6 sleep=250ms workers).
+
+### Two-Track Verify-Gate (D5)
+
+`bin/gsd-t-verify-gate.cjs::runVerifyGate(...)` runs BOTH tracks unconditionally
+unless explicitly skipped via `--skip-track1`/`--skip-track2` (diagnostic-only).
+
+- **Track 1** = D1 preflight envelope; hard-fails on any `severity:"error"` check.
+- **Track 2** = D2 `runParallel` fans out off-the-shelf CLIs: `tsc` (typecheck),
+  `biome`/`ruff` (lint), `npm test` (tests), `knip` (dead-code), `gitleaks` (secrets),
+  `scc`/`lizard` (complexity). Detected via `node_modules/.bin/` and PATH probes —
+  D5 NEVER auto-installs.
+
+`top-level ok = (skipTrack1 || track1.ok) && (skipTrack2 || track2.ok)` —
+purely deterministic. The LLM judge sees only the `summary` field (≤500 tokens,
+head-and-tail snippets per worker; raw stdout/stderr stays at
+`.gsd-t/verify-gate/{runId}/{workerId}.{stdout,stderr}.ndjson` for human-only
+inspection). The judge confirms or contradicts the deterministic verdict; it
+never overrides `ok`.
+
+`bin/gsd-t-verify-gate-judge.cjs` produces the ≤500-token LLM prompt scaffold,
+shrinking failedWorkers/failedChecks lists and snippets iteratively to fit
+the budget regardless of envelope size.
+
+### Wire-Ins
+
+Four CLI subcommands in `bin/gsd-t.js`: `gsd-t preflight`, `gsd-t brief`,
+`gsd-t verify-gate`, `gsd-t verify-gate-judge`. All four added to
+`GLOBAL_BIN_TOOLS` so `~/.claude/bin/` updates propagate via `gsd-t update-all`.
+
+Command-file additive blocks (gated by `<!-- M55-D5: ... -->` markers asserted
+by 3 wire-in tests):
+- `commands/gsd-t-execute.md` Step 1 — preflight + brief invocation, threads
+  `$BRIEF_PATH` into worker prompt scaffolds
+- `commands/gsd-t-verify.md` Step 2 — verify-gate invocation + judge pipe
+- `templates/prompts/{qa,red-team,design-verify}-subagent.md` — "brief first"
+  rule directs workers to grep the ≤2,500-token snapshot before re-walking the repo
+
+### Success Criteria — Falsifiable
+
+1. ✓ State-preflight envelope schema published as STABLE contract (D1)
+2. ✓ Substrate proves ≥3× speedup — measured 5.57× (D2)
+3. ✓ Verify-gate blocks ≥3 distinct preflight failure classes — wrong branch +
+   port conflict + DRAFT contract, evidenced by 3 e2e/journeys specs (D5)
+4. ☐ ≥40% token reduction per milestone for execute+verify cycles (measured
+   during integrate phase)
+5. ✓ Zero 429 errors at parallelism level D3 declared safe + peak parallelism
+   ≥6 — measured 0/84 errors at peak 8 (D3)
+6. ☐ Verify-gate wall-clock ≤ ½ trailing-3 median (measured during integrate)
+7. ☐ Red Team GRUDGING PASS — ≥5 broken patches, all caught (post-wave)
+8. ☐ Zero regressions on `npm test` baseline (verified pre-tag)
+

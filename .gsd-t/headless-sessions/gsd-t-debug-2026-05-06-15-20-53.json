@@ -1,0 +1,14 @@
+{
+  "id": "gsd-t-debug-2026-05-06-15-20-53",
+  "pid": 95468,
+  "logPath": ".gsd-t/headless-gsd-t-debug-2026-05-06-15-20-53.log",
+  "startTimestamp": "2026-05-06T22:20:53.015Z",
+  "command": "gsd-t-debug",
+  "args": [
+    "Read /tmp/m51-debug-prompt.txt for the full issue. Fix TEST-M50-001 + strengthen all 5 viewer specs + run adversarial Red Team that writes broken implementations and proves the specs catch them.",
+    "--timeout=3600"
+  ],
+  "status": "running",
+  "continueFromPath": ".",
+  "surfaced": false
+}

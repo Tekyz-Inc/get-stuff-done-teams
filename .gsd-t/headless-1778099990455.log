@@ -1,0 +1,12 @@
+GSD-T Headless Log
+Command: partition
+Args: 
+Timestamp: 2026-05-06T20:39:50.455Z
+Duration: 522266ms
+Exit Code: 0
+---
+## Auto-Clear
+
+All partition state is committed to project files (`.gsd-t/domains/m50-*/`, `.gsd-t/contracts/playwright-bootstrap-contract.md`, `.gsd-t/contracts/m50-integration-points.md`, `.gsd-t/progress.md`, `docs/requirements.md`). Per Level 3 auto-advance, the next phase is `/gsd-t-plan` — invoking it directly would carry the partition working memory into plan unnecessarily. The command's protocol calls for `/clear` here.
+
+Note: I'll note the auto-clear intent — the `/clear` is a slash command the user types into the input, not something I can execute via tools. The Next Up block above is the prompt the user can press through to advance.

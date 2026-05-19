@@ -1,0 +1,53 @@
+
+[1mGSD-T Headless — execute[0m
+[36m  ℹ[0m Prompt: /gsd-t-execute
+[36m  ℹ[0m Timeout: 300s
+[36m  ℹ[0m Log: /Users/david/projects/GSD-T/.gsd-t/headless-1776964946728.log
+
+
+[1mGSD-T Headless — execute[0m
+[36m  ℹ[0m Prompt: /gsd-t-execute
+[36m  ℹ[0m Timeout: 300s
+[36m  ℹ[0m Log: /Users/david/projects/GSD-T/.gsd-t/headless-1776964946834.log
+
+
+[1mGSD-T Headless — execute[0m
+[36m  ℹ[0m Prompt: /gsd-t-execute
+[36m  ℹ[0m Timeout: 300s
+[36m  ℹ[0m Log: /Users/david/projects/GSD-T/.gsd-t/headless-1776964946957.log
+
+
+[1mGSD-T Headless — execute[0m
+[36m  ℹ[0m Prompt: /gsd-t-execute
+[36m  ℹ[0m Timeout: 300s
+[36m  ℹ[0m Log: /Users/david/projects/GSD-T/.gsd-t/headless-1776964947165.log
+
+No direct trace in the d3 domain; the deferral lives only in backlog #15. I have everything I need.
+
+**Step 4 plan — minimal shape honoring the simplicity directive:**
+
+Build one fixture runner at `test/m44-proof-fixtures.test.js` that contains both proofs as standard Node test cases. No new CLI, no new instrument — the existing `npm test` is the measurement instrument.
+
+- **In-session T/2 proof**: synthetic 2-task disjoint fixture. Run twice — once through `runDispatch({mode:'in-session'})` (parallel) and once through a sequential reference path. Time both via `process.hrtime.bigint()`. Assert `parallel_ms ≤ sequential_ms / 2 + 500ms_safety`.
+- **Unattended zero-compaction proof**: use `_testModeSpawnWorker` stub (already exists at ~line 1438 of `bin/gsd-t-unattended.cjs`), run `runMainLoop` with `--max-iterations 5`, snapshot `.gsd-t/metrics/compactions.jsonl` size before/after, assert equal.
+
+This is a single test file, single measurement instrument (`node --test`), honors the simplicity directive, and makes Step 6 trivially a re-run of `npm test -- --test-name-pattern="proof"`.
+
+This is a ~2-3 hour implementation with real subtleties (synthetic fixture design, timer granularity, test-mode stub behavior). Given the user's standing directive "all commands when safe should spawn headless when possible" and "dialog = decisions + supervision; everything else = headless" — this should go to a detached headless child.
+
+The honest answer: I don't have a tool that cleanly spawns a prompt-driven headless Claude from this dialog. `gsd-t headless <command>` runs GSD-T commands. `gsd-t parallel --command gsd-t-execute --milestone M44` would fan out M44-D9 tasks (Step 5 work) through `autoSpawnHeadless()`. Step 4 is not a tasks.md domain, so the existing instruments don't apply directly.
+
+Pragmatic path forward: implement Step 4 in dialog (it's modest code), run it, then Step 5 (the M44-D9 tasks) gets dispatched headless via the instrument — which is the cleaner dogfooding target anyway.
+
+Proposed: I'll author `test/m44-proof-fixtures.test.js` now with both proofs, run it, and if it passes, proceed to Step 5 by invoking `node bin/gsd-t.js parallel --command gsd-t-execute --milestone M44` (detached headless fan-out of 4 D9 workers). Step 6 measurement becomes the final `npm test` result + headless worker transcripts.
+
+Does this match your intent, or did you want Step 4 fixtures spawned through a different mechanism (e.g., you want me to add a `gsd-t proof` subcommand first, then dogfood that)?
+API Error: Server is temporarily limiting requests (not your usage limit) · Rate limited
+
+[33m  ⚠[0m Exit code: 3
+API Error: Server is temporarily limiting requests (not your usage limit) · Rate limited
+
+[33m  ⚠[0m Exit code: 3
+API Error: Server is temporarily limiting requests (not your usage limit) · Rate limited
+
+[33m  ⚠[0m Exit code: 3

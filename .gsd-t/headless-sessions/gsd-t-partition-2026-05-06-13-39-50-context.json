@@ -1,0 +1,6 @@
+{
+  "intent": "M50 partition — formalize D1 bootstrap-and-detection + D2 gates-and-specs",
+  "requestedBy": "M50-CHAIN-POLL cron after M50 DEFINED + milestone child exited",
+  "milestone": "M50",
+  "partitionHint": "D1 owns bin/playwright-bootstrap.cjs + bin/ui-detection.cjs; D2 owns bin/headless-auto-spawn.cjs + scripts/hooks/pre-commit-playwright-gate + e2e/. Both touch bin/gsd-t.js — integration checkpoint after D1 lands."
+}

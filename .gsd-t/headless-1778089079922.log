@@ -1,0 +1,35 @@
+GSD-T Headless Log
+Command: debug
+Args: Read /tmp/m48-debug-prompt.txt for the full issue description and proceed with all 4 bugs.
+Timestamp: 2026-05-06T17:37:59.922Z
+Duration: 1806577ms
+Exit Code: 0
+---
+Threshold check:
+- Files: `scripts/`, `test/`, `.gsd-t/` (3 directories, but `.gsd-t/` is state not docs)
+- No contract/template/CLAUDE.md/command files modified
+- Changes are implementation-only (HTML viewer + JS server + tests + state docs)
+- Source: 2 files in 1 directory (scripts/), tests: 2 files in 1 directory (test/)
+
+DOC-RIPPLE THRESHOLD: **SKIP** — Files changed in 2 source directories only, no contract/template/CLAUDE.md/command files were modified, changes are implementation-only with no interface changes.
+
+Per protocol Step 6: "If SKIP: log 'Doc-ripple: SKIP — {reason}' and proceed to completion."
+
+Doc-ripple: SKIP — implementation-only bug fixes in `scripts/` + `test/`, no contracts/templates/CLAUDE.md/commands modified.
+
+## M48 — Complete
+
+**4 viewer rendering bugs fixed in 2 files** (`scripts/gsd-t-transcript.html`, `scripts/gsd-t-dashboard-server.js`).
+
+| Bug | Fix |
+|---|---|
+| 1. Hardcoded "GSD-T Transcript" header | `__PROJECT_NAME__` placeholder + server-side `path.basename(projectDir)` substitution with HTML-escape and function-form replace (defuses `$&` in basename) |
+| 2. Frame timestamps all identical in batch | New `frameTs(frame, fallback)` parses `frame.ts`; SSE handlers thread `renderAt = frameTs(frame, arrivedAt)` through `renderFrame` |
+| 3. user_turn/assistant_turn/session_start as JSON dumps | 4 new chat-bubble renderers + dispatch arms before the JSON.stringify fallback; new CSS for assistant-turn / session-start / truncated tag |
+| 4. Top + bottom panes show identical content | 5 guards prevent `in-session-*` ids from leaking into bottom pane (rail click, initial-resolution, hashchange, auto-follow filter, legacy renderTree click) |
+
+**Tests**: `test/m48-viewer-rendering-fixes.test.js` 23/23 pass. Suite **2081/2083** (2 pre-existing env-sensitive flakes preserved from M47 baseline).
+
+**Red Team adversarial QA (opus)**: initial sweep flagged 1 MEDIUM (`$&`-corruption) + 1 LOW (legacy renderTree); both fixed in same pass with regression tests. Re-verification: GRUDGING PASS — no new bugs.
+
+**Commit**: `563f8eb [debug] Fix viewer rendering regressions (post-M47) — 4 bugs`. Doc-ripple: SKIP (implementation-only, no contract/template/CLAUDE.md/command changes).

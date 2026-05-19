@@ -1,0 +1,23 @@
+GSD-T Headless Log
+Command: debug
+Args: Read /tmp/m51-debug-prompt.txt for the full issue. Fix TEST-M50-001 + strengthen all 5 viewer specs + run adversarial Red Team that writes broken implementations and proves the specs catch them.
+Timestamp: 2026-05-06T22:20:53.085Z
+Duration: 1023520ms
+Exit Code: 0
+---
+## M51 Debug Complete
+
+**Success criteria met (all 4):**
+
+1. **`npx playwright test` returns exit 0 against v3.22.10 viewer** — 19/19 passing.
+2. **All 5 adversary patches FAIL the strengthened specs** — proven live, exit code non-zero captured per adversary, source files restored to backups byte-identical.
+3. **`M51 RED TEAM FINDINGS` section in `.gsd-t/red-team-report.md`** — enumerates each adversary technique with the specific test that caught it.
+4. **`test/m48-viewer-rendering-fixes.test.js` unchanged** — only `e2e/viewer/*.spec.ts` tightened; full unit suite 2166/2166.
+
+**What changed:**
+- Spec count: 9 → 19 tests across 5 files.
+- Production viewer source: **unchanged** (no real bugs behind adversary patches — this was test-suite rigor, not viewer fixes).
+- Pattern shift: substring/existence assertions → outcome-based (CSS class membership, exact text equality, MutationObserver pane attribution, exact regex banner shape).
+- Bonus fix: ephemeral port (`port: 0` + `server.address().port`) replaces `Math.random()*100` ports, eliminating EADDRINUSE collisions in parallel Playwright workers.
+
+**Committed:** `edee681` on `main`.
