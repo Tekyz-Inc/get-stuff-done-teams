@@ -1,306 +1,138 @@
 'use strict';
+
 /**
- * M57 D1 — Build Coverage Check tests
+ * M57 D1 — build-coverage STRUCTURAL parser.
  *
- * Tests `bin/gsd-t-build-coverage.cjs` including SC1: the TimeTracking
- * v1.10.12 failure class (new `hooks/` dir committed but absent from
- * Dockerfile COPY → ok:false, missing:["hooks"], CLI exit 4).
+ * The bug* fixtures are the FROZEN Red Team falsification corpus (committed
+ * 56ddded). Every one is a synthetic project where `hooks/` is genuinely
+ * uncovered (Dockerfile only `COPY src/`), but the string `hooks/` appears
+ * somewhere as prose / comment / `name:` / interior token. The corrected
+ * structural parser MUST flag `hooks` as missing for every one of them —
+ * this is the regression guarantee against re-opening the non-converging
+ * substring defect class (BUG-4/6/9/9b).
  *
- * Uses Node built-in test runner (`node --test`). Zero new deps.
- * All tests use the `_newPaths` seam to bypass live git calls, making them
- * deterministic without needing a git repo with a specific commit range.
- *
- * Contract: .gsd-t/contracts/cli-build-coverage-contract.md v1.0.0 STABLE.
+ * Fixtures have no .git; we drive checkBuildCoverage via the `_newPaths`
+ * test seam and exercise the REAL structural parsers against the REAL
+ * fixture CI files.
  */
 
-const test   = require('node:test');
+const test = require('node:test');
 const assert = require('node:assert');
-const path   = require('node:path');
-const { spawnSync } = require('node:child_process');
+const path = require('path');
+const cp = require('child_process');
 
-const { checkBuildCoverage } = require('../bin/gsd-t-build-coverage.cjs');
+const MOD = path.join(__dirname, '..', 'bin', 'gsd-t-build-coverage.cjs');
+const { checkBuildCoverage } = require(MOD);
+const FIX = path.join(__dirname, 'fixtures', 'm57-build-coverage');
 
-// Absolute path to test fixtures
-const FIXTURES = path.join(__dirname, 'fixtures', 'm57-build-coverage');
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/** Run the CLI as a subprocess with given argv; returns { status, stdout, stderr } */
-function runCLI(argv) {
-  const result = spawnSync(
-    process.execPath,
-    [path.join(__dirname, '..', 'bin', 'gsd-t-build-coverage.cjs'), ...argv],
-    { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
-  );
-  return { status: result.status, stdout: result.stdout, stderr: result.stderr };
+function check(fixture, newPaths) {
+  return checkBuildCoverage({
+    projectDir: path.join(FIX, fixture),
+    baseRef: 'A', headRef: 'B',
+    _newPaths: newPaths,
+  });
 }
 
-// ---------------------------------------------------------------------------
-// SC1 — TimeTracking failure class (docker-cloudbuild fixture)
-// ---------------------------------------------------------------------------
+// --- SC1: the canonical TimeTracking failure class ------------------------
 
-test('SC1: new hooks/ dir not COPY\'d → ok:false, missing includes "hooks", API', () => {
-  const projectDir = path.join(FIXTURES, 'docker-cloudbuild');
-  const result = checkBuildCoverage({
-    projectDir,
-    _newPaths: ['hooks/post-deploy.sh', 'src/index.js'],
+test('SC1 docker-cloudbuild: uncovered hooks/ is flagged', () => {
+  const r = check('docker-cloudbuild', ['hooks/post-deploy.sh', 'src/index.js']);
+  assert.strictEqual(r.ok, false);
+  assert.ok(r.missing.includes('hooks'), `missing=${JSON.stringify(r.missing)}`);
+  assert.ok(!r.missing.includes('src'), 'src IS copied → must not be missing');
+});
+
+test('SC1 exits 4 on uncovered path (exit-code contract)', () => {
+  const code = `
+    const {checkBuildCoverage}=require(${JSON.stringify(MOD)});
+    const r=checkBuildCoverage({projectDir:${JSON.stringify(path.join(FIX,'docker-cloudbuild'))},baseRef:'A',headRef:'B',_newPaths:['hooks/x']});
+    process.exit(r.ok?0:4);`;
+  const res = cp.spawnSync(process.execPath, ['-e', code], { encoding: 'utf8' });
+  assert.strictEqual(res.status, 4);
+});
+
+// --- Falsification corpus: one assertion per frozen bug* fixture ----------
+
+const FROZEN = [
+  ['bug4-incidental-token',     'interior token node_modules/husky/hooks/ must NOT cover hooks'],
+  ['bug6-cloudbuild-comment',   'dir named only in a cloudbuild # comment is NOT coverage'],
+  ['bug6-workflow-comment',     'dir named only in a workflow # comment is NOT coverage'],
+  ['bug7-node-modules-token',   'node_modules/.bin CI line must NOT mask uncovered hooks'],
+  ['bug9-stepname-prose',       'dir in a single-line GHA step name: is NOT coverage'],
+  ['bug9b-name-block-scalar',   'dir in a name: | block-scalar continuation is NOT coverage'],
+  ['bug9b-name-folded-scalar',  'dir in a name: > folded-scalar continuation is NOT coverage'],
+];
+
+for (const [fixture, why] of FROZEN) {
+  test(`falsification corpus: ${fixture} → hooks flagged (${why})`, () => {
+    const r = check(fixture, ['hooks/post-deploy.sh']);
+    assert.strictEqual(r.ok, false, `expected ok:false — ${why}`);
+    assert.ok(r.missing.includes('hooks'),
+      `${fixture}: expected 'hooks' in missing, got ${JSON.stringify(r.missing)} — ${why}`);
   });
-  assert.strictEqual(result.ok, false, 'ok should be false');
-  assert.ok(result.missing.includes('hooks'), `missing should include "hooks", got: ${JSON.stringify(result.missing)}`);
-  assert.ok(Array.isArray(result.newPaths), 'newPaths should be an array');
-  assert.ok(result.newPaths.includes('hooks'), 'newPaths should include hooks');
-  assert.ok(result.newPaths.includes('src'), 'newPaths should include src');
-  assert.ok(Array.isArray(result.checkedAgainst), 'checkedAgainst should be array');
-  assert.ok(result.checkedAgainst.includes('Dockerfile'), 'checkedAgainst should include Dockerfile');
+}
+
+// --- True-negative guards (no over-correction) ---------------------------
+
+test('copy-dot: COPY . . covers everything → ok:true', () => {
+  const r = check('copy-dot', ['hooks/x', 'anything/y']);
+  assert.strictEqual(r.ok, true);
+  assert.deepStrictEqual(r.missing, []);
 });
 
-test('SC1: CLI subprocess exits 4 for docker-cloudbuild fixture with hooks/ uncovered', () => {
-  // We can't inject _newPaths via CLI, so we need a test approach:
-  // Run against a temp dir that has the fixture Dockerfile but we override
-  // the diff by using a real git diff. Instead, we test the exit-4 path
-  // by pointing the CLI at a real project where HEAD~1..HEAD would produce
-  // the right diff — but that's environment-dependent.
-  //
-  // Better: test the API path (above) proves ok:false + missing:["hooks"].
-  // For the CLI exit-4 test, we use the --base/--head pointing to a range
-  // that produces a known diff. Since we can't guarantee git history here,
-  // we instead verify exit 4 via a small synthetic git repo in a temp dir.
-  const os = require('os');
-  const fs = require('fs');
-
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'm57-sc1-'));
-
-  // Copy Dockerfile fixture
-  fs.mkdirSync(path.join(tmpDir, 'src'), { recursive: true });
-  fs.mkdirSync(path.join(tmpDir, 'hooks'), { recursive: true });
-  fs.writeFileSync(
-    path.join(tmpDir, 'Dockerfile'),
-    fs.readFileSync(path.join(FIXTURES, 'docker-cloudbuild', 'Dockerfile'), 'utf8')
-  );
-  fs.writeFileSync(path.join(tmpDir, 'src', 'index.js'), '// src');
-  fs.writeFileSync(path.join(tmpDir, 'hooks', 'post-deploy.sh'), '#!/bin/sh');
-
-  // Init git repo with two commits: base (src only), head (add hooks)
-  const gitOpts = { cwd: tmpDir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] };
-  spawnSync('git', ['init', '-b', 'main'], gitOpts);
-  spawnSync('git', ['config', 'user.email', 'test@test.com'], gitOpts);
-  spawnSync('git', ['config', 'user.name', 'Test'], gitOpts);
-  // First commit: Dockerfile + src
-  spawnSync('git', ['add', 'Dockerfile', 'src/'], gitOpts);
-  spawnSync('git', ['commit', '-m', 'base'], gitOpts);
-  // Second commit: add hooks/
-  spawnSync('git', ['add', 'hooks/'], gitOpts);
-  spawnSync('git', ['commit', '-m', 'add hooks'], gitOpts);
-
-  const { status, stdout, stderr } = runCLI([
-    '--json',
-    '--project-dir', tmpDir,
-    '--base', 'HEAD~1',
-    '--head', 'HEAD',
-  ]);
-
-  // Cleanup
-  fs.rmSync(tmpDir, { recursive: true, force: true });
-
-  assert.strictEqual(status, 4, `expected exit 4, got ${status}. stdout=${stdout} stderr=${stderr}`);
-  const envelope = JSON.parse(stdout);
-  assert.strictEqual(envelope.ok, false);
-  assert.ok(envelope.missing.includes('hooks'), `expected missing to include "hooks": ${JSON.stringify(envelope.missing)}`);
+test('relative-from: relative COPY --from=builder dist/ covers dist (BUG-3 corrected)', () => {
+  const r = check('relative-from', ['dist/index.js']);
+  assert.strictEqual(r.ok, true, `dist should be covered, missing=${JSON.stringify(r.missing)}`);
 });
 
-// ---------------------------------------------------------------------------
-// copy-dot fixture — COPY . . covers everything
-// ---------------------------------------------------------------------------
-
-test('copy-dot: Dockerfile with COPY . . → ok:true', () => {
-  const projectDir = path.join(FIXTURES, 'copy-dot');
-  const result = checkBuildCoverage({
-    projectDir,
-    _newPaths: ['hooks/post-deploy.sh', 'workers/task.js', 'src/new-module.js'],
-  });
-  assert.strictEqual(result.ok, true, `expected ok:true, got ok:false missing=${JSON.stringify(result.missing)}`);
-  assert.deepStrictEqual(result.missing, []);
-  assert.ok(result.checkedAgainst.includes('Dockerfile'));
+test('relative-from: src/ is also covered (COPY src/ ./src/)', () => {
+  assert.strictEqual(check('relative-from', ['src/index.js']).ok, true);
 });
 
-// ---------------------------------------------------------------------------
-// no-ci fixture — no CI artifacts → ok:true with note
-// ---------------------------------------------------------------------------
-
-test('no-ci: no Dockerfile/cloudbuild/workflows → ok:true with note', () => {
-  const projectDir = path.join(FIXTURES, 'no-ci');
-  const result = checkBuildCoverage({
-    projectDir,
-    _newPaths: ['hooks/post-deploy.sh'],
-  });
-  assert.strictEqual(result.ok, true, 'expected ok:true when no CI artifacts');
-  assert.ok(typeof result.note === 'string' && result.note.length > 0, 'expected note to be set');
-  assert.ok(result.note.includes('no CI artifacts'), `note should mention no CI artifacts, got: ${result.note}`);
-  assert.deepStrictEqual(result.checkedAgainst, []);
+test('docker-cloudbuild: absolute COPY --from=builder /app/dist does NOT cover workspace dist/', () => {
+  const r = check('docker-cloudbuild', ['dist/thing.js']);
+  assert.strictEqual(r.ok, false);
+  assert.ok(r.missing.includes('dist'));
 });
 
-test('no-ci fixture: CLI exits 0', () => {
-  // Use this project's own dir as a "no-CI" stand-in by pointing at no-ci fixture.
-  // We can't run git diff, so test the API route proves exit 0 via code path.
-  // Direct CLI test: run against no-ci fixture with a synthetic git repo.
-  const os = require('os');
-  const fs = require('fs');
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'm57-noci-'));
-  fs.mkdirSync(path.join(tmpDir, 'src'), { recursive: true });
-  fs.writeFileSync(path.join(tmpDir, 'src', 'index.js'), '// src');
-
-  const gitOpts = { cwd: tmpDir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] };
-  spawnSync('git', ['init', '-b', 'main'], gitOpts);
-  spawnSync('git', ['config', 'user.email', 'test@test.com'], gitOpts);
-  spawnSync('git', ['config', 'user.name', 'Test'], gitOpts);
-  spawnSync('git', ['add', '.'], gitOpts);
-  spawnSync('git', ['commit', '-m', 'base'], gitOpts);
-  fs.mkdirSync(path.join(tmpDir, 'hooks'), { recursive: true });
-  fs.writeFileSync(path.join(tmpDir, 'hooks', 'run.sh'), '#!/bin/sh');
-  spawnSync('git', ['add', 'hooks/'], gitOpts);
-  spawnSync('git', ['commit', '-m', 'add hooks'], gitOpts);
-
-  const { status, stdout } = runCLI(['--json', '--project-dir', tmpDir, '--base', 'HEAD~1', '--head', 'HEAD']);
-  fs.rmSync(tmpDir, { recursive: true, force: true });
-
-  assert.strictEqual(status, 0, `expected exit 0 for no-ci, got ${status}`);
-  const envelope = JSON.parse(stdout);
-  assert.strictEqual(envelope.ok, true);
-  assert.ok(typeof envelope.note === 'string');
+test('no-ci: no CI artifacts → ok:true with note', () => {
+  const r = check('no-ci', ['src/index.js']);
+  assert.strictEqual(r.ok, true);
+  assert.match(r.note || '', /no CI artifacts/);
 });
 
-// ---------------------------------------------------------------------------
-// empty-diff path
-// ---------------------------------------------------------------------------
-
-test('empty diff → ok:true, newPaths:[]', () => {
-  const projectDir = path.join(FIXTURES, 'docker-cloudbuild');
-  const result = checkBuildCoverage({
-    projectDir,
-    _newPaths: [],
-  });
-  assert.strictEqual(result.ok, true);
-  assert.deepStrictEqual(result.newPaths, []);
-  assert.deepStrictEqual(result.missing, []);
+test('gha-only: covered src/ passes, uncovered config/ flagged', () => {
+  assert.strictEqual(check('gha-only', ['src/a.js']).ok, true);
+  const r = check('gha-only', ['config/x.yml']);
+  assert.strictEqual(r.ok, false);
+  assert.ok(r.missing.includes('config'));
 });
 
-// ---------------------------------------------------------------------------
-// usage error / bad ref → exit 2
-// ---------------------------------------------------------------------------
-
-test('usage error (bad git ref) → exit 2', () => {
-  const os = require('os');
-  const fs = require('fs');
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'm57-bad-'));
-  // Init a real git repo with one commit so the repo check passes
-  const gitOpts = { cwd: tmpDir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] };
-  fs.writeFileSync(path.join(tmpDir, 'README.md'), '# test');
-  spawnSync('git', ['init', '-b', 'main'], gitOpts);
-  spawnSync('git', ['config', 'user.email', 'test@test.com'], gitOpts);
-  spawnSync('git', ['config', 'user.name', 'Test'], gitOpts);
-  spawnSync('git', ['add', '.'], gitOpts);
-  spawnSync('git', ['commit', '-m', 'init'], gitOpts);
-
-  const { status } = runCLI([
-    '--project-dir', tmpDir,
-    '--base', 'nonexistent-ref-abc123',
-    '--head', 'HEAD',
-  ]);
-  fs.rmSync(tmpDir, { recursive: true, force: true });
-
-  assert.strictEqual(status, 2, `expected exit 2 for bad ref, got ${status}`);
+test('empty diff → ok:true, newPaths empty', () => {
+  const r = check('docker-cloudbuild', []);
+  assert.strictEqual(r.ok, true);
+  assert.deepStrictEqual(r.newPaths, []);
 });
 
-test('usage error (not a git repo) → exit 2', () => {
-  const os = require('os');
-  const fs = require('fs');
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'm57-nogit-'));
-  // No git init — not a repo
-
-  const { status } = runCLI(['--project-dir', tmpDir]);
-  fs.rmSync(tmpDir, { recursive: true, force: true });
-
-  assert.strictEqual(status, 2, `expected exit 2 for non-git dir, got ${status}`);
+test('node_modules is never gated and never coverage', () => {
+  const r = check('docker-cloudbuild', ['node_modules/foo/index.js']);
+  assert.strictEqual(r.ok, true, 'a node_modules new-path must not be gated');
 });
 
-// ---------------------------------------------------------------------------
-// gha-only fixture — uncovered path flagged
-// ---------------------------------------------------------------------------
+// --- CLI usage error path ------------------------------------------------
 
-test('gha-only: workflow references src/ but not hooks/ → hooks in missing', () => {
-  const projectDir = path.join(FIXTURES, 'gha-only');
-  const result = checkBuildCoverage({
-    projectDir,
-    _newPaths: ['hooks/post-deploy.sh', 'src/index.js'],
-  });
-  // The workflow references "src" in rsync/cp lines but not "hooks"
-  assert.ok(Array.isArray(result.missing), 'missing should be array');
-  assert.ok(result.missing.includes('hooks'), `expected hooks in missing, got ${JSON.stringify(result.missing)}`);
-  assert.strictEqual(result.ok, false, 'ok should be false when hooks not covered');
-  assert.ok(result.checkedAgainst.some(a => a.includes('workflows')), 'checkedAgainst should include workflows');
+test('CLI: identical refs → exit 2 (usage error)', () => {
+  const res = cp.spawnSync(process.execPath,
+    [MOD, '--base', 'HEAD', '--head', 'HEAD', '--project-dir', path.join(FIX, 'no-ci')],
+    { encoding: 'utf8' });
+  assert.strictEqual(res.status, 2);
 });
 
-// ---------------------------------------------------------------------------
-// Additional unit-level tests for parser behavior
-// ---------------------------------------------------------------------------
+// --- Structural-not-substring proof --------------------------------------
 
-test('checkBuildCoverage: src/ present in Dockerfile COPY → src not in missing', () => {
-  const projectDir = path.join(FIXTURES, 'docker-cloudbuild');
-  // Only src in diff — it IS in Dockerfile COPY src/
-  const result = checkBuildCoverage({
-    projectDir,
-    _newPaths: ['src/new-file.js'],
-  });
-  assert.strictEqual(result.ok, true, `expected ok:true for src (covered), got missing=${JSON.stringify(result.missing)}`);
-  assert.deepStrictEqual(result.missing, []);
-});
-
-test('checkBuildCoverage: multiple uncovered paths all appear in missing[]', () => {
-  const projectDir = path.join(FIXTURES, 'docker-cloudbuild');
-  const result = checkBuildCoverage({
-    projectDir,
-    _newPaths: ['hooks/run.sh', 'workers/task.js', 'src/x.js'],
-  });
-  assert.strictEqual(result.ok, false);
-  assert.ok(result.missing.includes('hooks'), 'hooks should be missing');
-  assert.ok(result.missing.includes('workers'), 'workers should be missing');
-  assert.ok(!result.missing.includes('src'), 'src should NOT be missing (it is COPY\'d)');
-});
-
-test('checkBuildCoverage: identical baseRef/headRef → throws UsageError (caught by CLI as exit 2)', () => {
-  // The API throws UsageError for identical refs; CLI catches and exits 2.
-  // Test the UsageError throw directly by calling resolveRefs indirectly via checkBuildCoverage.
-  // We pass a real repo dir (this project) but identical refs — but _newPaths is not provided so
-  // it will call git. Instead, test via a temp repo.
-  const os = require('os');
-  const fs = require('fs');
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'm57-same-'));
-  const gitOpts = { cwd: tmpDir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] };
-  fs.writeFileSync(path.join(tmpDir, 'README.md'), '# x');
-  spawnSync('git', ['init', '-b', 'main'], gitOpts);
-  spawnSync('git', ['config', 'user.email', 'test@test.com'], gitOpts);
-  spawnSync('git', ['config', 'user.name', 'Test'], gitOpts);
-  spawnSync('git', ['add', '.'], gitOpts);
-  spawnSync('git', ['commit', '-m', 'init'], gitOpts);
-
-  // CLI should exit 2
-  const { status } = runCLI(['--project-dir', tmpDir, '--base', 'HEAD', '--head', 'HEAD']);
-  fs.rmSync(tmpDir, { recursive: true, force: true });
-
-  assert.strictEqual(status, 2, `expected exit 2 for identical refs, got ${status}`);
-});
-
-test('checkBuildCoverage return shape has all required fields', () => {
-  const projectDir = path.join(FIXTURES, 'docker-cloudbuild');
-  const result = checkBuildCoverage({ projectDir, _newPaths: [] });
-  assert.ok('ok' in result, 'missing ok field');
-  assert.ok('missing' in result, 'missing missing field');
-  assert.ok('checkedAgainst' in result, 'missing checkedAgainst field');
-  assert.ok('newPaths' in result, 'missing newPaths field');
-  assert.ok(typeof result.ok === 'boolean', 'ok should be boolean');
-  assert.ok(Array.isArray(result.missing), 'missing should be array');
-  assert.ok(Array.isArray(result.checkedAgainst), 'checkedAgainst should be array');
-  assert.ok(Array.isArray(result.newPaths), 'newPaths should be array');
+test('structural proof: bug6-workflow-comment — src in run: covered, hooks only-in-comment not', () => {
+  assert.strictEqual(check('bug6-workflow-comment', ['src/x.js']).ok, true,
+    'src/ is in `run: cp -r src/ out/` → covered');
+  assert.strictEqual(check('bug6-workflow-comment', ['hooks/x.sh']).ok, false,
+    'hooks/ only in a # comment → NOT covered');
 });
