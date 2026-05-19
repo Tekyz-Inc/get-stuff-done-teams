@@ -1,208 +1,331 @@
-# M55 Red Team Adversarial QA — Report
+# Red Team Report — M57 CI-Parity Verify Gate (CYCLE 4 — FINAL VERIFICATION of the BUG-9 fix)
 
-> Date: 2026-05-09 17:39 PDT
-> Milestone: M55 — CLI-Preflight + Parallel Substrate + Rate-Limit Map + Context Briefs + Verify Gate
-> Charter: `.gsd-t/charters/m55-charter.md`
-> Branch: `main`
-> Baseline: `npm test` → 2487/2487 pass, 360 suites, 0 fail
+**Date**: 2026-05-18 16:07
+**Branch**: m57-ci-parity-verify-gate
+**Attack surface**: `bin/gsd-t-build-coverage.cjs` (D1), `bin/gsd-t-ci-parity.cjs` (D2),
+`test/m57-d1-build-coverage.test.js`, `test/m57-d2-ci-parity.test.js`,
+`test/fixtures/m57-build-coverage/**` (incl. cycle-3 `bug9-stepname-prose/`),
+`test/fixtures/m57-ci-parity/**`
+**Contracts**: `cli-build-coverage-contract.md` **v1.0.3 STABLE**,
+`ci-parity-contract.md` **v1.0.2 STABLE**
+**Baseline integrity**: all 4 source/test files SHA-256 captured at start AND
+verified post-exercise — **byte-identical**:
+- `bin/gsd-t-build-coverage.cjs` `121606a9012f…`
+- `bin/gsd-t-ci-parity.cjs` `9b9443363ddc…`
+- `test/m57-d1-build-coverage.test.js` `886f5bf8a9b3…`
+- `test/m57-d2-ci-parity.test.js` `7bf9d30da66e…`
 
-## Verdict
-
-**GRUDGING PASS** — 6 of 6 broken patches caught (target: ≥5). Zero real bugs found across the 5 M55 domains. Falsifiable success criterion #7 of M55 charter is **satisfied**.
-
-## Summary
-
-| Metric | Value |
-|---|---|
-| Patches written | 6 |
-| Patches caught by tests | 6 (100%) |
-| Real bugs found | 0 |
-| Severity breakdown (real) | n/a |
-| Domains attacked | D1, D2, D4, D5 (D3 covered indirectly via verify-gate fall-back path) |
-| Contracts verified STABLE | 5/5 (cli-preflight, parallel-cli, ratelimit-map, context-brief, verify-gate) |
-| Final regression check | `npm test` → 2487/2487 pass after all patches reverted |
-
-## Patch Catch Log
-
-Each patch: edit applied, run targeted test file, verify a relevant assertion fails, `git checkout` to revert. No patch was committed.
+Every patch reverted; harness SHA-confirmed each round and final. All
+untracked m57 fixture dirs (incl. `bug9-stepname-prose/`) PRESERVED — every
+probe ran in `os.tmpdir()` or against existing read-only fixtures; zero
+repo-fixture writes. Working-tree ` M` on the 4 files is the pre-existing
+fix-cycle state (uncommitted), unchanged by this exercise — proven by the
+SHA match against the start-of-session capture.
 
 ---
 
-### PATCH-1 — preflight-skip-on-error (D1)
+## 1. BUG-9 CLOSURE — the fix (`isWorkflowNameLabel()` + `parseWorkflows()` gate)
 
-**Domain**: D1 (cli-preflight library — `bin/cli-preflight.cjs`)
+The cycle-3 BUG-9 fix added `isWorkflowNameLabel(rawLine)` (matches
+`^\s*(?:-\s+)?name\s*:` after comment-strip) and a `parseWorkflows()` guard
+`if (isWorkflowNameLabel(line)) continue;` — workflow-YAML-only, keyed strictly
+off the `name` YAML key.
 
-**What I broke**: In `_runOneCheck` (line 139–152), replaced the catch block so a per-check throw is swallowed and synthesized as `ok: true` with `msg: 'check skipped (threw)'`. This is the silent-skip-on-error class — exactly the regression class the M55 charter Pattern A pain point cites ("verify steps report PASS when their precondition checks were never actually run").
+### 1a. The 4 documented cycle-3 BUG-9 variants — ALL NOW CLOSED
 
-**Test caught**:
-```
-test/m55-d1-cli-preflight.test.js:157
-✖ _runOneCheck: throws caught and recorded as ok:false synthetic entry
-  AssertionError: Expected values to be strictly equal:
-  true !== false
-  at TestContext.<anonymous> (test/m55-d1-cli-preflight.test.js:168:10)
-```
+`/tmp/rt-m57-c4/bug9-closure.js`, synthetic temp projects, `_newPaths:
+["src/index.js","hooks/pre-push","package.json"]`, Dockerfile `COPY src/`
++ `COPY package.json` only (hooks/ uncovered):
 
-**Verdict**: caught.
-
----
-
-### PATCH-2 — parallel-substrate-bypasses-capture (D2)
-
-**Domain**: D2 (parallel-CLI substrate — `bin/parallel-cli.cjs`)
-
-**What I broke**: In `_runOneWorker` (line 184–201), replaced the `captureSpawn`-wrapped invocation with a direct `_makeSpawnFn(...)()` call that bypasses `bin/gsd-t-token-capture.cjs`. This is the M41/M55 Token Capture invariant violation — the precise regression class M55 D2 was built to prevent ("ad-hoc Promise.all([Task,Task,...]) patterns scattered across command files bypass `bin/gsd-t-token-capture.cjs` so token attribution goes blind on fan-out").
-
-**Test caught**:
-```
-test/m55-d2-parallel-cli.test.js:222
-✖ runParallel: every worker writes a token-log row (captureSpawn invariant)
-  AssertionError: token-log.md should be created
-  expected: true, actual: false
-  at TestContext.<anonymous> (test/m55-d2-parallel-cli.test.js:237:12)
-```
-
-**Verdict**: caught.
-
----
-
-### PATCH-3 — verify-gate-falsy-true (D5)
-
-**Domain**: D5 (verify-gate — `bin/gsd-t-verify-gate.cjs`)
-
-**What I broke**: In `runVerifyGate` (line 164), changed the deterministic `ok` computation from
-`(skipTrack1 ? true : !!track1.ok) && (skipTrack2 ? true : !!track2.ok)` to use `||` instead of `&&`. A Track 1 (preflight) failure is now masked when Track 2 (parallel CLI) succeeds — the canonical falsy-true verdict bug. The contract docstring (Hard rule #3) explicitly forbids this exact mutation.
-
-**Test caught**:
-```
-test/m55-d5-verify-gate.test.js:111
-✖ runVerifyGate: track1 ok + track2 fail → ok false
-  AssertionError: Expected values to be strictly equal:
-  true !== false
-  at TestContext.<anonymous> (test/m55-d5-verify-gate.test.js:121:12)
-```
-(plus collateral failure on `track1 fail → ok false regardless of track2`.)
-
-**Verdict**: caught.
-
----
-
-### PATCH-4 — branch-guard-typo (D1)
-
-**Domain**: D1 (cli-preflight check — `bin/cli-preflight-checks/branch-guard.cjs`)
-
-**What I broke**: In `_extractExpectedBranch` (line 37), introduced a typo in the regex: `/expected\s+branch/` → `/expceted\s+branch/`. The regex now never matches valid CLAUDE.md "Expected branch:" lines, so branch-guard silently degrades to "no expected-branch rule set" everywhere — a wrong-branch commit slips through preflight.
-
-**Test caught**:
-```
-test/m55-d1-cli-preflight-checks/branch-guard.test.js:28
-✖ _extractExpectedBranch: matches plain "Expected branch: main"
-  AssertionError: Expected values to be strictly equal:
-  null !== 'main'
-
-test/m55-d1-cli-preflight-checks/branch-guard.test.js:77
-✖ branch-guard fail: on wrong branch
-  AssertionError: Expected values to be strictly equal:
-  true !== false
-```
-(plus collateral failure on `_extractExpectedBranch: matches markdown-emphasis` and `branch-guard happy: on expected branch`.)
-
-**Verdict**: caught.
-
----
-
-### PATCH-5 — contract-staleness-ignored (D1)
-
-**Domain**: D1 (cli-preflight check — `bin/cli-preflight-checks/contracts-stable.cjs`)
-
-**What I broke**: Replaced `_isPastPartitioned` body with `return false;` unconditionally. DRAFT/PROPOSED contracts past PARTITIONED are no longer flagged, so the check always reports "not past PARTITIONED — DRAFT/PROPOSED acceptable" — the silent-skip variant for contract drift.
-
-**Test caught**:
-```
-test/m55-d1-cli-preflight-checks/contracts-stable.test.js:90
-✖ contracts-stable fail: post-PARTITIONED with DRAFT → ok:false
-  AssertionError: Expected values to be strictly equal:
-  true !== false
-  at TestContext.<anonymous> (test/m55-d1-cli-preflight-checks/contracts-stable.test.js:97:12)
-```
-(plus collateral failure on `_isPastPartitioned: detects ACTIVE state`, `_isPastPartitioned: detects EXECUTING / VERIFIED / COMPLETED`, and the post-PARTITIONED happy path.)
-
-**Verdict**: caught.
-
----
-
-### PATCH-6 — brief-staleness-ignored (D4)
-
-**Domain**: D4 (context-brief generator — `bin/gsd-t-context-brief.cjs`)
-
-**What I broke**: In `recordSource` (line 86), commented out the `sourceMtimes[relPath] = ...` assignment. The brief is generated successfully but the freshness fingerprint is empty — workers using a stale brief never know it's stale. Direct attack on D4's mtime-hash-stamp freshness rule.
-
-**Test caught**:
-```
-test/m55-d4-context-brief.test.js:280
-✖ freshness: sourceMtimes records every read source
-  AssertionError: Expected "actual" to be falsy:
-  expected: true, actual: false
-  at TestContext.<anonymous> (test/m55-d4-context-brief.test.js:291:12)
-
-test/m55-d4-context-brief.test.js:300
-✖ freshness: mutating a source file changes its sourceMtimes value
-  AssertionError: Expected "actual" to be strictly unequal to: undefined
-  (actual was undefined)
-```
-
-**Verdict**: caught.
-
----
-
-## Attack Categories Tried
-
-Per `templates/prompts/red-team-subagent.md` § "Attack Categories (exhaust ALL)":
-
-| # | Category | Result |
+| Variant | Workflow line | Result |
 |---|---|---|
-| 1 | Contract Violations | All 5 M55 contracts (cli-preflight, parallel-cli, ratelimit-map, context-brief, verify-gate) marked STABLE. Library code matches contract envelope shape per per-domain tests. No discrepancies found. |
-| 2 | Boundary Inputs | Validators in `_validateOpts` (parallel-cli), `SAFE_NAME_RE` (context-brief), `VALID_ID_RE` (parallel-cli-tee), and `_isValidCheckModule` (cli-preflight) reject empty/null/illegal-char inputs. Confirmed via existing test cases. No injection vectors found in the read-only paths. |
-| 3 | State Transitions | runVerifyGate is purely deterministic; no shared mutable state across runs. parallel-cli `inFlight` map / `failFastTriggered` flag are scoped per `runParallel` call, no cross-talk. No race-condition bug found. |
-| 4 | Error Paths | Per-check throws are caught (PATCH-1 confirms by breaking that very path). `runPreflight` throw → wrapped into track1 with ok:false (verify-gate). Missing `ratelimit-map.json` → graceful fallback to maxConcurrency=2 with note. No crash paths found in the M55 surface. |
-| 5 | Missing Flows | Charter REQ-M55-D1..D5 — all 5 domains have library + test coverage + contract. D3's empirical map is referenced by D5 fall-back logic; missing-map case explicitly tested (`_resolveMaxConcurrency: missing map → fallback 2 + warning note`). No requirement gap found. |
-| 6 | Regression | Full `npm test` baseline 2487/2487 pass (pre-attack) and 2487/2487 pass (post-revert). Six broken patches each made specific tests fail; reverting restored green. No latent regression. |
-| 7 | E2E Functional Gaps | The 6 patches above ARE the functional-test exercise: each broken patch confirms a real assertion (state changed / data flowed / contract upheld), not a layout assertion. No shallow-spec rewrites needed. |
-| 8 | Design Fidelity | N/A — no `.gsd-t/contracts/design-contract.md` for M55 (it's a CLI/library milestone, no UI surface). |
+| V1 unquoted | `- name: Set up hooks/ directory for git client-side validation` | `ok:false missing:["hooks"]` — **CLOSED** |
+| V2 unquoted | `- name: Configure hooks/ for git` | `ok:false missing:["hooks"]` — **CLOSED** |
+| V3 unquoted | `- name: Run hooks/validate.sh` | `ok:false missing:["hooks"]` — **CLOSED** |
+| V4 quoted | `- name: "Set up hooks/ dir"` | `ok:false missing:["hooks"]` — **CLOSED** |
 
-## Coverage Gaps
+All 4 cycle-3 reproductions now return `ok:false` with `hooks` in `missing`.
+The canonical TimeTracking-class single-line `name:` prose vector is genuinely
+closed. P-NEW broken patch (below) proves it is test-enforced.
 
-None observed. M55's 5 domains map 1:1 to:
-- `test/m55-d1-cli-preflight.test.js` + `test/m55-d1-cli-preflight-checks/` (6 sub-files)
-- `test/m55-d2-parallel-cli.test.js`
-- `test/m55-d3-ratelimit-probe.test.js`
-- `test/m55-d4-context-brief.test.js` + `test/m55-d4-context-brief-kinds/` (6 sub-files)
-- `test/m55-d5-verify-gate.test.js`, `test/m55-d5-verify-gate-judge.test.js`, `test/m55-d5-wire-in-execute.test.js`, `test/m55-d5-wire-in-verify.test.js`, `test/m55-d5-subagent-prompts.test.js`
+### 1b. Adversarial residual hunt — vectors OUTSIDE the documented residual
 
-Total M55 test files: 19. The catch-rate above demonstrates these tests assert on real behavior, not on element existence.
+Contract v1.0.3 documented-accepted residual (lines 109–127) is **strictly**:
+*a dir name as the first path component **inside a quoted command string in a
+`run:`/value (command) position**.* Everything else in the M57 core
+false-negative class must be closed. Probes (`bug9-closure.js`):
 
-## Shallow Tests Rewritten
+| Vector | Class | Result | Disposition |
+|---|---|---|---|
+| A1 job-level `name: Deploy hooks/ pipeline` | name:-prose | `missing:["hooks"]` | **CLOSED** (caught) |
+| A2 workflow top-level `name: hooks/ CI pipeline` | name:-prose | `missing:["hooks"]` | **CLOSED** (caught) |
+| A3 odd spacing `- name : Set up hooks/ dir` | name:-prose | `missing:["hooks"]` | **CLOSED** (caught) |
+| A5 non-leading `- name: Prepare the hooks/ tree` | name:-prose | `missing:["hooks"]` | **CLOSED** (caught) |
+| **A4 block scalar `- name: \|` + continuation `Set up hooks/ directory`** | name:-prose (multi-line) | `ok:true missing:[]` | **FALSE NEGATIVE → BUG-9b** |
+| **A9 folded scalar `- name: >` + continuation `Set up hooks/ directory`** | name:-prose (multi-line) | `ok:true missing:[]` | **FALSE NEGATIVE → BUG-9b** |
+| A6 `env: HOOKS_DIR: hooks/` | YAML value (plausible build input) | counted | accepted-residual-adjacent, NOT a bug (false **positive**) |
+| A7 `if: contains(..., 'hooks/')` | quoted expr | counted | accepted-residual-adjacent, NOT a bug |
+| A8 `with: dir: hooks/` | action input value | counted | accepted-residual-adjacent, NOT a bug |
+| A10 `run: echo "hooks/build is generated"` | quoted command string in run-position | counted | **EXACTLY the documented-accepted residual** — NOT a bug |
 
-0 — the 6 patches landed broken behavior the existing tests caught directly. No specs needed tightening.
+Single-line `name:` (job/workflow/step), odd spacing, and non-leading position
+are all genuinely closed. A6/A7/A8 are YAML *values* that plausibly are or
+accompany real build inputs — acceptable false **positives**, consistent with
+the contract's "false positives acceptable" bias, not the forbidden
+false-negative class. A10 is verbatim the documented-accepted residual.
 
-## Contracts Verified
+**A4 and A9 are NOT in the accepted residual.** A `- name: |` / `- name: >`
+block/folded scalar value is: (1) **not** a quoted command string; (2) **not**
+in a `run:`/value command position — it is the *value of a `name:` label*; (3)
+pure descriptive display prose, structurally and semantically identical to a
+comment, **never a build input**. The contract v1.0.3 (lines 71–90) explicitly
+claims this class is closed: *"a line whose YAML key is exactly `name` … its
+value is discarded before any path token is extracted."* For a block/folded
+scalar the **value spans multiple physical lines**; the line-oriented
+`isWorkflowNameLabel()` regex matches and excludes only the `- name: |`
+**marker** line — the indented continuation line carrying the actual prose
+(`          Set up hooks/ directory`) is a *separate physical line* whose key
+is not `name`, so it is **not** excluded and `topLevelSegmentsInLine()`
+extracts `hooks` from it as phantom coverage. Mechanism trace:
+`/tmp/rt-m57-c4/trace.js` — `isNameLabel=true` for `- name: |`, but
+`isNameLabel=false tokens=["hooks"]` for `          Set up hooks/ directory`.
+End-to-end confirmed via `checkBuildCoverage` (`bug9-confirm.js`):
+`ok:true missing:[]` for both; control plain `- name:` correctly `ok:false
+missing:["hooks"]`.
 
-| Contract | Status | Schema Version |
+### **BUG-9b — HIGH — multi-line `name:` block/folded scalar continuation masks an uncovered new top-level dir**
+
+- **Component**: `bin/gsd-t-build-coverage.cjs` — `isWorkflowNameLabel()` /
+  `parseWorkflows()`. The exclusion is line-oriented and does not track YAML
+  block/folded-scalar (`name: |` / `name: >`) multi-line value state.
+- **Reproduction** (`/tmp/rt-m57-c4/bug9-confirm.js`, exact TimeTracking class):
+  Dockerfile `COPY package.json ./` + `COPY src/ ./src/` (hooks/ NOT copied).
+  `.github/workflows/ci.yml`:
+  ```
+        - name: |
+            Set up hooks/ directory for git
+          run: npm ci
+  ```
+  (or `- name: >` folded). `_newPaths:["src/index.js","hooks/pre-push",
+  "package.json"]`.
+- **Expected**: `ok:false`, `missing:["hooks"]` — the M57 core mandate;
+  contract v1.0.3 Purpose/SC1: false negatives are NOT acceptable; the
+  contract explicitly states a `name:` value "is discarded".
+- **Actual**: `{"ok":true,"missing":[]}` — gate GREEN, broken build ships.
+- **Proof**: `bug9-confirm.js` (`ok:true missing:[]` for both `|` and `>`;
+  plain `- name:` control correctly `ok:false missing:["hooks"]`);
+  mechanism `trace.js` (continuation line `isNameLabel=false tokens=["hooks"]`).
+- **Why a NEW bug, not the documented-accepted residual**: the residual is
+  *strictly* a quoted command string in `run:`/value position (contract
+  v1.0.3 lines 109–127). A block/folded `name:` scalar continuation is
+  unquoted, is the value of a `name:` label (not a command), and is pure
+  prose the contract claims is discarded. It is the **same forbidden
+  false-negative class** the cycle-3 BUG-9 fix was declared to close — just
+  via the multi-line scalar form of the same `name:` key. Same defect family,
+  one syntactic step removed.
+- **Severity HIGH**: the Dockerfile is still parsed structurally; the hole is
+  the secondary workflow heuristic and needs the new dir name to appear as a
+  leading `name/`-token on a `name:` block-scalar continuation line. A
+  multi-line block-scalar step name is a real, idiomatic GitHub Actions
+  pattern (used for long multi-line step descriptions) and silently defeats
+  the entire M57 gate when it does. Per the task definition, a non-quoted,
+  non-accepted-residual false negative in the M57 core failure class is a new
+  real bug, severity HIGH; consistent with the cycle-3 BUG-9 severity for the
+  structurally-identical single-line form.
+- **Coverage gap**: no D1 test exercises a block/folded-scalar `name:` value
+  continuation; the suite covers single-line plain + quoted `name:` (BUG-9a)
+  but not the multi-line scalar form of the same key.
+
+---
+
+## 2. OVER-CORRECTION CHECK — none (legitimate coverage intact)
+
+`/tmp/rt-m57-c4/overcorrection.js`, all PASS:
+
+| Case | Expectation | Result |
 |---|---|---|
-| `cli-preflight-contract.md` | STABLE | 1.0.0 |
-| `parallel-cli-contract.md` | STABLE | 1.0.0 |
-| `ratelimit-map-contract.md` | STABLE | 1.0.0 (promoted from PROPOSED 0.1.0 by D3) |
-| `context-brief-contract.md` | STABLE | 1.0.0 |
-| `verify-gate-contract.md` | STABLE | 1.0.0 |
+| `run: cp -r workers/ out/` | `workers` covered | covered, not missing — **PASS** |
+| `working-directory: workers/` | `workers` covered | covered — **PASS** |
+| `args`-position `tar … lib/ src/` | `lib` covered | covered — **PASS** |
+| `paths:\n  - api/` trigger filter | `api` covered | covered — **PASS** |
+| **cloudbuild step `name: tools/builder-image`** | `tools` STILL covered (builder image = real build input) | covered — **PASS, no over-correction** |
 
-5/5 STABLE.
+The `name:`-exclusion is keyed strictly off the workflow `name` key, leaves
+`run:`/`working-directory:`/`args:`/`paths:` and every build-relevant key
+contributing coverage, and is workflow-YAML-only — a cloudbuild step `name:`
+(the BUILDER IMAGE, a genuine build input) is correctly NOT suppressed. No
+real covered path is wrongly reported missing. **Zero over-correction.**
 
-## Notes
+---
 
-- All patches were applied via `Edit` and reverted via `git checkout <file>`. Final `git diff bin/ test/` is empty.
-- Final `npm test` after all reverts: 2487/2487 pass — zero regression introduced by the red-team exercise.
-- Per the protocol, this is GRUDGING PASS on exhaustive search: every attack class was attempted, no real bug surfaced, the test suite caught every adversarial patch.
+## 3. PRIOR 8 BUGS — RE-CONFIRMED CLOSED
 
-## VERDICT
+Behavioral re-confirmation `/tmp/rt-m57-c4/prior8.js` (**16/16 PASS**) +
+broken-patch enforcement `/tmp/rt-m57-c4/patch.js` (14/14 CAUGHT):
 
-**GRUDGING PASS** — 0 real bugs found. 6/6 adversarial patches caught by the test suite. M55 charter falsifiable success criterion #7 (≥5 broken patches caught) is satisfied with 1 patch of headroom.
+| Bug | Behavioral proof | Broken patch | Status |
+|---|---|---|---|
+| BUG-1 | sibling `../VICTIM` + `precious.txt` SURVIVE clearBuildCaches | P8 `isContained→true` → D2 fail 5 → rev 0 | **RESOLVED** |
+| BUG-2 | runCiParity removed stale `tsconfig.tsbuildinfo` (dockerless pkg-scripts) | P7 `clearBuildCaches` removed → D2 fail 1 → rev 0 | **RESOLVED** |
+| BUG-3 | relative `COPY --from=builder dist/` excluded → `dist` missing, `src` covered | P2 `^COPY --from=` skip `&& false` → D1 fail 1 → rev 0 | **RESOLVED** |
+| BUG-4 | `node_modules/husky/hooks/` incidental token does NOT cover new `hooks/`; non-reg `src/` still covered | P15 `collapseToTopLevel [0]→[1]` → D1 fail 17; P6 `!has→has` → D1 fail 17 → rev 0 | **RESOLVED** (residual class → BUG-9/9b) |
+| BUG-5 | unparseable cloudbuild + no Dockerfile → `ok:false`+note; `none` → `ok:true` | P10 BUG-5 consequence `if(false&&…)` → D2 fail 1 → rev 0 | **RESOLVED**, no over-correction |
+| BUG-6 | workflow + cloudbuild comment naming `hooks/` → `hooks` still missing; non-reg `cp -r src/` covers `src` | P4 `stripComment→rawLine` → D1 fail 2 → rev 0 | **RESOLVED** (comment vector) |
+| BUG-7 | first-component `node_modules/` token does NOT cover committed `node_modules/` | P5 `head==='node_modules'→'XXXX'` → D1 fail 1 → rev 0 | **RESOLVED** |
+| BUG-8 | root SURVIVES `outDir:"."`/`"./"`/`"src/.."`/`"./foo/../"`; non-reg `dist/` STILL removed | P9 `isContained` allow `p===root` → D2 fail 3 → rev 0 | **RESOLVED** |
+
+All 8 prior bugs stay closed — both behaviorally and via the cycle-1/2/3
+previously-UNCAUGHT patches now permanently test-enforced (P2, P7, P5).
+
+---
+
+## 4. DELIBERATELY-BROKEN PATCH EXERCISE (14 patches incl. fresh name:-exclusion)
+
+`/tmp/rt-m57-c4/patch.js`. Each: literal substitution (occurrence == 1) →
+`node --test <file>` → fail count → revert → re-confirm fail 0. Source/test
+SHA byte-identical before, each round, and after.
+
+| ID | File | Patch | Test | applied→fail | rev→fail | Result |
+|----|------|-------|------|--------------|----------|--------|
+| **P-NEW** | build-coverage | `isWorkflowNameLabel(line)` guard `&& false` (disable BUG-9 fix) | D1 | 2 | 0 | **CAUGHT** ← the fresh name:-exclusion patch |
+| P2 | build-coverage | `^COPY --from=` skip `&& false` (BUG-3) | D1 | 1 | 0 | **CAUGHT** |
+| P4 | build-coverage | `stripComment(rawLine)→rawLine` (BUG-6) | D1 | 2 | 0 | **CAUGHT** |
+| P5 | build-coverage | `head==='node_modules'→'XXXX'` (BUG-7) | D1 | 1 | 0 | **CAUGHT** |
+| P6 | build-coverage | `!coveredSet.has→coveredSet.has` | D1 | 17 | 0 | **CAUGHT** |
+| P15 | build-coverage | `collapseToTopLevel split('/')[0]→[1]` | D1 | 17 | 0 | **CAUGHT** |
+| P3 | build-coverage | D1 CLI `result.ok ? 0 : 4`→`: 0` | D1 | 1 | 0 | **CAUGHT** |
+| P7 | ci-parity | `clearBuildCaches(projectDir);` commented (BUG-2) | D2 | 1 | 0 | **CAUGHT** |
+| P8 | ci-parity | `isContained`→`return true;` (BUG-1) | D2 | 5 | 0 | **CAUGHT** |
+| P9 | ci-parity | `isContained` allow `p===root` (BUG-8 reintro) | D2 | 3 | 0 | **CAUGHT** |
+| P10 | ci-parity | BUG-5 consequence `if(false&&…)` | D2 | 1 | 0 | **CAUGHT** |
+| P12 | ci-parity | LOCKED precedence reorder (cloudbuild↔workflows) | D2 | 1 | 0 | **CAUGHT** |
+| P13 | ci-parity | `runCommand ok:exitCode===0→true` | D2 | 1 | 0 | **CAUGHT** |
+| P14 | ci-parity | D2 CLI `result.ok ? 0 : 4`→`: 0` | D2 | 1 | 0 | **CAUGHT** |
+
+**Broken patches CAUGHT: 14 / 14. ZERO uncaught on contract-mandated
+behavior.** The fresh patch targeting the new name:-exclusion line (P-NEW)
+is test-enforced — disabling the BUG-9 fix fails 2 D1 tests
+(`BUG-9: workflow step …`, `BUG-9: a quoted step …`).
+
+---
+
+## 5. REGRESSION / STABILITY
+
+- **Full `npm test` ×2**: run 1 → `2607 tests, 2606 pass, 0 fail, 1 skipped`;
+  run 2 → `2607 tests, 2606 pass, 0 fail, 1 skipped`. **Identical, clean,
+  zero regressions.** The single skip is the by-design Docker-less SC2 skip.
+- **M57-isolated determinism**: `node --test m57-d1 m57-d2` ×2 → both
+  `57 tests, 56 pass, 0 fail, 1 skipped`. Deterministic; the 1 skip is the
+  documented Docker-less SC2 skip; stable across runs.
+- **m43-flake disposition**: the documented pre-existing
+  `test/m43-dashboard-autostart.test.js` parallel-execution flake **did not
+  surface in either full run** (both 0-fail). In isolation it passed
+  **6/6 runs** (`pass 6 fail 0` each). It is pure-CLI-unrelated to M57 (M57
+  is library-only build-coverage/ci-parity code with no dashboard surface).
+  **Not an M57 bug — and this cycle it did not even manifest.** M57's isolated
+  tests are clean and deterministic; the only theoretical full-suite
+  nondeterminism source is that unrelated m43 test, which was green.
+
+---
+
+## ATTACK VECTORS TRIED (every category — one-line each)
+
+1. **Contract Violations** — every D1/D2 envelope key vs v1.0.3/v1.0.2; exit
+   0/4/2; LOCKED D2 precedence (P12); strict-descendant containment
+   (BUG-1/8); comment-strip + name:-exclusion precedence (BUG-6/9);
+   `node_modules` rule (BUG-7); BUG-5 detected-but-unparseable + exemptions.
+   Contract v1.0.3 lines 71–90 claim a `name:` value "is discarded" — true
+   for single-line, **false for block/folded multi-line scalars → BUG-9b**.
+2. **Boundary Inputs** — name: job/workflow/step level, `name :` spacing,
+   `name: |` block scalar, `name: >` folded scalar, non-leading dir position,
+   quoted name, env:/if:/with:/paths: YAML values, quoted run-string;
+   outDir ∈ {`.`,`./`,`src/..`,`./foo/../`,`../VICTIM`,abs,`dist`}. Found
+   **BUG-9b** (multi-line scalar name: continuation FN).
+3. **State Transitions** — N/A: stateless pure functions; clearBuildCaches /
+   checkBuildCoverage idempotent across repeated calls (verified).
+4. **Error Paths** — malformed tsconfig → no throw; not-a-git / identical
+   refs → exit 2 (test-bound); docker-unavailable → non-failure. No crash
+   escapes checkBuildCoverage/runCiParity.
+5. **Missing Flows** — TimeTracking-class core mandate re-probed via the
+   block/folded scalar name: form → **BUG-9b** (a new realistic FN still
+   reachable). Single-line name: (BUG-9a), comment (BUG-6), node_modules
+   (BUG-7), interior token (BUG-4) all closed and test-enforced.
+6. **Regression** — full `npm test` ×2: 2607/2606/0fail/1skip both, identical.
+   M57-isolated deterministic. m43-flake did not surface; 6/6 in isolation.
+   All 4 source/test files SHA-256 byte-identical pre- and post-exercise.
+   m57 fixture dirs PRESERVED.
+7. **E2E Functional Gaps** — N/A. M57 is pure CLI/Node; no
+   `playwright.config.*`/`cypress.config.*` relevant. Stated, skipped.
+8. **Design Fidelity** — N/A. No design contract relevant to M57; no UI.
+   Stated, skipped.
+
+Exploratory (Playwright MCP): N/A — no UI surface.
+
+---
+
+## SUMMARY
+
+- **BUGS FOUND this cycle: 1 — BUG-9b (HIGH)**: a GitHub Actions block/folded
+  scalar step `name:` value (`- name: |` / `- name: >`) whose continuation
+  line names a new top-level dir as a leading `name/`-token still masks a
+  genuinely-uncovered new dir → `ok:true missing:[]`. Outside the contract
+  v1.0.3 documented-and-accepted residual (strictly quoted command strings in
+  run/value position). Same forbidden false-negative class the cycle-3 BUG-9
+  single-line fix closed — reached via the multi-line scalar form of the same
+  `name:` key the line-oriented `isWorkflowNameLabel()` does not track.
+- **BUG-1 RESOLVED** — sibling `../VICTIM` survives; P8 caught.
+- **BUG-2 RESOLVED** — runCiParity clears stale `.tsbuildinfo` dockerless; P7 caught.
+- **BUG-3 RESOLVED** — relative `COPY --from= dist/` excluded; P2 caught.
+- **BUG-4 RESOLVED** — incidental `node_modules/husky/hooks/` does not cover new `hooks/`; P15/P6 caught.
+- **BUG-5 RESOLVED** — unparseable+no-Dockerfile → ok:false; `none` → ok:true; P10 caught.
+- **BUG-6 RESOLVED** — workflow + cloudbuild comment naming `hooks/` still missing; P4 caught.
+- **BUG-7 RESOLVED** — first-component `node_modules/` token never coverage; P5 caught.
+- **BUG-8 RESOLVED** — root survives `outDir:"."`/variants; strict-descendant `dist/` still cleared; P9 caught.
+- **BUG-9 (single-line `name:` prose, cycle-3)** — **RESOLVED**: all 4
+  documented cycle-3 variants now `ok:false missing:["hooks"]`; job/workflow/
+  step level, `name :` spacing, non-leading, quoted all closed; P-NEW caught.
+  **BUG-9b (multi-line block/folded `name:` scalar continuation)** — **OPEN
+  (HIGH)**: the same prose class via the multi-line scalar form is still a
+  false negative outside the documented residual.
+- **Broken patches CAUGHT: 14 / 14** — ZERO uncaught on contract-mandated
+  behavior. The fresh name:-exclusion patch (P-NEW) and all 8
+  prior-bug-specific patches (incl. cycle-1/2 previously-UNCAUGHT P2/P7/P5)
+  caught.
+- **CONTRACTS VERIFIED: 2 / 2** — cli-build-coverage **v1.0.3**, ci-parity
+  **v1.0.2**. ci-parity v1.0.2 strict-descendant containment fully verified
+  (no divergence, no over-correction). cli-build-coverage v1.0.3:
+  comment-strip + node_modules rule + single-line name:-exclusion verified;
+  the v1.0.3 claim that a `name:` value "is discarded before any path token
+  is extracted" (lines 71–90) holds for single-line scalars but is
+  **violated for block/folded multi-line `name:` scalars → BUG-9b**, an FN
+  in the forbidden Purpose/SC1 class outside the documented residual.
+- **COVERAGE GAPS**: no D1 test exercises a block/folded-scalar `name:` value
+  continuation (BUG-9b). All cycle-1/2/3 single-line gaps closed and
+  test-enforced.
+- **REGRESSION**: full `npm test` ×2 → 2607/2606 pass/0 fail/1 skip,
+  identical both runs. M57-isolated 57/56/0/1 deterministic ×2. Documented
+  pre-existing m43-dashboard-autostart parallel flake did not surface this
+  cycle (both full runs 0-fail; 6/6 in isolation) — explicitly NOT an M57
+  bug, M57 is library-only with no dashboard surface.
+- **SHALLOW TESTS REWRITTEN: 0** (Red Team leaves the tree as found;
+  source/test SHA byte-identical; fixtures preserved).
+- **VERDICT: `FAIL`** — the cycle-3 BUG-9 single-line `name:` vector is
+  *genuinely* closed (all 4 documented variants, plus job/workflow-level,
+  odd-spacing, non-leading, and quoted adversarial variants — all caught and
+  test-enforced via P-NEW), and the prior 8 bugs *all stay closed* (16/16
+  behavioral, 14/14 broken patches caught, zero uncaught on contract-mandated
+  behavior, both previously-UNCAUGHT cycle-1 patches and the cycle-2 UNCAUGHT
+  patch permanently test-enforced, the cycle-1-introduced root-deletion defect
+  hardened). No over-correction: legitimate `run:`/`working-directory:`/
+  `args:`/`paths:` coverage and the cloudbuild builder-image `name:` are all
+  intact. This is real, substantial, verified progress and the BUG-9 fix is
+  not papered over. But the exhaustive adversarial search found **one new
+  real bug, BUG-9b (HIGH)**: the BUG-4/BUG-6/BUG-9 false-negative class
+  (`textual presence ≠ shipped by build`) was again *narrowed without being
+  fully closed* — the line-oriented `name:`-exclusion does not track YAML
+  block/folded multi-line scalar values, so the structurally-identical
+  multi-line `- name: |` / `- name: >` prose continuation still defeats the
+  gate. Per contract v1.0.3 Purpose/SC1 (and the contract's own explicit
+  claim that a `name:` value "is discarded"), a false negative outside the
+  documented-and-accepted residual is a forbidden defect, not an accepted
+  limitation.

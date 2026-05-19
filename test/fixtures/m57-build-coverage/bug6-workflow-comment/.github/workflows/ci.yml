@@ -1,0 +1,17 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install
+        run: npm ci
+      # NOTE: hooks/ are installed automatically by husky postinstall
+      - name: Build src
+        run: |
+          cp -r src/ out/
