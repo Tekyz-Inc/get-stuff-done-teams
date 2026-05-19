@@ -1,7 +1,7 @@
 # GSD-T Progress
 
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
-## Status: ACTIVE — M57 PLANNED (re-planned with corrected design)
+## Status: ACTIVE — M57 EXECUTING (parallel fan-out dispatched, corrected design)
 ## Date: 2026-05-19
 ## Version: 3.26.11
 
@@ -62,6 +62,8 @@ Older milestones (M33 and earlier) archived under `.gsd-t/milestones/` — see d
 <!-- No active blockers -->
 
 ## Decision Log
+
+- 2026-05-19 11:05: [execute] M57 parallel fan-out DISPATCHED (corrected design). `gsd-t parallel --milestone m57 --command gsd-t-execute` (unattended) confirmed 2 file-disjoint workers via dry-run (M57-D1-T1 28% CW ∥ M57-D2-T1 32% CW, disjoint:yes deps:yes) then spawned 2 detached headless children: worker[0] pid 80868 = D1 build-coverage-check (T1→T5: baseline fixtures [bug* corpus FROZEN] → structural CI parsers → CLI → SC1 + full falsification-corpus binding → contract STABLE); worker[1] pid 81097 = D2 ci-command-parity (T1→T5 incl. T2b: fixtures+traversal/root repros → detect+runner → containment-safe clearBuildCaches [LOCKED predicate] → auto-docker → CLI+SC2+containment tests → contract STABLE). Each child sequences its domain's remaining tasks via the domain task-dispatcher pattern, runs per-domain QA + Red Team gates. Logs: `.gsd-t/headless-gsd-t-execute-2026-05-19-11-04-58.log` (D1) + `-11-05-08.log` (D2). CRITICAL ESCALATION carried into spawn context: non-converging Red Team within 2 cycles → HALT + escalate (Prime Rule stop #2), no churn. Auto-advance chain: execute → integrate → verify → complete-milestone (3.27.10).
 
 - 2026-05-19: [re-planned] M57 RE-PLANNED with corrected design → PLANNED. D1 = 5 tasks (T1 baseline-fixtures-only [bug* corpus FROZEN] → T2 detector + **structural** CI parsers [Dockerfile COPY/ADD source-arg incl. `--from=` source; cloudbuild `args`-positional; workflow `run`-positional; comment/`name:`/folded-scalar/interior-token/`node_modules` explicitly NOT coverage; zero substring/regex-over-raw-text] → T3 CLI → T4 SC1 + one assertion per bug* fixture [the regression guarantee] → T5 contract rewrite+STABLE). D2 = 6 tasks (added **M57-D2-T2b** — containment-safe `clearBuildCaches` as a dedicated Destructive-Action-Guard task: LOCKED predicate `resolved.startsWith(root+path.sep) && resolved!==root`, REFUSE outside AND equal-to projectRoot, `refusedPaths[]` envelope; T4 binds BUG-1 traversal + BUG-8 root-outdir + prefix-collision repros UNCONDITIONALLY [no Docker] + closes BUG-2 by asserting the mandatory cache-clear on the Docker-less path). Domain boundaries / file ownership / wave plan UNCHANGED (defect was internal approach, not partition). `gsd-t parallel --dry-run`: M57-D1-T1 ∥ M57-D2-T1 → disjoint:yes deps:yes (CW 28%/32%). Test baseline 2547/2547. Level 3 — auto-advancing to execute (detached). Escalation rule carried into spawn: if Red Team again fails to converge in 2 cycles, STOP and escalate — do not churn.
 
