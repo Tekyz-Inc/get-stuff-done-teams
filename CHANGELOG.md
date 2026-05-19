@@ -2,6 +2,53 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [3.27.10] - 2026-05-19
+
+### Added — M57 CI-Parity Verify Gate
+
+Origin: a TimeTracking v1.10.12 post-mortem — `gsd-t-verify` reported
+VERIFIED, the milestone was tagged + pushed, but Cloud Build failed (a new
+top-level `hooks/` dir was committed but never added to the Dockerfile
+`COPY` directives, and `noImplicitAny` regressions passed a warm-cache
+local `tsc` but failed CI's cold build). A cross-project survey found 7/18
+registered projects have CI surfaces — systemic, not project-specific.
+
+- **`gsd-t build-coverage`** (`bin/gsd-t-build-coverage.cjs`) — detects new
+  top-level paths in a milestone commit range not referenced by a real CI
+  build input. Coverage is decided by **structurally parsing** CI files
+  (Dockerfile COPY/ADD source args incl. relative `--from=`; cloudbuild
+  `args`-positional; workflow `run`-positional via a block-scalar-aware
+  YAML walker) — never substring-matching raw config text. `node_modules`
+  never counts.
+- **`gsd-t ci-parity`** (`bin/gsd-t-ci-parity.cjs`) — reproduces the
+  project's actual CI build locally (auto-detect cloudbuild → workflows →
+  Dockerfile RUN → package scripts), clears build caches, auto-runs the
+  real `docker build` when a Dockerfile is present. `clearBuildCaches`
+  routes every config-derived delete through a containment predicate
+  (`resolved.startsWith(root+sep) && resolved!==root`) — refuses any path
+  resolving outside OR equal-to projectRoot (a Destructive Action Guard
+  requirement).
+- Both wired into `gsd-t-verify` Step 2.6 as **FAIL-blocking** checks
+  (never warning-only); either failing blocks complete-milestone.
+
+### Process note — re-plan after Red Team non-convergence
+
+The first M57 design (substring-match build-coverage + unguarded
+cache-clear) FAILED Red Team across **5 non-converging cycles** (BUG-4/6/
+9/9b: each fix spawned a new false-negative variant; plus 5 CRITICAL
+Destructive-Action-Guard violations in the cache-clearer). The autonomous
+chain was halted (Prime Rule stop #2), the design re-planned, and rebuilt
+in-session after the detached fan-out harness false-completed twice
+(contracts flipped STABLE while the code was never rewritten). The
+corrected structural design converged on the first attempt: all 7 frozen
+falsification-corpus variants flagged, containment predicate holds, full
+suite 2587 pass / 0 fail. Lessons captured in memory
+(`feedback_coverage_check_structural_not_substring`,
+`feedback_destructive_path_ops_containment`,
+`feedback_detached_fanout_false_completion`). Pair-flagged with backlog
+#25 (gsd-t-bench): the bench eval set must include a synthetic regression
+of this incident when it ships.
+
 ## [3.26.11] - 2026-05-11
 
 ### Changed — Effort estimates in GSD-T-native units
