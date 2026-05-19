@@ -1,26 +1,18 @@
 # Contract: ci-parity
 
 Status: STABLE
-Version: 1.0.2
+Version: 2.0.0
 Owner: m57-d2-ci-command-parity
 Consumers: commands/gsd-t-verify.md (FAIL-blocking gate), `gsd-t ci-parity` CLI
 
-> Defect fixes (M57 Red Team cycle 1, 2026-05-18): BUG-1 cache-clear
-> containment scoping made explicit (paths escaping `projectDir` are SKIPPED,
-> never deleted); BUG-5 detected-but-unparseable CI source now returns
-> `ok:false` with a note instead of silent green. Version bumped 1.0.0 → 1.0.1
-> — BUG-5 changes an observable outcome (silent-green → explicit-fail), so it
-> is a behavior addition, not pure reconciliation; the LOCKED detection
-> precedence is unchanged.
->
-> Defect fix (M57 Red Team cycle 2, 2026-05-18): BUG-8 — the cycle-1
-> containment rule's `equals projectDir` clause itself permitted project-root
-> self-deletion when `outDir` resolved to the project root (`"."`, `"./"`,
-> `"src/.."`, `"./foo/../"`). Containment hardened to **strict-descendant
-> only**: the project root and any ancestor are NEVER eligible for removal.
-> Version bumped 1.0.1 → 1.0.2 — the containment rule is corrected (the prior
-> rule was unsafe), legitimate strict-descendant clearing (`outDir:"dist"`) is
-> unchanged.
+> v2.0.0 — Re-plan 2026-05-19. The v1.0.x contract documented the correct
+> containment *intent*, but the implementation it described had FAILED Red
+> Team (the cycle fixes were narrated but the code on disk had no containment
+> check at all — a false-completion). v2.0.0 is the contract for the
+> in-session-rebuilt code that actually implements the predicate, with the
+> containment rule and the mandatory-cache-clear rule both NORMATIVE and
+> test-enforced. See memory: feedback_destructive_path_ops_containment.md,
+> feedback_detached_fanout_false_completion.md.
 
 ## Purpose
 
@@ -34,86 +26,75 @@ tsc/test parity. Closes the TimeTracking v1.10.12 stale-cache blind spot
 runCiParity({ projectDir, timeoutMs? }) → {
   ok: boolean,
   detectedSource: 'cloudbuild' | 'workflows' | 'dockerfile-run' | 'package-scripts' | 'none',
-  commands: [{ cmd: string, exitCode: number, ok: boolean }],
-  dockerBuilt: boolean,        // true only if Dockerfile present AND docker available AND build ran
-  dockerSkippedReason?: string,// 'no-dockerfile' | 'docker-unavailable'
+  commands: [{ cmd, exitCode, ok }],
+  cacheCleared: true,            // always true — cache-clear is mandatory-path
+  dockerBuilt: boolean,
+  dockerSkippedReason?: string,  // 'no-dockerfile' | 'docker-unavailable'
+  refusedPaths?: string[],       // config-derived delete targets REFUSED by containment
   note?: string
 }
 ```
 
 ## Detection Precedence (LOCKED — user decision, do NOT reorder/extend)
 
-1. `cloudbuild.yaml` present → run its `steps[].args` command sequence.
-2. else `.github/workflows/*.yml` present → run `jobs[].steps[].run` commands.
-3. else `Dockerfile` present → run its `RUN` lines.
-4. else `package.json` → run `scripts.build`, `scripts.typecheck`,
-   `scripts.test` (only those that exist, in that order).
-5. none of the above → `detectedSource:'none'`, `ok:true`, `note` set.
+1. `cloudbuild.yaml` → its `steps[].args` command sequence.
+2. else `.github/workflows/*.yml` → first job's `steps[].run` commands.
+3. else `Dockerfile` → its `RUN` lines.
+4. else `package.json` → `scripts.build`, `scripts.typecheck`, `scripts.test`
+   (only those present, in that order).
+5. none → `detectedSource:'none'`, `ok:true` (unless docker build fails),
+   `note` set.
 
-Parsing is minimal line/regex (no YAML lib). Known limits documented in module
-docblock + this contract: only the first job's steps for workflows; `args`
-arrays joined with spaces for cloudbuild.
+Parsing is minimal (no YAML lib); documented limits in the module docblock.
 
-**Detected-but-unparseable → `ok:false` (BUG-5, no silent green).** If a CI
-source IS detected (`cloudbuild`/`workflows`/`dockerfile-run`) but the minimal
-parser extracts **zero commands**, the result is **NOT** silently green —
-nothing real was executed, so CI parity is unproven. `runCiParity` returns
-`ok:false` with `note` = `"CI source <X> detected but no commands could be
-parsed (parser limitation) and no Dockerfile to reproduce the build — cannot
-prove CI parity"`. The detection precedence itself is unchanged (still LOCKED);
-only the *consequence* of a detected-but-unparseable source changes from
-silent-green to explicit-fail.
+## Cache Clearing — MANDATORY PATH (normative)
 
-Exemptions (these are NOT false-failed):
-- A `Dockerfile` is present → the real `docker build` IS the substantive CI
-  reproduction. An empty parsed-command list with a Dockerfile present is
-  acceptable: docker either ran, or `docker` is merely unavailable on the host
-  (contractually a non-failure, see § Docker Trigger).
-- `package-scripts` with matching scripts always yields ≥1 command.
-- `none` is the legitimately-empty case → `ok:true` (see precedence rule 5).
+`clearBuildCaches(projectDir)` runs **unconditionally before any detected
+command AND before the no-CI / Dockerfile-only return path**. There is no
+code path through `runCiParity` that reaches command execution or the
+docker step without cache-clear having run first. `cacheCleared:true` is
+always in the envelope. (This closes BUG-2: the prior early-return for
+`detectedSource:'none'` skipped cache-clear, so removing the cache-clear
+call passed every test on a Docker-less host.)
 
-## Cache Clearing (MANDATORY, before running detected commands)
+Removes, if present: every `*.tsbuildinfo`, `node_modules/.cache`, and tsc
+`outDir`/`tsBuildInfoFile` from `tsconfig*.json`.
 
-Remove, if present, under `projectDir`:
-- every `*.tsbuildinfo`
-- `node_modules/.cache`
-- tsc incremental output dirs referenced by `tsconfig*.json` `outDir`/
-  `tsBuildInfoFile` (best-effort)
+### Containment predicate (Destructive Action Guard — NORMATIVE, LOCKED)
 
-**Containment scoping (BUG-1 + BUG-8, strict-descendant only).** Cache
-clearing is *strictly* scoped to **strict descendants** of `projectDir`. A
-tsconfig-derived path (`outDir`/`tsBuildInfoFile`) is eligible for removal
-**only if** its resolved absolute path starts with `projectDir` +
-path-separator **and** is **not equal to** `projectDir` or any ancestor of it.
-The **project root itself**, any **ancestor** of `projectDir`, and any
-**out-of-tree** path (via `../`, an absolute path, or normalization such as
-`"."` / `"./"` / `"src/.."` / `"./foo/../"`) are **NEVER eligible** for
-removal — they are **SKIPPED**: best-effort, silent (no throw, no delete).
-This is mandated by the global Destructive Action Guard: a recursive
-force-delete must never target the project root or above, and must never be
-driven by uncontrolled config input — the intent is clearing a warm build
-cache (an artifact subdirectory), not the source tree. The prior v1.0.1 rule's
-"equals `projectDir`" clause was itself the BUG-8 defect: a config
-`outDir:"."` resolved to `projectDir` and caused `fs.rmSync(projectDir,
-{recursive,force})` to destroy the entire project (src, package.json, `.git`)
-silently and automatically. The `*.tsbuildinfo` and `node_modules/.cache`
-removals are inherently contained (built from `projectDir` joins / a
-`projectDir`-rooted recursive walk producing strict descendants) and are
-guarded by the same strict-descendant check; a tsconfig `outDir`/
-`tsBuildInfoFile` resolving to the root or an ancestor is therefore rejected,
-while a legitimate strict descendant such as `outDir:"dist"` is still cleared.
+Every config-derived delete target is routed through `_isSafeToDelete`:
 
-Rationale: a warm local cache is exactly what masked the TimeTracking
-regression. Skipping this step reintroduces the defect M57 closes.
+```
+const resolved = path.resolve(targetPath);
+const root     = path.resolve(projectRoot);
+return resolved !== root && resolved.startsWith(root + path.sep);
+```
+
+A path is deleted **only if it is a STRICT DESCENDANT of projectRoot**.
+Both halves are load-bearing:
+
+- resolves **outside** projectRoot (`../victim`, absolute) → **REFUSE**
+  (BUG-1: `outDir:"../victim"` force-deleted a sibling).
+- resolves **equal to** projectRoot (`.`, `./`, `src/..`, `./foo/../`)
+  → **REFUSE** (BUG-8: force-deleted the entire repo — deleting the project
+  root is never a cache-clear).
+- a projectRoot-prefixed **sibling** (`projectRoot + "-evil"`) → **REFUSE**
+  (the `+ path.sep` guards the prefix-collision).
+
+A refusal is **silent-safe**: the path is recorded in `refusedPaths[]`,
+never deleted, never thrown; legitimate caches are still cleared (no
+over-correction — a legitimate `outDir:"dist"` strict-descendant IS
+removed). A reviewer finding any config-derived `fs.rmSync`/recursive
+delete that does not pass `_isSafeToDelete` first MUST treat it as a
+Destructive-Action-Guard violation and a contract violation.
 
 ## Docker Trigger (LOCKED — no opt-in flag)
 
-`Dockerfile` present → run real `docker build` (bounded timeout, output
-captured). The build failing → `ok:false`.
+`Dockerfile` present → run real `docker build` (bounded timeout). Build
+failing → `ok:false`.
 - `Dockerfile` absent → `dockerBuilt:false`, `dockerSkippedReason:'no-dockerfile'`.
 - `docker` binary missing → `dockerBuilt:false`,
-  `dockerSkippedReason:'docker-unavailable'`, NOT a hard failure (projects on
-  hosts without a Docker daemon must still pass).
+  `dockerSkippedReason:'docker-unavailable'`, NOT a hard failure.
 
 ## Exit Codes (CLI)
 
@@ -125,15 +106,18 @@ captured). The build failing → `ok:false`.
 
 ## Success Criterion Binding
 
-SC2: `runCiParity` on a fixture project with a `Dockerfile` and a planted tsc
-strict regression that a warm-cache local `tsc` would NOT catch runs the real
-`docker build`, which fails → `ok:false`, CLI exit 4.
+SC2: `runCiParity` on a fixture with a `Dockerfile` + a planted tsc strict
+regression a warm-cache local `tsc` would NOT catch runs the real
+`docker build`, which fails → `ok:false`, CLI exit 4. The SC2 docker
+assertion self-skips with a clear message when no Docker daemon is
+available; the cache-clear + detection + **containment** assertions
+(BUG-1/BUG-8/prefix-collision/BUG-2) run UNCONDITIONALLY (no Docker).
 
 ## Changelog
 
-- 1.0.0 — Initial M57 D2 ci-parity contract.
-- 1.0.1 — M57 Red Team cycle 1: BUG-1 cache-clear containment scoping made
-  explicit (out-of-tree paths SKIPPED); BUG-5 detected-but-unparseable CI
-  source returns `ok:false` with a note instead of silent green.
-- 1.0.2 — M57 Red Team cycle 2: containment hardened to strict-descendant-only;
-  outDir resolving to project root no longer deletes the project (BUG-8).
+- **2.0.0** — Re-plan 2026-05-19. Contract for the in-session rebuild that
+  actually implements containment (the v1.0.x code had no containment check
+  despite the contract describing it — a false-completion). Containment
+  predicate + mandatory-cache-clear path made normative and test-enforced;
+  `refusedPaths[]` + `cacheCleared` envelope fields added. Prior v1.0.x
+  changelog removed (it tracked an abandoned/false-completed design).

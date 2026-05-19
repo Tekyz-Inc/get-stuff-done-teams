@@ -228,26 +228,70 @@ function parseTsconfigArtifacts(projectDir) {
   return paths;
 }
 
-function removePath(p) {
+/**
+ * Containment predicate (Destructive Action Guard — LOCKED).
+ *
+ * A config-derived path may be deleted ONLY when its resolved absolute path
+ * is a STRICT DESCENDANT of projectRoot:
+ *
+ *   resolved.startsWith(projectRoot + path.sep) && resolved !== projectRoot
+ *
+ * Both halves are load-bearing:
+ *   - resolves OUTSIDE projectRoot (`../victim`, absolute) → REFUSE
+ *     (BUG-1: `tsconfig outDir:"../victim"` force-deleted a sibling).
+ *   - resolves EQUAL TO projectRoot (`.`, `./`, `src/..`, `./foo/../`)
+ *     → REFUSE (BUG-8: a regression that force-deleted the entire repo —
+ *     deleting the project root is never a cache-clear).
+ *   - the `+ path.sep` guards the prefix-collision edge: a sibling whose
+ *     name is `projectRoot + "-evil"` must NOT pass `startsWith(projectRoot)`.
+ *
+ * See memory: feedback_destructive_path_ops_containment.md.
+ */
+function _isSafeToDelete(targetPath, projectRoot) {
+  const resolved = path.resolve(targetPath);
+  const root = path.resolve(projectRoot);
+  return resolved !== root && resolved.startsWith(root + path.sep);
+}
+
+/**
+ * Delete a config-derived path, but ONLY if it passes the containment
+ * predicate. Refusals are recorded (never thrown, never deleted) so the
+ * caller can surface them in the envelope and still clear legitimate caches.
+ */
+function removePathContained(p, projectRoot, refused) {
+  if (!_isSafeToDelete(p, projectRoot)) {
+    refused.push(path.resolve(p));
+    return;
+  }
   try {
     const st = fs.statSync(p);
     if (st.isDirectory()) fs.rmSync(p, { recursive: true, force: true });
     else fs.unlinkSync(p);
-  } catch { /* best-effort */ }
+  } catch { /* best-effort: a missing path is fine */ }
 }
 
-/** Clear build caches before running detected commands (mandatory). */
+/**
+ * Clear build caches before running detected commands (mandatory path —
+ * runCiParity calls this unconditionally before any detected command).
+ * Returns { refusedPaths } so a containment refusal is observable.
+ */
 function clearBuildCaches(projectDir) {
-  // 1. Remove all *.tsbuildinfo files recursively
+  const root = path.resolve(projectDir);
+  const refused = [];
+
+  // 1. *.tsbuildinfo files (constructed under projectDir, but guarded too)
   const tsBuildInfoFiles = [];
   collectFiles(projectDir, (name) => name.endsWith('.tsbuildinfo'), 6, tsBuildInfoFiles);
-  for (const f of tsBuildInfoFiles) removePath(f);
+  for (const f of tsBuildInfoFiles) removePathContained(f, root, refused);
 
-  // 2. Remove node_modules/.cache
-  removePath(path.join(projectDir, 'node_modules', '.cache'));
+  // 2. node_modules/.cache
+  removePathContained(path.join(projectDir, 'node_modules', '.cache'), root, refused);
 
-  // 3. Remove tsconfig-referenced outDir / tsBuildInfoFile (best-effort)
-  for (const p of parseTsconfigArtifacts(projectDir)) removePath(p);
+  // 3. tsconfig-referenced outDir / tsBuildInfoFile — the dangerous,
+  //    user-controlled paths. Each MUST pass _isSafeToDelete.
+  for (const p of parseTsconfigArtifacts(projectDir)) removePathContained(p, root, refused);
+
+  return { refusedPaths: refused };
 }
 
 // ── Command runner ─────────────────────────────────────────────────────────────
@@ -328,23 +372,28 @@ function runCiParity(opts) {
 
   const { source, commands } = detectCi(projectDir);
 
+  // Cache-clear is on the MANDATORY path — it runs before any command AND
+  // before the no-CI/docker-only path, so a Dockerfile-only project still
+  // gets a clean cache (closes BUG-2: the prior early-return skipped it).
+  const { refusedPaths } = clearBuildCaches(projectDir);
+
   // No CI config found — not a failure
   if (source === 'none') {
     const hasDockerfile = fs.existsSync(path.join(projectDir, 'Dockerfile'));
     const dockerResult = hasDockerfile
       ? runDockerStep(projectDir, timeoutMs)
       : { dockerBuilt: false, dockerSkippedReason: 'no-dockerfile' };
-    return {
+    const env = {
       ok: !dockerResult.dockerFailed,
       detectedSource: 'none',
       commands: [],
+      cacheCleared: true,
       ...dockerResult,
       note: 'No CI config detected (no cloudbuild.yaml, .github/workflows, Dockerfile RUN lines, or package.json scripts)',
     };
+    if (refusedPaths.length) env.refusedPaths = refusedPaths;
+    return env;
   }
-
-  // Clear caches before running anything
-  clearBuildCaches(projectDir);
 
   // Run all detected commands
   const commandResults = [];
@@ -367,8 +416,10 @@ function runCiParity(opts) {
     ok: allOk,
     detectedSource: source,
     commands: commandResults,
+    cacheCleared: true,
     dockerBuilt: dockerResult.dockerBuilt,
   };
+  if (refusedPaths.length) envelope.refusedPaths = refusedPaths;
   if (dockerResult.dockerSkippedReason) envelope.dockerSkippedReason = dockerResult.dockerSkippedReason;
   if (!allOk && commands.length === 0) envelope.note = 'No commands detected';
   return envelope;
@@ -389,7 +440,7 @@ function runDockerStep(projectDir, timeoutMs) {
   };
 }
 
-module.exports = { runCiParity, detectCi, clearBuildCaches };
+module.exports = { runCiParity, detectCi, clearBuildCaches, _isSafeToDelete };
 
 // ── CLI entry ──────────────────────────────────────────────────────────────────
 
