@@ -1,0 +1,10 @@
+{"runId":"run-A","kind":"file-json-array","store":"/tmp/a.json","id":"E2E_A1","taggedPrefix":"E2E_","insertedAt":"2026-05-27T09:00:00.000Z"}
+{"runId":"run-A","kind":"file-json-array","store":"/tmp/a.json","id":"E2E_A2","taggedPrefix":"E2E_","insertedAt":"2026-05-27T09:00:01.000Z"}
+{"runId":"run-A","kind":"file-json-array","store":"/tmp/a.json","id":"E2E_A3","taggedPrefix":"E2E_","insertedAt":"2026-05-27T09:00:02.000Z"}
+{"runId":"run-B","kind":"file-json-array","store":"/tmp/b.json","id":"E2E_B1","taggedPrefix":"E2E_","insertedAt":"2026-05-27T09:01:00.000Z"}
+{"runId":"run-B","kind":"file-json-array","store":"/tmp/b.json","id":"E2E_B2","taggedPrefix":"E2E_","insertedAt":"2026-05-27T09:01:01.000Z"}
+{"runId":"run-B","kind":"file-json-array","store":"/tmp/b.json","id":"E2E_B3","taggedPrefix":"E2E_","insertedAt":"2026-05-27T09:01:02.000Z"}
+{"runId":"run-B","kind":"file-json-array","store":"/tmp/b.json","id":"E2E_B4","taggedPrefix":"E2E_","insertedAt":"2026-05-27T09:01:03.000Z"}
+{"runId":"run-C","kind":"file-json-array","store":"/tmp/c.json","id":"E2E_C1","taggedPrefix":"E2E_","insertedAt":"2026-05-27T09:02:00.000Z"}
+{"runId":"run-C","kind":"file-json-array","store":"/tmp/c.json","id":"E2E_C2","taggedPrefix":"E2E_","insertedAt":"2026-05-27T09:02:01.000Z"}
+{"runId":"run-C","kind":"file-json-array","store":"/tmp/c.json","id":"E2E_C3","taggedPrefix":"E2E_","insertedAt":"2026-05-27T09:02:02.000Z"}

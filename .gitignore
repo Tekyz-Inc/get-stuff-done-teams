@@ -63,6 +63,10 @@ bin/context-meter-state.cjs
 # sees the ≤500-token summary in the envelope — never these files)
 .gsd-t/verify-gate/
 
+# GSD-T M58 test-data ledger (per-run; written by Playwright fixtures,
+# swept by gsd-t-verify Step 4.5 — never committed)
+.gsd-t/test-data-ledger.jsonl
+
 # GSD-T runtime noise — append-only event streams, headless-spawn logs,
 # session transcripts, supervisor state, recovery checkpoints. Future
 # files of these classes are ignored; historical entries that were

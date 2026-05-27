@@ -1,0 +1,8 @@
+[
+  {"id": "REAL_USER_1", "name": "Alice", "kind": "user"},
+  {"id": "REAL_USER_2", "name": "Bob", "kind": "user"},
+  {"id": "E2E_TEST_1", "name": "Test Idea 1", "kind": "idea"},
+  {"id": "E2E_TEST_2", "name": "Test Idea 2", "kind": "idea"},
+  {"id": "E2E_TEST_3", "name": "Test Idea 3", "kind": "idea"},
+  {"id": "REAL_USER_3", "name": "Carol", "kind": "user"}
+]

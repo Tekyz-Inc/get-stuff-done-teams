@@ -260,6 +260,34 @@ Every Playwright assertion must verify one of:
 
 **If a test would pass on an empty HTML page with the correct element IDs and no JavaScript, it is not a functional test.** Rewrite it.
 
+### Test Data Cleanup (MANDATORY — M58)
+
+**Tests that insert data into a project's stores MUST register those inserts with the GSD-T test-data ledger so Verify can purge them.** Tests that leave orphaned `E2E_*` records in production data violate this rule.
+
+The supported mechanism is the `withTestData()` Playwright fixture:
+
+```ts
+import { test as base } from '@playwright/test';
+import { withTestData } from '@tekyzinc/gsd-t/templates/test-helpers/test-data-fixture';
+
+export const test = base.extend(withTestData());
+
+test('drag idea creates new column', async ({ page, testData }) => {
+  const id = testData.tag('E2E_DRAG');  // → "E2E_DRAG_{runId}_{counter}"
+  await testData.register({
+    kind: 'localStorage-key-prefix',
+    store: 'gsd-t-board:idea:',
+    id,
+    taggedPrefix: 'E2E_',
+  });
+  // … UI interactions that insert a row keyed by `${store}${id}` …
+});
+```
+
+Three built-in adapters: `localStorage-key-prefix`, `file-json-array`, `sqlite-table-where`. Extend via `registerAdapter(kind, adapter)`. Each adapter refuses to delete a record whose id does not start with the ledger row's `taggedPrefix` (defense in depth — see `.gsd-t/contracts/test-data-tagging-contract.md`).
+
+After the E2E suite, `gsd-t-verify` Step 4.5 runs `gsd-t test-data --purge --run "$GSD_T_VERIFY_RUN_ID"`. If any adapter throws or refuses, verify FAILs the gate (block-promotion semantics — equivalent to a failing CI-Parity Gate). Contract: `.gsd-t/contracts/test-data-ledger-contract.md` v1.0.0 STABLE.
+
 ## QA Agent (Mandatory)
 
 Every code-producing/validating phase MUST run QA. QA writes ZERO feature code — it generates, runs, and gap-reports tests. Failure (or any shallow E2E test) blocks phase completion.

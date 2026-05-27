@@ -303,6 +303,49 @@ const { captureSpawn } = require('./bin/gsd-t-token-capture.cjs');
 `captureSpawn` parses `result.usage` and writes the row to `.gsd-t/token-log.md` under the canonical header. Tokens column renders as `in=N out=N cr=N cc=N $X.XX` or `—`, never `N/A`. Collect all reports, synthesize, create remediation plan.
 ```
 
+<!-- M58: Test Data Cleanup Gate -->
+## Step 4.5: Test Data Cleanup Gate (MANDATORY — FAIL-blocking, never warning-only)
+
+```bash
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-verify --step 4 --step-label ".5: Test Data Cleanup Gate" 2>/dev/null || true
+```
+
+Origin: GSD-T-Board v0.1.10 Verify ran the Playwright suite, the suite
+passed, the milestone was tagged VERIFIED — and 2442 `E2E_TEST_*` /
+`E2E_DRAG_*` ideas stayed live in the production data store. The gate
+exists to catch that class: any test data registered during Verify via the
+`withTestData()` Playwright fixture (or by direct calls to
+`appendInsert(...)`) MUST be purged before VERDICT.
+
+```bash
+# Verify-run id — set at Step 1; if not, derive from milestone + UTC.
+: "${GSD_T_VERIFY_RUN_ID:=verify-${MILESTONE:-current}-$(date -u +%Y%m%dT%H%M%SZ)}"
+export GSD_T_VERIFY_RUN_ID
+
+# Purge anything the fixture (or appendInsert) registered during this run.
+gsd-t test-data --purge --run "$GSD_T_VERIFY_RUN_ID" --json > /tmp/gsd-t-test-data-purge.json
+TD_EXIT=$?
+```
+
+- `test-data --purge` exit **0** (`errors:[]`) → record
+  `Test data: purged=<N> skipped=<M>` in the verify report. Gate passes.
+- exit **4** (`errors.length > 0`) → verify FAIL. Append the first 5
+  `errors[].message` values to the verify report and surface the count of
+  remaining records. The fix is either (a) repair the adapter / store
+  configuration so purge succeeds, or (b) update the test to use the
+  fixture so the ledger has accurate entries.
+
+The gate runs AFTER the E2E suite (Step 4) so any tests that inserted
+test data via `withTestData(...)` have already populated the ledger.
+It runs BEFORE Step 5 (verify report) so the purge counts can land in the
+report. Tests that bypass the fixture and leave un-tagged data will not
+be caught here — they're caught at the project's next dataset audit.
+
+Pure-deterministic CLI check (no LLM). Contract:
+`.gsd-t/contracts/test-data-ledger-contract.md` v1.0.0 STABLE.
+Tagging: `.gsd-t/contracts/test-data-tagging-contract.md` v1.0.0 STABLE.
+<!-- /M58: Test Data Cleanup Gate -->
+
 ## Step 5: Compile Verification Report
 
 ```bash
@@ -322,6 +365,7 @@ Create or update `.gsd-t/verify-report.md`:
 - Code Quality: {PASS/WARN/FAIL} — {N} issues found
 - Unit Tests: {PASS/WARN/FAIL} — {N}/{total} passing
 - E2E Tests: {PASS/WARN/FAIL} — {N}/{total} specs passing
+- Test Data Cleanup: {PASS/FAIL} — purged={N} skipped={M} errors={E}
 - Security: {PASS/WARN/FAIL} — {N} findings
 - Integration: {PASS/WARN/FAIL}
 

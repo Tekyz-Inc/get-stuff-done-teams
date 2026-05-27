@@ -4580,6 +4580,15 @@ if (require.main === module) {
       });
       process.exit(res.status == null ? 1 : res.status);
     }
+    case "test-data": {
+      // M58 D1 — `gsd-t test-data --list|--purge` thin dispatcher.
+      const { spawnSync } = require("child_process");
+      const js = path.join(__dirname, "gsd-t-test-data-ledger.cjs");
+      const res = spawnSync(process.execPath, [js, ...args.slice(1)], {
+        stdio: "inherit",
+      });
+      process.exit(res.status == null ? 1 : res.status);
+    }
     case "stream-feed": {
       doStreamFeed(args.slice(1));
       break;
