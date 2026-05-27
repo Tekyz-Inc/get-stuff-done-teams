@@ -121,6 +121,8 @@ gsd-t verify-gate --skip-track1 --json                  # Diagnostic: Track 2 on
 gsd-t verify-gate --max-concurrency 4 --json            # Override D3-map default
 gsd-t build-coverage --json                             # M57: new top-level paths must be a real CI build input (structural parse)
 gsd-t ci-parity --json                                  # M57: reproduce the project's actual CI build locally (auto docker build)
+gsd-t test-data --list [--run ID] [--json]              # M58: list test-data ledger entries
+gsd-t test-data --purge --run ID [--dry-run] [--json]   # M58: purge tagged test data after Verify (Step 4.5)
 ```
 
 `gsd-t parallel` consumes the M44 task-graph (D1) and applies three pre-spawn gates (D4 depgraph validation → D5 file-disjointness → D6 economics) followed by mode-aware headroom/split math. Extends — does not replace — the M40 orchestrator. Contract: `.gsd-t/contracts/wave-join-contract.md` v1.1.0.

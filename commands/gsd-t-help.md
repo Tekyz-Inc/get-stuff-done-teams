@@ -469,6 +469,13 @@ Use these when user asks for help on a specific command:
 - **Use when**: Final pre-merge gate. Catches the TimeTracking v1.10.12 class (noImplicitAny regressions passed a warm-cache local tsc but failed CI's cold build).
 - **CLI**: `gsd-t ci-parity [--project-dir PATH] [--timeout-ms MS] [--json]`. Exit 0/4/2.
 
+### test-data (M58)
+- **Summary**: Append-only test-data ledger + purge engine. Tests register inserts via the `withTestData()` Playwright fixture; `gsd-t-verify` Step 4.5 purges them by adapter before VERDICT. Three built-in adapters: `localStorage-key-prefix`, `file-json-array`, `sqlite-table-where`. Each adapter refuses to delete records whose id does not start with the ledger row's `taggedPrefix` (defense in depth).
+- **Auto-invoked**: Yes — by `gsd-t-verify` Step 4.5 (FAIL-blocking, never warning-only)
+- **Files**: `bin/gsd-t-test-data-ledger.cjs`, `bin/gsd-t-test-data-adapters/*.cjs`, `templates/test-helpers/test-data-fixture.ts`
+- **Use when**: Test data hygiene. Catches the GSD-T-Board class (2442 orphaned `E2E_TEST_*` / `E2E_DRAG_*` ideas left in the production data store after a passing Verify run).
+- **CLI**: `gsd-t test-data --list [--run <id>] [--json]` / `gsd-t test-data --purge --run <id> [--dry-run] [--json] [--project <dir>]`. Exit 0 on success, 4 on adapter errors, 64 on usage error.
+
 ## Unknown Command
 
 If user asks for help on unrecognized command:

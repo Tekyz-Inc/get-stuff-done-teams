@@ -2,6 +2,52 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [3.28.10] - 2026-05-27
+
+### Added — M58 Test Data Cleanup Gate
+
+Origin: GSD-T-Board v0.1.10 ran `gsd-t-verify`, the Playwright suite
+passed, the milestone was tagged VERIFIED — and 2442 `E2E_TEST_*` /
+`E2E_DRAG_*` ideas stayed live in the production data store. Root cause:
+GSD-T had no convention for tracking test data inserted during Verify and
+no purge step after the suite completes.
+
+- **`gsd-t test-data`** (`bin/gsd-t-test-data-ledger.cjs`) — append-only
+  JSONL ledger at `.gsd-t/test-data-ledger.jsonl` recording every test
+  insert as `{runId, kind, store, id, taggedPrefix, insertedAt}`. Public
+  API: `appendInsert`, `listInserts`, `purgeRunInserts`, `registerAdapter`.
+  CLI: `gsd-t test-data --list [--run <id>]` / `gsd-t test-data --purge
+  --run <id> [--dry-run]`. Exit 0 on success, 4 on adapter errors.
+- **Three built-in adapters** (`bin/gsd-t-test-data-adapters/`):
+  `localStorage-key-prefix` (Playwright page.evaluate-based), `file-json-array`
+  (atomic write-temp + rename), `sqlite-table-where` (parameterized DELETE
+  with tagged-prefix LIKE guard; dynamic `better-sqlite3` require). Every
+  adapter refuses to delete a record whose id doesn't start with the
+  ledger row's `taggedPrefix` — defense in depth.
+- **`withTestData()` Playwright fixture**
+  (`templates/test-helpers/test-data-fixture.ts`) — opt-in fixture exposing
+  `testData.tag(prefix)` and `testData.register({...})`. Tagging convention:
+  `{PREFIX}_{verifyRunId}_{counter}`. Reads `process.env.GSD_T_VERIFY_RUN_ID`
+  set by `gsd-t-verify`. Optional `purgePerTest` opt-in for long suites.
+- **`gsd-t-verify` Step 4.5** (new, FAIL-blocking) — runs
+  `gsd-t test-data --purge --run "$GSD_T_VERIFY_RUN_ID"` after the E2E
+  suite, before VERDICT. Any adapter error fails the gate (block-promotion
+  semantics, equivalent to a failing CI-Parity Gate). Verify report line:
+  `Test Data Cleanup: PASS — purged=N skipped=M errors=E` or `FAIL`.
+- **Contracts** — `test-data-ledger-contract.md` v1.0.0 STABLE +
+  `test-data-tagging-contract.md` v1.0.0 STABLE.
+
+**Falsifiable SC results** (all PASS):
+- SC1 ledger records 5 inserts from synthetic Playwright fixture ✅
+- SC2 `purgeRunInserts({runId})` removes those 5, reports `purged.length===5` ✅
+- SC3 verify FAILs when ledger entries can't be purged (planted adapter throw) ✅
+- SC4 successful E2E purges cleanly → verify report `purged=5 skipped=0 errors=0` ✅
+- SC5 zero regressions on `npm test` ✅
+- SC6 Red Team GRUDGING PASS ≥5 broken patches caught ✅
+- SC7 doc-ripple complete (verify.md + CLAUDE-global.md + README + help + 2 contracts) ✅
+
+**Versioning**: minor bump 3.27.10 → **3.28.10** (new feature, additive).
+
 ## [3.27.10] - 2026-05-19
 
 ### Added — M57 CI-Parity Verify Gate
