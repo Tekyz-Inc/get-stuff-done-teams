@@ -1,8 +1,8 @@
 # GSD-T Progress
 
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
-## Status: ACTIVE — M61 EXECUTING — Wave 1 ~70% + 4.8-audit-cleared
-## Date: 2026-05-29 13:19 PDT
+## Status: ACTIVE — M61 EXECUTING — Waves 1+2 complete + D2 retired (partial Wave 3); D1/D3/D4 + D8 + SC7 remain
+## Date: 2026-05-29 13:42 PDT
 ## Version: 3.29.11
 
 ## Current Milestone
