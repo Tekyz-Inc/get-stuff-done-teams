@@ -35,7 +35,14 @@ const path = require("node:path");
 const { buildTaskGraph, getReadyTasks } = require(path.join(__dirname, "gsd-t-task-graph.cjs"));
 const { validateDepGraph } = require(path.join(__dirname, "gsd-t-depgraph-validate.cjs"));
 const { proveDisjointness } = require(path.join(__dirname, "gsd-t-file-disjointness.cjs"));
-const { estimateTaskFootprint } = require(path.join(__dirname, "gsd-t-economics.cjs"));
+// M61 D3: gsd-t-economics retired. estimateTaskFootprint produced a per-task
+// token+cost estimate the planner could consult for in-session-headroom
+// math. Native budget primitives (Workflow `budget` + /usage) replace it.
+// Stub to a zero-footprint estimate so the planner proceeds with default
+// assumptions instead of crashing.
+const estimateTaskFootprint = () => ({
+  inputTokens: 0, outputTokens: 0, costUSD: 0, source: "m61-stub",
+});
 const {
   computeInSessionHeadroom,
   computeUnattendedGate,

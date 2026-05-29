@@ -26,7 +26,15 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-const { captureSpawn } = require('./gsd-t-token-capture.cjs');
+// M61 D3: gsd-t-token-capture retired. captureSpawn was a wrapper that
+// parsed result.usage and wrote a token-log row. Native /usage replaces
+// that. Stub to a pass-through: invoke spawnFn directly, return its result.
+const captureSpawn = async (opts) => {
+  if (typeof opts.spawnFn === 'function') {
+    return await opts.spawnFn();
+  }
+  return null;
+};
 const { attachTee, VALID_ID_RE } = require('./parallel-cli-tee.cjs');
 
 const SCHEMA_VERSION = '1.0.0';
