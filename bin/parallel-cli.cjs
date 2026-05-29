@@ -26,7 +26,19 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-const { captureSpawn } = require('./gsd-t-token-capture.cjs');
+// M61 D3: gsd-t-token-capture retired. captureSpawn was a wrapper that
+// parsed result.usage and wrote a token-log row, returning
+// `{ result, usage, rowWritten }`. Native /usage replaces the token-log.
+// Stub preserves the RETURN SHAPE (callers read `wrapped.result`) — only the
+// token-log side-effect is dropped. Returning the bare spawn result would
+// make every parallel-CLI worker read `wrapped.result === undefined` and
+// report ok:false regardless of real outcome (M61 post-audit CRITICAL fix).
+const captureSpawn = async (opts) => {
+  if (typeof opts.spawnFn === 'function') {
+    return { result: await opts.spawnFn(), usage: null, rowWritten: false };
+  }
+  return { result: null, usage: null, rowWritten: false };
+};
 const { attachTee, VALID_ID_RE } = require('./parallel-cli-tee.cjs');
 
 const SCHEMA_VERSION = '1.0.0';

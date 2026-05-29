@@ -1,0 +1,47 @@
+M61 D7-T5 KEEP List Integrity Verification
+Generated: 2026-05-29 13:32 PDT
+
+Verifies all D7 KEEP-list files are still present + unmodified except for explicit preamble updates.
+
+PRESENT (     632 lines): bin/gsd-t-verify-gate.cjs
+PRESENT (     224 lines): bin/gsd-t-verify-gate-judge.cjs
+PRESENT (     500 lines): bin/gsd-t-ci-parity.cjs
+PRESENT (     438 lines): bin/gsd-t-build-coverage.cjs
+PRESENT (     291 lines): bin/gsd-t-test-data-ledger.cjs
+PRESENT (     347 lines): bin/journey-coverage.cjs
+PRESENT (     130 lines): bin/journey-coverage-cli.cjs
+PRESENT (     265 lines): bin/cli-preflight.cjs
+PRESENT (     395 lines): bin/gsd-t-context-brief.cjs
+PRESENT (     315 lines): bin/playwright-bootstrap.cjs
+PRESENT (     151 lines): bin/ui-detection.cjs
+PRESENT (     335 lines): bin/archive-progress.cjs
+MISSING: bin/global-sync-manager.cjs
+PRESENT (      32 lines): templates/prompts/qa-subagent.md
+PRESENT (     103 lines): templates/prompts/red-team-subagent.md
+PRESENT (     105 lines): templates/prompts/design-verify-subagent.md
+
+Adapter directory:
+  file-json-array.cjs
+  localstorage-key-prefix.cjs
+  sqlite-table-where.cjs
+
+Scan engine + rule engine + graph:
+  graph-cgc.js
+  graph-indexer.js
+  graph-overlay.js
+  graph-parsers.js
+  graph-query.js
+  graph-store.js
+  rule-engine.js
+  scan-data-collector.js
+  scan-diagrams-generators.js
+  scan-diagrams.js
+  scan-export.js
+  scan-renderer.js
+  scan-report-sections.js
+  scan-report.js
+  scan-schema-parsers.js
+  scan-schema.js
+
+NOTE 2026-05-29: bin/global-sync-manager.js (NOT .cjs) — D7 scope.md had wrong extension; file IS present at the corrected path.
+All other KEEP-list files verified present.

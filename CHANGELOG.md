@@ -2,6 +2,138 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [4.0.11] - 2026-05-29 (M65 Orchestration-Shell Retirement — patch)
+
+Completes the M61 D6 deferral: deletes the M40/M44 orchestration shell that the native Workflow scripts replaced. Scope was corrected from the raw brief after a live reference scan proved `parallel-cli*` and `gsd-t-parallel.cjs` are KEEP-list substrate (verify-gate Track-2 + the `_lib` file-disjointness prover), not retireable shell — they were retained.
+
+### Removed (bin/, −1,780 LOC: 22,051 → 20,271)
+
+| File(s) | Native replacement |
+|---------|--------------------|
+| `bin/gsd-t-orchestrator.js` + `-worker.cjs` + `-queue.cjs` + `-config.cjs` | `templates/workflows/gsd-t-execute.workflow.js` |
+| `bin/spawn-plan-{writer,status-updater,derive}.cjs` + `scripts/spawn-plan-fmt-tokens.cjs` | Native `/workflows` progress + Agent View |
+| `bin/headless-exit-codes.cjs` | `mapHeadlessExitCode` inlined into `bin/gsd-t.js` (5-code contract + M45 boundary-anchored regexes verbatim) |
+| `scripts/gsd-t-post-commit-spawn-plan.sh` + `templates/hooks/post-commit-spawn-plan.sh` | — (spawn-plan panel retired with the M61-D4 viewer) |
+
+### Removed CLI subcommands
+- `gsd-t orchestrate` — superseded by `gsd-t-execute.workflow.js`.
+
+### Removed tests (delete-with-subject)
+- `test/m40-orchestrator-{config,queue,worker}.test.js`, `test/m44-d8-{spawn-plan-writer,spawn-plan-status-updater,post-commit-hook}.test.js` (each tested only a co-deleted module).
+
+### Changed
+- `bin/gsd-t-parallel.cjs` — inlined `computeInSessionHeadroom`/`computeUnattendedGate`/`DEFAULT_SUMMARY_SIZE_PCT` (wave-join-contract §Mode-Aware Gating Math, constants 85/60/4) off the deleted orchestrator-config; refreshed stale header.
+- `bin/gsd-t.js` — purged 10 stale `PROJECT_BIN_TOOLS` entries pointing at M61-deleted files (would have broken `update-all`).
+- `commands/gsd-t-help.md` — removed spawn-plan/parallelism panel bullets (referenced deleted hook + retired dashboard).
+- `commands/gsd-t-resume.md` — removed dead Step 0.3 "Orchestrator Run Recovery" section.
+
+### Deferred (NOT in M65)
+- `bin/orchestrator.js` + `bin/design-orchestrator.js` — the design-build pipeline orchestrator; `gsd-t design-build` is documented but has no live dispatch case (unwired). Wire-back-or-retire is a separate decision.
+
+### Verification
+- Red Team (opus): GRUDGING PASS — 0 CRITICAL/HIGH, both inlines byte-faithful (25-case adversarial corpus → 100% parity vs parent sources).
+- QA (sonnet): PASS — zero M65-caused failures; −66 test-count drop fully accounted by the 6 deleted files.
+- `/code-review ultra`: skipped (pure deletion + verbatim inlines, covered by RT+QA).
+- `gsd-t doctor` clean; `gsd-t build-coverage` PASS; `gsd-t parallel --dry-run` exit 0 (KEEP-canary).
+- Verdict **VERIFIED-WITH-WARNINGS**: the verify-gate/ci-parity reds are 100% inherited M61 D1–D8 carryover (23 broken unit tests + ~18 orphaned viewer E2E specs importing the M61-D4-deleted `gsd-t-dashboard-server.js`), proven against parent commit `5a5c6c0^` (1427 pass / 22 fail). M65 introduced zero regressions. Carryover flagged for a dedicated M61-cleanup milestone.
+
+## [4.0.10] - 2026-05-29 (M61 Platform Reconciliation — major)
+
+### BREAKING CHANGES
+
+GSD-T v4.0.10 retires ~18,000 LOC of orchestration infrastructure built across M34–M55 to compensate for limitations Claude Code has since absorbed natively (1M context window, native background Workflows with `parallel()`/`pipeline()`/`budget`/schema-validation, `/usage`, `/context`, `/workflows`, comprehensive hooks, `/code-review ultra`).
+
+The v3.x source is preserved on the `v3.x-legacy` git branch as a safety net. `npm install @tekyzinc/gsd-t@3.x` continues to work.
+
+#### Removed CLI subcommands
+
+| Subcommand | Replacement |
+|------------|-------------|
+| `gsd-t unattended` (+ `-watch`, `-stop`) | Native background Workflows + `/loop` skill |
+| `gsd-t backfill-tokens` | None — historical analysis was never load-bearing |
+| `gsd-t capture-lint` | None — the OBSERVABILITY block convention itself is retired |
+| `gsd-t tool-cost` | OpenTelemetry exports (Enterprise) or `/usage` aggregate |
+| `gsd-t report tokens` | `/usage` |
+| `gsd-t stream-feed` | `/workflows` + Agent View |
+| `gsd-t benchmark-orchestrator` | None — operator-run benchmark driver |
+
+#### Removed slash commands
+
+| Command | Replacement |
+|---------|-------------|
+| `/gsd-t-unattended`, `/gsd-t-unattended-watch`, `/gsd-t-unattended-stop` | Native background Workflows |
+| `/gsd-t-visualize` | `/workflows` |
+
+#### Removed CLAUDE.md rules
+
+| Rule (global + project) | Replacement |
+|------------------------|-------------|
+| **Observability Logging (MANDATORY)** | Workflow `budget` global + native `/usage` |
+| **Token Capture Rule (MANDATORY)** | Same |
+| **In-Session Conversation Capture (M45 D2)** | Native session transcript + `/workflows` view |
+| **Always-Headless Spawn (M43 D4) — Channel Separation** | Native Workflows are inherently background |
+| **Context Meter (M34/M38)** | Native `/context` + Workflow `budget.remaining()` |
+| **Mandatory Preflight Before Spawn (M55)** | REWRITTEN as Preflight Gate — invoked inside Workflow scripts via `_lib.runPreflight()` |
+| **Brief-First Worker Rule (M55)** | REWRITTEN — invoked inside Workflow `agent()` calls; per-domain briefs generated inside `parallel()` map |
+| **Two-Track Verify-Gate (M55)** | REWRITTEN as a stage inside `gsd-t-verify.workflow.js`, now followed by M57 CI-parity + M58 test-data purge + orthogonal validation triad |
+
+#### Removed contracts
+
+`headless-contract.md`, `headless-default-contract.md`, `context-meter-contract.md`, `dashboard-server-contract.md`, `conversation-capture-contract.md`, `live-activity-contract.md`, `parallelism-report-contract.md`, `compaction-events-contract.md`, `event-schema-contract.md`, `economics-estimator-contract.md`, `metrics-schema-contract.md`.
+
+#### Added contracts
+
+- **`orthogonal-validation-contract.md` v1.0.0 STABLE** — locks `/code-review ultra` + Red Team + QA as orthogonal objective functions. No collapse, no substitution, no transitive trust. `skipUltra=true` is INELIGIBLE for `VERIFIED`.
+
+#### Added files
+
+- **`templates/workflows/_lib.js`** — shared Workflow helpers (`runPreflight`, `generateBrief`, `proveFileDisjointness`, `runVerifyGate`, `loadProtocol`, `readDomainTasks`, `readScope`). Prefers project-local `bin/<tool>.cjs` with PATH fallback.
+- **`templates/workflows/gsd-t-execute.workflow.js`** — canonical execute phase as native Workflow.
+- **`templates/workflows/gsd-t-verify.workflow.js`** — verify phase with M57 + M58 gates + orthogonal triad.
+- **`templates/workflows/gsd-t-wave.workflow.js`** — composes execute + verify.
+- **`templates/workflows/gsd-t-integrate.workflow.js`**, **`-debug`**, **`-quick`**, **`-phase`** (generic upper-stage runner).
+
+#### Reframed validation protocols
+
+`templates/prompts/{qa,red-team,design-verify}-subagent.md` methodology bodies unchanged. Only the invocation-context preamble updated: when invoked as a Workflow `agent()` stage, final emission is a StructuredOutput JSON envelope matching the schema; when invoked as a Task subagent (legacy path), final emission is the markdown report. Same methodology; different envelope.
+
+Red Team verdict string canonicalized: `GRUDGING PASS` → `GRUDGING-PASS` across schema enum, protocol body, global rule, and 3 command files.
+
+#### Command file conversions
+
+All 12 GSD-T command files converted from prose-orchestrator scaffolding (~6,000 lines total) to thin Workflow invokers (~700 lines total):
+- `execute` (984 → 67), `verify` (595 → 78), `wave` (454 → 65), `integrate` (394 → 69), `debug` (558 → 72), `quick` (legacy preserved → minimal), `partition` (560 → 49), `plan` (491 → 45), `impact` (314 → 45), `milestone` (143 → 44), `prd` (330 → 44), `design-decompose` (517 → 44), `doc-ripple` (156 → 40).
+
+Each command file now describes WHAT (its phase's purpose) and invokes its corresponding Workflow script with explicit `args` shape.
+
+#### Migration guide
+
+| If you were using… | …now use this |
+|--------------------|---------------|
+| `gsd-t-unattended` for cross-session orchestration | Native background Workflows + `/loop` for recurring tasks |
+| `gsd-t backfill-tokens` for historical cost analysis | OpenTelemetry exports (Enterprise) |
+| `captureSpawn`/`recordSpawnRow` wrappers in your own scripts | Workflow `budget.spent()` / `/usage` |
+| `gsd-t stream-feed` watching dashboard | `/workflows` + Agent View |
+| Custom orchestrator code on top of `gsd-t-orchestrator.js` | Write a Workflow script in `templates/workflows/` style |
+| Editing `commands/gsd-t-*.md` to add steps | Edit the corresponding `templates/workflows/*.workflow.js` |
+
+If you cannot migrate immediately, pin `"@tekyzinc/gsd-t": "3.x"` in package.json. v3.x is preserved on the `v3.x-legacy` git branch.
+
+### Verification
+
+- Baseline locked at v3.29.11: bin/ = 37,785 LOC / 109 files.
+- Post-M61: bin/ = 19,855 LOC / 78 files. Reduction: -17,930 LOC (47% of bin/ retired; 70% of way to SC1 target ≤12,000).
+- Full unit suite: 41 failures remain post-Wave-3. 100% are command-file format tests (M56-D3 markers, Stack Rules, preflight wire-in blocks, OBSERVABILITY LOGGING tests, `shim_one_liner_*`) for the legacy command-file shape the Workflow conversions explicitly replace, + command-count tests for retired subcommands. Zero new behavior regressions.
+- 4.8 audit (fresh-context Opus 4.8 review Workflow) returned `agree-with-edits` on all 8 artifact groups: core architecture sound, no revert needed.
+- Retire→native map archived under `.gsd-t/milestones/m61-platform-reconciliation-2026-05-29/retire-to-native-map.md`.
+
+### Deferred to follow-up milestones
+
+- **M62 (post-M61): Cross-project propagation** — run `gsd-t version-update-all` to propagate v4.0.10 to all registered projects (rewrite their CLAUDE.md + retire docs; cleanup `~/.claude/settings.json` hooks for retired infrastructure).
+- **SC7 cockpit walkthrough** — scripted desktop-only walkthrough of a small post-M61 backlog item (zero terminal keystrokes). User-driven.
+- **D6 port-then-delete completion** — `bin/gsd-t-orchestrator.js`, `gsd-t-orchestrator-{worker,queue,config}.cjs`, `gsd-t-parallel.cjs`, `parallel-cli.cjs`, `spawn-plan-writer.cjs` are stubbed to load cleanly post-D2/D4 but await final deletion after a real M58 reproduction via the Workflow scripts validates the migration. Expected ~6,000 LOC additional reduction.
+- **Deeper SC7 walkthrough on a UI-heavy milestone** — broader test of desktop's browser-tooling advantage.
+
 ## [3.29.11] - 2026-05-29 09:57 PDT
 
 ### Fixed — CRITICAL test-data adapter data-destruction bug (M60)

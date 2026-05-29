@@ -23,7 +23,7 @@ Contract-driven development methodology for Claude Code. npm package providing s
 
 ```
 bin/                     — CLI entry (gsd-t.js) + orchestrators (orchestrator.js, design-orchestrator.js)
-                           + support modules (headless-auto-spawn.cjs, token-budget.cjs, model-selector.js, …)
+                           + support modules (gsd-t-context-brief.cjs, cli-preflight.cjs, gsd-t-verify-gate.cjs, model-selector.js, …)
 commands/                — slash commands for Claude Code (GSD-T workflow + utility)
 templates/               — document + prompt + stack templates
   CLAUDE-{global,project}.md, requirements.md, architecture.md, workflows.md,
@@ -49,7 +49,7 @@ Exact command list: `ls commands/`. Exact stack rule set: `ls templates/stacks/`
 
 **CLI** — ANSI colors via escape codes, zero external deps, sync file APIs, version tracked in `package.json` and `~/.claude/.gsd-t-version`.
 
-**Command files** — pure markdown, no frontmatter, accept `$ARGUMENTS`, step-numbered workflow, include a Document Ripple section when they modify files. Any step that spawns a Task subagent or agent team MUST include the OBSERVABILITY LOGGING block (copy from `commands/gsd-t-execute.md`). Keep validation-subagent protocol bodies in `templates/prompts/*-subagent.md` — command files resolve the path and spawn with a short referral prompt; don't inline the protocol.
+**Command files** — pure markdown, no frontmatter, accept `$ARGUMENTS`, step-numbered, thin Workflow invokers (`Workflow({scriptPath, args})`). Include a Document Ripple section listing files the underlying Workflow expects domain workers to update. Validation protocol bodies stay in `templates/prompts/*-subagent.md`; Workflow scripts load them via `_lib.loadProtocol(name)`. Don't inline the protocol.
 
 **Templates** — `{Project Name}`, `{Date}`, `{description}` replacement tokens; tables for structured data.
 
@@ -57,104 +57,26 @@ Exact command list: `ls commands/`. Exact stack rule set: `ls templates/stacks/`
 
 **Publishing** — after `npm publish`, ALWAYS run `/gsd-t-version-update-all` to propagate to registered projects.
 
-## Observability Logging (MANDATORY)
+## GSD-T Workflows (M61 — v4.0.10+)
 
-Every command that spawns a Task subagent, invokes `claude -p`, or calls `spawn('claude', ...)` MUST route the spawn through `bin/gsd-t-token-capture.cjs` so the real token-usage envelope is parsed and recorded. This is the M41 canonical pattern — the pre-M41 bash block that wrote `| N/A |` is retired.
+Phase orchestration lives in `templates/workflows/`. Each command file (`commands/gsd-t-*.md`) is a thin invoker that calls `Workflow({scriptPath, args})`. Canonical scripts:
 
-### Pattern A — wrap a spawn callable with `captureSpawn`
+- `gsd-t-execute.workflow.js` — preflight → brief → file-disjointness → parallel(domain workers) → integrate → verify-gate
+- `gsd-t-verify.workflow.js` — orthogonal triad with M57 CI-parity + M58 test-data purge as FAIL-blocking gates
+- `gsd-t-wave.workflow.js`, `-integrate`, `-debug`, `-quick`, `-phase` (generic upper-stage runner)
 
-Preferred for new spawn sites. The wrapper owns the before/after timing, model banner, envelope parse, row write, and JSONL record.
+Shared helpers: `templates/workflows/_lib.js`. Each helper prefers project-local `bin/<tool>.cjs` and falls back to global `gsd-t` PATH binary.
 
-```
-node -e "
-const { captureSpawn } = require('./bin/gsd-t-token-capture.cjs');
-(async () => {
-  await captureSpawn({
-    command: 'gsd-t-execute',
-    step: 'Step 4',
-    model: 'sonnet',
-    description: 'domain: auth-service',
-    projectDir: '.',
-    domain: 'auth-service',
-    task: 'T-3',
-    spawnFn: async () => { /* actual Task(...) or spawn('claude', ...) call */ },
-  });
-})();
-"
-```
+The brains stay in `bin/`: `gsd-t-file-disjointness.cjs`, `gsd-t-task-graph.cjs`, `gsd-t-context-brief.cjs`, `cli-preflight.cjs`, `gsd-t-verify-gate.cjs`, `gsd-t-verify-gate-judge.cjs`, `gsd-t-build-coverage.cjs`, `gsd-t-ci-parity.cjs`, `gsd-t-test-data-ledger.cjs`, `journey-coverage.cjs`. Workflows invoke them via `lib.*` helpers.
 
-### Pattern B — record after the result envelope is already in hand
+## Validation Protocols (KEPT — methodology layer)
 
-For command files where the Task subagent already ran and the caller has the result object. Identical row format, no timing wrap.
+Three validation protocol bodies stay at `templates/prompts/`:
+- `qa-subagent.md` — test mechanics + shallow-test detection + contract compliance
+- `red-team-subagent.md` — adversarial / security / boundaries; verdict `FAIL` / `GRUDGING-PASS`
+- `design-verify-subagent.md` — visual MATCH/DEVIATION against the design contract
 
-```
-node -e "
-const { recordSpawnRow } = require('./bin/gsd-t-token-capture.cjs');
-recordSpawnRow({
-  projectDir: '.',
-  command: 'gsd-t-verify',
-  step: 'Step 4',
-  model: 'haiku',
-  startedAt: '2026-04-21 10:00',
-  endedAt:   '2026-04-21 10:02',
-  usage: result.usage, // may be undefined — wrapper handles with '—'
-  domain: '-', task: '-',
-  ctxPct: 42,
-  notes: 'test audit + contract review',
-});
-"
-```
-
-### Canonical `.gsd-t/token-log.md` header
-
-```
-| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Tokens | Notes | Domain | Task | Ctx% |
-```
-
-The wrapper detects old headers (no `Tokens` column) and upgrades in place, preserving existing rows. The **Tokens** cell renders as `in=N out=N cr=N cc=N $X.XX` when usage is present, or `—` when absent. Never `0`. Never `N/A`. A zero is a measurement; a dash is an acknowledged gap.
-
-For QA/validation subagents, append findings to `.gsd-t/qa-issues.md`:
-```
-| Date | Command | Step | Model | Duration(s) | Severity | Finding |
-```
-
-## Token Capture Rule (MANDATORY)
-
-Every `Task(...)` subagent spawn, every `claude -p` child process, and every `spawn('claude', ...)` call MUST flow through `bin/gsd-t-token-capture.cjs`. Either wrap with `captureSpawn({..., spawnFn})` or record explicitly with `recordSpawnRow({...})` after the call returns.
-
-No command file ships a bare `Task(...)` or `claude -p` line outside of a wrapper call. `gsd-t capture-lint` (D5) enforces this mechanically; violations fail the opt-in pre-commit hook.
-
-Rationale: the pre-M41 convention silently wrote `N/A` tokens because no caller parsed the `usage` envelope. The wrapper is the single place that parses it. Bypassing the wrapper re-introduces blind spots.
-
-## Mandatory Preflight Before Spawn (M55)
-
-Every command that spawns a Task subagent or invokes `claude -p` MUST run `gsd-t preflight` first. Hard-fails on any `severity:"error"` check (wrong branch, occupied required port). Non-error checks (warn/info) record but do not block.
-
-```bash
-gsd-t preflight --json > /tmp/gsd-t-preflight.json || exit 4
-```
-
-This catches drift early — wrong branch, port collision, DRAFT contracts past PARTITIONED — before any LLM work fires. Same envelope is consumed by `gsd-t verify-gate` Track 1, so failing fast at execute time saves the verify round-trip.
-
-Library: `bin/cli-preflight.cjs::runPreflight({projectDir, checks?})`.
-Contract: `.gsd-t/contracts/cli-preflight-contract.md` v1.0.0 STABLE.
-
-## Brief-First Worker Rule (M55)
-
-Every parallel worker prompt scaffold MUST thread `$BRIEF_PATH` — a ≤2,500-token JSON snapshot generated once per spawn by `bin/gsd-t-context-brief.cjs`. The brief replaces the 30–60k context re-read every parallel worker would otherwise perform (CLAUDE.md + contracts + scope + relevant code) — the dominant ITPM-relief lever in M55.
-
-```bash
-SPAWN_ID="execute-${DOMAIN}-$(date -u +%Y%m%dT%H%M%SZ)"
-gsd-t brief --kind execute --domain "${DOMAIN}" --spawn-id "${SPAWN_ID}" --out ".gsd-t/briefs/${SPAWN_ID}.json"
-export BRIEF_PATH=".gsd-t/briefs/${SPAWN_ID}.json"
-```
-
-The 3 validation-subagent protocols (`templates/prompts/{qa,red-team,design-verify}-subagent.md`) carry the canonical instruction "If you're about to grep, read, or run a test, check the brief first at `$BRIEF_PATH`." Workers grep the brief instead of re-walking the repo.
-
-`.gsd-t/briefs/` is gitignored — briefs are per-spawn ephemera, not committed artifacts.
-
-Library: `bin/gsd-t-context-brief.cjs::generateBrief(...)`.
-Contract: `.gsd-t/contracts/context-brief-contract.md` v1.0.0 STABLE.
+These are invoked as Workflow `agent()` stages with schema-validated output. The methodology body is unchanged; only the invocation context (Workflow stage vs. Task subagent) updated. Per `.gsd-t/contracts/orthogonal-validation-contract.md` v1.0.0 STABLE.
 
 
 # Destructive Action Guard (MANDATORY)
@@ -179,7 +101,7 @@ The global gate applies first (see `~/.claude/CLAUDE.md`). Additionally for this
 
 - **Command file interface/behavior changed** → update `GSD-T-README.md` + `README.md` commands table + `templates/CLAUDE-global.md` + `commands/gsd-t-help.md`.
 - **Command added/removed** → update all 4 files above, bump `package.json`, update any command-counting logic in `bin/gsd-t.js`.
-- **New command spawns a subagent** → verify OBSERVABILITY LOGGING block is present.
+- **New command invokes a Workflow** → verify `scriptPath` resolves to `templates/workflows/<name>.workflow.js` and `args` shape matches the script's `meta.phases`.
 - **CLI installer changed** → smoke test `install`, `update`, `status`, `doctor`, `init`, `uninstall`.
 - **Template changed** → verify `gsd-t-init` still produces correct output.
 - **Wave flow changed (phases added/removed/reordered)** → update `gsd-t-wave.md`, `GSD-T-README.md` wave diagram, `README.md` workflow section.
@@ -191,8 +113,7 @@ The global gate applies first (see `~/.claude/CLAUDE.md`). Additionally for this
 - NEVER rename a command without updating all 4 reference files above.
 - NEVER modify wave phase sequence without updating wave, README, GSD-T-README in the same commit.
 - NEVER let installer's command count diverge from `commands/` directory reality.
-- NEVER spawn a Task subagent without OBSERVABILITY LOGGING.
-- NEVER inline validation-subagent protocol bodies into command files — path-reference `templates/prompts/*-subagent.md`.
+- NEVER inline validation-subagent protocol bodies into Workflow scripts — `_lib.loadProtocol("qa"|"red-team"|"design-verify")` reads the methodology body from `templates/prompts/`.
 
 ## Recovery After Interruption
 

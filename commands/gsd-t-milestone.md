@@ -1,143 +1,44 @@
 # GSD-T: New Milestone — Define and Optionally Partition
 
-You are defining a new milestone for the project. A milestone is a significant deliverable (e.g., "User Authentication", "MVP Launch", "Payment Integration").
+You are the lead agent. Define a new milestone by invoking the generic upper-stage Workflow at `templates/workflows/gsd-t-phase.workflow.js` with `phase: "milestone"`. A milestone is a significant deliverable (e.g., "User Authentication", "Payment Integration").
 
-## Step 1: Load Context
+## What this command does
 
-```bash
-node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-milestone --step 1 --step-label "Load Context" 2>/dev/null || true
+```
+preflight → brief (kind=milestone) → milestone agent (opus, with phase protocol)
 ```
 
-Read:
-1. `CLAUDE.md`
-2. `.gsd-t/progress.md` — check if GSD-T is initialized
-3. `docs/` — existing documentation
+The agent defines the milestone — origin, goal, falsifiable success criteria — and appends it to `.gsd-t/progress.md`. Partition is deferred (the Next Up successor). Effort/scope is expressed in GSD-T-native units (domain count, wave count, spawn count) — never developer-hours.
 
-If `.gsd-t/` doesn't exist, run the init workflow first.
+## Step 1: Load context
 
-<!-- M56-D3: brief wire-in -->
-**M56 Context-Brief (surfaces last completed milestone + version + recent decision log without re-reading progress.md):**
+Read `.gsd-t/progress.md` (current version + completed milestones), `docs/requirements.md`, and `docs/architecture.md` so the new milestone is framed against existing state.
 
-```bash
-SPAWN_ID="milestone-${ARG_OR_DEFAULT:-define}-$(date -u +%Y%m%dT%H%M%SZ)"
-gsd-t brief --kind milestone --spawn-id "${SPAWN_ID}" --out ".gsd-t/briefs/${SPAWN_ID}.json" || true
-export BRIEF_PATH=".gsd-t/briefs/${SPAWN_ID}.json"
+## Step 2: Invoke the phase Workflow
+
+```js
+{
+  scriptPath: "templates/workflows/gsd-t-phase.workflow.js",
+  args: {
+    phase: "milestone",
+    projectDir: ".",
+    userInput: "$ARGUMENTS"
+  }
+}
 ```
 
-The `milestone` brief includes `lastCompletedMilestoneRow`, `currentVersion`, and the last 3 decision-log entries so the milestone-definition step can derive version-bump rationale + scope baseline without paging in the full progress history.
-<!-- /M56-D3: brief wire-in -->
+## Step 3: Interpret the result
 
-## Step 2: Define the Milestone
+The Workflow returns `{ status, artifacts, summary, decisions }`.
 
-```bash
-node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-milestone --step 2 --step-label "Define the Milestone" 2>/dev/null || true
-```
+- `status === "complete"`: milestone defined and appended to progress.md with falsifiable SCs. Do NOT auto-partition for large/risky milestones — show the Next Up hint.
+- `status === "blocked"`: the agent needs a scoping decision from the user.
+- `status === "failed"`: read `summary`.
 
-Based on $ARGUMENTS and available documentation:
+## Document Ripple
 
-1. **Name**: Clear, descriptive milestone name
-2. **Goal**: 1-2 sentence description of what "done" looks like
-3. **Scope**: What's included and what's explicitly NOT included
-4. **Success criteria**: 3-5 measurable outcomes
+The milestone agent appends the milestone definition + a Decision Log entry to `.gsd-t/progress.md`.
 
-Update `.gsd-t/progress.md` milestones table:
-```markdown
-| # | Milestone | Status | Domains |
-|---|-----------|--------|---------|
-| {N} | {name} | DEFINED | TBD |
-```
+## Next Up
 
-## Step 3: Clear Previous Milestone State (if applicable)
-
-```bash
-node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-milestone --step 3 --step-label "Clear Previous Milestone State (if applicable)" 2>/dev/null || true
-```
-
-If there's a completed previous milestone:
-1. Archive domain task files (they contain valuable context)
-2. Keep contracts that are still valid
-3. Clean domain task lists for new work
-4. Reset integration checkpoints
-
-If previous milestone is NOT complete:
-Ask user: "Milestone {N-1} is still {status}. Archive it and start new? Or complete it first?"
-
-## Step 4: Pre-Partition Assessment
-
-```bash
-node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-milestone --step 4 --step-label "Pre-Partition Assessment" 2>/dev/null || true
-```
-
-Before formal partitioning, do a quick assessment.
-
-**Express scope in GSD-T-native units only.** Per `feedback_no_human_hour_estimates.md` (memory): never use developer-hours, dev-days, sprints, story points, or person-weeks. Use these instead:
-
-| Unit | Use for |
-|------|---------|
-| **Domain count** | Partition coarseness (1-2 / 3-4 / 5+) |
-| **Wave count** | How many serial gates the milestone needs |
-| **Spawn count** | Estimated `claude -p` / Task subagent invocations |
-| **Token-spend range** | `$X-Y` based on prior comparable milestones |
-| **Rate-limit-window count** | If the milestone might span > 1 5h Claude Max window |
-| **Parallel-domain count** | How many domains can run concurrently (file-disjoint) |
-
-Assessment template:
-
-- **Domain count**: Simple (1-2 domains), Medium (3-4), Complex (5+)
-- **Wave count**: estimated based on cross-domain dependencies
-- **Parallel-domain count**: how many can run in the same wave
-- **Token-spend range**: $X-Y based on prior comparable milestones (read `.gsd-t/token-log.md` for trailing-3 comparison)
-- **Recommended approach**:
-  - 1-2 domains: Consider using /gsd-t-quick for each piece
-  - 3-4 domains: Standard partition → plan → execute flow
-  - 5+ domains: Partition → discuss → plan → execute → integrate → verify
-
-Present the assessment and ask: "Ready to partition into domains now, or want to discuss first?"
-
-## Step 5: Document Ripple
-
-```bash
-node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-milestone --step 5 --step-label "Document Ripple" 2>/dev/null || true
-```
-
-After defining the milestone, update affected documentation:
-
-### Always update:
-1. **`.gsd-t/progress.md`** — Already updated in Step 2, but verify the Decision Log includes the milestone definition with rationale
-
-### Check if affected:
-2. **`docs/requirements.md`** — If the milestone scope implies new or changed requirements, add or update them
-3. **`docs/architecture.md`** — If the milestone will introduce new components or change system structure, note planned changes
-4. **`.gsd-t/roadmap.md`** — If it exists, add the new milestone in the proper sequence
-5. **`CLAUDE.md`** — If the milestone establishes new scope boundaries or conventions, add them
-
-### Skip what's not affected.
-
-## Step 6: Test Verification
-
-```bash
-node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-milestone --step 6 --step-label "Test Verification" 2>/dev/null || true
-```
-
-Before proceeding to partition:
-
-1. **Run existing tests**: Execute the full test suite to confirm the codebase is clean before starting the milestone
-2. **Verify passing**: If any tests fail, flag them as pre-existing — they should be addressed as part of this milestone or logged as tech debt
-3. **Baseline**: Record test state so the milestone has a clear starting point for quality measurement
-
-## Step 7: Auto-Partition (if user confirms)
-
-```bash
-node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-milestone --step 7 --step-label "Auto-Partition (if user confirms)" 2>/dev/null || true
-```
-
-If the user wants to proceed immediately, execute the partition workflow (same as gsd-t-partition) for this milestone.
-
-Otherwise, set status to DEFINED and remind them:
-"Run /gsd-t-partition to decompose into domains, or /gsd-t-discuss to explore approaches first."
-
-$ARGUMENTS
-
-## Auto-Clear
-
-All work is committed to project files. Execute `/clear` to free the context window for the next command.
+`/gsd-t-partition` — decompose the milestone into domains.

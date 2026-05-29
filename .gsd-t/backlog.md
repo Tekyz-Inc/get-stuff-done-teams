@@ -1,5 +1,26 @@
 # Backlog
 
+## M62 (post-M61): Cross-Project Propagation of v4.0.10
+- **Type:** ripple | **App:** gsd-t | **Category:** propagation
+- **Added:** 2026-05-29 | **Origin:** m61-deferred
+- Run `gsd-t version-update-all` to propagate v4.0.10 to all 23 registered projects: rewrite their CLAUDE.md to drop retired-infra rules, update package.json, archive their token-log.md, and clean up `~/.claude/settings.json` hooks for retired infrastructure (conversation-capture, context-meter, in-session-usage).
+
+## M63 (post-M61): SC7 Cockpit Walkthrough on UI-Heavy Milestone
+- **Type:** validation | **App:** gsd-t | **Category:** verification
+- **Added:** 2026-05-29 | **Origin:** m61-deferred
+- Deeper SC7 test of desktop-as-cockpit: drive a UI-heavy milestone (browser tooling exercised) entirely from the desktop app with zero terminal keystrokes. Validates the browser/Playwright leg of the cockpit promise that the small-backlog SC7 doesn't exercise.
+
+## M64 (post-M61): M52 Bake-Off
+- **Type:** validation | **App:** gsd-t | **Category:** verification
+- **Added:** 2026-05-29 | **Origin:** m61-deferred
+- Run M52 (journey coverage) as a native Workflow to widen safety evidence beyond M58. Belt-and-suspenders; the build-hold + v3.x-legacy snapshot are the actual safety nets.
+
+## M65 (post-M61): D6 Port-Then-Delete Completion — **PROMOTED → DEFINED as M65 (2026-05-29)**
+- **Type:** retire | **App:** gsd-t | **Category:** cleanup
+- **Added:** 2026-05-29 | **Origin:** m61-deferred | **Status:** DEFINED — see `.gsd-t/progress.md` § Current Milestone M65
+- **Scope CORRECTED at define-time** (live ref-scan + user decision 2026-05-29): `parallel-cli.cjs`, `parallel-cli-tee.cjs`, `gsd-t-parallel.cjs` are NOT deletable — they are M61 KEEP-list substrate (verify-gate Track-2 requires `parallel-cli.cjs::runParallel`; `_lib.js` shells to `gsd-t-parallel.cjs` for file-disjointness proving). M65 deletes only the true shell: `gsd-t-orchestrator.js` + `-worker/-queue/-config.cjs` + `spawn-plan-{writer,status-updater,derive}.cjs` + `headless-exit-codes.cjs` (inline-then-delete) = 8 files / 1,838 bin/ LOC. Plus `orchestrate` dispatch removal, dependent-test deletion, post-commit-spawn-plan hook removal, and the dangling `gsd-t-resume.md` ref cleanup.
+- **Deferred to separate backlog (not M65)**: `bin/orchestrator.js` + `bin/design-orchestrator.js` retirement-or-rewire — the design-build pipeline is currently unwired (`gsd-t design-build` documented but no dispatch case in gsd-t.js); decide wire-back vs. retire independently of the orchestration-shell cleanup. (~1,387 LOC + design-orchestrator.)
+
 ## 1. Agentic Workflow Architecture
 - **Type:** feature | **App:** gsd-t | **Category:** architecture
 - **Added:** 2026-02-13

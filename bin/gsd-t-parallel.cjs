@@ -10,14 +10,15 @@
  *   - D1 task graph           (bin/gsd-t-task-graph.cjs)
  *   - D4 depgraph validation  (bin/gsd-t-depgraph-validate.cjs)
  *   - D5 file-disjointness    (bin/gsd-t-file-disjointness.cjs)
- *   - D6 economics estimator  (bin/gsd-t-economics.cjs)
- *   - token-budget            (bin/token-budget.cjs) — in-session ctxPct
- *   - mode-aware gating math  (bin/gsd-t-orchestrator-config.cjs)
+ *   - mode-aware gating math  (inlined below — formerly bin/gsd-t-orchestrator-config.cjs)
  *
- * Does NOT replace `bin/gsd-t-orchestrator.js`. `runParallel` prepares the
- * validated ready-task set and plan; the existing orchestrator machinery
- * owns the actual worker spawn. In T2 this module emits the plan;
- * the downstream orchestrator consumes it.
+ * M61/M65 note: the economics estimator (gsd-t-economics.cjs), token-budget,
+ * and the M40 orchestrator (bin/gsd-t-orchestrator.js) were retired — the
+ * orchestration core moved to native Workflow scripts (templates/workflows/).
+ * This module survives as the file-disjointness/ready-task planner consumed by
+ * `_lib.proveFileDisjointness()`; its mode-aware gating helpers, which used to
+ * live in gsd-t-orchestrator-config.cjs, are inlined below (M65) so this file
+ * no longer depends on the retired orchestrator config.
  *
  * Contract: `.gsd-t/contracts/wave-join-contract.md` v1.1.0 (§Mode-Aware Gating Math).
  *
@@ -35,11 +36,61 @@ const path = require("node:path");
 const { buildTaskGraph, getReadyTasks } = require(path.join(__dirname, "gsd-t-task-graph.cjs"));
 const { validateDepGraph } = require(path.join(__dirname, "gsd-t-depgraph-validate.cjs"));
 const { proveDisjointness } = require(path.join(__dirname, "gsd-t-file-disjointness.cjs"));
-const { estimateTaskFootprint } = require(path.join(__dirname, "gsd-t-economics.cjs"));
-const {
-  computeInSessionHeadroom,
-  computeUnattendedGate,
-} = require(path.join(__dirname, "gsd-t-orchestrator-config.cjs"));
+// M61 D3: gsd-t-economics retired. estimateTaskFootprint produced a per-task
+// token+cost estimate the planner could consult for in-session-headroom
+// math. Native budget primitives (Workflow `budget` + /usage) replace it.
+// Stub to a zero-footprint estimate so the planner proceeds with default
+// assumptions instead of crashing.
+const estimateTaskFootprint = () => ({
+  inputTokens: 0, outputTokens: 0, costUSD: 0, source: "m61-stub",
+});
+
+// ─── Mode-aware gating math (inlined from gsd-t-orchestrator-config.cjs, M65) ──
+// Contract: `.gsd-t/contracts/wave-join-contract.md` v1.1.0 §Mode-Aware Gating Math.
+const IN_SESSION_CW_CEILING_PCT = 85;
+const UNATTENDED_PER_WORKER_CW_PCT = 60;
+const DEFAULT_SUMMARY_SIZE_PCT = 4;
+
+/**
+ * [in-session] headroom gate. Returns `{ok, reducedCount}`.
+ *   ok=true iff `ctxPct + workerCount * summarySize ≤ IN_SESSION_CW_CEILING_PCT`.
+ *   Otherwise reduces N repeatedly; final floor is N=1. NEVER refuses.
+ */
+function computeInSessionHeadroom(opts) {
+  const o = opts || {};
+  const ctxPct = Number.isFinite(o.ctxPct) ? o.ctxPct : 0;
+  const requested = Number.isFinite(o.workerCount) ? Math.max(0, Math.floor(o.workerCount)) : 0;
+  const summarySize = Number.isFinite(o.summarySize) ? o.summarySize : DEFAULT_SUMMARY_SIZE_PCT;
+  const ceiling = IN_SESSION_CW_CEILING_PCT;
+
+  if (ctxPct + requested * summarySize <= ceiling) {
+    return { ok: true, reducedCount: requested };
+  }
+  let n = requested - 1;
+  while (n > 1) {
+    if (ctxPct + n * summarySize <= ceiling) {
+      return { ok: true, reducedCount: n };
+    }
+    n -= 1;
+  }
+  return { ok: true, reducedCount: 1 };
+}
+
+/**
+ * [unattended] per-worker CW gate. Returns `{ok, split}`.
+ *   ok=true, split=false if `estimatedCwPct ≤ threshold` (default 60).
+ *   ok=false, split=true otherwise — caller MUST slice the task into multiple
+ *   iters (this function only signals the split requirement).
+ */
+function computeUnattendedGate(opts) {
+  const o = opts || {};
+  const estimatedCwPct = Number.isFinite(o.estimatedCwPct) ? o.estimatedCwPct : 0;
+  const threshold = Number.isFinite(o.threshold) ? o.threshold : UNATTENDED_PER_WORKER_CW_PCT;
+  if (estimatedCwPct > threshold) {
+    return { ok: false, split: true };
+  }
+  return { ok: true, split: false };
+}
 
 // token-budget is optional at require-time so unit tests can stub via dependency injection.
 let _tokenBudget = null;
@@ -155,7 +206,7 @@ function runParallel(opts) {
   const dryRun = !!(opts && opts.dryRun);
   const summarySize = Number.isFinite(opts && opts.summarySize)
     ? opts.summarySize
-    : require(path.join(__dirname, "gsd-t-orchestrator-config.cjs")).DEFAULT_SUMMARY_SIZE_PCT;
+    : DEFAULT_SUMMARY_SIZE_PCT;
 
   const graph = buildTaskGraph({ projectDir });
   let candidates = getReadyTasks(graph);

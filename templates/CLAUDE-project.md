@@ -1,113 +1,127 @@
-# {Project Name}
+# GSD-T Framework (@tekyzinc/gsd-t)
+
+Prime Directives, core guards, and workflow rules live in `~/.claude/CLAUDE.md`. This file covers what's specific to this repo.
 
 ## Overview
-{Brief project description — what problem does this solve and for whom?}
+
+Contract-driven development methodology for Claude Code. npm package providing slash commands, a CLI installer, templates, and stack rules for reliable parallelizable AI-assisted development.
 
 ## Autonomy Level
-**Level 3 — Full Auto** (only pause for blockers or completion)
-<!-- Options: Level 1 (Supervised), Level 2 (Standard), Level 3 (Full Auto) -->
+
+> Overrides global: pins the default from `~/.claude/CLAUDE.md` § Autonomy Levels.
+
+**Level 3 — Full Auto**. Only pause for blockers, destructive actions, or project completion.
 
 ## Tech Stack
-- **Language**: {e.g., Python 3.12}
-- **Framework**: {e.g., FastAPI}
-- **Database**: {e.g., PostgreSQL with SQLAlchemy async}
-- **Frontend**: {e.g., Jinja2 templates, React, etc.}
-- **Testing**: {e.g., Playwright}
-- **Deployment**: {e.g., Google Cloud Run}
 
-## Documentation
-- Requirements: docs/requirements.md
-- Architecture: docs/architecture.md
-- Workflows: docs/workflows.md
-- Infrastructure: docs/infrastructure.md
+- **Language**: JavaScript (Node.js >= 16), zero external runtime deps for the installer
+- **Distribution**: npm package `@tekyzinc/gsd-t`
+- **CLI**: `bin/gsd-t.js` (install, update, init, status, uninstall, doctor, graph, headless, …)
+- **Testing**: `npm test` (Node built-in test runner) + manual CLI testing
 
-## Branch Guard
-<!-- Declare which branch this terminal session should work on. -->
-<!-- Claude will verify the branch before every commit. -->
-**Expected branch**: {main | master | feature-branch-name}
+## Project Structure
 
-## Context Meter (M34/M38/M43 D4, v3.16.x+) — Observational Only
-<!-- The Context Meter is a PostToolUse hook that uses local token estimation -->
-<!-- and writes the current context % to .gsd-t/.context-meter-state.json. -->
-<!-- Under M43 D4 (channel-separation inversion) the meter is OBSERVATIONAL ONLY: -->
-<!-- the pct is recorded into the token-log Ctx% column on the next spawn, -->
-<!-- but no threshold gates any routing decision. Every command spawns detached -->
-<!-- unconditionally (see Always-Headless section below). -->
-<!-- Config: .gsd-t/context-meter-config.json — modelWindowSize, checkFrequency. -->
-<!-- Verify: `npx @tekyzinc/gsd-t doctor`. -->
+```
+bin/                     — CLI entry (gsd-t.js) + orchestrators (orchestrator.js, design-orchestrator.js)
+                           + support modules (gsd-t-context-brief.cjs, cli-preflight.cjs, gsd-t-verify-gate.cjs, model-selector.js, …)
+commands/                — slash commands for Claude Code (GSD-T workflow + utility)
+templates/               — document + prompt + stack templates
+  CLAUDE-{global,project}.md, requirements.md, architecture.md, workflows.md,
+  infrastructure.md, progress.md, backlog.md, backlog-settings.md, design-contract.md
+  prompts/               — validation subagent protocols (qa, red-team, design-verify)
+  stacks/                — Stack Rules Engine templates (injected at spawn time)
+scripts/                 — runtime scripts (design review, context meter hook, event writer)
+examples/                — example project structure + settings
+docs/methodology.md      — GSD → GSD-T evolution and concepts
+package.json, README.md, GSD-T-README.md, CHANGELOG.md
+```
 
-## Always-Headless Spawn (M43 D4, v3.16.x+) — Channel Separation
-<!-- Every GSD-T command spawns detached, unconditionally. No --watch flag. -->
-<!-- No --in-session flag. No --headless opt-in. No context-meter threshold -->
-<!-- that reroutes. The dialog channel is reserved for human↔Claude conversation; -->
-<!-- every workflow turn is a detached headless child. Interactive session shows -->
-<!-- a launch banner + live-transcript URL + event-stream path, then exits. -->
-<!-- Results surface via the read-back banner on the user's next message. -->
-<!-- The only in-session surface is the /gsd router, and only for dialog-only -->
-<!-- exploratory turns (Step 2.5 classifier → `conversational`). -->
-<!-- Legacy watch/inSession params on autoSpawnHeadless() are accepted-and-ignored. -->
-<!-- Contracts: headless-default-contract.md v2.0.0, unattended-event-stream-contract.md v1.0.0, -->
-<!-- unattended-supervisor-contract.md v1.1.0. -->
+Exact command list: `ls commands/`. Exact stack rule set: `ls templates/stacks/`. Don't hand-maintain counts in docs.
 
-## Model Selection
-<!-- Model choice is made surgically per-phase via bin/model-selector.js (model-selection-contract.md v1.0.0): -->
-<!--   - haiku  — mechanical: test runners, file-existence checks, JSON validation, branch guards -->
-<!--   - sonnet — routine: execute, test-sync, doc-ripple wiring, quick, integrate, debug fix-apply -->
-<!--   - opus   — high-stakes: partition, Red Team, verify judgment, debug root-cause, contracts -->
+## Meta-Project Notes
 
-<!-- For multi-branch parallel work (e.g., web + mobile in separate terminals), -->
-<!-- each terminal's CLAUDE.md should declare its own expected branch. -->
-<!-- Example: Web terminal → master, Mobile terminal → Mobile -->
+- The "source" is the `.md` files in `commands/` + `templates/` and the JS in `bin/` + `scripts/`. There is no `src/`.
+- Changes to command files change the methodology itself — treat them as code; verify by running the workflow.
+- The `.gsd-t/` state dir coexists with the commands that *define* `.gsd-t/` — intentional.
+- `bin/gsd-t.js` is the primary testable surface; command files are validated by use.
 
-## Quality North Star
+## Conventions
 
-<!-- Define the quality identity of this project. Subagents read this section and apply it as a quality lens. -->
-<!-- Choose one of the presets below or write your own 1–3 sentence persona, then remove the others. -->
+**CLI** — ANSI colors via escape codes, zero external deps, sync file APIs, version tracked in `package.json` and `~/.claude/.gsd-t-version`.
 
-<!-- PRESET: library (npm package, SDK, shared utility) -->
-<!-- This is a published npm library. Every public API must be intuitive, well-documented, and backward-compatible. Type safety and zero-dependency design are non-negotiable. -->
+**Command files** — pure markdown, no frontmatter, accept `$ARGUMENTS`, step-numbered, thin Workflow invokers (`Workflow({scriptPath, args})`). Include a Document Ripple section listing files the underlying Workflow expects domain workers to update. Validation protocol bodies stay in `templates/prompts/*-subagent.md`; Workflow scripts load them via `_lib.loadProtocol(name)`. Don't inline the protocol.
 
-<!-- PRESET: web-app (user-facing web application) -->
-<!-- This is a user-facing web application. Every feature must be accessible, performant, and visually consistent. The user experience is the product. -->
+**Templates** — `{Project Name}`, `{Date}`, `{description}` replacement tokens; tables for structured data.
 
-<!-- PRESET: cli (developer CLI or command-line utility) -->
-<!-- This is a developer CLI tool. Every command must be fast, predictable, and produce clear output. Error messages must explain what went wrong and how to fix it. -->
+**Directory structure** — `.gsd-t/contracts/` (domain interfaces), `.gsd-t/domains/{name}/` (scope/tasks/constraints), `.gsd-t/milestones/` (archives), `.gsd-t/scan/` (analysis outputs).
 
-<!-- CUSTOM: replace this line with your own 1–3 sentence quality persona -->
-{Quality persona — describe what "excellent" means for this project}
+**Publishing** — after `npm publish`, ALWAYS run `/gsd-t-version-update-all` to propagate to registered projects.
 
-## GSD-T Workflow
-This project uses contract-driven development.
-- State: .gsd-t/progress.md
-- Contracts: .gsd-t/contracts/
-- Domains: .gsd-t/domains/
+## GSD-T Workflows (M61 — v4.0.10+)
 
-## Workflow Preferences
-<!-- Override global defaults from ~/.claude/CLAUDE.md -->
-<!-- Delete lines you don't need to override — globals apply automatically -->
+Phase orchestration lives in `templates/workflows/`. Each command file (`commands/gsd-t-*.md`) is a thin invoker that calls `Workflow({scriptPath, args})`. Canonical scripts:
 
-### Research Policy
-<!-- Example overrides: -->
-<!-- "Always research — this project uses cutting-edge APIs" -->
-<!-- "Skip research — well-understood CRUD app" -->
+- `gsd-t-execute.workflow.js` — preflight → brief → file-disjointness → parallel(domain workers) → integrate → verify-gate
+- `gsd-t-verify.workflow.js` — orthogonal triad with M57 CI-parity + M58 test-data purge as FAIL-blocking gates
+- `gsd-t-wave.workflow.js`, `-integrate`, `-debug`, `-quick`, `-phase` (generic upper-stage runner)
 
-### Phase Flow
-<!-- Example overrides: -->
-<!-- "ALWAYS run Discussion — architecture decisions are critical" -->
-<!-- "Skip discuss unless truly required" -->
+Shared helpers: `templates/workflows/_lib.js`. Each helper prefers project-local `bin/<tool>.cjs` and falls back to global `gsd-t` PATH binary.
 
-## Project-Specific Conventions
-<!-- Add conventions that override or extend the global CLAUDE.md -->
+The brains stay in `bin/`: `gsd-t-file-disjointness.cjs`, `gsd-t-task-graph.cjs`, `gsd-t-context-brief.cjs`, `cli-preflight.cjs`, `gsd-t-verify-gate.cjs`, `gsd-t-verify-gate-judge.cjs`, `gsd-t-build-coverage.cjs`, `gsd-t-ci-parity.cjs`, `gsd-t-test-data-ledger.cjs`, `journey-coverage.cjs`. Workflows invoke them via `lib.*` helpers.
 
-## Don't Do These Things
-<!-- Add project-specific "never do" rules -->
-- NEVER skip type hints to save time.
-- NEVER mark a feature complete without tests.
+## Validation Protocols (KEPT — methodology layer)
+
+Three validation protocol bodies stay at `templates/prompts/`:
+- `qa-subagent.md` — test mechanics + shallow-test detection + contract compliance
+- `red-team-subagent.md` — adversarial / security / boundaries; verdict `FAIL` / `GRUDGING-PASS`
+- `design-verify-subagent.md` — visual MATCH/DEVIATION against the design contract
+
+These are invoked as Workflow `agent()` stages with schema-validated output. The methodology body is unchanged; only the invocation context (Workflow stage vs. Task subagent) updated. Per `.gsd-t/contracts/orthogonal-validation-contract.md` v1.0.0 STABLE.
+
+
+# Destructive Action Guard (MANDATORY)
+
+**NEVER perform destructive or structural changes without explicit user approval.** This applies at ALL autonomy levels.
+
+Before any of these actions, STOP and ask the user:
+- DROP TABLE, DROP COLUMN, DROP INDEX, TRUNCATE, DELETE without WHERE
+- Renaming or removing database tables or columns
+- Schema migrations that lose data or break existing queries
+- Replacing an existing architecture pattern (e.g., normalized → denormalized)
+- Removing or replacing existing files/modules that contain working functionality
+- Changing ORM models in ways that conflict with the existing database schema
+- Removing API endpoints or changing response shapes that existing clients depend on
+- Any change that would require other parts of the system to be rewritten
+
+**Rule: "Adapt new code to existing structures, not the other way around."**
+
+## Pre-Commit Gate (project-specific additions)
+
+The global gate applies first (see `~/.claude/CLAUDE.md`). Additionally for this repo:
+
+- **Command file interface/behavior changed** → update `GSD-T-README.md` + `README.md` commands table + `templates/CLAUDE-global.md` + `commands/gsd-t-help.md`.
+- **Command added/removed** → update all 4 files above, bump `package.json`, update any command-counting logic in `bin/gsd-t.js`.
+- **New command invokes a Workflow** → verify `scriptPath` resolves to `templates/workflows/<name>.workflow.js` and `args` shape matches the script's `meta.phases`.
+- **CLI installer changed** → smoke test `install`, `update`, `status`, `doctor`, `init`, `uninstall`.
+- **Template changed** → verify `gsd-t-init` still produces correct output.
+- **Wave flow changed (phases added/removed/reordered)** → update `gsd-t-wave.md`, `GSD-T-README.md` wave diagram, `README.md` workflow section.
+- **Contract or domain boundary changed** → update `.gsd-t/contracts/` and owning `scope.md`.
+
+## Don't
+
+- NEVER add external npm runtime dependencies to the installer — zero-dep invariant.
+- NEVER rename a command without updating all 4 reference files above.
+- NEVER modify wave phase sequence without updating wave, README, GSD-T-README in the same commit.
+- NEVER let installer's command count diverge from `commands/` directory reality.
+- NEVER inline validation-subagent protocol bodies into Workflow scripts — `_lib.loadProtocol("qa"|"red-team"|"design-verify")` reads the methodology body from `templates/prompts/`.
+
+## Recovery After Interruption
+
+1. Read `.gsd-t/progress.md`
+2. Read `README.md` for what the package delivers
+3. Check `commands/` and `package.json` for current state
+4. Continue from current task; don't restart the phase
 
 ## Current Status
-See `.gsd-t/progress.md` for current milestone/phase state.
 
-## Deployed URLs
-- **Production**: {url}
-- **Staging**: {url}
-- **Local**: http://localhost:{port}
+See `.gsd-t/progress.md`.

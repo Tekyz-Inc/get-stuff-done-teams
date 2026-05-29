@@ -1298,3 +1298,103 @@
 <!-- missed_escalation 2026-05-19T18:53:36.493Z phase= domain= task= q="(no question provided)" -->
 <!-- missed_escalation 2026-05-19T18:57:04.563Z phase= domain= task= q="test" -->
 <!-- missed_escalation 2026-05-19T18:57:04.564Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-29T20:05:22.265Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-29T20:05:22.266Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-29T20:13:14.341Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-29T20:13:14.342Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-29T20:34:25.579Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-29T20:34:25.580Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-29T20:35:47.960Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-29T20:35:47.960Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-29T20:46:51.943Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-29T20:46:51.943Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-29T20:48:09.243Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-29T20:48:09.243Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-29T20:49:01.179Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-29T20:49:01.179Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-29T20:51:44.498Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-29T20:51:44.498Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-29T20:52:36.548Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-29T20:52:36.548Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-29T20:55:42.566Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-29T20:55:42.566Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-29T20:56:45.758Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-29T20:56:45.758Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-29T20:57:55.403Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-29T20:57:55.404Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-29T22:20:43.920Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-29T22:20:43.921Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-29T22:21:17.592Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-29T22:21:17.593Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-29T22:21:51.085Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-29T22:21:51.085Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-29T22:22:24.753Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-29T22:22:24.753Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-29T22:23:02.856Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-29T22:23:02.857Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-29T22:23:33.789Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-29T22:23:33.789Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-29T22:24:05.576Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-29T22:24:05.576Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-29T22:24:45.612Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-29T22:24:45.612Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-29T22:25:17.204Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-29T22:25:17.204Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-29T22:26:30.901Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-29T22:26:30.901Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-29T22:27:07.030Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-29T22:27:07.030Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-29T22:31:26.724Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-29T22:31:26.724Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-29T22:39:41.217Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-29T22:39:41.218Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-29T22:46:36.867Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-29T22:46:36.867Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-29T22:49:32.232Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-29T22:49:32.232Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-29T22:50:03.125Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-29T22:50:03.126Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-29T22:50:41.667Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-29T22:50:41.667Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-29T22:51:12.524Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-29T22:51:12.524Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-29T22:54:02.296Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-29T22:54:02.297Z phase= domain= task= q="(no question provided)" -->
+| 2026-05-29 15:54 | 2026-05-29 15:54 | gsd-t-verify-gate | Track 2 | cli | 0s | — | parallel-cli worker | m55-d5 | - | 0 |
+<!-- missed_escalation 2026-05-29T22:54:38.780Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-29T22:54:38.780Z phase= domain= task= q="(no question provided)" -->
+| 2026-05-29 15:54 | 2026-05-29 15:54 | gsd-t-verify-gate | Track 2 | cli | 0s | — | parallel-cli worker | m55-d5 | - | 0 |
+| 2026-05-29 15:54 | 2026-05-29 15:55 | gsd-t-verify-gate | Track 2 | cli | 60s | — | parallel-cli worker | m55-d5 | - | 0 |
+| 2026-05-29 15:55 | 2026-05-29 15:55 | gsd-t-verify-gate | Track 2 | cli | 0s | — | parallel-cli worker | m55-d5 | - | 0 |
+<!-- missed_escalation 2026-05-29T22:55:16.214Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-29T22:55:16.214Z phase= domain= task= q="(no question provided)" -->
+| 2026-05-29 15:55 | 2026-05-29 15:55 | gsd-t-verify-gate | Track 2 | cli | 0s | — | parallel-cli worker | m55-d5 | - | 0 |
+| 2026-05-29 15:55 | 2026-05-29 15:55 | gsd-t-verify-gate | Track 2 | cli | 0s | — | parallel-cli worker | m55-d5 | - | 0 |
+<!-- missed_escalation 2026-05-29T22:56:25.144Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-29T22:56:25.145Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-29T22:57:00.818Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-29T22:57:00.818Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-29T23:00:27.930Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-29T23:00:27.930Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-29T23:01:03.686Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-29T23:01:03.686Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-29T23:01:37.604Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-29T23:01:37.604Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-29T23:02:12.205Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-29T23:02:12.205Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-29T23:06:25.444Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-29T23:06:25.444Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-29T23:06:59.037Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-29T23:06:59.037Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-29T23:07:32.479Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-29T23:07:32.479Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-29T23:08:05.345Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-29T23:08:05.345Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-29T23:08:38.812Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-29T23:08:38.812Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-29T23:09:12.632Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-29T23:09:12.632Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-29T23:10:57.855Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-29T23:10:57.855Z phase= domain= task= q="(no question provided)" -->
+<!-- missed_escalation 2026-05-29T23:23:26.167Z phase= domain= task= q="test" -->
+<!-- missed_escalation 2026-05-29T23:23:26.168Z phase= domain= task= q="(no question provided)" -->

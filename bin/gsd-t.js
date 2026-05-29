@@ -34,12 +34,6 @@ try {
   };
 }
 
-// Shared headless exit-code helper — lives in its own file so non-entry
-// modules (e.g. bin/gsd-t-unattended.cjs) can require it without pulling
-// in the full CLI. See commentary near the original declaration site and
-// in headless-exit-codes.cjs itself.
-const { mapHeadlessExitCode } = require(path.join(__dirname, "headless-exit-codes.cjs"));
-
 // ─── Configuration ───────────────────────────────────────────────────────────
 
 const CLAUDE_DIR = path.join(os.homedir(), ".claude");
@@ -1152,7 +1146,7 @@ function configureFigmaMcp() {
 
 // ─── Utility Scripts ─────────────────────────────────────────────────────────
 
-const UTILITY_SCRIPTS = ["gsd-t-tools.js", "gsd-t-statusline.js", "gsd-t-event-writer.js", "gsd-t-dashboard-server.js", "gsd-t-dashboard.html", "gsd-t-transcript.html"];
+const UTILITY_SCRIPTS = ["gsd-t-tools.js", "gsd-t-statusline.js", "gsd-t-event-writer.js"];
 
 function installUtilityScripts() {
   ensureDir(SCRIPTS_DIR);
@@ -1760,17 +1754,11 @@ async function doInit(projectName) {
   initGsdtDir(projectDir, projectName, today);
   copyBinToolsToProject(projectDir, projectName);
 
-  // Context Meter: copy script + deps + config template, append .gitignore,
-  // register the global PostToolUse hook.
-  if (installContextMeter(projectDir)) {
-    success("Context meter installed (scripts/, config template, .gitignore)");
-  }
-  const cmHook = configureContextMeterHooks(SETTINGS_JSON);
-  if (cmHook.installed) {
-    if (cmHook.action === "added") success("Context meter PostToolUse hook added");
-    else if (cmHook.action === "updated") success("Context meter hook command refreshed");
-    else info("Context meter hook already configured");
-  }
+  // M61 D1: Context Meter retired (token-budget.cjs + scripts/gsd-t-context-meter.js
+  // deleted). Native /context replaces it. No longer provisioned at install —
+  // installContextMeter / configureContextMeterHooks would register a PostToolUse
+  // hook pointing at a deleted script. Both functions remain defined but unused
+  // (cleaned in M65 follow-up).
 
   if (registerProject(projectDir)) success("Registered in ~/.claude/.gsd-t-projects");
 
@@ -2474,12 +2462,7 @@ function updateSingleProject(projectDir, counts) {
 // a new tool only requires appending to this array. Use .cjs extension so they
 // always run as CommonJS regardless of the project's package.json "type" field.
 const PROJECT_BIN_TOOLS = [
-  "archive-progress.cjs", "log-tail.cjs", "context-budget-audit.cjs",
-  "context-meter-config.cjs", "token-budget.cjs",
-  "gsd-t-token-capture.cjs",
-  "gsd-t-unattended.cjs", "gsd-t-unattended-platform.cjs", "gsd-t-unattended-safety.cjs",
-  "handoff-lock.cjs", "headless-auto-spawn.cjs",
-  "headless-exit-codes.cjs",
+  "archive-progress.cjs",
   // M55 — preflight + parallel-cli + brief + verify-gate libraries copied to project bin/
   // so per-project workflows can `require('./bin/cli-preflight.cjs')` etc. without
   // depending on the globally-installed gsd-t CLI being on PATH.
@@ -3147,7 +3130,11 @@ async function doDoctor(opts) {
   issues += checkDoctorInstallation();
   issues += await checkDoctorProject(opts);
   issues += checkDoctorCgc();
-  issues += await checkDoctorContextMeter(process.cwd());
+  // M61 D1: Context Meter retired (token-budget.cjs + context-meter hook deleted).
+  // checkDoctorContextMeter would emit phantom errors for the deleted subsystem
+  // and tell the user to reinstall it. Native /context replaces the meter.
+  // M61 D4: dashboard orphan check left for the deleted dashboard-server is also
+  // dead, but harmless (ps string-match, no require) — deferred.
   issues += checkDoctorDashboardOrphans(opts);
   // M50 D2: opt-in install of the playwright-gate pre-commit hook.
   if (opts && opts.installHooks) {
@@ -3508,11 +3495,43 @@ function buildHeadlessCmd(command, cmdArgs) {
  * Map claude output + process exit code to a GSD-T headless exit code.
  * Exit codes: 0=success, 1=verify-fail, 2=context-budget-exceeded, 3=error,
  *             4=blocked-needs-human, 5=command-dispatch-failed
+ *
+ * Inlined from the former bin/headless-exit-codes.cjs (M65) — that file existed
+ * to decouple the exit-code map from the CLI so the unattended supervisor could
+ * require it without pulling in gsd-t.js. The supervisor was retired in M61 D2,
+ * so the only remaining requirer is this file; the helper now lives inline.
+ *
+ * Match terminal markers, not narration. A bare "tests failed" substring
+ * appears in healthy output ("0 tests failed", "no tests failed", quoted in
+ * prose). Require a non-zero count prefix or a structured terminal marker.
+ * Bug history: M45 worker output contained "tests failed" 6× in narration,
+ * mapping exit 0 → 1 and halting a successful run — keep these regexes anchored.
  */
-// mapHeadlessExitCode now lives in ./headless-exit-codes.cjs — see re-export
-// near the top of this file. Kept out-of-line here so non-entry modules
-// (e.g. bin/gsd-t-unattended.cjs) can require the shared helper without
-// pulling in the full CLI at bin/gsd-t.js.
+const HEADLESS_NONZERO_FAILURE_COUNT_RE =
+  /(?:^|\b)([1-9]\d*)\s+(?:tests?|specs?|assertions?|examples?|suites?)\s+failed\b/i;
+const HEADLESS_STRUCTURED_FAIL_RE = /^FAIL[:\s]/m;
+const HEADLESS_JEST_SUMMARY_FAIL_RE = /^Tests:\s+\d+\s+failed/im;
+const HEADLESS_VERIFICATION_FAILED_RE =
+  /(?:^|[.!?]\s+)(?:verification|verify|quality gate)\s+failed\b/im;
+const HEADLESS_CONTEXT_BUDGET_RE =
+  /(?:^|[.!?]\s+)(?:context budget exceeded|context window exceeded|budget exceeded|token limit)\b/im;
+const HEADLESS_BLOCKED_HUMAN_RE =
+  /\bblocked\b[\s\S]{0,80}?\b(?:needs? human|human input|human approval)\b/i;
+
+function mapHeadlessExitCode(processExitCode, output) {
+  if (processExitCode !== 0 && processExitCode !== null) return 3;
+  const raw = output || "";
+  if (/^unknown command:/im.test(raw)) return 5;
+  if (HEADLESS_CONTEXT_BUDGET_RE.test(raw)) return 2;
+  if (HEADLESS_BLOCKED_HUMAN_RE.test(raw)) return 4;
+  if (
+    HEADLESS_VERIFICATION_FAILED_RE.test(raw) ||
+    HEADLESS_NONZERO_FAILURE_COUNT_RE.test(raw) ||
+    HEADLESS_STRUCTURED_FAIL_RE.test(raw) ||
+    HEADLESS_JEST_SUMMARY_FAIL_RE.test(raw)
+  ) return 1;
+  return 0;
+}
 
 /**
  * Generate a headless log file path.
@@ -4151,121 +4170,6 @@ function doMetrics(_args) {
   log(`${DIM}metrics removed in v3.12 — context meter is no longer telemetry-instrumented${RESET}`);
 }
 
-function doStreamFeed(args) {
-  const sub = args[0];
-  const projectDir = process.cwd();
-  const pidFile = path.join(projectDir, ".gsd-t", "stream-feed", ".server.pid");
-  const portFile = path.join(projectDir, ".gsd-t", "stream-feed", ".server.port");
-
-  function readPid() {
-    try { return parseInt(fs.readFileSync(pidFile, "utf8").trim(), 10); }
-    catch { return null; }
-  }
-  function readPort() {
-    try { return parseInt(fs.readFileSync(portFile, "utf8").trim(), 10); }
-    catch { return null; }
-  }
-  function isAlive(pid) {
-    if (!pid) return false;
-    try { process.kill(pid, 0); return true; } catch { return false; }
-  }
-
-  if (!sub || sub === "help" || sub === "--help" || sub === "-h") {
-    log(`\n${BOLD}gsd-t stream-feed${RESET} — Localhost stream-json watcher (M40 D4)\n`);
-    log(`${BOLD}Usage:${RESET}`);
-    log(`  gsd-t stream-feed ${CYAN}start${RESET} [--port N]`);
-    log(`  gsd-t stream-feed ${CYAN}status${RESET}`);
-    log(`  gsd-t stream-feed ${CYAN}stop${RESET}`);
-    log(`\nDefault port: 7842. Env override: GSD_T_STREAM_FEED_PORT.`);
-    return;
-  }
-
-  if (sub === "start") {
-    const existing = readPid();
-    if (isAlive(existing)) {
-      log(`${YELLOW}stream-feed-server already running${RESET} (pid ${existing}, port ${readPort() || "?"})`);
-      return;
-    }
-    let port = null;
-    for (let i = 1; i < args.length; i++) {
-      if (args[i] === "--port") port = Number(args[++i]);
-    }
-    const { spawn } = require("child_process");
-    const serverScript = path.join(__dirname, "..", "scripts", "gsd-t-stream-feed-server.js");
-    const forward = ["--project-dir", projectDir];
-    if (port) forward.push("--port", String(port));
-    const feedDir = path.join(projectDir, ".gsd-t", "stream-feed");
-    try { fs.mkdirSync(feedDir, { recursive: true }); } catch { /* exists */ }
-    const out = fs.openSync(path.join(feedDir, "server.log"), "a");
-    const err = fs.openSync(path.join(feedDir, "server.log"), "a");
-    const child = spawn(process.execPath, [serverScript, ...forward], {
-      detached: true, stdio: ["ignore", out, err], cwd: projectDir,
-    });
-    child.unref();
-    try { fs.writeFileSync(pidFile, String(child.pid)); } catch { /* noop */ }
-    try { fs.writeFileSync(portFile, String(port || process.env.GSD_T_STREAM_FEED_PORT || 7842)); } catch { /* noop */ }
-    log(`${GREEN}✓${RESET} stream-feed-server started (pid ${child.pid}, port ${port || 7842})`);
-    log(`  log: .gsd-t/stream-feed/server.log`);
-    return;
-  }
-
-  if (sub === "status") {
-    const pid = readPid();
-    const port = readPort();
-    if (!isAlive(pid)) {
-      log(`${DIM}stream-feed-server not running${RESET}`);
-      return;
-    }
-    log(`${GREEN}●${RESET} stream-feed-server running`);
-    log(`  pid:  ${pid}`);
-    log(`  port: ${port || 7842}`);
-    // Try to fetch live stats
-    try {
-      const http = require("http");
-      const done = { v: false };
-      const req = http.get({ host: "127.0.0.1", port: port || 7842, path: "/status", timeout: 1000 }, (res) => {
-        let body = "";
-        res.on("data", (c) => body += c);
-        res.on("end", () => {
-          try {
-            const j = JSON.parse(body);
-            log(`  frames today: ${j.framesToday}`);
-            log(`  clients: ${j.clients}`);
-            log(`  stats: ingested=${j.stats.framesIngested} broadcast=${j.stats.framesBroadcast} kicked=${j.stats.kicked}`);
-          } catch { /* noop */ }
-          done.v = true;
-        });
-      });
-      req.on("error", () => { done.v = true; });
-      req.on("timeout", () => { req.destroy(); done.v = true; });
-    } catch { /* noop */ }
-    return;
-  }
-
-  if (sub === "stop") {
-    const pid = readPid();
-    if (!isAlive(pid)) {
-      log(`${DIM}stream-feed-server not running${RESET}`);
-      try { fs.unlinkSync(pidFile); } catch { /* noop */ }
-      try { fs.unlinkSync(portFile); } catch { /* noop */ }
-      return;
-    }
-    try { process.kill(pid, "SIGTERM"); } catch { /* noop */ }
-    log(`${GREEN}✓${RESET} stream-feed-server stopped (pid ${pid})`);
-    // Clean up stale PID files after a short wait
-    setTimeout(() => {
-      if (!isAlive(pid)) {
-        try { fs.unlinkSync(pidFile); } catch { /* noop */ }
-        try { fs.unlinkSync(portFile); } catch { /* noop */ }
-      }
-    }, 500);
-    return;
-  }
-
-  error(`Unknown stream-feed subcommand: ${sub}`);
-  log(`Try: gsd-t stream-feed --help`);
-  process.exit(1);
-}
 
 function showHelp() {
   log(`\n${BOLD}GSD-T${RESET} — Contract-Driven Development for Claude Code\n`);
@@ -4282,12 +4186,7 @@ function showHelp() {
   log(`  ${CYAN}changelog${RESET}      Open changelog in the browser`);
   log(`  ${CYAN}graph${RESET}          Code graph operations (index, status, query)`);
   log(`  ${CYAN}headless${RESET}       Non-interactive execution via claude -p + fast state queries`);
-  log(`  ${CYAN}orchestrate${RESET}    External task orchestrator — one claude -p spawn per task (M40)`);
-  log(`  ${CYAN}benchmark-orchestrator${RESET} M40 speed gate — compares orchestrator vs in-session wall-clock`);
-  log(`  ${CYAN}stream-feed${RESET}    Localhost stream-json watcher (start|status|stop) — M40 D4`);
   log(`  ${CYAN}design-build${RESET}   Deterministic design→code pipeline (elements → widgets → pages)`);
-  log(`  ${CYAN}tool-cost${RESET}      Per-tool token/cost attribution (M43 D2) — group-by tool|command|domain`);
-  log(`  ${CYAN}report tokens${RESET}  Generate token-usage optimization report (Run → Iter → CW → Turn → Tool)`);
   log(`  ${CYAN}help${RESET}           Show this help\n`);
   log(`${BOLD}Examples:${RESET}`);
   log(`  ${DIM}$${RESET} npx @tekyzinc/gsd-t install`);
@@ -4495,36 +4394,12 @@ if (require.main === module) {
     case "headless":
       doHeadless(args.slice(1));
       break;
-    case "unattended": {
-      const { spawnSync } = require("child_process");
-      const cjs = path.join(__dirname, "gsd-t-unattended.cjs");
-      const res = spawnSync(process.execPath, [cjs, ...args.slice(1)], {
-        stdio: "inherit",
-      });
-      process.exit(res.status == null ? 1 : res.status);
-    }
-    case "orchestrate": {
-      const { spawnSync } = require("child_process");
-      const js = path.join(__dirname, "gsd-t-orchestrator.js");
-      const res = spawnSync(process.execPath, [js, ...args.slice(1)], {
-        stdio: "inherit",
-      });
-      process.exit(res.status == null ? 1 : res.status);
-    }
     case "parallel": {
       // M44 D2 — `gsd-t parallel` wraps M40 orchestrator with task-level
       // parallelism + mode-aware gating math. Extends, does not replace.
       const { runCli: runParallelCli } = require(path.join(__dirname, "gsd-t-parallel.cjs"));
       const code = runParallelCli(args.slice(1), process.env);
       process.exit(code);
-    }
-    case "benchmark-orchestrator": {
-      const { spawnSync } = require("child_process");
-      const js = path.join(__dirname, "gsd-t-benchmark-orchestrator.js");
-      const res = spawnSync(process.execPath, [js, ...args.slice(1)], {
-        stdio: "inherit",
-      });
-      process.exit(res.status == null ? 1 : res.status);
     }
     case "preflight": {
       // M55 D5 — `gsd-t preflight` thin dispatcher to bin/cli-preflight.cjs.
@@ -4589,212 +4464,9 @@ if (require.main === module) {
       });
       process.exit(res.status == null ? 1 : res.status);
     }
-    case "stream-feed": {
-      doStreamFeed(args.slice(1));
-      break;
-    }
     case "metrics":
       doMetrics(args.slice(1));
       break;
-    case "backfill-tokens": {
-      const bfOpts = { projectDir: process.cwd(), since: null, patchLog: false, dryRun: false };
-      for (let i = 1; i < args.length; i++) {
-        const a = args[i];
-        if (a === '--since' && args[i+1]) { bfOpts.since = args[++i]; }
-        else if (a.startsWith('--since=')) { bfOpts.since = a.slice(8); }
-        else if (a === '--patch-log') { bfOpts.patchLog = true; }
-        else if (a === '--dry-run') { bfOpts.dryRun = true; }
-        else if (a === '--project-dir' && args[i+1]) { bfOpts.projectDir = args[++i]; }
-        else if (a.startsWith('--project-dir=')) { bfOpts.projectDir = a.slice(14); }
-        else if (a === '--help' || a === '-h') {
-          log('Usage: gsd-t backfill-tokens [--since YYYY-MM-DD] [--patch-log] [--dry-run] [--project-dir PATH]');
-          process.exit(0);
-        }
-        else {
-          error(`backfill-tokens: unknown arg: ${a}`);
-          process.exit(2);
-        }
-      }
-      const backfill = require(path.join(__dirname, 'gsd-t-token-backfill.cjs'));
-      backfill.main(bfOpts)
-        .then(({ exitCode }) => process.exit(exitCode || 0))
-        .catch((e) => { error(e.message || String(e)); process.exit(3); });
-      break;
-    }
-    case "capture-lint": {
-      const clOpts = { projectDir: process.cwd(), mode: 'staged' };
-      let checkStreamJson = false;
-      for (let i = 1; i < args.length; i++) {
-        const a = args[i];
-        if (a === '--staged') { clOpts.mode = 'staged'; }
-        else if (a === '--all') { clOpts.mode = 'all'; }
-        else if (a === '--check-stream-json') { checkStreamJson = true; }
-        else if (a === '--project-dir' && args[i+1]) { clOpts.projectDir = args[++i]; }
-        else if (a.startsWith('--project-dir=')) { clOpts.projectDir = a.slice(14); }
-        else if (a === '--help' || a === '-h') {
-          log('Usage: gsd-t capture-lint [--staged] [--all] [--check-stream-json] [--project-dir PATH]');
-          log('');
-          log('Default mode (M41 D5): rejects bare Task() / claude -p / spawn() calls');
-          log('   missing the captureSpawn / recordSpawnRow wrapper.');
-          log('');
-          log('--check-stream-json (M56 D5): rejects claude -p / spawn(claude, ...) invocations');
-          log('   missing --output-format stream-json --verbose flag pair.');
-          log('   Allowlist via marker comment: GSD-T-LINT: skip stream-json (reason: …)');
-          process.exit(0);
-        }
-        else {
-          error(`capture-lint: unknown arg: ${a}`);
-          process.exit(2);
-        }
-      }
-      try {
-        const linter = require(path.join(__dirname, 'gsd-t-capture-lint.cjs'));
-        const res = checkStreamJson ? linter.mainStreamJson(clOpts) : linter.main(clOpts);
-        if (res.error) {
-          error(`capture-lint: ${res.error}`);
-          process.exit(2);
-        }
-        for (const v of res.violations) {
-          log(`${v.file}:${v.line}: ${v.message}`);
-        }
-        const modeLabel = checkStreamJson ? 'stream-json' : 'capture';
-        if (res.violations.length === 0) {
-          log(`${modeLabel}-lint: ${res.files.length} file(s) checked — clean`);
-        } else {
-          log(`${modeLabel}-lint: ${res.violations.length} violation(s) across ${res.files.length} file(s)`);
-        }
-        process.exit(res.exitCode);
-      } catch (e) {
-        error(e.message || String(e));
-        process.exit(2);
-      }
-      break;
-    }
-    case "tokens": {
-      const tkOpts = { projectDir: process.cwd(), since: null, milestone: null, format: 'table', regenerateLog: false, showToolCosts: false };
-      for (let i = 1; i < args.length; i++) {
-        const a = args[i];
-        if (a === '--since' && args[i+1]) { tkOpts.since = args[++i]; }
-        else if (a.startsWith('--since=')) { tkOpts.since = a.slice(8); }
-        else if (a === '--milestone' && args[i+1]) { tkOpts.milestone = args[++i]; }
-        else if (a.startsWith('--milestone=')) { tkOpts.milestone = a.slice(12); }
-        else if (a === '--format' && args[i+1]) { tkOpts.format = args[++i]; }
-        else if (a.startsWith('--format=')) { tkOpts.format = a.slice(9); }
-        else if (a === '--project-dir' && args[i+1]) { tkOpts.projectDir = args[++i]; }
-        else if (a.startsWith('--project-dir=')) { tkOpts.projectDir = a.slice(14); }
-        else if (a === '--regenerate-log') { tkOpts.regenerateLog = true; }
-        else if (a === '--show-tool-costs') { tkOpts.showToolCosts = true; }
-        else if (a === '--help' || a === '-h') {
-          log('Usage: gsd-t tokens [--since YYYY-MM-DD] [--milestone Mxx] [--format table|json] [--show-tool-costs]');
-          log('       gsd-t tokens --regenerate-log   (rewrite .gsd-t/token-log.md from token-usage.jsonl)');
-          process.exit(0);
-        }
-        else {
-          error(`tokens: unknown arg: ${a}`);
-          process.exit(2);
-        }
-      }
-      if (tkOpts.regenerateLog) {
-        try {
-          const regen = require(path.join(__dirname, 'gsd-t-token-regenerate-log.cjs'));
-          const res = regen.regenerateLog({ projectDir: tkOpts.projectDir });
-          log(`Regenerated ${res.wrote} (${res.rowCount} row${res.rowCount === 1 ? '' : 's'})`);
-          process.exit(0);
-        } catch (e) {
-          error(e.message || String(e));
-          process.exit(3);
-        }
-        break;
-      }
-      if (tkOpts.format !== 'table' && tkOpts.format !== 'json') {
-        error(`tokens: --format must be 'table' or 'json' (got: ${tkOpts.format})`);
-        process.exit(2);
-      }
-      const dashboard = require(path.join(__dirname, 'gsd-t-token-dashboard.cjs'));
-      dashboard.aggregate(tkOpts)
-        .then((agg) => {
-          const baseOut = tkOpts.format === 'json' ? dashboard.renderJson(agg) : dashboard.renderTable(agg);
-          let out = baseOut;
-          if (tkOpts.showToolCosts) {
-            try {
-              out = out + '\n' + dashboard.renderToolCostsSection({
-                projectDir: tkOpts.projectDir,
-                since: tkOpts.since,
-                milestone: tkOpts.milestone,
-                format: tkOpts.format,
-              });
-            } catch (e) {
-              // Non-fatal: tool-cost section failure doesn't break primary output.
-              out = out + '\n── Top 10 tools by cost ──\n  (tool-cost section unavailable: ' + (e.message || String(e)) + ')';
-            }
-          }
-          log(out);
-          process.exit(0);
-        })
-        .catch((e) => { error(e.message || String(e)); process.exit(3); });
-      break;
-    }
-    case "design-build": {
-      const orchestrator = require("./design-orchestrator.js");
-      orchestrator.run(args.slice(1)).catch(e => { console.error(e); process.exit(1); });
-      break;
-    }
-    case "tool-cost": {
-      const toolCost = require(path.join(__dirname, 'gsd-t-tool-cost.cjs'));
-      process.exit(toolCost.run(args.slice(1)));
-      break;
-    }
-    case "report": {
-      // Nested dispatch: `gsd-t report tokens [--date YYYY-MM-DD] [--out PATH]`
-      const sub = args[1];
-      if (!sub || sub === '--help' || sub === '-h') {
-        log('Usage: gsd-t report tokens [--date YYYY-MM-DD] [--out PATH]');
-        log('');
-        log('Subcommands:');
-        log('  tokens   Generate token-usage optimization report (Run → Iter → CW → Turn → Tool).');
-        process.exit(sub ? 0 : 2);
-        break;
-      }
-      if (sub !== 'tokens') {
-        error(`report: unknown subcommand: ${sub}`);
-        log('Usage: gsd-t report tokens [--date YYYY-MM-DD] [--out PATH]');
-        process.exit(2);
-        break;
-      }
-      const rOpts = { projectDir: process.cwd(), date: null, outPath: null };
-      for (let i = 2; i < args.length; i++) {
-        const a = args[i];
-        if (a === '--date' && args[i+1]) { rOpts.date = args[++i]; }
-        else if (a.startsWith('--date=')) { rOpts.date = a.slice(7); }
-        else if (a === '--out' && args[i+1]) { rOpts.outPath = args[++i]; }
-        else if (a.startsWith('--out=')) { rOpts.outPath = a.slice(6); }
-        else if (a === '--project-dir' && args[i+1]) { rOpts.projectDir = args[++i]; }
-        else if (a.startsWith('--project-dir=')) { rOpts.projectDir = a.slice(14); }
-        else if (a === '--help' || a === '-h') {
-          log('Usage: gsd-t report tokens [--date YYYY-MM-DD] [--out PATH]');
-          log('  --date YYYY-MM-DD  Date stamp in output filename (default: today UTC)');
-          log('  --out PATH         Output path (default: .gsd-t/reports/token-usage-{DATE}.md)');
-          process.exit(0);
-        }
-        else {
-          error(`report tokens: unknown arg: ${a}`);
-          process.exit(2);
-        }
-      }
-      try {
-        const rep = require(path.join(__dirname, 'gsd-t-report-tokens.cjs'));
-        const res = rep.generateReport(rOpts);
-        log(`Wrote ${res.path}`);
-        const s = res.summary;
-        log(`  ${s.cws} CW(s) · ${s.turns} turn rows · ${s.compactions} compactions · ${s.sessions} session(s)`);
-        log(`  ${s.compactionEndedCWs}/${s.cws} CW${s.cws === 1 ? '' : 's'} ended by compaction · top tool: ${s.topTool || '—'}`);
-        process.exit(0);
-      } catch (e) {
-        error(e.message || String(e));
-        process.exit(3);
-      }
-      break;
-    }
     case "scan": {
       const exportFlag = args.find(a => a.startsWith('--export='));
       const exportFormat = exportFlag ? exportFlag.split('=')[1] : null;
