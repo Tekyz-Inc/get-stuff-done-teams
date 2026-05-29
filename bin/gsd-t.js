@@ -4494,14 +4494,6 @@ if (require.main === module) {
     case "headless":
       doHeadless(args.slice(1));
       break;
-    case "unattended": {
-      const { spawnSync } = require("child_process");
-      const cjs = path.join(__dirname, "gsd-t-unattended.cjs");
-      const res = spawnSync(process.execPath, [cjs, ...args.slice(1)], {
-        stdio: "inherit",
-      });
-      process.exit(res.status == null ? 1 : res.status);
-    }
     case "orchestrate": {
       const { spawnSync } = require("child_process");
       const js = path.join(__dirname, "gsd-t-orchestrator.js");
