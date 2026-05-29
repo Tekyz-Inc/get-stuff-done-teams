@@ -105,3 +105,36 @@ The Red Team / QA / Design-Verify protocols stay unchanged. Only the invocation 
 - Live deps that couldn't be cleanly broken were stubbed with documented no-ops (rule-engine.js's readTaskMetrics, parallel.cjs's loadTokenBudget try/catch, calibration-hook.js's SAFE_DEFAULT_WINDOW inline, orchestrator.js's createStreamFeedClient/recoverRunState/writeRecoveredState/archiveState, orchestrator-worker.cjs's transcriptTee, parallel-cli.cjs's captureSpawn, parallel.cjs's estimateTaskFootprint).
 - 41 test failures remain post-Wave-3; all are command-file format tests for retired conventions (M56-D3 markers, Stack Rules, preflight wire-in, OBSERVABILITY LOGGING, shim_one_liner) + command-count tests for retired subcommands. Zero new regressions.
 - bin/ baseline: 37,785 LOC (v3.29.11). bin/ post-D4: 19,855 LOC. Reduction: -17,930 LOC (47% of bin/ retired; 70% of way to SC1 target ≤12,000).
+
+---
+
+## M65 — Orchestration-Shell Retirement (M61 D6 port-then-delete completion)
+
+Completes the M61 D6 deferral: deletes the M40/M44 orchestration shell the native Workflow scripts replaced. Scope-corrected after live ref-scan (the raw brief's `parallel-cli*`/`gsd-t-parallel` were proven KEEP-list substrate and retained).
+
+| Retired capability | File(s) deleted | Native replacement |
+|--------------------|-----------------|--------------------|
+| M40 external task orchestrator (`gsd-t orchestrate`) | `bin/gsd-t-orchestrator.js` + `-worker.cjs` + `-queue.cjs` + `-config.cjs` | `templates/workflows/gsd-t-execute.workflow.js` — native `parallel()` over domain workers with deterministic gates |
+| Spawn-plan progress files + transcript panel | `bin/spawn-plan-{writer,status-updater,derive}.cjs` + `scripts/spawn-plan-fmt-tokens.cjs` + `scripts/gsd-t-post-commit-spawn-plan.sh` + `templates/hooks/post-commit-spawn-plan.sh` | Native `/workflows` live progress tree + Agent View |
+| Headless exit-code mapping (separate-file decoupling for the retired supervisor) | `bin/headless-exit-codes.cjs` | Inlined `mapHeadlessExitCode` into `bin/gsd-t.js` (5-code contract 0/1/2/3/4/5 preserved verbatim incl. M45 boundary-anchored regexes) |
+| Mode-aware gating math (orchestrator-config) | `computeInSessionHeadroom` / `computeUnattendedGate` / `DEFAULT_SUMMARY_SIZE_PCT` | Inlined into the KEEP file `bin/gsd-t-parallel.cjs` (the `_lib.proveFileDisjointness` planner) so it no longer depends on the deleted config |
+
+### KEEP (proven substrate, NOT retired)
+- `bin/parallel-cli.cjs` + `parallel-cli-tee.cjs` — verify-gate Track-2 engine (`runParallel`), still required at `gsd-t-verify-gate.cjs:31`.
+- `bin/gsd-t-parallel.cjs` — file-disjointness/ready-task planner, still shelled by `templates/workflows/_lib.js:107`.
+
+### OUT (flagged for separate decision, NOT M65)
+- `bin/orchestrator.js` (1,387 LOC) + `bin/design-orchestrator.js` — the design-build pipeline orchestrator; `gsd-t design-build` is documented but has no live dispatch case (unwired). Wire-back-or-retire is a separate design-pipeline decision (backlogged via spawn-task chip).
+
+### Stale-list cleanup (M61-carryover, fixed opportunistically in the same gsd-t.js edits)
+- `PROJECT_BIN_TOOLS` had 10 entries pointing at M61-deleted files (`log-tail`, `context-budget-audit`, `context-meter-config`, `token-budget`, `gsd-t-token-capture`, 3× `gsd-t-unattended*`, `handoff-lock`, `headless-auto-spawn`) — these would have broken `update-all`. Removed alongside `headless-exit-codes.cjs`.
+- `commands/gsd-t-help.md` spawn-plan + parallelism panel bullets (referenced the deleted hook + retired dashboard server) — removed.
+- `commands/gsd-t-resume.md` Step 0.3 "Orchestrator Run Recovery (M40 D6)" — removed (drove the retired orchestrator + already-deleted `gsd-t-orchestrator-recover.cjs` + `test/m40-recovery.test.js`).
+
+### Verification (M65)
+- `mapHeadlessExitCode` inline contract: `0/2/4/1/3/5` golden match + M45 false-positive guard (`0 tests failed` → 0). ✅
+- Gating math inline: `computeInSessionHeadroom({ctxPct:50,workerCount:8,summarySize:4})={ok:true,reducedCount:8}`. ✅
+- `gsd-t doctor`: passes, no dangling references to deleted modules (1 pre-existing CGC-not-installed info). ✅
+- `gsd-t parallel --dry-run` (the `_lib` disjointness canary): runs end-to-end, exit 0. ✅
+- Suite: 1361 pass / 23 fail / 3 skip / 1387 total. The 6 deleted test files dropped from the denominator; zero M65-subject failures; all 23 fails are pre-existing M61 D1–D8 carryover (command-format / command-count / `gsd-t-capture-lint.cjs` MODULE_NOT_FOUND / playwright-health flake).
+- bin/ LOC: 22,051 → 20,271 (−1,780). M61 umbrella SC1 (≤12,000) tracked, not gated on M65.

@@ -15,11 +15,11 @@
 - **Added:** 2026-05-29 | **Origin:** m61-deferred
 - Run M52 (journey coverage) as a native Workflow to widen safety evidence beyond M58. Belt-and-suspenders; the build-hold + v3.x-legacy snapshot are the actual safety nets.
 
-## M65 (post-M61): D6 Port-Then-Delete Completion
+## M65 (post-M61): D6 Port-Then-Delete Completion — **PROMOTED → DEFINED as M65 (2026-05-29)**
 - **Type:** retire | **App:** gsd-t | **Category:** cleanup
-- **Added:** 2026-05-29 | **Origin:** m61-deferred
-- Delete `bin/gsd-t-orchestrator.js`, `gsd-t-orchestrator-{worker,queue,config}.cjs`, `gsd-t-parallel.cjs`, `parallel-cli.cjs`, `parallel-cli-tee.cjs`, `spawn-plan-writer.cjs` after a real M58 reproduction via the Workflow scripts validates the migration. These are stubbed to load cleanly at M61 end but await final retirement. Expected ~6,000 LOC additional reduction toward SC1 target ≤12,000.
-- Also: untangle `bin/headless-exit-codes.cjs` from `bin/gsd-t.js:41` module-load (D2-T3.5 follow-up).
+- **Added:** 2026-05-29 | **Origin:** m61-deferred | **Status:** DEFINED — see `.gsd-t/progress.md` § Current Milestone M65
+- **Scope CORRECTED at define-time** (live ref-scan + user decision 2026-05-29): `parallel-cli.cjs`, `parallel-cli-tee.cjs`, `gsd-t-parallel.cjs` are NOT deletable — they are M61 KEEP-list substrate (verify-gate Track-2 requires `parallel-cli.cjs::runParallel`; `_lib.js` shells to `gsd-t-parallel.cjs` for file-disjointness proving). M65 deletes only the true shell: `gsd-t-orchestrator.js` + `-worker/-queue/-config.cjs` + `spawn-plan-{writer,status-updater,derive}.cjs` + `headless-exit-codes.cjs` (inline-then-delete) = 8 files / 1,838 bin/ LOC. Plus `orchestrate` dispatch removal, dependent-test deletion, post-commit-spawn-plan hook removal, and the dangling `gsd-t-resume.md` ref cleanup.
+- **Deferred to separate backlog (not M65)**: `bin/orchestrator.js` + `bin/design-orchestrator.js` retirement-or-rewire — the design-build pipeline is currently unwired (`gsd-t design-build` documented but no dispatch case in gsd-t.js); decide wire-back vs. retire independently of the orchestration-shell cleanup. (~1,387 LOC + design-orchestrator.)
 
 ## 1. Agentic Workflow Architecture
 - **Type:** feature | **App:** gsd-t | **Category:** architecture

@@ -34,12 +34,6 @@ try {
   };
 }
 
-// Shared headless exit-code helper — lives in its own file so non-entry
-// modules (e.g. bin/gsd-t-unattended.cjs) can require it without pulling
-// in the full CLI. See commentary near the original declaration site and
-// in headless-exit-codes.cjs itself.
-const { mapHeadlessExitCode } = require(path.join(__dirname, "headless-exit-codes.cjs"));
-
 // ─── Configuration ───────────────────────────────────────────────────────────
 
 const CLAUDE_DIR = path.join(os.homedir(), ".claude");
@@ -2468,12 +2462,7 @@ function updateSingleProject(projectDir, counts) {
 // a new tool only requires appending to this array. Use .cjs extension so they
 // always run as CommonJS regardless of the project's package.json "type" field.
 const PROJECT_BIN_TOOLS = [
-  "archive-progress.cjs", "log-tail.cjs", "context-budget-audit.cjs",
-  "context-meter-config.cjs", "token-budget.cjs",
-  "gsd-t-token-capture.cjs",
-  "gsd-t-unattended.cjs", "gsd-t-unattended-platform.cjs", "gsd-t-unattended-safety.cjs",
-  "handoff-lock.cjs", "headless-auto-spawn.cjs",
-  "headless-exit-codes.cjs",
+  "archive-progress.cjs",
   // M55 — preflight + parallel-cli + brief + verify-gate libraries copied to project bin/
   // so per-project workflows can `require('./bin/cli-preflight.cjs')` etc. without
   // depending on the globally-installed gsd-t CLI being on PATH.
@@ -3506,11 +3495,43 @@ function buildHeadlessCmd(command, cmdArgs) {
  * Map claude output + process exit code to a GSD-T headless exit code.
  * Exit codes: 0=success, 1=verify-fail, 2=context-budget-exceeded, 3=error,
  *             4=blocked-needs-human, 5=command-dispatch-failed
+ *
+ * Inlined from the former bin/headless-exit-codes.cjs (M65) — that file existed
+ * to decouple the exit-code map from the CLI so the unattended supervisor could
+ * require it without pulling in gsd-t.js. The supervisor was retired in M61 D2,
+ * so the only remaining requirer is this file; the helper now lives inline.
+ *
+ * Match terminal markers, not narration. A bare "tests failed" substring
+ * appears in healthy output ("0 tests failed", "no tests failed", quoted in
+ * prose). Require a non-zero count prefix or a structured terminal marker.
+ * Bug history: M45 worker output contained "tests failed" 6× in narration,
+ * mapping exit 0 → 1 and halting a successful run — keep these regexes anchored.
  */
-// mapHeadlessExitCode now lives in ./headless-exit-codes.cjs — see re-export
-// near the top of this file. Kept out-of-line here so non-entry modules
-// (e.g. bin/gsd-t-unattended.cjs) can require the shared helper without
-// pulling in the full CLI at bin/gsd-t.js.
+const HEADLESS_NONZERO_FAILURE_COUNT_RE =
+  /(?:^|\b)([1-9]\d*)\s+(?:tests?|specs?|assertions?|examples?|suites?)\s+failed\b/i;
+const HEADLESS_STRUCTURED_FAIL_RE = /^FAIL[:\s]/m;
+const HEADLESS_JEST_SUMMARY_FAIL_RE = /^Tests:\s+\d+\s+failed/im;
+const HEADLESS_VERIFICATION_FAILED_RE =
+  /(?:^|[.!?]\s+)(?:verification|verify|quality gate)\s+failed\b/im;
+const HEADLESS_CONTEXT_BUDGET_RE =
+  /(?:^|[.!?]\s+)(?:context budget exceeded|context window exceeded|budget exceeded|token limit)\b/im;
+const HEADLESS_BLOCKED_HUMAN_RE =
+  /\bblocked\b[\s\S]{0,80}?\b(?:needs? human|human input|human approval)\b/i;
+
+function mapHeadlessExitCode(processExitCode, output) {
+  if (processExitCode !== 0 && processExitCode !== null) return 3;
+  const raw = output || "";
+  if (/^unknown command:/im.test(raw)) return 5;
+  if (HEADLESS_CONTEXT_BUDGET_RE.test(raw)) return 2;
+  if (HEADLESS_BLOCKED_HUMAN_RE.test(raw)) return 4;
+  if (
+    HEADLESS_VERIFICATION_FAILED_RE.test(raw) ||
+    HEADLESS_NONZERO_FAILURE_COUNT_RE.test(raw) ||
+    HEADLESS_STRUCTURED_FAIL_RE.test(raw) ||
+    HEADLESS_JEST_SUMMARY_FAIL_RE.test(raw)
+  ) return 1;
+  return 0;
+}
 
 /**
  * Generate a headless log file path.
@@ -4165,7 +4186,6 @@ function showHelp() {
   log(`  ${CYAN}changelog${RESET}      Open changelog in the browser`);
   log(`  ${CYAN}graph${RESET}          Code graph operations (index, status, query)`);
   log(`  ${CYAN}headless${RESET}       Non-interactive execution via claude -p + fast state queries`);
-  log(`  ${CYAN}orchestrate${RESET}    External task orchestrator — one claude -p spawn per task (M40)`);
   log(`  ${CYAN}design-build${RESET}   Deterministic design→code pipeline (elements → widgets → pages)`);
   log(`  ${CYAN}help${RESET}           Show this help\n`);
   log(`${BOLD}Examples:${RESET}`);
@@ -4374,14 +4394,6 @@ if (require.main === module) {
     case "headless":
       doHeadless(args.slice(1));
       break;
-    case "orchestrate": {
-      const { spawnSync } = require("child_process");
-      const js = path.join(__dirname, "gsd-t-orchestrator.js");
-      const res = spawnSync(process.execPath, [js, ...args.slice(1)], {
-        stdio: "inherit",
-      });
-      process.exit(res.status == null ? 1 : res.status);
-    }
     case "parallel": {
       // M44 D2 — `gsd-t parallel` wraps M40 orchestrator with task-level
       // parallelism + mode-aware gating math. Extends, does not replace.
