@@ -1,8 +1,8 @@
 # GSD-T Progress
 
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
-## Status: ACTIVE — M61 PLANNING (in flight)
-## Date: 2026-05-29 12:37 PDT
+## Status: ACTIVE — M61 EXECUTING — Wave 1 ~70% (workflow scaffolding + D5 + 1 cmd file converted; 11 cmd files + M58 reproduction remain)
+## Date: 2026-05-29 12:53 PDT
 ## Version: 3.29.11
 
 ## Current Milestone
@@ -106,6 +106,8 @@ Older milestones (M33 and earlier) archived under `.gsd-t/milestones/` — see d
 <!-- No active blockers -->
 
 ## Decision Log
+
+- 2026-05-29 12:53 PDT: [executing — Wave 1 ~70%][M61] Branch `m61-platform-reconciliation`. Path A committed (Waves 1-2 in-session, C1+C2 reviews before destructive Wave 3). Shipped: **D5 fully complete** (-3,632 LOC: 8 proof/benchmark/probe scripts + 4 orphaned tests + 1 benchmark-orchestrator subcommand removed; 0 test failures, baseline 2466 pass holds), **D6-T1 _lib.js** (8 helpers smoke-tested), **D6-T2 execute.workflow.js** (canonical preflight→brief→disjointness→parallel(workers)→integrate→verify-gate with DOMAIN_RESULT_SCHEMA + INTEGRATE_RESULT_SCHEMA), **D6-T3 verify.workflow.js** (orthogonal triad: /code-review ultra ∥ Red Team ∥ QA with REVIEW_ULTRA + RED_TEAM + QA schemas, synthesis stage preserves category labels), **D6-T4 wave.workflow.js** (composes execute→verify via workflow()), **D6-T5 integrate/debug/quick.workflow.js** (debug honors 2-cycle CLAUDE.md Prime Rule), **D6-T6 phase.workflow.js** (generic upper-stage runner — single parameterized script covers partition/plan/discuss/impact/milestone/prd/design-decompose/doc-ripple), **D6-T7 partial** (gsd-t-execute.md converted from 984 → 67 lines, -917; 11 command files remain), **D7-T1 orthogonal-validation-contract.md v1.0.0 STABLE** (3 objective functions + 5 distinctness rules + verdict table; origin documented as M58/M60 retrospective). 7 commits on branch. bin/ at 34,153 LOC (from 37,785 — 28% of SC1 target met). **Remaining for Wave 1**: D6-T7 finish (11 command file conversions, ~mechanical), D6-T8 M58 reproduction via execute.workflow.js (the SC2 proof). **Remaining for Wave 2**: D7-T2 de-wire 13 cmd files (mostly subsumed when D6-T7 converts them), D7-T3 protocol preamble updates, D7-T4 /code-review ultra wiring into verify.workflow.js (already designed in via skipUltra arg; needs runtime test), D7-T5 KEEP-list verification, D2-T1 unattended subcommand removal from bin/gsd-t.js. Wave 3 destructive deletes (D1/D2/D3/D4) gated on user review at C1 + C2. Wave 4 (D8 doc-ripple + SC7 cockpit) requires user-driven desktop walkthrough — cannot complete from CLI session. Honest stop point.
 
 - 2026-05-29 11:46 PDT: [partitioned][M61] 8 domains scoped under `.gsd-t/domains/m61-d{1-8}-*/` (scope.md + constraints.md each); `m61-integration-points.md` written with explicit Wave 0→4 sequencing, C1-C4 checkpoint gates, and cross-domain file-contention matrix. Domains: D1 retire-context-runway (~1,580 LOC + hook), D2 retire-unattended-relay (~8,800 LOC — largest), D3 retire-token-telemetry (~4,100 LOC), D4 retire-viewer-dashboard (~2,000 LOC + dashboard server), D5 retire-proof-scratch (~1,900 LOC — zero-ref orphans), D6 migrate-orchestration-to-workflow (~6,500 LOC removed + ~500 added — net -6,000), D7 keep-and-reframe-validation (KEEP list explicit; Wave 2 de-wires 13 command files), D8 doc-ripple-and-cockpit (both CLAUDE.md heavy revision + SC7 walkthrough). Baseline locked at v3.29.11: **bin/ = 37,785 LOC / 109 files**. SC1 target ≤12,000 LOC. Scan freshness: 43 days stale, but retire targets are explicit (not scan-derived) — staleness doesn't affect partition decisions; noted in `m61-integration-points.md` Risk Notes. Build-hold in force. Status → PARTITIONED. Next: `/gsd-t-plan` to write per-domain tasks.md with file-disjointness validation.
 
