@@ -290,213 +290,83 @@ Three built-in adapters: `localStorage-key-prefix`, `file-json-array`, `sqlite-t
 
 After the E2E suite, `gsd-t-verify` Step 4.5 runs `gsd-t test-data --purge --run "$GSD_T_VERIFY_RUN_ID"`. If any adapter throws or refuses, verify FAILs the gate (block-promotion semantics — equivalent to a failing CI-Parity Gate). Contract: `.gsd-t/contracts/test-data-ledger-contract.md` v1.0.0 STABLE.
 
-## QA Agent (Mandatory)
+## Orthogonal Validation Triad (Mandatory)
 
-Every code-producing/validating phase MUST run QA. QA writes ZERO feature code — it generates, runs, and gap-reports tests. Failure (or any shallow E2E test) blocks phase completion.
-Protocol: `templates/prompts/qa-subagent.md`. Contract: `.gsd-t/contracts/qa-agent-contract.md`.
+Every code-producing phase ends with `gsd-t-verify.workflow.js`, which runs three orthogonal validators as `parallel()` `agent()` stages with schema-validated output. Per `.gsd-t/contracts/orthogonal-validation-contract.md` v1.0.0 STABLE, they are declared orthogonal objective functions — no collapse, no substitution, no transitive trust.
 
-## Design Verification Agent (Mandatory when design contract exists)
+- **`/code-review ultra`** — cooperative correctness + cleanup. Severity: `important` / `nit` / `pre-existing`. Skippable via `args.skipUltra=true` + `args.skipUltraReason`. `skipUltra=true` is INELIGIBLE for `VERIFIED`.
+- **Red Team** — adversarial / security / boundaries. Non-skippable. Protocol: `templates/prompts/red-team-subagent.md`. Verdict: `FAIL` (any CRITICAL or HIGH bug — blocks completion) or `GRUDGING-PASS` (exhaustive search, nothing found). CRITICAL/HIGH bugs get up to 2 fix cycles before deferral. Runs on `model: "opus"`.
+- **QA** — test execution + shallow-test detection + contract compliance. Non-skippable. Protocol: `templates/prompts/qa-subagent.md`. Writes ZERO feature code. Any shallow E2E test blocks phase completion. Runs on `model: "sonnet"`.
 
-When `.gsd-t/contracts/design-contract.md` or `.gsd-t/contracts/design/` exists, a dedicated agent opens a browser, compares the build against the design, and writes a structured element-by-element MATCH/DEVIATION table. Writes ZERO feature code. Deviations (or missing verification artifact) block phase completion.
-Protocol: `templates/prompts/design-verify-subagent.md`.
+When `.gsd-t/contracts/design-contract.md` or `.gsd-t/contracts/design/` exists, a fourth stage runs Design Verification (protocol: `templates/prompts/design-verify-subagent.md`) — opens a browser, compares the build against the design, returns a structured element-by-element MATCH/DEVIATION schema. Deviations block completion.
 
-## Red Team — Adversarial QA (Mandatory)
-
-After QA + Design Verification pass, every code-producing command spawns an adversarial subagent whose success is measured by bugs found, not tests passed. VERDICT is `FAIL` (bugs — blocks completion) or `GRUDGING PASS` (exhaustive search, nothing found). CRITICAL/HIGH bugs get up to 2 fix cycles before deferral.
-Protocol: `templates/prompts/red-team-subagent.md`.
+Synthesis stage merges results without category collapse. Verdict: `VERIFIED` / `VERIFIED-WITH-WARNINGS` / `VERIFY-FAILED`.
 
 ## Model Display (MANDATORY)
 
-**Before every subagent spawn, display the model being used to the user:**
-`⚙ [{model}] {command} → {brief description}` (e.g., `⚙ [sonnet] gsd-t-execute → domain: auth-service`, `⚙ [haiku] gsd-t-execute → QA validation`)
-
-This gives the user real-time visibility into which model is handling each operation.
+**Each Workflow `agent()` call declares its model explicitly** via the `model:` option (`"haiku"` / `"sonnet"` / `"opus"`). The Workflow runtime emits a `⚙ [{model}] {label}` line per stage in `/workflows`, giving the user real-time visibility into which model handles each operation.
 
 **Model assignments:**
-- `model: haiku` — strictly mechanical tasks: run test suites and report counts, check file existence, validate JSON structure, branch guard checks
-- `model: sonnet` — mid-tier reasoning: routine code changes, standard refactors, test writing, QA evaluation, straightforward synthesis
-- `model: opus` — high-stakes reasoning: architecture decisions, security analysis, complex debugging, cross-module refactors, Red Team adversarial QA, quality judgment on critical paths
+- `model: "haiku"` — strictly mechanical tasks: run test suites and report counts, check file existence, validate JSON structure, branch guard checks
+- `model: "sonnet"` — mid-tier reasoning: routine code changes, standard refactors, test writing, QA evaluation, straightforward synthesis
+- `model: "opus"` — high-stakes reasoning: architecture decisions, security analysis, complex debugging, cross-module refactors, Red Team adversarial QA, quality judgment on critical paths
 
-**Context Meter (M34/M38, v3.12.10+)** — The real context-window measurement feeding the headless-default spawn decision. A PostToolUse hook (`scripts/gsd-t-context-meter.js`) runs after every tool call, uses local token estimation to write the current input-token count into `.gsd-t/.context-meter-state.json`. `getSessionStatus()` reads that state file (fresh window = 5 minutes) with a historical heuristic fallback when the file is missing or stale. Command files consume the signal via a small bash shim (`CTX_PCT=$(node -e "…tb.getSessionStatus('.').pct")`). **Single-band model** (context-meter-contract v1.3.0): there's one threshold (default 85%) and one action — hand off to a detached headless spawn. No three-band routing, no silent downgrades, no MANDATORY STOP prose. The meter exists to inform spawn-time routing, not to pause work in-flight.
+**Context budget:** Workflow scripts receive a `budget` global (`budget.total`, `budget.spent()`, `budget.remaining()`) tied to the user's per-turn token target. Use it for dynamic loops (`while (budget.total && budget.remaining() > 50_000) { ... }`) or to scale fleet size. Opus 4.7/4.8 ship 1M context windows; the legacy meter at `bin/token-budget.cjs` was retired in M61 — use native `/context` for live in-session usage.
 
-## In-Session Conversation Capture (M45 D2)
+## Desktop as Cockpit (M61 SC7 — v4.0.10+)
 
-The orchestrator session's user↔assistant dialog is captured into
-`.gsd-t/transcripts/in-session-{sessionId}.ndjson` via a dedicated hook
-script (`scripts/hooks/gsd-t-conversation-capture.js`). The viewer's left
-rail labels these entries `💬 conversation` (front-end-only discriminator
-— the `in-session-` filename prefix is the contract).
+Routine GSD-T actions (milestone → partition → plan → execute → verify → deliver) run from the Claude Code desktop app via Workflows + Skills. CLI residue is intentional and limited to: (a) background hooks the harness fires automatically, (b) jobs that must outlive the desktop session. No routine build / rebuild / debug / deliver action should require terminal keystrokes.
 
-This hook captures **content** (user prompts + assistant replies). It is
-complementary to `scripts/hooks/gsd-t-in-session-usage-hook.js` (M43 D1),
-which captures per-turn **token usage** into
-`.gsd-t/metrics/token-usage.jsonl`. Both hooks coexist on the same events.
+## GSD-T Workflows (M61 — v4.0.10+)
 
-**Install block** (append to `~/.claude/settings.json` alongside the existing
-context-meter, version-check, compact-detector, and in-session-usage hooks):
+GSD-T workflows live at `templates/workflows/`. Each workflow is a self-contained native Workflow script that handles one phase of the GSD-T lifecycle. Command files (`commands/gsd-t-*.md`) are thin invokers that call `Workflow({scriptPath, args})`.
 
-```json
-{
-  "hooks": {
-    "SessionStart": [
-      { "matcher": "",
-        "hooks": [{ "type": "command",
-                    "command": "node \"$HOME/.claude/scripts/hooks/gsd-t-conversation-capture.js\"",
-                    "async": true }] }
-    ],
-    "UserPromptSubmit": [
-      { "matcher": "",
-        "hooks": [{ "type": "command",
-                    "command": "node \"$HOME/.claude/scripts/hooks/gsd-t-conversation-capture.js\"",
-                    "async": true }] }
-    ],
-    "Stop": [
-      { "matcher": "",
-        "hooks": [{ "type": "command",
-                    "command": "node \"$HOME/.claude/scripts/hooks/gsd-t-conversation-capture.js\"",
-                    "async": true }] }
-    ],
-    "PostToolUse": [
-      { "matcher": "",
-        "hooks": [{ "type": "command",
-                    "command": "GSD_T_CAPTURE_TOOL_USES=1 node \"$HOME/.claude/scripts/hooks/gsd-t-conversation-capture.js\"",
-                    "async": true }] }
-    ]
-  }
-}
-```
+Canonical scripts:
+- `gsd-t-execute.workflow.js` — preflight → brief → file-disjointness → parallel(domain workers) → integrate → verify-gate
+- `gsd-t-verify.workflow.js` — preflight → verify-gate → M57 CI-parity → M58 test-data purge → parallel(/code-review ultra ∥ Red Team ∥ QA) → synthesis
+- `gsd-t-wave.workflow.js` — composes execute + verify as sub-workflows
+- `gsd-t-integrate.workflow.js` — cross-domain wire-up + light verify-gate
+- `gsd-t-debug.workflow.js` — 2-cycle diagnose/fix/verify (CLAUDE.md Prime Rule)
+- `gsd-t-quick.workflow.js` — preflight + brief + single-task + verify-gate (M56-D4)
+- `gsd-t-phase.workflow.js` — generic upper-stage runner (partition / plan / discuss / impact / milestone / prd / design-decompose / doc-ripple)
 
-The `PostToolUse` entry is **opt-in** via `GSD_T_CAPTURE_TOOL_USES=1`. Leave it
-unset unless you want per-tool frames in the NDJSON (full tool payloads are
-already recorded in `events/*.jsonl`).
+Shared helpers: `templates/workflows/_lib.js` — `runPreflight`, `generateBrief`, `proveFileDisjointness`, `runVerifyGate`, `loadProtocol`, `readDomainTasks`, `readScope`. Each prefers project-local `bin/<tool>.cjs` and falls back to global `gsd-t` PATH binary (preserves M55-D5 project-local-bin invariant).
 
-Contract: `.gsd-t/contracts/conversation-capture-contract.md` v1.0.0. Frame
-schema, file-naming, and session-id resolution rules are locked there.
+## Preflight Gate (KEPT from M55)
 
-## Observability Logging (MANDATORY)
-
-Every command that spawns a Task subagent, invokes `claude -p`, or calls `spawn('claude', ...)` MUST route the spawn through `bin/gsd-t-token-capture.cjs` so the real token-usage envelope is parsed and recorded. This is the M41 canonical pattern — the pre-M41 bash block that wrote `| N/A |` is retired.
-
-### Pattern A — wrap a spawn callable with `captureSpawn`
-
-Preferred for new spawn sites. The wrapper owns the before/after timing, model banner, envelope parse, row write, and JSONL record.
-
-```
-node -e "
-const { captureSpawn } = require('./bin/gsd-t-token-capture.cjs');
-(async () => {
-  await captureSpawn({
-    command: 'gsd-t-execute',
-    step: 'Step 4',
-    model: 'sonnet',
-    description: 'domain: auth-service',
-    projectDir: '.',
-    domain: 'auth-service',
-    task: 'T-3',
-    spawnFn: async () => { /* actual Task(...) or spawn('claude', ...) call */ },
-  });
-})();
-"
-```
-
-### Pattern B — record after the result envelope is already in hand
-
-For command files where the Task subagent already ran and the caller has the result object. Identical row format, no timing wrap.
-
-```
-node -e "
-const { recordSpawnRow } = require('./bin/gsd-t-token-capture.cjs');
-recordSpawnRow({
-  projectDir: '.',
-  command: 'gsd-t-verify',
-  step: 'Step 4',
-  model: 'haiku',
-  startedAt: '2026-04-21 10:00',
-  endedAt:   '2026-04-21 10:02',
-  usage: result.usage, // may be undefined — wrapper handles with '—'
-  domain: '-', task: '-',
-  ctxPct: 42,
-  notes: 'test audit + contract review',
-});
-"
-```
-
-### Canonical `.gsd-t/token-log.md` header
-
-```
-| Datetime-start | Datetime-end | Command | Step | Model | Duration(s) | Tokens | Notes | Domain | Task | Ctx% |
-```
-
-The wrapper detects old headers (no `Tokens` column) and upgrades in place, preserving existing rows. The **Tokens** cell renders as `in=N out=N cr=N cc=N $X.XX` when usage is present, or `—` when absent. Never `0`. Never `N/A`. A zero is a measurement; a dash is an acknowledged gap.
-
-For QA/validation subagents, append findings to `.gsd-t/qa-issues.md`:
-```
-| Date | Command | Step | Model | Duration(s) | Severity | Finding |
-```
-
-## Token Capture Rule (MANDATORY)
-
-Every `Task(...)` subagent spawn, every `claude -p` child process, and every `spawn('claude', ...)` call MUST flow through `bin/gsd-t-token-capture.cjs`. Either wrap with `captureSpawn({..., spawnFn})` or record explicitly with `recordSpawnRow({...})` after the call returns.
-
-No command file ships a bare `Task(...)` or `claude -p` line outside of a wrapper call. `gsd-t capture-lint` (D5) enforces this mechanically; violations fail the opt-in pre-commit hook.
-
-Rationale: the pre-M41 convention silently wrote `N/A` tokens because no caller parsed the `usage` envelope. The wrapper is the single place that parses it. Bypassing the wrapper re-introduces blind spots.
-
-## Mandatory Preflight Before Spawn (M55 — v3.25.10+)
-
-Every command that spawns a Task subagent or invokes `claude -p` MUST run `gsd-t preflight` first. Hard-fails on any `severity:"error"` check (wrong branch, occupied required port). Non-error checks (warn/info) record but do not block.
-
-```bash
-gsd-t preflight --json > /tmp/gsd-t-preflight.json || exit 4
-```
-
-Catches drift early — wrong branch, port collision, DRAFT contracts past PARTITIONED — before any LLM work fires. Same envelope is consumed by `gsd-t verify-gate` Track 1, so failing fast at execute time saves the verify round-trip.
+Every Workflow script begins with `lib.runPreflight({projectDir})`. Hard-fails on any `severity:"error"` check (wrong branch, occupied required port). Non-error checks record but do not block. Same envelope feeds `verify-gate` Track 1.
 
 Library: `bin/cli-preflight.cjs::runPreflight({projectDir, checks?})`.
 Contract: `.gsd-t/contracts/cli-preflight-contract.md` v1.0.0 STABLE.
 
-## Brief-First Worker Rule (M55 — v3.25.10+)
+## Brief-First Worker Rule (KEPT from M55, REFRAMED for M61)
 
-Every parallel worker prompt scaffold MUST thread `$BRIEF_PATH` — a ≤2,500-token JSON snapshot generated once per spawn by `bin/gsd-t-context-brief.cjs`. The brief replaces the 30–60k context re-read every parallel worker would otherwise perform (CLAUDE.md + contracts + scope + relevant code) — the dominant ITPM-relief lever in M55.
+Every Workflow `agent()` call threads `$BRIEF_PATH` — a ≤2,500-token JSON snapshot generated by `bin/gsd-t-context-brief.cjs`. Workers grep the brief instead of re-walking the repo. `execute.workflow.js` generates a per-domain brief inside the `parallel()` map (M55-D2 brief-per-spawn semantic).
 
-```bash
-SPAWN_ID="execute-${DOMAIN}-$(date -u +%Y%m%dT%H%M%SZ)"
-gsd-t brief --kind execute --domain "${DOMAIN}" --spawn-id "${SPAWN_ID}" --out ".gsd-t/briefs/${SPAWN_ID}.json"
-export BRIEF_PATH=".gsd-t/briefs/${SPAWN_ID}.json"
-```
-
-The 3 validation-subagent protocols (`templates/prompts/{qa,red-team,design-verify}-subagent.md`) carry the canonical instruction "If you're about to grep, read, or run a test, check the brief first at `$BRIEF_PATH`." Workers grep the brief instead of re-walking the repo.
+The 3 validation-subagent protocols (`templates/prompts/{qa,red-team,design-verify}-subagent.md`) carry the canonical instruction "If you're about to grep, read, or run a test, check the brief first at `$BRIEF_PATH`."
 
 `.gsd-t/briefs/` is gitignored — briefs are per-spawn ephemera, not committed artifacts.
 
 Library: `bin/gsd-t-context-brief.cjs::generateBrief(...)`.
 Contract: `.gsd-t/contracts/context-brief-contract.md` v1.0.0 STABLE.
 
-## Two-Track Verify-Gate (M55 — v3.25.10+)
+## Verify-Gate + Orthogonal Validation Triad (M61 v4.0.10+)
 
-`gsd-t verify-gate --json` is the canonical pre-merge gate. Track 1 = D1 preflight envelope (hard-fail on any `severity:"error"` check). Track 2 = D2 parallel-CLI substrate fans out off-the-shelf CLIs (`tsc`, `biome`/`ruff`, `npm test`, `knip`, `gitleaks`, `scc`/`lizard`). Both tracks always run; both report.
+`gsd-t verify-gate --json` runs as a deterministic stage inside `gsd-t-verify.workflow.js`. Track 1 = preflight envelope. Track 2 = parallel-CLI substrate (`tsc`, `biome`/`ruff`, `npm test`, `knip`, `gitleaks`, `scc`/`lizard`). Both tracks always run; non-zero exit halts before the orthogonal triad.
 
-```bash
-gsd-t verify-gate --json > /tmp/gate.json || exit 4
-cat /tmp/gate.json | gsd-t verify-gate-judge > /tmp/judge-prompt.txt
-```
+After verify-gate, `verify.workflow.js` runs two FAIL-blocking gates inherited from M57 + M58:
+- M57 CI-Parity: `gsd-t build-coverage` + `gsd-t ci-parity` (origin TimeTracking v1.10.12 Dockerfile incident)
+- M58 Test-Data Purge: `gsd-t test-data --purge --run <id>` (origin GSD-T-Board v0.1.10 2442 E2E orphans incident)
 
-`top-level ok = (skipTrack1 || track1.ok) && (skipTrack2 || track2.ok)` — purely deterministic. The LLM judge sees only the ≤500-token deterministic `summary`; never raw stdout/stderr. The judge confirms or contradicts the deterministic verdict; it never overrides `ok`.
+Then the orthogonal validation triad runs as `parallel()` `agent()` stages per `.gsd-t/contracts/orthogonal-validation-contract.md` v1.0.0 STABLE:
+- `/code-review ultra` — cooperative correctness + cleanup (skippable; requires `skipUltraReason`)
+- Red Team — adversarial / security / boundaries (non-skippable; verdict `FAIL` / `GRUDGING-PASS`)
+- QA — test mechanics + shallow-test detection + contract compliance (non-skippable)
 
-Defensive on missing `.gsd-t/ratelimit-map.json` → fallback `maxConcurrency=2` with a structured note.
+Synthesis stage merges results WITHOUT collapsing categories. Verdict: `VERIFIED` / `VERIFIED-WITH-WARNINGS` / `VERIFY-FAILED`. `skipUltra=true` is INELIGIBLE for `VERIFIED`.
 
 Library: `bin/gsd-t-verify-gate.cjs::runVerifyGate(...)` + `bin/gsd-t-verify-gate-judge.cjs::buildJudgePrompt(...)`.
-Contract: `.gsd-t/contracts/verify-gate-contract.md` v1.0.0 STABLE.
-
-## Always-Headless Spawn (M43 D4, v3.16.x+) — Channel Separation
-
-Every GSD-T command spawns detached, unconditionally. There is no `--watch`, no `--in-session`, no `--headless` opt-in, no context-meter threshold that reroutes, no low-water-mark bypass. The dialog channel is reserved for human↔Claude conversation; everything else is a detached headless child. Interactive session shows a launch banner + live-transcript URL + event-stream path, then exits. Results surface via the read-back banner on the user's next message.
-
-The only in-session surface is the `/gsd` router (`commands/gsd.md`), and only for dialog-only exploratory turns. The moment Step 2.5 classifies a turn as `workflow`, the router hands off to a detached spawn.
-
-Legacy `watch` / `inSession` params are accepted-and-ignored with a one-shot stderr deprecation warning (scheduled removal in v3.0.0 of the contract). `shouldSpawnHeadless` is a constant `() => true`.
-
-Contract: `.gsd-t/contracts/headless-default-contract.md` v2.0.0 (see also `unattended-event-stream-contract.md`, `unattended-supervisor-contract.md`).
+Contracts: `verify-gate-contract.md` v1.0.0 STABLE + `orthogonal-validation-contract.md` v1.0.0 STABLE.
 
 ## API Documentation Guard (Swagger/OpenAPI)
 

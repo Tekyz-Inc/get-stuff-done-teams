@@ -1,5 +1,26 @@
 # Backlog
 
+## M62 (post-M61): Cross-Project Propagation of v4.0.10
+- **Type:** ripple | **App:** gsd-t | **Category:** propagation
+- **Added:** 2026-05-29 | **Origin:** m61-deferred
+- Run `gsd-t version-update-all` to propagate v4.0.10 to all 23 registered projects: rewrite their CLAUDE.md to drop retired-infra rules, update package.json, archive their token-log.md, and clean up `~/.claude/settings.json` hooks for retired infrastructure (conversation-capture, context-meter, in-session-usage).
+
+## M63 (post-M61): SC7 Cockpit Walkthrough on UI-Heavy Milestone
+- **Type:** validation | **App:** gsd-t | **Category:** verification
+- **Added:** 2026-05-29 | **Origin:** m61-deferred
+- Deeper SC7 test of desktop-as-cockpit: drive a UI-heavy milestone (browser tooling exercised) entirely from the desktop app with zero terminal keystrokes. Validates the browser/Playwright leg of the cockpit promise that the small-backlog SC7 doesn't exercise.
+
+## M64 (post-M61): M52 Bake-Off
+- **Type:** validation | **App:** gsd-t | **Category:** verification
+- **Added:** 2026-05-29 | **Origin:** m61-deferred
+- Run M52 (journey coverage) as a native Workflow to widen safety evidence beyond M58. Belt-and-suspenders; the build-hold + v3.x-legacy snapshot are the actual safety nets.
+
+## M65 (post-M61): D6 Port-Then-Delete Completion
+- **Type:** retire | **App:** gsd-t | **Category:** cleanup
+- **Added:** 2026-05-29 | **Origin:** m61-deferred
+- Delete `bin/gsd-t-orchestrator.js`, `gsd-t-orchestrator-{worker,queue,config}.cjs`, `gsd-t-parallel.cjs`, `parallel-cli.cjs`, `parallel-cli-tee.cjs`, `spawn-plan-writer.cjs` after a real M58 reproduction via the Workflow scripts validates the migration. These are stubbed to load cleanly at M61 end but await final retirement. Expected ~6,000 LOC additional reduction toward SC1 target ≤12,000.
+- Also: untangle `bin/headless-exit-codes.cjs` from `bin/gsd-t.js:41` module-load (D2-T3.5 follow-up).
+
 ## 1. Agentic Workflow Architecture
 - **Type:** feature | **App:** gsd-t | **Category:** architecture
 - **Added:** 2026-02-13
