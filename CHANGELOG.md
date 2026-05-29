@@ -2,6 +2,36 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [3.29.11] - 2026-05-29 09:57 PDT
+
+### Fixed — CRITICAL test-data adapter data-destruction bug (M60)
+
+Found by a native-Workflow Red Team bake-off (Opus 4.8, perspective-diverse
+adversarial review) while evaluating GSD-T against native Claude Code 4.8
+capability. M58's own in-session Red Team had passed this as "6/6 defended"
+— the claim was wrong.
+
+- **Bug**: `bin/gsd-t-test-data-adapters/file-json-array.cjs` and
+  `localstorage-key-prefix.cjs` guarded with
+  `typeof taggedPrefix === 'string' && taggedPrefix.length > 0 && !id.startsWith(...)`.
+  An empty/undefined `taggedPrefix` short-circuits the whole condition, so
+  **no guard runs** — `gsd-t test-data --purge` would delete untagged
+  production records and report `errors:0` (gate GREEN). No adapter enforced
+  `projectDir` containment on the `store` path, making it a write-anywhere
+  delete primitive. Reproduced live before fixing.
+- **Fix** (additive refusal only — removes capability, never adds destructive
+  behavior): both adapters now hard-refuse empty/undefined `taggedPrefix`
+  (matching the already-correct `sqlite-table-where` adapter); `file-json-array`
+  and `sqlite-table-where` enforce the containment predicate
+  `resolved.startsWith(root + sep) && resolved !== root` when `projectDir` is
+  supplied; `purgeRunInserts` threads `projectDir` into every adapter call.
+- **Tests**: new `test/m60-redteam-regressions.test.js` (10 tests, one per
+  finding + happy-path + back-compat). M58 suite 44/44 unchanged.
+- **Contract**: `test-data-tagging-contract.md` → v1.1.0 STABLE (empty-prefix
+  refusal + path containment now normative).
+- Backward-compatible: the happy path (non-empty prefix, in-project path, or
+  no `projectDir`) is unchanged.
+
 ## [3.29.10] - 2026-05-27 10:09 PDT
 
 ### Changed — Timestamp precision in progress.md (forward-only)

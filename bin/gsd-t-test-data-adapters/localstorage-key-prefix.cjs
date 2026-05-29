@@ -22,7 +22,12 @@ async function purge({ page, store, id, taggedPrefix }) {
   if (typeof id !== 'string' || id.length === 0) {
     throw new Error('localStorage-key-prefix: id must be a non-empty string');
   }
-  if (typeof taggedPrefix === 'string' && taggedPrefix.length > 0 && !id.startsWith(taggedPrefix)) {
+  // taggedPrefix is REQUIRED and non-empty — an empty/omitted prefix would
+  // disable the guard entirely (Red Team CRITICAL, M60).
+  if (typeof taggedPrefix !== 'string' || taggedPrefix.length === 0) {
+    throw new Error('localStorage-key-prefix: taggedPrefix is required and must be non-empty (guard cannot be disabled)');
+  }
+  if (!id.startsWith(taggedPrefix)) {
     throw new Error(`localStorage-key-prefix: tag prefix mismatch (id="${id}", taggedPrefix="${taggedPrefix}")`);
   }
 
