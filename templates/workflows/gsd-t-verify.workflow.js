@@ -19,10 +19,12 @@
 export const meta = {
   name: "gsd-t-verify",
   description:
-    "GSD-T verify phase: preflight → brief → verify-gate → parallel(code-review-ultra, Red Team, QA) → synthesis",
+    "GSD-T verify phase: preflight → brief → verify-gate → CI-parity gate (M57) → test-data purge gate (M58) → parallel(code-review-ultra, Red Team, QA) → synthesis",
   phases: [
     { title: "Preflight",          detail: "preflight + brief" },
     { title: "Verify-Gate",        detail: "deterministic two-track verify-gate" },
+    { title: "CI-Parity",          detail: "M57 build-coverage + ci-parity (FAIL-blocking)" },
+    { title: "Test-Data Purge",    detail: "M58 test-data --purge (FAIL-blocking)" },
     { title: "Orthogonal Triad",   detail: "code-review ultra ∥ Red Team ∥ QA" },
     { title: "Synthesis",          detail: "merge without collapsing categories" },
   ],
@@ -168,7 +170,64 @@ if (!vg.ok) {
     verifyGate: vg.envelope,
   };
 }
-log(`verify-gate green — proceeding to orthogonal triad`);
+log(`verify-gate green`);
+
+// ─── M57 CI-Parity Gate (FAIL-blocking) ───────────────────────────────────
+// Per commands/gsd-t-verify.md Step 2.6 + cli-build-coverage-contract.md +
+// ci-parity-contract.md. NEITHER track is currently inside verify-gate.cjs.
+// Origin: TimeTracking v1.10.12 shipped VERIFIED+tagged with a new dir absent
+// from Dockerfile COPY — silent CI-divergence regression. M57 made this gate
+// mandatory; Workflow MUST preserve it or we re-introduce that exact failure.
+// Detected by user/worker in parallel session 2026-05-29 13:00.
+phase("CI-Parity");
+const { spawnSync } = require("child_process");
+function _runJsonCli(subcmd, argv = []) {
+  // Use _lib-style resolution — prefer project-local bin/<tool>.cjs
+  const fsMod = require("fs");
+  const pMod = require("path");
+  const localMap = {
+    "build-coverage": "gsd-t-build-coverage.cjs",
+    "ci-parity":      "gsd-t-ci-parity.cjs",
+    "test-data":      "gsd-t-test-data-ledger.cjs",
+  };
+  const local = pMod.join(projectDir, "bin", localMap[subcmd] || "");
+  const cmd = fsMod.existsSync(local) ? process.execPath : "gsd-t";
+  const args = fsMod.existsSync(local) ? [local, ...argv] : [subcmd, ...argv];
+  const r = spawnSync(cmd, args, { cwd: projectDir, stdio: "pipe" });
+  let envelope = null;
+  try { envelope = r.stdout ? JSON.parse(r.stdout.toString()) : null; } catch (_) {}
+  return {
+    ok: r.status === 0,
+    exitCode: r.status,
+    envelope,
+    stderr: r.stderr && r.stderr.toString(),
+  };
+}
+const bc = _runJsonCli("build-coverage", ["--json"]);
+if (!bc.ok) {
+  log(`M57 build-coverage FAIL exitCode=${bc.exitCode} — halting (FAIL-blocking)`);
+  return { status: "ci-parity-failed", overallVerdict: "VERIFY-FAILED", buildCoverage: bc.envelope };
+}
+const cip = _runJsonCli("ci-parity", ["--json"]);
+if (!cip.ok) {
+  log(`M57 ci-parity FAIL exitCode=${cip.exitCode} — halting (FAIL-blocking)`);
+  return { status: "ci-parity-failed", overallVerdict: "VERIFY-FAILED", ciParity: cip.envelope };
+}
+log(`M57 CI-parity gate green`);
+
+// ─── M58 Test-Data Purge Gate (FAIL-blocking) ─────────────────────────────
+// Per commands/gsd-t-verify.md Step 4.5 + test-data-tagging-contract.md v1.1.0.
+// Origin: GSD-T-Board v0.1.10 shipped VERIFIED with 2442 E2E_TEST_* orphans
+// live in production data. M58 made post-E2E purge mandatory; M60 hardened
+// the adapters against empty-prefix bypass. Workflow MUST preserve.
+phase("Test-Data Purge");
+const verifyRunId = `verify-${milestone || "M??"}-${Date.now().toString(36)}`;
+const td = _runJsonCli("test-data", ["--purge", "--run", verifyRunId, "--json"]);
+if (!td.ok) {
+  log(`M58 test-data purge FAIL exitCode=${td.exitCode} — halting (FAIL-blocking)`);
+  return { status: "test-data-purge-failed", overallVerdict: "VERIFY-FAILED", testDataPurge: td.envelope };
+}
+log(`M58 test-data purge green — proceeding to orthogonal triad`);
 
 phase("Orthogonal Triad");
 
@@ -281,6 +340,9 @@ return {
   status: verdict.overallVerdict === "VERIFY-FAILED" ? "failed" : "complete",
   overallVerdict: verdict.overallVerdict,
   verifyGate: vg.envelope,
+  buildCoverage: bc.envelope,
+  ciParity: cip.envelope,
+  testDataPurge: td.envelope,
   triad: triadResults,
   verdict,
 };
