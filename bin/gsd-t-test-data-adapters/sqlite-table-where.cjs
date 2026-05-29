@@ -8,10 +8,24 @@
  * still loads when the module isn't installed. Tests self-skip in that case.
  */
 const fs = require('node:fs');
+const path = require('node:path');
 
 const KIND = 'sqlite-table-where';
 
 const IDENT_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+function assertContained(dbPath, projectDir) {
+  if (typeof projectDir !== 'string' || projectDir.length === 0) {
+    return; // no projectDir supplied — containment not enforceable, caller's choice
+  }
+  const root = path.resolve(projectDir);
+  const resolved = path.resolve(dbPath);
+  if (!(resolved.startsWith(root + path.sep) && resolved !== root)) {
+    throw new Error(
+      `sqlite-table-where: dbPath "${dbPath}" resolves outside projectDir "${projectDir}" — refused (containment guard)`
+    );
+  }
+}
 
 function parseStore(store) {
   if (typeof store !== 'string') {
@@ -34,7 +48,7 @@ function parseStore(store) {
   return { dbPath, table, idColumn };
 }
 
-function purge({ store, id, taggedPrefix }) {
+function purge({ store, id, taggedPrefix, projectDir }) {
   const { dbPath, table, idColumn } = parseStore(store);
   if (typeof id !== 'string' || id.length === 0) {
     throw new Error('sqlite-table-where: id must be a non-empty string');
@@ -45,6 +59,7 @@ function purge({ store, id, taggedPrefix }) {
   if (!id.startsWith(taggedPrefix)) {
     throw new Error(`sqlite-table-where: tag prefix mismatch (id="${id}", taggedPrefix="${taggedPrefix}")`);
   }
+  assertContained(dbPath, projectDir);
   if (!fs.existsSync(dbPath)) {
     return 'absent';
   }

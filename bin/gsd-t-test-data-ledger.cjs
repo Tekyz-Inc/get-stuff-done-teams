@@ -129,6 +129,7 @@ async function purgeRunInserts({ projectDir, runId, dryRun }) {
         store: row.store,
         id: row.id,
         taggedPrefix: row.taggedPrefix,
+        projectDir, // thread through so path adapters can enforce containment (M60)
       });
       if (result === 'purged') {
         purged.push(row);
