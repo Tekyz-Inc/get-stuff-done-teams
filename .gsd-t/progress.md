@@ -2,8 +2,8 @@
 
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: ACTIVE — M65 COMPLETED (orchestration-shell retirement, v4.0.11); M61 EXECUTED through D8 (SC7 cockpit walkthrough still user-driven)
-## Date: 2026-05-29 16:15 PDT
-## Version: 4.0.11
+## Date: 2026-05-29 16:42 PDT
+## Version: 4.0.12
 
 ## Current Milestone
 
@@ -171,6 +171,8 @@ Older milestones (M33 and earlier) archived under `.gsd-t/milestones/` — see d
 <!-- No active blockers -->
 
 ## Decision Log
+
+- 2026-05-29 16:42 PDT: [release][chore] v4.0.12 — M61-carryover test cleanup (greened the suite for release). The SC7 walkthrough surfaced ~23 unit + ~19 E2E pre-existing failures, all tests for M61-retired surfaces (D6-T7 removed command-file marker/wire-in blocks; D4 retired the viewer/dashboard). Delete-with-subject: removed 5 wire-in/marker test files + 8 viewer-unit tests + 3 journey-coverage staging tests + 19 orphaned E2E specs + the 96KB `scripts/gsd-t-transcript.html`; pruned journey-manifest 19→3; generalized `journey-coverage.cjs` VIEWER_FILE_PATTERNS to `scripts/*.html`; fixed `filesystem.test.js` command counts (55→51, 49→45 after D2's 4 command removals); dropped stale Detection-block assertions from `stack-rules.test.js` (kept engine tests). Suite now 1267 pass / 1 known flake (verifyPlaywrightHealth, passes 20/0 isolated) / 3 sqlite-skip. E2E 3 pass. journey-coverage clean. bin/ unchanged 20,271 LOC. Patch bump 4.0.11 → 4.0.12 (test-only, no behavior change). Releasing via CPUA: push origin/main + tags (v4.0.10, v4.0.11, v4.0.12), npm publish, update-all propagation.
 
 - 2026-05-29 16:15 PDT: [completed][M65] Completed M65 — VERIFIED-WITH-WARNINGS eligible for completion. **Version PATCH bump 4.0.10 → 4.0.11** (cleanup/retire milestone, no feature). Synced package.json + package-lock.json + ~/.claude/.gsd-t-version + progress.md header (the header was stale at 3.29.11 — M61 D8 bumped package.json to 4.0.10 but never synced the header; corrected now). Archived domain + integration-points + verify-report to `.gsd-t/milestones/m65-orchestration-shell-retirement-2026-05-29/`. CHANGELOG v4.0.11 entry written (removed files + native-replacement map + removed `orchestrate` subcommand + removed tests + RT/QA verdicts + VERIFIED-WITH-WARNINGS rationale). retire→native map (M61 archive) already appended at T7. Milestones table M65 row → COMPLETED 4.0.11. Will tag `v4.0.11`. **Net: bin/ 22,051 → 20,271 LOC (−1,780); M61 SC1 ≤12K umbrella advanced (now ~8,271 LOC over target, down from ~10,051).** Two carryover follow-ups live as spawn-task chips: (1) M61-carryover-test-cleanup (23 unit fails + ~18 orphaned viewer E2E specs), (2) design-build orchestrator wire-or-retire (orchestrator.js/design-orchestrator.js, ~1,400 LOC OUT-of-M65).
 

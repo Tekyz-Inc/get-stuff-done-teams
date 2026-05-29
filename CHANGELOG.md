@@ -2,6 +2,20 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [4.0.12] - 2026-05-29
+
+### Removed — M61-carryover test cleanup (green the suite)
+
+The SC7 cockpit walkthrough surfaced ~23 unit + ~19 E2E pre-existing failures, all tests asserting conventions or files that M61 intentionally retired (command→Workflow conversion removed the marker/wire-in blocks; D4 retired the viewer/dashboard). Delete-with-subject cleanup — no behavior change.
+
+- Removed wire-in/marker tests: `m56-d3-wire-in`, `m56-d4-wire-in`, `m55-d5-wire-in-{execute,verify}`, `m56-d5-stream-json-gap-closures` (the last required D3-deleted `gsd-t-capture-lint.cjs`).
+- Removed 8 viewer/transcript unit tests + 3 journey-coverage staging tests coupled to the deleted viewer HTML.
+- Removed orphaned E2E specs: all 6 `e2e/viewer/*`, 13 viewer-dependent `e2e/journeys/*`, `main-session-stream`, all 4 `e2e/live-journeys/*`. Kept the 3 `verify-gate-blocks-*` journeys (verify-gate is KEEP).
+- Deleted `scripts/gsd-t-transcript.html` (96KB retired D4 viewer); pruned `.gsd-t/journey-manifest.json` 19→3 specs; generalized `bin/journey-coverage.cjs` `VIEWER_FILE_PATTERNS` to `scripts/*.html`; cleaned 2 pre-commit hooks.
+- `test/stack-rules.test.js`: dropped per-command-file Detection-block assertions (kept engine + QA-protocol checks). `test/filesystem.test.js`: command counts 55→51 / 49→45 (D2 retired 4 commands).
+
+Suite now 1267 pass / 1 known flake (`verifyPlaywrightHealth` — passes 20/0 isolated; suite-contention subprocess timeout) / 3 sqlite-skip. E2E 3 pass. journey-coverage clean. bin/ unchanged at 20,271 LOC.
+
 ## [4.0.11] - 2026-05-29 (M65 Orchestration-Shell Retirement — patch)
 
 Completes the M61 D6 deferral: deletes the M40/M44 orchestration shell that the native Workflow scripts replaced. Scope was corrected from the raw brief after a live reference scan proved `parallel-cli*` and `gsd-t-parallel.cjs` are KEEP-list substrate (verify-gate Track-2 + the `_lib` file-disjointness prover), not retireable shell — they were retained.
