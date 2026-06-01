@@ -2,6 +2,31 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [4.0.14] - 2026-05-29 (M67 Scan Deep Document Phase — patch)
+
+### Added — deterministic deep document cross-population in the scan Workflow
+
+M66 made the tech-debt register deep but left living-document cross-population as a non-deterministic "lead-agent follow-on" — effectively dropped, a regression vs the old prose scan's Step 5. M67 adds a `Document` phase to `templates/workflows/gsd-t-scan.workflow.js` (between Synthesis and Render) that fans out **one agent per document**, each drawing on the same slices + verified findings the finders produced, so the docs are as thorough as the register.
+
+- `templates/workflows/gsd-t-scan.workflow.js`: new `Document` phase produces `docs/{architecture,workflows,infrastructure,requirements}.md` + `README.md` (merge-not-overwrite, Edit-not-Write on existing files) and the five `.gsd-t/scan/{architecture,security,quality,business-rules,contract-drift}.md` dimension files in the renderer's parsed formats. Component map + a user journey per feature-domain slice. Synthesis no longer writes the dimension files (moved to the doc stage); runs before Render so the HTML report reads the deep `architecture.md`.
+- Red Team (FAIL → GRUDGING-PASS, 1 fix cycle): HIGH-1 doc-clobber data-loss → deterministic `.gsd-t/scan/.doc-backup/` snapshot before the fan-out; HIGH-2 render double-count → grand total written as a `| Grand Total | N files | LOC |` table row that the parser short-circuits on (verified 1809, not 1919); LOW → dropped `-f` from git add + pathspec-excluded and gitignored `.doc-backup`.
+- `commands/gsd-t-scan.md`, `commands/gsd-t-help.md`, `templates/CLAUDE-global.md`: doc-ripple for the new phase. `.gitignore`: `.gsd-t/scan/.doc-backup/`.
+
+Suite: 1267 pass / 0 fail / 4 skip — zero regressions.
+
+## [4.0.13] - 2026-05-29 (M66 Scan Volume-Scaled Workflow Migration — patch)
+
+### Fixed — scan-depth regression: scan now fans out by codebase volume, not a fixed 5-teammate count
+
+Scan was the only major phase never migrated to a native Workflow. It hard-coded exactly 5 teammates (one per dimension) with zero volume scaling — a 5-file repo and a 1,809-file repo both got 5 agents, so a single `quality` agent sampled the top ~5 issues across the whole codebase and stopped. On a large codebase that produced a cursory 16-item register where a deep per-domain scan surfaced 117 findings. It also referenced a retired `autoSpawnHeadless()` + `headless-default-contract v2.0.0`.
+
+- `templates/workflows/gsd-t-scan.workflow.js` (NEW): `preflight → volume-probe (derives a per-area slice list, scaling 1-3 slices tiny → 15-40 large) → pipeline(per-slice deep finder "enumerate don't sample" → single verify) → deterministic JS archive + TD-numbering → synthesis (dedup/merge/re-rank) → render`. Slice depth is budget-aware.
+- `commands/gsd-t-scan.md`: rewritten as a thin `Workflow({scriptPath, args})` invoker; dead `autoSpawnHeadless`/`headless-default-contract v2.0.0` references stripped.
+- Red Team (FAIL → GRUDGING-PASS, 2 fix cycles): prose-driven archive/TD-numbering → deterministic JS (`fs.renameSync` collision-safe + `_parseMaxTd` + prior register content threaded into synthesis); render hollow-report guard + prompt↔parser format alignment; pipeline stage-2 defensive signature; probe model haiku→sonnet.
+- Doc-ripple: removed retired fixed-5-teammate scan-dimension references from `gsd-t-{complete-milestone,gap-analysis,feature,init-scan-setup}.md`; `templates/CLAUDE-global.md` + `commands/gsd-t-help.md`.
+
+Suite: 1267 pass / 0 fail / 4 skip — zero regressions.
+
 ## [4.0.12] - 2026-05-29
 
 ### Removed — M61-carryover test cleanup (green the suite)
