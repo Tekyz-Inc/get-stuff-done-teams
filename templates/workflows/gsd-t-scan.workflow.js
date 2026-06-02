@@ -43,7 +43,7 @@ export const meta = {
     { title: "Probe",       detail: "volume probe → derive per-area slice list", model: "haiku" },
     { title: "Deep Scan",   detail: "pipeline: per-slice deep finder → single verify" },
     { title: "Synthesis",   detail: "dedup / merge / re-rank into techdebt.md", model: "opus" },
-    { title: "Document",    detail: "deep living-doc + dimension-file cross-population (per-doc fan-out)" },
+    { title: "Document",    detail: "deep living-doc + dimension-file + plain-English cross-population (per-doc fan-out)" },
     { title: "Render",      detail: "schema extraction + diagrams + HTML report" },
   ],
 };
@@ -463,6 +463,13 @@ if (!fs.existsSync(registerPath)) {
 }
 log(`register written: ${JSON.stringify(synthesis.counts)}`);
 
+// Read the synthesized register so the plain-English doc can mirror its EXACT
+// TD-NNN ids / order (red-team HIGH-1: raw findings carry no TD ids, so a doc
+// built only from findings would invent divergent numbering and break the
+// cross-reference to techdebt.md). The register exists here (confirmed above).
+let registerText = "";
+try { registerText = fs.readFileSync(registerPath, "utf8"); } catch (_) {}
+
 // ─── Document — deep living-doc + dimension-file cross-population (M67) ───
 // M66 made the register deep but left doc cross-population as a non-deterministic
 // "lead agent follow-on" — effectively dropped. M67 fans out one agent PER DOCUMENT,
@@ -577,15 +584,51 @@ const docTargets = [
     id: "readme", label: "README.md", merge: true,
     prompt: `Update or create \`README.md\`: project name + description; tech stack + versions discovered; getting-started/setup (from infrastructure findings); brief architecture overview; link to \`docs/\` for detail. If it exists, MERGE — update tech-stack + setup sections but preserve the user's existing structure and custom content.`,
   },
+  {
+    id: "techdebt-plain-english", label: ".gsd-t/techdebt_in_plain_english.md",
+    needsRegister: true, // red-team HIGH-1: must receive the synthesized register (TD-NNN ids live there, not in findings)
+    prompt: `Write \`.gsd-t/techdebt_in_plain_english.md\` — a NON-TECHNICAL companion to the tech-debt register, written for a smart reader who is NOT an engineer (e.g. a founder, PM, or stakeholder). Cover EVERY item in the register (one entry per TD-NNN, in the same severity order), using the EXACT TD-NNN ids from the register provided below. For each item:\n` +
+      `- **Heading**: \`### TD-NNN — <the plain-English name of the problem>\` (keep the TD-NNN id so it cross-references the technical register, but rename the title into everyday language — no jargon).\n` +
+      `- **What it is** (1-2 sentences): explain the problem with ZERO technical terms. If a technical word is unavoidable, define it in parentheses the way you'd explain it to a friend.\n` +
+      `- **Why it matters** (1-2 sentences): the business/user consequence — what could go wrong, who is affected, what it costs.\n` +
+      `- **Real-world analogy**: a concrete everyday comparison that makes the risk intuitive (e.g. "This is like leaving the spare house key under the doormat — convenient, but anyone who thinks to look can get in." for a hardcoded secret). The analogy must genuinely map to THIS specific item, not be generic.\n` +
+      `- **Severity in plain terms**: translate CRITICAL/HIGH/MEDIUM/LOW into urgency a non-engineer feels ("fix before launch" / "schedule soon" / "clean up eventually").\n` +
+      `Open with a 2-3 sentence plain-English summary of the overall health of the codebase and the headline counts. Derive everything from the verified findings — do not invent items or analogies that don't fit. This file is the layman's lens on the same findings as \`.gsd-t/techdebt.md\`.`,
+  },
 ];
 
 const docResults = await parallel(
   docTargets.map((d) => async () => {
     const isLiving = !!d.merge;
+    // red-team HIGH-1: targets that mirror the register (plain-english) get the
+    // synthesized register text — the authoritative source of TD-NNN ids/order —
+    // not just the raw findings.
+    // red-team MEDIUM: do NOT silently truncate the register — a large register
+    // (e.g. 119 items ≈ 180KB) sliced to a small cap would drop the entire
+    // MEDIUM/LOW tail while the prompt says "cover EVERY item" (silent-cap
+    // anti-pattern the workflow forbids elsewhere). Cap generously, and if we DO
+    // hit it, tell the agent explicitly + log it so completeness loss is visible.
+    const REGISTER_CAP = 400000;
+    let registerBlock = "";
+    if (d.needsRegister) {
+      const truncated = registerText.length > REGISTER_CAP;
+      if (truncated) {
+        log(`⚠ register (${registerText.length} bytes) exceeds the ${REGISTER_CAP}-byte plain-english injection cap — the tail will be missing from techdebt_in_plain_english.md. Consider splitting the register.`);
+      }
+      registerBlock = [
+        "",
+        "Synthesized register (.gsd-t/techdebt.md) — use these EXACT TD-NNN ids/order:",
+        truncated ? "⚠ NOTE: the register was truncated to fit; cover every item you CAN see and end with a line noting that items beyond the last shown TD-NNN were omitted due to size." : "",
+        "```markdown",
+        registerText.slice(0, REGISTER_CAP),
+        "```",
+      ].join("\n");
+    }
     const prompt = [
       `You are the documentation agent for ONE document in a GSD-T deep scan.`,
       ``,
       baseCtx,
+      registerBlock,
       ``,
       d.prompt,
       ``,
@@ -680,7 +723,7 @@ if (render.ok) {
 // aren't versioned.
 const commit = spawnSync(
   "git",
-  ["add", "-A", ".gsd-t/scan", "docs", "README.md", ":!.gsd-t/scan/.doc-backup"],
+  ["add", "-A", ".gsd-t/scan", ".gsd-t/techdebt_in_plain_english.md", "docs", "README.md", ":!.gsd-t/scan/.doc-backup"],
   { cwd: projectDir, stdio: "pipe" }
 );
 if (commit.status === 0) {
