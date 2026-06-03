@@ -1,9 +1,9 @@
 # GSD-T Progress
 
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
-## Status: ACTIVE — M76 COMPLETED (ASCII-clean register output, v4.0.23); M75 COMPLETED (deterministic chunked register write, v4.0.22)
-## Date: 2026-06-03 07:54 PDT
-## Version: 4.0.23
+## Status: ACTIVE — M76 COMPLETED (punctuation-clean register, KEEPS severity color bullets, v4.0.24); M75 COMPLETED (deterministic chunked register write, v4.0.22)
+## Date: 2026-06-03 07:59 PDT
+## Version: 4.0.24
 
 ## Current Milestone
 
@@ -208,6 +208,8 @@ Older milestones (M33 and earlier) archived under `.gsd-t/milestones/` — see d
 <!-- No active blockers -->
 
 ## Decision Log
+
+- 2026-06-03 07:59 PDT: [m76][fix] M76 revision - keep severity color bullets, v4.0.24. v4.0.23 over-corrected: it stripped the severity emoji (🔴🟠🟡🟢) along with the em-dashes, but the user wanted the color bullets kept - they render fine; only the em/en-dashes + smart quotes were the mojibake cause. Reverted: ascii() now normalizes em/en-dashes, smart quotes, ellipsis ONLY (no emoji strip); fmtChunks keeps the severity bullets in the summary table + section headers; doc-phase punctuation instruction allows the bullets. Tests updated to assert bullets KEPT + dashes normalized. One-off: restored the color bullets in the live Hilo register. Patch bump 4.0.23 -> 4.0.24.
 
 - 2026-06-03 07:54 PDT: [m76][fix] M76 - ASCII-clean register output, v4.0.23. User saw mojibake boxes (βPADCCH/πAPCCCH) in techdebt.md - the file bytes were valid UTF-8 (emoji 🔴🟠🟡🟢 + em-dashes), purely a non-UTF-8-terminal render problem, but emoji added nothing and made the register unreadable in common viewers. Fix: ascii() sanitizer in fmtChunks (strip emoji/symbols, em/en-dash->hyphen, smart quotes->ascii, ellipsis->...), applied to all user-supplied fields; plain-ASCII headers/table; doc-phase agents told "ASCII ONLY". +5 tests (m76-ascii-clean-register incl. structural guard on fmtChunks literals). One-off: cleaned the live Hilo scan docs (0 emoji/em-dash remaining). Patch bump 4.0.22 -> 4.0.23.
 
