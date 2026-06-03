@@ -1,9 +1,9 @@
 # GSD-T Progress
 
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
-## Status: ACTIVE — M74 COMPLETED (adaptive rate-limit throttle, v4.0.21, proven self-lower-and-recover in sandbox); M73 COMPLETED (scan concurrency throttle, v4.0.20)
-## Date: 2026-06-02 18:24 PDT
-## Version: 4.0.21
+## Status: ACTIVE — M75 COMPLETED (deterministic chunked register write, v4.0.22, proven 322-item write intact in sandbox); M74 COMPLETED (adaptive rate-limit throttle, v4.0.21)
+## Date: 2026-06-02 19:28 PDT
+## Version: 4.0.22
 
 ## Current Milestone
 
@@ -208,6 +208,8 @@ Older milestones (M33 and earlier) archived under `.gsd-t/milestones/` — see d
 <!-- No active blockers -->
 
 ## Decision Log
+
+- 2026-06-02 19:28 PDT: [m75][fix] M75 — deterministic chunked register write, v4.0.22. Hilo Scan #14 got FULL coverage + 322 verified findings but the single synthesis agent STALLED writing the register (9 of 322 items, then out of budget). Diagnostics proved even a single bounded Write truncates a large register at ~165KB (466KB → 161/322 items, mid-item). One agent cannot write a multi-hundred-item register. Fix: separate judgment from writing — bounded dedup agent (small input) → orchestrator deterministically merges/sorts/numbers/formats the register STRING (no fs, pure string-building) → fmtChunks splits into ≤30KB chunks that never split an item → sequence of bounded write-agents (chunk 0 = Write, rest = Bash heredoc append). Each step small enough to pass intact. Verified by real sandbox diagnostics: single-Write truncated to 161/322 (the bug); chunked write produced ALL 322 intact, no gaps/dups/truncation across 12 chunks (verified by reading the file, not trusting agent "OK"). +4 tests (m75-chunked-register). Closes the scan fix chain (M71 runs + M72 coverage + M73 cap + M74 adaptive + M75 chunked-write). User had already accepted the salvaged 322-item Hilo register; this makes future large scans write it automatically. Patch bump 4.0.21 → 4.0.22. NEXT: regenerate Hilo's stale .gsd-t/scan/*.md + plain-english from the extracted 322 findings (no re-scan, per user).
 
 - 2026-06-02 18:24 PDT: [m74][feature] M74 — adaptive rate-limit throttle, v4.0.21. User asked for a real-time throttle-down safeguard ("if you see rate limits, drop to 9 or 8 so the whole run doesn't fail"). M73's fixed gate couldn't react. M74: makeAdaptiveSemaphore with a shrinkable/recoverable ceiling; gatedAgent detects rate-limit errors (isRateLimit: "temporarily limiting requests"/429/overloaded/capacity), lowers ceiling 10→9→8… (floor MIN_CONCURRENT=4), backs off 2s/4s/6s, RETRIES the same agent (≤4 attempts); recovers +1 toward 10 every 8 clean completions; non-rate-limit errors bubble up un-retried. Verified by 3 real sandbox diagnostics: setTimeout resolves (backoff real — NOT assumed; Date.now/Math.random remain banned), adaptive gate lowered 10→5 under 5 injected rate limits and completed all 12 items with 0 errors, peak-10 cap still holds. +5 unit tests (m74-adaptive-throttle). Patch bump 4.0.20 → 4.0.21. The scan fix chain is now complete: M71 runtime-native + M72 coverage-honesty + M73 throttle + M74 adaptive-throttle.
 

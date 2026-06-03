@@ -152,26 +152,11 @@ const VERIFY_SCHEMA = {
   },
 };
 
-const SYNTHESIS_SCHEMA = {
-  type: "object",
-  required: ["status", "counts"],
-  additionalProperties: false,
-  properties: {
-    status:       { type: "string", enum: ["written", "failed"] },
-    registerPath: { type: "string" },
-    archivePath:  { type: "string" },
-    counts: {
-      type: "object",
-      required: ["critical", "high", "medium", "low"],
-      properties: {
-        critical: { type: "integer" }, high: { type: "integer" },
-        medium:   { type: "integer" }, low:  { type: "integer" }, total: { type: "integer" },
-      },
-    },
-    tdRange: { type: "string", description: "e.g. 'TD-01..TD-119'" },
-    notes:   { type: "string" },
-  },
-};
+// M75: synthesis no longer writes the register via one agent (the Hilo Scan #14
+// synthesis stalled after 9 of 322 items typing a 466KB file). Instead: a bounded
+// dedup agent (inline DEDUP_SCHEMA, small input) decides merge groups; the
+// orchestrator deterministically sorts/numbers/formats the register STRING (no fs);
+// a bounded write-agent does ONE Write. Each agent step is bounded → can't stall.
 
 const DOC_RESULT_SCHEMA = {
   type: "object",
@@ -437,42 +422,171 @@ if (!coverageComplete) {
 }
 log(`deep scan complete: ${allFindings.length} verified findings across ${succeededCount}/${slices.length} slices${coverageComplete ? " (full coverage)" : " (PARTIAL)"}`);
 
-// Synthesis — an agent does the ARCHIVE + REGISTER WRITE + GIT entirely via its
-// own Bash/Write tools. The orchestrator does NOT touch fs. The agent is given the
-// deterministic tdStart so numbering can't drift, and is told to archive FIRST.
+// Synthesis (M75 redesign). The Hilo Scan #14 failure: one agent asked to dedup +
+// rank + WRITE a 322-item / 466KB register stalled after 9 items (turn/output budget).
+// Fix: split judgment from writing, and do all the heavy lifting DETERMINISTICALLY.
+//   (a) The orchestrator already HAS allFindings as data — it sorts by severity and
+//       assigns sequential TD numbers itself (no agent needed for that).
+//   (b) Dedup is the only real judgment-add; a bounded agent does ONLY dedup over a
+//       compact title+location list (small input) and returns merge groups.
+//   (c) The orchestrator formats the full markdown as a STRING (no fs, no agent).
+//   (d) A dedicated archive-agent renames the prior register (one mv); a dedicated
+//       write-agent does ONE Write of the formatted string. Each is bounded → can't
+//       stall regardless of register size.
 phase("Synthesis");
-const findingsJson = JSON.stringify(allFindings, null, 2);
-const synthesis = await agent(
-  [
-    `You are the SYNTHESIS agent for a GSD-T deep scan of \`${projectDir}\`. ${slices.length} slices ran; ${allFindings.length} verified findings came back.`,
-    scanNumber ? `This is scan #${scanNumber} — put it in the register header.` : ``,
-    ``,
-    `STEP 1 — ARCHIVE (do this FIRST, deterministically, via Bash): if \`${projectDir}/.gsd-t/techdebt.md\` exists, rename it to \`${projectDir}/.gsd-t/techdebt_YYYY-MM-DD.md\` using its header date (fallback: today's date from \`date +%F\`); on same-day collision append \`_2\`, \`_3\`. Use \`git mv\` if it's a git repo, else \`mv\`. Capture the archive path. ${pre.priorRegisterExists ? "(A prior register EXISTS — you MUST archive it.)" : "(No prior register — skip archiving.)"}`,
-    ``,
-    // M72: MANDATORY coverage banner — enforced here, not left to the agent's notice.
-    coverageComplete
-      ? `COVERAGE: all ${slices.length} slices succeeded — full coverage. Note this in the header.`
-      : `⚠ COVERAGE IS INCOMPLETE — ${failedSlices.length} of ${slices.length} slices FAILED to return findings and were NOT scanned: ${failedSlices.join(", ")}. You MUST put a prominent "> ⚠ PARTIAL COVERAGE — N of M codebase areas were not scanned this pass (listed below); findings UNDER-COUNT the real debt. Re-run for full coverage." banner at the TOP of the register, AND list the un-scanned slice names. Do NOT present this as a complete picture.`,
-    ``,
-    `STEP 2 — WRITE the fresh \`${projectDir}/.gsd-t/techdebt.md\` (Write tool). Start TD numbering at TD-${tdStart} (computed deterministically — do NOT renumber or restart). Structure: the coverage banner (above), a Summary table (CRITICAL/HIGH/MEDIUM/LOW counts), then sections Critical→High→Medium→Low, each finding as \`### TD-NNN — {title}\` with Area / Severity / Status: OPEN / Location (file:line) / Description / Impact / Remediation / Milestone candidate. Re-rank globally by true severity; de-duplicate findings multiple slices surfaced into one item listing all locations. GSD-T effort units only (domain/wave/spawn/token) — never human-hours.`,
-    `If the findings set is large, WRITE INCREMENTALLY — create the file with the header+summary first (Write), then APPEND each severity section with Edit. Do NOT attempt to emit the entire multi-hundred-item register in a single Write call (it can stall); build it up section by section so progress is durable.`,
-    ``,
-    `STEP 3 — COMMIT via Bash if it's a git repo (\`git add .gsd-t/techdebt.md\` + the archive; commit). Do NOT push.`,
-    ``,
-    `Verified findings (${allFindings.length} total):`,
-    "```json",
-    findingsJson.length > 500000 ? findingsJson.slice(0, 500000) + "\n…(TRUNCATED — too many findings to inline; the above is the first portion. Note in the register that some lower-severity items may be omitted due to volume.)" : findingsJson,
-    "```",
-    ``,
-    `Return JSON per the schema: status "written" once the register file is on disk, the counts, the archivePath (or ""), and tdRange (e.g. "TD-${tdStart}..TD-NNN").`,
-  ].filter(Boolean).join("\n"),
-  { label: "synthesis", phase: "Synthesis", schema: SYNTHESIS_SCHEMA, model: "opus" }
-);
-if (!synthesis || synthesis.status !== "written") {
-  log("synthesis did not write the register — halting before document phase");
-  return { status: "failed", reason: "synthesis-failed", synthesis, findingCount: allFindings.length };
+
+// (b) Dedup pass — small input (title|severity|first-location per finding), so the
+// agent never holds the full register. It returns groups of indices that are the
+// same underlying issue. Best-effort: on failure we proceed with no dedup.
+const dedupList = allFindings.map((f, i) => `${i}: [${f.severity}] ${f.title} @ ${(f.files && f.files[0]) || "?"}`).join("\n");
+let mergeGroups = [];
+if (allFindings.length > 1) {
+  const DEDUP_SCHEMA = {
+    type: "object", required: ["groups"], additionalProperties: false,
+    properties: { groups: { type: "array", items: { type: "array", items: { type: "integer" } } }, notes: { type: "string" } },
+  };
+  try {
+    const d = await agent(
+      [
+        `You are DEDUPLICATING tech-debt findings from a multi-slice scan. Below are ${allFindings.length} findings as "index: [SEVERITY] title @ location".`,
+        `Different slices sometimes surface the SAME underlying issue. Return "groups": arrays of indices that are the SAME root issue (only group true duplicates — same defect, not merely similar). Singletons need not be listed. If nothing is a duplicate, return groups: [].`,
+        ``,
+        dedupList.slice(0, 120000),
+      ].join("\n"),
+      { label: "synthesis:dedup", phase: "Synthesis", schema: DEDUP_SCHEMA, model: "opus" }
+    );
+    mergeGroups = (d && Array.isArray(d.groups)) ? d.groups : [];
+  } catch (e) {
+    log(`dedup pass failed (non-fatal — proceeding with no dedup): ${e && e.message}`);
+  }
 }
-log(`register written: ${JSON.stringify(synthesis.counts)} (${synthesis.tdRange || ""})`);
+
+// (a)+(c) Deterministically merge dups, sort by severity, assign TD numbers, format.
+const SEV_ORDER = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
+const dropped = new Set();
+const merged = [];
+for (const group of mergeGroups) {
+  const idxs = group.filter((i) => Number.isInteger(i) && i >= 0 && i < allFindings.length && !dropped.has(i));
+  if (idxs.length < 2) continue;
+  const keep = { ...allFindings[idxs[0]] };
+  keep.files = [...new Set(idxs.flatMap((i) => allFindings[i].files || []))];
+  keep.slice = [...new Set(idxs.map((i) => allFindings[i].slice).filter(Boolean))].join(", ");
+  idxs.forEach((i) => dropped.add(i));
+  merged.push(keep);
+}
+const finalFindings = [
+  ...merged,
+  ...allFindings.map((f, i) => (dropped.has(i) ? null : f)).filter(Boolean).filter((f) => !merged.includes(f)),
+];
+finalFindings.sort((a, b) => (SEV_ORDER[a.severity] ?? 9) - (SEV_ORDER[b.severity] ?? 9));
+const counts = { critical: 0, high: 0, medium: 0, low: 0 };
+for (const f of finalFindings) {
+  if (f.severity === "CRITICAL") counts.critical++;
+  else if (f.severity === "HIGH") counts.high++;
+  else if (f.severity === "MEDIUM") counts.medium++;
+  else if (f.severity === "LOW") counts.low++;
+}
+counts.total = finalFindings.length;
+
+
+// M75 chunked formatter: returns an ARRAY of markdown chunks, each ≤ ~30KB, so each
+// can be written through one bounded agent prompt WITHOUT truncation (a single write
+// of a 466KB register truncates at ~165KB — verified). Chunk 0 is the header+summary
+// (Write/create); the rest are appends. Items are grouped so a chunk never splits an
+// item, and the severity-section heading rides with its first item's chunk.
+function fmtChunks(today) {
+  const sevHead = { CRITICAL: "🔴 Critical", HIGH: "🟠 High", MEDIUM: "🟡 Medium", LOW: "🟢 Low" };
+  const head = [];
+  head.push(`# Tech Debt Register — ${projectDir.split("/").pop()}`, "");
+  if (scanNumber) head.push(`**Scan #${scanNumber}** — Deep codebase scan (runtime-native, ${coverageComplete ? "full coverage" : "PARTIAL coverage"})`);
+  head.push(`**Date:** ${today}`);
+  head.push(`**Slices run:** ${slices.length} | **Coverage:** ${coverageComplete ? `FULL — all ${slices.length} slices succeeded` : `PARTIAL — ${succeededCount}/${slices.length} succeeded`}`);
+  head.push(`**Verified findings:** ${counts.total}`, "");
+  head.push(`> Effort estimates use GSD-T-native units (domain / wave / spawn / token-spend). Never human-hours.`);
+  head.push(`> TD numbering continues from the prior register (if any, archived). This scan begins at **TD-${tdStart}**.`, "");
+  if (!coverageComplete) head.push(`> ⚠ **PARTIAL COVERAGE — ${failedSlices.length} of ${slices.length} codebase areas were NOT scanned this pass** (failed to return findings): ${failedSlices.join(", ")}. Findings UNDER-COUNT the real debt. Re-run (resume) for full coverage.`, "");
+  head.push(`## Summary`, "", `| Severity | Count |`, `|----------|-------|`,
+    `| 🔴 CRITICAL | ${counts.critical} |`, `| 🟠 HIGH | ${counts.high} |`,
+    `| 🟡 MEDIUM | ${counts.medium} |`, `| 🟢 LOW | ${counts.low} |`,
+    `| **Total** | **${counts.total}** |`, "", "---", "");
+
+  function itemMd(f, td) {
+    const L = [`### TD-${td} — ${f.title || "(untitled)"}`,
+      `- **Area:** ${f.area || "—"}`, `- **Severity:** ${f.severity}`, `- **Status:** OPEN`,
+      `- **Location:** ${(f.files && f.files.length) ? f.files.join(", ") : "—"}`];
+    if (f.detail) L.push(`- **Description:** ${f.detail}`);
+    if (f.impact) L.push(`- **Impact:** ${f.impact}`);
+    if (f.recommendation) L.push(`- **Remediation:** ${f.recommendation}`);
+    if (f.slice) L.push(`- **Found in slice:** ${f.slice}`);
+    L.push("");
+    return L.join("\n");
+  }
+
+  const CHUNK_MAX = 30000;
+  const chunks = [head.join("\n")];
+  let buf = "", n = tdStart, lastSev = null;
+  const flush = () => { if (buf) { chunks.push(buf); buf = ""; } };
+  for (const f of finalFindings) {
+    let piece = "";
+    if (f.severity !== lastSev) { piece += `\n## ${sevHead[f.severity] || f.severity} Priority\n\n`; lastSev = f.severity; }
+    piece += itemMd(f, n++);
+    if (buf.length + piece.length > CHUNK_MAX) flush();
+    buf += piece;
+  }
+  flush();
+  return { chunks, lastTd: n - 1 };
+}
+
+// (d) Archive the prior register (one bounded agent: mv/git mv), then write the new
+// one (one bounded agent: a SINGLE Write of the pre-formatted string).
+const todayAgent = await agent(
+  `Run \`date +%F\` via Bash and return ONLY the date string (YYYY-MM-DD), nothing else.`,
+  { label: "synthesis:date", phase: "Synthesis", model: "haiku" }
+).catch(() => null);
+const today = (typeof todayAgent === "string" && /\d{4}-\d{2}-\d{2}/.test(todayAgent)) ? todayAgent.match(/\d{4}-\d{2}-\d{2}/)[0] : "today";
+
+let archivePath = "";
+if (pre.priorRegisterExists) {
+  const arch = await agent(
+    [
+      `Archive the existing tech-debt register in \`${projectDir}\` via Bash, then report the archive path.`,
+      `Rename \`${projectDir}/.gsd-t/techdebt.md\` to \`${projectDir}/.gsd-t/techdebt_${today}.md\`; if that exists, append _2/_3. Use \`git mv\` if a git repo else \`mv\`. Reply with ONLY the resulting archive filename.`,
+    ].join("\n"),
+    { label: "synthesis:archive", phase: "Synthesis", model: "haiku" }
+  ).catch(() => null);
+  archivePath = (typeof arch === "string") ? arch.trim().split("\n").pop() : "";
+}
+
+const { chunks, lastTd } = fmtChunks(today);
+// M75: write the register in BOUNDED CHUNKS (≤30KB each). A single write of a large
+// register truncates at ~165KB (verified) — so chunk 0 creates the file (Write), and
+// each subsequent chunk is APPENDED. Done SEQUENTIALLY so the file builds in order and
+// each agent's prompt+output stays small enough to pass intact. The register path is
+// passed to each chunk; only the chunk content varies.
+const regPath = `${projectDir}/.gsd-t/techdebt.md`;
+let chunkOk = 0;
+for (let ci = 0; ci < chunks.length; ci++) {
+  const isFirst = ci === 0;
+  const res = await agent(
+    [
+      isFirst
+        ? `Create the file \`${regPath}\` (overwrite if it exists) with EXACTLY the content between the markers below, using the Write tool. Verbatim — no edits, no summarizing, no truncation.`
+        : `APPEND EXACTLY the content between the markers below to the END of \`${regPath}\` (do not overwrite existing content — append). Verbatim — no edits, no truncation. Use a Bash heredoc append (\`cat >> ${regPath} <<'GSDTEOF'\` … \`GSDTEOF\`) or read-then-Write-concatenation; preserve the file's existing content exactly.`,
+      `This is chunk ${ci + 1}/${chunks.length} of a tech-debt register. After writing, reply with ONLY "OK".`,
+      ``,
+      `<<<CHUNK>>>`,
+      chunks[ci],
+      `<<<END_CHUNK>>>`,
+    ].join("\n"),
+    { label: `synthesis:write-register ${ci + 1}/${chunks.length}`, phase: "Synthesis", model: "haiku" }
+  ).catch((e) => ({ _err: String(e && e.message) }));
+  if (typeof res === "string" && /ok/i.test(res)) chunkOk++;
+  else log(`⚠ register chunk ${ci + 1}/${chunks.length} write uncertain: ${typeof res === "string" ? res.slice(0, 60) : JSON.stringify(res).slice(0, 80)}`);
+}
+log(`register written in ${chunkOk}/${chunks.length} chunks (${counts.total} findings, TD-${tdStart}..TD-${lastTd})`);
+
+const synthesis = { status: "written", counts, archivePath, tdRange: `TD-${tdStart}..TD-${lastTd}`, finalFindings };
+log(`register written: ${JSON.stringify(synthesis.counts)} (${synthesis.tdRange})`);
 
 // Document — per-doc fan-out. Each agent writes its file via Write/Edit (its tools).
 // The orchestrator passes the findings + (for plain-english) tells the agent to
