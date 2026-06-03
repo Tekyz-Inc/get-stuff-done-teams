@@ -2,6 +2,18 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [4.0.24] - 2026-06-03 (M76 revision — keep severity color bullets)
+
+### Fixed — over-correction: v4.0.23 stripped the severity color bullets too
+
+v4.0.23 removed the severity emoji (🔴🟠🟡🟢) along with the em-dashes. But the emoji render fine and are wanted; the actual mojibake cause was only the em/en-dashes and smart quotes. Reverted the emoji strip:
+
+- `templates/workflows/gsd-t-scan.workflow.js`: `ascii()` now normalizes em/en-dashes, smart quotes, and ellipsis ONLY — it no longer strips emoji. The severity color bullets are kept in the summary table + section headers. Doc-phase punctuation instruction updated to explicitly allow the severity bullets.
+- `test/m76-ascii-clean-register.test.js`: updated to assert bullets are KEPT and dashes/quotes/ellipsis are normalized.
+- One-off: restored the color bullets in the HiloAviation register (summary table + 4 severity section headers) while keeping the em-dash fix.
+
+Suite: 1311 pass / 0 fail / 4 skip — zero regressions.
+
 ## [4.0.23] - 2026-06-03 (M76 ASCII-Clean Register Output — patch)
 
 ### Fixed — register/docs rendered as mojibake in non-UTF-8 terminals

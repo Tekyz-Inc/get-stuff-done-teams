@@ -1,17 +1,16 @@
 "use strict";
 
-// M76 — register output must be ASCII-clean. The Hilo register rendered as mojibake
-// boxes (βPADCCH/πAPCCCH) in a non-UTF-8 terminal because fmtChunks emitted emoji
-// (🔴🟠🟡🟢) + em-dashes. The ascii() sanitizer (mirrored here) strips emoji/symbols,
-// normalizes dashes/quotes/ellipsis, so the register renders everywhere. Applied to
-// every user-supplied field (finder text can also contain these).
+// M76 — register output must not contain the punctuation that mojibakes in non-UTF-8
+// terminals (em/en dashes, smart quotes, ellipsis). The severity COLOR BULLETS
+// (🔴🟠🟡🟢) are intentional and KEPT — they render fine and the user wants them; only
+// dashes/quotes/ellipsis are normalized. ascii() (mirrored here) handles free-text
+// fields; the severity bullets live in the fmtChunks template.
 
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 
 function ascii(s) {
   return String(s == null ? "" : s)
-    .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}️]/gu, "")
     .replace(/[—–]/g, "-")
     .replace(/[‘’]/g, "'")
     .replace(/[“”]/g, '"')
@@ -19,12 +18,7 @@ function ascii(s) {
     .replace(/[ \t]+\n/g, "\n");
 }
 
-test("ascii() strips emoji", () => {
-  assert.equal(ascii("🔴 Critical").trim(), "Critical");
-  assert.equal(ascii("status ✅ done").trim(), "status  done".trim());
-});
-
-test("ascii() normalizes em/en dashes to hyphen", () => {
+test("ascii() normalizes em/en dashes to hyphen (the actual mojibake cause)", () => {
   assert.equal(ascii("Foo — bar"), "Foo - bar");
   assert.equal(ascii("range 1–10"), "range 1-10");
 });
@@ -34,20 +28,25 @@ test("ascii() normalizes smart quotes + ellipsis", () => {
   assert.equal(ascii("wait…"), "wait...");
 });
 
-test("ascii() output contains no non-ASCII bytes for typical finding text", () => {
-  const sample = ascii("🟠 The `PUT /x` endpoint — uses “requireAuth” … fix it");
-  assert.ok(/^[\x00-\x7F]*$/.test(sample), `expected pure ASCII, got: ${JSON.stringify(sample)}`);
+test("ascii() KEEPS severity color bullets (user wants them; they render fine)", () => {
+  assert.equal(ascii("🔴 Critical"), "🔴 Critical");
+  assert.match(ascii("🟠🟡🟢"), /🟠🟡🟢/);
 });
 
-// Structural guard: the shipped workflow's fmtChunks output (header + item template)
-// must not contain emoji or em/en dashes in its literal strings.
+test("ascii() output has no em/en dash, smart quote, or ellipsis chars", () => {
+  const out = ascii("The `PUT /x` endpoint — uses “requireAuth” … fix it");
+  assert.doesNotMatch(out, /[—–“”‘’…]/u, `still has mojibake punctuation: ${JSON.stringify(out)}`);
+});
+
+// Structural guard: fmtChunks output literals keep the severity bullets but contain
+// no em/en-dash (the mojibake cause).
 const fs = require("node:fs");
 const path = require("node:path");
-test("gsd-t-scan.workflow.js fmtChunks emits no emoji/em-dash in its output literals", () => {
+test("gsd-t-scan.workflow.js fmtChunks keeps severity bullets but emits no em/en-dash", () => {
   const body = fs.readFileSync(path.resolve(__dirname, "..", "templates", "workflows", "gsd-t-scan.workflow.js"), "utf8");
   const m = body.match(/function fmtChunks\([\s\S]*?\n\}/);
   assert.ok(m, "fmtChunks found");
   const fn = m[0];
-  assert.doesNotMatch(fn, /[\u{1F300}-\u{1FAFF}]/u, "no emoji in fmtChunks output");
-  assert.doesNotMatch(fn, /[—–]/u, "no em/en dash in fmtChunks output");
+  assert.match(fn, /🔴|🟠|🟡|🟢/u, "severity color bullets kept in fmtChunks");
+  assert.doesNotMatch(fn, /[—–]/u, "no em/en dash in fmtChunks output literals");
 });
