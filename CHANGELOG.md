@@ -2,6 +2,24 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [4.0.22] - 2026-06-02 (M75 Deterministic Chunked Register Write — patch)
+
+### Fixed — synthesis no longer stalls writing a large register
+
+The Hilo Scan #14 achieved full coverage + 322 verified findings, but the single synthesis agent STALLED writing the register — it managed 9 of 322 items then ran out of turn/output budget. Diagnostics confirmed even a single bounded `Write` truncates a large register at ~165KB (a 466KB register lost half, mid-item). One agent cannot write a multi-hundred-item register, chunked-in-its-own-head or not.
+
+- `templates/workflows/gsd-t-scan.workflow.js`: synthesis redesigned to separate JUDGMENT from WRITING:
+  - A bounded **dedup agent** (small input: title+severity+location per finding) returns merge groups — it never holds the full register.
+  - The **orchestrator** deterministically merges dups, sorts by severity, assigns sequential TD numbers, and formats the register markdown as a string (no fs, no agent — pure string-building).
+  - `fmtChunks` splits the register into **≤30KB chunks that never split an item**; a sequence of bounded write-agents creates chunk 0 (Write) then APPENDS each subsequent chunk. Each agent step is small enough to pass intact → can't stall or truncate, at any register size.
+- `test/m75-chunked-register.test.js`: +4 tests (every item once, contiguous numbering, no mid-item splits, header isolation, no over-chunking).
+
+Verified by real sandbox diagnostics: a single Write of a 466KB register truncated to 161/322 items (the bug); the chunked write produced **all 322 items intact, no gaps, no duplicates, no truncation** across 12 chunks.
+
+This closes the scan fix chain: M71 (runs in sandbox) + M72 (coverage honesty) + M73 (concurrency cap) + M74 (adaptive throttle) + M75 (deterministic chunked write).
+
+Suite: 1306 pass / 0 fail / 4 skip — zero regressions.
+
 ## [4.0.21] - 2026-06-02 (M74 Adaptive Rate-Limit Throttle — patch)
 
 ### Added — the scan throttle now self-lowers on a rate limit instead of failing
