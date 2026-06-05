@@ -607,6 +607,19 @@ log(`register written: ${JSON.stringify(synthesis.counts)} (${synthesis.tdRange}
 // READ the just-written register itself, since the orchestrator can't read it.
 phase("Document");
 const sliceSummary = slices.map((s) => `- ${s.key} (${s.dimension}): ${JSON.stringify(s.paths)}`).join("\n");
+// Compact serialization of the verified findings handed to each document agent. Project
+// only the fields the docs need (full objects can carry verbose verify metadata); the
+// baseCtx caps it at 120KB below. (Bugfix: findingsJson was referenced but never defined,
+// which crashed the entire workflow at the Document phase AFTER all finders/verify/synthesis
+// ran — ReferenceError: findingsJson is not defined.)
+const findingsJson = JSON.stringify(
+  finalFindings.map((f) => ({
+    title: f.title, severity: f.severity, area: f.area,
+    files: f.files, detail: f.detail, impact: f.impact,
+    recommendation: f.recommendation, slice: f.slice,
+  })),
+  null, 1
+);
 const baseCtx = [
   `Project: \`${projectDir}\`. Probe totals: ${JSON.stringify(probe.totals)}.`,
   `Slices the scan covered:`,
@@ -740,20 +753,37 @@ for (const sev of ["CRITICAL", "HIGH", "MEDIUM", "LOW"]) {
   }
   if (buf.trim()) peChunks.push(buf);
 }
-let peWrote = 0;
-for (let ci = 0; ci < peChunks.length; ci++) {
-  const first = ci === 0;
-  const res = await gatedAgent(
-    [
-      first ? `Create the file \`${peTarget}\` (overwrite) with EXACTLY the content between markers, using the Write tool. Verbatim.`
-            : `APPEND EXACTLY the content between markers to the END of \`${peTarget}\` (do not overwrite; append) via a Bash heredoc \`cat >> ${peTarget} <<'GSDTEOF'\` … \`GSDTEOF\`. Verbatim.`,
-      `Reply ONLY "OK".`, "", "<<<C>>>", peChunks[ci], "<<<END>>>",
-    ].join("\n"),
-    { label: `plain-english write ${ci + 1}/${peChunks.length}`, phase: "Plain-English", model: "haiku" }
-  ).catch((e) => ({ _e: String(e && e.message) }));
-  if (typeof res === "string" && /ok/i.test(res)) peWrote++;
-}
-log(`plain-english: ${Object.values(peGroups).reduce((a, b) => a + b.length, 0)}/${peItems.length} entries, grouped by severity, ${peWrote}/${peChunks.length} chunks written${peFailed ? `; ${peFailed} gen batch(es) failed` : ""}`);
+// M80 fix: a SINGLE owning agent writes ALL chunks sequentially and SELF-VERIFIES the
+// final `### TD-` entry count, retrying short writes. The prior design fanned each chunk
+// to a separate haiku agent via heredoc-append — agents replied "OK" without faithfully
+// appending 30KB blobs of markdown (special chars `$` ` # collide with the heredoc /
+// get paraphrased), so the middle chunks silently dropped: run wf_b2a6a9e0-9de wrote
+// only 65/181 entries (Critical+High + a 2-item tail). With one owner + a count check,
+// an incomplete write is detected and fixed in-agent instead of shipping truncated.
+const peExpectedEntries = Object.values(peGroups).reduce((a, b) => a + b.length, 0);
+const peWriteRes = await gatedAgent(
+  [
+    `You write ONE file: \`${peTarget}\`. It has ${peChunks.length} ordered chunks (below, each between <<<C n>>> and <<<END n>>>).`,
+    `Procedure — follow EXACTLY:`,
+    `1. Write chunk 1 to \`${peTarget}\` VERBATIM using the Write tool (creates/overwrites).`,
+    `2. For chunks 2..${peChunks.length}, APPEND each VERBATIM to the END of the file. Use the Write tool with the FULL accumulated content (read the file, concatenate the next chunk, Write the whole thing) — do NOT use a heredoc (special chars corrupt it).`,
+    `3. After all chunks: run \`grep -c '^### TD-' ${peTarget}\`. It MUST equal ${peExpectedEntries}.`,
+    `4. If the count is LESS than ${peExpectedEntries}, you dropped content — redo the append for the missing chunks until the count is exactly ${peExpectedEntries}.`,
+    `Reply with ONLY the final integer count from step 3 (e.g. "${peExpectedEntries}"). Nothing else. Reproduce every chunk verbatim — do not summarize, reword, or skip entries.`,
+    ``,
+    ...peChunks.map((c, i) => `<<<C ${i + 1}>>>\n${c}\n<<<END ${i + 1}>>>`),
+  ].join("\n"),
+  { label: `plain-english write (${peChunks.length} chunks, ${peExpectedEntries} entries)`, phase: "Plain-English", model: "sonnet" }
+).catch((e) => ({ _e: String(e && e.message) }));
+// Independent verification by a second cheap agent (the writer self-reports; trust but verify).
+const peVerify = await gatedAgent(
+  `Run \`grep -c '^### TD-' ${peTarget}\` and reply with ONLY the integer it prints.`,
+  { label: `plain-english verify-count`, phase: "Plain-English", model: "haiku" }
+).catch(() => null);
+const peActual = (typeof peVerify === "string" && /\d+/.test(peVerify)) ? parseInt(peVerify.match(/\d+/)[0], 10) : null;
+const peComplete = peActual === peExpectedEntries;
+if (!peComplete) log(`⚠ plain-english INCOMPLETE: wrote ${peActual}/${peExpectedEntries} entries (writer said ${typeof peWriteRes === "string" ? peWriteRes.trim().slice(0, 20) : JSON.stringify(peWriteRes).slice(0, 40)})`);
+log(`plain-english: ${peExpectedEntries}/${peItems.length} entries, grouped by severity, ${peChunks.length} chunks, on-disk count ${peActual ?? "?"} (${peComplete ? "COMPLETE" : "INCOMPLETE"})${peFailed ? `; ${peFailed} gen batch(es) failed` : ""}`);
 
 // Commit the docs + dimension files + plain-english via a small agent (Bash git).
 const commitAgent = await agent(
@@ -787,6 +817,11 @@ return {
   docsWritten: docsOk.length,
   docsFailed: docsFailed.map((d) => d.doc),
   docsCommitted: commitAgent && commitAgent.status,
+  // M80: plain-english completeness is surfaced, not silent. plainEnglishComplete=false
+  // means the companion doc is truncated (writer dropped entries) — the caller should flag it.
+  plainEnglishEntries: peActual,
+  plainEnglishExpected: peExpectedEntries,
+  plainEnglishComplete: peComplete,
   htmlReport: null, // render stage removed (M71)
   probeTotals: probe.totals,
 };

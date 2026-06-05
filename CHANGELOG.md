@@ -2,6 +2,22 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [4.0.28] - 2026-06-04 (M80 Scan Document-Phase Fixes - patch)
+
+### Fixed - scan workflow crashed at the document phase, then shipped a truncated plain-English doc
+
+Three bugs in the scan workflow's late (document) stage, all surfaced by running the deep scan on the GSD-T repo itself (5,647 files, 181 verified findings). Each runs AFTER ~220 finder/verify/synthesis agents, so a late-stage bug wastes the whole expensive run.
+
+1. **`ReferenceError: findingsJson is not defined`** crashed the entire workflow at the Document phase. The variable was consumed by `baseCtx` (the context every document agent reads) but never declared. Fixed by defining it as a compact JSON projection of the verified findings.
+2. **Plain-English companion shipped truncated** (65 of 181 entries — Critical+High + a 2-item tail; Medium/Low silently dropped). The prior design fanned each ~30KB chunk to a separate haiku agent via heredoc-append, which reported "OK" without faithfully writing the blob. Rewritten to a SINGLE owning agent that writes all chunks sequentially and self-verifies the on-disk `### TD-` count, with an independent second-agent count check; completeness is surfaced in the return (`plainEnglishComplete`).
+3. **`parseComponents` returned zero domains** from the freshly regenerated `scan/architecture.md`. The document agent writes domains as a `## Components / Domains` section of `### N. Title` subsections (and Structure as a markdown table), but the parser only knew the legacy `## Component Inventory` table + bare-line Structure format — so the renderer's domain list came up empty.
+
+- `templates/workflows/gsd-t-scan.workflow.js`: define `findingsJson`; single self-verifying plain-English writer; surface `plainEnglishComplete`/`plainEnglishEntries`/`plainEnglishExpected`.
+- `bin/scan-data-collector.js`: `parseComponents` now also parses `## Components / Domains` `### N.` subsections and Structure markdown tables.
+- `test/m80-scan-document-phase-refs.test.js`: regression tests (baseCtx refs declared, findingsJson declared-before-use, single-owner PE write guard, domain parsing of the new format). Mutation-tested against a workflow copy with the bug reintroduced.
+
+All three fixes proven in the real Workflow sandbox via resume (cached finder/verify/synthesis agents, live document phase): final run returned `plainEnglishComplete:true` (181/181), 17 domains parsed.
+
 ## [4.0.27] - 2026-06-04 (M79 Diagram Quality - patch)
 
 ### Fixed - scan-report diagrams were generic boilerplate, clashed with the dark theme, and one was actively misleading

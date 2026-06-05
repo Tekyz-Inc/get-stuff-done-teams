@@ -52,6 +52,7 @@ function parseFilesAndLoc(text) {
 }
 
 function parseComponents(text) {
+  if (!text) return [];
   const sec = text.match(/## Component Inventory([\s\S]*?)(?=\n## |\n---|\n#[^#]|$)/);
   if (sec) {
     const tableRows = sec[1].split('\n')
@@ -66,8 +67,35 @@ function parseComponents(text) {
       .filter(Boolean);
     if (tableRows.length > 0) return tableRows;
   }
+  // M80: the deep-scan document agent writes the real domain list under a
+  // "## Components / Domains" (or "## Components") heading as "### N. Title"
+  // subsections — parse those as the authoritative domain entries. (The prior
+  // parser only knew "## Component Inventory" tables + a bare-line Structure
+  // format, so the freshly regenerated scan/architecture.md yielded zero domains
+  // and broke the renderer's domain list — caught by the GSD-T self-scan.)
+  const compSec = text.match(/## Components(?:\s*\/\s*Domains)?\b([\s\S]*?)(?=\n## |\n---\s*\n|$)/);
+  if (compSec) {
+    const domains = [];
+    for (const m of compSec[1].matchAll(/^#{3,4}\s+(?:\d+\.\s+)?(.+?)\s*$/gm)) {
+      const name = m[1].trim().replace(/\*\*/g, '').replace(/`/g, '');
+      if (name && !/^(overview|summary|notes?)$/i.test(name)) {
+        domains.push({ name, filePath: '', size: '', purpose: '', files: 1, healthScore: 80 });
+      }
+    }
+    if (domains.length > 0) return domains;
+  }
   const structSec = text.match(/## Structure([\s\S]*?)(?=\n## |\n---|\n#[^#]|$)/);
   if (!structSec) return [];
+  // Structure rendered as a markdown TABLE: | `bin/` | purpose | N files | ~LOC |
+  const tableDirs = structSec[1].split('\n')
+    .filter(l => /^\|/.test(l) && !/---/.test(l) && !/Directory|Grand Total|^\|\s*Component/i.test(l))
+    .map(row => {
+      const cols = row.split('|').map(c => c.trim().replace(/\*\*/g, '').replace(/`/g, '')).filter(Boolean);
+      if (cols.length < 2 || !/\//.test(cols[0]) || /^total/i.test(cols[0])) return null;
+      return { name: cols[0].replace(/\/$/, ''), filePath: cols[0], size: cols.slice(2).join(', '), purpose: cols[1] || '', files: 1, healthScore: 80 };
+    })
+    .filter(Boolean);
+  if (tableDirs.length > 0) return tableDirs;
   const entryRe = /^([a-zA-Z0-9_.\-]+\/)\s+(?:~?\s*)?(?:(\d+)\s+files?\s*)?\(?\s*~?\s*([\d,]+)\s+LOC\s*\)?\s*(.*)$/gm;
   const out = [];
   let m;

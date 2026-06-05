@@ -3,7 +3,7 @@
 **Scan #12** - Deep codebase scan (runtime-native, full coverage)
 **Date:** 2026-06-04
 **Slices run:** 17 | **Coverage:** FULL - all 17 slices succeeded
-**Verified findings:** 183
+**Verified findings:** 181
 
 > Effort estimates use GSD-T-native units (domain / wave / spawn / token-spend). Never human-hours.
 > TD numbering continues from the prior register (if any, archived). This scan begins at **TD-113**.
@@ -12,26 +12,17 @@
 
 | Severity | Count |
 |----------|-------|
-| 🔴 CRITICAL | 5 |
-| 🟠 HIGH | 39 |
-| 🟡 MEDIUM | 78 |
-| 🟢 LOW | 61 |
-| **Total** | **183** |
+| 🔴 CRITICAL | 4 |
+| 🟠 HIGH | 40 |
+| 🟡 MEDIUM | 77 |
+| 🟢 LOW | 60 |
+| **Total** | **181** |
 
 ---
 
 ## 🔴 Critical Priority
 
-### TD-113 - findingsJson ReferenceError crashes Document phase of gsd-t-scan.workflow.js
-- **Area:** Runtime correctness
-- **Severity:** CRITICAL
-- **Status:** OPEN
-- **Location:** templates/workflows/gsd-t-scan.workflow.js, templates/workflows/gsd-t-scan.workflow.js:616
-- **Description:** Line 616 inside the baseCtx construction (Document phase) references `findingsJson` - a variable that is never defined anywhere in the file. The correct value is `JSON.stringify(finalFindings, null, 2)`. The variable `finalFindings` is defined at line 477 and holds the deduped, severity-sorted findings; `findingsJson` is a leftover name from an earlier refactor that was never updated. Because the native Workflow sandbox cannot catch undefined references at parse time (`node --check` says syntax is valid), this crashes every scan run at the Document phase after all the expensive finder/verifier/synthesis work has already completed - the document fan-out never fires.
-- **Impact:** Every gsd-t-scan run crashes at the Document phase with a ReferenceError after spending the full token budget on the probe, finder, verifier, synthesis, and register-write stages. The living docs (docs/architecture.md, docs/requirements.md, docs/workflows.md, docs/infrastructure.md, README.md) and the 5 dimension files (.gsd-t/scan/*.md) are never generated. The techdebt.md register IS written (synthesis phase precedes Document), but the documentation cross-population - the primary deliverable of the Document phase - is silently lost.
-- **Remediation:** Replace `findingsJson` on line 616 with `JSON.stringify(finalFindings, null, 2)`. The comment already says `finalFindings` is the post-dedup sorted set; this is a trivial one-line fix. Additionally, extend the M71 native-lint test to run a static `eval`-based undefined-reference check (or use a real sandbox dry-run) to catch this class of bug before shipping.
-- **Found in slice:** workflow-orchestration-engine, codebase-scan-engine
-### TD-114 - Six 'native Workflow' scripts use Node.js require() / fs / process - ReferenceError in sandbox
+### TD-113 - Six 'native Workflow' scripts use Node.js require() / fs / process - ReferenceError in sandbox
 - **Area:** Sandbox contract violation
 - **Severity:** CRITICAL
 - **Status:** OPEN
@@ -39,8 +30,8 @@
 - **Description:** All six workflows claim 'Runtime: Anthropic native Workflow tool only' in their headers, but every one calls `require('./_lib.js')` at the top level. The native Workflow sandbox explicitly does NOT provide `require`, `module`, `fs`, `path`, `child_process`, or `process` - the M71 comment in gsd-t-scan.workflow.js (line 5-6) documents this exactly: 'Using any of those throws `ReferenceError: require is not defined` at runtime - the bug (M71) that made every GSD-T workflow silently fail'. gsd-t-scan.workflow.js was correctly migrated to not use require(); the other six were not. Additionally: gsd-t-verify.workflow.js (line 183-187) uses `require('child_process')`, `require('fs')`, `require('path')`, and `process.execPath` inside the _runJsonCli function body; gsd-t-wave.workflow.js imports lib but never uses it (dead import that still crashes); gsd-t-execute.workflow.js imports both _lib and `path` (path is never used). The M71 lint test (test/m71-workflow-runtime-native-lint.test.js) guards only `RUNTIME_NATIVE = ['gsd-t-scan.workflow.js']` - the other six are outside the guard.
 - **Impact:** Every invocation of execute, verify, wave, integrate, debug, quick, or phase via the Workflow tool crashes immediately with `ReferenceError: require is not defined` before executing a single agent() call. The full GSD-T phase lifecycle is broken for all workflows except scan. This is the same class of failure M71 was created to prevent - the migration stalled after scan.
 - **Remediation:** Complete the M71 migration for all six remaining workflows: (1) Move the _lib.js helper functions that are actually needed (runPreflight, generateBrief, proveFileDisjointness, runVerifyGate, loadProtocol) into agent() call prompts - the agents have Bash tool access and can shell out to `gsd-t preflight --json`, `gsd-t brief`, etc. (2) For gsd-t-verify.workflow.js's _runJsonCli, move CI-parity and test-data CLI calls into a dedicated agent() stage (haiku model) that uses Bash. (3) Add all six filenames to the RUNTIME_NATIVE array in test/m71-workflow-runtime-native-lint.test.js so the lint gate covers them. (4) gsd-t-wave.workflow.js: remove the unused `const lib = require('./_lib.js')` entirely since wave only composes two workflow() calls.
-- **Found in slice:** workflow-orchestration-engine, verify-gate-and-ci-parity
-### TD-115 - Retired headless-auto-spawn.cjs still required in runDispatch production path
+- **Found in slice:** workflow-orchestration-engine
+### TD-114 - Retired headless-auto-spawn.cjs still required in runDispatch production path
 - **Area:** Fan-out execution
 - **Severity:** CRITICAL
 - **Status:** OPEN
@@ -49,7 +40,7 @@
 - **Impact:** Fan-out parallelism is silently disabled for all in-production calls that do not inject a spawn stub. Every `gsd-t execute` run falls through to sequential even when the planner correctly identifies N≥2 disjoint parallel tasks. The 5× throughput objective from M44 is not achieved in production.
 - **Remediation:** Replace the `require('./headless-auto-spawn.cjs')` path with the actual spawn mechanism that replaced it in M61 (the Workflow runtime's native `spawn`/`agent()` call). If `runDispatch` is now only used as a planner (plan-only, no spawning), remove the spawn block entirely and document that spawning is the Workflow runtime's responsibility. At minimum, convert the silent `sequential` fallback into a hard error so the breakage is visible.
 - **Found in slice:** parallel-execution-and-task-graph
-### TD-116 - reviewQueue used before declaration - ReferenceError crashes /review/api/exclude
+### TD-115 - reviewQueue used before declaration - ReferenceError crashes /review/api/exclude
 - **Area:** Review server - /review/api/exclude endpoint
 - **Severity:** CRITICAL
 - **Status:** OPEN
@@ -58,7 +49,7 @@
 - **Impact:** Any request to POST /review/api/exclude (triggered by the 'Remove from review' button in the UI) will crash the server request handler with an unhandled exception. The exclusion operation silently fails from the client's perspective; contract files and source files are not deleted; the build pipeline stalls.
 - **Remediation:** Replace all `reviewQueue` references in the /review/api/exclude handler with the result of `readQueue()`. To remove from queue, delete the queue JSON file on disk (matching the pattern already used at line 817 for the one case that does read item.id from the loop variable). Example: const queueItems = readQueue(); then filter/process from queueItems, and delete disk files directly.
 - **Found in slice:** design-to-code-pipeline
-### TD-117 - gsd-t-unattended.md and gsd-t-unattended-watch.md reference deleted bin modules - commands are completely non-functional
+### TD-116 - gsd-t-unattended.md and gsd-t-unattended-watch.md reference deleted bin modules - commands are completely non-functional
 - **Area:** Unattended Supervisor Launch & Watch
 - **Severity:** CRITICAL
 - **Status:** OPEN
@@ -70,6 +61,15 @@
 
 ## 🟠 High Priority
 
+### TD-117 - gsd-t-verify.workflow.js uses sandbox-banned globals (require, spawnSync, fs, process.execPath)
+- **Area:** Workflow sandbox compliance
+- **Severity:** HIGH
+- **Status:** OPEN
+- **Location:** templates/workflows/gsd-t-verify.workflow.js
+- **Description:** Lines 33 and 183-196 use require('./_lib.js'), require('child_process'), require('fs'), require('path'), spawnSync, and process.execPath. The Anthropic native Workflow sandbox (documented in gsd-t-scan.workflow.js lines 3-6 and memory:feedback_workflow_must_run_in_real_sandbox.md) does NOT provide these globals. Any call throws ReferenceError at runtime. The very first executed line - `const lib = require('./_lib.js')` - fails, making the entire verify workflow abort before running preflight, verify-gate, CI-Parity (M57), Test-Data Purge (M58), or the orthogonal triad. All quality gates are silently bypassed. The M71 lint test (test/m71-workflow-runtime-native-lint.test.js line 38) explicitly excludes gsd-t-verify.workflow.js from the forbidden-globals check, confirming this is known migration debt. The _runJsonCli helper embedded at lines 183-206 (spawnSync for build-coverage, ci-parity, test-data) is the additional failure surface beyond the lib= require.
+- **Impact:** Every /gsd-t-verify invocation via the Workflow tool fails on the first line. The CLI instruction says 'do NOT hand-drive', but the Workflow tool throws, forcing a fallback to hand-driven mode which skips all deterministic gates. This means the FAIL-blocking CI-Parity (M57) and Test-Data Purge (M58) gates are never enforced in production verify runs.
+- **Remediation:** Migrate gsd-t-verify.workflow.js to runtime-native architecture following the gsd-t-scan.workflow.js pattern: remove all top-level require() calls, move I/O into agent() stages (subagents have Bash/Read/Write tools), pass projectDir into prompts instead of reading directly. The _runJsonCli calls should become agent() stages that run the CLI tools via Bash. Add 'gsd-t-verify.workflow.js' to the RUNTIME_NATIVE list in test/m71-workflow-runtime-native-lint.test.js after migrating.
+- **Found in slice:** verify-gate-and-ci-parity, workflow-orchestration-engine
 ### TD-118 - agentId used directly in file path without containment check - path traversal
 - **Area:** Security / path traversal
 - **Severity:** HIGH
@@ -79,16 +79,7 @@
 - **Impact:** Attacker-controlled agent-id (via CLI arg or env var) can write arbitrary JSON to any path the process has write access to, enabling privilege escalation or clobbering system files.
 - **Remediation:** After constructing `filePath`, verify: `const stateDir = _stateDir(cwd); if (!filePath.startsWith(path.resolve(stateDir) + path.sep)) { process.stderr.write('[gsd-t-watch-state] invalid agent-id\n'); return 1; }`. Also add a regex allowlist for agent-id characters (alphanumeric, hyphens, underscores).
 - **Found in slice:** real-time-agent-dashboard, unattended-supervisor-and-headless-mode
-### TD-119 - settings.json corrupted by five independent read-modify-write cycles during install
-- **Area:** Installer correctness / race condition
-- **Severity:** HIGH
-- **Status:** OPEN
-- **Location:** bin/gsd-t.js
-- **Description:** doInstall() calls five separate functions that each independently read settings.json, mutate an in-memory object, and write the file back: configureHeartbeatHooks (line 356), configureUpdateCheckHook (line 893), configureAutoRouteHook (line 973), configureInSessionHooks (line 1060), and configureContextMeterHooks (line 1550). Each function calls readSettingsJson(), which re-reads from disk at the time it's invoked. If any two of these five writes interleave - or if another process (e.g., Claude Code itself) writes settings.json between any two of these calls - the last writer wins and silently drops the hooks written by earlier writers. The five writes are sequential within a single Node.js process so concurrency is limited to external processes, but the install flow runs at session startup with Claude Code also active, making the race window real. The fix is to load settings.json once at the start of doInstall, pass the in-memory object through all five configurators, and write once at the end.
-- **Impact:** On a machine where Claude Code is running during install (the normal case), hooks added by earlier configure* calls can be silently lost when a later call reads and overwrites settings.json. The user sees success messages but some hooks are missing, causing missed heartbeats, skipped auto-route, or dropped conversation capture.
-- **Remediation:** Refactor doInstall to load settings.json once, pass the mutable settings object into each configure* function as a parameter, and flush to disk a single time after all hooks have been applied. The configure* functions already operate on in-memory objects - only the I/O calls at each function boundary need to move.
-- **Found in slice:** cli-installer-updater
-### TD-120 - spawnClaudeSession in debug-loop missing --dangerously-skip-permissions flag
+### TD-119 - spawnClaudeSession in debug-loop missing --dangerously-skip-permissions flag
 - **Area:** Headless execution correctness
 - **Severity:** HIGH
 - **Status:** OPEN
@@ -97,7 +88,7 @@
 - **Impact:** Every debug-loop iteration fails at first tool use, the loop cycles through all 20 iterations without fixing anything, and exits with code 1 (max iterations) or 4 (escalation stop). The debug-loop is completely non-functional without this flag.
 - **Remediation:** Add '--dangerously-skip-permissions' to the args array in spawnClaudeSession at line 3948: change `execFileSync("claude", ["-p", prompt, "--model", model], ...)` to `execFileSync("claude", ["-p", "--dangerously-skip-permissions", prompt, "--model", model], ...)`. Apply the same fix to the execFileSync call in runLedgerCompaction at line 3997.
 - **Found in slice:** cli-installer-updater
-### TD-121 - Hardcoded Neo4j password in source code and docker run arguments
+### TD-120 - Hardcoded Neo4j password in source code and docker run arguments
 - **Area:** Security / credential management
 - **Severity:** HIGH
 - **Status:** OPEN
@@ -106,7 +97,7 @@
 - **Impact:** Any process on the local machine (or on the local network if Docker's port mapping is accessible) can authenticate to Neo4j with the known password. For a developer tool this is limited-severity, but graph data includes full project file content, which could expose code from confidential projects.
 - **Remediation:** Generate a random password during first install (e.g., crypto.randomBytes(16).toString('hex')) and persist it to a config file (e.g., ~/.claude/.gsd-t-neo4j.json). Use the generated password in the docker run command and in the cgc config call. Fall back to a prompt if the user prefers to set their own. At minimum, document that this is a shared known credential in the doctor output.
 - **Found in slice:** cli-installer-updater
-### TD-122 - Multi-domain disjointness gate checks only the last --domain (last-wins parseArgv bug)
+### TD-121 - Multi-domain disjointness gate checks only the last --domain (last-wins parseArgv bug)
 - **Area:** File-disjointness safety gate
 - **Severity:** HIGH
 - **Status:** OPEN
@@ -115,7 +106,7 @@
 - **Impact:** The primary safety invariant of the parallel-execution layer - no two concurrent workers write the same file - is silently bypassed for every multi-domain execution. Two workers can clobber each other's writes, producing corrupt or non-deterministic output with no error signal.
 - **Remediation:** Change `parseArgv` to accept repeated `--domain` flags into an array, OR change `proveFileDisjointness` in `_lib.js` to call `gsd-t parallel --dry-run` once per domain-pair and aggregate results, OR - simplest - call `runParallel` directly via `require` rather than through the CLI subprocess so the full domain array can be passed programmatically.
 - **Found in slice:** parallel-execution-and-task-graph
-### TD-123 - parallel-cli.cjs (the actual worker pool executor) has zero unit tests in the main suite
+### TD-122 - parallel-cli.cjs (the actual worker pool executor) has zero unit tests in the main suite
 - **Area:** Test coverage
 - **Severity:** HIGH
 - **Status:** OPEN
@@ -124,7 +115,7 @@
 - **Impact:** Changes to `parallel-cli.cjs` or `parallel-cli-tee.cjs` have no test safety net. Regressions in the verify-gate's parallel substrate (the executor `gsd-t-verify-gate.cjs` depends on) can ship undetected. The failFast logic and SIGKILL escalation in particular are correctness-critical and easy to break.
 - **Remediation:** Promote or rewrite the worktree test file `agent-aeb7cccc/test/m55-d2-parallel-cli.test.js` into `test/m55-d2-parallel-cli.test.js`. At minimum cover: (1) runParallel with N workers all succeeding, (2) failFast cancels siblings on first failure, (3) per-worker timeout triggers timedOut flag, (4) tee file-mode and memory-mode byte counting, (5) the captureSpawn stub shape (result field must be present).
 - **Found in slice:** parallel-execution-and-task-graph
-### TD-124 - Multiple critical bin files referenced in commands do not exist
+### TD-123 - Multiple critical bin files referenced in commands do not exist
 - **Area:** Dead/broken references
 - **Severity:** HIGH
 - **Status:** OPEN
@@ -133,7 +124,7 @@
 - **Impact:** Silent no-ops where critical observability and safety checks should run: token capture logs are never written, dialog pressure warnings never fire, context meter health never checked on resume, headless session banners never shown.
 - **Remediation:** Either ship the missing modules in the package (they were likely removed during M61 retirement or never propagated from a prior branch), or remove the code blocks from the command files that reference them and replace with explicit 'not available - skip' notes. If these were retired with the M61 orchestrator, the command prose must be updated to reflect that.
 - **Found in slice:** slash-command-library
-### TD-125 - False-pass in _shapeTrack2 when runParallel throws or returns empty results
+### TD-124 - False-pass in _shapeTrack2 when runParallel throws or returns empty results
 - **Area:** Verify-gate correctness
 - **Severity:** HIGH
 - **Status:** OPEN
@@ -142,7 +133,7 @@
 - **Impact:** A crashing parallel-cli substrate (network error, spawn failure, Node crash) causes the verify gate to silently pass. All CI-gating checks (tsc, biome, tests, secrets scan) report as passing when they actually never ran. Milestone promotion could proceed through a completely untested codebase.
 - **Remediation:** In _shapeTrack2, propagate the envelope-level ok flag: `const track2Ok = !!envelope.ok && workers.every((w) => w.ok || w.skipped)`. Alternatively: if `workers.length === 0 && plan.length > 0`, default `track2Ok = false` because planned workers produced no results. Add a unit test specifically for the throw-path where plan=[{id:'tsc'}] and runParallelImpl throws.
 - **Found in slice:** verify-gate-and-ci-parity
-### TD-126 - tryD2 writes hardcoded stub diagram instead of the actual Mermaid content
+### TD-125 - tryD2 writes hardcoded stub diagram instead of the actual Mermaid content
 - **Area:** Diagram Rendering
 - **Severity:** HIGH
 - **Status:** OPEN
@@ -151,7 +142,7 @@
 - **Impact:** Users who have `d2` installed as a fallback renderer see a meaningless two-node diagram for system architecture and data flow. The report is misleading - it shows content that has no relationship to the scanned project.
 - **Remediation:** Change line 73 from `fs.writeFileSync(tmpIn, 'app -> db: query', 'utf8')` to `fs.writeFileSync(tmpIn, mmdContent, 'utf8')`. Note: `d2` uses its own D2 syntax, not Mermaid syntax, so a proper conversion from Mermaid to D2 may be needed, or the fallback should be restricted to when mmdContent is already D2-formatted.
 - **Found in slice:** codebase-scan-engine
-### TD-127 - parseDrizzle: column regex runs on entire file instead of each table's block - all columns attributed to every table
+### TD-126 - parseDrizzle: column regex runs on entire file instead of each table's block - all columns attributed to every table
 - **Area:** Schema Parsing
 - **Severity:** HIGH
 - **Status:** OPEN
@@ -160,7 +151,7 @@
 - **Impact:** The ER diagram and schema data produced for Drizzle projects are incorrect. Every entity shows all columns from every table, making the diagram both redundant and misleading. This is the root of the `unknown` column-type issue noted in comments (scan-diagrams.js line 48) that caused the schema diagram to be suppressed by default.
 - **Remediation:** Scope `colRe` to the matched table block. Extract the block content between the opening `(` and its matching `)` of each `pgTable(...)`  call, then run `colRe` only on that substring. Alternatively, restructure the loop to track start/end positions of each table definition.
 - **Found in slice:** codebase-scan-engine
-### TD-128 - parseTechDebtItems and parseSeverityMap expect legacy prose format - always return empty for new deep-scan output
+### TD-127 - parseTechDebtItems and parseSeverityMap expect legacy prose format - always return empty for new deep-scan output
 - **Area:** Scan Data Collection / HTML Report
 - **Severity:** HIGH
 - **Status:** OPEN
@@ -169,8 +160,7 @@
 - **Impact:** The HTML scan report's Tech Debt section shows `No open tech debt items` for every project scanned with the deep-scan workflow. Severity in `parseTechDebtItems` always defaults to `'low'` even when real CRITICAL/HIGH items exist.
 - **Remediation:** Rewrite `parseTechDebtItems` to parse the `### TD-NNN - <title>` section format from `techdebt.md`, extracting severity from the `- **Severity:** ...` line and status from `- **Status:** ...`. Retire `parseSeverityMap` or update it to parse the severity table format. Align with the format `fmtChunks()` produces.
 - **Found in slice:** codebase-scan-engine
-
-### TD-129 - sendToolCallSync blocks for full timeout on every CGC query - MCP server never exits
+### TD-128 - sendToolCallSync blocks for full timeout on every CGC query - MCP server never exits
 - **Area:** Performance / Correctness
 - **Severity:** HIGH
 - **Status:** OPEN
@@ -179,7 +169,8 @@
 - **Impact:** Any workflow that reaches the CGC provider path - gsd-t graph, enrichWithOverlay in cgcProvider - imposes a 10-second penalty per query, making interactive use unusable and automated scans that touch multiple entities minutes-slow.
 - **Remediation:** Either (a) adopt the persistent process pattern: start cgcProcess once (startCgcServer already exists but is never called), use sendRequest (the async stdio approach) for all queries, and shut down on process exit; or (b) add a 'cgc query' one-shot CLI subcommand that accepts a tool name and JSON args and exits, so execFileSync can get a real exit code. Remove the dead sendRequestSync/startCgcServer functions.
 - **Found in slice:** code-graph-engine
-### TD-130 - Non-atomic multi-file write in graph-store - partial writes leave index silently corrupted
+
+### TD-129 - Non-atomic multi-file write in graph-store - partial writes leave index silently corrupted
 - **Area:** Data integrity
 - **Severity:** HIGH
 - **Status:** OPEN
@@ -188,7 +179,7 @@
 - **Impact:** Silent data corruption: queries return empty results without any error, misleading downstream workflows about dead code, call chains, domain violations, etc.
 - **Remediation:** Write each file to a .tmp sibling then rename (atomic on POSIX). Treat meta.json as the commit marker: write it last, rename it last. On startup, if any peer file is missing/unreadable while meta.json exists, delete meta.json to force re-index. component-registry.js already uses this pattern (atomicWriteJsonl at line 242) - apply the same to graph-store.
 - **Found in slice:** code-graph-engine
-### TD-131 - isStale() misses deleted files - stale index never detected after file deletion
+### TD-130 - isStale() misses deleted files - stale index never detected after file deletion
 - **Area:** Correctness / Staleness detection
 - **Severity:** HIGH
 - **Status:** OPEN
@@ -197,7 +188,7 @@
 - **Impact:** Deleted functions stay in the graph forever. Dead-code queries report false positives. Call chains through deleted intermediaries appear valid. The index only self-heals on a force re-index.
 - **Remediation:** In isStale(), also check: for every key in meta.fileHashes, does the corresponding absolute path still exist? If any stored hash key has no live file, mark as stale. O(|stored_files|) not O(|source_files|).
 - **Found in slice:** code-graph-engine
-### TD-132 - SAFE_ENTITY_RE in grep fallback allows path traversal and regex metacharacters
+### TD-131 - SAFE_ENTITY_RE in grep fallback allows path traversal and regex metacharacters
 - **Area:** Security / Input validation
 - **Severity:** HIGH
 - **Status:** OPEN
@@ -206,7 +197,7 @@
 - **Impact:** False positives in getImporters for any entity name containing a dot (common in JS: file.js, class.method patterns). Path traversal component '..' allows searching outside projectRoot if a grep version doesn't bounds-check the search dir.
 - **Remediation:** For grep literal matching use fgrep (grep -F) or grep --fixed-strings. For -e patterns, escape regex metacharacters: name.replace(/[.+*?^${}()|[\]\\]/g, '\\$&'). Reject names containing '/' or '..' explicitly.
 - **Found in slice:** code-graph-engine
-### TD-133 - Unchecked Cypher injection via params.query in cgcProvider 'cypher' case
+### TD-132 - Unchecked Cypher injection via params.query in cgcProvider 'cypher' case
 - **Area:** Security / Injection
 - **Severity:** HIGH
 - **Status:** OPEN
@@ -215,7 +206,7 @@
 - **Impact:** Arbitrary Cypher execution against a potentially production Neo4j instance. DETACH DELETE can wipe the entire code graph. The severity depends on Neo4j credentials and network exposure, but the attack surface is any GSD-T caller that reaches cgcProvider.
 - **Remediation:** For 'cypher': remove the passthrough or add an explicit allowlist of known-safe query templates. For maxDepth: validate with Number.isInteger(v) && v > 0 && v <= 20 before interpolation, defaulting to 5 on invalid input.
 - **Found in slice:** code-graph-engine
-### TD-134 - Proxy buffers gzip-compressed HTML then attempts string parsing without decompression
+### TD-133 - Proxy buffers gzip-compressed HTML then attempts string parsing without decompression
 - **Area:** Review server - HTML proxy / injection
 - **Severity:** HIGH
 - **Status:** OPEN
@@ -224,7 +215,7 @@
 - **Impact:** The review overlay inject script is never loaded in the proxied app, making inspect mode non-functional. The browser receives a malformed response body for every HTML page request. When Vite uses brotli, the browser may not even render the page. This breaks the core visual inspection feature of the design review workflow.
 - **Remediation:** Before the proxy request, strip Accept-Encoding from the forwarded headers (or set it to 'identity') so the dev server returns uncompressed HTML. Alternatively, use Node's zlib.createGunzip() / zlib.createBrotliDecompress() to decompress based on the actual content-encoding header value before calling toString(). The simplest fix: delete req.headers['accept-encoding'] from the opts headers object before forwarding.
 - **Found in slice:** design-to-code-pipeline
-### TD-135 - Unsanitized item.id used directly in file paths - path traversal in review queue and feedback endpoints
+### TD-134 - Unsanitized item.id used directly in file paths - path traversal in review queue and feedback endpoints
 - **Area:** Review server - feedback and queue file writes
 - **Severity:** HIGH
 - **Status:** OPEN
@@ -233,7 +224,7 @@
 - **Impact:** A client (or malicious queue file) could write files outside the .gsd-t/design-review directory tree by supplying an id like '../../malicious'. This is a local-server tool, so the practical risk is mainly against misconfigured environments, but any feedback JSON with a crafted id would overwrite arbitrary files relative to REVIEW_DIR.
 - **Remediation:** Apply the same sanitization used for attachment filenames (line 398) to item.id before constructing any file paths: const safeItemId = String(item.id).replace(/[^a-zA-Z0-9_-]/g, '_'); Use safeItemId everywhere item.id is used in path.join calls.
 - **Found in slice:** design-to-code-pipeline
-### TD-136 - Hardcoded 'Vue 3 + TypeScript' in all builder prompts - breaks React/Svelte/Angular projects
+### TD-135 - Hardcoded 'Vue 3 + TypeScript' in all builder prompts - breaks React/Svelte/Angular projects
 - **Area:** Design orchestrator - prompt generation
 - **Severity:** HIGH
 - **Status:** OPEN
@@ -242,6 +233,15 @@
 - **Impact:** The design-build command is silently broken for all non-Vue projects. A React project will receive Vue SFC files with <script setup>, <template>, <style scoped> syntax. The builder agent will consistently produce wrong output across all three tiers (elements, widgets, pages) with no error - the orchestrator will proceed to review a Vue component in a React codebase.
 - **Remediation:** Read the project's package.json at orchestrator init time (the server already does this at line 34) and pass the detected framework to buildPrompt()/buildSingleItemPrompt(). Parameterize the framework name, file extension (.vue/.tsx/.svelte), and the guessPaths() directory/extension mappings. Alternatively, read the design-contract's Stack Evaluation table which already records the framework.
 - **Found in slice:** design-to-code-pipeline
+### TD-136 - Missing gsd-t-dashboard-server.js crashes autostart at runtime
+- **Area:** Broken dependency / dead code path
+- **Severity:** HIGH
+- **Status:** OPEN
+- **Location:** scripts/gsd-t-dashboard-autostart.cjs
+- **Description:** Lines 132 and 145 of gsd-t-dashboard-autostart.cjs reference `./gsd-t-dashboard-server.js`. This file does not exist in the main branch's `scripts/` directory (only in stale worktrees). `require('./gsd-t-dashboard-server.js')` at line 132 will throw `MODULE_NOT_FOUND` synchronously when `ensureDashboardRunning` is called without a `port` option. The `spawn` at line 146 will also silently fail to start any server. Every call site in `bin/gsd-t.js` that invokes `ensureDashboardRunning` without a pre-resolved port is affected.
+- **Impact:** Any consumer calling `ensureDashboardRunning()` without a port throws an unhandled exception; the dashboard feature is entirely broken in the published package.
+- **Remediation:** Either commit the missing `gsd-t-dashboard-server.js` to `scripts/`, or guard the `require` with a try/catch that emits a useful error and returns `{ port: null, alreadyRunning: false }`. Also add an integration test that verifies the server script exists before publishing.
+- **Found in slice:** real-time-agent-dashboard
 ### TD-137 - Unbounded POST /ingest body accumulation - no size limit
 - **Area:** Denial of service / memory exhaustion
 - **Severity:** HIGH
@@ -392,16 +392,7 @@ The only path that still injects stack rules is the legacy `bin/gsd-t-task-brief
 - **Impact:** The primary fix_cycles template (tpl-001) can never promote, defeating the core purpose of the rule engine. Any patch targeting a 'lower is better' metric is permanently excluded from the promotion system.
 - **Remediation:** Add a `direction` field to patch templates (`'higher_is_better'` | `'lower_is_better'`) and adjust `improvement_pct` calculation in `recordMeasurement` to invert the sign for `lower_is_better` metrics. Update `checkPromotionGate` to use the corrected signed improvement. Update patch-templates.jsonl to include direction for existing templates (fix_cycles → lower_is_better).
 - **Found in slice:** project-init-and-lifecycle
-### TD-152 - archive-progress.cjs writes updated progress.md non-atomically - crash between archive and rewrite loses entries from both locations
-- **Area:** Milestone archival / data integrity
-- **Severity:** HIGH
-- **Status:** OPEN
-- **Location:** bin/archive-progress.cjs
-- **Description:** The tool writes archive files via `fs.writeFileSync(outPath, ...)` (line 284) and the INDEX via `fs.writeFileSync(path.join(archiveDir, 'INDEX.md'), ...)` (line 291), then rewrites the live progress.md via `fs.writeFileSync(progressPath, newProgress)` (line 296). None of these writes use the tmp-file + rename pattern. By contrast, `global-sync-manager.js` correctly uses `atomicWriteJsonl` (tmp file + `fs.renameSync`). If the process is killed or crashes between line 291 (archive files written) and line 296 (progress.md rewritten), the old entries are now in the archive but the live progress.md still contains them - duplication. If the crash happens mid-write of progress.md (unlikely but possible on large files), the file is partially written and corrupted. Line 279 also contains dead code: `let seq = opts.dryRun ? nextArchiveSeq(archiveDir) : nextArchiveSeq(archiveDir)` - both branches are identical.
-- **Impact:** Progress.md corruption or entry duplication on process kill. While uncommon in practice, progress.md is the source of truth for milestone state and its corruption requires manual recovery.
-- **Remediation:** Write progress.md via a temp file + rename: write to `progressPath + '.tmp.' + process.pid`, then rename. Apply the same pattern to archive files. Remove the duplicate `nextArchiveSeq` call on line 279 (both branches are identical; collapse to one call).
-- **Found in slice:** project-init-and-lifecycle
-### TD-153 - fetchLatestVersion in gsd-t-update-check.js always returns null due to syntax error in inline node -e script
+### TD-152 - fetchLatestVersion in gsd-t-update-check.js always returns null due to syntax error in inline node -e script
 - **Area:** Update Check / SessionStart Hook
 - **Severity:** HIGH
 - **Status:** OPEN
@@ -410,7 +401,25 @@ The only path that still injects stack rules is the legacy `bin/gsd-t-task-brief
 - **Impact:** Every GSD-T session silently skips the auto-update path. Users never see update banners from the SessionStart hook. Accumulated update lag on managed installs.
 - **Remediation:** Fix the inline script: change `r.on('data',(c)=>d+=c;` to `r.on('data',(c)=>{d+=c});`. Alternatively, replace the inline script with a call to the already-correct `scripts/gsd-t-fetch-version.js` (same pattern as `bin/gsd-t.js` uses).
 - **Found in slice:** metrics-telemetry-and-events
-### TD-154 - context-brief-contract.md KINDS list is stale - 6 listed, 11 implemented after M56
+### TD-153 - Date guard produces false positives on Write of progress.md containing historical decision-log entries
+- **Area:** Date Guard / Progress Log Correctness
+- **Severity:** HIGH
+- **Status:** OPEN
+- **Location:** scripts/gsd-t-date-guard.js, commands/gsd-t-log.md
+- **Description:** The `decision-log` pattern (`/^- (\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):/gm`) is validated against ±DRIFT_MINUTES (5 min) of the live clock for ALL Write calls (where `oldContent = ''`). When `/gsd-t-log` Step 6 (full reconstruction from git history) or `/gsd-t-populate` writes a progress.md containing historical entries (e.g., `- 2024-01-15 09:30: Initial commit`), the guard blocks the Write with a false positive, even though these are legitimately historical. The Edit dedup only protects when old_string already contains the entry. Verified: a Write of progress.md with even one entry dated more than 5 minutes ago returns `{ ok: false }` and blocks the tool call.
+- **Impact:** The `/gsd-t-log` full-reconstruction path and `/gsd-t-populate` git-history reconstruct are blocked at the Write step, causing the model to receive a tool error and potentially loop, produce partial results, or silently fail to update progress.md.
+- **Remediation:** Either (a) add `progress.md`'s decision log section to the allowlist when content matches a full-reconstruct pattern, (b) narrow the decision-log pattern to require timestamps within the last 24h for Write operations (use a `dateOnly`-style day check for decision-log entries in Write mode), or (c) teach `/gsd-t-log` and `/gsd-t-populate` to exclusively use Edit (append) rather than Write (replace) for progress.md. The most surgical fix is option (b): for `decision-log` on Write, validate same-calendar-day rather than ±5 min.
+- **Found in slice:** metrics-telemetry-and-events
+### TD-154 - rollup.jsonl (per-project ELO and milestone aggregation) is never written - gsd-t-metrics ELO display is dead code
+- **Area:** Metrics Completeness / Feature Parity
+- **Severity:** HIGH
+- **Status:** OPEN
+- **Location:** commands/gsd-t-metrics.md, commands/gsd-t-status.md, bin/metrics-collector.js
+- **Description:** gsd-t-metrics.md Step 2 reads `.gsd-t/metrics/rollup.jsonl` for per-milestone ELO and aggregation data. Steps 3 (Process ELO), 5 (Domain Breakdown with duration), and 6 (Trend Comparison) all require rollup.jsonl data. No code in `bin/` or `scripts/` writes this file. `global-sync-manager.js` manages a separate `~/.claude/metrics/global-rollup.jsonl` (global cross-project), not the local per-project file. gsd-t-status.md acknowledges the missing file with a fallback for `first_pass_rate`. ELO display, domain breakdown by duration, and trend comparison are effectively dead - they silently show no data rather than erroring.
+- **Impact:** Users see stub/empty ELO sections in /gsd-t-metrics output. The telemetry system's core value proposition (ELO-based process quality tracking across milestones) is non-functional. gsd-t-status metrics section falls back to a minimal first-pass-rate only display.
+- **Remediation:** Implement a `writeProjectRollup()` function in `bin/metrics-collector.js` (or a new `bin/metrics-rollup.js`) that computes and writes `.gsd-t/metrics/rollup.jsonl` at the end of each execute/verify phase. Or remove ELO from the command documentation until the write path exists, to prevent user-facing misleading empty sections.
+- **Found in slice:** metrics-telemetry-and-events
+### TD-155 - context-brief-contract.md KINDS list is stale - 6 listed, 11 implemented after M56
 - **Area:** Contract Drift - Stale Enumeration
 - **Severity:** HIGH
 - **Status:** OPEN
@@ -418,15 +427,6 @@ The only path that still injects stack rules is the legacy `bin/gsd-t-task-brief
 - **Description:** The contract at line 37 lists `KINDS` as `['design-verify','execute','qa','red-team','scan','verify']` (6 kinds, M55-era). M56 D2 added 5 more: `discuss`, `impact`, `milestone`, `partition`, `plan`. Confirmed on disk: `bin/gsd-t-context-brief-kinds/` contains 11 files: design-verify.cjs, discuss.cjs, execute.cjs, impact.cjs, milestone.cjs, partition.cjs, plan.cjs, qa.cjs, red-team.cjs, scan.cjs, verify.cjs. The CLI flag description at line 54-55 says `--kind X` must be one of `KINDS`, which would appear to reject the 5 new kinds if taken literally.
 - **Impact:** Any agent or operator reading the contract's KINDS list will have an incomplete picture of which brief kinds exist. Documentation generators, validators, or new kind collectors that cross-check against the contract's KINDS constant will be missing 5 valid entries. The `--domain` requirement at line 55 also needs updating to cover the 5 new kinds.
 - **Remediation:** Update `KINDS` in the contract to list all 11 kinds. Update the `--domain` requirement matrix to state which of the new kinds require a domain. Bump the contract to v1.1.0 (additive, non-breaking).
-- **Found in slice:** living-document-contracts-and-state
-### TD-155 - Stale .context-meter-state.json persists with wrong 200K window size - M61 D1 T2 partially executed
-- **Area:** State File Integrity - Incomplete Retirement
-- **Severity:** HIGH
-- **Status:** OPEN
-- **Location:** .gsd-t/.context-meter-state.json, bin/gsd-t.js
-- **Description:** M61 D1 T2 was supposed to delete `.gsd-t/.context-meter-state.json` (listed explicitly in its Touches). The file still exists with `modelWindowSize: 200000` (the old 200K limit) and `pct: 26.73` from 2026-05-29. Meanwhile, `bin/gsd-t.js` still contains `showStatusContextMeter()` (line 1862), `CONTEXT_METER_SCRIPT`, `CONTEXT_METER_DEPS_DIR`, and `installContextMeter()` constants and function (53 total references). `scripts/gsd-t-statusline.js` also reads the file at line 73. The stale state file reports a 200K window on a model with 1M context, so any status display reading it will show wildly incorrect context utilization.
-- **Impact:** The `gsd-t status` command reads this stale file and renders a context meter display based on a 200K window, misleading operators about context headroom. The `gsd-t doctor` command may still reference the context-meter hook setup that M61 was supposed to retire. The file would cause the token-budget 'stale' band check to fire (the state is older than 5 min), meaning any surviving code path reading it might incorrectly trigger stale-band logic.
-- **Remediation:** Delete `.gsd-t/.context-meter-state.json`. Remove or stub out `showStatusContextMeter()` and the `CONTEXT_METER_*` constants from `bin/gsd-t.js`. Update `scripts/gsd-t-statusline.js` to not read the deleted file. This is an explicit M61 D1 T2 carryover task.
 - **Found in slice:** living-document-contracts-and-state
 ### TD-156 - progress-file-format.md contract is missing ACTIVE status, Summary column, and M59 HH:MM TZ requirements
 - **Area:** Contract Drift - Progress File Format
@@ -440,25 +440,52 @@ The only path that still injects stack rules is the legacy `bin/gsd-t-task-brief
 
 ## 🟡 Medium Priority
 
-### TD-157 - wave-join-contract.md references retired headless-auto-spawn.cjs and has version drift
-- **Area:** Contract / documentation drift
+### TD-157 - gsd-t-init.md references the retired headless-auto-spawn.cjs spawn-time gate
+- **Area:** Stale/incorrect documentation
 - **Severity:** MEDIUM
 - **Status:** OPEN
-- **Location:** .gsd-t/contracts/wave-join-contract.md, bin/gsd-t-parallel.cjs, .gsd-t/contracts/spawn-plan-contract.md
-- **Description:** The contract at `.gsd-t/contracts/wave-join-contract.md` line 150 states `runDispatch` 'spawns N detached headless children via `autoSpawnHeadless()` from `bin/headless-auto-spawn.cjs`'. This module was retired in M61 and is flagged in `DEPRECATED_BIN_STRAYS` in `gsd-t.js`. Additionally, `bin/gsd-t-parallel.cjs` references the contract as `v1.1.0` (lines 23, 49, 188, 466) but the contract header declares itself `v1.2.0`.
-- **Impact:** Developers reading the contract to understand how fan-out spawning works are directed to a deleted module. The version mismatch makes it impossible to tell which code tracks which contract version.
-- **Remediation:** Update wave-join-contract.md: remove the `headless-auto-spawn.cjs` reference, document the actual spawn mechanism (Workflow runtime's native `agent()`/`spawn()`), and bump the version to 1.3.0 or 2.0.0 to reflect the M61 architectural change. Update `bin/gsd-t-parallel.cjs` to reference the correct version number.
-- **Found in slice:** parallel-execution-and-task-graph, living-document-contracts-and-state
-### TD-158 - gsd-t-backlog-remove.md writes Decision Log in table-row format instead of the required dash-entry format, and uses date-only instead of YYYY-MM-DD HH:MM
-- **Area:** Broken invariant / format mismatch
+- **Location:** commands/gsd-t-init.md
+- **Description:** Line 351 of `gsd-t-init.md` (Step 11 Playwright Setup) states: 'The spawn-time gate in `bin/headless-auto-spawn.cjs` re-runs the install on first need if the project skipped this step.' The global `CLAUDE.md` at line 204 explicitly states this file was retired in M61: '(M61: replaced the retired `headless-auto-spawn.cjs` spawn-time gate - the Workflow runtime owns spawning now.)' The file does not exist in `bin/`. An agent reading this instruction would attempt to reference a gate that no longer exists.
+- **Impact:** An agent following init.md may misreport the Playwright gate behavior, or future documentation writers may reference a non-existent component.
+- **Remediation:** Remove the sentence from `gsd-t-init.md` Step 11 that references `headless-auto-spawn.cjs`. Replace with a note that the Workflow runtime handles spawn-time gate via `playwright-bootstrap.cjs` per the M61 contract.
+- **Found in slice:** slash-command-library, project-init-and-lifecycle
+### TD-158 - context-meter-config.json template ships with hardcoded 200K modelWindowSize - wrong for all 1M-window models
+- **Area:** Context Meter Configuration
 - **Severity:** MEDIUM
 - **Status:** OPEN
-- **Location:** commands/gsd-t-backlog-remove.md, commands/gsd-t-backlog-add.md, commands/gsd-t-backlog-move.md, commands/gsd-t-backlog-edit.md, /Users/david/projects/GSD-T/commands/gsd-t-backlog-remove.md, /Users/david/projects/GSD-T/commands/gsd-t-backlog-add.md, /Users/david/projects/GSD-T/commands/gsd-t-backlog-edit.md, /Users/david/projects/GSD-T/commands/gsd-t-backlog-move.md, /Users/david/projects/GSD-T/commands/gsd-t-backlog-promote.md, /Users/david/projects/GSD-T/.gsd-t/contracts/progress-file-format.md
-- **Description:** `gsd-t-backlog-remove.md` line 55 specifies the Decision Log entry format as `| {YYYY-MM-DD} | Removed backlog item "{title}"... |` - a markdown table row. The required format per global `CLAUDE.md` is `- YYYY-MM-DD HH:MM: {what was done} - {brief context}` (a dash-entry with timestamp). The date-guard hook validates entries matching `- YYYY-MM-DD HH:MM:` and would not recognize a table-row entry at all. The other three backlog commands (add, move, edit) use `{date}` or `today's date` without specifying the required `HH:MM` component, which is also required by the date-guard.
-- **Impact:** Decision Log entries from backlog operations either use the wrong format (table row) or lack the HH:MM component required by the date-guard hook, causing hook validation failures or malformed log entries.
-- **Remediation:** Update all backlog command Decision Log instructions to use the canonical format: `- YYYY-MM-DD HH:MM: [backlog] {action} - {detail}`. For `gsd-t-backlog-remove.md` specifically, remove the table-row format and replace with the dash-entry format. Source the timestamp from `[GSD-T NOW]`.
-- **Found in slice:** slash-command-library, backlog-management
-### TD-159 - Context meter PostToolUse hook still installed on fresh install despite M61 retirement
+- **Location:** templates/context-meter-config.json, .gsd-t/.context-meter-state.json, bin/gsd-t.js
+- **Description:** The template at line 4 sets `"modelWindowSize": 200000`. This value was correct for pre-Claude-4 models but is 5x too small for Opus 4.7/4.8 and Sonnet 4.5+ which have 1M context windows. The config is copied to new projects via `gsd-t init`. The CLAUDE.md global instructions explicitly state 'Opus 4.7/4.8 ship 1M context windows; the legacy meter at bin/token-budget.cjs was retired in M61.' The gsd-t-calibration-hook.js already uses `SAFE_DEFAULT_WINDOW = 1_000_000`. The 200K value causes the threshold alarm (75% = 150K tokens) to fire far too early on 1M-window sessions - at only 15% actual usage - triggering unnecessary headless-spawn routing.
+- **Impact:** New projects initialized with gsd-t init get a 200K window config. The context meter triggers at 150K tokens (15% of actual 1M capacity), causing premature headless spawning and incorrect context percentage reporting in the status line.
+- **Remediation:** Update the template to `"modelWindowSize": 1000000`. Also update the `thresholdPct` comment to reflect that the threshold now applies to the 1M window. The `checkDoctorContextMeter` function in gsd-t.js should also validate that installed project configs have been updated. Consider deprecating the field entirely since gsd-t-calibration-hook.js already uses model-aware resolution.
+- **Found in slice:** context-and-token-monitoring, living-document-contracts-and-state
+### TD-159 - backlog-remove Step 5 writes progress.md unconditionally but file may not exist
+- **Area:** Document ripple consistency
+- **Severity:** MEDIUM
+- **Status:** OPEN
+- **Location:** /Users/david/projects/GSD-T/commands/gsd-t-backlog-remove.md, /Users/david/projects/GSD-T/commands/gsd-t-backlog-add.md
+- **Description:** Step 5 (`Log Removal`) instructs: 'Add a Decision Log entry in `.gsd-t/progress.md`' with no existence guard. Step 6 then says 'If `.gsd-t/progress.md` exists, update...' - contradicting Step 5. On a fresh project where `gsd-t-init` was not run (or only partially), progress.md may not exist. The LLM will attempt to write to the file, creating it mid-operation with only the removal log entry and no required frontmatter - corrupting the format. By contrast, `backlog-edit` (line 92) and `backlog-move` (line 76) correctly guard with 'If `.gsd-t/progress.md` exists'.
+- **Impact:** In a project without progress.md, `gsd-t-backlog-remove` will create a malformed progress.md with only a partial removal log entry, breaking subsequent `gsd-t-status` and other progress.md readers.
+- **Remediation:** Align Step 5 with Step 6: add 'If `.gsd-t/progress.md` exists' to the Step 5 instruction. Or make both steps unconditional and accept creating the file. The inconsistency across commands is the core defect.
+- **Found in slice:** backlog-management
+### TD-160 - Decision Log format inconsistent across all backlog commands - does not match contract
+- **Area:** Document ripple / contract compliance
+- **Severity:** MEDIUM
+- **Status:** OPEN
+- **Location:** /Users/david/projects/GSD-T/commands/gsd-t-backlog-remove.md, /Users/david/projects/GSD-T/commands/gsd-t-backlog-add.md, /Users/david/projects/GSD-T/commands/gsd-t-backlog-edit.md, /Users/david/projects/GSD-T/commands/gsd-t-backlog-move.md, /Users/david/projects/GSD-T/commands/gsd-t-backlog-promote.md, /Users/david/projects/GSD-T/.gsd-t/contracts/progress-file-format.md, commands/gsd-t-backlog-remove.md, commands/gsd-t-backlog-add.md, commands/gsd-t-backlog-move.md, commands/gsd-t-backlog-edit.md
+- **Description:** The `progress-file-format.md` contract specifies Decision Log entries as: `- YYYY-MM-DD HH:MM: {description}` (dash-prefixed list item, with time). Backlog commands deviate: (1) `backlog-remove` Step 5 writes `| {YYYY-MM-DD} | Removed... |` - a table row format, no time, no dash prefix; (2) `backlog-add` Step 6 writes `{date} - Added backlog item...` - no dash prefix, no time, em-dash separator instead of colon; (3) `backlog-edit`, `backlog-move`, `backlog-promote` say 'Date: today's date' without specifying HH:MM. None of the backlog commands reference the `[GSD-T NOW]` signal for the live clock as required by the Live Clock Rule in CLAUDE.md.
+- **Impact:** Progress.md accumulates malformed Decision Log entries in mixed formats. Status readers and the date-guard hook may reject or misparse entries. The date-guard hook explicitly validates `- YYYY-MM-DD HH:MM:` format.
+- **Remediation:** Standardize all six backlog command Document Ripple steps to use the contract format: `- YYYY-MM-DD HH:MM: {description}` sourced from `[GSD-T NOW]`. Specifically fix `backlog-remove` Step 5 which uses completely the wrong format (table row).
+- **Found in slice:** backlog-management, slash-command-library
+### TD-161 - settings.json corrupted by five independent read-modify-write cycles during install
+- **Area:** Installer correctness / race condition
+- **Severity:** MEDIUM
+- **Status:** OPEN
+- **Location:** bin/gsd-t.js
+- **Description:** doInstall() calls five separate functions that each independently read settings.json, mutate an in-memory object, and write the file back: configureHeartbeatHooks (line 356), configureUpdateCheckHook (line 893), configureAutoRouteHook (line 973), configureInSessionHooks (line 1060), and configureContextMeterHooks (line 1550). Each function calls readSettingsJson(), which re-reads from disk at the time it's invoked. If any two of these five writes interleave - or if another process (e.g., Claude Code itself) writes settings.json between any two of these calls - the last writer wins and silently drops the hooks written by earlier writers. The five writes are sequential within a single Node.js process so concurrency is limited to external processes, but the install flow runs at session startup with Claude Code also active, making the race window real. The fix is to load settings.json once at the start of doInstall, pass the in-memory object through all five configurators, and write once at the end.
+- **Impact:** On a machine where Claude Code is running during install (the normal case), hooks added by earlier configure* calls can be silently lost when a later call reads and overwrites settings.json. The user sees success messages but some hooks are missing, causing missed heartbeats, skipped auto-route, or dropped conversation capture.
+- **Remediation:** Refactor doInstall to load settings.json once, pass the mutable settings object into each configure* function as a parameter, and flush to disk a single time after all hooks have been applied. The configure* functions already operate on in-memory objects - only the I/O calls at each function boundary need to move.
+- **Found in slice:** cli-installer-updater
+### TD-162 - Context meter PostToolUse hook still installed on fresh install despite M61 retirement
 - **Area:** Installer correctness / dead code
 - **Severity:** MEDIUM
 - **Status:** OPEN
@@ -467,7 +494,7 @@ The only path that still injects stack rules is the legacy `bin/gsd-t-task-brief
 - **Impact:** Every install adds a dead hook entry to settings.json (noise, extra PostToolUse invocations that silently no-op). Status output always shows 'Context: N/A' which is confusing. The dead code adds ~200 lines of maintenance burden and contributes to cognitive load when reading the installer.
 - **Remediation:** Remove the configureContextMeterHooks call from doInstall (line 1550), the showStatusContextMeter call from doStatus (line 1822), and all the associated dead constants and functions. Also remove the context-meter-related entries from UNATTENDED_GITIGNORE_ENTRIES if they are no longer relevant.
 - **Found in slice:** cli-installer-updater
-### TD-160 - parseTestResult in debug-loop yields false negatives: 'error' substring matches any error mention
+### TD-163 - parseTestResult in debug-loop yields false negatives: 'error' substring matches any error mention
 - **Area:** Headless execution correctness
 - **Severity:** MEDIUM
 - **Status:** OPEN
@@ -476,7 +503,8 @@ The only path that still injects stack rules is the legacy `bin/gsd-t-task-brief
 - **Impact:** Debug-loop iterations that actually succeed are classified as failures, consuming the full 20-iteration budget without fixing anything. The loop exits with code 1 instead of code 0, upstream orchestrators treat clean outputs as broken.
 - **Remediation:** Tighten the failed heuristic to match structured failure patterns rather than bare 'error'. Use patterns similar to the mapHeadlessExitCode regexes already in the file: require a non-zero count prefix for error counts (e.g., /\b([1-9]\d*)\s+errors?\b/), or require a clearly terminal line like /^error:/im. At minimum, exclude 'error' from the single-word check and require 'errors' to be accompanied by a count or structural context.
 - **Found in slice:** cli-installer-updater
-### TD-161 - registerProject read-then-write on PROJECTS_FILE has no lock - concurrent register calls can lose entries
+
+### TD-164 - registerProject read-then-write on PROJECTS_FILE has no lock - concurrent register calls can lose entries
 - **Area:** Race condition / installer correctness
 - **Severity:** MEDIUM
 - **Status:** OPEN
@@ -485,7 +513,7 @@ The only path that still injects stack rules is the legacy `bin/gsd-t-task-brief
 - **Impact:** In normal single-user interactive use the race is unlikely. In CI pipelines or scripts that call gsd-t init in parallel for multiple projects, one or more registrations can be silently dropped, breaking update-all propagation.
 - **Remediation:** Use a tmp+rename pattern for the write (write to PROJECTS_FILE + '.tmp.' + process.pid, then fs.renameSync) to make the write atomic on POSIX. For the stale-pruning issue, filter out missing paths in getRegisteredProjects and write the cleaned list back when stale entries are found. A file lock (e.g., via a lock file with a short spin) would fully address the concurrent-register race but may be overkill for a CLI installer.
 - **Found in slice:** cli-installer-updater
-### TD-162 - scan command is a do-nothing stub - silently succeeds without executing any scan
+### TD-165 - scan command is a do-nothing stub - silently succeeds without executing any scan
 - **Area:** Dead / missing functionality
 - **Severity:** MEDIUM
 - **Status:** OPEN
@@ -494,7 +522,7 @@ The only path that still injects stack rules is the legacy `bin/gsd-t-task-brief
 - **Impact:** A developer scripting around gsd-t scan (e.g., in CI) gets exit 0 with no output and no analysis performed. Silent success on a do-nothing stub is a correctness bug.
 - **Remediation:** Either delegate 'gsd-t scan' to the Workflow script via spawnSync (like the other Workflow-backed commands), or remove the case and let the default handler emit an 'unknown command' error. If 'gsd-t scan' is intentionally a no-op (the Workflow handles it), remove the case entirely and add a comment in the CLI switch explaining that scan only runs via the Workflow (not the CLI).
 - **Found in slice:** cli-installer-updater
-### TD-163 - Integrate agent in gsd-t-execute.workflow.js missing required model: field
+### TD-166 - Integrate agent in gsd-t-execute.workflow.js missing required model: field
 - **Area:** Model Display contract compliance
 - **Severity:** MEDIUM
 - **Status:** OPEN
@@ -503,8 +531,7 @@ The only path that still injects stack rules is the legacy `bin/gsd-t-task-brief
 - **Impact:** The Workflow runtime emits a `⚙ [{model}] {label}` line per stage for real-time visibility. Without a model declaration, the runtime uses an unspecified default - the user cannot see which model handled integration, and the contract's traceability requirement is broken. On a rate-limit event, the runtime cannot apply the correct backoff tier for the model being used.
 - **Remediation:** Add `model: 'sonnet'` to the integrate agent options at line 183-184: `agent(integratePrompt, { label: 'integrate', phase: 'Integrate', schema: INTEGRATE_RESULT_SCHEMA, model: 'sonnet' })`
 - **Found in slice:** workflow-orchestration-engine
-
-### TD-164 - Hardcoded m61 commit prefix in four workflow scripts - wrong for any other milestone
+### TD-167 - Hardcoded m61 commit prefix in four workflow scripts - wrong for any other milestone
 - **Area:** Prompt correctness / methodology
 - **Severity:** MEDIUM
 - **Status:** OPEN
@@ -513,7 +540,7 @@ The only path that still injects stack rules is the legacy `bin/gsd-t-task-brief
 - **Impact:** Every commit made by these workflows on a project working on M62, M63, M70, or any non-M61 milestone will be tagged with 'm61(...)' in the git log. This corrupts the commit history traceability that GSD-T uses to track which milestone changed which file. The Progress Decision Log and architecture audit tools that grep commit messages by milestone prefix will misreport coverage.
 - **Remediation:** Replace the hardcoded 'm61' with the `milestone` variable: e.g., `\`${milestone}(debug-cycle${cycle})\`` in debug.workflow.js, `\`${milestone}(quick)\`` in quick.workflow.js, `\`${milestone}(${phaseName})\`` in phase.workflow.js, and `\`${milestone}(integrate)\`` in integrate.workflow.js. For debug and quick which do not always receive a milestone, fall back: `${milestone || 'fix'}(debug-cycle${cycle})`.
 - **Found in slice:** workflow-orchestration-engine
-### TD-165 - M71 native-lint test guard covers only gsd-t-scan.workflow.js - six others unprotected
+### TD-168 - M71 native-lint test guard covers only gsd-t-scan.workflow.js - six others unprotected
 - **Area:** Test coverage gap
 - **Severity:** MEDIUM
 - **Status:** OPEN
@@ -522,16 +549,7 @@ The only path that still injects stack rules is the legacy `bin/gsd-t-task-brief
 - **Impact:** New regressions (accidentally re-adding require() to scan, or adding new workflow files with require()) are caught only for scan. The six unguarded workflows can ship with sandbox-breaking calls indefinitely. This test was designed as a ratchet to enforce the M71 migration, but the ratchet is frozen.
 - **Remediation:** After fixing the require() usage in each workflow per finding #2, add each fixed file to the RUNTIME_NATIVE array. The final state should be all *.workflow.js files in the list. Consider also adding a 'all workflow files are in the lint list' assertion to prevent future additions from being silently unguarded.
 - **Found in slice:** workflow-orchestration-engine
-### TD-166 - Orchestrator _parseStreamJson collects both content_block_delta and assistant message text - potential output duplication
-- **Area:** Output parsing correctness
-- **Severity:** MEDIUM
-- **Status:** OPEN
-- **Location:** bin/orchestrator.js
-- **Description:** Lines 352-363 of _parseStreamJson collect text from both `event.type === 'assistant'` (complete message content) AND `event.type === 'content_block_delta'` (streaming partial chunks). When `claude -p --output-format stream-json` runs in streaming mode, it emits content_block_delta events progressively and then a final assistant event with the complete assembled content. Collecting both means the text is concatenated twice: once from the individual streaming chunks and once from the complete final message. The `event.type === 'result'` branch (lines 362-364) adds a third potential source if the result field contains the final text. This means the orchestrator's parsed output could contain the full assistant response 2-3x, causing review-log files to be inflated and any pattern-matching on the output (such as _parseDefaultReviewResult's regex search) to scan redundant content.
-- **Impact:** The build-log files written at lines 944-947 and 958-960 are inflated with duplicated content (up to 3x). The _parseDefaultReviewResult's regex searches over the duplicated content, which could cause false positives on the FAIL/DEVIATION keyword detection if a passing response happens to include those words in its explanation of what was checked. The maxBuffer: 10MB cap means very long responses may get truncated in the callback.
-- **Remediation:** Collect text from only one source. Prefer the `assistant` event type (complete message, no ordering concerns) and remove the `content_block_delta` handler. Alternatively, track whether an assistant event has been seen and skip delta accumulation after that. Also consider using only the `result` type if it reliably carries the final answer.
-- **Found in slice:** workflow-orchestration-engine
-### TD-167 - Orchestrator element auto-correction silently mutates design contract files without user confirmation
+### TD-169 - Orchestrator element auto-correction silently mutates design contract files without user confirmation
 - **Area:** Destructive Action Guard violation
 - **Severity:** MEDIUM
 - **Status:** OPEN
@@ -540,7 +558,7 @@ The only path that still injects stack rules is the legacy `bin/gsd-t-task-brief
 - **Impact:** A contract referencing a renamed or typo'd element can get auto-corrected to the wrong component (e.g. 'stat-card' might become 'data-card' if 'card' and a prefix share ≥2 words with a wrong element). The build agent then implements the wrong component, but no error is reported because the correction was silent. The heuristic also misses any component type not listed in the regex - those silently pass through as undetected drift.
 - **Remediation:** Remove the silent auto-correction. Replace with a preflight check that (a) reports which contracts reference unknown elements, (b) halts with an error and lists the missing elements and their closest matches, (c) asks the user to update the contract manually. If auto-correction is kept, it must: log clearly what will be changed before writing, require an explicit --auto-correct CLI flag, and not use the hardcoded prefix list (instead check all referenced identifiers against the full inventory).
 - **Found in slice:** workflow-orchestration-engine
-### TD-168 - SIGKILL escalation timer leaks: never canceled when child exits cleanly after SIGTERM
+### TD-170 - SIGKILL escalation timer leaks: never canceled when child exits cleanly after SIGTERM
 - **Area:** Process lifecycle management
 - **Severity:** MEDIUM
 - **Status:** OPEN
@@ -549,7 +567,7 @@ The only path that still injects stack rules is the legacy `bin/gsd-t-task-brief
 - **Impact:** In normal operation the PID recycling window is small and the OS rejects SIGKILL to non-children with ESRCH (caught silently). However in high-concurrency scenarios with many short-lived children, PID recycling becomes more likely. The main correctness impact is that processes that exit quickly after SIGTERM still tie up the SIGKILL timer, creating a 5-second delay before the test runner or verify-gate can cleanly exit.
 - **Remediation:** Return the timer handle from `_killChild` and store it in a variable visible to the close/error handlers: `killTimer = _killChild(child)`. Then `clearTimeout(killTimer)` in both handlers correctly cancels the pending SIGKILL. Alternatively, store the timer on the child object itself (`child.__pcli_sigkill_timer`).
 - **Found in slice:** parallel-execution-and-task-graph
-### TD-169 - estimateTaskFootprint M61 stub lacks estimatedCwPct field - unattended CW gate is permanently broken
+### TD-171 - estimateTaskFootprint M61 stub lacks estimatedCwPct field - unattended CW gate is permanently broken
 - **Area:** Mode-aware gating (unattended)
 - **Severity:** MEDIUM
 - **Status:** OPEN
@@ -558,7 +576,7 @@ The only path that still injects stack rules is the legacy `bin/gsd-t-task-brief
 - **Impact:** The unattended-mode per-worker context-window gate is non-functional. Tasks that would exceed the 60% CW threshold are never signaled for splitting. This causes unattended workers to potentially run tasks that exceed their context budget without any advance warning, leading to mid-task compaction or truncated output.
 - **Remediation:** Either (a) update the stub to return `{ estimatedCwPct: 0, split: false, ...}` so at least the gate logic is exercised with neutral values, or (b) replace the stub with a real implementation that reads task size from tasks.md line count or scope.md file sizes as a heuristic. Option (a) is the minimal fix; option (b) restores the intended gate.
 - **Found in slice:** parallel-execution-and-task-graph
-### TD-170 - Double event emission for D4 dep-vetoed and D5 disjointness-fallback tasks
+### TD-172 - Double event emission for D4 dep-vetoed and D5 disjointness-fallback tasks
 - **Area:** Event stream correctness
 - **Severity:** MEDIUM
 - **Status:** OPEN
@@ -567,7 +585,7 @@ The only path that still injects stack rules is the legacy `bin/gsd-t-task-brief
 - **Impact:** Dashboard, visualizer, and `gsd-t status` tools that parse `.gsd-t/events/YYYY-MM-DD.jsonl` see each veto/fallback twice. Deduplication by `task_id` is not possible because the two events have different `type`/`event_type` keys. Over a session with many vetoed tasks, the event log grows at 2× the expected rate and query results double-count decisions.
 - **Remediation:** Remove the redundant `appendEvent` calls from `runParallel` in `gsd-t-parallel.cjs` (lines 227-233 for D4, lines 249-256 for D5). Each gate module already writes the canonical event. If `runParallel` needs to emit additional metadata not in the gate-module events, use a distinct event type (e.g. `parallel_gate_summary`) emitted once per run rather than per task.
 - **Found in slice:** parallel-execution-and-task-graph
-### TD-171 - gsd-t-partition.md 'Next Up' hint references retired /gsd-t-discuss command
+### TD-173 - gsd-t-partition.md 'Next Up' hint references retired /gsd-t-discuss command
 - **Area:** Stale/incorrect documentation
 - **Severity:** MEDIUM
 - **Status:** OPEN
@@ -576,7 +594,7 @@ The only path that still injects stack rules is the legacy `bin/gsd-t-task-brief
 - **Impact:** Agent attempting to invoke `/gsd-t-discuss` will fail because no command file exists; depending on Claude Code behavior it may silently skip or error.
 - **Remediation:** Update the hint in `gsd-t-partition.md` line 52 to say: 'Use `/gsd "let's discuss the architecture before partitioning"` first if the milestone is architecturally complex.' This routes through the Smart Router which now handles the discuss phase inline.
 - **Found in slice:** slash-command-library
-### TD-172 - global-change.md uses wrong package name @tekyz/gsd-t instead of @tekyzinc/gsd-t
+### TD-174 - global-change.md uses wrong package name @tekyz/gsd-t instead of @tekyzinc/gsd-t
 - **Area:** Incorrect configuration/reference
 - **Severity:** MEDIUM
 - **Status:** OPEN
@@ -585,7 +603,7 @@ The only path that still injects stack rules is the legacy `bin/gsd-t-task-brief
 - **Impact:** The `copy` fallback path resolution fails silently; agent falls through to asking the user for the directory path instead of finding it automatically.
 - **Remediation:** Change `node_modules/@tekyz/gsd-t/` to `node_modules/@tekyzinc/gsd-t/` on line 98 of `global-change.md`.
 - **Found in slice:** slash-command-library
-### TD-173 - gsd-t-gap-analysis.md is missing Step 5 - numbering jumps from Step 4 to Step 6
+### TD-175 - gsd-t-gap-analysis.md is missing Step 5 - numbering jumps from Step 4 to Step 6
 - **Area:** Structural gap/missing content
 - **Severity:** MEDIUM
 - **Status:** OPEN
@@ -594,7 +612,7 @@ The only path that still injects stack rules is the legacy `bin/gsd-t-task-brief
 - **Impact:** An agent strictly following numbered steps may skip the synthesis phase, writing the Step 6 document from incomplete data if team mode was used.
 - **Remediation:** Add Step 5: Synthesize Team Results - the lead reads each teammate's output and merges the classification tables before writing the gap analysis document in Step 6. This is implied by the Step 4 team-mode instructions ('Lead: collect classification results, resolve conflicts, merge results') but has no formal step.
 - **Found in slice:** slash-command-library
-### TD-174 - gsd-t-health.md valid status list is missing INITIALIZED, ROADMAPPED, ACTIVE, and EXECUTING
+### TD-176 - gsd-t-health.md valid status list is missing INITIALIZED, ROADMAPPED, ACTIVE, and EXECUTING
 - **Area:** Broken invariant / incomplete validation
 - **Severity:** MEDIUM
 - **Status:** OPEN
@@ -603,16 +621,7 @@ The only path that still injects stack rules is the legacy `bin/gsd-t-task-brief
 - **Impact:** Projects fresh from `/gsd-t-init` (status=INITIALIZED) or `/gsd-t-project` (status=ROADMAPPED) will report a false INVALID check when health is run, potentially triggering unnecessary repair attempts.
 - **Remediation:** Add `INITIALIZED`, `ROADMAPPED`, `ACTIVE`, and `EXECUTING` to the valid status list in `gsd-t-health.md` line 59.
 - **Found in slice:** slash-command-library
-### TD-175 - gsd-t-quick.md Step 3 Deviation Rules has a '3-attempt limit' that contradicts the global Prime Rule's '2-attempt limit'
-- **Area:** Conflicting invariants
-- **Severity:** MEDIUM
-- **Status:** OPEN
-- **Location:** commands/gsd-t-quick.md
-- **Description:** `gsd-t-quick.md` lines 227 and 232 say: 'Fix it, up to 3 attempts' and '3-attempt limit: Stop looping after 3 failed fix attempts.' The global `CLAUDE.md` Prime Rule states: 'IF a test fails, fix it immediately (up to 2 attempts) before reporting.' The orthogonal validation contract also uses 2 cycles. Using 3 attempts in quick mode creates inconsistency - an agent running quick will do one more fix cycle than expected by the system design before delegating to `headless --debug-loop`.
-- **Impact:** An agent following quick.md will attempt one extra fix cycle per blocked bug before deferring, slightly extending execution time and token use, but no data loss risk.
-- **Remediation:** Change the limit in `gsd-t-quick.md` Deviation Rules from 3 to 2, matching the global Prime Rule: 'Fix it, up to 2 attempts. If still blocked, add to `.gsd-t/deferred-items.md` and skip.'
-- **Found in slice:** slash-command-library
-### TD-176 - gsd-t-help.md wave description says it runs partition→plan→impact→execute→test-sync→integrate→verify+complete but wave.md only runs execute+verify
+### TD-177 - gsd-t-help.md wave description says it runs partition→plan→impact→execute→test-sync→integrate→verify+complete but wave.md only runs execute+verify
 - **Area:** Misleading documentation
 - **Severity:** MEDIUM
 - **Status:** OPEN
@@ -621,7 +630,7 @@ The only path that still injects stack rules is the legacy `bin/gsd-t-task-brief
 - **Impact:** Users expecting wave to run partition/plan/impact will be surprised when those phases are skipped; they may run wave on an unplanned milestone and get domain-worker failures because no tasks.md exists.
 - **Remediation:** Update `gsd-t-help.md` line 292 to accurately describe wave's scope: '**Runs**: execute (preflight → brief → disjointness → parallel domain workers → integrate → verify-gate) → verify (orthogonal triad → synthesis → complete-milestone). Partition, plan, and impact must be run first.'
 - **Found in slice:** slash-command-library
-### TD-177 - checkin.md uses 'git add -A' which is explicitly prohibited by the pre-commit gate and cpua.md
+### TD-178 - checkin.md uses 'git add -A' which is explicitly prohibited by the pre-commit gate and cpua.md
 - **Area:** Policy violation / security
 - **Severity:** MEDIUM
 - **Status:** OPEN
@@ -630,7 +639,7 @@ The only path that still injects stack rules is the legacy `bin/gsd-t-task-brief
 - **Impact:** A commit via checkin.md could include sensitive files, large binaries, or runtime noise that should not be in the repo.
 - **Remediation:** Change `checkin.md` Step 11 to use explicit staged files: 'Stage the changed files explicitly using `git add <files>`. Include the version bump (`package.json`) and changelog (`CHANGELOG.md`) but review `git status` first and exclude runtime artifacts, logs, and `.env` files.'
 - **Found in slice:** slash-command-library
-### TD-178 - contracts-stable _isPastPartitioned regex never matches real progress.md heading format
+### TD-179 - contracts-stable _isPastPartitioned regex never matches real progress.md heading format
 - **Area:** Preflight check correctness
 - **Severity:** MEDIUM
 - **Status:** OPEN
@@ -639,7 +648,7 @@ The only path that still injects stack rules is the legacy `bin/gsd-t-task-brief
 - **Impact:** DRAFT/PROPOSED contracts past the PARTITIONED state are never caught by the contracts-stable preflight check. The check silently passes on every run. This is a warn-severity check so it does not block execution, but it eliminates the safety net for contracts that remain DRAFT when they should be STABLE.
 - **Remediation:** Update the regex to also match ATX headings and bold-prefixed formats: `/(?:^#{1,6}\s+|^\s*\*{0,2}\s*)Status\s*:?\s*\**\s*([A-Za-z\-]+)/gim`. Also add a test case for `'## Status: ACTIVE'` (the actual progress.md format) that asserts true.
 - **Found in slice:** verify-gate-and-ci-parity
-### TD-179 - _buildSummary mutates caller's track2.notes array via .push()
+### TD-180 - _buildSummary mutates caller's track2.notes array via .push()
 - **Area:** Verify-gate output integrity
 - **Severity:** MEDIUM
 - **Status:** OPEN
@@ -648,7 +657,7 @@ The only path that still injects stack rules is the legacy `bin/gsd-t-task-brief
 - **Impact:** The returned envelope's track2.notes contains spurious truncation notes that weren't there before the build - callers inspecting track2.notes will see entries that are artifacts of the summary-building process rather than track2 execution. In tests that reuse a track2 fixture, repeated calls accumulate noise.
 - **Remediation:** Replace `track2.notes.push(truncatedNote)` and `track2.notes.sort()` with a local copy: `const notes = [...(track2.notes || []), truncatedNote].sort()`. Return the notes in the summary object separately from the canonical track2 notes, or pass a separate notes sink array into _buildSummary.
 - **Found in slice:** verify-gate-and-ci-parity
-### TD-180 - playwright.config.mjs not detected - ESM playwright configs skip E2E in Track 2
+### TD-181 - playwright.config.mjs not detected - ESM playwright configs skip E2E in Track 2
 - **Area:** Verify-gate test coverage detection
 - **Severity:** MEDIUM
 - **Status:** OPEN
@@ -657,7 +666,8 @@ The only path that still injects stack rules is the legacy `bin/gsd-t-task-brief
 - **Impact:** A project with playwright.config.mjs gets a verify-gate PASS verdict without any E2E testing. CI can report VERIFIED on a milestone where E2E tests would fail. Particularly problematic because playwright.config.mjs is increasingly common in modern TypeScript/ESM projects.
 - **Remediation:** Add `playwright.config.mjs` to the detection check at line 282: `has('playwright.config.ts') || has('playwright.config.js') || has('playwright.config.cjs') || has('playwright.config.mjs')`.
 - **Found in slice:** verify-gate-and-ci-parity
-### TD-181 - execSync calls in branch-guard, working-tree-state, ports-free have no timeout
+
+### TD-182 - execSync calls in branch-guard, working-tree-state, ports-free have no timeout
 - **Area:** Preflight check reliability
 - **Severity:** MEDIUM
 - **Status:** OPEN
@@ -666,8 +676,7 @@ The only path that still injects stack rules is the legacy `bin/gsd-t-task-brief
 - **Impact:** An unresponsive git or lsof call will hang the entire verify phase with no timeout, no error, and no way to abort short of killing the parent process. This is particularly problematic in CI/CD environments or network-mounted repos.
 - **Remediation:** Add `timeout: 10000` (10 seconds) to all three execSync calls and convert any `ETIMEDOUT` error to an ok=false result with a descriptive msg. The ports-free check already handles lsof errors gracefully (lines 55-57) - just add the timeout option.
 - **Found in slice:** verify-gate-and-ci-parity
-
-### TD-182 - Synthesis verdict has no programmatic invariant enforcing Red Team FAIL → VERIFY-FAILED
+### TD-183 - Synthesis verdict has no programmatic invariant enforcing Red Team FAIL → VERIFY-FAILED
 - **Area:** Verify workflow correctness
 - **Severity:** MEDIUM
 - **Status:** OPEN
@@ -676,7 +685,7 @@ The only path that still injects stack rules is the legacy `bin/gsd-t-task-brief
 - **Impact:** An adversarial or confused synthesis agent could grant VERIFIED status despite a Red Team FAIL (CRITICAL or HIGH bugs found). This contradicts orthogonal-validation-contract.md v1.0.0 Rule #1 ('Red Team FAIL blocks completion'). The probability is low with Opus 4.x but the invariant should be enforced in code, not just in prompts.
 - **Remediation:** After the synthesis agent returns its verdict (line 337), add a programmatic guard: inspect triadResults for any result with `category === 'adversarial-security-boundaries'` and `verdict === 'FAIL'`. If found, downgrade overallVerdict to 'VERIFY-FAILED' unconditionally and add a note to blockingFindings. This is deterministic and prevents prompt-following failures from granting false VERIFIED status.
 - **Found in slice:** verify-gate-and-ci-parity
-### TD-183 - tryKroki is async but renderDiagram is synchronous - Kroki fallback is permanently dead code
+### TD-184 - tryKroki is async but renderDiagram is synchronous - Kroki fallback is permanently dead code
 - **Area:** Diagram Rendering
 - **Severity:** MEDIUM
 - **Status:** OPEN
@@ -685,7 +694,7 @@ The only path that still injects stack rules is the legacy `bin/gsd-t-task-brief
 - **Impact:** The three-tier fallback documented in the module (mmdc → d2 → kroki) is actually two-tier (mmdc → d2 → placeholder). Users who set `KROKI_HOST` expecting to avoid installing mmdc/d2 will always get placeholder diagrams.
 - **Remediation:** Either: (a) make `renderDiagram` async and await `tryKroki` as the third fallback, or (b) remove `tryKroki` and the `https` import entirely and document that only mmdc and d2 are supported. Option (a) requires callers (scan-diagrams.js) to await the result.
 - **Found in slice:** codebase-scan-engine
-### TD-184 - merged.includes(f) identity check is dead code - never filters anything
+### TD-185 - merged.includes(f) identity check is dead code - never filters anything
 - **Area:** Scan Workflow Deduplication
 - **Severity:** MEDIUM
 - **Status:** OPEN
@@ -694,7 +703,16 @@ The only path that still injects stack rules is the legacy `bin/gsd-t-task-brief
 - **Impact:** No incorrect behavior today (the dedup still works because `dropped` does the real exclusion), but the dead filter adds confusion and could mask future bugs if the dedup logic is refactored. If someone removes the `dropped.add(idxs[0])` thinking the `merged.includes` filter handles it, duplicates would appear in the register.
 - **Remediation:** Remove the `.filter((f) => !merged.includes(f))` call. The comment `// pump() increments inUse on grant` in acquire() already documents that dropped handles exclusion. Optionally add an explanatory comment that `dropped` is the sole dedup mechanism.
 - **Found in slice:** codebase-scan-engine
-### TD-185 - Domain mapping false-positives via String.includes() - short file path fragments match wrong entities
+### TD-186 - Heredoc delimiter GSDTEOF is not sanitized from chunk content - potential register truncation
+- **Area:** Scan Workflow Register Writing
+- **Severity:** MEDIUM
+- **Status:** OPEN
+- **Location:** templates/workflows/gsd-t-scan.workflow.js:588, templates/workflows/gsd-t-scan.workflow.js:749
+- **Description:** The chunk-write agent prompt instructs the subagent to use `cat >> path <<'GSDTEOF' ... GSDTEOF` for appending. If any finding's `detail`, `title`, `recommendation`, or other free-text field contains the literal string `GSDTEOF` on its own line, the heredoc terminates early and the remainder of that chunk is dropped as a shell command, potentially corrupting the register. The `ascii()` normalizer does not sanitize this token. While unlikely in normal LLM output, adversarial input (e.g. a finding about shell injection that uses this literal as an example) would trigger it.
+- **Impact:** Silent register truncation at the finding containing `GSDTEOF`. Subsequent findings in the same chunk are dropped without error. The agent may then attempt to execute the trailing content as shell commands.
+- **Remediation:** Use `sed 's/GSDTEOF/GSDTEOF_ESCAPED/g'` in `ascii()`, or switch the append instruction to use the Write tool (read existing content, concatenate chunk, write back) rather than a heredoc. The Write tool approach avoids shell injection entirely.
+- **Found in slice:** codebase-scan-engine
+### TD-187 - Domain mapping false-positives via String.includes() - short file path fragments match wrong entities
 - **Area:** Correctness / Overlay mapping
 - **Severity:** MEDIUM
 - **Status:** OPEN
@@ -703,7 +721,7 @@ The only path that still injects stack rules is the legacy `bin/gsd-t-task-brief
 - **Impact:** Domain assignments, contract mappings, and test mappings are systematically noisy. getDomainBoundaryViolations() produces false violations based on wrong domain assignments. Common function names like 'get' or 'on' map to every contract file.
 - **Remediation:** Domain-to-file matching: use path.normalize and check that entity.file starts with f + '/' or equals f exactly (not substring). Contract/test matching: require word-boundary matching (\bname\b) or require entity.name to appear in a code-specific pattern (e.g., backtick reference `name` or exact symbol identifier).
 - **Found in slice:** code-graph-engine
-### TD-186 - isStale path separator inconsistency - always stale on Windows
+### TD-188 - isStale path separator inconsistency - always stale on Windows
 - **Area:** Cross-platform correctness
 - **Severity:** MEDIUM
 - **Status:** OPEN
@@ -712,7 +730,7 @@ The only path that still injects stack rules is the legacy `bin/gsd-t-task-brief
 - **Impact:** On Windows, performance degrades to a full re-index on every single query call. The 500ms debounce still fires indexProject on every non-excluded query type.
 - **Remediation:** Add .replace(/\\/g, '/') to the key computation in isStale, or extract a shared normalizeRelPath(root, abs) helper used by both functions.
 - **Found in slice:** code-graph-engine
-### TD-187 - call resolution uses first-match-only by entity name - multi-file name collisions silently resolved wrong
+### TD-189 - call resolution uses first-match-only by entity name - multi-file name collisions silently resolved wrong
 - **Area:** Correctness / Graph accuracy
 - **Severity:** MEDIUM
 - **Status:** OPEN
@@ -721,7 +739,7 @@ The only path that still injects stack rules is the legacy `bin/gsd-t-task-brief
 - **Impact:** getCallers and findDeadCode results are wrong for any project using common function names across modules. findDeadCode may flag functions that ARE called as dead because their call edges were attributed to a different entity.
 - **Remediation:** Resolve callee names to entity IDs by file context: the caller's file is known (call.caller contains filePath), so resolve to the entity in the same file or the imported file (cross-reference allImports for the caller's file). Fall back to a list of all matching entities if no import-based resolution is possible.
 - **Found in slice:** code-graph-engine
-### TD-188 - Python parser silently skips all dunder methods except __init__
+### TD-190 - Python parser silently skips all dunder methods except __init__
 - **Area:** Correctness / Parser coverage
 - **Severity:** MEDIUM
 - **Status:** OPEN
@@ -730,7 +748,7 @@ The only path that still injects stack rules is the legacy `bin/gsd-t-task-brief
 - **Impact:** Call graph and dead-code analysis for Python code misses all dunder methods. __enter__/__exit__ for context managers, __getitem__ for custom collections, __call__ for callable objects are all invisible to the graph engine.
 - **Remediation:** Change the filter to only skip single-underscore private methods: allow names that start with '__' (double underscore) as these are dunder/magic methods. Condition: !defMatch[2].startsWith('_') || defMatch[2].startsWith('__'). This correctly includes dunders while excluding _private helpers.
 - **Found in slice:** code-graph-engine
-### TD-189 - Log injection in advisor-integration via HTML comment terminator in question text
+### TD-191 - Log injection in advisor-integration via HTML comment terminator in question text
 - **Area:** Security / Log integrity
 - **Severity:** MEDIUM
 - **Status:** OPEN
@@ -739,7 +757,7 @@ The only path that still injects stack rules is the legacy `bin/gsd-t-task-brief
 - **Impact:** Corrupts token-log.md rendering. An attacker or bug that controls the question argument can inject arbitrary markdown into the log file, potentially breaking downstream parsers that read token-log.md for metrics.
 - **Remediation:** In sanitizeOneLine, also replace '-->' with '-- >' (or encode as '--&gt;'): return String(s).replace(/\s+/g, ' ').replace(/-->/g, '-- >').trim().slice(0, 500).
 - **Found in slice:** code-graph-engine
-### TD-190 - No request body size limit - feedback POST can OOM the server with large attachment payloads
+### TD-192 - No request body size limit - feedback POST can OOM the server with large attachment payloads
 - **Area:** Review server - POST endpoints
 - **Severity:** MEDIUM
 - **Status:** OPEN
@@ -748,7 +766,7 @@ The only path that still injects stack rules is the legacy `bin/gsd-t-task-brief
 - **Impact:** A feedback submission with multiple high-resolution screenshots can cause the Node.js process to run out of memory, crashing the review server mid-session. The review pipeline stalls and the build orchestrator's polling loop never sees review-complete.json, causing a timeout. In a developer workflow this is disruptive but recoverable; resuming from state may lose the feedback.
 - **Remediation:** Add a body size limit check: track body.length during accumulation and reject (HTTP 413) if it exceeds a threshold (e.g. 50MB for the feedback endpoint, 1MB for others). Example: req.on('data', chunk => { body += chunk; if (body.length > MAX_BYTES) { req.destroy(); res.writeHead(413); res.end(); } });
 - **Found in slice:** design-to-code-pipeline
-### TD-191 - postMessage sent to '*' origin - inject script leaks computed styles to any parent frame
+### TD-193 - postMessage sent to '*' origin - inject script leaks computed styles to any parent frame
 - **Area:** Design review inject script - postMessage origin
 - **Severity:** MEDIUM
 - **Status:** OPEN
@@ -757,7 +775,7 @@ The only path that still injects stack rules is the legacy `bin/gsd-t-task-brief
 - **Impact:** Computed styles, element content (textContent up to 100 chars), DOM paths, and SVG attributes are broadcast to any parent frame origin. For internal design tooling the practical risk is low, but if the project under review contains sensitive data rendered in the UI (user information, business data in charts), this data leaks to any embedding origin. The message handler also accepts style-mutation commands from any origin, so a malicious parent frame could silently modify the app's live styles.
 - **Remediation:** Replace '*' in all postMessage calls with the actual review UI origin (e.g. `http://localhost:${PORT}`). In the message listener, validate e.origin against the expected review server origin and ignore messages from other origins. The review server port is passed as a known constant that can be embedded in the inject script at serve time.
 - **Found in slice:** design-to-code-pipeline
-### TD-192 - Proxy forwards client's Accept-Encoding header, causing brotli/deflate responses that are not handled
+### TD-194 - Proxy forwards client's Accept-Encoding header, causing brotli/deflate responses that are not handled
 - **Area:** Review server - gallery and preview proxy paths
 - **Severity:** MEDIUM
 - **Status:** OPEN
@@ -766,7 +784,7 @@ The only path that still injects stack rules is the legacy `bin/gsd-t-task-brief
 - **Impact:** The /review/gallery and /review/preview routes silently serve garbled content whenever Vite uses compression. Components never render correctly in the preview pane, making the entire visual review UI non-functional. The gallery is especially affected since it renders all queued components in a grid for side-by-side review.
 - **Remediation:** In the proxyOpts for both gallery and preview routes, explicitly set `headers: { ...req.headers, 'accept-encoding': 'identity', host: ... }` to prevent compressed responses. Alternatively, decompress the buffer using zlib before calling toString().
 - **Found in slice:** design-to-code-pipeline
-### TD-193 - Measurement script uses shallow layout checks only - misses chart type, data, accessibility
+### TD-195 - Measurement script uses shallow layout checks only - misses chart type, data, accessibility
 - **Area:** Design orchestrator - Playwright measurement
 - **Severity:** MEDIUM
 - **Status:** OPEN
@@ -775,7 +793,7 @@ The only path that still injects stack rules is the legacy `bin/gsd-t-task-brief
 - **Impact:** The automated measurement gate that drives auto-rejection and review scoring is structurally blind to the most critical deviations: wrong chart type (donut instead of stacked bar), wrong orientation, wrong colors, placeholder data. Items that fail these design-critical properties pass the measurement gate and proceed to human review without a CRITICAL flag, defeating the purpose of automated pre-screening. The design-verify-subagent.md (Step 0.5) specifically calls out wrong data labels as the #1 failure mode.
 - **Remediation:** Extend buildMeasureScript() to include contract-aware checks per component: (1) for chart elements, verify the expected SVG structure (donut = circle elements, bar = rect elements); (2) check at least one contract-specified color via getComputedStyle; (3) verify text content matches at least one label from the contract's Test Fixture. The full contract data is available in the queue item and can be embedded in the generated script.
 - **Found in slice:** design-to-code-pipeline
-### TD-194 - Design review command still uses bash poll loop - documented as an approach that fails
+### TD-196 - Design review command still uses bash poll loop - documented as an approach that fails
 - **Area:** Design review command - gsd-t-design-review.md
 - **Severity:** MEDIUM
 - **Status:** OPEN
@@ -784,16 +802,7 @@ The only path that still injects stack rules is the legacy `bin/gsd-t-task-brief
 - **Impact:** The design-review reviewer agent will not reliably poll the queue in practice - Claude Code agents optimize for task completion and will exit the loop early, skip sleeps, or fail to re-enter the loop after processing items. Reviewer agent sessions quietly complete before all items are reviewed, leaving the orchestrator waiting indefinitely for AI review annotations that never arrive. This was the documented failure mode that led to creating the JS orchestrator.
 - **Remediation:** Retire gsd-t-design-review.md's bash poll loop in favor of the AI review path already embedded in the orchestrator (buildReviewPrompt / buildAutoFixPrompt in design-orchestrator.js, invoked via the orchestrator's automated review cycles). The Term 2 reviewer is already modeled as orchestrator-spawned Claude invocations with structured output parsing; the separate poll-loop command is an orphaned design from before the orchestrator existed.
 - **Found in slice:** design-to-code-pipeline
-### TD-195 - Missing gsd-t-dashboard-server.js crashes autostart at runtime
-- **Area:** Broken dependency / dead code path
-- **Severity:** MEDIUM
-- **Status:** OPEN
-- **Location:** scripts/gsd-t-dashboard-autostart.cjs
-- **Description:** Lines 132 and 145 of gsd-t-dashboard-autostart.cjs reference `./gsd-t-dashboard-server.js`. This file does not exist in the main branch's `scripts/` directory (only in stale worktrees). `require('./gsd-t-dashboard-server.js')` at line 132 will throw `MODULE_NOT_FOUND` synchronously when `ensureDashboardRunning` is called without a `port` option. The `spawn` at line 146 will also silently fail to start any server. Every call site in `bin/gsd-t.js` that invokes `ensureDashboardRunning` without a pre-resolved port is affected.
-- **Impact:** Any consumer calling `ensureDashboardRunning()` without a port throws an unhandled exception; the dashboard feature is entirely broken in the published package.
-- **Remediation:** Either commit the missing `gsd-t-dashboard-server.js` to `scripts/`, or guard the `require` with a try/catch that emits a useful error and returns `{ port: null, alreadyRunning: false }`. Also add an integration test that verifies the server script exists before publishing.
-- **Found in slice:** real-time-agent-dashboard
-### TD-196 - TOCTOU race: lstatSync check then appendFileSync in event writer
+### TD-197 - TOCTOU race: lstatSync check then appendFileSync in event writer
 - **Area:** Security / file integrity race
 - **Severity:** MEDIUM
 - **Status:** OPEN
@@ -802,7 +811,7 @@ The only path that still injects stack rules is the legacy `bin/gsd-t-task-brief
 - **Impact:** A local attacker can redirect event log writes to an arbitrary file (e.g. overwrite a crontab or SSH authorized_keys) by winning the race between the lstat check and the append.
 - **Remediation:** Use `fs.openSync(filePath, fs.constants.O_WRONLY | fs.constants.O_APPEND | fs.constants.O_CREAT | fs.constants.O_NOFOLLOW, 0o644)` followed by `fs.writeSync` and `fs.closeSync`. `O_NOFOLLOW` refuses to open a symlink and eliminates the race window.
 - **Found in slice:** real-time-agent-dashboard
-### TD-197 - WebSocket decoder silently drops high 32 bits of 64-bit payload length
+### TD-198 - WebSocket decoder silently drops high 32 bits of 64-bit payload length
 - **Area:** Protocol correctness
 - **Severity:** MEDIUM
 - **Status:** OPEN
@@ -811,7 +820,7 @@ The only path that still injects stack rules is the legacy `bin/gsd-t-task-brief
 - **Impact:** Malformed frame parsing when a 64-bit length frame is received; subsequent frames in the same TCP segment are silently misaligned or dropped. No current code path generates such frames, but the bug is latent.
 - **Remediation:** Use: `const hi = buf.readUInt32BE(offset); offset += 4; len = hi * 0x100000000 + buf.readUInt32BE(offset); offset += 4;`. In practice, also add a sanity cap (e.g. reject any single frame > 64 MB) since Node.js Buffers are limited to 2 GB anyway.
 - **Found in slice:** real-time-agent-dashboard
-### TD-198 - WebSocket decoder does not buffer partial frames across TCP data events
+### TD-199 - WebSocket decoder does not buffer partial frames across TCP data events
 - **Area:** Protocol correctness / data loss
 - **Severity:** MEDIUM
 - **Status:** OPEN
@@ -820,7 +829,7 @@ The only path that still injects stack rules is the legacy `bin/gsd-t-task-brief
 - **Impact:** A WS close frame that arrives split across two TCP segments will be silently ignored; the server keeps the socket alive despite the client initiating close. Low probability in loopback use but a correctness violation.
 - **Remediation:** Maintain a per-client `client.remainingBuf = Buffer.alloc(0)` and prepend it: `const full = Buffer.concat([client.remainingBuf, buf]);`. After the parse loop, store any trailing bytes in `client.remainingBuf`.
 - **Found in slice:** real-time-agent-dashboard
-### TD-199 - Dashboard HTML injects unescaped event fields into innerHTML - stored XSS
+### TD-200 - Dashboard HTML injects unescaped event fields into innerHTML - stored XSS
 - **Area:** Security / XSS
 - **Severity:** MEDIUM
 - **Status:** OPEN
@@ -829,7 +838,7 @@ The only path that still injects stack rules is the legacy `bin/gsd-t-task-brief
 - **Impact:** Any agent process that emits a crafted `event_type` or `command` field can execute arbitrary JavaScript in the operator's browser when the dashboard is open. Severity is lower than typical because the SSE source is localhost, but a rogue subprocess or compromised tool output can reach this path.
 - **Remediation:** Introduce a `esc()` helper (same as `escapeHtml` in `gsd-t-stream-feed.html`) and wrap every event field before template interpolation: `esc(ev.event_type)`, `esc(ev.model)`, etc. Alternatively, use `document.createElement` + `textContent` for all dynamic content instead of innerHTML.
 - **Found in slice:** real-time-agent-dashboard
-### TD-200 - stream-feed.html Maps (toolUseById, taskStartByKey) grow unboundedly - memory leak
+### TD-201 - stream-feed.html Maps (toolUseById, taskStartByKey) grow unboundedly - memory leak
 - **Area:** Memory management / resource leak
 - **Severity:** MEDIUM
 - **Status:** OPEN
@@ -838,7 +847,8 @@ The only path that still injects stack rules is the legacy `bin/gsd-t-task-brief
 - **Impact:** Long-running unattended sessions (the primary use case) will eventually exhaust browser memory, causing tab crashes or slowdowns after hundreds of tasks.
 - **Remediation:** After a task reaches `done`/`failed` state, delete its entry from `toolUseById` for any tool_use IDs within that task. Cap `taskStartByKey` at e.g. last 500 tasks (prune oldest on insert). Similarly cap `waveStartByNum` and `filterState.seen` sets.
 - **Found in slice:** real-time-agent-dashboard
-### TD-201 - dashboard.html agentMap.current grows without bound - memory leak
+
+### TD-202 - dashboard.html agentMap.current grows without bound - memory leak
 - **Area:** Memory management / resource leak
 - **Severity:** MEDIUM
 - **Status:** OPEN
@@ -847,7 +857,7 @@ The only path that still injects stack rules is the legacy `bin/gsd-t-task-brief
 - **Impact:** Progressive browser slowdown in long sessions; O(n²) graph layout on each event makes the dashboard unusable after ~500 agents, which is realistic for a multi-wave milestone.
 - **Remediation:** Cap `agentMap.current` at a maximum number of agents (e.g. 200); evict completed agents (those with a terminal outcome) when the cap is reached. Debounce `setNodes`/`setEdges` calls - only re-layout when `agentMap` actually changes, not on every event.
 - **Found in slice:** real-time-agent-dashboard
-### TD-202 - writeTranscriptMarker path-traversal guard missing path.sep suffix
+### TD-203 - writeTranscriptMarker path-traversal guard missing path.sep suffix
 - **Area:** Compaction Detection
 - **Severity:** MEDIUM
 - **Status:** OPEN
@@ -856,7 +866,7 @@ The only path that still injects stack rules is the legacy `bin/gsd-t-task-brief
 - **Impact:** Low direct exploitability (transcriptPath is filesystem-derived), but the guard is weaker than the sibling writeRow() guard, creating an inconsistent security posture.
 - **Remediation:** At line 229, change `path.resolve(transcriptsDir)` to `path.resolve(transcriptsDir) + path.sep` to match the defense-in-depth pattern used by writeRow().
 - **Found in slice:** context-and-token-monitoring
-### TD-203 - resolveTurnIdFromTranscript reads entire transcript synchronously on every PostToolUse hook
+### TD-204 - resolveTurnIdFromTranscript reads entire transcript synchronously on every PostToolUse hook
 - **Area:** Heartbeat Hook
 - **Severity:** MEDIUM
 - **Status:** OPEN
@@ -864,15 +874,6 @@ The only path that still injects stack rules is the legacy `bin/gsd-t-task-brief
 - **Description:** resolveTurnIdFromTranscript() at line 258 calls `fs.readFileSync(transcriptPath, 'utf8')` to load the full Claude Code session transcript every time PostToolUse fires. Real-world transcripts grow to 10-15 MB (confirmed: two observed transcripts at ~15 MB and ~10 MB in this project's `.claude/projects/` directory). Reading 15 MB synchronously on every tool call - which can fire dozens of times per minute in active sessions - creates measurable latency in the hook handler. The code comment says '~0ms' but this is based on the matching tool_use being 'near the end' and the scan stopping early. However, `readFileSync` always reads the entire file from disk before the scan begins. The `fs.existsSync` check does not reduce I/O.
 - **Impact:** 10-15 MB synchronous read on every PostToolUse hook firing. In a busy session with rapid tool use, this can accumulate to hundreds of MB of I/O per minute, adding latency to each tool call and potentially causing observable slowdown in the Claude Code UI.
 - **Remediation:** Replace the full readFileSync with a tail-read approach: use `fs.openSync` + `fs.readSync` to read only the last N bytes of the transcript (e.g. last 64 KB), since the matching tool_use is always in the most recent assistant turn. Alternatively, track the last-seen offset between hook calls. This avoids the 15 MB read on every tool invocation.
-- **Found in slice:** context-and-token-monitoring
-### TD-204 - context-meter-config.json template ships with hardcoded 200K modelWindowSize - wrong for all 1M-window models
-- **Area:** Context Meter Configuration
-- **Severity:** MEDIUM
-- **Status:** OPEN
-- **Location:** templates/context-meter-config.json
-- **Description:** The template at line 4 sets `"modelWindowSize": 200000`. This value was correct for pre-Claude-4 models but is 5x too small for Opus 4.7/4.8 and Sonnet 4.5+ which have 1M context windows. The config is copied to new projects via `gsd-t init`. The CLAUDE.md global instructions explicitly state 'Opus 4.7/4.8 ship 1M context windows; the legacy meter at bin/token-budget.cjs was retired in M61.' The gsd-t-calibration-hook.js already uses `SAFE_DEFAULT_WINDOW = 1_000_000`. The 200K value causes the threshold alarm (75% = 150K tokens) to fire far too early on 1M-window sessions - at only 15% actual usage - triggering unnecessary headless-spawn routing.
-- **Impact:** New projects initialized with gsd-t init get a 200K window config. The context meter triggers at 150K tokens (15% of actual 1M capacity), causing premature headless spawning and incorrect context percentage reporting in the status line.
-- **Remediation:** Update the template to `"modelWindowSize": 1000000`. Also update the `thresholdPct` comment to reflect that the threshold now applies to the 1M window. The `checkDoctorContextMeter` function in gsd-t.js should also validate that installed project configs have been updated. Consider deprecating the field entirely since gsd-t-calibration-hook.js already uses model-aware resolution.
 - **Found in slice:** context-and-token-monitoring
 ### TD-205 - gsd-t-auto-route.js produces wrong timezone abbreviation in UTC and single-word timezone environments
 - **Area:** Auto-Route Hook - Timestamp
@@ -1006,16 +1007,7 @@ Additionally, using `process.pid` as the temp file discriminator means that if t
 - **Impact:** Repeated disk-full or permission errors leave orphan `.tmp.{pid}` files next to `rules.jsonl`. On subsequent writes by the same PID (pid reuse), a stale temp file could be silently overwritten mid-write by another process. In a multi-process GSD-T unattended session this is a plausible scenario.
 - **Remediation:** Wrap `writeFileSync` + `renameSync` in try/finally: in the finally block, attempt `fs.unlinkSync(tmp)` if `renameSync` has not been called. Use `crypto.randomBytes(6).toString('hex')` instead of `process.pid` for the temp suffix to eliminate PID-reuse races.
 - **Found in slice:** stack-rules-engine
-### TD-215 - backlog-remove Step 5 writes progress.md unconditionally but file may not exist
-- **Area:** Document ripple consistency
-- **Severity:** MEDIUM
-- **Status:** OPEN
-- **Location:** /Users/david/projects/GSD-T/commands/gsd-t-backlog-remove.md
-- **Description:** Step 5 (`Log Removal`) instructs: 'Add a Decision Log entry in `.gsd-t/progress.md`' with no existence guard. Step 6 then says 'If `.gsd-t/progress.md` exists, update...' - contradicting Step 5. On a fresh project where `gsd-t-init` was not run (or only partially), progress.md may not exist. The LLM will attempt to write to the file, creating it mid-operation with only the removal log entry and no required frontmatter - corrupting the format. By contrast, `backlog-edit` (line 92) and `backlog-move` (line 76) correctly guard with 'If `.gsd-t/progress.md` exists'.
-- **Impact:** In a project without progress.md, `gsd-t-backlog-remove` will create a malformed progress.md with only a partial removal log entry, breaking subsequent `gsd-t-status` and other progress.md readers.
-- **Remediation:** Align Step 5 with Step 6: add 'If `.gsd-t/progress.md` exists' to the Step 5 instruction. Or make both steps unconditional and accept creating the file. The inconsistency across commands is the core defect.
-- **Found in slice:** backlog-management
-### TD-216 - backlog-add has no fallback when Auto-categorize is false and --type is not provided
+### TD-215 - backlog-add has no fallback when Auto-categorize is false and --type is not provided
 - **Area:** Backlog add state machine
 - **Severity:** MEDIUM
 - **Status:** OPEN
@@ -1024,7 +1016,7 @@ Additionally, using `process.pid` as the temp file discriminator means that if t
 - **Impact:** With Auto-categorize disabled, users get opaque validation failures instead of actionable guidance. This is a common configuration for projects that want explicit tagging.
 - **Remediation:** Add to Step 3: 'If Auto-categorize is false and --type is not provided: stop and tell the user: "--type is required (Auto-categorize is disabled). Provide one of: {types list}".' This gives a clear, actionable error rather than a cryptic validation failure.
 - **Found in slice:** backlog-management
-### TD-217 - File references non-existent contract path .gsd-t/contracts/file-format-contract.md
+### TD-216 - File references non-existent contract path .gsd-t/contracts/file-format-contract.md
 - **Area:** Contract compliance / documentation
 - **Severity:** MEDIUM
 - **Status:** OPEN
@@ -1033,7 +1025,7 @@ Additionally, using `process.pid` as the temp file discriminator means that if t
 - **Impact:** Contract compliance checks during settings changes and promotions point to a dead file. Changes that should trigger a contract review silently pass without any check.
 - **Remediation:** Replace all references to `file-format-contract.md` in these two command files with the correct paths: `.gsd-t/contracts/backlog-file-formats.md` (for backlog entry format) and `.gsd-t/contracts/progress-file-format.md` (for progress.md format).
 - **Found in slice:** backlog-management
-### TD-218 - backlog-settings.md template ships unreplaced app tokens that gsd-t init does not substitute
+### TD-217 - backlog-settings.md template ships unreplaced app tokens that gsd-t init does not substitute
 - **Area:** Init / template correctness
 - **Severity:** MEDIUM
 - **Status:** OPEN
@@ -1042,7 +1034,7 @@ Additionally, using `process.pid` as the temp file discriminator means that if t
 - **Impact:** Projects where init doesn't complete Step 8 fully end up with a settings file that causes validation failures on every `gsd-t-backlog-add` call.
 - **Remediation:** Either: (a) extend `applyTokens` to replace `{app1}`, `{app2}`, `{app}` with empty-string or a sensible default like the project name; (b) change the template to use empty Apps section (like Categories); or (c) add a programmatic post-init step that strips unreplaced placeholder tokens from backlog-settings.md.
 - **Found in slice:** backlog-management
-### TD-219 - Zero automated tests for the entire backlog command surface
+### TD-218 - Zero automated tests for the entire backlog command surface
 - **Area:** Test coverage
 - **Severity:** MEDIUM
 - **Status:** OPEN
@@ -1051,8 +1043,25 @@ Additionally, using `process.pid` as the temp file discriminator means that if t
 - **Impact:** Regressions in backlog parsing and state management go undetected. The `queryBacklog` format bug has likely been broken since the backlog feature was added - no test caught it.
 - **Remediation:** Add a test file `test/backlog.test.js` covering: (1) `queryBacklog` with a correctly formatted backlog.md returns correct item count and titles; (2) `queryBacklog` with empty backlog returns 0 items; (3) backlog entry parsing round-trip (add/remove/renumber). Also add CLI integration tests for the `gsd-t query backlog` subcommand.
 - **Found in slice:** backlog-management
-
-### TD-220 - complete-milestone.md summary.md is written before version bump and ELO computation, requiring undocumented backfill steps
+### TD-219 - archive-progress.cjs writes updated progress.md non-atomically - crash between archive and rewrite loses entries from both locations
+- **Area:** Milestone archival / data integrity
+- **Severity:** MEDIUM
+- **Status:** OPEN
+- **Location:** bin/archive-progress.cjs
+- **Description:** The tool writes archive files via `fs.writeFileSync(outPath, ...)` (line 284) and the INDEX via `fs.writeFileSync(path.join(archiveDir, 'INDEX.md'), ...)` (line 291), then rewrites the live progress.md via `fs.writeFileSync(progressPath, newProgress)` (line 296). None of these writes use the tmp-file + rename pattern. By contrast, `global-sync-manager.js` correctly uses `atomicWriteJsonl` (tmp file + `fs.renameSync`). If the process is killed or crashes between line 291 (archive files written) and line 296 (progress.md rewritten), the old entries are now in the archive but the live progress.md still contains them - duplication. If the crash happens mid-write of progress.md (unlikely but possible on large files), the file is partially written and corrupted. Line 279 also contains dead code: `let seq = opts.dryRun ? nextArchiveSeq(archiveDir) : nextArchiveSeq(archiveDir)` - both branches are identical.
+- **Impact:** Progress.md corruption or entry duplication on process kill. While uncommon in practice, progress.md is the source of truth for milestone state and its corruption requires manual recovery.
+- **Remediation:** Write progress.md via a temp file + rename: write to `progressPath + '.tmp.' + process.pid`, then rename. Apply the same pattern to archive files. Remove the duplicate `nextArchiveSeq` call on line 279 (both branches are identical; collapse to one call).
+- **Found in slice:** project-init-and-lifecycle
+### TD-220 - templates/progress.md hardcodes version '0.1.0', conflicting with init.md and CLAUDE-global.md which specify '0.1.00'
+- **Area:** Init / versioning consistency
+- **Severity:** MEDIUM
+- **Status:** OPEN
+- **Location:** templates/progress.md, commands/gsd-t-init.md, templates/CLAUDE-global.md
+- **Description:** `templates/progress.md` line 4 reads `## Version: 0.1.0`. The GSD-T versioning convention (documented in `commands/gsd-t-init.md` line 173 and `templates/CLAUDE-global.md` line 75) is that new projects start at `0.1.00` (two-digit patch). The difference is not cosmetic: `0.1.0` is a valid 3-part semver while `0.1.00` is the GSD-T-specific convention requiring 2-digit patches. If gsd-t-init copies the template verbatim and the model does not override the version field, newly initialized projects will start at `0.1.0`, and the first milestone completion will bump to `0.1.11` instead of the intended `0.1.10`.
+- **Impact:** New projects initialize with the wrong version format, breaking the 2-digit patch convention enforced by complete-milestone.
+- **Remediation:** Update `templates/progress.md` line 4 to `## Version: 0.1.00` to match the documented convention, or add a note that gsd-t-init will substitute the correct value from its version-detection logic.
+- **Found in slice:** project-init-and-lifecycle
+### TD-221 - complete-milestone.md summary.md is written before version bump and ELO computation, requiring undocumented backfill steps
 - **Area:** Milestone archival / complete-milestone orchestration
 - **Severity:** MEDIUM
 - **Status:** OPEN
@@ -1061,7 +1070,7 @@ Additionally, using `process.pid` as the temp file discriminator means that if t
 - **Impact:** Milestone archives contain incomplete summaries with missing git tag names and no ELO data, reducing the utility of the archive for retrospectives.
 - **Remediation:** Move summary.md generation to after Step 8.7 (after ELO is computed), or restructure Step 5 to produce a draft and add an explicit 'Update summary.md with final version tag and ELO' sub-step after Step 8.7. At minimum, add an explicit instruction in Step 6 and Step 8.7: 'Update the summary.md in the archive directory with the computed value.'
 - **Found in slice:** project-init-and-lifecycle
-### TD-221 - global-sync-manager.js JSONL files have no file-level locking - concurrent update-all runs silently lose writes
+### TD-222 - global-sync-manager.js JSONL files have no file-level locking - concurrent update-all runs silently lose writes
 - **Area:** Global sync / concurrency
 - **Severity:** MEDIUM
 - **Status:** OPEN
@@ -1070,15 +1079,6 @@ Additionally, using `process.pid` as the temp file discriminator means that if t
 - **Impact:** Concurrent promotions or rollup writes can silently drop entries, corrupting the cross-project metrics history.
 - **Remediation:** Use a lock file (e.g., `~/.claude/metrics/.lock` via `fs.openSync(..., 'wx')` with a retry loop or `flock`-equivalent) around the read-modify-write cycle in each write function. Alternatively, document that concurrent update-all runs are unsafe and serialize them at the CLI layer.
 - **Found in slice:** project-init-and-lifecycle
-### TD-222 - Date guard produces false positives on Write of progress.md containing historical decision-log entries
-- **Area:** Date Guard / Progress Log Correctness
-- **Severity:** MEDIUM
-- **Status:** OPEN
-- **Location:** scripts/gsd-t-date-guard.js, commands/gsd-t-log.md
-- **Description:** The `decision-log` pattern (`/^- (\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):/gm`) is validated against ±DRIFT_MINUTES (5 min) of the live clock for ALL Write calls (where `oldContent = ''`). When `/gsd-t-log` Step 6 (full reconstruction from git history) or `/gsd-t-populate` writes a progress.md containing historical entries (e.g., `- 2024-01-15 09:30: Initial commit`), the guard blocks the Write with a false positive, even though these are legitimately historical. The Edit dedup only protects when old_string already contains the entry. Verified: a Write of progress.md with even one entry dated more than 5 minutes ago returns `{ ok: false }` and blocks the tool call.
-- **Impact:** The `/gsd-t-log` full-reconstruction path and `/gsd-t-populate` git-history reconstruct are blocked at the Write step, causing the model to receive a tool error and potentially loop, produce partial results, or silently fail to update progress.md.
-- **Remediation:** Either (a) add `progress.md`'s decision log section to the allowlist when content matches a full-reconstruct pattern, (b) narrow the decision-log pattern to require timestamps within the last 24h for Write operations (use a `dateOnly`-style day check for decision-log entries in Write mode), or (c) teach `/gsd-t-log` and `/gsd-t-populate` to exclusively use Edit (append) rather than Write (replace) for progress.md. The most surgical fix is option (b): for `decision-log` on Write, validate same-calendar-day rather than ±5 min.
-- **Found in slice:** metrics-telemetry-and-events
 ### TD-223 - compactLedger writes a record with result='compacted' that violates VALID_RESULTS invariant
 - **Area:** Debug Ledger / Data Integrity
 - **Severity:** MEDIUM
@@ -1106,16 +1106,7 @@ Additionally, using `process.pid` as the temp file discriminator means that if t
 - **Impact:** Corrupted JSONL records silently accumulate, causing NaN or incorrect averages in metrics reports. ELO computation (when rollup.jsonl is eventually implemented) would be poisoned by bad token counts.
 - **Remediation:** Add to `validateRecord`: `if (typeof data.tokens_used !== 'number' || data.tokens_used < 0) return 'tokens_used must be a non-negative number';`. Similarly add `typeof` checks for `milestone`, `domain`, `task`, `command` as strings. This mirrors the pattern already applied to `duration_s`, `context_pct`, and `fix_cycles`.
 - **Found in slice:** metrics-telemetry-and-events
-### TD-226 - rollup.jsonl (per-project ELO and milestone aggregation) is never written - gsd-t-metrics ELO display is dead code
-- **Area:** Metrics Completeness / Feature Parity
-- **Severity:** MEDIUM
-- **Status:** OPEN
-- **Location:** commands/gsd-t-metrics.md, commands/gsd-t-status.md, bin/metrics-collector.js
-- **Description:** gsd-t-metrics.md Step 2 reads `.gsd-t/metrics/rollup.jsonl` for per-milestone ELO and aggregation data. Steps 3 (Process ELO), 5 (Domain Breakdown with duration), and 6 (Trend Comparison) all require rollup.jsonl data. No code in `bin/` or `scripts/` writes this file. `global-sync-manager.js` manages a separate `~/.claude/metrics/global-rollup.jsonl` (global cross-project), not the local per-project file. gsd-t-status.md acknowledges the missing file with a fallback for `first_pass_rate`. ELO display, domain breakdown by duration, and trend comparison are effectively dead - they silently show no data rather than erroring.
-- **Impact:** Users see stub/empty ELO sections in /gsd-t-metrics output. The telemetry system's core value proposition (ELO-based process quality tracking across milestones) is non-functional. gsd-t-status metrics section falls back to a minimal first-pass-rate only display.
-- **Remediation:** Implement a `writeProjectRollup()` function in `bin/metrics-collector.js` (or a new `bin/metrics-rollup.js`) that computes and writes `.gsd-t/metrics/rollup.jsonl` at the end of each execute/verify phase. Or remove ELO from the command documentation until the write path exists, to prevent user-facing misleading empty sections.
-- **Found in slice:** metrics-telemetry-and-events
-### TD-227 - M65-M79 (14 completed milestones) are absent from the Completed Milestones table in progress.md
+### TD-226 - M65-M79 (14 completed milestones) are absent from the Completed Milestones table in progress.md
 - **Area:** State File Integrity - Progress Tracking
 - **Severity:** MEDIUM
 - **Status:** OPEN
@@ -1124,7 +1115,7 @@ Additionally, using `process.pid` as the temp file discriminator means that if t
 - **Impact:** The `gsd-t status` command's Completed Milestones report will omit 14 milestones worth of completed work, making the project history incomplete. Any tool or agent reading the Completed Milestones table to understand version history will be missing 6+ months of work. M66 and M67 specifically have no milestone archive, meaning their domain files remain in `.gsd-t/domains/` without a corresponding archive.
 - **Remediation:** Add M59-M79 to the Completed Milestones table with the correct format (Milestone | Version | Completed [YYYY-MM-DD HH:MM TZ] | Tag | Summary). Create milestone archives for M66 and M67 in `.gsd-t/milestones/`. Clear the corresponding domain directories per the domain-structure contract lifecycle rule.
 - **Found in slice:** living-document-contracts-and-state
-### TD-228 - Multiple DRAFT/PROPOSED contracts remain active in a post-PARTITIONED project, triggering preflight warnings
+### TD-227 - Multiple DRAFT/PROPOSED contracts remain active in a post-PARTITIONED project, triggering preflight warnings
 - **Area:** Contract Status Management
 - **Severity:** MEDIUM
 - **Status:** OPEN
@@ -1133,7 +1124,7 @@ Additionally, using `process.pid` as the temp file discriminator means that if t
 - **Impact:** The `contracts-stable` preflight check (`severity: warn`) fires on every verify-gate run, adding noise to verify output. The unattended-event-stream-contract.md actively misleads by describing a PROPOSED design for a system that has been retired. The two integration-point files with stale headers misrepresent their actual completion state.
 - **Remediation:** Update `m52-integration-points.md` and `m54-integration-points.md` headers from PROPOSED to PUBLISHED. Mark `unattended-event-stream-contract.md` as RETIRED/LEGACY since the unattended relay no longer exists. For the 4 DRAFT pending-feature contracts, either promote them to STABLE (if the features are now shipped) or ensure they are tracked in the backlog, and consider if they should be in `.gsd-t/contracts/` or a separate `proposed/` subdirectory.
 - **Found in slice:** living-document-contracts-and-state
-### TD-229 - token-budget-contract.md Consumers list references two deleted files
+### TD-228 - token-budget-contract.md Consumers list references two deleted files
 - **Area:** Contract Drift - Retired Infrastructure
 - **Severity:** MEDIUM
 - **Status:** OPEN
@@ -1142,7 +1133,7 @@ Additionally, using `process.pid` as the temp file discriminator means that if t
 - **Impact:** The contract falsely suggests two files are active consumers. Any audit or dependency analysis based on this contract will produce incorrect results. The stale Integration Points table may mislead about the token-budget enforcement chain.
 - **Remediation:** Remove `bin/orchestrator.js` and `bin/runway-estimator.js` from the Consumers list. Update the Integration Points table to reflect that the M40 orchestrator is gone and the current enforcement path runs through native Workflow preflight checks, not `getSessionStatus()` gate calls. Note that `bin/token-budget.js` itself no longer exists (only `bin/token-budget.cjs` was planned but that file is absent from disk) - verify whether any active consumer still calls it.
 - **Found in slice:** living-document-contracts-and-state
-### TD-230 - doc-ripple-contract.md Integration Pattern section describes retired Task subagent spawning
+### TD-229 - doc-ripple-contract.md Integration Pattern section describes retired Task subagent spawning
 - **Area:** Contract Drift - Workflow Migration
 - **Severity:** MEDIUM
 - **Status:** OPEN
@@ -1151,7 +1142,7 @@ Additionally, using `process.pid` as the temp file discriminator means that if t
 - **Impact:** Commands that implement the doc-ripple integration per the contract's Integration Pattern section will use the deprecated Task subagent approach instead of the Workflow invocation. This creates an inconsistency between what the contract prescribes and how existing commands actually work.
 - **Remediation:** Update the Integration Pattern section to show the current Workflow invocation pattern: resolve path via `gsd-t workflow-path phase`, then call `Workflow({scriptPath, args: {phase: 'doc-ripple', ...}})`. Remove or update the Task-subagent spawn pattern. This aligns with the actual `commands/gsd-t-doc-ripple.md` implementation.
 - **Found in slice:** living-document-contracts-and-state
-### TD-231 - progress.md missing required Session Log section
+### TD-230 - progress.md missing required Session Log section
 - **Area:** State File Integrity - Missing Required Section
 - **Severity:** MEDIUM
 - **Status:** OPEN
@@ -1160,7 +1151,7 @@ Additionally, using `process.pid` as the temp file discriminator means that if t
 - **Impact:** Tools or workflows that try to read the Session Log section from progress.md will find nothing. The `gsd-t-status` and dashboard commands that are supposed to display session history have no data to show. Any agent following the contract to append session log entries will write to a section that doesn't exist, creating malformed markdown.
 - **Remediation:** Add the `## Session Log` section to `progress.md` with the required table header. Backfill it with approximate session entries from the Decision Log entries. Update `commands/gsd-t-complete-milestone.md` to ensure it actually appends to Session Log.
 - **Found in slice:** living-document-contracts-and-state
-### TD-232 - docs/requirements.md is 14+ milestones out of date - M57-M79 have no requirement entries
+### TD-231 - docs/requirements.md is 14+ milestones out of date - M57-M79 have no requirement entries
 - **Area:** Living Document Staleness
 - **Severity:** MEDIUM
 - **Status:** OPEN
@@ -1169,7 +1160,7 @@ Additionally, using `process.pid` as the temp file discriminator means that if t
 - **Impact:** Any agent or gap-analysis tool reading docs/requirements.md to understand what the system delivers will have a picture frozen at M17 for the header and M56 for the traceability. The goal-backward verification in complete-milestone uses requirements.md to measure completion - it will miss all M57+ deliverables. REQ-049 through REQ-062 show the gap can grow because even M32-era requirements are barely tracked.
 - **Remediation:** Add `## M57 CI-Parity Verify Gate`, `## M58 Test Data Cleanup`, and sections through M79 with corresponding REQ entries. Update `Last Updated` header. At minimum, mark completed requirements with their implementing milestone in the Status column. This is a doc-ripple obligation from every milestone's Pre-Commit Gate.
 - **Found in slice:** living-document-contracts-and-state
-### TD-233 - docs/architecture.md command count is wrong (49 vs actual 51) and is 14 months stale
+### TD-232 - docs/architecture.md command count is wrong (49 vs actual 51) and is 14 months stale
 - **Area:** Living Document Staleness
 - **Severity:** MEDIUM
 - **Status:** OPEN
@@ -1178,7 +1169,7 @@ Additionally, using `process.pid` as the temp file discriminator means that if t
 - **Impact:** Engineers and agents using architecture.md to understand the system structure see an M23-era view. The command count check in infrastructure.md's test script would fail if run. The `bin/headless-auto-spawn.cjs` reference in architecture.md describes a deleted file as active infrastructure.
 - **Remediation:** Update `Last Updated` and command count in both files. Add sections for the Workflow orchestration layer, CLI-Preflight Pattern, Verify Gate, Context Brief, and scan Workflow. Remove or mark as retired the headless-auto-spawn, handoff-lock, token-capture, and unattended infrastructure sections.
 - **Found in slice:** living-document-contracts-and-state
-### TD-234 - docs/workflows.md is severely stale - last updated M17 (2026-03-09), missing 61+ milestones of workflow changes
+### TD-233 - docs/workflows.md is severely stale - last updated M17 (2026-03-09), missing 61+ milestones of workflow changes
 - **Area:** Living Document Staleness
 - **Severity:** MEDIUM
 - **Status:** OPEN
@@ -1190,16 +1181,16 @@ Additionally, using `process.pid` as the temp file discriminator means that if t
 
 ## 🟢 Low Priority
 
-### TD-235 - gsd-t-init.md references the retired headless-auto-spawn.cjs spawn-time gate
-- **Area:** Stale/incorrect documentation
+### TD-234 - wave-join-contract.md references retired headless-auto-spawn.cjs and has version drift
+- **Area:** Contract / documentation drift
 - **Severity:** LOW
 - **Status:** OPEN
-- **Location:** commands/gsd-t-init.md
-- **Description:** Line 351 of `gsd-t-init.md` (Step 11 Playwright Setup) states: 'The spawn-time gate in `bin/headless-auto-spawn.cjs` re-runs the install on first need if the project skipped this step.' The global `CLAUDE.md` at line 204 explicitly states this file was retired in M61: '(M61: replaced the retired `headless-auto-spawn.cjs` spawn-time gate - the Workflow runtime owns spawning now.)' The file does not exist in `bin/`. An agent reading this instruction would attempt to reference a gate that no longer exists.
-- **Impact:** An agent following init.md may misreport the Playwright gate behavior, or future documentation writers may reference a non-existent component.
-- **Remediation:** Remove the sentence from `gsd-t-init.md` Step 11 that references `headless-auto-spawn.cjs`. Replace with a note that the Workflow runtime handles spawn-time gate via `playwright-bootstrap.cjs` per the M61 contract.
-- **Found in slice:** slash-command-library, project-init-and-lifecycle
-### TD-236 - HEADLESS_STRUCTURED_FAIL_RE matches any line starting with FAIL including FAILOVER, FAIL-SAFE
+- **Location:** .gsd-t/contracts/wave-join-contract.md, bin/gsd-t-parallel.cjs, .gsd-t/contracts/spawn-plan-contract.md
+- **Description:** The contract at `.gsd-t/contracts/wave-join-contract.md` line 150 states `runDispatch` 'spawns N detached headless children via `autoSpawnHeadless()` from `bin/headless-auto-spawn.cjs`'. This module was retired in M61 and is flagged in `DEPRECATED_BIN_STRAYS` in `gsd-t.js`. Additionally, `bin/gsd-t-parallel.cjs` references the contract as `v1.1.0` (lines 23, 49, 188, 466) but the contract header declares itself `v1.2.0`.
+- **Impact:** Developers reading the contract to understand how fan-out spawning works are directed to a deleted module. The version mismatch makes it impossible to tell which code tracks which contract version.
+- **Remediation:** Update wave-join-contract.md: remove the `headless-auto-spawn.cjs` reference, document the actual spawn mechanism (Workflow runtime's native `agent()`/`spawn()`), and bump the version to 1.3.0 or 2.0.0 to reflect the M61 architectural change. Update `bin/gsd-t-parallel.cjs` to reference the correct version number.
+- **Found in slice:** parallel-execution-and-task-graph, living-document-contracts-and-state
+### TD-235 - HEADLESS_STRUCTURED_FAIL_RE matches any line starting with FAIL including FAILOVER, FAIL-SAFE
 - **Area:** Headless execution correctness
 - **Severity:** LOW
 - **Status:** OPEN
@@ -1208,7 +1199,7 @@ Additionally, using `process.pid` as the temp file discriminator means that if t
 - **Impact:** A passing run where output contains a line starting 'FAIL: fast-mode skipped' maps to exit code 1 instead of 0. Probability is low for typical project output.
 - **Remediation:** Tighten to /^FAIL[:\s][^A-Z]/m to exclude all-caps compound words, or to /^FAIL(?:[:\s]\S)/m to require a following non-whitespace. Alternatively rename to HEADLESS_JEST_LINE_FAIL_RE and document the intent so future readers understand its scope.
 - **Found in slice:** cli-installer-updater
-### TD-237 - isSymlink check for CLAUDE.md is performed AFTER reading the file content in updateProjectClaudeMd
+### TD-236 - isSymlink check for CLAUDE.md is performed AFTER reading the file content in updateProjectClaudeMd
 - **Area:** Installer correctness / symlink TOCTOU
 - **Severity:** LOW
 - **Status:** OPEN
@@ -1217,8 +1208,7 @@ Additionally, using `process.pid` as the temp file discriminator means that if t
 - **Impact:** Limited: the read-through-symlink is benign for content detection (you get the symlink target's content, which is fine for guard-section detection). The real risk is the symlink check being late in a refactor that adds a write before the current check line.
 - **Remediation:** Move the isSymlink(claudeMd) check to line 2051 (before the readFileSync call) to match the pattern used everywhere else in the file.
 - **Found in slice:** cli-installer-updater
-
-### TD-238 - exportUniversalRulesForNpm reads global rules twice with a mutation window between reads
+### TD-237 - exportUniversalRulesForNpm reads global rules twice with a mutation window between reads
 - **Area:** Data integrity / race condition
 - **Severity:** LOW
 - **Status:** OPEN
@@ -1227,6 +1217,16 @@ Additionally, using `process.pid` as the temp file discriminator means that if t
 - **Impact:** In a concurrent scenario (two processes calling exportUniversalRulesForNpm simultaneously - unlikely given it's a developer tool), one process's shipped_in_version update could be silently lost.
 - **Remediation:** Read global rules once, apply the shipped_in_version updates to the allRules array directly (not to a separate npmCandidates copy), and write once with the tmp+rename pattern. Eliminates the double-read window.
 - **Found in slice:** cli-installer-updater
+
+### TD-238 - Orchestrator _parseStreamJson collects both content_block_delta and assistant message text - potential output duplication
+- **Area:** Output parsing correctness
+- **Severity:** LOW
+- **Status:** OPEN
+- **Location:** bin/orchestrator.js
+- **Description:** Lines 352-363 of _parseStreamJson collect text from both `event.type === 'assistant'` (complete message content) AND `event.type === 'content_block_delta'` (streaming partial chunks). When `claude -p --output-format stream-json` runs in streaming mode, it emits content_block_delta events progressively and then a final assistant event with the complete assembled content. Collecting both means the text is concatenated twice: once from the individual streaming chunks and once from the complete final message. The `event.type === 'result'` branch (lines 362-364) adds a third potential source if the result field contains the final text. This means the orchestrator's parsed output could contain the full assistant response 2-3x, causing review-log files to be inflated and any pattern-matching on the output (such as _parseDefaultReviewResult's regex search) to scan redundant content.
+- **Impact:** The build-log files written at lines 944-947 and 958-960 are inflated with duplicated content (up to 3x). The _parseDefaultReviewResult's regex searches over the duplicated content, which could cause false positives on the FAIL/DEVIATION keyword detection if a passing response happens to include those words in its explanation of what was checked. The maxBuffer: 10MB cap means very long responses may get truncated in the callback.
+- **Remediation:** Collect text from only one source. Prefer the `assistant` event type (complete message, no ordering concerns) and remove the `content_block_delta` handler. Alternatively, track whether an assistant event has been seen and skip delta accumulation after that. Also consider using only the `result` type if it reliably carries the final answer.
+- **Found in slice:** workflow-orchestration-engine
 ### TD-239 - gsd-t-wave.workflow.js imports _lib.js but never uses it - dead require in sandbox-violating import
 - **Area:** Dead code / sandbox violation
 - **Severity:** LOW
@@ -1308,7 +1308,16 @@ Additionally, using `process.pid` as the temp file discriminator means that if t
 - **Impact:** Minor authoring defect. An agent reading the numbered list may skip one file or misread the reading order.
 - **Remediation:** Fix the numbering: change the second `4.` to `5.` and renumber subsequent items 5→6, 6→7, 7→8, 8→9.
 - **Found in slice:** slash-command-library
-### TD-248 - gsd-t-project.md uses 'Est. Sessions' as an effort unit and 'focused sessions' as a sizing estimate, violating the GSD-T-native units mandate
+### TD-248 - gsd-t-quick.md Step 3 Deviation Rules has a '3-attempt limit' that contradicts the global Prime Rule's '2-attempt limit'
+- **Area:** Conflicting invariants
+- **Severity:** LOW
+- **Status:** OPEN
+- **Location:** commands/gsd-t-quick.md
+- **Description:** `gsd-t-quick.md` lines 227 and 232 say: 'Fix it, up to 3 attempts' and '3-attempt limit: Stop looping after 3 failed fix attempts.' The global `CLAUDE.md` Prime Rule states: 'IF a test fails, fix it immediately (up to 2 attempts) before reporting.' The orthogonal validation contract also uses 2 cycles. Using 3 attempts in quick mode creates inconsistency - an agent running quick will do one more fix cycle than expected by the system design before delegating to `headless --debug-loop`.
+- **Impact:** An agent following quick.md will attempt one extra fix cycle per blocked bug before deferring, slightly extending execution time and token use, but no data loss risk.
+- **Remediation:** Change the limit in `gsd-t-quick.md` Deviation Rules from 3 to 2, matching the global Prime Rule: 'Fix it, up to 2 attempts. If still blocked, add to `.gsd-t/deferred-items.md` and skip.'
+- **Found in slice:** slash-command-library
+### TD-249 - gsd-t-project.md uses 'Est. Sessions' as an effort unit and 'focused sessions' as a sizing estimate, violating the GSD-T-native units mandate
 - **Area:** Policy violation
 - **Severity:** LOW
 - **Status:** OPEN
@@ -1317,7 +1326,7 @@ Additionally, using `process.pid` as the temp file discriminator means that if t
 - **Impact:** Agents generating roadmaps will use session-count estimates that have no predictive value for GSD-T workflow execution time.
 - **Remediation:** Replace 'focused sessions' with domain count + wave count language. Change line 94 to: 'Each milestone should decompose to 2-5 domains (1-3 waves for complex milestones).' Replace the `Est. Sessions` column in the progress.md template with `Domains | Waves`.
 - **Found in slice:** slash-command-library
-### TD-249 - gsd-t-triage-and-merge.md Step 7 pre-commit check references 'GSD-T-README.md' without the docs/ path prefix
+### TD-250 - gsd-t-triage-and-merge.md Step 7 pre-commit check references 'GSD-T-README.md' without the docs/ path prefix
 - **Area:** Incorrect path reference
 - **Severity:** LOW
 - **Status:** OPEN
@@ -1326,7 +1335,7 @@ Additionally, using `process.pid` as the temp file discriminator means that if t
 - **Impact:** Agent may fail to update or incorrectly locate the GSD-T README during triage-and-merge's pre-commit gate.
 - **Remediation:** Change 'update GSD-T-README.md' on line 126 to 'update docs/GSD-T-README.md' to match the actual file location and the Document Ripple reference on line 163.
 - **Found in slice:** slash-command-library
-### TD-250 - gsd-t-help.md main command table omits gsd-t-metrics and gsd-t-design-audit
+### TD-251 - gsd-t-help.md main command table omits gsd-t-metrics and gsd-t-design-audit
 - **Area:** Documentation completeness
 - **Severity:** LOW
 - **Status:** OPEN
@@ -1335,7 +1344,7 @@ Additionally, using `process.pid` as the temp file discriminator means that if t
 - **Impact:** Users running `/gsd-t-help` will not discover these two commands from the default table output.
 - **Remediation:** Add `metrics` under the UTILITIES section and `design-audit` under UTILITIES (or a new DESIGN section) in the main command table in `gsd-t-help.md`. Add a Command Summary entry for `design-audit`.
 - **Found in slice:** slash-command-library
-### TD-251 - gsd-t-status.md references headless-default-contract.md v1.0.0 but current version is v2.0.0
+### TD-252 - gsd-t-status.md references headless-default-contract.md v1.0.0 but current version is v2.0.0
 - **Area:** Stale contract version reference
 - **Severity:** LOW
 - **Status:** OPEN
@@ -1344,7 +1353,7 @@ Additionally, using `process.pid` as the temp file discriminator means that if t
 - **Impact:** Agents may reference the wrong contract version when reasoning about headless spawn behavior.
 - **Remediation:** Update all v1.0.0 references to headless-default-contract in `gsd-t-status.md` and the affected sections of `gsd-t-resume.md` to v2.0.0. Note: resume.md also has a v2.1.0 reference (line 43) for the sub-dispatch section - the overall contract version may be 2.1.0 now; verify and use consistently.
 - **Found in slice:** slash-command-library
-### TD-252 - gsd-t-backlog-remove.md always prompts for user confirmation (y/n) without respecting Level 3 Full Auto
+### TD-253 - gsd-t-backlog-remove.md always prompts for user confirmation (y/n) without respecting Level 3 Full Auto
 - **Area:** Autonomy level violation
 - **Severity:** LOW
 - **Status:** OPEN
@@ -1353,7 +1362,7 @@ Additionally, using `process.pid` as the temp file discriminator means that if t
 - **Impact:** At Level 3, backlog-remove and backlog-promote will pause and wait for user input, breaking the full-auto contract.
 - **Remediation:** Add autonomy level handling: 'At Level 3 (Full Auto): proceed without confirmation. At Level 1-2: display entry and wait for confirmation.' Mirror the pattern used by gap-analysis Step 3 which handles this correctly.
 - **Found in slice:** slash-command-library
-### TD-253 - cpua.md hardcodes 'Claude Opus 4.7' in the Co-Authored-By commit template
+### TD-254 - cpua.md hardcodes 'Claude Opus 4.7' in the Co-Authored-By commit template
 - **Area:** Stale model reference
 - **Severity:** LOW
 - **Status:** OPEN
@@ -1362,7 +1371,7 @@ Additionally, using `process.pid` as the temp file discriminator means that if t
 - **Impact:** Commits created via /cpua will have incorrect co-authorship attribution.
 - **Remediation:** Update `cpua.md` line 88 to use the current model: `Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>` (or whatever the current default model is). Consider making this a template variable rather than hardcoding the model name.
 - **Found in slice:** slash-command-library
-### TD-254 - contracts-stable does not scan .gsd-t/contracts/design/ subdirectory
+### TD-255 - contracts-stable does not scan .gsd-t/contracts/design/ subdirectory
 - **Area:** Preflight check coverage
 - **Severity:** LOW
 - **Status:** OPEN
@@ -1371,7 +1380,7 @@ Additionally, using `process.pid` as the temp file discriminator means that if t
 - **Impact:** DRAFT design contracts are invisible to the preflight check. Since contracts-stable is warn-severity, this doesn't block execution, but the safety net for un-promoted design contracts is absent for subdirectory-organized contracts. Note: currently no subdirectory exists in this repo's contracts/, but projects that use gsd-t-design-decompose will create one.
 - **Remediation:** Make _scanContracts recursive, or explicitly also scan `path.join(contractsDir, 'design')` if it exists. Match the behavior documented in CLAUDE.md for the design contract location.
 - **Found in slice:** verify-gate-and-ci-parity
-### TD-255 - ci-parity detectWorkflows reads only the first workflow file and first job
+### TD-256 - ci-parity detectWorkflows reads only the first workflow file and first job
 - **Area:** CI parity detection accuracy
 - **Severity:** LOW
 - **Status:** OPEN
@@ -1380,15 +1389,6 @@ Additionally, using `process.pid` as the temp file discriminator means that if t
 - **Impact:** If build happens in job1 (captured) but tests happen in job2 (not captured), ci-parity only reruns the build. The test job is skipped. A code change that breaks tests but not build gets a false PASS from ci-parity. This is the exact class of regression M57 was designed to prevent.
 - **Remediation:** Consider reading all .yml files and all jobs within each, at minimum capturing `run:` lines from every job. If the zero-dep constraint makes full YAML parsing prohibitive, at least document the limitation in the envelope's result.note field so consumers know the coverage is partial.
 - **Found in slice:** verify-gate-and-ci-parity
-### TD-256 - Heredoc delimiter GSDTEOF is not sanitized from chunk content - potential register truncation
-- **Area:** Scan Workflow Register Writing
-- **Severity:** LOW
-- **Status:** OPEN
-- **Location:** templates/workflows/gsd-t-scan.workflow.js:588, templates/workflows/gsd-t-scan.workflow.js:749
-- **Description:** The chunk-write agent prompt instructs the subagent to use `cat >> path <<'GSDTEOF' ... GSDTEOF` for appending. If any finding's `detail`, `title`, `recommendation`, or other free-text field contains the literal string `GSDTEOF` on its own line, the heredoc terminates early and the remainder of that chunk is dropped as a shell command, potentially corrupting the register. The `ascii()` normalizer does not sanitize this token. While unlikely in normal LLM output, adversarial input (e.g. a finding about shell injection that uses this literal as an example) would trigger it.
-- **Impact:** Silent register truncation at the finding containing `GSDTEOF`. Subsequent findings in the same chunk are dropped without error. The agent may then attempt to execute the trailing content as shell commands.
-- **Remediation:** Use `sed 's/GSDTEOF/GSDTEOF_ESCAPED/g'` in `ascii()`, or switch the append instruction to use the Write tool (read existing content, concatenate chunk, write back) rather than a heredoc. The Write tool approach avoids shell injection entirely.
-- **Found in slice:** codebase-scan-engine
 ### TD-257 - findFiles performs unbounded recursive sync file reads - can stall on large repos
 - **Area:** Schema Detection
 - **Severity:** LOW
@@ -1633,16 +1633,7 @@ This means the brief omits contract status for contracts listed under `**Contrac
 - **Impact:** Workers reading the brief see fewer contract statuses than they should. A DRAFT contract referenced in tasks.md is invisible to the brief, so the worker cannot know to check it. This is a minor correctness gap - the worker can re-read the tasks.md directly, but it defeats the brief's purpose of being the single pre-read source.
 - **Remediation:** In `execute.cjs::collect()`, also scan `constraintsText` and `tasksText` through `_contractsReferenced()` and merge the results (deduplicate by path) before assigning `contracts`.
 - **Found in slice:** stack-rules-engine
-### TD-283 - backlog-add progress.md update is unconditional but file may not exist at add-time
-- **Area:** Document ripple consistency
-- **Severity:** LOW
-- **Status:** OPEN
-- **Location:** /Users/david/projects/GSD-T/commands/gsd-t-backlog-add.md
-- **Description:** Step 6 says 'Update `.gsd-t/progress.md` Decision Log' without an existence guard. The pre-check in Step 1 only requires `backlog-settings.md`, not `progress.md`. If a user creates backlog-settings.md manually (or before running full init), `backlog-add` will attempt to write to a non-existent progress.md, potentially creating it with only the log entry and no required frontmatter. Compare: `backlog-edit` Step 6 and `backlog-move` Step 7 both use 'If `.gsd-t/progress.md` exists'.
-- **Impact:** Low probability (progress.md is created by init before backlog-settings.md), but if triggered, creates a malformed progress.md.
-- **Remediation:** Add 'If `.gsd-t/progress.md` exists' guard to Step 6 of `backlog-add`, consistent with `backlog-edit` and `backlog-move`.
-- **Found in slice:** backlog-management
-### TD-284 - backlog-settings help entry omits backlog.md from Files list despite reading it during remove operations
+### TD-283 - backlog-settings help entry omits backlog.md from Files list despite reading it during remove operations
 - **Area:** Documentation accuracy
 - **Severity:** LOW
 - **Status:** OPEN
@@ -1651,7 +1642,7 @@ This means the brief omits contract status for contracts listed under `**Contrac
 - **Impact:** Cosmetic accuracy issue. Users checking `gsd-t-help` to understand file access patterns will see an incomplete picture for settings remove operations.
 - **Remediation:** Update the `backlog-settings` help entry Files field to: `.gsd-t/backlog-settings.md` (read-write), `.gsd-t/backlog.md` (read-only, for remove operations).
 - **Found in slice:** backlog-management
-### TD-285 - --top N flag in backlog-list has no validation for non-positive or non-integer values
+### TD-284 - --top N flag in backlog-list has no validation for non-positive or non-integer values
 - **Area:** Input validation
 - **Severity:** LOW
 - **Status:** OPEN
@@ -1660,16 +1651,7 @@ This means the brief omits contract status for contracts listed under `**Contrac
 - **Impact:** Edge case: inconsistent LLM behavior on malformed --top values. Low priority.
 - **Remediation:** Add to Step 3: 'If N is not a positive integer, inform the user: "--top requires a positive integer. Got: {value}." and stop.' This is a minor UX hardening.
 - **Found in slice:** backlog-management
-### TD-286 - templates/progress.md hardcodes version '0.1.0', conflicting with init.md and CLAUDE-global.md which specify '0.1.00'
-- **Area:** Init / versioning consistency
-- **Severity:** LOW
-- **Status:** OPEN
-- **Location:** templates/progress.md, commands/gsd-t-init.md, templates/CLAUDE-global.md
-- **Description:** `templates/progress.md` line 4 reads `## Version: 0.1.0`. The GSD-T versioning convention (documented in `commands/gsd-t-init.md` line 173 and `templates/CLAUDE-global.md` line 75) is that new projects start at `0.1.00` (two-digit patch). The difference is not cosmetic: `0.1.0` is a valid 3-part semver while `0.1.00` is the GSD-T-specific convention requiring 2-digit patches. If gsd-t-init copies the template verbatim and the model does not override the version field, newly initialized projects will start at `0.1.0`, and the first milestone completion will bump to `0.1.11` instead of the intended `0.1.10`.
-- **Impact:** New projects initialize with the wrong version format, breaking the 2-digit patch convention enforced by complete-milestone.
-- **Remediation:** Update `templates/progress.md` line 4 to `## Version: 0.1.00` to match the documented convention, or add a note that gsd-t-init will substitute the correct value from its version-detection logic.
-- **Found in slice:** project-init-and-lifecycle
-### TD-287 - complete-milestone.md Step 2 self-references: 'proceed to Step 2' is a no-op instruction (should be Step 2.5 or Step 3)
+### TD-285 - complete-milestone.md Step 2 self-references: 'proceed to Step 2' is a no-op instruction (should be Step 2.5 or Step 3)
 - **Area:** Complete-milestone workflow instructions
 - **Severity:** LOW
 - **Status:** OPEN
@@ -1678,7 +1660,7 @@ This means the brief omits contract status for contracts listed under `**Contrac
 - **Impact:** Ambiguous workflow instructions may cause agents to loop on Step 2 or write test results to the wrong step's output.
 - **Remediation:** Line 132: change 'proceed to Step 2' to 'proceed to Step 2.5'. Line 544: change '(Step 4)' to '(Step 5)'.
 - **Found in slice:** project-init-and-lifecycle
-### TD-288 - gsd-t-init.md Step 12 references non-existent 'Step 7.6' for Playwright setup
+### TD-286 - gsd-t-init.md Step 12 references non-existent 'Step 7.6' for Playwright setup
 - **Area:** Init command / documentation correctness
 - **Severity:** LOW
 - **Status:** OPEN
@@ -1687,7 +1669,7 @@ This means the brief omits contract status for contracts listed under `**Contrac
 - **Impact:** Minor confusion when following init documentation; agents or users may search for a Step 7.6 that does not exist.
 - **Remediation:** Change '(Step 7.6)' to '(Step 11)' to match the actual step number for Playwright Setup.
 - **Found in slice:** project-init-and-lifecycle
-### TD-289 - init-scan-setup.md: techdebt archive filename uses only date (no time/sequence), overwriting previous archives on same-day re-runs
+### TD-287 - init-scan-setup.md: techdebt archive filename uses only date (no time/sequence), overwriting previous archives on same-day re-runs
 - **Area:** Init-scan-setup / archival
 - **Severity:** LOW
 - **Status:** OPEN
@@ -1696,7 +1678,7 @@ This means the brief omits contract status for contracts listed under `**Contrac
 - **Impact:** Previous tech debt snapshots silently overwritten on same-day re-scans, losing historical diff data.
 - **Remediation:** Change the archive filename to include an HH-MM timestamp or an incrementing sequence number: `.gsd-t/techdebt_YYYY-MM-DD_HHMM.md` or `.gsd-t/techdebt_YYYY-MM-DD_001.md` with collision detection.
 - **Found in slice:** project-init-and-lifecycle
-### TD-290 - doAutoUpdate failure notice redundantly displays the installed version instead of the available version
+### TD-288 - doAutoUpdate failure notice redundantly displays the installed version instead of the available version
 - **Area:** Update Check / User Messaging
 - **Severity:** LOW
 - **Status:** OPEN
@@ -1705,7 +1687,7 @@ This means the brief omits contract status for contracts listed under `**Contrac
 - **Impact:** Minor UX friction: the update banner is slightly confusing and duplicates version information. No functional impact since the SessionStart fetchLatestVersion is already broken (finding #1).
 - **Remediation:** Change line 61 to: `console.log(\`${dateStamp()}[GSD-T UPDATE] v${installed} → v${latest} available. Auto-update failed - run: /gsd-t-version-update-all. Changelog: ${CHANGELOG}\`);` - consistent with the success banner format and removes the redundancy.
 - **Found in slice:** metrics-telemetry-and-events
-### TD-291 - readTaskMetrics reads entire JSONL file into memory synchronously on every preflight check
+### TD-289 - readTaskMetrics reads entire JSONL file into memory synchronously on every preflight check
 - **Area:** Metrics Performance / Scalability
 - **Severity:** LOW
 - **Status:** OPEN
@@ -1714,7 +1696,7 @@ This means the brief omits contract status for contracts listed under `**Contrac
 - **Impact:** Negligible for projects under 100 tasks. On large/long-running projects (1000+ tasks), each preflight adds measurable synchronous latency. Unlikely to be noticeable in practice given GSD-T usage patterns, but the architectural risk exists.
 - **Remediation:** Add a size check: if the file exceeds a threshold (e.g., 1MB), log a warning or implement a tail-read (read from the end of file, parse backward until 10 domain-matched records are found). At minimum, cap the result set at the last N records before filtering to avoid parsing thousands of irrelevant lines.
 - **Found in slice:** metrics-telemetry-and-events
-### TD-292 - gsd-t-completion-check.cjs uses shell-interpolated execSync for git commands - potential injection via branch/date parameters
+### TD-290 - gsd-t-completion-check.cjs uses shell-interpolated execSync for git commands - potential injection via branch/date parameters
 - **Area:** Security / Shell Safety
 - **Severity:** LOW
 - **Status:** OPEN
@@ -1723,7 +1705,7 @@ This means the brief omits contract status for contracts listed under `**Contrac
 - **Impact:** Low practical risk given controlled caller context. The mitigation (JSON.stringify) provides meaningful protection for common cases. Severity elevated slightly because this module is called from Workflow orchestrators that might forward user-supplied values.
 - **Remediation:** Replace the shell-string execSync with `execFileSync('git', ['log', expectedBranch, '--since='+taskStart, '--pretty=format:%H%x00%s'], { cwd, encoding: 'utf8', stdio: [...] })` to avoid shell interpolation entirely. Same pattern for `git status --porcelain` and `npm test --silent`.
 - **Found in slice:** metrics-telemetry-and-events
-### TD-293 - 33 orphan domain directories remain in .gsd-t/domains/ from M43-M65 milestones that were already archived
+### TD-291 - 33 orphan domain directories remain in .gsd-t/domains/ from M43-M65 milestones that were already archived
 - **Area:** State File Integrity - Orphan Domain Dirs
 - **Severity:** LOW
 - **Status:** OPEN
@@ -1732,7 +1714,7 @@ This means the brief omits contract status for contracts listed under `**Contrac
 - **Impact:** The `buildTaskGraph()` library scans ALL domain directories when building the task graph. Having 33 orphan directories means every task graph build processes ~150+ stale task files. This adds noise to `gsd-t parallel --dry-run`, `gsd-t graph --output table`, and any tool consuming the task graph. The file-disjointness prover also reads all domains.
 - **Remediation:** Run the domain cleanup for M43-M65: move domain dirs to their respective milestone archives (which already exist) or simply delete them since they're already archived. Then clear `.gsd-t/domains/` to contain only the current active milestone's domains (m66-d1, m67-d1, and any current active milestone domains).
 - **Found in slice:** living-document-contracts-and-state
-### TD-294 - unattended-supervisor-contract.md describes a retired system (gsd-t-unattended.cjs deleted in M61 D2)
+### TD-292 - unattended-supervisor-contract.md describes a retired system (gsd-t-unattended.cjs deleted in M61 D2)
 - **Area:** Contract Drift - Retired Infrastructure
 - **Severity:** LOW
 - **Status:** OPEN
@@ -1741,7 +1723,7 @@ This means the brief omits contract status for contracts listed under `**Contrac
 - **Impact:** Any agent reading this contract to implement unattended behavior will implement a deleted system. The contract's `PENDING` status is misleading - the system was not just pending, it was implemented and then retired. This is a documentation dead-end that could confuse future work on native unattended Workflow scheduling.
 - **Remediation:** Mark both `unattended-supervisor-contract.md` and `unattended-event-stream-contract.md` as RETIRED with a note pointing to the native Workflow Unattended mode (M61 SC7) as the replacement. Add a cross-reference to `templates/workflows/gsd-t-unattended.workflow.js` if one exists, or to the CLAUDE.md Desktop as Cockpit section.
 - **Found in slice:** living-document-contracts-and-state
-### TD-295 - context-observability-contract.md references context-meter-state.json which M61 was supposed to retire
+### TD-293 - context-observability-contract.md references context-meter-state.json which M61 was supposed to retire
 - **Area:** Contract Drift - Retired Infrastructure
 - **Severity:** LOW
 - **Status:** OPEN
@@ -1750,3 +1732,4 @@ This means the brief omits contract status for contracts listed under `**Contrac
 - **Impact:** These contracts misdirect any agent implementing context observability toward a retired pattern. The `gsd-t.js doStatus` function reads this stale file and shows incorrect context utilization (200K window vs 1M actual).
 - **Remediation:** After deleting `.gsd-t/.context-meter-state.json` and the context-meter code in gsd-t.js (per the HIGH finding above), update these contracts to say Ctx% is no longer measured via PostToolUse hook - agents should use the native `/context` command or `CLAUDE_CONTEXT_TOKENS_USED` env if available. Mark context-observability-contract.md as RETIRED or update to v3.0.0.
 - **Found in slice:** living-document-contracts-and-state
+
