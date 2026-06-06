@@ -479,6 +479,14 @@ Use these when user asks for help on a specific command:
 - **Use when**: Test data hygiene. Catches the GSD-T-Board class (2442 orphaned `E2E_TEST_*` / `E2E_DRAG_*` ideas left in the production data store after a passing Verify run).
 - **CLI**: `gsd-t test-data --list [--run <id>] [--json]` / `gsd-t test-data --purge --run <id> [--dry-run] [--json] [--project <dir>]`. Exit 0 on success, 4 on adapter errors, 64 on usage error.
 
+### competition-judge (M82)
+- **Summary**: The selection oracle for Competition Mode (generate-and-judge — the *generative* dual of the orthogonal validation triad). Two modes: `--kind partition` scores candidate domain decompositions via the file-disjointness oracle (parallelGroups / waveDepth / validity — a calculator, not an LLM critic, so it's immune to judge bias); `--kind generic` is a deterministic rubric selector that finalizes a winner from rubric scores an upstream blind/different-model judge supplied.
+- **Auto-invoked**: Yes — by `gsd-t-phase.workflow.js` when an eligible phase (partition / milestone / design-decompose) is run with `competition: N` (N 2–5). Opt-in per phase via `/gsd-t-partition --competition N` etc. Default off.
+- **Files**: `bin/gsd-t-competition-judge.cjs` (reuses `bin/gsd-t-file-disjointness.cjs`).
+- **Use when**: Upstream, pre-contract, wide-solution-space decisions where the cost of a single draft is high (partition, milestone decomposition, ambiguous design decomposition). Never on post-contract phases (execute/verify/etc.) — those are owned by the adversarial triad.
+- **CLI**: `gsd-t competition-judge [--in <spec.json>] [--project-dir <dir>]` (spec via stdin or `--in`). Exit 0 winner · 4 no valid candidate · 64 bad input.
+- **Contract**: `.gsd-t/contracts/competition-mode-contract.md` v1.0.0 STABLE.
+
 ## Unknown Command
 
 If user asks for help on unrecognized command:

@@ -1182,6 +1182,8 @@ const GLOBAL_BIN_TOOLS = [
   // M57 — CI-parity verify-gate checks (structural build-coverage + containment-safe ci-parity).
   "gsd-t-build-coverage.cjs",
   "gsd-t-ci-parity.cjs",
+  // M82 — Competition Mode generate-and-judge selection oracle.
+  "gsd-t-competition-judge.cjs",
 ];
 
 function installGlobalBinTools() {
@@ -2469,6 +2471,10 @@ const PROJECT_BIN_TOOLS = [
   "cli-preflight.cjs", "parallel-cli.cjs", "parallel-cli-tee.cjs",
   "gsd-t-context-brief.cjs",
   "gsd-t-verify-gate.cjs", "gsd-t-verify-gate-judge.cjs",
+  // M82 — Competition Mode judge + its disjointness oracle dependency, so a
+  // project's gsd-t-phase workflow can score candidate partitions via the
+  // project-local bin (runCli prefers bin/<tool>.cjs over the global binary).
+  "gsd-t-competition-judge.cjs", "gsd-t-file-disjointness.cjs",
 ];
 
 // Files that older versions of this installer copied into project bin/ but
@@ -4541,6 +4547,16 @@ if (require.main === module) {
       // M58 D1 — `gsd-t test-data --list|--purge` thin dispatcher.
       const { spawnSync } = require("child_process");
       const js = path.join(__dirname, "gsd-t-test-data-ledger.cjs");
+      const res = spawnSync(process.execPath, [js, ...args.slice(1)], {
+        stdio: "inherit",
+      });
+      process.exit(res.status == null ? 1 : res.status);
+    }
+    case "competition-judge": {
+      // M82 D1 — `gsd-t competition-judge` thin dispatcher to the generate-and-judge
+      // selection oracle (objective partition judge + deterministic rubric selector).
+      const { spawnSync } = require("child_process");
+      const js = path.join(__dirname, "gsd-t-competition-judge.cjs");
       const res = spawnSync(process.execPath, [js, ...args.slice(1)], {
         stdio: "inherit",
       });

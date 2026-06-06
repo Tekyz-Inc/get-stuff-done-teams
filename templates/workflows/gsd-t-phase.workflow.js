@@ -15,7 +15,23 @@
 //   milestone?: "M61",
 //   projectDir?: ".",
 //   userInput?: string,   // arbitrary input to the phase (e.g. "$ARGUMENTS")
+//   competition?: number, // M82: N>1 enables Competition Mode (generate-and-judge)
+//                         // on eligible upstream phases. N parallel Self-MoA
+//                         // producers -> judge stage -> winner. Default 1 (off).
 // }
+//
+// M82 Competition Mode (generate-and-judge — the GENERATIVE dual of the
+// orthogonal validation triad). Contract: competition-mode-contract.md v1.0.0.
+//   - Eligible phases: partition, milestone, discuss, design-decompose (pre-contract,
+//     wide-solution-space). INELIGIBLE: plan/impact/prd/doc-ripple (narrow / one
+//     right answer) — competition there is wasted, so a competition arg is ignored.
+//   - Producers: N samples of ONE strong model (Self-MoA beats a model zoo), varied
+//     by an explicit per-candidate "angle" so they explore different regions.
+//   - Judge: partition uses the OBJECTIVE oracle (gsd-t competition-judge --kind
+//     partition, scoring via the disjointness prover — a calculator, not a critic,
+//     immune to LLM-judge bias). Other phases use a blind+shuffled+rubric judge whose
+//     numeric selection is finalized deterministically by competition-judge --kind
+//     generic.
 
 export const meta = {
   name: "gsd-t-phase",
@@ -34,6 +50,8 @@ const _CLI_ENVELOPE_SCHEMA = {
   type: "object", required: ["ok", "exitCode"], additionalProperties: true,
   properties: { ok: { type: "boolean" }, exitCode: { type: "integer" }, envelope: {}, stdout: { type: "string" }, stderr: { type: "string" }, via: { type: "string" } },
 };
+// Single-quote a value for safe shell interpolation (Red Team MED-5).
+function _shq(s) { return `'${String(s).replace(/'/g, "'\\''")}'`; }
 async function runCli(projectDir, subcmd, argv, localBin, label, parseJson = true, phaseNameOpt) {
   const argStr = (argv || []).map((a) => `'${String(a).replace(/'/g, "'\\''")}'`).join(" ");
   const prompt = [
@@ -57,6 +75,71 @@ async function generateBrief(projectDir, { kind = "execute", milestone, domain, 
   return { ok: r.ok, briefPath: `${projectDir}/.gsd-t/briefs/${id}.json`, via: r.via };
 }
 
+// M82: run the deterministic selection oracle over a candidate-set spec. The spec
+// is written to a file via the agent's Bash (no fs in this sandbox), then judged by
+// `gsd-t competition-judge --in <file>`. The agent MUST copy the judge's rich output
+// (winner/ranked) up to the TOP LEVEL of its reply — a permissive free-form
+// `envelope:{}` schema let a haiku agent silently drop winner/ranked (caught in the
+// M82 real-sandbox proof: via=local ok=true but winner=undefined). Explicit required
+// fields fix that. Returns { ok, winner, ranked }.
+const _JUDGE_ENVELOPE_SCHEMA = {
+  type: "object", required: ["ok", "winner"], additionalProperties: true,
+  properties: {
+    ok: { type: "boolean" },
+    exitCode: { type: "integer" },
+    winner: { type: ["string", "null"] },
+    ranked: { type: "array", items: { type: "object", additionalProperties: true } },
+    via: { type: "string" },
+  },
+};
+async function runCompetitionJudge(projectDir, spec, label = "judge", phaseNameOpt) {
+  // De-fang backticks so a producer-supplied domain name / path containing ``` can't
+  // break out of the markdown fence in the prompt (Red Team MED-5). The judge only
+  // reads structural fields (id, domains.name, touches[]); a sanitized name is fine.
+  const specJson = JSON.stringify(spec).replace(/`/g, "'");
+  const qDir = _shq(projectDir);
+  const specPath = `${projectDir}/.gsd-t/briefs/_competition-spec.json`;
+  const qSpec = _shq(specPath);
+  const prompt = [
+    `Run the GSD-T Competition Mode judge for the project at \`${projectDir}\` and report its FULL output. Steps:`,
+    `1. Write this EXACT JSON (one line) to \`${specPath}\` (overwrite; create .gsd-t/briefs/ if needed):`,
+    "~~~json",
+    specJson,
+    "~~~",
+    `2. If \`${projectDir}/bin/gsd-t-competition-judge.cjs\` exists, run: \`node ${qDir}/bin/gsd-t-competition-judge.cjs --in ${qSpec} --project-dir ${qDir}\` (set via="local"). Otherwise run: \`gsd-t competition-judge --in ${qSpec} --project-dir ${qDir}\` (set via="global"). cwd \`${projectDir}\`.`,
+    `3. The command prints a JSON object to stdout with fields: ok, exitCode, winner, ranked, n.`,
+    `4. COPY those fields (ok, exitCode, winner, ranked) up to the TOP LEVEL of your reply, plus via. Do NOT nest them under "envelope". If the command failed, set winner=null.`,
+    `Do NOT do any other work.`,
+  ].join("\n");
+  const opts = { label, schema: _JUDGE_ENVELOPE_SCHEMA, model: "haiku" };
+  if (phaseNameOpt) opts.phase = phaseNameOpt;
+  const r = await agent(prompt, opts).catch((e) => ({ ok: false, winner: null, ranked: [], via: "error", err: String(e && e.message) }));
+  // Prefer top-level fields; fall back to a nested envelope if the agent nested anyway.
+  const env = (r && r.winner !== undefined) ? r : (r && r.envelope) || {};
+  return { ok: !!env.ok, winner: env.winner != null ? env.winner : null, ranked: env.ranked || [] };
+}
+
+// Phases where competition pays off (wide solution space, pre-contract, high blast
+// radius). A competition arg on any other phase is ignored (single producer runs).
+const COMPETITION_ELIGIBLE = new Set(["partition", "milestone", "discuss", "design-decompose"]);
+
+// Rubric axes for the SUBJECTIVE judge (non-partition eligible phases). Partition
+// uses the objective oracle instead and ignores these.
+const RUBRIC_AXES_BY_PHASE = {
+  milestone: [
+    { key: "coherence", weight: 2 }, { key: "completeness", weight: 1 },
+    { key: "riskCoverage", weight: 1 }, { key: "simplicity", weight: 1 },
+  ],
+  discuss: [
+    { key: "soundness", weight: 2 }, { key: "completeness", weight: 1 },
+    { key: "tradeoffClarity", weight: 1 }, { key: "simplicity", weight: 1 },
+  ],
+  "design-decompose": [
+    { key: "fidelity", weight: 2 }, { key: "completeness", weight: 1 },
+    { key: "reuse", weight: 1 }, { key: "simplicity", weight: 1 },
+  ],
+};
+
 const VALID_PHASES = [
   "partition", "plan", "discuss", "impact",
   "milestone", "prd", "design-decompose", "doc-ripple",
@@ -78,6 +161,15 @@ const projectDir = _args.projectDir || ".";
 const milestone  = _args.milestone || null;
 const userInput  = _args.userInput || "";
 const phaseName  = _args.phase;
+
+// M82: clamp competition N to [1,5]. Evidence (Self-MoA, Large Language Monkeys):
+// gains plateau fast; N=3 captures the elbow, >5 is wasteful. N<=1 = off (single producer).
+const _rawN = Number(_args.competition) || 1;
+const competitionN = Math.max(1, Math.min(5, Math.floor(_rawN)));
+const competitionOn = competitionN > 1 && COMPETITION_ELIGIBLE.has(phaseName);
+if (competitionN > 1 && !competitionOn) {
+  log(`competition: N=${competitionN} ignored — phase "${phaseName}" is not competition-eligible (single producer runs). Eligible: ${[...COMPETITION_ELIGIBLE].join(", ")}.`);
+}
 
 if (!phaseName || !VALID_PHASES.includes(phaseName)) {
   log(`phase: args.phase must be one of: ${VALID_PHASES.join(", ")}`);
@@ -101,23 +193,245 @@ const promptByPhase = {
   "doc-ripple": `Identify and update all docs affected by recent code changes per the Document Ripple Completion Gate. No code edits.`,
 };
 
-const result = await agent(
-  [
-    `You are the ${phaseName} phase agent.`,
-    milestone ? `Milestone: ${milestone}` : "",
-    `**Brief (REQUIRED):** ${brief.briefPath || "(no brief — re-walk repo)"}`,
-    userInput ? `\nUser input:\n${userInput}` : "",
-    ``,
-    `Objective: ${promptByPhase[phaseName]}`,
-    ``,
-    `Follow the CLAUDE.md Pre-Commit Gate. Commit artifacts with prefix "m61(${phaseName})" or similar.`,
-    `Return JSON per the schema.`,
-  ].filter(Boolean).join("\n"),
-  { label: phaseName, phase: "Phase", schema: PHASE_RESULT_SCHEMA, model: "opus" }
-).catch((e) => ({
-  status: "failed",
-  artifacts: [],
-  summary: `agent error: ${e && e.message}`,
-}));
+const baseObjective = promptByPhase[phaseName];
+const briefLine = `**Brief (REQUIRED):** ${brief.briefPath || "(no brief — re-walk repo)"}`;
+
+let result;
+if (!competitionOn) {
+  // ── Single-producer path (default, unchanged behavior) ──
+  result = await agent(
+    [
+      `You are the ${phaseName} phase agent.`,
+      milestone ? `Milestone: ${milestone}` : "",
+      briefLine,
+      userInput ? `\nUser input:\n${userInput}` : "",
+      ``,
+      `Objective: ${baseObjective}`,
+      ``,
+      `Follow the CLAUDE.md Pre-Commit Gate. Commit artifacts with prefix "${(milestone || "m").toLowerCase()}(${phaseName})".`,
+      `Return JSON per the schema.`,
+    ].filter(Boolean).join("\n"),
+    { label: phaseName, phase: "Phase", schema: PHASE_RESULT_SCHEMA, model: "opus" }
+  ).catch((e) => ({ status: "failed", artifacts: [], summary: `agent error: ${e && e.message}` }));
+} else {
+  // ── M82 Competition Mode: generate -> judge -> finalize ──
+  // Distinct "angles" so the N Self-MoA producers explore different regions of
+  // the solution space (diversity by prompt, not by model — Self-MoA > Mixed-MoA).
+  const ANGLES = [
+    "Optimize for MAXIMUM parallelism: carve the most file-disjoint domains that can run concurrently.",
+    "Optimize for SIMPLICITY: the fewest domains with the cleanest, most obvious boundaries.",
+    "Optimize for RISK ISOLATION: isolate the riskiest/most-coupled work into its own domain so the rest stays safe.",
+    "Optimize for DEPENDENCY DEPTH: minimize serial gates (waves) between domains.",
+    "Optimize for BALANCE: roughly equal-sized domains with minimal cross-talk.",
+  ];
+
+  const PRODUCER_SCHEMA = phaseName === "partition"
+    ? {
+        type: "object", required: ["id", "domains"], additionalProperties: true,
+        properties: {
+          id: { type: "string" },
+          rationale: { type: "string" },
+          domains: {
+            type: "array", items: {
+              type: "object", required: ["name", "touches"], additionalProperties: true,
+              properties: {
+                name: { type: "string" },
+                touches: { type: "array", items: { type: "string" } },
+                summary: { type: "string" },
+              },
+            },
+          },
+        },
+      }
+    : {
+        type: "object", required: ["id", "proposal"], additionalProperties: true,
+        properties: { id: { type: "string" }, proposal: { type: "string" }, rationale: { type: "string" } },
+      };
+
+  phase("Compete");
+  log(`competition: ${competitionN} producers (Self-MoA, model=opus) for ${phaseName}`);
+  const ids = ["A", "B", "C", "D", "E"];
+  const candidates = (await parallel(
+    Array.from({ length: competitionN }, (_, i) => () =>
+      agent(
+        [
+          `You are candidate ${ids[i]} — one of ${competitionN} INDEPENDENT ${phaseName} proposals competing on quality.`,
+          milestone ? `Milestone: ${milestone}` : "",
+          briefLine,
+          userInput ? `\nUser input:\n${userInput}` : "",
+          ``,
+          `Objective: ${baseObjective}`,
+          `Your distinct angle: ${ANGLES[i % ANGLES.length]}`,
+          ``,
+          `DO NOT write or commit any files. PROPOSE ONLY — return your proposal as JSON per the schema.`,
+          phaseName === "partition"
+            ? `For "touches", list the concrete repo file paths each domain will WRITE (its owned files). Be specific and realistic — the judge scores file-disjointness from these.`
+            : `Put the full proposal text in "proposal".`,
+          `Set "id" to "${ids[i]}".`,
+        ].filter(Boolean).join("\n"),
+        { label: `candidate:${ids[i]}`, phase: "Compete", schema: PRODUCER_SCHEMA, model: "opus" }
+      ).then((c) => ({ ...c, id: c.id || ids[i] })).catch(() => null)
+    )
+  )).filter(Boolean);
+
+  if (candidates.length === 0) {
+    return { status: "failed", artifacts: [], summary: "competition: all producers failed" };
+  }
+
+  phase("Judge");
+  let winnerId = null;
+  let ranked = [];
+  if (phaseName === "partition") {
+    // OBJECTIVE oracle judge — calculator, not critic.
+    const env = await runCompetitionJudge(projectDir, { kind: "partition", candidates }, "judge:oracle", "Judge");
+    winnerId = env.winner; ranked = env.ranked || [];
+  } else {
+    // SUBJECTIVE judge: a different-model (sonnet) rubric scorer. Candidates are
+    // blind (author identity stripped) AND shuffled (deterministic permutation) so
+    // judge position no longer correlates with producer index/angle — Red Team
+    // HIGH-3: the shuffle was claimed in a comment but never implemented.
+    const axes = RUBRIC_AXES_BY_PHASE[phaseName] || [{ key: "quality", weight: 1 }];
+    // Deterministic permutation (Math.random is sandbox-banned): rotate by a seed
+    // derived from the milestone+phase string so order is stable per run but
+    // decoupled from producer index. The CLI tiebreak keys off the candidate's own
+    // id (carried through), so final selection stays reproducible regardless.
+    const seedStr = `${milestone || "m"}:${phaseName}`;
+    let seed = 0;
+    for (let k = 0; k < seedStr.length; k++) seed = (seed * 31 + seedStr.charCodeAt(k)) >>> 0;
+    const rot = candidates.length ? (seed % candidates.length) : 0;
+    const shuffled = candidates.map((_, i) => candidates[(i + rot) % candidates.length]);
+    const labeled = shuffled.map((c, i) => ({ id: c.id, label: ids[i], text: c.proposal || c.rationale || "" }));
+    const rubric = await agent(
+      [
+        `You are a BLIND, IMPARTIAL judge scoring ${labeled.length} competing ${phaseName} proposals.`,
+        `Score each on a 1-5 scale per axis: ${axes.map((a) => a.key).join(", ")}. Higher = better.`,
+        `Judge ONLY the content. The labels are arbitrary and the order is randomized — do NOT prefer earlier ones. Be calibrated and critical.`,
+        ``,
+        ...labeled.map((c) => `### Candidate ${c.label}\n${c.text}`),
+        ``,
+        `Return JSON: { "scores": [ { "id": "<candidate label A/B/C...>", "<axis>": <1-5>, ... }, ... ] }`,
+        `IMPORTANT: use the CANDIDATE LABEL (A, B, C…) shown above as the "id" in your scores.`,
+      ].join("\n"),
+      {
+        label: "judge:rubric", phase: "Judge", model: "sonnet",
+        schema: {
+          type: "object", required: ["scores"], additionalProperties: true,
+          properties: { scores: { type: "array", items: { type: "object", additionalProperties: true } } },
+        },
+      }
+    ).catch(() => ({ scores: [] }));
+    // Map the judge's label-keyed scores back to the REAL candidate ids before
+    // deterministic selection (so the winner id matches an actual candidate).
+    const labelToId = new Map(labeled.map((c) => [c.label, c.id]));
+    const judgeCandidates = (rubric.scores || []).map((s) => {
+      const { id, ...rest } = s; return { id: labelToId.get(id) || id, scores: rest };
+    });
+    const env = await runCompetitionJudge(projectDir, { kind: "generic", axes, candidates: judgeCandidates }, "judge:select", "Judge");
+    winnerId = env.winner; ranked = env.ranked || [];
+  }
+
+  // Red Team HIGH-1: NEVER fall back to an arbitrary candidate. For partition the
+  // judge returns winner=null only when EVERY candidate is file-overlapping
+  // (invalid) — committing candidates[0] would ship an invalid partition the
+  // dispatcher then mis-fans-out (contract Invariant 2). Hard-fail instead.
+  let winner = candidates.find((c) => c.id === winnerId);
+  if (!winner) {
+    if (phaseName === "partition") {
+      log(`competition: no VALID partition among ${candidates.length} candidates — failing the phase (Invariant 2: invalid never selected).`);
+      return {
+        status: "failed", artifacts: [],
+        summary: `competition: no valid (file-disjoint) partition among ${candidates.length} candidates`,
+        competition: { n: candidates.length, winner: null, ranked },
+      };
+    }
+    // Subjective phases: fall back to the judge's rank-1, else the first candidate.
+    const rank1 = (ranked[0] && candidates.find((c) => c.id === ranked[0].id)) || candidates[0];
+    winner = rank1;
+    log(`competition: judge returned no winner; falling back to rank-1 (${winner.id}).`);
+  }
+  log(`competition: winner = ${winner.id} (of ${candidates.map((c) => c.id).join(", ")})`);
+
+  // FINALIZE: one agent commits the WINNING approach (pick-one at the thesis level),
+  // then enriches it with non-overlapping good line-items from the losers (safe union
+  // at the separable layer — "winner + salvage orphaned good ideas"; never grafts a
+  // coupled thesis). Per the two-gate rule in competition-mode-contract.md.
+  phase("Finalize");
+  const winnerBlob = phaseName === "partition" ? JSON.stringify(winner.domains) : (winner.proposal || winner.rationale || "");
+  const losersBlob = candidates.filter((c) => c.id !== winner.id)
+    .map((c) => phaseName === "partition" ? JSON.stringify(c.domains) : (c.proposal || c.rationale || ""))
+    .join("\n---\n");
+  // For partition, the finalizer must report the EXACT domains+touches it committed
+  // so we can RE-VALIDATE the graft (Red Team HIGH-2 / contract Invariant 4: a
+  // salvaged "missed file" could silently reintroduce a write-target overlap).
+  const FINALIZE_SCHEMA = phaseName === "partition"
+    ? {
+        // finalizedDomains REQUIRED for partition (Red Team recheck LOW-1): if it's
+        // optional, a finalizer that omits it silently bypasses re-validation.
+        type: "object", required: ["status", "artifacts", "finalizedDomains"], additionalProperties: false,
+        properties: {
+          status: { type: "string", enum: ["complete", "partial", "blocked", "failed"] },
+          artifacts: { type: "array", items: { type: "string" } },
+          summary: { type: "string" },
+          decisions: { type: "array", items: { type: "string" } },
+          finalizedDomains: {
+            type: "array", items: {
+              type: "object", required: ["name", "touches"], additionalProperties: true,
+              properties: { name: { type: "string" }, touches: { type: "array", items: { type: "string" } } },
+            },
+          },
+        },
+      }
+    : PHASE_RESULT_SCHEMA;
+
+  result = await agent(
+    [
+      `You are the ${phaseName} finalizer. A competition selected a WINNING proposal; implement it for real.`,
+      milestone ? `Milestone: ${milestone}` : "",
+      briefLine,
+      ``,
+      `Objective: ${baseObjective}`,
+      ``,
+      `WINNING proposal (implement this whole — it is a coherent thesis, do NOT Frankenstein it):`,
+      winnerBlob,
+      ``,
+      `Other proposals (for SALVAGE ONLY — fold in any non-overlapping, clearly-good line-items, e.g. an extra risk, a missed file, a better domain name — that do NOT conflict with the winning structure. NEVER assign a file to a domain that another domain already owns. If in doubt, leave them out):`,
+      losersBlob || "(none)",
+      ``,
+      `Now WRITE the real artifacts and follow the CLAUDE.md Pre-Commit Gate. Commit with prefix "${(milestone || "m").toLowerCase()}(${phaseName})".`,
+      phaseName === "partition"
+        ? `Return JSON per the schema, INCLUDING "finalizedDomains" — the exact {name, touches[]} of every domain you committed (touches = the repo files each domain OWNS/WRITES). This is re-validated for file-disjointness.`
+        : `Return JSON per the schema.`,
+      `Include the competition outcome in "decisions" (e.g. "competition: winner ${winner.id} of ${candidates.length}").`,
+    ].filter(Boolean).join("\n"),
+    { label: `${phaseName}:finalize`, phase: "Finalize", schema: FINALIZE_SCHEMA, model: "opus" }
+  ).catch((e) => ({ status: "failed", artifacts: [], summary: `finalizer error: ${e && e.message}` }));
+
+  // Re-validate the FINALIZED partition (Invariant 4). If salvage reintroduced an
+  // overlap, the finalized graft is invalid → block completion with a clear reason.
+  if (phaseName === "partition" && result && result.status !== "failed") {
+    const finalized = Array.isArray(result.finalizedDomains) ? result.finalizedDomains : null;
+    if (!finalized || !finalized.length) {
+      // No finalizedDomains to re-check → can't prove disjointness → block rather
+      // than silently accept (Red Team recheck LOW-1: never fail-open on the gate).
+      log(`competition: finalizer returned no finalizedDomains — cannot re-validate disjointness, blocking.`);
+      result.status = "blocked";
+      result.summary = `finalizer did not report finalizedDomains; partition disjointness unverifiable. ${result.summary || ""}`.trim();
+    } else {
+      const reval = await runCompetitionJudge(
+        projectDir,
+        { kind: "partition", candidates: [{ id: "finalized", domains: finalized }] },
+        "judge:revalidate", "Finalize"
+      );
+      if (reval.winner !== "finalized") {
+        log(`competition: FINALIZED partition failed re-validation (salvage reintroduced a file overlap) — blocking (Invariant 4).`);
+        result.status = "blocked";
+        result.summary = `finalized partition is NOT file-disjoint (salvage overlap); re-run finalize dropping the conflicting file. ${result.summary || ""}`.trim();
+      }
+    }
+  }
+
+  // Thread the competition telemetry up so the caller can report measured SC#1.
+  result.competition = { n: candidates.length, winner: winner.id, ranked };
+}
 
 return result;
