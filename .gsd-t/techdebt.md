@@ -10,27 +10,20 @@
 
 ## Summary
 
-| Severity | Count |
-|----------|-------|
-| 🔴 CRITICAL | 4 |
-| 🟠 HIGH | 40 |
-| 🟡 MEDIUM | 77 |
-| 🟢 LOW | 60 |
-| **Total** | **181** |
+| Severity | Open | Resolved |
+|----------|------|----------|
+| 🔴 CRITICAL | 3 | 1 |
+| 🟠 HIGH | 39 | 1 |
+| 🟡 MEDIUM | 76 | 1 |
+| 🟢 LOW | 58 | 2 |
+| **Total** | **176** | **5** |
+
+> 5 items resolved by M81 runtime-native workflows (v4.0.29) — see the `## ✅ Resolved` section at the bottom.
 
 ---
 
 ## 🔴 Critical Priority
 
-### TD-113 - Six 'native Workflow' scripts use Node.js require() / fs / process - ReferenceError in sandbox
-- **Area:** Sandbox contract violation
-- **Severity:** CRITICAL
-- **Status:** OPEN
-- **Location:** templates/workflows/gsd-t-execute.workflow.js, templates/workflows/gsd-t-verify.workflow.js, templates/workflows/gsd-t-wave.workflow.js, templates/workflows/gsd-t-integrate.workflow.js, templates/workflows/gsd-t-debug.workflow.js, templates/workflows/gsd-t-quick.workflow.js, templates/workflows/gsd-t-phase.workflow.js
-- **Description:** All six workflows claim 'Runtime: Anthropic native Workflow tool only' in their headers, but every one calls `require('./_lib.js')` at the top level. The native Workflow sandbox explicitly does NOT provide `require`, `module`, `fs`, `path`, `child_process`, or `process` - the M71 comment in gsd-t-scan.workflow.js (line 5-6) documents this exactly: 'Using any of those throws `ReferenceError: require is not defined` at runtime - the bug (M71) that made every GSD-T workflow silently fail'. gsd-t-scan.workflow.js was correctly migrated to not use require(); the other six were not. Additionally: gsd-t-verify.workflow.js (line 183-187) uses `require('child_process')`, `require('fs')`, `require('path')`, and `process.execPath` inside the _runJsonCli function body; gsd-t-wave.workflow.js imports lib but never uses it (dead import that still crashes); gsd-t-execute.workflow.js imports both _lib and `path` (path is never used). The M71 lint test (test/m71-workflow-runtime-native-lint.test.js) guards only `RUNTIME_NATIVE = ['gsd-t-scan.workflow.js']` - the other six are outside the guard.
-- **Impact:** Every invocation of execute, verify, wave, integrate, debug, quick, or phase via the Workflow tool crashes immediately with `ReferenceError: require is not defined` before executing a single agent() call. The full GSD-T phase lifecycle is broken for all workflows except scan. This is the same class of failure M71 was created to prevent - the migration stalled after scan.
-- **Remediation:** Complete the M71 migration for all six remaining workflows: (1) Move the _lib.js helper functions that are actually needed (runPreflight, generateBrief, proveFileDisjointness, runVerifyGate, loadProtocol) into agent() call prompts - the agents have Bash tool access and can shell out to `gsd-t preflight --json`, `gsd-t brief`, etc. (2) For gsd-t-verify.workflow.js's _runJsonCli, move CI-parity and test-data CLI calls into a dedicated agent() stage (haiku model) that uses Bash. (3) Add all six filenames to the RUNTIME_NATIVE array in test/m71-workflow-runtime-native-lint.test.js so the lint gate covers them. (4) gsd-t-wave.workflow.js: remove the unused `const lib = require('./_lib.js')` entirely since wave only composes two workflow() calls.
-- **Found in slice:** workflow-orchestration-engine
 ### TD-114 - Retired headless-auto-spawn.cjs still required in runDispatch production path
 - **Area:** Fan-out execution
 - **Severity:** CRITICAL
@@ -61,15 +54,6 @@
 
 ## 🟠 High Priority
 
-### TD-117 - gsd-t-verify.workflow.js uses sandbox-banned globals (require, spawnSync, fs, process.execPath)
-- **Area:** Workflow sandbox compliance
-- **Severity:** HIGH
-- **Status:** OPEN
-- **Location:** templates/workflows/gsd-t-verify.workflow.js
-- **Description:** Lines 33 and 183-196 use require('./_lib.js'), require('child_process'), require('fs'), require('path'), spawnSync, and process.execPath. The Anthropic native Workflow sandbox (documented in gsd-t-scan.workflow.js lines 3-6 and memory:feedback_workflow_must_run_in_real_sandbox.md) does NOT provide these globals. Any call throws ReferenceError at runtime. The very first executed line - `const lib = require('./_lib.js')` - fails, making the entire verify workflow abort before running preflight, verify-gate, CI-Parity (M57), Test-Data Purge (M58), or the orthogonal triad. All quality gates are silently bypassed. The M71 lint test (test/m71-workflow-runtime-native-lint.test.js line 38) explicitly excludes gsd-t-verify.workflow.js from the forbidden-globals check, confirming this is known migration debt. The _runJsonCli helper embedded at lines 183-206 (spawnSync for build-coverage, ci-parity, test-data) is the additional failure surface beyond the lib= require.
-- **Impact:** Every /gsd-t-verify invocation via the Workflow tool fails on the first line. The CLI instruction says 'do NOT hand-drive', but the Workflow tool throws, forcing a fallback to hand-driven mode which skips all deterministic gates. This means the FAIL-blocking CI-Parity (M57) and Test-Data Purge (M58) gates are never enforced in production verify runs.
-- **Remediation:** Migrate gsd-t-verify.workflow.js to runtime-native architecture following the gsd-t-scan.workflow.js pattern: remove all top-level require() calls, move I/O into agent() stages (subagents have Bash/Read/Write tools), pass projectDir into prompts instead of reading directly. The _runJsonCli calls should become agent() stages that run the CLI tools via Bash. Add 'gsd-t-verify.workflow.js' to the RUNTIME_NATIVE list in test/m71-workflow-runtime-native-lint.test.js after migrating.
-- **Found in slice:** verify-gate-and-ci-parity, workflow-orchestration-engine
 ### TD-118 - agentId used directly in file path without containment check - path traversal
 - **Area:** Security / path traversal
 - **Severity:** HIGH
@@ -539,15 +523,6 @@ The only path that still injects stack rules is the legacy `bin/gsd-t-task-brief
 - **Description:** Four workflow scripts instruct their agents to use a hardcoded 'm61' commit prefix regardless of the actual milestone being executed: debug.workflow.js line 60 (`'m61(debug-cycle${cycle})'`), quick.workflow.js line 57 (`'m61(quick)'`), phase.workflow.js line 84 (`'m61(${phaseName})'`), and integrate.workflow.js line 54 (`'m61(integrate)'`). All four scripts receive `milestone` as an arg. The execute.workflow.js correctly avoids this - it tells domain workers to 'make commits' without dictating the prefix, leaving it to the worker to derive from context. The gsd-t-debug and gsd-t-quick workflows are also used across ALL milestones (they are general-purpose tools, not milestone-specific).
 - **Impact:** Every commit made by these workflows on a project working on M62, M63, M70, or any non-M61 milestone will be tagged with 'm61(...)' in the git log. This corrupts the commit history traceability that GSD-T uses to track which milestone changed which file. The Progress Decision Log and architecture audit tools that grep commit messages by milestone prefix will misreport coverage.
 - **Remediation:** Replace the hardcoded 'm61' with the `milestone` variable: e.g., `\`${milestone}(debug-cycle${cycle})\`` in debug.workflow.js, `\`${milestone}(quick)\`` in quick.workflow.js, `\`${milestone}(${phaseName})\`` in phase.workflow.js, and `\`${milestone}(integrate)\`` in integrate.workflow.js. For debug and quick which do not always receive a milestone, fall back: `${milestone || 'fix'}(debug-cycle${cycle})`.
-- **Found in slice:** workflow-orchestration-engine
-### TD-168 - M71 native-lint test guard covers only gsd-t-scan.workflow.js - six others unprotected
-- **Area:** Test coverage gap
-- **Severity:** MEDIUM
-- **Status:** OPEN
-- **Location:** test/m71-workflow-runtime-native-lint.test.js
-- **Description:** The RUNTIME_NATIVE list in the M71 lint test (line 38) contains only `['gsd-t-scan.workflow.js']`. The FORBIDDEN patterns list (lines 24-33) correctly identifies all sandbox-forbidden globals: require(), module.exports, child_process, spawnSync, execSync, execFileSync, process.execPath, and fs.* calls. However, six other workflows (execute, verify, wave, integrate, debug, quick, phase) all violate these patterns and are not checked. The test comment (line 37) explicitly acknowledges this: 'once workflows are runtime-native they no longer require it. While the migration is in progress, only assert on workflows already migrated.' The migration has stalled - the comment implies the list should grow as workflows are fixed.
-- **Impact:** New regressions (accidentally re-adding require() to scan, or adding new workflow files with require()) are caught only for scan. The six unguarded workflows can ship with sandbox-breaking calls indefinitely. This test was designed as a ratchet to enforce the M71 migration, but the ratchet is frozen.
-- **Remediation:** After fixing the require() usage in each workflow per finding #2, add each fixed file to the RUNTIME_NATIVE array. The final state should be all *.workflow.js files in the list. Consider also adding a 'all workflow files are in the lint list' assertion to prevent future additions from being silently unguarded.
 - **Found in slice:** workflow-orchestration-engine
 ### TD-169 - Orchestrator element auto-correction silently mutates design contract files without user confirmation
 - **Area:** Destructive Action Guard violation
@@ -1227,24 +1202,6 @@ Additionally, using `process.pid` as the temp file discriminator means that if t
 - **Impact:** The build-log files written at lines 944-947 and 958-960 are inflated with duplicated content (up to 3x). The _parseDefaultReviewResult's regex searches over the duplicated content, which could cause false positives on the FAIL/DEVIATION keyword detection if a passing response happens to include those words in its explanation of what was checked. The maxBuffer: 10MB cap means very long responses may get truncated in the callback.
 - **Remediation:** Collect text from only one source. Prefer the `assistant` event type (complete message, no ordering concerns) and remove the `content_block_delta` handler. Alternatively, track whether an assistant event has been seen and skip delta accumulation after that. Also consider using only the `result` type if it reliably carries the final answer.
 - **Found in slice:** workflow-orchestration-engine
-### TD-239 - gsd-t-wave.workflow.js imports _lib.js but never uses it - dead require in sandbox-violating import
-- **Area:** Dead code / sandbox violation
-- **Severity:** LOW
-- **Status:** OPEN
-- **Location:** templates/workflows/gsd-t-wave.workflow.js
-- **Description:** Line 17 imports `const lib = require('./_lib.js')` but `lib` is never referenced anywhere else in the file. The wave workflow only calls `workflow('gsd-t-execute', ...)` and `workflow('gsd-t-verify', ...)` - it needs no lib helpers. This dead import contributes nothing but causes the sandbox ReferenceError described in finding #2. If the workflow is fixed by removing all require() calls, this line must be removed as the first step.
-- **Impact:** Currently masks under finding #2 (the require() crash), but if someone removes only the 'used' require calls and misses this one, the dead import continues to cause the sandbox crash.
-- **Remediation:** Remove line 17 (`const lib = require('./_lib.js')`). The wave workflow is the simplest of all - it only composes two workflow() calls and needs no helper imports.
-- **Found in slice:** workflow-orchestration-engine
-### TD-240 - gsd-t-execute.workflow.js imports path module but never uses it - dead require
-- **Area:** Dead code / sandbox violation
-- **Severity:** LOW
-- **Status:** OPEN
-- **Location:** templates/workflows/gsd-t-execute.workflow.js
-- **Description:** Line 69 (`const path = require('path')`) imports the Node.js path module, but no `path.*` call appears anywhere in the execute workflow body. The lib import at line 68 does use path internally, but execute's own code does not. This is a dead import that also contributes to the sandbox ReferenceError crash.
-- **Impact:** When fixing the require() violations, this dead import could be mistakenly preserved because it 'looks harmless'. It must be removed as part of the M71 migration.
-- **Remediation:** Remove line 69. If path manipulation is needed in the future (e.g., to resolve briefPath), it should be expressed via agent() Bash calls, not Node.js require().
-- **Found in slice:** workflow-orchestration-engine
 ### TD-241 - Hardcoded 'src/components/{phases[0]}' path in orchestrator element validation - Vue/TSX only
 - **Area:** Framework portability / hardcoded assumptions
 - **Severity:** LOW
@@ -1733,3 +1690,64 @@ This means the brief omits contract status for contracts listed under `**Contrac
 - **Remediation:** After deleting `.gsd-t/.context-meter-state.json` and the context-meter code in gsd-t.js (per the HIGH finding above), update these contracts to say Ctx% is no longer measured via PostToolUse hook - agents should use the native `/context` command or `CLAUDE_CONTEXT_TOKENS_USED` env if available. Mark context-observability-contract.md as RETIRED or update to v3.0.0.
 - **Found in slice:** living-document-contracts-and-state
 
+
+---
+
+## ✅ Resolved
+
+> Items confirmed resolved and moved here from the open register. Full original text preserved.
+
+### TD-113 - Six 'native Workflow' scripts use Node.js require() / fs / process - ReferenceError in sandbox
+- **Area:** Sandbox contract violation
+- **Severity:** CRITICAL
+- **Status:** RESOLVED
+- **Resolved:** 2026-06-05 16:53 PDT — M81 runtime-native workflows (v4.0.29, commits 98a2e04 / 83a0912). All 8 `templates/workflows/*.workflow.js` are now runtime-native: zero `require(`/`child_process`/`spawnSync`/`process.` outside comments; each `JSON.parse`s `args` and delegates CLI calls via inline `runCli`/agent-Bash helpers. Verified on disk.
+- **Location:** templates/workflows/gsd-t-execute.workflow.js, templates/workflows/gsd-t-verify.workflow.js, templates/workflows/gsd-t-wave.workflow.js, templates/workflows/gsd-t-integrate.workflow.js, templates/workflows/gsd-t-debug.workflow.js, templates/workflows/gsd-t-quick.workflow.js, templates/workflows/gsd-t-phase.workflow.js
+- **Description:** All six workflows claim 'Runtime: Anthropic native Workflow tool only' in their headers, but every one calls `require('./_lib.js')` at the top level. The native Workflow sandbox explicitly does NOT provide `require`, `module`, `fs`, `path`, `child_process`, or `process` - the M71 comment in gsd-t-scan.workflow.js (line 5-6) documents this exactly: 'Using any of those throws `ReferenceError: require is not defined` at runtime - the bug (M71) that made every GSD-T workflow silently fail'. gsd-t-scan.workflow.js was correctly migrated to not use require(); the other six were not. Additionally: gsd-t-verify.workflow.js (line 183-187) uses `require('child_process')`, `require('fs')`, `require('path')`, and `process.execPath` inside the _runJsonCli function body; gsd-t-wave.workflow.js imports lib but never uses it (dead import that still crashes); gsd-t-execute.workflow.js imports both _lib and `path` (path is never used). The M71 lint test (test/m71-workflow-runtime-native-lint.test.js) guards only `RUNTIME_NATIVE = ['gsd-t-scan.workflow.js']` - the other six are outside the guard.
+- **Impact:** Every invocation of execute, verify, wave, integrate, debug, quick, or phase via the Workflow tool crashes immediately with `ReferenceError: require is not defined` before executing a single agent() call. The full GSD-T phase lifecycle is broken for all workflows except scan. This is the same class of failure M71 was created to prevent - the migration stalled after scan.
+- **Remediation:** Complete the M71 migration for all six remaining workflows: (1) Move the _lib.js helper functions that are actually needed (runPreflight, generateBrief, proveFileDisjointness, runVerifyGate, loadProtocol) into agent() call prompts - the agents have Bash tool access and can shell out to `gsd-t preflight --json`, `gsd-t brief`, etc. (2) For gsd-t-verify.workflow.js's _runJsonCli, move CI-parity and test-data CLI calls into a dedicated agent() stage (haiku model) that uses Bash. (3) Add all six filenames to the RUNTIME_NATIVE array in test/m71-workflow-runtime-native-lint.test.js so the lint gate covers them. (4) gsd-t-wave.workflow.js: remove the unused `const lib = require('./_lib.js')` entirely since wave only composes two workflow() calls.
+- **Found in slice:** workflow-orchestration-engine
+
+### TD-117 - gsd-t-verify.workflow.js uses sandbox-banned globals (require, spawnSync, fs, process.execPath)
+- **Area:** Workflow sandbox compliance
+- **Severity:** HIGH
+- **Status:** RESOLVED
+- **Resolved:** 2026-06-05 16:53 PDT — M81 (v4.0.29). gsd-t-verify.workflow.js no longer has the top-level `require('./_lib.js')` or the `_runJsonCli` spawnSync/require block; CLI calls now run via agent-Bash helpers and the file is in the M71 lint RUNTIME_NATIVE list. Verified clean.
+- **Location:** templates/workflows/gsd-t-verify.workflow.js
+- **Description:** Lines 33 and 183-196 use require('./_lib.js'), require('child_process'), require('fs'), require('path'), spawnSync, and process.execPath. The Anthropic native Workflow sandbox (documented in gsd-t-scan.workflow.js lines 3-6 and memory:feedback_workflow_must_run_in_real_sandbox.md) does NOT provide these globals. Any call throws ReferenceError at runtime. The very first executed line - `const lib = require('./_lib.js')` - fails, making the entire verify workflow abort before running preflight, verify-gate, CI-Parity (M57), Test-Data Purge (M58), or the orthogonal triad. All quality gates are silently bypassed. The M71 lint test (test/m71-workflow-runtime-native-lint.test.js line 38) explicitly excludes gsd-t-verify.workflow.js from the forbidden-globals check, confirming this is known migration debt. The _runJsonCli helper embedded at lines 183-206 (spawnSync for build-coverage, ci-parity, test-data) is the additional failure surface beyond the lib= require.
+- **Impact:** Every /gsd-t-verify invocation via the Workflow tool fails on the first line. The CLI instruction says 'do NOT hand-drive', but the Workflow tool throws, forcing a fallback to hand-driven mode which skips all deterministic gates. This means the FAIL-blocking CI-Parity (M57) and Test-Data Purge (M58) gates are never enforced in production verify runs.
+- **Remediation:** Migrate gsd-t-verify.workflow.js to runtime-native architecture following the gsd-t-scan.workflow.js pattern: remove all top-level require() calls, move I/O into agent() stages (subagents have Bash/Read/Write tools), pass projectDir into prompts instead of reading directly. The _runJsonCli calls should become agent() stages that run the CLI tools via Bash. Add 'gsd-t-verify.workflow.js' to the RUNTIME_NATIVE list in test/m71-workflow-runtime-native-lint.test.js after migrating.
+- **Found in slice:** verify-gate-and-ci-parity, workflow-orchestration-engine
+
+### TD-168 - M71 native-lint test guard covers only gsd-t-scan.workflow.js - six others unprotected
+- **Area:** Test coverage gap
+- **Severity:** MEDIUM
+- **Status:** RESOLVED
+- **Resolved:** 2026-06-05 16:53 PDT — M81 (v4.0.29). The RUNTIME_NATIVE array in test/m71-workflow-runtime-native-lint.test.js now lists all 8 workflows, not just scan. Verified on disk.
+- **Location:** test/m71-workflow-runtime-native-lint.test.js
+- **Description:** The RUNTIME_NATIVE list in the M71 lint test (line 38) contains only `['gsd-t-scan.workflow.js']`. The FORBIDDEN patterns list (lines 24-33) correctly identifies all sandbox-forbidden globals: require(), module.exports, child_process, spawnSync, execSync, execFileSync, process.execPath, and fs.* calls. However, six other workflows (execute, verify, wave, integrate, debug, quick, phase) all violate these patterns and are not checked. The test comment (line 37) explicitly acknowledges this: 'once workflows are runtime-native they no longer require it. While the migration is in progress, only assert on workflows already migrated.' The migration has stalled - the comment implies the list should grow as workflows are fixed.
+- **Impact:** New regressions (accidentally re-adding require() to scan, or adding new workflow files with require()) are caught only for scan. The six unguarded workflows can ship with sandbox-breaking calls indefinitely. This test was designed as a ratchet to enforce the M71 migration, but the ratchet is frozen.
+- **Remediation:** After fixing the require() usage in each workflow per finding #2, add each fixed file to the RUNTIME_NATIVE array. The final state should be all *.workflow.js files in the list. Consider also adding a 'all workflow files are in the lint list' assertion to prevent future additions from being silently unguarded.
+- **Found in slice:** workflow-orchestration-engine
+
+### TD-239 - gsd-t-wave.workflow.js imports _lib.js but never uses it - dead require in sandbox-violating import
+- **Area:** Dead code / sandbox violation
+- **Severity:** LOW
+- **Status:** RESOLVED
+- **Resolved:** 2026-06-05 16:53 PDT — M81 (v4.0.29). gsd-t-wave.workflow.js no longer has any `require("./_lib.js")` (only a comment referencing the old bug). Verified on disk.
+- **Location:** templates/workflows/gsd-t-wave.workflow.js
+- **Description:** Line 17 imports `const lib = require('./_lib.js')` but `lib` is never referenced anywhere else in the file. The wave workflow only calls `workflow('gsd-t-execute', ...)` and `workflow('gsd-t-verify', ...)` - it needs no lib helpers. This dead import contributes nothing but causes the sandbox ReferenceError described in finding #2. If the workflow is fixed by removing all require() calls, this line must be removed as the first step.
+- **Impact:** Currently masks under finding #2 (the require() crash), but if someone removes only the 'used' require calls and misses this one, the dead import continues to cause the sandbox crash.
+- **Remediation:** Remove line 17 (`const lib = require('./_lib.js')`). The wave workflow is the simplest of all - it only composes two workflow() calls and needs no helper imports.
+- **Found in slice:** workflow-orchestration-engine
+
+### TD-240 - gsd-t-execute.workflow.js imports path module but never uses it - dead require
+- **Area:** Dead code / sandbox violation
+- **Severity:** LOW
+- **Status:** RESOLVED
+- **Resolved:** 2026-06-05 16:53 PDT — M81 (v4.0.29). gsd-t-execute.workflow.js no longer has `const path = require('path')`. Verified on disk.
+- **Location:** templates/workflows/gsd-t-execute.workflow.js
+- **Description:** Line 69 (`const path = require('path')`) imports the Node.js path module, but no `path.*` call appears anywhere in the execute workflow body. The lib import at line 68 does use path internally, but execute's own code does not. This is a dead import that also contributes to the sandbox ReferenceError crash.
+- **Impact:** When fixing the require() violations, this dead import could be mistakenly preserved because it 'looks harmless'. It must be removed as part of the M71 migration.
+- **Remediation:** Remove line 69. If path manipulation is needed in the future (e.g., to resolve briefPath), it should be expressed via agent() Bash calls, not Node.js require().
+- **Found in slice:** workflow-orchestration-engine
