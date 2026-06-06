@@ -2,6 +2,26 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [4.1.10] - 2026-06-05 (M82 Competition Mode - minor)
+
+### Added - Competition Mode: generate-and-judge for upstream, pre-contract phases
+
+The *generative* dual of the orthogonal validation triad. The triad is adversarial (many critics, one candidate → a filter); Competition Mode is generative (many candidates, one judge → a generator). GSD-T historically filtered hard but **generated singly** — every upstream artifact was a single draft. Competition Mode adds the missing generator on the phases where it pays. **Watershed rule:** generate-and-judge ABOVE the contract; attack-and-filter BELOW it.
+
+- **Opt-in `--competition N`** (N clamped 2–5; default off) on eligible upstream phases: `partition`, `milestone`, `discuss`, `design-decompose`. Ignored (single producer, logged) on ineligible phases (plan/impact/prd/doc-ripple) and impossible on post-contract phases (execute/verify/…).
+- **Producers = Self-MoA** — N samples of ONE strong model (opus), diversified by prompt *angle* (max-parallelism / simplicity / risk-isolation / dependency-depth / balance), not by a model zoo. Evidence (Self-MoA, arXiv 2502.00674): aggregation is far more sensitive to candidate quality than diversity; mixing models injects low-quality candidates. No debate — producers stay independent.
+- **Objective judge for partition (the v1 beachhead)** — `bin/gsd-t-competition-judge.cjs --kind partition` scores candidate decompositions via the SAME file-disjointness oracle the dispatcher uses (`bin/gsd-t-file-disjointness.cjs`): parallelGroups / waveDepth / validity. A calculator, not an LLM critic → immune to position/verbosity/self-preference bias. Touch paths normalized (`./a` ≡ `a`, `//`, backslashes, trailing slash, dedupe; case preserved).
+- **Subjective judge for milestone/discuss/design** — blind + deterministically-shuffled + different-model (sonnet) + rubric-scored; the winner is finalized deterministically by `--kind generic` (highest weighted score; reproducible tiebreak; zero inference in the substrate).
+- **Two-gate selection policy** (synthesize only when candidate-quality-uniform AND artifact-is-list-shaped; else pick-one) + three artifact classes (coupled-thesis → pick-one; line-items → union/dedup; structurally-validated → synthesize+re-validate). The finalizer does pick-one-at-thesis + union-at-line-item-level, then partition re-validates the graft via the oracle and BLOCKS on a reintroduced overlap.
+- **New CLI**: `gsd-t competition-judge [--in SPEC.json] [--project-dir P]` (exit 0 winner / 4 no valid candidate / 64 bad input). Added to project + global bin tools.
+- **Contract**: `.gsd-t/contracts/competition-mode-contract.md` v1.0.0 STABLE (6 invariants).
+- **Verification**: orthogonal triad ran. Adversarial Workflow Red Team (Opus, fresh context) FAILed first pass (3 HIGH + 2 MEDIUM), all fixed, re-validation Red Team GRUDGING-PASS (all 5 fixed, no new HIGH/CRITICAL). Real-sandbox acceptance gate passed (judge integration ran end-to-end in the Workflow sandbox). Suite 1357/0/4 (+6 M82 tests). **SC#1 measured on M82's own partition: competition (3 producers) → 3 parallel groups vs N=1 baseline's 1 (3× parallelism), invalid overlap candidate correctly disqualified.** SC#3 position-bias probe: order-invariant winner (100%).
+- Origin: brainstorm 2026-06-05 grounded in 2 deep-research runs (best-of-N/judge/debate + synthesis-vs-pick-one/MoA/Frankenstein).
+
+### Versioning
+
+Minor bump 4.0.29 → 4.1.10 (new feature, additive; patch reset to 10).
+
 ## [4.0.29] - 2026-06-05 (M81 Workflows Runtime-Native - patch)
 
 ### Fixed - TD-113: 6 of 7 workflows (+ quick) crashed in the Workflow sandbox and had never run

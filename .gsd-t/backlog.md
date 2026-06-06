@@ -351,3 +351,93 @@ Rate-limit pressure from running parallel is NOT a con. Hitting the 5-hour ceili
 - **Non-goals**: skill creation (this is for GSD-T commands, not Agent Skills); UI eval (covered by existing design-verify); production user telemetry (out of scope — bench runs on canonical synthetic evals).
 - **Pairs with**: `feedback_measure_dont_claim` (the philosophy this operationalizes for methodology changes); existing `qa-issues.md` (bench measures *intended* outcomes; qa catches *unintended* defects — complementary).
 - **Defer until**: M44 cross-domain parallelism is integrated. Bench wants the parallel substrate to spawn paired runs concurrently; doing this before M44 lands means rebuilding the spawn layer.
+
+## 26. Competition Mode — generate-and-judge for upstream wide-solution-space phases
+- **Type:** feature | **App:** gsd-t | **Category:** orchestration · quality
+- **Added:** 2026-06-05 | **Origin:** brainstorm 2026-06-05 (2× deep-research grounded)
+- **Status:** ✅ COMPLETED as M82 at v4.1.10 (2026-06-05) — see `.gsd-t/progress.md`. v1 shipped: objective partition judge + workflow competition arm + contract + `--competition N` flags. SC#1 measured (3× parallelism on M82's own partition). Below is the original spec, retained for history.
+
+### One-line
+An opt-in `competition: N` capability that fans out N parallel candidate-producers on **upstream, wide-solution-space, pre-contract phases** (milestone decomposition, partition, discuss, design-build), then a **judge stage** selects-or-synthesizes a winner. This is the *generative* dual of the existing orthogonal validation triad (which is *adversarial* competition). The contract is the watershed: **generate-and-judge above the contract; attack-and-filter below it.**
+
+### Why (the core insight)
+GSD-T today filters hard (Red Team / QA / code-review attack one artifact) but **generates singly** — every upstream artifact is a single draft that then gets filtered. There is no "vs.", only "pass/fail". Competition mode adds the missing generator: many candidates → one judge. Leverage of a decision = (width of solution space) × (downstream blast radius); competition should be spent only where that product is high — which is precisely the pre-contract phases.
+
+### Evidence base (2× deep-research, 2026-06-05 — citable findings)
+- **Generation scales, selection is the bottleneck.** Best-of-N *coverage* (fraction solved by ≥1 of N samples) scales log-linearly with N across 4 orders of magnitude — SWE-bench Lite 15.9%@N=1 → 56%@N=250 (Brown et al., "Large Language Monkeys," arXiv 2407.21787, 2024; **3-vote verified**). BUT coverage is an *oracle-selection upper bound* — the realized benefit is **bounded by judge quality, not N**. ⇒ **The judge IS the feature.** A weak judge tripling spend to pick among 3 = waste.
+- **Synthesis beats pick-one on loosely-coupled free-form tasks.** MoA generative aggregator 61.3% vs LLM-ranker-picks-one 47.8% LC win on AlpacaEval 2.0 (arXiv 2406.04692; **3-0 verified**). "Collaborativeness": a model improves when shown others' outputs even when they're lower quality (**2-0**). Caveat: this is GPT-4-judged *preference*, strongest for list-like/free-form artifacts, NOT coupled correctness-critical ones.
+- **Synthesis-beats-best is NOT unconditional** — the "no regressions" claim was **3-0 REFUTED**. Frankenstein is real.
+- **The Frankenstein mechanism is quality variance, not (only) coupling.** Aggregation quality is **far more sensitive to candidate quality than to diversity** (regression coeffs: MATH 4.72 quality vs 2.84 diversity; CRUX ~3.2×; **3-0 verified**). "Pursuing cross-model diversity may inadvertently include low-quality models → quality-diversity trade-off" that degrades the merge (arXiv 2502.00674, Self-MoA, ICLR 2025; **3-0 verified**).
+- **Self-MoA > Mixed-MoA.** Synthesizing N samples from *one strong model* beats mixing diverse models by **6.6% AlpacaEval, 3.8% avg** (**3-0 verified**). ⇒ **Default generators = N samples of one strong model, NOT a zoo of models.** Cheaper AND better. (Aggregating samples of one model is still synthesis — "synthesis beats pick-one" survives this.)
+- **Don't build debate.** Three independent sources leaned *against* multi-agent debate beating independent-sampling + judge at lower cost (unconfirmed but directionally consistent). Keep fan-out **independent**; skip debate.
+- **N small.** Evidence leaned toward optimal N < 10; SWE-bench's elbow is early (≈N=5). ⇒ **Default N=3, cap N=5.**
+
+### Selection policy — the two-gate rule (this is the spec)
+Per-phase, the judge decides pick-one vs synthesize via **two independent gates; synthesize only when BOTH pass**:
+
+| Gate | Synthesize | Pick-one |
+|------|-----------|----------|
+| **Candidate quality uniform?** | Yes → safe to merge | No → pick-one (or quality-gate the pool first) |
+| **Artifact shape** | List / loosely-coupled (requirements, risks, tests) | Coupled thesis (milestone strategy, architecture) |
+
+Three artifact classes follow from this:
+1. **Coupled thesis** (milestone strategy, architecture decision) → **pick-one** (graft = Frankenstein; parts mutually justify each other).
+2. **Independent line-items** (risk registers, requirements, acceptance criteria, test cases) → **union/dedup**, not holistic regraft — strictly safe, strictly additive.
+3. **Structurally-validated** (partition) → **synthesize + re-validate** — the oracle re-checks coherence, so even coupled output can be grafted safely.
+
+**Operational refinement:** for milestone/discuss, do **pick-one at the thesis level, union at the embedded-list level** (take the winning strategy whole, then enrich it with non-overlapping good line-items the losing candidates surfaced). That's "winner + salvage the orphaned good ideas" — the graft-the-best instinct made safe by applying it only to the separable layer.
+
+### Phase applicability (where it gets a `competition:` flag — and where it must NOT)
+| Phase | Solution space | Blast radius | Verdict |
+|-------|---------------|--------------|---------|
+| Milestone decomposition | very wide | whole project | **eligible** — highest altitude; pick-one (coupled thesis) + list-union |
+| Discuss (architecture) | wide | whole milestone | **eligible** — its literal purpose; pick-one + list-union |
+| **Partition** | wide + **objective oracle** | plan→execute→integrate | **v1 BEACHHEAD** — synthesize+re-validate |
+| Design-build | medium (ambiguous designs) | the screen | eligible (conditional); visual-judge pick-one |
+| Plan / execute / verify / integrate / test-sync | narrow / one right answer | local | **INELIGIBLE** — execute already has the adversarial triad; competition here = pure waste |
+
+### v1 beachhead: PARTITION (ship here first)
+Partition is the **only** competing phase with a built-in *objective* fitness function — `gsd-t parallel --dry-run` / `bin/gsd-t-file-disjointness.cjs`. Its judge is a **calculator, not a critic** — it sidesteps the entire LLM-judge-bias problem. Candidate partitions score on measurable axes: max parallelism (disjoint domain count), wave depth (fewer serial gates = better), file-boundary cleanliness (zero overlap = valid). This is the one phase where the research's caveat ("competition only pays if you can select") is *provably* satisfied. Lowest risk, measurable payoff, proves the machinery. Synthesis here is safe because the oracle re-validates any graft; on failure, fall back to best valid pick-one.
+
+### Judge rigor (mandatory for subjective phases — milestone/discuss/design)
+Because "the judge IS the feature," subjective-phase judges MUST ship with bias mitigations from v1:
+- **Blind + shuffled** — strip author identity (candidates labeled A/B/C), randomize order per judge call → kills position bias. (cheap, mandatory)
+- **Different-model judge** — judge runs on a different model than the generators (cross-family) → attacks self-preference bias. (cheap, mandatory)
+- **Rubric-scored** — score each candidate on explicit weighted axes (coherence, completeness, risk-coverage, parallelism, simplicity), not holistic "which is better" → reduces verbosity/halo bias. (mandatory)
+- **Panel + majority** (optional, costs 3× judge calls) — 3 independent judges vote, ties → highest rubric score. Reserve for the highest-altitude calls (milestone decomposition).
+
+### Composition with the orthogonal validation triad
+Orthogonal triad = **adversarial competition** (one candidate, many critics → catches what's *wrong*). Competition mode = **generative competition** (many candidates, one judge → finds what's *best*). They are duals and **stack**: competition produces the best upstream artifact; the triad still validates the downstream code. Competition mode does NOT touch verify — verify is already covered by the adversarial dual.
+
+### Cost posture
+- **Default OFF** (opt-in per phase: `/gsd-t-partition --competition 3`). Conservative is now *evidence-backed* (synthesis-beats-best not unconditional; subjective-phase judge unproven). N=3 captures the curve's elbow.
+- Consider **budget-scaled N** later: `N = budget.total ? clamp(floor(total/150k), 2, 5) : 0` — matches the existing Workflow `budget` global. Defer until v1 (partition) proves value.
+- Token-honesty: competition ~N× the spend of the wrapped phase. Justified ONLY pre-contract where blast radius is large. Max-funded build work has zero marginal $ cost, but context-window + wall-clock are real — hence N small, opt-in, upstream-only.
+
+### Proposed shape (finalize at partition)
+- Extend `templates/workflows/gsd-t-phase.workflow.js` (the generic upper-stage runner already covers partition/discuss/milestone/design-decompose) with a `competition` arg: when `args.competition > 1`, replace the single producer `agent()` with a `parallel()` of N producers (Self-MoA: same strong model, varied by index/seed in the prompt) → a **judge stage** implementing the two-gate policy → emit the winner/synthesis as the phase artifact.
+- Partition's judge calls the **existing oracle** (`gsd-t parallel --dry-run` via the inline runCli helper) to score + re-validate — no new judge model needed for v1.
+- New contract `.gsd-t/contracts/competition-mode-contract.md` v1.0.0: the two-gate selection policy, the three artifact classes, the Self-MoA generator default, the judge-rigor mandatories, and the phase-eligibility table. (Sibling to `orthogonal-validation-contract.md` — generative dual of the adversarial one.)
+- Thin invoker flags on eligible command files (`gsd-t-partition.md`, `gsd-t-milestone.md`, `gsd-t-discuss.md`, `gsd-t-design-build.md`): `--competition N`.
+
+### Success criteria (measured, per `feedback_measure_dont_claim`)
+1. **Partition (oracle-judged):** on a multi-domain milestone, `--competition 3` produces a partition with **strictly higher measured parallelism (disjoint-domain count) or shallower wave depth** than the N=1 baseline, on ≥2 of 3 test milestones — with zero file-boundary overlaps (oracle-validated). If competition never beats baseline, the feature is rejected for partition.
+2. **No Frankenstein:** every synthesized artifact passes its phase's coherence check — partition re-validates via the oracle (0 invalid grafts shipped); list-union artifacts contain zero contradictory items.
+3. **Judge bias controls demonstrated:** a position-bias probe (same candidates, reversed order) yields the same winner ≥90% of the time on the subjective-phase judge.
+4. **Cost bounded:** competition-on phases cost ≤ N× the N=1 baseline tokens (no runaway judge loops).
+
+### Non-goals
+- Multi-agent **debate** (evidence leans against it; keep fan-out independent).
+- Competition on **execute/plan/verify/integrate** (post-contract, narrow space — the adversarial triad already owns the downstream).
+- A **model zoo** of diverse generators (Self-MoA beats Mixed-MoA — same strong model, N samples).
+- Replacing the orthogonal validation triad (this is its generative *complement*, not a substitute).
+
+### Defer until
+M44 cross-domain parallelism is integrated (competition leans on the `parallel()` substrate + `budget` global). The native Workflow runtime (M81, v4.0.29) provides the `parallel/agent/budget` primitives this needs — so it's buildable on the current runtime once a partition-suitable milestone is available to test against.
+
+### Related
+- `.gsd-t/contracts/orthogonal-validation-contract.md` (the adversarial dual)
+- `bin/gsd-t-file-disjointness.cjs` + `gsd-t parallel --dry-run` (the partition oracle = v1 judge)
+- `templates/workflows/gsd-t-phase.workflow.js` (the generic upper-stage runner to extend)
+- memory: `feedback_native_workflow_redteam_catches_more.md` (perspective-diverse Workflow stages catch more), `feedback_measure_dont_claim.md` (success = measured), `feedback_deterministic_orchestration.md` (gates in JS, not prose — the oracle judge embodies this)
+- Deep-research transcripts (2026-06-05): tasks `wkcnmqw8u` (best-of-N / judge / debate) + `wt4z2eqcp` (synthesis vs pick-one / MoA / Frankenstein)

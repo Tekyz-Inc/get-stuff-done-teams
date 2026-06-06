@@ -122,7 +122,10 @@ gsd-t build-coverage --json                             # M57: new top-level pat
 gsd-t ci-parity --json                                  # M57: reproduce the project's actual CI build locally (auto docker build)
 gsd-t test-data --list [--run ID] [--json]              # M58: list test-data ledger entries
 gsd-t test-data --purge --run ID [--dry-run] [--json]   # M58: purge tagged test data after Verify (Step 4.5)
+gsd-t competition-judge --in SPEC.json [--project-dir P] # M82: generate-and-judge selection oracle (partition / generic)
 ```
+
+**Competition Mode (M82).** Opt-in `--competition N` (N 2–5) on upstream, pre-contract phases (`/gsd-t-partition`, `/gsd-t-milestone`, `/gsd-t-design-decompose`) fans out N parallel candidate producers and a judge selects the winner — the generative dual of the orthogonal validation triad. Partition uses an *objective* file-disjointness oracle as the judge (a calculator, not a biased critic); subjective phases use a blind + different-model + rubric judge. Default off. See `.gsd-t/contracts/competition-mode-contract.md`.
 
 `gsd-t parallel` consumes the M44 task-graph (D1) and applies three pre-spawn gates (D4 depgraph validation → D5 file-disjointness → D6 economics) followed by mode-aware headroom/split math. Extends — does not replace — the M40 orchestrator. Contract: `.gsd-t/contracts/wave-join-contract.md` v1.1.0.
 

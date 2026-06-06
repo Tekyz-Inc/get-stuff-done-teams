@@ -25,14 +25,21 @@ Capture the design reference from `$ARGUMENTS` (Figma URL / image path). If Figm
   args: {
     phase: "design-decompose",
     projectDir: ".",
-    userInput: "$ARGUMENTS"
+    userInput: "$ARGUMENTS",
+    // M82 Competition Mode (opt-in): `--competition N` (N 2..5) fans out N
+    // parallel decompositions; a blind, different-model, rubric judge (fidelity /
+    // completeness / reuse / simplicity) selects the winner. Useful when a design
+    // is ambiguous or the component boundaries aren't obvious.
+    competition: 1
   }
 }
 ```
 
+**Competition Mode (`--competition N`).** When a design is ambiguous or the element/widget/page boundaries aren't obvious, `/gsd-t-design-decompose --competition 3` fans out N candidate decompositions and a blind, different-model rubric judge picks the best. Parse N (clamped 2..5). See `.gsd-t/contracts/competition-mode-contract.md`. Default off.
+
 ## Step 3: Interpret the result
 
-The Workflow returns `{ status, artifacts, summary, decisions }`.
+The Workflow returns `{ status, artifacts, summary, decisions }` (plus `competition: { n, winner, ranked }` when Competition Mode ran).
 
 - `status === "complete"`: the element → widget → page contract tree is written under `.gsd-t/contracts/design/`.
 - `status === "partial" | "blocked"`: the agent needs the design source (e.g. Figma auth) or a stack-capability decision. Surface it.

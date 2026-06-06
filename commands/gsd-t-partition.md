@@ -30,14 +30,21 @@ Call the `Workflow` tool with:
     phase: "partition",
     milestone: "M{NN}",
     projectDir: ".",
-    userInput: "$ARGUMENTS"
+    userInput: "$ARGUMENTS",
+    // M82 Competition Mode (opt-in): if the user passed `--competition N` in
+    // $ARGUMENTS (N in 2..5), set competition: N. N parallel Self-MoA producers
+    // propose partitions; the OBJECTIVE oracle judge (file-disjointness scoring)
+    // picks the most-parallelizable valid decomposition. Omit / set 1 = off.
+    competition: 1
   }
 }
 ```
 
+**Competition Mode (`--competition N`).** Partition is the v1 beachhead for generate-and-judge: its judge is the file-disjointness oracle, so it is a calculator, not a biased critic. If the user invokes `/gsd-t-partition --competition 3`, parse N (clamped 2..5) and pass `competition: N`. The workflow fans out N candidate partitions, scores each on measured parallelism / wave-depth / boundary-cleanliness, and finalizes the winner. See `.gsd-t/contracts/competition-mode-contract.md`. Default off (single producer).
+
 ## Step 3: Interpret the result
 
-The Workflow returns `{ status, artifacts, summary, decisions }`.
+The Workflow returns `{ status, artifacts, summary, decisions }` (plus `competition: { n, winner, ranked }` when Competition Mode ran).
 
 - `status === "complete"`: domains scoped, contracts drafted. Auto-advance to `/gsd-t-plan`.
 - `status === "partial" | "blocked"`: read `summary` for what's missing (e.g. ambiguous scope needing discussion).
