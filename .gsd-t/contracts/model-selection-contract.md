@@ -1,9 +1,10 @@
 # Contract: Model Selection
 
-## Version: 1.0.0
+## Version: 1.1.0
 ## Status: ACTIVE
 ## Owner: m35-model-selector-advisor
 ## Consumers: `bin/model-selector.js`, `bin/advisor-integration.js`, `commands/gsd-t-execute.md`, `commands/gsd-t-wave.md`, `commands/gsd-t-quick.md`, `commands/gsd-t-integrate.md`, `commands/gsd-t-debug.md`, `commands/gsd-t-partition.md`, `commands/gsd-t-discuss.md`, `commands/gsd-t-plan.md`, `commands/gsd-t-verify.md`, `commands/gsd-t-test-sync.md`, `commands/gsd-t-doc-ripple.md`
+## Cross-reference: `.gsd-t/contracts/model-tier-policy-contract.md` v1.0.0 STABLE (M85 — single source of truth for tier assignments; supersedes the ad-hoc tier descriptions in this contract for the 5 designated Fable stages)
 
 ---
 
@@ -66,14 +67,29 @@ Canonical `sonnet` phases:
 Canonical `opus` phases:
 - `partition` — decomposing work into domains and drawing contracts
 - `discuss` — multi-perspective design exploration
-- Red Team (adversarial QA) — the adversarial agent whose job is to find bugs
 - `verify` judgment — the "is this actually done?" call, not the test runner
-- `debug` root-cause analysis — hypothesis generation from error evidence
+- `debug` root-cause analysis — hypothesis generation from error evidence (cycle-1; cycle-2 escalates to fable)
 - `complete-milestone` goal-backward verification
 - Contract design and cross-module refactor planning
-- Security analysis
+- Competition producers (M82 — HELD at opus; must differ from the fable judge)
 
-**Escalation hooks**: N/A. An `opus` phase does not escalate further — there is no stronger tier.
+**Escalation hooks**: An `opus` phase may escalate to `fable` for the 5 highest-leverage stages. See `model-tier-policy-contract.md` v1.0.0 for the authoritative list.
+
+### `fable` — highest-stakes calls (M85, tier above opus)
+
+**Use for**: stages where one call's judgment gates the most downstream spend. Claude Fable 5 (`claude-fable-5`, $10/$50 per MTok, 1M ctx / 128K out, same API surface as Opus 4.8). **Breaking change**: explicit thinking-disabled parameter returns HTTP 400 — it MUST be OMITTED (not set false). This is encoded once in `requiresThinkingOmitted(model)` in `bin/gsd-t-model-tier-policy.cjs`.
+
+Canonical `fable` stages (authoritative mapping in `.gsd-t/contracts/model-tier-policy-contract.md` v1.0.0 STABLE):
+- Solution-space probe (`gsd-t-phase.workflow.js`) — one call decides whether to fan out 3× competition spend
+- Partition probe (`gsd-t-phase.workflow.js`) — pre-produce compete/skip decision
+- Competition judge (`gsd-t-phase.workflow.js`, `label: "judge:rubric"`) — different model than producers (M82 blindness invariant; producers stay `opus`)
+- Pre-mortem (`gsd-t-phase.workflow.js`, `label: "pre-mortem"`) — adversarial plan attack; one missed failure costs all of execute + verify
+- Red Team (`gsd-t-verify.workflow.js`, `label: "red-team"`) — adversarial QA; stays NON-SKIPPABLE on fable tier
+- Debug cycle-2 (`gsd-t-debug.workflow.js`, conditional: `cycle === 1 ? "opus" : "fable"`) — escalation before needs-human
+
+**Drift enforcement**: `test/m85-workflow-tier-policy-lint.test.js` (M71-family) proves every workflow `model:` literal matches the tier set AND designated stages have the correct tier. A deliberately-drifted literal FAILS the lint (mandatory negative test). Shadow A/B verdict (M85-D4-T2): PENDING (blocked on real-sandbox Fable verification runs, see progress.md).
+
+**Escalation hooks**: N/A. `fable` is the top of the escalation ladder.
 
 ---
 
@@ -203,9 +219,9 @@ Every subagent spawn logs its model assignment to `.gsd-t/token-log.md` via the 
 
 ## Schema Freeze Policy
 
-- The tier union `'haiku' | 'sonnet' | 'opus'` is frozen for v1.x. Adding a fourth tier requires a v2.0.0 bump.
+- The tier union is now `'haiku' | 'sonnet' | 'opus' | 'fable'` (extended in v1.1.0 — M85). The authoritative tier set is published by `bin/gsd-t-model-tier-policy.cjs`; this contract must not diverge from it.
 - The `selectModel()` return shape `{model, reason, escalation_hook}` is frozen. Additive fields are allowed in v1.x minor bumps.
-- The Phase Map above is the source of truth. Changes to the canonical assignments must be reflected in both this contract and `bin/model-selector.js` atomically.
+- The Phase Map above is the source of truth for phase-level assignments. Stage-level assignments (the 5 Fable stages + competition producers + debug cycle conditional) are governed by `model-tier-policy-contract.md` v1.0.0 STABLE. Changes to the canonical assignments must be reflected in both contracts atomically.
 - The `## Model Assignment` block format in command files is frozen for v1.x. Parser tooling may assume the exact structure.
 
 ---
@@ -222,3 +238,4 @@ Every subagent spawn logs its model assignment to `.gsd-t/token-log.md` via the 
 | Version | Date | Change |
 |---------|------|--------|
 | 1.0.0 | M35 / 2026-04-14 | Initial contract. Three-tier model (haiku/sonnet/opus), declarative phase map, escalation hook pattern, `/advisor` fallback semantics, dual-layer convention (`ANTHROPIC_MODEL` + `model:` directive). Replaces the silent degradation-action model-override map removed in `token-budget-contract.md` v3.0.0. |
+| 1.1.0 | M85 / 2026-06-09 | Added `fable` tier (Claude Fable 5, tier above opus). Cross-referenced `model-tier-policy-contract.md` v1.0.0 STABLE as the single source of truth for stage-level assignments. Updated Schema Freeze Policy (tier union now 4-wide). Added Fable tier definition + 5 canonical stages. Shadow A/B verdict pending M85-D4-T2 (see progress.md). |
