@@ -25,7 +25,7 @@ The two `bin/` CONSUMER files that resolve/document tiers, plus the model-select
 - **Deps**: BLOCKED by M85-D1-T1
 - **Acceptance criteria**:
   - `TIERS` enum gains `FABLE: "fable"` (alongside HAIKU/SONNET/OPUS). *(Falsifier: no FABLE tier. Test: `test/model-selector.test.js` asserts `TIERS.FABLE === "fable"`.)*
-  - The debug escalation ladder is cycle-1 `opus` → cycle-2 `fable` → needs-human (matches the contract's `debug-cycle-2 → fable` stage). *(Falsifier: cycle-2 stays opus, or skips to needs-human. Test: `test/model-selector.test.js` asserts cycle-2 selection resolves to fable.)*
+  - **Exact API shape for cycle-2 selection (pre-mortem r2 finding #2 — `selectModel` has NO cycle dimension; an unspecified "ladder" would be an improvised, unguarded, consumed-by-nobody table):** add ONE new `PHASE_RULES` entry `{ phase: "debug", task_type: "cycle_2_escalation", model: TIERS.FABLE }`, selectable via the existing signature as `selectModel({ phase: "debug", task_type: "cycle_2_escalation" })` — no new parameter, no ladder state, no signature change. The debug DEFAULT rule (`debug → OPUS`) is UNTOUCHED, so cycle-1/default selection is byte-identical to pre-M85. Honest scope note (encoded in the rule's `reason` field): like the rest of model-selector.js, this entry DOCUMENTS the policy for Task-based/`bin/` callers — the live debug workflow's ternary (D3-T3) is the runtime enforcement, and the D4 lint guards THAT; this table is the documented mirror, reconciled to the policy module by T3's equality assertions. *(Falsifier: a `cycle` param or ladder mechanism is improvised; or the debug default rule changes. Test: `test/model-selector.test.js` asserts the exact documented call returns fable.)*
   - `haiku`/`sonnet` bottom-of-ladder rules are UNCHANGED — no existing rule's model field is altered (AC f, no silent degradation). *(Falsifier: any haiku/sonnet PHASE_RULES entry changes tier. Test: `test/model-selector.test.js` asserts representative haiku + sonnet phase selections are byte-identical to pre-M85.)*
   - Concrete ids reconciled to the policy module's `MODEL_IDS` (Fable concrete id `claude-fable-5` where a concrete id is emitted). *(Falsifier: model-selector emits a fable id that disagrees with the policy module. Test: equality assertion vs the policy module.)*
 
@@ -37,7 +37,8 @@ The two `bin/` CONSUMER files that resolve/document tiers, plus the model-select
 - **Deps**: Requires M85-D2-T2 (within domain)
 - **Acceptance criteria**:
   - Asserts the FABLE tier exists. *(Test: self.)*
-  - Asserts the escalation ladder cycle-2 resolves to fable. *(Test: self.)*
+  - **Asserts the EXACT cycle-2 call shape (pre-mortem r2 finding #2):** `selectModel({ phase: "debug", task_type: "cycle_2_escalation" })` returns model `fable` — the named signature from D2-T2, not a vacuous assertion against an undefined surface. *(Test: self.)*
+  - **Asserts the debug DEFAULT is byte-identical to pre-M85:** `selectModel({ phase: "debug" })` (and `{ phase: "debug", task_type: "root_cause" }`) still return `opus` exactly as before — the AC (f) no-silent-degradation guard on this file. *(Test: self.)*
   - Asserts haiku/sonnet bottom-of-ladder selections are unchanged from pre-M85 (regression guard for AC f). *(Test: self.)*
   - Asserts the model-selector's fable concrete id equals the policy module's `MODEL_IDS.fable`. *(Test: self.)*
   - `npm test` green for this suite and the overall suite. *(Test: `npm test`.)*
