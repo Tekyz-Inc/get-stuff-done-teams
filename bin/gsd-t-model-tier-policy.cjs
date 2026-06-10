@@ -63,7 +63,10 @@ const STAGE_TIERS = Object.freeze({
  * @returns {boolean}
  */
 function requiresThinkingOmitted(model) {
-  return model === 'claude-fable-5';
+  if (typeof model !== 'string') return false;
+  // Source the id from MODEL_IDS (single-source — no second literal), and accept
+  // the runtime's bracket-suffixed display form (e.g. "claude-fable-5[1m]").
+  return model === MODEL_IDS.fable || model.startsWith(MODEL_IDS.fable + '[');
 }
 
 // ---------------------------------------------------------------------------

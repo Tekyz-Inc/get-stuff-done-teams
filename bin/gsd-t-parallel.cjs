@@ -422,11 +422,10 @@ function _runCacheWarmProbe(opts) {
     "then reply with the single word `warm` and nothing else:\n" +
     filesRead.map((f) => `- ${f}`).join("\n");
 
-  // M85: pass model via --model flag (env var ANTHROPIC_MODEL is silently ignored
-  // by the current claude CLI — measured probe 2026-06-09 r3: env form ran opus-4-8
-  // regardless of the env value). The flag is authoritative; env may be kept for
-  // backwards compat with older CLI versions but the flag takes precedence.
-  const env = Object.assign({}, process.env);
+  // M85: pass model via --model flag ONLY (env var ANTHROPIC_MODEL is silently
+  // ignored by the current claude CLI — measured probe 2026-06-09 r3: env form
+  // ran opus-4-8 regardless of the env value). No env mutation here.
+  const env = process.env;
   const cliArgs = ["-p", prompt, "--dangerously-skip-permissions"];
   if (model) cliArgs.push("--model", model);
 

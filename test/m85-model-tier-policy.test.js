@@ -269,3 +269,45 @@ describe('CLI: resolve command', () => {
     }
   });
 });
+
+// M85 verify fix-cycle 1 — killing tests for the Red Team HIGH (unwired
+// dispatcher) and the suffixed-id predicate LOW.
+describe('gsd-t.js dispatcher: model-tier-policy (Red Team HIGH regression)', () => {
+  const { spawnSync } = require('node:child_process');
+  const path = require('node:path');
+  const GSD_T = path.join(__dirname, '..', 'bin', 'gsd-t.js');
+
+  it('`gsd-t model-tier-policy resolve red-team --json` dispatches and emits the envelope', () => {
+    const r = spawnSync(process.execPath, [GSD_T, 'model-tier-policy', 'resolve', 'red-team', '--json'], { encoding: 'utf8' });
+    assert.equal(r.status, 0, `expected exit 0, got ${r.status}; stderr=${r.stderr}`);
+    const parsed = JSON.parse(r.stdout);
+    assert.equal(parsed.ok, true);
+    assert.equal(parsed.model, 'claude-fable-5');
+    assert.equal(parsed.requiresThinkingOmitted, true);
+  });
+
+  it('module is registered in both bin-propagation lists (no installer-path silent breakage)', () => {
+    const fs = require('node:fs');
+    const src = fs.readFileSync(GSD_T, 'utf8');
+    const count = (src.match(/"gsd-t-model-tier-policy\.cjs"/g) || []).length;
+    assert.ok(count >= 2, `expected gsd-t-model-tier-policy.cjs in GLOBAL_BIN_TOOLS and PROJECT_BIN_TOOLS, found ${count} reference(s)`);
+  });
+});
+
+describe('requiresThinkingOmitted: suffixed live ids + single-source (Red Team LOW regression)', () => {
+  it('accepts the runtime bracket-suffixed display form', () => {
+    assert.equal(policy.requiresThinkingOmitted('claude-fable-5[1m]'), true);
+  });
+  it('rejects non-string input and non-fable suffixed ids', () => {
+    assert.equal(policy.requiresThinkingOmitted(null), false);
+    assert.equal(policy.requiresThinkingOmitted(undefined), false);
+    assert.equal(policy.requiresThinkingOmitted('claude-opus-4-8[1m]'), false);
+  });
+  it('predicate sources the id from MODEL_IDS (no second literal in the function body)', () => {
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const src = fs.readFileSync(path.join(__dirname, '..', 'bin', 'gsd-t-model-tier-policy.cjs'), 'utf8');
+    const fnBody = src.slice(src.indexOf('function requiresThinkingOmitted'), src.indexOf('}', src.indexOf('function requiresThinkingOmitted')));
+    assert.ok(!fnBody.includes("'claude-fable-5'"), 'predicate body must reference MODEL_IDS.fable, not a bare literal');
+  });
+});
