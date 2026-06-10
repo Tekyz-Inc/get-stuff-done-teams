@@ -33,7 +33,7 @@ const MODEL_IDS = Object.freeze({
 
 /**
  * Frozen map: stage key → tier alias.
- * 5 stages → fable; competition-producers held at opus (M82 blindness invariant).
+ * 6 stages → fable; competition-producers held at opus (M82 blindness invariant).
  *
  * @type {Readonly<Record<string, string>>}
  */

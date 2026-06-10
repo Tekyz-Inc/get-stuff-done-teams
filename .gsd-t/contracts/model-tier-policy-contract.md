@@ -35,6 +35,8 @@ Encodes the Fable thinking-disabled-400 breaking change EXACTLY ONCE:
 
 ```
 requiresThinkingOmitted(model) === true   iff   model === "claude-fable-5"
+                                                OR model starts with "claude-fable-5[" 
+                                                (the runtime's bracket-suffixed display form, e.g. claude-fable-5[1m] — measured live 2026-06-09)
 ```
 
 Rationale (the single canonical home): `claude-fable-5` returns **HTTP 400** when the explicit thinking-disabled parameter is sent. The parameter must therefore be OMITTED for Fable. No other file may re-implement this predicate or re-state the rationale.
@@ -45,7 +47,7 @@ Rationale (the single canonical home): `claude-fable-5` returns **HTTP 400** whe
 
 ## Stage Policy (M85 Fable assignments)
 
-The policy maps the M85 designated stages to a tier. The 5 Fable assignments and the held opus invariant:
+The policy maps the M85 designated stages to a tier. The 6 Fable stage keys and the held opus invariant:
 
 | Stage key | File (consumer) | Tier | Invariant |
 |-----------|-----------------|------|-----------|
@@ -75,7 +77,7 @@ Command invokers call the resolver at invoke time and inject the concrete model 
 
 `test/m85-workflow-tier-policy-lint.test.js` (M71-family, owned by D4) READS all 8 `templates/workflows/*.workflow.js` (read-only) and this contract / the policy module, and asserts:
 1. Every workflow `model:` literal is a member of the published tier set.
-2. The 5 designated stages resolve to `fable`; competition producers resolve to `opus`.
+2. The 6 designated fable stage keys resolve to `fable`; competition producers resolve to `opus`.
 3. A deliberately-drifted literal FAILS (mandatory negative test).
 
 ---
