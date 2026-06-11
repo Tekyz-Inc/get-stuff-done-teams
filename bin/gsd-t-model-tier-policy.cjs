@@ -178,9 +178,8 @@ function hasOwn(obj, key) {
 
 function resolveProfile(stageKey, opts) {
   opts = opts || {};
-  const profile = (typeof opts.profile === 'string' && hasOwn(PROFILE_STAGE_TIERS, opts.profile))
-    ? opts.profile
-    : 'premium'; // named global default
+  const profileValid = typeof opts.profile === 'string' && hasOwn(PROFILE_STAGE_TIERS, opts.profile);
+  const profile = profileValid ? opts.profile : 'premium'; // named global default
 
   const stageOverrides = (opts.stageOverrides && typeof opts.stageOverrides === 'object' && !Array.isArray(opts.stageOverrides))
     ? opts.stageOverrides
@@ -198,32 +197,40 @@ function resolveProfile(stageKey, opts) {
   // Resolve tier from precedence chain:
   // 1. stageOverrides[stage] if it's a valid tier and not a blindness violation
   // 2. profile-tier
-  // global-default (premium) is the fallback when profile is unknown (handled above)
+  // global-default (premium) is the fallback when profile is unknown — MARKED,
+  // never silent (Red Team M86 r2 LOW: library callers bypassing readConfig got
+  // silent premium for an invalid profile).
 
   const profileTierMap = PROFILE_STAGE_TIERS[profile];
-  let configError;
+  const stageKnown = hasOwn(profileTierMap, stageKey);
+  const errors = [];
+  if (!profileValid && opts.profile !== undefined) {
+    errors.push(`unknown profile "${opts.profile}" — using the named global default "premium"`);
+  }
+  if (!stageKnown) {
+    // Unknown stage key — defensive sonnet, but NEVER silently (Red Team M86 MEDIUM:
+    // a typo'd stage returning ok:true sonnet regressed the M85 explicit unknown-stage error)
+    errors.push(`unknown stage "${stageKey}" — not a designated stage; defensive sonnet fallback`);
+  }
   let resolvedTier;
 
   const rawOverrideTier = hasOwn(stageOverrides, stageKey) ? stageOverrides[stageKey] : undefined;
   if (rawOverrideTier !== undefined) {
     if (typeof rawOverrideTier !== 'string' || !hasOwn(MODEL_IDS, rawOverrideTier)) {
-      // Invalid tier in override — fall back to profile tier, record configError
-      configError = `stageOverrides["${stageKey}"] has invalid tier "${rawOverrideTier}"; falling back to profile tier`;
-      resolvedTier = (profileTierMap && hasOwn(profileTierMap, stageKey)) ? profileTierMap[stageKey] : 'fable';
+      // Invalid tier in override — fall back to profile tier, record configError.
+      // The fallback for an UNKNOWN stage is the cheap defensive tier, never fable
+      // (Red Team M86 r2 LOW: unknown stage + invalid override resolved fable on standard).
+      errors.push(`stageOverrides["${stageKey}"] has invalid tier "${rawOverrideTier}"; falling back to profile tier`);
+      resolvedTier = stageKnown ? profileTierMap[stageKey] : 'sonnet';
     } else if (stageKey === 'competition-judge' && MODEL_IDS[rawOverrideTier] === PRODUCERS_MODEL_ID) {
       // Blindness clamp: competition-judge must not equal producers' model
-      configError = `stageOverrides["competition-judge"] resolves to "${MODEL_IDS[rawOverrideTier]}" (=producers' model); blindness clamp rejected — falling back to profile tier`;
-      resolvedTier = (profileTierMap && hasOwn(profileTierMap, stageKey)) ? profileTierMap[stageKey] : 'fable';
+      errors.push(`stageOverrides["competition-judge"] resolves to "${MODEL_IDS[rawOverrideTier]}" (=producers' model); blindness clamp rejected — falling back to profile tier`);
+      resolvedTier = stageKnown ? profileTierMap[stageKey] : 'sonnet';
     } else {
       resolvedTier = rawOverrideTier;
     }
-  } else if (profileTierMap && hasOwn(profileTierMap, stageKey)) {
-    resolvedTier = profileTierMap[stageKey];
   } else {
-    // Unknown stage key — defensive sonnet, but NEVER silently (Red Team M86 MEDIUM:
-    // a typo'd stage returning ok:true sonnet regressed the M85 explicit unknown-stage error)
-    configError = configError || `unknown stage "${stageKey}" — not a designated stage; defensive sonnet fallback`;
-    resolvedTier = 'sonnet';
+    resolvedTier = stageKnown ? profileTierMap[stageKey] : 'sonnet';
   }
 
   const modelId = hasOwn(MODEL_IDS, resolvedTier) ? MODEL_IDS[resolvedTier] : MODEL_IDS.sonnet;
@@ -232,7 +239,7 @@ function resolveProfile(stageKey, opts) {
     tier: resolvedTier,
     requiresThinkingOmitted: requiresThinkingOmitted(modelId),
   };
-  if (configError) result.configError = configError;
+  if (errors.length) result.configError = errors.join('; ');
   return result;
 }
 

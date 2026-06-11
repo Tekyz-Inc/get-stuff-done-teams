@@ -2547,7 +2547,37 @@ function _matchedStraySignature(name, content) {
   return null;
 }
 
+// Self-protection identity check: is this project dir GSD-T's own source repo?
+// Guards BOTH the bin-tool copy loop (copying the installed package's tools over
+// the source repo reverts in-flight work — Red Team M86 r2 HIGH, fired live) and
+// the deprecated-stray sweep (signature-matching bin/gsd-t.js — the installer
+// itself — would delete the source file). Identity is by package.json name, NOT
+// by path — when update-all runs from the globally-installed package, PKG_ROOT
+// points to the global install and realpath comparison against the local source
+// always fails.
+function _isGsdTSourcePackage(projectDir) {
+  try {
+    const pkgPath = path.join(projectDir, "package.json");
+    if (!fs.existsSync(pkgPath)) return false;
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
+    return !!pkg && pkg.name === "@tekyzinc/gsd-t";
+  } catch {
+    return false;
+  }
+}
+
 function copyBinToolsToProject(projectDir, projectName) {
+  // Self-protection for the COPY loop, not just the stray sweep below: the GSD-T
+  // source repo is legitimately registered as a project during development, and
+  // copying the installed package's bin tools over it REVERTS in-flight work —
+  // fired live during M86 verify (Red Team r2 HIGH: a 4.4.11 update-all clobbered
+  // the committed M86 policy module mid-run; every model-profile call then
+  // hard-crashed until restored from HEAD). The source repo IS the canonical
+  // origin of these tools; propagating into it is wrong in every case.
+  if (_isGsdTSourcePackage(projectDir)) {
+    info(`${projectName} — GSD-T source repo: bin propagation skipped (canonical origin)`);
+    return false;
+  }
   const projectBinDir = path.join(projectDir, "bin");
   if (!fs.existsSync(projectBinDir)) {
     try {
@@ -2581,25 +2611,8 @@ function copyBinToolsToProject(projectDir, projectName) {
       }
     }
   }
-  // Self-protection: NEVER sweep GSD-T's own source repo. Without this guard,
-  // running `gsd-t update-all` with the GSD-T source repo itself registered
-  // as a project (legitimate during development) would signature-match
-  // bin/gsd-t.js — which IS the installer — and delete the source file.
-  // Identity is by package.json name, NOT by path — when update-all runs from
-  // the globally-installed package, PKG_ROOT points to the global install and
-  // realpath comparison against the local source always fails.
-  const isSourcePackage = (() => {
-    try {
-      const pkgPath = path.join(projectDir, "package.json");
-      if (!fs.existsSync(pkgPath)) return false;
-      const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
-      return pkg && pkg.name === "@tekyzinc/gsd-t";
-    } catch {
-      return false;
-    }
-  })();
   let cleaned = 0;
-  if (!isSourcePackage) {
+  if (!_isGsdTSourcePackage(projectDir)) {
     for (const stray of DEPRECATED_BIN_STRAYS) {
       const strayPath = path.join(projectBinDir, stray);
       if (!fs.existsSync(strayPath)) continue;

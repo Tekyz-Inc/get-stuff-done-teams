@@ -669,3 +669,124 @@ describe('Red Team fix: unknown stage keys rejected (MEDIUM x2)', () => {
     fs.rmSync(dir, { recursive: true, force: true });
   });
 });
+
+// ---------------------------------------------------------------------------
+// Verify fix-cycle 2 (Red Team M86 r2) — killing tests.
+// ---------------------------------------------------------------------------
+
+describe('Red Team r2 fix: self-propagation clobber guard (HIGH)', () => {
+  const gsdt = require(GSD_T_PATH);
+
+  it('copyBinToolsToProject SKIPS a project whose package.json name is @tekyzinc/gsd-t (the source repo)', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'm86-srcrepo-'));
+    fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: '@tekyzinc/gsd-t', version: '0.0.0' }));
+    fs.mkdirSync(path.join(dir, 'bin'));
+    const sentinel = path.join(dir, 'bin', 'gsd-t-model-tier-policy.cjs');
+    fs.writeFileSync(sentinel, '// in-flight development copy — must NOT be overwritten\n');
+    const ret = gsdt.copyBinToolsToProject(dir, 'source-repo-fixture');
+    assert.equal(ret, false, 'must report nothing copied for the source repo');
+    assert.equal(fs.readFileSync(sentinel, 'utf8'), '// in-flight development copy — must NOT be overwritten\n',
+      'in-flight file must be byte-identical after the call (the M86 live clobber class)');
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('copyBinToolsToProject still copies into an ordinary registered project (no over-skip)', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'm86-ordinary-'));
+    fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: 'some-consumer', version: '1.0.0' }));
+    const ret = gsdt.copyBinToolsToProject(dir, 'ordinary-fixture');
+    assert.equal(ret, true, 'ordinary project must receive bin tools');
+    assert.ok(fs.existsSync(path.join(dir, 'bin', 'gsd-t-model-tier-policy.cjs')),
+      'policy module must be propagated to ordinary projects');
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+});
+
+describe('Red Team r2 fix: version-skew guard in model-profile (HIGH secondary)', () => {
+  it('require()ing model-profile against a policy module missing the M86 surface throws a STRUCTURED error, not a TypeError', () => {
+    const policyResolved = require.resolve(POLICY_PATH);
+    const profileResolved = require.resolve(PROFILE_PATH);
+    const savedPolicy = require.cache[policyResolved];
+    const savedProfile = require.cache[profileResolved];
+    delete require.cache[profileResolved];
+    require.cache[policyResolved] = {
+      id: policyResolved, filename: policyResolved, loaded: true,
+      exports: { MODEL_IDS: { opus: 'claude-opus-4-8' } }, // pre-M86 shape: no PROFILE_STAGE_TIERS etc.
+    };
+    try {
+      assert.throws(
+        () => require(PROFILE_PATH),
+        /version skew.*older policy module|missing the M86 profile surface/s,
+        'skew must throw the structured message, not "Cannot convert undefined or null to object"'
+      );
+    } finally {
+      require.cache[policyResolved] = savedPolicy;
+      if (savedProfile) require.cache[profileResolved] = savedProfile;
+      else delete require.cache[profileResolved];
+    }
+  });
+});
+
+describe('Red Team r2 fix: set/set-stage over an erroring config (MEDIUM + LOW)', () => {
+  function mkProj(configJson) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'm86-rw-'));
+    fs.mkdirSync(path.join(dir, '.gsd-t'));
+    fs.writeFileSync(path.join(dir, '.gsd-t', 'model-profile.json'), configJson);
+    return dir;
+  }
+  function cli(dir, args) {
+    return spawnSync(process.execPath, [PROFILE_PATH, ...args, '--json'], { cwd: dir, encoding: 'utf8' });
+  }
+
+  it('set-stage REFUSES to rewrite a config with configError (would persist defaulted premium over a typo\'d standard intent)', () => {
+    const dir = mkProj('{"profile":"standad","stageOverrides":{"red-team":"haiku"}}');
+    const r = cli(dir, ['set-stage', 'pre-mortem', 'haiku']);
+    const out = JSON.parse(r.stdout);
+    assert.equal(out.ok, false, 'must refuse, not silently rewrite');
+    assert.match(out.error, /refusing to rewrite/);
+    const onDisk = fs.readFileSync(path.join(dir, '.gsd-t', 'model-profile.json'), 'utf8');
+    assert.ok(onDisk.includes('"standad"'), 'the user\'s original (typo\'d) profile must remain on disk untouched');
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('set over an erroring config proceeds (explicit intent) but NAMES the normalization in a warning', () => {
+    const dir = mkProj('{"profile":"pro","stageOverrides":{"red-team":"constructor","pre-mortem":"haiku"}}');
+    const r = cli(dir, ['set', 'standard']);
+    const out = JSON.parse(r.stdout);
+    assert.equal(out.ok, true);
+    assert.ok(out.warning && /normalized/.test(out.warning), 'rewrite over an erroring config must carry a warning');
+    const onDisk = JSON.parse(fs.readFileSync(path.join(dir, '.gsd-t', 'model-profile.json'), 'utf8'));
+    assert.equal(onDisk.profile, 'standard');
+    assert.ok(!('red-team' in onDisk.stageOverrides), 'invalid entry dropped — but named in the warning, not silent');
+    assert.equal(onDisk.stageOverrides['pre-mortem'], 'haiku', 'valid entries preserved');
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('set-stage on a CLEAN config never mutates the profile field', () => {
+    const dir = mkProj('{"profile":"standard","stageOverrides":{}}');
+    const r = cli(dir, ['set-stage', 'red-team', 'fable']);
+    assert.equal(JSON.parse(r.stdout).ok, true);
+    const onDisk = JSON.parse(fs.readFileSync(path.join(dir, '.gsd-t', 'model-profile.json'), 'utf8'));
+    assert.equal(onDisk.profile, 'standard', 'profile must be untouched by a stage tweak');
+    assert.equal(onDisk.stageOverrides['red-team'], 'fable');
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+});
+
+describe('Red Team r2 fix: resolveProfile library-level markers (LOW)', () => {
+  it('invalid profile via library call → premium default WITH configError marker (not silent)', () => {
+    const r = resolveProfile('red-team', { profile: 'constructor', stageOverrides: {} });
+    assert.equal(r.model, MODEL_IDS.fable);
+    assert.ok(r.configError && /unknown profile/.test(r.configError), 'silent premium default is the spend-escalation class');
+  });
+
+  it('unknown stage + invalid override → defensive sonnet (never fable) + both markers', () => {
+    const r = resolveProfile('bogus', { profile: 'standard', stageOverrides: { bogus: 'constructor' } });
+    assert.equal(r.tier, 'sonnet', 'unknown-stage fallback must be the cheap defensive tier, not fable');
+    assert.ok(/unknown stage/.test(r.configError) && /invalid tier/.test(r.configError));
+  });
+
+  it('unknown stage + VALID override tier → still marked unknown-stage', () => {
+    const r = resolveProfile('bogus', { profile: 'standard', stageOverrides: { bogus: 'haiku' } });
+    assert.ok(/unknown stage/.test(r.configError), 'valid tier must not silence the unknown-stage marker');
+  });
+});

@@ -17,6 +17,22 @@ const path = require('path');
 const fs   = require('fs');
 const policy = require('./gsd-t-model-tier-policy.cjs');
 
+// Version-skew guard (Red Team M86 r2): if the sibling policy module is an older
+// copy lacking the M86 profile surface (seen live when a pre-M86 propagation pass
+// overwrote it), fail with a STRUCTURED error instead of a raw TypeError at the
+// Object.keys() lines below — the contracted envelope shape even on skew.
+const _missingPolicyExports = ['MODEL_IDS', 'PROFILE_STAGE_TIERS', 'INJECTABLE_STAGES', 'resolveProfile', 'requiresThinkingOmitted']
+  .filter((k) => policy[k] === undefined);
+if (_missingPolicyExports.length) {
+  const msg = `gsd-t-model-tier-policy.cjs is missing the M86 profile surface (${_missingPolicyExports.join(', ')}) — ` +
+    'version skew: an older policy module is installed alongside this CLI. Reinstall/update @tekyzinc/gsd-t.';
+  if (require.main === module) {
+    process.stdout.write(JSON.stringify({ ok: false, error: msg }) + '\n');
+    process.exit(1);
+  }
+  throw new Error(msg);
+}
+
 const { MODEL_IDS, PROFILE_STAGE_TIERS, INJECTABLE_STAGES, resolveProfile, requiresThinkingOmitted } = policy;
 
 // ---------------------------------------------------------------------------
@@ -331,19 +347,23 @@ if (require.main === module) {
     if (!newProfile) {
       emit({ ok: false, error: 'Usage: gsd-t model-profile set <profile>' }, 1);
       return;
-      return;
     }
     if (!VALID_PROFILES.includes(newProfile)) {
       emit({ ok: false, error: `Unknown profile "${newProfile}". Valid profiles: ${VALID_PROFILES.join(', ')}` }, 1);
       return;
     }
     const cfg = readConfig(projectDir);
+    // Setting the profile is the user's explicit intent — proceed even over a
+    // config with errors, but NAME what the rewrite normalizes away (Red Team
+    // M86 r2 LOW: a silent rewrite dropped invalid entries with no mention).
     const newData = { profile: newProfile, stageOverrides: cfg.stageOverrides || {} };
     const result = writeConfig(projectDir, newData);
     if (!result.ok) {
       emit({ ok: false, error: result.error }, 1);
     } else {
-      emit({ ok: true, profile: newProfile, message: `Profile set to "${newProfile}"` });
+      const out = { ok: true, profile: newProfile, message: `Profile set to "${newProfile}"` };
+      if (cfg.configError) out.warning = `previous config had an error and was normalized: ${cfg.configError}`;
+      emit(out);
     }
   } else if (subcommand === 'set-stage') {
     const stage = positional[1];
@@ -358,6 +378,19 @@ if (require.main === module) {
       return;
     }
     const cfg = readConfig(projectDir);
+    // REFUSE to rewrite over an erroring config (Red Team M86 r2 MEDIUM: the
+    // rewrite persisted readConfig's defaulted "premium" over a typo'd
+    // standard-intent profile — a stage tweak silently ESCALATING the spend
+    // posture — and silently dropped invalid entries). set-stage must never
+    // change the profile as a side effect; fix the config (or run `set`) first.
+    if (cfg.configError) {
+      emit({
+        ok: false,
+        error: `config has an error — refusing to rewrite (a rewrite would persist normalized values the user never set): ${cfg.configError}. ` +
+          `Fix .gsd-t/model-profile.json or run \`gsd-t model-profile set <profile>\` first.`,
+      }, 1);
+      return;
+    }
     const newOverrides = Object.assign({}, cfg.stageOverrides || {}, { [stage]: tier });
     const newData = { profile: cfg.profile, stageOverrides: newOverrides };
     const result = writeConfig(projectDir, newData);
