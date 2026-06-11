@@ -19,6 +19,7 @@ additive contract as the brief seam for D2 (workflow forms), D3 (drift lint), an
 | `bin/gsd-t-model-profile.cjs` | NEW — the `gsd-t model-profile` CLI brain + config read/write. |
 | `bin/gsd-t.js` | Wire the `case "model-profile"` dispatch + dual bin-propagation registration. |
 | `.gsd-t/contracts/model-tier-policy-contract.md` | Bump to v1.1.0 (additive: profile dimension + resolve surface + `??`-form lint obligation). |
+| `.gsd-t/contracts/model-profile-config-contract.md` | The seam contract — T4 AMENDS it to the hardened plan (10 invokers, full negative set, real ownership table) BEFORE promoting DRAFT→STABLE (pre-mortem c2 #3; previously owned by nobody). |
 | `test/m86-policy-profiles.test.js` | NEW — unit tests for the new resolver/config logic (distinct from D3's drift-lint). |
 
 ## Deliverables

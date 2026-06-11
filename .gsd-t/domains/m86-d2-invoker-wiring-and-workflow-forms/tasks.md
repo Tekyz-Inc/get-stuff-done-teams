@@ -108,6 +108,17 @@ build the `overrides` map (stage → concrete model id), and inject it into the 
 > (concrete) + alias control all routed correctly. The contract's concrete-id `overrides`
 > vocabulary stands; no pivot needed. T7 re-confirms incidentally per profile run.
 
+**Resolver-failure semantics (pre-mortem c2 #2 HIGH — applies to T4/T5/T6/T8/T9, the canonical
+injection-block pattern):** the injection block MUST define what happens when the resolve call
+FAILS (stale global binary without the `model-profile` subcommand — the
+`project_global_bin_propagation_gap` class; `{ok:false}` envelope; spawn error). Defined behavior:
+**do NOT silently proceed on the premium fallback.** Either HALT with blocked-needs-human, or
+proceed ONLY with a LOUD surfaced warning that NAMES the effective posture (e.g.
+`⚠ model-profile resolver unavailable — running on PREMIUM fallback literals (configured profile
+unknown)`). A configured-standard project silently billing premium fable post-promo is the exact
+inverse of SC(f) on the path that gates ALL spend. This failure-handling clause is part of the
+pattern every invoker carries; T10's lint asserts its presence.
+
 **Acceptance criteria:**
 - The invoker resolves the active profile and injects an `overrides` map into the phase workflow
   `args`; the args shape matches `gsd-t-phase.workflow.js`'s `meta.phases` + the new `overrides`
@@ -169,6 +180,11 @@ on the standard tier); (2) a `/gsd-t-milestone` (or design-decompose) run → ZE
 judge on standard tiers); (3) a wave-composed verify run → red-team on the profile-resolved
 model (proves T9's forwarding, not just the direct verify invoker).
 
+**Resolver-failure leg (pre-mortem c2 #2):** one run with the resolver forced to FAIL (mask the
+binary from PATH / point at a stale install lacking the subcommand) asserting the run does NOT
+silently proceed on premium — either it halts, or the loud named-posture warning is visible in
+the run output.
+
 **Acceptance criteria:**
 - standard/pro/premium each produce the EXACT fable-stage set above, measured from live usage
   frames (NOT from config) — SC(a).
@@ -227,15 +243,18 @@ profile and inject `overrides` like T4. Stay runtime-native (TD-113).
 NEW test file. Discovers every `commands/*.md` whose body resolves a `scriptPath` to
 `gsd-t-{phase,verify,debug,wave}.workflow.js` (structural detection, not substring — per
 `feedback_coverage_check_structural_not_substring`) and asserts each contains the
-resolver-call + `overrides`-injection block. Also asserts `gsd-t-wave.workflow.js` forwards
-`overrides` in both `workflow(...)` sub-calls. Negative fixture: a synthetic invoker doc
-WITHOUT the block FAILS through the same checker entry point (no parallel mock).
+resolver-call + `overrides`-injection block **including the resolver-failure-handling clause
+(pre-mortem c2 #2 — halt or loud named-posture warning; never silent premium)**. Also asserts
+`gsd-t-wave.workflow.js` forwards `overrides` in both `workflow(...)` sub-calls. Negative
+fixtures: (a) a synthetic invoker doc WITHOUT the injection block FAILS; (b) a synthetic invoker
+WITH the injection block but WITHOUT the failure-handling clause FAILS — both through the same
+checker entry point (no parallel mock).
 
 **Acceptance criteria:**
 - Every workflow-invoking command file is discovered and asserted; a phase invoker lacking the
-  injection block FAILS the suite.
-- The negative fixture FAILS via the same code path the real files use.
-- Verified by `node --test test/m86-invoker-injection.test.js` green (with the negative proven).
+  injection block OR the failure-handling clause FAILS the suite.
+- Both negative fixtures FAIL via the same code path the real files use.
+- Verified by `node --test test/m86-invoker-injection.test.js` green (with the negatives proven).
 
 ---
 

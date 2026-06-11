@@ -62,11 +62,17 @@ and carry on.
 
 Show the active profile in the statusline (NAMED; consume D1's resolver, do not reimplement).
 `scripts/gsd-t-statusline.js` is owned EXCLUSIVELY by D4 (the salvage variant that put it in D1
-is rejected to keep surfacing a single blast radius).
+is rejected to keep surfacing a single blast radius). **Resilience (pre-mortem c2 #5): same
+treatment as T1's hook** — the statusline runs on every render in every project; resolver
+module/binary absent (propagation-gap class) or resolver error must never crash it.
 
 **Acceptance criteria:**
 - The statusline names the active profile (present → that profile; absent → named global default).
-- Verified by `node --test test/m86-surfacing.test.js` (statusline present/absent cases).
+- Resilience cases: resolver absent AND resolver erroring → statusline exits 0 and renders
+  (profile segment omitted or `profile: unknown`), never a crash — mirroring T1's two hook
+  fixtures.
+- Verified by `node --test test/m86-surfacing.test.js` (statusline present/absent + 2 resilience
+  cases).
 
 ### M86-D4-T3 — status command rendering (active profile line)
 **Touches:** `commands/gsd-t-status.md`

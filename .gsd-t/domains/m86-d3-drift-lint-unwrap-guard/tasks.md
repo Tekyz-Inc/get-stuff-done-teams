@@ -25,10 +25,14 @@ Extend the lint's model-literal extractor/regex so it recognizes
 the FALLBACK literal** for validation, while still recognizing the bare `model: "<literal>"` form.
 Validate (a) the extracted fallback against the published tier set (D1's `MODEL_IDS` keys) AND the
 designated-stage policy (premium = the fallback for every designated stage); (b) **the bracket key
-=== that stage's designated stageKey, sourced from the policy module's `PROFILE_STAGE_TIERS`/
-`STAGE_TIERS` keys — NOT re-hardcoded** (pre-mortem r1 #2: a typo'd key like `overrides["red-tem"]`
-has a correct fallback, passes a fallback-only lint, and silently disables the override FOREVER —
-the stage runs premium fable on every profile). The extractor must ALSO recognize the combined
+=== that stage's designated stageKey, where the VALID-KEY SET is the 6 INJECTABLE designated
+stages — the policy module's stage keys MINUS `competition-producers` — sourced from the module,
+NOT re-hardcoded** (pre-mortem r1 #2: a typo'd key like `overrides["red-tem"]` has a correct
+fallback, passes a fallback-only lint, and silently disables the override FOREVER; pre-mortem
+c2 #1: `competition-producers` IS a `STAGE_TIERS` key, so a naive keys-of-the-policy validation
+would BLESS `model: overrides["competition-producers"] ?? "opus"` — a wrapped-producers form that
+makes the M82-HELD stage args-injectable. Producers-as-bracket-key is an EXPLICIT violation;
+producers must remain a bare literal). The extractor must ALSO recognize the combined
 debug form `cycle === 1 ? "opus" : (overrides["debug-cycle-2"] ?? "fable")`, validating the
 cycle-1 if-branch literal AND the parenthesized `??` else-branch (key + fallback) — pre-mortem
 r1 #6. FAIL-CLOSED: any `model:`-bearing line the extractor cannot parse FAILS the lint (never a
@@ -78,12 +82,15 @@ NEW test file. Fixtures fed to the extractor/validator, each negative asserted t
   (`cycle === 1 ? "fable" : (overrides["debug-cycle-2"] ?? "fable")`) → FAILS (pre-mortem r1 #6).
 - (vi) **combined debug form, drifted parenthesized fallback**
   (`cycle === 1 ? "opus" : (overrides["debug-cycle-2"] ?? "claude-opus-4-7")`) → FAILS.
+- (vii) **wrapped-producers form** (`model: overrides["competition-producers"] ?? "opus"` — valid
+  policy key, correct fallback tier) → FAILS (pre-mortem c2 #1: producers are M82-HELD, never
+  injectable; the bracket-key valid set is the 6 injectable stages, producers excluded).
 Plus: the CORRECT combined form as a passing POSITIVE (proves the rewritten extractor actually
 recognizes it, not vacuous), and a fail-closed fixture (an unparseable `model:`-bearing line
 FAILS). Use a fixture-string harness so this domain stays write-disjoint from D2's workflow source.
 
 **Acceptance criteria:**
-- All seven negatives FAIL as designed (a green suite with no negative coverage is a FAILED
+- All eight negatives FAIL as designed (a green suite with no negative coverage is a FAILED
   domain); the correct combined form PASSES.
 - The negatives drive the SAME validator path the real-workflow lint uses (not a parallel mock).
 - Verified by `node --test test/m86-lint-unwrap-fallback.test.js` (each negative asserted via

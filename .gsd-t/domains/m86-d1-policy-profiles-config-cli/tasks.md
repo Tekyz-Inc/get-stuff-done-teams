@@ -12,6 +12,8 @@
 - `bin/gsd-t-model-profile.cjs`
 - `bin/gsd-t.js`
 - `.gsd-t/contracts/model-tier-policy-contract.md`
+- `.gsd-t/contracts/model-profile-config-contract.md` (the seam contract — added at plan-hardening
+  c2 #3: T4 edits it, so D1 must own it; it was previously in NO domain's owned set)
 - `test/m86-policy-profiles.test.js`
 
 ---
@@ -70,8 +72,15 @@ reject unknown with a non-zero exit + `{ ok:false, error }` envelope. No top-lev
 - `set-stage competition-judge opus` (any value equal to the producers' held model) → REJECTED.
   Judge model must NEVER equal producer model; the static lint can't see args-injected values,
   so this dynamic clamp is the only guard on the runtime path.
-- `resolveProfile` itself enforces the invariant: for every profile × every ACCEPTED override
-  combination, resolved competition-judge model ≠ the producers' model.
+- **The clamps are enforced at RESOLVE level, not only at the set-stage write path (pre-mortem
+  c2 #4):** the config file is hand-editable, so a syntactically-valid, correctly-typed file
+  carrying semantically-forbidden values (`{"stageOverrides":{"competition-judge":"opus",
+  "competition-producers":"fable"}}`) never passes through set-stage. `resolveProfile`/the resolve
+  command must REFUSE to honor forbidden entries: drop them, surface an explicit
+  `configError`/warning marker, and never emit judge === producers' model or a
+  `competition-producers` key in `overrides`.
+- `resolveProfile` itself enforces the invariant: for every profile × every override combination
+  (CLI-accepted OR hand-written), resolved competition-judge model ≠ the producers' model.
 
 **Malformed-config behavior (pre-mortem r1 #5 MEDIUM):** `.gsd-t/model-profile.json` is
 hand-editable; corrupt JSON, wrong-typed `profile` (e.g. `42`), wrong-typed/non-string-valued
@@ -131,14 +140,33 @@ additively (M85 §Published Model-ID Constants + §Stage Policy stay byte-unchan
 - the blindness-clamp validation rules (producers not overridable; judge ≠ producers' model —
   pre-mortem r1 #3) + the malformed-config defined-behavior rule (pre-mortem r1 #5).
 Update the Consumers list to add `bin/gsd-t-model-profile.cjs` + the profile-aware surface.
-The companion DRAFT seam `model-profile-config-contract.md` is promoted DRAFT → STABLE in this
-task (its `## Status:` line).
+
+**Seam-contract amendment (pre-mortem c2 #3 MEDIUM — the r1 fold never rippled into the seam
+contract; promoting it STABLE stale would freeze a 3-invoker/3-negative spec that contradicts the
+hardened plan, and contract-compliant workers would silently drop the r1 closures):** BEFORE
+promoting `model-profile-config-contract.md` DRAFT → STABLE, AMEND it to match the hardened plan:
+- §Invoke-Time Injection: ALL 10 workflow-invoking commands (7 phase + verify + debug + wave) +
+  the wave `overrides`-forwarding obligation + the resolver-failure semantics (halt or loud
+  named-posture warning — never silent premium, c2 #2);
+- §Drift-Lint Obligation: the FULL negative set (drifted-bare, drifted-fallback, out-of-tier,
+  typo'd bracket key, wrapped-producers, combined-form drifted cycle-1, combined-form drifted
+  parenthesized fallback, fail-closed) + bracket-key validation against the 6 INJECTABLE stages
+  (producers excluded) + the combined-form positive;
+- §File Ownership: match the 4 domains' actual Files Owned sets (D2 = 15 files, D4 incl.
+  `test/m86-surfacing.test.js`, D1 incl. this contract).
+THEN flip `## Status:` to STABLE.
 
 **Acceptance criteria:**
 - `model-tier-policy-contract.md` declares `## Version: 1.1.0`, retains the unchanged M85
   constants section, and adds the profile dimension + `??`-form lint obligation.
-- `model-profile-config-contract.md` `## Status:` reads STABLE (no longer DRAFT).
-- Verified by `node --test test/m86-policy-profiles.test.js` (contract doc-assertion).
+- `model-profile-config-contract.md` `## Status:` reads STABLE (no longer DRAFT) AND its
+  §Invoke-Time Injection enumerates all 10 invoking command files + wave forwarding + the
+  resolver-failure clause, AND its §Drift-Lint Obligation carries the full negative set incl.
+  bracket-key + wrapped-producers + combined-form (contract ≠ stale pre-hardening text).
+- Verified by `node --test test/m86-policy-profiles.test.js` (contract doc-assertion — FAILS if
+  the seam contract does not enumerate all 10 invoking commands or omits the bracket-key /
+  wrapped-producers / combined-form lint obligations: drift between contract and plan is a
+  failing test, not a prose promise).
 
 ### M86-D1-T5 — Unit tests (the killing tests for the headline + every D1 AC)
 **Touches:** `test/m86-policy-profiles.test.js`
@@ -167,6 +195,11 @@ NEW test file (distinct from D3's drift lint). Cases:
   type, (3) `stageOverrides` wrong-typed / non-string values — each asserted to produce a DEFINED
   envelope (`{ok:false,error}` or named default + explicit `configError`), never a silent clean
   premium envelope.
+- **Hand-edited forbidden-values fixture (c2 #4):** a hand-written `.gsd-t/model-profile.json`
+  with `stageOverrides {"competition-judge":"opus","competition-producers":"fable"}` (valid JSON,
+  valid types, forbidden values) → resolve returns a defined envelope in which competition-judge
+  ≠ `claude-opus-4-8` AND no `competition-producers` key appears in `overrides`, with an explicit
+  `configError`/warning marker — FAILS if the resolver honors either forbidden entry.
 - **Dual bin-propagation:** reads `bin/gsd-t.js`, asserts `gsd-t-model-profile.cjs` in BOTH tool
   arrays.
 - **Contract doc-assertion:** `model-tier-policy-contract.md` is v1.1.0 with the profile table.
