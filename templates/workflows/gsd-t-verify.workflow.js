@@ -37,6 +37,9 @@ export const meta = {
 // QA/Red-Team protocol bodies are read by an agent (Read) instead of fs. args arrives as
 // a JSON STRING in this runtime. See gsd-t-scan.workflow.js.
 const _args = (typeof args === "string") ? (() => { try { return JSON.parse(args); } catch { return {}; } })() : (args || {});
+// M86: resolved overrides map injected by the invoker (invoke-time injection, M69).
+// Default to {} so the premium fallback literals apply when no invoker injects overrides.
+const overrides = (_args.overrides && typeof _args.overrides === "object") ? _args.overrides : {};
 const _CLI_ENVELOPE_SCHEMA = {
   type: "object", required: ["ok", "exitCode"], additionalProperties: true,
   properties: { ok: { type: "boolean" }, exitCode: { type: "integer" }, envelope: {}, stdout: { type: "string" }, stderr: { type: "string" }, via: { type: "string" } },
@@ -304,7 +307,7 @@ const stages = [
       `Verdict is FAIL if you found any CRITICAL or HIGH severity bug; GRUDGING-PASS`,
       `if you searched exhaustively and found nothing. Return JSON per the schema.`,
     ].join("\n"),
-    { label: "red-team", phase: "Orthogonal Triad", schema: RED_TEAM_SCHEMA, model: "fable" }
+    { label: "red-team", phase: "Orthogonal Triad", schema: RED_TEAM_SCHEMA, model: overrides["red-team"] ?? "fable" }
   ),
 
   // Stage C — QA (test execution + shallow-test detection + contract compliance)

@@ -20,6 +20,9 @@ export const meta = {
 // require("./_lib.js") crashed this workflow on first eval, TD-113). Delegate CLI calls
 // to an agent's Bash; args arrives as a JSON STRING in this runtime. See gsd-t-scan.workflow.js.
 const _args = (typeof args === "string") ? (() => { try { return JSON.parse(args); } catch { return {}; } })() : (args || {});
+// M86: resolved overrides map injected by the invoker (invoke-time injection, M69).
+// Default to {} so the premium fallback literals apply when no invoker injects overrides.
+const overrides = (_args.overrides && typeof _args.overrides === "object") ? _args.overrides : {};
 const _CLI_ENVELOPE_SCHEMA = {
   type: "object", required: ["ok", "exitCode"], additionalProperties: true,
   properties: { ok: { type: "boolean" }, exitCode: { type: "integer" }, envelope: {}, stdout: { type: "string" }, stderr: { type: "string" }, via: { type: "string" } },
@@ -94,7 +97,7 @@ for (let cycle = 1; cycle <= 2; cycle++) {
     label: `debug-cycle-${cycle}`,
     phase: `Cycle ${cycle}`,
     schema: DEBUG_CYCLE_SCHEMA,
-    model: cycle === 1 ? "opus" : "fable",
+    model: cycle === 1 ? "opus" : (overrides["debug-cycle-2"] ?? "fable"),
   }).catch((e) => ({
     resolved: false,
     rootCause: `agent error: ${e && e.message}`,

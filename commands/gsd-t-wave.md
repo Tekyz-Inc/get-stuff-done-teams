@@ -23,7 +23,28 @@ The native Workflow `workflow()` global runs each sub-workflow inline and return
 
 Read `.gsd-t/progress.md` to determine the active milestone and the wave domain list from `.gsd-t/contracts/m{NN}-integration-points.md`.
 
-## Step 2: Invoke the wave Workflow
+## Step 2: Resolve the active model profile (M86 — invoke-time injection)
+
+Before calling the Workflow, resolve the active model profile to build the `overrides` map:
+
+```bash
+# Run via Bash at invoke time:
+gsd-t model-profile resolve --profile <active-profile> --json
+# <active-profile> = read from .gsd-t/model-profile.json "profile" field, or default "premium"
+```
+
+**Resolver-failure handling (M86 — pre-mortem c2 #2):** if the resolve call fails, do NOT
+silently proceed on the premium fallback. Either HALT with `blocked-needs-human`, or proceed
+ONLY with a loud, surfaced warning:
+```
+⚠ model-profile resolver unavailable — running on PREMIUM fallback literals
+  (configured profile unknown; stale global binary may lack model-profile subcommand)
+```
+
+The wave workflow forwards `overrides` to BOTH its `gsd-t-execute` and `gsd-t-verify`
+sub-workflow calls, so the spend switch is active across the full cycle (execute + verify).
+
+## Step 3: Invoke the wave Workflow
 
 Call the `Workflow` tool with:
 
@@ -36,12 +57,15 @@ Call the `Workflow` tool with:
   args: {
     milestone: "M{NN}",
     domains: ["m{NN}-d1-...", "m{NN}-d2-...", ...],  // domains for this wave only, per integration-points
-    projectDir: "."
+    projectDir: ".",
+    // M86: inject the resolved overrides map — forwarded to execute + verify sub-workflows.
+    // Pass {} when the resolver failed AND you chose the loud-warning path (not halt).
+    overrides: { /* ...from resolver result.overrides, or {} on failure */ }
   }
 }
 ```
 
-## Step 3: Interpret the result
+## Step 4: Interpret the result
 
 ```js
 {

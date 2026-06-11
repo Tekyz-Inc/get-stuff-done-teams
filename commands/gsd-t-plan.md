@@ -14,7 +14,25 @@ For each domain, the agent writes atomic `tasks.md` entries in parallel-executio
 
 Read `.gsd-t/progress.md` and each domain's `scope.md`/`constraints.md`. The partition output is the input to planning.
 
-## Step 2: Invoke the phase Workflow
+## Step 2: Resolve the active model profile (M86 — invoke-time injection)
+
+Before calling the Workflow, resolve the active model profile to build the `overrides` map:
+
+```bash
+# Run via Bash at invoke time:
+gsd-t model-profile resolve --profile <active-profile> --json
+# <active-profile> = read from .gsd-t/model-profile.json "profile" field, or default "premium"
+```
+
+**Resolver-failure handling (M86 — pre-mortem c2 #2):** if the resolve call fails, do NOT
+silently proceed on the premium fallback. Either HALT with `blocked-needs-human`, or proceed
+ONLY with a loud, surfaced warning:
+```
+⚠ model-profile resolver unavailable — running on PREMIUM fallback literals
+  (configured profile unknown; stale global binary may lack model-profile subcommand)
+```
+
+## Step 3: Invoke the phase Workflow
 
 ```js
 {
@@ -26,12 +44,15 @@ Read `.gsd-t/progress.md` and each domain's `scope.md`/`constraints.md`. The par
     phase: "plan",
     milestone: "M{NN}",
     projectDir: ".",
-    userInput: "$ARGUMENTS"
+    userInput: "$ARGUMENTS",
+    // M86: inject the resolved overrides map (pre-mortem uses this).
+    // Pass {} when the resolver failed AND you chose the loud-warning path (not halt).
+    overrides: { /* ...from resolver result.overrides, or {} on failure */ }
   }
 }
 ```
 
-## Step 3: Interpret the result
+## Step 4: Interpret the result
 
 The Workflow returns `{ status, artifacts, summary, decisions, traceability?, preMortem? }`.
 

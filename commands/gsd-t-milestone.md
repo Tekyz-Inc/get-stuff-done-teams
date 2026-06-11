@@ -14,7 +14,25 @@ The agent defines the milestone — origin, goal, falsifiable success criteria �
 
 Read `.gsd-t/progress.md` (current version + completed milestones), `docs/requirements.md`, and `docs/architecture.md` so the new milestone is framed against existing state.
 
-## Step 2: Invoke the phase Workflow
+## Step 2: Resolve the active model profile (M86 — invoke-time injection)
+
+Before calling the Workflow, resolve the active model profile to build the `overrides` map:
+
+```bash
+# Run via Bash at invoke time:
+gsd-t model-profile resolve --profile <active-profile> --json
+# <active-profile> = read from .gsd-t/model-profile.json "profile" field, or default "premium"
+```
+
+**Resolver-failure handling (M86 — pre-mortem c2 #2):** if the resolve call fails, do NOT
+silently proceed on the premium fallback. Either HALT with `blocked-needs-human`, or proceed
+ONLY with a loud, surfaced warning:
+```
+⚠ model-profile resolver unavailable — running on PREMIUM fallback literals
+  (configured profile unknown; stale global binary may lack model-profile subcommand)
+```
+
+## Step 3: Invoke the phase Workflow
 
 ```js
 {
@@ -25,7 +43,10 @@ Read `.gsd-t/progress.md` (current version + completed milestones), `docs/requir
   args: {
     phase: "milestone",
     projectDir: ".",
-    userInput: "$ARGUMENTS"
+    userInput: "$ARGUMENTS",
+    // M86: inject the resolved overrides map (probe + judge use this).
+    // Pass {} when the resolver failed AND you chose the loud-warning path (not halt).
+    overrides: { /* ...from resolver result.overrides, or {} on failure */ }
     // M84 Competition Mode is AUTOMATIC — do NOT pass `competition` by default.
     // The workflow probes (opus) and self-decides; milestone decomposition is the
     // highest-altitude decision, so it competes whenever ≥2 genuinely different
@@ -37,7 +58,7 @@ Read `.gsd-t/progress.md` (current version + completed milestones), `docs/requir
 
 **Competition Mode (automatic).** Milestone decomposition auto-competes when the probe finds ≥2 genuinely different strategies. Because a decomposition is a *coupled thesis*, the judge selects one winner whole (pick-one) and salvages only non-overlapping good line-items from the losers — it never Frankensteins. No flag needed; override with `--no-competition` / `--competition N` on explicit request. See `.gsd-t/contracts/competition-mode-contract.md`.
 
-## Step 3: Interpret the result
+## Step 4: Interpret the result
 
 The Workflow returns `{ status, artifacts, summary, decisions }` (plus `competition: { n, winner, ranked }` when Competition Mode ran).
 
