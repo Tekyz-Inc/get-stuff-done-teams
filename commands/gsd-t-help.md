@@ -500,7 +500,20 @@ Use these when user asks for help on a specific command:
 - **Files**: `bin/gsd-t-model-tier-policy.cjs` (zero external deps — installer invariant).
 - **Use when**: Any phase that needs to resolve a concrete model id from a stage key at invoke time (M69 pattern). Workflows NEVER `require` this module (sandbox ban) — they use hard-coded tier alias literals the lint proves match the policy.
 - **CLI**: `gsd-t model-tier-policy resolve <stageKey> [--json]`. Emits `{ok, stageKey, tier, model, requiresThinkingOmitted}`. Exit 0 resolved · 1 unknown stage key.
-- **Contract**: `.gsd-t/contracts/model-tier-policy-contract.md` v1.0.0 STABLE.
+- **Contract**: `.gsd-t/contracts/model-tier-policy-contract.md` v1.1.0 STABLE.
+
+### model-profile (M86)
+- **Summary**: Per-project model-tier profile switcher — a SECOND dimension over the M85 stage-tier policy. Manages `.gsd-t/model-profile.json` and resolves which concrete model id each workflow stage runs on under the active profile. Three named profiles: `standard` (zero Fable — pre-M85 posture), `pro` (Fable on red-team + pre-mortem + debug-cycle-2), `premium` (all 6 M85 designated Fable stages — global default). Switching profiles injects the overrides into workflow args at invoke time (M69 pattern — NO tracked-file rewriting). Competition producers are HELD at opus in ALL profiles (M82 blindness invariant). The active profile is surfaced in the session banner (`[GSD-T PROFILE]`), the statusline, and `gsd-t status` — always named, never an implicit fallback (SC(f)).
+- **Files**: `bin/gsd-t-model-profile.cjs` (zero external deps — installer invariant). Config: `.gsd-t/model-profile.json` (`{ "profile": "pro", "stageOverrides": { ... } }`).
+- **Use when**: A project needs a different spend posture than the global default (e.g., run `standard` on a CI cost budget, or `pro` for a production release with targeted Fable quality gates). Per-stage overrides allow fine-grained control beyond the named profiles.
+- **CLI**:
+  - `gsd-t model-profile show [--json]` — display active profile + per-stage resolution
+  - `gsd-t model-profile set <standard|pro|premium>` — switch the project profile
+  - `gsd-t model-profile set-stage <stage> <tier>` — per-stage override (rejects `competition-producers` and `competition-judge→opus` — M82 blindness clamps)
+  - `gsd-t model-profile resolve --profile <p> [stage] [--json]` — resolve a profile into the overrides envelope consumed by workflow invokers
+  - Emits `{ok, profile, overrides: { "<stage>": "<concreteModelId>" }, requiresThinkingOmitted?}`. Exit 0 resolved · 1 unknown profile/tier.
+- **Out of scope**: Session default model (`/model`) — profiles govern WORKFLOW STAGES only.
+- **Contract**: `.gsd-t/contracts/model-profile-config-contract.md` v1.0.0 STABLE.
 
 ## Unknown Command
 

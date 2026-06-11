@@ -310,7 +310,25 @@ Synthesis stage merges results without category collapse. Verdict: `VERIFIED` / 
 - `model: "haiku"` — strictly mechanical tasks: run test suites and report counts, check file existence, validate JSON structure, branch guard checks
 - `model: "sonnet"` — mid-tier reasoning: routine code changes, standard refactors, test writing, QA evaluation, straightforward synthesis
 - `model: "opus"` — high-stakes reasoning: architecture decisions, security analysis, complex debugging, cross-module refactors, quality judgment on critical paths
-- `model: "fable"` — highest-stakes calls where one judgment gates the most downstream spend (M85): solution-space probe, partition probe, competition judge, pre-mortem, Red Team. Competition producers STAY `opus` (M82 blindness invariant — judge must differ from producers). Debug cycle-1 → `opus`, cycle-2 → `fable` (escalation). **Single source of truth for tier assignments:** `bin/gsd-t-model-tier-policy.cjs` + `.gsd-t/contracts/model-tier-policy-contract.md` v1.0.0 STABLE. The M71-family lint (`test/m85-workflow-tier-policy-lint.test.js`) proves every workflow `model:` literal matches the policy and a drifted literal FAILS the lint (mandatory negative test).
+- `model: "fable"` — highest-stakes calls where one judgment gates the most downstream spend (M85): solution-space probe, partition probe, competition judge, pre-mortem, Red Team. Competition producers STAY `opus` (M82 blindness invariant — judge must differ from producers). Debug cycle-1 → `opus`, cycle-2 → `fable` (escalation). **Single source of truth for tier assignments:** `bin/gsd-t-model-tier-policy.cjs` + `.gsd-t/contracts/model-tier-policy-contract.md` v1.1.0 STABLE. The M71-family lint (`test/m85-workflow-tier-policy-lint.test.js`) proves every workflow `model:` literal matches the policy and a drifted literal FAILS the lint (mandatory negative test).
+
+## Model Profiles (M86 — per-project tier-spend switch)
+
+**M86 adds a second dimension:** three named profiles (`standard` / `pro` / `premium`) that control which workflow stages run on Fable vs. Opus/Sonnet for a given project. Profiles are a PER-PROJECT configuration; the global default is `premium` (the full M85 Fable posture). **SC(f) — no silent degradation:** the active profile is ALWAYS named in the session banner, statusline, and `gsd-t status` — never blank, never an implicit fallback.
+
+| Profile | Fable stages | When to use |
+|---------|--------------|-------------|
+| `standard` | None — pre-M85 posture | CI cost budget, draft milestones |
+| `pro` | red-team + pre-mortem + debug-cycle-2 | Targeted quality gates; production milestones |
+| `premium` | All 6 M85 designated stages | Full posture — global default |
+
+**Config:** `.gsd-t/model-profile.json` → `{ "profile": "pro", "stageOverrides": { "competition-judge": "fable" } }`. Absent file → `premium` (global default), NAMED as `profile: premium (default)`.
+
+**Invoke-time injection (M69):** command invokers call `gsd-t model-profile resolve --json` at invoke time and inject the `overrides` map into workflow `args`. Workflows use `overrides["<stage>"] ?? "<premium-literal>"` (D3 drift lint validates both sides). No tracked-file rewriting on profile switch.
+
+**Blindness clamps (M82):** `competition-producers` is not overridable in ANY profile; `competition-judge` cannot be set to the producers' model id. Enforced at resolve time, not only at write time (the config file is hand-editable).
+
+**Single source of truth:** `bin/gsd-t-model-tier-policy.cjs` (policy constants + `resolveProfile`) + `bin/gsd-t-model-profile.cjs` (config read/write + CLI). Contract: `.gsd-t/contracts/model-profile-config-contract.md` v1.0.0 STABLE.
 
 **Context budget:** Workflow scripts receive a `budget` global (`budget.total`, `budget.spent()`, `budget.remaining()`) tied to the user's per-turn token target. Use it for dynamic loops (`while (budget.total && budget.remaining() > 50_000) { ... }`) or to scale fleet size. Opus 4.7/4.8 ship 1M context windows; the legacy meter at `bin/token-budget.cjs` was retired in M61 — use native `/context` for live in-session usage.
 
