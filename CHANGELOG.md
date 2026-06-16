@@ -2,6 +2,17 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [4.6.11] - 2026-06-16 (Output Style — six named conciseness tics + backlog #33 — patch)
+
+### Changed — tightened the CONCISE Output Style rule with six named anti-patterns
+
+User feedback that replies stayed wordy despite the existing CONCISE rule. Extracted six specific tics — three from live examples, three from the user's own wordy→concise rewrites (binvoice `Wordy Example 1/2.txt`, a labeled before/after set where ~70 wordy lines collapsed to ~25 with identical information) — and added a litmus test. Synced the template to the live global CLAUDE.md (blocks kept identical — ripple invariant). Also added backlog #33 from the binvoice FB-modal debug-loop retrospective.
+
+- `templates/CLAUDE-global.md`: Output Style block gains six rules — no process narration, no answer sandwich, no affirmation throat-clearing, no honesty theater, a table replaces its prose (never repeats it), ask once — plus a litmus test ("delete any sentence that survives deletion without info loss").
+- `.gsd-t/backlog.md`: #33 firing debug-cycle circuit-breaker + repro-fixture-on-regression + anchor-last scraping stack rule (completes #31/TD-294 from the loop-governance side).
+
+Behavioral/doc-only — no test changes. Suite: 1603/1607 pass, 0 fail.
+
 ## [4.6.10] - 2026-06-15 (Installer wiring for status line + low-context cue — minor)
 
 ### Added — installer now copies and wires the status line + ctx-cue Stop hook
