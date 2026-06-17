@@ -574,3 +574,35 @@ Each section pairs an `> **Intention ({Author}, {date}).**` prose block (the WHY
 - **Feeds verify's orthogonal triad** — the guard `[RULE]` map gives QA concrete contract-compliance assertions and the Red Team a pre-enumerated attack surface (every guard is a thing to try to break).
 - Scope: ~2–3 domains (milestone command + workflow two-altitude flow + sign-off gate; pseudocode template + traceability wiring into plan/verify [extend the #83 traceability-gate to cite pseudocode sections]; doc-ripple integration + Living Documents table + contract). 1–2 waves. Candidate for early promotion — it's the highest-leverage process change in the queue and directly attacks the "50–100 turns to get it right" pain measured twice this month.
 - Scope: ~2–3 domains (debug-cycle ledger cjs + workflow block + contract; repro-fixture preflight + workflow wiring; scraping stack rule + docs), 1–2 waves. The cycle-ledger + the firing block are the load-bearing half.
+
+## 35. M88 — Deterministic gates for PseudoCode soft-ACs (sign-off state, map-generation path, triad-consumption seam, divergence grammar)
+
+**Added**: 2026-06-17
+**Type**: framework feature
+**Origin**: M87 plan-phase pre-mortem cycle-4 split (2026-06-17). M87 ("Intention-First PseudoCode as Milestone Source-of-Truth") was split after 4 pre-mortem cycles (8→5→2→6 findings): the deterministic core (the `[RULE]` guard-bridge gate A1, section-coverage A2, ripple drift lint A4, regression bar A6) stays in M87 and ships now; FOUR acceptance criteria that set the same deterministic-gate bar but cannot meet it as-scoped without their own design move here. **Depends on M87** — the guard-bridge gate (`bin/gsd-t-guard-map.cjs`) and the two-altitude milestone FLOW must exist before these gates can attach to them.
+
+### The four moved pieces (each: WHAT moved + WHY it needs its own design)
+
+1. **A3 — machine-checkable sign-off STATE + `isDefined(milestone)` predicate.**
+   - **WHY**: there is NO milestone-state artifact in the codebase today — "DEFINED" is prose an LLM writes into `.gsd-t/progress.md`, not a code-readable marker. A deterministic gate ("milestone is not DEFINED until the detailed `PseudoCode-[Title].md` is signed off; signing flips the state; skip is a logged decision, never silent default-off") requires first DESIGNING a concrete sign-off marker (a structured field / sidecar / front-matter stamp the gate can read) and a `isDefined(milestone)` predicate over it. M87 ships only the two-altitude FLOW + keep-or-supersede PROMPT as prose/protocol; M88 designs the STATE the gate reads and the gate itself.
+   - Killing test (M88): unsigned detailed doc → predicate returns NOT-DEFINED; signing flips it; skip emits an assertable logged decision.
+
+2. **A1 map-GENERATION path + its end-to-end test.**
+   - **WHY**: M87's A1 proves the gate DISCRIMINATES a build→rule map (faithful map → exit 0, doctored map → exit non-zero, RULE-ID named). But the A1 doctored fixture differs only in the LLM-PRODUCED `--map` JSON (the doc stays byte-identical) — so the path that DERIVES the map from the build (which test assertions back which `[RULE]`) is untested. M88 designs the mechanical map-generation seam (build evidence → `{rules:{<id>:{backedBy:[...],contradicted:bool}}}`) and an end-to-end test that runs derivation → gate on a real build, closing the gap M87's map-only doctoring leaves open.
+   - Killing test (M88): a real build's derived map, fed to M87's gate, exits 0 on a faithful build and non-zero when a backing assertion is removed — derivation included, not hand-authored.
+
+3. **A5 — verify-triad consumption as a DETERMINISTIC seam-check.**
+   - **WHY**: A5 ("the `[RULE]` set is consumed by verify's QA + Red Team frames") was framed as observable on a live triad run, which is non-deterministic (an LLM frame's contents). Reframe it as a deterministic SEAM-CHECK: assert the `qa-subagent.md` / `red-team-subagent.md` prompts contain the structured directive to ingest the rule set, plus a unit test that feeds guard-map JSON through the consuming code path and asserts the rule IDs surface — NOT a live triad run. M88 gives it that deterministic design (M87 leaves A5 out of the gated core entirely — the integrate-time seam M87-INT-T1 is descoped).
+   - Killing test (M88): prompt-presence assertion (structured directive present) + a unit test feeding guard-map JSON to the consumer, asserting each derived RULE-ID surfaces in both the QA contract-compliance frame and the Red Team attack-surface frame; a missing directive or dropped rule FAILS.
+
+4. **SC4 — divergence-grammar `parseDivergence()`/`formatDivergence()` round-trip.**
+   - **WHY**: SC4 has two halves. The "agent ASKS keep-or-supersede per inherited model" half is an inherent prose PROTOCOL (its reliability is bounded by how forcing the prompt is — not a deterministic gate) and ships in M87's D3 keep-or-supersede prompt. The OTHER half — a deterministic `parseDivergence()`/`formatDivergence()` grammar round-trip over the `⚠ Divergence: …` flag (per contract §4) so the divergence count is a checkable artifact that can feed the rule map — IS deterministically gateable but needs its own grammar-implementation design. M88 builds the parse/format round-trip; the §4 grammar definition already exists in `pseudocode-source-of-truth-contract.md` (annotated "M88", not deleted).
+   - Killing test (M88): a `⚠ Divergence` line round-trips format→parse→format byte-stable; a malformed flag FAILS; the divergence count is emitted as a checkable artifact.
+
+### The deterministic-gate bar (set by M87, the entry criterion for M88)
+M87 establishes the bar these four must meet: a gate's pass/fail is DETERMINISTIC CODE with ZERO LLM judgment, structural/path-as-path never substring (`feedback_coverage_check_structural_not_substring`), proven by a killing test against byte-verbatim fixtures, with no silent degradation (`feedback_no_silent_degradation`). Each moved piece fails this bar AS-SCOPED in M87 (no state artifact / untested derivation path / non-deterministic live-run framing / unimplemented grammar) — M88 designs each up to the bar.
+
+### Relation to existing items
+- **Strictly downstream of M87** — cannot start until M87 ships the guard-bridge gate + the two-altitude flow these gates attach to.
+- Pairs with #31 (micro-pre-mortem) + #33 (debug circuit-breaker): #34/M87 sets the contract front-of-milestone, M88 closes the deterministic gates around it, #31 hardens the plan, #33 halts on drift.
+- Scope: ~3–4 domains (sign-off state + `isDefined` predicate; map-generation seam + e2e test; triad seam-check; divergence grammar round-trip), 1–2 waves. Each piece is independently gateable once its design lands.

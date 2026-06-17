@@ -1,6 +1,6 @@
 # Contract: PseudoCode Source-of-Truth
 
-**Version**: 1.1.3
+**Version**: 1.1.4
 **Status**: STABLE
 **Owner domain**: `template-docripple-contract` (M87 D4)
 **Consumed by**: `guard-bridge-spike` (D1), `traceability-section-coverage` (D2), `milestone-two-altitude-flow` (D3)
@@ -208,6 +208,14 @@ Mirroring §2's A1 fixture-fidelity assertion, the D2 test (M87-D2-T3) MUST:
 
 ## 4. Divergence-flag grammar (D3 owns the keep-or-supersede protocol)
 
+> **M87/M88 split (2026-06-17, v1.1.4).** The keep-or-supersede ASK + the
+> writing of a `⚠ Divergence` flag on supersede ship in **M87** (D3
+> `keep-or-supersede-subagent.md`, prose PROTOCOL). The DETERMINISTIC
+> `parseDivergence()`/`formatDivergence()` grammar round-trip (so the divergence
+> count is a code-checkable artifact that can feed D1's rule map) is **M88**
+> (backlog #35). The grammar BELOW is the spec for both — it is NOT deleted; only
+> the round-trip IMPLEMENTATION is deferred to M88.
+
 Before encoding ANY model inherited from shipped code, the milestone flow asks
 "keep this or supersede it?" per inherited model. Each **supersede** emits:
 
@@ -215,8 +223,10 @@ Before encoding ANY model inherited from shipped code, the milestone flow asks
 ⚠ Divergence: <RULE-ID or section> — supersedes shipped <what>. Reason: <user intention>.
 ```
 
-The divergence flag is captured IN the doc and is a checkable artifact (it may
-feed D1's rule map). Keep = no flag. (SC4.)
+The divergence flag is captured IN the doc. In M87 it is WRITTEN by the prose
+protocol; in M88 it becomes a deterministically parseable/formattable artifact
+(round-trip byte-stable; a malformed flag FAILS) that may feed D1's rule map.
+Keep = no flag. (SC4 — protocol half M87, grammar round-trip M88.)
 
 ---
 
@@ -237,7 +247,17 @@ parallel-written — file-disjointness invariant). (SC5, A4.)
 
 ---
 
-## 6. Verify-triad consumption (A5 — integrate-time seam)
+## 6. Verify-triad consumption (A5 — MOVED TO M88)
+
+> **M87/M88 split (2026-06-17, v1.1.4).** A5 (the integrate-time seam wiring the
+> `[RULE]` set into the QA/Red-Team prompts) is **DESCOPED from M87 to M88**
+> (backlog #35). As framed below it leaned on observing a LIVE triad run, which
+> is non-deterministic; M88 redesigns it as a DETERMINISTIC seam-check
+> (prompt-presence of the structured ingest directive + a unit test feeding
+> guard-map JSON through the consuming code path), NOT a live triad run. The seam
+> description below is RETAINED as the design intent the M88 redesign starts
+> from; the M87-INT-T1 task + its `test/m87-verify-triad-rule-consumption.test.js`
+> are NOT executed in M87.
 
 The guard-map `[RULE]` set is fed to verify's orthogonal triad: QA receives the
 rules as contract-compliance assertions; the Red Team receives them as a
@@ -272,6 +292,24 @@ coordinated edit across all consuming domains.
 
 ## Changelog
 
+- **1.1.4 (2026-06-17)** — M87/M88 SPLIT recorded (plan-phase pre-mortem cycle-4,
+  8→5→2→6 findings; NO grammar change, NO domain-boundary change, STABLE
+  preserved). The user split M87 into a deterministic core (ships now) + a
+  follow-up milestone **M88** (backlog #35) for the soft-ACs that resist
+  deterministic gating as-scoped. Contract annotations: **§4** — the divergence
+  parse/format round-trip (SC4 deterministic half) is annotated M88 (the
+  keep-or-supersede ASK + flag-writing stays M87 prose protocol; the grammar
+  DEFINITION is retained, not deleted). **§6** — A5 verify-triad consumption is
+  annotated MOVED TO M88, where it is redesigned as a deterministic seam-check
+  (prompt-presence + a unit test feeding guard-map JSON) rather than a live triad
+  run; the seam description is retained as design intent. The M87 core that
+  REMAINS: §2 guard-map gate (A1 — gate DISCRIMINATION; the map-GENERATION path
+  is M88), §3 section-citation coverage (A2) + the folded gate-scoping fix
+  (`--milestone M87 --domains <4>` scopes to exactly the four subject-named M87
+  domains, never fall-back-to-all), §5 ripple drift lint (A4), the A6 regression
+  bar, and the folded A7 derived-id stability (the faithful-map keyset is
+  generated programmatically from the parser's derived ids). All remaining M87
+  obligations are deterministically gateable.
 - **1.1.3 (2026-06-17)** — §2 invariant-capture made SIDE-AGNOSTIC (plan-phase
   pre-mortem cycle-3 MEDIUM; NO boundary/ownership/domain change, STABLE
   preserved). The right-only capture regex yielded an EMPTY invariant for all 8

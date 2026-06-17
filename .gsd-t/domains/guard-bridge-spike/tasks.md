@@ -33,6 +33,14 @@ via `--map`:
   exit 0. Its `rules` keyset MUST equal the parser's derived RULE-ID set for the
   byte-verbatim PayPal fixture EXACTLY (no extra/missing key) — so the map can't
   silently drift from the doc and re-open a vacuous pass.
+  **Derived-id stability (cycle-4 LOW — folded into the core):** the faithful
+  map's keyset is GENERATED PROGRAMMATICALLY from the parser's derived ids at
+  test setup (T3 builds it from the parse, asserts equality), OR via a documented
+  regen script — NEVER hand-maintained. So a fixture re-copy that reflows the
+  doc's derived ids reflows the map keyset in the SAME change (doc ids AND map
+  keyset move together), instead of the keyset rotting against a hand-typed list.
+  If the committed `PseudoCode-PayPal.map.json` keys are authored, T1 documents
+  the one-line regen command and T3's keyset-equality assertion is the guard.
 - `PseudoCode-PayPal-doctored.map.json` — identical to the faithful map EXCEPT
   **exactly one** RULE-ID flipped to unbacked (`backedBy: []`) OR contradicted
   (`contradicted: true`). **Doctoring flips a MAP entry, NOT the doc text** — the
@@ -77,10 +85,13 @@ yields a non-empty invariant — specifically that each of the 8 Extension
 `<prose> [RULE — tag]` rules captures its LEFT-of-marker prose (not an empty
 string); an empty invariant is a FAILURE. This proves the A5 triad-consumption
 seam gets real attack-surface text, not bare RULE-IDs. **Map-keyset
-equality:** assert the faithful map's (`PseudoCode-PayPal.map.json`) `rules`
-keyset EXACTLY equals the parser's derived RULE-ID set for the byte-verbatim doc
-— a map that drops or adds a key is a FAILURE (blocks the map silently drifting
-from the doc and re-introducing a vacuous pass). Then the gate runs:
+equality (derived-id stability, cycle-4 LOW):** GENERATE the expected keyset
+PROGRAMMATICALLY from the parser's derived ids for the byte-verbatim doc (do NOT
+hand-type the expected list), then assert the faithful map's
+(`PseudoCode-PayPal.map.json`) `rules` keyset EXACTLY equals it — a map that drops
+or adds a key is a FAILURE (blocks the map silently drifting from the doc and
+re-introducing a vacuous pass; and makes a fixture re-copy reflow doc ids AND map
+keyset together, never rot against a hand-maintained list). Then the gate runs:
 - faithful doc + **faithful map** → exit 0;
 - faithful doc + **doctored map** (`PseudoCode-PayPal-doctored.map.json`, exactly
   one rule unbacked OR contradicted) → exit 4 with the violated RULE-ID NAMED in
