@@ -5,8 +5,6 @@
 ## Date: 2026-06-17 13:40 PDT
 ## Version: 4.6.11
 
-> ⚠️ **RELEASE NOTE (until v4.6.10 publishes):** the INSTALLED global gsd-t 4.4.11 still carries the unguarded bin-propagation loop — do NOT run `update-all` with the OLD global before publishing 4.6.10, or this repo's in-flight files get reverted (recoverable via `git checkout`). v4.6.10 ships the `_isGsdTSourcePackage` self-skip guard; CPUA installs the new global BEFORE running update-all, so the publish itself clears this risk. Delete this note once 4.6.10 is the installed global.
-
 ## Current Milestone
 
 ### M87 — Intention-First PseudoCode as Milestone Source-of-Truth (Risk-First)
