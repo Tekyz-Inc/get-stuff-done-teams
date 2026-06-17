@@ -52,11 +52,15 @@ Enumerate every rule from a doc per §2's grammar — match the `[RULE …]` mar
 LEFT of the marker. Handle explicit `... [RULE] <RULE-ID>: <invariant>`, loose
 `... [RULE] <invariant>`, and tagged `... [RULE — <tag>] <invariant>` forms;
 resolve the id (explicit, else derive
-`R-<DOC-SLUG>-<NN>` by appearance order — pure, deterministic). Read a build→rule
+`R-<DOC-SLUG>-<NN>` by appearance order — pure, deterministic). **Invariant capture
+is SIDE-AGNOSTIC (§2 v1.1.3):** the invariant text = RIGHT-of-`]` if non-empty,
+ELSE the LEFT-of-marker prose (all 8 Extension rules are `<invariant> [RULE — tag]`
+with nothing right). A rule whose resolved invariant is EMPTY is a parse FAILURE.
+Read a build→rule
 map; gate deterministically. Exit 0 (all backed, none contradicted), 4 (≥1
 unbacked/contradicted, name the RULE-ID), 64 (bad input). Zero deps, never
 throws, pure. CLI: `--doc <path> --map <path> --json`.
-**Acceptance criteria**: SC1 — divergence FAILS at contract-breach severity, deterministic, RULE-ID named; parses all three §2 forms.
+**Acceptance criteria**: SC1 — divergence FAILS at contract-breach severity, deterministic, RULE-ID named; parses all three §2 forms; every rule yields a NON-EMPTY invariant (side-agnostic capture).
 **Files**: `bin/gsd-t-guard-map.cjs`.
 **Test**: M87-D1-T3 (A1).
 **Headline**: true
@@ -65,9 +69,14 @@ throws, pure. CLI: `--doc <path> --map <path> --json`.
 **Touches**: `test/m87-guard-map-bridge.test.js`
 **PseudoCode-Section**: PseudoCode-PayPal#6-money-safety-map-every-guard-against-a-double-create
 The kill-criterion test. **Fixture-fidelity FIRST (non-vacuous guard):** assert the
-parser extracts **exactly 13** rules from the UNMODIFIED PayPal exemplar and `>0`
-from Extension — a hard count, not `≥0`; a parser that extracts zero is itself a
-FAILURE (this is what makes "faithful → exit 0" meaningful). **Map-keyset
+parser extracts **exactly 13** rules from the UNMODIFIED PayPal exemplar and
+**exactly 8** from Extension — a hard count, not `≥0`; a parser that extracts zero
+is itself a FAILURE (this is what makes "faithful → exit 0" meaningful).
+**Non-empty-invariant (side-agnostic capture):** assert EVERY rule of BOTH styles
+yields a non-empty invariant — specifically that each of the 8 Extension
+`<prose> [RULE — tag]` rules captures its LEFT-of-marker prose (not an empty
+string); an empty invariant is a FAILURE. This proves the A5 triad-consumption
+seam gets real attack-surface text, not bare RULE-IDs. **Map-keyset
 equality:** assert the faithful map's (`PseudoCode-PayPal.map.json`) `rules`
 keyset EXACTLY equals the parser's derived RULE-ID set for the byte-verbatim doc
 — a map that drops or adds a key is a FAILURE (blocks the map silently drifting

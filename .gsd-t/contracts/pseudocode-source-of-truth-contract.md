@@ -1,6 +1,6 @@
 # Contract: PseudoCode Source-of-Truth
 
-**Version**: 1.1.2
+**Version**: 1.1.3
 **Status**: STABLE
 **Owner domain**: `template-docripple-contract` (M87 D4)
 **Consumed by**: `guard-bridge-spike` (D1), `traceability-section-coverage` (D2), `milestone-two-altitude-flow` (D3)
@@ -67,16 +67,24 @@ A parser anchored to line-start (`^\s*\[RULE`) extracts ZERO from both exemplars
 (the original vacuous-pass class). Three accepted marker forms:
 
 ```
-... [RULE] <RULE-ID>: <invariant>   # explicit id (recommended for new docs; money/state guards)
-... [RULE] <invariant>               # loose — PayPal exemplar style (id DERIVED)
-... [RULE — <tag>] <invariant>       # tagged em-dash — Extension exemplar style (id DERIVED)
+... [RULE] <RULE-ID>: <invariant>     # explicit id, invariant RIGHT (recommended for new docs)
+GATE: ... → 409   [RULE] <invariant>   # loose, invariant RIGHT — PayPal exemplar style (id DERIVED)
+<invariant prose> ... [RULE — <tag>]   # tagged, invariant LEFT — Extension exemplar style (id DERIVED)
 ```
 
-The text LEFT of the marker (the guard/GATE prose) is part of the invariant's
-provenance, not a separate rule; one marker = one rule. Matching regex shape:
-`/\[RULE(\s*—\s*[^\]]*)?\]\s*(.*)$/` applied per line (marker may be preceded by
-arbitrary text). The optional `— <tag>` segment is captured but does not change
-the rule count.
+**Invariant capture is side-agnostic (2026-06-17, pre-mortem cycle-3 MEDIUM).**
+One marker = one rule; the marker may sit anywhere on the line. The invariant
+text lives on EITHER side: PayPal-style carries it to the RIGHT of `]`; ALL 8
+Extension-style rules carry it to the LEFT (`<invariant> [RULE — <tag>]`, nothing
+after `]`). A right-only capture yields an EMPTY invariant for every Extension
+rule — which starves the A5 triad-consumption seam (Red Team gets a bare RULE-ID
+with nothing to attack). So the parser MUST capture a NON-EMPTY invariant from
+whichever side carries it: take the RIGHT-of-`]` text if non-empty, else the
+LEFT-of-marker prose (trimmed, with any trailing `→ <code>`/`GATE:` provenance
+preserved). A rule whose resolved invariant is empty is a PARSE FAILURE.
+Matching: locate the marker `/\[RULE(\s*—\s*[^\]]*)?\]/` anywhere on the line;
+invariant = `rightText || leftText` (non-empty). The optional `— <tag>` segment
+is captured for provenance but does not change the rule count.
 
 - **Rule ID resolution (deterministic):** if an explicit `<RULE-ID>:` is present,
   that IS the id. Otherwise the parser DERIVES a stable id deterministically:
@@ -264,6 +272,17 @@ coordinated edit across all consuming domains.
 
 ## Changelog
 
+- **1.1.3 (2026-06-17)** — §2 invariant-capture made SIDE-AGNOSTIC (plan-phase
+  pre-mortem cycle-3 MEDIUM; NO boundary/ownership/domain change, STABLE
+  preserved). The right-only capture regex yielded an EMPTY invariant for all 8
+  Extension-style `<invariant> [RULE — tag]` rules (invariant is LEFT of the
+  marker there), starving the A5 triad-consumption seam. Parser now takes the
+  RIGHT-of-`]` text if non-empty, else the LEFT-of-marker prose; empty resolved
+  invariant = parse FAILURE. Also (companion, recorded in D1 tasks not the
+  contract): `bin/gsd-t-guard-map.cjs` must be added to BOTH `GLOBAL_BIN_TOOLS`
+  and `PROJECT_BIN_TOOLS` in `bin/gsd-t.js` (the HIGH global-bin-propagation
+  finding — the gate is invoked in downstream projects where it must propagate,
+  per `project_global_bin_propagation_gap`).
 - **1.1.2 (2026-06-17)** — §3 clarification (plan-phase pre-mortem fix; NO
   boundary / ownership / domain change, STABLE preserved). Closes the A2
   vacuous-pass class (the §2 fix's twin): §3 now DEFINES the citable-section

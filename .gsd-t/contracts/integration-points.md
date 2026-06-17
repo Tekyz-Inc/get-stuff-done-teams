@@ -3,7 +3,7 @@
 ## Current State: M87 — Intention-First PseudoCode as Milestone Source-of-Truth (PLANNED — risk-first, 4 file-disjoint domains, 2 waves; Wave 1 = prove-or-kill A1; Wave 2 gated on A1; M83 traceability-gate PASSES all 4 domains, 0 violations).
 
 ### Seam contract
-`.gsd-t/contracts/pseudocode-source-of-truth-contract.md` v1.1.2 STABLE — the SINGLE source of all grammars (guard-map §2, section-citation §3, divergence §4, ripple-points §5). Authored at partition (D4-T0); §2 reconciled to the real binvoice corpus across the plan-phase pre-mortem fix (v1.1.0 dual grammar) and the re-plan re-validation (v1.1.1: hard count = 13, non-anchored inline marker); §3 reconciled (v1.1.2: citable-section source = `##` headings outside Appendix fences, PayPal=10/Extension=10 floor, deterministic GitHub-style slug §3.2, D2 non-vacuity floor + citation-resolution §3.3; §6/A5 wired to task M87-INT-T1). D1/D2/D3 consume it; no domain re-derives a grammar. A grammar change is a contract version bump + coordinated cross-domain edit.
+`.gsd-t/contracts/pseudocode-source-of-truth-contract.md` v1.1.3 STABLE — the SINGLE source of all grammars (guard-map §2, section-citation §3, divergence §4, ripple-points §5). Authored at partition (D4-T0); §2 reconciled to the real binvoice corpus across the plan-phase pre-mortem fix (v1.1.0 dual grammar) and the re-plan re-validation (v1.1.1: hard count = 13, non-anchored inline marker); §3 reconciled (v1.1.2: citable-section source = `##` headings outside Appendix fences, PayPal=10/Extension=10 floor, deterministic GitHub-style slug §3.2, D2 non-vacuity floor + citation-resolution §3.3; §6/A5 wired to task M87-INT-T1). D1/D2/D3 consume it; no domain re-derives a grammar. A grammar change is a contract version bump + coordinated cross-domain edit.
 
 ### M87 Wave Plan (risk-first — prove-or-kill before scaffolding)
 
@@ -69,7 +69,7 @@ WAVE 2 — three domains, file-disjoint, START ONLY AFTER A1 PASSES:
 | Pre-Commit Gate | `templates/CLAUDE-global.md` | shared file | A4 ripple point 2 |
 | project Living Documents ref | `CLAUDE.md` | shared file, co-owned at merge with D4's lint | A4 ripple point 4 |
 | verify-triad consumption (**M87-INT-T1** — no domain owns) | `templates/prompts/qa-subagent.md`, `templates/prompts/red-team-subagent.md` | wired AFTER D1's module passes A1; QA gets [RULE]s as contract-compliance assertions, Red Team as a pre-enumerated attack surface — consumed via D1's CLI/JSON contract, never by editing D1 source. **Killing test:** `test/m87-verify-triad-rule-consumption.test.js` — a verify run on a spec'd milestone surfaces the derived RULE-IDs in BOTH the QA contract-compliance frame AND the Red Team attack-surface frame; a frame missing the rule set FAILS. | A5 |
-| CLI dispatch | `bin/gsd-t.js` | shared dispatch table; adds `guard-map` subcommand routing to D1's module | A1 wiring |
+| CLI dispatch + **dual bin-propagation** (**M87-INT-T2** — no domain owns) | `bin/gsd-t.js` | (a) shared dispatch table — adds `guard-map` subcommand routing to D1's module; (b) **adds `gsd-t-guard-map.cjs` to BOTH `GLOBAL_BIN_TOOLS` (→ `~/.claude/bin/`) AND `PROJECT_BIN_TOOLS` (→ each registered project's `bin/`)** — like every peer verify gate. Without this the gate's `runCli` global fallback resolves to a binary never propagated, so it silently no-ops in downstream projects (the exact use case). **Killing test:** `test/m87-guard-map-propagation.test.js` — after `node bin/gsd-t.js install`, assert `~/.claude/bin/gsd-t-guard-map.cjs` exists+readable AND membership in BOTH arrays; removal from either FAILS (mirrors M54). Per `project_global_bin_propagation_gap`. | A1 wiring / reachability |
 | verify command invoker | `commands/gsd-t-verify.md` | shared command file; reflects the new gate step | A1/A5 |
 
 The A4 drift lint (D4-T3) VERIFIES ripple points 1/2/4 POST-integration; D4 WRITES only point 3 (doc-ripple command).
@@ -78,7 +78,7 @@ The A4 drift lint (D4-T3) VERIFIES ripple points 1/2/4 POST-integration; D4 WRIT
 
 | Producer | Consumer | Interface |
 |----------|----------|-----------|
-| D4 `pseudocode-source-of-truth-contract.md` v1.1.2 STABLE | D1/D2/D3 | The partition-time seam — guard-map §2, section-citation §3, divergence §4, ripple §5; all code against the contract, never re-derive |
+| D4 `pseudocode-source-of-truth-contract.md` v1.1.3 STABLE | D1/D2/D3 | The partition-time seam — guard-map §2, section-citation §3, divergence §4, ripple §5; all code against the contract, never re-derive |
 | D1 `bin/gsd-t-guard-map.cjs` (`--doc --map --json`, exit 0/4/64, build→rule map) | verify-triad (A5 integrate seam), D2 (rule-aware paths) | JSON contract: `{ rules: { "<RULE-ID>": { backedBy:[...], contradicted:bool } } }`; consumers read the JSON, never edit D1 source |
 | D2 extended `bin/gsd-t-traceability-gate.cjs` (`**PseudoCode-Section**: <Title>#<anchor>` parse, path-as-path) | plan phase | section-coverage gap report (zero-citing-task section = structural gap), additive over M83 AC→(path+test) |
 | D2 scope.md competition-altitude design note | D3 `gsd-t-phase.workflow.js` (integrate-time) | the documented decision D3 wires: solution-space probe shifts UP to high-level-approach altitude when behavior is spec'd; gate stays altitude-agnostic |
