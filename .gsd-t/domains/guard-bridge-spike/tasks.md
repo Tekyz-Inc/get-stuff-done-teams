@@ -42,8 +42,7 @@ with the violated RULE-ID in output; both deterministic (no LLM). Also: unbacked
 rule fails; contradicted rule fails; malformed input → 64; module never throws.
 **Acceptance criteria**: A1 — exits 0 faithful / non-zero doctored, RULE-ID named.
 **Files**: `test/m87-guard-map-bridge.test.js`.
-**Test**: this IS the test.
-**Headline**: true
+**Test**: this IS the test (the A1 falsifiable harness; the headline impl it exercises is M87-D1-T2's `bin/gsd-t-guard-map.cjs`).
 
 ### M87-D1-T4 — Wire the gate into verify.workflow.js
 **Touches**: `templates/workflows/gsd-t-verify.workflow.js`

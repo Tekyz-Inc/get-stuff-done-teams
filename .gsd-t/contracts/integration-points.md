@@ -1,6 +1,130 @@
 # Integration Points
 
-## Current State: M86 — Model Profiles (standard/pro/premium tier-spend switch) (EXECUTED + INTEGRATED — 4/4 domains complete, 1 wave; checkpoints CP1–CP4 verified at integrate; full suite 1572/0; verify next).
+## Current State: M87 — Intention-First PseudoCode as Milestone Source-of-Truth (PLANNED — risk-first, 4 file-disjoint domains, 2 waves; Wave 1 = prove-or-kill A1; Wave 2 gated on A1; M83 traceability-gate PASSES all 4 domains, 0 violations).
+
+### Seam contract
+`.gsd-t/contracts/pseudocode-source-of-truth-contract.md` v1.0.0 STABLE — the SINGLE source of all grammars (guard-map §2, section-citation §3, divergence §4, ripple-points §5). Authored at partition (D4-T0). D1/D2/D3 consume it; no domain re-derives a grammar. A grammar change is a contract version bump + coordinated cross-domain edit.
+
+### M87 Wave Plan (risk-first — prove-or-kill before scaffolding)
+
+```
+WAVE 1 — guard-bridge-spike ALONE (LOAD-BEARING, PROVE-OR-KILL):
+  D1 guard-bridge-spike
+      │  Proves A1: a prose [RULE] guard map → a deterministic verify gate where
+      │  divergence is a non-vacuous FAILURE, ZERO LLM judgment in pass/fail.
+      │  Builds NEW bin/gsd-t-guard-map.cjs (zero-dep, never-throws, pure;
+      │  exits 0 backed / 4 divergence-RULE-ID-named / 64 bad-input),
+      │  the A1 falsifiable harness (faithful exemplar → exit 0; doctored
+      │  one-rule variant → exit non-zero, RULE-ID named — both deterministic),
+      │  binvoice fixtures (PayPal faithful + doctored, Extension faithful),
+      │  and wires the gate into gsd-t-verify.workflow.js (M71 sandbox-clean,
+      │  M85 tier `haiku`, FAIL-blocking, BEFORE the triad).
+      │
+      ▼  KILL GATE: M87-D1-T3 (A1) MUST pass. If A1 cannot be made
+      │  deterministic → HALT the milestone + escalate for re-scope.
+      │  Wave 1 touches ONLY new files + the one workflow it owns — if A1
+      │  fails, NO existing brain is contaminated.
+      │
+WAVE 2 — three domains, file-disjoint, START ONLY AFTER A1 PASSES:
+      ├──────────────────────┬──────────────────────────┐
+      ▼                      ▼                          ▼
+  D2 traceability-       D3 milestone-two-          D4 template-docripple-
+     section-coverage       altitude-flow              contract
+  EXTENDS M83            commands/gsd-t-milestone   templates/PseudoCode-spec.md
+  bin/gsd-t-             .md + gsd-t-phase.work-    + doc-ripple ripple-set edit
+  traceability-gate.cjs  flow.js milestone branch   (ripple point 3 of 4)
+  (section-citation      + sign-off state + keep-   + A4 drift lint verifying
+  coverage, struct/      or-supersede prompt +      ALL FOUR ripple points.
+  path-as-path) + A2     A3 sign-off tests.         Contract (D4-T0) already
+  planted-gap test.      Wires D2's documented      on disk from partition.
+  Owns the competition-  altitude shift into the
+  altitude design note.  solution-space probe.
+
+  D2/D3/D4 are write-disjoint (16 distinct owned files, zero overlap) and run
+  concurrently once A1 is green. None depends on the others' code:
+    - D2 CONSUMES D1's gsd-t-guard-map.cjs JSON contract (never edits it).
+    - D3 wires the altitude shift D2 only DOCUMENTS (in scope.md).
+    - D4's contract is the seam all three already build against.
+
+                GATE: A1 passed + all wave-2 domains complete
+                              │
+                              ▼
+       INTEGRATE (serial seams) → VERIFY → COMPLETE-MILESTONE
+       minor bump 4.6.11 → 4.7.10 → tag v4.7.10
+```
+
+### M87 Wave Groupings
+
+| Wave | Domains | Parallel? | Gate to next |
+|------|---------|-----------|--------------|
+| **W1** | D1 guard-bridge-spike (T1–T4) | runs ALONE (no wave-2 domain starts) | **A1 (M87-D1-T3) PASSES** — faithful exit 0 / doctored exit non-zero, RULE-ID named, deterministic. A1 fails → HALT + re-scope. |
+| **W2** | D2 (T2–T3) · D3 (T1–T4) · D4 (T1–T3) | all 3 concurrent (write-disjoint, all depend on A1 only, not each other) | all wave-2 tasks complete + the partition-time wave-1 contributions (D2-T1 design note, D4-T0 contract) on disk |
+
+### M87 Integrate-Time Seams (NOT parallel-written — serial at integrate, no domain owns)
+
+| Seam | File | Why serial | Owning AC |
+|------|------|------------|-----------|
+| Living Documents table | `templates/CLAUDE-global.md` (~line 60) | shared file (file-disjointness invariant) | A4 ripple point 1 |
+| Pre-Commit Gate | `templates/CLAUDE-global.md` | shared file | A4 ripple point 2 |
+| project Living Documents ref | `CLAUDE.md` | shared file, co-owned at merge with D4's lint | A4 ripple point 4 |
+| verify-triad consumption | `templates/prompts/qa-subagent.md`, `templates/prompts/red-team-subagent.md` | wired AFTER D1's module passes A1; QA gets [RULE]s as contract-compliance assertions, Red Team as a pre-enumerated attack surface — consumed via D1's CLI/JSON contract, never by editing D1 source | A5 |
+| CLI dispatch | `bin/gsd-t.js` | shared dispatch table; adds `guard-map` subcommand routing to D1's module | A1 wiring |
+| verify command invoker | `commands/gsd-t-verify.md` | shared command file; reflects the new gate step | A1/A5 |
+
+The A4 drift lint (D4-T3) VERIFIES ripple points 1/2/4 POST-integration; D4 WRITES only point 3 (doc-ripple command).
+
+### M87 Cross-Domain Interfaces
+
+| Producer | Consumer | Interface |
+|----------|----------|-----------|
+| D4 `pseudocode-source-of-truth-contract.md` v1.0.0 STABLE | D1/D2/D3 | The partition-time seam — guard-map §2, section-citation §3, divergence §4, ripple §5; all code against the contract, never re-derive |
+| D1 `bin/gsd-t-guard-map.cjs` (`--doc --map --json`, exit 0/4/64, build→rule map) | verify-triad (A5 integrate seam), D2 (rule-aware paths) | JSON contract: `{ rules: { "<RULE-ID>": { backedBy:[...], contradicted:bool } } }`; consumers read the JSON, never edit D1 source |
+| D2 extended `bin/gsd-t-traceability-gate.cjs` (`**PseudoCode-Section**: <Title>#<anchor>` parse, path-as-path) | plan phase | section-coverage gap report (zero-citing-task section = structural gap), additive over M83 AC→(path+test) |
+| D2 scope.md competition-altitude design note | D3 `gsd-t-phase.workflow.js` (integrate-time) | the documented decision D3 wires: solution-space probe shifts UP to high-level-approach altitude when behavior is spec'd; gate stays altitude-agnostic |
+| D3 `keep-or-supersede-subagent.md` | milestone flow | per inherited shipped-code model, ASK keep/supersede; each supersede emits `⚠ Divergence` (§4) into the doc |
+| D4 `templates/PseudoCode-spec.md` | every future milestone | the shipped blank mold (both altitudes + all five section elements, anchored to binvoice exemplars per SC6) |
+
+### M87 File-Disjointness (validated via `gsd-t parallel --dry-run` — 16 distinct owned files, zero cross-domain overlap)
+
+| Domain | Files Owned |
+|--------|-------------|
+| D1 guard-bridge-spike | `bin/gsd-t-guard-map.cjs`, `test/m87-guard-map-bridge.test.js`, `test/fixtures/m87/PseudoCode-PayPal.md`, `test/fixtures/m87/PseudoCode-Extension.md`, `test/fixtures/m87/PseudoCode-PayPal-doctored.md`, `templates/workflows/gsd-t-verify.workflow.js` |
+| D2 traceability-section-coverage | `bin/gsd-t-traceability-gate.cjs`, `test/m87-traceability-section-coverage.test.js` |
+| D3 milestone-two-altitude-flow | `commands/gsd-t-milestone.md`, `templates/workflows/gsd-t-phase.workflow.js`, `templates/prompts/keep-or-supersede-subagent.md`, `test/m87-milestone-signoff-flow.test.js` |
+| D4 template-docripple-contract | `templates/PseudoCode-spec.md`, `commands/gsd-t-doc-ripple.md`, `.gsd-t/contracts/pseudocode-source-of-truth-contract.md`, `test/m87-docripple-presence-lint.test.js` |
+
+D1 owns `gsd-t-verify.workflow.js`; D3 owns `gsd-t-phase.workflow.js` — DIFFERENT workflow files, no shared workflow. No file appears in two Files-Owned blocks.
+
+### M87 Acceptance-Criteria → Domain Map
+
+| AC | Owner | Killing test |
+|----|-------|--------------|
+| **A1** (kill-criterion) | D1 | M87-D1-T3 — faithful exit 0 / doctored exit non-zero, RULE-ID named, deterministic |
+| A2 (section-coverage gap) | D2 | M87-D2-T3 — planted gap detected structurally; substring mention insufficient |
+| A3 (sign-off unsigned ≠ DEFINED + logged skip) | D3 | M87-D3-T4 — unsigned ≠ DEFINED; sign flips; skip logged in progress.md |
+| A4 (ripple-presence drift lint, 4 points) | D4 | M87-D4-T3 — passes when all four present, FAILS when any one removed |
+| A5 (verify-triad consumes [RULE] set) | integrate seam (qa/red-team prompts) | verify run references rule IDs in QA/Red-Team frames |
+| A6 (regression: suite green + M71 + M85 lints) | D1+D3 (workflow edits) | `test/m71-workflow-runtime-native-lint.test.js`, `test/m85-workflow-tier-policy-lint.test.js` stay green |
+
+### M87 Load-Bearing Serial Constraints
+
+1. **A1 before all of wave 2.** D1 runs ALONE; no wave-2 domain begins until M87-D1-T3 passes. A1 fails → HALT + escalate (no papering over — `feedback_coverage_check_structural_not_substring`).
+2. **Coverage-check Red-Team convergence guard (D2).** If the Red Team on the section-coverage check does NOT converge in ≤2 cycles (each fix spawning a variant), that is a DESIGN DEFECT → STOP + escalate, do not keep patching (the known non-converging trap).
+3. **Integrate seams serial, after wave 2.** `templates/CLAUDE-global.md` ×2, project `CLAUDE.md`, the verify-triad prompts, `bin/gsd-t.js` dispatch, `commands/gsd-t-verify.md` are wired serially at integrate — never parallel-written. The A4 lint then verifies all four ripple points post-merge.
+4. **Workflow edits stay sandbox-clean (D1, D3).** No `require`/`fs`/`process`; `args` is a JSON STRING; CLI calls via the `runCli` inline-agent helper. M85 tier literals policy-conformant. M71 + M85 lints stay green (A6).
+
+### M87 Abbreviation Key
+
+| Abbrev | Domain | Wave |
+|--------|--------|------|
+| D1 | guard-bridge-spike | 1 (alone, prove-or-kill) |
+| D2 | traceability-section-coverage | 2 |
+| D3 | milestone-two-altitude-flow | 2 |
+| D4 | template-docripple-contract | 2 |
+
+---
+
+## Prior State: M86 — Model Profiles (standard/pro/premium tier-spend switch) (EXECUTED + INTEGRATED — 4/4 domains complete, 1 wave; checkpoints CP1–CP4 verified at integrate; full suite 1572/0; verify next).
 
 ### M86 Wave Plan
 

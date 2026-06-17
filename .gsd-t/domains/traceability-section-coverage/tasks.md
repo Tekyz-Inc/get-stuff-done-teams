@@ -14,6 +14,7 @@ interaction: gate stays altitude-agnostic; the shift is D3's workflow change
 wired at integrate-time. (DONE at partition — this is the wave-1 contribution.)
 **Acceptance criteria**: the interaction is SPECIFIED before build, not discovered at integrate.
 **Files**: scope.md (this domain).
+**Test**: M87-D3-T4 (`test/m87-milestone-signoff-flow.test.js`) — the consumer test that exercises the altitude-shift this note specifies (the phase-workflow probe shifting UP to the high-level-approach altitude); the note is non-code, so its downstream realization is the test surface. Plus the M83 regression suite (`test/m83-*`) proving the gate stays altitude-agnostic.
 
 ### M87-D2-T2 — Extend the gate with section-citation coverage
 **Touches**: `bin/gsd-t-traceability-gate.cjs`
@@ -38,8 +39,7 @@ substring-trap negative: a task mentioning the section NAME in prose but NOT
 citing it structurally must STILL be reported as a gap.
 **Acceptance criteria**: A2 — planted gap detected structurally; substring mention does not satisfy coverage.
 **Files**: `test/m87-traceability-section-coverage.test.js`.
-**Test**: this IS the test.
-**Headline**: true
+**Test**: this IS the test (the A2 planted-gap harness; the headline impl it exercises is M87-D2-T2's extension of `bin/gsd-t-traceability-gate.cjs`).
 
 ---
 

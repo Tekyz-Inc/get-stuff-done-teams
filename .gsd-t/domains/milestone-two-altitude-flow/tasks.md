@@ -51,8 +51,7 @@ Skip path → a logged decision assertable in progress.md (never silent
 default-off). Assert a supersede in the flow emits a Divergence flag.
 **Acceptance criteria**: A3 — unsigned ≠ DEFINED; sign flips; skip logged.
 **Files**: `test/m87-milestone-signoff-flow.test.js`.
-**Test**: this IS the test.
-**Headline**: true
+**Test**: this IS the test (the A3 sign-off-gate harness; the headline impl it exercises is M87-D3-T1/T2's milestone flow + phase-workflow sign-off state).
 
 ---
 

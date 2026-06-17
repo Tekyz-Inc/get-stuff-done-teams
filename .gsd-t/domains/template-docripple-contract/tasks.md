@@ -16,6 +16,7 @@ ripple-points §5). Consumed by D1/D2/D3. Written at partition so wave-2 domains
 can build against a stable contract.
 **Acceptance criteria**: contract on disk, STABLE, defines all four grammars.
 **Files**: the contract. **Status**: COMPLETE at partition.
+**Test**: M87-D4-T3 (`test/m87-docripple-presence-lint.test.js`) exercises the contract's §5 ripple-point set structurally; the consuming-domain harnesses (`test/m87-guard-map-bridge.test.js` §2 grammar, `test/m87-traceability-section-coverage.test.js` §3 grammar) prove the grammars this contract defines are correctly consumed. The contract is non-code; these are its downstream test surfaces.
 
 ### M87-D4-T1 — Ship templates/PseudoCode-spec.md
 **Touches**: `templates/PseudoCode-spec.md`
@@ -47,8 +48,7 @@ Pre-Commit Gate, doc-ripple command, project CLAUDE.md). Removing it from any
 one FAILS the lint. Structural/path-as-path, never substring.
 **Acceptance criteria**: A4 — lint passes when all four present, FAILS when any one missing.
 **Files**: `test/m87-docripple-presence-lint.test.js`.
-**Test**: this IS the test (and verifies the integrate-time seams 1/2/4 post-merge).
-**Headline**: true
+**Test**: this IS the test (the A4 drift lint; the headline impl it guards is M87-D4-T1's `templates/PseudoCode-spec.md` + M87-D4-T2's doc-ripple ripple-set edit + the integrate-time seams 1/2/4).
 
 ---
 
