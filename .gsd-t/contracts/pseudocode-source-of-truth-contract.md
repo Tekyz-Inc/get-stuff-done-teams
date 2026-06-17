@@ -1,6 +1,6 @@
 # Contract: PseudoCode Source-of-Truth
 
-**Version**: 1.1.0
+**Version**: 1.1.1
 **Status**: STABLE
 **Owner domain**: `template-docripple-contract` (M87 D4)
 **Consumed by**: `guard-bridge-spike` (D1), `traceability-section-coverage` (D2), `milestone-two-altitude-flow` (D3)
@@ -60,13 +60,23 @@ exemplars `PseudoCode-PayPal.md` + `PseudoCode-Extension.md`):
 > trivially all-backed). The grammar below accepts BOTH the loose forms the corpus
 > already uses AND an optional explicit id, so the gate is non-vacuous on real docs.
 
-A rule is any line matching the `[RULE …]` marker. Three accepted forms:
+A rule is any line CONTAINING the `[RULE …]` marker. The marker is matched
+**anywhere on the line, not line-anchored** — the real corpus places it INLINE
+after the guard prose (`<guard text>   [RULE] <invariant>`), not at column 0.
+A parser anchored to line-start (`^\s*\[RULE`) extracts ZERO from both exemplars
+(the original vacuous-pass class). Three accepted marker forms:
 
 ```
-[RULE] <RULE-ID>: <invariant>      # explicit id (recommended for new docs; money/state guards)
-[RULE] <invariant>                  # loose — PayPal exemplar style (id DERIVED)
-[RULE — <tag>] <invariant>          # tagged em-dash — Extension exemplar style (id DERIVED)
+... [RULE] <RULE-ID>: <invariant>   # explicit id (recommended for new docs; money/state guards)
+... [RULE] <invariant>               # loose — PayPal exemplar style (id DERIVED)
+... [RULE — <tag>] <invariant>       # tagged em-dash — Extension exemplar style (id DERIVED)
 ```
+
+The text LEFT of the marker (the guard/GATE prose) is part of the invariant's
+provenance, not a separate rule; one marker = one rule. Matching regex shape:
+`/\[RULE(\s*—\s*[^\]]*)?\]\s*(.*)$/` applied per line (marker may be preceded by
+arbitrary text). The optional `— <tag>` segment is captured but does not change
+the rule count.
 
 - **Rule ID resolution (deterministic):** if an explicit `<RULE-ID>:` is present,
   that IS the id. Otherwise the parser DERIVES a stable id deterministically:
@@ -95,9 +105,16 @@ violated `<RULE-ID>`. (A1 kill-criterion.)
 
 **A1 fixture-fidelity assertion (mandatory — closes the vacuous-pass hole).** The
 A1 harness MUST assert the parser extracts `N > 0` rules from the UNMODIFIED
-`PseudoCode-PayPal.md` exemplar (currently **12** `[RULE]` lines) — a hard count,
+`PseudoCode-PayPal.md` exemplar (the real exemplar's §6 "Money-safety map" carries
+**13** `[RULE]` lines — verified by `grep -oE '\[RULE' | wc -l` against
+`/Users/david/projects/binvoice/PseudoCode-PayPal.md` at plan time) — a hard count,
 not `≥ 0`. A parser that silently extracts zero is itself a FAILURE. "Faithful →
 exit 0" is only meaningful once the faithful doc is proven to yield rules to back.
+The hard count (13) MUST be re-confirmed against the byte-verbatim fixture in
+M87-D1-T3 (the fixture is the source of truth for the count; if the upstream
+exemplar gains/loses a rule, T1 re-copies and T3's expected count is updated in
+the same change — the count tracks the fixture, the fixture is never bent to a
+preordained count).
 
 ---
 
@@ -168,12 +185,22 @@ coordinated edit across all consuming domains.
 
 ## Changelog
 
+- **1.1.1 (2026-06-17)** — re-plan re-validation: corrected the §2 hard count to
+  **13** (real PayPal exemplar; was 12) and mandated **non-anchored, inline** marker
+  matching (the marker sits after the guard prose, not at line-start). Both errors
+  would have re-opened the vacuous/false-fail hole. Grammar clarification only — no
+  boundary, file-ownership, or domain change; STABLE preserved.
 - **1.1.0 (2026-06-17)** — §2 grammar reconciled to the real binvoice corpus after
   the plan-phase pre-mortem flagged a CRITICAL vacuous-pass: the original
   mandatory-`<RULE-ID>:` grammar matched NEITHER exemplar (PayPal `[RULE] <prose>`,
   Extension `[RULE — <tag>]`), so the gate would extract zero rules and pass
   trivially. §2 now accepts three forms (explicit id / loose / tagged) with
   deterministic id derivation, and mandates the A1 fixture-fidelity assertion
-  (parser yields N>0, PayPal=12, on the UNMODIFIED exemplar). No domain boundary
-  or file-ownership change.
+  on the UNMODIFIED exemplar. Re-plan (2026-06-17, post-fix re-validation) corrected
+  TWO residual errors found by re-grepping the real corpus: (a) the hard count is
+  **13** `[RULE]` lines in PayPal, not 12 (off-by-one would have failed a faithful
+  build OR invited bending the byte-verbatim fixture); (b) the marker is INLINE
+  (`<prose> [RULE] ...`), not line-anchored — a `^\s*\[RULE` parser extracts zero, the
+  same vacuous-pass class. §2 now mandates non-anchored marker matching. No domain
+  boundary or file-ownership change.
 - **1.0.0 (2026-06-17)** — initial partition-time contract.

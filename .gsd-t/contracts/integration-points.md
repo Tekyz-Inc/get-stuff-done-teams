@@ -3,7 +3,7 @@
 ## Current State: M87 — Intention-First PseudoCode as Milestone Source-of-Truth (PLANNED — risk-first, 4 file-disjoint domains, 2 waves; Wave 1 = prove-or-kill A1; Wave 2 gated on A1; M83 traceability-gate PASSES all 4 domains, 0 violations).
 
 ### Seam contract
-`.gsd-t/contracts/pseudocode-source-of-truth-contract.md` v1.0.0 STABLE — the SINGLE source of all grammars (guard-map §2, section-citation §3, divergence §4, ripple-points §5). Authored at partition (D4-T0). D1/D2/D3 consume it; no domain re-derives a grammar. A grammar change is a contract version bump + coordinated cross-domain edit.
+`.gsd-t/contracts/pseudocode-source-of-truth-contract.md` v1.1.1 STABLE — the SINGLE source of all grammars (guard-map §2, section-citation §3, divergence §4, ripple-points §5). Authored at partition (D4-T0); §2 reconciled to the real binvoice corpus across the plan-phase pre-mortem fix (v1.1.0 dual grammar) and the re-plan re-validation (v1.1.1: hard count = 13, non-anchored inline marker). D1/D2/D3 consume it; no domain re-derives a grammar. A grammar change is a contract version bump + coordinated cross-domain edit.
 
 ### M87 Wave Plan (risk-first — prove-or-kill before scaffolding)
 
@@ -77,7 +77,7 @@ The A4 drift lint (D4-T3) VERIFIES ripple points 1/2/4 POST-integration; D4 WRIT
 
 | Producer | Consumer | Interface |
 |----------|----------|-----------|
-| D4 `pseudocode-source-of-truth-contract.md` v1.0.0 STABLE | D1/D2/D3 | The partition-time seam — guard-map §2, section-citation §3, divergence §4, ripple §5; all code against the contract, never re-derive |
+| D4 `pseudocode-source-of-truth-contract.md` v1.1.1 STABLE | D1/D2/D3 | The partition-time seam — guard-map §2, section-citation §3, divergence §4, ripple §5; all code against the contract, never re-derive |
 | D1 `bin/gsd-t-guard-map.cjs` (`--doc --map --json`, exit 0/4/64, build→rule map) | verify-triad (A5 integrate seam), D2 (rule-aware paths) | JSON contract: `{ rules: { "<RULE-ID>": { backedBy:[...], contradicted:bool } } }`; consumers read the JSON, never edit D1 source |
 | D2 extended `bin/gsd-t-traceability-gate.cjs` (`**PseudoCode-Section**: <Title>#<anchor>` parse, path-as-path) | plan phase | section-coverage gap report (zero-citing-task section = structural gap), additive over M83 AC→(path+test) |
 | D2 scope.md competition-altitude design note | D3 `gsd-t-phase.workflow.js` (integrate-time) | the documented decision D3 wires: solution-space probe shifts UP to high-level-approach altitude when behavior is spec'd; gate stays altitude-agnostic |
