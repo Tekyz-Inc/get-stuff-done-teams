@@ -134,11 +134,23 @@ BEFORE the triad.
 **PseudoCode-Section**: PseudoCode-PayPal#2-server-post-invoicescreate-the-money-call-the-record-is-born-here
 The reachability test for M87-D1-T4 — proves the verify gate step is NOT dead
 code (the M5 dead-headline class: a broken discovery = permanent silent skip
-while A1 + the M71/M85 lints + suite-green all stay green). Against a FIXTURE
-milestone with a `.gsd-t/pseudocode/` tree present, assert:
-- **(enumeration, §7)** the step ENUMERATES the expected doc+map set from a fixture
-  `.gsd-t/pseudocode/` tree — INCLUDING the multi-doc case (several
-  `PseudoCode-[Title].md`, each paired to its `.map.json` by basename);
+while A1 + the M71/M85 lints + suite-green all stay green). **The test
+CONSTRUCTS its own fixture `.gsd-t/pseudocode/` tree at setup** (in a temp dir,
+HOME/cwd-redirected per the non-destructive sandbox pattern — never the real
+project tree): it WRITES ≥2 distinct `PseudoCode-[Title].md` docs EACH with a
+co-located `PseudoCode-[Title].map.json` (e.g. seeded from D1-T1's PayPal
+faithful doc+map, copied under two distinct basenames) PLUS one
+doc-with-no-map and a zero-docs variant — because D1-T1's owned fixtures supply
+only ONE fire-able pair, and the multi-doc ENUMERATION assertion below cannot be
+proven against a single pair (the dead-assertion trap: a single-pair tree lets
+the multi-doc claim pass vacuously). The test owns this tree-construction;
+no fixture files are added to D1-T1's Files-Owned. Against this fixture tree,
+assert:
+- **(enumeration, §7 — MULTI-DOC, non-vacuous)** the step ENUMERATES the full
+  doc+map set from the constructed `.gsd-t/pseudocode/` tree and FIREs on **BOTH**
+  fire-able pairs (≥2 distinct `PseudoCode-[Title].md`, each paired to its
+  `.map.json` by basename) — assert the count of fired pairs is ≥2, not just ≥1,
+  so the multi-doc path is genuinely exercised;
 - **(resolve)** the step RESOLVES and passes the correct `--doc`/`--map` paths to
   `bin/gsd-t-guard-map.cjs` for each discovered pair;
 - **(fire + halt on divergence)** on the DOCTORED map the step propagates a
@@ -151,7 +163,7 @@ milestone with a `.gsd-t/pseudocode/` tree present, assert:
   `no-build-map`), asserted DISTINCT from a fire (a skip must be observably a skip,
   never indistinguishable from a clean fire-and-pass).
 Reachability-adjacent to the headline; M71 sandbox-clean assertions preserved.
-**Acceptance criteria**: the gate step enumerates the §7 doc+map set (incl. multi-doc), resolves correct `--doc`/`--map`, FIRES + HALTS-before-triad on a doctored map, proceeds on a faithful map, and logs a DISTINCT skip-with-reason when absent — the gate is reachable + non-vacuous through the verify pipeline.
+**Acceptance criteria**: the test CONSTRUCTS its own multi-doc fixture tree (≥2 fire-able doc+map pairs + a doc-no-map + a zero-docs variant) in a redirected temp dir; the gate step enumerates the §7 doc+map set and FIRES on ALL fire-able pairs (count ≥2, the multi-doc path genuinely exercised, never vacuous on a single pair), resolves correct `--doc`/`--map`, HALTS-before-triad on a doctored map, proceeds on a faithful map, and logs a DISTINCT skip-with-reason for both `no-build-map` and `no-pseudocode-docs` — the gate is reachable + non-vacuous through the verify pipeline.
 **Files**: `test/m87-verify-guardmap-wiring.test.js`.
 **Test**: this IS the test (the firing/reachability harness; the impl it exercises is M87-D1-T4's verify-workflow gate step + M87-D1-T2's `bin/gsd-t-guard-map.cjs`).
 
