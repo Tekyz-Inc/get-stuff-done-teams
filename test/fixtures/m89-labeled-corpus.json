@@ -1,0 +1,96 @@
+{
+  "_comment": "M89 D1 SEEN labeled corpus (the A1 killing oracle). 13 items hand-labeled for the classifier. Input is a GUESSED CLAIM, not 'a gap'. Items 1-7 come from M87 findings (own code / contracts / sandbox / test-architecture — all repo-internal, zero external). Items 8-13 come from binvoice S2-M5 findings (PayPal Invoicing v2 plan pre-mortem — confident guesses stated as known). Exactly 3 external (items 8, 12, 13): PayPal OAuth /v1/oauth2/token mint + PayPal v2 invoice TOTAL amount limit + popup-blocker browser behavior. The classifier MUST decide by FEATURE CLASS (external-signal vs internal-signal sets per contract §1), NOT by hard-coded keywords scraped from these gap strings.",
+  "items": [
+    {
+      "id": "M87-F1",
+      "source": "M87 plan findings",
+      "gap": "Which domain in this repo owns the gsd-t-wave.workflow.js file?",
+      "expectedClass": "internal",
+      "expectedRoute": "grep"
+    },
+    {
+      "id": "M87-F2",
+      "source": "M87 plan findings",
+      "gap": "What exit code does the gsd-t-verify-gate return when the Biome linter finds violations?",
+      "expectedClass": "internal",
+      "expectedRoute": "grep"
+    },
+    {
+      "id": "M87-F3",
+      "source": "M87 plan findings",
+      "gap": "Does the current Workflow sandbox allow require() calls inside a .workflow.js file?",
+      "expectedClass": "internal",
+      "expectedRoute": "grep"
+    },
+    {
+      "id": "M87-F4",
+      "source": "M87 plan findings",
+      "gap": "What is the shape of the envelope that gsd-t-competition-judge.cjs returns on a valid partition input?",
+      "expectedClass": "internal",
+      "expectedRoute": "grep"
+    },
+    {
+      "id": "M87-F5",
+      "source": "M87 plan findings",
+      "gap": "Which contract file defines the disjointness rules for file-ownership across domains?",
+      "expectedClass": "internal",
+      "expectedRoute": "grep"
+    },
+    {
+      "id": "M87-F6",
+      "source": "M87 plan findings",
+      "gap": "What test in this repo asserts that every workflow model: literal matches the tier policy?",
+      "expectedClass": "internal",
+      "expectedRoute": "grep"
+    },
+    {
+      "id": "M87-F7",
+      "source": "M87 plan findings",
+      "gap": "How does the existing gsd-t-traceability-gate.cjs enumerate behavioral tasks vs non-behavioral tasks in tasks.md?",
+      "expectedClass": "internal",
+      "expectedRoute": "grep"
+    },
+    {
+      "id": "S2M5-F1",
+      "source": "binvoice S2-M5 findings",
+      "gap": "What is the exact endpoint path and required request body fields for the PayPal OAuth /v1/oauth2/token token-mint call?",
+      "expectedClass": "external",
+      "expectedRoute": "web"
+    },
+    {
+      "id": "S2M5-F2",
+      "source": "binvoice S2-M5 findings",
+      "gap": "What is the schema of the invoice object stored in the invoices collection in this repo's Mongo schema?",
+      "expectedClass": "internal",
+      "expectedRoute": "grep"
+    },
+    {
+      "id": "S2M5-F3",
+      "source": "binvoice S2-M5 findings",
+      "gap": "Which route handler in this repo handles the POST /invoices/send request?",
+      "expectedClass": "internal",
+      "expectedRoute": "grep"
+    },
+    {
+      "id": "S2M5-F4",
+      "source": "binvoice S2-M5 findings",
+      "gap": "What is the maximum total amount allowed on a single PayPal v2 invoice before the API returns an error?",
+      "expectedClass": "external",
+      "expectedRoute": "web"
+    },
+    {
+      "id": "S2M5-F5",
+      "source": "binvoice S2-M5 findings",
+      "gap": "Does the browser's built-in popup blocker block window.open() calls triggered from setTimeout handlers rather than direct user events?",
+      "expectedClass": "external",
+      "expectedRoute": "web"
+    },
+    {
+      "id": "S2M5-F6",
+      "source": "binvoice S2-M5 findings",
+      "gap": "What fields does the PayPal invoice draft stored in this repo's database contain vs what the API returns?",
+      "expectedClass": "internal",
+      "expectedRoute": "grep"
+    }
+  ]
+}
