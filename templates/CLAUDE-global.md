@@ -365,22 +365,30 @@ If not specified, use Level 3.
 
 ## Workflow Preferences (Defaults — override in project CLAUDE.md)
 
-### Research Policy
-Before planning a phase, evaluate whether research is needed:
+### Claim Verification Policy (M89 — KNOWN-vs-GUESSED trigger)
 
-**Run research when:**
-- Phase involves unfamiliar libraries, APIs, or services
-- Architectural decisions are required
-- Integrating external systems
-- Phase scope is ambiguous or complex
+For every load-bearing claim you rely on in a phase, tag it:
 
-**Skip research when:**
-- Patterns are already established from earlier phases
-- Straightforward CRUD, UI, or config work
-- Domain is well understood
-- Phase builds directly on existing code patterns
+- **`[KNOWN]`** — you verified it (repo-internal-evident via grep/Read, or cited this session).
+- **`[GUESSED:unknown]`** — you lack the fact outright.
+- **`[GUESSED:assumed]`** — you ASSERT a shape / value / behavior you NEVER verified. "Plausible" and
+  "would make sense" are NOT `KNOWN`.
+- **`[GUESSED:stale]`** — you KNEW it, but it is an external/time-varying fact (API shape, rate limit,
+  library version, SDK behavior) that may have changed. **DEFAULT = fail-toward-verify**: any such
+  external fact without a FRESH cited source is treated as stale → research.
 
-If in doubt, skip research and proceed — research if execution reveals gaps.
+**A `[GUESSED:*]` claim is then CLASSIFIED (`gsd-t research-gate classify "<claim>"`):**
+- **`class: external`** → web-research stage runs (`model: "fable"`), writes a `## Verified Facts (auto-research)` block (URL + fetch date) into the artifact. A classify-time ENFORCE marker `<!-- auto-research-claim: class=external key=<key> status=uncited -->` is written; the verify gate FAILs if it stays `status=uncited`.
+- **`class: internal`** → grep/Read only; no web. Escalate to external only if grep returns nothing.
+
+**For a proper-noun-LESS claim that ASSERTS an external system's behavior / return-shape / limit / value
+WITHOUT a cited source:** route EXTERNAL (it is an unverified external assertion, not a default-internal).
+
+**SC6 — Conversation-scope directive:** when answering the USER about an external or time-varying fact
+(API behavior, library version, pricing, rate limits, current best-practice), verify-or-flag before
+asserting. If you lack a fresh source, say so explicitly: *"I believe X, but I do not have a current
+source — please verify."* Do NOT state an external/time-varying fact as known when it is a guess.
+See memory pointer: `feedback_auto_research_external_gaps`.
 
 ### Phase Flow
 - Upon completing a phase, automatically proceed to the next phase

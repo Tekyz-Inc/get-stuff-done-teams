@@ -1262,6 +1262,8 @@ const GLOBAL_BIN_TOOLS = [
   "gsd-t-model-tier-policy.cjs",
   // M86 — Model-profile config + resolver CLI (standard/pro/premium tier-spend switch).
   "gsd-t-model-profile.cjs",
+  // M89 — Auto-research gate classifier (internal vs external claim routing; no LLM call).
+  "gsd-t-research-gate.cjs",
 ];
 
 function installGlobalBinTools() {
@@ -2563,6 +2565,10 @@ const PROJECT_BIN_TOOLS = [
   "gsd-t-model-tier-policy.cjs",
   // M86 — Model-profile config + resolver CLI (standard/pro/premium tier-spend switch).
   "gsd-t-model-profile.cjs",
+  // M89 — Auto-research gate classifier (classify a guessed claim as internal vs external;
+  // propagated to each registered project's bin/ so the workflow runCli fallback resolves
+  // downstream — per [[project_global_bin_propagation_gap]]).
+  "gsd-t-research-gate.cjs",
 ];
 
 // Files that older versions of this installer copied into project bin/ but
@@ -4339,6 +4345,7 @@ function showHelp() {
   log(`  ${CYAN}graph${RESET}          Code graph operations (index, status, query)`);
   log(`  ${CYAN}headless${RESET}       Non-interactive execution via claude -p + fast state queries`);
   log(`  ${CYAN}design-build${RESET}   Deterministic design→code pipeline (elements → widgets → pages)`);
+  log(`  ${CYAN}research-gate${RESET}  Classify a guessed claim as internal (grep) or external (web-research)`);
   log(`  ${CYAN}help${RESET}           Show this help\n`);
   log(`${BOLD}Examples:${RESET}`);
   log(`  ${DIM}$${RESET} npx @tekyzinc/gsd-t install`);
@@ -4687,6 +4694,20 @@ if (require.main === module) {
       // resolver (standard/pro/premium tier-spend switch, per-project config).
       const { spawnSync } = require("child_process");
       const js = path.join(__dirname, "gsd-t-model-profile.cjs");
+      const res = spawnSync(process.execPath, [js, ...args.slice(1)], {
+        stdio: "inherit",
+      });
+      process.exit(res.status == null ? 1 : res.status);
+    }
+    case "research-gate": {
+      // M89 — `gsd-t research-gate classify "<claim>"` thin dispatcher to the
+      // auto-research gate classifier (internal vs external routing; no LLM call).
+      const { spawnSync } = require("child_process");
+      const js = path.join(__dirname, "gsd-t-research-gate.cjs");
+      if (!require("node:fs").existsSync(js)) {
+        error(`gsd-t-research-gate.cjs not found at ${js} — install or build M89-D1 first`);
+        process.exit(1);
+      }
       const res = spawnSync(process.execPath, [js, ...args.slice(1)], {
         stdio: "inherit",
       });
