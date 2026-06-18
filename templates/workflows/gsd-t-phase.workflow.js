@@ -32,6 +32,17 @@
 //     immune to LLM-judge bias). Other phases use a blind+shuffled+rubric judge whose
 //     numeric selection is finalized deterministically by competition-judge --kind
 //     generic.
+//
+// M89 Stated-Claims → classify → research + §7 ENFORCE marker:
+//   Every eligible upper phase (plan, pre-mortem, partition, discuss, milestone, impact)
+//   embeds the Stated-Claims snippet so the agent emits a ## Stated Claims list tagging
+//   load-bearing claims KNOWN | GUESSED(type). The wiring (runStatedClaimsPipeline)
+//   iterates each [GUESSED:*] entry through the classifier (D1 envelope), and on
+//   class:external writes a §7 status=uncited marker, runs the research agent (bare
+//   model:"fable"), writes a ## Verified Facts (auto-research) block, and flips the
+//   marker to status=cited. On class:internal: grep first; if grep empty, escalate to
+//   external (§5.1). Idempotent: an already-cited marker (same claim-key) skips re-research.
+//   Contract: auto-research-contract.md v1.2.0 §1/§2/§3/§4/§6.5/§7.
 
 export const meta = {
   name: "gsd-t-phase",
@@ -137,6 +148,350 @@ async function runCompetitionJudge(projectDir, spec, label = "judge", phaseNameO
   // Prefer top-level fields; fall back to a nested envelope if the agent nested anyway.
   const env = (r && r.winner !== undefined) ? r : (r && r.envelope) || {};
   return { ok: !!env.ok, winner: env.winner != null ? env.winner : null, ranked: env.ranked || [] };
+}
+
+// ── M89 Stated-Claims pipeline ──────────────────────────────────────────────
+// Research-eligible upper stages: these are the phases whose prompt embeds the
+// Stated-Claims snippet (§6.5) and whose artifacts are scanned post-agent.
+// prd/design-decompose/doc-ripple are excluded (no load-bearing external claims).
+const RESEARCH_ELIGIBLE_PHASES = new Set(["plan", "partition", "discuss", "milestone", "impact"]);
+
+// §7 ENFORCE marker format — machine-readable HTML comment written at classify time.
+// claim-key = deterministic normalization (lowercase, collapse whitespace, strip punctuation).
+function normalizeClaimKey(claim) {
+  return claim.toLowerCase().replace(/\s+/g, " ").trim().replace(/^[^\w]+|[^\w]+$/g, "");
+}
+
+// The Stated-Claims snippet Read instruction (D2 deliverable, §6.5 DETECT seam).
+// Each eligible stage prompt embeds this instruction so the agent emits ## Stated Claims.
+const STATED_CLAIMS_INSTRUCTION = `MANDATORY (auto-research-contract §6.5): After your main work, emit a \`## Stated Claims\` section listing EVERY load-bearing claim you relied on, tagged as:
+- [KNOWN] <claim you have verified or is repo-internal-evident>
+- [GUESSED:unknown] <claim you lack the fact for>
+- [GUESSED:assumed] <claim asserting an unverified external shape/value/behavior>
+- [GUESSED:stale] <external/time-varying fact that may have aged>
+This list is machine-parsed by the wiring (D3). Tags are case-sensitive. An untagged claim is an acknowledged miss — the more you tag, the more the system verifies. Also FIRST read your Stated-Claims protocol: templates/prompts/stated-claims-snippet.md`;
+
+// Structured output schema for the Stated-Claims processor agent
+const STATED_CLAIMS_EXTRACT_SCHEMA = {
+  type: "object",
+  required: ["guessedClaims"],
+  additionalProperties: true,
+  properties: {
+    guessedClaims: {
+      type: "array",
+      items: { type: "string" },
+      description: "List of raw claim texts from [GUESSED:*] lines in the ## Stated Claims section",
+    },
+    knownClaims: { type: "array", items: { type: "string" } },
+    artifactPaths: { type: "array", items: { type: "string" } },
+    statedClaimsSectionFound: { type: "boolean" },
+  },
+};
+
+const CLASSIFY_RESULT_SCHEMA = {
+  type: "object",
+  required: ["ok"],
+  additionalProperties: true,
+  properties: {
+    ok: { type: "boolean" },
+    class: { type: "string", enum: ["internal", "external"] },
+    route: { type: "string", enum: ["grep", "web"] },
+    gap: { type: "string" },
+    reason: { type: "string" },
+    error: { type: "string" },
+  },
+};
+
+const GREP_RESULT_SCHEMA = {
+  type: "object",
+  required: ["found"],
+  additionalProperties: true,
+  properties: {
+    found: { type: "boolean" },
+    excerpt: { type: "string" },
+  },
+};
+
+const RESEARCH_RESULT_SCHEMA = {
+  type: "object",
+  required: ["ok"],
+  additionalProperties: true,
+  properties: {
+    ok: { type: "boolean" },
+    gapKey: { type: "string" },
+    citedBlock: { type: "string" },
+    sourceUrls: { type: "array", items: { type: "string" } },
+    fetchDates: { type: "array", items: { type: "string" } },
+    reason: { type: "string" },
+  },
+};
+
+const MARKER_WRITE_SCHEMA = {
+  type: "object",
+  required: ["ok"],
+  additionalProperties: true,
+  properties: {
+    ok: { type: "boolean" },
+    artifactPath: { type: "string" },
+    marker: { type: "string" },
+  },
+};
+
+/**
+ * M89 §7 Stated-Claims pipeline: classify → marker-write → research/grep → cite → flip.
+ * Called after the phase agent runs on any research-eligible phase.
+ *
+ * @param {string} projectDir
+ * @param {string} phaseName  - the current phase (e.g. "plan", "partition")
+ * @param {object} phaseResult - the agent's result (contains artifacts[] + summary)
+ * @param {string} statedClaimsContext - the agent's stdout/return text (may contain ## Stated Claims)
+ * @returns {object} - { ok, processed, errors }
+ */
+async function runStatedClaimsPipeline(projectDir, phaseName, phaseResult, statedClaimsContext) {
+  const processed = [];
+  const errors = [];
+
+  // Step 1: Extract [GUESSED:*] claims from the phase artifact / stated-claims section.
+  // The phase agent is instructed to emit ## Stated Claims in its output; we extract it.
+  const extractResult = await agent(
+    [
+      `You are a Stated-Claims extractor for the "${phaseName}" phase. Your ONLY job is to parse the [GUESSED:*] entries from a ## Stated Claims section and return them as a JSON list.`,
+      ``,
+      `Context (the phase agent's output / summary):`,
+      "~~~",
+      statedClaimsContext || "(phase agent returned no text — check phaseResult.summary)",
+      "~~~",
+      ``,
+      `Phase artifacts written (read these if needed to find ## Stated Claims):`,
+      (phaseResult && phaseResult.artifacts || []).map((a) => `- ${a}`).join("\n") || "(none reported)",
+      ``,
+      `Task:`,
+      `1. Look for a section starting with \`## Stated Claims\` in the context above OR in any artifact file.`,
+      `2. Extract EVERY line starting with \`- [GUESSED:\` and return its claim text (the text AFTER the tag, stripped of the tag prefix).`,
+      `3. Also note \`statedClaimsSectionFound\` (true if you found the heading).`,
+      `4. Return JSON per the schema. "guessedClaims" is the list of claim texts (NOT the tags themselves).`,
+      `If no ## Stated Claims section was found, return { "guessedClaims": [], "statedClaimsSectionFound": false }.`,
+    ].join("\n"),
+    { label: "stated-claims-extract", phase: "Phase", schema: STATED_CLAIMS_EXTRACT_SCHEMA, model: "haiku" }
+  ).catch(() => ({ guessedClaims: [], statedClaimsSectionFound: false }));
+
+  const guessedClaims = Array.isArray(extractResult && extractResult.guessedClaims)
+    ? extractResult.guessedClaims.filter((c) => typeof c === "string" && c.trim().length > 0)
+    : [];
+
+  if (!extractResult || !extractResult.statedClaimsSectionFound) {
+    log(`m89: ${phaseName}: no ## Stated Claims section found — acknowledged miss (§6.5 best-effort DETECT)`);
+  } else {
+    log(`m89: ${phaseName}: ${guessedClaims.length} [GUESSED:*] claim(s) found in ## Stated Claims`);
+  }
+
+  if (guessedClaims.length === 0) {
+    return { ok: true, processed, errors };
+  }
+
+  // Determine the primary artifact path to write markers/facts into.
+  // We use the first artifact reported (or a temp path if none).
+  const artifactPaths = Array.isArray(extractResult.artifactPaths) && extractResult.artifactPaths.length > 0
+    ? extractResult.artifactPaths
+    : (phaseResult && phaseResult.artifacts ? phaseResult.artifacts : []);
+  const primaryArtifact = artifactPaths[0] || null;
+
+  // Step 2: For each GUESSED claim, classify → route → process.
+  // Sequential (not parallel) to avoid concurrent artifact writes racing each other.
+  for (const claimText of guessedClaims) {
+    const claimKey = normalizeClaimKey(claimText);
+    log(`m89: classifying claim: "${claimText.slice(0, 80)}"`);
+
+    // § 4.1 Idempotency check: if the artifact already has a status=cited marker
+    // for this exact claim-key, skip (no re-research).
+    if (primaryArtifact) {
+      const idempotencyCheck = await agent(
+        [
+          `Check if the file at "${primaryArtifact}" already contains an auto-research-claim marker with status=cited for the claim-key "${claimKey}".`,
+          ``,
+          `Search for an HTML comment matching:`,
+          `  <!-- auto-research-claim: class=external key=${claimKey} status=cited -->`,
+          ``,
+          `Return JSON: { "alreadyCited": true } if found, { "alreadyCited": false } if not found or file does not exist.`,
+          `Do NOT modify any files. Read-only check.`,
+        ].join("\n"),
+        { label: "idempotency-check", phase: "Phase", schema: { type: "object", required: ["alreadyCited"], properties: { alreadyCited: { type: "boolean" } } }, model: "haiku" }
+      ).catch(() => ({ alreadyCited: false }));
+
+      if (idempotencyCheck && idempotencyCheck.alreadyCited) {
+        log(`m89: claim "${claimKey}" already cited (§4.1 idempotency skip — exact claim-key match)`);
+        processed.push({ claimKey, action: "skipped-already-cited" });
+        continue;
+      }
+    }
+
+    // Classify the claim via the D1 classifier.
+    const classifyResult = await runCli(
+      projectDir, "research-gate", ["classify", claimText], "gsd-t-research-gate.cjs",
+      "classify-claim", true, "Phase"
+    );
+    const envelope = classifyResult.envelope || {};
+    const claimClass = envelope.class;
+    const claimRoute = envelope.route;
+
+    if (!classifyResult.ok || !claimClass) {
+      log(`m89: classify failed for claim "${claimKey}": ${envelope.error || classifyResult.stderr || "no envelope"}`);
+      errors.push({ claimKey, error: `classify failed: ${envelope.error || "no envelope"}` });
+      continue;
+    }
+
+    log(`m89: claim "${claimKey}" → class:${claimClass} route:${claimRoute} — ${envelope.reason || ""}`);
+
+    if (claimClass === "external") {
+      // §7: Write status=uncited marker into the artifact at classify time.
+      const marker = `<!-- auto-research-claim: class=external key=${claimKey} status=uncited -->`;
+      if (primaryArtifact) {
+        await agent(
+          [
+            `Append the following HTML comment marker on a NEW LINE at the END of the file at "${primaryArtifact}" (create the file if it does not exist):`,
+            ``,
+            marker,
+            ``,
+            `Do NOT modify any other content. Return JSON: { "ok": true, "artifactPath": "${primaryArtifact}", "marker": "<the marker you appended>" }`,
+          ].join("\n"),
+          { label: "marker-write-uncited", phase: "Phase", schema: MARKER_WRITE_SCHEMA, model: "haiku" }
+        ).catch((e) => ({ ok: false, error: String(e && e.message) }));
+        log(`m89: wrote status=uncited marker for claim "${claimKey}" into ${primaryArtifact}`);
+      }
+
+      // §2: Run the research agent (bare model: "fable" — not the ?? override form).
+      // The research agent reads its own protocol from research-subagent.md.
+      log(`m89: running research agent for external claim "${claimKey}"`);
+      const researchResult = await agent(
+        [
+          `You are the auto-research agent (auto-research-contract §2). Your SOLE job is to verify ONE external guessed claim via live web sources.`,
+          ``,
+          `FIRST read your protocol via the Read tool: templates/prompts/research-subagent.md (in the installed @tekyzinc/gsd-t package, or this project's copy). Follow it exactly.`,
+          ``,
+          `Claim to verify: "${claimText}"`,
+          `Normalized claim-key: "${claimKey}"`,
+          ``,
+          `Use WebSearch + WebFetch to find authoritative sources. Emit a ## Verified Facts (auto-research) block per §3 format.`,
+          `Return JSON per the schema with ok:true and citedBlock (the full markdown block) on success, or ok:false and reason on STAGE-FAILURE.`,
+        ].join("\n"),
+        { label: "research-stage", phase: "Phase", schema: RESEARCH_RESULT_SCHEMA, model: "fable" }
+      ).catch((e) => ({ ok: false, gapKey: claimKey, reason: `research agent error: ${e && e.message}` }));
+
+      if (researchResult && researchResult.ok && researchResult.citedBlock) {
+        // §3: Write the cited Verified-Facts block into the artifact BEFORE the gate re-runs.
+        if (primaryArtifact) {
+          await agent(
+            [
+              `Append the following cited Verified-Facts block on a NEW LINE at the END of the file at "${primaryArtifact}":`,
+              ``,
+              researchResult.citedBlock,
+              ``,
+              `Then FIND and REPLACE the marker:`,
+              `  <!-- auto-research-claim: class=external key=${claimKey} status=uncited -->`,
+              `with:`,
+              `  <!-- auto-research-claim: class=external key=${claimKey} status=cited -->`,
+              ``,
+              `(This flips the §7 marker from uncited → cited — same claim-key, exact string replace.)`,
+              `Return JSON: { "ok": true }`,
+            ].join("\n"),
+            { label: "cite-write-and-flip", phase: "Phase", schema: { type: "object", required: ["ok"], properties: { ok: { type: "boolean" } } }, model: "haiku" }
+          ).catch(() => null);
+          log(`m89: cited block written + marker flipped to status=cited for claim "${claimKey}"`);
+        }
+        processed.push({ claimKey, action: "cited", class: "external" });
+      } else {
+        const reason = (researchResult && researchResult.reason) || "research stage returned no cited block";
+        log(`m89: research STAGE-FAILURE for claim "${claimKey}": ${reason} — marker stays status=uncited`);
+        errors.push({ claimKey, error: `research stage failure: ${reason}`, action: "research-failed" });
+        processed.push({ claimKey, action: "research-failed", class: "external", reason });
+      }
+
+    } else {
+      // class:internal — grep first; escalate to external if grep empty (§5.1).
+      log(`m89: internal claim "${claimKey}" — running grep/Read`);
+      const grepResult = await agent(
+        [
+          `You are an internal-claim resolver for the project at "${projectDir}".`,
+          ``,
+          `Internal claim: "${claimText}"`,
+          ``,
+          `Task: Use grep and/or Read to check if this claim can be resolved from the project's own code / contracts / tests.`,
+          `1. Run grep on the project directory to find relevant code, contract, or test that confirms or clarifies the claim.`,
+          `2. If grep finds relevant content, set found=true and provide a short excerpt.`,
+          `3. If grep finds NOTHING relevant, set found=false.`,
+          ``,
+          `Return JSON: { "found": true|false, "excerpt": "<up to 200 chars of relevant grep output or empty>" }`,
+          `Do NOT run any web searches. Do NOT write any files. Grep and Read only.`,
+        ].join("\n"),
+        { label: "internal-grep", phase: "Phase", schema: GREP_RESULT_SCHEMA, model: "haiku" }
+      ).catch(() => ({ found: false, excerpt: "" }));
+
+      if (grepResult && grepResult.found) {
+        log(`m89: internal claim "${claimKey}" resolved via grep (no web, no marker)`);
+        processed.push({ claimKey, action: "resolved-grep", class: "internal", excerpt: grepResult.excerpt });
+      } else {
+        // §5.1 Escalate to external: grep returned nothing → treat as external.
+        log(`m89: internal claim "${claimKey}" grep EMPTY → escalating to external (§5.1)`);
+        const escalationMarker = `<!-- auto-research-claim: class=external key=${claimKey} status=uncited -->`;
+        if (primaryArtifact) {
+          await agent(
+            [
+              `Append the following HTML comment marker on a NEW LINE at the END of the file at "${primaryArtifact}" (create the file if it does not exist):`,
+              ``,
+              escalationMarker,
+              ``,
+              `Return JSON: { "ok": true }`,
+            ].join("\n"),
+            { label: "marker-write-escalated", phase: "Phase", schema: { type: "object", required: ["ok"], properties: { ok: { type: "boolean" } } }, model: "haiku" }
+          ).catch(() => null);
+        }
+
+        const escalatedResearch = await agent(
+          [
+            `You are the auto-research agent (auto-research-contract §2). Your SOLE job is to verify ONE ambiguous claim (initially classified internal but grep returned NOTHING — escalated to external per §5.1).`,
+            ``,
+            `FIRST read your protocol via the Read tool: templates/prompts/research-subagent.md`,
+            ``,
+            `Claim to verify: "${claimText}"`,
+            `Normalized claim-key: "${claimKey}"`,
+            ``,
+            `Use WebSearch + WebFetch to find authoritative sources. Emit a ## Verified Facts (auto-research) block per §3 format.`,
+            `Return JSON per the schema.`,
+          ].join("\n"),
+          { label: "research-stage", phase: "Phase", schema: RESEARCH_RESULT_SCHEMA, model: "fable" }
+        ).catch((e) => ({ ok: false, gapKey: claimKey, reason: `research agent error: ${e && e.message}` }));
+
+        if (escalatedResearch && escalatedResearch.ok && escalatedResearch.citedBlock) {
+          if (primaryArtifact) {
+            await agent(
+              [
+                `Append the following cited Verified-Facts block on a NEW LINE at the END of the file at "${primaryArtifact}":`,
+                ``,
+                escalatedResearch.citedBlock,
+                ``,
+                `Then FIND and REPLACE the marker:`,
+                `  <!-- auto-research-claim: class=external key=${claimKey} status=uncited -->`,
+                `with:`,
+                `  <!-- auto-research-claim: class=external key=${claimKey} status=cited -->`,
+                ``,
+                `Return JSON: { "ok": true }`,
+              ].join("\n"),
+              { label: "cite-write-and-flip", phase: "Phase", schema: { type: "object", required: ["ok"], properties: { ok: { type: "boolean" } } }, model: "haiku" }
+            ).catch(() => null);
+          }
+          log(`m89: escalated claim "${claimKey}" cited via web research (§5.1)`);
+          processed.push({ claimKey, action: "cited-after-escalation", class: "external-escalated" });
+        } else {
+          const reason = (escalatedResearch && escalatedResearch.reason) || "escalated research returned no cited block";
+          log(`m89: escalated research STAGE-FAILURE for claim "${claimKey}": ${reason}`);
+          errors.push({ claimKey, error: `escalated research failure: ${reason}` });
+          processed.push({ claimKey, action: "research-failed", class: "external-escalated", reason });
+        }
+      }
+    }
+  }
+
+  return { ok: errors.length === 0, processed, errors };
 }
 
 // Phases where competition pays off (wide solution space, pre-contract, high blast
@@ -312,14 +667,26 @@ if (_competitionEligible) {
 
 // M84 Red Team LOW: announce "Phase" only on the single-draft path (the
 // competition path announces Compete/Judge/Finalize instead) so no empty stage shows.
+// M89: Stated-Claims instruction appended to each research-eligible phase's prompt.
+// prd/design-decompose/doc-ripple are excluded (no load-bearing external claims expected).
 const promptByPhase = {
-  partition: `Decompose the milestone into 2-5 independent domains. Write .gsd-t/domains/{domain}/{scope,constraints,tasks}.md. Cross-domain contracts in .gsd-t/contracts/.`,
+  partition: `Decompose the milestone into 2-5 independent domains. Write .gsd-t/domains/{domain}/{scope,constraints,tasks}.md. Cross-domain contracts in .gsd-t/contracts/.
+
+${STATED_CLAIMS_INSTRUCTION}`,
   plan: `For each domain, write atomic tasks.md entries with files, contract refs, dependencies, acceptance criteria. Update .gsd-t/contracts/integration-points.md with wave groupings.
 
-M83 PLAN HARDENING (mandatory — the plan is BLOCKED from execute otherwise): every task that declares acceptance criteria MUST also declare (1) **Files** = the concrete code path that implements it, and (2) a TEST that fails if that path is dead — name it in a **Test** field, a test-file path (\`*.test.*\` / \`*.spec.*\` / \`e2e/\`), or a runner (vitest/cargo test/playwright). The ONE task that delivers the milestone's HEADLINE capability MUST be tagged **Headline:** true and carry BOTH a real implementation path AND a test that exercises that capability end-to-end (e.g. for a "100MB+ file" milestone, a test that actually opens a >100MB fixture). NEVER defer a milestone's own headline capability or a core AC to a later milestone. This exists because NiceNote M5 shipped its headline (100MB+ chunked read) as DEAD CODE with no test and burned 4 verify cycles.`,
-  discuss: `Multi-perspective exploration of design questions. Settle locked decisions into .gsd-t/CONTEXT.md. Do NOT implement.`,
-  impact: `Analyze downstream effects of proposed changes. Identify breaking changes, affected consumers, migration paths.`,
-  milestone: `Define a new milestone — origin, goal, success criteria, falsifiable acceptance. Append to .gsd-t/progress.md. Defer partition/plan.`,
+M83 PLAN HARDENING (mandatory — the plan is BLOCKED from execute otherwise): every task that declares acceptance criteria MUST also declare (1) **Files** = the concrete code path that implements it, and (2) a TEST that fails if that path is dead — name it in a **Test** field, a test-file path (\`*.test.*\` / \`*.spec.*\` / \`e2e/\`), or a runner (vitest/cargo test/playwright). The ONE task that delivers the milestone's HEADLINE capability MUST be tagged **Headline:** true and carry BOTH a real implementation path AND a test that exercises that capability end-to-end (e.g. for a "100MB+ file" milestone, a test that actually opens a >100MB fixture). NEVER defer a milestone's own headline capability or a core AC to a later milestone. This exists because NiceNote M5 shipped its headline (100MB+ chunked read) as DEAD CODE with no test and burned 4 verify cycles.
+
+${STATED_CLAIMS_INSTRUCTION}`,
+  discuss: `Multi-perspective exploration of design questions. Settle locked decisions into .gsd-t/CONTEXT.md. Do NOT implement.
+
+${STATED_CLAIMS_INSTRUCTION}`,
+  impact: `Analyze downstream effects of proposed changes. Identify breaking changes, affected consumers, migration paths.
+
+${STATED_CLAIMS_INSTRUCTION}`,
+  milestone: `Define a new milestone — origin, goal, success criteria, falsifiable acceptance. Append to .gsd-t/progress.md. Defer partition/plan.
+
+${STATED_CLAIMS_INSTRUCTION}`,
   prd: `Generate a product requirements doc at docs/prd.md. Functional + non-functional requirements traceable to acceptance criteria.`,
   "design-decompose": `Decompose a design reference (Figma URL / images) into hierarchical contracts: elements -> widgets -> pages, each at .gsd-t/contracts/design/.`,
   "doc-ripple": `Identify and update all docs affected by recent code changes per the Document Ripple Completion Gate. No code edits.`,
@@ -601,6 +968,22 @@ if (!competitionOn) {
   result.competition = { n: candidates.length, winner: winner.id, ranked };
 }
 
+// ── M89 Stated-Claims pipeline (research-eligible phases) ──────────────────
+// Runs AFTER the phase agent writes its artifacts and BEFORE the Plan Hardening
+// gate so that any external guessed claims get cited before the gate runs.
+// The pre-mortem (inside Plan Hardening below) also embeds the Stated-Claims
+// instruction — its claims are processed inside the pre-mortem agent call itself
+// (it cites in its prompt context); the gate here covers the main plan/partition/
+// discuss/milestone/impact output.
+if (result && result.status !== "failed" && RESEARCH_ELIGIBLE_PHASES.has(phaseName)) {
+  const statedClaimsCtx = (result.summary || "") + "\n" + (result.decisions || []).join("\n");
+  const scPipeline = await runStatedClaimsPipeline(projectDir, phaseName, result, statedClaimsCtx);
+  result.statedClaimsPipeline = scPipeline;
+  if (scPipeline.errors && scPipeline.errors.length > 0) {
+    log(`m89: ${phaseName}: stated-claims pipeline completed with ${scPipeline.errors.length} error(s) — uncited markers may remain (verify gate will enforce)`);
+  }
+}
+
 // ── M83 Left-Shifted Plan Hardening (plan phase only) ──
 // Two blocking gates run AFTER the plan agent writes tasks.md and BEFORE the plan
 // is declared complete — so execute can never start on a plan that would produce a
@@ -659,6 +1042,8 @@ if (phaseName === "plan" && result && result.status !== "failed") {
       `Predict, before any code is executed, how this milestone will FAIL: edge cases, dead deliverables, unguarded NFRs, shallow-test traps. Scrutinize the HEADLINE capability hardest — is it bound to a real path, reachable, and covered by a killing test?`,
       `Every blocking finding MUST convert to a concrete requiredTest the plan must adopt. Advisory notes are forbidden.`,
       `Verdict BLOCK if any concrete, falsifiable failure condition lacks a named required test; else CLEARED. Return JSON per the schema.`,
+      ``,
+      `M89 ${STATED_CLAIMS_INSTRUCTION}`,
     ].join("\n"),
     { label: "pre-mortem", phase: "Plan Hardening", schema: PRE_MORTEM_SCHEMA, model: overrides["pre-mortem"] ?? "fable" }
   ).catch((e) => ({ verdict: "BLOCK", findings: [{ severity: "HIGH", condition: `pre-mortem agent error: ${e && e.message}`, requiredTest: "re-run pre-mortem" }], notes: "agent-error" }));

@@ -6,8 +6,14 @@
 // Canonical verify-phase Workflow. Replaces the gsd-t-verify command shell with
 // a deterministic pipeline:
 //   preflight → brief → verify-gate (deterministic, hard-fail) →
+//   M89 §7 ENFORCE gate (auto-research-claim marker scan) →
 //   parallel( /code-review ultra cooperative, Red Team adversarial, QA mechanics ) →
 //   synthesis ( merge findings WITHOUT collapsing categories — see orthogonal-validation-contract.md )
+//
+// M89 §7 ENFORCE gate: an artifact carrying ANY <!-- auto-research-claim: ... status=uncited -->
+// marker FAILs (an external guessed claim proceeded without a cited fact). All markers
+// status=cited with matching ## Verified Facts (auto-research) entries → PASS.
+// Contract: auto-research-contract.md §7 + §5 (A4).
 //
 // args shape:
 //   {
@@ -19,10 +25,11 @@
 export const meta = {
   name: "gsd-t-verify",
   description:
-    "GSD-T verify phase: preflight → brief → verify-gate → CI-parity gate (M57) → test-data purge gate (M58) → parallel(code-review-ultra, Red Team, QA) → synthesis",
+    "GSD-T verify phase: preflight → brief → verify-gate → M89 §7 ENFORCE gate → CI-parity gate (M57) → test-data purge gate (M58) → parallel(code-review-ultra, Red Team, QA) → synthesis",
   phases: [
     { title: "Preflight",          detail: "preflight + brief" },
     { title: "Verify-Gate",        detail: "deterministic two-track verify-gate" },
+    { title: "Auto-Research Gate", detail: "M89 §7 ENFORCE: scan for status=uncited markers (A4 — no silent guess)" },
     { title: "CI-Parity",          detail: "M57 build-coverage + ci-parity (FAIL-blocking)" },
     { title: "Test-Data Purge",    detail: "M58 test-data --purge (FAIL-blocking)" },
     { title: "Orthogonal Triad",   detail: "code-review ultra ∥ Red Team ∥ QA" },
@@ -221,6 +228,69 @@ if (!vg.ok) {
 }
 log(`verify-gate green`);
 
+// ─── M89 §7 ENFORCE Gate (FAIL-blocking — A4 no-silent-guess) ─────────────
+// Scans all milestone artifacts for <!-- auto-research-claim: ... status=uncited -->
+// markers. An uncited marker means an external guessed claim was never cited — FAIL.
+// Contract: auto-research-contract.md §7 + §5 (A4).
+// M81: no fs — delegate to an agent's Bash (grep) + parse result.
+const AUTO_RESEARCH_GATE_SCHEMA = {
+  type: "object",
+  required: ["pass", "uncitedCount", "citedCount"],
+  additionalProperties: true,
+  properties: {
+    pass: { type: "boolean" },
+    uncitedCount: { type: "integer" },
+    citedCount: { type: "integer" },
+    uncitedMarkers: { type: "array", items: { type: "string" } },
+    internalOnlyArtifacts: { type: "boolean" },
+    notes: { type: "string" },
+  },
+};
+
+phase("Auto-Research Gate");
+const arGate = await agent(
+  [
+    `You are the M89 §7 ENFORCE gate scanner. Scan ALL milestone artifacts in the project at "${projectDir}" for auto-research-claim markers and determine if ANY status=uncited markers exist.`,
+    ``,
+    `Steps:`,
+    `1. Run: \`grep -r "auto-research-claim" "${projectDir}" --include="*.md" -l 2>/dev/null || echo "no-matches"\``,
+    `   This finds all files with auto-research-claim markers.`,
+    `2. For each matching file, run: \`grep "auto-research-claim" <file>\``,
+    `   to get the actual marker lines.`,
+    `3. Count:`,
+    `   - uncitedCount = lines containing "status=uncited"`,
+    `   - citedCount   = lines containing "status=cited" (excluding any that also contain "uncited")`,
+    `4. pass = true ONLY if uncitedCount === 0 (all markers are cited OR no markers exist).`,
+    `   pass = false if ANY marker has status=uncited.`,
+    `5. List up to 10 uncited marker lines in "uncitedMarkers" (the full HTML comment).`,
+    `6. If no files are found (step 1 returns no-matches), pass=true, uncitedCount=0, citedCount=0.`,
+    ``,
+    `Return JSON per the schema: { "pass": true|false, "uncitedCount": N, "citedCount": N, "uncitedMarkers": [], "notes": "..." }`,
+    ``,
+    `Contract: auto-research-contract.md §7 (ENFORCE marker) + §5/A4 (uncited external guess → verify FAILS).`,
+  ].join("\n"),
+  { label: "auto-research-gate", phase: "Auto-Research Gate", schema: AUTO_RESEARCH_GATE_SCHEMA, model: "haiku" }
+).catch((e) => ({
+  pass: false, uncitedCount: -1, citedCount: 0,
+  notes: `auto-research gate agent error: ${e && e.message} — failing closed (A4)`,
+}));
+
+if (!arGate.pass) {
+  const uncited = arGate.uncitedCount >= 0 ? arGate.uncitedCount : "unknown (agent error)";
+  log(`M89 auto-research gate FAIL — ${uncited} uncited external-claim marker(s) found (A4: no silent guess)`);
+  if (arGate.uncitedMarkers && arGate.uncitedMarkers.length > 0) {
+    log(`  uncited markers: ${arGate.uncitedMarkers.slice(0, 5).join(" | ")}`);
+  }
+  return {
+    status: "auto-research-gate-failed",
+    overallVerdict: "VERIFY-FAILED",
+    autoResearchGate: arGate,
+    reason: `M89 §7 ENFORCE: ${uncited} uncited external-claim marker(s) — run the phase again to cite them before verify`,
+    verifyGate: vg.envelope,
+  };
+}
+log(`M89 auto-research gate: PASS — ${arGate.citedCount} cited marker(s), 0 uncited`);
+
 // ─── M57 CI-Parity Gate (FAIL-blocking) ───────────────────────────────────
 // Per commands/gsd-t-verify.md Step 2.6 + cli-build-coverage-contract.md +
 // ci-parity-contract.md. NEITHER track is currently inside verify-gate.cjs.
@@ -366,6 +436,7 @@ return {
   status: verdict.overallVerdict === "VERIFY-FAILED" ? "failed" : "complete",
   overallVerdict: verdict.overallVerdict,
   verifyGate: vg.envelope,
+  autoResearchGate: arGate,
   buildCoverage: bc.envelope,
   ciParity: cip.envelope,
   testDataPurge: td.envelope,
