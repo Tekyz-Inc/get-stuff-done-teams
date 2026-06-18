@@ -606,3 +606,17 @@ M87 establishes the bar these four must meet: a gate's pass/fail is DETERMINISTI
 - **Strictly downstream of M87** — cannot start until M87 ships the guard-bridge gate + the two-altitude flow these gates attach to.
 - Pairs with #31 (micro-pre-mortem) + #33 (debug circuit-breaker): #34/M87 sets the contract front-of-milestone, M88 closes the deterministic gates around it, #31 hardens the plan, #33 halts on drift.
 - Scope: ~3–4 domains (sign-off state + `isDefined` predicate; map-generation seam + e2e test; triad seam-check; divergence grammar round-trip), 1–2 waves. Each piece is independently gateable once its design lands.
+
+## 36. M89 — Auto-Research: deterministic external-info-gap resolution at every workflow phase — **PROMOTED → M89 (2026-06-18), IN PROGRESS**
+
+**Added**: 2026-06-18
+**Type**: framework capability (HIGH leverage — affects every phase)
+**Origin**: user, 2026-06-18, watching binvoice S2-M5 (PayPal Invoicing v2) plan block on a pre-mortem where 2–3 of 6 findings were EXTERNAL-API facts not in the repo (PayPal OAuth `/v1/oauth2/token` mint/seed contract; PayPal v2 invoice TOTAL amount limit; browser popup-blocker behavior). These recur every PayPal cycle because the agent GUESSES the third-party contract instead of looking it up. Contrast M87 (0 of 7 findings web-resolvable — pure introspection): the discriminator is **internal vs external fact**. User directive: "implement this now, pause M87; include it at any phase where web research can resolve issues or improve the result."
+
+### Design (full definition in progress.md § Current Milestone M89)
+Deterministic trigger (not advisory prose — the existing CLAUDE-global Research Policy is LLM-discretion that doesn't fire, per `feedback_deterministic_orchestration`): DETECT gap → CLASSIFY internal/external (`bin/gsd-t-research-gate.cjs`) → external runs a web-research `agent()` stage that returns facts WITH SOURCE URLs → CITE into the phase artifact as a Verified-Facts block before proceeding. Internal gaps route to grep/Read, never the web (no latency/noise tax — the M87 lesson). Hooks into plan/pre-mortem/partition/discuss/milestone/execute/debug/impact/quick/wave — every phase where external info pays. Labeled-corpus A1 test = the 13 real findings (7 M87 → 0 external, 6 S2-M5 → 2–3 external). Risk-first: W1 proves the classifier on the corpus before wiring. Immediate dogfood: S2-M5's blocked plan re-runs with auto-research → #1/#3 resolved by cited PayPal facts.
+
+### Relation
+- **Why first, ahead of M87:** its evidence came partly FROM M87's plan loop (external-fact findings recurring) + binvoice S2-M5 live; M87 is paused at plan-cleared/pre-execute and resumes after M89.
+- Complements #33 (debug circuit-breaker): a debug cycle whose root is an external unknown should RESEARCH, not patch-guess — M89's debug hook + #33's halt are the two halves.
+- Supersedes the advisory "Research Policy" prose in CLAUDE-global.md with a deterministic trigger (doc-ripple).
