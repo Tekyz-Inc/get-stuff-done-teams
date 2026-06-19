@@ -620,3 +620,13 @@ Deterministic trigger (not advisory prose — the existing CLAUDE-global Researc
 - **Why first, ahead of M87:** its evidence came partly FROM M87's plan loop (external-fact findings recurring) + binvoice S2-M5 live; M87 is paused at plan-cleared/pre-execute and resumes after M89.
 - Complements #33 (debug circuit-breaker): a debug cycle whose root is an external unknown should RESEARCH, not patch-guess — M89's debug hook + #33's halt are the two halves.
 - Supersedes the advisory "Research Policy" prose in CLAUDE-global.md with a deterministic trigger (doc-ripple).
+
+## 37. Flaky CLI-subprocess test: `gsd-t status` hangs ~123s under cold parallel load → false CI-parity FAIL
+
+**Added**: 2026-06-18
+**Type**: tech debt (test-infra) | **App**: gsd-t | **Category**: test
+**Origin**: surfaced during M89 verify (2026-06-18). `test/filesystem.test.js` → "CLI subcommands" → "status subcommand runs without error" `execFileSync(node, [CLI, "status"], {timeout: 15000})` ran **~123s** and false-failed the cache-cleared CI-parity gate, blocking M89's verify BEFORE the triad. In isolation the same test passes 40/40 in **372ms**. Last touched M61 (`e6afbab`) — NOT M89; M89's own suite is 1804/0 warm. So it's a pre-existing flake exposed by cold + parallel suite load.
+- **Symptom:** the `gsd-t status` child exceeds its own 15s `timeout` (execFileSync SIGTERM doesn't reliably kill a child that spawns its own subprocesses / stalls on git or file reads under contention), runs to ~123s, fails the run.
+- **Two candidate root causes (investigate):** (a) the TEST is fragile — needs a real child-tree kill + a generous-but-enforced timeout, or stub the subprocess; (b) `gsd-t status` itself has a latent slow/hanging path under cold cache or parallel git access (the more concerning one — a command that hangs 123s in CI is a real UX/CI bug, not just a test issue). Determine which before fixing — if (b), fix the command, not the test.
+- **Decision (user, 2026-06-18):** backlog it, do NOT fix inline; re-verify M89 as-is and accept it may re-flake. If it re-blocks M89 repeatedly, escalate to fix-now.
+- Scope: ~1 domain (diagnose status-under-load, then either harden the test [child-tree kill + timeout] or fix the command's slow path), <1 wave.
