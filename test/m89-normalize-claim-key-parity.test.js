@@ -60,7 +60,17 @@ describe("normalizeClaimKey is byte-identical across phase + worker workflows (f
 
   test("phase workflow defines the canonical normalizeClaimKey body", () => {
     assert.ok(canonical.includes("toLowerCase"), "canonical body must lowercase");
-    assert.ok(canonical.includes("[^\\w]"), "canonical body must strip with the [^\\w] form (matches test oracles)");
+    // Cycle-2 finding #1: must COLLAPSE every non-word run to a space (global replace),
+    // not merely edge-strip — else a claim embedding marker syntax (status=cited / <!--)
+    // poisons the key. Guard against regressing to the edge-strip form.
+    assert.ok(
+      canonical.includes("replace(/[^\\w]+/g"),
+      "canonical body must collapse EVERY non-word run via .replace(/[^\\w]+/g, \" \") (marker-syntax-safe)",
+    );
+    assert.ok(
+      !canonical.includes("^[^\\w]+|[^\\w]+$"),
+      "canonical body must NOT use the old edge-strip form (it leaves internal '='/'<'/'>' that poison the key)",
+    );
   });
 
   for (const wf of WORKFLOWS) {

@@ -1,12 +1,22 @@
 # Contract: Auto-Research Gate + Web-Research Stage (M89)
 
-## Version: 1.2.0
+## Version: 1.2.1
 ## Status: STABLE
 ## Owner: m89-d2-research-stage-and-contract
 ## Consumers: m89-d1-research-classifier-core, m89-d3-wiring-upper-phase-and-gate, m89-d4-wiring-worker-workflows
 ## Created: 2026-06-18 (M89 partition)
 
 ## Changelog
+- **v1.2.1 (2026-06-18 — M89 verify cycle-2 HONESTY CORRECTION, MEDIUM):** the v1.2.0
+  §6.5 final bullet + §1.3 type-3 claimed a DETERMINISTIC code path that forces an
+  external/time-varying claim to GUESSED:stale "by the wiring" ("the one place code, not
+  the prompt, can force a guess"). No such code exists in any of the 4 workflows —
+  staleness is detected ONLY by the LLM-prompted Stated-Claims tag `[GUESSED:stale]` (the
+  snippet), same as the rest of DETECT. Reworded §6.5 + §1.3 so staleness is HONESTLY
+  prompt-driven best-effort, consistent with DETECT being LLM-prompted; removed the
+  "code, not the prompt, can force a guess" overclaim. (Same overclaim CLASS as the
+  premise overclaim that got M89 re-scoped — caught here by the verify Red Team.) No
+  code change; CLASSIFY (§1) + ENFORCE (§5/§7) determinism is unchanged.
 - **v1.2.0 (2026-06-18 — M89 PREMISE CORRECTION after plan pre-mortem cycle-2 / 2 CRITICALs):** the
   original framing ("a deterministic trigger that DETECTS a gap and REPLACES the LLM should-I-research
   discretion") overclaimed — **detecting that you need info is itself an LLM judgment**. Re-scoped: M89
@@ -151,15 +161,19 @@ type; CLASSIFY (§1) + ENFORCE (§7) then handle an EXTERNAL guess. All three ar
    returns a `url`"* because it would make sense). **Plausible ≠ confirmed.** This is the binvoice
    S2-M5 failure mode (confident guesses stated as known).
 3. **Stale** — the agent KNEW it, but it is an external/time-varying fact with age (an API last seen
-   months ago, a price, a model ID, a library signature). **Was-true ≠ is-true. DEFAULT = FAIL TOWARD
-   VERIFY:** any external/time-varying load-bearing fact WITHOUT a FRESH cited source (§3 carries a
-   fetch DATE) is treated as stale → research. Do NOT trust the agent's self-assessment of its own
-   staleness — that self-assessment is itself another guess.
+   months ago, a price, a model ID, a library signature). **Was-true ≠ is-true.** The agent is
+   instructed (via the Stated-Claims snippet, §6.5) to TAG such a fact `[GUESSED:stale]` — treat
+   external/time-varying load-bearing facts without a FRESH cited source (§3 carries a fetch DATE) as
+   stale → research, rather than trusting its own confidence. **This is a prompt-driven best-effort
+   obligation, NOT a deterministic code check** (v1.2.1 honesty correction): the wiring does not run a
+   freshness scanner, so an UN-tagged stale fact is an acknowledged DETECT miss — the same best-effort
+   limit as the other two guess-types.
 
 The classifier does not distinguish the three types in its envelope (it classifies internal-vs-external
-on the claim text); the type is the DETECT-step tag that decided the claim was GUESSED at all. Staleness
-is the one type the wiring can apply deterministically: an external claim whose backing source is absent
-or older than the freshness bar is treated as a guess regardless of the agent's confidence.
+on the claim text); the type is the DETECT-step tag that decided the claim was GUESSED at all. Staleness,
+like unknown/assumed, is detected by the LLM-prompted Stated-Claims tag — there is no separate
+deterministic staleness code path. Determinism lives in CLASSIFY (§1) + ENFORCE (§5/§7), which apply to
+every TAGGED guessed claim regardless of type.
 
 ---
 
@@ -326,9 +340,11 @@ structured `## Stated Claims` list** tagging every load-bearing claim it is rely
   eligible stage (Read at spawn time alongside the research-subagent protocol). D3 wires it into the
   upper phases (plan / pre-mortem / partition / discuss / milestone); D4 into the worker phases
   (execute / debug / quick).
-- **Staleness (§1.3 type 3) is the deterministic slice of DETECT:** even un-tagged, an external claim
-  whose backing source is absent or older than the freshness bar is treated GUESSED:stale by the wiring
-  (fail-toward-verify) — the one place code, not the prompt, can force a guess.
+- **Staleness (§1.3 type 3) is prompt-driven best-effort, like the other guess-types** (v1.2.1 honesty
+  correction): the agent is instructed to TAG an external/time-varying fact lacking a fresh source as
+  `[GUESSED:stale]`. There is NO deterministic staleness code path in the wiring (no freshness scanner) —
+  an un-tagged stale fact is an acknowledged DETECT miss, not a silently-forced guess. Determinism is
+  confined to CLASSIFY (§1) + ENFORCE (§5/§7), which run on every TAGGED guessed claim.
 
 ---
 

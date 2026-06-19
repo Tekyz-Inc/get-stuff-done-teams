@@ -47,11 +47,9 @@ const STATED_CLAIMS_MD = path.resolve(ROOT, "templates", "prompts", "stated-clai
  * @returns {string}
  */
 function normalizeGapKey(claim) {
-  return claim
-    .toLowerCase()
-    .replace(/\s+/g, " ")
-    .trim()
-    .replace(/^[^\w]+|[^\w]+$/g, "");
+  // Cycle-2 finding #1: collapse EVERY non-word run to a space (marker-syntax-safe key),
+  // byte-equivalent to the workflows' normalizeClaimKey.
+  return claim.toLowerCase().replace(/[^\w]+/g, " ").trim();
 }
 
 /**

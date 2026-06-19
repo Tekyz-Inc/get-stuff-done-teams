@@ -157,9 +157,13 @@ async function runCompetitionJudge(projectDir, spec, label = "judge", phaseNameO
 const RESEARCH_ELIGIBLE_PHASES = new Set(["plan", "partition", "discuss", "milestone", "impact"]);
 
 // §7 ENFORCE marker format — machine-readable HTML comment written at classify time.
-// claim-key = deterministic normalization (lowercase, collapse whitespace, strip punctuation).
+// claim-key = deterministic normalization: lowercase, then COLLAPSE EVERY non-word run
+// to a single space (cycle-2 finding #1 — CRITICAL). This makes the key marker-syntax
+// SAFE: it can never contain "=", "<", ">", "-", so a claim that literally embeds
+// "status=cited"/"class="/"key="/"<!--"/"-->" cannot poison the marker grammar or
+// collide with a distinct claim's key. (Subsumes the old whitespace-collapse + edge-strip.)
 function normalizeClaimKey(claim) {
-  return claim.toLowerCase().replace(/\s+/g, " ").trim().replace(/^[^\w]+|[^\w]+$/g, "");
+  return claim.toLowerCase().replace(/[^\w]+/g, " ").trim();
 }
 
 // The Stated-Claims snippet Read instruction (D2 deliverable, §6.5 DETECT seam).

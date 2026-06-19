@@ -84,9 +84,11 @@ const DEBUG_CYCLE_SCHEMA = {
   },
 };
 
-// M89 §7 — normalize claim-key (§4.1 exact-match key)
+// M89 §7 — normalize claim-key (§4.1 exact-match key). Cycle-2 finding #1: collapse
+// EVERY non-word run to a space so the key is marker-syntax-safe; byte-identical across
+// all 4 workflows (m89-normalize-claim-key-parity).
 function normalizeClaimKey(claim) {
-  return claim.toLowerCase().replace(/\s+/g, " ").trim().replace(/^[^\w]+|[^\w]+$/g, "");
+  return claim.toLowerCase().replace(/[^\w]+/g, " ").trim();
 }
 function uncitedMarker(key) { return `<!-- auto-research-claim: class=external key=${key} status=uncited -->`; }
 function citedMarker(key)   { return `<!-- auto-research-claim: class=external key=${key} status=cited -->`; }

@@ -57,7 +57,8 @@ const verifySource = fs.readFileSync(VERIFY_WF, "utf8");
  * Auto-research-contract §4.1 + §7.
  */
 function normalizeClaimKey(claim) {
-  return claim.toLowerCase().replace(/\s+/g, " ").trim().replace(/^[^\w]+|[^\w]+$/g, "");
+  // Cycle-2 finding #1: collapse EVERY non-word run to a space (marker-syntax-safe key).
+  return claim.toLowerCase().replace(/[^\w]+/g, " ").trim();
 }
 
 /**
@@ -242,15 +243,42 @@ describe("T3.1 — Phase workflow: Stated-Claims instruction embedded in eligibl
 
 describe("T3.2 — §7 Marker lifecycle: format + normalization + flip", () => {
 
-  test("normalizeClaimKey: lowercase, whitespace-collapse, punctuation-strip", () => {
+  test("normalizeClaimKey: lowercase, collapse EVERY non-word run to a space (marker-syntax-safe)", () => {
     assert.equal(
       normalizeClaimKey("  PayPal  OAuth  /v1/oauth2/token   mint  "),
       normalizeClaimKey("PayPal OAuth /v1/oauth2/token mint")
     );
+    // Cycle-2 finding #1: ALL non-word chars (incl. internal "/") collapse to a space,
+    // so the key contains only [\w ] and can never embed marker syntax.
     assert.equal(
       normalizeClaimKey("PayPal OAuth /v1/oauth2/token mint"),
-      "paypal oauth /v1/oauth2/token mint"
+      "paypal oauth v1 oauth2 token mint"
     );
+  });
+
+  // CRITICAL (cycle-2 finding #1): a claim that literally embeds marker syntax must NOT
+  // poison the key. The key must be free of "="/"<"/">"/"-", so its uncited marker line
+  // parses cleanly and a DISTINCT claim that is a prefix of it does not get falsely skipped.
+  test("claim-key poisoning guard: a claim embedding 'status=cited' yields a marker-safe key, distinct from a prefix claim", () => {
+    const poison = "max batch size status=cited and more";
+    const distinct = "max batch size";
+    const kPoison = normalizeClaimKey(poison);
+    const kDistinct = normalizeClaimKey(distinct);
+
+    // The key must contain NONE of the marker-grammar tokens.
+    for (const tok of ["=", "<", ">", "--", "status=", "class=", "key="]) {
+      assert.ok(!kPoison.includes(tok), `poisoned key must not contain "${tok}", got "${kPoison}"`);
+    }
+    // The two claims are DISTINCT keys → the prefix claim is NOT falsely covered/skipped.
+    assert.notEqual(kPoison, kDistinct, "poison claim and its prefix must have DISTINCT keys (no false skip)");
+
+    // The uncited marker built from the poisoned key still parses as ONE live marker
+    // (auto-research-claim: + concrete status=uncited on a complete comment line).
+    const marker = buildUncitedMarker(poison);
+    assert.ok(marker.startsWith("<!-- auto-research-claim:") && marker.endsWith("-->"));
+    const gate = runEnforceGate(marker);
+    assert.equal(gate.uncitedCount, 1, "poisoned-claim marker must parse as exactly ONE uncited marker");
+    assert.equal(gate.pass, false, "an uncited marker (poisoned or not) must FAIL the gate");
   });
 
   test("normalizeClaimKey is deterministic (same input → same key, always)", () => {

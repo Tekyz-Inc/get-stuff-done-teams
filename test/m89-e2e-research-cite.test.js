@@ -43,7 +43,9 @@ const { classify } = require(CLASSIFIER_PATH);
 // ---------------------------------------------------------------------------
 
 function normalizeClaimKey(claim) {
-  return claim.toLowerCase().replace(/\s+/g, " ").trim().replace(/^[^\w]+|[^\w]+$/g, "");
+  // Cycle-2 finding #1: collapse EVERY non-word run to a space (marker-syntax-safe key).
+  // Byte-identical to the 4 workflows.
+  return claim.toLowerCase().replace(/[^\w]+/g, " ").trim();
 }
 
 function buildUncitedMarker(claimText) {

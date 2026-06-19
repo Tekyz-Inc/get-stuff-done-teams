@@ -50,6 +50,46 @@
  */
 
 // ---------------------------------------------------------------------------
+// Boundary-match helper (cycle-2 fix — kills the substring-match anti-pattern)
+// ---------------------------------------------------------------------------
+//
+// `text.includes(token)` matches INSIDE words: "our" hits "four"/"your", "internal"
+// hits "internal server error" of an EXTERNAL system, "go"/"rest"/"css" hit
+// "cargo"/"the rest of"/"cookie". The earlier space-padding hack ("our ", "rest ")
+// was a half-fix that still misses sentence-initial / punctuation-adjacent cases and
+// is itself fragile. The correct test is a WORD-BOUNDARY match.
+//
+// A token here can contain spaces, dots, slashes and hyphens (e.g. "google cloud",
+// "node.js", "rate-limit", "/v1/"). We anchor on \b only where the token edge is a
+// word char; tokens whose edges are non-word (like "/v1/", ".workflow.js") fall back
+// to a plain substring test (a \b before "/" is meaningless). This keeps multi-word
+// vendor names and path-shaped tokens working while killing the in-word false hits.
+
+/** Escape a string for use as a literal inside a RegExp. */
+function escapeRegExp(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Word-boundary-aware token match against an already-lowercased haystack.
+ * Adds \b only at edges that are word characters, so multi-word / path / dotted
+ * tokens still match correctly while bare-word tokens cannot match inside a word.
+ *
+ * @param {string} lowerText - the lowercased claim text
+ * @param {string} token - a lowercased token (may contain spaces/dots/slashes/hyphens)
+ * @returns {boolean}
+ */
+function boundaryMatch(lowerText, token) {
+  const t = token.trim();
+  if (t.length === 0) return false;
+  const leftWord = /\w/.test(t[0]);
+  const rightWord = /\w/.test(t[t.length - 1]);
+  const left = leftWord ? "\\b" : "";
+  const right = rightWord ? "\\b" : "";
+  return new RegExp(left + escapeRegExp(t) + right).test(lowerText);
+}
+
+// ---------------------------------------------------------------------------
 // External-signal patterns (feature-class based, NOT corpus-keyword lists)
 // ---------------------------------------------------------------------------
 
@@ -61,6 +101,12 @@
  *
  * Kept as a list of lowercase patterns to avoid hard-coding corpus keywords.
  * New vendors can be added without changing the classification logic.
+ *
+ * Cycle-2 finding #3 (code-review): ALL tokens are matched on WORD BOUNDARIES
+ * (boundaryMatch), so the short ambiguous tokens "go"/"rest"/"css"/"soap"/"java"/
+ * "swift"/"rust"/"edge"/"ie" can NO LONGER hit inside "cargo"/"the rest of"/"cookie"/
+ * "ego"/"movie". The old space-padding hack ("go ", "rest ") is removed — bare tokens
+ * + \b is the correct fix.
  */
 const EXTERNAL_PROPER_NOUNS = [
   // Payment processors
@@ -77,18 +123,20 @@ const EXTERNAL_PROPER_NOUNS = [
   // CDN / infra
   "cloudfront", "fastly", "akamai", "nginx", "vercel", "netlify",
   // Languages / runtimes (version-sensitive external behavior)
-  "node.js", "python", "ruby", "java", "go ", "rust ", "swift",
+  "node.js", "python", "ruby", "java", "go", "rust", "swift",
   // Browsers and browser APIs
-  "chrome", "chromium", "firefox", "safari", "webkit", "edge", "ie ",
+  "chrome", "chromium", "firefox", "safari", "webkit", "edge", "ie",
   "internet explorer",
   // UI frameworks (external behavior / version facts)
   "react", "vue", "angular", "svelte", "next.js", "nuxt", "remix",
   // CSS / web standards
-  "css ", "html5", "ecmascript", "w3c", "whatwg", "tc39",
-  // HTTP / API standards
-  "openapi", "swagger", "graphql", "rest ", "grpc", "soap ",
+  "css", "html5", "ecmascript", "w3c", "whatwg", "tc39",
+  // HTTP / API standards. Cycle-2 finding #3: "rest" and "soap" are ambiguous English
+  // words ("the rest of the pipeline", "soap"); use the unambiguous protocol forms so
+  // \b cannot fire on the common-English sense.
+  "openapi", "swagger", "graphql", "restful", "rest api", "grpc", "soap api",
   // Spec bodies
-  "ietf", "rfc ", "iso ", "ansi ",
+  "ietf", "rfc", "iso", "ansi",
   // SaaS / third-party services
   "github", "gitlab", "bitbucket", "jira", "slack", "zendesk",
   "salesforce", "hubspot", "intercom",
@@ -102,32 +150,48 @@ const EXTERNAL_PROPER_NOUNS = [
  * same as a specific endpoint path in this repo — the distinction is resolved
  * by also checking internal signals (repo paths, local symbols).
  */
+// Cycle-2: all tokens are WORD-BOUNDARY matched (boundaryMatch) — space-padding hacks
+// removed ("bearer ", " spec ", "standard " → bare). Finding #4 (LOW): the weakest
+// generic single-word offenders that fired with NO other external signal ("endpoint",
+// "quota", "scopes", "standard", "specification") are demoted to WEAK_API_TERMS — they
+// only count as external when CO-OCCURRING with another external signal (a vendor proper
+// noun, a strong API/HTTP/version token, a browser term, or the external-assertion
+// pattern). Fail-toward-verify is preserved for genuinely-external claims; bare benign
+// uses of those words no longer waste a Fable web call.
 const EXTERNAL_API_TERMS = [
   // HTTP / API structural terms (without "this repo / our" anchor)
   "/v1/", "/v2/", "/v3/", // version-prefixed paths typical of third-party APIs
   "api key", "api secret", "api token",
   "webhook", "callback url", "redirect uri", "redirect url",
-  "access token", "refresh token", "bearer token", "bearer ",
+  "access token", "refresh token", "bearer token", "bearer",
   "authorization header", "authorization code",
-  "rate limit", "rate-limit", "quota limit", "quota",
+  "rate limit", "rate-limit", "quota limit",
   "response shape", "return shape", "error shape", "error code",
   "status code",
   // Auth flows
   "oauth flow", "auth flow", "token mint", "token endpoint",
   "client credentials", "client secret", "client id",
-  "scopes", "grant type", "grant_type",
+  "grant type", "grant_type",
   // Version / spec
   "current version", "latest version", "minimum version",
   "browser support", "browser compatibility",
-  "specification", " spec ", "standard ",
   // Limits / capacities (external system limits)
   "maximum amount", "maximum total", "max total", "max amount",
   "maximum batch", "max batch", "batch size", "batch limit",
   "per-request limit", "payload limit",
-  // Endpoints (generic — resolved external if no internal anchor)
-  "endpoint", "base url", "base path",
+  // Endpoints (specific shapes — resolved external if no internal anchor)
+  "base url", "base path",
   // Invoice-related (specific PayPal API surface — external system)
   "invoice total", "line item", "invoice api",
+];
+
+/**
+ * WEAK external API terms (finding #4 LOW): generic single words that over-generalize
+ * to web on their own. They count as an external signal ONLY when ANOTHER external
+ * signal co-occurs (proper noun / strong API term / browser term / assertion pattern).
+ */
+const WEAK_EXTERNAL_API_TERMS = [
+  "endpoint", "quota", "scopes", "standard", "specification",
 ];
 
 /**
@@ -136,8 +200,8 @@ const EXTERNAL_API_TERMS = [
  */
 const EXTERNAL_BROWSER_RUNTIME_TERMS = [
   "popup blocker", "pop-up blocker", "popup block",
-  "same-origin policy", "cross-origin", "cors ",
-  "content security policy", "csp ",
+  "same-origin policy", "cross-origin", "cors",
+  "content security policy", "csp",
   "service worker", "web worker",
   "local storage", "session storage", "indexeddb",
   "storage quota", "storage limit", "storage.local",
@@ -146,7 +210,7 @@ const EXTERNAL_BROWSER_RUNTIME_TERMS = [
   "requestanimationframe",
   "user agent", "user-agent",
   "browser event", "browser behavior", "browser block",
-  "runtime behavior", "v8 ", "node runtime",
+  "runtime behavior", "v8", "node runtime",
 ];
 
 // ---------------------------------------------------------------------------
@@ -157,11 +221,18 @@ const EXTERNAL_BROWSER_RUNTIME_TERMS = [
  * Explicit "this repo" / "our" ANCHOR phrases. Presence of any of these
  * strongly signals internal — the question is about code IN this repository.
  *
- * Finding #4 (MEDIUM): bare "our <noun>" / "internal" / "this repo's" anchors
+ * Finding #4 (cycle-1 MEDIUM): bare "our <noun>" / "internal" / "this repo's" anchors
  * are internal signals too; when an internal anchor is present, an external
  * API/limit/rate-limit term does NOT force external — the internal signal wins
  * (internal-first per §1.1). E.g. "the rate limit OUR INTERNAL API gateway
  * enforces per tenant" is about THIS repo's own gateway → internal.
+ *
+ * Cycle-2 finding #2 (HIGH): these are WORD-BOUNDARY matched (boundaryMatch), so the
+ * bare anchors "our"/"internal" can NO LONGER hit inside "four"/"your" or describe an
+ * EXTERNAL system's "internal server error". The space-padding hacks ("our ", " internal",
+ * "the existing ") are removed — bare tokens + \b is the correct fix. "our internal API
+ * gateway" still anchors internal; "Stripe ... four hundred per second" / "your account
+ * quota on AWS" / "PayPal sends an internal server error" no longer do.
  */
 const INTERNAL_ANCHOR_PHRASES = [
   "this repo", "our repo", "the repo",
@@ -169,10 +240,14 @@ const INTERNAL_ANCHOR_PHRASES = [
   "in this project", "our project",
   "this module", "our module",
   "this file", "our file",
-  "the existing ", "our existing",
+  "the existing", "our existing",
   "in the codebase",
-  // Bare internal anchors (finding #4): "our <noun>" / "internal" / "this repo's"
-  "our ", "internal ", " internal",
+  // Bare internal anchors (cycle-1 finding #4): "our <noun>" / "this repo's".
+  // Cycle-2 finding #2: bare "internal" is NOT a standalone anchor — "PayPal sends an
+  // internal server error" describes an EXTERNAL system's internal. The possessive
+  // "our" (or "our internal", "this repo's") is the real this-repo anchor; "our internal
+  // API gateway" still triggers on "our".
+  "our", "our internal",
   "this repo's", "repo's",
   // Ownership / file-system signals
   "which domain owns", "which file owns", "who owns",
@@ -180,7 +255,7 @@ const INTERNAL_ANCHOR_PHRASES = [
   "which contract", "which test", "which workflow",
   // Exit code / return value of THIS module
   "return when", "returns when", "return on", "returns on",
-  "exit code", "what does ", "how does ",
+  "exit code", "what does", "how does",
 ];
 
 /**
@@ -304,39 +379,50 @@ function classify(gap) {
 
   const lower = trimmed.toLowerCase();
 
-  // ── Step 1: Check for external PROPER NOUN signals ───────────────────────
+  // ── Step 1: Check for external PROPER NOUN signals (WORD-BOUNDARY) ────────
   const matchedProperNoun = EXTERNAL_PROPER_NOUNS.find((noun) =>
-    lower.includes(noun)
+    boundaryMatch(lower, noun)
   );
 
   // ── Step 2: Check for external API / protocol / version / limit terms ────
+  // (WORD-BOUNDARY) — strong terms only; weak generic words handled in Step 2b.
   const matchedApiTerm = EXTERNAL_API_TERMS.find((term) =>
-    lower.includes(term.toLowerCase())
+    boundaryMatch(lower, term)
   );
 
-  // ── Step 3: Check for browser / runtime behavior terms ───────────────────
+  // ── Step 3: Check for browser / runtime behavior terms (WORD-BOUNDARY) ────
   const matchedBrowserTerm = EXTERNAL_BROWSER_RUNTIME_TERMS.find((term) =>
-    lower.includes(term.toLowerCase())
+    boundaryMatch(lower, term)
   );
 
   // ── Step 4: Check for proper-noun-LESS external assertion pattern ─────────
-  // This is the cycle-2 finding #3 fix: a claim that ASSERTS an external
+  // This is the cycle-1 finding #3 fix: a claim that ASSERTS an external
   // system's behavior without any vendor name still routes external.
   const matchedExternalAssertion = EXTERNAL_ASSERTION_PATTERNS.find((re) =>
     re.test(trimmed)
   );
 
-  // ── Step 5: Check for internal ANCHOR signals ────────────────────────────
+  // ── Step 5: Check for internal ANCHOR signals (WORD-BOUNDARY) ─────────────
   const matchedAnchor = INTERNAL_ANCHOR_PHRASES.find((phrase) =>
-    lower.includes(phrase.toLowerCase())
+    boundaryMatch(lower, phrase)
   );
 
   // ── Step 6: Check for internal FILE / SYMBOL signals ─────────────────────
   // (a) repo-relative path / file-naming SHAPE, (b) bare camelCase / kebab-ish
   // local-symbol SHAPE (finding #3 — structural, NOT an enumerated symbol list).
   const matchedFilePattern =
-    INTERNAL_FILE_PATTERNS.find((pattern) => lower.includes(pattern.toLowerCase())) ||
+    INTERNAL_FILE_PATTERNS.find((pattern) => boundaryMatch(lower, pattern)) ||
     matchLocalSymbolShape(trimmed);
+
+  // ── Step 2b: WEAK external API term (finding #4 LOW) — counts ONLY if another
+  // external signal co-occurs (proper noun / strong API term / browser term /
+  // assertion pattern). A bare generic word alone is NOT enough to force web.
+  const matchedWeakApiTerm = WEAK_EXTERNAL_API_TERMS.find((term) =>
+    boundaryMatch(lower, term)
+  );
+  const hasOtherExternalSignal =
+    !!matchedProperNoun || !!matchedApiTerm || !!matchedBrowserTerm || !!matchedExternalAssertion;
+  const effectiveApiTerm = matchedApiTerm || (matchedWeakApiTerm && hasOtherExternalSignal ? matchedWeakApiTerm : undefined);
 
   // ── Decision logic ────────────────────────────────────────────────────────
   //
@@ -368,7 +454,7 @@ function classify(gap) {
 
   const hasInternalAnchor = !!matchedAnchor;
   const hasInternalFile = !!matchedFilePattern;
-  const hasExternalApiTerm = !!matchedApiTerm;
+  const hasExternalApiTerm = !!effectiveApiTerm;
   const hasExternalBrowserTerm = !!matchedBrowserTerm;
   const hasExternalProperNoun = !!matchedProperNoun;
   const hasExternalAssertion = !!matchedExternalAssertion;
@@ -398,7 +484,7 @@ function classify(gap) {
       gap: trimmed,
       class: "external",
       route: "web",
-      reason: `External: third-party proper noun ("${matchedProperNoun}") + API/protocol term ("${matchedApiTerm}") — concerns an external system's contract`,
+      reason: `External: third-party proper noun ("${matchedProperNoun}") + API/protocol term ("${effectiveApiTerm}") — concerns an external system's contract`,
     };
   }
 
@@ -445,7 +531,7 @@ function classify(gap) {
       gap: trimmed,
       class: "external",
       route: "web",
-      reason: `External: API/protocol/limit term ("${matchedApiTerm}") detected — concerns an external system's contract or behavior`,
+      reason: `External: API/protocol/limit term ("${effectiveApiTerm}") detected — concerns an external system's contract or behavior`,
     };
   }
 
