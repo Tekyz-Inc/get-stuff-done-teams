@@ -73,7 +73,7 @@ HEADLESS (CI/CD)                                                       CLI
   headless query      Read project state without LLM (<100ms)
   headless --debug-loop  Compaction-proof test-fix-retest loop (fresh sessions)
   parallel            Task-level parallel dispatch with mode-aware gating (M44)
-  research-gate       Classify a guessed claim as internal (grep) or external (web) [M89]
+  research-gate       Classify a guessed claim: internal (grep) / external (web) / ambiguous (LLM judge) [M89]
 
 BACKLOG                                                                Manual
 ───────────────────────────────────────────────────────────────────────────────
@@ -518,12 +518,12 @@ Use these when user asks for help on a specific command:
 - **Contract**: `.gsd-t/contracts/model-profile-config-contract.md` v1.0.0 STABLE.
 
 ### research-gate (M89)
-- **Summary**: Deterministic CLASSIFY step of the M89 auto-research pipeline. Takes a load-bearing claim the agent tagged `[GUESSED:*]` in its Stated Claims section and classifies it as `internal` (grep/Read, never web) or `external` (web-research stage, Fable tier). No LLM call — pure signal-class detection over the claim text. The classifier is the seam D3/D4 wiring calls; the research `agent()` stage (model: "fable") only runs for external guesses. An ENFORCE marker (`<!-- auto-research-claim: ... status=uncited -->`) is written into the artifact at classify time; the verify gate FAILs if it stays uncited.
-- **Files**: `bin/gsd-t-research-gate.cjs` (D1). Contract: `.gsd-t/contracts/auto-research-contract.md` v1.2.0 STABLE. Stage prompt: `templates/prompts/research-subagent.md`. DETECT snippet: `templates/prompts/stated-claims-snippet.md`. Cite-format test: `test/m89-research-stage-cite-format.test.js`.
-- **Use when**: A workflow stage needs to classify a guessed claim before deciding whether to run a web-research sub-agent. Called by D3 (upper phases: plan, pre-mortem, partition, discuss, milestone) and D4 (worker phases: execute, debug, quick). NOT called manually — the wiring invokes it per `[GUESSED:*]` entry in the `## Stated Claims` section.
-- **CLI**: `gsd-t research-gate classify "<guessed claim text>"`. Emits `{ok, gap, class, route, reason}`. Exit 0 on classify · 1 on bad input.
-- **Classification rules**: external-signal set (proper noun / API / endpoint / rate-limit / spec / browser-behavior / version / OR a claim asserting external system behavior without proper nouns) → `class:external, route:web`. Internal-signal set (repo-relative path / local symbol / "this repo" anchor) → `class:internal, route:grep`. Ambiguous → `class:internal` (escalate to external if grep returns nothing — §5.1, owned by D3/D4).
-- **Contract**: `.gsd-t/contracts/auto-research-contract.md` v1.2.0 STABLE.
+- **Summary**: Deterministic CLASSIFY step of the M89 auto-research pipeline. Takes a load-bearing claim the agent tagged `[GUESSED:*]` in its Stated Claims section. The classifier is a MECHANICAL STRING-FACT FILTER (NOT a semantic oracle) returning one of THREE classes: `internal` (grep/Read, route `grep`), `external` (web-research, route `web`), or `ambiguous` (route `judge`). No LLM call in the classifier itself — semantic judgment is deferred to the wiring's LLM judge. An `ambiguous` claim is routed to a small LLM `classify-judge` stage (model: "fable") that decides internal/external/uncertain; **uncertain → research** (never guess-internal). The research `agent()` stage (model: "fable") runs for external guesses. An ENFORCE marker (`<!-- auto-research-claim: ... status=uncited -->`) is written into the artifact (a deterministic `.gsd-t/research/...` fallback if the stage reports no artifact path — fail-closed); the verify gate FAILs if it stays uncited.
+- **Files**: `bin/gsd-t-research-gate.cjs` (D1). Contract: `.gsd-t/contracts/auto-research-contract.md` v1.3.2 STABLE. Stage prompt: `templates/prompts/research-subagent.md`. DETECT snippet: `templates/prompts/stated-claims-snippet.md`. Cite-format test: `test/m89-research-stage-cite-format.test.js`.
+- **Use when**: A workflow stage needs to classify a guessed claim before deciding whether to grep, run a web-research sub-agent, or route to the LLM judge. Called by D3 (upper phases: plan, pre-mortem, partition, discuss, milestone) and D4 (worker phases: execute, debug, quick). NOT called manually — the wiring invokes it per `[GUESSED:*]` entry in the `## Stated Claims` section.
+- **CLI**: `gsd-t research-gate classify "<guessed claim text>"`. Emits `{ok, gap, class, route, reason}` where `class` ∈ {internal, external, ambiguous} and `route` ∈ {grep, web, judge}. Exit 0 on classify · 1 on bad input.
+- **Classification rules (string facts only — the v1.3.2 4-step priority)**: (1) a CONCRETE REPO PATH (`bin/x.cjs` / `*.workflow.js` / `gsd-t-*` / `templates/…`) → `internal` (a path is decisive, beats everything). (2) a STRONG EXTERNAL signal (unambiguous vendor proper-noun + API/protocol term) → at least ambiguous: with ANY anchor phrase present → `ambiguous`; with no anchor → `external`. NO anchor phrase ("this repo" / "exit code" / "who owns") may override a strong external signal — only a concrete path can. (3) an anchor with NO strong external → `internal`. (4) else → `ambiguous`. An `ambiguous` claim → LLM judge → uncertain→research (§1.1/§5.1, owned by D3/D4). The regex never guesses a paraphrase's semantic class.
+- **Contract**: `.gsd-t/contracts/auto-research-contract.md` v1.3.2 STABLE.
 
 ## Unknown Command
 

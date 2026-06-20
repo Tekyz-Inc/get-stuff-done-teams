@@ -233,8 +233,9 @@ if (guessedClaims.length === 0) {
     const claimSlug = claimKey.replace(/\s+/g, "-").slice(0, 80) || "claim";
     const externalArtifact = artifactPath || `${projectDir}/.gsd-t/research/quick-${claimSlug}.md`;
 
-    // §4.1 idempotency
-    const at = await readArtifact(artifactPath);
+    // §4.1 idempotency — read the path actually WRITTEN (externalArtifact = real OR fallback)
+    // so a re-run does not re-research a claim already cited in the fallback (Red Team MEDIUM).
+    const at = await readArtifact(externalArtifact);
     if (isAlreadyCited(at, claimKey)) {
       log(`Research: skip "${claimKey.slice(0, 50)}" — already cited`);
       continue;
@@ -292,38 +293,10 @@ if (guessedClaims.length === 0) {
       if (gr.found) {
         log(`Research: internal resolved by grep — no research needed`);
       } else {
-        // §5.1 escalation: grep-empty → escalate to external
+        // §5.1 escalation: grep-empty → escalate to external. Reuse doExternal() (same
+        // marker→research→cite→flip path, incl. the key: trailer) instead of duplicating it.
         log(`Research: grep empty — escalating to external (§5.1): "${claimText.slice(0, 50)}"${artifactPath ? "" : " (FALLBACK artifact)"}`);
-        {
-          const m = uncitedMarker(claimKey);
-          const sp = externalArtifact.replace(/'/g, "'\\''");
-          await agent(
-            `Ensure the parent dir exists, then append line \`${m}\` to \`${externalArtifact}\` if not already present. Use Bash: \`mkdir -p "$(dirname '${sp}')" && { grep -qF '${m.replace(/'/g, "'\\''")}' '${sp}' 2>/dev/null || echo '${m.replace(/'/g, "'\\''")}' >> '${sp}'; }\`. Return JSON: { "done": true }.`,
-            { label: "write-uncited-marker", model: "haiku", schema: { type: "object", required: ["done"], properties: { done: { type: "boolean" } }, additionalProperties: true }, phase: "Research" }
-          ).catch(() => {});
-          delete artifactCache[externalArtifact];
-        }
-        const er = await agent(
-          [
-            `Read \`${projectDir}/templates/prompts/research-subagent.md\`.`,
-            `Escalated (§5.1 ambiguous claim, grep found nothing): "${claimText}"`,
-            `Gap-key: "${claimKey}"`,
-            `Emit ## Verified Facts (auto-research) block. Append the trailer \`key: ${claimKey}\` on every fact line so the §7 gate matches by claim-key (Red Team MEDIUM #2). Return StructuredOutput JSON.`,
-          ].join("\n"),
-          { label: "research", model: "fable", schema: RESEARCH_RESULT_SCHEMA, phase: "Research" }
-        ).catch((e) => ({ ok: false, gapKey: claimKey, reason: String(e && e.message) }));
-
-        if (er && er.ok && er.citedBlock) {
-          const um = uncitedMarker(claimKey);
-          const cm = citedMarker(claimKey);
-          await agent(
-            `Ensure the parent dir of \`${externalArtifact}\` exists (Bash: \`mkdir -p "$(dirname '${externalArtifact.replace(/'/g, "'\\''")}')"\`). Then Edit \`${externalArtifact}\`: replace \`${um}\` with \`${cm}\`, append: \n${er.citedBlock}\nReturn JSON: { "done": true }.`,
-            { label: "flip-marker-cite", model: "haiku", schema: { type: "object", required: ["done"], properties: { done: { type: "boolean" }, action: { type: "string" } }, additionalProperties: true }, phase: "Research" }
-          ).catch(() => {});
-          log(`Research: escalated claim cited "${claimKey.slice(0, 50)}"`);
-        } else {
-          log(`Research: escalation failed for "${claimKey.slice(0, 50)}"`);
-        }
+        await doExternal();
       }
     };
 

@@ -210,8 +210,27 @@ describe("SEEN corpus — 13-item hand-labeled oracle (A1 kill gate)", () => {
 describe("HELD-OUT generalization corpus — anti-self-fulfilling-oracle guard (A1 kill gate)", () => {
   const items = heldoutCorpus.items;
 
-  test("held-out corpus fixture has exactly 14 items", () => {
-    assert.strictEqual(items.length, 14, `Expected 14 held-out items, got ${items.length}`);
+  test("held-out corpus fixture has exactly 17 items", () => {
+    assert.strictEqual(items.length, 17, `Expected 17 held-out items, got ${items.length}`);
+  });
+
+  // v1.3.2 class-closing guard: a DECISIVE anchor phrase ('exit code'/'who owns') paired
+  // with an external vendor must NOT route internal — only a CONCRETE REPO PATH beats a
+  // strong external signal. The Red Team noted EVERY prior 'exit code'/'who owns' fixture
+  // used an internal subject, which is why the silent-miss shipped uncaught.
+  test("DECISIVE anchor + external vendor → AMBIGUOUS (silent-miss class closed); concrete path → internal", () => {
+    const e8 = items.find((i) => i.id === "HO-E8"); // 'exit code' + Stripe API
+    const e9 = items.find((i) => i.id === "HO-E9"); // 'who owns' + Auth0 OAuth
+    const i8 = items.find((i) => i.id === "HO-I8"); // concrete path + Stripe
+    assert.ok(e8 && e9 && i8, "HO-E8 / HO-E9 / HO-I8 must exist in the held-out corpus");
+    assert.strictEqual(classify(e8.gap).class, "ambiguous",
+      `"${e8.gap}" must be AMBIGUOUS — 'exit code' anchor cannot override a strong external (Stripe API) signal`);
+    assert.strictEqual(classify(e9.gap).class, "ambiguous",
+      `"${e9.gap}" must be AMBIGUOUS — 'who owns' anchor cannot override a strong external (Auth0 OAuth) signal`);
+    assert.strictEqual(classify(i8.gap).class, "internal",
+      `"${i8.gap}" must be INTERNAL — a CONCRETE REPO PATH is the only string fact that beats a strong external signal`);
+    // Contrast: the SAME anchor phrases with an INTERNAL subject still route internal.
+    assert.strictEqual(classify("what exit code does cli-preflight use on a wrong branch?").class, "internal");
   });
 
   test("each held-out item has required keys incl. featureSignal", () => {

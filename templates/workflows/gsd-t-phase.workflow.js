@@ -322,12 +322,14 @@ async function runStatedClaimsPipeline(projectDir, phaseName, phaseResult, state
     const claimSlug = claimKey.replace(/\s+/g, "-").slice(0, 80) || "claim";
     const externalArtifact = primaryArtifact || `${projectDir}/.gsd-t/research/phase-${phaseName}-${claimSlug}.md`;
 
-    // § 4.1 Idempotency check: if the artifact already has a status=cited marker
-    // for this exact claim-key, skip (no re-research).
-    if (primaryArtifact) {
+    // § 4.1 Idempotency check: if the artifact already has a status=cited marker for this exact
+    // claim-key, skip (no re-research). Check the path actually WRITTEN (externalArtifact = real
+    // primaryArtifact OR the deterministic fallback) so a re-run does not re-research a claim
+    // already cited in the fallback artifact (Red Team MEDIUM).
+    {
       const idempotencyCheck = await agent(
         [
-          `Check if the file at "${primaryArtifact}" already contains an auto-research-claim marker with status=cited for the claim-key "${claimKey}".`,
+          `Check if the file at "${externalArtifact}" already contains an auto-research-claim marker with status=cited for the claim-key "${claimKey}".`,
           ``,
           `Search for an HTML comment matching:`,
           `  <!-- auto-research-claim: class=external key=${claimKey} status=cited -->`,

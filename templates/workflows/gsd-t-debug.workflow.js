@@ -153,9 +153,16 @@ const RESEARCH_RESULT_SCHEMA = {
 async function runResearchForClaim(projectDir, claimText, artifactPath, phaseName) {
   const claimKey = normalizeClaimKey(claimText);
 
-  // §4.1 idempotency check
-  if (artifactPath) {
-    const atxt = await agent(`Read \`${artifactPath}\` and return JSON: { "text": "<content>" }. If missing: { "text": "" }.`,
+  // FAIL-CLOSED (Red Team HIGH): artifactPath is self-reported + optional. An EXTERNAL (or
+  // ambiguous→escalated-external) guess MUST get its §7 uncited marker written SOMEWHERE so the
+  // §7 ENFORCE gate has something to fail on. Use a DETERMINISTIC FALLBACK ARTIFACT when none.
+  const claimSlug = claimKey.replace(/\s+/g, "-").slice(0, 80) || "claim";
+  const externalArtifact = artifactPath || `${projectDir}/.gsd-t/research/debug-${claimSlug}.md`;
+
+  // §4.1 idempotency check — read the path actually WRITTEN (externalArtifact = real OR
+  // fallback) so a re-run does not re-research a claim already cited in the fallback (MEDIUM).
+  {
+    const atxt = await agent(`Read \`${externalArtifact}\` and return JSON: { "text": "<content>" }. If missing: { "text": "" }.`,
       { label: "read-artifact", model: "haiku", schema: { type: "object", required: ["text"], properties: { text: { type: "string" } }, additionalProperties: false }, phase: phaseName })
       .catch(() => ({ text: "" }));
     if (isAlreadyCited((atxt && atxt.text) || "", claimKey)) {
@@ -170,12 +177,6 @@ async function runResearchForClaim(projectDir, claimText, artifactPath, phaseNam
     log(`Research: classify error — ${cls.stderr || JSON.stringify(envelope)}`);
     return;
   }
-
-  // FAIL-CLOSED (Red Team HIGH): artifactPath is self-reported + optional. An EXTERNAL (or
-  // ambiguous→escalated-external) guess MUST get its §7 uncited marker written SOMEWHERE so the
-  // §7 ENFORCE gate has something to fail on. Use a DETERMINISTIC FALLBACK ARTIFACT when none.
-  const claimSlug = claimKey.replace(/\s+/g, "-").slice(0, 80) || "claim";
-  const externalArtifact = artifactPath || `${projectDir}/.gsd-t/research/debug-${claimSlug}.md`;
 
   async function appendUncitedMarker(ap, key) {
     if (!ap) return;

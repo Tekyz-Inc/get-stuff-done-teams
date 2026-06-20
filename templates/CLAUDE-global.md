@@ -377,12 +377,16 @@ For every load-bearing claim you rely on in a phase, tag it:
   library version, SDK behavior) that may have changed. **DEFAULT = fail-toward-verify**: any such
   external fact without a FRESH cited source is treated as stale → research.
 
-**A `[GUESSED:*]` claim is then CLASSIFIED (`gsd-t research-gate classify "<claim>"`):**
+**A `[GUESSED:*]` claim is then CLASSIFIED (`gsd-t research-gate classify "<claim>"`) — a MECHANICAL
+string-fact filter returning one of THREE classes (v1.3.2):**
 - **`class: external`** → web-research stage runs (`model: "fable"`), writes a `## Verified Facts (auto-research)` block (URL + fetch date) into the artifact. A classify-time ENFORCE marker `<!-- auto-research-claim: class=external key=<key> status=uncited -->` is written; the verify gate FAILs if it stays `status=uncited`.
 - **`class: internal`** → grep/Read only; no web. Escalate to external only if grep returns nothing.
-
-**For a proper-noun-LESS claim that ASSERTS an external system's behavior / return-shape / limit / value
-WITHOUT a cited source:** route EXTERNAL (it is an unverified external assertion, not a default-internal).
+- **`class: ambiguous`** → the regex found no decisive STRING FACT, so it does NOT guess — the claim is
+  routed to an **LLM judge** (`model: "fable"`) that decides internal/external/uncertain in natural
+  language. **uncertain → research** (when unsure, verify — never guess-internal). This covers a
+  proper-noun-LESS external assertion, a vendor name with no API term, a bare symbol, or a generic anchor
+  phrase ("exit code"/"who owns") whose real subject is an external vendor — none of which is a string
+  fact, so none is regex's to place.
 
 **SC6 — Conversation-scope directive:** when answering the USER about an external or time-varying fact
 (API behavior, library version, pricing, rate limits, current best-practice), verify-or-flag before

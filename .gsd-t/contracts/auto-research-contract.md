@@ -1,12 +1,37 @@
 # Contract: Auto-Research Gate + Web-Research Stage (M89)
 
-## Version: 1.3.1
+## Version: 1.3.2
 ## Status: STABLE
 ## Owner: m89-d2-research-stage-and-contract
 ## Consumers: m89-d1-research-classifier-core, m89-d3-wiring-upper-phase-and-gate, m89-d4-wiring-worker-workflows
 ## Created: 2026-06-18 (M89 partition)
 
 ## Changelog
+- **v1.3.2 (2026-06-20 — M89 re-verify: the silent-miss class re-emerged via DECISIVE anchors, PATCH):**
+  the v1.3.1 fail-closed fix worked, but the silent-miss class re-emerged through a path the v1.3.1
+  conflict rule didn't cover — DECISIVE anchors. `classify()` tested `DECISIVE_INTERNAL_ANCHORS` FIRST and
+  returned `internal` BEFORE testing the strong-external signal, so a generic English phrase that happens
+  to be a "decisive" anchor ("exit code" / "who owns" / "this file") won outright even when the sentence's
+  real subject was an external vendor: *"What exit code does the Stripe API return on rate limit?"* →
+  `internal` (WRONG — never researched). The §5.1 grep backstop is unreliable (the haiku grep-resolver can
+  return found=true on shared repo vocabulary like "exit code" / "rate limit" / "webhook").
+  - **CLASS-CLOSING FIX — §1.1 decision priority rewritten to a strict 4-step rule** (see §1.1): the ONLY
+    truly-internal STRING-FACT is a CONCRETE REPO PATH (a path is unambiguous — it cannot also be an
+    external claim). An ANCHOR PHRASE (decisive OR broad) may NEVER override a strong external signal:
+    strong-external + ANY anchor → `ambiguous` (→ judge → uncertain→research); only a concrete path beats
+    a strong external signal. A generic English phrase can NEVER again route an external-vendor claim
+    internal — fixed at the rule level, not per instance.
+  - **Corpus:** added held-out rows pairing a DECISIVE anchor with an external vendor (HO-E8 "exit code" +
+    Stripe API → ambiguous; HO-E9 "who owns" + Auth0 OAuth → ambiguous; HO-I8 concrete path + Stripe →
+    internal), and re-labeled seen S2M5-F6 (this-repo DB fields VS the PayPal API return — a genuine
+    two-subject conflict) internal→ambiguous. The Red Team noted EVERY prior "exit code"/"who owns" fixture
+    used an internal subject, which is why this shipped uncaught.
+  - Also: §4.1 idempotency now reads the path actually WRITTEN (`externalArtifact` = real OR fallback) so a
+    re-run does not re-research a claim already cited in the fallback artifact (MEDIUM — wasted Fable, not
+    a correctness break). The §5.1 grep-empty escalation now CALLS `doExternal()` instead of duplicating
+    the marker/research/cite path (keeps the `key:` trailer in sync). Doc-drift: `commands/gsd-t-help.md`
+    + `templates/CLAUDE-global.md` updated to the 3-class / 3-route / LLM-judge / uncertain→research model.
+- **v1.3.1 (2026-06-20 — M89 re-verify after the 3-result refactor: 1 Red Team HIGH + 1 MEDIUM, PATCH):**
 - **v1.3.1 (2026-06-20 — M89 re-verify after the 3-result refactor: 1 Red Team HIGH + 1 MEDIUM, PATCH):**
   the regex-as-semantic-judge class is gone (the refactor worked — no classifier-misjudge finding). The
   re-verify Red Team found NEW, distinct issues:
@@ -235,6 +260,27 @@ The classifier returns one of **THREE** results:
   API-term co-signal (*"react useState returns a stateful value"*); a bare camelCase/kebab symbol
   (shape-identical to an external symbol, so not a string fact); single-word homographs that are also
   vendor names ("square"/"go"/"edge"); a generic "contract file"/"browser popup blocker" phrasing.
+
+**Decision priority — the durable, class-closing rule (v1.3.2).** The ONLY truly-internal STRING-FACT is
+a **CONCRETE REPO PATH** (a real path/file shape — `bin/x.cjs` / `templates/…` / `*.workflow.js` / a real
+`gsd-t-*` tool name). A path is unambiguous: it cannot ALSO be an external claim. An **anchor phrase**
+("this repo" / "our internal" / "exit code" / "who owns" / "this file") is a WEAKER signal — a generic
+English phrase that can appear in a sentence whose real subject is an external vendor (*"What exit code
+does the Stripe API return on rate limit?"*). So an anchor may NOT override a strong external signal.
+Evaluated in strict order:
+
+1. **CONCRETE REPO PATH present → `internal`** (decisive — a path is a path; wins over everything,
+   including a co-occurring vendor + API term).
+2. **else STRONG EXTERNAL signal present** (unambiguous vendor proper-noun + API/protocol term) → it is
+   at LEAST ambiguous. NO anchor (decisive OR broad) may override it: **strong-external + ANY anchor →
+   `ambiguous`** (→ judge → uncertain→research); **strong-external + no anchor → `external`**.
+3. **else anchor present, NO strong external → `internal`** (the this-repo signal stands).
+4. **else → `ambiguous`** (→ judge).
+
+Net effect: **an anchor phrase can only win `internal` when NO strong external signal co-occurs; only a
+concrete repo PATH beats a strong external signal.** A generic English phrase ("exit code"/"who owns"/
+"this file") can NEVER again route an external-vendor claim internal — the silent-miss class (which
+re-emerged via DECISIVE anchors after v1.3.1) is closed at the rule level, not patched per instance.
 
 **The `ambiguous` residue → LLM judge → uncertain → research (owned by the WIRING — §5.1 / D3+D4).**
 The classifier is a pure calculator; it does NOT make the semantic call. The 4 consuming workflows route

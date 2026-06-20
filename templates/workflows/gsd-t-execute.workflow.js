@@ -395,8 +395,10 @@ if (allGuessedClaims.length === 0) {
     const claimSlug = claimKey.replace(/\s+/g, "-").slice(0, 80) || "claim";
     const externalArtifact = artifactPath || `${projectDir}/.gsd-t/research/${(domain || "domain")}-${claimSlug}.md`;
 
-    // §4.1 idempotency — skip if already cited (exact key match)
-    const artifactText = await readArtifact(artifactPath);
+    // §4.1 idempotency — skip if already cited (exact key match). Read the path actually
+    // WRITTEN (externalArtifact = real path OR the deterministic fallback) so a re-run does
+    // NOT re-research a claim already cited in the fallback artifact (Red Team MEDIUM).
+    const artifactText = await readArtifact(externalArtifact);
     if (isAlreadyCited(artifactText, claimKey)) {
       log(`Research: skip "${claimKey.slice(0, 50)}" — already cited (§4.1 idempotent)`);
       continue;
@@ -450,30 +452,10 @@ if (allGuessedClaims.length === 0) {
         log(`Research: internal claim resolved by grep (${(grepResult.matches || []).join(", ").slice(0, 80)}) — no research needed`);
         // No marker, no research stage (A3 — internal class never enters research)
       } else {
-        // §5.1 ambiguous escalation: grep-empty → escalate to external → write marker → research + cite → flip
+        // §5.1 escalation: grep-empty → escalate to external. Reuse doExternal() (same
+        // marker→research→cite→flip path, incl. the key: trailer) instead of duplicating it.
         log(`Research: grep returned nothing — escalating ambiguous claim to external (§5.1): "${claimText.slice(0, 50)}"`);
-        await writeUncitedMarker(externalArtifact, claimKey);
-        const escalResearchPrompt = [
-          `Read \`${projectDir}/templates/prompts/research-subagent.md\` for the full research protocol.`,
-          `This claim was initially classified internal but grep/Read found no evidence in the repo.`,
-          `Escalating to external research (auto-research-contract §5.1 ambiguous escalation).`,
-          `Claim: "${claimText}"`,
-          `Gap-key (normalized): "${claimKey}"`,
-          `Emit a ## Verified Facts (auto-research) block with source URL + fetch date. Append the trailer \`key: ${claimKey}\` on every fact line so the §7 gate matches by claim-key (Red Team MEDIUM #2). Return StructuredOutput JSON.`,
-        ].join("\n");
-        const escalResult = await agent(escalResearchPrompt, {
-          label: "research",
-          model: "fable",
-          schema: RESEARCH_RESULT_SCHEMA,
-          phase: "Research",
-        }).catch((e) => ({ ok: false, gapKey: claimKey, reason: `escalation research error: ${e && e.message}` }));
-
-        if (escalResult && escalResult.ok && escalResult.citedBlock) {
-          await writeMarkerAndCite(externalArtifact, claimKey, escalResult.citedBlock);
-          log(`Research: escalated claim "${claimKey.slice(0, 50)}" — cited + marker flipped`);
-        } else {
-          log(`Research: escalation research FAILED for "${claimKey.slice(0, 50)}" — marker stays uncited`);
-        }
+        await doExternal();
       }
     };
 
