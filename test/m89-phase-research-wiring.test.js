@@ -342,6 +342,36 @@ describe("T3.2 — §7 Marker lifecycle: format + normalization + flip", () => {
       "Phase workflow must contain a marker flip from status=uncited to status=cited"
     );
   });
+
+  // FAIL-CLOSED (Red Team HIGH): when the phase reports no artifact path, the external/escalation
+  // §7 marker write MUST still happen, to a deterministic fallback artifact under .gsd-t/research/.
+  test("phase workflow defines a deterministic externalArtifact fallback (.gsd-t/research/) — fail-closed", () => {
+    assert.ok(
+      phaseSource.includes("externalArtifact"),
+      "Phase workflow must define an externalArtifact (real primaryArtifact OR deterministic fallback)"
+    );
+    assert.ok(
+      /\.gsd-t\/research\//.test(phaseSource),
+      "Phase workflow fallback artifact must be under .gsd-t/research/ (always writable)"
+    );
+    // The external/escalation marker write must target externalArtifact, not be silently skipped on null.
+    assert.ok(
+      phaseSource.includes('"${externalArtifact}"') || phaseSource.includes("${externalArtifact}"),
+      "Phase workflow external/escalation marker writes must target externalArtifact (no silent skip when no path)"
+    );
+  });
+
+  test("phase workflow does NOT silently skip the external marker write when primaryArtifact is null", () => {
+    // The OLD bug: `if (primaryArtifact) { ...markerWrite... }` on the external path skipped silently.
+    // After the fix, the external-path marker write is unconditional (targets externalArtifact).
+    // The only remaining `if (primaryArtifact)` should be the read-only idempotency check.
+    const occurrences = (phaseSource.match(/if \(primaryArtifact\)/g) || []).length;
+    assert.ok(
+      occurrences <= 1,
+      `Phase workflow should have at most ONE 'if (primaryArtifact)' (the read-only idempotency check); ` +
+        `found ${occurrences} — an external-path marker write may still be silently guarded (fail-silent bug)`
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------

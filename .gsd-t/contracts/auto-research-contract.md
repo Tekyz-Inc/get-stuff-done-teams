@@ -1,12 +1,42 @@
 # Contract: Auto-Research Gate + Web-Research Stage (M89)
 
-## Version: 1.3.0
+## Version: 1.3.1
 ## Status: STABLE
 ## Owner: m89-d2-research-stage-and-contract
 ## Consumers: m89-d1-research-classifier-core, m89-d3-wiring-upper-phase-and-gate, m89-d4-wiring-worker-workflows
 ## Created: 2026-06-18 (M89 partition)
 
 ## Changelog
+- **v1.3.1 (2026-06-20 — M89 re-verify after the 3-result refactor: 1 Red Team HIGH + 1 MEDIUM, PATCH):**
+  the regex-as-semantic-judge class is gone (the refactor worked — no classifier-misjudge finding). The
+  re-verify Red Team found NEW, distinct issues:
+  - **HIGH — A4/SC4 was FAIL-SILENT, now FAIL-CLOSED.** Every marker/research write was guarded by
+    `if (artifactPath)` / `if (!artifactPath) return`, and `artifactPath` is agent-SELF-REPORTED +
+    OPTIONAL. A stage emitting a load-bearing GUESSED EXTERNAL (or ambiguous→escalated-external) claim
+    but reporting NO artifact path → no uncited marker written anywhere → the §7 ENFORCE gate found zero
+    markers → `pass=true` → the external guess shipped uncited+unresearched (the exact invariant M89
+    enforces, silently bypassed). FIX (all 4 workflows): the external/escalation path now writes its §7
+    marker + research/cite to a **DETERMINISTIC FALLBACK ARTIFACT** — `.gsd-t/research/<phase-or-domain>-
+    <claim-slug>.md` (claim-keyed, `mkdir -p` first) — whenever no real artifact was reported, so the
+    marker is ALWAYS written and the §7 gate ALWAYS has something to fail on. The silent
+    `if (artifactPath)` early-outs are removed from the external/ambiguous-external path (internal/grep
+    still no-ops safely). A test asserts an external claim with NO artifactPath still produces an uncited
+    marker in the fallback artifact and the §7 gate FAILs on it pre-research.
+  - **MEDIUM — classifier internal-anchor vs vendor+API conflict.** A bare/broad anchor ("our" / "the
+    repo" / "the existing") used to win `internal` BEFORE the vendor+API external signal was tested, so
+    *"Our users authenticate via the Auth0 OAuth endpoint…"* mis-classified internal. FIX: the anchor set
+    is split into **DECISIVE** ("this repo" / "this repo's" / "our internal" / "exit code" / "which X
+    owns" / "in this project" / …) which still win outright, and **BROAD** ("our" / "the repo" / "the
+    existing" / "our module/file/existing") which yield to a STRONG external signal: a broad anchor +
+    (vendor proper-noun + API term) is a CONFLICT → `ambiguous` (→ LLM judge → uncertain→research), never
+    silently internal. A broad anchor with NO strong external signal still classifies internal.
+  - Also fixed: the execute §5.1 escalation research prompt now emits the `key: ${claimKey}` trailer
+    (parity with the primary path) — closes the code-review-important hollow-cited risk in mixed
+    keyed/un-keyed artifacts; quick + debug emit it in BOTH paths too. Deleted the dead/stale
+    `CLASSIFY_RESULT_SCHEMA` in `gsd-t-phase.workflow.js` (its enum omitted ambiguous/judge).
+- **v1.3.0 (2026-06-20 — M89 PREMISE CORRECTION #3, MINOR — the classify interface is now 3-result):**
+  the 4-verify-cycle Red Team thrash on the classifier had ONE root cause: the classifier was built as
+  ~745 LOC of hand-fit regexes that tried to SEMANTICALLY decide "is this an external claim?" A regex
 - **v1.3.0 (2026-06-20 — M89 PREMISE CORRECTION #3, MINOR — the classify interface is now 3-result):**
   the 4-verify-cycle Red Team thrash on the classifier had ONE root cause: the classifier was built as
   ~745 LOC of hand-fit regexes that tried to SEMANTICALLY decide "is this an external claim?" A regex
@@ -479,6 +509,14 @@ machine-readable marker into the artifact AT CLASSIFY TIME for each external gue
   PASSES. This is what makes A4/A5 enforceable: a guess that proceeds uncited is caught by the marker
   even if the agent wrote nothing further into the artifact.
 - The marker is HTML-comment (invisible in rendered markdown, machine-grep-able by the gate).
+- **FAIL-CLOSED fallback artifact (v1.3.1, Red Team HIGH).** The marker target (`artifactPath`) is
+  agent-self-reported and OPTIONAL. The wiring MUST NOT silently skip the marker write when no path is
+  reported — that would let an external guess ship uncited+unresearched (the gate would scan, find no
+  markers, and pass). So when a stage has an external (or ambiguous→escalated-external) guessed claim but
+  NO reported artifact path, the wiring writes the uncited marker + research/cite to a DETERMINISTIC
+  FALLBACK ARTIFACT: `.gsd-t/research/<phase-or-domain>-<claim-slug>.md` (claim-keyed; `mkdir -p` first).
+  The marker is therefore ALWAYS written somewhere the §7 gate scans, so the gate ALWAYS has something to
+  fail on. (Internal/grep claims still no-op safely with no marker.)
 - Idempotency (§4.1): re-running a phase whose marker is already `status=cited` (matching claim-key)
   performs ZERO additional research.
 

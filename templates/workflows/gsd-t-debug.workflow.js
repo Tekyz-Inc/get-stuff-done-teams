@@ -171,11 +171,18 @@ async function runResearchForClaim(projectDir, claimText, artifactPath, phaseNam
     return;
   }
 
+  // FAIL-CLOSED (Red Team HIGH): artifactPath is self-reported + optional. An EXTERNAL (or
+  // ambiguous→escalated-external) guess MUST get its §7 uncited marker written SOMEWHERE so the
+  // §7 ENFORCE gate has something to fail on. Use a DETERMINISTIC FALLBACK ARTIFACT when none.
+  const claimSlug = claimKey.replace(/\s+/g, "-").slice(0, 80) || "claim";
+  const externalArtifact = artifactPath || `${projectDir}/.gsd-t/research/debug-${claimSlug}.md`;
+
   async function appendUncitedMarker(ap, key) {
     if (!ap) return;
     const m = uncitedMarker(key);
+    const sp = ap.replace(/'/g, "'\\''");
     await agent(
-      `Append \`${m}\` to \`${ap}\` if not already present. Bash: \`grep -qF '${m.replace(/'/g, "'\\''")}' '${ap}' || echo '${m.replace(/'/g, "'\\''")}' >> '${ap}'\`. Return JSON: { "done": true }.`,
+      `Ensure the parent dir exists, then append \`${m}\` to \`${ap}\` if not already present. Bash: \`mkdir -p "$(dirname '${sp}')" && { grep -qF '${m.replace(/'/g, "'\\''")}' '${sp}' 2>/dev/null || echo '${m.replace(/'/g, "'\\''")}' >> '${sp}'; }\`. Return JSON: { "done": true }.`,
       { label: "write-uncited-marker", model: "haiku", schema: { type: "object", required: ["done"], properties: { done: { type: "boolean" } }, additionalProperties: true }, phase: phaseName }
     ).catch(() => {});
   }
@@ -185,7 +192,7 @@ async function runResearchForClaim(projectDir, claimText, artifactPath, phaseNam
     const um = uncitedMarker(key);
     const cm = citedMarker(key);
     await agent(
-      `Edit \`${ap}\`: replace \`${um}\` with \`${cm}\`, then append:\n${citedBlock}\nReturn JSON: { "done": true }.`,
+      `Ensure the parent dir of \`${ap}\` exists (Bash: \`mkdir -p "$(dirname '${ap.replace(/'/g, "'\\''")}')"\`). Then Edit \`${ap}\` (create if missing): replace \`${um}\` with \`${cm}\`, then append:\n${citedBlock}\nReturn JSON: { "done": true }.`,
       { label: "flip-marker-cite", model: "haiku", schema: { type: "object", required: ["done"], properties: { done: { type: "boolean" }, action: { type: "string" } }, additionalProperties: true }, phase: phaseName }
     ).catch(() => {});
   }
@@ -193,19 +200,19 @@ async function runResearchForClaim(projectDir, claimText, artifactPath, phaseNam
   // External-claim handler closure (reused by the ambiguous→judge path).
   const doExternal = async () => {
     log(`Research: external failure-root → research(fable) instead of patch-guess for "${claimKey.slice(0, 50)}"`);
-    await appendUncitedMarker(artifactPath, claimKey);
+    await appendUncitedMarker(externalArtifact, claimKey);
     const rr = await agent(
       [
         `Read \`${projectDir}/templates/prompts/research-subagent.md\` for the research protocol.`,
         `Debug failure-root claim (external): "${claimText}"`,
         `Gap-key: "${claimKey}"`,
-        `Emit ## Verified Facts (auto-research) block with source URL + fetch date. Return StructuredOutput JSON.`,
+        `Emit ## Verified Facts (auto-research) block with source URL + fetch date. Append the trailer \`key: ${claimKey}\` on every fact line so the §7 gate matches by claim-key (Red Team MEDIUM #2). Return StructuredOutput JSON.`,
       ].join("\n"),
       { label: "research", model: "fable", schema: RESEARCH_RESULT_SCHEMA, phase: phaseName }
     ).catch((e) => ({ ok: false, gapKey: claimKey, reason: String(e && e.message) }));
 
     if (rr && rr.ok && rr.citedBlock) {
-      await flipAndCite(artifactPath, claimKey, rr.citedBlock);
+      await flipAndCite(externalArtifact, claimKey, rr.citedBlock);
       log(`Research: cited debug claim "${claimKey.slice(0, 50)}"`);
     } else {
       log(`Research: research failed for "${claimKey.slice(0, 50)}" — uncited marker remains`);
@@ -221,19 +228,19 @@ async function runResearchForClaim(projectDir, claimText, artifactPath, phaseNam
     } else {
       // §5.1 escalation
       log(`Research: grep empty — escalating to external (§5.1): "${claimText.slice(0, 50)}"`);
-      await appendUncitedMarker(artifactPath, claimKey);
+      await appendUncitedMarker(externalArtifact, claimKey);
       const er = await agent(
         [
           `Read \`${projectDir}/templates/prompts/research-subagent.md\`.`,
           `Debug escalation (§5.1 — grep returned nothing): "${claimText}"`,
           `Gap-key: "${claimKey}"`,
-          `Emit ## Verified Facts (auto-research) block. Return StructuredOutput JSON.`,
+          `Emit ## Verified Facts (auto-research) block. Append the trailer \`key: ${claimKey}\` on every fact line so the §7 gate matches by claim-key (Red Team MEDIUM #2). Return StructuredOutput JSON.`,
         ].join("\n"),
         { label: "research", model: "fable", schema: RESEARCH_RESULT_SCHEMA, phase: phaseName }
       ).catch((e) => ({ ok: false, gapKey: claimKey, reason: String(e && e.message) }));
 
       if (er && er.ok && er.citedBlock) {
-        await flipAndCite(artifactPath, claimKey, er.citedBlock);
+        await flipAndCite(externalArtifact, claimKey, er.citedBlock);
         log(`Research: escalated debug claim cited "${claimKey.slice(0, 50)}"`);
       } else {
         log(`Research: escalation research failed for "${claimKey.slice(0, 50)}"`);

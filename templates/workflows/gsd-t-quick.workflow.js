@@ -227,6 +227,12 @@ if (guessedClaims.length === 0) {
   for (const { claimText, artifactPath } of guessedClaims) {
     const claimKey = normalizeClaimKey(claimText);
 
+    // FAIL-CLOSED (Red Team HIGH): artifactPath is self-reported + optional. An EXTERNAL (or
+    // ambiguous→escalated-external) guess MUST get its §7 uncited marker written SOMEWHERE so the
+    // §7 ENFORCE gate has something to fail on. Use a DETERMINISTIC FALLBACK ARTIFACT when none.
+    const claimSlug = claimKey.replace(/\s+/g, "-").slice(0, 80) || "claim";
+    const externalArtifact = artifactPath || `${projectDir}/.gsd-t/research/quick-${claimSlug}.md`;
+
     // §4.1 idempotency
     const at = await readArtifact(artifactPath);
     if (isAlreadyCited(at, claimKey)) {
@@ -243,15 +249,16 @@ if (guessedClaims.length === 0) {
 
     // External-claim handler closure (reused by the ambiguous→judge path).
     const doExternal = async () => {
-      log(`Research: external → marker + research(fable) for "${claimKey.slice(0, 50)}"`);
-      // §7 write uncited marker
-      if (artifactPath) {
+      log(`Research: external → marker + research(fable) for "${claimKey.slice(0, 50)}"${artifactPath ? "" : " (FALLBACK artifact — no reported path)"}`);
+      // §7 write uncited marker to the real OR fallback artifact — ALWAYS (fail-CLOSED)
+      {
         const m = uncitedMarker(claimKey);
+        const sp = externalArtifact.replace(/'/g, "'\\''");
         await agent(
-          `Append line \`${m}\` to \`${artifactPath}\` if not already present. Use Bash: \`grep -qF '${m.replace(/'/g, "'\\''")}' '${artifactPath}' || echo '${m.replace(/'/g, "'\\''")}' >> '${artifactPath}'\`. Return JSON: { "done": true }.`,
+          `Ensure the parent dir exists, then append line \`${m}\` to \`${externalArtifact}\` if not already present. Use Bash: \`mkdir -p "$(dirname '${sp}')" && { grep -qF '${m.replace(/'/g, "'\\''")}' '${sp}' 2>/dev/null || echo '${m.replace(/'/g, "'\\''")}' >> '${sp}'; }\`. Return JSON: { "done": true }.`,
           { label: "write-uncited-marker", model: "haiku", schema: { type: "object", required: ["done"], properties: { done: { type: "boolean" } }, additionalProperties: true }, phase: "Research" }
         ).catch(() => {});
-        delete artifactCache[artifactPath];
+        delete artifactCache[externalArtifact];
       }
       // §2 research agent — bare literal model: "fable"
       const rr = await agent(
@@ -259,17 +266,17 @@ if (guessedClaims.length === 0) {
           `Read \`${projectDir}/templates/prompts/research-subagent.md\` for the research protocol.`,
           `Verify this external guessed claim: "${claimText}"`,
           `Gap-key: "${claimKey}"`,
-          `Emit ## Verified Facts (auto-research) block with source URL + fetch date. Return StructuredOutput JSON.`,
+          `Emit ## Verified Facts (auto-research) block with source URL + fetch date. Append the trailer \`key: ${claimKey}\` on every fact line so the §7 gate matches by claim-key (Red Team MEDIUM #2). Return StructuredOutput JSON.`,
         ].join("\n"),
         { label: "research", model: "fable", schema: RESEARCH_RESULT_SCHEMA, phase: "Research" }
       ).catch((e) => ({ ok: false, gapKey: claimKey, reason: String(e && e.message) }));
 
-      if (rr && rr.ok && rr.citedBlock && artifactPath) {
-        // §7 flip to cited + write cited block
+      if (rr && rr.ok && rr.citedBlock) {
+        // §7 flip to cited + write cited block (real OR fallback artifact)
         const um = uncitedMarker(claimKey);
         const cm = citedMarker(claimKey);
         await agent(
-          `Edit \`${artifactPath}\`: replace the line \`${um}\` with \`${cm}\`, then append the following block if not already present:\n\`\`\`\n${rr.citedBlock}\n\`\`\`\nUse Read then Edit/Write tools. Return JSON: { "done": true, "action": "cited" }.`,
+          `Ensure the parent dir of \`${externalArtifact}\` exists (Bash: \`mkdir -p "$(dirname '${externalArtifact.replace(/'/g, "'\\''")}')"\`). Then Edit \`${externalArtifact}\`: replace the line \`${um}\` with \`${cm}\`, then append the following block if not already present:\n\`\`\`\n${rr.citedBlock}\n\`\`\`\nUse Read then Edit/Write tools. Return JSON: { "done": true, "action": "cited" }.`,
           { label: "flip-marker-cite", model: "haiku", schema: { type: "object", required: ["done"], properties: { done: { type: "boolean" }, action: { type: "string" } }, additionalProperties: true }, phase: "Research" }
         ).catch(() => {});
         log(`Research: cited "${claimKey.slice(0, 50)}"`);
@@ -286,30 +293,31 @@ if (guessedClaims.length === 0) {
         log(`Research: internal resolved by grep — no research needed`);
       } else {
         // §5.1 escalation: grep-empty → escalate to external
-        log(`Research: grep empty — escalating to external (§5.1): "${claimText.slice(0, 50)}"`);
-        if (artifactPath) {
+        log(`Research: grep empty — escalating to external (§5.1): "${claimText.slice(0, 50)}"${artifactPath ? "" : " (FALLBACK artifact)"}`);
+        {
           const m = uncitedMarker(claimKey);
+          const sp = externalArtifact.replace(/'/g, "'\\''");
           await agent(
-            `Append line \`${m}\` to \`${artifactPath}\` if not already present. Use Bash: \`grep -qF '${m.replace(/'/g, "'\\''")}' '${artifactPath}' || echo '${m.replace(/'/g, "'\\''")}' >> '${artifactPath}'\`. Return JSON: { "done": true }.`,
+            `Ensure the parent dir exists, then append line \`${m}\` to \`${externalArtifact}\` if not already present. Use Bash: \`mkdir -p "$(dirname '${sp}')" && { grep -qF '${m.replace(/'/g, "'\\''")}' '${sp}' 2>/dev/null || echo '${m.replace(/'/g, "'\\''")}' >> '${sp}'; }\`. Return JSON: { "done": true }.`,
             { label: "write-uncited-marker", model: "haiku", schema: { type: "object", required: ["done"], properties: { done: { type: "boolean" } }, additionalProperties: true }, phase: "Research" }
           ).catch(() => {});
-          delete artifactCache[artifactPath];
+          delete artifactCache[externalArtifact];
         }
         const er = await agent(
           [
             `Read \`${projectDir}/templates/prompts/research-subagent.md\`.`,
             `Escalated (§5.1 ambiguous claim, grep found nothing): "${claimText}"`,
             `Gap-key: "${claimKey}"`,
-            `Emit ## Verified Facts (auto-research) block. Return StructuredOutput JSON.`,
+            `Emit ## Verified Facts (auto-research) block. Append the trailer \`key: ${claimKey}\` on every fact line so the §7 gate matches by claim-key (Red Team MEDIUM #2). Return StructuredOutput JSON.`,
           ].join("\n"),
           { label: "research", model: "fable", schema: RESEARCH_RESULT_SCHEMA, phase: "Research" }
         ).catch((e) => ({ ok: false, gapKey: claimKey, reason: String(e && e.message) }));
 
-        if (er && er.ok && er.citedBlock && artifactPath) {
+        if (er && er.ok && er.citedBlock) {
           const um = uncitedMarker(claimKey);
           const cm = citedMarker(claimKey);
           await agent(
-            `Edit \`${artifactPath}\`: replace \`${um}\` with \`${cm}\`, append: \n${er.citedBlock}\nReturn JSON: { "done": true }.`,
+            `Ensure the parent dir of \`${externalArtifact}\` exists (Bash: \`mkdir -p "$(dirname '${externalArtifact.replace(/'/g, "'\\''")}')"\`). Then Edit \`${externalArtifact}\`: replace \`${um}\` with \`${cm}\`, append: \n${er.citedBlock}\nReturn JSON: { "done": true }.`,
             { label: "flip-marker-cite", model: "haiku", schema: { type: "object", required: ["done"], properties: { done: { type: "boolean" }, action: { type: "string" } }, additionalProperties: true }, phase: "Research" }
           ).catch(() => {});
           log(`Research: escalated claim cited "${claimKey.slice(0, 50)}"`);

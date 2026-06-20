@@ -88,26 +88,37 @@ function boundaryMatch(lowerText, token) {
 // question phrasing) is NOT a string fact → it falls through to ambiguous.
 
 /**
- * Explicit "this repo" anchor phrases. Presence ⇒ the claim is about THIS repo's own
- * code/structure — a string-fact internal signal. (Interrogative/question words are
- * deliberately ABSENT: they are neutral and the natural way to phrase an external
- * research question, so they must never pull internal.)
+ * DECISIVE this-repo anchors — SPECIFIC string facts that unambiguously name THIS repo's
+ * own code/structure. These WIN outright (internal) even if a vendor proper-noun + API
+ * term also co-occur: "does the resolver clamp the model in this repo?" is about this
+ * repo regardless of any external mention. (Interrogative words are deliberately ABSENT —
+ * they are neutral and the natural way to phrase an external research question.)
  */
-const INTERNAL_ANCHOR_PHRASES = [
+const DECISIVE_INTERNAL_ANCHORS = [
   "this repo", "this repo's", "repo's",
-  "our repo", "the repo",
-  "this codebase", "our codebase",
+  "our repo", "this codebase", "our codebase",
   "in this project", "our project",
-  "this module", "our module",
-  "this file", "our file",
-  "the existing", "our existing",
+  "this module", "this file",
   "in the codebase",
-  // bare possessive this-repo anchors
-  "our", "our internal",
+  "our internal",
   // ownership / file-system phrasings genuinely about this repo's structure
   "which domain owns", "which file owns", "who owns",
   // exit code / return value of THIS module
   "exit code",
+];
+
+/**
+ * BROAD this-repo anchors — bare/generic phrases ("our", "the repo", "the existing", …).
+ * They signal internal ONLY when NO strong external signal co-occurs. When an unambiguous
+ * vendor proper-noun + API term co-occurs, a bare anchor is a CONFLICT, not a string fact:
+ * "Our users authenticate via the Auth0 OAuth endpoint" is NOT decisively about this repo
+ * just because it says "our" → the conflict routes to AMBIGUOUS (→ LLM judge → research),
+ * never silently internal (Red Team MEDIUM).
+ */
+const BROAD_INTERNAL_ANCHORS = [
+  "the repo", "our module", "our file",
+  "the existing", "our existing",
+  "our",
 ];
 
 /**
@@ -194,23 +205,24 @@ function classify(gap) {
   const lower = trimmed.toLowerCase();
 
   // ── Internal string-fact signals ──────────────────────────────────────────
-  const matchedAnchor = INTERNAL_ANCHOR_PHRASES.find((p) => boundaryMatch(lower, p));
+  const matchedDecisiveAnchor = DECISIVE_INTERNAL_ANCHORS.find((p) => boundaryMatch(lower, p));
+  const matchedBroadAnchor = BROAD_INTERNAL_ANCHORS.find((p) => boundaryMatch(lower, p));
   const matchedPath = INTERNAL_FILE_PATTERNS.find((p) => boundaryMatch(lower, p));
 
   // ── External string-fact signal: vendor proper-noun AND an API/protocol term ─
   const matchedVendor = EXTERNAL_VENDOR_NOUNS.find((v) => boundaryMatch(lower, v));
   const matchedApiTerm = EXTERNAL_API_TERMS.find((t) => boundaryMatch(lower, t));
+  const hasStrongExternal = !!matchedVendor && !!matchedApiTerm;
 
   // ── Decision (string facts only — no belief, no semantic guessing) ──────────
   //
-  // An explicit repo anchor or a concrete repo path/file/tool shape is a string fact
-  // that the claim is about THIS repo → internal. (Internal anchor takes precedence:
-  // "what rate limit does OUR INTERNAL api gateway enforce" is about this repo even
-  // though it also names an api term.)
-  if (matchedAnchor) {
+  // 1. A DECISIVE this-repo anchor or a concrete repo path/file/tool shape is a string
+  //    fact that the claim is about THIS repo → internal. These WIN even over a
+  //    co-occurring vendor+API term ("does the resolver clamp the model in this repo?").
+  if (matchedDecisiveAnchor) {
     return {
       ok: true, gap: trimmed, class: "internal", route: "grep",
-      reason: `Internal string-fact: this-repo anchor "${matchedAnchor}" — concerns this repo's own code/structure`,
+      reason: `Internal string-fact: decisive this-repo anchor "${matchedDecisiveAnchor}" — concerns this repo's own code/structure`,
     };
   }
   if (matchedPath) {
@@ -220,12 +232,31 @@ function classify(gap) {
     };
   }
 
-  // An unambiguous vendor proper noun co-occurring with an API/protocol term is a
-  // string fact that the claim is about an external system's contract → external.
-  if (matchedVendor && matchedApiTerm) {
+  // 2. CONFLICT: a BARE/broad anchor ("our"/"the repo"/"the existing") co-occurring with a
+  //    STRONG external signal (vendor proper-noun + API term) is NOT a string fact — it is
+  //    a conflict ("Our users authenticate via the Auth0 OAuth endpoint"). Route AMBIGUOUS
+  //    → LLM judge → uncertain→research, NEVER silently internal (Red Team MEDIUM).
+  if (matchedBroadAnchor && hasStrongExternal) {
+    return {
+      ok: true, gap: trimmed, class: "ambiguous", route: "judge",
+      reason: `Ambiguous CONFLICT: broad anchor "${matchedBroadAnchor}" co-occurs with a strong external signal (vendor "${matchedVendor}" + API term "${matchedApiTerm}") — a bare anchor is not a string fact here; the LLM judge decides (uncertain → research)`,
+    };
+  }
+
+  // 3. An unambiguous vendor proper noun co-occurring with an API/protocol term (and no
+  //    overriding internal anchor/path) is a string fact about an external system → external.
+  if (hasStrongExternal) {
     return {
       ok: true, gap: trimmed, class: "external", route: "web",
       reason: `External string-fact: vendor proper noun "${matchedVendor}" + API/protocol term "${matchedApiTerm}" — concerns an external system's contract`,
+    };
+  }
+
+  // 4. A bare/broad anchor with NO strong external signal is still a this-repo signal → internal.
+  if (matchedBroadAnchor) {
+    return {
+      ok: true, gap: trimmed, class: "internal", route: "grep",
+      reason: `Internal string-fact: this-repo anchor "${matchedBroadAnchor}" — concerns this repo's own code/structure`,
     };
   }
 

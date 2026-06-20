@@ -350,7 +350,8 @@ if (allGuessedClaims.length === 0) {
     const prompt = [
       `You are performing a precise file edit. Path: \`${artifactPath}\`.`,
       `Do the following in order:`,
-      `1. Read the file (use the Read tool).`,
+      `0. Ensure the parent directory exists (Bash: \`mkdir -p "$(dirname '${artifactPath.replace(/'/g, "'\\''")}')"\`) — the path may be a deterministic fallback artifact that does not exist yet.`,
+      `1. Read the file (use the Read tool). If it does not exist, treat its content as empty.`,
       `2. If the file does not contain the line \`${marker}\`, APPEND this block to the end of the file:`,
       `   \`\`\``,
       `   ${marker}`,
@@ -369,10 +370,11 @@ if (allGuessedClaims.length === 0) {
   async function writeUncitedMarker(artifactPath, claimKey) {
     if (!artifactPath) return;
     const marker = uncitedMarker(claimKey);
+    const safePath = artifactPath.replace(/'/g, "'\\''");
     const prompt = [
-      `Append this line to the file \`${artifactPath}\` (only if not already present — exact string match):`,
+      `Ensure the parent directory exists, then append this line to the file \`${artifactPath}\` (only if not already present — exact string match):`,
       `\`${marker}\``,
-      `Use Bash: \`grep -qF '${marker.replace(/'/g, "'\\''")}' '${artifactPath}' || echo '${marker.replace(/'/g, "'\\''")}' >> '${artifactPath}'\``,
+      `Use Bash: \`mkdir -p "$(dirname '${safePath}')" && { grep -qF '${marker.replace(/'/g, "'\\''")}' '${safePath}' 2>/dev/null || echo '${marker.replace(/'/g, "'\\''")}' >> '${safePath}'; }\``,
       `Return JSON: { "done": true }.`,
     ].join("\n");
     await agent(prompt, { label: "write-uncited-marker", model: "haiku", schema: { type: "object", required: ["done"], properties: { done: { type: "boolean" } }, additionalProperties: true }, phase: "Research" })
@@ -384,6 +386,14 @@ if (allGuessedClaims.length === 0) {
   for (const { claimText, domain, artifactPath, rawLine } of allGuessedClaims) {
     const claimKey = normalizeClaimKey(claimText);
     log(`Research: classifying claim "${claimText.slice(0, 60)}" [domain=${domain}]`);
+
+    // FAIL-CLOSED (Red Team HIGH): artifactPath is worker-self-reported + optional. An EXTERNAL
+    // (or ambiguous→escalated-external) guess MUST still get its §7 uncited marker written
+    // SOMEWHERE, or the §7 ENFORCE gate finds nothing and the guess ships uncited+unresearched.
+    // So the external/escalation path writes to a DETERMINISTIC FALLBACK ARTIFACT when the worker
+    // reported no path. Internal/grep can still no-op safely.
+    const claimSlug = claimKey.replace(/\s+/g, "-").slice(0, 80) || "claim";
+    const externalArtifact = artifactPath || `${projectDir}/.gsd-t/research/${(domain || "domain")}-${claimSlug}.md`;
 
     // §4.1 idempotency — skip if already cited (exact key match)
     const artifactText = await readArtifact(artifactPath);
@@ -403,9 +413,9 @@ if (allGuessedClaims.length === 0) {
     // External-claim handler (§7 marker → research(fable) → cite → flip). Closure so the
     // ambiguous→judge path reuses it for an "external"/"uncertain" verdict.
     const doExternal = async () => {
-      log(`Research: external claim → write §7 marker + fable research for "${claimKey.slice(0, 50)}"`);
-      // §7: write uncited marker at classify time
-      await writeUncitedMarker(artifactPath, claimKey);
+      log(`Research: external claim → write §7 marker + fable research for "${claimKey.slice(0, 50)}"${artifactPath ? "" : " (FALLBACK artifact — worker reported no path)"}`);
+      // §7: write uncited marker at classify time (to the real OR fallback artifact — fail-CLOSED)
+      await writeUncitedMarker(externalArtifact, claimKey);
 
       // §2: research agent — bare "fable" tier literal (NOT the ??-override form; contract §2)
       const researchPrompt = [
@@ -424,8 +434,8 @@ if (allGuessedClaims.length === 0) {
       }).catch((e) => ({ ok: false, gapKey: claimKey, reason: `research agent error: ${e && e.message}` }));
 
       if (researchResult && researchResult.ok && researchResult.citedBlock) {
-        // §7: flip marker to cited + write cited block
-        await writeMarkerAndCite(artifactPath, claimKey, researchResult.citedBlock);
+        // §7: flip marker to cited + write cited block (real OR fallback artifact)
+        await writeMarkerAndCite(externalArtifact, claimKey, researchResult.citedBlock);
         log(`Research: cited "${claimKey.slice(0, 50)}" — marker flipped to status=cited`);
       } else {
         log(`Research: research FAILED for "${claimKey.slice(0, 50)}" — marker stays uncited. Reason: ${(researchResult && researchResult.reason) || "unknown"}`);
@@ -442,14 +452,14 @@ if (allGuessedClaims.length === 0) {
       } else {
         // §5.1 ambiguous escalation: grep-empty → escalate to external → write marker → research + cite → flip
         log(`Research: grep returned nothing — escalating ambiguous claim to external (§5.1): "${claimText.slice(0, 50)}"`);
-        await writeUncitedMarker(artifactPath, claimKey);
+        await writeUncitedMarker(externalArtifact, claimKey);
         const escalResearchPrompt = [
           `Read \`${projectDir}/templates/prompts/research-subagent.md\` for the full research protocol.`,
           `This claim was initially classified internal but grep/Read found no evidence in the repo.`,
           `Escalating to external research (auto-research-contract §5.1 ambiguous escalation).`,
           `Claim: "${claimText}"`,
           `Gap-key (normalized): "${claimKey}"`,
-          `Emit a ## Verified Facts (auto-research) block with source URL + fetch date. Return StructuredOutput JSON.`,
+          `Emit a ## Verified Facts (auto-research) block with source URL + fetch date. Append the trailer \`key: ${claimKey}\` on every fact line so the §7 gate matches by claim-key (Red Team MEDIUM #2). Return StructuredOutput JSON.`,
         ].join("\n");
         const escalResult = await agent(escalResearchPrompt, {
           label: "research",
@@ -459,7 +469,7 @@ if (allGuessedClaims.length === 0) {
         }).catch((e) => ({ ok: false, gapKey: claimKey, reason: `escalation research error: ${e && e.message}` }));
 
         if (escalResult && escalResult.ok && escalResult.citedBlock) {
-          await writeMarkerAndCite(artifactPath, claimKey, escalResult.citedBlock);
+          await writeMarkerAndCite(externalArtifact, claimKey, escalResult.citedBlock);
           log(`Research: escalated claim "${claimKey.slice(0, 50)}" — cited + marker flipped`);
         } else {
           log(`Research: escalation research FAILED for "${claimKey.slice(0, 50)}" — marker stays uncited`);

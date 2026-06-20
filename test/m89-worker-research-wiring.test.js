@@ -507,3 +507,83 @@ describe("T3.8 — ambiguous → classify-judge(fable) → uncertain→research 
     });
   }
 });
+
+// ---------------------------------------------------------------------------
+// T3.9 — FAIL-CLOSED (Red Team HIGH): external/escalation path ALWAYS writes a §7 marker
+// to a DETERMINISTIC FALLBACK ARTIFACT when the worker reports no artifactPath. A worker
+// that emits a load-bearing GUESSED EXTERNAL claim but no path must NOT silently skip the
+// marker (that ships an external guess uncited+unresearched — the exact M89 invariant).
+// ---------------------------------------------------------------------------
+
+describe("T3.9 — fail-closed: external path writes a §7 marker to a fallback artifact when no artifactPath", () => {
+
+  for (const [name, src] of [["execute", execSrc], ["quick", quickSrc], ["debug", debugSrc]]) {
+    test(`${name} workflow defines a deterministic externalArtifact fallback (.gsd-t/research/...)`, () => {
+      assert.ok(
+        src.includes("externalArtifact"),
+        `${name} workflow must define an externalArtifact (real path OR deterministic fallback)`
+      );
+      assert.ok(
+        /\.gsd-t\/research\//.test(src),
+        `${name} workflow's fallback artifact must be under .gsd-t/research/ (deterministic, always writable)`
+      );
+      // The fallback must be keyed off the claim (claimSlug/claimKey) so it is deterministic + unique.
+      assert.ok(
+        src.includes("claimSlug") || src.includes("claimKey"),
+        `${name} workflow's fallback path must be derived from the claim key (deterministic per claim)`
+      );
+    });
+
+    test(`${name} workflow: the §7 uncited marker write uses externalArtifact (not a guarded artifactPath skip)`, () => {
+      // The external/escalation marker write must target externalArtifact (always truthy),
+      // NOT a silent `if (artifactPath) {...}` / `if (!artifactPath) return` early-out.
+      assert.ok(
+        src.includes("writeUncitedMarker(externalArtifact") ||
+        src.includes("appendUncitedMarker(externalArtifact") ||
+        (src.includes("externalArtifact") && src.includes("status=uncited")),
+        `${name} workflow's external §7 marker write must target externalArtifact (fail-closed, no silent skip)`
+      );
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// T3.10 — fail-closed FUNCTIONAL: a fallback-artifact uncited marker FAILs the §7 gate
+// pre-research (mirrors the verify gate logic). Proves the produced marker is enforceable.
+// ---------------------------------------------------------------------------
+
+describe("T3.10 — fail-closed functional: an uncited marker in the fallback artifact FAILs the §7 gate", () => {
+
+  // Mirror the verify gate's live-marker + enforce logic (single-file model).
+  function normalizeClaimKey(claim) { return claim.toLowerCase().replace(/[^\w]+/g, " ").trim(); }
+  function isLiveMarker(line) {
+    const t = line.trim();
+    if (!t.startsWith("<!--") || !t.endsWith("-->")) return false;
+    if (!t.includes("auto-research-claim:")) return false;
+    const keyMatch = t.match(/key=([^\s]+)/);
+    if (keyMatch && (keyMatch[1].includes("<") || keyMatch[1].includes(">"))) return false;
+    return /status=uncited\b(?!\|)/.test(t) || /status=cited\b/.test(t);
+  }
+  function gatePass(content) {
+    return !content.split("\n").some((l) => isLiveMarker(l) && /status=uncited\b/.test(l));
+  }
+
+  test("a deterministic fallback artifact carrying an uncited marker FAILs the gate (pre-research, fail-closed)", () => {
+    const claim = "the acme payments api caps a batch at 100 items";
+    const key = normalizeClaimKey(claim);
+    const slug = key.replace(/\s+/g, "-").slice(0, 80);
+    // The fallback path the workflows compute (deterministic, claim-keyed).
+    const fallbackPath = `./.gsd-t/research/domain-${slug}.md`;
+    assert.ok(fallbackPath.includes(".gsd-t/research/"), "fallback path is under .gsd-t/research/");
+
+    // The fallback artifact content after the (always-executed) marker write, pre-research.
+    const fallbackArtifact = `<!-- auto-research-claim: class=external key=${key} status=uncited -->\n`;
+    assert.equal(
+      gatePass(fallbackArtifact), false,
+      "an uncited marker in the fallback artifact MUST FAIL the §7 gate — the external guess cannot ship silently"
+    );
+
+    // Contrast: if NO marker were written (the old silent-skip bug), the gate would PASS — the bug.
+    assert.equal(gatePass(""), true, "an empty artifact (no marker — the OLD silent bug) would wrongly PASS — which fail-closed prevents");
+  });
+});

@@ -199,20 +199,6 @@ const STATED_CLAIMS_EXTRACT_SCHEMA = {
   },
 };
 
-const CLASSIFY_RESULT_SCHEMA = {
-  type: "object",
-  required: ["ok"],
-  additionalProperties: true,
-  properties: {
-    ok: { type: "boolean" },
-    class: { type: "string", enum: ["internal", "external"] },
-    route: { type: "string", enum: ["grep", "web"] },
-    gap: { type: "string" },
-    reason: { type: "string" },
-    error: { type: "string" },
-  },
-};
-
 const GREP_RESULT_SCHEMA = {
   type: "object",
   required: ["found"],
@@ -327,6 +313,15 @@ async function runStatedClaimsPipeline(projectDir, phaseName, phaseResult, state
     const claimKey = normalizeClaimKey(claimText);
     log(`m89: classifying claim: "${claimText.slice(0, 80)}"`);
 
+    // FAIL-CLOSED (Red Team HIGH): the §7 marker for an EXTERNAL guess MUST always be written
+    // SOMEWHERE so the §7 ENFORCE gate has something to fail on. artifactPath is agent-self-
+    // reported + optional; a worker that reports none must NOT silently skip the marker (that
+    // would ship an external guess uncited+unresearched — the exact invariant M89 enforces).
+    // So the external/escalation path writes to a DETERMINISTIC FALLBACK ARTIFACT when no
+    // artifact was reported. Internal/grep can still no-op safely (no marker on the internal path).
+    const claimSlug = claimKey.replace(/\s+/g, "-").slice(0, 80) || "claim";
+    const externalArtifact = primaryArtifact || `${projectDir}/.gsd-t/research/phase-${phaseName}-${claimSlug}.md`;
+
     // § 4.1 Idempotency check: if the artifact already has a status=cited marker
     // for this exact claim-key, skip (no re-research).
     if (primaryArtifact) {
@@ -370,21 +365,20 @@ async function runStatedClaimsPipeline(projectDir, phaseName, phaseResult, state
     // External-claim handler (§7 marker → research(fable) → cite → flip). Closure so the
     // ambiguous→judge path can reuse it for an "external"/"uncertain" verdict.
     const doExternal = async () => {
-      // §7: Write status=uncited marker into the artifact at classify time.
+      // §7: Write status=uncited marker into the (real OR fallback) artifact — ALWAYS written
+      // so the §7 gate can fail on it (fail-CLOSED, Red Team HIGH).
       const marker = `<!-- auto-research-claim: class=external key=${claimKey} status=uncited -->`;
-      if (primaryArtifact) {
-        await agent(
-          [
-            `Append the following HTML comment marker on a NEW LINE at the END of the file at "${primaryArtifact}" (create the file if it does not exist):`,
-            ``,
-            marker,
-            ``,
-            `Do NOT modify any other content. Return JSON: { "ok": true, "artifactPath": "${primaryArtifact}", "marker": "<the marker you appended>" }`,
-          ].join("\n"),
-          { label: "marker-write-uncited", phase: "Phase", schema: MARKER_WRITE_SCHEMA, model: "haiku" }
-        ).catch((e) => ({ ok: false, error: String(e && e.message) }));
-        log(`m89: wrote status=uncited marker for claim "${claimKey}" into ${primaryArtifact}`);
-      }
+      await agent(
+        [
+          `Create the parent directory if needed, then append the following HTML comment marker on a NEW LINE at the END of the file at "${externalArtifact}" (create the file if it does not exist):`,
+          ``,
+          marker,
+          ``,
+          `Do NOT modify any other content. Return JSON: { "ok": true, "artifactPath": "${externalArtifact}", "marker": "<the marker you appended>" }`,
+        ].join("\n"),
+        { label: "marker-write-uncited", phase: "Phase", schema: MARKER_WRITE_SCHEMA, model: "haiku" }
+      ).catch((e) => ({ ok: false, error: String(e && e.message) }));
+      log(`m89: wrote status=uncited marker for claim "${claimKey}" into ${externalArtifact}${primaryArtifact ? "" : " (FALLBACK artifact — worker reported no path)"}`);
 
       // §2: Run the research agent (bare model: "fable" — not the ?? override form).
       // The research agent reads its own protocol from research-subagent.md.
@@ -405,26 +399,24 @@ async function runStatedClaimsPipeline(projectDir, phaseName, phaseResult, state
       ).catch((e) => ({ ok: false, gapKey: claimKey, reason: `research agent error: ${e && e.message}` }));
 
       if (researchResult && researchResult.ok && researchResult.citedBlock) {
-        // §3: Write the cited Verified-Facts block into the artifact BEFORE the gate re-runs.
-        if (primaryArtifact) {
-          await agent(
-            [
-              `Append the following cited Verified-Facts block on a NEW LINE at the END of the file at "${primaryArtifact}":`,
-              ``,
-              researchResult.citedBlock,
-              ``,
-              `Then FIND and REPLACE the marker:`,
-              `  <!-- auto-research-claim: class=external key=${claimKey} status=uncited -->`,
-              `with:`,
-              `  <!-- auto-research-claim: class=external key=${claimKey} status=cited -->`,
-              ``,
-              `(This flips the §7 marker from uncited → cited — same claim-key, exact string replace.)`,
-              `Return JSON: { "ok": true }`,
-            ].join("\n"),
-            { label: "cite-write-and-flip", phase: "Phase", schema: { type: "object", required: ["ok"], properties: { ok: { type: "boolean" } } }, model: "haiku" }
-          ).catch(() => null);
-          log(`m89: cited block written + marker flipped to status=cited for claim "${claimKey}"`);
-        }
+        // §3: Write the cited Verified-Facts block into the (real OR fallback) artifact before the gate re-runs.
+        await agent(
+          [
+            `Append the following cited Verified-Facts block on a NEW LINE at the END of the file at "${externalArtifact}":`,
+            ``,
+            researchResult.citedBlock,
+            ``,
+            `Then FIND and REPLACE the marker:`,
+            `  <!-- auto-research-claim: class=external key=${claimKey} status=uncited -->`,
+            `with:`,
+            `  <!-- auto-research-claim: class=external key=${claimKey} status=cited -->`,
+            ``,
+            `(This flips the §7 marker from uncited → cited — same claim-key, exact string replace.)`,
+            `Return JSON: { "ok": true }`,
+          ].join("\n"),
+          { label: "cite-write-and-flip", phase: "Phase", schema: { type: "object", required: ["ok"], properties: { ok: { type: "boolean" } } }, model: "haiku" }
+        ).catch(() => null);
+        log(`m89: cited block written + marker flipped to status=cited for claim "${claimKey}"`);
         processed.push({ claimKey, action: "cited", class: "external" });
       } else {
         const reason = (researchResult && researchResult.reason) || "research stage returned no cited block";
@@ -470,18 +462,17 @@ async function runStatedClaimsPipeline(projectDir, phaseName, phaseResult, state
         // §5.1 Escalate to external: grep returned nothing → treat as external.
         log(`m89: internal claim "${claimKey}" grep EMPTY → escalating to external (§5.1)`);
         const escalationMarker = `<!-- auto-research-claim: class=external key=${claimKey} status=uncited -->`;
-        if (primaryArtifact) {
-          await agent(
-            [
-              `Append the following HTML comment marker on a NEW LINE at the END of the file at "${primaryArtifact}" (create the file if it does not exist):`,
-              ``,
-              escalationMarker,
-              ``,
-              `Return JSON: { "ok": true }`,
-            ].join("\n"),
-            { label: "marker-write-escalated", phase: "Phase", schema: { type: "object", required: ["ok"], properties: { ok: { type: "boolean" } } }, model: "haiku" }
-          ).catch(() => null);
-        }
+        // FAIL-CLOSED: write the escalation marker to the real OR fallback artifact (always).
+        await agent(
+          [
+            `Create the parent directory if needed, then append the following HTML comment marker on a NEW LINE at the END of the file at "${externalArtifact}" (create the file if it does not exist):`,
+            ``,
+            escalationMarker,
+            ``,
+            `Return JSON: { "ok": true }`,
+          ].join("\n"),
+          { label: "marker-write-escalated", phase: "Phase", schema: { type: "object", required: ["ok"], properties: { ok: { type: "boolean" } } }, model: "haiku" }
+        ).catch(() => null);
 
         const escalatedResearch = await agent(
           [
@@ -499,23 +490,21 @@ async function runStatedClaimsPipeline(projectDir, phaseName, phaseResult, state
         ).catch((e) => ({ ok: false, gapKey: claimKey, reason: `research agent error: ${e && e.message}` }));
 
         if (escalatedResearch && escalatedResearch.ok && escalatedResearch.citedBlock) {
-          if (primaryArtifact) {
-            await agent(
-              [
-                `Append the following cited Verified-Facts block on a NEW LINE at the END of the file at "${primaryArtifact}":`,
-                ``,
-                escalatedResearch.citedBlock,
-                ``,
-                `Then FIND and REPLACE the marker:`,
-                `  <!-- auto-research-claim: class=external key=${claimKey} status=uncited -->`,
-                `with:`,
-                `  <!-- auto-research-claim: class=external key=${claimKey} status=cited -->`,
-                ``,
-                `Return JSON: { "ok": true }`,
-              ].join("\n"),
-              { label: "cite-write-and-flip", phase: "Phase", schema: { type: "object", required: ["ok"], properties: { ok: { type: "boolean" } } }, model: "haiku" }
-            ).catch(() => null);
-          }
+          await agent(
+            [
+              `Append the following cited Verified-Facts block on a NEW LINE at the END of the file at "${externalArtifact}":`,
+              ``,
+              escalatedResearch.citedBlock,
+              ``,
+              `Then FIND and REPLACE the marker:`,
+              `  <!-- auto-research-claim: class=external key=${claimKey} status=uncited -->`,
+              `with:`,
+              `  <!-- auto-research-claim: class=external key=${claimKey} status=cited -->`,
+              ``,
+              `Return JSON: { "ok": true }`,
+            ].join("\n"),
+            { label: "cite-write-and-flip", phase: "Phase", schema: { type: "object", required: ["ok"], properties: { ok: { type: "boolean" } } }, model: "haiku" }
+          ).catch(() => null);
           log(`m89: escalated claim "${claimKey}" cited via web research (§5.1)`);
           processed.push({ claimKey, action: "cited-after-escalation", class: "external-escalated" });
         } else {
