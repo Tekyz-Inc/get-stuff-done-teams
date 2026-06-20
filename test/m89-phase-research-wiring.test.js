@@ -615,16 +615,26 @@ describe("T3.5 — Idempotency NEGATIVE (§4.1): distinct claims are NOT interch
 
 describe("T3.6 — Ambiguous-escalation path (§5.1): grep-empty → escalate to external", () => {
 
-  test("classifier routes ambiguous claim to 'internal' (grep-first default per §1.1)", () => {
-    // An ambiguous claim with no clear internal or external signal
+  test("classifier returns class:ambiguous (route:judge) for a claim with no string fact (v1.3.0)", () => {
+    // A claim with no decisive internal or external STRING FACT → ambiguous → LLM judge.
     const ambiguousClaim = "the maximum number of items that can be processed per batch";
     const result = classify(ambiguousClaim);
-    // This may route internal (ambiguous default) or external (if regex matches batch size)
-    // The key assertion is that classify() succeeds (ok=true) and returns a class
     assert.ok(result.ok, `classify must succeed for ambiguous claim, got: ${JSON.stringify(result)}`);
+    assert.equal(
+      result.class, "ambiguous",
+      `A claim with no string fact must classify ambiguous (semantic placement is the LLM's call), got: "${result.class}"`
+    );
+    assert.equal(result.route, "judge", `ambiguous must route to the LLM judge, got: "${result.route}"`);
+  });
+
+  test("the phase workflow wires ambiguous → LLM judge (classify-judge, model:fable) → uncertain→research", () => {
     assert.ok(
-      result.class === "internal" || result.class === "external",
-      `classify must return a valid class, got: "${result.class}"`
+      phaseSource.includes("classify-judge"),
+      "Phase workflow must route class:ambiguous to a classify-judge agent stage (v1.3.0)"
+    );
+    assert.ok(
+      phaseSource.includes("judgeAmbiguous") || phaseSource.includes('verdict === "uncertain"') || phaseSource.includes("verdict === 'uncertain'"),
+      "Phase workflow must treat an UNCERTAIN judge verdict as external→research (never guess-internal)"
     );
   });
 

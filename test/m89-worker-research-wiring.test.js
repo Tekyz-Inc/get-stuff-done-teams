@@ -473,3 +473,37 @@ describe("T3.7 — research agent uses label: 'research' and bare model: 'fable'
     });
   }
 });
+
+// ---------------------------------------------------------------------------
+// T3.8 — v1.3.0: ambiguous → LLM judge (classify-judge, model:fable) → uncertain→research
+// The 3-result classifier routes class:ambiguous to an LLM judge; an UNCERTAIN verdict is
+// treated as external→research (never silently internal). Asserted structurally per worker.
+// ---------------------------------------------------------------------------
+
+describe("T3.8 — ambiguous → classify-judge(fable) → uncertain→research in all worker workflows", () => {
+
+  for (const [name, src] of [["execute", execSrc], ["quick", quickSrc], ["debug", debugSrc]]) {
+    test(`${name} workflow wires class:ambiguous to a classify-judge agent stage (model:"fable")`, () => {
+      assert.ok(
+        src.includes("classify-judge"),
+        `${name} workflow must route class:ambiguous to a classify-judge agent stage (v1.3.0 3-result)`
+      );
+      assert.ok(
+        src.includes("judgeAmbiguous") || src.includes("classify-judge"),
+        `${name} workflow must define/call the ambiguous LLM judge`
+      );
+    });
+
+    test(`${name} workflow: an UNCERTAIN judge verdict routes to research (never silently internal)`, () => {
+      // The dispatch must NOT route a non-internal verdict to grep — uncertain → doExternal/research.
+      assert.ok(
+        src.includes('verdict === "internal"') || src.includes("verdict === 'internal'"),
+        `${name} workflow must branch the judge verdict on "internal" (else → research)`
+      );
+      assert.ok(
+        src.includes("uncertain"),
+        `${name} workflow must treat an UNCERTAIN verdict as external→research (no silent guess)`
+      );
+    });
+  }
+});

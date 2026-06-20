@@ -1,12 +1,57 @@
 # Contract: Auto-Research Gate + Web-Research Stage (M89)
 
-## Version: 1.2.2
+## Version: 1.3.0
 ## Status: STABLE
 ## Owner: m89-d2-research-stage-and-contract
 ## Consumers: m89-d1-research-classifier-core, m89-d3-wiring-upper-phase-and-gate, m89-d4-wiring-worker-workflows
 ## Created: 2026-06-18 (M89 partition)
 
 ## Changelog
+- **v1.3.0 (2026-06-20 — M89 PREMISE CORRECTION #3, MINOR — the classify interface is now 3-result):**
+  the 4-verify-cycle Red Team thrash on the classifier had ONE root cause: the classifier was built as
+  ~745 LOC of hand-fit regexes that tried to SEMANTICALLY decide "is this an external claim?" A regex
+  that asserts "I BELIEVE this paraphrase means external" is **itself a GUESS** — the exact sin M89
+  exists to prevent — so each cycle a new paraphrase of the same semantic class slipped past the
+  patterns and the Red Team re-broke it (external-assertion patterns → homograph lists → camelCase-shape
+  overrides → …, never converging). The fix applies **the milestone's own doctrine to its own
+  classifier**: never act on belief; if a claim is not grounded in a definitive STRING FACT or research
+  evidence, do not guess — defer to the LLM, and if the LLM is not sure, RESEARCH.
+  - **§1 / §1.1 rewritten to a 3-RESULT MECHANICAL STRING-FACT FILTER + LLM judge + uncertain→research.**
+    `bin/gsd-t-research-gate.cjs` now returns `class: "internal" | "external" | "ambiguous"` (route
+    `grep | web | judge`). The regex does ONLY minimal mechanical string-fact filtering — it is a
+    MECHANICAL FILTER, **NOT a semantic oracle**. `internal` fires ONLY on a STRING-FACT this-repo signal
+    (concrete repo path/file/tool shape OR an explicit this-repo anchor phrase); `external` fires ONLY on
+    an UNAMBIGUOUS vendor proper-noun (long, multi-char, non-homograph) co-occurring with an API/protocol
+    term; **everything else is `ambiguous`** — semantic placement that requires JUDGMENT is the LLM's
+    call, not regex's.
+  - **The `ambiguous` residue routes to an LLM JUDGE (the wiring, model:"fable") → uncertain → research.**
+    The 4 consuming workflows (`gsd-t-{phase,execute,quick,debug}`) route an `ambiguous` classification to
+    a small `classify-judge` `agent()` stage applying the internal/external test in natural language.
+    internal → grep; external → research+cite; **NOT confident → treat as external → research+cite**
+    (uncertain = verify, NEVER guess-internal — a silent miss is the one unacceptable outcome). The
+    classifier never guesses a default; it DEFERS, and the LLM decides, and on doubt the claim is
+    researched.
+  - **The "proper-noun-LESS external assertion pattern" regex obligation is REMOVED** (it was the
+    archetypal regex-as-semantic-judge: a hand-fit pattern that BELIEVED a vendor-name-less paraphrase
+    asserted an external system). Such a claim now correctly returns `ambiguous` and reaches the LLM judge
+    — which judges it external (or, on doubt, researches it). The silent-miss this once guarded against is
+    instead prevented STRUCTURALLY: `ambiguous` NEVER routes silently-internal.
+  - **§1.3 / §5 / §6.5 / §7 unchanged in substance.** DETECT (§6.5) still LLM-prompts the Stated-Claims
+    tags; the three guess-types (§1.3) are unchanged; ENFORCE (§5/§7) still gates on the `auto-research-
+    claim` marker. CLASSIFY is still DETERMINISTIC for the two STRING-FACT classes; the new `ambiguous`
+    class is deterministic in the classifier (a string-fact calculator) and resolved by the LLM judge in
+    the wiring (the judgment was never regex's to make).
+  - **Two Red Team MEDIUMs closed in the same pass.** (1) the internal grep-resolver prompt
+    (`grepForClaim`, haiku) is hardened: `found=true` ONLY if the repo content CONFIRMS the specific claim
+    (not mere shared vocabulary); a claim about an EXTERNAL system's behavior → grep cannot confirm →
+    `found=false` → escalate to research. (2) §3 fact lines gain an OPTIONAL `key: <normalized-claim-key>`
+    trailer and the §7 verify gate now matches cited markers to backing facts BY CLAIM-KEY when keys are
+    present (count check is the fallback when no per-entry keys exist) — so one fact can no longer cover a
+    DISTINCT claim by mere line count.
+  - **Held-out + seen corpora re-labeled** for the 3-result design (items the deleted guessing-regexes
+    used to force external/internal — HO-E4 proper-noun-less, react/useState, stripe/createCharge, CSS
+    :has, square/edge homographs, bare camelCase symbols — now correctly `ambiguous`). A wiring test
+    asserts an ambiguous item is RESEARCHED (via the judge), never silently internal.
 - **v1.2.2 (2026-06-19 — M89 verify cycle-3, 1 Red Team HIGH + 2 code-review important + 1 nit):**
   hardens §1.1 with an explicit **CONFLICT-RESOLUTION RULE** for the classifier. A text
   classifier cannot tell external `createCharge` (Stripe) from internal `resolveProfile`
@@ -118,80 +163,88 @@ text — a claim the agent tagged GUESSED in its Stated-Claims list, §6.5), NOT
 {
   "ok": true,
   "gap": "<the guessed claim text, NAMED — auditable, never silent>",
-  "class": "internal" | "external",
-  "route": "grep" | "web",
+  "class": "internal" | "external" | "ambiguous",
+  "route": "grep" | "web" | "judge",
   "reason": "<one-line deterministic rationale>"
 }
 ```
 
-The `gap` field name is retained for envelope-shape stability (D1/D3/D4 already build against it); it now
+The `gap` field name is retained for envelope-shape stability (D1/D3/D4 already build against it); it
 carries the GUESSED-CLAIM text. (A rename would be a breaking shape change for no behavioral gain.)
 
-### 1.1 Classification is by FEATURE CLASS, not by corpus keywords (finding #1 — anti-self-fulfilling-oracle)
+### 1.1 The classifier is a MECHANICAL STRING-FACT FILTER (3-result), NOT a semantic oracle (v1.3.0)
 
-The classifier MUST decide by **feature class** — detecting external-vs-internal SIGNALS in the gap —
-NOT by hard-matching keywords scraped from the labeled-corpus gap strings. A router that hard-matches
-the literal tokens `PayPal` / `OAuth` / `invoice` lifted from the 13 authoring gaps would pass the seen
-corpus 13/13 yet generalize to nothing — the shallow-test trap. The discrimination heuristic is
-deterministic and feature-based:
+The regex classifier may do ONLY minimal **mechanical / string-fact filtering**. The **semantic judgment
+goes to the LLM**, and **if the LLM isn't sure, the claim is RESEARCHED** (never a guessed default). This
+is the milestone's own doctrine applied to its own classifier: never act on belief; a claim not grounded
+in a definitive string fact or research evidence is not regex's to place.
 
-- **External-signal set** (any present ⇒ lean external): a recognized **third-party / library /
-  platform / spec proper noun** (e.g. a vendor or product name, an SDK, a browser, a standard body);
-  an **API / endpoint / HTTP / OAuth / webhook / spec / version / limit / rate-limit / error-shape /
-  auth-flow term**; a **browser / runtime behavior** reference; **OR — the cycle-2 finding-#3 fix — a
-  claim that ASSERTS an external system's behavior / return-shape / limit / value WITHOUT a cited
-  source, even with NO proper noun.** A proper-noun-LESS claim like *"the payments endpoint accepts a
-  max batch size of 100"* or *"the create call returns a `url`"* routes EXTERNAL: it asserts the
-  behavior of a system OUTSIDE this repo and is unverified, so it is an external guess — NOT a default
-  to internal. (The silent-miss the old "needs a proper noun" rule allowed.)
-- **Internal-signal set** (any present, and no overriding external signal ⇒ lean internal): a
-  **repo-relative path**, a **known local symbol / file name** (even a BARE symbol with no path or
-  anchor), an explicit **"this repo / our / the existing"** anchor; this repo's own code / contracts /
-  schema / file-ownership / sandbox rules / test architecture.
-- **Discriminator when neither surface-keyword dominates:** does the claim assert the behavior of a
-  system OUTSIDE this repo (→ external) or of THIS repo's own code/symbols (→ internal)? This is the
-  feature that generalizes — surface proper nouns are a signal, not the test.
-- The heuristic is deterministic enough to gate without an LLM: it is signal-class detection over the
-  claim text, NOT a per-corpus allowlist. A1's HELD-OUT corpus (≥6 NOVEL claims, D1-owned at
-  `test/fixtures/m89-heldout-corpus.json`, INCLUDING the proper-noun-LESS external claim HO-E4 and the
-  symbol-only internal claim HO-I4) proves generalization — a classifier passing the seen 13 but
-  failing any held-out item FAILS A1.
+**Why (the 4-cycle Red Team root cause).** The prior classifier was ~745 LOC of hand-fit regexes that
+tried to SEMANTICALLY decide "is this external?" (external-assertion patterns, homograph gating,
+camelCase-shape overrides). A regex that asserts *"I believe this paraphrase means external"* is **itself
+a guess** — the exact sin M89 exists to prevent — so every verify cycle a new paraphrase of the same
+semantic class slipped past, and the Red Team re-broke it without converging. The cure is to stop the
+regex from guessing.
 
-**Conflict-resolution rule (v1.2.2 — the durable fix).** A text classifier CANNOT tell external
-`createCharge` (Stripe) from internal `resolveProfile` (this repo) by SHAPE alone — they are
-identical camelCase. So when signals CONFLICT (a vendor proper-noun AND an ambiguous symbol/question
-shape both present), the SAFE default is **FAIL-TOWARD-EXTERNAL (research), NOT internal** — a silent
-miss defeats the milestone; over-research is bounded cost. Concretely:
+The classifier returns one of **THREE** results:
 
-- An external **proper noun** (or browser/runtime term) may be overridden to internal ONLY by (a) a
-  **PATH-SHAPED internal signal** (an `INTERNAL_FILE_PATTERNS` hit — a real repo path / `*.workflow.js`
-  / `bin/*` / `gsd-t-*` shape) OR (b) an **explicit internal anchor** ("our" / "our internal" / "this
-  repo" / "this repo's" / "exit code" / "which X owns").
-- A **bare camelCase/kebab symbol shape** (`matchLocalSymbolShape`) must NEVER override a co-occurring
-  external proper noun; it pulls internal ONLY when NO external proper-noun/browser term co-occurs.
-- **Interrogative phrasing** (a question word — "how does"/"what is"/"which"/…) is NEUTRAL and must
-  NEVER pull internal — it is the most natural way to phrase an external research question.
-- Single-word **homographs** that are also vendor/language names ("square"/"go"/"edge"/…) are an
-  external signal only when a strong external signal co-occurs (or in possessive company form).
+- **`internal` (route `grep`)** — ONLY on a STRING-FACT internal signal: the claim references a concrete
+  repo path / file shape (e.g. `bin/`, `templates/`, `*.workflow.js`, `*.cjs`, a real `gsd-t-*` tool
+  name) OR an explicit repo **anchor phrase** ("this repo" / "this repo's" / "our repo" / "our
+  codebase" / "our module" / bare "our" / "our internal" / "exit code" / "which X owns"). These are
+  string facts about THIS repo, not beliefs.
+- **`external` (route `web`)** — ONLY on an UNAMBIGUOUS string-fact external signal: a recognized
+  vendor / product **proper noun** (the LONG, multi-char, non-homograph names — paypal, stripe, mongodb,
+  cloudflare, chrome, react, …) **co-occurring with an API / HTTP / protocol term** (api, endpoint,
+  webhook, oauth, rest api, rate limit, `/v1/`, …). The vendor list is kept SHORT and unambiguous: when
+  in doubt, a token is left OUT (it falls through to `ambiguous`, which is safe). A proper noun ALONE,
+  or an API term alone, is NOT enough.
+- **`ambiguous` (route `judge`)** — EVERYTHING ELSE. If placing a claim requires *judgment* rather than
+  a string fact, it is **not regex's call**. This includes: a proper-noun-LESS external assertion
+  (*"the payments endpoint accepts a max batch size of 100"*); a vendor proper noun WITHOUT an
+  API-term co-signal (*"react useState returns a stateful value"*); a bare camelCase/kebab symbol
+  (shape-identical to an external symbol, so not a string fact); single-word homographs that are also
+  vendor names ("square"/"go"/"edge"); a generic "contract file"/"browser popup blocker" phrasing.
+
+**The `ambiguous` residue → LLM judge → uncertain → research (owned by the WIRING — §5.1 / D3+D4).**
+The classifier is a pure calculator; it does NOT make the semantic call. The 4 consuming workflows route
+an `ambiguous` classification to a small LLM `classify-judge` `agent()` stage (`model: "fable"` — the
+research tier) that applies the internal/external test in natural language and returns one of
+`internal` / `external` / `uncertain`:
+
+- judge `internal` → grep/Read (and §5.1 escalate to research if grep finds nothing);
+- judge `external` → research + cite;
+- judge **`uncertain` → treat as external → research + cite** (uncertain = verify, **NEVER**
+  guess-internal — a silent miss is the one unacceptable outcome).
+
+This is the doctrine made structural: the regex never guesses a default; when it isn't a string fact the
+LLM decides; when the LLM isn't sure, the claim is researched. The proper-noun-LESS external-assertion
+"silent miss" the old regex guarded against is now prevented by construction — `ambiguous` NEVER routes
+silently-internal.
+
+**Anti-self-fulfilling-oracle (unchanged intent).** The A1 oracle still proves the classifier does not
+memorize corpus keywords: the held-out corpus (`test/fixtures/m89-heldout-corpus.json`) carries NOVEL
+claims, and items the deleted guessing-regexes used to force external/internal (HO-E4 proper-noun-less,
+react/useState, stripe/createCharge, CSS `:has`, square/edge homographs, bare camelCase symbols) now
+correctly return `ambiguous`. A wiring test asserts an ambiguous item is RESEARCHED via the judge, never
+silently internal.
 
 ### 1.2 Class → route mapping
 
-- `class: external` + `route: web` when the gap concerns: a **third-party API** contract / endpoint /
-  rate-limit / error-shape / auth flow; **library / framework / version** behavior; **platform /
-  browser / runtime** behavior; a published **standard / spec**; or **current-best-practice /
-  latest-version** facts.
-- `class: internal` + `route: grep` (NEVER web) when the gap concerns **this repo's own**
-  code / contracts / schema / file-ownership / sandbox rules / test architecture.
-- **Ambiguous → internal-first**: when neither signal set dominates, classify internal, route grep;
-  escalate to external ONLY if grep/Read returns nothing. The classifier emits `class:internal`;
-  the **escalation step is owned and tested by the wiring domains (D3 + D4)** — see §5.1.
+- `class: external` + `route: web` — an UNAMBIGUOUS vendor proper-noun + API/protocol STRING FACT
+  (third-party API contract / endpoint / rate-limit / auth flow). The research stage cites it.
+- `class: internal` + `route: grep` (NEVER web) — a STRING-FACT this-repo signal (repo path / file /
+  tool shape, or an explicit this-repo anchor). Concerns this repo's own code/contracts/schema/tests.
+- `class: ambiguous` + `route: judge` — no decisive string fact. The wiring runs the LLM judge; the
+  judge's `internal`/`external`/`uncertain` verdict drives grep vs. research (uncertain → research).
 - The envelope ALWAYS names the gap text (`gap` field) — classification is auditable, never silent.
 - On bad input → `{ "ok": false, "error": "<reason>" }` (house-style error envelope). **Bad input
   includes empty string, whitespace-only, and non-string** — these return `{ok:false,error}` (NOT a
-  silent `class:internal`) and a non-zero CLI exit (finding #6).
+  silent class) and a non-zero CLI exit.
 
 The classifier is **deterministic**: identical claim text → identical envelope. No LLM call inside the
-classifier itself (it is a calculator, not a critic — mirrors the competition-judge convention).
+classifier itself (it is a string-fact calculator, not a critic — mirrors the competition-judge
+convention). The LLM judgment lives in the WIRING (the `ambiguous` path), not in the classifier.
 
 ### 1.3 The three GUESS-TYPES (premise correction — any of the three triggers verification)
 
@@ -252,16 +305,22 @@ Written into the phase artifact (the markdown the phase produces). Canonical blo
 ```markdown
 ## Verified Facts (auto-research)
 
-- **<fact statement>** — source: <https://exact.url/path> (fetched YYYY-MM-DD)
-- **<fact statement>** — source: <https://exact.url/path> (fetched YYYY-MM-DD)
+- **<fact statement>** — source: <https://exact.url/path> (fetched YYYY-MM-DD) key: <normalized-claim-key>
+- **<fact statement>** — source: <https://exact.url/path> (fetched YYYY-MM-DD) key: <normalized-claim-key>
 ```
 
 - Every fact line MUST carry a `source: <url>` **AND a `(fetched YYYY-MM-DD)` date**. An **uncited fact
   FAILS** the gate (SC2/SC3); a fact with no fetch date FAILS too — the date is load-bearing for the
   staleness guess-type (§1.3): a fact's freshness can only be judged if its fetch date is recorded.
+- Every fact line SHOULD ALSO carry an OPTIONAL **`key: <normalized-claim-key>`** trailer (v1.3.0 — Red
+  Team MEDIUM #2): the §4.1/§7 normalized claim-key the fact answers (the SAME key as the `key=` value
+  in the `auto-research-claim` marker). When present, the §7 verify gate matches a cited marker to its
+  backing fact **by claim-key** (not merely by line count), so one fact can no longer cover a DISTINCT
+  claim. When NO fact line carries a `key:`, the gate falls back to the per-file count check (cited
+  markers ≤ sourced fact lines) — an acceptable interim that the per-key trailer strengthens.
 - The block heading is exactly `## Verified Facts (auto-research)` (machine-detectable by the gate).
 - The research subagent prompt (`templates/prompts/research-subagent.md`) MUST instruct the stage to
-  emit BOTH the source URL and the fetch date on every fact line.
+  emit the source URL + the fetch date on every fact line, and SHOULD emit the `key:` trailer.
 
 ---
 
@@ -315,22 +374,30 @@ entry **covers** a gap iff its recorded **gap-key equals** the gap-key of the ne
   never written as a Verified-Facts entry** — without it, an unstated/uncited guess would slip (the
   cycle-2 finding: "A4 can't catch a never-stated gap").
 
-### 5.1 Ambiguous → internal-first → grep → escalate-to-external (finding #3 — owned + tested by D3/D4)
+### 5.1 Ambiguous → LLM judge → (internal:grep / external:research / uncertain:research) — owned + tested by D3/D4
 
-The "ambiguous → internal-first, escalate to external only if grep/Read returns nothing" capability is
-a FULL behavior, not a deferral. It is owned by the WIRING domains (D3 for upper phases, D4 for worker
-phases) and exercised by a functional test. The flow:
+When the classifier returns **`class:ambiguous`** (no decisive string fact — §1.1), the WIRING resolves
+it. This is a FULL behavior, not a deferral; it is owned by D3 (upper phases) and D4 (worker phases) and
+exercised by a functional test. The flow (v1.3.0):
 
-1. Classifier returns `class:internal` for an ambiguous gap (neither signal set dominates — §1.1).
-2. The wiring stage runs grep/Read against the repo for the gap.
-3. **If grep/Read resolves it** → done; the gap is internal, no web. (No research stage.)
-4. **If grep/Read returns nothing** → the wiring stage RE-ROUTES the gap to external → runs the research
-   `agent()` stage → writes a cited `## Verified Facts (auto-research)` block (§3) into the artifact.
+1. Classifier returns `class:ambiguous` / `route:judge` (no string fact dominates — §1.1).
+2. The wiring runs the LLM `classify-judge` `agent()` stage (`model: "fable"`), which returns one of
+   `internal` / `external` / `uncertain` in natural language.
+3. **judge `internal`** → grep/Read for the gap. If grep/Read CONFIRMS the specific claim → done, no web.
+   If grep/Read returns nothing → RE-ROUTE to external → research `agent()` → cited `## Verified Facts
+   (auto-research)` block (§3) (the §5.1 escalation, preserved).
+4. **judge `external`** → research `agent()` → cited block.
+5. **judge `uncertain`** → treat as external → research `agent()` → cited block. UNCERTAIN = VERIFY,
+   never guess-internal — a silent miss is the one unacceptable outcome.
 
-This escalation is NOT in the classifier (D1 stays a pure calculator). It lives in D3 (`gsd-t-phase`)
-and D4 (`gsd-t-execute`/`gsd-t-quick`/`gsd-t-debug`) and is asserted by a functional test: an ambiguous
-gap that grep CANNOT resolve DOES trigger the research stage and DOES produce a cited block. (Do NOT
-defer — the full capability ships here.)
+For a directly STRING-FACT-classified gap, `class:internal` still goes straight to grep (with the same
+grep-empty → research escalation) and `class:external` straight to research — no judge needed. The judge
+runs ONLY for the `ambiguous` residue.
+
+Neither the judge nor the escalation is in the classifier (D1 stays a pure string-fact calculator). They
+live in D3 (`gsd-t-phase`) and D4 (`gsd-t-execute`/`gsd-t-quick`/`gsd-t-debug`) and are asserted by a
+functional test: an ambiguous gap the LLM cannot confidently place internal DOES trigger the research
+stage and DOES produce a cited block (never silently internal).
 
 ---
 

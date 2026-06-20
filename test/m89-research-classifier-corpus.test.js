@@ -1,27 +1,34 @@
 "use strict";
 
-// M89-D1-T3 — A1 KILLING TEST (headline)
+// M89-D1-T3 — A1 KILLING TEST (headline) — v1.3.0 3-result mechanical filter
+//
+// The classifier is a MECHANICAL STRING-FACT FILTER returning internal | external |
+// AMBIGUOUS. internal/external fire ONLY on an unambiguous STRING FACT; everything that
+// would require JUDGMENT is AMBIGUOUS (routed to the LLM judge by the wiring, then
+// uncertain->research). The A1 oracle proves it does NOT memorize keywords and that the
+// previously-"external-assertion" paraphrases (HO-E4, react/useState, stripe createCharge,
+// CSS :has) now correctly return AMBIGUOUS — never silently internal.
 //
 // Three assertion sets — all functional, no shallow length>0 / existence checks:
 //
 //   1. SEEN (13-item labeled corpus): every item's class AND route match the hand-label.
-//      Aggregate invariants: items 1-7 all internal (0 external); items 8-13 exactly
-//      2-3 external, MUST include PayPal OAuth + invoice-TOTAL findings.
+//      Aggregate invariants: items 1-7 carry 6 internal + 1 ambiguous (0 external);
+//      items 8-13 carry exactly 2 external (PayPal OAuth + invoice-TOTAL string facts).
 //      Determinism: same gap text → byte-identical envelope on two runs.
 //
-//   2. HELD-OUT (8 novel items NOT used to author the classifier — anti-self-fulfilling-
-//      oracle guard): each item must be labeled by FEATURE CLASS, not by keyword match
-//      to the seen 13. Specific guards: HO-E4 (proper-noun-less external assertion) →
-//      external; HO-I4 (bare local symbol, no path/anchor) → internal.
+//   2. HELD-OUT (14 novel items NOT used to author the classifier — anti-self-fulfilling-
+//      oracle guard): each item must be labeled by STRING FACT, not by keyword match.
+//      Specific guards: HO-E4 (proper-noun-less external assertion) → AMBIGUOUS (the LLM
+//      judge's call, NOT a regex guess); HO-I4 (bare camelCase symbol) → AMBIGUOUS
+//      (shape-identical to an external symbol → not a string fact).
 //      "Passes seen 13 but fails any held-out item" = EXPLICIT FAILURE.
 //
-//   3. BAD-INPUT BOUNDARY (finding #6 — SC1): classify('') / classify('   ') → {ok:false};
-//      classify(non-string) → {ok:false}, no throw. NONE silently returns class:internal.
+//   3. BAD-INPUT BOUNDARY (SC1): classify('') / classify('   ') → {ok:false};
+//      classify(non-string) → {ok:false}, no throw. NONE silently returns a class.
 //
-// Kill gate: a single mislabel (seen or held-out) FAILS. If the classifier cannot hit
-// all labels deterministically, HALT M89 and escalate for re-scope.
+// Kill gate: a single mislabel (seen or held-out) FAILS.
 //
-// Contract: .gsd-t/contracts/auto-research-contract.md §1 + §6 + SC1/A1
+// Contract: .gsd-t/contracts/auto-research-contract.md §1 + §1.1 + §6 + SC1/A1 (v1.3.0)
 
 const { test, describe } = require("node:test");
 const assert = require("node:assert/strict");
@@ -72,19 +79,19 @@ describe("SEEN corpus — 13-item hand-labeled oracle (A1 kill gate)", () => {
     }
   });
 
-  test("every item's expectedClass is 'internal' or 'external' (no ambiguous labels)", () => {
+  test("every item's expectedClass is internal|external|ambiguous (3-result filter)", () => {
     for (const item of items) {
       assert.ok(
-        item.expectedClass === "internal" || item.expectedClass === "external",
+        ["internal", "external", "ambiguous"].includes(item.expectedClass),
         `Item ${item.id} has invalid expectedClass: "${item.expectedClass}"`,
       );
     }
   });
 
-  test("every item's expectedRoute is 'grep' or 'web' (no ambiguous labels)", () => {
+  test("every item's expectedRoute is grep|web|judge (route derived from class)", () => {
     for (const item of items) {
       assert.ok(
-        item.expectedRoute === "grep" || item.expectedRoute === "web",
+        ["grep", "web", "judge"].includes(item.expectedRoute),
         `Item ${item.id} has invalid expectedRoute: "${item.expectedRoute}"`,
       );
     }
@@ -134,28 +141,27 @@ describe("SEEN corpus — 13-item hand-labeled oracle (A1 kill gate)", () => {
   });
 
   // Aggregate invariants (belt-and-suspenders on top of the per-item checks)
-  test("items 1-7 (M87 findings) are ALL internal — 0 external", () => {
+  // M87 findings are all repo-internal: those carrying a concrete string fact (anchor or
+  // path/tool shape) classify internal; the one with NO string fact (M87-F5 — generic
+  // "contract file") is AMBIGUOUS and reaches the LLM judge (which resolves it internal via
+  // grep). The load-bearing invariant: NONE of the M87 items is ever EXTERNAL.
+  test("items 1-7 (M87 findings) are never external (internal or ambiguous only)", () => {
     const m87Items = items.slice(0, 7);
     assert.strictEqual(m87Items.length, 7, "Expected exactly 7 M87 items");
-    for (const item of m87Items) {
-      const result = classify(item.gap);
-      assert.strictEqual(
-        result.class,
-        "internal",
-        `M87 item ${item.id} must be internal, got "${result.class}": "${item.gap}"`,
-      );
-    }
     const externalCount = m87Items.filter((item) => classify(item.gap).class === "external").length;
     assert.strictEqual(externalCount, 0, `M87 items must have 0 external, got ${externalCount}`);
+    // At least the explicitly-anchored/path-shaped ones must be confidently internal.
+    const internalCount = m87Items.filter((item) => classify(item.gap).class === "internal").length;
+    assert.ok(internalCount >= 5, `Most M87 items must classify confidently internal, got ${internalCount}/7`);
   });
 
-  test("items 8-13 (binvoice S2-M5 findings) have exactly 2-3 external", () => {
+  test("items 8-13 (binvoice S2-M5 findings) have exactly 2 external (PayPal string facts)", () => {
     const binvoiceItems = items.slice(7); // items 8-13 (0-indexed: 7-12)
     assert.strictEqual(binvoiceItems.length, 6, "Expected exactly 6 binvoice items");
     const externalCount = binvoiceItems.filter((item) => classify(item.gap).class === "external").length;
-    assert.ok(
-      externalCount >= 2 && externalCount <= 3,
-      `Binvoice items must have 2-3 external, got ${externalCount}`,
+    assert.strictEqual(
+      externalCount, 2,
+      `Binvoice items must have exactly 2 external (PayPal OAuth + invoice-TOTAL), got ${externalCount}`,
     );
   });
 
@@ -218,11 +224,17 @@ describe("HELD-OUT generalization corpus — anti-self-fulfilling-oracle guard (
     }
   });
 
-  test("held-out corpus has exactly 7 external and 7 internal items", () => {
+  test("held-out corpus covers all 3 result classes (internal, external, AND ambiguous)", () => {
     const externalCount = items.filter((i) => i.expectedClass === "external").length;
     const internalCount = items.filter((i) => i.expectedClass === "internal").length;
-    assert.strictEqual(externalCount, 7, `Expected 7 external held-out items, got ${externalCount}`);
-    assert.strictEqual(internalCount, 7, `Expected 7 internal held-out items, got ${internalCount}`);
+    const ambiguousCount = items.filter((i) => i.expectedClass === "ambiguous").length;
+    assert.ok(externalCount >= 1, `Expected ≥1 confident-external held-out item, got ${externalCount}`);
+    assert.ok(internalCount >= 1, `Expected ≥1 confident-internal held-out item, got ${internalCount}`);
+    assert.ok(
+      ambiguousCount >= 1,
+      `Expected ≥1 AMBIGUOUS held-out item — the premise-correction class that proves the classifier ` +
+        `does NOT guess a paraphrase's semantic class, got ${ambiguousCount}`,
+    );
   });
 
   // Per-item held-out assertions
@@ -253,10 +265,14 @@ describe("HELD-OUT generalization corpus — anti-self-fulfilling-oracle guard (
   });
 
   // Specific premise-correction discriminators (the critical guards)
-  test("HO-E4 (proper-noun-LESS external assertion) → external (cycle-2 finding #3 guard)", () => {
+  // HO-E4 USED to be forced external by a hand-fit "external-assertion" regex (a belief).
+  // Under v1.3.0 it has NO string fact (no vendor proper noun) → it MUST be AMBIGUOUS and
+  // reach the LLM judge. The silent-miss to internal is impossible because ambiguous never
+  // routes silently-internal — the wiring researches an ambiguous claim the LLM can't
+  // confidently place internal (uncertain → verify).
+  test("HO-E4 (proper-noun-LESS assertion) → AMBIGUOUS (not a regex guess; goes to the LLM judge)", () => {
     const hoE4 = items.find((i) => i.id === "HO-E4");
     assert.ok(hoE4, "HO-E4 item not found in held-out corpus");
-    // Verify no proper noun overlap with seen corpus
     const seenProperNouns = ["paypal", "oauth", "v1/oauth2/token", "invoice total"];
     for (const noun of seenProperNouns) {
       assert.ok(
@@ -267,95 +283,65 @@ describe("HELD-OUT generalization corpus — anti-self-fulfilling-oracle guard (
     const result = classify(hoE4.gap);
     assert.strictEqual(
       result.class,
-      "external",
-      `HO-E4 (proper-noun-less external assertion) MUST be external, got "${result.class}"\n` +
-        `  gap: "${hoE4.gap}"\n` +
-        `  reason: "${result.reason}"\n` +
-        `  NOTE: A classifier that defaults proper-noun-less claims to internal FAILS A1 ` +
-        `(the cycle-2 silent-miss finding #3 this item is designed to catch)`,
+      "ambiguous",
+      `HO-E4 (proper-noun-less assertion) MUST be AMBIGUOUS — regex must NOT BELIEVE a paraphrase ` +
+        `is external (that guess was the sin M89 prevents). got "${result.class}"\n  reason: "${result.reason}"`,
     );
-    assert.strictEqual(result.route, "web", "HO-E4 must route to web");
+    assert.strictEqual(result.route, "judge", "HO-E4 must route to the LLM judge");
+    // Critically: it is NEVER silently internal (the silent-miss the directive forbids).
+    assert.notStrictEqual(result.class, "internal", "an unverified external assertion must NEVER be silently internal");
   });
 
-  test("HO-I4 (symbol-only internal, no path/anchor) → internal (premise-correction guard)", () => {
+  test("HO-I4 (bare camelCase symbol, no anchor/path) → AMBIGUOUS (shape is not a string fact)", () => {
     const hoI4 = items.find((i) => i.id === "HO-I4");
     assert.ok(hoI4, "HO-I4 item not found in held-out corpus");
     const result = classify(hoI4.gap);
     assert.strictEqual(
       result.class,
-      "internal",
-      `HO-I4 (bare local symbol) MUST be internal, got "${result.class}"\n` +
-        `  gap: "${hoI4.gap}"\n` +
-        `  reason: "${result.reason}"\n` +
-        `  NOTE: A bare local symbol with no path/anchor is still internal (grep-able local code)`,
+      "ambiguous",
+      `HO-I4 (bare camelCase symbol) MUST be AMBIGUOUS — a camelCase shape is identical to an ` +
+        `external symbol, so it is NOT a string fact; the LLM judge + grep place it. got "${result.class}"\n` +
+        `  reason: "${result.reason}"`,
     );
-    assert.strictEqual(result.route, "grep", "HO-I4 must route to grep");
+    assert.strictEqual(result.route, "judge", "HO-I4 must route to the LLM judge");
   });
 
-  // Finding #4 (MEDIUM): a claim with a bare internal anchor ("our"/"internal"/
-  // "this repo's") routes INTERNAL even when it carries an API/rate-limit term — the
-  // internal signal wins (internal-first). The genuinely-external HO-E4 (no anchor)
-  // must stay external — proving the anchor, not the limit term, is the discriminator.
-  test("finding #4: 'rate limit OUR INTERNAL gateway' → internal (bare anchor beats API term); HO-E4 (no anchor) stays external", () => {
-    const internalClaim = "What is the rate limit our internal API gateway enforces per tenant?";
-    const rInternal = classify(internalClaim);
+  // A bare internal anchor wins over a co-occurring API term (string fact precedence):
+  // "rate limit our internal API gateway" is about THIS repo → internal, NOT external.
+  test("internal anchor precedence: 'rate limit OUR INTERNAL gateway' → internal (string-fact anchor wins)", () => {
+    const rInternal = classify("What is the rate limit our internal API gateway enforces per tenant?");
     assert.strictEqual(
-      rInternal.class,
-      "internal",
-      `An 'our internal' anchored rate-limit claim must be internal (internal-first), got "${rInternal.class}"\n` +
-        `  reason: "${rInternal.reason}"`,
+      rInternal.class, "internal",
+      `An 'our internal' anchored claim must be internal (anchor is a string fact), got "${rInternal.class}"\n  reason: "${rInternal.reason}"`,
     );
     assert.strictEqual(rInternal.route, "grep", "Internal-anchored claim must route to grep");
-
-    // The genuinely external HO-E4 (no internal anchor) must NOT regress to internal
-    const hoE4 = heldoutCorpus.items.find((i) => i.id === "HO-E4");
-    const rExternal = classify(hoE4.gap);
-    assert.strictEqual(
-      rExternal.class,
-      "external",
-      `HO-E4 (no internal anchor, asserts external limit) must stay external, got "${rExternal.class}"`,
-    );
   });
 
-  // Cycle-3 discriminators (the 3 findings this fix closes) — asserted by RULE.
-  test("cycle-3 finding #1: interrogative phrasing does NOT pull internal (question words are neutral)", () => {
-    // 'How does Stripe …?' is the natural phrasing of an EXTERNAL research question.
-    const r = classify("How does Stripe construct the webhook signature-verification header?");
-    assert.strictEqual(r.class, "external", `interrogative external mislabeled: ${r.reason}`);
-    // Genuine anchors still pull internal regardless of the question word.
-    for (const g of [
-      "What is the rate limit our internal API gateway enforces?",
-      "How does the existing gsd-t-traceability-gate.cjs enumerate tasks?",
-    ]) {
-      assert.strictEqual(classify(g).class, "internal", `genuine-anchor question mislabeled: "${g}"`);
-    }
+  // v1.3.0 discriminators — the 3-result string-fact filter, asserted by RULE.
+  test("confident external: vendor proper-noun + API term → external (string fact)", () => {
+    assert.strictEqual(classify("How does Stripe construct the webhook signature header?").class, "external");
+    assert.strictEqual(classify("What is the Chrome extension storage.local quota api limit?").class, "external");
+    // Genuine repo anchors still pull internal regardless of the question word.
+    assert.strictEqual(classify("How does the existing gsd-t-traceability-gate.cjs enumerate tasks?").class, "internal");
   });
 
-  test("cycle-3 finding #2: a bare camelCase symbol does NOT override a co-occurring external proper noun", () => {
-    // proper noun + bare symbol → external (fail-toward-external)
-    assert.strictEqual(classify("react useState returns a stateful value").class, "external");
-    assert.strictEqual(
-      classify("the stripe createCharge call returns a chargeId field").class,
-      "external",
-    );
-    // bare symbol, NO external signal → internal by shape
-    assert.strictEqual(classify("parseConfig clamps the model").class, "internal");
-    // PATH-shaped signal DOES override a proper noun → internal
+  test("vendor proper-noun WITHOUT an API-term co-signal → AMBIGUOUS (one signal is not a string fact)", () => {
+    // proper noun + bare symbol, no api term → ambiguous (the LLM judge decides → research)
+    assert.strictEqual(classify("react useState returns a stateful value").class, "ambiguous");
+    assert.strictEqual(classify("the stripe createCharge call returns a chargeId field").class, "ambiguous");
+    // bare symbol, NO signal at all → ambiguous (shape is not a string fact)
+    assert.strictEqual(classify("parseConfig clamps the model").class, "ambiguous");
+    // PATH-shaped string fact → internal even with a vendor name present
     assert.strictEqual(classify("how does gsd-t-verify.workflow.js call Stripe?").class, "internal");
   });
 
-  test("cycle-3 finding #3: single-word homographs are external only when a strong signal co-occurs", () => {
-    // homograph alone → internal
-    assert.strictEqual(classify("we square the input value before hashing").class, "internal");
-    assert.strictEqual(classify("the function bails at the edge case").class, "internal");
-    // homograph + strong co-occurring signal (or possessive company form) → external
-    assert.strictEqual(classify("Square's payments API rejects negative amounts").class, "external");
-    assert.strictEqual(classify("deploy to the edge with Cloudflare Workers").class, "external");
-  });
-
-  test("cycle-3 nit: bare 'bearer' is NOT external; 'bearer token' (with a co-signal) is", () => {
-    assert.strictEqual(classify("the handler reads the bearer prefix off the header").class, "internal");
-    assert.strictEqual(classify("the api returns a bearer token after auth").class, "external");
+  test("single-word homographs (square/edge) are NOT proper nouns → AMBIGUOUS, never external", () => {
+    // homographs were DELETED from the proper-noun list → no string fact → ambiguous
+    assert.strictEqual(classify("we square the input value before hashing").class, "ambiguous");
+    assert.strictEqual(classify("the function bails at the edge case").class, "ambiguous");
+    // but a real vendor + api term is a string fact → external
+    assert.strictEqual(classify("the stripe api rejects negative amounts").class, "external");
+    assert.strictEqual(classify("deploy to cloudflare via the workers api").class, "external");
   });
 
   // Zero token overlap guard (held-out symbols must not appear in seen corpus)

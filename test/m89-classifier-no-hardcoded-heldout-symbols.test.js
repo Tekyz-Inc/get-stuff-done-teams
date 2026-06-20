@@ -11,10 +11,15 @@
 //
 // This guard asserts NONE of those specific held-out symbols appear as a string
 // LITERAL in bin/gsd-t-research-gate.cjs. Re-hard-coding any of them FAILS this test.
-// They must be classified by STRUCTURE (camelCase / kebab-ish local-symbol shape or
-// repo-relative path shape), not by enumeration.
 //
-// Contract: auto-research-contract.md §1.1 + §6 (held-out generalization corpus)
+// v1.3.0 (3-result mechanical filter): a BARE camelCase symbol is shape-identical to an
+// external symbol, so it is NOT a string fact about this repo — the classifier returns
+// AMBIGUOUS for it (the LLM judge + grep place it). The old matchLocalSymbolShape()
+// "camelCase => this-repo" heuristic was DELETED (it was a GUESS — the sin M89 prevents).
+// The anti-hardcode invariant is UNCHANGED and even stronger: no held-out symbol may be
+// enumerated as a literal — bare symbols simply fall through to ambiguous.
+//
+// Contract: auto-research-contract.md §1.1 + §6 (held-out generalization corpus, v1.3.0)
 // Runner: npm test
 
 const { test, describe } = require("node:test");
@@ -51,29 +56,36 @@ describe("D1 anti-hardcode guard — held-out symbols are NOT enumerated in the 
     });
   }
 
-  test("classifier still defines a STRUCTURAL local-symbol shape detector (the generalizing path)", () => {
+  test("classifier does NOT re-introduce a camelCase 'shape => this-repo' guesser (deleted in v1.3.0)", () => {
+    // The old matchLocalSymbolShape() guessed camelCase => internal — a belief, the sin
+    // M89 prevents. It is intentionally GONE; bare symbols fall through to ambiguous.
     assert.ok(
-      classifierSrc.includes("matchLocalSymbolShape"),
-      "Classifier must define matchLocalSymbolShape() — the structural (non-enumerated) " +
-        "local-symbol detector that classifies held-out symbols by shape.",
+      !classifierSrc.includes("matchLocalSymbolShape"),
+      "Classifier must NOT define matchLocalSymbolShape() — the camelCase 'shape implies this-repo' " +
+        "guesser was deleted (it was a guess). A bare symbol is ambiguous → the LLM judge places it.",
     );
   });
 
-  test("the held-out symbols still classify correctly BY SHAPE (generalization holds)", () => {
+  test("held-out bare symbols classify AMBIGUOUS (shape is not a string fact) — generalization holds", () => {
     const { classify } = require(CLASSIFIER_PATH);
-    const cases = [
-      ["Does resolveProfile clamp the competition-judge model?", "internal"], // camelCase
-      ["What does isOrderLocked return when the order is locked?", "internal"], // camelCase
-      ["What exit code does cli-preflight use on a wrong branch?", "internal"], // kebab + anchor
-      ["Does proveDisjointness reject overlapping file ownership?", "internal"], // camelCase
+    // A bare camelCase/kebab symbol with no anchor/path is ambiguous (not a string fact).
+    const ambiguousCases = [
+      "Does resolveProfile clamp the competition-judge model?",
+      "What does isOrderLocked return when the order is locked?",
+      "Does proveDisjointness reject overlapping file ownership?",
     ];
-    for (const [gap, expected] of cases) {
+    for (const gap of ambiguousCases) {
       const r = classify(gap);
       assert.strictEqual(
-        r.class,
-        expected,
-        `"${gap}" must classify ${expected} by SHAPE, got "${r.class}" (reason: ${r.reason})`,
+        r.class, "ambiguous",
+        `"${gap}" must be AMBIGUOUS (bare symbol is not a string fact → LLM judge), got "${r.class}" (reason: ${r.reason})`,
       );
     }
+    // A concrete string fact (anchor / path / tool shape) still classifies confidently.
+    assert.strictEqual(
+      classify("What exit code does cli-preflight use on a wrong branch?").class,
+      "internal",
+      "'exit code' anchor is a string fact → internal (NOT via enumerating cli-preflight)",
+    );
   });
 });

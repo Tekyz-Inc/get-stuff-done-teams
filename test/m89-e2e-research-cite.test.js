@@ -196,7 +196,7 @@ function stubResearchAgent(claimText) {
 // that motivated M89 (a vendor-specific limit stated as fact, never verified).
 // ---------------------------------------------------------------------------
 
-const PLANTED_EXTERNAL_CLAIM = "PayPal v2 invoice TOTAL amount limit";
+const PLANTED_EXTERNAL_CLAIM = "PayPal v2 invoice TOTAL amount limit via the invoicing API";
 const PLANTED_INTERNAL_CLAIM = "gsd-t-verify.workflow.js is owned by domain D3";
 
 const FIXTURE_ARTIFACT = [

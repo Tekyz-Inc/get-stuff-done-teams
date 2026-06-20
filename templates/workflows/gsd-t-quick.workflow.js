@@ -119,15 +119,39 @@ function isAlreadyCited(artifactText, claimKey) {
 async function grepForClaim(projectDir, claimText, phaseName) {
   const escaped = claimText.replace(/'/g, "'\\''").slice(0, 200);
   const prompt = [
-    `Search the project at \`${projectDir}\` for this claim: "${escaped}"`,
+    `Decide whether THIS repo's own code/contracts/tests CONFIRM the SPECIFIC claim — not merely`,
+    `share vocabulary with it (Red Team MEDIUM). Project: \`${projectDir}\`. Claim: "${escaped}"`,
     `Run: \`grep -r --include="*.js" --include="*.ts" --include="*.md" --include="*.cjs" -l "${escaped.slice(0, 60)}" "${projectDir}" 2>/dev/null | head -5\``,
-    `Return JSON: { "found": <boolean>, "matches": ["<file>", ...] } — found=true if grep returned any lines.`,
-    `Do ONLY this grep. No other work.`,
+    `Then Read the candidates and judge: set found=true ONLY IF the repo content actually CONFIRMS`,
+    `the value/shape/behavior the claim asserts. Coincidental keyword overlap = found=false.`,
+    `If the claim is about an EXTERNAL system's behavior (3rd-party API, library, browser, protocol),`,
+    `grep CANNOT confirm it → found=false so it escalates to web research.`,
+    `Return JSON: { "found": <boolean>, "matches": ["<file>", ...] }. No other work.`,
   ].join("\n");
   const schema = { type: "object", required: ["found"], additionalProperties: true, properties: { found: { type: "boolean" }, matches: { type: "array", items: { type: "string" } } } };
   const r = await agent(prompt, { label: "grep-internal-claim", model: "haiku", schema, phase: phaseName })
     .catch(() => ({ found: false, matches: [] }));
   return r || { found: false, matches: [] };
+}
+
+// M89 §1.1 — AMBIGUOUS → LLM JUDGE (bare model:"fable"). internal/external/uncertain;
+// uncertain → research (never guess-internal). On error → "uncertain" (fail toward research).
+const CLASSIFY_JUDGE_SCHEMA = {
+  type: "object", required: ["verdict"], additionalProperties: true,
+  properties: { verdict: { type: "string", enum: ["internal", "external", "uncertain"] }, reason: { type: "string" } },
+};
+async function judgeAmbiguous(claimText, phaseName) {
+  const prompt = [
+    `You are the M89 ambiguous-claim JUDGE (auto-research-contract §1.1). The mechanical string-fact`,
+    `classifier could not decide this GUESSED claim. Decide in natural language. Claim: "${claimText}"`,
+    `- "internal"  = about THIS repo's OWN code/contracts/tests — grep/Read can confirm.`,
+    `- "external"  = asserts an OUTSIDE system's behavior/shape/limit — needs web research.`,
+    `- "uncertain" = you cannot CONFIDENTLY place it internal — per M89 doctrine it is RESEARCHED, never guessed.`,
+    `Return JSON: { "verdict": "internal"|"external"|"uncertain", "reason": "<one line>" }. No file/web work in THIS step.`,
+  ].join("\n");
+  const r = await agent(prompt, { label: "classify-judge", model: "fable", schema: CLASSIFY_JUDGE_SCHEMA, phase: phaseName })
+    .catch((e) => ({ verdict: "uncertain", reason: `judge error: ${e && e.message}` }));
+  return (r && r.verdict) || "uncertain";
 }
 
 // M89 §2 — research result schema
@@ -217,7 +241,8 @@ if (guessedClaims.length === 0) {
       continue;
     }
 
-    if (envelope.class === "external") {
+    // External-claim handler closure (reused by the ambiguous→judge path).
+    const doExternal = async () => {
       log(`Research: external → marker + research(fable) for "${claimKey.slice(0, 50)}"`);
       // §7 write uncited marker
       if (artifactPath) {
@@ -251,9 +276,10 @@ if (guessedClaims.length === 0) {
       } else {
         log(`Research: research failed for "${claimKey.slice(0, 50)}" — marker stays uncited`);
       }
+    };
 
-    } else {
-      // internal → grep (A3 routing decision)
+    // Internal-claim handler closure (grep A3; grep-empty → escalate §5.1).
+    const doInternal = async () => {
       log(`Research: internal → grep for "${claimText.slice(0, 50)}"`);
       const gr = await grepForClaim(projectDir, claimText, "Research");
       if (gr.found) {
@@ -290,6 +316,25 @@ if (guessedClaims.length === 0) {
         } else {
           log(`Research: escalation failed for "${claimKey.slice(0, 50)}"`);
         }
+      }
+    };
+
+    // ── Dispatch by the 3-result classifier verdict (v1.3.0) ──────────────────
+    if (envelope.class === "external") {
+      await doExternal();
+    } else if (envelope.class === "internal") {
+      await doInternal();
+    } else {
+      // class:AMBIGUOUS — no string fact; LLM judge decides. internal→grep; external→research;
+      // UNCERTAIN→research (uncertain = verify, never guess-internal).
+      log(`Research: ambiguous → LLM judge for "${claimText.slice(0, 50)}" (when unsure, research)`);
+      const verdict = await judgeAmbiguous(claimText, "Research");
+      log(`Research: ambiguous "${claimKey.slice(0, 50)}" → judge: ${verdict}`);
+      if (verdict === "internal") {
+        await doInternal();
+      } else {
+        if (verdict === "uncertain") log(`Research: judge UNCERTAIN → "${claimKey.slice(0, 50)}" treated external → research (no silent guess)`);
+        await doExternal();
       }
     }
   }

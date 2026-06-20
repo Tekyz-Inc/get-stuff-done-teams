@@ -58,8 +58,8 @@ stage valuable and non-substitutable.
 ```markdown
 ## Verified Facts (auto-research)
 
-- **<exact fact statement>** — source: <https://canonical-url/path> (fetched YYYY-MM-DD)
-- **<second fact if needed>** — source: <https://canonical-url/path> (fetched YYYY-MM-DD)
+- **<exact fact statement>** — source: <https://canonical-url/path> (fetched YYYY-MM-DD) key: <normalized-claim-key>
+- **<second fact if needed>** — source: <https://canonical-url/path> (fetched YYYY-MM-DD) key: <normalized-claim-key>
 ```
 
 **Rules (each violated = stage failure):**
@@ -69,6 +69,11 @@ stage valuable and non-substitutable.
   - `source: <url>` — the canonical URL (angle-bracket hyperlink, not bare text).
   - `(fetched YYYY-MM-DD)` — the actual date you fetched it. This is **load-bearing**: it is the
     basis for staleness judgment (auto-research-contract §1.3 / §3). Do NOT omit or approximate.
+- Every fact line SHOULD carry the **`key: <normalized-claim-key>`** trailer — the gap-key you were
+  given (lowercase, whitespace-collapsed, punctuation-stripped). This lets the §7 verify gate match a
+  cited marker to its backing fact by **claim-key**, not merely by line count (Red Team MEDIUM #2). It
+  is the SAME key as the `key=` value in the `auto-research-claim` marker. If you were given a `key:`,
+  emit it verbatim; the gate falls back to a count check only when no per-entry keys are present.
 - An **uncited fact** (missing `source:`) FAILS the gate (auto-research-contract SC2/SC3).
 - A **fact with no fetch date** FAILS the gate — treat the date as mandatory, not decorative.
 - State only what the source explicitly says. No inference, no paraphrase beyond compression.

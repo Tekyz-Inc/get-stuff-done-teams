@@ -179,6 +179,33 @@ describe("§3 — Verified-Facts cite-block grammar", () => {
     assert.ok(result.facts[1].date, "Second fact must have a fetch date");
   });
 
+  test("POSITIVE (v1.3.0 — per-key trailer): a fact line carrying a `key:` trailer still PARSES (source+date intact)", () => {
+    // Red Team MEDIUM #2: the optional `key: <normalized-claim-key>` trailer lets the §7
+    // gate match cited markers to facts BY CLAIM-KEY. It must not break source/date parsing.
+    const block = [
+      "## Verified Facts (auto-research)",
+      "",
+      "- **PayPal v2 invoice total must not exceed 1,000,000.00 USD** — source: <https://developer.paypal.com/docs/api/invoicing/v2/> (fetched 2026-06-18) key: paypal v2 invoice total amount limit",
+    ].join("\n");
+    const result = parseVerifiedFactsBlock(block);
+    assert.equal(result.valid, true, `key: trailer must not invalidate the block: ${result.errors.join("; ")}`);
+    assert.equal(result.facts.length, 1);
+    assert.ok(result.facts[0].url, "fact with key: trailer must still expose its URL");
+    assert.ok(result.facts[0].date, "fact with key: trailer must still expose its fetch date");
+    // The key trailer is present and parseable as an explicit claim-key match for the gate.
+    const keyMatch = block.match(/\bkey:\s*([a-z0-9 ]+)\s*$/m);
+    assert.ok(keyMatch && keyMatch[1].trim() === "paypal v2 invoice total amount limit",
+      "the key: trailer must carry the normalized claim-key the §7 gate matches against");
+  });
+
+  test("research-subagent.md documents the optional `key:` per-fact trailer (Red Team MEDIUM #2)", () => {
+    const content = fs.readFileSync(RESEARCH_SUBAGENT_MD, "utf8");
+    assert.ok(
+      content.includes("key: <normalized-claim-key>") || content.includes("key:"),
+      "research-subagent.md must instruct the stage to emit the optional `key:` trailer for per-claim-key gate matching",
+    );
+  });
+
   test("NEGATIVE (SC2): a fact line with NO source URL FAILS", () => {
     const block = [
       "## Verified Facts (auto-research)",

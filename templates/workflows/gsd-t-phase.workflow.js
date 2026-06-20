@@ -33,15 +33,22 @@
 //     numeric selection is finalized deterministically by competition-judge --kind
 //     generic.
 //
-// M89 Stated-Claims → classify → research + §7 ENFORCE marker:
+// M89 Stated-Claims → classify (3-result) → judge/research + §7 ENFORCE marker:
 //   Every eligible upper phase (plan, pre-mortem, partition, discuss, milestone, impact)
 //   embeds the Stated-Claims snippet so the agent emits a ## Stated Claims list tagging
 //   load-bearing claims KNOWN | GUESSED(type). The wiring (runStatedClaimsPipeline)
-//   iterates each [GUESSED:*] entry through the classifier (D1 envelope), and on
-//   class:external writes a §7 status=uncited marker, runs the research agent (bare
-//   model:"fable"), writes a ## Verified Facts (auto-research) block, and flips the
-//   marker to status=cited. On class:internal: grep first; if grep empty, escalate to
-//   external (§5.1). Idempotent: an already-cited marker (same claim-key) skips re-research.
+//   iterates each [GUESSED:*] entry through the D1 classifier, which is a MECHANICAL
+//   STRING-FACT FILTER returning internal | external | AMBIGUOUS (v1.3.0). On
+//   class:external write a §7 status=uncited marker, run the research agent (bare
+//   model:"fable"), write a ## Verified Facts (auto-research) block, flip the marker to
+//   status=cited. On class:internal: grep first; if grep empty, escalate to external
+//   (§5.1). On class:AMBIGUOUS (the regex has no string fact — semantic placement is the
+//   LLM's call, NOT regex's): run a small LLM JUDGE (model:"fable") that decides
+//   internal/external/uncertain in natural language. internal→grep; external→research;
+//   UNCERTAIN→treat as external→research (uncertain = verify, NEVER guess-internal — a
+//   silent miss is the one unacceptable outcome). Idempotent: an already-cited marker
+//   (same claim-key) skips re-research. The classifier never guesses a default — when it
+//   isn't a string fact, the LLM decides, and when the LLM isn't sure, we research.
 //   Contract: auto-research-contract.md v1.2.0 §1/§2/§3/§4/§6.5/§7.
 
 export const meta = {
@@ -241,6 +248,20 @@ const MARKER_WRITE_SCHEMA = {
   },
 };
 
+// M89 §1.1 — the AMBIGUOUS → LLM JUDGE schema. When the mechanical classifier finds no
+// decisive STRING FACT (class:ambiguous), this judge applies the known/internal/external
+// test in natural language and returns one of three verdicts. CRITICAL: "uncertain" is a
+// first-class verdict — the wiring treats it as EXTERNAL (research), never guess-internal.
+const CLASSIFY_JUDGE_SCHEMA = {
+  type: "object",
+  required: ["verdict"],
+  additionalProperties: true,
+  properties: {
+    verdict: { type: "string", enum: ["internal", "external", "uncertain"] },
+    reason: { type: "string" },
+  },
+};
+
 /**
  * M89 §7 Stated-Claims pipeline: classify → marker-write → research/grep → cite → flip.
  * Called after the phase agent runs on any research-eligible phase.
@@ -346,7 +367,9 @@ async function runStatedClaimsPipeline(projectDir, phaseName, phaseResult, state
 
     log(`m89: claim "${claimKey}" → class:${claimClass} route:${claimRoute} — ${envelope.reason || ""}`);
 
-    if (claimClass === "external") {
+    // External-claim handler (§7 marker → research(fable) → cite → flip). Closure so the
+    // ambiguous→judge path can reuse it for an "external"/"uncertain" verdict.
+    const doExternal = async () => {
       // §7: Write status=uncited marker into the artifact at classify time.
       const marker = `<!-- auto-research-claim: class=external key=${claimKey} status=uncited -->`;
       if (primaryArtifact) {
@@ -375,7 +398,7 @@ async function runStatedClaimsPipeline(projectDir, phaseName, phaseResult, state
           `Claim to verify: "${claimText}"`,
           `Normalized claim-key: "${claimKey}"`,
           ``,
-          `Use WebSearch + WebFetch to find authoritative sources. Emit a ## Verified Facts (auto-research) block per §3 format.`,
+          `Use WebSearch + WebFetch to find authoritative sources. Emit a ## Verified Facts (auto-research) block per §3 format. On every fact line append the trailer \`key: ${claimKey}\` so the §7 gate matches by claim-key (Red Team MEDIUM #2).`,
           `Return JSON per the schema with ok:true and citedBlock (the full markdown block) on success, or ok:false and reason on STAGE-FAILURE.`,
         ].join("\n"),
         { label: "research-stage", phase: "Phase", schema: RESEARCH_RESULT_SCHEMA, model: "fable" }
@@ -409,9 +432,11 @@ async function runStatedClaimsPipeline(projectDir, phaseName, phaseResult, state
         errors.push({ claimKey, error: `research stage failure: ${reason}`, action: "research-failed" });
         processed.push({ claimKey, action: "research-failed", class: "external", reason });
       }
+    };
 
-    } else {
-      // class:internal — grep first; escalate to external if grep empty (§5.1).
+    // Internal-claim handler — grep first; escalate to external if grep empty (§5.1).
+    // Closure so the ambiguous→judge path can reuse it for an "internal" verdict.
+    const doInternal = async () => {
       log(`m89: internal claim "${claimKey}" — running grep/Read`);
       const grepResult = await agent(
         [
@@ -419,12 +444,20 @@ async function runStatedClaimsPipeline(projectDir, phaseName, phaseResult, state
           ``,
           `Internal claim: "${claimText}"`,
           ``,
-          `Task: Use grep and/or Read to check if this claim can be resolved from the project's own code / contracts / tests.`,
-          `1. Run grep on the project directory to find relevant code, contract, or test that confirms or clarifies the claim.`,
-          `2. If grep finds relevant content, set found=true and provide a short excerpt.`,
-          `3. If grep finds NOTHING relevant, set found=false.`,
+          `Task: Use grep and/or Read to decide whether this repo's OWN code / contracts / tests`,
+          `CONFIRM THE SPECIFIC CLAIM — not merely share vocabulary with it (Red Team MEDIUM).`,
+          `1. grep/Read the project for content relevant to the claim.`,
+          `2. Set found=true ONLY IF the repo content you read actually CONFIRMS the specific claim`,
+          `   (the value/shape/behavior the claim asserts is borne out by this repo's code/contract/test).`,
+          `   Coincidental keyword overlap — a file that merely MENTIONS the same words but does not`,
+          `   establish the claim — is found=false.`,
+          `3. If the claim is about an EXTERNAL system's behavior/limit/return-shape (a third-party API,`,
+          `   library, browser, or protocol), grep CANNOT confirm it — set found=false so it escalates`,
+          `   to web research. A repo file that calls that external system is NOT confirmation of the`,
+          `   external system's behavior.`,
+          `4. Otherwise set found=false.`,
           ``,
-          `Return JSON: { "found": true|false, "excerpt": "<up to 200 chars of relevant grep output or empty>" }`,
+          `Return JSON: { "found": true|false, "excerpt": "<up to 200 chars of the CONFIRMING repo content, or empty>" }`,
           `Do NOT run any web searches. Do NOT write any files. Grep and Read only.`,
         ].join("\n"),
         { label: "internal-grep", phase: "Phase", schema: GREP_RESULT_SCHEMA, model: "haiku" }
@@ -459,7 +492,7 @@ async function runStatedClaimsPipeline(projectDir, phaseName, phaseResult, state
             `Claim to verify: "${claimText}"`,
             `Normalized claim-key: "${claimKey}"`,
             ``,
-            `Use WebSearch + WebFetch to find authoritative sources. Emit a ## Verified Facts (auto-research) block per §3 format.`,
+            `Use WebSearch + WebFetch to find authoritative sources. Emit a ## Verified Facts (auto-research) block per §3 format. On every fact line append the trailer \`key: ${claimKey}\` so the §7 gate matches by claim-key (Red Team MEDIUM #2).`,
             `Return JSON per the schema.`,
           ].join("\n"),
           { label: "research-stage", phase: "Phase", schema: RESEARCH_RESULT_SCHEMA, model: "fable" }
@@ -491,6 +524,52 @@ async function runStatedClaimsPipeline(projectDir, phaseName, phaseResult, state
           errors.push({ claimKey, error: `escalated research failure: ${reason}` });
           processed.push({ claimKey, action: "research-failed", class: "external-escalated", reason });
         }
+      }
+    };
+
+    // ── Dispatch by the 3-result classifier verdict ──────────────────────────
+    if (claimClass === "external") {
+      await doExternal();
+    } else if (claimClass === "internal") {
+      await doInternal();
+    } else {
+      // class:AMBIGUOUS — the mechanical filter found NO string fact. Semantic placement
+      // is the LLM's call, NOT regex's. Run the LLM JUDGE (fable). internal→grep;
+      // external→research; UNCERTAIN→research (uncertain = verify, NEVER guess-internal —
+      // a silent miss is the one unacceptable outcome). The classifier never guessed a
+      // default — it deferred, and now the LLM decides (and on doubt we research).
+      log(`m89: ambiguous claim "${claimKey}" — routing to LLM judge (no string fact; doctrine: when unsure, research)`);
+      const judge = await agent(
+        [
+          `You are the M89 ambiguous-claim JUDGE (auto-research-contract §1.1). The mechanical`,
+          `string-fact classifier could not decide this GUESSED claim, so you decide it in natural`,
+          `language. Apply the known/internal/external test:`,
+          ``,
+          `Claim: "${claimText}"`,
+          ``,
+          `- "internal"  = the claim is about THIS repo's OWN code / contracts / schema / file`,
+          `                ownership / tests — something grep/Read of this repo can confirm.`,
+          `- "external"  = the claim asserts the behavior / shape / limit / value of a system`,
+          `                OUTSIDE this repo (a third-party API, library, browser, protocol, spec)`,
+          `                and is unverified — it needs web research to confirm.`,
+          `- "uncertain" = you cannot CONFIDENTLY place it as internal. Use this freely — it is NOT`,
+          `                a failure. Per the milestone's own doctrine, an unverified claim must be`,
+          `                RESEARCHED, never guessed.`,
+          ``,
+          `Return JSON: { "verdict": "internal" | "external" | "uncertain", "reason": "<one line>" }.`,
+          `Do NOT modify files. Do NOT run web searches in THIS step — only decide the verdict.`,
+        ].join("\n"),
+        { label: "classify-judge", phase: "Phase", schema: CLASSIFY_JUDGE_SCHEMA, model: "fable" }
+      ).catch((e) => ({ verdict: "uncertain", reason: `judge error: ${e && e.message} — failing toward research` }));
+
+      const verdict = (judge && judge.verdict) || "uncertain";
+      log(`m89: ambiguous claim "${claimKey}" → judge verdict: ${verdict} — ${(judge && judge.reason) || ""}`);
+      if (verdict === "internal") {
+        await doInternal();
+      } else {
+        // external OR uncertain → research (uncertain = verify, never guess-internal)
+        if (verdict === "uncertain") log(`m89: judge UNCERTAIN for "${claimKey}" → treating as external → research (no silent guess)`);
+        await doExternal();
       }
     }
   }
