@@ -630,3 +630,40 @@ Deterministic trigger (not advisory prose — the existing CLAUDE-global Researc
 - **Two candidate root causes (investigate):** (a) the TEST is fragile — needs a real child-tree kill + a generous-but-enforced timeout, or stub the subprocess; (b) `gsd-t status` itself has a latent slow/hanging path under cold cache or parallel git access (the more concerning one — a command that hangs 123s in CI is a real UX/CI bug, not just a test issue). Determine which before fixing — if (b), fix the command, not the test.
 - **Decision (user, 2026-06-18):** backlog it, do NOT fix inline; re-verify M89 as-is and accept it may re-flake. If it re-blocks M89 repeatedly, escalate to fix-now.
 - Scope: ~1 domain (diagnose status-under-load, then either harden the test [child-tree kill + timeout] or fix the command's slow path), <1 wave.
+
+## 38. Unproven-assumption guard: stop → research-how-others-solved-it → re-examine premise → then proceed (supersedes M89's narrow scope)
+
+**Added**: 2026-06-21
+**Type**: framework capability (HIGHEST leverage — addresses the root pattern behind a week of thrash) | **App**: gsd-t
+**Origin**: user, 2026-06-21, correcting M89's scope mid-flight. M89 framed "guessing" as only "do I know what the code/API currently SAYS?" (factual). The user named the dangerous omission: the system also assumes **an APPROACH/architecture is correct without proof** — "I'll fix it this way", "the existing code was written the right way so I'll build on it" — and **plows forward on the unproven approach**, repeatedly. Evidence (user: "review the last week across several projects"): binvoice FB-modal whack-a-mole + PayPal premise; GSD-T M87 7-cycle plan loop; GSD-T M89 8-cycle verify loop — same pattern every time: guess an approach → plow forward → fail → guess another → repeat, instead of ONE step-back + research + re-architect. M89 PAUSED to redesign around this.
+
+### The doctrine (the real feature)
+Any time the system relies on an UNPROVEN ASSUMPTION — factual (internal/external) OR judgmental (is this approach/architecture correct?) — it must **STOP, research how the problem has been solved successfully by others, RE-EXAMINE the premise, then proceed.** Plowing forward on an unverified approach is the deadly recurring pattern. "Don't act on belief; if not grounded in definitive knowledge or research, research first" — applied to APPROACH, not just facts. See memory `feedback_unproven_assumption_stop_and_research`.
+
+### Design directions (to settle at milestone definition)
+- **Two assumption classes, each with a trigger:** (a) FACTUAL → grep (internal) / web-research (external) — M89's mechanism, kept; (b) ARCHITECTURAL/APPROACH → research how others solved this class of problem + re-examine the premise BEFORE building. The second is new and load-bearing.
+- **Non-convergence = an unproven premise, not a tuning gap.** Hook into the debug-cycle circuit-breaker (#33) and the plan/verify loops: when a loop produces variant-after-variant (binvoice/M87/M89 signature), the system must HALT and re-examine the PREMISE/approach — research-then-rearchitect — not patch the next variant. This is what should have fired ~5 cycles earlier in all three sagas.
+- **No hardcoded finite list for an open category (the M89 vendor-list lesson):** the mechanical/regex layer can only recognize CLOSED knowable sets (this repo's own files); it must NOT enumerate open-ended real-world sets (vendors, API terms, library names). Anything not confidently-internal → LLM judges → uncertain → research. M89's redesign folds into this.
+- **M89's external-fact auto-research becomes the FACTUAL slice of this larger capability** — finish it under this umbrella (delete the vendor list, regex-knows-only-own-paths, LLM-judges-rest), and add the architectural-assumption slice.
+
+### Relation
+- Supersedes/absorbs M89 (#36) — M89's "auto-research external facts" is one slice. Complements #33 (debug circuit-breaker — the loop-halt mechanism this needs) and #31 (micro-pre-mortem). The strongest single GSD-T improvement in the queue: it attacks the root cause of every multi-cycle thrash measured this month.
+- Scope: re-scope at milestone definition; likely ~3–4 domains (factual auto-research [M89 redesigned] + architectural-assumption detection/research + non-convergence→re-examine-premise loop-hook + contract/docs). Multiple waves.
+
+## 39. Red Team Realism gate — separate adversarial-collaboration agent bounds edge-case scope
+
+**Added**: 2026-06-21
+**Type**: framework improvement (verify quality) | **App**: gsd-t | **Category**: prompts/verify
+**Origin**: user, 2026-06-21. The Red Team has NO instruction to weigh likelihood/scope — it escalates contrived/unlikely edge cases to CRITICAL with equal weight to real money/security bugs (rewarded only for FINDING breakage). Inflated the M89 verify loop (cycles spent on baroque homograph/vendor/phrasing combos raised as blocking). The user WANTS hard edge-case hunting — but also wants the question asked: "given the system's purpose + realistic likelihood, is this worth defending NOW?"
+
+### Design (user's instinct + 2 refinements)
+A SEPARATE **Realism agent** the Red Team argues scope with (adversarial-collaboration, mirroring GSD-T's bounded-loop pattern):
+- Red Team finds an edge case, argues it's in-scope → Realism ACCEPTS (blocking finding stands) or REJECTS with an out-of-scope reason.
+- Red Team may push back with updated reasoning — **max 2 attempts.** **2 rejections → DOCUMENTED as "identified, currently out of scope," NOT blocking.**
+- **Refinement 1 (anti-silencer):** the Red Team already proved the bug is REAL; the Realism agent rules ONLY on scope/likelihood-given-purpose, NEVER on validity. **HARD FLOOR: money / security / data-loss / silent-wrong-output is ALWAYS in-scope** — Realism cannot defer it regardless of likelihood. (Would correctly keep M89's out-of-list-vendor finding in-scope — silent-wrong-output.)
+- **Refinement 2 (deferral ≠ dismissal):** out-of-scope cases go to a VISIBLE LEDGER (re-surfaced next milestone, promotable as the product matures) — never silently dropped. Matches the "skip = deferral not exemption" principle (#32).
+- User asked "better suggestion?" — kept the shape, added the two refinements above; user to confirm at milestone definition.
+
+### Relation
+- Lives in `templates/prompts/red-team-subagent.md` + a NEW realism-subagent protocol + the verify workflow triad-synthesis stage. The verify-time dual of the pre-mortem/debug-cycle caps. See memory `feedback_red_team_realism_gate`.
+- Scope: ~1–2 domains (realism-subagent protocol + red-team protocol update + verify-workflow wiring + deferred-ledger + contract/docs), 1 wave.
