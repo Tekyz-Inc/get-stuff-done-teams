@@ -152,6 +152,22 @@
       "expectedClass": "ambiguous",
       "expectedRoute": "judge",
       "featureSignal": "Concrete repo path (bin/handler.js) AND strong external (Stripe + api + webhook + endpoint). Path does NOT override the external signal -> AMBIGUOUS -> judge -> research. Pairs with HO-E10."
+    },
+    {
+      "id": "HO-T1",
+      "source": "held-out (M90 D3 — R-FACT-3 time-anchored override, 'current best practice')",
+      "gap": "What is the current best practice for JWT authentication in Node.js?",
+      "expectedClass": "external",
+      "expectedRoute": "web",
+      "featureSignal": "TIME-ANCHORED OVERRIDE (R-FACT-3): temporal-signal phrase 'current best practice' indicates a fast-moving claim. Temporal-collapse (CoVe: arXiv:2309.11495) makes confidence unreliable on this class — always route to research (external/web) REGARDLESS of other signals. No vendor+API string fact needed; the temporal phrase is itself the trigger."
+    },
+    {
+      "id": "HO-T2",
+      "source": "held-out (M90 D3 — R-FACT-3 time-anchored override, 'latest version')",
+      "gap": "What is the latest version of TypeScript that supports decorators natively?",
+      "expectedClass": "external",
+      "expectedRoute": "web",
+      "featureSignal": "TIME-ANCHORED OVERRIDE (R-FACT-3): temporal-signal phrase 'latest version' indicates a fast-moving claim (version is a time-varying fact). Intrinsic self-knowledge collapses on the temporal axis; a confidence gate cannot catch a stale-but-confident fact. Always route to research."
     }
   ]
 }

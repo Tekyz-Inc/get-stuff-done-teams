@@ -1,6 +1,6 @@
 "use strict";
 
-// M89-D1-T3 — A1 KILLING TEST (headline) — v1.3.0 3-result mechanical filter
+// M89-D1-T3 / M90-D3 — A1 KILLING TEST (headline) — v1.4.0 (M90 premise-corrected + time-anchored)
 //
 // The classifier is a MECHANICAL STRING-FACT FILTER returning internal | external |
 // AMBIGUOUS. internal/external fire ONLY on an unambiguous STRING FACT; everything that
@@ -9,26 +9,35 @@
 // previously-"external-assertion" paraphrases (HO-E4, react/useState, stripe createCharge,
 // CSS :has) now correctly return AMBIGUOUS — never silently internal.
 //
-// Three assertion sets — all functional, no shallow length>0 / existence checks:
+// Five assertion sets — all functional, no shallow length>0 / existence checks:
 //
 //   1. SEEN (13-item labeled corpus): every item's class AND route match the hand-label.
 //      Aggregate invariants: items 1-7 carry 6 internal + 1 ambiguous (0 external);
 //      items 8-13 carry exactly 2 external (PayPal OAuth + invoice-TOTAL string facts).
 //      Determinism: same gap text → byte-identical envelope on two runs.
 //
-//   2. HELD-OUT (14 novel items NOT used to author the classifier — anti-self-fulfilling-
+//   2. HELD-OUT (21 novel items NOT used to author the classifier — anti-self-fulfilling-
 //      oracle guard): each item must be labeled by STRING FACT, not by keyword match.
 //      Specific guards: HO-E4 (proper-noun-less external assertion) → AMBIGUOUS (the LLM
 //      judge's call, NOT a regex guess); HO-I4 (bare camelCase symbol) → AMBIGUOUS
-//      (shape-identical to an external symbol → not a string fact).
+//      (shape-identical to an external symbol → not a string fact). HO-T1/T2 (temporal
+//      signal phrases) → external/web (R-FACT-3 time-anchored override).
 //      "Passes seen 13 but fails any held-out item" = EXPLICIT FAILURE.
 //
 //   3. BAD-INPUT BOUNDARY (SC1): classify('') / classify('   ') → {ok:false};
 //      classify(non-string) → {ok:false}, no throw. NONE silently returns a class.
 //
+//   4. M90 D3 — R-FACT-0 BASELINE (premise-grounding, D3-T0): ≥10 never-seen external
+//      vendors / freshly-invented names → NONE route silently-internal. Grounds the
+//      partition premise (vendor list does not cause silent-miss) on disk.
+//
+//   5. M90 D3 — R-FACT-3 TIME-ANCHORED OVERRIDE (D3-T3): fast-moving / best-practice
+//      / version / deprecation gaps → external/web REGARDLESS of other signals.
+//
 // Kill gate: a single mislabel (seen or held-out) FAILS.
 //
-// Contract: .gsd-t/contracts/auto-research-contract.md §1 + §1.1 + §6 + SC1/A1 (v1.3.0)
+// Contract: .gsd-t/contracts/auto-research-contract.md §1 + §1.1 + §6 + SC1/A1 (v1.3.3)
+//           .gsd-t/contracts/m90-doctrine-mechanisms-contract.md §1 v1.0.0
 
 const { test, describe } = require("node:test");
 const assert = require("node:assert/strict");
@@ -210,8 +219,8 @@ describe("SEEN corpus — 13-item hand-labeled oracle (A1 kill gate)", () => {
 describe("HELD-OUT generalization corpus — anti-self-fulfilling-oracle guard (A1 kill gate)", () => {
   const items = heldoutCorpus.items;
 
-  test("held-out corpus fixture has exactly 19 items", () => {
-    assert.strictEqual(items.length, 19, `Expected 19 held-out items, got ${items.length}`);
+  test("held-out corpus fixture has exactly 21 items (19 M89 + 2 M90 temporal-override)", () => {
+    assert.strictEqual(items.length, 21, `Expected 21 held-out items, got ${items.length}`);
   });
 
   // v1.3.3 FINAL rule: the mechanical classifier returns `internal` ONLY when there is ZERO
@@ -505,5 +514,379 @@ describe("envelope shape — §1 contract compliance", () => {
         );
       }
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// M90 D3 — R-FACT-0 BASELINE (D3-T0): premise grounding against CURRENT code
+// ---------------------------------------------------------------------------
+//
+// The Unproven-Assumption Doctrine in action: BEFORE any edit, a baseline test
+// runs the CURRENT classifier against ≥10 never-seen / freshly-invented external
+// references and asserts NONE route silently-internal. This grounds the partition
+// premise (the vendor list causes "silent-miss" routing) on disk.
+//
+// PREMISE RESULT: FALSE. All 12 unseen vendors route `ambiguous→judge`; NONE
+// route silently-internal. The vendor list ONLY upgrades a vendor+API match to
+// high-confidence `external→web`; its ABSENCE never routes internal. M89 already
+// removed ALL "wins-outright→internal" overrides (auto-research-contract v1.3.3).
+// Therefore R-FACT-1 is a documented no-op/tightening with corrected rationale,
+// NOT a deletion.
+//
+// SC-NO-FINITE-LIST (premise-corrected): the layer must enumerate no OPEN category
+// for the INTERNAL decision — already true and proven by this baseline.
+
+describe("M90 D3 — R-FACT-0 BASELINE: ≥10 unseen vendors → none silently-internal (D3-T0)", () => {
+  // These vendors are NOT in EXTERNAL_VENDOR_NOUNS. Their ABSENCE from the list
+  // must NOT cause silent-internal routing. This is the premise test.
+  const UNSEEN_VENDOR_GAPS = [
+    // Real vendors not in the list
+    { id: "UV-1", gap: "What is the GitHub API rate limit per hour for authenticated requests?", vendor: "GitHub" },
+    { id: "UV-2", gap: "How does Slack webhook deliver events to my endpoint?", vendor: "Slack" },
+    { id: "UV-3", gap: "Does OpenAI API support streaming responses via SSE?", vendor: "OpenAI" },
+    { id: "UV-4", gap: "What is the Zapier webhook endpoint format for triggers?", vendor: "Zapier" },
+    { id: "UV-5", gap: "What is the Notion API rate limit for workspace queries?", vendor: "Notion" },
+    { id: "UV-6", gap: "How does Pagerduty webhook signature verification work?", vendor: "Pagerduty" },
+    { id: "UV-7", gap: "What is the Airtable API endpoint for creating records?", vendor: "Airtable" },
+    { id: "UV-8", gap: "How does Linear webhook deliver issue update events?", vendor: "Linear" },
+    { id: "UV-9", gap: "What is the Asana API endpoint for creating tasks?", vendor: "Asana" },
+    { id: "UV-10", gap: "What HTTP headers does Shopify webhook include for verification?", vendor: "Shopify" },
+    // Freshly-invented vendor name (must never route internal)
+    { id: "UV-11", gap: "What is the freshly-invented Fizzbuzzeroo API endpoint for webhooks?", vendor: "Fizzbuzzeroo" },
+    { id: "UV-12", gap: "How does the Quartanoid API authenticate webhook calls?", vendor: "Quartanoid" },
+  ];
+
+  test(`baseline has ≥10 unseen vendor + API claims (got ${UNSEEN_VENDOR_GAPS.length})`, () => {
+    assert.ok(
+      UNSEEN_VENDOR_GAPS.length >= 10,
+      `Expected ≥10 unseen vendor claims, got ${UNSEEN_VENDOR_GAPS.length}`,
+    );
+  });
+
+  test("NONE of the ≥10 unseen vendors route silently-internal (premise proven FALSE)", () => {
+    for (const { id, gap, vendor } of UNSEEN_VENDOR_GAPS) {
+      const result = classify(gap);
+      assert.ok(
+        result.ok,
+        `${id} (${vendor}): classify() returned {ok:false}: ${JSON.stringify(result)}`,
+      );
+      assert.notStrictEqual(
+        result.class,
+        "internal",
+        `${id} (${vendor}) SILENT-MISS: routed class:"internal" — the absent vendor "${vendor}" ` +
+          `must NEVER route internal (premise falsified: vendor list does not cause silent-miss; ` +
+          `absent vendor → ambiguous→judge, not internal). gap: "${gap}"`,
+      );
+    }
+  });
+
+  test("unseen vendors route to judge (ambiguous) or web (external) — never internal", () => {
+    let judgeCount = 0;
+    let webCount = 0;
+    for (const { id, gap } of UNSEEN_VENDOR_GAPS) {
+      const result = classify(gap);
+      if (result.route === "judge") judgeCount++;
+      else if (result.route === "web") webCount++;
+      assert.ok(
+        result.route === "judge" || result.route === "web",
+        `${id}: route must be "judge" or "web" for an unseen vendor, got "${result.route}"`,
+      );
+    }
+    // Most unseen vendors should go to judge (not in the upgrade list)
+    assert.ok(
+      judgeCount + webCount === UNSEEN_VENDOR_GAPS.length,
+      `All unseen vendors must route to judge or web, got judge=${judgeCount}, web=${webCount}`,
+    );
+  });
+
+  test("R-FACT-1: vendor list role is UPGRADE (kept vendor + API → web; absent vendor → judge NOT internal)", () => {
+    // Kept vendors (in EXTERNAL_VENDOR_NOUNS + an API term) still route external→web
+    const kept = [
+      { gap: "What is the exact name of the Stripe webhook signature-verification header?", expectedClass: "external" },
+      { gap: "What is the per-origin storage-quota limit for the Chrome extension storage.local API?", expectedClass: "external" },
+      { gap: "What is the Plaid API token exchange endpoint?", expectedClass: "external" },
+      { gap: "How does Twilio webhook authenticate requests?", expectedClass: "external" },
+    ];
+    for (const { gap, expectedClass } of kept) {
+      const result = classify(gap);
+      assert.strictEqual(
+        result.class, expectedClass,
+        `Kept vendor + API term must route "${expectedClass}" (the upgrade role): "${gap}"\n  got: "${result.class}"`,
+      );
+      assert.strictEqual(result.route, "web", `Kept vendor + API term must route to web: "${gap}"`);
+    }
+
+    // Absent vendors with API term → ambiguous (not internal)
+    for (const { id, gap } of UNSEEN_VENDOR_GAPS) {
+      const result = classify(gap);
+      assert.notStrictEqual(result.class, "internal",
+        `${id}: absent vendor must go to ambiguous/web, not internal — vendor list absence never routes internal`);
+    }
+  });
+
+  test("R-FACT-2: internal ONLY on concrete own-repo path/anchor (closed set, NEVER open category)", () => {
+    // A concrete repo path → internal
+    assert.strictEqual(
+      classify("Which domain owns bin/gsd-t-verify-gate.cjs?").class,
+      "internal",
+      "Concrete repo path must classify internal",
+    );
+    // A this-repo anchor → internal
+    assert.strictEqual(
+      classify("What does gsd-t-verify-gate return in this repo when biome fails?").class,
+      "internal",
+      "This-repo anchor must classify internal",
+    );
+    // A bare claim with no anchor/path → NOT internal (never guess)
+    assert.notStrictEqual(
+      classify("What does the validator return when the schema is invalid?").class,
+      "internal",
+      "A bare claim with no anchor or path must NOT classify internal",
+    );
+    // An unseen vendor claim → NOT internal even with no anchor
+    assert.notStrictEqual(
+      classify("How does GitHub authenticate webhook requests?").class,
+      "internal",
+      "An unseen vendor + API claim must NOT classify internal",
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// M90 D3 — R-FACT-3 TIME-ANCHORED OVERRIDE (D3-T3)
+// ---------------------------------------------------------------------------
+//
+// A fast-moving claim (current/latest best-practice, version, deprecation, migration,
+// recommended approach) → research REGARDLESS of any other signal. Temporal-collapse
+// makes a cached "latest" or "current best practice" belief unreliable; the safe rule
+// is always-verify. (CoVe: arXiv:2309.11495; Self-RAG: arXiv:2310.11511.)
+//
+// SC-NO-FINITE-LIST compliance: the INTERNAL decision still requires a POSITIVE
+// own-repo signal; the mere absence of a temporal phrase never routes internal.
+
+describe("M90 D3 — R-FACT-3 time-anchored override: fast-moving claims → research regardless of confidence", () => {
+  const TEMPORAL_GAPS = [
+    // "current/latest best practice" — the primary target
+    {
+      id: "T-1",
+      gap: "What is the current best practice for JWT authentication in Node.js?",
+      signal: "current best practice",
+    },
+    {
+      id: "T-2",
+      gap: "What is the latest best practice for handling OAuth token refresh?",
+      signal: "latest best practice",
+    },
+    // Version / release signals
+    {
+      id: "T-3",
+      gap: "What is the current version of Node.js LTS?",
+      signal: "current version",
+    },
+    {
+      id: "T-4",
+      gap: "What is the latest version of TypeScript that supports this feature?",
+      signal: "latest version",
+    },
+    {
+      id: "T-5",
+      gap: "What is the latest stable release of the React framework?",
+      signal: "latest stable",
+    },
+    // Deprecation / migration
+    {
+      id: "T-6",
+      gap: "Is Express.js deprecated in favor of something else?",
+      signal: "is deprecated",
+    },
+    {
+      id: "T-7",
+      gap: "How do I migrate to the new Prisma v5 API?",
+      signal: "migrate to",
+    },
+    // Recommended approach
+    {
+      id: "T-8",
+      gap: "What is the recommended approach for React server components?",
+      signal: "recommended approach",
+    },
+    {
+      id: "T-9",
+      gap: "What is the recommended practice for environment variable management?",
+      signal: "recommended practice",
+    },
+    // Temporal + internal path: temporal override fires first (the recommendation is external)
+    {
+      id: "T-10",
+      gap: "What is the current best practice for gsd-t-phase.workflow.js timeout handling?",
+      signal: "current best practice",
+    },
+  ];
+
+  test("each time-anchored gap routes to external/web regardless of other signals", () => {
+    for (const { id, gap, signal } of TEMPORAL_GAPS) {
+      const result = classify(gap);
+      assert.strictEqual(
+        result.ok,
+        true,
+        `${id}: classify() returned {ok:false}: ${JSON.stringify(result)}`,
+      );
+      assert.strictEqual(
+        result.class,
+        "external",
+        `${id} (signal: "${signal}") must route class:"external" — ` +
+          `temporal-signal means always-research (R-FACT-3). got "${result.class}"\n  gap: "${gap}"\n  reason: "${result.reason}"`,
+      );
+      assert.strictEqual(
+        result.route,
+        "web",
+        `${id} (signal: "${signal}") must route to "web" — fast-moving claims go to research. got "${result.route}"`,
+      );
+    }
+  });
+
+  test("time-anchored override is deterministic: same text → same result on two runs", () => {
+    const gap = TEMPORAL_GAPS[0].gap;
+    const r1 = classify(gap);
+    const r2 = classify(gap);
+    assert.deepStrictEqual(r1, r2, "Non-deterministic: two calls on same temporal gap produced different envelopes");
+  });
+
+  test("T-10: time-anchored fires even when an internal path is ALSO present (override takes priority)", () => {
+    const { gap, signal } = TEMPORAL_GAPS[9]; // 'current best practice for gsd-t-phase.workflow.js'
+    const result = classify(gap);
+    assert.strictEqual(
+      result.class,
+      "external",
+      `Time-anchored signal "${signal}" must override the internal-path signal — ` +
+        `the recommendation is fast-moving (external) regardless of which file will be changed. ` +
+        `got "${result.class}"\n  reason: "${result.reason}"`,
+    );
+    assert.strictEqual(result.route, "web", "Time-anchored override routes to web even with a repo path present");
+  });
+
+  test("temporal-signal reason mentions R-FACT-3 (auditable provenance)", () => {
+    const result = classify(TEMPORAL_GAPS[0].gap);
+    assert.ok(
+      result.reason.toLowerCase().includes("r-fact-3") || result.reason.toLowerCase().includes("temporal"),
+      `Temporal-override reason must mention R-FACT-3 or 'temporal' for auditability. got: "${result.reason}"`,
+    );
+  });
+
+  test("non-temporal internal gap is NOT affected by temporal override (no false-positive)", () => {
+    // Internal claims WITHOUT temporal phrases must still route internal
+    assert.strictEqual(
+      classify("Which domain in this repo owns bin/gsd-t-wave.workflow.js?").class,
+      "internal",
+      "A non-temporal internal gap must not be falsely triggered by the temporal override",
+    );
+    assert.strictEqual(
+      classify("What exit code does cli-preflight use on a wrong branch?").class,
+      "internal",
+      "A non-temporal internal anchor gap must still route internal",
+    );
+    // Bare 'our best practice' (internal anchor, no temporal qualifier) → internal
+    assert.strictEqual(
+      classify("What is our best practice for naming domains in this repo?").class,
+      "internal",
+      "A bare 'our best practice' with an internal anchor routes internal (not a temporal-signal phrase)",
+    );
+  });
+
+  test("temporal + unseen vendor: temporal override fires first (double-verify route)", () => {
+    // A claim that has BOTH a temporal signal AND an unseen vendor — temporal wins
+    const gap = "What is the latest version of the GitHub API?";
+    const result = classify(gap);
+    assert.strictEqual(
+      result.class,
+      "external",
+      `Temporal signal must fire even with an unseen vendor present. got "${result.class}"`,
+    );
+    assert.strictEqual(result.route, "web");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// M90 D3 — R-FACT-4: §7 fail-closed cite gate PRESERVED (D3-T4)
+// ---------------------------------------------------------------------------
+//
+// The M89 §7 cite gate writes an uncited marker at classify time for external claims.
+// D3 must not break the classifier's output that triggers the marker. This section
+// asserts the external class + route are still produced for the same claim types
+// that triggered the marker in M89 (verify gate reads these fields).
+
+describe("M90 D3 — R-FACT-4: §7 fail-closed cite gate preserved (D3-T4)", () => {
+  test("external claim envelope still has class:external + route:web (§7 marker trigger preserved)", () => {
+    // The §7 cite gate is triggered by class:"external" in the wiring. As long as
+    // external claims still produce class:"external" + route:"web", the marker write
+    // in the wiring fires identically. This test asserts the classifier side is intact.
+    const externalClaims = [
+      "What is the exact endpoint path for the PayPal OAuth /v1/oauth2/token token-mint call?",
+      "What is the maximum total amount allowed on a single PayPal v2 invoice before the API returns an error?",
+      "What is the exact name of the Stripe webhook signature-verification header?",
+    ];
+    for (const gap of externalClaims) {
+      const result = classify(gap);
+      assert.ok(result.ok, `classify() must return {ok:true} for: "${gap}"`);
+      assert.strictEqual(
+        result.class,
+        "external",
+        `External claim must still classify "external" for §7 marker trigger: "${gap}"\n  got "${result.class}"`,
+      );
+      assert.strictEqual(
+        result.route,
+        "web",
+        `External claim must still route "web" for §7 gate: "${gap}"`,
+      );
+    }
+  });
+
+  test("envelope shape unchanged vs M89 baseline ({ok,gap,class,route,reason} — no extra keys)", () => {
+    // D4 (integrate domain) reads the envelope shape; it must not change.
+    const result = classify("What is the Stripe webhook signature header?");
+    assert.strictEqual(result.ok, true);
+    const keys = Object.keys(result).sort();
+    assert.deepStrictEqual(
+      keys,
+      ["class", "gap", "ok", "reason", "route"],
+      `Envelope shape must be unchanged vs M89 baseline (D4 reads it). got keys: ${JSON.stringify(keys)}`,
+    );
+  });
+
+  test("time-anchored external claims also trigger §7 gate (class:external preserved)", () => {
+    // Temporal claims route external/web — the §7 marker fires for them too.
+    const result = classify("What is the current best practice for JWT token signing?");
+    assert.strictEqual(
+      result.class,
+      "external",
+      "Time-anchored claim must still produce class:external for §7 marker trigger",
+    );
+    assert.strictEqual(result.route, "web", "Time-anchored claim must route to web");
+  });
+
+  test("internal claim does NOT trigger §7 gate (class:internal, route:grep — unchanged)", () => {
+    // Internal claims must still not produce class:external — the §7 gate must NOT fire.
+    const result = classify("Which domain in this repo owns the gsd-t-wave.workflow.js file?");
+    assert.strictEqual(
+      result.class,
+      "internal",
+      "Internal claim must still classify internal — §7 gate must not fire for internal claims",
+    );
+    assert.strictEqual(result.route, "grep", "Internal claim must still route to grep");
+  });
+
+  test("SC-FAIL-CLOSED: ambiguous claim routes to judge (not silently proceeds)", () => {
+    // When research is required but inconclusive (the ambiguous path), the claim goes to
+    // the judge — never silently proceeds. This asserts the fail-closed path for ambiguous.
+    const result = classify(
+      "The payments endpoint accepts a maximum batch size of 100 items per request.",
+    );
+    assert.strictEqual(
+      result.class,
+      "ambiguous",
+      "Proper-noun-less assertion must be ambiguous (judge decides, then researches if unsure)",
+    );
+    assert.strictEqual(result.route, "judge", "Ambiguous claim must route to judge for R-FACT-4 fail-closed");
+    assert.notStrictEqual(result.class, "internal", "Ambiguous must never be silently internal");
   });
 });
