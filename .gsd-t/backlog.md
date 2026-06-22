@@ -679,3 +679,12 @@ A SEPARATE **Realism agent** the Red Team argues scope with (adversarial-collabo
 - **Containment guard:** apply the destructive-path rule ([[feedback_destructive_path_ops_containment]]) — the recursive remove must refuse any path resolving outside `.gsd-t/domains/` or equal to it.
 - **Doc-ripple:** Step 7 prose → "runs `bin/gsd-t-archive-domains.cjs` (deterministic)"; complete-milestone command + GSD-T-README + CHANGELOG.
 - Scope: ~1 domain (the helper + its test + complete-milestone wiring + doc-ripple), 1 wave. Small, localized — hands-on fix, not a headless spawn ([[feedback_dont_keep_spawning_milestones]]).
+
+## 41. `buildTaskBrief` / `extractTask` (bin/gsd-t-task-brief.js) can't parse Shape-D tasks.md headings — dead against real domains
+
+**Added**: 2026-06-22
+**Type**: tech debt (stale-tool) | **App**: gsd-t | **Category**: cli
+**Origin**: 2026-06-22, while fixing the m40 self-test that my domain-prune broke. `extractTask` (bin/gsd-t-task-brief.js:33) builds `headerRe = /^###\s+Task\s+<num>\b/` — the OLD `### Task N: title` heading format. Current domains use Shape-D `### Mxx-Dx-Tx — title` (since the M61 Shape-D migration, per [[feedback_plan_for_parallel_execution]]). So `buildTaskBrief` returns "task not found" for EVERY real domain on disk — the tool is effectively dead against live milestones; only the synthetic `### Task N` fixture in m40-task-brief.test.js exercises it.
+- **Question to resolve first (don't assume):** is `bin/gsd-t-task-brief.js` still USED anywhere? The M61 platform reconciliation moved briefs to `bin/gsd-t-context-brief.cjs` (the workflow brief collector). If `gsd-t-task-brief.js` is superseded/orphaned, the fix is RETIRE it (grep requirers, inline-then-delete per [[feedback_retire_scan_against_keep_list]]), NOT update its parser. If still live, update `extractTask` to parse Shape-D headings (`### Mxx-Dx-Tx` + the `**Files**`/`**Test**`/`**Acceptance criteria**` fields).
+- **Interim (done 2026-06-22):** the m40 self-test was repointed from "live repo self-test" to a `mkFixtureProject()` end-to-end test (still exercises the tool, decoupled from live domains) so M90 verify isn't blocked. The deeper parser/retirement decision is this item.
+- Scope: ~1 domain (decide retire-vs-fix, then either delete + requirer-inline or update parser + add a Shape-D fixture test), <1 wave.
