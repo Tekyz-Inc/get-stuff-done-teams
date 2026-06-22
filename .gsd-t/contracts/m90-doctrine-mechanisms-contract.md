@@ -73,14 +73,16 @@ wired into workflows ONLY after its killing test is GREEN.
 
 ## §3 — Loop ledger + halt (m90-d-loop-ledger-halt)
 **Module:** `bin/gsd-t-loop-ledger.cjs`
-**Signature:** append-cycle keyed by a COMPUTED symptom-signature (failing assertion /
-surface / file-class — computed, NOT the agent's prose label); returns the updated ledger
-fact + halt decision. read-exit-state returns the current halt state.
+**Signature (frozen exports):** `{ computeSignature, appendCycle, readExitState, recordReExamination, markReExaminationRequired }`.
+- `appendCycle` keyed by a COMPUTED symptom-signature (failing assertion / surface / file-class — computed, NOT the agent's prose label); returns the updated ledger fact + halt decision.
+- `readExitState` returns `{ ok, haltedSignatures:string[], pendingSignatures:string[], reExaminationPending:boolean, haltedButNoReExamination:boolean }`.
+- `recordReExamination(signature, projectDir)` — a GENUINE re-examination; FULLY resets that signature (cycles+halted+pending). Per-signature only; blanket clear refused.
+- `markReExaminationRequired(signature, projectDir)` — PERSISTS an unresolved halt (sets halted+pending) when the debug workflow detects RUN-LOCAL non-convergence (same signature in both of its 2 cycles, below the global HALT_THRESHOLD). Detection sets; only `recordReExamination` clears.
 **Invariants:**
 - R-LOOP-1: a fix that closes signature A but opens signature B still increments (variant-spawning IS the pathology).
-- R-LOOP-2: 3rd cycle on the SAME computed signature HARD-HALTS the patch path from the ledger fact (never narration).
+- R-LOOP-2: the SAME computed signature recurring HARD-HALTS the patch path from the ledger fact (never narration) — via the global 3rd-cycle threshold OR the debug workflow's run-local cycle-2-boundary detection (`markReExaminationRequired`).
 - R-LOOP-3: on halt, emit a premise-re-examination directive routing to §2 (the architectural hook).
-- R-FAIL-3 (partial): exposes a `halted-but-no-re-examination` state for the §4 fail-closed gate.
+- R-FAIL-3: exposes a `halted-but-no-re-examination` state for the §4 fail-closed gate. **DETECTION ≠ RESOLUTION (M90 verify decision, 2026-06-22):** the debug workflow MARKS the halt and LEAVES IT SET — it does NOT auto-clear on detection (that made the gate vacuous). The state clears ONLY via a genuine `recordReExamination`. Permanent-brick risk is bounded by run-local counting + the gitignored transient state file (a stale cross-run/cross-project halt can't reach an unrelated verify).
 **Verify reads:** the `halted-but-no-re-examination` state (R-FAIL → §4 fail-closed).
 
 ---

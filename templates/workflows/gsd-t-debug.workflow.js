@@ -388,17 +388,21 @@ const nonConvergentSigs = Object.keys(thisRunSigCycles).filter((s) => thisRunSig
 if (nonConvergentSigs.length > 0) {
   log("M90 loop-ledger: non-convergence detected — same symptom-signature across both cycles of THIS run.");
   log("PREMISE_RE_EXAMINATION: the fix strategy has not converged. Re-examine the premise, not patch further.");
-  // AUTO-RESET (gate lifecycle): record re-examination for each non-convergent signature so the
-  // R-FAIL-3 verify gate is NOT permanently bricked. The debug workflow surfacing the directive
-  // IS the re-examination handoff; clearing the pending flag here keeps the gate run-scoped and
-  // self-healing (a stale halt from this run never blocks a future, unrelated verify).
+  // PERSIST the unresolved halt (detection != resolution — user decision, M90 verify fix-cycle 6).
+  // Debug DETECTING the loop is NOT the same as the premise being RE-EXAMINED. We MARK the
+  // signature as requiring re-examination (halted+pending) and LEAVE IT SET — so the verify
+  // R-FAIL-3 gate actually sees the unresolved loop and FAILS, blocking the build until a genuine
+  // re-examination runs `record-re-examination`. Auto-clearing here (the prior bug) made the gate
+  // vacuous: it could never fire. The brick-risk that motivated auto-clear is handled instead by
+  // run-LOCAL counting + the gitignored transient state file (a stale cross-run/cross-project halt
+  // can't reach an unrelated verify).
   for (const sig of nonConvergentSigs) {
     await runCli(
       projectDir,
       "loop-ledger",
-      ["record-re-examination", "--signature", sig, "--projectDir", projectDir],
+      ["mark-re-examination-required", "--signature", sig, "--projectDir", projectDir],
       "gsd-t-loop-ledger.cjs",
-      "loop-ledger-record-re-examination",
+      "loop-ledger-mark-re-examination-required",
       true,
       "Cycle 2"
     );

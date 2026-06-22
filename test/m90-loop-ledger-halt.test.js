@@ -492,12 +492,35 @@ describe('T5 / T6 — CLI bad input → { ok:false } + non-zero exit', () => {
 // ── T5: module.exports shape ──────────────────────────────────────────────────
 
 describe('T5 — module.exports shape (stable interface for D-CONTRACT)', () => {
-  test('exports computeSignature, appendCycle, readExitState, recordReExamination', () => {
+  test('exports computeSignature, appendCycle, readExitState, recordReExamination, markReExaminationRequired', () => {
     const mod = require('../bin/gsd-t-loop-ledger.cjs');
-    assert.equal(typeof mod.computeSignature,    'function', 'computeSignature exported');
-    assert.equal(typeof mod.appendCycle,         'function', 'appendCycle exported');
-    assert.equal(typeof mod.readExitState,       'function', 'readExitState exported');
-    assert.equal(typeof mod.recordReExamination, 'function', 'recordReExamination exported');
+    assert.equal(typeof mod.computeSignature,        'function', 'computeSignature exported');
+    assert.equal(typeof mod.appendCycle,             'function', 'appendCycle exported');
+    assert.equal(typeof mod.readExitState,           'function', 'readExitState exported');
+    assert.equal(typeof mod.recordReExamination,     'function', 'recordReExamination exported');
+    assert.equal(typeof mod.markReExaminationRequired, 'function', 'markReExaminationRequired exported');
+  });
+
+  test('R-FAIL-3 DETECTION != RESOLUTION (fix-cycle 6): mark sets the gate; only re-examination clears it', () => {
+    const { markReExaminationRequired } = require('../bin/gsd-t-loop-ledger.cjs');
+    const dir = makeTmpDir();
+    try {
+      // Debug detects run-local non-convergence → MARKS (does not clear).
+      const m = markReExaminationRequired('sig-detect-resolve', dir);
+      assert.ok(m.ok && m.marked, 'mark persists the unresolved halt');
+      // Verify's read MUST see it → R-FAIL-3 gate FIRES (not vacuous).
+      assert.equal(readExitState(dir).haltedButNoReExamination, true,
+        'a marked halt must be visible to verify — the gate is NOT vacuous (detection persists)');
+      // A SECOND verify (no re-examination yet) STILL fails — detection alone never resolved it.
+      assert.equal(readExitState(dir).haltedButNoReExamination, true,
+        'still unresolved on a re-read — only a genuine re-examination clears it');
+      // Genuine re-examination clears it.
+      recordReExamination('sig-detect-resolve', dir);
+      assert.equal(readExitState(dir).haltedButNoReExamination, false,
+        'cleared ONLY after recordReExamination — the gate passes post genuine re-examination');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   test('appendCycle returns { ok, signature, cycles, halted, haltCode, directive, reExaminationPending }', () => {

@@ -353,6 +353,41 @@ function recordReExamination(arg, maybeProjectDir) {
   return { ok: true, cleared };
 }
 
+/**
+ * Mark a signature as REQUIRING re-examination (halted + pending), regardless of cycle count.
+ * The debug workflow calls this when it detects RUN-LOCAL non-convergence (same signature in both
+ * of its 2 cycles) — a halt the global cycles>=HALT_THRESHOLD path would miss. This PERSISTS the
+ * unresolved-halt so the verify R-FAIL-3 gate can see it later. Detection sets the flag; ONLY
+ * recordReExamination (a genuine re-examination) clears it — NOT the act of detecting.
+ *
+ * @param {string|object} arg        — signature string OR { signature, projectDir }
+ * @param {string} [maybeProjectDir]
+ * Returns { ok:true, signature, marked:boolean } | { ok:false, error }
+ */
+function markReExaminationRequired(arg, maybeProjectDir) {
+  let signature, projectDir;
+  if (arg && typeof arg === 'object') { signature = arg.signature; projectDir = arg.projectDir; }
+  else { signature = arg; projectDir = maybeProjectDir; }
+
+  if (!signature || typeof signature !== 'string') {
+    return { ok: false, error: 'markReExaminationRequired requires a signature string' };
+  }
+  const state = readState(projectDir);
+  if (state === null) {
+    return { ok: false, error: 'Loop-ledger state file is corrupt or unreadable.' };
+  }
+  state.halted[signature] = true;
+  state.reExaminationPending[signature] = true;
+  // Ensure a cycle count exists so the signature is visibly tracked.
+  if (!state.cycles[signature]) state.cycles[signature] = HALT_THRESHOLD;
+  try {
+    writeState(projectDir, state);
+  } catch (e) {
+    return { ok: false, error: `Failed to write loop-ledger state: ${e.message}` };
+  }
+  return { ok: true, signature, marked: true };
+}
+
 // ---------------------------------------------------------------------------
 // T5 — module.exports (stable interface for D-CONTRACT; FREEZE after Wave 1)
 // ---------------------------------------------------------------------------
@@ -362,6 +397,7 @@ module.exports = {
   appendCycle,
   readExitState,
   recordReExamination,
+  markReExaminationRequired,
 };
 
 // ---------------------------------------------------------------------------
@@ -416,12 +452,19 @@ if (require.main === module) {
     if (!result.ok) exitErr(result);
     else exitOk(result);
 
+  } else if (subcommand === 'mark-re-examination-required') {
+    // Persist an unresolved-halt for a signature (debug run-local non-convergence). Sets
+    // halted+pending; ONLY record-re-examination clears it (detection != resolution).
+    const result = markReExaminationRequired({ signature: flags.signature, projectDir });
+    if (!result.ok) exitErr(result);
+    else exitOk(result);
+
   } else {
     exitErr({
       ok: false,
       error: subcommand
-        ? `Unknown subcommand: ${subcommand}. Valid: append-cycle, read-exit-state, record-re-examination`
-        : 'Subcommand required: append-cycle | read-exit-state | record-re-examination',
+        ? `Unknown subcommand: ${subcommand}. Valid: append-cycle, read-exit-state, record-re-examination, mark-re-examination-required`
+        : 'Subcommand required: append-cycle | read-exit-state | record-re-examination | mark-re-examination-required',
     });
   }
 }
