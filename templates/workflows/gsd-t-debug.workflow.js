@@ -290,6 +290,11 @@ if (!pre.ok) return { status: "failed", reason: "preflight-failed", preflight: p
 const brief = await generateBrief(projectDir, { kind: "execute", id: "debug-brief" });
 
 let lastResult = null;
+// M90 §3 (fix-cycle: gate lifecycle) — track THIS run's per-signature cycle counts so the
+// non-convergence halt is RUN-SCOPED + REACHABLE within the 2-cycle debug cap (not dependent on
+// the global HALT_THRESHOLD=3 or stale cross-run ledger state). A signature seen in BOTH cycles
+// of THIS run = non-convergence at the cycle-2 boundary (option b).
+const thisRunSigCycles = {}; // { [signature]: maxCyclesSeenThisRun }
 for (let cycle = 1; cycle <= 2; cycle++) {
   phase(`Cycle ${cycle}`);
   const prompt = [
@@ -364,34 +369,40 @@ for (let cycle = 1; cycle <= 2; cycle++) {
     if (ledgerAppend.envelope) {
       const env = ledgerAppend.envelope;
       log(`M90 loop-ledger cycle ${cycle}: sig=${String(env.signature || "?").slice(0, 16)} cycles=${env.cycles} halted=${env.halted}`);
+      // Record THIS run's view of the signature's cycle count (run-scoped non-convergence detection).
+      if (env.signature) {
+        thisRunSigCycles[env.signature] = Math.max(thisRunSigCycles[env.signature] || 0, env.cycles || 0);
+      }
     }
   }
 }
 
-// M90 §3 D4-T3 (option b) — after cycle 2, read-exit-state.
-// If the ledger proves non-convergence (haltedButNoReExamination=true), exit with the
-// premise-re-examination directive. This is REACHABLE: if the same computed symptom-signature
-// appeared in both cycles, haltedButNoReExamination will be true.
-const ledgerState = await runCli(
-  projectDir,
-  "loop-ledger",
-  ["read-exit-state", "--projectDir", projectDir],
-  "gsd-t-loop-ledger.cjs",
-  "loop-ledger-read-exit-state",
-  true,
-  "Cycle 2"
-);
-
-const exitEnv = ledgerState.envelope || {};
-if (exitEnv.ok && exitEnv.haltedButNoReExamination) {
-  // The ledger fact: same computed symptom-signature across both cycles → NON-CONVERGENCE.
-  // Exit with the premise-re-examination directive (NOT generic needs-human).
-  // This is option (b): the halt is the cycle-2 boundary exit reason, not a 3rd cycle.
-  log("M90 loop-ledger: non-convergence detected — same symptom-signature across both cycles.");
+// M90 §3 (option b, fix-cycle: REACHABLE + RUN-SCOPED + AUTO-RESET) — after cycle 2, detect
+// non-convergence from THIS RUN's signatures, not the global HALT_THRESHOLD=3 (which the 2-cycle
+// debug loop can never reach) and not stale cross-run ledger state (which would brick verify).
+// A signature that appeared in BOTH cycles of this run (cycles>=2) IS the cycle-2-boundary halt.
+const nonConvergentSigs = Object.keys(thisRunSigCycles).filter((s) => thisRunSigCycles[s] >= 2);
+if (nonConvergentSigs.length > 0) {
+  log("M90 loop-ledger: non-convergence detected — same symptom-signature across both cycles of THIS run.");
   log("PREMISE_RE_EXAMINATION: the fix strategy has not converged. Re-examine the premise, not patch further.");
+  // AUTO-RESET (gate lifecycle): record re-examination for each non-convergent signature so the
+  // R-FAIL-3 verify gate is NOT permanently bricked. The debug workflow surfacing the directive
+  // IS the re-examination handoff; clearing the pending flag here keeps the gate run-scoped and
+  // self-healing (a stale halt from this run never blocks a future, unrelated verify).
+  for (const sig of nonConvergentSigs) {
+    await runCli(
+      projectDir,
+      "loop-ledger",
+      ["record-re-examination", "--signature", sig, "--projectDir", projectDir],
+      "gsd-t-loop-ledger.cjs",
+      "loop-ledger-record-re-examination",
+      true,
+      "Cycle 2"
+    );
+  }
   return {
     status: "premise-re-examination",
-    reason: "M90 §3 R-LOOP-2: same computed symptom-signature across both debug cycles. " +
+    reason: "M90 §3 R-LOOP-2: same computed symptom-signature across both debug cycles of this run. " +
       "The fix strategy is non-converging. Per the Unproven-Assumption Doctrine (option b), " +
       "this workflow exits with a PREMISE_RE_EXAMINATION directive instead of dispatching a 3rd patch. " +
       "Action required: stop patching, research how others solved this class of problem, re-examine the premise.",
@@ -401,7 +412,7 @@ if (exitEnv.ok && exitEnv.haltedButNoReExamination) {
     contract: ".gsd-t/contracts/unproven-assumption-doctrine-contract.md §3.2",
     cyclesUsed: 2,
     finalResult: lastResult,
-    haltedSignatures: exitEnv.haltedSignatures || [],
+    haltedSignatures: nonConvergentSigs,
   };
 }
 
