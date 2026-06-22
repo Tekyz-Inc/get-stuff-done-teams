@@ -2,6 +2,24 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [4.7.10] - 2026-06-22 (M90 — The Unproven-Assumption Doctrine — minor)
+
+### Added — a self-governing doctrine that stops the system building on unproven assumptions
+
+M90 makes "don't act on belief; if it's not grounded in knowledge or research, research first" an enforced framework capability rather than advisory prose. The core principle (sourced at discuss: self-introspection is unreliable, *worse* on RLHF models — arxiv 2306.13063, 2310.01798) is **externalize + force, never introspect** — deterministic triggers + external checks, fail-closed on uncertainty.
+
+Three deterministic mechanisms, wired fail-closed into the debug/execute/quick/phase/verify workflows (§4 R-FAIL-1/2/3):
+
+- **Factual classifier** (`bin/gsd-t-research-gate.cjs`, absorbed from M89): routes a knowledge-gap to grep (internal) vs. research+cite (external); the INTERNAL decision enumerates no open category (never guess-internal). Premise-corrected during build (the partition's "vendor list causes a silent-miss" was false on disk — the list is kept as an `external→web` upgrade). New time-anchored override (R-FACT-3): a fast-moving lib/API/version or "current best practice" gap is researched regardless of confidence.
+- **Loop-ledger non-convergence halt** (`bin/gsd-t-loop-ledger.cjs`): a debug loop on the SAME symptom (keyed on the symptom, not the changing file — so variant-spawning whack-a-mole is caught, R-LOOP-1) HARD-HALTS with a premise-re-examination directive instead of patching further. Detection ≠ resolution (the halt persists until a genuine re-examination clears it), per-milestone scoped (one milestone's halt can't brick another's verify), full-reset on re-examination, plain-object-validated, atomic write.
+- **Architectural-assumption trigger** (`bin/gsd-t-architectural-trigger.cjs`): a divergence-sampling + extend-existing-code trigger that flags building on an unproven approach. Shipped EXPERIMENTAL+MEASURED; the spike/adversary response-mode enforcement (R-FAIL-2) is honestly DECLARED interface-only this milestone (no live producer yet — backlog #42 wires it).
+
+Doctrine contract `unproven-assumption-doctrine-contract.md` v1.0.0 STABLE (absorbs `auto-research-contract.md` v1.3.3) + §6 guard map + self-obedience lints. CLAUDE-global Research Policy upgraded from advisory prose to the doctrine.
+
+### Process note
+
+The milestone obeyed its own doctrine: plan-hardening caught M90 about to build a domain on an unproven premise (re-verified on disk, re-scoped), and a 9-round verify sequence hardened M90's OWN gate-wiring lifecycle to ground (hollow-gate → fail-open → no-producer → lifecycle flaws → vacuous-gate → array-type-confusion → cross-milestone-brick → symptom-keying). Suite 1998 / 1994 pass / 0 fail / 4 skip. Deferred to backlog: #42 (live spike-feasibility producer + sink fail-closed), #43 (AWS/S3 classifier edge), 3 documented code-review nits.
+
 ## [4.6.11] - 2026-06-16 (Output Style — six named conciseness tics + backlog #33 — patch)
 
 ### Changed — tightened the CONCISE Output Style rule with six named anti-patterns
