@@ -32,7 +32,7 @@
 //
 // Contract: .gsd-t/contracts/m90-doctrine-mechanisms-contract.md §2 v1.0.0 PROPOSED
 
-const { test, describe } = require("node:test");
+const { test, describe, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 const path = require("node:path");
 const fs = require("node:fs");
@@ -40,12 +40,30 @@ const os = require("node:os");
 const { spawnSync } = require("node:child_process");
 
 // ---------------------------------------------------------------------------
-// Paths
+// Paths (resolved ABSOLUTE up-front so the suite-wide chdir below can't break them)
 // ---------------------------------------------------------------------------
 
 const TRIGGER_PATH = path.resolve(__dirname, "..", "bin", "gsd-t-architectural-trigger.cjs");
 const TUNED_CORPUS_PATH = path.resolve(__dirname, "fixtures", "m90-arch-divergence-corpus.json");
 const HELDOUT_CORPUS_PATH = path.resolve(__dirname, "fixtures", "m90-arch-heldout-divergence.json");
+
+// ---------------------------------------------------------------------------
+// Test isolation (Red Team HIGH, M90 verify fix-cycle 2): in-process resolve()/trigger* calls
+// fire emitInstrumentationRecord, which writes to `${process.cwd()}/.gsd-t/metrics/arch-trigger-events.jsonl`.
+// Run the WHOLE suite from a temp cwd so NO test ever pollutes the real (now-gitignored) sink.
+// ---------------------------------------------------------------------------
+
+let _origCwd;
+let _sinkTmpDir;
+before(() => {
+  _origCwd = process.cwd();
+  _sinkTmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "m90-arch-suite-"));
+  process.chdir(_sinkTmpDir);
+});
+after(() => {
+  process.chdir(_origCwd);
+  fs.rmSync(_sinkTmpDir, { recursive: true, force: true });
+});
 
 // ---------------------------------------------------------------------------
 // Load under test

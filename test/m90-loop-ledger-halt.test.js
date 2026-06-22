@@ -407,10 +407,14 @@ describe('T6 — Corrupt state file → { ok:false } + non-zero exit (defense-in
     assert.ok(parsed.error, 'error message must be present');
   });
 
-  test('read-exit-state with corrupt state → non-zero exit + { ok:false }', () => {
+  test('read-exit-state with corrupt state → non-zero exit + { ok:false } (R-FAIL-3 fail-CLOSED contract)', () => {
     const { code, parsed } = runCli(['read-exit-state'], tmpDir);
     assert.equal(code, 1, 'Must exit non-zero on corrupt state');
     assert.equal(parsed.ok, false);
+    // CONTRACT the verify R-FAIL-3 gate relies on (Red Team HIGH, fix-cycle 2): a corrupt
+    // ledger surfaces ok:false. The verify gate MUST treat ok:false as fail-CLOSED (block),
+    // NOT convert it to a "mechanism de-scoped" no-op-PASS — that was the fail-OPEN inversion.
+    assert.ok(/corrupt|unreadable/i.test(parsed.error || ''), 'error names the corrupt/unreadable cause');
   });
 });
 

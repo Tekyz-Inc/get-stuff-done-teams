@@ -414,27 +414,36 @@ const m90LoopLedgerGate = await runCli(
   "Auto-Research Gate"
 );
 
-// Determine pass/fail from the loop-ledger exit state.
-// haltedButNoReExamination=true → R-FAIL-3 gate FAILS.
-// If the loop-ledger module is absent (ok=false, exitCode≠0) → de-scoped NO-OP-PASS.
+// Determine pass/fail from the loop-ledger exit state. §4 = FAIL-CLOSED.
+//   haltedButNoReExamination=true                  → FAIL (an unresolved non-converging loop)
+//   envelope.ok=false (CORRUPT state file, exit 1) → FAIL (fail-closed: a corrupt ledger must
+//     NEVER pass — the module deliberately raises this; treating it as "de-scoped" was a
+//     fail-OPEN inversion, Red Team HIGH M90 verify fix-cycle 2)
+//   genuinely-absent MODULE (no envelope at all + run/CLI error) → de-scoped NO-OP-PASS
+//   ok=true, haltedButNoReExamination=false        → PASS (clean)
+const exitEnv = m90LoopLedgerGate.envelope || null;
 let m90LoopLedgerPass = true;
 let m90LoopLedgerNote = "";
-if (!m90LoopLedgerGate.ok && m90LoopLedgerGate.exitCode !== 0) {
-  // Module absent or error → de-scoped no-op-PASS (distinguishable from wired-but-broken)
+if (exitEnv && exitEnv.ok === false) {
+  // The CLI RAN and returned a structured error envelope → the WIRED mechanism is failing
+  // closed (corrupt/unreadable state). FAIL — do NOT convert a deliberate fail-closed into a pass.
+  m90LoopLedgerPass = false;
+  m90LoopLedgerNote = `R-FAIL-3: loop-ledger returned a fail-closed error (${exitEnv.error || "corrupt/unreadable state"}) — a corrupt ledger must block verify, not pass §4`;
+  log(`M90 R-FAIL-3 gate FAIL — loop-ledger fail-closed error (§4): ${exitEnv.error || "corrupt state"}`);
+} else if (!exitEnv && !m90LoopLedgerGate.ok) {
+  // No parseable envelope AND the run errored → the MODULE itself is genuinely absent/unrunnable
+  // (not a corrupt state file). This is the true R1-EXIT de-scoped no-op-PASS.
   m90LoopLedgerPass = true;
-  m90LoopLedgerNote = "loop-ledger mechanism absent by design (de-scoped) — R-FAIL-3 is a documented no-op-PASS";
-  log(`M90 R-FAIL-3 gate: PASS (de-scoped — loop-ledger absent or not wired)`);
+  m90LoopLedgerNote = "loop-ledger module genuinely absent (no envelope) — R-FAIL-3 de-scoped no-op-PASS";
+  log(`M90 R-FAIL-3 gate: PASS (de-scoped — loop-ledger module absent / not wired)`);
+} else if (exitEnv && exitEnv.ok && exitEnv.haltedButNoReExamination) {
+  m90LoopLedgerPass = false;
+  m90LoopLedgerNote = `R-FAIL-3: loop-ledger has ${(exitEnv.pendingSignatures || exitEnv.haltedSignatures || []).length} halted-but-no-re-examination signature(s) — re-examine the premise per §3.2`;
+  log(`M90 R-FAIL-3 gate FAIL — haltedButNoReExamination=true (§4 fail-closed)`);
 } else {
-  const exitEnv = m90LoopLedgerGate.envelope || {};
-  if (exitEnv.ok && exitEnv.haltedButNoReExamination) {
-    m90LoopLedgerPass = false;
-    m90LoopLedgerNote = `R-FAIL-3: loop-ledger has ${(exitEnv.haltedSignatures || []).length} halted-but-no-re-examination signature(s) — re-examine the premise per §3.2`;
-    log(`M90 R-FAIL-3 gate FAIL — haltedButNoReExamination=true (§4 fail-closed)`);
-  } else {
-    m90LoopLedgerPass = true;
-    m90LoopLedgerNote = `no halted-but-no-re-examination state (haltedButNoReExamination=${exitEnv.haltedButNoReExamination || false})`;
-    log(`M90 R-FAIL-3 gate: PASS — ${m90LoopLedgerNote}`);
-  }
+  m90LoopLedgerPass = true;
+  m90LoopLedgerNote = `no halted-but-no-re-examination state (haltedButNoReExamination=${(exitEnv && exitEnv.haltedButNoReExamination) || false})`;
+  log(`M90 R-FAIL-3 gate: PASS — ${m90LoopLedgerNote}`);
 }
 
 if (!m90LoopLedgerPass) {
