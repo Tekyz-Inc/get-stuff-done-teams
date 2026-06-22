@@ -46,6 +46,18 @@ the consumer wires at integrate time. The full doctrine spine (§4/§5/§6) land
 **Trigger signature:** given N fresh-context answers (R-ARCH-1 divergence sampling) OR an
 extend-existing-code signal (R-ARCH-2), returns `{ ok:true, fired:boolean, basis, reason }`
 naming the basis being challenged. Deterministic.
+**Signal PRODUCERS (named — reachability is contract, not test-seeded; pre-mortem round-3 CRITICAL):**
+- R-ARCH-2 extend-vs-greenfield signal = COMPUTED at runtime from the task/scope inputs that
+  already exist: a task whose `**Touches**` lists an EXISTING file (vs. a net-new path), or a
+  domain editing an existing module, is extend-class. This is the **everywhere** feed (execute/quick/
+  non-competition phase); D4-T4 computes it from the brief/task inputs and proves it fires from the
+  COMPUTED signal in a real run with NO seeded injection.
+- R-ARCH-1 divergence signal = the phase **competition arm's** actual N producer outputs
+  (`competition:N>1`). Wired competition-arm-ONLY; dormant by default. **EXPERIMENTAL + MEASURED:**
+  competition is Self-MoA (one model, temperature-varied) and may not diverge like the fresh-context
+  saga cases the threshold was tuned on — if the real feed can't exercise the divergence formula,
+  that mismatch is RECORDED and the path stays experimental (instrumented fire-rate, never a silent
+  claim it works), never proven by a seeded stand-in.
 **Response interface (contract-only here; agent() wiring is D-CONTRACT):**
 - mode `spike` PREFERRED → forced fallback to `adversary-only`.
 - R-ARCH-4: spike fails → STOP.

@@ -105,6 +105,10 @@ ledger MUST persist cycle history across separate invocations keyed by the compu
 process invocations (not 3 in-process calls) and still produce the HARD-HALT exit-state; a
 corrupt/bad state file → `{ ok:false }` + non-zero exit. Without this, the halt is dead through
 the real wired workflow (D4-T3 option (b) depends on it).
+**ATOMIC WRITE (pre-mortem round-3 #6, defense-in-depth):** the state file MUST use atomic
+write+rename (or equivalent) — an interrupted/partial write yields either the last consistent
+state or `{ ok:false }`+non-zero exit, NEVER a silent count reset that would mask an in-progress
+loop (the verify-gate port-race class; [[feedback_defense_in_depth_at_adapters]]).
 - **Files**: `test/m90-loop-ledger-halt.test.js`, `bin/gsd-t-loop-ledger.cjs`
 - **Touches**: `test/m90-loop-ledger-halt.test.js`
 - **Test**: `test/m90-loop-ledger-halt.test.js` (node --test) — the killing test IS this file; exercises the ledger end-to-end (3-cycle halt + variant-B increment + directive + fail-closed state + bad input), with the 3 cycles driven as 3 SEPARATE process invocations reading/writing the persisted signature-keyed state file. Run: `node --test test/m90-loop-ledger-halt.test.js`.
@@ -112,6 +116,7 @@ the real wired workflow (D4-T3 option (b) depends on it).
   - 3 same-signature cycles → HARD-HALT exit-state fires deterministically (verified by exit-state, NOT prose).
   - The 3 cycles driven as 3 SEPARATE process invocations (fresh process each, matching the real runCli wiring) still reach the HARD-HALT via the persisted signature-keyed state file.
   - A corrupt/missing/bad ledger state file → `{ ok:false }` + non-zero exit (no silent reset that would mask a loop).
+  - The state file uses atomic write+rename; an interrupted/partial write yields the last consistent state or `{ ok:false }`+non-zero exit, never a silent count reset (defense-in-depth, concurrency-safe).
   - A signature-B-opening fix still increments (R-LOOP-1).
   - The premise-re-examination directive is emitted on halt (R-LOOP-3).
   - `halted-but-no-re-examination` is exposed for the fail-closed gate (R-FAIL-3 partial).

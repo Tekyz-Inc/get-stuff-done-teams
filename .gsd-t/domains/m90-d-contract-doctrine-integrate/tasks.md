@@ -103,24 +103,41 @@ through the real wired workflow, not only via isolated module calls.
 Thread the architectural trigger + factual classifier into `gsd-t-phase`, `gsd-t-execute`,
 `gsd-t-quick` via inline runCli helpers — the trigger ONLY IF Wave-1 cleared prove-or-kill
 (M90-D1-T6 GREEN); else factual-only per the R1 re-scope DOWN. M71 + M85 lints stay green.
-**NAME THE TRIGGER'S INPUT SOURCE PER WORKFLOW (pre-mortem HIGH, dead-deliverable / unspecified
-input):** the arch-trigger's divergence-sampling path (R-ARCH-1) needs "N fresh-context answers
-to the SAME approach question" as input. Only the M82/M84 competition arm of `gsd-t-phase` produces
-N samples; `gsd-t-execute` and `gsd-t-quick` produce ZERO today. For EACH wired workflow, the task
-must NAME the concrete feed: the divergence path is wired ONLY where N samples exist (the phase
-competition arm); in `execute`/`quick` (and non-competition phase) the trigger runs via the
-**protocol-class path (R-ARCH-2, extend-existing-code)** which fires unconditionally on an
-extend-existing signal and needs no N-sample input. Document the divergence path as
-phase/competition-only in the contract; do NOT wire a divergence trigger where its input is
-unproducible (that would be dead code).
+**NAME THE SIGNAL PRODUCER + PROVE REACHABILITY FROM A REAL RUN — NO SEEDED SHORTCUTS
+(pre-mortem CRITICAL #1 + HIGH #2/#3, dead-deliverable M5 class — the recurring headline gap).**
+A trigger that only fires when a TEST hands it a signal is dead code. Both input paths must be
+fed by a NAMED producer that computes the signal from inputs that actually exist at runtime, and
+the reachability test must use NO manually-injected signal:
+
+  **Protocol-class path (R-ARCH-2, the execute/quick + everywhere feed) — PRODUCER NAMED:** the
+  extend-vs-greenfield signal is COMPUTED from the runtime task/scope inputs that already exist —
+  a task whose `**Touches**` lists an EXISTING file (vs. a net-new path) extends existing code; a
+  domain whose scope edits an existing module is extend-class. The wiring computes this signal in
+  each workflow from the brief/task inputs (no new upstream phase needed) and feeds it to the
+  trigger. The end-to-end test drives a REAL execute/quick run on an edit-in-place task with an
+  existing-file Touches entry, injects NOTHING, and asserts (a) the workflow COMPUTES the
+  extend-existing signal from real inputs and (b) the trigger fires from THAT computed signal —
+  the test FAILS if the producer is absent (no seeded-shortcut pass).
+
+  **Divergence path (R-ARCH-1) — HONESTLY SCOPED competition-arm-only + real-feed test:** wired
+  ONLY into the phase competition arm (`competition:N>1`), fed the competition producers' ACTUAL N
+  outputs (not a seeded fixture). A real-sandbox test runs `gsd-t-phase` with `competition:N>1` on
+  an eligible phase and asserts the trigger receives the real N outputs and fires/stays-silent
+  correctly. **Honesty clause (the doctrine on itself):** competition produces Self-MoA samples of
+  ONE model (temperature/seed-varied), which may NOT diverge like the fresh-context saga cases the
+  threshold was tuned on. If the real competition feed cannot meaningfully exercise the divergence
+  formula, the plan RECORDS that mismatch and documents the divergence path as
+  competition-arm-only-and-EXPERIMENTAL (measured fire-rate, never a silent "it works") — it does
+  NOT ship a seeded stand-in as proof. In default operation (competition off) the divergence path
+  is intentionally dormant; only the protocol-class path is the everywhere feed.
 - **Files**: `templates/workflows/gsd-t-phase.workflow.js`, `templates/workflows/gsd-t-execute.workflow.js`, `templates/workflows/gsd-t-quick.workflow.js`
 - **Touches**: `templates/workflows/gsd-t-phase.workflow.js`, `templates/workflows/gsd-t-execute.workflow.js`, `templates/workflows/gsd-t-quick.workflow.js`
-- **Test**: `test/m71-workflow-runtime-native-lint.test.js` + `test/m85-workflow-tier-policy-lint.test.js` (stay green) + a real-sandbox run of each edited workflow asserting the trigger ACTUALLY FIRES (`fired:true`) on a seeded input matched to its wired path: a seeded divergent N-sample set in phase's competition arm; a seeded extend-existing signal in execute/quick (protocol-class). Not merely that the runCli seam is present.
-- **Acceptance criteria**: (SC-ARCH-TRIGGER wired, with producible input)
+- **Test**: `test/m71-workflow-runtime-native-lint.test.js` + `test/m85-workflow-tier-policy-lint.test.js` (stay green) + (1) a real-sandbox END-TO-END execute/quick run on an edit-in-place task that injects NO signal and asserts the extend-existing signal is COMPUTED from real task/scope inputs AND the trigger fires (`fired:true`) — fails if the producer is absent; (2) a real-sandbox `gsd-t-phase competition:N>1` run asserting the divergence path receives the producers' real N outputs and fires/stays-silent correctly, OR (honesty branch) a recorded test that the divergence formula cannot be meaningfully exercised by Self-MoA samples → divergence path documented competition-arm-only-EXPERIMENTAL.
+- **Acceptance criteria**: (SC-ARCH-TRIGGER wired + REACHABLE from a real run)
   - `gsd-t-phase`/`gsd-t-execute`/`gsd-t-quick` invoke the factual classifier via runCli.
-  - The divergence-sampling trigger is wired ONLY where N fresh-context samples are produced (phase competition arm); `execute`/`quick` use the protocol-class (extend-existing) path, which needs no N-sample input. The divergence path is documented phase/competition-only in the contract.
-  - A real-sandbox test asserts the trigger FIRES (`fired:true`) on a seeded input appropriate to each wired path (divergent samples in phase; extend-existing signal in execute/quick) — no wired-but-dead trigger.
-  - The architectural trigger (whichever path) is wired IFF M90-D1-T6 is GREEN; otherwise factual-only (R1 re-scope honored, recorded in the contract).
+  - The protocol-class (extend-existing) signal producer is NAMED and computes the signal from real runtime task/scope inputs (existing-file Touches ⇒ extend); a real-run end-to-end test fires the trigger from the COMPUTED signal with NO seeded injection and FAILS if the producer is absent.
+  - The divergence path is wired competition-arm-only and tested with the competition arm's REAL N outputs; if Self-MoA samples cannot exercise the divergence formula, that mismatch is RECORDED and the path is documented competition-arm-only-EXPERIMENTAL (measured, never silently claimed) — never proven by a seeded stand-in.
+  - The architectural trigger is wired IFF M90-D1-T6 is GREEN; otherwise factual-only (R1 re-scope honored, recorded in the contract).
   - M71 + M85 lints green; each edited workflow runs to completion in the sandbox.
 - **Dependencies**: M90-D4-T3, and conditionally M90-D1-T6 (governs trigger-wire vs. skip).
 
@@ -181,13 +198,31 @@ Team menu) — an UNENFORCED rule FAILS. `test/m90-tier-policy-lint.test.js` pro
 `model:` literals match `bin/gsd-t-model-tier-policy.cjs`; a drifted literal FAILS (the
 mandatory negative test, M71-family). These lints are the doctrine's self-obedience proof
 (SC-SELF-OBEDIENCE) — M90 enforced on M90's own artifacts.
+**SELF-OBEDIENCE made a GATE, not prose (pre-mortem round-3 #4):** SC-SELF-OBEDIENCE's
+">2-cycle same-signature non-convergence triggered a recorded premise re-examination" must be
+STRUCTURALLY asserted, not left as §5 prose. Add an assertion that reads M90's own build record:
+EITHER no >2-cycle same-computed-signature thrash occurred, OR a recorded premise-re-examination
+artifact exists for any such run. M90's own plan-hardening loop IS such a record — the
+progress.md Decision Log carries the round-1/2/3 pre-mortem premise-re-examination entries (the
+doctrine applied to itself: each round re-examined the premise rather than patching a variant).
+The test asserts that artifact exists and is structured (the Decision Log entries tagged
+`[PLAN-HARDENING][pre-mortem ... → fixed]`), substituting for a live ledger where M90's own
+development predates the ledger being built.
+**R1-EXIT CONSISTENCY (pre-mortem round-3 #5):** add a test for the FULL R1-re-scoped-DOWN
+configuration (arch-trigger NOT wired): assert (a) NO dangling reference to §2 trigger envelope
+fields (`fired`, `basis`, `proven-by-adversary-only`) remains in any workflow/contract/verify
+path, (b) the guard-map traceability passes with the §2 [RULE]s marked DE-SCOPED (not orphaned),
+(c) verify's R-FAIL-2 read is the documented no-op-PASS. This proves the R1 exit leaves a
+consistent tree, not a half-wired one.
 - **Files**: `test/m90-guardmap-rule-traceability.test.js`, `test/m90-tier-policy-lint.test.js`
 - **Touches**: `test/m90-guardmap-rule-traceability.test.js`, `test/m90-tier-policy-lint.test.js`
-- **Test**: `test/m90-guardmap-rule-traceability.test.js` + `test/m90-tier-policy-lint.test.js` (node --test) — each [RULE]→enforcement traced (orphan rule FAILS); each new stage literal matches policy (drift FAILS); PLUS a doc-consistency assertion that grep finds NO letter-form task IDs (`M90-D[A-Z]-T`) anywhere under `.gsd-t/domains/m90-*` (all references must be canonical digit form `M90-D[1-4]-T[0-9]` — the post-partition-defect-fix rename). Run: `node --test test/m90-guardmap-rule-traceability.test.js test/m90-tier-policy-lint.test.js`.
+- **Test**: `test/m90-guardmap-rule-traceability.test.js` + `test/m90-tier-policy-lint.test.js` (node --test) — each [RULE]→enforcement traced (orphan rule FAILS); each new stage literal matches policy (drift FAILS); a doc-consistency assertion that grep finds NO letter-form task IDs (`M90-D[A-Z]-T`) under `.gsd-t/domains/m90-*`; a SELF-OBEDIENCE assertion that M90's own build record shows no >2-cycle same-signature thrash OR a recorded premise-re-examination artifact (the Decision Log plan-hardening entries); an R1-EXIT consistency assertion (no dangling §2 envelope refs, §2 [RULE]s de-scoped-not-orphaned, R-FAIL-2 no-op-PASS). Run: `node --test test/m90-guardmap-rule-traceability.test.js test/m90-tier-policy-lint.test.js`.
 - **Acceptance criteria**: (SC-SELF-OBEDIENCE)
   - Every §6 [RULE] is traced to a real enforcement point; an orphan rule FAILS the test.
   - Each new stage's `model:` literal matches the tier policy; a drifted literal FAILS (mandatory negative test).
-  - NO letter-form task ID (`M90-D[A-Z]-T`) remains under `.gsd-t/domains/m90-*` — all canonical digit form (consistency assertion folded into the guard-map test).
+  - NO letter-form task ID (`M90-D[A-Z]-T`) remains under `.gsd-t/domains/m90-*` — all canonical digit form.
+  - SC-SELF-OBEDIENCE is a STRUCTURAL gate: M90's own build record shows no >2-cycle same-signature thrash OR a recorded premise-re-examination artifact (read structurally, not prose).
+  - The full R1-re-scoped-DOWN config is consistent: no dangling §2 envelope refs, §2 [RULE]s de-scoped-not-orphaned, R-FAIL-2 no-op-PASS.
   - Both lints green on the integrated tree.
 - **Dependencies**: M90-D4-T6.
 
