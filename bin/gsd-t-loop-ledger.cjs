@@ -124,14 +124,22 @@ function readState(projectDir) {
   }
   try {
     const parsed = JSON.parse(raw);
-    // Basic structural validation
+    // Structural validation — FAIL CLOSED on any non-plain-object shape. `typeof [] === 'object'`,
+    // so a bare `typeof !== 'object'` check let ARRAY-typed cycles/halted/reExaminationPending slip
+    // through; an array `cycles` silently drops string-keyed writes (JSON.stringify discards them)
+    // → the 3-cycle HALT_THRESHOLD never persists (R-LOOP-2 bypassed), and an array
+    // reExaminationPending makes haltedButNoReExamination read false for a genuinely-halted sig
+    // (R-FAIL-3 fails OPEN). Reject arrays + non-objects explicitly (Red Team HIGH, M90 verify fc7).
+    const isPlainObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
     if (
-      parsed === null ||
-      typeof parsed !== 'object' ||
-      typeof parsed.cycles !== 'object' ||
-      typeof parsed.halted !== 'object'
+      !isPlainObject(parsed) ||
+      !isPlainObject(parsed.cycles) ||
+      !isPlainObject(parsed.halted) ||
+      (parsed.reExaminationPending !== undefined &&
+        typeof parsed.reExaminationPending !== 'boolean' &&
+        !isPlainObject(parsed.reExaminationPending))
     ) {
-      return null; // corrupt
+      return null; // corrupt — fail closed
     }
     // reExaminationPending is a PER-SIGNATURE map { [signature]: true }, NOT a global boolean.
     // A global boolean let one recordReExamination() clear the gate for ALL halted signatures —

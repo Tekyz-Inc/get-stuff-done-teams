@@ -442,6 +442,46 @@ describe('T6 — Corrupt state file → { ok:false } + non-zero exit (defense-in
   });
 });
 
+// ── T6b: ARRAY-typed state fields → fail CLOSED (Red Team HIGH, fix-cycle 7) ──
+// typeof [] === 'object', so a bare typeof check let array-typed cycles/halted/pending slip
+// through: an array `cycles` silently drops string-keyed writes (HALT_THRESHOLD never persists →
+// R-LOOP-2 bypassed), and an array `reExaminationPending` makes haltedButNoReExamination read
+// false for a genuinely-halted sig (R-FAIL-3 fails OPEN). readState must reject arrays.
+describe('T6b — ARRAY-typed state fields → fail CLOSED (type-confusion fail-open guard)', () => {
+  function writeState(dir, obj) {
+    const d = path.join(dir, '.gsd-t');
+    fs.mkdirSync(d, { recursive: true });
+    fs.writeFileSync(path.join(d, 'loop-ledger-state.json'), JSON.stringify(obj), 'utf8');
+  }
+  for (const field of ['cycles', 'halted', 'reExaminationPending']) {
+    test(`array-typed '${field}' → read-exit-state fails closed (ok:false + exit 1)`, () => {
+      const dir = makeTmpDir();
+      try {
+        const base = { cycles: {}, halted: {}, reExaminationPending: {} };
+        base[field] = []; // the type-confusion payload
+        writeState(dir, base);
+        const { code, parsed } = runCli(['read-exit-state'], dir);
+        assert.equal(code, 1, `array-typed ${field} must NOT pass validation`);
+        assert.equal(parsed.ok, false, 'fail closed — never a silent haltedButNoReExamination=false');
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    });
+  }
+  test('array-typed cycles → append-cycle fails closed (HALT_THRESHOLD cannot be silently bypassed)', () => {
+    const dir = makeTmpDir();
+    try {
+      writeState(dir, { cycles: [], halted: {}, reExaminationPending: {} });
+      const { code, parsed } = runCli(
+        appendCycleArgs({ assertion: 'a', surface: 'b.js', fileClass: 'unit' }), dir);
+      assert.equal(code, 1, 'append must refuse an array-typed cycles map');
+      assert.equal(parsed.ok, false);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
 // ── T5 / T6: CLI bad input → { ok:false } + non-zero exit ────────────────────
 
 describe('T5 / T6 — CLI bad input → { ok:false } + non-zero exit', () => {
