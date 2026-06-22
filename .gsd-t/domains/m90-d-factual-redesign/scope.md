@@ -38,7 +38,10 @@ workflow wiring (D-CONTRACT integrate seam).
 ## Files Owned (this domain WRITES these — no other domain may)
 - `bin/gsd-t-research-gate.cjs` — the classifier module (the ONLY domain editing it)
 - `test/m89-research-classifier-corpus.test.js` — corpus test, edited in place
-- `test/fixtures/m89-labeled-corpus.json` — labeled corpus fixture, edited in place
+- `test/fixtures/m89-labeled-corpus.json` — labeled (seen) corpus fixture, edited in place
+- `test/fixtures/m89-heldout-corpus.json` — HELD-OUT generalization fixture (loaded by the corpus
+  test at lines 43-44; carries vendor-dependent rows HO-E1/E2/E5 the §1 change touches — edited in
+  place ONLY to keep labels consistent with the premise-corrected KEEP-the-vendor-list decision)
 - `.gsd-t/domains/m90-d-factual-redesign/{scope,constraints,tasks}.md`
 
 ## NOT Owned (other domains / integrate seam)
@@ -67,10 +70,13 @@ workflow wiring (D-CONTRACT integrate seam).
    always-verify).
 4. **R-FACT-4** — KEEP the §7 fail-closed cite gate: an external claim left uncited → verify
    FAILS.
-5. Update the M89 corpus test to assert NO external-enumeration path remains AND that the
-   closed INTERNAL set + time-anchored override classify the 13-item labeled corpus
-   deterministically. Add a vendor-deletion negative test (out-of-list vendor like
-   GitHub/Slack/OpenAI no longer string-matches → goes to judge, never silent-internal).
+5. Update the M89 corpus test to assert the INTERNAL decision enumerates NO open category
+   (internal only on a concrete own-repo path/anchor) AND that the closed INTERNAL set +
+   time-anchored override classify the labeled corpus deterministically. Add the internal-side
+   no-open-category test (≥10 out-of-list vendors like GitHub/Slack/OpenAI route to judge, never
+   silent-internal). The vendor-upgrade list is KEPT (premise-corrected): held-out rows
+   HO-E1/E2/E5 MUST still classify `external→web` (regression guard) — do NOT delete the list
+   on the falsified silent-miss premise.
 
 ## Sequencing
 Gated AFTER Wave 1 (risk-first build order). File-disjoint from all other domains — its

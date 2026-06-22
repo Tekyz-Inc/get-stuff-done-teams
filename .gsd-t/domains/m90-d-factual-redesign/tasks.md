@@ -108,20 +108,25 @@ must not break the marker the classifier writes.
 
 ### M90-D3-T5 — Corpus + classifier test redesign [Headline]
 **Headline:** true
-Update `test/m89-research-classifier-corpus.test.js` + `test/fixtures/m89-labeled-corpus.json`:
-assert NO external-enumeration path remains (the vendor-deletion negative test — ≥10
-out-of-any-prior-list external references, including a freshly-invented vendor name, each route
-to judge/research, NONE silently internal); assert the closed INTERNAL set + time-anchored
-override classify the labeled corpus DETERMINISTICALLY; re-label vendor-dependent rows to the
-safe (judge) direction; keep the held-out generalization guard. Test count ≥ the ed03a8d
-baseline (1824/0) — SC-FACTUAL-PRESERVED.
-- **Files**: `test/m89-research-classifier-corpus.test.js`, `test/fixtures/m89-labeled-corpus.json`, `bin/gsd-t-research-gate.cjs`
-- **Touches**: `test/m89-research-classifier-corpus.test.js`, `test/fixtures/m89-labeled-corpus.json`
-- **Test**: `test/m89-research-classifier-corpus.test.js` (node --test) — the redesigned corpus test IS this file; ≥10 never-seen external refs → judge/research (none internal), closed-internal set + time-anchored override classify deterministically, held-out generalization guard retained. Run: `node --test test/m89-research-classifier-corpus.test.js`.
+Update `test/m89-research-classifier-corpus.test.js` + both fixtures (`m89-labeled-corpus.json`,
+`m89-heldout-corpus.json`): assert the INTERNAL decision enumerates no open category (≥10
+out-of-any-prior-list external references, including a freshly-invented vendor name, each route to
+judge/research, NONE silently internal — the *internal*-side guard, NOT a vendor-list deletion);
+assert the closed INTERNAL set + time-anchored override classify the labeled corpus
+DETERMINISTICALLY. **Per the premise correction, the vendor list is KEPT** — so the held-out
+vendor-dependent rows HO-E1/E2/E5 (Stripe/Chrome → `external→web`) MUST STILL classify
+`external→web` after the change (a REGRESSION assertion); do NOT re-label them to judge. Re-label a
+row ONLY if D3-T0's baseline proves its current routing is a concrete defect. Keep the held-out
+generalization guard ("passes seen, fails held-out" = FAILURE). Test count ≥ the ed03a8d baseline
+(1824/0) — SC-FACTUAL-PRESERVED.
+- **Files**: `test/m89-research-classifier-corpus.test.js`, `test/fixtures/m89-labeled-corpus.json`, `test/fixtures/m89-heldout-corpus.json`, `bin/gsd-t-research-gate.cjs`
+- **Touches**: `test/m89-research-classifier-corpus.test.js`, `test/fixtures/m89-labeled-corpus.json`, `test/fixtures/m89-heldout-corpus.json`
+- **Test**: `test/m89-research-classifier-corpus.test.js` (node --test) — the redesigned corpus test IS this file; ≥10 never-seen external refs → judge/research (none internal); held-out rows HO-E1/E2/E5 still → `external→web` (regression guard for the KEPT vendor list); closed-internal set + time-anchored override classify deterministically; held-out generalization guard retained. Run: `node --test test/m89-research-classifier-corpus.test.js`.
 - **Acceptance criteria**: (SC-NO-FINITE-LIST + SC-FACTUAL-PRESERVED)
-  - A known-answer test feeds ≥10 out-of-any-prior-list external references (incl. a freshly-invented vendor name); each routes to judge-or-research, NONE silently classified internal.
+  - A known-answer test feeds ≥10 out-of-any-prior-list external references (incl. a freshly-invented vendor name); each routes to judge-or-research, NONE silently classified internal (the internal-side no-open-category guard).
+  - The held-out vendor-dependent rows (HO-E1/E2/E5) still classify `external→web` after the change — a regression assertion proving the KEPT vendor list is intact (NOT re-labeled to judge unless T0 proved a defect).
   - The closed INTERNAL set + time-anchored override classify the labeled corpus deterministically.
-  - Held-out generalization guard retained (no keyword-memorization).
+  - Held-out generalization guard retained (no keyword-memorization); suite green at test count ≥ the ed03a8d baseline.
   - Suite green at test count ≥ the ed03a8d baseline (1824/0) — no factual-slice regression.
 - **Dependencies**: M90-D3-T4.
 

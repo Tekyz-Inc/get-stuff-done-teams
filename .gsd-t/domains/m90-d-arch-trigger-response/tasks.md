@@ -12,6 +12,7 @@
 - `templates/prompts/blind-adversary-subagent.md`
 - `test/m90-architectural-trigger.test.js`
 - `test/fixtures/m90-arch-divergence-corpus.json`
+- `test/fixtures/m90-arch-heldout-divergence.json` — held-out divergence split (independently-labeled from saga records; D1-T6 path (a))
 
 ## Contract
 `.gsd-t/contracts/m90-doctrine-mechanisms-contract.md` §2 — produces the architectural
@@ -110,25 +111,35 @@ SILENT on convergent ones, the extend-existing-code path fires, and bad input �
 silent, repeatably), this test FAILS and the milestone HALTS for R1 re-scope DOWN to
 factual-only (D3 then carries M90). The trigger is wired into workflows (D4-T4) ONLY after
 this test is GREEN.
-**HELD-OUT REAL-CASE SPLIT (pre-mortem HIGH, shallow-test / tautology trap):** the fixture corpus
-is authored by THIS domain (it owns both the trigger module AND the fixture), so a test that only
-asserts "every self-labeled divergent row fires" is a tautology against threshold-tuned synthetic
-rows with no independent ground truth. The corpus MUST include a HELD-OUT split: ≥3 divergent and
-≥3 convergent rows drawn from the THREE REAL SAGA RETROS (binvoice FB-modal whack-a-mole, GSD-T
-M87 plan loop, GSD-T M89 verify loop — the recorded cases named in the partition as the seed),
-NOT synthetic rows tuned to the threshold. Mirror the existing M89 corpus's held-out
-generalization guard ("passes the seen/tuned set, FAILS the held-out real set" = test FAILURE).
-Without the held-out real-case split, the prove-or-kill gate is not falsifiable and may NOT gate
-wiring.
-- **Files**: `test/m90-architectural-trigger.test.js`, `test/fixtures/m90-arch-divergence-corpus.json`, `bin/gsd-t-architectural-trigger.cjs`
-- **Touches**: `test/m90-architectural-trigger.test.js`, `test/fixtures/m90-arch-divergence-corpus.json`
-- **Test**: `test/m90-architectural-trigger.test.js` (node --test) — the killing test IS this file; it exercises the full trigger end-to-end against ≥6 tuned fixture cases (≥3 divergent → fire, ≥3 convergent → silent) PLUS a HELD-OUT real-saga split (≥3 divergent + ≥3 convergent rows from the binvoice/M87/M89 retros) that the trigger must classify correctly, PLUS the extend path + bad input. The held-out rows are NOT used to tune the threshold; failing them = test FAILURE (generalization guard). Run: `node --test test/m90-architectural-trigger.test.js`.
+**HELD-OUT REAL-CASE SPLIT — with a NAMED ground-truth source (pre-mortem HIGH ×2: tautology trap +
+no-divergence-dataset-on-disk).** The fixture is authored by THIS domain, so a test asserting
+"every self-labeled divergent row fires" is a tautology. The corpus MUST include a HELD-OUT split
+NOT used to tune the threshold. **But the DIVERGENCE class has no ready ground-truth fixture on
+disk** — the binvoice retro fixture (`templates/test-fixtures/retro/binvoice-692fe9fc-kat.json`) is
+a symptom-CLUSTERING case for the loop-ledger (D2), NOT a fresh-context-answer-DIVERGENCE case for
+this trigger; the M87/M89 loop sagas are recorded as prose, not as N-fresh-context-answer sets.
+So D1-T6 MUST do ONE of:
+  **(a)** AUTHOR a real held-out divergence fixture `test/fixtures/m90-arch-heldout-divergence.json`
+  (owned by THIS domain) — ≥3 divergent + ≥3 convergent rows, each row = N recorded fresh-context
+  approach-answers to ONE approach question, with an INDEPENDENT divergence label derived from the
+  saga record (e.g. binvoice's 7 conflicting fix-approaches = divergent; a case where all N agree =
+  convergent). The label's derivation rule is documented in the fixture `_comment`, not back-fit to
+  the threshold; OR
+  **(b)** if a falsifiable held-out divergence set genuinely CANNOT be constructed from the saga
+  records, the prove-or-kill exit DEFAULTS to **R1 re-scope DOWN to factual-only** — the milestone
+  does NOT ship a tautological green for the architectural slice. This default is the doctrine's
+  fail-toward-honesty: an unprovable detector is treated as unproven.
+Mirror the M89 corpus's generalization guard ("passes the tuned set, FAILS the held-out set" = FAILURE).
+- **Files**: `test/m90-architectural-trigger.test.js`, `test/fixtures/m90-arch-divergence-corpus.json`, `test/fixtures/m90-arch-heldout-divergence.json`, `bin/gsd-t-architectural-trigger.cjs`
+- **Touches**: `test/m90-architectural-trigger.test.js`, `test/fixtures/m90-arch-divergence-corpus.json`, `test/fixtures/m90-arch-heldout-divergence.json`
+- **Test**: `test/m90-architectural-trigger.test.js` (node --test) — the killing test IS this file; ≥6 tuned fixture cases (≥3 divergent → fire, ≥3 convergent → silent) PLUS the NAMED held-out divergence split from `m90-arch-heldout-divergence.json` (independently-labeled, derivation documented in the fixture, NOT threshold-tuned) PLUS the extend path + bad input. A held-out miss = test FAILURE. If path (b) is taken (no falsifiable held-out set), the test instead asserts the R1-re-scope-DOWN exit-state deterministically. Run: `node --test test/m90-architectural-trigger.test.js`.
 - **Acceptance criteria**: (SC-ARCH-TRIGGER)
   - Every tuned divergent corpus row fires; every tuned convergent row stays silent — deterministically across repeated runs.
-  - The HELD-OUT real-saga split (≥3 divergent + ≥3 convergent from binvoice/M87/M89 retros) is classified correctly WITHOUT being used to tune the threshold; a held-out miss FAILS the test (anti-tautology generalization guard, mirroring the M89 corpus).
+  - The held-out divergence split has a NAMED, on-disk, independently-labeled source (`test/fixtures/m90-arch-heldout-divergence.json`, derivation documented in `_comment`); the trigger classifies it correctly WITHOUT the rows being used to tune the threshold; a held-out miss FAILS the test. **OR** path (b): the fixture cannot be falsifiably constructed → the test asserts the deterministic R1-re-scope-DOWN exit-state (factual-only), and the architectural slice does NOT ship.
+  - The divergence MEASURE is a fixed, documented formula and the threshold is a declared constant (not back-fit per-fixture).
   - The extend-existing-code path fires (R-ARCH-2 demonstrated on a seeded case from the three-saga retros).
   - Bad input → `{ ok:false }` + non-zero exit.
-  - RED here (incl. a held-out generalization failure) = HALT the milestone for R1 re-scope DOWN (the prove-or-kill exit, sourced finding: architectural DETECTION has no published precedent).
+  - RED here (incl. a held-out generalization failure or an unconstructable held-out set) = HALT for R1 re-scope DOWN (the prove-or-kill exit; architectural DETECTION has no published precedent).
 - **Dependencies**: M90-D1-T5.
 
 ## Dependency / gating

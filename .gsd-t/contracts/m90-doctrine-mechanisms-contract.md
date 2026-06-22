@@ -26,8 +26,16 @@ the consumer wires at integrate time. The full doctrine spine (§4/§5/§6) land
 ## §1 — Factual classifier (m90-d-factual-redesign)
 **Module:** `bin/gsd-t-research-gate.cjs` — `module.exports = { classify }`
 **Signature:** `classify(gap: string) -> { ok:true, gap, class:"internal"|"external"|"ambiguous", route:"grep"|"web"|"judge", reason } | { ok:false, error }`
-**Redesign invariants (M90):**
-- NO finite vendor list. `internal` ONLY on a concrete own-repo path/file (closed set).
+**Redesign invariants (M90 — premise-corrected 2026-06-22, pre-mortem CRITICAL #1, verified on disk):**
+- The **INTERNAL decision** enumerates NO open category: `internal` is asserted ONLY on a concrete
+  own-repo path/anchor (a closed, knowable set) — NEVER on the mere absence of a vendor. (Already
+  true on disk at `bin/gsd-t-research-gate.cjs:211-262`; M90 asserts + tests it, does not introduce it.)
+- The vendor list is **KEPT** as an external→web *upgrade* heuristic (a vendor proper-noun + API
+  term → high-confidence `external`, skipping the judge). It does NOT cause a silent-miss: a bare
+  out-of-list vendor with no internal signal already routes `ambiguous→judge` ("never guess-internal"),
+  verified empirically (10/10 unseen vendors → judge). DELETING it would DOWNGRADE known vendors
+  `external→web` ⇒ `ambiguous→judge` — a pure regression that also turns held-out rows HO-E1/E2/E5
+  RED. Change/tighten it ONLY if D3-T0's baseline proves a concrete misroute defect.
 - not-confidently-internal → `ambiguous` → judge → external/uncertain → research+cite.
 - Time-anchored override: fast-moving lib/API/version OR "current/latest best practice" → research regardless of confidence.
 - §7 fail-closed cite gate PRESERVED: an external claim left uncited → verify FAILS (R-FACT-4).
@@ -74,8 +82,8 @@ fact + halt decision. read-exit-state returns the current halt state.
 ## Wiring seam ownership (disjointness keystone)
 | Surface | Sole writer |
 |---|---|
-| `bin/gsd-t-research-gate.cjs` | m90-d-factual-redesign |
-| `bin/gsd-t-architectural-trigger.cjs` + blind-adversary prompt | m90-d-arch-trigger-response |
+| `bin/gsd-t-research-gate.cjs`, `test/m89-research-classifier-corpus.test.js`, `test/fixtures/m89-labeled-corpus.json`, `test/fixtures/m89-heldout-corpus.json` | m90-d-factual-redesign |
+| `bin/gsd-t-architectural-trigger.cjs` + blind-adversary prompt + `test/m90-architectural-trigger.test.js` + `test/fixtures/m90-arch-divergence-corpus.json` + `test/fixtures/m90-arch-heldout-divergence.json` | m90-d-arch-trigger-response |
 | `bin/gsd-t-loop-ledger.cjs` | m90-d-loop-ledger-halt |
 | ALL `templates/workflows/*.workflow.js`, `bin/gsd-t.js`, triad prompts, contracts, docs, package.json | m90-d-contract-doctrine-integrate |
 

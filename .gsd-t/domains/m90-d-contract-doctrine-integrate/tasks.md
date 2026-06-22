@@ -77,23 +77,25 @@ PROJECT_BIN_TOOLS (and GLOBAL_BIN_TOOLS, mirroring every peer gate so the module
 Add the loop-ledger halt seam to `gsd-t-debug.workflow.js` via the inline `runCli` helper. RUN
 the workflow to completion in the real sandbox (NOT `node --check`) — the M71 invariant: no
 require/fs/process, args = JSON STRING.
-**RESOLVE THE CYCLE-BOUND CONTRADICTION (pre-mortem CRITICAL, dead-deliverable / M5 class):**
-`gsd-t-debug.workflow.js` TODAY runs `for (let cycle = 1; cycle <= 2; cycle++)` and exits
-`needs-human` after cycle 2 — it NEVER reaches a 3rd cycle, so a naive ledger-halt-on-3rd-cycle
-branch is DEAD CODE. The wiring MUST reconcile the doctrine's "3rd same-signature cycle hard-halts"
-with the existing 2-cycle cap, in ONE of two ways (the worker picks and records which in the
-contract): **(a)** raise the debug loop bound so a 3rd same-signature cycle is reachable and the
-ledger halt fires inside the loop; OR **(b)** re-anchor the halt to the cycle-2→needs-human
-boundary — when the ledger shows the SAME computed signature across both cycles, exit with the
-ledger's premise-re-examination directive (not the generic needs-human). Either way the halt must
-be REACHABLE through the real wired workflow, not only via isolated module calls.
+**CYCLE-BOUND CONTRADICTION — DECISION LOCKED AT PLAN: OPTION (b) (pre-mortem CRITICAL ×2,
+dead-deliverable / M5 class).** `gsd-t-debug.workflow.js` TODAY runs `for (let cycle = 1; cycle <= 2;
+cycle++)` and exits `needs-human` after cycle 2 — a naive ledger-halt-on-3rd-cycle branch is DEAD
+CODE. **Resolution (locked, recorded in the doctrine contract — NOT deferred to execute): option
+(b) re-anchor the halt to the cycle-2 boundary.** When the ledger shows the SAME computed signature
+across both cycles, the workflow exits at the cycle-2 boundary with the ledger's
+**premise-re-examination directive** (not the generic `needs-human`). Option (a) (raise the loop
+bound) is REJECTED: it risks unbounded per-cycle M89-research-loop multiplication and changes the
+debug cost envelope. Option (b) keeps the existing 2-cycle cap and only changes the EXIT REASON
+when the ledger proves non-convergence — the doctrine's "stop patching, re-examine the premise"
+fires exactly where the 3rd patch would have been dispatched. The halt must be REACHABLE end-to-end
+through the real wired workflow, not only via isolated module calls.
 - **Files**: `templates/workflows/gsd-t-debug.workflow.js`
 - **Touches**: `templates/workflows/gsd-t-debug.workflow.js`
 - **Test**: `test/m71-workflow-runtime-native-lint.test.js` (stays green) + a real-sandbox debug-workflow INTEGRATION run driven with a synthetic input that produces the SAME computed symptom-signature across cycles, asserting the workflow HALTS from the ledger fact (emitting the premise-re-examination directive) — NOT merely that the runCli seam is present, and NOT only the module-isolation killing test (that lives in D2-T6). The halt must fire end-to-end through the real (post-reconciliation) loop.
 - **Acceptance criteria**: (SC-LOOP-HOOK-FIRES end-to-end)
   - `gsd-t-debug.workflow.js` calls the loop-ledger via the inline runCli agent-Bash helper.
-  - The cycle-bound contradiction is RESOLVED (raise the bound OR re-anchor to the cycle-2 boundary) and the chosen reconciliation is recorded in the doctrine contract — the 3rd/Nth same-signature halt is REACHABLE through the real wired workflow.
-  - The real-sandbox integration test drives a same-signature non-converging loop and asserts the workflow HALTS the patch path from the ledger fact + emits the premise-re-examination directive (R-LOOP-2 end-to-end, not module-isolation).
+  - The cycle-bound contradiction is RESOLVED via **option (b)** (re-anchor the halt to the cycle-2 boundary; the existing 2-cycle cap is unchanged) and this decision is RECORDED in the doctrine contract. When the ledger shows the same computed signature across both cycles, the workflow exits with the premise-re-examination directive, NOT generic needs-human.
+  - The real-sandbox integration test drives a same-signature non-converging loop (3 distinct runCli-style invocations, NOT one in-process loop — see D2-T6 cross-process persistence) and asserts the workflow HALTS the patch path from the ledger fact + emits the premise-re-examination directive (R-LOOP-2 end-to-end, not module-isolation).
   - M71 lint green (no require/fs/process; args parsed as a STRING); the workflow runs to completion in the sandbox.
 - **Dependencies**: M90-D4-T2.
 
@@ -150,8 +152,10 @@ unresolved flag; it cleanly PASSES (with a recorded de-scoped note) when the mec
 - **Dependencies**: M90-D4-T4.
 
 ### M90-D4-T6 — Doc ripple (full blast radius, one pass)
-Replace the CLAUDE-global Research Policy advisory PROSE with the DOCTRINE; add the M90
-requirement to `docs/requirements.md`; update `commands/gsd-t-help.md`; ripple README +
+Replace the CLAUDE-global Research Policy advisory PROSE with the DOCTRINE; the M90 REQ-M90-01..07
+block is ALREADY in `docs/requirements.md` (authored at plan time per pre-mortem #5) — D4-T6 only
+flips its `Status` cells to `complete` and ripples the surrounding prose/test-coverage/total rows,
+NOT first authoring; update `commands/gsd-t-help.md`; ripple README +
 GSD-T-README capability surface (project Pre-Commit Gate: command/capability changed); bump
 `package.json` to the next MINOR (new framework capability) — **READ the CURRENT version from
 `package.json` at execute time and bump from it** (it is 4.6.12 on disk as of 2026-06-22, NOT

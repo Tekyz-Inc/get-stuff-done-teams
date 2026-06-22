@@ -41,7 +41,7 @@ doc. Sole writer of every shared / integrate-time surface.
 - `commands/gsd-t-help.md` — command/capability surface
 - `README.md` — commands table / capability (project Pre-Commit Gate: command interface changed)
 - `GSD-T-README.md` — same ripple (project Pre-Commit Gate)
-- `package.json` — version bump 4.6.11 → 4.7.10
+- `package.json` — version bump from the CURRENT on-disk version (4.6.12, NOT the stale 4.6.11 literal) → 4.7.10 (read live at execute)
 
 **Verify-checklist + lints (salvaged, non-overlapping)**
 - `test/m90-guardmap-rule-traceability.test.js` — traces each §6 [RULE] to its enforcement (the Red Team menu)

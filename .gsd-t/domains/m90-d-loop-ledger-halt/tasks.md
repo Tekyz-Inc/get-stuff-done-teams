@@ -98,11 +98,20 @@ exit-state fires DETERMINISTICALLY; assert a signature-B-opening fix still incre
 `halted-but-no-re-examination` is exposed (R-FAIL-3); bad input → `{ ok:false }`. RED = a
 non-converging halt that doesn't fire = a DESIGN DEFECT → STOP + escalate (do NOT keep
 patching — the known non-converging-Red-Team trap).
+**CROSS-PROCESS PERSISTENCE (pre-mortem LOW #8):** the debug workflow invokes this bin via an
+agent-Bash runCli helper each cycle — a FRESH PROCESS per cycle, NOT one in-process loop. The
+ledger MUST persist cycle history across separate invocations keyed by the computed signature
+(a JSONL/state file under `.gsd-t/`). The killing test MUST drive the 3 cycles as 3 DISTINCT
+process invocations (not 3 in-process calls) and still produce the HARD-HALT exit-state; a
+corrupt/bad state file → `{ ok:false }` + non-zero exit. Without this, the halt is dead through
+the real wired workflow (D4-T3 option (b) depends on it).
 - **Files**: `test/m90-loop-ledger-halt.test.js`, `bin/gsd-t-loop-ledger.cjs`
 - **Touches**: `test/m90-loop-ledger-halt.test.js`
-- **Test**: `test/m90-loop-ledger-halt.test.js` (node --test) — the killing test IS this file; exercises the ledger end-to-end (3-cycle halt + variant-B increment + directive + fail-closed state + bad input). Run: `node --test test/m90-loop-ledger-halt.test.js`.
+- **Test**: `test/m90-loop-ledger-halt.test.js` (node --test) — the killing test IS this file; exercises the ledger end-to-end (3-cycle halt + variant-B increment + directive + fail-closed state + bad input), with the 3 cycles driven as 3 SEPARATE process invocations reading/writing the persisted signature-keyed state file. Run: `node --test test/m90-loop-ledger-halt.test.js`.
 - **Acceptance criteria**: (SC-LOOP-HOOK-FIRES, end-to-end)
   - 3 same-signature cycles → HARD-HALT exit-state fires deterministically (verified by exit-state, NOT prose).
+  - The 3 cycles driven as 3 SEPARATE process invocations (fresh process each, matching the real runCli wiring) still reach the HARD-HALT via the persisted signature-keyed state file.
+  - A corrupt/missing/bad ledger state file → `{ ok:false }` + non-zero exit (no silent reset that would mask a loop).
   - A signature-B-opening fix still increments (R-LOOP-1).
   - The premise-re-examination directive is emitted on halt (R-LOOP-3).
   - `halted-but-no-re-examination` is exposed for the fail-closed gate (R-FAIL-3 partial).
