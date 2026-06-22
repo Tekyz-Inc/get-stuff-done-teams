@@ -257,6 +257,30 @@ describe('T4 — R-LOOP-3 directive + R-FAIL-3 fail-closed state (in-process)', 
     assert.equal(s.haltedButNoReExamination, false, 'fail-closed predicate must clear for the only pending sig');
   });
 
+  test('R-FAIL-3 REGRESSION (fix-cycle-5 Red Team HIGH): recordReExamination FULLY resets the signature — re-append does NOT re-arm', () => {
+    // Bug: recordReExamination cleared only reExaminationPending, leaving cycles[sig]>=threshold,
+    // so the NEXT appendCycle re-armed pending instantly → the R-FAIL-3 gate re-bricked itself.
+    // Fix: re-examination resets cycles+halted+pending together (the loop starts fresh).
+    const dir = makeTmpDir();
+    try {
+      const loop = { assertion: 'flaky', surface: 'f.js', fileClass: 'unit', projectDir: dir };
+      for (let i = 0; i < 3; i++) appendCycle(loop);
+      const sig = computeSignature(loop).signature;
+      assert.equal(readExitState(dir).haltedButNoReExamination, true, 'halted before re-examination');
+
+      recordReExamination(sig, dir);
+      assert.equal(readExitState(dir).haltedButNoReExamination, false, 'cleared after re-examination');
+
+      // Re-approach the SAME loop once more: it must restart at cycles=1, NOT re-arm the halt.
+      const reappend = appendCycle(loop);
+      assert.equal(reappend.cycles, 1, 'cycle count RESTARTS after re-examination (full reset)');
+      assert.equal(reappend.halted, false, 'a single post-reset cycle must NOT re-halt (no re-arm)');
+      assert.equal(readExitState(dir).haltedButNoReExamination, false, 'gate stays clear — no self-re-brick');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   test('R-FAIL-3 REGRESSION (Red Team HIGH): clearing ONE halted signature must NOT clear a second unresolved loop', () => {
     // Two DISTINCT non-converging loops, both halted in the same project state.
     const dir = makeTmpDir();

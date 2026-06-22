@@ -326,10 +326,16 @@ function recordReExamination(arg, maybeProjectDir) {
 
   const cleared = [];
   if (signature && typeof signature === 'string') {
-    if (state.reExaminationPending[signature]) {
-      delete state.reExaminationPending[signature];
-      cleared.push(signature);
-    }
+    // FULL per-signature RESET (M90 fix-cycle 5): re-examination means this signature starts
+    // fresh. Clearing ONLY reExaminationPending left cycles[sig] and halted[sig] intact, so the
+    // next appendCycle re-armed pending (cycles still >= threshold) — the gate re-bricked itself.
+    // A true self-heal resets all three together: the loop is being re-approached from scratch.
+    const wasTracked = state.reExaminationPending[signature] || state.halted[signature] ||
+      (state.cycles[signature] || 0) > 0;
+    delete state.reExaminationPending[signature];
+    delete state.halted[signature];
+    delete state.cycles[signature];
+    if (wasTracked) cleared.push(signature);
   } else {
     // No signature given: refuse a blanket clear (that was the bug). Surface the choices.
     const pending = Object.keys(state.reExaminationPending).filter((s) => state.reExaminationPending[s]);

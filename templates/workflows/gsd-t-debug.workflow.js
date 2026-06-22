@@ -369,9 +369,12 @@ for (let cycle = 1; cycle <= 2; cycle++) {
     if (ledgerAppend.envelope) {
       const env = ledgerAppend.envelope;
       log(`M90 loop-ledger cycle ${cycle}: sig=${String(env.signature || "?").slice(0, 16)} cycles=${env.cycles} halted=${env.halted}`);
-      // Record THIS run's view of the signature's cycle count (run-scoped non-convergence detection).
+      // RUN-SCOPED count: increment a LOCAL per-signature counter for each append IN THIS RUN —
+      // do NOT read env.cycles (that is the GLOBAL cumulative count across all prior runs; a stale
+      // count of 1 from a previous run would make cycle-1 here read 2 and falsely halt). The local
+      // count only reaches 2 when the SAME signature is appended in BOTH cycles of THIS run.
       if (env.signature) {
-        thisRunSigCycles[env.signature] = Math.max(thisRunSigCycles[env.signature] || 0, env.cycles || 0);
+        thisRunSigCycles[env.signature] = (thisRunSigCycles[env.signature] || 0) + 1;
       }
     }
   }
