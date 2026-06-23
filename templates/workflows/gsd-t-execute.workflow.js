@@ -548,9 +548,15 @@ for (const dr of domainResults.filter(Boolean)) {
     reason: triggerEnv.reason || null,
     provenByAdversaryOnly: triggerEnv.provenByAdversaryOnly || false,
     stopDirective: triggerEnv.stopDirective || false,
+    // M92 — surface the cheaper-first response rung + its directive (look→smallest→spike→defer)
+    // so the "look at what exists / smallest change" guidance reaches the worker.
+    mode: triggerEnv.mode || null,
+    responseDirective: triggerEnv.lookDirective || triggerEnv.smallestDirective || triggerEnv.deferDirective || null,
   });
 }
-log(`M90 arch-trigger: ${domainArchTriggerResults.length} domain(s) fired extend-existing-code signal`);
+log(`M90 arch-trigger: ${domainArchTriggerResults.length} domain(s) fired extend-existing-code signal` +
+  (domainArchTriggerResults.some((r) => r.mode === "look")
+    ? ` — M92 default response: LOOK (grep/read existing before scoping)` : ""));
 
 phase("Integrate");
 const integratePrompt = [

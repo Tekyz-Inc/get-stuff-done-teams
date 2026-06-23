@@ -2,6 +2,20 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [4.9.10] - 2026-06-23 (M92 — Understand-Before-Build, the paradigm half / backlog #44a — minor)
+
+### Changed — GSD-T now prefers the SMALLEST change that hits the crux
+
+The root cause of the BinVoice over-scoping saga: GSD-T was a purely ADDITIVE gate pipeline — when a plan started too high, every gate made it bigger, and the verdict schema couldn't even SAY "we made it smaller." M92 is the cheap, no-graph paradigm half of the fix (the graph half, #44b, is a separate later milestone gated on this one). Three file-disjoint moves, one wave; full suite 2183 / 2179 pass / 0 fail / 4 skip.
+
+- **Cheaper-first response ladder (move 1).** M90's §2 architectural trigger (R-ARCH-2 — fires when a task touches an existing file) now resolves a **look → smallest → spike → defer** ladder: `look` (grep/read what exists before scoping) is the new DEFAULT, `spike` is DEMOTED to a later rung. The cheap "look" rung resolves most over-scoping without ever needing a spike. R-ARCH-4/5/6 and the backward-compat envelope are preserved; the live spike-feasibility decider remains backlog #42 (explicitly out of scope). Doctrine contract `unproven-assumption-doctrine-contract.md` §2.2 updated.
+- **The verdict can say "smaller" (move 2, the keystone).** New `bin/gsd-t-shrink-metric.cjs` measures a change's leanness deterministically from `git diff --numstat` (`netLoc`, `leaner`) — MEASURED, not LLM-attested. Verify's `VERDICT_SCHEMA` gains an ADDITIVE `shrink` dimension (the correctness enum is untouched), so a net-negative diff is rewarded as a success instead of being invisible.
+- **The default is inverted (move 3).** The milestone/quick framing now leads with the smallest-altitude change; ceremony (plan→execute, partition, competition) is opt-in, justified by the crux — instead of being the implied "Recommended" default.
+
+### Security
+
+- **`bin/gsd-t-shrink-metric.cjs` git-argument injection (M92 verify Red Team, HIGH, fixed in-verify).** The `--range` value was passed to `git diff --numstat <range>` without dash-leading validation — `execFileSync` blocks shell injection but not git-OPTION injection, so a range like `--output=<path>` made git overwrite an arbitrary file (and the range is LLM-derived upstream). Fixed by refusing non-string/empty/dash-leading ranges before the git call (+ `--` end-of-options as defense-in-depth), with 3 security regression tests.
+
 ## [4.8.10] - 2026-06-22 (M91 — PseudoCode Source-of-Truth, merged M87+M88 — minor)
 
 ### Added — the intention-first PseudoCode behavior map becomes the milestone source-of-truth

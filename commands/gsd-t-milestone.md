@@ -2,6 +2,12 @@
 
 You are the lead agent. Define a new milestone by invoking the generic upper-stage Workflow at `templates/workflows/gsd-t-phase.workflow.js` with `phase: "milestone"`. A milestone is a significant deliverable (e.g., "User Authentication", "Payment Integration").
 
+## Default altitude: smallest change that hits the crux (M92)
+
+**Before reaching for milestone ceremony, ask whether the ask even needs a milestone.** The default recommendation is the SMALLEST change that hits the crux — if the work is a one-file change or a focused fix, `/gsd-t-quick` (do it directly) is the answer, not a milestone with partition + plan→execute + competition.
+
+Milestone ceremony — definition, partition into domains, plan→execute waves, Competition Mode — is the **opt-in escalation**, justified when the crux genuinely needs cross-domain coordination or carries real uncertainty (multiple coupled deliverables, several domains, a decomposition decision worth competing). It is never the implied-default "bigger is more rigorous." If you cannot name why the crux needs a milestone, the smaller path IS the recommendation.
+
 ## What this command does
 
 ```

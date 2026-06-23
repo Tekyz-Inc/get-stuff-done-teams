@@ -78,6 +78,13 @@ async function runCli(projectDir, subcmd, argv, localBin, label, parseJson = tru
 }
 async function runPreflight(projectDir, label = "preflight", phaseName) { return runCli(projectDir, "preflight", ["--json"], "cli-preflight.cjs", label, true, phaseName); }
 async function runVerifyGate(projectDir, label = "verify-gate", phaseName) { return runCli(projectDir, "verify-gate", ["--json"], "gsd-t-verify-gate.cjs", label, true, phaseName); }
+// M92 D2 (keystone) — the deterministic shrink-metric. Computes the milestone diff's
+// net size from `git diff --numstat <range>` via the shared runCli helper (M71-clean:
+// the git call runs in the agent's Bash, NOT via require/fs/child_process here). model:
+// "haiku" (mechanical), like the other deterministic-gate CLI calls.
+async function runShrinkMetric(projectDir, range, label = "m92:shrink-metric", phaseName) {
+  return runCli(projectDir, "shrink-metric", ["--range", range, "--project-dir", projectDir, "--json"], "gsd-t-shrink-metric.cjs", label, true, phaseName);
+}
 async function generateBrief(projectDir, { kind = "verify", milestone, domain, id, label = "brief", phaseName } = {}) {
   const argv = ["--kind", kind, "--spawn-id", id, "--out", `${projectDir}/.gsd-t/briefs/${id}.json`];
   if (milestone) argv.push("--milestone", milestone);
@@ -206,6 +213,20 @@ const VERDICT_SCHEMA = {
     overallVerdict: { type: "string", enum: ["VERIFIED", "VERIFIED-WITH-WARNINGS", "VERIFY-FAILED"] },
     summary:        { type: "string" },
     blockingFindings: { type: "array", items: { type: "string" } },
+    // M92 D2 (keystone) — ADDITIVE, ORTHOGONAL "did it get leaner" readout. The
+    // 3-enum stays the pure correctness gate (AND-of-gates); `shrink` is a SEPARATE
+    // success dimension surfaced ALONGSIDE it (never folded into pass/fail). MEASURED
+    // by bin/gsd-t-shrink-metric.cjs from `git diff --numstat`, never LLM-attested.
+    // Optional: omitted when the diff base is unavailable (logged skip-with-reason).
+    shrink: {
+      type: "object",
+      required: ["netLoc", "leaner"],
+      additionalProperties: true,
+      properties: {
+        netLoc: { type: "number" },
+        leaner: { type: "boolean" },
+      },
+    },
   },
 };
 
@@ -693,6 +714,55 @@ const stages = [
 
 const triadResults = await parallel(stages);
 
+// ─── M92 D2 Shrink-Metric (keystone — ADDITIVE leanness dimension) ─────────
+// Before synthesis, MEASURE the milestone diff's net size so the verdict can SAY
+// "we made it smaller" — a first-class, ORTHOGONAL success dimension surfaced
+// ALONGSIDE the overallVerdict enum (never folded into pass/fail). MEASURED, never
+// LLM-attested ([[feedback_measure_dont_claim]]): the metric is computed by
+// bin/gsd-t-shrink-metric.cjs from `git diff --numstat <base>..HEAD`.
+//
+// The diff base = the milestone branch-point (merge-base of HEAD against the default
+// branch). M71-clean: BOTH the merge-base resolution AND the numstat run go through an
+// agent's Bash, never require/fs/child_process in this orchestrator. If the base can't
+// be resolved (detached HEAD, shallow clone, no default branch), the metric is SKIPPED
+// with a logged reason — NEVER fabricated ([[feedback_no_silent_degradation]]).
+const SHRINK_BASE_SCHEMA = {
+  type: "object",
+  required: ["resolved"],
+  additionalProperties: true,
+  properties: { resolved: { type: "boolean" }, base: { type: "string" }, reason: { type: "string" } },
+};
+const shrinkBase = await agent(
+  [
+    `Resolve the milestone diff BASE for the git repo at "${projectDir}" (the branch-point of the current work). Run ONLY git, report JSON. Steps:`,
+    `1. Find the default branch tip. Try in order, using the first that resolves to a commit (cwd "${projectDir}"):`,
+    `   a. \`git -C "${projectDir}" rev-parse --verify --quiet origin/HEAD\` (then its symbolic target), else`,
+    `   b. \`git -C "${projectDir}" rev-parse --verify --quiet main\`, else`,
+    `   c. \`git -C "${projectDir}" rev-parse --verify --quiet master\`.`,
+    `2. Compute the merge-base of HEAD and that default tip: \`git -C "${projectDir}" merge-base HEAD <defaultTip>\`.`,
+    `3. If a merge-base commit is produced AND it differs from HEAD's own sha (there IS a diff to measure), return { "resolved": true, "base": "<merge-base-sha>" }.`,
+    `4. If NO default branch resolves, OR merge-base fails, OR merge-base === HEAD (nothing to measure), return { "resolved": false, "reason": "<short reason, e.g. no default branch / detached / merge-base===HEAD>" }.`,
+    `Do NOT do any other work. ONLY run git and report.`,
+  ].join("\n"),
+  { label: "m92:shrink-base", phase: "Synthesis", schema: SHRINK_BASE_SCHEMA, model: "haiku" }
+).catch((e) => ({ resolved: false, reason: `shrink-base agent error: ${e && e.message}` }));
+
+let shrink = null;
+let shrinkSkipReason = null;
+if (shrinkBase && shrinkBase.resolved && shrinkBase.base) {
+  const sm = await runShrinkMetric(projectDir, `${shrinkBase.base}..HEAD`, "m92:shrink-metric", "Synthesis");
+  if (sm.ok && sm.envelope && typeof sm.envelope.netLoc === "number" && typeof sm.envelope.leaner === "boolean") {
+    shrink = { netLoc: sm.envelope.netLoc, leaner: sm.envelope.leaner, insertions: sm.envelope.insertions, deletions: sm.envelope.deletions, filesAdded: sm.envelope.filesAdded, filesRemoved: sm.envelope.filesRemoved, filesModified: sm.envelope.filesModified };
+    log(`M92 shrink-metric: netLoc=${shrink.netLoc} leaner=${shrink.leaner} (+${shrink.insertions}/-${shrink.deletions}) — surfacing as the orthogonal leanness dimension`);
+  } else {
+    shrinkSkipReason = `shrink-metric CLI did not return a usable metric (exitCode=${sm.exitCode}) — SKIPPED, not fabricated`;
+    log(`M92 shrink-metric: SKIP — ${shrinkSkipReason}`);
+  }
+} else {
+  shrinkSkipReason = `diff base unavailable (${(shrinkBase && shrinkBase.reason) || "unknown"}) — shrink-metric SKIPPED, never fabricated`;
+  log(`M92 shrink-metric: SKIP — ${shrinkSkipReason}`);
+}
+
 phase("Synthesis");
 const synthesisPrompt = [
   `You are the synthesis agent. Three orthogonal validators have run.`,
@@ -710,7 +780,15 @@ const synthesisPrompt = [
   `- VERIFIED-WITH-WARNINGS if: Red Team GRUDGING-PASS, QA suite green, contracts compliant, AND any of: code-review ultra has "important" findings, OR skipUltra=true (reason: ${skipUltraReason || "(none — would have failed above)"}), OR QA shallowTests.length === 1 (single non-core).`,
   `- VERIFY-FAILED otherwise (Red Team FAIL, QA fail>0, contract violations>0, shallowTests ≥ 2 or in core paths).`,
   ``,
-  `Return JSON per VERDICT_SCHEMA with blockingFindings listing concrete things that must fix.`,
+  `**M92 SHRINK DIMENSION (ORTHOGONAL — do NOT fold into pass/fail):** a deterministic shrink-metric measured the milestone diff:`,
+  shrink
+    ? `    shrink = ${JSON.stringify({ netLoc: shrink.netLoc, leaner: shrink.leaner })}  (full: +${shrink.insertions}/-${shrink.deletions}, files +${shrink.filesAdded}/-${shrink.filesRemoved}/~${shrink.filesModified})`
+    : `    shrink = (SKIPPED — ${shrinkSkipReason}; report it as not-measured, NEVER fabricate a value)`,
+  shrink
+    ? `  Copy this measured shrink object VERBATIM into the "shrink" field of your output ({ "netLoc": ${shrink.netLoc}, "leaner": ${shrink.leaner} }). It is MEASURED — do not recompute or alter it. If leaner=true, explicitly ACKNOWLEDGE in the summary that the milestone made the codebase smaller (net-negative LOC) as a SUCCESS dimension, ORTHOGONAL to the correctness verdict — a VERIFIED-or-not correctness result and a leaner:true result are independent and BOTH reported.`
+    : `  OMIT the "shrink" field (the metric was skipped — say so in the summary; do NOT invent a netLoc/leaner).`,
+  ``,
+  `Return JSON per VERDICT_SCHEMA. Include blockingFindings listing concrete things that must fix${shrink ? ", and the measured shrink object" : ""}.`,
 ].join("\n");
 
 const verdict = await agent(synthesisPrompt, {
@@ -730,5 +808,8 @@ return {
   testDataPurge: td.envelope,
   guardMap: { discovery: guardMapDiscovery, results: guardMapResults },
   triad: triadResults,
+  // M92 D2 (keystone) — the measured leanness dimension, surfaced ALONGSIDE the
+  // overallVerdict enum (orthogonal; null + a reason when the diff base was unavailable).
+  shrink: shrink || { skipped: true, reason: shrinkSkipReason },
   verdict,
 };

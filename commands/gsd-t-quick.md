@@ -2,6 +2,12 @@
 
 You are executing a small, focused task that doesn't need full phase planning. This is for bug fixes, config changes, small features, and ad-hoc work.
 
+## Default altitude: smallest change that hits the crux (M92)
+
+**The default recommendation is the SMALLEST change that hits the crux — do it directly.** Before choosing scope: state the crux in one line, grep/read what already exists, then make the smallest one-file change that hits it — editing inward at the source, not outward at the N consumers.
+
+Ceremony — the full execute workflow, partition, plan→execute, competition — is the **opt-in escalation**, reached for ONLY when the crux genuinely needs cross-domain coordination or real uncertainty (see Step 2's boundary check). It is never the implied-default "Recommended." If you cannot name why the crux needs ceremony, the smallest change IS the answer.
+
 ## Argument Parsing
 
 Parse `$ARGUMENTS`. The first positional arg is the quick task description (`$TASK`). M43 D4 removed the `--watch` opt-out; `--in-session`/`--headless` were never shipped. Under `.gsd-t/contracts/headless-default-contract.md` **v2.0.0** the inner subagent spawn (Step 0.1 fresh-dispatch) and all validation spawns (Design Verification Step 5.25, Red Team Step 5.5, doc-ripple Step 6) go headless unconditionally. A legacy `--watch` token is accepted but ignored (stderr deprecation line).
@@ -192,13 +198,14 @@ Based on $ARGUMENTS, determine:
 - Does it cross a domain boundary?
 - Does it affect any existing contract?
 
-### If it crosses boundaries or affects contracts:
-Warn the user:
-"This change touches {domain-1} and {domain-2} and may affect {contract}. 
-Should I proceed with quick mode or use the full execute workflow?"
+### Default — within a single domain or pre-partition:
+The smallest change that hits the crux is the recommendation. Proceed directly.
 
-### If it's within a single domain or pre-partition:
-Proceed.
+### Escalate to ceremony ONLY when the crux needs it:
+If — and only if — the change genuinely crosses domain boundaries or affects a contract (real cross-domain coordination / real uncertainty), warn the user:
+"This change touches {domain-1} and {domain-2} and may affect {contract}.
+The smallest direct change does not contain the crux — escalate to the full execute workflow?"
+This is the opt-in escalation, justified by the crux — not a default.
 
 ## Step 3: Execute
 

@@ -182,8 +182,17 @@ const result = await agent(
     `Quick task: ${task}`,
     `**Brief:** ${brief.briefPath || "(no brief)"}`,
     ``,
+    `**CRUX-FIRST — START HERE (smallest change is the default, ceremony is opt-in):**`,
+    `1. CRUX: state the crux of this ask in ONE line — the single thing that must become true.`,
+    `2. WHAT EXISTS: grep/read what ALREADY exists for this before choosing any scope.`,
+    `   Do not build outward until you know what is already here to edit.`,
+    `3. SMALLEST CHANGE: propose the SMALLEST change that hits the crux — edit INWARD at the`,
+    `   source (the one place the behavior is defined), not OUTWARD at the N consumers.`,
+    `   The recommendation is "do it directly / one-file change," not a partition or plan.`,
+    `4. ESCALATE ONLY IF NEEDED: reach for ceremony (plan→execute, partition, competition) ONLY`,
+    `   when the crux genuinely needs cross-domain coordination or real uncertainty — and say WHY.`,
+    ``,
     `Constraints from CLAUDE.md:`,
-    `- SIMPLICITY ABOVE ALL — minimal change`,
     `- Check downstream effects before changing existing code`,
     `- Run affected tests before reporting done`,
     `- Update relevant docs in the same commit`,
@@ -372,13 +381,18 @@ if (Array.isArray(result.filesEdited) && result.filesEdited.length > 0) {
       "Research"
     );
     const triggerEnv = triggerResult.envelope || {};
-    log(`M90 arch-trigger quick: fired=${triggerEnv.fired} reason=${triggerEnv.reason || "?"} provenByAdversaryOnly=${triggerEnv.provenByAdversaryOnly || false}`);
+    const m92Directive = triggerEnv.lookDirective || triggerEnv.smallestDirective || triggerEnv.deferDirective || null;
+    log(`M90 arch-trigger quick: fired=${triggerEnv.fired} reason=${triggerEnv.reason || "?"} provenByAdversaryOnly=${triggerEnv.provenByAdversaryOnly || false}` +
+      (triggerEnv.mode ? ` — M92 response: ${triggerEnv.mode}${triggerEnv.mode === "look" ? " (grep/read existing before scoping)" : ""}` : ""));
     quickArchTriggerResult = {
       existingFiles,
       fired: triggerEnv.fired || false,
       reason: triggerEnv.reason || null,
       provenByAdversaryOnly: triggerEnv.provenByAdversaryOnly || false,
       stopDirective: triggerEnv.stopDirective || false,
+      // M92 — cheaper-first response rung + its directive surfaced to the quick worker.
+      mode: triggerEnv.mode || null,
+      responseDirective: m92Directive,
     };
   }
 }

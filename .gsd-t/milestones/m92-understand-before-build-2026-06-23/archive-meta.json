@@ -1,0 +1,23 @@
+{
+  "milestone": "M92",
+  "title": "Understand-Before-Build, the Paradigm Half (backlog #44a)",
+  "version": "4.9.10",
+  "tag": "v4.9.10",
+  "completedAt": "2026-06-23T11:37:59-07:00",
+  "verdict": "VERIFIED-WITH-WARNINGS",
+  "domains": ["m92-look-first-ladder", "m92-shrink-verdict", "m92-invert-default"],
+  "waves": 1,
+  "suite": { "tests": 2183, "pass": 2179, "fail": 0, "skip": 4 },
+  "moves": [
+    "M90 §2 arch-trigger cheaper-first ladder (look→smallest→spike→defer; look default, spike demoted)",
+    "deterministic shrink-metric + additive shrink verdict dimension (verify can say 'smaller')",
+    "inverted default (smallest-altitude leads; ceremony opt-in)"
+  ],
+  "closes": ["backlog #44a"],
+  "gates": ["#44b graph half (separate milestone, gated on M92) carries the M20-M21 prior-graph autopsy"],
+  "verifyFix": "Red Team HIGH (git-arg injection in shrink-metric --range) fixed in-verify + 3 security regression tests",
+  "warnings": [
+    "Red Team ran on opus (Fable 5 unavailable) — tier-substituted, not skipped",
+    "spike-feasibility decider deliberately NOT built (backlog #42, experimental)"
+  ]
+}

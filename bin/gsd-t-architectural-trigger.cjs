@@ -231,12 +231,52 @@ function emitInstrumentationRecord(record) {
 /**
  * Resolve the response mode flags given the spike feasibility / spike result inputs.
  *
+ * M92 — CHEAPER-FIRST RESPONSE LADDER (look → smallest → spike → defer).
+ * --------------------------------------------------------------------------
+ * The BinVoice evidence proves the response should default to the CHEAPEST rung
+ * (look/grep what already exists) and only climb to a spike when look+smallest
+ * leave real uncertainty. Spike is DEMOTED from the default to a later rung.
+ *
+ * Rung order (deterministic state function of the inputs — ZERO LLM):
+ *   1. look      (DEFAULT, no inputs)          — grep/read the touched files first.
+ *   2. smallest  ({looked:true})               — propose the smallest-altitude change.
+ *   3. spike     ({looked, smallestProposed})  — uncertainty REMAINS → prove via spike.
+ *   4. defer     ({wartDiscovered:true})       — a wart found mid-change → capture, never clean inline.
+ *
+ * PRESERVED EXACTLY (these still fire on their explicit inputs, ahead of the ladder):
+ *   R-ARCH-5: spikeFeasible===false → adversary-only + adversaryMandatory + logged skip.
+ *   R-ARCH-4: spikePassed===false   → STOP (stopDirective:true); agent cannot proceed.
+ *   spikePassed===true              → mode:spike, adversary recommended-not-mandatory.
+ *
+ * Backward-compat envelope: EVERY return shape carries `mode` (string),
+ * `stopDirective` (boolean), `adversaryMandatory`, `provenByAdversaryOnly` — the keys
+ * execute/quick/verify read. A dropped/renamed key fails-OPEN those gates.
+ *
+ * NOTE (scope boundary): this resolver does NOT decide whether a spike is feasible
+ * (that is backlog #42's EXPERIMENTAL spike-feasibility decider). It only routes
+ * across the rungs from the inputs it is given; absent a spike result it defaults to
+ * the cheap LOOK rung instead of spike-preferred.
+ *
  * @param {object} opts
- * @param {boolean} [opts.spikeFeasible=true]  - Can an executable spike be run?
- * @param {boolean} [opts.spikePassed]         - Did the spike pass? (ignored if spikeFeasible=false)
+ * @param {boolean} [opts.spikeFeasible=true]   - Can an executable spike be run?
+ * @param {boolean} [opts.spikePassed]          - Did the spike pass? (ignored if spikeFeasible=false)
+ * @param {boolean} [opts.looked]               - Has the agent grep/read the touched files yet?
+ * @param {boolean} [opts.smallestProposed]     - Has the smallest-altitude change been proposed?
+ * @param {boolean} [opts.wartDiscovered]       - Was an out-of-scope wart discovered mid-change?
  * @returns {object} Response mode envelope fragment.
  */
-function resolveResponseMode({ spikeFeasible = true, spikePassed } = {}) {
+function resolveResponseMode(opts = {}) {
+  // Never throw on garbage: coalesce null/non-object inputs to an empty options bag
+  // (the `= {}` default only fires on `undefined`, not on `null` or primitives).
+  const o = opts && typeof opts === "object" ? opts : {};
+  const {
+    spikeFeasible = true,
+    spikePassed,
+    looked,
+    smallestProposed,
+    wartDiscovered,
+  } = o;
+
   if (!spikeFeasible) {
     // R-ARCH-5: spike infeasible → adversary-only + adversaryMandatory + logged skip
     return {
@@ -269,9 +309,44 @@ function resolveResponseMode({ spikeFeasible = true, spikePassed } = {}) {
     };
   }
 
-  // Default: spike PREFERRED (no spike result provided yet)
+  // ----- M92 cheaper-first ladder (no spike result provided yet) -----
+
+  if (wartDiscovered === true) {
+    // DEFER (terminal): a wart discovered mid-change is captured for later, never cleaned inline.
+    return {
+      mode: "defer",
+      deferDirective: "a wart discovered mid-change is captured for later, never cleaned inline",
+      adversaryMandatory: false,
+      provenByAdversaryOnly: false,
+      stopDirective: false,
+    };
+  }
+
+  if (looked === true && smallestProposed === true) {
+    // SPIKE (DEMOTED here): look + smallest left REAL uncertainty and a spike is feasible.
+    return {
+      mode: "spike",
+      adversaryMandatory: false,
+      provenByAdversaryOnly: false,
+      stopDirective: false,
+    };
+  }
+
+  if (looked === true) {
+    // SMALLEST: looked at what exists → propose the smallest-altitude change that hits the crux.
+    return {
+      mode: "smallest",
+      smallestDirective: "propose the smallest-altitude change that hits the crux; edit inward at the source, not outward at consumers",
+      adversaryMandatory: false,
+      provenByAdversaryOnly: false,
+      stopDirective: false,
+    };
+  }
+
+  // DEFAULT (no inputs): LOOK — the cheapest rung. Spike is NO LONGER the default.
   return {
-    mode: "spike",
+    mode: "look",
+    lookDirective: "grep/read the touched existing files; confirm what already exists before choosing scope",
     adversaryMandatory: false,
     provenByAdversaryOnly: false,
     stopDirective: false,

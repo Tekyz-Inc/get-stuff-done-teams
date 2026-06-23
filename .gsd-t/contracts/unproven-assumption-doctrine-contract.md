@@ -158,12 +158,23 @@ On bad input: `{ "ok": false, "error": "<reason>" }` + non-zero CLI exit.
 > of that follow-up — an unstated requirement is a QUESTION FOR THE USER, never an assumption to
 > spike or adversarially argue.
 
-- **mode `spike` (PREFERRED):** attempt an executable spike to prove feasibility of the approach.
+**Cheaper-first response ladder (M92 — Understand-Before-Build, supersedes the spike-first default):**
+the response is no longer spike-preferred-by-default. When no spike result is supplied, the ladder
+resolves in cheapest-first order — **look → smallest → spike → defer** — because the BinVoice
+evidence proves the cheap "look" rung resolves most over-scoping without ever needing a spike:
+- **mode `look` (DEFAULT):** grep/read the touched existing files; confirm what already exists
+  before choosing scope. Nearly free; kills most assumptions. (`lookDirective` in the envelope.)
+- **mode `smallest`** (after look): propose the smallest-altitude change that hits the crux — edit
+  inward at the source, not outward at the N consumers. (`smallestDirective`.)
+- **mode `spike`** (DEMOTED — only when look+smallest leave real uncertainty AND spike is feasible):
+  attempt an executable spike to prove feasibility of the approach.
+- **mode `defer`** (terminal, discovered-wart): a wart found mid-change is captured for later,
+  never cleaned inline. (`deferDirective`.)
 - **mode `adversary-only` (FALLBACK):** when spike is infeasible or fails.
-- **R-ARCH-4:** spike fails → STOP directive in envelope; agent cannot proceed without re-examination.
-- **R-ARCH-5:** spike infeasible → logged skip + adversary MANDATORY.
+- **R-ARCH-4:** spike fails → STOP directive in envelope; agent cannot proceed without re-examination. *(unchanged)*
+- **R-ARCH-5:** spike infeasible → logged skip + adversary MANDATORY. *(unchanged — fires on explicit `spikeFeasible:false`)*
 - **R-ARCH-6:** premise proven-by-adversary-only → `proven-by-adversary-only` flag in the envelope,
-  surfaced to the verify gate (R-FAIL-2). *(Interface-only this milestone — see DECLARED SCOPE above.)*
+  surfaced to the verify gate (R-FAIL-2). *(Interface-only — the live spike-feasibility producer remains backlog #42; M92 added the cheap look/smallest rungs, NOT the spike decider.)*
 
 **Protocol prompt:** `templates/prompts/blind-adversary-subagent.md` — separate context/model
 (`fable`; M85 policy).

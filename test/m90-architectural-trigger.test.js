@@ -379,7 +379,11 @@ describe("R-ARCH-2 extend-existing-code protocol-class path (M90-D1-T2)", () => 
 // ---------------------------------------------------------------------------
 
 describe("Response interface — spike/adversary-only/stop/provenByAdversaryOnly (M90-D1-T3)", () => {
-  test("default response mode is spike (R-ARCH-3: spike PREFERRED)", () => {
+  // M92 (Understand-Before-Build) DEMOTED spike from the default to a later rung.
+  // The cheaper-first ladder is look → smallest → spike → defer: when no spike
+  // result is supplied, the default is now LOOK (grep/read what exists), not spike.
+  // R-ARCH-4/5/6 + the explicit spike-passed path are UNCHANGED (tested below).
+  test("default response mode is LOOK (M92: cheaper-first ladder; spike demoted)", () => {
     const result = resolve({
       type: "extend-existing-code",
       context: "some existing code",
@@ -388,14 +392,14 @@ describe("Response interface — spike/adversary-only/stop/provenByAdversaryOnly
     assert.ok(result.ok, `ok:false: ${JSON.stringify(result)}`);
     assert.strictEqual(
       result.mode,
-      "spike",
-      `Default response mode must be 'spike' (preferred), got '${result.mode}'`
+      "look",
+      `Default response mode must be 'look' (M92 cheaper-first default), got '${result.mode}'`
     );
   });
 
-  test("resolveResponseMode with no args returns mode:spike", () => {
+  test("resolveResponseMode with no args returns mode:look (M92 default, spike demoted)", () => {
     const rm = resolveResponseMode();
-    assert.strictEqual(rm.mode, "spike", `Expected mode:'spike', got '${rm.mode}'`);
+    assert.strictEqual(rm.mode, "look", `Expected mode:'look' (M92 default), got '${rm.mode}'`);
     assert.strictEqual(rm.adversaryMandatory, false);
     assert.strictEqual(rm.stopDirective, false);
   });
