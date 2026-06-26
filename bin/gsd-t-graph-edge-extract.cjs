@@ -522,7 +522,13 @@ function extractEdges(absPath, relPath) {
 
   const parser = new Parser();
   parser.setLanguage(grammar);
-  const tree = parser.parse(content);
+  // tree-sitter 0.21's Node binding defaults to a 32 KB parse buffer and throws
+  // "Invalid argument" on larger source — silently dropping every file over
+  // ~32 KB (common in real repos: Atos has many). Pass an explicit bufferSize
+  // sized to the content (+ headroom) so large files index correctly.
+  const tree = parser.parse(content, null, {
+    bufferSize: Math.max(32 * 1024, content.length * 2 + 1024),
+  });
 
   if (ext === '.py') {
     walkPython(tree.rootNode, relPath, entities, edges);
