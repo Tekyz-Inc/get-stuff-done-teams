@@ -6,7 +6,7 @@ When all tasks complete: every code-CHANGING command (debug, quick, execute, wav
 ## Wave C
 
 ### M94-D11-T0 — Writer-wiring test scaffold (manifest-driven, shared)
-- **Status**: [ ] pending
+- **Status**: [x] complete
 - **Headline**: false
 - **Files**: `test/m94-d11-writer-wiring.test.js`
 - **Touches**: `test/m94-d11-writer-wiring.test.js`
@@ -20,7 +20,7 @@ When all tasks complete: every code-CHANGING command (debug, quick, execute, wav
   - Sole owner of `test/m94-d11-writer-wiring.test.js`.
 
 ### M94-D11-T1 — Wire `/execute` + `/wave` (SAFETY-CRITICAL disjointness — fail-loud paramount)
-- **Status**: [ ] pending
+- **Status**: [x] complete
 - **Headline**: true
 - **Files**: `templates/workflows/gsd-t-execute.workflow.js`, `templates/workflows/gsd-t-wave.workflow.js`, `commands/gsd-t-execute.md`, `commands/gsd-t-wave.md`, `bin/gsd-t-file-disjointness.cjs`, `test/m94-d11-writer-wiring.test.js`, `test/m94-d11-execute-disjointness-consumption-proof.test.js`
 - **Touches**: `templates/workflows/gsd-t-execute.workflow.js`, `templates/workflows/gsd-t-wave.workflow.js`, `commands/gsd-t-execute.md`, `commands/gsd-t-wave.md`, `bin/gsd-t-file-disjointness.cjs`, `test/m94-d11-execute-disjointness-consumption-proof.test.js`
@@ -38,7 +38,7 @@ When all tasks complete: every code-CHANGING command (debug, quick, execute, wav
   - execute + wave manifest rows present; anti-grep lint passes for all touched files.
 
 ### M94-D11-T2 — Wire `/debug` (BOTH reader + writer patterns)
-- **Status**: [ ] pending
+- **Status**: [x] complete
 - **Headline**: false
 - **Files**: `templates/workflows/gsd-t-debug.workflow.js`, `commands/gsd-t-debug.md`, `test/m94-d11-writer-wiring.test.js`
 - **Touches**: `templates/workflows/gsd-t-debug.workflow.js`, `commands/gsd-t-debug.md`
@@ -51,7 +51,7 @@ When all tasks complete: every code-CHANGING command (debug, quick, execute, wav
   - Fails LOUD on graph-unavailable; runtime-native (M81); existing debug-loop logic (cycle ledger, halt-on-cycle-2) NOT disrupted (additive). Manifest row present; anti-grep lint passes.
 
 ### M94-D11-T3 — Wire `/quick` (writer)
-- **Status**: [ ] pending
+- **Status**: [x] complete
 - **Headline**: false
 - **Files**: `templates/workflows/gsd-t-quick.workflow.js`, `commands/gsd-t-quick.md`, `test/m94-d11-writer-wiring.test.js`
 - **Touches**: `templates/workflows/gsd-t-quick.workflow.js`, `commands/gsd-t-quick.md`
@@ -64,7 +64,7 @@ When all tasks complete: every code-CHANGING command (debug, quick, execute, wav
   - Fails LOUD on graph-unavailable; runtime-native (M81); additive. Manifest row present; anti-grep lint passes.
 
 ### M94-D11-T4 — Wire `/test-sync` (test-impl verb) + `/design-build` (generic-runner writers)
-- **Status**: [ ] pending
+- **Status**: [x] complete
 - **Headline**: false
 - **Files**: `commands/gsd-t-test-sync.md`, `commands/gsd-t-design-build.md`, `test/m94-d11-writer-wiring.test.js`
 - **Touches**: `commands/gsd-t-test-sync.md`, `commands/gsd-t-design-build.md`
@@ -78,7 +78,7 @@ When all tasks complete: every code-CHANGING command (debug, quick, execute, wav
   - Each fails LOUD on graph-unavailable; manifest rows present; anti-grep lint passes.
 
 ### M94-D11-T5 — RE-PLAN-EXPANDED Fix-5: disjointness bootstrap escape hatch (graph-genuinely-unavailable must not permanently brick parallel execution)
-- **Status**: [ ] pending
+- **Status**: [x] complete
 - **Headline**: false
 - **Files**: `bin/gsd-t-file-disjointness.cjs`, `commands/gsd-t-execute.md`, `test/m94-d11-disjointness-bootstrap-escape.test.js`
 - **Touches**: `test/m94-d11-disjointness-bootstrap-escape.test.js`
