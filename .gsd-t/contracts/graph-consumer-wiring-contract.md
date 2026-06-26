@@ -155,7 +155,12 @@ This table is the lint's input. The lint reads it at runtime — adding a row he
 | `commands/gsd-t-qa.md` | `templates/workflows/gsd-t-phase.workflow.js` | reader | `dead-code,dangling` | grep/filesystem dead-code discovery for QA coverage gap analysis |
 | `commands/gsd-t-verify.md` | `templates/workflows/gsd-t-verify.workflow.js` | reader | `dead-code,dangling` | grep-based dead-code/dangling detection (carve-out: announced WARNING on unavailable) |
 | `commands/gsd-t-integrate.md` | `templates/workflows/gsd-t-integrate.workflow.js` | reader | `who-imports,blast-radius` | LLM-read-reconstructed cross-domain wiring verification (carve-out: announced WARNING on unavailable) |
-| _(d11 writer commands append here)_ | | | | |
+| `commands/gsd-t-execute.md` | `templates/workflows/gsd-t-execute.workflow.js` | writer | `blast-radius,who-imports` | grep/raw-read structural dependency reconstruction for file-disjointness (the SAFETY-CRITICAL seam — graph-aware transitive overlap, fail-loud halt on graph-unavailable) |
+| `commands/gsd-t-wave.md` | `templates/workflows/gsd-t-wave.workflow.js` | writer | `blast-radius,who-imports` | inherits execute's graph-aware disjointness; re-indexes touched files after each domain's edits |
+| `commands/gsd-t-debug.md` | `templates/workflows/gsd-t-debug.workflow.js` | writer | `blast-radius,who-calls` | grep-reconstructed call-chain for bug localization (READER half) + re-index after fix lands (WRITER half) |
+| `commands/gsd-t-quick.md` | `templates/workflows/gsd-t-quick.workflow.js` | writer | `blast-radius,who-imports` | grep/raw-read structural impact assessment before editing (READER half) + re-index touched files after edits (WRITER half) |
+| `commands/gsd-t-test-sync.md` | `templates/workflows/gsd-t-phase.workflow.js` | writer | `test-impl,untested-impl` | grep/filesystem test-discovery and coverage-gap detection; replaced by test-impl (which test exercises which impl) + untested-impl (impl funcs with no test) graph verbs + re-index after test writes |
+| `commands/gsd-t-design-build.md` | `templates/workflows/gsd-t-phase.workflow.js` | writer | `who-imports,cluster` | grep/raw-read structure before generating code; replaced by who-imports/cluster graph query + re-index of generated files |
 
 ### Manifest schema (machine-parsed by the lint)
 
