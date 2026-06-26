@@ -17,6 +17,7 @@ When all tasks complete: a deterministic query CLI (who-imports / who-calls / bl
 - **Acceptance criteria**:
   - (AC-2 who-imports/who-calls correctness + the keystone freshness seam)
   - Answers who-imports / who-calls / blast-radius from the store (AC-2, hand-checked fixtures)
+  - **[RE-PLAN Fix-3 — who-calls function identity]** `who-calls` accepts a `file#function` identity and resolves the exact function via the `funcId`-keyed call edges; a bare name matching MULTIPLE `funcId`s returns `{ok:false, reason:"ambiguous-function", candidates:[file#function,...]}` (or per-candidate grouped results) — NEVER a flat merged caller set across same-named functions — `[RULE] who-calls-function-identity-disambiguated` (proven by D5-T4)
   - **[#9 blast-radius semantics]** `blast-radius(target)` returns the **UNION of the import-graph AND call-graph reverse-reachable sets**, transitive closure (NOT one-hop) — `[RULE] blast-radius-unions-both-graphs`; the semantics (which graphs, hop-depth) are DECLARED in `graph-query-cli-contract.md` (authored here, before D5-T3's fixture test)
   - Calls D4's freshness check INLINE before answering — `[RULE] stale-file-reindexed-before-answer`
   - `gsd-t graph status` returns a live queryable index — `[RULE] graph-status-live`
@@ -56,9 +57,23 @@ When all tasks complete: a deterministic query CLI (who-imports / who-calls / bl
   - Hop-depth is transitive: the fixture includes a 2-hop downstream node that MUST appear (blast-radius is full reverse-reachable closure, distinct from D4's deliberate one-hop freshness)
   - **[Pre-mortem Fix-5 — sole Phase-1 liveness guarantee]** this union fixture test IS the sole Phase-1 liveness guarantee for `blast-radius` (its `/impact` + `/debug` consumers are DEFERRED). `blast-radius` is recorded as a SEQUENCED-follow-on deliverable (NOT Phase-1-consumed, NOT wired into `/scan`) in `graph-query-cli-contract.md` + `integration-points.md` — a declared foundation, not a silent dead deliverable — `[RULE] blast-radius-sequenced-follow-on-not-phase1-consumed`
 
+### M94-D5-T4 — RE-PLAN Fix-3: who-calls function-identity disambiguation test
+- **Status**: [ ] pending
+- **Files**: `test/m94-d5-who-calls-identity.test.js`
+- **Touches**: `test/m94-d5-who-calls-identity.test.js`
+- **ImplPath**: `bin/gsd-t-graph-query-cli.cjs` (T1 — `who-calls` resolution) + `bin/gsd-t-graph-edge-extract.cjs` (D3-T1 — the `funcId`-keyed call edges) — this test proves the `funcId` identity disambiguates same-named functions, so `who-calls` is provable on REAL data, not just unique-named toy fixtures
+- **Test**: `test/m94-d5-who-calls-identity.test.js` — a fixture with TWO functions named `foo` in DIFFERENT files (`a.ts#foo`, `b.ts#foo`) with DISTINCT callers; build the index, then assert: (1) `who-calls('a.ts#foo')` returns ONLY `a.ts#foo`'s callers and NEVER `b.ts#foo`'s (the file-qualified identity disambiguates); (2) a bare `who-calls('foo')` matching both either returns `{ok:false, reason:"ambiguous-function", candidates:["a.ts#foo","b.ts#foo"]}` OR per-candidate grouped results — NEVER a flat merged caller set. The test FAILS if the query merges callers across same-named functions (the real-data bug). `[RULE] who-calls-function-identity-disambiguated`.
+- **Contract refs**: graph-query-cli-contract (T1 — the who-calls identity section + the `ambiguous-function` envelope), graph-store-schema-contract (D1 — the `funcId` key)
+- **Dependencies**: M94-D5-T1 (the who-calls verb), M94-D3-T1 (the `funcId`-keyed call edges)
+- **Acceptance criteria**:
+  - (RE-PLAN Fix-3 — who-calls function-identity ambiguity closed; AC-2 who-calls correctness now provable on REAL data)
+  - `who-calls('a.ts#foo')` returns ONLY `a.ts#foo`'s callers, never `b.ts#foo`'s — the `file#function` identity disambiguates — `[RULE] who-calls-function-identity-disambiguated`
+  - a bare `who-calls('foo')` matching multiple `funcId`s returns the `ambiguous-function` envelope (with both candidate `file#function` keys) OR per-candidate grouped results — NEVER a flat merged caller set
+  - FAILS if the query merges callers across same-named functions
+
 ## Execution Estimate
-- Total tasks: 3
+- Total tasks: 4
 - Independent tasks (no cross-domain blockers): 0 (gated on the Wave-1 HARD GATE + D4's freshness surface)
-- Blocked tasks (waiting on other domains): T1 (on d4's freshness contract; on d1's store-schema)
-- Intra-domain serial chain: T1 → T2, T1 → T3
+- Blocked tasks (waiting on other domains): T1 (on d4's freshness contract; on d1's store-schema), T4 (on D3-T1's funcId-keyed edges)
+- Intra-domain serial chain: T1 → T2, T1 → T3, T1 → T4
 - Estimated checkpoints: 1 (Wave-2 integration with d3 + d4 over the shared on-disk store)

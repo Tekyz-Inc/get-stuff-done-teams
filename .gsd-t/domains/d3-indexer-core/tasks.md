@@ -15,6 +15,7 @@ When all tasks complete: a fresh `build_index` that parses every source file via
 - **Dependencies**: M94-D2-T1 (parser-floor contract), M94-D1-T3 (store-schema contract) — both via the Wave-1 HARD GATE
 - **Acceptance criteria**:
   - Extracts entities + import-graph (file→file) + call-graph (function→function) edges per the D2 taxonomy
+  - **[RE-PLAN Fix-3 — function-identity]** call-graph edges are keyed by a **`funcId` = `file#function` identity** (file-qualified, NOT a bare name) at BOTH endpoints, and each function entity carries its `funcId` — so same-named functions across files (`handle`/`init`/`run`) are DISTINCT, and `who-calls` can resolve one without merging callers across files. `[RULE] who-calls-function-identity-disambiguated` (the store-schema + query-cli contracts define the key; this extractor emits it)
   - Built FRESH on tree-sitter — NOT lifted from `bin/graph-parsers.js` (read for the taxonomy WHAT only; the regex HOW is superseded per PseudoCode §Divergence)
   - Output shape matches the D1 store-schema columns
   - Test: hand-checked fixture yields the expected who-imports / who-calls edges (AC-2 seed) — fails if extraction is dead/empty
@@ -63,9 +64,24 @@ When all tasks complete: a fresh `build_index` that parses every source file via
   - With Atos present: ≥3 hand-picked known real imports/calls appear correctly in who-imports/who-calls AND total edge count > the pre-registered floor (e.g. > 10k) — FAILS if real extraction is near-zero/garbage
   - Binds to the pinned Atos SHA (same pin family as K2 #7 / AC-4 #7); the spotcheck is rejected if recorded against an unpinned tree
 
+### M94-D3-T5 — RE-PLAN Fix-2: parse_and_put tier-preservation (no silent accuracy downgrade on re-index)
+- **Status**: [ ] pending
+- **Files**: `test/m94-d3-tier-preserved-on-reindex.test.js`
+- **Touches**: `test/m94-d3-tier-preserved-on-reindex.test.js`
+- **ImplPath**: `bin/gsd-t-graph-index.cjs` (T2 — `parse_and_put`) + `bin/gsd-t-graph-scip-upgrade.cjs` (T3 — the tier labeller) — this test exercises the FROZEN tier-preservation invariant: a per-file re-index of a previously-compiler-accurate file MUST re-upgrade OR honestly flag `tree-sitter-floor-STALE-SCIP`, NEVER silently downgrade. The contract invariant (`graph-indexer-build-contract.md` `[RULE] reindex-tier-never-silently-downgraded`) is authored in T2/T3; this task is the killing test that binds it.
+- **Test**: `test/m94-d3-tier-preserved-on-reindex.test.js` — `build_index` a fixture repo with a SCIP indexer PRESENT so a target file's edges are written `tier=compiler-accurate`; EDIT that file; call `parse_and_put(file)`; assert the re-indexed edges are EITHER (1) re-upgraded to `tier=compiler-accurate`, OR (2) explicitly labeled `tier=tree-sitter-floor-STALE-SCIP` (downgraded-WITH-flag) — and FAIL if they are silently relabeled plain `compiler-accurate` over tree-sitter-only edges (claims accuracy lost), silently relabeled plain `tree-sitter-floor` (loses the was-accurate signal), OR dropped to an unlabeled approximate edge the consumer reads as authoritative. **FAIL-LOUD-SKIP with `scip-indexer-not-present`** if no SCIP indexer is installed (mirrors D3-T4's fail-loud-skip — the test cannot silent-green where it could never observe a compiler-accurate tier to downgrade). `[RULE] reindex-tier-never-silently-downgraded`.
+- **Contract refs**: graph-indexer-build-contract (T2 — `parse_and_put` + the tier-preservation invariant), graph-store-schema-contract (D1 — the `tier` enum incl. `tree-sitter-floor-STALE-SCIP`)
+- **Dependencies**: M94-D3-T2 (`parse_and_put`), M94-D3-T3 (the SCIP tier labeller)
+- **Acceptance criteria**:
+  - (RE-PLAN Fix-2 — silent accuracy DOWNGRADE on incremental re-index closed; the determinism/accuracy premise on the AC-3 path held)
+  - `parse_and_put(file)` on a previously-`compiler-accurate` file EITHER re-upgrades to `compiler-accurate` OR labels `tree-sitter-floor-STALE-SCIP` — `[RULE] reindex-tier-never-silently-downgraded`
+  - FAILS if the re-index silently relabels plain `compiler-accurate` over tree-sitter-only edges (smart-reach silently degrading to dumb-reach while still claiming accuracy — the exact bug), silently relabels plain `tree-sitter-floor` (loses the was-accurate signal), or drops to an unlabeled approximate edge
+  - FAIL-LOUD-SKIP with `scip-indexer-not-present` when no SCIP indexer is installed — never a silent green
+  - The invariant is FROZEN in `graph-indexer-build-contract.md` BEFORE D3/D4 execute (T2/T3 author it; this test binds it)
+
 ## Execution Estimate
-- Total tasks: 4
+- Total tasks: 5
 - Independent tasks (no cross-domain blockers): 0 (all gated on the Wave-1 HARD GATE contracts)
 - Blocked tasks (waiting on other domains): T1 (on d1 store-schema + d2 parser-floor contracts, via the gate)
-- Intra-domain serial chain: T1 → T2 → T3, T1 → T2 → T4
+- Intra-domain serial chain: T1 → T2 → T3, T1 → T2 → T4, T2 → T3 → T5
 - Estimated checkpoints: 1 (Wave-2 integration with d4 + d5 over the shared on-disk store)

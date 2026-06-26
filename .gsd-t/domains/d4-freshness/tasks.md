@@ -18,6 +18,7 @@ When all tasks complete: a content-hash freshness checker that catches uncommitt
   - Hashes each touched file's CONTENT vs the stored hash — `[RULE] freshness-content-hash-not-git-sha`
   - Stale → re-index via D3's `parse_and_put` + re-validate edges from DIRECT importers one-hop only — `[RULE] one-hop-revalidation-not-transitive`
   - **[#4 atomicity]** The re-index WRITE relies on the store's declared atomicity mechanism (graph-store-schema-contract.md sub-criterion 4) — `[RULE] freshness-write-atomic-no-torn-read`: a concurrent `who-imports(F)` during re-index returns fully-old OR fully-new, never torn. D4 does NOT roll its own locking — it uses the store's single-writer-lock / atomic-write+rename / txn guarantee.
+  - **[RE-PLAN Fix-4 — multi-file coherence]** the contract declares that the multi-file dirty-set re-index is SERIALIZED and the query observes the post-re-index COHERENT state — for a `who-imports(X)` whose edges span several dirty files, the answer reflects the all-new state for EVERY contributing file, never a mix of old-for-some / new-for-others (per-file atomicity ≠ multi-file coherence) — `[RULE] freshness-multifile-reindex-serialized-coherent` (proven by D4-T6, scale-budgeted by D4-T3)
   - Authors `graph-freshness-contract.md` declaring `compute_touched_files()` + `freshness_check_on_query(touched_files)` + the touched-set-derivation rule (whole-tree dirty, not query target) + the add/delete/rename rule + the AC-3 timing split + the atomicity-reliance invariant — the surface D5 calls inline
   - **[Fix-1 touched-set derivation]** `compute_touched_files()` scans ALL indexed files for content-hash drift (whole-tree dirty set), NEVER just the query target — `[RULE] touched-set-is-whole-tree-dirty-not-query-target`
   - **[Fix-2 add/delete/rename]** the dirty-set enumerates ADDS + DELETES (rename = delete + add), not only re-hashing existing files — `[RULE] freshness-detects-add-delete-rename`
@@ -41,7 +42,7 @@ When all tasks complete: a content-hash freshness checker that catches uncommitt
 - **Status**: [ ] pending
 - **Files**: `.gsd-t/spikes/ac3-freshness-scale-budget-results.md`
 - **Touches**: `.gsd-t/spikes/ac3-freshness-scale-budget-results.md`
-- **ImplPath**: `bin/gsd-t-graph-freshness.cjs` (T1 — `compute_touched_files()` + `freshness_check_on_query`) — this task MEASURES BOTH freshness costs at ~1.5M-node scale (reusing the D1 synthetic graph) and records the wall-clock; no new impl: (a) the per-edit re-index + one-hop re-validation, AND (b) **[Fix-1 follow-on]** the whole-tree `compute_touched_files()` dirty-scan cost per query (the mtime-prefilter → content-hash path Fix-1 introduced — scanning ALL indexed files on every query is a new per-query cost that did NOT exist before Fix-1)
+- **ImplPath**: `bin/gsd-t-graph-freshness.cjs` (T1 — `compute_touched_files()` + `freshness_check_on_query`) — this task MEASURES freshness costs at ~1.5M-node scale (reusing the D1 synthetic graph) and records the wall-clock; no new impl: (a) the per-edit re-index + one-hop re-validation, (b) **[Fix-1 follow-on]** the whole-tree `compute_touched_files()` dirty-scan cost per query (the mtime-prefilter → content-hash path Fix-1 introduced — scanning ALL indexed files on every query is a new per-query cost that did NOT exist before Fix-1), AND (c) **[RE-PLAN Fix-4]** a ≥100-file dirty-set serial re-index wall-clock (the branch-switch / git-pull case — hundreds of files re-indexed inline before the query answers) against a stated multi-file ceiling
 - **Test**: `test/m94-d4-freshness.test.js` (T1 — shared) — the measurement harness's envelope (per-edit ms + the < 1 s ceiling field) is shape-asserted; the real scale-measurement number is recorded in the result doc, NOT a unit assertion
 - **Contract refs**: graph-freshness-contract (T1)
 - **Dependencies**: M94-D4-T1
@@ -49,7 +50,8 @@ When all tasks complete: a content-hash freshness checker that catches uncommitt
   - (AC-3 — the SCALE-BUDGET half of the timing split — `[#6 timing split]`)
   - Measures single-file re-index + one-hop re-validation per-edit wall-clock at ~1.5M-node scale (the D1 synthetic graph), against the pre-committed **< 1 s** ceiling
   - **[Fix-1 follow-on — whole-tree dirty-scan budget]** ALSO measures the `compute_touched_files()` whole-tree dirty-scan cost per query at ~1.5M-node scale (the mtime-prefilter → content-hash path Fix-1 introduced), against the same **< 1 s** per-query ceiling — `[RULE] touched-set-dirty-scan-under-budget`. Scanning ALL indexed files on every query is a NEW per-query cost; the mtime-prefilter is the load-bearing optimization and MUST be measured at scale, never assumed. FAILS the AC-3 budget if the whole-tree dirty-scan exceeds the ceiling (a kill/re-scope signal: e.g. fall back to a git-status-bounded candidate set, recorded as an AC-descope)
-  - Records both numbers + the ceiling + a LIVE-CLOCK timestamp in the result doc; FAILS the AC-3 budget if either the per-edit time OR the whole-tree dirty-scan time exceeds the ceiling
+  - **[RE-PLAN Fix-4 — multi-file dirty-set re-index budget]** ALSO measures a **≥100-file dirty-set serial re-index** wall-clock at ~1.5M-node scale (the branch-switch / git-pull / rebase case dirties hundreds of files re-indexed inline before the query answers) against a **STATED multi-file ceiling** (the same < 1 s if achievable, else an explicitly-stated multi-file ceiling — declared, not silently assumed) — `[RULE] multifile-dirty-set-reindex-under-budget`. The single-file < 1 s number does NOT cover a 100-file dirty set; the branch-switch budget MUST be MEASURED. Over budget → kill/re-scope (git-status-bounded candidate set, or a stated background-bulk-reindex-not-inline fallback), recorded as an AC-descope
+  - Records ALL THREE numbers (per-edit + whole-tree dirty-scan + ≥100-file dirty-set re-index) + the ceiling(s) + a LIVE-CLOCK timestamp in the result doc; FAILS the AC-3 budget if ANY of the three exceeds its ceiling
   - This is the ONLY place the sub-~1s timing is asserted — never inline on a toy fixture (T1/T2 stay deterministic-correctness)
 
 ### M94-D4-T4 — Pre-mortem Fix-1: touched-set derivation killing test (edited non-target served fresh)
@@ -82,9 +84,23 @@ When all tasks complete: a content-hash freshness checker that catches uncommitt
   - delete → dangling edge removed/flagged (not served live); add → new importer surfaces; rename → old path gone + new path present — `[RULE] freshness-detects-add-delete-rename`
   - FAILS LOUD if freshness only re-hashes existing files and ignores adds/deletes (the EDIT-only blind spot the pre-mortem flagged)
 
+### M94-D4-T6 — RE-PLAN Fix-4: multi-file freshness coherence killing test
+- **Status**: [ ] pending
+- **Files**: `test/m94-d4-multifile-coherence.test.js`
+- **Touches**: `test/m94-d4-multifile-coherence.test.js`
+- **ImplPath**: `bin/gsd-t-graph-freshness.cjs` (T1 — `freshness_check_on_query` serial multi-file re-index) — this test proves per-file atomicity is NOT enough: a multi-file dirty set contributing to ONE query answer is re-indexed to a COHERENT all-new state, never a mix of old-for-some / new-for-others
+- **Test**: `test/m94-d4-multifile-coherence.test.js` — index a fixture, then dirty **N > 1 files that ALL contribute to `who-imports(X)`** (e.g. importers B, C, D of X each edited UNcommitted so their import-of-X edges change in the SAME query). Issue `who-imports(X)`. Assert the returned edge set is COHERENT — reflects the ALL-NEW state for EVERY contributing file (B, C, D all in their post-edit state), NEVER a mix where some show old edges and others new. The test FAILS if the multi-file dirty-set re-index is not serialized-to-completion-before-read (a torn multi-file answer). Deterministic, no timing assertion (the ≥100-file wall-clock is measured at scale in T3 per the #6 timing split). `[RULE] freshness-multifile-reindex-serialized-coherent`.
+- **Contract refs**: graph-freshness-contract (T1 — `[RULE] freshness-multifile-reindex-serialized-coherent`), graph-store-schema-contract (D1 — the per-file atomicity guarantee this layers on top of)
+- **Dependencies**: M94-D4-T1
+- **Acceptance criteria**:
+  - (RE-PLAN Fix-4 — multi-file query coherence; CORRECTNESS gate, no timing)
+  - N>1 files all contributing to `who-imports(X)` are dirtied; the answer reflects the COHERENT all-new state for EVERY contributing file — `[RULE] freshness-multifile-reindex-serialized-coherent`
+  - FAILS LOUD if the answer mixes old-for-some / new-for-others (per-file atomicity held but multi-file coherence broken — the exact gap: the store's per-file atomicity does NOT guarantee a coherent multi-file query answer)
+  - The ≥100-file branch-switch dirty-set WALL-CLOCK is measured at scale in T3 (not here — this is the deterministic coherence-correctness half)
+
 ## Execution Estimate
-- Total tasks: 5
+- Total tasks: 6
 - Independent tasks (no cross-domain blockers): 0 (gated on the Wave-1 HARD GATE + D3's `parse_and_put` surface)
 - Blocked tasks (waiting on other domains): T1 (on d3's build/put contract; on d1's store-schema)
-- Intra-domain serial chain: T1 → T2, T1 → T3, T1 → T4, T1 → T5
+- Intra-domain serial chain: T1 → T2, T1 → T3, T1 → T4, T1 → T5, T1 → T6
 - Estimated checkpoints: 1 (Wave-2 integration with d3 + d5 over the shared on-disk store)

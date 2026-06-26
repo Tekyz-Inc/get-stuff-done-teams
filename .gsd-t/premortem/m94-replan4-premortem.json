@@ -1,0 +1,25 @@
+{
+  "milestone": "M94",
+  "phase": "RE-PLAN (4)",
+  "scope": "the 4 deeper-re-attack fixes (R4-1..R4-4) only — NO scope change beyond these 4",
+  "verdict": "CLEARED",
+  "findings": [],
+  "headlineAssessment": {
+    "capability": "AC-4 graph-wired /scan surfaces a graph-attributed structural finding the no-graph baseline missed/got-wrong (INSIGHT delta)",
+    "boundToPath": "templates/workflows/gsd-t-scan.workflow.js (D6-T2 injection) + bin/gsd-t-graph-query-cli.cjs (D5 slice)",
+    "reachable": true,
+    "hasKillingTest": "test/m94-d6-scan-consumer.test.js — INSIGHT ⊇ over canonical identity + graph-attribution + the NEW R4-1 ac4Verdict hard-gate verdict test (PROVEN/RESCOPE ladder; zero-delta-no-rescope FAILS; missing-field FAILS). The headline now has a HALT path matching K1/K2/AC-3."
+  },
+  "attackCoverage": {
+    "R4-1-ac4-verdict-halt-path": "CLOSED — ac4Verdict ∈ {PROVEN,RESCOPE} written by D6-T3, read by a 5-permutation fixture-driven hard-gate verdict test; structured verdict authoritative (not prose); RESCOPE-(a) accuracy-correction reuses the graph-attribution bind so it cannot pass vacuously; zero-delta-AND-no-rescope FAILS (no infinite-fail loop); missing-field FAILS.",
+    "R4-2-tier-downgrade": "CLOSED — parse_and_put tier invariant FROZEN in graph-indexer-build-contract.md BEFORE D3/D4 execute; D3-T5 asserts re-upgrade OR tree-sitter-floor-STALE-SCIP flag, never silent downgrade/unlabeled edge; fail-loud-skip when no SCIP installed. The honest-downgrade-with-flag path is always cheap+available, so the re-upgrade-cost concern is non-blocking (the impl can pick the cheap contract-valid path; D4-T3 already budgets per-file re-index).",
+    "R4-3-who-calls-identity": "CLOSED — funcId=file#function key defined in graph-store-schema + graph-query-cli contracts; call edges keyed at both ends (D3-T1 emits); bare-name ambiguity returns ambiguous-function envelope, never a flat merge; D5-T4 asserts two-foo disambiguation + the ambiguous envelope. Unresolved dynamic-dispatch callees fall to the existing tier-honesty (tree-sitter-floor) labeling — not a new Phase-1 gap.",
+    "R4-4-multifile-coherence": "CLOSED — graph-freshness-contract declares multi-file dirty-set re-index SERIALIZED + the query observes the post-re-index COHERENT state; D4-T6 asserts N>1 contributors to who-imports(X) yield an all-new coherent edge set (never a mix); D4-T3 MEASURES the ≥100-file branch-switch dirty-set re-index wall-clock against a stated multi-file ceiling. Cross-PROCESS concurrent-query coherence is out of the Phase-1 single-CLI-invocation threat model (noted assumption, not a Phase-1 finding)."
+  },
+  "gatesGreen": {
+    "fileDisjointness": "0 collisions over 27 tasks; 40 distinct write targets; the 3 new R4 test files each sole-owned (D3-T5, D5-T4, D4-T6)",
+    "traceability": "exitCode 0, 0 violations, 27 behavioral tasks, 1 headline (D6-T3) intact; all 4 fix-tasks behavioral with Files+Test+ImplPath"
+  },
+  "preserved": "AC-4 INSIGHT-only + R3 fixes + RISK-FIRST wave shape + file-disjointness (bin/gsd-t.js sole-owned by D7-T1) + M20-M21 inversions + store/SCIP/edge-taxonomy DEFERRED to Wave-1 spike evidence + the Central Tenet — all intact, no scope change beyond the 4 fixes",
+  "notes": "Exhaustive re-attack on the 4 fixes found NO residual blocking finding: each of the 4 fixes IS the named required test that closes the gap the user identified. The two genuine design bugs (R4-2 silent tier downgrade on incremental re-index; R4-1 AC-4 missing halt path) are now frozen as contract invariants with killing tests BEFORE execute. The STRUCTURED verdict here is CLEARED — authoritative per the M90 lesson, not a prose 'cleared' string."
+}

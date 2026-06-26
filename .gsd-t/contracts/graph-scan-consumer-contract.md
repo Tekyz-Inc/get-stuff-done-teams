@@ -3,7 +3,7 @@
 **Status:** DRAFT — authored by D6 during Wave-3 wiring (after the Wave-2 build trio integrates).
 **Owner:** d6-scan-wiring
 **Consumers:** none (terminal consumer — the falsifiable payoff)
-**Version:** 0.2.0 (DRAFT — AC-4 rescoped to INSIGHT-delta-only per user decision 2026-06-25; SPEED / cost-critical-path axis dropped from M94)
+**Version:** 0.3.0 (DRAFT — RE-PLAN Fix-1: AC-4 gets a machine-checkable `ac4Verdict ∈ {PROVEN, RESCOPE}` outcome ladder so the insight headline has a HALT path matching K1/K2/AC-3 — never a silent infinite-fail loop. AC-4 still INSIGHT-delta-only per user decision 2026-06-25; SPEED / cost-critical-path axis dropped from M94)
 
 ## Purpose
 How `/scan` (the FIRST narrow consumer) consumes the deterministic query CLI's pre-computed structural slice ADDITIVELY — the current `/scan` architecture is kept FULLY INTACT (it works, it's praised; Destructive Action Guard). The graph makes scan's structural findings ACCURATE (graph-derived, not LLM-reconstructed), it does NOT replace scan's enumerate-and-deep-read pipeline.
@@ -46,6 +46,24 @@ The INSIGHT ⊇ comparison MUST be over a deterministic structural-finding IDENT
 ### Atos commit-SHA pin (no finding-set against an unpinned/absent repo)
 - `[RULE] ac4-atos-sha-pinned` — the no-graph and graph-wired runs MUST be measured against the SAME pinned Atos commit SHA (asserted equal). The measurement **fails LOUD on repo-not-found OR commit-mismatch** — a finding-set is NEVER recorded against an unpinned or absent repo.
 
+### AC-4 OUTCOME LADDER — the halt path (RE-PLAN Fix-1 — `[RULE] ac4-verdict-machine-checkable`)
+**The problem this closes:** today's `/scan` ALREADY surfaces dead-code / cycles / dependents (the architecture is kept intact). If the no-graph baseline and the graph-wired run find the SAME canonical structural set on the pinned Atos SHA, the bare INSIGHT gate (⊇ + ≥1 missed/wrong) FAILS with **no KILL / RESCOPE outcome** — the debug-loop-never-halts anti-pattern (M90 lesson). K1 / K2 / AC-3 all carry a kill-outcome record (`[RULE] kill-outcome-records-ac-descope`); AC-4's headline must too.
+
+**The verdict field.** D6-T3 writes a machine-checkable `ac4Verdict ∈ { PROVEN, RESCOPE }` into the result-doc envelope (`.gsd-t/spikes/ac4-scan-insight-delta-results.md`), read by a HARD-GATE test (`test/m94-d6-scan-consumer.test.js`, the AC-4 peer of D7-T2's Wave-1 gate). The **structured `ac4Verdict` is authoritative** — a prose "cleared"/"passed" string in the doc is NOT the verdict (M90 lesson: the structured verdict, never a prose claim, gates the headline).
+
+**The two outcomes:**
+- **`ac4Verdict == PROVEN`** — the ≥1 graph-attributed structural delta exists: a real dead-code symbol / cycle / dependent the no-graph baseline MISSED, present in the graph-wired CANONICAL-IDENTITY set and ABSENT from the no-graph set, AND traceable to the graph's deterministic query result (`[RULE] scan-insight-delta-graph-attributed`). The INSIGHT gate is satisfied. PASSES.
+- **`ac4Verdict == RESCOPE`** — ZERO missed-finding delta, BUT the graph-wired run records EITHER:
+  - **(a) an ACCURACY correction** — ≥1 graph-attributed correction of a baseline finding the graph proves WRONG (e.g. a symbol the baseline flagged dead-code that the graph shows is LIVE via a real edge; a cycle the baseline mis-reported that the graph's edges disprove). The correction MUST be graph-attributed (backed by a recorded D5 query result), not LLM re-judgement. This is a legitimate INSIGHT payoff (the graph made a baseline finding ACCURATE) even with zero NEW findings. — OR —
+  - **(b) a documented descope** — the insight headline is explicitly DESCOPED to a follow-on milestone per `[RULE] kill-outcome-records-ac-descope`, recorded in `m94-integration-points.md` (which AC survives, what moves to Phase-2), with the named reason (e.g. "no missed-finding delta AND no accuracy correction on the pinned Atos SHA — the graph and raw-read converge here; insight headline deferred to the scan-redesign milestone").
+
+**The hard-gate test asserts (`[RULE] ac4-verdict-machine-checkable`):**
+- `ac4Verdict == PROVEN` ⇒ the ≥1 graph-attributed missed/wrong delta is present + graph-attributed ⇒ PASSES.
+- `ac4Verdict == RESCOPE` with a recorded accuracy-correction (a) OR a documented descope (b) ⇒ PASSES (legitimate halt — the headline either delivered an accuracy win or was honestly deferred).
+- **Zero delta AND no rescope record (neither accuracy correction NOR descope) ⇒ FAILS** — forces a halt + descope, NEVER a silent re-run loop. A result doc with no `ac4Verdict` field at all FAILS (mirrors the missing-`k1Verdict` rejection).
+
+This gives the AC-4 headline a HALT path matching K1 / K2 / AC-3 — the gate can always resolve to PASS-via-proof, PASS-via-rescope, or FAIL-forcing-descope, never to an unbounded "findings still match, try again" loop.
+
 ## Wiring (additive — current scan kept intact)
 - **build:** if `store.exists()` is false → `build_index(repo)` first
 - **query + inject:** query the D5 CLI (`who-imports` / `who-calls` / `blast-radius`) for the structural slice and INJECT it into the `scanSlice` deep-finder agent context — ADDITIVELY, so the deep-finders reason over accurate pre-computed structure. Scan's enumerate-and-deep-read pipeline is NOT removed
@@ -61,7 +79,7 @@ The INSIGHT ⊇ comparison MUST be over a deterministic structural-finding IDENT
 - PIN the Atos commit SHA; assert no-graph SHA == graph-wired SHA (both runs on the same pin); fail LOUD on repo-not-found / commit-mismatch (`[RULE] ac4-atos-sha-pinned`).
 - Run BOTH on the SAME pinned SHA, then measure the INSIGHT axis:
   - **Insight:** the structural-findings set + accuracy of the graph-wired run vs the **no-graph baseline**; PASS iff graph-wired ⊇ no-graph findings PLUS ≥1 concrete named finding the no-graph run missed/got-wrong (`[RULE] scan-insight-gate`).
-- Record both structural-findings sets + the named missed/wrong finding + the pinned SHA in `.gsd-t/spikes/ac4-scan-insight-delta-results.md`, progress.md, and CHANGELOG.md, with a LIVE-CLOCK timestamp.
+- Record both structural-findings sets + the named missed/wrong finding + the pinned SHA + the machine-checkable **`ac4Verdict ∈ {PROVEN, RESCOPE}`** (RE-PLAN Fix-1) in `.gsd-t/spikes/ac4-scan-insight-delta-results.md`, progress.md, and CHANGELOG.md, with a LIVE-CLOCK timestamp. On `RESCOPE`, record EITHER the graph-attributed accuracy correction (a) OR the descope record in `m94-integration-points.md` (b). The structured `ac4Verdict` — not a prose "cleared" string — is the authoritative gate (`[RULE] ac4-verdict-machine-checkable`).
 - NO wall-clock / speed / files-read number is recorded for AC-4 (that axis is out of M94).
 
 ## Consumed (frozen)

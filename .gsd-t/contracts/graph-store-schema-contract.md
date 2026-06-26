@@ -26,9 +26,16 @@ The 50 ms query-latency target, the atomicity guarantee, AND the Fix-6 footprint
 |-------|---------|
 | `file` | source file path (repo-relative) |
 | `content_hash` | content hash of the file (freshness key — D4 reads this) |
-| `entities` | functions / classes / exports extracted from the file |
-| `edges` | import-graph (file→file) + call-graph (function→function) edges |
-| `tier` | `compiler-accurate` (SCIP present) or `tree-sitter-floor` (approximate) |
+| `entities` | functions / classes / exports extracted from the file — each function entity carries a `funcId` (the function-identity key, see below) so same-named functions across files are distinct |
+| `edges` | import-graph (file→file) + call-graph (function→function, keyed by `funcId` at BOTH ends — RE-PLAN Fix-3) edges |
+| `tier` | `compiler-accurate` (SCIP present) · `tree-sitter-floor` (approximate, no SCIP) · `tree-sitter-floor-STALE-SCIP` (RE-PLAN Fix-2 — was compiler-accurate at `build_index`, re-indexed per-file via tree-sitter only because SCIP is a whole-project batch tool that can't re-derive one file; an HONEST downgrade-with-flag, read as tree-sitter-floor, NEVER as authoritative — see `graph-indexer-build-contract.md` `[RULE] reindex-tier-never-silently-downgraded`) |
+
+## Function-identity key (RE-PLAN Fix-3 — `[RULE] who-calls-function-identity-disambiguated`)
+**The bug this closes (not provable on real data otherwise):** `gsd-t graph who-calls <function>` takes a bare function NAME, but real codebases have MANY same-named functions (`handle` / `init` / `run` / `get` / `render`) across files. With only a bare name as the call-graph key, `who-calls('handle')` on real Atos MERGES the callers of every `handle` into one wrong answer. AC-2's hand-checked fixtures can pick unique names and pass while the query is broken on real data.
+
+**The identity key.** Every function entity + every function→function call edge endpoint is keyed by a **`funcId`** = a FILE-QUALIFIED identity, NOT a bare name. The minimum identity is `file#function` (repo-relative POSIX path `#` function name); where a file holds overloads/same-named nested functions, the key extends to `file#function@line` or `file#qualified.name` (FQN) so the key is UNIQUE within the index. The store + edges persist `funcId` at both ends of every call edge — a call edge is `{ caller: funcId, callee: funcId }`, never `{ caller: name, callee: name }`.
+- **Canonicalization:** repo-relative path, POSIX separators, the resolver-determined function name (or FQN where nesting/overload requires it). Two functions named `foo` in different files have DISTINCT `funcId`s; `who-calls` on one returns ONLY that one's callers.
+- D3's edge-extractor (D3-T1) emits `funcId`-keyed call edges; D5's `who-calls` (D5-T1) resolves a `funcId` (or disambiguates a bare name to candidate `funcId`s) before answering — see `graph-query-cli-contract.md`.
 
 ## Query surface the store must support (measured in the bake-off)
 - `who_imports(X)` — file→file reverse import edges (latency measured vs the < 50 ms target)
