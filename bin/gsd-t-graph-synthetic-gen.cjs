@@ -171,7 +171,10 @@ function generateGraph(targetNodeCount, seed) {
     }
   }
 
-  nodes.push(...entityNodes);
+  // NOTE: `nodes.push(...entityNodes)` overflows the call stack at ~870K-scale
+  // (array spread becomes function args, which has a ~65–120K limit). Use a
+  // for-loop append so the generator scales to the real Atos node count.
+  for (let i = 0; i < entityNodes.length; i++) nodes.push(entityNodes[i]);
 
   // ── IMPORT edges (file→file) ─────────────────────────────────────────────
   // Avg ~3 import edges per file node. Fan-out from each file to random other files.
