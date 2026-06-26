@@ -57,8 +57,24 @@ When all tasks complete: (1) ONE shared `graph-consumer-wiring-contract.md` defi
   - **Carve-out test**: a fixture mimicking `/scan`'s announced grep-mode fallback (announced, non-silent, logic-read) — assert the lint does NOT flag it (the d6 exemption holds).
   - **Manifest-coverage assertion**: asserts the lint's scanned-file set EQUALS the contract manifest's file set (no wired file silently skipped) — coverage is provably complete, the `feedback_coverage_check_structural_not_substring` lesson applied.
 
+### M94-D8-T4 — RE-PLAN-EXPANDED Fix-6: brief-staleness guard (the generated brief MUST match the ACTIVE milestone, never a COMPLETED one)
+- **Status**: [ ] pending
+- **Headline**: false
+- **Files**: `bin/gsd-t-context-brief-kinds/plan.cjs`, `bin/gsd-t-context-brief-kinds/partition.cjs`, `bin/gsd-t-context-brief-kinds/impact.cjs`, `test/m94-d8-brief-milestone-match.test.js`
+- **Touches**: `bin/gsd-t-context-brief-kinds/plan.cjs`, `bin/gsd-t-context-brief-kinds/partition.cjs`, `bin/gsd-t-context-brief-kinds/impact.cjs`, `test/m94-d8-brief-milestone-match.test.js`
+- **ImplPath**: `bin/gsd-t-context-brief-kinds/plan.cjs` — VERIFIED ROOT CAUSE: `_currentMilestoneRow` / `_currentMilestonePrefix` (plan.cjs:20-29, 60-64) pick the FIRST `^| M\d+ |` row matching `(DEFINED|PARTITIONED|PLANNED|EXECUTING|EXECUTED|VERIFY)` — the on-disk `.gsd-t/briefs/plan-m.json` resolved to **M65 (COMPLETED)** with empty contracts/scope/domains because the M65 prose row in progress.md contains one of those status tokens and matched BEFORE the M94 row (M94's `## Status` line is prose, not a table row the regex targets). FIX: the collector resolves the ACTIVE milestone (the one NOT marked COMPLETED — cross-check the resolved `milestonePrefix` against the Completed-Milestones table; a prefix appearing there is COMPLETED and MUST be rejected) and either (a) resolves to the genuinely-active milestone row or (b) returns a structured `staleness` flag the consumer can detect. The SAME three collectors (plan/partition/impact) share the bug → all three get the guard (Document Ripple Completion Gate). Until the collector is fixed, every M94 stage reads the M94 artifacts DIRECTLY (not `$BRIEF_PATH`) and logs the brief-staleness gap — this RE-PLAN pass itself did exactly that (read M94 domain tasks + spikes directly, brief confirmed stale).
+- **Test**: `test/m94-d8-brief-milestone-match.test.js` — KILLING TEST: a fixture `progress.md` with a COMPLETED M65 row (carrying a `DEFINED`/`EXECUTED` token in its prose) ABOVE an ACTIVE M94 row → assert `_currentMilestonePrefix` resolves to **m94** (the active milestone), NOT m65; assert the resolved milestone's status is NOT `COMPLETED`. A second fixture where the resolved prefix appears in the Completed-Milestones table → assert the collector FLAGS staleness (`ancillary.staleness` or rejects the row), never silently emits a COMPLETED-milestone brief. `[RULE] brief-resolves-active-milestone-never-completed`.
+- **Contract refs**: graph-consumer-wiring-contract.md (d8 — this is the plan-phase precondition the wiring stages rely on), `.gsd-t/progress.md` structure (the milestone row + Completed-Milestones table)
+- **Dependencies**: none (foundation — independent of the graph layer; pure brief-generation guard)
+- **Acceptance criteria**:
+  - **(RE-PLAN-EXPANDED Fix-6 — the brief handed to planning matches the ACTIVE milestone, never a stale COMPLETED one.)** the brief collector resolves the genuinely-active milestone (the M94 row), rejecting any prefix that appears in the Completed-Milestones table — `[RULE] brief-resolves-active-milestone-never-completed`.
+  - FAILS LOUD (or sets a structured `staleness` flag) if the resolved `milestonePrefix` resolves to a COMPLETED milestone — never a silent stale brief.
+  - The guard is applied to ALL THREE collectors sharing the bug (plan + partition + impact) — Document Ripple Completion Gate (a partial fix of one collector FAILS the gate).
+  - Until-fixed fallback recorded: M94 stages read the M94 artifacts DIRECTLY when the brief is stale (this RE-PLAN pass did so + logged the gap).
+  - The killing test: a COMPLETED-M65-above-ACTIVE-M94 fixture resolves to m94, never m65 (binds the exact observed bug).
+
 ## Execution Estimate
-- Total tasks: 3
-- Independent tasks (no cross-domain blockers): T1 (foundation, no deps)
-- Intra-domain serial chain: T1 → T2 → T3
+- Total tasks: 4 (T1 contract, T2 lint engine, T3 lint test, T4 brief-staleness guard — RE-PLAN-EXPANDED Fix-6)
+- Independent tasks (no cross-domain blockers): T1 (foundation, no deps); T4 (independent of the graph layer — pure brief-generation guard, parallel-safe with T1–T3)
+- Intra-domain serial chain: T1 → T2 → T3; T4 independent (owns the 3 brief-collector files + its own test).
 - Estimated checkpoints: 0 (Wave-A foundation; lands with d9 before reader/writer wiring)

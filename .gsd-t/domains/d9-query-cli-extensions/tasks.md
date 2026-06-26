@@ -1,7 +1,9 @@
 # Tasks: d9-query-cli-extensions (WAVE A — new verbs, BEFORE consumer wiring)
 
 ## Summary
-When all tasks complete: `bin/gsd-t-graph-query-cli.cjs` exposes three NEW verb families — `cluster` (tightly-coupled file groups, for partition/project), `dead-code`/`orphan` + `dangling` (absence queries, for qa/verify), and `test-impl` (test→impl coverage, for test-sync) — all ADDITIVE to the existing who-imports/who-calls/blast-radius/status, all through the same freshness-inline + fail-loud envelope, all declared in `graph-query-cli-contract.md`. CONFIRMED this plan pass: test→impl needs NO new d3 edge type (call-site edges are already funcId-keyed file#function at both ends — the verb filters them by test-path source). Wave A — lands with d8 before the reader/writer wiring (d10/d11) consumes these verbs.
+When all tasks complete: `bin/gsd-t-graph-query-cli.cjs` exposes three NEW verb families — `cluster` (tightly-coupled file groups, for partition/project), `dead-code`/`orphan` + `dangling` (absence queries, for qa/verify), and `test-impl` (test→impl coverage, for test-sync) — all ADDITIVE to the existing who-imports/who-calls/blast-radius/status, all through the same freshness-inline + fail-loud envelope, all declared in `graph-query-cli-contract.md`. Wave A — lands with d8 before the reader/writer wiring (d10/d11) consumes these verbs.
+
+> **REAL EDGE-SHAPE CORRECTION (RE-PLAN-EXPANDED Fix-3 — VERIFIED against `bin/gsd-t-graph-edge-extract.cjs` on disk):** the extractor keys function nodes/call edges as **`file#function@LINE`** (`gsd-t-graph-edge-extract.cjs:223` — `${relPath}#${name}@${node.startPosition.row + 1}`), NOT bare `file#function`, and emits unresolved call targets as **`UNRESOLVED#<name>`** (line 268) at the tree-sitter floor. The prior plan-pass note ("call-site edges already funcId-keyed `file#function`") was WRONG about the key shape and ignored the UNRESOLVED case. CONSEQUENCES the verbs MUST handle: (a) `test-impl` must NOT present `UNRESOLVED#<name>` call targets as RESOLVED impl coverage — an unresolved guess is not coverage; (b) `dead-code`/`orphan` over real floor-tier data can FLOOD with false positives (a missed/unresolved call makes a live function look orphan) → every floor-tier result MUST be labeled CANDIDATE; (c) `funcId` comparisons must use the `@LINE` form (R4-3's `file#function` disambiguation widens to `file#function@LINE` where the extractor emits a line suffix). This correction is bound to the real-Atos spotcheck test D9-T4 below — the verbs are proven against REAL extractor output, not the mis-assumed bare-key shape.
 
 ## Wave A
 
@@ -52,8 +54,42 @@ When all tasks complete: `bin/gsd-t-graph-query-cli.cjs` exposes three NEW verb 
   - Test-path patterns declared + configurable in the contract (sane defaults). Same envelope + freshness-inline + fail-loud path. Existing verb tests stay green.
   - Consumer declared: `/test-sync` (align tests with impl via the coverage edges).
 
+### M94-D9-T4 — RE-PLAN-EXPANDED Fix-3: real-Atos spotcheck for the new verbs (UNRESOLVED-as-impl / flood / non-determinism FAIL LOUD)
+- **Status**: [ ] pending
+- **Headline**: false
+- **Files**: `test/m94-d9-real-atos-verb-spotcheck.test.js`
+- **Touches**: `test/m94-d9-real-atos-verb-spotcheck.test.js`
+- **ImplPath**: `bin/gsd-t-graph-query-cli.cjs` (T1/T2/T3 — the cluster/dead-code/test-impl verbs) + `bin/gsd-t-graph-index.cjs` (D3-T2 `build_index`) + `bin/gsd-t-graph-edge-extract.cjs` (D3-T1) — this test runs the REAL `build_index` over the REAL Atos repo at the pinned SHA and exercises the new verbs against REAL extractor output (the `file#function@LINE` + `UNRESOLVED#` shapes), binding their correctness to real data rather than the mis-assumed bare-key fixture shape
+- **Test**: `test/m94-d9-real-atos-verb-spotcheck.test.js` — **gated on the Atos repo at `/Users/david/projects/HiloAviation/hilo-figma-atos`; FAIL-LOUD-SKIP with `atos-repo-not-found` if absent** (mirrors D3-T4 / K2 `repo-not-found`, never a silent green). When present, three sub-checks:
+  - **(a) test-impl over a real Atos test file** returns ≥N RESOLVED impl funcIds (`file#function@LINE` shape), NOT `UNRESOLVED#<name>` placeholders. If `scip-typescript` is ABSENT (tree-sitter floor only), the verb LABELS its results `tier=tree-sitter-floor` / `partial` and does NOT present any `UNRESOLVED#` target as coverage — the test asserts NO `UNRESOLVED#`-prefixed target appears in the `implFuncs` coverage set; an unresolved target surfaced as coverage FAILS LOUD.
+  - **(b) dead-code over real Atos** returns a count BELOW a sane ceiling (a stated max, e.g. < some fraction of total functions — NOT a floor-tier false-positive flood), AND every floor-tier result is labeled `CANDIDATE`. A flood (count over the ceiling) or an unlabeled floor-tier orphan FAILS LOUD.
+  - **(c) cluster over real Atos is REPRODUCIBLE** — two runs at the SAME pinned SHA produce IDENTICAL grouping (deterministic coupling metric, R-FAIL on any non-determinism). Asserts run1 grouping deep-equals run2 grouping.
+- **Contract refs**: graph-query-cli-contract.md (the three verbs), graph-store-schema-contract.md (the `file#function@LINE` funcId + `UNRESOLVED#` taxonomy), graph-parser-floor-contract.md (tier labels)
+- **Dependencies**: M94-D9-T1 (cluster), M94-D9-T2 (dead-code), M94-D9-T3 (test-impl), M94-D3-T1/T2 (real extractor + build_index) — Wave-A foundation gated on Wave-2 build
+- **Acceptance criteria**:
+  - **(RE-PLAN-EXPANDED Fix-3 — the new verbs are proven on REAL Atos extractor output, not the mis-assumed bare-key shape.)** `[RULE] d9-verbs-proven-on-real-atos-extractor-output`.
+  - test-impl: ≥N RESOLVED `file#function@LINE` impl funcIds; ZERO `UNRESOLVED#` targets presented as coverage; floor-tier results LABELED `tree-sitter-floor`/`partial` when SCIP absent — `[RULE] test-impl-never-presents-unresolved-as-coverage`.
+  - dead-code: count below the stated sane ceiling (no flood); every floor-tier result labeled `CANDIDATE` — `[RULE] dead-code-no-floor-tier-flood-all-candidate-labeled`.
+  - cluster: identical grouping across two runs at the same SHA — `[RULE] cluster-reproducible-same-sha`.
+  - FAIL-LOUD-SKIP (`atos-repo-not-found`) when the repo is absent — never a silent green.
+
+### M94-D9-T5 — RE-PLAN-EXPANDED Fix-7 (query-layer half): incompleteness coverage flag on who-imports/who-calls/blast-radius
+- **Status**: [ ] pending
+- **Headline**: false
+- **Files**: `bin/gsd-t-graph-query-cli.cjs`, `.gsd-t/contracts/graph-query-cli-contract.md`, `test/m94-d9-incompleteness-flag.test.js`
+- **Touches**: `bin/gsd-t-graph-query-cli.cjs`, `.gsd-t/contracts/graph-query-cli-contract.md`, `test/m94-d9-incompleteness-flag.test.js`
+- **ImplPath**: `bin/gsd-t-graph-query-cli.cjs` — who-imports/who-calls/blast-radius read the indexer's recorded skipped-file set (D3-T6 records it in the store/manifest) and, when a query's reverse-reachable set COULD include skipped (unparsed) files, attach a `coverage` field to the envelope: `{ok:true, ..., coverage:{complete:false, unparsedContributors:N, note:"result may be incomplete — N contributing files unparsed"}}` instead of presenting a bare/empty result as authoritative. A complete query carries `coverage:{complete:true}`. This is the QUERY-LAYER half of Fix-7 (the D3-T6 INDEX-layer half records the skipped set + parse-success-rate).
+- **Test**: `test/m94-d9-incompleteness-flag.test.js` — KILLING TEST: a fixture repo where file `B.ts` imports target `X.ts` but `B.ts` is DELIBERATELY UNPARSEABLE (registered in the skipped set) → `who-imports(X.ts)` MUST surface `coverage.complete:false` + `unparsedContributors >= 1` + the incompleteness note, and MUST NOT return a clean empty `{results:[]}` that reads as "no importers". A second fixture where all contributors parse → `coverage.complete:true`. `[RULE] query-surfaces-incompleteness-never-silent-empty`.
+- **Contract refs**: graph-query-cli-contract.md (the `coverage` envelope field), graph-indexer-build-contract.md (D3-T6 — the skipped-file set the query reads), graph-store-schema-contract.md
+- **Dependencies**: M94-D3-T6 (records the skipped-file set + parse-success-rate the query reads), M94-D9-T1/T2/T3 (CLI exists) — Wave A
+- **Acceptance criteria**:
+  - **(RE-PLAN-EXPANDED Fix-7 query-layer half — no silently-incomplete answer presented as authoritative.)** who-imports/who-calls/blast-radius attach a `coverage` field; when a target's only contributors live in skipped/unparsed files, the result carries `coverage.complete:false` + `unparsedContributors:N` + the note — `[RULE] query-surfaces-incompleteness-never-silent-empty`.
+  - The killing test: one importer in a deliberately-unparseable file → the incompleteness flag surfaces, NEVER a bare empty result that reads as "no importers".
+  - A fully-parsed query carries `coverage.complete:true` (the flag is honest both ways).
+  - Same envelope + freshness-inline + fail-loud path; existing verb tests stay green (additive `coverage` field).
+
 ## Execution Estimate
-- Total tasks: 3
-- Independent tasks (no cross-domain blockers): all 3 (the Wave-2 CLI exists; each verb is additive + independent)
-- Intra-domain serial chain: T1/T2/T3 all edit the same CLI + contract files → run SERIALLY within the domain (single owner, sequential edits) to avoid intra-file churn; logically independent
+- Total tasks: 5 (T1 cluster, T2 orphan/dangling, T3 test-impl, T4 real-Atos spotcheck [Fix-3], T5 incompleteness flag [Fix-7 query half])
+- Independent tasks (no cross-domain blockers): T1/T2/T3 (additive verbs); T4 gated on Atos repo + D3 build; T5 gated on D3-T6 (skipped-file set)
+- Intra-domain serial chain: T1/T2/T3/T5 all edit the same CLI + contract files → run SERIALLY within the domain (single owner, sequential edits) to avoid intra-file churn; T4 owns only its own test file (parallel-safe). Logically T1–T3 independent; T5 depends on T3's verbs existing + D3-T6's skipped set; T4 depends on T1–T3.
 - Estimated checkpoints: 0 (Wave-A foundation; lands with d8 before reader/writer wiring)

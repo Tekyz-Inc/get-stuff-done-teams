@@ -79,9 +79,25 @@ When all tasks complete: a fresh `build_index` that parses every source file via
   - FAIL-LOUD-SKIP with `scip-indexer-not-present` when no SCIP indexer is installed — never a silent green
   - The invariant is FROZEN in `graph-indexer-build-contract.md` BEFORE D3/D4 execute (T2/T3 author it; this test binds it)
 
+### M94-D3-T6 — RE-PLAN-EXPANDED Fix-7 (index-layer half): AC-2 completeness guard — skipped-file set + parse-success-rate floor
+- **Status**: [ ] pending
+- **Headline**: false
+- **Files**: `bin/gsd-t-graph-index.cjs`, `.gsd-t/contracts/graph-indexer-build-contract.md`, `test/m94-d3-parse-completeness.test.js`
+- **Touches**: `test/m94-d3-parse-completeness.test.js`
+- **ImplPath**: `bin/gsd-t-graph-index.cjs` (D3-T2 — `build_index`, sole owner; the impl edit folds into T2's owned file) — `build_index` RECORDS the set of files SKIPPED for parse errors (the K2 spike measured **773 skipped of 4,418 enumerated** on real Atos — a skipped file contributes ZERO edges, so its imports/callers silently vanish from who-imports/who-calls/blast-radius; THIS VIOLATES the no-wrong-answer invariant — a silent empty result reads as "no importers"). `build_index` writes (a) the skipped-file set + (b) a `parseSuccessRate` against a STATED floor into the store/build-manifest. The contract (`graph-indexer-build-contract.md`, D3-T2 sole owner) declares the floor (e.g. **≥95%** of enumerated source files parse, OR the build records the gap as a known limitation with the exact skipped count). The query-layer half (D9-T5) READS this skipped set to attach the incompleteness `coverage` flag. NOTE: 773/4,418 ≈ 82.5% on current Atos is BELOW a 95% floor → the build records this as a KNOWN LIMITATION (the contract permits floor-miss IFF it's recorded as a limitation, never silently); the secondary investigation (WHY 773 fail — large-file/grammar/encoding beyond the 32KB-buffer + python-ABI fixes already applied) is tracked separately but the completeness guard is the correctness invariant regardless of the raw parse rate.
+- **Test**: `test/m94-d3-parse-completeness.test.js` — KILLING TEST: (1) `build_index` over a fixture where K files are deliberately unparseable → assert the build records EXACTLY those K files in the skipped set AND a `parseSuccessRate` field = (enumerated − K)/enumerated; (2) assert that when `parseSuccessRate` is below the stated floor, the build records a `knownLimitation` flag (never a silent omission — a below-floor build with NO limitation record FAILS); (3) the real-Atos path (gated, FAIL-LOUD-SKIP `atos-repo-not-found` when absent) asserts the recorded skipped count is present and non-silent (the 773 are ENUMERATED, not dropped on the floor). `[RULE] build-records-skipped-set-and-parse-success-rate`.
+- **Contract refs**: graph-indexer-build-contract.md (D3-T2 — the parse-success-rate floor + skipped-set recording invariant), graph-store-schema-contract.md (D1 — the skipped-set/manifest columns), graph-query-cli-contract.md (D9-T5 reads this set)
+- **Dependencies**: M94-D3-T2 (`build_index` — the impl edit folds into T2's sole-owned file + contract) — Wave-2 build
+- **Acceptance criteria**:
+  - **(RE-PLAN-EXPANDED Fix-7 index-layer half — the silent-MISSING-edge wrong-answer-as-fact gap closed at the source.)** `build_index` records the skipped-file set + a `parseSuccessRate` against a stated floor — `[RULE] build-records-skipped-set-and-parse-success-rate`.
+  - A below-floor parse rate is recorded as a `knownLimitation` (with the exact skipped count) — NEVER a silent omission; a below-floor build with no limitation record FAILS.
+  - The skipped set is the data D9-T5's query-layer `coverage` flag reads — the two halves (index records, query surfaces) together guarantee a silently-incomplete answer is never presented as authoritative.
+  - Real-Atos path FAIL-LOUD-SKIP (`atos-repo-not-found`) when absent; with Atos present, the ~773 skipped files are ENUMERATED in the recorded set, not silently dropped.
+  - Secondary (non-blocking): investigate WHY 773 Atos files fail to parse (large-file/grammar/encoding beyond the 32KB-buffer + python-ABI fixes already applied) — raising the parse rate is SECONDARY to the completeness guard; the guard is correct regardless of how many get fixed.
+
 ## Execution Estimate
-- Total tasks: 5
+- Total tasks: 6 (T6 added — RE-PLAN-EXPANDED Fix-7 index-layer completeness guard)
 - Independent tasks (no cross-domain blockers): 0 (all gated on the Wave-1 HARD GATE contracts)
 - Blocked tasks (waiting on other domains): T1 (on d1 store-schema + d2 parser-floor contracts, via the gate)
-- Intra-domain serial chain: T1 → T2 → T3, T1 → T2 → T4, T2 → T3 → T5
+- Intra-domain serial chain: T1 → T2 → T3, T1 → T2 → T4, T2 → T3 → T5, T2 → T6 (T6's impl folds into T2's `build_index` + contract; T6 owns only its own test file)
 - Estimated checkpoints: 1 (Wave-2 integration with d4 + d5 over the shared on-disk store)

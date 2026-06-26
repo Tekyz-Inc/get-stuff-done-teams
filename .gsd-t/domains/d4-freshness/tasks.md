@@ -38,8 +38,8 @@ When all tasks complete: a content-hash freshness checker that catches uncommitt
   - One-hop (not transitive) re-validation asserted: a 2-hop importer is NOT re-checked
   - **NO inline wall-clock assertion** — the sub-~1s budget is measured at scale in T3, not asserted on this toy fixture (flake-proof)
 
-### M94-D4-T3 — AC-3 scale-budget measurement (sub-~1s at 1.5M-node scale)
-- **Status**: [x] complete
+### M94-D4-T3 — AC-3 scale-budget measurement (sub-~1s at the RECONCILED 870K Atos scale)
+- **Status**: [ ] pending — RE-OPENED by RE-PLAN-EXPANDED Fix-2 (numbers must be parameterized from K2's MEASURED scale, not hardcoded 1.5M)
 - **Files**: `.gsd-t/spikes/ac3-freshness-scale-budget-results.md`
 - **Touches**: `.gsd-t/spikes/ac3-freshness-scale-budget-results.md`
 - **ImplPath**: `bin/gsd-t-graph-freshness.cjs` (T1 — `compute_touched_files()` + `freshness_check_on_query`) — this task MEASURES freshness costs at ~1.5M-node scale (reusing the D1 synthetic graph) and records the wall-clock; no new impl: (a) the per-edit re-index + one-hop re-validation, (b) **[Fix-1 follow-on]** the whole-tree `compute_touched_files()` dirty-scan cost per query (the mtime-prefilter → content-hash path Fix-1 introduced — scanning ALL indexed files on every query is a new per-query cost that did NOT exist before Fix-1), AND (c) **[RE-PLAN Fix-4]** a ≥100-file dirty-set serial re-index wall-clock (the branch-switch / git-pull case — hundreds of files re-indexed inline before the query answers) against a stated multi-file ceiling
@@ -53,6 +53,22 @@ When all tasks complete: a content-hash freshness checker that catches uncommitt
   - **[RE-PLAN Fix-4 — multi-file dirty-set re-index budget]** ALSO measures a **≥100-file dirty-set serial re-index** wall-clock at ~1.5M-node scale (the branch-switch / git-pull / rebase case dirties hundreds of files re-indexed inline before the query answers) against a **STATED multi-file ceiling** (the same < 1 s if achievable, else an explicitly-stated multi-file ceiling — declared, not silently assumed) — `[RULE] multifile-dirty-set-reindex-under-budget`. The single-file < 1 s number does NOT cover a 100-file dirty set; the branch-switch budget MUST be MEASURED. Over budget → kill/re-scope (git-status-bounded candidate set, or a stated background-bulk-reindex-not-inline fallback), recorded as an AC-descope
   - Records ALL THREE numbers (per-edit + whole-tree dirty-scan + ≥100-file dirty-set re-index) + the ceiling(s) + a LIVE-CLOCK timestamp in the result doc; FAILS the AC-3 budget if ANY of the three exceeds its ceiling
   - This is the ONLY place the sub-~1s timing is asserted — never inline on a toy fixture (T1/T2 stay deterministic-correctness)
+  - **[RE-PLAN-EXPANDED Fix-2 — measured at the RECONCILED 870K scale, PARAMETERIZED from the K2 envelope, never hardcoded 1.5M]** all THREE freshness numbers are measured at a synthetic-graph scale DERIVED from the K2-measured `atosFileCount` + `atosTotalLoc` (read from `.gsd-t/spikes/k2-treesitter-atos-throughput-results.md`'s envelope: 4,418 files / 869,511 LOC → ~870K-node target), NOT the OLD 1.5M synthetic assumption — `[RULE] ac3-scale-parameterized-from-k2-measured-not-hardcoded`. The result doc records the SOURCE of the scale (the K2 envelope field values it was parameterized from) so the number is traceable, not a magic constant. Any residual "1.5M" extrapolation prose in the doc is replaced with the reconciled-870K basis. Live-clock timestamped.
+
+### M94-D4-T7 — RE-PLAN-EXPANDED Fix-2: AC-3 scale EQUALS the reconciled K1/K2 scale (machine assertion)
+- **Status**: [ ] pending
+- **Headline**: false
+- **Files**: `test/m94-d4-ac3-scale-reconciled.test.js`
+- **Touches**: `test/m94-d4-ac3-scale-reconciled.test.js`
+- **ImplPath**: `.gsd-t/spikes/ac3-freshness-scale-budget-results.md` (D4-T3 — the recorded AC-3 `scale.targetNodes`) compared against the reconciled K1/K2 scale (K2 envelope `atosTotalLoc`/`atosFileCount` + the K1 870K-node target) — this test BINDS the AC-3 measurement scale to the same reconciled scale K1/K2 settled on, so a freshness budget measured at the wrong size can never silently pass
+- **Test**: `test/m94-d4-ac3-scale-reconciled.test.js` — reads the AC-3 result-doc envelope (`scale.targetNodes` / `actualFileCount`) AND the K2 result-doc envelope (`atosTotalLoc`, `atosFileCount`) AND the K1 reconciled scale; asserts the AC-3 measurement scale EQUALS the reconciled K1/K2 scale within the k2-scale-sanity band (FAILS if it diverges >1.5× / <0.66× — the SAME k2-scale-sanity rule applied to freshness). Deterministic (reads recorded envelopes, no live measurement). FAIL-LOUD if the AC-3 doc still records a 1.5M-scale measurement, or if the AC-3 scale source field is missing (can't prove it was parameterized).
+- **Contract refs**: graph-freshness-contract (T1), the K2 result doc (`atosTotalLoc`/`atosFileCount`), the K1 reconciled scale, `[RULE] k2-scale-sanity-vs-bakeoff` (re-applied to freshness)
+- **Dependencies**: M94-D4-T3 (re-run, records the 870K-parameterized numbers), M94-D7-T4 (K2 reconciled to PASS at 870K), M94-D1-T3 (K1 870K scale)
+- **Acceptance criteria**:
+  - **(RE-PLAN-EXPANDED Fix-2 — the freshness budget scale is BOUND to the reconciled K1/K2 scale, not measured at the wrong 1.5M size.)** AC-3 measurement scale == reconciled K1/K2 scale within the k2-scale-sanity band — `[RULE] ac3-scale-equals-reconciled-k1k2-scale`.
+  - FAILS if the AC-3 scale diverges >1.5× / <0.66× from the reconciled K1/K2 scale (the freshness numbers would then be measured at the wrong size — exactly the K2 scale-mismatch failure, applied to freshness).
+  - FAILS LOUD if the AC-3 doc records a hardcoded-1.5M measurement or the scale-source field is absent.
+  - Deterministic — reads recorded envelopes only, no live spike run.
 
 ### M94-D4-T4 — Pre-mortem Fix-1: touched-set derivation killing test (edited non-target served fresh)
 - **Status**: [x] complete
@@ -99,8 +115,8 @@ When all tasks complete: a content-hash freshness checker that catches uncommitt
   - The ≥100-file branch-switch dirty-set WALL-CLOCK is measured at scale in T3 (not here — this is the deterministic coherence-correctness half)
 
 ## Execution Estimate
-- Total tasks: 6
+- Total tasks: 7 (T3 RE-OPENED for 870K parameterization; T7 added for the scale-equality assertion — RE-PLAN-EXPANDED Fix-2)
 - Independent tasks (no cross-domain blockers): 0 (gated on the Wave-1 HARD GATE + D3's `parse_and_put` surface)
-- Blocked tasks (waiting on other domains): T1 (on d3's build/put contract; on d1's store-schema)
-- Intra-domain serial chain: T1 → T2, T1 → T3, T1 → T4, T1 → T5, T1 → T6
+- Blocked tasks (waiting on other domains): T1 (on d3's build/put contract; on d1's store-schema); T7 (on D7-T4 K2 reconciliation + D1-T3 K1 870K scale)
+- Intra-domain serial chain: T1 → T2, T1 → T3, T1 → T4, T1 → T5, T1 → T6; T3 → T7 (T7 reads T3's recorded 870K envelope)
 - Estimated checkpoints: 1 (Wave-2 integration with d3 + d5 over the shared on-disk store)
