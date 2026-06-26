@@ -174,53 +174,45 @@ function buildSchema(db) {
  * @param {object} db        - better-sqlite3 Database
  * @param {{ file, contentHash, entities, edges, tier }} rec
  */
+/**
+ * Prepare (once) and cache the per-file write statements on the db handle.
+ * better-sqlite3 statement preparation is expensive; re-preparing all 6
+ * statements on EVERY file (putRecord is called per-file across thousands of
+ * files) was the dominant cost — a full Atos index took 61 min almost entirely
+ * here. Preparing once and reusing drops it to seconds. The cache is keyed on
+ * the db handle so a fresh db re-prepares correctly.
+ */
+function getWriteStmts(db) {
+  if (db.__m94WriteStmts) return db.__m94WriteStmts;
+  const stmts = {
+    deleteNodes: db.prepare('DELETE FROM nodes WHERE file = ?'),
+    deleteEdgesSrc: db.prepare("DELETE FROM edges WHERE src = ? OR src LIKE ? OR src = ?"),
+    insFile: db.prepare('INSERT OR REPLACE INTO files (file, content_hash, tier, indexed_at) VALUES (?, ?, ?, ?)'),
+    insNode: db.prepare('INSERT OR REPLACE INTO nodes (id, kind, tier, content_hash, file, name, func_id) VALUES (?, ?, ?, ?, ?, ?, ?)'),
+    insEdge: db.prepare('INSERT INTO edges (kind, src, dst, partial) VALUES (?, ?, ?, ?)'),
+  };
+  // db.transaction() wrapper is also created once (it closes over the stmts).
+  stmts.doWrite = db.transaction((rec) => {
+    const { file, contentHash: hash, entities, edges, tier, now } = rec;
+    stmts.deleteNodes.run(file);
+    stmts.deleteEdgesSrc.run(file, `${file}#%`, file);
+    stmts.insFile.run(file, hash, tier, now);
+    for (const entity of entities) {
+      stmts.insNode.run(entity.id, entity.type || 'function', tier, hash, file, entity.name || null, entity.id);
+    }
+    for (const edge of edges) {
+      stmts.insEdge.run(edge.kind, edge.src, edge.dst, edge.partial ? 1 : 0);
+    }
+  });
+  Object.defineProperty(db, '__m94WriteStmts', { value: stmts, enumerable: false });
+  return stmts;
+}
+
 function putRecord(db, rec) {
   const { file, contentHash: hash, entities, edges, tier } = rec;
   const now = new Date().toISOString();
-
-  const deleteNodes = db.prepare('DELETE FROM nodes WHERE file = ?');
-  const deleteEdgesSrc = db.prepare("DELETE FROM edges WHERE src = ? OR src LIKE ? OR src = ?");
-  const insFile = db.prepare(
-    'INSERT OR REPLACE INTO files (file, content_hash, tier, indexed_at) VALUES (?, ?, ?, ?)'
-  );
-  const insNode = db.prepare(
-    'INSERT OR REPLACE INTO nodes (id, kind, tier, content_hash, file, name, func_id) VALUES (?, ?, ?, ?, ?, ?, ?)'
-  );
-  const insEdge = db.prepare(
-    'INSERT INTO edges (kind, src, dst, partial) VALUES (?, ?, ?, ?)'
-  );
-
-  const doWrite = db.transaction(() => {
-    // Remove stale records for this file
-    deleteNodes.run(file);
-    // Remove edges where src is the file path OR a funcId from this file
-    // (funcIds start with "file#")
-    deleteEdgesSrc.run(file, `${file}#%`, file);
-
-    // Insert file record
-    insFile.run(file, hash, tier, now);
-
-    // Insert entity nodes
-    for (const entity of entities) {
-      insNode.run(
-        entity.id,
-        entity.type || 'function',
-        tier,
-        hash,
-        file,
-        entity.name || null,
-        entity.id,  // funcId = the entity's id
-      );
-    }
-
-    // Insert edges
-    for (const edge of edges) {
-      const partial = edge.partial ? 1 : 0;
-      insEdge.run(edge.kind, edge.src, edge.dst, partial);
-    }
-  });
-
-  doWrite();
+  // Prepared-statement bundle is created ONCE per db handle (see getWriteStmts).
+  getWriteStmts(db).doWrite({ file, contentHash: hash, entities, edges, tier, now });
 }
 
 /**
@@ -395,11 +387,27 @@ function build_index(repoRoot, options) {
 
   const durationMs = Date.now() - t0;
 
+  // R4-2 honesty: SCIP is an OPTIONAL accuracy upgrade. When no SCIP indexer was
+  // provided/available, EVERY file stays tree-sitter-floor (approximate edges) —
+  // that is correct (the graph never depends on SCIP to function), but it must be
+  // SURFACED LOUDLY, never a silent 0-upgrade that reads like full accuracy.
+  const scipAvailable = !!scip;
+  let scipNotice = null;
+  if (!scipAvailable || tierUpgraded === 0) {
+    scipNotice =
+      'SCIP indexer not available — all edges are tree-sitter-floor (approximate, not compiler-accurate). ' +
+      'This is a working graph; for compiler-accurate TS/JS/Python edges, install a SCIP indexer ' +
+      '(e.g. scip-typescript) and re-index. The graph never requires SCIP to function.';
+    console.error(`\x1b[33m[IDX NOTICE]\x1b[0m ${scipNotice}`);
+  }
+
   return {
     fileCount,
     entityCount,
     edgeCount,
     tier: { floor: tierFloor, upgraded: tierUpgraded },
+    scipAvailable,
+    scipNotice,
     errors,
     durationMs,
     dbPath,
