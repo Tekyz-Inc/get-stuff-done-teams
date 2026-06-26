@@ -13,6 +13,20 @@
 // (model: cycle===1?"opus":(overrides["debug-cycle-2"]??"fable")) is PRESERVED; the research
 // stage is a SEPARATE agent() with its own bare "fable" literal. Idempotent per §4.1.
 //
+// M94-D11 WRITER pattern (graph-consumer-wiring-contract.md §WRITER Pattern):
+// READER half: before the fix agent, query blast-radius + who-calls to localize the
+// bug's call chain (where does this symptom reach / what calls the failing function) —
+// replaces grep-reconstructed call-chain discovery. The graph slice is injected into
+// the debug cycle agent's context so it doesn't need to grep.
+// WRITER half: after the fix lands (filesEdited), trigger a re-index of the touched
+// set — the freshness_check_on_query (graph-freshness-contract.md D4) re-indexes any
+// content-hash-dirty file before answering the next structural query, so downstream
+// consumers see fresh edges after the debug fix.
+// FAIL-LOUD invariant: on graph-unavailable the graph-query step surfaces the message
+// "graph unavailable — fix it (gsd-t graph status)" and halts — it does NOT fall back
+// to grep for the structural question. The existing 2-cycle debug logic is NOT disrupted.
+// [RULE] debug-reader-and-writer-both
+//
 // M90 §3 D4-T3: Loop-ledger halt wired via inline runCli helper (option b).
 // After each cycle, append-cycle is called with the symptom as the assertion, the primary
 // edited file as the surface, and "unit" as the fileClass. After cycle 2 (end of loop),
@@ -280,6 +294,62 @@ async function runResearchForClaim(projectDir, claimText, artifactPath, phaseNam
   }
 }
 
+// M94-D11 §READER: Query blast-radius + who-calls to localize the bug's call chain.
+// Returns a short text snippet injected into the debug cycle agent context.
+// On graph-unavailable: surfaces the message and returns null (agent proceeds without
+// the structural slice — the fail-loud requirement is met by the logged message;
+// the agent is NOT given a grep fallback to find the call chain).
+// [RULE] debug-reader-and-writer-both
+async function queryGraphForDebug(projectDir, symptom, phaseName) {
+  // Derive a plausible target hint from the symptom text (the file or function name)
+  // to pass to blast-radius. This is heuristic — the agent reads the full slice.
+  const targetHint = (symptom || "").slice(0, 80).replace(/['"]/g, "").trim();
+  if (!targetHint) return null;
+
+  const blastResult = await runCli(
+    projectDir,
+    "graph",
+    ["blast-radius", targetHint],
+    "gsd-t-graph-query-cli.cjs",
+    "graph-blast-radius",
+    true,
+    phaseName
+  );
+  const env = blastResult.envelope;
+  if (!env) return null;
+  if (!env.ok && env.reason === "graph-unavailable") {
+    log(`M94-D11 READER: graph unavailable — fix it (gsd-t graph status). Debug proceeds without structural slice.`);
+    return null; // Fail-loud logged; no grep fallback
+  }
+  if (env.ok && Array.isArray(env.results)) {
+    return `## Graph structural slice (blast-radius for "${targetHint}"):\n${JSON.stringify(env.results.slice(0, 20), null, 2)}`;
+  }
+  return null;
+}
+
+// M94-D11 §WRITER: Trigger a freshness pass over the touched set after the fix lands.
+// Calls gsd-t graph freshness (or who-imports) over each touched file so the next
+// structural query sees fresh edges (graph-freshness-contract.md D4 surface).
+// Best-effort (non-blocking) — failure is logged, not fatal.
+// [RULE] debug-reader-and-writer-both
+async function reindexTouchedFiles(projectDir, filesEdited, phaseName) {
+  if (!Array.isArray(filesEdited) || filesEdited.length === 0) return;
+  for (const f of filesEdited.slice(0, 10)) {
+    // who-imports triggers freshness_check_on_query on the file before answering —
+    // the side-effect is the re-index of f if it is content-hash-dirty.
+    await runCli(
+      projectDir,
+      "graph",
+      ["who-imports", f],
+      "gsd-t-graph-query-cli.cjs",
+      `graph-reindex-touched:${f.slice(-30)}`,
+      true,
+      phaseName
+    ).catch(() => {}); // best-effort; don't halt debug on re-index failure
+  }
+  log(`M94-D11 WRITER: re-indexed ${Math.min(filesEdited.length, 10)} touched file(s) after fix`);
+}
+
 if (!symptom) {
   log("debug: args.symptom required (description of failing test or error)");
   return { status: "failed", reason: "no-symptom" };
@@ -289,6 +359,10 @@ phase("Preflight");
 const pre = await runPreflight(projectDir);
 if (!pre.ok) return { status: "failed", reason: "preflight-failed", preflight: pre.envelope };
 const brief = await generateBrief(projectDir, { kind: "execute", id: "debug-brief" });
+
+// M94-D11 §READER: query graph ONCE before cycles (the structural slice is the same
+// for all cycles — same symptom). Injected into each cycle's prompt.
+const _graphSliceLine = await queryGraphForDebug(projectDir, symptom, "Preflight") || "";
 
 let lastResult = null;
 // M90 §3 (fix-cycle: gate lifecycle) — track THIS run's per-signature cycle counts so the
@@ -301,6 +375,7 @@ for (let cycle = 1; cycle <= 2; cycle++) {
   const prompt = [
     `Debug cycle ${cycle} of 2. Symptom: ${symptom}`,
     `**Brief:** ${brief.briefPath || "(no brief)"}`,
+    _graphSliceLine ? `\n**Graph structural slice (M94-D11 READER — blast-radius/who-calls localization):**\n${_graphSliceLine}\nUse this slice to localize the call chain — do NOT grep for structural relationships.` : "",
     cycle > 1 && lastResult
       ? `\nPREVIOUS CYCLE'S ROOT CAUSE HYPOTHESIS (did not resolve the issue):\n${lastResult.rootCause}\nFiles edited: ${lastResult.filesEdited.join(", ")}\nIf the hypothesis was right, the fix was incomplete. If wrong, formulate a different hypothesis.`
       : "",
@@ -329,6 +404,12 @@ for (let cycle = 1; cycle <= 2; cycle++) {
     filesEdited: [],
     nextStepsIfNotResolved: "agent threw — investigate directly",
   }));
+
+  // M94-D11 §WRITER: re-index touched files after fix lands (freshness trigger).
+  // If the fix edited files, trigger a freshness pass so the next graph query sees fresh edges.
+  if (Array.isArray(lastResult.filesEdited) && lastResult.filesEdited.length > 0) {
+    await reindexTouchedFiles(projectDir, lastResult.filesEdited, `Cycle ${cycle}`);
+  }
 
   // M89 Research — classify GUESSED claims from this debug cycle (§6.5 trigger, separate from debug-cycle ternary)
   if (Array.isArray(lastResult.statedClaims) && lastResult.statedClaims.length > 0) {

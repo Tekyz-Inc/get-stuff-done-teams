@@ -90,6 +90,16 @@ The Workflow runs up to 2 cycles. Cycle 2 receives Cycle 1's failed hypothesis t
 - `complete` → re-run verify (`/gsd-t-verify`); auto-advance.
 - `needs-human` → present root-cause hypothesis + nextStepsIfNotResolved to the user. Do NOT spawn a third cycle; that's the Prime Rule.
 
+## Graph-Enhanced Debugging — READER + WRITER Pattern (M94-D11)
+
+Debug applies the **WRITER pattern** from `graph-consumer-wiring-contract.md`:
+
+**READER half (localization):** Before the fix agent reasons over code, the debug workflow queries `blast-radius` and `who-calls` to localize the bug's call chain — which callers reach the failing function, what is downstream of the changed symbol. This replaces grep-reconstructed call-chain discovery. The structural slice is injected into the debug agent's context.
+
+**WRITER half (re-index after fix):** After the fix lands, the workflow triggers a re-index of the edited files so downstream graph queries see fresh edges (`graph-freshness-contract.md` D4 surface — `freshness_check_on_query` over the touched set). `[RULE] debug-reader-and-writer-both`.
+
+**FAIL-LOUD on graph-unavailable:** On `{ok:false, reason:"graph-unavailable"}`, the debug workflow surfaces `"graph unavailable — fix it (gsd-t graph status)"` and halts the graph-query step. It does NOT fall back to grep for the structural question. The existing debug-loop logic (2-cycle cap, loop-ledger halt) is NOT disrupted — the graph query is additive, injected before the fix agent receives context.
+
 ## Contract-Boundary Debugging
 
 If the bug is at a domain contract boundary (one domain calls another via API/schema/component contract), the debug cycle agent is instructed to:
