@@ -9,13 +9,24 @@ Read:
 2. `.gsd-t/roadmap.md` — current milestone plan
 3. `.gsd-t/progress.md` — what's in progress
 
-## Step 1.5: Graph-Enhanced Impact Radius
+## Step 1.5: Graph Structural Slice — blast-radius (M94-D10)
 
-If `.gsd-t/graph/meta.json` exists (graph index is available):
-1. For each debt item, query `getCallers` on the affected entity to calculate impact radius — items with more callers have higher blast radius and may warrant higher priority
-2. Include caller counts in the promotable items display to help the user prioritize
+**[RULE] populate-promotedebt-prd-use-graph-not-grep** — the promote-debt agent MUST use the
+graph CLI `blast-radius` verb to scope a debt item's reach before milestone-izing, NOT
+grep/getCallers reconstruction of the impact.
 
-If graph is not available, skip this step.
+The phase Workflow (`gsd-t-phase.workflow.js`) automatically queries `gsd-t graph blast-radius`
+for the promote-debt phase and injects the pre-computed blast-radius slice into the agent
+context. Use this slice to:
+1. Calculate impact radius per debt item — items with larger blast radius have higher priority
+   (more downstream code is affected).
+2. Include the structural blast-radius count in the promotable items display for prioritization.
+
+**On `graph-unavailable`:** the phase Workflow surfaces a LOUD message and the promote-debt
+agent FAILS LOUD — it does NOT silently skip the impact radius calculation or fall back to grep.
+Run `gsd-t graph status` to diagnose.
+
+Graph consumer manifest row: `commands/gsd-t-promote-debt.md | templates/workflows/gsd-t-phase.workflow.js | reader | blast-radius | grep-reconstructed caller-count for debt impact scoping`
 
 ## Step 2: Identify Items to Promote
 

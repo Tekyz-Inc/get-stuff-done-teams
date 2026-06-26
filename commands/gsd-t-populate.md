@@ -30,13 +30,24 @@ Scan this codebase and populate the GSD-T documentation. Analyze the actual code
 - Document Deployment from CI/CD configs, Dockerfiles, cloud configs
 - Document Logging and Monitoring from any logging setup or dashboard configs
 
-## Graph-Enhanced Population
+## Graph Structural Slice — who-imports + cluster (M94-D10)
 
-If `.gsd-t/graph/meta.json` exists (graph index is available):
-1. Use `getEntities` and `getImports` to auto-populate architecture docs more accurately — entity relationships map directly to component diagrams and data flow sections
-2. Use `getEntitiesByDomain` to pre-fill domain scope files with precise file ownership
+**[RULE] populate-promotedebt-prd-use-graph-not-grep** — the populate agent MUST use the graph
+CLI to answer structural questions about file dependencies and coupling, NOT grep/raw-read to
+reconstruct the import graph.
 
-If graph is not available, rely on filesystem scanning as usual.
+The phase Workflow (`gsd-t-phase.workflow.js`) automatically queries `gsd-t graph who-imports`
+for the populate phase and injects the pre-computed dependency slice into the agent context.
+Use this slice to:
+1. Auto-populate architecture docs with precise entity relationships (real import edges, not
+   reconstructed from grep patterns).
+2. Pre-fill domain scope files with accurate file ownership derived from coupling clusters.
+
+**On `graph-unavailable`:** the phase Workflow surfaces a LOUD message and the populate agent
+FAILS LOUD — it does NOT silently fall back to filesystem scanning for the structural
+who-imports / cluster question. Run `gsd-t graph status` to diagnose.
+
+Graph consumer manifest row: `commands/gsd-t-populate.md | templates/workflows/gsd-t-phase.workflow.js | reader | who-imports,cluster | grep/filesystem-scan for import/coupling structure`
 
 ## For .gsd-t/progress.md:
 - Set Milestone 1: "Documentation Baseline"

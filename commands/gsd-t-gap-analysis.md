@@ -32,18 +32,28 @@ Read (if they exist):
 3. `docs/requirements.md` — existing requirements
 4. `docs/architecture.md` — system structure
 
-## Step 1.5: Graph-Enhanced Code Mapping
+## Step 1.5: Graph Structural Slice — who-imports + dead-code (M94-D10)
 
 ```bash
-node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-gap-analysis --step 1 --step-label ".5: Graph-Enhanced Code Mapping" 2>/dev/null || true
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-gap-analysis --step 1 --step-label ".5: Graph Structural Slice" 2>/dev/null || true
 ```
 
-If `.gsd-t/graph/meta.json` exists (graph index is available):
-1. Query `getRequirementFor` to pre-map requirements to code entities — provides evidence for classification in Step 4
-2. Query `findDeadCode` to identify unreachable code that may indicate implemented-but-disconnected features (potential gap indicators)
-3. Feed these findings into the classification step to improve evidence quality
+**[RULE] plan-feature-gapanalysis-use-graph-not-grep** — the gap-analysis agent MUST use the
+graph CLI for dead-code and who-imports questions (requirements-vs-code coverage gaps), NOT
+grep/raw-read to reconstruct the dependency or dead-code picture.
 
-If graph is not available, skip this step.
+The phase Workflow (`gsd-t-phase.workflow.js`) automatically queries `gsd-t graph dead-code`
+for the gap-analysis phase and injects the pre-computed dead-code slice into the agent context.
+Use this slice to:
+1. Identify implemented-but-disconnected code (dead-code entries that may indicate a gap — a
+   feature was implemented but never wired into a consumer).
+2. Identify which requirements map to code entities via real import/call edges (`who-imports`).
+
+**On `graph-unavailable`:** the phase Workflow surfaces a LOUD message and the gap-analysis
+agent FAILS LOUD — it does NOT silently skip this step or fall back to grep for the structural
+dead-code / who-imports question. Run `gsd-t graph status` to diagnose.
+
+Graph consumer manifest row: `commands/gsd-t-gap-analysis.md | templates/workflows/gsd-t-phase.workflow.js | reader | who-imports,dead-code | grep-reconstructed dead-code/dependency discovery`
 
 ## Step 2: Parse Requirements
 

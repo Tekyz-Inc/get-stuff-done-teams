@@ -26,6 +26,25 @@ If context is thin, ask the user targeted questions:
 
 Do NOT proceed until you have enough context to make informed milestone decisions. It's better to ask 3 good questions now than to repartition later.
 
+## Step 1.5: Graph Structural Slice — cluster (M94-D10)
+
+**[RULE] partition-project-use-cluster-verb** — when an existing codebase is present, the
+project agent MUST use the graph CLI `cluster` verb to identify tightly-coupled file groups
+for structure-aligned milestone decomposition, NOT LLM-reconstructed coupling.
+
+The phase Workflow (`gsd-t-phase.workflow.js`) automatically queries `gsd-t graph cluster`
+for the project phase (when a graph index exists) and injects the pre-computed coupling
+clusters into the agent context. The `cluster` verb returns file groups via a DETERMINISTIC
+Jaccard coupling metric — use this to identify natural milestone boundaries where coupling
+is low (low-coupling boundary = good place to end one milestone and start another).
+
+**On `graph-unavailable` (existing codebase):** the phase Workflow surfaces a LOUD message
+and the project agent FAILS LOUD — it does NOT silently fall back to LLM-estimated coupling.
+Run `gsd-t graph status` to diagnose. For greenfield projects with no existing codebase,
+graph-unavailable is expected — the milestone decomposition proceeds from requirements only.
+
+Graph consumer manifest row: `commands/gsd-t-project.md | templates/workflows/gsd-t-phase.workflow.js | reader | cluster | LLM-estimated coupling for milestone decomposition`
+
 ## Step 2: Identify the Full Scope
 
 ```bash

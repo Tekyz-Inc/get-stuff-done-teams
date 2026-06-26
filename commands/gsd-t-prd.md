@@ -14,6 +14,24 @@ The agent takes a user's idea — however rough — reads available GSD-T projec
 
 Read any existing `docs/requirements.md`, `docs/architecture.md`, and `.gsd-t/progress.md`. Capture the user's idea from `$ARGUMENTS`.
 
+## Step 1.5: Graph Structural Slice — cluster (M94-D10)
+
+**[RULE] populate-promotedebt-prd-use-graph-not-grep** — the PRD agent MUST use the graph
+CLI `cluster` verb for structure-aware decomposition when an existing codebase is present,
+NOT LLM-estimated coupling.
+
+The phase Workflow (`gsd-t-phase.workflow.js`) automatically queries `gsd-t graph cluster`
+for the prd phase (when a graph index exists) and injects the pre-computed coupling clusters
+into the agent context. Use this slice to organize PRD requirements around real structural
+boundaries — the cluster output reveals natural product areas aligned with codebase coupling,
+making PRD sections directly traceable to domain boundaries.
+
+**On `graph-unavailable` (existing codebase):** the phase Workflow surfaces a LOUD message
+and the PRD agent FAILS LOUD — it does NOT silently fall back to LLM-estimated structure.
+Run `gsd-t graph status` to diagnose. For greenfield projects, graph-unavailable is expected.
+
+Graph consumer manifest row: `commands/gsd-t-prd.md | templates/workflows/gsd-t-phase.workflow.js | reader | cluster | LLM-estimated structure for PRD decomposition`
+
 ## Step 2: Resolve the active model profile (M86 — invoke-time injection)
 
 Before calling the Workflow, resolve the active model profile to build the `overrides` map:

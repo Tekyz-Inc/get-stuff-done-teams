@@ -14,6 +14,22 @@ For each domain, the agent writes atomic `tasks.md` entries in parallel-executio
 
 Read `.gsd-t/progress.md` and each domain's `scope.md`/`constraints.md`. The partition output is the input to planning.
 
+## Step 1.5: Graph Structural Slice — who-imports (M94-D10)
+
+**[RULE] plan-feature-gapanalysis-use-graph-not-grep** — the plan agent MUST use the graph
+CLI to answer touched-file dependency questions (who-imports, sequencing), NOT grep/raw-read.
+
+The phase Workflow (`gsd-t-phase.workflow.js`) automatically queries `gsd-t graph who-imports`
+for the plan phase and injects the pre-computed dependency slice into the agent context.
+The agent uses this to sequence tasks by real dependency order (which files depend on which)
+without reconstructing the dependency graph by reading imports manually.
+
+**On `graph-unavailable`:** the phase Workflow surfaces a LOUD message and the plan agent
+FAILS LOUD — it does NOT silently fall back to grep for the structural who-imports question.
+Run `gsd-t graph status` to diagnose.
+
+Graph consumer manifest row: `commands/gsd-t-plan.md | templates/workflows/gsd-t-phase.workflow.js | reader | who-imports,blast-radius | grep-reconstructed dependency ordering`
+
 ## Step 2: Resolve the active model profile (M86 — invoke-time injection)
 
 Before calling the Workflow, resolve the active model profile to build the `overrides` map:

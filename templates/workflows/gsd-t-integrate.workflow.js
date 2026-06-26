@@ -72,11 +72,57 @@ const pre = await runPreflight(projectDir);
 if (!pre.ok) return { status: "failed", reason: "preflight-failed", preflight: pre.envelope };
 const brief = await generateBrief(projectDir, { kind: "execute", milestone, id: `integrate-${(milestone || "m").toLowerCase()}` });
 
+// M94-D10-T6: Graph Structural Slice — who-imports + blast-radius (ADDITIVE, announced-degradation)
+// [RULE] integrate-uses-graph-for-wiring-verification
+// [RULE] verify-integrate-graph-additive-announced-not-hard-fail — bootstrap carve-out:
+//   integrate degrades ANNOUNCED on graph-unavailable, does NOT hard-fail.
+let _graphWhoImportsSlice = null;
+let _graphBlastRadiusSlice = null;
+let _graphIntegrateWarning = null;
+
+{
+  const wiResult = await runCli(
+    projectDir, "graph who-imports", [], "gsd-t-graph-query-cli.cjs",
+    "graph:who-imports", true, "Integrate"
+  );
+  const wiEnv = wiResult.envelope || {};
+  if (wiEnv.ok === true) {
+    _graphWhoImportsSlice = wiEnv;
+    log(`M94 graph who-imports: ${(wiEnv.results || []).length} result(s) (tier: ${wiEnv.tier || "?"})`);
+  } else if (wiEnv.reason === "graph-unavailable") {
+    _graphIntegrateWarning = "⚠ graph unavailable — structural wiring-check skipped, fix it (gsd-t graph status)";
+    log(`M94 graph who-imports: ${_graphIntegrateWarning}`);
+  } else {
+    _graphIntegrateWarning = `⚠ graph who-imports query unexpected envelope (reason: ${wiEnv.reason || "?"}); structural wiring-check skipped`;
+    log(`M94 graph who-imports: ${_graphIntegrateWarning}`);
+  }
+
+  if (!_graphIntegrateWarning) {
+    const brResult = await runCli(
+      projectDir, "graph blast-radius", [], "gsd-t-graph-query-cli.cjs",
+      "graph:blast-radius", true, "Integrate"
+    );
+    const brEnv = brResult.envelope || {};
+    if (brEnv.ok === true) {
+      _graphBlastRadiusSlice = brEnv;
+      log(`M94 graph blast-radius: ${(brEnv.results || []).length} result(s)`);
+    } else {
+      log(`M94 graph blast-radius: query failed (reason: ${brEnv.reason || "?"}) — no blast-radius slice`);
+    }
+  }
+}
+
 phase("Integrate");
 const integrate = await agent(
   [
     `You are the integration agent for milestone \`${milestone}\`. Domains complete: ${domains.join(", ")}.`,
     `**Brief:** ${brief.briefPath || "(no brief — re-walk repo)"}`,
+    // M94-D10-T6: thread graph slice into the integrate agent (ADDITIVE)
+    _graphIntegrateWarning
+      ? `\n**Graph Structural Check:** ${_graphIntegrateWarning} (WARNING only — integrate continues cross-domain wire-up)`
+      : (_graphWhoImportsSlice
+        ? `\n**Graph Structural Slice (who-imports):** ${JSON.stringify(_graphWhoImportsSlice)}\n**Graph Structural Slice (blast-radius):** ${_graphBlastRadiusSlice ? JSON.stringify(_graphBlastRadiusSlice) : "N/A"}\nUse these pre-computed slices to verify cross-domain wiring — that real import/call edges exist across domain seams. Do NOT grep/read-to-reconstruct cross-domain edges; the graph slice above is authoritative.`
+        : ""),
     ``,
     `Read .gsd-t/contracts/${milestone ? milestone.toLowerCase() : ""}-integration-points.md if present.`,
     `Resolve any shared-file edits sequenced at integrate (per "Cross-Domain File Contention Matrix").`,
@@ -84,7 +130,7 @@ const integrate = await agent(
     `Commit cross-domain edits with a clear "m61(integrate)" prefix.`,
     ``,
     `Return JSON per the schema.`,
-  ].join("\n"),
+  ].filter(Boolean).join("\n"),
   { label: "integrate", phase: "Integrate", schema: INTEGRATE_SCHEMA, model: "sonnet" }
 ).catch((e) => ({ status: "failed", crossDomainEdits: [], notes: `agent error: ${e && e.message}` }));
 

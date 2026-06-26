@@ -14,6 +14,31 @@ The agent analyzes the downstream effects of proposed changes: what might break,
 
 Read `.gsd-t/progress.md`, the relevant domain `tasks.md`, and `docs/architecture.md`/`.gsd-t/contracts/` for the surfaces in scope.
 
+## Step 1.5: Graph Structural Slice — blast-radius (M94-D10)
+
+**[RULE] impact-uses-blast-radius-not-grep** — the impact agent MUST use the graph CLI
+to answer the downstream-effect (blast-radius) question, NOT grep/raw-read to reconstruct
+dependents.
+
+The phase Workflow (`gsd-t-phase.workflow.js`) automatically queries `gsd-t graph blast-radius`
+for the impact phase and injects the pre-computed blast-radius slice into the agent context
+before reasoning begins. The agent receives the structural answer and MUST use it — no grep
+reconstruction of import/call dependents is permitted.
+
+**On `graph-unavailable`:** the phase Workflow surfaces a LOUD message:
+```
+⚠ graph unavailable — structural blast-radius slice NOT injected (fix it: gsd-t graph status).
+  NO grep fallback — structural question unanswered.
+```
+The impact agent FAILS LOUD on graph-unavailable — it does NOT silently fall back to grep for
+the structural blast-radius question. Run `gsd-t graph status` to diagnose.
+
+The `blast-radius` verb returns the downstream impact set as the UNION of the import-graph
+and call-graph reverse-reachable sets from the target (transitive). This catches dependents
+reachable only via call edges that a grep over import patterns would MISS.
+
+Graph consumer manifest row: `commands/gsd-t-impact.md | templates/workflows/gsd-t-phase.workflow.js | reader | blast-radius | grep-reconstructed dependent set`
+
 ## Step 2: Resolve the active model profile (M86 — invoke-time injection)
 
 Before calling the Workflow, resolve the active model profile to build the `overrides` map:

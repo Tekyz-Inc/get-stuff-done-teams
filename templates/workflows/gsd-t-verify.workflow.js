@@ -257,6 +257,49 @@ if (!vg.ok) {
 }
 log(`verify-gate green`);
 
+// ─── M94-D10-T5: Graph Structural Slice — dead-code + dangling (ADDITIVE, announced-degradation) ──
+// [RULE] qa-verify-use-orphan-dangling-verbs — query dead-code + dangling structurally.
+// [RULE] verify-integrate-graph-additive-announced-not-hard-fail — PRE-MORTEM Finding 3
+//   bootstrap carve-out: verify degrades ANNOUNCED on graph-unavailable, does NOT hard-fail.
+//   The graph query ENRICHES the triad; it must not brick verify itself.
+// Runtime-native (M81): delegate to an agent's Bash via runCli helper.
+let _graphDeadCodeSlice = null;
+let _graphDanglingSlice = null;
+let _graphVerifyWarning = null;
+
+{
+  const dcResult = await runCli(
+    projectDir, "graph dead-code", [], "gsd-t-graph-query-cli.cjs",
+    "graph:dead-code", true, "Verify-Gate"
+  );
+  const dcEnv = dcResult.envelope || {};
+  if (dcEnv.ok === true) {
+    _graphDeadCodeSlice = dcEnv;
+    log(`M94 graph dead-code: ${(dcEnv.results || []).length} dead-code result(s) (tier: ${dcEnv.tier || "?"})`);
+  } else if (dcEnv.reason === "graph-unavailable") {
+    _graphVerifyWarning = "⚠ graph unavailable — structural gate skipped, fix it (gsd-t graph status)";
+    log(`M94 graph dead-code: ${_graphVerifyWarning}`);
+  } else {
+    _graphVerifyWarning = `⚠ graph dead-code query unexpected envelope (reason: ${dcEnv.reason || "?"}); structural gate skipped`;
+    log(`M94 graph dead-code: ${_graphVerifyWarning}`);
+  }
+
+  if (!_graphVerifyWarning) {
+    // Only query dangling if dead-code succeeded (same graph availability)
+    const dangResult = await runCli(
+      projectDir, "graph dangling", [], "gsd-t-graph-query-cli.cjs",
+      "graph:dangling", true, "Verify-Gate"
+    );
+    const dangEnv = dangResult.envelope || {};
+    if (dangEnv.ok === true) {
+      _graphDanglingSlice = dangEnv;
+      log(`M94 graph dangling: ${(dangEnv.results || []).length} dangling result(s)`);
+    } else {
+      log(`M94 graph dangling: query failed (reason: ${dangEnv.reason || "?"}) — no dangling slice`);
+    }
+  }
+}
+
 // ─── M89 §7 ENFORCE Gate (FAIL-blocking — A4 no-silent-guess) ─────────────
 // Scans all milestone artifacts for STRUCTURAL auto-research-claim markers and FAILs if:
 //   (a) ANY marker is status=uncited (an external guessed claim was never cited), OR
@@ -698,6 +741,12 @@ const stages = [
       `You are the QA validator for milestone \`${milestone}\`.`,
       ``,
       `**Brief (REQUIRED):** ${briefRef}`,
+      // M94-D10-T5: inject dead-code/dangling graph slice (ADDITIVE — enriches QA, announced-degradation on unavailable)
+      _graphVerifyWarning
+        ? `\n**Graph Structural Gate:** ${_graphVerifyWarning} (WARNING only — QA continues other checks)`
+        : (_graphDeadCodeSlice
+          ? `\n**Graph Structural Slice (dead-code):** ${JSON.stringify(_graphDeadCodeSlice)}\n**Graph Structural Slice (dangling):** ${_graphDanglingSlice ? JSON.stringify(_graphDanglingSlice) : "N/A"}\nInclude these structural findings in your QA analysis — dead-code and dangling-ref entries are structural quality signals. Do NOT grep for dead-code; the pre-computed slice above is authoritative.`
+          : ""),
       ``,
       `Per .gsd-t/contracts/orthogonal-validation-contract.md, your scope is`,
       `**test mechanics + contract compliance**. Run the test suite. Report pass/fail/skip`,
@@ -707,7 +756,7 @@ const stages = [
       `Run the QA protocol. ${qaProtocolInstruction}`,
       ``,
       `Return JSON per the schema.`,
-    ].join("\n"),
+    ].filter(Boolean).join("\n"),
     { label: "qa", phase: "Orthogonal Triad", schema: QA_SCHEMA, model: "sonnet" }
   ),
 ].filter(Boolean);

@@ -136,6 +136,76 @@ async function generateBrief(projectDir, { kind = "execute", milestone, domain, 
   return { ok: r.ok, briefPath: `${projectDir}/.gsd-t/briefs/${id}.json`, via: r.via };
 }
 
+// M94-D10-T0: Structural-slice injection seam.
+// Queries the graph CLI for the structural question appropriate to this phase and
+// returns the slice as a JSON-stringified string to inject into worker agent context.
+// On graph-unavailable returns a LOUD surfaced message (no silent grep).
+// Invariant: [RULE] phase-workflow-injects-structural-slice
+// Invariant: [RULE] phase-workflow-fail-loud-no-grep
+//
+// verb-map per phase (based on the d8 consumer manifest):
+//   impact   → blast-radius   (downstream impact set from target)
+//   plan     → who-imports    (touched-file dependents for sequencing)
+//   partition→ cluster        (tightly-coupled file groups for domain-cut)
+//   feature  → blast-radius   (new-feature impact on existing code)
+//   gap-analysis → dead-code  (requirements-vs-code coverage gaps)
+//   project  → cluster        (structure-aligned milestone decomposition)
+//   populate → who-imports    (derive doc structure from real edges)
+//   promote-debt → blast-radius (scope a debt item's reach)
+//   prd      → cluster        (structure-aware decomposition)
+//   milestone/discuss/design-decompose/doc-ripple → no structural verb (no-op)
+const PHASE_GRAPH_VERB_MAP = {
+  impact:         "blast-radius",
+  plan:           "who-imports",
+  partition:      "cluster",
+  feature:        "blast-radius",
+  "gap-analysis": "dead-code",
+  project:        "cluster",
+  populate:       "who-imports",
+  "promote-debt": "blast-radius",
+  prd:            "cluster",
+};
+
+/**
+ * queryStructuralSlice — calls `gsd-t graph <verb>` for the phase's structural question.
+ * Returns { ok, verb, slice, graphUnavailable, loudMessage } where:
+ *   ok=true  → slice is a JSON-ready object (the graph result)
+ *   ok=false, graphUnavailable=true → LOUD message (no grep fallback)
+ *   ok=false, graphUnavailable=false → graph returned an error / unexpected envelope
+ *
+ * [RULE] phase-workflow-fail-loud-no-grep — on graph-unavailable, surface the loud
+ * message and NEVER fall back to grep for the structural question.
+ */
+async function queryStructuralSlice(projectDir, phaseName, phaseNameOpt) {
+  const verb = PHASE_GRAPH_VERB_MAP[phaseName];
+  if (!verb) {
+    // Phase has no mapped structural verb (milestone/discuss/design-decompose/doc-ripple) — no-op.
+    return { ok: true, verb: null, slice: null, graphUnavailable: false, loudMessage: null };
+  }
+  // The graph query uses gsd-t-graph-query-cli.cjs (local) or `gsd-t graph <verb>` (global).
+  // argv: only the verb (no target) for phase-level queries that return a global set
+  // (cluster/dead-code/who-imports/blast-radius without a target returns the full graph slice).
+  const r = await runCli(
+    projectDir, `graph ${verb}`, [], "gsd-t-graph-query-cli.cjs",
+    `graph:${verb}`, true, phaseNameOpt
+  );
+  const env = r.envelope || {};
+  if (env.ok === false && env.reason === "graph-unavailable") {
+    // [RULE] phase-workflow-fail-loud-no-grep: surface LOUD, no grep fallback.
+    const loudMessage = `⚠ graph unavailable — structural ${verb} slice NOT injected (fix it: gsd-t graph status). NO grep fallback — structural question unanswered.`;
+    log(`M94 graph-slice: ${loudMessage}`);
+    return { ok: false, verb, slice: null, graphUnavailable: true, loudMessage };
+  }
+  if (env.ok === true) {
+    log(`M94 graph-slice: ${phaseName} → ${verb} → ${(env.results || []).length} result(s) (tier: ${env.tier || "?"})`);
+    return { ok: true, verb, slice: env, graphUnavailable: false, loudMessage: null };
+  }
+  // Unexpected envelope (graph returned ok:false for a non-unavailable reason).
+  const loudMessage = `⚠ graph ${verb} query returned unexpected envelope (ok=${env.ok}, reason=${env.reason || "?"}). Structural slice NOT injected.`;
+  log(`M94 graph-slice: ${loudMessage}`);
+  return { ok: false, verb, slice: null, graphUnavailable: false, loudMessage };
+}
+
 // M82: run the deterministic selection oracle over a candidate-set spec. The spec
 // is written to a file via the agent's Bash (no fs in this sandbox), then judged by
 // `gsd-t competition-judge --in <file>`. The agent MUST copy the judge's rich output
@@ -763,6 +833,17 @@ ${STATED_CLAIMS_INSTRUCTION}`,
 const baseObjective = promptByPhase[phaseName];
 const briefLine = `**Brief (REQUIRED):** ${brief.briefPath || "(no brief — re-walk repo)"}`;
 
+// M94-D10-T0: Query the structural graph slice for this phase.
+// The result is threaded into every worker-agent prompt so the agent receives
+// the pre-computed structural answer and has no reason to grep for structure.
+// [RULE] phase-workflow-injects-structural-slice
+const _graphSliceResult = await queryStructuralSlice(projectDir, phaseName, "Phase");
+const _graphSliceLine = _graphSliceResult.ok && _graphSliceResult.slice
+  ? `\n**Structural Graph Slice (${_graphSliceResult.verb}):** ${JSON.stringify(_graphSliceResult.slice)}\nUse this pre-computed graph slice to answer structural questions — do NOT grep for ${_graphSliceResult.verb} answers.`
+  : _graphSliceResult.loudMessage
+    ? `\n**Structural Graph:** ${_graphSliceResult.loudMessage}`
+    : "";
+
 let result;
 // M90 §2 D4-T4: holds the divergence-path result from the competition arm (R-ARCH-1).
 // Set inside the competition arm (before Finalize), attached to result after.
@@ -775,6 +856,7 @@ if (!competitionOn) {
       `You are the ${phaseName} phase agent.`,
       milestone ? `Milestone: ${milestone}` : "",
       briefLine,
+      _graphSliceLine,
       userInput ? `\nUser input:\n${userInput}` : "",
       ``,
       `Objective: ${baseObjective}`,
@@ -863,6 +945,7 @@ if (!competitionOn) {
           `You are candidate ${ids[i]} — one of ${competitionN} INDEPENDENT ${phaseName} proposals competing on quality.`,
           milestone ? `Milestone: ${milestone}` : "",
           briefLine,
+          _graphSliceLine,
           userInput ? `\nUser input:\n${userInput}` : "",
           ``,
           `Objective: ${baseObjective}`,
@@ -1044,6 +1127,7 @@ if (!competitionOn) {
       `You are the ${phaseName} finalizer. A competition selected a WINNING proposal; implement it for real.`,
       milestone ? `Milestone: ${milestone}` : "",
       briefLine,
+      _graphSliceLine,
       ``,
       `Objective: ${baseObjective}`,
       ``,

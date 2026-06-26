@@ -16,6 +16,24 @@ The agent decomposes the milestone into 2–5 file-disjoint domains, writes `.gs
 
 Read `.gsd-t/progress.md` to determine the active milestone and its defined scope. If a scan exists and is stale (>10 commits or >14 days), the agent refreshes the relevant dimensions before partitioning.
 
+## Step 1.5: Graph Structural Slice — cluster (M94-D10)
+
+**[RULE] partition-project-use-cluster-verb** — the partition agent MUST use the graph CLI
+`cluster` verb to identify tightly-coupled file groups when suggesting domain cuts, NOT
+LLM-reconstructed coupling by reading files.
+
+The phase Workflow (`gsd-t-phase.workflow.js`) automatically queries `gsd-t graph cluster`
+for the partition phase and injects the pre-computed coupling clusters into the agent context.
+The `cluster` verb returns tightly-coupled file groups via a DETERMINISTIC Jaccard metric over
+import neighbourhoods — same input, same output, reproducible grouping. Domain cuts should be
+made along low-coupling boundaries identified by this slice.
+
+**On `graph-unavailable`:** the phase Workflow surfaces a LOUD message and the partition agent
+FAILS LOUD — it does NOT silently fall back to LLM-reconstructed coupling estimates.
+Run `gsd-t graph status` to diagnose.
+
+Graph consumer manifest row: `commands/gsd-t-partition.md | templates/workflows/gsd-t-phase.workflow.js | reader | cluster | LLM-reconstructed file-coupling for domain-boundary decisions`
+
 ## Step 2: Resolve the active model profile (M86 — invoke-time injection)
 
 Before calling the Workflow, resolve the active model profile to build the `overrides` map:

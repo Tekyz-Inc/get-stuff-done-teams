@@ -52,18 +52,26 @@ Build a mental model of: "How does this codebase work today?"
 
 Note what you find — this informs Step 3's Multi-Consumer Check and Step 4's milestone ordering.
 
-## Step 1.5: Graph-Enhanced Blast Radius Analysis
+## Step 1.5: Graph Structural Slice — blast-radius + who-imports (M94-D10)
 
 ```bash
-node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-feature --step 1 --step-label ".5: Graph-Enhanced Blast Radius Analysis" 2>/dev/null || true
+node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-id "${GSD_T_PARENT_AGENT_ID:-null}" --command gsd-t-feature --step 1 --step-label ".5: Graph Structural Slice" 2>/dev/null || true
 ```
 
-If `.gsd-t/graph/meta.json` exists (graph index is available):
-1. Query `getSurfaceConsumers` and `getCallers` on functions likely affected by the feature to calculate blast radius across all consumer surfaces
-2. Query `getTransitiveCallers` for deep impact chains that may not be obvious from architecture docs alone
-3. Feed these findings into the Impact Analysis in Step 3
+**[RULE] plan-feature-gapanalysis-use-graph-not-grep** — the feature agent MUST use the graph
+CLI for blast-radius and who-imports questions (new-feature impact on existing code), NOT
+grep/raw-read to reconstruct dependents.
 
-If graph is not available, skip this step.
+The phase Workflow (`gsd-t-phase.workflow.js`) automatically queries `gsd-t graph blast-radius`
+for the feature phase and injects the pre-computed blast-radius slice into the agent context.
+Use this slice to identify which existing code is in the blast radius of the new feature's
+touch points — catching impact via call edges that a grep over import patterns would MISS.
+
+**On `graph-unavailable`:** the phase Workflow surfaces a LOUD message and the feature agent
+FAILS LOUD — it does NOT silently skip this step or fall back to grep for the structural
+blast-radius / who-imports question. Run `gsd-t graph status` to diagnose.
+
+Graph consumer manifest row: `commands/gsd-t-feature.md | templates/workflows/gsd-t-phase.workflow.js | reader | blast-radius,who-imports | grep-reconstructed blast-radius/dependent discovery`
 
 ## Step 2: Understand the Feature
 

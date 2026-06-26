@@ -26,14 +26,26 @@ You are the QA Agent. You are spawned as a teammate by other GSD-T commands. You
 
 If a test requires a source code change (e.g., adding an export for testability), message the lead — do not make the change yourself.
 
-## Graph-Enhanced Coverage Analysis
+## Graph Structural Slice — dead-code + dangling (M94-D10)
 
-If `.gsd-t/graph/meta.json` exists (graph index is available):
-1. Query `getTestsFor` each contract entity to identify coverage gaps — entities with no tests are priority targets
-2. Query `findDeadCode` to flag untested dead code — dead code without tests should be reported as cleanup candidates
-3. Use these findings to prioritize test generation in all phases below
+**[RULE] qa-verify-use-orphan-dangling-verbs** — the QA agent MUST use the graph CLI
+`dead-code` and `dangling` verbs to find dead code and dangling refs structurally, NOT
+grep/raw-read reconstruction of the dead-code or dangling-ref picture.
 
-If graph is not available, skip this step and rely on filesystem-based test discovery.
+The phase Workflow (`gsd-t-phase.workflow.js`) automatically queries `gsd-t graph dead-code`
+for the qa phase and injects the pre-computed dead-code/dangling slice into the agent context.
+Use this slice to:
+1. Identify coverage gaps: `dead-code` returns function entities with no live importers or
+   callers — entities with no tests and no live callers are priority cleanup candidates.
+2. Identify dangling refs: `dangling` returns call/import edges whose target is not in the
+   indexed node set (delete/rename residue).
+3. Prioritize test generation around these structural findings.
+
+**On `graph-unavailable`:** the phase Workflow surfaces a LOUD message and the QA agent
+FAILS LOUD — it does NOT silently fall back to filesystem-based test discovery for the
+structural dead-code / dangling question. Run `gsd-t graph status` to diagnose.
+
+Graph consumer manifest row: `commands/gsd-t-qa.md | templates/workflows/gsd-t-phase.workflow.js | reader | dead-code,dangling | grep/filesystem dead-code discovery for coverage gap analysis`
 
 ## Phase-Specific Behavior
 

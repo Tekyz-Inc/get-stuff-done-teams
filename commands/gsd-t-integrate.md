@@ -25,6 +25,31 @@ It does NOT re-do work that domain workers already did, and does NOT run the ful
 
 Read `.gsd-t/progress.md` and verify all required domain workers have completed (status `complete` in their tasks.md). Read `.gsd-t/contracts/m{NN}-integration-points.md` for the shared-file matrix.
 
+## Step 1.5: Graph Structural Slice — who-imports + blast-radius (M94-D10, ADDITIVE)
+
+**[RULE] integrate-uses-graph-for-wiring-verification** — the integrate Workflow MUST use
+the graph CLI `who-imports` and `blast-radius` verbs to verify cross-domain wiring (real
+import/call edges across the seam), NOT LLM-reconstructed wiring by reading files.
+
+**[RULE] verify-integrate-graph-additive-announced-not-hard-fail** — integrate's graph query
+degrades ANNOUNCED on graph-unavailable, NOT as a hard-fail of the entire integrate run.
+
+The integrate Workflow (`gsd-t-integrate.workflow.js`) queries `gsd-t graph who-imports` and
+`gsd-t graph blast-radius` to verify that domains are actually wired (real edges exist across
+the cross-domain seam). The integrate agent receives this slice and uses it to confirm
+wiring — rather than reading files and inferring the connection.
+
+**On `graph-unavailable`:** the integrate Workflow records a WARNING and CONTINUES its
+cross-domain wire-up work:
+```
+⚠ graph unavailable — structural wiring-check skipped, fix it (gsd-t graph status)
+```
+It does NOT hard-fail integrate solely due to graph unavailability — integrate must always be
+able to run. This is the bootstrap carve-out (PRE-MORTEM Finding 3). Integrate does NOT
+silently grep for the structural wiring question.
+
+Graph consumer manifest row (lint-exempt per verify+integrate carve-out): `commands/gsd-t-integrate.md | templates/workflows/gsd-t-integrate.workflow.js | reader | who-imports,blast-radius | LLM-read-reconstructed cross-domain wiring verification`
+
 ## Step 2: Invoke the integrate Workflow
 
 Call the `Workflow` tool with:

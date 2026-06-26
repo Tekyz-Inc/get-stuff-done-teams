@@ -143,7 +143,19 @@ This table is the lint's input. The lint reads it at runtime — adding a row he
 
 | Command File | Workflow File | Role | Structural Verbs Used | Replaces Structural Grep For |
 |---|---|---|---|---|
-| _(d10/d11 append rows here)_ | | | | |
+| `commands/gsd-t-impact.md` | `templates/workflows/gsd-t-phase.workflow.js` | reader | `blast-radius` | grep-reconstructed dependent set for downstream-effect analysis |
+| `commands/gsd-t-plan.md` | `templates/workflows/gsd-t-phase.workflow.js` | reader | `who-imports,blast-radius` | grep-reconstructed dependency ordering for task sequencing |
+| `commands/gsd-t-feature.md` | `templates/workflows/gsd-t-phase.workflow.js` | reader | `blast-radius,who-imports` | grep-reconstructed blast-radius/dependent discovery for feature impact |
+| `commands/gsd-t-gap-analysis.md` | `templates/workflows/gsd-t-phase.workflow.js` | reader | `who-imports,dead-code` | grep/filesystem dead-code discovery and dependency reconstruction for gap analysis |
+| `commands/gsd-t-partition.md` | `templates/workflows/gsd-t-phase.workflow.js` | reader | `cluster` | LLM-reconstructed file-coupling for domain-boundary decisions |
+| `commands/gsd-t-project.md` | `templates/workflows/gsd-t-phase.workflow.js` | reader | `cluster` | LLM-estimated coupling for milestone decomposition |
+| `commands/gsd-t-populate.md` | `templates/workflows/gsd-t-phase.workflow.js` | reader | `who-imports,cluster` | grep/filesystem-scan for import/coupling structure during doc population |
+| `commands/gsd-t-promote-debt.md` | `templates/workflows/gsd-t-phase.workflow.js` | reader | `blast-radius` | grep-reconstructed caller-count for debt impact scoping |
+| `commands/gsd-t-prd.md` | `templates/workflows/gsd-t-phase.workflow.js` | reader | `cluster` | LLM-estimated structure for PRD decomposition |
+| `commands/gsd-t-qa.md` | `templates/workflows/gsd-t-phase.workflow.js` | reader | `dead-code,dangling` | grep/filesystem dead-code discovery for QA coverage gap analysis |
+| `commands/gsd-t-verify.md` | `templates/workflows/gsd-t-verify.workflow.js` | reader | `dead-code,dangling` | grep-based dead-code/dangling detection (carve-out: announced WARNING on unavailable) |
+| `commands/gsd-t-integrate.md` | `templates/workflows/gsd-t-integrate.workflow.js` | reader | `who-imports,blast-radius` | LLM-read-reconstructed cross-domain wiring verification (carve-out: announced WARNING on unavailable) |
+| _(d11 writer commands append here)_ | | | | |
 
 ### Manifest schema (machine-parsed by the lint)
 

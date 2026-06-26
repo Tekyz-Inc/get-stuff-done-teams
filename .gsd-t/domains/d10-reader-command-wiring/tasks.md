@@ -10,7 +10,7 @@ When all tasks complete: every code-ASSESSING command (impact, plan, partition, 
 ## Wave B
 
 ### M94-D10-T0 — Shared phase-workflow structural-slice injection seam (sole owner)
-- **Status**: [ ] pending
+- **Status**: [x] complete
 - **Headline**: false
 - **Files**: `templates/workflows/gsd-t-phase.workflow.js`, `test/m94-d10-reader-wiring.test.js`
 - **Touches**: `templates/workflows/gsd-t-phase.workflow.js`, `test/m94-d10-reader-wiring.test.js`
@@ -25,7 +25,7 @@ When all tasks complete: every code-ASSESSING command (impact, plan, partition, 
   - This is the SOLE M94 task editing `gsd-t-phase.workflow.js` (file-disjointness).
 
 ### M94-D10-T1 — Wire `/impact` to blast-radius (HIGH — the user's CORE use case)
-- **Status**: [ ] pending
+- **Status**: [x] complete
 - **Headline**: true
 - **Files**: `commands/gsd-t-impact.md`, `.gsd-t/contracts/graph-consumer-wiring-contract.md`, `test/m94-d10-reader-wiring.test.js`, `test/m94-d10-impact-consumption-proof.test.js`
 - **Touches**: `commands/gsd-t-impact.md`, `test/m94-d10-impact-consumption-proof.test.js`
@@ -41,7 +41,7 @@ When all tasks complete: every code-ASSESSING command (impact, plan, partition, 
   - Anti-grep lint (d8-T3) passes for `commands/gsd-t-impact.md` (no structural-grep fallback).
 
 ### M94-D10-T2 — Wire `/plan` + `/feature` + `/gap-analysis` (HIGH readers, command-file directives)
-- **Status**: [ ] pending
+- **Status**: [x] complete
 - **Headline**: false
 - **Files**: `commands/gsd-t-plan.md`, `commands/gsd-t-feature.md`, `commands/gsd-t-gap-analysis.md`, `test/m94-d10-reader-wiring.test.js`
 - **Touches**: `commands/gsd-t-plan.md`, `commands/gsd-t-feature.md`, `commands/gsd-t-gap-analysis.md`
@@ -55,7 +55,7 @@ When all tasks complete: every code-ASSESSING command (impact, plan, partition, 
   - Each has a manifest row; anti-grep lint passes for all three files.
 
 ### M94-D10-T3 — Wire `/partition` + `/project` to the cluster verb (domain/milestone decomposition)
-- **Status**: [ ] pending
+- **Status**: [x] complete
 - **Headline**: false
 - **Files**: `commands/gsd-t-partition.md`, `commands/gsd-t-project.md`, `test/m94-d10-reader-wiring.test.js`
 - **Touches**: `commands/gsd-t-partition.md`, `commands/gsd-t-project.md`
@@ -68,7 +68,7 @@ When all tasks complete: every code-ASSESSING command (impact, plan, partition, 
   - Each fails LOUD on graph-unavailable; manifest rows present; anti-grep lint passes.
 
 ### M94-D10-T4 — Wire `/populate` + `/promote-debt` + `/prd` (MED readers)
-- **Status**: [ ] pending
+- **Status**: [x] complete
 - **Headline**: false
 - **Files**: `commands/gsd-t-populate.md`, `commands/gsd-t-promote-debt.md`, `commands/gsd-t-prd.md`, `test/m94-d10-reader-wiring.test.js`
 - **Touches**: `commands/gsd-t-populate.md`, `commands/gsd-t-promote-debt.md`, `commands/gsd-t-prd.md`
@@ -81,7 +81,7 @@ When all tasks complete: every code-ASSESSING command (impact, plan, partition, 
   - Each fails LOUD on graph-unavailable; manifest rows present; anti-grep lint passes.
 
 ### M94-D10-T5 — Wire `/qa` + `/verify` to the orphan/dangling verbs (dead-code + dangling-ref gates)
-- **Status**: [ ] pending
+- **Status**: [x] complete
 - **Headline**: false
 - **Files**: `commands/gsd-t-qa.md`, `commands/gsd-t-verify.md`, `templates/workflows/gsd-t-verify.workflow.js`, `test/m94-d10-reader-wiring.test.js`
 - **Touches**: `commands/gsd-t-qa.md`, `commands/gsd-t-verify.md`, `templates/workflows/gsd-t-verify.workflow.js`
@@ -96,7 +96,7 @@ When all tasks complete: every code-ASSESSING command (impact, plan, partition, 
   - `qa` fails LOUD on graph-unavailable; `verify` degrades announced (carve-out); manifest rows present; anti-grep lint passes (verify's announced fallback is lint-exempt per the d8 carve-out, like scan).
 
 ### M94-D10-T6 — Wire `/integrate` to who-imports + blast-radius (cross-domain wiring verification)
-- **Status**: [ ] pending
+- **Status**: [x] complete
 - **Headline**: false
 - **Files**: `commands/gsd-t-integrate.md`, `templates/workflows/gsd-t-integrate.workflow.js`, `test/m94-d10-reader-wiring.test.js`
 - **Touches**: `commands/gsd-t-integrate.md`, `templates/workflows/gsd-t-integrate.workflow.js`

@@ -28,6 +28,31 @@ Per `.gsd-t/contracts/orthogonal-validation-contract.md` v1.0.0 STABLE, the thre
 
 Read `.gsd-t/progress.md` to determine the active milestone.
 
+## Step 1.5: Graph Structural Slice — dead-code + dangling (M94-D10, ADDITIVE)
+
+**[RULE] qa-verify-use-orphan-dangling-verbs** — the verify Workflow adds `dead-code` and
+`dangling` structural checks as ADDITIVE quality gates (enriching the existing triad), NOT
+as a replacement for any existing gate.
+
+**[RULE] verify-integrate-graph-additive-announced-not-hard-fail** — verify's graph query
+degrades ANNOUNCED on graph-unavailable, NOT as a hard-fail of the entire verify run.
+
+The verify Workflow (`gsd-t-verify.workflow.js`) queries `gsd-t graph dead-code` and
+`gsd-t graph dangling` as part of its quality gates. These structural checks ENRICH the QA
+triad member's context:
+- `dead-code`: function entities with no live importers or callers (structural orphans)
+- `dangling`: call/import edges whose target is not in the indexed node set (delete/rename residue)
+
+**On `graph-unavailable`:** the verify Workflow records a WARNING and CONTINUES its other gates:
+```
+⚠ graph unavailable — structural gate skipped, fix it (gsd-t graph status)
+```
+It does NOT hard-fail the verify run solely due to graph unavailability — verify must always
+be able to run. This is the ONLY exception to the reader hard-stop rule (PRE-MORTEM Finding 3,
+bootstrap carve-out). The verify Workflow does NOT silently grep for the structural question.
+
+Graph consumer manifest row (lint-exempt per verify+integrate carve-out): `commands/gsd-t-verify.md | templates/workflows/gsd-t-verify.workflow.js | reader | dead-code,dangling | grep-based dead-code/dangling detection`
+
 ## Step 2: Resolve the active model profile (M86 — invoke-time injection)
 
 Before calling the Workflow, resolve the active model profile to build the `overrides` map:
