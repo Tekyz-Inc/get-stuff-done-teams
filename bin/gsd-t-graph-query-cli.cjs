@@ -95,11 +95,18 @@ function resolveStorePath() {
   if (process.env.GSD_T_GRAPH_STORE) {
     return process.env.GSD_T_GRAPH_STORE;
   }
-  // Walk up from cwd to find .gsd-t/
+  // Walk up from cwd to find the store. K1 PICKED SQLite, so the indexer
+  // (gsd-t-graph-index.cjs) writes `.gsd-t/graph.db`. Discover THAT first; fall
+  // back to the legacy `.gsd-t/graph-index/` JSONL directory for the baseline
+  // store. (The original CLI only looked for the JSONL dir — so a freshly-built
+  // SQLite index reported graph-unavailable: the index wrote .gsd-t/graph.db but
+  // the query never discovered it.)
   let dir = process.cwd();
   for (let i = 0; i < 10; i++) {
-    const candidate = path.join(dir, ".gsd-t", "graph-index");
-    if (fs.existsSync(candidate)) return candidate;
+    const dbPath = path.join(dir, ".gsd-t", "graph.db");
+    if (fs.existsSync(dbPath)) return dbPath;
+    const jsonlDir = path.join(dir, ".gsd-t", "graph-index");
+    if (fs.existsSync(jsonlDir)) return jsonlDir;
     const parent = path.dirname(dir);
     if (parent === dir) break;
     dir = parent;
@@ -371,11 +378,78 @@ function buildIndex(records, skippedFiles) {
  * @param {string|null} storePath
  * @returns {{ ok: boolean, index?: IndexStructure, reason?: string }}
  */
+/**
+ * Load records from the SQLite store (`.gsd-t/graph.db`) — the store K1 PICKED
+ * and the indexer (gsd-t-graph-index.cjs) actually writes. The query CLI was
+ * originally JSONL-only; on a real SQLite index loadJsonlStore returned null and
+ * every query reported graph-unavailable. This reader reconstructs per-file
+ * records in the shape buildIndex expects ({file, entities, edges}).
+ *
+ * Edge normalization (bug fix): the indexer stores IMPORT edge `dst` as the RAW
+ * import specifier (e.g. "../../bin/x.cjs"), not a repo-relative path — so
+ * who-imports('bin/x.cjs') could never match. We resolve each relative specifier
+ * against its source file's directory to a repo-relative POSIX path so the
+ * import graph keys on real file ids. Bare/package specifiers (no leading '.')
+ * are left as-is (they're external modules, not repo files).
+ */
+function loadSqliteStore(dbPath) {
+  let Database;
+  try { Database = require("better-sqlite3"); }
+  catch (_e) { return null; }
+  let db;
+  try {
+    db = new Database(dbPath, { readonly: true });
+    const nodes = db.prepare("SELECT id, kind, tier, file, name, func_id FROM nodes").all();
+    const edges = db.prepare("SELECT kind, src, dst FROM edges").all();
+
+    const norm = (p) => p.replace(/\\/g, "/");
+    // The set of indexed file ids — used to resolve an extensionless import
+    // specifier (`./b`) to the actual file id (`src/b.ts`). Import specifiers in
+    // TS/JS routinely omit the extension; the graph keys on real file ids.
+    // Every indexed file appears as the `file` of its nodes (the indexer does not
+    // emit dedicated FILE nodes), so collect the distinct file set from there.
+    const fileIds = new Set(nodes.map((n) => norm(n.file)).filter(Boolean));
+    const EXTS = ["", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".py", "/index.ts", "/index.tsx", "/index.js"];
+    const resolveDst = (srcFile, dst) => {
+      if (typeof dst !== "string" || !dst.startsWith(".")) return dst; // package/external
+      const base = path.posix.normalize(path.posix.join(path.posix.dirname(norm(srcFile)), norm(dst)));
+      // Prefer an actual indexed file id (try the bare path, then common extensions).
+      for (const ext of EXTS) {
+        if (fileIds.has(base + ext)) return base + ext;
+      }
+      return base; // no indexed match (external/missing) — keep the resolved path
+    };
+
+    // Group into per-file records.
+    const byFile = new Map();
+    const rec = (file) => {
+      if (!byFile.has(file)) byFile.set(file, { file, entities: [], edges: [] });
+      return byFile.get(file);
+    };
+    for (const n of nodes) {
+      if (n.func_id) rec(n.file).entities.push({ funcId: n.func_id, name: n.name, file: n.file, tier: n.tier });
+    }
+    for (const e of edges) {
+      // src for an IMPORT edge is the source FILE; for a CALL edge it's a funcId
+      // (file#fn@line). The owning file record is the src's file part.
+      const srcFile = e.src.includes("#") ? e.src.split("#")[0] : e.src;
+      const dst = e.kind === "IMPORT" ? resolveDst(srcFile, e.dst) : e.dst;
+      rec(srcFile).edges.push({ kind: e.kind, src: e.src, dst });
+    }
+    db.close();
+    return { records: Array.from(byFile.values()) };
+  } catch (_e) {
+    try { if (db) db.close(); } catch {}
+    return null;
+  }
+}
+
 function loadStore(storePath) {
   if (!storePath) return { ok: false, reason: "graph-unavailable" };
 
-  // Try JSONL store (the primary format; SQLite adapter is D3's concern)
-  const loaded = loadJsonlStore(storePath);
+  // SQLite is the PICKED store (K1) — read it first; fall back to JSONL baseline.
+  const loaded = (storePath.endsWith(".db") ? loadSqliteStore(storePath) : loadJsonlStore(storePath))
+    || loadJsonlStore(storePath) || (storePath.endsWith(".db") ? null : loadSqliteStore(path.join(path.dirname(storePath), "graph.db")));
   if (!loaded) return { ok: false, reason: "graph-unavailable" };
 
   try {
@@ -424,10 +498,21 @@ function runFreshnessCheck(storePath) {
   }
 
   try {
-    // D4 contract: compute_touched_files() → whole-tree dirty set
-    // then freshness_check_on_query(touched_files) → re-indexes stale files
-    const touchedFiles = freshnessModule.compute_touched_files(storePath);
-    freshnessModule.freshness_check_on_query(touchedFiles, storePath);
+    // D4's real signatures take (db, projectRoot, ...) — NOT (storePath). The
+    // store path is `.gsd-t/graph.db`; projectRoot is the repo containing `.gsd-t`.
+    // (Earlier this called compute_touched_files(storePath) / freshness_check_on_query
+    //  (touched, storePath) — a cross-domain signature mismatch that threw on every
+    //  real query: freshness_check_on_query read `.edits` off the storePath string.)
+    const projectRoot = storePath.endsWith(".db")
+      ? path.dirname(path.dirname(storePath))   // .gsd-t/graph.db → repo root
+      : path.dirname(path.dirname(storePath));   // .gsd-t/graph-index → repo root
+    const db = freshnessModule.openDb(projectRoot);
+    const touched = freshnessModule.compute_touched_files(db, projectRoot);
+    // parse_and_put (from D3) lets freshness re-index stale files; pass it when
+    // available so an edited file is refreshed before the answer.
+    let parseAndPut = null;
+    try { parseAndPut = require(path.join(__dirname, "gsd-t-graph-index.cjs")).parse_and_put; } catch { /* optional */ }
+    freshnessModule.freshness_check_on_query(db, projectRoot, touched, parseAndPut);
     return { ok: true };
   } catch (_e) {
     return { ok: false, reason: "graph-unavailable" };
