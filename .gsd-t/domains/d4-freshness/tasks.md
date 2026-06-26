@@ -6,7 +6,7 @@ When all tasks complete: a content-hash freshness checker that catches uncommitt
 ## Wave 2
 
 ### M94-D4-T1 — Content-hash freshness checker + freshness contract
-- **Status**: [ ] pending
+- **Status**: [x] complete
 - **Headline**: true
 - **Files**: `bin/gsd-t-graph-freshness.cjs`, `.gsd-t/contracts/graph-freshness-contract.md`, `test/m94-d4-freshness.test.js`
 - **Touches**: `bin/gsd-t-graph-freshness.cjs`, `.gsd-t/contracts/graph-freshness-contract.md`, `test/m94-d4-freshness.test.js`
@@ -25,7 +25,7 @@ When all tasks complete: a content-hash freshness checker that catches uncommitt
   - Re-index is a FUNCTION CALL into D3's module — NEVER an edit to D3's files (keeps file-disjointness)
 
 ### M94-D4-T2 — AC-3 killing test: uncommitted edit caught
-- **Status**: [ ] pending
+- **Status**: [x] complete
 - **Files**: `test/m94-d4-uncommitted-edit-caught.test.js`
 - **Touches**: `test/m94-d4-uncommitted-edit-caught.test.js`
 - **ImplPath**: `bin/gsd-t-graph-freshness.cjs` (T1) — this test exercises the content-hash path end-to-end
@@ -39,7 +39,7 @@ When all tasks complete: a content-hash freshness checker that catches uncommitt
   - **NO inline wall-clock assertion** — the sub-~1s budget is measured at scale in T3, not asserted on this toy fixture (flake-proof)
 
 ### M94-D4-T3 — AC-3 scale-budget measurement (sub-~1s at 1.5M-node scale)
-- **Status**: [ ] pending
+- **Status**: [x] complete
 - **Files**: `.gsd-t/spikes/ac3-freshness-scale-budget-results.md`
 - **Touches**: `.gsd-t/spikes/ac3-freshness-scale-budget-results.md`
 - **ImplPath**: `bin/gsd-t-graph-freshness.cjs` (T1 — `compute_touched_files()` + `freshness_check_on_query`) — this task MEASURES freshness costs at ~1.5M-node scale (reusing the D1 synthetic graph) and records the wall-clock; no new impl: (a) the per-edit re-index + one-hop re-validation, (b) **[Fix-1 follow-on]** the whole-tree `compute_touched_files()` dirty-scan cost per query (the mtime-prefilter → content-hash path Fix-1 introduced — scanning ALL indexed files on every query is a new per-query cost that did NOT exist before Fix-1), AND (c) **[RE-PLAN Fix-4]** a ≥100-file dirty-set serial re-index wall-clock (the branch-switch / git-pull case — hundreds of files re-indexed inline before the query answers) against a stated multi-file ceiling
@@ -55,7 +55,7 @@ When all tasks complete: a content-hash freshness checker that catches uncommitt
   - This is the ONLY place the sub-~1s timing is asserted — never inline on a toy fixture (T1/T2 stay deterministic-correctness)
 
 ### M94-D4-T4 — Pre-mortem Fix-1: touched-set derivation killing test (edited non-target served fresh)
-- **Status**: [ ] pending
+- **Status**: [x] complete
 - **Files**: `test/m94-d4-touched-set-derivation.test.js`
 - **Touches**: `test/m94-d4-touched-set-derivation.test.js`
 - **ImplPath**: `bin/gsd-t-graph-freshness.cjs` (T1 — `compute_touched_files()` + `freshness_check_on_query`) — this test proves the dirty-set source is the whole tree, NOT the query target, so an edited NON-target file is never served stale
@@ -68,7 +68,7 @@ When all tasks complete: a content-hash freshness checker that catches uncommitt
   - FAILS LOUD if the implementation derives `touched_files` from only the query target (B's edit would then be invisible and C's importer set served stale)
 
 ### M94-D4-T5 — Pre-mortem Fix-2: add/delete/rename freshness test
-- **Status**: [ ] pending
+- **Status**: [x] complete
 - **Files**: `test/m94-d4-add-delete-rename-freshness.test.js`
 - **Touches**: `test/m94-d4-add-delete-rename-freshness.test.js`
 - **ImplPath**: `bin/gsd-t-graph-freshness.cjs` (T1 — the add/delete enumeration in `compute_touched_files()`) — this test proves freshness handles structural change beyond the EDIT case
@@ -85,7 +85,7 @@ When all tasks complete: a content-hash freshness checker that catches uncommitt
   - FAILS LOUD if freshness only re-hashes existing files and ignores adds/deletes (the EDIT-only blind spot the pre-mortem flagged)
 
 ### M94-D4-T6 — RE-PLAN Fix-4: multi-file freshness coherence killing test
-- **Status**: [ ] pending
+- **Status**: [x] complete
 - **Files**: `test/m94-d4-multifile-coherence.test.js`
 - **Touches**: `test/m94-d4-multifile-coherence.test.js`
 - **ImplPath**: `bin/gsd-t-graph-freshness.cjs` (T1 — `freshness_check_on_query` serial multi-file re-index) — this test proves per-file atomicity is NOT enough: a multi-file dirty set contributing to ONE query answer is re-indexed to a COHERENT all-new state, never a mix of old-for-some / new-for-others
