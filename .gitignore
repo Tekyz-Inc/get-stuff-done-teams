@@ -99,3 +99,7 @@ bin/context-meter-state.cjs
 .gsd-t/continue-here-*.md
 .gsd-t/dashboard.log
 .gsd-t/run.log
+
+# Playwright/test run artifacts (regenerated every run — never source)
+playwright-report/
+test-results/
