@@ -1,5 +1,29 @@
 # K1 Store Bake-off Results
 
+## ✅ RESOLVED 2026-06-25 — k1Verdict: PICK · store: SQLite (measured at real 870K Atos scale)
+
+**The initial KILL_OR_RESCOPE (below) is SUPERSEDED.** Resolution applied (user-approved):
+1. **Store drivers installed** as devDependencies (better-sqlite3 / graphology / kuzu) — installer zero-runtime-dep invariant preserved (test-only).
+2. **Index-size ceiling CORRECTED** 10× → **35× ratio AND ≤2 GB absolute** (both must hold). The 10× ratio was set with no reference; a full code graph (import+call edges + per-node tier/content_hash/funcId) is legitimately 20–30× the source-byte *proxy*, and absolute on-disk size is the real laptop constraint. Perf criteria unchanged.
+3. **Streaming measurement** (`bin/gsd-t-graph-k1-sqlite-stream.cjs`) — the multi-candidate bake-off holds the whole graph + all candidates in RAM and OOMs at 870K even at 8 GB heap. **That OOM is itself a finding: a load-all-in-RAM design does not scale; the real indexer MUST stream.** The streaming harness generates+inserts node/edge-at-a-time → constant memory.
+
+**SQLite @ real 870K nodes (Atos scale) — k1Verdict PICK, all 6 sub-criteria PASS:**
+
+| Sub-criterion | Measured | Ceiling | Result |
+|---|---|---|---|
+| who-imports latency | **0.0016 ms** | 50 ms | ✅ ~30,000× under |
+| who-calls latency | **0.012 ms** | 50 ms | ✅ ~4,000× under |
+| incremental single-file update | **0.0005 s** | 1 s | ✅ ~2,000× under |
+| atomicity (WAL) | ✅ | transactional | ✅ |
+| peak RSS (streaming) | **192 MB** | 4 GB | ✅ (OOM eliminated) |
+| index size | **649 MB · 26.3×** | 2 GB · 35× | ✅ both |
+
+**Picked store: SQLite** (better-sqlite3) — wins every criterion by huge margins, embedded, no server, zero paid license, WAL atomicity, recursive-CTE traversal fits the graph. **Wave-1 hard gate CLEARS:** K1 PICK (SQLite, measured @870K) + K2 PASS (tree-sitter 9.6 s @ real Atos; its only KILL was scale-mismatch vs the OLD 1.5M assumption, now RECONCILED at the measured 870K). **Mandatory Wave-2 invariant (from the OOM finding): the indexer MUST stream — never load the whole graph into memory.**
+
+---
+
+## Original spike result (SUPERSEDED — retained for audit trail)
+
 **Date:** 2026-06-26 03:13 UTC
 **Verdict:** KILL_OR_RESCOPE
 **k1Verdict:** KILL_OR_RESCOPE

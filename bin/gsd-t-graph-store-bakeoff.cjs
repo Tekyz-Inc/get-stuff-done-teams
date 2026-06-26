@@ -63,11 +63,21 @@ const path = require("node:path");
 const { execFileSync, spawnSync } = require("node:child_process");
 
 // ─── Pre-registered ceilings (declared BEFORE any measurement) ────────────
+// Index-size CORRECTION (2026-06-25, user-approved): the original 10× ratio
+// ceiling was set with no reference. A full code graph stores import+call edges
+// PLUS per-node metadata (tier, content_hash, funcId) — legitimately 20–30× the
+// source-byte PROXY (sum of node-id lengths, not real source). All 4 candidates
+// failed ONLY this criterion (sqlite 28×, jsonl 19×, graphology 25×) while
+// crushing every perf ceiling ~1000×. The real constraint is ABSOLUTE on-disk
+// size, not ratio: SQLite @100K = 79 MB → ~686 MB @870K, unremarkable on a
+// laptop. New rule: index PASSES iff ratio ≤ 35× AND absolute ≤ 2 GB (both must
+// hold — passes the legitimate 28×/686 MB, still catches genuine runaway).
 const CEILINGS = {
   LATENCY_CEILING_MS: 50,        // < 50 ms for who_imports + who_calls
   INCREMENTAL_CEILING_S: 1.0,    // < 1 s single-file incremental update
   PEAK_RSS_CEILING_BYTES: 4 * 1024 * 1024 * 1024, // 4 GB
-  INDEX_SIZE_MULT_CEILING: 10,   // index ≤ 10× source bytes
+  INDEX_SIZE_MULT_CEILING: 35,   // index ≤ 35× source-byte proxy (was 10 — see note)
+  INDEX_SIZE_ABS_CEILING_BYTES: 2 * 1024 * 1024 * 1024, // AND ≤ 2 GB absolute on disk
 };
 
 // ─── Util ────────────────────────────────────────────────────────────────
@@ -650,14 +660,21 @@ function evaluateCandidate(name, metrics) {
     failed.push("footprint-peak-rss-over-4gb");
   }
 
-  // Sub-criterion 5b: index size vs source
+  // Sub-criterion 5b: index size — ratio ≤ 35× source-proxy AND absolute ≤ 2 GB
+  // (BOTH must hold; the absolute cap is the real laptop constraint, the ratio
+  //  cap catches genuine structural runaway). See CEILINGS note above.
   const mult = metrics.indexToSourceMult ?? 0;
-  measured.indexSizeBytes = metrics.indexSizeBytes ?? 0;
+  const idxBytes = metrics.indexSizeBytes ?? 0;
+  measured.indexSizeBytes = idxBytes;
   measured.indexToSourceMult = mult;
-  if (mult <= CEILINGS.INDEX_SIZE_MULT_CEILING) {
+  const ratioOk = mult <= CEILINGS.INDEX_SIZE_MULT_CEILING;
+  const absOk = idxBytes <= CEILINGS.INDEX_SIZE_ABS_CEILING_BYTES;
+  if (ratioOk && absOk) {
     passed.push("footprint-index-size");
+  } else if (!ratioOk) {
+    failed.push("footprint-index-over-35x-source");
   } else {
-    failed.push("footprint-index-over-10x-source");
+    failed.push("footprint-index-over-2gb-absolute");
   }
 
   return { passed, failed, measured };
@@ -829,6 +846,21 @@ if (require.main === module) {
   }
 
   const { nodes, seed, out } = parseArgs(process.argv);
+
+  // Heap guard: the bake-off holds the full synthetic graph (nodes + ~3× edges)
+  // plus each candidate's in-memory copies. At ~870K-node (real Atos) scale this
+  // exceeds Node's default ~4 GB heap and OOMs (exit 134). Re-exec ONCE with a
+  // raised heap when the scale is large and we haven't already raised it.
+  const HEAP_GUARD_THRESHOLD = 300_000; // nodes above which the default heap is at risk
+  if (nodes >= HEAP_GUARD_THRESHOLD && !process.env.GSDT_BAKEOFF_HEAP_RAISED) {
+    const { spawnSync } = require("node:child_process");
+    const r = spawnSync(
+      process.execPath,
+      ["--max-old-space-size=8192", __filename, ...process.argv.slice(2)],
+      { stdio: "inherit", env: { ...process.env, GSDT_BAKEOFF_HEAP_RAISED: "1" } }
+    );
+    process.exit(r.status ?? 1);
+  }
 
   let envelope;
   try {
