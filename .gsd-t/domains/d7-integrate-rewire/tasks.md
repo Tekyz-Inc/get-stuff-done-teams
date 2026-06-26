@@ -1,0 +1,64 @@
+# Tasks: d7-integrate-rewire (INTEGRATE-stage — the 2 CRITICAL wiring/owner gaps + the machine-checkable Wave-1 gate)
+
+## Summary
+When all tasks complete: (1) `gsd-t graph status` / `who-imports` / `who-calls` / `blast-radius` hit the NEW D5 CLI (the M20–M21 "No graph index found" dead path is GONE — the exact anti-goal eliminated), the 6 dead `bin/graph-*.js` + 3 dead test files DELETED (USER-APPROVED, requirer-verified); (2) the Wave-2 live-store seam test (#8) has a real owner + a findable spec, and the M94 integration-points doc is at the path the integrate workflow actually reads; (3) the Wave-1 prove-or-kill HARD GATE is machine-checkable — a KILL with no AC-descope FAILS, and no Wave-2 build artifact may exist while a spike verdict is KILL without a descope. INTEGRATE-stage tasks: gated on the Wave-2 build trio integrating (D5 CLI + real pipeline exist) and the Wave-1 K1/K2 envelopes existing.
+
+## Integrate stage
+
+### M94-D7-T1 — Rewire `gsd-t graph` dispatch to the D5 CLI + delete the dead M20–M21 engine (Fix-1, USER-APPROVED destructive)
+- **Status**: [ ] pending
+- **Headline**: false
+- **Files**: `bin/gsd-t.js`, `test/m94-d5-graph-dispatch.test.js`
+- **Touches**: `bin/gsd-t.js`, `test/m94-d5-graph-dispatch.test.js`
+- **ImplPath**: `bin/gsd-t.js` (graph-dispatch region — `doGraphIndex`/`doGraphStatus`/`doGraphQuery`/`doGraph` + `case "graph"` at ~4619) rewired to delegate `status` / `who-imports` / `who-calls` / `blast-radius` to `bin/gsd-t-graph-query-cli.cjs` (D5-owned); the dead `require("./graph-indexer")` / `require("./graph-store")` / `require("./graph-query")` lines (3513/3531/3548) REMOVED; then the 6 dead engine files + 3 dead tests DELETED
+- **Test**: `test/m94-d5-graph-dispatch.test.js` — shells out the REAL `gsd-t graph status` AND `gsd-t graph who-imports <file>` through the `gsd-t` ENTRY POINT (the installed `bin/gsd-t.js`, NOT `bin/gsd-t-graph-query-cli.cjs` directly) and asserts the output is the NEW CLI's response (a live index answer OR a `graph-unavailable` FAIL-LOUD envelope) and is NEVER the dead M20–M21 `"No graph index found. Run: gsd-t graph index"` string. Asserts the 6 dead files + 3 dead tests no longer exist on disk (`fs.existsSync` false). **[pre-mortem export-safety]** asserts `bin/gsd-t.js` LOADS without a `ReferenceError` (e.g. `gsd-t status` exits cleanly) — proving no `module.exports` line references a deleted function. **[pre-mortem `graph index`]** asserts `gsd-t graph index` does NOT throw and does NOT hit the dead engine (maps to the new build path or an honest message). **[pre-mortem task-DAG preserved]** asserts `gsd-t graph --output json` STILL emits the M44 task DAG (the separate working subcommand is not collateral-damaged by the rewire). `[RULE] graph-status-live` is now bound to a real rewire + test (not just the D5 unit test).
+- **Contract refs**: graph-query-cli-contract (D5 — the dispatch delegates to this CLI's envelope)
+- **Dependencies**: M94-D5-T1 (the D5 CLI must exist) — gated on the Wave-2 build trio integrating
+- **Acceptance criteria**:
+  - (Fix-1 — CRITICAL dead-dispatch collision resolved; the M20–M21 anti-goal eliminated)
+  - **(a) rewire:** `bin/gsd-t.js` `case "graph"` delegates `status`/`who-imports`/`who-calls`/`blast-radius` to `bin/gsd-t-graph-query-cli.cjs`; the dead `require("./graph-{indexer,store,query}")` lines are REMOVED — `[RULE] graph-status-live`
+  - **(a1) export-safety (pre-mortem gap — load-time ReferenceError):** `doGraphIndex`/`doGraphStatus`/`doGraphQuery` are RE-EXPORTED in `module.exports` (lines ~4483–4485). The rewire MUST keep these function names DEFINED (re-implemented as thin delegators to the D5 CLI) OR remove BOTH the function AND its `module.exports` line in the SAME edit — a dangling export of a deleted function is a load-time `ReferenceError` on EVERY `gsd-t` command. The CLI smoke test (`gsd-t status`) catches it (the module must load at all). `[RULE] graph-rewire-no-dangling-export`
+  - **(a2) `graph index` verb (pre-mortem gap):** the OLD dispatch had a `gsd-t graph index` BUILD verb (`doGraphIndex`); the NEW D5 CLI's verbs are `status`/`who-imports`/`who-calls`/`blast-radius` (no `index`). The rewire MUST map `gsd-t graph index` to the NEW build path (the D3 `build_index` surface via the D5 CLI if it exposes a build, ELSE a clear `graph index is built lazily on first query — run a query`/`graph-unavailable` message) — NEVER leave `graph index` dispatching to a deleted function. The integration test asserts `gsd-t graph index` does not throw and does not hit the dead engine.
+  - **(b) delete (USER-APPROVED destructive, requirer-verified):** DELETE `bin/graph-{store,cgc,indexer,overlay,parsers,query}.js` AND `test/graph-{indexer,store,query}.test.js`. RE-RUN the requirer grep first (constraints.md) — if any requirer OTHER than the rewired dispatch + the 3 dead tests appears, STOP + escalate
+  - **Integration test (`test/m94-d5-graph-dispatch.test.js`):** the REAL `gsd-t graph status` + `gsd-t graph who-imports <f>` through the entry point hit the NEW CLI (live answer / `graph-unavailable`), NEVER the dead `"No graph index found"` string; the 6 dead files + 3 dead tests are gone from disk — the test FAILS if the dead path still wins (the exact anti-goal) OR if a dead file survives
+  - **(c) preserve the task-DAG path (pre-mortem — do NOT drop a working subcommand):** `doGraph` ALSO dispatches `graph tasks` / `graph --output json|table` to `doGraphTaskOutput` → `gsd-t-task-graph.cjs` (the M44 task-DAG, a SEPARATE working feature, NOT the dead engine). The rewire MUST keep `graph tasks` / `graph --output` intact (Destructive Action Guard — adapt, don't replace working functionality). The integration test asserts `gsd-t graph --output json` still emits the task DAG
+  - **Sole-owner invariant:** d7-T1 is the ONLY task in M94 that edits `bin/gsd-t.js` graph-dispatch — file-disjointness holds (the new CLI lives under `gsd-t-graph-*`, the dead engine under bare `graph-*`)
+  - Pre-Commit Gate: `bin/gsd-t.js` modified → CLI smoke test (`gsd-t graph status` / `status` / `doctor`); dead-file deletion recorded in `.gsd-t/techdebt.md` + progress.md Decision Log; if the `gsd-t graph` interface text changes → `GSD-T-README.md` + `README.md` + `gsd-t-help.md`
+
+### M94-D7-T2 — Machine-checkable Wave-1 prove-or-kill HARD GATE (Fix-4)
+- **Status**: [ ] pending
+- **Headline**: false
+- **Files**: `test/m94-wave1-hard-gate.test.js`
+- **Touches**: `test/m94-wave1-hard-gate.test.js`
+- **ImplPath**: `test/m94-wave1-hard-gate.test.js` — reads the K1 result envelope's `k1Verdict` (D1-T3) + the K2 result envelope's `k2Verdict` (D2-T3) and ENFORCES the prove-or-kill HARD GATE that was prose-only before this fix
+- **Test**: `test/m94-wave1-hard-gate.test.js` — asserts: (1) if `k1Verdict != PICK` OR `k2Verdict != PASS`, the recorded state REQUIRES an explicit AC-descope record (`[RULE] kill-outcome-records-ac-descope`) in `m94-integration-points.md`/progress.md — a KILL/KILL_OR_RESCOPE with NO descope record FAILS; (2) NO Wave-2 build artifact (the `bin/gsd-t-graph-{edge-extract,index,scip-upgrade,freshness,query-cli}.cjs` files) may exist on disk while a spike verdict is KILL/KILL_OR_RESCOPE WITHOUT a descope record (a built body atop an un-descoped kill FAILS); (3) the happy path: `k1Verdict==PICK` && `k2Verdict==PASS` ⇒ gate PASSES and Wave-2 artifacts are permitted. Uses fixture envelopes for the KILL/descope/no-descope permutations (deterministic, no real spike run needed) plus the real recorded envelopes when present.
+- **Contract refs**: graph-store-schema-contract (D1 — `k1Verdict`), the K2 result doc (D2 — `k2Verdict`), m94-integration-points.md (the descope-record location)
+- **Dependencies**: M94-D1-T3 (writes `k1Verdict`), M94-D2-T3 (writes `k2Verdict`)
+- **Acceptance criteria**:
+  - (Fix-4 — Wave-1 HARD GATE is machine-checkable, not prose — `[RULE] wave1-hard-gate-machine-checkable`)
+  - Reads `k1Verdict` (PICK|KILL_OR_RESCOPE) + `k2Verdict` (PASS|KILL) from the recorded result envelopes
+  - A verdict != PICK/PASS with NO explicit AC-descope record FAILS the gate (`[RULE] kill-outcome-records-ac-descope`)
+  - NO Wave-2 build artifact may exist while a spike verdict is KILL without a descope record — a KILL + a built body + no descope FAILS
+  - The happy path (PICK + PASS) PASSES and permits Wave-2 artifacts
+  - Fixture-driven for the KILL permutations (deterministic) — never needs a live spike to assert the gate logic
+
+### M94-D7-T3 — Live-store seam test owner + findable M94 integration-points doc (Fix-2)
+- **Status**: [ ] pending
+- **Headline**: false
+- **Files**: `test/m94-integrate-live-store-seam.test.js`, `.gsd-t/contracts/m94-integration-points.md`
+- **Touches**: `test/m94-integrate-live-store-seam.test.js`, `.gsd-t/contracts/m94-integration-points.md`
+- **ImplPath**: `test/m94-integrate-live-store-seam.test.js` — the #8 Wave-2 D5→D4→D3→D1 live-pipeline seam test, now OWNED (was named but ownerless); `.gsd-t/contracts/m94-integration-points.md` — the M94 integration-points doc at the EXACT path the integrate workflow reads (`templates/workflows/gsd-t-integrate.workflow.js` line 81: `.gsd-t/contracts/${milestone.toLowerCase()}-integration-points.md` = `m94-integration-points.md`)
+- **Test**: `test/m94-integrate-live-store-seam.test.js` — builds a REAL fixture repo via D3's `build_index` into a REAL D1 store (NO mocks), queries `who-imports` via the REAL D5 CLI, EDITS a source file ON DISK (uncommitted), RE-queries, and asserts the SECOND answer reflects the edit — proving D5→D4 (freshness) → D3 (`parse_and_put`) → D1 (store-mutation) all fired LIVE. Gated on the Atos-independent fixture repo (self-contained, no external repo) so it runs in CI; FAIL-LOUD if the D5 CLI or D3 build surface is absent (never a silent green).
+- **Contract refs**: graph-indexer-build-contract (D3), graph-freshness-contract (D4), graph-query-cli-contract (D5), graph-store-schema-contract (D1)
+- **Dependencies**: M94-D3-T2 (`build_index`/`parse_and_put`), M94-D4-T1 (freshness), M94-D5-T1 (query CLI) — gated on the Wave-2 build trio integrating
+- **Acceptance criteria**:
+  - (Fix-2 — the #8 seam test has a NAMED owner + a FINDABLE spec path; plan may not proceed otherwise)
+  - `test/m94-integrate-live-store-seam.test.js` builds a real fixture repo → real D1 store → who-imports via the real D5 CLI → edit a file on disk → re-query → second answer reflects the edit (no mocks) — `[RULE] live-store-seam-real-pipeline`
+  - `.gsd-t/contracts/m94-integration-points.md` exists at the integrate-read path (`${milestone.toLowerCase()}-integration-points.md`) so the integrate stage FINDS the seam-test spec + the wave groupings; it carries the M94 wave groupings + the seam-test pointer + the AC-descope-record location (Fix-4's gate reads from here)
+  - The seam test FAILS LOUD if any of D3/D4/D5's surfaces are absent (never a silent skip that hides a broken seam)
+
+## Execution Estimate
+- Total tasks: 3
+- Independent tasks (no cross-domain blockers): 0 (all INTEGRATE-stage — gated on Wave-1 envelopes + the Wave-2 build trio integrating)
+- Intra-domain serial chain: T1, T2, T3 are mutually independent write-targets (no shared file) — run concurrently at integrate; each gated on its upstream producers
+- Estimated checkpoints: 1 (INTEGRATE — the rewire + seam + hard-gate land together before verify)

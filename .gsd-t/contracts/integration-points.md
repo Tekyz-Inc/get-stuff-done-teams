@@ -1,6 +1,6 @@
 # Integration Points
 
-## Current State: M94 — Persistent Code Graph Index (Phase 1, backlog #44b) — RE-PLANNED 2026-06-26 (AC-4 RESCOPED to INSIGHT-delta-only per user decision 2026-06-25) around the CENTRAL TENET (dumb-reach vs smart-reach). RISK-FIRST: 6 file-disjoint domains across 3 waves, **21 atomic tasks (Shape D)** + 1 integrate-owned seam test, zero write-target collisions (file-disjointness PROVEN over all 21). RE-PLANNED 2026-06-26 (2): +3 pre-mortem-fix test tasks (D3-T4 real-Atos spotcheck, D4-T4 touched-set derivation, D4-T5 add/delete/rename) + 2 contract clarifications (freshness touched-set derivation + add/del/rename) + Fix-3 toggle assertion folded into D6-T2 + Fix-5/Fix-6 contract markings — NO scope change, all net-new test files, disjointness preserved. Wave 1 is a PROVE-OR-KILL HARD GATE — no Wave-2 body build until both spikes PASS. The graph is the MANDATORY structural-knowledge layer; the shared query layer (D5) + the contract mandate that code-reading steps consume the graph are Phase-1 deliverables so the follow-on consumers (/debug /quick /impact /execute /plan partition M92-reflex) are wiring, not redesign. Phase 1 WIRES only /scan as the first proof (ADDITIVELY — current scan kept FULLY INTACT); the others are the MANDATED SEQUENCED roadmap (below), never dropped. **AC-4 = INSIGHT delta only** (graph-wired scan surfaces ≥ the no-graph run's structural findings PLUS ≥1 it missed/got wrong, on a pinned Atos SHA); the SPEED / file-count / cost-critical-path axis is DROPPED from M94 (deferred to a separate "re-think /scan from the graph up" milestone) — D6-T4 (cost-critical-path) removed, D6-T1/T2/T3 reframed insight-only. 7 reframe-required rules remain (the 2 speed/cost-path rules retired — see the table below).
+## Current State: M94 — Persistent Code Graph Index (Phase 1, backlog #44b) — RE-PLANNED 2026-06-26 (3) (deeper pre-mortem re-attack after the runCli flake fix v4.9.14 → gates run cleanly → 6 NEW real gaps found). AC-4 RESCOPED to INSIGHT-delta-only per user decision 2026-06-25, around the CENTRAL TENET (dumb-reach vs smart-reach). RISK-FIRST: **7 file-disjoint domains** (d1–d6 + the new INTEGRATE-stage d7), **24 atomic tasks (Shape D)**, zero write-target collisions (file-disjointness PROVEN over all 24). **RE-PLAN (3) — the 6 deeper-pre-mortem fixes (2 CRITICAL wiring/owner gaps + 4 HIGH/MEDIUM — see the RE-PLAN (3) Fixes table below):** R3-Fix-1 (CRITICAL, USER-APPROVED destructive) rewire `bin/gsd-t.js` `case "graph"` → the D5 CLI + DELETE the 6 dead M20–M21 `bin/graph-*.js` + 3 dead tests (the dead path was WINNING — `gsd-t graph status` kept returning the M20–M21 "No graph index found" anti-goal) [D7-T1]; R3-Fix-2 (CRITICAL) the #8 live-store seam test gets a NAMED owner + a FINDABLE spec (`m94-integration-points.md` at the integrate-read path) [D7-T3]; R3-Fix-3 (HIGH) AC-4 ⊇ over a deterministic structural-finding IDENTITY, not LLM free-text [D6-T1/T2]; R3-Fix-4 (HIGH) Wave-1 HARD GATE machine-checkable via `k1Verdict`/`k2Verdict` + a gate test [D7-T2 + D1-T3/D2-T3]; R3-Fix-5 (MEDIUM) K1 KILL attributable per-candidate per-criterion [D1-T2/T3]; R3-Fix-6 (MEDIUM) K2 MEASURES real Atos scale, never assumes ~1.5M [D2-T2/T3]. PRIOR RE-PLANNED 2026-06-26 (2): +3 pre-mortem-fix test tasks (D3-T4 real-Atos spotcheck, D4-T4 touched-set derivation, D4-T5 add/delete/rename) + 2 contract clarifications (freshness touched-set derivation + add/del/rename) + toggle assertion folded into D6-T2 + footprint contract markings — NO scope change, all net-new test files, disjointness preserved. Wave 1 is a PROVE-OR-KILL HARD GATE — no Wave-2 body build until both spikes PASS. The graph is the MANDATORY structural-knowledge layer; the shared query layer (D5) + the contract mandate that code-reading steps consume the graph are Phase-1 deliverables so the follow-on consumers (/debug /quick /impact /execute /plan partition M92-reflex) are wiring, not redesign. Phase 1 WIRES only /scan as the first proof (ADDITIVELY — current scan kept FULLY INTACT); the others are the MANDATED SEQUENCED roadmap (below), never dropped. **AC-4 = INSIGHT delta only** (graph-wired scan surfaces ≥ the no-graph run's structural findings PLUS ≥1 it missed/got wrong, on a pinned Atos SHA); the SPEED / file-count / cost-critical-path axis is DROPPED from M94 (deferred to a separate "re-think /scan from the graph up" milestone) — D6-T4 (cost-critical-path) removed, D6-T1/T2/T3 reframed insight-only. 7 reframe-required rules remain (the 2 speed/cost-path rules retired — see the table below).
 
 ### M94 Wave Groupings (the integration shape)
 
@@ -14,12 +14,16 @@ WAVE 1 — PROVE-OR-KILL (parallel, file-disjoint, throwaway spike code). HARD G
        │  (node/edge/tier/content-hash columns)       │  (entity/edge taxonomy + parse harness)
        ▼                                              ▼
   ┌──────────────────────────────────────────────────────────────────────────────┐
-  │ WAVE-1 HARD GATE: REQUIRE K1 == PICK (store on evidence, ALL 4 sub-criteria:    │
-  │ embedded · <50ms query · <1s incremental · concurrent-atomicity) AND K2 == PASS │
-  │ (tree-sitter full-indexes REAL Atos < ~2 min, against a PINNED SHA). Either     │
-  │ fails its numbers → legitimate KILL/RE-SCOPE; the KILL MUST record an explicit  │
-  │ AC-descope (which ACs survive) before any Wave-2 task. Wave 2 does NOT start.   │
-  │ [RULE] wave1-hard-gate  [RULE] kill-outcome-records-ac-descope (#5)             │
+  │ WAVE-1 HARD GATE (MACHINE-CHECKABLE — R3-Fix-4): REQUIRE k1Verdict==PICK (store  │
+  │ on evidence, ALL 4 sub-criteria: embedded · <50ms query · <1s incremental ·      │
+  │ concurrent-atomicity + Fix-6 footprint ceilings) AND k2Verdict==PASS (tree-sitter│
+  │ full-indexes REAL Atos < ~2 min, PINNED SHA, RSS ceiling + MEASURED-scale sanity).│
+  │ Verdicts are STRUCTURED FIELDS (D1-T3 k1Verdict, D2-T3 k2Verdict); the gate is    │
+  │ ENFORCED by test/m94-wave1-hard-gate.test.js (D7-T2), not prose. Either fails →   │
+  │ legitimate KILL/RE-SCOPE; the KILL MUST record an explicit AC-descope (in         │
+  │ m94-integration-points.md) before any Wave-2 task — a KILL w/ no descope FAILS;   │
+  │ no Wave-2 artifact may exist while a verdict is KILL-without-descope. Wave 2 waits.│
+  │ [RULE] wave1-hard-gate-machine-checkable  [RULE] kill-outcome-records-ac-descope  │
   └──────────────────────────────────────────────────────────────────────────────┘
        │
 WAVE 2 — BUILD (parallel, file-disjoint over a SHARED on-disk store; D3 writes, D4 mutates, D5 reads):
@@ -56,8 +60,18 @@ WAVE 3 — CONSUMER WIRING (the falsifiable SMART-REACH payoff; ADDITIVE extend-
        │  build-if-absent; query INJECTS the graph's structural slice (dependents/dead-code/cycles) into the
        │  deep-finders so findings are ACCURATE (graph-derived, not LLM-reconstructed) — additive, scan kept intact.
        │  Falls back to grep mode ANNOUNCED on graph-unavailable. NO wall-clock measured (speed axis out of M94).
-       │  Fix-3: toggle-integrity asserted — baseline graph-query call-count == 0 (genuinely graph-free), graph-wired > 0.
-       │  [RULE] scan-injects-structural-slice · scan-insight-gate · ac4-atos-sha-pinned · no-graph-baseline-proven-graph-free
+       │  toggle-integrity asserted — baseline graph-query call-count == 0 (genuinely graph-free), graph-wired > 0.
+       │  R3-Fix-3: AC-4 ⊇ over a deterministic structural-finding IDENTITY ({kind | sorted symbol/file set}), NOT raw LLM titles.
+       │  [RULE] scan-injects-structural-slice · scan-insight-gate · scan-finding-identity-canonical · ac4-atos-sha-pinned · no-graph-baseline-proven-graph-free
+       │
+INTEGRATE — d7 integrate-rewire (after the Wave-2 trio integrates; the 2 CRITICAL wiring/owner gaps + the machine-checkable Wave-1 gate):
+       ▼
+  d7 integrate-rewire
+    M94-D7-T1 rewire bin/gsd-t.js `case "graph"` → the D5 CLI + DELETE the 6 dead M20–M21 bin/graph-*.js + 3 dead tests (R3-Fix-1, USER-APPROVED destructive)
+       └─ integration test shells out REAL `gsd-t graph status`/`who-imports` through the entry point → asserts the NEW CLI (live/graph-unavailable), NEVER the dead "No graph index found". [RULE] graph-status-live
+    M94-D7-T2 machine-checkable Wave-1 HARD GATE test — reads k1Verdict/k2Verdict; a KILL w/o AC-descope FAILS; no Wave-2 artifact while KILL-without-descope (R3-Fix-4). [RULE] wave1-hard-gate-machine-checkable
+    M94-D7-T3 live-store seam test owner (#8 given a real owner) + m94-integration-points.md at the integrate-read path (R3-Fix-2). [RULE] live-store-seam-real-pipeline
+       └─ d7 is the SOLE writer of bin/gsd-t.js anywhere in M94 (the rewire edits ONLY the graph-dispatch; the new CLI is gsd-t-graph-*, the dead engine bare graph-*) — file-disjointness holds.
 ```
 
 ### M94 Cross-domain seams (function-level / contract-level — NO shared file edits)
@@ -67,9 +81,11 @@ WAVE 3 — CONSUMER WIRING (the falsifiable SMART-REACH payoff; ADDITIVE extend-
 | Parser-floor taxonomy | d2 (M94-D2-T1) | d3 (lifts WHAT) | `graph-parser-floor-contract.md` | NO — contract, frozen at K2 PASS |
 | Build/put surface | d3 (M94-D3-T2) | d4 (`parse_and_put`), d5 (re-index inline) | `graph-indexer-build-contract.md` function surface | NO — function call, not a file edit |
 | Freshness check | d4 (M94-D4-T1) | d5 (inline before answer) | `graph-freshness-contract.md` `freshness_check_on_query` | NO — function call |
-| Query envelope | d5 (M94-D5-T1) | d6 (scan reads it) | `graph-query-cli-contract.md` JSON envelope | NO — contract |
+| Query envelope | d5 (M94-D5-T1) | d6 (scan reads it), d7 (dispatch delegates) | `graph-query-cli-contract.md` JSON envelope | NO — contract |
 | Scan wiring | d6 (M94-D6-T2) | none (terminal) | extend-class edits to existing scan files | d6 SOLE owner of both scan files |
-| **Live store seam (#8, INTEGRATE-owned)** | integrate (not a domain) | n/a | `test/m94-integrate-live-store-seam.test.js` — real D3 index → real D1 store → edit file → D5 query reflects edit | NO — net-new test file, owned at integrate |
+| **Live store seam (#8, D7-OWNED — R3-Fix-2)** | d7 (M94-D7-T3) | n/a | `test/m94-integrate-live-store-seam.test.js` — real D3 index → real D1 store → edit file → D5 query reflects edit | NO — net-new test file, SOLE-owned by D7-T3 |
+| **Graph dispatch rewire (R3-Fix-1, D7-OWNED, USER-APPROVED destructive)** | d7 (M94-D7-T1) | n/a — terminal | `bin/gsd-t.js` `case "graph"` delegates to `bin/gsd-t-graph-query-cli.cjs`; 6 dead `bin/graph-*.js` + 3 dead tests DELETED | `bin/gsd-t.js` — D7-T1 SOLE owner anywhere in M94 |
+| **Wave-1 hard-gate (R3-Fix-4, D7-OWNED)** | d7 (M94-D7-T2) | reads D1-T3 `k1Verdict` + D2-T3 `k2Verdict` | `test/m94-wave1-hard-gate.test.js` — KILL-without-descope FAILS; no Wave-2 artifact while KILL-without-descope | NO — net-new test file, SOLE-owned by D7-T2 |
 
 ### M94 Reframe-required rules (the CENTRAL TENET binding — AC-4 RESCOPED 2026-06-25: rules #1 + #2 RETIRED, insight rule kept)
 | # | Sev | Rule / test | Owner | `[RULE]` |
@@ -79,10 +95,10 @@ WAVE 3 — CONSUMER WIRING (the falsifiable SMART-REACH payoff; ADDITIVE extend-
 | INSIGHT | CRITICAL | AC-4 INSIGHT gate (the SOLE AC-4 binding): graph-wired scan surfaces ≥ the no-graph baseline's structural findings PLUS ≥1 concrete named finding the no-graph run missed/got wrong, on a pinned Atos SHA | D6-T1 (contract) + D6-T3 (check) | `scan-insight-gate` |
 | 3 | HIGH | Numeric query-latency target (<50ms who-imports/who-calls) in graph-store-schema-contract.md BEFORE D1; engineered-to-fail candidate fails on latency | D1-T2/T3 + contract | `k1-query-latency-target` |
 | 4 | HIGH | Store concurrency/atomicity: concurrent who-imports during re-index returns fully-old OR fully-new, never torn; K1 4th sub-criterion | D1-T2 (K1) + D4-T1 (reliance) + store-schema contract | `k1-atomic-single-file-update` · `freshness-write-atomic-no-torn-read` |
-| 5 | HIGH | Per Wave-1 KILL outcome, an explicit AC-descope tied to which ACs survive, recorded before any Wave-2 task | D1-T3 / D2-T3 + this file's gate | `kill-outcome-records-ac-descope` |
+| 5 | HIGH | Per Wave-1 KILL outcome, an explicit AC-descope tied to which ACs survive, recorded before any Wave-2 task — now MACHINE-CHECKED via the `k1Verdict`/`k2Verdict` fields + the D7-T2 gate test (R3-Fix-4) | D1-T3 / D2-T3 + D7-T2 gate test | `kill-outcome-records-ac-descope` |
 | 6 | MEDIUM | AC-3/K1 timing split: deterministic CORRECTNESS test (no timing) gates the build; separate SCALE-BUDGET measurement records the <1s number | D4-T2 (correctness) + D4-T3 (scale) | (timing-split) |
 | 7 | MEDIUM | Atos commit-SHA pin for AC-4 (no-graph run == graph-wired run) AND K2; fail-loud on repo-not-found/commit-mismatch | D6-T3 + D2-T2 + both contracts | `ac4-atos-sha-pinned` · `k2-atos-sha-pinned` |
-| 8 | MEDIUM | Wave-2 integration seam test (integrate-owned, not mocked): real index→store→edit→query reflects the edit + store mutated | INTEGRATE | (live-store-seam) |
+| 8 | MEDIUM | Wave-2 integration seam test (NOW D7-OWNED — R3-Fix-2, not mocked): real index→store→edit→query reflects the edit + store mutated; spec findable at `m94-integration-points.md` | D7-T3 | `live-store-seam-real-pipeline` |
 | 9 | LOW | Blast-radius semantics (which graphs, hop-depth) in graph-query-cli-contract.md + fixture test: union of import+call graphs, neither over- nor under-broad | D5-T1 (contract) + D5-T3 (test) | `blast-radius-unions-both-graphs` |
 
 ### M94 Pre-mortem Fixes (RE-PLAN 2026-06-26 — 6 gaps, NO scope change: missing tests + 2 freshness-contract clarifications)
@@ -96,20 +112,33 @@ WAVE 3 — CONSUMER WIRING (the falsifiable SMART-REACH payoff; ADDITIVE extend-
 | 5 | MEDIUM | blast-radius marked SEQUENCED-follow-on (NOT Phase-1-consumed, /impact + /debug deferred, NOT wired into /scan) in graph-query-cli-contract.md + this file; D5-T3 union fixture = sole Phase-1 liveness — declared foundation, not silent dead deliverable | D5-T1 (contract marking) + D5-T3 (liveness) | `blast-radius-sequenced-follow-on-not-phase1-consumed` |
 | 6 | MEDIUM | Build footprint ceiling: K2 (D2-T2/T3) records peak build RSS; K1 (D1-T2/T3) records peak load RSS + on-disk index size against PRE-REGISTERED ceilings (peak-RSS bound + index-size-vs-source multiple) in store-schema contract; over ceiling → KILL/not-picked (prove-or-kill peer to latency/throughput) | D2-T2/T3 + D1-T2/T3 + store-schema contract | `k2-build-footprint-ceiling` · `k1-footprint-ceiling` |
 
+### M94 RE-PLAN (3) Fixes (2026-06-26 — deeper pre-mortem re-attack; 2 CRITICAL wiring/owner gaps + 4 HIGH/MEDIUM; +1 INTEGRATE-stage domain d7, +3 D7 tasks, NO Wave-1/2/3 scope change)
+| Fix | Sev | Rule / test | Owner | `[RULE]` |
+|-----|-----|-------------|-------|----------|
+| R3-1 | CRITICAL (USER-APPROVED destructive) | Dead `gsd-t graph` dispatch collision: `bin/gsd-t.js` `case "graph"` STILL routed to the dead M20–M21 `graph-store/indexer/query.js` (the dead path WON → `gsd-t graph status` returned the M20–M21 "No graph index found" anti-goal). Rewire the dispatch → the NEW `bin/gsd-t-graph-query-cli.cjs`; DELETE the 6 dead `bin/graph-{store,cgc,indexer,overlay,parsers,query}.js` + 3 dead `test/graph-{indexer,store,query}.test.js` (requirer-verified safe: only the rewired dispatch + those 3 tests reference them); integration test `test/m94-d5-graph-dispatch.test.js` shells out REAL `gsd-t graph status`/`who-imports` through the entry point, asserts the NEW CLI (live/graph-unavailable), NEVER the dead string | D7-T1 | `graph-status-live` |
+| R3-2 | CRITICAL | The #8 live-store seam test was NAMED but ownerless + integrate couldn't find its spec. Give it a NAMED owner (`test/m94-integrate-live-store-seam.test.js`, real D3 build→D1 store→D5 who-imports→edit on disk→re-query reflects the edit, NO mocks) AND publish the M94 integration-points doc at the integrate-read path (`.gsd-t/contracts/m94-integration-points.md` per `gsd-t-integrate.workflow.js:81`) | D7-T3 | `live-store-seam-real-pipeline` |
+| R3-3 | HIGH | AC-4 insight ⊇ compared LLM free-text titles (spurious pass/fail). Define a deterministic structural-finding IDENTITY key (`{kind ∈ {dead-code,cycle,dependent,coupling} | sorted symbol/file set}`) + canonicalization (strip the title) in `graph-scan-consumer-contract.md`; the ⊇ is over canonical identities; unit test: rephrase → SAME identity (can't break ⊇), new fact → DISTINCT identity | D6-T1 (contract) + D6-T2 (test) | `scan-finding-identity-canonical` |
+| R3-4 | HIGH | Wave-1 prove-or-kill HARD GATE was prose, not machine-checkable. D1-T3/D2-T3 write `k1Verdict` (PICK\|KILL_OR_RESCOPE) / `k2Verdict` (PASS\|KILL) into the result-doc envelope; gate test `test/m94-wave1-hard-gate.test.js` reads both: a verdict != PICK/PASS with NO AC-descope record FAILS; no Wave-2 build artifact may exist while a verdict is KILL-without-descope | D7-T2 + D1-T3 + D2-T3 | `wave1-hard-gate-machine-checkable` · `kill-outcome-records-ac-descope` |
+| R3-5 | MEDIUM | K1 KILL must be attributable. D1-T2's bake-off envelope records, PER CANDIDATE, WHICH sub-criterion failed + a `candidateSetJustification` (closure of the embedded/no-server/no-paid-license category, or the next candidate to try before declaring an architectural kill); a bare KILL with no per-candidate per-criterion breakdown FAILS the test | D1-T2 (test) + D1-T3 (doc) | `k1-kill-attributable-per-candidate` |
+| R3-6 | MEDIUM | K2 must MEASURE real Atos scale, not assume ~1.5M. D2-T2 measures + records `atosFileCount` + `atosTotalLoc` + `atosLangBreakdown` (scc/cloc or the parse harness) at the pinned SHA; the D1 synthetic scale + the K1/K2 ceilings are sanity-checked against the MEASURED number; material divergence (e.g. >1.5×/<0.66×) flags `scaleMismatch` and FAILS-LOUD (so K1 store evidence isn't validated at the wrong size) | D2-T2/T3 (+ D1-T1 scale derivation) | `k2-atos-scale-measured-not-assumed` · `k2-scale-sanity-vs-bakeoff` |
+
 ### M94 Mandated SEQUENCED follow-on consumers (in-scope by principle, sequenced by execution — NEVER dropped)
 The Central Tenet makes the graph the structural-knowledge layer for EVERY code-reading step. Phase 1 WIRES only `/scan` (the first proof). The shared query layer (D5 CLI) + the contract mandate are Phase-1 deliverables so each follow-on is WIRING, not redesign. The mandated roadmap (each a later sequenced wiring milestone): `/debug` · `/quick` · `/impact` · `/execute` file-disjointness · `/plan` · partition · M92 simplicity-reflex. Each consumes the same `graph-query-cli-contract.md` envelope; none re-derives structure from raw text.
 
-### M94 Disjointness verdict (re-validated this pre-mortem-fix RE-plan phase 2026-06-26)
-- **21 tasks** parsed (parser-canonical `### M94-Dx-Ty —` Shape D), **0 warnings**, every task carries an explicit `**Touches**` list (source: declared, never git-fallback). Pre-mortem-fix delta (+3 test tasks, all net-new single-file write targets, zero overlap):
-  - **D3-T4** → `test/m94-d3-real-atos-edge-spotcheck.test.js` (net-new)
-  - **D4-T4** → `test/m94-d4-touched-set-derivation.test.js` (net-new)
-  - **D4-T5** → `test/m94-d4-add-delete-rename-freshness.test.js` (net-new)
-  - Fix-3 (toggle) folded into **D6-T2**'s existing `test/m94-d6-scan-consumer.test.js` write target (no new task, no new file).
-  - Fix-1/Fix-2/Fix-5/Fix-6 are CONTRACT edits to files each already SOLE-owned by their domain's contract-authoring task (`graph-freshness-contract.md` ← D4-T1; `graph-query-cli-contract.md` ← D5-T1; `graph-store-schema-contract.md` ← D1-T3) — no new write target, no overlap.
-- `proveDisjointness` over ALL 21 tasks: **0 sequential (write-target-overlap) groups, 0 unprovable** — no two tasks anywhere in the milestone write the same path (re-validated this phase via `gsd-t parallel --dry-run`: Wave-1-ready tasks disjoint, exit 0; downstream tasks correctly dep-blocked). Each new test file is uniquely owned by exactly one task; the 3 edited contracts stay sole-owned by their original authoring task. The #8 integrate seam test (`test/m94-integrate-live-store-seam.test.js`) is integrate-owned, a 22nd net-new path disjoint from all domain tasks.
-- Per-wave concurrent sets (Wave 1 d1∥d2, Wave 2 d3∥d4∥d5, Wave 3 d6) all fully parallel-provable.
-- Intra-domain order is enforced by `**Dependencies**` (same-owner serial chain), NOT by file overlap.
-- The dead M20–M21 `bin/graph-*.js` use the bare `graph-` prefix — disjoint from the new `gsd-t-graph-*` prefix; read for lessons only, never edited.
+### M94 Disjointness verdict (re-validated this RE-PLAN (3) phase 2026-06-26 — 24 tasks across 7 domains)
+- **24 tasks** parsed (parser-canonical `### M94-Dx-Ty —` Shape D), every task carries an explicit `**Touches**` list (source: declared, never git-fallback). RE-PLAN (3) delta = +3 D7 tasks (all net-new single-file write targets, zero overlap) + edits to already-sole-owned files:
+  - **D7-T1** → `bin/gsd-t.js` (graph-dispatch region — D7-T1 is the SOLE writer of `bin/gsd-t.js` ANYWHERE in M94) + `test/m94-d5-graph-dispatch.test.js` (net-new) + DELETES the 6 dead `bin/graph-*.js` + 3 dead `test/graph-*.test.js` (USER-APPROVED, requirer-verified — only the rewired dispatch + those 3 tests reference them)
+  - **D7-T2** → `test/m94-wave1-hard-gate.test.js` (net-new)
+  - **D7-T3** → `test/m94-integrate-live-store-seam.test.js` (net-new, the #8 seam given an owner) + `.gsd-t/contracts/m94-integration-points.md` (net-new, the integrate-read-path doc)
+  - **R3-Fix-3** folded into **D6-T1** (`graph-scan-consumer-contract.md`, already sole-owned) + **D6-T2**'s existing `test/m94-d6-scan-consumer.test.js` — no new file.
+  - **R3-Fix-4** `k1Verdict`/`k2Verdict` are envelope-field additions in **D1-T3** / **D2-T3** (already sole-owned docs) — no new file.
+  - **R3-Fix-5** is an envelope-field + test assertion in **D1-T2** (`test/m94-k1-store-bakeoff.test.js`, already sole-owned) — no new file.
+  - **R3-Fix-6** is envelope-field + test assertion in **D2-T2** (`test/m94-k2-treesitter-throughput.test.js`, already sole-owned) + the D2-T3 result doc — no new file.
+- **Sole-owner invariant for the shared file:** `bin/gsd-t.js` is edited by EXACTLY ONE task in the milestone (D7-T1). No Wave-1/2/3 domain touches it. The new query CLI lives under the `gsd-t-graph-*` prefix; the dead engine under the bare `graph-*` prefix — the rewire edits only the dispatch, the new CLI is D5-owned and only invoked.
+- `proveDisjointness` over ALL 24 tasks: **0 sequential (write-target-overlap) groups, 0 unprovable** — no two tasks anywhere in the milestone write the same path. Each new test file + the dispatch edit is uniquely owned by exactly one task; the edited contracts/test files stay sole-owned by their original authoring task. (Re-validate via `gsd-t parallel --dry-run` at execute time.)
+- Per-stage concurrent sets (Wave 1 d1∥d2, Wave 2 d3∥d4∥d5, Wave 3 d6, INTEGRATE d7 — D7-T1∥T2∥T3 mutually disjoint) all fully parallel-provable within their stage.
+- Intra-domain order is enforced by `**Dependencies**` (same-owner serial chain), NOT by file overlap. D7 is gated on the Wave-2 trio integrating (D5 CLI + real pipeline exist) + the Wave-1 K1/K2 envelopes existing.
+- The dead M20–M21 `bin/graph-*.js` use the bare `graph-` prefix — disjoint from the new `gsd-t-graph-*` prefix; deleted ONLY by D7-T1 (USER-APPROVED), requirer-verified safe.
 
 ### M94 Plan-hardening (M83) status
 - Every behavioral task declares **Files + Test + ImplPath**; the milestone's headline capabilities are each tagged **Headline:** true with a real impl path AND an end-to-end killing test:
@@ -121,6 +150,12 @@ The Central Tenet makes the graph the structural-knowledge layer for EVERY code-
   - **Fix-4** real-Atos edge spotcheck (D3-T4) — binds AC-2 correctness to REAL Atos at the pinned SHA (≥3 known real edges + >10k edge floor; fail-loud-skip if Atos absent), so green is not achievable on near-zero/garbage real-world extraction.
   - **Fix-3** no-graph toggle proven OFF (D6-T2) — baseline graph-query call-count == 0, graph-wired > 0, so the AC-4 INSIGHT baseline is genuinely graph-free (not a bogus graph-fed baseline that mis-passes the insight gate).
   - **Fix-6** build footprint ceilings (D1-T2/T3 peak load RSS + on-disk index size; D2-T2/T3 peak build RSS) measured against PRE-REGISTERED ceilings in the store-schema contract — prove-or-kill peer to latency/throughput.
+  - **R3-Fix-1** dead-dispatch rewire + dead-engine deletion (D7-T1) — `test/m94-d5-graph-dispatch.test.js` shells out the REAL `gsd-t graph status`/`who-imports` through the entry point and asserts the NEW CLI answers (live/graph-unavailable), NEVER the M20–M21 "No graph index found"; the 6 dead files + 3 dead tests are gone from disk. `graph-status-live` is now bound to a real rewire+test, not just the D5 unit test.
+  - **R3-Fix-2** live-store seam (D7-T3) — `test/m94-integrate-live-store-seam.test.js` runs the REAL D3→D1→D5 pipeline (no mocks): build → store → who-imports → edit on disk → re-query reflects the edit; the spec is findable at `m94-integration-points.md` (the integrate-read path).
+  - **R3-Fix-4** Wave-1 hard gate machine-checkable (D7-T2) — reads `k1Verdict`/`k2Verdict`; a KILL with no AC-descope FAILS; no Wave-2 artifact while KILL-without-descope (fixture-driven, deterministic).
+  - **R3-Fix-3** AC-4 ⊇ over a deterministic structural-finding IDENTITY (D6-T1 contract + D6-T2 test) — rephrase → same identity, new fact → distinct identity; the gate compares canonical facts, not raw LLM titles.
+  - **R3-Fix-5** K1 KILL attributable (D1-T2/T3) — per-candidate per-criterion breakdown + candidate-set justification; a bare KILL FAILS.
+  - **R3-Fix-6** K2 real-scale measured (D2-T2/T3) — `atosFileCount`/`atosTotalLoc`/`atosLangBreakdown` measured, sanity-checked vs the bake-off synthetic scale; material divergence FAILS-LOUD.
   - AC-4 payoff (D6-T3 impl, INSIGHT delta only — scan kept intact) — INSIGHT gate (`scan-insight-gate`) + SHA pin #7. The SPEED ceiling + cost-critical-path axis is DROPPED from M94 (rules #1/#2 retired, D6-T4 removed); deferred to a separate scan-redesign milestone.
 - Store choice / SCIP invocation / edge taxonomy stay **DEFERRED to Wave-1 spike evidence** — never asserted in the plan.
 

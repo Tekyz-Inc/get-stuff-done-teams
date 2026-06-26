@@ -39,6 +39,12 @@ The 50 ms query-latency target, the atomicity guarantee, AND the Fix-6 footprint
 ## Atomicity guarantee (declared per picked store)
 Whichever store is picked MUST document the mechanism by which a concurrent `who-imports(F)` cannot observe a torn/partial edge set during F's re-index write — one of: single-writer file lock, atomic write-to-temp + rename, or a store-native transaction. D4's freshness re-index relies on this guarantee; D5's inline query depends on it returning a coherent set.
 
+## K1 result envelope (RE-PLAN (3) Fix-4 + Fix-5 — machine-checkable + attributable)
+The K1 result-doc envelope (`.gsd-t/spikes/k1-store-bakeoff-results.md`) MUST carry:
+- **`k1Verdict`** ∈ `{ PICK, KILL_OR_RESCOPE }` (`[RULE] k1-verdict-field-machine-checkable`, Fix-4) — the structured verdict the D7-T2 Wave-1 hard-gate test reads. An envelope missing `k1Verdict` FAILS the gate.
+- On `PICK`: the picked store engine + ALL FIVE sub-metrics (embedded · query-latency ms · incremental s · atomicity mechanism · footprint).
+- On `KILL_OR_RESCOPE` (`[RULE] k1-kill-attributable-per-candidate`, Fix-5): a PER-CANDIDATE per-criterion breakdown (which sub-criterion failed for EACH candidate, with the measured number) + a `candidateSetJustification` (the candidate set is the CLOSURE of the embedded/no-server/no-paid-license category, OR names the next candidate to try before declaring an architectural kill) + the explicit AC-descope record (which ACs survive) per `[RULE] kill-outcome-records-ac-descope`. A bare KILL with no per-candidate per-criterion breakdown is REJECTED.
+
 ## Open until K1 resolves
 - The picked store engine (recorded in `.gsd-t/spikes/k1-store-bakeoff-results.md` + progress.md)
 - Exact column types / on-disk encoding (store-specific)
