@@ -1,9 +1,9 @@
 # Contract: Graph Scan Consumer Wiring
 
-**Status:** DRAFT — authored by D6 during Wave-3 wiring (after the Wave-2 build trio integrates).
+**Status:** STABLE — M94-D6-T1 complete (2026-06-26).
 **Owner:** d6-scan-wiring
 **Consumers:** none (terminal consumer — the falsifiable payoff)
-**Version:** 0.3.0 (DRAFT — RE-PLAN Fix-1: AC-4 gets a machine-checkable `ac4Verdict ∈ {PROVEN, RESCOPE}` outcome ladder so the insight headline has a HALT path matching K1/K2/AC-3 — never a silent infinite-fail loop. AC-4 still INSIGHT-delta-only per user decision 2026-06-25; SPEED / cost-critical-path axis dropped from M94)
+**Version:** 1.0.0 (STABLE — all T1 acceptance criteria met: additive wiring, INSIGHT-delta-only AC-4, ac4Verdict machine-checkable, deterministic structural-finding identity, Atos SHA pin, announced fallback)
 
 ## Purpose
 How `/scan` (the FIRST narrow consumer) consumes the deterministic query CLI's pre-computed structural slice ADDITIVELY — the current `/scan` architecture is kept FULLY INTACT (it works, it's praised; Destructive Action Guard). The graph makes scan's structural findings ACCURATE (graph-derived, not LLM-reconstructed), it does NOT replace scan's enumerate-and-deep-read pipeline.
@@ -66,8 +66,10 @@ This gives the AC-4 headline a HALT path matching K1 / K2 / AC-3 — the gate ca
 
 ## Wiring (additive — current scan kept intact)
 - **build:** if `store.exists()` is false → `build_index(repo)` first
-- **query + inject:** query the D5 CLI (`who-imports` / `who-calls` / `blast-radius`) for the structural slice and INJECT it into the `scanSlice` deep-finder agent context — ADDITIVELY, so the deep-finders reason over accurate pre-computed structure. Scan's enumerate-and-deep-read pipeline is NOT removed
+- **query + inject:** query the D5 CLI (`dead-code` / `dangling` / `cluster`) for the structural slice and INJECT it into the `scanSlice` deep-finder agent context — ADDITIVELY, so the deep-finders reason over accurate pre-computed structure. Scan's enumerate-and-deep-read pipeline is NOT removed
 - `[RULE] scan-injects-structural-slice` — scan answers structural questions from the index (accurate, deterministic), additively to its existing content read
+- `[RULE] scan-slice-consumed` — injected slice must REACH a finding (a graph-wired run's output contains ≥1 structural finding byte-traceable to the injected D5 query result — same funcId/symbol/cycle the CLI returned). Merely passing the slice into context that finders never use (the dead-injection trap) does NOT satisfy this rule.
+- `[RULE] no-graph-baseline-proven-graph-free` — when `graphMode === "disabled"` (the AC-4 no-graph baseline), the graph-query call-count MUST be 0 (ZERO graph queries fired). The baseline is genuinely graph-free; any graph query in the disabled path would make the recorded AC-4 baseline set bogus and the INSIGHT gate mis-pass. Test: spy/mock the runCli invocation and assert call-count == 0 when disabled, > 0 when wired.
 
 ## Fallback
 - query CLI returns `{ok:false, reason:"graph-unavailable"}` → scan falls back to today's grep mode, ANNOUNCED (never silent). No grep when the index is live.

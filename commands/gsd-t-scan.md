@@ -26,7 +26,16 @@ You are the lead agent. Your sole responsibility is to invoke the canonical scan
 
 ## What the Workflow does (background — NOT your to-do list)
 
-Replaces the legacy 5-teammate prose scan with a single deterministic, **volume-scaled** Workflow:
+Replaces the legacy 5-teammate prose scan with a single deterministic, **volume-scaled**, **graph-augmented** Workflow (M94-D6):
+
+**Graph-wiring (M94 — additive, current scan architecture kept intact):** A `Graph-Wiring` phase runs after the volume probe. When the dependency graph index is live (`gsd-t graph status` returns ok), the Workflow queries the D5 CLI for the pre-computed structural slice (dead-code candidates, dangling references, tightly-coupled file clusters) and **INJECTS** it ADDITIVELY into each deep-finder agent's context. The finders then reason over accurate, deterministic structure rather than LLM-reconstructing relationships from file reads. The `graphMode` arg controls this:
+- `"wired"` (default) — build index if absent, query structural slice, inject into finders. `graphWiring.mode: "wired"` in the result.
+- `"disabled"` — skip all graph calls (the no-graph baseline for AC-4 INSIGHT-delta comparison). `graphWiring.mode: "disabled"` in the result. Zero graph queries fired in this path.
+- Graph unavailable → scan falls back to full grep-mode, **ANNOUNCED** (never silent). `graphWiring.mode: "fallback-announced"` in the result.
+
+The current scan architecture (enumerate + per-file deep-finders) is **KEPT FULLY INTACT** — graph wiring is additive.
+
+
 
 ```
 preflight → volume-probe → pipeline(per-slice deep finder → single verify) → synthesis → document → render
@@ -59,7 +68,8 @@ It prints the absolute path (exit 0). Use that exact string as `scriptPath`. If 
     projectDir: ".",        // the project to scan
     scanNumber: 12,         // optional — for the register header
     maxSlicesHint: 40,      // optional — soft cap on derived slices (no silent truncation)
-    verify: "single"        // optional — "single" (default) | "none"
+    verify: "single",       // optional — "single" (default) | "none"
+    graphMode: "wired"      // optional — "wired" (default) | "disabled" (no-graph baseline for AC-4)
   }
 }
 ```
@@ -79,7 +89,15 @@ The Workflow returns:
   registerPath: ".gsd-t/techdebt.md",
   archivePath: ".gsd-t/techdebt_YYYY-MM-DD.md" | null,
   htmlReport: "<path>" | null,
-  probeTotals: { files, routes, tables, components, ... }
+  probeTotals: { files, routes, tables, components, ... },
+  // M94-D6: graph wiring status — [RULE] scan-injects-structural-slice
+  graphWiring: {
+    mode: "wired" | "fallback-announced" | "disabled",
+    structuralSlicePresent: true | false,
+    deadCodeCount: 12,              // dead-code candidates injected into finders
+    danglingCount: 3,               // dangling-reference edges injected
+    clusterCount: 5,                // coupling clusters injected
+  }
 }
 ```
 

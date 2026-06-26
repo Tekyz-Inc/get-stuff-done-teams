@@ -19,7 +19,10 @@
 //   agents: living docs + 5 dimension files + plain-english) → render(agent: HTML).
 //
 // args shape:
-//   { projectDir: ".", scanNumber?: 13, verify?: "single"|"none" }
+//   { projectDir: ".", scanNumber?: 13, verify?: "single"|"none", graphMode?: "wired"|"disabled" }
+//   graphMode:
+//     "wired"    (default) — build index if absent, query structural slice, inject into scanSlice agents
+//     "disabled" — skip all graph calls (the no-graph baseline for AC-4 INSIGHT-delta comparison)
 //   (no slice cap — the probe's cohesive-sub-domain decomposition is the slice set.)
 
 export const meta = {
@@ -27,10 +30,11 @@ export const meta = {
   description:
     "GSD-T scan (runtime-native): preflight → volume-probe → pipeline(deep-finder per slice → single verify) → synthesis(archive+register) → document(living docs + 5 dimension files + plain-english) → render. Orchestrator does NO fs/require; all I/O is inside subagents. Fans out by codebase volume.",
   phases: [
-    { title: "Preflight",  detail: "branch + prior-register check (agent via Bash)" },
-    { title: "Probe",      detail: "volume probe → per-area slice list", model: "sonnet" },
-    { title: "Deep Scan",  detail: "pipeline: per-slice deep finder → single verify" },
-    { title: "Synthesis",  detail: "archive prior + write fresh register + git", model: "opus" },
+    { title: "Preflight",     detail: "branch + prior-register check (agent via Bash)" },
+    { title: "Probe",         detail: "volume probe → per-area slice list", model: "sonnet" },
+    { title: "Graph-Wiring",  detail: "M94-D6: build index if absent + query structural slice (dead-code/dangling/cluster) → inject into finders ADDITIVELY; fallback announced on graph-unavailable", model: "haiku" },
+    { title: "Deep Scan",     detail: "pipeline: per-slice deep finder (graph-augmented when wired) → single verify" },
+    { title: "Synthesis",     detail: "archive prior + write fresh register + git", model: "opus" },
     { title: "Document",      detail: "living docs + 5 dimension files (per-doc fan-out)" },
     { title: "Plain-English", detail: "non-technical companion: batched gen + severity-grouped chunked write" },
   ],
@@ -48,6 +52,9 @@ const projectDir    = _args.projectDir || ".";
 const scanNumber    = _args.scanNumber || null;
 const verifyMode    = _args.verify || "single"; // "single" | "none"
 const maxSlicesOverride = _args.maxSlicesHint || null; // optional power-user ceiling override
+// M94-D6: graph wiring — "wired" (default) or "disabled" (no-graph baseline for AC-4).
+// [RULE] scan-injects-structural-slice / [RULE] no-graph-baseline-proven-graph-free
+const graphMode     = (_args.graphMode === "disabled") ? "disabled" : "wired";
 
 // VOLUME-DERIVED CAP — a RUNAWAY BACKSTOP, not the target count. The probe decides
 // the actual slice count by cohesive sub-domain WITHIN this cap; the cap only fires
@@ -181,7 +188,80 @@ const RENDER_SCHEMA = {
   },
 };
 
+// M94-D6: Graph-wiring schemas (additive — consumed only when graphMode === "wired").
+// The structural slice the D5 CLI returns; injected into scanSlice finder agents.
+// [RULE] scan-injects-structural-slice / [RULE] scan-slice-consumed
+const GRAPH_STATUS_SCHEMA = {
+  type: "object",
+  required: ["ok"],
+  additionalProperties: true,
+  properties: {
+    ok:     { type: "boolean" },
+    reason: { type: "string" },
+    // ok=true fields (from graph-query-cli-contract §status verb):
+    storeExists: { type: "boolean" },
+    notes:       { type: "string" },
+  },
+};
+
+const GRAPH_BUILD_SCHEMA = {
+  type: "object",
+  required: ["ok"],
+  additionalProperties: true,
+  properties: {
+    ok:    { type: "boolean" },
+    notes: { type: "string" },
+  },
+};
+
+const GRAPH_SLICE_SCHEMA = {
+  type: "object",
+  required: ["ok"],
+  additionalProperties: true,
+  properties: {
+    ok:       { type: "boolean" },
+    reason:   { type: "string" },
+    deadCode: { type: "array", items: { type: "object" }, description: "dead-code verb results" },
+    dangling: { type: "array", items: { type: "object" }, description: "dangling verb results" },
+    clusters: { type: "array", items: { type: "object" }, description: "cluster verb results" },
+    coverage: { type: "object", description: "coverage envelope from the query" },
+    notes:    { type: "string" },
+  },
+};
+
 // ───── Script body — orchestration only, ZERO file I/O here ─────────────────
+
+// M94-D6: structuralSlice — the pre-computed structural findings from the D5 CLI.
+// Populated by the Graph-Wiring phase (after Probe, before Deep Scan) when graphMode==="wired".
+// Null when graphMode==="disabled" (no-graph baseline) or graph-unavailable (fallback).
+// [RULE] scan-injects-structural-slice / [RULE] no-graph-baseline-proven-graph-free
+let structuralSlice = null;   // { deadCode, dangling, clusters, coverage, tier } | null
+let graphWiringMode = "pending"; // "wired" | "fallback-announced" | "disabled"
+
+// M94-D6: runCli — inline async helper that delegates CLI calls to an agent() Bash.
+// M81 invariant: NO require/fs/child_process in the orchestrator body.
+// This is the ONLY way to invoke the D5 query CLI from the sandbox.
+// [RULE] no-graph-baseline-proven-graph-free — this helper is called ONLY when graphMode==="wired".
+async function runCli(verb, target, label) {
+  const targetArg = target ? ` ${JSON.stringify(target)}` : "";
+  const cmd = `node bin/gsd-t-graph-query-cli.cjs ${verb}${targetArg} 2>/dev/null || echo '{"ok":false,"reason":"graph-unavailable"}'`;
+  const result = await agent(
+    [
+      `Run the following command in \`${projectDir}\` via Bash and return ONLY the raw JSON line it prints (no commentary):`,
+      `\`\`\`bash`,
+      `cd ${JSON.stringify(projectDir)} && ${cmd}`,
+      `\`\`\``,
+      `If the command fails or prints no JSON, return: {"ok":false,"reason":"graph-unavailable"}`,
+      `Return ONLY the JSON, nothing else.`,
+    ].join("\n"),
+    { label: `graph:${label || verb}`, phase: "Graph-Wiring", model: "haiku" }
+  ).catch(() => null);
+  try {
+    return (typeof result === "string") ? JSON.parse(result.trim()) : (result || { ok: false, reason: "graph-unavailable" });
+  } catch (_) {
+    return { ok: false, reason: "graph-unavailable" };
+  }
+}
 
 // Preflight: an agent checks branch + whether a prior register exists, via Bash.
 // (No fs in the body — that was the bug.)
@@ -242,6 +322,62 @@ if (rawSlices.length > sliceCap) {
 }
 log(`probe derived ${rawSlices.length} slice(s); backstop cap=${computedCap}; running ${slices.length} deep-finder(s); totals=${JSON.stringify(probe.totals)}`);
 
+// M94-D6: Graph-Wiring phase — ADDITIVE injection of the pre-computed structural slice.
+// Current scan architecture is KEPT FULLY INTACT (Destructive Action Guard).
+// [RULE] scan-injects-structural-slice / [RULE] no-graph-baseline-proven-graph-free
+phase("Graph-Wiring");
+if (graphMode === "disabled") {
+  // No-graph baseline mode (AC-4 INSIGHT-delta measurement).
+  // ZERO graph calls in this path — [RULE] no-graph-baseline-proven-graph-free.
+  graphWiringMode = "disabled";
+  log("graph-wiring: DISABLED (no-graph baseline mode — graph-query call-count == 0; AC-4 baseline)");
+} else {
+  // graphMode === "wired": build index if absent, then query structural slice.
+  // Step 1: check if index exists and is queryable.
+  const statusResult = await runCli("status", null, "status");
+  if (!statusResult || !statusResult.ok) {
+    // Graph unavailable — announce fallback, continue with intact grep-mode scan.
+    // [RULE] parser-fail-disables-loud-never-silent (from graph-query-cli-contract)
+    graphWiringMode = "fallback-announced";
+    log(`⚠ GRAPH-FALLBACK (ANNOUNCED): graph index not available (${(statusResult && statusResult.reason) || "graph-unavailable"}) — scan continues in full grep-mode (today's architecture, intact). Structural findings from LLM reconstruction only. Build the index (gsd-t graph build) to enable graph-wired accuracy.`);
+  } else {
+    // Step 2: query the structural slice (dead-code + dangling + clusters).
+    // These are the findings the deep-finders currently reconstruct by reading files (error-prone);
+    // the graph hands them over pre-computed and ACCURATE.
+    const [deadCodeResult, danglingResult, clusterResult] = await parallel([
+      () => runCli("dead-code", null, "dead-code"),
+      () => runCli("dangling",  null, "dangling"),
+      () => runCli("cluster",   null, "cluster"),
+    ]);
+
+    const allOk = (deadCodeResult && deadCodeResult.ok) ||
+                  (danglingResult && danglingResult.ok) ||
+                  (clusterResult  && clusterResult.ok);
+
+    if (!allOk) {
+      // All three verbs returned graph-unavailable — announce fallback.
+      graphWiringMode = "fallback-announced";
+      log(`⚠ GRAPH-FALLBACK (ANNOUNCED): all structural-slice queries returned graph-unavailable — scan continues in full grep-mode. Dead-code / dangling / cluster findings from LLM reconstruction only.`);
+    } else {
+      // Structural slice assembled — will be injected into scanSlice finder agents.
+      structuralSlice = {
+        deadCode: (deadCodeResult && deadCodeResult.ok && deadCodeResult.results) || [],
+        dangling: (danglingResult && danglingResult.ok && danglingResult.results) || [],
+        clusters: (clusterResult  && clusterResult.ok  && clusterResult.results)  || [],
+        // Coverage envelopes: any incomplete coverage is surfaced to finders.
+        coverage: {
+          deadCode: (deadCodeResult && deadCodeResult.coverage) || null,
+          dangling: (danglingResult && danglingResult.coverage) || null,
+          cluster:  (clusterResult  && clusterResult.coverage)  || null,
+        },
+        tier: (deadCodeResult && deadCodeResult.tier) || (danglingResult && danglingResult.tier) || "unknown",
+      };
+      graphWiringMode = "wired";
+      log(`graph-wiring: WIRED — structural slice ready (dead-code: ${structuralSlice.deadCode.length} candidates, dangling: ${structuralSlice.dangling.length} edges, clusters: ${structuralSlice.clusters.length} groups, tier: ${structuralSlice.tier}). Slice will be INJECTED ADDITIVELY into scanSlice deep-finders. [RULE] scan-injects-structural-slice`);
+    }
+  }
+}
+
 const deep = budget && budget.total && budget.total > 300000 ? "MAXIMUM" : "thorough";
 
 // Deep scan — pipeline: per-slice deep finder → single verify (no barrier).
@@ -252,12 +388,53 @@ phase("Deep Scan");
 // coverage as complete (7/19 slices dropped this way on the Hilo run). So: (1) the
 // finder call is RETRIED once on a null/invalid result; (2) a slice that still fails
 // is flagged `failed:true` and tracked — never conflated with a genuinely-empty slice.
-function finderPrompt(slice) {
+//
+// M94-D6: finderPrompt accepts an optional graphSliceContext string — the pre-computed
+// structural slice from the D5 CLI, INJECTED ADDITIVELY so the finder reasons over
+// accurate, deterministic structure rather than LLM-reconstructing relationships by reading.
+// [RULE] scan-injects-structural-slice / [RULE] scan-slice-consumed
+function finderPrompt(slice, graphSliceContext) {
   return [
     `⛔ Scan ONLY files under the absolute project path \`${projectDir}\`. \`cd ${projectDir}\` first; never read outside this tree.`,
     `You are a DEEP tech-debt finder for ONE slice of a scan of \`${projectDir}\`: \`${slice.key}\` (dimension: ${slice.dimension}).`,
     `Owned paths (relative to \`${projectDir}\`): ${JSON.stringify(slice.paths)}.`,
     slice.why ? `Why this slice matters: ${slice.why}` : ``,
+    ``,
+    // M94-D6: graph structural slice — ADDITIVE injection block.
+    // Present only when graphMode==="wired" AND the slice was fetched.
+    // The finder MUST use this data to answer structural questions — do NOT re-read
+    // the graph from files (that is error-prone reconstruction; this is accurate).
+    // [RULE] scan-injects-structural-slice / [RULE] scan-slice-consumed
+    graphSliceContext ? [
+      `## Pre-computed Structural Slice (GRAPH-WIRED — use this for structural findings)`,
+      ``,
+      `The following structural data has been PRE-COMPUTED from the deterministic dependency graph`,
+      `(D5 query CLI — ${graphSliceContext.tier || "unknown"} tier). Use this data DIRECTLY for dead-code,`,
+      `cycle, dangling-reference, and coupling findings — do NOT reconstruct these from file reads`,
+      `(the graph is more accurate). This is ADDITIVE: you still read files for in-file logic defects.`,
+      ``,
+      `**Dead-code candidates** (functions/files with no inbound edges from the graph):`,
+      graphSliceContext.deadCode && graphSliceContext.deadCode.length > 0
+        ? "```json\n" + JSON.stringify(graphSliceContext.deadCode.slice(0, 50), null, 1) + "\n```"
+        : "(none — all indexed symbols have inbound edges, OR the index has incomplete coverage)",
+      graphSliceContext.coverage && graphSliceContext.coverage.deadCode && graphSliceContext.coverage.deadCode.complete === false
+        ? `⚠ Dead-code coverage incomplete (${graphSliceContext.coverage.deadCode.unparsedContributors || "?"} file(s) unparsed — result may be partial).`
+        : "",
+      ``,
+      `**Dangling references** (call/import edges to missing nodes — delete/rename residue):`,
+      graphSliceContext.dangling && graphSliceContext.dangling.length > 0
+        ? "```json\n" + JSON.stringify(graphSliceContext.dangling.slice(0, 30), null, 1) + "\n```"
+        : "(none found)",
+      ``,
+      `**Tightly-coupled file clusters** (may indicate coupling/cycle debt):`,
+      graphSliceContext.clusters && graphSliceContext.clusters.length > 0
+        ? "```json\n" + JSON.stringify(graphSliceContext.clusters.slice(0, 20), null, 1) + "\n```"
+        : "(none found — no file groups above the coupling threshold)",
+      ``,
+      `When you report a dead-code / dangling / coupling finding, CITE the graph data above`,
+      `(e.g. "funcId: X has no inbound call edges per the graph") so the finding is traceable`,
+      `to the pre-computed query result. [RULE] scan-insight-delta-graph-attributed`,
+    ].filter(Boolean).join("\n") : "",
     ``,
     `MANDATE: ENUMERATE, do NOT sample. Read EVERY file under your owned paths (use Read/Grep). You own only this slice, so go to the bottom of it.`,
     `Depth = ${deep}. "thorough" = every file, every non-trivial real defect (high+medium confidence). "MAXIMUM" = also lower-confidence/speculative items worth review.`,
@@ -351,11 +528,12 @@ async function gatedAgent(prompt, opts) {
 // but setTimeout is not). Used only for rate-limit backoff between retries.
 function sleep(ms) { return new Promise((res) => setTimeout(res, ms)); }
 
-async function runFinder(slice) {
+async function runFinder(slice, graphSliceContext) {
   // up to 2 attempts; a null/invalid (non-array findings) result counts as a drop.
+  // M94-D6: graphSliceContext passed through to finderPrompt for ADDITIVE injection.
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
-      const r = await gatedAgent(finderPrompt(slice), {
+      const r = await gatedAgent(finderPrompt(slice, graphSliceContext), {
         label: attempt === 1 ? `find:${slice.key}` : `find:${slice.key} (retry)`,
         phase: "Deep Scan", schema: FINDER_SCHEMA, model: "sonnet",
       });
@@ -370,7 +548,11 @@ async function runFinder(slice) {
 
 async function scanSlice(slice) {
   const sliceKey = slice.key || "unknown-slice";
-  const finderResult = await runFinder(slice);
+  // M94-D6: inject the structural slice context ADDITIVELY — only when graph is wired.
+  // When graphMode==="disabled" OR graph-unavailable, graphSliceContext is null (no injection).
+  // [RULE] scan-injects-structural-slice / [RULE] no-graph-baseline-proven-graph-free
+  const graphSliceContext = (graphWiringMode === "wired" && structuralSlice) ? structuralSlice : null;
+  const finderResult = await runFinder(slice, graphSliceContext);
   // M72: distinguish a FAILED finder (null after retries) from a genuinely-clean slice.
   if (!finderResult || !Array.isArray(finderResult.findings)) {
     return { slice: sliceKey, findings: [], failed: true };
@@ -824,4 +1006,13 @@ return {
   plainEnglishComplete: peComplete,
   htmlReport: null, // render stage removed (M71)
   probeTotals: probe.totals,
+  // M94-D6: graph wiring status (surfaced for AC-4 INSIGHT-delta comparison).
+  // [RULE] scan-injects-structural-slice / [RULE] no-graph-baseline-proven-graph-free
+  graphWiring: {
+    mode: graphWiringMode,  // "wired" | "fallback-announced" | "disabled"
+    structuralSlicePresent: structuralSlice !== null,
+    deadCodeCount: (structuralSlice && structuralSlice.deadCode) ? structuralSlice.deadCode.length : 0,
+    danglingCount: (structuralSlice && structuralSlice.dangling) ? structuralSlice.dangling.length : 0,
+    clusterCount:  (structuralSlice && structuralSlice.clusters) ? structuralSlice.clusters.length : 0,
+  },
 };

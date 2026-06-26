@@ -8,7 +8,7 @@ When all tasks complete: `/scan` builds the index on run-1, and on the graph-wir
 ## Wave 3
 
 ### M94-D6-T1 — Scan-consumer contract (insight-only)
-- **Status**: [ ] pending
+- **Status**: [x] complete (2026-06-26 — graph-scan-consumer-contract.md bumped to v1.0.0 STABLE; all ACs met: additive wiring, INSIGHT-delta-only, ac4Verdict, scan-finding-identity-canonical, SHA pin, no-graph-baseline-proven-graph-free rules all declared)
 - **Files**: `.gsd-t/contracts/graph-scan-consumer-contract.md`
 - **Touches**: `.gsd-t/contracts/graph-scan-consumer-contract.md`
 - **ImplPath**: `.gsd-t/contracts/graph-scan-consumer-contract.md` — declares the additive structural-slice injection wiring (scan kept intact), the announced grep-mode fallback rule, the INSIGHT-DELTA AC-4 gate (no-graph baseline vs graph-wired run), and the Atos-SHA-pin measurement protocol
@@ -24,7 +24,7 @@ When all tasks complete: `/scan` builds the index on run-1, and on the graph-wir
   - **[RE-PLAN Fix-1 — AC-4 HALT path]** declares the AC-4 OUTCOME LADDER with a machine-checkable `ac4Verdict ∈ {PROVEN, RESCOPE}` so the insight headline has a halt path matching K1/K2/AC-3 (never a silent infinite-fail loop, the M90 lesson): `PROVEN` = the ≥1 graph-attributed missed/wrong delta exists; `RESCOPE` = zero missed-finding delta BUT either (a) ≥1 graph-attributed ACCURACY correction (a baseline finding the graph proves WRONG, backed by a recorded D5 query result) OR (b) a documented descope to a follow-on per `[RULE] kill-outcome-records-ac-descope`. The STRUCTURED `ac4Verdict` is authoritative — a prose "cleared" string is NOT the verdict. Zero-delta AND no rescope record ⇒ FAIL (forces halt+descope). `[RULE] ac4-verdict-machine-checkable`
 
 ### M94-D6-T2 — Wire scan command + workflow (extend-class, additive)
-- **Status**: [ ] pending
+- **Status**: [x] complete (2026-06-26 — gsd-t-scan.workflow.js extended with Graph-Wiring phase + runCli helper + structuralSlice injection into finderPrompt/scanSlice; graphMode toggle; commands/gsd-t-scan.md updated; 28/28 tests pass; M71 lint clean)
 - **Files**: `commands/gsd-t-scan.md`, `templates/workflows/gsd-t-scan.workflow.js`
 - **Touches**: `commands/gsd-t-scan.md`, `templates/workflows/gsd-t-scan.workflow.js`
 - **ImplPath**: `templates/workflows/gsd-t-scan.workflow.js` — build-if-absent then query the D5 CLI for the structural slice (dependents/dead-code/cycles/coupling) and INJECT it ADDITIVELY into the `scanSlice` deep-finder agent context so those findings are accurate (pre-computed, not reconstructed); `commands/gsd-t-scan.md` — the command-file behavior note + announced fallback. EXTEND-class: existing scan functionality is preserved untouched
@@ -40,7 +40,7 @@ When all tasks complete: `/scan` builds the index on run-1, and on the graph-wir
   - Pre-Commit Gate: scan-interface change → update `GSD-T-README.md` + `README.md` + `templates/CLAUDE-global.md` + `commands/gsd-t-help.md` if the interface changes (handled at execute/integrate)
 
 ### M94-D6-T3 — AC-4 INSIGHT-delta measurement + report (headline win)
-- **Status**: [ ] pending
+- **Status**: [x] partial (2026-06-26 — result doc written with ac4Verdict: RESCOPE + documented descope; Atos SHA pinned; all INSIGHT/PIN/VERDICT tests pass 28/28; PROVEN measurement deferred to D7 integrate — graph index not yet built for Atos at D6 execution time)
 - **Headline**: true
 - **Files**: `.gsd-t/spikes/ac4-scan-insight-delta-results.md`, `test/m94-d6-scan-consumer.test.js`
 - **ImplPath**: `templates/workflows/gsd-t-scan.workflow.js` (T2) — this task RUNS the two runs (NO-GRAPH baseline / GRAPH-WIRED) on the real Atos repo against the pinned SHA; `.gsd-t/spikes/ac4-scan-insight-delta-results.md` records the structural-findings set from each run, the named ≥1 finding the no-graph run missed/got wrong, the pinned SHA, **and the machine-checkable `ac4Verdict ∈ {PROVEN, RESCOPE}` (RE-PLAN Fix-1)**
