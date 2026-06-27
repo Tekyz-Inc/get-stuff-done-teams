@@ -3152,6 +3152,31 @@ function checkDoctorCgc() {
   return issues;
 }
 
+// M95: report SCIP indexer presence. SCIP gives the code graph compiler-accurate
+// call-edge resolution (who-calls / test-impl / blast-radius across imports).
+// Absence is a WARN (graph still works at tree-sitter floor), not a hard error.
+function checkDoctorScip() {
+  let issues = 0;
+  heading("SCIP Indexers (Compiler-Accurate Code Graph)");
+  const indexers = [
+    { bin: "scip-typescript", langs: "TS/JS", pkg: "@sourcegraph/scip-typescript" },
+    { bin: "scip-python", langs: "Python", pkg: "@sourcegraph/scip-python" },
+  ];
+  for (const { bin, langs, pkg } of indexers) {
+    try {
+      const ver = execFileSync(bin, ["--version"], {
+        encoding: "utf8", timeout: 3000, stdio: ["pipe", "pipe", "pipe"],
+      }).trim();
+      success(`${bin} ${ver} (${langs} compiler-accurate)`);
+    } catch {
+      warn(`${bin} not installed — ${langs} edges fall back to tree-sitter floor (approximate)`);
+      info(`Run: npm install -g ${pkg}  (or reinstall GSD-T)`);
+      issues++;
+    }
+  }
+  return issues;
+}
+
 // Verify context meter wiring: hook registration, hook script presence,
 // config validity, and a local estimation dry-run.
 // Returns number of issues (RED results). Mirrors checkDoctorCgc shape.
@@ -3393,6 +3418,7 @@ async function doDoctor(opts) {
   issues += checkDoctorInstallation();
   issues += await checkDoctorProject(opts);
   issues += checkDoctorCgc();
+  issues += checkDoctorScip();
   // M61 D1: Context Meter retired (token-budget.cjs + context-meter hook deleted).
   // checkDoctorContextMeter would emit phantom errors for the deleted subsystem
   // and tell the user to reinstall it. Native /context replaces the meter.
