@@ -2,6 +2,21 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [4.10.11] - 2026-06-27
+
+### Fixed — M96: the code graph now actually runs in projects (native-dep resolution)
+
+M94/M95 copied the graph runtime into every project's `bin/`, but it couldn't run: the native engines (better-sqlite3 store + tree-sitter floor parsers) were `devDependencies`, and a copied tool resolved them from the *project's* node_modules — which lacked them. The result was a SILENT empty graph (0 nodes/edges that read as a successful build). M96 makes the graph runnable everywhere.
+
+- `package.json`: moved `better-sqlite3` + `tree-sitter` + `tree-sitter-typescript` + `tree-sitter-python` from devDependencies to `dependencies` (they ship now).
+- `bin/gsd-t-require-store.cjs`: NEW `requireGraphDep()` — resolves a native dep from project node_modules → GSD-T global package node_modules → GSD-T dev tree; FAIL LOUD with a remediation message if all miss.
+- `bin/gsd-t-graph-edge-extract.cjs`: resolves tree-sitter via the resolver and THROWS (not silent-0) when the mandatory floor parser is absent.
+- `bin/gsd-t-graph-{index,freshness,query-cli}.cjs`: store engine via the resolver.
+- `bin/gsd-t.js`: propagate `gsd-t-require-store.cjs` to projects.
+- `test/m50-d2-viewer-specs-smoke.test.js`: zero-dep invariant updated to allow ONLY the graph native engines as runtime deps.
+
+Proven on binvoice (a real non-GSD-T project): graph builds 471 files / 43,309 edges; `blast-radius(src/build-config.ts)` returns its real dependents (the consumer reads the graph, not grep). Decision reaffirmed: zero-dependency is a guiding principle, not a hard rule — native deps are justified because the graph cannot function without them. Suite: 2502/2502 pass.
+
 ## [4.10.10] - 2026-06-26
 
 ### Added — M94 persistent code graph + M95 real SCIP call-graph resolution; graph runtime now propagates into projects

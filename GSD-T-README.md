@@ -1,4 +1,4 @@
-# GSD-T Framework Reference — v4.10.10
+# GSD-T Framework Reference — v4.10.11
 
 This file is a companion to `README.md` and tracks framework-level documentation — methodology decisions, internal architecture, and per-milestone capability summaries. Maintained alongside `README.md` per the Pre-Commit Gate.
 
@@ -103,6 +103,7 @@ Contract: `.gsd-t/contracts/plan-hardening-contract.md` v1.0.0.
 
 | Version | Milestone | Key capability |
 |---------|-----------|----------------|
+| 4.10.11 | M96 | Code graph runs in every project. The graph runtime's native engines (better-sqlite3 store + tree-sitter floor parsers) are now real `dependencies`, and `bin/gsd-t-require-store.cjs` resolves them from the GSD-T global package when a copied tool runs inside a project that lacks them — fixing a silent empty-graph (0 nodes/edges that looked like a successful build) and failing loud if a native dep is genuinely missing. Proven on binvoice (a real non-GSD-T project): graph builds 471 files / 43,309 edges; `blast-radius` returns real dependents (the consumer reads the graph, not grep). |
 | 4.10.10 | M94 + M95 | Persistent code graph + real SCIP call-graph resolution. A persistent all-local on-disk index (files / functions / imports / call graph) with a deterministic no-grep-fallback query CLI; the precise tier now reads scip-typescript's `index.scip` and resolves cross-file call edges (verified on real Atos: the test→impl verb returns 164 resolved edges, was 0). The graph runtime is in `PROJECT_BIN_TOOLS`, so `update-all` copies the query CLI into every project's `bin/` and the wired consumers (execute/wave disjointness, debug, quick, impact, plan, scan) read the project graph instead of grep. `gsd-t install` auto-installs the SCIP indexers; `gsd-t doctor` reports them. Zero-dep is now a guiding principle, not a hard rule. |
 | 4.9.11 | M93 | Brevity Guard — concise, answer-first replies are now ENFORCED, not just requested. A blocking `Stop` hook (`gsd-t-brevity-guard.js`) catches answer-mode preamble/process-narration (action-mode intent-first is still allowed) and blocks it before you read it; a Reader Contract in CLAUDE-global + the subagent prompts sets the default; a `gsd-t-jargon-lint.cjs` flags unglossed jargon in docs. Fail-open by design (never gags legitimate work). |
 | 4.9.10 | M92 (#44a) | Understand-Before-Build, the paradigm half — GSD-T now prefers the SMALLEST change: M90's §2 arch-trigger gets a cheaper-first look→smallest→spike→defer response (look is the default; spike demoted), verify can SAY "we made it smaller" (deterministic `git diff` shrink-metric + additive `shrink` verdict dimension), and the milestone/quick default is inverted so ceremony is opt-in. No graph (that's #44b, gated). |
