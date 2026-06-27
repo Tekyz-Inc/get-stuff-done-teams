@@ -47,10 +47,36 @@ const DEAD_PATH_MARKER = "No graph index found. Run: gsd-t graph index";
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
 
+// Graph-query subprocesses MUST run against a TINY fixture repo, never the real
+// GSD-T repo. Running `gsd-t graph status/who-imports` from PROJECT_ROOT made the
+// subprocess load + query the repo's real ~56 MB .gsd-t/graph.db; multiplied across
+// the full suite under piped stdio that compounded into an effective HANG (the
+// verify-gate symptom — db present → suite hangs forever; db absent → suite passes).
+// Build a 2-file fixture index once and point the graph queries at it via cwd.
+const os = require("node:os");
+let FIXTURE_REPO = null;
+function fixtureRepo() {
+  if (FIXTURE_REPO) return FIXTURE_REPO;
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "m94-dispatch-fixture-"));
+  fs.mkdirSync(path.join(dir, ".gsd-t"), { recursive: true });
+  fs.mkdirSync(path.join(dir, "src"), { recursive: true });
+  fs.writeFileSync(path.join(dir, "src", "b.ts"), "export function b() { return 1; }\n");
+  fs.writeFileSync(path.join(dir, "src", "a.ts"), "import { b } from './b';\nexport function a() { return b(); }\n");
+  try {
+    const { build_index } = require(path.join(PROJECT_ROOT, "bin", "gsd-t-graph-index.cjs"));
+    build_index(dir, { dbPath: path.join(dir, ".gsd-t", "graph.db") });
+  } catch { /* index build best-effort; dispatch-routing tests don't need it */ }
+  FIXTURE_REPO = dir;
+  return dir;
+}
+
 function runGsdT(args, options) {
   return spawnSync(process.execPath, [GSD_T_ENTRY].concat(args), {
     encoding: "utf8",
-    cwd: PROJECT_ROOT,
+    // Default to the tiny fixture repo so graph queries never touch the real
+    // repo's large index. Callers that test dispatch ROUTING (not a real query)
+    // can still override cwd via options if they need PROJECT_ROOT.
+    cwd: fixtureRepo(),
     timeout: 30000,
     ...options,
   });
@@ -166,7 +192,10 @@ test("gsd-t graph who-imports hits the NEW D5 CLI — not the dead path", () => 
 // ─── (d) task-DAG path preserved ─────────────────────────────────────────────
 
 test("gsd-t graph --output json still emits the M44 task DAG (not collateral-damaged)", () => {
-  const r = runGsdT(["graph", "--output", "json"]);
+  // The task-DAG verb reads the REAL repo's .gsd-t/domains/ (not the graph index),
+  // so it must run from PROJECT_ROOT — the empty fixture has no tasks. (Only the
+  // graph-QUERY verbs use the fixture, to avoid the real 56 MB index.)
+  const r = runGsdT(["graph", "--output", "json"], { cwd: PROJECT_ROOT });
   assert.strictEqual(r.status, 0, `gsd-t graph --output json failed with status ${r.status}, stderr: ${r.stderr && r.stderr.slice(0, 200)}`);
 
   let dag;

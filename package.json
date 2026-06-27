@@ -22,7 +22,9 @@
     "gsd-t": "bin/gsd-t.js"
   },
   "scripts": {
+    "pretest": "node -e \"const fs=require('fs');for(const f of ['.gsd-t/graph.db','.gsd-t/graph.db-wal','.gsd-t/graph.db-shm']){try{if(fs.existsSync(f))fs.renameSync(f,f+'.testbak')}catch{}}\"",
     "test": "node --test",
+    "posttest": "node -e \"const fs=require('fs');for(const f of ['.gsd-t/graph.db','.gsd-t/graph.db-wal','.gsd-t/graph.db-shm']){try{if(fs.existsSync(f+'.testbak'))fs.renameSync(f+'.testbak',f)}catch{}}\"",
     "e2e": "playwright test",
     "e2e:install": "playwright install chromium",
     "prepublishOnly": "npm test"

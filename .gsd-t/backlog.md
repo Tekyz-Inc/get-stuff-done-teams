@@ -742,3 +742,25 @@ The M91 marker parsers match their markers ANYWHERE on a line, with no awareness
 **Why deferred, not fixed in M91**: every case errs fail-closed and none defeats a gate's purpose; fixing mid-verify would expand scope. The section enumerator (`enumerateSections`, §3.1) ALREADY does fence-exclusion correctly — the fix is to reuse that fence-tracking in the three marker parsers (one shared helper). Small (~1 domain, the three bin files + their tests + a "quoted-marker-in-fence ignored" case each).
 
 **NOT in scope for fix**: changing fail-closed→fail-open. The fix only stops false-FAILs / count-inflation from a doc quoting its own grammar; it must NOT let a fenced real divergence pass. See [[feedback_coverage_check_structural_not_substring]] (structural, fence-aware), [[feedback_no_silent_degradation]].
+
+## 46. Full Test & Build Telemetry Suite (flaky-test + reliability observability)
+
+- **Type:** feature / infrastructure | **App:** gsd-t | **Category:** testing / observability
+- **Added:** 2026-06-26 | **Origin:** M94 verify — the verify gate kept tripping (a timing artifact, then a gate-only `npm test` exitCode 1 not reproducible standalone) and could only be traced BY HAND. User: "We definitely need a full telemetry suite."
+
+**The gap:** GSD-T has almost NO telemetry to trace flaky / order-dependent / environment-sensitive test behavior. Flaky tests are debugged by re-run-and-eyeball today. This bites every build with a gate, not one milestone. There is `.gsd-t/events/*.jsonl` (workflow events) and `.gsd-t/metrics/` (workflow metrics) but nothing at the TEST level.
+
+**Proposed telemetry (turns "re-run and guess" into a query):**
+1. **Test-history ledger** — append every test's `{name, file, pass/fail, durationMs, runId, order, seed, env}` to `.gsd-t/metrics/test-history.jsonl`. "Flaky" = any test with MIXED results across recent runs (a query, not a manual re-run). Surfaced in `gsd-t metrics`.
+2. **Auto-isolation on failure** — when a test fails in-suite, automatically re-run it ALONE. pass-alone + fail-in-suite = a shared-state leak; locates the bug CLASS instantly.
+3. **Artifact-leak detector** — snapshot temp dir / working tree before+after each test file; flag a test that leaves files behind (e.g. an un-cleaned `.db` or temp dir that poisons the next test). The MOST COMMON real cause of order-dependent flakes.
+4. **Quarantine + retry-once** — flaky tests marked, retried once, reported SEPARATELY so flakiness never silently fails a gate AND is never hidden.
+5. **Environment-delta capture** — per-run cwd / env vars / parallel-worker-count, because the verify-gate's `npm test` can differ subtly from a manual run (the exact M94-verify symptom: green standalone, exitCode 1 in the gate).
+6. **(stretch) Build telemetry** — per-gate-worker wall-clock + timeout-margin history (tie-in to [[feedback_slow_tests_starve_workflow_watchdog]]: a worker creeping toward its timeout flakes silently until it crosses).
+
+**Synergy with M94 code graph:** once the graph stores test→impl + shared-store edges, "these two tests touch the same store path" becomes a QUERY — flaky-from-shared-state is detectable structurally, not by guessing.
+
+**Scope:** a dedicated milestone (pays off on every future build). Likely a test-runner wrapper/reporter that writes the ledger + the isolation/leak/quarantine logic + a `gsd-t metrics --flaky` surface. Memory: [[project_flaky_test_telemetry_gap]]. Related: [[feedback_measure_dont_claim]], [[feedback_slow_tests_starve_workflow_watchdog]].
+
+## Sequencing note (2026-06-26, user directive)
+After M94 ships: (1) DEFINE the telemetry suite milestone (#46) but DO NOT build it yet. (2) BEFORE building telemetry, EXPLORE the documentation-graph milestone discussed 2026-06-25 (scan findings + docs as enrichment layers ON the code graph — see memory [[project_scan_findings_enrich_graph.md]] + the M94 Phase-2 docs-in-graph scope: doc↔doc + item↔item + doc-item↔code edges via DECLARED IDs only). Order: finish M94 → define telemetry (#46, no build) → explore doc-graph milestone → then decide build order.
