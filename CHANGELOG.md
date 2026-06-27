@@ -2,6 +2,21 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [4.10.10] - 2026-06-26
+
+### Added — M94 persistent code graph + M95 real SCIP call-graph resolution; graph runtime now propagates into projects
+
+The code graph is no longer grep-dependent in principle: M94 shipped a persistent, all-local on-disk index (files / functions / imports / call graph) with a deterministic no-grep-fallback query CLI, and M95 made the precise tier REAL — it reads scip-typescript's `index.scip` and resolves cross-file call edges instead of relabeling unresolved tree-sitter edges "compiler-accurate." Verified on the real Atos repo: the test→impl verb returns 164 resolved cross-file edges (was 0). The graph runtime is now on the project-propagation list, so `update-all` copies the query CLI into every project's `bin/` — the wired consumers (execute/wave disjointness, debug, quick, impact, plan, scan) can finally read a project's graph instead of falling back to grep.
+
+- `bin/gsd-t-scip-reader.cjs`: NEW — decodes `index.scip` into symbol→funcId + per-file reference maps (via scip-typescript's bundled protobuf decoder, located across install layouts, fail-loud if absent).
+- `bin/gsd-t-graph-scip-upgrade.cjs`: `buildScipResolver` runs scip-typescript ONCE per repo (was once-per-file with the output discarded) and resolves `UNRESOLVED#<name>` call edges; tier honesty — `compiler-accurate` only when SCIP actually resolved an edge.
+- `bin/gsd-t-graph-index.cjs`: auto-builds the resolver and threads it through `parse_and_put`.
+- `bin/gsd-t.js`: `gsd-t install` auto-installs scip-typescript + scip-python; `gsd-t doctor` reports their presence; graph runtime added to `PROJECT_BIN_TOOLS`.
+- `bin/gsd-t-graph-freshness.cjs` + `bin/gsd-t-graph-query-cli.cjs`: OOM fix (`runFreshnessCheck` walked `/` → 17 GB) + `openDb` canonical store-path fix + parse_and_put signature fix.
+- `test/m95-scip-call-resolution.test.js`: NEW — resolution, tier honesty, fail-loud, passthrough (5/5).
+
+Decision: GSD-T's zero-dependency installer rule is reframed as a GUIDING PRINCIPLE, not a hard rule — SCIP indexers are now an install requirement because they materially improve the product. Suite: 2502/2502 pass (4 pre-existing skips). Both heavy real-Atos tests pass.
+
 ## [4.9.14] - 2026-06-25 (workflow runCli retry — reliability patch)
 
 ### Fixed — transient helper-call flakes no longer false-block workflows
