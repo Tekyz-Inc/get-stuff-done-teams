@@ -63,19 +63,29 @@ let pythonAvailable = false;
 function ensureParsers() {
   if (_parsersLoaded) return;
   _parsersLoaded = true;
+  // M96: resolve the tree-sitter native modules via the multi-location resolver so
+  // a COPIED extractor (in a project's bin/) finds them in the GSD-T global package,
+  // not the project's own (absent) node_modules. The TS grammar is the MANDATORY
+  // floor parser — if it cannot load, FAIL LOUD. A silent fall-through to
+  // tsAvailable=false produced an empty graph (0 nodes/edges) that looked like a
+  // successful build — the exact silent-degrade this milestone exists to kill.
+  const { requireGraphDep } = require('./gsd-t-require-store.cjs');
   try {
-    Parser = require('tree-sitter');
-    TSGrammars = require('tree-sitter-typescript');
+    Parser = requireGraphDep('tree-sitter');
+    TSGrammars = requireGraphDep('tree-sitter-typescript');
     TSX = TSGrammars.tsx;
     tsAvailable = true;
   } catch (e) {
-    warn(`tree-sitter-typescript not available: ${e.message}`);
+    throw new Error(
+      `code-graph floor parser unavailable: ${e.message} — the graph cannot be built ` +
+      `without tree-sitter. Reinstall GSD-T (npx @tekyzinc/gsd-t install).`
+    );
   }
   try {
-    Python = require('tree-sitter-python');
+    Python = requireGraphDep('tree-sitter-python');
     pythonAvailable = true;
   } catch {
-    /* Python optional */
+    /* Python optional — TS/JS still index */
   }
 }
 

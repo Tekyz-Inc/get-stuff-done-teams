@@ -232,10 +232,10 @@ function loadSkippedFiles(storePath) {
     }
     if (!dbPath) return new Set();
 
-    // Try to load better-sqlite3 — it is a devDependency, may be absent
+    // Load the graph store engine via the M96 multi-location resolver.
     let Database;
     try {
-      Database = require("better-sqlite3");
+      Database = require("./gsd-t-require-store.cjs").requireBetterSqlite();
     } catch (_e) {
       return new Set();
     }
@@ -394,7 +394,7 @@ function buildIndex(records, skippedFiles) {
  */
 function loadSqliteStore(dbPath) {
   let Database;
-  try { Database = require("better-sqlite3"); }
+  try { Database = require("./gsd-t-require-store.cjs").requireBetterSqlite(); }
   catch (_e) { return null; }
   let db;
   try {

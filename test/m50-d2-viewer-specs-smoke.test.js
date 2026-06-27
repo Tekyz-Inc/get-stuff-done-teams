@@ -31,12 +31,19 @@ describe('M50 D2 viewer-specs smoke', () => {
     assert.ok(fs.existsSync(path.join(ROOT, 'e2e', '__placeholder.spec.ts')));
   });
 
-  test('package.json scripts include e2e + e2e:install; @playwright/test in devDependencies only', () => {
+  test('package.json scripts include e2e + e2e:install; runtime deps are only the graph native engines (M96)', () => {
     const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
     assert.equal(pkg.scripts.e2e, 'playwright test');
     assert.equal(pkg.scripts['e2e:install'], 'playwright install chromium');
-    // Zero-runtime-dep invariant: runtime deps stay empty
-    assert.equal(Object.keys(pkg.dependencies || {}).length, 0);
+    // M96: zero-dep is a guiding principle, not a hard rule. The ONLY allowed
+    // runtime deps are the code-graph native engines (better-sqlite3 store +
+    // tree-sitter floor parsers) — without them the graph cannot run. Any OTHER
+    // runtime dep is still disallowed (the principle still bites for everything else).
+    const ALLOWED_RUNTIME_DEPS = new Set([
+      'better-sqlite3', 'tree-sitter', 'tree-sitter-typescript', 'tree-sitter-python',
+    ]);
+    const unexpected = Object.keys(pkg.dependencies || {}).filter((d) => !ALLOWED_RUNTIME_DEPS.has(d));
+    assert.deepEqual(unexpected, [], `only graph native engines allowed as runtime deps; unexpected: ${unexpected.join(', ')}`);
     assert.ok(pkg.devDependencies && pkg.devDependencies['@playwright/test']);
   });
 });

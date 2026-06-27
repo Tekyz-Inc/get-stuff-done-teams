@@ -2682,6 +2682,10 @@ const PROJECT_BIN_TOOLS = [
   // [[project_code_graph_universal_consumer]] [[feedback_graph_is_architectural_anchor]]
   "gsd-t-graph-query-cli.cjs", "gsd-t-graph-index.cjs", "gsd-t-graph-freshness.cjs",
   "gsd-t-graph-edge-extract.cjs", "gsd-t-graph-scip-upgrade.cjs", "gsd-t-scip-reader.cjs",
+  // M96 — multi-location resolver for the store engine (better-sqlite3), so a
+  // copied tool finds the engine from the GSD-T global package, not the project's
+  // own (usually absent) node_modules. Fail-loud with remediation if all miss.
+  "gsd-t-require-store.cjs",
 ];
 
 // Files that older versions of this installer copied into project bin/ but

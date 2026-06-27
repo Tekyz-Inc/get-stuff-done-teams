@@ -99,7 +99,7 @@ function walkTree(dir, results = []) {
 // a single open connection. If no db is passed, we open one from projectRoot.
 
 function openDb(projectRoot, explicitDbPath) {
-  const Database = require('better-sqlite3');
+  const Database = require('./gsd-t-require-store.cjs').requireBetterSqlite();
   // Canonical store path is `.gsd-t/graph.db` (matches build_index's default,
   // the query CLI, and .gitignore). Accept an explicit path when the caller
   // already knows it (runFreshnessCheck passes the exact storePath).

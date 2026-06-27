@@ -114,7 +114,7 @@ function enumerateFiles(root) {
  * Returns a better-sqlite3 Database instance.
  */
 function openStore(dbPath) {
-  const Database = require('better-sqlite3');
+  const Database = require('./gsd-t-require-store.cjs').requireBetterSqlite();
   const db = new Database(dbPath);
   db.pragma('journal_mode = WAL');
   db.pragma('synchronous = NORMAL');
