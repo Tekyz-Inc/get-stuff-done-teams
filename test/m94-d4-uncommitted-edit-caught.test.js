@@ -145,7 +145,8 @@ test('AC-3: uncommitted working-tree edit IS detected by content-hash (git-SHA u
 
     // ── Re-index via parseAndPut (mocked — D3 not yet built) ──
     const parseAndPutCalls = [];
-    const mockParseAndPut = (rel) => { parseAndPutCalls.push(rel); };
+    // D3's real signature: parse_and_put(absPath, relPath, { db }) — rel is arg 2.
+    const mockParseAndPut = (_absPath, rel) => { parseAndPutCalls.push(rel); };
 
     const result = freshness_check_on_query(
       db, tmpDir,

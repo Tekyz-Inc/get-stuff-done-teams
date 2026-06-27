@@ -67,6 +67,14 @@ const EXCLUDE_DIRS = new Set([
 ]);
 
 function walkTree(dir, results = []) {
+  // Defense-in-depth: refuse to walk the filesystem root or the user's home dir.
+  // A bogus projectRoot (e.g. "/") from a fake store path would otherwise recurse
+  // the whole disk → OOM (this once crashed the machine). A real project root is
+  // never "/" or "~".
+  const resolved = path.resolve(dir);
+  if (resolved === path.parse(resolved).root || resolved === os.homedir()) {
+    return results;
+  }
   let entries;
   try { entries = fs.readdirSync(dir, { withFileTypes: true }); }
   catch { return results; }
@@ -276,10 +284,10 @@ function revalidateOneHopImporters(db, fileRel, op) {
  * The surface D5 calls inline before answering a query.
  *
  * Takes the pre-computed `touched` set (from compute_touched_files) and:
- * 1. For each stale file (EDIT): calls parseAndPut(fileRel) — D3's per-file
- *    re-index — then re-validates one-hop importers.
- * 2. For each ADD: calls parseAndPut(fileRel) to bring the new file into the
- *    store, then registers one-hop importers.
+ * 1. For each stale file (EDIT): calls parseAndPut(absPath, rel, { db }) — D3's
+ *    per-file re-index — then re-validates one-hop importers.
+ * 2. For each ADD: calls parseAndPut(absPath, rel, { db }) to bring the new file
+ *    into the store, then registers one-hop importers.
  * 3. For each DELETE: removes the file node + all its edges (dangling edges gone).
  *
  * The entire dirty set is serialized to completion BEFORE the query reads.
@@ -291,7 +299,7 @@ function revalidateOneHopImporters(db, fileRel, op) {
  * @param {object}   db           – better-sqlite3 Database handle
  * @param {string}   projectRoot  – absolute path to the repo root
  * @param {object}   touched      – { edits, adds, deletes } from compute_touched_files
- * @param {Function} parseAndPut  – D3's parse_and_put(fileRel) — injected, not required()
+ * @param {Function} parseAndPut  – D3's parse_and_put(absPath, relPath, { db }) — injected, not required()
  * @returns {{ reindexed: string[], revalidated: object[], skipped: string[], errors: object[] }}
  */
 function freshness_check_on_query(db, projectRoot, touched, parseAndPut) {
@@ -309,9 +317,9 @@ function freshness_check_on_query(db, projectRoot, touched, parseAndPut) {
   for (const rel of edits) {
     try {
       const absPath = path.join(projectRoot, rel);
-      // Call D3's parse_and_put (function-level, not a file edit)
+      // Call D3's parse_and_put(absPath, relPath, { db }) — function-level, not a file edit
       if (typeof parseAndPut === 'function') {
-        parseAndPut(rel, absPath, db, projectRoot);
+        parseAndPut(absPath, rel, { db });
       }
       reindexed.push(rel);
       const rv = revalidateOneHopImporters(db, rel, 'EDIT');
@@ -326,7 +334,7 @@ function freshness_check_on_query(db, projectRoot, touched, parseAndPut) {
     try {
       const absPath = path.join(projectRoot, rel);
       if (typeof parseAndPut === 'function') {
-        parseAndPut(rel, absPath, db, projectRoot);
+        parseAndPut(absPath, rel, { db });
       }
       reindexed.push(rel);
       const rv = revalidateOneHopImporters(db, rel, 'ADD');

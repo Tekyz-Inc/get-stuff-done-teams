@@ -507,6 +507,11 @@ function runFreshnessCheck(storePath) {
       ? path.dirname(path.dirname(storePath))   // .gsd-t/graph.db → repo root
       : path.dirname(path.dirname(storePath));   // .gsd-t/graph-index → repo root
     const db = freshnessModule.openDb(projectRoot);
+    // No real store at this root → fail-loud BEFORE deriving a touched-set.
+    // (Without this, a fake/non-existent storePath yields projectRoot="/" and
+    //  compute_touched_files walks the entire filesystem → OOM. [RULE]
+    //  parser-fail-disables-loud-never-silent: absent store = graph-unavailable.)
+    if (!db) return { ok: false, reason: "graph-unavailable" };
     const touched = freshnessModule.compute_touched_files(db, projectRoot);
     // parse_and_put (from D3) lets freshness re-index stale files; pass it when
     // available so an edited file is refreshed before the answer.

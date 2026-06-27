@@ -151,8 +151,9 @@ test('T5-2: ADD — new file H importing E appears as an importer', () => {
     const touched = compute_touched_files(db, tmpDir);
     assert.ok(touched.adds.includes('src/h.js'), 'h.js detected as ADD');
 
-    // Mock parseAndPut: when called for h.js, insert h→e edge into the store
-    const mockParseAndPut = (rel, absPath, dbHandle) => {
+    // Mock parseAndPut — D3's real signature is (absPath, rel, { db }).
+    const mockParseAndPut = (absPath, rel, opts) => {
+      const dbHandle = opts && opts.db;
       if (rel === 'src/h.js' && dbHandle) {
         // Simulate D3's parse_and_put: insert the FILE node and the IMPORT edge
         const crypto = require('node:crypto');
@@ -210,8 +211,9 @@ test('T5-3: RENAME — old path gone from graph, new path present (rename = dele
     assert.ok(touched.deletes.includes('src/old.js'), 'src/old.js detected as DELETE (rename origin)');
     assert.ok(touched.adds.includes('src/new.js'), 'src/new.js detected as ADD (rename destination)');
 
-    // Mock parseAndPut for new.js
-    const mockParseAndPut = (rel, absPath, dbHandle) => {
+    // Mock parseAndPut for new.js — D3's real signature is (absPath, rel, { db }).
+    const mockParseAndPut = (absPath, rel, opts) => {
+      const dbHandle = opts && opts.db;
       if (rel === 'src/new.js' && dbHandle) {
         const crypto = require('node:crypto');
         const content = fs.readFileSync(absPath || path.join(tmpDir, rel), 'utf8');

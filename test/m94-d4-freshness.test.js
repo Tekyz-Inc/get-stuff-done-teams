@@ -152,7 +152,8 @@ test('T1-B: re-validation is one-hop only — 2-hop importer is NOT re-checked',
     assert.ok(touched.edits.includes('src/a.js'), 'A detected as stale');
 
     const parseAndPutCalls = [];
-    const mockParseAndPut = (rel) => {
+    // D3's real signature: parse_and_put(absPath, relPath, { db }) — rel is arg 2.
+    const mockParseAndPut = (_absPath, rel) => {
       parseAndPutCalls.push(rel);
       // No-op: we just record the call
     };
@@ -199,8 +200,9 @@ test('T1-C: re-index calls parseAndPut function for stale files', () => {
     fs.writeFileSync(path.join(tmpDir, 'src', 'x.js'), 'export const X = 2;\n', 'utf8');
 
     const called = [];
-    const mockParseAndPut = (rel, absPath, dbHandle, root) => {
-      called.push({ rel, absPath, hasDb: !!dbHandle, hasRoot: !!root });
+    // D3's real signature: parse_and_put(absPath, relPath, { db, scip }).
+    const mockParseAndPut = (absPath, rel, opts) => {
+      called.push({ rel, absPath, hasDb: !!(opts && opts.db) });
     };
 
     freshness_check_on_query(
@@ -211,8 +213,7 @@ test('T1-C: re-index calls parseAndPut function for stale files', () => {
 
     assert.equal(called.length, 1, 'parseAndPut called exactly once for one stale file');
     assert.equal(called[0].rel, 'src/x.js', 'Called for the stale file');
-    assert.ok(called[0].hasDb, 'db handle passed to parseAndPut');
-    assert.ok(called[0].hasRoot, 'projectRoot passed to parseAndPut');
+    assert.ok(called[0].hasDb, 'db handle passed to parseAndPut via opts.db');
 
     db.close();
   } finally {
@@ -352,7 +353,8 @@ test('T1-H: multi-file dirty set is re-indexed serially to completion (coherent 
     fs.writeFileSync(path.join(tmpDir, 'src', 'z.js'), '// z changed\n', 'utf8');
 
     const callOrder = [];
-    const mockParseAndPut = (rel) => { callOrder.push(rel); };
+    // D3's real signature: parse_and_put(absPath, relPath, { db }) — rel is arg 2.
+    const mockParseAndPut = (_absPath, rel) => { callOrder.push(rel); };
 
     // ALL edits must be processed before the result is returned
     freshness_check_on_query(

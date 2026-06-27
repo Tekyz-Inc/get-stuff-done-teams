@@ -97,7 +97,8 @@ test('T6: multi-file dirty set re-indexed serially to ALL-NEW coherent state', (
 
     // Track the order parseAndPut is called
     const parseAndPutOrder = [];
-    const mockParseAndPut = (rel) => { parseAndPutOrder.push(rel); };
+    // D3's real signature: parse_and_put(absPath, relPath, { db }) — rel is arg 2.
+    const mockParseAndPut = (_absPath, rel) => { parseAndPutOrder.push(rel); };
 
     const result = freshness_check_on_query(
       db, tmpDir,
@@ -167,7 +168,8 @@ test('T6-B: freshness_check_on_query does NOT short-circuit on first error', () 
 
     const processed = [];
     let callCount = 0;
-    const mockParseAndPut = (rel) => {
+    // D3's real signature: parse_and_put(absPath, relPath, { db }) — rel is arg 2.
+    const mockParseAndPut = (_absPath, rel) => {
       callCount++;
       if (callCount === 1) {
         // Simulate parseAndPut throwing for the first file

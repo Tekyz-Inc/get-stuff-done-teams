@@ -110,7 +110,8 @@ test('T4: edited non-target file B detected — whole-tree dirty-set derivation'
 
     // Simulate: re-index B via freshness_check_on_query before answering who-imports(C)
     const reindexed = [];
-    const mockParseAndPut = (rel) => { reindexed.push(rel); };
+    // D3's real signature: parse_and_put(absPath, relPath, { db }) — rel is arg 2.
+    const mockParseAndPut = (_absPath, rel) => { reindexed.push(rel); };
 
     freshness_check_on_query(
       db, tmpDir,
