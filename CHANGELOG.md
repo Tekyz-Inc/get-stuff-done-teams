@@ -2,6 +2,17 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [4.10.12] - 2026-06-27
+
+### Fixed — freshness hash mismatch made every graph query re-index the whole repo
+
+`compute_touched_files` hashed files with md5 (full length) while the indexer stores sha256 sliced to 16 chars — a guaranteed permanent mismatch. So every file read as "edited" on every query and freshness re-indexed the entire repo (re-running SCIP), hanging `gsd-t graph status` for 30s+ (then reporting graph-unavailable) on large projects.
+
+- `bin/gsd-t-graph-freshness.cjs`: `hashFileContent` now `sha256().slice(0,16)` — matches the indexer's `contentHash` exactly. `EXCLUDE_DIRS` synced with the indexer's `SKIP_DIRS` (`.venv`/`site-packages`/etc.) so freshness doesn't see phantom ADDs from vendored dirs the indexer skipped.
+- 5 D4 freshness test fixtures seeded stores with md5 hashes — updated to sha256(16) to match the real store.
+
+Measured on Tekyz-CRM: `gsd-t graph status` 30s-timeout-unavailable → 0.38s ok; `compute_touched_files` 291ms / 11,821-files-stale → 12ms / 0-stale. This also makes graph queries cheap enough for ambient grep-interception (the next milestone). Suite: 2502/2502 pass.
+
 ## [4.10.11] - 2026-06-27
 
 ### Fixed — M96: the code graph now actually runs in projects (native-dep resolution)
