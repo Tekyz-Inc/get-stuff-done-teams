@@ -2,6 +2,24 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [4.11.10] - 2026-06-27
+
+### Added — M97: the code graph is the default for ambient code-reading (grep-intercept), + 3 call-resolution fixes
+
+A PostToolUse hook on Claude's built-in `Grep` makes structural searches consult the code graph instead of raw text. The graph only powered explicit GSD-T commands before; now any "where is this used / who calls this" grep gets a precomputed graph answer.
+
+- `bin/gsd-t-grep-classifier.cjs`: NEW — conservative structural-vs-text classifier (bare symbol / call shape / member call / import → structural verb; strings/regex/phrases → TEXT pass-through).
+- `scripts/gsd-t-graph-intercept.js`: NEW — PostToolUse hook on Grep. Structural + graph-present → query the graph, REPLACE the grep output via `updatedToolOutput` (original hits kept beneath, labeled by tier); else pass through. FAIL-OPEN, never calls Grep/Read (no loop), no-op without a graph.
+- `bin/gsd-t.js`: `gsd-t install` registers the hook (matcher `Grep`), idempotent.
+
+**Fixed — the call-graph was EMPTY on real projects (3 bugs):**
+- `bin/gsd-t-graph-index.cjs`: the CLI `build` path passed the upgrader MODULE as the `scip` option, so `build_index` skipped auto-building the resolver → 0 resolved edges on every `gsd-t graph index` (fixtures passed via the direct `build_index({dbPath})` path). Now the CLI lets build_index auto-build.
+- `bin/gsd-t-scip-reader.cjs`: method names after `#` (`Class#method()`) weren't extracted (split on `/` only) — now split on last `/` OR `#`; and build-output docs (`dist-*`/`build-*`/`out-*`) are skipped so minified bundles don't pollute who-calls.
+- `bin/gsd-t-graph-query-cli.cjs`: who-calls dropped results on a funcId `@line`-suffix mismatch (funcEntities key `file#name@line`, callGraph keys `file#name`) — now tolerant.
+- `bin/gsd-t-graph-freshness.cjs`: hashed files with md5 while the indexer stores sha256 — every file read as "changed" → whole-repo re-index on every query (`gsd-t graph status` 30s→0.38s on a large project). Now sha256(16), excludes synced.
+
+binvoice (real project): 2,579 resolved call edges; `who-calls(getSessionToken)` → real callers. Hook latency ~0.46s/call (node startup; query <100ms). Suite: 2519/2519 pass.
+
 ## [4.10.12] - 2026-06-27
 
 ### Fixed — freshness hash mismatch made every graph query re-index the whole repo
