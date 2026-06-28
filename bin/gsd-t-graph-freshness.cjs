@@ -48,22 +48,32 @@ function fail(msg) { return `${C.red}✘${C.reset} ${msg}`; }
 // ─── Source-file extensions the indexer tracks ────────────────────────────────
 const TRACKED_EXTS = new Set(['.js', '.mjs', '.cjs', '.ts', '.tsx', '.jsx', '.py']);
 
-// ─── Content-hash (SHA-256 hex, first 16 bytes → 32 hex chars) ───────────────
-// Using MD5 for speed (same family as graph-store.js) — collision-resistance
-// is not required here; we only need change-detection fidelity.
+// ─── Content-hash — MUST match the indexer's contentHash EXACTLY ─────────────
+// The indexer (gsd-t-graph-index.cjs::contentHash) stores sha256(content) sliced
+// to the first 16 hex chars. Freshness MUST compute the identical value, or EVERY
+// file reads as "edited" on every query (the hash never matches) and freshness
+// re-indexes the whole repo — the hang. (Was md5/full-length: a guaranteed
+// permanent mismatch.) [RULE] freshness-hash-matches-indexer-hash
 function hashFileContent(filePath) {
   try {
     const content = fs.readFileSync(filePath);
-    return crypto.createHash('md5').update(content).digest('hex');
+    return crypto.createHash('sha256').update(content).digest('hex').slice(0, 16);
   } catch {
     return null;
   }
 }
 
 // ─── Walk the working tree for source files ───────────────────────────────────
+// MUST stay in sync with the indexer's SKIP_DIRS (gsd-t-graph-index.cjs). If
+// freshness walks a dir the indexer skipped, every file in it reads as a phantom
+// ADD on every query → re-index storm (bee-poc/Tekyz-CRM: 9,008 phantom adds from
+// .venv + build bundles). [RULE] freshness-excludes-match-indexer-skipdirs
 const EXCLUDE_DIRS = new Set([
   'node_modules', '.git', 'dist', 'build', 'coverage',
   '.gsd-t', '.claude', '__pycache__', '.next', 'out',
+  '.cache', '.nyc_output', '.turbo',
+  '.venv', 'venv', 'env', '.dart_tool', 'Pods', 'vendor', '.gradle',
+  '.idea', '.vscode', 'tmp', '.tmp', 'site-packages',
 ]);
 
 function walkTree(dir, results = []) {

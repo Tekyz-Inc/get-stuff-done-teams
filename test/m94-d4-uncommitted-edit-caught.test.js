@@ -68,7 +68,7 @@ function setupFixtureDb(tmpDir, files) {
     const absPath = path.join(tmpDir, f.rel);
     fs.mkdirSync(path.dirname(absPath), { recursive: true });
     fs.writeFileSync(absPath, f.content, 'utf8');
-    const hash = crypto.createHash('md5').update(f.content).digest('hex');
+    const hash = crypto.createHash('sha256').update(f.content).digest('hex').slice(0, 16);
     insNode.run(f.rel, hash, f.rel);
     if (f.importsDst) insEdge.run(f.rel, f.importsDst);
   }

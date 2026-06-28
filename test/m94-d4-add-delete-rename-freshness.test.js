@@ -66,7 +66,7 @@ function setupFixtureDb(tmpDir, files) {
     const absPath = path.join(tmpDir, f.rel);
     fs.mkdirSync(path.dirname(absPath), { recursive: true });
     fs.writeFileSync(absPath, f.content, 'utf8');
-    const hash = crypto.createHash('md5').update(f.content).digest('hex');
+    const hash = crypto.createHash('sha256').update(f.content).digest('hex').slice(0, 16);
     insNode.run(f.rel, hash, f.rel);
     for (const dst of (f.imports || [])) insEdge.run(f.rel, dst);
   }
@@ -158,7 +158,7 @@ test('T5-2: ADD — new file H importing E appears as an importer', () => {
         // Simulate D3's parse_and_put: insert the FILE node and the IMPORT edge
         const crypto = require('node:crypto');
         const content = fs.readFileSync(absPath || path.join(tmpDir, rel), 'utf8');
-        const hash = crypto.createHash('md5').update(content).digest('hex');
+        const hash = crypto.createHash('sha256').update(content).digest('hex').slice(0, 16);
         dbHandle.prepare(
           `INSERT OR REPLACE INTO nodes (id, kind, tier, content_hash, file, name, func_id)
            VALUES (?, 'FILE', 'tree-sitter-floor', ?, ?, null, null)`
@@ -217,7 +217,7 @@ test('T5-3: RENAME — old path gone from graph, new path present (rename = dele
       if (rel === 'src/new.js' && dbHandle) {
         const crypto = require('node:crypto');
         const content = fs.readFileSync(absPath || path.join(tmpDir, rel), 'utf8');
-        const hash = crypto.createHash('md5').update(content).digest('hex');
+        const hash = crypto.createHash('sha256').update(content).digest('hex').slice(0, 16);
         dbHandle.prepare(
           `INSERT OR REPLACE INTO nodes (id, kind, tier, content_hash, file, name, func_id)
            VALUES (?, 'FILE', 'tree-sitter-floor', ?, ?, null, null)`
