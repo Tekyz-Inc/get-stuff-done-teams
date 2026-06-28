@@ -81,12 +81,14 @@ function loadScipProto() {
  */
 function funcNameFromSymbol(symbol) {
   if (!symbol || typeof symbol !== 'string') return null;
-  // Parameters look like "name().(param)" — skip (they contain "(...)" after "().")
-  // Methods/functions end with "()." possibly preceded by the name.
-  // Take the final descriptor (after the last unescaped '/').
-  const lastSlash = symbol.lastIndexOf('/');
-  const descriptor = lastSlash === -1 ? symbol : symbol.slice(lastSlash + 1);
-  // Method/function descriptor: "<name>()." — capture <name>
+  // Only function/method occurrences (end with "()."). Parameters are "name().(p)"
+  // — they don't end with "()." so they're excluded.
+  if (!/\(\)\.$/.test(symbol)) return null;
+  // The callable name is the last descriptor segment. Top-level functions are
+  // ".../`file.ts`/name()."; methods are ".../`file.ts`/Class#method()." — so the
+  // name follows the LAST '/' OR '#', whichever is later (methods key on '#').
+  const cut = Math.max(symbol.lastIndexOf('/'), symbol.lastIndexOf('#'));
+  const descriptor = cut === -1 ? symbol : symbol.slice(cut + 1);
   const m = descriptor.match(/^([A-Za-z_$][\w$]*)\(\)\.$/);
   return m ? m[1] : null;
 }

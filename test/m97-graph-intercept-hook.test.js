@@ -33,9 +33,13 @@ function mkGraphProject() {
   fs.mkdirSync(path.join(dir, 'src'), { recursive: true });
   fs.mkdirSync(path.join(dir, '.gsd-t'), { recursive: true });
   fs.writeFileSync(path.join(dir, 'package.json'), '{"name":"m97hook","version":"1.0.0"}');
-  fs.writeFileSync(path.join(dir, 'src', 'a.js'), 'export function alpha(x) { return x + 1; }\n');
-  fs.writeFileSync(path.join(dir, 'src', 'b.js'), "import { alpha } from './a';\nexport function b() { return alpha(1); }\n");
-  fs.writeFileSync(path.join(dir, 'src', 'c.js'), "import { alpha } from './a';\nexport function c() { return alpha(2); }\n");
+  // tsconfig scopes scip-typescript + the indexer to src/, so the copied runtime
+  // tools (in bin/) don't pollute resolution.
+  fs.writeFileSync(path.join(dir, 'tsconfig.json'),
+    '{"compilerOptions":{"target":"ES2020","module":"ESNext","moduleResolution":"node","allowJs":true},"include":["src"]}');
+  fs.writeFileSync(path.join(dir, 'src', 'a.ts'), 'export function alpha(x: number) { return x + 1; }\n');
+  fs.writeFileSync(path.join(dir, 'src', 'b.ts'), "import { alpha } from './a';\nexport function b() { return alpha(1); }\n");
+  fs.writeFileSync(path.join(dir, 'src', 'c.ts'), "import { alpha } from './a';\nexport function c() { return alpha(2); }\n");
   // copy the runtime the hook resolves (project-local query CLI)
   const binDir = path.join(dir, 'bin');
   fs.mkdirSync(binDir, { recursive: true });
@@ -50,18 +54,13 @@ function mkGraphProject() {
 
 const SKIP = Database ? false : 'better-sqlite3 not installed';
 
-// PENDING: blocked on the "SCIP resolves on fixtures but not real projects" bug
-// (binvoice: 0/37,652 call edges resolved despite a 4.6MB index.scip). The hook
-// mechanism is proven (it produced a full replacement on binvoice's ambiguous
-// `isEnvelope` symbol live); this fixture can't resolve cross-file calls until the
-// real-project SCIP resolution gap is fixed. See progress.md M97 entry.
-test('AC-1 + AC-7: structural grep on a known symbol → graph answer replaces grep', { skip: 'PENDING: real-project SCIP call-resolution gap (see M97 progress note)' }, () => {
+test('AC-1 + AC-7: structural grep on a known symbol → graph answer replaces grep', { skip: SKIP }, () => {
   const dir = mkGraphProject();
   try {
     const out = runHook({
       tool_name: 'Grep',
       tool_input: { pattern: 'alpha' },
-      tool_response: 'src/b.js:2: alpha(1)',
+      tool_response: 'src/b.ts:2: alpha(1)',
       cwd: dir,
     });
     assert.ok(out, 'hook produced output (replacement)');
@@ -69,7 +68,7 @@ test('AC-1 + AC-7: structural grep on a known symbol → graph answer replaces g
     const replaced = env.hookSpecificOutput.updatedToolOutput;
     assert.match(replaced, /code graph/, 'output is labeled as a graph answer');
     assert.match(replaced, /who-imports|who-calls/, 'output names the structural verb');
-    assert.match(replaced, /src\/a\.js|alpha/, 'output references the real symbol/file');
+    assert.match(replaced, /alpha|a\.ts/, 'output references the real symbol/file');
     assert.match(replaced, /original grep output/, 'original grep is retained beneath');
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });

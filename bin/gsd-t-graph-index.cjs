@@ -509,17 +509,14 @@ if (require.main === module) {
   info(`build_index — repo: ${repoRoot}`);
   info(`Store: ${dbPath}`);
 
-  // Load SCIP upgrader if available
-  let scip = null;
-  try {
-    scip = require('./gsd-t-graph-scip-upgrade.cjs');
-  } catch {
-    warn('SCIP upgrader not found — using tree-sitter-floor only');
-  }
-
+  // Pass scip:null so build_index AUTO-BUILDS the repo-level SCIP resolver
+  // (runs scip-typescript once, reads index.scip, resolves call edges). Passing
+  // the raw upgrader MODULE here was the bug: build_index saw a truthy `scip`
+  // context with no `.resolver`, skipped auto-build, and stored 0 resolved edges
+  // on every CLI `gsd-t graph index` (M95/M96 fixtures passed because they called
+  // build_index({dbPath}) directly with scip:null). [RULE] cli-build-auto-resolves-scip
   const result = build_index(repoRoot, {
     dbPath,
-    scip,
     onProgress: ({ file, tier, fileCount, total }) => {
       if (fileCount % 100 === 0) {
         info(`[${fileCount}/${total}] ${tier === 'compiler-accurate' ? C.green : C.dim}${file}${C.reset}`);

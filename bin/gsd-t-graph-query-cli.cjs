@@ -573,8 +573,9 @@ function queryWhoCalls(index, identity) {
   const coverage = computeCoverage(index.skippedFiles);
 
   if (isFuncId) {
-    // File-qualified identity — exact funcId lookup
-    const callers = index.callGraph.get(identity);
+    // File-qualified identity — exact funcId lookup (tolerate @line suffix:
+    // callGraph keys on `file#name`, callers may pass `file#name@line`).
+    const callers = index.callGraph.get(identity) || index.callGraph.get(identity.replace(/@\d+$/, ''));
     const results = callers ? Array.from(callers).sort() : [];
     return { results, tier: index.tier, coverage };
   }
@@ -593,8 +594,13 @@ function queryWhoCalls(index, identity) {
   }
 
   if (matchingFuncIds.length === 1) {
-    // Unambiguous bare name — resolve directly
-    const callers = index.callGraph.get(matchingFuncIds[0]);
+    // Unambiguous bare name — resolve directly.
+    // funcEntities key as `file#name@line`, but call edges (and thus callGraph)
+    // key as `file#name` (no @line) — try both so the @line-suffix difference
+    // doesn't drop real callers. [RULE] who-calls-funcid-line-suffix-tolerant
+    const fid = matchingFuncIds[0];
+    const fidNoLine = fid.replace(/@\d+$/, '');
+    const callers = index.callGraph.get(fid) || index.callGraph.get(fidNoLine);
     const results = callers ? Array.from(callers).sort() : [];
     return { results, tier: index.tier, coverage };
   }
