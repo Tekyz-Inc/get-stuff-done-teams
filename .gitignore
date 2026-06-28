@@ -103,3 +103,7 @@ bin/context-meter-state.cjs
 # Playwright/test run artifacts (regenerated every run — never source)
 playwright-report/
 test-results/
+
+# SCIP indexes (generated per build)
+.gsd-t/index.scip
+.gsd-t/index-python.scip
