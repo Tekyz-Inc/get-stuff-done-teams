@@ -3880,10 +3880,11 @@ function doGraph(args) {
     case "who-imports":   { const e = _graphQueryCli(["who-imports", args[1] || ""]); log(JSON.stringify(e, null, 2)); break; }
     case "who-calls":     { const e = _graphQueryCli(["who-calls",   args[1] || ""]); log(JSON.stringify(e, null, 2)); break; }
     case "blast-radius":  { const e = _graphQueryCli(["blast-radius", args[1] || ""]); log(JSON.stringify(e, null, 2)); break; }
+    case "body":          { const e = _graphQueryCli(["body",         args[1] || ""]); log(JSON.stringify(e, null, 2)); break; }
     case "tasks":         doGraphTaskOutput(args[1] || "table"); break;
     default:
       error(`Unknown graph subcommand: ${sub}`);
-      info("Usage: gsd-t graph [index|status|query|who-imports|who-calls|blast-radius|tasks]");
+      info("Usage: gsd-t graph [index|status|query|who-imports|who-calls|blast-radius|body|tasks]");
       info("       gsd-t graph --output json|table   (task DAG)");
   }
 }

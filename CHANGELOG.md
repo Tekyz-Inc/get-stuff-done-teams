@@ -2,6 +2,17 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [4.13.11] - 2026-06-29
+
+### Fixed — `gsd-t graph body` reachable from the front door (M98 follow-up)
+
+M98 shipped the `body` slice logic in the query CLI and wired the Read-intercept hook, but the top-level `gsd-t graph` router in `bin/gsd-t.js` had no `case "body"` — so `gsd-t graph body <fn>` fell through to "Unknown graph subcommand". The headline M98 feature worked via the internal CLI and the hook, but was unreachable from the user-facing `gsd-t graph` command (the M98 test exercised the CLI directly, never the front door).
+
+- **`bin/gsd-t.js`** — added `case "body"` to the graph subcommand router (delegates to the D5 query CLI, mirrors `who-calls`/`blast-radius`); added `body` to the usage string.
+- **`test/m94-d5-graph-dispatch.test.js`** — new front-door regression test: `gsd-t graph body` must route to the CLI and emit a `{ ok, verb:"body" }` envelope, never "Unknown graph subcommand".
+
+Verified on real binvoice: `gsd-t graph body selectCommentId` now returns the live 43-line slice (compiler-accurate, imports + callers) through the front door. Suite: 2541/2545 pass.
+
 ## [4.13.10] - 2026-06-29
 
 ### Added — The graph serves code (function-level slices) + Read-intercept (M98)

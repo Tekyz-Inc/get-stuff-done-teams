@@ -189,6 +189,35 @@ test("gsd-t graph who-imports hits the NEW D5 CLI — not the dead path", () => 
   }
 });
 
+// ─── (a) gsd-t graph body routes to the D5 CLI (M98 front-door wiring) ───────
+
+test("gsd-t graph body routes through the router to the D5 CLI — NOT 'Unknown graph subcommand'", () => {
+  // M98 regression guard: the `body` verb (function source slices) lived in the
+  // query CLI but the top-level `gsd-t graph` router had no `case "body"`, so
+  // `gsd-t graph body <fn>` fell through to "Unknown graph subcommand" — the
+  // headline M98 feature was unreachable from the front door. This test calls
+  // the ENTRY POINT (not the CLI directly) so the router wiring is exercised.
+  const r = runGsdT(["graph", "body", "a"]);
+  const combined = (r.stdout || "") + (r.stderr || "");
+
+  assert.ok(
+    !combined.includes("Unknown graph subcommand"),
+    `gsd-t graph body fell through to the Unknown-subcommand default — the router ` +
+    `is missing 'case "body"'. Combined: ${combined.slice(0, 400)}`
+  );
+
+  // The router prints the CLI's JSON envelope. It must be a valid { ok, verb:"body" }
+  // envelope — either a real slice (ok:true) or an honest not-found/unavailable.
+  const trimmed = (r.stdout || "").trim();
+  assert.ok(trimmed, `gsd-t graph body produced no stdout. stderr: ${r.stderr && r.stderr.slice(0, 200)}`);
+  let parsed;
+  try { parsed = JSON.parse(trimmed); } catch { /* fall through to assert below */ }
+  assert.ok(
+    parsed && "ok" in parsed && parsed.verb === "body",
+    `gsd-t graph body should emit a JSON envelope { ok, verb:"body", ... }, got: ${trimmed.slice(0, 200)}`
+  );
+});
+
 // ─── (d) task-DAG path preserved ─────────────────────────────────────────────
 
 test("gsd-t graph --output json still emits the M44 task DAG (not collateral-damaged)", () => {
