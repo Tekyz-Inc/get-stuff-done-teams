@@ -44,6 +44,10 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync, spawnSync } = require('child_process');
+// Red Team HIGH (M99 round 4 — SC#1): SCIP indexes must live under .gsd-t/graphDB/,
+// not loose in .gsd-t/. Route every index.scip / index-python.scip path through the
+// single resolver. [RULE] scip-index-under-graphdb
+const { resolveScipPath } = require('./gsd-t-graph-store-resolver.cjs');
 
 // ── ANSI helpers ─────────────────────────────────────────────────────────────
 
@@ -133,7 +137,11 @@ function _resetScipCache(override) {
 function runScipTypescript(projectRoot, outPath) {
   // M95: emit to a REAL file (outPath) so the index can be READ and call edges
   // resolved — not /dev/null. The old /dev/null path only proved invocability.
-  const out = outPath || path.join(projectRoot, '.gsd-t', 'index.scip');
+  const out = outPath || resolveScipPath('index.scip', projectRoot);
+  // Ensure the output dir (now .gsd-t/graphDB/) exists — scip-typescript's
+  // --output open() fails if the parent dir is absent (the old .gsd-t/ always
+  // existed; graphDB/ may not on a fresh build). [RULE] scip-index-under-graphdb
+  try { fs.mkdirSync(path.dirname(out), { recursive: true }); } catch {}
   // --infer-tsconfig: resolve a tsconfig even when one isn't at the repo root
   // (monorepos / nested layouts — e.g. web/tsconfig.json). Without it, projects
   // whose tsconfig lives in a subdir got 0 resolved call edges. [RULE] scip-infer-nested-tsconfig
@@ -149,7 +157,8 @@ function runScipTypescript(projectRoot, outPath) {
 function runScipPython(projectRoot, outPath) {
   // Emit to a REAL file (separate from the TS index) so it can be READ + merged.
   // --project-name is required-ish for stable symbols; derive from the dir name.
-  const out = outPath || path.join(projectRoot, '.gsd-t', 'index-python.scip');
+  const out = outPath || resolveScipPath('index-python.scip', projectRoot);
+  try { fs.mkdirSync(path.dirname(out), { recursive: true }); } catch {} // graphDB/ may not exist yet
   const projName = path.basename(projectRoot).replace(/[^A-Za-z0-9_-]/g, '-') || 'project';
   // scip-python REQUIRES a project version — it crashes (makeModuleInit) when the
   // version is undefined (no pyproject.toml). Pass an explicit fallback version.
@@ -275,13 +284,13 @@ function buildScipResolver(repoRoot, opts = {}) {
 
   if (avail.typescript && langs.typescript) {
     try {
-      const run = runScipTypescript(repoRoot, path.join(repoRoot, '.gsd-t', 'index.scip'));
+      const run = runScipTypescript(repoRoot, resolveScipPath('index.scip', repoRoot));
       if (run && run.ok) { mergeRead(readScipIndex(run.scipPath)); ranIndexers.push('typescript'); }
     } catch { /* degrade to floor for TS */ }
   }
   if (avail.python && langs.python) {
     try {
-      const run = runScipPython(repoRoot, path.join(repoRoot, '.gsd-t', 'index-python.scip'));
+      const run = runScipPython(repoRoot, resolveScipPath('index-python.scip', repoRoot));
       if (run && run.ok) { mergeRead(readScipIndex(run.scipPath)); ranIndexers.push('python'); }
     } catch { /* degrade to floor for Python */ }
   }
@@ -326,7 +335,7 @@ function buildScipResolver(repoRoot, opts = {}) {
     return { edges: out, resolved };
   }
 
-  return { ok: true, indexers: ranIndexers, scipPath: path.join(repoRoot, '.gsd-t', 'index.scip'), resolveFileEdges };
+  return { ok: true, indexers: ranIndexers, scipPath: resolveScipPath('index.scip', repoRoot), resolveFileEdges };
 }
 
 /** No-op resolver used when SCIP is unavailable (floor mode). */

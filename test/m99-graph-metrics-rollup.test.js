@@ -121,6 +121,50 @@ function wiring(mode, consumer, ts) {
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
+test("Red Team HIGH: rollup does NOT crash on prototype-pollution labels (__proto__/constructor/toString)", () => {
+  // Consumer/verb labels are UNTRUSTED (GSDT_GRAPH_CONSUMER, hook payloads). A
+  // label naming an Object.prototype property defeated `if (!obj[label])` guards on
+  // a plain {} accumulator → `.add()`/assign on the prototype → uncaught crash,
+  // bricking the M99 read surface (SC#14). Object.create(null) accumulators fix it.
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "m99-rollup-proto-"));
+  const logsDir = path.join(dir, ".gsd-t", "graphDB", "logs");
+  fs.mkdirSync(logsDir, { recursive: true });
+  const poison = [
+    { kind: "query", outcome: "hit", consumer: "__proto__", verb: "constructor", ts: "2026-06-30T14:25:00.000Z" },
+    { kind: "query", outcome: "hit", consumer: "constructor", verb: "toString", ts: "2026-06-30T14:26:00.000Z" },
+    { kind: "wiring", graphWiringMode: "fallback-announced", consumer: "__proto__", ts: "2026-06-30T14:25:00.000Z" },
+    { kind: "grep", action: "replaced", classified: "structural", consumer: "hasOwnProperty", ts: "2026-06-30T14:27:00.000Z" },
+  ].map((e) => JSON.stringify(e)).join("\n") + "\n";
+  fs.writeFileSync(path.join(logsDir, "graph-events-001.jsonl"), poison);
+
+  const { rollup } = require(ROLLUP_PATH);
+  let r;
+  assert.doesNotThrow(() => { r = rollup(dir); },
+    "rollup MUST NOT throw on prototype-pollution labels — a poisoned ledger line would brick the read surface");
+  assert.equal(r.totalEvents, 4, "all 4 poisoned events counted, none crashed");
+  // The poisoned consumers must appear as ordinary keys, not prototype corruption.
+  assert.ok(r.byConsumer && typeof r.byConsumer === "object", "byConsumer survives");
+});
+
+test("Red Team HIGH (SC#1): resolveScipPath routes index.scip UNDER graphDB/ (not loose in .gsd-t/)", () => {
+  const r = require(RESOLVER_PATH);
+  for (const f of ["index.scip", "index-python.scip"]) {
+    const p = r.resolveScipPath(f, "/tmp/some-proj");
+    assert.ok(p.endsWith(path.join(".gsd-t", "graphDB", f)),
+      `${f} must resolve under .gsd-t/graphDB/ (SC#1: ALL graph artifacts consolidated), got: ${p}`);
+    assert.ok(!p.endsWith(path.join(".gsd-t", f)),
+      `${f} must NOT resolve to the loose legacy .gsd-t/ path`);
+  }
+  // The scip-upgrade producer must route through the resolver, not a hardcoded literal.
+  const scipSrc = fs.readFileSync(path.join(ROOT, "bin", "gsd-t-graph-scip-upgrade.cjs"), "utf8");
+  assert.ok(scipSrc.includes("resolveScipPath("),
+    "gsd-t-graph-scip-upgrade.cjs must call resolveScipPath() — no hardcoded .gsd-t/index.scip literals");
+  // No surviving `'.gsd-t', 'index.scip'`-style literal in the producer (comments OK).
+  const codeLines = scipSrc.split("\n").filter((l) => !l.trim().startsWith("*") && !l.trim().startsWith("//"));
+  const offender = codeLines.find((l) => /['"]\.gsd-t['"]\s*,\s*['"]index(-python)?\.scip['"]/.test(l));
+  assert.ok(!offender, `hardcoded loose-path scip literal survives: ${offender}`);
+});
+
 test("T1-basic: all 8 dimensions compute correctly from a multi-file fixture ledger", (t) => {
   // File 1 and File 2 — span two rotated JSONL files
   const file1 = [

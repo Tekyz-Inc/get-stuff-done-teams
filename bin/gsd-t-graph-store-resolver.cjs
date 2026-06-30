@@ -112,6 +112,20 @@ function resolveLogsDir(projectRoot) {
 }
 
 /**
+ * Absolute path to a SCIP index file under graphDB/.
+ * Red Team HIGH (M99 round 4): SC#1 requires ALL graph artifacts — incl.
+ * index.scip / index-python.scip — under `.gsd-t/graphDB/`, but the SCIP
+ * upgrader wrote them to `.gsd-t/` via hardcoded literals. Route them here.
+ * [RULE] scip-index-under-graphdb
+ * @param {string} filename - e.g. "index.scip" | "index-python.scip"
+ * @param {string} [projectRoot]
+ * @returns {string} `<projectRoot>/.gsd-t/graphDB/<filename>`
+ */
+function resolveScipPath(filename, projectRoot) {
+  return path.join(resolveGraphDir(projectRoot), filename);
+}
+
+/**
  * Derive the project root from a known store path.
  *
  * Two branches — DIFFERENT depths post-migration:
@@ -462,6 +476,7 @@ module.exports = {
   resolveGraphDir,
   resolveStorePath,
   resolveLogsDir,
+  resolveScipPath,
   resolveLegacyStorePath,
   deriveProjectRoot,
   migrateGraphStore,

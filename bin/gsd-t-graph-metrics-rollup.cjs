@@ -194,7 +194,14 @@ function rollup(projectRoot) {
   let l1HitEmptyCount = 0;
   let l1PassthroughCount = 0;
   const l1Latencies = [];
-  const l1TierMix = {};
+  // Red Team HIGH (M99 round 4): consumer/verb/tier labels come from UNTRUSTED
+  // ledger input (GSDT_GRAPH_CONSUMER, hook payloads). A label of "__proto__" /
+  // "constructor" / "toString" defeats `if (!obj[label])` guards on a normal `{}`
+  // (the name inherits a truthy value from Object.prototype) → `.add()`/property
+  // assign hits the prototype, crashing the rollup and bricking the M99 read
+  // surface (SC#14). Object.create(null) gives a prototype-LESS map so no key is
+  // ever inherited-truthy. [RULE] rollup-prototype-safe-accumulators
+  const l1TierMix = Object.create(null);
   let l1StaleCount = 0;
   let l1ReindexCount = 0;
 
@@ -214,9 +221,9 @@ function rollup(projectRoot) {
   let l2cFallbackCount = 0;
   let l2cDisabledCount = 0;
 
-  // Per-consumer, per-verb
-  const byConsumer = {};
-  const byVerb = {};
+  // Per-consumer, per-verb — prototype-less (Red Team HIGH, see l1TierMix above).
+  const byConsumer = Object.create(null);
+  const byVerb = Object.create(null);
 
   // Pre-mortem #8: fallback-announced-despite-hit detection.
   // A "window" here is a (consumer, day-minute bucket) pair. We collect all
@@ -227,8 +234,8 @@ function rollup(projectRoot) {
   // for the strict same-window co-occurrence we use a time-bucket approach.
   //
   // Implementation: collect per-consumer sets of minute-buckets for hits + fallback.
-  const hitBuckets = {};       // consumer → Set<minute-bucket>
-  const fallbackBuckets = {};  // consumer → Set<minute-bucket>
+  const hitBuckets = Object.create(null);       // consumer → Set<minute-bucket> (prototype-less; Red Team HIGH)
+  const fallbackBuckets = Object.create(null);  // consumer → Set<minute-bucket> (prototype-less; Red Team HIGH)
 
   function _minuteBucket(ts) {
     // Truncate to the minute: "2026-06-30T14:25:37.123Z" → "2026-06-30T14:25"
