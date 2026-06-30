@@ -1,7 +1,7 @@
 # Contract: Graph Metrics & Telemetry Ledger
 
 ## Version: 1.0.0 (M99 — Graph Observability & Consolidation)
-## Status: DEFINED (authored at milestone-define; implemented in M99 execute)
+## Status: STABLE (D3 finalized — emitted keys reconciled, rollup implemented, contract owner: m99-d3-metrics-rollup)
 ## Owner: graph-observability domain (M99)
 ## Consumers: `gsd-t graph metrics` (Layer 3 rollup); the 6 graph-consuming workflows (scan/verify/debug/integrate/quick/phase) + the 2 intercept hooks (writers)
 
@@ -91,19 +91,32 @@ Each line is one JSON object. Three event families share the file; `kind` disamb
 
 ## Rollup output shape — `gsd-t graph metrics`
 
-Mirrors `gsd-t metrics` (`doMetrics`, `bin/gsd-t.js:5135`) in shape and flags. READ-ONLY; tolerates
-an empty or rotated ledger (never crashes). Reports, at minimum:
+Mirrors `gsd-t metrics` (`doMetrics`, `bin/gsd-t.js:4703`) in shape and flags. READ-ONLY; tolerates
+an empty or rotated ledger (never crashes). Implemented in `bin/gsd-t-graph-metrics-rollup.cjs`;
+dispatched via `gsd-t graph metrics` (the `case "metrics"` arm added at `bin/gsd-t.js:3885`).
+Reports, at minimum:
 
-| Dimension | Source |
-|-----------|--------|
-| graph-hit-vs-grep-passthrough ratio | Layer-1 `outcome:hit*` vs. Layer-2a `action:passthrough` |
-| fallback-rate | Layer-2c `graphWiringMode:fallback-announced` / total wiring events |
-| p50 / p95 latency | Layer-1 `latencyMs` percentiles |
-| tier mix | Layer-1 `tier` distribution |
-| stale-query frequency | Layer-1 `staleOnQuery:true` rate |
-| reindex frequency | Layer-1 `reindexedCount>0` rate |
-| per-consumer breakdown | group by `consumer` |
-| per-verb breakdown | group by `verb` |
+| Dimension | Source | Rollup field |
+|-----------|--------|--------------|
+| graph-hit-vs-grep-passthrough ratio | Layer-1 `outcome:hit*` vs. Layer-2a `action:passthrough` | `layer1.hitRatio` |
+| fallback-rate | Layer-2c `graphWiringMode:fallback-announced` / total wiring events | `layer2c.fallbackRate` |
+| p50 / p95 latency | Layer-1 `latencyMs` percentiles | `layer1.latency.{p50,p95}` |
+| tier mix | Layer-1 `tier` distribution | `layer1.tierMix` |
+| stale-query frequency | Layer-1 `staleOnQuery:true` rate | `layer1.staleRate` |
+| reindex frequency | Layer-1 `reindexedCount>0` rate | `layer1.reindexRate` |
+| per-consumer breakdown | group by `consumer` | `byConsumer` |
+| per-verb breakdown | group by `verb` | `byVerb` |
+| fallbackAnnouncedDespiteHit | Layer-2c `fallback-announced` co-occurring (same consumer + minute-window) with Layer-1 `outcome:hit` | `fallbackAnnouncedDespiteHit` |
+
+### `fallbackAnnouncedDespiteHit` — North-star contradiction count (pre-mortem #8)
+
+A non-zero value means a workflow consumer emitted a `graphWiringMode:"fallback-announced"` wiring
+event in the same consumer+minute-window as a Layer-1 `outcome:"hit"` — i.e. the consumer claimed
+it was falling back to grep, but the graph DID answer successfully. This count is the single
+machine-visible proof that the scan-#12 NiceNote contradiction is now observable.
+
+Co-occurrence window: same `consumer` field + same truncated-to-minute ISO-8601 timestamp bucket
+(`ts.slice(0,16)` = `"YYYY-MM-DDTHH:MM"`).  The rollup counts distinct matching minute-buckets.
 
 ---
 

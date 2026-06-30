@@ -3882,9 +3882,15 @@ function doGraph(args) {
     case "blast-radius":  { const e = _graphQueryCli(["blast-radius", args[1] || ""]); log(JSON.stringify(e, null, 2)); break; }
     case "body":          { const e = _graphQueryCli(["body",         args[1] || ""]); log(JSON.stringify(e, null, 2)); break; }
     case "tasks":         doGraphTaskOutput(args[1] || "table"); break;
+    case "metrics":       { // M99 D3-T2: append-only arm — rollup the telemetry ledger
+      const _metricsRollup = require("./gsd-t-graph-metrics-rollup.cjs");
+      const _metricsJson = (args[1] === "--json" || args[2] === "--json");
+      _metricsRollup.printRollup(undefined, { json: _metricsJson });
+      break;
+    }
     default:
       error(`Unknown graph subcommand: ${sub}`);
-      info("Usage: gsd-t graph [index|status|query|who-imports|who-calls|blast-radius|body|tasks]");
+      info("Usage: gsd-t graph [index|status|query|who-imports|who-calls|blast-radius|body|tasks|metrics]");
       info("       gsd-t graph --output json|table   (task DAG)");
   }
 }
