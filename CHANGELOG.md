@@ -2,6 +2,16 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [4.15.10] - 2026-06-30
+
+### Added — scan builds the graph index when absent + repo-labeled `share/` export
+
+Two scan improvements, both prompted by a real hilo-figma-atos scan that grep-fell-back and produced same-named docs across projects.
+
+- **Scan auto-builds the graph index when absent** (`templates/workflows/gsd-t-scan.workflow.js`). The wired graph path was documented "build index if absent, then query" but the BUILD step was never wired — `GRAPH_BUILD_SCHEMA` was defined and unused. So on any project without a pre-built index (the common case), scan probed `graph status`, saw not-ok, and silently grep-fell-back — the graph was NEVER used. Observed on hilo-figma-atos (a 30M-token scan grep-fell-back purely because the index had never been built). Fix: the wired branch now runs `gsd-t graph index` (new `runCliBuild` helper), re-probes, and only falls back if the build itself fails. This is the headline value of the whole graph arc — scan now engages the graph on first run, not only when a human pre-built it.
+- **Repo-labeled `share/` export + dated archive (#47)** (`templates/workflows/gsd-t-scan.workflow.js`, `commands/gsd-t-scan.md`). The LAST scan step COPIES the living docs + scan reports into `share/<file>-<repo>.md` (e.g. `share/architecture-hilo-figma-atos.md`) so files shared across projects are distinguishable. INTERNAL files keep their fixed names (`.gsd-t/techdebt.md`, `docs/architecture.md`) so all internal tooling (promote-debt, gap-analysis, complete-milestone, …) is untouched — zero blast radius. Prior scan outputs are archived to `.gsd-t/scan/archive/<name>-YYYYMMDD-HHMM.md` for diffing new-vs-prior.
+- `test/m94-d6-scan-consumer.test.js`: regression tests for both (build-when-absent + re-probe; share/ export + fixed internal names + dated archive).
+
 ## [4.14.10] - 2026-06-30
 
 ### Added — M99: Graph Observability & Consolidation
