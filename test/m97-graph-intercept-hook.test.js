@@ -43,9 +43,10 @@ function mkGraphProject() {
   // copy the runtime the hook resolves (project-local query CLI)
   const binDir = path.join(dir, 'bin');
   fs.mkdirSync(binDir, { recursive: true });
+  // M99: include gsd-t-graph-store-resolver.cjs (query-cli requires it after M99 D1)
   for (const f of ['gsd-t-graph-query-cli.cjs', 'gsd-t-graph-index.cjs', 'gsd-t-graph-freshness.cjs',
                    'gsd-t-graph-edge-extract.cjs', 'gsd-t-graph-scip-upgrade.cjs', 'gsd-t-scip-reader.cjs',
-                   'gsd-t-require-store.cjs']) {
+                   'gsd-t-require-store.cjs', 'gsd-t-graph-store-resolver.cjs']) {
     fs.copyFileSync(path.join(__dirname, '..', 'bin', f), path.join(binDir, f));
   }
   execFileSync(process.execPath, [INDEX, 'build', '--repo', dir], { cwd: dir, stdio: 'ignore' });

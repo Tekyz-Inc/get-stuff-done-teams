@@ -16,6 +16,8 @@ const { execFileSync, spawnSync } = require('node:child_process');
 
 const INDEX = path.join(__dirname, '..', 'bin', 'gsd-t-graph-index.cjs');
 const CLI = path.join(__dirname, '..', 'bin', 'gsd-t-graph-query-cli.cjs');
+// M99 D1: resolver for finding the correct store path
+const RESOLVER = require(path.join(__dirname, '..', 'bin', 'gsd-t-graph-store-resolver.cjs'));
 
 let Database;
 try { Database = require('better-sqlite3'); } catch { Database = null; }
@@ -25,6 +27,7 @@ const BIN_TOOLS = [
   'gsd-t-graph-query-cli.cjs', 'gsd-t-graph-index.cjs', 'gsd-t-graph-freshness.cjs',
   'gsd-t-graph-edge-extract.cjs', 'gsd-t-graph-scip-upgrade.cjs', 'gsd-t-scip-reader.cjs',
   'gsd-t-require-store.cjs',
+  'gsd-t-graph-store-resolver.cjs', // M99 D1: resolver required by query-cli + index + freshness
 ];
 
 function mkProject(files) {
@@ -124,7 +127,8 @@ test('tier-preserving reindex: a pre-M98 node (null end_line) is re-indexed WITH
   try {
     // Simulate a pre-M98 state: wipe end_line on add() AND force the file's stored
     // tier to a compiler-accurate value, so a downgrade would be observable.
-    const dbPath = path.join(dir, '.gsd-t', 'graph.db');
+    // M99 D1: store is now at graphDB/graph.db (use resolver)
+    const dbPath = RESOLVER.resolveStorePath(dir);
     let db = new Database(dbPath);
     db.prepare("UPDATE nodes SET end_line = NULL WHERE name = 'add'").run();
     db.prepare("UPDATE files SET tier = 'compiler-accurate' WHERE file = 'src/math.ts'").run();
@@ -139,7 +143,7 @@ test('tier-preserving reindex: a pre-M98 node (null end_line) is re-indexed WITH
     // The file's stored tier must NOT have been silently downgraded to plain floor.
     // Honest label for a metadata-only re-index of a previously-accurate file is
     // STALE-SCIP (not a lie of "compiler-accurate", not a silent drop to floor).
-    db = new Database(dbPath, { readonly: true });
+    db = new Database(RESOLVER.resolveStorePath(dir), { readonly: true });
     const fileTier = db.prepare("SELECT tier FROM files WHERE file = 'src/math.ts'").get().tier;
     db.close();
     assert.equal(fileTier, 'tree-sitter-floor-STALE-SCIP', 'tier not silently downgraded to plain floor');

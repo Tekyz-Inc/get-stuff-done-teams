@@ -30,6 +30,10 @@ node_modules/
 # provenByAdversaryOnly:true record lands (Red Team CRITICAL, M90 verify fix-cycle 2).
 .gsd-t/metrics/arch-trigger-events.jsonl
 
+# GSD-T graph usage telemetry — LEGACY PATH (pre-M99 sink location; may still exist on disk)
+# Superseded by .gsd-t/graphDB/logs/ below, but keep ignoring so old files are never committed.
+.gsd-t/metrics/graph-events.jsonl
+
 # GSD-T M90 loop-ledger state — transient runtime cycle counts per debug run. MUST NOT be
 # committed: a tracked cumulative counter leaks cross-run state into clones and can re-arm the
 # R-FAIL-3 fail-closed gate (Red Team MEDIUM, M90 verify fix-cycle 5).
@@ -44,10 +48,20 @@ node_modules/
 
 # GSD-T graph index (auto-generated, project-specific)
 .gsd-t/graph/
-# M94 SQLite graph store (D1/D3 store path; WAL/SHM siblings)
+# M94 SQLite graph store — LEGACY PATH (pre-M99; WAL/SHM siblings)
+# [M99] New canonical path is .gsd-t/graphDB/ — see below
 .gsd-t/graph.db
 .gsd-t/graph.db-wal
 .gsd-t/graph.db-shm
+# M99 migration test backup artifacts (never commit)
+.gsd-t/graph.db.testbak
+.gsd-t/graph.db-wal.testbak
+.gsd-t/graph.db-shm.testbak
+
+# GSD-T M99 graph store — new graphDB/ layout (all generated artifacts)
+# db + WAL/SHM sidecars + SCIP indexes + telemetry ledger
+.gsd-t/graphDB/
+.gsd-t/graphDB/**
 
 # GSD-T context meter (session-specific runtime state)
 .gsd-t/.context-meter-state.json

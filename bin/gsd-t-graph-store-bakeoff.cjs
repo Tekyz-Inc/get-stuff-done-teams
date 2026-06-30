@@ -234,7 +234,7 @@ function candidateJsonl(dir, graph) {
 
 // ─── Candidate: SQLite (better-sqlite3 recursive CTE) ───────────────────
 function candidateSqlite(dir, graph) {
-  const dbPath = path.join(dir, "graph.db");
+  const dbPath = path.join(dir, "graph.db"); // spike-local-store: throwaway bench dir
 
   const { mod: Database, err: sqliteErr } = tryRequire("better-sqlite3");
   if (!Database) {

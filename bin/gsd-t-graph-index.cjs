@@ -46,6 +46,11 @@ const path = require('path');
 const crypto = require('crypto');
 const os = require('os');
 
+// ─── M99 D1: Single store resolver ───────────────────────────────────────────
+// All graph store path derivations go through the resolver.
+// [RULE] one-resolver-only
+const _resolver = require('./gsd-t-graph-store-resolver.cjs');
+
 // ── ANSI helpers ─────────────────────────────────────────────────────────────
 
 const C = {
@@ -389,7 +394,7 @@ function parse_and_put(absPath, relPath, options) {
  */
 function build_index(repoRoot, options) {
   const {
-    dbPath = path.join(repoRoot, '.gsd-t', 'graph.db'),
+    dbPath = _resolver.resolveStorePath(repoRoot), // [RULE] one-resolver-only
     scip = null,
     onProgress = null,
   } = options || {};
@@ -522,7 +527,7 @@ if (require.main === module) {
   const repoIdx = args.indexOf('--repo');
   const dbIdx = args.indexOf('--db');
   const repoRoot = repoIdx !== -1 ? args[repoIdx + 1] : process.cwd();
-  const dbPath = dbIdx !== -1 ? args[dbIdx + 1] : path.join(repoRoot, '.gsd-t', 'graph.db');
+  const dbPath = dbIdx !== -1 ? args[dbIdx + 1] : _resolver.resolveStorePath(repoRoot); // [RULE] one-resolver-only
 
   if (!fs.existsSync(repoRoot)) {
     errLog(`Repo root not found: ${repoRoot}`);

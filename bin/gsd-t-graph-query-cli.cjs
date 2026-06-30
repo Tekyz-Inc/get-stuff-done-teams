@@ -71,6 +71,10 @@ const fs = require("node:fs");
 const path = require("node:path");
 const os = require("node:os");
 
+// ─── M99 D1: Single store resolver (routing ALL path derivations here) ────────
+// [RULE] one-resolver-only — no raw .gsd-t/graph.db literals outside this module
+const _resolver = require("./gsd-t-graph-store-resolver.cjs");
+
 // ─── ANSI colours ────────────────────────────────────────────────────────────
 const C = {
   reset:  "\x1b[0m",
@@ -87,25 +91,40 @@ function colorize(str, ...codes) {
 }
 
 // ─── Store location ───────────────────────────────────────────────────────────
-// The store path is resolved from the environment or a default discovery path.
-// D3 writes to a store directory; we read from it.
-// Convention: GSD_T_GRAPH_STORE env var overrides; otherwise look for
-// .gsd-t/graph-index/ relative to cwd.
+// ALL path resolution routes through the M99 D1 resolver module.
+// [RULE] one-resolver-only — no raw .gsd-t/graph.db literals in this file.
+//
+// Discovery order (per resolver contract):
+//   1. GSD_T_GRAPH_STORE env var override
+//   2. cwd-walk: .gsd-t/graphDB/graph.db (new layout post-M99)
+//   3. cwd-walk: .gsd-t/graph.db (legacy — triggers self-heal migration via migrateGraphStore)
+//   4. cwd-walk: .gsd-t/graph-index/ (JSONL baseline)
 
 function resolveStorePath() {
   if (process.env.GSD_T_GRAPH_STORE) {
     return process.env.GSD_T_GRAPH_STORE;
   }
-  // Walk up from cwd to find the store. K1 PICKED SQLite, so the indexer
-  // (gsd-t-graph-index.cjs) writes `.gsd-t/graph.db`. Discover THAT first; fall
-  // back to the legacy `.gsd-t/graph-index/` JSONL directory for the baseline
-  // store. (The original CLI only looked for the JSONL dir — so a freshly-built
-  // SQLite index reported graph-unavailable: the index wrote .gsd-t/graph.db but
-  // the query never discovered it.)
+  // Walk up from cwd to find the store.
+  // Check the NEW graphDB layout first; fall back to legacy for self-heal;
+  // then JSONL for the baseline store. This is THE primary discovery path —
+  // post-migration it MUST find graphDB/graph.db, not the legacy .gsd-t/graph.db.
+  // [RULE] discovery-loop-end-to-end (pre-mortem #1)
   let dir = process.cwd();
   for (let i = 0; i < 10; i++) {
-    const dbPath = path.join(dir, ".gsd-t", "graph.db");
-    if (fs.existsSync(dbPath)) return dbPath;
+    // New layout: .gsd-t/graphDB/graph.db (M99+)
+    const newDbPath = _resolver.resolveStorePath(dir);
+    if (fs.existsSync(newDbPath)) return newDbPath;
+    // Legacy layout: check via resolver's legacy path helper (no raw literals here)
+    const legacyDbPath = _resolver.resolveLegacyStorePath(dir); // [RULE] one-resolver-only
+    if (fs.existsSync(legacyDbPath)) {
+      // Self-heal: migrate to graphDB/ on first touch (T2 wire-in)
+      try { _resolver.migrateGraphStore(dir); } catch (_e) { /* fail-open */ }
+      // After migration, new path should exist; fall through to next iteration
+      if (fs.existsSync(newDbPath)) return newDbPath;
+      // Migration didn't complete (or skipped) — return legacy for backward compat
+      return legacyDbPath;
+    }
+    // JSONL baseline (pre-SQLite projects)
     const jsonlDir = path.join(dir, ".gsd-t", "graph-index");
     if (fs.existsSync(jsonlDir)) return jsonlDir;
     const parent = path.dirname(dir);
@@ -221,12 +240,14 @@ function loadJsonlStore(storePath) {
 function loadSkippedFiles(storePath) {
   if (!storePath) return new Set();
   try {
-    // The SQLite DB is written by D3 at .gsd-t/graph.db (adjacent to graph-index/ dir).
-    // storePath may be .gsd-t/graph-index/ (JSONL) or the db path itself.
+    // storePath may be .gsd-t/graph-index/ (JSONL) or a .db path itself.
+    // All db path resolution goes through the M99 resolver. [RULE] one-resolver-only
     let dbPath = null;
-    // Try storePath as a directory: look for graph.db one level up (sibling of graph-index/)
+    // Try storePath as a directory: look for graph.db via resolver (new graphDB/ layout first)
     if (fs.existsSync(storePath) && fs.statSync(storePath).isDirectory()) {
-      const candidate = path.join(path.dirname(storePath), "graph.db");
+      // Derive project root from the JSONL dir (2-up), then resolve via resolver
+      const projRoot = _resolver.deriveProjectRoot(storePath);
+      const candidate = _resolver.resolveStorePath(projRoot);
       if (fs.existsSync(candidate)) dbPath = candidate;
     } else if (storePath.endsWith(".db") && fs.existsSync(storePath)) {
       dbPath = storePath;
@@ -456,8 +477,13 @@ function loadStore(storePath) {
   if (!storePath) return { ok: false, reason: "graph-unavailable" };
 
   // SQLite is the PICKED store (K1) — read it first; fall back to JSONL baseline.
+  // Sibling-db fallback uses resolver (not a raw path.join). [RULE] one-resolver-only
+  const _siblingDb = storePath.endsWith(".db") ? null : (() => {
+    const projRoot = _resolver.deriveProjectRoot(storePath);
+    return _resolver.resolveStorePath(projRoot);
+  })();
   const loaded = (storePath.endsWith(".db") ? loadSqliteStore(storePath) : loadJsonlStore(storePath))
-    || loadJsonlStore(storePath) || (storePath.endsWith(".db") ? null : loadSqliteStore(path.join(path.dirname(storePath), "graph.db")));
+    || loadJsonlStore(storePath) || (_siblingDb && fs.existsSync(_siblingDb) ? loadSqliteStore(_siblingDb) : null);
   if (!loaded) return { ok: false, reason: "graph-unavailable" };
 
   try {
@@ -507,13 +533,10 @@ function runFreshnessCheck(storePath) {
 
   try {
     // D4's real signatures take (db, projectRoot, ...) — NOT (storePath). The
-    // store path is `.gsd-t/graph.db`; projectRoot is the repo containing `.gsd-t`.
-    // (Earlier this called compute_touched_files(storePath) / freshness_check_on_query
-    //  (touched, storePath) — a cross-domain signature mismatch that threw on every
-    //  real query: freshness_check_on_query read `.edits` off the storePath string.)
-    const projectRoot = storePath.endsWith(".db")
-      ? path.dirname(path.dirname(storePath))   // .gsd-t/graph.db → repo root
-      : path.dirname(path.dirname(storePath));   // .gsd-t/graph-index → repo root
+    // projectRoot is derived via the M99 resolver (branch-aware depth fix).
+    // [RULE] projectroot-depth-corrected-with-move  [RULE] jsonl-branch-depth-preserved
+    // Pre-mortem #3: .db branch is 3-up post-graphDB/ move; JSONL branch stays 2-up.
+    const projectRoot = _resolver.deriveProjectRoot(storePath);
     // Pass the exact storePath (canonical `.gsd-t/graph.db`) so openDb opens the
     // real store, not a re-derived nested path. projectRoot is still used for the
     // working-tree walk.
@@ -529,7 +552,18 @@ function runFreshnessCheck(storePath) {
     let parseAndPut = null;
     try { parseAndPut = require(path.join(__dirname, "gsd-t-graph-index.cjs")).parse_and_put; } catch { /* optional */ }
     freshnessModule.freshness_check_on_query(db, projectRoot, touched, parseAndPut);
-    return { ok: true };
+    // Surface the touched-set so the query CLI can record freshness telemetry:
+    // edits = indexed files whose content-hash drifted (re-indexed before answering —
+    // i.e. a STALE query that was refreshed), adds = new files, deletes = removed.
+    // [RULE] freshness-telemetry-surfaced
+    const t = touched || {};
+    return {
+      ok: true,
+      editsCount: Array.isArray(t.edits) ? t.edits.length : 0,
+      addsCount: Array.isArray(t.adds) ? t.adds.length : 0,
+      deletesCount: Array.isArray(t.deletes) ? t.deletes.length : 0,
+      reindexedFiles: Array.isArray(t.edits) ? t.edits.slice(0, 20) : [],
+    };
   } catch (_e) {
     return { ok: false, reason: "graph-unavailable" };
   }
@@ -1216,7 +1250,58 @@ if (require.main === module) {
   const verb = args[0];
   const target = args[1];
 
+  // ─── Graph usage telemetry (v4.13.13, layer 1) ────────────────────────────
+  // Every graph read funnels through emit(); append ONE JSON line per query to
+  // .gsd-t/metrics/graph-events.jsonl so graph usage + health is observable
+  // (hit/miss/graph-unavailable, tier, latency, reindex). This is the chokepoint:
+  // one ledger captures 100% of graph reads regardless of consumer.
+  // FAIL-OPEN — a telemetry write must NEVER block or alter a query answer.
+  // Consumer label comes from GSDT_GRAPH_CONSUMER (set by the calling workflow/hook);
+  // defaults to "cli" for a bare invocation. [RULE] graph-telemetry-fail-open
+  const _t0 = Date.now();
+  let _telemStorePath = null; // set when storePath resolves; avoids const TDZ in the logger
+  let _telemFreshness = null; // { reindexedCount, staleOnQuery, addsCount, deletesCount, reindexedFiles }
+  // ─── Layer-1 sink: moved to graphDB/logs/ via the M99 resolver sink ──────────
+  // Record SHAPE is KEPT byte-for-byte (kind:"query" + all fields from graph-metrics-contract.md).
+  // Only the sink path + rotation/toggle is the supersede (no Divergence flag).
+  // [RULE] layer1-shape-kept  [RULE] fail-open-telemetry
+  function _logGraphEvent(envelope) {
+    try {
+      const sp = (typeof _telemStorePath === "string" && _telemStorePath) ? _telemStorePath : null;
+      // Derive projectRoot via the resolver (branch-aware). If no storePath yet, use cwd.
+      const projRoot = sp ? _resolver.deriveProjectRoot(sp) : process.cwd();
+      const e = envelope || {};
+      const outcome = e.ok
+        ? (Array.isArray(e.results) && e.results.length === 0 ? "hit-empty" : "hit")
+        : (e.reason || "error");
+      const rec = {
+        kind: "query",
+        ts: new Date().toISOString(),
+        verb: verb || null,
+        target: target || null,
+        outcome,
+        tier: e.tier || null,
+        resultCount: Array.isArray(e.results) ? e.results.length
+          : (typeof e.fileCount === "number" ? e.fileCount : null),
+        candidateCount: Array.isArray(e.candidates) ? e.candidates.length : null,
+        latencyMs: Date.now() - _t0,
+        consumer: process.env.GSDT_GRAPH_CONSUMER || "cli",
+        via: process.env.GSDT_GRAPH_VIA || null,
+        // Freshness signal: did this query run against code that had changed?
+        // reindexedCount>0 ⇒ a STALE query that was auto-refreshed before answering.
+        staleOnQuery: _telemFreshness ? _telemFreshness.staleOnQuery : null,
+        reindexedCount: _telemFreshness ? _telemFreshness.reindexedCount : null,
+        addsCount: _telemFreshness ? _telemFreshness.addsCount : null,
+        deletesCount: _telemFreshness ? _telemFreshness.deletesCount : null,
+        reindexedFiles: (_telemFreshness && _telemFreshness.reindexedCount) ? _telemFreshness.reindexedFiles : null,
+      };
+      // Delegate to the shared sink (graphDB/logs/ + rotation + GSDT_GRAPH_TELEMETRY toggle)
+      _resolver.append_ledger_line(rec, projRoot);
+    } catch { /* fail-open: telemetry never blocks a query */ }
+  }
+
   function emit(envelope) {
+    _logGraphEvent(envelope);
     process.stdout.write(JSON.stringify(envelope) + "\n");
   }
 
@@ -1239,9 +1324,23 @@ if (require.main === module) {
   }
 
   const storePath = resolveStorePath();
+  _telemStorePath = storePath;
 
   // ── Step 1: D4 freshness check INLINE — [RULE] stale-file-reindexed-before-answer ──
   const freshnessResult = runFreshnessCheck(storePath);
+  // Capture freshness telemetry: how many files were stale + re-indexed on THIS query.
+  // This is the "freshness reindexing on code updates" + "stale query" signal — a query
+  // that triggered a re-index means the caller queried against code that had changed.
+  try {
+    const r = freshnessResult || {};
+    _telemFreshness = {
+      reindexedCount: typeof r.editsCount === "number" ? r.editsCount : 0,
+      staleOnQuery: (typeof r.editsCount === "number" ? r.editsCount : 0) > 0,
+      addsCount: typeof r.addsCount === "number" ? r.addsCount : 0,
+      deletesCount: typeof r.deletesCount === "number" ? r.deletesCount : 0,
+      reindexedFiles: Array.isArray(r.reindexedFiles) ? r.reindexedFiles : [],
+    };
+  } catch { /* fail-open */ }
   if (!freshnessResult.ok) {
     fail({ ok: false, reason: "graph-unavailable" });
   }
@@ -1265,20 +1364,21 @@ if (require.main === module) {
     const queryResult = queryWhoCalls(index, target);
     if (queryResult.ambiguous) {
       // [RULE] who-calls-function-identity-disambiguated
-      process.stdout.write(JSON.stringify({
+      emit({
         ok: false,
         reason: "ambiguous-function",
         verb,
         target,
         candidates: queryResult.candidates,
-      }) + "\n");
+      });
       process.exit(2);
     }
     emit({ ok: true, verb, target, results: queryResult.results, tier: queryResult.tier, coverage: queryResult.coverage });
 
   } else if (verb === "body") {
     if (!target) fail({ ok: false, reason: "missing-target", verb });
-    const projectRoot = path.dirname(path.dirname(storePath));
+    // [RULE] projectroot-depth-corrected-with-move — resolver is branch-aware
+    const projectRoot = _resolver.deriveProjectRoot(storePath);
     let bodyResult = queryBody(index, target, projectRoot);
 
     // [RULE] body-end-line-required — a pre-M98 node lacks end_line and its file
@@ -1313,9 +1413,7 @@ if (require.main === module) {
 
     if (bodyResult.ambiguous) {
       // [RULE] body-ambiguous-never-merged
-      process.stdout.write(JSON.stringify({
-        ok: false, reason: "ambiguous-function", verb, target, candidates: bodyResult.candidates,
-      }) + "\n");
+      emit({ ok: false, reason: "ambiguous-function", verb, target, candidates: bodyResult.candidates });
       process.exit(2);
     }
     if (bodyResult.notFound) fail({ ok: false, reason: "not-found", verb, target, file: bodyResult.file });

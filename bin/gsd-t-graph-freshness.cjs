@@ -32,6 +32,10 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const os = require('node:os');
 
+// ─── M99 D1: Single store resolver ───────────────────────────────────────────
+// [RULE] one-resolver-only
+const _resolver = require('./gsd-t-graph-store-resolver.cjs');
+
 // ─── ANSI helpers ─────────────────────────────────────────────────────────────
 const C = {
   reset: '\x1b[0m',
@@ -124,10 +128,10 @@ function walkTree(dir, results = []) {
 
 function openDb(projectRoot, explicitDbPath) {
   const Database = require('./gsd-t-require-store.cjs').requireBetterSqlite();
-  // Canonical store path is `.gsd-t/graph.db` (matches build_index's default,
-  // the query CLI, and .gitignore). Accept an explicit path when the caller
-  // already knows it (runFreshnessCheck passes the exact storePath).
-  const dbPath = explicitDbPath || path.join(projectRoot, '.gsd-t', 'graph.db');
+  // Canonical store path is resolved via the M99 resolver (graphDB/graph.db).
+  // Accept an explicit path when the caller already knows it
+  // (runFreshnessCheck passes the exact storePath).
+  const dbPath = explicitDbPath || _resolver.resolveStorePath(projectRoot); // [RULE] one-resolver-only
   if (!fs.existsSync(dbPath)) return null;
   const db = new Database(dbPath);
   db.pragma('journal_mode = WAL');

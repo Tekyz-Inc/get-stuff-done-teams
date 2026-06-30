@@ -17,6 +17,8 @@ const { execFileSync } = require('node:child_process');
 
 const EXTRACT = require('../bin/gsd-t-graph-edge-extract.cjs');
 const INDEX = path.join(__dirname, '..', 'bin', 'gsd-t-graph-index.cjs');
+// M99 D1: resolver for finding the correct store path
+const RESOLVER = require('../bin/gsd-t-graph-store-resolver.cjs');
 
 let Database;
 try { Database = require('better-sqlite3'); } catch { Database = null; }
@@ -65,7 +67,7 @@ test('end-line: indexer stores nodes.end_line', { skip: SKIP }, () => {
   try {
     writeFixture(dir);
     execFileSync(process.execPath, [INDEX, 'build', '--repo', dir], { cwd: dir, stdio: 'ignore' });
-    const db = new Database(path.join(dir, '.gsd-t', 'graph.db'), { readonly: true });
+    const db = new Database(RESOLVER.resolveStorePath(dir), { readonly: true }); // M99 D1
     const rows = db.prepare("SELECT name, func_id, end_line FROM nodes WHERE name IN ('add','mul','sq')").all();
     db.close();
     const by = Object.fromEntries(rows.map((r) => [r.name, r]));
@@ -111,7 +113,7 @@ test('freshness: a re-index after shifting a function rewrites end_line', { skip
     const { parse_and_put } = require('../bin/gsd-t-graph-index.cjs');
     const { requireBetterSqlite } = require('../bin/gsd-t-require-store.cjs');
     const D = requireBetterSqlite();
-    const db = new D(path.join(dir, '.gsd-t', 'graph.db'));
+    const db = new D(RESOLVER.resolveStorePath(dir)); // M99 D1
     parse_and_put(p, 'src/math.ts', { db });
     const row = db.prepare("SELECT func_id, end_line FROM nodes WHERE name='add'").get();
     db.close();

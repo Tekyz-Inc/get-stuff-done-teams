@@ -78,7 +78,7 @@ function run({ nodes: targetNodes, seed, tmpDir }) {
   const entityCount = Math.max(1, targetNodes - fileCount);
 
   const dir = tmpDir || fs.mkdtempSync(path.join(os.tmpdir(), 'gsd-t-k1-stream-'));
-  const dbPath = path.join(dir, 'graph.db');
+  const dbPath = path.join(dir, 'graph.db'); // spike-local-store: throwaway bench dir
   if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
 
   const tracker = peakRssTracker();

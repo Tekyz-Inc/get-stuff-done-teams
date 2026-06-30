@@ -27,6 +27,7 @@ const BIN_TOOLS = [
   'gsd-t-graph-query-cli.cjs', 'gsd-t-graph-index.cjs', 'gsd-t-graph-freshness.cjs',
   'gsd-t-graph-edge-extract.cjs', 'gsd-t-graph-scip-upgrade.cjs', 'gsd-t-scip-reader.cjs',
   'gsd-t-require-store.cjs',
+  'gsd-t-graph-store-resolver.cjs', // M99 D1: resolver required by query-cli + index + freshness
 ];
 
 function runHook(payload) {
