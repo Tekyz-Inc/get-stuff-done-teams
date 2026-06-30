@@ -764,3 +764,24 @@ The M91 marker parsers match their markers ANYWHERE on a line, with no awareness
 
 ## Sequencing note (2026-06-26, user directive)
 After M94 ships: (1) DEFINE the telemetry suite milestone (#46) but DO NOT build it yet. (2) BEFORE building telemetry, EXPLORE the documentation-graph milestone discussed 2026-06-25 (scan findings + docs as enrichment layers ON the code graph — see memory [[project_scan_findings_enrich_graph.md]] + the M94 Phase-2 docs-in-graph scope: doc↔doc + item↔item + doc-item↔code edges via DECLARED IDs only). Order: finish M94 → define telemetry (#46, no build) → explore doc-graph milestone → then decide build order.
+
+---
+
+## #47 — Scan output filenames carry the repo name (`[file]-[repo].md`) + CPUA one-time mass-rename
+
+**Type:** Enhancement (scan) · **Status:** QUEUED (gated on M99 landing) · **Added:** 2026-06-30 (user directive) · **Scope:** SCAN REPORTS ONLY — living docs stay at fixed names
+
+**Problem (user):** David shares scan outputs (`techdebt.md`, `.gsd-t/scan/architecture.md`, etc.) with his team across multiple projects; identical filenames → team confusion about which file is which project.
+
+**Decision (locked with user 2026-06-30):**
+- **Suffix SCAN REPORTS ONLY** with `-[repoName]`: `techdebt-[repo].md`, `techdebt_in_plain_english-[repo].md`, and `.gsd-t/scan/[dimension]-[repo].md` (architecture/security/quality/business-rules/contract-drift).
+- **Do NOT touch the LIVING DOCS** (`docs/architecture.md`, `requirements.md`, `workflows.md`, `infrastructure.md`) — GSD-T reads those by hardcoded path under the No-Re-Research rule; renaming them breaks every command + the global CLAUDE.md Living Documents table. (User chose "Scan reports only (safe)" over "reports + living docs" and "export-copy".)
+
+**Build (when un-gated):**
+1. **`templates/workflows/gsd-t-scan.workflow.js`** — thread a `repoName` (derive from `path.basename(projectDir)` resolved in an agent's Bash; the M81 sandbox has no `path`) into the scan-report output filenames. Hardcoded refs to update: `.gsd-t/techdebt.md` (lines ~315 priorRegister check, ~799 archive-rename, ~812 regPath, ~905 register-read), `.gsd-t/techdebt_in_plain_english.md` (~930 peTarget, ~973 header), `.gsd-t/scan/*.md` (~874-882 the 5 dimension writers). The archive-rename (`techdebt_[today].md`) and the `priorRegisterExists` detection must both use the NEW suffixed name.
+2. **Document Ripple:** `commands/gsd-t-scan.md` (output-file list), any scan-output reader (`/gsd-t-promote-debt` reads `techdebt.md` — must read the suffixed name).
+3. **CPUA one-time mass-rename routine:** a `gsd-t` migration that runs ONCE during the next `update-all` propagation, in EACH registered project: rename existing `techdebt.md`→`techdebt-[repo].md`, `techdebt_in_plain_english.md`→suffixed, `.gsd-t/scan/[dim].md`→suffixed. Idempotent (skip if already suffixed), `git mv` if a git repo else `mv`, NEVER touch the living docs, real-project-root only. One-shot (a marker file or version-gate so it doesn't re-run).
+
+**Why gated:** `gsd-t-scan.workflow.js` is M99-D2-owned + was under active M99 verify when requested — editing mid-verify risks corrupting the verification. Do AFTER M99 completes + cpua, as its own quick-task.
+
+**Related:** the CPUA-mass-rename pattern mirrors M99's graphDB migration shim (one-shot, idempotent, runs during update-all, git-mv-aware, real-root-only) — reuse that shape.
