@@ -63,6 +63,12 @@ node_modules/
 .gsd-t/graphDB/
 .gsd-t/graphDB/**
 
+# Empty stub tsconfig.json that scip-typescript auto-creates when indexing
+# GSD-T's own .js files. GSD-T is a zero-dep plain-JS project (no TypeScript) —
+# a bare `{}` tsconfig at root makes the verify-gate run `tsc` and FAIL on a
+# non-TS repo with no tsc installed. Never commit; never let it re-block verify.
+/tsconfig.json
+
 # GSD-T context meter (session-specific runtime state)
 .gsd-t/.context-meter-state.json
 .gsd-t/context-meter.log
