@@ -416,9 +416,15 @@ if (graphMode === "disabled") {
         },
         tier: (deadCodeResult && deadCodeResult.tier) || (danglingResult && danglingResult.tier) || "unknown",
       };
-      graphWiringMode = "wired";
+      // M99 Red Team fix: emit "WIRED" (uppercase) to MATCH the --auto router
+      // producers (bin/gsd-t.js:3915) AND the rollup's comparison
+      // (gsd-t-graph-metrics-rollup.cjs:333 `=== "WIRED"`). Lowercase "wired" here
+      // fell through all three rollup branches → a successfully-wired scan reported
+      // WIRED:0, defeating success criterion 13 (the metric M99 exists to surface).
+      // [RULE] wiring-mode-casing-matches-rollup
+      graphWiringMode = "WIRED";
       log(`graph-wiring: WIRED — structural slice ready (dead-code: ${structuralSlice.deadCode.length} candidates, dangling: ${structuralSlice.dangling.length} edges, clusters: ${structuralSlice.clusters.length} groups, tier: ${structuralSlice.tier}). Slice will be INJECTED ADDITIVELY into scanSlice deep-finders. [RULE] scan-injects-structural-slice`);
-      await persistWiringMode("wired"); // M99 D2 [RULE] wiring-mode-three-states
+      await persistWiringMode("WIRED"); // M99 D2 [RULE] wiring-mode-three-states / wiring-mode-casing-matches-rollup
     }
   }
 }

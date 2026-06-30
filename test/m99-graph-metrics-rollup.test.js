@@ -533,3 +533,36 @@ test("T7-dispatch: gsd-t graph metrics (doGraph dispatch) works and returns a ro
     "gsd-t.js must contain the case \"metrics\" arm dispatching to gsd-t-graph-metrics-rollup.cjs",
   );
 });
+
+test("M99 code-review IMPORTANT: scan's persistWiringMode literals MATCH the rollup's counted modes (casing guard)", () => {
+  // The isolated rollup tests hand-build wiring("WIRED", ...) fixtures, so they
+  // agreed with the rollup but never exercised scan's REAL emission — which was
+  // lowercase "wired" and fell through all three rollup branches → WIRED:0 for a
+  // successfully-wired scan (defeats success criterion 13). This source-level guard
+  // asserts every `persistWiringMode("X")` literal in the scan workflow is a value
+  // the rollup actually counts, catching producer/consumer casing drift at the root.
+  const scanSrc = fs.readFileSync(
+    path.join(ROOT, "templates", "workflows", "gsd-t-scan.workflow.js"), "utf8");
+  const rollupSrc = fs.readFileSync(ROLLUP_PATH, "utf8");
+
+  // The exact modes the rollup increments a counter for (its === comparisons).
+  const COUNTED = ["WIRED", "fallback-announced", "disabled"];
+  for (const m of COUNTED) {
+    assert.ok(rollupSrc.includes(`=== "${m}"`),
+      `rollup must compare against "${m}" (the counted-modes set this guard relies on)`);
+  }
+
+  // Every persistWiringMode("...") literal scan emits MUST be in the counted set.
+  const emitted = [...scanSrc.matchAll(/persistWiringMode\(\s*"([^"]+)"/g)].map((mm) => mm[1]);
+  assert.ok(emitted.length >= 3, `expected scan to emit ≥3 wiring modes, found ${emitted.length}`);
+  for (const e of emitted) {
+    assert.ok(COUNTED.includes(e),
+      `scan emits persistWiringMode("${e}") but the rollup does NOT count "${e}" — ` +
+      `producer/consumer casing divergence (the WIRED:0 bug). Counted: ${COUNTED.join(", ")}`);
+  }
+  // And specifically: the WIRED case is present (not the old lowercase "wired").
+  assert.ok(emitted.includes("WIRED"),
+    `scan must emit persistWiringMode("WIRED") (uppercase) — found: ${emitted.join(", ")}`);
+  assert.ok(!emitted.includes("wired"),
+    `scan must NOT emit lowercase "wired" (the rollup counts "WIRED") — found: ${emitted.join(", ")}`);
+});

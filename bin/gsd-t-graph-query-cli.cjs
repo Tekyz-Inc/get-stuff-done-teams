@@ -1250,11 +1250,13 @@ if (require.main === module) {
   const verb = args[0];
   const target = args[1];
 
-  // ─── Graph usage telemetry (v4.13.13, layer 1) ────────────────────────────
-  // Every graph read funnels through emit(); append ONE JSON line per query to
-  // .gsd-t/metrics/graph-events.jsonl so graph usage + health is observable
-  // (hit/miss/graph-unavailable, tier, latency, reindex). This is the chokepoint:
-  // one ledger captures 100% of graph reads regardless of consumer.
+  // ─── Graph usage telemetry (M99, layer 1) ─────────────────────────────────
+  // Every graph read funnels through emit(); append ONE JSON line per query via
+  // the resolver's append_ledger_line to graphDB/logs/graph-events-NNN.jsonl so
+  // graph usage + health is observable (hit/miss/graph-unavailable, tier, latency,
+  // reindex). This is the chokepoint: one ledger captures 100% of graph reads
+  // regardless of consumer. (M99 moved the sink here from the retired
+  // .gsd-t/metrics/graph-events.jsonl path — see gsd-t-graph-store-resolver.cjs.)
   // FAIL-OPEN — a telemetry write must NEVER block or alter a query answer.
   // Consumer label comes from GSDT_GRAPH_CONSUMER (set by the calling workflow/hook);
   // defaults to "cli" for a bare invocation. [RULE] graph-telemetry-fail-open

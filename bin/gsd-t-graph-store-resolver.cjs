@@ -182,6 +182,37 @@ function _verifySqliteReadable(dbPath) {
 }
 
 /**
+ * Checkpoint a SQLite store's write-ahead log INTO its main .db file, then
+ * truncate the WAL — so the .db becomes fully self-contained (no -wal/-shm
+ * dependency). Best-effort: returns true on success, false on any failure
+ * (caller falls back to copying the db+wal+shm triple).
+ *
+ * WHY (Red Team HIGH, M99): the migration's STEP-3 renamed graph.db BEFORE its
+ * -wal/-shm. A kill in that window left graph.db present but its -wal orphaned →
+ * SQLite reopened at the last checkpoint and SILENTLY dropped uncheckpointed rows
+ * (reproduced 4000→2000). Checkpointing the WAL into the .db BEFORE the copy means
+ * there is no sidecar to orphan: the single self-contained .db rename is genuinely
+ * atomic. WAL is the normal live state, so this path is the common case.
+ * [RULE] migration-wal-checkpoint-before-copy
+ *
+ * @param {string} dbPath
+ * @returns {boolean} true if the WAL was checkpointed + truncated
+ */
+function _checkpointWal(dbPath) {
+  try {
+    const { requireBetterSqlite } = require("./gsd-t-require-store.cjs");
+    const Database = requireBetterSqlite();
+    const db = new Database(dbPath); // writable — checkpoint mutates the .db
+    // TRUNCATE: fold all WAL frames into the .db AND reset the -wal to zero length.
+    db.pragma("wal_checkpoint(TRUNCATE)");
+    db.close();
+    return true;
+  } catch (_e) {
+    return false;
+  }
+}
+
+/**
  * WAL-safe copy: copies `src.db`, `src.db-wal`, and `src.db-shm` to the
  * target directory atomically (all three must exist for a consistent snapshot).
  *
@@ -263,7 +294,19 @@ function migrateGraphStore(projectRoot, opts) {
     try { if (fs.existsSync(f)) fs.unlinkSync(f); } catch {}
   }
 
-  // Copy the triple (db + WAL + SHM) for WAL-interruption safety
+  // STEP 0 (Red Team HIGH fix): checkpoint the legacy WAL INTO graph.db first, so
+  // the .db is fully self-contained before we copy. Then a single self-contained
+  // .db rename has no -wal/-shm to orphan if interrupted mid-swap (the old STEP-3
+  // window that silently dropped uncheckpointed rows, 4000→2000). [RULE]
+  // migration-wal-checkpoint-before-copy. Best-effort: if checkpoint fails (e.g.
+  // a concurrent writer holds the lock), we STILL copy the db+wal+shm triple below
+  // so a clean migration remains WAL-complete — the interruption window only narrows
+  // when the checkpoint succeeded (the normal case), never widens.
+  const checkpointed = _checkpointWal(legacyPath);
+
+  // Copy the .db (now self-contained if checkpointed). Also copy any remaining
+  // -wal/-shm: harmless when checkpointed (the -wal is zero-length post-TRUNCATE),
+  // and the safety net when the checkpoint could not run.
   fs.copyFileSync(legacyPath, tmpDb);
   for (const suf of ["-wal", "-shm"]) {
     const src = legacyPath + suf;
@@ -283,13 +326,21 @@ function migrateGraphStore(projectRoot, opts) {
   // STEP 3: Atomic rename (swap) — after this, the new path is live.
   // The old store remains for now (we delete it after confirming).
   // Node rename is atomic on most filesystems within the same mountpoint.
-  fs.renameSync(tmpDb, targetPath);
+  //
+  // ORDER MATTERS (Red Team HIGH defense-in-depth): rename the -wal/-shm sidecars
+  // BEFORE the main .db. If the checkpoint above succeeded the sidecars are empty
+  // and order is moot; but if it could NOT run, a kill between renames must never
+  // leave graph.db present without its matching -wal (that orphans uncheckpointed
+  // rows). Sidecars-first means an interrupted swap leaves EITHER no new .db (old
+  // store still the only live one — self-heal re-runs) OR a complete .db+wal pair,
+  // never a .db missing its wal. [RULE] migration-sidecars-renamed-before-db
   for (const suf of ["-wal", "-shm"]) {
     const tmp = tmpDb + suf;
     if (fs.existsSync(tmp)) {
       try { fs.renameSync(tmp, targetPath + suf); } catch {}
     }
   }
+  fs.renameSync(tmpDb, targetPath);
 
   // STEP 4: Final verify of the swapped-in store
   if (!_verifySqliteReadable(targetPath)) {

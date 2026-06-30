@@ -148,6 +148,54 @@ test("migration WAL-interruption: uncommitted WAL edge survives migration (c)", 
   // The migrated db must be readable (verify step would have caught a corrupt copy)
 });
 
+test("migration WAL-interruption (Red Team HIGH): REAL uncheckpointed rows survive — no silent drop (c2)", () => {
+  // The (c) test above used a fake 32-byte WAL placeholder + only asserted the new
+  // store exists — it NEVER wrote real uncheckpointed rows nor counted survivors,
+  // which is exactly why the Red Team HIGH shipped: the migration renamed graph.db
+  // BEFORE its -wal, so a kill in that window orphaned the WAL and SQLite silently
+  // dropped uncheckpointed rows (reproduced 4000→2000). This test writes REAL
+  // WAL-pending rows (writable connection, NO checkpoint) and asserts the full count
+  // survives migration. The fix (checkpoint-before-copy + sidecars-renamed-first)
+  // makes it pass. [RULE] migration-wal-checkpoint-before-copy
+  let Database;
+  try {
+    Database = require(path.join(ROOT, "bin", "gsd-t-require-store.cjs")).requireBetterSqlite();
+  } catch { return; } // sqlite engine unavailable in this env → skip (loud: covered by (c))
+
+  const { dir, legacyDb } = makeLegacyFixture();
+  const r = require(RESOLVER);
+
+  // Force WAL mode and write rows that stay in the -wal (no checkpoint) — the
+  // "uncheckpointed graph rows" the Red Team's 4000→2000 repro exercised.
+  const db = new Database(legacyDb);
+  db.pragma("journal_mode = WAL");
+  db.exec("CREATE TABLE IF NOT EXISTS wal_probe (id INTEGER PRIMARY KEY, v TEXT)");
+  const insert = db.prepare("INSERT INTO wal_probe (v) VALUES (?)");
+  const N = 4000;
+  const tx = db.transaction(() => { for (let i = 0; i < N; i++) insert.run("row-" + i); });
+  tx();
+  // Deliberately DO NOT checkpoint — the rows live in -wal, not yet in graph.db.
+  // Confirm the -wal is non-trivial (rows really are pending there).
+  const walPath = legacyDb + "-wal";
+  assert.ok(fs.existsSync(walPath) && fs.statSync(walPath).size > 0,
+    "precondition: uncheckpointed rows must be sitting in the -wal");
+  db.close();
+
+  // Migrate (the migration must fold the WAL into graph.db before copying).
+  const result = r.migrateGraphStore(dir, { forceAllow: true });
+  assert.ok(result.migrated === true || (result.reason || "").includes("complete"),
+    `migration should succeed: ${JSON.stringify(result)}`);
+
+  // Open the MIGRATED store and count: all N rows must be present — none silently dropped.
+  const newStore = r.resolveStorePath(dir);
+  const migrated = new Database(newStore, { readonly: true });
+  const count = migrated.prepare("SELECT COUNT(*) AS c FROM wal_probe").get().c;
+  migrated.close();
+  assert.strictEqual(count, N,
+    `ALL ${N} uncheckpointed WAL rows must survive migration — got ${count}. ` +
+    `A short count means the -wal was orphaned (the Red Team HIGH).`);
+});
+
 // ─── (d) Idempotent: second run is a no-op ───────────────────────────────────
 
 test("migration idempotency: second run returns migrated:false, reason:already-migrated (d)", () => {
