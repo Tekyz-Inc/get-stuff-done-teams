@@ -110,11 +110,11 @@ Present a summary: headline volume totals, findings by severity, the top critica
 
 The scan Workflow updates ALL of these deterministically (no manual follow-on):
 
-- `.gsd-t/techdebt.md` — fresh register (synthesis; prior one archived to `.gsd-t/techdebt_YYYY-MM-DD.md`)
+- `.gsd-t/techdebt.md` — fresh register (synthesis; **the prior register + all prior dimension files are archived with a datetime stamp to `.gsd-t/scan/archive/<name>-YYYYMMDD-HHMM.md`** so you can diff new-vs-prior — #47)
 - `.gsd-t/techdebt_in_plain_english.md` — non-technical companion to the register: every TD item in layman's terms, why it matters, and a real-world analogy (document phase)
 - `.gsd-t/scan/{architecture,security,quality,business-rules,contract-drift}.md` — dimension analysis files (document phase)
-- `docs/architecture.md`, `docs/workflows.md`, `docs/infrastructure.md`, `docs/requirements.md`, `README.md` — living docs, **merged not overwritten** (document phase)
-- HTML scan report via `bin/scan-report.js` (render phase)
+- `docs/architecture.md`, `docs/workflows.md`, `docs/infrastructure.md`, `docs/requirements.md`, `README.md` — living docs, **merged not overwritten** (document phase). These keep their fixed names (GSD-T reads them by hardcoded path).
+- **`share/` — team-shareable, repo-name-labeled COPIES (#47):** the LAST scan step copies the living docs + scan reports into `share/` with the project's repo name suffixed (`share/architecture-<repo>.md`, `share/techdebt-<repo>.md`, …). Originals untouched. This solves "which file is for which project?" when sharing across repos — your team reads from `share/`. Regenerated each scan.
 
 The document phase + render commit these via git on the feature branch (no push). The lead agent should still add a `.gsd-t/progress.md` Decision Log entry with the scan summary stats.
 

@@ -793,3 +793,30 @@ test("v4.14.11: scan wired-path BUILDS the index when absent (no silent grep-fal
   assert.ok(/runCliBuild[\s\S]{0,500}runCli\("status"/.test(wiredRegion),
     "after runCliBuild succeeds, the wired branch MUST re-probe `runCli(\"status\")` so the built graph is used.");
 });
+
+// ─── #47: scan exports a repo-labeled share/ set + archives prior docs by datetime ──
+test("#47: scan exports living docs + reports to share/<doc>-<repo>.md (originals untouched)", () => {
+  const wfPath = path.join(ROOT, "templates", "workflows", "gsd-t-scan.workflow.js");
+  const src = fs.readFileSync(wfPath, "utf8");
+
+  // A repoName is derived (from preflight) and validated.
+  assert.ok(/const repoName\s*=/.test(src), "scan must derive a repoName for the share/ suffix");
+
+  // A share-export step exists, COPIES (not moves) into share/ with the -${repoName} suffix.
+  assert.ok(/label:\s*"share-export"/.test(src), "scan must have a share-export step");
+  assert.ok(/mkdir -p \$\{projectDir\}\/share/.test(src), "share-export must create the share/ dir");
+  assert.ok(/share\/architecture-\$\{repoName\}\.md/.test(src),
+    "share-export must write share/architecture-<repo>.md (repo-labeled living-doc copy)");
+  assert.ok(/share\/techdebt-\$\{repoName\}\.md/.test(src),
+    "share-export must write share/techdebt-<repo>.md (repo-labeled register copy)");
+  assert.ok(/COPY \(do NOT move/.test(src),
+    "share-export must COPY — originals stay at fixed names (internal tooling reads them by hardcoded path)");
+
+  // INTERNAL files keep fixed names (zero blast radius — the chosen design).
+  assert.ok(/const regPath = `\$\{projectDir\}\/\.gsd-t\/techdebt\.md`/.test(src),
+    "internal register MUST stay .gsd-t/techdebt.md (NOT suffixed) so promote-debt/gap-analysis/etc. still find it");
+
+  // Prior docs are archived to scan/archive/ with a DATETIME stamp (for diffing).
+  assert.ok(/\.gsd-t\/scan\/archive/.test(src) && /date \+%Y%m%d-%H%M/.test(src),
+    "scan must archive prior outputs to .gsd-t/scan/archive/ with a YYYYMMDD-HHMM datetime stamp (#47 diff history)");
+});

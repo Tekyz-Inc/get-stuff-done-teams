@@ -769,7 +769,7 @@ After M94 ships: (1) DEFINE the telemetry suite milestone (#46) but DO NOT build
 
 ## #47 — Scan output filenames carry the repo name (`[file]-[repo].md`) + CPUA one-time mass-rename
 
-**Type:** Enhancement (scan) · **Status:** QUEUED (gated on M99 landing) · **Added:** 2026-06-30 (user directive; refined same day) · **Scope:** suffix scan reports in place + EXPORT-COPY living docs to a /share folder
+**Type:** Enhancement (scan) · **Status:** ✅ DONE 2026-06-30 (v4.14.11) · **Added:** 2026-06-30 · **Scope:** EXPORT-COPY everything to `share/<file>-<repo>.md`; INTERNAL files keep fixed names (zero blast radius); prior outputs archived to `.gsd-t/scan/archive/<name>-YYYYMMDD-HHMM.md`. NO CPUA mass-rename needed (internal names unchanged). Superseded the earlier "suffix-in-place + mass-rename" plan per the user's "share copies only" decision (avoids breaking the ~8 internal readers of `.gsd-t/techdebt.md`).
 
 **Problem (user):** David shares scan outputs (`techdebt.md`, `.gsd-t/scan/architecture.md`) AND living docs (`architecture.md`, etc.) with his team across multiple projects; identical filenames → team confusion about which file is which project.
 

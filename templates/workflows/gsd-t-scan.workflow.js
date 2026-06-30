@@ -88,6 +88,7 @@ const PREFLIGHT_SCHEMA = {
   properties: {
     ok:                  { type: "boolean" },
     branch:              { type: "string" },
+    repoName:            { type: "string", description: "the project directory's basename (e.g. 'hilo-figma-atos') — used to suffix shared scan/doc files" },
     priorRegisterExists: { type: "boolean" },
     priorMaxTd:          { type: "integer", description: "highest TD-NNN in the prior register, 0 if none" },
     notes:               { type: "string" },
@@ -335,8 +336,9 @@ const pre = await agent(
     `You are the preflight check for a GSD-T deep scan of the project at \`${projectDir}\`.`,
     `Using Bash/Read tools, determine:`,
     `1. The current git branch (\`git -C ${projectDir} rev-parse --abbrev-ref HEAD\`; if not a git repo, report branch "(no-git)").`,
-    `2. Whether \`${projectDir}/.gsd-t/techdebt.md\` exists (priorRegisterExists).`,
-    `3. If it exists, the HIGHEST TD-NNN number in it (grep \`### TD-\`, parse the max integer; priorMaxTd). If absent, priorMaxTd=0.`,
+    `2. The repo name = the basename of the resolved project dir (\`basename "$(cd ${projectDir} && pwd)"\`) — e.g. "hilo-figma-atos". Report as repoName (used to label the team-shared share/ copies).`,
+    `3. Whether \`${projectDir}/.gsd-t/techdebt.md\` exists (priorRegisterExists).`,
+    `4. If it exists, the HIGHEST TD-NNN number in it (grep \`### TD-\`, parse the max integer; priorMaxTd). If absent, priorMaxTd=0.`,
     `Set ok=true unless something makes scanning impossible (e.g. projectDir does not exist). Return JSON per the schema.`,
   ].join("\n"),
   { label: "preflight", phase: "Preflight", schema: PREFLIGHT_SCHEMA, model: "haiku" }
@@ -346,7 +348,12 @@ if (!pre || !pre.ok) {
   return { status: "failed", reason: "preflight-failed", preflight: pre };
 }
 const tdStart = (pre.priorRegisterExists ? (pre.priorMaxTd || 0) : 0) + 1;
-log(`preflight ok — branch=${pre.branch}, priorRegister=${pre.priorRegisterExists}, TD numbering starts at TD-${tdStart}`);
+// #47: repo-name suffix for the TEAM-SHARED copies only. INTERNAL files keep their
+// fixed names (.gsd-t/techdebt.md, .gsd-t/scan/<dim>.md, docs/*.md) so all internal
+// tooling (promote-debt, gap-analysis, complete-milestone, …) keeps working — zero
+// blast radius. The repo suffix appears ONLY on the share/ exports at the end.
+const repoName = (pre.repoName && /^[A-Za-z0-9._-]+$/.test(pre.repoName)) ? pre.repoName : "project";
+log(`preflight ok — branch=${pre.branch}, repo=${repoName}, priorRegister=${pre.priorRegisterExists}, TD numbering starts at TD-${tdStart}`);
 
 // Volume probe — an agent measures the codebase (its own Bash) and carves slices.
 phase("Probe");
@@ -836,10 +843,15 @@ const today = (typeof todayAgent === "string" && /\d{4}-\d{2}-\d{2}/.test(todayA
 
 let archivePath = "";
 if (pre.priorRegisterExists) {
+  // #47: archive the prior register + ALL prior dimension files into
+  // .gsd-t/scan/archive/ with a DATETIME stamp so the user can diff new-vs-prior.
+  // Handles BOTH the new suffixed names and any legacy unsuffixed leftovers.
   const arch = await agent(
     [
-      `Archive the existing tech-debt register in \`${projectDir}\` via Bash, then report the archive path.`,
-      `Rename \`${projectDir}/.gsd-t/techdebt.md\` to \`${projectDir}/.gsd-t/techdebt_${today}.md\`; if that exists, append _2/_3. Use \`git mv\` if a git repo else \`mv\`. Reply with ONLY the resulting archive filename.`,
+      `Archive the existing scan outputs in \`${projectDir}\` into a dated archive folder so the user can diff new-vs-prior, then report the archive dir. Steps (via Bash):`,
+      `1. STAMP="$(date +%Y%m%d-%H%M)". ARCH="${projectDir}/.gsd-t/scan/archive". mkdir -p "$ARCH".`,
+      `2. Move each existing scan output into "$ARCH" with the STAMP appended before .md. For EACH that exists, move it: \`${projectDir}/.gsd-t/techdebt.md\`, \`${projectDir}/.gsd-t/techdebt_in_plain_english.md\`, and \`${projectDir}/.gsd-t/scan/<dim>.md\` for each dim in {architecture,security,quality,business-rules,contract-drift}. Target name: same basename + "-$STAMP.md" (e.g. techdebt-20260630-1542.md). Use \`git mv\` if a git repo else \`mv\`. Skip any that don't exist (no error).`,
+      `3. Reply with ONLY the archive dir path "$ARCH".`,
     ].join("\n"),
     { label: "synthesis:archive", phase: "Synthesis", model: "haiku" }
   ).catch(() => null);
@@ -852,7 +864,7 @@ const { chunks, lastTd } = fmtChunks(today);
 // each subsequent chunk is APPENDED. Done SEQUENTIALLY so the file builds in order and
 // each agent's prompt+output stays small enough to pass intact. The register path is
 // passed to each chunk; only the chunk content varies.
-const regPath = `${projectDir}/.gsd-t/techdebt.md`;
+const regPath = `${projectDir}/.gsd-t/techdebt.md`; // internal fixed name (shared copy suffixed in share/)
 let chunkOk = 0;
 for (let ci = 0; ci < chunks.length; ci++) {
   const isFirst = ci === 0;
@@ -970,7 +982,7 @@ log(`document phase: ${docsOk.length}/${docTargets.length} written/merged${docsF
 // out bounded generator agents (each writes its batch's entries via the shared gate),
 // then ASSEMBLE deterministically with severity section headers, and chunk-write.
 phase("Plain-English");
-const peTarget = `${projectDir}/.gsd-t/techdebt_in_plain_english.md`;
+const peTarget = `${projectDir}/.gsd-t/techdebt_in_plain_english.md`; // internal fixed name (shared copy suffixed in share/)
 const sevLabel = { CRITICAL: "fix before launch", HIGH: "fix soon", MEDIUM: "schedule", LOW: "clean up eventually" };
 // Attach the deterministic TD number (matches the register: severity-sorted, tdStart+).
 const peItems = finalFindings.map((f, i) => ({
@@ -1060,11 +1072,27 @@ const peComplete = peActual === peExpectedEntries;
 if (!peComplete) log(`⚠ plain-english INCOMPLETE: wrote ${peActual}/${peExpectedEntries} entries (writer said ${typeof peWriteRes === "string" ? peWriteRes.trim().slice(0, 20) : JSON.stringify(peWriteRes).slice(0, 40)})`);
 log(`plain-english: ${peExpectedEntries}/${peItems.length} entries, grouped by severity, ${peChunks.length} chunks, on-disk count ${peActual ?? "?"} (${peComplete ? "COMPLETE" : "INCOMPLETE"})${peFailed ? `; ${peFailed} gen batch(es) failed` : ""}`);
 
-// Commit the docs + dimension files + plain-english via a small agent (Bash git).
+// #47: EXPORT-COPY the living docs into a share/ folder with the repo-name suffix —
+// the LAST scan step. Originals stay at their fixed docs/ names (GSD-T reads them by
+// hardcoded path under the No-Re-Research rule); the share/ copies are the team-shareable,
+// project-labeled set. Regenerated each scan (overwrite). The scan reports themselves are
+// already suffixed in place (techdebt-<repo>.md, scan/<dim>-<repo>.md).
+const shareAgent = await agent(
+  [
+    `Create a shareable, repo-labeled copy of this project's living docs in \`${projectDir}\` via Bash. Steps:`,
+    `1. \`mkdir -p ${projectDir}/share\`.`,
+    `2. COPY (do NOT move — keep the original at its fixed name) each of these that EXISTS into \`${projectDir}/share/\` with the repo name "${repoName}" suffixed before .md. Living docs: \`docs/architecture.md\`→\`share/architecture-${repoName}.md\`, \`docs/requirements.md\`→\`share/requirements-${repoName}.md\`, \`docs/workflows.md\`→\`share/workflows-${repoName}.md\`, \`docs/infrastructure.md\`→\`share/infrastructure-${repoName}.md\`, \`README.md\`→\`share/README-${repoName}.md\`. Scan reports: \`.gsd-t/techdebt.md\`→\`share/techdebt-${repoName}.md\`, \`.gsd-t/techdebt_in_plain_english.md\`→\`share/techdebt_in_plain_english-${repoName}.md\`, and each \`.gsd-t/scan/<dim>.md\`→\`share/<dim>-${repoName}.md\` for dim in {architecture,security,quality,business-rules,contract-drift} (NOTE these scan dimension files share basenames with the living-doc architecture — keep them distinct: prefer \`share/scan-<dim>-${repoName}.md\` for the .gsd-t/scan/ ones to avoid colliding with docs/architecture). Overwrite existing share/ files (always fresh). Skip any source that doesn't exist (no error).`,
+    `3. Reply with ONLY the count of files copied.`,
+  ].join("\n"),
+  { label: "share-export", phase: "Document", model: "haiku" }
+).catch(() => null);
+log(`share/ export: ${typeof shareAgent === "string" ? shareAgent.trim().slice(0, 40) : "done"} → ${projectDir}/share/`);
+
+// Commit the docs + dimension files + plain-english + share/ via a small agent (Bash git).
 const commitAgent = await agent(
   [
     `Commit the GSD-T scan's generated documents in \`${projectDir}\` via Bash git, IF it is a git repo (else report skipped).`,
-    `Stage: \`.gsd-t/scan\`, \`.gsd-t/techdebt_in_plain_english.md\`, \`docs\`, \`README.md\` (do NOT stage \`.gsd-t/scan/.doc-backup\` if present). Commit message: "scan: deep document cross-population (${docsOk.length} docs) + dimension files". Do NOT push. Return JSON per the schema (status "rendered" if committed, "skipped" if not a git repo / nothing to commit, "failed" on error; outputPath optional).`,
+    `Stage: \`.gsd-t/scan\`, \`.gsd-t/techdebt.md\`, \`.gsd-t/techdebt_in_plain_english.md\`, \`share\`, \`docs\`, \`README.md\` (do NOT stage \`.gsd-t/scan/.doc-backup\` if present; \`.gsd-t/scan/archive\` MAY be staged — the dated history is worth keeping). Commit message: "scan: deep document cross-population (${docsOk.length} docs) + dimension files + share/ export". Do NOT push. Return JSON per the schema (status "rendered" if committed, "skipped" if not a git repo / nothing to commit, "failed" on error; outputPath optional).`,
   ].join("\n"),
   { label: "commit-docs", phase: "Document", schema: RENDER_SCHEMA, model: "haiku" }
 ).catch((e) => ({ status: "failed", notes: String(e && e.message) }));
