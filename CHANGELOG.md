@@ -2,6 +2,18 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [4.14.10] - 2026-06-30
+
+### Added — M99: Graph Observability & Consolidation
+
+All graph artifacts now live under one folder and the graph-vs-grep decision is observable, so a silent grep-fallback (the NiceNote scan #12 fence bug that started this) can never hide again.
+
+- **Folder consolidation** — `graph.db` (+WAL/SHM), `index.scip`, `index-python.scip`, and telemetry `logs/` all consolidated under `.gsd-t/graphDB/`. A single `bin/gsd-t-graph-store-resolver.cjs` is the one source of truth for every graph path (zero raw `graph.db`/`.scip` literals survive outside it). A copy-verify-swap migration shim (`migrateGraphStore`) relocates an existing project's graph on first touch / during `update-all`: WAL-checkpoint(TRUNCATE) before copy so the `.db` is self-contained, sidecars-renamed-before-`.db`, idempotent, interruption-safe, real-project-root-only, never-orphan.
+- **Telemetry ledger (Layers 1+2)** — toggleable (`GSDT_GRAPH_TELEMETRY`), fail-open, size/entry-capped + rotated append-only ledger at `.gsd-t/graphDB/logs/graph-events-NNN.jsonl`. Records: every graph query (verb/outcome/tier/latency/stale-reindex/consumer); every grep-intercept decision (structural→graph-replaced vs text→passthrough); every read-intercept decision (augment vs passthrough); and each of the 6 workflows' wiring mode (WIRED/fallback-announced/disabled).
+- **`gsd-t graph metrics`** — read-only rollup: graph-hit-vs-grep-passthrough ratio, fallback-rate, p50/p95 latency, tier mix, stale/reindex frequency, per-consumer + per-verb breakdown, and the `fallbackAnnouncedDespiteHit` north-star contradiction count.
+
+3 domains / 2 waves (D1 migration+resolver+sink serial gate; D2 decision-logging ∥ D3 rollup). The orthogonal-triad verify caught and fixed **3 real HIGH bugs**: migration silently dropped uncheckpointed WAL rows on interruption (4000→2000 reproduced); the rollup crashed on prototype-pollution consumer/verb labels (`__proto__`/`constructor`); and the SCIP indexes were written to `.gsd-t/` instead of `graphDB/` (SC#1 falsified). Plus a casing bug where scan emitted lowercase `"wired"` vs the rollup's `"WIRED"`. All fixed with regression tests. Suite green (2600+ tests).
+
 ## [4.13.12] - 2026-06-30
 
 ### Fixed — scan graph probe silently fell back to grep-mode despite a LIVE graph
