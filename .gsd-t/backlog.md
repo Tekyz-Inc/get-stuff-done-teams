@@ -878,3 +878,19 @@ After M94 ships: (1) DEFINE the telemetry suite milestone (#46) but DO NOT build
 4. Also check: are `claude-opus-4-8` / `claude-haiku-4-5` still current, or did they also get superseded?
 
 **Related:** [[feedback_nothing_in_gsdt_is_concrete]] (re-evaluate on new model), [[feedback_no_silent_degradation]] (a silent model swap cuts both ways — surface it), [[feedback_measure_dont_claim]] (measure the tier re-assignment, don't assume).
+
+---
+
+## #52 — Scan Document phase can silently produce ZERO output (agents complete outcome:null, no files written)
+
+**Type:** Bug (scan) · **Status:** QUEUED · **Priority:** HIGH · **Added:** 2026-06-30 (hilo-figma-atos re-scan)
+
+**Observed (hilo-figma-atos v4.15.10, 2026-06-30):** the Deep Scan + register succeeded perfectly (254 findings, WIRED, Sonnet 5, no rate-limit). But the **Document phase ran for 24+ min producing ZERO files** — no dimension files, no docs, no plain-english, no share/. Agents kept spawning/completing (1040/1054, no pile-up) but every `subagent_complete` had `outcome:null` (not "success"), heavy Bash+Read, only 1 Write in a whole window that produced nothing on disk. The user had to MANUALLY re-run document creation, which then worked (all files landed 22:14). So the Document phase is intermittently a no-op that reports alive-but-does-nothing.
+
+**Compounding exposure (the dangerous part):** #47's archive step moves the prior dimension files to `.gsd-t/scan/archive/*-STAMP.md` BEFORE regeneration. When regeneration produces nothing (this bug), the project is left with NO current dimension files — recoverable from archive/ but a real gap. **Fix ordering:** either regenerate-then-archive, OR archive to a temp and only commit the archive after regeneration is verified on disk.
+
+**Two bugs to fix:**
+1. **Document phase produces nothing / outcome:null.** Investigate why the per-doc agents in `templates/workflows/gsd-t-scan.workflow.js` (docTargets fan-out ~line 930) complete without writing. Likely: agent gets the prompt, does Bash/Read, but the Write never fires or targets the wrong path; OR the merge-not-overwrite logic sees the archived-away file as "absent" and takes a branch that no-ops. The `outcome:null` (vs "success") is the tell — the result-collection isn't verifying each doc's file landed.
+2. **Verify-on-disk gate (pairs with #50).** After the document fan-out, stat each expected output (5 dimension files + docs + plain-english + share/); any whose mtime didn't advance past scan-start → mark FAILED, retry once, surface loudly. Never report the scan "complete" with a silently-empty document phase. This is the same "trust disk not narration" discipline as [[feedback_detached_fanout_false_completion]].
+
+**Related:** #50 (business-rules single-file silent write-fail — same class, this is the WHOLE-PHASE version), #47 (the archive-before-regenerate ordering that turns this into a gap), #49 (scan checkpoint/resume). All four are scan write-integrity. Strong candidate to bundle #50+#52 (+ the #47 ordering fix) into one "scan document-phase write-integrity" milestone.
