@@ -273,13 +273,13 @@ describe("command listing functions", () => {
   // v3.20.11 added cpua (utility command).
   // M61 D2 (v4.0.10) retired gsd-t-unattended, -unattended-watch,
   // -unattended-stop, and gsd-t-visualize (4 commands): total 55→51,
-  // gsd-t 49→45. Utility count unchanged at 6.
-  it("total command count is 51", () => {
-    assert.equal(getCommandFiles().length, 51);
+  // gsd-t 49→45→46 (+estimate, v4.15.11). Utility count unchanged at 6.
+  it("total command count is 52", () => {
+    assert.equal(getCommandFiles().length, 52);
   });
 
-  it("gsd-t command count is 45", () => {
-    assert.equal(getGsdtCommands().length, 45);
+  it("gsd-t command count is 46", () => {
+    assert.equal(getGsdtCommands().length, 46);
   });
 
   it("utility command count is 6", () => {

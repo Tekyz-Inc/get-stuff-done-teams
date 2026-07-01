@@ -358,6 +358,12 @@ Use these when user asks for help on a specific command:
 - **Updates**: `.gsd-t/roadmap.md`, `.gsd-t/techdebt.md`
 - **Use when**: Ready to address technical debt items
 
+### estimate
+- **Summary**: Turn a completed scan (`.gsd-t/techdebt.md`) into a Tekyz client estimate (Google Sheet: T-Shirt Size + Team Mix) and a matching PRD deliverable
+- **Auto-invoked**: No
+- **Updates**: the Tekyz estimate Google Sheet + `share/<Repo>-PRD-*.md` (and, if renumbered, the register/docs/scan files)
+- **Use when**: A scan is done and you need a client-facing paid estimate + PRD (T-shirt sizing, dollar range, sign-off). Encodes the 7-phase Tekyz playbook (`~/.claude/playbooks/tekyz-estimation-and-prd-playbook.md`)
+
 ### populate
 - **Summary**: Auto-populate all living docs from existing codebase analysis
 - **Auto-invoked**: No

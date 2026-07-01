@@ -452,7 +452,7 @@ Add `**Also available:**` with `- /gsd-t-{alt} — {desc}` lines if alternatives
 | `integrate` | `verify` | |
 | `verify` | *(auto-invokes complete-milestone)* | |
 | `complete-milestone` | `status` | |
-| `scan` | `promote-debt` | `milestone` |
+| `scan` | `promote-debt` | `milestone`, `estimate` (client estimate + PRD) |
 | `init` | `scan` | `milestone` |
 | `init-scan-setup` | `milestone` | |
 | `gap-analysis` | `milestone` | `feature` |
@@ -460,7 +460,7 @@ Add `**Also available:**` with `- /gsd-t-{alt} — {desc}` lines if alternatives
 | `setup` | `status` | |
 | `design-decompose` | `design-build` | `partition` (if domains needed first) |
 
-Commands with no successor (standalone): `quick`, `debug`, `brainstorm`, `status`, `help`, `resume`, `prompt`, `log`, `health`, `pause`, backlog commands.
+Commands with no successor (standalone): `quick`, `debug`, `brainstorm`, `status`, `help`, `resume`, `prompt`, `log`, `health`, `pause`, `estimate`, backlog commands.
 
 Skip the hint if auto-advancing (Level 3 mid-wave) — only show when the user needs to manually invoke the next step.
 
