@@ -2,6 +2,19 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [4.19.10] - 2026-07-07
+
+### Added — `/gsd-t-stories`: dev-team handoff user stories in the Tekyz format
+
+New standalone command that generates a development-team handoff document in the Tekyz user-stories format from any source — a scan register, a requirements doc, a design contract, or a reverse-engineered codebase. Reverse-engineered from the Tekyz Compass sample PRD: front matter → Application Flow Overview → User Stories grouped under Epics (id, story, workflow, grouped acceptance criteria, per-story flow diagram, mapped test-case table) → Scope Summary. Diagrams are authored as Mermaid but embedded as rendered PNGs (matching the sample's embedded-image flow charts), via `@mermaid-js/mermaid-cli`; output to `share/<Repo>-user-stories.md` (+ optional `.docx` via pandoc).
+
+- `commands/gsd-t-stories.md`: the new command (input classification, epic/story decomposition, Mermaid→PNG→embed pipeline, markdown + optional docx output).
+- `templates/playbooks/tekyz-user-stories-format.md`: bundled format reference (the exact structure + wording conventions).
+- `commands/gsd-t-help.md`, `README.md`, `templates/CLAUDE-global.md`: command reference + standalone-list ripple.
+- `test/filesystem.test.js`: command counts 52→53, gsdt 46→47.
+
+Distinct from `/gsd-t-prd` (which writes the internal `docs/prd.md`) — this is an external client/dev deliverable. Suite 2631/2631.
+
 ## [4.18.10] - 2026-07-03
 
 ### Added — Scan Consolidation Opportunities + type-grouped register; init-scan-setup repo adoption

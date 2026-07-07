@@ -460,7 +460,7 @@ Add `**Also available:**` with `- /gsd-t-{alt} — {desc}` lines if alternatives
 | `setup` | `status` | |
 | `design-decompose` | `design-build` | `partition` (if domains needed first) |
 
-Commands with no successor (standalone): `quick`, `debug`, `brainstorm`, `status`, `help`, `resume`, `prompt`, `log`, `health`, `pause`, `estimate`, backlog commands.
+Commands with no successor (standalone): `quick`, `debug`, `brainstorm`, `status`, `help`, `resume`, `prompt`, `log`, `health`, `pause`, `estimate`, `stories`, backlog commands.
 
 Skip the hint if auto-advancing (Level 3 mid-wave) — only show when the user needs to manually invoke the next step.
 

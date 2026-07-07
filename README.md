@@ -1,6 +1,6 @@
 # GSD-T: Contract-Driven Development for Claude Code
 
-**v4.18.10** - A methodology for reliable, parallelizable development using Claude Code with optional Agent Teams support.
+**v4.19.10** - A methodology for reliable, parallelizable development using Claude Code with optional Agent Teams support.
 
 **Eliminates context rot** — task-level fresh dispatch (one subagent per task, ~10-20% context each) means compaction never triggers.
 **Compaction-proof debug loops** — `gsd-t headless --debug-loop` runs test-fix-retest cycles as separate `claude -p` sessions. A JSONL debug ledger persists all hypothesis/fix/learning history across fresh sessions. Anti-repetition preamble injection prevents retrying failed hypotheses. Escalation tiers (sonnet → opus → human) and a hard iteration ceiling enforced externally.
@@ -187,6 +187,7 @@ This will replace changed command files, back up your CLAUDE.md if customized, a
 | `/gsd-t-gap-analysis` | Requirements gap analysis — spec vs. existing code | Manual |
 | `/gsd-t-promote-debt` | Convert techdebt items to milestones | Manual |
 | `/gsd-t-estimate` | Turn any work doc (scan, requirements, feature/app spec) into a Tekyz client estimate (Google Sheet: T-Shirt Size + Team Mix) + matching PRD — supervised, with an operator-arbitrated Estimate Red Team | Manual |
+| `/gsd-t-stories` | Generate a dev-team handoff doc in the Tekyz user-stories format (stories + workflows + acceptance criteria + Mermaid flow diagrams + mapped test cases) from any source | Manual |
 | `/gsd-t-populate` | Auto-populate docs from existing codebase | Manual |
 | `/gsd-t-design-decompose` | Decompose design into element/widget/page contracts | Manual |
 

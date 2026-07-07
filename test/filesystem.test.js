@@ -274,12 +274,14 @@ describe("command listing functions", () => {
   // M61 D2 (v4.0.10) retired gsd-t-unattended, -unattended-watch,
   // -unattended-stop, and gsd-t-visualize (4 commands): total 55→51,
   // gsd-t 49→45→46 (+estimate, v4.15.11). Utility count unchanged at 6.
-  it("total command count is 52", () => {
-    assert.equal(getCommandFiles().length, 52);
+  // v4.19.10 added gsd-t-stories (dev-handoff user-stories in Tekyz format):
+  // total 52→53, gsdt 46→47.
+  it("total command count is 53", () => {
+    assert.equal(getCommandFiles().length, 53);
   });
 
-  it("gsd-t command count is 46", () => {
-    assert.equal(getGsdtCommands().length, 46);
+  it("gsd-t command count is 47", () => {
+    assert.equal(getGsdtCommands().length, 47);
   });
 
   it("utility command count is 6", () => {

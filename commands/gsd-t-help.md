@@ -364,6 +364,12 @@ Use these when user asks for help on a specific command:
 - **Updates**: the Tekyz estimate Google Sheet + `share/<Repo>-PRD-*.md` (and, if renumbered, the source doc/docs/scan files) + optional `share/<Repo>-estimate-redteam-notes.md`
 - **Use when**: You need a client-facing paid estimate + PRD (T-shirt sizing, dollar range, sign-off) from a scan OR a requirements/feature/app spec. **SUPERVISED** — judgment phases (sizing, adjustments, PRD, Red Team) pause for your review; **you are the final arbiter** of an Estimate Red Team that challenges the numbers. Rate + sheet template + factors are parameterized (default Tekyz). Encodes the Tekyz playbook (`~/.claude/playbooks/tekyz-estimation-and-prd-playbook.md`)
 
+### stories
+- **Summary**: Generate a dev-team handoff document in the Tekyz user-stories format — discrete user stories with workflows, grouped acceptance criteria, per-story flow diagrams (Mermaid rendered to embedded images), and mapped test-case tables — from any source (scan register, requirements doc, design contract, or a reverse-engineered codebase)
+- **Auto-invoked**: No
+- **Updates**: new deliverable `share/<Repo>-user-stories.md` (+ optional `.docx` via pandoc) + `share/media/*.png` (rendered diagrams) + `.gsd-t/user-stories/diagrams/*.mmd`
+- **Use when**: You need to hand a development team discrete, testable user stories in the Tekyz handoff style. Distinct from `/gsd-t-prd` (which writes the INTERNAL `docs/prd.md`) — this is an EXTERNAL client/dev deliverable. Diagrams are authored as Mermaid but embedded as rendered images (needs `@mermaid-js/mermaid-cli`). Format reference: `~/.claude/playbooks/tekyz-user-stories-format.md`
+
 ### populate
 - **Summary**: Auto-populate all living docs from existing codebase analysis
 - **Auto-invoked**: No
