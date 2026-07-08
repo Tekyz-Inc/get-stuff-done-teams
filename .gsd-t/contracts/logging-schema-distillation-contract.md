@@ -1,6 +1,6 @@
 # Logging Schema-Distillation Contract
 
-**Version:** 1.0.0 DRAFT (M100 partition)
+**Version:** 1.0.0 STABLE (published M100-D5-T2 — consumed by d2's `gsd-t-trace-distill.cjs` + d4's `gsd-t-audit-distill.cjs`)
 **Owner:** d5-defaults-migration-pilot
 **Consumers:** d2-trace-machinery (trace-half distiller), d4-audit-machinery (audit-half distiller), the UMI pilot build-into.
 **Milestone:** M100 — Universal Trace + Audit Logging (framework defaults).
