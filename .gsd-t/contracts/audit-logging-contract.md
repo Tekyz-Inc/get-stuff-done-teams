@@ -40,6 +40,14 @@ Audit entries are IMMUTABLE: append-only, NEVER edited or deleted in normal oper
 
 A DEFAULT retention window is present, and a project can EXTEND it (high-compliance → extend to years/indefinite). Retention MUST NOT be hardcoded. (Contrast trace, which may rotate/purge freely.)
 
+### The retention prune is the SOLE sanctioned mutation, and it is BOUNDED (pre-mortem F4 — HIGH)
+
+Append-only immutability has exactly ONE sanctioned exception: the retention `prune_expired()` path. Everything else (UPDATE, DELETE of a live row, DROP/ALTER of the immutability guard) is forbidden.
+
+- **`prune_expired()` deletes ONLY window-EXPIRED rows** — it MUST refuse to delete a row inside the retention window, and MUST NOT be coercible (via any config value) into deleting a live/non-expired row.
+- **The immutability guard itself is protected** — a `DROP TRIGGER` / `ALTER TABLE` that would remove the append-only enforcement is itself blocked (or the store is opened in a mode where schema changes on the audit table are rejected). A guarantee defeated by `DROP TRIGGER` is cosmetic, not real.
+- The enforcement gate proves UPDATE/DELETE rejection **through the exact write-helper/connection the audit module exposes** — not merely at a raw-SQL layer a second connection could bypass.
+
 ## Admin query surface (mandatory — this is the whole point)
 
 A conformant audit implementation MUST provide a query/view surface filterable by **actor / target / time** — the "look back without GSD-T" surface. A store with no queryable surface violates this contract. Because audit is admin-QUERYABLE, a no-server project needs something QUERYABLE (embedded SQLite likely, not a flat file) — the scaffolder flags this at storage-approval time.

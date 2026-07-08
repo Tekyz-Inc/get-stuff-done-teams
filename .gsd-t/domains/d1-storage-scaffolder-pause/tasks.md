@@ -26,11 +26,15 @@ W1 — RISK-FIRST spike, runs CONCURRENTLY with d3. Highest-risk novel piece (th
 - **Contract refs**: `logging-scaffold-seam-contract.md`
 - **Dependencies**: Requires M100-D1-T1
 - **Test**: `test/m100-d1-storage-scaffolder-pause.test.js` — a second `scaffoldLogging()` call with a recorded choice returns the recorded backend WITHOUT re-prompting (no `status:"PAUSED"` on re-run); asserts the backend line lands in the fixture's `CLAUDE.md` / infrastructure doc.
-- **ImplPath**: on entry, `scaffoldLogging()` reads the recorded choice keyed by `resumeToken`; if present, short-circuits to the recorded seam envelope. Writes the chosen backend into project `CLAUDE.md` / `docs/infrastructure.md`.
+  - **Corrupt/invalid-recorded-choice killing sub-cases (M100 pre-mortem FINDING 7, MEDIUM)**: (a) a CORRUPT or partial recorded-choice record (e.g. truncated JSON, missing `backend` field) → the scaffolder does NOT short-circuit to it; it re-enters PAUSE (`status:"PAUSED"` + `alternatives[]`) exactly as if nothing were recorded — never crashes, never silently proceeds with a bad value; (b) a `resumeToken` that matches NO recorded choice → returns PAUSE, never a stale or empty sink/backend value; (c) a recorded choice whose backend value is NOT one of the valid enum values (`db-table`/`local-sqlite`/`local-jsonl`) → treated as UNRECORDED and re-prompts (re-enters PAUSE) rather than trusting the invalid value through to the seam envelope.
+- **ImplPath**: on entry, `scaffoldLogging()` reads the recorded choice keyed by `resumeToken`; if present, short-circuits to the recorded seam envelope. Writes the chosen backend into project `CLAUDE.md` / `docs/infrastructure.md`. The recorded-choice reader validates the record's shape AND the `backend` enum value before trusting it — a corrupt/partial record, an unmatched `resumeToken`, or an out-of-enum `backend` value are all treated as "no recorded choice" and fall through to `status:"PAUSED"`, never a crash and never a silent/stale pass-through.
 - **Acceptance criteria**:
   - On re-run with a recorded choice, does NOT re-prompt (deterministic resume) (M100 #2).
   - Records backend in project CLAUDE.md / infrastructure doc.
   - `gsd-t-init` invokes the scaffolder as a scaffolding step.
+  - Corrupt/partial recorded-choice → re-enters PAUSE, never crashes or silently proceeds.
+  - Unmatched `resumeToken` → PAUSE, never a stale/empty sink.
+  - Out-of-enum recorded backend value → treated as unrecorded, re-prompts.
 
 ### M100-D1-T3: Dispatch wiring + published seam (incl. d5's migrate-logging case)
 - **Touches**: `bin/gsd-t.js`, `.gsd-t/contracts/logging-scaffold-seam-contract.md`

@@ -34,6 +34,14 @@ Every trace entry MUST carry these fields (mirrors the verified BinVoice `TraceR
 
 A trace entry MUST NOT carry buyer/end-user PII — no emails, phone numbers, or postal addresses — in any field, including `data`. The enforcement gate REJECTS a trace envelope carrying a PII-shaped field. Trace is a debugging signal stream, not a data store; PII belongs nowhere in it.
 
+### PII matcher shape — EXACT definition (pre-mortem F6 — recursion + false-positive boundary)
+
+The matcher MUST **recurse into nested structures** (`data`, `context`) — not scan top-level strings only — and MUST NOT false-positive on legitimate ids:
+
+- **Rejected (PII-shaped), at ANY nesting depth incl. `data.a.b.email`:** an **email** (`local@domain.tld` with a real TLD), a **phone number** (a 7–15-digit run matching common phone groupings, not a bare id), a **postal address** (street-number + street-name + suffix / ZIP-shaped patterns).
+- **MUST PASS (not PII):** a legitimate long numeric `key`/`request-id`/`sellerId` (a 10+ digit id is NOT a phone unless it matches phone grouping); an internal id STRING that contains `@` but is not a real email (no valid TLD / not `local@domain.tld` shape); a UUID.
+- The matcher walks nested objects/arrays recursively; a nested email (`data.user.contact.email`) is caught, a nested legit id is not. Depth ≥2 PII (phone, address) is rejected; depth ≥2 legit ids pass.
+
 ## Toggle requirement (runtime + env — David's stated choice)
 
 A conformant trace module MUST expose BOTH toggle paths:
