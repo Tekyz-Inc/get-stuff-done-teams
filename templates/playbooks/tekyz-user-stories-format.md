@@ -92,9 +92,30 @@ embedded (`![Flow Diagram](media/<PREFIX>-NNN-flow.png)`) — matching the sampl
 - Cover the happy path (Positive), failure modes (Negative), and boundaries (Edge). Every
   acceptance-criteria group should be represented by at least one test case.
 
+### Pagination (MANDATORY — hard rule)
+
+- Each Epic (`EP-NN`) starts a NEW PAGE (page-break before the epic heading).
+- The FIRST story of that epic flows on the SAME page as the epic heading.
+- Each SUBSEQUENT story in the same epic starts a NEW PAGE.
+- Every story ENDS with its Mapped Test Cases table → one story per page (or epic-head + first story).
+  Enforce in `.docx` with page-break-before on epic headings + every non-first story heading.
+
+### Diagram carries its own in-image title (MANDATORY)
+
+Each per-story diagram has a TITLE BANNER inside the rendered image (story id bold + title, dark-purple
+on light-purple `screen`-class fill) — matching the sample. So there is NO external `Flow Diagram:`
+label and NO footer label; the diagram is self-titled. The §1 app-flow chart gets a matching banner
+with the product name. Because the image is self-titled, it may use the FULL page box (no label-reserve).
+
+### Mapped Test Cases coloring (MANDATORY)
+
+Header row = white bold on purple fill (all 4 cols). `Type` cell tinted by value: Positive→green,
+Negative→peach, Edge→blue (only the Type cell). Keep the plain-markdown table as editable source;
+apply cell shading in the delivered `.docx` (raw-HTML table or pandoc post-process).
+
 ### Heading placement + no orphans (MANDATORY)
 
-- Every section label sits ABOVE its content, never below. `Flow Diagram:` precedes its image;
+- Every non-diagram section label sits ABOVE its content, never below.
   `Mapped Test Cases:` precedes its table; `Workflow:` precedes its steps. A label below the
   block it introduces is a defect.
 - A heading must NOT be orphaned at a page bottom with its content on the next page — it stays
@@ -139,21 +160,18 @@ terminals are round `([...])`; label decision-branch edges (`-->|Yes|`).
 Compare aspect ratios FIRST, then clamp only the constraining dimension (standard "contain" fit —
 no clipping, no distortion). Page = visible content box, default US Letter portrait ≈ 6.5in × 9in (W×H).
 
-**RESERVE LABEL SPACE:** each diagram's `Flow Diagram:` label sits above it on the same page. If the
-image is set to FULL page height, no room is left for the label and keep-with-next pushes the image to
-the next page (the Newman bug). So use `avail_height = page_height − label_reserve` (label_reserve ≈
-0.5in) as the height constraint, NOT full page_height. `avail_width = page_width`;
-`page_AR = avail_width / avail_height`.
+**FULL page box** — the diagram is self-titled (in-image banner, no external label), so it uses the
+full page: `avail_width = page_width`, `avail_height = page_height` (no label-reserve). `page_AR =
+avail_width / avail_height`. *(A label-reserve was needed only when an external `Flow Diagram:` label
+sat above the image — the in-image title removed that need.)*
 
 1. Render to PNG, then MEASURE its pixels `img_w × img_h` (`sips -g pixelWidth -g pixelHeight`);
    `img_AR = img_w / img_h`.
-2. Compare shapes against the label-reserved box:
+2. Compare shapes:
    - `img_AR > page_AR` (wider) → **set width = avail_width (= page_width)** (height scales, fits).
-   - `img_AR < page_AR` (taller) → **set height = avail_height (= page_height − 0.5in, NOT full page)**
-     (width scales) — this leaves room for the label above.
+   - `img_AR < page_AR` (taller) → **set height = avail_height (= page_height)** (width scales, fits).
    - equal → set width = avail_width.
-3. Embed with ONLY the clamped side set (`<img … width>` OR `height`, never both). Label + image fit
-   on one page.
+3. Embed with ONLY the clamped side set (`<img … width>` OR `height`, never both).
 
 Direction (`LR` for long flows, `TD` for short) is chosen to bring `img_AR` closer to `page_AR`
 BEFORE clamping (maximizes final on-page size) — but the ratio clamp is what guarantees the fit.
@@ -167,7 +185,8 @@ Never ship a diagram larger than the page.
    --scale 2 --padding 20` (`@mermaid-js/mermaid-cli`; fall back to `npx @mermaid-js/mermaid-cli`).
    If `mmdc` is unavailable, HALT and tell the user to install it — do NOT silently ship raw
    Mermaid where an embedded image is expected (no-silent-degradation).
-3. Embed the PNG in the markdown: `![Flow Diagram](media/<name>.png)`.
+3. Embed the PNG with an `<img>` at the clamped dimension, NO external label (title is in-image):
+   `<img src="media/<name>.png" width="…" />` or `height="…"`.
 4. On `.docx` conversion, pandoc embeds these PNGs as real Word images — matching the sample.
 
 Keep the `.mmd` source (version-controllable, editable) alongside the rendered PNG.

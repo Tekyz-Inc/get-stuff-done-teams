@@ -2,6 +2,15 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [4.19.14] - 2026-07-07
+
+### Changed — `/gsd-t-stories`: pagination, test-case coloring, in-image diagram titles
+
+Four handoff-doc polish items from user feedback. **(1) One-story-per-page pagination:** each Epic starts a new page, its first story flows on that page, every subsequent story in the epic starts a new page (each story ends with its Mapped Test Cases table). **(2) Test-case grid coloring:** purple header row + `Type`-cell tint (Positive=green, Negative=peach, Edge=blue). **(3) In-image diagram title:** each diagram carries its own title banner (story id + title, dark-purple on light-purple) inside the rendered image, so the external `Flow Diagram:` label and footer are dropped. **(4)** Because the diagram is self-titled, it reclaims the FULL page height (the v4.19.13 label-reserve no longer applies to diagrams).
+
+- `commands/gsd-t-stories.md`: pagination rule, Step 4b full-page fit, 4d in-image title, 4e table coloring.
+- `templates/playbooks/tekyz-user-stories-format.md`: same.
+
 ## [4.19.13] - 2026-07-07
 
 ### Fixed — `/gsd-t-stories`: reserve label space when a diagram is height-constrained
