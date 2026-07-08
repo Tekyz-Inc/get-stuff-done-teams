@@ -76,6 +76,7 @@ HEADLESS (CI/CD)                                                       CLI
   research-gate       Classify a guessed claim: internal (grep) / external (web) / ambiguous (LLM judge) [M89]
   architectural-trigger  Fire the architectural-assumption trigger (divergence-sampling or extend-existing-code) [M90]
   loop-ledger         Record a debug cycle, read exit state, detect non-convergence (premise-re-examination) [M90]
+  migrate-logging     Brownfield: scaffold trace + audit logging into an existing project, additively [M100]
 
 BACKLOG                                                                Manual
 ───────────────────────────────────────────────────────────────────────────────
@@ -552,6 +553,13 @@ Use these when user asks for help on a specific command:
 - **Use when**: Debug workflow calls `append-cycle` after each iteration and `read-exit-state` after the loop. NOT called manually — the debug workflow wires it via inline runCli helper.
 - **CLI**: `gsd-t loop-ledger append-cycle --assertion "<symptom>" --surface "<file>" --fileClass unit --projectDir <dir>`. `gsd-t loop-ledger read-exit-state --projectDir <dir>`. Exit 0 on success.
 - **Contract**: `.gsd-t/contracts/unproven-assumption-doctrine-contract.md` §3 v1.0.0 STABLE.
+
+### migrate-logging (M100)
+- **Summary**: Brownfield migration — scaffolds the two framework-default logging streams (trace + audit) into an EXISTING project, ADDITIVELY. Trace is a default for every project (no opt-out); audit is a default except an explicit opt-out recorded at `.gsd-t/audit-optout.json` (see `audit-logging-contract.md` §opt-out-record) — the migration honors an existing opt-out rather than forcing an audit store. Every pre-existing project file is left byte-for-byte unchanged; only new logging files are added. Dispatch is wired into `bin/gsd-t.js` `case "migrate-logging"` by d1 (the sole editor of that file) on d5's behalf — the module (`bin/gsd-t-migrate-logging.cjs`) and this command are owned by d5 via the scaffold-seam contract.
+- **Files**: `bin/gsd-t-migrate-logging.cjs`. Contracts: `.gsd-t/contracts/logging-scaffold-seam-contract.md`, `.gsd-t/contracts/logging-schema-distillation-contract.md`, `trace-logging-contract.md`, `audit-logging-contract.md`.
+- **Use when**: An existing (brownfield) project needs the trace/audit defaults retrofitted without touching its current code or tests.
+- **CLI**: `gsd-t migrate-logging <projectDir> [--plan <path-to-plan.md>]`. Exit 0 on success · 1 on migration error.
+- **Proven**: `test/m100-d5-migration-fixture.test.js` — runs the migration against a throwaway fixture repo and asserts additive/non-destructive behavior (pre-existing files unchanged) before/after snapshot comparison.
 
 ## Unknown Command
 
