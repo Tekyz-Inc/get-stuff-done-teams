@@ -1,178 +1,112 @@
 # Backlog
 
-## M62 (post-M61): Cross-Project Propagation of v4.0.10
+## 1. M62 (post-M61): Cross-Project Propagation of v4.0.10
 - **Type:** ripple | **App:** gsd-t | **Category:** propagation
 - **Added:** 2026-05-29 | **Origin:** m61-deferred
 - Run `gsd-t version-update-all` to propagate v4.0.10 to all 23 registered projects: rewrite their CLAUDE.md to drop retired-infra rules, update package.json, archive their token-log.md, and clean up `~/.claude/settings.json` hooks for retired infrastructure (conversation-capture, context-meter, in-session-usage).
 
-## M63 (post-M61): SC7 Cockpit Walkthrough on UI-Heavy Milestone
+
+## 2. M63 (post-M61): SC7 Cockpit Walkthrough on UI-Heavy Milestone
 - **Type:** validation | **App:** gsd-t | **Category:** verification
 - **Added:** 2026-05-29 | **Origin:** m61-deferred
 - Deeper SC7 test of desktop-as-cockpit: drive a UI-heavy milestone (browser tooling exercised) entirely from the desktop app with zero terminal keystrokes. Validates the browser/Playwright leg of the cockpit promise that the small-backlog SC7 doesn't exercise.
 
-## M64 (post-M61): M52 Bake-Off
+
+## 3. M64 (post-M61): M52 Bake-Off
 - **Type:** validation | **App:** gsd-t | **Category:** verification
 - **Added:** 2026-05-29 | **Origin:** m61-deferred
 - Run M52 (journey coverage) as a native Workflow to widen safety evidence beyond M58. Belt-and-suspenders; the build-hold + v3.x-legacy snapshot are the actual safety nets.
 
-## M65 (post-M61): D6 Port-Then-Delete Completion — **PROMOTED → DEFINED as M65 (2026-05-29)**
-- **Type:** retire | **App:** gsd-t | **Category:** cleanup
-- **Added:** 2026-05-29 | **Origin:** m61-deferred | **Status:** DEFINED — see `.gsd-t/progress.md` § Current Milestone M65
-- **Scope CORRECTED at define-time** (live ref-scan + user decision 2026-05-29): `parallel-cli.cjs`, `parallel-cli-tee.cjs`, `gsd-t-parallel.cjs` are NOT deletable — they are M61 KEEP-list substrate (verify-gate Track-2 requires `parallel-cli.cjs::runParallel`; `_lib.js` shells to `gsd-t-parallel.cjs` for file-disjointness proving). M65 deletes only the true shell: `gsd-t-orchestrator.js` + `-worker/-queue/-config.cjs` + `spawn-plan-{writer,status-updater,derive}.cjs` + `headless-exit-codes.cjs` (inline-then-delete) = 8 files / 1,838 bin/ LOC. Plus `orchestrate` dispatch removal, dependent-test deletion, post-commit-spawn-plan hook removal, and the dangling `gsd-t-resume.md` ref cleanup.
-- **Deferred to separate backlog (not M65)**: `bin/orchestrator.js` + `bin/design-orchestrator.js` retirement-or-rewire — the design-build pipeline is currently unwired (`gsd-t design-build` documented but no dispatch case in gsd-t.js); decide wire-back vs. retire independently of the orchestration-shell cleanup. (~1,387 LOC + design-orchestrator.)
 
-## 1. Agentic Workflow Architecture
+## 4. Agentic Workflow Architecture
 - **Type:** feature | **App:** gsd-t | **Category:** architecture
 - **Added:** 2026-02-13
 - Evolve GSD-T commands from markdown instruction files into independent, spawnable agents. Each command becomes an agent that can: receive work requests and bid on them, work in parallel with other agents, communicate through contracts as shared interfaces, and self-organize into teams. Blocked by: Claude Code agent teams graduating from experimental status, agent spawn cost/latency improvements. See brainstorm session 2026-02-13 for full pros/cons analysis.
 
-## 2. Living docs staleness detection
+
+## 5. Living docs staleness detection
 - **Type:** improvement | **App:** gsd-t | **Category:** commands
 - **Added:** 2026-02-19
 - gsd-t-health should flag docs with only placeholder content as STALE, not OK — existence check is insufficient if the file is full of `{description}` tokens. gsd-t-scan Step 5 should self-check after writing living docs and warn if infrastructure.md still contains only placeholder text (no commands, URLs, or real content found in codebase). Commands that depend on infrastructure knowledge should verify the doc has real content before proceeding, not silently consume placeholder text and fall back to guessing.
 
-## 3. Auto-cleanup test data after test runs
+
+## 6. Auto-cleanup test data after test runs
 - **Type:** improvement | **App:** gsd-t | **Category:** cli
 - **Added:** 2026-02-19
 - All temporary files, directories, or state created during the test suite must be automatically removed when the test run completes (pass or fail). Tests that currently leave artifacts behind can cause false positives/negatives in subsequent runs and pollute the working directory.
 
-## 4. DB integration testing capability in QA agent
+
+## 7. DB integration testing capability in QA agent
 - **Type:** feature | **App:** gsd-t | **Category:** commands
 - **Added:** 2026-02-19
 - GSD-T currently has no built-in DB testing — it only runs whatever test suite already exists in the project. Add a DB testing step to the QA agent (or a new gsd-t-db-test command) that reads docs/infrastructure.md for the test DB connection, runs migrations against it, seeds test data, executes the project's DB test suite, and tears down the test DB on completion. Should be DB-agnostic (Postgres, SQLite, Supabase, etc.) and driven by commands documented in infrastructure.md.
 
-## 5. GSD-T Workflow Visualizer
+
+## 8. GSD-T Workflow Visualizer
 - **Type:** feature | **App:** gsd-t | **Category:** ux
 - **Added:** 2026-02-25
 - Add a `gsd-t-visualize` command (or `gsd-t-status --visual` flag) that renders the current project's workflow state as a visual diagram. Should show: milestone → domain → phase progression with status indicators (✅ complete, 🔄 in-progress, ⏳ pending, 🔴 blocked); contract connections between domains; task-level detail on demand; and the full GSD-T phase pipeline (partition → discuss → plan → impact → execute → test-sync → integrate → verify → complete) with the current position highlighted. Output options: ASCII/Unicode tree for terminal display, an HTML report for sharing, or a Mermaid diagram that renders in GitHub/VS Code. Reads from `.gsd-t/progress.md`, `.gsd-t/domains/*/tasks.md`, and `.gsd-t/contracts/` — no extra state needed. Goal: give the user an at-a-glance picture of where a milestone stands without having to parse markdown files manually.
 
-## 6. Observability: Measurement, Logging, and Telemetry (SigNoz)
+
+## 9. Observability: Measurement, Logging, and Telemetry (SigNoz)
 - **Type:** feature | **App:** gsd-t | **Category:** commands
 - **Added:** 2026-02-25
 - Integrate SigNoz (https://github.com/SigNoz/signoz) as the recommended observability stack for GSD-T-managed projects. SigNoz is an open-source, self-hosted alternative to Datadog/New Relic that provides distributed tracing, metrics, and logs in a single pane. GSD-T should support: gsd-t-setup detecting or prompting for observability choice, infrastructure.md documenting the SigNoz connection and dashboard URL, gsd-t-execute optionally wiring OpenTelemetry SDK into new services, and a health check for whether the project has observability configured. Enables teams to measure performance, debug production issues, and track error rates without vendor lock-in.
 
-## 7. AI Evals Framework Integration
+
+## 10. AI Evals Framework Integration
 - **Type:** feature | **App:** gsd-t | **Category:** commands
 - **Added:** 2026-02-25
 - Add AI evaluation capabilities to GSD-T for projects that use LLMs. Reference: https://github.com/aishwaryanr/awesome-generative-ai-guide/blob/main/free_courses/ai_evals_for_everyone/README.md. GSD-T should support: a `gsd-t-evals` command (or integration into gsd-t-qa) that runs LLM output evaluation suites, defines eval criteria in contracts (expected output shape, quality thresholds, hallucination checks), integrates with eval frameworks (RAGAS, LangSmith, PromptFoo, or custom), and reports pass/fail against defined quality gates. The QA agent should be aware of eval steps when the project contains AI components. Living docs (requirements.md, architecture.md) should document eval criteria alongside functional requirements.
 
-## 8. Auto-Setup Graph Dependencies
-- **Type:** feature | **App:** gsd-t | **Category:** cli
-- **Added:** 2026-03-19
-- Graph Readiness Check that runs during `gsd-t-version-update` and `gsd-t-version-update-all`. Hybrid approach: auto-fix what's safe, report and prompt for heavyweight installs. Checks: (1) Docker installed — if missing, show install instructions with copy-paste commands; (2) Neo4j container running — if missing, offer to pull and start `docker run -d --name gsd-t-neo4j ...`; (3) CGC (CodeGraphContext) installed — if missing, offer `pip install codegraphcontext`; (4) Project graph indexed — if missing, run `indexProject()` automatically. Diagnostic mode outputs a checklist with status indicators (pass/fail) and exact commands needed. Should not silently install heavyweight dependencies (Docker) without user confirmation — report what's needed and let the user decide.
 
-## 9. Provider Failure Warnings + Auto-Recovery
-- **Type:** feature | **App:** gsd-t | **Category:** commands
-- **Added:** 2026-03-19
-- When the graph provider chain falls back (CGC → native → grep), warn the user clearly instead of silently degrading. Each fallback should display: what failed, why it failed, what the user loses, and how to fix it. Examples: "⚠ CGC unavailable (Neo4j container stopped) — falling back to native. Deep call chain analysis disabled. Fix: `docker start gsd-t-neo4j`" or "⚠ Native index missing — falling back to grep. Entity lookup, dead code detection, and contract mapping unavailable. Fix: run `gsd-t graph index`". Auto-recovery should attempt corrective actions before falling back: check if Docker container exists but is stopped (start it), check if index files exist but are corrupt (rebuild). Only fall back after recovery attempts fail. Priority: high — silent fallback means silent quality degradation.
-
-## 10. Cross-Project Shared Learning via Git
+## 11. Cross-Project Shared Learning via Git
 - **Type:** feature | **App:** gsd-t | **Category:** commands
 - **Added:** 2026-03-31
 - Enable GSD-T learning (ELO scores, metrics, QA patterns, event history) to be shared across users and machines via a centralized git repository. Currently, `.gsd-t/metrics/`, `.gsd-t/events/`, and `.gsd-t/qa-issues.md` are per-project and travel with each project's git repo — but cross-project ELO comparisons and aggregated pattern learning are local-only. Proposed approach: a `gsd-t-learning` command that syncs anonymized metrics to a shared "learning hub" repo (e.g., `gsd-t-learning-hub` on GitHub). Hub stores: aggregated ELO benchmarks by stack/project-type, common QA failure patterns and fixes, task duration baselines by complexity, stack rule effectiveness scores. Privacy: only aggregate metrics are shared — no source code, file paths, or proprietary content. Users opt-in per project. Benefits: new GSD-T users start with community-learned baselines instead of cold-start, teams share institutional knowledge across projects, stack rules evolve based on real-world effectiveness data.
 
-## 11. Docker Support (Enterprise)
+
+## 12. Docker Support (Enterprise)
 - **Type:** feature | **App:** gsd-t | **Category:** infrastructure
 - **Added:** 2026-03-22
 - Containerized GSD-T execution for enterprise security compliance. Dockerfile + docker-compose with Node.js + Claude Code + GSD-T pre-installed. Vault-injected secrets (no API keys on developer machines). Ephemeral containers — no credential persistence after run. Volume-mounted project directory. Egress-only network config. Primary interface is `gsd-t headless` (M23). PRD: docs/prd-gsd2-hybrid.md section 4.8, milestone M24. Exit criteria: `docker-compose up` runs a headless milestone, secrets via env vars (Vault-compatible), container is ephemeral, documentation complete. Depends on M23 (Headless Mode) being complete.
 
-## 12. Integration smoke test for infrastructure config changes
+
+## 13. Integration smoke test for infrastructure config changes
 - **Type:** improvement | **App:** gsd-t | **Category:** cli
 - **Added:** 2026-04-04
 - After writing infrastructure config, verify it took effect by running the corresponding check command. Currently the Red Team can't catch "wrote to the wrong file" bugs because tests validate code correctness, not environment integration. Add a post-config verification step to the install/update flow that confirms each config is discoverable by the target system. Origin: Figma MCP was written to settings.json but Claude Code reads MCP servers from ~/.claude.json — only caught by manual testing in a live session. Verification matrix: MCP servers → `claude mcp list` (confirm server appears); Heartbeat hooks → read settings.json hooks array (confirm entry exists); Update check hook → read settings.json SessionStart hook (confirm entry exists); Auto-route hook → read settings.json UserPromptSubmit hook (confirm entry exists); Global CLAUDE.md → read `~/.claude/CLAUDE.md` (confirm GSD-T section present); Slash commands → `ls ~/.claude/commands/` (confirm expected files exist); CGC/graph engine → `cgc --version` or equivalent health check; Utility scripts → `ls ~/.claude/scripts/` (confirm expected files exist).
 
-## 13. Agent Topology Dashboard Redesign
+
+## 14. Agent Topology Dashboard Redesign
 - **Type:** ux | **App:** gsd-t | **Category:** commands
 - **Added:** 2026-04-15
 - Redesign `scripts/gsd-t-agent-dashboard.html` to match the reference design (dark card-based layout with colored borders, icons, status indicators). Key changes: (1) Agent names should reflect GSD-T roles (Research, Audit, Impact, Coding, Doc Update, QA, Red Team) — map from events data instead of showing generic types (General, Explore). (2) Each node card shows: agent role name, status indicator (Active/Thinking/Idle/Tool Call), current activity description, model name, elapsed time, tool call count, iteration count, token count. (3) Layout should be a proper directed graph with parent-child edges and clear connection lines — not the current flat row of tiny crammed nodes. (4) Clicking a node opens a right-side detail panel showing: full list of tool calls made by that agent, tokens consumed per tool call, timeline of actions, total duration and token summary. (5) Server (`scripts/gsd-t-agent-dashboard-server.js`) may need enriched SSE events to supply tool-call-level detail per agent. Reference image provided by user 2026-04-15.
 
-## 14. M44 — Cross-Domain & Cross-Task Parallelism (in-session AND unattended)
-- **Type:** milestone | **App:** gsd-t | **Category:** orchestration
-- **Added:** 2026-04-22
-- **Pre-req status:** Q1 (token-log regen `7eefd2c`), Q2a (compaction detector + scanner `940e5a8`/`f7de324`), Q3 (turn→tool join `8f4588b`), optimization report (`b5edff2`), adaptive maxParallel (`969462a`) — all landed. Measurement infrastructure complete; 525 turn rows + 72 compaction events + per-CW report available as calibration corpus.
-
-### Goal
-Deliver task-level parallelism to **both** execution modes on equal footing, with mode-aware gating math. Unattended mode adds the harder contract: **zero compaction across an autonomous M1 → M10 run**.
-
-### Mode contracts (NON-NEGOTIABLE)
-
-**[in-session]** Two objectives:
-1. Speed (wall-clock reduction)
-2. Reduce compaction as much as possible (minimize, can't eliminate)
-
-Hard rule: NEVER throw an interactive pause/resume prompt. Silent compaction is acceptable; demanding user attention is not. The user runs in-session because they want to interrupt or because requirements are partial — the framework must never demand attention back.
-
-**[unattended]** One objective:
-1. Run M1 → M10 (or any multi-milestone chain) end-to-end with zero human involvement and **zero compaction**.
-
-The supervisor process (Node, no CW) orchestrates `claude -p` workers, each with its own clean CW. Per-worker CW headroom is the binding gate. Speed is a side-benefit, not the primary objective.
-
-### Three pre-existing invariants (apply to BOTH modes identically)
-1. **File-disjointness proof BEFORE spawn** — orchestrator proves no shared files between parallel tasks. If unprovable, falls back to sequential.
-2. **100% automatic merges** — zero human intervention. If a parallel run ever requires merge resolution, that's a framework bug.
-3. **Pre-spawn economics check** — orchestrator auto-decides parallel-vs-sequential based on shared-context cost and inter-task dependency needs. Logged to events.jsonl, never prompted.
-
-### Mode-specific gating math
-- **[in-session]** Orchestrator-CW headroom check before fan-out. Worker summaries land in the orchestrator's (= user-facing) CW. Bound BOTH worker count AND result-envelope size by `getSessionStatus().pct + (N × expected_summary_size) ≤ threshold`. If math fails, pump fewer-at-a-time instead of refusing.
-- **[unattended]** Per-worker-CW headroom check. Pre-spawn cost estimator consumes `.gsd-t/metrics/token-usage.jsonl` (525-row calibration corpus, growing) to predict each task's CW footprint. If a single task slice would exceed ~60% of one CW, split into multiple iters (= multiple `claude -p` spawns) instead of one fat iter. Compaction events from `.gsd-t/metrics/compactions.jsonl` are the empirical "we failed" signal that drives estimator calibration.
-
-### Two delivery layers (independent of mode)
-- **Layer 1 — Parallel `claude -p` worker spawns**: K workers in flight, each with its own clean CW. Primary lever for both modes. For [unattended], this is *the* mechanism for compaction-elimination — slicing work into smaller per-worker pieces that never approach the ceiling.
-- **Layer 2 — Parallel tasks within one worker**: M tasks interleaved in one CW. Weaker lever (still bounded by one CW), only used when L1 isn't economic (small tasks, shared context). Same disjointness/economics gates apply at sub-iter granularity.
-
-### Token-cost honesty (so this isn't sold on a false premise)
-Parallel is approximately **token-neutral in steady state** for both modes:
-- Total input/output: same (same work, same answers)
-- Cache-read: same or slightly higher (K caches vs N, same count)
-- Cache-creation: same (one prefix per spawn either way)
-- **Compaction-induced re-input drops to zero** when slicing stays under ceiling — this is where parallel actually saves tokens
-- Wall-clock: `max(worker_durations)` instead of `sum(worker_durations)` — primary win
-
-Rate-limit pressure from running parallel is NOT a con. Hitting the 5-hour ceiling because you got 20× more done is the goal.
-
-### Proposed domains (7)
-- **D1 — Generic task-graph reader**: parses `.gsd-t/domains/*/tasks.md` + cross-domain dependency graph from contracts; emits a DAG of independently-executable task slices. Mode-agnostic.
-- **D2 — `gsd-t parallel` CLI**: new subcommand wrapping the M40 orchestrator with task-level (not just domain-level) parallelism. Honors `--mode in-session|unattended` flag (or auto-detects from caller). Both modes.
-- **D3 — Command-file integration**: `gsd-t-execute`, `gsd-t-wave`, `gsd-t-quick`, `gsd-t-debug`, `gsd-t-integrate` learn to consume the task-graph and dispatch via D2. Both modes.
-- **D4 — Dep-graph validation**: pre-spawn validator that confirms task dependencies are honored; refuses to fan out tasks whose dependencies haven't completed. Both modes.
-- **D5 — File-disjointness prover**: walks each task's expected-touch list against every other concurrent task's list. Sources: domain `scope.md`, prior commit history for similar tasks, optional explicit `touches:` field on tasks. Falls back to sequential when unprovable. Both modes.
-- **D6 — Pre-spawn economics + cost estimator**: queries `.gsd-t/metrics/token-usage.jsonl` for prior-similar-task token cost (matches by command + step + domain), estimates worker CW footprint, decides parallel-vs-sequential. Mode-aware: feeds [in-session] orchestrator-CW gate vs [unattended] per-worker-CW gate.
-- **D7 — Per-CW token attribution + compaction-event integration**: ensures every spawn (parallel or sequential) tags its rows with `cw_id` so the optimization report's per-CW rollup keeps working post-M44. Wires the live compaction detector hook into the supervisor's "we failed to prevent compaction" signal for [unattended] estimator calibration.
-
-### Success criteria
-- **[in-session]** A `gsd-t-execute` run that previously took T minutes serially completes in ≤ T/2 minutes with N workers, with no pause/resume prompts at any point.
-- **[unattended]** A multi-milestone chain (M1 → M5 minimum, ideally M1 → M10) runs end-to-end with **zero compaction events** logged to `.gsd-t/metrics/compactions.jsonl` during the autonomous run. Empirical baseline: 72 compactions over 18 days of mixed-mode work; success = 0 during a measured autonomous chain.
-
-### Explicit non-goals
-- In-session pause/resume prompts under any condition (those are the failure mode, not a feature)
-- Cross-worker context-sharing (each worker stays clean — that's the whole point)
-- Replacing M40 orchestrator (M44 builds on M40, doesn't replace it)
-- Visualizer/dashboard work (separate backlog #13)
-
-### Standing memory references
-- `feedback_parallelism_two_modes.md` — full mode-aware design framing
-- `feedback_unattended_overnight_only.md` (superseded 2026-04-22) — mode-selection criteria
-- `feedback_token_measurement_hierarchy.md` — Run → Iter → CW → Turn → Tool, CW as primary unit
 
 ## 15. m44-wave3-smoke-tests
 - **Type:** improvement | **App:** gsd-t | **Category:** tests
 - **Added:** 2026-04-23
 - Build the in-session + unattended smoke-test fixtures deferred from M44-D3-T5: a small multi-domain fixture proving `gsd-t parallel` completes in ≤ T/2 of the sequential baseline with zero pause/resume prompts, plus an unattended `gsd-t unattended --max-iterations 5` fixture producing zero new entries in `.gsd-t/metrics/compactions.jsonl` during the run. Blocked on: actual fixtures not yet authored in the repo. Follow-up quick task.
 
+
 ## 16. Main + worker chat display — wire conversation-capture hook
 - **Type:** improvement | **App:** gsd-t | **Category:** observability
 - **Added:** 2026-04-23
 - Five-surface parallelism audit gap #3. `scripts/hooks/gsd-t-conversation-capture.js` writes `in-session-{sessionId}.ndjson` for the main chat and the viewer discriminates with the 💬 badge at `scripts/gsd-t-transcript.html:531`, but `~/.claude/settings.json` today only registers the token-probe hook, so the conversation-capture hook never fires and `.gsd-t/transcripts/` contains only `s-*.ndjson` (spawn-tee). Net: main-chat dialog is not visible in the viewer until the hook block from `CLAUDE.md § In-Session Conversation Capture (M45 D2)` is appended to `~/.claude/settings.json`. Fix is configuration-only (a small `update-config` skill invocation); no framework code changes. Out of scope: capturing worker-child dialog — workers emit `s-*.ndjson` via spawn-tee, which is correct and already visible.
+
 
 ## 17. Visualizer counts by kind — expose spawn-kind breakdown
 - **Type:** improvement | **App:** gsd-t | **Category:** ux
 - **Added:** 2026-04-23
 - Five-surface parallelism audit gap #4. Spawn plans already tag a `kind` field with three values (`unattended-worker` | `headless-detached` | `in-session-subagent`) at `bin/spawn-plan-writer.cjs:44`, but `computeParallelismMetrics` in `bin/parallelism-report.cjs` returns a flat shape that the D9 panel renders as a single `activeWorkers` count. Add per-kind counters (`activeWorkers.byKind = {unattendedWorker: N, headlessDetached: M, inSessionSubagent: K}`) to the report, surface them in the D9 panel header, and update contract `parallelism-report-contract.md` (currently v1.0.0) to v1.1.0 additive. Non-breaking: existing `activeWorkers` number stays; new field is additive.
 
+
 ## 18. Multi-parent segmentation — group parallelism-report by parent/session
 - **Type:** feature | **App:** gsd-t | **Category:** ux
 - **Added:** 2026-04-23
 - Five-surface parallelism audit gap #5. `bin/parallelism-report.cjs:43` unions all active spawn plans (filtered only by `endedAt === null`) with zero references to `parent_id`, `session_id`, or `sessionId`. If an in-session chat dispatches N workers and an unattended supervisor runs M workers concurrently, the D9 panel displays a single N+M aggregate with no grouping. Introduce grouping by `session_id` (or `parent_id` when present in the spawn-plan record) so the viewer's right panel can render one row per concurrently-running orchestrator. Requires: (a) spawn-plan-writer emits `parent_id` + `session_id` on every plan, (b) parallelism-report returns `groups: [{id, kind, workers, ...}]`, (c) viewer right panel renders groups. Precursor for item #17 (per-kind counts become per-group-per-kind).
+
 
 ## 19. Auto-prevent context-heavy file growth (progress.md + siblings)
 - **Type:** feature | **App:** gsd-t | **Category:** context-hygiene
@@ -203,6 +137,7 @@ Rate-limit pressure from running parallel is NOT a con. Hitting the 5-hour ceili
 - **Why this matters**: context cost on large files is O(tokens_read × turns_where_read_happens). Progress.md is read in 7+ commands per milestone; a 60k-token read × 7 commands = 420k tokens per milestone just from staleness. The archiver already exists — this is pure wiring + thresholds.
 - **Related**: `docs/context-budget-recovery-plan.md` CUT #1 (where the 40k-token figure was measured); `bin/archive-progress.cjs` (existing tool); `gsd-t-complete-milestone.md` Step 7 (existing but insufficient trim); M43 D5 `estimateDialogGrowth` (warning-channel precedent).
 
+
 ## 20. Slim the `/gsd` router skill body (14 KB → ~5 KB)
 - **Type:** improvement | **App:** gsd-t | **Category:** context-hygiene
 - **Added:** 2026-04-23
@@ -216,6 +151,7 @@ Rate-limit pressure from running parallel is NOT a con. Hitting the 5-hour ceili
 - **Success criteria**: `wc -c commands/gsd.md` ≤ 6000 bytes after refactor (down from 13934). Router-body re-injection cost per turn ≤ 1500 tokens. All existing `/gsd` routing paths still route to the same command slugs. New `test/router-routing.test.js` replaces the inline WRONG/RIGHT examples with 8+ assertions covering the same cases.
 - **Why this matters**: the router is the hottest skill in the framework — it runs on every plain-text message in a GSD-T project. A 64% size reduction compounds across every conversational turn. Pairs with item #19: #19 trims state files, #20 trims the runtime-injected skill prose.
 - **Related**: `commands/gsd.md` (current 263-line router), `commands/gsd-t-help.md` (29 KB — also a re-injection candidate if users invoke `/gsd-t-help` repeatedly), `bin/runway-estimator.cjs::estimateDialogGrowth` (already exists; `runway-warn.cjs` is a 20-line CLI over it), M43 D5 (where the growth-meter footer was added).
+
 
 ## 21. Spawn-by-default enforcement (mechanical hooks, not prose directives)
 - **Type:** feature | **App:** gsd-t | **Category:** context-hygiene · enforcement
@@ -254,6 +190,7 @@ Rate-limit pressure from running parallel is NOT a con. Hitting the 5-hour ceili
 - **Non-goals**: changing `bin/gsd-t-parallel.cjs::runDispatch` itself (that's the production-verified in-session dispatcher); changing the transcript viewer UI shape; retrofitting old command files (the hooks govern at the tool-call layer, so command files don't need per-command changes).
 - **Related memory**: `feedback_parallel_headless_by_default.md` (the directive this item mechanizes), `feedback_unattended_overnight_only.md` (superseded — both modes first-class), `feedback_no_silent_degradation.md` (same enforcement philosophy applied to model-selection), `project_compaction_regression.md` (the failure mode this prevents).
 
+
 ## 22. Coord-Gate — cooperative rate-limit shaping across concurrent sessions
 
 - **Problem**: Even with model-mixing (v3.18.18) + 3s stagger, N concurrent workers all firing heavy tool calls in the same 5-second window trip the Max subscription concurrent-session throttle. Current mitigations are statistical (stagger, model split); they don't coordinate when workers actually compete. A deterministic hold on the worker side would let 10–15 sessions coexist where today 5–6 is the ceiling.
@@ -276,6 +213,7 @@ Rate-limit pressure from running parallel is NOT a con. Hitting the 5-hour ceili
 - **Open question**: whether to classify purely by tool name or also peek at tool args (Bash command inspection). Arg inspection is more accurate but couples the hook to tool-arg shape changes. Start name-only; revisit after #23 data is in.
 - **Related memory**: `feedback_parallelism_two_modes.md` (both modes need this), `feedback_token_measurement_hierarchy.md` (CW is the binding constraint — the gate enforces CW-aware pacing at the tool-call layer).
 
+
 ## 23. Rate-limit header instrumentation via mitmproxy (one afternoon)
 
 - **Problem**: Every concurrency decision we make today — stagger ms, `MAX_CONCURRENT_HEAVY`, model-split ratio, backoff on 429 — is calibrated against *estimated* Max subscription rate-limit numbers (synthesized from public blog posts, Reddit, Anthropic docs). We do not measure the actual `anthropic-ratelimit-requests-remaining`, `anthropic-ratelimit-tokens-remaining`, or retry-after headers that the subscription returns in real time. The 2026-04-23 rate-limit incident showed we don't know our real ceiling — we only know when we cross it.
@@ -297,6 +235,7 @@ Rate-limit pressure from running parallel is NOT a con. Hitting the 5-hour ceili
   1. Does the Max subscription expose the same `anthropic-ratelimit-*` headers as API-key access? If not, we need a different signal (e.g., observe 429 timing patterns vs header values).
   2. Is the concurrent-session throttle visible in a header, or only inferable from response timing? (If only timing, we measure inter-response gaps under load.)
 - **Related memory**: `feedback_measure_dont_claim.md` (the philosophy this item operationalizes), `feedback_anthropic_key_measurement_only.md` (measurement infra is separate from inference infra).
+
 
 ## 24. Dynamic work-stealing in `runDispatch` (2-concurrent + min-interval sliding window)
 
@@ -327,6 +266,7 @@ Rate-limit pressure from running parallel is NOT a con. Hitting the 5-hour ceili
 - **Pairs with**: #22 (coord-gate is the account-wide rate limiter; this is the per-dispatch scheduler), #23 (measured rate-limit data will tell us whether 10s is the right interval or should be adaptive).
 - **Related memory**: `feedback_measure_dont_claim.md` (the landed shortcut was measured; the full rewrite needs its own measurement before we claim 5× saturation).
 
+
 ## 25. gsd-t-bench — A/B eval harness for methodology changes
 
 - **Type:** feature | **App:** gsd-t | **Category:** commands
@@ -352,97 +292,8 @@ Rate-limit pressure from running parallel is NOT a con. Hitting the 5-hour ceili
 - **Pairs with**: `feedback_measure_dont_claim` (the philosophy this operationalizes for methodology changes); existing `qa-issues.md` (bench measures *intended* outcomes; qa catches *unintended* defects — complementary).
 - **Defer until**: M44 cross-domain parallelism is integrated. Bench wants the parallel substrate to spawn paired runs concurrently; doing this before M44 lands means rebuilding the spawn layer.
 
-## 26. Competition Mode — generate-and-judge for upstream wide-solution-space phases
-- **Type:** feature | **App:** gsd-t | **Category:** orchestration · quality
-- **Added:** 2026-06-05 | **Origin:** brainstorm 2026-06-05 (2× deep-research grounded)
-- **Status:** ✅ COMPLETED as M82 at v4.1.10 (2026-06-05) — see `.gsd-t/progress.md`. v1 shipped: objective partition judge + workflow competition arm + contract + `--competition N` flags. SC#1 measured (3× parallelism on M82's own partition). Below is the original spec, retained for history.
 
-### One-line
-An opt-in `competition: N` capability that fans out N parallel candidate-producers on **upstream, wide-solution-space, pre-contract phases** (milestone decomposition, partition, discuss, design-build), then a **judge stage** selects-or-synthesizes a winner. This is the *generative* dual of the existing orthogonal validation triad (which is *adversarial* competition). The contract is the watershed: **generate-and-judge above the contract; attack-and-filter below it.**
-
-### Why (the core insight)
-GSD-T today filters hard (Red Team / QA / code-review attack one artifact) but **generates singly** — every upstream artifact is a single draft that then gets filtered. There is no "vs.", only "pass/fail". Competition mode adds the missing generator: many candidates → one judge. Leverage of a decision = (width of solution space) × (downstream blast radius); competition should be spent only where that product is high — which is precisely the pre-contract phases.
-
-### Evidence base (2× deep-research, 2026-06-05 — citable findings)
-- **Generation scales, selection is the bottleneck.** Best-of-N *coverage* (fraction solved by ≥1 of N samples) scales log-linearly with N across 4 orders of magnitude — SWE-bench Lite 15.9%@N=1 → 56%@N=250 (Brown et al., "Large Language Monkeys," arXiv 2407.21787, 2024; **3-vote verified**). BUT coverage is an *oracle-selection upper bound* — the realized benefit is **bounded by judge quality, not N**. ⇒ **The judge IS the feature.** A weak judge tripling spend to pick among 3 = waste.
-- **Synthesis beats pick-one on loosely-coupled free-form tasks.** MoA generative aggregator 61.3% vs LLM-ranker-picks-one 47.8% LC win on AlpacaEval 2.0 (arXiv 2406.04692; **3-0 verified**). "Collaborativeness": a model improves when shown others' outputs even when they're lower quality (**2-0**). Caveat: this is GPT-4-judged *preference*, strongest for list-like/free-form artifacts, NOT coupled correctness-critical ones.
-- **Synthesis-beats-best is NOT unconditional** — the "no regressions" claim was **3-0 REFUTED**. Frankenstein is real.
-- **The Frankenstein mechanism is quality variance, not (only) coupling.** Aggregation quality is **far more sensitive to candidate quality than to diversity** (regression coeffs: MATH 4.72 quality vs 2.84 diversity; CRUX ~3.2×; **3-0 verified**). "Pursuing cross-model diversity may inadvertently include low-quality models → quality-diversity trade-off" that degrades the merge (arXiv 2502.00674, Self-MoA, ICLR 2025; **3-0 verified**).
-- **Self-MoA > Mixed-MoA.** Synthesizing N samples from *one strong model* beats mixing diverse models by **6.6% AlpacaEval, 3.8% avg** (**3-0 verified**). ⇒ **Default generators = N samples of one strong model, NOT a zoo of models.** Cheaper AND better. (Aggregating samples of one model is still synthesis — "synthesis beats pick-one" survives this.)
-- **Don't build debate.** Three independent sources leaned *against* multi-agent debate beating independent-sampling + judge at lower cost (unconfirmed but directionally consistent). Keep fan-out **independent**; skip debate.
-- **N small.** Evidence leaned toward optimal N < 10; SWE-bench's elbow is early (≈N=5). ⇒ **Default N=3, cap N=5.**
-
-### Selection policy — the two-gate rule (this is the spec)
-Per-phase, the judge decides pick-one vs synthesize via **two independent gates; synthesize only when BOTH pass**:
-
-| Gate | Synthesize | Pick-one |
-|------|-----------|----------|
-| **Candidate quality uniform?** | Yes → safe to merge | No → pick-one (or quality-gate the pool first) |
-| **Artifact shape** | List / loosely-coupled (requirements, risks, tests) | Coupled thesis (milestone strategy, architecture) |
-
-Three artifact classes follow from this:
-1. **Coupled thesis** (milestone strategy, architecture decision) → **pick-one** (graft = Frankenstein; parts mutually justify each other).
-2. **Independent line-items** (risk registers, requirements, acceptance criteria, test cases) → **union/dedup**, not holistic regraft — strictly safe, strictly additive.
-3. **Structurally-validated** (partition) → **synthesize + re-validate** — the oracle re-checks coherence, so even coupled output can be grafted safely.
-
-**Operational refinement:** for milestone/discuss, do **pick-one at the thesis level, union at the embedded-list level** (take the winning strategy whole, then enrich it with non-overlapping good line-items the losing candidates surfaced). That's "winner + salvage the orphaned good ideas" — the graft-the-best instinct made safe by applying it only to the separable layer.
-
-### Phase applicability (where it gets a `competition:` flag — and where it must NOT)
-| Phase | Solution space | Blast radius | Verdict |
-|-------|---------------|--------------|---------|
-| Milestone decomposition | very wide | whole project | **eligible** — highest altitude; pick-one (coupled thesis) + list-union |
-| Discuss (architecture) | wide | whole milestone | **eligible** — its literal purpose; pick-one + list-union |
-| **Partition** | wide + **objective oracle** | plan→execute→integrate | **v1 BEACHHEAD** — synthesize+re-validate |
-| Design-build | medium (ambiguous designs) | the screen | eligible (conditional); visual-judge pick-one |
-| Plan / execute / verify / integrate / test-sync | narrow / one right answer | local | **INELIGIBLE** — execute already has the adversarial triad; competition here = pure waste |
-
-### v1 beachhead: PARTITION (ship here first)
-Partition is the **only** competing phase with a built-in *objective* fitness function — `gsd-t parallel --dry-run` / `bin/gsd-t-file-disjointness.cjs`. Its judge is a **calculator, not a critic** — it sidesteps the entire LLM-judge-bias problem. Candidate partitions score on measurable axes: max parallelism (disjoint domain count), wave depth (fewer serial gates = better), file-boundary cleanliness (zero overlap = valid). This is the one phase where the research's caveat ("competition only pays if you can select") is *provably* satisfied. Lowest risk, measurable payoff, proves the machinery. Synthesis here is safe because the oracle re-validates any graft; on failure, fall back to best valid pick-one.
-
-### Judge rigor (mandatory for subjective phases — milestone/discuss/design)
-Because "the judge IS the feature," subjective-phase judges MUST ship with bias mitigations from v1:
-- **Blind + shuffled** — strip author identity (candidates labeled A/B/C), randomize order per judge call → kills position bias. (cheap, mandatory)
-- **Different-model judge** — judge runs on a different model than the generators (cross-family) → attacks self-preference bias. (cheap, mandatory)
-- **Rubric-scored** — score each candidate on explicit weighted axes (coherence, completeness, risk-coverage, parallelism, simplicity), not holistic "which is better" → reduces verbosity/halo bias. (mandatory)
-- **Panel + majority** (optional, costs 3× judge calls) — 3 independent judges vote, ties → highest rubric score. Reserve for the highest-altitude calls (milestone decomposition).
-
-### Composition with the orthogonal validation triad
-Orthogonal triad = **adversarial competition** (one candidate, many critics → catches what's *wrong*). Competition mode = **generative competition** (many candidates, one judge → finds what's *best*). They are duals and **stack**: competition produces the best upstream artifact; the triad still validates the downstream code. Competition mode does NOT touch verify — verify is already covered by the adversarial dual.
-
-### Cost posture
-- **Default OFF** (opt-in per phase: `/gsd-t-partition --competition 3`). Conservative is now *evidence-backed* (synthesis-beats-best not unconditional; subjective-phase judge unproven). N=3 captures the curve's elbow.
-- Consider **budget-scaled N** later: `N = budget.total ? clamp(floor(total/150k), 2, 5) : 0` — matches the existing Workflow `budget` global. Defer until v1 (partition) proves value.
-- Token-honesty: competition ~N× the spend of the wrapped phase. Justified ONLY pre-contract where blast radius is large. Max-funded build work has zero marginal $ cost, but context-window + wall-clock are real — hence N small, opt-in, upstream-only.
-
-### Proposed shape (finalize at partition)
-- Extend `templates/workflows/gsd-t-phase.workflow.js` (the generic upper-stage runner already covers partition/discuss/milestone/design-decompose) with a `competition` arg: when `args.competition > 1`, replace the single producer `agent()` with a `parallel()` of N producers (Self-MoA: same strong model, varied by index/seed in the prompt) → a **judge stage** implementing the two-gate policy → emit the winner/synthesis as the phase artifact.
-- Partition's judge calls the **existing oracle** (`gsd-t parallel --dry-run` via the inline runCli helper) to score + re-validate — no new judge model needed for v1.
-- New contract `.gsd-t/contracts/competition-mode-contract.md` v1.0.0: the two-gate selection policy, the three artifact classes, the Self-MoA generator default, the judge-rigor mandatories, and the phase-eligibility table. (Sibling to `orthogonal-validation-contract.md` — generative dual of the adversarial one.)
-- Thin invoker flags on eligible command files (`gsd-t-partition.md`, `gsd-t-milestone.md`, `gsd-t-discuss.md`, `gsd-t-design-build.md`): `--competition N`.
-
-### Success criteria (measured, per `feedback_measure_dont_claim`)
-1. **Partition (oracle-judged):** on a multi-domain milestone, `--competition 3` produces a partition with **strictly higher measured parallelism (disjoint-domain count) or shallower wave depth** than the N=1 baseline, on ≥2 of 3 test milestones — with zero file-boundary overlaps (oracle-validated). If competition never beats baseline, the feature is rejected for partition.
-2. **No Frankenstein:** every synthesized artifact passes its phase's coherence check — partition re-validates via the oracle (0 invalid grafts shipped); list-union artifacts contain zero contradictory items.
-3. **Judge bias controls demonstrated:** a position-bias probe (same candidates, reversed order) yields the same winner ≥90% of the time on the subjective-phase judge.
-4. **Cost bounded:** competition-on phases cost ≤ N× the N=1 baseline tokens (no runaway judge loops).
-
-### Non-goals
-- Multi-agent **debate** (evidence leans against it; keep fan-out independent).
-- Competition on **execute/plan/verify/integrate** (post-contract, narrow space — the adversarial triad already owns the downstream).
-- A **model zoo** of diverse generators (Self-MoA beats Mixed-MoA — same strong model, N samples).
-- Replacing the orthogonal validation triad (this is its generative *complement*, not a substitute).
-
-### Defer until
-M44 cross-domain parallelism is integrated (competition leans on the `parallel()` substrate + `budget` global). The native Workflow runtime (M81, v4.0.29) provides the `parallel/agent/budget` primitives this needs — so it's buildable on the current runtime once a partition-suitable milestone is available to test against.
-
-### Related
-- `.gsd-t/contracts/orthogonal-validation-contract.md` (the adversarial dual)
-- `bin/gsd-t-file-disjointness.cjs` + `gsd-t parallel --dry-run` (the partition oracle = v1 judge)
-- `templates/workflows/gsd-t-phase.workflow.js` (the generic upper-stage runner to extend)
-- memory: `feedback_native_workflow_redteam_catches_more.md` (perspective-diverse Workflow stages catch more), `feedback_measure_dont_claim.md` (success = measured), `feedback_deterministic_orchestration.md` (gates in JS, not prose — the oracle judge embodies this)
-- Deep-research transcripts (2026-06-05): tasks `wkcnmqw8u` (best-of-N / judge / debate) + `wt4z2eqcp` (synthesis vs pick-one / MoA / Frankenstein)
-
-## 27. Session Retrospective Agent (self-improving loop)
+## 26. Session Retrospective Agent (self-improving loop)
 - **Type:** feature | **App:** gsd-t | **Category:** templates
 - **Added:** 2026-06-09
 - Scheduled + event-triggered review of session transcripts across projects (`~/.claude/projects/*`), detecting recurring problems and architectural thrash, proposing methodology improvements through a governed pipeline. The third loop in GSD-T's dual structure: within-run (validation triad + competition), **across-run (this)**, across-model (manual reassessment). **DESIGN SETTLED 2026-06-09**: see `.gsd-t/CONTEXT.md` (m85(discuss) commit 271e5a9) for the locked L1–L5 architecture — 4 LLM agents + 3 deterministic CLI gates; append-only `.gsd-t/retro/ledger.jsonl` with closed 4-verb edge set (OBSERVES/PROPOSES/REJECTS/ADOPTS), supersede/prediction as fields; two-layer silence bar (deterministic recurrence gate R=3 era-fenced + Fable coherence judge biased SILENT, CRITICAL escape R=1); 3 lens-paired red-team adversaries (Regression/Goodhart/Evidence); weekly cron + sentinel event triggers (debug needs-human ×2, VERIFY-FAILED ×2, red-team non-convergence ×1), out-of-band ONLY.
@@ -459,31 +310,14 @@ Run against binvoice session `692fe9fc-2e09-490c-bb1d-3ae54f865c41`: must cluste
 ### Scope / dependencies
 3–4 domains. M85 (tier policy + Fable) SHIPPED — `model_era` stamps from `bin/gsd-t-model-tier-policy.cjs`.
 
-## 28. Vestigial component elimination + headless reconciliation
+
+## 27. Vestigial component elimination + headless reconciliation
 - **Type:** improvement | **App:** gsd-t | **Category:** cli
 - **Added:** 2026-06-09
 - Remove confirmed-dead components and fix-or-remove the broken headless arm (deep-dive audit 2026-06-09). Targets: `bin/orchestrator.js` + `bin/design-orchestrator.js` (zero callers since M61/M65), `bin/gsd-t-task-brief*.{js,cjs}` (abandoned M40 infra, test-only refs), `bin/gsd-t-context-brief-kinds/` (M56, never wired), compaction-pressure machinery (compactions.jsonl stale) + context-meter remnants (config loader at gsd-t.js:3023 loads for nothing). Headless arm: TD-114 (gsd-t-parallel.cjs runDispatch requires deleted headless-auto-spawn.cjs → SILENT fan-out demotion to sequential — violates no-silent-degradation) and TD-116 (gsd-t-unattended* commands MODULE_NOT_FOUND) — rewrite on native Workflows + /loop, or delete and de-register. RULE: every deletion target gets a requirer-grep before removal (M65 KEEP-list rule — deletion lists are hypotheses). Doc ripple: README headless section, command tables, CHANGELOG. Largely promotable from techdebt (TD-114, TD-116, TD-123 overlap). Scope: 1–2 domains, 1 wave.
 
-## 29. June 22 decision point: Fable 5 promo ends — re-decide tier policy + session default
-- **Type:** improvement | **App:** gsd-t | **Category:** cli
-- **Added:** 2026-06-09
-- Fable 5 promotional access ends **2026-06-22 23:59 PT** (support article 15424964). After that, Fable is NOT in plan limits — every Fable token bills usage credits (~API rates $10/$50 per MTok). Decisions due by then: (1) flip the SESSION default back to opus (`/model`) — the dominant cost (~$20-60/heavy day if left on fable); (2) re-decide the 5 GSD-T Fable stages — measured estimate ~$15-25/typical milestone at credit rates; suggested posture: keep Red Team + pre-mortem on fable (~$8-10/milestone), revert probes + judge to opus unless M86-era measurements show a quality delta. Thanks to M85 this is a ONE-FILE edit (`bin/gsd-t-model-tier-policy.cjs` + lint ripple). Counter-consideration: the measured A/B showed a fable single-draft TIED 3-opus competition at 42% cost — on some phases fable may REDUCE cost; re-measure with real billing. (3) M86 retro-agent silence-judge tier — same decision, same file.
 
-## 30. Model profiles — standard/pro/premium tier-spend switch with per-stage overrides — **PROMOTED → DEFINED as M86 (2026-06-10)**
-- **Type:** feature | **App:** gsd-t | **Category:** cli
-- **Added:** 2026-06-10 | **Status:** DEFINED — see `.gsd-t/progress.md` § Current Milestone M86 (branch `m86-model-profiles`)
-- **HARD DEADLINE: must ship before 2026-06-22** (Fable promo end, backlog #29) — it converts the June-22 checklist into one command per project. Origin: user cadence is 10–20+ milestones/week; even the pro posture ($8–10/milestone in usage credits post-promo) is $300–800+/month, so Fable spend needs a selectable control surface, not a code edit.
-
-### Design (settled in discussion 2026-06-10)
-- **Three profiles** as a second dimension on the M85 policy module's `STAGE_TIERS`: `standard` (zero fable — pre-M85 tiers: probes opus, judge sonnet, pre-mortem/red-team opus, debug both-cycles opus), `pro` (red-team + pre-mortem + debug-cycle-2 on fable ≈ $8–10/milestone), `premium` (all 6 fable stages ≈ $15–25/milestone).
-- **Per-project config** (`.gsd-t/model-profile.json` or field in existing config) with global default; per-stage overrides: `{ "profile": "pro", "stageOverrides": { "competition-judge": "fable" } }`. Projects diverge: a consumer project can run `standard` while the GSD-T repo runs `pro`; a single important milestone can be bumped per-run.
-- **Mechanism = invoke-time injection (M69 path, NOT file rewriting):** command invokers call the existing resolver (`gsd-t model-tier-policy resolve --profile ...`), get per-stage concrete models, inject via workflow `args`; designated workflow stages become `model: overrides["<stage>"] ?? "<premium-literal>"` — literals stay the premium fallback, the M85 lint keeps guarding them (update lint to unwrap the `??` form), no tracked files mutate on switch. This finally makes the resolver envelope LIVE (closes the M85 pre-mortem dead-export concern for real) — including `requiresThinkingOmitted` consumption at invoke time.
-- **CLI:** `gsd-t model-profile [standard|pro|premium]`, `gsd-t model-profile set-stage <stage> <tier>`, `gsd-t model-profile --json` (status); active profile surfaced in `gsd-t status` + the session banner.
-- **Scope guard:** profiles govern GSD-T workflow stages ONLY — the session default model (`/model`) is explicitly out of scope (documented).
-- **Bonus capture:** the first partition run of this milestone banks the outstanding M85 AC(c) partition-probe live `⚙ [fable]` line (documented evidence gap).
-- Scope: ~2 domains (policy-module profiles + config/CLI; invoker wiring + workflow `??` forms + lint update + docs), 1 wave. Contract: model-tier-policy-contract.md → v1.1.0.
-
-## 31. Platform-invariants injection + micro-pre-mortem for debug fixes (left-shift the platform knowledge)
+## 28. Platform-invariants injection + micro-pre-mortem for debug fixes (left-shift the platform knowledge)
 - **Type:** improvement | **App:** gsd-t | **Category:** templates
 - **Added:** 2026-06-10
 - Upstream the binvoice S2-M2 retrospective fixes into GSD-T proper. **Two-project evidence base, same week (clears the retro-agent silence bar: same root cause ≥2 sessions):** binvoice S2-M2 — 13 verify findings over 4 debug cycles, ~half plan-knowable platform facts, cycle-3 fix created cycle-4's cross-realm bug (session `2ecf0179`, retro 2026-06-10 13:55, artifact `binvoice/.gsd-t/contracts/platform-invariants.md` v1.0.0 STANDING); GSD-T M85 — 4 pre-mortem cycles 6→3→1→3 non-quiescing (TD-294) with two cycles spent attacking mechanism-pinned bindings.
@@ -499,7 +333,8 @@ Run against binvoice session `692fe9fc-2e09-490c-bb1d-3ae54f865c41`: must cluste
 - Origin artifacts: binvoice commit of platform-invariants.md (2026-06-10), GSD-T Decision Log M85 plan-hardening entries (archived in m85 milestone snapshot).
 - Scope: ~2 domains (template + pre-mortem/plan wiring; debug workflow micro-stage + contract + lint), 1 wave.
 
-## 32. Proportional gating — deterministic diff-scoped verification lanes (trivial changes stop paying the full toll)
+
+## 29. Proportional gating — deterministic diff-scoped verification lanes (trivial changes stop paying the full toll)
 
 **Added**: 2026-06-12
 **Type**: framework feature
@@ -527,7 +362,8 @@ The full battery is only ~half the 15–20 min cost of a trivial change; the oth
 - Tension acknowledged: Lane 1/2 deliberately relax the E2E-always enforcement rule (born from real burns) — the deferral ledger + sweep is what makes that relaxation safe and repayable, not silent.
 - Scope: ~2-3 domains (diff classifier cjs + ledger; quick/execute workflow lane wiring + surfacing; contract + lint + docs), 1-2 waves.
 
-## 33. Firing debug-cycle circuit-breaker + repro-fixture-on-regression (stop the whack-a-mole)
+
+## 30. Firing debug-cycle circuit-breaker + repro-fixture-on-regression (stop the whack-a-mole)
 
 **Added**: 2026-06-15
 **Type**: framework feature
@@ -547,81 +383,8 @@ The full battery is only ~half the 15–20 min cost of a trivial change; the oth
 - **Same root evidence base as #31** (binvoice, "cycle-N fix creates cycle-N+1 finding") — now reproduced a second time in the same week on the FB-modal saga, which is exactly the ≥2-session same-root-cause bar the retro agent (#27) is supposed to clear. This item is another manual prototype of that pipeline.
 - Tension: piece 2 (repro-first) overlaps #32's proportional gating — a Lane-≤2 hands-on fix should NOT pay full milestone repro ceremony. Resolution: the regression-fixture is cheap (one RED test + the captured input), is itself the Lane gate for the fix, and only escalates to full battery if the cycle counter fires.
 
-## 34. Intention-first pseudocode as the milestone source-of-truth (two-altitude behavior map BEFORE the build)
 
-**Added**: 2026-06-17
-**Status**: PROMOTED → M87 (risk-first framing, DEFINED 2026-06-17; partition/plan deferred)
-**Type**: framework feature (HIGH leverage — changes the front of every milestone)
-**Origin**: user, from the binvoice `PseudoCode-PayPal.md` + `PseudoCode-Extension.md` exchange (session `35b4cbd7`, 2026-06-17). Reframed by the user: this is NOT a corrective tool (catching what the agent got wrong) — it is a GENERATIVE one. "It allowed me to work out all of the details in an expressive way that made it clear what's going to happen and why and when." The PayPal exchange did expose one unintended web-app assumption (agent over-trusted the shipped S2-M4 stored-draft model; user killed it: "We shouldn't be saving any draft of anything"), but that was a side effect. **The thesis: do the pseudocode FIRST so you never get it wrong** — and it applies MOST to greenfield, where there is no shipped code to ground in, so the pseudocode IS the spec. The user wrote the original Extension doc by hand precisely because GSD-T "wasn't understanding me"; this bakes that hand-rolled rescue into the methodology so it's never needed as a rescue again.
-
-### The format that works (observed, from the two binvoice docs)
-Each section pairs an `> **Intention ({Author}, {date}).**` prose block (the WHY / the directive — dated + attributed for durable provenance) ABOVE a `text` pseudocode block (the verified HOW), plus: a "one call in one breath" summary table, a guard-enumeration map rendering every invariant as a one-line `[RULE]`, explicit `⚠ Divergence` flags wherever a new intention supersedes shipped code, and a raw-pseudocode appendix with the intention prose stripped (the build's quick-reference). Grounds in EXISTING contracts/schema rather than inventing field names; defers concrete identifiers to plan-time-against-real-schema ("the concept is what matters here").
-
-### Design (settled with user 2026-06-17)
-- **Lives INSIDE milestone definition** (`/gsd-t-milestone` + its workflow), at TWO ALTITUDES:
-  1. **High-level pseudocode first** — the general approach: what happens, why, when, the actors and the one-breath summary. User signs off that the APPROACH is right before any detail.
-  2. **Detailed pseudocode** — decomposed to `PseudoCode-[Title].md` at the granularity of the binvoice PayPal doc (per-step intention+mechanism, guard map, divergence flags, appendix). **The milestone is not "DEFINED" until the detailed doc is signed off.** Naming: `[Title]` = the doc's SUBJECT (e.g. `PseudoCode-PayPal.md`), not a milestone id — many per project, possibly several per milestone (one per subsystem). `templates/PseudoCode-spec.md` is the shipped mold, not an instance.
-- **Source of truth, mechanically downstream (the load-bearing decision):** partition/plan TRACE tasks to pseudocode sections (each task cites the section it implements; a section with no task = coverage gap, like journey-coverage); verify CHECKS the build against the doc's intentions + guard map — **the `[RULE]` map becomes test assertions**, and a divergence is a FAILURE, same severity as a contract breach. This is what makes the user's payoff real: "if the pseudocode is done well before the milestone starts, partition→plan→execute→verify runs autonomously and delivers exactly what's expected" — no 50-turn course-corrections, because the course was set in confirmed language.
-- **Default ON for ALL milestones** (greenfield included — it benefits most), explicitly skippable per-milestone for trivial work (skip is a logged decision, not silent — per [[feedback_no_silent_degradation]]).
-- **The one guardrail from the observed failure:** before encoding ANY model inherited from shipped code, the agent MUST ask **"keep this or supersede it?"** per inherited model (the stored-draft over-trust is the exact failure this prevents) — and every supersede gets a `⚠ Divergence` flag. Combines keep-or-supersede (prevents the wrong draft) + divergence-flag (documents it durably).
-- **Document ripple (user-required):** `PseudoCode-[Title].md` joins the living-documents ripple set — when code/contract/schema changes during the milestone, the pseudocode doc updates in the same pass (Pre-Commit Gate + `commands/gsd-t-doc-ripple.md` + the Living Documents table in `templates/CLAUDE-global.md`). The doc stays the truth, not a stale start-of-milestone snapshot.
-- **Template:** ship `templates/PseudoCode-spec.md` (the intention/mechanism/guard-map/divergence/appendix skeleton + the two-altitude structure), anchored to the binvoice exemplars rather than a blank page.
-- **Conciseness:** the observed exchange had wordy explanation detours (the rejected "snapshot" tangent). The doc's prose is INTENTION (yours), not the agent's reasoning — agent reasoning stays out of the doc; the Output Style rules apply to the chat around it.
-
-### Relation to existing items
-- **Reframes #33 from the front.** #33 (debug circuit-breaker) and #31 (micro-pre-mortem) reduce/stop damage DURING the build; #34 prevents the wrong build from starting — "do it right first" vs "stop doing it wrong." The strongest pairing in the backlog: #34 sets the contract, #31 hardens the plan against it, #33 halts if execution drifts.
-- **Supersedes part of the partition/plan competition framing for spec'd milestones** — when the behavior map is signed off, there is less solution-space to compete over; competition (M82) shifts UP to the high-level-approach altitude (which general approach), not down at mechanism.
-- **Feeds verify's orthogonal triad** — the guard `[RULE]` map gives QA concrete contract-compliance assertions and the Red Team a pre-enumerated attack surface (every guard is a thing to try to break).
-- Scope: ~2–3 domains (milestone command + workflow two-altitude flow + sign-off gate; pseudocode template + traceability wiring into plan/verify [extend the #83 traceability-gate to cite pseudocode sections]; doc-ripple integration + Living Documents table + contract). 1–2 waves. Candidate for early promotion — it's the highest-leverage process change in the queue and directly attacks the "50–100 turns to get it right" pain measured twice this month.
-- Scope: ~2–3 domains (debug-cycle ledger cjs + workflow block + contract; repro-fixture preflight + workflow wiring; scraping stack rule + docs), 1–2 waves. The cycle-ledger + the firing block are the load-bearing half.
-
-## 35. M88 — Deterministic gates for PseudoCode soft-ACs (sign-off state, map-generation path, triad-consumption seam, divergence grammar)
-
-**Added**: 2026-06-17
-**Type**: framework feature
-**Origin**: M87 plan-phase pre-mortem cycle-4 split (2026-06-17). M87 ("Intention-First PseudoCode as Milestone Source-of-Truth") was split after 4 pre-mortem cycles (8→5→2→6 findings): the deterministic core (the `[RULE]` guard-bridge gate A1, section-coverage A2, ripple drift lint A4, regression bar A6) stays in M87 and ships now; FOUR acceptance criteria that set the same deterministic-gate bar but cannot meet it as-scoped without their own design move here. **Depends on M87** — the guard-bridge gate (`bin/gsd-t-guard-map.cjs`) and the two-altitude milestone FLOW must exist before these gates can attach to them.
-
-### The four moved pieces (each: WHAT moved + WHY it needs its own design)
-
-1. **A3 — machine-checkable sign-off STATE + `isDefined(milestone)` predicate.**
-   - **WHY**: there is NO milestone-state artifact in the codebase today — "DEFINED" is prose an LLM writes into `.gsd-t/progress.md`, not a code-readable marker. A deterministic gate ("milestone is not DEFINED until the detailed `PseudoCode-[Title].md` is signed off; signing flips the state; skip is a logged decision, never silent default-off") requires first DESIGNING a concrete sign-off marker (a structured field / sidecar / front-matter stamp the gate can read) and a `isDefined(milestone)` predicate over it. M87 ships only the two-altitude FLOW + keep-or-supersede PROMPT as prose/protocol; M88 designs the STATE the gate reads and the gate itself.
-   - Killing test (M88): unsigned detailed doc → predicate returns NOT-DEFINED; signing flips it; skip emits an assertable logged decision.
-
-2. **A1 map-GENERATION path + its end-to-end test.**
-   - **WHY**: M87's A1 proves the gate DISCRIMINATES a build→rule map (faithful map → exit 0, doctored map → exit non-zero, RULE-ID named). But the A1 doctored fixture differs only in the LLM-PRODUCED `--map` JSON (the doc stays byte-identical) — so the path that DERIVES the map from the build (which test assertions back which `[RULE]`) is untested. M88 designs the mechanical map-generation seam (build evidence → `{rules:{<id>:{backedBy:[...],contradicted:bool}}}`) and an end-to-end test that runs derivation → gate on a real build, closing the gap M87's map-only doctoring leaves open.
-   - Killing test (M88): a real build's derived map, fed to M87's gate, exits 0 on a faithful build and non-zero when a backing assertion is removed — derivation included, not hand-authored.
-
-3. **A5 — verify-triad consumption as a DETERMINISTIC seam-check.**
-   - **WHY**: A5 ("the `[RULE]` set is consumed by verify's QA + Red Team frames") was framed as observable on a live triad run, which is non-deterministic (an LLM frame's contents). Reframe it as a deterministic SEAM-CHECK: assert the `qa-subagent.md` / `red-team-subagent.md` prompts contain the structured directive to ingest the rule set, plus a unit test that feeds guard-map JSON through the consuming code path and asserts the rule IDs surface — NOT a live triad run. M88 gives it that deterministic design (M87 leaves A5 out of the gated core entirely — the integrate-time seam M87-INT-T1 is descoped).
-   - Killing test (M88): prompt-presence assertion (structured directive present) + a unit test feeding guard-map JSON to the consumer, asserting each derived RULE-ID surfaces in both the QA contract-compliance frame and the Red Team attack-surface frame; a missing directive or dropped rule FAILS.
-
-4. **SC4 — divergence-grammar `parseDivergence()`/`formatDivergence()` round-trip.**
-   - **WHY**: SC4 has two halves. The "agent ASKS keep-or-supersede per inherited model" half is an inherent prose PROTOCOL (its reliability is bounded by how forcing the prompt is — not a deterministic gate) and ships in M87's D3 keep-or-supersede prompt. The OTHER half — a deterministic `parseDivergence()`/`formatDivergence()` grammar round-trip over the `⚠ Divergence: …` flag (per contract §4) so the divergence count is a checkable artifact that can feed the rule map — IS deterministically gateable but needs its own grammar-implementation design. M88 builds the parse/format round-trip; the §4 grammar definition already exists in `pseudocode-source-of-truth-contract.md` (annotated "M88", not deleted).
-   - Killing test (M88): a `⚠ Divergence` line round-trips format→parse→format byte-stable; a malformed flag FAILS; the divergence count is emitted as a checkable artifact.
-
-### The deterministic-gate bar (set by M87, the entry criterion for M88)
-M87 establishes the bar these four must meet: a gate's pass/fail is DETERMINISTIC CODE with ZERO LLM judgment, structural/path-as-path never substring (`feedback_coverage_check_structural_not_substring`), proven by a killing test against byte-verbatim fixtures, with no silent degradation (`feedback_no_silent_degradation`). Each moved piece fails this bar AS-SCOPED in M87 (no state artifact / untested derivation path / non-deterministic live-run framing / unimplemented grammar) — M88 designs each up to the bar.
-
-### Relation to existing items
-- **Strictly downstream of M87** — cannot start until M87 ships the guard-bridge gate + the two-altitude flow these gates attach to.
-- Pairs with #31 (micro-pre-mortem) + #33 (debug circuit-breaker): #34/M87 sets the contract front-of-milestone, M88 closes the deterministic gates around it, #31 hardens the plan, #33 halts on drift.
-- Scope: ~3–4 domains (sign-off state + `isDefined` predicate; map-generation seam + e2e test; triad seam-check; divergence grammar round-trip), 1–2 waves. Each piece is independently gateable once its design lands.
-
-## 36. M89 — Auto-Research: deterministic external-info-gap resolution at every workflow phase — **PROMOTED → M89 (2026-06-18), IN PROGRESS**
-
-**Added**: 2026-06-18
-**Type**: framework capability (HIGH leverage — affects every phase)
-**Origin**: user, 2026-06-18, watching binvoice S2-M5 (PayPal Invoicing v2) plan block on a pre-mortem where 2–3 of 6 findings were EXTERNAL-API facts not in the repo (PayPal OAuth `/v1/oauth2/token` mint/seed contract; PayPal v2 invoice TOTAL amount limit; browser popup-blocker behavior). These recur every PayPal cycle because the agent GUESSES the third-party contract instead of looking it up. Contrast M87 (0 of 7 findings web-resolvable — pure introspection): the discriminator is **internal vs external fact**. User directive: "implement this now, pause M87; include it at any phase where web research can resolve issues or improve the result."
-
-### Design (full definition in progress.md § Current Milestone M89)
-Deterministic trigger (not advisory prose — the existing CLAUDE-global Research Policy is LLM-discretion that doesn't fire, per `feedback_deterministic_orchestration`): DETECT gap → CLASSIFY internal/external (`bin/gsd-t-research-gate.cjs`) → external runs a web-research `agent()` stage that returns facts WITH SOURCE URLs → CITE into the phase artifact as a Verified-Facts block before proceeding. Internal gaps route to grep/Read, never the web (no latency/noise tax — the M87 lesson). Hooks into plan/pre-mortem/partition/discuss/milestone/execute/debug/impact/quick/wave — every phase where external info pays. Labeled-corpus A1 test = the 13 real findings (7 M87 → 0 external, 6 S2-M5 → 2–3 external). Risk-first: W1 proves the classifier on the corpus before wiring. Immediate dogfood: S2-M5's blocked plan re-runs with auto-research → #1/#3 resolved by cited PayPal facts.
-
-### Relation
-- **Why first, ahead of M87:** its evidence came partly FROM M87's plan loop (external-fact findings recurring) + binvoice S2-M5 live; M87 is paused at plan-cleared/pre-execute and resumes after M89.
-- Complements #33 (debug circuit-breaker): a debug cycle whose root is an external unknown should RESEARCH, not patch-guess — M89's debug hook + #33's halt are the two halves.
-- Supersedes the advisory "Research Policy" prose in CLAUDE-global.md with a deterministic trigger (doc-ripple).
-
-## 37. Flaky CLI-subprocess test: `gsd-t status` hangs ~123s under cold parallel load → false CI-parity FAIL
+## 31. Flaky CLI-subprocess test: `gsd-t status` hangs ~123s under cold parallel load → false CI-parity FAIL
 
 **Added**: 2026-06-18
 **Type**: tech debt (test-infra) | **App**: gsd-t | **Category**: test
@@ -631,26 +394,8 @@ Deterministic trigger (not advisory prose — the existing CLAUDE-global Researc
 - **Decision (user, 2026-06-18):** backlog it, do NOT fix inline; re-verify M89 as-is and accept it may re-flake. If it re-blocks M89 repeatedly, escalate to fix-now.
 - Scope: ~1 domain (diagnose status-under-load, then either harden the test [child-tree kill + timeout] or fix the command's slow path), <1 wave.
 
-## 38. Unproven-assumption guard: stop → research-how-others-solved-it → re-examine premise → then proceed (supersedes M89's narrow scope) — **PROMOTED → M90 (2026-06-21, DEFINED — RESEARCH-GATED; partition/plan deferred; full definition in progress.md § Current Milestone M90)**
 
-**Added**: 2026-06-21
-**Type**: framework capability (HIGHEST leverage — addresses the root pattern behind a week of thrash) | **App**: gsd-t
-**Origin**: user, 2026-06-21, correcting M89's scope mid-flight. M89 framed "guessing" as only "do I know what the code/API currently SAYS?" (factual). The user named the dangerous omission: the system also assumes **an APPROACH/architecture is correct without proof** — "I'll fix it this way", "the existing code was written the right way so I'll build on it" — and **plows forward on the unproven approach**, repeatedly. Evidence (user: "review the last week across several projects"): binvoice FB-modal whack-a-mole + PayPal premise; GSD-T M87 7-cycle plan loop; GSD-T M89 8-cycle verify loop — same pattern every time: guess an approach → plow forward → fail → guess another → repeat, instead of ONE step-back + research + re-architect. M89 PAUSED to redesign around this.
-
-### The doctrine (the real feature)
-Any time the system relies on an UNPROVEN ASSUMPTION — factual (internal/external) OR judgmental (is this approach/architecture correct?) — it must **STOP, research how the problem has been solved successfully by others, RE-EXAMINE the premise, then proceed.** Plowing forward on an unverified approach is the deadly recurring pattern. "Don't act on belief; if not grounded in definitive knowledge or research, research first" — applied to APPROACH, not just facts. See memory `feedback_unproven_assumption_stop_and_research`.
-
-### Design directions (to settle at milestone definition)
-- **Two assumption classes, each with a trigger:** (a) FACTUAL → grep (internal) / web-research (external) — M89's mechanism, kept; (b) ARCHITECTURAL/APPROACH → research how others solved this class of problem + re-examine the premise BEFORE building. The second is new and load-bearing.
-- **Non-convergence = an unproven premise, not a tuning gap.** Hook into the debug-cycle circuit-breaker (#33) and the plan/verify loops: when a loop produces variant-after-variant (binvoice/M87/M89 signature), the system must HALT and re-examine the PREMISE/approach — research-then-rearchitect — not patch the next variant. This is what should have fired ~5 cycles earlier in all three sagas.
-- **No hardcoded finite list for an open category (the M89 vendor-list lesson):** the mechanical/regex layer can only recognize CLOSED knowable sets (this repo's own files); it must NOT enumerate open-ended real-world sets (vendors, API terms, library names). Anything not confidently-internal → LLM judges → uncertain → research. M89's redesign folds into this.
-- **M89's external-fact auto-research becomes the FACTUAL slice of this larger capability** — finish it under this umbrella (delete the vendor list, regex-knows-only-own-paths, LLM-judges-rest), and add the architectural-assumption slice.
-
-### Relation
-- Supersedes/absorbs M89 (#36) — M89's "auto-research external facts" is one slice. Complements #33 (debug circuit-breaker — the loop-halt mechanism this needs) and #31 (micro-pre-mortem). The strongest single GSD-T improvement in the queue: it attacks the root cause of every multi-cycle thrash measured this month.
-- Scope: re-scope at milestone definition; likely ~3–4 domains (factual auto-research [M89 redesigned] + architectural-assumption detection/research + non-convergence→re-examine-premise loop-hook + contract/docs). Multiple waves.
-
-## 39. Red Team Realism gate — separate adversarial-collaboration agent bounds edge-case scope
+## 32. Red Team Realism gate — separate adversarial-collaboration agent bounds edge-case scope
 
 **Added**: 2026-06-21
 **Type**: framework improvement (verify quality) | **App**: gsd-t | **Category**: prompts/verify
@@ -668,19 +413,8 @@ A SEPARATE **Realism agent** the Red Team argues scope with (adversarial-collabo
 - Lives in `templates/prompts/red-team-subagent.md` + a NEW realism-subagent protocol + the verify workflow triad-synthesis stage. The verify-time dual of the pre-mortem/debug-cycle caps. See memory `feedback_red_team_realism_gate`.
 - Scope: ~1–2 domains (realism-subagent protocol + red-team protocol update + verify-workflow wiring + deferred-ledger + contract/docs), 1 wave.
 
-## 40. complete-milestone must DETERMINISTICALLY archive+sweep the completed milestone's domain dirs (stale-domain accumulation) — **DONE 2026-06-22 (v4.7.11, bin/gsd-t-archive-domains.cjs)**
 
-**Added**: 2026-06-22
-**Type**: tech debt (workflow-enforcement) | **App**: gsd-t | **Category**: cli/command
-**Scheduled**: implement AFTER M90 is complete AND shipped (CPUA) — user directive 2026-06-22.
-**Origin**: 2026-06-22, M90 plan-phase `gsd-t parallel --dry-run` surfaced 77 stale domain dirs in `.gsd-t/domains/` from ~30 already-completed/archived milestones (m43–m67 prefixed + unprefixed legacy), polluting the file-disjointness oracle. Manually pruned them (commit `5b48384`, kept the 12 in-flight: m90-*/M87/m89-*). That manual sweep is a SYMPTOM — the root cause is permanent.
-- **Root cause (verified on disk):** `commands/gsd-t-complete-milestone.md` Step 7 (lines 404-405) is **prose-only** — "1. Archive current domains → `.gsd-t/milestones/{name}/domains/`  2. Clear `.gsd-t/domains/` (empty, ready for next partition)" — with NO deterministic enforcement. A Level-3 autonomous agent skipped/partially-did the clear every milestone for ~30 milestones. Classic prompt-based-blocking-doesn't-work ([[feedback_deterministic_orchestration]]).
-- **Fix:** a deterministic helper (`bin/gsd-t-archive-domains.cjs` or fold into an existing complete-milestone gate) that, at complete-milestone time, (a) copies the just-completed milestone's domain dirs → `.gsd-t/milestones/{name}-{date}/domains/`, then (b) `git rm`s them from `.gsd-t/domains/`, leaving ONLY domains belonging to still-active (defined-but-incomplete) milestones. Must be IDEMPOTENT and identify "this milestone's domains" precisely (the partition's domain set for the completing milestone — NOT a blanket wipe, since a later milestone may legitimately have live domains, e.g. M90 completing while M87/M88 are still queued). Verify with a test: seed N stale + M live domains, run the sweep, assert exactly the completed set is archived+removed and the live set untouched.
-- **Containment guard:** apply the destructive-path rule ([[feedback_destructive_path_ops_containment]]) — the recursive remove must refuse any path resolving outside `.gsd-t/domains/` or equal to it.
-- **Doc-ripple:** Step 7 prose → "runs `bin/gsd-t-archive-domains.cjs` (deterministic)"; complete-milestone command + GSD-T-README + CHANGELOG.
-- Scope: ~1 domain (the helper + its test + complete-milestone wiring + doc-ripple), 1 wave. Small, localized — hands-on fix, not a headless spawn ([[feedback_dont_keep_spawning_milestones]]).
-
-## 41. `buildTaskBrief` / `extractTask` (bin/gsd-t-task-brief.js) can't parse Shape-D tasks.md headings — dead against real domains
+## 33. `buildTaskBrief` / `extractTask` (bin/gsd-t-task-brief.js) can't parse Shape-D tasks.md headings — dead against real domains
 
 **Added**: 2026-06-22
 **Type**: tech debt (stale-tool) | **App**: gsd-t | **Category**: cli
@@ -689,7 +423,8 @@ A SEPARATE **Realism agent** the Red Team argues scope with (adversarial-collabo
 - **Interim (done 2026-06-22):** the m40 self-test was repointed from "live repo self-test" to a `mkFixtureProject()` end-to-end test (still exercises the tool, decoupled from live domains) so M90 verify isn't blocked. The deeper parser/retirement decision is this item.
 - Scope: ~1 domain (decide retire-vs-fix, then either delete + requirer-inline or update parser + add a Shape-D fixture test), <1 wave.
 
-## 42. Wire a LIVE spike-feasibility producer for the architectural-trigger response modes (R-FAIL-2 enforcement — M90 option B, deferred)
+
+## 34. Wire a LIVE spike-feasibility producer for the architectural-trigger response modes (R-FAIL-2 enforcement — M90 option B, deferred)
 
 **Added**: 2026-06-22
 **Type**: feature (doctrine-enforcement) | **App**: gsd-t | **Category**: workflow
@@ -702,7 +437,8 @@ A SEPARATE **Realism agent** the Red Team argues scope with (adversarial-collabo
 - **Fold in (Red Team LOW, M90 verify fc9):** the arch-trigger instrumentation sink swallows write errors (best-effort append) — when a live producer exists, an unwritable sink → R-FAIL-2 count stays 0 → fail-OPEN. The live-producer wiring must make the sink write fail-closed (or verify must detect an unwritable/absent sink as a hard error, not a 0-count pass).
 - Scope: ~1–2 domains (the spike-feasibility decider + blind-adversary wiring + the human-ask routing for unstated requirements + R-FAIL-2 live-fire test), multi-wave, EXPERIMENTAL.
 
-## 43. Classifier mis-routes an external SDK fact to internal/grep when a repo path co-occurs (M90 D3 MEDIUM edge)
+
+## 35. Classifier mis-routes an external SDK fact to internal/grep when a repo path co-occurs (M90 D3 MEDIUM edge)
 
 **Added**: 2026-06-22
 **Type**: tech debt (classifier-edge) | **App**: gsd-t | **Category**: cli
@@ -713,22 +449,8 @@ A SEPARATE **Realism agent** the Red Team argues scope with (adversarial-collabo
 - **Fix direction:** when an external-API-shaped token co-occurs with a repo path and there's no strong-external vendor match, route `ambiguous→judge` (let the LLM decide), never `internal`. Add to the corpus + held-out fixture.
 - Scope: ~1 domain (classifier branch + corpus rows), <1 wave. Deferred from M90 to avoid a classifier change right before shipping (kept verify stable).
 
-## 44. The Understand-Before-Build reflex + the pipeline's missing Subtract half
 
-**Added**: 2026-06-22
-**Type**: framework paradigm (HIGHEST leverage — inverts the additive-only pipeline)
-**Status**: DESIGN BRIEF written → `.gsd-t/design-briefs/understand-before-build-subtract-half.md` (+ §0.5 REVIEW ADDENDUM 2026-06-23). Pre-promotion. M91 (the M87+M88 PseudoCode milestone this was sequenced after) is now SHIPPED (v4.8.10) — front-of-flow overlap is clear. **#44a SHIPPED → M92 COMPLETE (v4.9.10, 2026-06-23). #44b (graph half) REMAINS — gated on M92 moving the needle; carries the prior-graph autopsy below.** Review recommended a SPLIT (M87→M88-style): **#44a paradigm half (= M92)** (verdict-vocabulary keystone w/ a deterministic shrink-metric + invert-the-default + the scope-assumption reflex built by giving **M90's stubbed §2 architectural trigger (R-ARCH-2, backlog #42) the same classify→grep→ground response its shipped §1 factual sibling `bin/gsd-t-research-gate.cjs` already has** — ~10 files, no graph, low overlap, would have prevented every BinVoice failure) **then #44b graph half** (understand-before-plan + per-phase shrink beat + N≥3 consolidation lens, build-on-demand, GATED on #44a moving the needle). ⚠ NOTE: M89 was RETIRED into M90 — there is no standalone "M89 machinery"; the reflex reuses M90's §1 pipeline. ⚠⚠ PRIOR-ART AUTOPSY (critical for #44b): **GSD-T already built a code graph (M20–M21, v2.38–2.39) and it DIED** — engine still in tree (`bin/graph-*.js`) but ORPHANED (`gsd-t graph status` = no index, ~3mo dormant); cause of death = external-dep maintenance burden (CGC/Neo4j/Docker/Python — Windows/encoding/sync firefighting) ÷ marginal measured value (GSD-T's own `graph-vs-grep-comparison.md`: 5 net findings over grep). #44b inverts every cause: build-on-demand (no index to rot) · zero-dep in-process (no Neo4j/Docker) · one narrow job (not 21 commands) · gated on #44a (prove-then-build). SALVAGE: reuse the tested `graph-parsers.js` extraction, delete the storage/provider/sync layer that killed it. See brief §0.5 for the full autopsy + the grep-then-graph sequencing rationale (same reflex, sensor swap — not throwaway), the three restored insights, and the closed decisions.
-**Origin**: user, BinVoice pricing-migration session 2026-06-22. Four converging failures (assume-don't-look / discovered-wart-cleanup / chase-consumers-not-source / add-new-never-subtract-old), one root cause: GSD-T is a purely ADDITIVE gate pipeline — when a plan starts too high, every gate makes it bigger; the harder it works the more complex the result. The exact inversion the user wants killed.
-
-**Thesis**: understand what exists (graph blast-radius) BEFORE planning · default to the smallest change that hits the crux (ceremony opt-in, not Recommended) · add the SUBTRACT stage the pipeline has never had · make "we made it smaller / removed code / starved a redundant source / collapsed N producers" a FIRST-CLASS verdict success (today `VERIFIED` is a pure AND of additive gates — `verify.workflow.js:610` — the schema can't even SAY "smaller"). Goal is one event seen three ways: simpler · faster · smarter.
-
-**Proven this session** (code audit, file:line): pipeline is BENDABLE-IN-PLACE not baked-in (7 swappable `phase()` blocks, thin commands, shallow contract coupling) → INSERTION not rewrite. M90's R-ARCH-2 trigger already FIRES on the BinVoice moment but its response is interface-only (backlog #42) — give it a cheaper-first ladder (look→smallest→spike→defer), not spike-first. Research (spring 2026, cited in brief §6): code-graph blast-radius PROVEN faster (22%/58% fewer tool calls) + 70% fewer regressions (TDAD); doc-ripple-style freshness PROVEN (CodeGraph). INVENTED/deferred: docs+memory in one graph (no precedent — code-structure-first), the collapse-worth-it decision (Metz guardrail — count multiplicity, defer the abstraction).
-
-**Five moves** (each ~5 files, insertion): (1) front Understand-before-plan stage; (2) new Shrink/Defer stage; (3) invert the default toward smallest; (4) M90 trigger response (cheaper-first ladder); (5) verdict vocabulary keystone — "smaller" is success. Unifier: one graph query "produced-where/consumed-where" serves prevention (starve the source) AND consolidation (N≥3 = counted rule-of-three, surfaced+deferred via the defer-don't-inline valve).
-
-**Relation**: builds ON M87/M88 (#34/#35 — pseudocode is the visible-logic substrate; that's the DEFINE-altitude prevention, this is the PLAN/EXECUTE-altitude prevention). Gives M90's dormant arch-trigger (#42) its real response. Supersedes part of the competition framing (less to compete over when the smallest change is the default). See [[feedback_unproven_assumption_stop_and_research]], [[feedback_intention_first_pseudocode]], [[feedback_coverage_check_structural_not_substring]].
-
-## 45. Fence-awareness for the M91 PseudoCode marker parsers (defer-out — fail-closed today)
+## 36. Fence-awareness for the M91 PseudoCode marker parsers (defer-out — fail-closed today)
 
 **Added**: 2026-06-22
 **Type**: hardening / tech debt
@@ -743,7 +465,8 @@ The M91 marker parsers match their markers ANYWHERE on a line, with no awareness
 
 **NOT in scope for fix**: changing fail-closed→fail-open. The fix only stops false-FAILs / count-inflation from a doc quoting its own grammar; it must NOT let a fenced real divergence pass. See [[feedback_coverage_check_structural_not_substring]] (structural, fence-aware), [[feedback_no_silent_degradation]].
 
-## 46. Full Test & Build Telemetry Suite (flaky-test + reliability observability)
+
+## 37. Full Test & Build Telemetry Suite (flaky-test + reliability observability)
 
 - **Type:** feature / infrastructure | **App:** gsd-t | **Category:** testing / observability
 - **Added:** 2026-06-26 | **Origin:** M94 verify — the verify gate kept tripping (a timing artifact, then a gate-only `npm test` exitCode 1 not reproducible standalone) and could only be traced BY HAND. User: "We definitely need a full telemetry suite."
@@ -762,43 +485,14 @@ The M91 marker parsers match their markers ANYWHERE on a line, with no awareness
 
 **Scope:** a dedicated milestone (pays off on every future build). Likely a test-runner wrapper/reporter that writes the ledger + the isolation/leak/quarantine logic + a `gsd-t metrics --flaky` surface. Memory: [[project_flaky_test_telemetry_gap]]. Related: [[feedback_measure_dont_claim]], [[feedback_slow_tests_starve_workflow_watchdog]].
 
+
 ## Sequencing note (2026-06-26, user directive)
 After M94 ships: (1) DEFINE the telemetry suite milestone (#46) but DO NOT build it yet. (2) BEFORE building telemetry, EXPLORE the documentation-graph milestone discussed 2026-06-25 (scan findings + docs as enrichment layers ON the code graph — see memory [[project_scan_findings_enrich_graph.md]] + the M94 Phase-2 docs-in-graph scope: doc↔doc + item↔item + doc-item↔code edges via DECLARED IDs only). Order: finish M94 → define telemetry (#46, no build) → explore doc-graph milestone → then decide build order.
 
 ---
 
-## #47 — Scan output filenames carry the repo name (`[file]-[repo].md`) + CPUA one-time mass-rename
 
-**Type:** Enhancement (scan) · **Status:** ✅ DONE 2026-06-30 (v4.14.11) · **Added:** 2026-06-30 · **Scope:** EXPORT-COPY everything to `share/<file>-<repo>.md`; INTERNAL files keep fixed names (zero blast radius); prior outputs archived to `.gsd-t/scan/archive/<name>-YYYYMMDD-HHMM.md`. NO CPUA mass-rename needed (internal names unchanged). Superseded the earlier "suffix-in-place + mass-rename" plan per the user's "share copies only" decision (avoids breaking the ~8 internal readers of `.gsd-t/techdebt.md`).
-
-**Problem (user):** David shares scan outputs (`techdebt.md`, `.gsd-t/scan/architecture.md`) AND living docs (`architecture.md`, etc.) with his team across multiple projects; identical filenames → team confusion about which file is which project.
-
-**Decision (locked + REFINED with user 2026-06-30):**
-- **Suffix SCAN REPORTS in place** with `-[repoName]`: `techdebt-[repo].md`, `techdebt_in_plain_english-[repo].md`, and `.gsd-t/scan/[dimension]-[repo].md` (architecture/security/quality/business-rules/contract-drift). These are scan's own outputs with few internal readers.
-- **LIVING DOCS: do NOT rename in place — EXPORT-COPY instead (user refinement).** Originals (`docs/architecture.md`, `requirements.md`, `workflows.md`, `infrastructure.md`) keep their fixed names (GSD-T reads them by hardcoded path under the No-Re-Research rule — renaming breaks every command + the global CLAUDE.md Living Documents table). NEW: scan's VERY LAST step COPIES all shareable docs into a `[projectDir]/share/` folder with `-[repo]` suffixes (`share/architecture-[repo].md`, `share/requirements-[repo].md`, …). This gives the team a clearly-labeled shareable set AND prevents "which version is for which project" confusion — without touching the originals. The `/share/` copy is regenerated each scan (overwrite, always fresh). This supersedes the earlier "scan reports only, living docs untouched" call — living docs are now shared via copy, not left out.
-
-**Build (when un-gated):**
-1. **`templates/workflows/gsd-t-scan.workflow.js`** — thread a `repoName` (derive from `path.basename(projectDir)` resolved in an agent's Bash; the M81 sandbox has no `path`) into the scan-report output filenames. Hardcoded refs to update: `.gsd-t/techdebt.md` (lines ~315 priorRegister check, ~799 archive-rename, ~812 regPath, ~905 register-read), `.gsd-t/techdebt_in_plain_english.md` (~930 peTarget, ~973 header), `.gsd-t/scan/*.md` (~874-882 the 5 dimension writers). The archive-rename (`techdebt_[today].md`) and the `priorRegisterExists` detection must both use the NEW suffixed name.
-2. **NEW — living-docs export-copy (scan's LAST step):** after the doc-population step finishes, copy each living doc into `[projectDir]/share/` with a `-[repo]` suffix: `docs/architecture.md`→`share/architecture-[repo].md`, `docs/requirements.md`→`share/requirements-[repo].md`, `docs/workflows.md`→`share/workflows-[repo].md`, `docs/infrastructure.md`→`share/infrastructure-[repo].md`, plus optionally `README.md`→`share/README-[repo].md`. Overwrite each scan (always fresh). Originals untouched. Add `share/` is NOT gitignored by default (user shares from it) — but confirm with user at build time. Runs in an agent's Bash (sandbox has no fs).
-3. **NEW — archive OLD scan docs with datetime before overwriting (for diffing) → `.gsd-t/scan/archive/` (user 2026-06-30):** when a new scan runs, BEFORE writing the new dimension files / register, move the existing ones into `[projectDir]/.gsd-t/scan/archive/` with a datetime suffix (`architecture-[repo]-YYYYMMDD-HHMM.md`, `techdebt-[repo]-YYYYMMDD-HHMM.md`, etc.) so David can diff new-vs-prior. This REPLACES/UNIFIES the existing ad-hoc `techdebt_[today].md` archive-rename (line ~799) — that current archive should also land in `.gsd-t/scan/archive/` with the datetime+repo convention, not loose in `.gsd-t/`. The archive dir accumulates history (don't purge); datetime from the live clock via an agent's Bash. Applies to BOTH the register (techdebt) and the 5 dimension files. The `share/` export-copy (step 2) is the CURRENT shareable set; the `scan/archive/` is the HISTORICAL diff set — distinct purposes.
-4. **Document Ripple:** `commands/gsd-t-scan.md` (output-file list + the new `share/` step + the `scan/archive/` step), any scan-output reader (`/gsd-t-promote-debt` reads `techdebt.md` — must read the suffixed name).
-5. **CPUA one-time mass-rename routine:** a `gsd-t` migration that runs ONCE during the next `update-all` propagation, in EACH registered project: rename existing scan reports `techdebt.md`→`techdebt-[repo].md`, `techdebt_in_plain_english.md`→suffixed, `.gsd-t/scan/[dim].md`→suffixed; AND generate the initial `share/` export-copy of the living docs; AND create the `.gsd-t/scan/archive/` dir. Idempotent (skip if already suffixed / share/ current), `git mv` if a git repo else `mv` for the renames + plain copy for `share/`, NEVER rename the living-doc originals, real-project-root only. One-shot (a marker file or version-gate so it doesn't re-run).
-
-**Full scan-output layout after #47:**
-- `.gsd-t/techdebt-[repo].md` + `.gsd-t/techdebt_in_plain_english-[repo].md` — current register (suffixed in place)
-- `.gsd-t/scan/[dim]-[repo].md` — current dimension files (suffixed in place)
-- `.gsd-t/scan/archive/[file]-[repo]-YYYYMMDD-HHMM.md` — historical snapshots for diffing (prior scans, datetime-stamped)
-- `share/[livingdoc]-[repo].md` — shareable copies of the living docs (regenerated each scan, originals untouched at `docs/`)
-
-**Why gated:** `gsd-t-scan.workflow.js` is M99-D2-owned + was under active M99 verify when requested — editing mid-verify risks corrupting the verification. Do AFTER M99 completes + cpua, as its own quick-task.
-
-**Coordination note (2026-06-30):** David is running a scan on **hilo-figma-atos** concurrently. When this #47 work ships + CPUA propagates: the mass-rename routine is idempotent and only touches EXISTING COMPLETED scan outputs, so it won't corrupt an in-flight scan. Still — verify hilo-figma-atos's scan has finished (or skip that project's rename this pass) before running the CPUA propagation, to avoid renaming a half-written register.
-
-**Related:** the CPUA-mass-rename pattern mirrors M99's graphDB migration shim (one-shot, idempotent, runs during update-all, git-mv-aware, real-root-only) — reuse that shape.
-
----
-
-## #48 — m44-run-dispatch live-repo tests: find the real async-handle leak + move to temp fixtures
+## 38. m44-run-dispatch live-repo tests: find the real async-handle leak + move to temp fixtures
 
 **Type:** Tech debt (test infra) · **Status:** QUEUED · **Added:** 2026-06-30 · **Priority:** low
 
@@ -817,7 +511,8 @@ After M94 ships: (1) DEFINE the telemetry suite milestone (#46) but DO NOT build
 
 ---
 
-## #49 — Scan checkpoint/resume — survive rate-limit kills without re-running the whole scan
+
+## 39. Scan checkpoint/resume — survive rate-limit kills without re-running the whole scan
 
 **Type:** Enhancement (scan resilience) · **Status:** QUEUED · **Priority:** HIGH (real 30M-token waste observed) · **Added:** 2026-06-30 (user — hilo-figma-atos)
 
@@ -840,7 +535,8 @@ After M94 ships: (1) DEFINE the telemetry suite milestone (#46) but DO NOT build
 
 ---
 
-## #50 — Scan dimension-file silent write-failure (reported success but file not regenerated)
+
+## 40. Scan dimension-file silent write-failure (reported success but file not regenerated)
 
 **Type:** Bug (scan) · **Status:** QUEUED · **Priority:** MEDIUM · **Added:** 2026-06-30 (hilo-figma-atos)
 
@@ -857,7 +553,8 @@ After M94 ships: (1) DEFINE the telemetry suite milestone (#46) but DO NOT build
 
 ---
 
-## #51 — Adopt Claude Sonnet 5 + refresh the model-tier policy (new model landed 2026-06-30)
+
+## 41. Adopt Claude Sonnet 5 + refresh the model-tier policy (new model landed 2026-06-30)
 
 **Type:** Enhancement (model policy) · **Status:** QUEUED · **Priority:** MEDIUM-HIGH (cost + quality win) · **Added:** 2026-06-30
 
@@ -880,8 +577,9 @@ After M94 ships: (1) DEFINE the telemetry suite milestone (#46) but DO NOT build
 **Related:** [[feedback_nothing_in_gsdt_is_concrete]] (re-evaluate on new model), [[feedback_no_silent_degradation]] (a silent model swap cuts both ways — surface it), [[feedback_measure_dont_claim]] (measure the tier re-assignment, don't assume).
 
 ---
+- **Merged-in (#29, stale-by-date):** the June-22 Fable-5-promo-ends tier re-decision is subsumed here — refresh the tier policy + session default as part of adopting Sonnet 5.
 
-## #52 — Scan Document phase can silently produce ZERO output (agents complete outcome:null, no files written)
+## 42. Scan Document phase can silently produce ZERO output (agents complete outcome:null, no files written)
 
 **Type:** Bug (scan) · **Status:** QUEUED · **Priority:** HIGH · **Added:** 2026-06-30 (hilo-figma-atos re-scan)
 
@@ -895,7 +593,8 @@ After M94 ships: (1) DEFINE the telemetry suite milestone (#46) but DO NOT build
 
 **Related:** #50 (business-rules single-file silent write-fail — same class, this is the WHOLE-PHASE version), #47 (the archive-before-regenerate ordering that turns this into a gap), #49 (scan checkpoint/resume). All four are scan write-integrity. Strong candidate to bundle #50+#52 (+ the #47 ordering fix) into one "scan document-phase write-integrity" milestone.
 
-## 47. Universal Build-Number Rule (hard default, all projects)
+
+## 43. Universal Build-Number Rule (hard default, all projects)
 - **Type:** architecture | **App:** gsd-t | **Category:** templates
 - **Added:** 2026-07-01 | **Priority:** HIGH (promote-later) | **Origin:** BinVoice repeated-directive struggle
 - **Problem:** David gave the "increment the build number every build" directive many times over weeks in BinVoice before it finally stuck. Without it, testing is blind — same build number means no way to tell whether you're running new or old code. Must become a framework default so no project ever ships un-versioned builds again.
@@ -905,7 +604,8 @@ After M94 ships: (1) DEFINE the telemetry suite milestone (#46) but DO NOT build
 - **Opt-out:** ONLY if explicitly declared in a project's own CLAUDE.md. Otherwise non-negotiable default.
 - **Pairs with #48** (trace logging) + **#49** (audit logging) — all "framework-default infrastructure baked into every project"; could ship as one milestone or several.
 
-## 48. Universal Trace Logging (contract + rule + scaffolding)
+
+## 44. Universal Trace Logging (contract + rule + scaffolding)
 - **Type:** architecture | **App:** gsd-t | **Category:** contracts
 - **Added:** 2026-07-01 | **Updated:** 2026-07-02 (split from combined trace+audit) | **Priority:** HIGH (promote-later) | **Origin:** BinVoice + WindowsVoiceTranscription debugging struggles
 - **Problem:** Repeatedly hard/impossible for GSD-T to debug issues that would be trivial WITH full tracing data. Multi-day debugging sessions (BinVoice, WindowsVoiceTranscription) could have been minutes if trace data were visible. Rule David stated: **"there's never enough detail"** — data packets, events, transmissions, results, every LLM call, every error/catch, every decision (candidate-vs-chosen). If a result happens in the running app, it must be traceable when there's a bug.
@@ -917,7 +617,8 @@ After M94 ships: (1) DEFINE the telemetry suite milestone (#46) but DO NOT build
 - **KEY REFINEMENT (schema varies per project):** infrastructure baked uniformly, but the **trace CATEGORIES vary** (a browser-extension's `Post`/`Image`/`Classify`/`Egress` ≠ a transcription app's `AudioChunk`/`VAD`/`Transcript`/`DeviceSwitch`). Contract fixes the SHAPE; a per-project distillation step teases out the concrete category list "at the right stage of building the app" (milestone/partition, or a `populate`-style pass). Brownfield: the distillation reconciles existing ad-hoc logging against the universal envelope rather than bolting a second parallel system beside it.
 - **Pairs with #47** (build-number) + **#49** (audit) — all framework-default infrastructure baked into every project. Could ship together or sequentially. See [[feedback_no_confabulated_examples]] — keep the per-project category examples grounded/labelled-hypothetical.
 
-## 49. Universal Audit Logging (contract + rule + scaffolding) — DESIGNED FRESH
+
+## 45. Universal Audit Logging (contract + rule + scaffolding) — DESIGNED FRESH
 - **Type:** architecture | **App:** gsd-t | **Category:** contracts
 - **Added:** 2026-07-02 (split from #48) | **Priority:** HIGH (promote-later) | **Origin:** need for admin-facing history + high-compliance projects
 - **Problem:** David needs **admin-facing audit history** so an administrator can look back at (e.g.) a client's history when there's an issue — **WITHOUT getting GSD-T involved** — and to satisfy high-compliance requirements. This is DISTINCT from trace: trace = a debugging signal stream (transient, PII-barred, toggleable); audit = a durable, admin-readable record of who-did-what for accountability/compliance.
@@ -929,3 +630,18 @@ After M94 ships: (1) DEFINE the telemetry suite milestone (#46) but DO NOT build
 - **Treatment: CONTRACT + RULE + SCAFFOLDING.** (1) `audit-logging-contract.md` defines the required audit-entry envelope + the append-only + query-surface requirements, `gsd-t-verify` enforces; (2) a CLAUDE.md rule making audit a default (opt-out-able); (3) `gsd-t-init` scaffolds the audit store + write helper + admin query surface (stack-adaptive, approval-gated).
 - **KEY REFINEMENT (schema varies per project):** the audited ACTIONS vary per app (an e-commerce app audits refunds/role-changes/impersonation; a CRM audits record edits/exports). Contract fixes the envelope; per-project distillation teases out the concrete action list at the right build stage; brownfield reconciles existing ad-hoc admin logging (e.g. BinVoice's scattered `req.log.info` admin calls) into the real audit store.
 - **Pairs with #47 + #48.** Distinct-from-trace boundary is load-bearing — do NOT let a build collapse them into one stream (BinVoice's admin "Trace" view is explicitly NOT an audit log; repeating that conflation is the anti-pattern to avoid).
+
+
+## 46. Wire /gsd-t-stories into the GSD-T build pipeline (stories as the front-of-pipeline spec)
+- **Type:** architecture | **App:** gsd-t | **Category:** commands
+- **Added:** 2026-07-07 | **Priority:** MEDIUM (promote-later; prove standalone first) | **Origin:** "how could gsd-t-stories improve the d-t workflow" (2026-07-07)
+- **Problem/opportunity:** `/gsd-t-stories` (v4.19.10) currently produces an ISOLATED client/dev-handoff deliverable. But a user story with acceptance criteria + mapped test cases is already a near-perfect milestone spec — it's the missing BRIDGE between "what to build" (requirements) and "how to build it" (partition/plan/verify). Wiring it in turns it from a deliverable into the FRONT of the build pipeline.
+- **Integration surfaces (each a candidate domain):**
+  - **Stories → milestone/partition:** each Epic → a milestone; each story → a domain/task. The story's **Acceptance Criteria BECOME the falsifiable success criteria** GSD-T already demands (no re-derivation). New successor mapping `stories → milestone`.
+  - **Mapped Test Cases → test-sync/QA:** each story ships Positive/Negative/Edge test cases = executable test stubs; feed to test-sync/QA so tests TRACE to a story, closing the requirement→test traceability loop the verify triad values (and currently re-derives).
+  - **Stories → PseudoCode:** per-story Workflow + Acceptance Criteria map ~1:1 onto the intention-first PseudoCode behavior-map (milestone source-of-truth); stories could SEED it.
+  - **Scan consolidation (CG-N) ↔ stories:** the M-consolidation groups (v4.18.10) and stories are duals — a consolidation group IS "fix this as one story"; stories could consume CG-N groups directly.
+  - **Reverse-engineered stories → gap-analysis:** run stories on an inherited codebase (Newman/Hilo) → the ACTUAL stories the code implements → diff against intended requirements = a real gap map.
+- **THE single biggest win:** acceptance-criteria + test-cases are the two things the verify triad needs and re-derives today. If a story flows into partition, its criteria ARE the success criteria and its test cases ARE the QA baseline — one spec carries all the way through verify.
+- **Scope/shape:** milestone-sized (touches partition/plan/verify/test-sync + a story↔milestone contract); competition-worthy (how do stories map to domains — 1 epic=1 milestone vs 1 story=1 domain vs criteria=SCs). NOT a quick edit.
+- **Sequencing gate:** PROVE `/gsd-t-stories` standalone on a real project FIRST (Newman/Hilo end-to-end incl the Mermaid→PNG→embed→docx pipeline) before wiring it into the pipeline — don't build integration on an unproven generator. See [[feedback_measure_dont_claim]] + [[feedback_unproven_assumption_stop_and_research]].

@@ -2,6 +2,16 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [4.19.11] - 2026-07-07
+
+### Fixed — `/gsd-t-stories` diagrams: semantic coloring + fit-to-page
+
+The command's flow diagrams were rendering as flat single-color and overflowing the page. Diagram generation now mandates **role-based semantic coloring** (green=action/go, orange=decision, red=destructive, blue-dashed=new/optional, purple=screen, white=terminal, via a `classDef` block) and **fit-to-page** layout (prefer `flowchart LR` for long linear flows, `subgraph` lanes or a part-1/2 split for large ones, explicit render sizing, and a verify-not-clipped-then-re-render step). Same rules mirrored into the bundled format reference. Also reconciled the backlog (removed 14 shipped/superseded items, renumbered survivors 1..46, fixed 4 number collisions).
+
+- `commands/gsd-t-stories.md`: Step 4 → 4a (semantic coloring) / 4b (fit-to-page) / 4c (render).
+- `templates/playbooks/tekyz-user-stories-format.md`: coloring + fit rules.
+- `.gsd-t/backlog.md`: 55 headings → 46 contiguous items.
+
 ## [4.19.10] - 2026-07-07
 
 ### Added — `/gsd-t-stories`: dev-team handoff user stories in the Tekyz format

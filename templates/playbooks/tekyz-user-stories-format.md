@@ -107,11 +107,40 @@ A table mapping every story to its phase + epic, so a team sees MVP vs later-pha
 Per the user directive, diagrams are **authored as Mermaid but EMBEDDED as rendered images**
 (like the sample's `<img>` flow charts) — not left as raw Mermaid text.
 
-1. Write each diagram's Mermaid source to `.gsd-t/user-stories/diagrams/<name>.mmd`.
-2. Render to PNG with the Mermaid CLI: `mmdc -i <name>.mmd -o media/<name>.png` (installed:
-   `@mermaid-js/mermaid-cli`; fall back to `npx @mermaid-js/mermaid-cli`). If `mmdc` is
-   unavailable, HALT and tell the user to install it — do NOT silently ship raw Mermaid where
-   an embedded image is expected (no-silent-degradation).
+### Semantic coloring (MANDATORY — never flat single-color)
+
+Every diagram uses **role-based coloring**, never mermaid's default flat purple. Put a
+`classDef` block at the top of each flowchart and class each node by ROLE:
+
+```
+classDef start       fill:#fff,stroke:#333,color:#000;                            %% start/end terminal
+classDef decision    fill:#fdebc8,stroke:#e8a33d,color:#7a4f00;                  %% decision diamond
+classDef screen      fill:#ece9fb,stroke:#8b7fd6,color:#2d2160;                 %% screen / state
+classDef action      fill:#d4f4dd,stroke:#4caf72,color:#0f5132;                %% success / go / action
+classDef destructive fill:#fde2e2,stroke:#e06666,color:#7a1f1f;               %% end / delete / irreversible
+classDef newfeat     fill:#e2f0fb,stroke:#5b9bd5,color:#1f4e79,stroke-dasharray:4 3; %% NEW / optional (dashed)
+```
+
+Green = go/success/action · Orange = decision · Red = destructive/irreversible · Blue(dashed)
+= new/optional · Purple = screen/state · White = terminal. Decisions are diamonds `{...}`;
+terminals are round `([...])`; label decision-branch edges (`-->|Yes|`).
+
+### Fit-to-page (MANDATORY — the whole diagram must fit)
+
+A long top-down flow overflows the page. Keep EVERY diagram fully on one page:
+- Prefer `flowchart LR` (left-to-right) for long linear flows; use `TD` only for ≤6-node flows.
+- For many nodes, break into `subgraph` lanes or split into part-1/part-2 diagrams.
+- Render with explicit sizing so nothing clips, then VERIFY the PNG isn't clipped; if it is,
+  switch direction or split and re-render. Never ship a clipped diagram.
+
+### Render
+
+1. Write each diagram's Mermaid source (classDef block + role classes + fit-appropriate
+   direction) to `.gsd-t/user-stories/diagrams/<name>.mmd`.
+2. Render to PNG: `mmdc -i <name>.mmd -o media/<name>.png --width 1600 --backgroundColor white
+   --scale 2 --padding 20` (`@mermaid-js/mermaid-cli`; fall back to `npx @mermaid-js/mermaid-cli`).
+   If `mmdc` is unavailable, HALT and tell the user to install it — do NOT silently ship raw
+   Mermaid where an embedded image is expected (no-silent-degradation).
 3. Embed the PNG in the markdown: `![Flow Diagram](media/<name>.png)`.
 4. On `.docx` conversion, pandoc embeds these PNGs as real Word images — matching the sample.
 

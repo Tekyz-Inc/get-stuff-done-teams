@@ -45,8 +45,37 @@ A table mapping every story → phase → epic: `| Story ID | Title | Phase | Ep
 
 Per the standing directive, diagrams are authored as Mermaid but **embedded as rendered images** (matching the sample's `<img>` flow charts) — NOT left as raw Mermaid text.
 
-1. Write each diagram's Mermaid source to `.gsd-t/user-stories/diagrams/<name>.mmd` (app-flow = `app-flow`, per-story = `<PREFIX>-NNN-flow`).
-2. Render each to PNG beside the deliverable: `mmdc -i <src>.mmd -o share/media/<name>.png` (Mermaid CLI `@mermaid-js/mermaid-cli`; fall back to `npx @mermaid-js/mermaid-cli -i … -o …`).
+### 4a. Semantic coloring (MANDATORY — never flat single-color)
+
+Every diagram MUST use **intelligent, role-based coloring** — NOT mermaid's default flat purple. Assign each node a `class` by its ROLE and define matching `classDef`s. Standard palette (green=go/success, orange=decision, red=destructive, blue=new/optional, purple=screen/state, grey=terminal):
+
+```mermaid
+%% put at the TOP of every flowchart:
+classDef start     fill:#fff,stroke:#333,color:#000;                         %% start/end terminals (ellipse)
+classDef decision  fill:#fdebc8,stroke:#e8a33d,color:#7a4f00;               %% decisions (diamonds)
+classDef screen    fill:#ece9fb,stroke:#8b7fd6,color:#2d2160;              %% screens / states
+classDef action    fill:#d4f4dd,stroke:#4caf72,color:#0f5132;             %% success / go / user actions
+classDef destructive fill:#fde2e2,stroke:#e06666,color:#7a1f1f;           %% end / delete / irreversible
+classDef newfeat   fill:#e2f0fb,stroke:#5b9bd5,color:#1f4e79,stroke-dasharray:4 3; %% NEW / optional (dashed)
+```
+
+- **Decisions** are diamonds `{...}` classed `decision`; **terminals** (start/end) are stadium/round `([...])` classed `start`; **screens/states** classed `screen`; **success/go paths** classed `action`; **destructive/irreversible** (End, Delete) classed `destructive`; **new/optional** classed `newfeat` (dashed).
+- Label decision-branch edges (`-->|Yes|`, `-->|Returning User|`).
+- Reference the sample styling in `~/.claude/playbooks/tekyz-user-stories-format.md`.
+
+### 4b. Fit-to-page (MANDATORY — the whole diagram must fit)
+
+A long top-down flow overflows the page (the failure the user flagged). Keep EVERY diagram fully on one page:
+
+- **Prefer `flowchart LR`** (left-to-right) for long linear flows — wide pages fit more than tall ones. Use `TD` only for short (≤6-node) flows.
+- For a flow with many nodes, **break into logical lanes with `subgraph`s**, or split into a "part 1 / part 2" pair of diagrams rather than one that runs off-page.
+- Render with an explicit width/scale and padding so nothing is clipped: `mmdc -i <src>.mmd -o share/media/<name>.png --width 1600 --backgroundColor white --scale 2 --padding 20` (a mermaid config `{ "flowchart": { "useMaxWidth": true } }` via `-c` also helps).
+- **After rendering, VERIFY the image isn't clipped** — check the PNG's dimensions are sane and, if a node count is high, that the layout direction kept it on-page. If a diagram still overflows, switch direction (`TD`→`LR`) or split it, and re-render. Do NOT ship a clipped diagram (`feedback_no_silent_degradation`).
+
+### 4c. Render pipeline
+
+1. Write each diagram's Mermaid source (with the `classDef` block + role classes + fit-appropriate direction) to `.gsd-t/user-stories/diagrams/<name>.mmd` (app-flow = `app-flow`, per-story = `<PREFIX>-NNN-flow`).
+2. Render each to PNG: `mmdc -i <src>.mmd -o share/media/<name>.png --width 1600 --backgroundColor white --scale 2 --padding 20` (Mermaid CLI `@mermaid-js/mermaid-cli`; fall back to `npx @mermaid-js/mermaid-cli …`).
 3. **If `mmdc` is unavailable → HALT** and tell the user to install it (`npm i -g @mermaid-js/mermaid-cli`). Do NOT silently ship raw Mermaid where an embedded image is expected (`feedback_no_silent_degradation`).
 4. Embed each rendered PNG in the markdown at its `Flow Diagram:` / §1 position: `![Flow Diagram](media/<name>.png)`.
 5. Keep the `.mmd` source (editable, version-controllable) alongside the PNG.
