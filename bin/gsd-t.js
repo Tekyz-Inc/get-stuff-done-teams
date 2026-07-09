@@ -3774,13 +3774,17 @@ function refreshVersionAsync() {
 }
 
 function showUpdateNotice(latest) {
-  log("");
-  log(`  ${YELLOW}╭──────────────────────────────────────────────╮${RESET}`);
-  log(`  ${YELLOW}│${RESET}  Update available: ${DIM}${PKG_VERSION}${RESET} → ${GREEN}${latest}${RESET}            ${YELLOW}│${RESET}`);
-  log(`  ${YELLOW}│${RESET}  Run: ${CYAN}npm update -g @tekyzinc/gsd-t${RESET}         ${YELLOW}│${RESET}`);
-  log(`  ${YELLOW}│${RESET}  Then: ${CYAN}gsd-t update-all${RESET}                     ${YELLOW}│${RESET}`);
-  log(`  ${YELLOW}│${RESET}  Changelog: ${CYAN}gsd-t changelog${RESET}                  ${YELLOW}│${RESET}`);
-  log(`  ${YELLOW}╰──────────────────────────────────────────────╯${RESET}`);
+  // Human-facing banner MUST go to stderr — writing it to stdout corrupts the JSON
+  // output of machine commands (e.g. `graph body`, `graph --output json`), breaking
+  // any JSON.parse consumer. stderr keeps the banner visible without polluting stdout.
+  const e = (msg) => console.error(msg);
+  e("");
+  e(`  ${YELLOW}╭──────────────────────────────────────────────╮${RESET}`);
+  e(`  ${YELLOW}│${RESET}  Update available: ${DIM}${PKG_VERSION}${RESET} → ${GREEN}${latest}${RESET}            ${YELLOW}│${RESET}`);
+  e(`  ${YELLOW}│${RESET}  Run: ${CYAN}npm update -g @tekyzinc/gsd-t${RESET}         ${YELLOW}│${RESET}`);
+  e(`  ${YELLOW}│${RESET}  Then: ${CYAN}gsd-t update-all${RESET}                     ${YELLOW}│${RESET}`);
+  e(`  ${YELLOW}│${RESET}  Changelog: ${CYAN}gsd-t changelog${RESET}                  ${YELLOW}│${RESET}`);
+  e(`  ${YELLOW}╰──────────────────────────────────────────────╯${RESET}`);
 }
 
 function doChangelog() {
