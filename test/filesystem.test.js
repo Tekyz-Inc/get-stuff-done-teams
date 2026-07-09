@@ -347,7 +347,10 @@ describe("CLI subcommands", () => {
     const { spawnSync } = require("child_process");
     const result = spawnSync(process.execPath, [CLI, "doctor"], {
       encoding: "utf8",
-      timeout: 15000,
+      // doctor does real checks (network/playwright/etc.) and can take ~15s; under
+      // full-suite parallel load it intermittently blew a 15s watchdog and false-failed
+      // (passes in ~650ms isolated). 30s gives loaded machines headroom.
+      timeout: 30000,
     });
     assert.strictEqual(result.signal, null, "doctor should not be killed");
     assert.ok(
