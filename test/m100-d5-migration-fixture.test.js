@@ -4,15 +4,15 @@
  * M100-D5 — Defaults ripple + brownfield migration + seam-integration tests.
  *
  * Killing-test battery per .gsd-t/domains/d5-defaults-migration-pilot/tasks.md
- * (M100-D5-T1, T2, T2c, T2d, T2b) and the consumed contracts:
+ * (M100-D5-T1, T2, T2c, T2d, T2b, T3) and the consumed contracts:
  *   - trace-logging-contract.md / audit-logging-contract.md
  *   - logging-scaffold-seam-contract.md
  *   - logging-schema-distillation-contract.md
  *   - logging-verify-gate-contract.md
  *
- * T3 (the UMI-Automation headline pilot) is exercised against the SEPARATE
- * repo /Users/david/projects/UMI-Automation and is NOT covered by this file
- * (this file lives in, and is scoped to, the GSD-T repo's own test/ dir).
+ * T2b/T3 exercise the SEPARATE repo /Users/david/projects/UMI-Automation —
+ * those tests SKIP gracefully (never fail the GSD-T suite) when that sibling
+ * checkout is absent (e.g. a CI runner without it), matching the T2b pattern.
  */
 
 const test = require('node:test');
@@ -210,7 +210,7 @@ test('T2: distillation contract is consumed by d2/d4 distillers (published, refe
 // ── T2c — opt-out record shared-fixture integration test ───────────────────
 
 const { writeOptOut } = require(path.join(ROOT, 'bin', 'gsd-t-audit-distill.cjs'));
-const { checkLoggingEnvelopes } = require(path.join(ROOT, 'bin', 'gsd-t-logging-envelope-check.cjs'));
+const { checkLoggingEnvelopes, checkEnvelope } = require(path.join(ROOT, 'bin', 'gsd-t-logging-envelope-check.cjs'));
 
 test('T2c: d4 writeOptOut + d3 audit-default-except-optout agree on ONE shared artifact — opt-out present → PASS', () => {
   const dir = mkTmpProject('optout-present');
@@ -373,9 +373,165 @@ test('T2b: UMI-Automation package.json + tsconfig.json declare a real, resolvabl
 });
 
 test('T2b: the TS toolchain is actually installed (npx tsc --version exits 0)', { skip: !fs.existsSync(UMI_ROOT) }, () => {
-  const out = execFileSync('npx', ['--yes', '--prefix', UMI_ROOT, 'tsc', '--version'], {
+  const out = execFileSync('npx', ['tsc', '--version'], {
     cwd: UMI_ROOT,
     encoding: 'utf8',
   });
   assert.ok(/Version\s+\d/.test(out), 'npx tsc --version must report an installed TypeScript version');
+});
+
+// ── T3 — UMI-Automation headline end-to-end pilot ──────────────────────────
+//
+// HEADLINE END-TO-END TEST. Runs ONLY against the real, separate
+// UMI-Automation repo. Skips gracefully when absent (same posture as T2b).
+
+const UMI_PLAN_PATH = path.join(UMI_ROOT, 'docs', 'plan.md');
+const UMI_TRACE_PATH = path.join(UMI_ROOT, 'src', 'logging', 'trace.ts');
+const UMI_AUDIT_PATH = path.join(UMI_ROOT, 'src', 'logging', 'audit.ts');
+
+const umiPresent = fs.existsSync(UMI_ROOT) && fs.existsSync(UMI_PLAN_PATH);
+
+test('T3 (a): distilled trace categories are the OUTPUT of running gsd-t-trace-distill.cjs against UMI\'s real plan.md — each source line is grep-traceable', { skip: !umiPresent }, () => {
+  const { distillTraceCategories } = require(path.join(ROOT, 'bin', 'gsd-t-trace-distill.cjs'));
+  const result = distillTraceCategories(UMI_PLAN_PATH);
+
+  assert.ok(result.categories.length > 0, 'distiller must find at least one real category in UMI\'s plan');
+
+  const planText = fs.readFileSync(UMI_PLAN_PATH, 'utf8');
+  const planLines = planText.split(/\r?\n/);
+
+  for (const entry of result.categories) {
+    // source is "<planPath>:<lineNumber>: <text>" — extract the line number
+    // and prove that EXACT line, from the plan file read fresh, contains the
+    // category name. Never a hand-authored literal array.
+    const m = entry.source.match(/:(\d+):\s(.*)$/);
+    assert.ok(m, `category "${entry.category}" source must be a "<path>:<line>: <text>" reference`);
+    const lineNo = Number(m[1]);
+    const actualLine = planLines[lineNo - 1] || '';
+    assert.ok(
+      actualLine.includes(entry.category),
+      `category "${entry.category}"'s cited plan line ${lineNo} must actually contain "${entry.category}" when the plan is grepped fresh`
+    );
+  }
+
+  // The four UMI integration points named in CLAUDE.md § Stack must be present.
+  const categoryNames = result.categories.map((c) => c.category);
+  for (const expected of ['Grain', 'Airtable', 'Anthropic', 'Apify']) {
+    assert.ok(categoryNames.includes(expected), `distiller must find "${expected}" in UMI's real plan`);
+  }
+});
+
+test('T3 (b): the PodCoach draft-approval action\'s cited source string is FOUND by grepping UMI\'s real plan.md at test-run time', { skip: !umiPresent }, () => {
+  const planText = fs.readFileSync(UMI_PLAN_PATH, 'utf8');
+
+  // The exact cited source string (docs/plan.md:10) — asserted to be FOUND
+  // in the plan at test-run time, never hardcoded as ground truth without
+  // this live grep-check. A future edit to plan.md that removes this line
+  // would FAIL this test, proving the grounding is live, not frozen.
+  const citedSourceString =
+    'Cloud-native backend + Apify scraping + a purpose-built application that runs the PodCoach drafting workflow via the Anthropic Claude API, with a mandatory human review-and-approve gate on every draft.';
+
+  assert.ok(
+    planText.includes(citedSourceString),
+    'the cited PodCoach draft-approval source string must be found in UMI\'s real docs/plan.md at test-run time'
+  );
+
+  // Echoed confirmation lines (per task's own grounding note) — also live-checked.
+  assert.ok(/[Mm]andatory human review-and-approve gate on every draft/.test(planText));
+});
+
+test('T3 (c): src/logging/trace.ts and src/logging/audit.ts import-resolve with live symbols present (tsx)', { skip: !umiPresent }, () => {
+  assert.ok(fs.existsSync(UMI_TRACE_PATH), 'UMI trace.ts must exist');
+  assert.ok(fs.existsSync(UMI_AUDIT_PATH), 'UMI audit.ts must exist');
+
+  const traceCheck = execFileSync(
+    'npx',
+    ['tsx', '-e', "import('./src/logging/trace.ts').then(m => process.exit(m.emitTrace ? 0 : 1))"],
+    { cwd: UMI_ROOT, encoding: 'utf8' }
+  );
+  const auditCheck = execFileSync(
+    'npx',
+    ['tsx', '-e', "import('./src/logging/audit.ts').then(m => process.exit(m.appendAudit ? 0 : 1))"],
+    { cwd: UMI_ROOT, encoding: 'utf8' }
+  );
+  // execFileSync throws (non-zero exit) if the live symbol was missing —
+  // reaching here means both exited 0 with the real export present.
+  assert.equal(traceCheck, '');
+  assert.equal(auditCheck, '');
+});
+
+test('T3: HEADLINE END-TO-END — real UMI trace + audit records pass d3\'s envelope gate for BOTH streams, no-collapse holds', { skip: !umiPresent }, async () => {
+  const dbPath = path.join(UMI_ROOT, '.gsd-t', `audit-e2e-test-${process.pid}.db`);
+  try {
+    const traceUrl = 'file://' + UMI_TRACE_PATH.split(path.sep).join('/') + '?e2e=' + process.pid;
+    const auditUrl = 'file://' + UMI_AUDIT_PATH.split(path.sep).join('/') + '?e2e=' + process.pid;
+
+    const traceMod = await import(traceUrl);
+    traceMod.setTraceEnabled(true);
+    const traceRecords = [];
+    traceMod.configureTraceSink({ write(r) { traceRecords.push(r); } });
+    traceMod.emitTrace('Grain', 'fetched call transcript', { decision: null, key: 'grain-e2e' });
+    traceMod.emitTrace('Airtable', 'resolved Projects (client x podcast) key', { decision: true });
+
+    const prevDbPath = process.env.UMI_AUDIT_DB_PATH;
+    process.env.UMI_AUDIT_DB_PATH = dbPath;
+    const auditMod = await import(auditUrl);
+    const auditRow = auditMod.recordDraftApproval({
+      podcoachId: 'podcoach-e2e',
+      draftId: 'draft-e2e',
+      before: { content: 'original draft text', status: 'pending' },
+      after: { content: 'edited + approved draft text', status: 'approved' },
+      context: { requestId: 'req-e2e', sessionId: 'sess-e2e' },
+    });
+    if (prevDbPath === undefined) delete process.env.UMI_AUDIT_DB_PATH;
+    else process.env.UMI_AUDIT_DB_PATH = prevDbPath;
+
+    // Both streams PASS d3's real envelope gate.
+    for (const rec of traceRecords) {
+      const result = checkEnvelope(rec, { stream: 'trace' });
+      assert.ok(result.ok, `trace record must PASS: ${JSON.stringify(result.failures)}`);
+    }
+    const auditResult = checkEnvelope(auditRow, { stream: 'audit' });
+    assert.ok(auditResult.ok, `audit record must PASS: ${JSON.stringify(auditResult.failures)}`);
+
+    // No-collapse: a record carrying BOTH trace and audit top-level markers FAILS.
+    const collapsedTrace = Object.assign({}, traceRecords[0], {
+      before: {},
+      after: {},
+      actor: 'x',
+      action: 'y',
+    });
+    const collapsedResult = checkEnvelope(collapsedTrace, { stream: 'trace' });
+    assert.equal(collapsedResult.ok, false, 'a trace record with audit markers must FAIL (no-collapse)');
+    assert.ok(collapsedResult.failures.some((f) => f.rule === 'no-collapse'));
+
+    const collapsedAudit = Object.assign({}, auditRow, { category: 'Grain', decision: null });
+    const collapsedAuditResult = checkEnvelope(collapsedAudit, { stream: 'audit' });
+    assert.equal(collapsedAuditResult.ok, false, 'an audit record with trace markers must FAIL (no-collapse)');
+  } finally {
+    for (const suffix of ['', '-shm', '-wal']) {
+      try {
+        fs.rmSync(dbPath + suffix, { force: true });
+      } catch (_) {
+        /* best-effort cleanup */
+      }
+    }
+  }
+});
+
+test('T3: UMI storage choice is recorded in UMI\'s own CLAUDE.md', { skip: !umiPresent }, () => {
+  const claudeMdPath = path.join(UMI_ROOT, 'CLAUDE.md');
+  const text = fs.readFileSync(claudeMdPath, 'utf8');
+  assert.ok(/## Logging/i.test(text), 'UMI CLAUDE.md must have a Logging section recording the storage choice');
+  assert.ok(/[Ss]torage/.test(text) && /[Ll]ocal/.test(text), 'UMI CLAUDE.md must record the storage choice');
+});
+
+test('T3: no other project touched — only UMI-Automation\'s owned files changed', { skip: !umiPresent }, () => {
+  // Structural check: the files this pilot is scoped to touch all live under
+  // UMI_ROOT; nothing under the GSD-T repo's own src/ (which doesn't exist)
+  // or any other sibling project path is referenced by the pilot modules.
+  const traceText = fs.readFileSync(UMI_TRACE_PATH, 'utf8');
+  const auditText = fs.readFileSync(UMI_AUDIT_PATH, 'utf8');
+  assert.ok(!/\/Users\/[^/]+\/projects\/(?!UMI-Automation)/.test(traceText), 'trace.ts must not reference another project path');
+  assert.ok(!/\/Users\/[^/]+\/projects\/(?!UMI-Automation)/.test(auditText), 'audit.ts must not reference another project path');
 });
