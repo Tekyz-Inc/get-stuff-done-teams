@@ -371,8 +371,25 @@ test('discovery: fixture with NO logging artifacts and NO opt-out FAILS (never v
   try {
     const r = checkLoggingEnvelopes({ projectDir: dir });
     assert.equal(r.ok, false);
-    assert.ok(r.failures.some((f) => f.rule === 'trace-envelope-structural'));
+    // M100 correction: no trace module + no trace opt-out → trace-default-except-optout FAIL
+    // (was trace-envelope-structural before the symmetric trace opt-out was added).
+    assert.ok(r.failures.some((f) => f.rule === 'trace-default-except-optout'));
     assert.ok(r.failures.some((f) => f.rule === 'audit-default-except-optout'));
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('discovery: valid TRACE opt-out exempts the trace-module requirement (M100 correction)', () => {
+  const dir = mkTmpProject();
+  try {
+    fs.mkdirSync(path.join(dir, '.gsd-t'), { recursive: true });
+    fs.writeFileSync(path.join(dir, '.gsd-t', 'trace-optout.json'), JSON.stringify({ traceOptOut: true, reason: 'stateless CLI, no runtime data-flow to trace' }));
+    fs.writeFileSync(path.join(dir, '.gsd-t', 'audit-optout.json'), JSON.stringify({ auditOptOut: true, reason: 'no admin/client accountability surface' }));
+    const r = checkLoggingEnvelopes({ projectDir: dir });
+    // both streams opted out with valid records → PASS, no trace/audit failures
+    assert.ok(!r.failures.some((f) => f.rule === 'trace-default-except-optout'), 'valid trace opt-out must exempt trace');
+    assert.ok(!r.failures.some((f) => f.rule === 'audit-default-except-optout'), 'valid audit opt-out must exempt audit');
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }

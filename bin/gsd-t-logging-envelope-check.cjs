@@ -237,6 +237,18 @@ function _checkDefaultExceptOptOut({ hasAuditStore, optOutRecord }) {
   return failures;
 }
 
+/**
+ * Validates the TRACE opt-out record shape per trace-logging-contract.md §opt-out-record
+ * (M100 correction: the "trace has NO opt-out" rule was too absolute — a stateless CLI /
+ * library has no runtime data-flow to trace, so a symmetric opt-out exists for that class).
+ */
+function _isValidTraceOptOut(rec) {
+  if (!rec || typeof rec !== 'object') return false;
+  if (rec.traceOptOut !== true) return false;
+  if (typeof rec.reason !== 'string' || rec.reason.trim().length === 0) return false;
+  return true;
+}
+
 // ── §discovery — checkLoggingEnvelopes({ projectDir }) ──────────────────────
 //
 // Real enumeration per logging-verify-gate-contract.md §discovery. Walks the
@@ -316,13 +328,22 @@ function checkLoggingEnvelopes(opts) {
   const projectDir = opts.projectDir || '.';
   const failures = [];
 
-  // (i) Trace discovery — hard default, no opt-out exists for trace.
+  // (i) Trace discovery — default for every project EXCEPT explicit opt-out
+  // (M100 correction: stateless CLI/library class has no runtime data-flow to trace,
+  // so a symmetric .gsd-t/trace-optout.json opt-out exists, mirroring audit's).
   const traceModulePath = _firstExisting(projectDir, TRACE_MODULE_CANDIDATES);
   const traceStorePath = _firstExisting(projectDir, TRACE_STORE_CANDIDATES);
   const traceRecords = traceStorePath ? _readJsonArrayIfExists(traceStorePath) : null;
+  let traceOptOutRecord = null;
+  const traceOptOutPath = path.join(projectDir, '.gsd-t', 'trace-optout.json');
+  try {
+    if (fs.existsSync(traceOptOutPath)) traceOptOutRecord = JSON.parse(fs.readFileSync(traceOptOutPath, 'utf8'));
+  } catch (_e) { traceOptOutRecord = null; }
 
   if (!traceModulePath && !traceStorePath) {
-    failures.push({ rule: 'trace-envelope-structural', stream: 'trace', detail: 'no trace module or store discoverable under project root' });
+    if (!_isValidTraceOptOut(traceOptOutRecord)) {
+      failures.push({ rule: 'trace-default-except-optout', stream: 'trace', detail: 'no trace module or store discoverable and no valid trace opt-out record' });
+    }
   } else if (Array.isArray(traceRecords)) {
     for (const rec of traceRecords) {
       const result = checkEnvelope(rec, { stream: 'trace' });

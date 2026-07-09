@@ -50,6 +50,18 @@ A conformant trace module MUST expose BOTH toggle paths:
 
 The emitter is **fire-and-forget** and MUST NEVER throw into the calling app (a debug channel must never break the app). When no storage endpoint is configured, the channel may soft-dormant OR write to the local scaffolded store — it MUST NOT no-op silently in a way that loses a configured local sink.
 
+## Default + opt-out (M100 correction — the "no opt-out" rule was too absolute)
+
+Trace is a default for EVERY project EXCEPT explicit opt-out. The original M100 design declared trace "no opt-out, every project," but that is wrong for a whole project CLASS: a **stateless CLI / library / methodology package** has NO runtime data-flow (data packets, events, transmissions, live decisions) to trace — the thing trace exists to capture simply does not occur. Forcing a token trace module onto such a project is theater. So trace gets a symmetric opt-out, mirroring audit's.
+
+### §opt-out-record — canonical trace opt-out shape
+
+- **Canonical path**: `.gsd-t/trace-optout.json` at the project root.
+- **Canonical shape** (exactly): `{ "traceOptOut": true, "reason": "<non-empty string>" }`.
+- **Field rules**: `traceOptOut` REQUIRED, MUST be exactly `true`; `reason` REQUIRED, non-empty string. Any other shape → NOT a valid opt-out (fail-closed; treated as absent).
+- **Validity**: the gate's `trace-default-except-optout` check treats a project with NO trace module/store AND a valid opt-out record as conformant. A project with a trace module still has its records validated (opt-out does not disable validation of records that DO exist).
+- **When to opt out**: a stateless CLI/library with no app-runtime surface (e.g. GSD-T itself). A running application — anything with requests, jobs, integrations, or user sessions — should NOT opt out (that's the debugging-blind failure trace exists to prevent).
+
 ## Storage (stack-adaptive, human-approval-gated)
 
 Storage is NOT fixed by this contract — it is chosen at `gsd-t-init` scaffolding time, STACK-ADAPTIVE, and the scaffolder MUST STOP for human approval presenting alternatives (has-DB → `trace_logs`-style table; no-server/desktop → local rotating JSONL). The contract fixes the ENVELOPE; storage is whatever fits the stack, never silently picked.
