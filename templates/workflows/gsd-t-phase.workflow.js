@@ -867,6 +867,38 @@ let result;
 // M90 §2 D4-T4: holds the divergence-path result from the competition arm (R-ARCH-1).
 // Set inside the competition arm (before Finalize), attached to result after.
 let _pendingArchTriggerDivergence = null;
+
+// M101 — Architect's Oversight Six-Stage Pass. Injected as a PROTOCOL DIRECTIVE into
+// the design phases (plan/milestone) where the design is decided, before code exists.
+// Reuses the existing phase agent rather than adding a parallel gate (the doctrine's
+// own "reuse the process" rule). Each stage answered with EVIDENCE (grep/Read/graph),
+// never conviction. Contract: architects-oversight-contract.md §1/§4.
+// [RULE] phase-workflow-injects-architect-pass
+const _ARCHITECT_PHASES = new Set(["plan", "milestone"]);
+const _architectPassLine = _ARCHITECT_PHASES.has(phaseName)
+  ? [
+      ``,
+      `ARCHITECT'S OVERSIGHT — run this Six-Stage Pass BEFORE finalizing the ${phaseName}, IN ORDER.`,
+      `Each stage can KILL/reshape the plan. Answer each with EVIDENCE (a grep, a Read, or the`,
+      `graph slice above) — never conviction. Record the answers in plain, jargon-free language`,
+      `in the milestone's PseudoCode document (.gsd-t/pseudocode/), house style: title + one-line`,
+      `purpose, CURRENT/PROPOSED blocks, "# plain comment" inline, a summary table.`,
+      `  1. OBJECTIVE — what is the core objective, and why is it the objective?`,
+      `  2. CONFLICT — does it conflict with another objective? must a prior one be re-examined?`,
+      `  3. REUSE — have I already done any piece of this? Can I reuse the PROCESS, or the OUTPUT`,
+      `     (a value already computed/stored)? Consult the graph slice, NOT memory. This stage`,
+      `     kills redundant work (e.g. re-deriving a value already stored locally).`,
+      `  4. SIMPLICITY — is this the simplest, most efficient plan? Prove it.`,
+      `  5. REUSE FORECAST — HIGH (core entity / recurs / pure transform) → build clean+extractable,`,
+      `     register in graph as reuse-likely. LOW → simplest inline, no abstraction. If a similar`,
+      `     thing exists: same JOB → extract a shared core (do NOT mutate the working original);`,
+      `     if stability forbids touching it → build new BUT register a "reuse-candidate" graph link`,
+      `     to the twin (never a silent rogue duplicate).`,
+      `  6. RISK — any security or stability/scalability risk? Am I sure?`,
+      `A stage you cannot answer with evidence HALTS the plan (needs-human) — do not proceed on a hunch.`,
+    ].join("\n")
+  : "";
+
 if (!competitionOn) {
   // ── Single-producer path (default, unchanged behavior) ──
   phase("Phase");
@@ -879,6 +911,7 @@ if (!competitionOn) {
       userInput ? `\nUser input:\n${userInput}` : "",
       ``,
       `Objective: ${baseObjective}`,
+      _architectPassLine,
       ``,
       `Follow the CLAUDE.md Pre-Commit Gate. Commit artifacts with prefix "${(milestone || "m").toLowerCase()}(${phaseName})".`,
       `Return JSON per the schema.`,

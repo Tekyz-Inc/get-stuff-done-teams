@@ -2,6 +2,21 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [4.20.11] - 2026-07-12
+
+### Added — M101: Architect's Oversight Doctrine
+
+Fills GSD-T's empty architect seat. Every existing quality gate (Red Team, QA, code-review, pre-mortem) asks "is this correct?" — none asked "is this the smartest, simplest design given what already exists?" The result was the wrong thing built correctly, tested thoroughly, and shipped (origin: a real waste where a whole-page scan re-derived a value already stored locally, invisible under jargon). Now every build runs a Six-Stage Pass before code: Objective → Conflict → Reuse (process AND output, queried against the code graph) → Simplicity → Reuse-forecast → Risk, each answered with evidence not conviction. Three-layer enforcement, sibling of the M90 Unproven-Assumption Doctrine.
+
+- `templates/CLAUDE-global.md` + `~/.claude/CLAUDE.md`: the doctrine (definition layer) — Six-Stage Pass, reuse logic (HIGH/LOW forecast, extract-don't-mutate, graph-registered reuse-candidate links to prevent silent duplicate sprawl), plain-English proof, jargonless output co-equal with brevity (absorbs backlog #47).
+- `~/.claude/scripts/gsd-t-architect-oversight-guard.js`: PreToolUse Write|Edit reminder hook (trigger layer) — one line at the build moment, fail-open, code-only (silent on prose/pseudocode/docs/non-project). Wired into settings.json.
+- `templates/workflows/gsd-t-phase.workflow.js`: injects the Six-Stage directive into plan/milestone phases (execution layer; `[RULE] phase-workflow-injects-architect-pass`, enforced by the existing guard-map gate).
+- `.gsd-t/contracts/architects-oversight-contract.md` v1.0.0 STABLE; `.gsd-t/pseudocode/PseudoCode-ArchitectsOversight.md` (self-obedience, plain-English house style).
+- `scripts/gsd-t-auto-route.js`: sharpened READER_CONTRACT jargon rule + 2 worked examples (backlog #47).
+- `test/m101-architect-oversight-hook.test.js`: 9 tests (fires on code, silent on prose, fails open on garbage).
+
+Follow-on (recorded, not built): a dedicated verify agent for pseudocode-completeness / reuse-evidence / no-silent-twin checks. The existing guard-map gate already enforces the `[RULE]` marker.
+
 ## [4.20.10] - 2026-07-08
 
 ### Added — M100: Universal Trace + Audit Logging (framework defaults)

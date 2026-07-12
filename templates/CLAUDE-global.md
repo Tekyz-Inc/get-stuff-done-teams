@@ -429,6 +429,33 @@ asserting. If you lack a fresh source, say so explicitly: *"I believe X, but I d
 source — please verify."* Do NOT state an external/time-varying fact as known when it is a guess.
 See memory pointer: `feedback_auto_research_external_gaps`.
 
+### Architect's Oversight Doctrine (M101 — governed, enforced)
+
+**Contract:** `.gsd-t/contracts/architects-oversight-contract.md` v1.0.0 STABLE
+
+**Never build before the design has passed the architect's interrogation.** GSD-T staffs verifiers (Red Team, QA, code-review, pre-mortem) — all asking "is this correct?" — but no seat asked "is this the *smartest, simplest* design given what we already have?" The result: the wrong thing built correctly, then thoroughly tested, then shipped (the Binvoice completeness-scan waste — a whole-page scan re-deriving a count already stored locally). This doctrine fills the empty architect seat. Sibling to the Unproven-Assumption Doctrine: that one bars unproven *facts*; this one bars unproven *necessity*.
+
+**The Six-Stage Pass — run IN ORDER before proposing or building any solution. Each stage can KILL the plan. Every "am I sure?" is answered with EVIDENCE (a grep, a Read, a graph query), never conviction — self-confidence is what produced the waste.**
+
+1. **Objective** — What is the core objective? Why is it the core objective? *(Kills: building the wrong thing.)*
+2. **Conflict** — Does it support or conflict with other core objectives? Must we re-examine/re-plan an already-built objective? *(Kills: a local win that breaks the system; frozen past decisions.)*
+3. **Reuse** — Have I already accomplished any piece of this? Can I reuse the **process**, or the **output** of that process? *(Query the graph — not memory. This stage kills redundant work like the completeness scan. Split is load-bearing: reuse the answer already produced, not just the code.)*
+4. **Simplicity** — Is this the simplest, most efficient plan? Am I sure? *(Evidence, not conviction. Kills bloat.)*
+5. **Reuse forecast & duplication** — see §Reuse Logic below. *(Kills both over-engineering and rogue-twin sprawl.)*
+6. **Risk** — Security risks? Stability/scalability risks? Am I sure? *(Kills fast-but-fragile.)*
+   → **Then build.**
+
+**§Reuse Logic (Stage 5 — how to avoid both sprawl and stability-breakage):**
+- **Forecast reuse likelihood** against long-term project scope (read requirements/architecture — don't guess): **HIGH** (core domain entity / recurs in roadmap / pure transformation) or **LOW** (one-off UI/debug/glue / single caller). HIGH → build clean + extractable now (NOT config-knobbed — that's the YAGNI trap), register in the graph as reuse-likely. LOW → simplest inline thing, no abstraction.
+- **When a similar-but-not-reusable thing already exists:** (a) same WHAT (job) or same HOW (surface)? Same WHAT → generalize; merely similar → build new. (b) If generalize: **extract a shared core, do NOT mutate** the working original (old callers keep identical behavior). (c) If blast-radius/stability forbids touching it → build new, **but register a "reuse-candidate" link in the graph** pointing at the twin, so the duplication is visible and re-decided on next touch. **Never build a silent rogue twin** — sprawl disables Stage 3's reuse-check for everyone after you.
+- **A wrong forecast self-corrects:** the graph's similarity check surfaces a LOW-forecast function that got reused anyway at the next Stage 3. So the forecast need only be directionally right — the graph rescues the misses. That is what removes the paralysis.
+
+**§Plain-English proof (the artifact you can always review, never must):** the Six-Stage answers are written into the milestone's **PseudoCode document** in plain, jargon-free language (style: `.gsd-t/pseudocode/` — title + one-line purpose, `CURRENT`/`PROPOSED` blocks, `# plain comment` inline, a summary table; near-zero preamble). Jargon is where unexamined complexity hides — a layman-legible sentence has nowhere for a pointless operation to survive. The pseudocode IS the audit, and it lets the user approve *direction before code* as the senior reviewer, not a rubber-stamp.
+
+**§Jargonless output (co-equal with brevity, NOT a trade-off):** short and clear are different axes; jargon is short, so brevity rules alone reward it. Every reply, plan, options-prompt, and mid-work narration glosses jargon in plain words on first use. The crux: individual shorthand may be decodable, but **several mashed into one sentence become unintelligible** — never force the reader toward an "I don't understand" escape hatch; if that option would help, the sentence already failed. Enforced by the Reader Contract (injected every turn).
+
+**§Enforcement (three layers — same shape as Unproven-Assumption):** (1) this doctrine = the *definition* (reference, always available); (2) a **PreToolUse hook on Write/Edit** = the *trigger* — injects a one-line reminder pointing here at the build moment, so it can't be missed under load; (3) the **plan/milestone workflow gate** = the *execution* — the Six-Stage Pass runs as blocking `agent()` steps with graph/doc evidence, and pseudocode-completeness is a verify check. Injecting the doctrine ≠ executing it; the workflow does the doing.
+
 ### Phase Flow
 - Upon completing a phase, automatically proceed to the next phase
 - ONLY run Discussion phase if truly required (clear path → skip to Plan)

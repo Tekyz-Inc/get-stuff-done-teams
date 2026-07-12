@@ -648,6 +648,7 @@ After M94 ships: (1) DEFINE the telemetry suite milestone (#46) but DO NOT build
 
 
 ## 47. Enforce jargonless output as co-equal with brevity (incl. mid-work narration)
+- **Status:** ✅ ABSORBED into M101 (Architect's Oversight), 2026-07-12 — implemented as M101 §5 (Jargonless output). READER_CONTRACT jargon bullet sharpened + 2 worked examples added (`scripts/gsd-t-auto-route.js`); CLAUDE.md Layman-first line mirrored. Contract: `architects-oversight-contract.md` §5.
 - **Type:** improvement | **App:** gsd-t | **Category:** output-quality
 - **Added:** 2026-07-08 | **Origin:** conversation 2026-07-08
 - **Problem:** The brevity work optimized for *short*, but short and *clear* are different axes — and jargon is short, so the current rules reward it. David's original directive weighted **jargonless** as first-class (stated many times, strongly), co-equal with short/concise/bulleted — NOT a trade-off. In practice it's under-enforced: brevity got a blocking Stop hook + Reader Contract examples + a lint; jargonless got one soft "gloss jargon" bullet, no examples for code-terms, and nothing at all governing mid-work narration.
