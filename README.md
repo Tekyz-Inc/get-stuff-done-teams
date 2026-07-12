@@ -1,6 +1,6 @@
 # GSD-T: Contract-Driven Development for Claude Code
 
-**v4.20.11** - A methodology for reliable, parallelizable development using Claude Code with optional Agent Teams support.
+**v5.0.10** - A methodology for reliable, parallelizable development using Claude Code with optional Agent Teams support.
 
 **Eliminates context rot** — task-level fresh dispatch (one subagent per task, ~10-20% context each) means compaction never triggers.
 **Compaction-proof debug loops** — `gsd-t headless --debug-loop` runs test-fix-retest cycles as separate `claude -p` sessions. A JSONL debug ledger persists all hypothesis/fix/learning history across fresh sessions. Anti-repetition preamble injection prevents retrying failed hypotheses. Escalation tiers (sonnet → opus → human) and a hard iteration ceiling enforced externally.
@@ -200,6 +200,7 @@ This will replace changed command files, back up your CLAUDE.md if customized, a
 | `/gsd-t-partition` | Decompose into domains + contracts | In wave |
 | `/gsd-t-plan` | Create atomic task lists per domain (tasks auto-split to fit one context window) | In wave |
 | `/gsd-t-impact` | Analyze downstream effects | In wave |
+| `/gsd-t-architect` | Run the Architect's Oversight Six-Stage Pass on existing work — finds the simplest solution + reuse + traps, as plain-English pseudocode (plan-only; `--build` to auto-build) | Manual |
 | `/gsd-t-execute` | Run tasks — task-level fresh dispatch, worktree isolation, adaptive replanning | In wave |
 | `/gsd-t-test-sync` | Sync tests with code changes | In wave |
 | `/gsd-t-qa` | QA agent — test generation, execution, gap reporting | Auto-spawned |

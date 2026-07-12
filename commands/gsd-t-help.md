@@ -241,6 +241,13 @@ Use these when user asks for help on a specific command:
 - **Creates**: `.gsd-t/impact-report.md`
 - **Use when**: Before making changes, to understand what might break
 
+### architect
+- **Summary**: Run the Architect's Oversight Six-Stage Pass (Objective → Conflict → Reuse → Simplicity → Reuse-forecast → Risk) on existing work — an already-frozen plan, a messy subsystem, or a pasted tangle of problems. Finds the simplest correct solution, what's already reusable (process or a stored value), and the traps each stage surfaces — written as plain-English pseudocode you can approve before any code.
+- **Auto-invoked**: No (standalone, on-demand)
+- **Args**: `/gsd-t-architect "<what to assess>"` — plus `--build` (auto-build the simplest fix after planning) and `--chat-only` (report in session, don't write a pseudocode file).
+- **Creates**: `.gsd-t/pseudocode/PseudoCode-<Target>.md` (unless `--chat-only`)
+- **Use when**: A plan already exists (or is half-formed) and you want it interrogated for simplicity + reuse before building; or a subsystem "got complicated over time" and you want the simplest version. Default is plan-only, then it offers to build.
+
 ### execute
 - **Summary**: Run tasks from plan, solo or with agent teams
 - **Auto-invoked**: Yes (in wave, after impact)

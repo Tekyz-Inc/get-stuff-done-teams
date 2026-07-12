@@ -278,12 +278,14 @@ describe("command listing functions", () => {
   // total 52→53, gsdt 46→47.
   // M100-D5 added gsd-t-migrate-logging (brownfield trace+audit retrofit):
   // total 53→54, gsdt 47→48.
-  it("total command count is 54", () => {
-    assert.equal(getCommandFiles().length, 54);
+  // M101 added gsd-t-architect (standalone Architect's Oversight pass):
+  // total 54→55, gsdt 48→49.
+  it("total command count is 55", () => {
+    assert.equal(getCommandFiles().length, 55);
   });
 
-  it("gsd-t command count is 48", () => {
-    assert.equal(getGsdtCommands().length, 48);
+  it("gsd-t command count is 49", () => {
+    assert.equal(getGsdtCommands().length, 49);
   });
 
   it("utility command count is 6", () => {

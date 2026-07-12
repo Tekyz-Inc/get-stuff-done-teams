@@ -2,6 +2,16 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.0.10] - 2026-07-12
+
+### Added — `/gsd-t-architect`: run the Architect's Oversight pass on demand
+
+A standalone command that runs the M101 Six-Stage Pass (Objective → Conflict → Reuse → Simplicity → Reuse-forecast → Risk) on **existing** work — an already-frozen plan, a messy subsystem, or a pasted tangle of problems — and produces the simplest correct solution as plain-English pseudocode, plus the traps each stage surfaces and what's already reusable. Major bump: this is the on-demand front door to design-first, reuse-first development, not an incremental command. Where the plan/milestone workflow runs the pass *while generating* a plan, this runs it as a standalone audit over work that already exists.
+
+- `commands/gsd-t-architect.md`: prose-driven command — spawns one opus analysis subagent, reasons from the code graph (reuse/duplication) and real code, not memory. Default = plan-only then offers to build; `--build` auto-builds the simplest fix; `--chat-only` skips writing a file. Always prints a findings + plan summary to the session, even in auto-build. Reuses the existing prose-command + Task-subagent pattern (`/gsd-t-status`, `/gsd-t-impact`) — no new workflow file (the doctrine obeying its own Stage 3/4).
+- `README.md` + `commands/gsd-t-help.md`: command documented.
+- `test/filesystem.test.js`: command counts 54→55 / 48→49.
+
 ## [4.20.11] - 2026-07-12
 
 ### Added — M101: Architect's Oversight Doctrine
