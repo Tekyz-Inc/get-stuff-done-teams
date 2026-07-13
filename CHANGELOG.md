@@ -2,6 +2,19 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.0.14] - 2026-07-13
+
+### Added — No-Fallback-Ever Doctrine (never branch around a failure without asking)
+
+"Pretend every project is a vampire and the word fallback is garlic." A fallback — anything that CONTINUES after a failure (catch-and-continue, `|| default`, silent degrade, try-X-else-Y where Y masks X failing) — is now BANNED unless the user approves it first, or you can cite a confirmed reproducible case only a fallback catches. This reflex is what hid the 12-day broken-graph break and the "npm install silently kept the old version" skew. The preferred move where a straight line can fail is a HALT (stop + demand fix), which is explicitly NOT a fallback. Strongest sibling of the existing No-Silent-Degradation feedback.
+
+- `templates/CLAUDE-global.md` (+ `~/.claude/CLAUDE.md`): the doctrine (definition) — banned scope, the halt-not-fallback distinction, the ask-first test, and the release-process clause (verify the change landed / version advanced, HALT if not — never trust a reported-success install).
+- `scripts/gsd-t-architect-oversight-guard.js`: the Write/Edit trigger reminder now also challenges fallbacks at the build moment (reused the existing architect hook — no new hook).
+- `templates/workflows/gsd-t-phase.workflow.js` + `commands/gsd-t-architect.md`: added Stage 6b (No-Fallback) to the Six-Stage Pass directive.
+- `.gsd-t/contracts/architects-oversight-contract.md`: Stage 6b row.
+- Reused the existing `bin/gsd-t-graph-anti-grep-lint.cjs` for the graph-specific mechanical guard; deliberately did NOT build a general static fallback-detector (it can't judge proven-necessary — that's the ask).
+- `test/m101-architect-oversight-hook.test.js`: 4 wiring tests (doctrine in both templates, hook, workflow, command).
+
 ## [5.0.13] - 2026-07-12
 
 ### Fixed — a BROKEN graph now HALTS instead of silently falling back to grep

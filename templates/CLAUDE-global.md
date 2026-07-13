@@ -456,6 +456,23 @@ See memory pointer: `feedback_auto_research_external_gaps`.
 
 **§Enforcement (three layers — same shape as Unproven-Assumption):** (1) this doctrine = the *definition* (reference, always available); (2) a **PreToolUse hook on Write/Edit** = the *trigger* — injects a one-line reminder pointing here at the build moment, so it can't be missed under load; (3) the **plan/milestone workflow gate** = the *execution* — the Six-Stage Pass runs as blocking `agent()` steps with graph/doc evidence, and pseudocode-completeness is a verify check. Injecting the doctrine ≠ executing it; the workflow does the doing.
 
+### No-Fallback-Ever Doctrine (governed, enforced — the strongest sibling of No-Silent-Degradation)
+
+**Pretend every project is a vampire and the word "fallback" is garlic.** A fallback — **anything that continues after a failure** (a `catch` that keeps going, `|| default`, a silent degrade, a secondary path, a "try X else Y" where Y masks X failing) — is **BANNED unless the user explicitly approves it first, OR you can cite a confirmed, reproducible case where the straight-line path provably fails and ONLY a fallback catches it.** No trivial exception. This is a Destructive-Action-Guard-class STOP: before writing any such branch, **halt and ask the user.**
+
+**Why:** the reflex to add a fallback "just in case" is what hides real failures — a fallback that guards an *unproven* case doesn't add safety, it adds a place for a real failure to hide (e.g. a graph query that silently falls back to grep when the graph is actually broken). The desired discipline is the **straight-line process that produces the result**; if the straight line can fail, the answer is **HALT and surface it**, not branch around it.
+
+**The one thing that is NOT a fallback (and is REQUIRED where a straight line can fail):** a **HALT** — refusing to continue and demanding a fix (return `blocked-needs-human`, exit non-zero, loud message). A halt is the *opposite* of a fallback: it stops the hiding instead of enabling it. When you're tempted to write a fallback, the correct move is almost always a halt.
+
+**Test before writing any "continue after failure" branch:**
+1. Is this a fallback (continues past a failure) or a halt (stops)? Halt → allowed. Fallback → continue to 2.
+2. Can I name a **confirmed, reproducible** failing case where ONLY this fallback catches it? If NO → **STOP and ask the user.** If YES → cite it in a comment + the commit, then proceed.
+3. Never judge "trivial" yourself — the trivial-fallback judgment is exactly the one that has been failing. Ask.
+
+**Applies to the release process too:** a publish/propagate step must **verify the change actually landed** (installed version advanced; a sample project received the new file) and **HALT if it didn't** — never trust an install/copy that *reports* success. A package manager silently keeping the old version is itself a banned silent fallback.
+
+**§Enforcement (three layers):** (1) this doctrine = the definition; (2) the **Architect's Oversight Write/Edit trigger is extended** to challenge every fallback at the build moment ("is this a fallback? name the proven case or ask"); (3) mechanical guards where they already exist — the graph consumers' `try→catch→grep` fallback is caught by `bin/gsd-t-graph-anti-grep-lint.cjs` (reused, not duplicated); a general static "detect every fallback" lint is deliberately NOT built (it can't judge *proven-necessary* — that is the human/architect ask, which is layer 2).
+
 ### Phase Flow
 - Upon completing a phase, automatically proceed to the next phase
 - ONLY run Discussion phase if truly required (clear path → skip to Plan)

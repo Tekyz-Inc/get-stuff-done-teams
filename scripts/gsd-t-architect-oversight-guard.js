@@ -33,13 +33,19 @@
 const fs = require("fs");
 const path = require("path");
 
-// One line. A pointer, not the doctrine. Keeps context cost ~nil.
+// A pointer, not the doctrine. Keeps context cost ~nil. Carries TWO reminders:
+// the Six-Stage Pass (design-first) and the No-Fallback-Ever rule (never branch
+// around a failure without asking) — both fire at the write-code moment.
 const REMINDER =
   "[GSD-T ARCHITECT] About to write/edit code — run the Architect's Oversight " +
   "Six-Stage Pass FIRST (Objective → Conflict → Reuse[query the graph] → " +
   "Simplicity → Reuse-forecast → Risk), each answered with evidence not conviction. " +
   "Is this the simplest design, and does something reusable already exist? " +
-  "See ~/.claude/CLAUDE.md § Architect's Oversight Doctrine.";
+  "NO-FALLBACK-EVER: if this adds anything that CONTINUES AFTER A FAILURE " +
+  "(catch-and-continue, || default, silent degrade, try-X-else-Y) — STOP and ask the " +
+  "user first, unless you can cite a confirmed reproducible case only a fallback catches. " +
+  "A HALT (stop + demand fix) is NOT a fallback and is the preferred move. " +
+  "See ~/.claude/CLAUDE.md § Architect's Oversight + No-Fallback-Ever Doctrines.";
 
 // File extensions that are PROSE/config, not code — skip the reminder for these.
 // (The doctrine's own artifacts are markdown; reminding while authoring them is noise.)

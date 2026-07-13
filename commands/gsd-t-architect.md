@@ -79,6 +79,12 @@ The subagent works through the six stages IN ORDER. Each can kill or reshape the
    the simpler fix actually works** — if the plan says "handled elsewhere / picked up later,"
    VERIFY that's true; do not assert self-healing you haven't checked. (This is the trap that
    hides inside a simplification.)
+6b. **NO-FALLBACK-EVER** — Does the design add ANY fallback (anything that CONTINUES after a
+   failure: catch-and-continue, `|| default`, silent degrade, try-X-else-Y where Y masks X
+   failing)? If yes, do NOT design it in — surface it as an OPEN QUESTION for the user, UNLESS
+   you can cite a confirmed reproducible case only a fallback catches. The straight-line process
+   that produces the result is the goal; where it can fail, prefer a **HALT** (stop + demand
+   fix), which is NOT a fallback. (See CLAUDE.md § No-Fallback-Ever Doctrine.)
 
 A stage the subagent cannot answer with evidence is a HALT — surface it as an open question for
 the user, do not paper over it with a guess.

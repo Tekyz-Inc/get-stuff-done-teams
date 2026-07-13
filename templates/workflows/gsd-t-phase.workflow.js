@@ -928,6 +928,12 @@ const _architectPassLine = _ARCHITECT_PHASES.has(phaseName)
       `     if stability forbids touching it → build new BUT register a "reuse-candidate" graph link`,
       `     to the twin (never a silent rogue duplicate).`,
       `  6. RISK — any security or stability/scalability risk? Am I sure?`,
+      `  6b. NO-FALLBACK-EVER — does this plan add ANY fallback (anything that CONTINUES after a`,
+      `     failure: catch-and-continue, || default, silent degrade, try-X-else-Y where Y masks X`,
+      `     failing)? If yes: STOP and surface it as an OPEN QUESTION for the user — do NOT design`,
+      `     it in — UNLESS you can cite a confirmed reproducible case only a fallback catches. The`,
+      `     straight-line process that produces the result is the goal; where it can fail, prefer a`,
+      `     HALT (stop + demand fix), which is NOT a fallback. Fallbacks are rare and ask-first.`,
       `A stage you cannot answer with evidence HALTS the plan (needs-human) — do not proceed on a hunch.`,
     ].join("\n")
   : "";

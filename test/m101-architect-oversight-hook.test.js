@@ -123,6 +123,34 @@ test("M101: phase workflow injects the architect pass for plan/milestone", () =>
   assert.match(wf, /_ARCHITECT_PHASES = new Set\(\["plan", "milestone"\]\)/, "gated to plan/milestone");
 });
 
+// No-Fallback-Ever doctrine — wired across all four surfaces (doc-ripple guard).
+test("No-Fallback doctrine: present in both CLAUDE templates", () => {
+  const tpl = fs.readFileSync(path.join(GSDT_PROJECT, "templates", "CLAUDE-global.md"), "utf8");
+  assert.match(tpl, /No-Fallback-Ever Doctrine/, "template carries the doctrine");
+  assert.match(tpl, /anything that continues after a failure/i, "defines the banned scope");
+  assert.match(tpl, /HALT/, "names halt as the non-fallback alternative");
+  assert.match(tpl, /opposite\* of a fallback|NOT a fallback/i, "distinguishes halt from fallback");
+});
+
+test("No-Fallback doctrine: the architect hook reminder carries it", () => {
+  const hook = fs.readFileSync(HOOK, "utf8");
+  assert.match(hook, /NO-FALLBACK-EVER/, "hook reminder challenges fallbacks at write time");
+  // The reminder is a string built by concatenation; assert on stable fragments.
+  assert.match(hook, /STOP and ask the/i, "reminder is an ask-first STOP");
+  assert.match(hook, /CONTINUES AFTER A FAILURE/i, "names the banned pattern");
+});
+
+test("No-Fallback doctrine: the phase workflow directive carries stage 6b", () => {
+  const wf = fs.readFileSync(
+    path.join(GSDT_PROJECT, "templates", "workflows", "gsd-t-phase.workflow.js"), "utf8");
+  assert.match(wf, /NO-FALLBACK-EVER/, "6b stage present in the plan/milestone directive");
+});
+
+test("No-Fallback doctrine: the /gsd-t-architect command carries stage 6b", () => {
+  const cmd = fs.readFileSync(path.join(GSDT_PROJECT, "commands", "gsd-t-architect.md"), "utf8");
+  assert.match(cmd, /NO-FALLBACK-EVER/, "command's Six-Stage list includes the fallback challenge");
+});
+
 test("M101: the hook ships in the repo scripts/ (so install/update-all propagates it)", () => {
   assert.ok(fs.existsSync(REPO_HOOK),
     "scripts/gsd-t-architect-oversight-guard.js must exist in the repo — else it never ships");
