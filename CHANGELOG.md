@@ -2,6 +2,15 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.1.11] - 2026-07-13
+
+### Fixed — paused M102 work leaked into the v5.1.10 package; removed
+
+`npm publish` tarballs the WORKING TREE, not the committed tree — so v5.1.10 shipped the uncommitted, PAUSED M102 env-registry files (the known-leaky secret guard bins + a `templates/CLAUDE-global.md` "Environment Access" rule pointing at them). `update-all` re-propagated that rule into `~/.claude/CLAUDE.md`. This patch removes the M102 env-access rule from the template and publishes from a clean tree (the paused M102 build files are stashed during publish, so the package matches the committed state). The Simply Stated doctrine (v5.1.10) is unaffected and retained.
+
+- `templates/CLAUDE-global.md`: removed the M102 "Environment Access — read-first" rule (M102 is paused; the rule pointed at an unfinished/leaky mechanism).
+- Publish hygiene: the paused M102 working-tree files no longer ride into the released tarball.
+
 ## [5.1.10] - 2026-07-13
 
 ### Added — Simply Stated Doctrine (clarity as a defect gate, the verbose-virus cure)

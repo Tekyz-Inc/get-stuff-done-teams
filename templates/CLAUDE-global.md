@@ -99,25 +99,6 @@ NEED TO UNDERSTAND SOMETHING?
   └── Not documented? → Research, then DOCUMENT IT
 ```
 
-### Environment Access — read-first, HALT-and-document (M102)
-
-**EXTENDS No-Re-Research; obeys No-Fallback-Ever.** Before reaching ANY non-local environment (staging/prod DB, remote server, hosted API, SSH host), the connection MAP is read from the committed `## Environments` table in `docs/infrastructure.md` — NEVER re-discovered.
-
-```
-NEED TO REACH A NON-LOCAL ENVIRONMENT?
-  ├── lookupEnvironment(scope, kind) FIRST  →  bin/gsd-t-env-registry.cjs lookup
-  ├── Row exists → use its connect command; the secret is pulled at runtime via
-  │                the recorded env-var NAME from its vault (never a value in the doc).
-  │                scope=prod + read-only=YES + a WRITE op → HALT, confirm with human.
-  └── Row MISSING → HALT the connect. Do NOT guess a connection string. Do NOT grep
-                    transcripts to rediscover. The brownfield path:
-                    detectEnvConfig → ask human to confirm/fill → recordEnvironment
-                    → addPermissionEntry → THEN proceed. First need = last rediscovery.
-```
-
-- The registry stores only the MAP + which vault holds the secret + the env-var NAME + the fetch/connect commands — **never a secret VALUE**.
-- **Zero fallback.** A missing row resolves by DOCUMENTING (detect → ask → record → proceed), never by a guessed connstring or a transcript re-grep. That HALT-then-document is NOT a fallback.
-- Greenfield: when GSD-T builds/provisions an env, it records the row in the SAME pass (`recordEnvironment`) — so staleness self-heals (a re-provision upserts by `(scope, kind)` and replaces the stale row).
 
 
 # Versioning
