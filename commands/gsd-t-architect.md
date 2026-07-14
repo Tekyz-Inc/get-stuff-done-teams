@@ -85,6 +85,12 @@ The subagent works through the six stages IN ORDER. Each can kill or reshape the
    you can cite a confirmed reproducible case only a fallback catches. The straight-line process
    that produces the result is the goal; where it can fail, prefer a **HALT** (stop + demand
    fix), which is NOT a fallback. (See CLAUDE.md § No-Fallback-Ever Doctrine.)
+7. **SIMPLY-STATED** (clarity gate — the review is NOT done until this passes) — state every
+   finding and the verdict SIMPLY: precise and complete, but every word load-bearing, the logic
+   in a straight line, ZERO jargon standing in for a clear idea, no nested clauses hiding a
+   tangle. If a finding cannot be stated simply, the thinking on it is not finished — RE-THINK
+   the muddled part, do not re-word it. "Too sophisticated to simplify" is a BANNED escape hatch
+   (simplify the expression, never the idea). (See CLAUDE.md § Simply Stated Doctrine.)
 
 A stage the subagent cannot answer with evidence is a HALT — surface it as an open question for
 the user, do not paper over it with a guess.
@@ -100,6 +106,10 @@ a summary table, near-zero preamble. For each CURRENT block, say **why it does w
 successive fixes). Unless `--chat-only`, write it to `.gsd-t/pseudocode/PseudoCode-<Target>.md`.
 
 **B — Session summary** (always printed, even under `--build`):
+- **Simply Stated** (REQUIRED FIRST LINE — the clarity gate) — the verdict + the single most
+  important finding in ONE clean, jargon-free, straight-line statement a smart non-specialist
+  acts on without re-reading. If you cannot write this line cleanly, the review is NOT done —
+  re-think, don't re-word. Everything below is the depth for whoever wants it.
 - **Core objective** (one line)
 - **Is this a "complicated over time" issue?** (yes/no + the accretion history if yes)
 - **What's reusable** (process or a stored output already available)

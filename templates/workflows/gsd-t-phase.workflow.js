@@ -934,6 +934,13 @@ const _architectPassLine = _ARCHITECT_PHASES.has(phaseName)
       `     it in — UNLESS you can cite a confirmed reproducible case only a fallback catches. The`,
       `     straight-line process that produces the result is the goal; where it can fail, prefer a`,
       `     HALT (stop + demand fix), which is NOT a fallback. Fallbacks are rare and ask-first.`,
+      `  7. SIMPLY-STATED (clarity gate — the plan is NOT done until this passes) — write the ${phaseName}`,
+      `     as a SIMPLY-STATED lead FIRST: precise and complete, but every word load-bearing, the logic`,
+      `     in a straight line, ZERO jargon standing in for a clear idea, no nested clauses hiding a`,
+      `     tangle. If you CANNOT state it simply, the thinking is not finished — the muddle in the`,
+      `     words is a muddle in the design; RE-THINK the muddled part, do not re-word it. "Too`,
+      `     sophisticated to simplify" is a BANNED escape hatch (simplify the expression, never the`,
+      `     idea). This simply-stated lead heads the deliverable; the depth sits below it.`,
       `A stage you cannot answer with evidence HALTS the plan (needs-human) — do not proceed on a hunch.`,
     ].join("\n")
   : "";

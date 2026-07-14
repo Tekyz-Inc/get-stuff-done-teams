@@ -151,6 +151,35 @@ test("No-Fallback doctrine: the /gsd-t-architect command carries stage 6b", () =
   assert.match(cmd, /NO-FALLBACK-EVER/, "command's Six-Stage list includes the fallback challenge");
 });
 
+// Simply Stated doctrine — clarity-as-defect gate, wired across all four surfaces.
+test("Simply Stated: present in both CLAUDE templates as a defect gate (not a style reminder)", () => {
+  const tpl = fs.readFileSync(path.join(GSDT_PROJECT, "templates", "CLAUDE-global.md"), "utf8");
+  assert.match(tpl, /Simply Stated Doctrine/, "template carries the doctrine");
+  assert.match(tpl, /RE-THOUGHT|RE-THINK|re-think/i, "mandates re-think not re-word");
+  assert.match(tpl, /muddle in the words IS a muddle in the design|muddle in the words is a muddle/i,
+    "states the clarity=thinking equivalence");
+  assert.match(tpl, /escape hatch/i, "bans the 'too sophisticated to simplify' escape hatch");
+});
+
+test("Simply Stated: the architect hook reminder carries it", () => {
+  const hook = fs.readFileSync(HOOK, "utf8");
+  assert.match(hook, /SIMPLY-STATED/, "hook challenges clarity at the author moment");
+  assert.match(hook, /RE-THINK, don't re-word|re-think.*not.*re-word/i, "re-think not re-word");
+});
+
+test("Simply Stated: the phase workflow directive carries stage 7", () => {
+  const wf = fs.readFileSync(
+    path.join(GSDT_PROJECT, "templates", "workflows", "gsd-t-phase.workflow.js"), "utf8");
+  assert.match(wf, /SIMPLY-STATED/, "stage 7 clarity gate present in the plan/milestone directive");
+});
+
+test("Simply Stated: the /gsd-t-architect command gates on it + leads with it", () => {
+  const cmd = fs.readFileSync(path.join(GSDT_PROJECT, "commands", "gsd-t-architect.md"), "utf8");
+  assert.match(cmd, /SIMPLY-STATED/, "stage 7 in the pass");
+  assert.match(cmd, /Simply Stated.*REQUIRED FIRST LINE|REQUIRED FIRST LINE.*clarity gate/s,
+    "session summary leads with the Simply Stated line");
+});
+
 test("M101: the hook ships in the repo scripts/ (so install/update-all propagates it)", () => {
   assert.ok(fs.existsSync(REPO_HOOK),
     "scripts/gsd-t-architect-oversight-guard.js must exist in the repo — else it never ships");

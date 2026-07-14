@@ -45,7 +45,11 @@ const REMINDER =
   "(catch-and-continue, || default, silent degrade, try-X-else-Y) — STOP and ask the " +
   "user first, unless you can cite a confirmed reproducible case only a fallback catches. " +
   "A HALT (stop + demand fix) is NOT a fallback and is the preferred move. " +
-  "See ~/.claude/CLAUDE.md § Architect's Oversight + No-Fallback-Ever Doctrines.";
+  "SIMPLY-STATED: before presenting an architecture/plan/finding, state it SIMPLY — every " +
+  "word load-bearing, logic in a straight line, no jargon or nested clauses. If you can't " +
+  "state it cleanly the thinking isn't done (muddle in the words = muddle in the design) — " +
+  "RE-THINK, don't re-word. 'Too sophisticated to simplify' is a banned escape hatch. " +
+  "See ~/.claude/CLAUDE.md § Architect's Oversight + No-Fallback-Ever + Simply Stated Doctrines.";
 
 // File extensions that are PROSE/config, not code — skip the reminder for these.
 // (The doctrine's own artifacts are markdown; reminding while authoring them is noise.)

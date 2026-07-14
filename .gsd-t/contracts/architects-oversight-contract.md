@@ -39,6 +39,7 @@ conviction. Self-confidence is exactly what produced the waste.
 | 5 | **Reuse forecast & duplication** | (see §2) | Over-engineering AND rogue-twin sprawl |
 | 6 | **Risk** | Security risks? Stability/scalability risks? Am I sure? | Fast-but-fragile |
 | 6b | **No-Fallback-Ever** | Does this add anything that CONTINUES after a failure? If yes → STOP + ask (or cite a proven case). Prefer a HALT. | Fallbacks that hide real failures |
+| 7 | **Simply Stated** | State it simply (every word load-bearing, straight-line logic, no jargon/nesting). Can't → thinking not done → RE-THINK not re-word. HALT-as-defect. | Verbosity that hides muddled thinking → bugs |
 | → | **Build** | | |
 
 **Stage 3 split is load-bearing.** "Reuse the **output**" (the answer already produced and

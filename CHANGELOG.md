@@ -2,6 +2,19 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.1.10] - 2026-07-13
+
+### Added — Simply Stated Doctrine (clarity as a defect gate, the verbose-virus cure)
+
+The recurring "verbose virus" — GSD-T deliverables that are dense, jargon-heavy, and unreadable (one architecture review drew "plain English please" five times in a single message) — has resisted every prior fix (Reader Contract, retired brevity Stop hook, jargon lint) because those treat verbosity as OUTPUT polish and are reminders that lose under load. Simply Stated is a different mechanism: it treats verbosity as a SYMPTOM of unclear thinking, and the same unclear thinking ships the bugs. Before GSD-T presents an architecture/plan/finding/milestone, it must state it simply first — every word load-bearing, straight-line logic, no jargon or nested clauses. If it can't, the thinking isn't done: RE-THINK, don't re-word. HALT-as-defect, not a soft nudge. "Simply" ≠ dumbed down — the content stays as sophisticated as the problem; only the expression is clean ("too sophisticated to simplify" is a banned escape hatch).
+
+- `templates/CLAUDE-global.md` (+ `~/.claude/CLAUDE.md`): the doctrine (definition) — the clarity=thinking equivalence, the HALT, the anti-dumbing-down clause.
+- `scripts/gsd-t-architect-oversight-guard.js`: the Write/Edit trigger reminder now carries the Simply-Stated challenge (reused the architect hook — no new hook).
+- `templates/workflows/gsd-t-phase.workflow.js`: Stage 7 (Simply-Stated clarity gate) in the Six-Stage Pass — the plan isn't done until it has a clean simply-stated lead.
+- `commands/gsd-t-architect.md`: Stage 7 in the pass + "Simply Stated" is now the REQUIRED FIRST LINE of the architect's session summary.
+- `.gsd-t/contracts/architects-oversight-contract.md`: Stage 7 row.
+- `test/m101-architect-oversight-hook.test.js`: 5 wiring tests (both templates, hook, workflow, command).
+
 ## [5.0.14] - 2026-07-13
 
 ### Added — No-Fallback-Ever Doctrine (never branch around a failure without asking)

@@ -99,6 +99,26 @@ NEED TO UNDERSTAND SOMETHING?
   └── Not documented? → Research, then DOCUMENT IT
 ```
 
+### Environment Access — read-first, HALT-and-document (M102)
+
+**EXTENDS No-Re-Research; obeys No-Fallback-Ever.** Before reaching ANY non-local environment (staging/prod DB, remote server, hosted API, SSH host), the connection MAP is read from the committed `## Environments` table in `docs/infrastructure.md` — NEVER re-discovered.
+
+```
+NEED TO REACH A NON-LOCAL ENVIRONMENT?
+  ├── lookupEnvironment(scope, kind) FIRST  →  bin/gsd-t-env-registry.cjs lookup
+  ├── Row exists → use its connect command; the secret is pulled at runtime via
+  │                the recorded env-var NAME from its vault (never a value in the doc).
+  │                scope=prod + read-only=YES + a WRITE op → HALT, confirm with human.
+  └── Row MISSING → HALT the connect. Do NOT guess a connection string. Do NOT grep
+                    transcripts to rediscover. The brownfield path:
+                    detectEnvConfig → ask human to confirm/fill → recordEnvironment
+                    → addPermissionEntry → THEN proceed. First need = last rediscovery.
+```
+
+- The registry stores only the MAP + which vault holds the secret + the env-var NAME + the fetch/connect commands — **never a secret VALUE**.
+- **Zero fallback.** A missing row resolves by DOCUMENTING (detect → ask → record → proceed), never by a guessed connstring or a transcript re-grep. That HALT-then-document is NOT a fallback.
+- Greenfield: when GSD-T builds/provisions an env, it records the row in the SAME pass (`recordEnvironment`) — so staleness self-heals (a re-provision upserts by `(scope, kind)` and replaces the stale row).
+
 
 # Versioning
 
@@ -472,6 +492,18 @@ See memory pointer: `feedback_auto_research_external_gaps`.
 **Applies to the release process too:** a publish/propagate step must **verify the change actually landed** (installed version advanced; a sample project received the new file) and **HALT if it didn't** — never trust an install/copy that *reports* success. A package manager silently keeping the old version is itself a banned silent fallback.
 
 **§Enforcement (three layers):** (1) this doctrine = the definition; (2) the **Architect's Oversight Write/Edit trigger is extended** to challenge every fallback at the build moment ("is this a fallback? name the proven case or ask"); (3) mechanical guards where they already exist — the graph consumers' `try→catch→grep` fallback is caught by `bin/gsd-t-graph-anti-grep-lint.cjs` (reused, not duplicated); a general static "detect every fallback" lint is deliberately NOT built (it can't judge *proven-necessary* — that is the human/architect ask, which is layer 2).
+
+### Simply Stated Doctrine (governed, enforced — clarity as a defect gate, not a writing-style reminder)
+
+**Before GSD-T presents an architecture, plan, finding, review, or milestone definition, it must first state it *simply* — precise and complete, every word earning its place, the logic in a straight line, with no jargon standing in for a clear idea and no nested clauses hiding a tangle. If it cannot be stated simply, the thinking is NOT finished: the muddle in the words IS a muddle in the design. It goes back to be RE-THOUGHT, not re-worded.** The simply-stated version leads the deliverable; the technical depth sits below it for whoever wants it.
+
+**This is a DIFFERENT mechanism from the Reader Contract / jargon lint.** Those treat verbosity as an OUTPUT-polish problem — trim the prose after the thinking is done — and repeatedly fail because a reminder loses to "but this case needs the detail" under load. Simply Stated treats verbosity as what it is: **a symptom of unclear thinking, and the same unclear thinking ships the bugs.** If you cannot express it cleanly, you do not yet understand it — and not-understanding is where defects come from. The inability to state it simply is a DEFECT SIGNAL, gated like the No-Fallback HALT, not a soft nudge.
+
+**"Simply" is NOT "dumbed down."** The content stays as sophisticated as the problem demands — sophisticated IN its simplicity and conciseness (simplify the *expression*, never the *idea*). The test is NOT "could a novice understand the topic." The test is: **is every word load-bearing, and is the logic a straight line?** "This topic is too sophisticated to state simply" is the banned escape hatch.
+
+**The HALT (the teeth):** a deliverable whose simply-stated lead cannot be written cleanly is NOT done — stop, surface it, re-think the muddled part. Do not ship the verbose version with an apology; the verbose version is evidence the design has a gap.
+
+**§Enforcement (three layers):** (1) this doctrine = the definition; (2) the **Architect's Oversight Write/Edit trigger** carries a Simply-Stated line; (3) the **plan/milestone Six-Stage Pass + `/gsd-t-architect` gain a Simply-Stated gate** — the pass does not complete until its finding/plan has a clean simply-stated lead, and the validation protocols flag a deliverable that lacks one. The simply-stated lead is a REQUIRED ARTIFACT (like the pseudocode file), not advice.
 
 ### Phase Flow
 - Upon completing a phase, automatically proceed to the next phase
