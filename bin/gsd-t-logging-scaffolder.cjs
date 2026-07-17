@@ -21,6 +21,9 @@
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
+// M102 — the marker-block idempotent doc-writer was extracted here into the ONE
+// shared module both this scaffolder and bin/gsd-t-env-registry.cjs call.
+const { upsertMarkedDocBlock } = require("./gsd-t-doc-marker.cjs");
 
 const VALID_BACKENDS = ["db-table", "local-sqlite", "local-jsonl"];
 
@@ -182,24 +185,9 @@ function writeChoiceToProjectDocs(projectDir, envelope) {
   const targetPath = candidates.find((p) => fs.existsSync(p)) || candidates[0];
 
   const block = docBlock(envelope);
-  let content = "";
-  if (fs.existsSync(targetPath)) {
-    content = fs.readFileSync(targetPath, "utf8");
-  } else {
-    const dir = path.dirname(targetPath);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  }
-
-  if (content.includes(DOC_MARKER_START) && content.includes(DOC_MARKER_END)) {
-    const startIdx = content.indexOf(DOC_MARKER_START);
-    const endIdx = content.indexOf(DOC_MARKER_END) + DOC_MARKER_END.length;
-    content = content.slice(0, startIdx) + block + content.slice(endIdx);
-  } else {
-    content = content.replace(/\s*$/, "") + "\n\n" + block + "\n";
-  }
-
-  fs.writeFileSync(targetPath, content, "utf8");
-  return targetPath;
+  // M102 — delegate to the ONE shared marker-block writer (byte-identical logic
+  // to the former inline replace/append; extracted so env-registry reuses it).
+  return upsertMarkedDocBlock(targetPath, DOC_MARKER_START, DOC_MARKER_END, block);
 }
 
 // ─── Seam envelope builder ──────────────────────────────────────────────────

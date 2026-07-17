@@ -96,8 +96,21 @@ NEED TO UNDERSTAND SOMETHING?
   ├── Is it about what to build? → Read docs/requirements.md
   ├── Is it about how to deploy/operate? → Read docs/infrastructure.md
   ├── Is it about domain interfaces? → Read .gsd-t/contracts/
+  ├── Is it about reaching a non-local environment (DB/server URL, creds, perms)? → Read the `## Environments` registry in docs/infrastructure.md
   └── Not documented? → Research, then DOCUMENT IT
 ```
+
+## Environment Access — read-first, HALT-and-document (M102)
+
+**Before reaching ANY non-local environment (a staging/prod DB, a remote server, an external service), READ the `## Environments` registry in `docs/infrastructure.md` FIRST.** It is the committed, **secret-free** map of every environment — host, port, db, auth method, which vault holds the secret, the env-var NAME, and the connect command (secrets referenced as `$VAR`, never as a literal value).
+
+- **On a HIT** — use the recorded connect command; the secret is pulled from its vault at runtime via the env-var NAME.
+- **On a MISS (no row) — HALT and document. NEVER guess a connection string, NEVER grep transcripts to rediscover it** (No-Fallback-Ever). Then: `detect` the env → ask the human to confirm/fill → `record` the map row → `add-permission` (broad-glob) → proceed. The registry self-heals staleness because a re-provision upserts by `(scope, kind)`.
+- **Record-at-create (greenfield):** whenever GSD-T BUILDS/PROVISIONS an environment, record its map row in the SAME pass (it has the URL + creds right then).
+- **Never write a secret VALUE into the registry** — only the vault name + env-var NAME + a `$VAR`-referencing command. A literal secret is rejected by `recordEnvironment` and by the `gsd-t-verify` env-registry gate. If a secret is found in a URL/command, the capture flow OFFERS to move it into the vault (rotate-or-move, user's choice) and replace it with a `$VAR`.
+- **Local-literal switch:** a project may opt in via `.gsd-t/env-registry-config.json` `{"allowLocalLiteral": true}` to allow a literal secret in `scope=local` rows only; `staging`/`prod` stay strict.
+
+Details: `.gsd-t/contracts/env-registry-contract.md`.
 
 
 

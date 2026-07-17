@@ -111,3 +111,74 @@ WHEN an env is re-provisioned (host/name/auth changes):
 | Missing entry | HALT + document, zero fallback (no guess/no transcript-grep) | No-Fallback-Ever Doctrine |
 | Prod safety | read-only default YES for prod | Destructive-Action Guard |
 | Staleness | upsert by (scope,kind) replaces stale row | record-at-create/re-provision |
+
+---
+
+## E. The secret-guard — how "no secret VALUE in a committed cell" is enforced (9 Red Team cycles → converged)
+
+The registry stores COMMANDS like `psql -h host -U user`. The one hard job: **a real password must never land in a committed command/URL cell.** Plain English of the converged rule:
+
+```
+# THE WALL we hit: a username (`-U binvoice`) and a password (`--password swordfish`)
+#   are the SAME shape — a plain word. Nothing about the WORD tells them apart.
+#   Only the LABEL in front does. So:
+
+# 1. SAFE-LABEL ALLOWLIST (closed, completable — this is what finally converged).
+#    A plain word is allowed ONLY right after a known "safe" label:
+#        -U/--user, -d/--dbname, -h/--host, --port, --secret(=resource-name)
+#    After ANY OTHER label (--password, --pw, -a, --dsn, --token, …) the value
+#    MUST be a $VAR. We do NOT keep a list of "secret" labels — that list is
+#    endless (every tool invents one). We keep the SHORT list of SAFE labels.
+
+# 2. TYPED VALUE per safe label (so a strong token can't ride in the safe slot).
+#        --port  -> digits only
+#        -h      -> hostname / IP / localhost
+#        -U/-d/--secret -> tight db-name shape (<=16 lowercase, no digit-then-letter)
+#    A STRONG/random credential (mixed case, symbols, >16, digit->letter) FAILS
+#    every typed shape -> must become $VAR. A WEAK dictionary-word username
+#    (`-U swordfish`) passes — a username CAN be a dictionary word; it is not a
+#    *recognizable* secret (accepted scope, user-agreed).
+
+# 3. STRICT hostname (so a token can't wear dots as a disguise).
+#    A dotted token like `kR8mNp2q.aB9cD1eF` was passing as a "hostname" AND
+#    dodging the entropy backstop (dots split it into short pieces). Fix: a
+#    command hostname must be lowercase labels <=24 chars with an alphabetic TLD.
+#    A real DNS name survives; a high-entropy token does not.
+
+# 4. BACKSTOP (extra layer, never the primary guard): known prefixes (ghp_/AKIA/…),
+#    JWT, contiguous base64>=24 / hex>=32, embedded proto://user:pw@, AND the same
+#    tests re-run with dots/separators stripped (so a dotted blob is measured whole).
+
+# WHY THIS CONVERGED where 6 prior cycles did not: earlier tries asked "does this
+#   value LOOK like a secret?" (entropy/denylist) — an OPEN question with no clean
+#   answer. The converged design asks "is this value in a slot PROVEN safe by its
+#   label + type?" — a CLOSED question. Everything not provably safe becomes $VAR.
+#   Prefer the false positive (an odd-but-legit arg must be $VAR) over any leak.
+```
+
+### E.1 Local-literal switch (per project)
+
+```
+DEFAULT: strict everywhere — even scope=local uses $VAR.
+OPT-IN: .gsd-t/env-registry-config.json {"allowLocalLiteral": true}
+    -> a LITERAL secret is allowed in scope=local rows ONLY (testing convenience).
+    -> staging/prod ALWAYS strict — the switch never relaxes them.
+    -> a relaxed local write returns a one-time "committed file -> git history" warning.
+    -> absent/invalid config -> strict (no silent relax).
+    -> even relaxed, the marker-smuggle + overflow-column corruption guards STILL run.
+```
+
+### E.2 Leak remediation (when a human is present)
+
+```
+The silent guard REJECTS a literal secret. But when a human is present (brownfield
+capture / a provisioning task), a bare rejection isn't enough — TELL + OFFER a fix:
+
+    proposeRemediation(command)  # detects the leaked secret, names it, proposes:
+        rotate -> generate/request a NEW secret (old one is compromised), store in vault
+        move   -> move the EXISTING secret into the vault as-is
+    ASK the user rotate-vs-move EACH TIME (never assume).
+    THEN store to the vault (directly where possible: `vercel env add`, write .env;
+         else instruct the user), and record the row with the $VAR-rewritten command.
+    # The module ONLY detects + proposes; it never rotates, writes a vault, or prompts.
+```

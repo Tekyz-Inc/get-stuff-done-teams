@@ -29,6 +29,13 @@ Scan this codebase and populate the GSD-T documentation. Analyze the actual code
 - List Credentials and Secrets from .env.example (local) and any secret manager configs
 - Document Deployment from CI/CD configs, Dockerfiles, cloud configs
 - Document Logging and Monitoring from any logging setup or dashboard configs
+- **Back-fill the `## Environments` registry (M102 — brownfield capture).** For an existing project whose non-local environments are undocumented, back-fill the map-only Environments table WITHOUT ever reading or writing a secret VALUE:
+  1. `node bin/gsd-t-env-registry.cjs detect .` → proposes the vault + fetch command from `.env.example` var NAMES, connection-string SHAPES, and `vercel.json`/`.vercel` (Vercel) · `cloudbuild.yaml`/`.gcloudignore` (Google Secret Manager) · neon dep (Neon) · plain `.env` (local). Map only — never a value.
+  2. Confirm/fill gaps with the human, then `node bin/gsd-t-env-registry.cjs record '<json>'` per environment (upsert by `(scope, kind)` — a re-provision replaces the stale row).
+  3. `node bin/gsd-t-env-registry.cjs ensure-gitignore .` — auto-add `.env` to `.gitignore` if missing + report.
+  - **No-Fallback-Ever:** a genuinely undocumented environment reached for the first time HALTs → detect → ask → record → `add-permission` → proceed. NEVER guess a connection string, NEVER grep transcripts to rediscover.
+  - **Leak remediation (secret found in a URL/command):** before recording, run `node bin/gsd-t-env-registry.cjs propose-remediation . '<command>'`. If it reports `needed:true`, STOP and tell the user *what* leaked (`detectedSecret`), then ASK **rotate or move** (`choices.rotate` / `choices.move`) — each time, do not assume. On their answer: store the (rotated or existing) secret into the detected `vault` (directly where possible — e.g. `vercel env add`, write to `.env`; else instruct the user to create/rotate it), then record the row with the `rewrittenCommand` ($VAR form). NEVER commit the literal secret.
+  - **Local-literal switch (per project):** by default every row uses `$VAR` (strict). A project may opt in via `.gsd-t/env-registry-config.json` → `{"allowLocalLiteral": true}` to allow a LITERAL secret in `scope=local` rows only (testing convenience). `staging`/`prod` are ALWAYS strict. A relaxed local write returns a one-time "committed file → git history" warning — surface it.
 
 ## Graph Structural Slice — who-imports + cluster (M94-D10)
 

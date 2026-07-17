@@ -2,6 +2,28 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.2.10] - 2026-07-17
+
+### Added — Environment Registry (M102): the committed, secret-free connection map
+
+Every project now gets ONE `## Environments` table in `docs/infrastructure.md` recording each environment's connection MAP (host/port/db/auth/which-vault-holds-the-secret/env-var-NAME/connect-command) — so the AI stops re-discovering non-local DB/server URLs, credentials, and permissions from scratch. Two triggers on one mechanism: **record-at-create** (greenfield — record the map as GSD-T builds the env) and **capture-on-first-need** (brownfield — first access with no row HALTs → detect → ask → record → add broad-glob permission → proceed; never guesses a connection string, never greps transcripts).
+
+The hard invariant — **no secret VALUE ever in a committed cell** — took NINE Red Team cycles to converge. Value denylists (cycles 1-4) and a secret-flag-name denylist (5-6) both failed as open categories; a "safe value" slot regressed to an entropy floor (7). The converged design: a CLOSED **safe-label allowlist** (`-U`/`-d`/`-h`/`--port`/`--secret`) with **typed value shapes** (port=digits, host=host-shape, user/db=tight-db-name), a **strict command-hostname** (lowercase labels ≤24, alpha TLD — kills dotted-token laundering), and the entropy detector demoted to a dot-stripping backstop. A strong/random credential fails every typed shape → must be `$VAR`; a weak dictionary-word username passes (not a *recognizable* secret). Cycle 9 = GRUDGING-PASS (20k-command fuzz, zero writer/gate divergence).
+
+- `bin/gsd-t-env-registry.cjs`: writer — converged command grammar, upsert-by-(scope,kind), `detectEnvConfig`, `addPermissionEntry`, `ensureEnvGitignored`, per-project local-literal switch, `detectCommandLeak`/`proposeRemediation`.
+- `bin/gsd-t-env-registry-check.cjs`: independent verify gate — re-implements the same grammar so a writer bug can't disable it; overflow-column hard-fail; opted-in local-row exemption.
+- `bin/gsd-t-doc-marker.cjs`: shared marker-block doc writer (extracted from the M100 logging scaffolder — no third copy).
+- `bin/gsd-t-verify-gate.cjs`: env-registry FAIL-closed gate wired into the substrate track.
+- `bin/gsd-t.js`: env-registry bins added to `PROJECT_BIN_TOOLS`.
+- `commands/gsd-t-init.md`: record-at-create trigger + `ensure-gitignore`.
+- `commands/gsd-t-populate.md`: capture-on-first-need HALT + leak-remediation + local-literal switch.
+- `templates/infrastructure.md`: marker-delimited `## Environments` table (map-only columns).
+- `templates/CLAUDE-global.md`: "Environment Access — read-first, HALT-and-document" rule.
+- `.gsd-t/contracts/env-registry-contract.md` v1.1.0; `.gsd-t/pseudocode/PseudoCode-EnvironmentRegistry.md` §E (converged design).
+- `test/m102-env-registry.test.js`: 274 tests — the full 9-cycle Red Team leak corpus as regressions.
+
+A project may opt in to literal secrets in `scope=local` rows via `.gsd-t/env-registry-config.json` `{"allowLocalLiteral": true}` (staging/prod always strict). Repo suite 3077/0.
+
 ## [5.1.13] - 2026-07-15
 
 ### Changed — explicit "No Preambles" rule with banned openers

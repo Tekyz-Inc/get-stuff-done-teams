@@ -2999,6 +2999,16 @@ const PROJECT_BIN_TOOLS = [
   // ship to every project or the consumers can't classify. Same propagation class as
   // gsd-t-graph-store-resolver.cjs above. [[project_global_bin_propagation_gap]]
   "gsd-t-graph-availability.cjs",
+  // M102 — Environment Registry. The shared marker-block doc-writer + the
+  // registry helper (record/lookup/detect/add-permission/ensure-gitignore).
+  // Sandboxed workflows (init/populate + provisioning execute/quick tasks) call
+  // the registry via project-local Bash, and the registry `require`s the shared
+  // writer at load — BOTH must ship or the registry throws / the writer is a
+  // second copy. Same propagation class as the graph tools above.
+  // [[project_global_bin_propagation_gap]]
+  // Plus the verify-gate lint (gsd-t-verify-gate.cjs invokes it via __dirname,
+  // so it must sit alongside the gate in the project's bin/).
+  "gsd-t-doc-marker.cjs", "gsd-t-env-registry.cjs", "gsd-t-env-registry-check.cjs",
 ];
 
 // Files that older versions of this installer copied into project bin/ but

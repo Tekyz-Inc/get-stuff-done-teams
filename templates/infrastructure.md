@@ -68,6 +68,46 @@ cp .env.example .env
 {command}
 ```
 
+<!-- gsd-t-env-registry:start -->
+## Environments
+
+> **Map, not secrets.** This table records only WHERE an environment lives and
+> HOW to reach it — host/port/name/auth-method/which-vault-holds-the-secret/the
+> env-var NAME/the fetch + connect commands. It NEVER stores a secret VALUE.
+> The value lives in the vault (`.env` / Vercel / Neon / Google Secret Manager)
+> and is pulled at runtime via the env-var NAME. A missing row → HALT and
+> document (detect → ask → record → proceed); never guess a connection string,
+> never grep transcripts to rediscover.
+
+| id | scope | kind | host | port | db/name | auth method | secret vault | secret env-var NAME | fetch command | connect command | access gotchas | read-only default | recorded |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+<!-- gsd-t-env-registry:end -->
+
+<!--
+  Column notes:
+    scope             = local | staging | prod
+    kind              = postgres | mysql | redis | http-api | ssh-host | ...
+    secret vault      = local (.env) | Vercel | Neon | Google Secret Manager | ...
+    secret env-var NAME = e.g. DATABASE_URL_PROD  — the NAME only, NEVER the value
+    host              = POSITIVE shape: localhost | IPv4 | dotted DNS hostname |
+                        short lowercase service name (letters+hyphen, no digits, e.g. db, postgres)
+    db/name           = short lowercase snake identifier (<=16, e.g. binvoice_prod, analytics)
+    auth method       = ENUMERATED — password | iam | oauth | oauth2 | service-account |
+                        ssh-key | api-key | none | scram-sha-256 | md5 | trust | token | key | ...
+    fetch command     = how to pull the secret from its vault (e.g. `vercel env pull`)
+                        POSITIVE allowlist: a token is accepted ONLY if it IS a $VAR/${VAR} ref,
+                        a flag, a hostname/IP, a .env dotfile, or a curated CLI/db word.
+                        Any OTHER bare literal is REJECTED (move it to an env var, reference as $VAR).
+    connect command   = references the env-var by name: `psql "$DATABASE_URL_PROD"` (same allowlist)
+    access gotchas    = ENUMERATED — vpn | ip-allowlist | ssh-tunnel | bastion | none,
+                        optionally `via <hostname>` (e.g. `ssh-tunnel via bastion.example.com`).
+                        Free prose is FORBIDDEN (nowhere for a secret to hide).
+    read-only default = YES for scope=prod unless a human explicitly recorded write-ok
+  There is deliberately NO secret-value column — a row is structurally incapable
+  of holding a secret. Populated by `gsd-t-env-registry` (record-at-create +
+  capture-on-first-need).
+-->
+
 ## Credentials & Secrets
 
 ### Local (.env)

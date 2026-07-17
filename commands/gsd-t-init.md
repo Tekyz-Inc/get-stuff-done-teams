@@ -296,6 +296,12 @@ docs/
 
 These are the living documents that persist across milestones and keep institutional knowledge alive. The `infrastructure.md` is especially important — it captures the exact commands for provisioning cloud resources, setting up databases, managing secrets, and deploying, so this knowledge doesn't get lost between sessions.
 
+The `infrastructure.md` template ships with a marker-delimited `## Environments` table (`<!-- gsd-t-env-registry:start -->` / `:end`) — the committed, **secret-free** connection registry (M102). It is created empty by init and populated by the two triggers:
+- **Greenfield (record-at-create):** whenever this project later BUILDS/PROVISIONS/CONFIGURES an environment (a local test DB, a remote server, credentials, or hands the user setup instructions), record the map row in the SAME pass:
+  `node bin/gsd-t-env-registry.cjs record '{"projectDir":".","scope":"local","kind":"postgres","host":"localhost","port":"5432","name":"appdb","authMethod":"password","secretVault":"local (.env)","secretEnvVarName":"DATABASE_URL","fetchCommand":"read $DATABASE_URL from .env","connectCommand":"psql \"$DATABASE_URL\""}'`
+  Records only the MAP + vault pointer + env-var NAME + fetch/connect commands — **never a secret VALUE** (a literal password/token in a command is REJECTED). `scope=prod` defaults `read-only=YES`.
+- Also run `node bin/gsd-t-env-registry.cjs ensure-gitignore .` so `.env` is gitignored (auto-add + report; secret-leak precheck).
+
 ## Step 8: Ensure README.md Exists
 
 If no `README.md` exists, create one with:
