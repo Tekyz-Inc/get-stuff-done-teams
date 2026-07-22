@@ -2,6 +2,20 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.2.11] - 2026-07-22
+
+### Changed — architect-overview cleanup (dead tool, shared reader, archived contracts)
+
+Applied the three safe findings from a `/gsd-t-architect` framework-overview pass, and recorded a correction to a wrong finding.
+
+- Deleted `bin/model-selector.js` + `test/model-selector.test.js` — the M35 model picker with zero live callers, superseded by M85's `bin/gsd-t-model-tier-policy.cjs`. Scrubbed 3 stale `selectModel()` doc references (`gsd-t-quick.md`, `gsd-t-test-sync.md`, `templates/CLAUDE-project.md`, `README.md`).
+- Extracted a shared marker-block *reader* (`extractMarkedDocBlock`) into `bin/gsd-t-doc-marker.cjs` and rewired `bin/gsd-t-env-registry.cjs::extractBlock` to it — finishing the M102 writer/reader extraction. The verify-gate's independent copy is left intact on purpose (defensive-independence invariant — a writer bug must not disable the gate).
+- Archived 13 stale `mXX-integration-points.md` contracts to `.gsd-t/milestones/_integration-points-archive/`. `m94-integration-points.md` was RESTORED — 3 live M94 tests read it by path (a live fixture, not archaeology).
+
+Recorded in `progress.md`: the overview's "graph subsystem is broken sprawl" finding was a **false negative** — it checked the pre-M99 path `.gsd-t/graph.db`; the real store moved to `.gsd-t/graphDB/graph.db` (M99 consolidation, already shipped, with a canonical resolver). The graph builds and works in every project. No code change — the correction is the deliverable.
+
+Suite: 3020/3020 pass, 13 skipped.
+
 ## [5.2.10] - 2026-07-17
 
 ### Added — Environment Registry (M102): the committed, secret-free connection map
