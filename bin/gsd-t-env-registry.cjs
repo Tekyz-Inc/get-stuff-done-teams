@@ -24,7 +24,7 @@
 
 const fs = require("fs");
 const path = require("path");
-const { upsertMarkedDocBlock } = require("./gsd-t-doc-marker.cjs");
+const { upsertMarkedDocBlock, extractMarkedDocBlock } = require("./gsd-t-doc-marker.cjs");
 
 // ─── Markers + schema ────────────────────────────────────────────────────────
 
@@ -851,13 +851,11 @@ function infraDocPath(projectDir) {
   return path.join(projectDir, "docs", "infrastructure.md");
 }
 
+// Uses the ONE shared reader from gsd-t-doc-marker.cjs (complement of the shared
+// writer this file already calls) — no inline re-implementation. The verify gate
+// keeps its OWN independent copy on purpose (defensive independence).
 function extractBlock(content) {
-  if (!content.includes(ENV_MARKER_START) || !content.includes(ENV_MARKER_END)) {
-    return null;
-  }
-  const start = content.indexOf(ENV_MARKER_START);
-  const end = content.indexOf(ENV_MARKER_END);
-  return content.slice(start, end);
+  return extractMarkedDocBlock(content, ENV_MARKER_START, ENV_MARKER_END);
 }
 
 function splitRow(line) {

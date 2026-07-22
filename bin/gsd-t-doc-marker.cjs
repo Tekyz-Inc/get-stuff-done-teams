@@ -62,4 +62,22 @@ function upsertMarkedDocBlock(targetPath, startMarker, endMarker, block) {
   return targetPath;
 }
 
-module.exports = { upsertMarkedDocBlock };
+// Read the marked block back OUT of `content`. Returns the slice from the START
+// marker up to (but NOT including) the END marker — i.e. the block body a parser
+// walks line-by-line — or null if either marker is absent. The complement of
+// upsertMarkedDocBlock's write. (Shared so a reader isn't re-implemented per
+// caller — the env-registry writer/reader used to copy this inline.)
+//
+// NOTE: the verify GATE (gsd-t-env-registry-check.cjs) deliberately does NOT use
+// this — it re-implements the extract independently so a bug here cannot disable
+// the gate (M102 defensive-independence invariant). That duplication is
+// load-bearing; do not "consolidate" it.
+function extractMarkedDocBlock(content, startMarker, endMarker) {
+  if (typeof content !== "string" || !startMarker || !endMarker) return null;
+  if (!content.includes(startMarker) || !content.includes(endMarker)) return null;
+  const start = content.indexOf(startMarker);
+  const end = content.indexOf(endMarker);
+  return content.slice(start, end);
+}
+
+module.exports = { upsertMarkedDocBlock, extractMarkedDocBlock };

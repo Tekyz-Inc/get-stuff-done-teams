@@ -25,8 +25,8 @@ Spawn path is `autoSpawnHeadless({command, spawnType, projectDir, sessionContext
 
 Per `.gsd-t/contracts/model-selection-contract.md` v1.0.0.
 
-- **Default**: `sonnet` (`selectModel({phase: "quick"})`) — routine one-off task.
-- **Mechanical subroutines** (demote to `haiku`): test runners (`selectModel({phase: "quick", task_type: "test_runner"})`).
+- **Default**: `sonnet` (per `bin/gsd-t-model-tier-policy.cjs`, phase `quick`) — routine one-off task.
+- **Mechanical subroutines** (demote to `haiku`): test runners.
 - **Red Team (Step 5.5)**: `opus` — adversarial reasoning always runs at top tier.
 - **Escalation**: `/advisor` convention-based fallback from `bin/advisor-integration.js` at declared high-stakes sub-decisions (see `.gsd-t/M35-advisor-findings.md`). Never silently downgrade the model or skip Red Team / doc-ripple under context pressure — M35 removed that behavior.
 

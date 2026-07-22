@@ -6,7 +6,7 @@ You are maintaining test coverage as code changes. Your job is to identify stale
 
 Per `.gsd-t/contracts/model-selection-contract.md` v1.0.0.
 
-- **Default**: `sonnet` (`selectModel({phase: "test-sync"})`) — test alignment is routine refactoring work.
+- **Default**: `sonnet` (per `bin/gsd-t-model-tier-policy.cjs`, phase `test-sync`) — test alignment is routine refactoring work.
 - **Escalation**: `/advisor` convention-based fallback from `bin/advisor-integration.js` when a test touches a contract boundary or requires judgment about what "missing coverage" means. Never silently skip test-sync under context pressure — M35 removed that behavior.
 
 This command is:
