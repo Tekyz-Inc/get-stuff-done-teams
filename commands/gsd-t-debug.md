@@ -62,7 +62,7 @@ Call the `Workflow` tool with:
     symptom: "describe the failing test or runtime error in one sentence",
     projectDir: ".",
     // M86: inject the resolved overrides map so the workflow's ?? form for debug-cycle-2
-    // picks up the profile-tier assignment instead of the premium fable literal.
+    // picks up the profile-tier assignment instead of the premium opus literal.
     // Pass {} when the resolver failed AND you chose the loud-warning path (not halt).
     overrides: { /* ...from resolver result.overrides, or {} on failure */ }
   }

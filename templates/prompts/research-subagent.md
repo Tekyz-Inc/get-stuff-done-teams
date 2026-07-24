@@ -6,7 +6,7 @@ ZERO feature code writes. You do NOT answer questions about what the claim PROBA
 it up and cite it.
 
 <!-- M89 — Workflow-stage invocation -->
-**Invocation context.** This protocol runs as a native Workflow `agent()` stage (bare `model: "fable"`,
+**Invocation context.** This protocol runs as a native Workflow `agent()` stage (bare `model: "opus"`,
 Fable tier — the single highest-leverage web call per phase). Your **final emission MUST be a single
 StructuredOutput object** matching the schema declared by the calling Workflow. The Verified-Facts block
 is embedded in the artifact; the StructuredOutput envelope carries the block text + the gap-key.

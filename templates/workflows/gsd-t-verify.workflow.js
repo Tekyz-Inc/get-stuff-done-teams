@@ -56,7 +56,7 @@ const _args = (typeof args === "string") ? (() => { try { return JSON.parse(args
 // Default to {} so the premium fallback literals apply when no invoker injects overrides.
 // overrides values are CONCRETE model ids (resolver envelope); the bare literals below
 // are tier ALIASES. The sandbox runtime accepts BOTH forms in model: — proven live for
-// the concrete-id fable path by probe wf_c9faf817-373 (no HTTP 400).
+// the tier alias resolves to claude-opus-5 (Fable removed 2026-07-24).
 const overrides = (_args.overrides && typeof _args.overrides === "object") ? _args.overrides : {};
 const _CLI_ENVELOPE_SCHEMA = {
   type: "object", required: ["ok", "exitCode"], additionalProperties: true,
@@ -771,7 +771,7 @@ const stages = [
       `Verdict is FAIL if you found any CRITICAL or HIGH severity bug; GRUDGING-PASS`,
       `if you searched exhaustively and found nothing. Return JSON per the schema.`,
     ].join("\n"),
-    { label: "red-team", phase: "Orthogonal Triad", schema: RED_TEAM_SCHEMA, model: overrides["red-team"] ?? "fable" }
+    { label: "red-team", phase: "Orthogonal Triad", schema: RED_TEAM_SCHEMA, model: overrides["red-team"] ?? "opus" }
   ),
 
   // Stage C — QA (test execution + shallow-test detection + contract compliance)

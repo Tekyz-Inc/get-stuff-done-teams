@@ -73,23 +73,23 @@ Canonical `opus` phases:
 - Contract design and cross-module refactor planning
 - Competition producers (M82 — HELD at opus; must differ from the fable judge)
 
-**Escalation hooks**: An `opus` phase may escalate to `fable` for the 5 highest-leverage stages. See `model-tier-policy-contract.md` v1.0.0 for the authoritative list.
+**Escalation hooks**: An `opus` phase may escalate to `opus` for the 5 highest-leverage stages. See `model-tier-policy-contract.md` v1.0.0 for the authoritative list.
 
-### `fable` — highest-stakes calls (M85, tier above opus)
+### `opus` — highest-stakes calls (M85, tier above opus)
 
-**Use for**: stages where one call's judgment gates the most downstream spend. Claude Fable 5 (`claude-fable-5`, $10/$50 per MTok, 1M ctx / 128K out, same API surface as Opus 4.8). **Breaking change**: explicit thinking-disabled parameter returns HTTP 400 — it MUST be OMITTED (not set false). This is encoded once in `requiresThinkingOmitted(model)` in `bin/gsd-t-model-tier-policy.cjs`.
+**Use for**: stages where one call's judgment gates the most downstream spend. Claude Fable 5 (`claude-opus-5`, $10/$50 per MTok, 1M ctx / 128K out, same API surface as Opus 4.8). **Breaking change**: explicit thinking-disabled parameter returns HTTP 400 — it MUST be OMITTED (not set false). This is encoded once in `requiresThinkingOmitted(model)` in `bin/gsd-t-model-tier-policy.cjs`.
 
-Canonical `fable` stages (authoritative mapping in `.gsd-t/contracts/model-tier-policy-contract.md` v1.0.0 STABLE):
+Canonical `opus` stages (authoritative mapping in `.gsd-t/contracts/model-tier-policy-contract.md` v1.0.0 STABLE):
 - Solution-space probe (`gsd-t-phase.workflow.js`) — one call decides whether to fan out 3× competition spend
 - Partition probe (`gsd-t-phase.workflow.js`) — pre-produce compete/skip decision
 - Competition judge (`gsd-t-phase.workflow.js`, `label: "judge:rubric"`) — different model than producers (M82 blindness invariant; producers stay `opus`)
 - Pre-mortem (`gsd-t-phase.workflow.js`, `label: "pre-mortem"`) — adversarial plan attack; one missed failure costs all of execute + verify
-- Red Team (`gsd-t-verify.workflow.js`, `label: "red-team"`) — adversarial QA; stays NON-SKIPPABLE on fable tier
+- Red Team (`gsd-t-verify.workflow.js`, `label: "red-team"`) — adversarial QA; stays NON-SKIPPABLE on opus tier
 - Debug cycle-2 (`gsd-t-debug.workflow.js`, conditional: `cycle === 1 ? "opus" : "fable"`) — escalation before needs-human
 
 **Drift enforcement**: `test/m85-workflow-tier-policy-lint.test.js` (M71-family) proves every workflow `model:` literal matches the tier set AND designated stages have the correct tier. A deliberately-drifted literal FAILS the lint (mandatory negative test). Shadow A/B verdict (M85-D4-T2, MEASURED 2026-06-09): quality TIE within judge noise (blind order-reversed sonnet referees SPLIT; mean A 4.50 vs B 4.58) at 2.37× cost for competition — Fable single-draft $4.74 vs 3-Opus-competition + Fable-judge $11.24, runs `wf_d6b75c28-7d4` / `wf_5d8bc13a-293` (n=1, discuss-class; full provenance + caveats in progress.md).
 
-**Escalation hooks**: N/A. `fable` is the top of the escalation ladder.
+**Escalation hooks**: N/A. `opus` is the top of the escalation ladder.
 
 ---
 
@@ -238,4 +238,4 @@ Every subagent spawn logs its model assignment to `.gsd-t/token-log.md` via the 
 | Version | Date | Change |
 |---------|------|--------|
 | 1.0.0 | M35 / 2026-04-14 | Initial contract. Three-tier model (haiku/sonnet/opus), declarative phase map, escalation hook pattern, `/advisor` fallback semantics, dual-layer convention (`ANTHROPIC_MODEL` + `model:` directive). Replaces the silent degradation-action model-override map removed in `token-budget-contract.md` v3.0.0. |
-| 1.1.0 | M85 / 2026-06-09 | Added `fable` tier (Claude Fable 5, tier above opus). Cross-referenced `model-tier-policy-contract.md` v1.0.0 STABLE as the single source of truth for stage-level assignments. Updated Schema Freeze Policy (tier union now 4-wide). Added Fable tier definition + 5 canonical stages. Shadow A/B verdict pending M85-D4-T2 at the time of this entry; MEASURED later the same day — see the Drift enforcement section above for the verdict. |
+| 1.1.0 | M85 / 2026-06-09 | Added `opus` tier (Claude Fable 5, tier above opus). Cross-referenced `model-tier-policy-contract.md` v1.0.0 STABLE as the single source of truth for stage-level assignments. Updated Schema Freeze Policy (tier union now 4-wide). Added Fable tier definition + 5 canonical stages. Shadow A/B verdict pending M85-D4-T2 at the time of this entry; MEASURED later the same day — see the Drift enforcement section above for the verdict. |

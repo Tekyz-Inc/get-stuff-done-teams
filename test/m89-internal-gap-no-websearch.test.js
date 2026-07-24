@@ -204,7 +204,7 @@ describe("A3.3 — Sole-web-stage enforcement: research stage is the ONLY web-to
       // — they get inline prompts that do not grant web tools. The web-tool gate is:
       //   "only the stage whose prompt is research-subagent.md gets web access"
       // We can't inspect harness tool grants, but we can verify the structural invariant:
-      // the only model:"fable" agent is the research stage (which reads research-subagent.md),
+      // the only model:"opus" agent is the research stage (which reads research-subagent.md),
       // and all utility agents (haiku) have inline prompts that don't include web-tool grants.
       const haikuAgentRe = /agent\s*\([^)]*model\s*:\s*["']haiku["']/;
       assert.ok(
@@ -252,12 +252,12 @@ describe("A3.4 — Structural routing completeness: no code path from class:inte
     });
 
     test(`${name} workflow: research-stage agent() only reachable via external branch or §5.1 escalation`, () => {
-      // Verify that the research agent call (model:"fable") is ONLY in:
+      // Verify that the research agent call (model:"opus") is ONLY in:
       //   (a) the external branch (class==="external" → research), or
       //   (b) the escalation branch (grep-empty → escalate → research)
       // It must NOT appear in the grep-resolved path (when grep finds the answer).
       //
-      // We assert: the grep-found-TRUE path logs success WITHOUT calling model:"fable".
+      // We assert: the grep-found-TRUE path logs success WITHOUT calling model:"opus".
       // (The resolved-internal log appears before any fable research call in that branch.)
       assert.ok(
         src.includes("no research needed") || src.includes("resolved by grep") ||

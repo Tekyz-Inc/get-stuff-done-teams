@@ -61,16 +61,19 @@ describe('PROFILE_STAGE_TIERS: structure', () => {
 // T1 Headline census — resolveProfile per-stage census for all 3 profiles
 // ---------------------------------------------------------------------------
 
+// Profiles remapped 2026-07-24 (Fable removed) — they now dial opus-vs-sonnet:
+//   standard — probes opus; judge/pre-mortem/red-team/debug-cycle-2 sonnet.
+//   pro      — probes opus; judge sonnet; pre-mortem/red-team/debug-cycle-2 opus.
+//   premium  — all 6 injectable stages opus.
 describe('resolveProfile: headline census', () => {
-  // standard: ZERO fable
-  it('standard profile — zero fable: all 6 injectable stages use pre-M85 tiers', () => {
+  it('standard profile — probes opus; high-stakes stages sonnet', () => {
     const expected = {
       'solution-space-probe': MODEL_IDS.opus,
       'partition-probe':      MODEL_IDS.opus,
       'competition-judge':    MODEL_IDS.sonnet,
-      'pre-mortem':           MODEL_IDS.opus,
-      'red-team':             MODEL_IDS.opus,
-      'debug-cycle-2':        MODEL_IDS.opus,
+      'pre-mortem':           MODEL_IDS.sonnet,
+      'red-team':             MODEL_IDS.sonnet,
+      'debug-cycle-2':        MODEL_IDS.sonnet,
     };
     for (const [stage, expectedModel] of Object.entries(expected)) {
       const r = resolveProfile(stage, { profile: 'standard' });
@@ -79,49 +82,39 @@ describe('resolveProfile: headline census', () => {
     }
   });
 
-  it('standard profile — competition-producers always opus (not a designated fable stage)', () => {
+  it('standard profile — competition-producers always opus', () => {
     const r = resolveProfile('competition-producers', { profile: 'standard' });
     assert.equal(r.model, MODEL_IDS.opus);
     assert.equal(r.requiresThinkingOmitted, false);
   });
 
-  // pro: red-team + pre-mortem + debug-cycle-2 → fable
-  it('pro profile — red-team + pre-mortem + debug-cycle-2 on fable; rest standard', () => {
-    const fableStages = ['pre-mortem', 'red-team', 'debug-cycle-2'];
-    const standardStages = {
-      'solution-space-probe': MODEL_IDS.opus,
-      'partition-probe':      MODEL_IDS.opus,
-      'competition-judge':    MODEL_IDS.sonnet,
-    };
-    for (const stage of fableStages) {
+  it('pro profile — pre-mortem + red-team + debug-cycle-2 opus; judge sonnet; probes opus', () => {
+    const opusStages = ['pre-mortem', 'red-team', 'debug-cycle-2', 'solution-space-probe', 'partition-probe'];
+    for (const stage of opusStages) {
       const r = resolveProfile(stage, { profile: 'pro' });
-      assert.equal(r.model, MODEL_IDS.fable,
-        `pro profile: resolveProfile("${stage}") → expected fable "${MODEL_IDS.fable}", got "${r.model}"`);
-      assert.equal(r.requiresThinkingOmitted, true, `pro profile: ${stage} must set requiresThinkingOmitted=true`);
+      assert.equal(r.model, MODEL_IDS.opus,
+        `pro profile: resolveProfile("${stage}") → expected opus "${MODEL_IDS.opus}", got "${r.model}"`);
+      assert.equal(r.requiresThinkingOmitted, false, `pro profile: ${stage} requiresThinkingOmitted must be false`);
     }
-    for (const [stage, expectedModel] of Object.entries(standardStages)) {
-      const r = resolveProfile(stage, { profile: 'pro' });
-      assert.equal(r.model, expectedModel,
-        `pro profile: resolveProfile("${stage}") → expected "${expectedModel}", got "${r.model}"`);
-    }
+    const rJudge = resolveProfile('competition-judge', { profile: 'pro' });
+    assert.equal(rJudge.model, MODEL_IDS.sonnet, 'pro profile: judge is sonnet');
   });
 
-  it('pro profile — competition-producers held at opus (M82 blindness invariant)', () => {
+  it('pro profile — competition-producers opus', () => {
     const r = resolveProfile('competition-producers', { profile: 'pro' });
     assert.equal(r.model, MODEL_IDS.opus);
   });
 
-  // premium: all 6 fable
-  it('premium profile — all 6 injectable stages on fable', () => {
-    const fableStages = ['solution-space-probe', 'partition-probe', 'competition-judge', 'pre-mortem', 'red-team', 'debug-cycle-2'];
-    for (const stage of fableStages) {
+  it('premium profile — all 6 injectable stages opus', () => {
+    const opusStages = ['solution-space-probe', 'partition-probe', 'competition-judge', 'pre-mortem', 'red-team', 'debug-cycle-2'];
+    for (const stage of opusStages) {
       const r = resolveProfile(stage, { profile: 'premium' });
-      assert.equal(r.model, MODEL_IDS.fable,
-        `premium profile: resolveProfile("${stage}") → expected fable "${MODEL_IDS.fable}", got "${r.model}"`);
+      assert.equal(r.model, MODEL_IDS.opus,
+        `premium profile: resolveProfile("${stage}") → expected opus "${MODEL_IDS.opus}", got "${r.model}"`);
     }
   });
 
-  it('premium profile — competition-producers held at opus (M82 blindness invariant)', () => {
+  it('premium profile — competition-producers opus (== judge, blindness now fresh-context)', () => {
     const r = resolveProfile('competition-producers', { profile: 'premium' });
     assert.equal(r.model, MODEL_IDS.opus);
   });
@@ -133,15 +126,15 @@ describe('resolveProfile: headline census', () => {
 
 describe('resolveProfile: override beats profile', () => {
   it('stageOverrides[stage] overrides profile tier (precedence proof)', () => {
-    // competition-judge is sonnet in standard, but override → fable
-    const r = resolveProfile('competition-judge', { profile: 'standard', stageOverrides: { 'competition-judge': 'fable' } });
-    assert.equal(r.model, MODEL_IDS.fable, 'override must win over profile tier');
-    assert.equal(r.requiresThinkingOmitted, true);
+    // pre-mortem is sonnet in standard, but override → opus
+    const r = resolveProfile('pre-mortem', { profile: 'standard', stageOverrides: { 'pre-mortem': 'opus' } });
+    assert.equal(r.model, MODEL_IDS.opus, 'override must win over profile tier');
+    assert.equal(r.requiresThinkingOmitted, false);
   });
 
-  it('stageOverrides[stage] overrides pro profile (override proof for SC(b))', () => {
-    const r = resolveProfile('competition-judge', { profile: 'pro', stageOverrides: { 'competition-judge': 'fable' } });
-    assert.equal(r.model, MODEL_IDS.fable);
+  it('competition-judge can now be overridden to opus (blindness relaxed to fresh context)', () => {
+    const r = resolveProfile('competition-judge', { profile: 'standard', stageOverrides: { 'competition-judge': 'opus' } });
+    assert.equal(r.model, MODEL_IDS.opus, 'judge=opus is now allowed (== producers)');
   });
 
   it('override to lower tier works (downgrade scenario)', () => {
@@ -151,24 +144,22 @@ describe('resolveProfile: override beats profile', () => {
 });
 
 // ---------------------------------------------------------------------------
-// T1/T2 — requiresThinkingOmitted propagated for fable stages
+// T1/T2 — requiresThinkingOmitted is false for every model (Fable removed)
 // ---------------------------------------------------------------------------
 
-describe('resolveProfile: requiresThinkingOmitted propagated', () => {
-  it('fable stages in premium profile have requiresThinkingOmitted=true', () => {
-    for (const stage of INJECTABLE_STAGES) {
-      const r = resolveProfile(stage, { profile: 'premium' });
-      if (r.model === MODEL_IDS.fable) {
-        assert.equal(r.requiresThinkingOmitted, true, `${stage} in premium should have requiresThinkingOmitted=true`);
+describe('resolveProfile: requiresThinkingOmitted always false post-Fable', () => {
+  it('every injectable stage in every profile has requiresThinkingOmitted=false', () => {
+    for (const p of ['standard', 'pro', 'premium']) {
+      for (const stage of INJECTABLE_STAGES) {
+        const r = resolveProfile(stage, { profile: p });
+        assert.equal(r.requiresThinkingOmitted, false, `${stage} in ${p} must have requiresThinkingOmitted=false`);
       }
     }
   });
 
-  it('non-fable stages have requiresThinkingOmitted=false', () => {
-    const r = resolveProfile('competition-producers', { profile: 'premium' });
-    assert.equal(r.requiresThinkingOmitted, false);
-    const r2 = resolveProfile('competition-judge', { profile: 'standard' }); // sonnet
-    assert.equal(r2.requiresThinkingOmitted, false);
+  it('competition-producers + judge have requiresThinkingOmitted=false', () => {
+    assert.equal(resolveProfile('competition-producers', { profile: 'premium' }).requiresThinkingOmitted, false);
+    assert.equal(resolveProfile('competition-judge', { profile: 'standard' }).requiresThinkingOmitted, false);
   });
 });
 
@@ -179,8 +170,8 @@ describe('resolveProfile: requiresThinkingOmitted propagated', () => {
 describe('resolveProfile: unknown profile/stage', () => {
   it('unknown profile falls back to premium (named global default)', () => {
     const r = resolveProfile('red-team', { profile: 'turbo' });
-    // Should fall back to premium → fable
-    assert.equal(r.model, MODEL_IDS.fable, 'unknown profile should fall back to premium (fable for red-team)');
+    // Should fall back to premium → opus (red-team is opus in premium)
+    assert.equal(r.model, MODEL_IDS.opus, 'unknown profile should fall back to premium (opus for red-team)');
   });
 
   it('resolveProfile never throws for unknown stage', () => {
@@ -200,22 +191,16 @@ describe('resolveProfile: unknown profile/stage', () => {
 
 describe('validateSetStage: blindness clamps', () => {
   it('set-stage competition-producers <any> → REJECTED (not an overridable stage)', () => {
-    for (const tier of ['opus', 'fable', 'sonnet', 'haiku']) {
+    for (const tier of ['opus', 'sonnet', 'haiku']) {
       const r = profile.validateSetStage('competition-producers', tier);
       assert.equal(r.ok, false, `set-stage competition-producers ${tier} must be rejected`);
       assert.ok(r.error, 'must include error message');
     }
   });
 
-  it('set-stage competition-judge opus → REJECTED (judge must differ from producers)', () => {
+  it('set-stage competition-judge opus → ALLOWED (blindness relaxed to fresh context 2026-07-24)', () => {
     const r = profile.validateSetStage('competition-judge', 'opus');
-    assert.equal(r.ok, false, 'competition-judge=opus must be rejected (judge === producers model)');
-    assert.ok(r.error);
-  });
-
-  it('set-stage competition-judge fable → ALLOWED', () => {
-    const r = profile.validateSetStage('competition-judge', 'fable');
-    assert.equal(r.ok, true, 'competition-judge=fable must be allowed');
+    assert.equal(r.ok, true, 'competition-judge=opus is now allowed (judge may equal producers)');
   });
 
   it('set-stage competition-judge sonnet → ALLOWED', () => {
@@ -229,11 +214,15 @@ describe('validateSetStage: blindness clamps', () => {
     assert.ok(r.error);
   });
 
+  it('set-stage fable (removed tier) → REJECTED', () => {
+    const r = profile.validateSetStage('red-team', 'fable');
+    assert.equal(r.ok, false, 'fable is no longer a valid tier');
+    assert.ok(r.error);
+  });
+
   it('set-stage valid stage + valid tier → ALLOWED', () => {
     for (const stage of INJECTABLE_STAGES) {
-      for (const tier of ['fable', 'sonnet', 'haiku']) {
-        // Skip competition-judge=opus (blocked)
-        if (stage === 'competition-judge' && tier === 'opus') continue;
+      for (const tier of ['opus', 'sonnet', 'haiku']) {
         const r = profile.validateSetStage(stage, tier);
         assert.equal(r.ok, true, `set-stage ${stage} ${tier} should be allowed`);
       }
@@ -248,26 +237,23 @@ describe('validateSetStage: blindness clamps', () => {
 describe('resolveProfile: blindness clamps at resolve level (hand-edited configs)', () => {
   it('competition-producers in stageOverrides → excluded from output (not in overrides map)', () => {
     // competition-producers always returns producers model regardless
-    const r = resolveProfile('competition-producers', { profile: 'pro', stageOverrides: { 'competition-producers': 'fable' } });
+    const r = resolveProfile('competition-producers', { profile: 'pro', stageOverrides: { 'competition-producers': 'sonnet' } });
     assert.equal(r.model, MODEL_IDS.opus, 'competition-producers must always resolve to opus regardless of stageOverrides');
   });
 
-  it('stageOverrides competition-judge=opus → clamp: falls back to profile tier, not opus', () => {
-    // A hand-edited config with {"competition-judge":"opus"} must be rejected at resolve
+  it('stageOverrides competition-judge=opus → ALLOWED (blindness relaxed to fresh context)', () => {
+    // A hand-edited config with {"competition-judge":"opus"} is now honored.
     const r = resolveProfile('competition-judge', { profile: 'pro', stageOverrides: { 'competition-judge': 'opus' } });
-    // competition-judge in pro is sonnet (not fable, not opus due to clamp)
-    assert.notEqual(r.model, MODEL_IDS.opus, 'competition-judge must never resolve to producers model (claude-opus-4-8)');
-    assert.ok(r.configError, 'must have configError when blindness clamp fires');
+    assert.equal(r.model, MODEL_IDS.opus, 'competition-judge=opus is now honored (judge may equal producers)');
   });
 
-  it('buildResolveEnvelope: hand-edited forbidden combo never emits judge === producers model', () => {
-    const envelope = profile.buildResolveEnvelope('pro', { 'competition-judge': 'opus', 'competition-producers': 'fable' }, undefined, undefined);
+  it('buildResolveEnvelope: producers still excluded from overrides; judge=opus honored', () => {
+    const envelope = profile.buildResolveEnvelope('pro', { 'competition-judge': 'opus', 'competition-producers': 'sonnet' }, undefined, undefined);
     assert.equal(envelope.ok, true);
-    assert.notEqual(envelope.overrides['competition-judge'], MODEL_IDS.opus,
-      'competition-judge in overrides must never equal producers model');
+    assert.equal(envelope.overrides['competition-judge'], MODEL_IDS.opus,
+      'competition-judge=opus is honored (relaxed blindness)');
     assert.ok(!('competition-producers' in envelope.overrides),
-      'competition-producers must NOT appear in the overrides map');
-    assert.ok(envelope.configError, 'must have configError marker when forbidden values are present');
+      'competition-producers must NOT appear in the overrides map (never overridable)');
   });
 });
 
@@ -351,19 +337,15 @@ describe('readConfig: malformed config produces DEFINED envelope, never silent p
 // T2 — Hand-edited forbidden-values fixture (pre-mortem c2 #4)
 // ---------------------------------------------------------------------------
 
-describe('buildResolveEnvelope: hand-edited forbidden values produce safe output', () => {
-  it('{"competition-judge":"opus","competition-producers":"fable"} → judge≠opus, producers absent, configError', () => {
-    const forbiddenOverrides = { 'competition-judge': 'opus', 'competition-producers': 'fable' };
-    const envelope = profile.buildResolveEnvelope('pro', forbiddenOverrides, undefined, undefined);
+describe('buildResolveEnvelope: producers override still dropped; judge=opus honored', () => {
+  it('{"competition-judge":"opus","competition-producers":"sonnet"} → judge=opus honored, producers absent', () => {
+    const overrides = { 'competition-judge': 'opus', 'competition-producers': 'sonnet' };
+    const envelope = profile.buildResolveEnvelope('pro', overrides, undefined, undefined);
     assert.equal(envelope.ok, true);
-    // judge must not be opus (producers' model)
-    assert.notEqual(envelope.overrides['competition-judge'], MODEL_IDS.opus,
-      'competition-judge must not resolve to producers model in output overrides');
-    // producers must not appear in overrides
+    assert.equal(envelope.overrides['competition-judge'], MODEL_IDS.opus,
+      'competition-judge=opus is honored (relaxed blindness)');
     assert.ok(!('competition-producers' in envelope.overrides),
-      'competition-producers must not appear in output overrides map');
-    // configError must be present
-    assert.ok(envelope.configError, 'configError must be present when forbidden values are silently dropped');
+      'competition-producers must not appear in output overrides map (never overridable)');
   });
 });
 
@@ -381,35 +363,32 @@ describe('CLI: gsd-t-model-profile.cjs resolve', () => {
     assert.equal(parsed.profile, 'pro');
     assert.ok(parsed.overrides, 'envelope must have overrides');
     assert.ok(parsed.requiresThinkingOmitted, 'envelope must have requiresThinkingOmitted map');
-    // pro: red-team, pre-mortem, debug-cycle-2 → fable
-    assert.equal(parsed.overrides['red-team'], MODEL_IDS.fable);
-    assert.equal(parsed.overrides['pre-mortem'], MODEL_IDS.fable);
-    assert.equal(parsed.overrides['debug-cycle-2'], MODEL_IDS.fable);
-    // pro: probes → opus, judge → sonnet
+    // pro: red-team, pre-mortem, debug-cycle-2 → opus; probes → opus; judge → sonnet
+    assert.equal(parsed.overrides['red-team'], MODEL_IDS.opus);
+    assert.equal(parsed.overrides['pre-mortem'], MODEL_IDS.opus);
+    assert.equal(parsed.overrides['debug-cycle-2'], MODEL_IDS.opus);
     assert.equal(parsed.overrides['solution-space-probe'], MODEL_IDS.opus);
     assert.equal(parsed.overrides['competition-judge'], MODEL_IDS.sonnet);
   });
 
-  it('resolve --profile premium --json: all 6 injectable stages map to fable', () => {
+  it('resolve --profile premium --json: all 6 injectable stages map to opus', () => {
     const r = spawnSync(process.execPath, [PROFILE_PATH, 'resolve', '--profile', 'premium', '--json'], { encoding: 'utf8' });
     assert.equal(r.status, 0);
     const parsed = JSON.parse(r.stdout);
     assert.equal(parsed.ok, true);
     for (const stage of INJECTABLE_STAGES) {
-      assert.equal(parsed.overrides[stage], MODEL_IDS.fable, `premium: ${stage} must be fable`);
-      assert.equal(parsed.requiresThinkingOmitted[stage], true, `premium: ${stage} must have requiresThinkingOmitted=true`);
+      assert.equal(parsed.overrides[stage], MODEL_IDS.opus, `premium: ${stage} must be opus`);
+      assert.equal(parsed.requiresThinkingOmitted[stage], false, `premium: ${stage} requiresThinkingOmitted must be false`);
     }
   });
 
-  it('resolve --profile standard --json: zero fable', () => {
+  it('resolve --profile standard --json: no opus-only high-stakes (sonnet), never fable', () => {
     const r = spawnSync(process.execPath, [PROFILE_PATH, 'resolve', '--profile', 'standard', '--json'], { encoding: 'utf8' });
     assert.equal(r.status, 0);
     const parsed = JSON.parse(r.stdout);
     assert.equal(parsed.ok, true);
-    // No fable in standard
-    for (const [stage, model] of Object.entries(parsed.overrides)) {
-      assert.notEqual(model, MODEL_IDS.fable, `standard profile: ${stage} must not be fable`);
-    }
+    // No model in the tier-3 world is fable; verify red-team is sonnet in standard.
+    assert.equal(parsed.overrides['red-team'], MODEL_IDS.sonnet, 'standard: red-team is sonnet');
   });
 
   it('resolve --profile unknown → non-zero + {ok:false, error}', () => {
@@ -420,12 +399,12 @@ describe('CLI: gsd-t-model-profile.cjs resolve', () => {
     assert.ok(parsed.error);
   });
 
-  it('resolve --profile pro requiresThinkingOmitted propagated for fable stages', () => {
+  it('resolve --profile pro requiresThinkingOmitted is false for all stages (Fable removed)', () => {
     const r = spawnSync(process.execPath, [PROFILE_PATH, 'resolve', '--profile', 'pro', '--json'], { encoding: 'utf8' });
     const parsed = JSON.parse(r.stdout);
-    assert.equal(parsed.requiresThinkingOmitted['red-team'], true);
-    assert.equal(parsed.requiresThinkingOmitted['pre-mortem'], true);
-    assert.equal(parsed.requiresThinkingOmitted['debug-cycle-2'], true);
+    assert.equal(parsed.requiresThinkingOmitted['red-team'], false);
+    assert.equal(parsed.requiresThinkingOmitted['pre-mortem'], false);
+    assert.equal(parsed.requiresThinkingOmitted['debug-cycle-2'], false);
     assert.equal(parsed.requiresThinkingOmitted['solution-space-probe'], false);
   });
 });
@@ -448,8 +427,8 @@ describe('CLI: gsd-t-model-profile.cjs set-stage blindness clamps', () => {
     assert.equal(parsed.ok, false);
   });
 
-  it('set-stage competition-producers fable → REJECTED', () => {
-    const r = spawnSync(process.execPath, [PROFILE_PATH, 'set-stage', 'competition-producers', 'fable', '--json'], {
+  it('set-stage competition-producers sonnet → REJECTED', () => {
+    const r = spawnSync(process.execPath, [PROFILE_PATH, 'set-stage', 'competition-producers', 'sonnet', '--json'], {
       encoding: 'utf8', cwd: tmpDir,
     });
     assert.notEqual(r.status, 0);
@@ -457,17 +436,17 @@ describe('CLI: gsd-t-model-profile.cjs set-stage blindness clamps', () => {
     assert.equal(parsed.ok, false);
   });
 
-  it('set-stage competition-judge opus → REJECTED', () => {
+  it('set-stage competition-judge opus → ALLOWED (blindness relaxed to fresh context 2026-07-24)', () => {
     const r = spawnSync(process.execPath, [PROFILE_PATH, 'set-stage', 'competition-judge', 'opus', '--json'], {
       encoding: 'utf8', cwd: tmpDir,
     });
-    assert.notEqual(r.status, 0);
+    assert.equal(r.status, 0, `expected exit 0; stderr=${r.stderr}; stdout=${r.stdout}`);
     const parsed = JSON.parse(r.stdout);
-    assert.equal(parsed.ok, false);
+    assert.equal(parsed.ok, true);
   });
 
-  it('set-stage competition-judge fable → ALLOWED (exits 0)', () => {
-    const r = spawnSync(process.execPath, [PROFILE_PATH, 'set-stage', 'competition-judge', 'fable', '--json'], {
+  it('set-stage competition-judge sonnet → ALLOWED (exits 0)', () => {
+    const r = spawnSync(process.execPath, [PROFILE_PATH, 'set-stage', 'competition-judge', 'sonnet', '--json'], {
       encoding: 'utf8', cwd: tmpDir,
     });
     assert.equal(r.status, 0, `expected exit 0; stderr=${r.stderr}; stdout=${r.stdout}`);
@@ -507,8 +486,8 @@ describe('Contract doc-assertion: model-tier-policy-contract.md', () => {
   let contractSrc;
   before(() => { contractSrc = fs.readFileSync(TIER_CONTRACT_PATH, 'utf8'); });
 
-  it('declares Version 1.1.0', () => {
-    assert.ok(contractSrc.includes('## Version: 1.1.0'), 'contract must declare Version: 1.1.0');
+  it('declares Version 2.0.0 (Fable removed 2026-07-24)', () => {
+    assert.ok(contractSrc.includes('## Version: 2.0.0'), 'contract must declare Version: 2.0.0');
   });
 
   it('contains the 3-profile dimension table', () => {
@@ -598,7 +577,7 @@ describe('Red Team fix: prototype-key validation bypass (HIGH)', () => {
     it(`resolveProfile: tier "${key}" in stageOverrides → configError + profile-tier fallback, model stays a STRING`, () => {
       const r = resolveProfile('red-team', { profile: 'standard', stageOverrides: { 'red-team': key } });
       assert.equal(typeof r.model, 'string', `model must be a string, got ${typeof r.model}`);
-      assert.equal(r.model, MODEL_IDS.opus, 'standard profile red-team must fall back to opus, NOT premium fable');
+      assert.equal(r.model, MODEL_IDS.sonnet, 'standard profile red-team must fall back to its profile tier (sonnet)');
       assert.ok(r.configError, 'prototype-key tier must surface a configError (never silent)');
     });
   }
@@ -606,18 +585,18 @@ describe('Red Team fix: prototype-key validation bypass (HIGH)', () => {
   it('resolveProfile: profile "constructor" → premium named default, model a string', () => {
     const r = resolveProfile('red-team', { profile: 'constructor', stageOverrides: {} });
     assert.equal(typeof r.model, 'string');
-    assert.equal(r.model, MODEL_IDS.fable, 'unknown profile falls back to the named premium default');
+    assert.equal(r.model, MODEL_IDS.opus, 'unknown profile falls back to the named premium default (opus)');
   });
 
   it('envelope: prototype-key tier never yields a clean envelope with the stage MISSING (the JSON.stringify drop)', () => {
     const env = profile.buildResolveEnvelope('standard', { 'red-team': 'constructor' });
     assert.equal(env.ok, true);
     assert.ok(Object.prototype.hasOwnProperty.call(env.overrides, 'red-team'),
-      'red-team key must be PRESENT in overrides (missing key = workflow ?? falls back to premium fable)');
-    assert.equal(env.overrides['red-team'], MODEL_IDS.opus, 'standard red-team resolves opus');
+      'red-team key must be PRESENT in overrides (missing key = workflow ?? falls back to the fallback literal)');
+    assert.equal(env.overrides['red-team'], MODEL_IDS.sonnet, 'standard red-team resolves sonnet');
     assert.ok(env.configError, 'envelope must carry configError — never a silent clean envelope');
     const json = JSON.parse(JSON.stringify(env));
-    assert.equal(json.overrides['red-team'], MODEL_IDS.opus, 'key survives JSON round-trip');
+    assert.equal(json.overrides['red-team'], MODEL_IDS.sonnet, 'key survives JSON round-trip');
   });
 
   it('readConfig: prototype-key tier value in config file → entry ignored + configError (CLI repro)', () => {
@@ -635,7 +614,7 @@ describe('Red Team fix: prototype-key validation bypass (HIGH)', () => {
 
 describe('Red Team fix: unknown stage keys rejected (MEDIUM x2)', () => {
   it('validateSetStage: unknown stage "red-tem" → rejected with the injectable list', () => {
-    const v = profile.validateSetStage('red-tem', 'fable');
+    const v = profile.validateSetStage('red-tem', 'opus');
     assert.equal(v.ok, false, 'unknown stage must be rejected, not persisted');
     assert.ok(/Unknown stage/.test(v.error));
   });
@@ -650,7 +629,7 @@ describe('Red Team fix: unknown stage keys rejected (MEDIUM x2)', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'm86-unkstage-'));
     fs.mkdirSync(path.join(dir, '.gsd-t'));
     fs.writeFileSync(path.join(dir, '.gsd-t', 'model-profile.json'),
-      '{"profile":"pro","stageOverrides":{"red-tem":"fable"}}');
+      '{"profile":"pro","stageOverrides":{"red-tem":"opus"}}');
     const cfg = profile.readConfig(dir);
     assert.equal(cfg.ok, false);
     assert.ok(/unknown stage/.test(cfg.configError));
@@ -661,7 +640,7 @@ describe('Red Team fix: unknown stage keys rejected (MEDIUM x2)', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'm86-prodkey-'));
     fs.mkdirSync(path.join(dir, '.gsd-t'));
     fs.writeFileSync(path.join(dir, '.gsd-t', 'model-profile.json'),
-      '{"profile":"pro","stageOverrides":{"competition-producers":"fable"}}');
+      '{"profile":"pro","stageOverrides":{"competition-producers":"sonnet"}}');
     const cfg = profile.readConfig(dir);
     assert.equal(cfg.ok, false);
     assert.ok(/not overridable/.test(cfg.configError), 'producers entry must carry the M82 marker');
@@ -763,11 +742,11 @@ describe('Red Team r2 fix: set/set-stage over an erroring config (MEDIUM + LOW)'
 
   it('set-stage on a CLEAN config never mutates the profile field', () => {
     const dir = mkProj('{"profile":"standard","stageOverrides":{}}');
-    const r = cli(dir, ['set-stage', 'red-team', 'fable']);
+    const r = cli(dir, ['set-stage', 'red-team', 'opus']);
     assert.equal(JSON.parse(r.stdout).ok, true);
     const onDisk = JSON.parse(fs.readFileSync(path.join(dir, '.gsd-t', 'model-profile.json'), 'utf8'));
     assert.equal(onDisk.profile, 'standard', 'profile must be untouched by a stage tweak');
-    assert.equal(onDisk.stageOverrides['red-team'], 'fable');
+    assert.equal(onDisk.stageOverrides['red-team'], 'opus');
     fs.rmSync(dir, { recursive: true, force: true });
   });
 });
@@ -775,7 +754,7 @@ describe('Red Team r2 fix: set/set-stage over an erroring config (MEDIUM + LOW)'
 describe('Red Team r2 fix: resolveProfile library-level markers (LOW)', () => {
   it('invalid profile via library call → premium default WITH configError marker (not silent)', () => {
     const r = resolveProfile('red-team', { profile: 'constructor', stageOverrides: {} });
-    assert.equal(r.model, MODEL_IDS.fable);
+    assert.equal(r.model, MODEL_IDS.opus);
     assert.ok(r.configError && /unknown profile/.test(r.configError), 'silent premium default is the spend-escalation class');
   });
 
@@ -805,7 +784,7 @@ describe('Red Team r3 fix: bare resolve (the invoker form) honors persisted stag
     const out = JSON.parse(r.stdout);
     assert.equal(out.ok, true);
     assert.equal(out.overrides['red-team'], MODEL_IDS.haiku,
-      'the persisted set-stage override must WIN on the invoker form — the r3 HIGH was --profile zeroing it (show said haiku, workflow billed fable)');
+      'the persisted set-stage override must WIN on the invoker form — the r3 HIGH was --profile zeroing it (show said haiku, workflow billed opus)');
     fs.rmSync(dir, { recursive: true, force: true });
   });
 
@@ -816,7 +795,7 @@ describe('Red Team r3 fix: bare resolve (the invoker form) honors persisted stag
       '{"profile":"premium","stageOverrides":{"red-team":"haiku"}}');
     const r = spawnSync(process.execPath, [PROFILE_PATH, 'resolve', '--profile', 'premium', '--json'], { cwd: dir, encoding: 'utf8' });
     const out = JSON.parse(r.stdout);
-    assert.equal(out.overrides['red-team'], MODEL_IDS.fable, 'pure profile envelope — config-blind by design');
+    assert.equal(out.overrides['red-team'], MODEL_IDS.opus, 'pure profile envelope — config-blind by design');
     fs.rmSync(dir, { recursive: true, force: true });
   });
 

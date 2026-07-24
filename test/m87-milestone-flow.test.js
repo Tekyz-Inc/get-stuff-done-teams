@@ -152,8 +152,8 @@ describe("M87-D3 two-altitude flow structure (approach altitude precedes detaile
     // fable (the altitude shift changes WHAT, never the model/producers).
     assert.match(
       text,
-      /overrides\["solution-space-probe"\] \?\? "fable"/,
-      "probe model literal must stay fable (??-form) — altitude shift must not change the tier"
+      /overrides\["solution-space-probe"\] \?\? "opus"/,
+      "probe model literal must stay opus (??-form) — altitude shift must not change the tier (Fable removed 2026-07-24)"
     );
     // Producers stay opus (M82 blindness — altitude shift changes the topic, not who competes).
     assert.match(text, /model=opus/, "competition producers must stay opus (M82 blindness invariant)");

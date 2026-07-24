@@ -3,7 +3,7 @@
 // M85 / M71-family / M86 — Model-Tier Policy Drift Enforcer
 //
 // Asserts every workflow model: literal is a member of the published tier set,
-// the 6 designated stages resolve to the correct tiers (6 → fable, producers → opus,
+// the 6 designated stages resolve to the correct tiers (all → opus (Fable removed),
 // debug cycle-1 → opus, debug cycle-2 → fable), and deliberately-drifted fixtures
 // FAIL the checker.
 //
@@ -64,21 +64,21 @@ const INJECTABLE_STAGES = new Set(
 const DESIGNATED_STAGE_MAP = [
   {
     stageKey: "solution-space-probe",
-    expectedTier: "fable",
+    expectedTier: "opus",
     labelPattern: /^"solution-space-probe"$/,
     files: ["gsd-t-phase.workflow.js"],
     description: "solution-space probe (phase)",
   },
   {
     stageKey: "partition-probe",
-    expectedTier: "fable",
+    expectedTier: "opus",
     labelPattern: /^"partition-probe"$/,
     files: ["gsd-t-phase.workflow.js"],
     description: "partition probe (phase)",
   },
   {
     stageKey: "competition-judge",
-    expectedTier: "fable",
+    expectedTier: "opus",
     labelPattern: /^"judge:rubric"$/,
     files: ["gsd-t-phase.workflow.js"],
     description: "competition judge (phase)",
@@ -92,24 +92,24 @@ const DESIGNATED_STAGE_MAP = [
   },
   {
     stageKey: "pre-mortem",
-    expectedTier: "fable",
+    expectedTier: "opus",
     labelPattern: /^"pre-mortem"$/,
     files: ["gsd-t-phase.workflow.js"],
     description: "pre-mortem (phase)",
   },
   {
     stageKey: "red-team",
-    expectedTier: "fable",
+    expectedTier: "opus",
     labelPattern: /^"red-team"$/,
     files: ["gsd-t-verify.workflow.js"],
     description: "red-team (verify)",
   },
   {
     stageKey: "debug-cycle-2",
-    expectedTier: "fable",
+    expectedTier: "opus",
     labelPattern: /^`debug-cycle-\$\{cycle\}`$|^`debug-cycle-\$\{/, // template literal
     files: ["gsd-t-debug.workflow.js"],
-    description: "debug cycle-2 (debug) — per-cycle ternary, cycle-1 → opus, cycle-2 → fable",
+    description: "debug cycle-2 (debug) — per-cycle ternary, cycle-1 → opus, cycle-2 → opus",
   },
 ];
 
@@ -482,11 +482,12 @@ function checkWorkflowSource(source, filename, opts = {}) {
               `[${filename}] debug-cycle ternary cycle-1 branch is "${call.ternaryIf}", expected "opus" (line ~${call.lineNum})`
             );
           }
-          // Assert cycle-2 → fable (bare else value OR ?? fallback)
+          // Assert cycle-2 → opus (bare else value OR ?? fallback). Was fable;
+          // Fable removed 2026-07-24 → both debug cycles are opus.
           const cycle2Tier = call.ternaryElse;
-          if (cycle2Tier !== "fable") {
+          if (cycle2Tier !== "opus") {
             violations.push(
-              `[${filename}] debug-cycle ternary cycle-2 branch is "${cycle2Tier}", expected "fable" (line ~${call.lineNum})`
+              `[${filename}] debug-cycle ternary cycle-2 branch is "${cycle2Tier}", expected "opus" (line ~${call.lineNum})`
             );
           }
           // If it's the combined form (isOverrideForm), the bracket key must be debug-cycle-2
@@ -527,26 +528,12 @@ function checkWorkflowSource(source, filename, opts = {}) {
     }
   }
 
-  // --- 6. Judge ≠ producer blindness invariant (only in phase.workflow.js) ---
-  if (filename === "gsd-t-phase.workflow.js") {
-    const judgeEntry = DESIGNATED_STAGE_MAP.find((e) => e.stageKey === "competition-judge");
-    const producerEntry = DESIGNATED_STAGE_MAP.find((e) => e.stageKey === "competition-producers");
-
-    if (judgeEntry && producerEntry) {
-      const judgeCalls = agentCalls.filter((c) => judgeEntry.labelPattern.test(c.labelRaw));
-      const producerCalls = agentCalls.filter((c) => producerEntry.labelPattern.test(c.labelRaw));
-
-      if (judgeCalls.length > 0 && producerCalls.length > 0) {
-        const judgeModel = judgeCalls[0].modelValue;
-        const producerModel = producerCalls[0].modelValue;
-        if (judgeModel && producerModel && judgeModel === producerModel) {
-          violations.push(
-            `[${filename}] BLINDNESS INVARIANT BROKEN: judge model ("${judgeModel}") === producer model ("${producerModel}") — judge must differ from producers (M82)`
-          );
-        }
-      }
-    }
-  }
+  // --- 6. Judge/producer blindness — RELAXED 2026-07-24 ---
+  // The M82 invariant changed from "judge model ≠ producer model" to "judge runs
+  // in a fresh independent context". Judge and producers now BOTH run opus, so a
+  // model-equality check is no longer a violation — the check is removed. (Fresh
+  // context is a workflow-structure property, not a model-literal property, so it
+  // is not asserted by this literal-drift lint.)
 
   return violations;
 }
@@ -559,9 +546,9 @@ test("policy module exists and exports MODEL_IDS and STAGE_TIERS", () => {
   assert.ok(fs.existsSync(POLICY_MODULE), `policy module not found: ${POLICY_MODULE}`);
   assert.ok(typeof MODEL_IDS === "object" && MODEL_IDS !== null, "MODEL_IDS must be an object");
   assert.ok(typeof STAGE_TIERS === "object" && STAGE_TIERS !== null, "STAGE_TIERS must be an object");
-  assert.ok(VALID_TIERS.size >= 4, "MODEL_IDS must have at least 4 tiers");
+  assert.ok(VALID_TIERS.size >= 3, "MODEL_IDS must have at least 3 tiers (haiku/sonnet/opus — Fable removed 2026-07-24)");
   assert.ok(VALID_TIERS.has("opus"), "tier set must include opus");
-  assert.ok(VALID_TIERS.has("fable"), "tier set must include fable");
+  assert.ok(!VALID_TIERS.has("fable"), "tier set must NOT include fable (removed 2026-07-24)");
   assert.ok(VALID_TIERS.has("sonnet"), "tier set must include sonnet");
   assert.ok(VALID_TIERS.has("haiku"), "tier set must include haiku");
 });
@@ -783,7 +770,7 @@ describe("designated stages have correct tier assignments", () => {
   }
 
   // debug-cycle-2: ternary check
-  test("debug-cycle ternary: cycle-1 → opus, cycle-2 → fable (DISTINCT assertions)", () => {
+  test("debug-cycle ternary: cycle-1 → opus, cycle-2 → opus (ternary preserved for override injection)", () => {
     const src = fs.readFileSync(path.join(WF_DIR, "gsd-t-debug.workflow.js"), "utf8");
     const agentCalls = extractAgentCallsWithLabels(src);
     const entry = DESIGNATED_STAGE_MAP.find((e) => e.stageKey === "debug-cycle-2");
@@ -802,15 +789,13 @@ describe("designated stages have correct tier assignments", () => {
         );
         assert.equal(
           call.ternaryElse,
-          "fable",
-          `debug-cycle ternary cycle-2 (else-branch) must be "fable", got "${call.ternaryElse}"`
+          "opus",
+          `debug-cycle ternary cycle-2 (else-branch) must be "opus", got "${call.ternaryElse}"`
         );
-        // Distinct: the two values must differ (cycle-1 ≠ cycle-2)
-        assert.notEqual(
-          call.ternaryIf,
-          call.ternaryElse,
-          "cycle-1 tier and cycle-2 tier must be DISTINCT (loose regex that can't distinguish cycles is decorative)"
-        );
+        // Both cycles are opus now (Fable removed 2026-07-24). The ternary is
+        // PRESERVED (not flattened) because the else-branch keeps the
+        // overrides["debug-cycle-2"] profile-injection point — but the two tiers
+        // are no longer required to differ (the Opus4.8→Fable escalation is gone).
       } else {
         // Flat literal — fail
         assert.fail(
@@ -825,8 +810,10 @@ describe("designated stages have correct tier assignments", () => {
     );
   });
 
-  // Judge ≠ producer blindness invariant
-  test("competition judge tier ≠ competition producer tier (M82 blindness invariant)", () => {
+  // M82 blindness invariant RELAXED (2026-07-24) from "different model" to
+  // "fresh independent context". Judge and producers now BOTH run opus — the
+  // lint asserts they are the SAME tier (the relaxed posture), not different.
+  test("competition judge tier == competition producer tier (M82 relaxed — fresh-context blindness)", () => {
     const src = fs.readFileSync(path.join(WF_DIR, "gsd-t-phase.workflow.js"), "utf8");
     const calls = extractAgentCallsWithLabels(src);
     const judgeEntry = DESIGNATED_STAGE_MAP.find((e) => e.stageKey === "competition-judge");
@@ -843,10 +830,14 @@ describe("designated stages have correct tier assignments", () => {
 
     assert.ok(judgeModel !== null, "Judge must have a model: value");
     assert.ok(producerModel !== null, "Producer must have a model: value");
-    assert.notEqual(
-      judgeModel,
-      producerModel,
-      `BLINDNESS INVARIANT BROKEN: judge="${judgeModel}" === producer="${producerModel}" — they must differ (M82)`
+    // Both are the "opus" tier alias (fallback literal in the ?? form / bare literal).
+    assert.equal(
+      judgeModel, "opus",
+      `judge must be opus (relaxed blindness), got "${judgeModel}"`
+    );
+    assert.equal(
+      producerModel, "opus",
+      `producers must be opus, got "${producerModel}"`
     );
   });
 });
@@ -859,17 +850,17 @@ describe("designated stages have correct tier assignments", () => {
 
 describe("mandatory negative tests — drift fixtures must FAIL the checker", () => {
 
-  test("fixture: red-team reverted to opus → must report violation", () => {
-    // Synthesize a minimal verify-like source with red-team on opus
+  test("fixture: red-team drifted to haiku → must report violation", () => {
+    // red-team is now opus (Fable removed); haiku is the drift that must FAIL.
     const fixture = `
       const r = await agent(prompt, {
-        label: "red-team", phase: "Orthogonal Triad", schema: RED_TEAM_SCHEMA, model: "opus"
+        label: "red-team", phase: "Orthogonal Triad", schema: RED_TEAM_SCHEMA, model: "haiku"
       });
     `;
     const violations = checkWorkflowSource(fixture, "gsd-t-verify.workflow.js");
     assert.ok(
       violations.length >= 1,
-      `Drift fixture (red-team → opus) should produce violations, got none. Checker is decorative.`
+      `Drift fixture (red-team → haiku) should produce violations, got none. Checker is decorative.`
     );
     assert.ok(
       violations.some((v) => v.includes("red-team")),
@@ -893,48 +884,49 @@ describe("mandatory negative tests — drift fixtures must FAIL the checker", ()
     );
   });
 
-  test("fixture: debug ternary FLATTENED to fable (cycle-1 wrongly fable) → must report violation", () => {
-    // Flat fable: both cycles on fable
+  test("fixture: debug ternary FLATTENED to haiku (both cycles wrongly haiku) → must report violation", () => {
+    // Both debug cycles are opus now (Fable removed). haiku is the drift that must FAIL.
     const fixture = `
       for (let cycle = 1; cycle <= 2; cycle++) {
         const r = await agent(prompt, {
           label: \`debug-cycle-\${cycle}\`,
           phase: \`Cycle \${cycle}\`,
           schema: DEBUG_CYCLE_SCHEMA,
-          model: "fable",
+          model: "haiku",
         });
       }
     `;
     const violations = checkWorkflowSource(fixture, "gsd-t-debug.workflow.js");
     assert.ok(
       violations.length >= 1,
-      `Drift fixture (debug ternary flattened → fable) should produce violations, got none.`
+      `Drift fixture (debug flattened → haiku) should produce violations, got none.`
     );
     assert.ok(
-      violations.some((v) => v.includes("debug-cycle") || v.includes("flat")),
-      `Violation must mention debug-cycle or flat, got: ${violations.join("; ")}`
+      violations.some((v) => v.includes("debug-cycle") || v.includes("flat") || v.includes("haiku")),
+      `Violation must mention debug-cycle/flat/haiku, got: ${violations.join("; ")}`
     );
   });
 
-  test("fixture: debug ternary SWAPPED (cycle-1 fable, cycle-2 opus) → must report violation", () => {
+  test("fixture: debug ternary drifted (cycle-2 → sonnet) → must report violation", () => {
+    // Both cycles should be opus; cycle-2 on sonnet is the drift.
     const fixture = `
       for (let cycle = 1; cycle <= 2; cycle++) {
         const r = await agent(prompt, {
           label: \`debug-cycle-\${cycle}\`,
           phase: \`Cycle \${cycle}\`,
           schema: DEBUG_CYCLE_SCHEMA,
-          model: cycle === 1 ? "fable" : "opus",
+          model: cycle === 1 ? "opus" : "sonnet",
         });
       }
     `;
     const violations = checkWorkflowSource(fixture, "gsd-t-debug.workflow.js");
     assert.ok(
       violations.length >= 1,
-      `Drift fixture (debug ternary swapped) should produce violations, got none.`
+      `Drift fixture (debug cycle-2 → sonnet) should produce violations, got none.`
     );
     assert.ok(
-      violations.some((v) => v.includes("cycle-1") || v.includes("fable")),
-      `Violation must mention cycle-1 or fable branch error, got: ${violations.join("; ")}`
+      violations.some((v) => v.includes("cycle-2") || v.includes("sonnet") || v.includes("debug-cycle")),
+      `Violation must mention cycle-2/sonnet/debug-cycle, got: ${violations.join("; ")}`
     );
   });
 
@@ -1005,24 +997,20 @@ describe("mandatory negative tests — drift fixtures must FAIL the checker", ()
 
 describe("meta-tests: drifted copies of real workflow files fail the checker (production scan path)", () => {
 
-  test("verify.workflow.js copy with red-team drifted to opus → checker returns violation", () => {
+  test("verify.workflow.js copy with red-team drifted to haiku → checker returns violation", () => {
     const realSrc = fs.readFileSync(path.join(WF_DIR, "gsd-t-verify.workflow.js"), "utf8");
 
-    // Drift: replace the model assignment for red-team with a drifted literal.
-    // The real file (post-D2) may have model: overrides["red-team"] ?? "fable"
-    // or the pre-D2 bare literal model: "fable".
-    // Strategy: use a regex that handles BOTH forms and replaces with model: "opus".
-    // (1) Replace ?? form: overrides["red-team"] ?? "fable" → "opus"
-    // (2) Replace bare literal form near red-team label
+    // red-team is now opus (Fable removed). Drift it to haiku (a wrong tier) and
+    // the checker must flag it. The real file has model: overrides["red-team"] ?? "opus".
     let driftedSrc = realSrc;
 
-    // Replace the ?? form for red-team (M86 D2 shipped form)
+    // Replace the ?? form for red-team with a drifted haiku literal.
     driftedSrc = driftedSrc.replace(
       /\bmodel\s*:\s*overrides\s*\[\s*"red-team"\s*\]\s*\?\?\s*"[^"]+"/,
-      'model: "opus"'
+      'model: "haiku"'
     );
 
-    // If the above didn't change anything (pre-D2 bare form), do a targeted line-level replace
+    // If the above didn't change anything (bare form), do a targeted line-level replace.
     if (driftedSrc === realSrc) {
       const lines = realSrc.split("\n");
       const driftedLines = [...lines];
@@ -1035,10 +1023,9 @@ describe("meta-tests: drifted copies of real workflow files fail the checker (pr
       }
       assert.ok(redTeamLineIdx >= 0, "Must find red-team label line in verify workflow");
 
-      // Replace model: in the vicinity (within 6 lines after label)
       for (let j = redTeamLineIdx; j < Math.min(lines.length, redTeamLineIdx + 7); j++) {
         if (driftedLines[j].match(/\bmodel\s*:/)) {
-          driftedLines[j] = driftedLines[j].replace(/\bmodel\s*:.*/, 'model: "opus",');
+          driftedLines[j] = driftedLines[j].replace(/\bmodel\s*:.*/, 'model: "haiku",');
           break;
         }
       }
@@ -1048,7 +1035,7 @@ describe("meta-tests: drifted copies of real workflow files fail the checker (pr
     const violations = checkWorkflowSource(driftedSrc, "gsd-t-verify.workflow.js");
     assert.ok(
       violations.length >= 1,
-      `Real-file copy with red-team drifted to opus must produce violations. Checker is decorative on real-file path. Got: none`
+      `Real-file copy with red-team drifted to haiku must produce violations. Checker is decorative on real-file path. Got: none`
     );
     assert.ok(
       violations.some((v) => v.includes("red-team")),
@@ -1113,19 +1100,20 @@ for (let cycle = 1; cycle <= 2; cycle++) {
     );
   });
 
-  test("debug copy: ternary SWAPPED (cycle-1→fable, cycle-2→opus) → checker reports violation", () => {
-    const swappedSrc = makeDebugSourceWithTernary("fable", "opus");
+  test("debug copy: ternary DRIFTED (cycle-1→sonnet, cycle-2→opus) → checker reports violation", () => {
+    // Both cycles should be opus; cycle-1 on sonnet is the drift.
+    const swappedSrc = makeDebugSourceWithTernary("sonnet", "opus");
     const violations = checkWorkflowSource(swappedSrc, "gsd-t-debug.workflow.js");
     assert.ok(violations.length >= 1,
-      `Swapped debug ternary (cycle-1 fable, cycle-2 opus) must produce violations. Got none.`);
+      `Drifted debug ternary (cycle-1 sonnet) must produce violations. Got none.`);
     assert.ok(
-      violations.some((v) => v.includes("cycle-1") || v.includes("opus") || v.includes("fable")),
-      `Violation must mention cycle-1/opus/fable mismatch: ${violations.join("; ")}`
+      violations.some((v) => v.includes("cycle-1") || v.includes("sonnet") || v.includes("cycle")),
+      `Violation must mention cycle-1/sonnet mismatch: ${violations.join("; ")}`
     );
   });
 
-  test("debug copy: correct ternary (cycle-1→opus, cycle-2→fable) → checker returns NO violations (positive case)", () => {
-    const correctSrc = makeDebugSourceWithTernary("opus", "fable");
+  test("debug copy: correct ternary (cycle-1→opus, cycle-2→opus) → checker returns NO violations (positive case)", () => {
+    const correctSrc = makeDebugSourceWithTernary("opus", "opus");
     const violations = checkWorkflowSource(correctSrc, "gsd-t-debug.workflow.js");
     // Filter to debug-cycle violations only (the fixture only has the debug-cycle agent call)
     const debugViolations = violations.filter((v) => v.includes("debug-cycle") || v.includes("flat") || v.includes("cycle"));
@@ -1137,17 +1125,18 @@ for (let cycle = 1; cycle <= 2; cycle++) {
   });
 
   test("debug ternary extractor reads BOTH operands and distinguishes cycle-1 from cycle-2", () => {
-    // Direct unit test of extractDebugCycleTernary
-    const withTernary = `model: cycle === 1 ? "opus" : "fable"`;
+    // Direct unit test of extractDebugCycleTernary (tests STRING parsing, tier
+    // validity is checked elsewhere — sonnet used as a distinct second operand).
+    const withTernary = `model: cycle === 1 ? "opus" : "sonnet"`;
     const result = extractDebugCycleTernary(withTernary);
     assert.ok(result !== null, "Ternary extractor must return non-null for ternary source");
     assert.equal(result.cycle1Tier, "opus", "cycle1Tier must be opus");
-    assert.equal(result.cycle2Tier, "fable", "cycle2Tier must be fable");
+    assert.equal(result.cycle2Tier, "sonnet", "cycle2Tier must be sonnet");
 
-    const swapped = `model: cycle === 1 ? "fable" : "opus"`;
+    const swapped = `model: cycle === 1 ? "sonnet" : "opus"`;
     const swappedResult = extractDebugCycleTernary(swapped);
     assert.ok(swappedResult !== null, "Ternary extractor must return non-null for swapped source");
-    assert.equal(swappedResult.cycle1Tier, "fable");
+    assert.equal(swappedResult.cycle1Tier, "sonnet");
     assert.equal(swappedResult.cycle2Tier, "opus");
 
     const flat = `model: "opus"`;

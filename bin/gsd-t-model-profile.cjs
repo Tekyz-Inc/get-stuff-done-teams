@@ -51,7 +51,7 @@ const GLOBAL_DEFAULT_PROFILE = 'premium';
 const VALID_PROFILES = Object.keys(PROFILE_STAGE_TIERS); // ['standard','pro','premium']
 
 /** Valid tier names. */
-const VALID_TIERS = Object.keys(MODEL_IDS); // ['opus','fable','sonnet','haiku']
+const VALID_TIERS = Object.keys(MODEL_IDS); // ['opus','sonnet','haiku'] (Fable removed 2026-07-24)
 
 /**
  * Stages that CANNOT be overridden (M82 blindness invariant).
@@ -216,12 +216,10 @@ function validateSetStage(stageKey, tier) {
     };
   }
 
-  if (stageKey === 'competition-judge' && MODEL_IDS[tier] === MODEL_IDS.opus) {
-    return {
-      ok: false,
-      error: `competition-judge cannot be set to "${tier}" (resolves to "${MODEL_IDS[tier]}") — judge model must differ from producers' model (M82 blindness invariant)`,
-    };
-  }
+  // Blindness clamp REMOVED 2026-07-24: the M82 invariant relaxed from "judge
+  // model ≠ producers model" to "judge runs in a fresh independent context", so
+  // competition-judge = opus (= producers' model) is now ALLOWED. Any valid tier
+  // is accepted for the judge.
 
   return { ok: true };
 }
@@ -281,14 +279,9 @@ function buildResolveEnvelope(profile, stageOverrides, specificStage, configErro
     if (r.configError && !envelopeConfigError) envelopeConfigError = r.configError;
   }
 
-  // Verify competition-judge !== producers' model (final assertion)
-  if (overrides['competition-judge'] === MODEL_IDS.opus) {
-    // This should never reach here (resolveProfile clamps it), but defense in depth
-    envelopeConfigError = envelopeConfigError || 'blindness clamp: competition-judge resolved to producers model — using profile fallback';
-    const fallbackR = resolveProfile('competition-judge', { profile, stageOverrides: {} });
-    overrides['competition-judge'] = fallbackR.model;
-    thinkingMap['competition-judge'] = fallbackR.requiresThinkingOmitted;
-  }
+  // Blindness clamp REMOVED 2026-07-24: competition-judge = opus (= producers'
+  // model) is now permitted (invariant relaxed to "fresh independent context").
+  // No rewrite of the judge model.
 
   const result = {
     ok: true,

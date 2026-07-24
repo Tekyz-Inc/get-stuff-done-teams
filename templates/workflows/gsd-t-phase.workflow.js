@@ -49,10 +49,10 @@
 //   iterates each [GUESSED:*] entry through the D1 classifier, which is a MECHANICAL
 //   STRING-FACT FILTER returning internal | external | AMBIGUOUS (v1.3.0). On
 //   class:external write a §7 status=uncited marker, run the research agent (bare
-//   model:"fable"), write a ## Verified Facts (auto-research) block, flip the marker to
+//   model:"opus"), write a ## Verified Facts (auto-research) block, flip the marker to
 //   status=cited. On class:internal: grep first; if grep empty, escalate to external
 //   (§5.1). On class:AMBIGUOUS (the regex has no string fact — semantic placement is the
-//   LLM's call, NOT regex's): run a small LLM JUDGE (model:"fable") that decides
+//   LLM's call, NOT regex's): run a small LLM JUDGE (model:"opus") that decides
 //   internal/external/uncertain in natural language. internal→grep; external→research;
 //   UNCERTAIN→treat as external→research (uncertain = verify, NEVER guess-internal — a
 //   silent miss is the one unacceptable outcome). Idempotent: an already-cited marker
@@ -83,7 +83,7 @@ const _args = (typeof args === "string") ? (() => { try { return JSON.parse(args
 // (preserves byte-identical M85 behavior for callers that have not been updated yet).
 // overrides values are CONCRETE model ids (resolver envelope); the bare literals below
 // are tier ALIASES. The sandbox runtime accepts BOTH forms in model: — proven live for
-// the concrete-id fable path by probe wf_c9faf817-373 (no HTTP 400).
+// the tier alias resolves to claude-opus-5 (Fable removed 2026-07-24).
 const overrides = (_args.overrides && typeof _args.overrides === "object") ? _args.overrides : {};
 const _CLI_ENVELOPE_SCHEMA = {
   type: "object", required: ["ok", "exitCode"], additionalProperties: true,
@@ -486,7 +486,7 @@ async function runStatedClaimsPipeline(projectDir, phaseName, phaseResult, state
 
     log(`m89: claim "${claimKey}" → class:${claimClass} route:${claimRoute} — ${envelope.reason || ""}`);
 
-    // External-claim handler (§7 marker → research(fable) → cite → flip). Closure so the
+    // External-claim handler (§7 marker → research(opus) → cite → flip). Closure so the
     // ambiguous→judge path can reuse it for an "external"/"uncertain" verdict.
     const doExternal = async () => {
       // §7: Write status=uncited marker into the (real OR fallback) artifact — ALWAYS written
@@ -504,7 +504,7 @@ async function runStatedClaimsPipeline(projectDir, phaseName, phaseResult, state
       ).catch((e) => ({ ok: false, error: String(e && e.message) }));
       log(`m89: wrote status=uncited marker for claim "${claimKey}" into ${externalArtifact}${primaryArtifact ? "" : " (FALLBACK artifact — worker reported no path)"}`);
 
-      // §2: Run the research agent (bare model: "fable" — not the ?? override form).
+      // §2: Run the research agent (bare model: "opus" — not the ?? override form).
       // The research agent reads its own protocol from research-subagent.md.
       log(`m89: running research agent for external claim "${claimKey}"`);
       const researchResult = await agent(
@@ -519,7 +519,7 @@ async function runStatedClaimsPipeline(projectDir, phaseName, phaseResult, state
           `Use WebSearch + WebFetch to find authoritative sources. Emit a ## Verified Facts (auto-research) block per §3 format. On every fact line append the trailer \`key: ${claimKey}\` so the §7 gate matches by claim-key (Red Team MEDIUM #2).`,
           `Return JSON per the schema with ok:true and citedBlock (the full markdown block) on success, or ok:false and reason on STAGE-FAILURE.`,
         ].join("\n"),
-        { label: "research-stage", phase: "Phase", schema: RESEARCH_RESULT_SCHEMA, model: "fable" }
+        { label: "research-stage", phase: "Phase", schema: RESEARCH_RESULT_SCHEMA, model: "opus" }
       ).catch((e) => ({ ok: false, gapKey: claimKey, reason: `research agent error: ${e && e.message}` }));
 
       if (researchResult && researchResult.ok && researchResult.citedBlock) {
@@ -598,7 +598,7 @@ async function runStatedClaimsPipeline(projectDir, phaseName, phaseResult, state
       await doInternal();
     } else {
       // class:AMBIGUOUS — the mechanical filter found NO string fact. Semantic placement
-      // is the LLM's call, NOT regex's. Run the LLM JUDGE (fable). internal→grep;
+      // is the LLM's call, NOT regex's. Run the LLM JUDGE (opus). internal→grep;
       // external→research; UNCERTAIN→research (uncertain = verify, NEVER guess-internal —
       // a silent miss is the one unacceptable outcome). The classifier never guessed a
       // default — it deferred, and now the LLM decides (and on doubt we research).
@@ -623,7 +623,7 @@ async function runStatedClaimsPipeline(projectDir, phaseName, phaseResult, state
           `Return JSON: { "verdict": "internal" | "external" | "uncertain", "reason": "<one line>" }.`,
           `Do NOT modify files. Do NOT run web searches in THIS step — only decide the verdict.`,
         ].join("\n"),
-        { label: "classify-judge", phase: "Phase", schema: CLASSIFY_JUDGE_SCHEMA, model: "fable" }
+        { label: "classify-judge", phase: "Phase", schema: CLASSIFY_JUDGE_SCHEMA, model: "opus" }
       ).catch((e) => ({ verdict: "uncertain", reason: `judge error: ${e && e.message} — failing toward research` }));
 
       const verdict = (judge && judge.verdict) || "uncertain";
@@ -674,7 +674,7 @@ async function runSolutionSpaceProbe(projectDir, phaseName, { milestone, briefPa
   // probe shifts UP — it competes over high-level APPROACHES (what/why/when, actors,
   // one-breath thesis), NOT lower-altitude implementation detail. This changes WHAT
   // the producers compete on, never WHO competes (producers stay opus, judge differs —
-  // M82 blindness invariant preserved) nor the probe's model (stays fable).
+  // M82 blindness now via fresh context) — probe + judge run opus (Fable removed 2026-07-24).
   const atApproachAltitude = altitude === "high-level-approach";
   const prompt = [
     `You are the Solution-Space Probe for the ${phaseName} phase${milestone ? ` of ${milestone}` : ""}. Decide ONE thing: should this phase generate MULTIPLE competing candidates (then a judge picks the best), or is a single draft sufficient?`,
@@ -688,7 +688,7 @@ async function runSolutionSpaceProbe(projectDir, phaseName, { milestone, briefPa
     `BIAS TOWARD COMPETING: if you are uncertain, or can name even two plausibly-different approaches, choose compete=true. A wasted competition costs ~3× this one phase; a missed-better-approach costs far more downstream (more pre-mortem blocks, more bugs, more verify cycles). Err on the side of generating options.`,
     `Return JSON per the schema: { "compete": true|false, "reason": "<one sentence>", "approaches": ["<a>","<b>",...] }.`,
   ].filter(Boolean).join("\n");
-  const opts = { label: "solution-space-probe", schema: _PROBE_SCHEMA, model: overrides["solution-space-probe"] ?? "fable" };
+  const opts = { label: "solution-space-probe", schema: _PROBE_SCHEMA, model: overrides["solution-space-probe"] ?? "opus" };
   if (phaseNameOpt) opts.phase = phaseNameOpt;
   const r = await agent(prompt, opts).catch(() => null);
   // Probe failure → bias toward competing (fail-toward-options, per the cost logic).
@@ -714,7 +714,7 @@ async function runPartitionProbe(projectDir, { milestone, briefPath, userInput, 
     `BIAS TOWARD COMPETING: if ≥3 files/areas are in play or you're unsure, choose compete=true — the file-disjointness oracle will objectively pick the most-parallelizable valid carving among the candidates, so competing is low-risk and high-reward.`,
     `Return JSON per the schema.`,
   ].filter(Boolean).join("\n");
-  const opts = { label: "partition-probe", schema: _PROBE_SCHEMA, model: overrides["partition-probe"] ?? "fable" };
+  const opts = { label: "partition-probe", schema: _PROBE_SCHEMA, model: overrides["partition-probe"] ?? "opus" };
   if (phaseNameOpt) opts.phase = phaseNameOpt;
   const r = await agent(prompt, opts).catch(() => null);
   if (!r || typeof r.compete !== "boolean") {
@@ -1099,7 +1099,7 @@ if (!competitionOn) {
         `IMPORTANT: use the CANDIDATE LABEL (A, B, C…) shown above as the "id" in your scores.`,
       ].join("\n"),
       {
-        label: "judge:rubric", phase: "Judge", model: overrides["competition-judge"] ?? "fable",
+        label: "judge:rubric", phase: "Judge", model: overrides["competition-judge"] ?? "opus",
         schema: {
           type: "object", required: ["scores"], additionalProperties: true,
           properties: { scores: { type: "array", items: { type: "object", additionalProperties: true } } },
@@ -1353,7 +1353,7 @@ if (phaseName === "plan" && result && result.status !== "failed") {
       ``,
       `M89 ${STATED_CLAIMS_INSTRUCTION}`,
     ].join("\n"),
-    { label: "pre-mortem", phase: "Plan Hardening", schema: PRE_MORTEM_SCHEMA, model: overrides["pre-mortem"] ?? "fable" }
+    { label: "pre-mortem", phase: "Plan Hardening", schema: PRE_MORTEM_SCHEMA, model: overrides["pre-mortem"] ?? "opus" }
   ).catch((e) => ({ verdict: "BLOCK", findings: [{ severity: "HIGH", condition: `pre-mortem agent error: ${e && e.message}`, requiredTest: "re-run pre-mortem" }], notes: "agent-error" }));
 
   result.preMortem = preMortem;

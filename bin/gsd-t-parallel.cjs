@@ -610,10 +610,9 @@ function runDispatch(opts) {
   // is sufficient (single-source thesis, AC b).
   const modelAlias = {
     opus:   MODEL_IDS.opus,
-    fable:  MODEL_IDS.fable,
     sonnet: MODEL_IDS.sonnet,
     haiku:  MODEL_IDS.haiku,
-  };
+  }; // fable removed 2026-07-24
   const callerModel = opts && opts.workerModel;
   const workerModel = callerModel === false
     ? null // explicit opt-out: inherit parent's ANTHROPIC_MODEL

@@ -58,7 +58,7 @@ binary), do NOT silently proceed on the premium fallback. Either:
     (configured profile unknown; stale global binary may lack model-profile subcommand)
   ```
 
-A configured-standard project silently billing premium fable post-promo is the exact inverse of
+A configured-standard project silently billing premium opus post-promo is the exact inverse of
 the spend-switch goal. Never silently fall through.
 
 Also surface a SUCCESSFUL resolve that carries a `configError` field (the resolver returns a

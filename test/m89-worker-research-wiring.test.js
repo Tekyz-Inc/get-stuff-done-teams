@@ -5,15 +5,15 @@
 // Functional assertions (NOT shallow existence checks / isVisible / toBeAttached):
 //
 //   T3.1 — execute workflow source embeds Stated-Claims directive + has classify→research wiring
-//          with external branch (marker-write + model:"fable") and internal branch (grep),
+//          with external branch (marker-write + model:"opus") and internal branch (grep),
 //          with §5.1 escalation when grep is empty. Asserts §7 marker write+flip is present.
 //
 //   T3.2 — quick workflow source has the same wiring as execute (simpler single-agent
-//          structure, same marker-write + model:"fable" + escalation).
+//          structure, same marker-write + model:"opus" + escalation).
 //
 //   T3.3 — debug workflow source embeds Stated-Claims + has classify→research wiring;
-//          the existing debug-cycle ternary (cycle===1?"opus":(overrides["debug-cycle-2"]??"fable"))
-//          is INTACT and DISTINCT from the research stage's bare "fable" literal.
+//          the existing debug-cycle ternary (cycle===1?"opus":(overrides["debug-cycle-2"]??"opus"))
+//          is INTACT and DISTINCT from the research stage's bare "opus" literal.
 //
 //   T3.4 — wave workflow has NO direct research agent, NO Stated-Claims snippet, and
 //          ZERO model: occurrences (M85 composer-only invariant confirmed).
@@ -90,16 +90,16 @@ describe("T3.1 — execute workflow: Stated-Claims + classify→research wiring"
     );
   });
 
-  test("execute workflow has external branch: writes §7 uncited marker + research agent (model:fable)", () => {
+  test("execute workflow has external branch: writes §7 uncited marker + research agent (model:opus)", () => {
     // External branch must write the uncited marker before research
     assert.ok(
       execSrc.includes("status=uncited"),
       "execute workflow must write status=uncited marker in external branch (§7)"
     );
-    // Research agent must use bare "fable" literal (NOT overrides["research"] ?? form)
+    // Research agent must use bare "opus" literal (NOT overrides["research"] ?? form)
     assert.ok(
-      /model\s*:\s*["']fable["']/.test(execSrc),
-      "execute workflow research stage must use bare model: \"fable\" literal (§2)"
+      /model\s*:\s*["']opus["']/.test(execSrc),
+      "execute workflow research stage must use bare model: \"opus\" literal (§2)"
     );
     assert.ok(
       !execSrc.includes('overrides["research"]'),
@@ -203,14 +203,14 @@ describe("T3.2 — quick workflow: Stated-Claims + classify→research wiring", 
     );
   });
 
-  test("quick workflow has external branch: writes §7 uncited marker + research agent (model:fable)", () => {
+  test("quick workflow has external branch: writes §7 uncited marker + research agent (model:opus)", () => {
     assert.ok(
       quickSrc.includes("status=uncited"),
       "quick workflow must write status=uncited in external branch (§7)"
     );
     assert.ok(
-      /model\s*:\s*["']fable["']/.test(quickSrc),
-      "quick workflow research stage must use bare model: \"fable\" literal (§2)"
+      /model\s*:\s*["']opus["']/.test(quickSrc),
+      "quick workflow research stage must use bare model: \"opus\" literal (§2)"
     );
     assert.ok(
       !quickSrc.includes('overrides["research"]'),
@@ -278,14 +278,14 @@ describe("T3.3 — debug workflow: Stated-Claims + classify→research; debug-cy
     );
   });
 
-  test("debug workflow routes external failure-root to research(fable) instead of patch-guess", () => {
+  test("debug workflow routes external failure-root to research(opus) instead of patch-guess", () => {
     assert.ok(
       debugSrc.includes("status=uncited"),
       "debug workflow must write §7 uncited marker for external failure-root claims"
     );
     assert.ok(
-      /model\s*:\s*["']fable["']/.test(debugSrc),
-      "debug workflow research stage must use bare model: \"fable\" literal (§2)"
+      /model\s*:\s*["']opus["']/.test(debugSrc),
+      "debug workflow research stage must use bare model: \"opus\" literal (§2)"
     );
     assert.ok(
       !debugSrc.includes('overrides["research"]'),
@@ -316,7 +316,7 @@ describe("T3.3 — debug workflow: Stated-Claims + classify→research; debug-cy
 
   test("debug-cycle ternary is INTACT: cycle===1?'opus':(overrides['debug-cycle-2']??'fable')", () => {
     // The research stage is a SEPARATE agent — must NOT fold into the debug-cycle ternary.
-    const ternaryRe = /model\s*:\s*cycle\s*===\s*1\s*\?\s*["']opus["']\s*:\s*\(\s*overrides\s*\[\s*["']debug-cycle-2["']\s*\]\s*\?\?\s*["']fable["']\s*\)/;
+    const ternaryRe = /model\s*:\s*cycle\s*===\s*1\s*\?\s*["']opus["']\s*:\s*\(\s*overrides\s*\[\s*["']debug-cycle-2["']\s*\]\s*\?\?\s*["']opus["']\s*\)/;
     assert.ok(
       ternaryRe.test(debugSrc),
       "debug workflow must preserve the cycle ternary: model: cycle===1?\"opus\":(overrides[\"debug-cycle-2\"]??\"fable\")"
@@ -325,14 +325,14 @@ describe("T3.3 — debug workflow: Stated-Claims + classify→research; debug-cy
 
   test("debug-cycle ternary is DISTINCT from the research stage (two separate model: forms)", () => {
     // Count occurrences of model: "fable" (bare literal — research stage) vs the ternary form
-    const bareFableRe = /model\s*:\s*["']fable["']/g;
+    const bareFableRe = /model\s*:\s*["']opus["']/g;
     const bareFableMatches = [...debugSrc.matchAll(bareFableRe)];
-    const ternaryRe = /overrides\s*\[\s*["']debug-cycle-2["']\s*\]\s*\?\?\s*["']fable["']/g;
+    const ternaryRe = /overrides\s*\[\s*["']debug-cycle-2["']\s*\]\s*\?\?\s*["']opus["']/g;
     const ternaryMatches = [...debugSrc.matchAll(ternaryRe)];
 
     assert.ok(
       bareFableMatches.length >= 1,
-      "debug workflow must have at least one bare model: \"fable\" literal (research stage)"
+      "debug workflow must have at least one bare model: \"opus\" literal (research stage)"
     );
     assert.ok(
       ternaryMatches.length >= 1,
@@ -463,7 +463,7 @@ describe("T3.7 — research agent uses label: 'research' and bare model: 'fable'
 
     test(`${name} workflow uses bare model: "fable" for research stage (NOT ?? override form)`, () => {
       assert.ok(
-        /model\s*:\s*["']fable["']/.test(src),
+        /model\s*:\s*["']opus["']/.test(src),
         `${name} workflow must use bare model: "fable" literal for the research stage`
       );
       assert.ok(
@@ -483,7 +483,7 @@ describe("T3.7 — research agent uses label: 'research' and bare model: 'fable'
 describe("T3.8 — ambiguous → classify-judge(fable) → uncertain→research in all worker workflows", () => {
 
   for (const [name, src] of [["execute", execSrc], ["quick", quickSrc], ["debug", debugSrc]]) {
-    test(`${name} workflow wires class:ambiguous to a classify-judge agent stage (model:"fable")`, () => {
+    test(`${name} workflow wires class:ambiguous to a classify-judge agent stage (model:"opus")`, () => {
       assert.ok(
         src.includes("classify-judge"),
         `${name} workflow must route class:ambiguous to a classify-judge agent stage (v1.3.0 3-result)`

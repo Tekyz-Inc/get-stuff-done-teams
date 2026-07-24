@@ -714,10 +714,10 @@ describe("T3.6 — Ambiguous-escalation path (§5.1): grep-empty → escalate to
 describe("T3.7 — Research stage model: bare 'fable' literal (NOT overrides[...] ?? form)", () => {
 
   test("phase workflow research-stage agent uses bare model: 'fable' literal", () => {
-    // Find the research-stage agent call and verify it uses a bare "fable" literal.
-    // The ?? form (overrides["research"] ?? "fable") would FAIL the M85 lint because
+    // Find the research-stage agent call and verify it uses a bare "opus" literal.
+    // The ?? form (overrides["research"] ?? "opus") would FAIL the M85 lint because
     // "research" is not a designated injectable stage in STAGE_TIERS.
-    // The bare "fable" literal PASSES the M85 lint (tier-set membership check).
+    // The bare "opus" literal PASSES the M85 lint (tier-set membership check).
 
     // Extract the research-stage agent call context
     const researchStageIdx = phaseSource.indexOf('"research-stage"');
@@ -731,7 +731,7 @@ describe("T3.7 — Research stage model: bare 'fable' literal (NOT overrides[...
 
     // Must contain model: "fable" (bare form)
     assert.ok(
-      /model\s*:\s*["']fable["']/.test(window),
+      /model\s*:\s*["']opus["']/.test(window),
       `research-stage agent call near label "research-stage" must use bare model: "fable"\n  window: ${window.slice(0, 300)}`
     );
 
@@ -742,15 +742,15 @@ describe("T3.7 — Research stage model: bare 'fable' literal (NOT overrides[...
     );
   });
 
-  test("every research-stage agent uses bare model: 'fable'; the §5.1 escalation reuses doExternal()", () => {
+  test("every research-stage agent uses bare model: 'opus'; the §5.1 escalation reuses doExternal()", () => {
     // v1.3.3 dedup: the grep-empty escalation now CALLS doExternal() (one shared research-stage
     // agent) instead of re-inlining a second research-stage call. So there is ≥1 research-stage
-    // agent and EVERY one is model: "fable". The escalation no longer duplicates the path.
+    // agent and EVERY one is model: "opus" (Fable removed 2026-07-24). No duplicated path.
     const allResearchStageRe = /label:\s*["']research-stage["'][^}]*model\s*:\s*["']([^"']+)["']/gs;
     const matches = [...phaseSource.matchAll(allResearchStageRe)];
     assert.ok(matches.length >= 1, `Must have ≥1 research-stage agent call, found ${matches.length}`);
     for (const match of matches) {
-      assert.equal(match[1], "fable", `research-stage model must be "fable" (bare literal), got "${match[1]}"`);
+      assert.equal(match[1], "opus", `research-stage model must be "opus" (bare literal), got "${match[1]}"`);
     }
     // The §5.1 grep-empty escalation must reuse doExternal() (not re-inline a research-stage).
     assert.ok(

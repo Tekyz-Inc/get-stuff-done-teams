@@ -53,7 +53,7 @@ On bad input: `{ "ok": false, "error": "<reason>" }` + non-zero CLI exit.
   string facts, not beliefs.
 - **`external` (route `web`)** — ONLY on an UNAMBIGUOUS vendor proper-noun (multi-char,
   non-homograph) co-occurring with an API/protocol term.
-- **`ambiguous` (route `judge`)** — EVERYTHING ELSE. No string fact → LLM judge (model:"fable")
+- **`ambiguous` (route `judge`)** — EVERYTHING ELSE. No string fact → LLM judge (model:"opus")
   → internal/external/uncertain. Uncertain → research (never guess-internal).
 
 **FINAL decision rule (v1.3.3):** `internal` is returned ONLY when there is ZERO strong-external
@@ -177,7 +177,7 @@ evidence proves the cheap "look" rung resolves most over-scoping without ever ne
   surfaced to the verify gate (R-FAIL-2). *(Interface-only — the live spike-feasibility producer remains backlog #42; M92 added the cheap look/smallest rungs, NOT the spike decider.)*
 
 **Protocol prompt:** `templates/prompts/blind-adversary-subagent.md` — separate context/model
-(`fable`; M85 policy).
+(`opus`; M85 policy).
 
 **Prove-or-kill gate (R1-EXIT):** if the trigger cannot fire deterministically (divergent→fire,
 convergent→silent), the milestone halts for R1 re-scope DOWN to factual-only. The trigger is wired
@@ -327,7 +327,7 @@ Each [RULE] below maps to a real enforcement point. An orphan rule (no enforceme
 | [RULE-FAIL-2] Verify FAILS on unresolved proven-by-adversary-only (when wired) | `gsd-t-verify.workflow.js` M90 R-FAIL-2 gate | De-scoped to no-op-PASS when not wired |
 | [RULE-FAIL-3] Verify FAILS on halted-but-no-re-examination (when wired) | `gsd-t-verify.workflow.js` M90 R-FAIL-3 gate | De-scoped to no-op-PASS when not wired |
 | [RULE-SELF-1] Doctrine binds GSD-T's own workflows | Decision Log plan-hardening entries (progress.md) + test/m90-guardmap-rule-traceability.test.js self-obedience assertion | Structural gate, not prose |
-| [RULE-ARCH-TIER] Blind adversary runs on fable (M85 policy) | `bin/gsd-t-model-tier-policy.cjs` + `templates/prompts/blind-adversary-subagent.md` model annotation | Drift-enforced by m90-tier-policy-lint.test.js |
+| [RULE-ARCH-TIER] Blind adversary runs on opus (M85 policy) | `bin/gsd-t-model-tier-policy.cjs` + `templates/prompts/blind-adversary-subagent.md` model annotation | Drift-enforced by m90-tier-policy-lint.test.js |
 
 ---
 

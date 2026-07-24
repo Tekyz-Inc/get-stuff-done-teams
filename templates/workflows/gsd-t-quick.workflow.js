@@ -8,7 +8,7 @@
 // The task agent embeds the Stated-Claims snippet (§6.5) and tags load-bearing claims KNOWN|GUESSED.
 // After the Execute phase, the Research phase iterates GUESSED entries through
 // bin/gsd-t-research-gate.cjs: external → write §7 marker (status=uncited) → research agent
-// (model:"fable") → cite → flip marker (status=cited). Internal → grep/Read; grep-empty →
+// (model:"opus") → cite → flip marker (status=cited). Internal → grep/Read; grep-empty →
 // escalate to external (§5.1). Idempotent per §4.1 (exact normalized claim-key match only).
 //
 // M90 §2 D4-T4: Architectural-trigger wiring (protocol-class path, R-ARCH-2 "everywhere" feed).
@@ -179,7 +179,7 @@ async function grepForClaim(projectDir, claimText, phaseName) {
   return r || { found: false, matches: [] };
 }
 
-// M89 §1.1 — AMBIGUOUS → LLM JUDGE (bare model:"fable"). internal/external/uncertain;
+// M89 §1.1 — AMBIGUOUS → LLM JUDGE (bare model:"opus"). internal/external/uncertain;
 // uncertain → research (never guess-internal). On error → "uncertain" (fail toward research).
 const CLASSIFY_JUDGE_SCHEMA = {
   type: "object", required: ["verdict"], additionalProperties: true,
@@ -194,7 +194,7 @@ async function judgeAmbiguous(claimText, phaseName) {
     `- "uncertain" = you cannot CONFIDENTLY place it internal — per M89 doctrine it is RESEARCHED, never guessed.`,
     `Return JSON: { "verdict": "internal"|"external"|"uncertain", "reason": "<one line>" }. No file/web work in THIS step.`,
   ].join("\n");
-  const r = await agent(prompt, { label: "classify-judge", model: "fable", schema: CLASSIFY_JUDGE_SCHEMA, phase: phaseName })
+  const r = await agent(prompt, { label: "classify-judge", model: "opus", schema: CLASSIFY_JUDGE_SCHEMA, phase: phaseName })
     .catch((e) => ({ verdict: "uncertain", reason: `judge error: ${e && e.message}` }));
   return (r && r.verdict) || "uncertain";
 }
@@ -383,7 +383,7 @@ if (guessedClaims.length === 0) {
 
     // External-claim handler closure (reused by the ambiguous→judge path).
     const doExternal = async () => {
-      log(`Research: external → marker + research(fable) for "${claimKey.slice(0, 50)}"${artifactPath ? "" : " (FALLBACK artifact — no reported path)"}`);
+      log(`Research: external → marker + research(opus) for "${claimKey.slice(0, 50)}"${artifactPath ? "" : " (FALLBACK artifact — no reported path)"}`);
       // §7 write uncited marker to the real OR fallback artifact — ALWAYS (fail-CLOSED)
       {
         const m = uncitedMarker(claimKey);
@@ -394,7 +394,7 @@ if (guessedClaims.length === 0) {
         ).catch(() => {});
         delete artifactCache[externalArtifact];
       }
-      // §2 research agent — bare literal model: "fable"
+      // §2 research agent — bare literal model: "opus"
       const rr = await agent(
         [
           `Read \`${projectDir}/templates/prompts/research-subagent.md\` for the research protocol.`,
@@ -402,7 +402,7 @@ if (guessedClaims.length === 0) {
           `Gap-key: "${claimKey}"`,
           `Emit ## Verified Facts (auto-research) block with source URL + fetch date. Append the trailer \`key: ${claimKey}\` on every fact line so the §7 gate matches by claim-key (Red Team MEDIUM #2). Return StructuredOutput JSON.`,
         ].join("\n"),
-        { label: "research", model: "fable", schema: RESEARCH_RESULT_SCHEMA, phase: "Research" }
+        { label: "research", model: "opus", schema: RESEARCH_RESULT_SCHEMA, phase: "Research" }
       ).catch((e) => ({ ok: false, gapKey: claimKey, reason: String(e && e.message) }));
 
       if (rr && rr.ok && rr.citedBlock) {

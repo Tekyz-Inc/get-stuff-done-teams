@@ -1,7 +1,9 @@
 # Contract: Model-Profile Config + Resolver Seam (M86)
 
-## Version: 1.0.0
+## Version: 1.1.0
 ## Status: STABLE
+
+> **⚠ v1.1.0 — FABLE REMOVED (2026-07-24).** The 3 profiles (standard/pro/premium) no longer dial Fable spend (Fable is gone); they now dial **OPUS-vs-SONNET**: `standard` = probes opus + high-stakes stages sonnet (cost-leanest); `pro` = probes + pre-mortem + red-team + debug-cycle-2 opus, judge sonnet; `premium` = all 6 designated stages opus (global default). The judge≠producers **blindness clamp is REMOVED** — competition-judge may now equal producers' model (both opus); isolation is enforced by fresh independent context, not a different model. `competition-producers` is still never overridable. Historical Fable references below are provenance; the LIVE profile maps are opus/sonnet only.
 ## Owner: m86-d1-policy-profiles-config-cli
 ## Consumers: m86-d2-invoker-wiring-and-workflow-forms, m86-d3-drift-lint-unwrap-guard, m86-d4-surfacing-and-doc-ripple
 ## Created: 2026-06-10 18:23 PDT (M86 partition)
@@ -27,8 +29,8 @@ constants unchanged). D1 bumps that contract to v1.1.0 to fold this dimension in
 | Profile | Fable stages | Definition |
 |---------|--------------|------------|
 | `standard` | ZERO fable | pre-M85 tiers: probes→opus, judge→sonnet, pre-mortem→opus, red-team→opus, debug both cycles→opus; producers→opus (unchanged). |
-| `pro` | red-team + pre-mortem + debug-cycle-2 | the 3 highest-value fable stages; everything else reverts to standard. |
-| `premium` | all 6 (M85 full set) | solution-space-probe + partition-probe + competition-judge + pre-mortem + red-team + debug-cycle-2 on fable; producers HELD opus. |
+| `pro` | red-team + pre-mortem + debug-cycle-2 | the 3 highest-value opus stages; everything else reverts to standard. |
+| `premium` | all 6 (M85 full set) | solution-space-probe + partition-probe + competition-judge + pre-mortem + red-team + debug-cycle-2 on opus; producers HELD opus. |
 
 `competition-producers` is `opus` in ALL three profiles (M82 blindness invariant — never fable).
 Bottom of the ladder (`haiku`, `sonnet`) unchanged except `standard`'s judge→sonnet remap.
@@ -69,7 +71,7 @@ Emits:
 {
   "ok": true,
   "profile": "pro",
-  "overrides": { "red-team": "claude-fable-5", "pre-mortem": "claude-fable-5", "debug-cycle-2": "claude-fable-5" },
+  "overrides": { "red-team": "claude-opus-5", "pre-mortem": "claude-opus-5", "debug-cycle-2": "claude-opus-5" },
   "requiresThinkingOmitted": { "red-team": true, ... }
 }
 ```
@@ -79,7 +81,7 @@ Emits:
 - **`requiresThinkingOmitted` is INFORMATIONAL** (verify fix-cycle 1): no workflow or invoker
   consumes it at the `agent()` call site. The Workflow sandbox runtime handles thinking-param
   stripping for fable itself — proven empirically for the concrete-id injection path by probe
-  run `wf_c9faf817-373` (`model: "claude-fable-5"` via args completed with no HTTP 400). The
+  run `wf_c9faf817-373` (`model: "claude-opus-5"` via args completed with no HTTP 400). The
   flag stays in the envelope for diagnostic display and for any future spawn surface
   (`claude -p`-class) that must strip the thinking param itself.
 
@@ -144,18 +146,18 @@ literal FAILS, drifted fallback FAILS, out-of-tier fallback FAILS. Fail-closed o
 
 `test/m85-workflow-tier-policy-lint.test.js` UNWRAPS the `??` form and validates the FALLBACK literal. The full mandatory negative set (each MUST produce a lint FAILURE):
 
-1. **Drifted bare literal**: `model: "fable"` (not wrapped) on a designated stage → FAIL
+1. **Drifted bare literal**: `model: "opus"` (not wrapped) on a designated stage → FAIL
 2. **Drifted fallback**: `model: overrides["red-team"] ?? "opus"` (wrong premium literal) → FAIL
 3. **Out-of-tier fallback**: `model: overrides["red-team"] ?? "gpt-4"` (not in tier set) → FAIL
-4. **Typo'd bracket key**: `model: overrides["red_team"] ?? "fable"` (key mismatch for `red-team` stage) → FAIL
+4. **Typo'd bracket key**: `model: overrides["red_team"] ?? "opus"` (key mismatch for `red-team` stage) → FAIL
 5. **Wrapped producers**: `model: overrides["competition-producers"] ?? "opus"` (producers must be BARE) → FAIL
-6. **Combined-form drifted cycle-1**: `model: overrides["debug-cycle-1"] ?? "fable"` (cycle-1 stays opus, not fable) → FAIL
-7. **Combined-form drifted parenthesized fallback**: `model: (overrides["red-team"] ?? "fable")` (parenthesized variant that may fool a naive regex) → parsed correctly, validated as above
+6. **Combined-form drifted cycle-1**: `model: overrides["debug-cycle-1"] ?? "opus"` (cycle-1 stays opus, not fable) → FAIL
+7. **Combined-form drifted parenthesized fallback**: `model: (overrides["red-team"] ?? "opus")` (parenthesized variant that may fool a naive regex) → parsed correctly, validated as above
 8. **Fail-closed**: an unparseable `model:` line (neither bare nor `??` form) → FAIL (no silent pass)
 
 **Bracket-key validation:** for each of the 6 INJECTABLE stages, the key inside `overrides["..."]` MUST exactly match the stage key. The 6 injectable stages: `solution-space-probe`, `partition-probe`, `competition-judge`, `pre-mortem`, `red-team`, `debug-cycle-2`. Producers excluded.
 
-**Combined-form positive**: `model: overrides["red-team"] ?? "fable"` passes lint when `red-team` is a designated fable stage and `"fable"` is the correct premium literal. This is the canonical passing form.
+**Combined-form positive**: `model: overrides["red-team"] ?? "opus"` passes lint when `red-team` is a designated fable stage and `"fable"` is the correct premium literal. This is the canonical passing form.
 
 ---
 

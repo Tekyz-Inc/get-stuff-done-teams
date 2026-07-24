@@ -348,11 +348,12 @@ describe("tier policy — blind-adversary annotation", () => {
     assert.ok(blindText, "templates/prompts/blind-adversary-subagent.md must exist");
   });
 
-  test("blind-adversary-subagent.md references fable tier (R-ARCH tier policy)", () => {
+  test("blind-adversary-subagent.md references opus tier (R-ARCH tier policy — Fable removed 2026-07-24)", () => {
     assert.ok(blindText, "blind-adversary-subagent.md must be readable");
     assert.ok(
-      blindText.includes("fable") || blindText.includes("model:"),
-      "blind-adversary-subagent.md must reference the fable tier (M85 policy)"
+      blindText.includes("opus") || blindText.includes("model:"),
+      "blind-adversary-subagent.md must reference the opus tier"
     );
+    assert.ok(!/`fable`/.test(blindText), "must NOT reference fable (removed)");
   });
 });

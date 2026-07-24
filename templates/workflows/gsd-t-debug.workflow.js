@@ -7,11 +7,11 @@
 // M89: Stated-Claims→classify→research wiring (auto-research-contract v1.2.0 §6.5/§1/§2/§3/§4/§7).
 // Each debug cycle embeds the Stated-Claims snippet (§6.5) so the debug agent tags failure-root
 // claims KNOWN|GUESSED. After each cycle, GUESSED claims are classified: external failure-root
-// → write §7 marker (status=uncited) → research agent (model:"fable") → cite → flip marker
+// → write §7 marker (status=uncited) → research agent (model:"opus") → cite → flip marker
 // (status=cited) — instead of a patch-guess (pairs with #33 circuit-breaker). Internal →
 // grep/Read; grep-empty → escalate to external (§5.1). The existing debug-cycle ternary
-// (model: cycle===1?"opus":(overrides["debug-cycle-2"]??"fable")) is PRESERVED; the research
-// stage is a SEPARATE agent() with its own bare "fable" literal. Idempotent per §4.1.
+// (model: cycle===1?"opus":(overrides["debug-cycle-2"]??"opus")) is PRESERVED; the research
+// stage is a SEPARATE agent() with its own bare "opus" literal. Idempotent per §4.1.
 //
 // M94-D11 WRITER pattern (graph-consumer-wiring-contract.md §WRITER Pattern):
 // READER half: before the fix agent, query blast-radius + who-calls to localize the
@@ -57,7 +57,7 @@ const _args = (typeof args === "string") ? (() => { try { return JSON.parse(args
 // Default to {} so the premium fallback literals apply when no invoker injects overrides.
 // overrides values are CONCRETE model ids (resolver envelope); the bare literals below
 // are tier ALIASES. The sandbox runtime accepts BOTH forms in model: — proven live for
-// the concrete-id fable path by probe wf_c9faf817-373 (no HTTP 400).
+// the tier alias resolves to claude-opus-5 (Fable removed 2026-07-24).
 const overrides = (_args.overrides && typeof _args.overrides === "object") ? _args.overrides : {};
 const _CLI_ENVELOPE_SCHEMA = {
   type: "object", required: ["ok", "exitCode"], additionalProperties: true,
@@ -184,7 +184,7 @@ async function grepForClaim(projectDir, claimText, phaseName) {
   return r || { found: false, matches: [] };
 }
 
-// M89 §1.1 — AMBIGUOUS → LLM JUDGE (bare model:"fable" — NOT the ?? form; "judge" is not
+// M89 §1.1 — AMBIGUOUS → LLM JUDGE (bare model:"opus" — NOT the ?? form; "judge" is not
 // a designated stage, so the bare literal passes the M85 tier-set check and stays DISTINCT
 // from the debug-cycle ternary). internal/external/uncertain; uncertain → research (never
 // guess-internal). On error → "uncertain" (fail toward research).
@@ -201,7 +201,7 @@ async function judgeAmbiguous(claimText, phaseName) {
     `- "uncertain" = you cannot CONFIDENTLY place it internal — per M89 doctrine it is RESEARCHED, never guessed.`,
     `Return JSON: { "verdict": "internal"|"external"|"uncertain", "reason": "<one line>" }. No file/web work in THIS step.`,
   ].join("\n");
-  const r = await agent(prompt, { label: "classify-judge", model: "fable", schema: CLASSIFY_JUDGE_SCHEMA, phase: phaseName })
+  const r = await agent(prompt, { label: "classify-judge", model: "opus", schema: CLASSIFY_JUDGE_SCHEMA, phase: phaseName })
     .catch((e) => ({ verdict: "uncertain", reason: `judge error: ${e && e.message}` }));
   return (r && r.verdict) || "uncertain";
 }
@@ -263,7 +263,7 @@ async function runResearchForClaim(projectDir, claimText, artifactPath, phaseNam
 
   // External-claim handler closure (reused by the ambiguous→judge path).
   const doExternal = async () => {
-    log(`Research: external failure-root → research(fable) instead of patch-guess for "${claimKey.slice(0, 50)}"`);
+    log(`Research: external failure-root → research(opus) instead of patch-guess for "${claimKey.slice(0, 50)}"`);
     await appendUncitedMarker(externalArtifact, claimKey);
     const rr = await agent(
       [
@@ -272,7 +272,7 @@ async function runResearchForClaim(projectDir, claimText, artifactPath, phaseNam
         `Gap-key: "${claimKey}"`,
         `Emit ## Verified Facts (auto-research) block with source URL + fetch date. Append the trailer \`key: ${claimKey}\` on every fact line so the §7 gate matches by claim-key (Red Team MEDIUM #2). Return StructuredOutput JSON.`,
       ].join("\n"),
-      { label: "research", model: "fable", schema: RESEARCH_RESULT_SCHEMA, phase: phaseName }
+      { label: "research", model: "opus", schema: RESEARCH_RESULT_SCHEMA, phase: phaseName }
     ).catch((e) => ({ ok: false, gapKey: claimKey, reason: String(e && e.message) }));
 
     if (rr && rr.ok && rr.citedBlock) {
@@ -300,7 +300,7 @@ async function runResearchForClaim(projectDir, claimText, artifactPath, phaseNam
           `Gap-key: "${claimKey}"`,
           `Emit ## Verified Facts (auto-research) block. Append the trailer \`key: ${claimKey}\` on every fact line so the §7 gate matches by claim-key (Red Team MEDIUM #2). Return StructuredOutput JSON.`,
         ].join("\n"),
-        { label: "research", model: "fable", schema: RESEARCH_RESULT_SCHEMA, phase: phaseName }
+        { label: "research", model: "opus", schema: RESEARCH_RESULT_SCHEMA, phase: phaseName }
       ).catch((e) => ({ ok: false, gapKey: claimKey, reason: String(e && e.message) }));
 
       if (er && er.ok && er.citedBlock) {
@@ -449,7 +449,7 @@ for (let cycle = 1; cycle <= 2; cycle++) {
     label: `debug-cycle-${cycle}`,
     phase: `Cycle ${cycle}`,
     schema: DEBUG_CYCLE_SCHEMA,
-    model: cycle === 1 ? "opus" : (overrides["debug-cycle-2"] ?? "fable"),
+    model: cycle === 1 ? "opus" : (overrides["debug-cycle-2"] ?? "opus"),
   }).catch((e) => ({
     resolved: false,
     rootCause: `agent error: ${e && e.message}`,

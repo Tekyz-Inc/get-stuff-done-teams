@@ -64,7 +64,7 @@ naming the basis being challenged. Deterministic.
 - R-ARCH-5: spike infeasible → logged skip + adversary MANDATORY.
 - R-ARCH-6: premise proven-by-adversary-only → a flag surfaced for verify.
 **Protocol prompt:** `templates/prompts/blind-adversary-subagent.md` — separate context/model
-(`fable`); extends M83 pre-mortem + Red-Team-on-fable.
+(`opus`); extends M83 pre-mortem + Red-Team-on-fable.
 **Instrumentation:** fire-rate + catch-quality to a measurement sink; NEVER claims it works.
 **Verify reads:** the `proven-by-adversary-only` flag (R-FAIL → §4 fail-closed).
 **Prove-or-kill:** if the trigger cannot fire deterministically (divergent→fire,

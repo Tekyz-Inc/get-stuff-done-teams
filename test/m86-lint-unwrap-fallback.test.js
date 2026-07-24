@@ -228,10 +228,10 @@ test("(iii) ?? form with fallback outside tier set (gpt-4) → FAILS", () => {
 test("(iv) typo'd bracket key overrides[\"red-tem\"] with correct fallback → FAILS", () => {
   const src = `
     const r = await agent(prompt, {
-      label: "red-team", model: overrides["red-tem"] ?? "fable"
+      label: "red-team", model: overrides["red-tem"] ?? "opus"
     });
   `;
-  const violations = assertFails(src, "typo'd bracket key 'red-tem' with correct fallback 'fable'");
+  const violations = assertFails(src, "typo'd bracket key 'red-tem' with correct fallback 'opus'");
   assert.ok(
     violations.some((v) => v.includes("INVALID-KEY") || v.includes("red-tem")),
     `Violation must be INVALID-KEY for "red-tem", got: ${violations.join("; ")}`
@@ -239,54 +239,46 @@ test("(iv) typo'd bracket key overrides[\"red-tem\"] with correct fallback → F
 });
 
 // ---------------------------------------------------------------------------
-// (v) Combined debug form: drifted cycle-1 branch (cycle-1 wrongly fable)
-// Pre-mortem r1 #6
+// (v) Combined debug form: drifted cycle-1 branch (cycle-1 wrongly sonnet)
+// Pre-mortem r1 #6. (Was fable; Fable removed 2026-07-24 — both cycles should be
+// opus, so an in-tier-but-wrong-for-stage value like sonnet is the drift.)
 // ---------------------------------------------------------------------------
 
-test("(v) combined debug form: drifted cycle-1 branch (fable) → FAILS", () => {
-  // cycle === 1 ? "fable" : (overrides["debug-cycle-2"] ?? "fable")
-  // The if-branch "fable" is in the tier set so the basic tier check passes,
-  // but this test validates that the designated-stage checker would catch it.
-  // For the extractor unit test we validate: the if-branch value is "fable"
-  // (wrong — should be "opus"), which the real designated-stage checker flags.
-  // Here we test the extractor correctly identifies the if-branch as "fable"
-  // so the checker CAN catch it.
+test("(v) combined debug form: drifted cycle-1 branch (sonnet) → FAILS", () => {
+  // cycle === 1 ? "sonnet" : (overrides["debug-cycle-2"] ?? "opus")
+  // The if-branch "sonnet" is in the tier set so the basic tier check passes,
+  // but the designated-stage checker catches it (cycle-1 should be "opus").
   const src = `
-    model: cycle === 1 ? "fable" : (overrides["debug-cycle-2"] ?? "fable")
+    model: cycle === 1 ? "sonnet" : (overrides["debug-cycle-2"] ?? "opus")
   `;
   const lits = extractModelLiterals(src);
   const ifBranch = lits.find((l) => l.ternaryBranch === "if");
   const elseBranch = lits.find((l) => l.ternaryBranch === "else");
 
   assert.ok(ifBranch, "must find if-branch entry");
-  assert.equal(ifBranch.value, "fable", "if-branch must be 'fable' (the drifted value)");
+  assert.equal(ifBranch.value, "sonnet", "if-branch must be 'sonnet' (the drifted value)");
   assert.ok(elseBranch, "must find else-branch entry");
-  assert.equal(elseBranch.value, "fable", "else fallback must be 'fable'");
+  assert.equal(elseBranch.value, "opus", "else fallback must be 'opus'");
   assert.equal(elseBranch.overrideKey, "debug-cycle-2");
   assert.ok(elseBranch.isOverrideForm);
 
-  // Now verify the designated-stage checker would flag this: cycle-1 "fable" ≠ "opus"
-  // We invoke the lint's checkWorkflowSource via a minimal fixture that wraps it in
-  // a debug-cycle agent() call with the correct label pattern:
+  // Verify the extractor captures the drifted if-branch so the designated-stage
+  // checker CAN flag cycle-1 "sonnet" ≠ expected "opus".
   const agentSrc = `
     for (let cycle = 1; cycle <= 2; cycle++) {
       const r = await agent("debug", {
         label: \`debug-cycle-\${cycle}\`,
-        model: cycle === 1 ? "fable" : (overrides["debug-cycle-2"] ?? "fable"),
+        model: cycle === 1 ? "sonnet" : (overrides["debug-cycle-2"] ?? "opus"),
       });
     }
   `;
-  // We can't easily call checkWorkflowSource here (it lives in the other test file),
-  // so we assert directly via extractModelLiterals that the if-branch "fable" is
-  // captured, and that "fable" ≠ "opus" — which is the precondition that makes the
-  // checker emit a violation.  This is the same code-path the real lint uses.
   const agentLits = extractModelLiterals(agentSrc);
   const agentIf = agentLits.find((l) => l.ternaryBranch === "if");
   assert.ok(agentIf, "must extract if-branch from agent-wrapped fixture");
-  assert.equal(agentIf.value, "fable");
+  assert.equal(agentIf.value, "sonnet");
   assert.notEqual(
     agentIf.value, "opus",
-    "cycle-1 'fable' must NOT equal expected 'opus' — this is why the checker flags it"
+    "cycle-1 'sonnet' must NOT equal expected 'opus' — this is why the checker flags it"
   );
 });
 
@@ -357,9 +349,9 @@ test("fail-closed: unparseable model: line → FAILS", () => {
 // actually accepts the correct form.
 // ---------------------------------------------------------------------------
 
-test("POSITIVE: correct combined debug form (cycle-1 opus, cycle-2 ?? fable) → PASSES", () => {
+test("POSITIVE: correct combined debug form (cycle-1 opus, cycle-2 ?? opus) → PASSES", () => {
   const src = `
-    model: cycle === 1 ? "opus" : (overrides["debug-cycle-2"] ?? "fable")
+    model: cycle === 1 ? "opus" : (overrides["debug-cycle-2"] ?? "opus")
   `;
   const violations = validate(src);
   assert.deepEqual(
@@ -376,7 +368,7 @@ test("POSITIVE: correct combined debug form (cycle-1 opus, cycle-2 ?? fable) →
   assert.ok(ifBranch && !ifBranch.parseError, "if-branch must be valid");
   assert.equal(ifBranch.value, "opus");
   assert.ok(elseBranch && !elseBranch.parseError, "else-branch must be valid");
-  assert.equal(elseBranch.value, "fable");
+  assert.equal(elseBranch.value, "opus");
   assert.equal(elseBranch.overrideKey, "debug-cycle-2");
   assert.ok(elseBranch.isOverrideForm);
 });
@@ -389,7 +381,7 @@ test("POSITIVE: correct combined debug form (cycle-1 opus, cycle-2 ?? fable) →
 test("validator drives SAME code path as real-workflow lint (policy module re-used)", () => {
   // Verify VALID_TIERS and INJECTABLE_STAGES are sourced from the SAME policy module
   assert.ok(VALID_TIERS.has("opus"), "tier set includes opus");
-  assert.ok(VALID_TIERS.has("fable"), "tier set includes fable");
+  assert.ok(!VALID_TIERS.has("fable"), "tier set excludes fable (removed 2026-07-24)");
   assert.ok(INJECTABLE_STAGES.has("red-team"), "injectable stages include red-team");
   assert.ok(!INJECTABLE_STAGES.has("competition-producers"), "producers NOT injectable");
   assert.equal(INJECTABLE_STAGES.size, 6, "exactly 6 injectable stages");

@@ -2,6 +2,26 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.3.10] - 2026-07-24
+
+### Changed — Fable 5 removed; Opus tier upgraded to Opus 5 (claude-opus-5)
+
+The 4-tier model map (haiku/sonnet/opus/fable) collapses to **3 tiers (haiku/sonnet/opus)** where `opus` = **`claude-opus-5`**. Opus 5 shipped 2026-07-24 at the SAME price as Opus 4.8 ($5/$25 per M tokens) but >2× its coding score (Frontier-Bench) and within 0.5% of Fable 5 at max effort — so Fable's cost premium ($10/$50, double Opus 5) is no longer justified. **Every stage formerly on Fable OR Opus 4.8 now runs Opus 5.** Opus 5's context window is 1M tokens (same as 4.8 — no large-context regression), knowledge cutoff May 2026.
+
+The M82 competition judge-blindness invariant is **RELAXED** from "judge model ≠ producers model" to "judge runs in a fresh independent context" — producers AND judge both run Opus 5 (fresh contexts remove memory-bias; the modest residual taste/blind-spot bias is accepted for a stronger judge). The judge≠producers clamp is removed from the tier policy, the profile resolver, and the drift lint.
+
+- `bin/gsd-t-model-tier-policy.cjs`: MODEL_IDS `opus`→`claude-opus-5`, `fable` DELETED; all 7 STAGE_TIERS → opus; `requiresThinkingOmitted` now a single-home no-op (no model requires omission post-Fable); judge blindness clamp removed.
+- `bin/gsd-t-model-profile.cjs`: 3 profiles remapped to dial OPUS-vs-SONNET (standard=probes-opus/rest-sonnet, pro=mid, premium=all-opus); blindness clamp removed.
+- `bin/gsd-t-parallel.cjs`: fable alias removed.
+- `templates/workflows/*.workflow.js` (5): every `model: "fable"` / `?? "fable"` → `"opus"`.
+- `templates/prompts/{blind-adversary,research}-subagent.md`: model annotation fable → opus.
+- Drift-enforcer lints (`test/m85-*`, `test/m86-*`, `test/m90-tier-policy-lint`) updated atomically with the policy — fable fixtures/expectations → opus/sonnet; the "cycles must differ" + "judge≠producers" assertions removed.
+- Contracts: `model-tier-policy-contract.md` v2.0.0 (BREAKING), `model-profile-config-contract.md` v1.1.0 — each with a Fable-removed banner.
+- `templates/CLAUDE-global.md` + live `~/.claude/CLAUDE.md`: Model Display doctrine updated.
+- Command files (`gsd-t-help/status/debug/partition`), README, GSD-T-README updated.
+
+Full suite: 3019/3019 pass, 13 skipped. Zero executable `fable` literal remains in bin/workflows/lints; producers AND judge both resolve to `claude-opus-5`; all 3 profiles resolve with no fable.
+
 ## [5.2.11] - 2026-07-22
 
 ### Changed — architect-overview cleanup (dead tool, shared reader, archived contracts)

@@ -18,11 +18,16 @@
  * Frozen map: tier alias → concrete model id.
  * Consumers MUST import from here — never re-hardcode these strings.
  *
- * @type {Readonly<{opus: string, fable: string, sonnet: string, haiku: string}>}
+ * THREE tiers (Fable removed 2026-07-24): `opus` is now `claude-opus-5` — the
+ * default top tier. Opus 5 shipped at the SAME price as Opus 4.8 ($5/$25 per M
+ * tokens) but >2× its coding score and within 0.5% of Fable 5 at max effort, so
+ * the Fable cost premium ($10/$50 — double Opus 5) is no longer justified. Every
+ * stage formerly on `fable` OR `opus` (4.8) now runs `opus` = claude-opus-5.
+ *
+ * @type {Readonly<{opus: string, sonnet: string, haiku: string}>}
  */
 const MODEL_IDS = Object.freeze({
-  opus:   'claude-opus-4-8',
-  fable:  'claude-fable-5',
+  opus:   'claude-opus-5',
   sonnet: 'claude-sonnet-4-6',
   haiku:  'claude-haiku-4-5-20251001',
 });
@@ -33,18 +38,23 @@ const MODEL_IDS = Object.freeze({
 
 /**
  * Frozen map: stage key → tier alias.
- * 6 stages → fable; competition-producers held at opus (M82 blindness invariant).
+ * Fable removed 2026-07-24: all 7 stages resolve to `opus` (= claude-opus-5).
+ * The M82 competition judge-blindness invariant is RELAXED from "different model"
+ * to "fresh independent context" — producers AND judge both run Opus 5 (fresh
+ * contexts remove memory-bias; the modest residual taste/blind-spot bias is
+ * accepted for a stronger judge — user-locked 2026-07-24). See
+ * competition-mode-contract.md §Different-context judge.
  *
  * @type {Readonly<Record<string, string>>}
  */
 const STAGE_TIERS = Object.freeze({
-  'solution-space-probe':  'fable',
-  'partition-probe':       'fable',
-  'competition-judge':     'fable',
-  'competition-producers': 'opus',  // HELD — M82 judge-blindness invariant; do NOT move to fable
-  'pre-mortem':            'fable',
-  'red-team':              'fable',
-  'debug-cycle-2':         'fable',
+  'solution-space-probe':  'opus',
+  'partition-probe':       'opus',
+  'competition-judge':     'opus',  // was fable; blindness now via fresh context, not different model
+  'competition-producers': 'opus',
+  'pre-mortem':            'opus',
+  'red-team':              'opus',
+  'debug-cycle-2':         'opus',
 });
 
 // ---------------------------------------------------------------------------
@@ -55,18 +65,22 @@ const STAGE_TIERS = Object.freeze({
  * Returns true IFF the model requires the explicit thinking-disabled parameter
  * to be OMITTED from the API call.
  *
- * Rationale (canonical, single home): `claude-fable-5` returns HTTP 400 when
- * the explicit thinking-disabled parameter is sent. The parameter must therefore
- * be OMITTED for Fable. No other file may re-implement or re-state this predicate.
+ * This predicate existed for `claude-fable-5`, which returned HTTP 400 when the
+ * explicit thinking-disabled parameter was sent. Fable was removed 2026-07-24;
+ * NO current tier model (opus=claude-opus-5, sonnet, haiku) is known to require
+ * omission — Opus 5 and Sonnet 5 default `effort:high` on the API and accept the
+ * thinking params normally. Kept as a single-home predicate (callers still import
+ * it) so a future model that needs omission is added HERE, never re-hardcoded.
  *
  * @param {string} model — concrete model id or tier alias or any string
  * @returns {boolean}
  */
+const MODELS_REQUIRING_THINKING_OMITTED = Object.freeze([]); // none post-Fable
 function requiresThinkingOmitted(model) {
   if (typeof model !== 'string') return false;
-  // Source the id from MODEL_IDS (single-source — no second literal), and accept
-  // the runtime's bracket-suffixed display form (e.g. "claude-fable-5[1m]").
-  return model === MODEL_IDS.fable || model.startsWith(MODEL_IDS.fable + '[');
+  return MODELS_REQUIRING_THINKING_OMITTED.some(
+    (id) => model === id || model.startsWith(id + '[')
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -98,16 +112,15 @@ function resolve(stageKey) {
 /**
  * Frozen profile → stage-key → tier map.
  *
- * Three named profiles:
- *   standard  — ZERO fable (pre-M85 tiers: probes→opus, judge→sonnet,
- *                pre-mortem→opus, red-team→opus, debug both cycles→opus).
- *   pro       — red-team + pre-mortem + debug-cycle-2 → fable; everything
- *                else reverts to standard.
- *   premium   — all 6 M85 fable stages (the full M85 posture).
+ * Fable removed 2026-07-24 — profiles now dial OPUS-vs-SONNET spend (not Fable):
+ *   standard  — cost-leanest: the high-stakes reasoning stages run sonnet,
+ *                only the probes stay opus.
+ *   pro       — mid: red-team + pre-mortem + debug-cycle-2 → opus; the rest sonnet.
+ *   premium   — full opus posture: all 6 designated stages → opus (= claude-opus-5).
  *
- * competition-producers is HELD at opus in ALL profiles (M82 blindness
- * invariant — never fable). It is NOT included here because it is never
- * overridable; the resolver enforces this separately.
+ * competition-producers is held at opus in ALL profiles (always opus-5). The
+ * former judge≠producers blindness clamp is REMOVED — the invariant is now
+ * "fresh independent context," so the judge may equal producers' model.
  *
  * @type {Readonly<Record<string, Readonly<Record<string, string>>>>}
  */
@@ -116,25 +129,25 @@ const PROFILE_STAGE_TIERS = Object.freeze({
     'solution-space-probe': 'opus',
     'partition-probe':      'opus',
     'competition-judge':    'sonnet',
-    'pre-mortem':           'opus',
-    'red-team':             'opus',
-    'debug-cycle-2':        'opus',
+    'pre-mortem':           'sonnet',
+    'red-team':             'sonnet',
+    'debug-cycle-2':        'sonnet',
   }),
   pro: Object.freeze({
     'solution-space-probe': 'opus',
     'partition-probe':      'opus',
     'competition-judge':    'sonnet',
-    'pre-mortem':           'fable',
-    'red-team':             'fable',
-    'debug-cycle-2':        'fable',
+    'pre-mortem':           'opus',
+    'red-team':             'opus',
+    'debug-cycle-2':        'opus',
   }),
   premium: Object.freeze({
-    'solution-space-probe': 'fable',
-    'partition-probe':      'fable',
-    'competition-judge':    'fable',
-    'pre-mortem':           'fable',
-    'red-team':             'fable',
-    'debug-cycle-2':        'fable',
+    'solution-space-probe': 'opus',
+    'partition-probe':      'opus',
+    'competition-judge':    'opus',
+    'pre-mortem':           'opus',
+    'red-team':             'opus',
+    'debug-cycle-2':        'opus',
   }),
 });
 
@@ -148,18 +161,19 @@ const INJECTABLE_STAGES = Object.freeze([
   'debug-cycle-2',
 ]);
 
-/** The HELD producers model id — used by blindness clamps. */
-const PRODUCERS_MODEL_ID = MODEL_IDS.opus; // claude-opus-4-8
+/** The HELD producers model id (always opus = claude-opus-5). */
+const PRODUCERS_MODEL_ID = MODEL_IDS.opus; // claude-opus-5
 
 /**
  * Resolves the concrete model id for a given stage key under a profile,
  * honoring precedence: stageOverrides[stage] ?? profile-tier ?? global-default.
  *
- * Blindness clamps (M82 / pre-mortem c2 #4 — enforced at RESOLVE, not only at
- * write time because the config file is hand-editable):
- *   - competition-producers key in stageOverrides: silently dropped (never in overrides map).
- *   - competition-judge resolved to the producers' model id: BLOCKED — drops the override
- *     and uses the profile tier for competition-judge instead.
+ * Blindness (M82, RELAXED 2026-07-24 to "fresh independent context"):
+ *   - competition-producers key in stageOverrides: still silently dropped (producers
+ *     are always opus — not profile-overridable).
+ *   - competition-judge may now equal the producers' model (both opus) — the old
+ *     judge≠producers clamp is REMOVED; isolation is enforced by fresh context, not
+ *     by a different model.
  *
  * @param {string} stageKey
  * @param {{ profile?: string, stageOverrides?: Record<string,string> }} opts
@@ -222,11 +236,10 @@ function resolveProfile(stageKey, opts) {
       // (Red Team M86 r2 LOW: unknown stage + invalid override resolved fable on standard).
       errors.push(`stageOverrides["${stageKey}"] has invalid tier "${rawOverrideTier}"; falling back to profile tier`);
       resolvedTier = stageKnown ? profileTierMap[stageKey] : 'sonnet';
-    } else if (stageKey === 'competition-judge' && MODEL_IDS[rawOverrideTier] === PRODUCERS_MODEL_ID) {
-      // Blindness clamp: competition-judge must not equal producers' model
-      errors.push(`stageOverrides["competition-judge"] resolves to "${MODEL_IDS[rawOverrideTier]}" (=producers' model); blindness clamp rejected — falling back to profile tier`);
-      resolvedTier = stageKnown ? profileTierMap[stageKey] : 'sonnet';
     } else {
+      // Blindness clamp REMOVED (2026-07-24): competition-judge may equal the
+      // producers' model — isolation is now enforced by fresh context, not a
+      // different model. Any valid tier override is honored.
       resolvedTier = rawOverrideTier;
     }
   } else {

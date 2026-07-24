@@ -17,7 +17,7 @@
 // Domain workers embed the Stated-Claims snippet (§6.5) so agents tag load-bearing claims
 // KNOWN|GUESSED. After domain workers, the Research phase iterates GUESSED entries through
 // bin/gsd-t-research-gate.cjs: external → write §7 marker (status=uncited) → research agent
-// (model:"fable") → cite → flip marker (status=cited). Internal → grep/Read; grep-empty →
+// (model:"opus") → cite → flip marker (status=cited). Internal → grep/Read; grep-empty →
 // escalate to external research + cite + marker (§5.1 ambiguous escalation). Idempotent per §4.1
 // (exact normalized claim-key match only). Wave is a pure composer and does NOT embed this wiring
 // (M85 zero-model: invariant; research reaches wave via its execute sub-workflow).
@@ -142,7 +142,7 @@ async function grepForClaim(projectDir, claimText, phaseName) {
 
 // M89 §1.1 — the AMBIGUOUS → LLM JUDGE. When the mechanical classifier finds no string
 // fact (class:ambiguous), the LLM decides internal/external/uncertain in natural language.
-// Bare model:"fable" (the research tier — NOT the ?? override form; "judge" is not a
+// Bare model:"opus" (the research tier — NOT the ?? override form; "judge" is not a
 // designated stage). Returns the verdict string; on any error → "uncertain" (fail toward
 // research — never guess-internal). The caller treats external/uncertain as research.
 const CLASSIFY_JUDGE_SCHEMA = {
@@ -165,7 +165,7 @@ async function judgeAmbiguous(claimText, phaseName) {
     `Return JSON: { "verdict": "internal"|"external"|"uncertain", "reason": "<one line>" }.`,
     `Do NOT modify files. Do NOT run web searches in THIS step — only decide the verdict.`,
   ].join("\n");
-  const r = await agent(prompt, { label: "classify-judge", model: "fable", schema: CLASSIFY_JUDGE_SCHEMA, phase: phaseName })
+  const r = await agent(prompt, { label: "classify-judge", model: "opus", schema: CLASSIFY_JUDGE_SCHEMA, phase: phaseName })
     .catch((e) => ({ verdict: "uncertain", reason: `judge error: ${e && e.message}` }));
   return (r && r.verdict) || "uncertain";
 }
@@ -422,14 +422,14 @@ if (allGuessedClaims.length === 0) {
       continue;
     }
 
-    // External-claim handler (§7 marker → research(fable) → cite → flip). Closure so the
+    // External-claim handler (§7 marker → research(opus) → cite → flip). Closure so the
     // ambiguous→judge path reuses it for an "external"/"uncertain" verdict.
     const doExternal = async () => {
-      log(`Research: external claim → write §7 marker + fable research for "${claimKey.slice(0, 50)}"${artifactPath ? "" : " (FALLBACK artifact — worker reported no path)"}`);
+      log(`Research: external claim → write §7 marker + opus research for "${claimKey.slice(0, 50)}"${artifactPath ? "" : " (FALLBACK artifact — worker reported no path)"}`);
       // §7: write uncited marker at classify time (to the real OR fallback artifact — fail-CLOSED)
       await writeUncitedMarker(externalArtifact, claimKey);
 
-      // §2: research agent — bare "fable" tier literal (NOT the ??-override form; contract §2)
+      // §2: research agent — bare "opus" tier literal (NOT the ??-override form; contract §2)
       const researchPrompt = [
         `Read \`${projectDir}/templates/prompts/research-subagent.md\` for the full research protocol.`,
         `Your task: verify this external guessed claim via live web sources.`,
@@ -440,7 +440,7 @@ if (allGuessedClaims.length === 0) {
       ].join("\n");
       const researchResult = await agent(researchPrompt, {
         label: "research",
-        model: "fable",
+        model: "opus",
         schema: RESEARCH_RESULT_SCHEMA,
         phase: "Research",
       }).catch((e) => ({ ok: false, gapKey: claimKey, reason: `research agent error: ${e && e.message}` }));

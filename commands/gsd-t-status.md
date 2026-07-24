@@ -81,10 +81,10 @@ The **Model Profile** line MUST always name the active profile — never blank, 
 - If the file is absent, display the global default by name with the `(default)` marker: `Model Profile: premium (default)`.
 - If the file is present but malformed or contains an unknown profile, display: `Model Profile: premium (default, config-error)` — never silently promote to the most expensive posture.
 
-Profiles control which workflow stages run on Fable vs. Opus/Sonnet:
-- `standard` — zero Fable stages (pre-M85 posture)
-- `pro` — Fable on red-team + pre-mortem + debug-cycle-2
-- `premium` — all 6 M85 designated Fable stages (full posture, global default)
+Profiles control which workflow stages run on Opus vs. Sonnet (Fable removed 2026-07-24 — `opus` = claude-opus-5):
+- `standard` — probes opus; high-stakes stages (judge/pre-mortem/red-team/debug-cycle-2) sonnet (cost-leanest)
+- `pro` — probes + pre-mortem + red-team + debug-cycle-2 opus; judge sonnet
+- `premium` — all 6 designated stages opus (full posture, global default)
 
 ### Backlog Section
 

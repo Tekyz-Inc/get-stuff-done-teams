@@ -47,45 +47,49 @@ const VALID_TIERS = new Set(Object.keys(MODEL_IDS));
 // 1. Blind-adversary stage model annotation
 // ---------------------------------------------------------------------------
 
-describe("blind-adversary tier annotation (fable per M85 + M90 RULE-ARCH-TIER)", () => {
+describe("blind-adversary tier annotation (opus per M85 + M90 RULE-ARCH-TIER — Fable removed 2026-07-24)", () => {
   const blindText = readFile(BLIND_ADVERSARY_PROMPT);
 
   test("blind-adversary-subagent.md exists", () => {
     assert.ok(blindText, "templates/prompts/blind-adversary-subagent.md must exist (D1 deliverable)");
   });
 
-  test("blind-adversary-subagent.md references fable as the required model tier", () => {
+  test("blind-adversary-subagent.md references opus as the required model tier", () => {
     assert.ok(blindText, "prompt must be readable");
-    // The prompt must reference 'fable' as its required model tier.
-    // This is the RULE-ARCH-TIER: the blind adversary runs on fable (M85 policy).
+    // RULE-ARCH-TIER: the blind adversary runs on opus (= claude-opus-5) since
+    // Fable was removed. It must NOT reference fable.
     assert.ok(
-      blindText.includes("fable"),
-      "blind-adversary-subagent.md must reference 'fable' as its required tier (M85 policy, RULE-ARCH-TIER)"
+      /`opus`/.test(blindText),
+      "blind-adversary-subagent.md must reference 'opus' as its required tier (RULE-ARCH-TIER)"
+    );
+    assert.ok(
+      !/`fable`/.test(blindText),
+      "blind-adversary-subagent.md must NOT reference fable as a tier (removed 2026-07-24)"
     );
   });
 
-  test("M90 phase workflow wires the blind-adversary competition arm on fable (RULE-ARCH-TIER)", () => {
+  test("M90 phase workflow wires the blind-adversary competition arm on opus (RULE-ARCH-TIER)", () => {
     const phaseText = readFile(WF_PHASE);
     assert.ok(phaseText, "gsd-t-phase.workflow.js must exist");
-    // The phase workflow must use fable for the blind-adversary stage in the competition arm.
-    // Pattern: model: "fable" or model: overrides["..."] ?? "fable"
-    // The blind-adversary is wired via the competition arm, and its model must be fable.
+    // The competition arm's stages must use opus (fallback literal), never fable.
     assert.ok(
-      phaseText.includes('"fable"') || phaseText.includes("'fable'"),
-      "gsd-t-phase.workflow.js must reference fable for the blind-adversary competition arm"
+      phaseText.includes('"opus"') || phaseText.includes("'opus'"),
+      "gsd-t-phase.workflow.js must reference opus for the competition arm"
+    );
+    assert.ok(
+      !phaseText.includes('"fable"') && !phaseText.includes("'fable'"),
+      "gsd-t-phase.workflow.js must NOT reference fable as a model literal (removed 2026-07-24)"
     );
   });
 
   // Mandatory negative test (M71-family): a drifted literal FAILS.
-  test("[negative] drifted blind-adversary tier literal ('opus' instead of 'fable') FAILS the check", () => {
-    // Simulate: if blind-adversary-subagent.md said 'opus' instead of 'fable', the assertion above fails.
-    // We prove the check is non-vacuous by testing a synthetic drifted string.
-    const driftedContent = (blindText || "").replace(/\bfable\b/g, "opus");
-    const hasFable = driftedContent.includes("fable");
+  test("[negative] drifted blind-adversary tier literal ('haiku' instead of 'opus') FAILS the check", () => {
+    // Prove the positive check is non-vacuous: swap opus→haiku and confirm opus is gone.
+    const driftedContent = (blindText || "").replace(/`opus`/g, "`haiku`");
     assert.equal(
-      hasFable,
+      /`opus`/.test(driftedContent),
       false,
-      "[negative test] after replacing 'fable' with 'opus', the string must not contain 'fable' — " +
+      "[negative test] after replacing `opus` with `haiku`, the string must not contain `opus` — " +
       "proves the positive test above is not vacuously true"
     );
   });
@@ -175,22 +179,23 @@ describe("gsd-t.js dispatch cases for M90 modules", () => {
 // ---------------------------------------------------------------------------
 
 describe("tier-policy module integrity after M90", () => {
-  test("MODEL_IDS contains all four tiers (haiku, sonnet, opus, fable)", () => {
-    for (const tier of ["haiku", "sonnet", "opus", "fable"]) {
+  test("MODEL_IDS contains the three tiers (haiku, sonnet, opus) — Fable removed 2026-07-24", () => {
+    for (const tier of ["haiku", "sonnet", "opus"]) {
       assert.ok(MODEL_IDS[tier], `MODEL_IDS must contain tier '${tier}'`);
     }
+    assert.ok(!MODEL_IDS["fable"], "MODEL_IDS must NOT contain fable (removed 2026-07-24)");
   });
 
-  test("STAGE_TIERS has fable for the 5 highest-leverage stages (M85 policy)", () => {
-    const fableStages = [
+  test("STAGE_TIERS has opus for the 5 highest-leverage stages (Fable removed)", () => {
+    const highLeverageStages = [
       "solution-space-probe", "partition-probe", "competition-judge",
       "pre-mortem", "red-team"
     ];
-    for (const stageKey of fableStages) {
+    for (const stageKey of highLeverageStages) {
       assert.equal(
         STAGE_TIERS[stageKey],
-        "fable",
-        `STAGE_TIERS['${stageKey}'] must be 'fable' per M85 policy`
+        "opus",
+        `STAGE_TIERS['${stageKey}'] must be 'opus' (Fable removed 2026-07-24)`
       );
     }
   });

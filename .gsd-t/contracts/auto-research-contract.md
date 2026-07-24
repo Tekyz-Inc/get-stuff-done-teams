@@ -113,7 +113,7 @@
     an UNAMBIGUOUS vendor proper-noun (long, multi-char, non-homograph) co-occurring with an API/protocol
     term; **everything else is `ambiguous`** — semantic placement that requires JUDGMENT is the LLM's
     call, not regex's.
-  - **The `ambiguous` residue routes to an LLM JUDGE (the wiring, model:"fable") → uncertain → research.**
+  - **The `ambiguous` residue routes to an LLM JUDGE (the wiring, model:"opus") → uncertain → research.**
     The 4 consuming workflows (`gsd-t-{phase,execute,quick,debug}`) route an `ambiguous` classification to
     a small `classify-judge` `agent()` stage applying the internal/external test in natural language.
     internal → grep; external → research+cite; **NOT confident → treat as external → research+cite**
@@ -215,7 +215,7 @@
     no per-stage `tools:` allowlist) and structurally enforced — the research stage is the SOLE
     web-tool-granting `agent()`, so internal class never searches.
 - **v1.0.0 (2026-06-18 — M89 partition):** initial seam (§1 envelope, §2 stage interface incl. the
-  bare-`fable` model correction, §3 cite format, §4 idempotency, §5 no-silent-guess, §6 corpus oracle).
+  bare-`opus` model correction, §3 cite format, §4 idempotency, §5 no-silent-guess, §6 corpus oracle).
 
 ---
 
@@ -320,7 +320,7 @@ or a bare URL-looking token can never make a benign internal claim strong-extern
 
 **The `ambiguous` residue → LLM judge → uncertain → research (owned by the WIRING — §5.1 / D3+D4).**
 The classifier is a pure calculator; it does NOT make the semantic call. The 4 consuming workflows route
-an `ambiguous` classification to a small LLM `classify-judge` `agent()` stage (`model: "fable"` — the
+an `ambiguous` classification to a small LLM `classify-judge` `agent()` stage (`model: "opus"` — the
 research tier) that applies the internal/external test in natural language and returns one of
 `internal` / `external` / `uncertain`:
 
@@ -395,7 +395,7 @@ mirroring the triad-protocol convention).
 - **Input:** one external gap (the classifier envelope's `gap` text).
 - **Tool access:** `WebSearch` + `WebFetch` (the ONLY stages granted web tools).
 - **Output:** a Verified-Facts block (§3) with source URLs. Schema-validated.
-- **Model:** the research stage uses a **BARE literal `model: "fable"`** (Fable tier — the single
+- **Model:** the research stage uses a **BARE literal `model: "opus"`** (Fable tier — the single
   highest-leverage web call per phase; mirrors the M85 rationale for the 5 highest-leverage stages).
   **It does NOT use the `overrides["research"] ?? "<literal>"` form.** Plan-hardening correction (M89
   plan phase): the `??`-override form's bracket key MUST be one of the 6 INJECTABLE designated stages
@@ -493,7 +493,7 @@ it. This is a FULL behavior, not a deferral; it is owned by D3 (upper phases) an
 exercised by a functional test. The flow (v1.3.0):
 
 1. Classifier returns `class:ambiguous` / `route:judge` (no string fact dominates — §1.1).
-2. The wiring runs the LLM `classify-judge` `agent()` stage (`model: "fable"`), which returns one of
+2. The wiring runs the LLM `classify-judge` `agent()` stage (`model: "opus"`), which returns one of
    `internal` / `external` / `uncertain` in natural language.
 3. **judge `internal`** → grep/Read for the gap. If grep/Read CONFIRMS the specific claim → done, no web.
    If grep/Read returns nothing → RE-ROUTE to external → research `agent()` → cited `## Verified Facts
