@@ -2,6 +2,19 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.4.11] - 2026-07-27
+
+### Fixed — schema-id gate never reached projects (propagation gap)
+
+v5.4.10 wired the `schema-id` verify gate into `gsd-t-verify-gate.cjs`, which dispatches to `bin/gsd-t-schema-id-check.cjs` by absolute path — but the new file was in neither `GLOBAL_BIN_TOOLS` nor `PROJECT_BIN_TOOLS`, so `update-all` propagated the *caller* to all 32 projects without the *callee*. Every project would have hit ENOENT on the check. Caught by verifying the file actually landed on disk in three sample projects rather than trusting the "copied 1 bin tool(s)" report.
+
+This is the third occurrence of the same class (M89 research gate, M99 graph store-resolver) — a tool added to the source and wired into a caller, but never added to a propagation list.
+
+- `bin/gsd-t.js`: added `gsd-t-schema-id-check.cjs` to both `GLOBAL_BIN_TOOLS` and `PROJECT_BIN_TOOLS`, with comments naming the dispatch dependency.
+- `.gsd-t/contracts/graph-metrics-contract.md`: line citation for `doMetrics` refreshed (4907 → 4915) after the insertion shifted it — enforced by the M99 T6 contract-line test.
+
+Note: `templates/stacks/_comparison.md` needed no propagation entry — stack rules are read from the installed package at spawn time (`gsd-t-task-brief.js`), not copied per-project. Verified live in the published package.
+
 ## [5.4.10] - 2026-07-27
 
 ### Added — Integer-identity primary keys + case-insensitive domain comparisons (two framework-wide code standards)

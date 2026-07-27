@@ -1559,6 +1559,10 @@ const GLOBAL_BIN_TOOLS = [
   "gsd-t-loop-ledger.cjs",
   // Backlog #40 — deterministic archive+sweep of a completed milestone's domain dirs.
   "gsd-t-archive-domains.cjs",
+  // v5.4.10 — integer-identity primary-key gate. gsd-t-verify-gate.cjs dispatches to
+  // this by absolute path, so it MUST ship wherever the verify gate ships or the
+  // schema-id check throws ENOENT. Same class as the M99 store-resolver omission below.
+  "gsd-t-schema-id-check.cjs",
 ];
 
 function installGlobalBinTools() {
@@ -2939,6 +2943,10 @@ const PROJECT_BIN_TOOLS = [
   "cli-preflight.cjs", "parallel-cli.cjs", "parallel-cli-tee.cjs",
   "gsd-t-context-brief.cjs",
   "gsd-t-verify-gate.cjs", "gsd-t-verify-gate-judge.cjs",
+  // v5.4.10 — integer-identity primary-key gate. gsd-t-verify-gate.cjs dispatches to
+  // it via an absolute path in the Track 2 plan, so a project that has the verify gate
+  // but NOT this file gets an ENOENT on every verify. Ships alongside the gate itself.
+  "gsd-t-schema-id-check.cjs",
   // M82 — Competition Mode judge + its disjointness oracle dependency, so a
   // project's gsd-t-phase workflow can score candidate partitions via the
   // project-local bin (runCli prefers bin/<tool>.cjs over the global binary).
