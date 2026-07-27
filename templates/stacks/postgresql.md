@@ -10,7 +10,8 @@ These rules are MANDATORY. Violations fail the task. No exceptions.
 MANDATORY:
   ├── Tables: snake_case, plural (users, order_items)
   ├── Columns: snake_case, singular (first_name, created_at)
-  ├── Primary keys: id (UUID preferred over serial for distributed systems)
+  ├── Primary keys: id — ALWAYS a self-incrementing integer identity (see §2)
+  ├── Public identifiers: public_id UUID — only on API-exposed tables (see §2)
   ├── Foreign keys: {referenced_table_singular}_id (user_id, order_id)
   ├── Indexes: idx_{table}_{columns} (idx_users_email)
   ├── Constraints: {type}_{table}_{columns} (uq_users_email, fk_orders_user_id)
@@ -24,28 +25,63 @@ MANDATORY:
 
 ```
 MANDATORY:
-  ├── Every table has: id (PK), created_at (timestamptz DEFAULT now()), updated_at
+  ├── EVERY table has a self-incrementing integer primary key named id — NO EXCEPTIONS
+  │     BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY
+  │     NEVER a UUID primary key. NEVER a natural/composite key as the PK.
+  ├── API-exposed tables ALSO get public_id UUID NOT NULL DEFAULT gen_random_uuid()
+  │     with a UNIQUE constraint — expose public_id externally, NEVER the integer id
+  ├── Every table has: created_at (timestamptz DEFAULT now()), updated_at
   ├── Use timestamptz — NEVER timestamp without time zone
-  ├── Use UUID for primary keys in distributed or API-exposed systems
   ├── Use appropriate types: text (not varchar), numeric (not float for money)
   ├── Add NOT NULL constraints by default — allow NULL only with explicit reason
   ├── Foreign keys with ON DELETE policy (CASCADE, SET NULL, or RESTRICT — choose deliberately)
   └── NEVER store JSON when a proper relational schema exists — use jsonb only for truly unstructured data
 ```
 
+**Why an integer PK plus a separate public UUID** — the two identifiers do different jobs:
+
+- **Integer `id` inside the database** — 8 bytes (vs 16 for UUID), sorts in insert order so the
+  index stays compact, joins fast, and is readable in a log (`order 4471`). A UUID primary key
+  scatters index writes and bloats every foreign key pointing at it.
+- **UUID `public_id` at the edge** — a sequential ID in a URL leaks your row count and lets anyone
+  walk `/invoice/1`, `/invoice/2` looking for other people's data. The public column removes that
+  without giving up the storage and join win.
+
 **GOOD**
 ```sql
 CREATE TABLE users (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  public_id UUID NOT NULL DEFAULT gen_random_uuid(),
   email TEXT NOT NULL,
   display_name TEXT NOT NULL,
   role user_role NOT NULL DEFAULT 'viewer',
   is_active BOOLEAN NOT NULL DEFAULT true,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT uq_users_public_id UNIQUE (public_id),
   CONSTRAINT uq_users_email UNIQUE (email)
 );
 ```
+
+**BAD**
+```sql
+CREATE TABLE users (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),  -- UUID as PK: scattered index writes,
+  email TEXT NOT NULL                             -- 16-byte FKs, unreadable in logs
+);
+
+CREATE TABLE order_items (
+  order_id BIGINT NOT NULL,                       -- composite natural key as PK:
+  sku TEXT NOT NULL,                              -- no stable single-column identity
+  PRIMARY KEY (order_id, sku)
+);
+```
+
+**Scope** — this rule governs NEW tables. Existing tables with UUID primary keys are NOT
+retrofitted: their foreign keys already point at the UUID, so adding an integer id without
+repointing every referencing table leaves two competing identifier systems. Changing an existing
+table's primary key is a data migration and a Destructive Action Guard item — it requires explicit
+user approval, never an in-passing change.
 
 ---
 
@@ -214,6 +250,8 @@ NEVER:
 ## PostgreSQL Verification Checklist
 
 - [ ] Naming follows conventions (snake_case, plural tables, singular columns)
+- [ ] Every NEW table has a self-incrementing integer `id` primary key (identity/bigserial)
+- [ ] API-exposed tables also have a UNIQUE `public_id UUID` — and expose that, not the integer id
 - [ ] Every table has id, created_at, updated_at
 - [ ] timestamptz used — not timestamp
 - [ ] All foreign keys indexed

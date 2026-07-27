@@ -569,6 +569,35 @@ Skip the hint if auto-advancing (Level 3 mid-wave) — only show when the user n
 - Functions under 30 lines — split if longer
 - Files under 200 lines — create new modules if needed
 - Enums for state management and fixed option sets
+- **Fixed value sets live in ONE shared constant** — every comparison references it, never a retyped literal (a second literal is where casing/typo mismatches hide)
+
+## Comparisons — case-insensitive by default (MANDATORY)
+
+**Comparing a domain string VALUE against a literal is CASE-INSENSITIVE unless the user specifically directs otherwise.** Domain values (status, filter, tab, mode, role, category, email, user-entered text) cross boundaries — database, API, URL, form — and each is free to change the casing. A literal comparison silently returns `false` and the feature quietly does nothing.
+
+```
+CASE-INSENSITIVE:  statuses, filters, tabs, modes, roles, categories, emails,
+                   user-entered values, route/query params carrying any of these
+CASE-SENSITIVE:    passwords, tokens, API keys, hashes, signatures (case-insensitive
+                   here is a SECURITY defect); base64/JWT/hex/uuid-as-string/git SHA
+                   (case IS data); Linux file paths; object/property keys; DOM tag
+                   and prop names; env-var NAMES; branch names
+```
+
+Guard for absent values: `(filter || '').toLowerCase() !== 'invoiced'`. In SQL: `lower(col) = lower($1)` with a functional index on `lower(col)` when queried at volume.
+
+Full rule + worked examples: `templates/stacks/_comparison.md` (universal — auto-injected into every project).
+
+## Database schema — every new table gets a self-incrementing integer ID (MANDATORY)
+
+**Every NEW relational table has a self-incrementing integer primary key named `id`.** API-exposed tables ALSO get a separate `public_id` UUID (unique, indexed) — expose that externally, never the integer id.
+
+- **Why the integer inside** — 8 bytes vs 16, sorts in insert order so the index stays compact, joins fast, readable in a log. A UUID primary key scatters index writes and bloats every foreign key pointing at it.
+- **Why the UUID at the edge** — a sequential id in a URL leaks row counts and lets anyone walk `/invoice/1`, `/invoice/2` looking for other people's data.
+- **NEW tables only.** Existing UUID-keyed tables are NOT retrofitted — their foreign keys already point at the UUID, so changing the PK is a data migration and a **Destructive Action Guard** item requiring explicit user approval.
+- **Does NOT apply to Firestore or Neo4j** — deliberate, not an oversight. Firestore has no sequence to increment (forcing one means a counter document that serializes every write); Neo4j has no rows, and its internal `id()` is reused after deletion. Each stack file states this.
+
+Enforced mechanically by `bin/gsd-t-schema-id-check.cjs` (verify-gate `schema-id`, FAIL-CLOSED; no-op PASS when a run adds no schema files). Full rules: `templates/stacks/postgresql.md` §2, `prisma.md` §1, `supabase.md` §6.5.
 
 ## Naming
 ```

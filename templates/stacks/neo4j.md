@@ -15,8 +15,20 @@ MANDATORY:
   ├── Properties: camelCase (firstName, createdAt)
   ├── Store properties on the node or relationship that "owns" them
   ├── Relationships ALWAYS have a direction — even if queried bidirectionally
+  ├── Every node carries an application-assigned `id` property with a UNIQUE constraint (see §3)
+  ├── NEVER persist or expose Neo4j's internal id() — it is reused after deletion (see below)
   └── NEVER use relationships as nodes (reify only when the relationship needs its own relationships)
 ```
+
+**The self-incrementing-integer-ID rule does NOT apply to Neo4j.** This is deliberate, not an
+oversight — the GSD-T relational stacks (postgresql, prisma, supabase) mandate an integer identity
+primary key on every table. Neo4j has no tables and no rows to number: it stores nodes and the
+relationships between them, so there is nothing for a sequence to attach to.
+
+Neo4j does expose an internal `id()` per node, but it is **not a stable identifier** — delete a node
+and the number is reused by a different node later. Anything that stored the old value now points at
+the wrong entity. Use an application-assigned `id` property with a uniqueness constraint instead
+(§3 Indexing and Constraints).
 
 **GOOD**
 ```cypher

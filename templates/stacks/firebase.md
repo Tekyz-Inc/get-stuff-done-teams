@@ -44,7 +44,38 @@ MANDATORY:
   ├── Embedded objects for small, bounded data that's always read together
   ├── Store document IDs as fields when needed for queries
   ├── Use server timestamps: serverTimestamp() — not client Date.now()
+  ├── Use Firestore's auto-generated document IDs — NEVER build a sequential counter (see below)
   └── NEVER create deeply nested subcollection hierarchies (max 2-3 levels)
+```
+
+**The self-incrementing-integer-ID rule does NOT apply to Firestore.** This is deliberate, not an
+oversight — the GSD-T relational stacks (postgresql, prisma, supabase) mandate an integer identity
+primary key on every table. Firestore cannot provide one:
+
+- A self-incrementing ID requires every writer to agree on "what was the last number", which means
+  one machine must be the authority and every insert must wait its turn. Firestore is built to
+  spread writes across many machines precisely to avoid that.
+- Forcing it means a single counter document that every write locks and updates — capping the
+  collection's write rate at roughly one per second and re-introducing the bottleneck the database
+  exists to avoid.
+
+Firestore's auto-generated IDs need no coordination and cannot collide between writers. Use them.
+
+**BAD** — the counter-document anti-pattern:
+```typescript
+// NEVER — serializes every write in the collection behind one document
+const counterRef = db.doc('counters/orders');
+await db.runTransaction(async (tx) => {
+  const snap = await tx.get(counterRef);
+  const next = snap.data().value + 1;
+  tx.update(counterRef, { value: next });
+  tx.set(db.doc(`orders/${next}`), orderData);
+});
+```
+
+**GOOD** — let Firestore assign the ID:
+```typescript
+await db.collection('orders').add(orderData);  // auto-ID, no coordination, no contention
 ```
 
 **GOOD**

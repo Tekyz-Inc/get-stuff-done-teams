@@ -309,6 +309,8 @@ function _detectDefaultTrack2(projectDir, notes) {
 
   plan.push({ id: 'env-registry', cmd: 'node', args: [path.join(__dirname, 'gsd-t-env-registry-check.cjs'), '--project', projectDir], timeoutMs: 30000 }); // M102 D3: no-secret-in-registry + rule-without-table gate, FAIL-CLOSED
 
+  plan.push({ id: 'schema-id', cmd: 'node', args: [path.join(__dirname, 'gsd-t-schema-id-check.cjs'), '--project', projectDir], timeoutMs: 30000 }); // integer-identity PK on every NEW relational table, FAIL-CLOSED (no-op PASS when no new schema files)
+
   // secrets — gitleaks (PATH detection deferred to runtime)
   if (_hasOnPath('gitleaks')) {
     plan.push({

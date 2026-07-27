@@ -113,6 +113,31 @@ enum Direction { Up = 'UP', Down = 'DOWN', Left = 'LEFT', Right = 'RIGHT' }
 if (status === 'pndng') { /* ... */ }
 ```
 
+**MANDATORY — a fixed set of values lives in ONE shared declaration, and every comparison
+references it.** Declaring the type is not enough: if the literal `'invoiced'` is typed in two
+files, nothing connects them, and a casing or spelling mismatch fails silently at runtime.
+
+```ts
+// BAD — the same value written as a loose literal in two places.
+// TILE_FILTERS maps the tile to 'invoiced'; this file compares against 'Invoiced'.
+// Different strings. Never matches. No error, no warning — the button just never appears.
+onAddOrder={view === 'orders' && filter !== 'Invoiced' ? handleAdd : undefined}
+
+// GOOD — one source of truth, referenced everywhere.
+export const ORDER_FILTER = {
+  ORDERS:   'orders',
+  INVOICED: 'invoiced',
+} as const;
+export type OrderFilter = typeof ORDER_FILTER[keyof typeof ORDER_FILTER];
+
+onAddOrder={view === 'orders' && filter !== ORDER_FILTER.INVOICED ? handleAdd : undefined}
+// A typo is now a compile error, not a silent mismatch a user finds later.
+```
+
+This is the structural fix for the casing-mismatch bug class. Case-insensitive comparison
+(`_comparison.md`) is the safety net that catches the same bug where a shared constant doesn't
+exist or the value crosses a system boundary — use both.
+
 ---
 
 ## 7. Import Ordering

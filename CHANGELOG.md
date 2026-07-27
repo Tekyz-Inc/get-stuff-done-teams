@@ -2,6 +2,29 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.4.10] - 2026-07-27
+
+### Added — Integer-identity primary keys + case-insensitive domain comparisons (two framework-wide code standards)
+
+Two mandatory standards, both previously absent from GSD-T. **(1) Every NEW relational table gets a self-incrementing integer primary key named `id`**; API-exposed tables also get a separate UNIQUE `public_id` UUID. The integer wins inside the database (8 bytes vs 16, insert-ordered so the index stays compact, fast joins, readable in logs); the UUID protects the edge (a sequential id in a URL leaks row counts and lets anyone enumerate `/invoice/1`, `/invoice/2`). `postgresql.md` previously said the opposite — "UUID preferred over serial" — with a UUID GOOD example agents were copying. **(2) Comparing a domain string value against a literal is case-insensitive by default** (status, filter, tab, role, category, email, user-entered text), while identifiers, secrets, hashes, encoded values, Linux file paths, object keys, and env-var names stay case-sensitive — blanket insensitivity on a token or hash is a security defect. Origin: a real shipped bug where `filter !== 'Invoiced'` never matched a lowercase `'invoiced'`, producing two visible UI defects from one casing mismatch.
+
+**Scope — NEW tables only.** A survey of all 32 registered projects found ~480 existing tables on UUID/cuid primary keys whose foreign keys already point at those UUIDs; changing an established primary key is a data migration and a Destructive Action Guard item, not an in-passing edit. No distributed-writes escape hatch was added — the same survey found zero multi-node or offline-first writers, so an unused exception path would be a speculative branch.
+
+**Firestore and Neo4j are exempt, and the exemption is stated rather than silent.** Firestore has no sequence to increment — forcing one means a counter document that serializes every write in the collection, re-introducing the bottleneck the database exists to avoid. Neo4j has no rows, and its internal `id()` is reused after node deletion. Leaving those files silent would let an agent read the gap as an oversight and invent the counter-document anti-pattern.
+
+- `bin/gsd-t-schema-id-check.cjs`: NEW deterministic verify gate (`schema-id`), FAIL-CLOSED. Inspects only schema files new or modified in the working tree, so established UUID-keyed repos pass untouched. Explicit no-op PASS (distinguishable from a wired-but-broken FAIL) when git is unavailable or no schema files changed.
+- `bin/gsd-t-verify-gate.cjs`: wired `schema-id` into the Track 2 default plan.
+- `templates/stacks/_comparison.md`: NEW universal rules file (`_` prefix → auto-injected into every project regardless of stack). Case-insensitive/case-sensitive split, SQL guidance with functional-index note, shared-constant rule, verification checklist.
+- `templates/stacks/postgresql.md`: §1 naming + §2 schema design rewritten; GOOD/BAD examples and checklist updated; explicit scope note on non-retrofit.
+- `templates/stacks/prisma.md`: `id Int @id @default(autoincrement())` mandatory + `publicId`; GOOD/BAD examples inverted (the old BAD example was the new rule).
+- `templates/stacks/supabase.md`: NEW §6.5 — including that a `user_id` column referencing `auth.users` stays UUID because row-level security compares it against `auth.uid()`.
+- `templates/stacks/firebase.md`, `templates/stacks/neo4j.md`: stated exemptions with the counter-document anti-pattern shown as BAD.
+- `templates/stacks/typescript.md`: §6 extended — a fixed value set lives in ONE shared constant so the compiler catches mismatches (case-insensitivity only treats the symptom; a typo'd value still fails silently).
+- `templates/CLAUDE-global.md` + live `~/.claude/CLAUDE.md`: both rules added and kept in sync, so they govern conversational work as well as spawned domain workers.
+- `test/schema-id-check.test.js`: NEW — 11 regression tests covering all three Postgres identity spellings, UUID/text/composite rejection, nested-paren bodies, Prisma models, and the new-tables-only scope.
+
+Migration: none required. Existing schemas are unaffected — the gate ignores committed tables, and no existing project is retrofitted.
+
 ## [5.3.10] - 2026-07-24
 
 ### Changed — Fable 5 removed; Opus tier upgraded to Opus 5 (claude-opus-5)

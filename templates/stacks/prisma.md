@@ -10,7 +10,9 @@ Applies when `prisma` or `@prisma/client` is in `package.json` or `schema.prisma
 ```
 MANDATORY:
   ├── One schema.prisma file — NEVER split across multiple files (use comments to section)
-  ├── Use @id with autoincrement() or uuid() — NEVER application-generated IDs
+  ├── EVERY model has id Int @id @default(autoincrement()) — NEVER a uuid()/cuid() primary key
+  ├── API-exposed models ALSO get publicId String @unique @default(uuid()) — expose publicId
+  │     externally, NEVER the integer id (a sequential id in a URL leaks row counts and is enumerable)
   ├── Every model has createdAt DateTime @default(now()) and updatedAt DateTime @updatedAt
   ├── Use @map and @@map for snake_case DB column/table names with camelCase Prisma models
   ├── Define explicit relation names when a model has multiple relations to the same table
@@ -21,7 +23,8 @@ MANDATORY:
 **GOOD**
 ```prisma
 model User {
-  id        String   @id @default(uuid())
+  id        Int      @id @default(autoincrement())
+  publicId  String   @unique @default(uuid()) @map("public_id")
   email     String   @unique
   name      String
   role      UserRole @default(MEMBER)
@@ -45,11 +48,15 @@ enum UserRole {
 **BAD**
 ```prisma
 model User {
-  id   Int    @id @default(autoincrement())
-  role String // Should be enum
-  // Missing createdAt, updatedAt, indexes
+  id   String @id @default(uuid()) // UUID as PK — scattered index writes, 16-byte FKs
+  role String                      // Should be enum
+  // Missing publicId, createdAt, updatedAt, indexes
 }
 ```
+
+**Scope** — governs NEW models. Existing models with uuid()/cuid() primary keys are NOT retrofitted:
+their relations already point at the string id, so switching the PK is a data migration and a
+Destructive Action Guard item requiring explicit user approval.
 
 ---
 

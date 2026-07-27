@@ -144,6 +144,43 @@ MANDATORY:
 
 ---
 
+## 6.5. Schema Design — Primary Keys
+
+Supabase is PostgreSQL — the full PostgreSQL standards apply. The primary-key rule:
+
+```
+MANDATORY:
+  ├── EVERY new table has a self-incrementing integer primary key named id
+  │     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY
+  ├── API-exposed tables ALSO get public_id UUID NOT NULL DEFAULT gen_random_uuid() UNIQUE
+  │     PostgREST exposes every table over HTTP by default — treat tables as API-exposed
+  │     unless RLS blocks all client access. Return public_id to clients, never the integer id.
+  ├── A user_id column referencing auth.users STAYS UUID — auth.uid() returns a UUID and
+  │     RLS policies compare against it directly. This is NOT the table's primary key.
+  └── Existing tables are NOT retrofitted (see PostgreSQL standards §2 Scope)
+```
+
+**GOOD**
+```sql
+CREATE TABLE user_profiles (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  public_id UUID NOT NULL DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users (id) ON DELETE CASCADE,  -- UUID: RLS compares to auth.uid()
+  display_name TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT uq_user_profiles_public_id UNIQUE (public_id)
+);
+
+ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users read own profile"
+  ON user_profiles FOR SELECT
+  USING (auth.uid() = user_id);
+```
+
+---
+
 ## 7. Migrations
 
 ```
@@ -176,6 +213,9 @@ NEVER:
 
 ## Supabase Verification Checklist
 
+- [ ] Every NEW table has a self-incrementing integer `id` primary key
+- [ ] API-exposed tables have a UNIQUE `public_id UUID` — clients get public_id, not the integer id
+- [ ] `user_id` columns referencing auth.users are UUID (RLS compares to auth.uid())
 - [ ] RLS enabled on every table with explicit policies
 - [ ] auth.uid() used in policies — no client-sent user IDs trusted
 - [ ] Service role key only used server-side
