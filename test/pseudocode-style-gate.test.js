@@ -263,6 +263,66 @@ test("the shipped mold is not gated as a doc", () => {
   assert.strictEqual(r.skips[0] && r.skips[0].reason, "no-pseudocode-docs", JSON.stringify(r));
 });
 
+test("FIRST-RUN SEED: a project whose docs predate the gate is not retroactively failed", () => {
+  // Found live during propagation: the gate shipped to 33 projects, and binvoice
+  // (19 docs), NiceNote (6) and IssueRecorder (2) had no grandfather list — so an
+  // unrelated verify run would have failed on work nobody touched.
+  const d = tmpDir();
+  writeDoc(d, "PseudoCode-Legacy1.md", "# Legacy\n\nprose only, no flow\n");
+  writeDoc(d, "PseudoCode-Legacy2.md", "# Legacy2\n\nloadStore(path): return null\n");
+
+  const r = run({ dir: d });
+  assert.strictEqual(r.exitCode, 0, "pre-existing docs must NOT be retroactively failed");
+  assert.ok(r.seeded, "the seed must be SURFACED in the envelope, never silent");
+  assert.strictEqual(r.seeded.reason, "seeded-pre-existing");
+  assert.strictEqual(r.seeded.count, 2);
+  assert.deepStrictEqual(r.seeded.docs, ["PseudoCode-Legacy1.md", "PseudoCode-Legacy2.md"]);
+  assert.ok(fs.existsSync(path.join(d, ".style-grandfathered")), "the list must be written to disk");
+});
+
+test("the seed NEVER re-runs — a doc added after it is gated normally", () => {
+  // A list that re-seeded itself would silently absolve every newly-drifted doc,
+  // which is exactly the banned behavior the gate exists to prevent.
+  const d = tmpDir();
+  writeDoc(d, "PseudoCode-Legacy.md", "# Legacy\n\nprose only\n");
+
+  const first = run({ dir: d });
+  assert.strictEqual(first.exitCode, 0);
+  assert.ok(first.seeded, "first run seeds");
+
+  // A NEW non-conforming doc arrives after the starting line was established.
+  writeDoc(d, "PseudoCode-New.md", "# New\n\nprose only, no flow\n");
+  const second = run({ dir: d });
+  assert.strictEqual(second.exitCode, 4, "a doc added AFTER the seed must FAIL");
+  assert.ok(!second.seeded, "the seed must not run a second time");
+  assert.ok(second.violations.some((v) => v.doc.endsWith("PseudoCode-New.md")));
+  assert.ok(
+    !second.violations.some((v) => v.doc.endsWith("PseudoCode-Legacy.md")),
+    "the grandfathered doc stays grandfathered",
+  );
+});
+
+test("a single --doc call never seeds a list", () => {
+  const d = tmpDir();
+  const p = writeDoc(d, "PseudoCode-Solo.md", "# Solo\n\nprose only, no flow\n");
+  const r = run({ doc: p });
+  assert.strictEqual(r.exitCode, 4, "an explicit single-doc check gates without grandfathering");
+  assert.ok(!fs.existsSync(path.join(d, ".style-grandfathered")), "--doc must not write a list");
+});
+
+test("an un-writable dir surfaces exit 64 rather than mass-failing or mass-passing", () => {
+  const d = tmpDir();
+  writeDoc(d, "PseudoCode-Legacy.md", "# Legacy\n\nprose only\n");
+  fs.chmodSync(d, 0o500); // read + execute, no write
+  try {
+    const r = run({ dir: d });
+    assert.strictEqual(r.exitCode, 64, "cannot seed → surface it, never silently pass/fail the set");
+    assert.match(r.reason, /cannot seed/);
+  } finally {
+    fs.chmodSync(d, 0o700);
+  }
+});
+
 test("splitRegions ignores a --- that sits inside a fence", () => {
   const { flowRegion } = splitRegions(`# T
 

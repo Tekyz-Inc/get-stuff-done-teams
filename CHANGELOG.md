@@ -2,6 +2,22 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.5.11] - 2026-07-29
+
+### Fixed — the new style gate would have failed 27 untouched documents in three projects
+
+Caught by running the gate live in a downstream project immediately after propagation rather than trusting the "copied 1 bin tool(s)" report. v5.5.10 shipped the gate to all 33 registered projects, but the grandfather list that exempts pre-v1.2.0 documents existed only in the GSD-T repo. binvoice (19 documents), NiceNote (6) and IssueRecorder (2) had none — so the next `gsd-t-verify` run in those projects would have failed on documents nobody touched, written to a then-valid standard.
+
+The gate now establishes its own starting line: on the `--dir` path, when the list file is absent and the directory already holds documents, it writes the list once from the existing set and reports `seeded: { reason: "seeded-pre-existing", count, docs }`.
+
+This is **not a fallback** — it masks no failure and continues past none; it defines where the gate begins. Three properties keep it honest: written **once** (a self-re-seeding list would silently absolve every newly-drifted document, which is the banned behavior), keyed on the file being absent, and always surfaced naming every document covered. A document created after the seed is gated normally; a single `--doc` call never seeds; an un-writable directory returns exit 64 with the reason rather than a silent mass-pass or mass-fail.
+
+- `bin/gsd-t-pseudocode-style.cjs`: `seedGrandfatherList()` + envelope `seeded` field.
+- `test/pseudocode-style-gate.test.js`: 4 new tests (15 → 19) — seed happens, seed never re-runs, `--doc` never seeds, un-writable directory exits 64.
+- `.gsd-t/contracts/pseudocode-source-of-truth-contract.md`: §1.1.5 documents the seed and why it is not a fallback.
+
+Verified live: binvoice's 19 documents now report `exitCode 0`, 19 seeded, 0 violations. Suite 3052/0/13-skip.
+
 ## [5.5.10] - 2026-07-29
 
 ### Added — PseudoCode style is governed: the flow IS the document

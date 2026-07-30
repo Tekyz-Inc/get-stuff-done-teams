@@ -252,8 +252,54 @@ function loadGrandfathered(dir) {
       const t = l.trim();
       if (t && !t.startsWith("#")) out.add(t);
     }
-  } catch { /* absent list = nothing grandfathered */ }
+  } catch { /* absent list = nothing grandfathered (see seedGrandfatherList) */ }
   return out;
+}
+
+/**
+ * First-run seed for a project that already had PseudoCode docs before this gate
+ * existed.
+ *
+ * WHY THIS IS NOT A FALLBACK (No-Fallback-Ever doctrine):
+ * this does not continue past a failure or mask one. It establishes the gate's
+ * STARTING LINE. The gate governs docs authored under contract §1.1; docs that
+ * predate it were written to a different (then-valid) standard, and retroactively
+ * failing them would make an unrelated verify run fail in a downstream project for
+ * work nobody touched. That is a false failure, not a caught defect.
+ *
+ * The seed is: WRITTEN ONCE (never rewritten — a list that re-seeded itself would
+ * silently absolve every newly-drifted doc, which IS the banned behavior), keyed on
+ * the list file being ABSENT, and always SURFACED with reason "seeded-pre-existing"
+ * naming every doc it covers. A doc created AFTER the seed is gated normally.
+ *
+ * @returns {{ seeded: boolean, names: string[], error?: string }}
+ */
+function seedGrandfatherList(dir, docBasenames) {
+  const listPath = path.join(dir, GRANDFATHER_FILE);
+  if (fs.existsSync(listPath)) return { seeded: false, names: [] };
+  if (docBasenames.length === 0) return { seeded: false, names: [] };
+
+  const body = [
+    "# Docs that predate the §1.1 flow-line style gate (contract v1.2.0).",
+    "# Seeded automatically on this gate's FIRST run in this project, so pre-existing",
+    "# docs are not retroactively failed. Each is reported as a logged skip WITH A",
+    "# REASON — never a silent pass.",
+    "#",
+    "# This file is written ONCE and never re-seeded: a doc created after this point",
+    "# is gated normally. Removing a name here is how a doc opts INTO the gate —",
+    "# convert it to the §1.1 flow style in the same change.",
+    ...docBasenames,
+    "",
+  ].join("\n");
+
+  try {
+    fs.writeFileSync(listPath, body, "utf8");
+  } catch (e) {
+    // Cannot write (read-only checkout, permissions) — surface it, do NOT
+    // silently fail 20 docs and do NOT silently pass them either.
+    return { seeded: false, names: [], error: `cannot seed ${GRANDFATHER_FILE}: ${e && e.message}` };
+  }
+  return { seeded: true, names: docBasenames.slice() };
 }
 
 /**
@@ -283,6 +329,17 @@ function run({ doc, dir }) {
     }
   }
 
+  // First-run seed: a project whose docs predate this gate gets its starting line
+  // established once, surfaced with a reason. Only on the --dir path (the whole-set
+  // view); a single --doc call never seeds.
+  let seedInfo = null;
+  if (dir) {
+    seedInfo = seedGrandfatherList(dir, docs.map((d) => path.basename(d)).sort());
+    if (seedInfo.error) {
+      return { ok: false, exitCode: 64, reason: seedInfo.error, violations: [] };
+    }
+  }
+
   const results = [];
   const violations = [];
   const skips = [];
@@ -295,7 +352,7 @@ function run({ doc, dir }) {
     if (r.exitCode > worstExit) worstExit = r.exitCode;
   }
 
-  return {
+  const envelope = {
     ok: worstExit === 0,
     exitCode: worstExit,
     docsChecked: docs.length,
@@ -303,6 +360,11 @@ function run({ doc, dir }) {
     skips,
     violations,
   };
+  if (seedInfo && seedInfo.seeded) {
+    // Surfaced, never silent: name the migration and every doc it covers.
+    envelope.seeded = { reason: "seeded-pre-existing", count: seedInfo.names.length, docs: seedInfo.names };
+  }
+  return envelope;
 }
 
 function parseArgs(argv) {

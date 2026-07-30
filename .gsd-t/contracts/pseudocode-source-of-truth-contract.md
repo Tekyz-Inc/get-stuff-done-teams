@@ -147,6 +147,23 @@ judgment — the same "an LLM may PRODUCE, code GATES" split as §2.
   as a **logged skip WITH A REASON** (`reason: "grandfathered"`), never a silent
   pass — per `feedback_no_silent_degradation`. Removing a name from that list is
   how a doc opts into the gate. A doc NOT on the list and NOT clean FAILS.
+- **First-run seed (the gate's starting line).** On the `--dir` path, when the
+  list file is ABSENT and the directory already holds docs, the gate writes the
+  list once from the existing doc set and reports
+  `seeded: { reason: "seeded-pre-existing", count, docs: [...] }`. This is **not
+  a fallback** (No-Fallback-Ever): it masks no failure and continues past none —
+  it establishes WHERE the gate begins. Docs predating §1.1 were written to a
+  then-valid standard; failing them retroactively makes an unrelated verify run
+  fail in a downstream project for work nobody touched, which is a false failure
+  rather than a caught defect. Three properties make it safe:
+  **written ONCE** (never re-seeded — a self-re-seeding list would silently
+  absolve every newly-drifted doc, which IS the banned behavior), **keyed on the
+  file being absent**, and **always surfaced** naming every doc covered. A doc
+  created AFTER the seed is gated normally. An un-writable directory returns
+  exit 64 with the reason — never a silent mass-pass or mass-fail.
+  *(Found live during v5.5.10 propagation: the gate reached 33 projects and
+  binvoice/19, NiceNote/6, IssueRecorder/2 had no list, so verify would have
+  begun failing there on untouched work.)*
 - **Discovery** reuses §7's glob, so the style check fires on the same doc set
   as the guard-map gate.
 
