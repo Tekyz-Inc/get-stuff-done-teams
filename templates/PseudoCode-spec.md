@@ -1,194 +1,137 @@
-# {Title} — {one-line subject of this behavior map}
+# {Title}
 
-**Pseudocode + intention for how {the subject} behaves, end to end.**
-Covers WHERE the system makes each decision, WHEN it refuses to, and how the
-result reaches every consumer. **{Scope line — what this is, and the one thing
-it deliberately does NOT do.}**
+{One sentence: what happens, in plain words. Two max. Usually one is enough.}
 
-> **⚠ {THE LOAD-BEARING DIRECTIVE} ({Author}, {date}).** {The single sentence a
-> reader must not miss — the WHY behind the whole map, stated as the user's
-> intention. Prose here is the USER's directive, never agent reasoning.}
+```text
+{Where it starts — a screen, an arriving message, a scheduled moment}
+  {The first thing that happens}
+  {Is <the question being decided>}:
+    Yes: {what happens}
+      {Is <the next question>}:
+        Yes: {what happens}
+        No:  {what happens instead}
+    No:  {what happens instead}
+```
 
-_Forward-looking behavior map for **{milestone / scope id}**. Not yet built —
-grounds itself in the EXISTING contracts it must respect:
-`{existing-contract-a}.md`, `{existing-contract-b}.md`, and the frozen
-`{Schema}` (`{field}` / `{field}` / `{field}`). Companion to
-`PseudoCode-{Other}.md`. See `{roadmap ref}` for the milestone scope._
+---
 
 <!--
   ─────────────────────────────────────────────────────────────────────────────
-  HOW TO USE THIS MOLD  (delete this comment block in the real instance)
+  HOW TO WRITE THIS  (delete this comment block in the real instance)
   ─────────────────────────────────────────────────────────────────────────────
-  • Name the instance PseudoCode-[Title].md where [Title] is the SUBJECT
-    (PseudoCode-PayPal.md), never a milestone id. Only THIS blank mold keeps the
-    `-spec` suffix.
-  • Author the TWO ALTITUDES in order:
-      1. HIGH-LEVEL APPROACH  — what / why / when, the actors, a one-breath
-         summary table. NO field-level detail. SIGN THIS OFF FIRST.
-      2. DETAILED             — the full numbered `##` section set below, at
-         exemplar granularity (one section per decision boundary).
-  • Every section carries the FIVE SECTION ELEMENTS (see the contract §1):
-      Intention prose · Mechanism pseudocode · one-breath summary ·
-      [RULE] guard map · ⚠ Divergence flags · Appendix.
-  • Each `> **Intention.**` prose block sits ABOVE its fenced pseudocode and is
-    dated + attributed; the prose is the USER's WHY, never agent reasoning.
-  • The Mechanism block grounds in EXISTING contracts/schema and DEFERS concrete
-    identifiers to plan-time-against-the-real-schema.
-  • Guard map: render EVERY invariant as a one-line `[RULE] <invariant>` (or the
-    tagged `<invariant> [RULE — <tag>]` form). One marker = one rule.
-  • Divergence: wherever a NEW intention supersedes shipped code, write an
-    explicit `⚠ Divergence:` flag. Keep = no flag.
-  • Cite each implementing plan task back with:
+
+  THE FLOW IS THE DOCUMENT. Everything else is an appendix below the divider
+  that the reader never has to open. Do not put explanation above the flow.
+
+  ── SHAPE ───────────────────────────────────────────────────────────────────
+  • A nested decision tree, indented 2 spaces per level. Not prose. Not code.
+  • Each line is one thing that happens, or one question being decided.
+  • A question line ends with a colon and is answered by indented
+    `Yes:` / `No:` lines directly beneath it (or named outcomes when there are
+    more than two — `Found:` / `Expired:` / `Never seen:`).
+  • NO function-call syntax. Write `Save it against the client's record`, never
+    `saveForClient(clientId, record)`. No `if`/`return`/`throw`/`tx:`/`→`.
+  • NO paragraphs inside the flow block. If a line needs a paragraph, the flow
+    is wrong — split it into more lines.
+
+  ── WORDS ───────────────────────────────────────────────────────────────────
+  Plain English carries the sentence; the technical name rides ALONGSIDE it in
+  parentheses. The reader must never have to translate a line in their head.
+
+      GOOD: Zoom's webhook (its automatic ping to us) arrives at /zoom/events
+      GOOD: Read the message it sent (the payload) — pull out the meeting id
+      GOOD: Save it in the invoices table
+      BAD:  A webhook fires                       (which webhook? whose?)
+      BAD:  Parse the payload                     (untranslated jargon)
+      BAD:  Return 401                            (means nothing on its own)
+
+  • Name the REAL thing. "Zoom", "the Save button", "the invoices table",
+    "/zoom/events" are concrete and welcome. Bare category-nouns — webhook,
+    payload, endpoint, handler, token, cache — are not, unless glossed.
+  • GLOSS ONCE PER SECTION. First use in a section carries the plain
+    explanation in parentheses; later lines in that same section use it bare.
+    A new `##` section re-glosses, so a reader landing mid-file still follows.
+  • Plain FIRST, term in parentheses SECOND. Not the reverse.
+
+  ── FILE STRUCTURE ──────────────────────────────────────────────────────────
+      # Title
+      One-sentence purpose.
+      The flow.
+      ---
+      Everything else.
+
+  Below the divider, in any order, only what this subject actually has:
+    • `## What it does today` / `## What changes` — the before/after, each as
+      its own flow in the same style.
+    • `## The rules` — the guard map. Every invariant as a one-line `[RULE]`
+      (grammar owned by the contract §2 — do not re-derive it here).
+    • `## ⚠ Divergence` — flags wherever this supersedes shipped behavior.
+      Keeping existing behavior = no flag. (Contract §4.)
+    • `## Why this shape` — the Architect's Six-Stage answers, in plain words.
+    • `## Where it lives` — file and function pointers, if useful. These belong
+      HERE, not in the flow.
+
+  ── NAMING + CITATION ───────────────────────────────────────────────────────
+  • Name the file `PseudoCode-[Title].md` where [Title] is the SUBJECT
+    (`PseudoCode-ProfileUrlSave.md`), never a milestone id. Only this blank
+    mold keeps the `-spec` suffix.
+  • A milestone may produce several files — one per coherent subject.
+  • Plan tasks cite a section back with:
         **PseudoCode-Section**: {Title}#<github-slug-of-the-## heading>
-  Grammars are owned by the contract:
-  `.gsd-t/contracts/pseudocode-source-of-truth-contract.md`
-  (§2 guard-map, §3 section-citation, §4 divergence). Do NOT re-derive them here.
+  • Grammars live in `.gsd-t/contracts/pseudocode-source-of-truth-contract.md`
+    (§1.1 flow style · §2 guard-map · §3 citation · §4 divergence). Do NOT
+    re-derive them here.
   ─────────────────────────────────────────────────────────────────────────────
 -->
 
----
-
-<!-- ═══════════════ ALTITUDE 1 — HIGH-LEVEL APPROACH (sign off FIRST) ═══════════════ -->
-
-## The one {call / decision}, in one breath
-
-> **High-Level Approach ({Author}, {date}).** {What this does, why, and when —
-> the actors and the single decision, in plain language. No field-level detail.
-> This altitude is signed off BEFORE the Detailed sections below are written.}
-
-| {Call / decision} | Lives in | Decides | Runs only when… |
-|-------------------|----------|---------|-----------------|
-| **{The call}** | **{realm — Server / Extension / …}** | {what it turns the input into} | {the precondition that triggers it} |
-| **{The read / fallback}** | **{realm}** | {the question it answers} | {seller- / event-initiated trigger} |
-
-> **SCOPE ({Author}, {date}).** {The deliberate OUT-of-scope boundary — what this
-> map does NOT do. State the one status / call / surface it touches and the ones
-> it refuses to touch. This keeps the Detailed sections honest.}
-
----
-
-<!-- ═══════════════ ALTITUDE 2 — DETAILED (exemplar granularity) ═══════════════ -->
-
-## 0. Where this picks up — {precondition / what exists before}
-
-> **Intention ({Author}, {date}).** {What state the system is in when this map
-> begins — the precondition. If this SUPERSEDES a shipped model, say so here and
-> add the ⚠ Divergence flag below.}
+## What it does today
 
 ```text
-PRECONDITION:
-  {The exact starting state — what is loaded / grouped / present, and what is
-   deliberately NOT persisted yet.}
+{The current flow, same nested style. Delete this section for new behavior
+ that has no "today".}
 ```
 
-> ⚠ **Divergence from shipped {what} (plan-time reconcile):** {what the shipped
-> code does today} vs. {what THIS intention does instead}. {What becomes dead
-> code / what is reused.} Flag for the {milestone} plan.
-> *(Keep = delete this flag. Supersede = keep it, per contract §4.)*
-
----
-
-## 1. {First boundary} — {the trigger → the actor that owns it}
-
-> **Intention.** {WHY this step exists and what the user wants it to do — the
-> directive. One short paragraph, the user's voice.}
+## What changes
 
 ```text
-{ACTOR}  on {trigger}:
-    {step}
-    {the call / the guard}
-    on {outcome}:  {what happens}
-    on {failure}:  {the safe fallback — never a crash}
+{The new flow, same nested style. The reader should be able to diff this
+ against the section above by eye.}
 ```
 
 ---
 
-## 2. {Second boundary} — `{the operation}`  (★ {why this one is load-bearing})
-
-> **Intention.** {The WHY. Name the one invariant this section exists to protect
-> — e.g. "every guard makes a double-click HARMLESS".}
+## The rules
 
 ```text
-{operationName}({inputs}):
-
-    # ── GATE 1 — {what it validates} (RULE) ────────────────────────────────
-    # Intention: {why this gate exists, in the user's voice}.
-    {load / lock}
-    if {precondition fails}:   → {status / error}   # {what it protects}
-
-    # ── GATE 2 — {backstop} (RULE, backstop) ───────────────────────────────
-    # Intention: {why — name it a backstop if upstream already blocks it}.
-    if {impossible condition}:   → {status}
-
-    # ── STEP 3 — {the side-effecting call} ─────────────────────  ★ {marker}
-    # Intention: {what crosses the boundary and what is deferred to real schema}.
-    {the call}                                   # defer concrete ids to plan-time
-
-    # ── STEP 4 — PERSIST + {atomic effect} (RULE, one tx) ──────────────────
-    # Intention: {the record is born / the state flips — atomically}.
-    in ONE tx:
-        {write}
-        {flip state}
-    return {success shape}
-
-    # ── FAILURE — never half-{do the thing} (RULE) ─────────────────────────
-    # Intention: a failed {op} persists NOTHING — safe retry.
-    on {failure} (any point):  nothing persisted ; → {status}
+{invariant in one line}                          [RULE] {the invariant}
+{what can never happen}                          [RULE] {the prohibition}
+{what happens on failure}                        [RULE] {the safe-failure invariant}
 ```
+
+{One short paragraph, plain words: the one thing that must never happen, and
+why repeating any step is harmless.}
 
 ---
 
-## 3. {Further boundaries as needed} — {one `##` section per decision}
+## ⚠ Divergence
 
-> **Intention.** {Add as many numbered `##` sections as the subject has distinct
-> decision boundaries — match the exemplars' granularity, one section per real
-> decision, not one giant section.}
-
-```text
-{the mechanism for this boundary}
-```
+{`⚠ Divergence: <section or RULE-ID> — supersedes shipped <what>. Reason: <the
+intention>.` for each supersede. Delete this whole section if nothing is
+superseded.}
 
 ---
 
-## {N}. {Subject}-safety map — every guard, as a one-line [RULE]
+## Why this shape
 
-```text
-GATE: {condition} → {status}                     [RULE] {the invariant in one line}
-GATE: {lock / serialize}                          [RULE] {what it prevents}
-{deterministic guard}                             [RULE — {tag}] {invariant, tagged form}
-{never-do-this}                                   [RULE] {the prohibition}
-{born / set at this exact point}                  [RULE] {the lifecycle invariant}
-on {failure}: persist NOTHING                     [RULE] {the safe-failure invariant}
-```
-
-**{One paragraph restating the whole safety story in prose: the record is born
-WHEN, the lock means WHAT, the one thing that can never happen, and why every
-retry / double-action is harmless.}**
+{The Architect's Six-Stage answers, in plain jargon-free sentences. What the
+objective is · what it conflicts with · what already exists that we reuse ·
+why this is the simplest version · whether it will be reused again · what
+could go wrong.}
 
 ---
 
-## {Optional} — {ONE STORE / shared-state / known-gaps notes}
+## Where it lives
 
-> {Optional sections the exemplars carry: a shared-store note, a "Known gaps /
-> status (as of {version})" list. Include only if the subject has them.}
-
----
-
-## Appendix — Raw pseudocode (no intention comments)
-
-```text
-# ════════════════════════════════════════════════════════════════════════════
-# {REALM A} — {what it covers}
-# ════════════════════════════════════════════════════════════════════════════
-{the §1–§N mechanism, intention prose STRIPPED — the build's quick-reference}
-
-# ════════════════════════════════════════════════════════════════════════════
-# {REALM B} — {what it covers}
-# ════════════════════════════════════════════════════════════════════════════
-{operationName}({inputs}):
-    {guard}                                       # {one-line reason}
-    {the call}                                    # ★ {the load-bearing call}
-    tx: {write} ; {flip state}
-    return {success}
-    on fail: persist NOTHING ; → {status}         # safe retry
-```
+| Step in the flow | File |
+|------------------|------|
+| {the flow line} | `{path}` |

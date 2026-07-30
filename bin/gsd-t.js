@@ -1563,6 +1563,12 @@ const GLOBAL_BIN_TOOLS = [
   // this by absolute path, so it MUST ship wherever the verify gate ships or the
   // schema-id check throws ENOENT. Same class as the M99 store-resolver omission below.
   "gsd-t-schema-id-check.cjs",
+  // v5.5.10 — PseudoCode §1.1 flow-line style gate (contract v1.2.0). The verify
+  // workflow fires it on the same doc set as the guard-map gate, so it must ship
+  // wherever verify ships. Also in PROJECT_BIN_TOOLS below — a tool wired into a
+  // caller but absent from BOTH lists is dead in every project
+  // ([[project_global_bin_propagation_gap]], 4 prior occurrences).
+  "gsd-t-pseudocode-style.cjs",
 ];
 
 function installGlobalBinTools() {
@@ -2979,6 +2985,12 @@ const PROJECT_BIN_TOOLS = [
   // divergence-grammar = §4 parse/format round-trip (G4).
   "gsd-t-guard-map.cjs", "gsd-t-guard-map-derive.cjs", "gsd-t-milestone-state.cjs",
   "gsd-t-rule-consume.cjs", "gsd-t-divergence-grammar.cjs",
+  // Contract v1.2.0 (2026-07-29) — the §1.1 flow-line STYLE gate, sibling of the
+  // guard-map gate above. guard-map holds what a PseudoCode doc CONTAINS; this
+  // holds how it READS (nested decision tree in plain English, technical terms
+  // glossed alongside, code identifiers below the divider). Propagated so the
+  // verify workflow's project-local runCli resolves it downstream.
+  "gsd-t-pseudocode-style.cjs",
   // M93 — jargon-gloss lint for written docs (the file surface the brevity-guard
   // Stop hook can't reach). Propagated so a project's doc checks can invoke it.
   "gsd-t-jargon-lint.cjs",
@@ -5321,6 +5333,21 @@ if (require.main === module) {
       const js = path.join(__dirname, "gsd-t-research-gate.cjs");
       if (!require("node:fs").existsSync(js)) {
         error(`gsd-t-research-gate.cjs not found at ${js} — install or build M89-D1 first`);
+        process.exit(1);
+      }
+      const res = spawnSync(process.execPath, [js, ...args.slice(1)], {
+        stdio: "inherit",
+      });
+      process.exit(res.status == null ? 1 : res.status);
+    }
+    case "pseudocode-style": {
+      // Contract v1.2.0 §1.1 — `gsd-t pseudocode-style (--doc <f> | --dir <d>)` thin
+      // dispatcher to the PseudoCode flow-line STYLE gate. Sibling of `guard-map`:
+      // that one gates what a doc CONTAINS, this one gates how it READS.
+      const { spawnSync } = require("child_process");
+      const js = path.join(__dirname, "gsd-t-pseudocode-style.cjs");
+      if (!require("node:fs").existsSync(js)) {
+        error(`gsd-t-pseudocode-style.cjs not found at ${js} — reinstall GSD-T (contract v1.2.0 §1.1)`);
         process.exit(1);
       }
       const res = spawnSync(process.execPath, [js, ...args.slice(1)], {

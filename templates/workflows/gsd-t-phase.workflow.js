@@ -869,6 +869,7 @@ ${STATED_CLAIMS_INSTRUCTION}`,
 TWO-ALTITUDE INTENTION-FIRST FLOW (M87, default-ON — contract pseudocode-source-of-truth-contract.md §1). Author the milestone at two altitudes, IN ORDER:
   ALTITUDE 1 — HIGH-LEVEL APPROACH (signed off FIRST): emit the high-level approach pseudocode — what/why/when (the user's intention, never agent reasoning), the actors, and a one-breath summary ("one call in one breath"). PRESENT this approach to the user for SIGN-OFF. The detailed doc is authored ONLY AFTER the approach is approved — the sign-off is the checkpoint between the two altitudes. (This is a PROSE flow: describe the checkpoint; do NOT assert a machine-checkable DEFINED-state predicate — that is M88.)
   ALTITUDE 2 — DETAILED doc: only after the approach is signed off, author .gsd-t/pseudocode/PseudoCode-[Title].md at exemplar granularity (the §1 section set: Intention, Mechanism, one-breath table, Guard map, Divergence flags, Appendix). [Title] = the SUBJECT (e.g. PseudoCode-PayPal.md), never a milestone id; a milestone may produce several.
+  STYLE (contract §1.1, GOVERNED + machine-gated): "# Title" → one sentence of purpose → THE FLOW → "---" → everything else. The flow is a NESTED DECISION TREE IN PLAIN ENGLISH — 2-space indent per level, one thing per line, a question line ending ":" answered by indented "Yes:" / "No:" (or named outcomes) directly beneath it. BANNED in the flow: function-call syntax (loadStore(path):), code keywords (if/return/throw/catch/tx:), bare status codes (→ 409) or SCREAMING_SNAKE constants (MODULE_NOT_FOUND), and any paragraph — a line needing a paragraph means the flow is under-decomposed, so split it. A technical term rides ALONGSIDE plain words in parentheses rather than replacing them: plain FIRST, term second, glossed once per "##" section — "Zoom's webhook (its automatic ping to us) arrives at /zoom/events", "Read the message it sent (the payload) — pull out the meeting id". Concrete real names (Zoom, the Save button, the invoices table, /zoom/events) need no gloss; abstract category-nouns (webhook, payload, endpoint, handler, token, cache) do. The guard map, divergence flags, Six-Stage answers, and every file/function pointer sit BELOW the divider. Mold: templates/PseudoCode-spec.md. Worked reference: .gsd-t/pseudocode/PseudoCode-BrokenGraphHalts.md. Self-check with: gsd-t pseudocode-style --doc <the file> (non-zero = fix before presenting; the same gate is FAIL-blocking in verify).
 DEFAULT-ON; skip is a LOGGED decision in progress.md naming WHY — NEVER a silent default-off (feedback_no_silent_degradation).
 KEEP-OR-SUPERSEDE: before encoding any model inherited from shipped code, run the keep-or-supersede protocol (templates/prompts/keep-or-supersede-subagent.md) — per inherited model ASK keep or supersede; each supersede WRITES a ⚠ Divergence flag (§4 grammar) into the doc. Keep = no flag.
 
@@ -914,8 +915,19 @@ const _architectPassLine = _ARCHITECT_PHASES.has(phaseName)
       `ARCHITECT'S OVERSIGHT — run this Six-Stage Pass BEFORE finalizing the ${phaseName}, IN ORDER.`,
       `Each stage can KILL/reshape the plan. Answer each with EVIDENCE (a grep, a Read, or the`,
       `graph slice above) — never conviction. Record the answers in plain, jargon-free language`,
-      `in the milestone's PseudoCode document (.gsd-t/pseudocode/), house style: title + one-line`,
-      `purpose, CURRENT/PROPOSED blocks, "# plain comment" inline, a summary table.`,
+      `in the milestone's PseudoCode document (.gsd-t/pseudocode/), in the GOVERNED style of`,
+      `contract pseudocode-source-of-truth-contract.md §1.1: "# Title" → one sentence of purpose`,
+      `→ THE FLOW → "---" → everything else. The flow is a NESTED DECISION TREE IN PLAIN ENGLISH`,
+      `(2-space indent, one thing per line, a question line ending ":" answered by indented`,
+      `"Yes:" / "No:" beneath it). BANNED in the flow: function-call syntax, if/return/throw/tx:,`,
+      `bare status codes or SCREAMING_SNAKE constants, and any paragraph. A technical term rides`,
+      `ALONGSIDE plain words in parentheses rather than replacing them — plain first, glossed once`,
+      `per "##" section (e.g. "Zoom's webhook (its automatic ping to us) arrives at /zoom/events");`,
+      `concrete real names (Zoom, the Save button, the invoices table) need no gloss. The Six-Stage`,
+      `answers go under "## Why this shape" BELOW the divider, alongside the guard map, divergence`,
+      `flags, and any file/function pointers — code identifiers NEVER appear in the flow.`,
+      `Self-check with: gsd-t pseudocode-style --doc <the file>  (non-zero = fix before presenting;`,
+      `the same gate is FAIL-blocking in verify).`,
       `  1. OBJECTIVE — what is the core objective, and why is it the objective?`,
       `  2. CONFLICT — does it conflict with another objective? must a prior one be re-examined?`,
       `  3. REUSE — have I already done any piece of this? Can I reuse the PROCESS, or the OUTPUT`,

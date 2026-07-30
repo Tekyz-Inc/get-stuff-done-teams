@@ -1,6 +1,6 @@
 # Contract: PseudoCode Source-of-Truth
 
-**Version**: 1.1.5
+**Version**: 1.2.0
 **Status**: STABLE
 **Owner domain**: `template-docripple-contract` (M87 D4)
 **Consumed by**: `guard-bridge-spike` (D1), `traceability-section-coverage` (D2), `milestone-two-altitude-flow` (D3)
@@ -46,6 +46,109 @@ exemplars `PseudoCode-PayPal.md` + `PseudoCode-Extension.md`):
 | **Guard map** | A guard-enumeration map rendering every invariant as a one-line `[RULE]` — see §2. | D1 (grammar) |
 | **Divergence** | Explicit `⚠ Divergence` flags wherever a new intention supersedes shipped code — see §4. | D3 (grammar) |
 | **Appendix** | Raw-pseudocode appendix with intention prose stripped (the build's quick-reference). | D4 (template) |
+
+---
+
+## 1.1 Flow-line style (the readable half — `bin/gsd-t-pseudocode-style.cjs` owns the checker)
+
+> **Added v1.2.0 (2026-07-29, user directive).** The five section elements (§1)
+> govern what a doc CONTAINS. They said nothing about how the pseudocode READS,
+> and the corpus drifted to transliterated source code — `loadStore(storePath):`,
+> `spawnSync`, `MODULE_NOT_FOUND`, `→ 409`. The user's directive: **the flow is
+> the document, it reads as a nested decision tree in plain English, and every
+> technical term rides alongside plain words rather than replacing them.** A doc
+> the user must mentally translate line-by-line has failed its only job.
+
+### 1.1.1 The flow block
+
+The document opens with `# {Title}`, at most two plain sentences of purpose, and
+then **the flow** — a fenced block holding a nested decision tree:
+
+```text
+Settings screen
+  Enter a value in the Profile URL field — click Save
+  Is the URL the right shape:
+    Yes: Open the page it points at
+      Is that page a real profile page:
+        Yes: Save it, show the green check
+        No:  Show "that page isn't a profile"
+    No:  Show "that doesn't look like a profile URL"
+```
+
+- **Entry line** — where the flow starts: a screen, an arriving message, a
+  scheduled moment. Unindented.
+- **Indentation** — 2 spaces per nesting level.
+- **Question line** — ends with `:`, answered by indented outcome lines directly
+  beneath it. Outcomes are `Yes:` / `No:`, or named outcomes when there are more
+  than two (`Found:` / `Expired:` / `Never seen:`).
+- **One thing per line.** A line that needs a paragraph means the flow is
+  under-decomposed; split it.
+
+### 1.1.2 Banned forms (each is a checker FAIL)
+
+| Banned | Why | Write instead |
+|--------|-----|---------------|
+| Function-call syntax — `name(args):`, `obj.method(x)` | Transliterated code, not behavior | `Save it against the client's record` |
+| Code keywords — `if`/`else`/`return`/`throw`/`catch`/`tx:` | Same | `Is the record already saved:` / `Yes:` |
+| Bare status codes / error constants — `→ 409`, `MODULE_NOT_FOUND` | Means nothing unglossed | `Refuse it as a duplicate (409)` |
+| A paragraph inside the flow block | Prose the user asked to remove | more flow lines |
+| Un-glossed category-noun — `webhook`, `payload`, `endpoint`, `handler`, `token`, `cache` | Forces mental translation | see §1.1.3 |
+
+### 1.1.3 Term style — plain first, technical name in parentheses
+
+The technical term is **kept**, never stripped. It rides alongside the plain
+words so the line reads straight through and the term stays greppable:
+
+```
+Zoom's webhook (its automatic ping to us) arrives at our /zoom/events address
+Read the message it sent (the payload) — pull out the meeting id and the end time
+```
+
+- **Plain first, term parenthesized second.** Not the reverse.
+- **Gloss once per section.** First use inside a given `##` section carries the
+  parenthetical; later lines in that same section use the term bare. A new `##`
+  section re-glosses, so a reader landing mid-file still follows. (This is the
+  scope unit the checker uses.)
+- **Concrete real names need no gloss** — a product (`Zoom`), a named surface
+  (`/zoom/events`), a named table (`the invoices table`), a named control (`the
+  Save button`). They are specific, so nothing must be decoded. Only abstract
+  category-nouns require the parenthetical.
+
+### 1.1.4 File structure
+
+```
+# Title
+One-sentence purpose.
+The flow.
+---
+Everything else.
+```
+
+Everything the doc carries beyond the flow — the before/after flows, the §2
+guard map, §4 divergence flags, the Architect's Six-Stage answers, and any
+file/function pointers — sits **below the first `---` divider**. Code
+identifiers appear only there, never in the flow. The five section elements of
+§1 are unchanged in requirement; §1.1 fixes where they sit and how they read.
+
+### 1.1.5 The checker (deterministic, FAIL-blocking)
+
+`bin/gsd-t-pseudocode-style.cjs` gates §1.1. Deterministic code, zero LLM
+judgment — the same "an LLM may PRODUCE, code GATES" split as §2.
+
+- **Scope: the flow block only.** The checker reads the fenced block(s) ABOVE
+  the first `---` divider plus the `## What it does today` / `## What changes`
+  flow blocks. Everything below is exempt (that is where code pointers and the
+  guard map legitimately live), so §2's `[RULE]` lines are never style-checked.
+- **Exit codes** mirror §2: `0` clean, `4` style violations (naming file, line
+  number, and the rule broken), `64` bad input. Envelope
+  `{ ok, exitCode, violations: [...] }`.
+- **Grandfather list.** Docs authored before v1.2.0 are listed in
+  `.gsd-t/pseudocode/.style-grandfathered` (one basename per line) and reported
+  as a **logged skip WITH A REASON** (`reason: "grandfathered"`), never a silent
+  pass — per `feedback_no_silent_degradation`. Removing a name from that list is
+  how a doc opts into the gate. A doc NOT on the list and NOT clean FAILS.
+- **Discovery** reuses §7's glob, so the style check fires on the same doc set
+  as the guard-map gate.
 
 ---
 
@@ -344,6 +447,23 @@ coordinated edit across all consuming domains.
 
 ## Changelog
 
+- **1.2.0 (2026-07-29)** — **NEW §1.1 "Flow-line style"** (user directive; MINOR
+  bump — additive, no existing grammar changed, STABLE preserved). §1 governed
+  what a doc CONTAINS but never how the pseudocode READS, and the corpus drifted
+  into transliterated source code (`loadStore(storePath):`, `spawnSync`,
+  `MODULE_NOT_FOUND`, `→ 409`) plus heavy preamble — a doc the reader must
+  translate line-by-line. §1.1 fixes the readable half: the **flow is the
+  document** (nested decision tree, 2-space indent, `Yes:`/`No:` outcome lines,
+  one thing per line), technical terms **ride alongside plain words in
+  parentheses rather than replacing them** (plain first, gloss once per `##`
+  section, concrete real names exempt), and **everything else — guard map,
+  divergence flags, Six-Stage answers, code pointers — moves below the first
+  `---` divider**. Enforced by the new `bin/gsd-t-pseudocode-style.cjs`
+  (exit 0/4/64, flow-block-scoped so §2 `[RULE]` lines are never style-checked,
+  §7 discovery reused, pre-v1.2.0 docs grandfathered via
+  `.gsd-t/pseudocode/.style-grandfathered` as a logged skip-with-reason).
+  §2/§3/§4/§5/§7 grammars are untouched — a §1.1-conformant doc still parses
+  identically for rules, sections, citations, and divergence.
 - **1.1.5 (2026-06-17)** — post-split pre-mortem fixes (2 HIGH + 1 MED, all about
   the gate's REACHABILITY + non-vacuity THROUGH the verify pipeline — NOT the
   module A1 already proves; NO boundary/domain change, STABLE preserved). **NEW §7

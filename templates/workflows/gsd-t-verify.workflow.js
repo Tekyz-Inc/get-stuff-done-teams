@@ -39,7 +39,7 @@ export const meta = {
     { title: "Auto-Research Gate", detail: "M89 §7 ENFORCE: scan for status=uncited markers (A4 — no silent guess)" },
     { title: "CI-Parity",          detail: "M57 build-coverage + ci-parity (FAIL-blocking)" },
     { title: "Test-Data Purge",    detail: "M58 test-data --purge (FAIL-blocking)" },
-    { title: "Guard-Map Gate",     detail: "M87 [RULE] guard-map gate (FAIL-blocking, §7 discovery)" },
+    { title: "Guard-Map Gate",     detail: "M87 [RULE] guard-map gate + §1.1 flow-line style gate (FAIL-blocking, §7 discovery)" },
     { title: "Orthogonal Triad",   detail: "code-review ultra ∥ Red Team ∥ QA" },
     { title: "Synthesis",          detail: "merge without collapsing categories" },
   ],
@@ -719,6 +719,51 @@ if (guardMapDiscovery.docsFound === 0 || (guardMapDiscovery.firePairs || []).len
     log(`M87 guard-map gate: PASS on ${pair.doc} — all ${(gmr.envelope && gmr.envelope.ruleCount) || "?"} [RULE]s backed, none contradicted`);
   }
   log(`M87 guard-map gate green (${guardMapResults.length} doc+map pair(s) fired) — proceeding to orthogonal triad`);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PseudoCode §1.1 flow-line STYLE gate (contract v1.2.0, FAIL-blocking)
+//
+// Sibling of the guard-map gate above: guard-map holds what a doc CONTAINS, this
+// holds how it READS. A PseudoCode doc exists so the user can approve DIRECTION
+// before code; a doc written as transliterated source (`loadStore(path):`,
+// `MODULE_NOT_FOUND`, `→ 409`) buried under preamble cannot do that job.
+//
+// Needs no discovery agent — it globs the dir itself (contract §7 reused) and is
+// pure deterministic code. Pre-v1.2.0 docs are grandfathered via
+// .gsd-t/pseudocode/.style-grandfathered as a logged skip WITH A REASON.
+// ─────────────────────────────────────────────────────────────────────────────
+const styleGate = await runCli(
+  projectDir,
+  "pseudocode-style",
+  ["--dir", `${projectDir}/.gsd-t/pseudocode`, "--json"],
+  "gsd-t-pseudocode-style.cjs",
+  "pseudocode-style",
+  true,
+  "Guard-Map Gate"
+);
+const styleEnv = styleGate.envelope || {};
+if (styleGate.exitCode === 64) {
+  // Bad input (missing dir) — a project with no .gsd-t/pseudocode/ has nothing to
+  // gate. Surfaced, not silent.
+  log(`PseudoCode style gate: SKIP — ${styleEnv.reason || "no .gsd-t/pseudocode directory"}`);
+} else if (!styleGate.ok) {
+  const v = styleEnv.violations || [];
+  const named = v.slice(0, 8).map((x) => `${(x.doc || "").split("/").pop()}:${x.line} ${x.rule}`).join("; ")
+    || styleEnv.reason || "(violation detail unavailable)";
+  log(`PseudoCode style gate FAIL exitCode=${styleGate.exitCode} — ${v.length} violation(s): ${named} — halting before triad`);
+  return {
+    status: "pseudocode-style-gate-failed",
+    overallVerdict: "VERIFY-FAILED",
+    reason: `PseudoCode §1.1 flow-line style violations (${v.length}): ${named}. The flow must read as a nested decision tree in plain English — technical terms glossed alongside plain words, code identifiers below the --- divider. See templates/PseudoCode-spec.md and .gsd-t/pseudocode/PseudoCode-BrokenGraphHalts.md for the worked reference.`,
+    pseudocodeStyle: styleEnv,
+    guardMap: { discovery: guardMapDiscovery, results: guardMapResults },
+    verifyGate: vg.envelope,
+    autoResearchGate: arGate,
+  };
+} else {
+  const skipped = (styleEnv.skips || []).length;
+  log(`PseudoCode style gate: PASS (${styleEnv.docsChecked || 0} doc(s), ${skipped} grandfathered) — proceeding to orthogonal triad`);
 }
 
 phase("Orthogonal Triad");

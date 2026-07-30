@@ -2,6 +2,33 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.5.10] - 2026-07-29
+
+### Added — PseudoCode style is governed: the flow IS the document
+
+A PseudoCode document exists for one job — letting the user approve **direction before code**. The corpus had drifted into transliterated source (`loadStore(storePath):`, `spawnSync`, `MODULE_NOT_FOUND`, `→ 409`) buried under paragraphs of preamble, which is a document the reader must translate line-by-line. Root cause: contract §1 governed what a doc *contains* (the five section elements) and nothing governed how it *reads*.
+
+New contract §1.1 fixes the readable half with two rules, not one:
+
+- **Shape** — the flow is a nested decision tree in plain English: 2-space indent per level, one thing per line, a question line ending `:` answered by indented `Yes:` / `No:` (or named outcomes) beneath it. Banned in the flow: function-call syntax, code keywords (`if`/`return`/`throw`/`catch`/`tx:`), bare status codes or SCREAMING_SNAKE constants, and any paragraph.
+- **Words** — the technical term is *kept* and rides **alongside** plain words rather than replacing them: plain first, term in parentheses, glossed once per `##` section — `Zoom's webhook (its automatic ping to us) arrives at /zoom/events`. Concrete real names (Zoom, the Save button, the invoices table) need no gloss; abstract category-nouns (webhook, payload, endpoint, token, cache) do.
+
+Document shape is now `# Title` → one sentence of purpose → the flow → `---` → everything else. The `[RULE]` guard map, divergence flags, Six-Stage answers, and every file/function pointer move below the divider; code identifiers never appear in the flow.
+
+- `bin/gsd-t-pseudocode-style.cjs`: NEW deterministic gate (exit 0 clean / 4 violations / 64 bad input). Checks the flow block only, so the §2 `[RULE]` grammar is never style-checked and the two gates cannot fight. Added to both `GLOBAL_BIN_TOOLS` and `PROJECT_BIN_TOOLS`.
+- `bin/gsd-t.js`: new `pseudocode-style` subcommand dispatch.
+- `templates/workflows/gsd-t-verify.workflow.js`: gate wired FAIL-blocking beside the guard-map gate — no discovery agent needed, it globs the §7 directory itself.
+- `test/pseudocode-style-gate.test.js`: NEW, 15 tests written as a discrimination bar — every banned form must fail individually (9 distinct violations fire on a doctored doc), the converted reference must pass, the below-divider guard map must be exempt, and a doc with no flow block fails rather than passing vacuously.
+- `.gsd-t/contracts/pseudocode-source-of-truth-contract.md`: v1.1.5 → **v1.2.0** (additive; §2/§3/§4/§5/§7 grammars untouched).
+- `templates/PseudoCode-spec.md`: mold rewritten flow-first.
+- `.gsd-t/pseudocode/PseudoCode-BrokenGraphHalts.md`: converted as the worked reference — same behavior, same six `[RULE]`s, only the reading changed.
+- Authoring instructions rippled to all five producing sites: `commands/gsd-t-architect.md`, `commands/gsd-t-milestone.md`, `commands/gsd-t-doc-ripple.md`, `templates/workflows/gsd-t-phase.workflow.js` (2 spots), `templates/prompts/keep-or-supersede-subagent.md`.
+- `templates/CLAUDE-global.md`: new § PseudoCode Style (mirrored to the live `~/.claude/CLAUDE.md`).
+- `.gsd-t/contracts/architects-oversight-contract.md`: A-FAIL-1 no longer describes the old CURRENT/PROPOSED style.
+- `.gsd-t/contracts/graph-metrics-contract.md`: `doMetrics` line citation 4915 → 4927 (the new dispatch case shifted `bin/gsd-t.js`; the existing M99 contract-line test caught it).
+
+The seven pre-v1.2.0 documents are grandfathered via `.gsd-t/pseudocode/.style-grandfathered` and reported as a logged skip **with a named reason**, never a silent pass. Removing a name is how a document opts into the gate. Suite 3048/0/13-skip.
+
 ## [5.4.11] - 2026-07-27
 
 ### Fixed — schema-id gate never reached projects (propagation gap)

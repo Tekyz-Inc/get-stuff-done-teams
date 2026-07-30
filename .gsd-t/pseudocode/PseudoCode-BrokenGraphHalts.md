@@ -1,132 +1,149 @@
-# PseudoCode — Broken Graph HALTS, Absent Graph Auto-Builds
+# Broken Graph HALTS, Absent Graph Auto-Builds
 
-> Milestone source-of-truth (intention-first). Authored during the Architect's Six-Stage Pass.
-> Objective: a BROKEN code graph must HALT all work and demand a fix; an ABSENT graph (never
-> indexed) may auto-build then continue. Today both collapse to `reason:"graph-unavailable"` and
-> every consumer silently greps — silent degradation, banned by GSD-T.
+When the code map is damaged, stop everything and demand a fix; when it was simply never built, build it and carry on.
 
----
-
-## The ONE seam (where broken-vs-absent is classified)
-
-There are TWO failure surfaces, and the classifier must live at BOTH the producer edge and the
-delegation edge so no consumer re-implements it:
-
-1. **Producer edge** — `bin/gsd-t-graph-query-cli.cjs` `loadStore()` / `runFreshnessCheck()`:
-   these already return `{ok:false, reason:"graph-unavailable"}`. They can DISTINGUISH absent
-   (storePath === null → no file on disk) from broken (a store file exists but `loadSqliteStore`
-   returned null → parse/corrupt failure).
-2. **Delegation edge** — `bin/gsd-t.js` `_graphQueryCli()` (lines 3913–3933): when the CLI process
-   **crashes** (missing top-level `require` → exit 1, empty stdout, `MODULE_NOT_FOUND` on stderr —
-   PROVEN this pass), this is where "broken" is invisible today. A crash never emits an envelope,
-   so `_graphQueryCli` fabricates `graph-unavailable` and hides it. THIS is the 12-day-hidden bug.
-
----
-
-## CURRENT (broken == absent — silent degradation)
-
-```
-# ── PRODUCER: gsd-t-graph-query-cli.cjs ──
-resolveStorePath():
-    walk up looking for graphDB/graph.db, legacy .gsd-t/graph.db, or JSONL dir
-    return null if none found            # ABSENT — no file anywhere
-
-loadStore(storePath):
-    if not storePath: return {ok:false, reason:"graph-unavailable"}   # ABSENT
-    loaded = loadSqliteStore(storePath) or loadJsonlStore(...)
-    if not loaded: return {ok:false, reason:"graph-unavailable"}      # BROKEN (corrupt/parse-fail)
-    # ↑ SAME reason code for both. Consumer cannot tell them apart.
-
-# ── DELEGATION: gsd-t.js _graphQueryCli() ──
-_graphQueryCli(verbAndArgs):
-    result = spawnSync(node, [cliPath, ...args])
-    if result.error:  return {ok:false, reason:"graph-unavailable"}   # spawn failed
-    if not stdout:    return {ok:false, reason:"graph-unavailable"}   # ← CRASH lands here!
-    try: return JSON.parse(stdout)
-    catch: return {ok:false, reason:"graph-unavailable"}              # non-JSON
-    # ↑ A MODULE_NOT_FOUND crash (missing resolver) = empty stdout = "graph-unavailable".
-    #   result.status (1) and result.stderr (MODULE_NOT_FOUND) are DISCARDED. Broken hidden.
-
-# ── CONSUMERS (all 9) ──
-every consumer:  if reason == "graph-unavailable": fall back to grep / graphAvailable=false
-    # ↑ absent and broken take the SAME grep-fallback branch. No halt on broken. SILENT DEGRADATION.
-```
-
-## PROPOSED (broken → HALT, absent → auto-build → continue)
-
-```
-# ── PRODUCER: gsd-t-graph-query-cli.cjs — split the reason at the seam it ALREADY owns ──
-loadStore(storePath):
-    if not storePath: return {ok:false, reason:"graph-absent"}        # no file on disk → ABSENT
-    loaded = loadSqliteStore(storePath) or loadJsonlStore(...)
-    if not loaded:
-        return {ok:false, reason:"graph-broken", detail:"store present but unreadable"}  # BROKEN
-    ...
-
-runFreshnessCheck(storePath):
-    if not db (no real store at root):  return {ok:false, reason:"graph-absent"}   # ABSENT
-    catch parse/corrupt:                return {ok:false, reason:"graph-broken", detail:err.code}
-
-# ── DELEGATION: gsd-t.js _graphQueryCli() — CLASSIFY the crash, don't fabricate ──
-_graphQueryCli(verbAndArgs):
-    result = spawnSync(node, [cliPath, ...args])
-    if result.error or (exit != 0 and no valid envelope on stdout):
-        # process CRASHED before emitting an envelope → the CLI itself is BROKEN
-        return {ok:false, reason:"graph-broken", detail: result.stderr | result.error.message}
-    if valid JSON envelope on stdout:  return parsed   # trust the producer's own reason
-    # (empty stdout WITH exit 0 shouldn't happen; treat as broken defensively)
-
-# ── ONE shared classifier helper (extracted — the KEY reuse) ──
-classifyGraphFailure(reason):        # bin/gsd-t-graph-availability.cjs (NEW, ~15 lines)
-    if reason == "graph-absent":  return {state:"ABSENT",  action:"auto-build-then-continue"}
-    if reason == "graph-broken":  return {state:"BROKEN",  action:"HALT-demand-fix"}
-    return {state:"BROKEN", action:"HALT-demand-fix"}     # unknown reason = fail-closed to BROKEN
-
-# ── CONSUMERS (all 9) route through the ONE helper — no duplicated branch ──
-every structural consumer, on ok:false:
-    c = classifyGraphFailure(envelope.reason)
-    if c.state == "ABSENT":
-        run `gsd-t graph index` once (auto-build), re-query           # ABSENT → build → continue
-        if STILL absent after build → treat as BROKEN (build itself failing = broken infra)
-    if c.state == "BROKEN":
-        HALT: surface "graph BROKEN — fix it (gsd-t graph status)", return blocked-needs-human
-        # NEVER grep-fallback on BROKEN. This is the whole point.
-
-# ── EXEMPT consumers keep their ANNOUNCED carve-out, but must still DISTINGUISH ──
-scan / verify / integrate:  on ABSENT → announced grep-mode / skip-gate continuation (unchanged)
-                            on BROKEN → still surface a LOUD warning naming it BROKEN (not absent)
+```text
+Some part of GSD-T asks the code map (our searchable index of the codebase) a question
+  Did the answer come back:
+    Yes: Use it
+    No:  Which kind of failure was it:
+      Never built — no map file anywhere on disk:
+        Build the map once, ask the question again
+        Did it work this time:
+          Yes: Use it
+          No:  Treat it as damaged — the builder itself is broken
+      Damaged — a map file is there but unreadable:
+        STOP all work
+        Tell the user: "the code map is damaged — run gsd-t graph status"
+        Hand back "blocked, needs a human"
+      Anything we don't recognise:
+        Treat it as damaged, and STOP — never guess it was merely missing
 ```
 
 ---
 
-## Summary table
+## What it does today
 
-| Aspect | CURRENT | PROPOSED |
-|--------|---------|----------|
-| Reason codes | 1 (`graph-unavailable`) | 2 (`graph-absent`, `graph-broken`) |
-| Absent (no index) | grep-fallback (silent) | auto-`graph index` → re-query → continue |
-| Broken (missing dep / corrupt / crash) | grep-fallback (silent) — **hidden 12 days** | **HALT** → blocked-needs-human, demand fix |
-| Crash classification (missing `require`) | fabricated `graph-unavailable` in `_graphQueryCli` | exit≠0 + stderr `MODULE_NOT_FOUND` → `graph-broken` |
-| Where classified | nowhere (collapsed) | ONE producer seam + ONE delegation seam + ONE shared helper |
-| Consumers | each duplicates grep-fallback branch | each routes `envelope.reason` → `classifyGraphFailure()` |
-| Fail direction on unknown | grep (fail-open, wrong) | BROKEN/HALT (fail-closed, safe) |
+```text
+Some part of GSD-T asks the code map a question
+  The answer comes back with one single word for every kind of failure
+  Is that word "unavailable":
+    Yes: Quietly go search the files by hand instead, and say nothing
+    No:  Use the answer
+  # Never-built and damaged both produce "unavailable", so both quietly
+  # degrade to hand-searching. A damaged map hid for 12 days this way.
+```
+
+Two places lose the distinction:
+
+```text
+The map reader (the part that opens the map file)
+  Is there a map file on disk:
+    No:  Report "unavailable"        # never built
+    Yes: Try to open it
+      Did it open:
+        Yes: Answer the question
+        No:  Report "unavailable"    # damaged — but reported identically
+
+The caller (the part that runs the map reader as a separate program)
+  Run the map reader
+  Did it print an answer:
+    Yes: Use it
+    No:  Report "unavailable"
+    # A reader that crashes on startup prints nothing, so a crash also
+    # becomes "unavailable". The crash details — the exit code and the
+    # error text on screen — are thrown away.
+```
+
+## What changes
+
+```text
+The map reader
+  Is there a map file on disk:
+    No:  Report "never built"
+    Yes: Try to open it
+      Did it open:
+        Yes: Answer the question
+        No:  Report "damaged", and say why
+
+The caller
+  Run the map reader
+  Did it finish cleanly and print a proper answer:
+    Yes: Pass that answer straight through — trust what the reader said
+    No:  Report "damaged", and include the error text it printed
+    # A crash is now classified, not disguised.
+
+One shared decision-maker (so nobody re-invents this test)
+  Given a failure word:
+    "never built": build it once, then continue
+    "damaged":     stop and demand a fix
+    anything else: stop and demand a fix
+
+Everyone who asks the code map a question
+  Route the failure word through the one shared decision-maker
+  Was it "build once and continue":
+    Yes: Build the map, ask again — still nothing means damaged
+    No:  STOP, surface it, hand back "blocked, needs a human"
+
+The three parts that are allowed to carry on without the map
+  (scan, verify, integrate — their exemption is announced, not hidden)
+  Never built: carry on in hand-search mode, exactly as today
+  Damaged:     carry on, but say loudly that it is DAMAGED, not missing
+```
 
 ---
 
-## [RULE] guard map (feeds the deterministic verify gate)
+## The rules
 
-- `[RULE] broken-graph-halts-never-greps` — a `graph-broken` reason NEVER takes a grep-fallback branch in any of the 9 consumers (except the announced verify/integrate/scan carve-out, which must name it BROKEN loudly, not silently continue).
-- `[RULE] absent-graph-auto-builds-once` — a `graph-absent` reason triggers exactly one `gsd-t graph index` then re-query; a second consecutive absent = BROKEN (build infra failing).
-- `[RULE] crash-classified-not-fabricated` — `_graphQueryCli` MUST inspect `result.status`/`result.stderr`; a non-zero exit with no valid envelope maps to `graph-broken`, never `graph-unavailable`/absent.
-- `[RULE] unknown-reason-fails-closed-to-broken` — any unrecognised `ok:false` reason classifies as BROKEN (HALT), never ABSENT (continue).
-- `[RULE] one-availability-classifier` — the absent-vs-broken decision lives in ONE helper (`bin/gsd-t-graph-availability.cjs`); no consumer re-implements the string check.
-- `[RULE] false-broken-guarded` — transient failures (spawn timeout, DB lock `SQLITE_BUSY`) are retried once before classifying BROKEN, so a slow/locked query does not wrongly HALT all work.
+```text
+A damaged map never quietly falls back to hand-searching   [RULE] broken-graph-halts-never-greps
+Never-built builds exactly once, then re-asks              [RULE] absent-graph-auto-builds-once
+A crash is classified from its exit code and error text    [RULE] crash-classified-not-fabricated
+An unrecognised failure word counts as damaged, so we stop [RULE] unknown-reason-fails-closed-to-broken
+One shared decision-maker owns never-built-vs-damaged      [RULE] one-availability-classifier
+A momentary hiccup is retried once before calling it damaged [RULE] false-broken-guarded
+```
+
+The one thing that must never happen: a damaged map quietly turning into a
+hand-search, so the work continues on worse information and nobody notices. Any
+step here can be repeated harmlessly — building an already-built map re-asks the
+same question, and stopping twice is still just stopped.
 
 ---
 
-## ⚠ Divergence flags
+## ⚠ Divergence
 
-None yet — this supersedes NO shipped behavior; it SPLITS one existing reason code into two and
-adds routing. The existing halt verdict (`blocked-needs-human`), the existing envelope shape
-(`{ok,reason,detail}`), and the existing auto-build (`gsd-t graph index` / D4 freshness re-index)
-are all REUSED. No new halt system, no new envelope, no new build path is created.
+None. This supersedes no shipped behavior — it splits one failure word into two
+and routes on the difference. The existing "blocked, needs a human" verdict, the
+existing answer format, and the existing map builder are all reused. No new
+stopping system, no new answer format, no new builder.
+
+---
+
+## Why this shape
+
+- **The objective** — a damaged code map must stop work, because continuing on a
+  hand-search silently produces worse answers.
+- **What it conflicts with** — three parts (scan, verify, integrate) are already
+  allowed to work without the map. Their exemption stays, but they must now name
+  a damaged map out loud instead of treating it as missing.
+- **What already exists that we reuse** — the stopping verdict, the answer
+  format, and the map builder all exist. We add one small decision-maker and
+  change one word in two places.
+- **Why this is the simplest version** — the two places that already know the
+  difference are the two places we change. Everyone else routes through one
+  shared test rather than repeating a string comparison.
+- **Will it be reused** — yes; every part that reads the code map calls it, so it
+  is built as one shared piece from the start.
+- **What could go wrong** — a momentary hiccup (a busy file, a slow answer) being
+  mistaken for damage and stopping all work. That is why it retries once first.
+
+---
+
+## Where it lives
+
+| Step in the flow | File |
+|------------------|------|
+| The map reader | `bin/gsd-t-graph-query-cli.cjs` |
+| The caller that runs it as a separate program | `bin/gsd-t.js` |
+| The one shared decision-maker | `bin/gsd-t-graph-availability.cjs` (new) |

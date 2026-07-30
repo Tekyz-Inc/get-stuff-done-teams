@@ -1,0 +1,12 @@
+# Docs authored before contract v1.2.0 (§1.1 flow-line style).
+# Each is reported as a logged skip WITH A REASON — never a silent pass.
+# Removing a name here is how a doc opts INTO the style gate; convert it to the
+# §1.1 flow style in the same change (see PseudoCode-BrokenGraphHalts.md for the
+# worked reference).
+PseudoCode-ArchitectsOversight.md
+PseudoCode-AuditLogging.md
+PseudoCode-CodeGraphIndex.md
+PseudoCode-EnvironmentRegistry.md
+PseudoCode-GraphFolderMigration.md
+PseudoCode-GraphObservability.md
+PseudoCode-TraceLogging.md

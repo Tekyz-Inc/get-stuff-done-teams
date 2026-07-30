@@ -114,9 +114,13 @@ on conviction.
 
 **Verify checks (fail-closed, like M90 R-FAIL-*):**
 - **A-FAIL-1 — pseudocode-completeness:** the milestone's PseudoCode document must exist and
-  answer the Six Stages in plain language (title + one-line purpose, `CURRENT`/`PROPOSED`
-  blocks, `# plain comment` inline, summary table — the `.gsd-t/pseudocode/` house style).
-  Missing/empty → FAIL.
+  answer the Six Stages in plain language, under `## Why this shape` below the divider. The
+  document's SHAPE and WORDING are governed by
+  `pseudocode-source-of-truth-contract.md` **§1.1** (flow-first: `# Title` → one sentence of
+  purpose → the nested plain-English decision-tree flow → `---` → everything else; technical
+  terms glossed alongside plain words; code identifiers below the divider only) and gated
+  mechanically by `bin/gsd-t-pseudocode-style.cjs`. Missing/empty → FAIL; style violations →
+  FAIL via the style gate.
 - **A-FAIL-2 — reuse-evidence:** Stage 3 must show a graph query (or a logged LOUD degradation
   when the graph is absent). A Stage-3 answer with no evidence trail → FAIL.
 - **A-FAIL-3 — no silent twin:** if execute created a function the graph flags as a near-duplicate

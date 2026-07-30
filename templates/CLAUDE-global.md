@@ -464,11 +464,56 @@ See memory pointer: `feedback_auto_research_external_gaps`.
 - **When a similar-but-not-reusable thing already exists:** (a) same WHAT (job) or same HOW (surface)? Same WHAT → generalize; merely similar → build new. (b) If generalize: **extract a shared core, do NOT mutate** the working original (old callers keep identical behavior). (c) If blast-radius/stability forbids touching it → build new, **but register a "reuse-candidate" link in the graph** pointing at the twin, so the duplication is visible and re-decided on next touch. **Never build a silent rogue twin** — sprawl disables Stage 3's reuse-check for everyone after you.
 - **A wrong forecast self-corrects:** the graph's similarity check surfaces a LOW-forecast function that got reused anyway at the next Stage 3. So the forecast need only be directionally right — the graph rescues the misses. That is what removes the paralysis.
 
-**§Plain-English proof (the artifact you can always review, never must):** the Six-Stage answers are written into the milestone's **PseudoCode document** in plain, jargon-free language (style: `.gsd-t/pseudocode/` — title + one-line purpose, `CURRENT`/`PROPOSED` blocks, `# plain comment` inline, a summary table; near-zero preamble). Jargon is where unexamined complexity hides — a layman-legible sentence has nowhere for a pointless operation to survive. The pseudocode IS the audit, and it lets the user approve *direction before code* as the senior reviewer, not a rubber-stamp.
+**§Plain-English proof (the artifact you can always review, never must):** the Six-Stage answers are written into the milestone's **PseudoCode document** in plain, jargon-free language. Jargon is where unexamined complexity hides — a layman-legible sentence has nowhere for a pointless operation to survive. The pseudocode IS the audit, and it lets the user approve *direction before code* as the senior reviewer, not a rubber-stamp. **Style is governed, not freestyled — see § PseudoCode Style below.**
 
 **§Jargonless output (co-equal with brevity, NOT a trade-off):** short and clear are different axes; jargon is short, so brevity rules alone reward it. Every reply, plan, options-prompt, and mid-work narration glosses jargon in plain words on first use. The crux: individual shorthand may be decodable, but **several mashed into one sentence become unintelligible** — never force the reader toward an "I don't understand" escape hatch; if that option would help, the sentence already failed. Enforced by the Reader Contract (injected every turn).
 
 **§Enforcement (three layers — same shape as Unproven-Assumption):** (1) this doctrine = the *definition* (reference, always available); (2) a **PreToolUse hook on Write/Edit** = the *trigger* — injects a one-line reminder pointing here at the build moment, so it can't be missed under load; (3) the **plan/milestone workflow gate** = the *execution* — the Six-Stage Pass runs as blocking `agent()` steps with graph/doc evidence, and pseudocode-completeness is a verify check. Injecting the doctrine ≠ executing it; the workflow does the doing.
+
+### PseudoCode Style — the flow IS the document (MANDATORY)
+
+**Contract:** `.gsd-t/contracts/pseudocode-source-of-truth-contract.md` §1.1 · **Mold:** `templates/PseudoCode-spec.md` · **Worked reference:** `.gsd-t/pseudocode/PseudoCode-BrokenGraphHalts.md`
+
+A PseudoCode document exists for ONE job: letting the user approve **direction before code**. A doc the reader must translate line-by-line cannot do that job, so how it READS is governed, not a matter of taste.
+
+```
+# Title
+One sentence of purpose (two max).
+The flow.
+---
+Everything else.
+```
+
+**The flow — a nested decision tree in plain English.** Not prose. Not transliterated code.
+
+```text
+Settings screen
+  Enter a value in the Profile URL field — click Save
+  Is the URL the right shape:
+    Yes: Open the page it points at
+      Is that page a real profile page:
+        Yes: Save it, show the green check
+        No:  Show "that page isn't a profile"
+    No:  Show "that doesn't look like a profile URL"
+```
+
+- 2-space indent per level; **one thing per line**; a question line ends with `:` and is answered by indented `Yes:` / `No:` (or named outcomes — `Found:` / `Expired:` / `Never seen:`) directly beneath it.
+- **BANNED in the flow:** function-call syntax (`loadStore(path):`), code keywords (`if`/`return`/`throw`/`catch`/`tx:`), bare status codes (`→ 409`) or SCREAMING_SNAKE constants (`MODULE_NOT_FOUND`), and any paragraph. A line needing a paragraph means the flow is under-decomposed — split it.
+
+**Words — the technical term rides ALONGSIDE plain words, never replaces them.** Keep the term (it's load-bearing and greppable); put the plain meaning first and the term in parentheses:
+
+| Write this | Not this |
+|---|---|
+| `Zoom's webhook (its automatic ping to us) arrives at /zoom/events` | `A webhook fires` |
+| `Read the message it sent (the payload) — pull out the meeting id` | `Parse the payload` |
+| `Refuse it as a duplicate (409)` | `→ 409` |
+
+- **Gloss once per `##` section**, then use the term bare; a new section re-glosses so a reader landing mid-file still follows.
+- **Concrete real names need no gloss** — `Zoom`, `the Save button`, `the invoices table`, `/zoom/events`. Only abstract category-nouns (webhook, payload, endpoint, handler, token, cache) require the parenthetical.
+
+**Below the divider** — and ONLY below it: `## What it does today` / `## What changes` (each its own flow, same style), `## The rules` (the `[RULE]` guard map), `## ⚠ Divergence`, `## Why this shape` (the Six-Stage answers in plain sentences), `## Where it lives` (file/function pointers). **Code identifiers live here, never in the flow.**
+
+**§Enforcement:** `gsd-t pseudocode-style (--doc <f> | --dir <d>)` — deterministic, exit 0 clean / 4 violations / 64 bad input. FAIL-blocking in `gsd-t-verify` alongside the guard-map gate. It checks the flow block ONLY, so the `[RULE]` guard map below the divider is never style-checked. Self-check any pseudocode you write BEFORE presenting it. Docs predating contract v1.2.0 are listed in `.gsd-t/pseudocode/.style-grandfathered` and skip with a named reason; removing a name is how a doc opts in.
 
 ### No-Fallback-Ever Doctrine (governed, enforced — the strongest sibling of No-Silent-Degradation)
 

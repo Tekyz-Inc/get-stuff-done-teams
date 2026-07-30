@@ -38,6 +38,8 @@ Every **supersede** WRITES a `⚠ Divergence` flag into `PseudoCode-[Title].md`,
 
 **KEEP writes no flag.** One supersede → exactly one flag. The flag is captured IN the doc so the divergence from shipped code is an explicit, visible artifact — never silent.
 
+**WHERE the flag goes (contract §1.1.4):** under the `## ⚠ Divergence` heading **below the first `---` divider** — never inside the flow block at the top of the document. The flow is the readable decision tree the user approves; divergence flags, the guard map, and file pointers all live below the divider. (The `gsd-t pseudocode-style` gate checks the flow block only, so a flag placed correctly is never style-checked — one placed in the flow will fail it.)
+
 > **M87/M88 split.** In M87 this flag is WRITTEN by this prose protocol (the ASK + the write). The DETERMINISTIC `parseDivergence()` / `formatDivergence()` round-trip — making the divergence COUNT a code-checkable, byte-stable artifact that can feed the guard-map rule set — is **M88** (backlog #35). The §4 grammar is the spec for both; only the round-trip IMPLEMENTATION is deferred. Here, your obligation is: ask, and on supersede, write a well-formed flag.
 
 ## What to do (step by step)

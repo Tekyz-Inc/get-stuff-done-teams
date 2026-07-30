@@ -99,11 +99,38 @@ the user, do not paper over it with a guess.
 
 ## Step 3: The subagent produces the output
 
-**A — Plain-English pseudocode** (the artifact), in the house style — title + one-line purpose,
-`CURRENT` (what it does today) and `PROPOSED` (the simplest fix) blocks, `# plain comment` inline,
-a summary table, near-zero preamble. For each CURRENT block, say **why it does what it does now**
-— and flag explicitly if it's a "got complicated over time" accretion (mechanisms stacked by
-successive fixes). Unless `--chat-only`, write it to `.gsd-t/pseudocode/PseudoCode-<Target>.md`.
+**A — Plain-English pseudocode** (the artifact), in the house style defined by contract
+`.gsd-t/contracts/pseudocode-source-of-truth-contract.md` **§1.1** and the mold
+`templates/PseudoCode-spec.md`. **THE FLOW IS THE DOCUMENT:**
+
+```
+# Title
+One sentence of purpose (two max).
+The flow.
+---
+Everything else.
+```
+
+The flow is a **nested decision tree in plain English**, 2-space indent per level, one thing per
+line, questions ending in `:` answered by indented `Yes:` / `No:` (or named outcomes) beneath
+them. **No function-call syntax, no `if`/`return`/`throw`/`tx:`, no bare status codes or
+SCREAMING_SNAKE constants, no paragraphs inside the flow.** A technical term rides **alongside**
+plain words in parentheses rather than replacing them — plain first, glossed once per `##`
+section: `Zoom's webhook (its automatic ping to us) arrives at /zoom/events`. Concrete real names
+(Zoom, the Save button, the invoices table, `/zoom/events`) need no gloss; bare category-nouns
+(webhook, payload, endpoint, token, cache) do.
+
+Below the divider: `## What it does today` / `## What changes` (each its own flow in the same
+style), `## The rules` (the `[RULE]` guard map), `## ⚠ Divergence`, `## Why this shape` (the
+Six-Stage answers in plain sentences), `## Where it lives` (file pointers — these live HERE, never
+in the flow). For each "what it does today" flow, say **why it does what it does now** — and flag
+explicitly if it's a "got complicated over time" accretion (mechanisms stacked by successive
+fixes).
+
+Worked reference: `.gsd-t/pseudocode/PseudoCode-BrokenGraphHalts.md`. Unless `--chat-only`, write
+the artifact to `.gsd-t/pseudocode/PseudoCode-<Target>.md`, then **self-check it** with
+`gsd-t pseudocode-style --doc <the file>` — a non-zero exit means the style is wrong; fix it
+before presenting. (The same gate is FAIL-blocking in verify.)
 
 **B — Session summary** (always printed, even under `--build`):
 - **Simply Stated** (REQUIRED FIRST LINE — the clarity gate) — the verdict + the single most
