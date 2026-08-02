@@ -484,34 +484,202 @@ test("verify lint: FAILS when a row cell holds a secret-shaped literal", () => {
   }
 });
 
-test("verify lint: FAILS when the env-access rule is present but the table markers are absent", () => {
-  const dir = mkTmpProject("lint-rule-notable");
+// M103 SUPERSEDES the two tests that stood here.
+//
+// (1) "rule present but markers absent → FAIL" — the rule ships in the GLOBAL
+//     CLAUDE.md, so that condition is true in EVERY project and fired on
+//     local-only projects with nothing remote to map (measured: 21 of 28). A
+//     gate that fails a correct state gets switched off. Replaced by the
+//     evidence-based check below.
+// (2) "neither table nor rule → no-op PASS" — that PASS certified the exact
+//     emptiness the registry exists to prevent, which is why 31 of 33 projects
+//     never got a map and every session re-asked the human. Replaced by: a
+//     project with a REMOTE environment and no row FAILS; a local-only project
+//     PASSES and is NAMED as local-only.
+
+// Build an infrastructure.md whose Environments table holds exactly `row`.
+// The marker block + header come from the SHIPPED template, so these tests
+// exercise the real column schema rather than a hand-copied duplicate of it.
+function withRow(row) {
+  const tpl = fs.readFileSync(path.join(ROOT, "templates", "infrastructure.md"), "utf8");
+  const startIdx = tpl.indexOf("<!-- gsd-t-env-registry:start -->");
+  const endIdx = tpl.indexOf("<!-- gsd-t-env-registry:end -->");
+  assert.ok(startIdx !== -1 && endIdx !== -1, "template must carry the registry markers");
+  const block = tpl.slice(startIdx, endIdx);
+  const headerLines = block.split("\n").filter((l) => l.trim().startsWith("|"));
+  assert.ok(headerLines.length >= 2, "template must carry the header + separator rows");
+  return (
+    "<!-- gsd-t-env-registry:start -->\n" +
+    headerLines[0] + "\n" + headerLines[1] + "\n" +
+    row + "\n" +
+    "<!-- gsd-t-env-registry:end -->\n"
+  );
+}
+
+test("M103 verify lint: a project with a remote environment and NO map FAILS", () => {
+  const dir = mkTmpProject("lint-remote-nomap");
   try {
-    // infra doc WITHOUT the markers
     fs.writeFileSync(path.join(dir, "docs", "infrastructure.md"), "# Infra\n");
-    fs.writeFileSync(
-      path.join(dir, "CLAUDE.md"),
-      "### Environment Access — read-first, HALT-and-document (M102)\n"
-    );
+    // A deploy marker = evidence this project reaches something not on this machine.
+    fs.writeFileSync(path.join(dir, "vercel.json"), "{}\n");
     const r = envCheck(dir);
-    assert.equal(r.ok, false);
-    assert.ok(r.failures.some((f) => /markers are absent/.test(f)));
+    assert.equal(r.ok, false, "a remote environment with no map must FAIL");
+    assert.equal(r.localOnly, false);
+    assert.ok(
+      r.failures.some((f) => /reaches a remote environment/.test(f)),
+      "the failure must name the remote marker it found"
+    );
   } finally {
     rmTmp(dir);
   }
 });
 
-test("verify lint: no-op PASS when project has neither table nor rule", () => {
-  const dir = mkTmpProject("lint-noop");
+test("M103 verify lint: a local-only project PASSES and is NAMED local-only", () => {
+  const dir = mkTmpProject("lint-localonly");
   try {
     fs.writeFileSync(path.join(dir, "docs", "infrastructure.md"), "# Infra\n");
-    // no CLAUDE.md rule
+    // no deploy marker, no hosted-service dependency
     const r = envCheck(dir);
-    assert.equal(r.ok, true);
-    assert.match(r.note, /no-op PASS/);
+    assert.equal(r.ok, true, "a local-only project has nothing remote to map");
+    assert.equal(r.localOnly, true);
+    assert.match(r.note, /local-only/, "a PASS must say WHY it passed (no silent degradation)");
   } finally {
     rmTmp(dir);
   }
+});
+
+test("M103 verify lint: a remote project WITH a prod row PASSES", () => {
+  const dir = mkTmpProject("lint-remote-mapped");
+  try {
+    fs.writeFileSync(path.join(dir, "vercel.json"), "{}\n");
+    const row =
+      "| prod-db | prod | postgres | db.example.com | 5432 | appdb | password | neon | " +
+      'DATABASE_URL | neonctl connection-string | psql "$DATABASE_URL" | none | YES | 2026-08-01 |';
+    fs.writeFileSync(
+      path.join(dir, "docs", "infrastructure.md"),
+      withRow(row)
+    );
+    const r = envCheck(dir);
+    assert.equal(r.ok, true, r.failures.join(" | "));
+    assert.equal(r.localOnly, false);
+  } finally {
+    rmTmp(dir);
+  }
+});
+
+test("M103 verify lint: a map with ONLY local rows does not satisfy a remote project", () => {
+  const dir = mkTmpProject("lint-localrow-only");
+  try {
+    fs.writeFileSync(path.join(dir, "vercel.json"), "{}\n");
+    const row =
+      "| local-dev | local | postgres | localhost | 5432 | appdb | password | local | " +
+      'DATABASE_URL | cat .env | psql "$DATABASE_URL" | none | NO | 2026-08-01 |';
+    fs.writeFileSync(
+      path.join(dir, "docs", "infrastructure.md"),
+      withRow(row)
+    );
+    const r = envCheck(dir);
+    assert.equal(r.ok, false, "a local row does not answer 'how do I reach prod'");
+    assert.ok(r.failures.some((f) => /no prod\/staging row/.test(f)));
+  } finally {
+    rmTmp(dir);
+  }
+});
+
+// ─── M103: the checker must ACCEPT true values it used to reject ──────────────
+//
+// The M102 grammar converged over nine adversarial cycles and ended rejecting
+// ordinary truthful answers: `n/a` for a port that does not exist, a sign-in
+// method the enum had not heard of, lowercase `yes`, and the plain-English
+// warning that is the most valuable cell in the row ("live seller data — never
+// mutate"). David hit every one of these hand-filling Binvoice. A checker that
+// rejects the truth teaches people to write something false to get past it,
+// which is worse than no checker. These rows must PASS.
+
+function m103Row(over) {
+  const base = {
+    id: "prod-db", scope: "prod", kind: "postgres", host: "db.example.com",
+    port: "5432", db: "appdb", auth: "password", vault: "neon",
+    envvar: "DATABASE_URL", fetch: "neonctl connection-string",
+    connect: 'psql "$DATABASE_URL"', gotchas: "none", ro: "YES", rec: "2026-08-01",
+  };
+  const c = Object.assign({}, base, over);
+  return `| ${[c.id, c.scope, c.kind, c.host, c.port, c.db, c.auth, c.vault,
+    c.envvar, c.fetch, c.connect, c.gotchas, c.ro, c.rec].join(" | ")} |`;
+}
+function m103Check(row) {
+  const dir = mkTmpProject("m103-row");
+  try {
+    fs.writeFileSync(path.join(dir, "vercel.json"), "{}\n");
+    fs.writeFileSync(
+      path.join(dir, "docs", "infrastructure.md"),
+      withRow(row)
+    );
+    return envCheck(dir);
+  } finally {
+    rmTmp(dir);
+  }
+}
+
+const M103_TRUE_VALUES = [
+  ["n/a in the port column (a web console has no port)", { port: "n/a", kind: "webstore" }],
+  ["n/a in the db/name column (a hosting account is not a database)", { db: "n/a" }],
+  ["n/a in the secret env-var NAME column (an interactive CLI session)", { envvar: "n/a" }],
+  ["an auth method the enum has not heard of", { auth: "cli-session" }],
+  ["another unenumerated auth method", { auth: "device-code" }],
+  ["lowercase yes in read-only", { ro: "yes" }],
+  ["lowercase no in read-only", { ro: "no" }],
+  ["plain-English judgment in the gotchas column", {
+    gotchas: "Marla's LIVE seller data — never mutate without explicit per-action OK.",
+  }],
+  ["a retention warning in prose", { gotchas: "History retention only 6h — back up before any change." }],
+];
+for (const [name, over] of M103_TRUE_VALUES) {
+  test(`M103 accepts a TRUE value: ${name}`, () => {
+    const r = m103Check(m103Row(over));
+    assert.equal(r.ok, true, `a true value must not be rejected as a secret: ${r.failures.join(" | ")}`);
+  });
+}
+
+// ─── M103: the loosened columns must STILL reject real secrets ────────────────
+//
+// The loosening is only safe if a credential still fails in exactly the columns
+// that were widened. Each of these is a secret shape placed in a loosened column.
+
+const M103_SECRETS_IN_LOOSENED_COLUMNS = [
+  ["a password in the gotchas prose", { gotchas: "password is hunter2ZX9qLm4vBt" }],
+  ["an API key in the gotchas prose", { gotchas: "use sk-ant-api03-Zx91LmQ4vBt7NpRwKt" }],
+  ["a base64 blob in the gotchas prose", { gotchas: "token aGVsbG93b3JsZHNlY3JldGtleTEyMzQ1Ng==" }],
+  ["a hex secret in the gotchas prose", { gotchas: "key 9f8e7d6c5b4a39281706f5e4d3c2b1a0" }],
+  ["an embedded-credential URL in the gotchas prose", {
+    gotchas: "see postgres://usr:S3cretPw@db.example.com/x",
+  }],
+  ["a credential smuggled in as an auth method", { auth: "hunter2ZX9qLm4vBt" }],
+  ["a long random lowercase string as an auth method", { auth: "xkcdqwertyuiopasdfghjklzxcvb" }],
+  ["a secret in the port column", { port: "hunter2ZX9qLm4" }],
+  ["a secret in the db/name column", { db: "hunter2ZX9qLm4vBt" }],
+  ["a secret in the secret env-var NAME column", { envvar: "hunter2ZX9qLm4vBt" }],
+];
+for (const [name, over] of M103_SECRETS_IN_LOOSENED_COLUMNS) {
+  test(`M103 STILL rejects: ${name}`, () => {
+    const r = m103Check(m103Row(over));
+    assert.equal(r.ok, false, "the loosening must not open a leak in a widened column");
+  });
+}
+
+// M103 — a "command must run as written" GATE CHECK was tried and reverted;
+// see the note in bin/gsd-t-env-registry-check.cjs. It is not a secret
+// question, and the rule it encoded ("neonctl needs --project-id") is only
+// true for a multi-project account. It survives as guidance in the CLAUDE.md
+// env-access rule. The three LEGIT_CONNECT_COMMANDS tests below are what
+// caught it.
+
+test("M103: the command columns are NOT loosened — prose in a command still FAILS", () => {
+  // The connect/fetch columns carry connection strings. They are the highest-
+  // risk cells in the row and the nine-cycle grammar defends them. Prose there
+  // means the row is malformed — the row gets fixed, not the checker.
+  const r = m103Check(m103Row({ connect: "inherited by the sdk from environment" }));
+  assert.equal(r.ok, false, "the command grammar must stay strict");
 });
 
 // ─── RED TEAM CRITICAL: bare-secret-in-any-field must THROW ───────────────────
@@ -1310,10 +1478,12 @@ for (const g of ["ssh-tunnel via swordfish", "ssh-tunnel via changeme"]) {
   });
 }
 
-// Leak #3 — a 15th (overflow) cell hides a plaintext secret past the gate.
+// Leak #3 — an OVERFLOW cell (one past the fixed schema) hides a plaintext
+// secret past the gate. M103 added a 15th column (`source`), so the overflow
+// boundary moved to the 16th cell; these now target that boundary.
 const CYCLE5_OVERFLOW_SECRETS = ["S3cr3t!Pass", "P@ssw0rd123", "MyDBpw#2024", "hunter2"];
 for (const secret of CYCLE5_OVERFLOW_SECRETS) {
-  test(`CYCLE5: gate FAILs on an overflow 15th cell hiding "${secret}"`, () => {
+  test(`CYCLE5: gate FAILs on an overflow 16th cell hiding "${secret}"`, () => {
     const dir = mkTmpProject("c5-overflow");
     try {
       const p = path.join(dir, "docs", "infrastructure.md");
@@ -1321,7 +1491,8 @@ for (const secret of CYCLE5_OVERFLOW_SECRETS) {
       const cells = [
         "prod-postgres", "prod", "postgres", "h", "5432", "db", "password",
         "Neon", "DATABASE_URL_PROD", "neonctl", 'psql "$X"', "none", "YES",
-        "2026-07-16", secret, // 15th cell — beyond the fixed 14-column schema
+        "2026-07-16", "neonctl projects list",
+        secret, // 16th cell — beyond the fixed 15-column schema
       ];
       const poisoned = "| " + cells.join(" | ") + " |";
       content = content.replace(reg.ENV_MARKER_END, poisoned + "\n" + reg.ENV_MARKER_END);
@@ -1334,6 +1505,90 @@ for (const secret of CYCLE5_OVERFLOW_SECRETS) {
     }
   });
 }
+
+// M103 REGRESSION — the `source` column took over the 15th slot, so a secret
+// written there is no longer caught by the overflow-corruption check. It must
+// be caught by the column's OWN shape rule instead. `hunter2` is the case that
+// actually leaked while this was being built: a bare lowercase word satisfied
+// an early "looks like a file path" rule. A source must now carry evidence of
+// being a path (a separator or an extension) or be a curated command.
+for (const secret of CYCLE5_OVERFLOW_SECRETS.concat(["swordfish", "correcthorse"])) {
+  test(`M103: a secret in the source column FAILS — "${secret}"`, () => {
+    const dir = mkTmpProject("m103-source-leak");
+    try {
+      const p = path.join(dir, "docs", "infrastructure.md");
+      let content = infra(dir);
+      const cells = [
+        "prod-postgres", "prod", "postgres", "h", "5432", "db", "password",
+        "Neon", "DATABASE_URL_PROD", "neonctl", 'psql "$X"', "none", "YES",
+        "2026-07-16", secret, // 15th cell = the source column
+      ];
+      const poisoned = "| " + cells.join(" | ") + " |";
+      content = content.replace(reg.ENV_MARKER_END, poisoned + "\n" + reg.ENV_MARKER_END);
+      fs.writeFileSync(p, content, "utf8");
+      const r = envCheck(dir);
+      assert.equal(r.ok, false, `a secret in the source column must FAIL: "${secret}"`);
+    } finally {
+      rmTmp(dir);
+    }
+  });
+}
+
+// M103 — a NAMED SOURCE vouches for a value the shape-grammar cannot recognise
+// (a vendor resource id), but NEVER for one that looks like a credential.
+test("M103 source: a vendor project id with a named source PASSES", () => {
+  const dir = mkTmpProject("m103-src-ok");
+  try {
+    fs.writeFileSync(path.join(dir, "vercel.json"), "{}\n");
+    const cells = [
+      "prod-db", "prod", "postgres", "db.example.com", "5432", "appdb",
+      "password", "neon", "DATABASE_URL",
+      "neonctl connection-string --project-id winter-frog-54927244 --database-name neondb",
+      'psql "$DATABASE_URL"', "none", "YES", "2026-08-02", "neonctl projects list",
+    ];
+    fs.writeFileSync(path.join(dir, "docs", "infrastructure.md"), withRow("| " + cells.join(" | ") + " |"));
+    const r = envCheck(dir);
+    assert.equal(r.ok, true, r.failures.join(" | "));
+  } finally {
+    rmTmp(dir);
+  }
+});
+
+test("M103 source: the SAME row without a named source FAILS", () => {
+  const dir = mkTmpProject("m103-src-missing");
+  try {
+    fs.writeFileSync(path.join(dir, "vercel.json"), "{}\n");
+    const cells = [
+      "prod-db", "prod", "postgres", "db.example.com", "5432", "appdb",
+      "password", "neon", "DATABASE_URL",
+      "neonctl connection-string --project-id winter-frog-54927244 --database-name neondb",
+      'psql "$DATABASE_URL"', "none", "YES", "2026-08-02", "",
+    ];
+    fs.writeFileSync(path.join(dir, "docs", "infrastructure.md"), withRow("| " + cells.join(" | ") + " |"));
+    const r = envCheck(dir);
+    assert.equal(r.ok, false, "an unprovable value with no source must FAIL");
+  } finally {
+    rmTmp(dir);
+  }
+});
+
+test("M103 source: a named source does NOT excuse a recognisable credential", () => {
+  const dir = mkTmpProject("m103-src-nocover");
+  try {
+    fs.writeFileSync(path.join(dir, "vercel.json"), "{}\n");
+    const cells = [
+      "prod-db", "prod", "postgres", "db.example.com", "5432", "appdb",
+      "password", "neon", "DATABASE_URL", "neonctl connection-string",
+      'psql "$DATABASE_URL"', "sk-ant-api03-Zx91LmQ4vBt7NpRwKt", "YES",
+      "2026-08-02", "neonctl projects list",
+    ];
+    fs.writeFileSync(path.join(dir, "docs", "infrastructure.md"), withRow("| " + cells.join(" | ") + " |"));
+    const r = envCheck(dir);
+    assert.equal(r.ok, false, "the backstop is absolute — a source never vouches past it");
+  } finally {
+    rmTmp(dir);
+  }
+});
 
 // No-false-positive: legit glued & flag-value commands still record + pass.
 const CYCLE5_LEGIT_COMMANDS = [
@@ -1705,7 +1960,8 @@ test("LOCAL-SWITCH: opted-in local row STILL fails the overflow-column corruptio
     const cells = [
       "local-postgres", "local", "postgres", "localhost", "5432", "appdb", "password",
       "local (.env)", "DATABASE_URL", "—", 'psql "$DATABASE_URL"', "none", "NO",
-      "2026-07-17", "S3cr3t!Pass", // 15th overflow cell
+      "2026-07-17", ".env.example",
+      "S3cr3t!Pass", // 16th = overflow, one past the M103 15-column schema
     ];
     content = content.replace(reg.ENV_MARKER_END, "| " + cells.join(" | ") + " |\n" + reg.ENV_MARKER_END);
     fs.writeFileSync(p, content, "utf8");

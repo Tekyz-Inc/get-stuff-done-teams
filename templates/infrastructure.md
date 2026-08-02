@@ -79,8 +79,8 @@ cp .env.example .env
 > document (detect → ask → record → proceed); never guess a connection string,
 > never grep transcripts to rediscover.
 
-| id | scope | kind | host | port | db/name | auth method | secret vault | secret env-var NAME | fetch command | connect command | access gotchas | read-only default | recorded |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| id | scope | kind | host | port | db/name | auth method | secret vault | secret env-var NAME | fetch command | connect command | access gotchas | read-only default | recorded | source |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 <!-- gsd-t-env-registry:end -->
 
 <!--
@@ -92,17 +92,35 @@ cp .env.example .env
     host              = POSITIVE shape: localhost | IPv4 | dotted DNS hostname |
                         short lowercase service name (letters+hyphen, no digits, e.g. db, postgres)
     db/name           = short lowercase snake identifier (<=16, e.g. binvoice_prod, analytics)
-    auth method       = ENUMERATED — password | iam | oauth | oauth2 | service-account |
-                        ssh-key | api-key | none | scram-sha-256 | md5 | trust | token | key | ...
+    auth method       = password | iam | oauth | oauth2 | service-account | ssh-key |
+                        api-key | none | scram-sha-256 | md5 | trust | token | key | ...
+                        A method the list has not heard of (cli-session, device-code) is
+                        accepted in LABEL shape: short lowercase hyphenated words, no digits.
     fetch command     = how to pull the secret from its vault (e.g. `vercel env pull`)
                         POSITIVE allowlist: a token is accepted ONLY if it IS a $VAR/${VAR} ref,
                         a flag, a hostname/IP, a .env dotfile, or a curated CLI/db word.
                         Any OTHER bare literal is REJECTED (move it to an env var, reference as $VAR).
     connect command   = references the env-var by name: `psql "$DATABASE_URL_PROD"` (same allowlist)
-    access gotchas    = ENUMERATED — vpn | ip-allowlist | ssh-tunnel | bastion | none,
-                        optionally `via <hostname>` (e.g. `ssh-tunnel via bastion.example.com`).
-                        Free prose is FORBIDDEN (nowhere for a secret to hide).
-    read-only default = YES for scope=prod unless a human explicitly recorded write-ok
+    access gotchas    = vpn | ip-allowlist | ssh-tunnel | bastion | none, optionally
+                        `via <hostname>` (e.g. `ssh-tunnel via bastion.example.com`).
+                        PLAIN-ENGLISH judgment is also allowed here and is the most
+                        valuable cell in the row ("live customer data — never mutate
+                        without an explicit OK"): no vendor CLI can ever return it.
+                        Checked word-by-word — ordinary words and numbers pass; a
+                        credential-shaped token does not.
+    read-only default = yes | no (any capitalisation). YES for scope=prod unless a
+                        human explicitly recorded write-ok.
+    port / db/name / secret env-var NAME
+                      = `n/a` is a valid TRUE answer where the column does not apply
+                        (a web console has no port; a hosting account is not a database).
+    source            = WHERE an unprovable value came from — a command
+                        (`neonctl projects list`) or a project file (`.vercel/project.json`).
+                        Fill it ONLY when a cell holds something the checker cannot
+                        recognise by shape: a vendor resource id (winter-frog-54927244)
+                        is indistinguishable from a token, so naming its source is what
+                        makes it acceptable. Its PRESENCE is the flag — there is no
+                        per-vendor list to maintain. It never excuses a value that
+                        positively looks like a credential.
   There is deliberately NO secret-value column — a row is structurally incapable
   of holding a secret. Populated by `gsd-t-env-registry` (record-at-create +
   capture-on-first-need).

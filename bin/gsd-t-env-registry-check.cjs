@@ -36,6 +36,7 @@
 // by construction) would still trip these.
 
 const fs = require("fs");
+const os = require("os");
 const path = require("path");
 
 const {
@@ -81,6 +82,22 @@ const GATE_VAULTS = new Set([
   "hashicorp-vault", "vault", "azure-key-vault", "infisical",
 ]);
 const GATE_GOTCHA_ENUM = new Set(["vpn", "ip-allowlist", "ssh-tunnel", "bastion", "none"]);
+// M103 — "this column does not apply to this kind of environment" is a TRUE
+// answer, not a hidden value. Accepted ONLY in columns that cannot carry a
+// secret anyway (port, secret env-var NAME).
+const GATE_NOT_APPLICABLE = new Set(["n/a", "na", "none", "—", "-"]);
+// M103 — an auth METHOD the enum has not heard of (`cli-session`,
+// `device-code`, `browser-session`). Accepted only in LABEL shape: 1-3 short
+// lowercase alphabetic words joined by hyphens, ≤24 chars, NO digits. A
+// credential fails this: tokens/keys/passwords carry digits, mixed case, or
+// punctuation, and random lowercase-only strings exceed the per-word length.
+const GATE_AUTH_LABEL = /^[a-z]{2,12}(?:-[a-z]{2,12}){0,2}$/;
+function gateIsAuthLabelShape(s) {
+  if (typeof s !== "string") return false;
+  const v = s.trim();
+  if (v.length > 24) return false;
+  return GATE_AUTH_LABEL.test(v);
+}
 const GATE_CLI_WORDS = new Set([
   "psql", "mysql", "mysqldump", "mongo", "mongosh", "redis-cli", "sqlite3",
   "pg_dump", "pg_restore", "pg_dumpall", "cqlsh", "clickhouse-client",
@@ -91,6 +108,10 @@ const GATE_CLI_WORDS = new Set([
   "env", "pull", "push", "list", "get", "set", "secrets", "versions",
   "access", "version", "exec", "run", "connect", "login", "logout",
   "connection-string", "db-url", "database-url", "redis-url",
+  // M103 — resource-listing subcommands, the shape of a `source` value
+  // ("neonctl projects list"). Ordinary CLI nouns, same class as list/get/show.
+  "projects", "project", "branches", "branch", "orgs", "org", "databases",
+  "roles", "endpoints", "instances", "buckets", "services", "apps",
   "admin", "default", "latest", "read", "write", "describe", "show",
   "from", "cat", "source", "printenv", "dotenv",
 ]);
@@ -234,6 +255,46 @@ function gateCommandOk(cell) {
   }
   return true;
 }
+// M103 — the access-gotchas column is the ONE cell that must carry human
+// judgment in plain English ("live seller data — never mutate without an OK").
+// That warning is the most valuable thing in the row: it is what stops a
+// destructive mistake, and no vendor CLI can ever return it. The M102 enum
+// rejected all prose, so the column was written as `none` and the judgment was
+// lost.
+//
+// Prose is allowed here, but NOT as a hole in the guard. A word is accepted
+// only if it is PROSE-SHAPED — and a secret is not prose-shaped. The test is
+// per-WORD and structural (never a denylist of secret values, which the M102
+// cycles proved unwinnable): a word must be ordinary letters, or ordinary
+// punctuation, or one of the shapes already proven safe elsewhere in the row.
+//
+// What a prose word may be:
+//   - a letters-only word, with optional internal apostrophe/hyphen, ≤24 chars
+//     (`Marla's`, `never`, `read-only`, `VPN`) — no digits, so a random
+//     credential cannot pass as a word
+//   - a pure number / ordinary punctuation (`6h`, `17`, `—`, `.`, `(main)`)
+//   - a shape already whitelisted for other columns (host, $VAR, .env dotfile,
+//     curated CLI word, the gotcha enum)
+// Everything else — any mixed letters+digits token that is not a plain unit
+// like `6h`, anything with credential punctuation — FAILS. That is the shape
+// a real secret has, and it still fails here exactly as before.
+const GATE_PROSE_WORD = /^[A-Za-z]+(?:['’-][A-Za-z]+)*$/;
+// A plain magnitude: 17, 6h, 30d, 5432. Digits with an optional short unit.
+const GATE_PROSE_NUMBER = /^\d+[a-z]{0,2}$/i;
+// Ordinary sentence punctuation carrying no value.
+const GATE_PROSE_PUNCT = /^[.,;:!?()[\]{}"'’“”—–\-/&+%]+$/;
+
+function gateIsProseWord(raw) {
+  // Strip surrounding punctuation so `(main),` tests as `main`.
+  const w = raw.replace(/^[.,;:!?()[\]{}"'’“”—–]+/, "").replace(/[.,;:!?()[\]{}"'’“”—–]+$/, "");
+  if (w === "") return true;
+  if (w.length > 24) return false;
+  if (GATE_PROSE_WORD.test(w)) return true;
+  if (GATE_PROSE_NUMBER.test(w)) return true;
+  if (GATE_PROSE_PUNCT.test(w)) return true;
+  return false;
+}
+
 function gateGotchasOk(cell) {
   const tokens = cell.split(/[,\s]+/).filter(Boolean);
   for (let i = 0; i < tokens.length; i++) {
@@ -246,9 +307,75 @@ function gateGotchasOk(cell) {
       continue;
     }
     if (gateIsHostShape(tokens[i])) continue;
+    // M103 — plain-English judgment is allowed, word by word.
+    if (gateIsSafeNonSecretToken(tokens[i].replace(/^["']/, "").replace(/["']$/, ""))) continue;
+    if (gateIsProseWord(tokens[i])) continue;
     return false;
   }
   return true;
+}
+
+// ─── M103 — the `source` column: where an unprovable value came from ─────────
+//
+// A vendor's resource id (`winter-frog-54927244`, `prj_3OQ3gUB1zkm5uraf…`) is
+// indistinguishable from a token BY SHAPE — that is a fact about the values,
+// not a gap in the grammar, so no amount of pattern-tightening resolves it.
+// The M102 answer was to reject them, which forced a worse outcome: rows were
+// written with FALSE values to get past the checker (a `staging` environment
+// recorded as `prod`, a real command replaced by an unrelated one that
+// happened to pass). A checker that makes the truth unwritable buys nothing.
+//
+// So a value the shape-grammar cannot vouch for is accepted when the row NAMES
+// WHERE IT CAME FROM. The source's PRESENCE is the flag — there is no
+// per-vendor "source required" list to add to, and therefore none to forget.
+//
+// What this does and does not defend against: it stops an ACCIDENT (a secret
+// pasted into the wrong cell, a connection string carrying its password) —
+// which is the whole M102 threat model. It does not stop someone deliberately
+// writing a secret and inventing a source for it; nothing mechanical does, and
+// that was never in scope.
+//
+// The source must itself be checkable — a command from the curated CLI words
+// or a path to a file in the project. Free prose here would re-open the hole.
+// A project-relative file path. It must LOOK like a path — carry a separator or
+// a file extension. A bare word (`hunter2`) is NOT a path: allowing one would
+// turn this column into the free-text cell the 15-column schema used to catch
+// as overflow corruption (a real leak, found by the CYCLE5 overflow tests when
+// the `source` column took over the 15th slot).
+const GATE_SOURCE_PATH = /^[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*$/;
+const GATE_SOURCE_PATH_EVIDENCE = /[/]|^\.[A-Za-z]|\.[A-Za-z0-9]{1,8}$/;
+
+function gateIsSourceShape(s) {
+  if (typeof s !== "string") return false;
+  const v = s.trim();
+  if (v === "" || v === "—") return true;
+  if (v.length > 120) return false;
+  // A command: every token must clear the same grammar the command columns use.
+  if (gateCommandOk(v)) return true;
+  // A file path in the project (.vercel/project.json, fly.toml, .env.example).
+  // Rejected if absolute, if it climbs out of the project, or if it is a bare
+  // word carrying no evidence of being a path at all.
+  if (
+    GATE_SOURCE_PATH.test(v) &&
+    !v.startsWith("/") &&
+    !v.includes("..") &&
+    GATE_SOURCE_PATH_EVIDENCE.test(v)
+  ) {
+    return true;
+  }
+  return false;
+}
+
+// Does this row name a source? If so, cells the shape-grammar cannot prove are
+// accepted — EXCEPT cells that hit the backstop, which stays absolute (see
+// cellLeaks). A source vouches for an unrecognised value; it never vouches for
+// something that positively looks like a credential.
+function rowNamesASource(cells) {
+  const idx = ENV_COLUMNS.indexOf("source");
+  if (idx === -1) return false;
+  const v = (cells[idx] || "").trim();
+  if (v === "" || v === "—") return false;
+  return gateIsSourceShape(v);
 }
 
 // The BACKSTOP leak test — the known-prefix/JWT/base64/hex detector + the
@@ -278,24 +405,42 @@ function cellMatchesColumnShape(col, cell) {
     case "host":
       return gateIsHostShape(s.replace(/:\d+$/, ""));
     case "port":
-      return /^\d+$/.test(s);
+      // M103: "not applicable" is a TRUE answer for a kind with no port (a
+      // web-console / CLI-session environment). Digits or n/a — nothing else.
+      return /^\d+$/.test(s) || GATE_NOT_APPLICABLE.has(s.toLowerCase());
     case "db/name":
-      return gateIsDbNameShape(s);
+      // M103: an environment that is not a database (a hosting account, a web
+      // console) has no db name. `n/a` is true, not hidden.
+      return gateIsDbNameShape(s) || GATE_NOT_APPLICABLE.has(s.toLowerCase());
     case "auth method":
-      return GATE_AUTH_METHODS.has(s.toLowerCase());
+      // M103: the enum can never be complete (every vendor names sign-in its
+      // own way — `cli-session`, `device-code`). An unenumerated method is
+      // accepted ONLY in LABEL shape: short lowercase hyphenated words. A
+      // credential is not that shape (see gateIsAuthLabelShape).
+      return GATE_AUTH_METHODS.has(s.toLowerCase()) || gateIsAuthLabelShape(s);
     case "secret vault":
       return GATE_VAULTS.has(s.toLowerCase());
     case "secret env-var NAME":
-      return GATE_UPPER_SNAKE.test(s);
+      // M103: an environment reached by an interactive CLI session carries no
+      // env var. `n/a` is the true answer; it is not a secret in any shape.
+      return GATE_UPPER_SNAKE.test(s) || GATE_NOT_APPLICABLE.has(s.toLowerCase());
     case "fetch command":
     case "connect command":
       return gateCommandOk(s);
     case "access gotchas":
       return gateGotchasOk(s);
     case "read-only default":
-      return s === "YES" || s === "NO";
+      // M103: a boolean is a boolean whatever its capitalisation. Rejecting
+      // `yes` taught humans to retype until the checker relented.
+      return /^(yes|no)$/i.test(s);
     case "recorded":
       return GATE_ISO_TS.test(s);
+    case "source":
+      // M103 — where an otherwise-unprovable value came from. It must itself be
+      // checkable: a command built from the curated CLI words, or a path to a
+      // file in the project. Free prose here would re-open the hole the column
+      // exists to close.
+      return gateIsSourceShape(s);
     default:
       // Unknown column — fall back to refusing anything the backstop flags.
       return !cellHitsBackstop(s);
@@ -305,10 +450,20 @@ function cellMatchesColumnShape(col, cell) {
 // The gate's leak test for a cell in a KNOWN column: FAIL if it is NOT the
 // column's positive shape OR (backstop) it hits the known-prefix/embedded-cred
 // detector. The positive shape is the PRIMARY guard.
-function cellLeaks(col, cell) {
+function cellLeaks(col, cell, hasSource) {
   if (typeof cell !== "string" || !cell) return false;
-  if (!cellMatchesColumnShape(col, cell)) return true; // primary: wrong shape
-  if (cellHitsBackstop(cell)) return true; // backstop: extra layer
+  // BACKSTOP FIRST, and it is absolute: a value that positively looks like a
+  // credential (known prefix / JWT / base64 / hex / embedded cred) fails no
+  // matter what the row claims about where it came from. A source vouches for
+  // the UNRECOGNISED, never for the recognisably-secret.
+  if (cellHitsBackstop(cell)) return true;
+  if (!cellMatchesColumnShape(col, cell)) {
+    // M103 — the shape grammar cannot recognise this value. If the row names
+    // where it came from, that is the vouching the shape cannot provide.
+    // The `source` column itself is never vouched for by its own presence.
+    if (hasSource && col !== "source") return false;
+    return true;
+  }
   return false;
 }
 
@@ -354,6 +509,98 @@ function readAllowLocalLiteral(projectDir) {
   }
 }
 
+// ─── M103 — does this project reach anything that is NOT on this machine? ────
+//
+// The M102 gate treated "no table and no rule" as "hasn't adopted the registry
+// yet" and PASSED. That certified the exact emptiness the registry exists to
+// prevent: 31 of 33 projects sat in that state, so every session re-asked the
+// human for connection details.
+//
+// A project only NEEDS a map if it reaches a remote environment. So the gate
+// now looks for evidence of one. The signals are re-derived HERE rather than
+// imported from the writer's detectEnvConfig — the gate must stay independently
+// implemented (a writer bug must never disable it), same invariant M102 set for
+// the shape grammar.
+//
+// This is a HALT, not a fallback: a project with a remote environment and no
+// map FAILS and says which marker it found. A genuinely local-only project
+// PASSES and is NAMED as local-only, so "passed" never silently means
+// "unchecked" (no-silent-degradation).
+const REMOTE_MARKER_FILES = [
+  ["vercel.json", "Vercel"],
+  [".vercel", "Vercel"],
+  ["cloudbuild.yaml", "Google Cloud"],
+  ["cloudbuild.yml", "Google Cloud"],
+  [".gcloudignore", "Google Cloud"],
+  ["fly.toml", "Fly.io"],
+  ["render.yaml", "Render"],
+  ["railway.json", "Railway"],
+  ["app.yaml", "Google App Engine"],
+  ["netlify.toml", "Netlify"],
+  ["wrangler.toml", "Cloudflare"],
+  ["captain-definition", "CapRover"],
+  [".neon", "Neon"],
+];
+// A dependency whose presence means a hosted service is being talked to.
+const REMOTE_DEP_HINTS = [
+  ["@neondatabase/serverless", "Neon"],
+  ["@vercel/postgres", "Vercel Postgres"],
+  ["@supabase/supabase-js", "Supabase"],
+  ["@planetscale/database", "PlanetScale"],
+  ["@aws-sdk/client-s3", "AWS"],
+  ["@google-cloud/storage", "Google Cloud"],
+  ["mongodb", "MongoDB"],
+];
+
+// M103 — "a recorded command must run as written" was TRIED as a gate check
+// here and REMOVED. Two reasons, both found by the existing tests:
+//   1. It is not a secret question. Bolting a usefulness check onto the leak
+//      gate made it fail rows that are perfectly safe — three pre-existing
+//      tests assert bare `neonctl connection-string` is legitimate, correctly.
+//   2. The rule was not universally true. `neonctl connection-string` resolves
+//      fine in a single-project account; it only opens a picker when the
+//      account holds several (as David's does). Generalising one environment's
+//      behaviour into a universal requirement is the guess this codebase's
+//      No-Fallback/evidence rules exist to stop.
+// The requirement survives as guidance in the CLAUDE.md env-access rule, where
+// the human recording the row can judge their own account shape.
+
+function detectRemoteEnvironment(projectDir) {
+  const found = [];
+  for (const [file, label] of REMOTE_MARKER_FILES) {
+    try {
+      if (fs.existsSync(path.join(projectDir, file))) found.push(`${label} (${file})`);
+    } catch (_) { /* unreadable path is not evidence */ }
+  }
+  try {
+    const pkgRaw = fs.readFileSync(path.join(projectDir, "package.json"), "utf8");
+    const pkg = JSON.parse(pkgRaw);
+    const deps = Object.assign({}, pkg.dependencies, pkg.devDependencies);
+    for (const [dep, label] of REMOTE_DEP_HINTS) {
+      if (Object.prototype.hasOwnProperty.call(deps, dep)) found.push(`${label} (${dep})`);
+    }
+  } catch (_) { /* no/unparseable package.json is not evidence */ }
+  return found;
+}
+
+// Does the table hold at least one row describing a NON-local environment?
+// A map listing only `scope=local` rows does not answer "how do I reach prod".
+function hasNonLocalRow(infra) {
+  const start = infra.indexOf(ENV_MARKER_START);
+  const end = infra.indexOf(ENV_MARKER_END);
+  if (start === -1 || end === -1) return false;
+  const lines = infra.slice(start, end).split("\n");
+  for (const line of lines) {
+    if (!line.trim().startsWith("|")) continue;
+    const cells = splitRow(line);
+    if (cells[0] === "id") continue;
+    if (cells.every((c) => /^-{1,}$/.test(c) || c === "")) continue;
+    const scope = (cells[1] || "").trim().toLowerCase();
+    if (scope === "prod" || scope === "staging") return true;
+  }
+  return false;
+}
+
 function check(projectDir) {
   const infraPath = path.join(projectDir, "docs", "infrastructure.md");
   const claudePath = path.join(projectDir, "CLAUDE.md");
@@ -364,14 +611,42 @@ function check(projectDir) {
 
   const hasMarkers = infra.includes(ENV_MARKER_START) && infra.includes(ENV_MARKER_END);
   // The env-access rule is identified by its stable marker phrase.
-  const hasRule = /Environment Access — read-first, HALT-and-document/.test(claude);
+  //
+  // M103 — the rule ships in the GLOBAL ~/.claude/CLAUDE.md (via
+  // templates/CLAUDE-global.md), NOT in a project CLAUDE.md. M102 looked only
+  // at the project file, so hasRule was false in EVERY project, which sent
+  // every project down the "hasn't adopted it" no-op-PASS branch. Check both:
+  // the project file first (a project may restate it), then the global.
+  const RULE_PHRASE = /Environment Access — read-first, HALT-and-document/;
+  const globalClaude = readSafe(path.join(os.homedir(), ".claude", "CLAUDE.md")) || "";
+  const hasRule = RULE_PHRASE.test(claude) || RULE_PHRASE.test(globalClaude);
 
   const failures = [];
 
-  // (b) rule present but table markers absent.
-  if (hasRule && !hasMarkers) {
+  // (b) M102 asked "the rule promises a map — is there a table?". That made
+  // sense while the rule was believed to be per-project. It is not: the rule
+  // ships in the GLOBAL CLAUDE.md, so once M103 reads the global file the
+  // condition is true in EVERY project and fires on local-only projects that
+  // have nothing remote to map (measured: 21 of 28 projects failed on this
+  // alone). A gate that fails a project for a correct state gets switched off.
+  //
+  // Condition (c) below asks the question (b) was reaching for, and asks it
+  // against evidence from the project itself rather than a globally-true
+  // premise: does this project REACH something remote, and is it mapped?
+  // (b) is therefore removed, not merely relaxed — it added no signal (c)
+  // does not already carry.
+
+  // (c) M103 — a project that reaches a REMOTE environment must map it. An
+  // empty (or local-only) map in a project with a deploy marker is the state
+  // that made every session re-ask the human for connection details.
+  const remoteMarkers = detectRemoteEnvironment(projectDir);
+  const mapsARemoteEnv = hasMarkers && hasNonLocalRow(infra);
+  const isLocalOnly = remoteMarkers.length === 0;
+  if (!isLocalOnly && !mapsARemoteEnv) {
     failures.push(
-      "env-access rule is present in CLAUDE.md but the `## Environments` table markers are absent from docs/infrastructure.md"
+      `project reaches a remote environment (${remoteMarkers.join(", ")}) but the ` +
+        "`## Environments` table has no prod/staging row — record it with " +
+        "`gsd-t env-registry record`, so the connection is not rediscovered every session"
     );
   }
 
@@ -391,7 +666,11 @@ function check(projectDir) {
       // check below — a malformed schema always fails).
       const rowScope = (cells[1] || "").trim();
       const exemptSecrets = allowLocalLiteral && rowScope === "local";
-      // An OVERFLOW cell (index ≥ the fixed 14-column schema) is itself a
+      // M103 — does this row say where its values came from? A named source
+      // vouches for a value the shape-grammar cannot recognise (a vendor
+      // resource id). It never vouches past the backstop.
+      const hasSource = rowNamesASource(cells);
+      // An OVERFLOW cell (index ≥ the fixed column schema) is itself a
       // corruption signal — a hand-edit/merge/tool that appended a 15th column
       // could hide a plaintext secret in a column the shape-map doesn't cover.
       // The old `col${i}` default branch fell back to the WEAK backstop only
@@ -409,9 +688,11 @@ function check(projectDir) {
         }
         if (exemptSecrets) continue; // opted-in local row — skip secret-leak check
         const col = ENV_COLUMNS[i];
-        if (cellLeaks(col, cells[i])) {
+        if (cellLeaks(col, cells[i], hasSource)) {
           failures.push(
-            `Environments row cell (${col}) contains a secret-shaped literal value: "${cells[i]}" — record the env-var NAME and a $VAR reference, never a literal secret`
+            hasSource
+              ? `Environments row cell (${col}) contains a secret-shaped literal value: "${cells[i]}" — naming a source does not permit a value that looks like a credential; record the env-var NAME and a $VAR reference`
+              : `Environments row cell (${col}) contains a secret-shaped literal value: "${cells[i]}" — record the env-var NAME and a $VAR reference, never a literal secret, OR name where the value came from in the \`source\` column if it is a vendor resource id`
           );
         }
       }
@@ -423,10 +704,16 @@ function check(projectDir) {
     check: "env-registry",
     hasMarkers,
     hasRule,
+    // M103 — the reason for a PASS is always NAMED. "local-only" is a real
+    // verdict about this project; it never silently means "not checked".
+    localOnly: isLocalOnly,
+    remoteMarkers,
     failures,
+    // Only describe a PASS when it IS one — a note saying "PASS" beside
+    // ok:false is exactly the kind of mixed signal this gate exists to remove.
     note:
-      !hasMarkers && !hasRule
-        ? "no-op PASS: project has not adopted the M102 Environments registry (no table, no rule)"
+      isLocalOnly && failures.length === 0
+        ? "PASS: local-only — no deploy marker or hosted-service dependency found, so there is no remote environment to map"
         : undefined,
   };
 }

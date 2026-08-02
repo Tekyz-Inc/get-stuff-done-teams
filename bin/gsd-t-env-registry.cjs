@@ -50,6 +50,12 @@ const ENV_COLUMNS = [
   "access gotchas",
   "read-only default",
   "recorded",
+  // M103 — WHERE a value came from. Filled ONLY when a cell holds something the
+  // checker cannot prove safe by its shape (a vendor's project id looks exactly
+  // like a token). Naming the source is what makes such a value acceptable; its
+  // PRESENCE is the flag, so there is no per-vendor list to keep up to date.
+  // Empty for rows whose every cell stands on its own — most rows.
+  "source",
 ];
 
 // ─── Secret-value BACKSTOP detector (known-prefix / JWT / embedded-cred) ─────
