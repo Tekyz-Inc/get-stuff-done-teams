@@ -2,6 +2,31 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.6.10] - 2026-08-02
+
+### Changed — the Environment Registry now fires (M103)
+
+The registry shipped in M102 was never filled in — empty in 31 of 33 projects — so every session re-asked the human how to reach production. Four independent breaks, each verified:
+
+1. **Record-at-create was prose, not code.** `recordEnvironment` had zero production callers; the instruction to record a row lived only in a markdown command file. Provisioning also often has no discrete moment to fire on — one project's production database came up via a hosting-platform integration during a deploy.
+2. **Nothing backfilled** projects that predate M102.
+3. **The empty state was certified as fine.** The gate looked for the env-access rule in the *project's* `CLAUDE.md`, but that rule ships in the *global* one — so every project took the "has not adopted the registry" no-op PASS branch.
+4. **The nine-cycle secret grammar rejected TRUE values** (`n/a`, `cli-session`, lowercase `yes`, plain-English notes). The observed consequence was writing something *false* to get past it — a staging row recorded as production.
+
+Changes:
+
+- `bin/gsd-t-env-registry-check.cjs`: accept true values in columns that structurally cannot carry a secret (`n/a` in port / db-name / env-var-NAME; unenumerated sign-in methods in label shape; `yes`/`no` in any capitalisation; word-by-word prose in `access gotchas`). Password-carrying columns — host, db name, both commands — are untouched. A project with a remote environment and no prod/staging row now FAILS; a local-only project PASSES and is named `localOnly:true`. The M102 rule-vs-table condition is removed: once the rule is read from the global file it fired in every project (21 of 28, all correct local-only states) and added no signal the remote-environment check does not already carry.
+- `bin/gsd-t-env-registry.cjs`: new `source` column. A vendor resource id is shape-identical to a token, so the row names where the value came from (`neonctl projects list`, `.vercel/project.json`) and the source vouches for it. Its presence is the flag — there is no per-vendor "source required" list to maintain, and therefore none to forget. A source never vouches past the backstop.
+- `templates/infrastructure.md`, `templates/CLAUDE-global.md`: the 15-column schema, the relaxed column rules, and a write-the-row-before-you-use-the-answer rule.
+- `.gsd-t/contracts/env-registry-contract.md`: v1.1.0 DRAFT → **v1.2.0 STABLE**, plus four `[RULE]`s — truth-accepted, source-vouches, empty-is-not-pass, local-only-named.
+- `test/m102-env-registry.test.js`: 274 → 305 tests. Includes the leak found *during* this work — once `source` took the 15th slot the overflow-corruption guard no longer covered it, and a bare word passed an early "looks like a path" rule.
+
+Two things were built and then reverted, both killed by evidence: a "recorded command must run as written" gate check (not a secret question, it failed provably-safe rows, and its rule only holds for a multi-project account — three existing tests caught it), and a rule that guessed resource ids by their spelling (replaced by the source column).
+
+Measured across the project registry: **22 PASS / 6 FAIL, all six true findings** — five genuinely unmapped remote projects and one malformed row.
+
+Suite 3083/0/13-skip.
+
 ## [5.5.11] - 2026-07-29
 
 ### Fixed — the new style gate would have failed 27 untouched documents in three projects
