@@ -85,12 +85,57 @@ const _args = (typeof args === "string") ? (() => { try { return JSON.parse(args
 // are tier ALIASES. The sandbox runtime accepts BOTH forms in model: — proven live for
 // the tier alias resolves to claude-opus-5 (Fable removed 2026-07-24).
 const overrides = (_args.overrides && typeof _args.overrides === "object") ? _args.overrides : {};
+// `envelope` is typed as an OBJECT (or null), not "any".
+//
+// It used to be `envelope: {}` — a schema that accepts everything. A helper that
+// returned the raw JSON *text*, or omitted the field entirely, passed validation
+// just as cleanly as a correct parse; every caller then read `env.ok` on a string
+// or on undefined, got undefined, and failed closed on a HEALTHY CLI. Three
+// separate live halts traced back to this one permissive field.
+//
+// Typing it means the model is told the shape and a wrong shape is visible rather
+// than silently equivalent. `_coerceCliResult` still normalizes the two shapes
+// seen in the wild — the type is the specification, the coercion is the repair.
 const _CLI_ENVELOPE_SCHEMA = {
   type: "object", required: ["ok", "exitCode"], additionalProperties: true,
-  properties: { ok: { type: "boolean" }, exitCode: { type: "integer" }, envelope: {}, stdout: { type: "string" }, stderr: { type: "string" }, via: { type: "string" } },
+  properties: {
+    ok: { type: "boolean" },
+    exitCode: { type: "integer" },
+    envelope: { type: ["object", "null"], description: "stdout PARSED as JSON — an object, never the raw text" },
+    stdout: { type: "string" },
+    stderr: { type: "string" },
+    via: { type: "string" },
+  },
 };
 // Single-quote a value for safe shell interpolation (Red Team MED-5).
 function _shq(s) { return `'${String(s).replace(/'/g, "'\\''")}'`; }
+// ─── Normalize a helper-agent CLI result ─────────────────────────────────────
+//
+// `runCli` asks a haiku helper to run a command and hand back the parsed JSON in
+// `envelope`. A language model doing that job is not perfectly reliable, and the
+// schema types `envelope` as "any" — so THREE different shapes all validate and
+// only one is usable. Both broken shapes read `env.ok === undefined`, which every
+// caller treats as failure, so a HEALTHY CLI reports as broken:
+//   (a) `envelope` holds the raw JSON TEXT rather than the parsed object
+//   (b) `envelope` is absent and the JSON only reached `stdout`
+// Observed in the wild 2026-08-02: a binvoice partition halted three times on
+// "graph BROKEN" while the graph was fine (exit 0, ok:true).
+//
+// This normalizes both shapes at the ONE place every caller passes through. It is
+// NOT a fallback: it does not continue past a failure or substitute a guess — it
+// reads the result the CLI actually returned. A genuinely failing CLI still
+// returns `ok:false` and still fails; a non-JSON stdout is left alone.
+function _coerceCliResult(x) {
+  if (!x) return x;
+  if (typeof x.envelope === "string") {
+    try { x.envelope = JSON.parse(x.envelope); } catch (_) { /* genuinely not JSON — leave it */ }
+  }
+  if ((x.envelope === undefined || x.envelope === null) &&
+      typeof x.stdout === "string" && x.stdout.trim().startsWith("{")) {
+    try { x.envelope = JSON.parse(x.stdout); } catch (_) { /* not JSON — leave envelope absent */ }
+  }
+  return x;
+}
 async function runCli(projectDir, subcmd, argv, localBin, label, parseJson = true, phaseNameOpt) {
   const argStr = (argv || []).map((a) => `'${String(a).replace(/'/g, "'\\''")}'`).join(" ");
   const prompt = [
@@ -108,14 +153,14 @@ async function runCli(projectDir, subcmd, argv, localBin, label, parseJson = tru
   // while a transient helper miss is recovered. Only retry when JSON was expected (parseJson)
   // and the parsed result is absent; never retry on a clean exit that simply returned no JSON.
   const runOnce = () => agent(prompt, opts).catch((e) => ({ ok: false, exitCode: -1, envelope: null, stderr: String(e && e.message), via: "error" }));
-  let r = await runOnce();
+  let r = _coerceCliResult(await runOnce());
   // Retry once when JSON was expected but no parsed result came back — covers both the
   // throw path (via="error") and a malformed return the loose schema let through (ok=false
   // with the result absent). A real CLI failure that returned valid JSON (envelope present,
   // ok=false) is NOT retried — that is a true result, not a transient miss.
   const missingResult = (x) => !x || (parseJson && (x.envelope === undefined || x.envelope === null) && x.ok !== true);
   if (missingResult(r)) {
-    r = await runOnce();
+    r = _coerceCliResult(await runOnce());
   }
   return r || { ok: false, exitCode: -1, envelope: null, via: "error" };
 }
@@ -175,15 +220,28 @@ async function generateBrief(projectDir, { kind = "execute", milestone, domain, 
 //   promote-debt → blast-radius (scope a debt item's reach)
 //   prd      → cluster        (structure-aware decomposition)
 //   milestone/discuss/design-decompose/doc-ripple → no structural verb (no-op)
+// A PHASE-level query takes NO target — it wants the whole structural picture, not
+// one file's neighbourhood. Only `cluster` and `dead-code` answer target-free;
+// `who-imports` / `blast-radius` / `who-calls` / `body` REQUIRE a target and return
+// {"ok":false,"reason":"missing-target"} without one.
+//
+// The original map used who-imports/blast-radius for five phases, under a comment
+// asserting they "return the full graph slice" without a target. That was never
+// true — verified against the live CLI. So plan / impact / feature / populate /
+// promote-debt failed their graph query on EVERY run in EVERY project since the map
+// shipped, each one halting with "graph BROKEN" on a perfectly healthy graph.
+// Fixed 2026-08-02 (binvoice S2-M14 plan halted on reason=missing-target).
+//
+// A mapped verb MUST answer target-free. Enforced by test/m104-phase-graph-verb-map.test.js.
 const PHASE_GRAPH_VERB_MAP = {
-  impact:         "blast-radius",
-  plan:           "who-imports",
+  impact:         "cluster",
+  plan:           "cluster",
   partition:      "cluster",
-  feature:        "blast-radius",
+  feature:        "cluster",
   "gap-analysis": "dead-code",
   project:        "cluster",
-  populate:       "who-imports",
-  "promote-debt": "blast-radius",
+  populate:       "cluster",
+  "promote-debt": "cluster",
   prd:            "cluster",
 };
 
@@ -203,11 +261,18 @@ async function queryStructuralSlice(projectDir, phaseName, phaseNameOpt, _rebuil
     // Phase has no mapped structural verb (milestone/discuss/design-decompose/doc-ripple) — no-op.
     return { ok: true, verb: null, slice: null, graphUnavailable: false, graphBroken: false, loudMessage: null };
   }
-  // The graph query uses gsd-t-graph-query-cli.cjs (local) or `gsd-t graph <verb>` (global).
-  // argv: only the verb (no target) for phase-level queries that return a global set
-  // (cluster/dead-code/who-imports/blast-radius without a target returns the full graph slice).
+  // The graph query runs bin/gsd-t-graph-query-cli.cjs (local) or `gsd-t graph …` (global).
+  //
+  // The verb MUST travel in `argv`, not in the subcmd string: runCli builds the LOCAL-bin
+  // command from `argv` ALONE (the subcmd text is only used for the global `gsd-t …` form).
+  // With the verb in subcmd and argv empty, any project carrying a local graph CLI ran it
+  // with NO verb at all → {"ok":false,"reason":"no-verb"} → fail-closed to BROKEN. That is
+  // why this failed in a project with a local bin/ copy and worked everywhere else.
+  // Fixed 2026-08-02 (binvoice S2-M14 partition halted twice on this).
+  //
+  // No target is passed — every mapped verb answers target-free (see PHASE_GRAPH_VERB_MAP).
   const r = await runCli(
-    projectDir, `graph ${verb}`, [], "gsd-t-graph-query-cli.cjs",
+    projectDir, "graph", [verb], "gsd-t-graph-query-cli.cjs",
     `graph:${verb}`, true, phaseNameOpt
   );
   const env = r.envelope || {};

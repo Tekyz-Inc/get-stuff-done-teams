@@ -145,44 +145,41 @@ test("T0: phase workflow contains queryStructuralSlice function", () => {
   );
 });
 
-test("T0: phase workflow PHASE_GRAPH_VERB_MAP covers all mapped reader phases", () => {
+// M104 REWRITE — this test USED to hardcode the phase→verb pairs, including
+// `plan → who-imports` and `impact → blast-radius`. It passed on every run since
+// M94 while those phases were completely broken: neither verb answers without a
+// target, so five phases returned {"ok":false,"reason":"missing-target"} and
+// halted with "graph BROKEN" on a perfectly healthy graph, in every project.
+//
+// The test asserted the map matched a WRITTEN EXPECTATION. It never asked whether
+// the verb actually works. Restating the buggy value in a test is what let the bug
+// live — so this now asserts the property that matters (every mapped phase is
+// COVERED) and leaves "the verb must answer target-free" to
+// test/m104-phase-graph-verb-map.test.js, which checks it against the CLI's real
+// behaviour rather than a copy of the map.
+test("T0: phase workflow PHASE_GRAPH_VERB_MAP covers all reader phases", () => {
   const text = readFile("templates/workflows/gsd-t-phase.workflow.js");
   assert.ok(text, "gsd-t-phase.workflow.js must exist");
-  // Verify the verb map is present and contains the expected phase→verb entries
-  const expectedEntries = [
-    ["impact", "blast-radius"],
-    ["plan", "who-imports"],
-    ["partition", "cluster"],
-    ["feature", "blast-radius"],
-    ["gap-analysis", "dead-code"],
-    ["project", "cluster"],
-    ["populate", "who-imports"],
-    ["promote-debt", "blast-radius"],
-    ["prd", "cluster"],
-  ];
-  // Find the PHASE_GRAPH_VERB_MAP block's start position in the file as our search anchor.
-  // This ensures we only look for phase keys WITHIN the map definition, not in comments/meta.
-  const mapStart = text.indexOf("PHASE_GRAPH_VERB_MAP");
-  assert.ok(mapStart >= 0, "PHASE_GRAPH_VERB_MAP declaration must exist in the phase workflow");
 
-  // The map block ends at the closing brace after it — scan for the first occurrence of
-  // each key AFTER mapStart.
-  for (const [phase, verb] of expectedEntries) {
-    // Keys may be quoted (e.g. "gap-analysis":, "promote-debt":) or unquoted (impact:, plan:)
-    const keyPatterns = [`"${phase}":`, `'${phase}':`, `${phase}:`, `"${phase}"`];
-    const allIdx = keyPatterns
-      .map((p) => text.indexOf(p, mapStart))
-      .filter((i) => i >= 0);
+  // Every phase that reads structure must HAVE a verb. Which verb is M104's business.
+  const requiredPhases = [
+    "impact", "plan", "partition", "feature",
+    "gap-analysis", "project", "populate", "promote-debt", "prd",
+  ];
+
+  const m = text.match(/const PHASE_GRAPH_VERB_MAP = \{([\s\S]*?)\n\};/);
+  assert.ok(m, "PHASE_GRAPH_VERB_MAP declaration must exist in the phase workflow");
+
+  const map = {};
+  for (const line of m[1].split("\n")) {
+    const kv = line.match(/^\s*"?([a-z-]+)"?:\s*"([a-z-]+)"/);
+    if (kv) map[kv[1]] = kv[2];
+  }
+
+  for (const phase of requiredPhases) {
     assert.ok(
-      allIdx.length > 0,
-      `PHASE_GRAPH_VERB_MAP must map phase "${phase}" (searching after position ${mapStart})`
-    );
-    // Take the earliest occurrence after mapStart
-    const phaseIdx = Math.min(...allIdx);
-    const verbIdx = text.indexOf(`"${verb}"`, phaseIdx);
-    assert.ok(
-      verbIdx !== -1 && verbIdx - phaseIdx < 300,
-      `PHASE_GRAPH_VERB_MAP phase "${phase}" must map to verb "${verb}" (within 300 chars of the phase key in the map block)`
+      map[phase],
+      `PHASE_GRAPH_VERB_MAP must map phase "${phase}" to a graph verb`
     );
   }
 });

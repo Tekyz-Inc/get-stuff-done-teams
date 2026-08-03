@@ -2,6 +2,21 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.6.11] - 2026-08-02
+
+### Fixed — four bugs that reported a healthy code graph as broken (M104)
+
+A partition and plan phase halted four separate times with `graph BROKEN` while the graph was fine — exit 0, `ok:true`, compiler-accurate. Four distinct bugs, all producing the identical message, each sitting downstream of the last, so every fix only revealed the next.
+
+- `templates/workflows/gsd-t-phase.workflow.js`:
+  - **The verb map pointed five phases at graph queries that require a target.** `plan`, `impact`, `feature`, `populate` and `promote-debt` mapped to `who-imports` / `blast-radius`, which return `{"ok":false,"reason":"missing-target"}` when called without one. A comment above the map asserted these "return the full graph slice" without a target — that was never true, and nobody checked it against the CLI. **These five phases never once completed their graph query in any project since the map shipped.** All now use `cluster`, which answers target-free.
+  - **The verb travelled in the wrong argument.** `runCli` builds the local-bin command from `argv` alone, so with the verb in the subcommand string and `argv` empty, any project carrying its own `bin/gsd-t-graph-query-cli.cjs` ran it with no verb at all → `{"ok":false,"reason":"no-verb"}`. This failed only in projects with a local copy, which is why it stayed invisible elsewhere.
+- `gsd-t-phase`, `-integrate`, `-debug`, `-execute`, `-quick`, `-verify`: the CLI-result envelope was typed as `{}` — a schema accepting anything. A helper agent that returned the raw JSON *text*, or omitted the field and left the JSON in `stdout`, validated as cleanly as a correct parse; callers then read `ok` on a string or on nothing, got `undefined`, and failed closed on a healthy command. The field is now typed `object|null`, and `_coerceCliResult` normalizes both shapes at the single point every caller passes through. A genuinely failing command still fails; non-JSON output is left alone.
+- `test/m104-phase-graph-verb-map.test.js`: 24 tests. Every mapped verb must answer target-free; the false comment cannot return; the verb must travel in `argv`; all six workflows must type their envelope and actually *call* the normalizer (defined-but-unwired fails).
+- `test/m94-d10-reader-wiring.test.js`: rewritten. It previously hardcoded the broken pairs (`plan → who-imports`, `impact → blast-radius`) and asserted they were present — passing on every run while those phases were dead. Restating a buggy value in a test is what let the bug live; it now asserts coverage and leaves verb correctness to the M104 tests, which check the CLI's real behaviour.
+
+Five other workflows carried the same permissive schema and could have failed identically — the phase workflow simply makes the largest graph query and hit it first. Suite 3107/0/13-skip.
+
 ## [5.6.10] - 2026-08-02
 
 ### Changed — the Environment Registry now fires (M103)

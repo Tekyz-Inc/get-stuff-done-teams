@@ -61,8 +61,34 @@ const _args = (typeof args === "string") ? (() => { try { return JSON.parse(args
 const overrides = (_args.overrides && typeof _args.overrides === "object") ? _args.overrides : {};
 const _CLI_ENVELOPE_SCHEMA = {
   type: "object", required: ["ok", "exitCode"], additionalProperties: true,
-  properties: { ok: { type: "boolean" }, exitCode: { type: "integer" }, envelope: {}, stdout: { type: "string" }, stderr: { type: "string" }, via: { type: "string" } },
+  properties: { ok: { type: "boolean" }, exitCode: { type: "integer" }, envelope: { type: ["object", "null"], description: "stdout PARSED as JSON — an object, never the raw text" }, stdout: { type: "string" }, stderr: { type: "string" }, via: { type: "string" } },
 };
+// ─── Normalize a helper-agent CLI result (M104) ──────────────────────────────
+//
+// runCli asks a haiku helper to run a command and hand back the parsed JSON in
+// `envelope`. A model doing that job is not perfectly reliable, and two broken
+// shapes both read `env.ok === undefined` — which every caller treats as failure,
+// so a HEALTHY CLI reports as broken:
+//   (a) `envelope` holds the raw JSON TEXT rather than the parsed object
+//   (b) `envelope` is absent and the JSON only reached `stdout`
+// Observed live 2026-08-02: a partition/plan halted four times on "graph BROKEN"
+// while the graph was fine (exit 0, ok:true).
+//
+// NOT a fallback: it continues past no failure and substitutes no guess — it reads
+// the result the CLI actually returned. A failing CLI still returns ok:false and
+// still fails; non-JSON stdout is left alone.
+function _coerceCliResult(x) {
+  if (!x) return x;
+  if (typeof x.envelope === "string") {
+    try { x.envelope = JSON.parse(x.envelope); } catch (_) { /* genuinely not JSON */ }
+  }
+  if ((x.envelope === undefined || x.envelope === null) &&
+      typeof x.stdout === "string" && x.stdout.trim().startsWith("{")) {
+    try { x.envelope = JSON.parse(x.stdout); } catch (_) { /* not JSON */ }
+  }
+  return x;
+}
+
 async function runCli(projectDir, subcmd, argv, localBin, label, parseJson = true, phaseName) {
   const argStr = (argv || []).map((a) => `'${String(a).replace(/'/g, "'\\''")}'`).join(" ");
   const prompt = [
@@ -75,7 +101,7 @@ async function runCli(projectDir, subcmd, argv, localBin, label, parseJson = tru
   const opts = { label, schema: _CLI_ENVELOPE_SCHEMA, model: "haiku" };
   if (phaseName) opts.phase = phaseName;
   const r = await agent(prompt, opts).catch((e) => ({ ok: false, exitCode: -1, envelope: null, stderr: String(e && e.message), via: "error" }));
-  return r || { ok: false, exitCode: -1, envelope: null, via: "error" };
+  return _coerceCliResult(r) || { ok: false, exitCode: -1, envelope: null, via: "error" };
 }
 async function runPreflight(projectDir, label = "preflight", phaseName) { return runCli(projectDir, "preflight", ["--json"], "cli-preflight.cjs", label, true, phaseName); }
 async function generateBrief(projectDir, { kind = "execute", milestone, domain, id, label = "brief", phaseName } = {}) {
