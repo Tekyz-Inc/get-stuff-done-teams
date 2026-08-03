@@ -2,6 +2,20 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.7.10] - 2026-08-03
+
+### Added — one session per working tree, enforced (M105)
+
+Several sessions ran against one project, each told to use its own git worktree. Three did. One worked directly in the main project folder, and its uncommitted work interleaved with another session's on the same branch — neither side able to commit or merge without dragging in or losing the other's half-finished milestone. The instruction was given; nothing enforced it.
+
+- `scripts/gsd-t-worktree-guard.js`: a PreToolUse hook on Write/Edit. Blocks an edit in the MAIN working tree when another GSD-T session is live there, and prints the exact `git worktree add` command — including the stash-and-carry form when the session already has uncommitted work. Silent when alone in main (working there solo is fine), silent inside a worktree, silent outside a git repo, and fail-open on any internal error: it detects a collision, it does not gate correctness.
+- Liveness reuses the per-session `.gsd-t/heartbeat-<id>.jsonl` file that the SessionStart/Stop/SessionEnd hooks already write INTO the tree the session works in. Its location is the claim; its modification time is the signal. No new bookkeeping.
+- **The liveness window is the load-bearing detail.** A first pass using two hours read three long-closed sessions as live and would have fired on a user working alone — the false positive that teaches someone to disable a guard. The window is five minutes: a working session writes constantly.
+- `bin/gsd-t.js`: the architect-hook registrar is generalized to take a marker + command, so registering a second Write|Edit hook needed no duplicated code. Registered on install, stripped on uninstall.
+- `test/m105-worktree-guard.test.js`: 13 tests. The fail-open case caught a real hole — unparseable hook input fell back to `process.cwd()`, so the guard judged whichever directory it happened to launch from rather than the one under edit. Unreadable input now means no decision.
+
+Opt out per project with `.gsd-t/worktree-guard-config.json` `{"enabled": false}`. An invalid config leaves the guard ON. Suite 3120/0/13-skip.
+
 ## [5.6.11] - 2026-08-02
 
 ### Fixed — four bugs that reported a healthy code graph as broken (M104)

@@ -150,6 +150,8 @@ WHEN creating a worktree directly (git worktree add, isolation: "worktree", etc.
 - Clean up with `git worktree remove` when the branch/task is done — don't leave prunable stragglers.
 - **Exception**: harness-managed worktrees the Agent/Workflow runtime creates under the project's gitignored `.claude/worktrees/` path are the harness's own convention — leave those alone. This rule governs worktrees *you* create directly via Bash or the `isolation: "worktree"` option.
 
+**One session per working tree (M105 — enforced).** Two sessions editing the same folder interleave their uncommitted work on one branch: neither can commit or merge without dragging in or losing the other's half-finished milestone. A PreToolUse guard (`scripts/gsd-t-worktree-guard.js`) BLOCKS a Write/Edit in the main tree when another GSD-T session is live there, and prints the exact `git worktree add` command (including the stash-and-carry form when you already have uncommitted work). Liveness comes from the per-session `.gsd-t/heartbeat-<id>.jsonl` file — location is the claim, mtime is liveness, 5-minute window. It is SILENT when you are alone in the main tree (working there solo is fine), silent inside a worktree, and fails open. Opt out per project: `.gsd-t/worktree-guard-config.json` `{"enabled": false}`.
+
 # Destructive Action Guard (MANDATORY)
 
 **NEVER perform destructive or structural changes without explicit user approval.** This applies at ALL autonomy levels, including Level 3.

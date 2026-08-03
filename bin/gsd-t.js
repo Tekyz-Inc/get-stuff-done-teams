@@ -494,6 +494,17 @@ const ARCHITECT_HOOK_MARKER = "gsd-t-architect-oversight-guard";
 const ARCHITECT_HOOK_COMMAND =
   'bash -c \'[ -f "$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-architect-oversight-guard.js" ] && node "$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-architect-oversight-guard.js" || true\'';
 
+// M105 — worktree-collision PreToolUse hook on Write|Edit. Same global-package
+// pattern. Blocks an edit when ANOTHER GSD-T session is live in the SAME working
+// tree (detected from the per-session heartbeat files already written into
+// .gsd-t/), and tells the user the exact `git worktree add` command to run.
+// Silent when working alone, silent inside a worktree, silent outside a repo,
+// and fail-open on any internal error — it detects a collision, it does not gate
+// correctness.
+const WORKTREE_HOOK_MARKER = "gsd-t-worktree-guard";
+const WORKTREE_HOOK_COMMAND =
+  'bash -c \'[ -f "$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-worktree-guard.js" ] && node "$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-worktree-guard.js" || true\'';
+
 // Append entries to {projectDir}/.gitignore. Each entry added only if absent.
 // Idempotent. Returns true if any entries were added, false otherwise.
 function ensureGitignoreEntries(projectDir, entries) {
@@ -942,6 +953,17 @@ function configureReadInterceptHook(settingsPath) {
 // read-intercept installer but on PreToolUse. The script fails-open so this is
 // safe globally (silent in non-GSD-T projects and on prose/doc writes).
 function configureArchitectHook(settingsPath) {
+  return configureWriteEditHook(settingsPath, ARCHITECT_HOOK_MARKER, ARCHITECT_HOOK_COMMAND, "architect");
+}
+
+// M105 — register the worktree-collision guard. Reuses the same registrar rather
+// than copying it (the function below was architect-specific; generalized to take
+// the marker + command, so a third Write|Edit hook needs no new code).
+function configureWorktreeGuardHook(settingsPath) {
+  return configureWriteEditHook(settingsPath, WORKTREE_HOOK_MARKER, WORKTREE_HOOK_COMMAND, "worktree guard");
+}
+
+function configureWriteEditHook(settingsPath, marker, command, label) {
   const targetPath = settingsPath || SETTINGS_JSON;
   let settings = {};
   if (fs.existsSync(targetPath)) {
@@ -949,21 +971,21 @@ function configureArchitectHook(settingsPath) {
       settings = JSON.parse(fs.readFileSync(targetPath, "utf8"));
       if (!settings || typeof settings !== "object") settings = {};
     } catch {
-      warn("settings.json has invalid JSON — cannot configure architect hook");
+      warn(`settings.json has invalid JSON — cannot configure ${label} hook`);
       return { installed: false, action: "noop" };
     }
   }
   if (!settings.hooks) settings.hooks = {};
   if (!Array.isArray(settings.hooks.PreToolUse)) settings.hooks.PreToolUse = [];
 
-  const cmd = ARCHITECT_HOOK_COMMAND;
+  const cmd = command;
   let action = "noop";
   let found = false;
   for (const entry of settings.hooks.PreToolUse) {
     if (!entry || !Array.isArray(entry.hooks)) continue;
     for (const h of entry.hooks) {
       if (!h || typeof h.command !== "string") continue;
-      if (h.command === cmd || h.command.includes(ARCHITECT_HOOK_MARKER)) {
+      if (h.command === cmd || h.command.includes(marker)) {
         found = true;
         if (h.command !== cmd) { h.command = cmd; action = "updated"; }
         if (entry.matcher !== "Write|Edit") { entry.matcher = "Write|Edit"; action = action === "noop" ? "updated" : action; }
@@ -1007,7 +1029,7 @@ function removeInterceptHooks(settingsPath) {
   if (!settings.hooks) return false;
 
   const postMarkers = [GRAPH_INTERCEPT_HOOK_MARKER, READ_INTERCEPT_HOOK_MARKER];
-  const preMarkers = [ARCHITECT_HOOK_MARKER];
+  const preMarkers = [ARCHITECT_HOOK_MARKER, WORKTREE_HOOK_MARKER];
   let removed = 0;
 
   const stripByMarkers = (arr, markers) => {
@@ -2004,6 +2026,13 @@ async function doInstall(opts = {}) {
     if (archHook.action === "added") success("Architect-oversight hook added (Six-Stage Pass reminder before writing code — M101)");
     else if (archHook.action === "updated") success("Architect-oversight hook refreshed");
     else info("Architect-oversight hook already configured");
+  }
+
+  const wtHook = configureWorktreeGuardHook(SETTINGS_JSON);
+  if (wtHook.installed) {
+    if (wtHook.action === "added") success("Worktree-collision guard added (blocks a second session editing the same tree — M105)");
+    else if (wtHook.action === "updated") success("Worktree-collision guard refreshed");
+    else info("Worktree-collision guard already configured");
   }
 
   heading("Graph Engine (CGC)");
