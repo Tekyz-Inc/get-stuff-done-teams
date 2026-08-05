@@ -1,11 +1,12 @@
 # Contract: Architect's Oversight Doctrine (M101)
 
-## Version: 1.0.0
+## Version: 1.1.0
 ## Status: STABLE
 ## Owner: m101-d-doctrine-contract (sole writer of shared seams)
-## Producers: m101-d-doctrine-contract (§1 stages, §2 reuse logic), m101-d-hook-trigger (§3 hook), m101-d-workflow-gate (§4 gate), m101-d-jargon-plain (§5 plain-language)
-## Consumers: gsd-t-plan.workflow / gsd-t-milestone.workflow (execution), gsd-t-verify.workflow (checks)
+## Producers: m101-d-doctrine-contract (§0 grounding, §1 stages, §2 reuse logic), m101-d-hook-trigger (§3 hook), m101-d-workflow-gate (§4 gate), m101-d-jargon-plain (§5 plain-language)
+## Consumers: gsd-t-plan.workflow / gsd-t-milestone.workflow (execution), gsd-t-verify.workflow (checks), commands/gsd-t-architect.md (§0 grounding loop)
 ## Created: 2026-07-12 13:35 PDT
+## Updated: 2026-08-05 10:10 PDT — added §0 (Grounding Loop) from a 16-run field audit
 
 ## Purpose
 
@@ -22,6 +23,73 @@ This doctrine is the sibling of the Unproven-Assumption Doctrine (M90):
   path and that no existing thing already does the job (or holds the answer).
 
 The doctrine applies to GSD-T's own workflows (self-obedience, §6).
+
+---
+
+## §0 — The Grounding Loop (runs BEFORE §1; ground, then assess)
+
+**Evidence.** A field audit of 16 real `/gsd-t-architect` runs (binvoice, 2026-07-12 → 2026-08-04)
+found 21 user corrections. **13 of 21 were facts the user already held** and would have supplied
+for free. Only 4 of 16 runs needed no correction.
+
+| Failure | n | Representative correction |
+|---|---|---|
+| Re-derived an already-settled rule | 8 | *"That rule was also implemented, at least I thought it was last week."* |
+| Asserted a real-world fact the user knew was false | 5 | *"I believe you're wrong. When scrolling the feed…"* (reasoned from a saved page) |
+| Weighed a trade-off the user had closed | 3 | *"Stop telling me rather or two. Just tell me how we get to one."* |
+| Output the user could not read | 3 | *"Try again without any jargon. I don't understand the grid."* |
+| Analyzed an adjacent thing | 2 | *"Either we're having a miscommunication or you didn't find all the bugs."* |
+| Excluded a dimension held in scope | 2 | *"Now consider capture performance in the context of these changes."* |
+
+Root cause of the top two (13 of 21): **the architect reasoned where it should have asked.**
+
+**The loop:** `read → interview → [confident? no] → research → (more interview / more research) → …`
+Max **3 cycles**; 1-2 expected ~90% of the time. Confident at any point → proceed to §1.
+
+**§0.1 — Read first.** Gather everything obtainable without the user: target code + callers +
+tests, graph queries, and the standing rules (CLAUDE.md hard constraints, `[RULE]` guard maps in
+the area's PseudoCode docs, touched contracts, ~30 days of Decision Log). Classify the target type
+(`bug-hunt` / `perf` / `plan-review` / `subsystem-audit` / `security-stealth`). **Label every
+evidence item `LIVE` or `SNAPSHOT`** — a claim about runtime behavior resting on a snapshot is
+unproven and must go to the user.
+
+**§0.2 — Interview (adaptive, never a fixed questionnaire).**
+- **Lead with pseudocode of current behavior + intended behavior** for confirmation, in the
+  §1.1 flow style. This is the highest-value move: a wrong premise dies in one line of the user's
+  time instead of after a wasted pass.
+- **Two questions are mandatory every run** (they map to the top-2 failure modes): *what is already
+  settled and not open for re-litigation* (echo back the harvested rules so a stale one is
+  corrected cheaply), and *what is true at runtime that the code cannot show* (naming every
+  snapshot-derived inference explicitly).
+- Remaining questions branch on target type. 2-5 total; never ask what reading already answered.
+- **Gather what you can, ASK for what you can't** — name the gap explicitly (a captured HTML, a
+  screenshot, a prod row). Never proceed silently past evidence you know you need.
+
+**§0.3 — Research (gated on confidence, always AFTER the interview).** If unsure of the
+problem/solution landscape, research how this class of problem is currently solved; cite sources
+(URL + date) per the auto-research rule. Placed after the interview so it cannot anchor the
+questions on an external solution shape, and so no search is spent on what the user would answer
+in one line. `--no-research` disables.
+
+**§0.4 — Rule-vs-practice conflict.** The user's standing rule wins; the conflict is named in ONE
+line, not debated. **The narrow exception where a fallback is warranted requires ALL of:** primary
+path fails a HIGH percentage of the time · cause is OUTSIDE our control · completing the workflow
+is CRITICAL. The no-fallback rule exists because 90%+ of fallbacks written covered edge cases that
+never or rarely fire, papered over easily-fixable bugs, and caused unpredictable downstream damage
+— not because fallbacks are never correct. Any condition unmet → **HALT**, not fallback.
+
+**§0.5 — Cap behavior.** Still not confident after cycle 3 → **present the unresolved questions and
+ask the user whether to halt or proceed with the uncertainty flagged.** The architect does not
+decide this alone.
+
+**§0.6 — Hand-off.** The §1 pass runs in a fresh-context subagent, which **receives the confirmed
+grounding** (confirmed behavior flow, fixed rules, user-supplied facts, LIVE/SNAPSHOT evidence
+inventory, research findings, in-scope dimensions, unresolved items). Confirmed items are settled
+input: analysis contradicting one is a finding to SURFACE, never a premise to quietly overturn.
+The interview runs in the MAIN session because a subagent cannot ask the user anything mid-run.
+
+**§0.7 — Success measure.** A run succeeded if the build it directed needed few follow-ups and few
+bug fixes. A well-formed report that led to rework is a FAILED run.
 
 ---
 
@@ -169,3 +237,7 @@ Six-Stage Pass and produces its own PseudoCode document (this milestone did — 
 | G-5 | Stage 3 output-reuse split present (process AND output) | contract = source |
 | G-6 | Reuse-forecast HIGH/LOW + graph self-correction present | contract = source |
 | G-7 | PseudoCode house-style defined + this milestone's pseudocode exists | A-FAIL-1 |
+| G-8 | §0 grounding loop precedes §1 in `commands/gsd-t-architect.md` (interview before pass) | contract = source |
+| G-9 | Interview cap = 3 cycles; at-cap behavior is ask-user, never silent proceed | contract = source |
+| G-10 | Research is gated on confidence and placed AFTER the interview | contract = source |
+| G-11 | Confirmed grounding is threaded into the §1 subagent, not re-derived | contract = source |

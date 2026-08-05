@@ -449,9 +449,11 @@ See memory pointer: `feedback_auto_research_external_gaps`.
 
 ### Architect's Oversight Doctrine (M101 — governed, enforced)
 
-**Contract:** `.gsd-t/contracts/architects-oversight-contract.md` v1.0.0 STABLE
+**Contract:** `.gsd-t/contracts/architects-oversight-contract.md` v1.1.0 STABLE
 
 **Never build before the design has passed the architect's interrogation.** GSD-T staffs verifiers (Red Team, QA, code-review, pre-mortem) — all asking "is this correct?" — but no seat asked "is this the *smartest, simplest* design given what we already have?" The result: the wrong thing built correctly, then thoroughly tested, then shipped (the Binvoice completeness-scan waste — a whole-page scan re-deriving a count already stored locally). This doctrine fills the empty architect seat. Sibling to the Unproven-Assumption Doctrine: that one bars unproven *facts*; this one bars unproven *necessity*.
+
+**§Stage 0 — GROUND BEFORE YOU ASSESS (runs first; contract §0).** A field audit of 16 real architect runs found 21 user corrections, and **13 of them were facts the user already held** — settled rules the architect re-derived and got wrong ("that rule was implemented last week"), and runtime behavior it asserted from a saved page instead of asking ("I believe you're wrong. When scrolling the feed…"). **Asking is cheaper than deriving.** So before the pass: read the code AND the standing rules (CLAUDE.md constraints, `[RULE]` guard maps, contracts, recent Decision Log); label every evidence item **LIVE or SNAPSHOT** (a runtime claim resting on a snapshot is unproven); then **interview the user** — lead by showing your read of *how it works today* as a plain-English flow for confirmation, echo back the rules you're treating as fixed, and ask only what code cannot answer. **Research** (how others solve this class of problem) runs only when you're not confident, and only AFTER the interview so it can't anchor the questions. Loop interview↔research, **max 3 cycles** (1-2 expected); still unsure at the cap → ask the user whether to halt or proceed with the uncertainty flagged. A run succeeded if the build it directed needed few follow-ups — not if the report read well.
 
 **The Six-Stage Pass — run IN ORDER before proposing or building any solution. Each stage can KILL the plan. Every "am I sure?" is answered with EVIDENCE (a grep, a Read, a graph query), never conviction — self-confidence is what produced the waste.**
 

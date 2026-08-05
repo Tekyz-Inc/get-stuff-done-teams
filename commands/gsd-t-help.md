@@ -242,11 +242,13 @@ Use these when user asks for help on a specific command:
 - **Use when**: Before making changes, to understand what might break
 
 ### architect
-- **Summary**: Run the Architect's Oversight Six-Stage Pass (Objective → Conflict → Reuse → Simplicity → Reuse-forecast → Risk) on existing work — an already-frozen plan, a messy subsystem, or a pasted tangle of problems. Finds the simplest correct solution, what's already reusable (process or a stored value), and the traps each stage surfaces — written as plain-English pseudocode you can approve before any code.
+- **Summary**: Grounds itself with you FIRST, then runs the Architect's Oversight Six-Stage Pass (Objective → Conflict → Reuse → Simplicity → Reuse-forecast → Risk) on existing work — an already-frozen plan, a messy subsystem, or a pasted tangle of problems. Finds the simplest correct solution, what's already reusable (process or a stored value), and the traps each stage surfaces — written as plain-English pseudocode you can approve before any code.
+- **Grounding loop (before the pass)**: reads the code + your standing rules → **interviews you** (shows its read of how the thing works today as a plain-English flow for you to confirm or correct, then asks only what code can't answer — questions branch by target type: bug / performance / plan-review / audit / security) → **researches** how others solve this class of problem, but only when it isn't confident and only after the interview → loops if new questions surface. **Max 3 cycles** (1-2 expected); still unsure at the cap → it asks whether to halt or proceed with the uncertainty flagged.
 - **Auto-invoked**: No (standalone, on-demand)
-- **Args**: `/gsd-t-architect "<what to assess>"` — plus `--build` (auto-build the simplest fix after planning) and `--chat-only` (report in session, don't write a pseudocode file).
+- **Args**: `/gsd-t-architect "<what to assess>"` — plus `--build` (auto-build the simplest fix after planning), `--chat-only` (report in session, don't write a pseudocode file), `--no-interview` (skip the grounding loop when the target is already tightly scoped), `--no-research` (interview but never search externally).
 - **Creates**: `.gsd-t/pseudocode/PseudoCode-<Target>.md` (unless `--chat-only`)
 - **Use when**: A plan already exists (or is half-formed) and you want it interrogated for simplicity + reuse before building; or a subsystem "got complicated over time" and you want the simplest version. Default is plan-only, then it offers to build.
+- **Why the interview**: an audit of 16 real runs found 21 corrections — 13 were facts the user already held and would have given for free (settled rules it re-derived wrong, runtime behavior it asserted from a saved page). Asking first is cheaper than deriving.
 
 ### execute
 - **Summary**: Run tasks from plan, solo or with agent teams

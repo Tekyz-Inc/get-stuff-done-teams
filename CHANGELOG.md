@@ -2,6 +2,35 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.8.10] - 2026-08-05
+
+### Changed — the architect now interviews you before it assesses
+
+The architect sometimes focused on the wrong thing, or skipped something because it decided the thing was out of scope. Rather than patch that from the description, 16 real architect runs across 10 sessions were audited. They contained **21 corrections the user had to make — and 13 of those were facts the user already held and would have given for free.** Only 4 of 16 runs needed no correction.
+
+| Failure | n | What it sounded like |
+|---|---|---|
+| Re-derived an already-settled rule | 8 | *"That rule was also implemented, at least I thought it was last week."* |
+| Asserted real-world behavior the user knew was false | 5 | *"I believe you're wrong. When scrolling the feed…"* — it had measured a saved page and described it as the live one |
+| Weighed a trade-off the user had already closed | 3 | *"Stop telling me rather or two. Just tell me how we get to one."* |
+| Output the user could not read | 3 | *"Try again without any jargon. I don't understand the grid."* |
+| Analyzed an adjacent thing | 2 | *"Either we're having a miscommunication or you didn't find all the bugs."* |
+| Excluded a dimension held in scope | 2 | *"Now consider capture performance in the context of these changes."* |
+
+The top two — 13 of 21 — share one cause: **the architect reasoned where it should have asked.**
+
+- `commands/gsd-t-architect.md`: a grounding loop now runs before the Six-Stage Pass — read the code and the standing rules → **interview** → **research** → loop, **max 3 cycles** (1-2 expected). The interview leads by showing its read of *how the thing works today* as a plain-English flow for the user to confirm or correct, which kills a wrong premise in one line instead of after a wasted pass. Two questions are mandatory every run, aimed at the top two failures: what is already settled and not open for re-litigation (echoing the harvested rules back so a stale one gets corrected cheaply), and what is true at runtime that the code cannot show. The rest branch by target type — bug-hunt, performance, plan-review, subsystem-audit, security. It gathers the evidence it can and explicitly names what it cannot get from the repo.
+- **Research is gated on confidence and runs after the interview, never before** — so it cannot anchor the questions on an external solution shape, and so no search is spent on a question the user would answer in one line. The audit found no correction of the form "you didn't know how others solve this," so research is real but secondary to asking.
+- **When external practice contradicts a standing project rule, the rule wins and the conflict is named in one line.** The narrow case where a fallback is genuinely warranted requires all three of: the primary path fails a high percentage of the time, the cause is outside our control, and completing the workflow is critical. Otherwise the answer is a halt.
+- **At the 3-cycle cap the architect asks whether to halt or proceed** with the uncertainty flagged. It does not decide that alone.
+- The interview runs in the main session and the pass in a fresh subagent — a subagent cannot ask anything mid-run, and relaying questions out as pings had already produced babysitting. The confirmed grounding is threaded into the subagent so it never re-derives what was just settled.
+- Eight standing checks distilled from the corrections now run every pass: audit *existing* fallbacks as a root-cause candidate, no data left in limbo, delete the legacy path in the same change, two mechanisms doing one job means route to one rather than present a trade-off, state a verification path, production-data impact before a migration or merge, label any claim resting on a snapshot, and cover the always-in-scope dimensions. Output constraints are hard: plain English in the lead, no file:line grids, no shorthand.
+- `.gsd-t/contracts/architects-oversight-contract.md` → v1.1.0: adds §0 (the grounding loop) and guards G-8..G-11.
+- Two new flags: `--no-interview`, `--no-research`.
+- **Fixed in passing:** the command still pointed at the pre-M99 graph path `.gsd-t/graph.db` instead of `.gsd-t/graphDB/graph.db` — the same false negative recorded in 5.2.11, which had been silently disabling the architect's own reuse check.
+
+The measure of a run is now what happens after it: a run succeeds if the build it directed needed few follow-ups. A well-formed report that led to rework is a failed run. Suite 3120/0/13-skip.
+
 ## [5.7.10] - 2026-08-03
 
 ### Added — one session per working tree, enforced (M105)
