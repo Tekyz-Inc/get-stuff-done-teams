@@ -2,6 +2,35 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.9.10] - 2026-08-07
+
+### Added — projects repair their own install, and fallbacks need approval by name
+
+**Every registered project was running a broken install.** Binvoice had 20 of its 38 tools. The verify gate was a stale copy in all 33 projects, so every one of them has been running an outdated quality gate.
+
+The cause was one line: a tool missing from the package was skipped in silence, and the pass then reported "copied N tools" — where N looked fine. The report was the concealment. Two more copies of the same defect sat in the utility-script and template installers.
+
+**Install self-repair (M108).** Each session now checks its project's tools before any work starts, restores what is missing from the installed package, and refuses to continue if it cannot. Not a workaround: it fixes the failure, then the work proceeds with everything present. Every repair is logged to a shared file, and `gsd-t install-check --report` names any tool that has gone missing in more than one project — which points at the installer rather than the project. A per-project fix that also tells GSD-T what to mend in itself.
+
+- `bin/gsd-t-install-check.cjs`: reads the expected tool list from the installer (never a second copy that can go stale), compares, repairs, halts when it can't
+- `scripts/gsd-t-install-heal.js`: runs it at session start, first in the chain; silent when the install is already complete
+- `bin/gsd-t.js`: three silent skips now report every undelivered file; new `install-check` command
+- `test/m108-install-heal.test.js`: 12 tests, including one asserting the silent skip never comes back
+
+**Fallback gate (M106).** A fallback — anything that continues after a failure — can no longer be written unless it was approved by name. The rule has been written down since v5.0.14 and kept being broken: a lookup for a post's author failed, the code substituted the last known seller, and posts were recorded as written by someone who never wrote them. That shipped while the rule was live.
+
+Two things about the rule changed as a result. The damage is fabricated data **plus a disabled alarm** — author detection broke because a code change broke it, and the substitution meant nobody ever went looking. And consent must be specific: a fallback buried inside a long plan approved as a whole is not approved, because whoever wrote the plan controls the burying.
+
+Detection matches the shape of the code, not its wording, so rewording cannot evade it. It runs when code is written, when a plan is reviewed, before a commit, and on demand across existing code. A one-time baseline records what was already there so the gate judges new work only.
+
+- `bin/gsd-t-fallback-detect.cjs`, `scripts/gsd-t-fallback-guard.js`, `test/m106-fallback-gate.test.js`
+
+**Shorter replies (M107).** A second Claude rewrites replies over 60 words — answer first, no preamble, no backstory, no jargon — before you read them. The rewrite is thrown away and the original kept if it drops a question, a code block, every file path, or invents a number.
+
+- `bin/gsd-t-concise-rewrite.cjs`, `scripts/gsd-t-concise-hook.js`, `test/m107-concise-rewrite.test.js`
+
+Switch either gate off per project: `.gsd-t/fallback-gate.json` or `.gsd-t/concise.json` with `{"enabled": false}`.
+
 ## [5.8.10] - 2026-08-05
 
 ### Changed — the architect now interviews you before it assesses
