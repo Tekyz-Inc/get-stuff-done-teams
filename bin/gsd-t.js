@@ -514,6 +514,14 @@ const FALLBACK_HOOK_MARKER = "gsd-t-fallback-guard";
 const FALLBACK_HOOK_COMMAND =
   'node "$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-fallback-guard.js"';
 
+// ─── M108 Install self-heal (SessionStart) ──────────────────────────────────
+// Checks the project's tools before any work starts, restores what is missing,
+// and reports what it could not fix. Not a fallback — it repairs the failure
+// and then the session runs correctly, rather than routing around it.
+const INSTALL_HEAL_MARKER = "gsd-t-install-heal";
+const INSTALL_HEAL_COMMAND =
+  'bash -c \'[ -f "$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-install-heal.js" ] && node "$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-install-heal.js" || true\'';
+
 // ─── M107 Concise hook (Stop) ───────────────────────────────────────────────
 // Sends a long reply to a fresh Claude for a shorter rewrite. Fail-open by
 // design (`|| true`): it governs how a reply READS, never whether it is true,
@@ -991,9 +999,21 @@ function configureConciseHook(settingsPath) {
   return configureStopHook(settingsPath, CONCISE_HOOK_MARKER, CONCISE_HOOK_COMMAND, "concise rewrite");
 }
 
+// M108 — register the install self-heal on SessionStart, so a broken install is
+// repaired before any work begins.
+function configureInstallHealHook(settingsPath) {
+  return configureEventHook(settingsPath, "SessionStart", INSTALL_HEAL_MARKER, INSTALL_HEAL_COMMAND, "install self-heal");
+}
+
 // Register a Stop hook by marker. Mirrors configureWriteEditHook exactly, on the
 // Stop event instead of PreToolUse.
 function configureStopHook(settingsPath, marker, command, label) {
+  return configureEventHook(settingsPath, "Stop", marker, command, label);
+}
+
+// Register a hook on any event by marker. One registrar for every event, so a
+// new hook needs no new copy of this logic.
+function configureEventHook(settingsPath, event, marker, command, label) {
   const targetPath = settingsPath || SETTINGS_JSON;
   let settings = {};
   if (fs.existsSync(targetPath)) {
@@ -1006,11 +1026,11 @@ function configureStopHook(settingsPath, marker, command, label) {
     }
   }
   if (!settings.hooks) settings.hooks = {};
-  if (!Array.isArray(settings.hooks.Stop)) settings.hooks.Stop = [];
+  if (!Array.isArray(settings.hooks[event])) settings.hooks[event] = [];
 
   let action = "noop";
   let found = false;
-  for (const entry of settings.hooks.Stop) {
+  for (const entry of settings.hooks[event]) {
     if (!entry || !Array.isArray(entry.hooks)) continue;
     for (const h of entry.hooks) {
       if (h && typeof h.command === "string" && h.command.includes(marker)) {
@@ -1020,7 +1040,11 @@ function configureStopHook(settingsPath, marker, command, label) {
     }
   }
   if (!found) {
-    settings.hooks.Stop.push({ matcher: "", hooks: [{ type: "command", command }] });
+    // The install check goes FIRST on SessionStart, so a broken install is
+    // repaired before anything else tries to use the missing tools.
+    const entry = { matcher: "", hooks: [{ type: "command", command }] };
+    if (event === "SessionStart") settings.hooks[event].unshift(entry);
+    else settings.hooks[event].push(entry);
     action = "added";
   }
   if (action === "noop") return { installed: true, action };
@@ -1604,10 +1628,16 @@ const UTILITY_SCRIPTS = ["gsd-t-tools.js", "gsd-t-statusline.js", "gsd-t-event-w
 
 function installUtilityScripts() {
   ensureDir(SCRIPTS_DIR);
+  const notDelivered = [];
   for (const script of UTILITY_SCRIPTS) {
     const src = path.join(PKG_SCRIPTS, script);
     const dest = path.join(SCRIPTS_DIR, script);
-    if (!fs.existsSync(src)) continue;
+    if (!fs.existsSync(src)) {
+      // Promised but absent from the package. Reported, never skipped quietly —
+      // the same silence let projects run for weeks on a half install.
+      notDelivered.push(script);
+      continue;
+    }
     const srcContent = fs.readFileSync(src, "utf8");
     const destContent = fs.existsSync(dest) ? fs.readFileSync(dest, "utf8") : "";
     if (normalizeEol(srcContent) !== normalizeEol(destContent)) {
@@ -1615,6 +1645,11 @@ function installUtilityScripts() {
     } else {
       info(`${script} unchanged`);
     }
+  }
+  if (notDelivered.length) {
+    warn(`${notDelivered.length} script(s) are named by the installer but absent from the package:`);
+    for (const s of notDelivered) warn(`    ${s}`);
+    warn(`  Anything depending on these will fail. This is a packaging defect.`);
   }
 }
 
@@ -1671,6 +1706,9 @@ const GLOBAL_BIN_TOOLS = [
   // out to this; absent, the hook allows the long reply through (fail-open by
   // design — it governs readability, never truth).
   "gsd-t-concise-rewrite.cjs",
+  // M108 — Install self-check, run by the SessionStart hook and by
+  // `gsd-t install-check`.
+  "gsd-t-install-check.cjs",
 ];
 
 function installGlobalBinTools() {
@@ -1918,10 +1956,14 @@ const SHARED_TEMPLATES = [
 function installSharedTemplates() {
   ensureDir(CLAUDE_TEMPLATES_DIR);
   let installed = 0, skipped = 0;
+  const notDelivered = [];
   for (const file of SHARED_TEMPLATES) {
     const src = path.join(PKG_TEMPLATES, file);
     const dest = path.join(CLAUDE_TEMPLATES_DIR, file);
-    if (!fs.existsSync(src)) continue;
+    if (!fs.existsSync(src)) {
+      notDelivered.push(file); // promised but absent — reported, never silent
+      continue;
+    }
     if (fs.existsSync(dest) &&
         normalizeEol(fs.readFileSync(src, "utf8")) === normalizeEol(fs.readFileSync(dest, "utf8"))) {
       skipped++;
@@ -1932,6 +1974,10 @@ function installSharedTemplates() {
   }
   if (skipped > 0) info(`${skipped} templates unchanged`);
   success(`${installed + skipped} shared templates → ~/.claude/templates/`);
+  if (notDelivered.length) {
+    warn(`${notDelivered.length} template(s) are named by the installer but absent from the package:`);
+    for (const f of notDelivered) warn(`    ${f}`);
+  }
 }
 
 function installCommands(isUpdate) {
@@ -2127,6 +2173,13 @@ async function doInstall(opts = {}) {
     if (ccHook.action === "added") success("Concise-rewrite hook added (shortens a long reply before you read it — M107)");
     else if (ccHook.action === "refreshed") success("Concise-rewrite hook refreshed");
     else info("Concise-rewrite hook already configured");
+  }
+
+  const healHook = configureInstallHealHook(SETTINGS_JSON);
+  if (healHook.installed) {
+    if (healHook.action === "added") success("Install self-heal added (restores missing tools before work starts — M108)");
+    else if (healHook.action === "refreshed") success("Install self-heal refreshed");
+    else info("Install self-heal already configured");
   }
 
   heading("Graph Engine (CGC)");
@@ -3094,6 +3147,9 @@ const PROJECT_BIN_TOOLS = [
   "gsd-t-fallback-detect.cjs",
   // M107 — Concise rewriter, invoked by the Stop hook.
   "gsd-t-concise-rewrite.cjs",
+  // M108 — Install self-check. Every project carries its own copy so it can
+  // verify and repair itself even when the global install is what broke.
+  "gsd-t-install-check.cjs",
   // M89 — Auto-research gate classifier (classify a guessed claim as internal vs external;
   // propagated to each registered project's bin/ so the workflow runCli fallback resolves
   // downstream — per [[project_global_bin_propagation_gap]]).
@@ -3258,10 +3314,20 @@ function copyBinToolsToProject(projectDir, projectName) {
     }
   }
   let copied = 0;
+  // Tools this pass could NOT deliver. Every one is reported. A silent skip
+  // here is how binvoice ran for weeks with 20 of 38 tools while every update
+  // reported success — the missing files were never counted, so nothing looked
+  // wrong. ([[project_global_bin_propagation_gap]], now 5 occurrences.)
+  const notDelivered = [];
   for (const tool of PROJECT_BIN_TOOLS) {
     const src = path.join(PKG_ROOT, "bin", tool);
     const dest = path.join(projectBinDir, tool);
-    if (!fs.existsSync(src)) continue;
+    if (!fs.existsSync(src)) {
+      // The package promises a tool it does not contain. That is a packaging
+      // defect and it affects EVERY project — it must never pass unremarked.
+      notDelivered.push({ tool, why: "absent from the package being installed" });
+      continue;
+    }
     let needsCopy = true;
     if (fs.existsSync(dest)) {
       try {
@@ -3269,7 +3335,7 @@ function copyBinToolsToProject(projectDir, projectName) {
         const destContent = fs.readFileSync(dest, "utf8");
         if (srcContent === destContent) needsCopy = false;
       } catch {
-        // fall through, will copy
+        // could not compare — copy, which is the safe direction
       }
     }
     if (needsCopy) {
@@ -3278,9 +3344,16 @@ function copyBinToolsToProject(projectDir, projectName) {
         try { fs.chmodSync(dest, 0o755); } catch {}
         copied++;
       } catch (e) {
-        warn(`${projectName} — failed to copy ${tool}: ${e.message}`);
+        notDelivered.push({ tool, why: e.message });
       }
     }
+  }
+  if (notDelivered.length) {
+    warn(`${projectName} — ${notDelivered.length} of ${PROJECT_BIN_TOOLS.length} tools were NOT delivered:`);
+    for (const n of notDelivered) warn(`    ${n.tool} — ${n.why}`);
+    warn(`  This project's install is incomplete. Tools that depend on the missing`);
+    warn(`  files will fail. Run 'gsd-t install-check --project ${projectDir}' after`);
+    warn(`  fixing the package.`);
   }
   let cleaned = 0;
   if (!_isGsdTSourcePackage(projectDir)) {
@@ -5470,6 +5543,20 @@ if (require.main === module) {
       });
       process.exit(res.status == null ? 1 : res.status);
     }
+    case "install-check": {
+      // M108 — check this project's tools against the installed package, and
+      // restore anything missing. `--check` reports without changing anything;
+      // `--report` reads the shared log of every repair across all projects.
+      const { spawnSync } = require("child_process");
+      const js = path.join(__dirname, "gsd-t-install-check.cjs");
+      if (!require("node:fs").existsSync(js)) {
+        error(`gsd-t-install-check.cjs not found at ${js} — reinstall GSD-T`);
+        process.exit(1);
+      }
+      const res = spawnSync(process.execPath, [js, ...args.slice(1)], { stdio: "inherit" });
+      process.exit(res.status == null ? 1 : res.status);
+    }
+
     case "pseudocode-style": {
       // Contract v1.2.0 §1.1 — `gsd-t pseudocode-style (--doc <f> | --dir <d>)` thin
       // dispatcher to the PseudoCode flow-line STYLE gate. Sibling of `guard-map`:

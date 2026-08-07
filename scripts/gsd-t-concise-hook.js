@@ -120,18 +120,17 @@ function readConfig(projectDir) {
   }
 }
 
+/**
+ * Locate the rewriter. Every project carries its own copy; if it does not, the
+ * install is broken and the SessionStart heal hook repairs it. Two exact
+ * locations, no hunting.
+ */
 function findRewriter(projectDir) {
-  const candidates = [
-    path.join(projectDir, "bin", "gsd-t-concise-rewrite.cjs"),
-    path.join(__dirname, "..", "bin", "gsd-t-concise-rewrite.cjs"),
-  ];
-  try {
-    const r = spawnSync("npm", ["root", "-g"], { encoding: "utf8", timeout: 5000 });
-    if (r.status === 0 && r.stdout) {
-      candidates.push(path.join(r.stdout.trim(), "@tekyzinc", "gsd-t", "bin", "gsd-t-concise-rewrite.cjs"));
-    }
-  } catch (_) { /* npm unavailable — remaining candidates still apply */ }
-  return candidates.find((c) => { try { return fs.existsSync(c); } catch (_) { return false; } }) || null;
+  const inProject = path.join(projectDir, "bin", "gsd-t-concise-rewrite.cjs");
+  if (fs.existsSync(inProject)) return inProject;
+  const inPackage = path.join(__dirname, "..", "bin", "gsd-t-concise-rewrite.cjs");
+  if (fs.existsSync(inPackage)) return inPackage;
+  return null; // the caller lets the reply through — see the note on main()
 }
 
 function main() {

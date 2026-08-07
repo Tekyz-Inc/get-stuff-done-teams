@@ -1,28 +1,14 @@
 {
   "note": "Fallbacks approved by name. Each one was shown to David as its own question, never buried in a plan. An empty list is the normal state for a project.",
-  "fallbacks": [
+  "withdrawn": [
     {
       "id": "guard-locate-detector",
-      "location": "scripts/gsd-t-fallback-guard.js#findDetector",
-      "rule": "catch-continues",
-      "whatFails": "Asking npm where it installed packages (`npm root -g`) fails when npm is missing from PATH, which happens inside restricted shells.",
-      "howLikely": "Occasional. Observed in sandboxed and CI shells.",
-      "whyNotHalt": "This is a SEARCH across three known locations, not a recovery from a failure. One location being unavailable does not mean the file is absent — the next candidate is checked. If every location comes up empty the function returns nothing and the caller DENIES the write, which is the halt.",
-      "whatItDoesInstead": "Skips that one candidate location and checks the next. It never substitutes a value or guesses a path.",
-      "approvedBy": "david",
-      "approvedAt": "2026-08-07"
-    },
-    {
-      "id": "hook-locate-rewriter",
-      "location": "scripts/gsd-t-concise-hook.js#findRewriter",
-      "rule": "catch-continues",
-      "whatFails": "Same as above — `npm root -g` is unavailable in some shells.",
-      "howLikely": "Occasional.",
-      "whyNotHalt": "Same reasoning: a search across candidate locations, not a recovery. If none is found the hook allows the reply through unchanged, which loses nothing.",
-      "whatItDoesInstead": "Checks the next candidate location.",
-      "approvedBy": "david",
-      "approvedAt": "2026-08-07"
-    },
+      "alsoWithdrawn": "hook-locate-rewriter",
+      "why": "These two searched for a helper script and moved on when a location came up empty. That was the wrong answer. A missing core tool means the project's install is broken — the fix is to REPAIR it and continue with every tool present, not to route around the gap. Routing around it is what let binvoice run for weeks with 20 of 38 tools while every update reported success. Superseded by M108 (bin/gsd-t-install-check.cjs + the SessionStart repair hook).",
+      "withdrawnAt": "2026-08-07"
+    }
+  ],
+  "fallbacks": [
     {
       "id": "hook-read-transcript-tail",
       "location": "scripts/gsd-t-concise-hook.js#readTail",

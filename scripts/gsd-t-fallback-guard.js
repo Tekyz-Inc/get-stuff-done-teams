@@ -53,19 +53,31 @@ function deny(reason) {
 
 function allow() { process.exit(0); }
 
-/** Locate the detector: project copy first, then the installed package. */
+/**
+ * Locate the detector.
+ *
+ * Every project is supposed to carry its own copy. If it does not, the
+ * project's install is broken, and the answer is to REPAIR it — which the
+ * SessionStart heal hook does — not to hunt around for a copy somewhere else.
+ * Hunting is what let binvoice run for weeks on 20 of 38 tools while every
+ * update reported success.
+ *
+ * Returns the path, or throws with what is wrong. It never returns "not found"
+ * as if that were an ordinary answer.
+ */
 function findDetector(projectDir) {
-  const candidates = [
-    path.join(projectDir, "bin", "gsd-t-fallback-detect.cjs"),
-    path.join(__dirname, "..", "bin", "gsd-t-fallback-detect.cjs"),
-  ];
-  try {
-    const npmRoot = spawnSync("npm", ["root", "-g"], { encoding: "utf8", timeout: 5000 });
-    if (npmRoot.status === 0 && npmRoot.stdout) {
-      candidates.push(path.join(npmRoot.stdout.trim(), "@tekyzinc", "gsd-t", "bin", "gsd-t-fallback-detect.cjs"));
-    }
-  } catch (_) { /* npm unavailable — the remaining candidates still apply */ }
-  return candidates.find((c) => { try { return fs.existsSync(c); } catch (_) { return false; } }) || null;
+  const inProject = path.join(projectDir, "bin", "gsd-t-fallback-detect.cjs");
+  if (fs.existsSync(inProject)) return inProject;
+
+  // Running from inside the package itself (developing GSD-T).
+  const inPackage = path.join(__dirname, "..", "bin", "gsd-t-fallback-detect.cjs");
+  if (fs.existsSync(inPackage)) return inPackage;
+
+  throw new Error(
+    `This project has no copy of the fallback detector at ${inProject}, which means ` +
+    `its GSD-T install is incomplete. Run 'gsd-t install-check' to repair it — do not ` +
+    `work around it.`
+  );
 }
 
 /** Thrown when the settings file exists but cannot be understood. */
@@ -172,13 +184,14 @@ function main() {
     }
     if (!on) return allow();                          // switched off for this project
 
-    const detector = findDetector(cwd);
-    if (!detector) {
+    let detector;
+    try {
+      detector = findDetector(cwd);
+    } catch (e) {
       return deny(
-        "The fallback detector could not be found, so this write cannot be checked.\n" +
-        "Allowing it unchecked would be the exact thing this guard exists to prevent.\n\n" +
-        "Reinstall GSD-T, or switch the gate off deliberately in\n" +
-        ".gsd-t/fallback-gate.json with {\"enabled\": false}."
+        `${e.message}\n\n` +
+        "This write cannot be checked, and allowing it unchecked is exactly what this\n" +
+        "guard exists to prevent."
       );
     }
 

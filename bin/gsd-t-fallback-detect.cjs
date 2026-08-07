@@ -317,10 +317,16 @@ function scanStructural(clean, file, findings) {
     // The dangerous shape is a catch that HANDS BACK A VALUE the caller will
     // trust. A bare `return;` / `continue;` / `break;` abandons the work — it
     // fabricates nothing, so it is not flagged.
-    const producesValue =
+    // Recording the failure so it gets reported is the OPPOSITE of hiding it.
+    // A push onto a list literally named for undelivered/failed/missing items
+    // is how a loud report gets built.
+    const recordsTheFailure =
+      /\b(?:notDelivered|failures?|errors?|missing|unrepairable|problems?|skipped)\b[^;\n]*\.push\s*\(/i.test(body);
+
+    const producesValue = !recordsTheFailure && (
       (/\breturn\s+(?!;)[\w'"`[{(]/.test(body) && !DECISION_CALL_RE.test(body)) || // return <something>
       /\b\w+(?:\.\w+)*\s*=\s*(?!null\b|undefined\b)[\w'"`[{(]/.test(body) || // assigns a stand-in
-      /\b\w+\.push\s*\(/.test(body);                       // appends a stand-in
+      /\b\w+\.push\s*\(/.test(body));                      // appends a stand-in
     const logs = /\b(?:console\.\w+|logger?\.\w+|trace\w*|warn|debug)\s*\(/.test(body);
 
     if (!producesValue && !logs) continue; // abandons the work, invents nothing
