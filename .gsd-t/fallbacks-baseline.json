@@ -1,0 +1,3192 @@
+{
+  "seededAt": "2026-08-07T06:47:42.697Z",
+  "note": "Fallbacks already present when the gate was adopted. Not approved — merely pre-existing. Fix them over time; the gate blocks NEW ones.",
+  "entries": [
+    {
+      "file": "bin/archive-progress.cjs",
+      "rule": "substituted-value",
+      "symbol": "parseArgs",
+      "snippet": "if (!opts.quiet) console.log('                                          ');"
+    },
+    {
+      "file": "bin/archive-progress.cjs",
+      "rule": "retry-then-proceed",
+      "symbol": "parseArgs",
+      "snippet": "for (let i = 0; i < entries.length; i++) { formatted.pus"
+    },
+    {
+      "file": "bin/archive-progress.cjs",
+      "rule": "retry-then-proceed",
+      "symbol": "parseArgs",
+      "snippet": "for (let i = 0; i < keptEntries.length; i++) { newDecisi"
+    },
+    {
+      "file": "bin/cli-preflight-checks/contracts-stable.cjs",
+      "rule": "catch-continues",
+      "symbol": "_isPastPartitioned",
+      "snippet": "return [];"
+    },
+    {
+      "file": "bin/cli-preflight-checks/contracts-stable.cjs",
+      "rule": "substituted-value",
+      "symbol": "_isPastPartitioned",
+      "snippet": "return {"
+    },
+    {
+      "file": "bin/cli-preflight-checks/contracts-stable.cjs",
+      "rule": "retry-then-proceed",
+      "symbol": "_isPastPartitioned",
+      "snippet": "for (const filename of entries) { if (!filename.endsWith"
+    },
+    {
+      "file": "bin/cli-preflight-checks/deps-installed.cjs",
+      "rule": "substituted-value",
+      "symbol": "_mtime",
+      "snippet": "return {"
+    },
+    {
+      "file": "bin/cli-preflight-checks/ports-free.cjs",
+      "rule": "catch-continues",
+      "symbol": "_readRequiredPorts",
+      "snippet": "return [];"
+    },
+    {
+      "file": "bin/cli-preflight-checks/ports-free.cjs",
+      "rule": "catch-continues",
+      "symbol": "_readRequiredPorts",
+      "snippet": "return [];"
+    },
+    {
+      "file": "bin/cli-preflight-checks/ports-free.cjs",
+      "rule": "catch-continues",
+      "symbol": "_readRequiredPorts",
+      "snippet": "if (err && err.status === 1) return { listening: false };"
+    },
+    {
+      "file": "bin/cli-preflight-checks/working-tree-state.cjs",
+      "rule": "catch-continues",
+      "symbol": "_readWhitelist",
+      "snippet": "return [];"
+    },
+    {
+      "file": "bin/cli-preflight-checks/working-tree-state.cjs",
+      "rule": "catch-continues",
+      "symbol": "_readWhitelist",
+      "snippet": "return [];"
+    },
+    {
+      "file": "bin/cli-preflight.cjs",
+      "rule": "catch-continues",
+      "symbol": "runPreflight",
+      "snippet": "notes.push('                                 ' + (err && err.message || err) + '"
+    },
+    {
+      "file": "bin/cli-preflight.cjs",
+      "rule": "catch-continues",
+      "symbol": "runPreflight",
+      "snippet": "notes.push('          ' + filename + '              ' + (err && err.message || e"
+    },
+    {
+      "file": "bin/cli-preflight.cjs",
+      "rule": "catch-continues",
+      "symbol": "runPreflight",
+      "snippet": "const msg = '             ' + (err && err.message || String(err));"
+    },
+    {
+      "file": "bin/cli-preflight.cjs",
+      "rule": "retry-then-proceed",
+      "symbol": "runPreflight",
+      "snippet": "for (const filename of entries) { if (!filename.endsWith"
+    },
+    {
+      "file": "bin/design-orchestrator.js",
+      "rule": "catch-continues",
+      "symbol": "discoverWork",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/design-orchestrator.js",
+      "rule": "trace-then-continue",
+      "symbol": "discoverWork",
+      "snippet": "warn(\"                                                                    \");"
+    },
+    {
+      "file": "bin/design-orchestrator.js",
+      "rule": "trace-then-continue",
+      "symbol": "discoverWork",
+      "snippet": "warn(`                                                      `);"
+    },
+    {
+      "file": "bin/design-orchestrator.js",
+      "rule": "catch-continues",
+      "symbol": "discoverWork",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/global-sync-manager.js",
+      "rule": "catch-continues",
+      "symbol": "_setGlobalDir",
+      "snippet": "return path.basename(process.cwd());"
+    },
+    {
+      "file": "bin/global-sync-manager.js",
+      "rule": "retry-then-proceed",
+      "symbol": "_setGlobalDir",
+      "snippet": "for (const entry of entries) { const domSignals = (entry"
+    },
+    {
+      "file": "bin/gsd-t-architectural-trigger.cjs",
+      "rule": "catch-continues",
+      "symbol": "tokenize",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t-architectural-trigger.cjs",
+      "rule": "substituted-value",
+      "symbol": "tokenize",
+      "snippet": "return {"
+    },
+    {
+      "file": "bin/gsd-t-architectural-trigger.cjs",
+      "rule": "or-default",
+      "symbol": "tokenize",
+      "snippet": "termCounts.get(term) || 0"
+    },
+    {
+      "file": "bin/gsd-t-archive-domains.cjs",
+      "rule": "or-default",
+      "symbol": "archiveDomains",
+      "snippet": "Array.isArray(domains) || domains"
+    },
+    {
+      "file": "bin/gsd-t-build-coverage.cjs",
+      "rule": "catch-continues",
+      "symbol": "gitDiffNames",
+      "snippet": "return { segments };"
+    },
+    {
+      "file": "bin/gsd-t-ci-parity.cjs",
+      "rule": "catch-continues",
+      "symbol": "detectCloudbuild",
+      "snippet": "return paths;"
+    },
+    {
+      "file": "bin/gsd-t-ci-parity.cjs",
+      "rule": "catch-continues",
+      "symbol": "detectCloudbuild",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t-ci-parity.cjs",
+      "rule": "catch-continues",
+      "symbol": "detectCloudbuild",
+      "snippet": "return { cmd, exitCode: 1, ok: false, output: String(err) };"
+    },
+    {
+      "file": "bin/gsd-t-ci-parity.cjs",
+      "rule": "catch-continues",
+      "symbol": "detectCloudbuild",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t-ci-parity.cjs",
+      "rule": "retry-then-proceed",
+      "symbol": "detectCloudbuild",
+      "snippet": "for (const e of entries) { const full = path.join(dir, e"
+    },
+    {
+      "file": "bin/gsd-t-ci-parity.cjs",
+      "rule": "retry-then-proceed",
+      "symbol": "detectCloudbuild",
+      "snippet": "for (const name of entries) { if (!/^tsconfig.*\\.json$/."
+    },
+    {
+      "file": "bin/gsd-t-competition-judge.cjs",
+      "rule": "catch-continues",
+      "symbol": "_normPath",
+      "snippet": "return \"\";"
+    },
+    {
+      "file": "bin/gsd-t-competition-judge.cjs",
+      "rule": "catch-continues",
+      "symbol": "_normPath",
+      "snippet": "result = { ok: false, exitCode: 64, kind: spec && spec.kind, n: 0, winner: null,"
+    },
+    {
+      "file": "bin/gsd-t-context-brief-kinds/design-verify.cjs",
+      "rule": "catch-continues",
+      "symbol": "_readMaybe",
+      "snippet": "entries = [];"
+    },
+    {
+      "file": "bin/gsd-t-context-brief-kinds/design-verify.cjs",
+      "rule": "retry-then-proceed",
+      "symbol": "_readMaybe",
+      "snippet": "for (const f of entries) { if (/^design.*\\.md$/i.test(f)"
+    },
+    {
+      "file": "bin/gsd-t-context-brief-kinds/execute.cjs",
+      "rule": "catch-continues",
+      "symbol": "_readMaybe",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t-context-brief-kinds/execute.cjs",
+      "rule": "substituted-value",
+      "symbol": "_readMaybe",
+      "snippet": "return { scope, constraints, contracts, ancillary };"
+    },
+    {
+      "file": "bin/gsd-t-context-brief-kinds/impact.cjs",
+      "rule": "catch-continues",
+      "symbol": "_readMaybe",
+      "snippet": "return [];"
+    },
+    {
+      "file": "bin/gsd-t-context-brief-kinds/partition.cjs",
+      "rule": "catch-continues",
+      "symbol": "_readMaybe",
+      "snippet": "return [];"
+    },
+    {
+      "file": "bin/gsd-t-context-brief-kinds/plan.cjs",
+      "rule": "catch-continues",
+      "symbol": "_readMaybe",
+      "snippet": "return [];"
+    },
+    {
+      "file": "bin/gsd-t-context-brief-kinds/qa.cjs",
+      "rule": "catch-continues",
+      "symbol": "_readMaybe",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t-context-brief-kinds/qa.cjs",
+      "rule": "catch-continues",
+      "symbol": "_readMaybe",
+      "snippet": "return [];"
+    },
+    {
+      "file": "bin/gsd-t-context-brief-kinds/qa.cjs",
+      "rule": "retry-then-proceed",
+      "symbol": "_readMaybe",
+      "snippet": "for (const f of entries) { if (!f.endsWith(' ')) conti"
+    },
+    {
+      "file": "bin/gsd-t-context-brief-kinds/red-team.cjs",
+      "rule": "catch-continues",
+      "symbol": "_readMaybe",
+      "snippet": "return [];"
+    },
+    {
+      "file": "bin/gsd-t-context-brief-kinds/scan.cjs",
+      "rule": "catch-continues",
+      "symbol": "_readMaybe",
+      "snippet": "return [];"
+    },
+    {
+      "file": "bin/gsd-t-context-brief-kinds/verify.cjs",
+      "rule": "catch-continues",
+      "symbol": "_readMaybe",
+      "snippet": "return [];"
+    },
+    {
+      "file": "bin/gsd-t-context-brief-kinds/verify.cjs",
+      "rule": "catch-continues",
+      "symbol": "_readMaybe",
+      "snippet": "return { source: null, items: [] };"
+    },
+    {
+      "file": "bin/gsd-t-context-brief-kinds/verify.cjs",
+      "rule": "catch-continues",
+      "symbol": "_readMaybe",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t-context-brief-kinds/verify.cjs",
+      "rule": "retry-then-proceed",
+      "symbol": "_readMaybe",
+      "snippet": "for (const f of entries) { if (!f.endsWith(' ')) conti"
+    },
+    {
+      "file": "bin/gsd-t-context-brief-kinds/verify.cjs",
+      "rule": "or-default",
+      "symbol": "_readMaybe",
+      "snippet": "f.endsWith(' ') || f"
+    },
+    {
+      "file": "bin/gsd-t-context-brief.cjs",
+      "rule": "catch-continues",
+      "symbol": "generateBrief",
+      "snippet": "return [];"
+    },
+    {
+      "file": "bin/gsd-t-context-brief.cjs",
+      "rule": "catch-continues",
+      "symbol": "generateBrief",
+      "snippet": "return '';"
+    },
+    {
+      "file": "bin/gsd-t-context-brief.cjs",
+      "rule": "catch-continues",
+      "symbol": "generateBrief",
+      "snippet": "process.stderr.write('       ' + (err && err.message || String(err)) + '  ');"
+    },
+    {
+      "file": "bin/gsd-t-context-brief.cjs",
+      "rule": "catch-continues",
+      "symbol": "generateBrief",
+      "snippet": "process.stderr.write('                              ' + (err && err.message || e"
+    },
+    {
+      "file": "bin/gsd-t-context-brief.cjs",
+      "rule": "retry-then-proceed",
+      "symbol": "generateBrief",
+      "snippet": "for (const filename of entries) { if (!filename.endsWith"
+    },
+    {
+      "file": "bin/gsd-t-depgraph-validate.cjs",
+      "rule": "catch-continues",
+      "symbol": "appendEvent",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t-env-registry-check.cjs",
+      "rule": "catch-continues",
+      "symbol": "gateCommandTokenOk",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t-env-registry-check.cjs",
+      "rule": "catch-continues",
+      "symbol": "gateCommandTokenOk",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t-env-registry-check.cjs",
+      "rule": "or-default",
+      "symbol": "gateCommandTokenOk",
+      "snippet": "gateIsDbNameShape(s) || GATE_NOT_APPLICABLE"
+    },
+    {
+      "file": "bin/gsd-t-env-registry-check.cjs",
+      "rule": "or-default",
+      "symbol": "gateCommandTokenOk",
+      "snippet": "readSafe(infraPath) || \""
+    },
+    {
+      "file": "bin/gsd-t-env-registry-check.cjs",
+      "rule": "or-default",
+      "symbol": "gateCommandTokenOk",
+      "snippet": "readSafe(claudePath) || \""
+    },
+    {
+      "file": "bin/gsd-t-fallback-detect.cjs",
+      "rule": "catch-continues",
+      "symbol": "lineOf",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t-fallback-detect.cjs",
+      "rule": "substituted-value",
+      "symbol": "while",
+      "snippet": "if (c === \" \" && c2 === \" \") { state = \"    \"; out += \"  \"; i += 2; continue; }"
+    },
+    {
+      "file": "bin/gsd-t-fallback-detect.cjs",
+      "rule": "retry-then-proceed",
+      "symbol": "lineOf",
+      "snippet": "for (const e of entries) { if (e.name.startsWith(\" \") &&"
+    },
+    {
+      "file": "bin/gsd-t-file-disjointness.cjs",
+      "rule": "catch-continues",
+      "symbol": "appendFallbackEvent",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t-file-disjointness.cjs",
+      "rule": "catch-continues",
+      "symbol": "appendFallbackEvent",
+      "snippet": "return [];"
+    },
+    {
+      "file": "bin/gsd-t-file-disjointness.cjs",
+      "rule": "catch-continues",
+      "symbol": "appendFallbackEvent",
+      "snippet": "execErr = e;"
+    },
+    {
+      "file": "bin/gsd-t-file-disjointness.cjs",
+      "rule": "catch-continues",
+      "symbol": "appendFallbackEvent",
+      "snippet": "return { blastRadius: [], graphAvailable: false, cliPresent: true, state: \"     "
+    },
+    {
+      "file": "bin/gsd-t-file-disjointness.cjs",
+      "rule": "substituted-value",
+      "symbol": "appendFallbackEvent",
+      "snippet": "return { blastRadius: [], graphAvailable: false, cliPresent: false };"
+    },
+    {
+      "file": "bin/gsd-t-file-disjointness.cjs",
+      "rule": "substituted-value",
+      "symbol": "appendFallbackEvent",
+      "snippet": "const c = classifyGraphFailure(envelope.reason);"
+    },
+    {
+      "file": "bin/gsd-t-file-disjointness.cjs",
+      "rule": "substituted-value",
+      "symbol": "appendFallbackEvent",
+      "snippet": "return { verdict: \"      \" };"
+    },
+    {
+      "file": "bin/gsd-t-file-disjointness.cjs",
+      "rule": "substituted-value",
+      "symbol": "appendFallbackEvent",
+      "snippet": "return { verdict: \"                 \", reason: \"                 \", state: state"
+    },
+    {
+      "file": "bin/gsd-t-file-disjointness.cjs",
+      "rule": "substituted-value",
+      "symbol": "appendFallbackEvent",
+      "snippet": "if (!graphAvailableConfirmed) {"
+    },
+    {
+      "file": "bin/gsd-t-file-disjointness.cjs",
+      "rule": "substituted-value",
+      "symbol": "appendFallbackEvent",
+      "snippet": "return { verdict: \"      \" };"
+    },
+    {
+      "file": "bin/gsd-t-file-disjointness.cjs",
+      "rule": "substituted-value",
+      "symbol": "appendFallbackEvent",
+      "snippet": "if (!graphAvailableConfirmed) {"
+    },
+    {
+      "file": "bin/gsd-t-file-disjointness.cjs",
+      "rule": "substituted-value",
+      "symbol": "appendFallbackEvent",
+      "snippet": "return { verdict: \"                 \", reason: \"                 \", state: state"
+    },
+    {
+      "file": "bin/gsd-t-file-disjointness.cjs",
+      "rule": "substituted-value",
+      "symbol": "appendFallbackEvent",
+      "snippet": "const graphResult = groupByOverlapGraphAware(provable, projectDir, fallbackToTou"
+    },
+    {
+      "file": "bin/gsd-t-graph-anti-grep-lint.cjs",
+      "rule": "or-default",
+      "symbol": "parseManifest",
+      "snippet": "commandFile.startsWith(' ') || commandFile"
+    },
+    {
+      "file": "bin/gsd-t-graph-anti-grep-lint.cjs",
+      "rule": "or-default",
+      "symbol": "parseManifest",
+      "snippet": "workflowFile.startsWith(' ') || workflowFile"
+    },
+    {
+      "file": "bin/gsd-t-graph-edge-extract.cjs",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t-graph-edge-extract.cjs",
+      "rule": "or-default",
+      "symbol": "log",
+      "snippet": "spec.childForFieldName(' ') || spec"
+    },
+    {
+      "file": "bin/gsd-t-graph-edge-extract.cjs",
+      "rule": "or-default",
+      "symbol": "log",
+      "snippet": "resolveCalleeName(fn) || fn"
+    },
+    {
+      "file": "bin/gsd-t-graph-edge-extract.cjs",
+      "rule": "or-default",
+      "symbol": "log",
+      "snippet": "spec.childForFieldName(' ') || spec"
+    },
+    {
+      "file": "bin/gsd-t-graph-freshness.cjs",
+      "rule": "catch-continues",
+      "symbol": "ok",
+      "snippet": "return results;"
+    },
+    {
+      "file": "bin/gsd-t-graph-freshness.cjs",
+      "rule": "catch-continues",
+      "symbol": "ok",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t-graph-freshness.cjs",
+      "rule": "catch-continues",
+      "symbol": "ok",
+      "snippet": "return [];"
+    },
+    {
+      "file": "bin/gsd-t-graph-freshness.cjs",
+      "rule": "catch-continues",
+      "symbol": "ok",
+      "snippet": "return { revalidated: false, op, file: fileRel, error: e.message };"
+    },
+    {
+      "file": "bin/gsd-t-graph-freshness.cjs",
+      "rule": "catch-continues",
+      "symbol": "ok",
+      "snippet": "errors.push({ file: rel, op: '    ', error: e.message });"
+    },
+    {
+      "file": "bin/gsd-t-graph-freshness.cjs",
+      "rule": "catch-continues",
+      "symbol": "ok",
+      "snippet": "errors.push({ file: rel, op: '   ', error: e.message });"
+    },
+    {
+      "file": "bin/gsd-t-graph-freshness.cjs",
+      "rule": "catch-continues",
+      "symbol": "ok",
+      "snippet": "errors.push({ file: rel, op: '      ', error: e.message });"
+    },
+    {
+      "file": "bin/gsd-t-graph-freshness.cjs",
+      "rule": "catch-continues",
+      "symbol": "ok",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t-graph-freshness.cjs",
+      "rule": "catch-continues",
+      "symbol": "ok",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t-graph-freshness.cjs",
+      "rule": "substituted-value",
+      "symbol": "ok",
+      "snippet": "const d3Path = path.join(path.dirname(__filename), '                     ');"
+    },
+    {
+      "file": "bin/gsd-t-graph-freshness.cjs",
+      "rule": "retry-then-proceed",
+      "symbol": "ok",
+      "snippet": "for (const e of entries) { if (e.name.startsWith(' ') &&"
+    },
+    {
+      "file": "bin/gsd-t-graph-index.cjs",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "errors++;"
+    },
+    {
+      "file": "bin/gsd-t-graph-index.cjs",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t-graph-index.cjs",
+      "rule": "substituted-value",
+      "symbol": "log",
+      "snippet": "const upg = require('                              ');"
+    },
+    {
+      "file": "bin/gsd-t-graph-index.cjs",
+      "rule": "retry-then-proceed",
+      "symbol": "log",
+      "snippet": "for (const e of entries) { if (e.isDirectory()) { "
+    },
+    {
+      "file": "bin/gsd-t-graph-k1-sqlite-stream.cjs",
+      "rule": "catch-continues",
+      "symbol": "makePrng",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t-graph-k1-sqlite-stream.cjs",
+      "rule": "catch-continues",
+      "symbol": "makePrng",
+      "snippet": "env = { ok: false, verdict: null, error: e.message };"
+    },
+    {
+      "file": "bin/gsd-t-graph-metrics-rollup.cjs",
+      "rule": "catch-continues",
+      "symbol": "_listLedgerFiles",
+      "snippet": "return [];"
+    },
+    {
+      "file": "bin/gsd-t-graph-metrics-rollup.cjs",
+      "rule": "catch-continues",
+      "symbol": "_listLedgerFiles",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t-graph-metrics-rollup.cjs",
+      "rule": "catch-continues",
+      "symbol": "_listLedgerFiles",
+      "snippet": "return [];"
+    },
+    {
+      "file": "bin/gsd-t-graph-query-cli.cjs",
+      "rule": "catch-continues",
+      "symbol": "colorize",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t-graph-query-cli.cjs",
+      "rule": "catch-continues",
+      "symbol": "colorize",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t-graph-query-cli.cjs",
+      "rule": "catch-continues",
+      "symbol": "colorize",
+      "snippet": "return new Set();"
+    },
+    {
+      "file": "bin/gsd-t-graph-query-cli.cjs",
+      "rule": "catch-continues",
+      "symbol": "colorize",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t-graph-query-cli.cjs",
+      "rule": "catch-continues",
+      "symbol": "colorize",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t-graph-query-cli.cjs",
+      "rule": "catch-continues",
+      "symbol": "colorize",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t-graph-query-cli.cjs",
+      "rule": "catch-continues",
+      "symbol": "colorize",
+      "snippet": "return { notFound: true, file: meta.file };"
+    },
+    {
+      "file": "bin/gsd-t-graph-query-cli.cjs",
+      "rule": "catch-continues",
+      "symbol": "colorize",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t-graph-query-cli.cjs",
+      "rule": "catch-continues",
+      "symbol": "colorize",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t-graph-query-cli.cjs",
+      "rule": "catch-continues",
+      "symbol": "colorize",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t-graph-query-cli.cjs",
+      "rule": "catch-continues",
+      "symbol": "colorize",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t-graph-query-cli.cjs",
+      "rule": "substituted-value",
+      "symbol": "colorize",
+      "snippet": "const testToImpl = new Map();"
+    },
+    {
+      "file": "bin/gsd-t-graph-query-cli.cjs",
+      "rule": "or-default",
+      "symbol": "colorize",
+      "snippet": "index.callGraph.get(identity) || index"
+    },
+    {
+      "file": "bin/gsd-t-graph-query-cli.cjs",
+      "rule": "or-default",
+      "symbol": "colorize",
+      "snippet": "index.callGraph.get(fid) || index"
+    },
+    {
+      "file": "bin/gsd-t-graph-query-cli.cjs",
+      "rule": "or-default",
+      "symbol": "colorize",
+      "snippet": "index.callGraph.get(funcId) || index"
+    },
+    {
+      "file": "bin/gsd-t-graph-query-cli.cjs",
+      "rule": "or-default",
+      "symbol": "colorize",
+      "snippet": "loadFreshnessModule() || {"
+    },
+    {
+      "file": "bin/gsd-t-graph-scip-upgrade.cjs",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t-graph-scip-upgrade.cjs",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t-graph-scip-upgrade.cjs",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t-graph-scip-upgrade.cjs",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t-graph-scip-upgrade.cjs",
+      "rule": "substituted-value",
+      "symbol": "log",
+      "snippet": "const tier = prevTier === '                 ' ? '                            ' :"
+    },
+    {
+      "file": "bin/gsd-t-graph-scip-upgrade.cjs",
+      "rule": "substituted-value",
+      "symbol": "log",
+      "snippet": "const tier = prevTier === '                 '"
+    },
+    {
+      "file": "bin/gsd-t-graph-scip-upgrade.cjs",
+      "rule": "retry-then-proceed",
+      "symbol": "log",
+      "snippet": "for (const e of entries) { if (typescript && python) r"
+    },
+    {
+      "file": "bin/gsd-t-graph-store-bakeoff.cjs",
+      "rule": "catch-continues",
+      "symbol": "hrMs",
+      "snippet": "return { mod: null, err: e.message };"
+    },
+    {
+      "file": "bin/gsd-t-graph-store-bakeoff.cjs",
+      "rule": "catch-continues",
+      "symbol": "hrMs",
+      "snippet": "if (db) try { db.close(); } catch {}"
+    },
+    {
+      "file": "bin/gsd-t-graph-store-bakeoff.cjs",
+      "rule": "catch-continues",
+      "symbol": "hrMs",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t-graph-store-bakeoff.cjs",
+      "rule": "catch-continues",
+      "symbol": "hrMs",
+      "snippet": "return { embeddedEligible: false, error: err.message };"
+    },
+    {
+      "file": "bin/gsd-t-graph-store-bakeoff.cjs",
+      "rule": "catch-continues",
+      "symbol": "hrMs",
+      "snippet": "envelope = { ok: false, k1Verdict: null, error: err.message };"
+    },
+    {
+      "file": "bin/gsd-t-graph-store-bakeoff.cjs",
+      "rule": "substituted-value",
+      "symbol": "hrMs",
+      "snippet": "return { embeddedEligible: false, error: `                                      "
+    },
+    {
+      "file": "bin/gsd-t-graph-store-bakeoff.cjs",
+      "rule": "substituted-value",
+      "symbol": "hrMs",
+      "snippet": "return { embeddedEligible: false, error: `                                      "
+    },
+    {
+      "file": "bin/gsd-t-graph-store-bakeoff.cjs",
+      "rule": "substituted-value",
+      "symbol": "hrMs",
+      "snippet": "return {"
+    },
+    {
+      "file": "bin/gsd-t-graph-store-resolver.cjs",
+      "rule": "catch-continues",
+      "symbol": "resolveLegacyStorePath",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t-graph-store-resolver.cjs",
+      "rule": "catch-continues",
+      "symbol": "resolveLegacyStorePath",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t-graph-store-resolver.cjs",
+      "rule": "catch-continues",
+      "symbol": "resolveLegacyStorePath",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t-graph-store-resolver.cjs",
+      "rule": "catch-continues",
+      "symbol": "resolveLegacyStorePath",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t-graph-store-resolver.cjs",
+      "rule": "catch-continues",
+      "symbol": "resolveLegacyStorePath",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t-graph-store-resolver.cjs",
+      "rule": "catch-continues",
+      "symbol": "resolveLegacyStorePath",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t-graph-store-resolver.cjs",
+      "rule": "catch-continues",
+      "symbol": "resolveLegacyStorePath",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t-graph-store-resolver.cjs",
+      "rule": "catch-continues",
+      "symbol": "resolveLegacyStorePath",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t-graph-store-resolver.cjs",
+      "rule": "or-default",
+      "symbol": "resolveLegacyStorePath",
+      "snippet": "abs.startsWith(tmp + path.sep) || abs"
+    },
+    {
+      "file": "bin/gsd-t-graph-store-resolver.cjs",
+      "rule": "or-default",
+      "symbol": "resolveLegacyStorePath",
+      "snippet": "abs.startsWith(\" \") || abs"
+    },
+    {
+      "file": "bin/gsd-t-graph-synthetic-gen.cjs",
+      "rule": "or-default",
+      "symbol": "makePrng",
+      "snippet": "isNaN(nodes) || nodes"
+    },
+    {
+      "file": "bin/gsd-t-graph-ts-throughput.cjs",
+      "rule": "trace-then-continue",
+      "symbol": "log",
+      "snippet": "warn(`                                                  `);"
+    },
+    {
+      "file": "bin/gsd-t-graph-ts-throughput.cjs",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t-graph-ts-throughput.cjs",
+      "rule": "substituted-value",
+      "symbol": "log",
+      "snippet": "return { entities: [], edges: [], loc };"
+    },
+    {
+      "file": "bin/gsd-t-graph-ts-throughput.cjs",
+      "rule": "retry-then-proceed",
+      "symbol": "log",
+      "snippet": "for (const e of entries) { if (e.isDirectory()) { "
+    },
+    {
+      "file": "bin/gsd-t-graph-ts-throughput.cjs",
+      "rule": "or-default",
+      "symbol": "log",
+      "snippet": "spec.childForFieldName(' ') || spec"
+    },
+    {
+      "file": "bin/gsd-t-guard-map-derive.cjs",
+      "rule": "catch-continues",
+      "symbol": "deriveMap",
+      "snippet": "res = { ok: false, exitCode: 64, reason: `                               ` };"
+    },
+    {
+      "file": "bin/gsd-t-guard-map.cjs",
+      "rule": "catch-continues",
+      "symbol": "docSlug",
+      "snippet": "res = { ok: false, exitCode: 64, reason: `                             ` };"
+    },
+    {
+      "file": "bin/gsd-t-logging-envelope-check.cjs",
+      "rule": "catch-continues",
+      "symbol": "_hasKey",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t-logging-envelope-check.cjs",
+      "rule": "catch-continues",
+      "symbol": "_hasKey",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t-logging-envelope-check.cjs",
+      "rule": "catch-continues",
+      "symbol": "_hasKey",
+      "snippet": "return { uninspectable: '                                                       "
+    },
+    {
+      "file": "bin/gsd-t-logging-envelope-check.cjs",
+      "rule": "substituted-value",
+      "symbol": "_hasKey",
+      "snippet": "return { uninspectable: '                                                       "
+    },
+    {
+      "file": "bin/gsd-t-logging-envelope-check.cjs",
+      "rule": "substituted-value",
+      "symbol": "_hasKey",
+      "snippet": "return { uninspectable: '                                                       "
+    },
+    {
+      "file": "bin/gsd-t-logging-scaffolder.cjs",
+      "rule": "substituted-value",
+      "symbol": "readJsonSafe",
+      "snippet": "return {"
+    },
+    {
+      "file": "bin/gsd-t-logging-scaffolder.cjs",
+      "rule": "or-default",
+      "symbol": "readJsonSafe",
+      "snippet": "readJsonSafe(pkgPath) || {"
+    },
+    {
+      "file": "bin/gsd-t-milestone-state.cjs",
+      "rule": "catch-continues",
+      "symbol": "parseSignoff",
+      "snippet": "return { signed: false, date: null, author: null, doc: docPath, error: `        "
+    },
+    {
+      "file": "bin/gsd-t-milestone-state.cjs",
+      "rule": "catch-continues",
+      "symbol": "parseSignoff",
+      "snippet": "res = { ok: false, exitCode: 64, reason: `                              ` };"
+    },
+    {
+      "file": "bin/gsd-t-parallel.cjs",
+      "rule": "catch-continues",
+      "symbol": "computeInSessionHeadroom",
+      "snippet": "_tokenBudget = { getSessionStatus: () => ({ pct: 0 }) };"
+    },
+    {
+      "file": "bin/gsd-t-parallel.cjs",
+      "rule": "catch-continues",
+      "symbol": "computeInSessionHeadroom",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t-parallel.cjs",
+      "rule": "catch-continues",
+      "symbol": "computeInSessionHeadroom",
+      "snippet": "est = { estimatedCwPct: 0, parallelOk: true, split: false, workerCount: 1, confi"
+    },
+    {
+      "file": "bin/gsd-t-parallel.cjs",
+      "rule": "catch-continues",
+      "symbol": "computeInSessionHeadroom",
+      "snippet": "status = { pct: 0 };"
+    },
+    {
+      "file": "bin/gsd-t-parallel.cjs",
+      "rule": "catch-continues",
+      "symbol": "computeInSessionHeadroom",
+      "snippet": "appendEvent(projectDir, {"
+    },
+    {
+      "file": "bin/gsd-t-parallel.cjs",
+      "rule": "catch-continues",
+      "symbol": "computeInSessionHeadroom",
+      "snippet": "return {"
+    },
+    {
+      "file": "bin/gsd-t-parallel.cjs",
+      "rule": "catch-continues",
+      "symbol": "computeInSessionHeadroom",
+      "snippet": "const until = Date.now() + ms;"
+    },
+    {
+      "file": "bin/gsd-t-parallel.cjs",
+      "rule": "catch-continues",
+      "symbol": "computeInSessionHeadroom",
+      "snippet": "warmResult = { ok: false, error: (e && e.message) || \"       \" };"
+    },
+    {
+      "file": "bin/gsd-t-parallel.cjs",
+      "rule": "catch-continues",
+      "symbol": "computeInSessionHeadroom",
+      "snippet": "spawnError = (e && e.message) || \"       \";"
+    },
+    {
+      "file": "bin/gsd-t-parallel.cjs",
+      "rule": "substituted-value",
+      "symbol": "computeInSessionHeadroom",
+      "snippet": "return {"
+    },
+    {
+      "file": "bin/gsd-t-parallel.cjs",
+      "rule": "substituted-value",
+      "symbol": "computeInSessionHeadroom",
+      "snippet": "try {"
+    },
+    {
+      "file": "bin/gsd-t-parallel.cjs",
+      "rule": "or-default",
+      "symbol": "computeInSessionHeadroom",
+      "snippet": "perTask.get(t.id) || {"
+    },
+    {
+      "file": "bin/gsd-t-require-store.cjs",
+      "rule": "catch-continues",
+      "symbol": "gsdtGlobalNodeModules",
+      "snippet": "tried.push('                  ');"
+    },
+    {
+      "file": "bin/gsd-t-require-store.cjs",
+      "rule": "catch-continues",
+      "symbol": "gsdtGlobalNodeModules",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t-rule-consume.cjs",
+      "rule": "catch-continues",
+      "symbol": "ruleIds",
+      "snippet": "res = { ok: false, exitCode: 64, reason: `                                `, qa:"
+    },
+    {
+      "file": "bin/gsd-t-schema-id-check.cjs",
+      "rule": "substituted-value",
+      "symbol": "extractSqlTables",
+      "snippet": "return {"
+    },
+    {
+      "file": "bin/gsd-t-scip-reader.cjs",
+      "rule": "catch-continues",
+      "symbol": "loadScipProto",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t-scip-reader.cjs",
+      "rule": "catch-continues",
+      "symbol": "loadScipProto",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t-scip-reader.cjs",
+      "rule": "catch-continues",
+      "symbol": "loadScipProto",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t-shrink-metric.cjs",
+      "rule": "catch-continues",
+      "symbol": "parseNumstat",
+      "snippet": "res = { ok: false, exitCode: 64, reason: `                               ` };"
+    },
+    {
+      "file": "bin/gsd-t-shrink-metric.cjs",
+      "rule": "substituted-value",
+      "symbol": "parseNumstat",
+      "snippet": "return { _malformed: true, badLine: line.slice(0, 200) };"
+    },
+    {
+      "file": "bin/gsd-t-task-brief.js",
+      "rule": "catch-continues",
+      "symbol": "readFileIfExists",
+      "snippet": "return '';"
+    },
+    {
+      "file": "bin/gsd-t-task-brief.js",
+      "rule": "catch-continues",
+      "symbol": "readFileIfExists",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t-task-brief.js",
+      "rule": "catch-continues",
+      "symbol": "readFileIfExists",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t-task-brief.js",
+      "rule": "or-default",
+      "symbol": "readFileIfExists",
+      "snippet": "buildScopeSection(scopeMd) || '"
+    },
+    {
+      "file": "bin/gsd-t-task-brief.js",
+      "rule": "or-default",
+      "symbol": "readFileIfExists",
+      "snippet": "buildConstraintsSection(constraintsMd) || '"
+    },
+    {
+      "file": "bin/gsd-t-task-graph.cjs",
+      "rule": "catch-continues",
+      "symbol": "parseTasksMd",
+      "snippet": "return { tasks: [], warnings: [`                               `] };"
+    },
+    {
+      "file": "bin/gsd-t-task-graph.cjs",
+      "rule": "catch-continues",
+      "symbol": "parseTasksMd",
+      "snippet": "return [];"
+    },
+    {
+      "file": "bin/gsd-t-test-data-ledger.cjs",
+      "rule": "catch-continues",
+      "symbol": "registerAdapter",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t-test-data-ledger.cjs",
+      "rule": "catch-continues",
+      "symbol": "registerAdapter",
+      "snippet": "errors.push({ record: row, message: e && e.message ? e.message : String(e) });"
+    },
+    {
+      "file": "bin/gsd-t-test-data-ledger.cjs",
+      "rule": "substituted-value",
+      "symbol": "registerAdapter",
+      "snippet": "process.stderr.write('                                             ');"
+    },
+    {
+      "file": "bin/gsd-t-time-format.cjs",
+      "rule": "catch-continues",
+      "symbol": "pad2",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t-traceability-gate.cjs",
+      "rule": "catch-continues",
+      "symbol": "_bare",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t-traceability-gate.cjs",
+      "rule": "catch-continues",
+      "symbol": "_bare",
+      "snippet": "return { files: [] };"
+    },
+    {
+      "file": "bin/gsd-t-traceability-gate.cjs",
+      "rule": "catch-continues",
+      "symbol": "_bare",
+      "snippet": "return docs;"
+    },
+    {
+      "file": "bin/gsd-t-traceability-gate.cjs",
+      "rule": "catch-continues",
+      "symbol": "_bare",
+      "snippet": "res = { ok: false, exitCode: 64, milestone: o.milestone, reason: `              "
+    },
+    {
+      "file": "bin/gsd-t-traceability-gate.cjs",
+      "rule": "retry-then-proceed",
+      "symbol": "_bare",
+      "snippet": "for (const e of entries) { if (!e.isDirectory()) continu"
+    },
+    {
+      "file": "bin/gsd-t-traceability-gate.cjs",
+      "rule": "retry-then-proceed",
+      "symbol": "_bare",
+      "snippet": "for (const e of entries) { if (!e.isFile()) continue; "
+    },
+    {
+      "file": "bin/gsd-t-verify-gate-judge.cjs",
+      "rule": "catch-continues",
+      "symbol": "buildJudgePrompt",
+      "snippet": "return '';"
+    },
+    {
+      "file": "bin/gsd-t-verify-gate-judge.cjs",
+      "rule": "catch-continues",
+      "symbol": "buildJudgePrompt",
+      "snippet": "process.stderr.write('                               ' + args.in + '  ' + err.me"
+    },
+    {
+      "file": "bin/gsd-t-verify-gate.cjs",
+      "rule": "catch-continues",
+      "symbol": "runVerifyGate",
+      "snippet": "track1 = {"
+    },
+    {
+      "file": "bin/gsd-t-verify-gate.cjs",
+      "rule": "catch-continues",
+      "symbol": "runVerifyGate",
+      "snippet": "envelope = {"
+    },
+    {
+      "file": "bin/gsd-t-verify-gate.cjs",
+      "rule": "catch-continues",
+      "symbol": "runVerifyGate",
+      "snippet": "notes.push('                                                 ' + DEFAULT_FALLBAC"
+    },
+    {
+      "file": "bin/gsd-t-verify-gate.cjs",
+      "rule": "catch-continues",
+      "symbol": "runVerifyGate",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t-verify-gate.cjs",
+      "rule": "catch-continues",
+      "symbol": "runVerifyGate",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t-verify-gate.cjs",
+      "rule": "catch-continues",
+      "symbol": "runVerifyGate",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t-verify-gate.cjs",
+      "rule": "catch-continues",
+      "symbol": "runVerifyGate",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t-verify-gate.cjs",
+      "rule": "catch-continues",
+      "symbol": "runVerifyGate",
+      "snippet": "return '';"
+    },
+    {
+      "file": "bin/gsd-t-verify-gate.cjs",
+      "rule": "catch-continues",
+      "symbol": "runVerifyGate",
+      "snippet": "process.stderr.write('             ' + (err && err.message || String(err)) + '  "
+    },
+    {
+      "file": "bin/gsd-t-verify-gate.cjs",
+      "rule": "substituted-value",
+      "symbol": "runVerifyGate",
+      "snippet": "notes.push('                                                                    "
+    },
+    {
+      "file": "bin/gsd-t-verify-gate.cjs",
+      "rule": "or-default",
+      "symbol": "runVerifyGate",
+      "snippet": "has(' ') || has"
+    },
+    {
+      "file": "bin/gsd-t-verify-gate.cjs",
+      "rule": "or-default",
+      "symbol": "runVerifyGate",
+      "snippet": "has(' ') || has"
+    },
+    {
+      "file": "bin/gsd-t-verify-gate.cjs",
+      "rule": "or-default",
+      "symbol": "runVerifyGate",
+      "snippet": "planById.get(r.id) || {"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "",
+      "snippet": "debugLedger = {"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "return [];"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "return \"\";"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "return [];"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "return [];"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "trace-then-continue",
+      "symbol": "log",
+      "snippet": "warn(`                                                               `);"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "trace-then-continue",
+      "symbol": "log",
+      "snippet": "warn(`                                      `);"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "trace-then-continue",
+      "symbol": "log",
+      "snippet": "warn(`                                                      `);"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "warn(\"                                                                    \");"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "warn(`                                           `);"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "warn(\"                                                                      \");"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "warn(`                                           `);"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "warn(\"                                                                     \");"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "warn(`                                           `);"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "warn(`                                                               `);"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "warn(`                                           `);"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "warn(`                                           `);"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "trace-then-continue",
+      "symbol": "log",
+      "snippet": "warn(\"                                                                   \");"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "trace-then-continue",
+      "symbol": "log",
+      "snippet": "warn(`                                           `);"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "trace-then-continue",
+      "symbol": "log",
+      "snippet": "warn(`                                           `);"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "trace-then-continue",
+      "symbol": "log",
+      "snippet": "warn(\"                                                  \");"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "trace-then-continue",
+      "symbol": "log",
+      "snippet": "warn(\"                                                           \");"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "try {"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "trace-then-continue",
+      "symbol": "log",
+      "snippet": "warn(\"                                \");"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "trace-then-continue",
+      "symbol": "log",
+      "snippet": "warn(\"                                                          \");"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "trace-then-continue",
+      "symbol": "log",
+      "snippet": "warn(\"                                            \");"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "trace-then-continue",
+      "symbol": "log",
+      "snippet": "warn(`                                                                          "
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "trace-then-continue",
+      "symbol": "log",
+      "snippet": "warn(`                                             `);"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "trace-then-continue",
+      "symbol": "log",
+      "snippet": "warn(`                                                `);"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "playwrightInstallFailed.push({ name, err: e.message || String(e) });"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "return 0;"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "return 0;"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "trace-then-continue",
+      "symbol": "log",
+      "snippet": "warn(`                                                       `);"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "warn(`                                            `);"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "trace-then-continue",
+      "symbol": "log",
+      "snippet": "warn(`                                                     `);"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "trace-then-continue",
+      "symbol": "log",
+      "snippet": "warn(`                                                                        `)"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "trace-then-continue",
+      "symbol": "log",
+      "snippet": "warn(\"                                 \");"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "warn(\"                                                  \");"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "trace-then-continue",
+      "symbol": "log",
+      "snippet": "warn(\"                         \");"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "trace-then-continue",
+      "symbol": "log",
+      "snippet": "warn(`                                                                          "
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "cfgLoadErr = e;"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "warn(\"                                                             \");"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "output = (e.stdout || \"\") + (e.stderr || \"\");"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "trace-then-continue",
+      "symbol": "log",
+      "snippet": "if (!jsonMode) warn(`                                 `);"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "return queryResult(\"     \", { available: false, error: \"                     \" }"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "return (e.stdout || \"\") + (e.stderr || \"\") || null;"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "trace-then-continue",
+      "symbol": "log",
+      "snippet": "if (!jsonMode) warn(\"                                                       \");"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "trace-then-continue",
+      "symbol": "log",
+      "snippet": "if (!jsonMode) warn(`                                           `);"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "substituted-value",
+      "symbol": "log",
+      "snippet": "r.shipped_in_version = version;"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "or-default",
+      "symbol": "log",
+      "snippet": "readSettingsJson() || {"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "or-default",
+      "symbol": "log",
+      "snippet": "Number.isFinite(ageMs) || ageMs"
+    },
+    {
+      "file": "bin/gsd-t.js",
+      "rule": "or-default",
+      "symbol": "log",
+      "snippet": "Number.isFinite(pid) || pid"
+    },
+    {
+      "file": "bin/journey-coverage-cli.cjs",
+      "rule": "catch-continues",
+      "symbol": "discoverViewerFiles",
+      "snippet": "return [];"
+    },
+    {
+      "file": "bin/orchestrator.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/orchestrator.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/orchestrator.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/orchestrator.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/orchestrator.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/orchestrator.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/orchestrator.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/orchestrator.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/orchestrator.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/orchestrator.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/orchestrator.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/orchestrator.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/orchestrator.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/orchestrator.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "return \"       \";"
+    },
+    {
+      "file": "bin/orchestrator.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/orchestrator.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/orchestrator.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/orchestrator.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/orchestrator.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/orchestrator.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/orchestrator.js",
+      "rule": "catch-continues",
+      "symbol": "log",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/orchestrator.js",
+      "rule": "or-default",
+      "symbol": "log",
+      "snippet": "this.wf.measure(projectDir, phase, items, { devPort, reviewPort }) || {"
+    },
+    {
+      "file": "bin/orchestrator.js",
+      "rule": "or-default",
+      "symbol": "log",
+      "snippet": "this.wf.measure(projectDir, phase, items, { devPort, reviewPort }) || {"
+    },
+    {
+      "file": "bin/orchestrator.js",
+      "rule": "or-default",
+      "symbol": "log",
+      "snippet": "this.wf.measure(projectDir, phase, items, { devPort, reviewPort }) || {"
+    },
+    {
+      "file": "bin/orchestrator.js",
+      "rule": "or-default",
+      "symbol": "log",
+      "snippet": "this.wf.measure(projectDir, phase, items, { devPort, reviewPort }) || {"
+    },
+    {
+      "file": "bin/orchestrator.js",
+      "rule": "or-default",
+      "symbol": "log",
+      "snippet": "this.wf.measure(projectDir, phase, items, { devPort, reviewPort }) || {"
+    },
+    {
+      "file": "bin/parallel-cli-tee.cjs",
+      "rule": "catch-continues",
+      "symbol": "_now",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/parallel-cli-tee.cjs",
+      "rule": "catch-continues",
+      "symbol": "_now",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/parallel-cli-tee.cjs",
+      "rule": "catch-continues",
+      "symbol": "_now",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/parallel-cli-tee.cjs",
+      "rule": "catch-continues",
+      "symbol": "_now",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/parallel-cli-tee.cjs",
+      "rule": "catch-continues",
+      "symbol": "_now",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/parallel-cli-tee.cjs",
+      "rule": "catch-continues",
+      "symbol": "_now",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/parallel-cli.cjs",
+      "rule": "catch-continues",
+      "symbol": "runParallel",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/parallel-cli.cjs",
+      "rule": "catch-continues",
+      "symbol": "runParallel",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/parallel-cli.cjs",
+      "rule": "or-default",
+      "symbol": "runParallel",
+      "snippet": "Array.isArray(opts.workers) || opts"
+    },
+    {
+      "file": "bin/parallel-cli.cjs",
+      "rule": "or-default",
+      "symbol": "runParallel",
+      "snippet": "Number.isInteger(opts.maxConcurrency) || opts"
+    },
+    {
+      "file": "bin/parallel-cli.cjs",
+      "rule": "or-default",
+      "symbol": "runParallel",
+      "snippet": "Number.isFinite(w.timeoutMs) || w"
+    },
+    {
+      "file": "bin/parallel-cli.cjs",
+      "rule": "or-default",
+      "symbol": "runParallel",
+      "snippet": "Number.isInteger(parsed.maxConcurrency) || parsed"
+    },
+    {
+      "file": "bin/playwright-bootstrap.cjs",
+      "rule": "catch-continues",
+      "symbol": "hasPlaywright",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/playwright-bootstrap.cjs",
+      "rule": "catch-continues",
+      "symbol": "hasPlaywright",
+      "snippet": "dirExists = false;"
+    },
+    {
+      "file": "bin/playwright-bootstrap.cjs",
+      "rule": "catch-continues",
+      "symbol": "hasPlaywright",
+      "snippet": "return { code: 127, stdout: '', stderr: err.message || String(err) };"
+    },
+    {
+      "file": "bin/rule-engine.js",
+      "rule": "or-default",
+      "symbol": "getActiveRules",
+      "snippet": "parseMilestoneNum(x.milestone_created) || 0"
+    },
+    {
+      "file": "bin/scan-data-collector.js",
+      "rule": "catch-continues",
+      "symbol": "read",
+      "snippet": "return '';"
+    },
+    {
+      "file": "bin/scan-data-collector.js",
+      "rule": "catch-continues",
+      "symbol": "read",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/scan-diagrams.js",
+      "rule": "catch-continues",
+      "symbol": "buildPlaceholder",
+      "snippet": "results.push(buildPlaceholder(def, ''));"
+    },
+    {
+      "file": "bin/scan-diagrams.js",
+      "rule": "catch-continues",
+      "symbol": "buildPlaceholder",
+      "snippet": "return DIAGRAM_DEFS.map(def => buildPlaceholder(def));"
+    },
+    {
+      "file": "bin/scan-export.js",
+      "rule": "catch-continues",
+      "symbol": "detectTool",
+      "snippet": "return { success: false, error: err.message };"
+    },
+    {
+      "file": "bin/scan-export.js",
+      "rule": "catch-continues",
+      "symbol": "detectTool",
+      "snippet": "return { success: false, error: err.message };"
+    },
+    {
+      "file": "bin/scan-export.js",
+      "rule": "catch-continues",
+      "symbol": "detectTool",
+      "snippet": "return { success: false, error: err.message };"
+    },
+    {
+      "file": "bin/scan-renderer.js",
+      "rule": "catch-continues",
+      "symbol": "stripSvgDimensions",
+      "snippet": "return { svgContent: makePlaceholder(), rendered: false, rendererUsed: '        "
+    },
+    {
+      "file": "bin/scan-report-sections.js",
+      "rule": "substituted-value",
+      "symbol": "esc",
+      "snippet": "return '                                                               ' +"
+    },
+    {
+      "file": "bin/scan-report-sections.js",
+      "rule": "substituted-value",
+      "symbol": "esc",
+      "snippet": "return '                                                                ' +"
+    },
+    {
+      "file": "bin/scan-report-sections.js",
+      "rule": "substituted-value",
+      "symbol": "esc",
+      "snippet": "return '                                                         ' +"
+    },
+    {
+      "file": "bin/scan-report.js",
+      "rule": "catch-continues",
+      "symbol": "buildCss",
+      "snippet": "process.stderr.write('                   ' + err.message + '  ');"
+    },
+    {
+      "file": "bin/scan-schema-parsers.js",
+      "rule": "catch-continues",
+      "symbol": "parsePrisma",
+      "snippet": "warnings.push('             ' + e.message); return [];"
+    },
+    {
+      "file": "bin/scan-schema-parsers.js",
+      "rule": "catch-continues",
+      "symbol": "parsePrisma",
+      "snippet": "warnings.push('              ' + e.message);"
+    },
+    {
+      "file": "bin/scan-schema-parsers.js",
+      "rule": "or-default",
+      "symbol": "parsePrisma",
+      "snippet": "trimmed.startsWith(' ') || trimmed"
+    },
+    {
+      "file": "bin/scan-schema.js",
+      "rule": "catch-continues",
+      "symbol": "findFiles",
+      "snippet": "return [];"
+    },
+    {
+      "file": "bin/scan-schema.js",
+      "rule": "catch-continues",
+      "symbol": "findFiles",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "bin/scan-schema.js",
+      "rule": "catch-continues",
+      "symbol": "findFiles",
+      "snippet": "return { ormType: null, files: [] };"
+    },
+    {
+      "file": "bin/scan-schema.js",
+      "rule": "catch-continues",
+      "symbol": "findFiles",
+      "snippet": "return { detected: false, ormType: null, entities: [], parseWarnings: ['       '"
+    },
+    {
+      "file": "scripts/context-meter/estimate-tokens.js",
+      "rule": "catch-continues",
+      "symbol": "estimateTokens",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/context-meter/estimate-tokens.js",
+      "rule": "catch-continues",
+      "symbol": "estimateTokens",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-architect-oversight-guard.js",
+      "rule": "catch-continues",
+      "symbol": "shouldRemind",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-auto-route.js",
+      "rule": "catch-continues",
+      "symbol": "resolveActiveProfile",
+      "snippet": "return { profile: GLOBAL_DEFAULT, isDefault: true, configError: '          ' };"
+    },
+    {
+      "file": "scripts/gsd-t-auto-route.js",
+      "rule": "catch-continues",
+      "symbol": "resolveActiveProfile",
+      "snippet": "return { profile: GLOBAL_DEFAULT, isDefault: true, configError: '            ' }"
+    },
+    {
+      "file": "scripts/gsd-t-auto-route.js",
+      "rule": "catch-continues",
+      "symbol": "resolveActiveProfile",
+      "snippet": "return { profile: GLOBAL_DEFAULT, isDefault: true };"
+    },
+    {
+      "file": "scripts/gsd-t-auto-route.js",
+      "rule": "catch-continues",
+      "symbol": "resolveActiveProfile",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-auto-route.js",
+      "rule": "catch-continues",
+      "symbol": "resolveActiveProfile",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-brevity-guard.js",
+      "rule": "catch-continues",
+      "symbol": "_safeTranscriptPath",
+      "snippet": "return \"\";"
+    },
+    {
+      "file": "scripts/gsd-t-calibration-hook.js",
+      "rule": "catch-continues",
+      "symbol": "if",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-calibration-hook.js",
+      "rule": "catch-continues",
+      "symbol": "if",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-calibration-hook.js",
+      "rule": "catch-continues",
+      "symbol": "handle",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-calibration-hook.js",
+      "rule": "or-default",
+      "symbol": "handle",
+      "snippet": "Number.isFinite(pct) || pct"
+    },
+    {
+      "file": "scripts/gsd-t-compact-detector.js",
+      "rule": "catch-continues",
+      "symbol": "if",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-compact-detector.js",
+      "rule": "catch-continues",
+      "symbol": "if",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-compact-detector.js",
+      "rule": "catch-continues",
+      "symbol": "if",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-compact-detector.js",
+      "rule": "catch-continues",
+      "symbol": "writeRow",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-compact-detector.js",
+      "rule": "catch-continues",
+      "symbol": "writeRow",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-compaction-scanner.js",
+      "rule": "catch-continues",
+      "symbol": "parseArgs",
+      "snippet": "return out;"
+    },
+    {
+      "file": "scripts/gsd-t-compaction-scanner.js",
+      "rule": "catch-continues",
+      "symbol": "parseArgs",
+      "snippet": "return keys;"
+    },
+    {
+      "file": "scripts/gsd-t-compaction-scanner.js",
+      "rule": "catch-continues",
+      "symbol": "parseArgs",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-compaction-scanner.js",
+      "rule": "catch-continues",
+      "symbol": "parseArgs",
+      "snippet": "files = [];"
+    },
+    {
+      "file": "scripts/gsd-t-compaction-scanner.js",
+      "rule": "catch-continues",
+      "symbol": "parseArgs",
+      "snippet": "boundaries = [];"
+    },
+    {
+      "file": "scripts/gsd-t-dashboard-autostart.cjs",
+      "rule": "catch-continues",
+      "symbol": "_pidPath",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-dashboard-autostart.cjs",
+      "rule": "catch-continues",
+      "symbol": "_pidPath",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-dashboard-autostart.cjs",
+      "rule": "substituted-value",
+      "symbol": "_pidPath",
+      "snippet": "const srv = require('                           ');"
+    },
+    {
+      "file": "scripts/gsd-t-date-guard.js",
+      "rule": "catch-continues",
+      "symbol": "isAllowlisted",
+      "snippet": "return { ok: true };"
+    },
+    {
+      "file": "scripts/gsd-t-design-review-server.js",
+      "rule": "catch-continues",
+      "symbol": "getArg",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-design-review-server.js",
+      "rule": "catch-continues",
+      "symbol": "getArg",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-design-review-server.js",
+      "rule": "catch-continues",
+      "symbol": "getArg",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-design-review-server.js",
+      "rule": "catch-continues",
+      "symbol": "getArg",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-design-review-server.js",
+      "rule": "catch-continues",
+      "symbol": "getArg",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-design-review-server.js",
+      "rule": "catch-continues",
+      "symbol": "getArg",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-design-review-server.js",
+      "rule": "catch-continues",
+      "symbol": "getArg",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-design-review-server.js",
+      "rule": "catch-continues",
+      "symbol": "getArg",
+      "snippet": "return [];"
+    },
+    {
+      "file": "scripts/gsd-t-design-review-server.js",
+      "rule": "catch-continues",
+      "symbol": "getArg",
+      "snippet": "return { phase: \"        \", state: \"       \" };"
+    },
+    {
+      "file": "scripts/gsd-t-design-review-server.js",
+      "rule": "catch-continues",
+      "symbol": "getArg",
+      "snippet": "return [];"
+    },
+    {
+      "file": "scripts/gsd-t-design-review-server.js",
+      "rule": "catch-continues",
+      "symbol": "getArg",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-design-review-server.js",
+      "rule": "catch-continues",
+      "symbol": "getArg",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-design-review-server.js",
+      "rule": "catch-continues",
+      "symbol": "getArg",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-design-review-server.js",
+      "rule": "catch-continues",
+      "symbol": "getArg",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-design-review-server.js",
+      "rule": "catch-continues",
+      "symbol": "getArg",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-design-review-server.js",
+      "rule": "catch-continues",
+      "symbol": "getArg",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-design-review-server.js",
+      "rule": "catch-continues",
+      "symbol": "getArg",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-design-review-server.js",
+      "rule": "catch-continues",
+      "symbol": "getArg",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-design-review-server.js",
+      "rule": "catch-continues",
+      "symbol": "getArg",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-design-review-server.js",
+      "rule": "or-default",
+      "symbol": "getArg",
+      "snippet": "Array.isArray(item.attachments) || item"
+    },
+    {
+      "file": "scripts/gsd-t-event-writer.js",
+      "rule": "catch-continues",
+      "symbol": "parseArgs",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-event-writer.js",
+      "rule": "catch-continues",
+      "symbol": "parseArgs",
+      "snippet": "return 2;"
+    },
+    {
+      "file": "scripts/gsd-t-event-writer.js",
+      "rule": "or-default",
+      "symbol": "parseArgs",
+      "snippet": "nullify(args[\" \"]) || envCommand"
+    },
+    {
+      "file": "scripts/gsd-t-event-writer.js",
+      "rule": "or-default",
+      "symbol": "parseArgs",
+      "snippet": "nullify(args[\" \"]) || envPhase"
+    },
+    {
+      "file": "scripts/gsd-t-event-writer.js",
+      "rule": "or-default",
+      "symbol": "parseArgs",
+      "snippet": "nullify(args[\" \"]) || envTraceId"
+    },
+    {
+      "file": "scripts/gsd-t-event-writer.js",
+      "rule": "or-default",
+      "symbol": "parseArgs",
+      "snippet": "nullify(args[\" \"]) || envModel"
+    },
+    {
+      "file": "scripts/gsd-t-fetch-version.js",
+      "rule": "catch-continues",
+      "symbol": "if",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-graph-intercept.js",
+      "rule": "catch-continues",
+      "symbol": "passThrough",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-heartbeat.js",
+      "rule": "catch-continues",
+      "symbol": "if",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-heartbeat.js",
+      "rule": "catch-continues",
+      "symbol": "if",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-heartbeat.js",
+      "rule": "catch-continues",
+      "symbol": "cleanupOldHeartbeats",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-heartbeat.js",
+      "rule": "catch-continues",
+      "symbol": "cleanupOldHeartbeats",
+      "snippet": "return url;"
+    },
+    {
+      "file": "scripts/gsd-t-heartbeat.js",
+      "rule": "catch-continues",
+      "symbol": "cleanupOldHeartbeats",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-heartbeat.js",
+      "rule": "catch-continues",
+      "symbol": "cleanupOldHeartbeats",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-heartbeat.js",
+      "rule": "catch-continues",
+      "symbol": "cleanupOldHeartbeats",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-heartbeat.js",
+      "rule": "catch-continues",
+      "symbol": "cleanupOldHeartbeats",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-read-intercept.js",
+      "rule": "catch-continues",
+      "symbol": "passThrough",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-read-intercept.js",
+      "rule": "catch-continues",
+      "symbol": "passThrough",
+      "snippet": "requireStore = require(path.join(cwd, '   ', '                       '));"
+    },
+    {
+      "file": "scripts/gsd-t-read-intercept.js",
+      "rule": "or-default",
+      "symbol": "passThrough",
+      "snippet": "Number.isFinite(limit) || limit"
+    },
+    {
+      "file": "scripts/gsd-t-statusline.js",
+      "rule": "catch-continues",
+      "symbol": "readActiveProfile",
+      "snippet": "return { profile: GLOBAL_DEFAULT, isDefault: true, configError: '          ' };"
+    },
+    {
+      "file": "scripts/gsd-t-statusline.js",
+      "rule": "catch-continues",
+      "symbol": "readActiveProfile",
+      "snippet": "return { profile: GLOBAL_DEFAULT, isDefault: true, configError: '            ' }"
+    },
+    {
+      "file": "scripts/gsd-t-statusline.js",
+      "rule": "catch-continues",
+      "symbol": "readActiveProfile",
+      "snippet": "return { profile: GLOBAL_DEFAULT, isDefault: true };"
+    },
+    {
+      "file": "scripts/gsd-t-statusline.js",
+      "rule": "catch-continues",
+      "symbol": "readActiveProfile",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-statusline.js",
+      "rule": "or-default",
+      "symbol": "readActiveProfile",
+      "snippet": "isNaN(age) || age"
+    },
+    {
+      "file": "scripts/gsd-t-statusline.js",
+      "rule": "or-default",
+      "symbol": "readActiveProfile",
+      "snippet": "extract(content, ' ') || extract"
+    },
+    {
+      "file": "scripts/gsd-t-statusline.js",
+      "rule": "or-default",
+      "symbol": "readActiveProfile",
+      "snippet": "extract(content, ' ') || '"
+    },
+    {
+      "file": "scripts/gsd-t-statusline.js",
+      "rule": "or-default",
+      "symbol": "readActiveProfile",
+      "snippet": "extract(content, ' ') || '"
+    },
+    {
+      "file": "scripts/gsd-t-stream-feed-server.js",
+      "rule": "catch-continues",
+      "symbol": "createStreamFeedServer",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-stream-feed-server.js",
+      "rule": "catch-continues",
+      "symbol": "createStreamFeedServer",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-stream-feed-server.js",
+      "rule": "catch-continues",
+      "symbol": "createStreamFeedServer",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-stream-feed-server.js",
+      "rule": "catch-continues",
+      "symbol": "createStreamFeedServer",
+      "snippet": "client.closed = true;"
+    },
+    {
+      "file": "scripts/gsd-t-stream-feed-server.js",
+      "rule": "catch-continues",
+      "symbol": "createStreamFeedServer",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-stream-feed-server.js",
+      "rule": "catch-continues",
+      "symbol": "createStreamFeedServer",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-stream-feed-server.js",
+      "rule": "catch-continues",
+      "symbol": "createStreamFeedServer",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-stream-feed-server.js",
+      "rule": "catch-continues",
+      "symbol": "createStreamFeedServer",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-stream-feed-server.js",
+      "rule": "catch-continues",
+      "symbol": "createStreamFeedServer",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-stream-feed-server.js",
+      "rule": "catch-continues",
+      "symbol": "createStreamFeedServer",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-stream-feed-server.js",
+      "rule": "catch-continues",
+      "symbol": "createStreamFeedServer",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-stream-feed-server.js",
+      "rule": "catch-continues",
+      "symbol": "createStreamFeedServer",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-stream-feed-server.js",
+      "rule": "catch-continues",
+      "symbol": "createStreamFeedServer",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-stream-feed-server.js",
+      "rule": "catch-continues",
+      "symbol": "createStreamFeedServer",
+      "snippet": "return 0;"
+    },
+    {
+      "file": "scripts/gsd-t-token-aggregator.js",
+      "rule": "catch-continues",
+      "symbol": "parseArgs",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-token-aggregator.js",
+      "rule": "catch-continues",
+      "symbol": "parseArgs",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-token-aggregator.js",
+      "rule": "catch-continues",
+      "symbol": "parseArgs",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-token-aggregator.js",
+      "rule": "catch-continues",
+      "symbol": "parseArgs",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-token-aggregator.js",
+      "rule": "catch-continues",
+      "symbol": "parseArgs",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-token-aggregator.js",
+      "rule": "substituted-value",
+      "symbol": "parseArgs",
+      "snippet": "const today = new Date().toISOString().slice(0, 10);"
+    },
+    {
+      "file": "scripts/gsd-t-token-aggregator.js",
+      "rule": "substituted-value",
+      "symbol": "parseArgs",
+      "snippet": "g = initGroup(frame.workerPid, frame.taskId, frame.domain, frame.wave);"
+    },
+    {
+      "file": "scripts/gsd-t-token-aggregator.js",
+      "rule": "substituted-value",
+      "symbol": "parseArgs",
+      "snippet": "const [pid, tid] = attributeKey.split('  ');"
+    },
+    {
+      "file": "scripts/gsd-t-token-aggregator.js",
+      "rule": "or-default",
+      "symbol": "parseArgs",
+      "snippet": "line.startsWith(' ') || line"
+    },
+    {
+      "file": "scripts/gsd-t-tools.js",
+      "rule": "catch-continues",
+      "symbol": "findProjectRoot",
+      "snippet": "result.branch = '     ';"
+    },
+    {
+      "file": "scripts/gsd-t-tools.js",
+      "rule": "catch-continues",
+      "symbol": "findProjectRoot",
+      "snippet": "result.clean = '     ';"
+    },
+    {
+      "file": "scripts/gsd-t-tools.js",
+      "rule": "catch-continues",
+      "symbol": "findProjectRoot",
+      "snippet": "result.lastCommit = '     ';"
+    },
+    {
+      "file": "scripts/gsd-t-tools.js",
+      "rule": "or-default",
+      "symbol": "findProjectRoot",
+      "snippet": "findProjectRoot() || process"
+    },
+    {
+      "file": "scripts/gsd-t-update-check.js",
+      "rule": "trace-then-continue",
+      "symbol": "isNewer",
+      "snippet": "console.log(`                                                                   "
+    },
+    {
+      "file": "scripts/gsd-t-update-check.js",
+      "rule": "catch-continues",
+      "symbol": "isNewer",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-update-check.js",
+      "rule": "catch-continues",
+      "symbol": "isNewer",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-watch-state.js",
+      "rule": "catch-continues",
+      "symbol": "_parseArgs",
+      "snippet": "return {};"
+    },
+    {
+      "file": "scripts/gsd-t-watch-state.js",
+      "rule": "catch-continues",
+      "symbol": "_parseArgs",
+      "snippet": "process.stderr.write(`                                            `);"
+    },
+    {
+      "file": "scripts/gsd-t-worktree-guard.js",
+      "rule": "catch-continues",
+      "symbol": "readHookInput",
+      "snippet": "return true;"
+    },
+    {
+      "file": "scripts/gsd-t-worktree-guard.js",
+      "rule": "catch-continues",
+      "symbol": "readHookInput",
+      "snippet": "return [];"
+    },
+    {
+      "file": "scripts/gsd-t-worktree-guard.js",
+      "rule": "catch-continues",
+      "symbol": "readHookInput",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-worktree-guard.js",
+      "rule": "catch-continues",
+      "symbol": "readHookInput",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/gsd-t-worktree-guard.js",
+      "rule": "or-default",
+      "symbol": "readHookInput",
+      "snippet": "git([\" \", \" \", \" \"], root) || \""
+    },
+    {
+      "file": "scripts/hooks/gsd-t-in-session-probe.js",
+      "rule": "catch-continues",
+      "symbol": "if",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/hooks/gsd-t-in-session-probe.js",
+      "rule": "catch-continues",
+      "symbol": "rotate",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/hooks/gsd-t-in-session-probe.js",
+      "rule": "catch-continues",
+      "symbol": "rotate",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/npm-update-check.js",
+      "rule": "catch-continues",
+      "symbol": "if",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "scripts/npm-update-check.js",
+      "rule": "catch-continues",
+      "symbol": "if",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "templates/workflows/_lib.js",
+      "rule": "catch-continues",
+      "symbol": "_resolveTool",
+      "snippet": "return { _missing: true, error: String(e && e.message) };"
+    },
+    {
+      "file": "templates/workflows/gsd-t-debug.workflow.js",
+      "rule": "catch-continues",
+      "symbol": "",
+      "snippet": "return {};"
+    },
+    {
+      "file": "templates/workflows/gsd-t-debug.workflow.js",
+      "rule": "catch-continues",
+      "symbol": "_coerceCliResult",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "templates/workflows/gsd-t-debug.workflow.js",
+      "rule": "catch-continues",
+      "symbol": "_coerceCliResult",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "templates/workflows/gsd-t-debug.workflow.js",
+      "rule": "substituted-value",
+      "symbol": "_coerceCliResult",
+      "snippet": "log(\"                                                                   \");"
+    },
+    {
+      "file": "templates/workflows/gsd-t-debug.workflow.js",
+      "rule": "or-default",
+      "symbol": "_coerceCliResult",
+      "snippet": "_coerceCliResult(r) || {"
+    },
+    {
+      "file": "templates/workflows/gsd-t-execute.workflow.js",
+      "rule": "catch-continues",
+      "symbol": "normalizeClaimKey",
+      "snippet": "return {"
+    },
+    {
+      "file": "templates/workflows/gsd-t-execute.workflow.js",
+      "rule": "substituted-value",
+      "symbol": "normalizeClaimKey",
+      "snippet": "log(\"                                                           \");"
+    },
+    {
+      "file": "templates/workflows/gsd-t-execute.workflow.js",
+      "rule": "substituted-value",
+      "symbol": "normalizeClaimKey",
+      "snippet": "log(\"                                                               \");"
+    },
+    {
+      "file": "templates/workflows/gsd-t-execute.workflow.js",
+      "rule": "substituted-value",
+      "symbol": "normalizeClaimKey",
+      "snippet": "log(`                                                                         `)"
+    },
+    {
+      "file": "templates/workflows/gsd-t-execute.workflow.js",
+      "rule": "substituted-value",
+      "symbol": "normalizeClaimKey",
+      "snippet": "log(`                                                                           "
+    },
+    {
+      "file": "templates/workflows/gsd-t-execute.workflow.js",
+      "rule": "or-default",
+      "symbol": "normalizeClaimKey",
+      "snippet": "_coerceCliResult(r) || {"
+    },
+    {
+      "file": "templates/workflows/gsd-t-execute.workflow.js",
+      "rule": "or-default",
+      "symbol": "normalizeClaimKey",
+      "snippet": "Array.isArray(dr.filesTouched) || dr"
+    },
+    {
+      "file": "templates/workflows/gsd-t-integrate.workflow.js",
+      "rule": "catch-continues",
+      "symbol": "",
+      "snippet": "return {};"
+    },
+    {
+      "file": "templates/workflows/gsd-t-integrate.workflow.js",
+      "rule": "catch-continues",
+      "symbol": "_coerceCliResult",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "templates/workflows/gsd-t-integrate.workflow.js",
+      "rule": "catch-continues",
+      "symbol": "_coerceCliResult",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "templates/workflows/gsd-t-integrate.workflow.js",
+      "rule": "or-default",
+      "symbol": "_coerceCliResult",
+      "snippet": "_coerceCliResult(r) || {"
+    },
+    {
+      "file": "templates/workflows/gsd-t-phase.workflow.js",
+      "rule": "catch-continues",
+      "symbol": "",
+      "snippet": "return {};"
+    },
+    {
+      "file": "templates/workflows/gsd-t-phase.workflow.js",
+      "rule": "catch-continues",
+      "symbol": "_shq",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "templates/workflows/gsd-t-phase.workflow.js",
+      "rule": "catch-continues",
+      "symbol": "_shq",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "templates/workflows/gsd-t-phase.workflow.js",
+      "rule": "substituted-value",
+      "symbol": "_shq",
+      "snippet": "return { ok: true, verb: null, slice: null, graphUnavailable: false, graphBroken"
+    },
+    {
+      "file": "templates/workflows/gsd-t-phase.workflow.js",
+      "rule": "substituted-value",
+      "symbol": "_shq",
+      "snippet": "if (phaseName === \"         \") {"
+    },
+    {
+      "file": "templates/workflows/gsd-t-phase.workflow.js",
+      "rule": "or-default",
+      "symbol": "_shq",
+      "snippet": "labelToId.get(id) || id"
+    },
+    {
+      "file": "templates/workflows/gsd-t-quick.workflow.js",
+      "rule": "catch-continues",
+      "symbol": "",
+      "snippet": "return {};"
+    },
+    {
+      "file": "templates/workflows/gsd-t-quick.workflow.js",
+      "rule": "catch-continues",
+      "symbol": "_coerceCliResult",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "templates/workflows/gsd-t-quick.workflow.js",
+      "rule": "catch-continues",
+      "symbol": "_coerceCliResult",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "templates/workflows/gsd-t-quick.workflow.js",
+      "rule": "or-default",
+      "symbol": "_coerceCliResult",
+      "snippet": "_coerceCliResult(r) || {"
+    },
+    {
+      "file": "templates/workflows/gsd-t-scan.workflow.js",
+      "rule": "catch-continues",
+      "symbol": "",
+      "snippet": "return {};"
+    },
+    {
+      "file": "templates/workflows/gsd-t-scan.workflow.js",
+      "rule": "catch-continues",
+      "symbol": "computeSliceCap",
+      "snippet": "return { ...f, _verify: \"              \" };"
+    },
+    {
+      "file": "templates/workflows/gsd-t-scan.workflow.js",
+      "rule": "catch-continues",
+      "symbol": "computeSliceCap",
+      "snippet": "return { doc: d.id, status: \"      \", notes: `                              ` };"
+    },
+    {
+      "file": "templates/workflows/gsd-t-scan.workflow.js",
+      "rule": "catch-continues",
+      "symbol": "computeSliceCap",
+      "snippet": "return { bi, entries: [], failed: true };"
+    },
+    {
+      "file": "templates/workflows/gsd-t-scan.workflow.js",
+      "rule": "substituted-value",
+      "symbol": "computeSliceCap",
+      "snippet": "log(\"                                  \");"
+    },
+    {
+      "file": "templates/workflows/gsd-t-scan.workflow.js",
+      "rule": "retry-then-proceed",
+      "symbol": "computeSliceCap",
+      "snippet": "for (let attempt = 1; attempt <= 4; attempt++) { try {"
+    },
+    {
+      "file": "templates/workflows/gsd-t-verify.workflow.js",
+      "rule": "catch-continues",
+      "symbol": "",
+      "snippet": "return {};"
+    },
+    {
+      "file": "templates/workflows/gsd-t-verify.workflow.js",
+      "rule": "catch-continues",
+      "symbol": "_coerceCliResult",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "templates/workflows/gsd-t-verify.workflow.js",
+      "rule": "catch-continues",
+      "symbol": "_coerceCliResult",
+      "snippet": "catch { }"
+    },
+    {
+      "file": "templates/workflows/gsd-t-verify.workflow.js",
+      "rule": "substituted-value",
+      "symbol": "_coerceCliResult",
+      "snippet": "log(\"                               \");"
+    },
+    {
+      "file": "templates/workflows/gsd-t-verify.workflow.js",
+      "rule": "substituted-value",
+      "symbol": "_coerceCliResult",
+      "snippet": "log(`                               `);"
+    },
+    {
+      "file": "templates/workflows/gsd-t-verify.workflow.js",
+      "rule": "substituted-value",
+      "symbol": "_coerceCliResult",
+      "snippet": "log(`                                                               `);"
+    },
+    {
+      "file": "templates/workflows/gsd-t-verify.workflow.js",
+      "rule": "substituted-value",
+      "symbol": "_coerceCliResult",
+      "snippet": "const uncited = arGate.uncitedCount >= 0 ? arGate.uncitedCount : \"              "
+    },
+    {
+      "file": "templates/workflows/gsd-t-verify.workflow.js",
+      "rule": "substituted-value",
+      "symbol": "_coerceCliResult",
+      "snippet": "const count = m90ArchTriggerGate.provenByAdversaryOnlyCount >= 0"
+    },
+    {
+      "file": "templates/workflows/gsd-t-verify.workflow.js",
+      "rule": "substituted-value",
+      "symbol": "_coerceCliResult",
+      "snippet": "return {"
+    },
+    {
+      "file": "templates/workflows/gsd-t-verify.workflow.js",
+      "rule": "substituted-value",
+      "symbol": "_coerceCliResult",
+      "snippet": "log(`                                                                         `)"
+    },
+    {
+      "file": "templates/workflows/gsd-t-verify.workflow.js",
+      "rule": "substituted-value",
+      "symbol": "_coerceCliResult",
+      "snippet": "log(`                                                                     `);"
+    },
+    {
+      "file": "templates/workflows/gsd-t-verify.workflow.js",
+      "rule": "substituted-value",
+      "symbol": "_coerceCliResult",
+      "snippet": "log(`                                                                          `"
+    },
+    {
+      "file": "templates/workflows/gsd-t-verify.workflow.js",
+      "rule": "substituted-value",
+      "symbol": "_coerceCliResult",
+      "snippet": "const env = gmr.envelope || {};"
+    },
+    {
+      "file": "templates/workflows/gsd-t-verify.workflow.js",
+      "rule": "substituted-value",
+      "symbol": "_coerceCliResult",
+      "snippet": "const v = styleEnv.violations || [];"
+    },
+    {
+      "file": "templates/workflows/gsd-t-verify.workflow.js",
+      "rule": "or-default",
+      "symbol": "_coerceCliResult",
+      "snippet": "_coerceCliResult(r) || {"
+    },
+    {
+      "file": "templates/workflows/gsd-t-wave.workflow.js",
+      "rule": "catch-continues",
+      "symbol": "",
+      "snippet": "return {};"
+    }
+  ]
+}

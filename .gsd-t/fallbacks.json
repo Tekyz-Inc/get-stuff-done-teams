@@ -1,0 +1,71 @@
+{
+  "note": "Fallbacks approved by name. Each one was shown to David as its own question, never buried in a plan. An empty list is the normal state for a project.",
+  "fallbacks": [
+    {
+      "id": "guard-locate-detector",
+      "location": "scripts/gsd-t-fallback-guard.js#findDetector",
+      "rule": "catch-continues",
+      "whatFails": "Asking npm where it installed packages (`npm root -g`) fails when npm is missing from PATH, which happens inside restricted shells.",
+      "howLikely": "Occasional. Observed in sandboxed and CI shells.",
+      "whyNotHalt": "This is a SEARCH across three known locations, not a recovery from a failure. One location being unavailable does not mean the file is absent — the next candidate is checked. If every location comes up empty the function returns nothing and the caller DENIES the write, which is the halt.",
+      "whatItDoesInstead": "Skips that one candidate location and checks the next. It never substitutes a value or guesses a path.",
+      "approvedBy": "david",
+      "approvedAt": "2026-08-07"
+    },
+    {
+      "id": "hook-locate-rewriter",
+      "location": "scripts/gsd-t-concise-hook.js#findRewriter",
+      "rule": "catch-continues",
+      "whatFails": "Same as above — `npm root -g` is unavailable in some shells.",
+      "howLikely": "Occasional.",
+      "whyNotHalt": "Same reasoning: a search across candidate locations, not a recovery. If none is found the hook allows the reply through unchanged, which loses nothing.",
+      "whatItDoesInstead": "Checks the next candidate location.",
+      "approvedBy": "david",
+      "approvedAt": "2026-08-07"
+    },
+    {
+      "id": "hook-read-transcript-tail",
+      "location": "scripts/gsd-t-concise-hook.js#readTail",
+      "rule": "catch-continues",
+      "whatFails": "Reading the end of the conversation transcript fails if the file is mid-write, rotated, or briefly locked.",
+      "howLikely": "Occasional — the transcript is written continuously while this hook runs.",
+      "whyNotHalt": "This governs how a reply READS, never whether it is true. Blocking a correct answer because a log file was momentarily unreadable would be a worse outcome than showing a long reply. Nothing is fabricated: an empty read means the reply passes through exactly as written.",
+      "whatItDoesInstead": "Returns nothing read, so the hook allows the original reply through untouched.",
+      "approvedBy": "david",
+      "approvedAt": "2026-08-07"
+    },
+    {
+      "id": "hook-read-settings",
+      "location": "scripts/gsd-t-concise-hook.js#readConfig",
+      "rule": "catch-continues",
+      "whatFails": "The concise settings file exists but is not valid JSON.",
+      "howLikely": "Rare — only after a hand-edit.",
+      "whyNotHalt": "Same reasoning as the transcript read. The safe direction here is to rewrite with defaults, which can only shorten a reply, never lose content — every rewrite is separately checked for lost questions, warnings, paths and code blocks, and rejected if anything went missing.",
+      "whatItDoesInstead": "Uses the default settings.",
+      "approvedBy": "david",
+      "approvedAt": "2026-08-07"
+    },
+    {
+      "id": "rewriter-read-settings",
+      "location": "bin/gsd-t-concise-rewrite.cjs#readConfig",
+      "rule": "catch-continues",
+      "whatFails": "Same settings file, same failure.",
+      "howLikely": "Rare.",
+      "whyNotHalt": "Same reasoning as above.",
+      "whatItDoesInstead": "Uses the default settings.",
+      "approvedBy": "david",
+      "approvedAt": "2026-08-07"
+    },
+    {
+      "id": "hook-stat-transcript",
+      "location": "scripts/gsd-t-concise-hook.js#readTail",
+      "rule": "or-default",
+      "whatFails": "Checking whether the transcript path is a regular file.",
+      "howLikely": "Rare.",
+      "whyNotHalt": "Part of the same transcript read approved above; it is a precondition check, not a recovery.",
+      "whatItDoesInstead": "Treats a non-file as nothing to read, so the reply passes through untouched.",
+      "approvedBy": "david",
+      "approvedAt": "2026-08-07"
+    }
+  ]
+}

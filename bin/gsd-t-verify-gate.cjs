@@ -311,6 +311,8 @@ function _detectDefaultTrack2(projectDir, notes) {
 
   plan.push({ id: 'schema-id', cmd: 'node', args: [path.join(__dirname, 'gsd-t-schema-id-check.cjs'), '--project', projectDir], timeoutMs: 30000 }); // integer-identity PK on every NEW relational table, FAIL-CLOSED (no-op PASS when no new schema files)
 
+  plan.push({ id: 'fallbacks', cmd: 'node', args: [path.join(__dirname, 'gsd-t-fallback-detect.cjs'), '--scan', '--project', projectDir, '--json'], timeoutMs: 120000 }); // M106: no unapproved continue-after-failure branch, FAIL-CLOSED (pre-existing ones excluded via .gsd-t/fallbacks-baseline.json)
+
   // secrets — gitleaks (PATH detection deferred to runtime)
   if (_hasOnPath('gitleaks')) {
     plan.push({

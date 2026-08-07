@@ -505,6 +505,23 @@ const WORKTREE_HOOK_MARKER = "gsd-t-worktree-guard";
 const WORKTREE_HOOK_COMMAND =
   'bash -c \'[ -f "$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-worktree-guard.js" ] && node "$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-worktree-guard.js" || true\'';
 
+// ─── M106 Fallback guard (PreToolUse Write|Edit) ────────────────────────────
+// Denies a write that introduces a fallback the user never approved. NO `|| true`
+// here, unlike the worktree guard: if this script is missing, the shell must fail
+// loudly rather than let unchecked writes through. Swallowing its absence is the
+// exact pattern the guard exists to stop.
+const FALLBACK_HOOK_MARKER = "gsd-t-fallback-guard";
+const FALLBACK_HOOK_COMMAND =
+  'node "$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-fallback-guard.js"';
+
+// ─── M107 Concise hook (Stop) ───────────────────────────────────────────────
+// Sends a long reply to a fresh Claude for a shorter rewrite. Fail-open by
+// design (`|| true`): it governs how a reply READS, never whether it is true,
+// so a broken rewriter must never gag a correct answer.
+const CONCISE_HOOK_MARKER = "gsd-t-concise-hook";
+const CONCISE_HOOK_COMMAND =
+  'bash -c \'[ -f "$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-concise-hook.js" ] && node "$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-concise-hook.js" || true\'';
+
 // Append entries to {projectDir}/.gitignore. Each entry added only if absent.
 // Idempotent. Returns true if any entries were added, false otherwise.
 function ensureGitignoreEntries(projectDir, entries) {
@@ -961,6 +978,60 @@ function configureArchitectHook(settingsPath) {
 // the marker + command, so a third Write|Edit hook needs no new code).
 function configureWorktreeGuardHook(settingsPath) {
   return configureWriteEditHook(settingsPath, WORKTREE_HOOK_MARKER, WORKTREE_HOOK_COMMAND, "worktree guard");
+}
+
+// M106 — register the fallback guard on Write|Edit. Same registrar again.
+function configureFallbackGuardHook(settingsPath) {
+  return configureWriteEditHook(settingsPath, FALLBACK_HOOK_MARKER, FALLBACK_HOOK_COMMAND, "fallback guard");
+}
+
+// M107 — register the concise rewriter on Stop. Not a Write|Edit hook, so it
+// uses the Stop registrar below rather than configureWriteEditHook.
+function configureConciseHook(settingsPath) {
+  return configureStopHook(settingsPath, CONCISE_HOOK_MARKER, CONCISE_HOOK_COMMAND, "concise rewrite");
+}
+
+// Register a Stop hook by marker. Mirrors configureWriteEditHook exactly, on the
+// Stop event instead of PreToolUse.
+function configureStopHook(settingsPath, marker, command, label) {
+  const targetPath = settingsPath || SETTINGS_JSON;
+  let settings = {};
+  if (fs.existsSync(targetPath)) {
+    try {
+      settings = JSON.parse(fs.readFileSync(targetPath, "utf8"));
+      if (!settings || typeof settings !== "object") settings = {};
+    } catch {
+      warn(`settings.json has invalid JSON — cannot configure ${label} hook`);
+      return { installed: false, action: "noop" };
+    }
+  }
+  if (!settings.hooks) settings.hooks = {};
+  if (!Array.isArray(settings.hooks.Stop)) settings.hooks.Stop = [];
+
+  let action = "noop";
+  let found = false;
+  for (const entry of settings.hooks.Stop) {
+    if (!entry || !Array.isArray(entry.hooks)) continue;
+    for (const h of entry.hooks) {
+      if (h && typeof h.command === "string" && h.command.includes(marker)) {
+        found = true;
+        if (h.command !== command) { h.command = command; action = "refreshed"; }
+      }
+    }
+  }
+  if (!found) {
+    settings.hooks.Stop.push({ matcher: "", hooks: [{ type: "command", command }] });
+    action = "added";
+  }
+  if (action === "noop") return { installed: true, action };
+
+  try {
+    fs.writeFileSync(targetPath, JSON.stringify(settings, null, 2));
+  } catch (e) {
+    warn(`Failed to write settings.json: ${e.message}`);
+    return { installed: false, action: "noop" };
+  }
+  return { installed: true, action };
 }
 
 function configureWriteEditHook(settingsPath, marker, command, label) {
@@ -1591,6 +1662,15 @@ const GLOBAL_BIN_TOOLS = [
   // caller but absent from BOTH lists is dead in every project
   // ([[project_global_bin_propagation_gap]], 4 prior occurrences).
   "gsd-t-pseudocode-style.cjs",
+  // M106 — Fallback detector. scripts/gsd-t-fallback-guard.js (a PreToolUse hook)
+  // shells out to this by absolute path; if it is missing the guard DENIES the
+  // write rather than allowing it unchecked, so an omission here breaks every
+  // Write/Edit rather than failing silently. Also in PROJECT_BIN_TOOLS below.
+  "gsd-t-fallback-detect.cjs",
+  // M107 — Concise rewriter. scripts/gsd-t-concise-hook.js (a Stop hook) shells
+  // out to this; absent, the hook allows the long reply through (fail-open by
+  // design — it governs readability, never truth).
+  "gsd-t-concise-rewrite.cjs",
 ];
 
 function installGlobalBinTools() {
@@ -2033,6 +2113,20 @@ async function doInstall(opts = {}) {
     if (wtHook.action === "added") success("Worktree-collision guard added (blocks a second session editing the same tree — M105)");
     else if (wtHook.action === "updated") success("Worktree-collision guard refreshed");
     else info("Worktree-collision guard already configured");
+  }
+
+  const fbHook = configureFallbackGuardHook(SETTINGS_JSON);
+  if (fbHook.installed) {
+    if (fbHook.action === "added") success("Fallback guard added (denies a write that adds an unapproved fallback — M106)");
+    else if (fbHook.action === "refreshed") success("Fallback guard refreshed");
+    else info("Fallback guard already configured");
+  }
+
+  const ccHook = configureConciseHook(SETTINGS_JSON);
+  if (ccHook.installed) {
+    if (ccHook.action === "added") success("Concise-rewrite hook added (shortens a long reply before you read it — M107)");
+    else if (ccHook.action === "refreshed") success("Concise-rewrite hook refreshed");
+    else info("Concise-rewrite hook already configured");
   }
 
   heading("Graph Engine (CGC)");
@@ -2993,6 +3087,13 @@ const PROJECT_BIN_TOOLS = [
   "gsd-t-model-tier-policy.cjs",
   // M86 — Model-profile config + resolver CLI (standard/pro/premium tier-spend switch).
   "gsd-t-model-profile.cjs",
+  // M106 — Fallback detector. The PreToolUse guard prefers the project-local
+  // copy; the verify gate dispatches to it by absolute path. Missing here means
+  // every Write/Edit is DENIED (the guard halts rather than allowing unchecked),
+  // so this entry is load-bearing — [[project_global_bin_propagation_gap]].
+  "gsd-t-fallback-detect.cjs",
+  // M107 — Concise rewriter, invoked by the Stop hook.
+  "gsd-t-concise-rewrite.cjs",
   // M89 — Auto-research gate classifier (classify a guessed claim as internal vs external;
   // propagated to each registered project's bin/ so the workflow runCli fallback resolves
   // downstream — per [[project_global_bin_propagation_gap]]).
