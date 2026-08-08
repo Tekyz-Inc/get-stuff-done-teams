@@ -518,6 +518,16 @@ const FALLBACK_HOOK_COMMAND =
 // Checks the project's tools before any work starts, restores what is missing,
 // and reports what it could not fix. Not a fallback — it repairs the failure
 // and then the session runs correctly, rather than routing around it.
+// ─── M111 Auto-worktree router (SessionStart) ───────────────────────────────
+// Gives each terminal session its own worktree at startup, so two sessions
+// never share one working tree. Reuses the newest worktree nobody is sitting in
+// before creating a new one. Occupancy comes from the process table (a terminal
+// session owns a tty; subagents and `claude -p` runs do not) — the signal the
+// retired heartbeat guard got wrong.
+const AUTO_WORKTREE_MARKER = "gsd-t-auto-worktree";
+const AUTO_WORKTREE_COMMAND =
+  'node "$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-auto-worktree.js"';
+
 const INSTALL_HEAL_MARKER = "gsd-t-install-heal";
 const INSTALL_HEAL_COMMAND =
   'bash -c \'[ -f "$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-install-heal.js" ] && node "$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-install-heal.js" || true\'';
@@ -1005,6 +1015,15 @@ function configureInstallHealHook(settingsPath) {
   return configureEventHook(settingsPath, "SessionStart", INSTALL_HEAL_MARKER, INSTALL_HEAL_COMMAND, "install self-heal");
 }
 
+// M111 — register the auto-worktree router on SessionStart. Replaces the retired
+// M105 collision guard: rather than blocking an edit once two sessions already
+// share a tree, it gives each session its own worktree at startup so they never
+// share one. No `|| true` — if the script is missing the shell must say so,
+// because a silently absent router puts every session back in the main tree.
+function configureAutoWorktreeHook(settingsPath) {
+  return configureEventHook(settingsPath, "SessionStart", AUTO_WORKTREE_MARKER, AUTO_WORKTREE_COMMAND, "auto-worktree");
+}
+
 // Register a Stop hook by marker. Mirrors configureWriteEditHook exactly, on the
 // Stop event instead of PreToolUse.
 function configureStopHook(settingsPath, marker, command, label) {
@@ -1155,6 +1174,55 @@ function removeInterceptHooks(settingsPath) {
     warn(`Failed to write settings.json: ${e.message}`);
     return false;
   }
+}
+
+// Strip hooks that GSD-T no longer ships. Runs on EVERY install, not only on
+// uninstall: dropping the registration is not enough on its own, because a
+// machine that installed the hook once keeps running it forever from its own
+// settings.json. A retired hook has to be actively removed to actually stop.
+//
+// RETIRED_HOOK_MARKERS lists every command substring that must go.
+//   gsd-t-worktree-guard — M105, retired 2026-08-08. Read heartbeat files as the
+//   session signal, but subagents write those too, so one session with agents
+//   looked like several colliding sessions and the guard blocked its own user.
+//
+// Throws on any failure. A retired hook that silently survives keeps blocking
+// edits forever, so "could not remove it" must stop the install loudly rather
+// than report success.
+function removeRetiredHooks(settingsPath) {
+  const RETIRED_HOOK_MARKERS = ["gsd-t-worktree-guard"];
+  const targetPath = settingsPath || SETTINGS_JSON;
+  if (!fs.existsSync(targetPath)) return { removed: 0 };
+
+  const settings = JSON.parse(fs.readFileSync(targetPath, "utf8"));
+  if (!settings.hooks) return { removed: 0 };
+
+  let removed = 0;
+  const isRetired = (h) =>
+    typeof h.command === "string" &&
+    RETIRED_HOOK_MARKERS.some((m) => h.command.includes(m));
+
+  for (const event of Object.keys(settings.hooks)) {
+    const groups = settings.hooks[event];
+    if (!Array.isArray(groups)) continue;
+    // Strip retired hooks from inside each group, then drop groups left empty.
+    const rewritten = [];
+    for (const g of groups) {
+      if (!Array.isArray(g.hooks)) { rewritten.push(g); continue; }
+      const kept = g.hooks.filter((h) => !isRetired(h));
+      removed += g.hooks.length - kept.length;
+      if (kept.length > 0) rewritten.push({ ...g, hooks: kept });
+    }
+    settings.hooks[event] = rewritten;
+  }
+
+  if (removed === 0) return { removed: 0 };
+
+  if (isSymlink(targetPath)) {
+    throw new Error(`Cannot remove retired hooks — ${targetPath} is a symlink`);
+  }
+  fs.writeFileSync(targetPath, JSON.stringify(settings, null, 2));
+  return { removed };
 }
 
 // Remove any context meter PostToolUse hooks from settings.json.
@@ -2157,18 +2225,31 @@ async function doInstall(opts = {}) {
     else info("Architect-oversight hook already configured");
   }
 
-  const wtHook = configureWorktreeGuardHook(SETTINGS_JSON);
-  if (wtHook.installed) {
-    if (wtHook.action === "added") success("Worktree-collision guard added (blocks a second session editing the same tree — M105)");
-    else if (wtHook.action === "updated") success("Worktree-collision guard refreshed");
-    else info("Worktree-collision guard already configured");
+  const retired = removeRetiredHooks(SETTINGS_JSON);
+  if (retired.removed > 0) {
+    success(`Removed ${retired.removed} retired hook(s) from settings.json (worktree-collision guard — M105)`);
   }
 
+  // M105 worktree-collision guard RETIRED (2026-08-08). It detected sessions from
+  // heartbeat files, which every subagent also writes, so one session with agents
+  // read as many colliding sessions and the guard blocked its own user's edits.
+  // Detecting a session from a file it happens to write was the wrong signal.
+  // Its replacement (gsd-t-auto-worktree) detects real terminal sessions from the
+  // process table and routes each into its own worktree at SessionStart, so no
+  // collision can occur in the first place. Any previously-registered copy is
+  // removed by removeRetiredHooks() below.
   const fbHook = configureFallbackGuardHook(SETTINGS_JSON);
   if (fbHook.installed) {
     if (fbHook.action === "added") success("Fallback guard added (denies a write that adds an unapproved fallback — M106)");
     else if (fbHook.action === "refreshed") success("Fallback guard refreshed");
     else info("Fallback guard already configured");
+  }
+
+  const awHook = configureAutoWorktreeHook(SETTINGS_JSON);
+  if (awHook.installed) {
+    if (awHook.action === "added") success("Auto-worktree router added (each session gets its own worktree — M111)");
+    else if (awHook.action === "refreshed") success("Auto-worktree router refreshed");
+    else info("Auto-worktree router already configured");
   }
 
   const ccHook = configureConciseHook(SETTINGS_JSON);
