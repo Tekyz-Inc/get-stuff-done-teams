@@ -46,7 +46,10 @@ process.stdin.on("end", () => {
     const gsdtDir = path.join(dir, ".gsd-t");
     if (!fs.existsSync(gsdtDir)) return;
 
-    const sid = hook.session_id || "unknown";
+    // Use the ROOT session id for all agents in the tree — subagents pass
+    // parent_session_id, so we prefer that to avoid N heartbeat files per
+    // session (which trips the worktree guard as N "separate" sessions).
+    const sid = hook.parent_session_id || hook.session_id || "unknown";
 
     // Validate session_id — block path traversal (e.g., "../../etc/evil")
     if (!SAFE_SID.test(sid)) return;
