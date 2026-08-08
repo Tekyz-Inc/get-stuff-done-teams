@@ -72,109 +72,133 @@ CLAUDE.md Analysis:
 
 Note: "No existing CLAUDE.md — will generate from scratch."
 
-## Step 4: Ask Targeted Questions
+## Step 3.5: Read what actually happened here
 
-Only ask what could NOT be auto-detected. Skip questions where the answer is already clear from scanning.
+Before writing anything, read the project's own history. A rule that keeps
+getting broken is the rule that most needs writing down, and nobody remembers
+those on request — they have to be found.
 
-**Potential questions** (ask only if not auto-detected):
+```bash
+node bin/gsd-t-project-history.cjs --project . --json
+```
 
-1. **Branch Guard**: "Which branch should commits target?" (skip if only `main` or `master` exists)
-2. **Autonomy Level**: "What autonomy level? Level 1 (Supervised), Level 2 (Standard), Level 3 (Full Auto — default)" (skip if existing CLAUDE.md already declares it)
-3. **Workflow Preferences**: "Any overrides to the global defaults? (Research Policy, Phase Flow)" (skip if user has no overrides)
-4. **Deployed URLs**: "Production, staging, and local URLs?" (skip if found in .env or existing docs)
-5. **Project-specific rules**: "Any 'never do' rules specific to this project?" (skip if existing CLAUDE.md already has them)
+Three sources, cheapest first. Each reports whether it was there; a missing one
+is **named**, never skipped in silence:
 
-**Do NOT ask about**:
-- Tech stack (auto-detected)
-- Naming conventions (auto-detected)
-- Testing framework (auto-detected)
-- File structure (auto-detected)
-- Anything already covered by the global CLAUDE.md
+| Source | What it gives |
+|---|---|
+| Git | Files fixed the same way repeatedly, and real reverts |
+| Decision log | Directives already recorded, with dates |
+| Past sessions | What the user typed when something kept going wrong |
+
+Session history is large — one project holds 315 MB — so the tool funnels it:
+keep only the user's own turns, drop pasted logs, keep only complaint-shaped
+lines. Under a second, and the result fits in context.
+
+**If it exits 4, there is no history at all.** Do not carry on and write a
+thinner file. Stop and ask:
+
+```
+Sources found: git 67 commits | decision log 1 line | sessions 0 | contracts 0
+
+I can mine 0 rules from this project's history.
+
+  a) Write stack and commands only — the rules section left out, with the
+     reason written into the file. Not a normal CLAUDE.md.
+  b) You dictate the rules now.
+  c) Stop.
+```
+
+Whichever they pick, the gap goes **into the generated file** — "Rules: none
+derivable, no project history" — so thinness stays visible rather than reading
+as "this project has no rules."
+
+## Step 4: Show the rules found, and let the user tick them
+
+Do **not** ask the user to recall rules. Mine every rule the project already
+states, and let them confirm:
+
+```bash
+node bin/gsd-t-rule-mine.cjs --project . --top 12
+```
+
+Six sources, ranked by how many agree — a rule found in three places ranks top,
+because repetition is the evidence. The output is a tick-list:
+
+```
+12 candidate rules for binvoice. Tick the ones that must NEVER be broken.
+
+     RULE                                                    SEEN IN
+ 1 [ ] NEVER contact the buyer directly                      CLAUDE.md (HC-003)
+ 2 [ ] TEXT-FIRST capture (enforced by a pre-write gate)     CLAUDE.md (HC-004)
+ 3 [ ] NEVER scan the whole page                             CLAUDE.md (HC-005)
+
+Tick numbers (e.g. 1,3,4) or 'all':
+```
+
+The right-hand column is what makes this fast — the user is confirming
+something they already said, not recalling it. **Cap the screen at 12.**
+Anything below goes to `.gsd-t/setup-rules-full.md`; nothing is dropped.
+
+**Never invent a rule.** Every one comes from somewhere in the project, and the
+tick-list shows where. A rule the user did not tick is not inviolable — it may
+still belong elsewhere in the file, but not in that section.
+
+**Determine these by reading, never by asking:**
+
+| | How |
+|---|---|
+| Which branch | `git branch --show-current` |
+| Where the repo misleads | Two version fields disagreeing, a legacy path that still looks live |
+| Which files are dangerous | Fixed 5+ times in the git history |
+| Stack, build, test | The manifest |
+
+**Ask only if genuinely unresolvable:** the autonomy level when no existing
+CLAUDE.md declares one, and deployed URLs when nothing records them.
 
 ## Step 5: Generate CLAUDE.md
 
-Build the file using this structure. Include only sections that have real content — omit empty sections entirely.
+Use the mold at `templates/CLAUDE-project.md`. It is a real mold — do NOT copy
+any existing project's file, and never GSD-T's own.
 
-```markdown
-# {Project Name}
+**Every section may be left out, with the reason stated. None may be padded.**
 
-## Branch Guard
-**Expected branch**: {branch}
+| Section | Include when | Fill from |
+|---|---|---|
+| Title + one-line what-this-is | Always | The manifest, the README |
+| **Rules that can never be broken** | The user ticked at least one | Step 4's tick-list, verbatim |
+| Where the repo misleads you | Reading the code gives a confident wrong answer | Determined, never asked |
+| Files riskier than they look | Some file was fixed 5+ times | Git history |
+| Where this differs from global | A genuine difference exists | Compared against `~/.claude/CLAUDE.md` |
+| Stack and commands | Always | The manifest |
+| Where things are written down | Always | Fixed pointers |
 
-## Project Overview
-{Brief description — what problem does this solve and for whom?}
+**Target 40–70 lines.** If it is longer, something in it is either restating a
+global rule or repeating what the repo already says.
 
-### Architecture
-{High-level architecture summary if the project has one — e.g., "Three-tier WebSocket bridge" with a diagram. Keep it concise. Details belong in docs/architecture.md}
+### What must never appear
 
-## Where Things Live
+| Never | Why |
+|---|---|
+| Anything the global file already says | Three projects each paste the entire Destructive Action Guard verbatim — 15 wasted lines apiece |
+| Anything a hook or gate enforces | The machine does not read this file |
+| A version number, a line count, "currently in progress" | Wrong within a week. It belongs in `progress.md` |
+| A file listing, a dependency list, a command count | The repo answers it, and answers it currently |
+| A rule nobody stated | Every rule comes from the tick-list, and the tick-list shows its source |
 
-| Need to find... | Look here |
-|-----------------|-----------|
-| {component} | {path} |
+### The line that matters most
 
-## Key Technologies
-{Bulleted list of language, framework, database, testing, etc.}
+A rule states **what must never happen and what breaks if it does**. If it is
+enforced by a hook or a gate, say so — the reader should know a machine is
+watching:
 
-## Documentation
-- Requirements: docs/requirements.md
-- Architecture: docs/architecture.md
-- Workflows: docs/workflows.md
-- Infrastructure: docs/infrastructure.md
-
-## Autonomy Level
-**Level {N} — {Name}** ({description})  <!-- default: Level 3 — Full Auto -->
-
-## Workflow Preferences
-<!-- Override global defaults. Delete what you don't need to override. -->
-
-### Research Policy
-{project-specific overrides, or omit section}
-
-### Phase Flow
-{project-specific overrides, or omit section}
-
-## Testing
-{Framework, file organization, naming, running instructions}
-
-## Code Patterns to Follow
-{Project-specific conventions that differ from or extend global defaults}
-
-### Naming Conventions
-{If different from global defaults}
-
-## Running the App
-{Dev server, build commands, first-time setup}
-
-## Environment Variables
-| Variable | Purpose | Default |
-|----------|---------|---------|
-| {VAR} | {purpose} | {default} |
-
-## Deployed URLs
-- **Production**: {url}
-- **Staging**: {url}
-- **Local**: http://localhost:{port}
-
-## Don't Do These Things
-{Project-specific rules only — don't repeat global rules}
-
-## GSD-T Workflow
-This project uses contract-driven development.
-- State: .gsd-t/progress.md
-- Contracts: .gsd-t/contracts/
-- Domains: .gsd-t/domains/
-
-## Current Status
-See `.gsd-t/progress.md` for current milestone/phase state.
+```
+- **Never touch facebook.com** — no permissions, no requests, no DOM writes.
+  A single write turns a read-only observer into an actor on someone else's
+  account. Enforced by a pre-write gate.
 ```
 
-### Section Rules:
-- **NEVER duplicate** global CLAUDE.md content (Destructive Action Guard, Pre-Commit Gate, Prime Directives, etc.)
-- **ALWAYS include**: Branch Guard, GSD-T Workflow, Current Status
-- **Include if relevant**: Where Things Live, Testing, Code Patterns, Environment Variables
-- **Omit if empty**: Deployed URLs (if not deployed), Architecture (if trivial), Workflow Preferences (if no overrides)
-
+Not: *"Be careful with Facebook interactions."*
 ## Step 5.5: Quality North Star Configuration
 
 After generating the CLAUDE.md content (Step 5) and before presenting it to the user, offer a Quality North Star section if one is not already present.

@@ -1709,6 +1709,9 @@ const GLOBAL_BIN_TOOLS = [
   // M108 — Install self-check, run by the SessionStart hook and by
   // `gsd-t install-check`.
   "gsd-t-install-check.cjs",
+  // M109 — project-history reader + rule miner, used by /gsd-t-setup to write a
+  // project CLAUDE.md from what actually happened rather than from a template.
+  "gsd-t-project-history.cjs", "gsd-t-rule-mine.cjs",
 ];
 
 function installGlobalBinTools() {
@@ -3150,6 +3153,9 @@ const PROJECT_BIN_TOOLS = [
   // M108 — Install self-check. Every project carries its own copy so it can
   // verify and repair itself even when the global install is what broke.
   "gsd-t-install-check.cjs",
+  // M109 — project-history reader + rule miner, so /gsd-t-setup can write a
+  // project CLAUDE.md from what actually happened rather than from a template.
+  "gsd-t-project-history.cjs", "gsd-t-rule-mine.cjs",
   // M89 — Auto-research gate classifier (classify a guessed claim as internal vs external;
   // propagated to each registered project's bin/ so the workflow runCli fallback resolves
   // downstream — per [[project_global_bin_propagation_gap]]).

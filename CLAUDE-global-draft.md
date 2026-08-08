@@ -14,34 +14,19 @@ Violating any of these is irreversible or expensive. **Ask first, every time, at
 
 When new code and an existing schema disagree, **adapt the new code to what exists.** The user may have working functionality, seed data, or dependent code you cannot see. If restructuring is genuinely necessary: state what exists, what you want to change, what breaks, what data is lost, and a migration path — then wait.
 
-**No fallback without approval.** *(Nothing enforces this rule — no lint can judge it. It is stated in full deliberately. This has cost the user days of debugging, repeatedly, from fallbacks nobody asked for.)*
+**No fallback without approval.** *(A gate denies unapproved ones on every write — see § Enforced by machine. The detail below is the part it cannot judge: whether a given one is warranted.)*
 
 A fallback is anything that continues after a failure: a `catch` that keeps going, `|| default`, a substituted value, a partial result, a "try X else Y" where Y hides X failing. **Writing a trace and continuing is still a fallback** — it moves the failure to a file nobody reads while the wrong output ships anyway.
 
-**Do not add one unless the user asked for it.** Not as a judgment call, not "just in case," not because the case seemed plausible. The worst ones were never decisions — they were unrequested code guarding a case nobody had established could happen.
+**Do not add one unless the user asked for it.** Not as a judgment call, not "just in case," not because the case seemed plausible.
 
-**The damage is fabricated data plus a disabled alarm — two failures, not one.**
+**It causes two failures, not one: fabricated data, and a disabled alarm.** A post's author could not be found, so the code substituted the last known seller — posts were recorded as written by someone who never wrote them. It did not hide a missing author; it invented one. And author detection had broken *because a code change broke it*: without the substitution that is a visible failure fixed in minutes, with it the system reports success and the original bug survives indefinitely.
 
-- A post's author could not be found, so the code attributed it to the last known seller. Posts were recorded as written by someone who never wrote them. **The fallback did not hide a missing author — it invented one.** It looked plausible, so nothing appeared broken.
-- A PayPal invoice with five line items where one fails: creating the invoice with four and tracing the fifth produces **a real invoice, with a wrong amount, sent to a customer.** The trace says "one item failed." The invoice says "this is what you owe." The invoice wins.
+Hidden failures are recoverable once found. **Fabricated data is not** — it is indistinguishable from correct data, so there is nothing to search for.
 
-**Why the author case compounded:** author detection broke because a capture change broke it. Without the fallback, that is an immediate visible failure, fixed in minutes. With it, the system reports success, writes a wrong seller onto records that are not even orders, and **the original bug survives indefinitely because nothing ever surfaces it.** The fallback did not just produce bad data — it removed the alarm for the defect that caused it. The same pattern recurred in group detection and in page scanning.
+**A missing value is a bug in whatever was supposed to produce it.** Substituting one guarantees nobody looks for that defect. Stop, produce nothing, and say what could not be completed.
 
-Hidden failures are recoverable once found. **Fabricated data is not** — it is indistinguishable from correct data, so there is nothing to search for and no way to bound the damage.
-
-Both cases have the same correct answer: **stop, create nothing, and tell the user what could not be completed and why.** No partial invoice. No guessed author.
-
-**A missing value is a bug in whatever was supposed to produce it.** Not-finding an author is a defect in the author finder. Substituting a value guarantees nobody ever looks for that defect.
-
-**Approval must be specific — silence in a plan is not consent.**
-
-A fallback buried inside a long plan that the user approves as a whole **is not approved.** A plan too dense to audit, containing a fallback that was never called out, extracts consent by burying — and the author of the plan controls the burying. "The user said go ahead" is not a defense when they were never shown the thing they would have objected to.
-
-- **A plan that does not explicitly name a fallback contains none.** Silence means no fallbacks; do not read approval of a plan as approval of anything unstated inside it.
-- **If one is genuinely warranted, ask for it alone** — in plain words, as its own question, separate from the plan: what fails, how often, why halting is worse, what the fallback does instead. Never as a clause inside a paragraph.
-- **A blanket "go ahead" never authorizes a fallback.** Only an explicit yes to that specific fallback does.
-
-The same applies to scope: features nobody requested (a scan, a retry, a cache) are subject to this rule when they exist to paper over a failure.
+**Approval must be specific — silence in a plan is not consent.** A fallback buried in a long plan approved as a whole is not approved; whoever wrote the plan controls the burying. A plan that does not name a fallback contains none. If one is warranted, ask for it alone — what fails, how often, why halting is worse, what it does instead. A blanket "go ahead" never authorizes one.
 
 The opposite of a fallback is a **HALT**: stop, refuse to continue, surface it loudly. When tempted to write a fallback, the answer is almost always a halt.
 
@@ -107,7 +92,10 @@ These rules are enforced by code. They hold whether or not you remember them —
 |---|---|
 | Timestamps come from the live clock | ✅ `scripts/gsd-t-date-guard.js` (blocks the write) |
 | One session per working tree | ✅ `scripts/gsd-t-worktree-guard.js` (denies with recovery commands) |
-| Architect pass + no-fallback + simply-stated reminders | `scripts/gsd-t-architect-oversight-guard.js` — **reminds only, never blocks** |
+| Fallbacks need approval by name | ✅ `scripts/gsd-t-fallback-guard.js` (denies the write) + `bin/gsd-t-fallback-detect.cjs` |
+| The project's tools are all present | ✅ `scripts/gsd-t-install-heal.js` (repairs at session start) + `bin/gsd-t-install-check.cjs` |
+| Replies are shortened before you read them | `scripts/gsd-t-concise-hook.js` + `bin/gsd-t-concise-rewrite.cjs` |
+| Architect pass + simply-stated reminders | `scripts/gsd-t-architect-oversight-guard.js` — **reminds only, never blocks** |
 | Output style, live clock, routing, model profile | `scripts/gsd-t-auto-route.js` (every turn) |
 | Types, lint, tests, dead code, secrets, complexity | `bin/gsd-t-verify-gate.cjs` |
 | PseudoCode style + guard map | ✅ `bin/gsd-t-pseudocode-style.cjs`, `bin/gsd-t-guard-map.cjs` |
