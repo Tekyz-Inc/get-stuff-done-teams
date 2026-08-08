@@ -8,9 +8,14 @@
  * one working tree and interleave their uncommitted work.
  *
  * A SessionStart hook cannot change the shell's directory — it runs in its own
- * process. What it CAN do is print, and what it prints reaches the model as
- * context. So it prints a `cd` instruction and the model runs it as its first
- * action. That is the whole mechanism.
+ * process. What it CAN do is hand the model a note. So it hands over a `cd`
+ * instruction and the model runs it as its first action. That is the whole
+ * mechanism.
+ *
+ * The note has to be JSON. Claude Code discards a SessionStart hook's plain
+ * stdout and reads only `hookSpecificOutput.additionalContext`, so printing the
+ * instruction as prose reaches nobody — the first version of this script did
+ * exactly that and every session silently stayed in the main tree.
  *
  * Reuse before create. Most sessions are the same person coming back to the same
  * project, so the most recent worktree nobody is sitting in is the right home.
@@ -61,18 +66,31 @@ function main() {
   if (t.unref) t.unref();
 }
 
-// Print why this session is staying put, and stop. Used for every condition
-// where the right worktree cannot be determined.
-function halt(message) {
-  console.log(`[GSD-T WORKTREE] ${message} Staying in the current directory.`);
+// Hand the model a note and stop. Everything this script says to the model goes
+// through here, because `additionalContext` is the only channel it reads.
+function tell(message) {
+  process.stdout.write(JSON.stringify({
+    hookSpecificOutput: {
+      hookEventName: "SessionStart",
+      additionalContext: message,
+    },
+  }));
   process.exit(0);
+}
+
+// Say why this session is staying put, and stop. Used for every condition where
+// the right worktree cannot be determined.
+function halt(message) {
+  tell(`[GSD-T WORKTREE] ${message} Staying in the current directory.`);
 }
 
 function route(data) {
   const cwd = typeof data.cwd === "string" && data.cwd ? data.cwd : process.cwd();
 
-  // Resuming: the session already has a home. Moving it would strand its work.
-  if (data.source === "resume" || data.source === "compact") process.exit(0);
+  // Only a brand-new session needs a home. Every other start ("resume",
+  // "clear", "compact", "fork") is a session that already has one and is
+  // carrying work in it — re-routing those would strand that work.
+  if (data.source !== "startup") process.exit(0);
 
   if (!isGitRepo(cwd)) process.exit(0);
   if (isInsideWorktree(cwd)) process.exit(0);
@@ -87,12 +105,13 @@ function route(data) {
   const target = free || create(cwd, home);
 
   const verb = free ? "Reusing" : "Created";
-  console.log(
-    `[GSD-T WORKTREE] ${verb} ${target.path} (branch ${target.branch}).\n` +
-    `Before anything else, run: cd "${target.path}"\n` +
-    `Do all work for this session there, not in ${cwd}.`
+  tell(
+    `[GSD-T WORKTREE] This session belongs in its own worktree, not the main ` +
+    `project folder. ${verb} ${target.path} (branch ${target.branch}).\n\n` +
+    `Before any other work, run this and stay there for the rest of the session:\n` +
+    `  cd "${target.path}"\n\n` +
+    `Do not edit files in ${cwd}.`
   );
-  process.exit(0);
 }
 
 function isSwitchedOff(cwd) {
