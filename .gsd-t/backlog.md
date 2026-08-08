@@ -684,3 +684,16 @@ After M94 ships: (1) DEFINE the telemetry suite milestone (#46) but DO NOT build
 - **Design constraints:** keep scan and architect as SEPARATE verbs (find vs. decide); the follow-on is opt-in; the architect phase reuses the M101 command/subagent (no new parallel machinery — the doctrine's own Stage 3/4); the reuse/duplication analysis is a GRAPH consumer (per the standing graph-as-architectural-anchor rule).
 - **Belongs with the deferred SCAN-REDESIGN milestone, not a piecemeal patch to today's scan.** David's standing notes already defer: "scan findings should enrich the GRAPH (judgments-on-facts)" + "scan should WRITE the graph." The architect-integration is one of the things that redesign should DECIDE — scan's whole output model is due for a rethink, and "feed the architect + let the architect read past scans" is part of that same redesign. Sequence: land the scan-redesign milestone; this item is a first-class requirement inside it. See memory [[project_scan_findings_enrich_graph]] + [[project_code_graph_universal_consumer]] + [[project_m101_architects_oversight]].
 - **Value:** turns scan from "here's a pile of debt" into "here's the debt AND the simplest fix for the worst of it" — the find→design gap closed, both forward (auto) and backward (retroactive on old registers).
+
+## 50. M110: CLAUDE.md Changelog Tracking
+- **Type:** feature | **App:** gsd-t | **Category:** governance
+- **Added:** 2026-08-08 | **Priority:** MEDIUM | **Origin:** conversation 2026-08-08
+- **Problem:** CLAUDE.md changes (rewrites, updates, external edits) are invisible — no audit trail of what changed, when, by whom/what.
+- **Solution:** Create and maintain `CLAUDE.md updates.md` as an append-only changelog. Five triggers:
+  1. `gsd-t-init` — scaffold file if missing
+  2. `/Claude-md` — append "Rewritten" entry after rewrite
+  3. Commands that modify CLAUDE.md (setup, etc.) — append "Updated" entry with bullet list of changes
+  4. PreToolUse hook on Write/Edit to CLAUDE.md — append "Updated" entry with bullets
+  5. Session start — compare CLAUDE.md mtime vs last changelog entry; if file is newer → append "External update detected" (no bullets, unknown changes)
+- **Entry format:** `[Rewritten|Updated|External update detected] {date} {time} | {Claude model} | GSD-T v{version} | project v{version}` followed by bullet list of changes (except for Rewritten/External which have no bullets).
+- **Scope:** all GSD-T projects, not just this repo.

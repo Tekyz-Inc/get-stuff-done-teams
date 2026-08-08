@@ -3166,6 +3166,8 @@ const PROJECT_BIN_TOOLS = [
   // M90 D2 — Loop ledger (non-convergence detection + halt directive; §3).
   // Propagated so project-local runCli helpers (gsd-t-debug.workflow.js) can invoke it.
   "gsd-t-loop-ledger.cjs",
+  // M110 — CLAUDE.md changelog tracking. Scaffolds and appends to the changelog file.
+  "gsd-t-claude-md-changelog.cjs",
   // Backlog #40 — deterministic archive+sweep of a completed milestone's domain dirs
   // (complete-milestone Step 7). Propagated so complete-milestone can invoke it project-local.
   "gsd-t-archive-domains.cjs",

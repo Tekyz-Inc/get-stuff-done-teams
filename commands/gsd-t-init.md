@@ -367,6 +367,19 @@ The `bin/gsd-t.js init` flow calls `runLoggingScaffoldStep(projectDir)` (from `b
 
 See `.gsd-t/contracts/logging-scaffold-seam-contract.md` for the full seam envelope shape consumed by d2 (trace), d4 (audit), and d5 (migrate-logging).
 
+## Step 11.6: CLAUDE.md Changelog Scaffold (M110)
+
+Scaffold the CLAUDE.md changelog file if it doesn't exist:
+
+```bash
+node bin/gsd-t-claude-md-changelog.cjs scaffold .
+```
+
+This creates `CLAUDE.md updates.md` — an append-only log of CLAUDE.md changes. The file tracks:
+- Rewrites (via `/gsd-t-setup`)
+- Updates (user-directed edits)
+- External changes (modifications outside GSD-T sessions)
+
 ## Step 12: Test Verification
 
 After initialization:

@@ -299,6 +299,16 @@ Wait for user confirmation before writing.
 2. Verify it's valid markdown (no broken tables, unclosed code blocks)
 3. If `.gsd-t/progress.md` exists, log the setup in the Decision Log
 
+## Step 7.5: Update CLAUDE.md Changelog (M110)
+
+After writing the project CLAUDE.md, update the changelog:
+
+```bash
+node bin/gsd-t-claude-md-changelog.cjs append . rewritten "Generated via /gsd-t-setup"
+```
+
+If the changelog file doesn't exist, the command scaffolds it first.
+
 ## Document Ripple
 
 ### Always update:
