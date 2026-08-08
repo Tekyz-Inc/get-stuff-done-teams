@@ -2,6 +2,34 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.10.10] - 2026-08-07
+
+### Added — a project's CLAUDE.md is written from what actually happened in it
+
+The template was GSD-T's own CLAUDE.md. It byte-copied into another project with that project's name substituted into GSD-T's own prose — 127 lines describing an npm CLI installer the project was not. Every new project was getting a file about the wrong software.
+
+**`/gsd-t-setup` now reads the project's history first.** A rule that keeps getting broken is the rule that most needs writing down, and nobody recalls those on request — they have to be found. Three sources: git, the decision log, and what you typed in past sessions.
+
+Session history is large — one project holds 315 MB across 57 sessions. Keeping only what you typed leaves 645 KB; dropping pasted logs leaves 92 complaint-shaped turns. **735 milliseconds, no subagents.**
+
+The search terms were corrected against real transcripts. Every obvious guess scored zero — "I never asked you to", "that's the third time". People don't accuse; they restate the requirement. "still not", "you keep", "why did you" are what actually appear.
+
+**Then it shows you the rules the project already states, and you tick the ones that can never be broken.** Six sources, ranked by how many agree — repetition is the evidence. Each rule shows where it came from, so you're confirming something you already said rather than recalling it. Capped at 12 on screen; the rest are written to a file, never dropped.
+
+On one project the top four are its real inviolable rules with their ids. Three other projects each surface their own true rule first.
+
+**The template is replaced** with a real mold: 45 lines, every section omittable with a stated reason, and one rule written into the mold itself — nothing that carries a number which changes on its own. A version, a line count, or "currently in progress" is wrong within a week and belongs in `progress.md`.
+
+- `bin/gsd-t-project-history.cjs`: the funnel, three sources, each reporting whether it was there
+- `bin/gsd-t-rule-mine.cjs`: six sources, deduplicated by what the rule claims
+- `templates/CLAUDE-project.md`: replaced
+- `commands/gsd-t-setup.md`: reads history, shows a tick-list, uses the mold
+- `test/m109-project-claude-md.test.js`: 15 tests
+
+**Not fixed, and said plainly:** a project CLAUDE.md is still written once and never updated, so a fresh file starts going stale immediately. The fix — giving project files the same marker-block treatment the global file has — is a separate milestone.
+
+Run `/gsd-t-setup` inside a project to rewrite its file. It shows you the result and waits for a yes before writing.
+
 ## [5.9.10] - 2026-08-07
 
 ### Added — projects repair their own install, and fallbacks need approval by name
