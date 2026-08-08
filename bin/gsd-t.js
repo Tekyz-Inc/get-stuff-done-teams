@@ -518,15 +518,6 @@ const FALLBACK_HOOK_COMMAND =
 // Checks the project's tools before any work starts, restores what is missing,
 // and reports what it could not fix. Not a fallback — it repairs the failure
 // and then the session runs correctly, rather than routing around it.
-// ─── M111 Auto-worktree router (SessionStart) ───────────────────────────────
-// Gives each terminal session its own worktree at startup, so two sessions
-// never share one working tree. Reuses the newest worktree nobody is sitting in
-// before creating a new one. Occupancy comes from the process table (a terminal
-// session owns a tty; subagents and `claude -p` runs do not) — the signal the
-// retired heartbeat guard got wrong.
-const AUTO_WORKTREE_MARKER = "gsd-t-auto-worktree";
-const AUTO_WORKTREE_COMMAND =
-  'node "$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-auto-worktree.js"';
 
 const INSTALL_HEAL_MARKER = "gsd-t-install-heal";
 const INSTALL_HEAL_COMMAND =
@@ -1015,14 +1006,6 @@ function configureInstallHealHook(settingsPath) {
   return configureEventHook(settingsPath, "SessionStart", INSTALL_HEAL_MARKER, INSTALL_HEAL_COMMAND, "install self-heal");
 }
 
-// M111 — register the auto-worktree router on SessionStart. Replaces the retired
-// M105 collision guard: rather than blocking an edit once two sessions already
-// share a tree, it gives each session its own worktree at startup so they never
-// share one. No `|| true` — if the script is missing the shell must say so,
-// because a silently absent router puts every session back in the main tree.
-function configureAutoWorktreeHook(settingsPath) {
-  return configureEventHook(settingsPath, "SessionStart", AUTO_WORKTREE_MARKER, AUTO_WORKTREE_COMMAND, "auto-worktree");
-}
 
 // Register a Stop hook by marker. Mirrors configureWriteEditHook exactly, on the
 // Stop event instead of PreToolUse.
@@ -1729,6 +1712,9 @@ function installUtilityScripts() {
 const GLOBAL_BIN_TOOLS = [
   "parallelism-report.cjs",
   "live-activity-report.cjs",
+  // M111 — prints the worktree a session should start in. Called by the shell
+  // BEFORE claude launches, so it must be on PATH rather than only in a project.
+  "gsd-t-pick-worktree.cjs",
   // M55 D5 — preflight + brief + verify-gate dispatch targets propagated to ~/.claude/bin/.
   "cli-preflight.cjs",
   "gsd-t-context-brief.cjs",
@@ -2245,12 +2231,6 @@ async function doInstall(opts = {}) {
     else info("Fallback guard already configured");
   }
 
-  const awHook = configureAutoWorktreeHook(SETTINGS_JSON);
-  if (awHook.installed) {
-    if (awHook.action === "added") success("Auto-worktree router added (each session gets its own worktree — M111)");
-    else if (awHook.action === "refreshed") success("Auto-worktree router refreshed");
-    else info("Auto-worktree router already configured");
-  }
 
   const ccHook = configureConciseHook(SETTINGS_JSON);
   if (ccHook.installed) {
@@ -5383,6 +5363,22 @@ if (require.main === module) {
           if (installHooks) installCaptureLintHook(process.cwd());
         })
         .catch((e) => { error(e.message || String(e)); process.exit(1); });
+      break;
+    }
+    // M111 — prints the worktree this session should start in, or nothing when
+    // the current directory is already right. The shell calls it before
+    // launching claude, because only the launching shell can set where a
+    // session starts.
+    case "pick-worktree": {
+      const picker = path.join(PKG_ROOT, "bin", "gsd-t-pick-worktree.cjs");
+      try {
+        execFileSync(process.execPath, [picker], { stdio: "inherit" });
+      } catch (e) {
+        // The picker prints its own reason on stderr and exits non-zero when it
+        // cannot decide. Carry that exit code out so the calling shell leaves
+        // the user where they are instead of moving them to a guess.
+        process.exit(typeof e.status === "number" ? e.status : 1);
+      }
       break;
     }
     case "register":
