@@ -12,6 +12,20 @@
  *     d=$(gsd-t-pick-worktree) && [ -n "$d" ] && cd "$d"
  *     claude
  *
+ * Three modes:
+ *
+ *     (no flags)        pick a worktree, creating one if none is free
+ *     --suggest         say what WOULD happen, create nothing. Prints
+ *                       "reuse:<path>", "create", or nothing at all.
+ *     --name <name>     create a worktree on a branch called <name>
+ *
+ * --suggest exists so the shell can ask for a name BEFORE anything is created.
+ * A branch named at session start, before the work is known, can only be a
+ * timestamp — and a timestamp describes nothing, which is how this repo
+ * accumulated twenty `session-2026-08-08T23-10-16` branches. The person
+ * launching the session knows what they are about to do; the machine does not,
+ * so it asks.
+ *
  * Why the shell and not a hook: a SessionStart hook can only ask the model to
  * move, and a request can be declined — it was, repeatedly. `cd` inside Claude
  * Code does not move the session either, because each Bash call runs in its own
@@ -47,6 +61,13 @@ function fail(message) {    // could not decide — say why, change nothing
 }
 
 function main() {
+  const argv = process.argv.slice(2);
+  const suggest = argv.includes("--suggest");
+  const nameAt = argv.indexOf("--name");
+  const wanted = nameAt >= 0 ? argv[nameAt + 1] : null;
+
+  if (nameAt >= 0 && !wanted) fail("--name needs a branch name after it.");
+
   const cwd = process.cwd();
 
   if (!isGitRepo(cwd)) stay();
@@ -55,11 +76,39 @@ function main() {
   if (isSwitchedOff(cwd)) stay();
 
   const home = path.join(process.env.HOME, "Worktrees", path.basename(cwd));
+
+  if (wanted) {
+    process.stdout.write(create(cwd, home, branchNameFrom(wanted)).path + "\n");
+    return;
+  }
+
   const occupied = interactiveClaudeDirs();
   const free = worktreesNewestFirst(home).find((w) => !occupied.has(w.path));
-  const target = free || create(cwd, home);
 
-  process.stdout.write(target.path + "\n");
+  if (suggest) {
+    // Report only. Creating here would defeat the point of asking first.
+    process.stdout.write(free ? `reuse:${free.path}\n` : "create\n");
+    return;
+  }
+
+  // No name to work with: reuse if something is free, otherwise say nothing and
+  // let the caller stay put. Inventing a name here is what --suggest exists to
+  // prevent.
+  if (!free) stay();
+  process.stdout.write(free.path + "\n");
+}
+
+// Turn what the user typed into a name git will accept, without silently
+// becoming a different branch than they asked for.
+function branchNameFrom(input) {
+  const clean = String(input).trim().toLowerCase()
+    .replace(/[^a-z0-9._/-]+/g, "-")   // spaces and punctuation → dashes
+    .replace(/^[-.\/]+|[-.\/]+$/g, "") // git rejects these at either end
+    .replace(/-{2,}/g, "-")
+    .slice(0, 60);
+
+  if (!clean) fail(`"${input}" leaves nothing usable as a branch name.`);
+  return clean;
 }
 
 function isSwitchedOff(cwd) {
@@ -111,10 +160,22 @@ function worktreesNewestFirst(home) {
   return out;
 }
 
-function create(repo, home) {
-  const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-  const branch = `session-${stamp}`;
+// A branch is only ever created with a name someone chose. There is no
+// generated default: naming a branch before the work is known produces a
+// timestamp, and a timestamp describes nothing — which is how this repo
+// collected twenty `session-2026-08-08T23-10-16` branches. Callers with no name
+// get "create" from --suggest and must come back with --name.
+function create(repo, home, branch) {
+  if (!branch) {
+    fail("A worktree needs a branch name — run with --name <name>.");
+  }
   const dest = path.join(home, branch);
+
+  // Reusing a directory that already holds a different branch's work would put
+  // this session on top of it. Say so instead.
+  if (fs.existsSync(dest)) {
+    fail(`${dest} already exists. Pick a different name, or start there directly.`);
+  }
 
   fs.mkdirSync(home, { recursive: true });
 

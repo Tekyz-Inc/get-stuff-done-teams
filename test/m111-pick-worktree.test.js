@@ -28,8 +28,8 @@ const { spawnSync } = require("child_process");
 const PICKER = path.join(__dirname, "..", "bin", "gsd-t-pick-worktree.cjs");
 
 // Run it the way the shell does: from a directory, capturing stdout separately.
-function run(cwd, env) {
-  const r = spawnSync(process.execPath, [PICKER], {
+function run(cwd, env, args = []) {
+  const r = spawnSync(process.execPath, [PICKER, ...args], {
     cwd, encoding: "utf8", env: { ...process.env, ...env },
   });
   return { stdout: r.stdout, stderr: r.stderr, status: r.status };
@@ -52,39 +52,87 @@ function makeProject() {
 
 const cleanup = (home) => fs.rmSync(home, { recursive: true, force: true });
 
-test("M111: prints a usable directory and nothing else", (t) => {
+test("M111: --name prints a usable directory and nothing else", (t) => {
   const { home, repo } = makeProject();
   t.after(() => cleanup(home));
 
-  const { stdout, status } = run(repo, { HOME: home });
+  const { stdout, status } = run(repo, { HOME: home }, ["--name", "grain-api-tokens"]);
 
   assert.strictEqual(status, 0);
   const printed = stdout.trim();
-  assert.ok(printed, "must name a worktree for a session starting in a main tree");
   assert.ok(fs.existsSync(printed), `must print a directory that exists: ${printed}`);
+  assert.strictEqual(path.basename(printed), "grain-api-tokens",
+    "the worktree carries the name that was asked for");
   assert.strictEqual(stdout.split("\n").filter(Boolean).length, 1,
     "exactly one line — the shell cd's into whatever this prints");
   assert.doesNotMatch(stdout, /GSD-T|worktree:|\[/,
     "no commentary on stdout — it would be treated as part of the path");
 });
 
-test("M111: reuses a free worktree instead of stacking new ones", (t) => {
+// A timestamp branch describes nothing, and twenty of them describe nothing
+// twenty times. Naming happens when the work is known, which is why nothing
+// generates a name on its own.
+test("M111: never invents a branch name", (t) => {
   const { home, repo } = makeProject();
   t.after(() => cleanup(home));
 
-  const first = run(repo, { HOME: home }).stdout.trim();
-  const second = run(repo, { HOME: home }).stdout.trim();
+  const { stdout, status } = run(repo, { HOME: home });
 
-  assert.strictEqual(second, first, "a second start must reuse the first worktree");
-  assert.strictEqual(fs.readdirSync(path.join(home, "Worktrees", "proj")).length, 1,
-    "one worktree, not one per launch");
+  assert.strictEqual(status, 0);
+  assert.strictEqual(stdout.trim(), "",
+    "with nothing free and no name given, it must stay put rather than " +
+    "create a session-<timestamp> branch");
+  assert.ok(!fs.existsSync(path.join(home, "Worktrees", "proj")),
+    "nothing may be created without a name");
+});
+
+test("M111: --suggest reports without creating anything", (t) => {
+  const { home, repo } = makeProject();
+  t.after(() => cleanup(home));
+
+  const first = run(repo, { HOME: home }, ["--suggest"]);
+  assert.strictEqual(first.stdout.trim(), "create",
+    "no worktree exists yet, so the shell must ask for a name");
+  assert.ok(!fs.existsSync(path.join(home, "Worktrees", "proj")),
+    "--suggest must create nothing — that is the whole point of asking first");
+
+  const made = run(repo, { HOME: home }, ["--name", "prototype-validation"]).stdout.trim();
+
+  const second = run(repo, { HOME: home }, ["--suggest"]);
+  assert.strictEqual(second.stdout.trim(), `reuse:${made}`,
+    "with one free, it offers reuse so Enter can accept it");
+});
+
+test("M111: cleans a typed name into a valid branch", (t) => {
+  const { home, repo } = makeProject();
+  t.after(() => cleanup(home));
+
+  const out = run(repo, { HOME: home }, ["--name", "  Grain API Tokens!  "]).stdout.trim();
+  assert.strictEqual(path.basename(out), "grain-api-tokens");
+
+  const branch = spawnSync("git", ["branch", "--show-current"],
+    { cwd: out, encoding: "utf8" }).stdout.trim();
+  assert.strictEqual(branch, "grain-api-tokens", "git must accept it as-is");
+});
+
+test("M111: refuses to reuse a directory that already exists", (t) => {
+  const { home, repo } = makeProject();
+  t.after(() => cleanup(home));
+
+  run(repo, { HOME: home }, ["--name", "taken"]);
+  const again = run(repo, { HOME: home }, ["--name", "taken"]);
+
+  assert.notStrictEqual(again.status, 0);
+  assert.strictEqual(again.stdout.trim(), "",
+    "printing the path would drop this session on top of the other's work");
+  assert.match(again.stderr, /already exists/);
 });
 
 test("M111: silent inside a worktree — already isolated", (t) => {
   const { home, repo } = makeProject();
   t.after(() => cleanup(home));
 
-  const wt = run(repo, { HOME: home }).stdout.trim();
+  const wt = run(repo, { HOME: home }, ["--name", "some-work"]).stdout.trim();
   fs.mkdirSync(path.join(wt, ".gsd-t"), { recursive: true });
 
   const { stdout, status } = run(wt, { HOME: home });

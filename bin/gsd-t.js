@@ -5372,7 +5372,8 @@ if (require.main === module) {
     case "pick-worktree": {
       const picker = path.join(PKG_ROOT, "bin", "gsd-t-pick-worktree.cjs");
       try {
-        execFileSync(process.execPath, [picker], { stdio: "inherit" });
+        // Pass the flags through — --suggest and --name live on the picker.
+        execFileSync(process.execPath, [picker, ...args.slice(1)], { stdio: "inherit" });
       } catch (e) {
         // The picker prints its own reason on stderr and exits non-zero when it
         // cannot decide. Carry that exit code out so the calling shell leaves

@@ -29,11 +29,20 @@ if [ -z "$gsdt_version" ] && command -v gsd-t >/dev/null 2>&1; then
 fi
 [ -n "$gsdt_version" ] && gsdt_version="v${gsdt_version#v}"
 
-# --- 2. Project name — basename of cwd from JSON ---
+# --- 2. Project name ---
+# In a worktree the folder is named after the BRANCH, so its basename would
+# repeat the branch field and never name the project. Git's "common dir" points
+# at the main repo's .git in every worktree, so the project name is its parent.
+# Outside a repo, the folder name is the only name there is.
 cwd=$(printf '%s' "$input" | jq -r '.workspace.current_dir // .cwd // ""')
 project=""
 if [ -n "$cwd" ]; then
-  project=$(basename "$cwd")
+  common=$(git -C "$cwd" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
+  if [ -n "$common" ]; then
+    project=$(basename "$(dirname "$common")")
+  else
+    project=$(basename "$cwd")
+  fi
 fi
 
 # --- 3. Milestone + phase — single grep of .gsd-t/progress.md ---
