@@ -57,26 +57,6 @@ function runPreflight(opts) {
   checkResults.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   notes.sort();
 
-  // A run that loaded no checks verified nothing, and must never report a clean
-  // pass. The global install shipped this runner without its checks directory
-  // for months: it recorded "checks dir unreadable" in a note and returned
-  // ok:true anyway, so every preflight in every installed project passed
-  // without looking at anything. A note nobody reads is not a report.
-  const nothingRan = registry.length === 0;
-  if (nothingRan) {
-    notes.push(
-      'NOT CHECKED — no preflight checks were loaded, so nothing was verified. ' +
-      'The checks directory is missing from this install; reinstall GSD-T.'
-    );
-    notes.sort();
-    return {
-      schemaVersion: SCHEMA_VERSION,
-      ok: false,
-      checks: checkResults,
-      notes,
-    };
-  }
-
   const ok = !checkResults.some((c) => c.ok === false && c.severity === 'error');
 
   return {

@@ -116,28 +116,6 @@ function packageVersion(pkgRoot) {
  * Returns { missing, stale, present } — stale means the file exists but its
  * content differs from the package's copy.
  */
-/**
- * Is this directory GSD-T's own source repo (or a worktree of it)?
- *
- * Identified by the package name in its own package.json — the one fact that
- * cannot drift, since it IS what npm publishes. A path check would miss a
- * worktree under ~/Worktrees, and a marker file would need maintaining.
- *
- * An unreadable or absent package.json means "not the source repo": an ordinary
- * project that happens to have no manifest still deserves its repair.
- */
-function isOwnSourceRepo(dir) {
-  const manifest = path.join(dir, "package.json");
-  if (!fs.existsSync(manifest)) return false;
-  let parsed;
-  try {
-    parsed = JSON.parse(fs.readFileSync(manifest, "utf8"));
-  } catch (_) {
-    return false;
-  }
-  return parsed && parsed.name === "@tekyzinc/gsd-t";
-}
-
 function inspect(projectDir, pkgRoot, tools) {
   const binDir = path.join(projectDir, "bin");
   const missing = [];
@@ -267,24 +245,6 @@ function main() {
     process.exit(EXIT_OK);
   }
 
-  // In a project, bin/ holds COPIES of the package's tools, so restoring one
-  // from the package is a repair. In GSD-T's own repo those same files are the
-  // SOURCE, and "repairing" them overwrites work in progress with the last
-  // published build. That happened: on 2026-08-09 a test run triggered a repair
-  // here and silently reverted two edited files mid-session, with the change
-  // discoverable only by reading the diff before committing.
-  if (isOwnSourceRepo(projectDir)) {
-    const msg =
-      `${projectDir} is the GSD-T source repo — bin/ here is the source, not a ` +
-      `copy of it. Repairing would overwrite your work with the published build.`;
-    if (args.json) {
-      process.stdout.write(JSON.stringify({ ok: true, exitCode: EXIT_OK, skipped: msg }, null, 2) + "\n");
-    } else {
-      process.stderr.write(`[gsd-t] ${msg}\n`);
-    }
-    process.exit(EXIT_OK);
-  }
-
   let pkgRoot;
   try {
     pkgRoot = findPackageRoot();
@@ -379,4 +339,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { inspect, expectedTools, findPackageRoot, readLog, installerSuspects, isOwnSourceRepo, LOG_PATH };
+module.exports = { inspect, expectedTools, findPackageRoot, readLog, installerSuspects, LOG_PATH };

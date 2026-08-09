@@ -136,14 +136,39 @@ function checkInvariants(original, rewritten) {
   return lost;
 }
 
+// Shortening prose needs no tools. Left able to use them, the rewriter read the
+// file paths and commands INSIDE the reply as work to do and went off running
+// them — 41 seconds, killed on timeout, empty output and empty stderr, on every
+// turn for two days. Forbidding tools returns the same rewrite in about 7
+// seconds. The list is explicit rather than a mode flag so a newly added tool
+// cannot quietly re-open the same hole.
+const NO_TOOLS = [
+  "Bash", "Read", "Write", "Edit", "NotebookEdit", "Glob", "Grep",
+  "Task", "Agent", "WebFetch", "WebSearch", "TodoWrite",
+].join(",");
+
 /** Ask a fresh Claude to do the rewrite. */
 function rewrite(text, cfg) {
   const prompt = `${RULES}\n\n--- REPLY TO REWRITE ---\n${text}`;
   const run = spawnSync("claude",
-    ["-p", prompt, "--model", cfg.model, "--dangerously-skip-permissions"],
+    ["-p", prompt, "--model", cfg.model, "--dangerously-skip-permissions",
+     "--disallowed-tools", NO_TOOLS],
     { encoding: "utf8", timeout: cfg.timeoutMs, maxBuffer: 8 * 1024 * 1024 });
 
-  if (run.error) return { ok: false, error: run.error.message };
+  if (run.error) {
+    // A timeout is the failure that hid for two days: every turn paid the full
+    // wait, produced nothing, and said nothing. Write it to stderr so the cost
+    // is visible even though the reply still goes through untouched.
+    const timedOut = run.error.code === "ETIMEDOUT";
+    if (timedOut) {
+      process.stderr.write(
+        `[gsd-t] the concise rewriter timed out after ${Math.round(cfg.timeoutMs / 1000)}s ` +
+        `and produced nothing — every turn is paying that wait. Switch it off with ` +
+        `.gsd-t/concise.json {"enabled": false} until it is fixed.\n`
+      );
+    }
+    return { ok: false, error: run.error.message, timedOut };
+  }
   if (run.status !== 0) return { ok: false, error: `claude exited ${run.status}: ${(run.stderr || "").slice(0, 200)}` };
   const out = (run.stdout || "").trim();
   if (!out) return { ok: false, error: "the rewriter returned nothing" };

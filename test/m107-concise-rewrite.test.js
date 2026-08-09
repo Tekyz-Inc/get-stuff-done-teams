@@ -133,3 +133,100 @@ test("live: a long reply gets shorter and keeps its question", { skip: !process.
   assert.strictEqual(out.ok, true, out.error || "");
   assert.ok(out.text.includes("?"), "the question must survive");
 });
+
+// ── The trigger (M112) ───────────────────────────────────────────────────────
+//
+// The rewriter worked from the day it shipped and never ran once, because the
+// hook that feeds it looked only at the LAST record of a turn. A turn almost
+// always ends with a tool call, so it saw no prose and gave up every time.
+// Nothing tested the trigger, so a hook that never fired looked like a hook
+// that had nothing to do.
+
+function writeTranscript(records) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "m112-tx-"));
+  const file = path.join(dir, "transcript.jsonl");
+  fs.writeFileSync(file, records.map((r) => JSON.stringify(r)).join("\n") + "\n");
+  return { dir, file };
+}
+const userSays = (t) => ({ type: "user", message: { role: "user", content: [{ type: "text", text: t }] } });
+const assistantSays = (t) => ({ type: "assistant", message: { role: "assistant", content: [{ type: "text", text: t }] } });
+const assistantRuns = () => ({ type: "assistant", message: { role: "assistant", content: [{ type: "tool_use", id: "t1", name: "Bash", input: {} }] } });
+const toolReturns = () => ({ type: "user", message: { role: "user", content: [{ type: "tool_result", tool_use_id: "t1", content: "ok" }] } });
+
+test("M112: a turn ending in a tool call still yields its prose", () => {
+  const { dir, file } = writeTranscript([
+    userSays("do the thing"),
+    assistantSays("Here is what I found, at some length."),
+    assistantRuns(),
+    toolReturns(),
+    assistantRuns(),
+    toolReturns(),
+  ]);
+  try {
+    const got = hooklib.lastAssistantText(file);
+    assert.ok(got, "must find the turn");
+    assert.strictEqual(got.toolOnly, false, "a turn with prose is not tool-only");
+    assert.match(got.text, /Here is what I found/);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("M112: prose written in pieces around tool calls is joined", () => {
+  const { dir, file } = writeTranscript([
+    userSays("go"),
+    assistantSays("First part."),
+    assistantRuns(),
+    toolReturns(),
+    assistantSays("Second part."),
+    assistantRuns(),
+    toolReturns(),
+  ]);
+  try {
+    const got = hooklib.lastAssistantText(file);
+    assert.match(got.text, /First part/);
+    assert.match(got.text, /Second part/, "every text block in the turn counts");
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("M112: the walk stops at the user, never reaching the previous turn", () => {
+  // Rewriting a reply the user already read would replace the wrong thing.
+  const { dir, file } = writeTranscript([
+    userSays("first question"),
+    assistantSays("ANSWER-TO-FIRST-QUESTION"),
+    userSays("second question"),
+    assistantSays("answer to second."),
+    assistantRuns(),
+    toolReturns(),
+  ]);
+  try {
+    const got = hooklib.lastAssistantText(file);
+    assert.match(got.text, /answer to second/);
+    assert.ok(!/ANSWER-TO-FIRST-QUESTION/.test(got.text), "the previous turn must not leak in");
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("M112: a tool result is not mistaken for the user speaking", () => {
+  // A tool result carries role "user". Treating it as the turn boundary stops
+  // the walk at the first tool call and finds nothing at all.
+  const { dir, file } = writeTranscript([
+    userSays("go"),
+    assistantSays("the prose that must be found"),
+    assistantRuns(),
+    toolReturns(),
+  ]);
+  try {
+    const got = hooklib.lastAssistantText(file);
+    assert.match(got.text, /the prose that must be found/);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("M112: a turn that really is only tool calls reports tool-only", () => {
+  const { dir, file } = writeTranscript([
+    userSays("go"),
+    assistantRuns(),
+    toolReturns(),
+  ]);
+  try {
+    const got = hooklib.lastAssistantText(file);
+    assert.strictEqual(got.toolOnly, true, "no prose means nothing to shorten");
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});

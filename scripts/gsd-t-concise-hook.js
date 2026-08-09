@@ -84,22 +84,71 @@ function readTail(filePath, bytes) {
  * Pull the last assistant turn's visible text from the transcript.
  * Returns { text, toolOnly } — a tool-only turn has no prose to shorten.
  */
+/**
+ * Did the user actually type this, or is it a tool result wearing their role?
+ *
+ * The transcript records a tool's output as a "user" message whose content is
+ * tool_result blocks. Only a message with real text is the person speaking.
+ */
+function _isRealUserMessage(msg) {
+  const content = msg.content;
+  if (typeof content === "string") return content.trim().length > 0;
+  if (!Array.isArray(content)) return false;
+  return content.some(
+    (b) => b && b.type === "text" && typeof b.text === "string" && b.text.trim().length > 0
+  );
+}
+
+/**
+ * The prose of the reply that just finished.
+ *
+ * A turn does not end with the words the user reads — it ends with whatever ran
+ * last, and that is usually a tool call. Stopping at the FIRST assistant record
+ * therefore found `toolOnly` and gave up, every time: the rewriter never ran
+ * once in the two days after it shipped. So walk back through the tool calls to
+ * the prose, and join every text block in the turn, since a reply is often
+ * written in pieces around the tools it uses.
+ *
+ * The walk stops at the user's own message. Past that lies the PREVIOUS turn,
+ * and rewriting a reply the user has already read would replace the wrong thing.
+ */
 function lastAssistantText(transcriptPath) {
   const tail = readTail(transcriptPath, 512 * 1024);
   if (!tail) return null;
   const lines = tail.split("\n").filter(Boolean);
+
+  const pieces = [];
+  let sawAssistant = false;
+
   for (let i = lines.length - 1; i >= 0; i--) {
     let rec;
     try { rec = JSON.parse(lines[i]); } catch (_) { continue; }
     const msg = rec && rec.message;
-    if (!msg || msg.role !== "assistant") continue;
+    if (!msg) continue;
+
+    // The start of this turn. Anything earlier belongs to a turn already read.
+    //
+    // A tool RESULT is also recorded with role "user", so the boundary is a user
+    // message carrying real text — treating every "user" record as the boundary
+    // stops at the first tool result and finds nothing at all.
+    if (msg.role === "user") {
+      if (_isRealUserMessage(msg)) break;
+      continue;
+    }
+    if (msg.role !== "assistant") continue;
+
+    sawAssistant = true;
     const content = Array.isArray(msg.content) ? msg.content : [];
     const text = content.filter((b) => b && b.type === "text")
       .map((b) => b.text || "").join("\n").trim();
-    const hasTool = content.some((b) => b && b.type === "tool_use");
-    return { text, toolOnly: !text && hasTool };
+    if (text) pieces.unshift(text);
   }
-  return null;
+
+  if (!sawAssistant) return null;
+
+  const text = pieces.join("\n\n").trim();
+  // Every record in the turn was a tool call — there is no prose to shorten.
+  return { text, toolOnly: !text };
 }
 
 function wordCount(s) {

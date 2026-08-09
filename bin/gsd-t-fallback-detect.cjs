@@ -375,11 +375,7 @@ function scanStructural(clean, file, findings) {
   }
 
   // retry loop that gives up and proceeds
-  // `\b` before the alternation is not enough: "entries" ends in "tries", so
-  // `for (const e of entries)` matched — a plain iteration read as a retry loop.
-  // Requiring a word boundary on BOTH sides keeps the real shapes (attempt,
-  // retry, retries, tries) and drops words that merely end in one.
-  const retryRe = /\b(?:for|while)\s*\([^)]*\b(?:attempt|retry|retries|tries)\b[^)]*\)\s*\{/gi;
+  const retryRe = /\b(?:for|while)\s*\([^)]*(?:attempt|retry|retries|tries)\b[^)]*\)\s*\{/gi;
   while ((m = retryRe.exec(clean)) !== null) {
     const braceIdx = clean.indexOf("{", m.index);
     if (braceIdx === -1) continue;
