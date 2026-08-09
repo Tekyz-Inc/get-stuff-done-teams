@@ -2,6 +2,40 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.11.11] - 2026-08-09
+
+### Fixed — the reply shortener was shortening itself
+
+The child Claude was started with the personal settings, which carry the very
+Stop hook that spawned it. It answered in about 4 seconds, its own hook then saw
+an answer over the 60-word threshold and spawned a THIRD Claude, and the outer
+call waited ~46s for work it had caused — past its own 45s limit, so it was
+killed and returned nothing. Every turn, since the day it shipped.
+
+`--setting-sources project` starts the child without the personal layer.
+Measured twice each: **54.2s/54.5s before, 7.9s/6.2s after**; through the real
+hook, 8.6s / 10.1s / 10.8s, all producing a rewrite.
+
+The trigger was always the child's own REPLY crossing 60 words, never the input
+text — a 63-character prompt that produces a long answer is just as slow.
+
+Two flags rejected by measurement and recorded so they are not retried: `--bare`
+skips the keychain and the child answers "Not logged in"; `--settings '{}'`
+cannot remove an inherited hook, because settings layers merge.
+
+The `--disallowed-tools` flag from 5.11.10 is removed — its root cause was
+disproved (52.6s with, 52.5s without), and leaving it would enshrine a wrong
+explanation.
+
+Separately: the hook captured the rewriter's stderr into a pipe it never read,
+so the loud timeout warning added in 5.11.10 reached nobody. It is inherited
+now — the let-it-through paths are approved passes *because* the reader can see
+them happen.
+
+- `bin/gsd-t-concise-rewrite.cjs`: the child no longer inherits the hook that spawned it
+- `scripts/gsd-t-concise-hook.js`: the child's stderr reaches the screen
+- `test/m107-concise-rewrite.test.js`: 3 tests pin the recursion, the two rejected flags, the stderr
+
 ## [5.11.10] - 2026-08-09
 
 ### Fixed — four safety gates were passing without checking anything
