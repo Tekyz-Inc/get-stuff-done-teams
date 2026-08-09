@@ -2,6 +2,65 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.11.10] - 2026-08-09
+
+### Fixed — four safety gates were passing without checking anything
+
+A branch warning turned into an audit. Every fault below is the same shape: a
+check that verifies nothing and reports a pass.
+
+- The branch check was dead in every scaffolded project. It matched only the
+  phrase `Expected branch:`, while the project template wrote a table row
+  labelled `Branch`. Nothing fills that row mechanically, so both sides
+  changed: the row is renamed and the reader accepts either shape.
+- The same check blocked the workflow the house rules mandate — a worktree on a
+  feature branch is correct by design, yet was flagged. In a worktree a named
+  branch now passes and says why; a detached HEAD fails, because commits made
+  with no branch attached are easily lost.
+- An unreadable `CLAUDE.md` passed as "no rules". It halts now.
+- The entire preflight gate was decorative in every installed project:
+  `cli-preflight.cjs` shipped without its six checks, found an empty directory,
+  and returned `ok:true`. Measured live: `checks run: 0`. Directories under
+  `bin/` now ship, and an empty registry fails instead of passing.
+- Install-repair overwrote in-progress edits in GSD-T's own repo, where `bin/`
+  is the source rather than a copy of the published build. It now refuses that
+  repo, identified by its package name.
+
+### Fixed — the reply shortener never ran once, then hung when it did
+
+Two faults stacked, so neither was visible. The hook read only the last record
+of a turn; a turn almost always ends with a tool call, so it found no prose and
+gave up. Underneath that, the rewrite itself hung: given a reply full of file
+paths and commands, the spawned Claude read them as work to do and went off
+running them — 45 seconds, killed on timeout, empty output and empty stderr,
+every turn. Shortening prose needs no tools, so they are now forbidden.
+Measured end to end: 41s and nothing, to 10.9s and a correct rewrite. A timeout
+now writes to stderr; silence is what let it hide.
+
+### Added — a new worktree arrives runnable
+
+`git worktree add` brings only tracked files, so `.env`, local settings and
+installed dependencies stayed behind and the folder was born unable to run.
+Provisioning carries local config (permissions preserved, so a 600 secret does
+not become world-readable), skips per-session `.gsd-t` state, and reinstalls
+dependencies from the worktree's own lockfile.
+
+- `bin/cli-preflight-checks/branch-guard.cjs`: reads both rule shapes, worktree-aware, halts on an unreadable file
+- `bin/cli-preflight.cjs`: an empty check registry fails instead of passing
+- `bin/gsd-t-worktree-detect.cjs`: shared worktree test using git's own answer
+- `bin/gsd-t-worktree-provision.cjs`: carry config, skip state, install deps
+- `bin/gsd-t-install-check.cjs`: refuses to "repair" the GSD-T source repo
+- `bin/gsd-t-concise-rewrite.cjs`: no tools, and a loud timeout
+- `scripts/gsd-t-concise-hook.js`: finds the turn's prose past its tool calls
+- `bin/gsd-t.js`: directories under `bin/` now propagate
+- `templates/CLAUDE-project.md`: the branch row the reader can actually find
+- `test/m112-worktree-provision.test.js`, `test/m107-concise-rewrite.test.js`: 24 new tests
+
+Known limitation: `contracts-stable` has never fired once (its pattern expects
+emphasis after `Status`, every real file writes it before) and `ports-free`
+reads a config key nothing writes. Both are recorded and left for a separate
+pass.
+
 ## [5.10.10] - 2026-08-07
 
 ### Added — a project's CLAUDE.md is written from what actually happened in it
