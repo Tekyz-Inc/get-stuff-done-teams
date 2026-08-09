@@ -50,6 +50,7 @@
 const fs = require("fs");
 const path = require("path");
 const { spawnSync } = require("child_process");
+const { isLinkedWorktree } = require("./gsd-t-worktree-detect.cjs");
 
 function stay() {           // nothing to change — the caller keeps its directory
   process.exit(0);
@@ -129,12 +130,11 @@ function isGitRepo(dir) {
   return spawnSync("git", ["rev-parse", "--git-dir"], { cwd: dir, stdio: "pipe" }).status === 0;
 }
 
-// A worktree's .git is a file pointing at the main repo; the main tree's is a
-// directory. That difference is the whole test.
+// Shared with branch-guard so the two cannot drift apart — see
+// bin/gsd-t-worktree-detect.cjs for why git's own answer beats inferring from
+// whether .git is a file or a directory.
 function isInsideWorktree(dir) {
-  const g = path.join(dir, ".git");
-  if (!fs.existsSync(g)) return false;
-  return fs.lstatSync(g).isFile();
+  return isLinkedWorktree(dir);
 }
 
 // Worktrees for this project, most recently touched first. An entry that cannot
@@ -192,7 +192,58 @@ function create(repo, home, branch) {
       `.gsd-t/auto-worktree-config.json {"enabled": false}.`
     );
   }
+
+  provisionNewWorktree(repo, dest);
+
   return { path: dest };
+}
+
+/**
+ * A worktree holds only what git tracks, so the secrets and the installed
+ * dependencies stay behind and the new folder is born unable to run. Carry the
+ * local config across and rebuild the dependencies.
+ *
+ * Notes go to stderr: stdout carries the chosen path and nothing else, because
+ * the shell reads it with `d=$(gsd-t-pick-worktree)`.
+ *
+ * A worktree that came up short says so rather than looking ready.
+ */
+function provisionNewWorktree(repo, dest) {
+  const { provision } = require("./gsd-t-worktree-provision.cjs");
+
+  let result;
+  try {
+    result = provision(repo, dest);
+  } catch (err) {
+    fail(
+      `The worktree was created at ${dest} but could not be set up ` +
+      `(${(err && err.message) || err}). It is missing its local config and ` +
+      `dependencies, so treat it as unfinished.`
+    );
+    return;
+  }
+
+  const { config, deps } = result;
+
+  if (config.carried.length > 0) {
+    process.stderr.write(`Carried ${config.carried.length} config file(s): ${config.carried.join(", ")}\n`);
+  }
+  for (const p of config.problems) {
+    process.stderr.write(`Could not carry ${p}\n`);
+  }
+  if (deps.ran || deps.manager) {
+    process.stderr.write(`${deps.msg}\n`);
+  }
+
+  // Missing dependencies are not cosmetic — every test in the new tree fails on
+  // a missing module, which reads as broken code rather than a setup gap.
+  if (deps.ok === false) {
+    fail(
+      `The worktree was created at ${dest} but its dependencies did not install ` +
+      `(${deps.msg}). Install them there before working, or the tests will fail ` +
+      `for reasons that have nothing to do with your changes.`
+    );
+  }
 }
 
 /**

@@ -697,3 +697,13 @@ After M94 ships: (1) DEFINE the telemetry suite milestone (#46) but DO NOT build
   5. Session start — compare CLAUDE.md mtime vs last changelog entry; if file is newer → append "External update detected" (no bullets, unknown changes)
 - **Entry format:** `[Rewritten|Updated|External update detected] {date} {time} | {Claude model} | GSD-T v{version} | project v{version}` followed by bullet list of changes (except for Rewritten/External which have no bullets).
 - **Scope:** all GSD-T projects, not just this repo.
+
+## 51. Clean-Claude escape hatch — run Claude with no GSD-T rig loaded
+- **Type:** improvement | **App:** gsd-t | **Category:** cli
+- **Added:** 2026-08-09 | **Priority:** LOW | **Origin:** conversation 2026-08-09
+- **Problem:** `~/.claude/CLAUDE.md` (699 lines) and `~/.claude/settings.json` are tuned entirely for GSD-T — doctrines, hooks, per-turn injections, 66 slash commands. There is no one-word way to get a plain Claude session for non-GSD-T work (scratch dirs, someone else's repo, a quick unrelated question). Today the whole rig loads everywhere, because the gate is per-project (`.gsd-t/progress.md`) not per-session.
+- **Two levers, different halves of the problem:**
+  - `claude --setting-sources project` — loads only the folder's own settings, dropping every user-level hook. **CONFIRMED present** in the installed CLI (`claude --help`). Does NOT drop `~/.claude/CLAUDE.md` — instruction files load separately from settings.
+  - `CLAUDE_CONFIG_DIR=~/.claude-clean claude` — points Claude at a different user-level config home entirely (its own CLAUDE.md, settings.json, commands, agents). An empty dir = genuinely clean. **UNVERIFIED on this machine** — asserted from knowledge of Claude Code, not tested; not referenced anywhere in the current config or GSD-T scripts. Verify before relying on it.
+- **Proposed:** create `~/.claude-clean` (empty) + a shell alias `cc='CLAUDE_CONFIG_DIR="$HOME/.claude-clean" claude'`, so `cc` = plain Claude and `claude` = the GSD-T rig. Then TEST both: a clean session must show no `[GSD-T NOW]` banner and no profile line; a normal session must still show both.
+- **Open question:** should GSD-T ship this as a documented escape hatch (a line in the install output / README), or stay a personal shell alias? If shipped, it needs the verification above first — an unverified env var in docs is a guess.

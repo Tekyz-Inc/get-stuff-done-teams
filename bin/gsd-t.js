@@ -1715,6 +1715,11 @@ const GLOBAL_BIN_TOOLS = [
   // M111 — prints the worktree a session should start in. Called by the shell
   // BEFORE claude launches, so it must be on PATH rather than only in a project.
   "gsd-t-pick-worktree.cjs",
+  // M112 — the two modules gsd-t-pick-worktree requires. Without them it throws
+  // on load, so a tool that ships alone is a tool that does not run.
+  // worktree-detect also backs branch-guard's "is this a side copy" question.
+  "gsd-t-worktree-detect.cjs",
+  "gsd-t-worktree-provision.cjs",
   // M55 D5 — preflight + brief + verify-gate dispatch targets propagated to ~/.claude/bin/.
   "cli-preflight.cjs",
   "gsd-t-context-brief.cjs",
@@ -1768,6 +1773,12 @@ const GLOBAL_BIN_TOOLS = [
   "gsd-t-project-history.cjs", "gsd-t-rule-mine.cjs",
 ];
 
+// Directories under bin/ that must ship whole. A runner whose parts stay behind
+// is worse than one that is absent: cli-preflight.cjs shipped for months without
+// its checks, found an empty directory, and returned a clean pass having
+// verified nothing.
+const GLOBAL_BIN_DIRS = ["cli-preflight-checks"];
+
 function installGlobalBinTools() {
   ensureDir(GLOBAL_BIN_DIR);
   for (const tool of GLOBAL_BIN_TOOLS) {
@@ -1784,6 +1795,28 @@ function installGlobalBinTools() {
       try { fs.chmodSync(dest, 0o755); } catch {}
     } else {
       info(`bin/${tool} unchanged`);
+    }
+  }
+
+  for (const dirName of GLOBAL_BIN_DIRS) {
+    const srcDir = path.join(PKG_ROOT, "bin", dirName);
+    const destDir = path.join(GLOBAL_BIN_DIR, dirName);
+    if (!fs.existsSync(srcDir)) {
+      warn(`Global bin directory source missing: ${dirName} — skipping`);
+      continue;
+    }
+    ensureDir(destDir);
+    for (const file of fs.readdirSync(srcDir)) {
+      if (!file.endsWith(".cjs") && !file.endsWith(".js")) continue;
+      const src = path.join(srcDir, file);
+      const dest = path.join(destDir, file);
+      const srcContent = fs.readFileSync(src, "utf8");
+      const destContent = fs.existsSync(dest) ? fs.readFileSync(dest, "utf8") : "";
+      if (normalizeEol(srcContent) !== normalizeEol(destContent)) {
+        copyFile(src, dest, `bin/${dirName}/${file}`);
+      } else {
+        info(`bin/${dirName}/${file} unchanged`);
+      }
     }
   }
 }

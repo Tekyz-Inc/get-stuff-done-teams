@@ -49,7 +49,7 @@
 |---|---|
 | Build | `{BUILD_CMD}` |
 | Test | `{TEST_CMD}` |
-| Branch | `{BRANCH}` |
+| Expected branch | `{BRANCH}` |
 
 ## Where things are written down
 

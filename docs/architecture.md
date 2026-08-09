@@ -1425,12 +1425,19 @@ measurement, and gate every spawn with deterministic state checks.
 envelope `{schemaVersion: '1.0.0', ok, checks: [], notes: []}`. Six built-in
 checks (kebab-case ids; severity `error`/`warn`/`info`):
 
-- `branch-guard` (error) — reads project CLAUDE.md `Expected branch:` line, compares to `git branch --show-current`
+- `branch-guard` (error) — reads the project CLAUDE.md expected-branch rule in either shape (a sentence `Expected branch: main`, or a table row `| Expected branch | main |`) and compares to `git branch --show-current`. **Worktrees (M112):** the rule governs the main checkout only — inside a linked worktree (detected by `bin/gsd-t-worktree-detect.cjs`, `--git-dir` ≠ `--git-common-dir`) a named branch passes and names the skip, while a detached HEAD fails. No rule declared → passes as `NOT CHECKED`; an unreadable CLAUDE.md → fails (never "no rule")
 - `contracts-stable` (warn) — flags `Status: DRAFT`/`PROPOSED` contracts past PARTITIONED
 - `deps-installed` (warn) — `node_modules/` present + lockfile mtime ≥ manifest mtime
 - `manifest-fresh` (info) — `.gsd-t/journey-manifest.json` mtime ≥ every `e2e/journeys/*` mtime
 - `ports-free` (error) — `requiredFreePorts: number[]` from `.gsd-t/.unattended/config.json` not occupied
 - `working-tree-state` (warn) — `git status --porcelain` clean (or whitelisted)
+
+**An empty registry is a failure, not a pass (M112).** If no checks load at all, the
+envelope returns `ok:false` with a `NOT CHECKED` note. The global install shipped
+`cli-preflight.cjs` without its `cli-preflight-checks/` directory for months: the
+runner found nothing, recorded "checks dir unreadable" in a note, and returned
+`ok:true` — so every preflight in every installed project passed having verified
+nothing. Directories under `bin/` now ship via `GLOBAL_BIN_DIRS` in `bin/gsd-t.js`.
 
 Top-level `ok` flips to `false` only when at least one `severity:"error"`
 check fails. Non-error failures (warn/info) record but do not block. Adding a
