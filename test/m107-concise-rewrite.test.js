@@ -230,3 +230,36 @@ test("M112: a turn that really is only tool calls reports tool-only", () => {
     assert.strictEqual(got.toolOnly, true, "no prose means nothing to shorten");
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
+
+// ── The recursion (M112) ─────────────────────────────────────────────────────
+//
+// The shortener shortened itself. A child started with the personal settings
+// inherits the very Stop hook that spawned it: it answers in ~4s, its own hook
+// then sees an answer over the 60-word threshold and spawns a THIRD Claude, and
+// the outer call waits ~46s for work it caused — past its own 45s limit, so it
+// was killed and returned nothing, every turn since it shipped.
+
+test("M112: the child is started without the personal settings", () => {
+  const src = fs.readFileSync(REWRITE, "utf8");
+  assert.match(
+    src,
+    /--setting-sources["\s,]+.*project/,
+    "the child must not inherit the personal settings — that is where its own Stop hook lives"
+  );
+});
+
+test("M112: not --bare, and not an empty settings object", () => {
+  const src = fs.readFileSync(REWRITE, "utf8");
+  const spawnCall = src.slice(src.indexOf('spawnSync("claude"'), src.indexOf('spawnSync("claude"') + 400);
+  // --bare skips the keychain too: the child answers "Not logged in" in 0.7s.
+  assert.ok(!/["']--bare["']/.test(spawnCall), "--bare also skips login");
+  // Settings layers merge, so a lower layer cannot remove a higher layer's hook.
+  assert.ok(!/--settings["\s,]+["']\{\}["']/.test(spawnCall), "an empty settings object does not remove an inherited hook");
+});
+
+test("M112: the hook lets the rewriter's warnings reach the screen", () => {
+  // Captured into a pipe and never read, a warning reaches nobody — which is
+  // why the timeouts stayed invisible even after a loud message was added.
+  const src = fs.readFileSync(HOOK, "utf8");
+  assert.match(src, /stdio:\s*\[[^\]]*"inherit"/, "the child's stderr must be inherited, not piped into a void");
+});

@@ -214,9 +214,15 @@ function main() {
     const rewriter = findRewriter(cwd);
     if (!rewriter) return allow();
 
+    // The rewriter's own warnings go to stderr. Captured into a pipe and never
+    // read, they reach nobody — which is why the timeouts stayed invisible even
+    // after a loud message was added for them. Letting the child write straight
+    // to this process's stderr is what makes a give-up path visible; these paths
+    // are approved passes precisely BECAUSE the reader can see them happen.
     const run = spawnSync(process.execPath,
       [rewriter, "--text", last.text, "--project", cwd, "--json"],
-      { encoding: "utf8", timeout: 60000, maxBuffer: 8 * 1024 * 1024 });
+      { encoding: "utf8", timeout: 60000, maxBuffer: 8 * 1024 * 1024,
+        stdio: ["ignore", "pipe", "inherit"] });
 
     if (run.error || !run.stdout) return allow();
 

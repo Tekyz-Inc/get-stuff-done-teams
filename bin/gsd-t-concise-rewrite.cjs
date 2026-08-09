@@ -136,23 +136,29 @@ function checkInvariants(original, rewritten) {
   return lost;
 }
 
-// Shortening prose needs no tools. Left able to use them, the rewriter read the
-// file paths and commands INSIDE the reply as work to do and went off running
-// them — 41 seconds, killed on timeout, empty output and empty stderr, on every
-// turn for two days. Forbidding tools returns the same rewrite in about 7
-// seconds. The list is explicit rather than a mode flag so a newly added tool
-// cannot quietly re-open the same hole.
-const NO_TOOLS = [
-  "Bash", "Read", "Write", "Edit", "NotebookEdit", "Glob", "Grep",
-  "Task", "Agent", "WebFetch", "WebSearch", "TodoWrite",
-].join(",");
-
 /** Ask a fresh Claude to do the rewrite. */
 function rewrite(text, cfg) {
   const prompt = `${RULES}\n\n--- REPLY TO REWRITE ---\n${text}`;
+  // `--setting-sources project` is what stops the shortener shortening itself.
+  //
+  // A child started with the personal settings inherits the very Stop hook that
+  // spawned it: it answers in about 4 seconds, its own hook then sees an answer
+  // over the 60-word threshold and spawns a THIRD Claude, and the outer call
+  // waits ~46s for work it caused — past the 45s limit, so it was killed and
+  // returned nothing, every turn since it shipped. Measured: 54.2s/54.5s with
+  // the personal settings, 7.9s/6.2s with only the project's.
+  //
+  // The trigger was always the CHILD'S OWN REPLY crossing 60 words, never the
+  // input: a 63-character prompt that produces a long answer is just as slow
+  // (57.2s on, 11.7s off).
+  //
+  // Not `--bare`, the documented skip-hooks flag: it also skips the keychain, so
+  // the child returns "Not logged in" in 0.7s. Not `--settings '{}'` either —
+  // settings layers merge, so a lower layer cannot remove a higher layer's hook
+  // (54.5s/56.1s, unchanged).
   const run = spawnSync("claude",
     ["-p", prompt, "--model", cfg.model, "--dangerously-skip-permissions",
-     "--disallowed-tools", NO_TOOLS],
+     "--setting-sources", "project"],
     { encoding: "utf8", timeout: cfg.timeoutMs, maxBuffer: 8 * 1024 * 1024 });
 
   if (run.error) {
