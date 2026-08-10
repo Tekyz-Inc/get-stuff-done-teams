@@ -2,6 +2,44 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.11.12] - 2026-08-09
+
+### Fixed — a retired command stayed typeable forever
+
+Installing only ever copied, so a command retired in a past milestone never left
+the machine. Eleven were still typeable long after the code behind them was
+deleted — brainstorm, discuss and prompt (M38), the unattended trio and
+visualize (M61). A command that still answers is one a person will reasonably
+use; this surfaced when `/gsd-t-brainstorm` was treated as live and turned out
+to have no source at all.
+
+Install now deletes GSD-T commands the package no longer ships and NAMES each
+one. Only `gsd-t-*.md` is considered, so a command you wrote is never touched.
+An unreadable commands directory stops the install rather than reporting a clean
+pass over a check that never ran.
+
+README advertised five commands that do not exist while `help.md` correctly
+called them retired — the two disagreed, and the README is what a reader
+believes.
+
+### Changed — /last30days is the first stop for an outside fact
+
+Wired into the external-fact rule, the conversation-scope rule, and the
+architect's research step. It searches where people report what actually
+happened — Reddit, Hacker News, X, YouTube transcripts, GitHub — ranked by what
+they engaged with, which is what those stages are asking for and what no
+training data holds. About 40 seconds; web search remains the follow-up. Not
+installed means SAY so in one line and use web search — never silently research
+a thinner way.
+
+Install it with `/plugin marketplace add mvanhorn/last30days-skill` then
+`/plugin install last30days`.
+
+- `bin/gsd-t.js`: retired commands are removed and named
+- `README.md`: five dead command rows removed
+- `commands/gsd-t-architect.md`, `templates/CLAUDE-global.md`: the research wiring
+- `test/m112-retired-commands.test.js`: 5 tests, including that the README advertises nothing it does not ship
+
 ## [5.11.11] - 2026-08-09
 
 ### Fixed — the reply shortener was shortening itself
