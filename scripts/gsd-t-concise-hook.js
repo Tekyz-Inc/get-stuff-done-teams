@@ -237,9 +237,17 @@ function main() {
     const saved = (result.words || 0) - (result.wordsAfter || 0);
     if (saved < 15) return allow(); // not worth the extra turn
 
+    // "Replace it with this" asks for something the model cannot do — it has no
+    // way to unsay a reply, only to write another. Read as an instruction to
+    // restate, it re-emitted the long original, so David saw the full reply,
+    // then the short one, then the full one again. The instruction has to
+    // describe the only real action: emit this text and stop.
     block(
-      "Your last reply was longer than it needed to be. Replace it with this " +
-      "shorter version, exactly as written, and add nothing:\n\n" +
+      "STOP. Do not continue your previous reply and do not repeat any part of " +
+      "it. Your entire next message is the text below, copied exactly — nothing " +
+      "before it, nothing after it, no commentary, no heading, no explanation " +
+      "that you shortened anything. Everything from the next line onward IS " +
+      "your message:\n\n" +
       result.text
     );
   };

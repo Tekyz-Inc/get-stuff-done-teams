@@ -275,3 +275,31 @@ test("M112: the hook lets the rewriter's warnings reach the screen", () => {
   const src = fs.readFileSync(HOOK, "utf8");
   assert.match(src, /stdio:\s*\[[^\]]*"inherit"/, "the child's stderr must be inherited, not piped into a void");
 });
+
+// ── The instruction must describe a possible action (M112) ───────────────────
+//
+// The block message said "Replace it with this shorter version". A model cannot
+// replace a reply already sent — it can only write another. Read as "restate
+// your reply", it re-emitted the LONG original, so David saw the full reply,
+// then the short one, then the full one again. Three blocks where he wanted one.
+
+test("M112: the instruction never asks the model to 'replace' a sent reply", () => {
+  const src = fs.readFileSync(HOOK, "utf8");
+  const call = src.slice(src.indexOf("block(\n"), src.indexOf("};", src.indexOf("block(\n")));
+  assert.ok(!/replace it with/i.test(call),
+    "'replace' is an action the model cannot take, and it re-emits the original instead");
+});
+
+test("M112: the instruction forbids repeating the previous reply", () => {
+  const src = fs.readFileSync(HOOK, "utf8");
+  assert.match(src, /do not repeat any part of/i, "the failure mode must be named outright");
+  assert.match(src, /entire next message/i, "and the whole message must be the short version");
+});
+
+test("M112: no wrapper markers that could land in the reply", () => {
+  // Markers around the text trade one visible artifact for another — the model
+  // copies them through.
+  const src = fs.readFileSync(HOOK, "utf8");
+  assert.ok(!/BEGIN REPLY|END REPLY|<<<|>>>/.test(src),
+    "the boundary is stated in words, not in markers that can be copied");
+});

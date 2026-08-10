@@ -2,6 +2,23 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.11.14] - 2026-08-09
+
+### Fixed — the shortened reply appeared as a third copy instead of the only one
+
+The hook told the model to "replace it with this shorter version". A model
+cannot replace a reply already sent — it can only write another. Read as an
+instruction to restate, it re-emitted the LONG original, so the reader saw the
+full reply, then the short one, then the full one again.
+
+The instruction now describes the only action available: your entire next
+message is this text, copied exactly, nothing before or after, and do not repeat
+any part of the previous reply. Stated in words rather than wrapper markers,
+which the model copies through.
+
+- `scripts/gsd-t-concise-hook.js`: the block instruction
+- `test/m107-concise-rewrite.test.js`: 3 tests — no "replace", the repeat is forbidden outright, and no markers that could land in the reply
+
 ## [5.11.13] - 2026-08-09
 
 ### Fixed — the reply shortener discarded 4 of every 6 rewrites
