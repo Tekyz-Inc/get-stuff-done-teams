@@ -2,6 +2,31 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.11.13] - 2026-08-09
+
+### Fixed — the reply shortener discarded 4 of every 6 rewrites
+
+A keyword check counted question marks, file paths and numbers, and threw the
+whole rewrite away if a count dropped. Almost every rejection was the same
+thing: the writer had asked *himself* a question ("Now the proof: does it
+fire?"), the rewrite correctly cut it as narration, and the check saw a question
+disappear. So a working shortener never once delivered.
+
+Counting punctuation cannot tell an ask from thinking out loud. A reader can.
+The same model now reads its own short version back against two questions — is
+this only what he needs, and is it as short as his rules demand — and **fixes**
+it. The reviewer returns text, never a verdict, so nothing is ever discarded. A
+failed review keeps the first pass's rewrite rather than losing it.
+
+Both passes now carry the relevance rule: keep only what changes what he
+decides, does next, or now knows.
+
+Measured on the reply that failed 4 of 6 before: **6 of 6 delivered, zero
+discarded, 236 words down to 75-158.** Two Sonnet calls, 12-45s.
+
+- `bin/gsd-t-concise-rewrite.cjs`: the check is gone; a review pass replaces it
+- `test/m107-concise-rewrite.test.js`: 6 tests, including that the check cannot come back
+
 ## [5.11.12] - 2026-08-09
 
 ### Fixed — a retired command stayed typeable forever
