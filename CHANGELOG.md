@@ -2,6 +2,28 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.11.17] - 2026-08-10
+
+### Added — `/concise`, rewrite the last reply short on request
+
+The M107 hook did this automatically on every turn and was retired in v5.11.15:
+it imposed a wait and a duplicate copy whether or not you wanted one. As a
+command, you ask for it — so there is no wait on turns you did not choose and no
+wrong guess about which replies were too long.
+
+Its entire output is the rewrite. No heading, no "here's the shorter version",
+no note about what was cut — a commentary wrapper makes the reply longer, which
+is the one thing the command exists to prevent.
+
+It cannot unsay the original: the long version stays above the short one in the
+scrollback. That is the accepted cost of asking after the fact, and it is why
+the automatic version had to go — it charged that cost every turn, unasked.
+
+- `commands/concise.md`: the command
+- `docs/concise-reply-prompt.md`: the same rules as a portable prompt, for any assistant
+- `README.md`: command table row
+- `test/filesystem.test.js`: command counts 55→56, utilities 6→7
+
 ## [5.11.16] - 2026-08-10
 
 ### Added — typing the default branch name works in the main checkout

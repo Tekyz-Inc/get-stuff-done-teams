@@ -280,16 +280,18 @@ describe("command listing functions", () => {
   // total 53→54, gsdt 47→48.
   // M101 added gsd-t-architect (standalone Architect's Oversight pass):
   // total 54→55, gsdt 48→49.
-  it("total command count is 55", () => {
-    assert.equal(getCommandFiles().length, 55);
+  // v5.11.17 added /concise (rewrite the last reply short, on request):
+  // total 55→56, utilities 6→7.
+  it("total command count is 56", () => {
+    assert.equal(getCommandFiles().length, 56);
   });
 
   it("gsd-t command count is 49", () => {
     assert.equal(getGsdtCommands().length, 49);
   });
 
-  it("utility command count is 6", () => {
-    assert.equal(getUtilityCommands().length, 6);
+  it("utility command count is 7", () => {
+    assert.equal(getUtilityCommands().length, 7);
   });
 });
 

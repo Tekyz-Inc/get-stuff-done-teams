@@ -1,6 +1,6 @@
 # GSD-T: Contract-Driven Development for Claude Code
 
-**v5.11.16** - A methodology for reliable, parallelizable development using Claude Code with optional Agent Teams support.
+**v5.11.17** - A methodology for reliable, parallelizable development using Claude Code with optional Agent Teams support.
 
 **Eliminates context rot** — task-level fresh dispatch (one subagent per task, ~10-20% context each) means compaction never triggers.
 **Compaction-proof debug loops** — `gsd-t headless --debug-loop` runs test-fix-retest cycles as separate `claude -p` sessions. A JSONL debug ledger persists all hypothesis/fix/learning history across fresh sessions. Anti-repetition preamble injection prevents retrying failed hypotheses. Escalation tiers (sonnet → opus → human) and a hard iteration ceiling enforced externally.
@@ -256,6 +256,7 @@ This will replace changed command files, back up your CLAUDE.md if customized, a
 |---------|---------|------|
 | `/branch` | Create and switch to a new git branch | Manual |
 | `/checkin` | Auto-bump version, stage, commit, and push | Manual |
+| `/concise` | Rewrite the last reply short — outputs the rewrite and nothing else | Manual |
 | `/cpua` | Commit, Publish, Update All — bump version, publish to npm, propagate to all registered projects | Manual |
 | `/Claude-md` | Reload CLAUDE.md directives mid-session | Manual |
 | `/global-change` | Apply file changes across all registered GSD-T projects | Manual |
