@@ -17,7 +17,6 @@
 **Real-Time Agent Dashboard** — `gsd-t-stream-feed-server.js` serves a streaming UI at `127.0.0.1:7842` that renders all workers' stream-json output as a continuous feed with task/wave banners, duration + usage chips, token corner bar, localStorage filters, and replay via `WS /feed?from=N`. Dashboard auto-starts idempotently on each spawn (`scripts/gsd-t-dashboard-autostart.cjs`). Port is project-scoped via `projectScopedDefaultPort(projectDir)` so multi-project workflows do not clobber each other.
 **Rigorous User-Journey Coverage + Anti-Drift Test Quality** — `bin/journey-coverage.cjs` regex listener detector + `gsd-t check-coverage` CLI + `scripts/hooks/pre-commit-journey-coverage` commit gate blocks viewer-source commits when uncovered listeners exist. Journey specs in `e2e/journeys/` use functional assertions (zero `toBeVisible`-only tests) per the E2E Test Quality Standard in CLAUDE.md.
 **Universal Playwright Bootstrap + Deterministic UI Enforcement (M50)** — three executable enforcement layers: (1) `bin/playwright-bootstrap.cjs` + `bin/ui-detection.cjs` - idempotent installer detects package manager, installs `@playwright/test` + chromium, scaffolds `e2e/`; (2) Workflow runtime runs `playwright-bootstrap.cjs::installPlaywright()` before any E2E stage when `hasUI && !hasPlaywright`; install failure halts with `blocked-needs-human`; (3) `scripts/hooks/pre-commit-playwright-gate` (opt-in via `gsd-t doctor --install-hooks`) blocks viewer-source commits when staged files are newer than `.gsd-t/.last-playwright-pass`. The `gsd-t setup-playwright [path]` subcommand handles manual install.
-**Visualizer (`/gsd-t-visualize`)** — launches a real-time browser dashboard with dual-pane view: top pane streams the main session, bottom pane streams whichever spawn the user clicks. Left rail shows Live Spawns and Completed (last 100 spawns, status-badged, collapsible). Right rail shows Spawn Plan / Parallelism / Tool Cost. Powered by `gsd-t-stream-feed-server.js` + `gsd-t-dashboard.html`.
 **Surgical model selection** — models are assigned haiku/sonnet/opus per phase (**Fable removed 2026-07-24**; `opus` = **claude-opus-5**). **Single-source tier policy:** `bin/gsd-t-model-tier-policy.cjs` is the SINGLE source of truth; every high-stakes stage (solution-space probe, partition probe, competition judge, pre-mortem, Red Team, competition producers, debug both cycles) runs Opus 5. Opus 5 shipped at the same price as Opus 4.8 but >2× its coding score, so Fable's cost premium is no longer justified. The M82 judge-blindness invariant is relaxed to "fresh independent context" — producers and judge both run opus. Drift is mechanically enforced by the M71-family lint (`test/m85-workflow-tier-policy-lint.test.js`). **M86 model profiles:** `bin/gsd-t-model-profile.cjs` adds a per-project SECOND dimension — three named profiles (`standard` / `pro` / `premium`) that dial which stages run on Opus vs. Sonnet.
 **Token Telemetry** — `gsd-t-calibration-hook.js` records token usage per spawn to `.gsd-t/token-metrics.jsonl` (18-field rows). `gsd-t-token-aggregator.js` aggregates across tasks for the `/gsd-t-metrics` view. Use the native Claude Code `/context` command for live in-session context percentage.
 **Quality North Star** — projects define a `## Quality North Star` section in CLAUDE.md (1–3 sentences, e.g., "This is a published npm library. Every public API must be intuitive and backward-compatible."). `gsd-t-init` auto-detects preset (library/web-app/cli) from package.json signals; `gsd-t-setup` configures it for existing projects. Subagents read it as a quality lens; absent = silent skip (backward compatible).
@@ -135,7 +134,7 @@ gsd-t model-profile resolve --profile <p> [stage] [--json] # Resolve a profile i
 
 **Plan Hardening (M83).** The `plan` phase now runs two blocking gates before execute, so a plan can't ship a dead deliverable: a deterministic **acceptance-traceability gate** (`gsd-t traceability-gate` — every AC must bind to a code path + a killing test; the headline capability needs both impl and test) and an adversarial **pre-mortem** agent (opus, fresh-context, predicts edge-case/NFR/dead-deliverable failures and requires a test for each). The temporal dual of the Red Team — attack the design at plan, not just the code at verify. Origin: a build where the headline capability shipped as dead code and burned 4 verify cycles. See `.gsd-t/contracts/plan-hardening-contract.md`.
 
-**Competition Mode (M82 · automatic since M84).** On upstream, pre-contract phases (`/gsd-t-partition`, `/gsd-t-milestone`, `/gsd-t-discuss`, `/gsd-t-design-decompose`) the workflow **automatically decides** whether to compete: an Opus solution-space probe runs at phase start and, if it finds ≥2 genuinely different viable approaches, fans out 3 parallel candidate producers + a judge to pick the winner — the generative dual of the orthogonal validation triad. No flag needed (the probe is biased toward competing, since a better upstream artifact lowers total downstream cost). Partition's judge is an *objective* file-disjointness oracle; subjective phases use a blind + different-model + rubric judge. Override with `--no-competition` or `--competition N` only on explicit request. See `.gsd-t/contracts/competition-mode-contract.md`.
+**Competition Mode (M82 · automatic since M84).** On upstream, pre-contract phases (`/gsd-t-partition`, `/gsd-t-milestone`, `/gsd-t-design-decompose`) the workflow **automatically decides** whether to compete: an Opus solution-space probe runs at phase start and, if it finds ≥2 genuinely different viable approaches, fans out 3 parallel candidate producers + a judge to pick the winner — the generative dual of the orthogonal validation triad. No flag needed (the probe is biased toward competing, since a better upstream artifact lowers total downstream cost). Partition's judge is an *objective* file-disjointness oracle; subjective phases use a blind + different-model + rubric judge. Override with `--no-competition` or `--competition N` only on explicit request. See `.gsd-t/contracts/competition-mode-contract.md`.
 
 `gsd-t parallel` consumes the M44 task-graph (D1) and applies three pre-spawn gates (D4 depgraph validation → D5 file-disjointness → D6 economics) followed by mode-aware headroom/split math. Extends — does not replace — the M40 orchestrator. Contract: `.gsd-t/contracts/wave-join-contract.md` v1.1.0.
 
@@ -171,8 +170,6 @@ This will replace changed command files, back up your CLAUDE.md if customized, a
 |---------|---------|------|
 | `/gsd-t-help` | List all commands with descriptions | Manual |
 | `/gsd-t-help {cmd}` | Detailed help for specific command | Manual |
-| `/gsd-t-prompt` | Help formulate your idea before committing | Manual |
-| `/gsd-t-brainstorm` | Creative exploration and idea generation | Manual |
 | `/gsd-t-prd` | Generate a GSD-T-optimized Product Requirements Document | Manual |
 
 ### Project Initialization
@@ -218,7 +215,6 @@ This will replace changed command files, back up your CLAUDE.md if customized, a
 | `/gsd-t-status` | Cross-domain progress view with token breakdown by domain/task/phase | Manual |
 | `/gsd-t-resume` | Restore context, continue | Manual |
 | `/gsd-t-quick` | Fast task with GSD-T guarantees | Manual |
-| `/gsd-t-visualize` | Launch browser dashboard — SSE server + React Flow agent visualization | Manual |
 | `/gsd-t-debug` | Systematic debugging with state | Manual |
 | `/gsd-t-metrics` | View task telemetry, process ELO, signal distribution, domain health, and cross-project comparison (`--cross-project`) | Manual |
 | `/gsd-t-health` | Validate .gsd-t/ structure, optionally repair | Manual |
@@ -395,7 +391,7 @@ The session default model (`/model`) is unaffected — profiles govern workflow 
 
 ## Unattended / Background Runs
 
-For zero-touch overnight or multi-hour runs, use the `/loop` skill with a GSD-T command, or the `/gsd-t-unattended` skill (via the Smart Router). State is written atomically to `.gsd-t/.unattended/state.json` between worker iterations.
+For zero-touch overnight or multi-hour runs, use the `/loop` skill with a GSD-T command. (The `/gsd-t-unattended` relay was retired in M61.)
 
 The supervisor halts automatically when: the milestone reaches COMPLETED status, the wall-clock cap expires, `--max-iterations` is reached, safety rails detect a stall or unrecoverable error, or the stop sentinel is touched.
 

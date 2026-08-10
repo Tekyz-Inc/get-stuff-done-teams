@@ -2092,7 +2092,43 @@ function installCommands(isUpdate) {
 
   if (skipped > 0) info(`${skipped} commands unchanged`);
   success(`${gsdtCommands.length} GSD-T commands + ${utilityCommands.length} utilities ${isUpdate ? "updated" : "installed"} → ~/.claude/commands/`);
+
+  removeRetiredCommands(commandFiles);
+
   return { gsdtCommands, utilityCommands };
+}
+
+/**
+ * Delete GSD-T commands the package no longer ships.
+ *
+ * Installing only ever copied, so a command retired in a past milestone stayed
+ * on disk forever: eleven were still typeable long after the code behind them
+ * was deleted — brainstorm, discuss and prompt retired in M38, the unattended
+ * trio and visualize in M61. A command that still answers is one a person will
+ * reasonably use, and it then fails in confusing ways.
+ *
+ * Only `gsd-t-*.md` files are considered, so a command the user wrote is never
+ * touched. Every removal is NAMED, and anything that cannot be read or deleted
+ * STOPS the install: a leftover command is exactly the failure being fixed, so
+ * reporting a clean install while one remains would restate the bug.
+ */
+function removeRetiredCommands(shipped) {
+  const shippedSet = new Set(shipped);
+  // No try/catch: an unreadable commands directory means the check cannot run,
+  // and an install that skipped it must not report success.
+  const present = fs.readdirSync(COMMANDS_DIR);
+
+  const retired = present.filter(
+    (f) => f.startsWith("gsd-t-") && f.endsWith(".md") && !shippedSet.has(f)
+  );
+  if (retired.length === 0) return;
+
+  for (const file of retired) {
+    fs.unlinkSync(path.join(COMMANDS_DIR, file));
+  }
+
+  info(`Removed ${retired.length} retired command(s) no longer shipped:`);
+  for (const f of retired) info(`    ${f.replace(/\.md$/, "")}`);
 }
 
 const GSDT_START = "<!-- GSD-T:START";

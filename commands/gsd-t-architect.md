@@ -184,6 +184,14 @@ platform behavior, known-good patterns, known failure modes, anything time-varyi
 assert from memory. Cite what you find (URL + date) per the auto-research rule; a time-varying
 external fact stated without a source is a guess.
 
+**Reach for `/last30days <topic>` FIRST, before a plain web search.** It searches where people
+actually report what happened — Reddit, Hacker News, X, YouTube transcripts, GitHub — and ranks by
+what they engaged with, so it surfaces the known failure modes and "we tried this and regretted it"
+threads a web search buries. That is exactly what this stage is asking for, and none of it is in
+the model's training data. It takes about 40 seconds; a plain web search remains the follow-up when
+the answer is a single settled fact it did not return. If the command is not installed, say so in
+one line and fall back to web search — do NOT silently research a thinner way.
+
 **When research contradicts a standing rule (e.g. the common solution uses a fallback, the project
 bans fallbacks): the user's rule wins, and you name the conflict in ONE line.** Not a debate:
 
