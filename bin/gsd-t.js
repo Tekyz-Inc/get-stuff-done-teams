@@ -523,13 +523,11 @@ const INSTALL_HEAL_MARKER = "gsd-t-install-heal";
 const INSTALL_HEAL_COMMAND =
   'bash -c \'[ -f "$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-install-heal.js" ] && node "$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-install-heal.js" || true\'';
 
-// ─── M107 Concise hook (Stop) ───────────────────────────────────────────────
-// Sends a long reply to a fresh Claude for a shorter rewrite. Fail-open by
-// design (`|| true`): it governs how a reply READS, never whether it is true,
-// so a broken rewriter must never gag a correct answer.
+// ─── M107 Concise hook — RETIRED in v5.11.15 ────────────────────────────────
+// The marker survives its removal: installing DELETES this hook from a machine
+// that still has it, and a marker is how it is found. Deleting the name would
+// leave the hook running everywhere it was already installed.
 const CONCISE_HOOK_MARKER = "gsd-t-concise-hook";
-const CONCISE_HOOK_COMMAND =
-  'bash -c \'[ -f "$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-concise-hook.js" ] && node "$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-concise-hook.js" || true\'';
 
 // Append entries to {projectDir}/.gitignore. Each entry added only if absent.
 // Idempotent. Returns true if any entries were added, false otherwise.
@@ -994,10 +992,18 @@ function configureFallbackGuardHook(settingsPath) {
   return configureWriteEditHook(settingsPath, FALLBACK_HOOK_MARKER, FALLBACK_HOOK_COMMAND, "fallback guard");
 }
 
-// M107 — register the concise rewriter on Stop. Not a Write|Edit hook, so it
-// uses the Stop registrar below rather than configureWriteEditHook.
-function configureConciseHook(settingsPath) {
-  return configureStopHook(settingsPath, CONCISE_HOOK_MARKER, CONCISE_HOOK_COMMAND, "concise rewrite");
+// M107 RETIRED (v5.11.15). The rewriter shortened a reply after it was written,
+// and a Stop hook cannot unsay what is already on screen — so David read the
+// long version, then the short one. It also cost a whole extra turn, and its
+// own instruction was misread often enough to print a THIRD copy. The Reader
+// Contract, injected before every turn, does the same job for free and in the
+// only place it can work: before the words are written.
+//
+// Installing now REMOVES the hook rather than adding it. A retired feature that
+// keeps running on 32 machines is not retired, and only the installer can reach
+// them.
+function removeConciseHook(settingsPath) {
+  return removeStopHook(settingsPath, CONCISE_HOOK_MARKER);
 }
 
 // M108 — register the install self-heal on SessionStart, so a broken install is
@@ -1011,6 +1017,36 @@ function configureInstallHealHook(settingsPath) {
 // Stop event instead of PreToolUse.
 function configureStopHook(settingsPath, marker, command, label) {
   return configureEventHook(settingsPath, "Stop", marker, command, label);
+}
+
+/**
+ * Delete a Stop hook by marker, wherever it is registered.
+ *
+ * Retiring a hook in the package is not enough — it keeps firing on every
+ * machine that already installed it, and the installer is the only thing that
+ * reaches those machines. An unreadable or malformed settings file STOPS the
+ * install: leaving a retired hook running while reporting success is the same
+ * silent staleness that left eleven dead commands typeable for months.
+ */
+function removeStopHook(settingsPath, marker) {
+  if (!fs.existsSync(settingsPath)) return { removed: 0 };
+
+  const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+  const groups = settings.hooks && settings.hooks.Stop;
+  if (!Array.isArray(groups)) return { removed: 0 };
+
+  let removed = 0;
+  for (const group of groups) {
+    if (!Array.isArray(group.hooks)) continue;
+    const before = group.hooks.length;
+    group.hooks = group.hooks.filter((h) => !String(h && h.command || "").includes(marker));
+    removed += before - group.hooks.length;
+  }
+  if (removed === 0) return { removed: 0 };
+
+  settings.hooks.Stop = groups.filter((g) => Array.isArray(g.hooks) && g.hooks.length > 0);
+  fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + "\n");
+  return { removed };
 }
 
 // Register a hook on any event by marker. One registrar for every event, so a
@@ -1761,10 +1797,6 @@ const GLOBAL_BIN_TOOLS = [
   // write rather than allowing it unchecked, so an omission here breaks every
   // Write/Edit rather than failing silently. Also in PROJECT_BIN_TOOLS below.
   "gsd-t-fallback-detect.cjs",
-  // M107 — Concise rewriter. scripts/gsd-t-concise-hook.js (a Stop hook) shells
-  // out to this; absent, the hook allows the long reply through (fail-open by
-  // design — it governs readability, never truth).
-  "gsd-t-concise-rewrite.cjs",
   // M108 — Install self-check, run by the SessionStart hook and by
   // `gsd-t install-check`.
   "gsd-t-install-check.cjs",
@@ -2301,12 +2333,8 @@ async function doInstall(opts = {}) {
   }
 
 
-  const ccHook = configureConciseHook(SETTINGS_JSON);
-  if (ccHook.installed) {
-    if (ccHook.action === "added") success("Concise-rewrite hook added (shortens a long reply before you read it — M107)");
-    else if (ccHook.action === "refreshed") success("Concise-rewrite hook refreshed");
-    else info("Concise-rewrite hook already configured");
-  }
+  const ccHook = removeConciseHook(SETTINGS_JSON);
+  if (ccHook.removed) success("Concise-rewrite hook removed — retired in v5.11.15");
 
   const healHook = configureInstallHealHook(SETTINGS_JSON);
   if (healHook.installed) {
@@ -3279,7 +3307,6 @@ const PROJECT_BIN_TOOLS = [
   // so this entry is load-bearing — [[project_global_bin_propagation_gap]].
   "gsd-t-fallback-detect.cjs",
   // M107 — Concise rewriter, invoked by the Stop hook.
-  "gsd-t-concise-rewrite.cjs",
   // M108 — Install self-check. Every project carries its own copy so it can
   // verify and repair itself even when the global install is what broke.
   "gsd-t-install-check.cjs",

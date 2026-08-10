@@ -2,6 +2,27 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.11.15] - 2026-08-09
+
+### Removed — the reply shortener (M107) is retired
+
+It shortened a reply *after* it was written, and a Stop hook cannot unsay what
+is already on screen: the long version was read, then the short one. It cost a
+whole extra turn, and its instruction was misread often enough to print a third
+copy. Every fix landed and the thing still was not worth its cost.
+
+The Reader Contract, injected before every turn, does the same job for free and
+in the only place it can work — before the words are written.
+
+**Installing now REMOVES the hook** from machines that already have it. A
+retired feature still running on 32 machines is not retired, and the installer
+is the only thing that reaches them. Other hooks are untouched.
+
+- deleted: `scripts/gsd-t-concise-hook.js`, `bin/gsd-t-concise-rewrite.cjs`
+- `bin/gsd-t.js`: `removeConciseHook` replaces the registrar; the marker stays, because removal needs it to find the hook
+- both propagation lists no longer carry the rewriter
+- `test/m112-concise-retired.test.js`: 6 tests, including that install removes it and never re-adds it
+
 ## [5.11.14] - 2026-08-09
 
 ### Fixed — the shortened reply appeared as a third copy instead of the only one
