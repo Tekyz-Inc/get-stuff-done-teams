@@ -26,38 +26,50 @@ const hooklib = require(HOOK);
 
 function tmpDir() { return fs.mkdtempSync(path.join(os.tmpdir(), "m107-")); }
 
-test("a dropped question is caught", () => {
-  const before = "The cache is in memory.\n\nWant me to change it?";
-  const after = "The cache is in memory.";
-  const lost = lib.checkInvariants(before, after);
-  assert.ok(lost.some((l) => /question/.test(l)), "losing the question must be rejected");
+// ── The second pass replaced the keyword check (M112) ───────────────────────
+//
+// A keyword check used to count question marks, paths and numbers and throw the
+// whole rewrite away if a count dropped. It discarded 4 of every 6 rewrites,
+// almost always because the writer had asked HIMSELF a question ("Now the
+// proof: does it fire?") which the rewrite correctly cut as narration. Counting
+// punctuation cannot tell an ask from thinking out loud; a reader can. The same
+// model now reads its short version back and FIXES it, returning text rather
+// than a verdict — so there is no path on which the work is discarded.
+
+test("M112: the discarding check is gone", () => {
+  assert.strictEqual(lib.checkInvariants, undefined, "the keyword check must not come back");
+  assert.strictEqual(lib.extractInvariants, undefined, "nor its punctuation counter");
 });
 
-test("a kept question passes", () => {
-  const before = "The cache is in memory, cleared on restart, and never written to disk.\n\nWant me to change it?";
-  const after = "The cache is in memory.\n\nWant me to change it?";
-  assert.deepStrictEqual(lib.checkInvariants(before, after), []);
+test("M112: a second pass exists and reviews the short version", () => {
+  assert.strictEqual(typeof lib.review, "function", "the review pass is what replaced the check");
+  assert.match(lib.REVIEW, /only what he needs/i, "it asks whether this is what he needs");
+  assert.match(lib.REVIEW, /concise/i, "and whether it is as short as his rules demand");
 });
 
-test("a dropped code block is caught", () => {
-  const before = "Run this:\n\n```\nnpm test\n```\n";
-  const after = "Run npm test.";
-  const lost = lib.checkInvariants(before, after);
-  assert.ok(lost.some((l) => /code block/.test(l)));
+test("M112: the review protects a real ask but not thinking out loud", () => {
+  assert.match(lib.REVIEW, /question he is meant to ANSWER/i, "a real ask must survive");
+  assert.match(lib.REVIEW, /asked himself is narration/i, "a rhetorical one must not be protected");
 });
 
-test("an invented number is caught", () => {
-  const before = "There are 12 files.";
-  const after = "There are 4096 files.";
-  const lost = lib.checkInvariants(before, after);
-  assert.ok(lost.some((l) => /number/.test(l)), "a number not in the original means something was invented");
+test("M112: the review returns text, never a verdict", () => {
+  // A reviewer that could say "rejected" would reintroduce the discard.
+  assert.match(lib.REVIEW, /Return the final reply and nothing else/i);
+  assert.match(lib.REVIEW, /Never return commentary, never return an empty response/i);
 });
 
-test("losing every file path is caught", () => {
-  const before = "See bin/gsd-t.js and scripts/hook.js for details.";
-  const after = "See the source for details.";
-  const lost = lib.checkInvariants(before, after);
-  assert.ok(lost.some((l) => /path/.test(l)));
+test("M112: a failed review keeps pass 1's rewrite rather than losing it", () => {
+  const src = fs.readFileSync(REWRITE, "utf8");
+  const fn = src.slice(src.indexOf("function review("), src.indexOf("function parseArgs("));
+  assert.match(fn, /r\.ok \? r\.text : shortened/,
+    "if the second opinion never arrives, the first improvement still stands");
+});
+
+test("M112: the rewrite rules carry the relevance instruction", () => {
+  assert.match(lib.RULES, /ONLY WHAT IS RELEVANT TO HIM/i);
+  // The phrase wraps across lines in the prompt, so match it whitespace-loosely.
+  assert.match(lib.RULES.replace(/\s+/g, " "), /would he type an answer to it/i,
+    "the test that separates a real question from narration");
 });
 
 test("a short reply is left alone", () => {

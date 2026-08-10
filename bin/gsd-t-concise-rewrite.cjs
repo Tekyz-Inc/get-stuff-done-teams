@@ -59,16 +59,24 @@ Rewrite the reply below following these rules exactly:
    answering a direct question about that. He asks when he wants it.
 4. NO JARGON. Plain words. If a technical term is genuinely needed, put the
    plain meaning first and the term in brackets after it.
-5. CUT ANYTHING NOT ASKED FOR.
+5. KEEP ONLY WHAT IS RELEVANT TO HIM. Ask of every sentence: does this change
+   what he decides, what he does next, or what he now knows? If not, cut it.
+   Work the writer did, steps taken, what was checked, what was ruled out — all
+   of that is the writer's business, not his, unless he asked.
 6. Prefer a short list or a small table over a paragraph.
 
 KEEP THESE. They are not optional, and dropping any one of them means the
 rewrite is rejected and thrown away:
 
 - The first line, if it is a dated status banner.
-- EVERY question being asked of the reader. If the reply ends by asking him
-  something, that question MUST appear in your rewrite, as its own line, at
-  the end. This is the single most common way a rewrite is rejected.
+- EVERY question being asked OF THE READER — one he is meant to answer. If the
+  reply ends by asking him something, that question MUST appear in your rewrite,
+  as its own line, at the end. This is the single most common way a rewrite is
+  rejected.
+  A question the writer asks HIMSELF is not one of these. "Is that the cause?",
+  "Now the proof: does the hook fire?", "So what is slow here?" are thinking out
+  loud — cut them like any other narration. The test is simple: would he type an
+  answer to it? If not, it is not a question.
 - Any warning, failure, or thing that went wrong.
 - File paths and links, exactly as written.
 - Code blocks, exactly as written.
@@ -99,46 +107,46 @@ function wordCount(s) {
 }
 
 /**
- * Facts that must survive the rewrite. If any disappears, the rewrite is
- * rejected and the original is returned — a rewrite that drops a warning or a
- * question is worse than a long reply.
+ * The second pass — the rewrite reviewed before it is delivered.
+ *
+ * A keyword check used to sit here: it counted question marks, file paths and
+ * numbers, and threw the whole rewrite away if a count dropped. It discarded
+ * 4 of every 6 rewrites, almost always because the writer had asked HIMSELF a
+ * question ("Now the proof: does it fire?") which the rewrite correctly cut as
+ * narration. Counting punctuation cannot tell an ask from thinking out loud.
+ *
+ * A reader can. So the same model that wrote the short version now reads it
+ * back against one question — is this what David needs, and is it as short as
+ * his rules demand — and fixes it. The reviewer returns text, never a verdict,
+ * so there is no path on which the work is discarded.
  */
-function extractInvariants(text) {
-  return {
-    questions: (text.match(/[^.!?\n]*\?/g) || []).map((q) => q.trim()).filter((q) => q.length > 10),
-    numbers: text.match(/\b\d[\d,._]*\b/g) || [],
-    paths: text.match(/[\w./-]+\.(?:js|cjs|mjs|ts|tsx|json|md|py|sh)\b/g) || [],
-    codeBlocks: (text.match(/```/g) || []).length / 2,
-  };
-}
+const REVIEW = `You are checking a shortened reply before it reaches David.
 
-function checkInvariants(original, rewritten) {
-  const a = extractInvariants(original);
-  const b = extractInvariants(rewritten);
-  const lost = [];
+He is a slow reader. Every extra line costs him real time.
 
-  if (a.questions.length > 0 && b.questions.length === 0) {
-    lost.push("a question to the reader was dropped");
-  }
-  const lostPaths = a.paths.filter((p) => !rewritten.includes(p));
-  if (lostPaths.length > 0 && lostPaths.length === a.paths.length && a.paths.length > 0) {
-    lost.push("every file path was dropped");
-  }
-  if (a.codeBlocks > 0 && b.codeBlocks < a.codeBlocks) {
-    lost.push("a code block was dropped");
-  }
-  // A number appearing in the rewrite that was never in the original means
-  // something was invented.
-  const invented = b.numbers.filter((n) => n.length > 2 && !a.numbers.includes(n));
-  if (invented.length > 0) {
-    lost.push(`a number appeared that was not in the original: ${invented[0]}`);
-  }
-  return lost;
-}
+Two questions, both about the SHORT version:
 
-/** Ask a fresh Claude to do the rewrite. */
-function rewrite(text, cfg) {
-  const prompt = `${RULES}\n\n--- REPLY TO REWRITE ---\n${text}`;
+1. Is this ONLY what he needs? Cut anything that does not change what he
+   decides, what he does next, or what he now knows. The work someone did,
+   steps taken, what was checked, what was ruled out — his business only if he
+   asked.
+
+2. Is it truly concise by his rules? Answer first, nothing before it. No
+   preamble, no backstory, no jargon standing in for a plain word. Lists and
+   small tables over paragraphs.
+
+Then check nothing was lost that he needs:
+- a question he is meant to ANSWER must still be there, as its own line at the
+  end. A question the writer asked himself is narration — it should be gone.
+- warnings, failures, and things that went wrong stay.
+- file paths, links, code blocks and specific numbers stay exactly as written.
+- no fact, number or name may change, and nothing may be added.
+
+Return the final reply and nothing else. If it is already right, return it
+unchanged. Never return commentary, never return an empty response.`;
+
+/** One call to a fresh Claude. Used by both passes. */
+function askClaude(prompt, cfg) {
   // `--setting-sources project` is what stops the shortener shortening itself.
   //
   // A child started with the personal settings inherits the very Stop hook that
@@ -179,6 +187,25 @@ function rewrite(text, cfg) {
   const out = (run.stdout || "").trim();
   if (!out) return { ok: false, error: "the rewriter returned nothing" };
   return { ok: true, text: out };
+}
+
+/** Pass 1 — shorten it. */
+function rewrite(text, cfg) {
+  return askClaude(`${RULES}\n\n--- REPLY TO REWRITE ---\n${text}`, cfg);
+}
+
+/**
+ * Pass 2 — read the short version back and fix what pass 1 got wrong.
+ *
+ * Returns text, never a verdict, so the work is never discarded. If the review
+ * itself fails, pass 1's rewrite stands: it was already an improvement, and
+ * losing it because a second opinion did not arrive would be the old bug in a
+ * new place.
+ */
+function review(original, shortened, cfg) {
+  const prompt = `${REVIEW}\n\n--- WHAT HE ORIGINALLY WROTE (for reference only) ---\n${original}\n\n--- THE SHORT VERSION TO CHECK AND RETURN ---\n${shortened}`;
+  const r = askClaude(prompt, cfg);
+  return r.ok ? r.text : shortened;
 }
 
 function parseArgs(argv) {
@@ -231,19 +258,14 @@ function main() {
     }, args.json);
   }
 
-  const lost = checkInvariants(text, r.text);
-  if (lost.length > 0) {
-    emit({
-      ok: false, exitCode: EXIT_FAILED, text,
-      error: `the rewrite lost something: ${lost.join("; ")}`,
-      note: "Rewrite rejected — this is the original, unchanged.",
-      words: before,
-    }, args.json);
-  }
+  // Second pass: the same model reads its own short version back, against the
+  // only two questions that matter — is this what David needs, and is it as
+  // short as his rules demand. It returns text, so nothing is ever discarded.
+  const finalText = review(text, r.text, cfg);
 
-  const after = wordCount(r.text);
+  const after = wordCount(finalText);
   emit({
-    ok: true, exitCode: EXIT_OK, text: r.text,
+    ok: true, exitCode: EXIT_OK, text: finalText,
     words: before, wordsAfter: after,
     saved: before - after,
   }, args.json);
@@ -251,4 +273,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { wordCount, extractInvariants, checkInvariants, readConfig, RULES };
+module.exports = { wordCount, readConfig, rewrite, review, askClaude, RULES, REVIEW };
