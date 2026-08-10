@@ -2,6 +2,28 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.11.16] - 2026-08-10
+
+### Added — typing the default branch name works in the main checkout
+
+Working directly in the main checkout is rare but real, and there was no way to
+ask for it: every name typed at the session-start prompt created a worktree.
+Naming the repo's own default branch now means "work here" — no worktree, no
+branch created — and it says so rather than going silent, since silence would
+read as the name being ignored.
+
+The default branch is asked of git, never assumed to be `main`: a repo on
+`trunk` treats trunk as its default, and `main` there is just another branch
+name. The typed name is matched case-insensitively, so `Main` is `main`.
+
+Choosing the main checkout opts out of the worktree, not out of the
+one-session-per-tree guard — a second live session there will still block
+writes, correctly.
+
+- `bin/gsd-t-pick-worktree.cjs`: `isDefaultBranch()` + the stay path
+- `~/.zshrc` (local): both prompts now mention `"main" = work in main`
+- `test/m111-pick-worktree.test.js`: 3 tests — stay, case-insensitive, and a `trunk` repo
+
 ## [5.11.15] - 2026-08-09
 
 ### Removed — the reply shortener (M107) is retired

@@ -79,6 +79,21 @@ function main() {
   const home = path.join(process.env.HOME, "Worktrees", path.basename(cwd));
 
   if (wanted) {
+    // Asking for the repo's own default branch means "work here, in the main
+    // checkout" — not "make a worktree called main", which git refuses anyway
+    // because that branch is already checked out. Rare, but it is a real
+    // choice, and the only way to express it is to name it.
+    if (isDefaultBranch(cwd, branchNameFrom(wanted))) {
+      // Said out loud on stderr: every other path here is silent, but this one
+      // is a deliberate choice to work somewhere the house rules steer away
+      // from, and silence would read as "the name was ignored". stdout stays
+      // empty because the shell reads it as the directory to move to.
+      process.stderr.write(
+        `[GSD-T WORKTREE] staying in the main checkout on ${branchNameFrom(wanted)} — ` +
+        `no worktree created.\n`
+      );
+      stay();
+    }
     process.stdout.write(create(cwd, home, branchNameFrom(wanted)).path + "\n");
     return;
   }
@@ -97,6 +112,28 @@ function main() {
   // prevent.
   if (!free) stay();
   process.stdout.write(free.path + "\n");
+}
+
+/**
+ * Is this the repo's own default branch — the one the main checkout sits on?
+ *
+ * Asked of git rather than matched against a list: a repo may use `master`,
+ * `trunk` or anything else, and a hardcoded list would send those repos into a
+ * worktree named after their own main branch. The branch currently checked out
+ * in the main tree IS the answer, since that is the thing being opted into.
+ *
+ * A repo git cannot answer for is not the default-branch case — it falls
+ * through to the ordinary worktree path, which fails loudly on its own if git
+ * is genuinely broken.
+ */
+function isDefaultBranch(repo, name) {
+  const r = spawnSync("git", ["branch", "--show-current"], {
+    cwd: repo, encoding: "utf8", timeout: 10000,
+  });
+  if (r.status !== 0) return false;
+  // Both sides lowercased: a branch name typed at a prompt is a value the user
+  // types, and "Main" must mean main.
+  return String(r.stdout || "").trim().toLowerCase() === String(name).toLowerCase();
 }
 
 // Turn what the user typed into a name git will accept, without silently

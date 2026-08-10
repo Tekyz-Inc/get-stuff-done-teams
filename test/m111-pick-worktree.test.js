@@ -197,3 +197,51 @@ test("M111: the retired heartbeat collision guard is gone", () => {
     "it read heartbeat files that subagents also write, so one session with " +
     "helpers looked like several colliding sessions");
 });
+
+// ── Naming the default branch means "work here" (M112) ───────────────────────
+//
+// Working directly in the main checkout is rare but real. The only way to ask
+// for it is to name it, and git refuses a worktree on a branch already checked
+// out anyway — so the name has to mean "stay", not "create".
+
+function defaultBranchOf(repo) {
+  const r = spawnSync("git", ["branch", "--show-current"], { cwd: repo, encoding: "utf8" });
+  return String(r.stdout || "").trim();
+}
+
+test("M112: naming the default branch stays in the main checkout", () => {
+  const { home, repo } = makeProject();
+  try {
+    const branch = defaultBranchOf(repo);
+    const r = run(repo, { HOME: home }, ["--name", branch]);
+    assert.strictEqual(r.stdout.trim(), "", "empty stdout keeps the shell where it is");
+    assert.match(r.stderr, /staying in the main checkout/i, "and it must say so, not go silent");
+    assert.strictEqual(r.status, 0);
+  } finally { fs.rmSync(home, { recursive: true, force: true }); }
+});
+
+test("M112: the typed name is matched case-insensitively", () => {
+  // A branch name typed at a prompt is a value the user types. "Main" is main.
+  const { home, repo } = makeProject();
+  try {
+    const shouty = defaultBranchOf(repo).toUpperCase();
+    const r = run(repo, { HOME: home }, ["--name", shouty]);
+    assert.strictEqual(r.stdout.trim(), "", `"${shouty}" must behave like its lowercase form`);
+  } finally { fs.rmSync(home, { recursive: true, force: true }); }
+});
+
+test("M112: the default branch is asked of git, never assumed to be 'main'", () => {
+  // A repo on `trunk` must treat trunk as its default — and `main` as an
+  // ordinary new branch name.
+  const { home, repo } = makeProject();
+  try {
+    spawnSync("git", ["branch", "-m", "trunk"], { cwd: repo, stdio: "pipe" });
+
+    const stays = run(repo, { HOME: home }, ["--name", "trunk"]);
+    assert.strictEqual(stays.stdout.trim(), "", "trunk is this repo's default");
+
+    const creates = run(repo, { HOME: home }, ["--name", "main"]);
+    assert.match(creates.stdout.trim(), /Worktrees/,
+      "main is not special here — it is just another branch name");
+  } finally { fs.rmSync(home, { recursive: true, force: true }); }
+});
