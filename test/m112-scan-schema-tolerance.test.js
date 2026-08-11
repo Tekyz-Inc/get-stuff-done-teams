@@ -129,3 +129,45 @@ test('M112: continuing anyway is possible, but must be asked for', () => {
   assert.match(src, /continuing with an INCOMPLETE scan, as asked/,
     'and taking that route is said out loud');
 });
+
+// ── Escalate to the model that does not make the mistake (M112) ─────────────
+//
+// Measured on HiloAviation's own transcripts: 66 of 110 finders passed
+// {"input": "<the whole result as a string>"} instead of real fields. The
+// validator repeats the same message and never says "you stringified it", so an
+// agent either guesses the unwrapped form or exhausts its attempts — 57 guessed,
+// 9 did not, each losing ~180k tokens of real findings.
+//
+// The model is the variable, not the slice: 2026-08-02 ran finders on Opus and
+// wrapped 0 times in 64 agents; Sonnet wrapped 40% (08-05) and 52% (08-10)
+// across 680.
+
+test('M112: a failed attempt is TOLD what went wrong', () => {
+  assert.match(src, /YOUR PREVIOUS ATTEMPT WAS REJECTED/,
+    'repeating the same prompt is another lottery ticket');
+  assert.match(src, /instead of as real fields/,
+    'the hint must name the actual mistake, not just say "try again"');
+  assert.match(src, /69 characters was rejected for this reason/,
+    'and rule out size, which is the wrong guess an agent makes next');
+});
+
+test('M112: the third attempt escalates to opus', () => {
+  const fn = src.slice(src.indexOf('async function runFinder'), src.indexOf('async function scanSlice'));
+  assert.match(fn, /retry on opus/, 'the last attempt changes the model');
+  assert.match(fn, /model: "opus"/, 'to the tier measured at 0% wrapping');
+  assert.equal((fn.match(/model: "sonnet"/g) || []).length, 2,
+    'the first two attempts stay on sonnet — opus is paid for only by failures');
+});
+
+test('M112: every model stays a literal, so the tier lint can still read it', () => {
+  // A variable would hide a drifted tier from the guard that exists to catch it.
+  const fn = src.slice(src.indexOf('async function runFinder'), src.indexOf('async function scanSlice'));
+  assert.ok(!/model: [a-z]\w*\./.test(fn), 'no computed model values');
+});
+
+test('M112: verify retries too, having had none at all', () => {
+  const block = src.slice(src.indexOf('const verifyPrompt'), src.indexOf('const verdict'));
+  assert.match(block, /verify:\$\{sliceKey\} \(retry on opus\)/,
+    'one wrapped call used to let a finding through unverified');
+  assert.match(block, /UNWRAP_HINT/, 'and the retry must say what went wrong');
+});

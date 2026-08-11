@@ -2,6 +2,44 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.11.20] - 2026-08-10
+
+### Fixed — the real cause of the scan failures: agents pass their answer as a string
+
+Measured on HiloAviation's own transcripts, not inferred: **66 of 110 finders**
+called the output tool with `{"input": "<the whole result as a JSON string>"}`
+instead of real top-level fields. The validator replies with the same message
+every time and never says *you stringified it*, so an agent either guesses the
+unwrapped form or exhausts its attempts. **57 guessed right; 9 did not**, each
+losing ~180k tokens of genuine findings.
+
+**The model is the variable, not the slice.** The same scan on 2026-08-02 ran
+its finders on Opus and wrapped **0 times in 64 agents**. Sonnet wrapped 40%
+(08-05) and 52% (08-10) across 680 agents. That is why last week's scan of the
+same project passed cleanly.
+
+Three attempts now, instead of two:
+
+1. Sonnet — the working tier for 228 parallel finders.
+2. Sonnet, **told exactly what went wrong** (including that a 69-character
+   payload was rejected, so size is not the problem).
+3. **Opus** — the tier measured at 0% wrapping. Paid for only by the slices that
+   actually stumble.
+
+Verify had **no retry at all**: one wrapped call and a finding went through
+unverified. It now retries once on Opus with the same hint.
+
+Every `model:` stays a literal so the tier-policy lint can still read it — a
+variable would hide a drifted tier from the guard that exists to catch it. The
+lint caught exactly that during this change.
+
+Superseded: v5.11.18's extra-fields fix addressed a real but different problem,
+and never applied to these failures. Both remain.
+
+- `templates/workflows/gsd-t-scan.workflow.js`: 3-attempt escalation, `UNWRAP_HINT`, verify retry, `SHAPE_RULE` on all 6 schema prompts
+- `test/m112-scan-schema-tolerance.test.js`: 16 tests
+- evidence preserved at `.gsd-t/evidence/hilo-input-wrapper-2026-08-10/`
+
 ## [5.11.19] - 2026-08-10
 
 ### Changed — a scan that lost areas now STOPS instead of writing the report

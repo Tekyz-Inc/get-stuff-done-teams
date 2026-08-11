@@ -124,6 +124,18 @@ const PROBE_SCHEMA = {
   },
 };
 
+// Every agent that returns a schema-validated result gets this line.
+//
+// HiloAviation 2026-08-10: agents passed {"input": "{\"slice\":…}"} — the entire
+// result JSON-encoded into a string under one `input` key. The validator found
+// no top-level fields and refused, five times, on payloads as small as 69
+// characters. It hit the volume probe as well as the finders, so it is not
+// slice-specific: any agent can reach for the wrapper. "Return JSON per the
+// schema" reads as satisfied by handing over a JSON string, so the difference
+// between an object and a string is now stated outright.
+const SHAPE_RULE =
+  `SHAPE — the most common way this call fails: pass every field as a REAL top-level field of the tool input. Do NOT serialise the result to a string, and do NOT wrap it in an \`input\` key. A JSON string is rejected however small it is.`;
+
 const FINDER_SCHEMA = {
   type: "object",
   required: ["slice", "findings"],
@@ -369,6 +381,7 @@ const pre = await agent(
     `3. Whether \`${projectDir}/.gsd-t/techdebt.md\` exists (priorRegisterExists).`,
     `4. If it exists, the HIGHEST TD-NNN number in it (grep \`### TD-\`, parse the max integer; priorMaxTd). If absent, priorMaxTd=0.`,
     `Set ok=true unless something makes scanning impossible (e.g. projectDir does not exist). Return JSON per the schema.`,
+    SHAPE_RULE,
   ].join("\n"),
   { label: "preflight", phase: "Preflight", schema: PREFLIGHT_SCHEMA, model: "haiku" }
 );
@@ -404,6 +417,7 @@ const probe = await agent(
     `Decompose HONESTLY by cohesive responsibility: not so coarse that an agent can't read its whole slice, not so fine that you emit one slice per file. A well-decomposed system has a finite, sensible number of real responsibilities — find them. (A volume-derived backstop cap is enforced after you return ONLY to catch over-slicing; a clean sub-domain decomposition lands under it. Report accurate \`totals\` — they set the backstop. If your count is truncated, you sliced too finely.)`,
     ``,
     `Measure with real tooling and report in \`totals\`: files, loc, routes, tables, components, featureDomains (distinct business/feature areas). Read \`${projectDir}/package.json\` for the stack. Return JSON per the schema: totals + slices.`,
+    SHAPE_RULE,
   ].join("\n"),
   { label: "volume-probe", phase: "Probe", schema: PROBE_SCHEMA, model: "sonnet" }
 );
@@ -577,6 +591,13 @@ function finderPrompt(slice, graphSliceContext) {
     `Surface: bugs, security holes, missing validation, broken invariants, race conditions, dead/duplicated code, N+1s, untested critical paths, contract drift, domain-specific correctness (money math, state-machine gaps, timezone bugs, idempotency holes).`,
     `For each finding: title, severity (CRITICAL/HIGH/MEDIUM/LOW), human area label, concrete file:line refs, detail, impact, remediation, honest confidence. If a substantial slice yields only 1-2 findings, re-check before concluding it's clean. Empty findings array ONLY if genuinely clean.`,
     `CRITICAL: you MUST return a JSON object matching the schema (slice + findings array) as your FINAL output — even if findings is empty. Do not end without the structured result.`,
+    // HiloAviation 2026-08-10: agents passed {"input": "{\"slice\":…}"} — the whole
+    // result JSON-encoded into a string under one `input` key. The validator saw
+    // no `slice` and no `findings` at the top level and refused, five times, on
+    // payloads as small as 69 characters. "Return a JSON object" reads as
+    // satisfied by handing over a JSON string, so the distinction is now spelled
+    // out rather than implied.
+    `SHAPE — this is the single most common way this call fails: pass \`slice\` and \`findings\` as REAL top-level fields of the tool input. Do NOT serialise the result to a string, and do NOT wrap it in an \`input\` key. Correct: {"slice":"x","findings":[…]}. WRONG: {"input":"{\\"slice\\":\\"x\\",…}"} — that is a string, and it is rejected however small it is.`,
   ].filter(Boolean).join("\n");
 }
 // M73: GLOBAL CONCURRENCY GATE (shared-worker-pool model). The v4.0.19 Hilo run
@@ -664,22 +685,75 @@ async function gatedAgent(prompt, opts) {
 // but setTimeout is not). Used only for rate-limit backoff between retries.
 function sleep(ms) { return new Promise((res) => setTimeout(res, ms)); }
 
+// Attempt 2 names the mistake; attempt 3 changes the model.
+//
+// Measured on this project's own transcripts (HiloAviation, 110-agent run):
+// 66 of 110 finders passed {"input": "<the whole result as a string>"} instead
+// of the real fields. The validator answers with the same message every time
+// and never says "you stringified it", so an agent either guesses the unwrapped
+// form or exhausts its attempts. 57 guessed right; 9 did not, and each lost
+// ~180k tokens of real findings.
+//
+// The model is the variable, not the slice: the same scan on 2026-08-02 ran its
+// finders on Opus and wrapped ZERO times in 64 agents. Sonnet wrapped 40% on
+// 08-05 and 52% on 08-10 across 680 agents.
+//
+// So: stay on Sonnet for cost, tell attempt 2 exactly what went wrong, and send
+// attempt 3 to the model that has never done it. Opus is paid for only by the
+// slices that actually stumble.
+const UNWRAP_HINT = [
+  ``,
+  `!! YOUR PREVIOUS ATTEMPT WAS REJECTED. The most likely reason, by far:`,
+  `You passed the result as a JSON STRING — {"input": "{\\"slice\\": ...}"} — instead of as real fields.`,
+  `The validator looks for \`slice\` and \`findings\` at the TOP LEVEL of the tool input and found neither.`,
+  `Call StructuredOutput with slice and findings as ACTUAL top-level fields. Do not stringify. Do not use an \`input\` key.`,
+  `A payload of 69 characters was rejected for this reason, so size is not the problem — the shape is.`,
+].join("\n");
+
 async function runFinder(slice, graphSliceContext) {
-  // up to 2 attempts; a null/invalid (non-array findings) result counts as a drop.
   // M94-D6: graphSliceContext passed through to finderPrompt for ADDITIVE injection.
-  for (let attempt = 1; attempt <= 2; attempt++) {
-    try {
-      const r = await gatedAgent(finderPrompt(slice, graphSliceContext), {
-        label: attempt === 1 ? `find:${slice.key}` : `find:${slice.key} (retry)`,
-        phase: "Deep Scan", schema: FINDER_SCHEMA, model: "sonnet",
-      });
-      if (r && Array.isArray(r.findings)) return r; // valid (incl. empty)
-      log(`⚠ finder slice "${slice.key}" attempt ${attempt} returned no valid output${attempt < 2 ? " — retrying" : ""}`);
-    } catch (e) {
-      log(`⚠ finder slice "${slice.key}" attempt ${attempt} threw: ${e && e.message}${attempt < 2 ? " — retrying" : ""}`);
-    }
+  const basePrompt = finderPrompt(slice, graphSliceContext);
+  // Attempt 1 — Sonnet, the working tier for 228 parallel finders.
+  try {
+    const r = await gatedAgent(basePrompt, {
+      label: `find:${slice.key}`, phase: "Deep Scan", schema: FINDER_SCHEMA, model: "sonnet",
+    });
+    if (r && Array.isArray(r.findings)) return r;
+    log(`⚠ finder slice "${slice.key}" attempt 1 (sonnet) returned no valid output — retrying`);
+  } catch (e) {
+    log(`⚠ finder slice "${slice.key}" attempt 1 (sonnet) threw: ${e && e.message} — retrying`);
   }
-  return null; // both attempts failed → dropped slice
+
+  // Attempt 2 — same tier, but now TOLD what went wrong.
+  try {
+    const r = await gatedAgent(basePrompt + UNWRAP_HINT, {
+      label: `find:${slice.key} (retry)`, phase: "Deep Scan", schema: FINDER_SCHEMA, model: "sonnet",
+    });
+    if (r && Array.isArray(r.findings)) {
+      log(`✓ finder slice "${slice.key}" recovered on attempt 2 (sonnet)`);
+      return r;
+    }
+    log(`⚠ finder slice "${slice.key}" attempt 2 (sonnet) returned no valid output — escalating to opus`);
+  } catch (e) {
+    log(`⚠ finder slice "${slice.key}" attempt 2 (sonnet) threw: ${e && e.message} — escalating to opus`);
+  }
+
+  // Attempt 3 — the model that has never done this. Paid for only by the
+  // slices that actually stumble.
+  try {
+    const r = await gatedAgent(basePrompt + UNWRAP_HINT, {
+      label: `find:${slice.key} (retry on opus)`, phase: "Deep Scan", schema: FINDER_SCHEMA, model: "opus",
+    });
+    if (r && Array.isArray(r.findings)) {
+      log(`✓ finder slice "${slice.key}" recovered on attempt 3 (opus)`);
+      return r;
+    }
+    log(`⚠ finder slice "${slice.key}" attempt 3 (opus) returned no valid output`);
+  } catch (e) {
+    log(`⚠ finder slice "${slice.key}" attempt 3 (opus) threw: ${e && e.message}`);
+  }
+
+  return null; // every attempt failed → dropped slice, and the run HALTS on it
 }
 
 async function scanSlice(slice) {
@@ -701,14 +775,25 @@ async function scanSlice(slice) {
   const verified = await parallel(
     finderResult.findings.map((f) => async () => {
       try {
-        const v = await gatedAgent(
-          [
-            `You are a VERIFIER for one tech-debt finding in \`${projectDir}\`. Confirm it against the ACTUAL code (open the referenced files with Read) — do not trust the finder.`,
-            `Finding: ${JSON.stringify(f)}`,
-            `confirmed=true only if the defect genuinely exists. If misread → verdict="false-positive". If real but wrong severity → set correctedSeverity. If real but underspecified → verdict="needs-detail" (kept). Return JSON per the schema.`,
-          ].join("\n"),
-          { label: `verify:${sliceKey}`, phase: "Deep Scan", schema: VERIFY_SCHEMA, model: "sonnet" }
-        );
+        const verifyPrompt = [
+          `You are a VERIFIER for one tech-debt finding in \`${projectDir}\`. Confirm it against the ACTUAL code (open the referenced files with Read) — do not trust the finder.`,
+          `Finding: ${JSON.stringify(f)}`,
+          `confirmed=true only if the defect genuinely exists. If misread → verdict="false-positive". If real but wrong severity → set correctedSeverity. If real but underspecified → verdict="needs-detail" (kept). Return JSON per the schema.`,
+          SHAPE_RULE,
+        ].join("\n");
+
+        // Verify had NO retry: one wrapped call and the finding went through
+        // unverified. Same escalation as the finder, one step shorter — a lost
+        // verdict costs one finding, not a whole slice.
+        let v = await gatedAgent(verifyPrompt, {
+          label: `verify:${sliceKey}`, phase: "Deep Scan", schema: VERIFY_SCHEMA, model: "sonnet",
+        });
+        if (!v) {
+          v = await gatedAgent(verifyPrompt + UNWRAP_HINT, {
+            label: `verify:${sliceKey} (retry on opus)`, phase: "Deep Scan",
+            schema: VERIFY_SCHEMA, model: "opus",
+          });
+        }
         // Compared case-INSENSITIVELY: the schema now accepts "false-positive"
         // in any casing, so an exact match would silently KEEP a finding the
         // verifier had rejected.
@@ -1183,6 +1268,7 @@ const docResults = await parallel(
       isLiving ? mergeNote : `Write the file fresh in the format described (use Bash \`mkdir -p\` for parent dirs if needed).`,
       `PUNCTUATION: do NOT use em-dashes (use " - "), en-dashes, smart quotes, or ellipsis characters — those render as garbage in non-UTF-8 terminals. Use plain ASCII hyphens and straight quotes. (Severity color bullets 🔴🟠🟡🟢 are fine to keep where used for severity.)`,
       `Read the actual code under the relevant slice paths for specifics - don't summarize only from findings. Use Write/Edit to write the file, then return JSON per the schema (status "written"/"merged"/"skipped"/"failed"). Do NOT commit - the workflow handles git at the end.`,
+    SHAPE_RULE,
     ].filter(Boolean).join("\n");
     try {
       return await agent(prompt, { label: d.label, phase: "Document", schema: DOC_RESULT_SCHEMA, model: "sonnet" });
@@ -1315,6 +1401,7 @@ const commitAgent = await agent(
   [
     `Commit the GSD-T scan's generated documents in \`${projectDir}\` via Bash git, IF it is a git repo (else report skipped).`,
     `Stage: \`.gsd-t/scan\`, \`.gsd-t/techdebt.md\`, \`.gsd-t/techdebt_in_plain_english.md\`, \`share\`, \`docs\`, \`README.md\` (do NOT stage \`.gsd-t/scan/.doc-backup\` if present; \`.gsd-t/scan/archive\` MAY be staged — the dated history is worth keeping). Commit message: "scan: deep document cross-population (${docsOk.length} docs) + dimension files + share/ export". Do NOT push. Return JSON per the schema (status "rendered" if committed, "skipped" if not a git repo / nothing to commit, "failed" on error; outputPath optional).`,
+    SHAPE_RULE,
   ].join("\n"),
   { label: "commit-docs", phase: "Document", schema: RENDER_SCHEMA, model: "haiku" }
 ).catch((e) => ({ status: "failed", notes: String(e && e.message) }));
