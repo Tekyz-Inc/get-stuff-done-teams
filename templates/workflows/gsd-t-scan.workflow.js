@@ -824,9 +824,57 @@ slices.forEach((s, i) => {
   const r = resultsByIndex[i];
   if (!r || r.failed) failedSlices.push(s.key);
 });
+// ── Final sweep: re-run what the rush broke ─────────────────────────────────
+//
+// A slice can exhaust its three attempts purely because the run was at full
+// tilt — 10 agents in flight, the account rate-limited, and all three tries
+// landing inside the same squeeze. That failure says nothing about the slice.
+//
+// So once the deep scan is over and the burst has drained, try the stragglers
+// again: one at a time, unhurried, with the whole machine to themselves. It
+// costs a few minutes on the runs that need it and nothing at all on the runs
+// that do not.
+//
+// Serial and ungated on purpose. Re-running failures through the same crowded
+// gate that caused them would reproduce the cause.
+if (failedSlices.length > 0) {
+  log(`↻ final sweep — retrying ${failedSlices.length} failed slice(s) one at a time, now that the run has drained: ${failedSlices.join(", ")}`);
+  await sleep(30000); // let any active rate-limit window pass before starting
+
+  const stillFailed = [];
+  for (const key of failedSlices) {
+    const slice = slices.find((sl) => sl.key === key);
+    if (!slice) { stillFailed.push(key); continue; }
+
+    const recovered = await scanSlice(slice); // scanSlice resolves its own graph context
+
+    if (recovered && !recovered.failed) {
+      const idx = slices.indexOf(slice);
+      resultsByIndex[idx] = recovered;
+      log(`✓ sweep recovered "${key}" — ${(recovered.findings || []).length} finding(s)`);
+    } else {
+      stillFailed.push(key);
+      log(`✗ sweep could not recover "${key}"`);
+    }
+  }
+
+  // Only the failed list needs updating by hand — coverage and the findings
+  // list are computed from `resultsByIndex` below, which the sweep has already
+  // repaired in place.
+  failedSlices.length = 0;
+  failedSlices.push(...stillFailed);
+
+  log(stillFailed.length === 0
+    ? `✓ final sweep restored full coverage — ${slices.length}/${slices.length} slices`
+    : `⚠ final sweep left ${stillFailed.length} slice(s) unrecovered: ${stillFailed.join(", ")}`);
+}
+
 const succeededCount = slices.length - failedSlices.length;
 const coverageComplete = failedSlices.length === 0;
-const allFindings = sliceResults.filter(Boolean).filter((r) => !r.failed).flatMap((r) => (r.findings || []).map((f) => ({ ...f, slice: r.slice })));
+// Read from resultsByIndex, not sliceResults: the final sweep writes recovered
+// slices back into resultsByIndex, and a recovered slice's findings must reach
+// the register.
+const allFindings = resultsByIndex.filter(Boolean).filter((r) => !r.failed).flatMap((r) => (r.findings || []).map((f) => ({ ...f, slice: r.slice })));
 if (!coverageComplete) {
   log(`⚠ PARTIAL COVERAGE — ${failedSlices.length}/${slices.length} slices failed after retry and produced NO findings: ${failedSlices.join(", ")}.`);
 

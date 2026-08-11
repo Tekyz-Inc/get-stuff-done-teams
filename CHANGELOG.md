@@ -2,6 +2,29 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.11.21] - 2026-08-10
+
+### Added — a final sweep that re-runs slices the rush broke
+
+Two slices failed an otherwise clean run on rate limits alone: ten agents in
+flight, the account throttled, and all three attempts landing inside the same
+squeeze. That failure says nothing about the slice — only about when it ran.
+
+After the deep scan, the run now waits 30 seconds for any active rate-limit
+window to pass, then retries every failed slice **one at a time, outside the
+concurrency gate**. Re-running failures through the same crowded gate that
+caused them would reproduce the cause.
+
+It costs a few minutes on runs that need it and nothing at all on runs that do
+not. A recovered slice stops being a coverage gap and its findings reach the
+register.
+
+The sweep runs **before** the partial-coverage halt, so the run only stops for
+what is genuinely lost.
+
+- `templates/workflows/gsd-t-scan.workflow.js`: the sweep; `allFindings` now reads the array the sweep repairs
+- `test/m112-scan-schema-tolerance.test.js`: 4 more tests — serial, before the halt, waits, and recovered findings reach the register
+
 ## [5.11.20] - 2026-08-10
 
 ### Fixed — the real cause of the scan failures: agents pass their answer as a string

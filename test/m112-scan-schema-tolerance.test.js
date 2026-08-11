@@ -171,3 +171,36 @@ test('M112: verify retries too, having had none at all', () => {
     'one wrapped call used to let a finding through unverified');
   assert.match(block, /UNWRAP_HINT/, 'and the retry must say what went wrong');
 });
+
+// ── Recover what the rush broke (M112) ──────────────────────────────────────
+//
+// Two slices failed a clean run on rate limits alone: 10 agents in flight, the
+// account throttled, and all three attempts landing inside the same squeeze.
+// That failure says nothing about the slice — only about when it ran.
+
+test('M112: failed slices are retried after the run drains', () => {
+  assert.match(src, /final sweep — retrying/,
+    'a slice broken by the rush deserves a try when the rush is over');
+  assert.match(src, /await sleep\(30000\)/,
+    'and the retry must wait for the rate-limit window to pass');
+});
+
+test('M112: the sweep runs serially, outside the crowded gate', () => {
+  const sweep = src.slice(src.indexOf('final sweep — retrying'), src.indexOf('const succeededCount'));
+  assert.match(sweep, /for \(const key of failedSlices\)/,
+    'one at a time — re-running through the gate that caused it reproduces the cause');
+  assert.ok(!/parallel\(/.test(sweep), 'nothing about the sweep may fan out');
+});
+
+test('M112: the sweep happens BEFORE the halt', () => {
+  // Halting on a slice the sweep would have recovered wastes the whole run.
+  assert.ok(src.indexOf('final sweep — retrying') < src.indexOf('SCAN HALTED'),
+    'recovery first, then the stop for whatever is genuinely lost');
+});
+
+test('M112: a recovered slice reaches the register', () => {
+  assert.match(src, /const allFindings = resultsByIndex/,
+    'findings must be read from the array the sweep repairs, not the pre-sweep one');
+  assert.match(src, /resultsByIndex\[idx\] = recovered/,
+    'and the recovered result must be written back');
+});
