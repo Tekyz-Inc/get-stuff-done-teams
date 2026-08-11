@@ -414,7 +414,8 @@ const probe = await agent(
     ``,
     `Each slice: a \`key\` (kebab name of the responsibility, e.g. "invoice-generation"), concrete \`paths\` it owns (under \`${projectDir}\`), a \`dimension\`, and \`why\` (what makes it one cohesive concern).`,
     ``,
-    `Decompose HONESTLY by cohesive responsibility: not so coarse that an agent can't read its whole slice, not so fine that you emit one slice per file. A well-decomposed system has a finite, sensible number of real responsibilities — find them. (A volume-derived backstop cap is enforced after you return ONLY to catch over-slicing; a clean sub-domain decomposition lands under it. Report accurate \`totals\` — they set the backstop. If your count is truncated, you sliced too finely.)`,
+    `SIZE IS THE CONSTRAINT, NOT THE COUNT. Every file in the codebase must land in exactly one slice, and NO slice may exceed ~120 files — because the agent that owns it is required to READ EVERY FILE in it. Above that it starts sampling, and a sampled slice reports few findings while looking thorough. Divide the total file count by 120: that is roughly the MINIMUM number of slices. Emit that many or more. Do NOT aim for a "sensible" or tidy number — a large codebase genuinely needs many slices, and returning too few is the single most damaging thing you can do here, because the code you crammed together is the code that goes unread.`,
+    `A feature too large for one slice is SPLIT ALONG ITS OWN SEAMS, still vertically: "billing-invoicing" and "billing-payments", not "billing-routes" and "billing-schema". Splitting a feature is normal and expected. Never merge two features to reduce the count.`,
     ``,
     // The axis was unspecified, and both readings satisfy "cohesive": a technical
     // layer is cohesive, and so is a business feature. Two runs over the SAME
@@ -464,15 +465,136 @@ if (layerShaped.length > 2) {
   );
 }
 
-// Volume-derived cap as a runaway backstop (the probe over-slices without it).
+// The cap used to TRUNCATE — `rawSlices.slice(0, cap)` deleted the excess and
+// the run continued. Those areas were never scanned, never counted as failures,
+// and never mentioned in the register: a coverage hole invisible by
+// construction. It is what took a 34-slice probe down to 24 slices run.
+//
+// The count was the wrong thing to bound. What decides whether a finding is
+// found is how many files ONE agent must read: the finder is told "read EVERY
+// file, enumerate, do not sample", and at ~245 files that instruction stops
+// being followable — the agent samples and reports a thin slice as a clean one.
+//
+// So the cap is now on SIZE, and the count follows from it. A slice too large to
+// read is SPLIT, never dropped. More agents is the correct answer to more code.
 const computedCap = computeSliceCap(probe.totals || {});
-const sliceCap = maxSlicesOverride || computedCap;
+const totalFiles = Number((probe.totals || {}).files || (probe.totals || {}).total_files || 0);
+
+// Files one agent can genuinely read and reason about. Above this, enumeration
+// degrades into sampling.
+const MAX_FILES_PER_SLICE = 120;
+
 let slices = rawSlices;
-if (rawSlices.length > sliceCap) {
-  slices = rawSlices.slice(0, sliceCap);
-  log(`⚠ SLICE CAP ENFORCED: probe returned ${rawSlices.length} cohesive slices; volume-derived backstop=${computedCap}${maxSlicesOverride ? ` (override ${maxSlicesOverride})` : ""}. Truncated to ${sliceCap} to bound the agent fan-out. Dropped ${rawSlices.length - sliceCap}: ${rawSlices.slice(sliceCap).map((s) => s.key).join(", ")}. (Probe over-sliced — it should group by cohesive sub-domain, not per file/module.)`);
+
+// A count far above the structural estimate means the probe sliced per file or
+// per module rather than by capability — the failure the old cap existed to
+// catch (a 5-file repo cut into ~20 slices). Still worth NAMING, but never worth
+// deleting code over: it is reported and everything still runs.
+// maxSlicesHint used to TRUNCATE here. Nothing may be left out of a scan, so
+// the hint no longer deletes: it is reported and every slice still runs.
+if (maxSlicesOverride && rawSlices.length > maxSlicesOverride) {
+  log(`⚠ maxSlicesHint=${maxSlicesOverride} is below the ${rawSlices.length} slices the probe found. IGNORING it — dropping slices would leave code unscanned. Running all ${rawSlices.length}.`);
+} else if (rawSlices.length > computedCap * 2) {
+  log(`⚠ probe returned ${rawSlices.length} slices against a structural estimate of ~${computedCap} — it may have sliced per file/module rather than by capability. Running all ${rawSlices.length} anyway: dropping a slice would silently remove code from the scan.`);
 }
-log(`probe derived ${rawSlices.length} slice(s); backstop cap=${computedCap}; running ${slices.length} deep-finder(s); totals=${JSON.stringify(probe.totals)}`);
+
+// Slices too big to read honestly. The probe owns the split (it knows the
+// paths); this reports the ones that will under-read so it is visible in the
+// log rather than hidden in a thin finding count.
+if (totalFiles > 0 && slices.length > 0) {
+  const avgFiles = Math.round(totalFiles / slices.length);
+  if (avgFiles > MAX_FILES_PER_SLICE) {
+    // Warning about it is not enough — the run would go on and under-read every
+    // slice. Send the decomposition back to be split, and use the result.
+    const wanted = Math.ceil(totalFiles / MAX_FILES_PER_SLICE);
+    log(`⚠ SLICES TOO LARGE TO ENUMERATE — ~${avgFiles} files each across ${slices.length} slices (${totalFiles} files). The finder must read EVERY file; above ~${MAX_FILES_PER_SLICE} it samples instead, and a sampled slice reports fewer findings while looking complete. Re-slicing to ~${wanted}.`);
+
+    const resliced = await gatedAgent(
+      [
+        `Re-slice a codebase decomposition that came out too coarse. Project: \`${projectDir}\`.`,
+        ``,
+        `Here are the current slices — ${slices.length} of them, averaging ~${avgFiles} files each:`,
+        JSON.stringify(slices.map((sl) => ({ key: sl.key, paths: sl.paths, dimension: sl.dimension })), null, 1),
+        ``,
+        `Each slice is read by ONE agent that must open EVERY file it owns. At ~${avgFiles} files that is not possible, so those agents will sample and report a thin slice as a clean one.`,
+        `SPLIT them so no slice exceeds ~${MAX_FILES_PER_SLICE} files. Target roughly ${wanted} slices in total.`,
+        ``,
+        `RULES:`,
+        `· Split along the feature's own seams, still VERTICALLY: "billing-invoicing" and "billing-payments", never "billing-routes" and "billing-schema".`,
+        `· EVERY path in the input must appear in exactly one output slice. Losing a path removes that code from the scan entirely.`,
+        `· Never merge two slices to tidy the count. Splitting is the only operation here.`,
+        `· A slice already under ~${MAX_FILES_PER_SLICE} files passes through unchanged.`,
+        `Return the full new slice list — every slice, not only the ones you split.`,
+        SHAPE_RULE,
+      ].join("\n"),
+      { label: "probe:reslice", phase: "Probe", schema: PROBE_SCHEMA, model: "opus" }
+    );
+
+    const newSlices = (resliced && Array.isArray(resliced.slices) && resliced.slices) || [];
+    // Accept it only if it is genuinely finer AND kept the paths. A re-slice
+    // that lost code would be worse than the coarse decomposition it replaced.
+    const pathsBefore = new Set(slices.flatMap((sl) => sl.paths || []));
+    const pathsAfter  = new Set(newSlices.flatMap((sl) => sl.paths || []));
+    const lost = [...pathsBefore].filter((x) => !pathsAfter.has(x));
+
+    if (newSlices.length > slices.length && lost.length === 0) {
+      log(`✓ re-sliced ${slices.length} → ${newSlices.length} slices (~${Math.round(totalFiles / newSlices.length)} files each), every path preserved`);
+      slices = newSlices;
+    } else {
+      // A rejected re-slice leaves the scan under-reading every slice — that is
+      // continuing past a failure, so it gets a second try that names exactly
+      // what went wrong, on the same model. If that fails too, the slices are
+      // split MECHANICALLY below: a crude split that reads every file beats a
+      // tidy one that reads half.
+      const why = newSlices.length <= slices.length
+        ? `it returned ${newSlices.length} slices — no finer than the ${slices.length} it was given`
+        : `it dropped ${lost.length} path(s): ${lost.slice(0, 6).join(", ")}${lost.length > 6 ? ", …" : ""}`;
+      log(`⚠ re-slice attempt 1 rejected — ${why}. Retrying with the fault named.`);
+
+      const retry = await gatedAgent(
+        [
+          `Your previous re-slice was REJECTED because ${why}.`,
+          ``,
+          `Split these ${slices.length} slices so none exceeds ~${MAX_FILES_PER_SLICE} files. Target ~${wanted} slices.`,
+          JSON.stringify(slices.map((sl) => ({ key: sl.key, paths: sl.paths, dimension: sl.dimension })), null, 1),
+          ``,
+          `The output MUST contain more slices than the input, and EVERY input path must appear in exactly one output slice. Splitting is the only operation — never merge, never drop.`,
+          `Split along the feature's own seams, still vertically.`,
+          SHAPE_RULE,
+        ].join("\n"),
+        { label: "probe:reslice (retry)", phase: "Probe", schema: PROBE_SCHEMA, model: "opus" }
+      );
+
+      const retrySlices = (retry && Array.isArray(retry.slices) && retry.slices) || [];
+      const retryAfter  = new Set(retrySlices.flatMap((sl) => sl.paths || []));
+      const retryLost   = [...pathsBefore].filter((x) => !retryAfter.has(x));
+
+      if (retrySlices.length > slices.length && retryLost.length === 0) {
+        log(`✓ re-slice retry succeeded — ${slices.length} → ${retrySlices.length} slices, every path preserved`);
+        slices = retrySlices;
+      } else {
+        // Mechanical split: divide each oversized slice's own paths into chunks.
+        // No agent, no judgement, no way to lose a path — every path lands in
+        // exactly one chunk because the chunks ARE the path list, cut up.
+        const split = [];
+        for (const sl of slices) {
+          const paths = sl.paths || [];
+          const share = Math.max(1, Math.round((paths.length / Math.max(pathsBefore.size, 1)) * totalFiles));
+          const parts = Math.ceil(share / MAX_FILES_PER_SLICE);
+          if (parts <= 1 || paths.length <= 1) { split.push(sl); continue; }
+          const per = Math.ceil(paths.length / parts);
+          for (let i = 0; i < paths.length; i += per) {
+            split.push({ ...sl, key: `${sl.key}-part${Math.floor(i / per) + 1}`, paths: paths.slice(i, i + per) });
+          }
+        }
+        log(`⚠ both re-slice attempts rejected — splitting mechanically instead: ${slices.length} → ${split.length} slices. Crude, but every path is still scanned and no slice is too large to read.`);
+        slices = split;
+      }
+    }
+  }
+}
+
+log(`probe derived ${rawSlices.length} slice(s); running ${slices.length} deep-finder(s)${totalFiles ? `; ~${Math.round(totalFiles / Math.max(slices.length, 1))} files/slice` : ""}; structural estimate=${computedCap}; totals=${JSON.stringify(probe.totals)}`);
 
 // M94-D6: Graph-Wiring phase — ADDITIVE injection of the pre-computed structural slice.
 // Current scan architecture is KEPT FULLY INTACT (Destructive Action Guard).

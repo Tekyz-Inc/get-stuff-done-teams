@@ -2,6 +2,38 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.11.23] - 2026-08-10
+
+### Fixed — the scan could silently leave code out, and slices were too large to read
+
+Two defects, one standing rule now enforced: **nothing is ever left out of a
+scan, and a failure is recovered rather than accepted.**
+
+**Slices were being deleted.** When the probe returned more slices than a
+volume-derived cap allowed, `rawSlices.slice(0, cap)` discarded the excess and
+the run carried on. Those areas were never scanned, never counted as failures,
+never mentioned in the register — a coverage hole invisible by construction. It
+took a 34-slice probe down to 24 slices run. The cap no longer truncates, and
+neither does `maxSlicesHint`: it is reported and every slice still runs.
+
+**Slices were too large to enumerate.** The count was the wrong thing to bound.
+What decides whether a defect is found is how many files ONE agent must read —
+the finder is told to read every file, and at ~245 that stops being followable,
+so it samples and reports a thin slice as a clean one. Slices are now sized
+(~120 files); the count follows from the codebase.
+
+**An oversized decomposition is re-sliced, not warned about.** If the split is
+rejected — not finer, or it lost a path — it retries once with the fault named.
+If that fails too, the slices are split **mechanically**: each slice's own path
+list is cut into chunks, so no path can be lost. A crude split that reads every
+file beats a tidy one that reads half.
+
+Concurrency is unchanged at 10 in flight: it governs how fast a run goes, never
+how much it covers.
+
+- `templates/workflows/gsd-t-scan.workflow.js`: no truncation anywhere, size-based slicing, re-slice + retry + mechanical fallback-free split
+- `test/m112-scan-schema-tolerance.test.js`: 35 tests
+
 ## [5.11.22] - 2026-08-10
 
 ### Changed — the probe now slices vertically, by business capability

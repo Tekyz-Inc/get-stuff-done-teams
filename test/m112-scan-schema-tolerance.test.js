@@ -258,3 +258,83 @@ test('M112: axis drift warns but does not halt', () => {
   const block = src.slice(src.indexOf('SLICING AXIS DRIFT') - 400, src.indexOf('SLICING AXIS DRIFT') + 900);
   assert.ok(!/return \{ status: "failed"/.test(block), 'drift is reported, not fatal');
 });
+
+// ── Thoroughness: size bounds the slice, not the count (M112) ───────────────
+//
+// The cap used to TRUNCATE — `rawSlices.slice(0, cap)` deleted the excess and
+// the run continued. Those areas were never scanned, never counted as failures,
+// never mentioned: a coverage hole invisible by construction. It took a
+// 34-slice probe down to 24 slices run.
+//
+// And the count was the wrong thing to bound. What decides whether a finding is
+// found is how many files ONE agent must read. The finder is told to read every
+// file; at ~245 it samples instead, and a sampled slice looks clean.
+
+test('M112: the cap no longer deletes slices', () => {
+  assert.ok(!/slices = rawSlices\.slice\(0, sliceCap\)/.test(src),
+    'silently dropping slices removes code from the scan with no record of it');
+});
+
+test('M112: maxSlicesHint no longer deletes slices either', () => {
+  // Nothing may be left out of a scan — not even on request.
+  assert.match(src, /IGNORING it — dropping slices would leave code unscanned/);
+  assert.ok(!/slices = rawSlices\.slice\(0, maxSlicesOverride\)/.test(src));
+});
+
+test('M112: over-slicing is reported, not corrected by deletion', () => {
+  assert.match(src, /Running all \$\{rawSlices\.length\} anyway/,
+    'dropping a slice to tidy the count is the bug, not the fix');
+});
+
+test('M112: slices too large to read are RE-SLICED, not merely warned about', () => {
+  // A warning leaves the run under-reading every slice. Splitting fixes it.
+  assert.match(src, /SLICES TOO LARGE TO ENUMERATE/);
+  assert.match(src, /MAX_FILES_PER_SLICE = 120/,
+    'a readable slice is the unit of thoroughness');
+  assert.match(src, /label: "probe:reslice"/,
+    'the decomposition must go back to be split');
+  assert.match(src, /it samples instead/,
+    'the cost must be stated: a sampled slice looks complete and is not');
+});
+
+test('M112: a rejected re-slice is retried with the fault named', () => {
+  // Keeping the coarse decomposition would continue past a failure with every
+  // slice under-read. It retries instead.
+  assert.match(src, /newSlices\.length > slices\.length && lost\.length === 0/,
+    'accept only a genuinely finer decomposition that kept every path');
+  assert.match(src, /Retrying with the fault named/);
+  assert.match(src, /probe:reslice \(retry\)/);
+});
+
+test('M112: when both attempts fail, slices are split MECHANICALLY', () => {
+  // A crude split that reads every file beats a tidy one that reads half.
+  assert.match(src, /splitting mechanically instead/);
+  assert.match(src, /every path is still scanned and no slice is too large to read/);
+  assert.match(src, /paths\.slice\(i, i \+ per\)/,
+    'the chunks ARE the path list cut up, so no path can be lost');
+});
+
+test('M112: the re-slice splits vertically and never merges', () => {
+  const block = src.slice(src.indexOf('Re-slice a codebase decomposition'), src.indexOf('label: "probe:reslice"'));
+  assert.match(block, /still VERTICALLY/);
+  assert.match(block, /Never merge two slices to tidy the count/);
+  assert.match(block, /EVERY path in the input must appear in exactly one output slice/);
+});
+
+test('M112: re-slicing happens before any scanning', () => {
+  assert.ok(src.indexOf('label: "probe:reslice"') < src.indexOf('phase("Deep Scan")'),
+    'splitting after the scan would be too late to matter');
+});
+
+test('M112: the probe is told to size slices, not count them', () => {
+  assert.match(src, /SIZE IS THE CONSTRAINT, NOT THE COUNT/);
+  assert.match(src, /that is roughly the MINIMUM number of slices/,
+    'a large codebase needs many slices — the probe must know that');
+  assert.ok(!/A well-decomposed system has a finite, sensible number/.test(src),
+    '"sensible number" is what pushed it toward fewer, larger, unread slices');
+});
+
+test('M112: a feature too large is split vertically, never merged', () => {
+  assert.match(src, /SPLIT ALONG ITS OWN SEAMS, still vertically/);
+  assert.match(src, /Never merge two features to reduce the count/);
+});
