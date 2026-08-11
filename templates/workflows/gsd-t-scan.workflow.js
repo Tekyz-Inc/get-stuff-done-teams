@@ -416,6 +416,24 @@ const probe = await agent(
     ``,
     `Decompose HONESTLY by cohesive responsibility: not so coarse that an agent can't read its whole slice, not so fine that you emit one slice per file. A well-decomposed system has a finite, sensible number of real responsibilities — find them. (A volume-derived backstop cap is enforced after you return ONLY to catch over-slicing; a clean sub-domain decomposition lands under it. Report accurate \`totals\` — they set the backstop. If your count is truncated, you sliced too finely.)`,
     ``,
+    // The axis was unspecified, and both readings satisfy "cohesive": a technical
+    // layer is cohesive, and so is a business feature. Two runs over the SAME
+    // codebase (HiloAviation, 2026-08-10) produced 47 slices and 34 slices with
+    // ZERO keys in common — one cut by layer (api-routes-billing, lib-billing,
+    // schema-billing, pages-billing), the other by feature (billing-invoicing-
+    // payments). Two consequences, both bad:
+    //
+    //   · Registers cannot be compared run to run. Nothing corresponds.
+    //   · The worst defects become invisible. A cross-tenant access hole is a
+    //     route that fails to check the caller's school before reaching the data
+    //     layer — cut by layer, the route and the data access land in different
+    //     slices and NO agent sees both ends.
+    //
+    // So the axis is pinned: vertical, by feature. Slices get larger (~200 files
+    // instead of ~100 on a 6.9k-file repo), which the backstop cap still bounds.
+    `SLICE VERTICALLY, BY BUSINESS CAPABILITY — never by technical layer. One slice owns a whole feature end to end: its routes, its business logic, its database tables and its screens together. Correct: "billing-invoicing-payments" (one slice covering all of billing). WRONG: "api-routes-billing" + "lib-billing" + "schema-billing" + "pages-billing" (the same feature split four ways). Do NOT prefix keys with a layer name (api-*, lib-*, schema-*, pages-*, components-*) — a layer prefix means you sliced the wrong way. The reason is not tidiness: the worst defects live in the seam BETWEEN layers (a route that never checks the caller's tenant before hitting the data layer), and an agent that owns only one layer cannot see both ends of that seam.`,
+    `The only slices that may be layer-shaped are genuinely cross-cutting concerns owned by no feature — authentication, the shared middleware, the build pipeline. If a slice belongs to a feature, it goes in that feature's slice.`,
+    ``,
     `Measure with real tooling and report in \`totals\`: files, loc, routes, tables, components, featureDomains (distinct business/feature areas). Read \`${projectDir}/package.json\` for the stack. Return JSON per the schema: totals + slices.`,
     SHAPE_RULE,
   ].join("\n"),
@@ -426,6 +444,26 @@ if (!rawSlices.length) {
   log("probe returned no slices — halting");
   return { status: "failed", reason: "no-slices", probe };
 }
+// Did the probe slice the way it was told? A layer prefix is the tell.
+//
+// The instruction alone is not enough — a prompt is advice, and this axis flipped
+// silently between two runs of the same codebase. Naming the drift out loud is
+// what makes it visible; the run continues, because a horizontally-sliced scan
+// still finds real defects, it just misses the cross-layer ones and cannot be
+// compared to the last register.
+const LAYER_PREFIX = /^(api|api-routes|routes|lib|libs|schema|schemas|db|pages|page|components?|ui|hooks?|utils?|services?|models?|controllers?|middleware|types?)[-_]/i;
+const layerShaped = rawSlices.filter((sl) => LAYER_PREFIX.test(String(sl.key || "")));
+if (layerShaped.length > 2) {
+  log(
+    `⚠ SLICING AXIS DRIFT — ${layerShaped.length} of ${rawSlices.length} slices are named after a technical layer ` +
+    `(${layerShaped.slice(0, 5).map((sl) => sl.key).join(", ")}${layerShaped.length > 5 ? ", …" : ""}). ` +
+    `Slices are meant to run VERTICALLY, one per business capability. Sliced by layer, a defect in the seam between ` +
+    `layers — a route that never checks the caller's tenant before reaching the data layer — is invisible, because no ` +
+    `single agent sees both ends. This register also cannot be compared to one from a vertically-sliced run: the ` +
+    `slices do not correspond.`
+  );
+}
+
 // Volume-derived cap as a runaway backstop (the probe over-slices without it).
 const computedCap = computeSliceCap(probe.totals || {});
 const sliceCap = maxSlicesOverride || computedCap;

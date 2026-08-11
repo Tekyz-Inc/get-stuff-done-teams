@@ -2,6 +2,40 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.11.22] - 2026-08-10
+
+### Changed — the probe now slices vertically, by business capability
+
+Two runs over the **same** codebase produced 47 slices and 34 slices with **zero
+keys in common**. One cut by technical layer (`api-routes-billing`,
+`lib-billing`, `schema-billing`, `pages-billing`); the other by feature
+(`billing-invoicing-payments`). "Decompose by cohesive responsibility" is
+satisfied by both readings, so the axis was free to flip between runs.
+
+Two consequences, both bad:
+
+- **Registers cannot be compared run to run.** Nothing corresponds.
+- **The worst defects become invisible.** A cross-tenant access hole is a route
+  that never checks the caller's school before reaching the data layer. Cut by
+  layer, the route and the data access land in different slices and no single
+  agent sees both ends.
+
+The axis is now pinned: one slice owns a whole feature — routes, logic, tables
+and screens together. Genuinely cross-cutting concerns owned by no feature
+(authentication, shared middleware, the build) may still be their own slice.
+
+A prompt is advice, so a mechanical check backs it: slice keys prefixed with a
+layer name are reported as **SLICING AXIS DRIFT**, naming what it costs. It
+warns rather than halts — a horizontally-sliced scan still finds real defects.
+
+**Not yet measured.** The reasoning is sound and the failure it targets is real,
+but no run has proven vertical finds more than horizontal. Slices get larger
+(~200 files rather than ~100 on a 6.9k-file repo), which is what produced
+oversized-output failures earlier. Compare two registers before trusting it.
+
+- `templates/workflows/gsd-t-scan.workflow.js`: the axis instruction + drift detector
+- `test/m112-scan-schema-tolerance.test.js`: 5 tests, including the detector matched against the real keys from both runs
+
 ## [5.11.21] - 2026-08-10
 
 ### Added — a final sweep that re-runs slices the rush broke

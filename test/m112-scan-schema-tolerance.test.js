@@ -204,3 +204,57 @@ test('M112: a recovered slice reaches the register', () => {
   assert.match(src, /resultsByIndex\[idx\] = recovered/,
     'and the recovered result must be written back');
 });
+
+// ── The slicing axis was unspecified (M112) ─────────────────────────────────
+//
+// Two runs over the SAME codebase produced 47 slices and 34 slices with ZERO
+// keys in common. One cut by technical layer (api-routes-billing, lib-billing,
+// schema-billing, pages-billing), the other by business feature
+// (billing-invoicing-payments). "Cohesive responsibility" is satisfied by both,
+// so the choice was free to flip between runs.
+//
+// It matters twice over: registers cannot be compared when the slices do not
+// correspond, and a cross-tenant access hole — a route that never checks the
+// caller's school before reaching the data layer — is invisible when the route
+// and the data access live in different slices.
+
+test('M112: the probe is told to slice vertically, by capability', () => {
+  assert.match(src, /SLICE VERTICALLY, BY BUSINESS CAPABILITY/,
+    'the axis must be stated, not left to the reading');
+  assert.match(src, /never by technical layer/i);
+  assert.match(src, /the worst defects live in the seam BETWEEN layers/,
+    'and the reason must be given, or the instruction reads as style');
+});
+
+test('M112: a genuinely cross-cutting concern may still be its own slice', () => {
+  assert.match(src, /genuinely cross-cutting concerns owned by no feature/,
+    'authentication and shared middleware belong to no single feature');
+});
+
+test('M112: layer-shaped slice keys are detected and named', () => {
+  assert.match(src, /SLICING AXIS DRIFT/,
+    'a prompt is advice — the drift must be caught mechanically too');
+  assert.match(src, /LAYER_PREFIX/);
+});
+
+test('M112: the drift check matches the real keys from both runs', () => {
+  const m = src.match(/const LAYER_PREFIX = (\/.*\/i);/);
+  assert.ok(m, 'the pattern must be present');
+  const re = new RegExp(m[1].slice(1, -2), 'i');
+
+  for (const k of ['api-routes-billing-payments', 'lib-billing-payments-integrations',
+                   'schema-billing-finance', 'pages-billing-finance-ui']) {
+    assert.ok(re.test(k), `${k} is layer-shaped and must be flagged`);
+  }
+  for (const k of ['billing-invoicing-payments', 'scheduling-engine',
+                   'auth-session-rbac', 'maintenance-hub']) {
+    assert.ok(!re.test(k), `${k} is a capability and must NOT be flagged`);
+  }
+});
+
+test('M112: axis drift warns but does not halt', () => {
+  // A horizontally-sliced scan still finds real defects; it just misses the
+  // cross-layer ones. Stopping the run would cost more than it saves.
+  const block = src.slice(src.indexOf('SLICING AXIS DRIFT') - 400, src.indexOf('SLICING AXIS DRIFT') + 900);
+  assert.ok(!/return \{ status: "failed"/.test(block), 'drift is reported, not fatal');
+});
