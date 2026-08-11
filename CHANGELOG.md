@@ -2,6 +2,41 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.11.30] - 2026-08-11
+
+### Fixed — the scan crashed before any finder ran: `slices is not defined`
+
+The Atos scan died after 4 agents (preflight, probe, graph-wiring) with a
+JavaScript reference error. Nothing was written; no finder ever started.
+
+    618:  slices = budgetPlan.slices;   // never declared at this scope
+
+v5.11.26 added that assignment to a bare name. v5.11.27 then added a
+`const slices` INSIDE a helper function — a different scope entirely, which made
+the name look declared to anyone skimming the file. The workflow sandbox runs in
+strict mode, where assigning to an undeclared name throws.
+
+`slices` is now declared where the code that uses it runs, starting as the
+probe's own carve so the budget-failed branch needs no assignment at all.
+
+**Nothing caught this, which is the more important half.** `node --check` parses
+an undeclared assignment happily — it is legal syntax, and only strict mode makes
+it an error, at runtime. The sandbox lint checks banned requires and `args`
+handling, not scope. No test executes this path, because the workflow only runs
+against a real project.
+
+- `templates/workflows/gsd-t-scan.workflow.js`: `let slices = rawSlices` at the
+  scope that runs them.
+- `test/m112-workflow-undeclared-assignment.test.js`: a static check over every
+  workflow for an assignment to a name its scope never declares, with a
+  function-body map so an `if`/`else` block is not mistaken for a nested scope.
+
+The check was itself wrong twice before it worked, and the meta-test is what
+caught it: the first version tested a hand-written sample with the offending line
+at column zero and passed while missing the real bug, which is indented two
+spaces inside an `if`. Verified against the actual shipped file — it reports
+line 618 there and passes the fixed one.
+
 ## [5.11.29] - 2026-08-11
 
 ### Fixed — 20 of 27 projects had no usable code graph, and nothing said so

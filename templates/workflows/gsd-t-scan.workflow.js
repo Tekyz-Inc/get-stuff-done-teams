@@ -602,6 +602,21 @@ const budgetPlan = await runCli(
   "slice-budget"
 );
 
+// What the finders will actually run. Declared HERE, at the scope that uses it.
+//
+// [RULE] slices-declared-at-the-scope-that-runs-them
+//
+// v5.11.26 assigned to a bare `slices` that was never declared anywhere, and
+// v5.11.27 added a `const slices` inside probePlaceholderFaults() — a different
+// scope entirely. The workflow sandbox runs in strict mode, so the assignment
+// below threw `slices is not defined` and killed the Atos scan after 4 agents,
+// before a single finder ran. Nothing had checked it: `node --check` parses an
+// undeclared assignment happily, and no test executed this path.
+//
+// It starts as the probe's own slices, so the failure branch below needs no
+// assignment — an unmeasured plan still runs what the probe carved.
+let slices = rawSlices;
+
 if (budgetPlan && budgetPlan.ok && Array.isArray(budgetPlan.slices) && budgetPlan.slices.length) {
   const a = budgetPlan.after || {};
   if (budgetPlan.slices.length > rawSlices.length) {
