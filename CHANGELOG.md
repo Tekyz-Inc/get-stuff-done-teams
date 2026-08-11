@@ -2,6 +2,38 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.11.25] - 2026-08-11
+
+### Fixed — a quarter of every import edge pointed at a string no file matched
+
+A project writes `import x from "@/lib/foo"` and declares what `@/` means in its
+tsconfig. Stored raw, that target resolves to nothing — the graph records an edge
+pointing at `@/lib/foo`, and no file is ever named that.
+
+**Measured on HiloAviation: 5,738 of 23,263 import edges — 25% — were
+unexpanded shortcuts.** Ask "does anything import this file?" and a quarter of
+the real answers are missing, so live code looks unreferenced. A reachability
+rule built on that data would have called **1,919 files of a working app dead**.
+
+The indexer now reads `paths` (and `baseUrl`) from `tsconfig.json` or
+`jsconfig.json` once per build, and expands every import target before storing
+it. A package import like `react` is left exactly as written — rewriting it
+would invent an edge to a file that does not exist.
+
+A config that is present but unreadable or unparseable is **announced**, never
+silently skipped: skipping expansion while reporting a successful build is the
+failure this fixes. A project with no such config says so too.
+
+Config files routinely carry comments and trailing commas, so both are stripped
+— but never inside a string, or a URL like `https://…` loses everything after
+the `//`.
+
+- `bin/gsd-t-graph-index.cjs`: `loadPathAliases()` + `expandAlias()`, applied where import edges are stored
+- `test/m112-import-alias-expansion.test.js`: 6 tests — expansion, packages untouched, comments + URL, no config, `baseUrl`, and that a broken config is announced
+
+**Rebuild the index to benefit:** `gsd-t graph index`. An index built before this
+release still holds the raw shortcuts.
+
 ## [5.11.24] - 2026-08-11
 
 ### Fixed — the code graph never reached a single scanning agent for six weeks

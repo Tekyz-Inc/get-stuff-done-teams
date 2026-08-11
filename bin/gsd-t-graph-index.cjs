@@ -70,6 +70,89 @@ function errLog(msg){ log(`${C.red}[IDX ERR]${C.reset} ${msg}`); }
 
 // ── Source-file extensions + skip dirs (matches D2 / K2 probe) ───────────────
 
+// ── Import path shortcuts (tsconfig `paths`) ────────────────────────────────
+//
+// A project writes `import x from "@/lib/foo"` and declares what `@/` means in
+// tsconfig: `"@/*": ["./src/*"]`. Stored raw, that target resolves to nothing —
+// the graph records an edge pointing at a string no file matches.
+//
+// Measured on HiloAviation: 5,738 of 23,263 import edges (25%) pointed at an
+// unexpanded shortcut. Ask "does anything import this file?" and a quarter of
+// the real answers are missing, so live code looks unreferenced. A reachability
+// rule built on that would have called 1,919 files of a working app dead.
+//
+// Read once per index build, applied to every import target before it is stored.
+// A project with no tsconfig, or none with paths, simply has nothing to expand.
+function loadPathAliases(projectDir) {
+  for (const name of ['tsconfig.json', 'jsconfig.json']) {
+    const file = path.join(projectDir, name);
+    if (!fs.existsSync(file)) continue;
+
+    let raw;
+    try {
+      raw = fs.readFileSync(file, 'utf8');
+    } catch (e) {
+      // Present but unreadable is a real problem, not an absent config: every
+      // shortcut in the project would silently go unresolved.
+      warn(`${name} could not be read (${e.message}) — import shortcuts will NOT be expanded`);
+      return null;
+    }
+
+    // These files routinely carry comments and trailing commas, which JSON does
+    // not allow. Strip them rather than fail — but never strip inside a string,
+    // or a URL like "https://..." loses everything after the //.
+    const stripped = raw
+      .replace(/("(?:[^"\\]|\\.)*")|\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, (m, str) => str || '')
+      .replace(/,(\s*[}\]])/g, '$1');
+
+    let cfg;
+    try {
+      cfg = JSON.parse(stripped);
+    } catch (e) {
+      warn(`${name} is not parseable (${e.message}) — import shortcuts will NOT be expanded`);
+      return null;
+    }
+
+    const opts  = (cfg && cfg.compilerOptions) || {};
+    const paths = opts.paths;
+    if (!paths || typeof paths !== 'object') continue;
+
+    const base = opts.baseUrl ? path.join(projectDir, opts.baseUrl) : projectDir;
+    const rules = [];
+    for (const [pattern, targets] of Object.entries(paths)) {
+      if (!Array.isArray(targets) || targets.length === 0) continue;
+      rules.push({
+        prefix: pattern.replace(/\*$/, ''),          // "@/*"      -> "@/"
+        target: String(targets[0]).replace(/\*$/, ''), // "./src/*" -> "./src/"
+        wildcard: pattern.endsWith('*'),
+        base,
+      });
+    }
+    if (rules.length) {
+      info(`import shortcuts: ${rules.length} rule(s) from ${name} (${rules.map((r) => r.prefix + '*').join(', ')})`);
+      return rules;
+    }
+  }
+  return null;
+}
+
+// Turn one import target into a project-relative path when a rule matches it.
+// Returns the original string untouched when nothing matches — a package import
+// like "react" is not a shortcut and must stay exactly as written.
+function expandAlias(spec, rules, projectDir) {
+  if (!rules || !spec || typeof spec !== 'string') return spec;
+  for (const r of rules) {
+    if (!r.wildcard) {
+      if (spec !== r.prefix) continue;
+    } else if (!spec.startsWith(r.prefix)) continue;
+
+    const rest = r.wildcard ? spec.slice(r.prefix.length) : '';
+    const abs = path.resolve(r.base, r.target + rest);
+    return path.relative(projectDir, abs);
+  }
+  return spec;
+}
+
 const PARSED_EXTS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.py']);
 const SKIP_DIRS = new Set([
   'node_modules', '.next', 'dist', 'build', '.git',
@@ -332,10 +415,14 @@ function parse_and_put(absPath, relPath, options) {
   // Normalize edges to store schema (map from parser-floor shape to store shape)
   const storeEdges = finalEdges.map(edge => {
     if (edge.kind === 'import' || edge.kind === 'require') {
+      // Expand a path shortcut ("@/lib/foo") into a real project path before it
+      // is stored. Stored raw it points at a string no file matches, and every
+      // question about what-imports-what silently loses that edge.
+      const rawDst = edge.target || edge.dst;
       return {
         kind: 'IMPORT',
         src: edge.source || edge.src,
-        dst: edge.target || edge.dst,
+        dst: expandAlias(rawDst, (options && options.aliasRules) || null, (options && options.projectDir) || '.'),
         partial: 0,
       };
     }
@@ -429,6 +516,14 @@ function build_index(repoRoot, options) {
     }
   }
 
+  // Read the project's import shortcuts ONCE for the whole build. Every import
+  // target is expanded through these before it is stored, so an edge points at a
+  // real path rather than at a string nothing matches.
+  const aliasRules = loadPathAliases(repoRoot);
+  if (!aliasRules) {
+    info('import shortcuts: none declared (no tsconfig/jsconfig paths) — import targets stored as written');
+  }
+
   const t0 = Date.now();
   let fileCount = 0;
   let entityCount = 0;
@@ -441,7 +536,7 @@ function build_index(repoRoot, options) {
   // Stream: parse + put each file one at a time (never accumulate the full set)
   for (const { absPath, relPath } of files) {
     try {
-      const result = parse_and_put(absPath, relPath, { db, scip: scipCtx });
+      const result = parse_and_put(absPath, relPath, { db, scip: scipCtx, aliasRules, projectDir: repoRoot });
       fileCount++;
       entityCount += result.entities.length;
       edgeCount += result.edges.length;
