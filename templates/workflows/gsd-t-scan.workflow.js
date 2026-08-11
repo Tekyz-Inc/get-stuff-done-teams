@@ -675,15 +675,16 @@ if (graphMode === "disabled") {
         },
         tier: (deadCodeResult && deadCodeResult.tier) || (danglingResult && danglingResult.tier) || "unknown",
       };
-      // M99 Red Team fix: emit "WIRED" (uppercase) to MATCH the --auto router
-      // producers (bin/gsd-t.js:3915) AND the rollup's comparison
-      // (gsd-t-graph-metrics-rollup.cjs:333 `=== "WIRED"`). Lowercase "wired" here
-      // fell through all three rollup branches → a successfully-wired scan reported
-      // WIRED:0, defeating success criterion 13 (the metric M99 exists to surface).
-      // [RULE] wiring-mode-casing-matches-rollup
+      // The casing here no longer matters: every reader of this value compares
+      // without case (2026-08-11). It was uppercased in M99 to satisfy a rollup
+      // that tested `=== "WIRED"`, and that broke the scan's own consumer, which
+      // tested `=== "wired"` — the structural slice was silently discarded for
+      // six weeks. Chasing one casing to match another is what caused both
+      // outages; the readers were fixed instead.
+      // [RULE] wiring-mode-compared-without-case
       graphWiringMode = "WIRED";
       log(`graph-wiring: WIRED — structural slice ready (dead-code: ${structuralSlice.deadCode.length} candidates, dangling: ${structuralSlice.dangling.length} edges, clusters: ${structuralSlice.clusters.length} groups, tier: ${structuralSlice.tier}). Slice will be INJECTED ADDITIVELY into scanSlice deep-finders. [RULE] scan-injects-structural-slice`);
-      await persistWiringMode("WIRED"); // M99 D2 [RULE] wiring-mode-three-states / wiring-mode-casing-matches-rollup
+      await persistWiringMode("WIRED"); // M99 D2 [RULE] wiring-mode-three-states / wiring-mode-compared-without-case
     }
   }
 }
@@ -921,7 +922,18 @@ async function scanSlice(slice) {
   // M94-D6: inject the structural slice context ADDITIVELY — only when graph is wired.
   // When graphMode==="disabled" OR graph-unavailable, graphSliceContext is null (no injection).
   // [RULE] scan-injects-structural-slice / [RULE] no-graph-baseline-proven-graph-free
-  const graphSliceContext = (graphWiringMode === "wired" && structuralSlice) ? structuralSlice : null;
+  // Compared case-INSENSITIVELY. This test read `=== "wired"` while the producer
+  // wrote "WIRED", so it was never true: the structural slice was computed and
+  // then discarded, unused, from 2026-06-30 until 2026-08-11. Every scan in
+  // those six weeks ran graph-blind while logging WIRED — the header was not
+  // lying (the graph DID build and answer), its results simply never arrived.
+  //
+  // The producer was uppercased to fix a metrics rollup that compared to
+  // "WIRED"; that fix broke this consumer. Matching the casing again would just
+  // move the bug a third time, so both ends now compare without case — which is
+  // the house rule for a value like this in the first place.
+  const graphSliceContext =
+    (String(graphWiringMode).toLowerCase() === "wired" && structuralSlice) ? structuralSlice : null;
   const finderResult = await runFinder(slice, graphSliceContext);
   // M72: distinguish a FAILED finder (null after retries) from a genuinely-clean slice.
   if (!finderResult || !Array.isArray(finderResult.findings)) {

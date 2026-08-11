@@ -578,35 +578,45 @@ test("T7-dispatch: gsd-t graph metrics (doGraph dispatch) works and returns a ro
   );
 });
 
-test("M99 code-review IMPORTANT: scan's persistWiringMode literals MATCH the rollup's counted modes (casing guard)", () => {
-  // The isolated rollup tests hand-build wiring("WIRED", ...) fixtures, so they
-  // agreed with the rollup but never exercised scan's REAL emission — which was
-  // lowercase "wired" and fell through all three rollup branches → WIRED:0 for a
-  // successfully-wired scan (defeats success criterion 13). This source-level guard
-  // asserts every `persistWiringMode("X")` literal in the scan workflow is a value
-  // the rollup actually counts, catching producer/consumer casing drift at the root.
+test("M112: every wiring mode the scan emits is one the rollup counts, whatever its casing", () => {
+  // SUPERSEDES the M99 casing guard, which required the rollup to compare with
+  // `=== "WIRED"` exactly. That requirement is what caused the outage it was
+  // written to prevent: the producer was uppercased to satisfy it, and the
+  // scan's OWN consumer — testing `=== "wired"` — went dead for six weeks. The
+  // structural slice was computed every run and silently discarded.
+  //
+  // The property worth guarding was never "the casings match". It is "a mode the
+  // scan emits is a mode every reader recognises", and the durable way to have
+  // that is to compare without case at both ends.
   const scanSrc = fs.readFileSync(
     path.join(ROOT, "templates", "workflows", "gsd-t-scan.workflow.js"), "utf8");
   const rollupSrc = fs.readFileSync(ROLLUP_PATH, "utf8");
 
-  // The exact modes the rollup increments a counter for (its === comparisons).
-  const COUNTED = ["WIRED", "fallback-announced", "disabled"];
+  const COUNTED = ["wired", "fallback-announced", "disabled"];
+
+  // The rollup must recognise each mode WITHOUT depending on how it was typed.
   for (const m of COUNTED) {
-    assert.ok(rollupSrc.includes(`=== "${m}"`),
-      `rollup must compare against "${m}" (the counted-modes set this guard relies on)`);
+    assert.ok(
+      rollupSrc.includes(`String(mode).toLowerCase() === "${m}"`),
+      `rollup must recognise "${m}" case-insensitively — an exact match is what broke this twice`
+    );
   }
 
-  // Every persistWiringMode("...") literal scan emits MUST be in the counted set.
+  // Every mode the scan emits must be one of those, compared the same way.
   const emitted = [...scanSrc.matchAll(/persistWiringMode\(\s*"([^"]+)"/g)].map((mm) => mm[1]);
-  assert.ok(emitted.length >= 3, `expected scan to emit ≥3 wiring modes, found ${emitted.length}`);
+  assert.ok(emitted.length >= 3, `expected scan to emit >=3 wiring modes, found ${emitted.length}`);
   for (const e of emitted) {
-    assert.ok(COUNTED.includes(e),
-      `scan emits persistWiringMode("${e}") but the rollup does NOT count "${e}" — ` +
-      `producer/consumer casing divergence (the WIRED:0 bug). Counted: ${COUNTED.join(", ")}`);
+    assert.ok(
+      COUNTED.includes(String(e).toLowerCase()),
+      `scan emits persistWiringMode("${e}") but no reader counts it. Counted: ${COUNTED.join(", ")}`
+    );
   }
-  // And specifically: the WIRED case is present (not the old lowercase "wired").
-  assert.ok(emitted.includes("WIRED"),
-    `scan must emit persistWiringMode("WIRED") (uppercase) — found: ${emitted.join(", ")}`);
-  assert.ok(!emitted.includes("wired"),
-    `scan must NOT emit lowercase "wired" (the rollup counts "WIRED") — found: ${emitted.join(", ")}`);
+
+  // The casing of the emitted value is now deliberately UNCONSTRAINED. Pinning
+  // it is what moved the bug from the rollup to the finder; if a test pins it
+  // again, the next person will "fix" a reader by matching it and break another.
+  assert.ok(
+    emitted.some((e) => String(e).toLowerCase() === "wired"),
+    `scan must emit a wired mode in some casing — found: ${emitted.join(", ")}`
+  );
 });

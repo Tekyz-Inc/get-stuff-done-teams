@@ -2,6 +2,36 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.11.24] - 2026-08-11
+
+### Fixed — the code graph never reached a single scanning agent for six weeks
+
+`graphWiringMode` was set to `"WIRED"` and tested with `=== "wired"`. Case
+sensitive, so never true: the structural slice — dead-code candidates, dangling
+references, clusters — was computed on every scan and then discarded, unused,
+from **2026-06-30 to 2026-08-11**.
+
+Nothing looked wrong. The register header prints the same variable, so every
+scan honestly reported `WIRED`: the graph really had built and answered. Its
+results simply never arrived where they were needed. Every scan in those six
+weeks ran graph-blind while reporting the graph as wired.
+
+**It was the second time the same variable broke this way.** The producer was
+uppercased in M99 to satisfy a metrics rollup comparing `=== "WIRED"`, and that
+fix broke the scan's own consumer. Matching one casing to another moves the bug;
+both ends now compare without case, which is the house rule for a value like
+this anyway.
+
+The M99 test that required exact casing is **superseded** — it locked in the
+requirement that caused the outage it was written to prevent. Replaced by a
+guard on the property that actually matters: a mode the scan emits is a mode
+every reader recognises, however it was typed.
+
+- `templates/workflows/gsd-t-scan.workflow.js`: the consumer, and the comment that told the next maintainer to match casing
+- `bin/gsd-t-graph-metrics-rollup.cjs`: all three mode comparisons
+- `test/m112-graph-wiring-casing.test.js`: 6 tests, including that no reader compares case-sensitively
+- `test/m99-graph-metrics-rollup.test.js`: the old casing guard replaced
+
 ## [5.11.23] - 2026-08-10
 
 ### Fixed — the scan could silently leave code out, and slices were too large to read

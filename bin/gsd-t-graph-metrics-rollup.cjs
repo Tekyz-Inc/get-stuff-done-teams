@@ -337,14 +337,17 @@ function rollup(projectRoot) {
           byConsumer[consumer].wiringCount++;
 
           const mode = ev.graphWiringMode || "";
-          if (mode === "WIRED") {
+          // Case-insensitive: matching an exact casing here is what started the
+          // six-week outage — the producer was uppercased to satisfy this line
+          // and the scan's own consumer (which tested lowercase) went dead.
+          if (String(mode).toLowerCase() === "wired") {
             l2cWiredCount++;
-          } else if (mode === "fallback-announced") {
+          } else if (String(mode).toLowerCase() === "fallback-announced") {
             l2cFallbackCount++;
             // Record minute-bucket for co-occurrence check
             if (!fallbackBuckets[consumer]) fallbackBuckets[consumer] = new Set();
             fallbackBuckets[consumer].add(_minuteBucket(ev.ts));
-          } else if (mode === "disabled") {
+          } else if (String(mode).toLowerCase() === "disabled") {
             l2cDisabledCount++;
           }
           break;
