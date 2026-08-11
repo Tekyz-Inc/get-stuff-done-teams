@@ -2,6 +2,36 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.11.18] - 2026-08-10
+
+### Fixed — a scan finding was thrown away over its FORM, not its truth
+
+HiloAviation, a 228-slice deep scan: 2 slices failed after 179.6k tokens and 61
+tool calls of real work. The agent's own log shows one call carrying findings
+and the next carrying an empty array — an agent giving up and submitting nothing
+to satisfy the schema. Both refused. The report then read 226 of 228 with no
+sign that two of the densest areas had vanished.
+
+Two rules did it, neither of which checks whether a finding is *true*:
+
+- **No extra fields.** A finder adding `evidence` or a line number lost the
+  entire call, not the extra field.
+- **Case-exact word lists.** "High" refused where "HIGH" was demanded, and
+  "High" refused where "high" was demanded — in the same finding.
+
+Large projects hit this hardest: the failing slices were data-access and
+repositories, the areas producing the most findings and the most extra context.
+
+**Nothing about what a finding must contain is loosened.** Title, severity,
+area, files, detail and recommendation are still required.
+
+Widening a word list breaks exact-match comparisons, so three were fixed in the
+same pass — most importantly the false-positive check, which would otherwise
+have KEPT a finding the verifier had just rejected.
+
+- `templates/workflows/gsd-t-scan.workflow.js`: agent-authored schemas accept extra keys and any casing; severity normalised once at the merge point; verdict and document-status comparisons made case-insensitive
+- `test/m112-scan-schema-tolerance.test.js`: 8 tests, including that the required-field list was not quietly shortened
+
 ## [5.11.17] - 2026-08-10
 
 ### Added — `/concise`, rewrite the last reply short on request

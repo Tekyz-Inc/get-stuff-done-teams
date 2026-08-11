@@ -112,7 +112,7 @@ const PROBE_SCHEMA = {
         properties: {
           key:       { type: "string" },
           paths:     { type: "array", items: { type: "string" } },
-          dimension: { type: "string", enum: ["architecture", "business-rules", "security", "quality", "contracts", "feature-domain", "data-layer", "api-surface", "testing"] },
+          dimension: { type: "string", enum: ["architecture", "ARCHITECTURE", "Architecture", "business-rules", "BUSINESS-RULES", "Business-rules", "security", "SECURITY", "Security", "quality", "QUALITY", "Quality", "contracts", "CONTRACTS", "Contracts", "feature-domain", "FEATURE-DOMAIN", "Feature-domain", "data-layer", "DATA-LAYER", "Data-layer", "api-surface", "API-SURFACE", "Api-surface", "testing", "TESTING", "Testing"] },
           why:       { type: "string" },
         },
       },
@@ -124,7 +124,8 @@ const PROBE_SCHEMA = {
 const FINDER_SCHEMA = {
   type: "object",
   required: ["slice", "findings"],
-  additionalProperties: false,
+  // Agent-authored, so extra keys are allowed here too — see the finding object.
+  additionalProperties: true,
   properties: {
     slice: { type: "string" },
     findings: {
@@ -132,16 +133,21 @@ const FINDER_SCHEMA = {
       items: {
         type: "object",
         required: ["title", "severity", "area", "files", "detail", "recommendation"],
-        additionalProperties: false,
+        // Extra keys are ALLOWED. A finder that adds `evidence` or a line number
+        // is giving more, not less — and rejecting the whole call for it threw
+        // away 179.6k tokens of real findings on two of 228 slices in a large
+        // scan (HiloAviation, 2026-08-10). The required keys are still
+        // required, so nothing about what a finding must contain is loosened.
+        additionalProperties: true,
         properties: {
           title:          { type: "string" },
-          severity:       { type: "string", enum: ["CRITICAL", "HIGH", "MEDIUM", "LOW"] },
+          severity:       { type: "string", enum: ["CRITICAL", "critical", "Critical", "HIGH", "high", "High", "MEDIUM", "medium", "Medium", "LOW", "low", "Low"] },
           area:           { type: "string" },
           files:          { type: "array", items: { type: "string" } },
           detail:         { type: "string" },
           impact:         { type: "string" },
           recommendation: { type: "string" },
-          confidence:     { type: "string", enum: ["high", "medium", "low"] },
+          confidence:     { type: "string", enum: ["high", "HIGH", "High", "medium", "MEDIUM", "Medium", "low", "LOW", "Low"] },
         },
       },
     },
@@ -152,12 +158,13 @@ const FINDER_SCHEMA = {
 const VERIFY_SCHEMA = {
   type: "object",
   required: ["confirmed", "verdict"],
-  additionalProperties: false,
+  // Agent-authored — extra context must not cost the whole verdict.
+  additionalProperties: true,
   properties: {
     confirmed:         { type: "boolean" },
-    verdict:           { type: "string", enum: ["confirmed", "false-positive", "needs-detail"] },
+    verdict:           { type: "string", enum: ["confirmed", "CONFIRMED", "Confirmed", "false-positive", "FALSE-POSITIVE", "False-positive", "needs-detail", "NEEDS-DETAIL", "Needs-detail"] },
     note:              { type: "string" },
-    correctedSeverity: { type: "string", enum: ["CRITICAL", "HIGH", "MEDIUM", "LOW"] },
+    correctedSeverity: { type: "string", enum: ["CRITICAL", "critical", "Critical", "HIGH", "high", "High", "MEDIUM", "medium", "Medium", "LOW", "low", "Low"] },
   },
 };
 
@@ -173,7 +180,7 @@ const DOC_RESULT_SCHEMA = {
   additionalProperties: false,
   properties: {
     doc:    { type: "string" },
-    status: { type: "string", enum: ["written", "merged", "skipped", "failed"] },
+    status: { type: "string", enum: ["written", "WRITTEN", "Written", "merged", "MERGED", "Merged", "skipped", "SKIPPED", "Skipped", "failed", "FAILED", "Failed"] },
     path:   { type: "string" },
     notes:  { type: "string" },
   },
@@ -184,7 +191,7 @@ const RENDER_SCHEMA = {
   required: ["status"],
   additionalProperties: false,
   properties: {
-    status:     { type: "string", enum: ["rendered", "skipped", "failed"] },
+    status:     { type: "string", enum: ["rendered", "RENDERED", "Rendered", "skipped", "SKIPPED", "Skipped", "failed", "FAILED", "Failed"] },
     outputPath: { type: "string" },
     notes:      { type: "string" },
   },
@@ -699,8 +706,15 @@ async function scanSlice(slice) {
           ].join("\n"),
           { label: `verify:${sliceKey}`, phase: "Deep Scan", schema: VERIFY_SCHEMA, model: "sonnet" }
         );
-        if (!v || v.verdict === "false-positive" || v.confirmed === false) return null;
-        return { ...f, severity: v.correctedSeverity || f.severity, _verify: v.verdict };
+        // Compared case-INSENSITIVELY: the schema now accepts "false-positive"
+        // in any casing, so an exact match would silently KEEP a finding the
+        // verifier had rejected.
+        const verdict = String(v && v.verdict || "").toLowerCase();
+        if (!v || verdict === "false-positive" || v.confirmed === false) return null;
+        // Severity is normalised to the shouted form here, once, so the report
+        // reads consistently no matter how a finder typed it.
+        const sev = String(v.correctedSeverity || f.severity || "").toUpperCase();
+        return { ...f, severity: sev, _verify: verdict };
       } catch (e) {
         return { ...f, _verify: "verify-errored" };
       }
@@ -1131,8 +1145,11 @@ const docResults = await parallel(
     }
   })
 );
-const docsOk = docResults.filter(Boolean).filter((r) => r.status === "written" || r.status === "merged");
-const docsFailed = docResults.filter(Boolean).filter((r) => r.status === "failed");
+// Case-insensitive: the status word-list accepts any casing, so an exact match
+// would count a written document as neither written nor failed.
+const _status = (r) => String(r && r.status || "").toLowerCase();
+const docsOk = docResults.filter(Boolean).filter((r) => _status(r) === "written" || _status(r) === "merged");
+const docsFailed = docResults.filter(Boolean).filter((r) => _status(r) === "failed");
 log(`document phase: ${docsOk.length}/${docTargets.length} written/merged${docsFailed.length ? `; ${docsFailed.length} failed (non-fatal): ${docsFailed.map((d) => d.doc).join(", ")}` : ""}`);
 
 // ─── Plain-English phase (M78) ───────────────────────────────────────────────
