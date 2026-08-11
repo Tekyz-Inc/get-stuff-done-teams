@@ -2,6 +2,41 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.11.28] - 2026-08-11
+
+### Fixed — the graph stored the alias edges, then could not find them (two bugs)
+
+`who-imports src/lib/db.ts` returned 5 importers on hilo-figma-atos.
+`grep -rl '@/lib/db' src` returned 793. Found by David, who halted the scan
+rather than running it on a graph that was answering wrongly.
+
+v5.11.26 taught the INDEXER to expand `@/lib/db` into `src/lib/db`, and it does
+— the edges are in the database, correctly. It never met the QUERY side, which
+is what turns `src/lib/db` into the real file id `src/lib/db.ts`. Two
+independent bugs there, and fixing either alone still returns nothing:
+
+1. The resolver opened with `if (!dst.startsWith(".")) return dst` — an expanded
+   alias has no leading dot, so it was classed as an external package like
+   "react" and returned untouched. The extension was never appended.
+2. The set of known files was built from FUNCTION nodes, so a module exporting
+   only constants, types, or re-exports was not in it. Atos's `src/lib/db.ts`
+   exports a constant. The indexer already records every file it walked in the
+   `files` table — the authoritative list was stored all along.
+
+- `bin/gsd-t-graph-query-cli.cjs`: resolve non-relative targets against the file
+  set (packages still pass through untouched, and an expanded alias is NOT
+  re-joined to the importer's directory); read the file set from the `files`
+  table, announcing the degradation on an older graph that lacks it.
+- `test/m112-alias-query-resolution.test.js`: 7 regressions, all going through
+  the QUERY rather than the stored edge.
+
+Every v5.11.26 test asserted the edge was STORED correctly. Not one asked
+whether it could then be FOUND — the feature was tested at the write and called
+done. These tests close that gap.
+
+Requires `gsd-t graph index` only if the graph predates the `files` table;
+otherwise the fix applies to existing indexes immediately.
+
 ## [5.11.27] - 2026-08-11
 
 ### Fixed — the scan's volume probe returned a stand-in, and the whole run was built on it

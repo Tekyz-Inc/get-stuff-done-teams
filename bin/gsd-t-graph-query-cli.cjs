@@ -437,10 +437,68 @@ function loadSqliteStore(dbPath) {
     // TS/JS routinely omit the extension; the graph keys on real file ids.
     // Every indexed file appears as the `file` of its nodes (the indexer does not
     // emit dedicated FILE nodes), so collect the distinct file set from there.
-    const fileIds = new Set(nodes.map((n) => norm(n.file)).filter(Boolean));
+    // [RULE] query-file-set-comes-from-files-table-not-inferred-from-functions
+    //
+    // hilo-figma-atos, 2026-08-11, the second half of the same miss. This set
+    // decides whether an extensionless import target can be matched to a real
+    // file. Built from node rows, it contains only files that declare a
+    // FUNCTION — so `src/lib/db.ts`, which exports a constant, was not in it,
+    // and no query could ever resolve an import of it. A file of constants,
+    // types, or re-exports is exactly the kind of shared module a whole codebase
+    // imports, and it was invisible.
+    //
+    // The indexer records every file it walked in the `files` table. That is the
+    // authoritative list; inferring one from functions was always an
+    // approximation of a fact already stored.
+    let fileIds;
+    const hasFilesTable = db
+      .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='files'")
+      .get();
+    if (hasFilesTable) {
+      fileIds = new Set(
+        db.prepare("SELECT file FROM files").all().map((r) => norm(r.file)).filter(Boolean)
+      );
+    } else {
+      // A graph built before the files table existed. Node-derived is what this
+      // has always done — announced, because it under-reports imports of any
+      // file that declares no function.
+      fileIds = new Set(nodes.map((n) => norm(n.file)).filter(Boolean));
+      process.stderr.write(
+        "[graph] this index predates the files table — imports of constant-only/type-only files may be missed; re-run `gsd-t graph index`\n"
+      );
+    }
     const EXTS = ["", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".py", "/index.ts", "/index.tsx", "/index.js"];
+    // [RULE] query-resolves-expanded-alias-not-only-relative
+    //
+    // hilo-figma-atos, 2026-08-11: `who-imports src/lib/db.ts` returned 5 of 793
+    // real importers. The 788 missing ones all wrote `@/lib/db`.
+    //
+    // The two halves of the alias fix did not meet. The indexer (v5.11.26)
+    // expands `@/lib/db` to `src/lib/db` — correct, and stored. But this
+    // resolver, which is what appends the file extension, skipped it: the gate
+    // below returned early for anything not starting with ".", treating an
+    // expanded project path exactly like the package import `react`. So the edge
+    // sat in the database as `src/lib/db` while the query asked for
+    // `src/lib/db.ts`, and the two never met.
+    //
+    // A relative specifier is resolved against its source file's directory; an
+    // expanded alias is ALREADY project-relative and must not be — joining it to
+    // the importer's directory would produce `src/app/src/lib/db`. So the two
+    // take different routes to the same place: add the extension either way.
     const resolveDst = (srcFile, dst) => {
-      if (typeof dst !== "string" || !dst.startsWith(".")) return dst; // package/external
+      if (typeof dst !== "string" || !dst) return dst;
+
+      if (!dst.startsWith(".")) {
+        // Not relative. Either a package ("react", "next/navigation") or an
+        // alias the indexer already expanded to a project path. The file set is
+        // what tells them apart — a package matches nothing in it.
+        const base = norm(dst);
+        for (const ext of EXTS) {
+          if (fileIds.has(base + ext)) return base + ext;
+        }
+        return dst; // genuinely external — keep it exactly as written
+      }
+
       const base = path.posix.normalize(path.posix.join(path.posix.dirname(norm(srcFile)), norm(dst)));
       // Prefer an actual indexed file id (try the bare path, then common extensions).
       for (const ext of EXTS) {
