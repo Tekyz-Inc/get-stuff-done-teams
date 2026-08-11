@@ -399,7 +399,7 @@ log(`preflight ok — branch=${pre.branch}, repo=${repoName}, priorRegister=${pr
 
 // Volume probe — an agent measures the codebase (its own Bash) and carves slices.
 phase("Probe");
-const probe = await agent(
+const PROBE_PROMPT =
   [
     `⛔ TARGET DIRECTORY IS FIXED: you MUST scan ONLY the project at the absolute path \`${projectDir}\`. Before any measurement, \`cd ${projectDir}\` (or pass that exact path to every Read/Grep/Bash). Do NOT scan your current working directory, the GSD-T package, or any other tree — every file you measure and every slice path you emit MUST be under \`${projectDir}\`. If \`${projectDir}\` does not exist or is empty, return a single slice noting that.`,
     ``,
@@ -437,14 +437,116 @@ const probe = await agent(
     ``,
     `Measure with real tooling and report in \`totals\`: files, loc, routes, tables, components, featureDomains (distinct business/feature areas). Read \`${projectDir}/package.json\` for the stack. Return JSON per the schema: totals + slices.`,
     SHAPE_RULE,
-  ].join("\n"),
-  { label: "volume-probe", phase: "Probe", schema: PROBE_SCHEMA, model: "sonnet" }
-);
+  ].join("\n");
+
+// Did the probe MEASURE the codebase, or return something shaped like an answer?
+//
+// [RULE] probe-placeholder-is-rejected-not-scanned
+//
+// HiloAviation, 2026-08-11. The probe returned:
+//
+//     totals : {"trackedFiles": 5036}
+//     slices : [{"key": "test", "paths": ["src/"]}]
+//
+// One slice for a 4,900-file application, keyed "test", and a totals object
+// carrying none of the six numbers the prompt asked for. The schema accepted it
+// — one slice is legal, and totals takes any object — so the scan ran that one
+// slice, found 3 findings, and the register's header read "Coverage: FULL".
+//
+// The tell is not the slice count. It is that the fields explicitly named in the
+// prompt are simply absent: the agent produced the SHAPE of an answer without
+// doing the work, the same instinct that sends `{"findings":[]}` through a
+// finder. So the probe result is inspected before it is trusted, and a probe
+// that did not measure is retried on a stronger model rather than scanned.
+function probePlaceholderFaults(result) {
+  const faults = [];
+  const totals = (result && result.totals) || {};
+  const slices = (result && Array.isArray(result.slices) && result.slices) || [];
+
+  // Every number the prompt asks for by name. None present means the agent
+  // reported whatever it had to hand instead of measuring.
+  const asked = ["files", "loc", "routes", "tables", "components", "featureDomains"];
+  const present = asked.filter((k) => totals[k] !== undefined && totals[k] !== null);
+  if (present.length === 0) {
+    faults.push(
+      `totals contains none of the six requested measurements (${asked.join(", ")}) — it holds ` +
+      `${JSON.stringify(totals).slice(0, 160)}`
+    );
+  }
+
+  // A single slice whose path is the whole source tree has decomposed nothing —
+  // but ONLY when the totals are missing too. A small repo genuinely is one
+  // slice covering src/, and halting that scan would be a false alarm on every
+  // small project. What separates the two is whether the agent measured: a real
+  // probe reports the numbers AND explains the single slice. Both tells together
+  // are one judgment, not two independent ones.
+  const WHOLE_TREE = new Set([".", "./", "*", "src", "src/", "./src", "./src/", projectDir]);
+  if (slices.length === 1 && present.length === 0) {
+    const paths = Array.isArray(slices[0].paths) ? slices[0].paths : [];
+    if (paths.length && paths.every((p) => WHOLE_TREE.has(String(p).trim().replace(/\/+$/, "/")) || WHOLE_TREE.has(String(p).trim()))) {
+      faults.push(
+        `the one slice "${slices[0].key}" owns the entire source tree (${JSON.stringify(paths)}) — ` +
+        `that is not a decomposition`
+      );
+    }
+  }
+
+  return faults;
+}
+
+let probe = await agent(PROBE_PROMPT, {
+  label: "volume-probe", phase: "Probe", schema: PROBE_SCHEMA, model: "sonnet",
+});
+
+let probeFaults = probePlaceholderFaults(probe);
+if (probeFaults.length) {
+  log(`⚠ PROBE DID NOT MEASURE — the answer has the right shape but not the work behind it:`);
+  for (const f of probeFaults) log(`   · ${f}`);
+  log(`   retrying on opus with the fault named.`);
+
+  const retry = await agent(
+    [
+      PROBE_PROMPT,
+      ``,
+      `!! A PREVIOUS ATTEMPT AT THIS EXACT TASK WAS REJECTED. What was wrong with it:`,
+      ...probeFaults.map((f) => `   · ${f}`),
+      ``,
+      `RUN THE MEASUREMENTS. Do not answer from a guess, and do not return a minimal stand-in to see whether it is accepted — it will not be.`,
+      `Count the files. Count the lines. Find the routes, the database tables, the components, and the distinct business areas. Those NUMBERS go in \`totals\`.`,
+      `Then carve the codebase into slices by business capability, one slice per real area of the product. A single slice owning the whole tree is not an answer.`,
+    ].join("\n"),
+    { label: "volume-probe (retry on opus)", phase: "Probe", schema: PROBE_SCHEMA, model: "opus" }
+  );
+
+  const retryFaults = probePlaceholderFaults(retry);
+  if (retry && Array.isArray(retry.slices) && retry.slices.length && retryFaults.length === 0) {
+    log(`✓ probe recovered on opus — ${retry.slices.length} slice(s), totals=${JSON.stringify(retry.totals)}`);
+    probe = retry;
+  } else {
+    // Both attempts produced a stand-in. Scanning it would read a fraction of the
+    // codebase and print "Coverage: FULL" over the result — a register that lies
+    // is worse than no register.
+    log(`✗ PROBE FAILED — two attempts, neither measured the codebase.`);
+    for (const f of (retryFaults.length ? retryFaults : probeFaults)) log(`   · ${f}`);
+    return {
+      status: "failed",
+      reason: "probe-placeholder",
+      message:
+        "The probe never measured the codebase, on either attempt. Nothing was scanned: a run on this " +
+        "answer would have covered a fraction of the project while reporting full coverage.",
+      probe: retry || probe,
+    };
+  }
+}
+
 const rawSlices = (probe && Array.isArray(probe.slices) && probe.slices) || [];
 if (!rawSlices.length) {
   log("probe returned no slices — halting");
   return { status: "failed", reason: "no-slices", probe };
 }
+// What the plan actually is, before anything runs on it. A thin plan was only
+// ever visible afterwards, in a thin register.
+log(`probe: ${rawSlices.length} slice(s) — totals=${JSON.stringify(probe.totals || {})}`);
 // Did the probe slice the way it was told? A layer prefix is the tell.
 //
 // The instruction alone is not enough — a prompt is advice, and this axis flipped

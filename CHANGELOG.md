@@ -2,6 +2,40 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.11.27] - 2026-08-11
+
+### Fixed — the scan's volume probe returned a stand-in, and the whole run was built on it
+
+HiloAviation, this morning. The probe answered `totals: {"trackedFiles": 5036}`
+and `slices: [{"key": "test", "paths": ["src/"]}]` — one slice for a 4,900-file
+application, keyed "test", and none of the six measurements the prompt asked for.
+The schema accepted it (one slice is legal, `totals` takes any object), so the
+scan read that single slice, produced 3 findings, and headed the register
+"Coverage: FULL".
+
+The probe had no retry. Every finder gets re-run when it answers `{"findings":[]}`;
+the probe — which decides what every finder will ever look at — got one call, and
+whatever came back became the plan.
+
+The tell is not the slice count; a small repo really is one slice. It is that the
+fields explicitly requested are absent: the shape of an answer with none of the
+work behind it. So the result is now inspected before it is trusted, retried on
+opus with the fault named, and a second stand-in HALTS the scan rather than
+scanning it — a register that under-counts while claiming full coverage is worse
+than no register.
+
+- `templates/workflows/gsd-t-scan.workflow.js`: `probePlaceholderFaults()` +
+  retry-on-opus + halt; the prompt is now a reusable constant so the retry sends
+  the same task; the slice count and totals are logged at probe time, so a thin
+  plan is visible before the run rather than inferred afterwards from a thin
+  register.
+- `test/m112-probe-placeholder.test.js`: 11 regressions, including the verbatim
+  payload that produced the 3-finding scan.
+
+The whole-tree tell only fires when the measurements are missing too. A small
+project genuinely is one slice covering `src/`, and halting that scan would be a
+false alarm on every small repo — worse than the bug being fixed.
+
 ## [5.11.26] - 2026-08-11
 
 ### Fixed — a quarter of every import edge pointed at a string no file matched
