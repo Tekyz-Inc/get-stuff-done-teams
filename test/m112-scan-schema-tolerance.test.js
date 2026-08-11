@@ -93,3 +93,39 @@ test('M112: document status comparisons are case-insensitive', () => {
   assert.match(src, /_status\(r\) === "written"/,
     'an exact match would count a written document as neither written nor failed');
 });
+
+// ── A scan that lost areas must STOP (M112) ─────────────────────────────────
+//
+// It already warned and banner-flagged the register — but it kept going, so the
+// register got written, read, and acted on. On HiloAviation the two lost areas
+// were repositories and data-access: the areas with the most to find. A report
+// that under-counts the debt while looking finished is worse than no report.
+
+test('M112: partial coverage halts before anything is written', () => {
+  const haltAt = src.indexOf('SCAN HALTED');
+  const synthesisAt = src.indexOf('phase("Synthesis")');
+  const documentAt = src.indexOf('phase("Document")');
+  assert.ok(haltAt > 0, 'the halt must exist');
+  assert.ok(haltAt < synthesisAt, 'it must stop before findings are synthesised');
+  assert.ok(haltAt < documentAt, 'and long before any document is written');
+});
+
+test('M112: the halt names every area that was missed', () => {
+  assert.match(src, /\.\.\.failedSlices\.map/,
+    'listing the areas by name is what makes the halt actionable');
+  assert.match(src, /found nothing because they FAILED, not because they/,
+    'the reader must not read a failed area as a clean one');
+});
+
+test('M112: the halt returns a failure, never a quiet success', () => {
+  const halt = src.slice(src.indexOf('SCAN HALTED'), src.indexOf('allowPartial: true — continuing'));
+  assert.match(halt, /ok: false/, 'a halted scan is not a successful scan');
+  assert.match(halt, /halted: "partial-coverage"/, 'and it says why');
+});
+
+test('M112: continuing anyway is possible, but must be asked for', () => {
+  assert.match(src, /const allowPartial\s*=\s*_args\.allowPartial === true/,
+    'strictly true — an absent or truthy-ish value must not silently continue');
+  assert.match(src, /continuing with an INCOMPLETE scan, as asked/,
+    'and taking that route is said out loud');
+});

@@ -56,6 +56,9 @@ const maxSlicesOverride = _args.maxSlicesHint || null; // optional power-user ce
 // M94-D6: graph wiring — "wired" (default) or "disabled" (no-graph baseline for AC-4).
 // [RULE] scan-injects-structural-slice / [RULE] no-graph-baseline-proven-graph-free
 const graphMode     = (_args.graphMode === "disabled") ? "disabled" : "wired";
+// A scan that lost areas STOPS rather than writing a register that under-counts
+// the debt while looking finished. Set true to accept an incomplete scan.
+const allowPartial  = _args.allowPartial === true;
 
 // VOLUME-DERIVED CAP — a RUNAWAY BACKSTOP, not the target count. The probe decides
 // the actual slice count by cohesive sub-domain WITHIN this cap; the cap only fires
@@ -740,7 +743,50 @@ const succeededCount = slices.length - failedSlices.length;
 const coverageComplete = failedSlices.length === 0;
 const allFindings = sliceResults.filter(Boolean).filter((r) => !r.failed).flatMap((r) => (r.findings || []).map((f) => ({ ...f, slice: r.slice })));
 if (!coverageComplete) {
-  log(`⚠ PARTIAL COVERAGE — ${failedSlices.length}/${slices.length} slices failed after retry and produced NO findings: ${failedSlices.join(", ")}. The register will be flagged INCOMPLETE. Resume the run to re-scan only the failed slices.`);
+  log(`⚠ PARTIAL COVERAGE — ${failedSlices.length}/${slices.length} slices failed after retry and produced NO findings: ${failedSlices.join(", ")}.`);
+
+  // HALT. A scan whose densest areas dropped out is not a scan with a caveat —
+  // it is a report that under-counts the debt while looking finished. On
+  // HiloAviation two of 228 slices failed, and the two were repositories and
+  // data-access: the areas with the most to find. Warning and continuing meant
+  // the register got written, read, and acted on as if complete.
+  //
+  // Writing the documents is the point of no return, so the stop goes HERE,
+  // before them — not after, where the flawed register already exists.
+  //
+  // Not a fallback and not a gate on findings: the run stops and says exactly
+  // which areas are missing. `allowPartial: true` continues deliberately, and
+  // the register still carries its PARTIAL banner in that case.
+  if (!allowPartial) {
+    const lines = [
+      "",
+      "════════════════════════════════════════════════════════════════",
+      `  SCAN HALTED — ${failedSlices.length} of ${slices.length} areas were never scanned`,
+      "════════════════════════════════════════════════════════════════",
+      "",
+      "  Not scanned:",
+      ...failedSlices.map((k) => `    · ${k}`),
+      "",
+      "  These areas found nothing because they FAILED, not because they",
+      "  are clean. Their problems are missing from the register.",
+      "",
+      "  Nothing has been written. Re-run to scan only the failed areas,",
+      "  or re-run with allowPartial: true to accept an incomplete scan",
+      "  (the register will say PARTIAL on its first line).",
+      "════════════════════════════════════════════════════════════════",
+      "",
+    ].join("\n");
+    log(lines);
+    return {
+      ok: false,
+      halted: "partial-coverage",
+      slicesTotal: slices.length,
+      slicesFailed: failedSlices,
+      findingsDiscarded: allFindings.length,
+      message: `${failedSlices.length} of ${slices.length} areas were never scanned. Nothing written.`,
+    };
+  }
+  log("→ allowPartial: true — continuing with an INCOMPLETE scan, as asked.");
 }
 log(`deep scan complete: ${allFindings.length} verified findings across ${succeededCount}/${slices.length} slices${coverageComplete ? " (full coverage)" : " (PARTIAL)"}`);
 

@@ -2,6 +2,25 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.11.19] - 2026-08-10
+
+### Changed — a scan that lost areas now STOPS instead of writing the report
+
+It already warned and stamped the register PARTIAL. It kept going anyway, so the
+register got written, read, and acted on. On HiloAviation the two lost areas
+were repositories and data-access — the areas with the most to find. A report
+that under-counts the debt while looking finished is worse than no report.
+
+The stop happens **before synthesis and before any document is written**, names
+every area that was missed, and returns a failure rather than a quiet success.
+It also says plainly that a failed area is not a clean one.
+
+`allowPartial: true` continues deliberately, says so out loud, and the register
+still carries its PARTIAL banner.
+
+- `templates/workflows/gsd-t-scan.workflow.js`: the halt + the `allowPartial` option
+- `test/m112-scan-schema-tolerance.test.js`: 4 more tests — the halt precedes writing, names the areas, fails rather than passes, and cannot be bypassed by a truthy-ish value
+
 ## [5.11.18] - 2026-08-10
 
 ### Fixed — a scan finding was thrown away over its FORM, not its truth
