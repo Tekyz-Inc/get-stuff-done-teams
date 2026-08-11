@@ -2,7 +2,7 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
-## [5.11.25] - 2026-08-11
+## [5.11.26] - 2026-08-11
 
 ### Fixed — a quarter of every import edge pointed at a string no file matched
 
