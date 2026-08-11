@@ -2,6 +2,49 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.11.29] - 2026-08-11
+
+### Fixed — 20 of 27 projects had no usable code graph, and nothing said so
+
+A binvoice session reached for the graph, found none, and read an 827-file
+project by grep. `update-all` had reported that project as current for months,
+because it was: every file GSD-T ships was in place. The graph is not a shipped
+file — it is built state, created only when someone runs `gsd-t graph index` by
+hand, and no propagation step creates it.
+
+Checking for it exposed a second, larger failure. M99 moved the store from
+`.gsd-t/graph.db` to `.gsd-t/graphDB/graph.db` — it changed where the code LOOKS
+without moving what was already there. 18 projects still held a real, populated
+index at the old path that every tool walked straight past.
+
+    never built        2  (binvoice, newman)
+    at the old path   18  — a full index, invisible to the tooling
+    working            7
+
+**Absence is now repaired, not reported.** Per David's rule: a missing graph is
+BUILT, a stale one is UPDATED, a misplaced one is MOVED, and grep is reserved
+for content that cannot be indexed at all (`.md`, `.sql`, `.json`, config,
+prose). The prior contract said HALT on an absent graph — correct 20 times here,
+and it would have repaired nothing.
+
+The rule now also governs plain conversational sessions. The binvoice failure
+was not a wired command; it was ordinary work, and the contract only ever
+covered `/gsd-t-*` commands.
+
+- `bin/gsd-t.js`: `graphState()` tells the two faults apart; `migrateLegacyGraph()`
+  moves a pre-M99 store (the resolver's own migration, already written for M99
+  and never called on existing projects); `buildGraph()` indexes from scratch and
+  verifies a store actually landed rather than trusting the indexer's exit code.
+  A failed repair is reported per project and never counted as fixed.
+- `.gsd-t/contracts/graph-consumer-wiring-contract.md`: FAIL-LOUD now repairs
+  before halting.
+- `~/.claude/CLAUDE.md` + `templates/CLAUDE-global.md`: the rule reaches every
+  session, not only wired commands.
+- `test/m112-graph-health-check.test.js`: 11 regressions.
+
+Run once here: 18 stores moved, 2 graphs built (binvoice 639 files/56,822 edges,
+newman 610 files/27,582 edges), all verified answering.
+
 ## [5.11.28] - 2026-08-11
 
 ### Fixed — the graph stored the alias edges, then could not find them (two bugs)

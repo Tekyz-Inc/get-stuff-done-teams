@@ -310,6 +310,25 @@ When any GSD-T command creates or modifies an API endpoint:
 
 This applies during: `gsd-t-execute`, `gsd-t-quick`, `gsd-t-integrate`, `gsd-t-wave`, and any command that touches API code.
 
+## Code Graph — build it, never grep around it (MANDATORY)
+
+**Read code structure through the graph. If the graph is missing, BUILD it. If it is out of date, UPDATE it. Grep only where the answer cannot be indexed.**
+
+```
+NEED A STRUCTURAL ANSWER? (what imports this, who calls this, what breaks if I change it)
+  ├── Graph present and fresh?      → query it
+  ├── Graph missing?                → `gsd-t graph index` — BUILD IT, then query
+  ├── Graph stale?                  → re-index the touched set, then query
+  ├── Graph at the old path?        → it EXISTS; move it (`gsd-t graph index`), then query
+  └── Build/repair FAILED?          → HALT and say so. Never answer the structural question by grep.
+```
+
+**Grep is correct ONLY where the content cannot be indexed** — `.md`, `.sql`, `.json`, `.sh`, config, prose, comments. For anything about code structure, grep is not a weaker answer, it is a **different and wrong one**: it matches text, the question is about relationships.
+
+**This governs plain conversational work, not just `/gsd-t-*` commands.** The failure that produced this rule (binvoice, 2026-08-11) was an ordinary session: it reached for the graph, found none, grepped an 827-file project, and nothing objected. Checking the graph's existence before reasoning about code is the first move, not a fallback.
+
+**Absence is a repairable condition, not a stop sign.** When this was checked across the machine, 20 of 27 registered projects had no usable graph — 2 never built, 18 holding a real index at a path the tooling stopped reading after the store moved. Every one of those sessions had been grepping. `gsd-t update-all` now repairs both automatically and reports any it could not.
+
 ## Prime Rule
 KEEP GOING. Only stop for:
 1. Unrecoverable errors after 2 fix attempts (delegate to `gsd-t headless --debug-loop` first — only stop if exit code 4)

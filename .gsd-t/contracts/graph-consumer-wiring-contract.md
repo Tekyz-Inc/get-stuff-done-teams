@@ -61,9 +61,14 @@ A command that CHANGES code does the §READER pattern PLUS, after edits land, tr
 **Structural-grep is REMOVED from the code-assessment path of every wired command.**
 
 When the graph query CLI returns `{ok:false, reason:"graph-unavailable"}` for a STRUCTURAL question:
-- The command FAILS LOUD: surfaces the message "graph unavailable — fix it (`gsd-t graph status`)" and halts.
+- **ABSENT or STALE → REPAIR IT, do not merely halt** (`[RULE] graph-missing-is-built-not-reported`). A graph that was never built gets built; a graph out of date gets updated; a graph sitting at the pre-M99 path gets moved. Only after the repair FAILS does the command halt.
+- **BROKEN (present, repair failed) → FAIL LOUD**: surface "graph unavailable — fix it (`gsd-t graph status`)" and halt.
 - The command does NOT fall back to grep for the structural question. EVER.
 - There is no silent degradation. The user learns the graph is broken NOW, not after receiving a structurally-wrong answer.
+
+**Grep is permitted only where the answer cannot be indexed** — content the indexer does not parse (`.md`, `.sql`, `.json`, `.sh`, config, prose). For any question about code structure — what imports this, who calls this, what would break — grep is not a degraded answer, it is a different and wrong one.
+
+*Why this clause exists (2026-08-11):* the invariant above said HALT, and 20 of 27 registered projects had no usable graph — 2 never built, 18 holding a real index at the pre-M99 path that the tooling walked straight past. A halt would have been correct 20 times and repaired nothing. Worse, the halt only governs WIRED commands: the binvoice session that exposed this was ordinary conversational work, reached for the graph, found none, and grepped an 827-file project with nothing objecting. Absence is a repairable condition, and treating it as a stop sign left it in place for months.
 
 This is the M20–M21 lesson encoded as a hard invariant: the prior graph systems silently fell back to grep when the index was absent, producing structurally-wrong answers presented as facts. That failure mode is CLOSED.
 

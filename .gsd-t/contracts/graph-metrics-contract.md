@@ -91,9 +91,9 @@ Each line is one JSON object. Three event families share the file; `kind` disamb
 
 ## Rollup output shape — `gsd-t graph metrics`
 
-Mirrors `gsd-t metrics` (`doMetrics`, `bin/gsd-t.js:5301`) in shape and flags. READ-ONLY; tolerates
+Mirrors `gsd-t metrics` (`doMetrics`, `bin/gsd-t.js:5480`) in shape and flags. READ-ONLY; tolerates
 an empty or rotated ledger (never crashes). Implemented in `bin/gsd-t-graph-metrics-rollup.cjs`;
-dispatched via `gsd-t graph metrics` (the `case "metrics"` arm added at `bin/gsd-t.js:4279`).
+dispatched via `gsd-t graph metrics` (the `case "metrics"` arm added at `bin/gsd-t.js:4531`).
 Reports, at minimum:
 
 | Dimension | Source | Rollup field |

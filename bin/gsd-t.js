@@ -2917,10 +2917,129 @@ function createProjectChangelog(projectDir, projectName) {
   }
 }
 
+/**
+ * Does this project have a built code graph, and does it have code worth one?
+ *
+ * [RULE] health-reports-missing-graph-never-assumes-built
+ *
+ * binvoice, 2026-08-11: a session reached for the graph, found nothing, and fell
+ * back to grep — in an 827-file project. The tooling was installed and
+ * propagated like everywhere else; the index had simply never been built.
+ * Nothing builds it automatically, so a project has a graph only if someone once
+ * ran `gsd-t graph index` there by hand.
+ *
+ * Nothing ever said so. `update-all` reported the project as current, because it
+ * was — every file it ships was in place. The gap lived in state no propagation
+ * step creates, and stayed invisible until a session hit it mid-task.
+ *
+ * Reported, never auto-built: indexing a large repo is slow, and doing it to 33
+ * of them inside an update would be a surprise nobody asked for.
+ */
+function graphState(projectDir) {
+  // Where the store lives is the resolver's answer alone. If it cannot answer,
+  // this check HALTS the caller rather than reporting a project as healthy — a
+  // silent "graph fine" here is exactly the blindness being fixed.
+  const resolver = require("./gsd-t-graph-store-resolver.cjs");
+  const storePath = resolver.resolveStorePath(projectDir);
+  if (storePath && fs.existsSync(storePath)) return { missing: false, files: 0 };
+
+  // A graph at the pre-M99 location (.gsd-t/graph.db) EXISTS — it is just where
+  // the resolver no longer looks. Telling the user to build one would be wrong
+  // twice over: the work is already done, and the real problem (a store the
+  // tooling cannot find) would go unnamed.
+  const legacyPath = resolver.resolveLegacyStorePath(projectDir);
+  if (legacyPath && fs.existsSync(legacyPath)) return { missing: false, files: 0, legacy: true };
+
+  let n = 0;
+  const SKIP = new Set(["node_modules", ".git", ".next", "dist", "build", ".venv", "venv", "out", "coverage"]);
+  const EXT = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".py"]);
+  const walk = (dir, depth) => {
+    if (depth > 6) return;
+    if (n > 400) return; // enough to answer "is this a real codebase?"
+    let entries;
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch (_e) {
+      // An unreadable subdirectory makes the count a floor, not a lie: the
+      // result is only ever compared against a low threshold, and a miscount
+      // downward can only omit a project from a report, never invent one.
+      return;
+    }
+    for (const e of entries) {
+      if (e.isDirectory()) {
+        if (SKIP.has(e.name)) continue;
+        if (e.name.startsWith(".")) continue;
+        walk(path.join(dir, e.name), depth + 1);
+        continue;
+      }
+      if (EXT.has(path.extname(e.name))) n++;
+    }
+  };
+  walk(projectDir, 0);
+
+  // A project with almost no source has nothing for a graph to map; calling that
+  // "missing" would be noise on every docs-only or config-only repo.
+  return { missing: n >= 25, files: n };
+}
+
+/**
+ * Move a graph that sits at the pre-M99 path into the one the tooling reads.
+ *
+ * The store already holds a full index — M99 changed where every tool LOOKS
+ * without moving what was there, so the graph was present and unreachable. The
+ * resolver's own migration does the move, checkpoints the write-ahead log, and
+ * verifies the result is readable.
+ */
+function migrateLegacyGraph(projectDir) {
+  try {
+    const r = require("./gsd-t-graph-store-resolver.cjs").migrateGraphStore(projectDir);
+    if (r && r.migrated) return { ok: true };
+    return { ok: false, err: (r && r.reason) || "migration reported no result" };
+  } catch (e) {
+    return { ok: false, err: e.message || String(e) };
+  }
+}
+
+/**
+ * Build a project's code graph from scratch.
+ *
+ * Slow on a large repo, so the caller announces it before this runs. A failure
+ * is returned, never swallowed: a project left without a graph must say so, so
+ * the next session halts instead of quietly grepping.
+ */
+function buildGraph(projectDir) {
+  try {
+    const idx = path.join(__dirname, "gsd-t-graph-index.cjs");
+    const r = require("child_process").spawnSync(process.execPath, [idx], {
+      cwd: projectDir,
+      encoding: "utf8",
+      timeout: 15 * 60 * 1000,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    if (r.error) return { ok: false, err: r.error.message };
+    if (r.status !== 0) {
+      const tail = String(r.stderr || r.stdout || "").trim().split("\n").slice(-2).join(" ");
+      return { ok: false, err: `exit ${r.status}${tail ? ` — ${tail}` : ""}` };
+    }
+    // The indexer reporting success is not proof a store landed. Verify the file
+    // the tooling will actually read.
+    const storePath = require("./gsd-t-graph-store-resolver.cjs").resolveStorePath(projectDir);
+    if (!fs.existsSync(storePath)) return { ok: false, err: "indexer reported success but no store was written" };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, err: e.message || String(e) };
+  }
+}
+
 async function checkProjectHealth(projects) {
   heading("Project Health");
   const playwrightMissing = [];
   const swaggerMissing = [];
+  const graphMissing = [];
+  const graphLegacy = [];
+  const graphMigrated = [];
+  const graphBuilt = [];
+  const graphRepairFailed = [];
   const playwrightAutoInstalled = [];
   const playwrightInstallFailed = [];
 
@@ -2929,6 +3048,42 @@ async function checkProjectHealth(projects) {
     const name = path.basename(projectDir);
     if (!hasPlaywright(projectDir)) playwrightMissing.push(name);
     if (hasApi(projectDir) && !hasSwagger(projectDir)) swaggerMissing.push(name);
+    const g = graphState(projectDir);
+    if (g.missing) graphMissing.push({ name, dir: projectDir, files: g.files });
+    if (g.legacy) graphLegacy.push({ name, dir: projectDir });
+  }
+
+  // [RULE] graph-missing-is-built-not-reported
+  //
+  // A missing graph is not a status to report — it is work to do. Every session
+  // in a project without one silently falls back to grep, which reads a fraction
+  // of what the graph knows and answers a different question. Reporting it and
+  // moving on leaves that in place until a human notices, which for binvoice
+  // (827 files) meant months.
+  //
+  // Two different faults, two different repairs:
+  //
+  //   · at the old path  — the store EXISTS and holds a full index. M99 changed
+  //     where the tooling looks without moving what was there, so 18 projects
+  //     were reading past a perfectly good graph. This is a file move plus a
+  //     write-ahead-log checkpoint, and takes no time at all.
+  //   · never built      — there is nothing to move. Indexing is genuinely slow
+  //     on a large repo, so this is announced before it runs rather than
+  //     appearing as an unexplained pause.
+  //
+  // A repair that fails is REPORTED and the project is left as it was. It is not
+  // retried differently and never half-applied: a graph that came up short would
+  // answer confidently with partial data, which is worse than not having one.
+  for (const { name, dir } of graphLegacy) {
+    const r = migrateLegacyGraph(dir);
+    if (r.ok) graphMigrated.push(name);
+    else graphRepairFailed.push({ name, what: "move", err: r.err });
+  }
+  for (const { name, dir, files } of graphMissing) {
+    log(`  building code graph for ${name} (${files}+ source files) — first build, this takes a while`);
+    const r = buildGraph(dir);
+    if (r.ok) graphBuilt.push(name);
+    else graphRepairFailed.push({ name, what: "build", err: r.err });
   }
 
   // M50 D1: auto-install Playwright for any UI project that's missing it.
@@ -2945,6 +3100,19 @@ async function checkProjectHealth(projects) {
     } catch (e) {
       playwrightInstallFailed.push({ name, err: e.message || String(e) });
     }
+  }
+
+  if (graphMigrated.length > 0) {
+    success(`Code graph moved to where the tooling reads it: ${graphMigrated.join(", ")}`);
+  }
+  if (graphBuilt.length > 0) {
+    success(`Code graph built: ${graphBuilt.join(", ")}`);
+  }
+  if (graphRepairFailed.length > 0) {
+    for (const f of graphRepairFailed) {
+      warn(`  ${f.name} — graph ${f.what} FAILED: ${f.err}`);
+    }
+    info("Those projects have no usable graph. Fix before working in them — a session there cannot answer structural questions.");
   }
 
   if (playwrightMissing.length === 0 && swaggerMissing.length === 0) {
@@ -2978,6 +3146,11 @@ async function checkProjectHealth(projects) {
   return {
     playwrightMissing,
     swaggerMissing,
+    graphMissing,
+    graphLegacy,
+    graphMigrated,
+    graphBuilt,
+    graphRepairFailed,
     playwrightAutoInstalled,
     playwrightInstallFailed,
   };
@@ -3155,6 +3328,7 @@ async function doUpdateAll() {
     playwrightMissing,
     swaggerMissing,
     playwrightAutoInstalled,
+    graphMissing,
   } = await checkProjectHealth(projects);
   showUpdateAllSummary(
     projects.length,
@@ -3163,6 +3337,7 @@ async function doUpdateAll() {
     swaggerMissing,
     syncCount,
     playwrightAutoInstalled,
+    graphMissing,
   );
 }
 
@@ -3693,6 +3868,7 @@ function showUpdateAllSummary(
   swaggerMissing,
   syncCount,
   playwrightAutoInstalled,
+  graphMissing,
 ) {
   log("");
   heading("Update All Complete");
@@ -3706,6 +3882,9 @@ function showUpdateAllSummary(
     log(`  Auto-installed Playwright in: ${playwrightAutoInstalled.length} project(s)`);
   }
   if (swaggerMissing.length > 0) log(`  Missing Swagger:     ${swaggerMissing.length}`);
+  if (Array.isArray(graphMissing) && graphMissing.length > 0) {
+    log(`  No code graph:       ${graphMissing.length}`);
+  }
   if (syncCount > 0) log(`  Global rules synced: ${syncCount}`);
   log("");
 }
@@ -5336,6 +5515,7 @@ function showHelp() {
 // ─── Exports (for testing) ───────────────────────────────────────────────────
 
 module.exports = {
+  graphState,
   validateProjectName,
   applyTokens,
   normalizeEol,
