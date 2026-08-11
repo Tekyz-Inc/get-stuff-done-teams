@@ -1786,6 +1786,9 @@ const GLOBAL_BIN_TOOLS = [
   // this by absolute path, so it MUST ship wherever the verify gate ships or the
   // schema-id check throws ENOENT. Same class as the M99 store-resolver omission below.
   "gsd-t-schema-id-check.cjs",
+  // M112 — measures a slice plan in LINES and splits what is too big. Called by
+  // the scan workflow before any reviewing starts.
+  "gsd-t-slice-budget.cjs",
   // v5.5.10 — PseudoCode §1.1 flow-line style gate (contract v1.2.0). The verify
   // workflow fires it on the same doc set as the guard-map gate, so it must ship
   // wherever verify ships. Also in PROJECT_BIN_TOOLS below — a tool wired into a
@@ -3290,6 +3293,9 @@ const PROJECT_BIN_TOOLS = [
   // it via an absolute path in the Track 2 plan, so a project that has the verify gate
   // but NOT this file gets an ENOENT on every verify. Ships alongside the gate itself.
   "gsd-t-schema-id-check.cjs",
+  // M112 — measures a slice plan in LINES and splits what is too big. Called by
+  // the scan workflow before any reviewing starts.
+  "gsd-t-slice-budget.cjs",
   // M82 — Competition Mode judge + its disjointness oracle dependency, so a
   // project's gsd-t-phase workflow can score candidate partitions via the
   // project-local bin (runCli prefers bin/<tool>.cjs over the global binary).
@@ -5736,6 +5742,22 @@ if (require.main === module) {
         process.exit(1);
       }
       const res = spawnSync(process.execPath, [js, ...args.slice(1)], { stdio: "inherit" });
+      process.exit(res.status == null ? 1 : res.status);
+    }
+
+    case "slice-budget": {
+      // M112 — `gsd-t slice-budget --project <dir> --slices <json>` measures a
+      // slice plan in LINES and splits what is over the ceiling. Deterministic:
+      // no agent re-slices, so nothing can be lost or invented.
+      const { spawnSync } = require("child_process");
+      const js = path.join(__dirname, "gsd-t-slice-budget.cjs");
+      if (!require("node:fs").existsSync(js)) {
+        error(`gsd-t-slice-budget.cjs not found at ${js} — reinstall GSD-T`);
+        process.exit(1);
+      }
+      const res = spawnSync(process.execPath, [js, ...args.slice(1)], {
+        stdio: "inherit",
+      });
       process.exit(res.status == null ? 1 : res.status);
     }
 

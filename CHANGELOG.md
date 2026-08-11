@@ -34,6 +34,57 @@ the `//`.
 **Rebuild the index to benefit:** `gsd-t graph index`. An index built before this
 release still holds the raw shortcuts.
 
+## [5.11.25] - 2026-08-11
+
+### Fixed — a quarter of every import edge pointed at a string no file matched
+
+A project writes `import x from "@/lib/foo"` and declares what `@/` means in its
+tsconfig. Stored raw, that target resolves to nothing.
+
+**Measured: 5,738 of 23,263 import edges — 25% — were unexpanded shortcuts.**
+Ask "does anything import this file?" and a quarter of the real answers are
+missing, so live code looks unreferenced. A reachability rule built on that data
+would have called **1,919 files of a working app dead**.
+
+The indexer now reads `paths` and `baseUrl` once per build and expands every
+import target. A package import like `react` is left exactly as written. A
+config present but unreadable is announced, never silently skipped.
+
+**Rebuild the index to benefit:** `gsd-t graph index`.
+
+### Changed — slices are sized in LINES, and split deterministically
+
+Files are a terrible measure of how much code a reviewer was handed: the median
+source file in HiloAviation is 233 lines and the largest is 23,664. Lines track
+what actually happened across three real scans of that project:
+
+| Slices | Lines each | Findings |
+|---|---|---|
+| 47 | 54,000 | **297** |
+| 24 | 106,000 | 194 |
+| 1 | 2,545,000 | 3 |
+
+Half the lines per reviewer, half again as many findings.
+
+`bin/gsd-t-slice-budget.cjs` measures real files and packs them under a ceiling
+(30,000–50,000 lines, **provisional and reported as such**). It replaces both
+the file-count check and the agent-driven re-slice — an agent could return a
+plan no finer than the one it was given, or one missing a path. The split is
+arithmetic now, so nothing can be lost or invented.
+
+A file larger than the ceiling becomes its own slice and is **named**: the
+budget cannot go below one file, and that is a fact about the codebase rather
+than a rule quietly ignored. A failed measurement is announced, never treated as
+"sizes are fine".
+
+Measured on the real repo: one slice covering `src/` became **31 slices**,
+largest 49,999 lines, none over budget, nothing unmeasured.
+
+- `bin/gsd-t-graph-index.cjs`: `loadPathAliases()` + `expandAlias()`
+- `bin/gsd-t-slice-budget.cjs`: new — line measurement and splitting
+- `templates/workflows/gsd-t-scan.workflow.js`: calls it before any reviewing starts; the log now states lines per slice
+- `test/m112-import-alias-expansion.test.js`, `test/m112-slice-budget.test.js`: 15 tests
+
 ## [5.11.24] - 2026-08-11
 
 ### Fixed — the code graph never reached a single scanning agent for six weeks

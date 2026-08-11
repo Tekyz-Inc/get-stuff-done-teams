@@ -275,66 +275,43 @@ test('M112: the cap no longer deletes slices', () => {
     'silently dropping slices removes code from the scan with no record of it');
 });
 
-test('M112: maxSlicesHint no longer deletes slices either', () => {
-  // Nothing may be left out of a scan — not even on request.
-  assert.match(src, /IGNORING it — dropping slices would leave code unscanned/);
-  assert.ok(!/slices = rawSlices\.slice\(0, maxSlicesOverride\)/.test(src));
+// ── Slices are sized in LINES, split deterministically (M112, v5.11.26) ─────
+//
+// SUPERSEDES the file-count check and the agent-driven re-slice. Files are a
+// terrible proxy: the median source file in HiloAviation is 233 lines and the
+// largest is 23,664. And asking an agent to re-slice added a step that could
+// return something no finer than it was given, or drop a path.
+//
+// bin/gsd-t-slice-budget.cjs now measures real files and packs them under a
+// line ceiling. No agent, no judgement, nothing to lose.
+
+test('M112: the scan sizes slices by lines, not by file count', () => {
+  assert.match(src, /slice-budget/, 'the budget tool must be called');
+  assert.ok(!/MAX_FILES_PER_SLICE/.test(src),
+    'counting files is what let a 2.5-million-line slice look acceptable');
 });
 
-test('M112: over-slicing is reported, not corrected by deletion', () => {
-  assert.match(src, /Running all \$\{rawSlices\.length\} anyway/,
-    'dropping a slice to tidy the count is the bug, not the fix');
+test('M112: no agent is asked to re-slice', () => {
+  // An agent could return a plan no finer than the one it was given, or one
+  // missing a path. The split is arithmetic now.
+  assert.ok(!/probe:reslice/.test(src), 'the agent re-slice is gone');
+  assert.match(src, /Splitting is DETERMINISTIC/,
+    'and the reason is recorded where the next person will read it');
 });
 
-test('M112: slices too large to read are RE-SLICED, not merely warned about', () => {
-  // A warning leaves the run under-reading every slice. Splitting fixes it.
-  assert.match(src, /SLICES TOO LARGE TO ENUMERATE/);
-  assert.match(src, /MAX_FILES_PER_SLICE = 120/,
-    'a readable slice is the unit of thoroughness');
-  assert.match(src, /label: "probe:reslice"/,
-    'the decomposition must go back to be split');
-  assert.match(src, /it samples instead/,
-    'the cost must be stated: a sampled slice looks complete and is not');
+test('M112: a failed measurement is announced, never silently accepted', () => {
+  assert.match(src, /SLICE BUDGET FAILED/);
+  assert.match(src, /slice sizes are UNMEASURED/,
+    'running unmeasured slices must be visible, not assumed fine');
 });
 
-test('M112: a rejected re-slice is retried with the fault named', () => {
-  // Keeping the coarse decomposition would continue past a failure with every
-  // slice under-read. It retries instead.
-  assert.match(src, /newSlices\.length > slices\.length && lost\.length === 0/,
-    'accept only a genuinely finer decomposition that kept every path');
-  assert.match(src, /Retrying with the fault named/);
-  assert.match(src, /probe:reslice \(retry\)/);
+test('M112: an unsplittable file is named rather than hidden', () => {
+  assert.match(src, /larger than the whole ceiling, so it is its own slice/,
+    'a file bigger than the budget breaks it — that is a fact about the code');
 });
 
-test('M112: when both attempts fail, slices are split MECHANICALLY', () => {
-  // A crude split that reads every file beats a tidy one that reads half.
-  assert.match(src, /splitting mechanically instead/);
-  assert.match(src, /every path is still scanned and no slice is too large to read/);
-  assert.match(src, /paths\.slice\(i, i \+ per\)/,
-    'the chunks ARE the path list cut up, so no path can be lost');
-});
-
-test('M112: the re-slice splits vertically and never merges', () => {
-  const block = src.slice(src.indexOf('Re-slice a codebase decomposition'), src.indexOf('label: "probe:reslice"'));
-  assert.match(block, /still VERTICALLY/);
-  assert.match(block, /Never merge two slices to tidy the count/);
-  assert.match(block, /EVERY path in the input must appear in exactly one output slice/);
-});
-
-test('M112: re-slicing happens before any scanning', () => {
-  assert.ok(src.indexOf('label: "probe:reslice"') < src.indexOf('phase("Deep Scan")'),
-    'splitting after the scan would be too late to matter');
-});
-
-test('M112: the probe is told to size slices, not count them', () => {
-  assert.match(src, /SIZE IS THE CONSTRAINT, NOT THE COUNT/);
-  assert.match(src, /that is roughly the MINIMUM number of slices/,
-    'a large codebase needs many slices — the probe must know that');
-  assert.ok(!/A well-decomposed system has a finite, sensible number/.test(src),
-    '"sensible number" is what pushed it toward fewer, larger, unread slices');
-});
-
-test('M112: a feature too large is split vertically, never merged', () => {
-  assert.match(src, /SPLIT ALONG ITS OWN SEAMS, still vertically/);
-  assert.match(src, /Never merge two features to reduce the count/);
+test('M112: the log states lines per slice', () => {
+  // Nothing recorded this before, which is why it took three runs to notice
+  // that fewer lines per reviewer meant more findings.
+  assert.match(src, /per slice/, 'the number that predicts finding count must be logged');
 });
