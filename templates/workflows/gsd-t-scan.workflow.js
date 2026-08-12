@@ -183,6 +183,55 @@ const VERIFY_SCHEMA = {
   },
 };
 
+// One verifier reads a BATCH of findings and returns a verdict for each.
+//
+// [RULE] verify-batched-not-one-agent-per-finding
+//
+// Measured on hilo-figma-atos, 2026-08-11 — the same 20 findings, spanning all
+// four severities, verified both ways against real code:
+//
+//                        one-agent-per-finding      batched (20 in one)
+//   false positives caught          0                       1
+//   severity corrections            1                       2
+//   mean evidence length          426 chars               355 chars
+//
+// Batching did not merely cost less — it judged BETTER, and both disagreements
+// were checked by hand and went the batch's way. An agent holding many findings
+// sees them in relation to each other, and severity is a comparative judgment:
+// "help articles leaking" is HIGH *next to* the cross-tenant student-record
+// leaks beside it. An agent handed one finding alone has no yardstick, so it
+// tends to confirm whatever it was given — which is what 20-of-20 confirmed,
+// zero false positives, looked like on the unbatched side.
+//
+// The cost is ~70 characters less evidence per finding, which changed no verdict.
+// The saving is the run: 492 findings went from ~570 verifier agents to ~50.
+const VERIFY_BATCH_SCHEMA = {
+  type: "object",
+  required: ["verdicts"],
+  additionalProperties: true,
+  properties: {
+    verdicts: {
+      type: "array",
+      minItems: 1,
+      items: {
+        type: "object",
+        required: ["index", "verdict"],
+        additionalProperties: true,
+        properties: {
+          // The finding's position in the batch it was given. Position rather
+          // than title: a title can be paraphrased back, an index cannot.
+          index:             { type: "integer" },
+          verdict:           { type: "string", enum: ["confirmed", "CONFIRMED", "Confirmed", "false-positive", "FALSE-POSITIVE", "False-positive", "needs-detail", "NEEDS-DETAIL", "Needs-detail"] },
+          confirmed:         { type: "boolean" },
+          note:              { type: "string" },
+          evidence:          { type: "string" },
+          correctedSeverity: { type: "string", enum: ["CRITICAL", "critical", "Critical", "HIGH", "high", "High", "MEDIUM", "medium", "Medium", "LOW", "low", "Low"] },
+        },
+      },
+    },
+  },
+};
+
 // M75: synthesis no longer writes the register via one agent (the Hilo Scan #14
 // synthesis stalled after 9 of 322 items typing a 466KB file). Instead: a bounded
 // dedup agent (inline DEDUP_SCHEMA, small input) decides merge groups; the
@@ -988,43 +1037,80 @@ async function scanSlice(slice) {
   if (verifyMode === "none" || finderResult.findings.length === 0) {
     return { slice: sliceKey, findings: finderResult.findings || [], failed: false };
   }
-  // Fan out ALL verifies for this slice — the global gate (not a per-slice limit)
-  // bounds total in-flight, so this is safe AND keeps every worker slot busy.
-  const verified = await parallel(
-    finderResult.findings.map((f) => async () => {
-      try {
-        const verifyPrompt = [
-          `You are a VERIFIER for one tech-debt finding in \`${projectDir}\`. Confirm it against the ACTUAL code (open the referenced files with Read) — do not trust the finder.`,
-          `Finding: ${JSON.stringify(f)}`,
-          `confirmed=true only if the defect genuinely exists. If misread → verdict="false-positive". If real but wrong severity → set correctedSeverity. If real but underspecified → verdict="needs-detail" (kept). Return JSON per the schema.`,
-          SHAPE_RULE,
-        ].join("\n");
+  // Verify in BATCHES — see [RULE] verify-batched-not-one-agent-per-finding at
+  // VERIFY_BATCH_SCHEMA for the measurement that chose this over one agent per
+  // finding. Ten is small enough that every finding still gets its files opened,
+  // and large enough that the verifier can weigh them against each other, which
+  // is what severity judgment actually requires.
+  const VERIFY_BATCH_SIZE = 10;
+  const batches = [];
+  for (let i = 0; i < finderResult.findings.length; i += VERIFY_BATCH_SIZE) {
+    batches.push(finderResult.findings.slice(i, i + VERIFY_BATCH_SIZE));
+  }
 
-        // Verify had NO retry: one wrapped call and the finding went through
-        // unverified. Same escalation as the finder, one step shorter — a lost
-        // verdict costs one finding, not a whole slice.
-        let v = await gatedAgent(verifyPrompt, {
-          label: `verify:${sliceKey}`, phase: "Deep Scan", schema: VERIFY_SCHEMA, model: "sonnet",
-        });
-        if (!v) {
-          v = await gatedAgent(verifyPrompt + UNWRAP_HINT, {
-            label: `verify:${sliceKey} (retry on opus)`, phase: "Deep Scan",
-            schema: VERIFY_SCHEMA, model: "opus",
-          });
+  const verifiedBatches = await parallel(
+    batches.map((batch, batchNo) => async () => {
+      const verifyPrompt = [
+        `You are a VERIFIER for ${batch.length} tech-debt finding(s) in \`${projectDir}\`. Confirm EACH against the ACTUAL code (open the referenced files with Read) — do not trust the finder.`,
+        ``,
+        `Findings, as a numbered list. Return one verdict per finding, using its \`index\`:`,
+        ...batch.map((f, i) => `[${i}] ${JSON.stringify(f)}`),
+        ``,
+        `For EACH finding: verdict="confirmed" only if the defect genuinely exists. If the finder misread the code → verdict="false-positive". If real but underspecified → verdict="needs-detail" (kept).`,
+        `Set correctedSeverity when the severity is wrong. You are seeing these findings TOGETHER — use that: severity is comparative, and a finding that looks alarming alone is often plainly lesser beside the others in this batch. Judge each one's consequence relative to the rest.`,
+        `Put the file and line you actually checked in \`evidence\`. A verdict with no evidence from the code is the failure this step exists to prevent.`,
+        `Return ONE object per finding, ${batch.length} in total, each carrying its \`index\`. Missing verdicts are treated as unverified.`,
+        SHAPE_RULE,
+      ].join("\n");
+
+      // Attempt 1 — sonnet. Attempt 2 names the likely mistake and escalates to
+      // the model that has never made it. Same shape as the finder escalation.
+      const attempt1 = await gatedAgent(verifyPrompt, {
+        label: `verify:${sliceKey}#${batchNo + 1}`, phase: "Deep Scan",
+        schema: VERIFY_BATCH_SCHEMA, model: "sonnet",
+      });
+      const v = (attempt1 && Array.isArray(attempt1.verdicts)) ? attempt1 : await gatedAgent(
+        verifyPrompt + UNWRAP_HINT,
+        {
+          label: `verify:${sliceKey}#${batchNo + 1} (retry on opus)`, phase: "Deep Scan",
+          schema: VERIFY_BATCH_SCHEMA, model: "opus",
         }
-        // Compared case-INSENSITIVELY: the schema now accepts "false-positive"
-        // in any casing, so an exact match would silently KEEP a finding the
-        // verifier had rejected.
-        const verdict = String(v && v.verdict || "").toLowerCase();
-        if (!v || verdict === "false-positive" || v.confirmed === false) return null;
-        // Severity is normalised to the shouted form here, once, so the report
-        // reads consistently no matter how a finder typed it.
-        const sev = String(v.correctedSeverity || f.severity || "").toUpperCase();
-        return { ...f, severity: sev, _verify: verdict };
-      } catch (e) {
-        return { ...f, _verify: "verify-errored" };
+      );
+
+      const byIndex = new Map();
+      for (const r of ((v && Array.isArray(v.verdicts) && v.verdicts) || [])) {
+        if (Number.isInteger(r.index)) byIndex.set(r.index, r);
       }
+
+      return batch.map((f, i) => {
+        const r = byIndex.get(i);
+        // No verdict came back for this finding. It is NOT dropped and NOT
+        // silently passed as verified — it is kept and MARKED, so a batch that
+        // answered for eight of ten cannot quietly delete the other two, and
+        // the register can show which findings nobody checked.
+        if (!r) return { ...f, _verify: "unverified" };
+
+        // Compared case-INSENSITIVELY: the schema accepts "false-positive" in
+        // any casing, so an exact match would silently KEEP a finding the
+        // verifier had rejected.
+        const verdict = String(r.verdict || "").toLowerCase();
+        if (verdict === "false-positive" || r.confirmed === false) return null;
+
+        // Severity normalised to the shouted form here, once, so the report
+        // reads consistently no matter how a finder typed it.
+        const sev = String(r.correctedSeverity || f.severity || "").toUpperCase();
+        const out = { ...f, severity: sev, _verify: verdict || "confirmed" };
+        if (r.evidence) out._evidence = r.evidence;
+        return out;
+      });
     })
+  );
+
+  // A batch whose agent died resolves to null; its findings are kept and marked
+  // rather than lost — losing a real defect is worse than carrying an unchecked
+  // one, and the mark is what stops it reading as verified.
+  const verified = verifiedBatches.flatMap((res, batchNo) =>
+    res === null ? batches[batchNo].map((f) => ({ ...f, _verify: "verify-errored" })) : res
   );
   return { slice: sliceKey, findings: verified.filter(Boolean), failed: false };
 }
@@ -1181,7 +1267,9 @@ if (allFindings.length > 1) {
 }
 
 // (a)+(c) Deterministically merge dups, sort by severity, assign TD numbers, format.
-const SEV_ORDER = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
+// EXTREME is the architect's tier for anything that leaves wrong data behind,
+// breaches a tenant boundary, moves money wrongly, or touches safety.
+const SEV_ORDER = { EXTREME: 0, CRITICAL: 1, HIGH: 2, MEDIUM: 3, LOW: 4 };
 const dropped = new Set();
 const merged = [];
 for (const group of mergeGroups) {
@@ -1207,6 +1295,151 @@ for (const f of finalFindings) {
 }
 counts.total = finalFindings.length;
 
+
+const ARCHITECT_SCHEMA = {
+  type: "object",
+  required: ["placements"],
+  additionalProperties: true,
+  properties: {
+    roots: {
+      type: "array",
+      items: {
+        type: "object",
+        required: ["key", "name"],
+        additionalProperties: true,
+        properties: {
+          key:       { type: "string", description: "short id, e.g. R1" },
+          name:      { type: "string", description: "plain-English name of the shared cause" },
+          why:       { type: "string", description: "why these are one cause, with code evidence" },
+          fix:       { type: "string", description: "the single fix that closes them" },
+          tier:      { type: "string", enum: ["EXTREME", "CRITICAL", "HIGH", "MEDIUM", "LOW", "extreme", "critical", "high", "medium", "low"] },
+          rank:      { type: "integer", description: "rank among roots of the same tier, 1 = worst" },
+          rankReason:{ type: "string" },
+        },
+      },
+    },
+    placements: {
+      type: "array",
+      minItems: 1,
+      items: {
+        type: "object",
+        required: ["index", "tier"],
+        additionalProperties: true,
+        properties: {
+          index:      { type: "integer", description: "the finding's index in the list given" },
+          tier:       { type: "string", enum: ["EXTREME", "CRITICAL", "HIGH", "MEDIUM", "LOW", "extreme", "critical", "high", "medium", "low"] },
+          rootKey:    { type: "string", description: "the root this belongs to, or omitted if standalone" },
+          rankInRoot: { type: "integer", description: "rank among that root's members, 1 = worst" },
+          alsoRoots:  { type: "array", items: { type: "string" }, description: "other roots that also cause this" },
+          deadCode:   { type: "boolean", description: "true ONLY when confirmed unreachable — say which checks in `note`" },
+          notADefect: { type: "boolean", description: "true when this is not a real defect" },
+          reason:     { type: "string", description: "one line, grounded in consequence" },
+          note:       { type: "string" },
+        },
+      },
+    },
+  },
+};
+
+// ─── Architect — re-tier by consequence, group by root cause, rank ──────────
+//
+// [RULE] architect-ranks-before-numbering
+//
+// Run by hand over the hilo-figma-atos register on 2026-08-11, and it changed
+// the answer enough to become a permanent stage:
+//
+//   · The worst finding in the codebase was filed HIGH. Account credits that
+//     cover a whole invoice are never marked used, so the same credit is given
+//     away again every month, forever. It sat at position 127.
+//   · A typo in one text box silently routes every real card payment to the
+//     practice gateway, where charges report success and no money moves. Filed
+//     MEDIUM.
+//   · Every school's signed legal agreements are downloadable by any other
+//     school. Filed LOW.
+//   · A fabricated thunderstorm advisory for a named airport is shown to pilots
+//     on every page. Filed MEDIUM.
+//   · 22 findings were genuinely unreachable code — carried as risk when they
+//     cannot execute.
+//
+// And the shape of the work changed: 492 findings collapsed into 28 root causes.
+// 144 of the 328 medium/low findings attached to a root that already existed,
+// and only 7 new causes were needed. The codebase does not have 492 problems; it
+// has about 28, most of them repeated dozens of times. Scheduling the findings
+// individually produces dozens of half-fixes of one defect.
+//
+// Two things make this stage worth its cost, and both were measured, not assumed:
+//   1. Severity assigned per-finding is unreliable, because severity is
+//      COMPARATIVE. An agent seeing findings together ranks them; an agent
+//      seeing one finding alone confirms whatever it was handed.
+//   2. TD numbers must be assigned AFTER this, or the register's numbering
+//      encodes the order slices happened to finish.
+async function architectPass(findings) {
+  if (!findings.length) return null;
+
+  // One agent per ~150 findings — the size that held its judgment in the manual
+  // run. More than that and the later findings get thinner treatment; fewer and
+  // the agent loses the comparison that makes ranking possible.
+  const ARCH_BATCH = 150;
+  const chunks = [];
+  for (let i = 0; i < findings.length; i += ARCH_BATCH) chunks.push(findings.slice(i, i + ARCH_BATCH));
+
+  log(`architect: ${findings.length} findings across ${chunks.length} pass(es) — re-tier by consequence, group by root cause, rank`);
+
+  const TIER_RULES = [
+    `TIERS ARE ABOUT CONSEQUENCE, NOT THE KIND OF BUG. The dividing question for every finding: DOES IT LEAVE WRONG DATA BEHIND, OR DOES IT JUST FAIL TO DO ANYTHING?`,
+    `  EXTREME  — breach, data loss, money wrong, or safety. Irreversible or legally reportable. Cross-tenant read OR write, missing database-level access rules, leaked credentials, remote code execution, privilege escalation — AND ALSO anything that CORRUPTS DATA or REPORTS SUCCESS WHILE WRITING NOTHING (money shown as moved but not moved; a record referenced elsewhere that was never created; a kill switch that reports "off" while the thing runs).`,
+    `  CRITICAL — the feature does not work; recoverable once fixed; NO bad data left behind. A page that never loads. An endpoint that fails and shows an empty list.`,
+    `  HIGH     — real, should be fixed, neither of the above.`,
+    `  MEDIUM / LOW — confirm as filed.`,
+    `  DEAD CODE is NOT a risk tier. Genuinely unreachable code cannot cause a problem — mark it dead and it moves to a cleanup list.`,
+    ``,
+    `⚠ AN EMPTY IMPORT LIST DOES NOT PROVE UNREACHABILITY. A page reached by dynamic import shows zero importers in the code graph and is still live and routed — this nearly cost a live credit-card form its EXTREME rating. Before calling anything dead: check the graph, search the name across the source tree, AND search for dynamic loading and the router file. Say which checks you ran.`,
+  ].join("\n");
+
+  const results = await parallel(chunks.map((chunk, ci) => async () => {
+    const listing = chunk.map((f, i) =>
+      `[${i}] severity=${f.severity} area=${ascii(f.area) || "?"} | ${ascii(f.title)} | at ${(f.files && f.files.join(", ")) || "?"} | ${ascii(f.description || "").slice(0, 400)}`
+    ).join("\n");
+
+    const prompt = [
+      `⛔ Work ONLY inside \`${projectDir}\`. Read real code with Read/Grep to settle any question; the code graph answers structural questions (\`gsd-t graph who-imports <file>\`, \`who-calls\`, \`blast-radius\`) and must be preferred over grep for those.`,
+      ``,
+      `You are the ARCHITECT for a completed tech-debt scan. ${chunk.length} findings, already verified against the code by an earlier pass. DO NOT re-verify them all. Your job is judgment about TIER, ROOT CAUSE and ORDER.`,
+      ``,
+      TIER_RULES,
+      ``,
+      `YOUR HIGHEST-VALUE OUTPUT IS FINDING THE MIS-FILED ONES. Severity as assigned is not reliable: in the run that created this stage, the single worst defect in the codebase (account credits re-spent every month, forever) was filed HIGH, and a payment misrouting that makes charges succeed while no money moves was filed MEDIUM. Hunt specifically for money, cross-tenant access, safety, and silent data corruption hiding at a low severity.`,
+      ``,
+      `FINDINGS:`,
+      listing,
+      ``,
+      `GROUP BY ROOT CAUSE. A root is one underlying cause where ONE fix closes several findings — e.g. many routes missing the same tenant check. For each root give a plain-English name, why they are one cause (with code evidence), the single fix, and its members by index. A root with ONE member is not a group; leave it standalone. A root's tier is the tier of its WORST member.`,
+      `Rank roots within their tier by worst consequence, and members within a root by consequence. RISK order, never the order the findings arrived.`,
+      ``,
+      `Return JSON per the schema. Every one of the ${chunk.length} findings must appear exactly once in \`placements\` — a finding you drop is a defect nobody will see again.`,
+      SHAPE_RULE,
+    ].join("\n");
+
+    const r = await gatedAgent(prompt, {
+      label: `architect ${ci + 1}/${chunks.length}`, phase: "Architect",
+      schema: ARCHITECT_SCHEMA, model: "opus",
+    });
+    return (r && Array.isArray(r.placements)) ? r : null;
+  }));
+
+  const ok = results.filter(Boolean);
+  if (!ok.length) {
+    // Nothing to rank with. The register is still written, in its filed order —
+    // said out loud, because a register that looks ranked and is not is worse
+    // than one that never claimed to be.
+    log(`⚠ ARCHITECT PRODUCED NOTHING — the register keeps its filed severities and discovery order. It is NOT prioritised; treat its ordering as arbitrary.`);
+    return null;
+  }
+  if (ok.length < chunks.length) {
+    log(`⚠ architect: ${ok.length} of ${chunks.length} passes returned — findings in the missing pass(es) keep their filed severity and sit unranked at the end.`);
+  }
+  return { chunks, results: ok.length === chunks.length ? results : results, partial: ok.length < chunks.length };
+}
 
 // M75 chunked formatter: returns an ARRAY of markdown chunks, each ≤ ~30KB, so each
 // can be written through one bounded agent prompt WITHOUT truncation (a single write
@@ -1244,20 +1477,99 @@ function typeOf(f) {
   return "Other";
 }
 const TYPE_ORDER = ["Security / Vulnerability", "Dead Code", "Duplication", "Data Integrity / Concurrency", "Performance", "Contract Drift", "Testing", "Other"];
-const SEV_ORDER2 = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
-// Stable sort: severity, then type, then original index. Computed ONCE; both consumers use it.
+const SEV_ORDER2 = { EXTREME: 0, CRITICAL: 1, HIGH: 2, MEDIUM: 3, LOW: 4 };
+
+// The architect runs HERE — before anything is numbered. Its output re-tiers the
+// findings and decides their order; TD numbers then follow that order, so TD-1 is
+// the most urgent thing in the codebase rather than whatever a slice finished
+// first. See [RULE] architect-ranks-before-numbering above.
+phase("Architect");
+const architect = await architectPass(finalFindings);
+
+// Apply the architect's tiers and grouping back onto the findings.
+if (architect) {
+  let retiered = 0, deadFound = 0, notDefect = 0;
+  architect.chunks.forEach((chunk, ci) => {
+    const res = architect.results[ci];
+    if (!res) return;                       // that pass returned nothing; its findings keep their filed severity
+    const roots = new Map();
+    for (const r of (res.roots || [])) if (r && r.key) roots.set(r.key, r);
+    for (const p of res.placements) {
+      const f = chunk[p.index];
+      if (!f) continue;                     // an index outside the batch is not a finding to place
+      const tier = String(p.tier || "").toUpperCase();
+      if (tier && tier !== f.severity) { f.severity = tier; retiered++; }
+      if (p.deadCode) { f._deadCode = true; deadFound++; }
+      if (p.notADefect) { f._notADefect = true; notDefect++; }
+      if (p.rootKey) {
+        const root = roots.get(p.rootKey);
+        f._rootKey = p.rootKey;
+        f._rootName = (root && root.name) || p.rootKey;
+        f._rootFix = root && root.fix;
+        f._rootRank = (root && Number.isInteger(root.rank)) ? root.rank : 99;
+        f._rankInRoot = Number.isInteger(p.rankInRoot) ? p.rankInRoot : 99;
+      }
+      if (Array.isArray(p.alsoRoots) && p.alsoRoots.length) f._alsoRoots = p.alsoRoots;
+      if (p.reason) f._archReason = p.reason;
+    }
+  });
+  log(`architect: ${retiered} finding(s) re-tiered, ${deadFound} confirmed dead code, ${notDefect} judged not a defect`);
+
+  // Recount — the tiers just changed, so the header's numbers must follow.
+  counts.critical = 0; counts.high = 0; counts.medium = 0; counts.low = 0; counts.extreme = 0;
+  for (const f of finalFindings) {
+    const s = String(f.severity || "").toUpperCase();
+    if (s === "EXTREME") counts.extreme++;
+    else if (s === "CRITICAL") counts.critical++;
+    else if (s === "HIGH") counts.high++;
+    else if (s === "MEDIUM") counts.medium++;
+    else if (s === "LOW") counts.low++;
+  }
+}
+
+// Ordering — the single source of truth for both the register's TD numbering and
+// the consolidation stage's references.
+//
+// With an architect result: tier, then the root's rank within that tier, then the
+// finding's rank within its root — the order a person should work through them.
+// Confirmed dead code sinks below everything: it cannot cause a problem, so it
+// must not sit above things that can.
+//
+// Without one: the old severity-then-type-then-arrival order, which is arbitrary
+// inside a severity and was announced as such by architectPass().
 const orderedFindings = finalFindings
   .map((f, i) => ({ f, i, t: typeOf(f) }))
   .sort((a, b) => {
-    const sv = (SEV_ORDER2[a.f.severity] ?? 9) - (SEV_ORDER2[b.f.severity] ?? 9);
+    const deadA = a.f._deadCode ? 1 : 0, deadB = b.f._deadCode ? 1 : 0;
+    if (deadA !== deadB) return deadA - deadB;
+    const sv = (SEV_ORDER2[String(a.f.severity || "").toUpperCase()] ?? 9)
+             - (SEV_ORDER2[String(b.f.severity || "").toUpperCase()] ?? 9);
     if (sv !== 0) return sv;
-    const tv = TYPE_ORDER.indexOf(a.t) - TYPE_ORDER.indexOf(b.t);
-    if (tv !== 0) return tv;
+    if (architect) {
+      // A standalone finding ranks beside the roots, not after them: it is one
+      // item the architect chose not to group, not a lesser item.
+      const rr = (a.f._rootRank ?? 50) - (b.f._rootRank ?? 50);
+      if (rr !== 0) return rr;
+      const ri = (a.f._rankInRoot ?? 50) - (b.f._rankInRoot ?? 50);
+      if (ri !== 0) return ri;
+    } else {
+      const tv = TYPE_ORDER.indexOf(a.t) - TYPE_ORDER.indexOf(b.t);
+      if (tv !== 0) return tv;
+    }
     return a.i - b.i;
   });
 
+// Every finding must survive the ordering. A sort cannot lose one, but the
+// architect's placement loop can only be trusted if this is checked rather than
+// assumed — a merge in the same family reported full coverage while having
+// dropped two.
+if (orderedFindings.length !== finalFindings.length) {
+  log(`⚠ ORDERING LOST FINDINGS: ${finalFindings.length} in, ${orderedFindings.length} out — the register would under-report. Halting.`);
+  return { status: "failed", reason: "ordering-lost-findings", expected: finalFindings.length, got: orderedFindings.length };
+}
+
 function fmtChunks(today) {
-  const sevHead = { CRITICAL: "🔴 Critical", HIGH: "🟠 High", MEDIUM: "🟡 Medium", LOW: "🟢 Low" };
+  const sevHead = { EXTREME: "🔴 Extreme", CRITICAL: "🟠 Critical", HIGH: "🟡 High", MEDIUM: "🔵 Medium", LOW: "🟢 Low" };
   const head = [];
   head.push(`# Tech Debt Register - ${projectDir.split("/").pop()}`, "");
   if (scanNumber) head.push(`**Scan #${scanNumber}** - Deep codebase scan (runtime-native, ${coverageComplete ? "full coverage" : "PARTIAL coverage"})`);
@@ -1272,10 +1584,17 @@ function fmtChunks(today) {
   head.push(`> Effort estimates use GSD-T-native units (domain / wave / spawn / token-spend). Never human-hours.`);
   head.push(`> TD numbering continues from the prior register (if any, archived). This scan begins at **TD-${tdStart}**.`, "");
   if (!coverageComplete) head.push(`> ⚠️ **PARTIAL COVERAGE - ${failedSlices.length} of ${slices.length} codebase areas were NOT scanned this pass** (failed to return findings): ${ascii(failedSlices.join(", "))}. Findings UNDER-COUNT the real debt. Re-run (resume) for full coverage.`, "");
-  head.push(`## Summary`, "", `| Severity | Count |`, `|----------|-------|`,
-    `| 🔴 CRITICAL | ${counts.critical} |`, `| 🟠 HIGH | ${counts.high} |`,
-    `| 🟡 MEDIUM | ${counts.medium} |`, `| 🟢 LOW | ${counts.low} |`,
+  head.push(`## Summary`, "", `| Severity | Count |`, `|----------|-------|`);
+  // EXTREME only appears when the architect produced it. A row of zero on every
+  // register of a healthy project is noise, and an absent row hides no count.
+  if (counts.extreme) head.push(`| 🔴 EXTREME | ${counts.extreme} |`);
+  head.push(
+    `| 🟠 CRITICAL | ${counts.critical} |`, `| 🟡 HIGH | ${counts.high} |`,
+    `| 🔵 MEDIUM | ${counts.medium} |`, `| 🟢 LOW | ${counts.low} |`,
     `| **Total** | **${counts.total}** |`, "", "---", "");
+  if (counts.extreme) {
+    head.push(`> **EXTREME** means it leaves wrong data behind, crosses a tenant boundary, moves money wrongly, or touches safety. CRITICAL means the feature simply does not work, with nothing bad left behind.`, "");
+  }
 
   function itemMd(f, td) {
     const L = [`### TD-${td} - ${ascii(f.title) || "(untitled)"}`,
@@ -1557,7 +1876,25 @@ log(`document phase: ${docsOk.length}/${docTargets.length} written/merged${docsF
 // then ASSEMBLE deterministically with severity section headers, and chunk-write.
 phase("Plain-English");
 const peTarget = `${projectDir}/.gsd-t/techdebt_in_plain_english.md`; // internal fixed name (shared copy suffixed in share/)
-const sevLabel = { CRITICAL: "fix before launch", HIGH: "fix soon", MEDIUM: "schedule", LOW: "clean up eventually" };
+// [RULE] severity-label-never-assumes-unlaunched
+//
+// "fix before launch" was wrong on every scan of a system already serving
+// customers — which is most of them. A register handed to the owner of a live
+// product that dates its own advice to before go-live reads as boilerplate, and
+// boilerplate is skipped.
+//
+// One phrase per tier, defined here only. The plain-English companion took its
+// labels from this map and then drifted: the hilo-figma-atos file carried twelve
+// different phrasings for four tiers ("Worth scheduling" / "Worth scheduling
+// soon" / "Should be scheduled soon" / "Can be scheduled at normal priority"),
+// plus casing variants, and only 36 of 61 criticals were labelled at all.
+const sevLabel = {
+  EXTREME:  "immediate priority",
+  CRITICAL: "fix soon",
+  HIGH:     "schedule this cycle",
+  MEDIUM:   "clean up eventually",
+  LOW:      "clean up eventually",
+};
 // Attach the deterministic TD number (matches the register: severity-sorted, tdStart+).
 const peItems = finalFindings.map((f, i) => ({
   td: tdStart + i, severity: f.severity, title: ascii(f.title),
@@ -1577,12 +1914,23 @@ const peResults = await parallel(peBatches.map((batch, bi) => async () => {
     `**What it is.** <1-2 sentences, no jargon; define any unavoidable term in parentheses>`,
     `**Why it matters.** <business/user consequence>`,
     `**Real-world analogy.** <a concrete everyday comparison that genuinely maps to THIS issue>`,
-    `**Severity.** <the plain-urgency phrase given per item>`,
+    `**Severity.** <the item's \`severityPhrase\`, copied EXACTLY, capitalised, ending with a full stop — e.g. "Immediate priority.">`,
+    `Use that phrase VERBATIM. Do not reword it, do not add "soon"/"eventually"/"worth", do not invent a variant. Four phrases exist and no others: "Immediate priority.", "Fix soon.", "Schedule this cycle.", "Clean up eventually." A reader scanning for what to do next is reading the phrase, not the sentence around it, so a rewording makes two identical priorities look different.`,
+    `NEVER write "fix before launch" or any wording implying the system has not launched — most scanned systems are already live and serving customers.`,
     `Keep the td number EXACTLY. ASCII punctuation only (hyphens, straight quotes — NO em-dashes/smart-quotes/ellipsis). No preamble.`,
     ``,
     `Findings (batch ${bi + 1}/${peBatches.length}):`,
     "```json",
-    JSON.stringify(batch.map((it) => ({ ...it, severityPhrase: sevLabel[it.severity] || "review" }))),
+    // A severity with no phrase is a bug in the map, not a finding to label
+    // "review" — the old default quietly turned an unrecognised tier into a word
+    // that says nothing, and read as deliberate. Normalised for case first,
+    // because a finder that types "Critical" must not fall through.
+    JSON.stringify(batch.map((it) => {
+      const tier = String(it.severity || "").toUpperCase();
+      const phrase = sevLabel[tier];
+      if (!phrase) log(`⚠ severity "${it.severity}" has no label in sevLabel — ${it.title || "a finding"} will be labelled by its tier name`);
+      return { ...it, severityPhrase: phrase || tier.toLowerCase() || "unrated" };
+    })),
     "```",
   ].join("\n");
   try {

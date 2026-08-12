@@ -59,6 +59,32 @@ const SKIP_DIRS = new Set([
   'coverage', 'out', '.turbo', '.venv', 'venv', 'Pods', 'vendor', '.gradle',
 ]);
 
+// [RULE] slice-budget-skips-design-export-snapshots
+//
+// hilo-figma-atos, 2026-08-11: `.figma-make-exports/` held 1,879 tracked files
+// and 57 MB of design-tool exports — six dated snapshots of a prototype, each a
+// near-copy of the last. They were measured, sliced, and read by finders as if
+// they were the application. Out of the whole scan, exactly TWO findings came
+// from them, and both were about the directory itself (it has no type-check
+// exclusion; the same key is committed six times) rather than about defects in
+// the product.
+//
+// These are recognised by NAME rather than by a project's own ignore rules,
+// because the project had no such rule — that absence was itself one of the two
+// findings. Matched as a path SEGMENT so a real source folder that merely
+// contains the word (say `src/exports/`) is untouched.
+const SNAPSHOT_DIR_PATTERNS = [
+  /^\.?figma-make-exports$/i,
+  /^\.?figma-exports$/i,
+  /^design-exports?$/i,
+  /^ui-snapshots?$/i,
+  /^__snapshots-export__$/i,
+];
+
+function isSnapshotExportDir(name) {
+  return SNAPSHOT_DIR_PATTERNS.some((re) => re.test(name));
+}
+
 /** Lines in one file. A file that cannot be read is reported, never counted as 0. */
 function countLines(file) {
   const text = fs.readFileSync(file, 'utf8');
@@ -72,7 +98,7 @@ function countLines(file) {
 }
 
 /** Every source file under a path, with its line count. */
-function measurePath(projectDir, rel, problems) {
+function measurePath(projectDir, rel, problems, skippedSnapshots) {
   const abs = path.resolve(projectDir, rel);
   const out = [];
 
@@ -107,6 +133,12 @@ function measurePath(projectDir, rel, problems) {
     for (const ent of entries) {
       if (ent.isDirectory()) {
         if (SKIP_DIRS.has(ent.name)) continue;
+        if (isSnapshotExportDir(ent.name)) {
+          // Reported, never silent: a directory this large vanishing from the
+          // measurement without a word is how a coverage hole hides.
+          skippedSnapshots.push(path.relative(projectDir, path.join(dir, ent.name)));
+          continue;
+        }
         walk(path.join(dir, ent.name));
         continue;
       }
@@ -178,6 +210,7 @@ function splitSlice(slice, files, min, max, oversizedFiles) {
 
 function plan(projectDir, slices, min, max) {
   const problems = [];
+  const skippedSnapshots = [];
   const oversizedFiles = [];
   const out = [];
   let measuredLines = 0;
@@ -188,7 +221,7 @@ function plan(projectDir, slices, min, max) {
     const files = [];
     const seen = new Set();
     for (const p of paths) {
-      for (const f of measurePath(projectDir, p, problems)) {
+      for (const f of measurePath(projectDir, p, problems, skippedSnapshots)) {
         // A file listed under two paths of one slice is one file, counted once.
         if (seen.has(f.file)) continue;
         seen.add(f.file);
@@ -232,6 +265,9 @@ function plan(projectDir, slices, min, max) {
       .sort((a, b) => b.lines - a.lines)
       .map((f) => ({ file: f.file, lines: f.lines })),
     problems,
+    // Design-tool export snapshots left out of the measurement, named so the
+    // omission is visible rather than inferred from a smaller total.
+    skippedSnapshots: Array.from(new Set(skippedSnapshots)).sort(),
     slices: out,
   };
 }

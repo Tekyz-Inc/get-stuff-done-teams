@@ -122,6 +122,51 @@ test('M112: the budget is reported as provisional', () => {
   } finally { rm(dir); }
 });
 
+test('M112: design-export snapshots are left out, and named', () => {
+  // hilo-figma-atos: `.figma-make-exports/` held 1,532 source files and 968,597
+  // lines — six dated copies of a design prototype, measured and read by finders
+  // as if they were the product. Roughly 19 slices of finder-and-verifier work
+  // spent on exported mockups, for two findings, both about the folder itself.
+  const files = { 'src/app.ts': 500 };
+  for (let i = 0; i < 20; i++) files[`.figma-make-exports/2026-03-12/c${i}.tsx`] = 400;
+  const dir = probe(files);
+  try {
+    const r = lib.plan(dir, [{ key: 'all', paths: ['.'] }], 30000, 50000);
+    assert.equal(r.after.files, 1, 'only the real source file may be measured');
+    assert.equal(r.after.lines, 500);
+    assert.deepEqual(r.skippedSnapshots, ['.figma-make-exports'],
+      'the omission must be NAMED — a directory this size vanishing silently is how a coverage hole hides');
+  } finally { rm(dir); }
+});
+
+test('M112: a real source folder whose name merely contains "export" is kept', () => {
+  // The opposite failure, and the worse one: a rule that matches too eagerly
+  // deletes real code from the scan while the plan still looks healthy.
+  const dir = probe({
+    'src/exports/csv.ts': 300,
+    'src/export-service/index.ts': 200,
+    'src/design/tokens.ts': 100,
+  });
+  try {
+    const r = lib.plan(dir, [{ key: 'all', paths: ['.'] }], 30000, 50000);
+    assert.equal(r.after.files, 3, 'none of these is a design-tool snapshot');
+    assert.equal(r.after.lines, 600);
+    assert.deepEqual(r.skippedSnapshots, []);
+  } finally { rm(dir); }
+});
+
+test('M112: the snapshot rule matches a whole directory name, not a substring', () => {
+  const dir = probe({
+    'figma-exports/a.tsx': 100,        // matches — excluded
+    'my-figma-exports-notes/b.ts': 50, // does NOT match — kept
+  });
+  try {
+    const r = lib.plan(dir, [{ key: 'all', paths: ['.'] }], 30000, 50000);
+    assert.equal(r.after.lines, 50, 'only the snapshot directory is dropped');
+    assert.deepEqual(r.skippedSnapshots, ['figma-exports']);
+  } finally { rm(dir); }
+});
+
 test('M112: a nonsense budget is refused, naming which rule broke', () => {
   const dir = probe({ 'src/a.ts': 10 });
   try {

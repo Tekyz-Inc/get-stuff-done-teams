@@ -78,14 +78,17 @@ test('M112: the verify result may carry extra detail too', () => {
 // being fixed.
 
 test('M112: the false-positive check is case-insensitive', () => {
-  assert.match(src, /const verdict = String\(v && v\.verdict \|\| ""\)\.toLowerCase\(\)/,
+  // Checked as BEHAVIOUR, not by variable name: verification became batched in
+  // v5.11.31, and a test pinned to `v.verdict` would have failed a change that
+  // preserved the property it exists to protect.
+  assert.match(src, /const verdict = String\(r\.verdict \|\| ""\)\.toLowerCase\(\)/,
     'the verdict must be lowercased before comparison');
-  assert.ok(!/v\.verdict === "false-positive"/.test(src),
+  assert.ok(!/\.verdict === "false-positive"/.test(src),
     'an exact match would miss a shouted rejection and keep the finding');
 });
 
 test('M112: severity is normalised once, at the merge point', () => {
-  assert.match(src, /String\(v\.correctedSeverity \|\| f\.severity \|\| ""\)\.toUpperCase\(\)/,
+  assert.match(src, /String\(r\.correctedSeverity \|\| f\.severity \|\| ""\)\.toUpperCase\(\)/,
     'the report must read consistently however a finder typed it');
 });
 
@@ -167,8 +170,10 @@ test('M112: every model stays a literal, so the tier lint can still read it', ()
 
 test('M112: verify retries too, having had none at all', () => {
   const block = src.slice(src.indexOf('const verifyPrompt'), src.indexOf('const verdict'));
-  assert.match(block, /verify:\$\{sliceKey\} \(retry on opus\)/,
-    'one wrapped call used to let a finding through unverified');
+  // The label carries the batch number since v5.11.31 — verification is batched,
+  // and the retry escalates the whole batch rather than a single finding.
+  assert.match(block, /verify:\$\{sliceKey\}#\$\{batchNo \+ 1\} \(retry on opus\)/,
+    'one wrapped call used to let findings through unverified');
   assert.match(block, /UNWRAP_HINT/, 'and the retry must say what went wrong');
 });
 

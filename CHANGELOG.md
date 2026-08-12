@@ -2,6 +2,71 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.11.31] - 2026-08-11
+
+### Added — the scanner now ranks its own findings before it numbers them
+
+A 492-finding scan of hilo-figma-atos was grouped by severity and ordered by
+discovery inside each group, so "fix the criticals in order" gave you a dead
+marketing page before the missing database access rules on 193 tenant tables.
+Run by hand over that register, an architect pass changed the answer enough to
+become a permanent stage:
+
+- The worst defect in the codebase was filed HIGH. Account credits that cover a
+  whole invoice are never marked used, so the same credit is given away again
+  every month, forever. It sat at position 127.
+- A typo in one text box silently routes every real card payment to the practice
+  gateway, where charges report success and no money moves. Filed MEDIUM.
+- Every school's signed legal agreements are downloadable by any other school.
+  Filed LOW.
+- A fabricated thunderstorm advisory for a named airport is shown to pilots on
+  every page. Filed MEDIUM.
+- 22 findings were confirmed unreachable code, carried as risk.
+
+And the work changed shape: 492 findings collapsed into 28 root causes, with 144
+of the 328 medium/low findings attaching to a root that already existed. The
+codebase does not have 492 problems; it has about 28, most repeated dozens of
+times. Scheduled individually, that produces dozens of half-fixes of one defect.
+
+**Four changes, all measured on that run:**
+
+**Architect stage** (`phase("Architect")`, after Synthesis, before ordering) —
+re-tiers by consequence, groups by root cause, ranks roots within tier and
+members within root, and marks confirmed dead code so it sinks below live
+findings. TD numbers are assigned AFTER it, so TD-1 is the most urgent thing in
+the codebase. Adds an EXTREME tier: leaves wrong data behind, crosses a tenant
+boundary, moves money wrongly, or touches safety — as against CRITICAL, where
+the feature merely does not work. Carries the dynamic-import warning that nearly
+cost a live credit-card form its rating, and halts if the ordering loses a
+finding.
+
+**Verification is batched, 10 findings per agent.** Measured head to head on the
+same 20 findings spanning all four severities: batched caught 1 false positive
+and 2 severity corrections against the individual arm's 0 and 1, for 71 fewer
+characters of evidence and no changed verdict. Severity is comparative — an agent
+seeing findings together can rank them, one seeing a single finding confirms
+whatever it was handed. 492 findings went from ~570 verifier agents to ~50.
+
+**Design-export snapshots are left out of slicing**, and named in the plan.
+`.figma-make-exports/` held 1,532 source files and 968,597 lines on that project
+— six near-identical copies of a design prototype, read by finders as if they
+were the product, for two findings that were both about the folder itself. That
+is roughly 19 slices of finder-and-verifier work.
+
+**One severity phrase per tier.** The plain-English companion labelled all 61
+criticals "fix before launch" for a system already serving customers, and had
+drifted to twelve phrasings for four tiers. An unmapped tier is now announced
+rather than silently labelled "review".
+
+- `templates/workflows/gsd-t-scan.workflow.js`: architect stage + schema, batched
+  verify, tier-derived labels, EXTREME throughout.
+- `bin/gsd-t-slice-budget.cjs`: snapshot-directory exclusion, reported by name.
+- `test/m112-architect-stage.test.js`, `test/m112-severity-labels.test.js`: 15 new
+  regressions; slice-budget and schema-tolerance suites extended.
+
+Two existing tests were pinned to variable names rather than behaviour and failed
+on a change that preserved what they protect; both now assert the property.
+
 ## [5.11.30] - 2026-08-11
 
 ### Fixed — the scan crashed before any finder ran: `slices is not defined`
