@@ -40,7 +40,7 @@ Test-sync applies the **WRITER pattern** from `graph-consumer-wiring-contract.md
 
 **WRITER half:** After writing or updating tests, trigger a re-index of the edited test files (`freshness_check_on_query` from `graph-freshness-contract.md` D4 surface) so the next `test-impl` query sees the updated call-site edges from the new test code. `[RULE] test-sync-uses-test-impl-verb`.
 
-**FAIL-LOUD on graph-unavailable:** On `{ok:false, reason:"graph-unavailable"}`, the test-impl query surfaces `"graph unavailable — fix it (gsd-t graph status)"` and the agent proceeds with filesystem discovery as announced fallback — it does NOT silently treat a missing graph as "no coverage". `[RULE] consumer-structural-grep-removed`.
+**BUILD-THEN-QUERY on graph-absent:** On `{ok:false, reason:"graph-unavailable"}` the workflow **builds the index right then** (`gsd-t graph index`) and re-runs the `test-impl` / `untested-impl` queries. Filesystem discovery is NOT an acceptable substitute — announcing a fallback does not stop it being one, and "which test exercises which impl" answered by filename convention is exactly the wrong-answer class the graph exists to remove. Only a **failed build** halts, with the build's own stderr surfaced. `[RULE] consumer-structural-grep-removed`, `[RULE] graph-absent-builds-not-degrades`.
 
 ## Step 1.5: Graph-Enhanced Test Discovery
 

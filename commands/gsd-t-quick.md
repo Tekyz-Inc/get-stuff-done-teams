@@ -182,7 +182,7 @@ Quick applies the **WRITER pattern** from `graph-consumer-wiring-contract.md`:
 
 **WRITER half:** After edits land, the workflow triggers a re-index of the touched files (`freshness_check_on_query` from `graph-freshness-contract.md` D4 surface) so downstream graph queries see fresh edges. `[RULE] quick-writer-pattern`.
 
-**FAIL-LOUD on graph-unavailable:** On `{ok:false, reason:"graph-unavailable"}`, the structural-impact query surfaces `"graph unavailable — fix it (gsd-t graph status)"` and the agent proceeds without the structural slice — it does NOT fall back to grep for the structural question. `[RULE] consumer-structural-grep-removed`.
+**BUILD-THEN-QUERY on graph-absent:** On `{ok:false, reason:"graph-unavailable"}` the workflow **builds the index right then** (`gsd-t graph index`) and re-runs the query. It does NOT fall back to grep, and it does NOT proceed without the structural slice — proceeding blind is a third failure mode, not a safe default. Only a **failed build** halts, with the build's own stderr surfaced. `[RULE] consumer-structural-grep-removed`, `[RULE] graph-absent-builds-not-degrades`.
 
 ## Step 1.5: Graph-Enhanced Scope Check
 

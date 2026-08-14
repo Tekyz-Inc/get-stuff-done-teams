@@ -98,7 +98,7 @@ Debug applies the **WRITER pattern** from `graph-consumer-wiring-contract.md`:
 
 **WRITER half (re-index after fix):** After the fix lands, the workflow triggers a re-index of the edited files so downstream graph queries see fresh edges (`graph-freshness-contract.md` D4 surface — `freshness_check_on_query` over the touched set). `[RULE] debug-reader-and-writer-both`.
 
-**FAIL-LOUD on graph-unavailable:** On `{ok:false, reason:"graph-unavailable"}`, the debug workflow surfaces `"graph unavailable — fix it (gsd-t graph status)"` and halts the graph-query step. It does NOT fall back to grep for the structural question. The existing debug-loop logic (2-cycle cap, loop-ledger halt) is NOT disrupted — the graph query is additive, injected before the fix agent receives context.
+**BUILD-THEN-QUERY on graph-absent:** On `{ok:false, reason:"graph-unavailable"}` the debug workflow **builds the index right then** (`gsd-t graph index`) and re-runs the localization query. It does NOT fall back to grep for the structural question, and it does NOT skip the query. Only a **failed build** halts the graph-query step, with the build's own stderr surfaced. The existing debug-loop logic (2-cycle cap, loop-ledger halt) is NOT disrupted — the graph query is additive, injected before the fix agent receives context. `[RULE] graph-absent-builds-not-degrades`.
 
 ## Contract-Boundary Debugging
 

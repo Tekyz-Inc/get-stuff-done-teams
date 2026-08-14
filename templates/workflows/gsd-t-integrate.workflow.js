@@ -79,6 +79,15 @@ async function classifyGraphFailure(projectDir, reason, detail, phaseName) {
   if (env && (env.state === "ABSENT" || env.state === "BROKEN")) return env.state;
   return "BROKEN";
 }
+// [RULE] absent-graph-auto-builds-once — build the index once via the existing
+// `gsd-t graph index` path (local bin: gsd-t-graph-index.cjs build --repo <dir>).
+async function buildGraphIndex(projectDir, phaseName) {
+  const r = await runCli(
+    projectDir, "graph index", ["build", "--repo", projectDir],
+    "gsd-t-graph-index.cjs", "graph-index", false, phaseName
+  ).catch(() => null);
+  return !!(r && r.ok);
+}
 async function runVerifyGate(projectDir, label = "verify-gate", phaseName) { return runCli(projectDir, "verify-gate", ["--json"], "gsd-t-verify-gate.cjs", label, true, phaseName); }
 async function generateBrief(projectDir, { kind = "execute", milestone, domain, id, label = "brief", phaseName } = {}) {
   const argv = ["--kind", kind, "--spawn-id", id, "--out", `${projectDir}/.gsd-t/briefs/${id}.json`];
@@ -133,32 +142,54 @@ await persistWiringMode("Preflight");
 
 // M94-D10-T6: Graph Structural Slice — who-imports + blast-radius (ADDITIVE, announced-degradation)
 // [RULE] integrate-uses-graph-for-wiring-verification
-// [RULE] verify-integrate-graph-additive-announced-not-hard-fail — bootstrap carve-out:
-//   integrate degrades ANNOUNCED on graph-unavailable, does NOT hard-fail.
+// [RULE] verify-integrate-graph-additive-announced-not-hard-fail — integrate does NOT
+//   hard-fail on a graph it cannot use. It DOES build an ABSENT index first
+//   ([RULE] graph-absent-builds-not-degrades); only a BROKEN graph, or a build that
+//   itself fails, degrades announced.
 let _graphWhoImportsSlice = null;
 let _graphBlastRadiusSlice = null;
 let _graphIntegrateWarning = null;
 
 {
-  const wiResult = await runCli(
+  // [RULE] graph-absent-builds-not-degrades — an ABSENT graph is BUILT here, not
+  // skipped. The former "announced carve-out" skipped the structural wiring-check
+  // whenever the index had never been built — which is exactly when integrate most
+  // needs it, because a fresh worktree carries no graph (it is gitignored). The
+  // check therefore did nothing on the very runs it was written for. Announcing a
+  // skip does not stop it being a skip.
+  let wiEnv = (await runCli(
     projectDir, "graph who-imports", [], "gsd-t-graph-query-cli.cjs",
     "graph:who-imports", true, "Integrate"
-  );
-  const wiEnv = wiResult.envelope || {};
+  )).envelope || {};
+
+  if (wiEnv.ok === false) {
+    // [RULE] one-availability-classifier — ONE classify call, ONE state, no re-derivation.
+    const _state = await classifyGraphFailure(projectDir, wiEnv.reason, wiEnv.detail, "Integrate");
+    if (_state === "ABSENT") {
+      log("M94 graph who-imports: index ABSENT (never indexed) — building it now (gsd-t graph index)...");
+      if (await buildGraphIndex(projectDir, "Integrate")) {
+        wiEnv = (await runCli(
+          projectDir, "graph who-imports", [], "gsd-t-graph-query-cli.cjs",
+          "graph:who-imports", true, "Integrate"
+        )).envelope || {};
+        if (wiEnv.ok !== true) {
+          _graphIntegrateWarning = `⚠ graph built but who-imports still failed (reason=${wiEnv.reason || "?"}) — structural wiring-check skipped. FIX it (gsd-t graph status).`;
+        }
+      } else {
+        // A failed BUILD is loud, and distinct from a merely-missing index.
+        _graphIntegrateWarning = "⚠ graph ABSENT and `gsd-t graph index` FAILED — structural wiring-check cannot run. FIX it (gsd-t graph status).";
+      }
+    } else {
+      _graphIntegrateWarning = `⚠ graph BROKEN (reason=${wiEnv.reason || "?"}) — structural wiring-check skipped. This is NOT merely un-indexed; FIX it (gsd-t graph status).`;
+    }
+  } else if (wiEnv.ok !== true) {
+    _graphIntegrateWarning = `⚠ graph who-imports query unexpected envelope (reason: ${wiEnv.reason || "?"}); structural wiring-check skipped`;
+  }
+
   if (wiEnv.ok === true) {
     _graphWhoImportsSlice = wiEnv;
     log(`M94 graph who-imports: ${(wiEnv.results || []).length} result(s) (tier: ${wiEnv.tier || "?"})`);
-  } else if (wiEnv.ok === false) {
-    // [RULE] one-availability-classifier — distinguish ABSENT (announced skip) from BROKEN (LOUD).
-    const _state = await classifyGraphFailure(projectDir, wiEnv.reason, wiEnv.detail, "Integrate");
-    if (_state === "BROKEN") {
-      _graphIntegrateWarning = `⚠ graph BROKEN (reason=${wiEnv.reason || "?"}) — structural wiring-check skipped. This is NOT merely un-indexed; FIX it (gsd-t graph status).`;
-    } else {
-      _graphIntegrateWarning = "⚠ graph ABSENT (never indexed) — structural wiring-check skipped (announced carve-out; build with gsd-t graph index)";
-    }
-    log(`M94 graph who-imports: ${_graphIntegrateWarning}`);
   } else {
-    _graphIntegrateWarning = `⚠ graph who-imports query unexpected envelope (reason: ${wiEnv.reason || "?"}); structural wiring-check skipped`;
     log(`M94 graph who-imports: ${_graphIntegrateWarning}`);
   }
 

@@ -2,6 +2,62 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.11.32] - 2026-08-14
+
+### Fixed — a missing graph is now BUILT, and a "wired" claim has to prove itself
+
+A TimeTracking scan finished, reported success, and had done its whole deep
+analysis with grep. The graph was healthy, current, and the run even logged
+`graphWiringMode: WIRED` — but of 666 ledger events, every single one carried
+`consumer: "cli"`. Not one came from an analyst agent. The reports say it
+plainly in their own words: *"a repo-wide grep shows no caller anywhere."*
+Nothing failed, because nothing was watching for this.
+
+Three defects, one theme — **a check that cannot fail is not a check**:
+
+- **An absent graph left consumers blind instead of building it.** Every
+  FAIL-LOUD clause said: don't fall back to grep, then *proceed without the
+  structural slice*. That is a third bad outcome sitting between the two the
+  doctrine names — the agent answers "what calls this?" with no structural
+  knowledge at all. The clauses in `/quick`, `/debug`, `/design-build` and
+  `/test-sync` now BUILD the index and re-run the query; only a failed build
+  halts. This was already the contract's own rule (§FAIL-LOUD line 64,
+  "REPAIR IT, do not merely halt") — the command docs had been contradicting
+  it. `[RULE] graph-absent-builds-not-degrades`
+- **`/integrate` had a licensed exemption.** It printed `⚠ graph ABSENT —
+  structural wiring-check skipped (announced carve-out)`. A fresh worktree
+  carries no graph (it is gitignored), so the check did nothing on exactly the
+  runs it was written for. Announcing a skip does not stop it being a skip. It
+  now builds. The verify/integrate exception covers the HARD-FAIL only; it
+  never covered the build.
+- **The anti-grep lint aimed at the wrong target.** Being static, its only
+  failure mode is a code shape (`try graph → catch → grep`). A consumer that
+  never calls the graph has no catch block, so the lint reports clean while the
+  entire run uses text search.
+
+### Added — `gsd-t graph-use-gate` (runtime, `[RULE] wired-claim-requires-query-evidence`)
+
+`bin/gsd-t-graph-use-gate.cjs` reads the append-only ledger and fails any
+consumer that logged `WIRED` with zero `kind:"query"` events. It detects the
+**absence of use**, not the presence of a fallback — the thing a static lint
+structurally cannot see. `kind:"read"` (the Read-intercept hook) is never
+accepted as evidence, or it would mask the very failure being detected.
+
+Run against the two projects that prompted this, it flags both — confirming the
+defect is systemic, not a one-off. Wired into `gsd-t-verify-gate.cjs` as the
+FAIL-CLOSED `graph-use` check, propagated via `PROJECT_BIN_TOOLS` (it reads each
+project's own ledger), and covered by `test/m113-graph-use-gate.test.js` — whose
+leading test is the negative one, because a gate nobody has watched fail is a
+gate nobody knows works. Exit `0` clean · `4` violations · `64` bad input; a
+missing ledger is a *documented* no-op PASS under `--verify-mode`, tagged
+`noOpPass:true` so it stays distinguishable from wired-and-clean.
+
+**Still open:** none of this covers ordinary conversational code-reading, which
+is where the original complaint arose — an agent asked "what calls this?" in a
+worktree with no graph and grepped, with nothing objecting. That needs a
+PreToolUse hook on structural Grep/Read, and is deliberately left for its own
+milestone rather than bolted on here.
+
 ## [5.11.31] - 2026-08-11
 
 ### Added — the scanner now ranks its own findings before it numbers them
