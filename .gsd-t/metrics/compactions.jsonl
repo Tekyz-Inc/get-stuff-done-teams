@@ -72,3 +72,4 @@
 {"ts":"2026-04-22T18:50:25.989Z","schemaVersion":1,"session_id":"a5ee3b8e-1a77-4950-ab8d-f108af026c1d","prior_session_id":"b5adfaf8-f7d7-42a6-91ef-e19d7e441538","source":"compact-backfill","cwd":"/Users/david/projects/GSD-T","hook":"SessionStart","trigger":"auto","preTokens":167569,"postTokens":15457,"durationMs":161737}
 {"ts":"2026-08-08T21:42:56.716Z","schemaVersion":1,"session_id":"5092923d-cf61-49f9-a460-7e3e8322e69c","prior_session_id":null,"source":"compact","cwd":"/Users/david/projects/GSD-T","hook":"SessionStart"}
 {"ts":"2026-08-08T23:21:46.811Z","schemaVersion":1,"session_id":"5092923d-cf61-49f9-a460-7e3e8322e69c","prior_session_id":null,"source":"compact","cwd":"/Users/david/projects/GSD-T","hook":"SessionStart"}
+{"ts":"2026-08-11T18:10:24.215Z","schemaVersion":1,"session_id":"232a6e63-dde8-477d-a70c-6f218fed64cd","prior_session_id":null,"source":"compact","cwd":"/Users/david/projects/GSD-T","hook":"SessionStart"}

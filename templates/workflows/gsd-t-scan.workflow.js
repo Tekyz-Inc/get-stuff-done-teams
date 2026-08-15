@@ -1309,12 +1309,16 @@ const ARCHITECT_SCHEMA = {
         additionalProperties: true,
         properties: {
           key:       { type: "string", description: "short id, e.g. R1" },
-          name:      { type: "string", description: "plain-English name of the shared cause" },
-          why:       { type: "string", description: "why these are one cause, with code evidence" },
-          fix:       { type: "string", description: "the single fix that closes them" },
+          // Short by contract, not by request. The first architect run produced
+          // headings like "Doors that check who you are but never which flight
+          // school you belong to" over 250-word explanations; a reader scanning
+          // 28 roots for the one to fix next cannot skim that.
+          name:      { type: "string", maxLength: 40, description: "2-5 word noun phrase, e.g. 'Missing tenant scoping'. NOT a sentence." },
+          why:       { type: "string", maxLength: 320, description: "ONE sentence naming the shared mistake, plus the file:line citations that prove it. Keep every citation; compress the prose around them." },
+          fix:       { type: "string", maxLength: 200, description: "ONE sentence: the single change that closes them all." },
           tier:      { type: "string", enum: ["EXTREME", "CRITICAL", "HIGH", "MEDIUM", "LOW", "extreme", "critical", "high", "medium", "low"] },
           rank:      { type: "integer", description: "rank among roots of the same tier, 1 = worst" },
-          rankReason:{ type: "string" },
+          rankReason:{ type: "string", maxLength: 220, description: "ONE sentence: why this root outranks the ones below it in its tier." },
         },
       },
     },
@@ -1413,7 +1417,8 @@ async function architectPass(findings) {
       `FINDINGS:`,
       listing,
       ``,
-      `GROUP BY ROOT CAUSE. A root is one underlying cause where ONE fix closes several findings — e.g. many routes missing the same tenant check. For each root give a plain-English name, why they are one cause (with code evidence), the single fix, and its members by index. A root with ONE member is not a group; leave it standalone. A root's tier is the tier of its WORST member.`,
+      `GROUP BY ROOT CAUSE. A root is one underlying cause where ONE fix closes several findings — e.g. many routes missing the same tenant check. A root with ONE member is not a group; leave it standalone. A root's tier is the tier of its WORST member.`,
+      `WRITE IT SHORT. The name is a 2-5 word noun phrase ("Missing tenant scoping", "Silent write failures"), never a sentence. \`why\` and \`fix\` and \`rankReason\` are ONE sentence each. Someone scanning 28 roots to pick what to fix next cannot read a paragraph per root — but KEEP every file:line citation inside \`why\`, because those are what make the grouping checkable. Compress the prose, never the evidence.`,
       `Rank roots within their tier by worst consequence, and members within a root by consequence. RISK order, never the order the findings arrived.`,
       ``,
       `Return JSON per the schema. Every one of the ${chunk.length} findings must appear exactly once in \`placements\` — a finding you drop is a defect nobody will see again.`,
@@ -1506,6 +1511,8 @@ if (architect) {
         f._rootKey = p.rootKey;
         f._rootName = (root && root.name) || p.rootKey;
         f._rootFix = root && root.fix;
+        f._rootWhy = root && root.why;
+        f._rootRankReason = root && root.rankReason;
         f._rootRank = (root && Number.isInteger(root.rank)) ? root.rank : 99;
         f._rankInRoot = Number.isInteger(p.rankInRoot) ? p.rankInRoot : 99;
       }
@@ -1610,17 +1617,34 @@ function fmtChunks(today) {
 
   const CHUNK_MAX = 30000;
   const chunks = [head.join("\n")];
-  let buf = "", n = tdStart, lastSev = null, lastType = null;
+  let buf = "", n = tdStart, lastSev = null, lastType = null, lastRoot = null;
   const flush = () => { if (buf) { chunks.push(buf); buf = ""; } };
   // Consume the shared `orderedFindings` (severity → type → original-index) so the
   // TD numbers assigned here are IDENTICAL to those the consolidation stage references.
   for (const { f, t } of orderedFindings) {
     let piece = "";
-    if (f.severity !== lastSev) { piece += `\n## ${sevHead[f.severity] || f.severity} Priority\n\n`; lastSev = f.severity; lastType = null; }
+    if (f.severity !== lastSev) { piece += `\n## ${sevHead[f.severity] || f.severity} Priority\n\n`; lastSev = f.severity; lastType = null; lastRoot = null; }
     // Type sub-heading uses a bold marker line (NOT `###`) so it never collides with
     // the `### TD-N` item headings that downstream tools grep for. ASCII hyphens only
     // (M76: no em/en-dashes in fmtChunks literals).
-    if (t !== lastType) { piece += `**-- ${t} --**\n\n`; lastType = t; }
+    // Root grouping is the fix unit. When the architect grouped the findings, the
+    // register shows the root and its one-line cause/fix/rank above its members,
+    // because scheduling the members separately produces separate half-fixes of
+    // one defect. Bullets sit in <sub> so the eye lands on the finding titles.
+    // Without an architect result there are no roots, and the old type marker
+    // still separates the sections.
+    if (f._rootKey && f._rootKey !== lastRoot) {
+      piece += `\n### ${f._rootKey} - ${ascii(f._rootName) || f._rootKey}\n\n<sub>\n\n`;
+      if (f._rootWhy) piece += `- **Cause:** ${ascii(f._rootWhy)}\n`;
+      if (f._rootFix) piece += `- **Fix:** ${ascii(f._rootFix)}\n`;
+      if (f._rootRankReason) piece += `- **Rank:** ${ascii(f._rootRankReason)}\n`;
+      piece += `\n</sub>\n\n`;
+      lastRoot = f._rootKey; lastType = null;
+    } else if (!f._rootKey && lastRoot) {
+      piece += `\n### Standalone\n\n`;
+      lastRoot = null; lastType = null;
+    }
+    if (!f._rootKey && t !== lastType) { piece += `**-- ${t} --**\n\n`; lastType = t; }
     piece += itemMd(f, n++);
     if (buf.length + piece.length > CHUNK_MAX) flush();
     buf += piece;

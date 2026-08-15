@@ -122,7 +122,17 @@ function undeclaredAssignments(src) {
   // This is what makes the check safe to run at any indent: it reports only a
   // name bound NOWHERE in the file, which cannot be anything but the bug.
   const bound = new Set(declared);
-  for (const d of src.matchAll(/\b(?:const|let|var|function|class)\s+([A-Za-z_$][\w$]*)/g)) bound.add(d[1]);
+  // `let a, b, c` binds all three. Taking only the first name reported the rest
+  // as undeclared — a false alarm on correct code, which is how a checker gets
+  // switched off. Caught by this very check flagging `lastRoot`, the fifth name
+  // in a five-name declaration.
+  for (const d of src.matchAll(/\b(?:const|let|var)\s+([^;\n]+)/g)) {
+    for (const part of d[1].split(',')) {
+      const id = (part.split('=')[0].match(/[A-Za-z_$][\w$]*/) || [])[0];
+      if (id) bound.add(id);
+    }
+  }
+  for (const d of src.matchAll(/\b(?:function|class)\s+([A-Za-z_$][\w$]*)/g)) bound.add(d[1]);
   for (const c of src.matchAll(/\bcatch\s*\(\s*([A-Za-z_$][\w$]*)/g)) bound.add(c[1]);
   for (const f of src.matchAll(/\bfor\s*\(\s*(?:const|let|var)?\s*([A-Za-z_$][\w$]*)\s+(?:of|in)\b/g)) bound.add(f[1]);
   for (const p of src.matchAll(/(?:function\s*[\w$]*\s*\(([^)]*)\)|\(([^)]*)\)\s*=>|([A-Za-z_$][\w$]*)\s*=>)/g)) {
