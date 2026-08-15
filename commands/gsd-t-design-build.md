@@ -10,7 +10,7 @@ Design-build applies the **WRITER pattern** from `graph-consumer-wiring-contract
 
 **WRITER half:** After each tier (elements → widgets → pages) generates files, the pipeline triggers a re-index of the generated files (`freshness_check_on_query` from `graph-freshness-contract.md` D4 surface) so the next tier's `who-imports` / `cluster` query sees the new edges from the generated components. `[RULE] design-build-writer-pattern`.
 
-**FAIL-LOUD on graph-unavailable:** On `{ok:false, reason:"graph-unavailable"}`, the structural query surfaces `"graph unavailable — fix it (gsd-t graph status)"` — the pipeline does NOT fall back to grep for the structural question. `[RULE] consumer-structural-grep-removed`.
+**BUILD-THEN-QUERY on graph-absent:** On `{ok:false, reason:"graph-unavailable"}` the pipeline **builds the index right then** (`gsd-t graph index`) and re-runs the structural query. It does NOT fall back to grep, and it does NOT proceed without the structural answer. Only a **failed build** halts, with the build's own stderr surfaced. `[RULE] consumer-structural-grep-removed`, `[RULE] graph-absent-builds-not-degrades`.
 
 ## Step 1: Launch the Orchestrator
 

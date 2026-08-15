@@ -3487,6 +3487,10 @@ const PROJECT_BIN_TOOLS = [
   // every Write/Edit is DENIED (the guard halts rather than allowing unchecked),
   // so this entry is load-bearing — [[project_global_bin_propagation_gap]].
   "gsd-t-fallback-detect.cjs",
+  // M113 — Graph USE gate. The verify gate dispatches to it by absolute path,
+  // and it reads the project's OWN .gsd-t/graphDB/logs ledger, so it must live
+  // in the project — [[project_global_bin_propagation_gap]].
+  "gsd-t-graph-use-gate.cjs",
   // M107 — Concise rewriter, invoked by the Stop hook.
   // M108 — Install self-check. Every project carries its own copy so it can
   // verify and repair itself even when the global install is what broke.

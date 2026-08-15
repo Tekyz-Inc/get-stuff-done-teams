@@ -313,6 +313,8 @@ function _detectDefaultTrack2(projectDir, notes) {
 
   plan.push({ id: 'fallbacks', cmd: 'node', args: [path.join(__dirname, 'gsd-t-fallback-detect.cjs'), '--scan', '--project', projectDir, '--json'], timeoutMs: 120000 }); // M106: no unapproved continue-after-failure branch, FAIL-CLOSED (pre-existing ones excluded via .gsd-t/fallbacks-baseline.json)
 
+  plan.push({ id: 'graph-use', cmd: 'node', args: [path.join(__dirname, 'gsd-t-graph-use-gate.cjs'), '--project', projectDir, '--verify-mode'], timeoutMs: 30000 }); // M113: a consumer that logged graphWiringMode=WIRED must have issued >=1 graph query, FAIL-CLOSED (documented no-op PASS when no ledger exists yet). Catches what the STATIC anti-grep lint structurally cannot: a consumer that never queried at all.
+
   // secrets — gitleaks (PATH detection deferred to runtime)
   if (_hasOnPath('gitleaks')) {
     plan.push({

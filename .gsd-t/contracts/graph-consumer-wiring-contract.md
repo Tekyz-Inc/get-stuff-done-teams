@@ -88,10 +88,13 @@ The lint exempts d6 scan files per this clause. A d6 file that does an UNANNOUNC
 
 `/verify` and `/integrate` are exempt from the reader hard-stop rule.
 
-**Reason:** these two commands must remain ALWAYS RUNNABLE. Graph queries in verify/integrate (dead-code/dangling detection, who-imports/blast-radius for dependency checks) ENRICH their gates but must NOT become a single point of failure that bricks verify. On `graph-unavailable`, these two commands:
-- Record a WARNING: "graph unavailable — structural gate skipped, fix it (`gsd-t graph status`)"
-- Continue with all non-graph gates (type checks, tests, CI parity, etc.)
-- Do NOT hard-fail the whole run solely due to graph unavailability
+**Reason:** these two commands must remain ALWAYS RUNNABLE. Graph queries in verify/integrate (dead-code/dangling detection, who-imports/blast-radius for dependency checks) ENRICH their gates but must NOT become a single point of failure that bricks verify.
+
+**This exception covers the HARD-FAIL only — it never covered the BUILD** (`[RULE] graph-absent-builds-not-degrades`, 2026-08-14). On `graph-unavailable` these two commands:
+- **ABSENT → BUILD IT** (`gsd-t graph index`), then re-run the query. An absent index is not a reason to skip; it is a reason to build. This is §FAIL-LOUD line 64 applied here, not a new rule.
+- **BROKEN, or the build itself FAILED → record a WARNING** ("graph unavailable — structural gate skipped, fix it (`gsd-t graph status`)"), continue with all non-graph gates, and do NOT hard-fail the run solely due to graph unavailability.
+
+*Why this clause was tightened (2026-08-14):* integrate's code read `⚠ graph ABSENT (never indexed) — structural wiring-check skipped (announced carve-out)`. A fresh worktree carries no graph (it is gitignored), so the check silently did nothing on precisely the runs it was written for — and "announced carve-out" is what a fallback looks like once it has been given a respectable name. Announcing a skip does not stop it being a skip.
 
 This is the ONLY exception to the reader hard-stop rule. It applies to EXACTLY these two commands (`/verify` and `/integrate`). No other command may claim this exception.
 
@@ -129,6 +132,23 @@ It:
 4. Returns `{ok:true, violations:[]}` and exits 0 when the wired-file set is clean.
 
 The lint is callable by `gsd-t-verify-gate.cjs` and `gsd-t-build-coverage.cjs` as a FAIL-blocking check. It is exercised by `test/m94-d8-anti-grep-lint.test.js`.
+
+**What this lint structurally CANNOT see:** it is STATIC, and its only failure mode is a code shape — `try graph → catch → grep`. A consumer that never calls the graph AT ALL has no catch block and no fallback branch, so the lint reports clean. See §Use Gate.
+
+## §Use Gate — `[RULE] wired-claim-requires-query-evidence`
+
+`bin/gsd-t-graph-use-gate.cjs` is the RUNTIME complement to the static lint. It reads the append-only ledger at `.gsd-t/graphDB/logs/graph-events-*.jsonl` and fails any consumer that logged `graphWiringMode: WIRED` while issuing **zero** `kind:"query"` events.
+
+*Why it exists (2026-08-13, TimeTracking):* a `/scan` run logged `{"kind":"wiring","consumer":"scan","graphWiringMode":"WIRED"}` twice, the anti-grep lint passed, and all 55 analyst agents grepped anyway — every one of the 666 ledger events carried `consumer:"cli"`, not one came from an analyst. The reports say so in their own words ("a repo-wide grep shows no caller anywhere"). Nothing failed, because **there was no fallback branch to detect — the workers simply never asked.** A gate whose only failure mode is a code shape cannot catch a consumer that never tried. The same defect was then found in a second project (hilo-figma-atos) by running this gate against its ledger, confirming it is systemic rather than a one-off.
+
+Rules it enforces:
+1. `kind:"read"` (the Read-intercept hook) is **never** evidence — it fires on ordinary file reads and would mask the exact failure being detected. Only `kind:"query"` counts.
+2. An honest `fallback-announced` or `disabled` declaration is NOT a violation here; §FAIL-LOUD and the anti-grep lint govern whether that fallback is permitted.
+3. `consumer:"cli"` is exempt — the operator at a terminal makes no WIRED claim.
+4. WIRED matching is case-insensitive (a producer/consumer casing mismatch is a real prior outage in this repo).
+5. **Bad input halts.** A missing ledger THROWS (`LedgerUnavailable`, exit 64) when invoked directly. Under `--verify-mode` it is a *documented no-op PASS* carrying `noOpPass:true` + `reason:"no-graph-event-ledger"` in its JSON — distinguishable from a wired-and-clean pass, so a project that has never run a graph consumer is not failed for it, and a wired-but-broken run cannot hide inside the same verdict.
+
+Exit codes: `0` clean · `4` violations · `64` bad input. Wired into `gsd-t-verify-gate.cjs` as the FAIL-CLOSED `graph-use` check and propagated per-project via `PROJECT_BIN_TOOLS` (it reads each project's OWN ledger). Exercised by `test/m113-graph-use-gate.test.js`, whose leading test is the negative one.
 
 ## §Directive-Not-Dead-Prose (`[RULE] directive-binding-requires-machine-enforcement`)
 
