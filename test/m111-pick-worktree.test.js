@@ -115,17 +115,83 @@ test("M111: cleans a typed name into a valid branch", (t) => {
   assert.strictEqual(branch, "grain-api-tokens", "git must accept it as-is");
 });
 
-test("M111: refuses to reuse a directory that already exists", (t) => {
+// Naming a worktree you already made is the ordinary way back into yesterday's
+// work. It used to be refused, which left no way in except quitting the session
+// and starting one by hand.
+test("M111: naming an existing free worktree enters it", (t) => {
   const { home, repo } = makeProject();
   t.after(() => cleanup(home));
 
-  run(repo, { HOME: home }, ["--name", "taken"]);
+  const first = run(repo, { HOME: home }, ["--name", "taken"]).stdout.trim();
   const again = run(repo, { HOME: home }, ["--name", "taken"]);
 
-  assert.notStrictEqual(again.status, 0);
-  assert.strictEqual(again.stdout.trim(), "",
-    "printing the path would drop this session on top of the other's work");
-  assert.match(again.stderr, /already exists/);
+  assert.strictEqual(again.status, 0);
+  assert.strictEqual(again.stdout.trim(), first,
+    "the second run must land in the same worktree, not refuse it");
+});
+
+// The one thing the old refusal genuinely protected: a directory git does not
+// know as this branch's worktree. Entering it would sit on whatever is there.
+test("M111: refuses a directory git does not know as this branch's worktree", (t) => {
+  const { home, repo } = makeProject();
+  t.after(() => cleanup(home));
+
+  // A plain directory in the worktree home — not registered with git at all.
+  const stray = path.join(home, "Worktrees", "proj", "stray");
+  fs.mkdirSync(stray, { recursive: true });
+  fs.writeFileSync(path.join(stray, "someones-work.txt"), "do not clobber");
+
+  const r = run(repo, { HOME: home }, ["--name", "stray"]);
+
+  assert.notStrictEqual(r.status, 0);
+  assert.strictEqual(r.stdout.trim(), "",
+    "printing the path would drop this session on top of whatever is there");
+  assert.match(r.stderr, /does not know it as this repo's worktree/);
+});
+
+// A worktree registered to a DIFFERENT branch at the asked-for path is the same
+// hazard: the name matches, the work inside does not.
+test("M111: refuses an existing worktree sitting on another branch", (t) => {
+  const { home, repo } = makeProject();
+  t.after(() => cleanup(home));
+
+  const wt = run(repo, { HOME: home }, ["--name", "first-branch"]).stdout.trim();
+  // Move it onto a different branch, leaving the directory name unchanged.
+  spawnSync("git", ["checkout", "-q", "-b", "something-else"], { cwd: wt, stdio: "pipe" });
+
+  const r = run(repo, { HOME: home }, ["--name", "first-branch"]);
+
+  assert.notStrictEqual(r.status, 0);
+  assert.strictEqual(r.stdout.trim(), "");
+  assert.match(r.stderr, /does not know it as this repo's worktree/);
+});
+
+test("M111: --list reports this project's worktrees and whether each is free", (t) => {
+  const { home, repo } = makeProject();
+  t.after(() => cleanup(home));
+
+  const a = run(repo, { HOME: home }, ["--name", "alpha"]).stdout.trim();
+  const b = run(repo, { HOME: home }, ["--name", "beta"]).stdout.trim();
+
+  const { stdout, status } = run(repo, { HOME: home }, ["--list"]);
+  assert.strictEqual(status, 0);
+
+  const lines = stdout.trim().split("\n").filter(Boolean);
+  assert.strictEqual(lines.length, 2);
+  for (const line of lines) {
+    assert.match(line, /^(free|busy)\t\//, "each line is a label and a path");
+  }
+  const paths = lines.map((l) => l.split("\t")[1]);
+  assert.deepStrictEqual(paths.sort(), [a, b].sort());
+});
+
+test("M111: --list on a project with no worktrees prints nothing", (t) => {
+  const { home, repo } = makeProject();
+  t.after(() => cleanup(home));
+
+  const { stdout, status } = run(repo, { HOME: home }, ["--list"]);
+  assert.strictEqual(status, 0);
+  assert.strictEqual(stdout.trim(), "");
 });
 
 test("M111: silent inside a worktree — already isolated", (t) => {

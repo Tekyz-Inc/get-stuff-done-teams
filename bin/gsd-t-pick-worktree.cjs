@@ -12,12 +12,23 @@
  *     d=$(gsd-t-pick-worktree) && [ -n "$d" ] && cd "$d"
  *     claude
  *
- * Three modes:
+ * Four modes:
  *
  *     (no flags)        pick a worktree, creating one if none is free
  *     --suggest         say what WOULD happen, create nothing. Prints
  *                       "reuse:<path>", "create", or nothing at all.
- *     --name <name>     create a worktree on a branch called <name>
+ *     --name <name>     go to the worktree on a branch called <name>, creating
+ *                       it if it isn't there yet
+ *     --list            list this project's worktrees, one per line, as
+ *                       "<free|busy>\t<path>". Creates nothing.
+ *
+ * --name naming a worktree that already exists ENTERS it. Refusing that was the
+ * old behaviour and it refused the ordinary case — your own worktree, from
+ * yesterday, with nobody in it — leaving no way back in except quitting and
+ * starting a session by hand, which is the thing this script exists to spare
+ * you. What the refusal genuinely protected is narrower: another live session
+ * sitting in that folder, or a directory git does not know as this branch's
+ * worktree. Both still stop.
  *
  * --suggest exists so the shell can ask for a name BEFORE anything is created.
  * A branch named at session start, before the work is known, can only be a
@@ -64,6 +75,7 @@ function fail(message) {    // could not decide — say why, change nothing
 function main() {
   const argv = process.argv.slice(2);
   const suggest = argv.includes("--suggest");
+  const wantsList = argv.includes("--list");
   const nameAt = argv.indexOf("--name");
   const wanted = nameAt >= 0 ? argv[nameAt + 1] : null;
 
@@ -77,6 +89,17 @@ function main() {
   if (isSwitchedOff(cwd)) stay();
 
   const home = path.join(process.env.HOME, "Worktrees", path.basename(cwd));
+
+  // Report what is there so the prompt can show it before a name is typed.
+  // Nothing here is a path for the shell to cd into, so each line is labelled;
+  // the caller reads this one deliberately rather than as a bare directory.
+  if (wantsList) {
+    const busy = interactiveClaudeDirs();
+    for (const w of worktreesNewestFirst(home)) {
+      process.stdout.write(`${busy.has(w.path) ? "busy" : "free"}\t${w.path}\n`);
+    }
+    return;
+  }
 
   if (wanted) {
     // Asking for the repo's own default branch means "work here, in the main
@@ -94,7 +117,7 @@ function main() {
       );
       stay();
     }
-    process.stdout.write(create(cwd, home, branchNameFrom(wanted)).path + "\n");
+    process.stdout.write(enterOrCreate(cwd, home, branchNameFrom(wanted)).path + "\n");
     return;
   }
 
@@ -202,16 +225,30 @@ function worktreesNewestFirst(home) {
 // timestamp, and a timestamp describes nothing — which is how this repo
 // collected twenty `session-2026-08-08T23-10-16` branches. Callers with no name
 // get "create" from --suggest and must come back with --name.
-function create(repo, home, branch) {
+function enterOrCreate(repo, home, branch) {
   if (!branch) {
     fail("A worktree needs a branch name — run with --name <name>.");
   }
   const dest = path.join(home, branch);
 
-  // Reusing a directory that already holds a different branch's work would put
-  // this session on top of it. Say so instead.
+  // Already there: go in, provided it is genuinely this branch's worktree and
+  // nobody is working in it. Both conditions are checked before entering, since
+  // each is a way of landing on top of somebody's uncommitted work.
   if (fs.existsSync(dest)) {
-    fail(`${dest} already exists. Pick a different name, or start there directly.`);
+    if (!isWorktreeOf(repo, dest, branch)) {
+      fail(
+        `${dest} exists but git does not know it as this repo's worktree for ` +
+        `"${branch}". Working there would sit on top of whatever is in it — ` +
+        `move it aside, or pick a different name.`
+      );
+    }
+    if (interactiveClaudeDirs().has(dest)) {
+      fail(
+        `Another session is working in ${dest} right now. Two sessions in one ` +
+        `folder interleave each other's uncommitted work — pick a different name.`
+      );
+    }
+    return { path: dest };
   }
 
   fs.mkdirSync(home, { recursive: true });
@@ -233,6 +270,60 @@ function create(repo, home, branch) {
   provisionNewWorktree(repo, dest);
 
   return { path: dest };
+}
+
+/**
+ * Does THIS repo know `dest` as its worktree for `branch`?
+ *
+ * Asked of the main repo rather than of the directory: a folder can be a
+ * perfectly valid git checkout of something else entirely, and it would answer
+ * "yes, I am a worktree on that branch" while belonging to another project.
+ * The repo's own register is the only place that settles ownership.
+ *
+ * A git that cannot answer is a stop, not a "probably fine" — the unanswered
+ * question is precisely whether somebody's work is already there.
+ */
+function isWorktreeOf(repo, dest, branch) {
+  const r = spawnSync("git", ["worktree", "list", "--porcelain"], {
+    cwd: repo, encoding: "utf8", timeout: 10000,
+  });
+  if (r.status !== 0) {
+    fail(
+      `Cannot read this repo's worktree list ` +
+      `(${String(r.stderr).trim() || "git failed"}), so it can't be confirmed ` +
+      `that ${dest} is yours to work in.`
+    );
+  }
+
+  // Entries are blank-line separated; the lines that matter are "worktree
+  // <path>" and "branch refs/heads/<name>".
+  const target = realPath(dest);
+  for (const block of String(r.stdout).split(/\n\s*\n/)) {
+    const at = block.match(/^worktree (.+)$/m);
+    if (!at) continue;
+    if (realPath(at[1].trim()) !== target) continue;
+    const on = block.match(/^branch refs\/heads\/(.+)$/m);
+    return Boolean(on) && on[1].trim() === branch;
+  }
+  return false;
+}
+
+/**
+ * The path with every symlink followed, so two spellings of one directory
+ * compare equal. git reports resolved paths; ours are as typed, and on macOS
+ * /var is a symlink to /private/var — so the same folder arrives under two
+ * names and a plain string compare calls them different places.
+ *
+ * A path that cannot be resolved stops the run. The comparison it feeds decides
+ * whether a directory is safe to work in, and an unresolvable path leaves that
+ * unanswered rather than answered "no".
+ */
+function realPath(p) {
+  try {
+    return fs.realpathSync(p);
+  } catch (e) {
+    fail(`Cannot resolve ${p} (${e.message}), so it can't be told apart from another directory.`);
+  }
 }
 
 /**
