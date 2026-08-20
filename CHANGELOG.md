@@ -2,6 +2,46 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.12.10] - 2026-08-19
+
+### Added — naming an existing worktree walks you into it
+
+Naming a worktree that already existed used to be refused outright. That
+refused the ordinary case — your own worktree, from yesterday, with nobody in
+it — and left no way back except quitting the session and starting one by
+hand, which is the exact chore the picker exists to spare you.
+
+`--name` now ENTERS a worktree when git confirms it as this repo's, on that
+branch, with no interactive session in it. Two cases still STOP, because each
+is a way of landing on somebody's uncommitted work: a directory git does not
+know as that branch's worktree (a stray folder, or another branch's), and one
+an interactive session already occupies (the M105 collision). The occupancy
+check already existed on the reuse path and was simply never asked on the
+naming path — no new mechanism was added.
+
+A path bug surfaced while testing and is fixed: git reports symlink-resolved
+paths while ours were used as typed, so on macOS `/var` vs `/private/var` made
+one folder compare as two. Any repo under a symlinked path would have been
+wrongly refused. An unresolvable path now HALTS rather than answering "not a
+match".
+
+- `bin/gsd-t-pick-worktree.cjs`: `create()` becomes `enterOrCreate()`; new
+  `isWorktreeOf()` asks the repo's own worktree register (not the directory,
+  which a foreign checkout would answer for); new `realPath()` compares
+  symlink-resolved paths and halts when one cannot be resolved; new `--list`
+  prints `free|busy<TAB><path>` per worktree.
+- `bin/gsd-t.js`: flags pass through unchanged; comment notes `--list`.
+- `templates/CLAUDE-global.md`: states the enter-vs-stop rule.
+- `.gsd-t/pseudocode/PseudoCode-EnterExistingWorktree.md`: source-of-truth
+  behaviour map, style gate clean.
+- `test/m111-pick-worktree.test.js`: the old "refuses a directory that already
+  exists" test narrows to the two cases that still refuse; adds coverage for
+  entering a free worktree, a stray directory, a worktree on another branch,
+  and both `--list` shapes.
+
+The launcher (`cc()` in `~/.zshrc`) shows the worktree list above the name
+prompt, so an existing one is picked by sight rather than recalled.
+
 ## [5.11.32] - 2026-08-14
 
 ### Fixed — a missing graph is now BUILT, and a "wired" claim has to prove itself
