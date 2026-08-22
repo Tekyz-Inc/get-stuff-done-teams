@@ -2,6 +2,34 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.12.11] - 2026-08-22
+
+### Fixed — the architect could finish its work and leave nothing, silently
+
+Five consecutive architect runs looked like an idle session. The event log
+showed the opposite of a crash: the architect subagents spawned, worked for
+minutes, and logged `subagent_complete` every time — yet no artifact was
+written, and the session then sat silent.
+
+Nothing in the command ever asked whether the subagent had answered. Step 4
+spawned it and Step 6 assumed output existed, so a subagent that returned only
+chat text — or nothing at all — produced a silent session with no error. That
+is the shape the No-Fallback-Ever doctrine exists to forbid: a failure that
+continues instead of stopping loudly.
+
+- `commands/gsd-t-architect.md`: new step 4a halts on an empty or partial
+  return, naming what is missing, and explicitly bars substituting a
+  self-authored summary (that is not the fresh-context assessment the user
+  asked for). Step 6 now requires the artifact write to be PROVEN on disk
+  before presenting, halting with the missing path if it is not there.
+- `.gsd-t/pseudocode/PseudoCode-SharedLocalConfig.md`: behaviour map for one
+  shared local settings file per project, linked into every worktree; gloss
+  placement fixed to satisfy the style gate.
+
+The root cause of the empty return is not yet known — it lives in the session
+transcript. These halts make the next occurrence report itself instead of
+going quiet.
+
 ## [5.12.10] - 2026-08-19
 
 ### Added — naming an existing worktree walks you into it
