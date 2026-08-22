@@ -261,6 +261,26 @@ Graph note: if a code graph exists (`.gsd-t/graphDB/graph.db` — resolve via
 reuse/caller queries (Stage 3 + Stage 5 duplication check). If absent, it greps/reads and says so
 LOUDLY (reuse-detection is reduced — never a silent "nothing found").
 
+### 4a — The subagent came back: CHECK IT, never assume
+
+**A run that produces nothing must SAY SO. Ending the turn silently is the failure this step
+exists to stop** — five consecutive architect runs once returned nothing, each looking like an
+idle session, because no step ever asked whether the subagent had answered.
+
+The moment the subagent returns, before any other work:
+
+1. **Did it return anything at all?** An empty return, a return that is only a status line, or no
+   return (the subagent died on an API error) → **HALT**. Say plainly: the architect subagent
+   produced no assessment, name the target, and stop. Do NOT retry silently, do NOT write a
+   summary from your own reading of the code — a summary you wrote yourself is not the
+   fresh-context assessment the user asked for, and presenting it as one is worse than the
+   silence.
+2. **Does it contain the required parts?** The Six-Stage answers and a `Simply Stated` lead. A
+   return that skips stages is a partial result → say which stages are missing, then HALT.
+
+**Never end the turn without either an assessment or a stated reason there is none.** Silence is
+indistinguishable from a hang, and the user cannot tell whether to wait or re-run.
+
 ---
 
 ## Step 5: The subagent runs the Six-Stage Pass (with EVIDENCE, never conviction)
@@ -365,6 +385,12 @@ Worked reference: `.gsd-t/pseudocode/PseudoCode-BrokenGraphHalts.md`. Unless `--
 the artifact to `.gsd-t/pseudocode/PseudoCode-<Target>.md`, then **self-check it** with
 `gsd-t pseudocode-style --doc <the file>` — a non-zero exit means the style is wrong; fix it
 before presenting. (The same gate is FAIL-blocking in verify.)
+
+**Writing it is not optional, and the write must be PROVEN, not assumed.** Unless `--chat-only`,
+confirm the file is on disk (`ls -la` it) before presenting anything. **A file that is not there
+is a HALT** — say the assessment was produced but the artifact never landed, and name the path
+that is missing. An assessment that exists only as chat text is lost the moment the session is
+cleared, which is exactly how a run that did all its work still leaves nothing behind.
 
 **B — Session summary** (always printed, even under `--build`):
 - **Simply Stated** (REQUIRED FIRST LINE — the clarity gate) — the verdict + the single most
