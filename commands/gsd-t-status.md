@@ -6,6 +6,13 @@ You are checking the current state of the project across all domains.
 
 To keep the main conversation context lean, run status via a Task subagent.
 
+> **Blocking, never named.** Spawn via the `Agent` tool and WAIT for its return in this
+> turn. Do NOT pass a `name` — a named agent runs in the background, its result arrives as a
+> notification instead of this call's return value, and the parent is left with nothing. If you
+> end up calling `ListAgents`/`SendMessage` to find the result, it was launched wrong: say so
+> and re-launch blocking. (Confirmed failure: gsd-t-architect, twice.)
+
+
 **If you are the orchestrating agent** (you received the slash command directly):
 Spawn a fresh subagent using the Task tool:
 ```

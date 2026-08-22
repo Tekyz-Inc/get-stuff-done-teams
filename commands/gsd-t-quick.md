@@ -38,6 +38,13 @@ node scripts/gsd-t-watch-state.js advance --agent-id "$GSD_T_AGENT_ID" --parent-
 
 To give this task a fresh context window and prevent compaction during consecutive quick runs, always execute via a Task subagent.
 
+> **Blocking, never named.** Spawn via the `Agent` tool and WAIT for its return in this
+> turn. Do NOT pass a `name` — a named agent runs in the background, its result arrives as a
+> notification instead of this call's return value, and the parent is left with nothing. If you
+> end up calling `ListAgents`/`SendMessage` to find the result, it was launched wrong: say so
+> and re-launch blocking. (Confirmed failure: gsd-t-architect, twice.)
+
+
 **If you are the orchestrating agent** (you received the slash command directly):
 
 **Context observation (before spawning subagent):**

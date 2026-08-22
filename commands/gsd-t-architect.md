@@ -232,10 +232,22 @@ confident you can direct a build that will not need rework.
 
 ---
 
-## Step 4: Launch the architect via a Task subagent
+## Step 4: Launch the architect as ONE blocking subagent
 
-Give the assessment a fresh context window. Spawn ONE Task subagent (`model: opus`) — this is
-high-stakes design judgment, top tier.
+Give the assessment a fresh context window. Spawn ONE subagent via the `Agent` tool
+(`model: "opus"` — high-stakes design judgment, top tier) and **wait for its return in this same
+turn.**
+
+**Do NOT pass a `name`.** A named agent runs in the BACKGROUND: its report arrives later as a
+notification rather than as this call's return value, and the parent is left holding nothing.
+That is a confirmed failure, observed twice — the architect ran for three minutes, logged a clean
+completion, and the parent answered by calling `ListAgents` (which returns a roster of running
+agents, never the assessment). The work was finished and unreachable.
+
+- **Correct:** `Agent({ subagent_type: "general-purpose", model: "opus", prompt: <the brief> })` —
+  blocks, and its return value IS the assessment.
+- **Wrong:** any call passing `name`, or any use of `SendMessage`/`ListAgents` to go fetch the
+  result afterwards. If you are hunting for the result, it was launched wrong.
 
 **Pass it the CONFIRMED GROUNDING from Steps 0-3, not just the raw target.** This is what the
 interview was for; a subagent that has to re-derive it will make the same mistakes again. Include:
@@ -269,12 +281,17 @@ idle session, because no step ever asked whether the subagent had answered.
 
 The moment the subagent returns, before any other work:
 
-1. **Did it return anything at all?** An empty return, a return that is only a status line, or no
-   return (the subagent died on an API error) → **HALT**. Say plainly: the architect subagent
-   produced no assessment, name the target, and stop. Do NOT retry silently, do NOT write a
-   summary from your own reading of the code — a summary you wrote yourself is not the
-   fresh-context assessment the user asked for, and presenting it as one is worse than the
-   silence.
+1. **Did it return anything at all?** An empty return, a return that is only a status line or an
+   agent-availability ping, or no return (the subagent died, or was launched as a background
+   agent) → **HALT**. Say plainly: the architect subagent produced no assessment, name the target,
+   and stop. Do NOT retry silently, do NOT write a summary from your own reading of the code — a
+   summary you wrote yourself is not the fresh-context assessment the user asked for, and
+   presenting it as one is worse than the silence.
+
+   **If you find yourself reaching for `ListAgents` or `SendMessage` to locate the result, STOP.**
+   That means Step 4 was launched wrong (a `name` was passed, making it a background agent).
+   Say so and re-launch it as a blocking call — do not go hunting, and do not carry on as though
+   an assessment had arrived.
 2. **Does it contain the required parts?** The Six-Stage answers and a `Simply Stated` lead. A
    return that skips stages is a partial result → say which stages are missing, then HALT.
 
