@@ -311,6 +311,8 @@ function _detectDefaultTrack2(projectDir, notes) {
 
   plan.push({ id: 'schema-id', cmd: 'node', args: [path.join(__dirname, 'gsd-t-schema-id-check.cjs'), '--project', projectDir], timeoutMs: 30000 }); // integer-identity PK on every NEW relational table, FAIL-CLOSED (no-op PASS when no new schema files)
 
+  plan.push({ id: 'boundary-normalize', cmd: 'node', args: [path.join(__dirname, 'gsd-t-boundary-normalize-check.cjs'), '--project', projectDir], timeoutMs: 60000 }); // M114: a value entering from a form/URL/request is trimmed (and case-normalised when it names a business value) WHERE IT ENTERS, FAIL-CLOSED on touched files only. Checks the entry point rather than the comparison: measured on a real project, a comparison lint yields ~190 false alarms and gets switched off, while the entry point is where "did this value cross a boundary?" is actually knowable — and it also covers STORED values, which no comparison rule reaches.
+
   plan.push({ id: 'fallbacks', cmd: 'node', args: [path.join(__dirname, 'gsd-t-fallback-detect.cjs'), '--scan', '--project', projectDir, '--json'], timeoutMs: 120000 }); // M106: no unapproved continue-after-failure branch, FAIL-CLOSED (pre-existing ones excluded via .gsd-t/fallbacks-baseline.json)
 
   plan.push({ id: 'graph-use', cmd: 'node', args: [path.join(__dirname, 'gsd-t-graph-use-gate.cjs'), '--project', projectDir, '--verify-mode'], timeoutMs: 30000 }); // M113: a consumer that logged graphWiringMode=WIRED must have issued >=1 graph query, FAIL-CLOSED (documented no-op PASS when no ledger exists yet). Catches what the STATIC anti-grep lint structurally cannot: a consumer that never queried at all.

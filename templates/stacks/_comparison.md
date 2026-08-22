@@ -4,6 +4,44 @@ These rules are MANDATORY. Violations fail the task. No exceptions.
 
 ---
 
+## 0. Clean The Value Where It Enters (trim first, then case)
+
+**Every value arriving from outside the program is trimmed at the point it enters — and
+case-normalised there too when it names something in the business.** Not at the comparison, and
+not at the save. At the doorway.
+
+A trailing space survives everything. It reaches the comparison (which answers "no match"), and
+it reaches the database (where it outlives the code fix, breaking every later comparison
+including correct ones). Cleaning at the entry point covers both, and there are a handful of
+entry points against hundreds of uses.
+
+```ts
+// GOOD — cleaned once, where it arrives
+const email  = (req.body.email  ?? '').trim().toLowerCase();
+const status = (req.query.status ?? '').trim().toLowerCase();
+const note   = (req.body.note   ?? '').trim();          // free text: trimming is fine,
+                                                        // never lowercased
+
+// BAD — a real defect, found by the boundary check in a live project:
+const email = req.body.email?.trim();   // trimmed, never lowercased.
+// David@x.com and david@x.com become two different accounts.
+```
+
+**Trim always — no exceptions by kind, passwords included.** A leading or trailing space is never
+something a person meant to type; it is paste damage. Storing a password untrimmed locks them out
+when they later type it normally. The ONLY values that keep their spaces are free text a person
+wrote on purpose: a note, a description, a message body.
+
+**Lowercase only business values** — never a password, token, signature, hash, encoded value, file
+path, URL, object key, or environment-variable name (see §2). Case-sensitive means *do not change
+the casing*; it never means *do not trim*.
+
+**Enforced mechanically** by `gsd-t boundary-normalize` in the verify gate: FAIL-CLOSED on files
+a run touched. A value that genuinely must stay raw says so at the entry point itself —
+`// gsd-t-allow-raw: <reason>` — never in a separate list of exceptions somewhere else.
+
+---
+
 ## 1. Domain String Comparisons Are Case-Insensitive by Default
 
 **Comparing a domain string VALUE against a literal is case-insensitive unless the user has

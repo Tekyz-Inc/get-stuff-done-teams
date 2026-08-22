@@ -1786,6 +1786,7 @@ const GLOBAL_BIN_TOOLS = [
   // this by absolute path, so it MUST ship wherever the verify gate ships or the
   // schema-id check throws ENOENT. Same class as the M99 store-resolver omission below.
   "gsd-t-schema-id-check.cjs",
+  "gsd-t-boundary-normalize-check.cjs",
   // M112 — measures a slice plan in LINES and splits what is too big. Called by
   // the scan workflow before any reviewing starts.
   "gsd-t-slice-budget.cjs",
@@ -3468,6 +3469,7 @@ const PROJECT_BIN_TOOLS = [
   // it via an absolute path in the Track 2 plan, so a project that has the verify gate
   // but NOT this file gets an ENOENT on every verify. Ships alongside the gate itself.
   "gsd-t-schema-id-check.cjs",
+  "gsd-t-boundary-normalize-check.cjs",
   // M112 — measures a slice plan in LINES and splits what is too big. Called by
   // the scan workflow before any reviewing starts.
   "gsd-t-slice-budget.cjs",
