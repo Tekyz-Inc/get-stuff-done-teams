@@ -2,6 +2,68 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.13.10] - 2026-08-22
+
+### Added — trim and case are enforced at the boundary, FAIL-CLOSED
+
+Case and trim bugs kept arriving across projects, surfacing only as unexpected
+bugs days later: a status compared against a literal that never matched, an
+email stored with a trailing space, a value saved untrimmed that then broke
+every later comparison including the correct ones. The written standard could
+not stop any of it, because nothing checked it.
+
+**Measured before designing.** A check on COMPARISONS is unusable: one real
+project holds 1,275 literal string comparisons, 193 shaped like business
+values, and nearly all of those are legitimate — internal message tags, a build
+mode, a value the code itself wrote a line earlier. That is roughly 190 false
+alarms per project, and a check that noisy gets switched off while still
+looking enforced.
+
+So the check sits at the ENTRY POINT instead — where a value arrives from a
+form, a URL, or a request. That is where "did this value cross a boundary?" is
+actually knowable, there are a handful of them against hundreds of uses, and it
+covers STORED values too, which no comparison rule ever reaches.
+
+- `bin/gsd-t-boundary-normalize-check.cjs`: `--full` is a one-time
+  whole-project inventory that reports without blocking, so a project can adopt
+  the rule the day it lands; the default mode inspects only files a run touched
+  and FAILS on an unclean entry point. No baseline file — a stored list of
+  accepted violations is one that can be quietly extended. An exemption is
+  written at the entry point itself (`// gsd-t-allow-raw: <reason>`).
+- `bin/gsd-t-verify-gate.cjs`: wired as `boundary-normalize`.
+- `bin/gsd-t.js`: registered in both propagation lists.
+- `templates/stacks/_comparison.md`: the rule, with a live defect as its
+  example.
+- `test/m114-boundary-normalize.test.js`: 18 tests, including the negative
+  cases that prove the check can actually fail.
+
+**Trimming is universal — passwords included.** A leading or trailing space is
+never something a person meant to type; storing a password untrimmed locks them
+out when they later type it normally. Only free text a person wrote on purpose
+(a note, a description, a message body) keeps its spaces. Case-sensitive means
+*do not change the casing*; it never means *do not trim*.
+
+Live findings, all genuine: binvoice 9, TimeTracking 29, UMI-Automation 28 —
+including a signup route that trims an email and never lowercases it, so two
+spellings of one address become two accounts.
+
+### Fixed — the architect spawned a background agent and lost its own report
+
+Five consecutive architect runs looked like an idle session. Watched live: the
+subagent worked for three minutes, logged a clean completion, and six seconds
+later the parent called `ListAgents` — hunting for a result that never arrived.
+
+One stale line caused it. Step 4 said "spawn ONE Task subagent", terminology
+from a tool that no longer exists. The current `Agent` tool accepts a `name`,
+and a named agent runs in the BACKGROUND: its report arrives as a notification
+rather than as the call's return value, leaving the parent with nothing.
+
+- `commands/gsd-t-architect.md`: Step 4 specifies the blocking form and bans
+  passing a `name`; Step 4a treats an availability ping as an empty return and
+  bans reaching for `ListAgents`/`SendMessage` to find a result.
+- `commands/gsd-t-health.md`, `-quick.md`, `-status.md`: the same guard where
+  they spawn.
+
 ## [5.12.11] - 2026-08-22
 
 ### Fixed — the architect could finish its work and leave nothing, silently
