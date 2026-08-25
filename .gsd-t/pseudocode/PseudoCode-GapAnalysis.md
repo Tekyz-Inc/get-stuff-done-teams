@@ -4,10 +4,36 @@ Take a document describing what a system should do, decide for each item whether
 
 ```text
 Someone asks what is missing between the promise and the product
-  Collect the sources naming what the system should do
-    A tracker project, its attached documents, a specification
-    The person says to ignore a source:
-      Leave it out, and say which sources were used
+  Gather everything the tracker project holds — the requirements are not
+  written down yet, they are being worked out from this
+    The files attached to the project, not just its description
+      # The description is often empty and the real documents are attachments.
+      # One attached statement of work carried the whole specification.
+    Every task, and every task beneath a task
+      # The top-level ones are summaries. The detail, and the pointers to real
+      # files, sit one level down.
+    Every comment left on a task
+    A specification file in the code, when the person names one
+    Nothing at all can be reached — no permission, a refused download:
+      STOP — name the source that could not be read
+    The project looks empty:
+      Check the attachments before believing it
+  The person says to ignore a source:
+    Leave it out, and say which sources were used
+  Whatever the tracker says about a thing being finished:
+    Treat it as a claim to be checked later, never as the answer
+    # Half the finished-looking items were not finished, and some marked
+    # unfinished had already shipped.
+
+Make sure the map of the code can be trusted, before trusting it
+  Is there a map:
+    No:  Build one
+    Yes: Is it current: No: Rebuild the parts that moved
+  Does the map look wrong — pointing at things that are not there:
+    Yes: Repair it, then re-check anything already judged using it
+  It cannot be built at all:
+    STOP — say so. Never answer a question about how code connects by
+    searching for words in it.
   Sort every item into two piles:
     Building it would add or change code, or something stored:
       Keep it

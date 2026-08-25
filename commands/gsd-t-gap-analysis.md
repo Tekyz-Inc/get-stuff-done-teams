@@ -7,13 +7,13 @@ You are performing a gap analysis between a provided specification and the exist
 | Invocation | Mode | Output |
 |---|---|---|
 | `/gsd-t-gap-analysis <spec>` | **Report** (default) | `.gsd-t/gap-analysis.md` — Steps 0.5-9 below, unchanged |
-| `/gsd-t-gap-analysis <spec> --sheet <url>` | **Client deliverable** | The estimating sheet's columns A-D and M-P, red-teamed — Steps 4a-6c |
+| `/gsd-t-gap-analysis <spec> --sheet <url>` | **Client deliverable** | The estimating sheet's columns A-D and M-P, red-teamed — Steps 3a-6c |
 
 **Report mode is the default and is unchanged.** Every existing caller — `/gsd-t-scan`'s next-step offer, `gsd-t-phase.workflow.js` routing — invokes it without `--sheet` and behaves exactly as before.
 
 **Client-deliverable mode** is the procedure proven on the HILO AI Scheduling sheet: 141 raw requirements reduced to 33 feature rows carrying 595 checkable claims, judged against the code, then attacked by a red team that found a 70% defect rate in a column a friendly sample had already approved. It writes only the *what and whether* columns; `/gsd-t-estimate` sizes and prices them afterward. Behaviour map: `.gsd-t/pseudocode/PseudoCode-GapAnalysis.md`.
 
-In client-deliverable mode, run Steps 0.5-3 as written (they load context and parse the spec), then branch to Step 4a instead of Step 4.
+In client-deliverable mode, run Step 0.5 and Step 1, then branch to **Step 3a (Harvest)** — do NOT run Step 2 (Parse Requirements). Step 2 assumes a finished specification was handed to you; in this mode **there usually is no such document**, and expecting one is how a run stalls asking for a spec that was never going to exist.
 
 ## Step 0.5: Scan Freshness Auto-Refresh
 
@@ -196,9 +196,39 @@ If agent teams are not available or there are fewer than 3 requirements, run seq
 
 ---
 
-# Client-deliverable mode (Steps 4a-6c) — only when `--sheet <url>` was given
+# Client-deliverable mode (Steps 3a-6c) — only when `--sheet <url>` was given
 
 Report mode skips this whole block and continues at Step 6.
+
+## Step 3a: HARVEST the sources — the requirements do not exist yet, you are deriving them
+
+**Do not ask the user for a requirements document. In this mode there usually isn't one.** The job is to harvest everything a tracker project holds and synthesize requirements from it. A run that stops to request a spec has misread the task — this exact stall happened on the FRC Predictive run.
+
+Harvest, in this order, and report a count for each:
+
+1. **The project's attachments** — NOT its description. On the proven run the description was empty and all three requirement documents were attached files. Pull `attachments?parent=<project_gid>`, then each attachment's `download_url`, and read them. A Statement of Work PDF was the single richest source: **1,431 lines, whose Exhibit B (~1,000 lines) was the real specification.**
+2. **Every task** — name, notes, and status.
+3. **Every subtask.** Parent tasks are usually coarse rollups; the real detail and the file citations live one level down. The proven run pulled **192 subtasks** because *"the rollups are too coarse."* One rollup alone carried 46 findings.
+4. **Task comments.** One Bugs section — a ticket plus three pull-request comments — drove several rows by itself.
+5. **Any spec documents in the repo**, if the user named one.
+
+**An empty section list or a zero-task view is not an empty project.** Check attachments before concluding anything is missing.
+
+**If a genuinely required source cannot be reached** — no credentials, a 403, an attachment that will not download — say exactly which one and stop. That is a blocked run. "The project has no tasks" is not, until attachments have been checked too.
+
+**Tracker status is unreliable — never carry it through as truth.** On the proven run *"3 of the 6 tasks still show open, but their comments say implemented in PR #4386 with named commits."* Every status is re-decided against the code in Step 5a; a tracker status only ever becomes a flag that the tracker disagrees with reality.
+
+## Step 3b: REPAIR the graph before you rely on it
+
+The judgment in Step 5a is only as good as the index it queries.
+
+1. `gsd-t graph status`.
+2. **Missing → build it**: `gsd-t graph index` (allow up to 900s on a large repo). An absent index is repairable, never a reason to stop.
+3. **Stale → re-index** the touched set.
+4. **Broken → repair, then re-verify anything already judged against it.** The proven run found its own index producing *"unresolved call edges"* and had to re-check the Partial/Implemented calls that hinge on whether code is actually wired in.
+5. **Cannot build it → HALT.** Do not answer structural questions by grep; grep matches text, and the question is about relationships.
+
+Report which of these happened. A silent "the graph was fine" claim is not acceptable — say whether it was built, re-indexed, repaired, or already current.
 
 ## Step 4a: Strip everything that isn't buildable — HUMAN-CONFIRMED
 
@@ -252,7 +282,11 @@ Write the verdict to **column M**, and to **column N** what works today versus w
 ## Step 5b: References and impacting debt
 
 - **Column O** — where each claim came from: `Requirements doc (6 reqs) · Asana task · PR #4386`. Short clickable names, each token its own link. Never a wall of file paths.
-- **Column P** — open Extreme/Critical findings from `.gsd-t/techdebt.md` that would hit this feature. **Judge by the code each finding cites, not by keyword match.**
+- **Column P** — open Extreme/Critical findings that would hit this feature. **Judge by the code each finding cites, not by keyword match.**
+
+**Where the findings come from, and why the tracker alone is not enough:** pull the hardening project's open items at **subtask level** — the parent tasks are rollups. Then **match each subtask back to `.gsd-t/techdebt.md`** for its real file citations. On the proven run the tracker notes were too thin to judge from, and 152 of 154 subtasks had to be resolved against the local register to get the file paths that make the mapping decidable. Of 154 open subtasks, 28 genuinely touched the feature set.
+
+A feature with no findings is a real answer, not a miss — usually an unbuilt feature with no shipped code for a defect to land on. Say so rather than leaving the cell ambiguous.
 
 ## Step 6a: RED TEAM the sheet — NOT a review
 
@@ -275,6 +309,8 @@ Verdict per checker: `FAIL` (defects listed) or `GRUDGING-PASS` (searched, found
 | P — debt mappings | 104 | **Batch of 20** | Each needs the finding read AND the feature's code read. |
 
 **Widening rule:** if **3 or more** of a batch of 20 are wrong, that column goes to every-claim. The batch proved the column is unreliable; sampling further only hides the rest.
+
+**A red-team finding can overturn the analysis, not just its wording.** On the proven run a checker reversed a substantive verdict: *"My reconciliation claimed aircraft ranking didn't exist. The code does build a real ordered list."* When a checker contradicts a status call, the checker's evidence wins unless you can cite code that refutes it — the checker read the code fresh, the original judgment did not.
 
 **One checker does nothing but hunt cross-column contradictions** — a row whose column C asserts a capability in present tense while column M lists that same capability as the row's defining gap. No single-column checker can see this; it is the defect class that reached the client sheet in the proven run.
 
