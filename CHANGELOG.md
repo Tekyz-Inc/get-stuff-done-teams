@@ -2,6 +2,43 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.14.11] - 2026-08-25
+
+### Fixed — gap analysis harvests the tracker instead of asking for a spec
+
+The client-deliverable mode shipped in 5.14.10 stalled a live run: it asked
+for a requirements document that was never going to exist. Root cause in how
+it was built — the proven session was distilled from the operator's turns, and
+the assistant's tool calls, where the actual derivation lived, were skipped
+(26 tracker calls, 21 graph calls, 25 agents).
+
+Five corrections, each traced to that session:
+
+- **Step 3a HARVEST replaces "parse the provided spec."** The source is the
+  tracker project itself. Attachments come first: on the proven run the project
+  description was empty and all three requirement documents were attached
+  files, one a 1,431-line Statement of Work whose Exhibit B was the real
+  specification. Then every task, then the 192 subtasks where the file
+  citations live because the parent tasks are coarse rollups, then comments. A
+  zero-task view is not an empty project until attachments have been checked.
+- **Step 3b REPAIR the graph.** Build it when missing, re-index when stale,
+  repair it when it emits unresolved edges and re-verify anything already
+  judged against it. Halt only when it cannot be built at all. The previous
+  text failed loud on a missing index, contradicting the standing rule that an
+  absent index is repairable.
+- **Tracker status is a flag, never an answer.** On the proven run three of six
+  tasks showed open while their own comments named the shipping pull request
+  and commits.
+- **Debt mappings resolve through `.gsd-t/techdebt.md`** for real file
+  citations; 152 of 154 subtasks had to be matched back to the local register
+  because the tracker notes were too thin to judge from.
+- **A red-team finding can overturn a status call**, not just its wording. One
+  checker reversed a verdict by reading the code the original judgment had not.
+
+- `commands/gsd-t-gap-analysis.md`: Steps 3a and 3b added; Step 2 is skipped in
+  client-deliverable mode.
+- `.gsd-t/pseudocode/PseudoCode-GapAnalysis.md`: harvest and graph-repair flows.
+
 ## [5.14.10] - 2026-08-25
 
 ### Added — gap analysis can now produce a red-teamed client deliverable
