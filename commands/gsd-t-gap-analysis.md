@@ -2,6 +2,19 @@
 
 You are performing a gap analysis between a provided specification and the existing codebase. The user pastes requirements or a spec, and you systematically identify what's done, what's partial, what's wrong, and what's missing.
 
+## Two modes — chosen by whether a sheet URL was given
+
+| Invocation | Mode | Output |
+|---|---|---|
+| `/gsd-t-gap-analysis <spec>` | **Report** (default) | `.gsd-t/gap-analysis.md` — Steps 0.5-9 below, unchanged |
+| `/gsd-t-gap-analysis <spec> --sheet <url>` | **Client deliverable** | The estimating sheet's columns A-D and M-P, red-teamed — Steps 4a-6c |
+
+**Report mode is the default and is unchanged.** Every existing caller — `/gsd-t-scan`'s next-step offer, `gsd-t-phase.workflow.js` routing — invokes it without `--sheet` and behaves exactly as before.
+
+**Client-deliverable mode** is the procedure proven on the HILO AI Scheduling sheet: 141 raw requirements reduced to 33 feature rows carrying 595 checkable claims, judged against the code, then attacked by a red team that found a 70% defect rate in a column a friendly sample had already approved. It writes only the *what and whether* columns; `/gsd-t-estimate` sizes and prices them afterward. Behaviour map: `.gsd-t/pseudocode/PseudoCode-GapAnalysis.md`.
+
+In client-deliverable mode, run Steps 0.5-3 as written (they load context and parse the spec), then branch to Step 4a instead of Step 4.
+
 ## Step 0.5: Scan Freshness Auto-Refresh
 
 ```bash
@@ -180,6 +193,117 @@ If agent teams are not available or there are fewer than 3 requirements, run seq
 - Scan the codebase for each requirement
 - Read source files, test files, config, schema, contracts, and docs
 - Classify each requirement with evidence
+
+---
+
+# Client-deliverable mode (Steps 4a-6c) — only when `--sheet <url>` was given
+
+Report mode skips this whole block and continues at Step 6.
+
+## Step 4a: Strip everything that isn't buildable — HUMAN-CONFIRMED
+
+**This step removes most of the input, and getting it wrong poisons every step after it.**
+
+Sort every parsed requirement by one question: **would building it add or change code, or something stored?**
+
+- **Yes → keep.** A setting the system reads, a rule it applies, a screen, an endpoint, a table.
+- **No → drop.** Rollout policy, planning steps, trial design, training plans, decisions about how to run the project.
+
+Worked examples from the proven run:
+
+| Item | Verdict | Why |
+|---|---|---|
+| "Run in shadow beside real schedules" | **DROP** | An operational policy. Nobody writes code for it. |
+| "Resolve each student's required events-per-week" | **KEEP** | A computation the system performs. |
+| "Agree the scheduling priorities with stakeholders" | **DROP** | A planning step. Its *output* may become a rule; the step itself is not one. |
+| "Store per-location override for duty limits" | **KEEP** | Stored data plus the code that reads it. |
+
+A planning step whose *result* is a rule: drop the step, keep the rule if the rule is stated somewhere. If it isn't, the rule doesn't exist yet — say so under open questions rather than inventing it.
+
+**Keep the dropped list with a one-line reason each**, and show the user the count kept vs dropped plus the full dropped list. **Wait for confirmation before continuing** — this is the one blocking pause in the flow, because a wrongly-dropped requirement is invisible in every later artifact.
+
+## Step 4b: Roll up to features
+
+Group the survivors into features a person would name (`Availability, Operating Hours and Blackouts`, not `SCH-046`).
+
+- One feature = one row. Its individual requirements become **bullets inside that row's cell**, never rows of their own.
+- Target shape, measured on the proven sheet: **33 rows carrying 241 bullets** — roughly 3-10 bullets per row.
+- Assign each row a **domain** (column A) and the **user types** it serves (column B).
+
+## Step 4c: Describe each feature
+
+- **Column C** — the feature name in bold, then ONE sentence of purpose beneath it.
+- **Column D** — the requirements as bullets, written as **instructions**: "Work out each student's required events-per-week." **Never** as statements of current fact: "Resolves each student's required events-per-week."
+
+Present tense reads as a description of working code. On a row that turns out to be unbuilt, the row contradicts itself — this exact defect appeared in the proven run and had to be rewritten across all 32 rows.
+
+Plain words in column D. No jargon a client would have to decode.
+
+## Step 5a: Judge each feature against the code
+
+Query the code graph for each feature's surface (`gsd-t graph`), read what it names, and decide:
+
+- **Implemented** — every bullet is built.
+- **Not Implemented** — none of it is.
+- **Partial** — some is. **MUST be followed by `Not implemented:` and the specific bullets that are missing.** A bare "Partial" is not an answer anyone can act on.
+
+Write the verdict to **column M**, and to **column N** what works today versus what does not.
+
+## Step 5b: References and impacting debt
+
+- **Column O** — where each claim came from: `Requirements doc (6 reqs) · Asana task · PR #4386`. Short clickable names, each token its own link. Never a wall of file paths.
+- **Column P** — open Extreme/Critical findings from `.gsd-t/techdebt.md` that would hit this feature. **Judge by the code each finding cites, not by keyword match.**
+
+## Step 6a: RED TEAM the sheet — NOT a review
+
+Spawn adversarial checkers via the `Agent` tool, **blocking, no `name`** (see the blocking-subagent guard in `gsd-t-quick.md`). Each gets a fresh context and this framing:
+
+> **This sheet contains false claims. Your job is to find them.** Report what is wrong and where. If you searched exhaustively and found nothing, say so plainly — a clean verdict must be earned.
+
+Verdict per checker: `FAIL` (defects listed) or `GRUDGING-PASS` (searched, found none).
+
+**Coverage is split by what one check costs:**
+
+| Column | Claims (proven sheet) | Coverage | Why |
+|---|---|---|---|
+| C — purpose sentences | 33 | **Every one** | Reading a sentence is free. A 7-row sample here missed a 70% defect rate. |
+| D — requirement bullets | 241 | **Every one** | Text against source text; no code read needed. |
+| N — status notes | 32 | **Every one** | Cheap. |
+| O — references | 76 | **Every one** | A link resolves or it doesn't. |
+| Dropped list (Step 4a) | all | **Every one** | A wrongly-dropped requirement is invisible downstream — nothing else can catch it. |
+| M — gap bullets | 108 | **Batch of 20** | Each asserts code is absent; disproving it costs a search. |
+| P — debt mappings | 104 | **Batch of 20** | Each needs the finding read AND the feature's code read. |
+
+**Widening rule:** if **3 or more** of a batch of 20 are wrong, that column goes to every-claim. The batch proved the column is unreliable; sampling further only hides the rest.
+
+**One checker does nothing but hunt cross-column contradictions** — a row whose column C asserts a capability in present tense while column M lists that same capability as the row's defining gap. No single-column checker can see this; it is the defect class that reached the client sheet in the proven run.
+
+**All checkers returning clean is a FAILED check, not a clean sheet.** The proven run had one clean column out of six. An all-clean result means the framing was too gentle: re-run with sharper prompts. Do NOT report a clean sheet on the first all-pass.
+
+## Step 6b: Fix, then RE-RED-TEAM the fixes
+
+1. Correct the cells the red team named.
+2. Hand the corrected cells to a **fresh** red team — a correction is an unverified claim, exactly like the original.
+3. Clean → done. Still failing → correct once more, check once more.
+4. **Still failing after the second cycle → HALT.** Report to the user what will not settle. Two rounds that cannot converge signals a wrong premise, not a third round.
+
+## Step 6c: Write the sheet — leave the money alone
+
+Write columns **A-D and M-P** using the service-account path documented in `commands/gsd-t-estimate.md` Step 5 (permanent SA `gsd-t-sheets-writer@ai-estimator-415612.iam.gserviceaccount.com`, self-signed JWT, Sheets v4 REST). A `403` on the read-probe means the sheet isn't shared — prompt the user to share it as Editor and re-probe.
+
+**NEVER write columns E-L** (Phase, Web Portal, Backend/API, Days, MFactor Days, Total Days, LOW $, HIGH $). Those are `/gsd-t-estimate`'s to fill, and the sheet's own formulas compute the money from them.
+
+Then end with:
+
+```
+## ▶ Next Up
+
+**Estimate** — size the gaps and price them
+
+`/gsd-t-estimate --sheet {url}`
+```
+
+---
 
 ## Step 6: Generate Gap Analysis Document
 
