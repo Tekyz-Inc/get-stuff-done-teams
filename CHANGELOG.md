@@ -2,6 +2,53 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.14.10] - 2026-08-25
+
+### Added — gap analysis can now produce a red-teamed client deliverable
+
+`/gsd-t-gap-analysis` gains a second mode, distilled from the HILO AI
+Scheduling run. That workflow existed only in one session's history: it was
+recovered from the live transcript and from the estimating sheet itself, read
+through the service-account path `/gsd-t-estimate` already uses.
+
+The real artifact was measured rather than guessed: 33 feature rows carrying
+595 checkable claims — 33 purpose sentences, 241 requirement bullets, 108 gap
+bullets, 32 status notes, 76 references, 104 debt mappings — with the estimate
+columns still empty.
+
+**Upgraded in place, not retired.** Without `--sheet`, the command produces the
+markdown report exactly as before, so the two tests and two workflows that call
+it keep working unchanged. With `--sheet <url>`, it runs the full procedure:
+strip everything that would not add code or stored data, roll the survivors up
+into features whose individual requirements are bullets inside one row,
+describe each in instruction voice, judge it against the code, red team the
+result, and write columns A-D and M-P.
+
+Four decisions came from the evidence rather than from preference:
+
+- **The strip step blocks for human confirmation.** It removes most of the
+  input, and it needed live correction during the proven run — "run in shadow
+  beside real schedules" is operational policy, not something anyone builds. A
+  wrongly-dropped requirement is invisible in every later artifact.
+- **The checkers are a red team, not reviewers.** They are told the sheet
+  contains false claims and asked to produce them. A friendly seven-row sample
+  had already approved a column later found 70% defective — 45 of 64 sentences.
+- **Coverage splits by what one check costs.** Every claim is checked where
+  checking means reading a sentence or following a link; claims that require
+  proving code is absent are checked in a batch of 20, widening to every claim
+  when three or more of the batch are wrong.
+- **All checkers returning clean is a failed check**, not a clean sheet. The
+  proven run had one clean column out of six.
+
+A correction is treated as an unverified claim: fresh checkers attack the fixed
+cells, and two non-converging cycles halt rather than looping. The money
+columns are never written — `/gsd-t-estimate` owns those, and the sheet's own
+formulas compute days and dollars from them.
+
+- `commands/gsd-t-gap-analysis.md`: Steps 4a-6c, gated on `--sheet`.
+- `.gsd-t/pseudocode/PseudoCode-GapAnalysis.md`: behaviour map, style gate
+  clean.
+
 ## [5.13.10] - 2026-08-22
 
 ### Added — trim and case are enforced at the boundary, FAIL-CLOSED
