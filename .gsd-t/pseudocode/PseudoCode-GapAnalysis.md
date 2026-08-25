@@ -51,14 +51,36 @@ Make sure the map of the code can be trusted, before trusting it
     Never as a statement of fact — "Resolves the student's required hours"
     # Present tense reads as a description of working code. On a row that
     # turns out to be unbuilt, the row contradicts itself.
-  For each feature, look at the actual code and decide:
+  For each feature, list the questions nobody has answered yet
+    A decision someone must make before this can be built or priced
+    Nothing is genuinely unknown:
+      Say nothing — but check first whether two reasonable people could
+      build this differently from what was written
+    # Never invent a question to fill the space, and never answer one
+    # yourself: something you settled by assuming is an assumption, and it
+    # belongs with the other requirements, stated plainly.
+  For each feature, look at the actual code and decide, in four colours:
     Everything is built:
-      Mark it built
+      Mark it built — green
     Nothing is built:
-      Mark it absent
+      Mark it absent — red
     Some is built:
-      Mark it partly built, and list WHICH bullets are missing
+      Mark it partly built — yellow — and list WHICH bullets are missing
       # "Partly built" with no list is not an answer anyone can act on.
+    Something is built and it CONTRADICTS what was asked for:
+      Mark it wrong — light blue — and say what the code does instead
+      # Not a shade of partly-built. Partly-built needs finishing; wrong
+      # needs undoing first, which is different work at a different price.
+  For each feature with code in it, list the places the code carries on
+  after something failed
+    Say for each whether it was agreed beforehand or not
+    The code does something the requirements explicitly forbid:
+      Say so, and quote the line it breaks
+      # The requirements already name several by hand — never quietly widen
+      # a list, never read a value the move was supposed to retire.
+    The feature has no code yet:
+      Leave it blank, not "none"
+      # "None" reads as a clean result on something never examined.
   For each feature, write what works today and what does not
   For each feature, record where the claim came from
     The source document, the tracker item, the pull request

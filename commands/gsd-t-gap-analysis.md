@@ -7,7 +7,7 @@ You are performing a gap analysis between a provided specification and the exist
 | Invocation | Mode | Output |
 |---|---|---|
 | `/gsd-t-gap-analysis <spec>` | **Report** (default) | `.gsd-t/gap-analysis.md` — Steps 0.5-9 below, unchanged |
-| `/gsd-t-gap-analysis <spec> --sheet <url>` | **Client deliverable** | The estimating sheet's columns A-D and M-P, red-teamed — Steps 3a-6c |
+| `/gsd-t-gap-analysis <spec> --sheet <url>` | **Client deliverable** | The estimating sheet's columns A-D and M-Q, red-teamed — Steps 3a-6c |
 
 **Report mode is the default and is unchanged.** Every existing caller — `/gsd-t-scan`'s next-step offer, `gsd-t-phase.workflow.js` routing — invokes it without `--sheet` and behaves exactly as before.
 
@@ -262,22 +262,70 @@ Group the survivors into features a person would name (`Availability, Operating 
 
 ## Step 4c: Describe each feature
 
-- **Column C** — the feature name in bold, then ONE sentence of purpose beneath it.
+**Columns A, B, C — the reading columns.** A client scans these three and stops; everything right of them is detail. Format them exactly:
+
+- **Column A — Domain.** Plain text, one or two words: `Training Pace`, `Configuration`, `Curriculum`.
+- **Column B — User Type.** The roles this serves, comma-separated: `Student, Instructor, Scheduling admin`. Wraps onto two lines; that is fine.
+- **Column C — Functionality.** THREE parts in one cell:
+  1. The feature name, **bold**: `Training Pace (EPW) Service and Exceptions`
+  2. A **blank line**
+  3. One sentence of purpose, in *italic*, saying what it is FOR — not what it does mechanically.
+
+```
+Training Pace (EPW) Service and Exceptions        ← bold
+
+Would give the whole platform one trustworthy     ← italic
+answer to whether a student is keeping up, what
+a proposed change would do to that, and how the
+requirement bends for a part week or an
+approved break.
+```
+
+**Match the verb to the build status.** A purpose sentence in present tense on an unbuilt row asserts the feature exists — the same defect as present-tense requirement bullets:
+
+| Status | Voice | Example |
+|---|---|---|
+| Not Implemented | **conditional** | *"**Would give** the whole platform one trustworthy answer to whether a student is keeping up"* |
+| Implemented / Partial | present | *"**Keeps** every scheduling setting a school has chosen in one checked, version-tracked place"* |
+
+Purpose, not mechanics. *"Would give the platform one trustworthy answer to whether a student is keeping up"* — not *"computes events-per-week from enrollment data."*
+
 - **Column D** — the requirements as bullets, written as **instructions**: "Work out each student's required events-per-week." **Never** as statements of current fact: "Resolves each student's required events-per-week."
 
 Present tense reads as a description of working code. On a row that turns out to be unbuilt, the row contradicts itself — this exact defect appeared in the proven run and had to be rewritten across all 32 rows.
 
 Plain words in column D. No jargon a client would have to decode.
 
+**Every row ends with its OPEN QUESTIONS — the unknowns you could not settle from the sources.** Append to the same cell, after a blank line:
+
+```
+OPEN QUESTIONS:
+? Which specific settings count as safety settings and therefore cannot be overridden by a lower layer
+? Whether enrollment-level exceptions are set per student or per cohort
+```
+
+One question per line, prefixed `?`, phrased so a client can answer it without reading code. These are the decisions someone must make before the work can be built or priced — a version-migration policy, which values are non-overridable, whether a school may define its own types.
+
+**A row with no `OPEN QUESTIONS` block is asserting there are no unknowns.** That is occasionally true and usually not. On the proven sheet, six of eight sampled rows carried them. Before omitting the block, ask: *could two reasonable people build this differently from what column D says?* If yes, the difference is an open question.
+
+**Do not invent questions to fill the block, and do not answer them yourself.** An unknown you resolved by assumption is not an open question — it is an assumption, and it belongs in column D as a stated bullet.
+
 ## Step 5a: Judge each feature against the code
 
-Query the code graph for each feature's surface (`gsd-t graph`), read what it names, and decide:
+Query the code graph for each feature's surface (`gsd-t graph`), read what it names, and decide. **Four statuses, four colours — every one of them coloured, none left plain:**
 
-- **Implemented** — every bullet is built.
-- **Not Implemented** — none of it is.
-- **Partial** — some is. **MUST be followed by `Not implemented:` and the specific bullets that are missing.** A bare "Partial" is not an answer anyone can act on.
+| Status | Colour | Means | What it needs |
+|---|---|---|---|
+| **Implemented** | 🟢 green | Every bullet is built | Verification only |
+| **Partial** | 🟡 yellow | Some bullets are built | **Finishing** |
+| **Incorrect** | 🔵 light blue | Code exists and **contradicts** the requirement | **Fixing** — different work from finishing |
+| **Not Implemented** | 🔴 red | No code exists for it | Building |
 
-Write the verdict to **column M**, and to **column N** what works today versus what does not.
+**Incorrect is not a shade of Partial.** Partial means work is missing; Incorrect means work is present and wrong, and someone must first undo what is there. Pricing the two identically understates the second. If you never assign Incorrect across a whole sheet, check whether you have been folding contradictions into Partial.
+
+**Partial and Incorrect MUST name specifics.** Partial is followed by `Not implemented:` and the exact bullets missing. Incorrect is followed by `Contradicts:` and what the code does instead. A bare "Partial" or "Incorrect" is not an answer anyone can act on.
+
+Write the verdict to **column M** with its background colour, and to **column N** what works today versus what does not.
 
 ## Step 5b: References and impacting debt
 
@@ -287,6 +335,54 @@ Write the verdict to **column M**, and to **column N** what works today versus w
 **Where the findings come from, and why the tracker alone is not enough:** pull the hardening project's open items at **subtask level** — the parent tasks are rollups. Then **match each subtask back to `.gsd-t/techdebt.md`** for its real file citations. On the proven run the tracker notes were too thin to judge from, and 152 of 154 subtasks had to be resolved against the local register to get the file paths that make the mapping decidable. Of 154 open subtasks, 28 genuinely touched the feature set.
 
 A feature with no findings is a real answer, not a miss — usually an unbuilt feature with no shipped code for a defect to land on. Say so rather than leaving the cell ambiguous.
+
+## Step 5c: Fallbacks in the shipped code — a second pass over the built features
+
+**Only for rows marked Implemented, Partial, or Incorrect.** A Not Implemented row has no shipped code, so it has no fallbacks — leave its cell empty rather than writing "none", which reads as a clean result.
+
+A **fallback** is any branch that continues after a failure: a `catch` that carries on, a `|| default`, a silent degrade, a secondary path that hides the first one failing. Each one is a place a real failure can hide, and a place the client's system will do something quietly wrong instead of stopping.
+
+Run the detector over the project once:
+
+```bash
+# Project-local copy first, else the global package's copy.
+node bin/gsd-t-fallback-detect.cjs --scan --project . --json
+```
+
+It returns `{ok, filesScanned, found, preExisting, approved, unapproved, findings}`. There is no `gsd-t fallback-detect` subcommand — invoke the file directly.
+
+Then attribute each finding to the feature whose code it sits in — **judged by the file the finding cites**, the same rule as the debt mapping in Step 5b, never by keyword.
+
+Write to the next free column (**Q** on the proven sheet layout, where P holds hardening tasks):
+
+```
+⚠ UNAPPROVED — solver.ts:214
+   catch → returns an empty slot list
+⚠ UNAPPROVED — pace.ts:88
+   missing required-lessons-per-week → defaults to 3
+◆ pre-existing — legacy-import.ts:31
+   predates the rule; never justified
+✓ approved — cache.ts:40
+   "stale read beats a hard failure on a cold cache" — DH
+```
+
+**Three states, and they mean different things — do not collapse them into two:**
+
+| State | Where it comes from | What to tell the client |
+|---|---|---|
+| **approved** | listed in `.gsd-t/fallbacks.json`, with a written reason | Someone justified this deliberately |
+| **pre-existing** | listed in `.gsd-t/fallbacks-baseline.json` | Predates the rule. **Not approved — merely grandfathered.** Nobody has ever justified it |
+| **unapproved** | in neither file | The finding |
+
+An approval carries six required fields — `id`, `location`, `whatFails`, `whyNotHalt`, `whatItDoesInstead`, `approvedBy` — so "approved" means someone wrote down what fails, why stopping was worse, and what happens instead. Quote the `whyNotHalt` reason in the cell; an approval nobody can read is indistinguishable from an unapproved one.
+
+**Pre-existing is a finding for a client, even though the gate lets it through.** The gate blocks NEW fallbacks; a grandfathered one is still unexamined code that continues after a failure. Show it.
+
+**List all three.** The unapproved and pre-existing ones are the findings. The approved ones prove the pass ran and judged rather than skipped — a column showing only warnings cannot be told apart from one that found nothing.
+
+**A malformed `fallbacks.json` is a HALT, never "no approvals."** The detector already refuses to read unreadable as approved; do not paper over that by writing an empty cell.
+
+**Where a fallback contradicts the row's own column D, say so.** The requirements already ban several by name — *"never silently add the whole instructor roster as fallbacks when the policy turns fallback off"*, *"refuse to fall back to an out-of-date old field once the move has run."* A fallback in the code that the spec explicitly forbids is the strongest finding on the sheet: mark it `⚠ CONTRADICTS COLUMN D` and quote the bullet it breaks.
 
 ## Step 6a: RED TEAM the sheet — NOT a review
 
@@ -325,7 +421,7 @@ Verdict per checker: `FAIL` (defects listed) or `GRUDGING-PASS` (searched, found
 
 ## Step 6c: Write the sheet — leave the money alone
 
-Write columns **A-D and M-P** using the service-account path documented in `commands/gsd-t-estimate.md` Step 5 (permanent SA `gsd-t-sheets-writer@ai-estimator-415612.iam.gserviceaccount.com`, self-signed JWT, Sheets v4 REST). A `403` on the read-probe means the sheet isn't shared — prompt the user to share it as Editor and re-probe.
+Write columns **A-D and M-Q** using the service-account path documented in `commands/gsd-t-estimate.md` Step 5 (permanent SA `gsd-t-sheets-writer@ai-estimator-415612.iam.gserviceaccount.com`, self-signed JWT, Sheets v4 REST). A `403` on the read-probe means the sheet isn't shared — prompt the user to share it as Editor and re-probe.
 
 **NEVER write columns E-L** (Phase, Web Portal, Backend/API, Days, MFactor Days, Total Days, LOW $, HIGH $). Those are `/gsd-t-estimate`'s to fill, and the sheet's own formulas compute the money from them.
 
