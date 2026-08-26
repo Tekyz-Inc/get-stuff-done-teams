@@ -9,6 +9,23 @@ You are performing a gap analysis between a provided specification and the exist
 | `/gsd-t-gap-analysis <spec>` | **Report** (default) | `.gsd-t/gap-analysis.md` — Steps 0.5-9 below, unchanged |
 | `/gsd-t-gap-analysis <spec> --sheet <url>` | **Client deliverable** | The estimating sheet's columns A-D and M-Q, red-teamed — Steps 3a-6c |
 
+### Column map (client-deliverable mode)
+
+| Col | Holds | Written by |
+|---|---|---|
+| A | Domain | this command |
+| B | User Type | this command |
+| C | Functionality — bold name, blank line, italic purpose | this command |
+| D | Low Level Requirements + `OPEN QUESTIONS:` block | this command |
+| E-L | Phase, sizing, days, money | **`/gsd-t-estimate` — never touched here** |
+| M | Build Status (4 colours) | this command |
+| N | What Works / What Doesn't | this command |
+| O | References | this command |
+| P | **Fallbacks in shipped code** | this command |
+| Q | Impacting Open Hardening Tasks | this command |
+
+A sheet from an earlier run may hold hardening tasks in P, or a `Scope` column. Move hardening to Q and let fallbacks take P; never leave two columns claiming the same header.
+
 **Report mode is the default and is unchanged.** Every existing caller — `/gsd-t-scan`'s next-step offer, `gsd-t-phase.workflow.js` routing — invokes it without `--sheet` and behaves exactly as before.
 
 **Client-deliverable mode** is the procedure proven on the HILO AI Scheduling sheet: 141 raw requirements reduced to 33 feature rows carrying 595 checkable claims, judged against the code, then attacked by a red team that found a 70% defect rate in a column a friendly sample had already approved. It writes only the *what and whether* columns; `/gsd-t-estimate` sizes and prices them afterward. Behaviour map: `.gsd-t/pseudocode/PseudoCode-GapAnalysis.md`.
@@ -330,7 +347,7 @@ Write the verdict to **column M** with its background colour, and to **column N*
 ## Step 5b: References and impacting debt
 
 - **Column O** — where each claim came from: `Requirements doc (6 reqs) · Asana task · PR #4386`. Short clickable names, each token its own link. Never a wall of file paths.
-- **Column P** — open Extreme/Critical findings that would hit this feature. **Judge by the code each finding cites, not by keyword match.**
+- **Column Q** — open Extreme/Critical findings that would hit this feature. **Judge by the code each finding cites, not by keyword match.** (This sat in P before fallbacks took that slot; a sheet built by an earlier run may still have it in P — move it rather than leaving two columns claiming the same thing.)
 
 **Where the findings come from, and why the tracker alone is not enough:** pull the hardening project's open items at **subtask level** — the parent tasks are rollups. Then **match each subtask back to `.gsd-t/techdebt.md`** for its real file citations. On the proven run the tracker notes were too thin to judge from, and 152 of 154 subtasks had to be resolved against the local register to get the file paths that make the mapping decidable. Of 154 open subtasks, 28 genuinely touched the feature set.
 
@@ -353,7 +370,7 @@ It returns `{ok, filesScanned, found, preExisting, approved, unapproved, finding
 
 Then attribute each finding to the feature whose code it sits in — **judged by the file the finding cites**, the same rule as the debt mapping in Step 5b, never by keyword.
 
-Write to the next free column (**Q** on the proven sheet layout, where P holds hardening tasks):
+Write to **column P** — the slot right after References, so the reader meets a feature's own defects before the wider hardening list in Q:
 
 ```
 ⚠ UNAPPROVED — solver.ts:214
@@ -402,7 +419,8 @@ Verdict per checker: `FAIL` (defects listed) or `GRUDGING-PASS` (searched, found
 | O — references | 76 | **Every one** | A link resolves or it doesn't. |
 | Dropped list (Step 4a) | all | **Every one** | A wrongly-dropped requirement is invisible downstream — nothing else can catch it. |
 | M — gap bullets | 108 | **Batch of 20** | Each asserts code is absent; disproving it costs a search. |
-| P — debt mappings | 104 | **Batch of 20** | Each needs the finding read AND the feature's code read. |
+| P — fallbacks | varies | **Batch of 20** | Each needs the cited code read to confirm it really continues after a failure. |
+| Q — debt mappings | 104 | **Batch of 20** | Each needs the finding read AND the feature's code read. |
 
 **Widening rule:** if **3 or more** of a batch of 20 are wrong, that column goes to every-claim. The batch proved the column is unreliable; sampling further only hides the rest.
 
