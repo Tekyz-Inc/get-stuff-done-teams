@@ -2,6 +2,50 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.15.10] - 2026-08-27
+
+### Added — open questions, a fourth build status, and a fallbacks column
+
+Four corrections from running the client-deliverable gap analysis live on a
+second project.
+
+**Open questions.** Column D now ends with an `OPEN QUESTIONS:` block: the
+decisions someone must make before the work can be built or priced — which
+settings are non-overridable, whether a mid-enrollment version change moves the
+student. Six of eight rows on the proven sheet carry one. A row without the
+block is asserting there are no unknowns, which is usually false; the test is
+whether two reasonable people could build the row differently from what it
+says. Questions are never invented to fill the block and never self-answered —
+an unknown resolved by assumption is an assumption, and belongs in the
+requirement bullets.
+
+**A fourth build status, and a colour for it.** The status list carried four
+values inherited from report mode while only three had colours, so `Incorrect`
+rendered plain. Now green Implemented, yellow Partial, light-blue Incorrect,
+red Not Implemented. Incorrect is not a shade of Partial: Partial needs
+finishing, Incorrect needs undoing first, and pricing them alike understates
+the second. Both must name specifics.
+
+**Fallbacks in the shipped code (column P).** For every feature with code, the
+places that code continues after a failure — the branches that make a system do
+something quietly wrong instead of stopping. Reuses the existing detector.
+Three states, not two: **approved** (recorded with a written reason),
+**pre-existing** (grandfathered when the rule was adopted — not approved,
+merely old, and still a finding for a client), and **unapproved**. A fallback
+that contradicts the row's own requirements is the strongest finding on the
+sheet; the requirements already ban several by name. A feature with no code
+gets a blank cell, never "none", which reads as a clean result.
+
+**Column layout.** Fallbacks take P, where an earlier sheet held Scope and then
+hardening tasks; hardening moves to Q. Columns A, B and C are the reading
+columns and are now specified exactly — bold feature name, blank line, italic
+purpose — with the purpose verb tracking build status, conditional on an
+unbuilt row and present tense on a built one. A column map under the mode table
+states the layout once instead of restating it per step.
+
+- `commands/gsd-t-gap-analysis.md`
+- `.gsd-t/pseudocode/PseudoCode-GapAnalysis.md`
+
 ## [5.14.11] - 2026-08-25
 
 ### Fixed — gap analysis harvests the tracker instead of asking for a spec
