@@ -2,6 +2,76 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.16.10] - 2026-08-27
+
+### Added — `/gsd-t-demo-videos`, narrated walkthrough videos of a running app
+
+Distilled from a real production run that shipped twelve narrated walkthroughs
+of a live application over two long sessions. Nearly every re-record in that run
+traced back to one of ten mistakes, so each is now a gate rather than a lesson
+to be re-learned.
+
+**Narration is the master clock.** A step lasts exactly as long as its measured
+spoken sentence — never a constant, never an estimate. The first version of that
+pipeline gave every step a fixed five seconds, and that single number is why the
+words drifted away from the picture. It also assembled the video from per-screen
+clips and stills, which cannot show a transition or how the interface actually
+behaves. One continuous recording per walkthrough, clipped afterward.
+
+**The voice was the expensive problem, and its cause was confirmed.** The
+narrator audibly changed tone and volume partway through a video because every
+sentence was a separate API call, so the model re-decided its delivery dozens of
+times. Describing the speaker in the prompt did not fix it. Two deterministic
+fixes replace it:
+
+- **Batched.** Eight sentences per request, numbered, with an instruction to
+  leave two seconds of silence between them; the audio is cut back apart on
+  those silences and the split is verified, never assumed. Eight is measured:
+  the same eighteen-line script rendered as a single take spread 46 Hz of pitch,
+  and in eight-line batches spread 16 Hz — the narrator holds around 100-115 Hz
+  for a dozen lines and then slips to 140, losing the persona the further it
+  gets from the instruction.
+- **Normalised.** Every clip goes through a two-pass loudnorm to the same target
+  loudness. Within-video volume drift went from as much as 7.5 dB to about
+  0.5 dB, and every video now sits at the same level as the others.
+
+**The check is the gate, not the report.** Loudness, pitch and speaking rate are
+measured per clip and the spread reported across the video, along with miscut
+clips whose length does not match what their sentence should take to say. A take
+that drifts is thrown away and re-rendered, up to three times, then halts rather
+than shipping. This is not theoretical — one video's first take came back at
+46 Hz and was discarded for a 15 Hz one. It exists because two renders of the
+same prompt genuinely differ: a "persona anchor" prompt looked like a large win
+on one A/B run and reversed on the next.
+
+**Other gates, each from a failure it would have prevented:**
+
+- A preflight walks every selector without recording. One bad selector used to
+  fail a whole six-minute recording at the first sentence whose target was
+  missing, so three bad selectors cost three recordings to find.
+- The runtime throws when a narrated sentence has no visible target, and asserts
+  the page as well. Narration had repeatedly described screens the spec never
+  opened, and a failed click produced confident narration about a screen that
+  was never on camera.
+- Silence removal is mandatory after every mux. Page loads left 20-60 seconds of
+  dead air per video — 7.4 minutes across twelve.
+- When a recording fails, look at the failure screenshot the run already saved.
+  Every wrong theory in the source run came from reasoning about the DOM
+  instead; one three-recording failure was diagnosed twice-wrongly before the
+  screenshot showed the answer immediately.
+- Coverage is planned against the running app, not the code. The first nine
+  videos covered about 25 of 55 populated screens, and probing the live site
+  reversed four of five "this screen is empty" verdicts that had been written
+  from the seed scripts.
+- Seeders drive the real forms as a real user, and report a refusal instead of
+  working around it. One such refusal turned out to be a genuine app bug: an
+  enabled button whose click handler was inert.
+
+**The pipeline ships as templates**, not as prose to re-implement:
+`templates/demo-videos/` carries the seven scripts and six test files with the
+reasoning for every threshold in their headers. The command resolves them
+through the installed package directory and halts if they are absent.
+
 ## [5.15.10] - 2026-08-27
 
 ### Added — open questions, a fourth build status, and a fallbacks column

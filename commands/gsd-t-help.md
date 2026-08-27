@@ -380,6 +380,12 @@ Use these when user asks for help on a specific command:
 - **Updates**: new deliverable `share/<Repo>-user-stories.md` (+ optional `.docx` via pandoc) + `share/media/*.png` (rendered diagrams) + `.gsd-t/user-stories/diagrams/*.mmd`
 - **Use when**: You need to hand a development team discrete, testable user stories in the Tekyz handoff style. Distinct from `/gsd-t-prd` (which writes the INTERNAL `docs/prd.md`) — this is an EXTERNAL client/dev deliverable. Diagrams are authored as Mermaid but embedded as rendered images (needs `@mermaid-js/mermaid-cli`). Format reference: `~/.claude/playbooks/tekyz-user-stories-format.md`
 
+### demo-videos
+- **Summary**: Produce narrated screen-recording walkthrough videos of a running application — coverage plan from the live app, Playwright seeding through the real UI, batched text-to-speech with a measured one-voice gate, one continuous recording per walkthrough, audio muxed at recorded timestamps, then silence trimmed
+- **Auto-invoked**: No
+- **Updates**: `docs/demo-videos/PLAN.md`, `docs/demo-videos/HANDOFF.md`, `docs/demo-videos/walkthrough-<name>.mp4`, `e2e/walkthrough/*`, `scripts/walkthrough-*.mjs`, `scripts/demo-data/*`
+- **Use when**: You need shareable demo or training videos of an app that already runs with real data. Narration is the master clock — each step lasts exactly as long as its measured spoken sentence. Needs Playwright, ffmpeg, auto-editor and a TTS key with quota. Templates: `templates/demo-videos/`
+
 ### populate
 - **Summary**: Auto-populate all living docs from existing codebase analysis
 - **Auto-invoked**: No
