@@ -71,11 +71,12 @@ videos in the source run.
 
 | File | Role |
 |---|---|
-| `e2e/runtime.ts` | `step()`, `highlight()`, `click()`, `goTo()`; narration is the clock; throws when a sentence has no visible target |
+| `e2e/runtime.ts` | `step()`, `highlight()`, `click()`, `enter()`, `choose()`, `act()`, `goTo()`; narration is the clock; throws when a sentence has no visible target |
 | `e2e/manifest.ts` | loads narration; a spec **skips** when its audio is missing rather than failing the run |
 | `e2e/signin.ts` | shared sign-in + the tenant constant — **ask for this, don't derive it** |
 | `e2e/preflight.spec.ts` | walks every target without recording, reports all misses in one pass |
-| `e2e/example.lines.mjs` | narration shape, with the writing rules |
+| `e2e/cast.mjs` | **the demo's cast** — Tyler (the voice), Maya (the reason), the syllabus and the priced products; spoken twins for anything with a symbol |
+| `e2e/example.lines.mjs` | narration shape, with the writing rules — follows one named student through one named course |
 | `e2e/example.spec.ts` | spec shape, with the overlay/settle rules |
 | `scripts/walkthrough-voice.mjs` | batched TTS (8/request), verified split, two-pass loudnorm |
 | `scripts/walkthrough-voice-check.mjs` | measures LUFS/pitch/rate spread + miscuts; **exit 4** on drift |

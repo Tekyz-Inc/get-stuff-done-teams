@@ -2,6 +2,68 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.16.11] - 2026-08-27
+
+### Fixed — the voice fix was the wrong fix, and the gate was measuring the wrong thing
+
+Both corrections came from running the shipped pipeline against real work, and
+both invalidate advice published hours earlier in 5.16.10.
+
+**Pick a text-to-speech service whose voice is a fixed trained speaker.** The
+source run had fought drift with batching — 8 sentences per request so one
+request meant one performance, audio split back apart on silences, splits
+verified, whole takes re-rendered when they measured as drifted. All of that was
+mitigation for a property of the wrong kind of service. A language model's audio
+output treats a voice name as a style hint it re-interprets on every request, so
+the narrator genuinely changes part-way through a video; batching reduces how
+often that happens and cannot stop it, because a batch boundary is still a
+boundary between two readings. Moving to a dedicated speech service, where a
+voice id is a fixed trained speaker, ended it in one change — and took batch
+boundaries, silence splitting, miscut clips and per-model daily quotas with it.
+One sentence per request became both the simple thing and the correct thing. The
+batching guidance is kept, demoted to what to do when you cannot switch.
+
+**Gate on mean pitch, not within-video pitch spread.** The published gate failed
+**nine of the twelve videos its own project had already shipped** — every one
+confirmed by ear as a single steady narrator. A ±35 Hz spread threshold is right
+for a language-model TTS, where a wide spread means a different reading, and
+wrong for a fixed speaker, where it measures ordinary sentence intonation: a
+question rising, a list falling, a short line sitting higher. Flattening that
+would make the narration robotic. The speaker-identity signal is the mean, which
+across those twelve videos sat inside a 7 Hz band. So the gate now checks the
+mean against a calibrated band and reports the spread without gating it — ten of
+twelve pass, and the two that still fail do so on volume, which is real.
+
+The rule this produces, now in the command: **calibrate a gate against output a
+human has already approved before trusting it.** A gate that fails most of your
+known-good work is measuring the wrong thing, and believing it costs you
+re-rendering audio that was already correct.
+
+**Narration lines must be full sentences of 8 words or more.** Integrated
+loudness needs enough audio to measure against; a two-word clip ("Create
+Curriculum.") lands off target, blows the video's volume spread and trips the
+miscut check. This cost two full render cycles before it was diagnosed. When a
+step needs an action the narration does not describe, run it untimed rather than
+inventing a stub line.
+
+**Templates:** `choose()` opens a dropdown, holds it open long enough to read,
+and picks — the choice is the most informative moment in a create-flow, and a
+highlighted select shows the viewer nothing. `enter()` types a value visibly
+rather than filling it instantly. `act()` performs either outside a narrated
+beat, because both only build an action and a bare `await` on one silently does
+nothing. New `cast.mjs` carries every name said aloud in one place.
+
+**Narration guidance rewritten around two woven stories** — the operator's, told
+in their own voice and shown on screen, and the customer's, which is why every
+value typed is that value. The test: a sentence that survives with the names
+removed is explaining the software, not telling the story.
+
+- `commands/gsd-t-demo-videos.md`: Stage 1 rewritten; cast step gains the
+  two-story weave, the products/pricing rule and the dropdown mandate
+- `templates/demo-videos/e2e/cast.mjs`: new
+- `templates/demo-videos/e2e/runtime.ts`: `enter()`, `choose()`, `act()`
+- `templates/demo-videos/e2e/example.{lines.mjs,spec.ts}`: rewritten as a story
+
 ## [5.16.10] - 2026-08-27
 
 ### Added — `/gsd-t-demo-videos`, narrated walkthrough videos of a running app

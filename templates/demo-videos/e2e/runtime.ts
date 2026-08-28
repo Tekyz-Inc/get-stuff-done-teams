@@ -29,7 +29,7 @@ export interface StepLog {
   audioMs: number;
   route: string;
   focus: string;
-  action: 'highlight' | 'click' | 'goto' | 'none';
+  action: 'highlight' | 'click' | 'type' | 'choose' | 'goto' | 'none';
 }
 
 const log: StepLog[] = [];
@@ -134,11 +134,34 @@ async function reveal(page: Page, loc: Locator): Promise<Locator | null> {
 export type Action =
   | { kind: 'highlight'; loc: Locator }
   | { kind: 'click'; loc: Locator }
+  | { kind: 'type'; loc: Locator; value: string }
+  | { kind: 'choose'; loc: Locator; option: string }
   | { kind: 'goto'; url: string }
   | { kind: 'none' };
 
 export const highlight = (loc: Locator): Action => ({ kind: 'highlight', loc });
 export const click = (loc: Locator): Action => ({ kind: 'click', loc });
+/**
+ * Type a REAL value into a field, visibly, while the sentence says it.
+ *
+ * This is the action that makes a demo concrete instead of clinical. A sentence
+ * explaining what a field is for, over an empty field, teaches nothing — so the
+ * narration says the value and this puts it on screen, character by character
+ * so the viewer can read it going in.
+ */
+// Named `enter`, not `type` — `import { type X }` is TypeScript's type-only
+// import syntax, so an exported `type` is a trap for whoever imports it.
+export const enter = (loc: Locator, value: string): Action => ({ kind: 'type', loc, value });
+/**
+ * Open a dropdown, let the options be READ, then pick one.
+ *
+ * The most informative moment in a create-flow is the choice: it is where the
+ * specific decision becomes visible. A highlighted select with a value already
+ * in it shows nothing — the viewer cannot tell what the alternatives were, or
+ * that a choice was made at all. So this opens the list, holds it open long
+ * enough to read, and then clicks the option.
+ */
+export const choose = (loc: Locator, option: string): Action => ({ kind: 'choose', loc, option });
 export const goTo = (url: string): Action => ({ kind: 'goto', url });
 export const none = (): Action => ({ kind: 'none' });
 
@@ -151,6 +174,85 @@ export const none = (): Action => ({ kind: 'none' });
  * eats the whole step the rest is zero and the timeline simply shifts; the
  * audio track is assembled afterward from these logged timings, never guessed.
  */
+/**
+ * Carry out one action and report what it landed on.
+ *
+ * Shared by step() (a narrated beat) and act() (a field the narration does not
+ * mention individually). `context` is only used to make an error legible.
+ */
+async function perform(page: Page, action: Action, context: string): Promise<string> {
+  if (action.kind === 'none') return '';
+
+  if (action.kind === 'goto') {
+    await page.goto(action.url, { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await installOverlay(page);
+    return action.url;
+  }
+
+  const target = await reveal(page, action.loc);
+  if (!target) {
+    throw new Error(
+      `[walkthrough] target not visible for: "${context.slice(0, 70)}"\n` +
+        '  Every sentence must point at something that is actually on screen.',
+    );
+  }
+
+  let focus = (await target.innerText().catch(() => ''))?.slice(0, 40) ?? '';
+  const box = await target.boundingBox();
+  if (!box) return focus;
+
+  const cx = box.x + box.width / 2;
+  const cy = box.y + box.height / 2;
+  await ring(page, box);
+  await glide(page, cx, cy, 700);
+
+  if (action.kind === 'click') {
+    await page.waitForTimeout(420);
+    await target.click({ timeout: 15_000 }).catch(() => {});
+    await clearRing(page);
+    await installOverlay(page);
+  } else if (action.kind === 'choose') {
+    // Open it, HOLD so the options are readable, then pick. A native <select>
+    // cannot be opened visibly, so fall back to selectOption for one.
+    await page.waitForTimeout(300);
+    await target.click({ timeout: 15_000 }).catch(() => {});
+    await page.waitForTimeout(900);
+    const tag = await target.evaluate((el) => el.tagName.toLowerCase()).catch(() => '');
+    if (tag === 'select') {
+      await target.selectOption({ label: action.option }).catch(() => {});
+    } else {
+      const opt = page
+        .getByRole('option', { name: action.option, exact: false })
+        .or(page.getByRole('menuitem', { name: action.option, exact: false }))
+        .first();
+      await opt.click({ timeout: 10_000 }).catch(() => {});
+    }
+    focus = action.option.slice(0, 40);
+    await clearRing(page);
+  } else if (action.kind === 'type') {
+    // Click in, clear, then type at a readable pace — fill() makes the value
+    // appear instantly, which reads as a screenshot rather than data entry.
+    await page.waitForTimeout(300);
+    await target.click({ timeout: 15_000 }).catch(() => {});
+    await target.fill('').catch(() => {});
+    await target.pressSequentially(action.value, { delay: 45 }).catch(() => {});
+    focus = action.value.slice(0, 40);
+  }
+  return focus;
+}
+
+/**
+ * Perform an action OUTSIDE a narrated step — for fields a sentence does not
+ * mention individually but which still have to be filled.
+ *
+ * choose() and enter() only BUILD an action; they do nothing on their own, and
+ * `await choose(...)` is a no-op that silently leaves the field empty. step()
+ * performs one action; use act() for the rest.
+ */
+export async function act(page: Page, action: Action): Promise<void> {
+  await perform(page, action, '(unnarrated field)');
+}
+
 export async function step(
   page: Page,
   narration: string,
@@ -160,35 +262,7 @@ export async function step(
   if (!clip) throw new Error(`[walkthrough] no audio for: "${narration.slice(0, 70)}"`);
 
   const startMs = now();
-  let focus = '';
-
-  if (action.kind === 'goto') {
-    await page.goto(action.url, { waitUntil: 'domcontentloaded' }).catch(() => {});
-    await installOverlay(page);
-    focus = action.url;
-  } else if (action.kind !== 'none') {
-    const target = await reveal(page, action.loc);
-    if (!target) {
-      throw new Error(
-        `[walkthrough] target not visible for: "${narration.slice(0, 70)}"\n` +
-          '  Every sentence must point at something that is actually on screen.',
-      );
-    }
-    focus = (await target.innerText().catch(() => ''))?.slice(0, 40) ?? '';
-    const box = await target.boundingBox();
-    if (box) {
-      const cx = box.x + box.width / 2;
-      const cy = box.y + box.height / 2;
-      await ring(page, box);
-      await glide(page, cx, cy, 700);
-      if (action.kind === 'click') {
-        await page.waitForTimeout(420);
-        await target.click({ timeout: 15_000 }).catch(() => {});
-        await clearRing(page);
-        await installOverlay(page);
-      }
-    }
-  }
+  const focus = await perform(page, action, narration);
 
   // Hold for whatever is left of the spoken sentence.
   const spent = now() - startMs;

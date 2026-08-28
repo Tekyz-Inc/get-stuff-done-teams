@@ -39,8 +39,8 @@ transition, and a slideshow does not read as software being used.
 | A **running app with real data** — deployed/preview URL, not a local build with an empty database | An empty tenant on video is indistinguishable from a feature that was never built | Yes — ask for the URL, a login, and the name of a tenant that actually has data |
 | **Playwright** installed | The recorder | Yes — `gsd-t setup-playwright` |
 | **ffmpeg** | Every audio operation | Yes |
-| **auto-editor** (Python venv, bundled into the project, not PATH) | Silence removal, Stage 5 | Yes |
-| A **TTS key** with quota | The narrator | Yes — see § Quota |
+| **auto-editor** (Python venv, bundled into the project, not PATH) | Silence removal, Stage 4 | Yes |
+| A **text-to-speech service with FIXED voices** (e.g. Google Cloud TTS) | The narrator. A language-model TTS re-reads a style hint per request and the voice drifts | Yes — see Stage 1 |
 
 **Ask for the tenant by name.** In the source run, two videos were filmed
 against the wrong location before the right ID was pinned down; the numbering
@@ -118,12 +118,121 @@ Two silent-failure traps seen in practice, worth checking for in any form:
 Also: several elements can carry `role=dialog` (a sidebar, an assistant panel).
 Match a dialog by its title, never `.first()`.
 
-State plainly in the handoff whether seeded data survives (a shared demo site
-often resets nightly).
+**Every cast member must have a script that recreates it.** A shared demo site
+usually resets (nightly is common), so anything the walkthrough names aloud is
+gone by morning — and a walkthrough that references a course which no longer
+exists fails at its first selector. Treat the reset as normal and make the data
+reproducible: one seeder per cast member, re-runnable, and idempotent where the
+app allows it (check whether the record is already there and say so, rather than
+creating a duplicate).
+
+`--seed` re-runs the whole cast, so the day's first recording starts from a known
+state. State plainly in the handoff which parts of the cast are seeded ahead and
+which are created live on camera.
 
 ---
 
-## Step 4 — WRITE the narration as beats
+## Step 4 — CAST the demo (do this BEFORE writing a word)
+
+**A demo that describes what a form is for, while the form sits empty, teaches
+nothing.** The viewer learns that a button exists — not what the software does.
+That is the clinical failure, and it is what this step removes.
+
+**Two stories, woven.** The operator's story is what happens on screen, told in
+their own voice — *"I'm setting fifty-five hours."* The customer's story is why
+every value they type is that value. Neither works alone: the customer alone is a
+bio, the operator alone is a person explaining a form.
+
+| The reason | The decision | On screen |
+|---|---|---|
+| Maya works night shifts | Tyler picks Part 61, not Part 141 | dropdown → **Part 61** |
+| Maya has never flown | Tyler sets 55 hours, not the FAA's 40 | types **55** |
+| Maya can only fly mornings | Tyler assigns James, who flies mornings | dropdown → **James Rivera** |
+
+**The reason comes BEFORE the value, in the same breath** — *"She's on nights,
+so — Part 61."* Value-then-justification is the teacher voice creeping back.
+
+**The tell that you have slipped back into explaining:** a "because" clause
+pointing at the software. *"so it's required rather than optional"*, *"which is
+what the invoice uses later"*, *"the schedule refuses it otherwise"*. Every
+reason must point at the customer, never at the mechanism. Read the finished
+narration aloud: **a sentence that would survive with the names removed is
+explaining the software, and it is wrong.**
+
+Pick real, named specifics and write them down as a cast list before any
+narration is drafted. Not "a course" — a course with a name someone could say out
+loud. Not "a student" — a person with a name.
+
+Put the cast in ONE constants block that both the seeder and the spec import, so
+a name can be changed in a single edit and can never drift between the narration
+and the screen:
+
+```js
+// e2e/walkthrough/cast.mjs — the demo's cast. One edit changes it everywhere.
+export const CAST = {
+  course:  'Private Pilot Certificate — Part 61',
+  student: { first: 'Maya', last: 'Ellison', email: 'maya.ellison@example.com' },
+  // …aircraft, instructor, dates — everything the walkthrough names aloud
+};
+```
+
+**Three rules, and the third is the one a spec silently loses:**
+
+1. **Every named thing is real and specific.** A syllabus with actual stage
+   names, a certificate someone actually earns, a rate someone actually pays.
+   Generic placeholders (`Test Course 1`, `Student A`) read as fake and make the
+   whole demo read as fake with them.
+
+2. **The data is ENTERED on camera, not described — and EVERY DROPDOWN IS
+   OPENED AND PICKED.** The walkthrough types the values and saves. A sentence
+   explaining what a field is for, over an empty field, is the defect.
+
+   A dropdown that is merely highlighted shows nothing: the viewer cannot see
+   what the alternatives were, or that a choice happened at all. **The choice is
+   the most informative moment in a create-flow** — it is where the customer's
+   situation becomes the operator's decision. Use `choose()`, never
+   `highlight()`, on a select.
+
+   If the flow creates something, the demo creates it — that also proves the
+   create-flow works, which describing it never does.
+
+3. **The names CARRY FORWARD.** Once the course is created, every later sentence
+   says that course BY NAME. Once the student is enrolled, they are referred to
+   by name for the rest of the video — "Maya's next lesson", not "the student's
+   next lesson". This is what makes the walkthrough one story instead of a tour
+   of screens. It is easy to lose because each step is written independently, so
+   check it as a pass over the finished narration: **a sentence that says "the
+   student" or "the course" after the cast has been introduced is a bug.**
+
+**Give any value with a symbol or abbreviation a spoken twin.** The narrator
+reads text literally, so `$185/hr` comes out as "dollar one eight five slash h
+r" and `9:00 AM` as "nine colon zero zero A M". Keep the typed value for the
+form field and a said-aloud version for the sentence, both in the cast block.
+
+**Price it with the real billable parts.** A course, a plan or a subscription is
+the SUM of the things a charge attaches to, so build those things on camera and
+attach them — not one summary price. In the flight-school example that is four
+products: the airplane per hour, the instructor per hour, ground instruction per
+hour, and the materials kit once. The payoff line is the one that makes the whole
+section land: *"an hour of dual bills Maya two-sixty — a hundred and eighty-five
+for the airplane, seventy-five for James"* is arithmetic the viewer just watched
+being set up.
+
+**Order the walkthrough as the real-life sequence**, so each screen is visited
+because the previous one made it necessary: build the course → enrol the named
+student → schedule their first lesson → fly it → bill it. That ordering is what
+makes the dependency context land ("before you can schedule a student for a
+course, a program must exist and be linked to a course") instead of being
+asserted.
+
+**When creation hits a guardrail**, that is information, not a blocker — the app
+refusing an incomplete enrolment is worth showing. But do not fight it on camera:
+fall back to an existing named record, and say in the handoff which parts of the
+cast are created live and which are pre-seeded.
+
+---
+
+## Step 5 — WRITE the narration as beats
 
 Two files per walkthrough, and the separation is load-bearing:
 
@@ -146,12 +255,19 @@ Narration rules, each from a user correction:
   reads from it.
 - **Count what is on screen before writing about it.** "Eight-step wizard" shipped
   in a video where the UI says *Step 1 of 9*.
+- **Say the cast's names, every time.** After Step 4's cast is introduced, "the
+  student" and "the course" are bugs — it is *Maya Ellison* and the *Private
+  Pilot Certificate — Part 61*. Read the finished narration once looking only
+  for this.
+- **Narrate the value being typed, not the field's purpose.** "Her first lesson
+  is Tuesday at nine, with James in the Cessna 172" — not "you would select a
+  date, an instructor and an aircraft here".
 - **Naming a whole strip highlights the strip; making a point about one control
   highlights that control; navigating by it moves the mouse and clicks it.**
 
 ---
 
-## Step 5 — the five-stage build
+## Step 6 — the five-stage build
 
 Run in this order, every time. Nothing here is optional.
 
@@ -171,68 +287,72 @@ recordings to find. Preflight walks the same screens without recording and
 reports **every** missing target in one pass. It never asserts; it prints a
 report. The real gate is still the recording itself.
 
-### Stage 1 — Voice (the hardest-won stage)
+### Stage 1 — Voice
 
-**Cause of tone drift, confirmed: one API request per sentence.** The model
-re-decides its delivery on every request, so the narrator audibly changed within
-a single video. Describing the speaker in the prompt does not fix it — it is
-being asked to act, fresh, dozens of times.
+**Pick a text-to-speech service whose voice is a FIXED TRAINED SPEAKER, not a
+language model reading a style hint.** This one choice decides whether the
+narrator can drift at all, and everything else in this stage follows from it.
 
-Two deterministic fixes, neither of which rests on listening and deciding it
-sounds fine:
+The source run learned it the expensive way. It started on a language model's
+audio output (Gemini `generateContent`), where a voice name is a *style hint the
+model re-interprets on every request* — so the narrator audibly changed
+part-way through a video. Enormous effort went into mitigation: batching 8
+sentences per request so one request meant one performance, splitting the
+returned audio back apart on silences, verifying every split, and re-rendering
+whole takes that measured as drifted. It reduced how OFTEN the voice changed and
+could never stop it, because **a batch boundary is still a boundary between two
+different readings**.
 
-**Volume — forced.** Every clip goes through a two-pass ffmpeg `loudnorm` to the
-same target (EBU R128, −18 LUFS). Measured effect: within-video drift went from
-as much as **7.5 dB to ~0.5 dB**, and every video sits at exactly −18.0 so they
-match each other too. A normalise-only script fixes existing clips with no API
-calls.
+Moving to a dedicated speech service (Google Cloud Text-to-Speech) ended it in
+one change. A voice id there is a fixed trained speaker: the same id returns the
+same speaker every time, forever. That removed batch boundaries, silence
+splitting, miscut clips, per-model daily quotas, and drift — all at once — and
+made **one sentence per request** both the simple thing and the correct thing.
 
-**Tone — batched, then verified.** Sentences go **8 per request**, numbered, with
-an instruction to leave two seconds of silence between them; the returned audio is
-cut back apart on those silences. One request means one performance.
+> **If you are on a language-model TTS and cannot switch**, the mitigation is
+> batching: 8 sentences per request (measured — an 18-line single take spread
+> 46 Hz of pitch, 8-line batches 16 Hz), a verified split that retries rather
+> than guessing where a sentence ended, and a re-render loop. Treat it as a
+> workaround, not a design.
 
-> **BATCH SIZE IS 8 AND THAT WAS MEASURED.** Bigger is not better: an 18-line
-> script as a single take gave a pitch spread of **46 Hz**; the same script in
-> 8-line batches gave **16 Hz**. Line-by-line pitch tracing showed why — the
-> narrator holds ~100–115 Hz for a dozen lines then slips (140 Hz at line 15),
-> losing the persona the further it gets from the instruction. Re-measure before
-> changing it.
+**Volume is forced, on every service.** Two-pass ffmpeg `loudnorm` to a fixed
+target (EBU R128, −18 LUFS). Measured on the shipped set: ±0.3–0.7 dB within a
+video, every video landing on the same target so they match each other too. This
+is worth doing even with a fixed speaker — it is the one number a service will
+not hold steady for you.
 
-**The split is verified, never assumed.** If a batch does not come back with the
-expected number of gaps, retry it; if it still disagrees, render those lines one
-at a time. Each piece must also be about as long as its sentence takes to say
-(~2.8 words/sec, accepted band 0.6×–1.7×). A wrong split puts half a sentence on
-the wrong step — worse than the drift it was meant to cure.
+**Every narration line must be a full sentence — 8 words or more.** Integrated
+loudness needs enough audio to measure against; a two- or three-word clip
+("Create Curriculum.") lands off target and blows the video's volume spread,
+and also trips miscut and speaking-rate checks. If a step needs an action the
+narration does not describe, run it untimed rather than inventing a stub line.
 
-**The gate.** Measure three numbers per clip and report the **spread** across the
-video: loudness (LUFS), pitch (median fundamental, Hz), speaking rate (energy
-peaks/sec), plus **miscut** clips. Thresholds: volume 1.5 dB, pitch 35 Hz, rate
-5/s, zero miscuts.
+### The gate — measure IDENTITY, not expressiveness
 
-**Ensure, don't check.** Render → measure → **throw the take away and re-render
-if it drifts** (3 attempts, then halt rather than ship). This is not theoretical:
-one video's first take came back at 46 Hz and was discarded for a 15 Hz one;
-another needed all three attempts (44 → 41 → 31 Hz).
+Measure per clip and report across the video: loudness (LUFS), pitch (median
+fundamental, Hz), speaking rate (energy peaks/sec), and **miscut clips** — a
+clip whose length is far from what its sentence should take to say.
 
-> **Do not trust a single A/B run.** A "persona anchor" prompt looked like a large
-> win (7 Hz vs plain) and reversed on the next run (21 Hz vs 9 Hz). It was
-> run-to-run variance. Two renders of the same prompt genuinely differ — which is
-> exactly why the gate exists instead of a one-time tuning pass.
+**Gate on the MEAN pitch, not the within-video spread.** This is the correction
+that matters, and it was found by running the gate against twelve videos a human
+had already confirmed sounded perfect: **a ±35 Hz spread threshold failed nine
+of them.** Within-video pitch spread is ordinary sentence intonation — a
+question rising, a list falling, a short line sitting higher — and flattening it
+would make the narration robotic. The speaker-identity signal is the mean: across
+those same twelve videos it sat in a 7 Hz band (102–109 Hz), which is what a
+fixed speaker looks like.
 
-**Keep the voice identical across the whole set**, not just within a video. Voice
-name, speed, model, target loudness and persona text all belong in the cache key:
-change any one and the video re-renders rather than mixing two deliveries.
+Working thresholds: volume ±1.5 dB, mean pitch inside a band calibrated from
+known-good output, rate ±5.5/s, zero miscuts.
 
-**Retry every one of these** — each returned something other than usable audio and
-was fatal until handled:
+> **Calibrate a gate against output a human has approved, before trusting it.**
+> A gate that fails most of your known-good work is measuring the wrong thing,
+> and the cost of believing it is re-rendering audio that was already correct.
 
-| Symptom | Handling |
-|---|---|
-| transient `400 INVALID_ARGUMENT` | retry — the identical request succeeds moments later |
-| `200` carrying no audio | retry — the model answered without speech |
-| a call with no deadline | time it out; a hung render looks exactly like a working one |
-| a crashed attempt | the ensure loop catches it and retries, rather than losing the video |
-| `429` per-day quota | switch model or key — see § Quota |
+**Ensure, don't just check.** Render → measure → re-render if it fails (3
+attempts, then halt rather than ship). Even with a fixed speaker this catches a
+bad take: `build-a-course` failed its first attempt on volume and passed the
+second.
 
 ### Stage 2 — Record
 
@@ -302,7 +422,7 @@ The user's verdict on this stage was "It's perfect. Run this after every video."
 
 ---
 
-## Step 6 — VERIFY before showing the user
+## Step 7 — VERIFY before showing the user
 
 The user should never be the one who finds these. Check, per video:
 
@@ -319,12 +439,28 @@ The user should never be the one who finds these. Check, per video:
    `highlight` → `goto` adjacency. (Audited at 22 instances across 6 videos in
    the source run.)
 6. **Counts in the narration match the UI** — tabs, wizard steps, row counts.
+7. **The cast is named throughout** — grep the finished narration for "the
+   student", "the course", "a user", "the aircraft". After the cast is
+   introduced, each of those is a line that should say a name instead.
+8. **Data was entered, not described** — any step whose sentence explains what a
+   field is for should be typing into that field. A form that stays empty while
+   the narration explains it is the clinical failure this exists to prevent.
+9. **Every dropdown was opened and picked** — grep the spec for `highlight(`
+   on a select; each one should be `choose()`. The step log records `choose`
+   as its own action, so count them against the number of selects in the flow.
 
 Then show the user each video as it finishes, not in a batch at the end.
 
 ---
 
-## Quota — it is per PROJECT and per MODEL
+## Quota and auth — only if you are on a language-model TTS
+
+A dedicated speech service typically bills per character with no per-model daily
+cap, and authenticates with a cloud login rather than an API key (Google Cloud
+TTS is OAuth-only — it refuses an API key, and needs a quota project). If that is
+what you are on, this section does not apply.
+
+On a language-model TTS the quota rules bite hard:
 
 - A free tier can be as low as **10 requests per day per model**, and the error
   names it (`…PerDayPerProjectPerModel-FreeTier`). It dies almost immediately.
@@ -351,12 +487,14 @@ docs/demo-videos/HANDOFF.md              hard-won facts, bugs found, what is ope
 docs/demo-videos/walkthrough-<name>.mp4  output (gitignore it)
 e2e/walkthrough/<name>.lines.mjs         narration, one sentence per entry
 e2e/walkthrough/<name>.spec.ts           what happens on screen per sentence
-e2e/walkthrough/runtime.ts               step(), highlight(), click(), goTo()
+e2e/walkthrough/runtime.ts               step(), highlight(), click(), enter(), choose(), act(), goTo()
+e2e/walkthrough/cast.mjs                 the demo's cast — every name said aloud
 e2e/walkthrough/signin.ts                shared sign-in + the tenant constant
 e2e/walkthrough/manifest.ts              loads narration; skips if audio is missing
 e2e/walkthrough/preflight.spec.ts        checks every target without recording
-scripts/walkthrough-voice.mjs            batched TTS, loudness-normalised
-scripts/walkthrough-voice-check.mjs      measures spread + miscuts; exit 4 on drift
+scripts/walkthrough-voice-gcloud.mjs     the narrator — fixed-voice TTS, one sentence/request
+scripts/walkthrough-voice.mjs            SUPERSEDED — batched language-model TTS
+scripts/walkthrough-voice-check.mjs      volume spread + MEAN-pitch identity + miscuts; exit 4
 scripts/walkthrough-voice-ensure.mjs     render → measure → re-render → halt
 scripts/walkthrough-normalise.mjs        force existing clips to one loudness
 scripts/walkthrough-mux.mjs              lay audio on the recording
