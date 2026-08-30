@@ -1205,11 +1205,16 @@ function removeInterceptHooks(settingsPath) {
 //   session signal, but subagents write those too, so one session with agents
 //   looked like several colliding sessions and the guard blocked its own user.
 //
+//   gsd-t-context-meter — M61, script deleted; native /context replaced it.
+//   init() stopped provisioning it then, but install() kept re-registering it,
+//   so every machine still runs it on EVERY tool call: a bash + `npm root -g`
+//   subprocess spawned to look for a file that no longer ships.
+//
 // Throws on any failure. A retired hook that silently survives keeps blocking
 // edits forever, so "could not remove it" must stop the install loudly rather
 // than report success.
 function removeRetiredHooks(settingsPath) {
-  const RETIRED_HOOK_MARKERS = ["gsd-t-worktree-guard"];
+  const RETIRED_HOOK_MARKERS = ["gsd-t-worktree-guard", CONTEXT_METER_HOOK_MARKER];
   const targetPath = settingsPath || SETTINGS_JSON;
   if (!fs.existsSync(targetPath)) return { removed: 0 };
 
@@ -2285,13 +2290,10 @@ async function doInstall(opts = {}) {
   heading("Global Bin Tools (~/.claude/bin/)");
   installGlobalBinTools();
 
-  heading("Context Meter (PostToolUse)");
-  const cmHook = configureContextMeterHooks(SETTINGS_JSON);
-  if (cmHook.installed) {
-    if (cmHook.action === "added") success("Context meter PostToolUse hook added");
-    else if (cmHook.action === "updated") success("Context meter hook command refreshed");
-    else info("Context meter hook already configured");
-  }
+  // M61: Context Meter retired (scripts/gsd-t-context-meter.js deleted; native
+  // /context replaces it). The configureContextMeterHooks() call that stood here
+  // re-registered a PostToolUse hook pointing at that deleted script on every
+  // install. removeRetiredHooks() below now strips it instead.
 
   heading("Graph-Intercept (PostToolUse on Grep — M97)");
   const giHook = configureGraphInterceptHook(SETTINGS_JSON);
@@ -2318,7 +2320,7 @@ async function doInstall(opts = {}) {
 
   const retired = removeRetiredHooks(SETTINGS_JSON);
   if (retired.removed > 0) {
-    success(`Removed ${retired.removed} retired hook(s) from settings.json (worktree-collision guard — M105)`);
+    success(`Removed ${retired.removed} retired hook(s) from settings.json (worktree-collision guard — M105; context meter — M61)`);
   }
 
   // M105 worktree-collision guard RETIRED (2026-08-08). It detected sessions from
@@ -5610,6 +5612,7 @@ module.exports = {
   installContextMeter,
   configureContextMeterHooks,
   removeContextMeterHook,
+  removeRetiredHooks,
   // M97/M98: intercept hook installers
   configureGraphInterceptHook,
   configureReadInterceptHook,

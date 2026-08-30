@@ -2,6 +2,41 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.16.12] - 2026-08-29
+
+### Fixed — a retired hook fired on every tool call, on every machine, since M61
+
+An audit of installed hooks against what the installer registers found all 16
+expected hooks present and correct — plus one that should not have been there.
+
+M61 deleted `scripts/gsd-t-context-meter.js` (native `/context` replaced it) and
+unwired the subsystem from `init()` and `doctor()`. `install()` was missed, so it
+kept calling `configureContextMeterHooks()` and re-adding a `PostToolUse` hook
+matching `*` on every install and every update.
+
+**It never errored, which is why it survived eight months.** The command is
+guarded `[ -f … ] && node … || true`, so on every single tool call it spawned a
+bash + `npm root -g` subprocess, found nothing, and exited 0 silently — a real
+cost with no signal.
+
+The fix is two parts, because dropping the registration alone fixes nobody: a
+machine that installed the hook once keeps running it out of its own
+`settings.json`, and the installer is the only thing that reaches those machines.
+
+- `bin/gsd-t.js`: removed the `configureContextMeterHooks()` call from `install()`
+- `bin/gsd-t.js`: added the marker to `removeRetiredHooks()`, so existing machines
+  get it stripped on their next install — the same mechanism that retired the
+  M105 worktree guard
+- `bin/gsd-t.js`: exported `removeRetiredHooks` — it was not testable from
+  outside at all, which is part of why this went unnoticed
+- `test/m61-context-meter-hook-retired.test.js`: 6 regression tests, mutation-tested
+  by reverting each half of the fix
+- `.gsd-t/contracts/graph-metrics-contract.md`: stale line citation for `doMetrics`
+  (:5486 → :5488), shifted by the edit above and caught by the M99 contract-line test
+
+`configureContextMeterHooks` and `removeContextMeterHook` stay defined for the
+uninstall path. No migration needed — the next `gsd-t update` removes the hook.
+
 ## [5.16.11] - 2026-08-27
 
 ### Fixed — the voice fix was the wrong fix, and the gate was measuring the wrong thing
