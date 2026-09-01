@@ -295,16 +295,51 @@ function loadSkippedFiles(storePath) {
  * @param {Set<string>} skippedFiles  — files that failed to parse (D3-T6)
  * @returns {{ complete: boolean, unparsedContributors?: number, note?: string }}
  */
-function computeCoverage(skippedFiles) {
-  if (!skippedFiles || skippedFiles.size === 0) {
-    return { complete: true };
+function computeCoverage(skippedFiles, opts = {}) {
+  const n = (skippedFiles && skippedFiles.size) || 0;
+
+  // M114 — an UNRESOLVED file is as invisible to who-calls as an unparsed one.
+  // Parsing a file yields its call SITES; only compiler-accurate resolution says
+  // WHICH function each site targets. A floor-tier file parses fine, contributes
+  // zero resolved call edges, and never lands in skippedFiles — so coverage used
+  // to report complete:true while who-calls returned empty for an entire backend.
+  // "Nothing calls this" is what gets read right before a rename or a delete, so
+  // a false all-clear here is worse than no answer.
+  // Applies to CALL-edge queries only: IMPORT edges come from the parse, so
+  // who-imports and blast-radius are genuinely complete at floor tier.
+  const unresolved = opts.callEdgesUnresolved ? (opts.unresolvedFiles || 0) : 0;
+
+  if (n === 0 && !unresolved) return { complete: true };
+
+  const notes = [];
+  if (n) notes.push(`${n} file(s) unparsed`);
+  if (unresolved) {
+    notes.push(`${unresolved} file(s) parsed but not compiler-resolved — ` +
+      `call edges there are unknown, not absent`);
   }
-  const n = skippedFiles.size;
-  return {
+  const coverage = {
     complete: false,
-    unparsedContributors: n,
-    note: `result may be incomplete — ${n} file(s) unparsed`,
+    note: `result may be incomplete — ${notes.join('; ')}`,
   };
+  if (n) coverage.unparsedContributors = n;
+  if (unresolved) coverage.unresolvedContributors = unresolved;
+  return coverage;
+}
+
+/**
+ * Count files whose tier is NOT compiler-accurate — i.e. files that parsed but
+ * whose call targets were never resolved. These are invisible to who-calls.
+ *
+ * @param {{fileTier?: Map<string,string>}} index
+ * @returns {number}
+ */
+function countUnresolvedFiles(index) {
+  if (!index || !index.fileTier) return 0;
+  let n = 0;
+  for (const tier of index.fileTier.values()) {
+    if (tier && tier !== 'compiler-accurate') n++;
+  }
+  return n;
 }
 
 /**
@@ -332,6 +367,9 @@ function buildIndex(records, skippedFiles) {
   const funcEntities = new Map();
   /** @type {Set<string>} */
   const allFiles = new Set();
+  /** @type {Map<string,string>} file → tier (M114: who-calls needs the TARGET
+   * file's tier, not just the repo-wide dominant one). */
+  const fileTier = new Map();
 
   let dominantTier = "compiler-accurate";
   let hasFloor = false;
@@ -339,6 +377,7 @@ function buildIndex(records, skippedFiles) {
 
   for (const rec of records) {
     allFiles.add(rec.file);
+    if (rec.tier) fileTier.set(rec.file, rec.tier);
 
     if (rec.tier === "tree-sitter-floor") hasFloor = true;
     if (rec.tier === "tree-sitter-floor-STALE-SCIP") hasStaleScip = true;
@@ -384,6 +423,7 @@ function buildIndex(records, skippedFiles) {
     forwardCallEdges,
     funcEntities,
     allFiles,
+    fileTier,
     tier: dominantTier,
     skippedFiles: skippedFiles instanceof Set ? skippedFiles : new Set(),
   };
@@ -515,6 +555,17 @@ function loadSqliteStore(dbPath) {
     };
     for (const n of nodes) {
       if (n.func_id) rec(n.file).entities.push({ funcId: n.func_id, name: n.name, file: n.file, tier: n.tier, endLine: n.end_line });
+    }
+    // M114 — carry each file's TIER onto its record. Without this the record is
+    // {file, entities, edges} with no tier, so the query layer cannot tell a
+    // compiler-resolved file from an unresolved one and coverage cannot report
+    // incompleteness. A file is only compiler-accurate if every entity is; a
+    // single floor entity means some call target in it is unknown.
+    for (const n of nodes) {
+      if (!n.file) continue;
+      const r = rec(n.file);
+      if (n.tier && n.tier !== 'compiler-accurate') r.tier = n.tier;
+      else if (!r.tier) r.tier = n.tier || 'compiler-accurate';
     }
     for (const e of edges) {
       // src for an IMPORT edge is the source FILE; for a CALL edge it's a funcId
@@ -676,7 +727,7 @@ function queryWhoImports(index, target) {
  */
 function queryWhoCalls(index, identity) {
   const isFuncId = identity.includes("#");
-  const coverage = computeCoverage(index.skippedFiles);
+  const coverage = computeCoverage(index.skippedFiles, { callEdgesUnresolved: true, unresolvedFiles: countUnresolvedFiles(index) });
 
   if (isFuncId) {
     // File-qualified identity — exact funcId lookup (tolerate @line suffix:
@@ -909,7 +960,7 @@ function queryBlastRadius(index, target) {
   }
 
   const results = Array.from(visited).sort();
-  const coverage = computeCoverage(index.skippedFiles);
+  const coverage = computeCoverage(index.skippedFiles, { callEdgesUnresolved: true, unresolvedFiles: countUnresolvedFiles(index) });
   return { results, tier: index.tier, coverage };
 }
 
@@ -1295,6 +1346,7 @@ module.exports = {
   queryDangling,
   queryTestImpl,
   computeCoverage,
+  countUnresolvedFiles,
   loadStore,
   runFreshnessCheck,
   resolveStorePath,

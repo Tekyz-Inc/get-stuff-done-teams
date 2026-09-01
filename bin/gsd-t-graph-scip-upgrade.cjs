@@ -243,6 +243,59 @@ function isRustCrossCrateEdge(edge, relPath) {
   return false;
 }
 
+// ── TypeScript project discovery (M114) ──────────────────────────────────────
+
+/**
+ * Find every TypeScript project root in the repo — each directory holding a
+ * `tsconfig.json`.
+ *
+ * Why: scip-typescript indexes ONE tsconfig per run, and a tsconfig's `include`
+ * governs what it can see. A repo whose root tsconfig covers only the frontend
+ * indexes only the frontend; `server/src/` is never compiled, so not one backend
+ * call resolves and `who-calls` answers empty for the entire backend.
+ * `--infer-tsconfig` does NOT cover this — it finds *a* tsconfig when the root
+ * has none, but still produces a single index from a single root.
+ *
+ * Returns repo-relative dirs, root first (`''` for the repo root itself), so the
+ * root project's symbols win when two projects define the same name.
+ *
+ * A nested project inside another's `include` gets indexed twice; that is
+ * harmless — the second read overwrites identical keys with identical values.
+ *
+ * [RULE] scip-indexes-every-tsconfig-project
+ *
+ * @param {string} repoRoot
+ * @returns {string[]} repo-relative project dirs, e.g. ['', 'server']
+ */
+function findTsProjectDirs(repoRoot) {
+  const SKIP = new Set(['node_modules', '.git', 'dist', 'build', 'out', '.venv', 'venv',
+    'site-packages', '__pycache__', '.next', 'coverage', 'Pods', '.dart_tool', 'vendor']);
+  function isSkip(name) {
+    if (SKIP.has(name)) return true;
+    return ['dist', 'build', 'out'].some(p => name.length > p.length && name.startsWith(p) &&
+      (name[p.length] === '-' || name[p.length] === '.' || name[p.length] === '_'));
+  }
+  const found = [];
+  function walk(dir, depth) {
+    if (depth > 4) return;               // deep enough for monorepo packages/*/x
+    let entries;
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+    for (const e of entries) {
+      if (e.isFile() && e.name === 'tsconfig.json') {
+        const rel = path.relative(repoRoot, dir).split(path.sep).join('/');
+        found.push(rel);
+      }
+    }
+    for (const e of entries) {
+      if (e.isDirectory() && !isSkip(e.name)) walk(path.join(dir, e.name), depth + 1);
+    }
+  }
+  walk(repoRoot, 0);
+  // Root ('') first so its symbols are read before nested ones.
+  found.sort((a, b) => (a === '' ? -1 : b === '' ? 1 : a.localeCompare(b)));
+  return found;
+}
+
 // ── Repo-level SCIP resolver (M95) ────────────────────────────────────────────
 
 /**
@@ -282,11 +335,32 @@ function buildScipResolver(repoRoot, opts = {}) {
     }
   }
 
+  // TypeScript: one indexer run PER tsconfig project, each re-prefixed back to
+  // repo-root-relative paths before merging. A single root run misses every
+  // nested project (see findTsProjectDirs), and a second run without the prefix
+  // resolves nothing — both halves are required for either to work.
+  const tsProjects = [];
   if (avail.typescript && langs.typescript) {
-    try {
-      const run = runScipTypescript(repoRoot, resolveScipPath('index.scip', repoRoot));
-      if (run && run.ok) { mergeRead(readScipIndex(run.scipPath)); ranIndexers.push('typescript'); }
-    } catch { /* degrade to floor for TS */ }
+    const dirs = findTsProjectDirs(repoRoot);
+    // No tsconfig anywhere → one root run with --infer-tsconfig (prior behavior).
+    const targets = dirs.length ? dirs : [''];
+    for (const rel of targets) {
+      const absRoot = rel ? path.join(repoRoot, rel) : repoRoot;
+      // One .scip per project — a shared filename would have each run clobber
+      // the last, leaving only the final project's symbols.
+      const outName = rel ? `index-ts-${rel.replace(/[^A-Za-z0-9_-]/g, '-')}.scip` : 'index.scip';
+      try {
+        const run = runScipTypescript(absRoot, resolveScipPath(outName, repoRoot));
+        if (run && run.ok) {
+          const read = readScipIndex(run.scipPath, rel);
+          if (read && read.ok) {
+            mergeRead(read);
+            tsProjects.push({ dir: rel || '.', files: read.fileRefs.size });
+          }
+        }
+      } catch { /* this project degrades to floor; others still contribute */ }
+    }
+    if (tsProjects.length) ranIndexers.push('typescript');
   }
   if (avail.python && langs.python) {
     try {
@@ -335,7 +409,17 @@ function buildScipResolver(repoRoot, opts = {}) {
     return { edges: out, resolved };
   }
 
-  return { ok: true, indexers: ranIndexers, scipPath: resolveScipPath('index.scip', repoRoot), resolveFileEdges };
+  // tsProjects reports which tsconfig projects actually contributed refs. A
+  // project that ran but yielded 0 files is the signature of this bug class —
+  // surfaced rather than swallowed, so a re-index can be inspected.
+  return {
+    ok: true,
+    indexers: ranIndexers,
+    tsProjects,
+    indexedFiles: fileRefs.size,
+    scipPath: resolveScipPath('index.scip', repoRoot),
+    resolveFileEdges,
+  };
 }
 
 /** No-op resolver used when SCIP is unavailable (floor mode). */
@@ -495,6 +579,7 @@ if (require.main === module) {
 module.exports = {
   tryScipUpgrade,
   buildScipResolver,
+  findTsProjectDirs,
   detectScip,
   _resetScipCache,
   isRustCrossCrateEdge,

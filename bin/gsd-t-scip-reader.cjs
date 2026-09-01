@@ -118,12 +118,29 @@ function isBuildOutputPath(relPath) {
 /**
  * Decode a `.scip` file and build resolution maps.
  *
+ * `pathPrefix` re-roots every path in the index to be repo-root-relative.
+ * An indexer reports paths relative to WHERE IT RAN: indexing `server/` emits
+ * `src/index.ts`, while the graph stores `server/src/index.ts`. Without the
+ * prefix, a nested project's refs key on paths the graph has never heard of and
+ * resolve nothing — a second indexer run would LOOK like a fix and change
+ * nothing. [RULE] scip-paths-reprefixed-to-repo-root
+ *
+ * The prefix must apply to BOTH the fileRefs keys AND the funcId values, since
+ * a funcId is `relPath#name` — prefixing only the keys leaves every funcId
+ * pointing at a path the graph does not have.
+ *
  * @param {string} scipPath  absolute path to an index.scip
+ * @param {string} [pathPrefix]  repo-relative dir the index was produced from
+ *                               (e.g. "server"); "" or "." for the repo root
  * @returns {{ ok: true, symbolToDef: Map<string,string>,
  *             fileRefs: Map<string, Array<{symbol:string, funcId:string, line:number}>> }
  *         | { ok: false, reason: string }}
  */
-function readScipIndex(scipPath) {
+function readScipIndex(scipPath, pathPrefix) {
+  // Normalize: "", ".", "./", "server/" and "server" all mean the same thing.
+  const rawPrefix = (pathPrefix || '').replace(/^\.\/+/, '').replace(/\/+$/, '');
+  const prefix = (rawPrefix === '' || rawPrefix === '.') ? '' : rawPrefix + '/';
+  const reroot = prefix ? (p) => prefix + p : (p) => p;
   const proto = loadScipProto();
   if (!proto) {
     return { ok: false, reason: 'scip-decoder-unavailable' };
@@ -147,22 +164,24 @@ function readScipIndex(scipPath) {
 
   // First pass: collect every DEFINITION occurrence → symbol → funcId.
   for (const doc of docs) {
-    const relPath = doc.relative_path;
-    if (!relPath || isBuildOutputPath(relPath)) continue;
+    const rawPath = doc.relative_path;
+    if (!rawPath || isBuildOutputPath(rawPath)) continue;
+    const relPath = reroot(rawPath);
     for (const occ of doc.occurrences || []) {
       const isDef = (occ.symbol_roles & SYMBOL_ROLE_DEFINITION) !== 0;
       if (!isDef) continue;
       const name = funcNameFromSymbol(occ.symbol);
       if (!name) continue;
-      // funcId = the graph's file#name key
+      // funcId = the graph's file#name key (repo-root-relative)
       symbolToDef.set(occ.symbol, `${relPath}#${name}`);
     }
   }
 
   // Second pass: collect every REFERENCE occurrence per file, resolved to the def.
   for (const doc of docs) {
-    const relPath = doc.relative_path;
-    if (!relPath || isBuildOutputPath(relPath)) continue;
+    const rawPath = doc.relative_path;
+    if (!rawPath || isBuildOutputPath(rawPath)) continue;
+    const relPath = reroot(rawPath);
     const refs = [];
     for (const occ of doc.occurrences || []) {
       const isDef = (occ.symbol_roles & SYMBOL_ROLE_DEFINITION) !== 0;
