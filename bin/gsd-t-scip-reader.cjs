@@ -81,15 +81,33 @@ function loadScipProto() {
  */
 function funcNameFromSymbol(symbol) {
   if (!symbol || typeof symbol !== 'string') return null;
-  // Only function/method occurrences (end with "()."). Parameters are "name().(p)"
-  // — they don't end with "()." so they're excluded.
-  if (!/\(\)\.$/.test(symbol)) return null;
-  // The callable name is the last descriptor segment. Top-level functions are
+
+  // The name is the last descriptor segment. Top-level functions are
   // ".../`file.ts`/name()."; methods are ".../`file.ts`/Class#method()." — so the
   // name follows the LAST '/' OR '#', whichever is later (methods key on '#').
   const cut = Math.max(symbol.lastIndexOf('/'), symbol.lastIndexOf('#'));
   const descriptor = cut === -1 ? symbol : symbol.slice(cut + 1);
-  const m = descriptor.match(/^([A-Za-z_$][\w$]*)\(\)\.$/);
+
+  // TWO callable descriptor shapes, and missing the second one silently halved
+  // the graph. [RULE] scip-accepts-term-and-method-descriptors
+  //
+  //   `name().`  — a METHOD descriptor: `export function name() {}`
+  //   `name.`    — a TERM descriptor:   `export const name = async () => {}`
+  //
+  // TypeScript treats an arrow function assigned to a const as a VARIABLE, so
+  // SCIP emits a term. Requiring "()." therefore discarded every arrow-function
+  // export: on a real server that was 3,584 term symbols dropped against 1,624
+  // kept, so `who-calls logAudit` answered "no callers" for a function called
+  // throughout the codebase — while `verifyToken`, three lines away but written
+  // as `export function`, resolved fine.
+  //
+  // Non-callable terms (`Array.`, an imported type) are admitted here and cost
+  // nothing: a name only resolves when a CALL SITE is looking for that exact
+  // name, so a type reference never matches one.
+  //
+  // Parameters (`name().(p)`) stay excluded — they end in `)`, not `.`.
+  let m = descriptor.match(/^([A-Za-z_$][\w$]*)\(\)\.$/);   // function / method
+  if (!m) m = descriptor.match(/^([A-Za-z_$][\w$]*)\.$/);   // term (const arrow fn)
   return m ? m[1] : null;
 }
 

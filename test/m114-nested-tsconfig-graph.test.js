@@ -196,3 +196,37 @@ test('prefix forms normalize to the same result', () => {
   assert.equal(missing.ok, false);
   assert.equal(missing.reason, 'scip-file-missing', 'still fails loud with a prefix');
 });
+
+// ── Defect 4: arrow-function exports were discarded entirely ─────────────────
+
+const { funcNameFromSymbol } = require(path.join(REPO, 'bin', 'gsd-t-scip-reader.cjs'));
+
+test('a const arrow function is a callable, not noise', () => {
+  // `export const logAudit = async () => {}` is a VARIABLE to TypeScript, so
+  // SCIP emits a TERM descriptor (`logAudit.`) rather than a method one
+  // (`logAudit().`). Requiring "()." discarded every arrow-function export:
+  // on a real server, 3,584 term symbols dropped against 1,624 kept, so
+  // `who-calls logAudit` answered "no callers" for a function called
+  // throughout the codebase.
+  const base = 'scip-typescript npm srv 1.0 src/`audit.ts`/';
+  assert.equal(funcNameFromSymbol(base + 'logAudit.'), 'logAudit');
+  assert.equal(funcNameFromSymbol(base + 'verifyToken().'), 'verifyToken');
+});
+
+test('a method on a class still resolves', () => {
+  const s = 'scip-typescript npm srv 1.0 src/`svc.ts`/Service#handle().';
+  assert.equal(funcNameFromSymbol(s), 'handle');
+});
+
+test('parameters are still excluded', () => {
+  // A parameter ends in ')', not '.', so neither pattern may claim it —
+  // admitting them would let a parameter name shadow a real function.
+  const s = 'scip-typescript npm srv 1.0 src/`a.ts`/looksLikeToken().(candidate)';
+  assert.equal(funcNameFromSymbol(s), null);
+});
+
+test('non-callable input is rejected', () => {
+  assert.equal(funcNameFromSymbol(''), null);
+  assert.equal(funcNameFromSymbol(null), null);
+  assert.equal(funcNameFromSymbol('scip npm x 1.0 src/`a.ts`/Thing#'), null, 'a type is not callable');
+});

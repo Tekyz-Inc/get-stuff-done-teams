@@ -2,6 +2,41 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.17.11] - 2026-09-01
+
+### Fixed — every arrow-function export was invisible to the code graph
+
+`who-calls logAudit` answered "no callers" for a function called throughout a
+server, while `verifyToken` — three lines away in the same directory — resolved
+fine. The difference was how they were declared:
+
+- `export function verifyToken()` → SCIP emits a METHOD descriptor, `verifyToken().`
+- `export const logAudit = async () => {}` → SCIP emits a TERM descriptor, `logAudit.`
+
+TypeScript treats an arrow function assigned to a const as a variable, so it gets
+a term. `funcNameFromSymbol` required the `().` shape and discarded everything
+else — on a real server that meant **3,584 term symbols dropped against 1,624
+kept**, more than twice as much data thrown away as used.
+
+The references were in the SCIP index the whole time; GSD-T was deleting them on
+read. This was diagnosed in the field as a "scip-typescript coverage limitation" —
+it was not, it was ours.
+
+Non-callable terms (`Array.`, imported types) are now admitted and cost nothing:
+a name only resolves when a call site is looking for that exact name, so a type
+reference never matches one. Parameters (`name().(p)`) stay excluded — they end
+in `)`, not `.`.
+
+Measured on the same repo, on top of 5.17.10: `server/src/index.ts` went from 30
+to **116** unique resolved symbols, compiler-accurate files 38 → **130**, call
+edges into `server/` 173 → **591**. `logAudit`, `withTransaction` and
+`getAuditContext` all return correct callers, verified against the source.
+
+- `bin/gsd-t-scip-reader.cjs`: accept term descriptors alongside method ones
+- `test/m114-nested-tsconfig-graph.test.js`: 4 more tests, mutation-tested
+
+**Re-index to pick this up**: `gsd-t graph index`.
+
 ## [5.17.10] - 2026-09-01
 
 ### Fixed — the code graph indexed one TypeScript project and called it the whole repo
