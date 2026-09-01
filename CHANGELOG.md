@@ -2,6 +2,53 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.17.10] - 2026-09-01
+
+### Fixed — the code graph indexed one TypeScript project and called it the whole repo
+
+Found in a live TimeTracking session: 8 of 245 files indexed, 96 of 50,283 call
+edges resolved (0.2%, all same-file), and not one backend call among them. The
+root `tsconfig.json`'s `include` listed frontend paths only, so `server/src/`
+was never compiled and every backend `who-calls` returned empty.
+
+**Three defects, and fixing any one alone changes nothing.**
+
+1. **One indexer run at the repo root.** `--infer-tsconfig` does not cover this —
+   it finds *a* tsconfig when the root has none, but still emits one index from
+   one root. Now: one run per tsconfig project, merged.
+
+2. **Paths keyed to where the indexer ran.** Indexing `server/` emits
+   `src/index.ts` while the graph stores `server/src/index.ts`, so a second run
+   *without* re-prefixing resolves nothing while looking like a fix. The prefix
+   has to apply to the funcId values too (`relPath#name`), not just the map keys.
+
+3. **`who-calls` claimed `coverage.complete: true` while returning zero.**
+   Coverage counted parse failures only; a file that parsed but was never
+   compiler-resolved is equally invisible to a call query and never lands in
+   `skippedFiles`. "Nothing calls this" is what gets read right before a rename
+   or a delete — and it was firing on auth middleware.
+
+Why (3) hid so long: the per-file record handed to the query layer was
+`{file, entities, edges}` with no tier field, so the query layer structurally
+could not tell a resolved file from an unresolved one.
+
+Import queries deliberately still report complete at floor tier — import edges
+come from the parse, so `who-imports` and `blast-radius` are genuinely complete
+there, and flagging them would train you to ignore the field.
+
+Measured on TimeTracking: 8 → 40 indexed files, 0 → 173 resolved call edges into
+`server/`, 96 → 390 overall, `server/` 0 → 13 of 19 files compiler-accurate.
+Affects 13 registered projects with nested tsconfigs (binvoice 1→5 projects,
+newman 1→7, Tekyz-CRM 1→2).
+
+- `bin/gsd-t-graph-scip-upgrade.cjs`: `findTsProjectDirs()` + one indexer run per project
+- `bin/gsd-t-scip-reader.cjs`: `pathPrefix` re-roots fileRefs keys AND funcIds
+- `bin/gsd-t-graph-query-cli.cjs`: per-file tier carried onto records + tier-aware coverage
+- `test/m114-nested-tsconfig-graph.test.js`: 12 tests, each mutation-tested
+
+**Re-index to pick this up**: `gsd-t graph index` in any project with a nested
+tsconfig. A graph built before this version under-reports call edges.
+
 ## [5.16.12] - 2026-08-29
 
 ### Fixed — a retired hook fired on every tool call, on every machine, since M61
