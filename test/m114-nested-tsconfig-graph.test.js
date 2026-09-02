@@ -230,3 +230,59 @@ test('non-callable input is rejected', () => {
   assert.equal(funcNameFromSymbol(null), null);
   assert.equal(funcNameFromSymbol('scip npm x 1.0 src/`a.ts`/Thing#'), null, 'a type is not callable');
 });
+
+// ── Defect 5: a `.js` import specifier never reached its `.ts` source ─────────
+
+// TypeScript ESM REQUIRES an import to be WRITTEN `./x.js` while the file on
+// disk is `x.ts`. The resolver appended extensions (x.js, x.js.ts, ...) and
+// never SWAPPED, so who-imports answered "0 importers, coverage complete" for a
+// file with five real importers. 817 of binvoice's 2,376 import edges (34%)
+// were unresolvable this way — each reading as "nothing imports this".
+//
+// resolveDst is a closure inside loadStore, so this drives the real CLI against
+// a real store: build a tiny repo, index it, query it.
+
+const { execFileSync } = require('node:child_process');
+
+function indexAndQuery(files, target) {
+  const dir = tmpRepo(files);
+  try {
+    execFileSync('node', [path.join(REPO, 'bin', 'gsd-t-graph-index.cjs'), 'build'],
+      { cwd: dir, stdio: 'pipe', timeout: 120000 });
+    const out = execFileSync('node',
+      [path.join(REPO, 'bin', 'gsd-t-graph-query-cli.cjs'), 'who-imports', target],
+      { cwd: dir, encoding: 'utf8', timeout: 60000 });
+    return JSON.parse(out);
+  } finally { rm(dir); }
+}
+
+test('an import written .js resolves to the .ts file on disk', () => {
+  const r = indexAndQuery({
+    'src/dom-observer.ts': 'export function startObserver() { return 1; }\n',
+    'src/index.ts': "import { startObserver } from './dom-observer.js';\nexport const go = () => startObserver();\n",
+  }, 'src/dom-observer.ts');
+  assert.ok(r.ok, 'query must succeed');
+  assert.deepEqual(r.results, ['src/index.ts'],
+    'the .js specifier must resolve to the .ts source');
+});
+
+test('a real .js file still wins over the .ts swap', () => {
+  // Swapping is a LAST resort: when the .js genuinely exists it is the target.
+  // Preferring the .ts would silently retarget a real JavaScript import.
+  const r = indexAndQuery({
+    'lib/helper.js': 'export function h() { return 1; }\n',
+    'lib/helper.ts': 'export function h() { return 2; }\n',
+    'lib/main.ts': "import { h } from './helper.js';\nexport const go = () => h();\n",
+  }, 'lib/helper.js');
+  assert.ok(r.ok);
+  assert.deepEqual(r.results, ['lib/main.ts'],
+    'an existing .js file is the target, not the .ts');
+});
+
+test('a genuinely external package is not rewritten', () => {
+  const r = indexAndQuery({
+    'src/a.ts': "import React from 'react';\nexport const go = () => React;\n",
+  }, 'react');
+  assert.ok(r.ok);
+  assert.deepEqual(r.results, ['src/a.ts'], 'a package specifier stays as written');
+});

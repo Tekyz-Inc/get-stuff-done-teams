@@ -2,6 +2,28 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.17.12] - 2026-09-02
+
+### Fixed — an import written `.js` never resolved to its `.ts` source, so `who-imports` answered "nothing imports this"
+
+`who-imports src/content/dom-observer.ts` in binvoice returned 0 importers with
+coverage "complete" while five real importers sat in the edges table. TypeScript
+ESM requires an import to be WRITTEN `./dom-observer.js` even though the file on
+disk is `dom-observer.ts`. The resolver only ever APPENDED extensions
+(`x.js`, `x.js.ts`, …) and never SWAPPED one, so the specifier could not reach
+its source. 817 of binvoice's 2,376 import edges (34%) were unresolvable this way,
+each reading as "safe to delete."
+
+- `bin/gsd-t-graph-query-cli.cjs`: after the append pass, try the swap
+  (`.js`→`.ts`/`.tsx`, `.mjs`→`.mts`, `.cjs`→`.cts`) on both the relative and
+  alias-expanded routes. A real `.js` on disk still wins; a package specifier
+  stays as written. `[RULE] query-resolves-js-specifier-to-ts-source`.
+- `test/m114-nested-tsconfig-graph.test.js`: three end-to-end tests that index a
+  tiny repo and query it through the real CLI — `.js`→`.ts` resolves, a real
+  `.js` beats the swap, an external package is not rewritten.
+
+Re-run `gsd-t graph index` is NOT required — resolution happens at query time.
+
 ## [5.17.11] - 2026-09-01
 
 ### Fixed — every arrow-function export was invisible to the code graph

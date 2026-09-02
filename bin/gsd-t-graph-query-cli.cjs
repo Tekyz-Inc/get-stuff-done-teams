@@ -525,6 +525,25 @@ function loadSqliteStore(dbPath) {
     // expanded alias is ALREADY project-relative and must not be — joining it to
     // the importer's directory would produce `src/app/src/lib/db`. So the two
     // take different routes to the same place: add the extension either way.
+    // [RULE] query-resolves-js-specifier-to-ts-source
+    //
+    // binvoice, 2026-09-02: `who-imports src/content/dom-observer.ts` returned 0
+    // importers with coverage "complete" while five real importers sat in the
+    // edges table. TypeScript ESM requires an import to be WRITTEN `.js` even
+    // though the file on disk is `.ts` — so the edge says `./dom-observer.js`
+    // and no amount of appending extensions reaches `dom-observer.ts`. It has to
+    // SWAP the extension, not append to it. 817 of binvoice's 2,376 import edges
+    // (34%) were unresolvable this way, each answering "nothing imports this" —
+    // which reads as safe to delete.
+    const jsToTsCandidates = (p) => {
+      const m = /\.(js|jsx|mjs|cjs)$/.exec(p);
+      if (!m) return [];
+      const stem = p.slice(0, -m[0].length);
+      // .js->.ts/.tsx, .jsx->.tsx, .mjs->.mts, .cjs->.cts — the source files a
+      // bundler would have compiled INTO the specifier that was written.
+      return [stem + ".ts", stem + ".tsx", stem + ".mts", stem + ".cts"];
+    };
+
     const resolveDst = (srcFile, dst) => {
       if (typeof dst !== "string" || !dst) return dst;
 
@@ -536,6 +555,10 @@ function loadSqliteStore(dbPath) {
         for (const ext of EXTS) {
           if (fileIds.has(base + ext)) return base + ext;
         }
+        // An alias-expanded path can carry the same written-.js convention.
+        for (const cand of jsToTsCandidates(base)) {
+          if (fileIds.has(cand)) return cand;
+        }
         return dst; // genuinely external — keep it exactly as written
       }
 
@@ -543,6 +566,11 @@ function loadSqliteStore(dbPath) {
       // Prefer an actual indexed file id (try the bare path, then common extensions).
       for (const ext of EXTS) {
         if (fileIds.has(base + ext)) return base + ext;
+      }
+      // TypeScript ESM: the import is written `.js`, the source is `.ts`. Swap,
+      // don't append. [RULE] query-resolves-js-specifier-to-ts-source
+      for (const cand of jsToTsCandidates(base)) {
+        if (fileIds.has(cand)) return cand;
       }
       return base; // no indexed match (external/missing) — keep the resolved path
     };
