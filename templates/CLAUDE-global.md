@@ -608,6 +608,7 @@ Add `**Also available:**` with `- /gsd-t-{alt} — {desc}` lines if alternatives
 | `partition` | `plan` | `discuss` (if complex) |
 | `discuss` | `plan` | |
 | `plan` | `execute` | `impact` (if risky) |
+| `test-plan` | `plan` | `execute` (if `--after` mode against a milestone already mid-build) |
 | `impact` | `execute` | |
 | `execute` | `test-sync` | |
 | `test-sync` | `verify` | `integrate` (if multi-domain) |

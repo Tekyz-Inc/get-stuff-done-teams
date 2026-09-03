@@ -197,6 +197,7 @@ This will replace changed command files, back up your CLAUDE.md if customized, a
 | `/gsd-t-milestone` | Define new milestone | Manual |
 | `/gsd-t-partition` | Decompose into domains + contracts | In wave |
 | `/gsd-t-plan` | Create atomic task lists per domain (tasks auto-split to fit one context window) | In wave |
+| `/gsd-t-test-plan` | Enumerate every test case a requirements doc implies, before any code or tests exist (`--after` re-enumerates against built code, classifying failures by cited evidence) | Manual |
 | `/gsd-t-impact` | Analyze downstream effects | In wave |
 | `/gsd-t-architect` | Interviews you first (shows its read of current behavior for confirmation, researches when unsure — max 3 cycles), then runs the Architect's Oversight Six-Stage Pass — simplest solution + reuse + traps, as plain-English pseudocode (plan-only; `--build` to auto-build, `--no-interview`/`--no-research` to skip a stage) | Manual |
 | `/gsd-t-execute` | Run tasks — task-level fresh dispatch, worktree isolation, adaptive replanning | In wave |

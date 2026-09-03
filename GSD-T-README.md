@@ -86,6 +86,34 @@ Contract: `.gsd-t/contracts/plan-hardening-contract.md` v1.0.0.
 
 ---
 
+## Test-Plan-First Requirements Interrogation (M115)
+
+`/gsd-t-test-plan` runs BEFORE any code or tests exist. It enumerates every case a
+requirements document already implies (the E1-E8 rules — more-than-one-of-everything,
+sequence permutations, effect-on-saved-data, a permission matrix, cross-flow chains,
+lifecycle closure, boundary inclusivity, refusal cases) into a `TestPlan-[FeatureArea].md`
+document, one row per case. A row that cannot be filled from named evidence is never
+smoothed over with a plausible guess — it is left `GAP` (or `GAP:CONTRADICTION`), a missing
+or wrong requirement surfaced before the first line of code.
+
+- **Before-mode** (default): enumerate → self-answer or gap each row → batch every open
+  row into ONE question round (never a drip) → fold answers into `docs/requirements.md` →
+  re-enumerate to confirm closure → gate for shape → present for sign-off.
+- **`--after` mode**: re-enumerate against built code, run the rows as tests, classify each
+  failure as code-bug or wrong-requirement from cited evidence only.
+- **Non-convergence halts, never fills a gap.** `gsd-t testplan-halt` fires on three
+  question rounds without closure, or the same failure signature twice running — both stop
+  the work rather than continue with anything left open.
+- **`gsd-t testplan-lint`** gates the plan's structural shape (six-column rows, three row
+  states, the `## Decided without you` self-answer group) before it is ever presented, and
+  again as a FAIL-blocking `verify` gate — a malformed plan fails verify; no plan is a named
+  skip (`no-test-plan`); a broken discovery step FAILs (`testplan-discovery-error`), never
+  passes silently.
+
+Contract: `.gsd-t/contracts/test-plan-first-contract.md` v1.0.0 STABLE.
+
+---
+
 ## Universal Trace + Audit Logging (M100)
 
 Two logging streams are now a framework DEFAULT, scaffolded by `gsd-t-init` and enforced structurally by `gsd-t-verify`:

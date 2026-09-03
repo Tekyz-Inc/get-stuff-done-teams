@@ -31,6 +31,7 @@ MILESTONE WORKFLOW                                          [auto] = in wave
   milestone           Define a new milestone
   partition    [auto] Decompose milestone into domains + contracts
   plan         [auto] Create atomic task lists per domain
+  test-plan           Enumerate the case space from requirements, before any code/tests exist
   impact       [auto] Analyze downstream effects before execution
   execute      [auto] Run tasks (solo or team mode)
   test-sync    [auto] Sync tests with code changes
@@ -234,6 +235,14 @@ Use these when user asks for help on a specific command:
 - **Note (M22)**: Tasks auto-split if estimated scope exceeds 70% context window — guarantees fresh dispatch works
 - **Note (M26)**: Pre-mortem step now also reads rules.jsonl for historical failure patterns via getPreMortemRules
 - **Note (M38)**: Conversational use cases (formerly `/gsd-t-prompt`, `/gsd-t-brainstorm`, `/gsd-t-discuss`) are now handled by the Smart Router's conversational mode — just describe what you want via `/gsd` or plain text.
+
+### test-plan
+- **Summary**: Enumerate every test case a requirements document implies, BEFORE any code or tests exist — an unfillable row is surfaced as a missing or wrong requirement, not smoothed over.
+- **Auto-invoked**: No (standalone, on-demand; runs in-session like `architect`)
+- **Args**: `/gsd-t-test-plan [requirements path]` (before-mode, default) or `/gsd-t-test-plan --after` (re-enumerate against built code, classify failures by cited evidence)
+- **Creates**: `.gsd-t/test-plans/TestPlan-[FeatureArea].md`
+- **Use when**: A requirements document exists (or a milestone is about to be planned) and you want its case space interrogated for gaps before any test is written; or after a milestone is built, to classify test failures as code-bug vs. wrong-requirement from cited evidence only.
+- **Note (M115)**: Every open row is batched into ONE question round — never a drip. Three rounds without closure, or the same failure signature twice running, HALTs via `gsd-t testplan-halt` rather than filling an open row with anything plausible. `gsd-t testplan-lint` gates the plan's shape before it is presented, and again as a FAIL-blocking `verify` gate.
 
 ### impact
 - **Summary**: Analyze downstream effects of planned changes
