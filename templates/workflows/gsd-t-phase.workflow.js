@@ -1320,6 +1320,13 @@ if (!competitionOn) {
     ].filter(Boolean).join("\n"),
     { label: `${phaseName}:finalize`, phase: "Finalize", schema: FINALIZE_SCHEMA, model: "opus" }
   ).catch((e) => ({ status: "failed", artifacts: [], summary: `finalizer error: ${e && e.message}` }));
+  // A finalizer that RESOLVES to nothing (API 529 overload observed 2026-09-02, run
+  // wf_66339f4d-545) used to crash the whole run with a TypeError at
+  // `result.competition = ...` — a stack trace instead of a status. This is a HALT,
+  // not a fallback: the run still ends failed, it just says so in the envelope.
+  if (!result || typeof result !== "object") {
+    result = { status: "failed", artifacts: [], summary: "finalizer returned no result (transient API error or empty agent return) — resume the run with resumeFromRunId; cached stages replay, only finalize re-runs" };
+  }
 
   // Re-validate the FINALIZED partition (Invariant 4). If salvage reintroduced an
   // overlap, the finalized graft is invalid → block completion with a clear reason.
