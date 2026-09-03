@@ -612,3 +612,14 @@ module.exports = {
   _resolveTouches: resolveTouches,
   _gitHistoryTouches: gitHistoryTouches,
 };
+
+// This file is a LIBRARY. Invoked directly it used to exit 0 with no output at all,
+// and a partition finalizer (M115, 2026-09-03) read that silence as "no collisions".
+// Silence is not a pass. The CLI surface is `gsd-t parallel --dry-run` (parallel-cli.cjs).
+if (require.main === module) {
+  process.stderr.write(
+    "gsd-t-file-disjointness.cjs is a library, not a command — it checks nothing when run directly.\n" +
+    "Use: gsd-t parallel --dry-run   (bin/parallel-cli.cjs) to validate file-disjointness.\n"
+  );
+  process.exit(64);
+}
