@@ -94,7 +94,7 @@ function readLedger(files, sinceTs) {
 
   const ensure = (id) => {
     if (!consumers[id]) {
-      consumers[id] = { consumer: id, queryCount: 0, wiringModes: [], firstWiringTs: null };
+      consumers[id] = { consumer: id, queryCount: 0, queryTs: [], wiringModes: [], firstWiringTs: null };
     }
     return consumers[id];
   };
@@ -122,7 +122,9 @@ function readLedger(files, sinceTs) {
       const kind = String(ev.kind || '');
 
       if (kind === EVIDENCE_KIND) {
-        ensure(id).queryCount++;
+        const c = ensure(id);
+        c.queryCount++;
+        c.queryTs.push(typeof ev.ts === 'string' ? ev.ts : '');
       } else if (kind === WIRING_KIND) {
         const c = ensure(id);
         c.wiringModes.push(String(ev.graphWiringMode || ''));
@@ -143,24 +145,45 @@ function evaluate(consumers) {
   const violations = [];
   const checked = [];
 
+  // [RULE] graph-use-attributes-unlabelled-queries-by-time
+  // A workflow stamps its WIRED claim under its own name ("phase", "verify", …),
+  // but the graph queries its workers run through Bash carry the query CLI's
+  // default label ("cli") — nothing in the worker's shell exports
+  // GSDT_GRAPH_CONSUMER. TimeTracking (2026-09-03, TD-395): 302 queries under
+  // "cli", the three WIRED claims under "phase"/"verify", and the gate FAILED a
+  // run that had consulted the graph 302 times — attribution, not absence.
+  // So a query logged by an id that made NO wiring claim of its own (cli, a hook)
+  // counts as evidence for every claimant whose WIRED claim PRECEDES it. A query
+  // before the claim is not evidence: nothing had claimed anything yet.
+  const unlabelledQueryTs = [];
+  for (const id of Object.keys(consumers)) {
+    const c = consumers[id];
+    if (c.wiringModes.length === 0) unlabelledQueryTs.push(...(c.queryTs || []));
+  }
+
   for (const id of Object.keys(consumers)) {
     if (NON_CONSUMER_IDS.has(id)) continue;
     const c = consumers[id];
     if (c.wiringModes.length === 0) continue; // never declared; nothing claimed, nothing to prove
 
     const claimedWired = c.wiringModes.some((m) => m.toLowerCase() === 'wired');
-    checked.push({ consumer: id, wiringModes: c.wiringModes, queryCount: c.queryCount });
+    const since = c.firstWiringTs || '';
+    const attributed = unlabelledQueryTs.filter((ts) => ts && ts >= since).length;
+    const evidenceCount = c.queryCount + attributed;
+    checked.push({ consumer: id, wiringModes: c.wiringModes, queryCount: c.queryCount, attributedQueryCount: attributed });
 
-    if (claimedWired && c.queryCount === 0) {
+    if (claimedWired && evidenceCount === 0) {
       violations.push({
         consumer: id,
         wiringMode: 'WIRED',
         queryCount: 0,
+        attributedQueryCount: 0,
         firstWiringTs: c.firstWiringTs,
         evidence:
           `consumer "${id}" logged graphWiringMode=WIRED but issued 0 graph queries ` +
-          `(kind:"query") in this window — a WIRED claim with no query evidence means ` +
-          `the structural question was answered some other way.`,
+          `(kind:"query") in this window, and no unlabelled query (cli / hook) was logged after ` +
+          `the claim — a WIRED claim with no query evidence means the structural question ` +
+          `was answered some other way.`,
       });
     }
   }

@@ -3467,6 +3467,11 @@ const PROJECT_BIN_TOOLS = [
   "cli-preflight.cjs", "parallel-cli.cjs", "parallel-cli-tee.cjs",
   "gsd-t-context-brief.cjs",
   "gsd-t-verify-gate.cjs", "gsd-t-verify-gate-judge.cjs",
+  // M100 D3 — trace+audit envelope gate. verify-gate dispatches to it via __dirname,
+  // so a project with the gate but not this file fails `logging-envelope` on every
+  // verify (TimeTracking TD-395, 2026-09-03 — the 5th propagation gap of this class;
+  // test/verify-gate-tools-propagated.test.js now asserts the whole set structurally).
+  "gsd-t-logging-envelope-check.cjs",
   // v5.4.10 — integer-identity primary-key gate. gsd-t-verify-gate.cjs dispatches to
   // it via an absolute path in the Track 2 plan, so a project that has the verify gate
   // but NOT this file gets an ENOENT on every verify. Ships alongside the gate itself.

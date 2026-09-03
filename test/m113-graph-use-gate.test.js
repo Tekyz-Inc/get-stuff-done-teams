@@ -142,3 +142,52 @@ test('a malformed line is counted, never treated as a query', () => {
   assert.strictEqual(r.malformed, 1);
   assert.strictEqual(r.ok, false, 'a corrupt ledger must not satisfy the gate');
 });
+
+// ─── TD-395 (TimeTracking, 2026-09-03): attribution, not absence ─────────────
+// [RULE] graph-use-attributes-unlabelled-queries-by-time
+// A workflow claims WIRED under its own name; its workers' Bash-run queries land
+// under the query CLI's default label "cli". 302 real queries were failed as zero.
+
+test('unlabelled (cli) queries AFTER a WIRED claim count as that claimant\'s evidence', () => {
+  const dir = fixtureProject([
+    { ts: '2026-09-03T10:00:00Z', kind: 'wiring', consumer: 'phase', graphWiringMode: 'WIRED' },
+    { ts: '2026-09-03T10:00:05Z', kind: 'query', consumer: 'cli', verb: 'who-calls' },
+    { ts: '2026-09-03T10:00:09Z', kind: 'query', consumer: 'cli', verb: 'who-imports' },
+  ]);
+  const r = runGate({ projectDir: dir });
+  assert.strictEqual(r.violations.length, 0, 'the cli queries after the claim are the workflow consulting the graph');
+  const phase = r.checked.find((c) => c.consumer === 'phase');
+  assert.strictEqual(phase.queryCount, 0);
+  assert.strictEqual(phase.attributedQueryCount, 2);
+});
+
+test('unlabelled queries BEFORE the claim are NOT evidence — nothing had claimed yet', () => {
+  const dir = fixtureProject([
+    { ts: '2026-09-03T09:00:00Z', kind: 'query', consumer: 'cli', verb: 'who-calls' },
+    { ts: '2026-09-03T10:00:00Z', kind: 'wiring', consumer: 'phase', graphWiringMode: 'WIRED' },
+  ]);
+  const r = runGate({ projectDir: dir });
+  assert.strictEqual(r.violations.length, 1);
+  assert.strictEqual(r.violations[0].consumer, 'phase');
+  assert.strictEqual(r.violations[0].attributedQueryCount, 0);
+});
+
+test('a query by ANOTHER claimant is never borrowed — only unlabelled ids attribute', () => {
+  const dir = fixtureProject([
+    { ts: '2026-09-03T10:00:00Z', kind: 'wiring', consumer: 'phase', graphWiringMode: 'WIRED' },
+    { ts: '2026-09-03T10:00:01Z', kind: 'wiring', consumer: 'verify', graphWiringMode: 'WIRED' },
+    { ts: '2026-09-03T10:00:05Z', kind: 'query', consumer: 'verify', verb: 'who-calls' },
+  ]);
+  const r = runGate({ projectDir: dir });
+  assert.strictEqual(r.violations.length, 1, 'phase still has nothing; verify\'s own query is verify\'s');
+  assert.strictEqual(r.violations[0].consumer, 'phase');
+});
+
+test('an unlabelled kind:"read" after the claim is still not evidence', () => {
+  const dir = fixtureProject([
+    { ts: '2026-09-03T10:00:00Z', kind: 'wiring', consumer: 'phase', graphWiringMode: 'WIRED' },
+    { ts: '2026-09-03T10:00:05Z', kind: 'read', consumer: 'cli' },
+  ]);
+  const r = runGate({ projectDir: dir });
+  assert.strictEqual(r.violations.length, 1);
+});

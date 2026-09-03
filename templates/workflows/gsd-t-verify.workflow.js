@@ -301,8 +301,6 @@ if (!pre.ok) {
   return { status: "failed", reason: "preflight-failed", preflight: pre.envelope };
 }
 const brief = await generateBrief(projectDir, { kind: "verify", milestone, id: `verify-${(milestone || "m").toLowerCase()}` });
-// M99 D2: persist graphWiringMode for the verify consumer. [RULE] wiring-mode-three-states
-await persistWiringMode("Preflight");
 
 phase("Verify-Gate");
 const vg = await runVerifyGate(projectDir);
@@ -315,6 +313,14 @@ if (!vg.ok) {
   };
 }
 log(`verify-gate green`);
+
+// M99 D2: persist graphWiringMode for the verify consumer. [RULE] wiring-mode-three-states
+// Stamped AFTER the verify-gate, not before it (TimeTracking TD-395, 2026-09-03): the
+// gate's graph-use check judges every WIRED claim on the queries that FOLLOW it, and
+// verify's first graph query (dead-code, just below) comes after the gate. Stamping at
+// Preflight made every verify run fail its own gate — a fresh claim, zero queries, by
+// construction. Now the claim precedes the structural queries and the NEXT run judges it.
+await persistWiringMode("Verify-Gate");
 
 // ─── M94-D10-T5: Graph Structural Slice — dead-code + dangling (ADDITIVE, announced-degradation) ──
 // [RULE] qa-verify-use-orphan-dangling-verbs — query dead-code + dangling structurally.
