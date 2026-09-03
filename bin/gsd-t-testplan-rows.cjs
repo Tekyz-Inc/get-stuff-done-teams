@@ -78,7 +78,8 @@ function parseRows(sectionLines, sectionStartLine) {
     const trimmed = raw.trim();
     if (!trimmed.startsWith("|")) continue;
     const cells = splitCells(trimmed);
-    if (isHeaderRow(cells) || isSeparatorRow(cells)) continue;
+    if (isHeaderRow(cells)) continue;
+    if (isSeparatorRow(cells)) continue;
     rows.push({ cells, width: cells.length, line: (sectionStartLine || 0) + i, raw: trimmed });
   }
   return rows;
