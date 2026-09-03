@@ -49,8 +49,8 @@ When there are none:
 | Seq | Setup / date | Action | Expected result | Effect on saved data | Source |
 |---|---|---|---|---|---|
 | 1 | {system state and date before the action} | {the one thing done} | {what must happen, stated so a test can fail it} | {what changes in data already stored — `none` is a real, written answer} | `docs/requirements.md#{anchor}` |
-| 2 | {system state and date before the action} | {the one thing done} | {what must happen} | {effect, or `none`} | `DECIDED-WITHOUT-YOU` — {evidence used} |
-| 3 | {system state and date before the action} | {the one thing done} | {what must happen} | {effect, or `none`} | `GAP` — {why it could not be filled} |
+| 2 | {system state and date before the action} | {the one thing done} | {what must happen} | {effect, or `none`} | DECIDED-WITHOUT-YOU — {evidence used} |
+| 3 | {system state and date before the action} | {the one thing done} | {what must happen} | {effect, or `none`} | GAP — {why it could not be filled} |
 
 Add one `## Table:` section per coherent sub-area within this feature. Each keeps its own
 `Seq` numbering starting at 1.
