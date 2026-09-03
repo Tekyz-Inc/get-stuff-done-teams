@@ -54,6 +54,15 @@
 
 ## 🟠 High Priority
 
+### TD-299 - Fallback scanner treats a backtick inside a REGEX LITERAL as a template-literal start
+- **Area:** Fallback gate / source stripping
+- **Severity:** MEDIUM
+- **Status:** OPEN
+- **Location:** bin/gsd-t-fallback-detect.cjs (string/comment stripping before rule scan)
+- **Description:** A regex literal containing three backticks — `/^\s*(```|~~~)/`, the natural way to detect a Markdown code fence — was read by the scanner as an unterminated template literal. Everything after it was mis-tokenised and four pre-existing, never-flagged lines in `assessTask` (M83 code, 2026-06) surfaced as new `or-default` / `substituted-value` findings, failing M115 verify run 3 on code the change had not touched. Rewriting the regex as `/^\s*(?:\x60{3}|~{3})/` cleared all four.
+- **Impact:** Any source file that matches backticks in a regex (fence detectors, Markdown tooling) produces phantom findings in unrelated functions, attributed to the wrong lines. The author is sent to "fix" code that is fine, or the gate is bypassed in frustration.
+- **Remediation:** Teach the stripper to recognise regex literals (after `(`, `=`, `,`, `:`, `[`, `!`, `&`, `|`, `?`, `{`, `}`, `;`, `return`) and skip their bodies, so a backtick inside one is not a template-literal delimiter. Add a test: a file with a fence-detecting regex followed by an `x || "default"` in another function yields exactly the findings the file had without the regex.
+- **Found in slice:** M115 verify run 3
 ### TD-298 - Phase workflow reports "plan blocked: 0 acceptance criteria not bound" when the traceability gate merely cannot resolve the milestone scope
 - **Area:** Workflow / M83 plan hardening
 - **Severity:** MEDIUM
