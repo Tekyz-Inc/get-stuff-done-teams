@@ -120,10 +120,6 @@ function parseOpenRows(text) {
   return openRows;
 }
 
-function splitRow(line) {
-  const trimmed = line.trim().replace(/^\|/, "").replace(/\|$/, "");
-  return trimmed.split("|").map((c) => c.trim());
-}
 
 // ---------------------------------------------------------------------------
 // Round → ledger-cycle mapping (§6, D3-T1) — teaches the ledger what a round is
@@ -249,7 +245,7 @@ function checkConvergence(opts) {
   const roundCapFired = roundNum >= ROUND_CAP && openRows.length > 0;
   if (roundCapFired) {
     const namedOpenRows = openRows
-      .map((r) => `${r.table} Seq ${r.seq} (${r.reason})`)
+      .map((r) => `${r.table} Seq ${r.seq} (${r.source})`)
       .join("; ");
     return {
       ok: false,
@@ -264,7 +260,7 @@ function checkConvergence(opts) {
         `Still-open: ${namedOpenRows}`,
       violations: openRows.map((r) => ({
         kind: "enumeration-loop-cap-three",
-        detail: `${r.table} Seq ${r.seq}: ${r.reason}`,
+        detail: `${r.table} Seq ${r.seq}: ${r.source}`,
       })),
     };
   }

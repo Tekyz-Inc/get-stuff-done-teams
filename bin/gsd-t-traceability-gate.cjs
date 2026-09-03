@@ -270,11 +270,6 @@ function docTitleFromFilename(filename) {
  * minus the `TestPlan-` prefix and `.md` suffix). Path-as-path, the sibling
  * of docTitleFromFilename above.
  */
-function testPlanTitleFromFilename(filename) {
-  const base = path.basename(String(filename || ""));
-  const m = base.match(/^TestPlan-(.+)\.md$/);
-  return m ? m[1] : null;
-}
 
 /**
  * Parse a `**Plan-Row**: <doc>#<TableName>/Seq-<n>` citation (M115 A7,
@@ -770,6 +765,6 @@ module.exports = {
   runGate, parseTasks, assessTask, listTasksFiles,
   parseSectionCitation, slugifyHeading, enumerateSections, docTitleFromFilename,
   loadPseudocodeDocs, assessSectionCoverage,
-  parsePlanRowCitation, testPlanTitleFromFilename, loadTestPlanRowIdentities,
+  parsePlanRowCitation, loadTestPlanRowIdentities,
   _internal: { fieldValue, TEST_PATH_RE },
 };

@@ -171,3 +171,41 @@ test('halt: an extra-cell row counts as OPEN, and a fenced "## Table:" is not a 
   const fenced = plan({ rows: SOURCED, extra: '```text\n## Table: Ghost\n\n' + HEADER + GAP + '\n```\n' });
   assert.strictEqual(parseOpenRows(fenced).length, 0, 'the fenced GAP row is text, not an open row');
 });
+
+// ── verify run 5: every reader of a section is fence-aware, and the halt names its rows ──
+test('lint: a self-answered row whose Decided entry is hidden inside a tilde fence is NOT visible (Red Team HIGH, run 5)', () => {
+  const dir = tmp('fenced-decided');
+  const p = path.join(dir, 'TestPlan-Widgets.md');
+  const decidedRow = '| 3 | none | Rename a widget | Renamed | none | DECIDED-WITHOUT-YOU: evidence: naming convention |';
+  fs.writeFileSync(p, plan({ decided: '~~~text\n- `Widgets` Seq `3` — evidence: naming convention\n~~~', rows: `${SOURCED}\n${decidedRow}` }));
+  const r = JSON.parse(spawnSync(process.execPath, [LINT, '--doc', p], { encoding: 'utf8' }).stdout);
+  assert.strictEqual(r.exitCode, 4);
+  assert.ok(r.violations.some((v) => /self-answered/.test(v.kind)), JSON.stringify(r.violations.map((v) => v.kind)));
+});
+
+test('lint: a fenced "None" sentence does not make the Decided group count as explicitly empty', () => {
+  const dir = tmp('fenced-none');
+  const p = path.join(dir, 'TestPlan-Widgets.md');
+  fs.writeFileSync(p, plan({ decided: '```text\n> None — every row is sourced.\n```', rows: SOURCED }));
+  const r = JSON.parse(spawnSync(process.execPath, [LINT, '--doc', p], { encoding: 'utf8' }).stdout);
+  assert.strictEqual(r.exitCode, 4, 'a group whose only "None" is inside a code block has no visible content');
+});
+
+test('lint: a fenced pipe line before the real header is not the header, so row checks still run', () => {
+  const dir = tmp('fenced-header');
+  const p = path.join(dir, 'TestPlan-Widgets.md');
+  const blankRow = '| 9 | none | Do a thing | Done |  |  |';
+  fs.writeFileSync(p, plan({ rows: `${SOURCED}\n${blankRow}` }).replace('## Table: Widgets\n\n', '## Table: Widgets\n\n```text\n| not | a | header |\n```\n\n'));
+  const r = JSON.parse(spawnSync(process.execPath, [LINT, '--doc', p], { encoding: 'utf8' }).stdout);
+  assert.ok(r.violations.some((v) => /blank-source|blank-effect/.test(v.kind)), 'the blank row must be reported; the real header must be found');
+  assert.ok(!r.violations.some((v) => v.kind === 'wrong-table-header'));
+});
+
+test('halt: the halt message names each open row by its source text, never "undefined"', () => {
+  const dir = tmp('halt-msg');
+  const p = path.join(dir, 'TestPlan-Widgets.md'); fs.writeFileSync(p, plan({ rows: `${SOURCED}\n${GAP}` }));
+  const r = JSON.parse(spawnSync(process.execPath, [HALT, 'check', '--doc', p, '--round', '3'], { encoding: 'utf8', cwd: dir }).stdout);
+  assert.strictEqual(r.exitCode, 4);
+  assert.match(r.haltReason, /GAP: requirements silent/);
+  assert.ok(!/undefined/.test(r.haltReason + JSON.stringify(r.violations)));
+});

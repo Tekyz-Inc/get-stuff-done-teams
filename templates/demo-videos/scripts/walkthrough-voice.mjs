@@ -74,12 +74,10 @@ const FFPROBE = FF.replace(/ffmpeg$/, 'ffprobe');
 // ── Voice constants ────────────────────────────────────────────────────────
 // Every one of these is part of the cache key: change any of them and the
 // whole video is re-rendered rather than mixing two deliveries together.
-// Quotas are counted PER MODEL PER DAY (100 on the paid tier), so the model
-// choice is also the quota choice — and running out of one says nothing about
-// the others. These are tried in order and the first with headroom is used;
-// a spent model is skipped for the rest of the run rather than retried into
-// its 22-hour reset. Loudness is forced downstream by loudnorm and the persona
-// is identical, so a swap changes which allowance is drawn, not the narrator.
+// Quotas are counted PER MODEL PER DAY, so the model choice is also the quota
+// choice. The list is an ordered preference; only the first entry is used for
+// a run (TTS_MODEL overrides it). A model out of quota halts the render — see
+// speak() — because a different model is a different voice.
 const MODELS = process.env.TTS_MODEL
   ? [process.env.TTS_MODEL]
   : [

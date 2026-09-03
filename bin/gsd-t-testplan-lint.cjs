@@ -32,7 +32,7 @@
 "use strict";
 
 const fs = require("fs");
-const { walkSections, parseRows } = require("./gsd-t-testplan-rows.cjs");
+const { walkSections, parseRows, isFenceToggle, HEADER_CELLS } = require("./gsd-t-testplan-rows.cjs");
 const path = require("path");
 
 // ─── frozen literals (contract §2–§3) ─────────────────────────────────────
@@ -43,15 +43,8 @@ const MARKER_GAP = "GAP";
 const MARKER_CONTRADICTION = "GAP:CONTRADICTION";
 const NONE_SOURCED_SENTENCE = "None — every row is sourced.";
 
-// The frozen six-column header, exact text (contract §2.1).
-const REQUIRED_COLUMNS = [
-  "Seq",
-  "Setup / date",
-  "Action",
-  "Expected result",
-  "Effect on saved data",
-  "Source",
-];
+// The frozen six-column header, exact text (contract §2.1) — ONE definition, in the shared reader.
+const REQUIRED_COLUMNS = HEADER_CELLS;
 
 // Required top-level sections, in order (mold §"Section order below is FIXED"):
 // Decided without you, at least one Table, Open gaps, Sign-off.
@@ -91,7 +84,13 @@ function parseTableRows(sectionLines, sectionStartLine) {
  * @returns {{cells: string[], line: number}|null}
  */
 function findTableHeader(sectionLines, sectionStartLine) {
+  // Fence-aware like everything else that reads a section: a table-shaped line
+  // inside a code block is text, not the header (code-review M115 run 5 — a
+  // fenced pipe line was taken as the header and every real row went unchecked).
+  let inFence = false;
   for (let i = 0; i < sectionLines.length; i++) {
+    if (isFenceToggle(sectionLines[i])) { inFence = !inFence; continue; }
+    if (inFence) continue;
     const trimmed = sectionLines[i].trim();
     if (!trimmed.startsWith("|")) continue;
     const inner = trimmed.replace(/^\|/, "").replace(/\|$/, "");
@@ -118,9 +117,21 @@ function classifyRowState(sourceCell) {
  * Parse the `## Decided without you` group into its bullet entries.
  * @returns {Array<{table: string|null, seq: string|null, evidencePresent: boolean, raw: string}>}
  */
+/** The section's lines with every fenced block removed — a bullet inside a code
+ *  block is rendered as code, invisible as a decision (Red Team M115 run 5, HIGH). */
+function unfencedLines(sectionLines) {
+  const out = [];
+  let inFence = false;
+  for (const line of sectionLines) {
+    if (isFenceToggle(line)) { inFence = !inFence; continue; }
+    if (!inFence) out.push(line);
+  }
+  return out;
+}
+
 function parseDecidedGroup(sectionLines) {
   const entries = [];
-  for (const line of sectionLines) {
+  for (const line of unfencedLines(sectionLines)) {
     const t = line.trim();
     if (t === "---" || !/^-\s+\S/.test(t)) continue;
     if (t === `> ${NONE_SOURCED_SENTENCE}` || t === NONE_SOURCED_SENTENCE) continue;
@@ -139,7 +150,7 @@ function parseDecidedGroup(sectionLines) {
 function decidedGroupIsExplicitlyEmpty(sectionLines) {
   // Positional: the group's ONLY content line is the "None" sentence (bare or
   // as a blockquote). A "None" buried among real bullets is not an empty group.
-  const content = sectionLines.map((l) => l.trim()).filter((l) => l && !l.startsWith("## "));
+  const content = unfencedLines(sectionLines).map((l) => l.trim()).filter((l) => l && !l.startsWith("## "));
   return content.length === 1 && (content[0] === NONE_SOURCED_SENTENCE || content[0] === `> ${NONE_SOURCED_SENTENCE}`);
 }
 
