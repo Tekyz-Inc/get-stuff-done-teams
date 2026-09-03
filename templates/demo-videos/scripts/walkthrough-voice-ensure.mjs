@@ -44,8 +44,8 @@ for (let attempt = 1; attempt <= MAX; attempt += 1) {
   try {
     run('node', [path.join('scripts', 'walkthrough-voice.mjs'), NAME]);
   } catch (err) {
-    // A render that crashed is just a failed attempt — the point of this loop
-    // is to try again, not to give up on the video.
+    // A render that crashed is one failed attempt; the loop tries again and
+    // the halt below fires when every attempt is spent.
     process.stdout.write(err.stdout ?? '');
     console.log(`  render failed on attempt ${attempt}`);
     if (attempt === MAX) {
@@ -70,3 +70,7 @@ for (let attempt = 1; attempt <= MAX; attempt += 1) {
     clearClips();
   }
 }
+
+// Unreachable: every path above either ships (exit 0) or halts (exit 4) on
+// the last attempt. Kept so a future edit that drops one of those still halts.
+process.exit(4);

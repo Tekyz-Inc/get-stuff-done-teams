@@ -57,8 +57,14 @@ const FF = (() => {
     try {
       execFileSync(full, ['-version'], { stdio: 'ignore' });
       return full;
-    } catch {
-      /* installed but broken — fall through to the plain build */
+    } catch (err) {
+      // Installed but broken (a Homebrew upgrade left a shared library missing).
+      // Rendering with a different binary would change the output silently —
+      // ffmpeg-full carries filters the plain build lacks. Halt with the fix.
+      throw new Error(
+        `ffmpeg-full is installed at ${full} but does not run (${String(err).slice(0, 120)}). ` +
+        'Fix: brew reinstall ffmpeg-full',
+      );
     }
   }
   return 'ffmpeg';
@@ -210,7 +216,7 @@ async function speak(prompt, label, attemptsLeft = 3) {
       });
     } catch (err) {
       detail = String(err).slice(0, 200);
-      if (attempt === 6) break;
+      if (attempt === 6) throw new Error(`Gemini TTS request failed 6 times on ${label}: ${detail}`);
       const wait = 4_000 * attempt;
       console.log(`  gemini request failed on ${label} (${detail}) — retry ${attempt}/5 in ${wait / 1000}s`);
       await new Promise((r) => setTimeout(r, wait));
@@ -222,10 +228,13 @@ async function speak(prompt, label, attemptsLeft = 3) {
     // A daily cap does not clear by waiting — the retry delay is ~22 hours.
     // Retire this model and try the next one instead of sleeping on it.
     if (res.status === 429 && /per_?day|PerDay/i.test(detail)) {
-      console.log(`  ${model} is out of quota for today — switching model`);
-      spent.add(model);
-      if (!liveModel()) break;
-      continue;
+      // A different model is a different voice — the video would not match
+      // the clips already rendered. A daily cap clears by waiting, not by
+      // switching. Halt and say when to come back.
+      throw new Error(
+        `${model} is out of quota for today (${label}). Rerun tomorrow, or raise the quota — ` +
+        'switching model would change the voice mid-video.',
+      );
     }
     // 400 INVALID_ARGUMENT is normally a real, permanent problem — but this
     // model also returns it transiently under load, and the identical request
@@ -390,13 +399,6 @@ const keyFor = (text) =>
     .digest('hex')
     .slice(0, 32);
 
-/** Render one line by itself — the fallback when a batch will not split. */
-async function renderSingle(text, tag) {
-  const raw = path.join(OUT, `single-${tag}-raw.wav`);
-  writeFileSync(raw, await speak(`${PERSONA}\n\n${text}`, `line ${tag}`));
-  return finish(raw, path.join(CACHE, `${keyFor(text)}.wav`));
-}
-
 const results = new Map();   // text -> file
 
 for (let b = 0; b < LINES.length; b += BATCH) {
@@ -410,6 +412,11 @@ for (let b = 0; b < LINES.length; b += BATCH) {
   const tag = `b${String(b / BATCH).padStart(2, '0')}`;
   let ok = false;
 
+  // Batching is what keeps the delivery identical across lines. Rendering this
+  // batch one line at a time would reintroduce the voice drift the batch approach
+  // exists to prevent, so an unsplittable batch HALTS (throw below the loop).
+  // The real fix is a deterministic split — a spoken marker or fixed pause
+  // between lines instead of guessing at silences (backlog #54).
   for (let attempt = 1; attempt <= 3 && !ok; attempt += 1) {
     const prompt =
       `${PERSONA}\n\n${SPLIT_RULE}\n\n` +
@@ -431,23 +438,10 @@ for (let b = 0; b < LINES.length; b += BATCH) {
     console.log(`batch ${b / BATCH + 1}: ${chunk.length} lines, one delivery`);
   }
 
-  if (!ok) {
-    // Batching is what keeps the delivery identical across lines, so it is
-    // worth losing only when it truly cannot be made to work. Per-line
-    // rendering still produces every clip, and loudnorm still pins the volume;
-    // only the tone consistency within this batch is weaker.
-    console.log(`  ${tag}: falling back to one call per line (${chunk.length})`);
-    for (const [i, text] of chunk.entries()) {
-      try {
-        await renderSingle(text, `${tag}-${i}`);
-      } catch (err) {
-        throw new Error(
-          `could not render line ${b + i} after batching and per-line both failed: ` +
-            `"${text.slice(0, 60)}" — ${String(err).slice(0, 160)}`,
-        );
-      }
-    }
-  }
+  if (!ok) throw new Error(
+      `${tag}: could not cut the batch audio into ${chunk.length} lines in 3 attempts. ` +
+      'Rerun, or lower BATCH for this video. Per-line rendering is not used: it changes the voice within the batch.',
+    );
 }
 
 // ── Measure and write the manifest the recorder reads ──────────────────────

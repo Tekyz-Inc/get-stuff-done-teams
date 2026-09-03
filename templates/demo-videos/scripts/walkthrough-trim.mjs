@@ -60,13 +60,26 @@ for (const name of names) {
   const before = durationOf(file);
   const tmp = path.join(OUT_DIR, `.${name}-trimmed.mp4`);
 
-  execFileSync(AE, [file, '--margin', MARGIN, '-o', tmp, '--no-open'], {
-    stdio: ['ignore', 'ignore', 'pipe'],
-  });
+  // auto-editor's own words decide what an empty result means. "Nothing to
+  // cut" is a correct outcome and the file stays as it is; anything else is a
+  // failure that used to be logged and walked past — the clip kept every
+  // pause it was meant to lose, and only the log said so.
+  let aeStderr = '';
+  try {
+    execFileSync(AE, [file, '--margin', MARGIN, '-o', tmp, '--no-open'], {
+      stdio: ['ignore', 'ignore', 'pipe'],
+    });
+  } catch (err) {
+    aeStderr = String(err.stderr ?? err).slice(0, 400);
+    throw new Error(`${name}: auto-editor failed — ${aeStderr}`);
+  }
 
-  if (!existsSync(tmp) || statSync(tmp).size < 1000) {
-    console.log(`${name}: auto-editor produced nothing, left untouched`);
-    continue;
+  const hasOutput = existsSync(tmp) && statSync(tmp).size >= 1000;
+  if (!hasOutput) {
+    throw new Error(
+      `${name}: auto-editor exited cleanly but wrote no usable output (${existsSync(tmp) ? statSync(tmp).size + ' bytes' : 'no file'}). ` +
+      'If the clip genuinely has nothing to cut, auto-editor still writes a copy — this is a failure, not a no-op.',
+    );
   }
   const after = durationOf(tmp);
   renameSync(tmp, file);

@@ -28,8 +28,14 @@ const FF = (() => {
     try {
       execFileSync(full, ['-version'], { stdio: 'ignore' });
       return full;
-    } catch {
-      /* installed but broken — fall through to the plain build */
+    } catch (err) {
+      // Installed but broken (a Homebrew upgrade left a shared library missing).
+      // Rendering with a different binary would change the output silently —
+      // ffmpeg-full carries filters the plain build lacks. Halt with the fix.
+      throw new Error(
+        `ffmpeg-full is installed at ${full} but does not run (${String(err).slice(0, 120)}). ` +
+        'Fix: brew reinstall ffmpeg-full',
+      );
     }
   }
   return 'ffmpeg';
