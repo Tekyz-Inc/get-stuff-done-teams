@@ -162,8 +162,10 @@ function parseDecidedGroup(sectionLines) {
 
 /** True when the Decided group's only content is the "None" sentence (or is empty of bullets). */
 function decidedGroupIsExplicitlyEmpty(sectionLines) {
-  const joined = sectionLines.join("\n");
-  return joined.includes(NONE_SOURCED_SENTENCE);
+  // Positional: the group's ONLY content line is the "None" sentence (bare or
+  // as a blockquote). A "None" buried among real bullets is not an empty group.
+  const content = sectionLines.map((l) => l.trim()).filter((l) => l && !l.startsWith("## "));
+  return content.length === 1 && (content[0] === NONE_SOURCED_SENTENCE || content[0] === `> ${NONE_SOURCED_SENTENCE}`);
 }
 
 // ─── the gate ──────────────────────────────────────────────────────────────
@@ -180,15 +182,22 @@ function checkDoc(text, docPath) {
   const sections = splitSections(text);
 
   // ── Required section set, present and in order ──
+  // The required set must appear in RELATIVE order; sections the mold does not
+  // name (e.g. the contract-mandated `## HALT — case-space bound reached`) are
+  // skipped, never counted as a break in the order. The first shipped walker
+  // stalled on the first unknown heading and then reported every later required
+  // section missing — failing the milestone's own correctly-halted cold run
+  // (code-review M115, important).
   let cursor = 0;
   const foundByKey = {};
   for (const req of REQUIRED_SECTIONS_IN_ORDER) {
     let matchedAtLeastOnce = false;
-    while (cursor < sections.length && req.test(sections[cursor].heading)) {
+    for (let i = cursor; i < sections.length; i++) {
+      if (!req.test(sections[i].heading)) continue;
       matchedAtLeastOnce = true;
       foundByKey[req.key] = foundByKey[req.key] || [];
-      foundByKey[req.key].push(sections[cursor]);
-      cursor++;
+      foundByKey[req.key].push(sections[i]);
+      cursor = i + 1;
       if (!req.repeatable) break;
     }
     if (!matchedAtLeastOnce) {

@@ -92,16 +92,18 @@ const GAP_MARKERS = ["GAP:CONTRADICTION", "GAP"];
 function parseOpenRows(text) {
   const openRows = [];
   const lines = text.split(/\r?\n/);
-  let currentTable = "(untitled table)";
+  // Only rows under a `## Table:` heading are open rows. The `## Open gaps`
+  // section restates gap rows in tabular form; counting those a second time
+  // doubled every gap (code-review M115, nit).
+  let currentTable = null;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
-    const heading = line.match(/^##\s+Table:\s*(.+?)\s*$/) || line.match(/^##\s+(.+?)\s*$/);
-    if (heading && !/^Decided without you$/i.test(heading[1])) {
-      currentTable = heading[1].trim();
-      continue;
-    }
+    const tableHeading = line.match(/^##\s+Table:\s*(.+?)\s*$/);
+    if (tableHeading) { currentTable = tableHeading[1].trim(); continue; }
+    if (/^##\s+\S/.test(line)) { currentTable = null; continue; }
+    if (currentTable === null) continue;
 
     // A row: a markdown table line with at least 6 `|`-delimited cells, not the header or
     // separator row.
@@ -233,8 +235,13 @@ function checkConvergence(opts) {
     return halt("--doc is required", { doc: docPath, round: round });
   }
 
-  const roundNum = Number(round);
-  const roundIsPositiveInteger = Number.isInteger(roundNum) && roundNum >= 1;
+  // A valueless `--round` arrives as boolean true and Number(true) is 1, which
+  // would pass a numeric check and defeat the three-round cap (code-review M115,
+  // important). Only a digit string (or an actual integer from a module caller)
+  // counts.
+  const roundStr = typeof round === "number" ? String(round) : round;
+  const roundIsPositiveInteger = typeof roundStr === "string" && /^[1-9][0-9]*$/.test(roundStr);
+  const roundNum = roundIsPositiveInteger ? Number(roundStr) : NaN;
   if (!roundIsPositiveInteger) {
     return halt("--round must be a positive integer", { doc: docPath, round: round });
   }

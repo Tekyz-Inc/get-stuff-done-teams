@@ -314,13 +314,27 @@ function loadTestPlanRowIdentities(testPlanDir, docTitle) {
   // TestPlan docs live in `.gsd-t/test-plans/` — the directory the front door
   // (commands/gsd-t-test-plan.md) writes to and the verify gate globs
   // (contract §7, ratified at M115 integrate).
-  const candidate = path.join(testPlanDir, `TestPlan-${docTitle}.md`);
+  //
+  // Red Team M115 (2026-09-03): a doc title is a single path SEGMENT. Anything
+  // else (`../`, a slash, an absolute path) could name a file outside the
+  // test-plans directory, so the resolved path must stay inside it.
+  if (typeof docTitle !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(docTitle)) return null;
+  const root = path.resolve(testPlanDir);
+  const candidate = path.resolve(root, `TestPlan-${docTitle}.md`);
+  if (!candidate.startsWith(root + path.sep)) return null;
   let md;
   try { md = fs.readFileSync(candidate, "utf8"); } catch { return null; }
   const lines = md.split(/\r?\n/);
-  const identities = new Set();
+  // identity -> row state. Red Team HIGH: a `GAP` row is an UNANSWERED
+  // requirement; it must never clear an acceptance criterion. Only a row that
+  // is `sourced` or `DECIDED-WITHOUT-YOU` can.
+  const identities = new Map();
   let currentTable = null;
+  let inFence = false;
   for (const line of lines) {
+    // A `##` inside a fenced code block is text, not a heading (Red Team LOW).
+    if (/^\s*(```|~~~)/.test(line)) { inFence = !inFence; continue; }
+    if (inFence) continue;
     const tm = line.match(/^##\s+Table:\s*(.+)$/);
     if (tm) { currentTable = tm[1].trim(); continue; }
     // Any OTHER `##` heading (Open gaps, Sign-off, ...) closes the current
@@ -334,7 +348,11 @@ function loadTestPlanRowIdentities(testPlanDir, docTitle) {
     const cells = inner.split("|").map((c) => c.trim());
     if (cells[0] === "Seq" || cells.every((c) => /^-+$/.test(c))) continue;
     if (cells.length < 1 || !cells[0]) continue;
-    identities.add(`${currentTable}::${cells[0]}`);
+    const source = cells[5] || "";
+    const state = /^GAP\b/.test(source) ? "gap"
+      : /^DECIDED-WITHOUT-YOU\b/.test(source) ? "decided"
+      : "sourced";
+    identities.set(`${currentTable}::${cells[0]}`, state);
   }
   return identities;
 }
@@ -649,7 +667,7 @@ function runGate({ projectDir = process.cwd(), milestone = null, tasksFile = nul
   // only ever WIDENS what clears, it is not consulted unless a citation was
   // actually written.
   const testPlanDir = path.join(path.resolve(projectDir), ".gsd-t", "test-plans");
-  const planRowIdentityCache = new Map(); // docTitle -> Set<"table::seq">|null
+  const planRowIdentityCache = new Map(); // docTitle -> Map<"table::seq", state>|null
   function resolvePlanRow(citation) {
     if (!citation.doc || !citation.table || !citation.seq) return false;
     if (!planRowIdentityCache.has(citation.doc)) {
@@ -657,7 +675,11 @@ function runGate({ projectDir = process.cwd(), milestone = null, tasksFile = nul
     }
     const identities = planRowIdentityCache.get(citation.doc);
     if (!identities) return false;
-    return identities.has(`${citation.table}::${citation.seq}`);
+    const state = identities.get(`${citation.table}::${citation.seq}`);
+    // An open GAP row is the plan saying "nobody has answered this yet". Letting
+    // it clear an acceptance criterion would recreate the dead-deliverable shape
+    // this gate exists to catch (Red Team M115 HIGH).
+    return state === "sourced" || state === "decided";
   }
 
   const taskResults = [];

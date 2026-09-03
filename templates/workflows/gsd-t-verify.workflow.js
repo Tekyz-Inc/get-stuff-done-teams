@@ -40,6 +40,7 @@ export const meta = {
     { title: "CI-Parity",          detail: "M57 build-coverage + ci-parity (FAIL-blocking)" },
     { title: "Test-Data Purge",    detail: "M58 test-data --purge (FAIL-blocking)" },
     { title: "Guard-Map Gate",     detail: "M87 [RULE] guard-map gate + §1.1 flow-line style gate (FAIL-blocking, §7 discovery)" },
+    { title: "Test-Plan Gate",        detail: "M115 test-plan shape gate (testplan-lint over .gsd-t/test-plans/)" },
     { title: "Orthogonal Triad",   detail: "code-review ultra ∥ Red Team ∥ QA" },
     { title: "Synthesis",          detail: "merge without collapsing categories" },
   ],
@@ -836,7 +837,7 @@ if (styleGate.exitCode === 64) {
 //   - Discovery itself failed           → FAIL, named reason "testplan-discovery-error".
 //     Never a skip — a gate that cannot check must halt, never pass.
 // ─────────────────────────────────────────────────────────────────────────────
-phase("Guard-Map Gate");
+phase("Test-Plan Gate");
 const testPlanDiscovery = await runCli(
   projectDir,
   "testplan-lint",
@@ -844,7 +845,7 @@ const testPlanDiscovery = await runCli(
   "gsd-t-testplan-lint.cjs",
   "m115:testplan-discovery",
   true,
-  "Guard-Map Gate"
+  "Test-Plan Gate"
 );
 // runCli's own .catch already sets exitCode:-1/ok:false on an agent-level error
 // (the Bash call itself failing to run) — that is ALREADY a FAIL shape, never a
@@ -874,10 +875,24 @@ if (testPlanEnvelopeUsable === false) {
   //   - the dir does not exist at all         → exitCode 64, ok:false, top-level "reason"
   //   - the dir exists but holds no TestPlan-*.md → exitCode 0, ok:true, docsChecked:0
   // Both collapse to the SAME named skip here — neither is a real shape violation.
-  const dirAbsent = testPlanDiscovery.exitCode === 64 && tpResults.length === 0 && typeof tpEnv.reason === "string";
+  // Only a directory that does NOT EXIST is "nothing to gate". An unreadable one
+  // (EACCES, EISDIR, …) is a discovery failure and must HALT — Red Team M115 MEDIUM.
+  const dirAbsent = testPlanDiscovery.exitCode === 64 && tpResults.length === 0 && typeof tpEnv.reason === "string" && /ENOENT/.test(tpEnv.reason);
+  const discoveryBroken = testPlanDiscovery.exitCode === 64 && dirAbsent === false;
   const dirEmpty = tpEnv.docsChecked === 0 && tpResults.length === 0;
   const noPlanToGate = dirAbsent === true || dirEmpty === true;
-  if (noPlanToGate === true) {
+  if (discoveryBroken === true) {
+    log(`M115 test-plan gate: discovery failed (${tpEnv.reason}) — halting (testplan-discovery-error), never a skip`);
+    testPlanGateResult = {
+      status: "testplan-gate-failed",
+      overallVerdict: "VERIFY-FAILED",
+      reason: `testplan-discovery-error: ${tpEnv.reason} — a gate that cannot read its directory must HALT, never skip`,
+      testPlanGate: { discovery: tpEnv, reason: "testplan-discovery-error" },
+      guardMap: { discovery: guardMapDiscovery, results: guardMapResults },
+      verifyGate: vg.envelope,
+      autoResearchGate: arGate,
+    };
+  } else if (noPlanToGate === true) {
     // Nothing to gate (no .gsd-t/test-plans dir, or it holds no TestPlan-*.md) — a
     // project with no test plan has legitimately nothing to check. SURFACED with
     // the named reason, never silent.
