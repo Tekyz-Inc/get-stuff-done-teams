@@ -1,6 +1,6 @@
 # Test-Plan-First Contract
 
-**Version:** 1.0.0 DRAFT (frozen by `enumerator-core` at end of Wave 1 → 1.0.0 STABLE)
+**Version:** 1.0.0 STABLE (frozen by `enumerator-core` 2026-09-03 — A1 blind replay passed cold)
 **Milestone:** M115 — Test-Plan-First Requirements Interrogation
 **Source of truth:** `.gsd-t/pseudocode/PseudoCode-TestPlanFirst.md`
 **Owner:** `enumerator-core` (Wave 1). Every other domain is a CONSUMER and may not change this file.
@@ -23,6 +23,13 @@ reading each other's code. It fixes three things and nothing else: the **row sch
 `.gsd-t/progress.md`. If A1 FAILS, this contract is deleted along with the domain and the
 milestone halts for premise re-examination — nothing downstream was built against it yet.
 That quarantine is the entire reason Wave 1 runs alone.
+
+**Flipped STABLE 2026-09-03.** A1's cold replay (`test/m115-a1-blind-replay.test.js`)
+passed on the first run against `requirements-before-review.md` alone, surfacing all three
+answer-key gaps (month close + reopen, the wrong permission model, the owner-deactivation
+refusal). The row schema below needed NO changes from what the replay actually produced —
+all six columns and all three row states (including `GAP:CONTRADICTION`) were exercised
+exactly as specified. Wave 2 and Wave 3 may start.
 
 ---
 
@@ -148,6 +155,27 @@ binding. Additive is load-bearing:
 
 ## 8. What this contract does NOT fix
 
-The enumeration protocol's own wording, the mold's prose, the command's phrasing, and the
-case-space bound are all owned by their domains and are deliberately out of scope here.
-Freezing them would couple the domains for no gain.
+The enumeration protocol's own wording, the mold's prose, and the command's phrasing are
+owned by their domains and are deliberately out of scope here. Freezing them would couple
+the domains for no gain.
+
+---
+
+## 9. The case-space bound (settled — evidence, not assumption)
+
+**Bound: 94 cases per enumeration run.** Evidenced by
+`test/fixtures/m115-blind-replay/test-plan-final.md` — the answer key's own finished plan
+for the rate-ledger-and-deactivation feature area enumerates 94 cases from a 571-line
+requirements document. That is the observed scale a completed plan of this kind reaches,
+so it is the number used rather than an invented round figure.
+
+**At the bound: HALT, never a silent truncation.** On reaching case 94 within a single run
+without finishing the requirements area, the enumerator STOPS writing rows and instead
+names which feature or rule (E1–E8) was left un-enumerated, with an estimate of the further
+cases that region implies. This mirrors the milestone's own three-round question-loop halt
+(`[RULE] enumeration-loop-cap-three`) applied to volume instead of rounds: a plan that
+silently stops at 94 rows and reads as complete is a missing requirement wearing the shape
+of a finished plan — the one outcome this whole contract exists to prevent.
+
+Full rule text, including the worked reasoning: `templates/prompts/test-plan-enumerator-subagent.md`
+§"The case-space bound".
