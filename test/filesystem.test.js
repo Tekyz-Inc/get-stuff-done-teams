@@ -284,12 +284,14 @@ describe("command listing functions", () => {
   // total 55→56, utilities 6→7.
   // v5.16.10 added gsd-t-demo-videos (narrated walkthrough video pipeline):
   // total 56→57, gsdt 49→50.
-  it("total command count is 57", () => {
-    assert.equal(getCommandFiles().length, 57);
+  // M115 added gsd-t-test-plan (test-plan-first requirements interrogation):
+  // total 57→58, gsdt 50→51.
+  it("total command count is 58", () => {
+    assert.equal(getCommandFiles().length, 58);
   });
 
-  it("gsd-t command count is 50", () => {
-    assert.equal(getGsdtCommands().length, 50);
+  it("gsd-t command count is 51", () => {
+    assert.equal(getGsdtCommands().length, 51);
   });
 
   it("utility command count is 7", () => {

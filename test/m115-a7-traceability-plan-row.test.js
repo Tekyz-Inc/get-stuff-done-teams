@@ -35,7 +35,7 @@ const {
 function tmpProject() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "m115-a7-"));
   fs.mkdirSync(path.join(dir, ".gsd-t", "domains", "example"), { recursive: true });
-  fs.mkdirSync(path.join(dir, ".gsd-t", "pseudocode"), { recursive: true });
+  fs.mkdirSync(path.join(dir, ".gsd-t", "test-plans"), { recursive: true });
   return dir;
 }
 
@@ -44,7 +44,7 @@ function writeTasks(dir, md) {
 }
 
 function writeTestPlan(dir, title, md) {
-  fs.writeFileSync(path.join(dir, ".gsd-t", "pseudocode", `TestPlan-${title}.md`), md);
+  fs.writeFileSync(path.join(dir, ".gsd-t", "test-plans", `TestPlan-${title}.md`), md);
 }
 
 const SAMPLE_PLAN = `# TestPlan-Renewals
@@ -109,7 +109,7 @@ test("A7 parse: malformed citation shapes are flagged malformed, never throw", (
 test("A7 load: reads real Seq identities from a TestPlan doc, keyed by table::seq", () => {
   const dir = tmpProject();
   writeTestPlan(dir, "Renewals", SAMPLE_PLAN);
-  const ids = loadTestPlanRowIdentities(path.join(dir, ".gsd-t", "pseudocode"), "Renewals");
+  const ids = loadTestPlanRowIdentities(path.join(dir, ".gsd-t", "test-plans"), "Renewals");
   assert.ok(ids.has("Renewals::1"));
   assert.ok(ids.has("Renewals::2"));
   assert.equal(ids.size, 2);
@@ -117,7 +117,7 @@ test("A7 load: reads real Seq identities from a TestPlan doc, keyed by table::se
 
 test("A7 load: a missing doc returns null (never throws, never an empty-but-truthy set)", () => {
   const dir = tmpProject();
-  const ids = loadTestPlanRowIdentities(path.join(dir, ".gsd-t", "pseudocode"), "NoSuchDoc");
+  const ids = loadTestPlanRowIdentities(path.join(dir, ".gsd-t", "test-plans"), "NoSuchDoc");
   assert.equal(ids, null);
 });
 
@@ -215,9 +215,9 @@ test("A7 new behavior: a plan-row citation is captured on non-behavioral tasks t
 
 test("A7 preservation: a milestone with NO test plan produces the identical verdict as before A7 — real recorded output, not assumption", () => {
   // Same fixture shape as the pre-A7 M83 "unbacked promise" case, run with NO
-  // pseudocode/testplan dir present at all (a milestone that never had a plan).
+  // test-plans dir present at all (a milestone that never had a plan).
   const dir = tmpProject();
-  fs.rmSync(path.join(dir, ".gsd-t", "pseudocode"), { recursive: true, force: true });
+  fs.rmSync(path.join(dir, ".gsd-t", "test-plans"), { recursive: true, force: true });
   writeTasks(dir, `# Tasks
 ### Task 1 — feature
 - **Acceptance criteria**:

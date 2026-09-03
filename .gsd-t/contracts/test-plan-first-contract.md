@@ -1,6 +1,6 @@
 # Test-Plan-First Contract
 
-**Version:** 1.0.0 STABLE (frozen by `enumerator-core` 2026-09-03 — A1 blind replay passed cold)
+**Version:** 1.1.0 STABLE (frozen by `enumerator-core` 2026-09-03 — A1 blind replay passed cold; §7 ratified additively at Wave-3 integrate 2026-09-03)
 **Milestone:** M115 — Test-Plan-First Requirements Interrogation
 **Source of truth:** `.gsd-t/pseudocode/PseudoCode-TestPlanFirst.md`
 **Owner:** `enumerator-core` (Wave 1). Every other domain is a CONSUMER and may not change this file.
@@ -150,6 +150,20 @@ binding. Additive is load-bearing:
 - A milestone with no test plan keeps its current verdict, byte for byte.
 - Proof of preservation is that `test/m83-traceability-gate.test.js` and the M87 gate tests
   remain unmodified and passing. No domain may edit those files.
+
+### 7.1 Ratified at Wave-3 integrate (2026-09-03) — the two literals §1.0.0 left open
+
+Both Wave-3 domains built to a literal the frozen contract had not fixed; each was recorded
+as `[GUESSED:assumed]`, and they disagreed on one of them. Integrate settled both:
+
+| Literal | Value (frozen) | Set by |
+|---|---|---|
+| Where a plan lives | `.gsd-t/test-plans/TestPlan-[FeatureArea].md` — the front door writes here, the verify gate globs here, and the traceability resolver reads here | `front-door-wiring`; the A7 resolver was re-pointed at integrate (it had read `.gsd-t/pseudocode/`, so a plan written where the command puts it would never have cleared a citation) |
+| The plan-row citation field on a task | `**Plan-Row**: <FeatureArea>#<TableName>/Seq-<n>` — `<FeatureArea>` is the plan filename minus `TestPlan-` and `.md`; `<TableName>` is the text after `## Table:`; `Seq-<n>` is the row's column-1 value | `deterministic-gates` |
+
+A citation whose plan document, table, or Seq does not resolve does NOT clear the line —
+the task falls to the unchanged Files+Test path. Never a fallback: the field widens what
+is accepted, and is not consulted unless written.
 
 ---
 

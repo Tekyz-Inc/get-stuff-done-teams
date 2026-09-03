@@ -231,6 +231,7 @@ answer rests on something checked this pass, not on the earlier reasoning.
 | The enumeration rules, as a protocol an agent reads | `templates/prompts/test-plan-enumerator-subagent.md` (new) |
 | The command | `commands/gsd-t-test-plan.md` (new) |
 | The plan's blank mold | `templates/TestPlan-spec.md` (new) |
+| Where a finished plan is written, gated and cited from | `.gsd-t/test-plans/TestPlan-[FeatureArea].md` (contract §7.1) |
 | The shape gate on the plan | `bin/gsd-t-testplan-lint.cjs` (new) |
 | The shape gate it is modelled on | `bin/gsd-t-pseudocode-style.cjs` |
 | Traceability, widened to accept a plan row | `bin/gsd-t-traceability-gate.cjs` |

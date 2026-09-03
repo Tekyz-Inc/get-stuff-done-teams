@@ -310,9 +310,11 @@ function parsePlanRowCitation(lines) {
  * parsing, never a substring search) — the same discipline as
  * enumerateSections. Returns Set<"table::seq"> or null if the doc is absent.
  */
-function loadTestPlanRowIdentities(pseudocodeDir, docTitle) {
-  // TestPlan docs live alongside PseudoCode docs by convention (contract §7).
-  const candidate = path.join(pseudocodeDir, `TestPlan-${docTitle}.md`);
+function loadTestPlanRowIdentities(testPlanDir, docTitle) {
+  // TestPlan docs live in `.gsd-t/test-plans/` — the directory the front door
+  // (commands/gsd-t-test-plan.md) writes to and the verify gate globs
+  // (contract §7, ratified at M115 integrate).
+  const candidate = path.join(testPlanDir, `TestPlan-${docTitle}.md`);
   let md;
   try { md = fs.readFileSync(candidate, "utf8"); } catch { return null; }
   const lines = md.split(/\r?\n/);
@@ -639,18 +641,19 @@ function runGate({ projectDir = process.cwd(), milestone = null, tasksFile = nul
     }
   }
 
-  // M115 A7: resolve a plan-row citation against the SAME in-tree directory
-  // TestPlan docs live in by convention (contract §7 — alongside PseudoCode
-  // docs). A milestone with no test plan (resolvedPcDir null, or the doc
-  // simply absent) makes every citation resolve to false — planRowClears
-  // stays false and the task takes EXACTLY its pre-A7 path. Never a fallback:
-  // this only ever WIDENS what clears, it is not consulted unless a citation
-  // was actually written.
+  // M115 A7: resolve a plan-row citation against `.gsd-t/test-plans/` — the
+  // in-tree directory the front door writes plans to and the verify gate
+  // globs (contract §7). A milestone with no test plan (dir or doc simply
+  // absent) makes every citation resolve to false — planRowClears stays
+  // false and the task takes EXACTLY its pre-A7 path. Never a fallback: this
+  // only ever WIDENS what clears, it is not consulted unless a citation was
+  // actually written.
+  const testPlanDir = path.join(path.resolve(projectDir), ".gsd-t", "test-plans");
   const planRowIdentityCache = new Map(); // docTitle -> Set<"table::seq">|null
   function resolvePlanRow(citation) {
-    if (!resolvedPcDir || !citation.doc || !citation.table || !citation.seq) return false;
+    if (!citation.doc || !citation.table || !citation.seq) return false;
     if (!planRowIdentityCache.has(citation.doc)) {
-      planRowIdentityCache.set(citation.doc, loadTestPlanRowIdentities(resolvedPcDir, citation.doc));
+      planRowIdentityCache.set(citation.doc, loadTestPlanRowIdentities(testPlanDir, citation.doc));
     }
     const identities = planRowIdentityCache.get(citation.doc);
     if (!identities) return false;
