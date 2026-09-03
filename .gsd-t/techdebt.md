@@ -54,6 +54,15 @@
 
 ## 🟠 High Priority
 
+### TD-298 - Phase workflow reports "plan blocked: 0 acceptance criteria not bound" when the traceability gate merely cannot resolve the milestone scope
+- **Area:** Workflow / M83 plan hardening
+- **Severity:** MEDIUM
+- **Status:** OPEN
+- **Location:** templates/workflows/gsd-t-phase.workflow.js (plan-hardening stage), bin/gsd-t-traceability-gate.cjs
+- **Description:** M115 plan run (wf_9431b845-96b, 2026-09-03) returned `status: "blocked"` with summary "0 acceptance criteria not bound to a code path + killing test" while the gate had 25 tasks / 0 violations. Cause: the workflow calls the gate with `--milestone M115`; M115's domains have semantic names (enumerator-core, …) with no `M115` prefix, so the gate exits 64 `milestone-scope-unresolved`. The workflow treats any non-ok envelope as "ACs not bound" and prints the (empty) violation count. Un-scoped invocation passes.
+- **Impact:** A green plan is reported blocked; a reader who trusts the summary re-edits tasks.md for nothing, or (worse) a real exit-64 is indistinguishable from a real traceability failure in the summary line. Bad-input and gate-fail must be distinguishable outcomes (the same lesson as PM-1 in this very plan).
+- **Remediation:** In the plan-hardening stage, branch on `reason === "milestone-scope-unresolved"` (exit 64): retry un-scoped when the domains directory has no milestone-prefixed names, or surface "gate could not resolve scope" verbatim. Never print "N ACs not bound" from an envelope whose exitCode is 64.
+- **Found in slice:** M115 plan run
 ### TD-297 - Research-gate writes "Verified Facts" for stale claims into whichever pseudocode doc the current phase just wrote
 - **Area:** Workflow / unproven-assumption doctrine (statedClaimsPipeline)
 - **Severity:** HIGH

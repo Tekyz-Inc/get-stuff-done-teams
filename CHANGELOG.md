@@ -2,6 +2,32 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.17.14] - 2026-09-03
+
+### Fixed — two more gate defects surfaced by TimeTracking (TD-395 round 2), plus a silent library and a crashing finalizer
+
+- `bin/gsd-t-fallback-detect.cjs`: `--scan` now covers only what git treats as the project's
+  source (tracked + untracked-not-ignored). Git-ignored files — where GSD-T's propagated
+  `bin/*.cjs` tools live — are skipped and counted (`skippedIgnored`); outside a git repo
+  nothing is filtered and the envelope says so (`gitSourceFilter:false`). The gate had
+  flagged GSD-T's own freshly-synced checker as the project's fallbacks.
+- `bin/gsd-t-logging-envelope-check.cjs`: `.gsd-t/logging-manifest.json` lets a project
+  DECLARE a stream the candidate paths cannot see (`{ "audit": { "module":
+  "server/src/audit.ts", "store": { "kind": "postgres", "table": "tb_audit_log" },
+  "retention": "indefinite" } }`). The declaration is checked — a missing path or malformed
+  file FAILs (`logging-manifest-invalid`); an external store's rows are not inspected offline
+  and that is reported in `notes`, with the module surface as the enforced evidence.
+- `bin/gsd-t-migrate-logging.cjs`: a declared stream is skipped (reported under `declared`),
+  so declaring an existing audit never scaffolds a second audit module beside it.
+- `bin/gsd-t-file-disjointness.cjs`: run directly it produced no output and exit 0, which a
+  partition finalizer read as a clean check. It now exits 64 and names `gsd-t parallel --dry-run`.
+- Contract `logging-verify-gate-contract.md` §discovery (0), `CLAUDE-global.md`,
+  `commands/gsd-t-migrate-logging.md` rippled. 12 tests.
+- `/cpua` now verifies the global install advanced ON DISK and halts if not — the 5.17.13
+  release saw `npm install -g` report success while leaving the old version in place.
+
+Also: M115 PLANNED (25 atomic tasks, headline bound, two pre-mortem findings closed). Not built.
+
 ## [5.17.13] - 2026-09-03
 
 ### Fixed — the verify gate failed projects for GSD-T's own gaps (TD-395), and a lost finalizer crashed the phase workflow
