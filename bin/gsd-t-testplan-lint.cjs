@@ -398,7 +398,11 @@ function main() {
   try {
     res = run(o);
   } catch (e) {
-    res = { ok: false, exitCode: 64, reason: `gate-error: ${e && e.message}`, violations: [] };
+    // A gate that cannot run HALTS with the bad-input envelope — exit 64 is a
+    // failure, never a pass. Written as an explicit halt so the fallback guard
+    // reads it as one (an assignment-then-fall-through looks like a continue).
+    process.stdout.write(JSON.stringify({ ok: false, exitCode: 64, reason: `gate-error: ${e && e.message}`, violations: [] }, null, 2) + "\n");
+    process.exit(64);
   }
   process.stdout.write(JSON.stringify(res, null, 2) + "\n");
   process.exit(res.exitCode);
