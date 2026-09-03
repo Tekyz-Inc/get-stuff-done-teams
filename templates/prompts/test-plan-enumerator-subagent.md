@@ -200,16 +200,18 @@ complete plan that happens to be missing a requirement. That is the one outcome 
 protocol exists to prevent, so the bound has to be a stated number with a stated
 consequence, not a number picked by feel.
 
-**The bound: 94 cases per run** — the observed scale of a completed plan covering one
-feature area of a ~570-line requirements document, measured on a real project rather than
-picked as a round figure (the measurement is recorded in `test-plan-first-contract.md`).
+**The bound: 180 cases per feature area per run.** Evidenced, not guessed: the first
+clean run of this protocol over one feature area wrote 94 rows and then named ~79 more it had
+not reached, so a completed area sits near 175; a whole requirements document spans many
+areas and is enumerated one area per run, each with its own bound. (The earlier bound of 94
+per run was the size of one finished plan and was hit twice before the area was covered.)
 
-**What happens at the bound is a HALT, never a silent truncation.** On reaching case 94
+**What happens at the bound is a HALT, never a silent truncation.** On reaching the bound
 within a single enumeration run without having finished the requirements area, STOP
 writing rows, and write instead: which feature or rule (E1–E8) was left un-enumerated, and
 an estimate of how many further cases that region implies. Hand this back exactly the way
 the three-round question-loop hands back `blocked-needs-human` — naming what never
-finished, never guessing past it. A plan that silently stops at 94 rows and reads as
+finished, never guessing past it. A plan that silently stops at the bound and reads as
 complete is a missing requirement wearing the shape of a finished plan, which is the
 specific failure this bound exists to prevent.
 

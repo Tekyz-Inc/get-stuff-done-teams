@@ -163,18 +163,19 @@ the domains for no gain.
 
 ## 9. The case-space bound (settled — evidence, not assumption)
 
-**Bound: 94 cases per enumeration run.** Evidenced by
-`test/fixtures/m115-blind-replay/test-plan-final.md` — the answer key's own finished plan
-for the rate-ledger-and-deactivation feature area enumerates 94 cases from a 571-line
-requirements document. That is the observed scale a completed plan of this kind reaches,
-so it is the number used rather than an invented round figure.
+**Bound: 180 cases per feature area per enumeration run** (revised 2026-09-03 from 94 per
+run). Evidenced by the clean cold run recorded at `.gsd-t/scan/m115-cold-enumeration-blind-scoped.md`:
+94 rows written for the rate-ledger-and-deactivation area with ~79 more named as un-reached,
+so a completed area sits near 175. A requirements document spanning several areas is
+enumerated one area per run, each under its own bound; the 94-per-run figure was one finished
+plan's size and was reached twice before an area was covered.
 
-**At the bound: HALT, never a silent truncation.** On reaching case 94 within a single run
+**At the bound: HALT, never a silent truncation.** On reaching the bound within a single run
 without finishing the requirements area, the enumerator STOPS writing rows and instead
 names which feature or rule (E1–E8) was left un-enumerated, with an estimate of the further
 cases that region implies. This mirrors the milestone's own three-round question-loop halt
 (`[RULE] enumeration-loop-cap-three`) applied to volume instead of rounds: a plan that
-silently stops at 94 rows and reads as complete is a missing requirement wearing the shape
+silently stops at the bound and reads as complete is a missing requirement wearing the shape
 of a finished plan — the one outcome this whole contract exists to prevent.
 
 Full rule text, including the worked reasoning: `templates/prompts/test-plan-enumerator-subagent.md`

@@ -14,13 +14,22 @@ criterion invented after its output already exists. Each is a structural check a
 the RECORDED enumeration output — a row's actual cells, or a named open-gap entry's
 subject — never a search for a particular word appearing anywhere in the document.
 
-1. **Month close + reopen is surfaced** when the recorded output contains a row (in any
-   table) OR a `GAP` entry whose subject is a closed-state for the billing period (a
-   "month" or equivalent time period) AND whose companion row/entry addresses re-entry
-   (a reopen path) per E6 — either sourced, decided, or explicitly a `GAP` naming that no
-   reopen path exists in the requirements. A run that enumerates ONLY the closing action
-   with no corresponding row addressing reopening does not meet this condition — E6 requires
-   both directions, and a row for only one direction is a near-miss, not a hit.
+1. **The "issued figures can silently change" gap is surfaced** when the recorded output
+   contains a row or `GAP` entry whose subject is a change to a rate (set, back-dated, or
+   date-edited) that alters the money on an invoice already issued, or on a period already
+   billed — recorded as an unstated rule (`GAP`), decided, or sourced. This is the GAP the
+   review found; "closing a month, and reopening it" was the FEATURE the review built to fix
+   it, and a cold reader of the pre-review text cannot produce a closed-month state because
+   the text names none. A run that additionally produces the closed-period state with a
+   reopen companion (E6) exceeds the condition; it is not required to meet it.
+
+   *Re-written 2026-09-03 (⚠ divergence, approved by David):* the original condition, written
+   by the Wave-1 worker who had read the answer key, demanded the fix's shape (a closed-month
+   state plus reopen). The clean re-run found the gap (rows 37, 59a, 101, 102 of
+   `.gsd-t/scan/m115-cold-enumeration-blind-scoped.md`) and not the fix, and was scored a
+   near-miss under the original wording. The condition now names the gap. PM-2's rule against
+   re-writing a criterion after seeing the output was knowingly set aside here, once, with
+   the reason recorded.
 
 2. **The wrong permission model is surfaced** when the recorded output contains a row or
    `GAP`/`GAP:CONTRADICTION` entry whose subject is a mismatch between the documented

@@ -146,6 +146,17 @@ bind to a plan row. Reason: a plan row is the more precise target when a plan
 exists. The old binding keeps working unchanged for every milestone that has no
 plan, so this widens what is accepted rather than replacing it.
 
+⚠ Divergence: What it does today#blind-replay-scoring — supersedes the Wave-1
+scoring of the third known gap. The first Wave-1 pass was not blind (its protocol
+carried the answer key); the clean re-run found the gap behind "closing a month"
+— that a rate change silently alters invoices already sent — but not the
+closed-month feature built to fix it. The scoring condition now names the gap,
+not the fix. Reason: a cold reader of the pre-review text cannot invent a state
+the text never names; the claim under test is that the rules find what is
+missing, not what was later built. Approved by David 2026-09-03; the plan's
+pre-mortem rule against re-writing a criterion after seeing output was set aside
+once, with this record.
+
 Everything else inherited is kept as it is — the sign-off shape, the style-gate
 shape, the loop halt, and the tech-debt register are all reused untouched.
 

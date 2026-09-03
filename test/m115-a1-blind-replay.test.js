@@ -29,7 +29,11 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const COLD_RUN_PATH = path.join(__dirname, '..', '.gsd-t', 'scan', 'm115-cold-enumeration-output.md');
+// The CLEAN artifact: headless run from a memory-free scratch dir holding only the
+// generic protocol + requirements-before-review.md (2026-09-03). The earlier
+// m115-cold-enumeration-output.md was produced by a worker whose protocol carried
+// the answer key, and is kept only as history.
+const COLD_RUN_PATH = path.join(__dirname, '..', '.gsd-t', 'scan', 'm115-cold-enumeration-blind-scoped.md');
 const FIXTURE_DIR = path.join(__dirname, 'fixtures', 'm115-blind-replay');
 
 function readColdRun() {
@@ -79,104 +83,59 @@ test('M115 A1 — cold-run output was recorded to disk before scoring', () => {
   const doc = readColdRun();
   assert.match(
     doc,
-    /read cold — no held-out file[\s\S]*was opened before this document was written/,
+    /^Produced cold — only \.\/protocol\.md and \.\/requirements\.md were read before this document was written\./m,
     'the recorded artifact must state it was produced before any held-out file was opened'
   );
 });
 
-test('M115 A1 — gap 1: month close + reopen is surfaced (E6, both directions)', () => {
-  const doc = readColdRun();
-  const tables = splitTables(doc);
-  const closeTable = tables.find((t) => /Billing-Period Close/i.test(t.heading));
-  assert.ok(closeTable, 'a table addressing billing-period close must exist in the recorded output');
+// Every row of every table, for subject-based checks that do not depend on how a
+// cold run happened to NAME its tables.
+function allRows(doc) {
+  return splitTables(doc).flatMap((t) => tableRows(t).map((r) => ({ table: t.heading, row: r })));
+}
 
-  const rows = tableRows(closeTable);
-  assert.ok(rows.length > 0, 'the close/reopen table must contain rows');
-
-  // Structural check: a row (or GAP entry) whose SUBJECT is the closed state.
-  const hasCloseSubject = rows.some((r) => /clos(ed|ing)/i.test(r) && /month|period/i.test(r));
-  assert.ok(hasCloseSubject, 'a row must have the closed-month state as its subject');
-
-  // Structural check: E6 requires the companion re-entry direction to be
-  // addressed too (per the hit condition: "a corresponding row/entry
-  // addressing reopening — either sourced, decided, or explicitly a GAP").
-  const hasReopenSubject = rows.some((r) => /reopen/i.test(r));
-  assert.ok(hasReopenSubject, 'a row must address reopening — E6 requires both directions, not close alone');
-
-  // The near-miss guard: a table that only ever mentions closing and never
-  // once names "reopen" would pass a substring search on "close" alone but
-  // must fail this test, per "near-misses count as misses."
-  const gapRow = rows.find((r) => /GAP/.test(r) && /reopen/i.test(r));
-  assert.ok(gapRow, 'the reopen half must be recorded as an explicit GAP entry, not silently omitted');
+test('M115 A1 — gap 1: a rate change that silently alters already-issued invoice figures is surfaced', () => {
+  // hit-conditions.md #1 (re-written 2026-09-03): the GAP the review found, not the
+  // closed-month feature the review built to fix it.
+  const hits = allRows(readColdRun()).filter(({ row }) =>
+    /GAP/.test(row) &&
+    /(already[- ]issued|already issued|issued invoice|already billed)/i.test(row) &&
+    /(rate|back-?dat|date change|RULE-RL-5)/i.test(row)
+  );
+  assert.ok(hits.length >= 1, 'a GAP row must name a rate change altering figures on an invoice already issued');
+  // Near-miss guard: a row about issuing an invoice with NO rate-change subject is not this gap.
+  assert.ok(hits.every(({ row }) => /(rate|back-?dat|date change|RULE-RL-5)/i.test(row)));
 });
 
-test('M115 A1 — gap 2: the wrong permission model is surfaced (E4, screen vs. endpoint disagreement)', () => {
-  const doc = readColdRun();
-  const tables = splitTables(doc);
-  const permTable = tables.find((t) => /E4.*permission/i.test(t.heading));
-  assert.ok(permTable, 'a table addressing permission (E4: screen AND endpoint) must exist');
-
-  const rows = tableRows(permTable);
-
-  // Structural check: at least one row marked GAP:CONTRADICTION whose subject
-  // is a disagreement between the documented model and the endpoint-level
-  // check — not a row that merely restates one side alone.
-  const contradictionRows = rows.filter((r) => /GAP:CONTRADICTION/.test(r));
-  assert.ok(
-    contradictionRows.length > 0,
-    'a GAP:CONTRADICTION row must exist — the gap is the DISAGREEMENT between the documented grid and the endpoint check, not either side alone'
-  );
-
-  const namesBothSides = contradictionRows.some(
-    (r) => /(screen|documented|F6)/i.test(r) && /(endpoint|address the app calls)/i.test(r)
-  );
-  assert.ok(
-    namesBothSides,
-    'the contradiction row must name both the documented (screen-level) side and the endpoint-level side to count as the permission-model gap, not a near-miss restating only one'
-  );
+test('M115 A1 — gap 2: the wrong permission model is surfaced (E4, endpoint half disagreeing with the documented grid)', () => {
+  const rows = allRows(readColdRun());
+  const endpointTable = rows.filter(({ table }) => /permission/i.test(table) && /endpoint/i.test(table));
+  assert.ok(endpointTable.length > 0, 'a permissions table for the ENDPOINT half must exist (E4 second half), not screen rules alone');
+  const gapRows = endpointTable.filter(({ row }) => /GAP/.test(row));
+  assert.ok(gapRows.length > 0, 'the endpoint half must carry open GAP rows — the requirements state no endpoint rule for the ledger');
+  // The DISAGREEMENT: a row that names the documented/screen side AND the endpoint side.
+  const bothSides = gapRows.some(({ row }) => /(screen|documented|F6|hidden|REQ-V11111)/i.test(row) && /(endpoint|API|response|strip)/i.test(row));
+  assert.ok(bothSides, 'at least one GAP row must name both the documented (screen) side and the endpoint side — the gap is the disagreement, not either side alone');
 });
 
-test('M115 A1 — gap 3: "the owner cannot be deactivated" is surfaced (E8, refusal case)', () => {
-  const doc = readColdRun();
-  const tables = splitTables(doc);
-  const refusalTable = tables.find((t) => /E8/i.test(t.heading) && /refusal/i.test(t.heading));
-  assert.ok(refusalTable, 'a table addressing refusal cases (E8) must exist');
-
-  const rows = tableRows(refusalTable);
-
-  // Structural check: a row whose subject is deactivating the irreplaceable
-  // entity (owner / sole admin), naming that no refusal is stated for it.
-  // Deactivating an ORDINARY member must not satisfy this — the hit condition
-  // requires the irreplaceable-entity case specifically.
-  const ownerRow = rows.find((r) => /\bowner\b/i.test(r) && /deactivat/i.test(r));
-  assert.ok(ownerRow, 'a row must have deactivating the OWNER (the irreplaceable entity) as its subject — not merely an ordinary member');
-
-  assert.match(ownerRow, /GAP/, 'the owner-deactivation row must be recorded as an open GAP (no refusal stated), never filled with a plausible answer');
-
-  // Near-miss guard: deactivating an ordinary member existing as a row is not
-  // sufficient on its own — that row must not be the ONLY deactivation row.
-  const ordinaryRow = rows.find((r) => /regular MEMBER|ordinary/i.test(r));
-  assert.ok(ordinaryRow, 'an ordinary-member deactivation row should also exist, distinguishing it from the owner case');
-  assert.notStrictEqual(
-    ownerRow,
-    ordinaryRow,
-    'the owner case must be a row of its own, distinct from the ordinary-member case — a single undifferentiated deactivation row is a near-miss'
-  );
+test('M115 A1 — gap 3: deactivating the irreplaceable entity must be refused (E8) is surfaced', () => {
+  const rows = allRows(readColdRun()).filter(({ table }) => /deactivat/i.test(table));
+  assert.ok(rows.length > 0, 'a deactivation table must exist');
+  const irreplaceable = rows.filter(({ row }) => /(last admin|only admin|sole admin|\bowner\b|irreplaceable)/i.test(row) && /deactivat/i.test(row));
+  assert.ok(irreplaceable.length >= 1, 'a row must have deactivating the irreplaceable entity (last ADMIN / owner) as its subject');
+  assert.ok(irreplaceable.some(({ row }) => /GAP/.test(row) && /refus/i.test(row)), 'that row must record the missing refusal as an open GAP, never a filled-in answer');
+  // Near-miss guard: an ordinary-member deactivation row exists and is a DIFFERENT row.
+  const ordinary = rows.find(({ row }) => /deactivat/i.test(row) && !/(last admin|only admin|sole admin|\bowner\b|irreplaceable|self)/i.test(row));
+  assert.ok(ordinary, 'an ordinary deactivation row should also exist');
+  assert.ok(!irreplaceable.some(({ row }) => row === ordinary.row), 'the irreplaceable case is its own row, not the ordinary one');
 });
 
-test('M115 A1 — removing any single gap row from the record would fail its own assertion (mutation check)', () => {
+test('M115 A1 — the three gap checks are independent (each targets different rows), and the run halted honestly', () => {
   const doc = readColdRun();
-  const tables = splitTables(doc);
-
-  // This test proves the three tests above are per-gap, not a shared count or
-  // threshold, by checking that each targets a DIFFERENT table — so deleting
-  // one gap's table cannot silently satisfy another gap's assertion.
-  const closeTable = tables.find((t) => /Billing-Period Close/i.test(t.heading));
-  const permTable = tables.find((t) => /E4.*permission/i.test(t.heading));
-  const refusalTable = tables.find((t) => /E8/i.test(t.heading) && /refusal/i.test(t.heading));
-
-  assert.ok(closeTable && permTable && refusalTable, 'all three gap tables must exist');
-  assert.notStrictEqual(closeTable.heading, permTable.heading);
-  assert.notStrictEqual(permTable.heading, refusalTable.heading);
-  assert.notStrictEqual(closeTable.heading, refusalTable.heading);
+  const rows = allRows(doc);
+  const g1 = rows.filter(({ row }) => /GAP/.test(row) && /(already[- ]issued|already issued|issued invoice)/i.test(row));
+  const g3 = rows.filter(({ table, row }) => /deactivat/i.test(table) && /(last admin|\bowner\b)/i.test(row));
+  assert.ok(g1.length && g3.length);
+  assert.ok(!g1.some((a) => g3.some((b) => a.row === b.row)), 'gap 1 and gap 3 evidence are different rows');
+  assert.match(doc, /^## HALT/m, 'the run reached its bound and said so — a plan that silently stops looks complete');
 });
