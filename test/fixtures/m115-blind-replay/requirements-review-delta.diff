@@ -1,0 +1,38 @@
+diff --git a/docs/requirements.md b/docs/requirements.md
+index 5a7e72f..de13462 100644
+--- a/docs/requirements.md
++++ b/docs/requirements.md
+@@ -569,3 +569,33 @@ verbatim last-rate-for-kind refusal, reachable from a keyboard row menu as well
+ 707/707 across 73 files at hand-off (includes the parallel `deactivation-consumers-and-traps`
+ domain's concurrent v1.27 work).
+ 
++### Found by the test plan, built 2026-09-02 (`docs/rate-ledger-test-plan.md`)
++
++The plan was written before its tests; the tests found three bugs in code expected to work and
++three features not built. All six were built the same day, and every gap-recording test flipped
++to the real one. Contracts: `rate-ledger-contract.md` v1.1.0, `closed-months-contract.md` v1.0.0,
++`deactivation-contract.md` v1.1.0, `schema-contract.md` v1.6.0.
++
++| ID | Requirement | Domain | Tests | Status |
++|----|-------------|--------|-------|--------|
++| REQ-A17 | A rate with more than two decimal places is **refused** — "Enter a rate with two decimal places or fewer." — on the dialog and on `POST /api/rates`; never rounded (plan §8 row 7) | rate-core-and-snapshot-removal, rate-ledger-screen | `rateRefusalsAndEdges.test.ts` (2), `rateClosedMonthScreens.test.tsx` (2) | **complete 2026-09-02** |
++| REQ-A18 | A rate dated more than **5 years ahead is refused, naming the limit**, on `POST` and `PATCH` alike (plan §8 row 8) | rate-core-and-snapshot-removal | `rateRefusalsAndEdges.test.ts` (3) | **complete 2026-09-02** |
++| REQ-A19 | The history panel labels every line **past / now / not yet** — three labels; a superseded rate is never "not yet" (plan §1) | rate-ledger-screen | `rateDisplayState.test.ts` (2), `RateHistoryTooltip.test.tsx` (1), `rateScreenErrors.test.tsx` (1) | **complete 2026-09-02** |
++| REQ-A20 | **Same date twice → confirm, then overwrite; one row per date.** The server answers 409 `same-date` with the hours and money until `confirmOverwrite: true` (plan §1 seq 3; David 2026-09-02) | rate-core-and-snapshot-removal, rate-ledger-screen | `rateSameDateAndInsert.test.ts` (4), `rateClosedMonthScreens.test.tsx` (3) | **complete 2026-09-02** |
++| REQ-A21 | **A date between two started rates → ask: insert before the later one, or replace it**, each option stating its own effect. 409 `between` until `placement` is sent (plan §1 seq 4) | rate-core-and-snapshot-removal, rate-ledger-screen | `rateSameDateAndInsert.test.ts` (7), `rateClosedMonthScreens.test.tsx` (4) | **complete 2026-09-02** |
++| REQ-A16 | **Closing a month.** `tb_closed_months`; `GET/POST/DELETE /api/closed-months` (ADMIN); a closed month refuses rate changes over every day the rate governs (POST/PATCH/DELETE) and time entries dated inside it (POST/PUT/DELETE) for everybody; checkbox with confirm on the Invoice Sheet showing who and when; **Reopen offered from the rate dialogs and the invoice screen, never the time-entry screen** (plan §7, all 14 rows) | rate-core-and-snapshot-removal, rate-ledger-screen | `rateClosedMonths.test.ts` (28, incl. RBAC), `rateClosedMonthScreens.test.tsx` (11) | **complete 2026-09-02** — table created on `v127-test-copy`; **production gets it at cutover** (wave 3 T1b) |
++| REQ-B7 | **A deactivated person cannot sign in** — password form, Google, an existing session (ends on the next request), the CLI phrase, and any agent token; the refusal never says "deactivated"; reactivation restores everything (plan §5 rows 9-14) | deactivation-consumers-and-traps (server side by rate-core) | `deactivatedCannotSignIn.test.ts` (12, real routes + real cookie session) | **complete 2026-09-02** |
++
++Live-walked against the `v127-test-copy` branch 2026-09-02 (every refusal above answered as
++specified; nothing left behind).
++
++| ID | Requirement | Domain | Tests | Status |
++|----|-------------|--------|-------|--------|
++| REQ-A14 | A safe copy of production to test the migration against — `v127-test-copy` (Neon branch), `scripts/restore-prod-copy.sh`, registry row | production-cutover-and-full-e2e | `rateMigrationShape.test.ts`, `invoiceTotalsCompare.test.ts`, `rate-ledger-parity.spec.ts` (5) | **complete 2026-09-02** |
++| REQ-A13 | Migration + the T5 gate: invoice totals identical before and after | production-cutover-and-full-e2e | `scripts/compare-invoice-totals.cjs`, T5 passed 2026-09-02 | **complete 2026-09-02** |
++| REQ-A15 | Every spec the milestone touches updated and passing; the full suite run against the copy and reported honestly | production-cutover-and-full-e2e | `rate-ledger.spec.ts` (12), `rate-ledger-rbac.spec.ts` (25), `deactivation.spec.ts` (7), `deactivation-rbac.spec.ts` (9), `deactivated-still-visible.spec.ts` (8), `mobile-rate-ledger.spec.ts` (3), `__a11y__/rate-ledger` (5), `__visual__/rate-ledger` (2); full run 399/75 with every failure named — `docs/test-runs/2026-09-02-v127-wave3-full-e2e.md` | **complete 2026-09-02** — the suite is not green and was not before; the 74 environment failures need T1c |
++
++**Six product defects found by the E2E on the production copy, all fixed 2026-09-02:** back-dated rates 500'd (`::date`), deleting a rated person 500'd, right-click inert, descending sort dead on every grid (StrictMode), sidebar toggle unnamed (critical a11y), the rate dialogs reset on a parent re-render. Unit suite at hand-off: **928 passed, 0 skipped, 2 todo** (the
++two todos are David's calls: the Rate Ledger's billable-first ordering, and the one-standard-
++sentence transport error on `RateLedger.tsx`).
++

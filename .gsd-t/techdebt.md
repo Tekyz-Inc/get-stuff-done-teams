@@ -54,6 +54,15 @@
 
 ## 🟠 High Priority
 
+### TD-297 - Research-gate writes "Verified Facts" for stale claims into whichever pseudocode doc the current phase just wrote
+- **Area:** Workflow / unproven-assumption doctrine (statedClaimsPipeline)
+- **Severity:** HIGH
+- **Status:** OPEN
+- **Location:** templates/workflows/gsd-t-phase.workflow.js (statedClaimsPipeline stage), bin/gsd-t-research-gate.cjs
+- **Description:** The M115 milestone run (2026-09-02, wf_228e1373-cac) appended two `## Verified Facts (auto-research)` blocks — about tree-sitter stack-graphs archival, rust-analyzer SCIP limits, and scip-typescript/scip-python licensing — to `.gsd-t/pseudocode/PseudoCode-TestPlanFirst.md`. None of those claims is in M115; they are `[GUESSED:*]` claims left over from the code-graph milestones (M94-M99) still present in progress.md / briefs. The pipeline scans ALL discoverable claims, not the ones the current phase authored, and writes citations into the artifact the phase just produced. A third claim ("the Atos repo is 1.5M LOC, scan takes 2hr") failed research after 3 web searches because it is a PRIVATE-repo fact misclassified as external.
+- **Impact:** Every upper-stage run re-researches every stale claim on the machine (3 opus/sonnet research agents per run, wasted) and pollutes unrelated source-of-truth docs with off-topic citation blocks; a reviewer reading the M115 pseudocode meets SCIP licensing facts. The polluted append was reverted by hand (git checkout) on 2026-09-02.
+- **Remediation:** (1) Scope claim discovery to claims authored IN THIS RUN (the phase agent's own output / brief), or key each claim marker to its owning doc and write the Verified Facts block THERE. (2) Mark already-cited claims as `status=cited` at their origin so they are never re-processed. (3) Route "private repo / local measurement" claims to class:internal (measure, don't search) — the research agent itself said so.
+- **Found in slice:** M115 milestone definition run
 ### TD-118 - agentId used directly in file path without containment check - path traversal
 - **Area:** Security / path traversal
 - **Severity:** HIGH
