@@ -88,6 +88,7 @@ When the same request could fit multiple commands at different scales:
 - **Requires its own milestone with domains** → `milestone` or `project`
 - **Needs investigation before fixing** → `debug` (not `quick`)
 - **Spec/requirements to verify against code** → `gap-analysis` (not `scan`)
+- **Enumerate every test case a requirements doc implies, BEFORE any code or tests exist** → `test-plan` (not `plan` — `plan` writes task lists from an already-partitioned milestone; `test-plan` interrogates the requirements themselves for gaps)
 
 ### Design-to-code routing:
 
@@ -179,7 +180,7 @@ Where `{last-command}` is:
 
 **CRITICAL: `{command}` and `{last-command}` MUST be a real GSD-T command slug — never a free-form description.**
 
-Valid command slugs: `quick`, `debug`, `feature`, `execute`, `milestone`, `project`, `scan`, `gap-analysis`, `plan`, `partition`, `impact`, `integrate`, `verify`, `test-sync`, `complete-milestone`, `wave`, `status`, `populate`, `setup`, `init`, `health`, `log`, `pause`, `resume`, `prd`, `backlog-add`, `backlog-list`, `backlog-promote`, `promote-debt`, `triage-and-merge`, `version-update`, `version-update-all`, `design-decompose`, `design-build`, `design-audit`, `design-review`
+Valid command slugs: `quick`, `debug`, `feature`, `execute`, `milestone`, `project`, `scan`, `gap-analysis`, `plan`, `partition`, `impact`, `integrate`, `verify`, `test-sync`, `test-plan`, `complete-milestone`, `wave`, `status`, `populate`, `setup`, `init`, `health`, `log`, `pause`, `resume`, `prd`, `backlog-add`, `backlog-list`, `backlog-promote`, `promote-debt`, `triage-and-merge`, `version-update`, `version-update-all`, `design-decompose`, `design-build`, `design-audit`, `design-review`
 
 **WRONG ❌** — do not do this:
 ```

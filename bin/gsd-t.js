@@ -1812,6 +1812,13 @@ const GLOBAL_BIN_TOOLS = [
   // M109 — project-history reader + rule miner, used by /gsd-t-setup to write a
   // project CLAUDE.md from what actually happened rather than from a template.
   "gsd-t-project-history.cjs", "gsd-t-rule-mine.cjs",
+  // M115 (contract test-plan-first-contract.md §5) — the A2 shape gate and the A5
+  // non-convergence halt for the test-plan-first command. Both are dispatched by
+  // `bin/gsd-t.js` ("testplan-lint" / "testplan-halt" cases) AND by the verify
+  // workflow's gate wiring, so an omission here is the same propagation-gap class
+  // caught four times before ([[project_global_bin_propagation_gap]]). Also in
+  // PROJECT_BIN_TOOLS below — both lists, both tools.
+  "gsd-t-testplan-lint.cjs", "gsd-t-testplan-halt.cjs",
 ];
 
 // Directories under bin/ that must ship whole. A runner whose parts stay behind
@@ -3574,6 +3581,11 @@ const PROJECT_BIN_TOOLS = [
   // Plus the verify-gate lint (gsd-t-verify-gate.cjs invokes it via __dirname,
   // so it must sit alongside the gate in the project's bin/).
   "gsd-t-doc-marker.cjs", "gsd-t-env-registry.cjs", "gsd-t-env-registry-check.cjs",
+  // M115 (contract test-plan-first-contract.md §5) — the A2 shape gate and the A5
+  // non-convergence halt. The verify workflow's project-local runCli resolves these,
+  // and /gsd-t-test-plan calls them directly — same propagation-gap class as the
+  // graph tools above. Also in GLOBAL_BIN_TOOLS — both lists, both tools.
+  "gsd-t-testplan-lint.cjs", "gsd-t-testplan-halt.cjs",
 ];
 
 // Files that older versions of this installer copied into project bin/ but
@@ -5992,6 +6004,36 @@ if (require.main === module) {
       const js = path.join(__dirname, "gsd-t-loop-ledger.cjs");
       if (!require("node:fs").existsSync(js)) {
         error(`gsd-t-loop-ledger.cjs not found at ${js} — install or build M90-D2 first`);
+        process.exit(1);
+      }
+      const res = spawnSync(process.execPath, [js, ...args.slice(1)], {
+        stdio: "inherit",
+      });
+      process.exit(res.status == null ? 1 : res.status);
+    }
+    case "testplan-lint": {
+      // M115 (contract §5) — `gsd-t testplan-lint (--doc <f> | --dir <d>)` thin dispatcher
+      // to the A2 test-plan shape gate (owner: deterministic-gates). Sibling of
+      // `pseudocode-style` — same proven shape (0 clean / 4 violations / 64 bad input).
+      const { spawnSync } = require("child_process");
+      const js = path.join(__dirname, "gsd-t-testplan-lint.cjs");
+      if (!require("node:fs").existsSync(js)) {
+        error(`gsd-t-testplan-lint.cjs not found at ${js} — reinstall GSD-T (contract test-plan-first-contract.md §5)`);
+        process.exit(1);
+      }
+      const res = spawnSync(process.execPath, [js, ...args.slice(1)], {
+        stdio: "inherit",
+      });
+      process.exit(res.status == null ? 1 : res.status);
+    }
+    case "testplan-halt": {
+      // M115 (contract §5) — `gsd-t testplan-halt check --doc <f> --round <n>` thin
+      // dispatcher to the A5 non-convergence halt (owner: halt-convergence). Reuses
+      // bin/gsd-t-loop-ledger.cjs read-only for the repeated-symptom cap.
+      const { spawnSync } = require("child_process");
+      const js = path.join(__dirname, "gsd-t-testplan-halt.cjs");
+      if (!require("node:fs").existsSync(js)) {
+        error(`gsd-t-testplan-halt.cjs not found at ${js} — reinstall GSD-T (contract test-plan-first-contract.md §5)`);
         process.exit(1);
       }
       const res = spawnSync(process.execPath, [js, ...args.slice(1)], {

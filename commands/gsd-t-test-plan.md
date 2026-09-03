@@ -38,14 +38,14 @@ Parse `$ARGUMENTS`:
    answers in together, then re-enumerate to confirm closure. **Never ask one question at a
    time as each answer arrives — a drip defeats the batching the reviewer's attention
    depends on.**
-5. **Round cap.** After folding each round's answers, re-enumerate and run
-   `gsd-t testplan-halt check --doc <plan path> --round <n>` (falls back to
-   `node bin/gsd-t-testplan-halt.cjs check ...` locally). If it reports `halted: true` —
-   either the third round still has open rows, or the same failure signature has recurred
-   across two consecutive rounds — STOP: hand back `blocked-needs-human` naming every row
-   the tool lists as never settled, rather than continuing with anything left open. A
-   repeated symptom means the belief behind an earlier answer is wrong, not that the row
-   needs a third try.
+5. **Round cap: three rounds, never a fourth.** After folding each round's answers,
+   re-enumerate and run `gsd-t testplan-halt check --doc <plan path> --round <n>` (falls
+   back to `node bin/gsd-t-testplan-halt.cjs check ...` locally). If it reports
+   `halted: true` — either round three still has open rows, or the same failure signature
+   has recurred across two consecutive rounds — STOP: hand back `blocked-needs-human`
+   naming every row the tool lists as never settled, rather than continuing with anything
+   left open. A repeated symptom means the belief behind an earlier answer is wrong, not
+   that the row needs a third try.
 6. **Fold closed answers into `docs/requirements.md`.**
 7. **Gate for shape.** Run `gsd-t testplan-lint --doc <plan path> --json` (falls back to
    `node bin/gsd-t-testplan-lint.cjs --doc <plan path> --json` locally). A non-zero exit
