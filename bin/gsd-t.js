@@ -1818,7 +1818,7 @@ const GLOBAL_BIN_TOOLS = [
   // workflow's gate wiring, so an omission here is the same propagation-gap class
   // caught four times before ([[project_global_bin_propagation_gap]]). Also in
   // PROJECT_BIN_TOOLS below — both lists, both tools.
-  "gsd-t-testplan-lint.cjs", "gsd-t-testplan-halt.cjs",
+  "gsd-t-testplan-lint.cjs", "gsd-t-testplan-halt.cjs", "gsd-t-testplan-rows.cjs",
 ];
 
 // Directories under bin/ that must ship whole. A runner whose parts stay behind
@@ -3585,7 +3585,7 @@ const PROJECT_BIN_TOOLS = [
   // non-convergence halt. The verify workflow's project-local runCli resolves these,
   // and /gsd-t-test-plan calls them directly — same propagation-gap class as the
   // graph tools above. Also in GLOBAL_BIN_TOOLS — both lists, both tools.
-  "gsd-t-testplan-lint.cjs", "gsd-t-testplan-halt.cjs",
+  "gsd-t-testplan-lint.cjs", "gsd-t-testplan-halt.cjs", "gsd-t-testplan-rows.cjs",
 ];
 
 // Files that older versions of this installer copied into project bin/ but

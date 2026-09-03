@@ -87,9 +87,8 @@ const MODELS = process.env.TTS_MODEL
       'gemini-2.5-flash-preview-tts',
       'gemini-2.5-pro-preview-tts',
     ];
-/** Models known to be out of quota for the rest of this run. */
-const spent = new Set();
-const liveModel = () => MODELS.find((m) => !spent.has(m));
+// One model for the whole run. A quota exhausted mid-run HALTS (a different
+// model is a different voice); there is no failover to keep alive here.
 const MODEL = MODELS[0];
 const VOICE = process.env.VOICE_NAME ?? 'Schedar';
 const SPEED = Number(process.env.VOICE_SPEED ?? 1.1);
@@ -196,8 +195,7 @@ async function speak(prompt, label, attemptsLeft = 3) {
   let res;
   let detail = '';
   for (let attempt = 1; attempt <= 6; attempt += 1) {
-    const model = liveModel();
-    if (!model) throw new Error(`every TTS model is out of quota (${label})`);
+    const model = MODEL;
     // A request with no deadline can hang forever, and a render that never
     // returns looks identical to one that is still working. Time it out and
     // treat that as a retryable failure like any other.

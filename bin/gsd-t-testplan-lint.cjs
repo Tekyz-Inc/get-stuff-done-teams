@@ -32,6 +32,7 @@
 "use strict";
 
 const fs = require("fs");
+const { walkSections, parseRows } = require("./gsd-t-testplan-rows.cjs");
 const path = require("path");
 
 // ─── frozen literals (contract §2–§3) ─────────────────────────────────────
@@ -70,22 +71,9 @@ const REQUIRED_SECTIONS_IN_ORDER = [
  * @returns {Array<{heading: string, lines: string[], startLine: number}>}
  */
 function splitSections(text) {
-  const lines = text.split("\n");
-  const sections = [];
-  let cur = null;
-  let inFence = false;
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    if (/^\s*```/.test(line)) { inFence = !inFence; if (cur) cur.lines.push(line); continue; }
-    if (!inFence && /^##\s+\S/.test(line)) {
-      if (cur) sections.push(cur);
-      cur = { heading: line.trim(), lines: [], startLine: i + 2 };
-      continue;
-    }
-    if (cur) cur.lines.push(line);
-  }
-  if (cur) sections.push(cur);
-  return sections;
+  // Shared, fence-aware for ``` AND ~~~ (Red Team M115 run 4: tilde-fenced fake
+  // headings satisfied the required-section walk).
+  return walkSections(text);
 }
 
 /**
@@ -94,20 +82,7 @@ function splitSections(text) {
  * @returns {Array<{cells: string[], line: number, raw: string}>}
  */
 function parseTableRows(sectionLines, sectionStartLine) {
-  const rows = [];
-  for (let i = 0; i < sectionLines.length; i++) {
-    const raw = sectionLines[i];
-    const trimmed = raw.trim();
-    if (!trimmed.startsWith("|")) continue;
-    const inner = trimmed.replace(/^\|/, "").replace(/\|$/, "");
-    const cells = inner.split("|").map((c) => c.trim());
-    // Header row: first cell literally "Seq".
-    if (cells[0] === "Seq") continue;
-    // Separator row: every cell is dashes only.
-    if (cells.every((c) => /^-+$/.test(c))) continue;
-    rows.push({ cells, line: sectionStartLine + i, raw: trimmed });
-  }
-  return rows;
+  return parseRows(sectionLines, sectionStartLine);
 }
 
 /**
@@ -229,7 +204,9 @@ function checkDoc(text, docPath) {
       v("empty-table", `table "${tableName}" declares the header but has no data rows.`);
     }
     for (const row of rows) {
-      if (row.cells.length < REQUIRED_COLUMNS.length) {
+      // EXACT width. A row with extra cells used to pass and every consumer then
+      // read the wrong cell as column 6 — the state column (code-review M115 run 4).
+      if (row.cells.length !== REQUIRED_COLUMNS.length) {
         v("row-column-count-mismatch", `table "${tableName}" row "${row.raw.slice(0, 80)}" has ${row.cells.length} columns, expected ${REQUIRED_COLUMNS.length}.`);
         continue;
       }
@@ -253,6 +230,10 @@ function checkDoc(text, docPath) {
   }
 
   // ── `## Decided without you`: present, before the first table, exact match ──
+  const decidedHeadingCount = sections.filter((sec) => sec.heading === HEADING_DECIDED).length;
+  if (decidedHeadingCount > 1) {
+    v("duplicate-decided-group", `"${HEADING_DECIDED}" appears ${decidedHeadingCount} times — the group is ONE heading whose entries match the self-answered rows exactly; a second heading hides its entries from that rule.`);
+  }
   if (decidedSections.length > 0) {
     const decidedSection = decidedSections[0];
     const firstTableSection = tableSections[0];

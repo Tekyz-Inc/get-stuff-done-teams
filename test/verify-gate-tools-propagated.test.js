@@ -52,3 +52,19 @@ test('the check FAILS on a tool that is referenced but not propagated (negative)
   const tools = projectBinTools();
   assert.deepStrictEqual(refs.filter((r) => !tools.has(r)), ['gsd-t-not-shipped.cjs']);
 });
+
+test('every local require() of a PROJECT_BIN_TOOLS member is itself in PROJECT_BIN_TOOLS', () => {
+  // A tool that ships to projects but requires a sibling that does not is dead
+  // on arrival there (the shared plan reader gsd-t-testplan-rows.cjs, M115).
+  const tools = projectBinTools();
+  const missing = [];
+  for (const t of tools) {
+    const p = path.join(REPO, 'bin', t);
+    if (!fs.existsSync(p)) continue;
+    const src = fs.readFileSync(p, 'utf8');
+    for (const m of src.matchAll(/require\(\s*['"]\.\/([^'"]+\.c?js)['"]\s*\)/g)) {
+      if (!tools.has(m[1])) missing.push(`${t} -> ${m[1]}`);
+    }
+  }
+  assert.deepStrictEqual(missing, [], `shipped tools require siblings that never ship: ${missing.join(', ')}`);
+});

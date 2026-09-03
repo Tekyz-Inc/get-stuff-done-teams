@@ -51,6 +51,7 @@
  */
 
 const fs = require("node:fs");
+const { walkSections, parseRows, rowState, REQUIRED_COLUMN_COUNT } = require("./gsd-t-testplan-rows.cjs");
 const path = require("node:path");
 
 // ─── tasks.md parsing ────────────────────────────────────────────────────
@@ -324,35 +325,21 @@ function loadTestPlanRowIdentities(testPlanDir, docTitle) {
   if (!candidate.startsWith(root + path.sep)) return null;
   let md;
   try { md = fs.readFileSync(candidate, "utf8"); } catch { return null; }
-  const lines = md.split(/\r?\n/);
-  // identity -> row state. Red Team HIGH: a `GAP` row is an UNANSWERED
-  // requirement; it must never clear an acceptance criterion. Only a row that
-  // is `sourced` or `DECIDED-WITHOUT-YOU` can.
+  // identity -> row state, read through the ONE shared plan reader (fence-aware
+  // for both fence styles, exact six-cell width). Red Team HIGH: a `GAP` row is
+  // an UNANSWERED requirement and must never clear an acceptance criterion;
+  // code-review run 4: a row with an EXTRA cell was read as sourced and cleared
+  // one anyway. A malformed row is its own state and never clears.
   const identities = new Map();
-  let currentTable = null;
-  let inFence = false;
-  for (const line of lines) {
-    // A `##` inside a fenced code block is text, not a heading (Red Team LOW).
-    if (/^\s*(?:\x60{3}|~{3})/.test(line)) { inFence = !inFence; continue; } // \x60 = backtick, kept out of the source so no scanner mistakes it for a template literal
-    if (inFence) continue;
-    const tm = line.match(/^##\s+Table:\s*(.+)$/);
-    if (tm) { currentTable = tm[1].trim(); continue; }
-    // Any OTHER `##` heading (Open gaps, Sign-off, ...) closes the current
-    // table's scope — its rows (e.g. the Sign-off table) must never be
-    // misattributed to the last `## Table:` name seen.
-    if (/^##\s+\S/.test(line)) { currentTable = null; continue; }
-    if (!currentTable) continue;
-    const trimmed = line.trim();
-    if (!trimmed.startsWith("|")) continue;
-    const inner = trimmed.replace(/^\|/, "").replace(/\|$/, "");
-    const cells = inner.split("|").map((c) => c.trim());
-    if (cells[0] === "Seq" || cells.every((c) => /^-+$/.test(c))) continue;
-    if (cells.length < 1 || !cells[0]) continue;
-    const source = cells[5] || "";
-    const state = /^GAP\b/.test(source) ? "gap"
-      : /^DECIDED-WITHOUT-YOU\b/.test(source) ? "decided"
-      : "sourced";
-    identities.set(`${currentTable}::${cells[0]}`, state);
+  for (const sec of walkSections(md)) {
+    const tm = sec.heading.match(/^##\s+Table:\s*(.+)$/);
+    if (!tm) continue; // Open gaps, Sign-off, ... are not tables of identities
+    const table = tm[1].trim();
+    for (const row of parseRows(sec.lines, sec.startLine)) {
+      if (!row.cells[0]) continue;
+      const state = row.width !== REQUIRED_COLUMN_COUNT ? "malformed" : rowState(row.cells[5]);
+      identities.set(`${table}::${row.cells[0]}`, state);
+    }
   }
   return identities;
 }
@@ -425,7 +412,10 @@ function assessTask(task, opts = {}) {
   if (isHeadline && !hasImplPath) {
     violations.push({ kind: "headline-without-impl", detail: "HEADLINE task has no non-test implementing path — the milestone's reason to exist is not bound to real code (the M5 AC-6 dead-code failure)." });
   }
-  if (isHeadline && !hasTest) {
+  // A resolved plan row IS the headline's test (the suite is generated from the
+  // plan — contract §7.1); the impl-path rule above is untouched, a test row is
+  // not an implementation (Red Team M115 run 4, MEDIUM).
+  if (isHeadline && !hasTest && !planRowClears) {
     violations.push({ kind: "headline-without-test", detail: "HEADLINE task has no test proving the milestone's core capability is delivered (the missing >100MB-fixture failure)." });
   }
 

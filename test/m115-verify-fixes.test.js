@@ -114,3 +114,60 @@ test('halt: parseOpenRows counts a gap row once even when Open gaps restates it 
   const open = parseOpenRows(doc);
   assert.strictEqual(open.length, 1, JSON.stringify(open));
 });
+
+// ── verify run 4: one shared plan reader; fences of BOTH styles; EXACT six-cell rows ──
+const EXTRA_GAP = '| 5 | none | Delete the last widget | ? | ? | GAP: requirements silent | extra |';
+
+test('lint: a tilde-fenced fake heading does not satisfy a required section (Red Team HIGH, run 4)', () => {
+  const dir = tmp('tilde');
+  const p = path.join(dir, 'TestPlan-Widgets.md');
+  // Real "Open gaps" and "Sign-off" are replaced by fenced fakes.
+  const doc = plan({ rows: SOURCED }).replace('## Open gaps\n\n- none\n\n## Sign-off', '~~~text\n## Open gaps\n\n- none\n\n## Sign-off\n~~~\n\n## Not-sign-off');
+  fs.writeFileSync(p, doc);
+  const r = JSON.parse(spawnSync(process.execPath, [LINT, '--doc', p], { encoding: 'utf8' }).stdout);
+  assert.strictEqual(r.exitCode, 4);
+  assert.ok(r.violations.some((v) => v.kind === 'missing-or-out-of-order-section'));
+});
+
+test('lint: a row with an EXTRA cell is a violation (width is exact, not a lower bound)', () => {
+  const dir = tmp('width');
+  const p = path.join(dir, 'TestPlan-Widgets.md'); fs.writeFileSync(p, plan({ rows: `${SOURCED}\n${EXTRA_GAP}` }));
+  const r = JSON.parse(spawnSync(process.execPath, [LINT, '--doc', p], { encoding: 'utf8' }).stdout);
+  assert.strictEqual(r.exitCode, 4);
+  assert.ok(r.violations.some((v) => v.kind === 'row-column-count-mismatch' && /7 columns/.test(v.detail)));
+});
+
+test('lint: a second "Decided without you" heading is flagged', () => {
+  const dir = tmp('dup');
+  const p = path.join(dir, 'TestPlan-Widgets.md');
+  fs.writeFileSync(p, plan({ rows: SOURCED }).replace('## Table: Widgets', '## Decided without you\n\n> None — every row is sourced.\n\n## Table: Widgets'));
+  const r = JSON.parse(spawnSync(process.execPath, [LINT, '--doc', p], { encoding: 'utf8' }).stdout);
+  assert.ok(r.violations.some((v) => v.kind === 'duplicate-decided-group'));
+});
+
+test('traceability: an extra-cell GAP row never clears an acceptance criterion', () => {
+  const { r } = planRowCleared(projectWithPlanAndTask(`${SOURCED}\n${EXTRA_GAP}`, 5));
+  assert.ok(r.violations.length > 0, 'a malformed row is not a sourced answer');
+});
+
+test('traceability: a HEADLINE task cleared by a plan row no longer trips headline-without-test, but still needs an implementing path', () => {
+  const dir = tmp('headline');
+  fs.mkdirSync(path.join(dir, '.gsd-t', 'test-plans'), { recursive: true });
+  fs.mkdirSync(path.join(dir, '.gsd-t', 'domains', 'widgets'), { recursive: true });
+  fs.writeFileSync(path.join(dir, '.gsd-t', 'test-plans', 'TestPlan-Widgets.md'), plan({ rows: SOURCED }));
+  fs.writeFileSync(path.join(dir, '.gsd-t', 'domains', 'widgets', 'tasks.md'),
+    `# Tasks\n\n### M999-D1-T1 — Save widget\n**Headline**: true\n**Acceptance criteria**: a widget saves\n**Plan-Row**: Widgets#Widgets/Seq-1\n`);
+  const r = runGate({ projectDir: dir });
+  const kinds = r.violations.map((v) => v.kind);
+  assert.ok(!kinds.includes('headline-without-test'), 'the plan row is the test');
+  assert.ok(kinds.includes('headline-without-impl'), 'a test row is not an implementation path');
+});
+
+test('halt: an extra-cell row counts as OPEN, and a fenced "## Table:" is not a table', () => {
+  const { parseOpenRows } = require('../bin/gsd-t-testplan-halt.cjs');
+  const open = parseOpenRows(plan({ rows: `${SOURCED}\n${EXTRA_GAP}` }));
+  assert.strictEqual(open.length, 1);
+  assert.match(open[0].source, /MALFORMED-ROW/);
+  const fenced = plan({ rows: SOURCED, extra: '```text\n## Table: Ghost\n\n' + HEADER + GAP + '\n```\n' });
+  assert.strictEqual(parseOpenRows(fenced).length, 0, 'the fenced GAP row is text, not an open row');
+});

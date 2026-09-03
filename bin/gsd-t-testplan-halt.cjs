@@ -55,6 +55,7 @@
 "use strict";
 
 const fs = require("fs");
+const { walkSections, parseRows, REQUIRED_COLUMN_COUNT } = require("./gsd-t-testplan-rows.cjs");
 const loopLedger = require("./gsd-t-loop-ledger.cjs");
 
 /** [RULE] enumeration-loop-cap-three — this many rounds without closure halts. */
@@ -90,50 +91,35 @@ const GAP_MARKERS = ["GAP:CONTRADICTION", "GAP"];
  * @returns {{ table: string, seq: string, reason: string }[]}
  */
 function parseOpenRows(text) {
+  // Through the ONE shared plan reader: fence-aware for both fence styles (a
+  // `## Table:` inside a fence is text — Red Team M115 run 4), rows only under
+  // `## Table:` headings, and a row that is not exactly six cells is counted as
+  // OPEN — the halting direction — instead of being skipped, because a gap
+  // hidden behind an extra cell is still a gap (code-review M115 run 4).
   const openRows = [];
-  const lines = text.split(/\r?\n/);
-  // Only rows under a `## Table:` heading are open rows. The `## Open gaps`
-  // section restates gap rows in tabular form; counting those a second time
-  // doubled every gap (code-review M115, nit).
-  let currentTable = null;
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-
-    const tableHeading = line.match(/^##\s+Table:\s*(.+?)\s*$/);
-    if (tableHeading) { currentTable = tableHeading[1].trim(); continue; }
-    if (/^##\s+\S/.test(line)) { currentTable = null; continue; }
-    if (currentTable === null) continue;
-
-    // A row: a markdown table line with at least 6 `|`-delimited cells, not the header or
-    // separator row.
-    if (!line.trim().startsWith("|")) continue;
-    if (/^\|\s*Seq\s*\|/i.test(line)) continue; // header
-    if (/^\|[\s:|-]+\|$/.test(line)) continue; // --- separator row
-
-    const cells = splitRow(line);
-    if (cells.length < 6) continue;
-
-    const seq = cells[0];
-    const source = cells[5];
-    if (!seq) continue;
-
-    for (const marker of GAP_MARKERS) {
-      if (source.startsWith(marker)) {
-        openRows.push({
-          table: currentTable,
-          seq,
-          reason: source.slice(marker.length).replace(/^:?\s*/, "") || "(no reason given)",
-        });
-        break;
+  for (const sec of walkSections(text)) {
+    const tm = sec.heading.match(/^##\s+Table:\s*(.+?)\s*$/);
+    if (!tm) continue;
+    const currentTable = tm[1].trim();
+    for (const row of parseRows(sec.lines, sec.startLine)) {
+      const seq = row.cells[0];
+      if (!seq) continue;
+      if (row.width !== REQUIRED_COLUMN_COUNT) {
+        openRows.push({ table: currentTable, seq, source: `MALFORMED-ROW (${row.width} cells, expected ${REQUIRED_COLUMN_COUNT})`, line: row.line });
+        continue;
+      }
+      const source = row.cells[5];
+      for (const marker of GAP_MARKERS) {
+        if (source.startsWith(marker)) {
+          openRows.push({ table: currentTable, seq, source, line: row.line });
+          break;
+        }
       }
     }
   }
-
   return openRows;
 }
 
-/** Split one `| a | b | c |` markdown row into trimmed cell strings. */
 function splitRow(line) {
   const trimmed = line.trim().replace(/^\|/, "").replace(/\|$/, "");
   return trimmed.split("|").map((c) => c.trim());
