@@ -196,22 +196,28 @@ test('the verify workflow names a distinct no-plan skip reason and a distinct di
 test('the discovery-error path is wired to FAIL, never to the skip branch (PM-1)', () => {
   const wf = readIfExists(path.join(ROOT, 'templates', 'workflows', 'gsd-t-verify.workflow.js'));
   assert.ok(wf, 'templates/workflows/gsd-t-verify.workflow.js must exist');
-  // Find the block around testplan-discovery-error and confirm it sits inside a
-  // path that returns a FAIL-shaped status, never inside a `skips.push`/log-SKIP
-  // construction. This is intentionally a structural proximity check, not a
-  // substring-anywhere-in-file check: it requires the SAME statement to name
-  // testplan-discovery-error AND a VERIFY-FAILED-shaped return within a small window.
-  const idx = wf.indexOf('testplan-discovery-error');
-  assert.notEqual(idx, -1, 'testplan-discovery-error must appear in the workflow');
-  const windowText = wf.slice(Math.max(0, idx - 400), idx + 400);
-  assert.match(
-    windowText,
-    /VERIFY-FAILED|status:\s*["']testplan/,
-    'the testplan-discovery-error reason must sit alongside a FAIL-shaped return, not a skip'
-  );
-  assert.doesNotMatch(
-    windowText,
-    /skips\.push|SKIP \(/,
-    'testplan-discovery-error must never be constructed as a skip — a gate that cannot check must HALT, never pass (guard-map gate class bug)'
-  );
+  // Find every occurrence of the literal reason and confirm AT LEAST ONE sits
+  // inside a path that returns a FAIL-shaped status, and NONE sit inside a
+  // `skips.push`/"SKIP (" construction — a structural proximity check (not a
+  // substring-anywhere-in-file check): the SAME nearby statement must name
+  // testplan-discovery-error AND a VERIFY-FAILED-shaped return.
+  const literal = 'testplan-discovery-error';
+  let searchFrom = 0;
+  let occurrences = 0;
+  let sawFailShape = false;
+  for (;;) {
+    const idx = wf.indexOf(literal, searchFrom);
+    if (idx === -1) break;
+    occurrences += 1;
+    const windowText = wf.slice(Math.max(0, idx - 400), idx + 400);
+    assert.doesNotMatch(
+      windowText,
+      /skips\.push|SKIP \(/,
+      'testplan-discovery-error must never be constructed as a skip — a gate that cannot check must HALT, never pass (guard-map gate class bug)'
+    );
+    if (/VERIFY-FAILED|status:\s*["']testplan/.test(windowText)) sawFailShape = true;
+    searchFrom = idx + literal.length;
+  }
+  assert.notEqual(occurrences, 0, 'testplan-discovery-error must appear in the workflow');
+  assert.ok(sawFailShape, 'at least one testplan-discovery-error occurrence must sit alongside a FAIL-shaped return (VERIFY-FAILED / status: "testplan...")');
 });

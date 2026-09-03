@@ -143,6 +143,28 @@ function loadProtocolInstruction(name) {
   return `Read your protocol FIRST. Find it by running in Bash: \`cat "$(npm root -g)/@tekyzinc/gsd-t/${rel}"\` (or, if a project-local \`${rel}\` exists, read that instead). Follow that protocol exactly.`;
 }
 
+// M115 test-plan gate — pure formatters (no branch continues past a failure; each
+// reads an already-known-shape object and joins it into one display string).
+//
+// gsd-t-testplan-lint.cjs --dir's per-result entries carry { doc, ok, exitCode, reason }
+// where "reason" is only set for a per-doc read failure (e.g. unreadable file); a
+// shape violation's detail lives in the TOP-LEVEL "violations" array instead, each
+// entry itself carrying its own "doc" field. So a malformed result is named from
+// r.reason when present, else by filtering the top-level array down to its own doc.
+function formatMalformedPlanResult(r, allViolations) {
+  const ownViolations = allViolations.filter((v) => v.doc === r.doc);
+  const kinds = ownViolations.map((v) => v.kind);
+  const detail = typeof r.reason === "string" && r.reason.length > 0
+    ? r.reason
+    : (kinds.length > 0 ? kinds.join(", ") : "(detail unavailable)");
+  const docName = typeof r.doc === "string" ? r.doc.split("/").pop() : "(doc unknown)";
+  return `${docName}: ${detail}`;
+}
+function formatMalformedPlanSummary(malformedResults, allViolations, topLevelReason) {
+  const parts = malformedResults.map((r) => formatMalformedPlanResult(r, allViolations));
+  return parts.length > 0 ? parts.join("; ") : (topLevelReason || "(violation detail unavailable)");
+}
+
 const projectDir = _args.projectDir || ".";
 const milestone  = _args.milestone || null;
 const skipUltra  = _args.skipUltra || false;
@@ -796,6 +818,90 @@ if (styleGate.exitCode === 64) {
 } else {
   const skipped = (styleEnv.skips || []).length;
   log(`PseudoCode style gate: PASS (${styleEnv.docsChecked || 0} doc(s), ${skipped} grandfathered) — proceeding to orthogonal triad`);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// M115 Test-Plan Shape Gate (FAIL-blocking) — contract test-plan-first-contract.md §5
+//
+// Sibling of the guard-map/style gates above, but discovery here is DETERMINISTIC
+// (a glob through runCli), not an LLM discovery agent — the task explicitly prefers
+// this, and the guard-map gate's own discovery-agent `.catch(...skips...)` is the
+// exact bug this gate must NOT copy: turning a broken discovery into a silent skip
+// lets a real malformed plan pass verify whenever discovery hiccups.
+//
+// Four outcomes, kept distinct and never collapsed:
+//   - Plans found, all clean            → PASS.
+//   - Plans found, any malformed        → FAIL.
+//   - No plan exists                    → SKIP, named reason "no-test-plan".
+//   - Discovery itself failed           → FAIL, named reason "testplan-discovery-error".
+//     Never a skip — a gate that cannot check must halt, never pass.
+// ─────────────────────────────────────────────────────────────────────────────
+phase("Guard-Map Gate");
+const testPlanDiscovery = await runCli(
+  projectDir,
+  "testplan-lint",
+  ["--dir", `${projectDir}/.gsd-t/test-plans`, "--json"],
+  "gsd-t-testplan-lint.cjs",
+  "m115:testplan-discovery",
+  true,
+  "Guard-Map Gate"
+);
+// runCli's own .catch already sets exitCode:-1/ok:false on an agent-level error
+// (the Bash call itself failing to run) — that is ALREADY a FAIL shape, never a
+// skip, which is what makes "discovery failing is a HALT" the default here rather
+// than something this gate has to construct.
+let testPlanGateResult = null;
+const testPlanEnvelopeUsable = testPlanDiscovery.exitCode !== -1 && testPlanDiscovery.envelope !== null && testPlanDiscovery.envelope !== undefined;
+if (testPlanEnvelopeUsable === false) {
+  const why = testPlanDiscovery.exitCode === -1
+    ? "testplan-lint discovery did not run (agent/CLI error)"
+    : `testplan-lint returned unparseable output (exitCode=${testPlanDiscovery.exitCode})`;
+  log(`M115 test-plan gate: ${why} — halting (testplan-discovery-error), never a skip`);
+  testPlanGateResult = {
+    status: "testplan-gate-failed",
+    overallVerdict: "VERIFY-FAILED",
+    reason: `testplan-discovery-error: ${why} — a gate that cannot check must HALT, never pass`,
+    testPlanGate: { discovery: testPlanDiscovery.envelope, reason: "testplan-discovery-error" },
+    guardMap: { discovery: guardMapDiscovery, results: guardMapResults },
+    verifyGate: vg.envelope,
+    autoResearchGate: arGate,
+  };
+} else {
+  const tpEnv = testPlanDiscovery.envelope;
+  const tpResults = Array.isArray(tpEnv.results) ? tpEnv.results : [];
+  // gsd-t-testplan-lint.cjs --dir reports "nothing to gate" two different ways,
+  // both legitimate absences rather than a broken discovery or a malformed plan:
+  //   - the dir does not exist at all         → exitCode 64, ok:false, top-level "reason"
+  //   - the dir exists but holds no TestPlan-*.md → exitCode 0, ok:true, docsChecked:0
+  // Both collapse to the SAME named skip here — neither is a real shape violation.
+  const dirAbsent = testPlanDiscovery.exitCode === 64 && tpResults.length === 0 && typeof tpEnv.reason === "string";
+  const dirEmpty = tpEnv.docsChecked === 0 && tpResults.length === 0;
+  const noPlanToGate = dirAbsent === true || dirEmpty === true;
+  if (noPlanToGate === true) {
+    // Nothing to gate (no .gsd-t/test-plans dir, or it holds no TestPlan-*.md) — a
+    // project with no test plan has legitimately nothing to check. SURFACED with
+    // the named reason, never silent.
+    log(`M115 test-plan gate: SKIP — no-test-plan (no .gsd-t/test-plans/TestPlan-*.md found)`);
+  } else if (testPlanDiscovery.ok === false) {
+    const malformed = tpResults.filter((r) => r.ok === false);
+    const allViolations = Array.isArray(tpEnv.violations) ? tpEnv.violations : [];
+    const named = formatMalformedPlanSummary(malformed, allViolations, tpEnv.reason);
+    log(`M115 test-plan gate FAIL exitCode=${testPlanDiscovery.exitCode} — ${malformed.length} malformed plan(s): ${named} — halting before triad`);
+    testPlanGateResult = {
+      status: "testplan-gate-failed",
+      overallVerdict: "VERIFY-FAILED",
+      reason: `M115 test-plan shape violation(s): ${named}. See templates/TestPlan-spec.md and .gsd-t/contracts/test-plan-first-contract.md §2-4.`,
+      testPlanGate: { discovery: tpEnv },
+      guardMap: { discovery: guardMapDiscovery, results: guardMapResults },
+      verifyGate: vg.envelope,
+      autoResearchGate: arGate,
+    };
+  } else {
+    log(`M115 test-plan gate: PASS (${tpEnv.docsChecked || 0} plan(s) checked, all clean) — proceeding to orthogonal triad`);
+  }
+}
+if (testPlanGateResult !== null) {
+  return testPlanGateResult;
 }
 
 phase("Orthogonal Triad");

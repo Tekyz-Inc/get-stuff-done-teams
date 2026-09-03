@@ -23,6 +23,9 @@ Parse `$ARGUMENTS`:
 
 ## Before-mode (default)
 
+0. **Where the plan lives.** Write the plan to `.gsd-t/test-plans/TestPlan-[FeatureArea].md`
+   — the sibling location of `.gsd-t/pseudocode/PseudoCode-[Title].md`, one stage earlier in
+   the pipeline. This is what the verify workflow's gate globs.
 1. **Read the enumeration protocol.** `Read templates/prompts/test-plan-enumerator-subagent.md`
    in full — the E1-E8 rules that define the case space. Do not restate it here; follow it.
 2. **Read the mold.** `Read templates/TestPlan-spec.md` — the section set and six-column
