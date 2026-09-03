@@ -115,11 +115,29 @@ Verify the output shows `+ @tekyzinc/gsd-t@{NEW_VERSION}`. If publish fails:
 ## Step 6: Update global install + propagate to projects
 
 ```bash
-npm install -g @tekyzinc/gsd-t@{NEW_VERSION}
+G="$(npm root -g)/@tekyzinc/gsd-t"
+# 1. Install by TARBALL URL, not by version spec. Right after `npm publish`, npm keeps
+#    the pre-publish package listing cached and `@tekyzinc/gsd-t@{NEW}` returns ETARGET
+#    for minutes while `npm view` already shows the version (v5.17.14, 2026-09-03).
+#    The tarball URL bypasses the cached listing and is deterministic.
+npm install -g "https://registry.npmjs.org/@tekyzinc/gsd-t/-/gsd-t-{NEW_VERSION}.tgz"
+# 2. VERIFY ON DISK — never trust npm's exit code for this step. On v5.17.13 `npm install -g`
+#    reported success and left the OLD version in place; `update-all` then ran from the
+#    stale global, told 32 projects they were "already current", and overwrote a
+#    hand-patched project file with the old build.
+ON_DISK=$(node -p "require('$G/package.json').version")
+if [ "$ON_DISK" != "{NEW_VERSION}" ]; then
+  echo "global install is $ON_DISK, expected {NEW_VERSION} — removing and reinstalling"
+  npm uninstall -g @tekyzinc/gsd-t; rm -rf "$G"; npm cache clean --force
+  npm install -g "https://registry.npmjs.org/@tekyzinc/gsd-t/-/gsd-t-{NEW_VERSION}.tgz"
+  ON_DISK=$(node -p "require('$G/package.json').version")
+  [ "$ON_DISK" = "{NEW_VERSION}" ] || { echo "HALT: global install still $ON_DISK"; exit 1; }
+fi
+# 3. Only now propagate.
 gsd-t update-all 2>&1 | tail -30
 ```
 
-Use `npm install -g @tekyzinc/gsd-t@{NEW_VERSION}` (NOT `npm update -g`) — npm rejects update for some legacy version strings (e.g., `3.19.00` is invalid semver because of the leading-zero patch). Pinning to the exact version sidesteps this.
+Never `npm update -g` (npm rejects it for legacy version strings like `3.19.00`). After `update-all`, prove propagation by `ls`/`grep` of one NEW or CHANGED file in a real registered project — the "copied N tool(s)" line is a report, not proof. Note: `update-all` also overwrites `~/.claude/commands/*.md` from the package, so THIS file's source of truth is `commands/cpua.md` in the GSD-T repo; an edit made only in `~/.claude/commands/` is lost on the next propagation.
 
 ## Step 7: Report
 
