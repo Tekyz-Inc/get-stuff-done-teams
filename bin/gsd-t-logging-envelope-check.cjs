@@ -443,7 +443,7 @@ function _readManifest(projectDir) {
     if (!m || typeof m !== 'object' || Array.isArray(m)) return { present: true, manifest: null, error: 'manifest is not a JSON object' };
     return { present: true, manifest: m, error: null };
   } catch (err) {
-    return { present: true, manifest: null, error: 'manifest is not valid JSON: ' + (err && err.message ? err.message : String(err)) };
+    return { ok: false, present: true, manifest: null, error: 'manifest is not valid JSON: ' + (err && err.message ? err.message : String(err)) };
   }
 }
 

@@ -63,17 +63,17 @@ to every feature the requirements describe, not to a sample of them.
 
 ### E1 — More than one of everything
 
-Never stop at the first example of a kind. If the requirements describe "a rate" or "a
-client," enumerate at least two of that kind in the same case, because the interesting
+Never stop at the first example of a kind. If the requirements describe "a book" or "a
+member," enumerate at least two of that kind in the same case, because the interesting
 behavior almost always lives in how the second one interacts with the first, not in the
 first one alone.
 
-*Worked example.* A requirements document says "a team member has a billing rate." A
-code-first reader checks that setting a rate works. E1 asks: what happens with a SECOND
-rate for the same person? Do the two coexist, does the second replace the first, does the
-first still apply to work already logged under it? A single-rate reading of the requirement
-never produces that row, and it is very often exactly where a real system's history-keeping
-bug lives.
+*Worked example.* A requirements document for a lending library says "a member can place a
+hold on a book." A code-first reader checks that placing a hold works. E1 asks: what happens
+with a SECOND hold on the same copy by a different member? Do they queue, does the second
+replace the first, does the first member keep their place when the copy comes back? A
+single-hold reading of the requirement never produces that row, and it is very often exactly
+where a real system's ordering bug lives.
 
 ### E2 — Every ordering that could happen
 
@@ -86,11 +86,12 @@ one the requirements describe in prose (which is usually the simplest, forward-o
 - **future-dated-then-changed** — one is saved dated in the future, then changed again
   before that future date arrives.
 
-*Worked example.* Requirements describe "set a rate effective from a date." Read forward-
-only, that is one row: set a rate, it applies. E2 asks what happens when a SECOND rate is
-saved dated BEFORE the first one's effective date — does the ledger reorder correctly, or
-does insert order leak into effective order? That case never appears if you only enumerate
-in the order the prose describes.
+*Worked example.* Requirements describe "a late fee applies from the due date." Read
+forward-only, that is one row: the due date passes, the fee starts. E2 asks what happens when
+the due date is EXTENDED after the fee has already started, or when a renewal is back-dated
+to before the original due date — does the fee recompute from the new date, or does the
+order the changes were entered in leak into the amount? That case never appears if you only
+enumerate in the order the prose describes.
 
 ### E3 — Every row states its effect on data already saved
 
@@ -98,10 +99,10 @@ Column 5 is never left to "implied by column 4." For each row, state explicitly 
 anything already stored is changed, left alone, or made unreachable by this action. `none`
 is a complete, correct answer — but it must be written, not assumed from silence.
 
-*Worked example.* "Deactivating a team member" reads, at a glance, like it only touches that
-one person's row. E3 forces the question onto data already saved elsewhere: what happens to
-their existing time entries, their existing rate history, an invoice already generated that
-references their rate? A row that just says "member is marked inactive" without an
+*Worked example.* "Withdrawing a book from the catalogue" reads, at a glance, like it only
+touches that one title's row. E3 forces the question onto data already saved elsewhere: what
+happens to loans of that book still open, holds queued on it, a fine already issued against
+a late return of it? A row that just says "title is marked withdrawn" without an
 `Effect on saved data` entry has skipped the part most likely to hide a bug.
 
 ### E4 — Who is allowed to do it — once per screen AND once per endpoint
@@ -112,36 +113,38 @@ requests at — the actual door the request walks through). These routinely dive
 can hide a button while the endpoint behind it still accepts the request from anyone who
 calls it directly.
 
-*Worked example.* A requirements document says "only an admin can see the rate column."
-That is a screen-level answer. E4 requires the second half: does the endpoint that RETURNS
-the rate data also refuse a non-admin caller, or does it just get built to return everything
-and rely on the screen to hide it? Those are two different rows, and a plan that only writes
-the first one has left the second permission check as an unstated assumption — exactly the
-class of gap a permission-matrix mismatch belongs to.
+*Worked example.* A requirements document says "only a librarian can see a member's fine
+history." That is a screen-level answer. E4 requires the second half: does the endpoint that
+RETURNS the fine history also refuse a caller who is not a librarian, or does it get built to
+return everything and rely on the screen to hide it? Those are two different rows, and a plan
+that only writes the first one has left the second permission check as an unstated
+assumption — exactly the class of gap a permission-matrix mismatch belongs to.
 
 ### E5 — Follow the whole chain end to end
 
 A feature usually touches more than one screen or process in sequence. Enumerate the case
 that walks the WHOLE chain — start to visible end — not each link checked in isolation.
 
-*Worked example.* "Set a rate" and "an invoice shows revenue" can each look correct checked
-alone. E5 asks for the row that starts at "a rate is set for a date," ends at "an invoice
-covering that date is generated," and checks the number that comes out the far end — because
-a chain of individually-correct links can still misconnect at the seam between two of them.
+*Worked example.* "Return a book late" and "a member's statement shows what they owe" can
+each look correct checked alone. E5 asks for the row that starts at "a copy is returned three
+days late," ends at "the member's monthly statement is generated," and checks the amount that
+comes out the far end — because a chain of individually-correct links can still misconnect at
+the seam between two of them.
 
 ### E6 — For every state a thing enters, the way out AND the way back in
 
-Whenever the requirements describe something entering a state (closed, archived, deactivated,
+Whenever the requirements describe something entering a state (suspended, archived, retired,
 locked), enumerate BOTH directions: what causes it to leave that state, and — separately —
 what it means to come back INTO that state a second time, or from a different path than the
 first entry. A state with only a documented way in and no documented way out is a rule
 nobody finished writing.
 
-*Worked example.* Requirements describe closing something (a month, an account, a project)
-with no mention of what happens next. E6 forces the question: is there a way to reopen it?
-If yes, who can, and does reopening restore exactly the prior state or something else? If a
-requirements document describes entering a closed state and is silent on any way out, that
-silence IS the gap — not evidence that reopening was intentionally excluded.
+*Worked example.* Requirements describe suspending a membership for unpaid fines with no
+mention of what happens next. E6 forces the question: is there a way to lift the suspension?
+If yes, who can, and does lifting it restore exactly the prior state (open holds, place in
+queues) or something else? If a requirements document describes entering a suspended state
+and is silent on any way out, that silence IS the gap — not evidence that reinstatement was
+intentionally excluded.
 
 ### E7 — Say out loud whether a boundary counts as inside or outside
 
@@ -149,10 +152,9 @@ For any threshold — a date exactly on a cutoff, a value exactly at a limit, a 
 or last member — state explicitly which side of the line it falls on. Never assume the
 obvious reading; write down the actual answer, sourced or marked a gap.
 
-*Worked example.* "A rate effective from a given date" — does a time entry logged ON that
-exact date use the new rate or the old one? Both readings sound reasonable in prose. E7
-converts the ambiguity into an explicit row rather than letting whichever the code happens
-to do become the de facto rule.
+*Worked example.* "A loan is due in 21 days" — is a copy returned ON the 21st day on time
+or late? Both readings sound reasonable in prose. E7 converts the ambiguity into an explicit
+row rather than letting whichever the code happens to do become the de facto rule.
 
 ### E8 — The cases where the system must refuse
 
@@ -162,13 +164,14 @@ document written entirely in terms of what the system does when things go right 
 name these on its own; you have to derive them from what would break if the action were
 allowed.
 
-*Worked example.* Nothing in a requirements document may say "the last admin cannot be
-removed" or "the owner cannot be deactivated" in so many words — but if the system has
-exactly one of something that everything else depends on (an owner, a sole remaining admin),
-the refusal case exists whether or not anyone wrote it down. E8 is answered by asking, for
-every entity type: is there a state this specific instance could be put into that would
-strand the system with no way to recover? If yes, and the requirements never name a refusal
-for it, that is a `GAP`, not a row you skip because nothing told you to write it.
+*Worked example.* Nothing in a requirements document may say "the last copy of a title on
+loan cannot be withdrawn from the catalogue" in so many words — but if the system has exactly
+one of something that other records depend on (the only copy an open loan points at, the one
+branch every member is registered through), the refusal case exists whether or not anyone
+wrote it down. E8 is answered by asking, for every entity type: is there a state this
+specific instance could be put into that would strand the system with no way to recover? If
+yes, and the requirements never name a refusal for it, that is a `GAP`, not a row you skip
+because nothing told you to write it.
 
 ## How to run the enumeration
 
@@ -197,12 +200,9 @@ complete plan that happens to be missing a requirement. That is the one outcome 
 protocol exists to prevent, so the bound has to be a stated number with a stated
 consequence, not a number picked by feel.
 
-**The bound: 94 cases**, evidenced by `test/fixtures/m115-blind-replay/test-plan-final.md`
-— the answer key's OWN finished plan for the milestone this protocol was cold-tested
-against enumerates 94 cases from a 571-line requirements document covering one feature
-area (rate history plus deactivation). That is the observed scale a plan of this kind
-reaches when carried through completely, so it is the number used here rather than an
-invented round figure.
+**The bound: 94 cases per run** — the observed scale of a completed plan covering one
+feature area of a ~570-line requirements document, measured on a real project rather than
+picked as a round figure (the measurement is recorded in `test-plan-first-contract.md`).
 
 **What happens at the bound is a HALT, never a silent truncation.** On reaching case 94
 within a single enumeration run without having finished the requirements area, STOP
@@ -213,43 +213,6 @@ finished, never guessing past it. A plan that silently stops at 94 rows and read
 complete is a missing requirement wearing the shape of a finished plan, which is the
 specific failure this bound exists to prevent.
 
-## The per-gap hit conditions (settled before any cold run, per pre-mortem PM-2)
-
-These three conditions are written here, before this protocol has ever been run cold
-against the held-out fixture, specifically so that no run can be scored against a
-criterion invented after its output already exists. Each is a structural check against
-the RECORDED enumeration output — a row's actual cells, or a named open-gap entry's
-subject — never a search for a particular word appearing anywhere in the document.
-
-1. **Month close + reopen is surfaced** when the recorded output contains a row (in any
-   table) OR a `GAP` entry whose subject is a closed-state for the billing period (a
-   "month" or equivalent time period) AND whose companion row/entry addresses re-entry
-   (a reopen path) per E6 — either sourced, decided, or explicitly a `GAP` naming that no
-   reopen path exists in the requirements. A run that enumerates ONLY the closing action
-   with no corresponding row addressing reopening does not meet this condition — E6 requires
-   both directions, and a row for only one direction is a near-miss, not a hit.
-
-2. **The wrong permission model is surfaced** when the recorded output contains a row or
-   `GAP`/`GAP:CONTRADICTION` entry whose subject is a mismatch between the documented
-   permission grid (who is DOCUMENTED as able to do something) and what the per-endpoint
-   check (E4, the endpoint half) would actually require or allow, for the feature area
-   the requirements describe. A row that merely restates the documented grid without
-   comparing it against the endpoint-level implication does not meet this condition — the
-   gap is the DISAGREEMENT, not either side alone.
-
-3. **"The owner cannot be deactivated" is surfaced** when the recorded output contains a
-   row or `GAP` entry produced by E8 (the refusal-case rule) whose subject is a
-   deactivation, removal, or disabling action applied to the single entity the feature area
-   treats as irreplaceable (an owner, a sole admin, or equivalent) — naming that no refusal
-   for this case is stated in the requirements. A row that enumerates deactivation for an
-   ordinary member without ever raising the irreplaceable-entity case does not meet this
-   condition.
-
-**Near-misses count as misses.** A run that produces a row adjacent to one of these three
-(the closing action alone, the documented grid alone, deactivation of an ordinary member
-alone) without producing the specific structural element named above has not surfaced that
-gap. The claim under test is that the eight rules FIND these cases mechanically — not that
-a reader, looking at the output afterward, can see where they were gesturing.
 
 ## What makes you stop
 
