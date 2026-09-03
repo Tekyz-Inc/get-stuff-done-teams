@@ -4,6 +4,7 @@ Scaffolds the two framework-default logging streams — **trace** (transient deb
 
 ## What this does
 
+- **Declared streams are skipped.** If `.gsd-t/logging-manifest.json` names a stream's `module` (e.g. `{ "audit": { "module": "server/src/audit.ts", "store": { "kind": "postgres", "table": "tb_audit_log" }, "retention": "indefinite" } }`), that stream already exists and is NOT scaffolded — reported under `declared`. This is how a project with a real audit table at a path the checker does not guess adds only the missing trace stream, with no second audit module written beside the first. An unreadable manifest is an error, not "no manifest".
 - Copies the trace module template (`templates/logging/trace-module.template.ts`) to `src/logging/trace.ts` — **only if that file does not already exist**.
 - Copies the audit module template (`templates/logging/audit-module.template.ts`) to `src/logging/audit.ts` — **only if that file does not already exist**.
 - Distills the per-project trace category / audit action schema from the project's own plan (when `--plan` is given) into `.gsd-t/logging-schema.json` — never confabulated; an unstated category/action is a gap, not a guess.

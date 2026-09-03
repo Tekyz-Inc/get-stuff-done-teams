@@ -256,6 +256,7 @@ Every GSD-T project gets TWO logging streams scaffolded by default at `gsd-t-ini
 - **Storage is stack-adaptive and human-approval-gated** — `bin/gsd-t-logging-scaffolder.cjs` detects the stack, presents real alternatives, and STOPS for approval; it never silently picks a backend (the one sanctioned pause against the Level-3 full-auto default).
 - **Trace and audit NEVER collapse into one stream.** A trace envelope carrying audit markers (`before`/`after`/`actor`/`action`) or vice-versa is a contract violation and a `gsd-t-verify` FAIL — see each contract's §no-collapse boundary.
 - **Brownfield migration**: `gsd-t migrate-logging <projectDir>` scaffolds both streams into an EXISTING project additively — it never modifies or deletes a pre-existing file. See `commands/gsd-t-migrate-logging.md`.
+- **Streams that already exist somewhere the checker does not guess** (an audit table behind `server/src/audit.ts`, say) are DECLARED in `.gsd-t/logging-manifest.json` — `{ "audit": { "module": "server/src/audit.ts", "store": { "kind": "postgres", "table": "tb_audit_log" }, "retention": "indefinite" } }`. The declaration is checked (a path that does not exist FAILs), an external store's rows are not inspected offline (reported in `notes`, the module surface is the enforced evidence), and `migrate-logging` skips a declared stream so it never scaffolds a twin.
 
 ## Orthogonal Validation Triad (Mandatory)
 

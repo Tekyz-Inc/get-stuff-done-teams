@@ -640,3 +640,63 @@ test('CLI exit code is 0 on a passing project', () => {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+// ── §declaration — .gsd-t/logging-manifest.json (TimeTracking, 2026-09-03) ──
+// The checker guessed audit at src/logging/audit.ts; TimeTracking's is
+// server/src/audit.ts → Postgres tb_audit_log. A declaration beats guessing and
+// is checked, never trusted.
+
+function manifestProject(manifest, files) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gsdt-manifest-'));
+  fs.mkdirSync(path.join(dir, '.gsd-t'), { recursive: true });
+  if (manifest !== undefined) fs.writeFileSync(path.join(dir, '.gsd-t', 'logging-manifest.json'), typeof manifest === 'string' ? manifest : JSON.stringify(manifest));
+  for (const [rel, body] of Object.entries(files || {})) {
+    fs.mkdirSync(path.dirname(path.join(dir, rel)), { recursive: true });
+    fs.writeFileSync(path.join(dir, rel), body);
+  }
+  return dir;
+}
+const rulesOf = (r) => r.failures.map((f) => f.rule);
+
+test('manifest: a declared audit module at a custom path + external store satisfies the audit default', () => {
+  const dir = manifestProject(
+    { audit: { module: 'server/src/audit.ts', store: { kind: 'postgres', table: 'tb_audit_log' }, retention: 'indefinite' } },
+    { 'server/src/audit.ts': '// tb_audit_log is append-only\nexport const logAudit = async () => {};\n',
+      '.gsd-t/trace-optout.json': JSON.stringify({ traceOptOut: true, reason: 'test fixture' }) }
+  );
+  const r = checkLoggingEnvelopes({ projectDir: dir });
+  assert.ok(!rulesOf(r).includes('audit-default-except-optout'), 'declared audit counts as a store');
+  assert.ok(!rulesOf(r).includes('audit-append-only-immutable'), 'module declares append-only');
+  assert.ok(!rulesOf(r).includes('audit-retention-configurable'), 'retention indefinite by declared policy');
+  assert.ok(r.notes.some((n) => /external \(postgres:tb_audit_log\)/.test(n)), 'the un-inspected external store is NOTED, not hidden');
+  assert.equal(r.ok, true);
+});
+
+test('manifest: a declared module that does not exist FAILS — a declaration is checked, never trusted', () => {
+  const dir = manifestProject({ audit: { module: 'server/src/audit.ts' } }, {});
+  const r = checkLoggingEnvelopes({ projectDir: dir });
+  assert.ok(rulesOf(r).includes('logging-manifest-invalid'));
+  assert.equal(r.ok, false);
+});
+
+test('manifest: an external store with no module surface still FAILS append-only (nothing enforceable was declared)', () => {
+  const dir = manifestProject({ audit: { store: { kind: 'postgres', table: 'tb_audit_log' } } }, {});
+  const r = checkLoggingEnvelopes({ projectDir: dir });
+  assert.ok(!rulesOf(r).includes('audit-default-except-optout'), 'store is declared');
+  assert.ok(rulesOf(r).includes('audit-append-only-immutable'), 'but nothing proves append-only');
+});
+
+test('manifest: malformed JSON FAILS loudly instead of falling back to path guessing', () => {
+  const dir = manifestProject('{ not json', {});
+  const r = checkLoggingEnvelopes({ projectDir: dir });
+  assert.ok(rulesOf(r).includes('logging-manifest-invalid'));
+});
+
+test('manifest: a declared update/delete path is still caught on the declared module', () => {
+  const dir = manifestProject(
+    { audit: { module: 'server/src/audit.ts', store: { kind: 'postgres', table: 't' }, retention: 'indefinite' } },
+    { 'server/src/audit.ts': '// append-only\nexport const deleteAuditEntry = async () => {};\n' }
+  );
+  const r = checkLoggingEnvelopes({ projectDir: dir });
+  assert.ok(r.failures.some((f) => f.rule === 'audit-append-only-immutable' && /update\/delete/.test(f.detail)));
+});

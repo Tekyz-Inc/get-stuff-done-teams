@@ -416,17 +416,95 @@ function _readModuleSurface(absModulePath) {
   };
 }
 
+// ── §declaration — .gsd-t/logging-manifest.json ──────────────────────────────
+//
+// A project whose streams live somewhere the candidate lists do not guess
+// (TimeTracking, 2026-09-03: audit = server/src/audit.ts → Postgres tb_audit_log)
+// DECLARES them here. A declaration beats guessing, and it is checked, never
+// trusted: a declared module path that does not exist is a FAIL, not a skip.
+//
+//   { "trace": { "module": "server/src/trace.ts", "store": "…" },
+//     "audit": { "module": "server/src/audit.ts",
+//                "store": { "kind": "postgres", "table": "tb_audit_log" },
+//                "retention": "indefinite" } }
+//
+// `store` is either a repo-relative path (JSON array or SQLite, inspected like a
+// discovered one) or an object naming an EXTERNAL store (kind + table). An
+// external store cannot be opened offline, so its rows are not inspected — that
+// is reported in `notes`, never hidden — and the enforceable evidence becomes the
+// module surface (append-only declared, no update/delete path, retention).
+// `retention: "indefinite"` declares a never-purged audit log; it satisfies the
+// retention rule by policy and is noted.
+function _readManifest(projectDir) {
+  const p = path.join(projectDir, '.gsd-t', 'logging-manifest.json');
+  if (!fs.existsSync(p)) return { present: false, manifest: null, error: null };
+  try {
+    const m = JSON.parse(fs.readFileSync(p, 'utf8'));
+    if (!m || typeof m !== 'object' || Array.isArray(m)) return { present: true, manifest: null, error: 'manifest is not a JSON object' };
+    return { present: true, manifest: m, error: null };
+  } catch (err) {
+    return { present: true, manifest: null, error: 'manifest is not valid JSON: ' + (err && err.message ? err.message : String(err)) };
+  }
+}
+
+function _declaredStream(projectDir, manifest, stream, failures, notes) {
+  const out = { modulePath: null, storePath: null, externalStore: null, retentionIndefinite: false };
+  const d = manifest && manifest[stream];
+  if (!d) return out;
+  if (typeof d !== 'object' || Array.isArray(d)) {
+    failures.push({ rule: 'logging-manifest-invalid', stream, detail: 'manifest.' + stream + ' must be an object' });
+    return out;
+  }
+  if (d.module !== undefined) {
+    const abs = typeof d.module === 'string' && d.module ? path.join(projectDir, d.module) : null;
+    if (!abs || !fs.existsSync(abs)) {
+      failures.push({ rule: 'logging-manifest-invalid', stream, detail: 'declared ' + stream + ' module not found: ' + String(d.module) });
+    } else {
+      out.modulePath = abs;
+    }
+  }
+  if (d.store !== undefined) {
+    if (typeof d.store === 'string' && d.store) {
+      const abs = path.join(projectDir, d.store);
+      if (!fs.existsSync(abs)) failures.push({ rule: 'logging-manifest-invalid', stream, detail: 'declared ' + stream + ' store not found: ' + d.store });
+      else out.storePath = abs;
+    } else if (d.store && typeof d.store === 'object' && typeof d.store.kind === 'string' && d.store.kind) {
+      out.externalStore = d.store;
+      notes.push(stream + ' store declared as external (' + d.store.kind + (d.store.table ? ':' + d.store.table : '') + ') — live rows are not inspected offline; the module surface is the enforced evidence');
+    } else {
+      failures.push({ rule: 'logging-manifest-invalid', stream, detail: 'declared ' + stream + ' store must be a repo-relative path or {kind, table}' });
+    }
+  }
+  if (d.retention !== undefined) {
+    if (d.retention === 'indefinite') {
+      out.retentionIndefinite = true;
+      notes.push(stream + ' retention declared indefinite (never purged) — retention rule satisfied by policy');
+    } else {
+      failures.push({ rule: 'logging-manifest-invalid', stream, detail: 'retention may only be declared "indefinite"; anything else is read from the module surface' });
+    }
+  }
+  return out;
+}
+
 function checkLoggingEnvelopes(opts) {
   opts = opts || {};
   const projectDir = opts.projectDir || '.';
   const failures = [];
+  const notes = [];
+
+  // (0) Declaration file — checked before any path guessing.
+  const mf = _readManifest(projectDir);
+  if (mf.error) failures.push({ rule: 'logging-manifest-invalid', stream: 'both', detail: mf.error });
+  const declTrace = _declaredStream(projectDir, mf.manifest, 'trace', failures, notes);
+  const declAudit = _declaredStream(projectDir, mf.manifest, 'audit', failures, notes);
 
   // (i) Trace discovery — default for every project EXCEPT explicit opt-out
   // (M100 correction: stateless CLI/library class has no runtime data-flow to trace,
   // so a symmetric .gsd-t/trace-optout.json opt-out exists, mirroring audit's).
-  const traceModulePath = _firstExisting(projectDir, TRACE_MODULE_CANDIDATES);
-  const traceStorePath = _firstExisting(projectDir, TRACE_STORE_CANDIDATES);
-  const traceDbPath = _firstExisting(projectDir, TRACE_DB_CANDIDATES);
+  const traceModulePath = declTrace.modulePath || _firstExisting(projectDir, TRACE_MODULE_CANDIDATES);
+  const _declTraceIsDb = declTrace.storePath && /\.(db|sqlite)$/i.test(declTrace.storePath);
+  const traceStorePath = (declTrace.storePath && !_declTraceIsDb) ? declTrace.storePath : _firstExisting(projectDir, TRACE_STORE_CANDIDATES);
+  const traceDbPath = _declTraceIsDb ? declTrace.storePath : _firstExisting(projectDir, TRACE_DB_CANDIDATES);
   const traceRecords = traceStorePath ? _readJsonArrayIfExists(traceStorePath) : null;
   let traceOptOutRecord = null;
   const traceOptOutPath = path.join(projectDir, '.gsd-t', 'trace-optout.json');
@@ -434,7 +512,7 @@ function checkLoggingEnvelopes(opts) {
     if (fs.existsSync(traceOptOutPath)) traceOptOutRecord = JSON.parse(fs.readFileSync(traceOptOutPath, 'utf8'));
   } catch (_e) { traceOptOutRecord = null; }
 
-  if (!traceModulePath && !traceStorePath && !traceDbPath) {
+  if (!traceModulePath && !traceStorePath && !traceDbPath && !declTrace.externalStore) {
     if (!_isValidTraceOptOut(traceOptOutRecord)) {
       failures.push({ rule: 'trace-default-except-optout', stream: 'trace', detail: 'no trace module or store discoverable and no valid trace opt-out record' });
     }
@@ -467,11 +545,12 @@ function checkLoggingEnvelopes(opts) {
   // legitimately nothing to validate yet.
 
   // (ii) Audit discovery.
-  const auditModulePath = _firstExisting(projectDir, AUDIT_MODULE_CANDIDATES);
-  const auditStorePath = _firstExisting(projectDir, AUDIT_STORE_CANDIDATES);
-  const auditDbPath = _firstExisting(projectDir, AUDIT_DB_CANDIDATES);
+  const auditModulePath = declAudit.modulePath || _firstExisting(projectDir, AUDIT_MODULE_CANDIDATES);
+  const _declAuditIsDb = declAudit.storePath && /\.(db|sqlite)$/i.test(declAudit.storePath);
+  const auditStorePath = (declAudit.storePath && !_declAuditIsDb) ? declAudit.storePath : _firstExisting(projectDir, AUDIT_STORE_CANDIDATES);
+  const auditDbPath = _declAuditIsDb ? declAudit.storePath : _firstExisting(projectDir, AUDIT_DB_CANDIDATES);
   const auditRecords = auditStorePath ? _readJsonArrayIfExists(auditStorePath) : null;
-  const hasAuditStore = !!(auditModulePath || auditStorePath || auditDbPath);
+  const hasAuditStore = !!(auditModulePath || auditStorePath || auditDbPath || declAudit.externalStore);
 
   // (iii) Opt-out file.
   let optOutRecord = null;
@@ -517,10 +596,12 @@ function checkLoggingEnvelopes(opts) {
         exportsDelete: surface ? surface.exportsDelete : false,
         declaresAppendOnly: surface ? surface.declaresAppendOnly : false,
       }));
-      failures.push(..._checkRetentionConfigurable({
-        hardcoded: surface ? surface.retentionHardcoded : true,
-        configurable: surface ? surface.retentionConfigurable : false,
-      }));
+      if (!declAudit.retentionIndefinite) {
+        failures.push(..._checkRetentionConfigurable({
+          hardcoded: surface ? surface.retentionHardcoded : true,
+          configurable: surface ? surface.retentionConfigurable : false,
+        }));
+      }
     } else {
       // Audit store present but no module surface to inspect declared durability rules.
       failures.push({ rule: 'audit-append-only-immutable', stream: 'audit', detail: 'no audit module surface discoverable to verify append-only declaration' });
@@ -528,12 +609,14 @@ function checkLoggingEnvelopes(opts) {
     }
   }
 
-  return { ok: failures.length === 0, failures };
+  return { ok: failures.length === 0, failures, notes };
 }
 
 module.exports = {
   checkEnvelope,
   checkLoggingEnvelopes,
+  _readManifest,
+  _declaredStream,
   // Test surface (not part of the public contract):
   _hasKey,
   _typeOk,

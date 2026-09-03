@@ -110,6 +110,21 @@ function writeDistilledSchemaIfAbsent(projectDir, planPath) {
  * a file that already exists in the target project is left byte-for-byte
  * untouched (recorded in `skipped`, never in `created`).
  */
+// .gsd-t/logging-manifest.json — same reader the envelope checker uses (kept in
+// step with bin/gsd-t-logging-envelope-check.cjs _readManifest; a stream is
+// "declared" when its `module` is named).
+function readManifest(projectDir) {
+  const p = path.join(projectDir, '.gsd-t', 'logging-manifest.json');
+  if (!fs.existsSync(p)) return { present: false, manifest: null, error: null };
+  try {
+    const m = JSON.parse(fs.readFileSync(p, 'utf8'));
+    if (!m || typeof m !== 'object' || Array.isArray(m)) return { present: true, manifest: null, error: '.gsd-t/logging-manifest.json is not a JSON object' };
+    return { present: true, manifest: m, error: null };
+  } catch (err) {
+    return { present: true, manifest: null, error: '.gsd-t/logging-manifest.json is not valid JSON: ' + (err && err.message ? err.message : String(err)) };
+  }
+}
+
 function migrateLogging(projectDir, opts) {
   opts = opts || {};
   if (!projectDir || typeof projectDir !== 'string') {
@@ -121,12 +136,32 @@ function migrateLogging(projectDir, opts) {
 
   const created = [];
   const skipped = [];
+  const declared = [];
 
-  const traceResult = copyIfAbsent(projectDir, TRACE_DEST_REL, TRACE_TEMPLATE_PATH);
-  (traceResult === 'created' ? created : skipped).push(TRACE_DEST_REL);
+  // A stream the project DECLARES in .gsd-t/logging-manifest.json already exists
+  // somewhere the template path is not (TimeTracking, 2026-09-03: audit lives at
+  // server/src/audit.ts → Postgres). Scaffolding src/logging/audit.ts beside it
+  // would create a second audit module — a silent twin. A declared stream is
+  // skipped and reported as such; a manifest that cannot be read is an ERROR,
+  // not "no manifest" (scaffolding over an unreadable declaration is the twin
+  // risk with the evidence hidden).
+  const manifest = readManifest(projectDir);
+  if (manifest.error) throw new Error('migrateLogging: ' + manifest.error);
+  const declares = (stream) => !!(manifest.manifest && manifest.manifest[stream] && typeof manifest.manifest[stream] === 'object' && manifest.manifest[stream].module);
 
-  const auditResult = copyIfAbsent(projectDir, AUDIT_DEST_REL, AUDIT_TEMPLATE_PATH);
-  (auditResult === 'created' ? created : skipped).push(AUDIT_DEST_REL);
+  if (declares('trace')) {
+    declared.push('trace: ' + manifest.manifest.trace.module);
+  } else {
+    const traceResult = copyIfAbsent(projectDir, TRACE_DEST_REL, TRACE_TEMPLATE_PATH);
+    (traceResult === 'created' ? created : skipped).push(TRACE_DEST_REL);
+  }
+
+  if (declares('audit')) {
+    declared.push('audit: ' + manifest.manifest.audit.module);
+  } else {
+    const auditResult = copyIfAbsent(projectDir, AUDIT_DEST_REL, AUDIT_TEMPLATE_PATH);
+    (auditResult === 'created' ? created : skipped).push(AUDIT_DEST_REL);
+  }
 
   const schemaResult = writeDistilledSchemaIfAbsent(projectDir, opts.planPath);
   (schemaResult.status === 'created' ? created : skipped).push(SCHEMA_DEST_REL);
@@ -140,12 +175,14 @@ function migrateLogging(projectDir, opts) {
     ok: true,
     created,
     skipped,
+    declared,
     dispatchedVia: 'bin/gsd-t.js case "migrate-logging" (wired by d1 — see logging-scaffold-seam-contract.md)',
     scaffold,
   };
 }
 
 module.exports = {
+  readManifest,
   migrateLogging,
   run,
   // Test surface:

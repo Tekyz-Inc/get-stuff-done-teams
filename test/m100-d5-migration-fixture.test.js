@@ -535,3 +535,37 @@ test('T3: no other project touched — only UMI-Automation\'s owned files change
   assert.ok(!/\/Users\/[^/]+\/projects\/(?!UMI-Automation)/.test(traceText), 'trace.ts must not reference another project path');
   assert.ok(!/\/Users\/[^/]+\/projects\/(?!UMI-Automation)/.test(auditText), 'audit.ts must not reference another project path');
 });
+
+// ── Declared streams are skipped, never twinned (TimeTracking, 2026-09-03) ──
+// A project whose audit already lives at server/src/audit.ts declares it in
+// .gsd-t/logging-manifest.json; migrate-logging must not scaffold a second
+// audit module beside it. Trace, undeclared, is still scaffolded.
+
+test('migrate-logging skips a stream the manifest declares and still scaffolds the other', () => {
+  const dir = mkTmpProject('manifest-skip');
+  try {
+    fs.mkdirSync(path.join(dir, '.gsd-t'), { recursive: true });
+    fs.mkdirSync(path.join(dir, 'server', 'src'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'server', 'src', 'audit.ts'), '// append-only\nexport const logAudit = async () => {};\n');
+    fs.writeFileSync(path.join(dir, '.gsd-t', 'logging-manifest.json'), JSON.stringify({
+      audit: { module: 'server/src/audit.ts', store: { kind: 'postgres', table: 'tb_audit_log' }, retention: 'indefinite' },
+    }));
+    const { migrateLogging } = require('../bin/gsd-t-migrate-logging.cjs');
+    const result = migrateLogging(dir, { approve: 'local-jsonl' });
+    assert.equal(result.ok, true);
+    assert.deepEqual(result.declared, ['audit: server/src/audit.ts']);
+    assert.ok(result.created.includes('src/logging/trace.ts'), 'trace (undeclared) is scaffolded');
+    assert.ok(!fs.existsSync(path.join(dir, 'src', 'logging', 'audit.ts')), 'NO second audit module is written');
+    assert.ok(!result.created.includes('src/logging/audit.ts') && !result.skipped.includes('src/logging/audit.ts'));
+  } finally { rmTmp(dir); }
+});
+
+test('migrate-logging refuses to run over an unreadable manifest (the twin risk with the evidence hidden)', () => {
+  const dir = mkTmpProject('manifest-bad');
+  try {
+    fs.mkdirSync(path.join(dir, '.gsd-t'), { recursive: true });
+    fs.writeFileSync(path.join(dir, '.gsd-t', 'logging-manifest.json'), '{ nope');
+    const { migrateLogging } = require('../bin/gsd-t-migrate-logging.cjs');
+    assert.throws(() => migrateLogging(dir, { approve: 'local-jsonl' }), /logging-manifest\.json is not valid JSON/);
+  } finally { rmTmp(dir); }
+});

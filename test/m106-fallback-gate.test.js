@@ -209,3 +209,48 @@ test("HOOK: a switched-off project is allowed", () => {
   });
   assert.strictEqual(d.decision, "allow");
 });
+
+// ── Git-ignored files are not the project's code (TimeTracking, 2026-09-03) ──
+// The gate flagged GSD-T's freshly-synced bin/*.cjs checker — git-ignored,
+// GSD-T's own code — as the project's fallbacks. In a git repo only tracked +
+// untracked-not-ignored files are scanned; outside git nothing is filtered and
+// the envelope says so.
+
+function gitProject(files, gitignore) {
+  const dir = tmpProject();
+  spawnSync("git", ["init", "-q"], { cwd: dir });
+  if (gitignore) fs.writeFileSync(path.join(dir, ".gitignore"), gitignore);
+  for (const [rel, body] of Object.entries(files)) {
+    fs.mkdirSync(path.dirname(path.join(dir, rel)), { recursive: true });
+    fs.writeFileSync(path.join(dir, rel), body);
+  }
+  return dir;
+}
+const FALLBACK_SRC = "function f(){ try { risky(); } catch (e) { console.log('ignored'); } }\n";
+
+test("--scan skips git-ignored files and reports how many it skipped", () => {
+  const dir = gitProject({ "bin/gsd-t-synced-tool.cjs": FALLBACK_SRC, "src/app.js": "export const a = 1;\n" }, "bin/*.cjs\n");
+  const r = spawnSync(process.execPath, [DETECT, "--scan", "--project", dir], { encoding: "utf8" });
+  const out = JSON.parse(r.stdout);
+  assert.strictEqual(out.gitSourceFilter, true);
+  assert.strictEqual(out.skippedIgnored, 1);
+  assert.ok(!out.findings.some((f) => /gsd-t-synced-tool/.test(f.file)), "the ignored tool is not the project's finding");
+});
+
+test("--scan still finds the same fallback when the file is NOT ignored (negative)", () => {
+  const dir = gitProject({ "bin/gsd-t-synced-tool.cjs": FALLBACK_SRC }, "");
+  const r = spawnSync(process.execPath, [DETECT, "--scan", "--project", dir], { encoding: "utf8" });
+  const out = JSON.parse(r.stdout);
+  assert.strictEqual(out.skippedIgnored, 0);
+  assert.ok(out.findings.some((f) => /gsd-t-synced-tool/.test(f.file)), "an un-ignored file is scanned");
+});
+
+test("--scan outside a git repo filters nothing and says so", () => {
+  const dir = tmpProject();
+  fs.mkdirSync(path.join(dir, "bin"), { recursive: true });
+  fs.writeFileSync(path.join(dir, "bin", "x.cjs"), FALLBACK_SRC);
+  const r = spawnSync(process.execPath, [DETECT, "--scan", "--project", dir], { encoding: "utf8" });
+  const out = JSON.parse(r.stdout);
+  assert.strictEqual(out.gitSourceFilter, false);
+  assert.ok(out.findings.some((f) => /x\.cjs/.test(f.file)));
+});

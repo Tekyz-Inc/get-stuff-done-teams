@@ -461,6 +461,21 @@ function scanPlan(text, file) {
 
 // ─── Directory walk ─────────────────────────────────────────────────────────
 
+// The set of repo-relative paths git treats as the project's source: tracked
+// plus untracked-not-ignored. Returns null when this is not a git repo or git
+// is unavailable — the caller then scans everything and REPORTS the absence.
+function gitSourceSet(projectDir) {
+  try {
+    const { execFileSync } = require("child_process");
+    const out = execFileSync("git", ["ls-files", "-z", "--cached", "--others", "--exclude-standard"], {
+      cwd: projectDir, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], maxBuffer: 64 * 1024 * 1024,
+    });
+    return new Set(out.split("\0").filter(Boolean));
+  } catch (_) {
+    return null;
+  }
+}
+
 function walk(dir, out, root) {
   let entries;
   try {
@@ -512,6 +527,8 @@ function main() {
 
   let findings = [];
   let scanned = 0;
+  let gitSourceFilter = false;
+  let skippedIgnored = 0;
 
   try {
     if (args.plan) {
@@ -521,7 +538,18 @@ function main() {
     } else if (args.scan) {
       const files = [];
       walk(projectDir, files, projectDir);
-      for (const f of files) {
+      // Only the project's OWN source is the project's to answer for. In a git
+      // repo that is: tracked files plus untracked files git does not ignore.
+      // Git-ignored files are not the project's code — GSD-T's propagated
+      // bin/*.cjs tools live there (TimeTracking, 2026-09-03: the gate flagged
+      // the freshly-synced logging checker, GSD-T's own code, as the project's
+      // fallbacks). Outside a git repo nothing is filtered, and the envelope
+      // says so (`gitSourceFilter:false`) rather than pretending.
+      const gitSource = gitSourceSet(projectDir);
+      gitSourceFilter = gitSource !== null;
+      const inScope = gitSource ? files.filter((f) => gitSource.has(path.relative(projectDir, f).replace(/\\/g, "/"))) : files;
+      skippedIgnored = files.length - inScope.length;
+      for (const f of inScope) {
         try {
           findings.push(...scanText(fs.readFileSync(f, "utf8"), path.relative(projectDir, f)));
           scanned++;
@@ -599,6 +627,8 @@ function main() {
     ok: unapproved.length === 0,
     exitCode: unapproved.length === 0 ? EXIT_CLEAN : EXIT_FOUND,
     filesScanned: scanned,
+    gitSourceFilter,
+    skippedIgnored,
     found: findings.length,
     preExisting,
     approved,
