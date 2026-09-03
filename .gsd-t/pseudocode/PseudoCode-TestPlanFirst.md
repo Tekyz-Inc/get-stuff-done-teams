@@ -176,6 +176,41 @@ shape, the loop halt, and the tech-debt register are all reused untouched.
   unbounded run is a real failure mode. The bound is settled at partition, not
   assumed here.
 
+### Re-checked at plan (2026-09-03)
+
+The same six questions, asked again now the work is broken into tasks. Each
+answer rests on something checked this pass, not on the earlier reasoning.
+
+- **The objective, unchanged** — find the missing, wrong and unwritten rules
+  before anything is built. Everything already in place reads code that exists,
+  so none of it can see a case the code never encoded.
+- **What it conflicts with** — still nothing. Checked by listing every file each
+  area writes: twenty-one paths, each written by exactly one area. The three
+  things we borrow are read and never written, and each one being untouched is
+  something the work has to prove rather than claim.
+- **What we reuse rather than rebuild** — the readability gate's proven shape,
+  the repeated-symptom stopper, and the acceptance-line checker, which is widened
+  rather than replaced. The answer key is reused too: it already exists on disk,
+  so the riskiest question is settled against real evidence rather than a
+  freshly invented example.
+- **Why this is the simplest version** — the risky part runs alone and first, and
+  it is the smallest thing that can disprove the idea: the rules written down, and
+  one cold run scored against an answer key. No command, no blank form, no gate
+  is built until that run passes. If it fails, one area is deleted rather than five.
+- **Will it be reused** — the rules themselves, very likely, so they are written
+  as a document an agent reads rather than buried in one caller. The blank form
+  and the two gates have one caller each, so they stay plain.
+- **What could go wrong, and what we do about it** — the case space explodes on a
+  large area. At the bound the work stops and names the part left out. It never
+  quietly stops early, because a plan that looks finished and is not is the one
+  thing this whole idea exists to prevent.
+- **Anything that carries on after a failure** — nothing. Every place the straight
+  line can break, the work stops and says so: the cold run missing a gap, the
+  bound being reached, three rounds of questions settling nothing, the same
+  failure twice running, a gate that cannot read what it was given, and a
+  judgement the evidence does not settle. None of these picks something plausible
+  and continues.
+
 ---
 
 ## Where it lives

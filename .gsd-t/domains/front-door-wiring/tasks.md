@@ -88,13 +88,38 @@ pattern — discovery, then fire, then a named skip when there is nothing to che
 A malformed plan FAILS verify. Where no plan exists, SKIP with a named reason,
 distinguishable from a clean run.
 
+**Copy the guard-map gate's discovery/fire/named-skip SHAPE, but NOT its error handling.**
+That gate's discovery agent ends in `.catch(... skips: [{ reason: "discovery-error" }] ...)`,
+which turns a *broken discovery* into a *skip* — so a real malformed plan passes verify
+whenever discovery hiccups. This repo has already been bitten by exactly this class once
+(a deterministic gate routed through an LLM returned fenced JSON, and the consumer degraded
+instead of halting). Here, **discovery failing is a HALT, not a skip**: an unreachable or
+unparseable discovery result FAILS verify with a named reason. Three outcomes, kept
+distinct and never collapsed:
+
+- Plans found, all clean → PASS.
+- Plans found, any malformed → FAIL.
+- **No plan exists** → SKIP with the named reason `no-test-plan`.
+- **Discovery itself failed** → FAIL with the named reason `testplan-discovery-error`.
+  Never a skip. A gate that cannot check must halt, never pass.
+
+Prefer deterministic discovery (a glob through `runCli`) over an LLM discovery agent; if an
+agent is used, its failure still HALTS.
+
 Sandbox rules: no `require`/`fs`/`path`/`child_process`/`process`; `args` is a JSON STRING;
 CLI calls go through the inline `runCli` helper inside an `agent()`'s Bash. `node --check`
 does not catch a violation — RUN the workflow to completion.
 
-**Acceptance criteria**: Gate fires and FAILS on a malformed plan; skips with a named reason
-when no plan exists; the workflow runs to completion in the real sandbox; no forbidden
-global reintroduced.
+**Acceptance criteria**: Gate fires and FAILS on a malformed plan; skips with the named
+reason `no-test-plan` when no plan exists; **a forced discovery failure FAILS verify with
+`testplan-discovery-error` and is never reported as a skip or a pass**; the four outcomes
+are mutually distinguishable from the returned status; the workflow runs to completion in
+the real sandbox; no forbidden global reintroduced.
+
+**Required test (pre-mortem finding PM-1)**: in
+`test/m115-a8-front-door-test-plan.test.js`, force the discovery step to fail and assert the
+workflow's returned status is a FAIL carrying `testplan-discovery-error` — the test must go
+red if that arm is changed to a skip.
 
 ---
 
@@ -105,7 +130,8 @@ global reintroduced.
 **Files**: `test/m115-a8-front-door-test-plan.test.js`
 **Test**: `test/m115-a8-front-door-test-plan.test.js`
 
-The headline. Prove the feature is REACHABLE, not merely present:
+This domain's headline (the milestone's HEADLINE is `M115-D1-T3`, the A1 blind replay).
+Prove the feature is REACHABLE, not merely present:
 
 - The literal `/gsd-t-test-plan` resolves through the router to the command file.
 - The command's `scriptPath` resolves to a real workflow file.

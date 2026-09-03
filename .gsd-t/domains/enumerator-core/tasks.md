@@ -59,8 +59,14 @@ and the rule for what happens at the bound.
 silent truncation — a truncated plan looks complete and ships a missing requirement as a
 passing test, which is the one thing that must never happen.
 
+**Also settle here, before any cold run exists (pre-mortem PM-2)**: the three per-gap hit
+conditions T3 will be scored against. Writing them down while no output exists is what keeps
+A1 falsifiable — a criterion authored after seeing the result cannot fail. Each condition is
+structural (a row's cells, a named gap's subject), never a substring search for a word.
+
 **Acceptance criteria**: A stated bound with the fixture's observed scale cited as its
-evidence, and an explicit HALT-at-the-bound rule. No round-number guess.
+evidence, and an explicit HALT-at-the-bound rule. No round-number guess. The three per-gap
+hit conditions are recorded here, before T3 runs, and are structural rather than substring.
 
 ---
 
@@ -68,8 +74,16 @@ evidence, and an explicit HALT-at-the-bound rule. No round-number guess.
 
 **Touches**: `test/m115-a1-blind-replay.test.js`
 **Depends on**: M115-D1-T2
-**Files**: `test/m115-a1-blind-replay.test.js`
+**Headline**: true
+**Files**: `templates/prompts/test-plan-enumerator-subagent.md`, `test/m115-a1-blind-replay.test.js`
 **Test**: `test/m115-a1-blind-replay.test.js`
+
+This is the milestone's HEADLINE capability. The whole of M115 rests on one unproven bet:
+that a cold enumeration driven by fixed rules reproduces what a human review found. The
+implementing path is the E1-E8 protocol authored in T1/T2; the killing test is the cold
+replay scored against the held-out answer key. If this task's test does not exercise the
+protocol end to end against the real fixture, the milestone's reason to exist is unproven
+and nothing downstream should be built.
 
 Run the T1/T2 protocol cold against `test/fixtures/m115-blind-replay/requirements-before-review.md`
 plus the project's architecture and contracts as they stood. Write the enumeration output to
@@ -87,8 +101,29 @@ The test asserts on the recorded cold-run output, so it is reproducible rather t
 one-time claim. It must FAIL if any single gap goes unsurfaced — verify that by checking
 the assertions are per-gap, not a count or a threshold.
 
+**What "surfaced" means — decide this BEFORE the run, never after (pre-mortem PM-2).**
+Scoring a run against a criterion invented once the output is in hand is not a falsification
+test; it is a rationalisation. So commit the per-gap hit condition to disk as part of T2,
+before any cold output exists:
+
+- A gap counts as surfaced when the cold run produced a row (or a named open gap) whose
+  subject is that gap — the closed-month state and its reopen path, the permission grid
+  disagreeing with the rules, the owner being undeactivatable.
+- Each condition is a structural check against the recorded output — a row's cells and a
+  gap entry's subject — never a substring search for a word, and never a judgement made
+  after the fact.
+- **Near-misses count as misses.** A run that gestures at a neighbouring case without
+  producing the gap does not pass. The bet is that the rules find these, not that a reader
+  can see them in hindsight.
+
+Write the cold-run output to disk BEFORE the held-out files are opened, and have the scoring
+read that recorded file. The run and the scoring are separate steps against a frozen
+artifact, so the same reasoning cannot both produce and grade the answer.
+
 **Acceptance criteria**: All three gaps surfaced from the before-review input alone; the
-test fails if any one is removed from the recorded output; the fixture is byte-identical
+per-gap hit conditions were written down before the cold run and are structural, not
+substring; the test fails if any one gap is removed from the recorded output; scoring reads
+the recorded artifact rather than re-running the enumeration; the fixture is byte-identical
 (`git diff --stat test/fixtures/m115-blind-replay/` is empty).
 
 **On failure**: fix the protocol, re-run, at most twice. Third miss, or the same gap missed
