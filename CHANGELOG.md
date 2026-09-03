@@ -2,6 +2,40 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.17.13] - 2026-09-03
+
+### Fixed — the verify gate failed projects for GSD-T's own gaps (TD-395), and a lost finalizer crashed the phase workflow
+
+Reported from TimeTracking: verify could not reach Red Team / QA because the gate
+ahead of the triad failed on things the project could not fix. Two of them were ours.
+
+- `bin/gsd-t.js`: `gsd-t-logging-envelope-check.cjs` joins `PROJECT_BIN_TOOLS`. The
+  verify gate reaches it via `__dirname` inside the project's own `bin/`, so it existed
+  on the author's machine and in no project (5th propagation gap of this class).
+- `test/verify-gate-tools-propagated.test.js`: every `__dirname` tool the gate dispatches
+  to must be in the propagation set — structural, with a negative case. Closes the class.
+- `bin/gsd-t-graph-use-gate.cjs`: a workflow stamps its WIRED claim under its own name
+  (`phase`, `verify`) while its workers' Bash-run queries land under the query CLI's default
+  label `cli`, which the gate exempted. TimeTracking's ledger: 302 queries under `cli`,
+  gate FAILED as zero. A query from an id with no wiring claim of its own now counts as
+  evidence for every claimant whose claim precedes it; a query before the claim is not
+  evidence; another claimant's queries are never borrowed. 4 tests.
+- `templates/workflows/gsd-t-verify.workflow.js`: verify stamped its claim at Preflight and
+  ran its own gate immediately after — a fresh claim with zero queries, failing by
+  construction every run. The stamp now lands after the gate, before the first structural
+  query.
+- `templates/workflows/gsd-t-phase.workflow.js`: a finalizer agent lost to an API 529
+  resolved to null and the run died with a TypeError at `result.competition = …`. It now
+  ends with `status: "failed"` and a resume hint (a halt with a message, not a fallback).
+
+Not a GSD-T change: the gate's Playwright step runs `npx playwright test` exactly as the
+project's own `npm test` does; a config that throws without `TEST_DATABASE_URL` must load
+`.env.local` itself.
+
+Also in this release: **M115 Test-Plan-First Requirements Interrogation** is DEFINED and
+PARTITIONED (5 domains, 3 risk-first waves) with its A1 blind-replay answer key secured at
+`test/fixtures/m115-blind-replay/`. Nothing of M115 is built yet.
+
 ## [5.17.12] - 2026-09-02
 
 ### Fixed — an import written `.js` never resolved to its `.ts` source, so `who-imports` answered "nothing imports this"
