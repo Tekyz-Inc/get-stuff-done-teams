@@ -179,6 +179,15 @@ function _acBulletText(lines) {
 // bold forms both match, exactly like the M83 field scan.
 const PSEUDOCODE_SECTION_FIELD_RE = /^\s*[-*]?\s*pseudocode-section\s*:/i;
 
+// ─── M115 A7: plan-row binding (test-plan-first-contract.md §2 + §7) ──────
+//
+// `**Plan-Row**: <TestPlan-doc-title>#<TableName>/Seq-<n>` — an ADDITIONAL way
+// an acceptance line may clear, alongside the existing Files+Test binding.
+// Recognized by the contract §2 row identity: the plan document, a table
+// name, and a Seq. Matched emphasis-agnostically on the BARED line, exactly
+// like every other field scan in this file — never a substring search.
+const PLAN_ROW_FIELD_RE = /^\s*[-*]?\s*plan-row\s*:/i;
+
 /**
  * Parse the `**PseudoCode-Section**: <Title>#<anchor>` citation from a task's
  * lines. Returns { title, anchor } structured segments, or null if absent.
@@ -256,18 +265,94 @@ function docTitleFromFilename(filename) {
 }
 
 /**
+ * Derive the doc <Title> from a TestPlan-[FeatureArea].md filename (basename
+ * minus the `TestPlan-` prefix and `.md` suffix). Path-as-path, the sibling
+ * of docTitleFromFilename above.
+ */
+function testPlanTitleFromFilename(filename) {
+  const base = path.basename(String(filename || ""));
+  const m = base.match(/^TestPlan-(.+)\.md$/);
+  return m ? m[1] : null;
+}
+
+/**
+ * Parse a `**Plan-Row**: <doc>#<TableName>/Seq-<n>` citation (M115 A7,
+ * test-plan-first-contract.md §2 + §7 row identity: plan document + table
+ * name + Seq). Structured segments, never substring-matched — the value is
+ * split path-as-path on the FIRST `#`, then the anchor on the LAST `/`.
+ * Returns { doc, table, seq, raw } or null if the field is absent.
+ */
+function parsePlanRowCitation(lines) {
+  for (const ln of lines) {
+    const bare = _bare(ln);
+    if (!PLAN_ROW_FIELD_RE.test(bare)) continue;
+    const idx = bare.indexOf(":");
+    if (idx < 0) continue;
+    const val = bare.slice(idx + 1).trim();
+    const hash = val.indexOf("#");
+    if (hash < 0) return { doc: val, table: "", seq: "", raw: val, malformed: true };
+    const doc = val.slice(0, hash).trim();
+    const anchor = val.slice(hash + 1).trim();
+    const slash = anchor.lastIndexOf("/");
+    if (slash < 0) return { doc, table: anchor, seq: "", raw: val, malformed: true };
+    const table = anchor.slice(0, slash).trim();
+    const seqPart = anchor.slice(slash + 1).trim();
+    const seqMatch = seqPart.match(/^Seq-(.+)$/i);
+    if (!seqMatch) return { doc, table, seq: "", raw: val, malformed: true };
+    return { doc, table, seq: seqMatch[1].trim(), raw: val, malformed: false };
+  }
+  return null;
+}
+
+/**
+ * Load a single TestPlan doc's real row identities: every `## Table: <name>`
+ * section's `Seq` column values, read structurally (positional table-cell
+ * parsing, never a substring search) — the same discipline as
+ * enumerateSections. Returns Set<"table::seq"> or null if the doc is absent.
+ */
+function loadTestPlanRowIdentities(pseudocodeDir, docTitle) {
+  // TestPlan docs live alongside PseudoCode docs by convention (contract §7).
+  const candidate = path.join(pseudocodeDir, `TestPlan-${docTitle}.md`);
+  let md;
+  try { md = fs.readFileSync(candidate, "utf8"); } catch { return null; }
+  const lines = md.split(/\r?\n/);
+  const identities = new Set();
+  let currentTable = null;
+  for (const line of lines) {
+    const tm = line.match(/^##\s+Table:\s*(.+)$/);
+    if (tm) { currentTable = tm[1].trim(); continue; }
+    // Any OTHER `##` heading (Open gaps, Sign-off, ...) closes the current
+    // table's scope — its rows (e.g. the Sign-off table) must never be
+    // misattributed to the last `## Table:` name seen.
+    if (/^##\s+\S/.test(line)) { currentTable = null; continue; }
+    if (!currentTable) continue;
+    const trimmed = line.trim();
+    if (!trimmed.startsWith("|")) continue;
+    const inner = trimmed.replace(/^\|/, "").replace(/\|$/, "");
+    const cells = inner.split("|").map((c) => c.trim());
+    if (cells[0] === "Seq" || cells.every((c) => /^-+$/.test(c))) continue;
+    if (cells.length < 1 || !cells[0]) continue;
+    identities.add(`${currentTable}::${cells[0]}`);
+  }
+  return identities;
+}
+
+/**
  * A task is "behavioral" (subject to the gate) if it declares acceptance
  * criteria — i.e. it promises an observable behavior. Pure-scaffolding tasks
  * with no ACs are out of scope (nothing to trace).
  */
-function assessTask(task) {
+function assessTask(task, opts = {}) {
   const lines = task.lines;
   // M87 D2: every task may carry a section citation, AC-bearing or not — capture
   // it regardless so non-behavioral coverage tasks still count toward citations.
   const sectionCitation = parseSectionCitation(lines);
+  // M115 A7: every task may ALSO carry a plan-row citation, AC-bearing or not,
+  // captured unconditionally for the same reason.
+  const planRowCitation = parsePlanRowCitation(lines);
   const hasAc = hasMultiField(lines, AC_FIELD_RE);
   if (!hasAc) {
-    return { title: task.title, behavioral: false, violations: [], sectionCitation };
+    return { title: task.title, behavioral: false, violations: [], sectionCitation, planRowCitation };
   }
 
   // Underscore-preserving values for path/runner scans (Red Team recheck HIGH).
@@ -297,11 +382,24 @@ function assessTask(task) {
 
   const isHeadline = lines.some((ln) => HEADLINE_FIELD_RE.test(_bare(ln)));
 
+  // M115 A7 — ADDITIVE ONLY: an acceptance line may ALSO clear via a plan-row
+  // binding. This arm fires ONLY when a citation is actually present AND it
+  // resolves to a real row in a real loaded plan — never as a fallback the
+  // old Files+Test path drops into when it comes up short. `opts.resolvePlanRow`
+  // is supplied by the caller (runGate) already knowing which plan docs are in
+  // scope; when no resolver is supplied (e.g. a bare assessTask() call, or a
+  // milestone with no test plan), planRowClears stays false and every existing
+  // violation kind fires exactly as it did before this change.
+  let planRowClears = false;
+  if (planRowCitation && !planRowCitation.malformed && typeof opts.resolvePlanRow === "function") {
+    planRowClears = !!opts.resolvePlanRow(planRowCitation);
+  }
+
   const violations = [];
-  if (!hasFiles) {
+  if (!hasFiles && !planRowClears) {
     violations.push({ kind: "ac-without-path", detail: "task declares acceptance criteria but no **Files** implementing path — an unbacked promise." });
   }
-  if (!hasTest) {
+  if (!hasTest && !planRowClears) {
     violations.push({ kind: "ac-without-test", detail: "task declares acceptance criteria but names no test (Test field, test path, or runner) — the dead-code class: it can pass vacuously / never be exercised." });
   }
   if (isHeadline && !hasImplPath) {
@@ -317,6 +415,8 @@ function assessTask(task) {
     isHeadline,
     hasFiles, hasTest, hasImplPath,
     sectionCitation,
+    planRowCitation,
+    planRowClears,
     violations,
   };
 }
@@ -518,29 +618,16 @@ function runGate({ projectDir = process.cwd(), milestone = null, tasksFile = nul
     return { ok: false, exitCode: 64, milestone, reason: "no-tasks-files", tasks: [], violations: [] };
   }
 
-  const taskResults = [];
-  const violations = [];
-  let behavioralCount = 0;
-  for (const f of files) {
-    let md;
-    try { md = fs.readFileSync(f.tasksPath, "utf8"); } catch { continue; }
-    for (const t of parseTasks(md)) {
-      const r = assessTask(t);
-      r.domain = f.domain;
-      taskResults.push(r);
-      if (r.behavioral) behavioralCount++;
-      for (const v of r.violations) {
-        violations.push({ domain: f.domain, task: r.title, ...v });
-      }
-    }
-  }
-
-  // M87 D2: section-citation coverage over the in-scope PseudoCode docs.
-  // Containment: an explicit --pseudocode-dir must resolve INSIDE the project
-  // tree (the D2 test legitimately points it at test/fixtures/, also inside the
-  // project; an out-of-tree `../../evildocs` is refused). The default
-  // `.gsd-t/pseudocode/` is always in-tree. A refused dir → empty doc set
-  // (logged skip, never an out-of-tree read), same fail-closed shape as a missing dir.
+  // M87 D2 dir resolution, hoisted ABOVE the task loop unchanged (M115 A7):
+  // this computation depends only on (projectDir, pseudocodeDir), never on
+  // taskResults, so moving it earlier changes nothing about what it resolves
+  // to — it only makes the resolved dir available to the plan-row resolver
+  // below. Containment: an explicit --pseudocode-dir must resolve INSIDE the
+  // project tree (the D2 test legitimately points it at test/fixtures/, also
+  // inside the project; an out-of-tree `../../evildocs` is refused). The
+  // default `.gsd-t/pseudocode/` is always in-tree. A refused dir → empty doc
+  // set (logged skip, never an out-of-tree read), same fail-closed shape as a
+  // missing dir.
   let resolvedPcDir = pseudocodeDir || path.join(projectDir, ".gsd-t", "pseudocode");
   if (pseudocodeDir) {
     const resolvedProject = path.resolve(projectDir);
@@ -551,6 +638,43 @@ function runGate({ projectDir = process.cwd(), milestone = null, tasksFile = nul
       resolvedPcDir = candidate;
     }
   }
+
+  // M115 A7: resolve a plan-row citation against the SAME in-tree directory
+  // TestPlan docs live in by convention (contract §7 — alongside PseudoCode
+  // docs). A milestone with no test plan (resolvedPcDir null, or the doc
+  // simply absent) makes every citation resolve to false — planRowClears
+  // stays false and the task takes EXACTLY its pre-A7 path. Never a fallback:
+  // this only ever WIDENS what clears, it is not consulted unless a citation
+  // was actually written.
+  const planRowIdentityCache = new Map(); // docTitle -> Set<"table::seq">|null
+  function resolvePlanRow(citation) {
+    if (!resolvedPcDir || !citation.doc || !citation.table || !citation.seq) return false;
+    if (!planRowIdentityCache.has(citation.doc)) {
+      planRowIdentityCache.set(citation.doc, loadTestPlanRowIdentities(resolvedPcDir, citation.doc));
+    }
+    const identities = planRowIdentityCache.get(citation.doc);
+    if (!identities) return false;
+    return identities.has(`${citation.table}::${citation.seq}`);
+  }
+
+  const taskResults = [];
+  const violations = [];
+  let behavioralCount = 0;
+  for (const f of files) {
+    let md;
+    try { md = fs.readFileSync(f.tasksPath, "utf8"); } catch { continue; }
+    for (const t of parseTasks(md)) {
+      const r = assessTask(t, { resolvePlanRow });
+      r.domain = f.domain;
+      taskResults.push(r);
+      if (r.behavioral) behavioralCount++;
+      for (const v of r.violations) {
+        violations.push({ domain: f.domain, task: r.title, ...v });
+      }
+    }
+  }
+
+  // M87 D2: section-citation coverage over the in-scope PseudoCode docs.
   const pseudocodeDocs = resolvedPcDir ? loadPseudocodeDocs(resolvedPcDir) : new Map();
   const coverage = assessSectionCoverage(taskResults, pseudocodeDocs);
   for (const v of coverage.violations) violations.push(v);
@@ -631,5 +755,6 @@ module.exports = {
   runGate, parseTasks, assessTask, listTasksFiles,
   parseSectionCitation, slugifyHeading, enumerateSections, docTitleFromFilename,
   loadPseudocodeDocs, assessSectionCoverage,
+  parsePlanRowCitation, testPlanTitleFromFilename, loadTestPlanRowIdentities,
   _internal: { fieldValue, TEST_PATH_RE },
 };
