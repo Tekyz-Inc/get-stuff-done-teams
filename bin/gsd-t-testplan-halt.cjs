@@ -224,8 +224,10 @@ function writeRoundsRecord(projectDir, record) {
     const tmp = `${p}.${process.pid}.tmp`;
     fs.writeFileSync(tmp, JSON.stringify(record, null, 2) + "\n");
     fs.renameSync(tmp, p);
-    return true;
-  } catch (e) { return e && e.message ? e.message : String(e); }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e && e.message ? e.message : String(e) };
+  }
 }
 
 function checkConvergence(opts) {
@@ -323,7 +325,7 @@ function checkConvergence(opts) {
       }
       roundsRecord[sigKey] = { lastRound: roundNum, cycles: ledgerResult.cycles, signature: ledgerResult.signature };
       const written = writeRoundsRecord(projectDir, roundsRecord);
-      if (written !== true) return halt(`could not write the rounds record: ${written}`, { doc: docPath, round: roundNum });
+      if (written.ok !== true) return halt(`could not write the rounds record: ${written.error}`, { doc: docPath, round: roundNum });
     }
 
     const symptomRepeated = ledgerResult.cycles >= SYMPTOM_REPEAT_CAP;
