@@ -49,6 +49,7 @@ Older milestones (M33 and earlier) archived under `.gsd-t/milestones/` — see d
 <!-- No active blockers -->
 
 ## Decision Log
+- 2026-09-03 18:50 PDT: [release] **v5.18.10 published and propagated (32 projects) — M115 shipped.** First `update-all` after the tarball install copied NOTHING ("33 already current") and the global package was found back on 5.17.14 afterwards: `~/.claude/.gsd-t-version` still said 5.17.14 because the home install (`gsd-t install`: commands + version file) had not been refreshed. Order that works, now in `commands/cpua.md`: tarball install → on-disk check → `gsd-t install` → version-file check → `update-all` → on-disk re-check + `ls` a NEW file in a real project. Verified: TimeTracking + binvoice carry `gsd-t-testplan-{rows,lint,halt}.cjs`; `~/.claude/commands/gsd-t-test-plan.md` installed.
 
 > Prior decision log entries preserved in `.gsd-t/milestones/*/progress.md` — see `m115-test-plan-first-2026-09-03/progress.md` for pre-M115 history (279 entries trimmed 2026-09-03).
 

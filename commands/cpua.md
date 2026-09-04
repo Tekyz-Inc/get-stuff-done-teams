@@ -133,8 +133,16 @@ if [ "$ON_DISK" != "{NEW_VERSION}" ]; then
   ON_DISK=$(node -p "require('$G/package.json').version")
   [ "$ON_DISK" = "{NEW_VERSION}" ] || { echo "HALT: global install still $ON_DISK"; exit 1; }
 fi
-# 3. Only now propagate.
+# 3. Refresh the HOME install (commands + ~/.claude/.gsd-t-version) BEFORE propagating.
+#    v5.18.10 (2026-09-03): with the version file still on the old number, `update-all`
+#    reported all 33 projects "already current", copied nothing, and the global package
+#    was found back on the old version afterwards. `gsd-t install` writes the version
+#    file and the command files; only then does update-all see the new release.
+gsd-t install 2>&1 | tail -5
+[ "$(cat ~/.claude/.gsd-t-version)" = "{NEW_VERSION}" ] || { echo "HALT: ~/.claude/.gsd-t-version did not advance"; exit 1; }
+# 4. Propagate, then prove the global is STILL the new version and a NEW file reached a project.
 gsd-t update-all 2>&1 | tail -30
+[ "$(node -p "require('$G/package.json').version")" = "{NEW_VERSION}" ] || { echo "HALT: global package reverted during update-all"; exit 1; }
 ```
 
 Never `npm update -g` (npm rejects it for legacy version strings like `3.19.00`). After `update-all`, prove propagation by `ls`/`grep` of one NEW or CHANGED file in a real registered project — the "copied N tool(s)" line is a report, not proof. Note: `update-all` also overwrites `~/.claude/commands/*.md` from the package, so THIS file's source of truth is `commands/cpua.md` in the GSD-T repo; an edit made only in `~/.claude/commands/` is lost on the next propagation.
