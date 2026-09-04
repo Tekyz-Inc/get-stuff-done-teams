@@ -85,13 +85,30 @@ function parseRows(sectionLines, sectionStartLine) {
   return rows;
 }
 
-/** The row state, read from cell 6 ALONE. */
+/** `## Table: <name>` — the ONE heading pattern every consumer uses (the lint once
+ *  required exactly one space while the others accepted any whitespace). */
+const TABLE_HEADING_RE = /^##\s+Table:\s*(.+?)\s*$/;
+function tableName(heading) { const m = String(heading || "").match(TABLE_HEADING_RE); return m ? m[1].trim() : null; }
+
+/**
+ * The row state, read from cell 6 ALONE — the ONE classifier (Red Team M115 run 6:
+ * the gate matched `GAP\b`, the lint and halt matched `startsWith("GAP")`, and a
+ * `GAPX:` cell was a gap to two tools and a sourced answer to the third, which
+ * cleared an acceptance criterion). Markers are exact tokens, case-insensitive
+ * (project rule: domain values compare case-insensitively):
+ *   empty     — nothing written
+ *   gap       — `GAP` / `GAP: …` / `GAP:CONTRADICTION …`
+ *   decided   — `DECIDED-WITHOUT-YOU …`
+ *   malformed — looks like a marker but is not one (`GAPX`, `GAP-ish`, `DECIDED …`)
+ *   sourced   — anything else: a citation
+ */
 function rowState(sourceCell) {
   const s = String(sourceCell == null ? "" : sourceCell).trim();
   if (s === "") return "empty";
-  if (/^GAP\b/.test(s)) return "gap";
-  if (/^DECIDED-WITHOUT-YOU\b/.test(s)) return "decided";
+  if (/^gap(?::|\s|$)/i.test(s)) return "gap";
+  if (/^decided-without-you(?::|\s|$)/i.test(s)) return "decided";
+  if (/^(?:gap|decided)/i.test(s)) return "malformed";
   return "sourced";
 }
 
-module.exports = { REQUIRED_COLUMN_COUNT, HEADER_CELLS, isFenceToggle, walkSections, splitCells, isHeaderRow, isSeparatorRow, parseRows, rowState };
+module.exports = { REQUIRED_COLUMN_COUNT, HEADER_CELLS, TABLE_HEADING_RE, tableName, isFenceToggle, walkSections, splitCells, isHeaderRow, isSeparatorRow, parseRows, rowState };

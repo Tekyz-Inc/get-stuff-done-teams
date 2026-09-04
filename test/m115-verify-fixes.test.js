@@ -209,3 +209,56 @@ test('halt: the halt message names each open row by its source text, never "unde
   assert.match(r.haltReason, /GAP: requirements silent/);
   assert.ok(!/undefined/.test(r.haltReason + JSON.stringify(r.violations)));
 });
+
+// ── verify run 6: one classifier, blank Seq, duplicate identities, rounds not calls, no plan collisions ──
+const GAPX = '| 6 | none | Delete the last widget | ? | ? | GAPX: unanswered |';
+const BLANK_SEQ_GAP = '|  | none | Delete the last widget | ? | ? | GAP: requirements silent |';
+
+test('a "GAPX:" cell is a gap to every tool: lint violation, never clears an AC, counted open by the halt', () => {
+  const dir = tmp('gapx'); const p = path.join(dir, 'TestPlan-Widgets.md'); fs.writeFileSync(p, plan({ rows: `${SOURCED}\n${GAPX}` }));
+  const lint = JSON.parse(spawnSync(process.execPath, [LINT, '--doc', p], { encoding: 'utf8' }).stdout);
+  assert.ok(lint.violations.some((v) => v.kind === 'unknown-source-marker'));
+  const { r } = planRowCleared(projectWithPlanAndTask(`${SOURCED}\n${GAPX}`, 6));
+  assert.ok(r.violations.length > 0, 'GAPX never clears');
+  const { parseOpenRows } = require('../bin/gsd-t-testplan-halt.cjs');
+  assert.strictEqual(parseOpenRows(plan({ rows: `${SOURCED}\n${GAPX}` })).length, 1);
+});
+
+test('a blank-Seq gap row is a lint violation and is counted OPEN by the halt (Red Team HIGH, run 6)', () => {
+  const dir = tmp('blankseq'); const p = path.join(dir, 'TestPlan-Widgets.md'); fs.writeFileSync(p, plan({ rows: `${SOURCED}\n${BLANK_SEQ_GAP}` }));
+  const lint = JSON.parse(spawnSync(process.execPath, [LINT, '--doc', p], { encoding: 'utf8' }).stdout);
+  assert.ok(lint.violations.some((v) => v.kind === 'blank-seq'));
+  const { parseOpenRows } = require('../bin/gsd-t-testplan-halt.cjs');
+  const open = parseOpenRows(plan({ rows: `${SOURCED}\n${BLANK_SEQ_GAP}` }));
+  assert.strictEqual(open.length, 1); assert.match(open[0].source, /BLANK-SEQ/);
+});
+
+test('two rows with one identity: lint violation, and the gate lets neither clear', () => {
+  const dup = '| 1 | none | Save a widget again | ? | ? | GAP: unclear |';
+  const dir = tmp('dup-id'); const p = path.join(dir, 'TestPlan-Widgets.md'); fs.writeFileSync(p, plan({ rows: `${SOURCED}\n${dup}` }));
+  const lint = JSON.parse(spawnSync(process.execPath, [LINT, '--doc', p], { encoding: 'utf8' }).stdout);
+  assert.ok(lint.violations.some((v) => v.kind === 'duplicate-row-identity'));
+  const { r } = planRowCleared(projectWithPlanAndTask(`${dup}\n${SOURCED}`, 1));
+  assert.ok(r.violations.length > 0, 'a later sourced row must not overwrite an earlier GAP at the same identity');
+});
+
+function haltRun(dir, docPath, round) {
+  return JSON.parse(spawnSync(process.execPath, [HALT, 'check', '--doc', docPath, '--round', String(round), '--projectDir', dir], { encoding: 'utf8', cwd: dir }).stdout);
+}
+test('halt: re-checking the SAME round twice is not a repeat; the same open set across two rounds IS', () => {
+  const dir = tmp('rounds'); fs.mkdirSync(path.join(dir, '.gsd-t'), { recursive: true });
+  const p = path.join(dir, 'TestPlan-Widgets.md'); fs.writeFileSync(p, plan({ rows: `${SOURCED}\n${GAP}` }));
+  const a = haltRun(dir, p, 1); const b = haltRun(dir, p, 1);
+  assert.strictEqual(a.exitCode, 0); assert.strictEqual(b.exitCode, 0, 'round 1 re-checked is still round 1');
+  const c = haltRun(dir, p, 2);
+  assert.strictEqual(c.exitCode, 4); assert.match(c.haltReason, /same-symptom-twice-halts/);
+});
+
+test('halt: two different plans with identical open sets do not share a signature', () => {
+  const dir = tmp('collide'); fs.mkdirSync(path.join(dir, '.gsd-t'), { recursive: true });
+  const a = path.join(dir, 'TestPlan-A.md'); const b = path.join(dir, 'TestPlan-B.md');
+  fs.writeFileSync(a, plan({ rows: `${SOURCED}\n${GAP}` })); fs.writeFileSync(b, plan({ rows: `${SOURCED}\n${GAP}` }));
+  assert.strictEqual(haltRun(dir, a, 1).exitCode, 0);
+  assert.strictEqual(haltRun(dir, a, 2).exitCode, 4, 'plan A repeats');
+  assert.strictEqual(haltRun(dir, b, 1).exitCode, 0, 'plan B round 1 must not halt on plan A history');
+});

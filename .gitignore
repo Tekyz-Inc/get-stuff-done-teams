@@ -127,3 +127,4 @@ test-results/
 # SCIP indexes (generated per build)
 .gsd-t/index.scip
 .gsd-t/index-python.scip
+.gsd-t/testplan-halt-rounds.json

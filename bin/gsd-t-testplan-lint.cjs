@@ -32,7 +32,7 @@
 "use strict";
 
 const fs = require("fs");
-const { walkSections, parseRows, isFenceToggle, HEADER_CELLS } = require("./gsd-t-testplan-rows.cjs");
+const { walkSections, parseRows, isFenceToggle, HEADER_CELLS, TABLE_HEADING_RE, tableName: sharedTableName, rowState } = require("./gsd-t-testplan-rows.cjs");
 const path = require("path");
 
 // ─── frozen literals (contract §2–§3) ─────────────────────────────────────
@@ -50,7 +50,7 @@ const REQUIRED_COLUMNS = HEADER_CELLS;
 // Decided without you, at least one Table, Open gaps, Sign-off.
 const REQUIRED_SECTIONS_IN_ORDER = [
   { key: "decided-without-you", test: (h) => h === HEADING_DECIDED },
-  { key: "table", test: (h) => /^## Table:\s*\S/.test(h), repeatable: true },
+  { key: "table", test: (h) => TABLE_HEADING_RE.test(h) && !!sharedTableName(h), repeatable: true },
   { key: "open-gaps", test: (h) => h === "## Open gaps" },
   { key: "sign-off", test: (h) => h === "## Sign-off" },
 ];
@@ -105,12 +105,13 @@ function findTableHeader(sectionLines, sectionStartLine) {
 
 /** Read the row's column-6 state (contract §2.1) from its Source cell text. */
 function classifyRowState(sourceCell) {
-  const t = (sourceCell || "").trim();
-  if (t === "") return "empty";
-  if (t.startsWith(MARKER_CONTRADICTION)) return "open";
-  if (t.startsWith(MARKER_GAP)) return "open";
-  if (t.startsWith(MARKER_SELF_ANSWERED)) return "self-answered";
-  return "sourced";
+  // The shared reader's classifier, mapped onto this gate's vocabulary. `malformed`
+  // is a cell that LOOKS like a marker and is not one — `GAPX:` — which the gate
+  // once read as a citation (Red Team M115 run 6, HIGH).
+  const st = rowState(sourceCell);
+  if (st === "gap") return "open";
+  if (st === "decided") return "self-answered";
+  return st; // empty | sourced | malformed
 }
 
 /**
@@ -192,12 +193,13 @@ function checkDoc(text, docPath) {
   }
 
   const tableSections = foundByKey["table"] || [];
+  const seenIdentities = new Set();
   const decidedSections = foundByKey["decided-without-you"] || [];
 
   // ── Every sequence table: exact six-column header, row states, blanks ──
   const allSelfAnsweredRows = []; // {table, seq}
   for (const tsec of tableSections) {
-    const tableName = tsec.heading.replace(/^##\s+Table:\s*/, "").trim();
+    const tableName = sharedTableName(tsec.heading);
     const header = findTableHeader(tsec.lines, tsec.startLine);
     if (!header) {
       v("missing-table-header", `table "${tableName}" has no \`| Seq | ... |\` header row.`);
@@ -225,11 +227,27 @@ function checkDoc(text, docPath) {
       const effectOnSavedData = row.cells[4];
       const source = row.cells[5];
 
+      // A row with no Seq has no identity: nothing can cite it, the halt cannot name
+      // it, and one consumer silently dropped it (Red Team M115 run 6, HIGH).
+      if (seq.trim() === "") {
+        v("blank-seq", `table "${tableName}" has a row with a blank "Seq" — every row needs an identity.`);
+        continue;
+      }
+      const identity = `${tableName}::${seq}`;
+      if (seenIdentities.has(identity)) {
+        v("duplicate-row-identity", `table "${tableName}" Seq "${seq}" appears more than once — two rows with one identity let a later row silently overwrite an earlier one (code-review M115 run 6).`);
+      }
+      seenIdentities.add(identity);
+
       if (effectOnSavedData.trim() === "") {
         v("blank-effect-on-saved-data", `table "${tableName}" Seq "${seq}" has a blank "Effect on saved data" — write "none" explicitly.`);
       }
 
       const state = classifyRowState(source);
+      if (state === "malformed") {
+        v("unknown-source-marker", `table "${tableName}" Seq "${seq}" has a "Source" that looks like a marker but is not one ("${source.slice(0, 40)}") — the only markers are GAP, GAP:CONTRADICTION and DECIDED-WITHOUT-YOU.`);
+        continue;
+      }
       if (state === "empty") {
         v("blank-source-not-a-fourth-state", `table "${tableName}" Seq "${seq}" has a blank "Source" — every row must be sourced, self-answered, or a gap; there is no empty fourth state.`);
         continue;

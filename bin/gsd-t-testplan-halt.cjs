@@ -55,7 +55,8 @@
 "use strict";
 
 const fs = require("fs");
-const { walkSections, parseRows, REQUIRED_COLUMN_COUNT } = require("./gsd-t-testplan-rows.cjs");
+const { walkSections, parseRows, rowState, tableName, REQUIRED_COLUMN_COUNT } = require("./gsd-t-testplan-rows.cjs");
+const path = require("path");
 const loopLedger = require("./gsd-t-loop-ledger.cjs");
 
 /** [RULE] enumeration-loop-cap-three — this many rounds without closure halts. */
@@ -72,7 +73,6 @@ const ROUND_CAP = 3;
 const SYMPTOM_REPEAT_CAP = 2;
 
 /** Column-6 gap markers, matched case-sensitively per contract §2.2. */
-const GAP_MARKERS = ["GAP:CONTRADICTION", "GAP"];
 
 // ---------------------------------------------------------------------------
 // Row parsing — §2.1 sequence-table schema, read-only interpretation
@@ -91,30 +91,27 @@ const GAP_MARKERS = ["GAP:CONTRADICTION", "GAP"];
  * @returns {{ table: string, seq: string, reason: string }[]}
  */
 function parseOpenRows(text) {
-  // Through the ONE shared plan reader: fence-aware for both fence styles (a
-  // `## Table:` inside a fence is text — Red Team M115 run 4), rows only under
-  // `## Table:` headings, and a row that is not exactly six cells is counted as
-  // OPEN — the halting direction — instead of being skipped, because a gap
-  // hidden behind an extra cell is still a gap (code-review M115 run 4).
+  // Through the ONE shared plan reader and the ONE classifier. Everything that is
+  // not a settled answer is OPEN — the halting direction: a gap, a cell that looks
+  // like a marker but is not one (`GAPX:`), a row with no Seq (nothing can cite or
+  // name it), a row that is not six cells. Red Team M115 run 6: a blank-Seq gap
+  // was silently dropped and the round cap never saw it.
   const openRows = [];
   for (const sec of walkSections(text)) {
-    const tm = sec.heading.match(/^##\s+Table:\s*(.+?)\s*$/);
-    if (!tm) continue;
-    const currentTable = tm[1].trim();
+    const currentTable = tableName(sec.heading);
+    if (!currentTable) continue;
     for (const row of parseRows(sec.lines, sec.startLine)) {
-      const seq = row.cells[0];
-      if (!seq) continue;
+      const seq = row.cells[0] && row.cells[0].trim() ? row.cells[0].trim() : "(blank Seq)";
       if (row.width !== REQUIRED_COLUMN_COUNT) {
         openRows.push({ table: currentTable, seq, source: `MALFORMED-ROW (${row.width} cells, expected ${REQUIRED_COLUMN_COUNT})`, line: row.line });
         continue;
       }
       const source = row.cells[5];
-      for (const marker of GAP_MARKERS) {
-        if (source.startsWith(marker)) {
-          openRows.push({ table: currentTable, seq, source, line: row.line });
-          break;
-        }
-      }
+      const st = rowState(source);
+      if (seq === "(blank Seq)") { openRows.push({ table: currentTable, seq, source: `BLANK-SEQ (${source})`, line: row.line }); continue; }
+      if (st === "gap") openRows.push({ table: currentTable, seq, source, line: row.line });
+      else if (st === "malformed") openRows.push({ table: currentTable, seq, source: `UNKNOWN-MARKER (${source})`, line: row.line });
+      else if (st === "empty") openRows.push({ table: currentTable, seq, source: "BLANK-SOURCE", line: row.line });
     }
   }
   return openRows;
@@ -148,8 +145,13 @@ function roundToCycleSignature({ doc, openRows, assertion, surface, fileClass })
     openRowSignature = sortedIds.join("|");
   }
 
-  let effectiveAssertion = openRowSignature;
-  if (assertion) effectiveAssertion = assertion;
+  // The ledger keys on assertion + fileClass and DROPS surface on purpose
+  // (R-LOOP-1), so two plans with the same open-row set collided on one
+  // signature — plan B's first round halted on plan A's history (code-review
+  // M115 run 6). The doc is therefore part of the ASSERTION.
+  const docKey = path.resolve(String(doc || ""));
+  let effectiveAssertion = `${docKey}::${openRowSignature}`;
+  if (assertion) effectiveAssertion = `${docKey}::${assertion}`;
 
   let effectiveSurface = doc;
   if (surface) effectiveSurface = surface;
@@ -202,6 +204,30 @@ function halt(reason, extra) {
  * @param {string} [opts.projectDir]
  * @returns {{ ok, exitCode, doc, round, openRows, halted, haltReason, violations }}
  */
+// Per-project record of which round last fed each signature to the ledger.
+// Read fail-closed: corrupt → null (the caller HALTS), never an empty object.
+function roundsRecordPath(projectDir) {
+  return path.join(path.resolve(projectDir || "."), ".gsd-t", "testplan-halt-rounds.json");
+}
+function readRoundsRecord(projectDir) {
+  const p = roundsRecordPath(projectDir);
+  if (!fs.existsSync(p)) return {};
+  let parsed;
+  try { parsed = JSON.parse(fs.readFileSync(p, "utf8")); } catch (_e) { return null; }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+  return parsed;
+}
+function writeRoundsRecord(projectDir, record) {
+  const p = roundsRecordPath(projectDir);
+  try {
+    fs.mkdirSync(path.dirname(p), { recursive: true });
+    const tmp = `${p}.${process.pid}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify(record, null, 2) + "\n");
+    fs.renameSync(tmp, p);
+    return true;
+  } catch (e) { return e && e.message ? e.message : String(e); }
+}
+
 function checkConvergence(opts) {
   const o = opts || {};
   const docPath = o.docPath;
@@ -273,14 +299,31 @@ function checkConvergence(opts) {
   const roundHasOpenRows = openRows.length > 0;
   if (roundHasOpenRows) {
     const sig = roundToCycleSignature({ doc: docPath, openRows: openRows, assertion: assertion, surface: surface, fileClass: fileClass });
-    const ledgerCallOpts = { assertion: sig.assertion, surface: sig.surface, fileClass: sig.fileClass, projectDir: projectDir, milestone: milestone };
-    const ledgerResult = loopLedger.appendCycle(ledgerCallOpts);
-
-    const ledgerAccepted = !!ledgerResult && ledgerResult.ok === true;
-    if (!ledgerAccepted) {
-      let ledgerError = "unknown error";
-      if (ledgerResult && ledgerResult.error) ledgerError = ledgerResult.error;
-      return halt(`loop-ledger rejected the cycle: ${ledgerError}`, { doc: docPath, round: roundNum });
+    // The ledger counts CALLS. A re-check of the same round is not a new round
+    // (code-review M115 run 6: re-running round 2 fired the repeat cap). This
+    // tool keeps its own record of which round last fed each signature; a
+    // repeat of that round re-uses the recorded count instead of appending.
+    const roundsRecord = readRoundsRecord(projectDir);
+    if (roundsRecord === null) {
+      return halt("testplan-halt rounds record is corrupt — fix or remove .gsd-t/testplan-halt-rounds.json (a silent reset would hide a loop)", { doc: docPath, round: roundNum });
+    }
+    const sigKey = `${sig.assertion}\u0000${sig.fileClass}`;
+    const prior = roundsRecord[sigKey];
+    let ledgerResult;
+    if (prior && prior.lastRound === roundNum) {
+      ledgerResult = { ok: true, cycles: prior.cycles, signature: prior.signature };
+    } else {
+      const ledgerCallOpts = { assertion: sig.assertion, surface: sig.surface, fileClass: sig.fileClass, projectDir: projectDir, milestone: milestone };
+      ledgerResult = loopLedger.appendCycle(ledgerCallOpts);
+      const ledgerAccepted = !!ledgerResult && ledgerResult.ok === true;
+      if (!ledgerAccepted) {
+        let ledgerError = "unknown error";
+        if (ledgerResult && ledgerResult.error) ledgerError = ledgerResult.error;
+        return halt(`loop-ledger rejected the cycle: ${ledgerError}`, { doc: docPath, round: roundNum });
+      }
+      roundsRecord[sigKey] = { lastRound: roundNum, cycles: ledgerResult.cycles, signature: ledgerResult.signature };
+      const written = writeRoundsRecord(projectDir, roundsRecord);
+      if (written !== true) return halt(`could not write the rounds record: ${written}`, { doc: docPath, round: roundNum });
     }
 
     const symptomRepeated = ledgerResult.cycles >= SYMPTOM_REPEAT_CAP;

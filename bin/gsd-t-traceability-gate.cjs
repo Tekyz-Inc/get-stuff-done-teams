@@ -51,7 +51,7 @@
  */
 
 const fs = require("node:fs");
-const { walkSections, parseRows, rowState, REQUIRED_COLUMN_COUNT } = require("./gsd-t-testplan-rows.cjs");
+const { walkSections, parseRows, rowState, tableName, REQUIRED_COLUMN_COUNT } = require("./gsd-t-testplan-rows.cjs");
 const path = require("node:path");
 
 // ─── tasks.md parsing ────────────────────────────────────────────────────
@@ -266,12 +266,6 @@ function docTitleFromFilename(filename) {
 }
 
 /**
- * Derive the doc <Title> from a TestPlan-[FeatureArea].md filename (basename
- * minus the `TestPlan-` prefix and `.md` suffix). Path-as-path, the sibling
- * of docTitleFromFilename above.
- */
-
-/**
  * Parse a `**Plan-Row**: <doc>#<TableName>/Seq-<n>` citation (M115 A7,
  * test-plan-first-contract.md §2 + §7 row identity: plan document + table
  * name + Seq). Structured segments, never substring-matched — the value is
@@ -327,13 +321,17 @@ function loadTestPlanRowIdentities(testPlanDir, docTitle) {
   // one anyway. A malformed row is its own state and never clears.
   const identities = new Map();
   for (const sec of walkSections(md)) {
-    const tm = sec.heading.match(/^##\s+Table:\s*(.+)$/);
-    if (!tm) continue; // Open gaps, Sign-off, ... are not tables of identities
-    const table = tm[1].trim();
+    const table = tableName(sec.heading);
+    if (!table) continue; // Open gaps, Sign-off, ... are not tables of identities
     for (const row of parseRows(sec.lines, sec.startLine)) {
       if (!row.cells[0]) continue;
+      const id = `${table}::${row.cells[0]}`;
+      // Two rows with one identity: nobody can say which one a citation means, so
+      // neither clears (code-review M115 run 6 — last-write-wins let a later
+      // sourced row overwrite an earlier GAP).
+      if (identities.has(id)) { identities.set(id, "duplicate"); continue; }
       const state = row.width !== REQUIRED_COLUMN_COUNT ? "malformed" : rowState(row.cells[5]);
-      identities.set(`${table}::${row.cells[0]}`, state);
+      identities.set(id, state);
     }
   }
   return identities;
