@@ -110,20 +110,9 @@ function writeDistilledSchemaIfAbsent(projectDir, planPath) {
  * a file that already exists in the target project is left byte-for-byte
  * untouched (recorded in `skipped`, never in `created`).
  */
-// .gsd-t/logging-manifest.json — same reader the envelope checker uses (kept in
-// step with bin/gsd-t-logging-envelope-check.cjs _readManifest; a stream is
-// "declared" when its `module` is named).
-function readManifest(projectDir) {
-  const p = path.join(projectDir, '.gsd-t', 'logging-manifest.json');
-  if (!fs.existsSync(p)) return { present: false, manifest: null, error: null };
-  try {
-    const m = JSON.parse(fs.readFileSync(p, 'utf8'));
-    if (!m || typeof m !== 'object' || Array.isArray(m)) return { present: true, manifest: null, error: '.gsd-t/logging-manifest.json is not a JSON object' };
-    return { present: true, manifest: m, error: null };
-  } catch (err) {
-    return { ok: false, present: true, manifest: null, error: '.gsd-t/logging-manifest.json is not valid JSON: ' + (err && err.message ? err.message : String(err)) };
-  }
-}
+// The manifest reader lives in ONE place — the envelope checker — and is reused
+// here (review M115 run 7: two byte-identical copies had already appeared).
+const { _readManifest: readManifest } = require("./gsd-t-logging-envelope-check.cjs");
 
 function migrateLogging(projectDir, opts) {
   opts = opts || {};

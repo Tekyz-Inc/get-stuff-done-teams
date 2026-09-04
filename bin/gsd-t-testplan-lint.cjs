@@ -192,7 +192,9 @@ function checkDoc(text, docPath) {
     }
   }
 
-  const tableSections = foundByKey["table"] || [];
+  // Every Table section, wherever it sits — an ordering violation above must not
+  // hide the row defects the reviewer also needs to fix (review M115 run 7).
+  const tableSections = sections.filter((sec) => !!sharedTableName(sec.heading));
   const seenIdentities = new Set();
   const decidedSections = foundByKey["decided-without-you"] || [];
 

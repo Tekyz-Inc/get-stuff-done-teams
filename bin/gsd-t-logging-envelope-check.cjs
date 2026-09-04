@@ -440,10 +440,10 @@ function _readManifest(projectDir) {
   if (!fs.existsSync(p)) return { present: false, manifest: null, error: null };
   try {
     const m = JSON.parse(fs.readFileSync(p, 'utf8'));
-    if (!m || typeof m !== 'object' || Array.isArray(m)) return { present: true, manifest: null, error: 'manifest is not a JSON object' };
+    if (!m || typeof m !== 'object' || Array.isArray(m)) return { present: true, manifest: null, error: '.gsd-t/logging-manifest.json is not a JSON object' };
     return { present: true, manifest: m, error: null };
   } catch (err) {
-    return { ok: false, present: true, manifest: null, error: 'manifest is not valid JSON: ' + (err && err.message ? err.message : String(err)) };
+    return { ok: false, present: true, manifest: null, error: '.gsd-t/logging-manifest.json is not valid JSON: ' + (err && err.message ? err.message : String(err)) };
   }
 }
 
@@ -455,8 +455,16 @@ function _declaredStream(projectDir, manifest, stream, failures, notes) {
     failures.push({ rule: 'logging-manifest-invalid', stream, detail: 'manifest.' + stream + ' must be an object' });
     return out;
   }
+  // A declared path must stay inside the project (same containment the plan-row
+  // loader enforces — review M115 run 7).
+  const inside = (rel) => {
+    if (typeof rel !== 'string' || !rel) return null;
+    const root = path.resolve(projectDir);
+    const abs = path.resolve(root, rel);
+    return abs.startsWith(root + path.sep) ? abs : null;
+  };
   if (d.module !== undefined) {
-    const abs = typeof d.module === 'string' && d.module ? path.join(projectDir, d.module) : null;
+    const abs = inside(d.module);
     if (!abs || !fs.existsSync(abs)) {
       failures.push({ rule: 'logging-manifest-invalid', stream, detail: 'declared ' + stream + ' module not found: ' + String(d.module) });
     } else {
@@ -465,8 +473,8 @@ function _declaredStream(projectDir, manifest, stream, failures, notes) {
   }
   if (d.store !== undefined) {
     if (typeof d.store === 'string' && d.store) {
-      const abs = path.join(projectDir, d.store);
-      if (!fs.existsSync(abs)) failures.push({ rule: 'logging-manifest-invalid', stream, detail: 'declared ' + stream + ' store not found: ' + d.store });
+      const abs = inside(d.store);
+      if (!abs || !fs.existsSync(abs)) failures.push({ rule: 'logging-manifest-invalid', stream, detail: 'declared ' + stream + ' store not found (or outside the project): ' + d.store });
       else out.storePath = abs;
     } else if (d.store && typeof d.store === 'object' && typeof d.store.kind === 'string' && d.store.kind) {
       out.externalStore = d.store;

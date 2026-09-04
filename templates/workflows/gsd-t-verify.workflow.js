@@ -882,11 +882,16 @@ if (testPlanEnvelopeUsable === false) {
   const dirEmpty = tpEnv.docsChecked === 0 && tpResults.length === 0;
   const noPlanToGate = dirAbsent === true || dirEmpty === true;
   if (discoveryBroken === true) {
-    log(`M115 test-plan gate: discovery failed (${tpEnv.reason}) — halting (testplan-discovery-error), never a skip`);
+    // A per-doc read failure (EACCES on one plan) lives in results[].reason; only a
+    // missing/unreadable DIRECTORY carries a top-level reason (review M115 run 7).
+    const brokenWhy = tpResults.length > 0
+      ? formatMalformedPlanSummary(tpResults.filter((r) => r.ok === false), [], tpEnv.reason)
+      : String(tpEnv.reason);
+    log(`M115 test-plan gate: discovery failed (${brokenWhy}) — halting (testplan-discovery-error), never a skip`);
     testPlanGateResult = {
       status: "testplan-gate-failed",
       overallVerdict: "VERIFY-FAILED",
-      reason: `testplan-discovery-error: ${tpEnv.reason} — a gate that cannot read its directory must HALT, never skip`,
+      reason: `testplan-discovery-error: ${brokenWhy} — a gate that cannot read its plans must HALT, never skip`,
       testPlanGate: { discovery: tpEnv, reason: "testplan-discovery-error" },
       guardMap: { discovery: guardMapDiscovery, results: guardMapResults },
       verifyGate: vg.envelope,

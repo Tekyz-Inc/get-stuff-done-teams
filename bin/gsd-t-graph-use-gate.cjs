@@ -167,8 +167,11 @@ function evaluate(consumers) {
     if (c.wiringModes.length === 0) continue; // never declared; nothing claimed, nothing to prove
 
     const claimedWired = c.wiringModes.some((m) => m.toLowerCase() === 'wired');
-    const since = c.firstWiringTs || '';
-    const attributed = unlabelledQueryTs.filter((ts) => ts && ts >= since).length;
+    // A claim with no usable timestamp cannot be placed in time, so nothing
+    // can be attributed to it — the one `|| ''` here made EVERY query evidence,
+    // queries before the claim included (code-review M115 run 7).
+    const since = c.firstWiringTs;
+    const attributed = since ? unlabelledQueryTs.filter((ts) => ts && ts >= since).length : 0;
     const evidenceCount = c.queryCount + attributed;
     checked.push({ consumer: id, wiringModes: c.wiringModes, queryCount: c.queryCount, attributedQueryCount: attributed });
 

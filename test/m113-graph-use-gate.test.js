@@ -191,3 +191,13 @@ test('an unlabelled kind:"read" after the claim is still not evidence', () => {
   const r = runGate({ projectDir: dir });
   assert.strictEqual(r.violations.length, 1);
 });
+
+test('a WIRED claim with no timestamp cannot be placed in time — nothing is attributed to it', () => {
+  const dir = fixtureProject([
+    { ts: '2026-01-01T00:00:00Z', kind: 'query', consumer: 'cli', verb: 'who-calls' },
+    { kind: 'wiring', consumer: 'verify', graphWiringMode: 'WIRED' },
+  ]);
+  const r = runGate({ projectDir: dir });
+  assert.strictEqual(r.violations.length, 1, 'an untimestamped claim gets no evidence from earlier queries');
+  assert.strictEqual(r.violations[0].attributedQueryCount, 0);
+});

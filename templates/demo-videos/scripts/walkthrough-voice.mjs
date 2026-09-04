@@ -75,19 +75,9 @@ const FFPROBE = FF.replace(/ffmpeg$/, 'ffprobe');
 // Every one of these is part of the cache key: change any of them and the
 // whole video is re-rendered rather than mixing two deliveries together.
 // Quotas are counted PER MODEL PER DAY, so the model choice is also the quota
-// choice. The list is an ordered preference; only the first entry is used for
-// a run (TTS_MODEL overrides it). A model out of quota halts the render — see
-// speak() — because a different model is a different voice.
-const MODELS = process.env.TTS_MODEL
-  ? [process.env.TTS_MODEL]
-  : [
-      'gemini-3.1-flash-tts-preview',
-      'gemini-2.5-flash-preview-tts',
-      'gemini-2.5-pro-preview-tts',
-    ];
-// One model for the whole run. A quota exhausted mid-run HALTS (a different
-// model is a different voice); there is no failover to keep alive here.
-const MODEL = MODELS[0];
+// choice. One model per run (TTS_MODEL overrides it); a model out of quota
+// halts the render — see speak() — because a different model is a different voice.
+const MODEL = process.env.TTS_MODEL ?? 'gemini-3.1-flash-tts-preview';
 const VOICE = process.env.VOICE_NAME ?? 'Schedar';
 const SPEED = Number(process.env.VOICE_SPEED ?? 1.1);
 /**

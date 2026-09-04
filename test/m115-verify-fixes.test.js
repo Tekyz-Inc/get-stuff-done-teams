@@ -262,3 +262,22 @@ test('halt: two different plans with identical open sets do not share a signatur
   assert.strictEqual(haltRun(dir, a, 2).exitCode, 4, 'plan A repeats');
   assert.strictEqual(haltRun(dir, b, 1).exitCode, 0, 'plan B round 1 must not halt on plan A history');
 });
+
+// ── verify run 7 (review) ──
+test('lint: an out-of-order plan still reports its row defects, not just the ordering violation', () => {
+  const dir = tmp('order-rows'); const p = path.join(dir, 'TestPlan-Widgets.md');
+  const blank = '| 9 | none | Do a thing | Done |  |  |';
+  // Table before the Decided group = ordering violation; the blank-source row must STILL be reported.
+  fs.writeFileSync(p, `# Test Plan\n\n## Table: Widgets\n\n${HEADER}${SOURCED}\n${blank}\n\n## Decided without you\n\n> None — every row is sourced.\n\n## Open gaps\n\n- none\n\n## Sign-off\n\n| Who | When | Verdict |\n|---|---|---|\n| David | 2026-09-03 | approved |\n`);
+  const r = JSON.parse(spawnSync(process.execPath, [LINT, '--doc', p], { encoding: 'utf8' }).stdout);
+  assert.ok(r.violations.some((v) => /blank-source|blank-effect/.test(v.kind)), JSON.stringify(r.violations.map((v) => v.kind)));
+});
+
+test('logging manifest: a declared module path outside the project is invalid, never resolved', () => {
+  const { checkLoggingEnvelopes } = require('../bin/gsd-t-logging-envelope-check.cjs');
+  const dir = tmp('manifest-escape'); fs.mkdirSync(path.join(dir, '.gsd-t'), { recursive: true });
+  const outside = path.join(path.dirname(dir), `outside-${path.basename(dir)}.ts`); fs.writeFileSync(outside, '// append-only');
+  fs.writeFileSync(path.join(dir, '.gsd-t', 'logging-manifest.json'), JSON.stringify({ audit: { module: path.relative(dir, outside) } }));
+  const r = checkLoggingEnvelopes({ projectDir: dir });
+  assert.ok(r.failures.some((f) => f.rule === 'logging-manifest-invalid' && /audit module/.test(f.detail)));
+});
