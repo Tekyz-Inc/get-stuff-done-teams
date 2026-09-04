@@ -2,6 +2,27 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.18.10] - 2026-09-03
+
+### Added — M115 Test-Plan-First Requirements Interrogation (`/gsd-t-test-plan`)
+
+Before any code exists, enumerate every test case a milestone's requirements imply into a
+reviewable sequence-table document. Every row nobody can fill in is a requirements gap.
+
+- `commands/gsd-t-test-plan.md` + `/gsd` router case: the front door (in-session, judgement-driven).
+- `templates/prompts/test-plan-enumerator-subagent.md`: the eight enumeration rules (E1-E8), generic
+  worked examples; `templates/TestPlan-spec.md`: the mold; `templates/prompts/test-plan-evidence-classifier.md`:
+  the `--after` classifier (three arms, no default).
+- `bin/gsd-t-testplan-rows.cjs`: the ONE plan reader (both fence styles, exact six-cell rows, one classifier).
+- `bin/gsd-t-testplan-lint.cjs` (0/4/64), `bin/gsd-t-testplan-halt.cjs` (three-round cap + repeated-symptom
+  cap over the loop ledger, per plan and per round), `bin/gsd-t-traceability-gate.cjs` (additive `**Plan-Row**`
+  binding; GAP / malformed / duplicate / escaped rows never clear).
+- Verify-gate wiring with a NAMED skip when no plan exists; discovery failure halts.
+- Contract `.gsd-t/contracts/test-plan-first-contract.md` 1.1.0 STABLE; `integration-points.md`.
+- Held-out fixture `test/fixtures/m115-blind-replay/` (the TimeTracking rate-ledger answer key) and the
+  clean-room replay artifacts under `.gsd-t/scan/`.
+- 120 milestone tests, of which 29 pin verify findings across seven verify runs.
+
 ## [5.17.14] - 2026-09-03
 
 ### Fixed — two more gate defects surfaced by TimeTracking (TD-395 round 2), plus a silent library and a crashing finalizer

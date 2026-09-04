@@ -108,7 +108,19 @@ describe("§6 guard-map rule traceability", () => {
 // ---------------------------------------------------------------------------
 
 describe("SC-SELF-OBEDIENCE structural gate", () => {
-  const progressText = readFile(PROGRESS_MD);
+  // The self-obedience record is HISTORY. complete-milestone trims the live Decision
+  // Log to the just-completed milestone and keeps the full log in the milestone
+  // archives, so the proof is read from the live file PLUS every archived
+  // progress.md (the archives are the source of truth for pre-milestone history).
+  const archiveDir = path.join(ROOT, ".gsd-t", "milestones");
+  let archived = "";
+  try {
+    for (const d of fs.readdirSync(archiveDir)) {
+      const t = readFile(path.join(archiveDir, d, "progress.md"));
+      if (t) archived += "\n" + t;
+    }
+  } catch { /* no archives yet — the live file must carry the record */ }
+  const progressText = (readFile(PROGRESS_MD) || "") + archived;
 
   test("progress.md exists and is readable", () => {
     assert.ok(progressText, "progress.md must be readable");
