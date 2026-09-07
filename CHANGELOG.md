@@ -2,6 +2,23 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.18.11] - 2026-09-07
+
+### Fixed — `gsd-t pick-worktree --name main` refused when the main checkout sat on a feature branch
+
+The launcher prompt offers `"main" = work in main`, but the picker only treated a name as
+"stay here" when it equalled the branch currently checked out. A main checkout left on
+`feat/m26-file-mgmt` (NiceNote) turned `main` into `git worktree add -b main`, which git refused:
+`a branch named 'main' already exists`. The person typing `main` means the FOLDER, not the branch.
+
+- `bin/gsd-t-pick-worktree.cjs`: a typed name means the main checkout when it equals EITHER the branch
+  checked out there OR the repo's default branch as the remote declares it (`origin/HEAD` → `main`);
+  nothing is inferred from the name, so a `trunk` repo with no remote still treats `main` as a new
+  branch. The stderr notice names the branch actually checked out.
+- Same class, other half: naming an EXISTING branch that is checked out nowhere now checks it out
+  into a worktree (`git worktree add <dest> <branch>`) instead of asking git to create it again.
+- 2 regression tests in `test/m111-pick-worktree.test.js`.
+
 ## [5.18.10] - 2026-09-03
 
 ### Added — M115 Test-Plan-First Requirements Interrogation (`/gsd-t-test-plan`)

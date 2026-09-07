@@ -102,17 +102,20 @@ function main() {
   }
 
   if (wanted) {
-    // Asking for the repo's own default branch means "work here, in the main
-    // checkout" — not "make a worktree called main", which git refuses anyway
-    // because that branch is already checked out. Rare, but it is a real
-    // choice, and the only way to express it is to name it.
-    if (isDefaultBranch(cwd, branchNameFrom(wanted))) {
+    // Naming the main checkout means "work here" — not "make a worktree called
+    // main", which git refuses anyway. The main checkout answers to two names:
+    // the branch it is sitting on right now, and the repo's default branch
+    // (`main` in a repo whose origin/HEAD is main), which is what the launcher
+    // prompt offers even when the checkout has wandered onto a feature branch.
+    // Rare, but it is a real choice, and the only way to express it is to name it.
+    if (meansMainCheckout(cwd, branchNameFrom(wanted))) {
       // Said out loud on stderr: every other path here is silent, but this one
       // is a deliberate choice to work somewhere the house rules steer away
       // from, and silence would read as "the name was ignored". stdout stays
-      // empty because the shell reads it as the directory to move to.
+      // empty because the shell reads it as the directory to move to. The
+      // branch named is the one actually checked out, not the one typed.
       process.stderr.write(
-        `[GSD-T WORKTREE] staying in the main checkout on ${branchNameFrom(wanted)} — ` +
+        `[GSD-T WORKTREE] staying in the main checkout on ${currentBranch(cwd) || "(detached)"} — ` +
         `no worktree created.\n`
       );
       stay();
@@ -138,25 +141,45 @@ function main() {
 }
 
 /**
- * Is this the repo's own default branch — the one the main checkout sits on?
+ * Does this name refer to the main checkout — the folder the session started in?
  *
- * Asked of git rather than matched against a list: a repo may use `master`,
- * `trunk` or anything else, and a hardcoded list would send those repos into a
- * worktree named after their own main branch. The branch currently checked out
- * in the main tree IS the answer, since that is the thing being opted into.
+ * Two names do: the branch checked out there right now, and the repo's default
+ * branch. The second matters because the main checkout is often left on a
+ * feature branch, and the person typing "main" at the launcher prompt means the
+ * FOLDER, not the branch — a worktree on `main` is exactly what git refuses.
  *
- * A repo git cannot answer for is not the default-branch case — it falls
- * through to the ordinary worktree path, which fails loudly on its own if git
- * is genuinely broken.
+ * The default is asked of git (origin/HEAD), never assumed: a repo on `trunk`
+ * with no origin treats `main` as an ordinary new branch name. A repo git
+ * cannot answer for falls through to the ordinary worktree path, which fails
+ * loudly on its own if git is genuinely broken.
  */
-function isDefaultBranch(repo, name) {
+function meansMainCheckout(repo, name) {
+  const typed = String(name).toLowerCase();
+  // Both sides lowercased: a branch name typed at a prompt is a value the user
+  // types, and "Main" must mean main.
+  const current = currentBranch(repo);
+  if (current && current.toLowerCase() === typed) return true;
+  const def = defaultBranch(repo);
+  return Boolean(def) && def.toLowerCase() === typed;
+}
+
+// The branch the main checkout sits on; "" when detached or git cannot say.
+function currentBranch(repo) {
   const r = spawnSync("git", ["branch", "--show-current"], {
     cwd: repo, encoding: "utf8", timeout: 10000,
   });
-  if (r.status !== 0) return false;
-  // Both sides lowercased: a branch name typed at a prompt is a value the user
-  // types, and "Main" must mean main.
-  return String(r.stdout || "").trim().toLowerCase() === String(name).toLowerCase();
+  return r.status === 0 ? String(r.stdout || "").trim() : "";
+}
+
+// The repo's default branch as the remote declares it (origin/HEAD → "main"),
+// or null when there is no remote to ask. Nothing is inferred from the name.
+function defaultBranch(repo) {
+  const r = spawnSync("git", ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], {
+    cwd: repo, encoding: "utf8", timeout: 10000,
+  });
+  if (r.status !== 0) return null;
+  const ref = String(r.stdout || "").trim();
+  return ref.startsWith("origin/") ? ref.slice("origin/".length) : null;
 }
 
 // Turn what the user typed into a name git will accept, without silently
@@ -253,9 +276,13 @@ function enterOrCreate(repo, home, branch) {
 
   fs.mkdirSync(home, { recursive: true });
 
-  const r = spawnSync("git", ["worktree", "add", dest, "-b", branch], {
-    cwd: repo, encoding: "utf8",
-  });
+  // A branch that already exists (a feature branch from last week, nobody in
+  // it) is checked out as it is; `-b` would ask git to create it again, and git
+  // refuses. Only a name git has never seen becomes a new branch.
+  const args = localBranchExists(repo, branch)
+    ? ["worktree", "add", dest, branch]
+    : ["worktree", "add", dest, "-b", branch];
+  const r = spawnSync("git", args, { cwd: repo, encoding: "utf8" });
 
   // git writes progress to stderr even when it succeeds, so the exit code and
   // the directory existing are what actually prove it worked.
@@ -270,6 +297,14 @@ function enterOrCreate(repo, home, branch) {
   provisionNewWorktree(repo, dest);
 
   return { path: dest };
+}
+
+// Is there a local branch by this exact name? Asked of git's refs, not the
+// worktree list, so a branch checked out nowhere still counts.
+function localBranchExists(repo, branch) {
+  return spawnSync("git", ["rev-parse", "--verify", "--quiet", `refs/heads/${branch}`], {
+    cwd: repo, stdio: "pipe", timeout: 10000,
+  }).status === 0;
 }
 
 /**

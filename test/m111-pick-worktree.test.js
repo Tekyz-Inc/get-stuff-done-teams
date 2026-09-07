@@ -296,6 +296,47 @@ test("M112: the typed name is matched case-insensitively", () => {
   } finally { fs.rmSync(home, { recursive: true, force: true }); }
 });
 
+// The main checkout is usually NOT on its default branch — it was left on
+// whatever feature branch the last session used. Typing "main" at the launcher
+// prompt names the FOLDER, and must not become `git worktree add -b main`,
+// which git refuses because main already exists (NiceNote, 2026-09-07).
+test("M112: the default branch names the main checkout even when it sits on a feature branch", () => {
+  const { home, repo } = makeProject();
+  try {
+    const git = (...a) => spawnSync("git", a, { cwd: repo, stdio: "pipe" });
+    // A remote that declares `main` as the default, the way a clone would.
+    git("remote", "add", "origin", repo);
+    git("fetch", "-q", "origin");
+    git("symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main");
+    git("checkout", "-qb", "feat/m26-file-mgmt");
+
+    const r = run(repo, { HOME: home }, ["--name", "main"]);
+    assert.strictEqual(r.status, 0, r.stderr);
+    assert.strictEqual(r.stdout.trim(), "", "empty stdout keeps the shell where it is");
+    assert.match(r.stderr, /staying in the main checkout on feat\/m26-file-mgmt/,
+      "and it names the branch actually checked out, not the one typed");
+    assert.ok(!fs.existsSync(path.join(home, "Worktrees", "proj", "main")),
+      "no worktree is created for the default branch");
+  } finally { fs.rmSync(home, { recursive: true, force: true }); }
+});
+
+// A branch that already exists but is checked out nowhere is the same class of
+// name: it must be checked out into a worktree, not re-created (git refuses that).
+test("M112: naming an existing branch checks it out rather than recreating it", () => {
+  const { home, repo } = makeProject();
+  try {
+    const git = (...a) => spawnSync("git", a, { cwd: repo, stdio: "pipe" });
+    git("branch", "feat/m19-open-with");
+
+    const r = run(repo, { HOME: home }, ["--name", "feat/m19-open-with"]);
+    assert.strictEqual(r.status, 0, r.stderr);
+    const printed = r.stdout.trim();
+    assert.ok(fs.existsSync(printed), `must print a directory that exists: ${printed}`);
+    const on = spawnSync("git", ["branch", "--show-current"], { cwd: printed, encoding: "utf8" });
+    assert.strictEqual(on.stdout.trim(), "feat/m19-open-with", "the worktree is on the existing branch");
+  } finally { fs.rmSync(home, { recursive: true, force: true }); }
+});
+
 test("M112: the default branch is asked of git, never assumed to be 'main'", () => {
   // A repo on `trunk` must treat trunk as its default — and `main` as an
   // ordinary new branch name.
