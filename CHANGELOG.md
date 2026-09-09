@@ -2,6 +2,36 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.19.10] - 2026-09-09
+
+### Added — M117 Graph Search Guard: the graph rule finally fires on the path work actually takes
+
+The rule "read code structure through the graph, never grep around it" had three enforcement
+points and all three missed. The Grep-tool hook and Read-tool hook never fire, because
+bypass-permissions mode routes every search through Bash. The runtime use-gate only runs inside
+`gsd-t verify`, so a plain conversation was never measured. The ledger recorded the result:
+2 grep events in three months, both June test probes, against 34,418 graph queries all issued by
+the graph's own tooling. Not one came from a session choosing to consult it.
+
+- `scripts/gsd-t-graph-search-guard.js`: a PreToolUse hook on Bash and Grep. Three outcomes and no
+  fourth — a structural code search BLOCKS with the graph command to run instead; a search over
+  content the graph does not index (`.md`, `.json`, `.sql`, config, prose) RUNS, because the graph
+  holds no answer to route to; a search that cannot be classified BLOCKS. No fail-open, no bypass
+  env var. A missing or unbuilt graph BLOCKS with `gsd-t graph index`, never a quiet fall back to
+  grep — that fallback is what let a project grep its way through 827 files with the graph unbuilt.
+- `bin/gsd-t-code-search-classifier.cjs`: the three-way classifier. Deliberately NOT merged with
+  `gsd-t-grep-classifier.cjs` — that one feeds a hook that replaces grep output, so unsure means
+  "let grep run"; this one feeds a guard that blocks, so unsure means block. One module cannot hold
+  both defaults, and merging them would silently pick one caller's behaviour for both.
+- `scripts/gsd-t-graph-use-report.js`: a Stop hook covering what no pattern-matcher can see — a turn
+  that answered a structural question by reading files end to end. It reports rather than blocks,
+  because a Stop hook fires after the work is done.
+- Both hooks registered by `gsd-t install`; the classifier ships in both bin registries.
+- `configureWriteEditHook` generalized to `configurePreToolUseHook` with the matcher as a parameter,
+  rather than copied for a Bash|Grep variant.
+- 17 tests in `test/m117-graph-search-guard.test.js`, including the six real searches from the
+  session that prompted this, each of which ran unchallenged at the time.
+
 ## [5.18.11] - 2026-09-07
 
 ### Fixed — `gsd-t pick-worktree --name main` refused when the main checkout sat on a feature branch

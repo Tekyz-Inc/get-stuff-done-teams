@@ -514,6 +514,24 @@ const FALLBACK_HOOK_MARKER = "gsd-t-fallback-guard";
 const FALLBACK_HOOK_COMMAND =
   'node "$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-fallback-guard.js"';
 
+// ─── M117 Graph search guard (PreToolUse Bash|Grep) ─────────────────────────
+// Blocks a search that asks a structural question about code, and names the
+// graph command that answers it. NO `|| true`, for the same reason as the
+// fallback guard: a missing script must fail loudly, not silently re-open the
+// hole. The hole it closes is specific — the Grep-tool and Read-tool hooks
+// never fired, because bypass mode routes every search through Bash.
+const GRAPH_SEARCH_HOOK_MARKER = "gsd-t-graph-search-guard";
+const GRAPH_SEARCH_HOOK_COMMAND =
+  'node "$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-graph-search-guard.js"';
+
+// ─── M117 Graph use report (Stop) ───────────────────────────────────────────
+// Reports a turn that hit structural questions and never asked the graph. It
+// reports rather than blocks: a Stop hook fires after the work is done, so
+// blocking there punishes rather than redirects. Prevention is the guard above.
+const GRAPH_USE_REPORT_MARKER = "gsd-t-graph-use-report";
+const GRAPH_USE_REPORT_COMMAND =
+  'bash -c \'[ -f "$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-graph-use-report.js" ] && node "$(npm root -g)/@tekyzinc/gsd-t/scripts/gsd-t-graph-use-report.js" || true\'';
+
 // ─── M108 Install self-heal (SessionStart) ──────────────────────────────────
 // Checks the project's tools before any work starts, restores what is missing,
 // and reports what it could not fix. Not a fallback — it repairs the failure
@@ -992,6 +1010,69 @@ function configureFallbackGuardHook(settingsPath) {
   return configureWriteEditHook(settingsPath, FALLBACK_HOOK_MARKER, FALLBACK_HOOK_COMMAND, "fallback guard");
 }
 
+// M117 — register the graph search guard on Bash|Grep. Both doors: bypass mode
+// routes searches through Bash, and leaving either open makes it the habit.
+function configureGraphSearchGuardHook(settingsPath) {
+  return configurePreToolUseHook(
+    settingsPath, GRAPH_SEARCH_HOOK_MARKER, GRAPH_SEARCH_HOOK_COMMAND,
+    "graph search guard", "Bash|Grep"
+  );
+}
+
+// M117 — register the Stop-time graph use report.
+function configureGraphUseReportHook(settingsPath) {
+  return configureStopHook(
+    settingsPath, GRAPH_USE_REPORT_MARKER, GRAPH_USE_REPORT_COMMAND, "graph use report"
+  );
+}
+
+// Register a Stop hook by marker. Same find-refresh-or-add shape as the
+// PreToolUse registrar; Stop entries carry no matcher.
+function configureStopHook(settingsPath, marker, command, label) {
+  const targetPath = settingsPath || SETTINGS_JSON;
+  let settings = {};
+  if (fs.existsSync(targetPath)) {
+    try {
+      settings = JSON.parse(fs.readFileSync(targetPath, "utf8"));
+      if (!settings || typeof settings !== "object") settings = {};
+    } catch {
+      warn(`settings.json has invalid JSON — cannot configure ${label} hook`);
+      return { installed: false, action: "noop" };
+    }
+  }
+  if (!settings.hooks) settings.hooks = {};
+  if (!Array.isArray(settings.hooks.Stop)) settings.hooks.Stop = [];
+
+  let action = "noop";
+  let found = false;
+  for (const entry of settings.hooks.Stop) {
+    if (!entry || !Array.isArray(entry.hooks)) continue;
+    for (const h of entry.hooks) {
+      if (!h || typeof h.command !== "string") continue;
+      if (h.command === command || h.command.includes(marker)) {
+        found = true;
+        if (h.command !== command) { h.command = command; action = "updated"; }
+      }
+    }
+  }
+  if (!found) {
+    settings.hooks.Stop.push({ hooks: [{ type: "command", command }] });
+    action = "added";
+  }
+  if (action === "noop") return { installed: true, action: "noop" };
+  if (isSymlink(targetPath)) {
+    warn("Skipping settings.json write — target is a symlink");
+    return { installed: false, action: "noop" };
+  }
+  try {
+    fs.writeFileSync(targetPath, JSON.stringify(settings, null, 2));
+  } catch (e) {
+    warn(`Failed to write settings.json: ${e.message}`);
+    return { installed: false, action: "noop" };
+  }
+  return { installed: true, action };
+}
+
 // M107 RETIRED (v5.11.15). The rewriter shortened a reply after it was written,
 // and a Stop hook cannot unsay what is already on screen — so David read the
 // long version, then the short one. It also cost a whole extra turn, and its
@@ -1097,6 +1178,13 @@ function configureEventHook(settingsPath, event, marker, command, label) {
 }
 
 function configureWriteEditHook(settingsPath, marker, command, label) {
+  return configurePreToolUseHook(settingsPath, marker, command, label, "Write|Edit");
+}
+
+// M117 — the same registrar, with the matcher named rather than assumed. The
+// graph search guard watches Bash|Grep, not Write|Edit, and a second copy of
+// this function is where the two would drift apart.
+function configurePreToolUseHook(settingsPath, marker, command, label, matcher) {
   const targetPath = settingsPath || SETTINGS_JSON;
   let settings = {};
   if (fs.existsSync(targetPath)) {
@@ -1121,13 +1209,13 @@ function configureWriteEditHook(settingsPath, marker, command, label) {
       if (h.command === cmd || h.command.includes(marker)) {
         found = true;
         if (h.command !== cmd) { h.command = cmd; action = "updated"; }
-        if (entry.matcher !== "Write|Edit") { entry.matcher = "Write|Edit"; action = action === "noop" ? "updated" : action; }
+        if (entry.matcher !== matcher) { entry.matcher = matcher; action = action === "noop" ? "updated" : action; }
       }
     }
   }
   if (!found) {
     settings.hooks.PreToolUse.push({
-      matcher: "Write|Edit",
+      matcher,
       hooks: [{ type: "command", command: cmd }],
     });
     action = "added";
@@ -1806,6 +1894,9 @@ const GLOBAL_BIN_TOOLS = [
   // write rather than allowing it unchecked, so an omission here breaks every
   // Write/Edit rather than failing silently. Also in PROJECT_BIN_TOOLS below.
   "gsd-t-fallback-detect.cjs",
+  // M117 — Search classifier. The graph search guard resolves it from the
+  // package when a project has no copy, so it must ship globally too.
+  "gsd-t-code-search-classifier.cjs",
   // M108 — Install self-check, run by the SessionStart hook and by
   // `gsd-t install-check`.
   "gsd-t-install-check.cjs",
@@ -2345,6 +2436,25 @@ async function doInstall(opts = {}) {
     else info("Fallback guard already configured");
   }
 
+
+  // M117 — the graph search guard and its Stop-time report. The graph rule had
+  // three enforcement points before this and all three missed the path actually
+  // taken: the Grep-tool and Read-tool hooks never fire in bypass mode (every
+  // search goes out through Bash), and the runtime use-gate only runs inside
+  // verify, never in a plain conversation.
+  const gsHook = configureGraphSearchGuardHook(SETTINGS_JSON);
+  if (gsHook.installed) {
+    if (gsHook.action === "added") success("Graph search guard added (blocks a structural code search, names the graph query — M117)");
+    else if (gsHook.action === "updated") success("Graph search guard refreshed");
+    else info("Graph search guard already configured");
+  }
+
+  const gurHook = configureGraphUseReportHook(SETTINGS_JSON);
+  if (gurHook.installed) {
+    if (gurHook.action === "added") success("Graph use report added (flags a turn that did structural work without asking the graph — M117)");
+    else if (gurHook.action === "updated") success("Graph use report refreshed");
+    else info("Graph use report already configured");
+  }
 
   const ccHook = removeConciseHook(SETTINGS_JSON);
   if (ccHook.removed) success("Concise-rewrite hook removed — retired in v5.11.15");
@@ -3507,6 +3617,11 @@ const PROJECT_BIN_TOOLS = [
   // and it reads the project's OWN .gsd-t/graphDB/logs ledger, so it must live
   // in the project — [[project_global_bin_propagation_gap]].
   "gsd-t-graph-use-gate.cjs",
+  // M117 — Search classifier for the graph search guard. The PreToolUse guard
+  // prefers the project-local copy and DENIES every search if it cannot load
+  // one, so an omission here blocks all work rather than failing quietly —
+  // [[project_global_bin_propagation_gap]].
+  "gsd-t-code-search-classifier.cjs",
   // M107 — Concise rewriter, invoked by the Stop hook.
   // M108 — Install self-check. Every project carries its own copy so it can
   // verify and repair itself even when the global install is what broke.

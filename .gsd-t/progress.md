@@ -3,7 +3,7 @@
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: ✅ ACTIVE — last shipped v5.18.10 (2026-09-03): **M115 Test-Plan-First Requirements Interrogation COMPLETE** — `/gsd-t-test-plan` enumerates every test case a milestone's requirements imply BEFORE build (rules E1-E8), surfaces unfillable rows as requirements gaps, batches questions into one round, halts on non-convergence, binds acceptance criteria to plan rows, and re-enumerates after the fact. Blind replay against the TimeTracking rate-ledger answer key run CLEAN (answer key held out) — the same gaps found. Seven verify runs; one shared plan reader. Prior history in `.gsd-t/milestones/m115-test-plan-first-2026-09-03/progress.md`. Doc-First Enforcement remains PARKED (pseudocode committed). Next: `/cpua`, then the next milestone.
 ## Date: 2026-09-07 09:45 PDT
-## Version: 5.18.11
+## Version: 5.19.10
 
 ## Current Milestone
 
@@ -49,6 +49,7 @@ Older milestones (M33 and earlier) archived under `.gsd-t/milestones/` — see d
 <!-- No active blockers -->
 
 ## Decision Log
+- 2026-09-09 11:55 PDT: [feature][graph] **M117 Graph Search Guard — the graph rule had three enforcement points and all three missed the path work actually takes.** The Grep-tool and Read-tool hooks never fire (bypass mode routes every search through Bash); the runtime use-gate only runs inside verify, never in a conversation. Ledger evidence: 2 grep events in three months, both June test probes, vs 34,418 queries all from the graph's own tooling. New PreToolUse guard on Bash|Grep with three outcomes and no fourth — structural BLOCKS with the graph command, content over non-indexed files RUNS, unclassifiable BLOCKS. A missing graph BLOCKS with `gsd-t graph index`, never a quiet grep fallback. Separate classifier from the intercept one on purpose (opposite defaults; merging would silently pick one caller's behaviour for both). Stop-time report covers structural work done by reading files, which no pattern-matcher can see. 17 tests incl. the six real searches from the session that prompted this. v5.19.10.
 - 2026-09-07 09:30 PDT: [fix][worktree] **`pick-worktree --name main` refused when the main checkout sat on a feature branch (NiceNote on `feat/m26-file-mgmt`).** The picker matched a typed name only against the branch currently checked out, so `main` became `git worktree add -b main` and git refused. Now a name means the main checkout when it equals the current branch OR the remote-declared default (`origin/HEAD`); an existing branch checked out nowhere is checked out into a worktree instead of re-created. 2 regression tests; verified against the real NiceNote checkout. v5.18.11.
 - 2026-09-03 18:50 PDT: [release] **v5.18.10 published and propagated (32 projects) — M115 shipped.** First `update-all` after the tarball install copied NOTHING ("33 already current") and the global package was found back on 5.17.14 afterwards: `~/.claude/.gsd-t-version` still said 5.17.14 because the home install (`gsd-t install`: commands + version file) had not been refreshed. Order that works, now in `commands/cpua.md`: tarball install → on-disk check → `gsd-t install` → version-file check → `update-all` → on-disk re-check + `ls` a NEW file in a real project. Verified: TimeTracking + binvoice carry `gsd-t-testplan-{rows,lint,halt}.cjs`; `~/.claude/commands/gsd-t-test-plan.md` installed.
 
