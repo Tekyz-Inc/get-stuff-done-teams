@@ -2,6 +2,24 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.19.11] - 2026-09-15
+
+### Fixed — a broken git made the worktree prompt vanish with nothing said
+
+An Xcode update left the licence unaccepted, so every git command exited 69 with a licence
+notice. The worktree picker's first check asks "is this a git repo" and read that failure as
+a plain "no" — which is the ordinary case for most directories, so it exited silently. The
+launcher then skipped the worktree prompt entirely and started the session where it stood.
+A prompt that disappears reads as a GSD-T bug; the actual cause was git, two commands away.
+
+- `bin/gsd-t-pick-worktree.cjs`: "not a repository" and "git could not answer" are now
+  different answers. git's own exit tells them apart — a genuine non-repo says so on stderr;
+  anything else (missing binary, unaccepted licence, broken install) HALTS with what git said
+  and how to fix it. The sibling checks in `gsd-t-worktree-detect.cjs` already halted this way;
+  this one was the inconsistent member.
+- `test/m111-pick-worktree.test.js`: 3 regression tests — a licence-style failure halts, a
+  directory that is genuinely not a repo stays silent, and git missing from PATH also halts.
+
 ## [5.19.10] - 2026-09-09
 
 ### Added — M117 Graph Search Guard: the graph rule finally fires on the path work actually takes

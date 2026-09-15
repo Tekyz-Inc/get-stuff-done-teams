@@ -208,9 +208,50 @@ function isSwitchedOff(cwd) {
   return cfg.enabled === false;
 }
 
-// Most directories are not git repos. That is ordinary, not a failure.
+/**
+ * Is this directory a git repo?
+ *
+ * "No" and "git could not tell me" are DIFFERENT answers and must not collapse
+ * into one. Most directories are genuinely not repos, which is ordinary and
+ * silent. But a git that cannot run at all fails the same probe, and reading
+ * that as "not a repo" makes the whole picker exit silently — the launcher then
+ * skips the worktree prompt entirely and starts the session wherever it stood,
+ * with nothing said. That happened for real on 2026-09-15: an Xcode update left
+ * the license unaccepted, every git command exited 69, and `cc` quietly stopped
+ * asking. The prompt vanishing looked like a GSD-T bug for as long as it took to
+ * run git by hand.
+ *
+ * git distinguishes them itself: a plain "not a repository" exits 128 with that
+ * message on stderr. Anything else — a missing binary, an unaccepted licence, a
+ * broken install — is git failing to answer, and that HALTS with what git said.
+ */
 function isGitRepo(dir) {
-  return spawnSync("git", ["rev-parse", "--git-dir"], { cwd: dir, stdio: "pipe" }).status === 0;
+  const r = spawnSync("git", ["rev-parse", "--git-dir"], {
+    cwd: dir, encoding: "utf8", timeout: 10000,
+  });
+
+  if (r.status === 0) return true;
+
+  // git never ran: no binary on PATH, or it could not be spawned.
+  if (r.error) {
+    fail(
+      `git could not be run (${r.error.message}), so it cannot be told whether ` +
+      `${dir} is a repository. Fix git, then start the session again.`
+    );
+  }
+
+  const stderr = String(r.stderr || "").trim();
+
+  // The ordinary answer: this is simply not a repository.
+  if (/not a git repository/i.test(stderr)) return false;
+
+  // Anything else is git declining to answer, not an answer.
+  fail(
+    `git could not say whether ${dir} is a repository — it exited ${r.status}` +
+    (stderr ? ` saying: ${stderr}` : " with no message") + ".\n" +
+    `Until git works, the worktree prompt cannot run. Fix the cause above, then ` +
+    `start the session again.`
+  );
 }
 
 // Shared with branch-guard so the two cannot drift apart — see

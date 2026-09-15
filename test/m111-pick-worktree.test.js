@@ -264,6 +264,66 @@ test("M111: the retired heartbeat collision guard is gone", () => {
     "helpers looked like several colliding sessions");
 });
 
+// ── A broken git HALTS; it does not read as "not a repo" (M118) ──────────────
+//
+// Real failure, 2026-09-15: an Xcode update left the licence unaccepted, so
+// every git command exited 69 with a licence notice. The picker's repo probe
+// read that as a plain "not a repository", exited silently, and the launcher
+// skipped the worktree prompt with nothing said. A vanished prompt reads as a
+// GSD-T bug, and the actual cause was two directories away.
+
+// A PATH where `git` is a script that fails the way a broken install does.
+function withBrokenGit(exitCode, message) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "m118-bin-"));
+  const git = path.join(dir, "git");
+  fs.writeFileSync(git, `#!/bin/sh\necho "${message}" >&2\nexit ${exitCode}\n`);
+  fs.chmodSync(git, 0o755);
+  return dir;
+}
+
+test("M118: a git that cannot answer HALTS instead of reading as 'not a repo'", () => {
+  const { home, repo } = makeProject();
+  const binDir = withBrokenGit(69, "You have not agreed to the Xcode license agreements.");
+  try {
+    const r = run(repo, { HOME: home, PATH: binDir }, ["--suggest"]);
+
+    assert.notStrictEqual(r.status, 0,
+      "exiting 0 here is what made the worktree prompt vanish without a word");
+    assert.match(r.stderr, /Xcode license/,
+      "it must repeat what git actually said — the cause was two directories away");
+    assert.strictEqual(r.stdout.trim(), "",
+      "stdout is the directory to cd into; a failure must never put anything there");
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true });
+    fs.rmSync(binDir, { recursive: true, force: true });
+  }
+});
+
+test("M118: a directory that is genuinely not a repo stays silent", () => {
+  // The ordinary case must not become noisy — that is what would train
+  // ignoring the halt above.
+  const plain = fs.mkdtempSync(path.join(os.tmpdir(), "m118-plain-"));
+  try {
+    const r = run(plain, { HOME: plain }, ["--suggest"]);
+    assert.strictEqual(r.status, 0, "not a repo is ordinary, not a failure");
+    assert.strictEqual(r.stdout.trim(), "");
+    assert.strictEqual(r.stderr.trim(), "", "and it says nothing at all");
+  } finally { fs.rmSync(plain, { recursive: true, force: true }); }
+});
+
+test("M118: git missing from PATH entirely also halts", () => {
+  const { home, repo } = makeProject();
+  const emptyBin = fs.mkdtempSync(path.join(os.tmpdir(), "m118-empty-"));
+  try {
+    const r = run(repo, { HOME: home, PATH: emptyBin }, ["--suggest"]);
+    assert.notStrictEqual(r.status, 0, "no git at all is not an answer either");
+    assert.match(r.stderr, /git could not be run|could not say whether/i);
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true });
+    fs.rmSync(emptyBin, { recursive: true, force: true });
+  }
+});
+
 // ── Naming the default branch means "work here" (M112) ───────────────────────
 //
 // Working directly in the main checkout is rare but real. The only way to ask
