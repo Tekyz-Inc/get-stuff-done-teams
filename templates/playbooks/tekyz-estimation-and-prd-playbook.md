@@ -1,7 +1,7 @@
 # Tekyz Estimation + PRD Playbook
 
 > Reusable procedure for producing a Tekyz client estimate (Google Sheet: T-Shirt
-> Size + Team Mix) and a matching PRD deliverable, from **any structured work
+> Size + Team Mix + Technology Stack), from **any structured work
 > document** — a GSD-T tech-debt scan register, a new-feature or new-application
 > requirements doc, or an existing PRD. Proven on the HILO Figma ATOS project
 > (21 criticals → 32.73 eng-days → $13,090–$16,362). Apply to E-Learning and any
@@ -106,7 +106,11 @@ range; `insertDimension` to shift hardcoded SUMIF ranges; full `spreadsheets` sc
 
 ---
 
-## Phase 6 — The PRD deliverable
+## Phase 6 — The PRD deliverable (NOT part of `/gsd-t-estimate` since v5.20.10 — run `/gsd-t-prd`)
+
+`/gsd-t-estimate` writes the SHEET only (T-Shirt Size + Team Mix + Technology Stack; layout,
+formulas, styling and the post-write audit are in `~/.claude/templates/estimate-sheet-spec.md`).
+The PRD below is a separate deliverable when the client wants one.
 
 One document, **domain sub-sections (A–G) inside each numbered section** (0–15).
 
@@ -126,5 +130,5 @@ One document, **domain sub-sections (A–G) inside each numbered section** (0–
 
 ## Phase 7 — Deliver
 
-All client-facing files in `share/` with the repo-name prefix. Confirm the three
-estimate views agree: T-Shirt total = Team Mix total = PRD §10 total.
+Confirm the estimate views agree: T-Shirt total = Team Mix total (= PRD §10 total, if a PRD was
+written). Run the read-back audit in `estimate-sheet-spec.md` §5 before reporting.

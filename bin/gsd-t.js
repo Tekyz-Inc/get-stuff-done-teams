@@ -1910,6 +1910,10 @@ const GLOBAL_BIN_TOOLS = [
   // caught four times before ([[project_global_bin_propagation_gap]]). Also in
   // PROJECT_BIN_TOOLS below — both lists, both tools.
   "gsd-t-testplan-lint.cjs", "gsd-t-testplan-halt.cjs", "gsd-t-testplan-rows.cjs",
+  // v5.20.10 — deterministic Tekyz estimate-sheet writer + read-back audit
+  // (`gsd-t estimate-sheet`). Dispatched by bin/gsd-t.js AND read by
+  // /gsd-t-estimate, so it ships in BOTH lists ([[project_global_bin_propagation_gap]]).
+  "gsd-t-estimate-sheet.cjs",
 ];
 
 // Directories under bin/ that must ship whole. A runner whose parts stay behind
@@ -2180,6 +2184,7 @@ const SHARED_TEMPLATES = [
   "design-contract.md",
   "shared-services-contract.md",
   "estimate-config.json",
+  "estimate-sheet-spec.md",
 ];
 
 function installSharedTemplates() {
@@ -3701,6 +3706,10 @@ const PROJECT_BIN_TOOLS = [
   // and /gsd-t-test-plan calls them directly — same propagation-gap class as the
   // graph tools above. Also in GLOBAL_BIN_TOOLS — both lists, both tools.
   "gsd-t-testplan-lint.cjs", "gsd-t-testplan-halt.cjs", "gsd-t-testplan-rows.cjs",
+  // v5.20.10 — deterministic Tekyz estimate-sheet writer + read-back audit
+  // (`gsd-t estimate-sheet`). Dispatched by bin/gsd-t.js AND read by
+  // /gsd-t-estimate, so it ships in BOTH lists ([[project_global_bin_propagation_gap]]).
+  "gsd-t-estimate-sheet.cjs",
 ];
 
 // Files that older versions of this installer copied into project bin/ but
@@ -5988,6 +5997,14 @@ if (require.main === module) {
       const res = spawnSync(process.execPath, [js, ...args.slice(1)], {
         stdio: "inherit",
       });
+      process.exit(res.status == null ? 1 : res.status);
+    }
+    case "estimate-sheet": {
+      // v5.20.10 — deterministic Tekyz estimate-sheet writer + audit
+      // (`gsd-t estimate-sheet read|plan-check|write|audit --sheet <id>`).
+      const { spawnSync } = require("child_process");
+      const js = path.join(__dirname, "gsd-t-estimate-sheet.cjs");
+      const res = spawnSync(process.execPath, [js, ...args.slice(1)], { stdio: "inherit" });
       process.exit(res.status == null ? 1 : res.status);
     }
     case "test-data": {

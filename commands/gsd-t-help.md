@@ -378,10 +378,10 @@ Use these when user asks for help on a specific command:
 - **Use when**: Ready to address technical debt items
 
 ### estimate
-- **Summary**: Turn any structured work document — a scan register, a new-feature or new-app requirements doc, or a PRD-in — into a Tekyz client estimate (Google Sheet: T-Shirt Size + Team Mix) and a matching PRD deliverable
+- **Summary**: Turn any structured work document — a scan register, a gap-analysis sheet, a new-feature or new-app requirements doc — into a Tekyz client estimate Google Sheet: **T-Shirt Size + Team Mix + Technology Stack**, written and audited against `~/.claude/templates/estimate-sheet-spec.md`. No PRD (`/gsd-t-prd` owns that)
 - **Auto-invoked**: No
-- **Updates**: the Tekyz estimate Google Sheet + `share/<Repo>-PRD-*.md` (and, if renumbered, the source doc/docs/scan files) + optional `share/<Repo>-estimate-redteam-notes.md`
-- **Use when**: You need a client-facing paid estimate + PRD (T-shirt sizing, dollar range, sign-off) from a scan OR a requirements/feature/app spec. **SUPERVISED** — judgment phases (sizing, adjustments, PRD, Red Team) pause for your review; **you are the final arbiter** of an Estimate Red Team that challenges the numbers. Rate + sheet template + factors are parameterized (default Tekyz). Encodes the Tekyz playbook (`~/.claude/playbooks/tekyz-estimation-and-prd-playbook.md`)
+- **Updates**: the Tekyz estimate Google Sheet (three tabs, written and read-back-audited by `gsd-t estimate-sheet` from `.gsd-t/estimate-plan.json`) + optional `share/<Repo>-estimate-redteam-notes.md` (and, if renumbered, the source doc/docs/scan files)
+- **Use when**: You need a client-facing paid estimate (T-shirt sizing, dollar range, staffed team by month) from a scan, a gap analysis, or a requirements/feature/app spec. **SUPERVISED** — judgment phases (sizing, adjustments, Team Mix, Red Team) pause for your review; **you are the final arbiter** of an Estimate Red Team that challenges the numbers. Accepts `--sheet <url>`. Rate + factors are parameterized (default Tekyz; the sheet's own MF list wins). Playbook: `~/.claude/playbooks/tekyz-estimation-and-prd-playbook.md`
 
 ### stories
 - **Summary**: Generate a dev-team handoff document in the Tekyz user-stories format — discrete user stories with workflows, grouped acceptance criteria, per-story flow diagrams (Mermaid rendered to embedded images), and mapped test-case tables — from any source (scan register, requirements doc, design contract, or a reverse-engineered codebase)

@@ -14,7 +14,7 @@
   "_totalMF": "Overhead multiplier applied to raw Days. Tekyz default 0.7 = QA 0.3 + PM 0.1 + Analysis 0.05 + Deployment 0.05 + Buffer 0.2. Raise Buffer/QA when confidence is low.",
 
   "mfBreakdown": { "qa": 0.3, "pm": 0.1, "analysis": 0.05, "deployment": 0.05, "buffer": 0.2 },
-  "_mfBreakdown": "Optional itemized breakdown of totalMF (must sum to totalMF). Tune per project; e.g. raise buffer for low-confidence scope.",
+  "_mfBreakdown": "Optional itemized breakdown of totalMF (must sum to totalMF). Tune per project; e.g. raise buffer for low-confidence scope. When a target sheet exists its own MF list (T-Shirt tab E4:F9) is the source of truth and is READ, never overwritten — Hilo sheets run 0.9 (qa .3, pm .1, analysis .1, deployment .05, standups .15, buffer .2). Every non-zero factor must have a person in Team Mix (see estimate-sheet-spec.md section 2.4).",
 
   "highFactor": 1.25,
   "_highFactor": "HIGH dollar figure = LOW x this. Raise above 1.25 when unknowns dominate (many R&D / spike items).",
@@ -35,5 +35,8 @@
   "_serviceAccountKeyPath": "Local path to the SA JSON key (chmod 600, outside any repo — NEVER commit). Step 5 self-provisions the SA+key here if missing.",
 
   "newTeamDefault": true,
-  "_newTeamDefault": "Whether to assume a new-team familiarization adjustment (Step 2.5a) by default. Usually true for a fresh client."
+  "_newTeamDefault": "Whether to assume a new-team familiarization adjustment (Step 2.5a) by default. Usually true for a fresh client.",
+
+  "sheetSpec": "~/.claude/templates/estimate-sheet-spec.md",
+  "_sheetSpec": "The layout/formula/styling/roster spec every write is audited against. Bundled at templates/estimate-sheet-spec.md in the GSD-T package."
 }

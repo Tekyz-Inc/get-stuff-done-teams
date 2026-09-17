@@ -2,6 +2,45 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.20.10] - 2026-09-17
+
+### Changed — `/gsd-t-estimate` is the sheet only, and the sheet now has a written spec
+
+Two shipped Hilo estimates each needed a dozen hand-corrections, all on structure and
+formatting the command had left to memory: a second header row written under the real one,
+`Mon ...` never updated, the sage highlight cleared as a "stray fill", Calibri where Arial
+belongs, a Team Mix with no Project Manager or Business Analyst, one row at Count 1.40, three
+part-timers at 0.42/0.56/0.23 where the rule is fill-one-then-spill, flat 160/160/147 hours
+for every role, a fourth month column at −12.80 hrs, size cells holding the legend text
+"XS - Extra Small", Phase cells that lost their dropdown, an empty Technology Stack tab, and
+an off-by-one that wrote Total Hrs one column too far right.
+
+- NEW `templates/estimate-sheet-spec.md` (propagated to `~/.claude/templates/`): exact layout,
+  formulas and styling for the three tabs; roster rules (one row per person, no Count > 1.00,
+  saturate-then-spill, every MF factor staffed); ramp weights by discipline; the last month as a
+  remainder formula; month-column count recomputed after any roster change; the Overview cells
+  the estimates index imports; and a read-back audit checklist that runs after every write.
+- `commands/gsd-t-estimate.md`: PRD dropped (that is `/gsd-t-prd`); scope = T-Shirt Size +
+  Team Mix + Technology Stack; `--sheet <url>` accepted (gap-analysis already passed it); reads
+  the target sheet's real layout before writing; Team Mix is its own PAUSE; Technology Stack is
+  a step, not a leftover tab; the write step is clear-then-paint, small batches, no
+  `X-Goog-User-Project`, `copyPaste` for Phase cells, verified by reading back; Step 2.5 and the
+  Red Team can no longer be skipped silently.
+- `templates/estimate-config.json`: the sheet's own MF list is the source of truth; `sheetSpec`
+  pointer added. Playbook Phase 6 now points at `/gsd-t-prd`. `bin/gsd-t.js` SHARED_TEMPLATES
+  carries the spec so it lands in every install.
+- NEW `bin/gsd-t-estimate-sheet.cjs` — `gsd-t estimate-sheet read | plan-check | write | audit`,
+  the deterministic writer. The model supplies judgment only (sizes, per-discipline FTE,
+  tech-stack lines) as a JSON plan; the tool reads the sheet, splits FTE into people
+  (saturate then spill), computes months, column count and the ramp, writes every formula and
+  style from the current shape, then audits by reading back. Exit 4 on any ✗, halt on the first
+  failing batch, no fallbacks (the fallback guard caught two real ones during the build: an
+  unknown discipline silently ramped as PM, and MF coverage passing when the T-Shirt layout was
+  unreadable). Run read-only against the hand-corrected ATP sheet it passed every structural
+  check and surfaced the two real gaps. Ships in GLOBAL and PROJECT bin lists; 21 unit tests,
+  including the loop-closer: the writer's own output passes its own audit, and each historical
+  defect fails its named check. The command now calls it instead of writing cells by hand.
+
 ## [5.19.11] - 2026-09-15
 
 ### Fixed — a broken git made the worktree prompt vanish with nothing said

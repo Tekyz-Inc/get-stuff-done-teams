@@ -617,7 +617,7 @@ Add `**Also available:**` with `- /gsd-t-{alt} — {desc}` lines if alternatives
 | `integrate` | `verify` | |
 | `verify` | *(auto-invokes complete-milestone)* | |
 | `complete-milestone` | `status` | |
-| `scan` | `promote-debt` | `milestone`, `estimate` (client estimate + PRD) |
+| `scan` | `promote-debt` | `milestone`, `estimate` (client estimate sheet) |
 | `init` | `scan` | `milestone` |
 | `init-scan-setup` | `milestone` | |
 | `gap-analysis` | `milestone` | `feature` |
