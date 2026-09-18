@@ -3466,6 +3466,20 @@ async function doUpdateAll() {
   );
 }
 
+// Numeric dotted-version compare: negative when a < b, 0 when equal, positive when a > b.
+// GSD-T versions are plain Major.Minor.Patch integers (patch always ≥ 10), so a
+// segment-wise numeric compare is exact; no prerelease tags exist.
+function versionCmp(a, b) {
+  const pa = String(a).split(".").map((n) => parseInt(n, 10));
+  const pb = String(b).split(".").map((n) => parseInt(n, 10));
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const x = Number.isNaN(pa[i]) ? 0 : pa[i];
+    const y = Number.isNaN(pb[i]) ? 0 : pb[i];
+    if (x !== y) return x - y;
+  }
+  return 0;
+}
+
 // Upgrade the globally-installed @tekyzinc/gsd-t to @latest. Returns
 // { upgraded: bool, reexec: bool, error?: string }.
 // - reexec=true when the on-disk version after `npm install -g` is newer than
@@ -3499,6 +3513,19 @@ async function upgradeGlobalBinary() {
     // Best-effort; fall through.
   }
 
+  if (newVersion && versionCmp(newVersion, PKG_VERSION) < 0) {
+    // v5.20.10 (2026-09-17): right after `npm publish`, npm's cached package
+    // listing still named the PREVIOUS version as @latest, so this step
+    // installed 5.19.11 over a running 5.20.10, reported it as an "upgrade",
+    // handed off to the OLD binary, and that binary overwrote ~/.claude/commands
+    // and every project with the old release. A downgrade is never an upgrade —
+    // HALT and say how to fix it, never continue on a stale listing.
+    error(`HALT: npm installed v${newVersion} over the running v${PKG_VERSION} — @latest resolved to an OLDER release.`);
+    info("npm's cached package listing is stale. Run `npm cache clean --force`, wait until");
+    info(`\`curl -sI https://registry.npmjs.org/@tekyzinc/gsd-t/-/gsd-t-${PKG_VERSION}.tgz\` returns 200, then re-run update-all.`);
+    info(`Restore the current release first: npm install -g @tekyzinc/gsd-t@${PKG_VERSION}`);
+    process.exit(1);
+  }
   if (newVersion && newVersion !== PKG_VERSION) {
     success(`Global binary upgraded: v${PKG_VERSION} → v${newVersion}`);
     info("Handing off to the newly-installed binary for propagation...");

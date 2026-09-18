@@ -120,6 +120,19 @@ G="$(npm root -g)/@tekyzinc/gsd-t"
 #    the pre-publish package listing cached and `@tekyzinc/gsd-t@{NEW}` returns ETARGET
 #    for minutes while `npm view` already shows the version (v5.17.14, 2026-09-03).
 #    The tarball URL bypasses the cached listing and is deterministic.
+# 1b. WAIT until the registry actually SERVES the tarball, then CLEAR npm's cached listing.
+#    v5.20.10 (2026-09-17): `npm publish` printed "+ @tekyzinc/gsd-t@5.20.10" and `npm view`
+#    showed it, but the tarball URL 404'd for ~4 minutes. Worse, npm's cached package
+#    listing still said latest = the PREVIOUS version, so `gsd-t update-all` (which runs
+#    `npm install -g @tekyzinc/gsd-t@latest`) DOWNGRADED the global, handed off to the old
+#    binary, and that binary rewrote ~/.claude/commands and 34 projects with the old release
+#    — twice. Poll the tarball, then clean the cache, then install. Never skip either.
+for i in $(seq 1 60); do
+  [ "$(curl -s -o /dev/null -w '%{http_code}' "https://registry.npmjs.org/@tekyzinc/gsd-t/-/gsd-t-{NEW_VERSION}.tgz")" = "200" ] && break
+  sleep 10
+done
+[ "$(curl -s -o /dev/null -w '%{http_code}' "https://registry.npmjs.org/@tekyzinc/gsd-t/-/gsd-t-{NEW_VERSION}.tgz")" = "200" ] || { echo "HALT: tarball still 404 after 10 min"; exit 1; }
+npm cache clean --force
 npm install -g "https://registry.npmjs.org/@tekyzinc/gsd-t/-/gsd-t-{NEW_VERSION}.tgz"
 # 2. VERIFY ON DISK — never trust npm's exit code for this step. On v5.17.13 `npm install -g`
 #    reported success and left the OLD version in place; `update-all` then ran from the
@@ -140,7 +153,11 @@ fi
 #    file and the command files; only then does update-all see the new release.
 gsd-t install 2>&1 | tail -5
 [ "$(cat ~/.claude/.gsd-t-version)" = "{NEW_VERSION}" ] || { echo "HALT: ~/.claude/.gsd-t-version did not advance"; exit 1; }
-# 4. Propagate, then prove the global is STILL the new version and a NEW file reached a project.
+# 4. Prove `@latest` now resolves to the NEW version (update-all installs `@latest`; a stale
+#    listing here is the downgrade path — since v5.20.11 update-all HALTS on a downgrade
+#    instead of handing off, but do not rely on the halt: check first).
+[ "$(npm view @tekyzinc/gsd-t dist-tags.latest)" = "{NEW_VERSION}" ] || { echo "HALT: registry latest is not {NEW_VERSION}"; exit 1; }
+# 5. Propagate, then prove the global is STILL the new version and a NEW file reached a project.
 gsd-t update-all 2>&1 | tail -30
 [ "$(node -p "require('$G/package.json').version")" = "{NEW_VERSION}" ] || { echo "HALT: global package reverted during update-all"; exit 1; }
 ```

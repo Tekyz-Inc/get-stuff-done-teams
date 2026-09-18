@@ -2,6 +2,24 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.20.11] - 2026-09-17
+
+### Fixed — `update-all` treated a downgrade as an upgrade and rolled 34 projects back
+
+Releasing 5.20.10, npm's cached package listing still named 5.19.11 as `@latest` for
+several minutes after publish. `upgradeGlobalBinary()` installed the older release over
+the running one, printed "upgraded: v5.20.10 → v5.19.11", handed off to the OLD binary,
+and that binary rewrote `~/.claude/commands` and every registered project with the
+previous version. It happened twice in one release.
+
+- `bin/gsd-t.js`: numeric `versionCmp`; a downgrade now HALTS (exit 1) before the
+  "upgraded" branch and names the fix (`npm cache clean --force`, wait for the tarball
+  to serve 200, reinstall the current release). Never hands off to an older binary.
+- `commands/cpua.md`: Step 6 polls the tarball URL until it returns 200, cleans the npm
+  cache, installs, and checks `dist-tags.latest` equals the new version BEFORE `update-all`.
+- `test/update-all-downgrade-halt.test.js`: the compare is numeric (5.9 < 5.10) and the
+  downgrade branch exits instead of re-exec'ing.
+
 ## [5.20.10] - 2026-09-17
 
 ### Changed — `/gsd-t-estimate` is the sheet only, and the sheet now has a written spec
