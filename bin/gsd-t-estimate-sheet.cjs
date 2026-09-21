@@ -23,6 +23,7 @@
  *   read       --sheet <id|url> [--tab <name>]          dump layout (read-before-write)
  *   plan-check --sheet <id|url> --plan <plan.json>      validate plan, print the roster it WOULD write
  *   write      --sheet <id|url> --plan <plan.json> [--replace]   write T-Shirt + Team Mix + Tech Stack, then audit
+ *   teammix    --sheet <id|url> [--fte <json>] [--dry-run] rebuild the Team Mix (one grid per phase) from the sheet's own roster + rollups
  *   audit      --sheet <id|url>                          the spec §5 checklist, by read-back
  *   plan-schema                                          print the plan shape
  * Flags: --json (envelope only)  --key <path>  --no-audit (write only; for debugging)
@@ -74,6 +75,8 @@ const RAMP = {
   devops: [0.45, 0.85, 1.7],
   pm: [1, 1, 1],
   techlead: [1.3, 0.8, 0.9],
+  design: [1.6, 0.9, 0.5],   // Design / UX: heaviest at the start, a tail for revisions
+  mobile: [1.35, 1.05, 0.6], // same shape as frontend
 };
 
 const ROLE_LABEL = {
@@ -84,6 +87,8 @@ const ROLE_LABEL = {
   ba: "Business Analyst",
   devops: "DevOps Engineer",
   techlead: "Tech Lead / Architect",
+  design: "Design / UX",
+  mobile: "Mobile Engineer",
 };
 
 // MF factor label → the discipline that must staff it (spec §2.4). Factors with
@@ -186,7 +191,7 @@ class SheetsApi {
     this.base = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}`;
   }
 
-  async call(method, url, body) {
+  async call(method, url, body, attempt = 1) {
     // Spec §0: NEVER send X-Goog-User-Project — on these sheets it CAUSES a 403.
     const res = await fetch(url, {
       method,
@@ -194,6 +199,15 @@ class SheetsApi {
       body: body == null ? undefined : JSON.stringify(body),
     });
     const text = await res.text();
+    if (res.status === 429 && attempt <= 3) {
+      // Rate limit (60 reads/min/user — hit 2026-09-21 auditing 19 sheets in a row). This is
+      // flow control, not a masked failure: the same request is re-sent unchanged after the
+      // documented wait, and the 4th 429 halts.
+      const wait = 20000 * attempt;
+      console.error(`  … Sheets API 429 (rate limit) — waiting ${wait / 1000}s, retry ${attempt}/3`);
+      await new Promise((r) => setTimeout(r, wait));
+      return this.call(method, url, body, attempt + 1);
+    }
     if (!res.ok) {
       const short = text.slice(0, 400);
       if (res.status === 403) {
@@ -300,53 +314,99 @@ function rowIsEmpty(grid, r, cols = 12) {
   return true;
 }
 
-/** Locate the T-Shirt tab's fixed header block (spec §1.1). HALTS if it is not the template. */
-function locateTshirt(grid) {
-  let headerRow = -1;
-  for (let r = 0; r < Math.min(rowCount(grid), 40); r++) {
-    if (/^Module\/Functionality$/i.test(textAt(grid, r, 0).trim())) { headerRow = r; break; }
+/** Find the first cell whose text equals `label` (case-insensitive, trimmed) in the top `maxRows` rows. */
+function findCell(grid, label, maxRows = 25, maxCols = 20) {
+  const want = label.toLowerCase();
+  for (let r = 0; r < Math.min(rowCount(grid), maxRows); r++) {
+    for (let c = 0; c < maxCols; c++) if (textAt(grid, r, c).trim().toLowerCase() === want) return { r, c };
   }
-  if (headerRow < 0) throw new Halt(`${TAB_TSHIRT}: column header row ('Module/Functionality' in A) not found — is this the Tekyz template?`);
-  const legend = {};
-  for (let r = 0; r < 20; r++) {
-    const m = textAt(grid, r, 0).trim().match(/^(XS|S|M|L|XL|XXL)\s*-/);
-    if (m) legend[m[1]] = numAt(grid, r, 1);
-  }
-  for (const code of SIZE_CODES) {
-    if (!(code in legend) || Number.isNaN(legend[code])) throw new Halt(`${TAB_TSHIRT}: size legend missing '${code}' in A4:B9`);
-  }
-  const mf = [];
-  let mfTotalCell = null;
-  for (let r = 0; r < 20; r++) {
-    const label = textAt(grid, r, 4).trim();
-    if (!label) continue;
-    if (/^Total MF$/i.test(label)) { mfTotalCell = { r, c: 5, value: numAt(grid, r, 5) }; continue; }
-    if (/^Multiplication Factor$/i.test(label)) continue;
-    const v = numAt(grid, r, 5);
-    if (!Number.isNaN(v)) mf.push({ label, value: v, row: r + 1 });
-  }
-  if (!mf.length) throw new Halt(`${TAB_TSHIRT}: multiplication-factor list (E4:F9) not found`);
-  if (!mfTotalCell) throw new Halt(`${TAB_TSHIRT}: 'Total MF' cell not found`);
-  const mfTotal = mf.reduce((s, f) => s + f.value, 0);
-  const highFactor = numAt(grid, 3, 6);
-  const rate = numAt(grid, 3, 7);
-  if (Number.isNaN(highFactor)) throw new Halt(`${TAB_TSHIRT}: High $ Factor (G4) is not a number`);
-  if (Number.isNaN(rate)) throw new Halt(`${TAB_TSHIRT}: Avg. Hrly Rate (H4) is not a number`);
-  const rollupRows = [];
-  for (let r = 0; r < 12; r++) if (PHASES.includes(textAt(grid, r, 9).trim())) rollupRows.push(r);
-  if (rollupRows.length !== 4) throw new Halt(`${TAB_TSHIRT}: expected 4 phase rollup rows in column J (MVP, Phase 1–3), found ${rollupRows.length}`);
-  return { headerRow, firstItemRow: headerRow + 1, legend, mf, mfTotal, mfTotalCell, highFactor, rate, rollupRows };
+  return null;
 }
 
-/** Row index of a cell in column E with a ONE_OF_LIST validation — the Phase dropdown source; -1 if none. */
-function findPhaseSource(grid, fromRow) {
+/**
+ * Locate the T-Shirt tab's header block BY LABEL, not by fixed row (spec §1.1). Two layouts
+ * are in the wild: the current template (Date row 1, legend A4:B9, header row 13, two size
+ * columns) and an older one (Project/Client/Date rows 3–5, legend A8:B13, header row 17, up
+ * to four size columns). Everything the writer and audit need is returned as a column map.
+ * HALTS on anything it cannot find — never guesses a coordinate.
+ */
+function locateTshirt(grid) {
+  const hdr = findCell(grid, "Module/Functionality", 40, 3);
+  if (!hdr || hdr.c !== 0) throw new Halt(`${TAB_TSHIRT}: column header row ('Module/Functionality' in A) not found — is this the Tekyz template?`);
+  const headerRow = hdr.r;
+  const headerText = [];
+  for (let c = 0; c < 20; c++) headerText.push(textAt(grid, headerRow, c).trim());
+  const colOf = (label) => { const c = headerText.findIndex((x) => x.toLowerCase() === label.toLowerCase()); if (c < 0) throw new Halt(`${TAB_TSHIRT}: header row ${headerRow + 1} has no '${label}' column`); return c; };
+  const cols = { phase: colOf("Phase"), days: colOf("Days"), mfactor: colOf("MFactor Days"), total: colOf("Total Days"), low: colOf("LOW $"), high: colOf("HIGH $") };
+  cols.sizes = [];
+  for (let c = cols.phase + 1; c < cols.days; c++) cols.sizes.push(c);
+  if (!cols.sizes.length) throw new Halt(`${TAB_TSHIRT}: no size columns between 'Phase' and 'Days'`);
+  cols.sizeLabels = cols.sizes.map((c) => headerText[c]);
+  // legend: the XS..XXL rows in column A
+  const legend = {};
+  let legendFirst = -1, legendLast = -1;
+  for (let r = 0; r < headerRow; r++) {
+    const m = textAt(grid, r, 0).trim().match(/^(XS|S|M|L|XL|XXL)\s*-/);
+    if (m) { legend[m[1]] = numAt(grid, r, 1); if (legendFirst < 0) legendFirst = r; legendLast = r; }
+  }
+  for (const code of SIZE_CODES) {
+    if (!(code in legend) || Number.isNaN(legend[code])) throw new Halt(`${TAB_TSHIRT}: size legend missing '${code}' (looked for 'XS - …' labels in column A above the header row)`);
+  }
+  // MF list: under 'Multiplication Factor' down to 'Total MF'
+  const mfHdr = findCell(grid, "Multiplication Factor", headerRow, 12);
+  if (!mfHdr) throw new Halt(`${TAB_TSHIRT}: 'Multiplication Factor' header not found`);
+  const mf = [];
+  let mfTotalCell = null;
+  for (let r = mfHdr.r + 1; r < headerRow; r++) {
+    const label = textAt(grid, r, mfHdr.c).trim();
+    if (!label) continue;
+    if (/^Total MF$/i.test(label)) { mfTotalCell = { r, c: mfHdr.c + 1, value: numAt(grid, r, mfHdr.c + 1) }; break; }
+    const v = numAt(grid, r, mfHdr.c + 1);
+    if (!Number.isNaN(v)) mf.push({ label, value: v, row: r + 1 });
+  }
+  if (!mf.length) throw new Halt(`${TAB_TSHIRT}: multiplication-factor list under '${colLetter(mfHdr.c)}${mfHdr.r + 1}' is empty`);
+  if (!mfTotalCell) throw new Halt(`${TAB_TSHIRT}: 'Total MF' cell not found under the MF list`);
+  const mfTotal = mf.reduce((s, f) => s + f.value, 0);
+  const hfHdr = findCell(grid, "High $ Factor", headerRow, 14);
+  if (!hfHdr) throw new Halt(`${TAB_TSHIRT}: 'High $ Factor' header not found`);
+  const highFactor = numAt(grid, hfHdr.r + 1, hfHdr.c);
+  if (Number.isNaN(highFactor)) throw new Halt(`${TAB_TSHIRT}: High $ Factor (${colLetter(hfHdr.c)}${hfHdr.r + 2}) is not a number`);
+  const rateHdr = findCell(grid, "Avg. Hrly Rate", headerRow, 14);
+  if (!rateHdr) throw new Halt(`${TAB_TSHIRT}: 'Avg. Hrly Rate' header not found`);
+  const rate = numAt(grid, rateHdr.r + 1, rateHdr.c);
+  if (Number.isNaN(rate)) throw new Halt(`${TAB_TSHIRT}: Avg. Hrly Rate (${colLetter(rateHdr.c)}${rateHdr.r + 2}) is not a number`);
+  cols.highFactor = { r: hfHdr.r + 1, c: hfHdr.c };
+  cols.rate = { r: rateHdr.r + 1, c: rateHdr.c };
+  cols.mfTotal = { r: mfTotalCell.r, c: mfTotalCell.c };
+  // phase rollups: the column holding 'MVP' above the header; Low/High Hrs columns from their headers
+  const mvp = findCell(grid, "MVP", headerRow, 16);
+  if (!mvp) throw new Halt(`${TAB_TSHIRT}: phase rollup block ('MVP' label above the header row) not found`);
+  const rollupRows = [];
+  for (let r = 0; r < headerRow; r++) if (PHASES.includes(textAt(grid, r, mvp.c).trim())) rollupRows.push(r);
+  if (rollupRows.length !== 4) throw new Halt(`${TAB_TSHIRT}: expected 4 phase rollup rows in column ${colLetter(mvp.c)} (MVP, Phase 1–3), found ${rollupRows.length}`);
+  const lowHrs = findCell(grid, "Low Hrs", headerRow, 20), highHrs = findCell(grid, "High Hrs", headerRow, 20);
+  const lowDol = findCell(grid, "Low ($)", headerRow, 20), highDol = findCell(grid, "High ($)", headerRow, 20);
+  if (!lowHrs || !highHrs || !lowDol || !highDol) throw new Halt(`${TAB_TSHIRT}: rollup headers 'Low ($)' / 'Low Hrs' / 'High ($)' / 'High Hrs' not all found`);
+  cols.rollupPhase = mvp.c; cols.lowHrs = lowHrs.c; cols.highHrs = highHrs.c; cols.lowDol = lowDol.c; cols.highDol = highDol.c;
+  return { headerRow, firstItemRow: headerRow + 1, legend, legendFirst1: legendFirst + 1, legendLast1: legendLast + 1, mf, mfTotal, mfTotalCell, highFactor, rate, rollupRows, cols };
+}
+
+/** The standard template's column map (what `write` produces). */
+const STANDARD_COLS = { phase: 4, sizes: [5, 6], days: 7, mfactor: 8, total: 9, low: 10, high: 11, rollupPhase: 9, lowHrs: 11, highHrs: 13, lowDol: 10, highDol: 12, highFactor: { r: 3, c: 6 }, rate: { r: 3, c: 7 }, mfTotal: { r: 9, c: 5 } };
+const STANDARD_LEGEND = { first1: 4, last1: 9 };
+
+/** Row index of a cell in the Phase column with a ONE_OF_LIST validation — the Phase dropdown source; -1 if none. */
+function findPhaseSourceIn(grid, fromRow, phaseCol) {
   for (let r = fromRow; r < rowCount(grid); r++) {
-    const cell = cellAt(grid, r, 4);
+    const cell = cellAt(grid, r, phaseCol);
     const dv = cell && cell.dataValidation;
     if (dv && dv.condition && dv.condition.type === "ONE_OF_LIST") return r;
   }
   return -1;
 }
+
+/** Row index of a cell in column E with a ONE_OF_LIST validation — the Phase dropdown source; -1 if none. */
+function findPhaseSource(grid, fromRow) { return findPhaseSourceIn(grid, fromRow, 4); }
 
 // ───────────────────────── plan validation (pure) ─────────────────────────
 
@@ -478,7 +538,11 @@ function monthPlan(totalDays, people) {
   const months = totalDays / (sumCount * 20);
   const whole = Math.floor(months);
   const frac = months - whole;
-  const n = whole >= 1 && frac < FOLD_THRESHOLD ? whole : Math.ceil(months);
+  // Fold a small tail into the last full month ONLY if a full-time person still fits under the
+  // soft ceiling: months × 160 ≤ whole × 172. (Acron, 2026-09-21: 1.098 months folded to one
+  // column put Backend 1 at 175.7 hrs — over the ceiling — so the fold must check the hours.)
+  const fits = months * 160 <= whole * SOFT_CEILING + 1e-9;
+  const n = whole >= 1 && frac < FOLD_THRESHOLD && fits ? whole : Math.ceil(months);
   return { months, sumCount, n: Math.max(1, n) };
 }
 
@@ -554,25 +618,39 @@ function tshirtTotals(plan, layout) {
 
 // ───────────────────────── T-Shirt formulas (pure, spec §1.2–1.3) ─────────────────────────
 
-function itemFormulas(r) {
-  return {
-    H: `=(IF(F${r}="",0,SUMIF($A$4:$A$9,LEFT(F${r},2)&"*",$B$4:$B$9))+IF(G${r}="",0,SUMIF($A$4:$A$9,LEFT(G${r},2)&"*",$B$4:$B$9)))`,
-    I: `=H${r}*$F$10`,
-    J: `=H${r}+I${r}`,
-    K: `=J${r}*8*$H$4`,
-    L: `=K${r}*$G$4`,
+/** Item-row formulas for any column map (spec §1.2). Keys are the STANDARD letters H..L; `cells` carries the real columns. */
+function itemFormulasFor(r, cols, legend) {
+  const L = colLetter;
+  const lg = `$A$${legend.first1}:$A$${legend.last1}`, lv = `$B$${legend.first1}:$B$${legend.last1}`;
+  const days = "=(" + cols.sizes.map((c) => `IF(${L(c)}${r}="",0,SUMIF(${lg},LEFT(${L(c)}${r},2)&"*",${lv}))`).join("+") + ")";
+  const abs = (cell) => `$${L(cell.c)}$${cell.r + 1}`;
+  const f = {
+    H: days,
+    I: `=${L(cols.days)}${r}*${abs(cols.mfTotal)}`,
+    J: `=${L(cols.days)}${r}+${L(cols.mfactor)}${r}`,
+    K: `=${L(cols.total)}${r}*8*${abs(cols.rate)}`,
+    L: `=${L(cols.low)}${r}*${abs(cols.highFactor)}`,
   };
+  f.cells = [[cols.days, f.H], [cols.mfactor, f.I], [cols.total, f.J], [cols.low, f.K], [cols.high, f.L]];
+  return f;
 }
 
-function rollupFormulas(rollupRow1, firstRow1, lastRow1) {
-  const e = `$E$${firstRow1}:$E$${lastRow1}`;
+/** The standard template's item formulas (what `write` produces). */
+function itemFormulas(r) { return itemFormulasFor(r, STANDARD_COLS, STANDARD_LEGEND); }
+
+function rollupFormulasFor(rollupRow1, firstRow1, lastRow1, cols) {
+  const L = colLetter;
+  const e = `$${L(cols.phase)}$${firstRow1}:$${L(cols.phase)}$${lastRow1}`;
+  const ph = `$${L(cols.rollupPhase)}${rollupRow1}`;
+  const rate = `$${L(cols.rate.c)}$${cols.rate.r + 1}`;
   return [
-    `=SUMIF(${e},$J${rollupRow1},$K$${firstRow1}:$K$${lastRow1})`,
-    `=SUMIF(${e},$J${rollupRow1},$J$${firstRow1}:$J$${lastRow1})*8`,
-    `=SUMIF(${e},$J${rollupRow1},$L$${firstRow1}:$L$${lastRow1})`,
-    `=IF($H$4=0,0,M${rollupRow1}/$H$4)`,
+    `=SUMIF(${e},${ph},$${L(cols.low)}$${firstRow1}:$${L(cols.low)}$${lastRow1})`,
+    `=SUMIF(${e},${ph},$${L(cols.total)}$${firstRow1}:$${L(cols.total)}$${lastRow1})*8`,
+    `=SUMIF(${e},${ph},$${L(cols.high)}$${firstRow1}:$${L(cols.high)}$${lastRow1})`,
+    `=IF(${rate}=0,0,${L(cols.highDol)}${rollupRow1}/${rate})`,
   ];
 }
+function rollupFormulas(rollupRow1, firstRow1, lastRow1) { return rollupFormulasFor(rollupRow1, firstRow1, lastRow1, STANDARD_COLS); }
 
 /** Rows for items mode, starting at firstRow0 (0-based). */
 function tshirtRows(plan, firstRow0) {
@@ -631,6 +709,8 @@ async function writeTshirt(api, plan, opts) {
   const grid = await api.grid(TAB_TSHIRT);
   const sheetId = grid.properties.sheetId;
   const layout = locateTshirt(grid);
+  const std = ["phase", "days", "mfactor", "total", "low", "high"].every((k) => layout.cols[k] === STANDARD_COLS[k]) && layout.cols.sizes.length === 2 && layout.legendFirst1 === 4 && layout.headerRow === 12;
+  if (!std) throw new Halt(`${TAB_TSHIRT}: this sheet is not the current template layout (header row ${layout.headerRow + 1}, size columns ${layout.cols.sizeLabels.join("/")}) — 'write' supports the current template only; 'teammix' and 'audit' work on both`);
   const totals = tshirtTotals(plan, layout);
   const phaseSrc = findPhaseSource(grid, 0);
   if (phaseSrc < 0) throw new Halt(`${TAB_TSHIRT}: no Phase dropdown source cell found in column E — add a ONE_OF_LIST validation (MVP / Phase 1 / Phase 2 / Phase 3) to E${layout.firstItemRow + 1} and re-run`);
@@ -897,74 +977,77 @@ async function writeTechStack(api, plan) {
 
 function check(list, name, ok, detail) { list.push({ check: name, ok: !!ok, detail: ok ? "" : String(detail == null ? "" : detail) }); }
 
-/** T-Shirt audit. The template header block is REQUIRED — locateTshirt halts if it is missing. */
+/** T-Shirt audit — layout-aware via locateTshirt's column map. HALTS if the header block is missing. */
 function auditTshirt(grid) {
   const out = [];
   const layout = locateTshirt(grid);
+  const { cols } = layout;
+  const legendRows = { first1: layout.legendFirst1, last1: layout.legendLast1 };
   const first0 = layout.firstItemRow;
   const badSizes = [], noDv = [], badFormula = [], sectionsWithSizes = [], badSectionFmt = [];
   let lastItem0 = -1, totalRow0 = -1;
   for (let r = first0; r < rowCount(grid); r++) {
     const a = textAt(grid, r, 0);
     if (/^Total \(Days\)/i.test(a)) { totalRow0 = r; break; }
-    if (rowIsEmpty(grid, r)) continue;
-    const isSection = a !== "" && textAt(grid, r, 2) === "" && textAt(grid, r, 7) === "";
+    if (rowIsEmpty(grid, r, cols.high + 1)) continue;
+    const isSection = a !== "" && textAt(grid, r, 2) === "" && textAt(grid, r, cols.days) === "";
     if (isSection) {
-      const feTxt = textAt(grid, r, 5);
-      const beTxt = textAt(grid, r, 6);
-      if (feTxt !== "" || beTxt !== "") sectionsWithSizes.push(r + 1);
+      if (cols.sizes.some((c) => textAt(grid, r, c) !== "")) sectionsWithSizes.push(r + 1);
       if (bgAt(grid, r, 0) !== COLOR.sectionBg) badSectionFmt.push(`row ${r + 1} bg ${bgAt(grid, r, 0)}`);
       continue;
     }
     lastItem0 = r;
-    for (const c of [5, 6]) {
+    for (const c of cols.sizes) {
       const v = textAt(grid, r, c).trim();
       if (v && !SIZE_CODES.includes(v)) badSizes.push(`${colLetter(c)}${r + 1}='${v}'`);
     }
-    const cell = cellAt(grid, r, 4);
-    if (!(cell && cell.dataValidation && cell.dataValidation.condition && cell.dataValidation.condition.type === "ONE_OF_LIST")) noDv.push(`E${r + 1}`);
-    const f = itemFormulas(r + 1);
-    [["H", 7], ["I", 8], ["J", 9], ["K", 10], ["L", 11]].forEach(([k, c]) => { if (formulaAt(grid, r, c) !== f[k]) badFormula.push(`${k}${r + 1}`); });
+    const cell = cellAt(grid, r, cols.phase);
+    if (!(cell && cell.dataValidation && cell.dataValidation.condition && cell.dataValidation.condition.type === "ONE_OF_LIST")) noDv.push(`${colLetter(cols.phase)}${r + 1}`);
+    const f = itemFormulasFor(r + 1, cols, legendRows);
+    for (const [c, want] of f.cells) if (formulaAt(grid, r, c) !== want) badFormula.push(`${colLetter(c)}${r + 1}`);
   }
   check(out, "T-Shirt: at least one item row", lastItem0 >= 0, "no item rows below the header");
-  check(out, "T-Shirt: size cells are bare codes (no legend text)", !badSizes.length, badSizes.join(", "));
-  check(out, "T-Shirt: every item row has the Phase dropdown", !noDv.length, noDv.join(", "));
-  check(out, "T-Shirt: H:L are the spec formulas on every item row", !badFormula.length, badFormula.slice(0, 12).join(", "));
+  check(out, "T-Shirt: size cells are bare codes (no legend text, no '-')", !badSizes.length, badSizes.slice(0, 10).join(", "));
+  check(out, "T-Shirt: every item row has the Phase dropdown", !noDv.length, noDv.slice(0, 10).join(", "));
+  check(out, "T-Shirt: Days..HIGH $ are the spec formulas on every item row", !badFormula.length, badFormula.slice(0, 12).join(", "));
   check(out, "T-Shirt: section rows carry no sizes", !sectionsWithSizes.length, `rows ${sectionsWithSizes.join(", ")}`);
-  check(out, "T-Shirt: section rows are styled (bg #1C4F8B)", !badSectionFmt.length, badSectionFmt.join(", "));
+  check(out, "T-Shirt: section rows are styled (bg #1C4F8B)", !badSectionFmt.length, badSectionFmt.slice(0, 6).join(", "));
   check(out, "T-Shirt: 'Total (Days)' row exists below the items", totalRow0 > lastItem0 && lastItem0 >= 0, "not found");
   let totalDaysCell = NaN;
-  // Team Mix reconciles to the MIDPOINT of each phase's Low Hrs (L) and High Hrs (N), in days
   const phaseDays = {};
   for (const rr of layout.rollupRows) {
-    const low = numAt(grid, rr, 11), high = numAt(grid, rr, 13);
-    phaseDays[textAt(grid, rr, 9).trim()] = Number.isNaN(low) || Number.isNaN(high) ? NaN : round2((low + high) / 2 / 8);
+    const low = numAt(grid, rr, cols.lowHrs), high = numAt(grid, rr, cols.highHrs);
+    phaseDays[textAt(grid, rr, cols.rollupPhase).trim()] = Number.isNaN(low) || Number.isNaN(high) ? NaN : round2((low + high) / 2 / 8);
   }
   if (totalRow0 > lastItem0 && lastItem0 >= 0) {
     check(out, "T-Shirt: totals row sits directly under the last item (no blank row)", totalRow0 === lastItem0 + 1, `last item row ${lastItem0 + 1}, totals row ${totalRow0 + 1}`);
     const totFont = fontAt(grid, totalRow0, 0);
-    check(out, "T-Shirt: totals row is the template band (bg #D8DDE8, bold) across A:L", [0, 4, 9, 11].every((c) => bgAt(grid, totalRow0, c) === COLOR.tshirtTotalBg) && totFont.bold, `A bg ${bgAt(grid, totalRow0, 0)}, L bg ${bgAt(grid, totalRow0, 11)}, bold ${totFont.bold}`);
+    check(out, "T-Shirt: totals row is the template band (bg #D8DDE8, bold) across the table", [0, cols.phase, cols.total, cols.high].every((c) => bgAt(grid, totalRow0, c) === COLOR.tshirtTotalBg) && totFont.bold, `A bg ${bgAt(grid, totalRow0, 0)}, ${colLetter(cols.high)} bg ${bgAt(grid, totalRow0, cols.high)}, bold ${totFont.bold}`);
+    const want = `=SUM(${colLetter(cols.total)}${first0 + 1}:${colLetter(cols.total)}${lastItem0 + 1})`;
+    check(out, "T-Shirt: totals row sums the full item range", formulaAt(grid, totalRow0, cols.total) === want, `${colLetter(cols.total)}${totalRow0 + 1} is '${formulaAt(grid, totalRow0, cols.total)}', want '${want}'`);
+    totalDaysCell = numAt(grid, totalRow0, cols.total);
+    // summary block: the three labels directly under the totals row, anywhere in the row
+    const findLabel = (r) => { for (let c = 0; c < cols.high + 1; c++) { const v = textAt(grid, r, c).trim(); if (/^Total (Days|Hrs|Cost)$/i.test(v)) return { c, v }; } return null; };
     const sumRows = [totalRow0 + 1, totalRow0 + 2, totalRow0 + 3];
-    const labels = sumRows.map((r) => textAt(grid, r, 9));
-    check(out, "T-Shirt: summary block (Total Days / Total Hrs / Total Cost) sits directly under the totals row", labels[0] === "Total Days" && labels[1] === "Total Hrs" && labels[2] === "Total Cost", `J${sumRows[0] + 1}..J${sumRows[2] + 1} = [${labels.join(", ")}]`);
-    check(out, "T-Shirt: summary labels are bold", sumRows.every((r) => fontAt(grid, r, 9).bold), "");
-    const costCell = cellAt(grid, sumRows[2], 10);
-    const costFmt = costCell && costCell.userEnteredFormat && costCell.userEnteredFormat.numberFormat;
-    check(out, "T-Shirt: Total Cost is formatted as dollars", !!costFmt && costFmt.type === "CURRENCY", `K${sumRows[2] + 1} numberFormat ${JSON.stringify(costFmt)}`);
-    const want = `=SUM(J${first0 + 1}:J${lastItem0 + 1})`;
-    check(out, "T-Shirt: totals row sums the full item range", formulaAt(grid, totalRow0, 9) === want, `J${totalRow0 + 1} is '${formulaAt(grid, totalRow0, 9)}', want '${want}'`);
-    totalDaysCell = numAt(grid, totalRow0, 9);
+    const labels = sumRows.map(findLabel);
+    check(out, "T-Shirt: summary block (Total Days / Total Hrs / Total Cost) sits directly under the totals row", labels[0] && labels[0].v === "Total Days" && labels[1] && labels[1].v === "Total Hrs" && labels[2] && labels[2].v === "Total Cost", `rows ${sumRows[0] + 1}–${sumRows[2] + 1} = [${labels.map((l) => (l ? l.v : "")).join(", ")}]`);
+    check(out, "T-Shirt: summary labels are bold", labels.every((l) => l && fontAt(grid, sumRows[labels.indexOf(l)], l.c).bold), "");
+    if (labels[2]) {
+      const costCell = cellAt(grid, sumRows[2], labels[2].c + 1);
+      const costFmt = costCell && costCell.userEnteredFormat && costCell.userEnteredFormat.numberFormat;
+      check(out, "T-Shirt: Total Cost is formatted as dollars", !!costFmt && costFmt.type === "CURRENCY", `${colLetter(labels[2].c + 1)}${sumRows[2] + 1} numberFormat ${JSON.stringify(costFmt)}`);
+    } else check(out, "T-Shirt: Total Cost is formatted as dollars", false, "no Total Cost row");
     const badRoll = [];
     for (const rr of layout.rollupRows) {
-      if (formulaAt(grid, rr, 10) !== rollupFormulas(rr + 1, first0 + 1, lastItem0 + 1)[0]) badRoll.push(`K${rr + 1}`);
+      if (formulaAt(grid, rr, cols.lowDol) !== rollupFormulasFor(rr + 1, first0 + 1, lastItem0 + 1, cols)[0]) badRoll.push(`${colLetter(cols.lowDol)}${rr + 1}`);
     }
-    check(out, "T-Shirt: phase rollups (K4:N7) reference the full item range", !badRoll.length, badRoll.join(", "));
+    check(out, "T-Shirt: phase rollups reference the full item range", !badRoll.length, badRoll.join(", "));
     let summaryAbove = false;
-    for (let r = first0; r < totalRow0; r++) if (/^Total (Days|Hrs|Cost)$/i.test(textAt(grid, r, 9))) summaryAbove = true;
+    for (let r = first0; r < totalRow0; r++) if (findLabel(r)) summaryAbove = true;
     check(out, "T-Shirt: no summary label inside the summed range", !summaryAbove, "a Total Days/Hrs/Cost label sits inside the summed range");
     let raw = 0;
     for (let r = first0; r <= lastItem0; r++) {
-      for (const c of [5, 6]) { const v = textAt(grid, r, c).trim(); if (v && layout.legend[v] != null) raw += layout.legend[v]; }
+      for (const c of cols.sizes) { const v = textAt(grid, r, c).trim(); if (v && layout.legend[v] != null) raw += layout.legend[v]; }
     }
     const recomputed = round2(raw * (1 + layout.mfTotal));
     check(out, "T-Shirt: Σ raw sizes × (1+MF) == Total Days cell", Math.abs(recomputed - totalDaysCell) < 0.02, `recomputed ${recomputed}, cell ${totalDaysCell}`);
@@ -975,12 +1058,14 @@ function auditTshirt(grid) {
 function disciplineOfLabel(label) {
   const l = label.toLowerCase();
   if (/qa|test/.test(l)) return "qa";
-  if (/project manager|\bpm\b/.test(l)) return "pm";
-  if (/analyst/.test(l)) return "ba";
+  if (/project m|\bpm\b/.test(l)) return "pm";
+  if (/analys/.test(l)) return "ba";
   if (/devops/.test(l)) return "devops";
   if (/lead|architect/.test(l)) return "techlead";
+  if (/design|\bux\b/.test(l)) return "design";
+  if (/mobile|ios|android/.test(l)) return "mobile";
   if (/front/.test(l)) return "frontend";
-  if (/back|api/.test(l)) return "backend";
+  if (/back|api|platform/.test(l)) return "backend";
   return "";
 }
 
@@ -1208,6 +1293,84 @@ async function verbPlanCheck(api, plan) {
   return { totals, mf: layout.mf, mfTotal: round2(layout.mfTotal), highFactor: layout.highFactor, rate: layout.rate, rosters, table: rostersTable(rosters) };
 }
 
+/**
+ * Derive the per-discipline FTE from a sheet's EXISTING Team Mix (first grid): each person
+ * row's label → discipline, Count summed per discipline. HALTS on a label it cannot classify
+ * or a grid it cannot find — a rebuild must never guess a roster.
+ */
+function deriveFteFromTeamMix(grid) {
+  let header = -1;
+  for (let r = 0; r < rowCount(grid); r++) if (textAt(grid, r, 0) === "Skill set") { header = r; break; }
+  if (header < 0) throw new Halt(`${TAB_TEAM}: no 'Skill set' header row — cannot derive the roster`);
+  // Two roster models exist. Current: Count is an ENTERED FTE → sum per discipline. Older:
+  // Count is a FORMULA `=ROUND(MAX(months)/160,2)` (peak-month utilisation), so summing it
+  // overstates the team; there, keep the sheet's total FTE and split it by each role's share
+  // of Total Hrs. The model is read from the first Count cell, never assumed.
+  const firstCount = formulaAt(grid, header + 1, 1);
+  const peakModel = /MAX\(/i.test(firstCount);
+  let totalHrsCol = -1;
+  for (let c = 0; c < 30; c++) if (textAt(grid, header, c).trim() === "Total Hrs") totalHrsCol = c;
+  if (peakModel && totalHrsCol < 0) throw new Halt(`${TAB_TEAM}: peak-utilisation roster but no 'Total Hrs' column to split by`);
+  const people = [];
+  const unknown = [];
+  let totalFte = NaN;
+  for (let r = header + 1; r < rowCount(grid); r++) {
+    const a = textAt(grid, r, 0);
+    if (a === "" || /^Total/i.test(a)) break;
+    if (/^Tot\b/i.test(a)) { totalFte = numAt(grid, r, 1); continue; } // 'Tot FTE' / 'Tot Dys/Hrs' summary line inside the roster
+    const d = disciplineOfLabel(a);
+    if (!d) { unknown.push(a); continue; }
+    const count = numAt(grid, r, 1);
+    const hours = peakModel ? numAt(grid, r, totalHrsCol) : NaN;
+    if (Number.isNaN(count)) throw new Halt(`${TAB_TEAM}: '${a}' has no numeric Count in column B`);
+    if (peakModel && Number.isNaN(hours)) throw new Halt(`${TAB_TEAM}: '${a}' has no numeric Total Hrs`);
+    people.push({ d, count, hours });
+  }
+  if (unknown.length) throw new Halt(`${TAB_TEAM}: cannot map these roles to a discipline — ${unknown.join(", ")}. Known: ${Object.keys(ROLE_LABEL).join(", ")}`);
+  if (!people.length) throw new Halt(`${TAB_TEAM}: no person rows under the header`);
+  const fte = {};
+  if (peakModel) {
+    const sumFte = Number.isNaN(totalFte) ? people.reduce((s, p) => s + p.count, 0) : totalFte;
+    const sumHrs = people.reduce((s, p) => s + p.hours, 0);
+    if (!(sumHrs > 0)) throw new Halt(`${TAB_TEAM}: Total Hrs sum to 0 — cannot split the roster`);
+    for (const p of people) fte[p.d] = round2((fte[p.d] ? fte[p.d] : 0) + sumFte * p.hours / sumHrs);
+  } else {
+    for (const p of people) fte[p.d] = round2((fte[p.d] ? fte[p.d] : 0) + p.count);
+  }
+  for (const d of Object.keys(fte)) if (!(fte[d] > 0)) delete fte[d];
+  return fte;
+}
+
+/** Per-phase Low/High days read from the T-Shirt rollups (phases with hours > 0), in PHASES order. */
+function phaseTotalsFromSheet(grid, layout) {
+  const out = [];
+  for (const rr of layout.rollupRows) {
+    const ph = textAt(grid, rr, layout.cols.rollupPhase).trim();
+    const low = numAt(grid, rr, layout.cols.lowHrs), high = numAt(grid, rr, layout.cols.highHrs);
+    if (Number.isNaN(low) || Number.isNaN(high)) throw new Halt(`${TAB_TSHIRT}: rollup row ${rr + 1} (${ph}) has no Low Hrs / High Hrs values`);
+    if (low > 0) out.push({ phase: ph, totalDays: round2(low / 8), highDays: round2(high / 8), staffDays: round2((low + high) / 2 / 8) });
+  }
+  if (!out.length) throw new Halt(`${TAB_TSHIRT}: no phase has hours — nothing to staff`);
+  return PHASES.filter((p) => out.some((o) => o.phase === p)).map((p) => out.find((o) => o.phase === p));
+}
+
+/** Rebuild the Team Mix tab (one grid per phase) from the sheet's own roster + rollups. No plan needed. */
+async function verbTeamMix(api, opts) {
+  const tshirt = await api.grid(TAB_TSHIRT);
+  const layout = locateTshirt(tshirt);
+  const team = await api.grid(TAB_TEAM);
+  const fte = opts.fte ? opts.fte : deriveFteFromTeamMix(team);
+  const title = opts.title ? opts.title : textAt(team, 0, 0).replace(/\s+—\s+(MVP|Phase \d)$/, "");
+  if (!title) throw new Halt(`${TAB_TEAM}: A1 has no title to carry over — pass --title`);
+  const plan = { title, teamMix: { fte } };
+  const rosters = phaseTotalsFromSheet(tshirt, layout).map((ph) => ({ ...ph, roster: buildRoster(plan, ph.staffDays, layout.mf) }));
+  if (opts.dryRun) return { title, fte, rosters, table: rostersTable(rosters) };
+  const tm = await writeTeamMix(api, plan, rosters);
+  const result = { title, fte, phases: rosters.map((r) => ({ phase: r.phase, lowDays: r.totalDays, highDays: r.highDays, staffDays: r.staffDays, people: r.roster.people.length, months: r.roster.months, columns: r.roster.n, sumDays: r.roster.sumDays })), table: rostersTable(rosters), grids: tm.grids };
+  if (!opts.noAudit) result.audit = await runAudit(api);
+  return result;
+}
+
 async function verbWrite(api, plan, opts) {
   const ts = await writeTshirt(api, plan, opts);
   const rosters = buildRosters(plan, ts.layout);
@@ -1228,7 +1391,7 @@ function parseArgs(argv) {
   const out = { _: [] };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
-    if (a === "--json" || a === "--replace" || a === "--no-audit") out[a.slice(2)] = true;
+    if (a === "--json" || a === "--replace" || a === "--no-audit" || a === "--dry-run") out[a.slice(2)] = true;
     else if (a.startsWith("--")) { out[a.slice(2)] = argv[i + 1]; i++; }
     else out._.push(a);
   }
@@ -1240,7 +1403,7 @@ function printChecks(audit) {
   console.log(`${audit.ok ? "AUDIT PASS" : `AUDIT FAIL (${audit.failed})`} — ${audit.title}`);
 }
 
-const USAGE = "usage: gsd-t estimate-sheet <read|plan-check|write|audit|plan-schema> --sheet <id|url> [--tab <name>] [--plan <plan.json>] [--replace] [--no-audit] [--key <path>] [--json]";
+const USAGE = "usage: gsd-t estimate-sheet <read|plan-check|write|teammix|audit|plan-schema> --sheet <id|url> [--tab <name>] [--plan <plan.json>] [--replace] [--fte '{\"backend\":1.5}'] [--title <t>] [--dry-run] [--no-audit] [--key <path>] [--json]";
 
 /** Runs a verb; returns the exit code. Throws Halt (or any error) — the runner below turns that into exit 4/64. */
 async function main(args) {
@@ -1255,6 +1418,19 @@ async function main(args) {
     if (json) console.log(JSON.stringify(r, null, 2));
     else { console.log(r.title); r.tabs.forEach((t) => console.log(`  tab ${JSON.stringify(t.title)} id=${t.sheetId}`)); (r.rows ? r.rows : []).forEach((l) => console.log(l)); }
     return 0;
+  }
+  if (verb === "teammix") {
+    // rebuild the Team Mix from the sheet's own roster + phase rollups (no plan file)
+    let fte;
+    if (args.fte) { try { fte = JSON.parse(args.fte); } catch (e) { throw new Halt(`--fte must be JSON like {"backend":1.5,"qa":0.4}: ${e.message}`, 64); } }
+    const r = await verbTeamMix(api, { fte, title: args.title, dryRun: !!args["dry-run"], noAudit: !!args["no-audit"] });
+    const ok = !r.audit || r.audit.ok;
+    if (json) console.log(JSON.stringify({ ok, exitCode: ok ? 0 : 4, ...r }, null, 2));
+    else {
+      console.log(`title: ${r.title}`); console.log(`fte: ${JSON.stringify(r.fte)}`); console.log(r.table);
+      if (r.audit) printChecks(r.audit); else if (args["dry-run"]) console.log("(dry run — nothing written)");
+    }
+    return ok ? 0 : 4;
   }
   if (verb === "audit") {
     const a = await runAudit(api);
@@ -1298,7 +1474,7 @@ function haltAndExit(e, json) {
 
 module.exports = {
   validatePlan, splitRoster, rosterViolations, mfCoverageViolations, monthPlan, resampleWeights, rampHours, buildRoster,
-  tshirtTotals, phaseTotals, buildRosters, midDays, itemFormulas, rollupFormulas, tshirtRows, teamMixValues, teamMixFormatReqs, remainderFormula, locateTshirt, findPhaseSource,
+  tshirtTotals, phaseTotals, buildRosters, midDays, deriveFteFromTeamMix, phaseTotalsFromSheet, verbTeamMix, itemFormulasFor, rollupFormulasFor, findCell, itemFormulas, rollupFormulas, tshirtRows, teamMixValues, teamMixFormatReqs, remainderFormula, locateTshirt, findPhaseSource,
   auditTshirt, auditTeamMix, auditTechStack, auditOverview, colLetter, hexToColor, colorToHex, sheetIdFromArg,
   constants: { SIZE_CODES, PHASES, COLOR, RAMP, ROLE_LABEL, SOFT_CEILING, FOLD_THRESHOLD, TAB_TSHIRT, TAB_TEAM, TAB_TECH, PLAN_SCHEMA },
   Halt, SheetsApi, getToken, runAudit, main,

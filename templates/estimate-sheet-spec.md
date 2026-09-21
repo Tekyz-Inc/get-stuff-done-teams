@@ -132,7 +132,7 @@ The old `Month / Days / Tot Days / Hrs` layout is retired: `Days` IS the per-per
 
 - **The Team Mix staffs the MIDPOINT of the Low and High figures** (David, 2026-09-21): `staffDays = Low Total Days × (1 + high factor) / 2` — per phase, from that phase's `Low Hrs` and `High Hrs` rollups. Never the Low figure alone.
 - `months = staffDays / (Σ Count × 20)` — solve so `Σ Days` equals that midpoint.
-- Month columns `N = ceil(months)`, EXCEPT when the fractional tail is under ~0.1 month: fold it into the last full month (soft ceiling ~172 hrs) instead of opening a near-empty column.
+- Month columns `N = ceil(months)`, EXCEPT when the fractional tail is under ~0.1 month AND a full-time person still fits under the soft ceiling (`months × 160 ≤ N × 172`): then fold it into the last full month instead of opening a near-empty column.
 - **Recompute `months` and `N` after ANY roster change.** Adding a role raises Σ Count, shortens the duration, and turns the remainder column negative (−12.80 hrs was the symptom).
 - The remainder formula makes each row sum exactly. Never write a fractional last month as a value.
 
@@ -172,6 +172,8 @@ Monthly hours follow when the work happens. Normalise the weights, multiply by t
 | DevOps | 0.45 / 0.85 / 1.70 | back-loaded — mirror of BA |
 | Project Manager | 1.00 / 1.00 / 1.00 | flat |
 | Tech Lead / Architect | 1.30 / 0.80 / 0.90 | design-heavy, uptick at integration |
+| Design / UX | 1.60 / 0.90 / 0.50 | heaviest at the start, a tail for revisions |
+| Mobile | 1.35 / 1.05 / 0.60 | same shape as frontend |
 
 - A flat `160 / 160 / 147` for every role is the tell that no ramping was applied.
 - **The only ceiling is 160 hrs per person per month, soft to ~172.** There is NO `Count × 160` per-row ceiling — a 0.40 QA can work 106 hrs in their heavy month; that is what ramping means.
@@ -246,7 +248,13 @@ gsd-t estimate-sheet read       --sheet <id|url> [--tab <name>]   # read-before-
 gsd-t estimate-sheet plan-check --sheet <id|url> --plan plan.json # validate + the roster it WOULD write (the Step 4 pause)
 gsd-t estimate-sheet write      --sheet <id|url> --plan plan.json [--replace]   # T-Shirt + Team Mix + Tech Stack, then audit
 gsd-t estimate-sheet audit      --sheet <id|url>                  # §5 checklist by read-back
+gsd-t estimate-sheet teammix    --sheet <id|url> [--fte '{"backend":1.5,…}'] [--title <t>] [--dry-run]
+                                # rebuild the Team Mix (one grid per phase) from the sheet's OWN roster and phase rollups — no plan needed;
+                                # the roster is derived from the existing grid (entered Counts summed per discipline; older peak-utilisation
+                                # rosters split the sheet's total FTE by each role's hours); --fte overrides it; halts on a role it cannot map
 ```
+
+Both the current template and the older layout (Project/Client rows on top, legend from row 8, up to four size columns, header row 17) are READ by `audit` and `teammix` — every coordinate comes from the labels, never a fixed row. `write` produces the current template only.
 
 The plan (judgment only):
 
@@ -264,5 +272,5 @@ The plan (judgment only):
 ```
 
 - `tshirt.mode` `items` writes whole rows below the header (halts if rows exist unless `--replace`); `sizes` fills `E:L` on rows that already exist (a gap-analysis sheet), matched by the `(id)` suffix in column C — never by position.
-- `teamMix.fte` is per-discipline FTE (`backend` `frontend` `qa` `pm` `ba` `devops` `techlead`). The tool splits it into people (saturate then spill), computes months and the column count, ramps by discipline, writes the remainder formula, and refuses a roster that leaves a weighted MF factor unstaffed. It writes **one grid per phase with hours** (§2.6); `teamMix.phases: { "Phase 1": { "fte": {…} } }` overrides the mix for one phase.
+- `teamMix.fte` is per-discipline FTE (`backend` `frontend` `qa` `pm` `ba` `devops` `techlead` `design` `mobile`). The tool splits it into people (saturate then spill), computes months and the column count, ramps by discipline, writes the remainder formula, and refuses a roster that leaves a weighted MF factor unstaffed. It writes **one grid per phase with hours** (§2.6); `teamMix.phases: { "Phase 1": { "fte": {…} } }` overrides the mix for one phase.
 - The MF list, legend, rate and high factor are READ from the sheet; the plan never carries them.

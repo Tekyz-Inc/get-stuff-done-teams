@@ -2,6 +2,29 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.20.14] - 2026-09-21
+
+### Added — `gsd-t estimate-sheet teammix` rebuilds any estimate's Team Mix; the reader handles both template layouts
+
+Reviewing the 19 estimates linked from the Hilo index found ten on an older T-Shirt layout
+(Project/Client rows on top, legend from row 8, up to four size columns, header row 17) and an
+older Team Mix model (Count = peak-month hours ÷ 160). Five estimates have more than one phase
+and needed the per-phase Team Mix.
+
+- `bin/gsd-t-estimate-sheet.cjs`: `locateTshirt` finds every header cell BY LABEL and returns a
+  column map; item/rollup formulas and the audit are generated from the map. New `teammix` verb:
+  derives the roster from the sheet's existing grid (entered Counts summed per discipline; a
+  peak-utilisation roster splits the sheet's total FTE by each role's hours), reads phase
+  Low/High hours from the rollups, and rewrites one grid per phase; `--fte` overrides, `--dry-run`
+  previews, unmappable roles halt. Disciplines `design` and `mobile` added. `write` refuses the
+  older layout by name. Fold rule now checks a full-timer still fits under 172 hrs. 429 rate
+  limits back off and retry the identical request (3×), then halt.
+- Applied to the five multi-phase Hilo estimates (Acron, Role-Based Permissions, Part 141 & 61,
+  Part 121, Aeroplanned); all Team Mix checks pass on each. Aeroplanned had no PM/BA row — added
+  at 0.20 / 0.10.
+- `test/estimate-sheet-writer.test.js`: older-layout reader, roster derivation (both models),
+  fold-vs-ceiling.
+
 ## [5.20.13] - 2026-09-21
 
 ### Fixed — Team Mix staffs the midpoint of Low and High, not Low

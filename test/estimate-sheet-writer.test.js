@@ -81,14 +81,16 @@ function tshirtHeaderRows() {
   const rows = [];
   for (let r = 0; r < 13; r++) rows.push(Array(12).fill(""));
   rows[0][0] = "Date Submitted";
+  rows[2][0] = "Legends"; rows[2][1] = "Person Days";
   const legend = [["XS - Extra Small", 0.25], ["S - Small", 0.5], ["M - Medium", 1], ["L - Large", 3], ["XL - Extra Large", 5], ["XXL - Extra Extra Large", 7]];
   legend.forEach(([l, v], i) => { rows[3 + i][0] = l; rows[3 + i][1] = v; });
-  rows[2][4] = "Multiplication Factor";
+  rows[2][4] = "Multiplication Factor"; rows[2][6] = "High $ Factor"; rows[2][7] = "Avg. Hrly Rate";
+  rows[2][10] = "Low ($)"; rows[2][11] = "Low Hrs"; rows[2][12] = "High ($)"; rows[2][13] = "High Hrs";
   MF.forEach((f, i) => { rows[3 + i][4] = f.label; rows[3 + i][5] = f.value; });
   rows[9][4] = "Total MF"; rows[9][5] = { f: "=sum(F4:F9)", n: 0.9 };
   rows[3][6] = 1.3; rows[3][7] = 50;
   ["MVP", "Phase 1", "Phase 2", "Phase 3"].forEach((p, i) => { rows[3 + i][9] = p; });
-  rows[12][0] = "Module/Functionality";
+  rows[12] = ["Module/Functionality", "User Type", "Functionality", "Low Level Requirements", "Phase", "Web Portal", "Backend/API", "Days", "MFactor Days", "Total Days", "LOW $", "HIGH $"];
   return rows;
 }
 
@@ -237,6 +239,10 @@ test("monthPlan: months = totalDays / (ΣCount × 20); a tail under 0.1 month fo
   assert.strictEqual(Math.round(W.monthPlan(161.5, people).months * 100) / 100, 3.05); // frac .05 < .1 → folds into month 3
   assert.strictEqual(W.monthPlan(161.5, people).n, 3);
   assert.strictEqual(W.monthPlan(170, people).n, 4);      // 3.21 → 4
+  // a tail under 0.1 month does NOT fold when a full-timer would exceed 172 hrs in the folded month
+  const one = [{ discipline: "backend", label: "B", count: 1 }];
+  assert.strictEqual(W.monthPlan(21.96, one).n, 2);        // 1.098 months × 160 = 175.7 hrs > 172 → 2 columns
+  assert.strictEqual(W.monthPlan(21.4, one).n, 1);         // 1.07 months × 160 = 171.2 hrs ≤ 172 → folds
 });
 
 test("rampHours: QA back-loads, frontend front-loads, PM is flat, the total is preserved, nothing exceeds 172", () => {
@@ -344,13 +350,13 @@ test("audit: the writer's own T-Shirt output passes every T-Shirt check", () => 
 
 test("audit: each historical T-Shirt defect fails its named check", () => {
   const legendText = W.auditTshirt(writtenTshirtGrid(plan(), (rows) => { rows[14][6] = { v: "XS - Extra Small" }; return rows; }));
-  assert.ok(failing(legendText.checks).includes("T-Shirt: size cells are bare codes (no legend text)"));
+  assert.ok(failing(legendText.checks).includes("T-Shirt: size cells are bare codes (no legend text, no '-')"));
   const noDropdown = W.auditTshirt(writtenTshirtGrid(plan(), (rows) => { rows[14][4] = { v: "MVP" }; return rows; }));
   assert.ok(failing(noDropdown.checks).includes("T-Shirt: every item row has the Phase dropdown"));
   const staleTotal = W.auditTshirt(writtenTshirtGrid(plan(), (rows) => { rows[18][9] = { ...rows[18][9], f: "=SUM(J14:J15)", n: 1 }; return rows; }));
   assert.ok(failing(staleTotal.checks).includes("T-Shirt: totals row sums the full item range"));
   const staleRollup = W.auditTshirt(writtenTshirtGrid(plan(), (rows) => { rows[3][10] = { f: "=SUMIF($E$14:$E$15,$J4,$K$14:$K$15)", n: 0 }; return rows; }));
-  assert.ok(failing(staleRollup.checks).includes("T-Shirt: phase rollups (K4:N7) reference the full item range"));
+  assert.ok(failing(staleRollup.checks).includes("T-Shirt: phase rollups reference the full item range"));
   const unstyledSection = W.auditTshirt(writtenTshirtGrid(plan(), (rows) => { rows[13][0] = { v: "A. AUTH" }; return rows; }));
   assert.ok(failing(unstyledSection.checks).includes("T-Shirt: section rows are styled (bg #1C4F8B)"));
 });
@@ -415,6 +421,51 @@ test("audit: Technology Stack must be filled; Overview cells must point at the T
   assert.deepStrictEqual(failing(full.checks), []);
   const ov = W.auditOverview(mkGrid([["Estimate"], ["Low", "Project Hours", { f: `='${TAB_TSHIRT}'!L8`, n: 1 }, 50, { f: `='${TAB_TSHIRT}'!K8`, n: 1 }], ["High", "Project Hours", { f: `='${TAB_TSHIRT}'!N8`, n: 1 }, 50, { f: `='${TAB_TSHIRT}'!M8`, n: 1 }]]));
   assert.deepStrictEqual(failing(ov.checks), []);
+});
+
+test("locateTshirt: reads the OLDER layout too (Project/Client rows, legend from row 8, four size columns, header row 17)", () => {
+  const rows = [];
+  for (let r = 0; r < 17; r++) rows.push(Array(16).fill(""));
+  rows[2][0] = "Project"; rows[2][1] = "FlyLingo"; rows[3][0] = "Client"; rows[4][0] = "Date Submitted";
+  rows[6][0] = "Legends"; rows[6][4] = "Multiplication Factor"; rows[6][6] = "High $ Factor"; rows[6][7] = "Avg. Hrly Rate";
+  rows[6][10] = "Low ($)"; rows[6][11] = "Low Hrs"; rows[6][12] = "High ($)"; rows[6][13] = "High Hrs";
+  [["XS - Extra Small", 0.25], ["S - Small", 0.5], ["M - Medium", 1], ["L - Large", 3], ["XL - Extra Large", 5], ["XXL - Extra Extra Large", 7]].forEach(([l, v], i) => { rows[7 + i][0] = l; rows[7 + i][1] = v; });
+  MF.forEach((f, i) => { rows[7 + i][4] = f.label; rows[7 + i][5] = f.value; });
+  rows[13][4] = "Total MF"; rows[13][5] = { f: "=sum(F8:F13)", n: 0.9 };
+  rows[7][6] = 1.25; rows[7][7] = 50;
+  ["MVP", "Phase 1", "Phase 2", "Phase 3"].forEach((p, i) => { rows[7 + i][9] = p; rows[7 + i][11] = { f: "=x", n: (i + 1) * 80 }; rows[7 + i][13] = { f: "=y", n: (i + 1) * 100 }; });
+  rows[16] = ["Module/Functionality", "User Type", "Functionality", "Low Level Requirements", "Phase", "Mobile", "Web App", "Admin Portal", "Backend/API", "Days", "MFactor Days", "Total Days", "LOW $", "HIGH $"];
+  const layout = W.locateTshirt(mkGrid(rows));
+  assert.strictEqual(layout.headerRow, 16);
+  assert.deepStrictEqual(layout.cols.sizes, [5, 6, 7, 8]);
+  assert.strictEqual(layout.cols.total, 11);
+  assert.strictEqual(layout.legendFirst1, 8);
+  assert.strictEqual(layout.highFactor, 1.25);
+  assert.ok(Math.abs(layout.mfTotal - 0.9) < 1e-9);
+  const f = W.itemFormulasFor(19, layout.cols, { first1: 8, last1: 13 });
+  assert.strictEqual(f.I, "=J19*$F$14");
+  assert.strictEqual(f.K, "=L19*8*$H$8");
+  assert.strictEqual(f.L, "=M19*$G$8");
+  assert.ok(f.H.startsWith('=(IF(F19="",0,SUMIF($A$8:$A$13,LEFT(F19,2)&"*",$B$8:$B$13))+IF(G19'));
+  const ph = W.phaseTotalsFromSheet(mkGrid(rows), layout);
+  assert.deepStrictEqual(ph.map((x) => [x.phase, x.totalDays, x.highDays, x.staffDays]), [["MVP", 10, 12.5, 11.25], ["Phase 1", 20, 25, 22.5], ["Phase 2", 30, 37.5, 33.75], ["Phase 3", 40, 50, 45]]);
+});
+
+test("deriveFteFromTeamMix: entered Counts sum per discipline; peak-formula rosters split the sheet's total FTE by hours; unknown roles halt", () => {
+  const entered = mkGrid([["Title"], ["Skill set", "Count"], ["Backend / API Engineer 1", 1], ["Backend / API Engineer 2", 0.5], ["Frontend Engineer", 0.4], ["QA Engineer", 0.4], ["Project Manager", 0.25], ["Business Analyst", 0.1], ["Total", { f: "=SUM(B3:B8)", n: 2.65 }]]);
+  assert.deepStrictEqual(W.deriveFteFromTeamMix(entered), { backend: 1.5, frontend: 0.4, qa: 0.4, pm: 0.25, ba: 0.1 });
+  const peak = mkGrid([["Title"], [], ["Skill set", "Count", "", "Month", "Days", "Tot Days", "Hrs", "", "Resource", "Mon 1", "Mon 2", "Total Hrs"],
+    ["Backend-1", { f: "=ROUND(MAX(J4:K4)/160,2)", n: 1.13 }, "", 2, 0, 0, 0, "", "Backend-1", 180, 120, { f: "=SUM(J4:K4)", n: 300 }],
+    ["Design/UX", { f: "=ROUND(MAX(J5:K5)/160,2)", n: 0.69 }, "", 2, 0, 0, 0, "", "Design/UX", 110, 50, { f: "=SUM(J5:K5)", n: 160 }],
+    ["Testing/QA", { f: "=ROUND(MAX(J6:K6)/160,2)", n: 0.69 }, "", 2, 0, 0, 0, "", "Testing/QA", 20, 50, { f: "=SUM(J6:K6)", n: 70 }],
+    ["Project Mgmt", { f: "=ROUND(MAX(J7:K7)/160,2)", n: 0.19 }, "", 2, 0, 0, 0, "", "Project Mgmt", 30, 30, { f: "=SUM(J7:K7)", n: 60 }],
+    ["Business Analysis", { f: "=ROUND(MAX(J8:K8)/160,2)", n: 0.13 }, "", 2, 0, 0, 0, "", "Business Analysis", 20, 10, { f: "=SUM(J8:K8)", n: 30 }],
+    ["Tot FTE ", { f: "=SUM(B4:B8)", n: 2.83 }], ["Total Hours"]]);
+  const fte = W.deriveFteFromTeamMix(peak);
+  const sum = Object.values(fte).reduce((a, b) => a + b, 0);
+  assert.ok(Math.abs(sum - 2.83) < 0.03, `total FTE preserved: ${sum}`);
+  assert.ok(fte.backend > fte.design && fte.design > fte.qa && fte.qa > fte.pm, `split by hours: ${JSON.stringify(fte)}`);
+  assert.throws(() => W.deriveFteFromTeamMix(mkGrid([["T"], ["Skill set", "Count"], ["Wizard", 1]])), /cannot map these roles/);
 });
 
 test("locateTshirt: halts when the tab is not the template", () => {
