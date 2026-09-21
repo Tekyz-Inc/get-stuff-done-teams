@@ -248,6 +248,9 @@ gsd-t estimate-sheet read       --sheet <id|url> [--tab <name>]   # read-before-
 gsd-t estimate-sheet plan-check --sheet <id|url> --plan plan.json # validate + the roster it WOULD write (the Step 4 pause)
 gsd-t estimate-sheet write      --sheet <id|url> --plan plan.json [--replace]   # T-Shirt + Team Mix + Tech Stack, then audit
 gsd-t estimate-sheet audit      --sheet <id|url>                  # §5 checklist by read-back
+gsd-t estimate-sheet format     --sheet <id|url> [--dry-run]      # normalise T-Shirt FORMATTING only: section rows (§1.2), grey totals band directly under
+                                # the last item, standard summary block directly under it (§1.3); no size, phase, text or item formula is touched;
+                                # rows under the totals row that are not the old summary block are never overwritten (rows are inserted above them)
 gsd-t estimate-sheet teammix    --sheet <id|url> [--fte '{"backend":1.5,…}'] [--title <t>] [--dry-run]
                                 # rebuild the Team Mix (one grid per phase) from the sheet's OWN roster and phase rollups — no plan needed;
                                 # the roster is derived from the existing grid (entered Counts summed per discipline; older peak-utilisation

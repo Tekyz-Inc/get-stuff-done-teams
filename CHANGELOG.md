@@ -24,6 +24,12 @@ and needed the per-phase Team Mix.
   at 0.20 / 0.10.
 - `test/estimate-sheet-writer.test.js`: older-layout reader, roster derivation (both models),
   fold-vs-ceiling.
+- `format` verb: normalises a T-Shirt tab's formatting only — section rows to the spec blue
+  (unmerging each sheet's own merge range first), blank rows before the totals row deleted, the
+  grey bold totals band, and the standard summary block (bold labels, Total Cost in dollars)
+  rewritten directly under it; recognises the four old summary variants and inserts rows when
+  another table sits close below. Applied to all 19 Hilo estimates; every totals/summary check
+  now passes on all 19.
 
 ## [5.20.13] - 2026-09-21
 

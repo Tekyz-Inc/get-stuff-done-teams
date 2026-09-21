@@ -24,6 +24,7 @@
  *   plan-check --sheet <id|url> --plan <plan.json>      validate plan, print the roster it WOULD write
  *   write      --sheet <id|url> --plan <plan.json> [--replace]   write T-Shirt + Team Mix + Tech Stack, then audit
  *   teammix    --sheet <id|url> [--fte <json>] [--dry-run] rebuild the Team Mix (one grid per phase) from the sheet's own roster + rollups
+ *   format     --sheet <id|url> [--dry-run]              normalise T-Shirt formatting only (section rows, totals band, summary block); values untouched
  *   audit      --sheet <id|url>                          the spec §5 checklist, by read-back
  *   plan-schema                                          print the plan shape
  * Flags: --json (envelope only)  --key <path>  --no-audit (write only; for debugging)
@@ -1371,6 +1372,115 @@ async function verbTeamMix(api, opts) {
   return result;
 }
 
+/**
+ * Normalise a T-Shirt tab's FORMATTING to the spec without touching any size, phase, item text
+ * or formula (spec §1.2 section rows, §1.3 totals row + summary block). Layout-aware via the
+ * column map, so it works on both template generations. What it does, in order:
+ *   1. section heading rows → merged A:<HIGH $>, bg #1C4F8B, white bold Arial 10
+ *   2. blank rows between the last item and the totals row → deleted
+ *   3. totals row → bg #D8DDE8, bold 10, across the table
+ *   4. summary block (Total Days / Total Hrs / Total Cost) → rewritten directly under the totals
+ *      row in the standard shape; blank rows in between deleted; labels bold; Cost in dollars
+ * HALTS when the rows under the totals row hold anything other than the old summary block or
+ * blanks — it never overwrites content it did not expect.
+ */
+async function verbFormat(api, opts) {
+  const grid = await api.grid(TAB_TSHIRT);
+  const sheetId = grid.properties.sheetId;
+  const layout = locateTshirt(grid);
+  const { cols } = layout;
+  const width = cols.high + 1;
+  const L = colLetter;
+  const first0 = layout.firstItemRow;
+  const sections = [];
+  let lastItem0 = -1, totalRow0 = -1;
+  for (let r = first0; r < rowCount(grid); r++) {
+    const a = textAt(grid, r, 0);
+    if (/^Total \(Days\)/i.test(a)) { totalRow0 = r; break; }
+    if (rowIsEmpty(grid, r, width)) continue;
+    if (a !== "" && textAt(grid, r, 2) === "" && textAt(grid, r, cols.days) === "") sections.push(r);
+    else lastItem0 = r;
+  }
+  if (lastItem0 < 0) throw new Halt(`${TAB_TSHIRT}: no item rows`);
+  if (totalRow0 < 0) throw new Halt(`${TAB_TSHIRT}: no 'Total (Days)' row below the items — add it first`);
+  // the rows under the totals row must be the old summary block or blank
+  // Old summary variants seen across the 19 Hilo sheets (2026-09-21): the standard 3 rows;
+  // a 'Low | High' header row above them; 'Total Cost (Low)' / '(High)' split rows; nothing at
+  // all. Anything else under the totals row (a second table, notes) ends the block and is
+  // NEVER touched — the new block goes in the free rows above it, inserting rows if needed.
+  const summaryRe = /^(Total (Days|Hrs|Cost)( \((Low|High)\))?|Low|High)$/i;
+  const totRef = new RegExp(`\\b[A-Z]{1,2}\\$?${totalRow0 + 1}\\b`);
+  let summaryEnd0 = totalRow0; // last row of the old summary block (or the totals row if none)
+  let nextContent0 = -1;       // first row of foreign content below the block, if any
+  for (let r = totalRow0 + 1; r < Math.min(rowCount(grid), totalRow0 + 10); r++) {
+    let rowHas = false, foreign = false;
+    for (let c = 0; c < width; c++) {
+      const v = textAt(grid, r, c).trim();
+      if (v === "") continue;
+      rowHas = true;
+      const ok = summaryRe.test(v) || (v.startsWith("=") && (totRef.test(v) || new RegExp(`\\b[A-Z]{1,2}(${totalRow0 + 2}|${totalRow0 + 3}|${totalRow0 + 4})\\b`).test(v)));
+      if (!ok) foreign = true;
+    }
+    if (foreign) { nextContent0 = r; break; }
+    if (rowHas) summaryEnd0 = r;
+  }
+  const blankBefore = totalRow0 - lastItem0 - 1;
+  const freeAfter = (nextContent0 < 0 ? Infinity : nextContent0 - 1) - totalRow0; // rows available under the totals row
+  const plan = { sections: sections.map((r) => r + 1), lastItem1: lastItem0 + 1, totalRow1: totalRow0 + 1, blankRowsBeforeTotals: blankBefore, oldSummaryRows: summaryEnd0 > totalRow0 ? `${totalRow0 + 2}–${summaryEnd0 + 1}` : "none", foreignContentAtRow: nextContent0 < 0 ? null : nextContent0 + 1, rowsToInsertForSummary: Math.max(0, 3 - Math.min(freeAfter, 3)) };
+  if (opts.dryRun) return { layout: { headerRow1: layout.headerRow + 1, sizeColumns: cols.sizeLabels, totalCol: L(cols.total) }, plan };
+
+  // 1. section rows (before any row deletion — indices are current)
+  const reqs = [];
+  const merges = Array.isArray(grid.merges) ? grid.merges : [];
+  for (const r0 of sections) {
+    // Google only unmerges an EXACT existing range — use the sheet's own merge list (two Hilo
+    // sheets had section rows merged wider than the table, and A:<HIGH $> 400'd).
+    for (const m of merges) if (m.startRowIndex <= r0 && m.endRowIndex > r0) reqs.push({ unmergeCells: { range: { sheetId, startRowIndex: m.startRowIndex, endRowIndex: m.endRowIndex, startColumnIndex: m.startColumnIndex, endColumnIndex: m.endColumnIndex } } });
+    reqs.push({ mergeCells: { range: gridRange(sheetId, r0, r0 + 1, 0, width), mergeType: "MERGE_ALL" } });
+    reqs.push(fmtReq(sheetId, r0, r0 + 1, 0, width,
+      { backgroundColor: hexToColor(COLOR.sectionBg), textFormat: { fontFamily: "Arial", fontSize: 10, bold: true, foregroundColor: hexToColor(COLOR.white) }, horizontalAlignment: "LEFT" },
+      "userEnteredFormat(backgroundColor,textFormat,horizontalAlignment)"));
+  }
+  if (reqs.length) await api.batch(reqs);
+  // 2. clear the old summary block (values + formats), then delete the blank rows before the totals row
+  if (summaryEnd0 > totalRow0) {
+    await api.clearValues(TAB_TSHIRT, `A${totalRow0 + 2}:${L(width - 1)}${summaryEnd0 + 1}`);
+    await api.batch([fmtReq(sheetId, totalRow0 + 1, summaryEnd0 + 1, 0, width, {}, "userEnteredFormat")]);
+  }
+  let tot0 = totalRow0;
+  if (blankBefore > 0) {
+    await api.batch([{ deleteDimension: { range: { sheetId, dimension: "ROWS", startIndex: lastItem0 + 1, endIndex: totalRow0 } } }]);
+    tot0 = lastItem0 + 1;
+  }
+  // make room for the 3 summary rows when other content sits close under the totals row
+  if (plan.rowsToInsertForSummary > 0) {
+    const at = tot0 + 1 + (freeAfter === Infinity ? 3 : Math.max(0, freeAfter)); // insert right before the foreign content
+    await api.batch([{ insertDimension: { range: { sheetId, dimension: "ROWS", startIndex: at, endIndex: at + plan.rowsToInsertForSummary }, inheritFromBefore: false } }]);
+  }
+  // 3. totals row band
+  await api.batch([
+    fmtReq(sheetId, tot0, tot0 + 1, 0, width, { backgroundColor: hexToColor(COLOR.tshirtTotalBg), textFormat: { fontSize: 10, bold: true }, horizontalAlignment: "LEFT" }, "userEnteredFormat(backgroundColor,textFormat,horizontalAlignment)"),
+    fmtReq(sheetId, tot0, tot0 + 1, cols.days, width, { horizontalAlignment: "RIGHT" }, "userEnteredFormat.horizontalAlignment"),
+  ]);
+  // 4. summary block directly under the totals row
+  const t1 = tot0 + 1;
+  const hf = `$${L(cols.highFactor.c)}$${cols.highFactor.r + 1}`;
+  const rows = [
+    ["Total Days", `=${L(cols.total)}${t1}`, `=${L(cols.total)}${t1}*${hf}`],
+    ["Total Hrs", `=${L(cols.total)}${t1}*8`, `=${L(cols.total)}${t1}*${hf}*8`],
+    ["Total Cost", `=${L(cols.low)}${t1}`, `=${L(cols.high)}${t1}`],
+  ];
+  await api.putValues(TAB_TSHIRT, `${L(cols.total)}${t1 + 1}:${L(cols.total + 2)}${t1 + 3}`, rows);
+  await api.batch([
+    fmtReq(sheetId, t1, t1 + 3, cols.total, cols.total + 3, { textFormat: { fontSize: 10, bold: true } }, "userEnteredFormat.textFormat"),
+    fmtReq(sheetId, t1, t1 + 2, cols.total + 1, cols.total + 3, { horizontalAlignment: "RIGHT", numberFormat: { type: "NUMBER", pattern: "0.00" } }, "userEnteredFormat(horizontalAlignment,numberFormat)"),
+    fmtReq(sheetId, t1 + 2, t1 + 3, cols.total + 1, cols.total + 3, { horizontalAlignment: "RIGHT", numberFormat: { type: "CURRENCY", pattern: "$#,##0.00" } }, "userEnteredFormat(horizontalAlignment,numberFormat)"),
+  ]);
+  const result = { plan, totalRow1: t1 };
+  if (!opts.noAudit) result.audit = await runAudit(api);
+  return result;
+}
+
 async function verbWrite(api, plan, opts) {
   const ts = await writeTshirt(api, plan, opts);
   const rosters = buildRosters(plan, ts.layout);
@@ -1403,7 +1513,7 @@ function printChecks(audit) {
   console.log(`${audit.ok ? "AUDIT PASS" : `AUDIT FAIL (${audit.failed})`} — ${audit.title}`);
 }
 
-const USAGE = "usage: gsd-t estimate-sheet <read|plan-check|write|teammix|audit|plan-schema> --sheet <id|url> [--tab <name>] [--plan <plan.json>] [--replace] [--fte '{\"backend\":1.5}'] [--title <t>] [--dry-run] [--no-audit] [--key <path>] [--json]";
+const USAGE = "usage: gsd-t estimate-sheet <read|plan-check|write|teammix|format|audit|plan-schema> --sheet <id|url> [--tab <name>] [--plan <plan.json>] [--replace] [--fte '{\"backend\":1.5}'] [--title <t>] [--dry-run] [--no-audit] [--key <path>] [--json]";
 
 /** Runs a verb; returns the exit code. Throws Halt (or any error) — the runner below turns that into exit 4/64. */
 async function main(args) {
@@ -1430,6 +1540,13 @@ async function main(args) {
       console.log(`title: ${r.title}`); console.log(`fte: ${JSON.stringify(r.fte)}`); console.log(r.table);
       if (r.audit) printChecks(r.audit); else if (args["dry-run"]) console.log("(dry run — nothing written)");
     }
+    return ok ? 0 : 4;
+  }
+  if (verb === "format") {
+    const r = await verbFormat(api, { dryRun: !!args["dry-run"], noAudit: !!args["no-audit"] });
+    const ok = !r.audit || r.audit.ok;
+    if (json) console.log(JSON.stringify({ ok, exitCode: ok ? 0 : 4, ...r }, null, 2));
+    else { console.log(JSON.stringify(r.plan)); if (r.audit) printChecks(r.audit); else if (args["dry-run"]) console.log("(dry run — nothing written)"); }
     return ok ? 0 : 4;
   }
   if (verb === "audit") {
