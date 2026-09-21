@@ -52,6 +52,7 @@ const COLOR = {
   sage: "#D6E2DD",
   totalBg: "#E5E5E5",
   totalDaysBg: "#9EC1EF",
+  tshirtTotalBg: "#D8DDE8",
   white: "#FFFFFF",
 };
 
@@ -472,7 +473,9 @@ function monthPlan(totalDays, people) {
   const sumCount = people.reduce((s, p) => s + p.count, 0);
   if (!(sumCount > 0)) throw new Halt("Team Mix: total Count is 0");
   if (!(totalDays > 0)) throw new Halt(`Team Mix: total days is ${totalDays}`);
-  const months = round2(totalDays / (sumCount * 20));
+  // Full precision: the sheet DISPLAYS Mths as 0.00 but computes with the exact value, so
+  // Σ Days reconciles to the T-Shirt total instead of drifting by ΣCount × 20 × 0.005.
+  const months = totalDays / (sumCount * 20);
   const whole = Math.floor(months);
   const frac = months - whole;
   const n = whole >= 1 && frac < FOLD_THRESHOLD ? whole : Math.ceil(months);
@@ -526,10 +529,10 @@ function buildRoster(plan, totalDays, mfList) {
   const rows = people.map((p) => {
     const days = round2(months * 20 * p.count);
     const hours = round2(days * 8);
-    return { ...p, months, days, hours, monthHours: rampHours(hours, p.discipline, n) };
+    return { ...p, months: round2(months), monthsExact: months, days, hours, monthHours: rampHours(hours, p.discipline, n) };
   });
   const sumDays = round2(rows.reduce((s, r) => s + r.days, 0));
-  return { people: rows, months, sumCount, n, sumDays };
+  return { people: rows, months: round2(months), monthsExact: months, sumCount, n, sumDays };
 }
 
 // ───────────────────────── T-Shirt totals (pure) ─────────────────────────
@@ -589,18 +592,17 @@ function tshirtRows(plan, firstRow0) {
     }
   }
   const lastItem1 = r1 - 1;
-  const totalRow1 = lastItem1 + 2;
+  const totalRow1 = lastItem1 + 1; // directly under the last item — no blank row (David, 2026-09-21)
   const f1 = firstRow0 + 1;
-  out.push({ kind: "blank", row1: lastItem1 + 1, values: Array(12).fill("") });
   out.push({
     kind: "total", row1: totalRow1,
     values: ["Total (Days)", "", "", "", "", "", "",
       `=SUM(H${f1}:H${lastItem1})`, `=SUM(I${f1}:I${lastItem1})`, `=SUM(J${f1}:J${lastItem1})`, `=SUM(K${f1}:K${lastItem1})`, `=SUM(L${f1}:L${lastItem1})`],
   });
-  out.push({ kind: "blank", row1: totalRow1 + 1, values: Array(12).fill("") });
-  out.push({ kind: "summary", row1: totalRow1 + 2, values: ["", "", "", "", "", "", "", "", "", "Total Days", `=J${totalRow1}`, `=J${totalRow1}*$G$4`] });
-  out.push({ kind: "summary", row1: totalRow1 + 3, values: ["", "", "", "", "", "", "", "", "", "Total Hrs", `=J${totalRow1}*8`, `=J${totalRow1}*$G$4*8`] });
-  out.push({ kind: "summary", row1: totalRow1 + 4, values: ["", "", "", "", "", "", "", "", "", "Total Cost", `=K${totalRow1}`, `=L${totalRow1}`] });
+  // summary block directly under the totals row — no blank row
+  out.push({ kind: "summary", row1: totalRow1 + 1, values: ["", "", "", "", "", "", "", "", "", "Total Days", `=J${totalRow1}`, `=J${totalRow1}*$G$4`] });
+  out.push({ kind: "summary", row1: totalRow1 + 2, values: ["", "", "", "", "", "", "", "", "", "Total Hrs", `=J${totalRow1}*8`, `=J${totalRow1}*$G$4*8`] });
+  out.push({ kind: "summary-cost", row1: totalRow1 + 3, values: ["", "", "", "", "", "", "", "", "", "Total Cost", `=K${totalRow1}`, `=L${totalRow1}`] });
   return { rows: out, firstItem1: f1, lastItem1, totalRow1 };
 }
 
@@ -659,10 +661,11 @@ async function writeTshirt(api, plan, opts) {
   }
   // 4. formats — item area defaults, then per-row kinds
   const reqs = [];
-  reqs.push(fmtReq(sheetId, first0, lastWritten1, 0, 12, FMT_ITEM_TEXT, "userEnteredFormat(textFormat,horizontalAlignment)"));
-  reqs.push(fmtReq(sheetId, first0, lastWritten1, 4, 7, FMT_ITEM_SIZE, "userEnteredFormat(horizontalAlignment,textFormat)"));
-  reqs.push(fmtReq(sheetId, first0, lastWritten1, 7, 10, FMT_ITEM_NUM, FMT_FIELDS_ALL));
-  reqs.push(fmtReq(sheetId, first0, lastWritten1, 10, 12, FMT_ITEM_CUR, FMT_FIELDS_ALL));
+  const lastItem0 = built.lastItem1; // exclusive end for item-area formats (0-based end = lastItem1)
+  reqs.push(fmtReq(sheetId, first0, lastItem0, 0, 12, FMT_ITEM_TEXT, "userEnteredFormat(textFormat,horizontalAlignment)"));
+  reqs.push(fmtReq(sheetId, first0, lastItem0, 4, 7, FMT_ITEM_SIZE, "userEnteredFormat(horizontalAlignment,textFormat)"));
+  reqs.push(fmtReq(sheetId, first0, lastItem0, 7, 10, FMT_ITEM_NUM, FMT_FIELDS_ALL));
+  reqs.push(fmtReq(sheetId, first0, lastItem0, 10, 12, FMT_ITEM_CUR, FMT_FIELDS_ALL));
   for (const row of built.rows) {
     const r0 = row.row1 - 1;
     if (row.kind === "section") {
@@ -671,9 +674,14 @@ async function writeTshirt(api, plan, opts) {
         { backgroundColor: hexToColor(COLOR.sectionBg), textFormat: { fontFamily: "Arial", fontSize: 10, bold: true, foregroundColor: hexToColor(COLOR.white) }, horizontalAlignment: "LEFT" },
         "userEnteredFormat(backgroundColor,textFormat,horizontalAlignment)"));
     } else if (row.kind === "total") {
-      reqs.push(fmtReq(sheetId, r0, r0 + 1, 0, 12, { textFormat: { fontFamily: "Calibri", fontSize: 10, bold: true } }, "userEnteredFormat.textFormat"));
-    } else if (row.kind === "summary") {
-      reqs.push(fmtReq(sheetId, r0, r0 + 1, 9, 12, { textFormat: { fontFamily: "Calibri", fontSize: 10, bold: true } }, "userEnteredFormat.textFormat"));
+      // the template's totals row: grey band across A:L, bold 10, numbers in General format, right-aligned
+      reqs.push(fmtReq(sheetId, r0, r0 + 1, 0, 12, { backgroundColor: hexToColor(COLOR.tshirtTotalBg), textFormat: { fontSize: 10, bold: true }, horizontalAlignment: "LEFT" }, "userEnteredFormat(backgroundColor,textFormat,horizontalAlignment)"));
+      reqs.push(fmtReq(sheetId, r0, r0 + 1, 7, 12, { horizontalAlignment: "RIGHT" }, "userEnteredFormat.horizontalAlignment"));
+    } else if (row.kind === "summary" || row.kind === "summary-cost") {
+      reqs.push(fmtReq(sheetId, r0, r0 + 1, 9, 12, { textFormat: { fontSize: 10, bold: true } }, "userEnteredFormat.textFormat"));
+      reqs.push(fmtReq(sheetId, r0, r0 + 1, 10, 12,
+        row.kind === "summary-cost" ? { horizontalAlignment: "RIGHT", numberFormat: { type: "CURRENCY", pattern: "$#,##0.00" } } : { horizontalAlignment: "RIGHT", numberFormat: { type: "NUMBER", pattern: "0.00" } },
+        "userEnteredFormat(horizontalAlignment,numberFormat)"));
     } else if (row.kind === "item") {
       reqs.push(copyPhaseReq(sheetId, phaseSrc, r0)); // carries validation + chip format; value re-put below
     }
@@ -732,6 +740,26 @@ async function writeTshirtSizes(api, grid, sheetId, layout, plan, totals, phaseS
 
 // ───────────────────────── write: Team Mix (spec §2) ─────────────────────────
 
+/** Per-phase T-Shirt totals in PHASES order — only phases with hours > 0 (spec §2.6). */
+function phaseTotals(plan, layout) {
+  const raw = {};
+  for (const s of plan.tshirt.sections) for (const it of s.items) {
+    raw[it.phase] = (raw[it.phase] ? raw[it.phase] : 0) + sizeDays(it.fe, layout.legend) + sizeDays(it.be, layout.legend);
+  }
+  return PHASES.filter((ph) => raw[ph] > 0).map((ph) => ({ phase: ph, rawDays: round2(raw[ph]), totalDays: round2(raw[ph] * (1 + layout.mfTotal)) }));
+}
+
+/** One roster per phase with hours. FTE comes from teamMix.phases[<phase>].fte when given, else teamMix.fte. */
+function buildRosters(plan, layout) {
+  const phases = phaseTotals(plan, layout);
+  if (!phases.length) throw new Halt("no phase has any hours — nothing to staff");
+  return phases.map((ph) => {
+    const override = plan.teamMix.phases && plan.teamMix.phases[ph.phase] && plan.teamMix.phases[ph.phase].fte;
+    const sub = override ? { ...plan, teamMix: { ...plan.teamMix, fte: override } } : plan;
+    return { ...ph, roster: buildRoster(sub, ph.totalDays, layout.mf) };
+  });
+}
+
 /**
  * The last month's REMAINDER formula (spec §2.1). n=1: the whole total; n=2: `=F-I`
  * (Google rewrites a one-cell range `SUM(I3:I3)` to `SUM(I3)`, so the read-back
@@ -743,7 +771,11 @@ function remainderFormula(r1, firstMonthC, n) {
   return `=F${r1}-SUM(${colLetter(firstMonthC)}${r1}:${colLetter(firstMonthC + n - 2)}${r1})`;
 }
 
-function teamMixValues(plan, roster) {
+/**
+ * The cell values of ONE Team Mix grid starting at 0-based row `top` (spec §2.1):
+ * title, header, one row per person, Total, Total Days. Formulas use absolute rows.
+ */
+function teamMixValues(plan, roster, phase, top) {
   const n = roster.n;
   const firstMonthC = 8; // I
   const totalC = firstMonthC + n; // Total Hrs column index — derived, never remembered
@@ -753,18 +785,18 @@ function teamMixValues(plan, roster) {
   for (let m = 1; m <= n; m++) header.push(`Mon ${m}`);
   header.push("Total Hrs");
   const rows = [];
-  rows.push([plan.title, ...Array(width - 1).fill("")]);
+  rows.push([phase ? `${plan.title} — ${phase}` : plan.title, ...Array(width - 1).fill("")]);
   rows.push(header);
+  const firstP = top + 3; // 1-based row of the first person
   roster.people.forEach((p, i) => {
-    const r1 = 3 + i;
-    const row = [p.label, p.count, "", roster.months, `=D${r1}*20*B${r1}`, `=E${r1}*8`, "", p.label];
+    const r1 = firstP + i;
+    const row = [p.label, p.count, "", roster.monthsExact, `=D${r1}*20*B${r1}`, `=E${r1}*8`, "", p.label];
     for (let m = 0; m < n - 1; m++) row.push(p.monthHours[m]);
     row.push(remainderFormula(r1, firstMonthC, n));
     row.push(`=SUM(${L(firstMonthC)}${r1}:${L(totalC - 1)}${r1})`);
     rows.push(row);
   });
-  const firstP = 3;
-  const lastP = 2 + roster.people.length;
+  const lastP = firstP + roster.people.length - 1;
   const totalR = lastP + 1;
   const total = ["Total", `=SUM(B${firstP}:B${lastP})`, "", "", `=SUM(E${firstP}:E${lastP})`, `=SUM(F${firstP}:F${lastP})`, "", "Total Hours"];
   for (let c = firstMonthC; c <= totalC; c++) total.push(`=SUM(${L(c)}${firstP}:${L(c)}${lastP})`);
@@ -772,45 +804,65 @@ function teamMixValues(plan, roster) {
   const totalDays = ["", "", "", "", "", "", "", "Total Days"];
   for (let c = firstMonthC; c <= totalC; c++) totalDays.push(`=${L(c)}${totalR}/8`);
   rows.push(totalDays);
-  return { rows, width, totalC, firstMonthC, totalR, firstP, lastP };
+  return { rows, width, totalC, firstMonthC, top, titleR: top + 1, headerR: top + 2, firstP, lastP, totalR, totalDaysR: totalR + 1, bottom: totalR + 1 };
 }
 
-async function writeTeamMix(api, plan, roster) {
+const GRID_GAP = 2; // blank rows between phase grids (spec §2.6)
+
+/** Format requests for one grid (spec §2.1 styling), computed from the grid's own shape. */
+function teamMixFormatReqs(sheetId, v) {
+  const W = v.width;
+  const arial = (bold) => ({ fontFamily: "Arial", fontSize: 10, bold });
+  const white = { backgroundColor: hexToColor(COLOR.white) };
+  const reqs = [];
+  const t0 = v.titleR - 1, h0 = v.headerR - 1, p0 = v.firstP - 1, p1 = v.lastP, tot0 = v.totalR - 1;
+  reqs.push({ mergeCells: { range: gridRange(sheetId, t0, t0 + 1, 0, W), mergeType: "MERGE_ALL" } });
+  reqs.push(fmtReq(sheetId, t0, t0 + 1, 0, W, { backgroundColor: hexToColor(COLOR.teamTitleBg), textFormat: { fontFamily: "Montserrat", fontSize: 20, bold: true, foregroundColor: hexToColor(COLOR.white) }, horizontalAlignment: "CENTER" }, "userEnteredFormat(backgroundColor,textFormat,horizontalAlignment)"));
+  reqs.push(fmtReq(sheetId, h0, v.bottom, 0, W, { textFormat: arial(false), horizontalAlignment: "RIGHT", numberFormat: { type: "NUMBER", pattern: "0.00" } }, FMT_FIELDS_ALL));
+  reqs.push(fmtReq(sheetId, h0, h0 + 1, 0, W, { backgroundColor: hexToColor(COLOR.teamHeaderBg), textFormat: { ...arial(true), foregroundColor: hexToColor(COLOR.white) } }, "userEnteredFormat(backgroundColor,textFormat)"));
+  reqs.push(fmtReq(sheetId, h0, h0 + 1, 2, 3, white, "userEnteredFormat.backgroundColor"));
+  reqs.push(fmtReq(sheetId, h0, h0 + 1, 6, 7, white, "userEnteredFormat.backgroundColor"));
+  reqs.push(fmtReq(sheetId, h0, v.bottom, 0, 1, { horizontalAlignment: "LEFT" }, "userEnteredFormat.horizontalAlignment"));
+  reqs.push(fmtReq(sheetId, h0, v.bottom, 7, 8, { horizontalAlignment: "LEFT" }, "userEnteredFormat.horizontalAlignment"));
+  reqs.push(fmtReq(sheetId, h0, h0 + 1, v.totalC, v.totalC + 1, { horizontalAlignment: "LEFT" }, "userEnteredFormat.horizontalAlignment"));
+  const sage = { backgroundColor: hexToColor(COLOR.sage), textFormat: arial(true) };
+  reqs.push(fmtReq(sheetId, p0, p1, 4, 6, sage, "userEnteredFormat(backgroundColor,textFormat)"));
+  reqs.push(fmtReq(sheetId, p0, p1, v.totalC, v.totalC + 1, sage, "userEnteredFormat(backgroundColor,textFormat)"));
+  reqs.push(fmtReq(sheetId, tot0, tot0 + 1, 0, W, { backgroundColor: hexToColor(COLOR.totalBg), textFormat: arial(true) }, "userEnteredFormat(backgroundColor,textFormat)"));
+  reqs.push(fmtReq(sheetId, tot0, tot0 + 1, 2, 3, white, "userEnteredFormat.backgroundColor"));
+  reqs.push(fmtReq(sheetId, tot0, tot0 + 1, 6, 7, white, "userEnteredFormat.backgroundColor"));
+  reqs.push(fmtReq(sheetId, tot0 + 1, tot0 + 2, 7, W, { backgroundColor: hexToColor(COLOR.totalDaysBg), textFormat: arial(true) }, "userEnteredFormat(backgroundColor,textFormat)"));
+  return reqs;
+}
+
+/** Write every phase grid on the one Team Mix tab: clear-then-paint, GRID_GAP blank rows between grids. */
+async function writeTeamMix(api, plan, rosters) {
   const grid = await api.grid(TAB_TEAM);
   const sheetId = grid.properties.sheetId;
-  const v = teamMixValues(plan, roster);
-  const clearRows = Math.max(60, rowCount(grid) + 2);
+  const grids = [];
+  let top = 0;
+  for (const r of rosters) {
+    const v = teamMixValues(plan, r.roster, rosters.length > 1 || r.phase ? r.phase : "", top);
+    grids.push({ phase: r.phase, v });
+    top = v.bottom + GRID_GAP;
+  }
+  const lastRow = grids[grids.length - 1].v.bottom;
+  const clearRows = Math.max(60, rowCount(grid) + 2, lastRow + 10);
   await api.clearValues(TAB_TEAM, `A1:Z${clearRows}`);
   await api.batch([
     { unmergeCells: { range: gridRange(sheetId, 0, clearRows, 0, 26) } },
     fmtReq(sheetId, 0, clearRows, 0, 26, {}, "userEnteredFormat"),
   ]);
-  await api.putValues(TAB_TEAM, `A1:${colLetter(v.width - 1)}${v.rows.length}`, v.rows);
-  const W = v.width;
-  const arial = (bold) => ({ fontFamily: "Arial", fontSize: 10, bold });
-  const white = { backgroundColor: hexToColor(COLOR.white) };
   const reqs = [];
-  reqs.push({ mergeCells: { range: gridRange(sheetId, 0, 1, 0, W), mergeType: "MERGE_ALL" } });
-  reqs.push(fmtReq(sheetId, 0, 1, 0, W, { backgroundColor: hexToColor(COLOR.teamTitleBg), textFormat: { fontFamily: "Montserrat", fontSize: 20, bold: true, foregroundColor: hexToColor(COLOR.white) }, horizontalAlignment: "CENTER" }, "userEnteredFormat(backgroundColor,textFormat,horizontalAlignment)"));
-  reqs.push(fmtReq(sheetId, 1, v.rows.length, 0, W, { textFormat: arial(false), horizontalAlignment: "RIGHT", numberFormat: { type: "NUMBER", pattern: "0.00" } }, FMT_FIELDS_ALL));
-  reqs.push(fmtReq(sheetId, 1, 2, 0, W, { backgroundColor: hexToColor(COLOR.teamHeaderBg), textFormat: { ...arial(true), foregroundColor: hexToColor(COLOR.white) } }, "userEnteredFormat(backgroundColor,textFormat)"));
-  reqs.push(fmtReq(sheetId, 1, 2, 2, 3, white, "userEnteredFormat.backgroundColor"));
-  reqs.push(fmtReq(sheetId, 1, 2, 6, 7, white, "userEnteredFormat.backgroundColor"));
-  reqs.push(fmtReq(sheetId, 1, v.rows.length, 0, 1, { horizontalAlignment: "LEFT" }, "userEnteredFormat.horizontalAlignment"));
-  reqs.push(fmtReq(sheetId, 1, v.rows.length, 7, 8, { horizontalAlignment: "LEFT" }, "userEnteredFormat.horizontalAlignment"));
-  reqs.push(fmtReq(sheetId, 1, 2, v.totalC, v.totalC + 1, { horizontalAlignment: "LEFT" }, "userEnteredFormat.horizontalAlignment"));
-  const p0 = v.firstP - 1, p1 = v.lastP;
-  const sage = { backgroundColor: hexToColor(COLOR.sage), textFormat: arial(true) };
-  reqs.push(fmtReq(sheetId, p0, p1, 4, 6, sage, "userEnteredFormat(backgroundColor,textFormat)"));
-  reqs.push(fmtReq(sheetId, p0, p1, v.totalC, v.totalC + 1, sage, "userEnteredFormat(backgroundColor,textFormat)"));
-  const t0 = v.totalR - 1;
-  reqs.push(fmtReq(sheetId, t0, t0 + 1, 0, W, { backgroundColor: hexToColor(COLOR.totalBg), textFormat: arial(true) }, "userEnteredFormat(backgroundColor,textFormat)"));
-  reqs.push(fmtReq(sheetId, t0, t0 + 1, 2, 3, white, "userEnteredFormat.backgroundColor"));
-  reqs.push(fmtReq(sheetId, t0, t0 + 1, 6, 7, white, "userEnteredFormat.backgroundColor"));
-  reqs.push(fmtReq(sheetId, t0 + 1, t0 + 2, 7, W, { backgroundColor: hexToColor(COLOR.totalDaysBg), textFormat: arial(true) }, "userEnteredFormat(backgroundColor,textFormat)"));
-  reqs.push(...widthReqs(sheetId, [...TEAM_WIDTHS_FIXED, ...Array(roster.n).fill(TEAM_MONTH_WIDTH), TEAM_TOTAL_WIDTH]));
+  let maxN = 0;
+  for (const g of grids) {
+    await api.putValues(TAB_TEAM, `A${g.v.titleR}:${colLetter(g.v.width - 1)}${g.v.bottom}`, g.v.rows);
+    reqs.push(...teamMixFormatReqs(sheetId, g.v));
+    maxN = Math.max(maxN, g.v.totalC - g.v.firstMonthC);
+  }
+  reqs.push(...widthReqs(sheetId, [...TEAM_WIDTHS_FIXED, ...Array(maxN).fill(TEAM_MONTH_WIDTH), TEAM_TOTAL_WIDTH]));
   await api.batch(reqs);
-  return v;
+  return { grids: grids.map((g) => ({ phase: g.phase, titleR: g.v.titleR, bottom: g.v.bottom, rows: g.v.rows.length })), lastRow };
 }
 
 // ───────────────────────── write: Technology Stack (spec §3) ─────────────────────────
@@ -876,7 +928,22 @@ function auditTshirt(grid) {
   check(out, "T-Shirt: section rows are styled (bg #1C4F8B)", !badSectionFmt.length, badSectionFmt.join(", "));
   check(out, "T-Shirt: 'Total (Days)' row exists below the items", totalRow0 > lastItem0 && lastItem0 >= 0, "not found");
   let totalDaysCell = NaN;
+  const phaseDays = {};
+  for (const rr of layout.rollupRows) {
+    const hrs = numAt(grid, rr, 11); // L = Low Hrs for that phase
+    phaseDays[textAt(grid, rr, 9).trim()] = Number.isNaN(hrs) ? NaN : round2(hrs / 8);
+  }
   if (totalRow0 > lastItem0 && lastItem0 >= 0) {
+    check(out, "T-Shirt: totals row sits directly under the last item (no blank row)", totalRow0 === lastItem0 + 1, `last item row ${lastItem0 + 1}, totals row ${totalRow0 + 1}`);
+    const totFont = fontAt(grid, totalRow0, 0);
+    check(out, "T-Shirt: totals row is the template band (bg #D8DDE8, bold) across A:L", [0, 4, 9, 11].every((c) => bgAt(grid, totalRow0, c) === COLOR.tshirtTotalBg) && totFont.bold, `A bg ${bgAt(grid, totalRow0, 0)}, L bg ${bgAt(grid, totalRow0, 11)}, bold ${totFont.bold}`);
+    const sumRows = [totalRow0 + 1, totalRow0 + 2, totalRow0 + 3];
+    const labels = sumRows.map((r) => textAt(grid, r, 9));
+    check(out, "T-Shirt: summary block (Total Days / Total Hrs / Total Cost) sits directly under the totals row", labels[0] === "Total Days" && labels[1] === "Total Hrs" && labels[2] === "Total Cost", `J${sumRows[0] + 1}..J${sumRows[2] + 1} = [${labels.join(", ")}]`);
+    check(out, "T-Shirt: summary labels are bold", sumRows.every((r) => fontAt(grid, r, 9).bold), "");
+    const costCell = cellAt(grid, sumRows[2], 10);
+    const costFmt = costCell && costCell.userEnteredFormat && costCell.userEnteredFormat.numberFormat;
+    check(out, "T-Shirt: Total Cost is formatted as dollars", !!costFmt && costFmt.type === "CURRENCY", `K${sumRows[2] + 1} numberFormat ${JSON.stringify(costFmt)}`);
     const want = `=SUM(J${first0 + 1}:J${lastItem0 + 1})`;
     check(out, "T-Shirt: totals row sums the full item range", formulaAt(grid, totalRow0, 9) === want, `J${totalRow0 + 1} is '${formulaAt(grid, totalRow0, 9)}', want '${want}'`);
     totalDaysCell = numAt(grid, totalRow0, 9);
@@ -887,7 +954,7 @@ function auditTshirt(grid) {
     check(out, "T-Shirt: phase rollups (K4:N7) reference the full item range", !badRoll.length, badRoll.join(", "));
     let summaryAbove = false;
     for (let r = first0; r < totalRow0; r++) if (/^Total (Days|Hrs|Cost)$/i.test(textAt(grid, r, 9))) summaryAbove = true;
-    check(out, "T-Shirt: summary block is below the totals row", !summaryAbove, "a Total Days/Hrs/Cost label sits inside the summed range");
+    check(out, "T-Shirt: no summary label inside the summed range", !summaryAbove, "a Total Days/Hrs/Cost label sits inside the summed range");
     let raw = 0;
     for (let r = first0; r <= lastItem0; r++) {
       for (const c of [5, 6]) { const v = textAt(grid, r, c).trim(); if (v && layout.legend[v] != null) raw += layout.legend[v]; }
@@ -895,7 +962,7 @@ function auditTshirt(grid) {
     const recomputed = round2(raw * (1 + layout.mfTotal));
     check(out, "T-Shirt: Σ raw sizes × (1+MF) == Total Days cell", Math.abs(recomputed - totalDaysCell) < 0.02, `recomputed ${recomputed}, cell ${totalDaysCell}`);
   }
-  return { checks: out, layout, totalDays: totalDaysCell, lastItem1: lastItem0 + 1 };
+  return { checks: out, layout, totalDays: totalDaysCell, lastItem1: lastItem0 + 1, phaseDays };
 }
 
 function disciplineOfLabel(label) {
@@ -910,95 +977,132 @@ function disciplineOfLabel(label) {
   return "";
 }
 
-/** Team Mix audit. mfList (from the T-Shirt tab) is REQUIRED; tshirtTotalDays may be NaN only when the T-Shirt has no totals row. */
-function auditTeamMix(grid, mfList, tshirtTotalDays) {
+/**
+ * Team Mix audit — one grid per phase with hours (spec §2.6). mfList (from the T-Shirt
+ * tab) is REQUIRED. phaseDays = { phase: days } read from the T-Shirt rollups (the
+ * independent figure each grid must reconcile to); tshirtTotalDays for the sum.
+ */
+function auditTeamMix(grid, mfList, tshirtTotalDays, phaseDays) {
   const out = [];
-  const hdr = [];
-  for (let c = 0; c < 30; c++) hdr.push(textAt(grid, 1, c));
-  check(out, "Team Mix: row 2 is the header (A2='Skill set')", hdr[0] === "Skill set", `A2='${hdr[0]}'`);
-  check(out, "Team Mix: row 3 is a person, not a second header", textAt(grid, 2, 0) !== "Skill set" && textAt(grid, 2, 0) !== "", `A3='${textAt(grid, 2, 0)}'`);
-  const monthCols = [];
-  hdr.forEach((h, c) => { if (/^Mon \d+$/.test(h)) monthCols.push(c); });
-  const totalC = hdr.indexOf("Total Hrs");
-  const lastM = monthCols.length ? monthCols[monthCols.length - 1] : -1;
-  check(out, "Team Mix: month headers are Mon 1..N, contiguous, then Total Hrs", monthCols.length > 0 && totalC === lastM + 1 && monthCols.every((c, i) => hdr[c] === `Mon ${i + 1}` && c === monthCols[0] + i), `months [${monthCols.map((c) => hdr[c]).join(",")}], Total Hrs at column ${totalC}`);
-  check(out, "Team Mix: header columns are Skill set/Count/Mths/Days/Hrs/Resource", hdr[1] === "Count" && hdr[3] === "Mths" && hdr[4] === "Days" && hdr[5] === "Hrs" && hdr[7] === "Resource", hdr.slice(0, 8).join("|"));
-  const people = [];
-  let totalR = -1;
-  for (let r = 2; r < rowCount(grid); r++) {
-    const a = textAt(grid, r, 0);
-    if (/^Total$/i.test(a)) { totalR = r; break; }
-    if (a === "") break;
-    people.push({ r, label: a, count: numAt(grid, r, 1), discipline: disciplineOfLabel(a) });
-  }
-  check(out, "Team Mix: a 'Total' row follows the people", totalR > 2, "no Total row");
-  check(out, "Team Mix: every person has a numeric Count", people.every((p) => !Number.isNaN(p.count)), people.filter((p) => Number.isNaN(p.count)).map((p) => p.label).join(", "));
-  check(out, "Team Mix: no Count > 1.00", people.every((p) => p.count <= 1 + 1e-9), people.filter((p) => p.count > 1).map((p) => `${p.label}=${p.count}`).join(", "));
-  const groups = {};
-  people.forEach((p) => { const k = p.label.replace(/\s+\d+$/, ""); (groups[k] = groups[k] ? groups[k] : []).push(p); });
-  const smeared = [];
-  for (const [k, rows] of Object.entries(groups)) rows.slice(0, -1).forEach((p) => { if (Math.abs(p.count - 1) > 1e-9) smeared.push(`${k}: ${p.count} before a later row`); });
-  check(out, "Team Mix: per discipline, all rows but the last are 1.00 (saturate then spill)", !smeared.length, smeared.join("; "));
-  const cov = mfCoverageViolations(mfList, people.filter((p) => p.discipline));
-  check(out, "Team Mix: every non-zero MF factor has a person", !cov.length, cov.join("; "));
-  const badF = [], negative = [], over = [];
-  if (monthCols.length && totalC > 0) {
-    const firstM = monthCols[0];
+  // locate grids: every row whose A == 'Skill set' is a header; its title is the row above
+  const headers = [];
+  for (let r = 0; r < rowCount(grid); r++) if (textAt(grid, r, 0) === "Skill set") headers.push(r);
+  check(out, "Team Mix: at least one grid (a 'Skill set' header row)", headers.length > 0, "no header row found");
+  const expectedPhases = phaseDays ? Object.keys(phaseDays).filter((ph) => phaseDays[ph] > 0) : [];
+  if (expectedPhases.length) check(out, "Team Mix: one grid per phase with hours", headers.length === expectedPhases.length, `${headers.length} grid(s) for phases [${expectedPhases.join(", ")}]`);
+  let sumDaysAll = 0;
+  let tolAll = 0;
+  let prevBottom = -1;
+  headers.forEach((h, gi) => {
+    const label = headers.length > 1 ? `Team Mix grid ${gi + 1}` : "Team Mix";
+    const title = textAt(grid, h - 1, 0);
+    check(out, `${label}: title row directly above the header`, h >= 1 && title !== "" && title !== "Skill set", `row ${h} above header is '${title}'`);
+    if (gi > 0) {
+      const gap = h - 1 - (prevBottom + 1);
+      check(out, `${label}: exactly ${GRID_GAP} blank rows before it`, gap === GRID_GAP, `${gap} row(s) between the previous grid and this title`);
+      let strayGap = [];
+      for (let r = prevBottom + 1; r < h - 1; r++) for (let c = 0; c < 26; c++) if (textAt(grid, r, c) !== "" || bgAt(grid, r, c) !== COLOR.white) strayGap.push(`${colLetter(c)}${r + 1}`);
+      check(out, `${label}: the gap rows are empty and unformatted`, !strayGap.length, strayGap.slice(0, 6).join(", "));
+    }
+    const hdr = [];
+    for (let c = 0; c < 30; c++) hdr.push(textAt(grid, h, c));
+    check(out, `${label}: row after the header is a person, not a second header`, textAt(grid, h + 1, 0) !== "Skill set" && textAt(grid, h + 1, 0) !== "", `A${h + 2}='${textAt(grid, h + 1, 0)}'`);
+    const monthCols = [];
+    hdr.forEach((x, c) => { if (/^Mon \d+$/.test(x)) monthCols.push(c); });
+    const totalC = hdr.indexOf("Total Hrs");
+    const lastM = monthCols.length ? monthCols[monthCols.length - 1] : -1;
+    check(out, `${label}: month headers are Mon 1..N, contiguous, then Total Hrs`, monthCols.length > 0 && totalC === lastM + 1 && monthCols.every((c, i) => hdr[c] === `Mon ${i + 1}` && c === monthCols[0] + i), `months [${monthCols.map((c) => hdr[c]).join(",")}], Total Hrs at column ${totalC}`);
+    check(out, `${label}: header columns are Skill set/Count/Mths/Days/Hrs/Resource`, hdr[1] === "Count" && hdr[3] === "Mths" && hdr[4] === "Days" && hdr[5] === "Hrs" && hdr[7] === "Resource", hdr.slice(0, 8).join("|"));
+    const people = [];
+    let totalR = -1;
+    for (let r = h + 1; r < rowCount(grid); r++) {
+      const a = textAt(grid, r, 0);
+      if (/^Total$/i.test(a)) { totalR = r; break; }
+      if (a === "") break;
+      people.push({ r, label: a, count: numAt(grid, r, 1), discipline: disciplineOfLabel(a) });
+    }
+    check(out, `${label}: a 'Total' row follows the people`, totalR > h, "no Total row");
+    check(out, `${label}: every person has a numeric Count`, people.every((p) => !Number.isNaN(p.count)), people.filter((p) => Number.isNaN(p.count)).map((p) => p.label).join(", "));
+    check(out, `${label}: no Count > 1.00`, people.every((p) => p.count <= 1 + 1e-9), people.filter((p) => p.count > 1).map((p) => `${p.label}=${p.count}`).join(", "));
+    const groups = {};
+    people.forEach((p) => { const k = p.label.replace(/\s+\d+$/, ""); (groups[k] = groups[k] ? groups[k] : []).push(p); });
+    const smeared = [];
+    for (const [k, rows] of Object.entries(groups)) rows.slice(0, -1).forEach((p) => { if (Math.abs(p.count - 1) > 1e-9) smeared.push(`${k}: ${p.count} before a later row`); });
+    check(out, `${label}: per discipline, all rows but the last are 1.00 (saturate then spill)`, !smeared.length, smeared.join("; "));
+    const cov = mfCoverageViolations(mfList, people.filter((p) => p.discipline));
+    check(out, `${label}: every non-zero MF factor has a person`, !cov.length, cov.join("; "));
+    const badF = [], negative = [], over = [];
+    if (monthCols.length && totalC > 0) {
+      const firstM = monthCols[0];
+      for (const p of people) {
+        const r1 = p.r + 1;
+        if (formulaAt(grid, p.r, 4) !== `=D${r1}*20*B${r1}`) badF.push(`E${r1}`);
+        if (formulaAt(grid, p.r, 5) !== `=E${r1}*8`) badF.push(`F${r1}`);
+        if (monthCols.length > 1 && formulaAt(grid, p.r, lastM) !== remainderFormula(r1, firstM, monthCols.length)) badF.push(`${colLetter(lastM)}${r1} (remainder)`);
+        if (!formulaAt(grid, p.r, totalC).startsWith("=")) badF.push(`${colLetter(totalC)}${r1}`);
+        for (const c of monthCols) {
+          const hv = numAt(grid, p.r, c);
+          if (Number.isNaN(hv)) negative.push(`${colLetter(c)}${r1}=not a number`);
+          else if (hv < -1e-9) negative.push(`${colLetter(c)}${r1}=${hv}`);
+          else if (hv > SOFT_CEILING + 1e-9) over.push(`${colLetter(c)}${r1}=${hv}`);
+        }
+      }
+    }
+    check(out, `${label}: Days/Hrs/remainder/Total Hrs are formulas`, !badF.length, badF.join(", "));
+    check(out, `${label}: no negative or non-numeric month`, !negative.length, negative.join(", "));
+    check(out, `${label}: no month cell above ${SOFT_CEILING} hrs`, !over.length, over.join(", "));
+    if (monthCols.length > 1 && people.length) {
+      const flat = people.filter((p) => p.discipline !== "pm").every((p) => {
+        const vals = monthCols.map((c) => round1(numAt(grid, p.r, c)));
+        return vals.every((x) => Math.abs(x - vals[0]) < 0.05);
+      });
+      check(out, `${label}: ramp applied (roles are not all flat)`, !flat, "every non-PM role has identical hours each month");
+    }
+    const badFont = [], badSage = [], whiteMissing = [];
     for (const p of people) {
-      const r1 = p.r + 1;
-      if (formulaAt(grid, p.r, 4) !== `=D${r1}*20*B${r1}`) badF.push(`E${r1}`);
-      if (formulaAt(grid, p.r, 5) !== `=E${r1}*8`) badF.push(`F${r1}`);
-      if (monthCols.length > 1) {
-        const want = remainderFormula(r1, firstM, monthCols.length);
-        if (formulaAt(grid, p.r, lastM) !== want) badF.push(`${colLetter(lastM)}${r1} (remainder)`);
-      }
-      if (!formulaAt(grid, p.r, totalC).startsWith("=")) badF.push(`${colLetter(totalC)}${r1}`);
-      for (const c of monthCols) {
-        const h = numAt(grid, p.r, c);
-        if (Number.isNaN(h)) negative.push(`${colLetter(c)}${r1}=not a number`);
-        else if (h < -1e-9) negative.push(`${colLetter(c)}${r1}=${h}`);
-        else if (h > SOFT_CEILING + 1e-9) over.push(`${colLetter(c)}${r1}=${h}`);
+      for (let c = 0; c <= totalC; c++) {
+        const f = fontAt(grid, p.r, c);
+        if (f.family && f.family !== "Arial") badFont.push(`${colLetter(c)}${p.r + 1}=${f.family}`);
+        const bg = bgAt(grid, p.r, c);
+        const shouldSage = c === 4 || c === 5 || c === totalC;
+        if (shouldSage && bg !== COLOR.sage) badSage.push(`${colLetter(c)}${p.r + 1} bg ${bg}`);
+        if (!shouldSage && bg !== COLOR.white) whiteMissing.push(`${colLetter(c)}${p.r + 1} bg ${bg}`);
       }
     }
-  }
-  check(out, "Team Mix: Days/Hrs/remainder/Total Hrs are formulas", !badF.length, badF.join(", "));
-  check(out, "Team Mix: no negative or non-numeric month", !negative.length, negative.join(", "));
-  check(out, `Team Mix: no month cell above ${SOFT_CEILING} hrs`, !over.length, over.join(", "));
-  if (monthCols.length > 1 && people.length) {
-    const flat = people.filter((p) => p.discipline !== "pm").every((p) => {
-      const vals = monthCols.map((c) => round1(numAt(grid, p.r, c)));
-      return vals.every((v) => Math.abs(v - vals[0]) < 0.05);
-    });
-    check(out, "Team Mix: ramp applied (roles are not all flat)", !flat, "every non-PM role has identical hours each month");
-  }
-  const badFont = [], badSage = [], whiteMissing = [];
-  for (const p of people) {
-    for (let c = 0; c <= totalC; c++) {
-      const f = fontAt(grid, p.r, c);
-      if (f.family && f.family !== "Arial") badFont.push(`${colLetter(c)}${p.r + 1}=${f.family}`);
-      const bg = bgAt(grid, p.r, c);
-      const shouldSage = c === 4 || c === 5 || c === totalC;
-      if (shouldSage && bg !== COLOR.sage) badSage.push(`${colLetter(c)}${p.r + 1} bg ${bg}`);
-      if (!shouldSage && bg !== COLOR.white) whiteMissing.push(`${colLetter(c)}${p.r + 1} bg ${bg}`);
+    check(out, `${label}: body font is Arial (never Calibri)`, !badFont.length, badFont.slice(0, 8).join(", "));
+    check(out, `${label}: sage on exactly Days, Hrs, Total Hrs of role rows`, !badSage.length && !whiteMissing.length, [...badSage, ...whiteMissing].slice(0, 8).join(", "));
+    if (totalR > 0 && totalC > 0) {
+      const bandBad = [];
+      for (const c of [...monthCols, totalC, 0, 1]) if (bgAt(grid, totalR, c) !== COLOR.totalBg) bandBad.push(`${colLetter(c)}${totalR + 1}`);
+      for (const c of [...monthCols, totalC, 7]) if (bgAt(grid, totalR + 1, c) !== COLOR.totalDaysBg) bandBad.push(`${colLetter(c)}${totalR + 2}`);
+      check(out, `${label}: Total (#E5E5E5) and Total Days (#9EC1EF) bands span every month + Total Hrs`, !bandBad.length, bandBad.join(", "));
+      const strayRight = [];
+      for (let r = h - 1; r <= totalR + 1; r++) for (let c = totalC + 1; c < 26; c++) if (bgAt(grid, r, c) !== COLOR.white) strayRight.push(`${colLetter(c)}${r + 1}`);
+      check(out, `${label}: nothing formatted right of the grid`, !strayRight.length, strayRight.slice(0, 8).join(", "));
+      const sumDays = numAt(grid, totalR, 4);
+      const sumCount = numAt(grid, totalR, 1);
+      sumDaysAll += Number.isNaN(sumDays) ? 0 : sumDays;
+      // Mths is written to 2 decimals (the sheet convention), so Σ Days can drift by up to
+      // ΣCount × 20 × 0.005 from the exact figure — the tolerance follows the roster size.
+      const tol = 0.05 + 0.1 * (Number.isNaN(sumCount) ? 1 : sumCount);
+      tolAll += tol;
+      const phase = expectedPhases.find((ph) => title.endsWith(ph));
+      if (expectedPhases.length) {
+        check(out, `${label}: title names a phase with hours`, !!phase, `title '${title}' ends with none of [${expectedPhases.join(", ")}]`);
+        if (phase) check(out, `${label} (${phase}): Σ Days == that phase's T-Shirt days`, Math.abs(sumDays - phaseDays[phase]) < tol, `Team Mix ${sumDays}, T-Shirt ${phaseDays[phase]} (tolerance ${round2(tol)})`);
+      }
+      prevBottom = totalR + 1;
     }
+  });
+  if (prevBottom >= 0) {
+    const strayBelow = [];
+    for (let r = prevBottom + 1; r < Math.min(rowCount(grid), prevBottom + 40); r++) for (let c = 0; c < 26; c++) if (bgAt(grid, r, c) !== COLOR.white) strayBelow.push(`${colLetter(c)}${r + 1}`);
+    check(out, "Team Mix: nothing formatted below the last grid", !strayBelow.length, strayBelow.slice(0, 8).join(", "));
   }
-  check(out, "Team Mix: body font is Arial (never Calibri)", !badFont.length, badFont.slice(0, 8).join(", "));
-  check(out, "Team Mix: sage on exactly Days, Hrs, Total Hrs of role rows", !badSage.length && !whiteMissing.length, [...badSage, ...whiteMissing].slice(0, 8).join(", "));
-  if (totalR > 0 && totalC > 0) {
-    const bandBad = [];
-    for (const c of [...monthCols, totalC, 0, 1]) if (bgAt(grid, totalR, c) !== COLOR.totalBg) bandBad.push(`${colLetter(c)}${totalR + 1}`);
-    for (const c of [...monthCols, totalC, 7]) if (bgAt(grid, totalR + 1, c) !== COLOR.totalDaysBg) bandBad.push(`${colLetter(c)}${totalR + 2}`);
-    check(out, "Team Mix: Total (#E5E5E5) and Total Days (#9EC1EF) bands span every month + Total Hrs", !bandBad.length, bandBad.join(", "));
-    const stray = [];
-    for (let r = totalR + 2; r < Math.min(rowCount(grid), totalR + 40); r++) for (let c = 0; c < 26; c++) if (bgAt(grid, r, c) !== COLOR.white) stray.push(`${colLetter(c)}${r + 1}`);
-    for (let r = 0; r <= totalR + 1; r++) for (let c = totalC + 1; c < 26; c++) if (bgAt(grid, r, c) !== COLOR.white) stray.push(`${colLetter(c)}${r + 1}`);
-    check(out, "Team Mix: nothing formatted outside the data area", !stray.length, stray.slice(0, 8).join(", "));
-    const sumDays = numAt(grid, totalR, 4);
-    if (!Number.isNaN(tshirtTotalDays)) {
-      check(out, "Team Mix: Σ Days == T-Shirt Total Days", Math.abs(sumDays - tshirtTotalDays) < 0.15, `Team Mix ${sumDays}, T-Shirt ${tshirtTotalDays}`);
-    }
+  if (!Number.isNaN(tshirtTotalDays) && headers.length) {
+    check(out, "Team Mix: Σ Days over all grids == T-Shirt Total Days", Math.abs(sumDaysAll - tshirtTotalDays) < Math.max(0.15, tolAll), `Team Mix ${round2(sumDaysAll)}, T-Shirt ${tshirtTotalDays} (tolerance ${round2(Math.max(0.15, tolAll))})`);
   }
-  return { checks: out, people: people.length, months: monthCols.length };
+  return { checks: out, grids: headers.length };
 }
 
 function auditTechStack(grid) {
@@ -1030,7 +1134,7 @@ async function runAudit(api) {
   const checks = [];
   const tshirt = auditTshirt(await api.grid(TAB_TSHIRT));
   checks.push(...tshirt.checks);
-  checks.push(...auditTeamMix(await api.grid(TAB_TEAM), tshirt.layout.mf, tshirt.totalDays).checks);
+  checks.push(...auditTeamMix(await api.grid(TAB_TEAM), tshirt.layout.mf, tshirt.totalDays, tshirt.phaseDays).checks);
   checks.push(...auditTechStack(await api.grid(TAB_TECH)).checks);
   if (tabs.has(TAB_OVERVIEW)) checks.push(...auditOverview(await api.grid(TAB_OVERVIEW)).checks);
   else check(checks, "Overview tab exists (the estimates index imports its cells)", false, "missing");
@@ -1086,21 +1190,25 @@ async function verbRead(api, tab) {
   return out;
 }
 
+function rostersTable(rosters) {
+  return rosters.map((r) => `── ${r.phase}: ${r.totalDays} d ──\n${rosterTable(r.roster)}`).join("\n");
+}
+
 async function verbPlanCheck(api, plan) {
   const layout = locateTshirt(await api.grid(TAB_TSHIRT));
   const totals = tshirtTotals(plan, layout);
-  const roster = buildRoster(plan, totals.totalDays, layout.mf);
-  return { totals, mf: layout.mf, mfTotal: round2(layout.mfTotal), highFactor: layout.highFactor, rate: layout.rate, roster, table: rosterTable(roster) };
+  const rosters = buildRosters(plan, layout);
+  return { totals, mf: layout.mf, mfTotal: round2(layout.mfTotal), highFactor: layout.highFactor, rate: layout.rate, rosters, table: rostersTable(rosters) };
 }
 
 async function verbWrite(api, plan, opts) {
   const ts = await writeTshirt(api, plan, opts);
-  const roster = buildRoster(plan, ts.totals.totalDays, ts.layout.mf);
-  const tm = await writeTeamMix(api, plan, roster);
+  const rosters = buildRosters(plan, ts.layout);
+  const tm = await writeTeamMix(api, plan, rosters);
   const tech = await writeTechStack(api, plan);
   const result = {
     tshirt: { mode: plan.tshirt.mode, itemsWritten: ts.itemsWritten, firstItem1: ts.firstItem1, lastItem1: ts.lastItem1, totalRow1: ts.totalRow1, totals: ts.totals },
-    teamMix: { people: roster.people.length, months: roster.months, columns: roster.n, sumDays: roster.sumDays, table: rosterTable(roster), rowsWritten: tm.rows.length },
+    teamMix: { grids: tm.grids, phases: rosters.map((r) => ({ phase: r.phase, totalDays: r.totalDays, people: r.roster.people.length, months: r.roster.months, columns: r.roster.n, sumDays: r.roster.sumDays })), table: rostersTable(rosters), lastRow: tm.lastRow },
     techStack: tech,
   };
   if (!opts.noAudit) result.audit = await runAudit(api);
@@ -1163,7 +1271,7 @@ async function main(args) {
     if (json) console.log(JSON.stringify({ ok, exitCode: ok ? 0 : 4, ...r }, null, 2));
     else {
       console.log(`T-Shirt (${r.tshirt.mode}): ${r.tshirt.itemsWritten} items, rows ${r.tshirt.firstItem1}–${r.tshirt.lastItem1}, totals row ${r.tshirt.totalRow1}; total ${r.tshirt.totals.totalDays} d, $${r.tshirt.totals.lowDollars} – $${r.tshirt.totals.highDollars}`);
-      console.log(`Team Mix: ${r.teamMix.people} people, ${r.teamMix.months} months, ${r.teamMix.columns} columns, Σ Days ${r.teamMix.sumDays}`);
+      for (const ph of r.teamMix.phases) console.log(`Team Mix — ${ph.phase}: ${ph.people} people, ${ph.months} months, ${ph.columns} columns, Σ Days ${ph.sumDays}`);
       console.log(r.teamMix.table);
       console.log(`Technology Stack: ${r.techStack.rows} rows`);
       if (r.audit) printChecks(r.audit);
@@ -1183,7 +1291,7 @@ function haltAndExit(e, json) {
 
 module.exports = {
   validatePlan, splitRoster, rosterViolations, mfCoverageViolations, monthPlan, resampleWeights, rampHours, buildRoster,
-  tshirtTotals, itemFormulas, rollupFormulas, tshirtRows, teamMixValues, remainderFormula, locateTshirt, findPhaseSource,
+  tshirtTotals, phaseTotals, buildRosters, itemFormulas, rollupFormulas, tshirtRows, teamMixValues, teamMixFormatReqs, remainderFormula, locateTshirt, findPhaseSource,
   auditTshirt, auditTeamMix, auditTechStack, auditOverview, colLetter, hexToColor, colorToHex, sheetIdFromArg,
   constants: { SIZE_CODES, PHASES, COLOR, RAMP, ROLE_LABEL, SOFT_CEILING, FOLD_THRESHOLD, TAB_TSHIRT, TAB_TEAM, TAB_TECH, PLAN_SCHEMA },
   Halt, SheetsApi, getToken, runAudit, main,

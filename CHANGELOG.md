@@ -17,6 +17,19 @@ and a 4-row Technology Stack, then all 33 read-back audit checks pass — 8 seco
 - `test/estimate-sheet-writer.test.js`: the two-month case, including the writer's own
   output passing its own audit.
 
+### Changed — David's review of the first live sheet (2026-09-21)
+
+- T-Shirt: no blank row above or below the totals row; the totals row is the template's grey
+  band (`#D8DDE8`, bold) across A:L; the summary labels (Total Days / Hrs / Cost) are bold and
+  Total Cost is formatted as dollars. Audit checks added for each.
+- Team Mix: **one grid per phase with hours** (MVP, Phase 1, …) stacked on the one tab with
+  exactly 2 blank rows between grids; each grid reconciles to its phase's T-Shirt days (read
+  from the phase rollups) and the grids together to Total Days. `teamMix.phases.<phase>.fte`
+  overrides the mix for one phase. `Mths` is written at full precision (displayed 0.00) so
+  Σ Days reconciles exactly instead of drifting with the roster size.
+- Section heading blue stays `#1C4F8B` (confirmed); template copies stay a manual step (the
+  service account has no Drive quota; domain-wide delegation rejected as a master-key risk).
+
 ## [5.20.11] - 2026-09-17
 
 ### Fixed — `update-all` treated a downgrade as an upgrade and rolled 34 projects back

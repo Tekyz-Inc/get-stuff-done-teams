@@ -85,7 +85,7 @@ Reorder items into domains. Insert a **section-heading row** before each group p
 
 ## Step 4: Team Mix — JUDGMENT · PAUSE FOR REVIEW
 
-Your judgment is ONE thing: the FTE per discipline (`teamMix.fte` in the plan — `backend` `frontend` `qa` `pm` `ba`, optionally `techlead` `devops`). Everything else on the tab is computed by the tool per spec §2: the split into people (saturate at 1.00, then spill), months, the column count, the ramp by discipline, the remainder formula.
+Your judgment is ONE thing: the FTE per discipline (`teamMix.fte` in the plan — `backend` `frontend` `qa` `pm` `ba`, optionally `techlead` `devops`; per-phase override via `teamMix.phases.<phase>.fte`). Everything else on the tab is computed by the tool per spec §2: the split into people (saturate at 1.00, then spill), months, the column count, the ramp by discipline, the remainder formula — and **one grid per phase with hours** (MVP, Phase 1, …), stacked on the one tab with 2 blank rows between.
 
 1. **Staff every weighted MF factor** — QA → `qa`, PM → `pm`, Analysis → `ba`. Deployment / standups / buffer are absorbed by the engineers and lead. Typical fractions: PM 0.20–0.25 · BA 0.10 · Tech Lead 0.25 · QA 0.40–0.50. The tool HALTS on a roster that leaves a factor unstaffed — do not argue with it; add the person.
 2. **Run `gsd-t estimate-sheet plan-check --sheet <url> --plan <plan.json>`.** It prints the MF list it read, the T-Shirt total, and the roster table it WOULD write (person · Count · Mths · Days · Hrs · Mon 1..N with the remainder) — or halts with the violation.

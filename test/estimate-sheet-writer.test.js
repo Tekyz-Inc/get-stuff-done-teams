@@ -67,6 +67,7 @@ function mkGrid(rows) {
       const fmt = {};
       if (s.bg) fmt.backgroundColor = W.hexToColor(s.bg);
       if (s.font || s.bold) fmt.textFormat = { fontFamily: s.font, bold: !!s.bold };
+      if (s.nf) fmt.numberFormat = { type: s.nf, pattern: s.nf === "CURRENCY" ? "$#,##0.00" : "0.00" };
       if (Object.keys(fmt).length) cell.userEnteredFormat = fmt;
       if (s.dv) cell.dataValidation = { condition: { type: "ONE_OF_LIST", values: [{ userEnteredValue: "MVP" }] } };
       return cell;
@@ -101,6 +102,7 @@ function writtenTshirtGrid(p, mutate = (x) => x) {
     rows[rr][10] = { f: f[0], n: 0 }; rows[rr][11] = { f: f[1], n: 0 }; rows[rr][12] = { f: f[2], n: 0 }; rows[rr][13] = { f: f[3], n: 0 };
   }
   let rawTotal = 0;
+  const phaseRaw = {};
   for (const row of built.rows) {
     const cells = row.values.map((v) => (v === "" ? "" : (String(v).startsWith("=") ? { f: v, n: 0 } : { v })));
     if (row.kind === "section") cells[0] = { v: row.values[0], bg: COLOR.sectionBg, font: "Arial", bold: true };
@@ -108,39 +110,67 @@ function writtenTshirtGrid(p, mutate = (x) => x) {
       cells[4] = { v: row.values[4], dv: true };
       const days = (LEGEND[row.values[5]] || 0) + (LEGEND[row.values[6]] || 0);
       rawTotal += days;
+      phaseRaw[row.values[4]] = (phaseRaw[row.values[4]] || 0) + days;
       cells[7] = { f: row.values[7], n: days }; cells[9] = { f: row.values[9], n: days * 1.9 };
     }
-    if (row.kind === "total") cells[9] = { f: row.values[9], n: Math.round(rawTotal * 1.9 * 100) / 100 };
+    if (row.kind === "total") {
+      for (let c = 0; c < 12; c++) cells[c] = { ...(cells[c] === "" ? {} : cells[c]), bg: COLOR.tshirtTotalBg, bold: true };
+      cells[9] = { ...cells[9], n: Math.round(rawTotal * 1.9 * 100) / 100 };
+    }
+    if (row.kind === "summary" || row.kind === "summary-cost") {
+      cells[9] = { v: row.values[9], bold: true };
+      if (row.kind === "summary-cost") { cells[10] = { f: row.values[10], n: 0, nf: "CURRENCY" }; cells[11] = { f: row.values[11], n: 0, nf: "CURRENCY" }; }
+    }
     rows[row.row1 - 1] = cells;
+  }
+  // phase rollups: L = Low Hrs for the phase (effective value), so the audit can derive phase days
+  ["MVP", "Phase 1", "Phase 2", "Phase 3"].forEach((ph, i) => { rows[3 + i][11] = { ...rows[3 + i][11], n: Math.round((phaseRaw[ph] || 0) * 1.9 * 8 * 100) / 100 }; });
+  return mkGrid(mutate(rows));
+}
+
+/** What writeTeamMix would produce: one grid per roster, 2 blank rows between, formats included. */
+function writtenTeamMixGrid(p, rosters, mutate = (x) => x) {
+  const list = Array.isArray(rosters) ? rosters : [{ phase: "MVP", roster: rosters }];
+  const rows = [];
+  let top = 0;
+  for (const r of list) {
+    const roster = r.roster;
+    const v = W.teamMixValues(p, roster, r.phase, top);
+    v.rows.forEach((row, ri) => {
+      const abs = top + ri;
+      const isPerson = ri >= 2 && ri < 2 + roster.people.length;
+      const person = isPerson ? roster.people[ri - 2] : null;
+      rows[abs] = row.map((cell, ci) => {
+        const spec = {};
+        if (typeof cell === "string" && cell.startsWith("=")) {
+          spec.f = cell;
+          if (person) {
+            if (ci === 4) spec.n = person.days;
+            else if (ci === 5) spec.n = person.hours;
+            else if (ci === v.totalC) spec.n = person.hours;
+            else if (ci >= v.firstMonthC) spec.n = Math.round((person.hours - person.monthHours.slice(0, -1).reduce((a, b) => a + b, 0)) * 10) / 10;
+          } else if (abs === v.totalR - 1 && ci === 4) spec.n = roster.sumDays;
+          else if (abs === v.totalR - 1 && ci === 1) spec.n = roster.sumCount;
+          else spec.n = 0;
+        } else if (cell !== "") spec.v = cell;
+        if (ri >= 1) spec.font = "Arial";
+        if (ri === 0) { spec.bg = COLOR.teamTitleBg; spec.font = "Montserrat"; }
+        if (ri === 1 && ci !== 2 && ci !== 6) spec.bg = COLOR.teamHeaderBg;
+        if (person && (ci === 4 || ci === 5 || ci === v.totalC)) { spec.bg = COLOR.sage; spec.bold = true; }
+        if (abs === v.totalR - 1 && ci !== 2 && ci !== 6) spec.bg = COLOR.totalBg;
+        if (abs === v.totalR && ci >= 7) spec.bg = COLOR.totalDaysBg;
+        return Object.keys(spec).length ? spec : "";
+      });
+    });
+    top = v.bottom + 2;
+    for (let g = v.bottom; g < top; g++) rows[g] = [];
   }
   return mkGrid(mutate(rows));
 }
 
-function writtenTeamMixGrid(p, roster, mutate = (x) => x) {
-  const v = W.teamMixValues(p, roster);
-  const rows = v.rows.map((row, ri) => row.map((cell, ci) => {
-    const isPerson = ri >= 2 && ri < 2 + roster.people.length;
-    const person = isPerson ? roster.people[ri - 2] : null;
-    const spec = {};
-    if (typeof cell === "string" && cell.startsWith("=")) {
-      spec.f = cell;
-      if (person) {
-        if (ci === 4) spec.n = person.days;
-        else if (ci === 5) spec.n = person.hours;
-        else if (ci === v.totalC) spec.n = person.hours;
-        else if (ci >= v.firstMonthC) spec.n = Math.round((person.hours - person.monthHours.slice(0, -1).reduce((a, b) => a + b, 0)) * 10) / 10;
-      } else if (ri === v.totalR - 1 && ci === 4) spec.n = roster.sumDays;
-      else spec.n = 0;
-    } else if (cell !== "") spec.v = cell;
-    if (ri >= 1) spec.font = "Arial";
-    if (ri === 0) { spec.bg = COLOR.teamTitleBg; spec.font = "Montserrat"; }
-    if (ri === 1 && ci !== 2 && ci !== 6) spec.bg = COLOR.teamHeaderBg;
-    if (person && (ci === 4 || ci === 5 || ci === v.totalC)) { spec.bg = COLOR.sage; spec.bold = true; }
-    if (ri === v.totalR - 1 && ci !== 2 && ci !== 6) spec.bg = COLOR.totalBg;
-    if (ri === v.totalR && ci >= 7) spec.bg = COLOR.totalDaysBg;
-    return Object.keys(spec).length ? spec : "";
-  }));
-  return mkGrid(mutate(rows));
+/** phaseDays the audit would read from the T-Shirt rollups for plan `p`. */
+function phaseDaysOf(p) {
+  return Object.fromEntries(W.phaseTotals(p, LAYOUT).map((x) => [x.phase, x.totalDays]));
 }
 
 const failing = (checks) => checks.filter((c) => !c.ok).map((c) => c.check);
@@ -196,8 +226,11 @@ test("mfCoverageViolations: PM and Analysis factors need a person; Deployment/St
 
 test("monthPlan: months = totalDays / (ΣCount × 20); a tail under 0.1 month folds instead of opening a column", () => {
   const people = W.splitRoster({ backend: 1.5, frontend: 0.4, qa: 0.4, pm: 0.25, ba: 0.1 }); // 2.65 FTE
-  assert.deepStrictEqual(W.monthPlan(154.76, people), { months: 2.92, sumCount: 2.65, n: 3 });
-  assert.strictEqual(W.monthPlan(161.5, people).months, 3.05); // frac .05 < .1 → folds into month 3
+  const mp = W.monthPlan(154.76, people);
+  assert.strictEqual(Math.round(mp.months * 100) / 100, 2.92);
+  assert.strictEqual(mp.sumCount, 2.65);
+  assert.strictEqual(mp.n, 3);
+  assert.strictEqual(Math.round(W.monthPlan(161.5, people).months * 100) / 100, 3.05); // frac .05 < .1 → folds into month 3
   assert.strictEqual(W.monthPlan(161.5, people).n, 3);
   assert.strictEqual(W.monthPlan(170, people).n, 4);      // 3.21 → 4
 });
@@ -247,21 +280,24 @@ test("tshirtTotals: raw sizes × (1 + MF); dollars from the sheet's rate and hig
 test("tshirtRows: section heading rows, items with the id in column C, a blank, the totals row, then the summary BELOW it", () => {
   const b = W.tshirtRows(plan(), 13);
   const kinds = b.rows.map((r) => r.kind);
-  assert.deepStrictEqual(kinds, ["section", "item", "item", "section", "item", "blank", "total", "blank", "summary", "summary", "summary"]);
+  assert.deepStrictEqual(kinds, ["section", "item", "item", "section", "item", "total", "summary", "summary", "summary-cost"], "no blank rows around the totals row");
   assert.strictEqual(b.rows[1].values[2], "HMAC contract (GA-1)");
   assert.strictEqual(b.rows[1].values[5], "");
   assert.strictEqual(b.rows[1].values[6], "M");
   assert.strictEqual(b.firstItem1, 14);
   assert.strictEqual(b.lastItem1, 18);
-  assert.strictEqual(b.rows[6].values[9], "=SUM(J14:J18)");
-  assert.strictEqual(b.rows[8].values[10], "=J20");
+  assert.strictEqual(b.totalRow1, 19);
+  assert.strictEqual(b.rows[5].values[9], "=SUM(J14:J18)");
+  assert.strictEqual(b.rows[6].values[10], "=J19");
+  assert.strictEqual(b.rows[8].values[9], "Total Cost");
 });
 
 // ───────────── Team Mix values ─────────────
 
 test("teamMixValues: header row 2, Mon 1..N then Total Hrs at I+N, chained formulas, remainder last month, Total Days right-half only", () => {
   const roster = W.buildRoster(plan(), 154.76, MF);
-  const v = W.teamMixValues(plan(), roster);
+  const v = W.teamMixValues(plan(), roster, "MVP", 0);
+  assert.strictEqual(v.rows[0][0], "Test — Estimate — MVP");
   assert.deepStrictEqual(v.rows[1], ["Skill set", "Count", "", "Mths", "Days", "Hrs", "", "Resource", "Mon 1", "Mon 2", "Mon 3", "Total Hrs"]);
   assert.strictEqual(v.totalC, 11);
   const r3 = v.rows[2];
@@ -270,12 +306,16 @@ test("teamMixValues: header row 2, Mon 1..N then Total Hrs at I+N, chained formu
   assert.strictEqual(r3[10], "=F3-SUM(I3:J3)");
   assert.strictEqual(r3[11], "=SUM(I3:K3)");
   assert.strictEqual(typeof r3[8], "number");
-  const total = v.rows[v.totalR - 1];
+  const total = v.rows[v.rows.length - 2];
   assert.strictEqual(total[0], "Total");
   assert.strictEqual(total[1], "=SUM(B3:B8)");
-  const totalDays = v.rows[v.totalR];
+  const totalDays = v.rows[v.rows.length - 1];
   assert.deepStrictEqual(totalDays.slice(0, 8), ["", "", "", "", "", "", "", "Total Days"]);
   assert.strictEqual(totalDays[8], `=I${v.totalR}/8`);
+  // a second grid at an offset uses absolute rows
+  const v2 = W.teamMixValues(plan(), roster, "Phase 1", v.bottom + 2);
+  assert.strictEqual(v2.firstP, v.bottom + 2 + 3);
+  assert.strictEqual(v2.rows[2][4], `=D${v2.firstP}*20*B${v2.firstP}`);
 });
 
 test("remainderFormula: 1 month = the total, 2 months = `=F-I` (Google rewrites SUM(I3:I3) to SUM(I3)), 3+ = SUM range", () => {
@@ -285,9 +325,9 @@ test("remainderFormula: 1 month = the total, 2 months = `=F-I` (Google rewrites 
   assert.strictEqual(W.remainderFormula(5, 8, 4), "=F5-SUM(I5:K5)");
   const roster = W.buildRoster(plan(), 109.73, MF); // 2.07 months → 2 columns (the E2E case)
   assert.strictEqual(roster.n, 2);
-  const v = W.teamMixValues(plan(), roster);
+  const v = W.teamMixValues(plan(), roster, "MVP", 0);
   assert.strictEqual(v.rows[2][9], "=F3-I3");
-  assert.deepStrictEqual(failing(W.auditTeamMix(writtenTeamMixGrid(plan(), roster), MF, 109.73).checks), []);
+  assert.deepStrictEqual(failing(W.auditTeamMix(writtenTeamMixGrid(plan(), roster), MF, 109.73, { MVP: 109.73 }).checks), []);
 });
 
 // ───────────── the audit closes the loop ─────────────
@@ -303,7 +343,7 @@ test("audit: each historical T-Shirt defect fails its named check", () => {
   assert.ok(failing(legendText.checks).includes("T-Shirt: size cells are bare codes (no legend text)"));
   const noDropdown = W.auditTshirt(writtenTshirtGrid(plan(), (rows) => { rows[14][4] = { v: "MVP" }; return rows; }));
   assert.ok(failing(noDropdown.checks).includes("T-Shirt: every item row has the Phase dropdown"));
-  const staleTotal = W.auditTshirt(writtenTshirtGrid(plan(), (rows) => { rows[19][9] = { f: "=SUM(J14:J15)", n: 1 }; return rows; }));
+  const staleTotal = W.auditTshirt(writtenTshirtGrid(plan(), (rows) => { rows[18][9] = { ...rows[18][9], f: "=SUM(J14:J15)", n: 1 }; return rows; }));
   assert.ok(failing(staleTotal.checks).includes("T-Shirt: totals row sums the full item range"));
   const staleRollup = W.auditTshirt(writtenTshirtGrid(plan(), (rows) => { rows[3][10] = { f: "=SUMIF($E$14:$E$15,$J4,$K$14:$K$15)", n: 0 }; return rows; }));
   assert.ok(failing(staleRollup.checks).includes("T-Shirt: phase rollups (K4:N7) reference the full item range"));
@@ -311,18 +351,44 @@ test("audit: each historical T-Shirt defect fails its named check", () => {
   assert.ok(failing(unstyledSection.checks).includes("T-Shirt: section rows are styled (bg #1C4F8B)"));
 });
 
-test("audit: the writer's own Team Mix output passes every Team Mix check", () => {
+test("audit: the writer's own Team Mix output passes every Team Mix check (single grid)", () => {
   const roster = W.buildRoster(plan(), 154.76, MF);
-  const a = W.auditTeamMix(writtenTeamMixGrid(plan(), roster), MF, 154.76);
+  const a = W.auditTeamMix(writtenTeamMixGrid(plan(), roster), MF, 154.76, { MVP: 154.76 });
   assert.deepStrictEqual(failing(a.checks), []);
-  assert.strictEqual(a.people, 6);
-  assert.strictEqual(a.months, 3);
+  assert.strictEqual(a.grids, 1);
+});
+
+test("per-phase grids: one Team Mix grid per phase with hours, 2 blank rows apart, each reconciling to its phase", () => {
+  const p = plan(); // MVP: M + S+XL = 6.5 raw; Phase 1: L = 3 raw
+  const phases = W.phaseTotals(p, LAYOUT);
+  assert.deepStrictEqual(phases.map((x) => [x.phase, x.rawDays, x.totalDays]), [["MVP", 6.5, 12.35], ["Phase 1", 3, 5.7]]);
+  const rosters = W.buildRosters(p, LAYOUT);
+  assert.strictEqual(rosters.length, 2);
+  assert.strictEqual(rosters[1].roster.people.length, 6);
+  const grid = writtenTeamMixGrid(p, rosters);
+  const a = W.auditTeamMix(grid, MF, 18.05, phaseDaysOf(p));
+  assert.deepStrictEqual(failing(a.checks), []);
+  assert.strictEqual(a.grids, 2);
+  // a missing grid, a wrong gap, and a grid that does not reconcile all fail
+  const onlyOne = W.auditTeamMix(writtenTeamMixGrid(p, [rosters[0]]), MF, 18.05, phaseDaysOf(p));
+  assert.ok(failing(onlyOne.checks).includes("Team Mix: one grid per phase with hours"));
+  const badGap = W.auditTeamMix(writtenTeamMixGrid(p, rosters, (rows) => { rows.splice(rosters[0].roster.people.length + 4, 1); return rows; }), MF, 18.05, phaseDaysOf(p));
+  assert.ok(failing(badGap.checks).some((c) => /exactly 2 blank rows/.test(c)));
+  const wrongPhase = W.auditTeamMix(writtenTeamMixGrid(p, rosters), MF, 18.05, { MVP: 12.35, "Phase 1": 99 });
+  assert.ok(failing(wrongPhase.checks).some((c) => /Σ Days == that phase/.test(c)));
+});
+
+test("per-phase FTE override: teamMix.phases[<phase>].fte replaces the shared mix for that grid only", () => {
+  const p = plan({ teamMix: { fte: { backend: 1.5, frontend: 0.4, qa: 0.4, pm: 0.25, ba: 0.1 }, phases: { "Phase 1": { fte: { backend: 1, qa: 0.3, pm: 0.2, ba: 0.1 } } } } });
+  const rosters = W.buildRosters(p, LAYOUT);
+  assert.strictEqual(rosters[0].roster.people.length, 6);
+  assert.strictEqual(rosters[1].roster.people.length, 4);
 });
 
 test("audit: each historical Team Mix defect fails its named check", () => {
   const roster = W.buildRoster(plan(), 154.76, MF);
-  const run = (mutate) => failing(W.auditTeamMix(writtenTeamMixGrid(plan(), roster, mutate), MF, 154.76).checks);
-  assert.ok(run((rows) => { rows.splice(2, 0, rows[1].slice()); return rows; }).includes("Team Mix: row 3 is a person, not a second header"));
+  const run = (mutate) => failing(W.auditTeamMix(writtenTeamMixGrid(plan(), roster, mutate), MF, 154.76, { MVP: 154.76 }).checks);
+  assert.ok(run((rows) => { rows.splice(2, 0, rows[1].slice()); return rows; }).some((c) => /row after the header is a person, not a second header/.test(c)));
   assert.ok(run((rows) => { rows[1][10] = { v: "Mon ...", bg: COLOR.teamHeaderBg, font: "Arial" }; return rows; }).includes("Team Mix: month headers are Mon 1..N, contiguous, then Total Hrs"));
   assert.ok(run((rows) => { rows[2][1] = { v: 1.4, font: "Arial" }; return rows; }).includes("Team Mix: no Count > 1.00"));
   assert.ok(run((rows) => { rows[2][1] = { v: 0.42, font: "Arial" }; return rows; }).includes("Team Mix: per discipline, all rows but the last are 1.00 (saturate then spill)"));
@@ -331,7 +397,8 @@ test("audit: each historical Team Mix defect fails its named check", () => {
   assert.ok(run((rows) => { rows[3][9] = { ...rows[3][9], bg: "#00FF00" }; return rows; }).includes("Team Mix: sage on exactly Days, Hrs, Total Hrs of role rows"));
   assert.ok(run((rows) => { rows[2][10] = { f: "=F3-SUM(I3:J3)", n: -12.8, font: "Arial" }; return rows; }).includes("Team Mix: no negative or non-numeric month"));
   assert.ok(run((rows) => { rows[8][11] = { ...rows[8][11], bg: COLOR.white }; return rows; }).includes("Team Mix: Total (#E5E5E5) and Total Days (#9EC1EF) bands span every month + Total Hrs"));
-  assert.ok(run((rows) => { rows[20] = Array(12).fill(""); rows[20][3] = { bg: "#00FF00" }; return rows; }).includes("Team Mix: nothing formatted outside the data area"));
+  assert.ok(run((rows) => { rows[20] = Array(12).fill(""); rows[20][3] = { bg: "#00FF00" }; return rows; }).includes("Team Mix: nothing formatted below the last grid"));
+  assert.ok(run((rows) => { rows[3][14] = { bg: "#00FF00" }; return rows; }).includes("Team Mix: nothing formatted right of the grid"));
   assert.ok(run((rows) => { rows[7] = rows[8]; rows[8] = rows[9]; rows.length = 9; return rows; }).includes("Team Mix: every non-zero MF factor has a person"));
   assert.ok(run((rows) => { for (let r = 2; r < 8; r++) for (const c of [8, 9, 10]) rows[r][c] = { v: 50, font: "Arial" }; return rows; }).includes("Team Mix: ramp applied (roles are not all flat)"));
 });

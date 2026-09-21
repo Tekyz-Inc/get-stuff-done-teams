@@ -76,34 +76,35 @@ Column widths: `[150, 120, 300, 430, 122, 90, 90, 61, 53, 76, 81, 81]`.
 | `K` | `=J{r}*8*$H$4` | nf `$#,##0.00` |
 | `L` | `=K{r}*$G$4` | nf `$#,##0.00` |
 
-### 1.3 Totals and summary (BELOW the last item)
+### 1.3 Totals and summary (directly under the last item — NO blank rows)
 
 ```
 <last item row>
-(blank row)
-Total (Days) | … | H =SUM(H14:H<last>) | I =SUM(I…) | J =SUM(J…) | K =SUM(K…) | L =SUM(L…)
-(blank row)
-                                       J: Total Days | K: =J<tot>       | L: =J<tot>*$G$4
-                                       J: Total Hrs  | K: =J<tot>*8     | L: =J<tot>*$G$4*8
-                                       J: Total Cost | K: =K<tot>       | L: =L<tot>
+Total (Days) | … | H =SUM(H14:H<last>) | I =SUM(I…) | J =SUM(J…) | K =SUM(K…) | L =SUM(L…)     ← bg #D8DDE8, bold 10, A:L
+                                       J: Total Days | K: =J<tot>       | L: =J<tot>*$G$4      ← label bold, 0.00
+                                       J: Total Hrs  | K: =J<tot>*8     | L: =J<tot>*$G$4*8    ← label bold, 0.00
+                                       J: Total Cost | K: =K<tot>       | L: =L<tot>           ← label bold, $#,##0.00
 ```
 
-**The summary block sits BELOW the totals row, never inside the summed range** (the template
-ships it at rows 18–20, which becomes circular `#REF!` once items extend past it — move it).
+- The totals row is the template's grey band (`#D8DDE8`, bold, size 10) across `A:L`; its numbers stay in General format (`79.25`, `158.5`, `63400`).
+- No blank row above or below the totals row (David, 2026-09-21).
+- **The summary block never sits inside the summed range** (the template ships it at rows 18–20, which becomes circular `#REF!` once items extend past it).
 
 ---
 
-## 2. Team Mix tab (David's 2026-09-17 layout)
+## 2. Team Mix tab (David's 2026-09-17 layout · one grid per phase, 2026-09-21)
 
-### 2.1 Layout
+### 2.1 Layout of ONE grid
 
 ```
-Row 1   Title  (merged A:<Total Hrs col>)
-Row 2   Header (row 2 and ONLY row 2)
-Row 3.. one row PER PERSON
-Row T   Total        (T = 3 + nroles)
+Row t   Title  "<estimate title> — <phase>"  (merged A:<Total Hrs col>)
+Row t+1 Header (the ONLY header row in the grid)
+Row t+2.. one row PER PERSON
+Row T   Total        (T = t + 2 + nroles)
 Row T+1 Total Days   (right half only, H onward)
 ```
+
+**One grid per phase with hours** (§2.6): the first grid starts at row 1; every further grid starts **exactly 2 blank rows** below the previous grid's Total Days row. All grids live on the one Team Mix tab.
 
 | Col | Header | Content | Style |
 |---|---|---|---|
@@ -133,6 +134,10 @@ The old `Month / Days / Tot Days / Hrs` layout is retired: `Days` IS the per-per
 - Month columns `N = ceil(months)`, EXCEPT when the fractional tail is under ~0.1 month: fold it into the last full month (soft ceiling ~172 hrs) instead of opening a near-empty column.
 - **Recompute `months` and `N` after ANY roster change.** Adding a role raises Σ Count, shortens the duration, and turns the remainder column negative (−12.80 hrs was the symptom).
 - The remainder formula makes each row sum exactly. Never write a fractional last month as a value.
+
+### 2.6 One grid per phase
+
+Every phase (`MVP` / `Phase 1` / `Phase 2` / `Phase 3`) whose T-Shirt items have hours > 0 gets its own Team Mix grid, in phase order, on the same tab, with 2 blank unformatted rows between grids. Each grid's `Σ Days` reconciles to **that phase's** T-Shirt days (the phase rollup `Low Hrs ÷ 8`), and the grids together reconcile to `Total Days`. Months and column count are computed per grid. The team mix is the same for every phase unless the plan gives `teamMix.phases.<phase>.fte`.
 
 ### 2.3 Roster shape — one row per PERSON
 
@@ -207,10 +212,11 @@ T-SHIRT
   [ ] every item row's H:L are the §1.2 formulas (no values)
   [ ] section heading rows are merged A:L, bg #1C4F8B, and hold no sizes
   [ ] totals row + phase rollups (K4:N7) + summary block reference <last item row>
-  [ ] summary block is BELOW the totals row
+  [ ] totals row directly under the last item, grey band #D8DDE8 bold across A:L; summary block directly under it, labels bold, Total Cost in dollars
   [ ] Σ raw sizes × (1+MF) == Total Days cell (recomputed independently)
-TEAM MIX
-  [ ] header is row 2 only; row 3 is a person
+TEAM MIX (each grid)
+  [ ] one grid per phase with hours; the title ends with the phase name; exactly 2 empty, unformatted rows between grids
+  [ ] the header is the row under the title; the row under the header is a person
   [ ] header months read Mon 1..Mon N with N == month column count; last header is Total Hrs
   [ ] no Count > 1.00; per discipline, all rows but the last are 1.00
   [ ] every non-zero MF factor has a matching person row
@@ -220,7 +226,7 @@ TEAM MIX
   [ ] font Arial 10 everywhere; sage on exactly E, F, Total Hrs of role rows; monthly cells white
   [ ] Total row (#E5E5E5) and Total Days row (#9EC1EF) span every month column + Total Hrs
   [ ] nothing formatted outside the data area
-  [ ] Σ Days == T-Shirt Total Days
+  [ ] each grid's Σ Days == that phase's T-Shirt days; all grids together == Total Days
 TECH STACK
   [ ] at least the categories that apply are filled; none says TBD
 OVERVIEW
@@ -257,5 +263,5 @@ The plan (judgment only):
 ```
 
 - `tshirt.mode` `items` writes whole rows below the header (halts if rows exist unless `--replace`); `sizes` fills `E:L` on rows that already exist (a gap-analysis sheet), matched by the `(id)` suffix in column C — never by position.
-- `teamMix.fte` is per-discipline FTE (`backend` `frontend` `qa` `pm` `ba` `devops` `techlead`). The tool splits it into people (saturate then spill), computes months and the column count, ramps by discipline, writes the remainder formula, and refuses a roster that leaves a weighted MF factor unstaffed.
+- `teamMix.fte` is per-discipline FTE (`backend` `frontend` `qa` `pm` `ba` `devops` `techlead`). The tool splits it into people (saturate then spill), computes months and the column count, ramps by discipline, writes the remainder formula, and refuses a roster that leaves a weighted MF factor unstaffed. It writes **one grid per phase with hours** (§2.6); `teamMix.phases: { "Phase 1": { "fte": {…} } }` overrides the mix for one phase.
 - The MF list, legend, rate and high factor are READ from the sheet; the plan never carries them.
