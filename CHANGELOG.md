@@ -2,6 +2,21 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.20.12] - 2026-09-21
+
+### Fixed — estimate writer proven end-to-end; two-month remainder formula
+
+First live run of `gsd-t estimate-sheet write` on a copy of the Tekyz template (David's
+"E2E test of the estimator" sheet): 11 items in 4 sections, a 6-person / 2-month Team Mix,
+and a 4-row Technology Stack, then all 33 read-back audit checks pass — 8 seconds, no hand edits.
+
+- `bin/gsd-t-estimate-sheet.cjs`: with exactly two month columns the remainder was written
+  as `=F3-SUM(I3:I3)`; Google canonicalises a one-cell range to `SUM(I3)`, so the audit's
+  read-back never matched. New `remainderFormula()` emits `=F3-I3` for two months, the
+  `SUM(first:second-to-last)` form for three or more; writer and audit share it.
+- `test/estimate-sheet-writer.test.js`: the two-month case, including the writer's own
+  output passing its own audit.
+
 ## [5.20.11] - 2026-09-17
 
 ### Fixed — `update-all` treated a downgrade as an upgrade and rolled 34 projects back

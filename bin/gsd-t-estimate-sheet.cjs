@@ -732,6 +732,17 @@ async function writeTshirtSizes(api, grid, sheetId, layout, plan, totals, phaseS
 
 // ───────────────────────── write: Team Mix (spec §2) ─────────────────────────
 
+/**
+ * The last month's REMAINDER formula (spec §2.1). n=1: the whole total; n=2: `=F-I`
+ * (Google rewrites a one-cell range `SUM(I3:I3)` to `SUM(I3)`, so the read-back
+ * would never match — write the canonical form); n>2: `=F-SUM(first:second-to-last)`.
+ */
+function remainderFormula(r1, firstMonthC, n) {
+  if (n === 1) return `=F${r1}`;
+  if (n === 2) return `=F${r1}-${colLetter(firstMonthC)}${r1}`;
+  return `=F${r1}-SUM(${colLetter(firstMonthC)}${r1}:${colLetter(firstMonthC + n - 2)}${r1})`;
+}
+
 function teamMixValues(plan, roster) {
   const n = roster.n;
   const firstMonthC = 8; // I
@@ -748,7 +759,7 @@ function teamMixValues(plan, roster) {
     const r1 = 3 + i;
     const row = [p.label, p.count, "", roster.months, `=D${r1}*20*B${r1}`, `=E${r1}*8`, "", p.label];
     for (let m = 0; m < n - 1; m++) row.push(p.monthHours[m]);
-    row.push(n === 1 ? `=F${r1}` : `=F${r1}-SUM(${L(firstMonthC)}${r1}:${L(firstMonthC + n - 2)}${r1})`);
+    row.push(remainderFormula(r1, firstMonthC, n));
     row.push(`=SUM(${L(firstMonthC)}${r1}:${L(totalC - 1)}${r1})`);
     rows.push(row);
   });
@@ -938,7 +949,7 @@ function auditTeamMix(grid, mfList, tshirtTotalDays) {
       if (formulaAt(grid, p.r, 4) !== `=D${r1}*20*B${r1}`) badF.push(`E${r1}`);
       if (formulaAt(grid, p.r, 5) !== `=E${r1}*8`) badF.push(`F${r1}`);
       if (monthCols.length > 1) {
-        const want = `=F${r1}-SUM(${colLetter(firstM)}${r1}:${colLetter(lastM - 1)}${r1})`;
+        const want = remainderFormula(r1, firstM, monthCols.length);
         if (formulaAt(grid, p.r, lastM) !== want) badF.push(`${colLetter(lastM)}${r1} (remainder)`);
       }
       if (!formulaAt(grid, p.r, totalC).startsWith("=")) badF.push(`${colLetter(totalC)}${r1}`);
@@ -1172,7 +1183,7 @@ function haltAndExit(e, json) {
 
 module.exports = {
   validatePlan, splitRoster, rosterViolations, mfCoverageViolations, monthPlan, resampleWeights, rampHours, buildRoster,
-  tshirtTotals, itemFormulas, rollupFormulas, tshirtRows, teamMixValues, locateTshirt, findPhaseSource,
+  tshirtTotals, itemFormulas, rollupFormulas, tshirtRows, teamMixValues, remainderFormula, locateTshirt, findPhaseSource,
   auditTshirt, auditTeamMix, auditTechStack, auditOverview, colLetter, hexToColor, colorToHex, sheetIdFromArg,
   constants: { SIZE_CODES, PHASES, COLOR, RAMP, ROLE_LABEL, SOFT_CEILING, FOLD_THRESHOLD, TAB_TSHIRT, TAB_TEAM, TAB_TECH, PLAN_SCHEMA },
   Halt, SheetsApi, getToken, runAudit, main,

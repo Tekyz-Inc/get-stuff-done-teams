@@ -278,6 +278,18 @@ test("teamMixValues: header row 2, Mon 1..N then Total Hrs at I+N, chained formu
   assert.strictEqual(totalDays[8], `=I${v.totalR}/8`);
 });
 
+test("remainderFormula: 1 month = the total, 2 months = `=F-I` (Google rewrites SUM(I3:I3) to SUM(I3)), 3+ = SUM range", () => {
+  assert.strictEqual(W.remainderFormula(3, 8, 1), "=F3");
+  assert.strictEqual(W.remainderFormula(3, 8, 2), "=F3-I3");
+  assert.strictEqual(W.remainderFormula(3, 8, 3), "=F3-SUM(I3:J3)");
+  assert.strictEqual(W.remainderFormula(5, 8, 4), "=F5-SUM(I5:K5)");
+  const roster = W.buildRoster(plan(), 109.73, MF); // 2.07 months → 2 columns (the E2E case)
+  assert.strictEqual(roster.n, 2);
+  const v = W.teamMixValues(plan(), roster);
+  assert.strictEqual(v.rows[2][9], "=F3-I3");
+  assert.deepStrictEqual(failing(W.auditTeamMix(writtenTeamMixGrid(plan(), roster), MF, 109.73).checks), []);
+});
+
 // ───────────── the audit closes the loop ─────────────
 
 test("audit: the writer's own T-Shirt output passes every T-Shirt check", () => {
