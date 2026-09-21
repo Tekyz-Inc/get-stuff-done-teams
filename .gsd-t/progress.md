@@ -2,8 +2,8 @@
 
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: ✅ ACTIVE — last shipped v5.18.10 (2026-09-03): **M115 Test-Plan-First Requirements Interrogation COMPLETE** — `/gsd-t-test-plan` enumerates every test case a milestone's requirements imply BEFORE build (rules E1-E8), surfaces unfillable rows as requirements gaps, batches questions into one round, halts on non-convergence, binds acceptance criteria to plan rows, and re-enumerates after the fact. Blind replay against the TimeTracking rate-ledger answer key run CLEAN (answer key held out) — the same gaps found. Seven verify runs; one shared plan reader. Prior history in `.gsd-t/milestones/m115-test-plan-first-2026-09-03/progress.md`. Doc-First Enforcement remains PARKED (pseudocode committed). Next: `/cpua`, then the next milestone.
-## Date: 2026-09-21 15:22 PDT
-## Version: 5.20.12
+## Date: 2026-09-21 15:30 PDT
+## Version: 5.20.13
 
 ## Current Milestone
 
@@ -49,6 +49,7 @@ Older milestones (M33 and earlier) archived under `.gsd-t/milestones/` — see d
 <!-- No active blockers -->
 
 ## Decision Log
+- 2026-09-21 15:30 PDT: [release] v5.20.12 published + propagated (33 projects; tarball served after 31×10s; cache clean; latest check held). Then David's correction: **Team Mix staffs the MIDPOINT of Low and High**, not Low — `midDays = low × (1+hf)/2`, per-phase from the L/N rollups; audit + spec + tests updated; live write on the copy passes (MVP 71.55 d = midpoint of 62.23–80.9). v5.20.13.
 - 2026-09-21 15:22 PDT: [change][estimate] **Estimate writer — David's review of the live sheet applied.** T-Shirt: no blank rows around the totals row, template grey band (#D8DDE8 bold) on it, bold summary labels, Total Cost in dollars. Team Mix: one grid per phase with hours (2 blank rows between), each reconciling to its phase rollup; per-phase FTE override; Mths written at full precision so Σ Days reconciles exactly. Re-ran on the copy: 3 phase grids, all audit checks ✓, suite 3563/3563. Blue #1C4F8B confirmed; copies stay manual. v5.20.12 — unpublished.
 - 2026-09-21 14:58 PDT: [fix][estimate] **Estimate writer E2E PASSED on a real sheet** (David's copy of the Tekyz template, `1qWf2vqlTPHP2Ut0slLpaQ62J6xt3AVfhZZqlF-CW9-A`): write of 11 items / 6-person 2-month Team Mix / 4-row Tech Stack, all 33 audit checks ✓. One bug found by the audit and fixed: 2-month remainder `=F-SUM(I:I)` canonicalised by Google to `SUM(I3)` → now `=F-I` via shared `remainderFormula()`; test added. Confirmed the service account has ZERO Drive quota (copy → storageQuotaExceeded), so template copies must be made by a human; domain-wide delegation rejected as a master-key risk. Note: the template's section blue is #28518C vs the ATP sheet's #1C4F8B (tool uses #1C4F8B) — David to decide. v5.20.12 — not yet published.
 - 2026-09-17 17:10 PDT: [fix][release] **update-all downgraded the global during the 5.20.10 release — now a HALT.** npm's cached listing named 5.19.11 as @latest for ~4 min after publish (tarball 404 too); `upgradeGlobalBinary()` installed the older release, reported it as an upgrade, re-exec'd the OLD binary, which rewrote ~/.claude/commands + 34 projects with 5.19.11 — twice. Fix: numeric versionCmp + HALT on downgrade naming the remedy; cpua.md Step 6 polls the tarball to 200, `npm cache clean --force`, checks dist-tags.latest before update-all. Test added. v5.20.11.

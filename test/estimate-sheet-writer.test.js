@@ -124,7 +124,11 @@ function writtenTshirtGrid(p, mutate = (x) => x) {
     rows[row.row1 - 1] = cells;
   }
   // phase rollups: L = Low Hrs for the phase (effective value), so the audit can derive phase days
-  ["MVP", "Phase 1", "Phase 2", "Phase 3"].forEach((ph, i) => { rows[3 + i][11] = { ...rows[3 + i][11], n: Math.round((phaseRaw[ph] || 0) * 1.9 * 8 * 100) / 100 }; });
+  ["MVP", "Phase 1", "Phase 2", "Phase 3"].forEach((ph, i) => {
+    const lowHrs = Math.round((phaseRaw[ph] || 0) * 1.9 * 8 * 100) / 100;
+    rows[3 + i][11] = { ...rows[3 + i][11], n: lowHrs };
+    rows[3 + i][13] = { ...rows[3 + i][13], n: Math.round(lowHrs * 1.3 * 100) / 100 };
+  });
   return mkGrid(mutate(rows));
 }
 
@@ -168,9 +172,9 @@ function writtenTeamMixGrid(p, rosters, mutate = (x) => x) {
   return mkGrid(mutate(rows));
 }
 
-/** phaseDays the audit would read from the T-Shirt rollups for plan `p`. */
+/** phaseDays the audit would read from the T-Shirt rollups for plan `p` — the Low/High midpoint. */
 function phaseDaysOf(p) {
-  return Object.fromEntries(W.phaseTotals(p, LAYOUT).map((x) => [x.phase, x.totalDays]));
+  return Object.fromEntries(W.phaseTotals(p, LAYOUT).map((x) => [x.phase, x.staffDays]));
 }
 
 const failing = (checks) => checks.filter((c) => !c.ok).map((c) => c.check);
@@ -361,21 +365,22 @@ test("audit: the writer's own Team Mix output passes every Team Mix check (singl
 test("per-phase grids: one Team Mix grid per phase with hours, 2 blank rows apart, each reconciling to its phase", () => {
   const p = plan(); // MVP: M + S+XL = 6.5 raw; Phase 1: L = 3 raw
   const phases = W.phaseTotals(p, LAYOUT);
-  assert.deepStrictEqual(phases.map((x) => [x.phase, x.rawDays, x.totalDays]), [["MVP", 6.5, 12.35], ["Phase 1", 3, 5.7]]);
+  assert.deepStrictEqual(phases.map((x) => [x.phase, x.rawDays, x.totalDays, x.highDays, x.staffDays]), [["MVP", 6.5, 12.35, 16.06, 14.2], ["Phase 1", 3, 5.7, 7.41, 6.56]]);
+  assert.strictEqual(W.midDays(100, 1.3), 115, "midpoint of low and high = low × (1 + highFactor) / 2");
   const rosters = W.buildRosters(p, LAYOUT);
   assert.strictEqual(rosters.length, 2);
   assert.strictEqual(rosters[1].roster.people.length, 6);
   const grid = writtenTeamMixGrid(p, rosters);
-  const a = W.auditTeamMix(grid, MF, 18.05, phaseDaysOf(p));
+  const a = W.auditTeamMix(grid, MF, W.midDays(18.05, 1.3), phaseDaysOf(p));
   assert.deepStrictEqual(failing(a.checks), []);
   assert.strictEqual(a.grids, 2);
   // a missing grid, a wrong gap, and a grid that does not reconcile all fail
-  const onlyOne = W.auditTeamMix(writtenTeamMixGrid(p, [rosters[0]]), MF, 18.05, phaseDaysOf(p));
+  const onlyOne = W.auditTeamMix(writtenTeamMixGrid(p, [rosters[0]]), MF, W.midDays(18.05, 1.3), phaseDaysOf(p));
   assert.ok(failing(onlyOne.checks).includes("Team Mix: one grid per phase with hours"));
-  const badGap = W.auditTeamMix(writtenTeamMixGrid(p, rosters, (rows) => { rows.splice(rosters[0].roster.people.length + 4, 1); return rows; }), MF, 18.05, phaseDaysOf(p));
+  const badGap = W.auditTeamMix(writtenTeamMixGrid(p, rosters, (rows) => { rows.splice(rosters[0].roster.people.length + 4, 1); return rows; }), MF, W.midDays(18.05, 1.3), phaseDaysOf(p));
   assert.ok(failing(badGap.checks).some((c) => /exactly 2 blank rows/.test(c)));
-  const wrongPhase = W.auditTeamMix(writtenTeamMixGrid(p, rosters), MF, 18.05, { MVP: 12.35, "Phase 1": 99 });
-  assert.ok(failing(wrongPhase.checks).some((c) => /Σ Days == that phase/.test(c)));
+  const wrongPhase = W.auditTeamMix(writtenTeamMixGrid(p, rosters), MF, W.midDays(18.05, 1.3), { MVP: 14.2, "Phase 1": 99 });
+  assert.ok(failing(wrongPhase.checks).some((c) => /Σ Days == midpoint of that phase/.test(c)));
 });
 
 test("per-phase FTE override: teamMix.phases[<phase>].fte replaces the shared mix for that grid only", () => {

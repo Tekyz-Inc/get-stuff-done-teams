@@ -740,13 +740,19 @@ async function writeTshirtSizes(api, grid, sheetId, layout, plan, totals, phaseS
 
 // ───────────────────────── write: Team Mix (spec §2) ─────────────────────────
 
-/** Per-phase T-Shirt totals in PHASES order — only phases with hours > 0 (spec §2.6). */
+/** Team Mix staffs the MIDPOINT of the Low and High figures (David, 2026-09-21): mid = low × (1 + highFactor) / 2. */
+function midDays(lowDays, highFactor) { return round2(lowDays * (1 + highFactor) / 2); }
+
+/** Per-phase T-Shirt totals in PHASES order — only phases with hours > 0 (spec §2.6). `totalDays` is the Low figure; `staffDays` the midpoint the Team Mix staffs. */
 function phaseTotals(plan, layout) {
   const raw = {};
   for (const s of plan.tshirt.sections) for (const it of s.items) {
     raw[it.phase] = (raw[it.phase] ? raw[it.phase] : 0) + sizeDays(it.fe, layout.legend) + sizeDays(it.be, layout.legend);
   }
-  return PHASES.filter((ph) => raw[ph] > 0).map((ph) => ({ phase: ph, rawDays: round2(raw[ph]), totalDays: round2(raw[ph] * (1 + layout.mfTotal)) }));
+  return PHASES.filter((ph) => raw[ph] > 0).map((ph) => {
+    const low = round2(raw[ph] * (1 + layout.mfTotal));
+    return { phase: ph, rawDays: round2(raw[ph]), totalDays: low, highDays: round2(low * layout.highFactor), staffDays: midDays(low, layout.highFactor) };
+  });
 }
 
 /** One roster per phase with hours. FTE comes from teamMix.phases[<phase>].fte when given, else teamMix.fte. */
@@ -756,7 +762,7 @@ function buildRosters(plan, layout) {
   return phases.map((ph) => {
     const override = plan.teamMix.phases && plan.teamMix.phases[ph.phase] && plan.teamMix.phases[ph.phase].fte;
     const sub = override ? { ...plan, teamMix: { ...plan.teamMix, fte: override } } : plan;
-    return { ...ph, roster: buildRoster(sub, ph.totalDays, layout.mf) };
+    return { ...ph, roster: buildRoster(sub, ph.staffDays, layout.mf) };
   });
 }
 
@@ -928,10 +934,11 @@ function auditTshirt(grid) {
   check(out, "T-Shirt: section rows are styled (bg #1C4F8B)", !badSectionFmt.length, badSectionFmt.join(", "));
   check(out, "T-Shirt: 'Total (Days)' row exists below the items", totalRow0 > lastItem0 && lastItem0 >= 0, "not found");
   let totalDaysCell = NaN;
+  // Team Mix reconciles to the MIDPOINT of each phase's Low Hrs (L) and High Hrs (N), in days
   const phaseDays = {};
   for (const rr of layout.rollupRows) {
-    const hrs = numAt(grid, rr, 11); // L = Low Hrs for that phase
-    phaseDays[textAt(grid, rr, 9).trim()] = Number.isNaN(hrs) ? NaN : round2(hrs / 8);
+    const low = numAt(grid, rr, 11), high = numAt(grid, rr, 13);
+    phaseDays[textAt(grid, rr, 9).trim()] = Number.isNaN(low) || Number.isNaN(high) ? NaN : round2((low + high) / 2 / 8);
   }
   if (totalRow0 > lastItem0 && lastItem0 >= 0) {
     check(out, "T-Shirt: totals row sits directly under the last item (no blank row)", totalRow0 === lastItem0 + 1, `last item row ${lastItem0 + 1}, totals row ${totalRow0 + 1}`);
@@ -962,7 +969,7 @@ function auditTshirt(grid) {
     const recomputed = round2(raw * (1 + layout.mfTotal));
     check(out, "T-Shirt: Σ raw sizes × (1+MF) == Total Days cell", Math.abs(recomputed - totalDaysCell) < 0.02, `recomputed ${recomputed}, cell ${totalDaysCell}`);
   }
-  return { checks: out, layout, totalDays: totalDaysCell, lastItem1: lastItem0 + 1, phaseDays };
+  return { checks: out, layout, totalDays: totalDaysCell, staffDays: Number.isNaN(totalDaysCell) ? NaN : midDays(totalDaysCell, layout.highFactor), lastItem1: lastItem0 + 1, phaseDays };
 }
 
 function disciplineOfLabel(label) {
@@ -1089,7 +1096,7 @@ function auditTeamMix(grid, mfList, tshirtTotalDays, phaseDays) {
       const phase = expectedPhases.find((ph) => title.endsWith(ph));
       if (expectedPhases.length) {
         check(out, `${label}: title names a phase with hours`, !!phase, `title '${title}' ends with none of [${expectedPhases.join(", ")}]`);
-        if (phase) check(out, `${label} (${phase}): Σ Days == that phase's T-Shirt days`, Math.abs(sumDays - phaseDays[phase]) < tol, `Team Mix ${sumDays}, T-Shirt ${phaseDays[phase]} (tolerance ${round2(tol)})`);
+        if (phase) check(out, `${label} (${phase}): Σ Days == midpoint of that phase's Low/High days`, Math.abs(sumDays - phaseDays[phase]) < tol, `Team Mix ${sumDays}, T-Shirt ${phaseDays[phase]} (tolerance ${round2(tol)})`);
       }
       prevBottom = totalR + 1;
     }
@@ -1100,7 +1107,7 @@ function auditTeamMix(grid, mfList, tshirtTotalDays, phaseDays) {
     check(out, "Team Mix: nothing formatted below the last grid", !strayBelow.length, strayBelow.slice(0, 8).join(", "));
   }
   if (!Number.isNaN(tshirtTotalDays) && headers.length) {
-    check(out, "Team Mix: Σ Days over all grids == T-Shirt Total Days", Math.abs(sumDaysAll - tshirtTotalDays) < Math.max(0.15, tolAll), `Team Mix ${round2(sumDaysAll)}, T-Shirt ${tshirtTotalDays} (tolerance ${round2(Math.max(0.15, tolAll))})`);
+    check(out, "Team Mix: Σ Days over all grids == midpoint of T-Shirt Low/High days", Math.abs(sumDaysAll - tshirtTotalDays) < Math.max(0.15, tolAll), `Team Mix ${round2(sumDaysAll)}, T-Shirt midpoint ${tshirtTotalDays} (tolerance ${round2(Math.max(0.15, tolAll))})`);
   }
   return { checks: out, grids: headers.length };
 }
@@ -1134,7 +1141,7 @@ async function runAudit(api) {
   const checks = [];
   const tshirt = auditTshirt(await api.grid(TAB_TSHIRT));
   checks.push(...tshirt.checks);
-  checks.push(...auditTeamMix(await api.grid(TAB_TEAM), tshirt.layout.mf, tshirt.totalDays, tshirt.phaseDays).checks);
+  checks.push(...auditTeamMix(await api.grid(TAB_TEAM), tshirt.layout.mf, tshirt.staffDays, tshirt.phaseDays).checks);
   checks.push(...auditTechStack(await api.grid(TAB_TECH)).checks);
   if (tabs.has(TAB_OVERVIEW)) checks.push(...auditOverview(await api.grid(TAB_OVERVIEW)).checks);
   else check(checks, "Overview tab exists (the estimates index imports its cells)", false, "missing");
@@ -1191,7 +1198,7 @@ async function verbRead(api, tab) {
 }
 
 function rostersTable(rosters) {
-  return rosters.map((r) => `── ${r.phase}: ${r.totalDays} d ──\n${rosterTable(r.roster)}`).join("\n");
+  return rosters.map((r) => `── ${r.phase}: low ${r.totalDays} d · high ${r.highDays} d → staffing the midpoint ${r.staffDays} d ──\n${rosterTable(r.roster)}`).join("\n");
 }
 
 async function verbPlanCheck(api, plan) {
@@ -1208,7 +1215,7 @@ async function verbWrite(api, plan, opts) {
   const tech = await writeTechStack(api, plan);
   const result = {
     tshirt: { mode: plan.tshirt.mode, itemsWritten: ts.itemsWritten, firstItem1: ts.firstItem1, lastItem1: ts.lastItem1, totalRow1: ts.totalRow1, totals: ts.totals },
-    teamMix: { grids: tm.grids, phases: rosters.map((r) => ({ phase: r.phase, totalDays: r.totalDays, people: r.roster.people.length, months: r.roster.months, columns: r.roster.n, sumDays: r.roster.sumDays })), table: rostersTable(rosters), lastRow: tm.lastRow },
+    teamMix: { grids: tm.grids, phases: rosters.map((r) => ({ phase: r.phase, lowDays: r.totalDays, highDays: r.highDays, staffDays: r.staffDays, people: r.roster.people.length, months: r.roster.months, columns: r.roster.n, sumDays: r.roster.sumDays })), table: rostersTable(rosters), lastRow: tm.lastRow },
     techStack: tech,
   };
   if (!opts.noAudit) result.audit = await runAudit(api);
@@ -1271,7 +1278,7 @@ async function main(args) {
     if (json) console.log(JSON.stringify({ ok, exitCode: ok ? 0 : 4, ...r }, null, 2));
     else {
       console.log(`T-Shirt (${r.tshirt.mode}): ${r.tshirt.itemsWritten} items, rows ${r.tshirt.firstItem1}–${r.tshirt.lastItem1}, totals row ${r.tshirt.totalRow1}; total ${r.tshirt.totals.totalDays} d, $${r.tshirt.totals.lowDollars} – $${r.tshirt.totals.highDollars}`);
-      for (const ph of r.teamMix.phases) console.log(`Team Mix — ${ph.phase}: ${ph.people} people, ${ph.months} months, ${ph.columns} columns, Σ Days ${ph.sumDays}`);
+      for (const ph of r.teamMix.phases) console.log(`Team Mix — ${ph.phase}: ${ph.people} people, ${ph.months} months, ${ph.columns} columns, Σ Days ${ph.sumDays} (midpoint of ${ph.lowDays}–${ph.highDays})`);
       console.log(r.teamMix.table);
       console.log(`Technology Stack: ${r.techStack.rows} rows`);
       if (r.audit) printChecks(r.audit);
@@ -1291,7 +1298,7 @@ function haltAndExit(e, json) {
 
 module.exports = {
   validatePlan, splitRoster, rosterViolations, mfCoverageViolations, monthPlan, resampleWeights, rampHours, buildRoster,
-  tshirtTotals, phaseTotals, buildRosters, itemFormulas, rollupFormulas, tshirtRows, teamMixValues, teamMixFormatReqs, remainderFormula, locateTshirt, findPhaseSource,
+  tshirtTotals, phaseTotals, buildRosters, midDays, itemFormulas, rollupFormulas, tshirtRows, teamMixValues, teamMixFormatReqs, remainderFormula, locateTshirt, findPhaseSource,
   auditTshirt, auditTeamMix, auditTechStack, auditOverview, colLetter, hexToColor, colorToHex, sheetIdFromArg,
   constants: { SIZE_CODES, PHASES, COLOR, RAMP, ROLE_LABEL, SOFT_CEILING, FOLD_THRESHOLD, TAB_TSHIRT, TAB_TEAM, TAB_TECH, PLAN_SCHEMA },
   Halt, SheetsApi, getToken, runAudit, main,

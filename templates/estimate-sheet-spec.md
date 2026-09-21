@@ -130,14 +130,15 @@ The old `Month / Days / Tot Days / Hrs` layout is retired: `Days` IS the per-per
 
 ### 2.2 The math
 
-- `months = totalDays / (Σ Count × 20)` — solve so `Σ Days` equals the T-Shirt `Total Days`.
+- **The Team Mix staffs the MIDPOINT of the Low and High figures** (David, 2026-09-21): `staffDays = Low Total Days × (1 + high factor) / 2` — per phase, from that phase's `Low Hrs` and `High Hrs` rollups. Never the Low figure alone.
+- `months = staffDays / (Σ Count × 20)` — solve so `Σ Days` equals that midpoint.
 - Month columns `N = ceil(months)`, EXCEPT when the fractional tail is under ~0.1 month: fold it into the last full month (soft ceiling ~172 hrs) instead of opening a near-empty column.
 - **Recompute `months` and `N` after ANY roster change.** Adding a role raises Σ Count, shortens the duration, and turns the remainder column negative (−12.80 hrs was the symptom).
 - The remainder formula makes each row sum exactly. Never write a fractional last month as a value.
 
 ### 2.6 One grid per phase
 
-Every phase (`MVP` / `Phase 1` / `Phase 2` / `Phase 3`) whose T-Shirt items have hours > 0 gets its own Team Mix grid, in phase order, on the same tab, with 2 blank unformatted rows between grids. Each grid's `Σ Days` reconciles to **that phase's** T-Shirt days (the phase rollup `Low Hrs ÷ 8`), and the grids together reconcile to `Total Days`. Months and column count are computed per grid. The team mix is the same for every phase unless the plan gives `teamMix.phases.<phase>.fte`.
+Every phase (`MVP` / `Phase 1` / `Phase 2` / `Phase 3`) whose T-Shirt items have hours > 0 gets its own Team Mix grid, in phase order, on the same tab, with 2 blank unformatted rows between grids. Each grid's `Σ Days` reconciles to **the midpoint of that phase's Low and High days** (`(Low Hrs + High Hrs) ÷ 2 ÷ 8` from the phase rollups), and the grids together reconcile to the midpoint of `Total Days` and `Total Days × high factor`. Months and column count are computed per grid. The team mix is the same for every phase unless the plan gives `teamMix.phases.<phase>.fte`.
 
 ### 2.3 Roster shape — one row per PERSON
 
@@ -226,7 +227,7 @@ TEAM MIX (each grid)
   [ ] font Arial 10 everywhere; sage on exactly E, F, Total Hrs of role rows; monthly cells white
   [ ] Total row (#E5E5E5) and Total Days row (#9EC1EF) span every month column + Total Hrs
   [ ] nothing formatted outside the data area
-  [ ] each grid's Σ Days == that phase's T-Shirt days; all grids together == Total Days
+  [ ] each grid's Σ Days == midpoint of that phase's Low/High days; all grids together == midpoint of Total Days and Total Days × high factor
 TECH STACK
   [ ] at least the categories that apply are filled; none says TBD
 OVERVIEW

@@ -2,6 +2,19 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.20.13] - 2026-09-21
+
+### Fixed — Team Mix staffs the midpoint of Low and High, not Low
+
+David's correction on the first live sheet. The Team Mix was sized to the Low figure;
+Tekyz staffs the midpoint of the Low and High estimates.
+
+- `bin/gsd-t-estimate-sheet.cjs`: `midDays = low × (1 + high factor) / 2`; each phase grid is
+  built and audited against `(Low Hrs + High Hrs) ÷ 2 ÷ 8` from that phase's rollups; the
+  grids together against the midpoint of `Total Days` and `Total Days × high factor`.
+- `templates/estimate-sheet-spec.md` §2.2 / §2.6 / §5; tests updated; live write on the E2E
+  copy: 3 phase grids, all audit checks pass.
+
 ## [5.20.12] - 2026-09-21
 
 ### Fixed — estimate writer proven end-to-end; two-month remainder formula
