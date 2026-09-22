@@ -307,7 +307,7 @@ test("tshirtRows: section heading rows, items with the id in column C, a blank, 
 test("teamMixValues: header row 2, Mon 1..N then Total Hrs at I+N, chained formulas, remainder last month, Total Days right-half only", () => {
   const roster = W.buildRoster(plan(), 154.76, MF);
   const v = W.teamMixValues(plan(), roster, "MVP", 0);
-  assert.strictEqual(v.rows[0][0], "Test — Estimate — MVP");
+  assert.strictEqual(v.rows[0][0], "MVP", "the title row is exactly the phase name");
   assert.deepStrictEqual(v.rows[1], ["Skill set", "Count", "", "Mths", "Days", "Hrs", "", "Resource", "Mon 1", "Mon 2", "Mon 3", "Total Hrs"]);
   assert.strictEqual(v.totalC, 11);
   const r3 = v.rows[2];
@@ -466,6 +466,17 @@ test("deriveFteFromTeamMix: entered Counts sum per discipline; peak-formula rost
   assert.ok(Math.abs(sum - 2.83) < 0.03, `total FTE preserved: ${sum}`);
   assert.ok(fte.backend > fte.design && fte.design > fte.qa && fte.qa > fte.pm, `split by hours: ${JSON.stringify(fte)}`);
   assert.throws(() => W.deriveFteFromTeamMix(mkGrid([["T"], ["Skill set", "Count"], ["Wizard", 1]])), /cannot map these roles/);
+});
+
+test("phaseGapMap: closes gaps — MVP + Phase 2 + Phase 3 → Phase 1 + Phase 2; contiguous sets map to nothing", () => {
+  assert.deepStrictEqual(W.phaseGapMap(["MVP", "Phase 2", "Phase 3"]), { "Phase 2": "Phase 1", "Phase 3": "Phase 2" });
+  assert.deepStrictEqual(W.phaseGapMap(["MVP", "Phase 3"]), { "Phase 3": "Phase 1" });
+  assert.deepStrictEqual(W.phaseGapMap(["MVP", "Phase 1", "Phase 2"]), {});
+  assert.deepStrictEqual(W.phaseGapMap(["MVP"]), {});
+  assert.deepStrictEqual(W.phaseGapMap(["Phase 2"]), { "Phase 2": "Phase 1" });
+  const p = plan(); p.tshirt.sections[1].items[0].phase = "Phase 2"; // MVP + Phase 2, no Phase 1
+  const a = W.auditTshirt(writtenTshirtGrid(p));
+  assert.ok(failing(a.checks).includes("T-Shirt: phases are contiguous (no empty phase between used ones)"));
 });
 
 test("locateTshirt: halts when the tab is not the template", () => {

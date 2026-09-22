@@ -97,7 +97,7 @@ Total (Days) | … | H =SUM(H14:H<last>) | I =SUM(I…) | J =SUM(J…) | K =SUM(
 ### 2.1 Layout of ONE grid
 
 ```
-Row t   Title  "<estimate title> — <phase>"  (merged A:<Total Hrs col>)
+Row t   Title  — EXACTLY the phase name: "MVP" / "Phase 1" / …  (merged A:<Total Hrs col>; nothing else in it)
 Row t+1 Header (the ONLY header row in the grid)
 Row t+2.. one row PER PERSON
 Row T   Total        (T = t + 2 + nroles)
@@ -137,6 +137,10 @@ The old `Month / Days / Tot Days / Hrs` layout is retired: `Days` IS the per-per
 - The remainder formula makes each row sum exactly. Never write a fractional last month as a value.
 
 ### 2.6 One grid per phase
+
+**Phases are contiguous.** Items use `MVP`, then `Phase 1`, `Phase 2`, `Phase 3` with no empty phase between used ones — `MVP` + `Phase 2` with nothing in `Phase 1` is a defect; renumber (`Phase 2` → `Phase 1`, `Phase 3` → `Phase 2`) so the numbering has no gap (`gsd-t estimate-sheet phases` does this and rebuilds the grids). The audit fails a gap.
+
+**The title row of each grid is the phase name and nothing else** — `MVP`, `Phase 1`, … Never the estimate title, never "<title> — Phase 1" (David, 2026-09-21).
 
 Every phase (`MVP` / `Phase 1` / `Phase 2` / `Phase 3`) whose T-Shirt items have hours > 0 gets its own Team Mix grid, in phase order, on the same tab, with 2 blank unformatted rows between grids. Each grid's `Σ Days` reconciles to **the midpoint of that phase's Low and High days** (`(Low Hrs + High Hrs) ÷ 2 ÷ 8` from the phase rollups), and the grids together reconcile to the midpoint of `Total Days` and `Total Days × high factor`. Months and column count are computed per grid. The team mix is the same for every phase unless the plan gives `teamMix.phases.<phase>.fte`.
 
@@ -217,8 +221,9 @@ T-SHIRT
   [ ] totals row + phase rollups (K4:N7) + summary block reference <last item row>
   [ ] totals row directly under the last item, grey band #D8DDE8 bold across A:L; summary block directly under it, labels bold, Total Cost in dollars
   [ ] Σ raw sizes × (1+MF) == Total Days cell (recomputed independently)
+  [ ] phases are contiguous — no empty phase between used ones
 TEAM MIX (each grid)
-  [ ] one grid per phase with hours; the title ends with the phase name; exactly 2 empty, unformatted rows between grids
+  [ ] one grid per phase with hours; the title row is EXACTLY the phase name; exactly 2 empty, unformatted rows between grids
   [ ] the header is the row under the title; the row under the header is a person
   [ ] header months read Mon 1..Mon N with N == month column count; last header is Total Hrs
   [ ] no Count > 1.00; per discipline, all rows but the last are 1.00
@@ -251,7 +256,9 @@ gsd-t estimate-sheet audit      --sheet <id|url>                  # §5 checklis
 gsd-t estimate-sheet format     --sheet <id|url> [--dry-run]      # normalise T-Shirt FORMATTING only: section rows (§1.2), grey totals band directly under
                                 # the last item, standard summary block directly under it (§1.3); no size, phase, text or item formula is touched;
                                 # rows under the totals row that are not the old summary block are never overwritten (rows are inserted above them)
-gsd-t estimate-sheet teammix    --sheet <id|url> [--fte '{"backend":1.5,…}'] [--title <t>] [--dry-run]
+gsd-t estimate-sheet phases     --sheet <id|url> [--dry-run]      # close phase gaps on the T-Shirt tab (Phase 2→1, 3→2 …), then rebuild the Team Mix grids
+gsd-t estimate-sheet titles     --sheet <id|url> [--dry-run]      # set each Team Mix grid's title row to exactly its phase name
+gsd-t estimate-sheet teammix    --sheet <id|url> [--fte '{"backend":1.5,…}'] [--dry-run]
                                 # rebuild the Team Mix (one grid per phase) from the sheet's OWN roster and phase rollups — no plan needed;
                                 # the roster is derived from the existing grid (entered Counts summed per discipline; older peak-utilisation
                                 # rosters split the sheet's total FTE by each role's hours); --fte overrides it; halts on a role it cannot map

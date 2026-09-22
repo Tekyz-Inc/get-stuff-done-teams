@@ -2,8 +2,8 @@
 
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: ✅ ACTIVE — last shipped v5.18.10 (2026-09-03): **M115 Test-Plan-First Requirements Interrogation COMPLETE** — `/gsd-t-test-plan` enumerates every test case a milestone's requirements imply BEFORE build (rules E1-E8), surfaces unfillable rows as requirements gaps, batches questions into one round, halts on non-convergence, binds acceptance criteria to plan rows, and re-enumerates after the fact. Blind replay against the TimeTracking rate-ledger answer key run CLEAN (answer key held out) — the same gaps found. Seven verify runs; one shared plan reader. Prior history in `.gsd-t/milestones/m115-test-plan-first-2026-09-03/progress.md`. Doc-First Enforcement remains PARKED (pseudocode committed). Next: `/cpua`, then the next milestone.
-## Date: 2026-09-21 16:50 PDT
-## Version: 5.20.14
+## Date: 2026-09-21 17:45 PDT
+## Version: 5.20.15
 
 ## Current Milestone
 
@@ -49,6 +49,7 @@ Older milestones (M33 and earlier) archived under `.gsd-t/milestones/` — see d
 <!-- No active blockers -->
 
 ## Decision Log
+- 2026-09-21 17:45 PDT: [rule][estimate] **Contiguous phases + phase-name-only Team Mix titles** (David). Spec §2.1/§2.6 + audit checks; `phases` verb (renumber to close gaps, rebuild grids) and `titles` verb (title row = phase). Only Acron had a gap (MVP, P2, P3 → MVP, P1, P2; 20 cells). All 19 Team Mix titles renamed; four older grids keep a blank row 2 between title and header (merged A1:*2), so the verb takes the nearest non-empty row above the header. v5.20.15 — unpublished.
 - 2026-09-21 16:50 PDT: [feature][estimate] **`format` verb + all 19 Hilo T-Shirt tabs normalised** (David: 'update the formatting for all 19, ignore Tech Stack'). Section-row blue, blank rows before totals deleted, grey bold totals band, standard summary block (bold, $) directly under it; four old summary variants recognised; row insertion when another table sits below (Part 121); exact-range unmerge (two sheets had wider merges). Untouched by decision: '-' size cells (4 sheets), non-template item formulas (16), stale rollup ranges (4), missing Phase dropdowns (3), empty Tech Stack (14). Sheets API: 60 reads/min — throttle batch runs. Still v5.20.14, unpublished.
 - 2026-09-21 16:25 PDT: [feature][estimate] **Reviewed all 19 Hilo estimates; rebuilt Team Mix on the 5 multi-phase ones.** Reader generalized to both T-Shirt layouts (label-based column map); new `teammix` verb derives the roster from the existing grid (entered-Count vs peak-utilisation models), reads phase Low/High from rollups, writes one grid per phase; design/mobile disciplines; fold rule checks the 172 ceiling; 429 backoff. Rebuilt: Acron, Role-Based Permissions, Part 141&61, Part 121, Aeroplanned (PM 0.2 + BA 0.1 added) — all Team Mix checks ✓. Formatting review: every sheet fails the new totals/summary rules (they predate them); 16 use non-template item formulas; 14 have an empty Tech Stack; 10 older-layout Overviews sit at rows 3/4 (the index already points there). v5.20.14 — unpublished.
 - 2026-09-21 15:30 PDT: [release] v5.20.12 published + propagated (33 projects; tarball served after 31×10s; cache clean; latest check held). Then David's correction: **Team Mix staffs the MIDPOINT of Low and High**, not Low — `midDays = low × (1+hf)/2`, per-phase from the L/N rollups; audit + spec + tests updated; live write on the copy passes (MVP 71.55 d = midpoint of 62.23–80.9). v5.20.13.

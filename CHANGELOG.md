@@ -2,6 +2,23 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.20.15] - 2026-09-21
+
+### Changed — phases must be contiguous; the Team Mix title row is the phase name only
+
+David's review of the 19 Hilo estimates: one had items in MVP and Phase 2 with nothing in
+Phase 1, and every Team Mix title row carried the estimate name.
+
+- Rule (spec §2.6): phases are contiguous — `MVP`, `Phase 1`, `Phase 2`, … with no empty phase
+  between used ones. The audit fails a gap. New `phases` verb renumbers the item Phase cells to
+  close the gap and rebuilds the Team Mix grids.
+- Rule (spec §2.1): each grid's title row is EXACTLY the phase name. The writer, `teammix` and
+  the audit follow it; the plan's `title` is no longer used. New `titles` verb sets existing
+  grids' title rows (the nearest non-empty row above the header — older grids keep a blank row
+  between title and header).
+- Applied: Acron Academy renumbered (Phase 2→1, Phase 3→2, 20 cells) and its grids rebuilt;
+  all 19 estimates' Team Mix titles renamed.
+
 ## [5.20.14] - 2026-09-21
 
 ### Added — `gsd-t estimate-sheet teammix` rebuilds any estimate's Team Mix; the reader handles both template layouts

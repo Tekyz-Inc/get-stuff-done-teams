@@ -25,6 +25,8 @@
  *   write      --sheet <id|url> --plan <plan.json> [--replace]   write T-Shirt + Team Mix + Tech Stack, then audit
  *   teammix    --sheet <id|url> [--fte <json>] [--dry-run] rebuild the Team Mix (one grid per phase) from the sheet's own roster + rollups
  *   format     --sheet <id|url> [--dry-run]              normalise T-Shirt formatting only (section rows, totals band, summary block); values untouched
+ *   phases     --sheet <id|url> [--dry-run]              close phase gaps (MVP, Phase 2 → MVP, Phase 1) on the T-Shirt tab, then rebuild the Team Mix
+ *   titles     --sheet <id|url> [--dry-run]              set each Team Mix grid's title row to exactly its phase name
  *   audit      --sheet <id|url>                          the spec §5 checklist, by read-back
  *   plan-schema                                          print the plan shape
  * Flags: --json (envelope only)  --key <path>  --no-audit (write only; for debugging)
@@ -412,7 +414,7 @@ function findPhaseSource(grid, fromRow) { return findPhaseSourceIn(grid, fromRow
 // ───────────────────────── plan validation (pure) ─────────────────────────
 
 const PLAN_SCHEMA = {
-  title: "string — Team Mix title, e.g. 'Hilo ATOS — ATP Gap Closure'",
+  title: "optional string — no longer written anywhere (the Team Mix title row is the phase name only)",
   tshirt: {
     mode: "'items' (write whole rows from row 14) | 'sizes' (rows already exist; fill E:L, matched by the id in column C)",
     sections: [{
@@ -437,7 +439,7 @@ function sizeOf(v) { return v == null ? "" : String(v).trim(); }
 function validatePlan(plan) {
   const errors = [];
   if (!plan || typeof plan !== "object") return ["plan is not an object"];
-  if (!plan.title || typeof plan.title !== "string") errors.push("title: required string");
+  if (plan.title != null && typeof plan.title !== "string") errors.push("title: must be a string when given (unused since v5.20.15 — the Team Mix title row is the phase name)");
   const t = plan.tshirt && typeof plan.tshirt === "object" ? plan.tshirt : {};
   if (!["items", "sizes"].includes(t.mode)) errors.push("tshirt.mode: must be 'items' or 'sizes'");
   const sections = Array.isArray(t.sections) ? t.sections : [];
@@ -872,7 +874,7 @@ function teamMixValues(plan, roster, phase, top) {
   for (let m = 1; m <= n; m++) header.push(`Mon ${m}`);
   header.push("Total Hrs");
   const rows = [];
-  rows.push([phase ? `${plan.title} — ${phase}` : plan.title, ...Array(width - 1).fill("")]);
+  rows.push([phase ? phase : "MVP", ...Array(width - 1).fill("")]); // the title row holds ONLY the phase name (David, 2026-09-21)
   rows.push(header);
   const firstP = top + 3; // 1-based row of the first person
   roster.people.forEach((p, i) => {
@@ -929,7 +931,7 @@ async function writeTeamMix(api, plan, rosters) {
   const grids = [];
   let top = 0;
   for (const r of rosters) {
-    const v = teamMixValues(plan, r.roster, rosters.length > 1 || r.phase ? r.phase : "", top);
+    const v = teamMixValues(plan, r.roster, r.phase, top);
     grids.push({ phase: r.phase, v });
     top = v.bottom + GRID_GAP;
   }
@@ -1014,6 +1016,10 @@ function auditTshirt(grid) {
   check(out, "T-Shirt: section rows carry no sizes", !sectionsWithSizes.length, `rows ${sectionsWithSizes.join(", ")}`);
   check(out, "T-Shirt: section rows are styled (bg #1C4F8B)", !badSectionFmt.length, badSectionFmt.slice(0, 6).join(", "));
   check(out, "T-Shirt: 'Total (Days)' row exists below the items", totalRow0 > lastItem0 && lastItem0 >= 0, "not found");
+  const usedPhases = new Set();
+  for (let r = first0; r <= lastItem0; r++) { const v = textAt(grid, r, cols.phase).trim(); if (PHASES.includes(v)) usedPhases.add(v); }
+  const gapMap = phaseGapMap([...usedPhases]);
+  check(out, "T-Shirt: phases are contiguous (no empty phase between used ones)", !Object.keys(gapMap).length, `used [${PHASES.filter((p) => usedPhases.has(p)).join(", ")}] — rename ${Object.entries(gapMap).map(([a, b]) => `${a}→${b}`).join(", ")}`);
   let totalDaysCell = NaN;
   const phaseDays = {};
   for (const rr of layout.rollupRows) {
@@ -1179,9 +1185,9 @@ function auditTeamMix(grid, mfList, tshirtTotalDays, phaseDays) {
       // ΣCount × 20 × 0.005 from the exact figure — the tolerance follows the roster size.
       const tol = 0.05 + 0.1 * (Number.isNaN(sumCount) ? 1 : sumCount);
       tolAll += tol;
-      const phase = expectedPhases.find((ph) => title.endsWith(ph));
+      const phase = expectedPhases.find((ph) => title.trim() === ph);
       if (expectedPhases.length) {
-        check(out, `${label}: title names a phase with hours`, !!phase, `title '${title}' ends with none of [${expectedPhases.join(", ")}]`);
+        check(out, `${label}: title row is exactly the phase name`, !!phase, `title '${title}' is not one of [${expectedPhases.join(", ")}]`);
         if (phase) check(out, `${label} (${phase}): Σ Days == midpoint of that phase's Low/High days`, Math.abs(sumDays - phaseDays[phase]) < tol, `Team Mix ${sumDays}, T-Shirt ${phaseDays[phase]} (tolerance ${round2(tol)})`);
       }
       prevBottom = totalR + 1;
@@ -1361,9 +1367,8 @@ async function verbTeamMix(api, opts) {
   const layout = locateTshirt(tshirt);
   const team = await api.grid(TAB_TEAM);
   const fte = opts.fte ? opts.fte : deriveFteFromTeamMix(team);
-  const title = opts.title ? opts.title : textAt(team, 0, 0).replace(/\s+—\s+(MVP|Phase \d)$/, "");
-  if (!title) throw new Halt(`${TAB_TEAM}: A1 has no title to carry over — pass --title`);
-  const plan = { title, teamMix: { fte } };
+  const title = "";
+  const plan = { teamMix: { fte } };
   const rosters = phaseTotalsFromSheet(tshirt, layout).map((ph) => ({ ...ph, roster: buildRoster(plan, ph.staffDays, layout.mf) }));
   if (opts.dryRun) return { title, fte, rosters, table: rostersTable(rosters) };
   const tm = await writeTeamMix(api, plan, rosters);
@@ -1481,6 +1486,70 @@ async function verbFormat(api, opts) {
   return result;
 }
 
+/**
+ * Phases must be contiguous: MVP, then Phase 1, Phase 2, … with no empty phase between used
+ * ones (David, 2026-09-21: "MVP then nothing in Phase 1 but items in Phase 2"). Given the set
+ * of phases that carry items, return the rename map that closes the gaps ({} when none).
+ */
+function phaseGapMap(usedPhases) {
+  const numbered = PHASES.filter((p) => p !== "MVP" && usedPhases.includes(p));
+  const map = {};
+  numbered.forEach((p, i) => { const want = `Phase ${i + 1}`; if (p !== want) map[p] = want; });
+  return map;
+}
+
+/** Renumber phases on the T-Shirt tab to close gaps, then rebuild the Team Mix grids to match. */
+async function verbPhases(api, opts) {
+  const grid = await api.grid(TAB_TSHIRT);
+  const layout = locateTshirt(grid);
+  const { cols } = layout;
+  const used = new Set();
+  const cells = [];
+  for (let r = layout.firstItemRow; r < rowCount(grid); r++) {
+    if (/^Total \(Days\)/i.test(textAt(grid, r, 0))) break;
+    const v = textAt(grid, r, cols.phase).trim();
+    if (v === "") continue;
+    if (!PHASES.includes(v)) throw new Halt(`${TAB_TSHIRT}: ${colLetter(cols.phase)}${r + 1} holds '${v}', not one of ${PHASES.join(" | ")}`);
+    used.add(v);
+    cells.push({ r, v });
+  }
+  const map = phaseGapMap([...used]);
+  const plan = { phasesUsed: PHASES.filter((p) => used.has(p)), renames: map, cellsToChange: cells.filter((c) => map[c.v]).length };
+  if (opts.dryRun || !Object.keys(map).length) return { plan, changed: false };
+  for (const c of cells) if (map[c.v]) await api.putValues(TAB_TSHIRT, `${colLetter(cols.phase)}${c.r + 1}`, [[map[c.v]]]);
+  const tm = await verbTeamMix(api, { fte: opts.fte, noAudit: true });
+  const result = { plan, changed: true, teamMix: tm.phases };
+  if (!opts.noAudit) result.audit = await runAudit(api);
+  return result;
+}
+
+/** Set every Team Mix grid's title row to exactly its phase name (rule §2.1). */
+async function verbTitles(api, opts) {
+  const tshirt = await api.grid(TAB_TSHIRT);
+  const layout = locateTshirt(tshirt);
+  const withHours = phaseTotalsFromSheet(tshirt, layout).map((p) => p.phase);
+  const team = await api.grid(TAB_TEAM);
+  const headers = [];
+  for (let r = 0; r < rowCount(team); r++) if (textAt(team, r, 0) === "Skill set") headers.push(r);
+  if (!headers.length) throw new Halt(`${TAB_TEAM}: no grid found`);
+  if (headers.length !== withHours.length) throw new Halt(`${TAB_TEAM}: ${headers.length} grid(s) but ${withHours.length} phase(s) with hours [${withHours.join(", ")}] — run 'teammix' first`);
+  const changes = [];
+  headers.forEach((h, i) => {
+    if (h < 1) throw new Halt(`${TAB_TEAM}: header at row 1 has no title row above it`);
+    // the title is the nearest non-empty row above the header (older grids keep a blank row 2
+    // between title and header — writing into the blank row left the old title in place)
+    const titleR = textAt(team, h - 1, 0).trim() === "" && h >= 2 && textAt(team, h - 2, 0).trim() !== "" ? h - 2 : h - 1;
+    const cur = textAt(team, titleR, 0).trim();
+    const fromTitle = PHASES.find((p) => cur === p || cur.endsWith(` — ${p}`));
+    const want = fromTitle ? fromTitle : withHours[i];
+    if (fromTitle && fromTitle !== withHours[i]) throw new Halt(`${TAB_TEAM}: grid ${i + 1} is titled for ${fromTitle} but the ${i + 1}${["st", "nd", "rd"][i] || "th"} phase with hours is ${withHours[i]} — run 'teammix' first`);
+    if (cur !== want) changes.push({ row1: titleR + 1, from: cur, to: want });
+  });
+  if (opts.dryRun) return { changes, changed: false };
+  for (const c of changes) await api.putValues(TAB_TEAM, `A${c.row1}`, [[c.to]]);
+  return { changes, changed: changes.length > 0 };
+}
+
 async function verbWrite(api, plan, opts) {
   const ts = await writeTshirt(api, plan, opts);
   const rosters = buildRosters(plan, ts.layout);
@@ -1513,7 +1582,7 @@ function printChecks(audit) {
   console.log(`${audit.ok ? "AUDIT PASS" : `AUDIT FAIL (${audit.failed})`} — ${audit.title}`);
 }
 
-const USAGE = "usage: gsd-t estimate-sheet <read|plan-check|write|teammix|format|audit|plan-schema> --sheet <id|url> [--tab <name>] [--plan <plan.json>] [--replace] [--fte '{\"backend\":1.5}'] [--title <t>] [--dry-run] [--no-audit] [--key <path>] [--json]";
+const USAGE = "usage: gsd-t estimate-sheet <read|plan-check|write|teammix|format|phases|titles|audit|plan-schema> --sheet <id|url> [--tab <name>] [--plan <plan.json>] [--replace] [--fte '{\"backend\":1.5}'] [--title <t>] [--dry-run] [--no-audit] [--key <path>] [--json]";
 
 /** Runs a verb; returns the exit code. Throws Halt (or any error) — the runner below turns that into exit 4/64. */
 async function main(args) {
@@ -1541,6 +1610,21 @@ async function main(args) {
       if (r.audit) printChecks(r.audit); else if (args["dry-run"]) console.log("(dry run — nothing written)");
     }
     return ok ? 0 : 4;
+  }
+  if (verb === "phases") {
+    let fte;
+    if (args.fte) { try { fte = JSON.parse(args.fte); } catch (e) { throw new Halt(`--fte must be JSON: ${e.message}`, 64); } }
+    const r = await verbPhases(api, { dryRun: !!args["dry-run"], noAudit: !!args["no-audit"], fte });
+    const ok = !r.audit || r.audit.ok;
+    if (json) console.log(JSON.stringify({ ok, exitCode: ok ? 0 : 4, ...r }, null, 2));
+    else { console.log(JSON.stringify(r.plan)); console.log(r.changed ? "phases renumbered + Team Mix rebuilt" : (Object.keys(r.plan.renames).length ? "(dry run — nothing written)" : "no gap — nothing to do")); if (r.audit) printChecks(r.audit); }
+    return ok ? 0 : 4;
+  }
+  if (verb === "titles") {
+    const r = await verbTitles(api, { dryRun: !!args["dry-run"] });
+    if (json) console.log(JSON.stringify({ ok: true, exitCode: 0, ...r }, null, 2));
+    else { console.log(r.changes.length ? r.changes.map((c) => `A${c.row1}: '${c.from}' → '${c.to}'`).join("\n") : "titles already correct"); if (args["dry-run"] && r.changes.length) console.log("(dry run — nothing written)"); }
+    return 0;
   }
   if (verb === "format") {
     const r = await verbFormat(api, { dryRun: !!args["dry-run"], noAudit: !!args["no-audit"] });
@@ -1591,7 +1675,7 @@ function haltAndExit(e, json) {
 
 module.exports = {
   validatePlan, splitRoster, rosterViolations, mfCoverageViolations, monthPlan, resampleWeights, rampHours, buildRoster,
-  tshirtTotals, phaseTotals, buildRosters, midDays, deriveFteFromTeamMix, phaseTotalsFromSheet, verbTeamMix, itemFormulasFor, rollupFormulasFor, findCell, itemFormulas, rollupFormulas, tshirtRows, teamMixValues, teamMixFormatReqs, remainderFormula, locateTshirt, findPhaseSource,
+  tshirtTotals, phaseTotals, buildRosters, midDays, deriveFteFromTeamMix, phaseTotalsFromSheet, verbTeamMix, phaseGapMap, verbPhases, verbTitles, itemFormulasFor, rollupFormulasFor, findCell, itemFormulas, rollupFormulas, tshirtRows, teamMixValues, teamMixFormatReqs, remainderFormula, locateTshirt, findPhaseSource,
   auditTshirt, auditTeamMix, auditTechStack, auditOverview, colLetter, hexToColor, colorToHex, sheetIdFromArg,
   constants: { SIZE_CODES, PHASES, COLOR, RAMP, ROLE_LABEL, SOFT_CEILING, FOLD_THRESHOLD, TAB_TSHIRT, TAB_TEAM, TAB_TECH, PLAN_SCHEMA },
   Halt, SheetsApi, getToken, runAudit, main,
