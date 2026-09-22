@@ -56,7 +56,7 @@ describe("blind-adversary tier annotation (opus per M85 + M90 RULE-ARCH-TIER —
 
   test("blind-adversary-subagent.md references opus as the required model tier", () => {
     assert.ok(blindText, "prompt must be readable");
-    // RULE-ARCH-TIER: the blind adversary runs on opus (= claude-opus-5) since
+    // RULE-ARCH-TIER: the blind adversary runs on opus (= claude-opus-5-5) since
     // Fable was removed. It must NOT reference fable.
     assert.ok(
       /`opus`/.test(blindText),

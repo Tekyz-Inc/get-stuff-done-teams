@@ -18,16 +18,16 @@
  * Frozen map: tier alias → concrete model id.
  * Consumers MUST import from here — never re-hardcode these strings.
  *
- * THREE tiers (Fable removed 2026-07-24): `opus` is now `claude-opus-5` — the
+ * THREE tiers (Fable removed 2026-07-24): `opus` is now `claude-opus-5-5` — the
  * default top tier. Opus 5 shipped at the SAME price as Opus 4.8 ($5/$25 per M
  * tokens) but >2× its coding score and within 0.5% of Fable 5 at max effort, so
  * the Fable cost premium ($10/$50 — double Opus 5) is no longer justified. Every
- * stage formerly on `fable` OR `opus` (4.8) now runs `opus` = claude-opus-5.
+ * stage formerly on `fable` OR `opus` (4.8) now runs `opus` = claude-opus-5-5.
  *
  * @type {Readonly<{opus: string, sonnet: string, haiku: string}>}
  */
 const MODEL_IDS = Object.freeze({
-  opus:   'claude-opus-5',
+  opus:   'claude-opus-5-5',
   sonnet: 'claude-sonnet-4-6',
   haiku:  'claude-haiku-4-5-20251001',
 });
@@ -38,7 +38,7 @@ const MODEL_IDS = Object.freeze({
 
 /**
  * Frozen map: stage key → tier alias.
- * Fable removed 2026-07-24: all 7 stages resolve to `opus` (= claude-opus-5).
+ * Fable removed 2026-07-24: all 7 stages resolve to `opus` (= claude-opus-5-5).
  * The M82 competition judge-blindness invariant is RELAXED from "different model"
  * to "fresh independent context" — producers AND judge both run Opus 5 (fresh
  * contexts remove memory-bias; the modest residual taste/blind-spot bias is
@@ -67,7 +67,7 @@ const STAGE_TIERS = Object.freeze({
  *
  * This predicate existed for `claude-fable-5`, which returned HTTP 400 when the
  * explicit thinking-disabled parameter was sent. Fable was removed 2026-07-24;
- * NO current tier model (opus=claude-opus-5, sonnet, haiku) is known to require
+ * NO current tier model (opus=claude-opus-5-5, sonnet, haiku) is known to require
  * omission — Opus 5 and Sonnet 5 default `effort:high` on the API and accept the
  * thinking params normally. Kept as a single-home predicate (callers still import
  * it) so a future model that needs omission is added HERE, never re-hardcoded.
@@ -116,7 +116,7 @@ function resolve(stageKey) {
  *   standard  — cost-leanest: the high-stakes reasoning stages run sonnet,
  *                only the probes stay opus.
  *   pro       — mid: red-team + pre-mortem + debug-cycle-2 → opus; the rest sonnet.
- *   premium   — full opus posture: all 6 designated stages → opus (= claude-opus-5).
+ *   premium   — full opus posture: all 6 designated stages → opus (= claude-opus-5-5).
  *
  * competition-producers is held at opus in ALL profiles (always opus-5). The
  * former judge≠producers blindness clamp is REMOVED — the invariant is now
@@ -161,8 +161,8 @@ const INJECTABLE_STAGES = Object.freeze([
   'debug-cycle-2',
 ]);
 
-/** The HELD producers model id (always opus = claude-opus-5). */
-const PRODUCERS_MODEL_ID = MODEL_IDS.opus; // claude-opus-5
+/** The HELD producers model id (always opus = claude-opus-5-5). */
+const PRODUCERS_MODEL_ID = MODEL_IDS.opus; // claude-opus-5-5
 
 /**
  * Resolves the concrete model id for a given stage key under a profile,

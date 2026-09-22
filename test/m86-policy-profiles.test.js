@@ -486,8 +486,8 @@ describe('Contract doc-assertion: model-tier-policy-contract.md', () => {
   let contractSrc;
   before(() => { contractSrc = fs.readFileSync(TIER_CONTRACT_PATH, 'utf8'); });
 
-  it('declares Version 2.0.0 (Fable removed 2026-07-24)', () => {
-    assert.ok(contractSrc.includes('## Version: 2.0.0'), 'contract must declare Version: 2.0.0');
+  it('declares Version 2.1.0 (opus → claude-opus-5-5, 2026-09-22)', () => {
+    assert.ok(contractSrc.includes('## Version: 2.1.0'), 'contract must declare Version: 2.1.0');
   });
 
   it('contains the 3-profile dimension table', () => {

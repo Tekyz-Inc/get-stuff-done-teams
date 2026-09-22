@@ -83,7 +83,7 @@ const _args = (typeof args === "string") ? (() => { try { return JSON.parse(args
 // (preserves byte-identical M85 behavior for callers that have not been updated yet).
 // overrides values are CONCRETE model ids (resolver envelope); the bare literals below
 // are tier ALIASES. The sandbox runtime accepts BOTH forms in model: — proven live for
-// the tier alias resolves to claude-opus-5 (Fable removed 2026-07-24).
+// the tier alias resolves to claude-opus-5-5 (Fable removed 2026-07-24).
 const overrides = (_args.overrides && typeof _args.overrides === "object") ? _args.overrides : {};
 // `envelope` is typed as an OBJECT (or null), not "any".
 //

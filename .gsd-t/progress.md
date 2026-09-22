@@ -2,8 +2,8 @@
 
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: ✅ ACTIVE — last shipped v5.18.10 (2026-09-03): **M115 Test-Plan-First Requirements Interrogation COMPLETE** — `/gsd-t-test-plan` enumerates every test case a milestone's requirements imply BEFORE build (rules E1-E8), surfaces unfillable rows as requirements gaps, batches questions into one round, halts on non-convergence, binds acceptance criteria to plan rows, and re-enumerates after the fact. Blind replay against the TimeTracking rate-ledger answer key run CLEAN (answer key held out) — the same gaps found. Seven verify runs; one shared plan reader. Prior history in `.gsd-t/milestones/m115-test-plan-first-2026-09-03/progress.md`. Doc-First Enforcement remains PARKED (pseudocode committed). Next: `/cpua`, then the next milestone.
-## Date: 2026-09-21 18:40 PDT
-## Version: 5.20.15
+## Date: 2026-09-22 11:14 PDT
+## Version: 5.21.10
 
 ## Current Milestone
 
@@ -49,6 +49,8 @@ Older milestones (M33 and earlier) archived under `.gsd-t/milestones/` — see d
 <!-- No active blockers -->
 
 ## Decision Log
+- 2026-09-22 11:14: [release] Top tier repointed to Opus 5.5 (v5.21.10) — the `opus` alias resolved to `claude-opus-5` and now resolves to `claude-opus-5-5`, so every high-stakes stage runs Opus 5.5. One id changed in the single-source policy module; contract to v2.1.0; workflows, prompts, docs and the three tier tests follow it. Tier shape, stage map and the fresh-context judge-blindness invariant unchanged. Suite 3566/3566 pass (13 skipped), zero regressions.
+- 2026-09-22 11:11 PDT: [policy] **`opus` tier → claude-opus-5-5 (Opus 5.5)** (David). `MODEL_IDS.opus` in bin/gsd-t-model-tier-policy.cjs + tier contract v2.1.0 + live/template CLAUDE.md, README, help, status, workflow comments, blind-adversary prompt, tier tests. Historical changelog rows left as-is.
 - 2026-09-21 19:25 PDT: [ops][estimate] **Hilo Estimates Summary rewritten per phase** (David): 20 estimates → 34 rows (rows 3–36), one row per Team Mix phase; MVP row re-pointed to the MVP rollup + MVP grid, `— <phase>` suffix on every name (hyperlinks kept; Acron gained one), phase rows inserted directly under with inheritFromBefore; hours/cost from the phase rollup cells (both layouts), Mos = grid Mths (1 decimal), FE = frontend+mobile+design, BE = backend+techlead, QA = qa; Sequencing/Notes on MVP rows only; TOTAL range auto-extended. Skyborne (row 22, added since the review) already had per-phase grids and was included. No repo code changed.
 - 2026-09-21 18:40 PDT: [rule][estimate] **Wrap C/D + top-align every cell** (David). Spec §0/§1.2/§5, writer, `format` verb (now top-aligns every tab), audit checks (T-Shirt wrap + top; Team Mix top); applied to all 19 estimates — every wrap/top check ✓. Still v5.20.15 — unpublished.
 - 2026-09-21 18:20 PDT: [change][estimate] Verified the PUBLISHED 5.20.14 tool staffs the Low/High midpoint on every path (write/teammix/phases, audit reconciles to it); added the rule line to `commands/gsd-t-estimate.md` Step 4 (the installed command text did not say it). Rebuilt the 14 single-phase Hilo Team Mixes on the midpoint (`teammix`): all Team Mix checks ✓ on each. All 19 estimates now staff the midpoint. Still v5.20.15 — unpublished.

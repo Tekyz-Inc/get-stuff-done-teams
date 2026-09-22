@@ -24,7 +24,7 @@ const policy = require(MODULE_PATH);
 describe('MODEL_IDS', () => {
   it('contains exactly 3 entries matching the contract table (Fable removed 2026-07-24)', () => {
     assert.equal(Object.keys(policy.MODEL_IDS).length, 3);
-    assert.equal(policy.MODEL_IDS.opus,   'claude-opus-5');
+    assert.equal(policy.MODEL_IDS.opus,   'claude-opus-5-5');
     assert.equal(policy.MODEL_IDS.fable,  undefined);
     assert.equal(policy.MODEL_IDS.sonnet, 'claude-sonnet-4-6');
     assert.equal(policy.MODEL_IDS.haiku,  'claude-haiku-4-5-20251001');
@@ -41,7 +41,7 @@ describe('MODEL_IDS', () => {
 // ---------------------------------------------------------------------------
 
 describe('STAGE_TIERS', () => {
-  // Fable removed 2026-07-24 — all 7 stages resolve to opus (= claude-opus-5).
+  // Fable removed 2026-07-24 — all 7 stages resolve to opus (= claude-opus-5-5).
   const expected = {
     'solution-space-probe':  'opus',
     'partition-probe':       'opus',
@@ -99,13 +99,13 @@ describe('STAGE_TIERS', () => {
 describe('resolve(stageKey)', () => {
   it('all 7 stage keys return the correct concrete model id per contract', () => {
     const expected = {
-      'solution-space-probe':  'claude-opus-5',
-      'partition-probe':       'claude-opus-5',
-      'competition-judge':     'claude-opus-5',
-      'competition-producers': 'claude-opus-5',
-      'pre-mortem':            'claude-opus-5',
-      'red-team':              'claude-opus-5',
-      'debug-cycle-2':         'claude-opus-5',
+      'solution-space-probe':  'claude-opus-5-5',
+      'partition-probe':       'claude-opus-5-5',
+      'competition-judge':     'claude-opus-5-5',
+      'competition-producers': 'claude-opus-5-5',
+      'pre-mortem':            'claude-opus-5-5',
+      'red-team':              'claude-opus-5-5',
+      'debug-cycle-2':         'claude-opus-5-5',
     };
     for (const [stage, id] of Object.entries(expected)) {
       assert.equal(
@@ -116,8 +116,8 @@ describe('resolve(stageKey)', () => {
     }
   });
 
-  it('resolve("competition-producers") === "claude-opus-5" (held-opus invariant)', () => {
-    assert.equal(policy.resolve('competition-producers'), 'claude-opus-5');
+  it('resolve("competition-producers") === "claude-opus-5-5" (held-opus invariant)', () => {
+    assert.equal(policy.resolve('competition-producers'), 'claude-opus-5-5');
   });
 
   it('resolve(<unknown>) returns null and never throws', () => {
@@ -148,7 +148,7 @@ describe('resolve(stageKey)', () => {
 
 describe('requiresThinkingOmitted(model)', () => {
   it('returns false for ALL current models (Fable removed 2026-07-24 — no model requires omission)', () => {
-    assert.equal(policy.requiresThinkingOmitted('claude-opus-5'), false);
+    assert.equal(policy.requiresThinkingOmitted('claude-opus-5-5'), false);
     assert.equal(policy.requiresThinkingOmitted('claude-sonnet-4-6'), false);
     assert.equal(policy.requiresThinkingOmitted('claude-haiku-4-5-20251001'), false);
   });
@@ -210,7 +210,7 @@ describe('CLI: resolve command', () => {
     assert.equal(parsed.ok, true);
     assert.equal(parsed.stageKey, 'red-team');
     assert.equal(parsed.tier, 'opus');
-    assert.equal(parsed.model, 'claude-opus-5');
+    assert.equal(parsed.model, 'claude-opus-5-5');
     assert.ok('requiresThinkingOmitted' in parsed, 'envelope must contain requiresThinkingOmitted field');
     assert.equal(parsed.requiresThinkingOmitted, false);
   });
@@ -222,7 +222,7 @@ describe('CLI: resolve command', () => {
     assert.equal(result.status, 0);
     const parsed = JSON.parse(result.stdout);
     assert.equal(parsed.ok, true);
-    assert.equal(parsed.model, 'claude-opus-5');
+    assert.equal(parsed.model, 'claude-opus-5-5');
     assert.equal(parsed.requiresThinkingOmitted, false);
   });
 
@@ -279,7 +279,7 @@ describe('gsd-t.js dispatcher: model-tier-policy (Red Team HIGH regression)', ()
     assert.equal(r.status, 0, `expected exit 0, got ${r.status}; stderr=${r.stderr}`);
     const parsed = JSON.parse(r.stdout);
     assert.equal(parsed.ok, true);
-    assert.equal(parsed.model, 'claude-opus-5');
+    assert.equal(parsed.model, 'claude-opus-5-5');
     assert.equal(parsed.requiresThinkingOmitted, false);
   });
 
@@ -295,9 +295,9 @@ describe('requiresThinkingOmitted: no model requires omission post-Fable (2026-0
   it('returns false for every current model + suffixed display form', () => {
     // Fable (the only model that required omission) is removed. No current model
     // requires it, so the predicate is uniformly false — including the runtime
-    // bracket-suffixed display form (e.g. "claude-opus-5[1m]").
-    assert.equal(policy.requiresThinkingOmitted('claude-opus-5'), false);
-    assert.equal(policy.requiresThinkingOmitted('claude-opus-5[1m]'), false);
+    // bracket-suffixed display form (e.g. "claude-opus-5-5[1m]").
+    assert.equal(policy.requiresThinkingOmitted('claude-opus-5-5'), false);
+    assert.equal(policy.requiresThinkingOmitted('claude-opus-5-5[1m]'), false);
     assert.equal(policy.requiresThinkingOmitted('claude-sonnet-4-6[1m]'), false);
   });
   it('rejects non-string input', () => {

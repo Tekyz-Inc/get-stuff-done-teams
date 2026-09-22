@@ -57,7 +57,7 @@ const _args = (typeof args === "string") ? (() => { try { return JSON.parse(args
 // Default to {} so the premium fallback literals apply when no invoker injects overrides.
 // overrides values are CONCRETE model ids (resolver envelope); the bare literals below
 // are tier ALIASES. The sandbox runtime accepts BOTH forms in model: — proven live for
-// the tier alias resolves to claude-opus-5 (Fable removed 2026-07-24).
+// the tier alias resolves to claude-opus-5-5 (Fable removed 2026-07-24).
 const overrides = (_args.overrides && typeof _args.overrides === "object") ? _args.overrides : {};
 const _CLI_ENVELOPE_SCHEMA = {
   type: "object", required: ["ok", "exitCode"], additionalProperties: true,

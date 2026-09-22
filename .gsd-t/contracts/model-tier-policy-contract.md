@@ -1,11 +1,12 @@
 # Contract: Model-Tier Policy
 
-## Version: 2.0.0
+## Version: 2.1.0
 ## Status: STABLE
 ## Owner: m85-d1-tier-policy-module
 ## Consumers: `bin/gsd-t-parallel.cjs`, `bin/gsd-t-model-profile.cjs`, `templates/workflows/gsd-t-phase.workflow.js`, `templates/workflows/gsd-t-verify.workflow.js`, `templates/workflows/gsd-t-debug.workflow.js`, `test/m85-workflow-tier-policy-lint.test.js`, `test/m86-policy-profiles.test.js`
 ## Created: 2026-06-09 14:42 PDT
-## Updated: 2026-07-24 (v2.0.0 BREAKING — Fable REMOVED; `opus` = claude-opus-5; all stages → opus; blindness relaxed to fresh-context)
+## Updated: 2026-09-22 (v2.1.0 — `opus` tier → claude-opus-5-5 / Opus 5.5)
+## Previously: 2026-07-24 (v2.0.0 BREAKING — Fable REMOVED; `opus` = claude-opus-5; all stages → opus; blindness relaxed to fresh-context)
 
 ---
 
@@ -25,7 +26,7 @@ This is the **partition-time seam**. The serial gate for the whole milestone is 
 
 | Tier alias | Concrete model id | Notes |
 |------------|-------------------|-------|
-| `opus`   | `claude-opus-5`            | Replaces the STALE `claude-opus-4-7` in the parallel alias map (M85 live-bug fix). |
+| `opus`   | `claude-opus-5-5`          | Replaces the STALE `claude-opus-4-7` in the parallel alias map (M85 live-bug fix). |
 | `opus`  | `claude-opus-5`             | Tier ABOVE opus. $10/$50 per MTok. 1M ctx / 128K out. Same API surface as Opus 4.8. Breaking change: see `requiresThinkingOmitted` below. |
 | `sonnet` | `claude-sonnet-4-6`          | Default tier. Unchanged. |
 | `haiku`  | `claude-haiku-4-5-20251001`  | Mechanical tier. Unchanged. |

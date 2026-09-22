@@ -2,6 +2,31 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.21.10] - 2026-09-22
+
+### Changed — the top tier now points at Opus 5.5
+
+The `opus` tier alias resolved to `claude-opus-5`. It now resolves to
+`claude-opus-5-5`, so every high-stakes stage (solution-space probe, partition
+probe, competition producers and judge, pre-mortem, Red Team, both debug cycles)
+runs Opus 5.5. Only the concrete model id changed: the three-tier shape, the
+stage-to-tier map, and the relaxed fresh-context judge-blindness invariant are
+untouched.
+
+- `bin/gsd-t-model-tier-policy.cjs`: `MODEL_IDS.opus` → `claude-opus-5-5`; the
+  thinking-omission predicate still matches no current tier model
+- `.gsd-t/contracts/model-tier-policy-contract.md`: → v2.1.0, alias table and
+  Updated line; the v2.0.0 note kept under `## Previously`
+- `templates/workflows/gsd-t-{phase,verify,debug}.workflow.js`,
+  `templates/prompts/blind-adversary-subagent.md`: model id in the stage comments
+- `templates/CLAUDE-global.md`, `README.md`, `commands/gsd-t-{help,status}.md`:
+  the documented `opus` = model id
+- `test/m85-model-tier-policy.test.js`, `test/m86-policy-profiles.test.js`,
+  `test/m90-tier-policy-lint.test.js`: expected id; the drifted-literal negative
+  test still fails on a mismatch
+
+No migration. A project picks the new id on its next `gsd-t update-all`.
+
 ## [5.20.15] - 2026-09-21
 
 ### Changed — phases must be contiguous; the Team Mix title row is the phase name only
