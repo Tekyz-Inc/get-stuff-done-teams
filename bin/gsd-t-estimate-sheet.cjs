@@ -234,7 +234,7 @@ class SheetsApi {
 
   async grid(tab) {
     const rng = encodeURIComponent(`'${tab}'`);
-    const fields = "sheets(merges,properties,data(rowData(values(formattedValue,userEnteredValue,effectiveValue,userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,numberFormat),dataValidation)),columnMetadata(pixelSize)))";
+    const fields = "sheets(merges,properties,data(rowData(values(formattedValue,userEnteredValue,effectiveValue,userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment,wrapStrategy,numberFormat),dataValidation)),columnMetadata(pixelSize)))";
     const r = await this.call("GET", `${this.base}?ranges=${rng}&includeGridData=true&fields=${fields}`);
     if (!r.sheets || !r.sheets[0]) throw new Halt(`tab '${tab}' not found`, 64);
     return r.sheets[0];
@@ -692,6 +692,13 @@ function tshirtRows(plan, firstRow0) {
 function fmtReq(sheetId, r0, r1, c0, c1, format, fields) {
   return { repeatCell: { range: gridRange(sheetId, r0, r1, c0, c1), cell: { userEnteredFormat: format }, fields } };
 }
+/** Rule (spec §0): every cell on a tab the tool writes is TOP-aligned; Functionality + Low Level Requirements wrap. */
+function topAlignReq(sheetId, rows) {
+  return fmtReq(sheetId, 0, rows, 0, 26, { verticalAlignment: "TOP" }, "userEnteredFormat.verticalAlignment");
+}
+function wrapReq(sheetId, r0, r1, c0, c1) {
+  return fmtReq(sheetId, r0, r1, c0, c1, { wrapStrategy: "WRAP" }, "userEnteredFormat.wrapStrategy");
+}
 function widthReqs(sheetId, widths) {
   return widths.map((w, i) => ({ updateDimensionProperties: { range: { sheetId, dimension: "COLUMNS", startIndex: i, endIndex: i + 1 }, properties: { pixelSize: w }, fields: "pixelSize" } }));
 }
@@ -769,6 +776,8 @@ async function writeTshirt(api, plan, opts) {
       reqs.push(copyPhaseReq(sheetId, phaseSrc, r0)); // carries validation + chip format; value re-put below
     }
   }
+  reqs.push(wrapReq(sheetId, first0, lastItem0, 2, 4)); // Functionality + Low Level Requirements wrap
+  reqs.push(topAlignReq(sheetId, lastWritten1 + 5));    // every cell top-aligned
   reqs.push(...widthReqs(sheetId, TSHIRT_WIDTHS));
   await api.batch(reqs);
   // 5. the Phase VALUES again — copyPaste overwrote them with the source cell's value
@@ -811,7 +820,9 @@ async function writeTshirtSizes(api, grid, sheetId, layout, plan, totals, phaseS
     reqs.push(fmtReq(sheetId, w.r0, w.r0 + 1, 4, 7, FMT_ITEM_SIZE, "userEnteredFormat(horizontalAlignment,textFormat)"));
     reqs.push(fmtReq(sheetId, w.r0, w.r0 + 1, 7, 10, FMT_ITEM_NUM, FMT_FIELDS_ALL));
     reqs.push(fmtReq(sheetId, w.r0, w.r0 + 1, 10, 12, FMT_ITEM_CUR, FMT_FIELDS_ALL));
+    reqs.push(wrapReq(sheetId, w.r0, w.r0 + 1, 2, 4));
   }
+  reqs.push(topAlignReq(sheetId, rowCount(grid) + 2));
   await api.batch(reqs);
   for (const w of writes) await api.putValues(TAB_TSHIRT, `E${w.r0 + 1}`, [[w.phase]]);
   const first1 = layout.firstItemRow + 1;
@@ -950,6 +961,7 @@ async function writeTeamMix(api, plan, rosters) {
     maxN = Math.max(maxN, g.v.totalC - g.v.firstMonthC);
   }
   reqs.push(...widthReqs(sheetId, [...TEAM_WIDTHS_FIXED, ...Array(maxN).fill(TEAM_MONTH_WIDTH), TEAM_TOTAL_WIDTH]));
+  reqs.push(topAlignReq(sheetId, lastRow + 5));
   await api.batch(reqs);
   return { grids: grids.map((g) => ({ phase: g.phase, titleR: g.v.titleR, bottom: g.v.bottom, rows: g.v.rows.length })), lastRow };
 }
@@ -971,6 +983,7 @@ async function writeTechStack(api, plan) {
     { mergeCells: { range: gridRange(sheetId, 0, 1, 0, 2), mergeType: "MERGE_ALL" } },
     fmtReq(sheetId, 0, 1, 0, 2, { backgroundColor: hexToColor(COLOR.teamHeaderBg), textFormat: { fontSize: 12, bold: true, foregroundColor: hexToColor(COLOR.white) } }, "userEnteredFormat(backgroundColor,textFormat)"),
     fmtReq(sheetId, 1, rows.length, 0, 2, { textFormat: { fontFamily: "Arial", fontSize: 10 }, wrapStrategy: "WRAP" }, "userEnteredFormat(textFormat,wrapStrategy)"),
+    topAlignReq(sheetId, rows.length + 5),
     ...widthReqs(sheetId, TECH_WIDTHS),
   ]);
   return { rows: rows.length - 1 };
@@ -987,7 +1000,7 @@ function auditTshirt(grid) {
   const { cols } = layout;
   const legendRows = { first1: layout.legendFirst1, last1: layout.legendLast1 };
   const first0 = layout.firstItemRow;
-  const badSizes = [], noDv = [], badFormula = [], sectionsWithSizes = [], badSectionFmt = [];
+  const badSizes = [], noDv = [], badFormula = [], sectionsWithSizes = [], badSectionFmt = [], noWrap = [], notTop = [];
   let lastItem0 = -1, totalRow0 = -1;
   for (let r = first0; r < rowCount(grid); r++) {
     const a = textAt(grid, r, 0);
@@ -1008,8 +1021,12 @@ function auditTshirt(grid) {
     if (!(cell && cell.dataValidation && cell.dataValidation.condition && cell.dataValidation.condition.type === "ONE_OF_LIST")) noDv.push(`${colLetter(cols.phase)}${r + 1}`);
     const f = itemFormulasFor(r + 1, cols, legendRows);
     for (const [c, want] of f.cells) if (formulaAt(grid, r, c) !== want) badFormula.push(`${colLetter(c)}${r + 1}`);
+    for (const c of [2, 3]) { const fm = cellAt(grid, r, c) && cellAt(grid, r, c).userEnteredFormat; if (!fm || fm.wrapStrategy !== "WRAP") noWrap.push(`${colLetter(c)}${r + 1}`); }
+    for (const c of [0, 2, cols.days]) { const fm = cellAt(grid, r, c) && cellAt(grid, r, c).userEnteredFormat; if (!fm || fm.verticalAlignment !== "TOP") notTop.push(`${colLetter(c)}${r + 1}`); }
   }
   check(out, "T-Shirt: at least one item row", lastItem0 >= 0, "no item rows below the header");
+  check(out, "T-Shirt: Functionality + Low Level Requirements wrap on every item row", !noWrap.length, noWrap.slice(0, 8).join(", "));
+  check(out, "T-Shirt: item cells are top-aligned", !notTop.length, notTop.slice(0, 8).join(", "));
   check(out, "T-Shirt: size cells are bare codes (no legend text, no '-')", !badSizes.length, badSizes.slice(0, 10).join(", "));
   check(out, "T-Shirt: every item row has the Phase dropdown", !noDv.length, noDv.slice(0, 10).join(", "));
   check(out, "T-Shirt: Days..HIGH $ are the spec formulas on every item row", !badFormula.length, badFormula.slice(0, 12).join(", "));
@@ -1169,6 +1186,8 @@ function auditTeamMix(grid, mfList, tshirtTotalDays, phaseDays) {
       }
     }
     check(out, `${label}: body font is Arial (never Calibri)`, !badFont.length, badFont.slice(0, 8).join(", "));
+    const notTopTm = people.filter((p) => { const fm = cellAt(grid, p.r, 0) && cellAt(grid, p.r, 0).userEnteredFormat; return !fm || fm.verticalAlignment !== "TOP"; }).map((p) => `A${p.r + 1}`);
+    check(out, `${label}: cells are top-aligned`, !notTopTm.length, notTopTm.slice(0, 6).join(", "));
     check(out, `${label}: sage on exactly Days, Hrs, Total Hrs of role rows`, !badSage.length && !whiteMissing.length, [...badSage, ...whiteMissing].slice(0, 8).join(", "));
     if (totalR > 0 && totalC > 0) {
       const bandBad = [];
@@ -1481,6 +1500,14 @@ async function verbFormat(api, opts) {
     fmtReq(sheetId, t1, t1 + 2, cols.total + 1, cols.total + 3, { horizontalAlignment: "RIGHT", numberFormat: { type: "NUMBER", pattern: "0.00" } }, "userEnteredFormat(horizontalAlignment,numberFormat)"),
     fmtReq(sheetId, t1 + 2, t1 + 3, cols.total + 1, cols.total + 3, { horizontalAlignment: "RIGHT", numberFormat: { type: "CURRENCY", pattern: "$#,##0.00" } }, "userEnteredFormat(horizontalAlignment,numberFormat)"),
   ]);
+  // 5. wrap Functionality + Low Level Requirements on item rows; top-align every cell on EVERY tab
+  await api.batch([wrapReq(sheetId, first0, tot0, 2, 4), topAlignReq(sheetId, Math.max(rowCount(grid), t1 + 6))]);
+  const meta = await api.meta();
+  for (const s of meta.sheets) {
+    if (s.properties.title === TAB_TSHIRT) continue;
+    const rows = s.properties.gridProperties && s.properties.gridProperties.rowCount ? Math.min(s.properties.gridProperties.rowCount, 200) : 100;
+    await api.batch([topAlignReq(s.properties.sheetId, rows)]);
+  }
   const result = { plan, totalRow1: t1 };
   if (!opts.noAudit) result.audit = await runAudit(api);
   return result;

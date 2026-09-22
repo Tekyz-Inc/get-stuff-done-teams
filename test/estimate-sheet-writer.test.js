@@ -68,6 +68,8 @@ function mkGrid(rows) {
       if (s.bg) fmt.backgroundColor = W.hexToColor(s.bg);
       if (s.font || s.bold) fmt.textFormat = { fontFamily: s.font, bold: !!s.bold };
       if (s.nf) fmt.numberFormat = { type: s.nf, pattern: s.nf === "CURRENCY" ? "$#,##0.00" : "0.00" };
+      if (s.wrap) fmt.wrapStrategy = "WRAP";
+      if (s.top !== false && (s.v != null || s.f != null || s.bg)) fmt.verticalAlignment = "TOP"; // the writer top-aligns every cell
       if (Object.keys(fmt).length) cell.userEnteredFormat = fmt;
       if (s.dv) cell.dataValidation = { condition: { type: "ONE_OF_LIST", values: [{ userEnteredValue: "MVP" }] } };
       return cell;
@@ -110,6 +112,7 @@ function writtenTshirtGrid(p, mutate = (x) => x) {
     if (row.kind === "section") cells[0] = { v: row.values[0], bg: COLOR.sectionBg, font: "Arial", bold: true };
     if (row.kind === "item") {
       cells[4] = { v: row.values[4], dv: true };
+      cells[2] = { v: row.values[2], wrap: true }; cells[3] = { v: row.values[3], wrap: true };
       const days = (LEGEND[row.values[5]] || 0) + (LEGEND[row.values[6]] || 0);
       rawTotal += days;
       phaseRaw[row.values[4]] = (phaseRaw[row.values[4]] || 0) + days;
@@ -359,6 +362,10 @@ test("audit: each historical T-Shirt defect fails its named check", () => {
   assert.ok(failing(staleRollup.checks).includes("T-Shirt: phase rollups reference the full item range"));
   const unstyledSection = W.auditTshirt(writtenTshirtGrid(plan(), (rows) => { rows[13][0] = { v: "A. AUTH" }; return rows; }));
   assert.ok(failing(unstyledSection.checks).includes("T-Shirt: section rows are styled (bg #1C4F8B)"));
+  const noWrap = W.auditTshirt(writtenTshirtGrid(plan(), (rows) => { rows[14][3] = { v: "Align signing." }; return rows; }));
+  assert.ok(failing(noWrap.checks).includes("T-Shirt: Functionality + Low Level Requirements wrap on every item row"));
+  const notTop = W.auditTshirt(writtenTshirtGrid(plan(), (rows) => { rows[14][0] = { v: "Ingest API", top: false }; return rows; }));
+  assert.ok(failing(notTop.checks).includes("T-Shirt: item cells are top-aligned"));
 });
 
 test("audit: the writer's own Team Mix output passes every Team Mix check (single grid)", () => {

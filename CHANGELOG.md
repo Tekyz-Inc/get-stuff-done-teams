@@ -18,6 +18,11 @@ Phase 1, and every Team Mix title row carried the estimate name.
   between title and header).
 - Applied: Acron Academy renumbered (Phase 2→1, Phase 3→2, 20 cells) and its grids rebuilt;
   all 19 estimates' Team Mix titles renamed.
+- Rule (spec §0 / §1.2): Functionality and Low Level Requirements wrap on every item row, and
+  every cell on every tab is top-aligned. Writer, `format` verb (which now top-aligns all tabs)
+  and audit follow it; applied to all 19 estimates.
+- The 14 single-phase estimates' Team Mixes rebuilt on the Low/High midpoint (`teammix`), so all
+  19 now staff the midpoint; the command's Step 4 states the rule.
 
 ## [5.20.14] - 2026-09-21
 

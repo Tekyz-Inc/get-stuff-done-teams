@@ -2,7 +2,7 @@
 
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: ✅ ACTIVE — last shipped v5.18.10 (2026-09-03): **M115 Test-Plan-First Requirements Interrogation COMPLETE** — `/gsd-t-test-plan` enumerates every test case a milestone's requirements imply BEFORE build (rules E1-E8), surfaces unfillable rows as requirements gaps, batches questions into one round, halts on non-convergence, binds acceptance criteria to plan rows, and re-enumerates after the fact. Blind replay against the TimeTracking rate-ledger answer key run CLEAN (answer key held out) — the same gaps found. Seven verify runs; one shared plan reader. Prior history in `.gsd-t/milestones/m115-test-plan-first-2026-09-03/progress.md`. Doc-First Enforcement remains PARKED (pseudocode committed). Next: `/cpua`, then the next milestone.
-## Date: 2026-09-21 17:45 PDT
+## Date: 2026-09-21 18:40 PDT
 ## Version: 5.20.15
 
 ## Current Milestone
@@ -49,6 +49,7 @@ Older milestones (M33 and earlier) archived under `.gsd-t/milestones/` — see d
 <!-- No active blockers -->
 
 ## Decision Log
+- 2026-09-21 18:40 PDT: [rule][estimate] **Wrap C/D + top-align every cell** (David). Spec §0/§1.2/§5, writer, `format` verb (now top-aligns every tab), audit checks (T-Shirt wrap + top; Team Mix top); applied to all 19 estimates — every wrap/top check ✓. Still v5.20.15 — unpublished.
 - 2026-09-21 18:20 PDT: [change][estimate] Verified the PUBLISHED 5.20.14 tool staffs the Low/High midpoint on every path (write/teammix/phases, audit reconciles to it); added the rule line to `commands/gsd-t-estimate.md` Step 4 (the installed command text did not say it). Rebuilt the 14 single-phase Hilo Team Mixes on the midpoint (`teammix`): all Team Mix checks ✓ on each. All 19 estimates now staff the midpoint. Still v5.20.15 — unpublished.
 - 2026-09-21 17:45 PDT: [rule][estimate] **Contiguous phases + phase-name-only Team Mix titles** (David). Spec §2.1/§2.6 + audit checks; `phases` verb (renumber to close gaps, rebuild grids) and `titles` verb (title row = phase). Only Acron had a gap (MVP, P2, P3 → MVP, P1, P2; 20 cells). All 19 Team Mix titles renamed; four older grids keep a blank row 2 between title and header (merged A1:*2), so the verb takes the nearest non-empty row above the header. v5.20.15 — unpublished.
 - 2026-09-21 16:50 PDT: [feature][estimate] **`format` verb + all 19 Hilo T-Shirt tabs normalised** (David: 'update the formatting for all 19, ignore Tech Stack'). Section-row blue, blank rows before totals deleted, grey bold totals band, standard summary block (bold, $) directly under it; four old summary variants recognised; row insertion when another table sits below (Part 121); exact-range unmerge (two sheets had wider merges). Untouched by decision: '-' size cells (4 sheets), non-template item formulas (16), stale rollup ranges (4), missing Phase dropdowns (3), empty Tech Stack (14). Sheets API: 60 reads/min — throttle batch runs. Still v5.20.14, unpublished.

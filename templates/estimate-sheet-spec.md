@@ -27,6 +27,8 @@ Reference implementation (read it, don't guess): "ATP SOW Gap Analysis and Estim
 | **Map sheet rows to items BY NAME, not by counting.** | Section header rows shift positional alignment and put a whole column on the wrong tasks. |
 | **Recompute the total from raw sizes independently** (`Σ(FE,BE days) × (1 + MF)`) before reporting a number. | A total was reported from a cell just repaired; the true figure differed by 13 days. |
 | **`IMPORTRANGE` `#REF!` on the index sheet needs a human "Allow access" click.** Report it; do not "fix" it. | The service account cannot grant it. |
+| **Every cell on every tab the tool writes is TOP-aligned.** | David, 2026-09-21. |
+| **Functionality and Low Level Requirements wrap** (T-Shirt columns C and D, every item row); Technology Stack descriptions wrap. | Long requirement text was running off the cell. |
 | Access token expires in 1 h — mint fresh per run; regenerate on a sudden 401. | |
 
 ---
@@ -65,8 +67,8 @@ Column widths: `[150, 120, 300, 430, 122, 90, 90, 61, 53, 76, 81, 81]`.
 |---|---|---|
 | `A` | Module | |
 | `B` | User type | |
-| `C` | Functionality — **include the item id** `(GA-n)` / `(TD-n)` / `(FR-n)` | |
-| `D` | Low-level requirement (one or two sentences) | |
+| `C` | Functionality — **include the item id** `(GA-n)` / `(TD-n)` / `(FR-n)` | **wrap** |
+| `D` | Low-level requirement (one or two sentences) | **wrap** |
 | `E` | Phase — `MVP` / `Phase 1` / `Phase 2` / `Phase 3` | **Carries a `ONE_OF_LIST` validation + chip format. Populate by `copyPaste` (`PASTE_NORMAL`) from an existing MVP cell — a values-write drops the dropdown.** |
 | `F` | Web Portal (frontend) size | **Bare code only: `XS` `S` `M` `L` `XL` `XXL`. Never the legend text `"XS - Extra Small"`.** Blank = 0. |
 | `G` | Backend/API size | same |
@@ -216,6 +218,7 @@ Every item is a read-back check against the live sheet. Any ✗ blocks delivery.
 T-SHIRT
   [ ] every size cell in F:G is one of XS S M L XL XXL or blank (no legend text)
   [ ] every item row's E cell has ONE_OF_LIST validation
+  [ ] C and D wrap on every item row; every cell top-aligned
   [ ] every item row's H:L are the §1.2 formulas (no values)
   [ ] section heading rows are merged A:L, bg #1C4F8B, and hold no sizes
   [ ] totals row + phase rollups (K4:N7) + summary block reference <last item row>
