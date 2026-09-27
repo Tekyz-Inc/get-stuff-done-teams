@@ -2,6 +2,37 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.22.10] - 2026-09-27
+
+### Added — AI-assisted T-shirt sizing for `/gsd-t-estimate`
+
+Estimates sized every task as if a person typed the code. Measured against the Hilo Delivery
+Runway build (45 tasks, ~26 solo hours: 13 David + 13 Claude), the old scale priced the same
+work at 1,262–1,577 hours. A size is now the team hours a task takes with AI-assisted
+development: solo AI minutes × project multiplier (greenfield solo ×1, team ×5; yellow-field
+solo ×2, team ×8 isolated / ×12 big blast radius) + task switching added after the multiplier
+(7.5 / 15 / 30 min), mapped to the nearest size on a smaller scale — XS 0.1 · S 0.25 · M 0.5 ·
+L 1 · XL 2 · XXL 4 person-days. The multipliers live in the estimator; the sheet layout is
+unchanged.
+
+- `bin/gsd-t-estimate-sheet.cjs`: new `size` verb (`--solo-min`, `--project`, `--switch-min`);
+  `write` puts the AI scale in the legend (matched by label); sizes mode halts if a sized row
+  outside the plan would be silently re-priced; `plan-check` previews on the new scale
+- `templates/estimate-sheet-spec.md`: §1.4 sizing model; legend + verb list updated
+- `commands/gsd-t-estimate.md`, `templates/playbooks/tekyz-estimation-and-prd-playbook.md`,
+  `templates/estimate-config.json`: size in solo AI minutes; new-team familiarization off by default
+- `test/estimate-sheet-writer.test.js`: +6 tests
+
+Existing estimate sheets keep the old scale until they are re-estimated.
+
+### Fixed — Red Team runs on Opus 5.5 under every profile
+
+The `standard` profile put Red Team on Sonnet, contradicting both profile contracts and the
+READMEs. It now runs on `opus` (Opus 5.5) in standard, pro and premium.
+
+- `bin/gsd-t-model-tier-policy.cjs`, `commands/gsd-t-status.md`,
+  `.gsd-t/contracts/model-profile-config-contract.md`, `test/m86-policy-profiles.test.js`
+
 ## [5.21.10] - 2026-09-22
 
 ### Changed — the top tier now points at Opus 5.5
