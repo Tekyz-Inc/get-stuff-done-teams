@@ -62,17 +62,17 @@ describe('PROFILE_STAGE_TIERS: structure', () => {
 // ---------------------------------------------------------------------------
 
 // Profiles remapped 2026-07-24 (Fable removed) — they now dial opus-vs-sonnet:
-//   standard — probes opus; judge/pre-mortem/red-team/debug-cycle-2 sonnet.
+//   standard — probes + red-team opus; judge/pre-mortem/debug-cycle-2 sonnet.
 //   pro      — probes opus; judge sonnet; pre-mortem/red-team/debug-cycle-2 opus.
 //   premium  — all 6 injectable stages opus.
 describe('resolveProfile: headline census', () => {
-  it('standard profile — probes opus; high-stakes stages sonnet', () => {
+  it('standard profile — probes + red-team opus; other high-stakes stages sonnet', () => {
     const expected = {
       'solution-space-probe': MODEL_IDS.opus,
       'partition-probe':      MODEL_IDS.opus,
       'competition-judge':    MODEL_IDS.sonnet,
       'pre-mortem':           MODEL_IDS.sonnet,
-      'red-team':             MODEL_IDS.sonnet,
+      'red-team':             MODEL_IDS.opus,
       'debug-cycle-2':        MODEL_IDS.sonnet,
     };
     for (const [stage, expectedModel] of Object.entries(expected)) {
@@ -387,8 +387,8 @@ describe('CLI: gsd-t-model-profile.cjs resolve', () => {
     assert.equal(r.status, 0);
     const parsed = JSON.parse(r.stdout);
     assert.equal(parsed.ok, true);
-    // No model in the tier-3 world is fable; verify red-team is sonnet in standard.
-    assert.equal(parsed.overrides['red-team'], MODEL_IDS.sonnet, 'standard: red-team is sonnet');
+    // No model in the tier-3 world is fable; verify red-team is opus in standard.
+    assert.equal(parsed.overrides['red-team'], MODEL_IDS.opus, 'standard: red-team is opus');
   });
 
   it('resolve --profile unknown → non-zero + {ok:false, error}', () => {
@@ -577,7 +577,7 @@ describe('Red Team fix: prototype-key validation bypass (HIGH)', () => {
     it(`resolveProfile: tier "${key}" in stageOverrides → configError + profile-tier fallback, model stays a STRING`, () => {
       const r = resolveProfile('red-team', { profile: 'standard', stageOverrides: { 'red-team': key } });
       assert.equal(typeof r.model, 'string', `model must be a string, got ${typeof r.model}`);
-      assert.equal(r.model, MODEL_IDS.sonnet, 'standard profile red-team must fall back to its profile tier (sonnet)');
+      assert.equal(r.model, MODEL_IDS.opus, 'standard profile red-team must fall back to its profile tier (opus)');
       assert.ok(r.configError, 'prototype-key tier must surface a configError (never silent)');
     });
   }
@@ -593,10 +593,10 @@ describe('Red Team fix: prototype-key validation bypass (HIGH)', () => {
     assert.equal(env.ok, true);
     assert.ok(Object.prototype.hasOwnProperty.call(env.overrides, 'red-team'),
       'red-team key must be PRESENT in overrides (missing key = workflow ?? falls back to the fallback literal)');
-    assert.equal(env.overrides['red-team'], MODEL_IDS.sonnet, 'standard red-team resolves sonnet');
+    assert.equal(env.overrides['red-team'], MODEL_IDS.opus, 'standard red-team resolves opus');
     assert.ok(env.configError, 'envelope must carry configError — never a silent clean envelope');
     const json = JSON.parse(JSON.stringify(env));
-    assert.equal(json.overrides['red-team'], MODEL_IDS.sonnet, 'key survives JSON round-trip');
+    assert.equal(json.overrides['red-team'], MODEL_IDS.opus, 'key survives JSON round-trip');
   });
 
   it('readConfig: prototype-key tier value in config file → entry ignored + configError (CLI repro)', () => {

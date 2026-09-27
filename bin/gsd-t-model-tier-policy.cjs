@@ -113,8 +113,8 @@ function resolve(stageKey) {
  * Frozen profile → stage-key → tier map.
  *
  * Fable removed 2026-07-24 — profiles now dial OPUS-vs-SONNET spend (not Fable):
- *   standard  — cost-leanest: the high-stakes reasoning stages run sonnet,
- *                only the probes stay opus.
+ *   standard  — cost-leanest: probes + red-team run opus; judge,
+ *                pre-mortem and debug-cycle-2 run sonnet.
  *   pro       — mid: red-team + pre-mortem + debug-cycle-2 → opus; the rest sonnet.
  *   premium   — full opus posture: all 6 designated stages → opus (= claude-opus-5-5).
  *
@@ -130,7 +130,7 @@ const PROFILE_STAGE_TIERS = Object.freeze({
     'partition-probe':      'opus',
     'competition-judge':    'sonnet',
     'pre-mortem':           'sonnet',
-    'red-team':             'sonnet',
+    'red-team':             'opus',
     'debug-cycle-2':        'sonnet',
   }),
   pro: Object.freeze({

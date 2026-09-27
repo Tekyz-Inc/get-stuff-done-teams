@@ -3,7 +3,7 @@
 ## Version: 1.1.0
 ## Status: STABLE
 
-> **⚠ v1.1.0 — FABLE REMOVED (2026-07-24).** The 3 profiles (standard/pro/premium) no longer dial Fable spend (Fable is gone); they now dial **OPUS-vs-SONNET**: `standard` = probes opus + high-stakes stages sonnet (cost-leanest); `pro` = probes + pre-mortem + red-team + debug-cycle-2 opus, judge sonnet; `premium` = all 6 designated stages opus (global default). The judge≠producers **blindness clamp is REMOVED** — competition-judge may now equal producers' model (both opus); isolation is enforced by fresh independent context, not a different model. `competition-producers` is still never overridable. Historical Fable references below are provenance; the LIVE profile maps are opus/sonnet only.
+> **⚠ v1.1.0 — FABLE REMOVED (2026-07-24).** The 3 profiles (standard/pro/premium) no longer dial Fable spend (Fable is gone); they now dial **OPUS-vs-SONNET**: `standard` = probes + red-team opus, judge/pre-mortem/debug-cycle-2 sonnet (cost-leanest; red-team → opus 2026-09-22); `pro` = probes + pre-mortem + red-team + debug-cycle-2 opus, judge sonnet; `premium` = all 6 designated stages opus (global default). The judge≠producers **blindness clamp is REMOVED** — competition-judge may now equal producers' model (both opus); isolation is enforced by fresh independent context, not a different model. `competition-producers` is still never overridable. Historical Fable references below are provenance; the LIVE profile maps are opus/sonnet only.
 ## Owner: m86-d1-policy-profiles-config-cli
 ## Consumers: m86-d2-invoker-wiring-and-workflow-forms, m86-d3-drift-lint-unwrap-guard, m86-d4-surfacing-and-doc-ripple
 ## Created: 2026-06-10 18:23 PDT (M86 partition)
