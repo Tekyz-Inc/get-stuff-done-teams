@@ -42,7 +42,7 @@ Reference implementation (read it, don't guess): "ATP SOW Gap Analysis and Estim
 | `A1` | `Date Submitted` | bg `#D9D9D9`, bold, Calibri |
 | `B1` | date `mm/dd/yyyy` | Calibri 11, left |
 | `A3:B3` | `Legends` / `Person Days` | bg `#3D85C6`, white bold Calibri |
-| `A4:B9` | **Size legend** — `XS - Extra Small` 0.25 · `S - Small` 0.5 · `M - Medium` 1 · `L - Large` 3 · `XL - Extra Large` 5 · `XXL - Extra Extra Large` 7 | Calibri, right |
+| `A4:B9` | **Size legend** — labels `XS - Extra Small` … `XXL - Extra Extra Large`. **Values: the AI-assisted scale** `XS 0.1 · S 0.25 · M 0.5 · L 1 · XL 2 · XXL 4` person-days (§1.4). `write` puts these values in `B4:B9` (matched by label); the labels are never touched. Sheets written before v5.22.10 keep the old `0.25 · 0.5 · 1 · 3 · 5 · 7` scale until they are re-estimated. | Calibri, right |
 | `E3` | `Multiplication Factor` | bg `#3D85C6`, white bold |
 | `E4:F9` | **MF list** — one row per factor (e.g. `QA` 0.3 · `PM` 0.1 · `Analysis` 0.1 · `Deployment` 0.05 · `StdUps/Mtgs` 0.15 · `Buffer` 0.2). **Read the live list — it varies per sheet and is the roster contract for Team Mix (§2.4).** | |
 | `E10:F10` | `Total MF` = `=sum(F4:F9)` | bg `#C9DAF8`, bold |
@@ -78,7 +78,28 @@ Column widths: `[150, 120, 300, 430, 122, 90, 90, 61, 53, 76, 81, 81]`.
 | `K` | `=J{r}*8*$H$4` | nf `$#,##0.00` |
 | `L` | `=K{r}*$G$4` | nf `$#,##0.00` |
 
-### 1.3 Totals and summary (directly under the last item — NO blank rows)
+#### 1.4 How a size is chosen — the AI-assisted model (David, 2026-09-27)
+
+Nobody hand-writes code. A size is the **team hours** a task takes with AI-assisted development, and the multipliers that produce it live in the estimator — never on the sheet. Calibration: the Hilo Delivery Runway build (45 tasks, ~26 solo hours: 13 David + 13 Claude).
+
+1. **Estimate the task in SOLO AI-assisted minutes** — one person directing Claude, greenfield. Runway rate: roughly 5 min for a trivial change, 20 min for a typical screen element or endpoint, 1–2¼ hrs for the heaviest pieces.
+2. **Multiply by the project type:**
+
+| Project | Multiplier |
+|---|---|
+| Greenfield, solo | × 1 |
+| Greenfield, team | × 5 |
+| Yellow-field (existing app), solo | × 2 |
+| Yellow-field, team — isolated change | × 8 |
+| Yellow-field, team — big blast radius | × 12 |
+
+   Blast radius comes from the code graph (`gsd-t graph blast-radius`), not a guess.
+3. **Add task switching AFTER the multiplier** — it is one person's pickup time and does not grow with team size: 5–10 min for small tasks (less when related tasks run back-to-back), ~15 min medium, up to 30 min large.
+4. **Pick the nearest size** on the §1.1 legend. `gsd-t estimate-sheet size --solo-min <n> --project <type> [--switch-min <n>]` does steps 2–4 and prints the size.
+
+The overhead factors (`E4:F9`) and the high factor stay per-project settings the operator adjusts by hand; they are not part of the task math.
+
+## 1.3 Totals and summary (directly under the last item — NO blank rows)
 
 ```
 <last item row>
@@ -252,6 +273,7 @@ Everything in §1–§5 is executed by `bin/gsd-t-estimate-sheet.cjs`, not re-de
 
 ```
 gsd-t estimate-sheet plan-schema                              # the plan shape
+gsd-t estimate-sheet size --solo-min <n> --project <type> [--switch-min <n>]   # §1.4: solo minutes → team hours → size (no sheet needed)
 gsd-t estimate-sheet read       --sheet <id|url> [--tab <name>]   # read-before-write dump
 gsd-t estimate-sheet plan-check --sheet <id|url> --plan plan.json # validate + the roster it WOULD write (the Step 4 pause)
 gsd-t estimate-sheet write      --sheet <id|url> --plan plan.json [--replace]   # T-Shirt + Team Mix + Tech Stack, then audit
@@ -286,4 +308,4 @@ The plan (judgment only):
 
 - `tshirt.mode` `items` writes whole rows below the header (halts if rows exist unless `--replace`); `sizes` fills `E:L` on rows that already exist (a gap-analysis sheet), matched by the `(id)` suffix in column C — never by position.
 - `teamMix.fte` is per-discipline FTE (`backend` `frontend` `qa` `pm` `ba` `devops` `techlead` `design` `mobile`). The tool splits it into people (saturate then spill), computes months and the column count, ramps by discipline, writes the remainder formula, and refuses a roster that leaves a weighted MF factor unstaffed. It writes **one grid per phase with hours** (§2.6); `teamMix.phases: { "Phase 1": { "fte": {…} } }` overrides the mix for one phase.
-- The MF list, legend, rate and high factor are READ from the sheet; the plan never carries them.
+- The MF list, rate and high factor are READ from the sheet; the plan never carries them. The legend VALUES are written by the tool (the AI-assisted scale, §1.4) — in `sizes` mode it HALTS if a sized row on the tab is missing from the plan, because moving the legend would silently re-price that row.

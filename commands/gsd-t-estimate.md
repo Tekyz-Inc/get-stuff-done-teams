@@ -25,14 +25,15 @@ Read from `$ARGUMENTS` or `.gsd-t/estimate-config.json` if present; otherwise us
 |-------|-----------------|---------|
 | `rate` | `$50/hr` | Blended hourly rate for the LOW figure. |
 | `hoursPerDay` | `8` | Hours per person-day. |
-| `sizeScale` | `XS 0.25 · S 0.5 · M 1 · L 3 · XL 5 · XXL 7` | T-shirt → person-days. |
+| `sizeScale` | `XS 0.1 · S 0.25 · M 0.5 · L 1 · XL 2 · XXL 4` | AI-assisted T-shirt → person-days (spec §1.4). `write` puts it in the sheet legend. |
+| `projectMultiplier` | greenfield solo ×1 · team ×5 · yellow-field solo ×2 · team ×8 isolated / ×12 wide | Solo AI minutes × this. Internal to the estimator — never on the sheet. |
 | `totalMF` | `0.7` | Overhead multiplier. **The sheet's own MF list (`E4:F9`) wins when a sheet exists** — read it, never overwrite it. Hilo sheets run `0.9` (QA .3 · PM .1 · Analysis .1 · Deployment .05 · StdUps/Mtgs .15 · Buffer .2). |
 | `highFactor` | `1.25` | HIGH = LOW × this (the sheet's `G4` wins when a sheet exists). |
 | `sheetTemplateId` | (blank) | Optional template to clone; normally blank — the operator supplies the target sheet. |
 | `gcpProject` | `ai-estimator-415612` | GCP project hosting the permanent Sheets-writer SA. |
 | `serviceAccountEmail` | `gsd-t-sheets-writer@ai-estimator-415612.iam.gserviceaccount.com` | **Permanent** SA — share each sheet with this as Editor. |
 | `serviceAccountKeyPath` | `~/.claude/gsd-t-secrets/gsd-t-sheets-writer-key.json` | SA key (chmod 600, outside any repo). |
-| `newTeamDefault` | `true` | Apply the new-team familiarization adjustment (Step 2.5a) by default. |
+| `newTeamDefault` | `false` | Add a new-team familiarization adjustment (Step 2.5a) only when the operator says the team is new to the code. |
 
 ## Step 0: Inputs + Scope + Sheet
 
@@ -42,7 +43,7 @@ Read from `$ARGUMENTS` or `.gsd-t/estimate-config.json` if present; otherwise us
 4. **Resolve the input document** (`--input`, else `.gsd-t/techdebt.md`). None → "No input document found. Pass `--input <path>` or run `/gsd-t-scan` / `/gsd-t-gap-analysis` first." and stop.
 5. **Classify the input** so the line-item vocabulary matches: scan register → *findings* (`TD-n`) scoped by severity; gap-analysis sheet → *gaps* (`GA-n`, rows already on the T-Shirt tab with columns A–D filled — you fill E–G only); requirements / feature / app spec → *requirements* (`FR-n` or the doc's own numbering).
 6. **Scope**: scan default = all CRITICAL findings; `--severity high|medium|low|all` widens. Requirements default = all. Confirm scope + item count with the user before sizing.
-7. **Confirm the active config values** — rate, MF list (from the sheet), high factor, and whether this is a **new-team project** (Step 2.5a; usually YES for a fresh client).
+7. **Confirm the active config values** — rate, MF list (from the sheet), high factor, and the **project type**: greenfield or yellow-field (an existing app), solo or team (spec §1.4). Nobody hand-writes code — every estimate assumes AI-assisted development by a code-familiar team unless the operator says otherwise.
 
 ## Step 1: Numbering hygiene (MECHANICAL — show result)
 
@@ -57,22 +58,22 @@ Client-facing line-items carry **sequential, rational numbering starting at 1**.
 
 For each in-scope item build a row per spec §1.2 — `A` Module · `B` User Type · `C` Functionality (**with the item id**) · `D` Low-Level Requirement · `E` Phase · `F` Web Portal size · `G` Backend/API size. `H:L` are formulas, never values.
 
-- **Size each column INDEPENDENTLY** (FE and BE each get their own letter; blank = 0). Scale: **XS 0.25 · S 0.5 · M 1 · L 3 · XL 5 · XXL 7** person-days.
-- **Bare codes in `F:G`** — `XS` `S` `M` `L` `XL` `XXL`. Never the legend text (`"XS - Extra Small"`). The lookup happens to compute either way, which is why the long form shipped unnoticed.
-- The sheet computes: `Days = F+G` → `MFactor Days = Days × Total MF` → `Total Days` → `LOW $ = Total × 8 × rate` → `HIGH $ = LOW × high factor`.
+- **Size in solo AI minutes, then let the tool pick the size** (spec §1.4). For each column (FE, BE) estimate the SOLO AI-assisted minutes — one person directing Claude — then run `gsd-t estimate-sheet size --solo-min <n> --project <type>`: it multiplies by the project type (greenfield solo ×1 · team ×5 · yellow-field solo ×2 · team ×8 isolated / ×12 big blast radius), adds task switching after the multiplier, and prints the size. Blast radius is measured with `gsd-t graph blast-radius`, not guessed. Count switching once per item (pass `--switch-min 0` for the smaller column).
+- **Bare codes in `F:G`** — `XS` `S` `M` `L` `XL` `XXL`. Never the legend text (`"XS - Extra Small"`). Scale: **XS 0.1 · S 0.25 · M 0.5 · L 1 · XL 2 · XXL 4** person-days.
+- The sheet computes: `Days = F+G` → `MFactor Days = Days × Total MF` → `Total Days` → `LOW $ = Total × 8 × rate` → `HIGH $ = LOW × high factor`. The overhead factors and high factor are per-project settings the operator adjusts by hand.
 - **Cluster by fix-shape to size fast**: "add existing guard to N routes" (XS–S, repeated) vs "new backend surface" (M, +FE) vs "config / single route" (XS). Size the cluster once, apply to members.
 - **Tune the MF per project** (raise Buffer/QA when confidence is low; raise the high factor above 1.25 for more unknowns) — but change the sheet's MF list only with the operator's say-so.
 - **PAUSE:** present the sized rows (or clusters + representative sizes) and the running total (recomputed from raw sizes: `Σ(FE,BE days) × (1 + MF)`). Wait for `continue` or corrections.
 
 ## Step 2.5: Estimate Adjustments (familiarization + risk/unknowns) — JUDGMENT · PAUSE FOR REVIEW
 
-Base sizes assume *familiar* devs on *well-understood* work. Adjust for the two things that make real work heavier. Document each adjustment per-item so the client sees **why**. **This step is ON by default (`newTeamDefault: true`) — it was skipped on shipped estimates and had to be asked for.**
+Base sizes assume *familiar* devs on *well-understood* work. Adjust for the two things that make real work heavier. Document each adjustment per-item so the client sees **why**. Part (b) always runs; part (a) only for a team new to the code.
 
-**(a) New-team familiarization** — bump each item's SIZE in proportion to its complexity — **NOT the MF** (the Analysis MF is for a Business Analyst, not dev ramp). Trivial config / single route → no bump. Repeated-pattern guards, few routes → +0–1 tier. High-volume sweeps + new-surface builds → +1 tier. Optionally add a one-time **"Codebase Onboarding & Downstream Analysis"** Common line (L–XL), documented as optional.
+**(a) New-team familiarization — OFF by default** (`newTeamDefault: false`; estimates assume a code-familiar team). Only when the operator says the team is new to the code: bump each item's SIZE in proportion to its complexity — **NOT the MF** (the Analysis MF is for a Business Analyst, not dev ramp). Trivial config / single route → no bump. Repeated-pattern guards, few routes → +0–1 tier. High-volume sweeps + new-surface builds → +1 tier. Optionally add a one-time **"Codebase Onboarding & Downstream Analysis"** Common line (L–XL), documented as optional.
 
 **(b) R&D / unknown-approach / spike risk** — an item needing research, an unproven approach, or an unknown integration gets an uplift for the uncertainty: bump its SIZE or raise the high factor if unknowns dominate. Name the unknown explicitly ("requires spike: undocumented 3rd-party API").
 
-**⚠️ The scale is NON-LINEAR. M→L is a 3× cliff (1 day → 3 days).** Never push an item across M→L unless it is genuinely multi-day. Cap routine-work bumps at M. Calibration: HILO 21 criticals = $8,700 familiar → $11,730 new-team (+35%, bumps capped at M).
+**⚠️ The scale doubles at every step (0.1 → 0.25 → 0.5 → 1 → 2 → 4 days).** An uplift is one step at most unless the unknown is genuinely multi-day. Calibration: the Hilo Delivery Runway build — 45 tasks, ~26 solo hours (13 David + 13 Claude) — which the old day scale priced at 1,262–1,577 hours.
 
 - **PAUSE:** present every adjustment (item, reason, before→after size, total delta). Wait for `continue` or corrections.
 

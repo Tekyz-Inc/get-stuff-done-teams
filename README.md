@@ -184,7 +184,7 @@ This will replace changed command files, back up your CLAUDE.md if customized, a
 | `/gsd-t-scan` | Deep codebase analysis → techdebt.md | Manual |
 | `/gsd-t-gap-analysis` | Requirements gap analysis — spec vs. existing code | Manual |
 | `/gsd-t-promote-debt` | Convert techdebt items to milestones | Manual |
-| `/gsd-t-estimate` | Turn any work doc (scan, gap-analysis sheet, requirements, feature/app spec) into a Tekyz client estimate Google Sheet — T-Shirt Size + Team Mix + Technology Stack, written by the deterministic `gsd-t estimate-sheet` tool from a JSON plan and read-back-audited against `templates/estimate-sheet-spec.md` — supervised, with an operator-arbitrated Estimate Red Team. No PRD (that is `/gsd-t-prd`) | Manual |
+| `/gsd-t-estimate` | Turn any work doc (scan, gap-analysis sheet, requirements, feature/app spec) into a Tekyz client estimate Google Sheet — T-Shirt Size + Team Mix + Technology Stack, written by the deterministic `gsd-t estimate-sheet` tool from a JSON plan and read-back-audited against `templates/estimate-sheet-spec.md`; sizes assume AI-assisted development (solo AI minutes × project multiplier) — supervised, with an operator-arbitrated Estimate Red Team. No PRD (that is `/gsd-t-prd`) | Manual |
 | `/gsd-t-stories` | Generate a dev-team handoff doc in the Tekyz user-stories format (stories + workflows + acceptance criteria + Mermaid flow diagrams + mapped test cases) from any source | Manual |
 | `/gsd-t-demo-videos` | Narrated screen-recording walkthroughs of a running app — coverage plan, UI-driven seeding, batched TTS with a measured one-voice gate, continuous recording, mux, silence trim | Manual |
 | `/gsd-t-populate` | Auto-populate docs from existing codebase | Manual |

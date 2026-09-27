@@ -47,6 +47,21 @@ const TAB_TECH = "Technology Stack";
 const TAB_OVERVIEW = "Overview";
 
 const SIZE_CODES = ["XS", "S", "M", "L", "XL", "XXL"];
+
+// AI-assisted sizing model (David, 2026-09-27; calibrated on the Hilo Delivery Runway build:
+// 45 tasks, ~26 solo hours). A task is sized in SOLO AI-assisted minutes, multiplied by the
+// project type, plus a per-task switching allowance added AFTER the multiplier (switching is
+// one person's pickup time — it does not grow with team size). The result maps to the nearest
+// size on AI_SIZE_DAYS, which `write` puts in the sheet's legend. The multipliers live here,
+// in the estimator — never on the sheet.
+const AI_SIZE_DAYS = { XS: 0.1, S: 0.25, M: 0.5, L: 1, XL: 2, XXL: 4 };
+const PROJECT_MULTIPLIER = {
+  "greenfield-solo": 1,
+  "greenfield-team": 5,
+  "yellowfield-solo": 2,
+  "yellowfield-team-isolated": 8,
+  "yellowfield-team-wide": 12,
+};
 const PHASES = ["MVP", "Phase 1", "Phase 2", "Phase 3"];
 
 const COLOR = {
@@ -347,10 +362,11 @@ function locateTshirt(grid) {
   cols.sizeLabels = cols.sizes.map((c) => headerText[c]);
   // legend: the XS..XXL rows in column A
   const legend = {};
+  const legendRow1 = {};
   let legendFirst = -1, legendLast = -1;
   for (let r = 0; r < headerRow; r++) {
     const m = textAt(grid, r, 0).trim().match(/^(XS|S|M|L|XL|XXL)\s*-/);
-    if (m) { legend[m[1]] = numAt(grid, r, 1); if (legendFirst < 0) legendFirst = r; legendLast = r; }
+    if (m) { legend[m[1]] = numAt(grid, r, 1); legendRow1[m[1]] = r + 1; if (legendFirst < 0) legendFirst = r; legendLast = r; }
   }
   for (const code of SIZE_CODES) {
     if (!(code in legend) || Number.isNaN(legend[code])) throw new Halt(`${TAB_TSHIRT}: size legend missing '${code}' (looked for 'XS - …' labels in column A above the header row)`);
@@ -391,7 +407,7 @@ function locateTshirt(grid) {
   const lowDol = findCell(grid, "Low ($)", headerRow, 20), highDol = findCell(grid, "High ($)", headerRow, 20);
   if (!lowHrs || !highHrs || !lowDol || !highDol) throw new Halt(`${TAB_TSHIRT}: rollup headers 'Low ($)' / 'Low Hrs' / 'High ($)' / 'High Hrs' not all found`);
   cols.rollupPhase = mvp.c; cols.lowHrs = lowHrs.c; cols.highHrs = highHrs.c; cols.lowDol = lowDol.c; cols.highDol = highDol.c;
-  return { headerRow, firstItemRow: headerRow + 1, legend, legendFirst1: legendFirst + 1, legendLast1: legendLast + 1, mf, mfTotal, mfTotalCell, highFactor, rate, rollupRows, cols };
+  return { headerRow, firstItemRow: headerRow + 1, legend, legendRow1, legendFirst1: legendFirst + 1, legendLast1: legendLast + 1, mf, mfTotal, mfTotalCell, highFactor, rate, rollupRows, cols };
 }
 
 /** The standard template's column map (what `write` produces). */
@@ -604,6 +620,33 @@ function buildRoster(plan, totalDays, mfList) {
 
 // ───────────────────────── T-Shirt totals (pure) ─────────────────────────
 
+/** Switching allowance (minutes) for a task of `teamMin` minutes: small 7.5, medium 15, large 30. */
+function defaultSwitchMin(teamMin) { return teamMin < 120 ? 7.5 : teamMin < 480 ? 15 : 30; }
+
+/**
+ * The estimator's per-task math: solo AI minutes × project multiplier + switching (after the
+ * multiplier), then the nearest AI_SIZE_DAYS size (geometric midpoints between neighbours).
+ */
+function aiTaskSize({ soloMin, project, switchMin }) {
+  const mult = PROJECT_MULTIPLIER[project];
+  if (mult == null) throw new Halt(`--project must be one of ${Object.keys(PROJECT_MULTIPLIER).join(" | ")}`, 64);
+  if (typeof soloMin !== "number" || !(soloMin > 0)) throw new Halt("--solo-min must be a positive number of minutes", 64);
+  const teamMin = soloMin * mult;
+  const sw = switchMin == null ? defaultSwitchMin(teamMin) : switchMin;
+  if (typeof sw !== "number" || sw < 0) throw new Halt("--switch-min must be a number of minutes ≥ 0", 64);
+  const hours = (teamMin + sw) / 60;
+  const days = hours / 8;
+  let size = SIZE_CODES[SIZE_CODES.length - 1];
+  for (let i = 0; i < SIZE_CODES.length - 1; i++) {
+    const cut = Math.sqrt(AI_SIZE_DAYS[SIZE_CODES[i]] * AI_SIZE_DAYS[SIZE_CODES[i + 1]]);
+    if (days < cut) { size = SIZE_CODES[i]; break; }
+  }
+  return { soloMin, project, multiplier: mult, switchMin: sw, hours: round2(hours), days: round2(days), size, sizeDays: AI_SIZE_DAYS[size] };
+}
+
+/** True when the sheet's legend already carries the AI scale. */
+function legendIsAi(legend) { return SIZE_CODES.every((c) => legend[c] === AI_SIZE_DAYS[c]); }
+
 function sizeDays(code, legend) {
   const v = sizeOf(code);
   if (v === "") return 0;
@@ -721,11 +764,15 @@ async function writeTshirt(api, plan, opts) {
   const layout = locateTshirt(grid);
   const std = ["phase", "days", "mfactor", "total", "low", "high"].every((k) => layout.cols[k] === STANDARD_COLS[k]) && layout.cols.sizes.length === 2 && layout.legendFirst1 === 4 && layout.headerRow === 12;
   if (!std) throw new Halt(`${TAB_TSHIRT}: this sheet is not the current template layout (header row ${layout.headerRow + 1}, size columns ${layout.cols.sizeLabels.join("/")}) — 'write' supports the current template only; 'teammix' and 'audit' work on both`);
+  // New estimates use the AI-assisted scale: the legend is rewritten to AI_SIZE_DAYS (after the
+  // checks below pass, so a halted run changes nothing), and totals are computed on it.
+  const legendChange = !legendIsAi(layout.legend);
+  layout.legend = { ...AI_SIZE_DAYS };
   const totals = tshirtTotals(plan, layout);
   const phaseSrc = findPhaseSource(grid, 0);
   if (phaseSrc < 0) throw new Halt(`${TAB_TSHIRT}: no Phase dropdown source cell found in column E — add a ONE_OF_LIST validation (MVP / Phase 1 / Phase 2 / Phase 3) to E${layout.firstItemRow + 1} and re-run`);
 
-  if (plan.tshirt.mode === "sizes") return writeTshirtSizes(api, grid, sheetId, layout, plan, totals, phaseSrc);
+  if (plan.tshirt.mode === "sizes") return writeTshirtSizes(api, grid, sheetId, layout, plan, totals, phaseSrc, legendChange);
 
   const first0 = layout.firstItemRow;
   let occupied = 0;
@@ -735,6 +782,7 @@ async function writeTshirt(api, plan, opts) {
   }
   const built = tshirtRows(plan, first0);
   const lastWritten1 = built.rows[built.rows.length - 1].row1;
+  if (legendChange) await writeAiLegend(api, layout);
 
   // 1. clear values + formats + merges in the item area (clear-then-paint)
   const clearTo = Math.max(lastWritten1 + 5, rowCount(grid) + 1);
@@ -792,7 +840,12 @@ async function writeTshirt(api, plan, opts) {
 }
 
 /** sizes mode — rows exist (gap-analysis sheet); fill E:L on rows matched by "(id)" in column C. */
-async function writeTshirtSizes(api, grid, sheetId, layout, plan, totals, phaseSrc) {
+/** Put AI_SIZE_DAYS into the legend's value column, row by row by label (never by position). */
+async function writeAiLegend(api, layout) {
+  for (const c of SIZE_CODES) await api.putValues(TAB_TSHIRT, `B${layout.legendRow1[c]}`, [[AI_SIZE_DAYS[c]]]);
+}
+
+async function writeTshirtSizes(api, grid, sheetId, layout, plan, totals, phaseSrc, legendChange) {
   const rowsById = new Map();
   for (let r = layout.firstItemRow; r < rowCount(grid); r++) {
     const m = textAt(grid, r, 2).match(/\(([A-Za-z]+-\d+(?:\.\d+)*)\)\s*$/);
@@ -809,6 +862,18 @@ async function writeTshirtSizes(api, grid, sheetId, layout, plan, totals, phaseS
     writes.push({ r0, phase: it.phase, values: [it.phase, sizeOf(it.fe), sizeOf(it.be), f.H, f.I, f.J, f.K, f.L] });
   }
   if (missing.length) throw new Halt(`${TAB_TSHIRT}: no row carries these ids in column C — ${missing.join(", ")}. Rows are matched BY NAME (the "(id)" suffix), never by position.`, 4, missing);
+  if (legendChange) {
+    // Changing the legend re-prices EVERY sized row on the tab. A sized row the plan does not
+    // cover would silently move to the new scale — halt instead, naming the rows.
+    const planned = new Set(writes.map((w) => w.r0));
+    const stray = [];
+    for (const [id, r0] of rowsById) {
+      if (planned.has(r0)) continue;
+      if (layout.cols.sizes.some((c) => textAt(grid, r0, c).trim())) stray.push(id);
+    }
+    if (stray.length) throw new Halt(`${TAB_TSHIRT}: the sheet is on the old day scale and these sized rows are not in the plan — ${stray.join(", ")}. Moving the legend to the AI-assisted scale would re-price them silently. Size every row in the plan, or clear those rows first.`, 4, stray);
+    await writeAiLegend(api, layout);
+  }
   let totalRow0 = -1;
   for (let r = lastItem0 + 1; r < rowCount(grid); r++) if (/^Total \(Days\)/i.test(textAt(grid, r, 0))) { totalRow0 = r; break; }
   if (totalRow0 < 0) throw new Halt(`${TAB_TSHIRT}: no 'Total (Days)' row found below the items — add it (spec §1.3) and re-run`);
@@ -1314,6 +1379,7 @@ function rostersTable(rosters) {
 
 async function verbPlanCheck(api, plan) {
   const layout = locateTshirt(await api.grid(TAB_TSHIRT));
+  layout.legend = { ...AI_SIZE_DAYS }; // preview what `write` produces — it puts the AI scale in the legend
   const totals = tshirtTotals(plan, layout);
   const rosters = buildRosters(plan, layout);
   return { totals, mf: layout.mf, mfTotal: round2(layout.mfTotal), highFactor: layout.highFactor, rate: layout.rate, rosters, table: rostersTable(rosters) };
@@ -1609,7 +1675,7 @@ function printChecks(audit) {
   console.log(`${audit.ok ? "AUDIT PASS" : `AUDIT FAIL (${audit.failed})`} — ${audit.title}`);
 }
 
-const USAGE = "usage: gsd-t estimate-sheet <read|plan-check|write|teammix|format|phases|titles|audit|plan-schema> --sheet <id|url> [--tab <name>] [--plan <plan.json>] [--replace] [--fte '{\"backend\":1.5}'] [--title <t>] [--dry-run] [--no-audit] [--key <path>] [--json]";
+const USAGE = "usage: gsd-t estimate-sheet <read|plan-check|write|teammix|format|phases|titles|audit|plan-schema|size> --sheet <id|url> [--tab <name>] [--plan <plan.json>] [--replace] [--fte '{\"backend\":1.5}'] [--title <t>] [--dry-run] [--no-audit] [--key <path>] [--json]\n       gsd-t estimate-sheet size --solo-min <n> --project <greenfield-solo|greenfield-team|yellowfield-solo|yellowfield-team-isolated|yellowfield-team-wide> [--switch-min <n>] [--json]";
 
 /** Runs a verb; returns the exit code. Throws Halt (or any error) — the runner below turns that into exit 4/64. */
 async function main(args) {
@@ -1617,6 +1683,12 @@ async function main(args) {
   const json = !!args.json;
   if (!verb || verb === "help") { console.log(USAGE); return 0; }
   if (verb === "plan-schema") { console.log(JSON.stringify(PLAN_SCHEMA, null, 2)); return 0; }
+  if (verb === "size") {
+    const r = aiTaskSize({ soloMin: Number(args["solo-min"]), project: args.project, switchMin: args["switch-min"] == null ? undefined : Number(args["switch-min"]) });
+    if (json) console.log(JSON.stringify({ ok: true, exitCode: 0, ...r }, null, 2));
+    else console.log(`${r.soloMin} solo min × ${r.multiplier} (${r.project}) + ${r.switchMin} min switching = ${r.hours} h (${r.days} d) → ${r.size} (${r.sizeDays} d)`);
+    return 0;
+  }
   const sheetId = sheetIdFromArg(args.sheet);
   const api = new SheetsApi(await getToken(args.key), sheetId);
   if (verb === "read") {
@@ -1701,10 +1773,10 @@ function haltAndExit(e, json) {
 }
 
 module.exports = {
-  validatePlan, splitRoster, rosterViolations, mfCoverageViolations, monthPlan, resampleWeights, rampHours, buildRoster,
+  validatePlan, aiTaskSize, legendIsAi, defaultSwitchMin, splitRoster, rosterViolations, mfCoverageViolations, monthPlan, resampleWeights, rampHours, buildRoster,
   tshirtTotals, phaseTotals, buildRosters, midDays, deriveFteFromTeamMix, phaseTotalsFromSheet, verbTeamMix, phaseGapMap, verbPhases, verbTitles, itemFormulasFor, rollupFormulasFor, findCell, itemFormulas, rollupFormulas, tshirtRows, teamMixValues, teamMixFormatReqs, remainderFormula, locateTshirt, findPhaseSource,
   auditTshirt, auditTeamMix, auditTechStack, auditOverview, colLetter, hexToColor, colorToHex, sheetIdFromArg,
-  constants: { SIZE_CODES, PHASES, COLOR, RAMP, ROLE_LABEL, SOFT_CEILING, FOLD_THRESHOLD, TAB_TSHIRT, TAB_TEAM, TAB_TECH, PLAN_SCHEMA },
+  constants: { SIZE_CODES, AI_SIZE_DAYS, PROJECT_MULTIPLIER, PHASES, COLOR, RAMP, ROLE_LABEL, SOFT_CEILING, FOLD_THRESHOLD, TAB_TSHIRT, TAB_TEAM, TAB_TECH, PLAN_SCHEMA },
   Halt, SheetsApi, getToken, runAudit, main,
 };
 

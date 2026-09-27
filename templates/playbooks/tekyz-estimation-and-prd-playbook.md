@@ -50,17 +50,21 @@ For each finding, write a row (cols A–G; leave H–L formulas alone):
 `A` Module · `B` User Type · `C` Functionality (include the `(TD-n)`) ·
 `D` Low-Level Requirement · `E` Phase (MVP) · `F` Web Portal size · `G` Backend/API size.
 
-- Size **each column independently** (FE and BE). Sizes: XS .25, S .5, M 1, L 3, XL 5, XXL 7.
+- Size **each column independently** (FE and BE), **AI-assisted** — nobody hand-writes code.
+  Estimate SOLO AI minutes, then `gsd-t estimate-sheet size --solo-min <n> --project <type>`
+  (greenfield solo ×1 · team ×5 · yellow-field solo ×2 · team ×8 isolated / ×12 wide, + task
+  switching after the multiplier) picks the size. Sizes: XS .1, S .25, M .5, L 1, XL 2, XXL 4
+  (estimate-sheet-spec.md §1.4).
 - Sheet computes: `Days = F+G`, `MFactor = Days×MF`, `Total = Days+MFactor`,
   `LOW$ = Total×8×$50`, `HIGH$ = LOW$×1.25`.
 - **Cluster the work** to size fast: "add existing auth guard to routes" (XS–S,
   repeated pattern) vs "new backend surface" (M, +FE) vs "config/1-route" (XS).
 
-### Familiarization bump (new-team projects)
-Base sizes assume *familiar* devs. For a new team, bump SIZE in proportion to
+### Familiarization bump (new-team projects only — off by default)
+Base sizes assume a *code-familiar*, AI-assisted team. Only when the operator says the team is new, bump SIZE in proportion to
 complexity (NOT the MF — Analysis MF is for a Business Analyst):
 - Trivial → no bump. Repeated-pattern guards → +0-1 tier. High-volume sweeps +
-  new-surface → +1 tier. **Never cross the M→L cliff (3×) unless genuinely multi-day.**
+  new-surface → +1 tier (the scale doubles per step — one step at most).
 - Optionally add a one-time "Codebase Onboarding & Downstream Analysis" Common line (L–XL).
 
 ### Tune the MF (per project)

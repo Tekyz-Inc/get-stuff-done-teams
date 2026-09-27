@@ -7,8 +7,11 @@
   "hoursPerDay": 8,
   "_hoursPerDay": "Hours per person-day. Default: 8.",
 
-  "sizeScale": { "XS": 0.25, "S": 0.5, "M": 1, "L": 3, "XL": 5, "XXL": 7 },
-  "_sizeScale": "T-shirt size -> person-days. NON-LINEAR: M->L is a 3x cliff (1 -> 3 days). Do not push routine work across M->L.",
+  "sizeScale": { "XS": 0.1, "S": 0.25, "M": 0.5, "L": 1, "XL": 2, "XXL": 4 },
+  "_sizeScale": "AI-assisted T-shirt scale, person-days (written into the sheet legend by `gsd-t estimate-sheet write`). A size = solo AI minutes x project multiplier + task switching; see estimate-sheet-spec.md section 1.4.",
+
+  "projectMultiplier": { "greenfield-solo": 1, "greenfield-team": 5, "yellowfield-solo": 2, "yellowfield-team-isolated": 8, "yellowfield-team-wide": 12 },
+  "_projectMultiplier": "Solo AI minutes are multiplied by this, by project type (isolated vs wide = code-graph blast radius). Internal to the estimator; never shown on the sheet.",
 
   "totalMF": 0.7,
   "_totalMF": "Overhead multiplier applied to raw Days. Tekyz default 0.7 = QA 0.3 + PM 0.1 + Analysis 0.05 + Deployment 0.05 + Buffer 0.2. Raise Buffer/QA when confidence is low.",
@@ -34,8 +37,8 @@
   "serviceAccountKeyPath": "~/.claude/gsd-t-secrets/gsd-t-sheets-writer-key.json",
   "_serviceAccountKeyPath": "Local path to the SA JSON key (chmod 600, outside any repo — NEVER commit). Step 5 self-provisions the SA+key here if missing.",
 
-  "newTeamDefault": true,
-  "_newTeamDefault": "Whether to assume a new-team familiarization adjustment (Step 2.5a) by default. Usually true for a fresh client.",
+  "newTeamDefault": false,
+  "_newTeamDefault": "Whether to add a new-team familiarization adjustment (Step 2.5a). Default false: estimates assume a code-familiar, AI-assisted team. Turn on only when the operator says the team is new to the code.",
 
   "sheetSpec": "~/.claude/templates/estimate-sheet-spec.md",
   "_sheetSpec": "The layout/formula/styling/roster spec every write is audited against. Bundled at templates/estimate-sheet-spec.md in the GSD-T package."
