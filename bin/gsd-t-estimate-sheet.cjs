@@ -225,12 +225,13 @@ class SheetsApi {
       body: body == null ? undefined : JSON.stringify(body),
     });
     const text = await res.text();
-    if (res.status === 429 && attempt <= 3) {
+    if (res.status === 429 && attempt <= 6) {
       // Rate limit (60 reads/min/user — hit 2026-09-21 auditing 19 sheets in a row). This is
       // flow control, not a masked failure: the same request is re-sent unchanged after the
-      // documented wait, and the 4th 429 halts.
-      const wait = 20000 * attempt;
-      console.error(`  … Sheets API 429 (rate limit) — waiting ${wait / 1000}s, retry ${attempt}/3`);
+      // documented wait, and the 7th 429 halts.
+      // 6 tries, up to 90s apart: several estimates rescaled in parallel share one quota (2026-09-27)
+      const wait = Math.min(20000 * attempt, 90000);
+      console.error(`  … Sheets API 429 (rate limit) — waiting ${wait / 1000}s, retry ${attempt}/6`);
       await new Promise((r) => setTimeout(r, wait));
       return this.call(method, url, body, attempt + 1);
     }
@@ -267,6 +268,15 @@ class SheetsApi {
     const rng = encodeURIComponent(`'${tab}'!${a1}`);
     return this.call("PUT", `${this.base}/values/${rng}?valueInputOption=USER_ENTERED`, {
       range: `'${tab}'!${a1}`, majorDimension: "ROWS", values,
+    });
+  }
+
+  /** Many ranges in ONE request (values:batchUpdate) — one write against the per-minute quota instead of N. */
+  async putValuesBatch(entries) {
+    if (!entries.length) return {};
+    return this.call("POST", `${this.base}/values:batchUpdate`, {
+      valueInputOption: "USER_ENTERED",
+      data: entries.map((e) => ({ range: `'${e.tab}'!${e.a1}`, majorDimension: "ROWS", values: e.values })),
     });
   }
 
@@ -1740,17 +1750,18 @@ async function verbRescale(api, opts) {
   if (!layout.legendRow1.XXS && (textAt(srcGrid, xxsRow1 - 1, 0) || textAt(srcGrid, xxsRow1 - 1, 1))) {
     throw new Halt(`${TAB_TSHIRT}: row ${xxsRow1} under the size legend is not empty (A${xxsRow1}/B${xxsRow1}) — there is nowhere to add XXS without overwriting it`);
   }
-  for (const c of SIZE_CODES) await api.putValues(TAB_TSHIRT_AI, `B${layout.legendRow1[c]}`, [[AI_SIZE_DAYS[c]]]);
-  await api.putValues(TAB_TSHIRT_AI, `A${xxsRow1}:B${xxsRow1}`, [[XXS_LABEL, XXS_DAYS]]);
+  const writes = SIZE_CODES.map((c) => ({ tab: TAB_TSHIRT_AI, a1: `B${layout.legendRow1[c]}`, values: [[AI_SIZE_DAYS[c]]] }));
+  writes.push({ tab: TAB_TSHIRT_AI, a1: `A${xxsRow1}:B${xxsRow1}`, values: [[XXS_LABEL, XXS_DAYS]] });
   const first = layout.cols.sizes[0], last = layout.cols.sizes[layout.cols.sizes.length - 1];
-  for (const it of opts.plan.items) await api.putValues(TAB_TSHIRT_AI, `${colLetter(first)}${it.row}:${colLetter(last)}${it.row}`, [it.sizes.map(sizeOf)]);
+  for (const it of opts.plan.items) writes.push({ tab: TAB_TSHIRT_AI, a1: `${colLetter(first)}${it.row}:${colLetter(last)}${it.row}`, values: [it.sizes.map(sizeOf)] });
   const legendAi = { first1: Math.min(layout.legendFirst1, xxsRow1), last1: Math.max(layout.legendLast1, xxsRow1), exact: true };
   const hRows = [];
   for (let r = layout.firstItemRow; r < rowCount(srcGrid); r++) {
     if (/^Total \(Days\)/i.test(textAt(srcGrid, r, 0).trim())) break;
     if (formulaAt(srcGrid, r, layout.cols.days)) hRows.push(r + 1);
   }
-  for (const r1 of hRows) await api.putValues(TAB_TSHIRT_AI, `${colLetter(layout.cols.days)}${r1}`, [[itemFormulasFor(r1, layout.cols, legendAi).H]]);
+  for (const r1 of hRows) writes.push({ tab: TAB_TSHIRT_AI, a1: `${colLetter(layout.cols.days)}${r1}`, values: [[itemFormulasFor(r1, layout.cols, legendAi).H]] });
+  await api.putValuesBatch(writes); // legend + XXS + sizes + Days formulas: one request
   // the copy meets the spec's formatting on its own (C/D wrap, every cell top-aligned) — a template
   // that predates those rules would otherwise hand its failures to the new tabs
   const aiTshirtId = (await api.meta()).sheets.find((x) => x.properties.title === TAB_TSHIRT_AI).properties.sheetId;
