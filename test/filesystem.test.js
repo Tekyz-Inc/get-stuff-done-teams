@@ -286,12 +286,12 @@ describe("command listing functions", () => {
   // total 56→57, gsdt 49→50.
   // M115 added gsd-t-test-plan (test-plan-first requirements interrogation):
   // total 57→58, gsdt 50→51.
-  it("total command count is 58", () => {
-    assert.equal(getCommandFiles().length, 58);
+  it("total command count is 59", () => {
+    assert.equal(getCommandFiles().length, 59);
   });
 
-  it("gsd-t command count is 51", () => {
-    assert.equal(getGsdtCommands().length, 51);
+  it("gsd-t command count is 52", () => {
+    assert.equal(getGsdtCommands().length, 52);
   });
 
   it("utility command count is 7", () => {

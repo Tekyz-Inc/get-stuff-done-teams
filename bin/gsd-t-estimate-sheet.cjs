@@ -45,6 +45,9 @@ const TAB_TSHIRT = "T-Shirt Size Estimate";
 const TAB_TEAM = "Team Mix";
 const TAB_TECH = "Technology Stack";
 const TAB_OVERVIEW = "Overview";
+// rescale (v5.23.10): the AI-assisted re-estimate lives in COPIES of the two tabs; the originals are never written.
+const TAB_TSHIRT_AI = "T-Shirt Size Estimate (AI)";
+const TAB_TEAM_AI = "Team Mix (AI)";
 
 const SIZE_CODES = ["XS", "S", "M", "L", "XL", "XXL"];
 
@@ -55,6 +58,11 @@ const SIZE_CODES = ["XS", "S", "M", "L", "XL", "XXL"];
 // size on AI_SIZE_DAYS, which `write` puts in the sheet's legend. The multipliers live here,
 // in the estimator — never on the sheet.
 const AI_SIZE_DAYS = { XS: 0.1, S: 0.25, M: 0.5, L: 1, XL: 2, XXL: 4 };
+// XXS (0.5 hr) exists on RESCALE tabs only (David, 2026-09-27) — solo tasks under an hour otherwise
+// round up to XS. A legend carrying XXS needs an EXACT lookup: the 2-letter prefix match the
+// template uses would read "XX*" as XXS + XXL.
+const XXS_DAYS = 0.0625;
+const XXS_LABEL = "XXS - Extra Extra Small";
 const PROJECT_MULTIPLIER = {
   "greenfield-solo": 1,
   "greenfield-team": 5,
@@ -365,7 +373,7 @@ function locateTshirt(grid) {
   const legendRow1 = {};
   let legendFirst = -1, legendLast = -1;
   for (let r = 0; r < headerRow; r++) {
-    const m = textAt(grid, r, 0).trim().match(/^(XS|S|M|L|XL|XXL)\s*-/);
+    const m = textAt(grid, r, 0).trim().match(/^(XXS|XS|S|M|L|XL|XXL)\s*-/);
     if (m) { legend[m[1]] = numAt(grid, r, 1); legendRow1[m[1]] = r + 1; if (legendFirst < 0) legendFirst = r; legendLast = r; }
   }
   for (const code of SIZE_CODES) {
@@ -407,7 +415,7 @@ function locateTshirt(grid) {
   const lowDol = findCell(grid, "Low ($)", headerRow, 20), highDol = findCell(grid, "High ($)", headerRow, 20);
   if (!lowHrs || !highHrs || !lowDol || !highDol) throw new Halt(`${TAB_TSHIRT}: rollup headers 'Low ($)' / 'Low Hrs' / 'High ($)' / 'High Hrs' not all found`);
   cols.rollupPhase = mvp.c; cols.lowHrs = lowHrs.c; cols.highHrs = highHrs.c; cols.lowDol = lowDol.c; cols.highDol = highDol.c;
-  return { headerRow, firstItemRow: headerRow + 1, legend, legendRow1, legendFirst1: legendFirst + 1, legendLast1: legendLast + 1, mf, mfTotal, mfTotalCell, highFactor, rate, rollupRows, cols };
+  return { headerRow, firstItemRow: headerRow + 1, legend, legendRow1, legendExact: legend.XXS != null, legendFirst1: legendFirst + 1, legendLast1: legendLast + 1, mf, mfTotal, mfTotalCell, highFactor, rate, rollupRows, cols };
 }
 
 /** The standard template's column map (what `write` produces). */
@@ -627,7 +635,7 @@ function defaultSwitchMin(teamMin) { return teamMin < 120 ? 7.5 : teamMin < 480 
  * The estimator's per-task math: solo AI minutes × project multiplier + switching (after the
  * multiplier), then the nearest AI_SIZE_DAYS size (geometric midpoints between neighbours).
  */
-function aiTaskSize({ soloMin, project, switchMin }) {
+function aiTaskSize({ soloMin, project, switchMin, xxs }) {
   const mult = PROJECT_MULTIPLIER[project];
   if (mult == null) throw new Halt(`--project must be one of ${Object.keys(PROJECT_MULTIPLIER).join(" | ")}`, 64);
   if (typeof soloMin !== "number" || !(soloMin > 0)) throw new Halt("--solo-min must be a positive number of minutes", 64);
@@ -636,12 +644,14 @@ function aiTaskSize({ soloMin, project, switchMin }) {
   if (typeof sw !== "number" || sw < 0) throw new Halt("--switch-min must be a number of minutes ≥ 0", 64);
   const hours = (teamMin + sw) / 60;
   const days = hours / 8;
-  let size = SIZE_CODES[SIZE_CODES.length - 1];
-  for (let i = 0; i < SIZE_CODES.length - 1; i++) {
-    const cut = Math.sqrt(AI_SIZE_DAYS[SIZE_CODES[i]] * AI_SIZE_DAYS[SIZE_CODES[i + 1]]);
-    if (days < cut) { size = SIZE_CODES[i]; break; }
+  const scale = xxs ? { XXS: XXS_DAYS, ...AI_SIZE_DAYS } : AI_SIZE_DAYS;
+  const codes = Object.keys(scale);
+  let size = codes[codes.length - 1];
+  for (let i = 0; i < codes.length - 1; i++) {
+    const cut = Math.sqrt(scale[codes[i]] * scale[codes[i + 1]]);
+    if (days < cut) { size = codes[i]; break; }
   }
-  return { soloMin, project, multiplier: mult, switchMin: sw, hours: round2(hours), days: round2(days), size, sizeDays: AI_SIZE_DAYS[size] };
+  return { soloMin, project, multiplier: mult, switchMin: sw, hours: round2(hours), days: round2(days), size, sizeDays: scale[size] };
 }
 
 /** True when the sheet's legend already carries the AI scale. */
@@ -668,7 +678,8 @@ function tshirtTotals(plan, layout) {
 function itemFormulasFor(r, cols, legend) {
   const L = colLetter;
   const lg = `$A$${legend.first1}:$A$${legend.last1}`, lv = `$B$${legend.first1}:$B$${legend.last1}`;
-  const days = "=(" + cols.sizes.map((c) => `IF(${L(c)}${r}="",0,SUMIF(${lg},LEFT(${L(c)}${r},2)&"*",${lv}))`).join("+") + ")";
+  const key = (c) => legend.exact ? `${L(c)}${r}&" -*"` : `LEFT(${L(c)}${r},2)&"*"`;
+  const days = "=(" + cols.sizes.map((c) => `IF(${L(c)}${r}="",0,SUMIF(${lg},${key(c)},${lv}))`).join("+") + ")";
   const abs = (cell) => `$${L(cell.c)}$${cell.r + 1}`;
   const f = {
     H: days,
@@ -1001,8 +1012,8 @@ function teamMixFormatReqs(sheetId, v) {
 }
 
 /** Write every phase grid on the one Team Mix tab: clear-then-paint, GRID_GAP blank rows between grids. */
-async function writeTeamMix(api, plan, rosters) {
-  const grid = await api.grid(TAB_TEAM);
+async function writeTeamMix(api, plan, rosters, tab = TAB_TEAM) {
+  const grid = await api.grid(tab);
   const sheetId = grid.properties.sheetId;
   const grids = [];
   let top = 0;
@@ -1013,7 +1024,7 @@ async function writeTeamMix(api, plan, rosters) {
   }
   const lastRow = grids[grids.length - 1].v.bottom;
   const clearRows = Math.max(60, rowCount(grid) + 2, lastRow + 10);
-  await api.clearValues(TAB_TEAM, `A1:Z${clearRows}`);
+  await api.clearValues(tab, `A1:Z${clearRows}`);
   await api.batch([
     { unmergeCells: { range: gridRange(sheetId, 0, clearRows, 0, 26) } },
     fmtReq(sheetId, 0, clearRows, 0, 26, {}, "userEnteredFormat"),
@@ -1021,7 +1032,7 @@ async function writeTeamMix(api, plan, rosters) {
   const reqs = [];
   let maxN = 0;
   for (const g of grids) {
-    await api.putValues(TAB_TEAM, `A${g.v.titleR}:${colLetter(g.v.width - 1)}${g.v.bottom}`, g.v.rows);
+    await api.putValues(tab, `A${g.v.titleR}:${colLetter(g.v.width - 1)}${g.v.bottom}`, g.v.rows);
     reqs.push(...teamMixFormatReqs(sheetId, g.v));
     maxN = Math.max(maxN, g.v.totalC - g.v.firstMonthC);
   }
@@ -1063,7 +1074,7 @@ function auditTshirt(grid) {
   const out = [];
   const layout = locateTshirt(grid);
   const { cols } = layout;
-  const legendRows = { first1: layout.legendFirst1, last1: layout.legendLast1 };
+  const legendRows = { first1: layout.legendFirst1, last1: layout.legendLast1, exact: layout.legendExact };
   const first0 = layout.firstItemRow;
   const badSizes = [], noDv = [], badFormula = [], sectionsWithSizes = [], badSectionFmt = [], noWrap = [], notTop = [];
   let lastItem0 = -1, totalRow0 = -1;
@@ -1080,7 +1091,7 @@ function auditTshirt(grid) {
     lastItem0 = r;
     for (const c of cols.sizes) {
       const v = textAt(grid, r, c).trim();
-      if (v && !SIZE_CODES.includes(v)) badSizes.push(`${colLetter(c)}${r + 1}='${v}'`);
+      if (v && !(SIZE_CODES.includes(v) || (v === "XXS" && layout.legendExact))) badSizes.push(`${colLetter(c)}${r + 1}='${v}'`);
     }
     const cell = cellAt(grid, r, cols.phase);
     if (!(cell && cell.dataValidation && cell.dataValidation.condition && cell.dataValidation.condition.type === "ONE_OF_LIST")) noDv.push(`${colLetter(cols.phase)}${r + 1}`);
@@ -1657,13 +1668,123 @@ async function verbWrite(api, plan, opts) {
   return result;
 }
 
+// ───────────────────────── rescale (AI-assisted re-estimate into copied tabs) ─────────────────────────
+
+/** Every sized item row on a T-Shirt grid: row (1-based), text, phase and its size codes in size-column order. */
+function sizedRows(grid, layout) {
+  const out = [];
+  for (let r = layout.firstItemRow; r < rowCount(grid); r++) {
+    if (/^Total \(Days\)/i.test(textAt(grid, r, 0).trim())) break;
+    const sizes = layout.cols.sizes.map((c) => textAt(grid, r, c).trim());
+    if (!sizes.some((v) => v)) continue;
+    out.push({ row: r + 1, module: textAt(grid, r, 0).trim(), userType: textAt(grid, r, 1).trim(), functionality: textAt(grid, r, 2).trim(), requirement: textAt(grid, r, 3).trim(), phase: textAt(grid, r, layout.cols.phase).trim(), sizes });
+  }
+  return out;
+}
+
+/**
+ * Validate a rescale plan against the source rows. Every sized row must be re-sized exactly once,
+ * matched by row AND its Functionality text (a row that moved since the list was taken HALTS).
+ */
+function rescaleViolations(plan, rows, sizeCount) {
+  const errors = [];
+  const items = plan && Array.isArray(plan.items) ? plan.items : null;
+  if (!items || !items.length) return ["items: non-empty array required — [{ row, functionality, sizes: [...] }]"];
+  const byRow = new Map(rows.map((r) => [r.row, r]));
+  const seen = new Set();
+  items.forEach((it, i) => {
+    const where = `items[${i}]`;
+    const src = byRow.get(it.row);
+    if (!src) { errors.push(`${where}: row ${it.row} is not a sized item row on the source tab`); return; }
+    if (seen.has(it.row)) errors.push(`${where}: row ${it.row} appears twice`);
+    seen.add(it.row);
+    if (String(it.functionality == null ? "" : it.functionality).trim() !== src.functionality) errors.push(`${where}: row ${it.row} Functionality does not match the sheet ('${src.functionality.slice(0, 60)}') — re-list the rows and rebuild the plan`);
+    if (!Array.isArray(it.sizes) || it.sizes.length !== sizeCount) { errors.push(`${where}.sizes: array of ${sizeCount} size code(s) required, in size-column order`); return; }
+    it.sizes.forEach((v, k) => { const c = sizeOf(v); if (c !== "" && c !== "XXS" && !SIZE_CODES.includes(c)) errors.push(`${where}.sizes[${k}]: '${v}' is not a bare size code (XXS ${SIZE_CODES.join(" ")})`); });
+    if (it.sizes.every((v) => sizeOf(v) === "")) errors.push(`${where}: every size is blank — an item with no size is a defect`);
+  });
+  const missing = rows.filter((r) => !seen.has(r.row)).map((r) => r.row);
+  if (missing.length) errors.push(`rows not re-sized: ${missing.join(", ")} — every sized row must be in the plan, or its copy would silently re-price on the new scale`);
+  return errors;
+}
+
+async function verbRescale(api, opts) {
+  const meta = await api.meta();
+  const byTitle = new Map(meta.sheets.map((s) => [s.properties.title, s.properties]));
+  for (const t of [TAB_TSHIRT, TAB_TEAM]) if (!byTitle.has(t)) throw new Halt(`tab '${t}' is missing — this is not a Tekyz estimate sheet`);
+  const srcGrid = await api.grid(TAB_TSHIRT);
+  const layout = locateTshirt(srcGrid);
+  const rows = sizedRows(srcGrid, layout);
+  if (opts.list) return { sizeColumns: layout.cols.sizeLabels, legend: layout.legend, mfTotal: round2(layout.mfTotal), rows };
+
+  const errors = rescaleViolations(opts.plan, rows, layout.cols.sizes.length);
+  if (errors.length) throw new Halt(`rescale plan rejected:\n  - ${errors.join("\n  - ")}`, 4, errors);
+  const aiScale = { XXS: XXS_DAYS, ...AI_SIZE_DAYS };
+  const aiRaw = opts.plan.items.reduce((sum, it) => sum + it.sizes.reduce((a, v) => a + (sizeOf(v) ? aiScale[sizeOf(v)] : 0), 0), 0);
+  const oldRaw = rows.reduce((sum, r) => sum + r.sizes.reduce((a, v) => a + (layout.legend[v] || 0), 0), 0);
+  const preview = { items: rows.length, oldLowHours: round2(oldRaw * (1 + layout.mfTotal) * 8), newLowHours: round2(aiRaw * (1 + layout.mfTotal) * 8) };
+  const exists = [TAB_TSHIRT_AI, TAB_TEAM_AI].filter((t) => byTitle.has(t));
+  if (exists.length && !opts.replace) throw new Halt(`tab(s) ${exists.map((t) => `'${t}'`).join(", ")} already exist — pass --replace to rebuild them (the original tabs are never touched)`);
+  if (opts.dryRun) return { dryRun: true, ...preview };
+
+  // 1. copies — only the two (AI) tabs are ever deleted, and only on --replace
+  if (exists.length) await api.batch(exists.map((t) => ({ deleteSheet: { sheetId: byTitle.get(t).sheetId } })));
+  const after = (t) => byTitle.get(t).index + 1;
+  await api.batch([{ duplicateSheet: { sourceSheetId: byTitle.get(TAB_TSHIRT).sheetId, newSheetName: TAB_TSHIRT_AI, insertSheetIndex: after(TAB_TSHIRT) } }]);
+  const meta2 = await api.meta();
+  const teamIdx = meta2.sheets.find((s) => s.properties.title === TAB_TEAM).properties.index;
+  await api.batch([{ duplicateSheet: { sourceSheetId: byTitle.get(TAB_TEAM).sheetId, newSheetName: TAB_TEAM_AI, insertSheetIndex: teamIdx + 1 } }]);
+
+  // 2. the copied T-Shirt tab: AI legend (+ XXS in the row under XXL), exact-match Days formulas, new sizes
+  const xxsRow1 = layout.legendRow1.XXS || layout.legendLast1 + 1;
+  if (!layout.legendRow1.XXS && (textAt(srcGrid, xxsRow1 - 1, 0) || textAt(srcGrid, xxsRow1 - 1, 1))) {
+    throw new Halt(`${TAB_TSHIRT}: row ${xxsRow1} under the size legend is not empty (A${xxsRow1}/B${xxsRow1}) — there is nowhere to add XXS without overwriting it`);
+  }
+  for (const c of SIZE_CODES) await api.putValues(TAB_TSHIRT_AI, `B${layout.legendRow1[c]}`, [[AI_SIZE_DAYS[c]]]);
+  await api.putValues(TAB_TSHIRT_AI, `A${xxsRow1}:B${xxsRow1}`, [[XXS_LABEL, XXS_DAYS]]);
+  const first = layout.cols.sizes[0], last = layout.cols.sizes[layout.cols.sizes.length - 1];
+  for (const it of opts.plan.items) await api.putValues(TAB_TSHIRT_AI, `${colLetter(first)}${it.row}:${colLetter(last)}${it.row}`, [it.sizes.map(sizeOf)]);
+  const legendAi = { first1: Math.min(layout.legendFirst1, xxsRow1), last1: Math.max(layout.legendLast1, xxsRow1), exact: true };
+  const hRows = [];
+  for (let r = layout.firstItemRow; r < rowCount(srcGrid); r++) {
+    if (/^Total \(Days\)/i.test(textAt(srcGrid, r, 0).trim())) break;
+    if (formulaAt(srcGrid, r, layout.cols.days)) hRows.push(r + 1);
+  }
+  for (const r1 of hRows) await api.putValues(TAB_TSHIRT_AI, `${colLetter(layout.cols.days)}${r1}`, [[itemFormulasFor(r1, layout.cols, legendAi).H]]);
+  // the copy meets the spec's formatting on its own (C/D wrap, every cell top-aligned) — a template
+  // that predates those rules would otherwise hand its failures to the new tabs
+  const aiTshirtId = (await api.meta()).sheets.find((x) => x.properties.title === TAB_TSHIRT_AI).properties.sheetId;
+  const lastRow1 = rows[rows.length - 1].row;
+  const xxlRow0 = layout.legendRow1.XXL - 1;
+  await api.batch([
+    { copyPaste: { source: gridRange(aiTshirtId, xxlRow0, xxlRow0 + 1, 0, 2), destination: gridRange(aiTshirtId, xxsRow1 - 1, xxsRow1, 0, 2), pasteType: "PASTE_FORMAT" } },
+    wrapReq(aiTshirtId, layout.firstItemRow, lastRow1, 2, 4), topAlignReq(aiTshirtId, lastRow1 + 5),
+  ]);
+
+  // 3. the copied Team Mix: same roster as the original, staffed from the copy's phase rollups
+  const aiGrid = await api.grid(TAB_TSHIRT_AI);
+  const aiLayout = locateTshirt(aiGrid);
+  const fte = deriveFteFromTeamMix(await api.grid(TAB_TEAM));
+  const tmPlan = { teamMix: { fte } };
+  const rosters = phaseTotalsFromSheet(aiGrid, aiLayout).map((ph) => ({ ...ph, roster: buildRoster(tmPlan, ph.staffDays, aiLayout.mf) }));
+  await writeTeamMix(api, tmPlan, rosters, TAB_TEAM_AI);
+
+  // 4. audit the copies by read-back
+  const checks = [];
+  const ts = auditTshirt(await api.grid(TAB_TSHIRT_AI));
+  checks.push(...ts.checks);
+  checks.push(...auditTeamMix(await api.grid(TAB_TEAM_AI), ts.layout.mf, ts.staffDays, ts.phaseDays).checks);
+  const failed = checks.filter((c) => !c.ok);
+  return { ...preview, fte, table: rostersTable(rosters), audit: { title: `${meta.properties.title} — (AI) tabs`, checks, failed: failed.length, ok: failed.length === 0 } };
+}
+
 // ───────────────────────── CLI ─────────────────────────
 
 function parseArgs(argv) {
   const out = { _: [] };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
-    if (a === "--json" || a === "--replace" || a === "--no-audit" || a === "--dry-run") out[a.slice(2)] = true;
+    if (a === "--json" || a === "--replace" || a === "--no-audit" || a === "--dry-run" || a === "--list" || a === "--xxs") out[a.slice(2)] = true;
     else if (a.startsWith("--")) { out[a.slice(2)] = argv[i + 1]; i++; }
     else out._.push(a);
   }
@@ -1675,7 +1796,7 @@ function printChecks(audit) {
   console.log(`${audit.ok ? "AUDIT PASS" : `AUDIT FAIL (${audit.failed})`} — ${audit.title}`);
 }
 
-const USAGE = "usage: gsd-t estimate-sheet <read|plan-check|write|teammix|format|phases|titles|audit|plan-schema|size> --sheet <id|url> [--tab <name>] [--plan <plan.json>] [--replace] [--fte '{\"backend\":1.5}'] [--title <t>] [--dry-run] [--no-audit] [--key <path>] [--json]\n       gsd-t estimate-sheet size --solo-min <n> --project <greenfield-solo|greenfield-team|yellowfield-solo|yellowfield-team-isolated|yellowfield-team-wide> [--switch-min <n>] [--json]";
+const USAGE = "usage: gsd-t estimate-sheet <read|plan-check|write|teammix|format|phases|titles|audit|plan-schema|size|rescale> --sheet <id|url> [--tab <name>] [--plan <plan.json>] [--replace] [--fte '{\"backend\":1.5}'] [--title <t>] [--dry-run] [--no-audit] [--key <path>] [--json]\n       gsd-t estimate-sheet size --solo-min <n> --project <greenfield-solo|greenfield-team|yellowfield-solo|yellowfield-team-isolated|yellowfield-team-wide> [--switch-min <n>] [--xxs] [--json]\n       gsd-t estimate-sheet rescale --sheet <id|url> (--list | --plan <rescale.json> [--dry-run] [--replace]) [--json]";
 
 /** Runs a verb; returns the exit code. Throws Halt (or any error) — the runner below turns that into exit 4/64. */
 async function main(args) {
@@ -1684,7 +1805,7 @@ async function main(args) {
   if (!verb || verb === "help") { console.log(USAGE); return 0; }
   if (verb === "plan-schema") { console.log(JSON.stringify(PLAN_SCHEMA, null, 2)); return 0; }
   if (verb === "size") {
-    const r = aiTaskSize({ soloMin: Number(args["solo-min"]), project: args.project, switchMin: args["switch-min"] == null ? undefined : Number(args["switch-min"]) });
+    const r = aiTaskSize({ soloMin: Number(args["solo-min"]), project: args.project, switchMin: args["switch-min"] == null ? undefined : Number(args["switch-min"]), xxs: !!args.xxs });
     if (json) console.log(JSON.stringify({ ok: true, exitCode: 0, ...r }, null, 2));
     else console.log(`${r.soloMin} solo min × ${r.multiplier} (${r.project}) + ${r.switchMin} min switching = ${r.hours} h (${r.days} d) → ${r.size} (${r.sizeDays} d)`);
     return 0;
@@ -1737,6 +1858,20 @@ async function main(args) {
     if (json) console.log(JSON.stringify({ ok: a.ok, exitCode: a.ok ? 0 : 4, ...a }, null, 2)); else printChecks(a);
     return a.ok ? 0 : 4;
   }
+  if (verb === "rescale") {
+    const list = !!args.list;
+    let plan = null;
+    if (!list) { if (!args.plan) throw new Halt("rescale needs --plan <rescale.json> (or --list to print the rows to re-size)", 64); try { plan = JSON.parse(fs.readFileSync(args.plan, "utf8")); } catch (e) { throw new Halt(`cannot read --plan ${args.plan}: ${e.message}`, 64); } }
+    const r = await verbRescale(api, { list, plan, replace: !!args.replace, dryRun: !!args["dry-run"] });
+    const ok = !r.audit || r.audit.ok;
+    if (json || list) console.log(JSON.stringify({ ok, exitCode: ok ? 0 : 4, ...r }, null, 2));
+    else {
+      console.log(`${r.items} items: low ${r.oldLowHours} h on the original tabs → ${r.newLowHours} h on the (AI) tabs`);
+      if (r.dryRun) console.log("(dry run — nothing written)");
+      else { console.log(r.table); printChecks(r.audit); }
+    }
+    return ok ? 0 : 4;
+  }
   const plan = loadPlan(args.plan);
   if (verb === "plan-check") {
     const r = await verbPlanCheck(api, plan);
@@ -1773,10 +1908,10 @@ function haltAndExit(e, json) {
 }
 
 module.exports = {
-  validatePlan, aiTaskSize, legendIsAi, defaultSwitchMin, splitRoster, rosterViolations, mfCoverageViolations, monthPlan, resampleWeights, rampHours, buildRoster,
+  validatePlan, sizedRows, rescaleViolations, verbRescale, aiTaskSize, legendIsAi, defaultSwitchMin, splitRoster, rosterViolations, mfCoverageViolations, monthPlan, resampleWeights, rampHours, buildRoster,
   tshirtTotals, phaseTotals, buildRosters, midDays, deriveFteFromTeamMix, phaseTotalsFromSheet, verbTeamMix, phaseGapMap, verbPhases, verbTitles, itemFormulasFor, rollupFormulasFor, findCell, itemFormulas, rollupFormulas, tshirtRows, teamMixValues, teamMixFormatReqs, remainderFormula, locateTshirt, findPhaseSource,
   auditTshirt, auditTeamMix, auditTechStack, auditOverview, colLetter, hexToColor, colorToHex, sheetIdFromArg,
-  constants: { SIZE_CODES, AI_SIZE_DAYS, PROJECT_MULTIPLIER, PHASES, COLOR, RAMP, ROLE_LABEL, SOFT_CEILING, FOLD_THRESHOLD, TAB_TSHIRT, TAB_TEAM, TAB_TECH, PLAN_SCHEMA },
+  constants: { TAB_TSHIRT_AI, TAB_TEAM_AI, XXS_DAYS, SIZE_CODES, AI_SIZE_DAYS, PROJECT_MULTIPLIER, PHASES, COLOR, RAMP, ROLE_LABEL, SOFT_CEILING, FOLD_THRESHOLD, TAB_TSHIRT, TAB_TEAM, TAB_TECH, PLAN_SCHEMA },
   Halt, SheetsApi, getToken, runAudit, main,
 };
 

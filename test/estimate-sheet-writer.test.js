@@ -548,3 +548,61 @@ test("legendIsAi: only the exact AI scale counts; the old day scale does not", (
   assert.ok(W.legendIsAi({ XS: 0.1, S: 0.25, M: 0.5, L: 1, XL: 2, XXL: 4 }));
   assert.ok(!W.legendIsAi({ XS: 0.25, S: 0.5, M: 1, L: 3, XL: 5, XXL: 7 }));
 });
+
+// ───────────── rescale (v5.23.10): AI re-estimate into copied tabs + XXS ─────────────
+
+test("rescale: tab names — the originals are never the target", () => {
+  const { TAB_TSHIRT_AI, TAB_TEAM_AI } = W.constants;
+  assert.strictEqual(TAB_TSHIRT_AI, "T-Shirt Size Estimate (AI)");
+  assert.strictEqual(TAB_TEAM_AI, "Team Mix (AI)");
+  assert.notStrictEqual(TAB_TSHIRT_AI, W.constants.TAB_TSHIRT);
+  assert.notStrictEqual(TAB_TEAM_AI, W.constants.TAB_TEAM);
+});
+
+const RROWS = [
+  { row: 15, functionality: "Route the resolver", sizes: ["S", "M"] },
+  { row: 16, functionality: "Redact pay fields", sizes: ["", "L"] },
+];
+
+test("rescaleViolations: a complete plan (XXS allowed) passes", () => {
+  const plan = { items: [{ row: 15, functionality: "Route the resolver", sizes: ["XXS", "S"] }, { row: 16, functionality: "Redact pay fields", sizes: ["", "M"] }] };
+  assert.deepStrictEqual(W.rescaleViolations(plan, RROWS, 2), []);
+});
+
+test("rescaleViolations: a sized row left out HALTS (it would silently re-price on the new scale)", () => {
+  const errs = W.rescaleViolations({ items: [{ row: 15, functionality: "Route the resolver", sizes: ["S", "S"] }] }, RROWS, 2);
+  assert.ok(errs.some((e) => /rows not re-sized: 16/.test(e)), errs.join(" | "));
+});
+
+test("rescaleViolations: a row whose Functionality changed since the list HALTS (matched by row AND text)", () => {
+  const plan = { items: [{ row: 15, functionality: "Something else", sizes: ["S", "S"] }, { row: 16, functionality: "Redact pay fields", sizes: ["", "M"] }] };
+  assert.ok(W.rescaleViolations(plan, RROWS, 2).some((e) => /does not match the sheet/.test(e)));
+});
+
+test("rescaleViolations: bad codes, wrong arity, duplicates and all-blank rows are rejected", () => {
+  const plan = { items: [
+    { row: 15, functionality: "Route the resolver", sizes: ["XS - Extra Small", "S"] },
+    { row: 15, functionality: "Route the resolver", sizes: ["S"] },
+    { row: 16, functionality: "Redact pay fields", sizes: ["", ""] },
+  ] };
+  const errs = W.rescaleViolations(plan, RROWS, 2).join(" | ");
+  assert.match(errs, /not a bare size code/);
+  assert.match(errs, /appears twice/);
+  assert.match(errs, /array of 2 size code/);
+  assert.match(errs, /every size is blank/);
+});
+
+test("itemFormulasFor: an XXS legend uses the EXACT lookup — the 2-letter prefix would read XX* as XXS + XXL", () => {
+  const cols = { sizes: [5, 6], days: 7, mfactor: 8, total: 9, low: 10, high: 11, mfTotal: { r: 9, c: 5 }, rate: { r: 3, c: 7 }, highFactor: { r: 3, c: 6 } };
+  const exact = W.itemFormulasFor(15, cols, { first1: 4, last1: 10, exact: true }).H;
+  assert.strictEqual(exact, '=(IF(F15="",0,SUMIF($A$4:$A$10,F15&" -*",$B$4:$B$10))+IF(G15="",0,SUMIF($A$4:$A$10,G15&" -*",$B$4:$B$10)))');
+  const legacy = W.itemFormulasFor(15, cols, { first1: 4, last1: 9 }).H;
+  assert.ok(legacy.includes('LEFT(F15,2)&"*"'), "template sheets keep the template formula");
+});
+
+test("aiTaskSize --xxs: sub-hour solo work lands on XXS (0.5 hr) instead of rounding up to XS", () => {
+  assert.strictEqual(W.constants.XXS_DAYS, 0.0625);
+  assert.strictEqual(W.aiTaskSize({ soloMin: 5, project: "greenfield-solo", xxs: true }).size, "XXS");
+  assert.strictEqual(W.aiTaskSize({ soloMin: 5, project: "greenfield-solo" }).size, "XS");
+  assert.strictEqual(W.aiTaskSize({ soloMin: 20, project: "yellowfield-team-wide", xxs: true }).size, "M");
+});

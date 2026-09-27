@@ -383,6 +383,12 @@ Use these when user asks for help on a specific command:
 - **Updates**: the Tekyz estimate Google Sheet (three tabs, written and read-back-audited by `gsd-t estimate-sheet` from `.gsd-t/estimate-plan.json`) + optional `share/<Repo>-estimate-redteam-notes.md` (and, if renumbered, the source doc/docs/scan files)
 - **Use when**: You need a client-facing paid estimate (T-shirt sizing, dollar range, staffed team by month) from a scan, a gap analysis, or a requirements/feature/app spec. **SUPERVISED** — judgment phases (sizing, adjustments, Team Mix, Red Team) pause for your review; **you are the final arbiter** of an Estimate Red Team that challenges the numbers. Accepts `--sheet <url>`. Sizes are AI-assisted (solo AI minutes × project multiplier + task switching → `gsd-t estimate-sheet size`; spec §1.4). Rate + factors are parameterized (default Tekyz; the sheet's own MF list wins). Playbook: `~/.claude/playbooks/tekyz-estimation-and-prd-playbook.md`
 
+### estimate-rescale
+- **Summary**: Re-price an EXISTING Tekyz estimate sheet on the AI-assisted scale without touching it — copies the T-Shirt and Team Mix tabs into `T-Shirt Size Estimate (AI)` / `Team Mix (AI)`, re-sizes every row (solo AI minutes × project multiplier + task switching, with an XXS 0.5 hr size), rebuilds the Team Mix and audits the copies
+- **Auto-invoked**: No
+- **Updates**: the two `(AI)` tabs on the sheet (original tabs, Overview and the estimates index are never written) + `.gsd-t/estimate-rescale-plan.json`
+- **Use when**: An estimate was sized on the old hand-coding day scale and you want the AI-assisted figure beside it. **SUPERVISED** — the per-row sizing pauses for your review. Accepts `--sheet <url>` and `--project <greenfield-solo|greenfield-team|yellowfield-solo|yellowfield-team-isolated|yellowfield-team-wide>`. Spec: `~/.claude/templates/estimate-sheet-spec.md` §1.4 and §7
+
 ### stories
 - **Summary**: Generate a dev-team handoff document in the Tekyz user-stories format — discrete user stories with workflows, grouped acceptance criteria, per-story flow diagrams (Mermaid rendered to embedded images), and mapped test-case tables — from any source (scan register, requirements doc, design contract, or a reverse-engineered codebase)
 - **Auto-invoked**: No

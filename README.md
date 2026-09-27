@@ -82,7 +82,7 @@ GSD-T reads all state files and tells you exactly where you left off.
 ## CLI Commands
 
 ```bash
-npx @tekyzinc/gsd-t install        # Install commands + global CLAUDE.md (51 commands)
+npx @tekyzinc/gsd-t install        # Install commands + global CLAUDE.md (52 commands)
 npx @tekyzinc/gsd-t update         # Update global commands + CLAUDE.md
 npx @tekyzinc/gsd-t update-all     # Update globally + all registered project CLAUDE.md files
 npx @tekyzinc/gsd-t init [name]    # Scaffold GSD-T project (auto-registers)
@@ -185,6 +185,7 @@ This will replace changed command files, back up your CLAUDE.md if customized, a
 | `/gsd-t-gap-analysis` | Requirements gap analysis — spec vs. existing code | Manual |
 | `/gsd-t-promote-debt` | Convert techdebt items to milestones | Manual |
 | `/gsd-t-estimate` | Turn any work doc (scan, gap-analysis sheet, requirements, feature/app spec) into a Tekyz client estimate Google Sheet — T-Shirt Size + Team Mix + Technology Stack, written by the deterministic `gsd-t estimate-sheet` tool from a JSON plan and read-back-audited against `templates/estimate-sheet-spec.md`; sizes assume AI-assisted development (solo AI minutes × project multiplier) — supervised, with an operator-arbitrated Estimate Red Team. No PRD (that is `/gsd-t-prd`) | Manual |
+| `/gsd-t-estimate-rescale` | Re-price an existing estimate sheet on the AI-assisted scale into copied `T-Shirt Size Estimate (AI)` / `Team Mix (AI)` tabs — the originals and the estimates index are never touched; supervised per-row sizing, XXS (0.5 hr) size, read-back audit | Manual |
 | `/gsd-t-stories` | Generate a dev-team handoff doc in the Tekyz user-stories format (stories + workflows + acceptance criteria + Mermaid flow diagrams + mapped test cases) from any source | Manual |
 | `/gsd-t-demo-videos` | Narrated screen-recording walkthroughs of a running app — coverage plan, UI-driven seeding, batched TTS with a measured one-voice gate, continuous recording, mux, silence trim | Manual |
 | `/gsd-t-populate` | Auto-populate docs from existing codebase | Manual |
