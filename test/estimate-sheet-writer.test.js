@@ -505,3 +505,46 @@ test("the writer ships in GLOBAL_BIN_TOOLS and PROJECT_BIN_TOOLS and has a dispa
   assert.ok(src.includes('case "estimate-sheet":'), "dispatch case");
   assert.ok(src.includes('"estimate-sheet-spec.md"'), "SHARED_TEMPLATES carries the spec");
 });
+
+// ───────────── AI-assisted sizing model (David, 2026-09-27) ─────────────
+
+test("aiTaskSize: switching is added AFTER the multiplier, never multiplied", () => {
+  // 5 solo min on a wide yellow-field team task: 5 × 12 = 60 min + 7.5 min switching
+  const r = W.aiTaskSize({ soloMin: 5, project: "yellowfield-team-wide" });
+  assert.strictEqual(r.multiplier, 12);
+  assert.strictEqual(r.switchMin, 7.5);
+  assert.strictEqual(r.hours, 1.13);
+  assert.notStrictEqual(r.hours, round2((5 + 7.5) * 12 / 60), "switching must not be multiplied");
+});
+
+function round2(n) { return Math.round(n * 100) / 100; }
+
+test("aiTaskSize: the five project multipliers", () => {
+  const m = W.constants.PROJECT_MULTIPLIER;
+  assert.deepStrictEqual(m, { "greenfield-solo": 1, "greenfield-team": 5, "yellowfield-solo": 2, "yellowfield-team-isolated": 8, "yellowfield-team-wide": 12 });
+});
+
+test("aiTaskSize: switching allowance scales with task size (7.5 / 15 / 30 min) and can be overridden", () => {
+  assert.strictEqual(W.defaultSwitchMin(60), 7.5);
+  assert.strictEqual(W.defaultSwitchMin(240), 15);
+  assert.strictEqual(W.defaultSwitchMin(600), 30);
+  assert.strictEqual(W.aiTaskSize({ soloMin: 20, project: "greenfield-team", switchMin: 0 }).hours, round2(100 / 60));
+});
+
+test("aiTaskSize: maps to the nearest AI-scale size and the scale covers the largest task", () => {
+  assert.deepStrictEqual(W.constants.AI_SIZE_DAYS, { XS: 0.1, S: 0.25, M: 0.5, L: 1, XL: 2, XXL: 4 });
+  assert.strictEqual(W.aiTaskSize({ soloMin: 5, project: "greenfield-solo" }).size, "XS");
+  assert.strictEqual(W.aiTaskSize({ soloMin: 20, project: "yellowfield-team-wide" }).size, "M");
+  assert.strictEqual(W.aiTaskSize({ soloMin: 135, project: "yellowfield-team-wide" }).size, "XXL");
+});
+
+test("aiTaskSize: bad input HALTS (no silent default project or size)", () => {
+  assert.throws(() => W.aiTaskSize({ soloMin: 20, project: "team" }), /--project must be one of/);
+  assert.throws(() => W.aiTaskSize({ soloMin: 0, project: "greenfield-team" }), /--solo-min/);
+  assert.throws(() => W.aiTaskSize({ soloMin: NaN, project: "greenfield-team" }), /--solo-min/);
+});
+
+test("legendIsAi: only the exact AI scale counts; the old day scale does not", () => {
+  assert.ok(W.legendIsAi({ XS: 0.1, S: 0.25, M: 0.5, L: 1, XL: 2, XXL: 4 }));
+  assert.ok(!W.legendIsAi({ XS: 0.25, S: 0.5, M: 1, L: 3, XL: 5, XXL: 7 }));
+});
