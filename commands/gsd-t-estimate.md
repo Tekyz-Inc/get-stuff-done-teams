@@ -26,7 +26,7 @@ Read from `$ARGUMENTS` or `.gsd-t/estimate-config.json` if present; otherwise us
 | `rate` | `$50/hr` | Blended hourly rate for the LOW figure. |
 | `hoursPerDay` | `8` | Hours per person-day. |
 | `sizeScale` | `XS 0.1 · S 0.25 · M 0.5 · L 1 · XL 2 · XXL 4` | AI-assisted T-shirt → person-days (spec §1.4). `write` puts it in the sheet legend. |
-| `projectMultiplier` | greenfield solo ×1 · team ×5 · yellow-field solo ×2 · team ×8 isolated / ×12 wide | Solo AI minutes × this. Internal to the estimator — never on the sheet. |
+| `projectMultiplier` | greenfield solo ×1 · team ×3 · yellow-field solo ×2 · team ×5 isolated / ×7 wide | Solo AI minutes × this. Includes team overhead. Internal to the estimator — never on the sheet. |
 | `totalMF` | `0.7` | Overhead multiplier. **The sheet's own MF list (`E4:F9`) wins when a sheet exists** — read it, never overwrite it. Hilo sheets run `0.9` (QA .3 · PM .1 · Analysis .1 · Deployment .05 · StdUps/Mtgs .15 · Buffer .2). |
 | `highFactor` | `1.25` | HIGH = LOW × this (the sheet's `G4` wins when a sheet exists). |
 | `sheetTemplateId` | (blank) | Optional template to clone; normally blank — the operator supplies the target sheet. |
@@ -58,7 +58,7 @@ Client-facing line-items carry **sequential, rational numbering starting at 1**.
 
 For each in-scope item build a row per spec §1.2 — `A` Module · `B` User Type · `C` Functionality (**with the item id**) · `D` Low-Level Requirement · `E` Phase · `F` Web Portal size · `G` Backend/API size. `H:L` are formulas, never values.
 
-- **Size in solo AI minutes, then let the tool pick the size** (spec §1.4). For each column (FE, BE) estimate the SOLO AI-assisted minutes — one person directing Claude — then run `gsd-t estimate-sheet size --solo-min <n> --project <type>`: it multiplies by the project type (greenfield solo ×1 · team ×5 · yellow-field solo ×2 · team ×8 isolated / ×12 big blast radius), adds task switching after the multiplier, and prints the size. Blast radius is measured with `gsd-t graph blast-radius`, not guessed. Count switching once per item (pass `--switch-min 0` for the smaller column).
+- **Size in solo AI minutes, then let the tool pick the size** (spec §1.4). For each column (FE, BE) estimate the SOLO AI-assisted minutes — one person directing Claude — then run `gsd-t estimate-sheet size --solo-min <n> --project <type>`: it multiplies by the project type (greenfield solo ×1 · team ×3 · yellow-field solo ×2 · team ×5 isolated / ×7 big blast radius), adds task switching after the multiplier, and prints the size. Blast radius is measured with `gsd-t graph blast-radius`, not guessed. Count switching once per item (pass `--switch-min 0` for the smaller column).
 - **Bare codes in `F:G`** — `XS` `S` `M` `L` `XL` `XXL`. Never the legend text (`"XS - Extra Small"`). Scale: **XS 0.1 · S 0.25 · M 0.5 · L 1 · XL 2 · XXL 4** person-days.
 - The sheet computes: `Days = F+G` → `MFactor Days = Days × Total MF` → `Total Days` → `LOW $ = Total × 8 × rate` → `HIGH $ = LOW × high factor`. The overhead factors and high factor are per-project settings the operator adjusts by hand.
 - **Cluster by fix-shape to size fast**: "add existing guard to N routes" (XS–S, repeated) vs "new backend surface" (M, +FE) vs "config / single route" (XS). Size the cluster once, apply to members.
