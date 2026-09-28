@@ -273,8 +273,8 @@ Everything in §1–§5 is executed by `bin/gsd-t-estimate-sheet.cjs`, not re-de
 
 ```
 gsd-t estimate-sheet plan-schema                              # the plan shape
-gsd-t estimate-sheet size --solo-min <n> --project <type> [--switch-min <n>] [--xxs]   # §1.4: solo minutes → team hours → size (no sheet needed); --xxs for (AI) tabs
-gsd-t estimate-sheet rescale --sheet <id|url> (--list | --plan <p.json> [--dry-run] [--replace])  # §7: re-price into (AI) copies; originals untouched
+gsd-t estimate-sheet size --solo-min <n> --project <type> [--switch-min <n>] [--xxs]   # §1.4: solo minutes → team hours → size (no sheet needed); --xxs for (Rescale) tabs
+gsd-t estimate-sheet rescale --sheet <id|url> (--list | --plan <p.json> [--dry-run] [--replace])  # §7: re-price into (Rescale) copies; originals untouched
 gsd-t estimate-sheet read       --sheet <id|url> [--tab <name>]   # read-before-write dump
 gsd-t estimate-sheet plan-check --sheet <id|url> --plan plan.json # validate + the roster it WOULD write (the Step 4 pause)
 gsd-t estimate-sheet write      --sheet <id|url> --plan plan.json [--replace]   # T-Shirt + Team Mix + Tech Stack, then audit
@@ -315,15 +315,15 @@ The plan (judgment only):
 
 ## 7. Rescale — re-price an existing estimate into copied tabs (`/gsd-t-estimate-rescale`)
 
-An estimate written on the old day scale is re-priced **without touching it**. `gsd-t estimate-sheet rescale` copies `T-Shirt Size Estimate` → **`T-Shirt Size Estimate (AI)`** and `Team Mix` → **`Team Mix (AI)`** (each placed next to its original) and re-sizes the copies only. The original tabs, the Overview tab and the estimates index are never written.
+An estimate written on the old day scale is re-priced **without touching it**. `gsd-t estimate-sheet rescale` copies `T-Shirt Size Estimate` → **`T-Shirt Size Estimate (Rescale)`** and `Team Mix` → **`Team Mix (Rescale)`** (each placed next to its original) and re-sizes the copies only. The original tabs, the Overview tab and the estimates index are never written.
 
 | Step | Rule |
 |---|---|
 | List | `rescale --list` prints every sized item row (row, text, phase, sizes), the size-column labels, legend and MF. |
 | Plan | `{ "items": [ { "row", "functionality", "sizes": [...] } ] }` — every sized row exactly once, matched by row AND exact Functionality text (a moved row HALTS); sizes in size-column order. A missing row HALTS — its copy would silently re-price. |
-| Legend | The copy gets the AI scale plus **XXS 0.0625 d (0.5 hr)** in the row directly under XXL (HALTS if that row is not empty). XXS exists on (AI) tabs only. |
+| Legend | The copy gets the AI scale plus **XXS 0.0625 d (0.5 hr)** in the row directly under XXL (HALTS if that row is not empty). XXS exists on (Rescale) tabs only. |
 | Formulas | With XXS present the copy's Days column uses an **exact** lookup — `SUMIF(legend, F{r}&" -*", values)` — because the template's `LEFT(F{r},2)&"*"` reads `XX*` as XXS + XXL. The audit expects the exact form whenever the legend carries XXS. |
-| Team Mix | `Team Mix (AI)` keeps the original tab's roster (derived as `teammix` does) and staffs the copy's phase rollups (midpoint of Low/High, §2.2). |
+| Team Mix | `Team Mix (Rescale)` keeps the original tab's roster (derived as `teammix` does) and staffs the copy's phase rollups (midpoint of Low/High, §2.2). |
 | Formatting | The copy is re-wrapped (C/D) and top-aligned so it passes §5 on its own. |
-| Re-run | Existing (AI) tabs HALT the run; `--replace` deletes and rebuilds **only** the two (AI) tabs. `--dry-run` prints old → new Low hours and writes nothing. |
-| Audit | §5 T-Shirt + Team Mix checks run on the (AI) tabs by read-back; exit 4 on any ✗. |
+| Re-run | Existing (Rescale) tabs HALT the run; `--replace` deletes and rebuilds **only** the two (Rescale) tabs. `--dry-run` prints old → new Low hours and writes nothing. |
+| Audit | §5 T-Shirt + Team Mix checks run on the (Rescale) tabs by read-back; exit 4 on any ✗. |

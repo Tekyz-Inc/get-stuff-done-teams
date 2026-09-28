@@ -1,6 +1,6 @@
 # GSD-T: Estimate Rescale — Re-price an Existing Estimate on the AI-Assisted Scale
 
-You are re-estimating an **existing** Tekyz estimate sheet with the AI-assisted sizing model, **without touching the original**. The tool copies the sheet's `T-Shirt Size Estimate` and `Team Mix` tabs into two new tabs — **`T-Shirt Size Estimate (AI)`** and **`Team Mix (AI)`** — and re-sizes the copies. The original tabs, the Overview tab and the Hilo Estimates Summaries index (which reads the Overview) are never written. `$ARGUMENTS` carries `--sheet <url>` and optionally the project type (`--project <type>`).
+You are re-estimating an **existing** Tekyz estimate sheet with the AI-assisted sizing model, **without touching the original**. The tool copies the sheet's `T-Shirt Size Estimate` and `Team Mix` tabs into two new tabs — **`T-Shirt Size Estimate (Rescale)`** and **`Team Mix (Rescale)`** — and re-sizes the copies. The original tabs, the Overview tab and the Hilo Estimates Summaries index (which reads the Overview) are never written. `$ARGUMENTS` carries `--sheet <url>` and optionally the project type (`--project <type>`).
 
 **THE SHEET IS WRITTEN BY A TOOL, NOT BY HAND.** `gsd-t estimate-sheet rescale` (`bin/gsd-t-estimate-sheet.cjs`, project-local `bin/` first, else the global `gsd-t`) lists the rows, validates your plan, makes the copies, writes the sizes, rebuilds the Team Mix and audits the copies by reading back — halting on any violation. **You never PUT a cell yourself.** Your output is judgment only: a size per row. Spec: `~/.claude/templates/estimate-sheet-spec.md` §1.4 (the sizing model) and §7 (rescale).
 
@@ -31,7 +31,7 @@ You are re-estimating an **existing** Tekyz estimate sheet with the AI-assisted 
 Nobody hand-writes code. For each row and each size column:
 
 1. Estimate the **solo AI-assisted minutes** — one person directing Claude, greenfield. Runway rate: ~5 min for a trivial change, ~20 min for a typical screen element or endpoint, 1–2¼ hrs for the heaviest pieces. Read the Functionality and Low Level Requirements; do not scale the old size mechanically — the old sizes assumed hand-coding.
-2. Run `gsd-t estimate-sheet size --solo-min <n> --project <type> --xxs` — it multiplies, adds task switching after the multiplier, and prints the size. `--xxs` is always on here: the (AI) tab carries **XXS (0.5 hr)** so sub-hour work does not round up to XS. Count switching once per row: pass `--switch-min 0` for the row's smaller column.
+2. Run `gsd-t estimate-sheet size --solo-min <n> --project <type> --xxs` — it multiplies, adds task switching after the multiplier, and prints the size. `--xxs` is always on here: the (Rescale) tab carries **XXS (0.5 hr)** so sub-hour work does not round up to XS. Count switching once per row: pass `--switch-min 0` for the row's smaller column.
 3. Build the plan — one entry per listed row, `functionality` copied **exactly** from the list (the tool matches row AND text, and halts on a row that moved):
 
    ```json
@@ -42,21 +42,21 @@ Nobody hand-writes code. For each row and each size column:
 4. Write it to `.gsd-t/estimate-rescale-plan.json` and preview: `gsd-t estimate-sheet rescale --sheet <url> --plan .gsd-t/estimate-rescale-plan.json --dry-run` (old Low hours → new Low hours; nothing written).
 5. **PAUSE:** show the operator the per-row table (row · functionality · solo min · multiplier · size) and the before → after Low hours. Wait for `continue` or corrections.
 
-## Step 3: Write the (AI) tabs (MECHANICAL · show result)
+## Step 3: Write the (Rescale) tabs (MECHANICAL · show result)
 
 ```bash
-gsd-t estimate-sheet rescale --sheet <url> --plan .gsd-t/estimate-rescale-plan.json   # add --replace to rebuild existing (AI) tabs
+gsd-t estimate-sheet rescale --sheet <url> --plan .gsd-t/estimate-rescale-plan.json   # add --replace to rebuild existing (Rescale) tabs
 ```
 
-It copies the two tabs next to their originals, puts the AI-assisted scale in the copy's legend (XXS 0.0625 · XS 0.1 · S 0.25 · M 0.5 · L 1 · XL 2 · XXL 4 days; XXS in the row under XXL), switches the copy's Days formulas to an exact size lookup (the template's two-letter prefix would read `XX*` as XXS + XXL), writes the sizes, rebuilds `Team Mix (AI)` with the original tab's roster staffed from the copy's phase rollups, and audits the copies. Existing (AI) tabs halt the run unless `--replace` — and `--replace` deletes only the two (AI) tabs. **Exit 4 = a ✗ — fix and re-run. Exit 64 = auth/API/input halt.** Show the tool's output verbatim.
+It copies the two tabs next to their originals, puts the AI-assisted scale in the copy's legend (XXS 0.0625 · XS 0.1 · S 0.25 · M 0.5 · L 1 · XL 2 · XXL 4 days; XXS in the row under XXL), switches the copy's Days formulas to an exact size lookup (the template's two-letter prefix would read `XX*` as XXS + XXL), writes the sizes, rebuilds `Team Mix (Rescale)` with the original tab's roster staffed from the copy's phase rollups, and audits the copies. Existing (Rescale) tabs halt the run unless `--replace` — and `--replace` deletes only the two (Rescale) tabs. **Exit 4 = a ✗ — fix and re-run. Exit 64 = auth/API/input halt.** Show the tool's output verbatim.
 
 ## Step 4: Report
 
-Sheet URL · project type · rows re-sized · Low hours before → after · the Team Mix (AI) roster and months · the audit result. State plainly that the original tabs and the Summary index still show the old figures.
+Sheet URL · project type · rows re-sized · Low hours before → after · the Team Mix (Rescale) roster and months · the audit result. State plainly that the original tabs and the Summary index still show the old figures.
 
 ## Document Ripple
 
-- The Google Sheet (external) — only the two `(AI)` tabs are created or rebuilt.
+- The Google Sheet (external) — only the two `(Rescale)` tabs are created or rebuilt.
 - `.gsd-t/estimate-rescale-plan.json` — the sizing judgment, kept so the re-estimate is reproducible.
 
 ## ▶ Next Up

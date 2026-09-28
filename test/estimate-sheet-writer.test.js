@@ -553,8 +553,8 @@ test("legendIsAi: only the exact AI scale counts; the old day scale does not", (
 
 test("rescale: tab names — the originals are never the target", () => {
   const { TAB_TSHIRT_AI, TAB_TEAM_AI } = W.constants;
-  assert.strictEqual(TAB_TSHIRT_AI, "T-Shirt Size Estimate (AI)");
-  assert.strictEqual(TAB_TEAM_AI, "Team Mix (AI)");
+  assert.strictEqual(TAB_TSHIRT_AI, "T-Shirt Size Estimate (Rescale)");
+  assert.strictEqual(TAB_TEAM_AI, "Team Mix (Rescale)");
   assert.notStrictEqual(TAB_TSHIRT_AI, W.constants.TAB_TSHIRT);
   assert.notStrictEqual(TAB_TEAM_AI, W.constants.TAB_TEAM);
 });

@@ -46,8 +46,8 @@ const TAB_TEAM = "Team Mix";
 const TAB_TECH = "Technology Stack";
 const TAB_OVERVIEW = "Overview";
 // rescale (v5.23.10): the AI-assisted re-estimate lives in COPIES of the two tabs; the originals are never written.
-const TAB_TSHIRT_AI = "T-Shirt Size Estimate (AI)";
-const TAB_TEAM_AI = "Team Mix (AI)";
+const TAB_TSHIRT_AI = "T-Shirt Size Estimate (Rescale)";
+const TAB_TEAM_AI = "Team Mix (Rescale)";
 
 const SIZE_CODES = ["XS", "S", "M", "L", "XL", "XXL"];
 
@@ -1737,7 +1737,7 @@ async function verbRescale(api, opts) {
   if (exists.length && !opts.replace) throw new Halt(`tab(s) ${exists.map((t) => `'${t}'`).join(", ")} already exist — pass --replace to rebuild them (the original tabs are never touched)`);
   if (opts.dryRun) return { dryRun: true, ...preview };
 
-  // 1. copies — only the two (AI) tabs are ever deleted, and only on --replace
+  // 1. copies — only the two (Rescale) tabs are ever deleted, and only on --replace
   if (exists.length) await api.batch(exists.map((t) => ({ deleteSheet: { sheetId: byTitle.get(t).sheetId } })));
   const after = (t) => byTitle.get(t).index + 1;
   await api.batch([{ duplicateSheet: { sourceSheetId: byTitle.get(TAB_TSHIRT).sheetId, newSheetName: TAB_TSHIRT_AI, insertSheetIndex: after(TAB_TSHIRT) } }]);
@@ -1786,7 +1786,7 @@ async function verbRescale(api, opts) {
   checks.push(...ts.checks);
   checks.push(...auditTeamMix(await api.grid(TAB_TEAM_AI), ts.layout.mf, ts.staffDays, ts.phaseDays).checks);
   const failed = checks.filter((c) => !c.ok);
-  return { ...preview, fte, table: rostersTable(rosters), audit: { title: `${meta.properties.title} — (AI) tabs`, checks, failed: failed.length, ok: failed.length === 0 } };
+  return { ...preview, fte, table: rostersTable(rosters), audit: { title: `${meta.properties.title} — (Rescale) tabs`, checks, failed: failed.length, ok: failed.length === 0 } };
 }
 
 // ───────────────────────── CLI ─────────────────────────
@@ -1877,7 +1877,7 @@ async function main(args) {
     const ok = !r.audit || r.audit.ok;
     if (json || list) console.log(JSON.stringify({ ok, exitCode: ok ? 0 : 4, ...r }, null, 2));
     else {
-      console.log(`${r.items} items: low ${r.oldLowHours} h on the original tabs → ${r.newLowHours} h on the (AI) tabs`);
+      console.log(`${r.items} items: low ${r.oldLowHours} h on the original tabs → ${r.newLowHours} h on the (Rescale) tabs`);
       if (r.dryRun) console.log("(dry run — nothing written)");
       else { console.log(r.table); printChecks(r.audit); }
     }
