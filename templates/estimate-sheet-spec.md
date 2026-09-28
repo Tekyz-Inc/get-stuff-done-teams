@@ -325,5 +325,6 @@ An estimate written on the old day scale is re-priced **without touching it**. `
 | Formulas | With XXS present the copy's Days column uses an **exact** lookup — `SUMIF(legend, F{r}&" -*", values)` — because the template's `LEFT(F{r},2)&"*"` reads `XX*` as XXS + XXL. The audit expects the exact form whenever the legend carries XXS. |
 | Team Mix | `Team Mix (Rescale)` keeps the original tab's roster (derived as `teammix` does) and staffs the copy's phase rollups (midpoint of Low/High, §2.2). |
 | Formatting | The copy is re-wrapped (C/D) and top-aligned so it passes §5 on its own. |
+| Overhead | `"noOverhead": true` in the plan zeroes the COPY's overhead factors (the multipliers already include team overhead); the original tab's factors are never written. |
 | Re-run | Existing (Rescale) tabs HALT the run; `--replace` deletes and rebuilds **only** the two (Rescale) tabs. `--dry-run` prints old → new Low hours and writes nothing. |
 | Audit | §5 T-Shirt + Team Mix checks run on the (Rescale) tabs by read-back; exit 4 on any ✗. |

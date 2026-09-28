@@ -1734,7 +1734,8 @@ async function verbRescale(api, opts) {
   const aiScale = { XXS: XXS_DAYS, ...AI_SIZE_DAYS };
   const aiRaw = opts.plan.items.reduce((sum, it) => sum + it.sizes.reduce((a, v) => a + (sizeOf(v) ? aiScale[sizeOf(v)] : 0), 0), 0);
   const oldRaw = rows.reduce((sum, r) => sum + r.sizes.reduce((a, v) => a + (layout.legend[v] || 0), 0), 0);
-  const preview = { items: rows.length, oldLowHours: round2(oldRaw * (1 + layout.mfTotal) * 8), newLowHours: round2(aiRaw * (1 + layout.mfTotal) * 8) };
+  const newMf = opts.plan.noOverhead === true ? 0 : layout.mfTotal;
+  const preview = { items: rows.length, oldLowHours: round2(oldRaw * (1 + layout.mfTotal) * 8), newLowHours: round2(aiRaw * (1 + newMf) * 8) };
   const exists = [TAB_TSHIRT_AI, TAB_TEAM_AI].filter((t) => byTitle.has(t));
   if (exists.length && !opts.replace) throw new Halt(`tab(s) ${exists.map((t) => `'${t}'`).join(", ")} already exist — pass --replace to rebuild them (the original tabs are never touched)`);
   if (opts.dryRun) return { dryRun: true, ...preview };
@@ -1763,7 +1764,10 @@ async function verbRescale(api, opts) {
     if (formulaAt(srcGrid, r, layout.cols.days)) hRows.push(r + 1);
   }
   for (const r1 of hRows) writes.push({ tab: TAB_TSHIRT_AI, a1: `${colLetter(layout.cols.days)}${r1}`, values: [[itemFormulasFor(r1, layout.cols, legendAi).H]] });
-  await api.putValuesBatch(writes); // legend + XXS + sizes + Days formulas: one request
+  // plan.noOverhead: the multipliers already include team overhead (David, 2026-09-28) — zero the
+  // COPY's overhead factors so nothing is charged twice. The original tab's factors are never touched.
+  if (opts.plan.noOverhead === true) for (const f of layout.mf) writes.push({ tab: TAB_TSHIRT_AI, a1: `${colLetter(layout.cols.mfTotal.c)}${f.row}`, values: [[0]] });
+  await api.putValuesBatch(writes); // legend + XXS + sizes + Days formulas (+ zeroed overhead): one request
   // the copy meets the spec's formatting on its own (C/D wrap, every cell top-aligned) — a template
   // that predates those rules would otherwise hand its failures to the new tabs
   const aiTshirtId = (await api.meta()).sheets.find((x) => x.properties.title === TAB_TSHIRT_AI).properties.sheetId;
