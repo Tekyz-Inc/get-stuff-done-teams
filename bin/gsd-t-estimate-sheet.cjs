@@ -63,14 +63,15 @@ const AI_SIZE_DAYS = { XS: 0.1, S: 0.25, M: 0.5, L: 1, XL: 2, XXL: 4 };
 // template uses would read "XX*" as XXS + XXL.
 const XXS_DAYS = 0.0625;
 const XXS_LABEL = "XXS - Extra Extra Small";
-// Multipliers set by David 2026-09-28 (were 5 / 8 / 12). They INCLUDE team overhead — reviews, QA,
+// Multipliers set by David 2026-09-28; yellow-field team recalibrated ×5/×7 → ×8/×11 the same day so
+// ATOS re-estimates land at 100–200% improvement (½ to ⅓ of the original effort). They INCLUDE team overhead — reviews, QA,
 // coordination — so no separate overhead factor belongs on top of them.
 const PROJECT_MULTIPLIER = {
   "greenfield-solo": 1,
   "greenfield-team": 3,
   "yellowfield-solo": 2,
-  "yellowfield-team-isolated": 5,
-  "yellowfield-team-wide": 7,
+  "yellowfield-team-isolated": 8,
+  "yellowfield-team-wide": 11,
 };
 const PHASES = ["MVP", "Phase 1", "Phase 2", "Phase 3"];
 

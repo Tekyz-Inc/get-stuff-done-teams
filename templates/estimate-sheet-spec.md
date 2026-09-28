@@ -90,8 +90,8 @@ Nobody hand-writes code. A size is the **team hours** a task takes with AI-assis
 | Greenfield, solo | × 1 |
 | Greenfield, team | × 3 |
 | Yellow-field (existing app), solo | × 2 |
-| Yellow-field, team — isolated change | × 5 |
-| Yellow-field, team — big blast radius | × 7 |
+| Yellow-field, team — isolated change | × 8 |
+| Yellow-field, team — big blast radius | × 11 |
 
    The multipliers include team overhead (reviews, QA, coordination) — do not also charge it through the overhead factors (David, 2026-09-28). Blast radius comes from the code graph (`gsd-t graph blast-radius`), not a guess.
 3. **Add task switching AFTER the multiplier** — it is one person's pickup time and does not grow with team size: 5–10 min for small tasks (less when related tasks run back-to-back), ~15 min medium, up to 30 min large.

@@ -52,7 +52,7 @@ For each finding, write a row (cols A–G; leave H–L formulas alone):
 
 - Size **each column independently** (FE and BE), **AI-assisted** — nobody hand-writes code.
   Estimate SOLO AI minutes, then `gsd-t estimate-sheet size --solo-min <n> --project <type>`
-  (greenfield solo ×1 · team ×3 · yellow-field solo ×2 · team ×5 isolated / ×7 wide, + task
+  (greenfield solo ×1 · team ×3 · yellow-field solo ×2 · team ×8 isolated / ×11 wide, + task
   switching after the multiplier) picks the size. Sizes: XS .1, S .25, M .5, L 1, XL 2, XXL 4
   (estimate-sheet-spec.md §1.4).
 - Sheet computes: `Days = F+G`, `MFactor = Days×MF`, `Total = Days+MFactor`,
