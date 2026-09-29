@@ -30,6 +30,8 @@
  *   audit      --sheet <id|url>                          the spec §5 checklist, by read-back
  *   plan-schema                                          print the plan shape
  * Flags: --json (envelope only)  --key <path>  --no-audit (write only; for debugging)
+ * Releases: --release <name> points every verb at the tab pair "<name> - T-Shirt" / "<name> - Team Mix"
+ *           (write creates the pair from the template tabs when missing), so one workbook holds several releases.
  * Exit:  0 ok · 4 violations / audit failures · 64 bad input, auth, or API error
  */
 "use strict";
@@ -41,8 +43,14 @@ const crypto = require("crypto");
 
 // ───────────────────────── constants (spec §1–§3) ─────────────────────────
 
-const TAB_TSHIRT = "T-Shirt Size Estimate";
-const TAB_TEAM = "Team Mix";
+const DEFAULT_TAB_TSHIRT = "T-Shirt Size Estimate";
+const DEFAULT_TAB_TEAM = "Team Mix";
+// --release <name> (v5.24.10): one workbook holds several releases, each on its own tab pair
+// "<name> - T-Shirt" / "<name> - Team Mix", copied from the template pair above. Set once in main().
+let TAB_TSHIRT = DEFAULT_TAB_TSHIRT;
+let TAB_TEAM = DEFAULT_TAB_TEAM;
+const RELEASE_TSHIRT_SUFFIX = " - T-Shirt";
+const RELEASE_TEAM_SUFFIX = " - Team Mix";
 const TAB_TECH = "Technology Stack";
 const TAB_OVERVIEW = "Overview";
 // rescale (v5.23.10): the AI-assisted re-estimate lives in COPIES of the two tabs; the originals are never written.
@@ -1331,8 +1339,8 @@ function auditTechStack(grid) {
 function auditOverview(grid) {
   const out = [];
   const cells = [[1, 2], [1, 4], [2, 2], [2, 4]];
-  const bad = cells.filter(([r, c]) => Number.isNaN(numAt(grid, r, c)) || !formulaAt(grid, r, c).includes(TAB_TSHIRT));
-  check(out, "Overview: C2/E2/C3/E3 reference the T-Shirt tab and resolve to numbers", !bad.length, bad.map(([r, c]) => `${colLetter(c)}${r + 1}='${formulaAt(grid, r, c) ? formulaAt(grid, r, c) : textAt(grid, r, c)}'`).join(", "));
+  const bad = cells.filter(([r, c]) => Number.isNaN(numAt(grid, r, c)) || ![TAB_TSHIRT, DEFAULT_TAB_TSHIRT].some((t) => formulaAt(grid, r, c).includes(t)));
+  check(out, "Overview: C2/E2/C3/E3 reference a T-Shirt tab and resolve to numbers", !bad.length, bad.map(([r, c]) => `${colLetter(c)}${r + 1}='${formulaAt(grid, r, c) ? formulaAt(grid, r, c) : textAt(grid, r, c)}'`).join(", "));
   return { checks: out };
 }
 
@@ -1404,7 +1412,9 @@ function rostersTable(rosters) {
 }
 
 async function verbPlanCheck(api, plan) {
-  const layout = locateTshirt(await api.grid(TAB_TSHIRT));
+  // a release pair that `write` has not created yet is previewed from the template tab it will be copied from
+  const titles = (await api.meta()).sheets.map((x) => x.properties.title);
+  const layout = locateTshirt(await api.grid(titles.includes(TAB_TSHIRT) ? TAB_TSHIRT : DEFAULT_TAB_TSHIRT));
   layout.legend = { ...AI_SIZE_DAYS }; // preview what `write` produces — it puts the AI scale in the legend
   const totals = tshirtTotals(plan, layout);
   const rosters = buildRosters(plan, layout);
@@ -1670,6 +1680,7 @@ async function verbTitles(api, opts) {
 }
 
 async function verbWrite(api, plan, opts) {
+  await ensureReleaseTabs(api);
   const ts = await writeTshirt(api, plan, opts);
   const rosters = buildRosters(plan, ts.layout);
   const tm = await writeTeamMix(api, plan, rosters);
@@ -1821,6 +1832,40 @@ async function verbRescale(api, opts) {
   return { ...preview, fte, table: rostersTable(rosters), audit: { title: `${meta.properties.title} — (${suffix}) tabs`, checks, failed: failed.length, ok: failed.length === 0 } };
 }
 
+// ───────────────────────── releases (several estimates in one workbook) ─────────────────────────
+
+/** The tab pair for a named release. The name is plain text: it becomes part of a tab name and of formulas. */
+function releaseTabs(name) {
+  const n = String(name == null ? "" : name).trim();
+  if (!n || /['!]/.test(n)) throw new Halt("--release must be plain text (no quotes or '!')", 64);
+  return { tshirt: `${n}${RELEASE_TSHIRT_SUFFIX}`, team: `${n}${RELEASE_TEAM_SUFFIX}` };
+}
+
+/** Point every verb at a release's tab pair instead of the template pair. */
+function useRelease(name) {
+  const t = releaseTabs(name);
+  TAB_TSHIRT = t.tshirt;
+  TAB_TEAM = t.team;
+}
+
+/**
+ * Create a release's tab pair from the template pair when it does not exist yet (at the end, in the
+ * order releases are first written). An existing pair is left alone — `write` clears what it rewrites.
+ */
+async function ensureReleaseTabs(api) {
+  if (TAB_TSHIRT === DEFAULT_TAB_TSHIRT) return { created: [] };
+  const meta = await api.meta();
+  const byTitle = new Map(meta.sheets.map((s) => [s.properties.title, s.properties]));
+  const created = [];
+  for (const [dst, src] of [[TAB_TSHIRT, DEFAULT_TAB_TSHIRT], [TAB_TEAM, DEFAULT_TAB_TEAM]]) {
+    if (byTitle.has(dst)) continue;
+    if (!byTitle.has(src)) throw new Halt(`tab '${dst}' does not exist and the template tab '${src}' to copy it from is missing`);
+    await api.batch([{ duplicateSheet: { sourceSheetId: byTitle.get(src).sheetId, newSheetName: dst, insertSheetIndex: meta.sheets.length + created.length } }]);
+    created.push(dst);
+  }
+  return { created };
+}
+
 // ───────────────────────── CLI ─────────────────────────
 
 function parseArgs(argv) {
@@ -1839,7 +1884,7 @@ function printChecks(audit) {
   console.log(`${audit.ok ? "AUDIT PASS" : `AUDIT FAIL (${audit.failed})`} — ${audit.title}`);
 }
 
-const USAGE = "usage: gsd-t estimate-sheet <read|plan-check|write|teammix|format|phases|titles|audit|plan-schema|size|rescale> --sheet <id|url> [--tab <name>] [--plan <plan.json>] [--replace] [--fte '{\"backend\":1.5}'] [--title <t>] [--dry-run] [--no-audit] [--key <path>] [--json]\n       gsd-t estimate-sheet size --solo-min <n> --project <greenfield-solo|greenfield-team|yellowfield-solo|yellowfield-team-isolated|yellowfield-team-wide> [--switch-min <n>] [--xxs] [--json]\n       gsd-t estimate-sheet rescale --sheet <id|url> (--list | --plan <rescale.json> [--dry-run] [--replace] [--suffix <name>]) [--json]";
+const USAGE = "usage: gsd-t estimate-sheet <read|plan-check|write|teammix|format|phases|titles|audit|plan-schema|size|rescale> --sheet <id|url> [--release <name>] [--tab <name>] [--plan <plan.json>] [--replace] [--fte '{\"backend\":1.5}'] [--title <t>] [--dry-run] [--no-audit] [--key <path>] [--json]\n       gsd-t estimate-sheet size --solo-min <n> --project <greenfield-solo|greenfield-team|yellowfield-solo|yellowfield-team-isolated|yellowfield-team-wide> [--switch-min <n>] [--xxs] [--json]\n       gsd-t estimate-sheet rescale --sheet <id|url> (--list | --plan <rescale.json> [--dry-run] [--replace] [--suffix <name>]) [--json]";
 
 /** Runs a verb; returns the exit code. Throws Halt (or any error) — the runner below turns that into exit 4/64. */
 async function main(args) {
@@ -1855,6 +1900,7 @@ async function main(args) {
   }
   const sheetId = sheetIdFromArg(args.sheet);
   const api = new SheetsApi(await getToken(args.key), sheetId);
+  if (args.release != null) useRelease(args.release);
   if (verb === "read") {
     const r = await verbRead(api, args.tab);
     if (json) console.log(JSON.stringify(r, null, 2));
@@ -1954,7 +2000,8 @@ module.exports = {
   validatePlan, sizedRows, rescaleViolations, verbRescale, aiTaskSize, legendIsAi, defaultSwitchMin, splitRoster, rosterViolations, mfCoverageViolations, monthPlan, resampleWeights, rampHours, buildRoster,
   tshirtTotals, phaseTotals, buildRosters, midDays, deriveFteFromTeamMix, phaseTotalsFromSheet, verbTeamMix, phaseGapMap, verbPhases, verbTitles, itemFormulasFor, rollupFormulasFor, findCell, itemFormulas, rollupFormulas, tshirtRows, teamMixValues, teamMixFormatReqs, remainderFormula, locateTshirt, findPhaseSource,
   auditTshirt, auditTeamMix, auditTechStack, auditOverview, colLetter, hexToColor, colorToHex, sheetIdFromArg,
-  constants: { TAB_TSHIRT_AI, TAB_TEAM_AI, XXS_DAYS, SIZE_CODES, AI_SIZE_DAYS, PROJECT_MULTIPLIER, PHASES, COLOR, RAMP, ROLE_LABEL, SOFT_CEILING, FOLD_THRESHOLD, TAB_TSHIRT, TAB_TEAM, TAB_TECH, PLAN_SCHEMA },
+  constants: { TAB_TSHIRT_AI, TAB_TEAM_AI, XXS_DAYS, SIZE_CODES, AI_SIZE_DAYS, PROJECT_MULTIPLIER, PHASES, COLOR, RAMP, ROLE_LABEL, SOFT_CEILING, FOLD_THRESHOLD, TAB_TSHIRT, TAB_TEAM, TAB_TECH, DEFAULT_TAB_TSHIRT, DEFAULT_TAB_TEAM, PLAN_SCHEMA },
+  releaseTabs, useRelease, ensureReleaseTabs,
   Halt, SheetsApi, getToken, runAudit, main,
 };
 

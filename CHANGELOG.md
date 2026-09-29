@@ -2,6 +2,16 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [Unreleased]
+
+### Added — several releases in one estimate workbook
+
+`gsd-t estimate-sheet` wrote only to tabs named "T-Shirt Size Estimate" and "Team Mix", so one spreadsheet held one estimate. A rebuild estimated as five releases (each with its own phases and team mixes) needed five spreadsheets.
+
+- `bin/gsd-t-estimate-sheet.cjs`: `--release <name>` points every verb at `<name> - T-Shirt` / `<name> - Team Mix`; `write` creates the pair from the template tabs when missing.
+- `templates/estimate-sheet-spec.md` §8, `commands/gsd-t-estimate.md` Step 6.
+- Tests: `test/estimate-sheet-releases.test.js`.
+
 ## [5.23.10] - 2026-09-29
 
 ### Added — who-calls matches the compiler on route files; graph exclude list; estimate math v2

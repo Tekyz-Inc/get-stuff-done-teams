@@ -329,3 +329,17 @@ An estimate written on the old day scale is re-priced **without touching it**. `
 | Re-run | Existing (Rescale) tabs HALT the run; `--replace` rebuilds them **in place** — the T-Shirt copy is cleared and re-copied from the original (values, formulas, formats, validation, widths) and the Team Mix copy is cleared and rewritten, so both tabs keep their identity. They are never deleted and re-created: other sheets import them by name (IMPORTRANGE), and a view that refreshes while a tab is missing caches `#REF!`. `--dry-run` prints old → new Low hours and writes nothing. |
 | Audit | §5 T-Shirt + Team Mix checks run on the (Rescale) tabs by read-back; exit 4 on any ✗. |
 | Second copy | `--suffix "AI v2"` writes `T-Shirt Size Estimate (AI v2)` + `Team Mix (AI v2)` instead, so a second re-estimate never overwrites the `(Rescale)` tabs other sheets import by name. Plain text only (no parentheses, quotes or `!`). |
+
+---
+
+## 8. Several releases in one workbook (`--release` — v5.24.10)
+
+A large estimate split into releases (e.g. Foundation, Light, Pro, Enterprise, Migration) lives in **one workbook**, one tab pair per release.
+
+| Piece | Rule |
+|---|---|
+| **Tab pair** | `--release "<name>"` points every verb (`write`, `plan-check`, `audit`, `teammix`, `format`, `phases`, `titles`, `rescale`) at `<name> - T-Shirt` / `<name> - Team Mix`. `write` creates the pair from the template tabs (`T-Shirt Size Estimate` / `Team Mix`) when it is missing, appended in the order releases are first written. **Keep the template tabs** — they are the copy source. |
+| **Phases** | Each release tab has its own phases (MVP, Phase 1–3), its own rollups, and one Team Mix grid per phase — exactly §1–§2. |
+| **Technology Stack** | One shared tab; each `write` rewrites it from its plan, so give every release plan the same `techStack`. |
+| **Estimates index** | Each release phase is one line on the index's summary tab, importing that release tab's rollup row (`'<name> - T-Shirt'!L4` etc.), the same shape as every other estimate. |
+| **Halts** | A release name with `'` or `!`; a missing template tab. |

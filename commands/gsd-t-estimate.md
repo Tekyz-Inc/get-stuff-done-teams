@@ -124,6 +124,8 @@ gcloud iam service-accounts describe "$SA" --project=$PROJECT >/dev/null 2>&1 ||
 
 **What the tool does** (spec §0, all learned the hard way — listed so you can recognise a template problem when it halts): no `X-Goog-User-Project` header; every range URL-encoded; Phase cells `copyPaste`d from the sheet's existing dropdown cell (it halts if the template has none — add one to E14); clear-then-paint from the current shape; small batches that halt on the first failure; Team Mix header on row 2 only with `Mon 1..N` + `Total Hrs` derived from the month count; sage on exactly Days / Hrs / Total Hrs; Arial 10; bands across every month column; then the read-back audit. **Any ✗ is fixed before Step 7** — a 200 on the write is not evidence the cell landed.
 
+**Several releases in one workbook** (spec §8): write each release plan to its own tab pair with `--release "<name>"` (e.g. `write --release "2 Light" --plan .gsd-t/estimate-plan-light.json`), run `plan-check` and `audit` with the same flag, and add one line per release phase to the estimates index's summary tab.
+
 ## Step 7: Verify — reconcile (MECHANICAL · show result)
 
 - `gsd-t estimate-sheet audit --sheet <url>` must exit 0 (it recomputes **T-Shirt `Total Days` == Team Mix `Σ Days`** independently — raw sizes × (1+MF) vs Σ Count × Mths × 20 — and checks every §5 line). A ✗ here after a clean write means someone edited the sheet; find the break before the Red Team.
