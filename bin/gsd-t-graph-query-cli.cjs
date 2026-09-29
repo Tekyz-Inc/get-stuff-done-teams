@@ -462,7 +462,15 @@ function buildNameMatchedCallGraph(forwardCallEdges, funcEntities, fileTier) {
     if (!dst.startsWith(UNRESOLVED_PREFIX)) continue;
     const defs = byName.get(dst.slice(UNRESOLVED_PREFIX.length));
     if (!defs || defs.length !== 1) continue;
-    if (SCIP_BACKED_TIERS.has(fileTier.get(src.split("#")[0]))) continue;
+    // [RULE] name-match-only-where-scip-never-looked: include a caller ONLY if its
+    // file was NOT SCIP-backed (not compiler-accurate or compiler-partial). Files
+    // missing from fileTier default to tree-sitter-floor (SCIP never looked), so
+    // they are included. [ISSUE] M119: files outside tsconfig have no fileTier entry
+    // yet contribute valid UNRESOLVED edges → include them.
+    const callerFile = src.split("#")[0];
+    const callerTier = fileTier.get(callerFile);
+    // A missing tier → never SCIP-backed → include it (tree-sitter-floor by default)
+    if (callerTier !== undefined && SCIP_BACKED_TIERS.has(callerTier)) continue;
     for (const key of new Set([defs[0], defs[0].replace(/@\d+$/, "")])) {
       if (!graph.has(key)) graph.set(key, new Set());
       graph.get(key).add(src);

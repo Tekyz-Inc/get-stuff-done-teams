@@ -560,21 +560,36 @@ function tryScipUpgrade(absPath, relPath, entities, edges, options) {
   });
 
   // [RULE] scip-tier-honest: label compiler-accurate ONLY when SCIP actually
-  // resolved ≥1 edge in this file OR the file has no call edges to resolve (a
-  // pure-definition file SCIP indexed cleanly). A file whose calls all stayed
+  // resolved enough edges (proportionally). A file whose calls all stayed
   // UNRESOLVED is NOT compiler-accurate — it's floor.
-  // [RULE] scip-tier-proportional: ONE resolved edge is not enough either. Of the
-  // calls that could resolve (their name is defined in the repo), fewer than
-  // COMPILER_ACCURATE_MIN_FRACTION resolved → compiler-partial, never accurate.
+  // [RULE] scip-tier-proportional: the fraction of resolvable calls that actually
+  // resolved determines the tier. If ≥COMPILER_ACCURATE_MIN_FRACTION resolved,
+  // it's accurate; otherwise partial (still better than floor). A file with no
+  // resolvable edges (only locals/library calls) that SCIP indexed cleanly
+  // is compiler-accurate. [ISSUE] user reported: routes-locations.ts 80% UNRESOLVED
+  // yet labeled compiler-accurate because ONE edge resolved.
   const hadCallEdges = edges.some(e => (e.kind === 'call-site' || e.kind === 'CALL'));
-  const isAccurate = !hadCallEdges || resolved > 0;
-  let tier = isAccurate ? 'compiler-accurate' : 'tree-sitter-floor';
-  if (tier === 'compiler-accurate' && resolvable > 0 && resolved / resolvable < COMPILER_ACCURATE_MIN_FRACTION) {
-    tier = COMPILER_PARTIAL_TIER;
+  let tier = 'tree-sitter-floor';
+  if (!hadCallEdges) {
+    // Pure-definition file SCIP indexed cleanly → compiler-accurate
+    tier = 'compiler-accurate';
+  } else if (resolvable > 0) {
+    // File has resolvable calls — judge by proportion resolved
+    if (resolved / resolvable >= COMPILER_ACCURATE_MIN_FRACTION) {
+      // Enough resolvable calls resolved → accurate
+      tier = 'compiler-accurate';
+    } else if (resolved > 0) {
+      // Some but not enough resolvable calls resolved → partial
+      tier = COMPILER_PARTIAL_TIER;
+    }
+    // else: no edges resolved (0/resolvable) → tree-sitter-floor (default)
   }
+  // else: no resolvable calls (all external/local) — stay tree-sitter-floor (default)
+
+  const upgraded = tier === 'compiler-accurate';
 
   return {
-    upgraded: isAccurate,
+    upgraded,
     tier,
     entities,
     edges: finalEdges,
