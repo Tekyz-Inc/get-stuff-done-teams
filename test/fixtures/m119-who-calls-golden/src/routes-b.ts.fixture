@@ -1,0 +1,7 @@
+import { requireAuth, requireTenant } from './middleware';
+import { resolveOrg, verifyAccess, formatName } from './helpers';
+
+export function registerB(r: any) {
+  r.get('/b', requireAuth(), requireTenant(), async (c: any) => formatName(await resolveOrg(c)));
+  r.put('/b', requireTenant(), (c: any) => verifyAccess('o', c));
+}

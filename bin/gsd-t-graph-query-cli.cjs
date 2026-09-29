@@ -207,6 +207,13 @@ const UNRESOLVED_PREFIX = "UNRESOLVED#";
 // A file the SCIP indexer ran for but never produced a document for (see
 // gsd-t-graph-scip-upgrade.cjs). [RULE] scip-missing-file-detected-never-silent
 const SCIP_MISSING_TIER = "tree-sitter-floor-SCIP-MISSING";
+// A file SCIP indexed but where too few repo-resolvable calls resolved to call it
+// compiler-accurate. [RULE] scip-tier-proportional
+const COMPILER_PARTIAL_TIER = "compiler-partial";
+// Tiers whose call edges SCIP actually looked at. An UNRESOLVED call in one of
+// these files is SCIP saying "not a repo function" (a local, a mock, a library),
+// so it is never name-matched. [RULE] name-match-only-where-scip-never-looked
+const SCIP_BACKED_TIERS = new Set(["compiler-accurate", COMPILER_PARTIAL_TIER]);
 
 /**
  * Load records from a JSONL store directory.
@@ -382,7 +389,7 @@ function buildIndex(records, skippedFiles) {
     allFiles.add(rec.file);
     if (rec.tier) fileTier.set(rec.file, rec.tier);
 
-    if (rec.tier === "tree-sitter-floor" || rec.tier === SCIP_MISSING_TIER) hasFloor = true;
+    if (rec.tier === "tree-sitter-floor" || rec.tier === SCIP_MISSING_TIER || rec.tier === COMPILER_PARTIAL_TIER) hasFloor = true;
     if (rec.tier === "tree-sitter-floor-STALE-SCIP") hasStaleScip = true;
 
     // Index entities for bare-name disambiguation + tier labeling
@@ -423,6 +430,7 @@ function buildIndex(records, skippedFiles) {
   return {
     importGraph,
     callGraph,
+    nameMatchedCallGraph: buildNameMatchedCallGraph(forwardCallEdges, funcEntities, fileTier),
     forwardCallEdges,
     funcEntities,
     allFiles,
@@ -430,6 +438,68 @@ function buildIndex(records, skippedFiles) {
     tier: dominantTier,
     skippedFiles: skippedFiles instanceof Set ? skippedFiles : new Set(),
   };
+}
+
+/**
+ * Name-matched reverse call edges: `UNRESOLVED#<name>` → the ONE function in the
+ * repo named <name>, for callers in files SCIP never resolved (no SCIP document,
+ * floor, stale). A labelled answer, never a compiler one: who-calls reports these
+ * callers under `nameMatched` with `resolution: "name-matched"`.
+ * A name defined 2+ times is never matched — it stays in
+ * coverage.unresolvedCallSites. [RULE] unique-name-unresolved-call-name-matched
+ * [RULE] name-match-only-where-scip-never-looked
+ *
+ * @returns {Map<string,Set<string>>} dstFuncId (both `file#name@line` and `file#name`) → callers
+ */
+function buildNameMatchedCallGraph(forwardCallEdges, funcEntities, fileTier) {
+  const byName = new Map(); // name → [funcId, ...]
+  for (const [funcId, meta] of funcEntities) {
+    if (!byName.has(meta.name)) byName.set(meta.name, []);
+    byName.get(meta.name).push(funcId);
+  }
+  const graph = new Map();
+  for (const { src, dst } of forwardCallEdges) {
+    if (!dst.startsWith(UNRESOLVED_PREFIX)) continue;
+    const defs = byName.get(dst.slice(UNRESOLVED_PREFIX.length));
+    if (!defs || defs.length !== 1) continue;
+    if (SCIP_BACKED_TIERS.has(fileTier.get(src.split("#")[0]))) continue;
+    for (const key of new Set([defs[0], defs[0].replace(/@\d+$/, "")])) {
+      if (!graph.has(key)) graph.set(key, new Set());
+      graph.get(key).add(src);
+    }
+  }
+  return graph;
+}
+
+/**
+ * Callers of `funcId` found only by name match (not already compiler callers).
+ * @returns {string[]}
+ */
+function nameMatchedCallersOf(index, funcId, compilerCallers) {
+  if (!index.nameMatchedCallGraph) return [];
+  const set = index.nameMatchedCallGraph.get(funcId) || index.nameMatchedCallGraph.get(funcId.replace(/@\d+$/, ""));
+  if (!set) return [];
+  return Array.from(set).filter((c) => !compilerCallers.has(c)).sort();
+}
+
+/**
+ * who-calls envelope: compiler callers + labelled name-matched callers. A
+ * name-matched caller leaves coverage.unresolvedCallSites (it is accounted for).
+ */
+function whoCallsResult(index, funcId, baseCoverage, identity) {
+  const compiler = index.callGraph.get(funcId) || index.callGraph.get(funcId.replace(/@\d+$/, "")) || new Set();
+  const matched = nameMatchedCallersOf(index, funcId, compiler);
+  const results = Array.from(compiler).concat(matched).sort();
+  const coverage = withUnresolvedSites(baseCoverage, index, identity, matched);
+  if (!matched.length) return { results, tier: index.tier, coverage };
+  const out = { results, tier: index.tier, coverage };
+  out.nameMatched = {
+    resolution: "name-matched",
+    note: "unresolved call sites naming the only function in the repo with this name, in files SCIP never resolved — name-matched, not compiler-resolved",
+    count: matched.length,
+    callers: matched,
+  };
+  return out;
 }
 
 // ─── Load store + build index (fail-loud on any failure) ─────────────────────
@@ -601,7 +671,7 @@ function loadSqliteStore(dbPath) {
     // The files table is where a SCIP-MISSING label lives even for a file that
     // declares no function — so `graph status` can list every one of them.
     if (hasFilesTable) {
-      for (const r of db.prepare("SELECT file, tier FROM files WHERE tier = ?").all(SCIP_MISSING_TIER)) {
+      for (const r of db.prepare("SELECT file, tier FROM files WHERE tier IN (?, ?)").all(SCIP_MISSING_TIER, COMPILER_PARTIAL_TIER)) {
         rec(norm(r.file)).tier = r.tier;
       }
     }
@@ -611,6 +681,15 @@ function loadSqliteStore(dbPath) {
       const srcFile = e.src.includes("#") ? e.src.split("#")[0] : e.src;
       const dst = e.kind === "IMPORT" ? resolveDst(srcFile, e.dst) : e.dst;
       rec(srcFile).edges.push({ kind: e.kind, src: e.src, dst });
+    }
+    // A file with call edges but no function node (top-level code only) got no
+    // tier from the node pass. Name matching needs to know whether SCIP looked
+    // at it, so take its tier from the files table. [RULE] name-match-only-where-scip-never-looked
+    if (hasFilesTable) {
+      for (const r of db.prepare("SELECT file, tier FROM files").all()) {
+        const f = norm(r.file);
+        if (r.tier && byFile.has(f) && !byFile.get(f).tier) byFile.get(f).tier = r.tier;
+      }
     }
     db.close();
     return { records: Array.from(byFile.values()) };
@@ -751,7 +830,7 @@ function queryWhoImports(index, target) {
 // labelled, with the files to open. That turns "[] and incomplete" into a named
 // place to look. [RULE] incomplete-empty-answer-names-a-path-forward
 
-function unresolvedCallSitesFor(index, identity) {
+function unresolvedCallSitesFor(index, identity, accounted) {
   const name = identity.split("#").pop().replace(/@\d+$/, "");
   if (!name) return null;
   const exact = UNRESOLVED_PREFIX + name;
@@ -760,6 +839,8 @@ function unresolvedCallSitesFor(index, identity) {
   for (const { src, dst } of index.forwardCallEdges) {
     if (dst === exact || (dst.startsWith(UNRESOLVED_PREFIX) && dst.endsWith(member))) callers.add(src);
   }
+  // A caller already reported as name-matched is accounted for, not unknown.
+  if (accounted) for (const c of accounted) callers.delete(c);
   if (callers.size === 0) return null;
   const sorted = Array.from(callers).sort();
   const files = Array.from(new Set(sorted.map((c) => c.split("#")[0]))).sort();
@@ -771,9 +852,9 @@ function unresolvedCallSitesFor(index, identity) {
   };
 }
 
-function withUnresolvedSites(coverage, index, identity) {
+function withUnresolvedSites(coverage, index, identity, accounted) {
   if (!coverage || coverage.complete !== false) return coverage;
-  const sites = unresolvedCallSitesFor(index, identity);
+  const sites = unresolvedCallSitesFor(index, identity, accounted);
   return sites ? { ...coverage, unresolvedCallSites: sites } : coverage;
 }
 
@@ -799,16 +880,13 @@ function withUnresolvedSites(coverage, index, identity) {
  */
 function queryWhoCalls(index, identity) {
   const isFuncId = identity.includes("#");
-  const coverage = withUnresolvedSites(
-    computeCoverage(index.skippedFiles, { callEdgesUnresolved: true, unresolvedFiles: countUnresolvedFiles(index) }),
-    index, identity);
+  const baseCoverage = computeCoverage(index.skippedFiles, { callEdgesUnresolved: true, unresolvedFiles: countUnresolvedFiles(index) });
+  const coverage = withUnresolvedSites(baseCoverage, index, identity);
 
   if (isFuncId) {
     // File-qualified identity — exact funcId lookup (tolerate @line suffix:
     // callGraph keys on `file#name`, callers may pass `file#name@line`).
-    const callers = index.callGraph.get(identity) || index.callGraph.get(identity.replace(/@\d+$/, ''));
-    const results = callers ? Array.from(callers).sort() : [];
-    return { results, tier: index.tier, coverage };
+    return whoCallsResult(index, identity, baseCoverage, identity);
   }
 
   // Bare name — disambiguate against all funcIds
@@ -829,11 +907,7 @@ function queryWhoCalls(index, identity) {
     // funcEntities key as `file#name@line`, but call edges (and thus callGraph)
     // key as `file#name` (no @line) — try both so the @line-suffix difference
     // doesn't drop real callers. [RULE] who-calls-funcid-line-suffix-tolerant
-    const fid = matchingFuncIds[0];
-    const fidNoLine = fid.replace(/@\d+$/, '');
-    const callers = index.callGraph.get(fid) || index.callGraph.get(fidNoLine);
-    const results = callers ? Array.from(callers).sort() : [];
-    return { results, tier: index.tier, coverage };
+    return whoCallsResult(index, matchingFuncIds[0], baseCoverage, identity);
   }
 
   // Multiple matches — ambiguous, NEVER merge
@@ -1007,6 +1081,7 @@ function queryBlastRadius(index, target) {
 
   // BFS over the UNION of reverse import + call edges, transitive closure
   const visited = new Set();
+  const nameMatchedReached = new Set();
   const queue = Array.from(initialFrontier);
 
   while (queue.length > 0) {
@@ -1022,10 +1097,13 @@ function queryBlastRadius(index, target) {
       }
     }
 
-    // Reverse call edges: who calls this function node?
-    const callers = index.callGraph.get(node);
-    if (callers) {
+    // Reverse call edges: who calls this function node? (compiler + name-matched;
+    // name-matched ones are listed separately below) [RULE] unique-name-unresolved-call-name-matched
+    for (const graph of [index.callGraph, index.nameMatchedCallGraph]) {
+      const callers = graph && graph.get(node);
+      if (!callers) continue;
       for (const caller of callers) {
+        if (graph !== index.callGraph && !(index.callGraph.get(node) || new Set()).has(caller)) nameMatchedReached.add(caller);
         if (!visited.has(caller)) queue.push(caller);
       }
     }
@@ -1038,10 +1116,15 @@ function queryBlastRadius(index, target) {
   }
 
   const results = Array.from(visited).sort();
+  const matched = Array.from(nameMatchedReached).filter((c) => visited.has(c)).sort();
   const coverage = withUnresolvedSites(
     computeCoverage(index.skippedFiles, { callEdgesUnresolved: true, unresolvedFiles: countUnresolvedFiles(index) }),
-    index, target);
-  return { results, tier: index.tier, coverage };
+    index, target, matched);
+  if (!matched.length) return { results, tier: index.tier, coverage };
+  return {
+    results, tier: index.tier, coverage,
+    nameMatched: { resolution: "name-matched", count: matched.length, callers: matched.slice(0, 100) },
+  };
 }
 
 // ─── Query: status ────────────────────────────────────────────────────────────
@@ -1612,7 +1695,9 @@ if (require.main === module) {
     if (queryResult.results.length === 0 && queryResult.coverage && queryResult.coverage.complete === false) {
       writeIncompleteAnswerMarker(_resolver.deriveProjectRoot(storePath), verb, target, queryResult.coverage);
     }
-    emit({ ok: true, verb, target, results: queryResult.results, tier: queryResult.tier, coverage: queryResult.coverage });
+    const env = { ok: true, verb, target, results: queryResult.results, tier: queryResult.tier, coverage: queryResult.coverage };
+    if (queryResult.nameMatched) env.nameMatched = queryResult.nameMatched; // [RULE] unique-name-unresolved-call-name-matched
+    emit(env);
 
   } else if (verb === "body") {
     if (!target) fail({ ok: false, reason: "missing-target", verb });
@@ -1666,11 +1751,13 @@ if (require.main === module) {
 
   } else if (verb === "blast-radius") {
     if (!target) fail({ ok: false, reason: "missing-target", verb });
-    const { results, tier, coverage } = queryBlastRadius(index, target);
+    const { results, tier, coverage, nameMatched } = queryBlastRadius(index, target);
     if (results.length === 0 && coverage && coverage.complete === false) {
       writeIncompleteAnswerMarker(_resolver.deriveProjectRoot(storePath), verb, target, coverage);
     }
-    emit({ ok: true, verb, target, results, tier, coverage });
+    const env = { ok: true, verb, target, results, tier, coverage };
+    if (nameMatched) env.nameMatched = nameMatched; // [RULE] unique-name-unresolved-call-name-matched
+    emit(env);
 
   } else if (verb === "status") {
     const statusData = queryStatus(index, storePath);

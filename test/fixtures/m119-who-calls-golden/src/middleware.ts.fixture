@@ -1,0 +1,7 @@
+export function requireAuth() {
+  return (c: any, next: any) => next();
+}
+
+export function requireTenant() {
+  return (c: any, next: any) => next();
+}

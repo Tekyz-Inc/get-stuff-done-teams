@@ -170,12 +170,14 @@ test('graph status lists the files not in SCIP', () => {
     const st = cli.queryStatus(loaded.index, dbPath);
     assert.deepEqual(st.scipMissing, { count: 1, files: ['src/routes.ts'] });
 
-    // And who-calls names the unresolved call sites instead of a bare [].
+    // And who-calls answers with the call site instead of a bare [] — `helper` is
+    // defined once in the repo, so the SCIP-missing caller is reported as a
+    // LABELLED name-matched caller (m119), not a compiler one.
     const wc = cli.queryWhoCalls(loaded.index, 'helper');
-    assert.deepEqual(wc.results, []);
+    assert.deepEqual(wc.results, ['src/routes.ts#GET /x@1']);
     assert.equal(wc.coverage.complete, false);
-    assert.deepEqual(wc.coverage.unresolvedCallSites.callers, ['src/routes.ts#GET /x@1']);
-    assert.deepEqual(wc.coverage.unresolvedCallSites.files, ['src/routes.ts']);
+    assert.equal(wc.nameMatched.resolution, 'name-matched');
+    assert.deepEqual(wc.nameMatched.callers, ['src/routes.ts#GET /x@1']);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }

@@ -1,0 +1,17 @@
+import { router } from './router';
+import { requireAuth, requireTenant } from './middleware';
+import { resolveOrg, verifyAccess, formatName } from './helpers';
+
+async function listHandler(c: any) {
+  const org = await resolveOrg(c);
+  return formatName(org);
+}
+
+router.get('/a', requireAuth(), requireTenant(), listHandler);
+
+router.post('/a', requireAuth(), requireTenant(), async (c: any) => {
+  const org = await resolveOrg(c);
+  return verifyAccess(org, 'x');
+});
+
+router.get('/a/:id', requireTenant(), async (c: any) => verifyAccess(await resolveOrg(c), c.id));

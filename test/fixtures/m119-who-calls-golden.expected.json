@@ -1,0 +1,46 @@
+{
+  "requireAuth": {
+    "identity": "src/middleware.ts#requireAuth",
+    "callSites": [
+      "src/routes-a.ts:10",
+      "src/routes-a.ts:12",
+      "src/routes-b.ts:5"
+    ]
+  },
+  "requireTenant": {
+    "identity": "src/middleware.ts#requireTenant",
+    "callSites": [
+      "src/routes-a.ts:10",
+      "src/routes-a.ts:12",
+      "src/routes-a.ts:17",
+      "src/routes-b.ts:5",
+      "src/routes-b.ts:6"
+    ]
+  },
+  "resolveOrg": {
+    "identity": "src/helpers.ts#resolveOrg",
+    "callSites": [
+      "src/routes-a.ts:13",
+      "src/routes-a.ts:17",
+      "src/routes-a.ts:6",
+      "src/routes-b.ts:5",
+      "src/service.ts:4"
+    ]
+  },
+  "verifyAccess": {
+    "identity": "src/helpers.ts#verifyAccess",
+    "callSites": [
+      "src/routes-a.ts:14",
+      "src/routes-a.ts:17",
+      "src/routes-b.ts:6",
+      "src/service.ts:8"
+    ]
+  },
+  "formatName": {
+    "identity": "src/helpers.ts#formatName",
+    "callSites": [
+      "src/routes-a.ts:7",
+      "src/routes-b.ts:5"
+    ]
+  }
+}

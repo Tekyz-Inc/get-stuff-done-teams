@@ -137,6 +137,10 @@ function _resetScipCache(override) {
 const SCIP_MAX_FILE_BYTES = '64mb';
 const SCIP_HEAP_MB = 8192;
 const SCIP_MISSING_TIER = 'tree-sitter-floor-SCIP-MISSING';
+// A file SCIP indexed but where fewer than this share of its repo-resolvable calls
+// resolved. [RULE] scip-tier-proportional
+const COMPILER_PARTIAL_TIER = 'compiler-partial';
+const COMPILER_ACCURATE_MIN_FRACTION = 0.9;
 
 function runScipTypescript(projectRoot, outPath) {
   // M95: emit to a REAL file (outPath) so the index can be READ and call edges
@@ -330,7 +334,7 @@ function findTsProjectDirs(repoRoot) {
  *             resolveFileEdges: (relPath, edges) => { edges, resolved: number } }}
  */
 function buildScipResolver(repoRoot, opts = {}) {
-  const { readScipIndex } = require('./gsd-t-scip-reader.cjs');
+  const { readScipIndex, scipPositionKey } = require('./gsd-t-scip-reader.cjs');
   const avail = detectScip();
 
   // Detect which languages have source present (so we only run the relevant
@@ -342,11 +346,20 @@ function buildScipResolver(repoRoot, opts = {}) {
   // so TS and Python refs merge into one fileRefs map keyed by repo-relative path.
   const fileRefs = new Map(); // relPath → [{symbol, funcId, line}]
   const scipDocs = new Set(); // every file any indexer produced a document for
+  const defNames = new Set(); // every name SCIP saw DEFINED in the repo — what a call could resolve to
+  const occurrencePositions = new Map(); // relPath → Set<positionKey> of every SCIP occurrence
   const ranIndexers = [];
 
   function mergeRead(read) {
     if (!read || !read.ok) return;
     if (read.docPaths) for (const d of read.docPaths) scipDocs.add(d);
+    if (read.symbolToDef) for (const fid of read.symbolToDef.values()) defNames.add(fid.split('#').pop());
+    if (read.occurrencePositions) {
+      for (const [f, pos] of read.occurrencePositions) {
+        if (occurrencePositions.has(f)) for (const k of pos) occurrencePositions.get(f).add(k);
+        else occurrencePositions.set(f, pos);
+      }
+    }
     for (const [file, refs] of read.fileRefs) {
       if (fileRefs.has(file)) fileRefs.get(file).push(...refs);
       else fileRefs.set(file, refs.slice());
@@ -401,8 +414,7 @@ function buildScipResolver(repoRoot, opts = {}) {
    * resolves to a real funcId, rewrite dst to that funcId.
    */
   function resolveFileEdges(relPath, edges) {
-    const refs = fileRefs.get(relPath);
-    if (!refs || !refs.length) return { edges, resolved: 0 };
+    const refs = fileRefs.get(relPath) || [];
 
     // name → resolved funcId (last writer wins; SCIP refs in this file)
     const nameToFuncId = new Map();
@@ -412,6 +424,12 @@ function buildScipResolver(repoRoot, opts = {}) {
     }
 
     let resolved = 0;
+    // missed = a call to a name the repo defines, at a position where SCIP put NO
+    // symbol — the compiler never looked at it. A call SCIP resolved to a library
+    // (drizzle's `text()`) or a local (`const [x, setX] = useState()`) is not a
+    // miss: SCIP answered, the answer just is not a repo function.
+    const positions = occurrencePositions.get(relPath);
+    let missed = 0;
     const out = edges.map((edge) => {
       const dst = edge.target || edge.dst || '';
       const kind = edge.kind;
@@ -419,12 +437,18 @@ function buildScipResolver(repoRoot, opts = {}) {
       if (!isCall || !dst.startsWith('UNRESOLVED#')) return edge;
       const calleeName = dst.slice('UNRESOLVED#'.length);
       const funcId = nameToFuncId.get(calleeName);
-      if (!funcId) return edge; // still unresolved → stays floor
+      if (!funcId) { // still unresolved → stays floor
+        const seen = positions && Number.isInteger(edge.col) && positions.has(scipPositionKey(edge.line - 1, edge.col));
+        if (defNames.has(calleeName) && !seen) missed++;
+        return edge;
+      }
       resolved++;
       // rewrite dst to the resolved funcId, mark scip-derived
       return { ...edge, target: funcId, dst: funcId, scipResolved: true };
     });
-    return { edges: out, resolved };
+    // resolvable = resolved + missed. A call to a library (`c.json`) or a local
+    // never counts against the file. [RULE] scip-tier-proportional
+    return { edges: out, resolved, resolvable: resolved + missed };
   }
 
   // tsProjects reports which tsconfig projects actually contributed refs. A
@@ -524,7 +548,7 @@ function tryScipUpgrade(absPath, relPath, entities, edges, options) {
   }
 
   // Resolve this file's UNRESOLVED# call edges against the SCIP index.
-  const { edges: resolvedEdges, resolved } = resolver.resolveFileEdges(relPath, edges);
+  const { edges: resolvedEdges, resolved, resolvable = 0 } = resolver.resolveFileEdges(relPath, edges);
 
   // Rust cross-crate edges stay flagged partial.
   // [RULE] rust-cross-crate-flagged-partial
@@ -539,9 +563,15 @@ function tryScipUpgrade(absPath, relPath, entities, edges, options) {
   // resolved ≥1 edge in this file OR the file has no call edges to resolve (a
   // pure-definition file SCIP indexed cleanly). A file whose calls all stayed
   // UNRESOLVED is NOT compiler-accurate — it's floor.
+  // [RULE] scip-tier-proportional: ONE resolved edge is not enough either. Of the
+  // calls that could resolve (their name is defined in the repo), fewer than
+  // COMPILER_ACCURATE_MIN_FRACTION resolved → compiler-partial, never accurate.
   const hadCallEdges = edges.some(e => (e.kind === 'call-site' || e.kind === 'CALL'));
   const isAccurate = !hadCallEdges || resolved > 0;
-  const tier = isAccurate ? 'compiler-accurate' : 'tree-sitter-floor';
+  let tier = isAccurate ? 'compiler-accurate' : 'tree-sitter-floor';
+  if (tier === 'compiler-accurate' && resolvable > 0 && resolved / resolvable < COMPILER_ACCURATE_MIN_FRACTION) {
+    tier = COMPILER_PARTIAL_TIER;
+  }
 
   return {
     upgraded: isAccurate,
@@ -617,4 +647,6 @@ module.exports = {
   EXT_TO_LANG,
   SCIP_MISSING_TIER,
   SCIP_MAX_FILE_BYTES,
+  COMPILER_PARTIAL_TIER,
+  COMPILER_ACCURATE_MIN_FRACTION,
 };

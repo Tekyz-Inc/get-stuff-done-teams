@@ -184,6 +184,12 @@ function readScipIndex(scipPath, pathPrefix) {
   // is indistinguishable from one it indexed and found nothing in.
   // [RULE] scip-missing-file-detected-never-silent
   const docPaths = new Set();
+  // Every position (line, column) SCIP put ANY symbol at, per file — external,
+  // local, or repo. A call site whose callee sits at one of these was SEEN by the
+  // compiler (resolved to something, even if not a repo function); one that
+  // does not was never looked at. Numbers, not strings: a large repo has
+  // millions of occurrences. [RULE] scip-tier-proportional
+  const occurrencePositions = new Map();
 
   const docs = obj.documents || [];
 
@@ -213,7 +219,10 @@ function readScipIndex(scipPath, pathPrefix) {
     if (!rawPath || isBuildOutputPath(rawPath)) continue;
     const relPath = reroot(rawPath);
     const refs = [];
+    const positions = new Set();
+    occurrencePositions.set(relPath, positions);
     for (const occ of doc.occurrences || []) {
+      if (Array.isArray(occ.range) && occ.range.length >= 2) positions.add(scipPositionKey(occ.range[0], occ.range[1]));
       const isDef = (occ.symbol_roles & SYMBOL_ROLE_DEFINITION) !== 0;
       if (isDef) continue;                       // refs only
       const name = funcNameFromSymbol(occ.symbol);
@@ -226,11 +235,17 @@ function readScipIndex(scipPath, pathPrefix) {
     if (refs.length) fileRefs.set(relPath, refs);
   }
 
-  return { ok: true, symbolToDef, fileRefs, docPaths };
+  return { ok: true, symbolToDef, fileRefs, docPaths, occurrencePositions };
+}
+
+/** 0-based line + column → one number (columns never reach 1e6). */
+function scipPositionKey(line0, col) {
+  return line0 * 1e6 + col;
 }
 
 module.exports = {
   loadScipProto,
   funcNameFromSymbol,
   readScipIndex,
+  scipPositionKey,
 };

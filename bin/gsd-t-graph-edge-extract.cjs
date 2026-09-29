@@ -226,6 +226,16 @@ function routeLabel(fnNode, argsNode) {
   return `${method.toUpperCase()} ${first.text.slice(1, -1)}`;
 }
 
+/**
+ * A registration with no anonymous handler (`router.get('/x', requireAuth(), handler)`)
+ * is only treated as a route when its first argument looks like a URL path, so a
+ * `cache.get('key', compute())` is never mistaken for one.
+ */
+function isRoutePath(firstArg) {
+  if (!firstArg) return false;
+  return firstArg.text.slice(1).startsWith('/');
+}
+
 // ── Python-specific extraction ────────────────────────────────────────────────
 
 function walkPython(rootNode, relPath, entities, edges) {
@@ -339,6 +349,7 @@ function walkPython(rootNode, relPath, entities, edges) {
             source: enclosingFuncId,
             target: `UNRESOLVED#${calleeName}`,
             line: node.startPosition.row + 1,
+            col: fn.startPosition.column, // [RULE] scip-tier-proportional
           });
         }
       }
@@ -415,14 +426,23 @@ function walkTSJS(rootNode, relPath, entities, edges) {
             source: srcId,
             target: `UNRESOLVED#${calleeName}`,
             line: node.startPosition.row + 1,
+            // callee column — lets the SCIP upgrader tell a call the compiler saw
+            // from one it never looked at. [RULE] scip-tier-proportional
+            col: fn.startPosition.column,
           });
         }
 
-        // Route registration: each anonymous handler becomes its own caller,
-        // named by method + path + line. [RULE] anonymous-caller-synthesized-never-dropped
+        // Route registration: the route itself becomes the caller, named by
+        // method + path + line — for its anonymous handler AND for every
+        // middleware call in its arguments (`requireAuth()`, `requireLocationTenant()`).
+        // Crediting middleware to the enclosing scope collapsed 95 routes into one
+        // `_toplevel` caller per file. [RULE] anonymous-caller-synthesized-never-dropped
+        // [RULE] route-middleware-args-credited-to-route
         const label = routeLabel(fn, args);
         const handlers = label ? args.namedChildren.filter(isAnonymousFn) : [];
-        if (handlers.length) {
+        const middlewareCalls = label && isRoutePath(args.namedChild(0))
+          ? args.namedChildren.slice(1).filter((a) => a.type === 'call_expression') : [];
+        if (handlers.length || middlewareCalls.length) {
           const line = node.startPosition.row + 1;
           const routeId = `${relPath}#${label}@${line}`;
           entities.push({
@@ -439,7 +459,7 @@ function walkTSJS(rootNode, relPath, entities, edges) {
           walk(fn, enclosingFuncId, enclosingClass);
           for (let i = 0; i < args.childCount; i++) {
             const arg = args.child(i);
-            if (!handlerStarts.has(arg.startIndex) || !isAnonymousFn(arg)) { walk(arg, enclosingFuncId, enclosingClass); continue; }
+            if (!handlerStarts.has(arg.startIndex) || !isAnonymousFn(arg)) { walk(arg, routeId, enclosingClass); continue; }
             for (let j = 0; j < arg.childCount; j++) walk(arg.child(j), routeId, enclosingClass);
           }
           return;

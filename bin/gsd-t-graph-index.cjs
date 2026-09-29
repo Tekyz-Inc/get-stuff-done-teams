@@ -407,7 +407,7 @@ function parse_and_put(absPath, relPath, options) {
       finalEntities = upgraded.entities;
       finalEdges = upgraded.edges;
     }
-  } else if (existingTier === 'compiler-accurate') {
+  } else if (existingTier === 'compiler-accurate' || existingTier === 'compiler-partial') {
     // [RULE] reindex-tier-never-silently-downgraded — no SCIP context this call
     // (e.g. a metadata-only re-index like M98's body end-line backfill). A file that
     // WAS compiler-accurate must NOT silently drop to plain floor; label it STALE-SCIP
@@ -537,6 +537,9 @@ function build_index(repoRoot, options) {
   let edgeCount = 0;
   let tierFloor = 0;
   let tierUpgraded = 0;
+  let tierPartial = 0; // [RULE] scip-tier-proportional
+  let callEdges = 0;
+  let callEdgesUnresolved = 0;
   let errors = 0;
   const skippedFiles = [];
   const scipMissing = []; // files SCIP ran for but produced no document for
@@ -549,7 +552,13 @@ function build_index(repoRoot, options) {
       entityCount += result.entities.length;
       edgeCount += result.edges.length;
       if (result.tier === 'compiler-accurate') tierUpgraded++;
+      else if (result.tier === 'compiler-partial') tierPartial++;
       else tierFloor++;
+      for (const e of result.edges) {
+        if (e.kind !== 'call-site' && e.kind !== 'CALL') continue;
+        callEdges++;
+        if (String(e.target || e.dst).startsWith('UNRESOLVED#')) callEdgesUnresolved++;
+      }
       if (result.tier === 'tree-sitter-floor-SCIP-MISSING') scipMissing.push(relPath);
       if (typeof onProgress === 'function') {
         onProgress({ file: relPath, tier: result.tier, fileCount, total: files.length });
@@ -614,7 +623,9 @@ function build_index(repoRoot, options) {
     fileCount,
     entityCount,
     edgeCount,
-    tier: { floor: tierFloor, upgraded: tierUpgraded },
+    tier: { floor: tierFloor, upgraded: tierUpgraded, partial: tierPartial },
+    callEdges,
+    callEdgesUnresolved,
     scipMissing,
     scipAvailable: scipActive,
     scipNotice,
@@ -667,7 +678,11 @@ if (require.main === module) {
   });
 
   good(`Indexed ${result.fileCount} files, ${result.entityCount} entities, ${result.edgeCount} edges in ${result.durationMs}ms`);
-  good(`Tiers — floor: ${result.tier.floor}, compiler-accurate: ${result.tier.upgraded}`);
+  good(`Tiers — floor: ${result.tier.floor}, compiler-accurate: ${result.tier.upgraded}, compiler-partial: ${result.tier.partial}`);
+  if (result.callEdges) {
+    info(`Call edges unresolved: ${result.callEdgesUnresolved} of ${result.callEdges} ` +
+      `(${(100 * result.callEdgesUnresolved / result.callEdges).toFixed(1)}% — library calls such as console.log never resolve)`);
+  }
   if (result.errors > 0) warn(`${result.errors} files had parse errors (skipped)`);
 
   const envelope = {

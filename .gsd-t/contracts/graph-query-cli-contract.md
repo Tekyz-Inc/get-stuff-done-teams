@@ -34,13 +34,16 @@ Each verb calls D4's `freshness_check_on_query` INLINE before answering.
 
 ## JSON envelope
 ```json
-{ "ok": true,  "verb": "who-imports", "target": "...", "results": [ ... ], "tier": "compiler-accurate|tree-sitter-floor|tree-sitter-floor-STALE-SCIP|tree-sitter-floor-SCIP-MISSING" }
+{ "ok": true,  "verb": "who-imports", "target": "...", "results": [ ... ], "tier": "compiler-accurate|compiler-partial|tree-sitter-floor|tree-sitter-floor-STALE-SCIP|tree-sitter-floor-SCIP-MISSING" }
+{ "ok": true,  "verb": "who-calls", "target": "...", "results": [ ... ], "tier": "...", "coverage": { ... }, "nameMatched": { "resolution": "name-matched", "note": "...", "count": 1, "callers": [ "scripts/tool.ts#cli@4" ] } }
 { "ok": false, "reason": "graph-unavailable" }
 { "ok": false, "reason": "ambiguous-function", "verb": "who-calls", "target": "foo", "candidates": [ "a.ts#foo", "b.ts#foo" ] }
 ```
 (`ambiguous-function` — RE-PLAN Fix-3: a bare `who-calls <name>` matching multiple `funcId`s returns this rather than a silently-merged caller set; the caller re-issues with a `file#function` identity. `tree-sitter-floor-STALE-SCIP` — RE-PLAN Fix-2: an honestly-flagged per-file re-index of a previously-compiler-accurate file. `tree-sitter-floor-SCIP-MISSING` — a file the SCIP indexer produced no document for; `status` returns `scipMissing: { count, files }`. When `who-calls`/`blast-radius` coverage is incomplete, `coverage.unresolvedCallSites: { count, note, callers, files }` lists name-matched UNRESOLVED call sites — labelled, never merged into `results`; an empty+incomplete answer is recorded at `.gsd-t/graphDB/last-incomplete-answer.json` so the M117 search guard can name an allowed path forward. [RULE] incomplete-empty-answer-names-a-path-forward)
 
 ## Invariants
+- `[RULE] unique-name-unresolved-call-name-matched` — who-calls / blast-radius include a caller whose edge is `UNRESOLVED#<name>` (plain identifier, exact) when `<name>` is defined by exactly ONE entity in the repo. Such callers are in `results` AND listed under `nameMatched` with `resolution: "name-matched"` — never presented as compiler-resolved — and leave `coverage.unresolvedCallSites`. A name with 2+ definitions, or a member call `obj.name`, is never matched (stays in `unresolvedCallSites`). `nameMatched` is omitted when empty.
+- `[RULE] name-match-only-where-scip-never-looked` — name matching applies only to callers in files whose tier is NOT SCIP-backed (`compiler-accurate` / `compiler-partial`): there, an unresolved call is SCIP saying "a local, a mock, or a library", so a name match would be wrong.
 - `[RULE] query-cli-never-greps` — NO directive-driven grep fallback in ANY code path; verified by STRUCTURAL grep-for-absence (parse the paths), not a substring scan
 - `[RULE] parser-fail-disables-loud-never-silent` — genuine parser-load failure → `{ok:false, reason:"graph-unavailable"}` (commands fall back to grep mode, ANNOUNCED) — never a partial edge; verified by fault-injection
 - `[RULE] stale-file-reindexed-before-answer` — re-index any stale touched file inline BEFORE returning

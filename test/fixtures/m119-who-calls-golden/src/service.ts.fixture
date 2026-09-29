@@ -1,0 +1,15 @@
+import { resolveOrg, verifyAccess } from './helpers';
+
+export async function loadOrg(c: any) {
+  return resolveOrg(c);
+}
+
+export async function check(c: any) {
+  return verifyAccess(await loadOrg(c), 'l');
+}
+
+// A local that shadows helpers.formatName: TypeScript says it is NOT a reference.
+export function shadow() {
+  const formatName = (s: string) => s;
+  return formatName('x');
+}

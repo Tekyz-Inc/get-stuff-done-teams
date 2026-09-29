@@ -1,0 +1,9 @@
+export async function resolveOrg(c: any): Promise<string> {
+  return String(c);
+}
+
+export const verifyAccess = async (org: string, loc: string): Promise<boolean> => org === loc;
+
+export function formatName(n: string): string {
+  return n.trim();
+}

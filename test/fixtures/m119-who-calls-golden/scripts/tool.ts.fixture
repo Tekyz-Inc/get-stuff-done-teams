@@ -1,0 +1,6 @@
+// Outside tsconfig "include": the SCIP indexer never sees this file.
+import { resolveOrg } from '../src/helpers';
+
+export async function cli(c: any) {
+  return resolveOrg(c);
+}

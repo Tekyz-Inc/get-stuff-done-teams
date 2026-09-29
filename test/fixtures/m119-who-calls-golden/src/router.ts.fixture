@@ -1,0 +1,4 @@
+export const router: any = {
+  get: (..._a: any[]) => 0,
+  post: (..._a: any[]) => 0,
+};
