@@ -264,7 +264,8 @@ function buildSchema(db) {
       file         TEXT NOT NULL,
       name         TEXT,
       func_id      TEXT,
-      end_line     INTEGER
+      end_line     INTEGER,
+      meta         TEXT
     );
     CREATE TABLE IF NOT EXISTS edges (
       kind    TEXT    NOT NULL,
@@ -278,6 +279,18 @@ function buildSchema(db) {
     CREATE INDEX IF NOT EXISTS nodes_file      ON nodes(file);
   `);
   migrateEndLine(db);
+  migrateMeta(db);
+}
+
+/**
+ * Idempotent migration: add `nodes.meta` (JSON) — a table's SQL name + columns,
+ * an enum's values. NULL for functions/classes. [RULE] drizzle-table-entity-and-usage-edges
+ */
+function migrateMeta(db) {
+  const cols = db.prepare("PRAGMA table_info(nodes)").all();
+  if (!cols.some((c) => c.name === 'meta')) {
+    db.exec('ALTER TABLE nodes ADD COLUMN meta TEXT');
+  }
 }
 
 /**
@@ -313,11 +326,15 @@ function migrateEndLine(db) {
  */
 function getWriteStmts(db) {
   if (db.__m94WriteStmts) return db.__m94WriteStmts;
+  // A handle opened elsewhere (the freshness re-index opens the db without
+  // buildSchema) may point at an older graph — add the columns written below.
+  migrateEndLine(db);
+  migrateMeta(db);
   const stmts = {
     deleteNodes: db.prepare('DELETE FROM nodes WHERE file = ?'),
     deleteEdgesSrc: db.prepare("DELETE FROM edges WHERE src = ? OR src LIKE ? OR src = ?"),
     insFile: db.prepare('INSERT OR REPLACE INTO files (file, content_hash, tier, indexed_at) VALUES (?, ?, ?, ?)'),
-    insNode: db.prepare('INSERT OR REPLACE INTO nodes (id, kind, tier, content_hash, file, name, func_id, end_line) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'),
+    insNode: db.prepare('INSERT OR REPLACE INTO nodes (id, kind, tier, content_hash, file, name, func_id, end_line, meta) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'),
     insEdge: db.prepare('INSERT INTO edges (kind, src, dst, partial) VALUES (?, ?, ?, ?)'),
   };
   // db.transaction() wrapper is also created once (it closes over the stmts).
@@ -327,7 +344,8 @@ function getWriteStmts(db) {
     stmts.deleteEdgesSrc.run(file, `${file}#%`, file);
     stmts.insFile.run(file, hash, tier, now);
     for (const entity of entities) {
-      stmts.insNode.run(entity.id, entity.type || 'function', tier, hash, file, entity.name || null, entity.id, entity.endLine ?? null);
+      stmts.insNode.run(entity.id, entity.type || 'function', tier, hash, file, entity.name || null, entity.id, entity.endLine ?? null,
+        entity.meta === undefined ? null : JSON.stringify(entity.meta));
     }
     for (const edge of edges) {
       stmts.insEdge.run(edge.kind, edge.src, edge.dst, edge.partial ? 1 : 0);
@@ -459,6 +477,7 @@ function parse_and_put(absPath, relPath, options) {
     exported: e.exported,
     parentClass: e.parentClass,
     endLine: e.endLine ?? null,   // M98 — function end line for body-slice
+    ...(e.meta === undefined ? {} : { meta: e.meta }), // table / enum: SQL name, columns, values
   }));
 
   if (db) {
@@ -543,6 +562,9 @@ function build_index(repoRoot, options) {
   let errors = 0;
   const skippedFiles = [];
   const scipMissing = []; // files SCIP ran for but produced no document for
+  let tableCount = 0;
+  let enumCount = 0;
+  const tablesUnresolved = []; // [RULE] drizzle-table-shape-gap-named-never-skipped
 
   // Stream: parse + put each file one at a time (never accumulate the full set)
   for (const { absPath, relPath } of files) {
@@ -560,6 +582,11 @@ function build_index(repoRoot, options) {
         if (String(e.target || e.dst).startsWith('UNRESOLVED#')) callEdgesUnresolved++;
       }
       if (result.tier === 'tree-sitter-floor-SCIP-MISSING') scipMissing.push(relPath);
+      for (const ent of result.entities) {
+        if (ent.type === 'table') tableCount++;
+        if (ent.type === 'enum') enumCount++;
+        if (ent.meta && ent.meta.unresolved) tablesUnresolved.push({ file: relPath, name: ent.name, problems: ent.meta.unresolved });
+      }
       if (typeof onProgress === 'function') {
         onProgress({ file: relPath, tier: result.tier, fileCount, total: files.length });
       }
@@ -568,6 +595,20 @@ function build_index(repoRoot, options) {
       skippedFiles.push({ file: relPath, reason: err.message });
       warn(`Failed to index ${relPath}: ${err.message}`);
     }
+  }
+
+  // A full build leaves exactly the enumerated set: rows for a file that is gone
+  // or newly excluded (e.g. GSD-T's copied bin/ tools) are pruned, not kept.
+  // [RULE] status-counts-files-table
+  const enumerated = new Set(files.map((f) => f.relPath));
+  const stale = db.prepare('SELECT file FROM files').all().map((r) => r.file).filter((f) => !enumerated.has(f));
+  if (stale.length) {
+    const w = getWriteStmts(db);
+    const delFile = db.prepare('DELETE FROM files WHERE file = ?');
+    db.transaction(() => {
+      for (const f of stale) { w.deleteNodes.run(f); w.deleteEdgesSrc.run(f, `${f}#%`, f); delFile.run(f); }
+    })();
+    info(`Pruned ${stale.length} file(s) no longer in the project (deleted or excluded)`);
   }
 
   // Record the skipped set + parse-success-rate so a query whose edges live in a
@@ -619,8 +660,20 @@ function build_index(repoRoot, options) {
       `(tier tree-sitter-floor-SCIP-MISSING): ${shown}${scipMissing.length > 10 ? ', …' : ''}`);
   }
 
+  // A table whose declaration had a shape the extractor could not read (a
+  // computed name, a spread of columns, a non-literal reference) is still an
+  // entity — but its columns or FKs are incomplete. Named every build, loud.
+  if (tablesUnresolved.length) {
+    warn(`${tablesUnresolved.length} table/enum declaration(s) only partly read — columns or foreign keys incomplete:`);
+    for (const t of tablesUnresolved.slice(0, 20)) warn(`  ${t.file} ${t.name}: ${t.problems.join('; ')}`);
+    if (tablesUnresolved.length > 20) warn(`  … ${tablesUnresolved.length - 20} more`);
+  }
+
   return {
     fileCount,
+    tableCount,
+    enumCount,
+    tablesUnresolved,
     entityCount,
     edgeCount,
     tier: { floor: tierFloor, upgraded: tierUpgraded, partial: tierPartial },
@@ -683,6 +736,7 @@ if (require.main === module) {
     info(`Call edges unresolved: ${result.callEdgesUnresolved} of ${result.callEdges} ` +
       `(${(100 * result.callEdgesUnresolved / result.callEdges).toFixed(1)}% — library calls such as console.log never resolve)`);
   }
+  good(`Database tables: ${result.tableCount}, enums: ${result.enumCount}`);
   if (result.errors > 0) warn(`${result.errors} files had parse errors (skipped)`);
 
   const envelope = {
@@ -695,6 +749,9 @@ if (require.main === module) {
     edgeCount: result.edgeCount,
     tier: result.tier,
     scipMissingCount: result.scipMissing.length,
+    tableCount: result.tableCount,
+    enumCount: result.enumCount,
+    tablesUnresolved: result.tablesUnresolved,
     errors: result.errors,
     durationMs: result.durationMs,
   };

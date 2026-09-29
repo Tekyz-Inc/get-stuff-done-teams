@@ -50,11 +50,14 @@ Pick a store iff it clears ALL FIVE sub-criteria below. `[RULE] K1: store-picked
 }
 ```
 
+Table / enum entities (Drizzle) are stored as `nodes` rows with `kind` `table` / `enum` and a JSON `meta` column (SQL name, columns, foreign keys, enum values; NULL for every other kind). `meta` is added by an idempotent migration run on every store open AND before every write (the freshness re-index opens the db without the schema step), so an older graph upgrades in place.
+
 ### Edge shape
 
 ```json
 { "kind": "IMPORT", "src": "src/user.ts", "dst": "lib/db.ts" }
 { "kind": "CALL", "src": "src/user.ts#createUser", "dst": "lib/db.ts#query" }
+{ "kind": "TABLE-WRITE", "src": "src/routes/events.ts#POST /events@17", "dst": "TABLE#scheduleEvents#insert@19" }
 ```
 
 `funcId` = `file#function` (minimum); where overloads/same-named nested functions exist: `file#function@line` or `file#qualified.name`.

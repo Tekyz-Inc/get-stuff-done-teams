@@ -1,0 +1,15 @@
+import { sqliteTable, text, integer, foreignKey } from 'drizzle-orm/sqlite-core';
+
+export const cacheOwners = sqliteTable('cache_owners', {
+  id: text('id').primaryKey(),
+});
+
+export const cacheEntries = sqliteTable(
+  'cache_entries',
+  {
+    key: text('key').primaryKey(),
+    hits: integer('hits').notNull(),
+    ownerId: text('owner_id'),
+  },
+  (t) => [foreignKey({ columns: [t.ownerId], foreignColumns: [cacheOwners.id] })],
+);

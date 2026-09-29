@@ -4766,7 +4766,11 @@ function doGraphStatus() {
     return;
   }
   success(`Graph index: ${envelope.fileCount || 0} files`);
-  if (envelope.tier) info(`Tier: ${envelope.tier}`);
+  // Per-tier file counts (what the build reported), then the worst tier present.
+  const tiers = envelope.tiers ? Object.entries(envelope.tiers).sort((a, b) => b[1] - a[1]) : [];
+  if (tiers.length) info(`Tiers: ${tiers.map(([t, n]) => `${t} ${n}`).join(" · ")}`);
+  if (envelope.tier) info(`Lowest tier present: ${envelope.tier}`);
+  if (envelope.tableCount || envelope.enumCount) info(`Database tables: ${envelope.tableCount}, enums: ${envelope.enumCount} (gsd-t graph table <name> · who-uses <name>)`);
   // [RULE] scip-missing-file-detected-never-silent — files the SCIP indexer never
   // produced a document for: their call edges stay unresolved, so who-calls is blind there.
   const miss = envelope.scipMissing;
@@ -4779,6 +4783,13 @@ function doGraphStatus() {
     info(`Excluded by ${ex.source}: ${ex.patterns.join(", ")}`);
   } else {
     info("Excludes: none (add folders to .gsd-t/graph-exclude.json — { \"exclude\": [\"design/\"] })");
+  }
+  if (ex && ex.defaults && ex.defaults.length) info(`Excluded by default: ${ex.defaults.join(", ")}`);
+  // Suggestions only — a folder is never dropped from the graph without the user listing it.
+  const sug = envelope.excludeSuggestions;
+  if (sug && sug.length) {
+    info(`Folders that may not be the app (${sug[0].reason}) — add to .gsd-t/graph-exclude.json if so:`);
+    for (const x of sug.slice(0, 15)) log(`      ${x.folder}  (${x.files} files)`);
   }
   if (envelope.storeSize !== undefined) info(`Store size: ${envelope.storeSize} bytes`);
   if (envelope.detail) log(JSON.stringify(envelope, null, 2));
@@ -4793,7 +4804,7 @@ function doGraphQuery(args) {
   const verb = args[0];
   if (!verb) {
     error("Usage: gsd-t graph query <verb> [target]");
-    info("Verbs: status, who-imports, who-calls, blast-radius, cluster, dead-code, orphan, dangling, test-impl");
+    info("Verbs: status, who-imports, who-calls, body, blast-radius, who-uses [--writes|--reads], table, cluster, dead-code, orphan, dangling, test-impl");
     return;
   }
   const envelope = _graphQueryCli([verb].concat(args.slice(1)));
@@ -4818,6 +4829,9 @@ function doGraph(args) {
     case "who-calls":     { const e = _graphQueryCli(["who-calls",   args[1] || ""]); log(JSON.stringify(e, null, 2)); break; }
     case "blast-radius":  { const e = _graphQueryCli(["blast-radius", args[1] || ""]); log(JSON.stringify(e, null, 2)); break; }
     case "body":          { const e = _graphQueryCli(["body",         args[1] || ""]); log(JSON.stringify(e, null, 2)); break; }
+    // Database tables (Drizzle pgTable/mysqlTable/sqliteTable + pgEnum).
+    case "who-uses":      { const e = _graphQueryCli(["who-uses"].concat(args.slice(1))); log(JSON.stringify(e, null, 2)); break; }
+    case "table":         { const e = _graphQueryCli(["table",        args[1] || ""]); log(JSON.stringify(e, null, 2)); break; }
     case "tasks":         doGraphTaskOutput(args[1] || "table"); break;
     case "metrics":       { // M99 D3-T2: append-only arm — rollup the telemetry ledger
       const _metricsRollup = require("./gsd-t-graph-metrics-rollup.cjs");
@@ -4866,7 +4880,7 @@ function doGraph(args) {
     }
     default:
       error(`Unknown graph subcommand: ${sub}`);
-      info("Usage: gsd-t graph [index|status|query|who-imports|who-calls|blast-radius|body|tasks|metrics|wiring-log]");
+      info("Usage: gsd-t graph [index|status|query|who-imports|who-calls|blast-radius|body|who-uses|table|tasks|metrics|wiring-log]");
       info("       gsd-t graph --output json|table   (task DAG)");
   }
 }

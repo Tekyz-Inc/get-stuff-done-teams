@@ -26,6 +26,8 @@ The K2 throughput measurement MUST PIN and RECORD the Atos commit SHA it ran aga
 | `function` | function entity (def site; includes arrow functions assigned to const) |
 | `class` | class entity (def site) |
 | `call-site` | function→function call edge (best-effort; keyed by funcId at both ends per graph-store-schema-contract) |
+| `table` / `enum` | Drizzle `const X = pgTable\|mysqlTable\|sqliteTable('sql_name', {columns}, extras)` / `pgEnum('sql_name', [values])`; id `file#X@line`; `meta` = `{kind, dialect, builder, sqlName, columns:[{name, sqlName, type, notNull, primaryKey, unique?, references?}], foreignKeys:[{columns, table, foreignColumns}]}` (enum: `values`). A shape it cannot read (computed name, non-literal columns, spread, non-plain reference) stays an entity with `meta.unresolved:[reason,...]`; `build_index` returns `tablesUnresolved` and warns with each one. [RULE] drizzle-table-shape-gap-named-never-skipped |
+| `TABLE-READ` / `TABLE-WRITE` | user → table usage edge; src = enclosing funcId / route id / `file#_toplevel`; dst = `TABLE#<exported name>#<operation>@<line>`. Operations: `from innerJoin leftJoin rightJoin fullJoin crossJoin query` (READ), `insert update delete` (WRITE), `ref` (column/bare reference — WRITE inside a write chain). Only names imported into the file, namespace-imported, or declared there as tables are recorded; FK references inside a table declaration are `meta`, not edges. [RULE] drizzle-table-entity-and-usage-edges |
 
 The WHAT (the edge set) is KEPT from M20–M21; the regex HOW is superseded by tree-sitter (see `PseudoCode-CodeGraphIndex.md` §Divergence).
 

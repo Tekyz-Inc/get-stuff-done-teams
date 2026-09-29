@@ -107,12 +107,13 @@ function walkTree(dir, results = []) {
   try { entries = fs.readdirSync(dir, { withFileTypes: true }); }
   catch { return results; }
   for (const e of entries) {
-    if (e.name.startsWith('.') && e.name !== '.claude') {
-      if (shouldExcludeDir(e.name)) continue;
-    }
-    if (shouldExcludeDir(e.name)) continue;
     const full = path.join(dir, e.name);
     if (e.isDirectory()) {
+      // The skip list names DIRECTORIES, as in the indexer. Applied to file names
+      // it dropped `build-analytics.ts` / `build_guides.py` (prefix "build"),
+      // so every query deleted 7 indexed hilo files from the graph as "gone".
+      // [RULE] freshness-excludes-match-indexer-skipdirs
+      if (shouldExcludeDir(e.name)) continue;
       walkTree(full, results);
     } else if (e.isFile() && TRACKED_EXTS.has(path.extname(e.name))) {
       results.push(full);
@@ -290,6 +291,12 @@ function revalidateOneHopImporters(db, fileRel, op) {
       db.prepare(`DELETE FROM nodes WHERE id=? AND kind='FILE'`).run(fileRel);
       // Remove entity nodes belonging to this file
       db.prepare(`DELETE FROM nodes WHERE file=? AND kind != 'FILE'`).run(fileRel);
+      // …its call / table-usage edges (src is `file#fn`, not the bare file) and its
+      // files-table row. Left behind, a deleted or newly-excluded file stayed in
+      // `graph status` and was re-flagged as a DELETE on every query.
+      // [RULE] status-counts-files-table
+      db.prepare(`DELETE FROM edges WHERE src LIKE ?`).run(`${fileRel}#%`);
+      if (hasTable(db, 'files')) db.prepare(`DELETE FROM files WHERE file=?`).run(fileRel);
       return { revalidated: true, op: 'DELETE', file: fileRel };
     }
 

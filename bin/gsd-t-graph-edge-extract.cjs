@@ -236,6 +236,245 @@ function isRoutePath(firstArg) {
   return firstArg.text.slice(1).startsWith('/');
 }
 
+// ── Drizzle database tables ──────────────────────────────────────────────────
+//
+// `export const scheduleEvents = pgTable('schedule_events', { ...columns }, (t) => [...])`
+// declares a database table. Before this, it was a constant with no entity, so
+// `body scheduleEvents` said not-found and every table question dead-ended.
+//
+// Now each declaration is a `table` (or `enum`) entity whose meta carries the SQL
+// name and the columns (code name, SQL name, type builder, notNull, primaryKey,
+// foreign key). Every use of a table in code becomes an edge from the function,
+// method or route handler that uses it:
+//   TABLE-READ   .from(T) / .innerJoin(T) / db.query.T.* / a column ref T.col
+//   TABLE-WRITE  .insert(T) / .update(T) / .delete(T) / a column ref inside one
+// dst = `TABLE#<code name>#<operation>@<line>`. The query layer keeps only dsts
+// that name an indexed table. [RULE] drizzle-table-entity-and-usage-edges
+
+const TABLE_BUILDERS = { pgTable: 'pg', mysqlTable: 'mysql', sqliteTable: 'sqlite' };
+const ENUM_BUILDERS = { pgEnum: 'pg' };
+const TABLE_READ_OPS = new Set(['from', 'innerJoin', 'leftJoin', 'rightJoin', 'fullJoin', 'crossJoin']);
+const TABLE_WRITE_OPS = new Set(['insert', 'update', 'delete']);
+const TABLE_OPS = new Set([...TABLE_READ_OPS, ...TABLE_WRITE_OPS]);
+// Identifier positions that declare or re-export a name rather than use it.
+const NON_USE_PARENTS = new Set([
+  'import_specifier', 'export_specifier', 'namespace_import', 'required_parameter', 'optional_parameter',
+]);
+
+function stringValue(node) {
+  if (!node) return null;
+  if (node.type === 'string') return node.text.slice(1, -1);
+  if (node.type === 'template_string' && !node.text.includes('${')) return node.text.slice(1, -1);
+  return null;
+}
+
+function unwrapParens(node) {
+  let n = node;
+  while (n && n.type === 'parenthesized_expression') n = n.namedChild(0);
+  return n;
+}
+
+/** The columns argument: an object literal, or `(t) => ({ ... })`. */
+function columnsObject(node) {
+  if (!node) return null;
+  if (node.type === 'object') return node;
+  if (node.type === 'arrow_function') {
+    const body = unwrapParens(node.childForFieldName('body'));
+    return body && body.type === 'object' ? body : null;
+  }
+  return null;
+}
+
+/** `T` or `schema.T` → "T". Anything else → null. */
+function tableNameOf(node) {
+  const n = unwrapParens(node);
+  if (!n) return null;
+  if (n.type === 'identifier') return n.text;
+  if (n.type === 'member_expression') {
+    const prop = n.childForFieldName('property');
+    const obj = n.childForFieldName('object');
+    if (prop && obj && obj.type === 'identifier') return prop.text;
+  }
+  return null;
+}
+
+/** `() => users.id` (or `(): AnyPgColumn => users.id`) → { table: 'users', column: 'id' }. */
+function referenceTarget(arrow) {
+  if (!arrow || arrow.type !== 'arrow_function') return null;
+  let body = unwrapParens(arrow.childForFieldName('body'));
+  if (body && body.type === 'statement_block') {
+    const ret = body.namedChildren.find((c) => c.type === 'return_statement');
+    body = ret ? unwrapParens(ret.namedChild(0)) : null;
+  }
+  if (!body || body.type !== 'member_expression') return null;
+  const table = tableNameOf(body.childForFieldName('object'));
+  const prop = body.childForFieldName('property');
+  return table && prop ? { table, column: prop.text } : null;
+}
+
+/** One column: `uuid('flight_school_id').notNull().references(() => flightSchools.id)`. */
+function parseColumn(key, value) {
+  const col = { name: key, sqlName: null, type: null, notNull: false, primaryKey: false };
+  let n = value;
+  while (n && n.type === 'call_expression') {
+    const fn = n.childForFieldName('function');
+    const args = n.childForFieldName('arguments');
+    const obj = fn && fn.type === 'member_expression' ? fn.childForFieldName('object') : null;
+    if (obj && obj.type === 'call_expression') {
+      const method = fn.childForFieldName('property').text;
+      if (method === 'notNull') col.notNull = true;
+      else if (method === 'primaryKey') col.primaryKey = true;
+      else if (method === 'unique') col.unique = true;
+      else if (method === 'references') {
+        const ref = referenceTarget(args && args.namedChild(0));
+        if (ref) col.references = ref;
+        else col.unresolved = `references(${(args ? args.text : '').slice(1, 81)}) — target not a plain table.column`;
+      }
+      n = obj;
+      continue;
+    }
+    // The type builder at the root: uuid('x'), t.uuid('x'), statusEnum('x').
+    col.type = fn && fn.type === 'member_expression' ? fn.childForFieldName('property').text : (fn ? fn.text : null);
+    col.sqlName = stringValue(args && args.namedChild(0));
+    break;
+  }
+  if (!col.type) col.unresolved = `column value is a ${value ? value.type : 'missing node'}, not a builder call`;
+  return col;
+}
+
+/** `foreignKey({ columns: [t.a], foreignColumns: [users.id] })` inside the extras argument. */
+function collectForeignKeys(node, out) {
+  if (!node) return;
+  if (node.type === 'call_expression') {
+    const fn = node.childForFieldName('function');
+    const arg = node.childForFieldName('arguments');
+    const obj = arg && arg.namedChild(0);
+    if (fn && fn.text === 'foreignKey' && obj && obj.type === 'object') {
+      const fk = { columns: [], table: null, foreignColumns: [] };
+      for (const pair of obj.namedChildren) {
+        if (pair.type !== 'pair') continue;
+        const k = pair.childForFieldName('key').text;
+        const v = pair.childForFieldName('value');
+        if (!v || v.type !== 'array') continue;
+        for (const el of v.namedChildren) {
+          if (el.type !== 'member_expression') continue;
+          const prop = el.childForFieldName('property').text;
+          if (k === 'columns') fk.columns.push(prop);
+          if (k === 'foreignColumns') { fk.table = tableNameOf(el.childForFieldName('object')); fk.foreignColumns.push(prop); }
+        }
+      }
+      if (fk.table) out.push(fk);
+      return;
+    }
+  }
+  for (let i = 0; i < node.namedChildCount; i++) collectForeignKeys(node.namedChild(i), out);
+}
+
+/** meta for `pgTable('sql_name', { columns }, extras)`. Shape gaps are named in `unresolved`. */
+function tableMeta(builder, args) {
+  const meta = { kind: 'table', dialect: TABLE_BUILDERS[builder], builder, sqlName: stringValue(args.namedChild(0)), columns: [], foreignKeys: [] };
+  const cols = columnsObject(args.namedChild(1));
+  const problems = [];
+  if (!meta.sqlName) problems.push('table name is not a string literal');
+  if (!cols) problems.push('columns argument is not an object literal');
+  for (const child of cols ? cols.namedChildren : []) {
+    if (child.type === 'pair') meta.columns.push(parseColumn(child.childForFieldName('key').text, child.childForFieldName('value')));
+    else if (child.type === 'spread_element') meta.columns.push({ name: child.text, type: 'spread', unresolved: 'spread — columns defined elsewhere' });
+  }
+  collectForeignKeys(args.namedChild(2), meta.foreignKeys);
+  for (const c of meta.columns) if (c.unresolved) problems.push(`column ${c.name}: ${c.unresolved}`);
+  if (problems.length) meta.unresolved = problems;
+  return meta;
+}
+
+function enumMeta(builder, args) {
+  const values = args.namedChild(1);
+  const meta = { kind: 'enum', dialect: ENUM_BUILDERS[builder], builder, sqlName: stringValue(args.namedChild(0)), values: [] };
+  if (values && values.type === 'array') meta.values = values.namedChildren.map(stringValue).filter((v) => v !== null);
+  const problems = [];
+  if (!meta.sqlName) problems.push('enum name is not a string literal');
+  if (!values || values.type !== 'array') problems.push('values argument is not an array literal');
+  if (problems.length) meta.unresolved = problems;
+  return meta;
+}
+
+/**
+ * Names in this file that could be a table: imported names (local → exported
+ * name), namespace imports (`import * as schema`), and tables declared here.
+ */
+function collectTableCandidates(rootNode) {
+  const local = new Map();
+  const namespaces = new Set();
+  for (const stmt of rootNode.namedChildren) {
+    if (stmt.type === 'import_statement') {
+      const clause = stmt.namedChildren.find((c) => c.type === 'import_clause');
+      for (const sub of clause ? clause.namedChildren : []) {
+        if (sub.type === 'identifier') local.set(sub.text, sub.text);
+        if (sub.type === 'namespace_import') { const id = sub.namedChildren.find((c) => c.type === 'identifier'); if (id) namespaces.add(id.text); }
+        if (sub.type === 'named_imports') {
+          for (const spec of sub.namedChildren) {
+            const name = spec.childForFieldName('name');
+            const alias = spec.childForFieldName('alias');
+            if (name) local.set((alias || name).text, name.text);
+          }
+        }
+      }
+    }
+    const decl = stmt.type === 'export_statement' ? stmt.childForFieldName('declaration') : stmt;
+    if (decl && decl.type === 'lexical_declaration') {
+      for (const d of decl.namedChildren) {
+        const value = d.type === 'variable_declarator' ? d.childForFieldName('value') : null;
+        const fn = value && value.type === 'call_expression' ? value.childForFieldName('function') : null;
+        if (fn && (TABLE_BUILDERS[fn.text] || ENUM_BUILDERS[fn.text])) local.set(d.childForFieldName('name').text, d.childForFieldName('name').text);
+      }
+    }
+  }
+  return { local, namespaces };
+}
+
+/** The write operation a call chain performs (`db.update(T).set().where(...)` → 'update'), or null. */
+function chainWriteOp(call) {
+  let n = call;
+  while (n && n.type === 'call_expression') {
+    const fn = n.childForFieldName('function');
+    if (!fn || fn.type !== 'member_expression') return null;
+    const prop = fn.childForFieldName('property').text;
+    if (TABLE_WRITE_OPS.has(prop)) return prop;
+    n = unwrapParens(fn.childForFieldName('object'));
+  }
+  return null;
+}
+
+const SCOPE_BOUNDARY = /(_statement|_declaration|^arrow_function$|^function$|^function_expression$|^method_definition$|^statement_block$)/;
+
+/** A column ref is a WRITE when a call chain around it (up to its statement) inserts/updates/deletes. */
+/**
+ * Is this identifier a USE of the name? Not its declaration, an import/export
+ * specifier, a parameter, a callee, or the receiver of a method call (`logger.info()`).
+ */
+function isUseSite(node) {
+  const parent = node.parent;
+  if (!parent) return false;
+  if (NON_USE_PARENTS.has(parent.type)) return false;
+  const same = (field) => { const f = parent.childForFieldName(field); return f !== null && f.startIndex === node.startIndex && f.type === node.type; };
+  if (parent.type === 'variable_declarator' && same('name')) return false;
+  if (parent.type === 'call_expression' && same('function')) return false;
+  if (parent.type === 'new_expression' && same('constructor')) return false;
+  if (parent.type === 'member_expression' && same('object')) {
+    const grand = parent.parent;
+    const callee = grand && grand.type === 'call_expression' ? grand.childForFieldName('function') : null;
+    if (callee !== null && callee.startIndex === parent.startIndex) return false;
+  }
+  return true;
+}
+
+function refAccess(node) {
+  for (let p = node.parent; p && !SCOPE_BOUNDARY.test(p.type); p = p.parent) {
+    if (p.type === 'call_expression' && chainWriteOp(p)) return 'WRITE';
+  }
+  return 'READ';
+}
+
 // ── Python-specific extraction ────────────────────────────────────────────────
 
 function walkPython(rootNode, relPath, entities, edges) {
@@ -371,6 +610,38 @@ function walkPython(rootNode, relPath, entities, edges) {
  * a file-qualified source funcId per [RULE] who-calls-function-identity-disambiguated.
  */
 function walkTSJS(rootNode, relPath, entities, edges) {
+  // Drizzle table tracking — see "Drizzle database tables" above.
+  const candidates = collectTableCandidates(rootNode);
+  const consumed = new Set();     // startIndex of table args already recorded as an operation
+  const declRanges = [];          // [start, end] of table declarations (FKs live in meta, not edges)
+  const refSeen = new Set();      // one column-ref edge per (user, access, table)
+  const inDecl = (i) => declRanges.some(([s, e]) => i >= s && i < e);
+  const userOf = (enclosingFuncId) => (enclosingFuncId === null ? `${relPath}#_toplevel` : enclosingFuncId);
+  const tableEdge = (access, src, name, op, node) => edges.push({
+    kind: `TABLE-${access}`,
+    source: src,
+    target: `TABLE#${name}#${op}@${node.startPosition.row + 1}`,
+    line: node.startPosition.row + 1,
+  });
+  /** The exported table name `node` refers to, when it is a candidate (`T`, `alias`, `schema.T`); else null. */
+  function candidateName(node) {
+    if (node.type === 'identifier') return candidates.local.has(node.text) ? candidates.local.get(node.text) : null;
+    if (node.type !== 'member_expression') return null;
+    const obj = node.childForFieldName('object');
+    if (obj.type !== 'identifier' || !candidates.namespaces.has(obj.text)) return null;
+    return node.childForFieldName('property').text;
+  }
+  function tableRef(node, name, enclosingFuncId) {
+    if (consumed.has(node.startIndex)) return;
+    if (inDecl(node.startIndex)) return;
+    const src = userOf(enclosingFuncId);
+    const access = refAccess(node);
+    const key = `${src}\u0000${access}\u0000${name}`;
+    if (refSeen.has(key)) return;
+    refSeen.add(key);
+    tableEdge(access, src, name, 'ref', node);
+  }
+
   /**
    * @param {object} node  - tree-sitter ASTNode
    * @param {string|null} enclosingFuncId  - funcId of innermost function containing this node
@@ -432,6 +703,17 @@ function walkTSJS(rootNode, relPath, entities, edges) {
           });
         }
 
+        // Table operation: `.from(T)`, `.innerJoin(T, …)`, `.insert(T)`, `.update(T)`, `.delete(T)`.
+        // [RULE] drizzle-table-entity-and-usage-edges
+        const op = fn.type === 'member_expression' ? fn.childForFieldName('property').text : null;
+        const tableArg = op !== null && TABLE_OPS.has(op) && args ? unwrapParens(args.namedChild(0)) : null;
+        const tableName = tableArg ? candidateName(tableArg) : null;
+        if (tableName !== null) {
+          tableEdge(TABLE_WRITE_OPS.has(op) ? 'WRITE' : 'READ', userOf(enclosingFuncId), tableName, op, fn.childForFieldName('property'));
+          consumed.add(tableArg.startIndex);
+          if (tableArg.type === 'member_expression') consumed.add(tableArg.childForFieldName('property').startIndex);
+        }
+
         // Route registration: the route itself becomes the caller, named by
         // method + path + line — for its anonymous handler AND for every
         // middleware call in its arguments (`requireAuth()`, `requireLocationTenant()`).
@@ -467,6 +749,23 @@ function walkTSJS(rootNode, relPath, entities, edges) {
       }
 
       // Fall through to walk children (the call_expression can contain more nodes)
+    }
+
+    // ── table references: `eq(T.id, …)`, `getTableColumns(T)`, `db.query.T.findMany()` ──
+    // [RULE] drizzle-table-entity-and-usage-edges
+    if (t === 'identifier' || t === 'shorthand_property_identifier') {
+      if (candidates.local.has(node.text) && isUseSite(node)) tableRef(node, candidates.local.get(node.text), enclosingFuncId);
+      return;
+    }
+    if (t === 'member_expression') {
+      const obj = node.childForFieldName('object');
+      const prop = node.childForFieldName('property');
+      const viaQuery = obj.type === 'member_expression' && obj.childForFieldName('property').text === 'query';
+      if (viaQuery && prop.type === 'property_identifier') {
+        tableEdge('READ', userOf(enclosingFuncId), prop.text, 'query', node);
+      } else if (obj.type === 'identifier' && candidates.namespaces.has(obj.text) && isUseSite(node)) {
+        tableRef(node, prop.text, enclosingFuncId);
+      }
     }
 
     // ── anonymous function with no named scope around it ─────────────────
@@ -573,6 +872,26 @@ function walkTSJS(rootNode, relPath, entities, edges) {
               walk(valueNode.child(j), funcId, enclosingClass);
             }
             walkedValues.add(valueNode.startIndex);
+          } else if (nameNode && valueNode && valueNode.type === 'call_expression') {
+            // `const scheduleEvents = pgTable('schedule_events', {...})` → table entity.
+            // [RULE] drizzle-table-entity-and-usage-edges
+            const builder = valueNode.childForFieldName('function').text;
+            const args = valueNode.childForFieldName('arguments');
+            const isTable = Object.prototype.hasOwnProperty.call(TABLE_BUILDERS, builder);
+            const isEnum = Object.prototype.hasOwnProperty.call(ENUM_BUILDERS, builder);
+            if (args && (isTable || isEnum)) {
+              const meta = isTable ? tableMeta(builder, args) : enumMeta(builder, args);
+              entities.push({
+                id: `${relPath}#${nameNode.text}@${decl.startPosition.row + 1}`,
+                name: nameNode.text,
+                type: meta.kind,
+                line: decl.startPosition.row + 1,
+                endLine: valueNode.endPosition.row + 1,
+                exported: isExp,
+                meta,
+              });
+              declRanges.push([valueNode.startIndex, valueNode.endIndex]);
+            }
           }
         }
       }

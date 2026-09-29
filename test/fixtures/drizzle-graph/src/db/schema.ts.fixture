@@ -1,0 +1,23 @@
+import { pgTable, pgEnum, uuid, text, timestamp, index } from 'drizzle-orm/pg-core';
+
+export const statusEnum = pgEnum('event_status', ['scheduled', 'done']);
+
+export const flightSchools = pgTable('flight_schools', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: text('name').notNull(),
+});
+
+export const scheduleEvents = pgTable(
+  'schedule_events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    flightSchoolId: uuid('flight_school_id')
+      .notNull()
+      .references(() => flightSchools.id),
+    status: statusEnum('status').notNull(),
+    startAt: timestamp('start_at', { withTimezone: true }).notNull(),
+  },
+  (t) => [index('schedule_events_school_idx').on(t.flightSchoolId)],
+);
+
+export const unusedTable = pgTable('unused_table', { id: uuid('id').primaryKey() });

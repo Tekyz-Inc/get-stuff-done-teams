@@ -20,6 +20,13 @@
  *
  * A malformed file HALTS (throws): silently ignoring it would index exactly the
  * trees the user asked to keep out, with nothing saying so.
+ *
+ * DEFAULT exclude (no file needed): GSD-T's own tools, which `gsd-t update-all`
+ * copies into every project's bin/ (PROJECT_BIN_TOOLS in bin/gsd-t.js). They are
+ * not the project's code; indexed, they put GSD-T's functions into its who-calls.
+ * Not applied in GSD-T's own repo, where bin/ IS the application. The pattern is
+ * checked against PROJECT_BIN_TOOLS by test/graph-drizzle-tables.test.js.
+ * [RULE] graph-excludes-gsdt-copied-tools-by-default
  */
 
 const fs = require('fs');
@@ -27,6 +34,18 @@ const path = require('path');
 
 const EXCLUDE_FILE = path.join('.gsd-t', 'graph-exclude.json');
 const REGEX_SPECIALS = /[.+?^${}()|[\]\\]/g;
+const GSDT_TOOL_FILES = /^bin\/(gsd-t-[^/]+|archive-progress|cli-preflight|parallel-cli|parallel-cli-tee)\.cjs$/i;
+const GSDT_TOOL_DEFAULT = "bin/<GSD-T's copied tools: gsd-t-*.cjs, archive-progress.cjs, cli-preflight.cjs, parallel-cli*.cjs>";
+
+/** GSD-T's own source repo — its bin/ is the application, never excluded. */
+function isGsdtSourceRepo(projectRoot) {
+  const pkg = path.join(projectRoot, 'package.json');
+  if (!fs.existsSync(pkg)) return false;
+  let parsed;
+  try { parsed = JSON.parse(fs.readFileSync(pkg, 'utf8')); }
+  catch (e) { throw new Error(`package.json is not valid JSON (${e.message}) — cannot tell whether bin/ holds GSD-T's copied tools`); }
+  return parsed !== null && parsed.name === '@tekyzinc/gsd-t';
+}
 
 function toRegex(pattern) {
   const p = String(pattern).trim().replace(/\\/g, '/').replace(/^\.\//, '').replace(/^\/+/, '');
@@ -60,7 +79,12 @@ function validateList(parsed) {
  */
 function loadGraphExcludes(projectRoot) {
   const file = path.join(projectRoot, EXCLUDE_FILE);
-  if (!fs.existsSync(file)) return { patterns: [], source: null, isExcluded: () => false };
+  const toolsExcluded = !isGsdtSourceRepo(projectRoot);
+  const defaults = toolsExcluded ? [GSDT_TOOL_DEFAULT] : [];
+  const isDefault = (rel) => toolsExcluded && GSDT_TOOL_FILES.test(rel);
+  if (!fs.existsSync(file)) {
+    return { patterns: [], defaults, source: null, isExcluded: (relPath) => isDefault(String(relPath).split(path.sep).join('/')) };
+  }
   let parsed;
   try { parsed = JSON.parse(fs.readFileSync(file, 'utf8')); }
   catch (e) { throw new Error(`${EXCLUDE_FILE} is not valid JSON (${e.message}) — fix it or delete it`); }
@@ -70,12 +94,13 @@ function loadGraphExcludes(projectRoot) {
   const regexes = parsed.exclude.map(toRegex).filter(Boolean);
   return {
     patterns: parsed.exclude,
+    defaults,
     source: EXCLUDE_FILE,
     isExcluded: (relPath) => {
       const rel = String(relPath).split(path.sep).join('/');
-      return regexes.some((r) => r.test(rel));
+      return isDefault(rel) || regexes.some((r) => r.test(rel));
     },
   };
 }
 
-module.exports = { loadGraphExcludes, EXCLUDE_FILE, _toRegex: toRegex };
+module.exports = { loadGraphExcludes, EXCLUDE_FILE, GSDT_TOOL_FILES, _toRegex: toRegex };

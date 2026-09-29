@@ -1,0 +1,3 @@
+'use strict';
+function copiedGsdtTool() { return 1; }
+module.exports = { copiedGsdtTool };

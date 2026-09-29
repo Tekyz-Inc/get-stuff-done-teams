@@ -281,8 +281,47 @@ function buildNoGraphReason(found, cls) {
   ].join("\n");
 }
 
+// --- Database-table questions ---------------------------------------------
+//
+// `grep -rn "insert(scheduleEvents"` or `grep pgTable` asks about a database
+// table. The graph indexes Drizzle tables (who-uses / table / blast-radius), so
+// the block names those verbs and the table instead of sending the caller to
+// who-calls, which has no answer for a table. [RULE] search-guard-routes-table-questions
+
+const TABLE_BUILDER_SHAPE = /\b(pgTable|mysqlTable|sqliteTable|pgEnum)\b/;
+const TABLE_OP_SHAPE = /\.?\b(from|innerJoin|leftJoin|rightJoin|fullJoin|insert|update|delete|references)\s*\\?\(\s*(?:\\?\(\s*\\?\)\s*=>\s*)?([A-Za-z_$][\w$]*)/;
+const QUERY_API_SHAPE = /\bquery\\?\.([A-Za-z_$][\w$]*)/;
+
+/** → { table: name|null, why } when the pattern reads as a table question; else null. */
+function tableQuestion(pattern) {
+  const p = String(pattern);
+  const op = TABLE_OP_SHAPE.exec(p);
+  if (op) return { table: op[2], why: "a Drizzle table operation (" + op[1] + ")" };
+  const q = QUERY_API_SHAPE.exec(p);
+  if (q && /\bdb\b|\btx\b/.test(p)) return { table: q[1], why: "a Drizzle relational query (db.query.<table>)" };
+  if (TABLE_BUILDER_SHAPE.test(p)) return { table: null, why: "a Drizzle table declaration" };
+  return null;
+}
+
+function tableRouting(tq) {
+  const t = tq.table === null ? "<table>" : tq.table;
+  return [
+    "This reads as a database-table question (" + tq.why + "). The graph indexes tables:",
+    "",
+    "  gsd-t graph who-uses " + t + "            - every function / route / method that uses it",
+    "  gsd-t graph who-uses " + t + " --writes   - only inserts / updates / deletes (--reads for reads)",
+    "  gsd-t graph table " + t + "               - its columns and foreign keys, both directions",
+    "  gsd-t graph blast-radius " + t + "        - tables that reference it + the code that uses it",
+    "",
+    "A table is found by its code name (scheduleEvents) or its SQL name (schedule_events).",
+    "",
+  ];
+}
+
 function buildStructuralReason(found, cls) {
   const lines = [];
+  const tq = tableQuestion(found.pattern);
+  if (tq !== null) lines.push(...tableRouting(tq));
 
   const symbol = cls.symbol === null ? found.pattern : cls.symbol;
   const verb = cls.verb === null ? "who-calls" : cls.verb;
@@ -298,6 +337,7 @@ function buildStructuralReason(found, cls) {
     "  gsd-t graph " + verb + " " + symbol,
     "",
     "Other verbs: who-imports, who-calls, defines, blast-radius, body.",
+    "A database table (Drizzle)? gsd-t graph who-uses " + symbol + "  /  gsd-t graph table " + symbol,
     "",
     "If this really is a text search - a phrase in prose, a key in config, a string in a",
     "document - scope it to the files the graph does not index, and it will run:",
@@ -308,7 +348,8 @@ function buildStructuralReason(found, cls) {
 }
 
 function buildUnclearReason(found, cls) {
-  return [
+  const tq = tableQuestion(found.pattern);
+  return (tq === null ? [] : tableRouting(tq)).concat([
     "This search could be asking about code structure, and that has to be settled before",
     "it runs - a guess in either direction is how the graph rule stopped having teeth.",
     "",
@@ -320,9 +361,12 @@ function buildUnclearReason(found, cls) {
     "  Structure (who calls, who imports, where defined):",
     "    gsd-t graph who-calls <symbol>",
     "",
+    "  A database table (who reads or writes it, its columns and foreign keys):",
+    "    gsd-t graph who-uses <table>   /   gsd-t graph table <table>",
+    "",
     "  Text in files the graph does not index (.md, .json, .sql, config, prose):",
     "    add --include='*.md' (or the right extensions) and run it again",
-  ].join("\n");
+  ]).join("\n");
 }
 
 

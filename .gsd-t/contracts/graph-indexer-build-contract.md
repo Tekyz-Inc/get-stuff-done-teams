@@ -35,6 +35,9 @@ const { tryScipUpgrade, detectScip } =
   entityCount: number,
   edgeCount: number,
   tier: { floor: number, upgraded: number },
+  tableCount: number,    // Drizzle tables indexed
+  enumCount: number,     // Drizzle enums indexed
+  tablesUnresolved: Array<{ file, name, problems: string[] }>, // declarations only partly read — warned every build
   errors: number,
   durationMs: number,
   dbPath: string,
@@ -87,6 +90,8 @@ TierEnum = "compiler-accurate" | "compiler-partial" | "tree-sitter-floor" | "tre
 - `tree-sitter-floor-SCIP-MISSING` — the SCIP indexer RAN for this file's language but produced no document for this file (over its size cap, outside every tsconfig, or dropped mid-run); call targets there stay unresolved. `build_index` warns with the file list and returns `scipMissing[]`; `gsd-t graph status` lists them. scip-typescript is run with `--max-file-byte-size 64mb` (its 1mb default silently skipped large route files). [RULE] scip-missing-file-detected-never-silent
 
 **Project exclude list.** `.gsd-t/graph-exclude.json` — `{ "exclude": ["design/", "figma-exports/**", "**/*.figma.tsx"] }` — keeps ancillary trees (design/Figma exports, prototypes) out of the graph. A pattern with no `*` is a whole-segment path prefix (`design/` does not match `design-system/`); `*` stays within one folder, `**` crosses folders; matching is case-insensitive. One module (`bin/gsd-t-graph-exclude.cjs`) is read by BOTH `enumerateFiles` and the freshness walker, so an excluded file is never a phantom ADD and a newly-excluded file drops out as a DELETE on the next query. A malformed file THROWS (never silently indexes everything). `gsd-t graph status` names the active patterns. SCIP itself still follows tsconfig — exclude a tree there too if SCIP time matters. [RULE] freshness-excludes-match-indexer-skipdirs
+**Default exclude:** GSD-T's own tools that `update-all` copies into a project's `bin/` (PROJECT_BIN_TOOLS — `bin/gsd-t-*.cjs`, `archive-progress.cjs`, `cli-preflight.cjs`, `parallel-cli*.cjs`) are excluded with no file needed, except in GSD-T's own repo (package name `@tekyzinc/gsd-t`), where `bin/` is the application. `loadGraphExcludes` returns `defaults`; `status` names them. A test fails if a PROJECT_BIN_TOOLS entry is not covered. [RULE] graph-excludes-gsdt-copied-tools-by-default
+**A full build leaves exactly the enumerated set:** rows (nodes, edges, `files`) for a file no longer enumerated — deleted, or newly excluded — are pruned at the end of `build_index`, and the count is logged. [RULE] status-counts-files-table
 - **Anonymous callers:** a call inside an anonymous route handler (`router.get('/p', mw, async (c) => …)`) is credited to a synthetic caller `file#GET /p@<line>` (also registered as an entity); another anonymous callback is credited to its enclosing named function, else `file#anonymous@<line>`. [RULE] anonymous-caller-synthesized-never-dropped
 - **Route middleware arguments:** every call in the arguments of a route registration — middleware factories (`router.get('/p', requireAuth(), requireTenant(), handler)`) as well as anonymous handlers — is credited to the route caller `file#METHOD /p@<line>`, never to the enclosing scope. A registration with no anonymous handler counts as a route only when its first argument starts with `/` (so `cache.get('k', compute())` is not one). Call-site edges carry `col` (callee column) for the tier check. [RULE] route-middleware-args-credited-to-route
 

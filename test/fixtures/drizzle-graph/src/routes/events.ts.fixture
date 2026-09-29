@@ -1,0 +1,28 @@
+import { Hono } from 'hono';
+import { eq } from 'drizzle-orm';
+import { db } from '../db/client';
+import { scheduleEvents, flightSchools } from '../db/schema';
+
+const router = new Hono();
+
+router.get('/events/:id', async (c) => {
+  const rows = await db
+    .select()
+    .from(scheduleEvents)
+    .innerJoin(flightSchools, eq(scheduleEvents.flightSchoolId, flightSchools.id))
+    .where(eq(scheduleEvents.id, c.req.param('id')));
+  return c.json(rows);
+});
+
+router.post('/events', async (c) => {
+  const body = await c.req.json();
+  const [row] = await db.insert(scheduleEvents).values(body).returning();
+  return c.json(row);
+});
+
+router.delete('/events/:id', async (c) => {
+  await db.delete(scheduleEvents).where(eq(scheduleEvents.id, c.req.param('id')));
+  return c.body(null, 204);
+});
+
+export default router;

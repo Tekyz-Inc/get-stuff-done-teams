@@ -1,0 +1,2 @@
+import { flightSchools } from './schema';
+export function schoolColumns() { return Object.keys(flightSchools); }

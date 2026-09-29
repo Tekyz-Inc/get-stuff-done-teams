@@ -20,6 +20,11 @@
  *   gsd-t graph dangling                       — edges whose dst is a missing node (delete/rename residue)
  *   gsd-t graph test-impl [--inverse]          — test→impl call coverage (--inverse = untested-impl)
  *
+ * Verbs (database tables — Drizzle pgTable/mysqlTable/sqliteTable + pgEnum):
+ *   gsd-t graph who-uses <table> [--writes|--reads] — functions / methods / route handlers using a table
+ *   gsd-t graph table <table>                   — columns + foreign keys in both directions
+ *   (blast-radius <table> and body <table> also accept a table)
+ *
  * Invariants (all verified by keystone tests):
  *   [RULE] query-cli-never-greps       — NO directive-driven grep fallback in any code path
  *   [RULE] parser-fail-disables-loud-never-silent — genuine parser/store failure → {ok:false, reason:'graph-unavailable'}
@@ -380,6 +385,12 @@ function buildIndex(records, skippedFiles) {
   /** @type {Map<string,string>} file → tier (M114: who-calls needs the TARGET
    * file's tier, not just the repo-wide dominant one). */
   const fileTier = new Map();
+  /** @type {Map<string,{name:string,file:string,tier:string,endLine:?number,kind:string,meta:object}>}
+   * Drizzle tables + enums, kept OUT of funcEntities so dead-code / test-impl /
+   * who-calls never mistake a table for a function. [RULE] drizzle-table-entity-and-usage-edges */
+  const tableEntities = new Map();
+  /** @type {Map<string,Array<{src:string,access:string,op:string,line:number}>>} table code name → uses */
+  const tableUses = new Map();
 
   let dominantTier = "compiler-accurate";
   let hasFloor = false;
@@ -395,7 +406,12 @@ function buildIndex(records, skippedFiles) {
     // Index entities for bare-name disambiguation + tier labeling
     if (Array.isArray(rec.entities)) {
       for (const ent of rec.entities) {
-        if (ent.funcId) {
+        if (ent.funcId && (ent.kind === "table" || ent.kind === "enum")) {
+          tableEntities.set(ent.funcId, {
+            name: ent.name, file: ent.file || rec.file, tier: ent.tier || rec.tier,
+            endLine: ent.endLine ?? null, kind: ent.kind, meta: ent.meta || {},
+          });
+        } else if (ent.funcId) {
           funcEntities.set(ent.funcId, {
             name: ent.name,
             file: ent.file || rec.file,
@@ -419,6 +435,13 @@ function buildIndex(records, skippedFiles) {
           callGraph.get(edge.dst).add(edge.src);
           // Forward: collect ALL call edges for dangling + test-impl verbs
           forwardCallEdges.push({ src: edge.src, dst: edge.dst, kind: "CALL" });
+        } else if (edge.kind === "TABLE-READ" || edge.kind === "TABLE-WRITE") {
+          // dst = TABLE#<name>#<operation>@<line>
+          const m = /^TABLE#([^#]+)#([^@]+)@(\d+)$/.exec(edge.dst);
+          if (m) {
+            if (!tableUses.has(m[1])) tableUses.set(m[1], []);
+            tableUses.get(m[1]).push({ src: edge.src, access: edge.kind.slice(6), op: m[2], line: Number(m[3]) });
+          }
         }
       }
     }
@@ -433,6 +456,8 @@ function buildIndex(records, skippedFiles) {
     nameMatchedCallGraph: buildNameMatchedCallGraph(forwardCallEdges, funcEntities, fileTier),
     forwardCallEdges,
     funcEntities,
+    tableEntities,
+    tableUses,
     allFiles,
     fileTier,
     tier: dominantTier,
@@ -546,9 +571,12 @@ function loadSqliteStore(dbPath) {
     // M98: end_line is a post-M98 column; a pre-M98 graph (read-only here, so the
     // write-path migration can't run) lacks it. Detect and select conditionally so
     // an older index still loads (end_line just comes back null → body re-indexes).
-    const hasEndLine = db.prepare("PRAGMA table_info(nodes)").all().some((c) => c.name === "end_line");
+    const nodeCols = db.prepare("PRAGMA table_info(nodes)").all().map((c) => c.name);
+    const hasEndLine = nodeCols.includes("end_line");
+    // meta (table columns / enum values) is newer still — same conditional select.
+    const hasMeta = nodeCols.includes("meta");
     const nodes = db.prepare(
-      `SELECT id, kind, tier, file, name, func_id, ${hasEndLine ? "end_line" : "NULL AS end_line"} FROM nodes`
+      `SELECT id, kind, tier, file, name, func_id, ${hasEndLine ? "end_line" : "NULL AS end_line"}, ${hasMeta ? "meta" : "NULL AS meta"} FROM nodes`
     ).all();
     const edges = db.prepare("SELECT kind, src, dst FROM edges").all();
 
@@ -663,7 +691,12 @@ function loadSqliteStore(dbPath) {
       return byFile.get(file);
     };
     for (const n of nodes) {
-      if (n.func_id) rec(n.file).entities.push({ funcId: n.func_id, name: n.name, file: n.file, tier: n.tier, endLine: n.end_line });
+      if (n.func_id) {
+        rec(n.file).entities.push({
+          funcId: n.func_id, name: n.name, file: n.file, tier: n.tier, endLine: n.end_line, kind: n.kind,
+          ...(n.meta === null ? {} : { meta: JSON.parse(n.meta) }),
+        });
+      }
     }
     // M114 — carry each file's TIER onto its record. Without this the record is
     // {file, entities, edges} with no tier, so the query layer cannot tell a
@@ -693,10 +726,16 @@ function loadSqliteStore(dbPath) {
     // A file with call edges but no function node (top-level code only) got no
     // tier from the node pass. Name matching needs to know whether SCIP looked
     // at it, so take its tier from the files table. [RULE] name-match-only-where-scip-never-looked
+    //
+    // Every file in the files table is a record, even one with no function and
+    // no edge (a types-only or constants-only file). Building records only from
+    // nodes/edges left those out, so `graph status` reported 4,301 files right
+    // after an index of 4,373 (hilo-figma-atos). [RULE] status-counts-files-table
     if (hasFilesTable) {
       for (const r of db.prepare("SELECT file, tier FROM files").all()) {
         const f = norm(r.file);
-        if (r.tier && byFile.has(f) && !byFile.get(f).tier) byFile.get(f).tier = r.tier;
+        const fr = rec(f);
+        if (r.tier && !fr.tier) fr.tier = r.tier;
       }
     }
     db.close();
@@ -907,7 +946,10 @@ function queryWhoCalls(index, identity) {
   }
 
   if (matchingFuncIds.length === 0) {
-    return { results: [], tier: index.tier, coverage };
+    const out = { results: [], tier: index.tier, coverage };
+    const hint = tableHint(index, bareName);
+    if (hint) out.hint = hint;
+    return out;
   }
 
   if (matchingFuncIds.length === 1) {
@@ -920,6 +962,16 @@ function queryWhoCalls(index, identity) {
 
   // Multiple matches — ambiguous, NEVER merge
   return { ambiguous: true, candidates: matchingFuncIds.sort() };
+}
+
+/** A who-calls on a table name (or a table builder) is a table question — say which verbs answer it. */
+function tableHint(index, name) {
+  if (name === "pgTable" || name === "mysqlTable" || name === "sqliteTable" || name === "pgEnum") {
+    return `${name} declares database tables — the graph records each one: gsd-t graph table <name>, gsd-t graph who-uses <name>`;
+  }
+  const r = resolveTable(index, name);
+  if (r.notFound) return null;
+  return `'${name}' is a database ${r.table ? r.table.kind : "table"} — ask: gsd-t graph who-uses ${name}  |  gsd-t graph table ${name}  |  gsd-t graph blast-radius ${name}`;
 }
 
 // ─── Query: body (M98) ────────────────────────────────────────────────────────
@@ -973,7 +1025,13 @@ function queryBody(index, identity, projectRoot) {
     else if (matches.length > 1) return { ambiguous: true, candidates: matches.sort() };
   }
 
-  if (!funcId) return { notFound: true };
+  if (!funcId) {
+    // Not a function — a database table or enum? [RULE] drizzle-table-entity-and-usage-edges
+    const tr = resolveTable(index, identity);
+    if (tr.ambiguous) return tr;
+    if (!tr.table) return { notFound: true };
+    return tableBody(index, tr.table, projectRoot);
+  }
 
   const meta = index.funcEntities.get(funcId);
   // Start line is encoded in the funcId suffix `@<line>`; end_line from the node.
@@ -1032,6 +1090,27 @@ function queryBody(index, identity, projectRoot) {
   };
 }
 
+/** body of a table: its declaration sliced live from disk + columns + FKs both ways. */
+function tableBody(index, t, projectRoot) {
+  const startLine = parseInt(/@(\d+)$/.exec(t.id)[1], 10);
+  const absFile = path.isAbsolute(t.file) ? t.file : path.join(projectRoot, t.file);
+  let lines;
+  try { lines = fs.readFileSync(absFile, "utf8").split("\n"); }
+  catch (_e) { return { notFound: true, file: t.file }; }
+  return {
+    ok: true,
+    funcId: t.id,
+    file: t.file,
+    lineRange: [startLine, t.endLine],
+    tier: t.tier,
+    imports: [],
+    classHeader: null,
+    source: lines.slice(startLine - 1, t.endLine).join("\n"),
+    callers: [],
+    table: tableDetail(index, t),
+  };
+}
+
 // ─── Query: blast-radius ──────────────────────────────────────────────────────
 
 /**
@@ -1067,6 +1146,12 @@ function queryBody(index, identity, projectRoot) {
  * @returns {{ results: string[], tier: string }}
  */
 function queryBlastRadius(index, target) {
+  // A database table (by code name, SQL name, or id) — not a file, not a function.
+  if (!index.allFiles.has(target) && !index.funcEntities.has(target)) {
+    const tr = resolveTable(index, target);
+    if (tr.table) return queryTableBlastRadius(index, tr.table);
+    if (tr.ambiguous) return tr;
+  }
   const isFilePath = !target.includes("#");
 
   // Build the initial frontier (multi-root if file-path: include owned funcIds)
@@ -1135,6 +1220,171 @@ function queryBlastRadius(index, target) {
   };
 }
 
+// ─── Database tables (Drizzle) ────────────────────────────────────────────────
+//
+// Verbs: `table <name>`, `who-uses <table> [--writes|--reads]`, and table mode of
+// `blast-radius` and `body`. A table is found by its code name (scheduleEvents)
+// or its SQL name (schedule_events, case-insensitive — a domain value).
+// Uses are matched by the table's exported name as written at the use site
+// (syntactic, not compiler-resolved): an import alias is followed, a table passed
+// through a function parameter is not. [RULE] drizzle-table-entity-and-usage-edges
+// [RULE] table-not-indexed-distinct-from-no-users
+
+/** → { table: {id, ...meta} } | { ambiguous, candidates } | { notFound } */
+function resolveTable(index, target) {
+  if (!index.tableEntities) return { notFound: true };
+  if (target.includes("#")) {
+    const noLine = target.replace(/@\d+$/, "");
+    for (const [id, t] of index.tableEntities) {
+      if (id === target || id.replace(/@\d+$/, "") === noLine) return { table: { id, ...t } };
+    }
+    return { notFound: true };
+  }
+  const byCode = [];
+  const bySql = [];
+  const lower = target.toLowerCase();
+  for (const [id, t] of index.tableEntities) {
+    if (t.name === target) byCode.push(id);
+    else if (typeof t.meta.sqlName === "string" && t.meta.sqlName.toLowerCase() === lower) bySql.push(id);
+  }
+  const ids = byCode.length ? byCode : bySql;
+  if (ids.length === 0) return { notFound: true };
+  if (ids.length > 1) return { ambiguous: true, candidates: ids.sort() };
+  return { table: { id: ids[0], ...index.tableEntities.get(ids[0]) } };
+}
+
+function notIndexedDetail(index, target) {
+  const n = index.tableEntities ? index.tableEntities.size : 0;
+  return `no table or enum named '${target}' is indexed (${n} tables/enums in the graph, found by code name or SQL name) — ` +
+    `check the name; if it was declared since the last build, run: gsd-t graph index`;
+}
+
+/** Table ids declared under a code name (FK targets are written as code names). */
+function tableIdsNamed(index, name) {
+  const ids = [];
+  for (const [id, t] of index.tableEntities) if (t.name === name) ids.push(id);
+  return ids.sort();
+}
+
+/** Foreign keys out of `t` (column-level references + table-level foreignKey()). */
+function foreignKeysOut(index, t) {
+  const out = [];
+  for (const c of t.meta.columns ? t.meta.columns : []) {
+    if (!c.references) continue;
+    out.push({ column: c.name, sqlColumn: c.sqlName, table: c.references.table, targetColumn: c.references.column, tableIds: tableIdsNamed(index, c.references.table) });
+  }
+  for (const fk of t.meta.foreignKeys ? t.meta.foreignKeys : []) {
+    out.push({ column: fk.columns.join(", "), table: fk.table, targetColumn: fk.foreignColumns.join(", "), tableIds: tableIdsNamed(index, fk.table) });
+  }
+  return out;
+}
+
+/** Foreign keys INTO `t` from every other indexed table. */
+function foreignKeysIn(index, t) {
+  const refs = [];
+  for (const [id, other] of index.tableEntities) {
+    if (other.kind !== "table") continue;
+    for (const fk of foreignKeysOut(index, other)) {
+      if (fk.table === t.name) refs.push({ table: other.name, tableId: id, column: fk.column, sqlColumn: fk.sqlColumn, targetColumn: fk.targetColumn });
+    }
+  }
+  return refs.sort((a, b) => (a.tableId + a.column < b.tableId + b.column ? -1 : 1));
+}
+
+function tableDetail(index, t) {
+  const detail = {
+    id: t.id, kind: t.kind, name: t.name, sqlName: t.meta.sqlName, dialect: t.meta.dialect, file: t.file,
+  };
+  if (t.kind === "enum") {
+    detail.values = t.meta.values;
+    // Tables whose columns are built from this enum (`statusEnum('status')`).
+    detail.usedByColumns = [];
+    for (const [id, other] of index.tableEntities) {
+      for (const c of other.meta.columns ? other.meta.columns : []) {
+        if (c.type === t.name) detail.usedByColumns.push({ table: other.name, tableId: id, column: c.name, sqlColumn: c.sqlName });
+      }
+    }
+  } else {
+    detail.columns = t.meta.columns;
+    detail.references = foreignKeysOut(index, t);
+    detail.referencedBy = foreignKeysIn(index, t);
+  }
+  if (t.meta.unresolved) detail.unresolved = t.meta.unresolved;
+  return detail;
+}
+
+/** `table <name>` → columns + foreign keys in both directions. */
+function queryTable(index, target) {
+  const r = resolveTable(index, target);
+  if (!r.table) return r.ambiguous ? r : { notFound: true, detail: notIndexedDetail(index, target) };
+  return { table: tableDetail(index, r.table), tier: index.tier };
+}
+
+/** `who-uses <table> [--writes|--reads]` → the functions / methods / route handlers that use it. */
+function queryWhoUses(index, target, options) {
+  const mode = options && options.mode ? options.mode : "all";
+  const r = resolveTable(index, target);
+  if (!r.table) return r.ambiguous ? r : { notFound: true, detail: notIndexedDetail(index, target) };
+  const t = r.table;
+  const all = index.tableUses.has(t.name) ? index.tableUses.get(t.name) : [];
+  const uses = all.filter((u) => mode === "all" || (mode === "writes" ? u.access === "WRITE" : u.access === "READ"));
+  const byUser = new Map();
+  const byOperation = {};
+  for (const u of uses) {
+    if (!byUser.has(u.src)) byUser.set(u.src, { user: u.src, file: u.src.split("#")[0], access: [], operations: {} });
+    const row = byUser.get(u.src);
+    if (!row.access.includes(u.access)) row.access.push(u.access);
+    if (!row.operations[u.op]) row.operations[u.op] = [];
+    row.operations[u.op].push(u.line);
+    byOperation[u.op] = (byOperation[u.op] ? byOperation[u.op] : 0) + 1;
+  }
+  const results = Array.from(byUser.values()).sort((a, b) => (a.user < b.user ? -1 : 1));
+  for (const row of results) row.access.sort();
+  const out = {
+    table: { id: t.id, name: t.name, sqlName: t.meta.sqlName, kind: t.kind },
+    mode,
+    results,
+    summary: { users: results.length, files: new Set(results.map((x) => x.file)).size, byOperation },
+    resolution: "syntactic — uses matched by the table's imported name; a table passed through a function parameter or alias() is not followed",
+    coverage: computeCoverage(index.skippedFiles),
+    tier: index.tier,
+  };
+  const sharing = tableIdsNamed(index, t.name);
+  if (sharing.length > 1) out.sharedName = { note: `${sharing.length} tables share the code name '${t.name}' — uses cannot be split between them`, tables: sharing };
+  if (results.length === 0) {
+    out.note = mode === "all"
+      ? `'${t.name}' is indexed; no code in the index uses it`
+      : `'${t.name}' is indexed; no code in the index ${mode === "writes" ? "writes" : "reads"} it`;
+  }
+  return out;
+}
+
+/** blast-radius of a table: tables that reference it by FK (transitively) + the code that uses it. */
+function queryTableBlastRadius(index, t) {
+  const tables = [];
+  const seen = new Set([t.id]);
+  const queue = [{ table: t, depth: 1 }];
+  while (queue.length) {
+    const { table, depth } = queue.shift();
+    for (const ref of foreignKeysIn(index, table)) {
+      if (seen.has(ref.tableId)) continue;
+      seen.add(ref.tableId);
+      tables.push({ id: ref.tableId, via: `${ref.table}.${ref.column} → ${table.name}.${ref.targetColumn}`, depth });
+      queue.push({ table: { id: ref.tableId, ...index.tableEntities.get(ref.tableId) }, depth: depth + 1 });
+    }
+  }
+  const users = (index.tableUses.has(t.name) ? index.tableUses.get(t.name) : []).map((u) => u.src);
+  const code = Array.from(new Set(users)).sort();
+  return {
+    results: tables.map((x) => x.id).concat(code),
+    table: { id: t.id, name: t.name, sqlName: t.meta.sqlName },
+    referencingTables: tables,
+    users: code,
+    tier: index.tier,
+    coverage: computeCoverage(index.skippedFiles),
+  };
+}
+
 // ─── Query: status ────────────────────────────────────────────────────────────
 
 /**
@@ -1159,8 +1409,57 @@ function queryStatus(index, storePath) {
     funcCount: index.funcEntities.size,
     importEdgeCount: Array.from(index.importGraph.values()).reduce((s, v) => s + v.size, 0),
     callEdgeCount: Array.from(index.callGraph.values()).reduce((s, v) => s + v.size, 0),
+    // `tier` is the WORST tier present (one floor file makes it floor). The per-tier
+    // counts are what a build reports, so status shows them too. [RULE] status-counts-files-table
     tier: index.tier,
+    tiers: tierCounts(index),
+    tableCount: countKind(index, "table"),
+    enumCount: countKind(index, "enum"),
+    excludeSuggestions: suggestExcludes(index),
   };
+}
+
+function tierCounts(index) {
+  const counts = {};
+  for (const tier of (index.fileTier ? index.fileTier.values() : [])) counts[tier] = (counts[tier] ? counts[tier] : 0) + 1;
+  return counts;
+}
+
+function countKind(index, kind) {
+  let n = 0;
+  for (const t of (index.tableEntities ? index.tableEntities.values() : [])) if (t.kind === kind) n++;
+  return n;
+}
+
+/**
+ * Top-level folders that look like they are not the application: no file in them
+ * imports, or is imported by, a file in the project's largest folder (the app).
+ * A SUGGESTION for .gsd-t/graph-exclude.json — never applied automatically, since
+ * guessing wrong would silently drop app code from the graph.
+ */
+function suggestExcludes(index) {
+  const top = (f) => (f.includes("/") ? f.split("/")[0] : null);
+  const sizes = new Map();
+  for (const f of index.allFiles) {
+    const t = top(f);
+    if (t !== null) sizes.set(t, (sizes.has(t) ? sizes.get(t) : 0) + 1);
+  }
+  if (sizes.size < 2) return [];
+  const main = Array.from(sizes.entries()).sort((a, b) => b[1] - a[1])[0][0];
+  const linked = new Set([main]);
+  for (const [dst, srcs] of index.importGraph) {
+    if (!index.allFiles.has(dst)) continue;
+    const d = top(dst);
+    for (const src of srcs) {
+      const sTop = top(src);
+      if (d === main && sTop !== null) linked.add(sTop);
+      if (sTop === main && d !== null) linked.add(d);
+    }
+  }
+  return Array.from(sizes.entries())
+    .filter(([folder]) => !linked.has(folder))
+    .sort((a, b) => b[1] - a[1])
+    .map(([folder, files]) => ({ folder: folder + "/", files, reason: `no import edges to or from ${main}/` }));
 }
 
 // ─── D9-T1: Query: cluster (tightly-coupled file groups) ─────────────────────
@@ -1542,6 +1841,10 @@ module.exports = {
   queryBody,
   queryBlastRadius,
   queryStatus,
+  queryTable,
+  queryWhoUses,
+  resolveTable,
+  suggestExcludes,
   // D9 additions
   queryCluster,
   queryDeadCode,
@@ -1637,6 +1940,7 @@ if (require.main === module) {
   const ALL_VERBS = [
     "who-imports", "who-calls", "body", "blast-radius", "status",
     "cluster", "dead-code", "orphan", "dangling", "test-impl",
+    "who-uses", "table",
   ];
 
   if (!verb) {
@@ -1705,6 +2009,7 @@ if (require.main === module) {
     }
     const env = { ok: true, verb, target, results: queryResult.results, tier: queryResult.tier, coverage: queryResult.coverage };
     if (queryResult.nameMatched) env.nameMatched = queryResult.nameMatched; // [RULE] unique-name-unresolved-call-name-matched
+    if (queryResult.hint) env.hint = queryResult.hint; // a table name asked of who-calls
     emit(env);
 
   } else if (verb === "body") {
@@ -1755,11 +2060,21 @@ if (require.main === module) {
       lineRange: bodyResult.lineRange, tier: bodyResult.tier,
       imports: bodyResult.imports, classHeader: bodyResult.classHeader,
       source: bodyResult.source, callers: bodyResult.callers,
+      ...(bodyResult.table ? { table: bodyResult.table } : {}),
     });
 
   } else if (verb === "blast-radius") {
     if (!target) fail({ ok: false, reason: "missing-target", verb });
-    const { results, tier, coverage, nameMatched } = queryBlastRadius(index, target);
+    const br = queryBlastRadius(index, target);
+    if (br.ambiguous) {
+      emit({ ok: false, reason: "ambiguous-table", verb, target, candidates: br.candidates });
+      process.exit(2);
+    }
+    if (br.table) {
+      emit({ ok: true, verb, target, results: br.results, table: br.table, referencingTables: br.referencingTables, users: br.users, tier: br.tier, coverage: br.coverage });
+      process.exit(0);
+    }
+    const { results, tier, coverage, nameMatched } = br;
     if (results.length === 0 && coverage && coverage.complete === false) {
       writeIncompleteAnswerMarker(_resolver.deriveProjectRoot(storePath), verb, target, coverage);
     }
@@ -1771,7 +2086,20 @@ if (require.main === module) {
     const statusData = queryStatus(index, storePath);
     // Name the project exclude list so a missing folder is never a mystery.
     const ex = require("./gsd-t-graph-exclude.cjs").loadGraphExcludes(_resolver.deriveProjectRoot(storePath));
-    emit({ ok: true, verb: "status", ...statusData, excludes: { source: ex.source, patterns: ex.patterns } });
+    emit({ ok: true, verb: "status", ...statusData, excludes: { source: ex.source, patterns: ex.patterns, defaults: ex.defaults } });
+
+  } else if (verb === "who-uses" || verb === "table") {
+    // [RULE] table-not-indexed-distinct-from-no-users — not-found (reason + detail)
+    // is a different envelope from an indexed table with no users (ok, results []).
+    if (!target) fail({ ok: false, reason: "missing-target", verb });
+    const mode = args.includes("--writes") ? "writes" : (args.includes("--reads") ? "reads" : "all");
+    const r = verb === "table" ? queryTable(index, target) : queryWhoUses(index, target, { mode });
+    if (r.ambiguous) {
+      emit({ ok: false, reason: "ambiguous-table", verb, target, candidates: r.candidates });
+      process.exit(2);
+    }
+    if (r.notFound) fail({ ok: false, reason: "not-found", verb, target, detail: r.detail });
+    emit({ ok: true, verb, target, ...r });
 
   } else if (verb === "cluster") {
     const { results, tier } = queryCluster(index);

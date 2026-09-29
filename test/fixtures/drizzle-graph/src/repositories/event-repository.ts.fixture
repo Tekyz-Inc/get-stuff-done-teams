@@ -1,0 +1,13 @@
+import { eq } from 'drizzle-orm';
+import { db } from '../db/client';
+import * as schema from '../db/schema';
+
+export class EventRepository {
+  async findBySchool(schoolId: string) {
+    return db.query.scheduleEvents.findMany({ where: eq(schema.scheduleEvents.flightSchoolId, schoolId) });
+  }
+
+  async reschedule(id: string, startAt: Date) {
+    await db.update(schema.scheduleEvents).set({ startAt }).where(eq(schema.scheduleEvents.id, id));
+  }
+}
