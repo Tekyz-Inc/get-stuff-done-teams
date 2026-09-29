@@ -78,7 +78,10 @@ const XXS_LABEL = "XXS - Extra Extra Small";
 // overhead — reviews, QA, coordination — so no separate overhead factor belongs on top of them.
 const PROJECT_MULTIPLIER = {
   "greenfield-solo": 1,
-  "greenfield-team": 3,
+  // ×1.5 (David, 2026-09-29): greenfield TEAM covers parallel-team friction only; QA, PM, analysis, deployment,
+  // meetings and buffer go through the sheet's overhead factors instead, where they are visible and tunable
+  // (and staffed on the Team Mix). The other multipliers still include overhead.
+  "greenfield-team": 1.5,
   "yellowfield-solo": 2,
   "yellowfield-team-isolated": 5,
   "yellowfield-team-wide": 7,

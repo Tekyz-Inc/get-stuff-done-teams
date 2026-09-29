@@ -18,7 +18,7 @@ You are re-estimating an **existing** Tekyz estimate sheet with the AI-assisted 
    | Project | `--project` | Multiplier |
    |---|---|---|
    | Greenfield, solo | `greenfield-solo` | × 1 |
-   | Greenfield, team | `greenfield-team` | × 3 |
+   | Greenfield, team | `greenfield-team` | × 1.5 (overhead factors apply — set `noOverhead: false` in the plan) |
    | Yellow-field (existing app), solo | `yellowfield-solo` | × 2 |
    | Yellow-field, team — isolated change | `yellowfield-team-isolated` | × 5 |
    | Yellow-field, team — big blast radius | `yellowfield-team-wide` | × 7 |

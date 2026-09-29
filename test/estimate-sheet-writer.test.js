@@ -521,14 +521,14 @@ function round2(n) { return Math.round(n * 100) / 100; }
 
 test("aiTaskSize: the five project multipliers", () => {
   const m = W.constants.PROJECT_MULTIPLIER;
-  assert.deepStrictEqual(m, { "greenfield-solo": 1, "greenfield-team": 3, "yellowfield-solo": 2, "yellowfield-team-isolated": 5, "yellowfield-team-wide": 7 });
+  assert.deepStrictEqual(m, { "greenfield-solo": 1, "greenfield-team": 1.5, "yellowfield-solo": 2, "yellowfield-team-isolated": 5, "yellowfield-team-wide": 7 });
 });
 
 test("aiTaskSize: switching allowance scales with task size (7.5 / 15 / 30 min) and can be overridden", () => {
   assert.strictEqual(W.defaultSwitchMin(60), 7.5);
   assert.strictEqual(W.defaultSwitchMin(240), 15);
   assert.strictEqual(W.defaultSwitchMin(600), 30);
-  assert.strictEqual(W.aiTaskSize({ soloMin: 20, project: "greenfield-team", switchMin: 0 }).hours, 1);
+  assert.strictEqual(W.aiTaskSize({ soloMin: 40, project: "greenfield-team", switchMin: 0 }).hours, 1);
 });
 
 test("aiTaskSize: maps to the nearest AI-scale size and the scale covers the largest task", () => {

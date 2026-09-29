@@ -11,6 +11,7 @@ All notable changes to GSD-T are documented here. Updated with each release.
 - `bin/gsd-t-estimate-sheet.cjs`: `--release <name>` points every verb at `<name> - T-Shirt` / `<name> - Team Mix`; `write` creates the pair from the template tabs when missing.
 - `write` now accepts a template whose rows shifted (an XXS legend row puts the header on row 14); formulas are built from the located layout instead of fixed rows.
 - `templates/estimate-sheet-spec.md` §8, `commands/gsd-t-estimate.md` Step 6.
+- **greenfield-team multiplier ×3 → ×1.5**: it covers parallel-team friction only; QA, PM, analysis, deployment, meetings and buffer go through the sheet's overhead factors (spec §1.4, rescale + estimate commands, playbook, config). Rescaling a greenfield-team estimate should set `noOverhead: false`.
 - Tests: `test/estimate-sheet-releases.test.js`.
 
 ## [5.23.10] - 2026-09-29
