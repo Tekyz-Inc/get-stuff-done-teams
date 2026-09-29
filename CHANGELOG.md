@@ -2,6 +2,21 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.24.10] - 2026-09-29
+
+### Added — the code graph indexes Drizzle database tables
+
+"Which code uses this table?" had no graph answer: tables are declared as `const X = pgTable('x', {…})`, which the indexer never recorded, and the graph-search guard then blocked grep with nothing to offer. On hilo-figma-atos the graph now holds all 431 tables and 63 enums, and `who-uses scheduleEvents` agrees with TypeScript findReferences on 179 of 181 users (the gaps are explained in the progress log).
+
+- `bin/gsd-t-graph-edge-extract.cjs`: `table` / `enum` entities (pg / mysql / sqlite), columns, foreign keys (`.references()` and `foreignKey()`), READ / WRITE usage edges (from / joins / `db.query.T.findMany|findFirst` / insert / update / delete) attributed to the enclosing function or route handler.
+- `bin/gsd-t-graph-query-cli.cjs`, `bin/gsd-t.js`: `who-uses <table> [--writes|--reads]`, `table <name>`; `body` and `blast-radius` accept tables; not-found answers say the table is not indexed.
+- `scripts/gsd-t-graph-search-guard.js`: table-shaped searches point at who-uses / table / blast-radius.
+- `bin/gsd-t-graph-index.cjs`, `bin/gsd-t-graph-freshness.cjs`: `graph status` counts every indexed file (hilo: 4,301 → 4,322, matching the index) with per-tier counts and exclude suggestions; freshness no longer applies folder skips to file names (`build-analytics.ts` was dropped on every query); deleted / newly-excluded files leave no stale records.
+- `bin/gsd-t-graph-exclude.cjs`: GSD-T's own copied `bin/` tools are excluded by default outside the GSD-T repo.
+- Tests: `test/graph-drizzle-tables.test.js` (21) + `test/fixtures/drizzle-graph/`.
+
+Known gaps: code that reaches tables through `import { schema }` objects or CommonJS `require` is not seen; an imported non-table sharing a table's name counts as a use. Re-run `gsd-t graph index` to pick up tables.
+
 ## [5.23.10] - 2026-09-29
 
 ### Added — who-calls matches the compiler on route files; graph exclude list; estimate math v2
