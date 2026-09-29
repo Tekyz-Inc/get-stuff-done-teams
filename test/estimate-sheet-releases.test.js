@@ -55,3 +55,18 @@ test("ensureReleaseTabs halts when the template tab to copy from is missing", as
   W.useRelease("4 Enterprise");
   await assert.rejects(() => W.ensureReleaseTabs(fakeApi(["Overview", "Technology Stack"])), /template tab 'T-Shirt Size Estimate' to copy it from is missing/);
 });
+
+test("tshirtRows with a located layout builds formulas at the sheet's real rows (XXS legend, header on row 14)", () => {
+  const layout = { legendFirst1: 4, legendLast1: 10, legendExact: true, cols: { phase: 4, sizes: [5, 6], days: 7, mfactor: 8, total: 9, low: 10, high: 11, highFactor: { r: 4, c: 6 }, rate: { r: 4, c: 7 }, mfTotal: { r: 10, c: 5 } } };
+  const plan = { tshirt: { sections: [{ heading: "A. X", items: [{ id: "F-1", module: "m", userType: "u", functionality: "f", requirement: "r", phase: "MVP", fe: "M", be: "L" }] }] } };
+  const b = W.tshirtRows(plan, 14, layout);
+  const item = b.rows.find((r) => r.kind === "item");
+  assert.strictEqual(item.row1, 16);
+  assert.strictEqual(item.values[7], '=(IF(F16="",0,SUMIF($A$4:$A$10,F16&" -*",$B$4:$B$10))+IF(G16="",0,SUMIF($A$4:$A$10,G16&" -*",$B$4:$B$10)))');
+  assert.strictEqual(item.values[8], "=H16*$F$11");
+  assert.strictEqual(item.values[10], "=J16*8*$H$5");
+  assert.strictEqual(item.values[11], "=K16*$G$5");
+  assert.strictEqual(b.rows.find((r) => r.kind === "summary").values[11], "=J17*$G$5");
+  // no layout → the standard template, unchanged
+  assert.strictEqual(W.tshirtRows(plan, 13).rows.find((r) => r.kind === "item").values[11], "=K15*$G$4");
+});

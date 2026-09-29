@@ -733,14 +733,17 @@ function rollupFormulasFor(rollupRow1, firstRow1, lastRow1, cols) {
 function rollupFormulas(rollupRow1, firstRow1, lastRow1) { return rollupFormulasFor(rollupRow1, firstRow1, lastRow1, STANDARD_COLS); }
 
 /** Rows for items mode, starting at firstRow0 (0-based). */
-function tshirtRows(plan, firstRow0) {
+function tshirtRows(plan, firstRow0, layout) {
+  // layout (from locateTshirt) → formulas at the sheet's real legend / MF / rate / high-factor rows; none → the standard template
+  const itemF = (r) => (layout ? itemFormulasFor(r, layout.cols, { first1: layout.legendFirst1, last1: layout.legendLast1, exact: layout.legendExact }) : itemFormulas(r));
+  const hf = layout ? `$${colLetter(layout.cols.highFactor.c)}$${layout.cols.highFactor.r + 1}` : "$G$4";
   const out = [];
   let r1 = firstRow0 + 1;
   for (const s of plan.tshirt.sections) {
     out.push({ kind: "section", row1: r1, values: [s.heading, "", "", "", "", "", "", "", "", "", "", ""] });
     r1++;
     for (const it of s.items) {
-      const f = itemFormulas(r1);
+      const f = itemF(r1);
       out.push({
         kind: "item", row1: r1, id: it.id,
         values: [it.module, it.userType, `${it.functionality} (${it.id})`, it.requirement, it.phase,
@@ -758,8 +761,8 @@ function tshirtRows(plan, firstRow0) {
       `=SUM(H${f1}:H${lastItem1})`, `=SUM(I${f1}:I${lastItem1})`, `=SUM(J${f1}:J${lastItem1})`, `=SUM(K${f1}:K${lastItem1})`, `=SUM(L${f1}:L${lastItem1})`],
   });
   // summary block directly under the totals row — no blank row
-  out.push({ kind: "summary", row1: totalRow1 + 1, values: ["", "", "", "", "", "", "", "", "", "Total Days", `=J${totalRow1}`, `=J${totalRow1}*$G$4`] });
-  out.push({ kind: "summary", row1: totalRow1 + 2, values: ["", "", "", "", "", "", "", "", "", "Total Hrs", `=J${totalRow1}*8`, `=J${totalRow1}*$G$4*8`] });
+  out.push({ kind: "summary", row1: totalRow1 + 1, values: ["", "", "", "", "", "", "", "", "", "Total Days", `=J${totalRow1}`, `=J${totalRow1}*${hf}`] });
+  out.push({ kind: "summary", row1: totalRow1 + 2, values: ["", "", "", "", "", "", "", "", "", "Total Hrs", `=J${totalRow1}*8`, `=J${totalRow1}*${hf}*8`] });
   out.push({ kind: "summary-cost", row1: totalRow1 + 3, values: ["", "", "", "", "", "", "", "", "", "Total Cost", `=K${totalRow1}`, `=L${totalRow1}`] });
   return { rows: out, firstItem1: f1, lastItem1, totalRow1 };
 }
@@ -796,8 +799,10 @@ async function writeTshirt(api, plan, opts) {
   const grid = await api.grid(TAB_TSHIRT);
   const sheetId = grid.properties.sheetId;
   const layout = locateTshirt(grid);
-  const std = ["phase", "days", "mfactor", "total", "low", "high"].every((k) => layout.cols[k] === STANDARD_COLS[k]) && layout.cols.sizes.length === 2 && layout.legendFirst1 === 4 && layout.headerRow === 12;
-  if (!std) throw new Halt(`${TAB_TSHIRT}: this sheet is not the current template layout (header row ${layout.headerRow + 1}, size columns ${layout.cols.sizeLabels.join("/")}) — 'write' supports the current template only; 'teammix' and 'audit' work on both`);
+  // The COLUMNS must be the template's; the ROWS may shift (a legend carrying XXS pushes the header to row 14) —
+  // every row-dependent formula below is built from the located layout, the same one the audit reads.
+  const std = ["phase", "days", "mfactor", "total", "low", "high", "rollupPhase", "lowDol", "lowHrs", "highDol", "highHrs"].every((k) => layout.cols[k] === STANDARD_COLS[k]) && layout.cols.sizes.length === 2;
+  if (!std) throw new Halt(`${TAB_TSHIRT}: this sheet is not the current template layout (header row ${layout.headerRow + 1}, size columns ${layout.cols.sizeLabels.join("/")}) — 'write' supports the current template columns only; 'teammix' and 'audit' work on both`);
   // New estimates use the AI-assisted scale: the legend is rewritten to AI_SIZE_DAYS (after the
   // checks below pass, so a halted run changes nothing), and totals are computed on it.
   const legendChange = !legendIsAi(layout.legend);
@@ -814,7 +819,7 @@ async function writeTshirt(api, plan, opts) {
   if (occupied && !opts.replace) {
     throw new Halt(`${TAB_TSHIRT}: ${occupied} non-empty row(s) below the header. Pass --replace to overwrite them, or use tshirt.mode 'sizes' to fill existing rows.`);
   }
-  const built = tshirtRows(plan, first0);
+  const built = tshirtRows(plan, first0, layout);
   const lastWritten1 = built.rows[built.rows.length - 1].row1;
   if (legendChange) await writeAiLegend(api, layout);
 
@@ -829,7 +834,7 @@ async function writeTshirt(api, plan, opts) {
   await api.putValues(TAB_TSHIRT, `A${first0 + 1}:L${lastWritten1}`, built.rows.map((r) => r.values));
   // 3. rollups re-pointed to the real item range
   for (const rr of layout.rollupRows) {
-    await api.putValues(TAB_TSHIRT, `K${rr + 1}:N${rr + 1}`, [rollupFormulas(rr + 1, built.firstItem1, built.lastItem1)]);
+    await api.putValues(TAB_TSHIRT, `K${rr + 1}:N${rr + 1}`, [rollupFormulasFor(rr + 1, built.firstItem1, built.lastItem1, layout.cols)]);
   }
   // 4. formats — item area defaults, then per-row kinds
   const reqs = [];

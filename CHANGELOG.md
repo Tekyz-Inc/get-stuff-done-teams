@@ -9,6 +9,7 @@ All notable changes to GSD-T are documented here. Updated with each release.
 `gsd-t estimate-sheet` wrote only to tabs named "T-Shirt Size Estimate" and "Team Mix", so one spreadsheet held one estimate. A rebuild estimated as five releases (each with its own phases and team mixes) needed five spreadsheets.
 
 - `bin/gsd-t-estimate-sheet.cjs`: `--release <name>` points every verb at `<name> - T-Shirt` / `<name> - Team Mix`; `write` creates the pair from the template tabs when missing.
+- `write` now accepts a template whose rows shifted (an XXS legend row puts the header on row 14); formulas are built from the located layout instead of fixed rows.
 - `templates/estimate-sheet-spec.md` §8, `commands/gsd-t-estimate.md` Step 6.
 - Tests: `test/estimate-sheet-releases.test.js`.
 
