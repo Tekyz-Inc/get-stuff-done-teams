@@ -3708,6 +3708,8 @@ const PROJECT_BIN_TOOLS = [
   // graph dead → grep fallback (found by the Binvoice architect run 2026-07-12).
   // Same class as [[project_global_bin_propagation_gap]] / [[project_m96_graph_runs_in_projects]].
   "gsd-t-graph-store-resolver.cjs",
+  // Required by the indexer + freshness walker (project graph exclude list).
+  "gsd-t-graph-exclude.cjs",
   // M96 — multi-location resolver for the store engine (better-sqlite3), so a
   // copied tool finds the engine from the GSD-T global package, not the project's
   // own (usually absent) node_modules. Fail-loud with remediation if all miss.
@@ -4771,6 +4773,12 @@ function doGraphStatus() {
   if (miss && miss.count > 0) {
     warn(`${miss.count} file(s) not in SCIP (call edges unresolved): ${miss.files.join(", ")}${miss.count > miss.files.length ? ", …" : ""}`);
     info("Re-run: gsd-t graph index  (then check again)");
+  }
+  const ex = envelope.excludes;
+  if (ex && ex.patterns && ex.patterns.length) {
+    info(`Excluded by ${ex.source}: ${ex.patterns.join(", ")}`);
+  } else {
+    info("Excludes: none (add folders to .gsd-t/graph-exclude.json — { \"exclude\": [\"design/\"] })");
   }
   if (envelope.storeSize !== undefined) info(`Store size: ${envelope.storeSize} bytes`);
   if (envelope.detail) log(JSON.stringify(envelope, null, 2));

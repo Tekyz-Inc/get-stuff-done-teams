@@ -220,7 +220,11 @@ function compute_touched_files(db, projectRoot) {
   }
 
   // Walk the current working tree
-  const liveFiles = walkTree(projectRoot);
+  // Same exclude list as the indexer, so an excluded file is never a phantom ADD
+  // and a newly-excluded one drops out as a DELETE. [RULE] freshness-excludes-match-indexer-skipdirs
+  const { isExcluded } = require('./gsd-t-graph-exclude.cjs').loadGraphExcludes(projectRoot);
+  const liveFiles = walkTree(projectRoot)
+    .filter((abs) => !isExcluded(path.relative(projectRoot, abs)));
 
   const liveRelSet = new Set();
   const edits = [];

@@ -196,18 +196,21 @@ function contentHash(absPath) {
 
 function enumerateFiles(root) {
   const results = [];
+  // Project exclude list (.gsd-t/graph-exclude.json) — ancillary trees such as
+  // design/Figma exports that are not the application. Throws on a malformed file.
+  const { isExcluded } = require('./gsd-t-graph-exclude.cjs').loadGraphExcludes(root);
   function walk(dir) {
     let entries;
     try { entries = fs.readdirSync(dir, { withFileTypes: true }); }
     catch { return; }
     for (const e of entries) {
+      const absPath = path.join(dir, e.name);
+      const relPath = path.relative(root, absPath).split(path.sep).join('/');
       if (e.isDirectory()) {
-        if (!shouldSkipDir(e.name)) walk(path.join(dir, e.name));
+        if (!shouldSkipDir(e.name) && !isExcluded(relPath)) walk(absPath);
       } else if (e.isFile()) {
         const ext = path.extname(e.name).toLowerCase();
-        if (PARSED_EXTS.has(ext)) {
-          const absPath = path.join(dir, e.name);
-          const relPath = path.relative(root, absPath).split(path.sep).join('/');
+        if (PARSED_EXTS.has(ext) && !isExcluded(relPath)) {
           results.push({ absPath, relPath, ext });
         }
       }

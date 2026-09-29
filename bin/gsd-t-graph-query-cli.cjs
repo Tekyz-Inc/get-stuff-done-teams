@@ -1674,7 +1674,9 @@ if (require.main === module) {
 
   } else if (verb === "status") {
     const statusData = queryStatus(index, storePath);
-    emit({ ok: true, verb: "status", ...statusData });
+    // Name the project exclude list so a missing folder is never a mystery.
+    const ex = require("./gsd-t-graph-exclude.cjs").loadGraphExcludes(_resolver.deriveProjectRoot(storePath));
+    emit({ ok: true, verb: "status", ...statusData, excludes: { source: ex.source, patterns: ex.patterns } });
 
   } else if (verb === "cluster") {
     const { results, tier } = queryCluster(index);

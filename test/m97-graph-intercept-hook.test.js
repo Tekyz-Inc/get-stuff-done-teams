@@ -46,7 +46,8 @@ function mkGraphProject() {
   // M99: include gsd-t-graph-store-resolver.cjs (query-cli requires it after M99 D1)
   for (const f of ['gsd-t-graph-query-cli.cjs', 'gsd-t-graph-index.cjs', 'gsd-t-graph-freshness.cjs',
                    'gsd-t-graph-edge-extract.cjs', 'gsd-t-graph-scip-upgrade.cjs', 'gsd-t-scip-reader.cjs',
-                   'gsd-t-require-store.cjs', 'gsd-t-graph-store-resolver.cjs']) {
+                   'gsd-t-require-store.cjs', 'gsd-t-graph-store-resolver.cjs',
+                   'gsd-t-graph-exclude.cjs']) {
     fs.copyFileSync(path.join(__dirname, '..', 'bin', f), path.join(binDir, f));
   }
   execFileSync(process.execPath, [INDEX, 'build', '--repo', dir], { cwd: dir, stdio: 'ignore' });
