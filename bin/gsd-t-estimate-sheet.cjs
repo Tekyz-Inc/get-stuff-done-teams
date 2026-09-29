@@ -1742,13 +1742,30 @@ async function verbRescale(api, opts) {
   if (exists.length && !opts.replace) throw new Halt(`tab(s) ${exists.map((t) => `'${t}'`).join(", ")} already exist — pass --replace to rebuild them (the original tabs are never touched)`);
   if (opts.dryRun) return { dryRun: true, ...preview };
 
-  // 1. copies — only the two (Rescale) tabs are ever deleted, and only on --replace
-  if (exists.length) await api.batch(exists.map((t) => ({ deleteSheet: { sheetId: byTitle.get(t).sheetId } })));
-  const after = (t) => byTitle.get(t).index + 1;
-  await api.batch([{ duplicateSheet: { sourceSheetId: byTitle.get(TAB_TSHIRT).sheetId, newSheetName: TAB_TSHIRT_AI, insertSheetIndex: after(TAB_TSHIRT) } }]);
-  const meta2 = await api.meta();
-  const teamIdx = meta2.sheets.find((s) => s.properties.title === TAB_TEAM).properties.index;
-  await api.batch([{ duplicateSheet: { sourceSheetId: byTitle.get(TAB_TEAM).sheetId, newSheetName: TAB_TEAM_AI, insertSheetIndex: teamIdx + 1 } }]);
+  // 1. copies. A rebuild (--replace) refreshes the existing (Rescale) tabs IN PLACE — never delete and
+  // re-create them: other sheets import these tabs by name (IMPORTRANGE), and a view that refreshes while
+  // a tab is missing caches #REF! (David, 2026-09-28). The original tabs are only ever the copy source.
+  const src = byTitle.get(TAB_TSHIRT);
+  if (byTitle.has(TAB_TSHIRT_AI)) {
+    const dst = byTitle.get(TAB_TSHIRT_AI).sheetId;
+    const rowsN = Math.max(src.gridProperties.rowCount, byTitle.get(TAB_TSHIRT_AI).gridProperties.rowCount);
+    const colsN = Math.max(src.gridProperties.columnCount, byTitle.get(TAB_TSHIRT_AI).gridProperties.columnCount);
+    const widths = (srcGrid.data && srcGrid.data[0] && srcGrid.data[0].columnMetadata ? srcGrid.data[0].columnMetadata : []).map((c) => c.pixelSize);
+    await api.batch([
+      { updateSheetProperties: { properties: { sheetId: dst, gridProperties: { rowCount: rowsN, columnCount: colsN, frozenRowCount: src.gridProperties.frozenRowCount || 0 } }, fields: "gridProperties(rowCount,columnCount,frozenRowCount)" } },
+      { unmergeCells: { range: gridRange(dst, 0, rowsN, 0, colsN) } },
+      { updateCells: { range: gridRange(dst, 0, rowsN, 0, colsN), fields: "*" } },
+      { copyPaste: { source: gridRange(src.sheetId, 0, src.gridProperties.rowCount, 0, src.gridProperties.columnCount), destination: gridRange(dst, 0, src.gridProperties.rowCount, 0, src.gridProperties.columnCount), pasteType: "PASTE_NORMAL" } },
+      ...widths.map((w, c) => ({ updateDimensionProperties: { range: { sheetId: dst, dimension: "COLUMNS", startIndex: c, endIndex: c + 1 }, properties: { pixelSize: w }, fields: "pixelSize" } })),
+    ]);
+  } else {
+    await api.batch([{ duplicateSheet: { sourceSheetId: src.sheetId, newSheetName: TAB_TSHIRT_AI, insertSheetIndex: src.index + 1 } }]);
+  }
+  if (!byTitle.has(TAB_TEAM_AI)) {
+    const meta2 = await api.meta();
+    const teamIdx = meta2.sheets.find((s) => s.properties.title === TAB_TEAM).properties.index;
+    await api.batch([{ duplicateSheet: { sourceSheetId: byTitle.get(TAB_TEAM).sheetId, newSheetName: TAB_TEAM_AI, insertSheetIndex: teamIdx + 1 } }]);
+  } // an existing Team Mix (Rescale) is cleared and rewritten by writeTeamMix below, in place
 
   // 2. the copied T-Shirt tab: AI legend (+ XXS in the row under XXL), exact-match Days formulas, new sizes
   const xxsRow1 = layout.legendRow1.XXS || layout.legendLast1 + 1;

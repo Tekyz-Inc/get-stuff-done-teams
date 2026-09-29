@@ -326,5 +326,5 @@ An estimate written on the old day scale is re-priced **without touching it**. `
 | Team Mix | `Team Mix (Rescale)` keeps the original tab's roster (derived as `teammix` does) and staffs the copy's phase rollups (midpoint of Low/High, §2.2). |
 | Formatting | The copy is re-wrapped (C/D) and top-aligned so it passes §5 on its own. |
 | Overhead | `"noOverhead": true` in the plan zeroes the COPY's overhead factors (the multipliers already include team overhead); the original tab's factors are never written. |
-| Re-run | Existing (Rescale) tabs HALT the run; `--replace` deletes and rebuilds **only** the two (Rescale) tabs. `--dry-run` prints old → new Low hours and writes nothing. |
+| Re-run | Existing (Rescale) tabs HALT the run; `--replace` rebuilds them **in place** — the T-Shirt copy is cleared and re-copied from the original (values, formulas, formats, validation, widths) and the Team Mix copy is cleared and rewritten, so both tabs keep their identity. They are never deleted and re-created: other sheets import them by name (IMPORTRANGE), and a view that refreshes while a tab is missing caches `#REF!`. `--dry-run` prints old → new Low hours and writes nothing. |
 | Audit | §5 T-Shirt + Team Mix checks run on the (Rescale) tabs by read-back; exit 4 on any ✗. |
