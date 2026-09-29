@@ -70,3 +70,9 @@ test("tshirtRows with a located layout builds formulas at the sheet's real rows 
   // no layout → the standard template, unchanged
   assert.strictEqual(W.tshirtRows(plan, 13).rows.find((r) => r.kind === "item").values[11], "=K15*$G$4");
 });
+
+test("fillHours: a full-time person works full 160-hr months; only the last month is short", () => {
+  assert.deepStrictEqual(W.fillHours(245.12, 2), [160, 85.1]);
+  assert.deepStrictEqual(W.fillHours(150, 1), [150]);
+  assert.throws(() => W.fillHours(400, 2), /cannot fit/);
+});

@@ -49,6 +49,7 @@ Older milestones (M33 and earlier) archived under `.gsd-t/milestones/` — see d
 <!-- No active blockers -->
 
 ## Decision Log
+- 2026-09-29 16:40: Team Mix — a full-time person (Count 1.00) now works full 160-hr months with only the last month short (fillHours); part-timers keep the discipline ramp. David: ramping a full-timer down in month 1 is not a staffing plan. 45/45 estimate tests.
 - 2026-09-29 15:24: greenfield-team multiplier ×3 → ×1.5 (David): it now covers parallel-team friction only; QA/PM/analysis/deployment/meetings/buffer are charged through the sheet's overhead factors (0.70), visible and tunable. Other multipliers unchanged (still include overhead). ATOS rebuild: 5,345 low hrs (was 10,721 with ×3 + 0.70; 6,306 with ×3 alone).
 - 2026-09-29 15:05: estimate-sheet `write` accepts a template whose ROWS shifted (XXS legend row → header on row 14): item, rollup and summary formulas are built from the located layout; columns must still match the template. Found writing the ATOS rebuild workbook (1nGzwQA8…), 5 releases written, all audits PASS; 44/44 estimate tests.
 - 2026-09-29 14:47: estimate-sheet `--release <name>` — one workbook holds several releases on '<name> - T-Shirt' / '<name> - Team Mix' tab pairs copied from the template; plan-check previews from the template until write creates the pair (spec §8, test/estimate-sheet-releases.test.js) — 43/43 estimate tests, full suite 3613 pass. An in-workbook Summary verb was built then removed: David wants the rollup as lines on the estimates index instead.

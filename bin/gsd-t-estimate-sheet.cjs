@@ -638,6 +638,23 @@ function rampHours(totalHours, discipline, n) {
   return hours.map(round1);
 }
 
+/**
+ * A FULL-TIME person (Count 1.00) works full months — 160 hrs each — and only the last month is short
+ * (David, 2026-09-29: "it's 1 month of work … 170 hours the first month"). Ramping a full-timer down
+ * in month 1 is not a staffing plan. Part-timers keep the discipline ramp (rampHours).
+ */
+function fillHours(totalHours, n) {
+  if (totalHours > n * SOFT_CEILING + 1e-9) throw new Halt(`${round1(totalHours)} hrs cannot fit in ${n} months at ${SOFT_CEILING} hrs/month — add a person`);
+  const hours = [];
+  let left = totalHours;
+  for (let m = 0; m < n; m++) {
+    const h = m === n - 1 ? left : Math.min(160, left);
+    hours.push(round1(h));
+    left -= h;
+  }
+  return hours;
+}
+
 function buildRoster(plan, totalDays, mfList) {
   const people = splitRoster(plan.teamMix.fte, plan.teamMix.labels);
   const violations = [...rosterViolations(people), ...mfCoverageViolations(mfList, people)];
@@ -646,7 +663,7 @@ function buildRoster(plan, totalDays, mfList) {
   const rows = people.map((p) => {
     const days = round2(months * 20 * p.count);
     const hours = round2(days * 8);
-    return { ...p, months: round2(months), monthsExact: months, days, hours, monthHours: rampHours(hours, p.discipline, n) };
+    return { ...p, months: round2(months), monthsExact: months, days, hours, monthHours: p.count >= 1 ? fillHours(hours, n) : rampHours(hours, p.discipline, n) };
   });
   const sumDays = round2(rows.reduce((s, r) => s + r.days, 0));
   return { people: rows, months: round2(months), monthsExact: months, sumCount, n, sumDays };
@@ -2009,7 +2026,7 @@ module.exports = {
   tshirtTotals, phaseTotals, buildRosters, midDays, deriveFteFromTeamMix, phaseTotalsFromSheet, verbTeamMix, phaseGapMap, verbPhases, verbTitles, itemFormulasFor, rollupFormulasFor, findCell, itemFormulas, rollupFormulas, tshirtRows, teamMixValues, teamMixFormatReqs, remainderFormula, locateTshirt, findPhaseSource,
   auditTshirt, auditTeamMix, auditTechStack, auditOverview, colLetter, hexToColor, colorToHex, sheetIdFromArg,
   constants: { TAB_TSHIRT_AI, TAB_TEAM_AI, XXS_DAYS, SIZE_CODES, AI_SIZE_DAYS, PROJECT_MULTIPLIER, PHASES, COLOR, RAMP, ROLE_LABEL, SOFT_CEILING, FOLD_THRESHOLD, TAB_TSHIRT, TAB_TEAM, TAB_TECH, DEFAULT_TAB_TSHIRT, DEFAULT_TAB_TEAM, PLAN_SCHEMA },
-  releaseTabs, useRelease, ensureReleaseTabs,
+  releaseTabs, useRelease, ensureReleaseTabs, fillHours,
   Halt, SheetsApi, getToken, runAudit, main,
 };
 
