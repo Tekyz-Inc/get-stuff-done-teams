@@ -48,7 +48,7 @@ Nobody hand-writes code. For each row and each size column:
 gsd-t estimate-sheet rescale --sheet <url> --plan .gsd-t/estimate-rescale-plan.json   # add --replace to rebuild existing (Rescale) tabs
 ```
 
-It copies the two tabs next to their originals, puts the AI-assisted scale in the copy's legend (XXS 0.0625 · XS 0.1 · S 0.25 · M 0.5 · L 1 · XL 2 · XXL 4 days; XXS in the row under XXL), switches the copy's Days formulas to an exact size lookup (the template's two-letter prefix would read `XX*` as XXS + XXL), writes the sizes, rebuilds `Team Mix (Rescale)` with the original tab's roster staffed from the copy's phase rollups, and audits the copies. Existing (Rescale) tabs halt the run unless `--replace` — and `--replace` deletes only the two (Rescale) tabs. **Exit 4 = a ✗ — fix and re-run. Exit 64 = auth/API/input halt.** Show the tool's output verbatim.
+It copies the two tabs next to their originals, puts the AI-assisted scale in the copy's legend (XXS 0.0625 · XS 0.1 · S 0.25 · M 0.5 · L 1 · XL 2 · XXL 4 days; XXS in the row under XXL), switches the copy's Days formulas to an exact size lookup (the template's two-letter prefix would read `XX*` as XXS + XXL), writes the sizes, rebuilds `Team Mix (Rescale)` with the original tab's roster staffed from the copy's phase rollups, and audits the copies. `--suffix "<name>"` writes a separately named pair (`… (<name>)`) instead of `(Rescale)`. Existing (Rescale) tabs halt the run unless `--replace` — and `--replace` deletes only the two (Rescale) tabs. **Exit 4 = a ✗ — fix and re-run. Exit 64 = auth/API/input halt.** Show the tool's output verbatim.
 
 ## Step 4: Report
 

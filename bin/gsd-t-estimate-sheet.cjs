@@ -1733,12 +1733,17 @@ async function verbRescale(api, opts) {
 
   const errors = rescaleViolations(opts.plan, rows, layout.cols.sizes.length);
   if (errors.length) throw new Halt(`rescale plan rejected:\n  - ${errors.join("\n  - ")}`, 4, errors);
+  // --suffix names a separate pair of copies (e.g. "AI v2") so a second re-estimate never
+  // overwrites the (Rescale) tabs other sheets already import by name.
+  const suffix = opts.suffix == null ? "Rescale" : String(opts.suffix).trim();
+  if (!suffix || /[()'!]/.test(suffix)) throw new Halt("--suffix must be plain text (no parentheses, quotes or '!')", 64);
+  const T_TS = `${TAB_TSHIRT} (${suffix})`, T_TM = `${TAB_TEAM} (${suffix})`;
   const aiScale = { XXS: XXS_DAYS, ...AI_SIZE_DAYS };
   const aiRaw = opts.plan.items.reduce((sum, it) => sum + it.sizes.reduce((a, v) => a + (sizeOf(v) ? aiScale[sizeOf(v)] : 0), 0), 0);
   const oldRaw = rows.reduce((sum, r) => sum + r.sizes.reduce((a, v) => a + (layout.legend[v] || 0), 0), 0);
   const newMf = opts.plan.noOverhead === true ? 0 : layout.mfTotal;
   const preview = { items: rows.length, oldLowHours: round2(oldRaw * (1 + layout.mfTotal) * 8), newLowHours: round2(aiRaw * (1 + newMf) * 8) };
-  const exists = [TAB_TSHIRT_AI, TAB_TEAM_AI].filter((t) => byTitle.has(t));
+  const exists = [T_TS, T_TM].filter((t) => byTitle.has(t));
   if (exists.length && !opts.replace) throw new Halt(`tab(s) ${exists.map((t) => `'${t}'`).join(", ")} already exist — pass --replace to rebuild them (the original tabs are never touched)`);
   if (opts.dryRun) return { dryRun: true, ...preview };
 
@@ -1746,10 +1751,10 @@ async function verbRescale(api, opts) {
   // re-create them: other sheets import these tabs by name (IMPORTRANGE), and a view that refreshes while
   // a tab is missing caches #REF! (David, 2026-09-28). The original tabs are only ever the copy source.
   const src = byTitle.get(TAB_TSHIRT);
-  if (byTitle.has(TAB_TSHIRT_AI)) {
-    const dst = byTitle.get(TAB_TSHIRT_AI).sheetId;
-    const rowsN = Math.max(src.gridProperties.rowCount, byTitle.get(TAB_TSHIRT_AI).gridProperties.rowCount);
-    const colsN = Math.max(src.gridProperties.columnCount, byTitle.get(TAB_TSHIRT_AI).gridProperties.columnCount);
+  if (byTitle.has(T_TS)) {
+    const dst = byTitle.get(T_TS).sheetId;
+    const rowsN = Math.max(src.gridProperties.rowCount, byTitle.get(T_TS).gridProperties.rowCount);
+    const colsN = Math.max(src.gridProperties.columnCount, byTitle.get(T_TS).gridProperties.columnCount);
     const widths = (srcGrid.data && srcGrid.data[0] && srcGrid.data[0].columnMetadata ? srcGrid.data[0].columnMetadata : []).map((c) => c.pixelSize);
     await api.batch([
       { updateSheetProperties: { properties: { sheetId: dst, gridProperties: { rowCount: rowsN, columnCount: colsN, frozenRowCount: src.gridProperties.frozenRowCount || 0 } }, fields: "gridProperties(rowCount,columnCount,frozenRowCount)" } },
@@ -1759,12 +1764,12 @@ async function verbRescale(api, opts) {
       ...widths.map((w, c) => ({ updateDimensionProperties: { range: { sheetId: dst, dimension: "COLUMNS", startIndex: c, endIndex: c + 1 }, properties: { pixelSize: w }, fields: "pixelSize" } })),
     ]);
   } else {
-    await api.batch([{ duplicateSheet: { sourceSheetId: src.sheetId, newSheetName: TAB_TSHIRT_AI, insertSheetIndex: src.index + 1 } }]);
+    await api.batch([{ duplicateSheet: { sourceSheetId: src.sheetId, newSheetName: T_TS, insertSheetIndex: src.index + 1 } }]);
   }
-  if (!byTitle.has(TAB_TEAM_AI)) {
+  if (!byTitle.has(T_TM)) {
     const meta2 = await api.meta();
     const teamIdx = meta2.sheets.find((s) => s.properties.title === TAB_TEAM).properties.index;
-    await api.batch([{ duplicateSheet: { sourceSheetId: byTitle.get(TAB_TEAM).sheetId, newSheetName: TAB_TEAM_AI, insertSheetIndex: teamIdx + 1 } }]);
+    await api.batch([{ duplicateSheet: { sourceSheetId: byTitle.get(TAB_TEAM).sheetId, newSheetName: T_TM, insertSheetIndex: teamIdx + 1 } }]);
   } // an existing Team Mix (Rescale) is cleared and rewritten by writeTeamMix below, in place
 
   // 2. the copied T-Shirt tab: AI legend (+ XXS in the row under XXL), exact-match Days formulas, new sizes
@@ -1772,24 +1777,24 @@ async function verbRescale(api, opts) {
   if (!layout.legendRow1.XXS && (textAt(srcGrid, xxsRow1 - 1, 0) || textAt(srcGrid, xxsRow1 - 1, 1))) {
     throw new Halt(`${TAB_TSHIRT}: row ${xxsRow1} under the size legend is not empty (A${xxsRow1}/B${xxsRow1}) — there is nowhere to add XXS without overwriting it`);
   }
-  const writes = SIZE_CODES.map((c) => ({ tab: TAB_TSHIRT_AI, a1: `B${layout.legendRow1[c]}`, values: [[AI_SIZE_DAYS[c]]] }));
-  writes.push({ tab: TAB_TSHIRT_AI, a1: `A${xxsRow1}:B${xxsRow1}`, values: [[XXS_LABEL, XXS_DAYS]] });
+  const writes = SIZE_CODES.map((c) => ({ tab: T_TS, a1: `B${layout.legendRow1[c]}`, values: [[AI_SIZE_DAYS[c]]] }));
+  writes.push({ tab: T_TS, a1: `A${xxsRow1}:B${xxsRow1}`, values: [[XXS_LABEL, XXS_DAYS]] });
   const first = layout.cols.sizes[0], last = layout.cols.sizes[layout.cols.sizes.length - 1];
-  for (const it of opts.plan.items) writes.push({ tab: TAB_TSHIRT_AI, a1: `${colLetter(first)}${it.row}:${colLetter(last)}${it.row}`, values: [it.sizes.map(sizeOf)] });
+  for (const it of opts.plan.items) writes.push({ tab: T_TS, a1: `${colLetter(first)}${it.row}:${colLetter(last)}${it.row}`, values: [it.sizes.map(sizeOf)] });
   const legendAi = { first1: Math.min(layout.legendFirst1, xxsRow1), last1: Math.max(layout.legendLast1, xxsRow1), exact: true };
   const hRows = [];
   for (let r = layout.firstItemRow; r < rowCount(srcGrid); r++) {
     if (/^Total \(Days\)/i.test(textAt(srcGrid, r, 0).trim())) break;
     if (formulaAt(srcGrid, r, layout.cols.days)) hRows.push(r + 1);
   }
-  for (const r1 of hRows) writes.push({ tab: TAB_TSHIRT_AI, a1: `${colLetter(layout.cols.days)}${r1}`, values: [[itemFormulasFor(r1, layout.cols, legendAi).H]] });
+  for (const r1 of hRows) writes.push({ tab: T_TS, a1: `${colLetter(layout.cols.days)}${r1}`, values: [[itemFormulasFor(r1, layout.cols, legendAi).H]] });
   // plan.noOverhead: the multipliers already include team overhead (David, 2026-09-28) — zero the
   // COPY's overhead factors so nothing is charged twice. The original tab's factors are never touched.
-  if (opts.plan.noOverhead === true) for (const f of layout.mf) writes.push({ tab: TAB_TSHIRT_AI, a1: `${colLetter(layout.cols.mfTotal.c)}${f.row}`, values: [[0]] });
+  if (opts.plan.noOverhead === true) for (const f of layout.mf) writes.push({ tab: T_TS, a1: `${colLetter(layout.cols.mfTotal.c)}${f.row}`, values: [[0]] });
   await api.putValuesBatch(writes); // legend + XXS + sizes + Days formulas (+ zeroed overhead): one request
   // the copy meets the spec's formatting on its own (C/D wrap, every cell top-aligned) — a template
   // that predates those rules would otherwise hand its failures to the new tabs
-  const aiTshirtId = (await api.meta()).sheets.find((x) => x.properties.title === TAB_TSHIRT_AI).properties.sheetId;
+  const aiTshirtId = (await api.meta()).sheets.find((x) => x.properties.title === T_TS).properties.sheetId;
   const lastRow1 = rows[rows.length - 1].row;
   const xxlRow0 = layout.legendRow1.XXL - 1;
   await api.batch([
@@ -1798,20 +1803,20 @@ async function verbRescale(api, opts) {
   ]);
 
   // 3. the copied Team Mix: same roster as the original, staffed from the copy's phase rollups
-  const aiGrid = await api.grid(TAB_TSHIRT_AI);
+  const aiGrid = await api.grid(T_TS);
   const aiLayout = locateTshirt(aiGrid);
   const fte = deriveFteFromTeamMix(await api.grid(TAB_TEAM));
   const tmPlan = { teamMix: { fte } };
   const rosters = phaseTotalsFromSheet(aiGrid, aiLayout).map((ph) => ({ ...ph, roster: buildRoster(tmPlan, ph.staffDays, aiLayout.mf) }));
-  await writeTeamMix(api, tmPlan, rosters, TAB_TEAM_AI);
+  await writeTeamMix(api, tmPlan, rosters, T_TM);
 
   // 4. audit the copies by read-back
   const checks = [];
-  const ts = auditTshirt(await api.grid(TAB_TSHIRT_AI));
+  const ts = auditTshirt(await api.grid(T_TS));
   checks.push(...ts.checks);
-  checks.push(...auditTeamMix(await api.grid(TAB_TEAM_AI), ts.layout.mf, ts.staffDays, ts.phaseDays).checks);
+  checks.push(...auditTeamMix(await api.grid(T_TM), ts.layout.mf, ts.staffDays, ts.phaseDays).checks);
   const failed = checks.filter((c) => !c.ok);
-  return { ...preview, fte, table: rostersTable(rosters), audit: { title: `${meta.properties.title} — (Rescale) tabs`, checks, failed: failed.length, ok: failed.length === 0 } };
+  return { ...preview, fte, table: rostersTable(rosters), audit: { title: `${meta.properties.title} — (${suffix}) tabs`, checks, failed: failed.length, ok: failed.length === 0 } };
 }
 
 // ───────────────────────── CLI ─────────────────────────
@@ -1832,7 +1837,7 @@ function printChecks(audit) {
   console.log(`${audit.ok ? "AUDIT PASS" : `AUDIT FAIL (${audit.failed})`} — ${audit.title}`);
 }
 
-const USAGE = "usage: gsd-t estimate-sheet <read|plan-check|write|teammix|format|phases|titles|audit|plan-schema|size|rescale> --sheet <id|url> [--tab <name>] [--plan <plan.json>] [--replace] [--fte '{\"backend\":1.5}'] [--title <t>] [--dry-run] [--no-audit] [--key <path>] [--json]\n       gsd-t estimate-sheet size --solo-min <n> --project <greenfield-solo|greenfield-team|yellowfield-solo|yellowfield-team-isolated|yellowfield-team-wide> [--switch-min <n>] [--xxs] [--json]\n       gsd-t estimate-sheet rescale --sheet <id|url> (--list | --plan <rescale.json> [--dry-run] [--replace]) [--json]";
+const USAGE = "usage: gsd-t estimate-sheet <read|plan-check|write|teammix|format|phases|titles|audit|plan-schema|size|rescale> --sheet <id|url> [--tab <name>] [--plan <plan.json>] [--replace] [--fte '{\"backend\":1.5}'] [--title <t>] [--dry-run] [--no-audit] [--key <path>] [--json]\n       gsd-t estimate-sheet size --solo-min <n> --project <greenfield-solo|greenfield-team|yellowfield-solo|yellowfield-team-isolated|yellowfield-team-wide> [--switch-min <n>] [--xxs] [--json]\n       gsd-t estimate-sheet rescale --sheet <id|url> (--list | --plan <rescale.json> [--dry-run] [--replace] [--suffix <name>]) [--json]";
 
 /** Runs a verb; returns the exit code. Throws Halt (or any error) — the runner below turns that into exit 4/64. */
 async function main(args) {
@@ -1898,11 +1903,11 @@ async function main(args) {
     const list = !!args.list;
     let plan = null;
     if (!list) { if (!args.plan) throw new Halt("rescale needs --plan <rescale.json> (or --list to print the rows to re-size)", 64); try { plan = JSON.parse(fs.readFileSync(args.plan, "utf8")); } catch (e) { throw new Halt(`cannot read --plan ${args.plan}: ${e.message}`, 64); } }
-    const r = await verbRescale(api, { list, plan, replace: !!args.replace, dryRun: !!args["dry-run"] });
+    const r = await verbRescale(api, { list, plan, replace: !!args.replace, dryRun: !!args["dry-run"], suffix: args.suffix });
     const ok = !r.audit || r.audit.ok;
     if (json || list) console.log(JSON.stringify({ ok, exitCode: ok ? 0 : 4, ...r }, null, 2));
     else {
-      console.log(`${r.items} items: low ${r.oldLowHours} h on the original tabs → ${r.newLowHours} h on the (Rescale) tabs`);
+      console.log(`${r.items} items: low ${r.oldLowHours} h on the original tabs → ${r.newLowHours} h on the (${args.suffix || "Rescale"}) tabs`);
       if (r.dryRun) console.log("(dry run — nothing written)");
       else { console.log(r.table); printChecks(r.audit); }
     }

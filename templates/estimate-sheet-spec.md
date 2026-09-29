@@ -274,7 +274,7 @@ Everything in §1–§5 is executed by `bin/gsd-t-estimate-sheet.cjs`, not re-de
 ```
 gsd-t estimate-sheet plan-schema                              # the plan shape
 gsd-t estimate-sheet size --solo-min <n> --project <type> [--switch-min <n>] [--xxs]   # §1.4: solo minutes → team hours → size (no sheet needed); --xxs for (Rescale) tabs
-gsd-t estimate-sheet rescale --sheet <id|url> (--list | --plan <p.json> [--dry-run] [--replace])  # §7: re-price into (Rescale) copies; originals untouched
+gsd-t estimate-sheet rescale --sheet <id|url> (--list | --plan <p.json> [--dry-run] [--replace] [--suffix <name>])  # §7: re-price into (Rescale) copies; originals untouched
 gsd-t estimate-sheet read       --sheet <id|url> [--tab <name>]   # read-before-write dump
 gsd-t estimate-sheet plan-check --sheet <id|url> --plan plan.json # validate + the roster it WOULD write (the Step 4 pause)
 gsd-t estimate-sheet write      --sheet <id|url> --plan plan.json [--replace]   # T-Shirt + Team Mix + Tech Stack, then audit
@@ -328,3 +328,4 @@ An estimate written on the old day scale is re-priced **without touching it**. `
 | Overhead | `"noOverhead": true` in the plan zeroes the COPY's overhead factors (the multipliers already include team overhead); the original tab's factors are never written. |
 | Re-run | Existing (Rescale) tabs HALT the run; `--replace` rebuilds them **in place** — the T-Shirt copy is cleared and re-copied from the original (values, formulas, formats, validation, widths) and the Team Mix copy is cleared and rewritten, so both tabs keep their identity. They are never deleted and re-created: other sheets import them by name (IMPORTRANGE), and a view that refreshes while a tab is missing caches `#REF!`. `--dry-run` prints old → new Low hours and writes nothing. |
 | Audit | §5 T-Shirt + Team Mix checks run on the (Rescale) tabs by read-back; exit 4 on any ✗. |
+| Second copy | `--suffix "AI v2"` writes `T-Shirt Size Estimate (AI v2)` + `Team Mix (AI v2)` instead, so a second re-estimate never overwrites the `(Rescale)` tabs other sheets import by name. Plain text only (no parentheses, quotes or `!`). |
