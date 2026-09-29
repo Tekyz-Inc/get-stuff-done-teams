@@ -432,14 +432,21 @@ function collectTableCandidates(rootNode) {
   return { local, namespaces };
 }
 
-/** The write operation a call chain performs (`db.update(T).set().where(...)` → 'update'), or null. */
-function chainWriteOp(call) {
+/**
+ * The table a call chain writes (`db.update(T).set().where(...)` → 'T'), or null.
+ * A chain that reads (`.from(`) before any write is a subquery, not a write.
+ */
+function chainWriteTarget(call) {
   let n = call;
   while (n && n.type === 'call_expression') {
     const fn = n.childForFieldName('function');
     if (!fn || fn.type !== 'member_expression') return null;
     const prop = fn.childForFieldName('property').text;
-    if (TABLE_WRITE_OPS.has(prop)) return prop;
+    if (TABLE_READ_OPS.has(prop)) return null;
+    if (TABLE_WRITE_OPS.has(prop)) {
+      const args = n.childForFieldName('arguments');
+      return args ? tableNameOf(args.namedChild(0)) : null;
+    }
     n = unwrapParens(fn.childForFieldName('object'));
   }
   return null;
@@ -447,7 +454,6 @@ function chainWriteOp(call) {
 
 const SCOPE_BOUNDARY = /(_statement|_declaration|^arrow_function$|^function$|^function_expression$|^method_definition$|^statement_block$)/;
 
-/** A column ref is a WRITE when a call chain around it (up to its statement) inserts/updates/deletes. */
 /**
  * Is this identifier a USE of the name? Not its declaration, an import/export
  * specifier, a parameter, a callee, or the receiver of a method call (`logger.info()`).
@@ -468,9 +474,20 @@ function isUseSite(node) {
   return true;
 }
 
-function refAccess(node) {
+/**
+ * A ref to table `name` is a WRITE only inside a chain that writes THAT table
+ * (`db.update(T).where(eq(T.id, …))`). A ref to another table inside it
+ * (`.values({ who: users.name })`, a `.from(users)` subquery) is a READ, and so
+ * is `hash.update(users.id)`. The nearest enclosing chain decides.
+ */
+function refAccess(node, name) {
   for (let p = node.parent; p && !SCOPE_BOUNDARY.test(p.type); p = p.parent) {
-    if (p.type === 'call_expression' && chainWriteOp(p)) return 'WRITE';
+    if (p.type !== 'call_expression') continue;
+    const fn = p.childForFieldName('function');
+    const prop = fn && fn.type === 'member_expression' ? fn.childForFieldName('property').text : null;
+    if (prop !== null && TABLE_READ_OPS.has(prop)) return 'READ';
+    const target = chainWriteTarget(p);
+    if (target !== null) return target === name ? 'WRITE' : 'READ';
   }
   return 'READ';
 }
@@ -635,7 +652,7 @@ function walkTSJS(rootNode, relPath, entities, edges) {
     if (consumed.has(node.startIndex)) return;
     if (inDecl(node.startIndex)) return;
     const src = userOf(enclosingFuncId);
-    const access = refAccess(node);
+    const access = refAccess(node, name);
     const key = `${src}\u0000${access}\u0000${name}`;
     if (refSeen.has(key)) return;
     refSeen.add(key);
@@ -760,7 +777,12 @@ function walkTSJS(rootNode, relPath, entities, edges) {
     if (t === 'member_expression') {
       const obj = node.childForFieldName('object');
       const prop = node.childForFieldName('property');
-      const viaQuery = obj.type === 'member_expression' && obj.childForFieldName('property').text === 'query';
+      // Drizzle's relational API only: `<db>.query.<table>.findMany|findFirst(…)`.
+      // `req.query.page` / `data.query?.pages` are not table reads.
+      const outer = node.parent;
+      const method = outer && outer.type === 'member_expression' ? outer.childForFieldName('property').text : null;
+      const viaQuery = obj.type === 'member_expression' && obj.childForFieldName('property').text === 'query' &&
+        (method === 'findMany' || method === 'findFirst');
       if (viaQuery && prop.type === 'property_identifier') {
         tableEdge('READ', userOf(enclosingFuncId), prop.text, 'query', node);
       } else if (obj.type === 'identifier' && candidates.namespaces.has(obj.text) && isUseSite(node)) {

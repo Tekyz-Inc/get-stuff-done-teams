@@ -844,7 +844,8 @@ function runFreshnessCheck(storePath) {
     };
   } catch (_e) {
     // Parse/corrupt/other freshness error → BROKEN, carry the cause code.
-    return { ok: false, reason: "graph-broken", detail: _e && _e.code ? _e.code : "freshness-failed" };
+    // Carry the message: "package.json is not valid JSON" must reach the user, not "freshness-failed".
+    return { ok: false, reason: "graph-broken", detail: _e && _e.code ? _e.code : ("freshness-failed: " + (_e && _e.message ? _e.message : String(_e))) };
   }
 }
 

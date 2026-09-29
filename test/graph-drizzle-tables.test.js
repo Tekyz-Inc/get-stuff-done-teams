@@ -336,3 +336,26 @@ test('a rebuild prunes files that became excluded; a freshness DELETE removes th
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('READ/WRITE is decided by the table the chain writes; req.query.x is not a table read', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'drizzle-rw-'));
+  try {
+    fs.writeFileSync(path.join(dir, 'a.ts'), [
+      "import { users, posts, audit } from './schema';",
+      'export async function archive(db: any, crypto: any, req: any) {',
+      '  await db.update(posts).set({ x: 1 }).where(inArray(posts.userId, db.select({ id: users.id }).from(users)));',
+      '  await db.insert(audit).values({ who: users.name });',
+      "  crypto.createHash('sha1').update(users.id);",
+      '  const p = req.query.posts;',
+      '  return db.query.posts.findMany();',
+      '}',
+    ].join('\n'));
+    const edges = extractEdges(path.join(dir, 'a.ts'), 'a.ts').edges.filter((e) => e.kind.startsWith('TABLE-'));
+    const writes = edges.filter((e) => e.kind === 'TABLE-WRITE').map((e) => e.target.split('#')[1]);
+    assert.deepEqual([...new Set(writes)].sort(), ['audit', 'posts'], 'users is only read');
+    const queryReads = edges.filter((e) => e.target.includes('#query@'));
+    assert.equal(queryReads.length, 1, 'db.query.posts.findMany only — not req.query.posts');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
