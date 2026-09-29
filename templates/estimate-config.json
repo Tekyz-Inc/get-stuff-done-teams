@@ -10,7 +10,7 @@
   "sizeScale": { "XS": 0.1, "S": 0.25, "M": 0.5, "L": 1, "XL": 2, "XXL": 4 },
   "_sizeScale": "AI-assisted T-shirt scale, person-days (written into the sheet legend by `gsd-t estimate-sheet write`). A size = solo AI minutes x project multiplier + task switching; see estimate-sheet-spec.md section 1.4.",
 
-  "projectMultiplier": { "greenfield-solo": 1, "greenfield-team": 3, "yellowfield-solo": 2, "yellowfield-team-isolated": 11, "yellowfield-team-wide": 15 },
+  "projectMultiplier": { "greenfield-solo": 1, "greenfield-team": 3, "yellowfield-solo": 2, "yellowfield-team-isolated": 5, "yellowfield-team-wide": 7 },
   "_projectMultiplier": "Solo AI minutes are multiplied by this, by project type (isolated vs wide = code-graph blast radius). Internal to the estimator; never shown on the sheet. Includes team overhead — set the sheet overhead factor accordingly (David, 2026-09-28).",
 
   "totalMF": 0.7,

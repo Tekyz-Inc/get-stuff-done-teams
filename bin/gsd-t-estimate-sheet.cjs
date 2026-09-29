@@ -52,7 +52,7 @@ const TAB_TEAM_AI = "Team Mix (Rescale)";
 const SIZE_CODES = ["XS", "S", "M", "L", "XL", "XXL"];
 
 // AI-assisted sizing model (David, 2026-09-27; calibrated on the Hilo Delivery Runway build:
-// 45 tasks, ~26 solo hours). A task is sized in SOLO AI-assisted minutes, multiplied by the
+// 45 tasks, ~26 solo hours = 13 human + 13 Claude). A task is sized in SOLO AI-assisted minutes (human + Claude time), multiplied by the
 // project type, plus a per-task switching allowance added AFTER the multiplier (switching is
 // one person's pickup time — it does not grow with team size). The result maps to the nearest
 // size on AI_SIZE_DAYS, which `write` puts in the sheet's legend. The multipliers live here,
@@ -63,16 +63,17 @@ const AI_SIZE_DAYS = { XS: 0.1, S: 0.25, M: 0.5, L: 1, XL: 2, XXL: 4 };
 // template uses would read "XX*" as XXS + XXL.
 const XXS_DAYS = 0.0625;
 const XXS_LABEL = "XXS - Extra Extra Small";
-// Multipliers set by David 2026-09-28; yellow-field team recalibrated ×5/×7 → ×8/×11 the same day so
-// ATOS re-estimates land at 100–200% improvement, then ×8/×11 → ×11/×15 when David set the Hilo
-// ATOS portfolio target at ~$650K High (~86% improvement; new ≈ 54% of the original effort). They INCLUDE team overhead — reviews, QA,
-// coordination — so no separate overhead factor belongs on top of them.
+// Multipliers set by David 2026-09-28 (×5 isolated / ×7 wide). The same-day recalibrations to ×8/×11 and
+// ×11/×15 were tuning that compensated for solo minutes that left out the human's time; with solo minutes
+// counting human + Claude (Runway: 13 + 13 = 26 h), the untuned values land ATOS at 46% of the original
+// effort vs the tuned 54% (Summary 4, 2026-09-29), so they are the default again. They INCLUDE team
+// overhead — reviews, QA, coordination — so no separate overhead factor belongs on top of them.
 const PROJECT_MULTIPLIER = {
   "greenfield-solo": 1,
   "greenfield-team": 3,
   "yellowfield-solo": 2,
-  "yellowfield-team-isolated": 11,
-  "yellowfield-team-wide": 15,
+  "yellowfield-team-isolated": 5,
+  "yellowfield-team-wide": 7,
 };
 const PHASES = ["MVP", "Phase 1", "Phase 2", "Phase 3"];
 
@@ -1741,7 +1742,8 @@ async function verbRescale(api, opts) {
   const aiScale = { XXS: XXS_DAYS, ...AI_SIZE_DAYS };
   const aiRaw = opts.plan.items.reduce((sum, it) => sum + it.sizes.reduce((a, v) => a + (sizeOf(v) ? aiScale[sizeOf(v)] : 0), 0), 0);
   const oldRaw = rows.reduce((sum, r) => sum + r.sizes.reduce((a, v) => a + (layout.legend[v] || 0), 0), 0);
-  const newMf = opts.plan.noOverhead === true ? 0 : layout.mfTotal;
+  const noOverhead = opts.plan.noOverhead !== false; // default ON: the multipliers include team overhead
+  const newMf = noOverhead ? 0 : layout.mfTotal;
   const preview = { items: rows.length, oldLowHours: round2(oldRaw * (1 + layout.mfTotal) * 8), newLowHours: round2(aiRaw * (1 + newMf) * 8) };
   const exists = [T_TS, T_TM].filter((t) => byTitle.has(t));
   if (exists.length && !opts.replace) throw new Halt(`tab(s) ${exists.map((t) => `'${t}'`).join(", ")} already exist — pass --replace to rebuild them (the original tabs are never touched)`);
@@ -1790,7 +1792,7 @@ async function verbRescale(api, opts) {
   for (const r1 of hRows) writes.push({ tab: T_TS, a1: `${colLetter(layout.cols.days)}${r1}`, values: [[itemFormulasFor(r1, layout.cols, legendAi).H]] });
   // plan.noOverhead: the multipliers already include team overhead (David, 2026-09-28) — zero the
   // COPY's overhead factors so nothing is charged twice. The original tab's factors are never touched.
-  if (opts.plan.noOverhead === true) for (const f of layout.mf) writes.push({ tab: T_TS, a1: `${colLetter(layout.cols.mfTotal.c)}${f.row}`, values: [[0]] });
+  if (noOverhead) for (const f of layout.mf) writes.push({ tab: T_TS, a1: `${colLetter(layout.cols.mfTotal.c)}${f.row}`, values: [[0]] });
   await api.putValuesBatch(writes); // legend + XXS + sizes + Days formulas (+ zeroed overhead): one request
   // the copy meets the spec's formatting on its own (C/D wrap, every cell top-aligned) — a template
   // that predates those rules would otherwise hand its failures to the new tabs

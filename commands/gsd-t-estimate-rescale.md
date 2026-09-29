@@ -20,8 +20,8 @@ You are re-estimating an **existing** Tekyz estimate sheet with the AI-assisted 
    | Greenfield, solo | `greenfield-solo` | × 1 |
    | Greenfield, team | `greenfield-team` | × 3 |
    | Yellow-field (existing app), solo | `yellowfield-solo` | × 2 |
-   | Yellow-field, team — isolated change | `yellowfield-team-isolated` | × 11 |
-   | Yellow-field, team — big blast radius | `yellowfield-team-wide` | × 15 |
+   | Yellow-field, team — isolated change | `yellowfield-team-isolated` | × 5 |
+   | Yellow-field, team — big blast radius | `yellowfield-team-wide` | × 7 |
 
    A yellow-field team estimate chooses isolated vs wide **per row**, from the code graph of the app being changed (`gsd-t graph blast-radius <file-or-symbol>` in that repo) — not a guess. No graph for the app → say so and ask the operator which rows are wide.
 3. List the rows: `gsd-t estimate-sheet rescale --sheet <url> --list`. It prints every sized item row (row number, module, functionality, requirement, phase, current sizes), the size-column labels, the current legend and the sheet's overhead factor. Show the operator the count and the current Low hours.
@@ -30,7 +30,7 @@ You are re-estimating an **existing** Tekyz estimate sheet with the AI-assisted 
 
 Nobody hand-writes code. For each row and each size column:
 
-1. Estimate the **solo AI-assisted minutes** — one person directing Claude, greenfield. Runway rate: ~5 min for a trivial change, ~20 min for a typical screen element or endpoint, 1–2¼ hrs for the heaviest pieces. Read the Functionality and Low Level Requirements; do not scale the old size mechanically — the old sizes assumed hand-coding.
+1. Estimate the **solo AI-assisted minutes** — one person directing Claude, greenfield, counting the person's time AND Claude's time. Runway rate (26 h = 13 human + 13 Claude): ~10 min for a trivial change, ~40 min for a typical screen element or endpoint, 2–4½ hrs for the heaviest pieces. Read the Functionality and Low Level Requirements; do not scale the old size mechanically — the old sizes assumed hand-coding.
 2. Run `gsd-t estimate-sheet size --solo-min <n> --project <type> --xxs` — it multiplies, adds task switching after the multiplier, and prints the size. `--xxs` is always on here: the (Rescale) tab carries **XXS (0.5 hr)** so sub-hour work does not round up to XS. Count switching once per row: pass `--switch-min 0` for the row's smaller column.
 3. Build the plan — one entry per listed row, `functionality` copied **exactly** from the list (the tool matches row AND text, and halts on a row that moved):
 

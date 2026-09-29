@@ -80,9 +80,9 @@ Column widths: `[150, 120, 300, 430, 122, 90, 90, 61, 53, 76, 81, 81]`.
 
 #### 1.4 How a size is chosen — the AI-assisted model (David, 2026-09-27)
 
-Nobody hand-writes code. A size is the **team hours** a task takes with AI-assisted development, and the multipliers that produce it live in the estimator — never on the sheet. Calibration: the Hilo Delivery Runway build (45 tasks, ~26 solo hours: 13 David + 13 Claude).
+Nobody hand-writes code. A size is the **team hours** a task takes with AI-assisted development, and the multipliers that produce it live in the estimator — never on the sheet. Calibration: the Hilo Delivery Runway build (45 tasks, ~26 solo hours: 13 David + 13 Claude — solo minutes count both).
 
-1. **Estimate the task in SOLO AI-assisted minutes** — one person directing Claude, greenfield. Runway rate: roughly 5 min for a trivial change, 20 min for a typical screen element or endpoint, 1–2¼ hrs for the heaviest pieces.
+1. **Estimate the task in SOLO AI-assisted minutes** — one person directing Claude, greenfield, counting **the person's time AND Claude's time** (David, 2026-09-29). Runway rate: roughly 10 min for a trivial change, 40 min for a typical screen element or endpoint, 2–4½ hrs for the heaviest pieces.
 2. **Multiply by the project type:**
 
 | Project | Multiplier |
@@ -90,8 +90,8 @@ Nobody hand-writes code. A size is the **team hours** a task takes with AI-assis
 | Greenfield, solo | × 1 |
 | Greenfield, team | × 3 |
 | Yellow-field (existing app), solo | × 2 |
-| Yellow-field, team — isolated change | × 11 |
-| Yellow-field, team — big blast radius | × 15 |
+| Yellow-field, team — isolated change | × 5 |
+| Yellow-field, team — big blast radius | × 7 |
 
    The multipliers include team overhead (reviews, QA, coordination) — do not also charge it through the overhead factors (David, 2026-09-28). Blast radius comes from the code graph (`gsd-t graph blast-radius`), not a guess.
 3. **Add task switching AFTER the multiplier** — it is one person's pickup time and does not grow with team size: 5–10 min for small tasks (less when related tasks run back-to-back), ~15 min medium, up to 30 min large.
@@ -325,7 +325,7 @@ An estimate written on the old day scale is re-priced **without touching it**. `
 | Formulas | With XXS present the copy's Days column uses an **exact** lookup — `SUMIF(legend, F{r}&" -*", values)` — because the template's `LEFT(F{r},2)&"*"` reads `XX*` as XXS + XXL. The audit expects the exact form whenever the legend carries XXS. |
 | Team Mix | `Team Mix (Rescale)` keeps the original tab's roster (derived as `teammix` does) and staffs the copy's phase rollups (midpoint of Low/High, §2.2). |
 | Formatting | The copy is re-wrapped (C/D) and top-aligned so it passes §5 on its own. |
-| Overhead | `"noOverhead": true` in the plan zeroes the COPY's overhead factors (the multipliers already include team overhead); the original tab's factors are never written. |
+| Overhead | The COPY's overhead factors are zeroed by default (the multipliers already include team overhead); `"noOverhead": false` in the plan keeps them. The original tab's factors are never written. |
 | Re-run | Existing (Rescale) tabs HALT the run; `--replace` rebuilds them **in place** — the T-Shirt copy is cleared and re-copied from the original (values, formulas, formats, validation, widths) and the Team Mix copy is cleared and rewritten, so both tabs keep their identity. They are never deleted and re-created: other sheets import them by name (IMPORTRANGE), and a view that refreshes while a tab is missing caches `#REF!`. `--dry-run` prints old → new Low hours and writes nothing. |
 | Audit | §5 T-Shirt + Team Mix checks run on the (Rescale) tabs by read-back; exit 4 on any ✗. |
 | Second copy | `--suffix "AI v2"` writes `T-Shirt Size Estimate (AI v2)` + `Team Mix (AI v2)` instead, so a second re-estimate never overwrites the `(Rescale)` tabs other sheets import by name. Plain text only (no parentheses, quotes or `!`). |

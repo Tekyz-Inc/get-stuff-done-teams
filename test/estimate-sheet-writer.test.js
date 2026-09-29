@@ -509,19 +509,19 @@ test("the writer ships in GLOBAL_BIN_TOOLS and PROJECT_BIN_TOOLS and has a dispa
 // ───────────── AI-assisted sizing model (David, 2026-09-27) ─────────────
 
 test("aiTaskSize: switching is added AFTER the multiplier, never multiplied", () => {
-  // 5 solo min on a wide yellow-field team task: 5 × 15 = 75 min + 7.5 min switching
-  const r = W.aiTaskSize({ soloMin: 5, project: "yellowfield-team-wide" });
-  assert.strictEqual(r.multiplier, 15);
+  // 10 solo min on a wide yellow-field team task: 10 × 7 = 70 min + 7.5 min switching
+  const r = W.aiTaskSize({ soloMin: 10, project: "yellowfield-team-wide" });
+  assert.strictEqual(r.multiplier, 7);
   assert.strictEqual(r.switchMin, 7.5);
-  assert.strictEqual(r.hours, 1.38);
-  assert.notStrictEqual(r.hours, round2((5 + 7.5) * 15 / 60), "switching must not be multiplied");
+  assert.strictEqual(r.hours, 1.29);
+  assert.notStrictEqual(r.hours, round2((10 + 7.5) * 7 / 60), "switching must not be multiplied");
 });
 
 function round2(n) { return Math.round(n * 100) / 100; }
 
 test("aiTaskSize: the five project multipliers", () => {
   const m = W.constants.PROJECT_MULTIPLIER;
-  assert.deepStrictEqual(m, { "greenfield-solo": 1, "greenfield-team": 3, "yellowfield-solo": 2, "yellowfield-team-isolated": 11, "yellowfield-team-wide": 15 });
+  assert.deepStrictEqual(m, { "greenfield-solo": 1, "greenfield-team": 3, "yellowfield-solo": 2, "yellowfield-team-isolated": 5, "yellowfield-team-wide": 7 });
 });
 
 test("aiTaskSize: switching allowance scales with task size (7.5 / 15 / 30 min) and can be overridden", () => {
@@ -534,8 +534,9 @@ test("aiTaskSize: switching allowance scales with task size (7.5 / 15 / 30 min) 
 test("aiTaskSize: maps to the nearest AI-scale size and the scale covers the largest task", () => {
   assert.deepStrictEqual(W.constants.AI_SIZE_DAYS, { XS: 0.1, S: 0.25, M: 0.5, L: 1, XL: 2, XXL: 4 });
   assert.strictEqual(W.aiTaskSize({ soloMin: 5, project: "greenfield-solo" }).size, "XS");
-  assert.strictEqual(W.aiTaskSize({ soloMin: 20, project: "yellowfield-team-wide" }).size, "M");
-  assert.strictEqual(W.aiTaskSize({ soloMin: 135, project: "yellowfield-team-wide" }).size, "XXL");
+  // Runway rates, human + Claude time (2026-09-29): typical 40 min, heaviest up to 4½ hr
+  assert.strictEqual(W.aiTaskSize({ soloMin: 40, project: "yellowfield-team-wide" }).size, "M");
+  assert.strictEqual(W.aiTaskSize({ soloMin: 270, project: "yellowfield-team-wide" }).size, "XXL");
 });
 
 test("aiTaskSize: bad input HALTS (no silent default project or size)", () => {
@@ -604,5 +605,5 @@ test("aiTaskSize --xxs: sub-hour solo work lands on XXS (0.5 hr) instead of roun
   assert.strictEqual(W.constants.XXS_DAYS, 0.0625);
   assert.strictEqual(W.aiTaskSize({ soloMin: 5, project: "greenfield-solo", xxs: true }).size, "XXS");
   assert.strictEqual(W.aiTaskSize({ soloMin: 5, project: "greenfield-solo" }).size, "XS");
-  assert.strictEqual(W.aiTaskSize({ soloMin: 20, project: "yellowfield-team-wide", xxs: true }).size, "M");
+  assert.strictEqual(W.aiTaskSize({ soloMin: 40, project: "yellowfield-team-wide", xxs: true }).size, "M");
 });
