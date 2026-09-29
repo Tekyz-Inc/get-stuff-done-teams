@@ -306,3 +306,14 @@ test('golden: who-calls matches TypeScript findReferences for 5 symbols (real sc
       fs.rmSync(dir, { recursive: true, force: true });
     }
   });
+/**
+ * [auto-research-claim: class=external key=scip occurrence columns utf 16 code units line up with tree sitter callee columns bytes this held for every call checked in 3 hilo files 3 647 calls matched exactly shifting the column by 1 matched 0 a line with non ascii text before the callee could be miscounted as a miss which would lean toward compiler partial never toward compiler accurate status=cited]
+ *
+ * ## Verified Facts (auto-research)
+ *
+ * - **SCIP Document.position_encoding defines UTF8CodeUnitOffsetFromLineStart ("offset in terms of UTF-8 code units (i.e. bytes)"), UTF16CodeUnitOffsetFromLineStart ("UTF-16 code units") and UTF32CodeUnitOffsetFromLineStart; the spec says "For an indexer implemented in JavaScript/TypeScript, use UTF16CodeUnitOffsetFromLineStart" — so scip-typescript occurrence columns are UTF-16 code units, not bytes** — source: https://raw.githubusercontent.com/sourcegraph/scip/main/scip.proto (fetched 2026-09-29)
+ *
+ * - **Tree-sitter Point column "represents the number of bytes between the position and beginning of the line" (byte offset, i.e. UTF-8 code units for UTF-8 source)** — source: https://tree-sitter.github.io/tree-sitter/using-parsers/2-basic-parsing.html (fetched 2026-09-29)
+ *
+ * - **[CORRECTION: the two units are equal only when every character before the callee on that line is ASCII (1 byte = 1 UTF-16 unit). They are different units by spec, not always aligned: a non-ASCII prefix makes the tree-sitter byte column larger than the SCIP UTF-16 column, so an exact-column join misses that call. The 3,647-call exact match is local evidence that those lines had ASCII prefixes, not proof the units coincide. A fix is to convert tree-sitter byte columns to UTF-16 (or read Document.position_encoding) before joining.]** — source: https://raw.githubusercontent.com/sourcegraph/scip/main/scip.proto (fetched 2026-09-29)
+ */
