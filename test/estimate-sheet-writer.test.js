@@ -509,19 +509,19 @@ test("the writer ships in GLOBAL_BIN_TOOLS and PROJECT_BIN_TOOLS and has a dispa
 // ───────────── AI-assisted sizing model (David, 2026-09-27) ─────────────
 
 test("aiTaskSize: switching is added AFTER the multiplier, never multiplied", () => {
-  // 5 solo min on a wide yellow-field team task: 5 × 11 = 55 min + 7.5 min switching
+  // 5 solo min on a wide yellow-field team task: 5 × 15 = 75 min + 7.5 min switching
   const r = W.aiTaskSize({ soloMin: 5, project: "yellowfield-team-wide" });
-  assert.strictEqual(r.multiplier, 11);
+  assert.strictEqual(r.multiplier, 15);
   assert.strictEqual(r.switchMin, 7.5);
-  assert.strictEqual(r.hours, 1.04);
-  assert.notStrictEqual(r.hours, round2((5 + 7.5) * 11 / 60), "switching must not be multiplied");
+  assert.strictEqual(r.hours, 1.38);
+  assert.notStrictEqual(r.hours, round2((5 + 7.5) * 15 / 60), "switching must not be multiplied");
 });
 
 function round2(n) { return Math.round(n * 100) / 100; }
 
 test("aiTaskSize: the five project multipliers", () => {
   const m = W.constants.PROJECT_MULTIPLIER;
-  assert.deepStrictEqual(m, { "greenfield-solo": 1, "greenfield-team": 3, "yellowfield-solo": 2, "yellowfield-team-isolated": 8, "yellowfield-team-wide": 11 });
+  assert.deepStrictEqual(m, { "greenfield-solo": 1, "greenfield-team": 3, "yellowfield-solo": 2, "yellowfield-team-isolated": 11, "yellowfield-team-wide": 15 });
 });
 
 test("aiTaskSize: switching allowance scales with task size (7.5 / 15 / 30 min) and can be overridden", () => {

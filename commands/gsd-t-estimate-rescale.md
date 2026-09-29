@@ -20,8 +20,8 @@ You are re-estimating an **existing** Tekyz estimate sheet with the AI-assisted 
    | Greenfield, solo | `greenfield-solo` | × 1 |
    | Greenfield, team | `greenfield-team` | × 3 |
    | Yellow-field (existing app), solo | `yellowfield-solo` | × 2 |
-   | Yellow-field, team — isolated change | `yellowfield-team-isolated` | × 8 |
-   | Yellow-field, team — big blast radius | `yellowfield-team-wide` | × 11 |
+   | Yellow-field, team — isolated change | `yellowfield-team-isolated` | × 11 |
+   | Yellow-field, team — big blast radius | `yellowfield-team-wide` | × 15 |
 
    A yellow-field team estimate chooses isolated vs wide **per row**, from the code graph of the app being changed (`gsd-t graph blast-radius <file-or-symbol>` in that repo) — not a guess. No graph for the app → say so and ask the operator which rows are wide.
 3. List the rows: `gsd-t estimate-sheet rescale --sheet <url> --list`. It prints every sized item row (row number, module, functionality, requirement, phase, current sizes), the size-column labels, the current legend and the sheet's overhead factor. Show the operator the count and the current Low hours.

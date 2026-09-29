@@ -64,14 +64,15 @@ const AI_SIZE_DAYS = { XS: 0.1, S: 0.25, M: 0.5, L: 1, XL: 2, XXL: 4 };
 const XXS_DAYS = 0.0625;
 const XXS_LABEL = "XXS - Extra Extra Small";
 // Multipliers set by David 2026-09-28; yellow-field team recalibrated ×5/×7 → ×8/×11 the same day so
-// ATOS re-estimates land at 100–200% improvement (½ to ⅓ of the original effort). They INCLUDE team overhead — reviews, QA,
+// ATOS re-estimates land at 100–200% improvement, then ×8/×11 → ×11/×15 when David set the Hilo
+// ATOS portfolio target at ~$650K High (~86% improvement; new ≈ 54% of the original effort). They INCLUDE team overhead — reviews, QA,
 // coordination — so no separate overhead factor belongs on top of them.
 const PROJECT_MULTIPLIER = {
   "greenfield-solo": 1,
   "greenfield-team": 3,
   "yellowfield-solo": 2,
-  "yellowfield-team-isolated": 8,
-  "yellowfield-team-wide": 11,
+  "yellowfield-team-isolated": 11,
+  "yellowfield-team-wide": 15,
 };
 const PHASES = ["MVP", "Phase 1", "Phase 2", "Phase 3"];
 
