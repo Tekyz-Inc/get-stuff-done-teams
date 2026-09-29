@@ -66,11 +66,20 @@ model=$(printf '%s' "$input" | jq -r '.model.id // ""')
 #       Computed as input_tokens + cache_creation_input_tokens +
 #       cache_read_input_tokens to capture the full window pressure. ---
 ctx_left=""
-if [ -n "$cwd" ]; then
+# Claude Code passes this session's transcript path directly. Prefer it: the
+# cwd-derived slug below misses whenever the session's working folder is a
+# subfolder (or contains spaces), which silently dropped the ctx field.
+transcript=$(printf '%s' "$input" | jq -r '.transcript_path // ""')
+if [ -n "$transcript" ] && [ -f "$transcript" ]; then
+  sess_dir=$(dirname "$transcript")
+elif [ -n "$cwd" ]; then
   proj_slug=$(printf '%s' "$cwd" | sed 's:/:-:g')
   sess_dir="$HOME/.claude/projects/$proj_slug"
+fi
+if [ -n "$sess_dir" ]; then
   if [ -d "$sess_dir" ]; then
-    latest_jsonl=$(ls -t "$sess_dir"/*.jsonl 2>/dev/null | head -1)
+    latest_jsonl=$transcript
+    [ -f "$latest_jsonl" ] || latest_jsonl=$(ls -t "$sess_dir"/*.jsonl 2>/dev/null | head -1)
     if [ -n "$latest_jsonl" ]; then
       # Window size by model family. Haiku = 200k; everything else = 1M.
       case "$model" in

@@ -34,11 +34,11 @@ Each verb calls D4's `freshness_check_on_query` INLINE before answering.
 
 ## JSON envelope
 ```json
-{ "ok": true,  "verb": "who-imports", "target": "...", "results": [ ... ], "tier": "compiler-accurate|tree-sitter-floor|tree-sitter-floor-STALE-SCIP" }
+{ "ok": true,  "verb": "who-imports", "target": "...", "results": [ ... ], "tier": "compiler-accurate|tree-sitter-floor|tree-sitter-floor-STALE-SCIP|tree-sitter-floor-SCIP-MISSING" }
 { "ok": false, "reason": "graph-unavailable" }
 { "ok": false, "reason": "ambiguous-function", "verb": "who-calls", "target": "foo", "candidates": [ "a.ts#foo", "b.ts#foo" ] }
 ```
-(`ambiguous-function` — RE-PLAN Fix-3: a bare `who-calls <name>` matching multiple `funcId`s returns this rather than a silently-merged caller set; the caller re-issues with a `file#function` identity. `tree-sitter-floor-STALE-SCIP` — RE-PLAN Fix-2: an honestly-flagged per-file re-index of a previously-compiler-accurate file.)
+(`ambiguous-function` — RE-PLAN Fix-3: a bare `who-calls <name>` matching multiple `funcId`s returns this rather than a silently-merged caller set; the caller re-issues with a `file#function` identity. `tree-sitter-floor-STALE-SCIP` — RE-PLAN Fix-2: an honestly-flagged per-file re-index of a previously-compiler-accurate file. `tree-sitter-floor-SCIP-MISSING` — a file the SCIP indexer produced no document for; `status` returns `scipMissing: { count, files }`. When `who-calls`/`blast-radius` coverage is incomplete, `coverage.unresolvedCallSites: { count, note, callers, files }` lists name-matched UNRESOLVED call sites — labelled, never merged into `results`; an empty+incomplete answer is recorded at `.gsd-t/graphDB/last-incomplete-answer.json` so the M117 search guard can name an allowed path forward. [RULE] incomplete-empty-answer-names-a-path-forward)
 
 ## Invariants
 - `[RULE] query-cli-never-greps` — NO directive-driven grep fallback in ANY code path; verified by STRUCTURAL grep-for-absence (parse the paths), not a substring scan

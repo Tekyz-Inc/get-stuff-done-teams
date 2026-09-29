@@ -134,6 +134,10 @@ function _resetScipCache(override) {
  * is confirmed present and invocable. Phase-2 will replace the edges with
  * SCIP-derived ones. This is the documented UPGRADE FLOOR behavior.
  */
+const SCIP_MAX_FILE_BYTES = '64mb';
+const SCIP_HEAP_MB = 8192;
+const SCIP_MISSING_TIER = 'tree-sitter-floor-SCIP-MISSING';
+
 function runScipTypescript(projectRoot, outPath) {
   // M95: emit to a REAL file (outPath) so the index can be READ and call edges
   // resolved — not /dev/null. The old /dev/null path only proved invocability.
@@ -145,10 +149,22 @@ function runScipTypescript(projectRoot, outPath) {
   // --infer-tsconfig: resolve a tsconfig even when one isn't at the repo root
   // (monorepos / nested layouts — e.g. web/tsconfig.json). Without it, projects
   // whose tsconfig lives in a subdir got 0 resolved call edges. [RULE] scip-infer-nested-tsconfig
-  const scip = spawnSync('scip-typescript', ['index', '--infer-tsconfig', '--output', out, '.'], {
+  // --max-file-byte-size: scip-typescript SKIPS every file over 1mb by default,
+  // silently — no warning, no document in the index. A 50k-line route file
+  // (hilo-figma-atos routes-locations.ts, 1.9MB) was never resolved, so every
+  // call in it stayed unresolved and who-calls answered []. Raise the cap well
+  // past any hand-written source file. [RULE] scip-no-silent-large-file-skip
+  // A larger heap keeps a big project from dying mid-run once those files are in.
+  const nodeOpts = process.env.NODE_OPTIONS || '';
+  const env = /max-old-space-size/.test(nodeOpts)
+    ? process.env
+    : { ...process.env, NODE_OPTIONS: `${nodeOpts} --max-old-space-size=${SCIP_HEAP_MB}`.trim() };
+  const scip = spawnSync('scip-typescript',
+    ['index', '--infer-tsconfig', '--max-file-byte-size', SCIP_MAX_FILE_BYTES, '--output', out, '.'], {
     cwd: projectRoot,
     encoding: 'utf8',
     timeout: 180_000,
+    env,
   });
   if (scip.status === 0) return { ok: true, scipPath: out };
   return { ok: false, error: scip.stderr || `exit code ${scip.status}` };
@@ -325,10 +341,12 @@ function buildScipResolver(repoRoot, opts = {}) {
   // is language-agnostic (Python symbols use the same `name().` descriptor form),
   // so TS and Python refs merge into one fileRefs map keyed by repo-relative path.
   const fileRefs = new Map(); // relPath → [{symbol, funcId, line}]
+  const scipDocs = new Set(); // every file any indexer produced a document for
   const ranIndexers = [];
 
   function mergeRead(read) {
     if (!read || !read.ok) return;
+    if (read.docPaths) for (const d of read.docPaths) scipDocs.add(d);
     for (const [file, refs] of read.fileRefs) {
       if (fileRefs.has(file)) fileRefs.get(file).push(...refs);
       else fileRefs.set(file, refs.slice());
@@ -419,6 +437,10 @@ function buildScipResolver(repoRoot, opts = {}) {
     indexedFiles: fileRefs.size,
     scipPath: resolveScipPath('index.scip', repoRoot),
     resolveFileEdges,
+    // [RULE] scip-missing-file-detected-never-silent — lets the upgrader tell a
+    // file the indexer never produced a document for from one it indexed.
+    coversLanguage: (lang) => ranIndexers.includes(lang),
+    hasScipDoc: (relPath) => scipDocs.has(relPath),
   };
 }
 
@@ -490,6 +512,15 @@ function tryScipUpgrade(absPath, relPath, entities, edges, options) {
       ? 'tree-sitter-floor-STALE-SCIP'
       : 'tree-sitter-floor';
     return { upgraded: false, tier, entities, edges };
+  }
+
+  // The indexer ran for this language but produced no document for this file
+  // (skipped for size, outside every tsconfig, or dropped mid-run). Its call
+  // targets are unknown — say so in the tier, never label it plain floor or,
+  // worse, compiler-accurate. [RULE] scip-missing-file-detected-never-silent
+  if (typeof resolver.hasScipDoc === 'function' && typeof resolver.coversLanguage === 'function' &&
+      resolver.coversLanguage(lang) && !resolver.hasScipDoc(relPath)) {
+    return { upgraded: false, tier: SCIP_MISSING_TIER, entities, edges };
   }
 
   // Resolve this file's UNRESOLVED# call edges against the SCIP index.
@@ -584,4 +615,6 @@ module.exports = {
   _resetScipCache,
   isRustCrossCrateEdge,
   EXT_TO_LANG,
+  SCIP_MISSING_TIER,
+  SCIP_MAX_FILE_BYTES,
 };

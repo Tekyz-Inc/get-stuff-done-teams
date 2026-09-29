@@ -204,6 +204,9 @@ function isTestFile(funcId, patterns) {
 // in the implFuncs coverage set.
 
 const UNRESOLVED_PREFIX = "UNRESOLVED#";
+// A file the SCIP indexer ran for but never produced a document for (see
+// gsd-t-graph-scip-upgrade.cjs). [RULE] scip-missing-file-detected-never-silent
+const SCIP_MISSING_TIER = "tree-sitter-floor-SCIP-MISSING";
 
 /**
  * Load records from a JSONL store directory.
@@ -379,7 +382,7 @@ function buildIndex(records, skippedFiles) {
     allFiles.add(rec.file);
     if (rec.tier) fileTier.set(rec.file, rec.tier);
 
-    if (rec.tier === "tree-sitter-floor") hasFloor = true;
+    if (rec.tier === "tree-sitter-floor" || rec.tier === SCIP_MISSING_TIER) hasFloor = true;
     if (rec.tier === "tree-sitter-floor-STALE-SCIP") hasStaleScip = true;
 
     // Index entities for bare-name disambiguation + tier labeling
@@ -595,6 +598,13 @@ function loadSqliteStore(dbPath) {
       if (n.tier && n.tier !== 'compiler-accurate') r.tier = n.tier;
       else if (!r.tier) r.tier = n.tier || 'compiler-accurate';
     }
+    // The files table is where a SCIP-MISSING label lives even for a file that
+    // declares no function — so `graph status` can list every one of them.
+    if (hasFilesTable) {
+      for (const r of db.prepare("SELECT file, tier FROM files WHERE tier = ?").all(SCIP_MISSING_TIER)) {
+        rec(norm(r.file)).tier = r.tier;
+      }
+    }
     for (const e of edges) {
       // src for an IMPORT edge is the source FILE; for a CALL edge it's a funcId
       // (file#fn@line). The owning file record is the src's file part.
@@ -733,6 +743,40 @@ function queryWhoImports(index, target) {
   return { results, tier: index.tier, coverage };
 }
 
+// ─── Unresolved call sites that name the target ──────────────────────────────
+//
+// When coverage is incomplete, the calls the graph could not resolve are still
+// in it — as `UNRESOLVED#<name>` edges from a known caller. They are NOT results
+// (a name match is not a resolved call), so they are reported inside `coverage`,
+// labelled, with the files to open. That turns "[] and incomplete" into a named
+// place to look. [RULE] incomplete-empty-answer-names-a-path-forward
+
+function unresolvedCallSitesFor(index, identity) {
+  const name = identity.split("#").pop().replace(/@\d+$/, "");
+  if (!name) return null;
+  const exact = UNRESOLVED_PREFIX + name;
+  const member = "." + name;
+  const callers = new Set();
+  for (const { src, dst } of index.forwardCallEdges) {
+    if (dst === exact || (dst.startsWith(UNRESOLVED_PREFIX) && dst.endsWith(member))) callers.add(src);
+  }
+  if (callers.size === 0) return null;
+  const sorted = Array.from(callers).sort();
+  const files = Array.from(new Set(sorted.map((c) => c.split("#")[0]))).sort();
+  return {
+    count: sorted.length,
+    note: "name-match only — these callers call something named '" + name + "' that the graph could not resolve; open these files to confirm",
+    callers: sorted.slice(0, 100),
+    files: files.slice(0, 50),
+  };
+}
+
+function withUnresolvedSites(coverage, index, identity) {
+  if (!coverage || coverage.complete !== false) return coverage;
+  const sites = unresolvedCallSitesFor(index, identity);
+  return sites ? { ...coverage, unresolvedCallSites: sites } : coverage;
+}
+
 // ─── Query: who-calls ─────────────────────────────────────────────────────────
 
 /**
@@ -755,7 +799,9 @@ function queryWhoImports(index, target) {
  */
 function queryWhoCalls(index, identity) {
   const isFuncId = identity.includes("#");
-  const coverage = computeCoverage(index.skippedFiles, { callEdgesUnresolved: true, unresolvedFiles: countUnresolvedFiles(index) });
+  const coverage = withUnresolvedSites(
+    computeCoverage(index.skippedFiles, { callEdgesUnresolved: true, unresolvedFiles: countUnresolvedFiles(index) }),
+    index, identity);
 
   if (isFuncId) {
     // File-qualified identity — exact funcId lookup (tolerate @line suffix:
@@ -951,6 +997,10 @@ function queryBlastRadius(index, target) {
     for (const [funcId, meta] of index.funcEntities) {
       if (meta.file === target) {
         initialFrontier.add(funcId);
+        // SCIP-resolved call edges key on `file#name` (no @line) — seed that
+        // form too, or a file's callers never enter the radius.
+        // [RULE] who-calls-funcid-line-suffix-tolerant
+        initialFrontier.add(funcId.replace(/@\d+$/, ""));
       }
     }
   }
@@ -988,7 +1038,9 @@ function queryBlastRadius(index, target) {
   }
 
   const results = Array.from(visited).sort();
-  const coverage = computeCoverage(index.skippedFiles, { callEdgesUnresolved: true, unresolvedFiles: countUnresolvedFiles(index) });
+  const coverage = withUnresolvedSites(
+    computeCoverage(index.skippedFiles, { callEdgesUnresolved: true, unresolvedFiles: countUnresolvedFiles(index) }),
+    index, target);
   return { results, tier: index.tier, coverage };
 }
 
@@ -1004,7 +1056,12 @@ function queryBlastRadius(index, target) {
  * @returns {object}
  */
 function queryStatus(index, storePath) {
+  // [RULE] scip-missing-file-detected-never-silent — status names them.
+  const scipMissing = [];
+  for (const [file, tier] of index.fileTier || []) if (tier === SCIP_MISSING_TIER) scipMissing.push(file);
+  scipMissing.sort();
   return {
+    scipMissing: { count: scipMissing.length, files: scipMissing.slice(0, 50) },
     queryable: true,
     storePath,
     fileCount: index.allFiles.size,
@@ -1203,7 +1260,7 @@ function queryDeadCode(index) {
     // [RULE] orphan-tier-labeled-candidate-not-certainty:
     // Floor-tier results are CANDIDATE (a missed unresolved call could explain the absence).
     const tier = meta.tier || index.tier;
-    const isFloor = tier === "tree-sitter-floor" || tier === "tree-sitter-floor-STALE-SCIP";
+    const isFloor = tier === "tree-sitter-floor" || tier === "tree-sitter-floor-STALE-SCIP" || tier === SCIP_MISSING_TIER;
     const candidateLabel = isFloor ? "CANDIDATE" : null;
 
     results.push({ funcId, file: meta.file, tier, candidateLabel });
@@ -1346,6 +1403,32 @@ function queryTestImpl(index, options) {
   return { results: untested, tier: index.tier, mode: "untested-impl" };
 }
 
+// ─── Incomplete-empty marker (read by the M117 search guard) ──────────────────
+//
+// The search guard runs BEFORE a grep and cannot see what the graph just said.
+// When who-calls / blast-radius answers [] with coverage incomplete, record it,
+// so the guard's block message can name a path forward (the files to open, the
+// re-index) instead of leaving none. A write failure is said on stderr.
+// [RULE] incomplete-empty-answer-names-a-path-forward
+
+const INCOMPLETE_MARKER_NAME = "last-incomplete-answer.json";
+
+function writeIncompleteAnswerMarker(projectRoot, verb, target, coverage) {
+  const file = path.join(projectRoot, ".gsd-t", "graphDB", INCOMPLETE_MARKER_NAME);
+  try {
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, JSON.stringify({
+      ts: new Date().toISOString(),
+      verb,
+      target,
+      note: coverage.note || null,
+      unresolvedCallSites: coverage.unresolvedCallSites || null,
+    }, null, 2));
+  } catch (e) {
+    process.stderr.write("[graph] could not record the incomplete answer for the search guard (" + e.message + ")\n");
+  }
+}
+
 // ─── Public API (for tests to import directly) ────────────────────────────────
 // Tests build an index from fixture records, then call these pure functions.
 // The query CLI is the only caller of runFreshnessCheck (integration seam).
@@ -1384,6 +1467,10 @@ module.exports = {
   COUPLING_THRESHOLD,
   DEFAULT_TEST_PATTERNS,
   UNRESOLVED_PREFIX,
+  SCIP_MISSING_TIER,
+  unresolvedCallSitesFor,
+  writeIncompleteAnswerMarker,
+  INCOMPLETE_MARKER_NAME,
   getTestPatterns,
   isTestFile,
 };
@@ -1522,6 +1609,9 @@ if (require.main === module) {
       });
       process.exit(2);
     }
+    if (queryResult.results.length === 0 && queryResult.coverage && queryResult.coverage.complete === false) {
+      writeIncompleteAnswerMarker(_resolver.deriveProjectRoot(storePath), verb, target, queryResult.coverage);
+    }
     emit({ ok: true, verb, target, results: queryResult.results, tier: queryResult.tier, coverage: queryResult.coverage });
 
   } else if (verb === "body") {
@@ -1577,6 +1667,9 @@ if (require.main === module) {
   } else if (verb === "blast-radius") {
     if (!target) fail({ ok: false, reason: "missing-target", verb });
     const { results, tier, coverage } = queryBlastRadius(index, target);
+    if (results.length === 0 && coverage && coverage.complete === false) {
+      writeIncompleteAnswerMarker(_resolver.deriveProjectRoot(storePath), verb, target, coverage);
+    }
     emit({ ok: true, verb, target, results, tier, coverage });
 
   } else if (verb === "status") {

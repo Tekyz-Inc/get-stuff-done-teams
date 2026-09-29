@@ -173,7 +173,7 @@ function extractImportedNames(importNode) {
  * SCIP upgrade will replace these with fully-resolved funcIds.
  *
  * [RULE] who-calls-function-identity-disambiguated: src is the funcId of the
- * enclosing function (or a synthetic _anon@line if top-level); dst is the
+ * enclosing function (or a synthetic route/anonymous caller id, else _toplevel); dst is the
  * callee's best-effort funcId.
  */
 function resolveCalleeName(fnNode) {
@@ -183,6 +183,47 @@ function resolveCalleeName(fnNode) {
   if (t === 'member_expression') return fnNode.text; // e.g. obj.method
   if (t === 'subscript_expression') return null;      // computed — unresolvable
   return null;
+}
+
+// ── Anonymous callers (route handlers + callbacks) ───────────────────────────
+//
+// A call inside an anonymous function has no named caller. Before this, such a
+// call was credited to `file#_toplevel` (and a const-arrow body was walked twice,
+// crediting every call in it to _toplevel as well as to the real function). A
+// Hono/Express route file is almost entirely `router.get('/p', mw, async (c) =>
+// { helper() })`, so who-calls answered with one meaningless "_toplevel" caller
+// or — when the dst never resolved — nothing at all.
+//
+// Now every anonymous body gets a caller identity that says where it is:
+//   route handler   → `file#GET /locations/:id@3217`   (method + path + line)
+//   other callback  → the enclosing NAMED function, when there is one
+//   top-level cb    → `file#anonymous@<line>`
+// [RULE] anonymous-caller-synthesized-never-dropped
+
+const ROUTE_METHODS = new Set(['get', 'post', 'put', 'patch', 'delete', 'del', 'all', 'options', 'head', 'use']);
+
+function isAnonymousFn(node) {
+  if (!node) return false;
+  if (node.type === 'arrow_function') return true;
+  if (node.type === 'function' || node.type === 'function_expression') {
+    return !node.childForFieldName('name');
+  }
+  return false;
+}
+
+/**
+ * `router.get('/path', ...)` → "GET /path"; anything else → null.
+ * The method match is case-insensitive (a domain value, not an identifier).
+ */
+function routeLabel(fnNode, argsNode) {
+  if (!fnNode || fnNode.type !== 'member_expression' || !argsNode) return null;
+  const prop = fnNode.childForFieldName('property');
+  if (!prop) return null;
+  const method = prop.text.toLowerCase();
+  if (!ROUTE_METHODS.has(method)) return null;
+  const first = argsNode.namedChild(0);
+  if (!first || (first.type !== 'string' && first.type !== 'template_string')) return null;
+  return `${method.toUpperCase()} ${first.text.slice(1, -1)}`;
 }
 
 // ── Python-specific extraction ────────────────────────────────────────────────
@@ -376,9 +417,45 @@ function walkTSJS(rootNode, relPath, entities, edges) {
             line: node.startPosition.row + 1,
           });
         }
+
+        // Route registration: each anonymous handler becomes its own caller,
+        // named by method + path + line. [RULE] anonymous-caller-synthesized-never-dropped
+        const label = routeLabel(fn, args);
+        const handlers = label ? args.namedChildren.filter(isAnonymousFn) : [];
+        if (handlers.length) {
+          const line = node.startPosition.row + 1;
+          const routeId = `${relPath}#${label}@${line}`;
+          entities.push({
+            id: routeId,
+            name: label,
+            type: 'function',
+            line,
+            endLine: node.endPosition.row + 1,
+            exported: false,
+            synthetic: 'route-handler',
+          });
+          // Node objects are re-created per access, so match handlers by position.
+          const handlerStarts = new Set(handlers.map((h) => h.startIndex));
+          walk(fn, enclosingFuncId, enclosingClass);
+          for (let i = 0; i < args.childCount; i++) {
+            const arg = args.child(i);
+            if (!handlerStarts.has(arg.startIndex) || !isAnonymousFn(arg)) { walk(arg, enclosingFuncId, enclosingClass); continue; }
+            for (let j = 0; j < arg.childCount; j++) walk(arg.child(j), routeId, enclosingClass);
+          }
+          return;
+        }
       }
 
       // Fall through to walk children (the call_expression can contain more nodes)
+    }
+
+    // ── anonymous function with no named scope around it ─────────────────
+    // Inside a named function, a callback's calls belong to that function
+    // (enclosingFuncId passes through). Outside one, give it a located id.
+    if (!enclosingFuncId && isAnonymousFn(node)) {
+      const anonId = `${relPath}#anonymous@${node.startPosition.row + 1}`;
+      for (let i = 0; i < node.childCount; i++) walk(node.child(i), anonId, enclosingClass);
+      return;
     }
 
     // ── function_declaration ──────────────────────────────────────────────
@@ -451,6 +528,7 @@ function walkTSJS(rootNode, relPath, entities, edges) {
     // const foo = () => ... or const foo = function...
     if (t === 'lexical_declaration' || t === 'variable_declaration') {
       const isExp = isExportedNode(node);
+      const walkedValues = new Set(); // bodies already walked under their own funcId
       for (let i = 0; i < node.namedChildCount; i++) {
         const decl = node.namedChild(i);
         if (decl.type === 'variable_declarator') {
@@ -474,10 +552,23 @@ function walkTSJS(rootNode, relPath, entities, edges) {
             for (let j = 0; j < valueNode.childCount; j++) {
               walk(valueNode.child(j), funcId, enclosingClass);
             }
+            walkedValues.add(valueNode.startIndex);
           }
         }
       }
-      // Continue walking children for the declaration itself
+      // Walk the rest of the declaration, but NOT a function body already walked
+      // above — walking it again credited each of its calls to a second, wrong
+      // caller (_toplevel). [RULE] anonymous-caller-synthesized-never-dropped
+      for (let i = 0; i < node.childCount; i++) {
+        const child = node.child(i);
+        if (child.type !== 'variable_declarator') { walk(child, enclosingFuncId, enclosingClass); continue; }
+        for (let j = 0; j < child.childCount; j++) {
+          const part = child.child(j);
+          if (walkedValues.has(part.startIndex) && part.type !== 'identifier') continue;
+          walk(part, enclosingFuncId, enclosingClass);
+        }
+      }
+      return;
     }
 
     // ── export_statement (bare re-exports: export { x, y }) ──────────────

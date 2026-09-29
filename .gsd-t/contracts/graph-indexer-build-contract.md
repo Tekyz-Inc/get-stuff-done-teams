@@ -77,12 +77,14 @@ closeStore(db);
 ### Tier enum (`[RULE] accuracy-tier-labeled-never-silently-wrong`)
 
 ```
-TierEnum = "compiler-accurate" | "tree-sitter-floor" | "tree-sitter-floor-STALE-SCIP"
+TierEnum = "compiler-accurate" | "tree-sitter-floor" | "tree-sitter-floor-STALE-SCIP" | "tree-sitter-floor-SCIP-MISSING"
 ```
 
 - `compiler-accurate` — SCIP indexer present + ran OK; call edges are SCIP-RESOLVED (M95): `build_index` runs scip-typescript once over the repo, reads `index.scip`, and rewrites each file's `UNRESOLVED#<name>` call targets to real cross-file funcIds. A file is labeled `compiler-accurate` ONLY when SCIP actually resolved ≥1 of its call edges (or it has no call edges to resolve); a file whose calls all stay unresolvable is `tree-sitter-floor`, never relabeled. (M95 superseded the Phase-1 "tier labelling only" stub that relabeled tree-sitter edges without reading SCIP output. Reader: `bin/gsd-t-scip-reader.cjs`; resolver: `buildScipResolver` in `bin/gsd-t-graph-scip-upgrade.cjs`.)
 - `tree-sitter-floor` — no SCIP indexer for this language; edges are tree-sitter best-effort
 - `tree-sitter-floor-STALE-SCIP` — SCIP was present at last full index but is now absent or fails on re-index; the "was-accurate" signal is preserved; consumer treats these as floor edges
+- `tree-sitter-floor-SCIP-MISSING` — the SCIP indexer RAN for this file's language but produced no document for this file (over its size cap, outside every tsconfig, or dropped mid-run); call targets there stay unresolved. `build_index` warns with the file list and returns `scipMissing[]`; `gsd-t graph status` lists them. scip-typescript is run with `--max-file-byte-size 64mb` (its 1mb default silently skipped large route files). [RULE] scip-missing-file-detected-never-silent
+- **Anonymous callers:** a call inside an anonymous route handler (`router.get('/p', mw, async (c) => …)`) is credited to a synthetic caller `file#GET /p@<line>` (also registered as an entity); another anonymous callback is credited to its enclosing named function, else `file#anonymous@<line>`. [RULE] anonymous-caller-synthesized-never-dropped
 
 Every file record in the store carries a `tier` field from this enum. No unlabeled record is written.
 

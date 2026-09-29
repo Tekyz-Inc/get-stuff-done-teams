@@ -151,7 +151,8 @@ function isBuildOutputPath(relPath) {
  * @param {string} [pathPrefix]  repo-relative dir the index was produced from
  *                               (e.g. "server"); "" or "." for the repo root
  * @returns {{ ok: true, symbolToDef: Map<string,string>,
- *             fileRefs: Map<string, Array<{symbol:string, funcId:string, line:number}>> }
+ *             fileRefs: Map<string, Array<{symbol:string, funcId:string, line:number}>>,
+ *             docPaths: Set<string> }
  *         | { ok: false, reason: string }}
  */
 function readScipIndex(scipPath, pathPrefix) {
@@ -177,6 +178,12 @@ function readScipIndex(scipPath, pathPrefix) {
 
   const symbolToDef = new Map();          // scipSymbol → funcId (relPath#name)
   const fileRefs = new Map();             // relPath → [{symbol, line}]
+  // Every file the indexer produced a document for — including files with no
+  // resolvable reference, which never appear in fileRefs. Without this set a
+  // file the indexer SKIPPED (scip-typescript drops files over its byte-size cap)
+  // is indistinguishable from one it indexed and found nothing in.
+  // [RULE] scip-missing-file-detected-never-silent
+  const docPaths = new Set();
 
   const docs = obj.documents || [];
 
@@ -185,6 +192,7 @@ function readScipIndex(scipPath, pathPrefix) {
     const rawPath = doc.relative_path;
     if (!rawPath || isBuildOutputPath(rawPath)) continue;
     const relPath = reroot(rawPath);
+    docPaths.add(relPath);
     for (const occ of doc.occurrences || []) {
       const isDef = (occ.symbol_roles & SYMBOL_ROLE_DEFINITION) !== 0;
       if (!isDef) continue;
@@ -196,6 +204,10 @@ function readScipIndex(scipPath, pathPrefix) {
   }
 
   // Second pass: collect every REFERENCE occurrence per file, resolved to the def.
+  // A reference is kept whatever scope encloses it — named function, anonymous
+  // route handler, or top-level callback. The CALLER identity comes from the
+  // tree-sitter floor (which synthesizes one for anonymous scopes); SCIP only
+  // resolves the TARGET. [RULE] anonymous-caller-synthesized-never-dropped
   for (const doc of docs) {
     const rawPath = doc.relative_path;
     if (!rawPath || isBuildOutputPath(rawPath)) continue;
@@ -214,7 +226,7 @@ function readScipIndex(scipPath, pathPrefix) {
     if (refs.length) fileRefs.set(relPath, refs);
   }
 
-  return { ok: true, symbolToDef, fileRefs };
+  return { ok: true, symbolToDef, fileRefs, docPaths };
 }
 
 module.exports = {

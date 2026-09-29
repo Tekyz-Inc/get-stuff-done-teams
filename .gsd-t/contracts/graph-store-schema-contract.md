@@ -36,7 +36,7 @@ Pick a store iff it clears ALL FIVE sub-criteria below. `[RULE] K1: store-picked
 | `content_hash` | string (hex) | content hash of the file — freshness key (D4 reads this to detect stale) |
 | `entities` | `FuncEntity[]` | functions / classes / exports extracted from the file; each carries a `funcId` (file-qualified) |
 | `edges` | `Edge[]` | import-graph (file→file) + call-graph (function→function, funcId-keyed at BOTH ends) |
-| `tier` | `"compiler-accurate" \| "tree-sitter-floor" \| "tree-sitter-floor-STALE-SCIP"` | accuracy provenance |
+| `tier` | `"compiler-accurate" \| "tree-sitter-floor" \| "tree-sitter-floor-STALE-SCIP" \| "tree-sitter-floor-SCIP-MISSING"` | accuracy provenance |
 
 ### FuncEntity shape
 

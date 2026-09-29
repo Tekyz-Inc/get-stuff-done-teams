@@ -410,6 +410,10 @@ function parse_and_put(absPath, relPath, options) {
     // WAS compiler-accurate must NOT silently drop to plain floor; label it STALE-SCIP
     // so the tier reflects "previously accurate, not re-resolved" rather than a lie.
     tier = 'tree-sitter-floor-STALE-SCIP';
+  } else if (existingTier === 'tree-sitter-floor-SCIP-MISSING') {
+    // Same principle: a file SCIP never indexed stays labelled as such until a
+    // full build (with SCIP) says otherwise. [RULE] scip-missing-file-detected-never-silent
+    tier = existingTier;
   }
 
   // Normalize edges to store schema (map from parser-floor shape to store shape)
@@ -532,6 +536,7 @@ function build_index(repoRoot, options) {
   let tierUpgraded = 0;
   let errors = 0;
   const skippedFiles = [];
+  const scipMissing = []; // files SCIP ran for but produced no document for
 
   // Stream: parse + put each file one at a time (never accumulate the full set)
   for (const { absPath, relPath } of files) {
@@ -542,6 +547,7 @@ function build_index(repoRoot, options) {
       edgeCount += result.edges.length;
       if (result.tier === 'compiler-accurate') tierUpgraded++;
       else tierFloor++;
+      if (result.tier === 'tree-sitter-floor-SCIP-MISSING') scipMissing.push(relPath);
       if (typeof onProgress === 'function') {
         onProgress({ file: relPath, tier: result.tier, fileCount, total: files.length });
       }
@@ -592,11 +598,21 @@ function build_index(repoRoot, options) {
     console.error(`\x1b[33m[IDX NOTICE]\x1b[0m ${scipNotice}`);
   }
 
+  // A file the SCIP indexer skipped keeps every call target unresolved, so
+  // who-calls cannot see its callers. Loud, every build — not a fallback, a
+  // report. `gsd-t graph status` repeats it. [RULE] scip-missing-file-detected-never-silent
+  if (scipMissing.length) {
+    const shown = scipMissing.slice(0, 10).join(', ');
+    warn(`${scipMissing.length} file(s) not in the SCIP index — their call edges stay unresolved ` +
+      `(tier tree-sitter-floor-SCIP-MISSING): ${shown}${scipMissing.length > 10 ? ', …' : ''}`);
+  }
+
   return {
     fileCount,
     entityCount,
     edgeCount,
     tier: { floor: tierFloor, upgraded: tierUpgraded },
+    scipMissing,
     scipAvailable: scipActive,
     scipNotice,
     errors,
@@ -660,6 +676,7 @@ if (require.main === module) {
     entityCount: result.entityCount,
     edgeCount: result.edgeCount,
     tier: result.tier,
+    scipMissingCount: result.scipMissing.length,
     errors: result.errors,
     durationMs: result.durationMs,
   };

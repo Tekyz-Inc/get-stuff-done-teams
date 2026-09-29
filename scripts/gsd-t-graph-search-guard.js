@@ -326,6 +326,56 @@ function buildUnclearReason(found, cls) {
 }
 
 
+// --- A path forward after an incomplete, empty graph answer ----------------
+//
+// When the graph just answered [] and said its answer was incomplete, blocking
+// the grep with "ask the graph" sends the caller back to the answer that failed
+// them - a dead end. The query CLI records that answer; this names what IS
+// allowed next: open the files holding the unresolved call sites (Read is not
+// blocked), and re-index so SCIP can resolve them. This is a message, not a
+// bypass - the search itself stays blocked.
+// [RULE] incomplete-empty-answer-names-a-path-forward
+
+const INCOMPLETE_MARKER_MAX_AGE_MS = 30 * 60 * 1000;
+
+/** Throws when the marker exists but cannot be read - the caller denies with that. */
+function incompleteAnswerNote(projectDir) {
+  const file = path.join(projectDir, ".gsd-t", "graphDB", "last-incomplete-answer.json");
+  if (!fs.existsSync(file)) return "";
+  const m = JSON.parse(fs.readFileSync(file, "utf8"));
+  if (!m || Date.now() - Date.parse(m.ts) > INCOMPLETE_MARKER_MAX_AGE_MS) return "";
+  const lines = [
+    "",
+    "",
+    "The graph's last answer (" + m.verb + " " + m.target + ") was EMPTY and marked incomplete:",
+    "  " + (m.note || "some call edges are unresolved"),
+    "",
+    "Allowed path forward:",
+  ];
+  const sites = m.unresolvedCallSites;
+  if (sites && Array.isArray(sites.files) && sites.files.length) {
+    lines.push("  1. Open these files with the Read tool - they hold " + sites.count +
+      " unresolved call site(s) naming the target:");
+    for (const f of sites.files.slice(0, 10)) lines.push("       " + f);
+    if (sites.files.length > 10) lines.push("       ... (" + sites.files.length + " files; full list in the query's coverage.unresolvedCallSites)");
+  } else {
+    lines.push("  1. gsd-t graph body <symbol>  - read the definition, then Read the files that import its module");
+    lines.push("     (gsd-t graph who-imports <file>)");
+  }
+  lines.push("  2. gsd-t graph status  - lists files missing from SCIP; gsd-t graph index re-resolves them");
+  return lines.join("\n");
+}
+
+/** The note, or a deny naming why the marker could not be read. */
+function pathForwardOrDeny(projectDir) {
+  try {
+    return incompleteAnswerNote(projectDir);
+  } catch (e) {
+    deny("The graph's last incomplete-answer record (.gsd-t/graphDB/last-incomplete-answer.json) " +
+      "could not be read: " + e.message + "\n\nDelete it and re-run the graph query.");
+  }
+}
+
 // --- Recording the decision ------------------------------------------------
 //
 // One line per block, into the same ledger the graph's own tooling writes. The
@@ -473,13 +523,13 @@ function decide(raw) {
 
     if (cls.verdict === "structural") {
       recordBlock(projectDir, f.program, f.pattern, "structural");
-      if (hasGraph) deny(buildStructuralReason(f, cls));
+      if (hasGraph) deny(buildStructuralReason(f, cls) + pathForwardOrDeny(projectDir));
       else deny(buildNoGraphReason(f, cls));
       return;
     }
     if (cls.verdict === "unclear") {
       recordBlock(projectDir, f.program, f.pattern, "unclear");
-      deny(buildUnclearReason(f, cls));
+      deny(buildUnclearReason(f, cls) + (hasGraph ? pathForwardOrDeny(projectDir) : ""));
       return;
     }
   }

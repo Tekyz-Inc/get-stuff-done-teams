@@ -4757,6 +4757,13 @@ function doGraphStatus() {
   }
   success(`Graph index: ${envelope.fileCount || 0} files`);
   if (envelope.tier) info(`Tier: ${envelope.tier}`);
+  // [RULE] scip-missing-file-detected-never-silent — files the SCIP indexer never
+  // produced a document for: their call edges stay unresolved, so who-calls is blind there.
+  const miss = envelope.scipMissing;
+  if (miss && miss.count > 0) {
+    warn(`${miss.count} file(s) not in SCIP (call edges unresolved): ${miss.files.join(", ")}${miss.count > miss.files.length ? ", …" : ""}`);
+    info("Re-run: gsd-t graph index  (then check again)");
+  }
   if (envelope.storeSize !== undefined) info(`Store size: ${envelope.storeSize} bytes`);
   if (envelope.detail) log(JSON.stringify(envelope, null, 2));
 }
