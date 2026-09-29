@@ -2,6 +2,23 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [5.23.10] - 2026-09-29
+
+### Added — who-calls matches the compiler on route files; graph exclude list; estimate math v2
+
+The code graph answered [] or a single `_toplevel` caller for functions called from Hono/Express route files, and labelled files compiler-accurate on one resolved edge. On hilo-figma-atos who-calls now matches TypeScript findReferences (requireLocationTenant 95/95, resolveOrgIdFromSession 547/547, verifyLocationAccess 120/120). Estimates now count the human's time in solo minutes, which removes the need to tune multipliers.
+
+- `bin/gsd-t-graph-edge-extract.cjs`: calls in anonymous route handlers and in route-registration arguments (middleware) → `file#METHOD /path@line`; other top-level callbacks → `file#anonymous@line`; const-arrow bodies no longer walked twice; call edges carry `col`.
+- `bin/gsd-t-graph-scip-upgrade.cjs`, `bin/gsd-t-scip-reader.cjs`: scip-typescript run with `--max-file-byte-size 64mb` + 8 GB heap (its 1 MB default silently skipped large files); files with no SCIP document → `tree-sitter-floor-SCIP-MISSING`; new `compiler-partial` tier (<90% of repo-name calls resolved).
+- `bin/gsd-t-graph-query-cli.cjs`: `name-matched` callers for names defined once, in unresolved files; `coverage.unresolvedCallSites`; empty-and-incomplete answers name a path forward for the search guard; `graph status` lists SCIP-missing files and active excludes.
+- `bin/gsd-t-graph-exclude.cjs` (new): `.gsd-t/graph-exclude.json` excludes ancillary trees (folder prefixes, `*`/`**` globs); read by indexer and freshness walker; malformed file halts.
+- `bin/gsd-t.js`: `graph index` 30-min limit, killed/timed-out build is an error (was a silent exit 0 with a half-built graph).
+- `bin/gsd-t-estimate-sheet.cjs`, `commands/gsd-t-estimate-rescale.md` (new command), spec, playbook, config: rescale `--suffix`; solo minutes = human + Claude (~10 / 40 min / 2–4½ hr); yellow-field team ×5 / ×7; rescale zeroes the copy's overhead by default.
+- `scripts/statusline-command.sh`: prefers `.transcript_path` from stdin.
+- Tests: `test/m118-*.test.js`, `test/m119-who-calls-golden.test.js` (golden vs findReferences).
+
+Re-run `gsd-t graph index` in each project to pick up the new caller attribution and tiers.
+
 ## [5.22.10] - 2026-09-27
 
 ### Added — AI-assisted T-shirt sizing for `/gsd-t-estimate`
