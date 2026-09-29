@@ -4724,14 +4724,22 @@ function doGraphIndex() {
   heading("GSD-T Graph — Index");
   const { spawnSync } = require("child_process");
   const idxPath = require("path").join(__dirname, "gsd-t-graph-index.cjs");
+  // A large repo's SCIP run legitimately takes many minutes (hilo-figma-atos: >5).
+  // The old 5-minute cap killed the indexer mid-build and — because a killed child
+  // has status null — reported nothing and exited 0, leaving a half-built graph
+  // that looked complete. A kill or spawn error is a failure, said out loud.
   const result = spawnSync(process.execPath, [idxPath, "build", "--repo", process.cwd()], {
     encoding: "utf8",
     cwd: process.cwd(),
     stdio: ["ignore", "inherit", "inherit"],
-    timeout: 300000,
+    timeout: 30 * 60 * 1000,
   });
-  if (result.status !== 0 && result.status !== null) {
-    error("Graph index build failed — see output above");
+  if (result.error || result.signal || result.status !== 0) {
+    const why = result.error ? result.error.message
+      : result.signal ? `killed by ${result.signal} (timeout 30 min?) — the graph is INCOMPLETE`
+      : `exit ${result.status}`;
+    error(`Graph index build failed: ${why}`);
+    process.exitCode = 1;
   }
 }
 
