@@ -25,7 +25,18 @@ const MAX = Number(process.argv[3] ?? 3);
 if (!NAME) throw new Error('usage: walkthrough-voice-ensure.mjs <name> [maxAttempts]');
 
 const ROOT = process.cwd();
-const CACHE = path.join(ROOT, '.tts-cache-v2');
+/**
+ * Google Cloud Text-to-Speech, NOT Gemini.
+ *
+ * Gemini's generateContent emits audio from a LANGUAGE model: a voice name is a
+ * style hint it re-interprets on every request, so the narrator genuinely
+ * changed part-way through a video. Cloud TTS voice ids are fixed trained
+ * speakers, so the same id returns the same speaker every time.
+ *
+ * VOICE_RENDERER=walkthrough-voice.mjs selects the Gemini renderer explicitly.
+ */
+const RENDERER = process.env.VOICE_RENDERER ?? 'walkthrough-voice-gcloud.mjs';
+const CACHE = path.join(ROOT, RENDERER.includes('gcloud') ? '.tts-cache-gcloud' : '.tts-cache-v2');
 
 const run = (cmd, args) =>
   execFileSync(cmd, args, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
@@ -42,7 +53,7 @@ function clearClips() {
 for (let attempt = 1; attempt <= MAX; attempt += 1) {
   console.log(`\n── ${NAME}: render attempt ${attempt} of ${MAX}`);
   try {
-    run('node', [path.join('scripts', 'walkthrough-voice.mjs'), NAME]);
+    run('node', [path.join('scripts', RENDERER), NAME]);
   } catch (err) {
     // A render that crashed is one failed attempt; the loop tries again and
     // the halt below fires when every attempt is spent.

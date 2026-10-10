@@ -487,7 +487,7 @@ docs/demo-videos/HANDOFF.md              hard-won facts, bugs found, what is ope
 docs/demo-videos/walkthrough-<name>.mp4  output (gitignore it)
 e2e/walkthrough/<name>.lines.mjs         narration, one sentence per entry
 e2e/walkthrough/<name>.spec.ts           what happens on screen per sentence
-e2e/walkthrough/runtime.ts               step(), highlight(), click(), enter(), choose(), act(), goTo()
+e2e/walkthrough/runtime.ts               step(), highlight(), click(), hold(), enter(), choose(), act(), park(), goTo()
 e2e/walkthrough/cast.mjs                 the demo's cast — every name said aloud
 e2e/walkthrough/signin.ts                shared sign-in + the tenant constant
 e2e/walkthrough/manifest.ts              loads narration; skips if audio is missing
@@ -499,6 +499,9 @@ scripts/walkthrough-voice-ensure.mjs     render → measure → re-render → ha
 scripts/walkthrough-normalise.mjs        force existing clips to one loudness
 scripts/walkthrough-mux.mjs              lay audio on the recording
 scripts/walkthrough-trim.mjs             remove silent gaps
+scripts/walkthrough-lines-check.mjs      every narration line used once, in order; exit 4
+scripts/walkthrough-implied-clicks.mjs   highlight-then-navigate with no park(); exit 4
+scripts/walkthrough-clip-rates.mjs       per-sentence speaking rate — finds the line tripping the rate gate
 scripts/demo-data/seed-lib.mjs           shared seeder sign-in + refusal reporting
 .demo-build/                             audio, recordings, step logs (gitignore)
 ```
@@ -517,7 +520,7 @@ cp "$TPL"/scripts/walkthrough-*.mjs    scripts/
 cp "$TPL"/scripts/seed-lib.mjs         scripts/demo-data/
 python3 -m venv .venv-tools/auto-editor
 .venv-tools/auto-editor/bin/pip install auto-editor
-printf '\n.demo-build/\n.tts-cache-v2/\ndocs/demo-videos/*.mp4\n' >> .gitignore
+printf '\n.demo-build/\n.tts-cache-gcloud/\n.tts-cache-v2/\ndocs/demo-videos/*.mp4\n' >> .gitignore
 ```
 
 **Halt if that directory is absent** — an older installed package does not carry

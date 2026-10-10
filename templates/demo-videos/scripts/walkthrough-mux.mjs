@@ -12,6 +12,7 @@ import { execFileSync } from 'node:child_process';
 import { copyFileSync, existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { mkdirSync } from 'node:fs';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const NAME = process.argv[2];
 if (!NAME) throw new Error('usage: walkthrough-mux.mjs <name>');
@@ -48,7 +49,9 @@ const audio = JSON.parse(readFileSync(path.join(ROOT, '.demo-build', `audio-${NA
 const byText = new Map(audio.lines.map((l) => [l.text, l]));
 
 // Find the recording.
-const tr = path.join(ROOT, 'test-results');
+// WT_RESULTS lets parallel builds record into their own folder (playwright --output=…), because
+// Playwright wipes its results folder at the start of every run.
+const tr = process.env.WT_RESULTS ? path.resolve(ROOT, process.env.WT_RESULTS) : path.join(ROOT, 'test-results');
 // Playwright wipes test-results/ each run, so keep a copy per walkthrough.
 const KEEP = path.join(ROOT, '.demo-build', 'recordings');
 mkdirSync(KEEP, { recursive: true });
@@ -86,7 +89,21 @@ if (video) {
   console.log(`recording settled at ${(size / 1048576).toFixed(1)} MB`);
   copyFileSync(video, kept);
 } else if (existsSync(kept)) {
-  video = kept;                                      // re-mux without re-recording
+  // Re-mux without re-recording. This is legitimate on its own, but it is also
+  // how a STALE recording gets muxed: Playwright wipes test-results/ when the
+  // NEXT walkthrough runs, so a build loop can leave this the only copy — an
+  // older, shorter take that silently replaces the one just recorded. Warn
+  // loudly with its age; the duration check below is what actually catches it.
+  video = kept;
+  const ageMin = (Date.now() - statSync(kept).mtimeMs) / 60_000;
+  console.log(`recording : reusing kept copy, ${ageMin.toFixed(0)} min old`);
+  if (ageMin > 10) {
+    console.log(
+      `  ⚠ that copy is not from a recent run. If you just re-recorded this\n` +
+      `    walkthrough, test-results/ was wiped by a LATER run before the mux\n` +
+      `    reached it — record this walkthrough on its own and mux immediately.`,
+    );
+  }
 }
 if (!video) throw new Error(`no .webm recording found for ${NAME}`);
 
@@ -99,6 +116,27 @@ const dur = Number(execFileSync(FFPROBE, ['-v','error','-show_entries','format=d
   '-of','default=noprint_wrappers=1:nokey=1', video], { encoding:'utf8' }).trim());
 console.log(`recording : ${path.relative(ROOT, video)}  (${dur.toFixed(1)}s)`);
 console.log(`steps     : ${run.steps.length}`);
+
+// A FAILED recording still writes a step log — just a short one. Muxing it
+// produces a video that looks finished and silently stops partway through the
+// walkthrough. Compare against the narration and HALT if steps are missing,
+// rather than shipping a truncated video that reports success.
+{
+  const linesFile = path.join(ROOT, 'e2e/walkthrough', `${NAME}.lines.mjs`);
+  if (existsSync(linesFile)) {
+    const { LINES } = await import(pathToFileURL(linesFile).href);
+    if (run.steps.length < LINES.length) {
+      console.error(
+        `\n✗ TRUNCATED RUN: the step log has ${run.steps.length} steps but the ` +
+        `narration has ${LINES.length} lines.\n` +
+        `  The recording did not finish — almost certainly a step threw. Look at\n` +
+        `  test-results/${NAME}-*/test-failed-1.png, fix it, and RE-RECORD.\n` +
+        `  Refusing to mux a partial walkthrough.`,
+      );
+      process.exit(4);
+    }
+  }
+}
 
 // Burn captions from the step log, then lay each narration file at its start.
 // Trim the unnarrated head. Playwright records from the moment the browser
@@ -161,6 +199,10 @@ if (overrun > 1500) {
     `${((freeAt - 150) / 1000).toFixed(1)}s, so that much plays over black.\n` +
     `   Re-record this walkthrough — the capture was cut short.`,
   );
+  // HALT rather than write it. A video whose last minute is narration over a
+  // frozen frame looks finished and is not, which is the same silent-partial
+  // failure the step-count guard above exists to stop.
+  process.exit(4);
 }
 
 const outPath = path.join(OUT_DIR, `walkthrough-${NAME}.mp4`);
