@@ -1,9 +1,9 @@
 # GSD-T Progress
 
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
-## Status: ✅ ACTIVE — last shipped v6.0.10 (2026-10-11): **M120 GSD-T v6 slim-down COMPLETE** — execution pipeline removed (59 → 18 commands, ~129K lines cut); kept graph, no-fallback, date guard, architect, new opt-in red team, debug halt, worktrees, env registry, Playwright rules, demo videos, estimates. Retired files are moved to dated backups, never deleted. Next: v6.1 — `gsd-t link-config-dir` (per-account Claude config dirs), faster scan, estimate-rescale rethink, solo story flow piloted on FlyLingo.
-## Date: 2026-10-11 12:37 PDT
-## Version: 6.1.10
+## Status: ✅ ACTIVE — last shipped v6.0.10 (2026-10-11): **M120 GSD-T v6 slim-down COMPLETE** — execution pipeline removed (59 → 18 commands, ~129K lines cut); kept graph, no-fallback, date guard, architect, new opt-in red team, debug halt, worktrees, env registry, Playwright rules, demo videos, estimates. Retired files are moved to dated backups, never deleted. Next: v6.1 — `gsd-t link-config-dir` (per-account Claude config dirs), faster scan, estimate-rescale rethink, solo story flow (pilot project to be chosen — not FlyLingo, which the dev team is building).
+## Date: 2026-10-11 13:23 PDT
+## Version: 6.1.11
 
 ## Current Milestone
 
@@ -49,6 +49,7 @@ Older milestones (M33 and earlier) archived under `.gsd-t/milestones/` — see d
 <!-- No active blockers -->
 
 ## Decision Log
+- 2026-10-11 13:23: [fix] GSD-T status line restored (v6.1.11) — v6.0.10 retired it on a wrong premise (it never read the context meter; it computes ctx % from the session transcript). installStatusLine() is back: sets statusLine only when absent or GSD-T's, never replaces a custom bar or a user's own same-named script; removed from RETIRED_V6. Suite 1134/1137 pass, 0 fail.
 - 2026-10-11 12:37: [feature] `gsd-t link-config-dir` (v6.1.10) — share one GSD-T setup across Claude config dirs (one login per dir via CLAUDE_CONFIG_DIR, e.g. a Hilo team account). Links CLAUDE.md, settings.json, commands, scripts, bin, templates, skills, agents, projects back to ~/.claude; login files never touched; any conflict halts before a change; doctor checks the links. Direction fixed (real files in ~/.claude) because the installer halts on symlinks inside ~/.claude.
 - 2026-10-11 12:29: [release] GSD-T v6 slim-down (v6.0.10) — major: execution pipeline removed; three red-team rounds on the installer cleanup (delete-based design failed twice → redesigned to move-not-delete with preflight halts and a no-dangling-hook invariant); dry run on a copy of the real ~/.claude: 94 files moved, 19 retired hooks removed, 0 dangling, second run byte-identical. Suite 1125/1128 pass, 0 fail.
 - 2026-10-10 23:00 PDT: [fix][v6] Red-team round 3 (bin/gsd-t.js): hook commands normalized before matching ("$HOME"/.claude, ~, ${HOME}, absolute/real home, npm-root wrapper) — retired hooks no longer survive their moved scripts, no duplicate auto-route; new invariant (predicted pre-change HALT + end-of-run re-check) that no hook/statusLine names a missing GSD-T script; statusLine cleared in any spelling; ~/.claude realpath'd once (symlinked root installs, links below halt, ensureDir throws not warns); update-all per-project CLAUDE.md/CHANGELOG.md symlink preflight, write failures fail the project + non-zero exit, halted projects skip health; command header must be line 1; failed move cleans its backup dir + EXDEV fix hint; CLAUDE.md append backs up first. test/v6-redteam3.test.js (11). Dry-run on a copy of the real ~/.claude: exit 0, 94 files moved, 19 hooks removed, 0 dangling, second run byte-identical — npm test 1125/1125 pass (3 skipped)

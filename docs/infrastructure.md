@@ -64,6 +64,7 @@ Real work happens in a worktree: `~/Worktrees/GSD-T/<branch>/` (v6 was built in 
 | Shared templates (`estimate-config.json`, `estimate-sheet-spec.md`) | `~/.claude/templates/` |
 | Global bin tools (pick-worktree, worktree-detect, worktree-provision, slice-budget, pseudocode-style, fallback-detect, code-search-classifier, install-check, estimate-sheet) | `~/.claude/bin/` |
 | Hooks | `~/.claude/settings.json` |
+| Status line script (`statusLine` setting) | `~/.claude/statusline-command.sh` |
 | Version / update cache / project registry | `~/.claude/.gsd-t-version`, `.gsd-t-update-check`, `.gsd-t-projects` |
 | Linked config dirs (second Claude accounts) | `~/.claude/.gsd-t-config-dirs`; each listed dir holds links back to `~/.claude` (`gsd-t link-config-dir <dir>`; checked by `doctor`) |
 | Per-project tools | `{project}/bin/gsd-t-*.cjs` |

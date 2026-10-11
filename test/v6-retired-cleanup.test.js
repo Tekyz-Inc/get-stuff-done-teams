@@ -45,10 +45,10 @@ test('install moves retired GSD-T files to the backup, removes retired hooks, le
     write(path.join(C, 'bin', 'cli-preflight-checks', 'branch-guard.cjs'),
       shipped(R.bin['cli-preflight-checks/branch-guard.cjs']));
     write(path.join(C, 'bin', 'gsd-t-verify-gate.cjs'), shipped(R.bin['gsd-t-verify-gate.cjs']));
-    const status = path.join(C, 'statusline-command.sh');
-    write(status, `#!/bin/bash\n# ${R.claudeDir['statusline-command.sh'][0]}\n`);
+    const status = path.join(C, 'scripts', 'gsd-t-statusline.js');
+    write(status, shipped(R.scripts['gsd-t-statusline.js']));
     write(path.join(C, 'settings.json'), JSON.stringify({
-      statusLine: { type: 'command', command: `bash ${status}` },
+      statusLine: { type: 'command', command: `node ${status}` },
       hooks: {
         Stop: [{ matcher: '', hooks: [
           { type: 'command', command: 'node "$HOME/.claude/scripts/gsd-t-heartbeat.js"' },
@@ -68,7 +68,7 @@ test('install moves retired GSD-T files to the backup, removes retired hooks, le
     // Retired GSD-T files are gone from place and kept in the dated backup.
     for (const gone of ['commands/gsd.md', 'commands/gsd-t-wave.md', 'scripts/gsd-t-heartbeat.js',
       'scripts/hooks/gsd-t-ctx-cue.sh', 'bin/cli-preflight-checks/branch-guard.cjs',
-      'bin/gsd-t-verify-gate.cjs', 'statusline-command.sh']) {
+      'bin/gsd-t-verify-gate.cjs', 'scripts/gsd-t-statusline.js']) {
       assert.equal(fs.existsSync(path.join(C, gone)), false, `${gone} must be moved`);
       assert.ok(fs.existsSync(path.join(C, '.gsd-t-retired', today(), gone)), `${gone} is in the backup`);
     }
@@ -88,7 +88,8 @@ test('install moves retired GSD-T files to the backup, removes retired hooks, le
     assert.ok(!/gsd-t-heartbeat/.test(all), 'retired hooks must be removed');
     assert.match(all, /gsd-t-board-notify/, 'GSD-T never shipped board-notify, so it is not ours to remove');
     assert.match(all, /unrelated-hook/, 'a user hook must survive');
-    assert.equal(settings.statusLine, undefined, 'the GSD-T status line pointed at a removed script');
+    assert.equal(settings.statusLine.command, `bash ${path.join(C, 'statusline-command.sh')}`, 'the retired status line is replaced by the current one');
+    assert.match(fs.readFileSync(path.join(C, 'statusline-command.sh'), 'utf8'), /GSD-T project status bar/);
     const cmds = Object.values(settings.hooks).flat().flatMap((g) => g.hooks.map((h) => h.command));
     for (const marker of ['gsd-t-date-guard', 'gsd-t-changelog-check', 'gsd-t-changelog-post-edit',
       'gsd-t-fallback-guard', 'gsd-t-graph-search-guard']) {

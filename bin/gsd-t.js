@@ -589,10 +589,9 @@ const RETIRED_V6 = {
     "hooks/gsd-t-in-session-usage-hook.js": ["stdin, resolves the project directory from `payload.cwd`, then delegates to"],
     "hooks/gsd-t-ctx-cue.sh": ["# gsd-t-ctx-cue.sh — GSD-T low-context visual cue (M85)"],
   },
-  // ~/.claude itself — the status bar script installStatusLine() copied there.
-  claudeDir: {
-    "statusline-command.sh": ["Line 1: [GSD-T] | vX.Y.ZZ | ctx N% left | project | git branch | model id | HH:MM TZ"],
-  },
+  // ~/.claude itself. The status bar script (statusline-command.sh) is NOT
+  // retired — installStatusLine() keeps it current.
+  claudeDir: {},
   // settings.json hooks that run one of these GSD-T scripts are removed
   // (matched by the script's normalized location — see gsdtScriptRefs —
   // never a bare substring). Every marker has git history under scripts/; a
@@ -1317,12 +1316,54 @@ async function doInstall(opts = {}) {
 
   retireV6Everything();
 
+  heading("Status Line");
+  installStatusLine();
+
   heading("SCIP Indexers (Compiler-Accurate Code Graph — M95)");
   installScipIndexers();
 
   saveInstalledVersion();
 
   showInstallSummary(gsdtCommands.length, utilityCommands.length);
+}
+
+// ─── Status line ────────────────────────────────────────────────────────────
+// Copies scripts/statusline-command.sh to ~/.claude and points the statusLine
+// setting at it — only when the setting is absent or already GSD-T's. A user's
+// own status line is left alone. Runs after retireV6Everything(), which clears a
+// setting that named the retired gsd-t-statusline.js.
+const STATUSLINE_SCRIPT = "statusline-command.sh";
+const STATUSLINE_SENTINEL = "GSD-T project status bar";
+
+function installStatusLine() {
+  const src = path.join(PKG_SCRIPTS, STATUSLINE_SCRIPT);
+  const dest = path.join(CLAUDE_DIR, STATUSLINE_SCRIPT);
+  if (!fs.existsSync(src)) throw new Error(`Package is missing scripts/${STATUSLINE_SCRIPT}`);
+  const existing = fs.existsSync(dest) ? fs.readFileSync(dest, "utf8") : null;
+  if (existing !== null && !existing.includes(STATUSLINE_SENTINEL)) {
+    info(`~/.claude/${STATUSLINE_SCRIPT} is your own (no GSD-T header) — status line left untouched`);
+    return;
+  }
+  if (existing === null || normalizeEol(existing) !== normalizeEol(fs.readFileSync(src, "utf8"))) {
+    copyFile(src, dest, STATUSLINE_SCRIPT);
+  }
+  fs.chmodSync(dest, 0o755);
+
+  const settings = fs.existsSync(SETTINGS_JSON) ? readSettingsObject(SETTINGS_JSON) : {};
+  const desired = `bash ${dest}`;
+  const sl = settings.statusLine;
+  const ours = !sl || gsdtScriptRefs(sl.command || "").some((r) => r.abs === dest);
+  if (!ours) {
+    info("Custom status line present — left untouched");
+    return;
+  }
+  if (sl && sl.type === "command" && sl.command === desired) {
+    info("Status line already configured");
+    return;
+  }
+  settings.statusLine = { type: "command", command: desired };
+  writeSettingsObject(SETTINGS_JSON, settings);
+  success("Status line configured");
 }
 
 // install / update / update-all run this before changing anything. Any problem
@@ -1380,6 +1421,7 @@ function refreshSameVersion() {
   preflightGlobal();
   installGlobalClaudeMd(true);
   retireV6Everything();
+  installStatusLine();
 }
 
 function reportHook(result, label) {

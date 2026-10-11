@@ -159,17 +159,18 @@ test('RT3 INVARIANT: a hook that would point at a script being retired HALTS bef
   } finally { rm(home); }
 });
 
-test('RT3 BUG-2: statusLine naming a retired GSD-T script by ~ / "$HOME" is cleared; a user\'s own script is kept', () => {
-  const header = R.claudeDir['statusline-command.sh'][0];
+test('RT3 BUG-2 (6.1.11): a status line naming the retired script or ours, in any spelling, ends on the current GSD-T status line; a user\'s own script is kept', () => {
   for (const cmd of ['bash ~/.claude/statusline-command.sh', 'bash "$HOME"/.claude/statusline-command.sh',
     'node "$HOME/.claude/scripts/gsd-t-statusline.js"']) {
     const home = realShapedHome({ statusLine: { type: 'command', command: cmd } });
     try {
-      write(path.join(home, '.claude', 'statusline-command.sh'), `#!/bin/bash\n# ${header}\n`);
+      write(path.join(home, '.claude', 'statusline-command.sh'), '#!/bin/bash\n# Claude Code status line — GSD-T project status bar  (old copy)\n');
       write(path.join(home, '.claude', 'scripts', 'gsd-t-statusline.js'), shipped(R.scripts['gsd-t-statusline.js']));
       const r = cli(home, ['install']);
       assert.equal(r.status, 0, r.stdout + r.stderr);
-      assert.equal(readSettings(home).statusLine, undefined, `cleared: ${cmd}`);
+      const dest = path.join(fs.realpathSync(path.join(home, '.claude')), 'statusline-command.sh');
+      assert.equal(readSettings(home).statusLine.command, `bash ${dest}`, `current status line: ${cmd}`);
+      assert.equal(fs.readFileSync(dest, 'utf8'), fs.readFileSync(path.join(__dirname, '..', 'scripts', 'statusline-command.sh'), 'utf8'));
       assert.deepEqual(dangling(home), []);
     } finally { rm(home); }
   }
@@ -177,8 +178,25 @@ test('RT3 BUG-2: statusLine naming a retired GSD-T script by ~ / "$HOME" is clea
   try {
     write(path.join(home, '.claude', 'statusline-command.sh'), '#!/bin/bash\necho my own bar\n');
     assert.equal(cli(home, ['install']).status, 0);
-    assert.equal(readSettings(home).statusLine.command, 'bash ~/.claude/statusline-command.sh', 'user script + setting kept');
+    assert.equal(readSettings(home).statusLine.command, 'bash ~/.claude/statusline-command.sh', 'user setting kept');
+    assert.equal(fs.readFileSync(path.join(home, '.claude', 'statusline-command.sh'), 'utf8'), '#!/bin/bash\necho my own bar\n', 'user script kept');
   } finally { rm(home); }
+});
+
+test('6.1.11: a custom status line pointing elsewhere is never replaced; install is idempotent', () => {
+  const home = realShapedHome({ statusLine: { type: 'command', command: 'bash /opt/mine/bar.sh' } });
+  try {
+    assert.equal(cli(home, ['install']).status, 0);
+    assert.equal(readSettings(home).statusLine.command, 'bash /opt/mine/bar.sh');
+  } finally { rm(home); }
+  const fresh = realShapedHome({});
+  try {
+    assert.equal(cli(fresh, ['install']).status, 0);
+    const first = fs.readFileSync(path.join(fresh, '.claude', 'settings.json'), 'utf8');
+    assert.match(first, /statusline-command\.sh/);
+    assert.equal(cli(fresh, ['install']).status, 0);
+    assert.equal(fs.readFileSync(path.join(fresh, '.claude', 'settings.json'), 'utf8'), first, 'second run byte-identical');
+  } finally { rm(fresh); }
 });
 
 function updateAllHome(projects) {

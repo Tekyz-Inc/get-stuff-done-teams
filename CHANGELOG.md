@@ -2,6 +2,16 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [6.1.11] - 2026-10-11
+
+### Fixed — the GSD-T status line is back
+
+v6.0.10 retired the status line on the belief that it read the retired context meter. It never did: it computes context % from the session transcript itself. Restored:
+
+- `scripts/statusline-command.sh`: restored unchanged from v5 — line 1 `[GSD-T] | version | ctx N% left | project | branch | model | time`, line 2 the project's `progress.md` Status.
+- `bin/gsd-t.js`: `installStatusLine()` copies it to `~/.claude/statusline-command.sh` and sets `statusLine` when the setting is absent or GSD-T's (any spelling, incl. the retired `gsd-t-statusline.js`). A custom status line, or a user's own `~/.claude/statusline-command.sh` without the GSD-T header, is never replaced. Runs on install and on same-version update. Removed from `RETIRED_V6`.
+- Tests: `v6-redteam3` status-line cases now expect the current status line; new custom-status-line + idempotency test; `v6-retired-cleanup` updated.
+
 ## [6.1.10] - 2026-10-11
 
 ### Added — `gsd-t link-config-dir`: GSD-T across several Claude accounts
