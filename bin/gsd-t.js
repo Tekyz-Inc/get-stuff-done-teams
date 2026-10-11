@@ -2076,6 +2076,8 @@ async function doUpdateAll() {
     }
   }
 
+  updateProjectWorktrees(projects.filter((p) => !failed.includes(p)), counts, failed);
+
   const {
     playwrightMissing,
     swaggerMissing,
@@ -2203,6 +2205,52 @@ function showNoProjectsHint() {
   log("  Or register an existing project manually:");
   log(`  ${DIM}$${RESET} npx @tekyzinc/gsd-t register`);
   log("");
+}
+
+// Worktrees (side copies on other branches) carry their own bin/ tools, so they
+// need the same tool refresh and retired-tool sweep as the main checkout.
+// CLAUDE.md and CHANGELOG.md are branch content — they arrive by merging main,
+// never by editing a branch behind its owner's back. A worktree an interactive
+// session is sitting in is skipped and named. If the process list can't be read,
+// no worktree is touched and the run fails — "nobody is there" is never a guess.
+function updateProjectWorktrees(projects, counts, failed, sessionDirs) {
+  const detect = require("./gsd-t-worktree-detect.cjs");
+  const all = [];
+  for (const repo of projects) {
+    if (!fs.existsSync(repo)) continue;
+    let wts;
+    try { wts = detect.linkedWorktrees(repo); } catch (e) {
+      error(`${path.basename(repo)} — cannot list worktrees: ${e.message}`);
+      failed.push(repo); counts.errors++; continue;
+    }
+    for (const w of wts) all.push({ repo, ...w });
+  }
+  if (all.length === 0) return;
+  heading(`Updating ${all.length} worktree(s)...`);
+  let sessions;
+  try { sessions = sessionDirs || detect.interactiveClaudeDirs(); } catch (e) {
+    error(`Worktrees NOT updated: ${e.message}`);
+    for (const w of all) failed.push(w.path);
+    counts.errors++;
+    return;
+  }
+  counts.worktrees = { updated: 0, busy: 0 };
+  for (const w of all) {
+    const label = `${path.basename(w.repo)} [${w.branch}]`;
+    if (detect.isOccupied(w.path, sessions)) {
+      warn(`${label} — a session is open in ${w.path}; skipped (re-run update-all after it closes)`);
+      counts.worktrees.busy++;
+      continue;
+    }
+    try {
+      copyBinToolsToProject(w.path, label);
+      counts.worktrees.updated++;
+    } catch (e) {
+      error(`${label} (${w.path}) — HALTED: ${e.message || e}`);
+      failed.push(w.path);
+      counts.errors++;
+    }
+  }
 }
 
 function updateSingleProject(projectDir, counts) {
@@ -2446,6 +2494,7 @@ function showUpdateAllSummary(
   log(`  Updated:             ${counts.updated}`);
   log(`  Already current:     ${counts.skipped}`);
   if (counts.missing > 0) log(`  Not found:           ${counts.missing}`);
+  if (counts.worktrees) log(`  Worktrees updated:   ${counts.worktrees.updated}${counts.worktrees.busy ? ` (${counts.worktrees.busy} skipped — session open)` : ""}`);
   if (counts.errors > 0) log(`  Errors:              ${counts.errors}`);
   if (playwrightMissing.length > 0) log(`  Missing Playwright:  ${playwrightMissing.length}`);
   if (Array.isArray(playwrightAutoInstalled) && playwrightAutoInstalled.length > 0) {
@@ -3060,6 +3109,7 @@ module.exports = {
   ensureDir,
   copyFile,
   copyBinToolsToProject,
+  updateProjectWorktrees,
   PROJECT_BIN_TOOLS,
   _classifyGraphSpawnResult,
   hasPlaywright,

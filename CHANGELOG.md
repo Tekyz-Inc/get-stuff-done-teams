@@ -2,6 +2,17 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [6.1.12] - 2026-10-11
+
+### Fixed — `update-all` now updates each project's worktrees
+
+`update-all` refreshed only each registered project's main checkout, so 34 of 36 worktrees kept retired v5 tools and stale copies of current ones in `bin/`.
+
+- `bin/gsd-t.js`: `updateProjectWorktrees()` runs the same `bin/` refresh + retired-tool move on every linked worktree of every registered project. CLAUDE.md and CHANGELOG.md are branch content and are not edited — they arrive by merging main. A worktree with an interactive session open is skipped and named; if the process list can't be read, no worktree is touched and the run exits non-zero. Summary shows `Worktrees updated`.
+- `bin/gsd-t-worktree-detect.cjs`: `interactiveClaudeDirs()` (moved from pick-worktree, now shared), `linkedWorktrees()` (excludes the main checkout and the harness's `.claude/worktrees/`), `isOccupied()`.
+- `bin/gsd-t-pick-worktree.cjs`: uses the shared session detection.
+- `test/update-all-worktrees.test.js`: 3 tests (real git repo with worktrees).
+
 ## [6.1.11] - 2026-10-11
 
 ### Fixed — the GSD-T status line is back

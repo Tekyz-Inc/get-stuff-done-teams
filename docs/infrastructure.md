@@ -20,6 +20,7 @@
 | Code graph | `gsd-t graph index \| status \| who-calls \| who-imports \| blast-radius \| body \| who-uses \| table \| metrics` |
 | Worktree | `gsd-t pick-worktree [--name <branch> \| --list \| --suggest]` |
 | Second Claude account | `gsd-t link-config-dir ~/.claude-<name>` |
+| Update every project + its worktrees | `gsd-t update-all` (worktrees with an open session are skipped) |
 | Workflow path | `gsd-t workflow-path scan \| debug` |
 | Estimate sheet | `gsd-t estimate-sheet <verb> --sheet <id\|url>` |
 | PseudoCode style | `gsd-t pseudocode-style --doc <f> \| --dir <d>` |

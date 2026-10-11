@@ -2,8 +2,8 @@
 
 ## Project: GSD-T Framework (@tekyzinc/gsd-t)
 ## Status: ✅ ACTIVE — last shipped v6.0.10 (2026-10-11): **M120 GSD-T v6 slim-down COMPLETE** — execution pipeline removed (59 → 18 commands, ~129K lines cut); kept graph, no-fallback, date guard, architect, new opt-in red team, debug halt, worktrees, env registry, Playwright rules, demo videos, estimates. Retired files are moved to dated backups, never deleted. Next: v6.1 — `gsd-t link-config-dir` (per-account Claude config dirs), faster scan, estimate-rescale rethink, solo story flow (pilot project to be chosen — not FlyLingo, which the dev team is building).
-## Date: 2026-10-11 13:23 PDT
-## Version: 6.1.11
+## Date: 2026-10-11 14:16 PDT
+## Version: 6.1.12
 
 ## Current Milestone
 
@@ -49,6 +49,7 @@ Older milestones (M33 and earlier) archived under `.gsd-t/milestones/` — see d
 <!-- No active blockers -->
 
 ## Decision Log
+- 2026-10-11 14:16: [fix] update-all covers worktrees (v6.1.12) — 34 of 36 worktrees still held v5 bin tools because update-all only touched main checkouts. Now each linked worktree gets the bin refresh + retired-tool move; branch content (CLAUDE.md) is left to merges; worktrees with an open session are skipped and named; unreadable process list = no worktree touched + non-zero exit. Session detection moved into gsd-t-worktree-detect (shared with pick-worktree). Also 2026-10-11: directives cleanup applied to 20 projects (uncommitted), GSD-T-Board / invoice-automation / newman-avtar-fe moved to Trash and unregistered (36 → 33), board-notify hooks removed. Suite 1137/1140 pass, 0 fail.
 - 2026-10-11 13:23: [fix] GSD-T status line restored (v6.1.11) — v6.0.10 retired it on a wrong premise (it never read the context meter; it computes ctx % from the session transcript). installStatusLine() is back: sets statusLine only when absent or GSD-T's, never replaces a custom bar or a user's own same-named script; removed from RETIRED_V6. Suite 1134/1137 pass, 0 fail.
 - 2026-10-11 12:37: [feature] `gsd-t link-config-dir` (v6.1.10) — share one GSD-T setup across Claude config dirs (one login per dir via CLAUDE_CONFIG_DIR, e.g. a Hilo team account). Links CLAUDE.md, settings.json, commands, scripts, bin, templates, skills, agents, projects back to ~/.claude; login files never touched; any conflict halts before a change; doctor checks the links. Direction fixed (real files in ~/.claude) because the installer halts on symlinks inside ~/.claude.
 - 2026-10-11 12:29: [release] GSD-T v6 slim-down (v6.0.10) — major: execution pipeline removed; three red-team rounds on the installer cleanup (delete-based design failed twice → redesigned to move-not-delete with preflight halts and a no-dangling-hook invariant); dry run on a copy of the real ~/.claude: 94 files moved, 19 retired hooks removed, 0 dangling, second run byte-identical. Suite 1125/1128 pass, 0 fail.

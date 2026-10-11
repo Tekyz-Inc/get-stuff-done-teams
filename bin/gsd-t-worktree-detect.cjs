@@ -20,7 +20,8 @@
  */
 
 const path = require('path');
-const { execFileSync } = require('child_process');
+const fs = require('fs');
+const { execFileSync, spawnSync } = require('child_process');
 
 // A git call on a slow or network-mounted repository can hang forever. Every
 // call here carries a limit so a stuck git cannot wedge a pre-flight check.
@@ -54,8 +55,79 @@ function isLinkedWorktree(dir) {
   return path.resolve(own) !== path.resolve(shared);
 }
 
+/**
+ * Folders an interactive Claude Code session is sitting in right now.
+ *
+ * `ps` prints a terminal name for a process attached to one and `??` for one
+ * that is not. Subagents and `claude -p` runs have no terminal, so filtering on
+ * that column leaves only real sessions. Throws when the process list cannot be
+ * read — "nobody is there" must never be a guess.
+ */
+function interactiveClaudeDirs() {
+  const ps = spawnSync('ps', ['-eo', 'pid=,tty=,comm='], { encoding: 'utf8' });
+  if (ps.status !== 0) {
+    throw new Error(
+      `Cannot read the process list (${String(ps.stderr).trim() || 'ps failed'}), ` +
+      `so a worktree already in use can't be ruled out.`
+    );
+  }
+  const dirs = new Set();
+  for (const line of String(ps.stdout).split('\n')) {
+    const m = line.trim().match(/^(\d+)\s+(\S+)\s+(.*)$/);
+    if (!m) continue;
+    const [, pid, tty, comm] = m;
+    if (tty === '??' || tty === '?') continue;   // no terminal — not a session
+    if (!/claude/i.test(comm)) continue;
+    const d = cwdOfPid(pid);
+    if (d) dirs.add(d);
+  }
+  return dirs;
+}
+
+// A process that exited between listing and inspection occupies nothing, so a
+// pid lsof cannot report on is genuinely absent rather than unknown.
+function cwdOfPid(pid) {
+  const r = spawnSync('lsof', ['-a', '-p', pid, '-d', 'cwd', '-Fn'], { encoding: 'utf8' });
+  if (r.status !== 0) return null;
+  for (const line of String(r.stdout).split('\n')) {
+    if (line.startsWith('n/')) return line.slice(1);
+  }
+  return null;
+}
+
+/**
+ * The repo's linked worktrees (side copies), excluding the main checkout, the
+ * harness's own `.claude/worktrees/` copies, and folders that no longer exist.
+ * @returns {{path: string, branch: string}[]}
+ */
+function linkedWorktrees(repoDir) {
+  const main = path.resolve(repoDir);
+  const out = [];
+  let cur = null;
+  for (const line of _git(['worktree', 'list', '--porcelain'], repoDir).split('\n')) {
+    if (line.startsWith('worktree ')) cur = { path: line.slice(9), branch: '(detached)' };
+    else if (cur && line.startsWith('branch ')) cur.branch = line.slice(7).replace(/^refs\/heads\//, '');
+    else if (line === '' && cur) { out.push(cur); cur = null; }
+  }
+  if (cur) out.push(cur);
+  return out.filter((w) =>
+    path.resolve(w.path) !== main &&
+    !w.path.includes(`${path.sep}.claude${path.sep}worktrees${path.sep}`) &&
+    fs.existsSync(w.path));
+}
+
+/** Is a session sitting in `dir` or anywhere below it? */
+function isOccupied(dir, sessionDirs) {
+  const d = path.resolve(dir);
+  for (const s of sessionDirs) if (s === d || s.startsWith(d + path.sep)) return true;
+  return false;
+}
+
 module.exports = {
   isLinkedWorktree,
+  interactiveClaudeDirs,
+  linkedWorktrees,
+  isOccupied,
   // Test-only
   _git,
   GIT_TIMEOUT_MS,

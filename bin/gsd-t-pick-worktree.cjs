@@ -61,7 +61,8 @@
 const fs = require("fs");
 const path = require("path");
 const { spawnSync } = require("child_process");
-const { isLinkedWorktree } = require("./gsd-t-worktree-detect.cjs");
+const detect = require("./gsd-t-worktree-detect.cjs");
+const { isLinkedWorktree } = detect;
 
 function stay() {           // nothing to change — the caller keeps its directory
   process.exit(0);
@@ -458,36 +459,11 @@ function provisionNewWorktree(repo, dest) {
  * that column leaves only real sessions.
  */
 function interactiveClaudeDirs() {
-  const ps = spawnSync("ps", ["-eo", "pid=,tty=,comm="], { encoding: "utf8" });
-  if (ps.status !== 0) {
-    fail(
-      `Cannot read the process list (${String(ps.stderr).trim() || "ps failed"}), ` +
-      `so a worktree already in use can't be ruled out.`
-    );
+  try {
+    return detect.interactiveClaudeDirs();
+  } catch (e) {
+    fail(e.message);
   }
-
-  const dirs = new Set();
-  for (const line of String(ps.stdout).split("\n")) {
-    const m = line.trim().match(/^(\d+)\s+(\S+)\s+(.*)$/);
-    if (!m) continue;
-    const [, pid, tty, comm] = m;
-    if (tty === "??" || tty === "?") continue;   // no terminal — not a session
-    if (!/claude/i.test(comm)) continue;
-    const d = cwdOfPid(pid);
-    if (d) dirs.add(d);
-  }
-  return dirs;
-}
-
-// A process that exited between listing and inspection occupies nothing, so a
-// pid lsof cannot report on is genuinely absent rather than unknown.
-function cwdOfPid(pid) {
-  const r = spawnSync("lsof", ["-a", "-p", pid, "-d", "cwd", "-Fn"], { encoding: "utf8" });
-  if (r.status !== 0) return null;
-  for (const line of String(r.stdout).split("\n")) {
-    if (line.startsWith("n/")) return line.slice(1);
-  }
-  return null;
 }
 
 main();
