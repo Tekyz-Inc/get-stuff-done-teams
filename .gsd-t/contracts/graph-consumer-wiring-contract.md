@@ -168,24 +168,7 @@ This table is the lint's input. The lint reads it at runtime — adding a row he
 
 | Command File | Workflow File | Role | Structural Verbs Used | Replaces Structural Grep For |
 |---|---|---|---|---|
-| `commands/gsd-t-impact.md` | `templates/workflows/gsd-t-phase.workflow.js` | reader | `blast-radius` | grep-reconstructed dependent set for downstream-effect analysis |
-| `commands/gsd-t-plan.md` | `templates/workflows/gsd-t-phase.workflow.js` | reader | `who-imports,blast-radius` | grep-reconstructed dependency ordering for task sequencing |
-| `commands/gsd-t-feature.md` | `templates/workflows/gsd-t-phase.workflow.js` | reader | `blast-radius,who-imports` | grep-reconstructed blast-radius/dependent discovery for feature impact |
-| `commands/gsd-t-gap-analysis.md` | `templates/workflows/gsd-t-phase.workflow.js` | reader | `who-imports,dead-code` | grep/filesystem dead-code discovery and dependency reconstruction for gap analysis |
-| `commands/gsd-t-partition.md` | `templates/workflows/gsd-t-phase.workflow.js` | reader | `cluster` | LLM-reconstructed file-coupling for domain-boundary decisions |
-| `commands/gsd-t-project.md` | `templates/workflows/gsd-t-phase.workflow.js` | reader | `cluster` | LLM-estimated coupling for milestone decomposition |
-| `commands/gsd-t-populate.md` | `templates/workflows/gsd-t-phase.workflow.js` | reader | `who-imports,cluster` | grep/filesystem-scan for import/coupling structure during doc population |
-| `commands/gsd-t-promote-debt.md` | `templates/workflows/gsd-t-phase.workflow.js` | reader | `blast-radius` | grep-reconstructed caller-count for debt impact scoping |
-| `commands/gsd-t-prd.md` | `templates/workflows/gsd-t-phase.workflow.js` | reader | `cluster` | LLM-estimated structure for PRD decomposition |
-| `commands/gsd-t-qa.md` | `templates/workflows/gsd-t-phase.workflow.js` | reader | `dead-code,dangling` | grep/filesystem dead-code discovery for QA coverage gap analysis |
-| `commands/gsd-t-verify.md` | `templates/workflows/gsd-t-verify.workflow.js` | reader | `dead-code,dangling` | grep-based dead-code/dangling detection (carve-out: announced WARNING on unavailable) |
-| `commands/gsd-t-integrate.md` | `templates/workflows/gsd-t-integrate.workflow.js` | reader | `who-imports,blast-radius` | LLM-read-reconstructed cross-domain wiring verification (carve-out: announced WARNING on unavailable) |
-| `commands/gsd-t-execute.md` | `templates/workflows/gsd-t-execute.workflow.js` | writer | `blast-radius,who-imports` | grep/raw-read structural dependency reconstruction for file-disjointness (the SAFETY-CRITICAL seam — graph-aware transitive overlap, fail-loud halt on graph-unavailable) |
-| `commands/gsd-t-wave.md` | `templates/workflows/gsd-t-wave.workflow.js` | writer | `blast-radius,who-imports` | inherits execute's graph-aware disjointness; re-indexes touched files after each domain's edits |
 | `commands/gsd-t-debug.md` | `templates/workflows/gsd-t-debug.workflow.js` | writer | `blast-radius,who-calls` | grep-reconstructed call-chain for bug localization (READER half) + re-index after fix lands (WRITER half) |
-| `commands/gsd-t-quick.md` | `templates/workflows/gsd-t-quick.workflow.js` | writer | `blast-radius,who-imports` | grep/raw-read structural impact assessment before editing (READER half) + re-index touched files after edits (WRITER half) |
-| `commands/gsd-t-test-sync.md` | `templates/workflows/gsd-t-phase.workflow.js` | writer | `test-impl,untested-impl` | grep/filesystem test-discovery and coverage-gap detection; replaced by test-impl (which test exercises which impl) + untested-impl (impl funcs with no test) graph verbs + re-index after test writes |
-| `commands/gsd-t-design-build.md` | `templates/workflows/gsd-t-phase.workflow.js` | writer | `who-imports,cluster` | grep/raw-read structure before generating code; replaced by who-imports/cluster graph query + re-index of generated files |
 
 ### Manifest schema (machine-parsed by the lint)
 

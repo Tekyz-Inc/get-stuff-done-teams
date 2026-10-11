@@ -2177,12 +2177,6 @@ function installScipIndexers() {
 // through npx caches. Keep this list tight — only templates that commands cite
 // via absolute path belong here.
 const SHARED_TEMPLATES = [
-  "design-chart-taxonomy.md",
-  "element-contract.md",
-  "widget-contract.md",
-  "page-contract.md",
-  "design-contract.md",
-  "shared-services-contract.md",
   "estimate-config.json",
   "estimate-sheet-spec.md",
 ];
@@ -2587,58 +2581,6 @@ function initGsdtDir(projectDir, projectName, today) {
   }
 
   writeTemplateFile("progress.md", path.join(gsdtDir, "progress.md"), ".gsd-t/progress.md", projectName, today);
-  writeTemplateFile("backlog.md", path.join(gsdtDir, "backlog.md"), ".gsd-t/backlog.md", projectName, today);
-  writeTemplateFile("backlog-settings.md", path.join(gsdtDir, "backlog-settings.md"), ".gsd-t/backlog-settings.md", projectName, today);
-
-  // Seed universal rules from npm package (if shipped)
-  seedUniversalRules(projectDir);
-}
-
-function seedUniversalRules(projectDir) {
-  try {
-    const shippedRules = path.join(PKG_ROOT, "examples", "rules", "universal-rules.jsonl");
-    if (!fs.existsSync(shippedRules)) return;
-    const content = fs.readFileSync(shippedRules, "utf8").trim();
-    if (!content) return;
-    const rules = content.split("\n").map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
-    if (rules.length === 0) return;
-    const localRulesFile = path.join(projectDir, ".gsd-t", "metrics", "rules.jsonl");
-    const localDir = path.dirname(localRulesFile);
-    if (!fs.existsSync(localDir)) fs.mkdirSync(localDir, { recursive: true });
-    // Read existing local rules to avoid duplicates
-    let existingTriggers = new Set();
-    if (fs.existsSync(localRulesFile)) {
-      const existing = fs.readFileSync(localRulesFile, "utf8").trim();
-      if (existing) {
-        existing.split("\n").forEach((l) => {
-          try { const r = JSON.parse(l); existingTriggers.add(JSON.stringify(r.trigger || {})); } catch {}
-        });
-      }
-    }
-    let seeded = 0;
-    for (const rule of rules) {
-      const trigger = (rule.original_rule && rule.original_rule.trigger) || {};
-      const fp = JSON.stringify(trigger);
-      if (existingTriggers.has(fp)) continue;
-      const candidate = {
-        id: `universal-${rule.global_id || "unknown"}`,
-        created_at: new Date().toISOString(),
-        name: (rule.original_rule && rule.original_rule.name) || rule.global_id || "universal",
-        description: (rule.original_rule && rule.original_rule.description) || "Shipped as universal rule",
-        trigger,
-        severity: (rule.original_rule && rule.original_rule.severity) || "MEDIUM",
-        action: (rule.original_rule && rule.original_rule.action) || "warn",
-        patch_template_id: null,
-        activation_count: 0, last_activated: null,
-        milestone_created: "universal", status: "active",
-        source_global_id: rule.global_id || null,
-      };
-      fs.appendFileSync(localRulesFile, JSON.stringify(candidate) + "\n");
-      existingTriggers.add(fp);
-      seeded++;
-    }
-    if (seeded > 0) success(`Seeded ${seeded} universal rules from npm package`);
-  } catch { /* silently skip if anything fails */ }
 }
 
 function writeTemplateFile(templateName, destPath, label, projectName, today) {
@@ -2739,16 +2681,13 @@ function showInitTree(projectDir) {
   log("  │   └── infrastructure.md");
   log("  └── .gsd-t/");
   log("      ├── progress.md");
-  log("      ├── backlog.md");
-  log("      ├── backlog-settings.md");
   log("      ├── contracts/");
   log("      └── domains/");
   log("");
   log(`${BOLD}Next steps:${RESET}`);
   log(`  1. Edit CLAUDE.md — add project overview and tech stack`);
   log(`  2. Start Claude Code: ${DIM}claude${RESET}`);
-  log(`  3. Run: ${DIM}/gsd-t-populate${RESET}  ${DIM}(if existing codebase)${RESET}`);
-  log(`     Or:  ${DIM}/gsd-t-project${RESET}   ${DIM}(if new project)${RESET}`);
+  log(`  3. Run: ${DIM}/gsd-t-scan${RESET}  ${DIM}(if existing codebase)${RESET}`);
   log("");
 }
 

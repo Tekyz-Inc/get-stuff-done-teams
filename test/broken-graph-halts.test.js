@@ -120,21 +120,14 @@ test("_graphQueryCli: non-JSON stdout → graph-broken (never fabricated unavail
 // ─── [RULE] presence lint: no consumer greps on a graph-broken reason ───────
 
 test("[RULE] no consumer takes a grep branch on a graph-broken reason", () => {
-  // Assert none of the 9 consumers contains a `graph-broken → grep` fallback. We
+  // Assert none of the consumers (v6: debug + scan) contains a `graph-broken → grep` fallback. We
   // approximate "grep branch" by requiring that any file mentioning graph-broken
   // also HALTS (blocked-needs-human / HALT) — never silently continues to grep for
   // the structural answer. The delegation/producer edges emit graph-broken; the
   // consumers must classify + HALT, never re-implement a grep fallback on it.
   const consumers = [
-    "templates/workflows/gsd-t-execute.workflow.js",
-    "templates/workflows/gsd-t-integrate.workflow.js",
     "templates/workflows/gsd-t-debug.workflow.js",
-    "templates/workflows/gsd-t-phase.workflow.js",
-    "templates/workflows/gsd-t-quick.workflow.js",
     "templates/workflows/gsd-t-scan.workflow.js",
-    "templates/workflows/gsd-t-verify.workflow.js",
-    "templates/workflows/gsd-t-wave.workflow.js",
-    "bin/gsd-t-file-disjointness.cjs",
   ];
   for (const rel of consumers) {
     const full = path.join(REPO, rel);
@@ -158,19 +151,12 @@ test("consumers that classify a graph failure route it through the ONE shared cl
   // (via its CLI arm) rather than re-implementing an absent-vs-broken string check.
   const routed = [
     "templates/workflows/gsd-t-debug.workflow.js",
-    "templates/workflows/gsd-t-phase.workflow.js",
-    "templates/workflows/gsd-t-quick.workflow.js",
-    "templates/workflows/gsd-t-integrate.workflow.js",
-    "templates/workflows/gsd-t-verify.workflow.js",
     "templates/workflows/gsd-t-scan.workflow.js",
   ];
   for (const rel of routed) {
     const src = fs.readFileSync(path.join(REPO, rel), "utf8");
     assert.match(src, /gsd-t-graph-availability|classifyGraphFailure/, `${rel} must route through the shared classifier`);
   }
-  // The non-sandboxed brain requires it directly.
-  const dj = fs.readFileSync(path.join(REPO, "bin", "gsd-t-file-disjointness.cjs"), "utf8");
-  assert.match(dj, /require\(["']\.\/gsd-t-graph-availability\.cjs["']\)/);
 });
 
 // ─── Propagation: the classifier ships to projects ──────────────────────────

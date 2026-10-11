@@ -304,10 +304,18 @@ test('M112: no agent is asked to re-slice', () => {
     'and the reason is recorded where the next person will read it');
 });
 
-test('M112: a failed measurement is announced, never silently accepted', () => {
+test('M112: a failed measurement HALTS the scan, never runs unmeasured slices', () => {
   assert.match(src, /SLICE BUDGET FAILED/);
-  assert.match(src, /slice sizes are UNMEASURED/,
-    'running unmeasured slices must be visible, not assumed fine');
+  assert.match(src, /Scan HALTED/, 'an unmeasured plan must stop the scan');
+  assert.match(src, /reason: "slice-budget-failed"/, 'the halt names its reason');
+  assert.ok(!/Running the probe's slices as given/.test(src),
+    'continuing on unmeasured slices is the fallback v6 removed');
+});
+
+test('v6: slice-budget runs its own tool, not the graph-query CLI', () => {
+  assert.match(src, /async function runSliceBudget/);
+  assert.match(src, /bin\/gsd-t-slice-budget\.cjs/);
+  assert.ok(!/runCli\(\s*"slice-budget"/.test(src), 'graph slice-budget is not a verb');
 });
 
 test('M112: an unsplittable file is named rather than hidden', () => {

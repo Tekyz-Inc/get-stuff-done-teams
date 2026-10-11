@@ -1,7 +1,0 @@
-{
-  "name": "fixture-workflows",
-  "version": "0.1.0",
-  "scripts": {
-    "build": "echo build-via-package-json"
-  }
-}

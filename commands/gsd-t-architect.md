@@ -459,7 +459,7 @@ The underlying assessment updates (when it writes / when a build follows):
   "think before build" gate. `--build` is the explicit opt-in to act on its own conclusion.
 - **Reuse over rebuild** (the doctrine obeying itself): this command is prose-driven and spawns
   a single analysis subagent — it does NOT add a new workflow file. It reuses the existing
-  prose-command + Task-subagent pattern (like `/gsd-t-status`, `/gsd-t-impact`).
+  prose-command + Task-subagent pattern.
 - **The interview runs in the MAIN session, the pass runs in a subagent.** A subagent cannot ask
   the user anything mid-run — relaying questions out as teammate pings was tried and produced
   babysitting (*"Is the architect still running?"*). So: ground it in the main chat where a real

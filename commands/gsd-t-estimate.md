@@ -2,7 +2,7 @@
 
 You are turning a **structured work document** into a **Tekyz client estimate** in a Google Sheet: a **T-Shirt Size** tab (sized line-items → days → dollars), a **Team Mix** tab (who does the work, month by month), and a **Technology Stack** tab. The input can be a GSD-T tech-debt scan register, a gap-analysis sheet, a new-feature or new-application requirements doc, or any comparable spec. `$ARGUMENTS` may carry `--sheet <url>`, `--input <path>`, and a scope override (`--severity high`).
 
-**Scope is the SHEET only.** This command does NOT write a PRD or any other document — a client PRD is `/gsd-t-prd`'s job, run separately if wanted. The one client-facing artifact here is the sheet; the only optional file is `share/<Repo>-estimate-redteam-notes.md` (overridden Red Team objections).
+**Scope is the SHEET only.** This command does NOT write a PRD or any other document — a client PRD is written separately if wanted. The one client-facing artifact here is the sheet; the only optional file is `share/<Repo>-estimate-redteam-notes.md` (overridden Red Team objections).
 
 **THE SHEET IS WRITTEN BY A TOOL, NOT BY HAND.** `gsd-t estimate-sheet` (`bin/gsd-t-estimate-sheet.cjs`, project-local `bin/` first, else the global `gsd-t`) reads the sheet, validates a JSON plan, writes all three tabs with the exact formulas and styling, and audits by reading back — halting on any violation. **You never PUT a cell or send a batchUpdate yourself.** Your output is the plan (judgment only: sizes, team FTE, tech-stack lines); the tool computes everything derived. Spec: `~/.claude/templates/estimate-sheet-spec.md` (bundled: `templates/estimate-sheet-spec.md`) — §6 shows the plan shape (`gsd-t estimate-sheet plan-schema` prints it). Procedure background: `~/.claude/playbooks/tekyz-estimation-and-prd-playbook.md` (else `templates/playbooks/`).
 
@@ -40,7 +40,7 @@ Read from `$ARGUMENTS` or `.gsd-t/estimate-config.json` if present; otherwise us
 1. **Resolve the Google Sheet.** Take `--sheet <url>` from `$ARGUMENTS`; otherwise ask: *"Paste the Google Sheet URL for this estimate."* The operator ALWAYS provides an existing sheet — this command never creates one. Extract the **sheet ID** (between `/d/` and the next `/`) and confirm it back.
 2. **Probe access + read the layout in one step:** `gsd-t estimate-sheet read --sheet <url>` (then `--tab "T-Shirt Size Estimate"`, `--tab "Team Mix"`). A `403` halt means the sheet is not shared — prompt the operator to share it with the SA email as **Editor** ("Notify people" unchecked), wait, re-run. (The tool never sends `X-Goog-User-Project`; with it these sheets 403 even when shared.)
 3. From the read: note the MF list (`E4:F9`), high factor (`G4`), rate (`H4`), whether item rows already exist (→ `sizes` mode) or the tab is empty (→ `items` mode), and whether the Technology Stack tab is filled. The tool reads these again at write time; you read them now so the plan matches the sheet.
-4. **Resolve the input document** (`--input`, else `.gsd-t/techdebt.md`). None → "No input document found. Pass `--input <path>` or run `/gsd-t-scan` / `/gsd-t-gap-analysis` first." and stop.
+4. **Resolve the input document** (`--input`, else `.gsd-t/techdebt.md`). None → "No input document found. Pass `--input <path>` or run `/gsd-t-scan` first." and stop.
 5. **Classify the input** so the line-item vocabulary matches: scan register → *findings* (`TD-n`) scoped by severity; gap-analysis sheet → *gaps* (`GA-n`, rows already on the T-Shirt tab with columns A–D filled — you fill E–G only); requirements / feature / app spec → *requirements* (`FR-n` or the doc's own numbering).
 6. **Scope**: scan default = all CRITICAL findings; `--severity high|medium|low|all` widens. Requirements default = all. Confirm scope + item count with the user before sizing.
 7. **Confirm the active config values** — rate, MF list (from the sheet), high factor, and the **project type**: greenfield or yellow-field (an existing app), solo or team (spec §1.4). Nobody hand-writes code — every estimate assumes AI-assisted development by a code-familiar team unless the operator says otherwise.
@@ -165,8 +165,8 @@ Report: input type + scope + item count; the active config values (rate / MF lis
 
 - The Google Sheet (external) — T-Shirt Size Estimate, Team Mix, Technology Stack (+ Overview cells verified) + optional `share/<Repo>-estimate-redteam-notes.md`.
 - If renumbering (Step 1) ran: the input + plain-English + `scan/*.md` + `docs/*` + README + `share/*` were remapped (archives untouched) — note it in the report so the numbering change is traceable.
-- No PRD. A client PRD is `/gsd-t-prd`.
+- No PRD.
 
 ## ▶ Next Up
 
-Standalone command — no auto-successor. After delivering, the user shares the sheet with the client (and runs `/gsd-t-prd` if a PRD is wanted).
+Standalone command — no auto-successor. After delivering, the user shares the sheet with the client (and writes a PRD separately if one is wanted).

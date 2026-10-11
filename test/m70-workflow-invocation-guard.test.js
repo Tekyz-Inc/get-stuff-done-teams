@@ -15,7 +15,7 @@ const path = require("node:path");
 const CMD_DIR = path.resolve(__dirname, "..", "commands");
 
 // Commands whose body invokes the Workflow tool (must carry the guard).
-const WORKFLOW_COMMANDS = ["scan", "execute", "verify", "wave", "integrate", "debug"];
+const WORKFLOW_COMMANDS = ["scan", "debug"];
 
 for (const c of WORKFLOW_COMMANDS) {
   test(`gsd-t-${c}.md carries the do-not-hand-drive Workflow guard`, () => {

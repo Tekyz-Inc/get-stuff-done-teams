@@ -7,17 +7,15 @@ You are capturing the precise current position in an active GSD-T phase so the u
 Read the following (use whatever is already in context first — only read files if needed):
 
 1. `.gsd-t/progress.md` — milestone name, current status/phase, version
-2. `.gsd-t/domains/*/tasks.md` — identify which tasks are done, in-progress, or pending
-3. Last entry in the Decision Log (from progress.md)
-4. `$ARGUMENTS` — if user provided a note, capture it verbatim
+2. Last entry in the Decision Log (from progress.md)
+3. `$ARGUMENTS` — if user provided a note, capture it verbatim
 
 ## Step 2: Determine Exact Position
 
 Identify:
 - **Milestone**: current milestone name
-- **Phase**: current phase (PARTITIONED, PLANNED, EXECUTED, etc.)
-- **Domain** (if in execute/test-sync): which domain was being worked on
-- **Task** (if in execute): which task number was in progress or next up
+- **Phase**: current status from progress.md
+- **Task**: what was in progress or next up
 - **Last completed action**: what was the last thing that finished
 - **Next action**: what should happen first when resuming
 - **Blockers**: any known blockers or open questions
@@ -35,7 +33,7 @@ Create `.gsd-t/continue-here-{timestamp}.md`:
 - **Milestone**: {milestone name}
 - **Phase**: {phase}
 - **Version**: {version from progress.md}
-- **Paused at**: {domain} → Task {N} | Between phases | {other description}
+- **Paused at**: {task or step in progress} | Between tasks | {other description}
 
 ## Last Completed
 {description of the last thing that finished — specific task, commit, or action}

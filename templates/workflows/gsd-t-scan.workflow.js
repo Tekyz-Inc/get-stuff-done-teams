@@ -383,6 +383,46 @@ async function runCliBuild() {
   return r || { ok: false, reason: "build-failed" };
 }
 
+// Measure the probe's slice plan with bin/gsd-t-slice-budget.cjs (NOT the graph-query
+// CLI — routing it through runCli ran `graph slice-budget`, a verb that does not exist,
+// so the budget always failed). The exact command is built here, quoted, and the agent
+// only runs it and copies the JSON envelope back through a schema.
+// [RULE] slice-budget-failure-halts
+const _SLICE_BUDGET_SCHEMA = {
+  type: "object",
+  required: ["ok"],
+  additionalProperties: true,
+  properties: {
+    ok:      { type: "boolean", description: "true iff the command exited 0 AND printed a JSON envelope with ok:true" },
+    reason:  { type: "string",  description: "on failure: the envelope's reason, or cli-not-found / cli-error / non-json-output plus the first ~200 chars of stderr" },
+    via:     { type: "string",  description: "local | global" },
+    budget:  { type: "object" },
+    after:   { type: "object" },
+    soloOversizedFiles: { type: "array", items: { type: "object" } },
+    problems: { type: "array", items: {} },
+    slices:  { type: "array", items: { type: "object" }, description: "the envelope's slices array, copied EXACTLY — every slice, every path" },
+  },
+};
+async function runSliceBudget(rawSliceList) {
+  const q = (v) => `'${String(v).replace(/'/g, "'\\''")}'`;
+  const sliceJson = JSON.stringify(rawSliceList.map((sl) => ({ key: sl.key, paths: sl.paths, dimension: sl.dimension, why: sl.why })));
+  const argStr = `--project ${q(projectDir)} --slices ${q(sliceJson)}`;
+  const prompt = [
+    `Measure a scan slice plan for the project at \`${projectDir}\` and report the result. Steps:`,
+    `1. If \`${projectDir}/bin/gsd-t-slice-budget.cjs\` exists, run EXACTLY: \`node ${projectDir}/bin/gsd-t-slice-budget.cjs ${argStr}\` (via="local"). Otherwise run EXACTLY: \`gsd-t slice-budget ${argStr}\` (via="global"). Use cwd \`${projectDir}\`. Do NOT redirect stderr.`,
+    `2. The command prints ONE JSON envelope to stdout. Set ok = (exit code 0 AND the envelope's "ok" === true). Copy "budget", "after", "soloOversizedFiles", "problems" and "slices" through EXACTLY — every slice and every path, nothing dropped or invented.`,
+    `3. If the command exits non-zero or prints no valid JSON: set ok=false and put the envelope's "reason" (or cli-not-found / cli-error / non-json-output) plus the first ~200 chars of stderr in "reason".`,
+    `Do NOT do any other work. ONLY run this one command and report the structured result.`,
+  ].join("\n");
+  const r = await agent(prompt, {
+    label: "slice-budget",
+    phase: "Probe",
+    model: "haiku",
+    schema: _SLICE_BUDGET_SCHEMA,
+  }).catch((e) => ({ ok: false, reason: `agent-error: ${e && e.message}` }));
+  return r || { ok: false, reason: "no-result" };
+}
+
 // Broken-Graph-Halts (EXEMPT carve-out): scan continues in announced grep-mode when the
 // graph is unavailable, but it MUST DISTINGUISH absent from broken. On ABSENT it builds
 // once (below); on BROKEN it must name BROKEN loudly, not treat it as merely un-indexed.
@@ -643,13 +683,7 @@ const computedCap = computeSliceCap(probe.totals || {});
 // Splitting is DETERMINISTIC now — bin/gsd-t-slice-budget.cjs measures real
 // files and packs them under a ceiling. No agent re-slices, so nothing can be
 // lost, invented, or returned no finer than it was given.
-const budgetPlan = await runCli(
-  "slice-budget",
-  ["--project", projectDir, "--slices", JSON.stringify(rawSlices.map((sl) => ({
-    key: sl.key, paths: sl.paths, dimension: sl.dimension, why: sl.why,
-  })))],
-  "slice-budget"
-);
+const budgetPlan = await runSliceBudget(rawSlices);
 
 // What the finders will actually run. Declared HERE, at the scope that uses it.
 //
@@ -662,11 +696,18 @@ const budgetPlan = await runCli(
 // before a single finder ran. Nothing had checked it: `node --check` parses an
 // undeclared assignment happily, and no test executed this path.
 //
-// It starts as the probe's own slices, so the failure branch below needs no
-// assignment — an unmeasured plan still runs what the probe carved.
+// A plan that could not be measured HALTS the scan: reviewers handed slices of
+// unknown size sample instead of read, and report a thin slice as a clean one —
+// the state that produced a 2.5-million-line "slice" with three findings under a
+// FULL coverage header. [RULE] slice-budget-failure-halts
+if (!(budgetPlan && budgetPlan.ok && Array.isArray(budgetPlan.slices) && budgetPlan.slices.length)) {
+  const why = (budgetPlan && budgetPlan.reason) || "no-result";
+  log(`✗ SLICE BUDGET FAILED [${why}] — slice sizes are unmeasured. Scan HALTED. Run \`gsd-t slice-budget --project <dir> --slices '<json>'\` to see the error.`);
+  return { status: "failed", reason: "slice-budget-failed", detail: why };
+}
 let slices = rawSlices;
 
-if (budgetPlan && budgetPlan.ok && Array.isArray(budgetPlan.slices) && budgetPlan.slices.length) {
+{
   const a = budgetPlan.after || {};
   if (budgetPlan.slices.length > rawSlices.length) {
     log(`✂ slice budget: ${rawSlices.length} → ${budgetPlan.slices.length} slices (${(a.lines || 0).toLocaleString()} lines, ~${(a.meanLinesPerSlice || 0).toLocaleString()} per slice, ceiling ${(budgetPlan.budget || {}).max}). A reviewer must read every file it owns; a slice too large is read by sampling, and a sampled slice reports few findings while looking complete.`);
@@ -680,11 +721,6 @@ if (budgetPlan && budgetPlan.ok && Array.isArray(budgetPlan.slices) && budgetPla
     log(`  ⚠ slice budget could not measure ${prob}`);
   }
   slices = budgetPlan.slices;
-} else {
-  // Measuring failed. Continuing would hand reviewers slices of unknown size —
-  // exactly the state that produced a 2.5-million-line "slice" reporting three
-  // findings under a FULL coverage header.
-  log(`⚠ SLICE BUDGET FAILED [${(budgetPlan && budgetPlan.reason) || "no-result"}] — slice sizes are UNMEASURED. Running the probe's slices as given; if any is oversized its reviewer will sample rather than read.`);
 }
 
 const totalFiles = Number((budgetPlan && budgetPlan.after && budgetPlan.after.files) || (probe.totals || {}).files || 0);

@@ -13,10 +13,8 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const WF_DIR = path.resolve(__dirname, "..", "templates", "workflows");
-const ALL_WORKFLOWS = [
-  "gsd-t-scan", "gsd-t-execute", "gsd-t-verify", "gsd-t-wave",
-  "gsd-t-integrate", "gsd-t-debug", "gsd-t-phase", "gsd-t-quick",
-].map((n) => `${n}.workflow.js`);
+// v6: only scan + debug ship.
+const ALL_WORKFLOWS = ["gsd-t-scan", "gsd-t-debug"].map((n) => `${n}.workflow.js`);
 
 function read(f) { return fs.readFileSync(path.join(WF_DIR, f), "utf8"); }
 // Strip line comments so assertions test EXECUTABLE code, not the M81 explanatory
@@ -39,27 +37,16 @@ test("every workflow parses args as a JSON string (the runtime passes args strin
   }
 });
 
-test("the 6 ported + quick define inline runtime-native CLI helpers, not _lib delegation", () => {
+test("debug defines the inline runtime-native CLI helper, not _lib delegation", () => {
   // scan never used _lib helpers; the 7 others replaced lib.runPreflight/etc with inline
   // async functions that call agent()-wrapped Bash. Assert the helper + the call shape.
-  const NEEDS_CLI = ["gsd-t-execute", "gsd-t-verify", "gsd-t-integrate", "gsd-t-debug", "gsd-t-phase", "gsd-t-quick"]
+  const NEEDS_CLI = ["gsd-t-debug"]
     .map((n) => `${n}.workflow.js`);
   for (const f of NEEDS_CLI) {
     const c = code(f);
     assert.match(c, /async function runCli\(/, `${f} must define the runtime-native runCli helper`);
     assert.doesNotMatch(c, /\blib\.\w+\(/, `${f} must not call lib.* (orchestrator spawnSync) anymore`);
   }
-});
-
-test("verify's CI-parity + test-data gates are awaited runCli calls, not raw spawnSync", () => {
-  const c = code("gsd-t-verify.workflow.js");
-  assert.doesNotMatch(c, /\bspawnSync\b/, "verify must not use spawnSync in the orchestrator");
-  assert.doesNotMatch(c, /\b_runJsonCli\b/, "the old _runJsonCli helper must be gone");
-  // FAIL-blocking semantics preserved: build-coverage + ci-parity + test-data still gate.
-  assert.match(c, /build-coverage/, "M57 build-coverage gate preserved");
-  assert.match(c, /ci-parity/, "M57 ci-parity gate preserved");
-  assert.match(c, /test-data/, "M58 test-data purge gate preserved");
-  assert.match(c, /VERIFY-FAILED/, "FAIL-blocking verdict preserved");
 });
 
 test("no workflow uses Date.now()/Math.random() in the orchestrator (banned in the sandbox)", () => {

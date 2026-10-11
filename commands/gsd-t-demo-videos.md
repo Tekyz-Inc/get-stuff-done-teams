@@ -525,7 +525,7 @@ printf '\n.demo-build/\n.tts-cache-gcloud/\n.tts-cache-v2/\ndocs/demo-videos/*.m
 
 **Halt if that directory is absent** — an older installed package does not carry
 it, and re-deriving the pipeline is exactly what this command exists to prevent.
-Run `/gsd-t-version-update` and try again. `$TPL/README.md` carries the wiring
+Run `/gsd-t-version-update-all` and try again. `$TPL/README.md` carries the wiring
 details, including the Playwright project config.
 
 **A spec whose audio has not been rendered yet must SKIP, not throw.** Playwright
@@ -576,9 +576,4 @@ directory, the scripts, two Playwright test projects, and `.gitignore`.
 
 ## ▶ Next Up
 
-**Verify** — check coverage, voice gate, and implied clicks before shipping.
-
-`/gsd-t-verify`
-
-**Also available:**
-- `/gsd-t-backlog-add` — record any app bugs the probing turned up
+Check coverage, the voice gate, and implied clicks before shipping; note any app bugs the probing turned up in `.gsd-t/progress.md`.

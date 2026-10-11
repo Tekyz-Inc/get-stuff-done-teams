@@ -10,45 +10,16 @@ You are the lead agent. Debug a failing test or runtime error by invoking the ca
 Replaces the M40-era debug-orchestrator scaffolding with a deterministic 2-cycle Workflow per CLAUDE.md Prime Rule ("up to 2 fix attempts before delegating"):
 
 ```
-preflight → brief → Cycle 1 (diagnose → hypothesis → fix → test → report)
-                  → Cycle 2 (only if Cycle 1 didn't resolve; sees Cycle 1's failed hypothesis)
-                  → exit "needs-human" if both cycles exhausted
+graph localize → Cycle 1 (diagnose → hypothesis → fix → test → report)
+                 → Cycle 2 (only if Cycle 1 didn't resolve; sees Cycle 1's failed hypothesis)
+                 → exit "needs-human" if both cycles exhausted
 ```
 
 ## Step 1: Read the current milestone state
 
 Read `.gsd-t/progress.md`. Note any failing tests or runtime errors in the Decision Log.
 
-## Step 2: Resolve the active model profile (M86 — invoke-time injection)
-
-Before calling the Workflow, resolve the active model profile to build the `overrides` map:
-
-```bash
-# Run via Bash at invoke time:
-gsd-t model-profile resolve --json
-# Bare form (NO --profile flag): reads .gsd-t/model-profile.json — profile AND stageOverrides
-# (set-stage overrides MUST win — contract precedence; --profile is a config-blind diagnostic
-# form that ZEROES stageOverrides and must never be used for invocation — Red Team M86 r3)
-# Output: { "ok": true, "profile": "...", "overrides": { "stage-key": "concrete-model-id", ... } }
-```
-
-**Resolver-failure handling (M86 — SC(f), pre-mortem c2 #2):** if the resolve call fails
-(`{ok:false}`, spawn error, or the `model-profile` subcommand is not present in the installed
-binary), do NOT silently proceed on the premium fallback. Either:
-- HALT with `blocked-needs-human` and explain the resolver is unavailable; OR
-- Proceed ONLY with a **loud, surfaced warning** that names the effective posture:
-
-  ```
-  ⚠ model-profile resolver unavailable — running on PREMIUM fallback literals
-    (configured profile unknown; stale global binary may lack model-profile subcommand)
-  ```
-
-Also surface a SUCCESSFUL resolve that carries a `configError` field (the resolver returns a
-named default + `configError` for malformed/hand-edited configs — Red Team M86): print the
-`configError` as a visible warning naming the effective profile before proceeding. A clean-looking
-run on a posture the user did not configure is the same silent-spend failure class.
-
-## Step 3: Invoke the debug Workflow
+## Step 2: Invoke the debug Workflow
 
 Call the `Workflow` tool with:
 
@@ -61,21 +32,17 @@ Call the `Workflow` tool with:
   args: {
     symptom: "describe the failing test or runtime error in one sentence",
     projectDir: ".",
-    // M86: inject the resolved overrides map so the workflow's ?? form for debug-cycle-2
-    // picks up the profile-tier assignment instead of the premium opus literal.
-    // Pass {} when the resolver failed AND you chose the loud-warning path (not halt).
-    overrides: { /* ...from resolver result.overrides, or {} on failure */ }
   }
 }
 ```
 
 The Workflow runs up to 2 cycles. Cycle 2 receives Cycle 1's failed hypothesis to prevent re-trying the same approach.
 
-## Step 4: Interpret the result
+## Step 3: Interpret the result
 
 ```js
 {
-  status: "complete" | "needs-human",
+  status: "complete" | "needs-human" | "blocked-needs-human",
   cyclesUsed: 1 | 2,
   finalResult: {
     resolved: boolean,
@@ -87,7 +54,8 @@ The Workflow runs up to 2 cycles. Cycle 2 receives Cycle 1's failed hypothesis t
 }
 ```
 
-- `complete` → re-run verify (`/gsd-t-verify`); auto-advance.
+- `complete` → report the root cause, the files edited, and the test result.
+- `blocked-needs-human` → the graph is broken; show the halt message (fix with `gsd-t graph status`).
 - `needs-human` → present root-cause hypothesis + nextStepsIfNotResolved to the user. Do NOT spawn a third cycle; that's the Prime Rule.
 
 ## Graph-Enhanced Debugging — READER + WRITER Pattern (M94-D11)
@@ -98,24 +66,12 @@ Debug applies the **WRITER pattern** from `graph-consumer-wiring-contract.md`:
 
 **WRITER half (re-index after fix):** After the fix lands, the workflow triggers a re-index of the edited files so downstream graph queries see fresh edges (`graph-freshness-contract.md` D4 surface — `freshness_check_on_query` over the touched set). `[RULE] debug-reader-and-writer-both`.
 
-**BUILD-THEN-QUERY on graph-absent:** On `{ok:false, reason:"graph-unavailable"}` the debug workflow **builds the index right then** (`gsd-t graph index`) and re-runs the localization query. It does NOT fall back to grep for the structural question, and it does NOT skip the query. Only a **failed build** halts the graph-query step, with the build's own stderr surfaced. The existing debug-loop logic (2-cycle cap, loop-ledger halt) is NOT disrupted — the graph query is additive, injected before the fix agent receives context. `[RULE] graph-absent-builds-not-degrades`.
-
-## Contract-Boundary Debugging
-
-If the bug is at a domain contract boundary (one domain calls another via API/schema/component contract), the debug cycle agent is instructed to:
-1. Read both domains' constraints.md
-2. Read the contract definition
-3. Verify both sides honor the contract
-4. Identify which side drifted
-
-This is a Workflow-stage instruction, not a separate command — same `gsd-t-debug.workflow.js` handles both intra-domain bugs and contract-boundary bugs.
+**BUILD-THEN-QUERY on graph-absent:** On `{ok:false, reason:"graph-unavailable"}` the debug workflow **builds the index right then** (`gsd-t graph index`) and re-runs the localization query. It does NOT fall back to grep for the structural question, and it does NOT skip the query. Only a **failed build** halts the graph-query step, with the build's own stderr surfaced. The existing debug-loop logic (2-cycle cap) is NOT disrupted — the graph query is additive, injected before the fix agent receives context. `[RULE] graph-absent-builds-not-degrades`.
 
 ## Document Ripple
 
 - `.gsd-t/progress.md` — Decision Log entry per cycle with hypothesis + resolution
-- `.gsd-t/qa-issues.md` — append if bug came from QA findings
-- `.gsd-t/red-team-report.md` — mark as resolved if bug came from Red Team
 
 ## Next Up
 
-`/gsd-t-verify` on resolution, OR human review on `needs-human`.
+Re-run the failing test on resolution, OR human review on `needs-human`.

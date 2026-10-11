@@ -7,15 +7,15 @@
 //   1. templates/CLAUDE-global.md — a `## Reader Contract` block that states the
 //      question-vs-action SPLIT (NOT a generic "be concise"): both "answer first"
 //      (question shape) AND "intent first" (action shape) appear in the block.
-//   2. Each of the FOUR user-facing subagent prompts — a `<!-- reader-contract -->`
-//      ... `<!-- /reader-contract -->` marker block.
+//   2. The every-turn UserPromptSubmit hook (scripts/gsd-t-auto-route.js), which
+//      injects the [GSD-T READER CONTRACT] block. (v6: the subagent prompts that
+//      carried a marker block were cut with the triad.)
 //
 // Region-scoped, not file-wide substring (per
 // feedback_coverage_check_structural_not_substring): CLAUDE-global has many
 // sections, so the split assertion is scoped to the Reader Contract block only.
 //
-// Mandatory negative (M71-family): deleting the marker from any one prompt makes
-// ONLY that prompt's assertion FAIL; stripping a split phrase from the Reader
+// Mandatory negative (M71-family): stripping a split phrase from the Reader
 // Contract block makes the split assertion FAIL.
 
 const { test } = require("node:test");
@@ -25,17 +25,7 @@ const path = require("node:path");
 
 const ROOT = path.resolve(__dirname, "..");
 const CLAUDE_GLOBAL = path.join(ROOT, "templates", "CLAUDE-global.md");
-const PROMPTS_DIR = path.join(ROOT, "templates", "prompts");
-
-const PROMPTS = [
-  "qa-subagent.md",
-  "red-team-subagent.md",
-  "pre-mortem-subagent.md",
-  "blind-adversary-subagent.md",
-];
-
-const MARKER_OPEN = "<!-- reader-contract -->";
-const MARKER_CLOSE = "<!-- /reader-contract -->";
+const AUTO_ROUTE = path.join(ROOT, "scripts", "gsd-t-auto-route.js");
 
 // The two SPLIT phrases that prove this is the question-vs-action split, not a
 // generic "be concise". Both must appear inside the Reader Contract block.
@@ -70,17 +60,6 @@ function readerContractRegion(body) {
   return lines.slice(start, end).join("\n");
 }
 
-/**
- * Slice the marker-delimited reader-contract directive from a prompt body.
- * Returns "" if either marker is absent.
- */
-function markerBlock(body) {
-  const open = body.indexOf(MARKER_OPEN);
-  const close = body.indexOf(MARKER_CLOSE);
-  if (open === -1 || close === -1 || close < open) return "";
-  return body.slice(open, close + MARKER_CLOSE.length);
-}
-
 // ── Positive: CLAUDE-global Reader Contract block exists + states the SPLIT ────
 
 test("CLAUDE-global carries a `## Reader Contract` block", () => {
@@ -102,50 +81,6 @@ for (const phrase of SPLIT_PHRASES) {
   });
 }
 
-// ── Positive: each prompt carries the marker block ────────────────────────────
-
-for (const prompt of PROMPTS) {
-  test(`prompt "${prompt}" carries the reader-contract marker block`, () => {
-    const block = markerBlock(readBody(path.join(PROMPTS_DIR, prompt)));
-    assert.ok(
-      block !== "",
-      `Marker block ${MARKER_OPEN} ... ${MARKER_CLOSE} missing from templates/prompts/${prompt}`
-    );
-    assert.ok(
-      block.includes(MARKER_OPEN) && block.includes(MARKER_CLOSE),
-      `Both markers must be present in templates/prompts/${prompt}`
-    );
-  });
-}
-
-// ── Negative (mandatory M71-family): the lint DISCRIMINATES ───────────────────
-
-for (const target of PROMPTS) {
-  test(`negative: removing the marker from "${target}" fails ONLY that prompt`, () => {
-    const corpus = new Map();
-    for (const p of PROMPTS) {
-      corpus.set(p, readBody(path.join(PROMPTS_DIR, p)));
-    }
-    // Strip the open marker from ONLY the target prompt.
-    corpus.set(target, corpus.get(target).split(MARKER_OPEN).join("__REMOVED__"));
-
-    for (const p of PROMPTS) {
-      const block = markerBlock(corpus.get(p));
-      if (p === target) {
-        assert.ok(
-          block === "",
-          `Stripping the marker from ${p} should make its block check fail — discrimination broken.`
-        );
-      } else {
-        assert.ok(
-          block !== "",
-          `Editing ${target} must not affect ${p} — proves the check is per-file, not global.`
-        );
-      }
-    }
-  });
-}
-
 test("negative: stripping a split phrase from the Reader Contract block fails the split assertion", () => {
   const body = readBody(CLAUDE_GLOBAL);
   const region = readerContractRegion(body);
@@ -159,9 +94,14 @@ test("negative: stripping a split phrase from the Reader Contract block fails th
   );
 });
 
-// ── Guard: don't silently disable ─────────────────────────────────────────────
+// ── The every-turn hook injects the contract ──────────────────────────────────
 
-test("prompt set is the four user-facing subagent prompts", () => {
-  assert.equal(PROMPTS.length, 4, "exactly four user-facing subagent prompts carry the contract");
+test("the UserPromptSubmit hook emits the [GSD-T READER CONTRACT] block every turn", () => {
+  const { spawnSync } = require("node:child_process");
+  const r = spawnSync(process.execPath, [AUTO_ROUTE], { input: JSON.stringify({ prompt: "hi", cwd: ROOT }), encoding: "utf8" });
+  assert.equal(r.status, 0);
+  assert.match(r.stdout, /^\[GSD-T NOW\] /m, "the live clock line comes first");
+  assert.match(r.stdout, /\[GSD-T READER CONTRACT\]/, "the reader contract is injected");
+  assert.doesNotMatch(r.stdout, /\[GSD-T (AUTO-ROUTE|PROFILE)\]/, "v6 cut the router and profile emits");
   assert.ok(SPLIT_PHRASES.length === 2, "the split has exactly two directions (question + action)");
 });

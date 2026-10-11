@@ -112,22 +112,10 @@ If yes, read `.gsd/` state and create equivalent `.gsd-t/` structure.
 │   └── .gitkeep
 ├── domains/
 │   └── .gitkeep
-├── stacks/
-│   └── README.md
-├── events/
-├── backlog.md
-├── backlog-settings.md
 ├── progress.md
 ├── token-log.md
 └── qa-issues.md
 ```
-
-Create `.gsd-t/stacks/` directory with a `README.md` explaining the override mechanism:
-- This folder holds project-specific overrides of global stack rule files
-- If a file with the same name as a global stack file exists here, it replaces the global version
-- Folder stays empty until the developer explicitly adds overrides
-
-Create `.gsd-t/events/` directory (empty — populated at runtime by heartbeat and event writer).
 
 Create `token-log.md` with header row:
 ```
@@ -140,21 +128,6 @@ Create `qa-issues.md` with header row:
 | Date | Command | Step | Model | Duration(s) | Severity | Finding |
 |------|---------|------|-------|-------------|----------|---------|
 ```
-
-## Step 4: Initialize Backlog
-
-Create the backlog files from templates:
-1. Copy `templates/backlog.md` → `.gsd-t/backlog.md`
-2. Copy `templates/backlog-settings.md` → `.gsd-t/backlog-settings.md`
-
-### Category Derivation
-
-Read the project's `CLAUDE.md` (if it exists) to auto-populate backlog settings:
-
-1. **Apps**: Scan for app names, service names, or product names (look for headings, "Tech Stack" sections, or named components). Populate the `## Apps` section in `backlog-settings.md` with discovered names (lowercase).
-2. **Categories**: Scan for domain concepts, module names, and technical areas (e.g., "authentication", "payments", "api", "database"). Populate the `## Categories` section.
-3. **Default App**: Set `**Default App:**` to the most prominent app found (the one mentioned most, or the first one). If only one app is found, use it.
-4. **If nothing found**: Leave the placeholder values from the template — the user can configure later via `/gsd-t-backlog-settings`.
 
 ## Step 5: Initialize Progress File
 
@@ -188,10 +161,10 @@ Create `.gsd-t/progress.md`:
 | 1 | {TBD} | not started | TBD |
 
 ## Domains
-(populated during partition phase)
+(populated as work is planned)
 
 ## Contracts
-(populated during partition phase)
+(populated as work is planned)
 
 ## Integration Checkpoints
 (populated during plan phase)
@@ -354,19 +327,6 @@ Fallback (when not running through `bin/gsd-t.js init`):
 
 Operator overrides: `gsd-t setup-playwright [path]` (explicit single-project install) or `gsd-t doctor --install-playwright`.
 
-The spawn-time gate in `bin/headless-auto-spawn.cjs` re-runs the install on first need if the project skipped this step (e.g., older project that pre-dates M50).
-
-## Step 11.5: Logging Backend Scaffold (M100)
-
-The `bin/gsd-t.js init` flow calls `runLoggingScaffoldStep(projectDir)` (from `bin/gsd-t-logging-scaffolder.cjs`) automatically, right before the init tree summary. This is the sole init-scaffold seam for M100's trace/audit logging.
-
-- It detects the stack (has-DB → `db-table` alternative; no-server/desktop → `local-sqlite` | `local-jsonl`, with SQLite flagged over flat-file for audit queryability).
-- It **presents real alternatives and PAUSES for human approval** — this is the ONE sanctioned pause against the Level-3 full-auto default (see `.gsd-t/contracts/logging-scaffold-seam-contract.md`). It never silently picks a backend.
-- On re-run with a previously-approved choice, it resumes deterministically (no re-prompt) and records the backend into the project's `CLAUDE.md`.
-- If it halts with `status:"PAUSED"`, report the presented alternatives to the user and wait for them to choose before re-running init with an approved backend — do NOT guess or auto-select on their behalf.
-
-See `.gsd-t/contracts/logging-scaffold-seam-contract.md` for the full seam envelope shape consumed by d2 (trace), d4 (audit), and d5 (migrate-logging).
-
 ## Step 11.6: CLAUDE.md Changelog Scaffold (M110)
 
 Scaffold the CLAUDE.md changelog file if it doesn't exist:
@@ -376,7 +336,7 @@ node bin/gsd-t-claude-md-changelog.cjs scaffold .
 ```
 
 This creates `CLAUDE.md updates.md` — an append-only log of CLAUDE.md changes. The file tracks:
-- Rewrites (via `/gsd-t-setup`)
+- Rewrites (via `/gsd-t-init-scan-setup` Step 5)
 - Updates (user-directed edits)
 - External changes (modifications outside GSD-T sessions)
 
@@ -392,12 +352,11 @@ After initialization:
 ## Step 13: Report
 
 Tell the user:
-1. What was created (including backlog files: `.gsd-t/backlog.md` and `.gsd-t/backlog-settings.md`)
+1. What was created
 2. What they should fill in (CLAUDE.md details, requirements)
-3. Backlog settings status: whether apps/categories were auto-derived from CLAUDE.md or need manual configuration via `/gsd-t-backlog-settings`
-4. Recommended next step:
-   - New project: "Define your milestone, then run /gsd-t-partition"
-   - Existing code: "I've mapped the codebase. Ready for /gsd-t-partition {milestone}"
+3. Recommended next step:
+   - New project: "Fill in docs/requirements.md, then start building"
+   - Existing code: "Run /gsd-t-scan for a deep codebase analysis"
 
 $ARGUMENTS
 

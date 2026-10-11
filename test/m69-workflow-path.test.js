@@ -44,8 +44,8 @@ test("workflow-path accepts name aliases (with prefix / with suffix)", () => {
   assert.equal(suffixed, bare, ".workflow.js suffix normalizes to the same path");
 });
 
-test("workflow-path resolves all 8 shipped workflows", () => {
-  for (const w of ["scan", "execute", "verify", "wave", "integrate", "debug", "quick", "phase"]) {
+test("workflow-path resolves both shipped workflows (v6: scan + debug)", () => {
+  for (const w of ["scan", "debug"]) {
     const r = run(["workflow-path", w]);
     assert.equal(r.status, 0, `${w} resolves (exit 0)`);
     assert.ok(fs.existsSync(r.stdout.trim()), `${w} path exists`);

@@ -4,7 +4,7 @@
  * M99-D2-T3 + T4 + T5 — per-consumer wiring-mode persistence + scan report header stamp
  *
  * Proves:
- *   - Each of the 6 consumers (scan/verify/debug/integrate/quick/phase) has a
+ *   - Each consumer (v6: scan/debug) has a
  *     `persistWiringMode` async function defined in its workflow script
  *   - Each workflow script emits exactly one `kind:'wiring'` ledger line call
  *     (structural: the function is defined and the correct consumer label is embedded)
@@ -29,11 +29,7 @@ const ROOT = path.join(__dirname, "..");
 
 const WORKFLOWS = [
   { name: "scan",      file: "gsd-t-scan.workflow.js",      consumerLabel: '"scan"' },
-  { name: "verify",    file: "gsd-t-verify.workflow.js",    consumerLabel: '"verify"' },
   { name: "debug",     file: "gsd-t-debug.workflow.js",     consumerLabel: '"debug"' },
-  { name: "integrate", file: "gsd-t-integrate.workflow.js", consumerLabel: '"integrate"' },
-  { name: "quick",     file: "gsd-t-quick.workflow.js",     consumerLabel: '"quick"' },
-  { name: "phase",     file: "gsd-t-phase.workflow.js",     consumerLabel: '"phase"' },
 ];
 
 for (const wf of WORKFLOWS) {

@@ -101,10 +101,10 @@ The Workflow returns:
 }
 ```
 
-- `status === "complete"`: the deep register is written; present the summary (counts + top critical items) and offer `/gsd-t-promote-debt`.
-- `status === "failed"`: read `reason` — `preflight-failed`, `no-slices` (probe produced an empty slice list), or `synthesis-failed` (register not written).
+- `status === "complete"`: the deep register is written; present the summary (counts + top critical items).
+- `status === "failed"`: read `reason` — `preflight-failed`, `no-slices` (probe produced an empty slice list), `slice-budget-failed` (the slice plan could not be measured — scan halted before any finder ran), or `synthesis-failed` (register not written).
 
-Present a summary: headline volume totals, findings by severity, the top critical items, and the archive path. Then ask: "Want to promote any tech debt items to milestones with `/gsd-t-promote-debt`?"
+Present a summary: headline volume totals, findings by severity, the top critical items, and the archive path. 
 
 ## Document Ripple
 
@@ -120,6 +120,6 @@ The document phase + render commit these via git on the feature branch (no push)
 
 ## Next Up
 
-`/gsd-t-promote-debt` — convert tech-debt items to milestones.
+`/gsd-t-estimate` — size the findings for a client (optional).
 
 $ARGUMENTS

@@ -38,14 +38,13 @@ const FORBIDDEN = [
 // *.workflow.js must pass the forbidden-globals lint.
 const RUNTIME_NATIVE = [
   "gsd-t-scan.workflow.js",
-  "gsd-t-execute.workflow.js",
-  "gsd-t-verify.workflow.js",
-  "gsd-t-wave.workflow.js",
-  "gsd-t-integrate.workflow.js",
   "gsd-t-debug.workflow.js",
-  "gsd-t-phase.workflow.js",
-  "gsd-t-quick.workflow.js",
 ];
+
+test("every shipped workflow is in the runtime-native list", () => {
+  const shipped = fs.readdirSync(WF_DIR).filter((f) => f.endsWith(".workflow.js")).sort();
+  assert.deepEqual(shipped, [...RUNTIME_NATIVE].sort());
+});
 
 for (const f of RUNTIME_NATIVE) {
   test(`${f} contains no sandbox-forbidden Node/CommonJS calls`, () => {

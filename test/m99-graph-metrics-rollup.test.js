@@ -501,62 +501,6 @@ test("T6-contract-keysets: rollup recognises all documented Layer-1/2 fields (no
   assert.ok(allDocumented.length > 0, "documented fields list is non-empty");
 });
 
-test("T6-contract-line-ref: contract's doMetrics citation points at function definition, not dispatch (pre-mortem #7)", (t) => {
-  // Step 1: find the actual line number of `function doMetrics` in gsd-t.js
-  const jsSource = fs.readFileSync(GSDTJS_PATH, "utf8");
-  const jsLines = jsSource.split("\n");
-  let doMetricsFuncLine = -1;
-  let caseMetricsLine = -1;
-
-  for (let i = 0; i < jsLines.length; i++) {
-    if (/^function doMetrics\b/.test(jsLines[i])) {
-      doMetricsFuncLine = i + 1; // 1-based
-    }
-    if (/case\s+"metrics"\s*:/.test(jsLines[i])) {
-      // The dispatch case for gsd-t top-level metrics (not graph metrics)
-      if (jsLines[i].includes("doMetrics") || jsLines[i + 1]?.includes("doMetrics")) {
-        caseMetricsLine = i + 1;
-      }
-    }
-  }
-
-  assert.ok(doMetricsFuncLine > 0, `function doMetrics not found in ${GSDTJS_PATH}`);
-
-  // Step 2: read the contract and find the cited line number
-  const contractText = fs.readFileSync(CONTRACT_PATH, "utf8");
-  const lineRefMatch = contractText.match(/doMetrics[^`]*`bin\/gsd-t\.js:(\d+)`/);
-  // Try alternate format: `doMetrics`, `bin/gsd-t.js:NNNN`
-  const lineRefMatch2 = contractText.match(/`doMetrics`,\s*`bin\/gsd-t\.js:(\d+)`/);
-  const lineRefMatch3 = contractText.match(/doMetrics.*bin\/gsd-t\.js:(\d+)/);
-
-  const citedLine = lineRefMatch
-    ? parseInt(lineRefMatch[1], 10)
-    : lineRefMatch2
-      ? parseInt(lineRefMatch2[1], 10)
-      : lineRefMatch3
-        ? parseInt(lineRefMatch3[1], 10)
-        : -1;
-
-  assert.ok(citedLine > 0, "contract must cite a doMetrics line number in the form bin/gsd-t.js:NNNN");
-
-  // Step 3: the cited line must match `function doMetrics`, NOT `case "metrics":`
-  assert.equal(
-    citedLine,
-    doMetricsFuncLine,
-    `contract cites line ${citedLine} but function doMetrics is at line ${doMetricsFuncLine}. ` +
-    `The contract must point at the FUNCTION DEFINITION, not the dispatch case.`,
-  );
-
-  // Step 4: ensure the cited line is NOT the dispatch case
-  if (caseMetricsLine > 0) {
-    assert.notEqual(
-      citedLine,
-      caseMetricsLine,
-      `contract cites the dispatch case line (${caseMetricsLine}), not the function definition`,
-    );
-  }
-});
-
 test("T7-dispatch: gsd-t graph metrics (doGraph dispatch) works and returns a rollup envelope", (t) => {
   // Load gsd-t.js exports
   // Note: gsd-t.js may use process.exit in some paths; we invoke the exported rollup

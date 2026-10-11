@@ -1,6 +1,6 @@
 # GSD-T: Init-Scan-Setup — Full Project Onboarding
 
-One command to fully onboard a project into GSD-T. Combines project directory setup, git setup, `gsd-t-init`, `gsd-t-scan`, and `gsd-t-setup` into a single orchestrated flow.
+One command to fully onboard a project into GSD-T. Combines project directory setup, git setup, `gsd-t-init`, `gsd-t-scan`, and a project CLAUDE.md refresh into a single orchestrated flow.
 
 Can be run from anywhere — does not require being in the project folder first.
 
@@ -12,7 +12,7 @@ This command behaves **identically and unambiguously** across all three entry st
 - **(B) Existing, new to this machine** — has code and/or a `.gsd-t/` dir but is not in this machine's registry.
 - **(C) Already-registered, being re-run.**
 
-**Existing `.gsd-t/` artifacts are NEVER a reason to skip scan or setup.** The ONLY thing "already exists" skips is **re-creating directory structure** (Step 3). Steps 4 (scan) and 5 (setup) **ALWAYS run**, on every invocation, in every entry state.
+**Existing `.gsd-t/` artifacts are NEVER a reason to skip scan or setup.** The ONLY thing "already exists" skips is **re-creating directory structure** (Step 3). Steps 4 (scan) and 5 (CLAUDE.md) **ALWAYS run**, on every invocation, in every entry state.
 
 **Re-running is expected and safe.** Archiving an existing `techdebt.md` and regenerating scan docs + CLAUDE.md is the **designed behavior** of this command — it is NOT a destructive action and does NOT require user approval. Stale scan docs from a prior milestone are the exact failure this command exists to prevent. Never stop to ask permission for the archive/regenerate steps.
 
@@ -28,7 +28,7 @@ For each in-repo settings file (`.claude/settings.json`, `.claude/settings.local
 
 - **Compare every entry against the operator's GLOBAL settings** (`~/.claude/settings.json` + `~/.claude/settings.local.json`).
 - **Any permission the global ALREADY grants or denies → global wins → DELETE that entry** (or the whole file if all its content is global-governed). No approval needed — global is the single source of truth for anything it covers. The project always falls back to global.
-- **Project-distinct content the global says NOTHING about** (a permission/env/setting unrelated to global) → **do NOT delete. HALT onboarding and SURFACE it to the operator**: show the exact content, explain it's distinct from global, and ask keep-or-discard. **Nothing proceeds past this point until the operator decides** — do not run scan/setup on an unresolved settings question.
+- **Project-distinct content the global says NOTHING about** (a permission/env/setting unrelated to global) → **do NOT delete. HALT onboarding and SURFACE it to the operator**: show the exact content, explain it's distinct from global, and ask keep-or-discard. **Nothing proceeds past this point until the operator decides** — do not run scan or the CLAUDE.md refresh on an unresolved settings question.
 - Log every deletion and every surfaced item.
 
 ### 0b. CLAUDE.md — always regenerate from the fresh scan
@@ -108,7 +108,7 @@ All subsequent steps run from inside the project directory.
 
 Execute the full init workflow (same as `/gsd-t-init`):
 
-1. Create `.gsd-t/` directory structure (contracts/, domains/, progress.md, backlog.md, backlog-settings.md, token-log.md, qa-issues.md)
+1. Create `.gsd-t/` directory structure (contracts/, domains/, progress.md, token-log.md, qa-issues.md)
 2. Ensure `CLAUDE.md` exists (create starter if missing, append GSD-T section if present without it)
 3. Create `docs/` with all 4 living document templates (skip existing files)
 4. Ensure `README.md` exists
@@ -132,12 +132,11 @@ Execute the full init workflow (same as `/gsd-t-init`):
      ```
      Log: "Created ~/.claude/settings.local with default permissions — update the allow list to match your security preferences."
 6. Map existing codebase if code exists
-7. Initialize backlog with auto-derived categories
-8. Register project in `~/.claude/.gsd-t-projects`
+7. Register project in `~/.claude/.gsd-t-projects`
 
 **Registry check — match by FULL ABSOLUTE PATH, not bare project name.** The registry stores full paths; a bare-name grep produces a false "not registered" (two projects can share a basename) and erodes trust in the rest of the detected state. A missing entry means "register it now" — it must NOT cast doubt on any other detected state. If already present, log and continue silently.
 
-**If `.gsd-t/` already exists**: Skip **ONLY the dir-structure creation** that already exists — it's already done. **This skip does NOT extend to Step 4 (scan) or Step 5 (setup), which ALWAYS run.** Always ensure `settings.local` (step 5 above) and the registry entry regardless of whether init dir-creation was skipped.
+**If `.gsd-t/` already exists**: Skip **ONLY the dir-structure creation** that already exists — it's already done. **This skip does NOT extend to Step 4 (scan) or Step 5 (CLAUDE.md), which ALWAYS run.** Always ensure `settings.local` (step 5 above) and the registry entry regardless of whether init dir-creation was skipped.
 
 ## Step 3.5: Graph Indexing Note
 
@@ -169,17 +168,17 @@ After the scan returns, VERIFY the packaged 7-phase Workflow actually ran by con
 
 **If any are missing → LOUD failure, do not proceed:** "⛔ Incomplete scan — the packaged Workflow's Document / Plain-English / Graph-Wiring outputs are absent. This means the scan was hand-driven or a foreign/stale script ran instead of the installed Workflow. Re-run: resolve `gsd-t workflow-path scan` and invoke the `Workflow` tool." Then re-invoke correctly, once.
 
-## Step 5: Generate Project CLAUDE.md (gsd-t-setup)
+## Step 5: Write/Refresh the Project CLAUDE.md
 
-Execute the full setup workflow (same as `/gsd-t-setup`). **ALWAYS run — regenerate/refresh the project CLAUDE.md from the NEW scan findings; do NOT assume an existing CLAUDE.md is current.** If Step 0b flagged an imported CLAUDE.md (backed up to `CLAUDE.md.imported.bak`), this regeneration is what replaces it with a machine-correct version — do NOT skip it.
+**ALWAYS run — regenerate/refresh the project CLAUDE.md from the NEW scan findings; do NOT assume an existing CLAUDE.md is current.** If Step 0b flagged an imported CLAUDE.md (backed up to `CLAUDE.md.imported.bak`), this is what replaces it with a machine-correct version — do NOT skip it.
 
-1. Read global `~/.claude/CLAUDE.md` to understand what's already covered
-2. Use the **fresh** scan findings + auto-detection to populate project-specific sections
-3. Remove any global duplicates from the project CLAUDE.md
-4. Generate and write the optimized CLAUDE.md (refresh the existing one — don't skip because a CLAUDE.md already exists)
+1. Read `~/.claude/CLAUDE.md` so nothing the global file already covers is repeated.
+2. Start from the package template `CLAUDE-project.md`: run `gsd-t workflow-path scan`, which prints `<package>/templates/workflows/gsd-t-scan.workflow.js`; the template is `<package>/templates/CLAUDE-project.md`. If it is not there, STOP and report it. Keep the existing CLAUDE.md's project-specific content that is still true.
+3. Fill each section from the **fresh** scan findings: overview, tech stack, project structure, conventions, commands to build/test/run, and the expected branch.
+4. Write the result to `CLAUDE.md` (overwrite the old one — the backup from Step 0b, if any, keeps the original).
+5. Log the rewrite: `node bin/gsd-t-claude-md-changelog.cjs append . rewritten "refreshed from scan"` (the tool ships into every project's `bin/`), plus a Decision Log line in `.gsd-t/progress.md`.
 
-At Level 3: skip questions that were auto-detected — only ask what's truly unknown.
-At Level 1-2: ask all targeted questions per the setup workflow.
+Only ask the user what the scan could not determine.
 
 ## Step 6: Report
 
@@ -191,7 +190,7 @@ Project Onboarded: {project name}
   Git:      {remote URL or "local only"}
   Init:     .gsd-t/ created, docs/ populated
   Scan:     {N} tech debt items ({critical} critical, {high} high, {medium} medium, {low} low)
-  Setup:    CLAUDE.md generated ({N} sections)
+  CLAUDE:   CLAUDE.md refreshed ({N} sections)
   Registry: {registered | already registered}
 ```
 
@@ -200,15 +199,14 @@ For an already-onboarded project (entry state B/C), the report reads as **"re-sc
 ```
 Next steps:
   → Review .gsd-t/techdebt.md for critical items
-  → /gsd-t-milestone to define your first milestone
-  → /gsd-t-wave to run a full development cycle
+  → /gsd-t-architect before a significant design change
 ```
 
 ### Autonomy Behavior
 
 **Level 3 (Full Auto)**: Run all steps without pausing. Only stop if git remote is needed (requires user input) or if a scan reveals critical security blockers. **"Already onboarded" NEVER means "nothing to do" — it means "re-scan and refresh."** Do NOT pause to ask permission for the archive/regenerate steps; re-running is expected and safe.
 
-**Level 1-2**: Pause after each major step (init, scan, setup) for user review before continuing.
+**Level 1-2**: Pause after each major step (init, scan, CLAUDE.md) for user review before continuing.
 
 $ARGUMENTS
 
