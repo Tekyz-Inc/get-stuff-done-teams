@@ -7,6 +7,7 @@
  * the machines that already installed it. The installer is the only thing that
  * reaches them, so install / update / update-all must remove every retired
  * file — and must never touch a user's own file that merely shares a name.
+ * Retired files are MOVED to ~/.claude/.gsd-t-retired/<date>/, never deleted.
  */
 
 const test = require('node:test');
@@ -24,13 +25,18 @@ function write(file, body) { fs.mkdirSync(path.dirname(file), { recursive: true 
 // A file as GSD-T shipped it: its header carries one of the recorded sentinels.
 function shipped(sentinels) { return `/**\n * ${sentinels[0]}\n */\nmodule.exports = {};\n`; }
 
-test('install removes retired GSD-T files and hooks, and leaves user files alone', () => {
+function today() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+test('install moves retired GSD-T files to the backup, removes retired hooks, leaves user files alone', () => {
   const home = fs.mkdtempSync(path.join(path.dirname(REPO), '.gsdt-v6-'));
   const C = path.join(home, '.claude');
   const R = gsdt.RETIRED_V6;
   try {
     write(path.join(C, 'commands', 'gsd.md'), `# GSD-T: Smart Router\n\n${R.commands['gsd.md'][0]} …\n`);
-    write(path.join(C, 'commands', 'gsd-t-wave.md'), '# wave\n');            // prefix rule
+    write(path.join(C, 'commands', 'gsd-t-wave.md'), '# GSD-T: Wave\n');     // shipped name + header
     write(path.join(C, 'commands', 'deploy.md'), '# my own command\n');      // user file
     write(path.join(C, 'scripts', 'gsd-t-heartbeat.js'), shipped(R.scripts['gsd-t-heartbeat.js']));
     write(path.join(C, 'scripts', 'hooks', 'gsd-t-ctx-cue.sh'), `#!/bin/bash\n${R.scripts['hooks/gsd-t-ctx-cue.sh'][0]}\n`);
@@ -59,13 +65,14 @@ test('install removes retired GSD-T files and hooks, and leaves user files alone
       env: { ...process.env, HOME: home }, encoding: 'utf8', stdio: 'pipe',
     });
 
-    // Retired GSD-T files are gone, and each removal is named.
+    // Retired GSD-T files are gone from place and kept in the dated backup.
     for (const gone of ['commands/gsd.md', 'commands/gsd-t-wave.md', 'scripts/gsd-t-heartbeat.js',
       'scripts/hooks/gsd-t-ctx-cue.sh', 'bin/cli-preflight-checks/branch-guard.cjs',
       'bin/gsd-t-verify-gate.cjs', 'statusline-command.sh']) {
-      assert.equal(fs.existsSync(path.join(C, gone)), false, `${gone} must be removed`);
+      assert.equal(fs.existsSync(path.join(C, gone)), false, `${gone} must be moved`);
+      assert.ok(fs.existsSync(path.join(C, '.gsd-t-retired', today(), gone)), `${gone} is in the backup`);
     }
-    assert.match(out, /~\/\.claude\/scripts\/gsd-t-heartbeat\.js/);
+    assert.match(out, /Moved 7 retired file\(s\) to ~\/\.claude\/\.gsd-t-retired\//);
     assert.equal(fs.existsSync(path.join(C, 'bin', 'cli-preflight-checks')), false, 'the emptied dir goes too');
     assert.equal(fs.existsSync(path.join(C, 'scripts', 'hooks')), false, 'the emptied hooks dir goes too');
 
@@ -75,10 +82,11 @@ test('install removes retired GSD-T files and hooks, and leaves user files alone
     }
     assert.match(out, /Left ~\/\.claude\/scripts\/gsd-t-tools\.js in place/);
 
-    // Hooks: retired ones removed, unrelated kept, v6 hooks registered once.
+    // Hooks: retired ones removed; unrelated and never-shipped (board-notify) kept; v6 hooks once.
     const settings = JSON.parse(fs.readFileSync(path.join(C, 'settings.json'), 'utf8'));
     const all = JSON.stringify(settings.hooks);
-    assert.ok(!/gsd-t-heartbeat|gsd-t-board-notify/.test(all), 'retired hooks must be removed');
+    assert.ok(!/gsd-t-heartbeat/.test(all), 'retired hooks must be removed');
+    assert.match(all, /gsd-t-board-notify/, 'GSD-T never shipped board-notify, so it is not ours to remove');
     assert.match(all, /unrelated-hook/, 'a user hook must survive');
     assert.equal(settings.statusLine, undefined, 'the GSD-T status line pointed at a removed script');
     const cmds = Object.values(settings.hooks).flat().flatMap((g) => g.hooks.map((h) => h.command));
@@ -93,13 +101,14 @@ test('install removes retired GSD-T files and hooks, and leaves user files alone
   } finally { rm(home); }
 });
 
-test('the project bin sweep removes a shipped retired tool and keeps a same-named user file', () => {
+test('the project bin sweep moves a shipped retired tool to the backup and keeps a same-named user file', () => {
   const dir = fs.mkdtempSync(path.join(path.dirname(REPO), '.gsdt-v6-proj-'));
   try {
     write(path.join(dir, 'bin', 'gsd-t-verify-gate.cjs'), shipped(gsdt.RETIRED_V6.bin['gsd-t-verify-gate.cjs']));
     write(path.join(dir, 'bin', 'gsd-t-loop-ledger.cjs'), '// a user script that happens to share the name\n');
     gsdt.copyBinToolsToProject(dir, 'v6-probe');
     assert.equal(fs.existsSync(path.join(dir, 'bin', 'gsd-t-verify-gate.cjs')), false);
+    assert.ok(fs.existsSync(path.join(dir, '.gsd-t', 'retired', today(), 'bin', 'gsd-t-verify-gate.cjs')));
     assert.ok(fs.existsSync(path.join(dir, 'bin', 'gsd-t-loop-ledger.cjs')));
     for (const tool of gsdt.PROJECT_BIN_TOOLS) {
       assert.ok(fs.existsSync(path.join(dir, 'bin', tool)), `${tool} must be delivered`);

@@ -105,12 +105,13 @@ Only `gsd-t-scan.workflow.js` and `gsd-t-debug.workflow.js` remain. Command file
 
 ```
 gsd-t install | update
-  ├── commands/*.md → ~/.claude/commands/   (retired GSD-T-shipped gsd-t-*.md removed, each named)
+  ├── preflightGlobal: settings.json shape, symlinks, CLAUDE.md markers → HALT with fix, nothing changed
+  ├── commands/*.md → ~/.claude/commands/
   ├── templates/CLAUDE-global.md → marked block in ~/.claude/CLAUDE.md
   ├── update-check + auto-route scripts → ~/.claude/scripts/ + hooks
   ├── shared templates → ~/.claude/templates/; global bin tools → ~/.claude/bin/
   ├── register the guard hooks (find by marker, refresh stale command, else add)
-  ├── removeRetiredHooks + removeRetiredV6Files (RETIRED_V6)
+  ├── removeRetiredHooks + retireV6Files (RETIRED_V6 → moved to ~/.claude/.gsd-t-retired/<date>/)
   └── install SCIP indexers
 ```
 
@@ -118,8 +119,9 @@ gsd-t install | update
 
 ```
 gsd-t update-all
-  ├── installed version ≠ package → full update; equal → still run the RETIRED_V6 cleanup
-  └── for each registered project: copy PROJECT_BIN_TOOLS into bin/, sweep retired strays
+  ├── npm install -g fails → HALT before touching anything
+  ├── installed version ≠ package → full update; equal → preflight + CLAUDE.md compare + RETIRED_V6 retirement
+  └── for each registered project: symlink preflight, move retired strays to .gsd-t/retired/<date>/, copy PROJECT_BIN_TOOLS into bin/
 ```
 
 ### init
@@ -134,7 +136,11 @@ gsd-t init [name]
 
 ### Retired-file cleanup (`RETIRED_V6`)
 
-One object in `bin/gsd-t.js` drives every removal: non-prefixed commands, `~/.claude/bin` and project `bin/` tools, `~/.claude/scripts` files, the status-line script, and `settings.json` hook markers. A file is deleted only if its first 1,200 characters contain a verbatim header GSD-T shipped; otherwise it is reported and kept. The status-line setting is cleared only when it points at the removed GSD-T script. Removals are named; unreadable directories throw. The GSD-T source repo is never swept.
+One object in `bin/gsd-t.js` drives every retirement: commands, `~/.claude/bin` and project `bin/` tools, `~/.claude/scripts` files, `~/.claude/templates`, the status-line script, and `settings.json` hook markers. **Move, never delete:** a file whose first 1,200 characters contain a verbatim header GSD-T shipped (for `gsd-t-*.md` commands: the `# GSD-T: ` header every shipped version opens with) is moved by `retireShippedFile` to `~/.claude/.gsd-t-retired/<YYYY-MM-DD>/<relative path>` (project: `<project>/.gsd-t/retired/<YYYY-MM-DD>/bin/…`), keeping its permissions and never overwriting an existing backup (`name.1.ext`, …); one summary line gives the count and folder. A file without the header is reported and kept. Why: two red-team rounds on delete-based cleanup did not converge; a move makes any misclassification recoverable. The project backup is added to `.gitignore` only when the project already ignores `.gsd-t/` working files. The status-line setting is cleared only when it points at the moved GSD-T script. The GSD-T source repo is never swept.
+
+**Halts, not fallbacks.** `preflightGlobal` (install / update / update-all) and `haltOnSymlinks` (also at the top of the project sweep) stop with a `Fix:` line before any change when settings.json is not an object of hook arrays, a path GSD-T would write / copy over / move — or a directory between it and `~/.claude` / the project — is a symlink, or CLAUDE.md markers are malformed (`claudeMdProblem`). A failed copy or move throws: no "Installation Complete!", version file not advanced, so the next run retries.
+
+**One hook registrar.** `upsertGsdtHook` registers every GSD-T hook (guards, intercepts, use report, changelog hooks, install-heal, update-check, auto-route): one entry per script on its intended event, copies on other events removed, SessionStart matcher `""`, user groups never re-matched. `gsdtScriptPattern` recognizes only package-installed paths, so a user hook running a same-named script from its own repo is not ours.
 
 ## Configuration Model
 
@@ -162,6 +168,6 @@ One object in `bin/gsd-t.js` drives every removal: non-prefixed commands, `~/.cl
 
 - Symlink checks before writes (`isSymlink`, `hasSymlinkInPath`); init uses exclusive create (`wx`).
 - `execFileSync` with array args, not shell strings.
-- Retired-file removal is header-sentinel matched and containment-checked; it never touches a file without GSD-T provenance.
+- Retired files are header-sentinel matched and moved to a dated backup, never deleted; any symlink on a touched path halts the run before changes; a file without GSD-T provenance is never touched.
 - Env registry stores no secret values.
 - HTTP responses capped at 1 MB with timeouts in the update check.

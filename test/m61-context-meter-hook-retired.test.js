@@ -125,9 +125,9 @@ test('the worktree guard stays retired alongside it', () => {
       PreToolUse: [{
         matcher: 'Write|Edit',
         hooks: [
-          { type: 'command', command: 'node scripts/gsd-t-worktree-guard.js' },
+          { type: 'command', command: 'node ~/.claude/scripts/gsd-t-worktree-guard.js' },
           { type: 'command', command: LIVE_COMMAND },
-          { type: 'command', command: 'node scripts/gsd-t-date-guard.js' },
+          { type: 'command', command: 'node ~/.claude/scripts/gsd-t-date-guard.js' },
         ],
       }],
     },

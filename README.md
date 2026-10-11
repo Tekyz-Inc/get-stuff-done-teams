@@ -37,7 +37,7 @@ npx @tekyzinc/gsd-t update       # global commands, CLAUDE.md block, hooks
 npx @tekyzinc/gsd-t update-all   # the above + every registered project
 ```
 
-`update` and `update-all` also **remove what v6 retired**: old `gsd-t-*` commands, `~/.claude/bin` tools, `~/.claude/scripts` hooks, the status line, their `settings.json` hook entries, and stray copies in each project's `bin/`. A file is removed only when it carries the exact header GSD-T shipped it with; a same-named file of your own is reported and left alone.
+`update` and `update-all` also **retire what v6 no longer ships**: old `gsd-t-*` commands, `~/.claude/bin` tools, `~/.claude/scripts` hooks, the status line, their `settings.json` hook entries, and stray copies in each project's `bin/`. Retired files are moved (never deleted) to `~/.claude/.gsd-t-retired/<date>/` (project files to `<project>/.gsd-t/retired/<date>/`), and only when they carry the exact header GSD-T shipped them with; a same-named file of your own is left alone. A symlink, a malformed `settings.json` or malformed CLAUDE.md markers stop the run before anything changes.
 
 ---
 

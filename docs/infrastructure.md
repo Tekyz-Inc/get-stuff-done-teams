@@ -111,7 +111,7 @@ GSD-T itself needs none beyond an npm login for publishing. Projects record envi
 ## Security notes
 
 - All file writes check for symlinks; init uses exclusive create.
-- Retired-file removal requires a verbatim shipped header and stays inside the target directory.
+- Retired files are moved, never deleted, to `~/.claude/.gsd-t-retired/<date>/` or `<project>/.gsd-t/retired/<date>/`, and only with a verbatim shipped header; any symlink on the way halts the run first.
 - HTTPS with timeouts and a 1 MB cap for the version check.
 - The env registry rejects literal secret values.
 
@@ -126,4 +126,6 @@ GSD-T itself needs none beyond an npm login for publishing. Projects record envi
 | "graph unavailable" / search blocked for a missing graph | `gsd-t graph status`, then `gsd-t graph index` |
 | SCIP tier missing on large files | Re-run `gsd-t graph index`; check `graph status` for SCIP-missing files |
 | A project is missing `bin/` tools | Start a session (self-heal) or run `gsd-t install-check --project .` / `gsd-t update-all` |
-| Old v5 commands or hooks still present | `npx @tekyzinc/gsd-t update` — retired files are removed and named |
+| Old v5 commands or hooks still present | `npx @tekyzinc/gsd-t update` — retired files are moved to `~/.claude/.gsd-t-retired/<date>/` |
+| Install halts on a symlink / settings.json / CLAUDE.md markers | Follow the printed `Fix:` line (replace the link with a real file, repair the JSON or markers), re-run — nothing was changed |
+| Need a retired file back | Move it from `~/.claude/.gsd-t-retired/<date>/<path>` (or `<project>/.gsd-t/retired/<date>/<path>`) back to `<path>` |

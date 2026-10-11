@@ -8,6 +8,10 @@
  * code behind them was deleted (brainstorm, discuss and prompt in M38; the
  * unattended trio and visualize in M61). That is how `/gsd-t-brainstorm` came
  * to be treated as a live command months after it was removed.
+ *
+ * v6: a retired command is MOVED to ~/.claude/.gsd-t-retired/<date>/commands/
+ * (never deleted), and only when it carries the "# GSD-T: " header every
+ * shipped version opened with.
  */
 
 const test = require('node:test');
@@ -27,13 +31,18 @@ function probeHome() {
   fs.mkdirSync(path.join(home, '.claude', 'commands'), { recursive: true });
   return home;
 }
+function backup(home, name) {
+  const d = new Date();
+  const day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return path.join(home, '.claude', '.gsd-t-retired', day, 'commands', name);
+}
 function rm(dir) { try { fs.rmSync(dir, { recursive: true, force: true }); } catch (_) {} }
 
-test('M112: a retired GSD-T command is removed on install', () => {
+test('M112: a retired GSD-T command is moved to the backup on install', () => {
   const home = probeHome();
   const cmds = path.join(home, '.claude', 'commands');
   try {
-    fs.writeFileSync(path.join(cmds, 'gsd-t-brainstorm.md'), '# retired in M38\n');
+    fs.writeFileSync(path.join(cmds, 'gsd-t-brainstorm.md'), '# GSD-T: Brainstorm (retired in M38)\n');
     execFileSync('node', [INSTALLER, 'install'], {
       env: { ...process.env, HOME: home }, encoding: 'utf8', stdio: 'pipe',
     });
@@ -41,18 +50,19 @@ test('M112: a retired GSD-T command is removed on install', () => {
       fs.existsSync(path.join(cmds, 'gsd-t-brainstorm.md')), false,
       'a command the package no longer ships must not stay typeable'
     );
+    assert.ok(fs.existsSync(backup(home, 'gsd-t-brainstorm.md')), 'moved, not deleted');
   } finally { rm(home); }
 });
 
 test('M112: the removal is NAMED, never silent', () => {
   const home = probeHome();
   try {
-    fs.writeFileSync(path.join(home, '.claude', 'commands', 'gsd-t-visualize.md'), '# retired in M61\n');
+    fs.writeFileSync(path.join(home, '.claude', 'commands', 'gsd-t-visualize.md'), '# GSD-T: Visualize (retired in M61)\n');
     const out = execFileSync('node', [INSTALLER, 'install'], {
       env: { ...process.env, HOME: home }, encoding: 'utf8', stdio: 'pipe',
     });
-    assert.match(out, /retired command/i, 'the install must say what it removed');
-    assert.match(out, /gsd-t-visualize/, 'and name the command by name');
+    assert.match(out, /Moved 1 retired file\(s\) to ~\/\.claude\/\.gsd-t-retired\//, 'the install must say what it moved, and where');
+    assert.ok(fs.existsSync(backup(home, 'gsd-t-visualize.md')), 'the command is in the named backup folder');
   } finally { rm(home); }
 });
 
@@ -64,7 +74,8 @@ test("M112: a command the user wrote is never touched", () => {
   try {
     fs.writeFileSync(path.join(cmds, 'my-own-command.md'), '# mine\n');
     fs.writeFileSync(path.join(cmds, 'deploy.md'), '# also mine\n');
-    fs.writeFileSync(path.join(cmds, 'gsd-t-brainstorm.md'), '# retired\n');
+    fs.writeFileSync(path.join(cmds, 'gsd-t-brainstorm.md'), '# GSD-T: Brainstorm\n');
+    fs.writeFileSync(path.join(cmds, 'gsd-t-discuss.md'), '# my own discuss notes — no GSD-T header\n');
 
     execFileSync('node', [INSTALLER, 'install'], {
       env: { ...process.env, HOME: home }, encoding: 'utf8', stdio: 'pipe',
@@ -73,6 +84,7 @@ test("M112: a command the user wrote is never touched", () => {
     assert.ok(fs.existsSync(path.join(cmds, 'my-own-command.md')), "the user's own command must survive");
     assert.ok(fs.existsSync(path.join(cmds, 'deploy.md')), "a command without the prefix must survive");
     assert.equal(fs.existsSync(path.join(cmds, 'gsd-t-brainstorm.md')), false, 'the retired one still goes');
+    assert.ok(fs.existsSync(path.join(cmds, 'gsd-t-discuss.md')), 'a v5 name without the GSD-T header is not ours');
   } finally { rm(home); }
 });
 

@@ -36,16 +36,22 @@ function hookCommands(settings) {
   return Object.values(settings.hooks).flat().flatMap((g) => g.hooks.map((h) => h.command));
 }
 
-test('BUG-1: install keeps a user gsd-t-*.md command and removes a retired v5 one', () => {
+function today() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+test('BUG-1: install keeps a user gsd-t-*.md command and moves a retired v5 one to the backup', () => {
   const home = tmp('gsdt-b1-');
   const C = path.join(home, '.claude', 'commands');
   try {
     write(path.join(C, 'gsd-t-mydeploy.md'), '# My personal deploy command\n');
-    write(path.join(C, 'gsd-t-wave.md'), '# wave (shipped by v5)\n');
+    write(path.join(C, 'gsd-t-wave.md'), '# GSD-T: Wave (shipped by v5)\n');
     const r = cli(home, ['install']);
     assert.equal(r.status, 0, r.stderr);
     assert.ok(fs.existsSync(path.join(C, 'gsd-t-mydeploy.md')), 'user command must survive');
     assert.equal(fs.existsSync(path.join(C, 'gsd-t-wave.md')), false, 'retired v5 command must go');
+    assert.ok(fs.existsSync(path.join(home, '.claude', '.gsd-t-retired', today(), 'commands', 'gsd-t-wave.md')), 'moved, not deleted');
   } finally { rm(home); }
 });
 
@@ -122,7 +128,7 @@ test('BUG-4: update-all halts a project with an undeletable stray and exits non-
   } finally { try { fs.chmodSync(stray, 0o644); } catch (_) {} rm(home); rm(proj); }
 });
 
-test('BUG-5: removal refuses to follow a symlinked directory out of ~/.claude', () => {
+test('BUG-5: a symlinked directory in ~/.claude halts the retirement', () => {
   const home = tmp('gsdt-b5-');
   const out = tmp('gsdt-b5-out-');
   const victim = path.join(out, 'branch-guard.cjs');
@@ -130,9 +136,9 @@ test('BUG-5: removal refuses to follow a symlinked directory out of ~/.claude', 
     write(victim, `// ${gsdt.RETIRED_V6.bin['cli-preflight-checks/branch-guard.cjs'][0]}\n`);
     fs.mkdirSync(path.join(home, '.claude', 'bin'), { recursive: true });
     fs.symlinkSync(out, path.join(home, '.claude', 'bin', 'cli-preflight-checks'));
-    const r = inHome(home, 'g.removeRetiredV6Files();');
+    const r = inHome(home, 'g.retireV6Files();');
     assert.notEqual(r.status, 0, 'must halt');
-    assert.match(r.stderr, /Refusing to remove .*outside/);
+    assert.match(r.stderr, /is a symlink/);
     assert.ok(fs.existsSync(victim), 'the file outside ~/.claude survives');
   } finally { rm(home); rm(out); }
 });
@@ -182,17 +188,18 @@ test('BUG-7b: the retired auto-worktree hook is removed', () => {
   } finally { rm(dir); }
 });
 
-test('BUG-7c: v5 design templates in ~/.claude/templates are removed; edited copies kept', () => {
+test('BUG-7c: v5 design templates in ~/.claude/templates are moved; edited copies kept', () => {
   const home = tmp('gsdt-b7c-');
   const T = path.join(home, '.claude', 'templates');
   try {
     for (const [name, sigs] of Object.entries(gsdt.RETIRED_V6.templates)) write(path.join(T, name), `${sigs[0]}\nbody\n`);
     write(path.join(T, 'page-contract.md'), '# my own page contract\n');
-    const r = inHome(home, 'g.removeRetiredV6Files();');
+    const r = inHome(home, 'g.retireV6Files();');
     assert.equal(r.status, 0, r.stderr);
     for (const name of Object.keys(gsdt.RETIRED_V6.templates)) {
       if (name === 'page-contract.md') continue;
-      assert.equal(fs.existsSync(path.join(T, name)), false, `${name} must be removed`);
+      assert.equal(fs.existsSync(path.join(T, name)), false, `${name} must be moved`);
+      assert.ok(fs.existsSync(path.join(home, '.claude', '.gsd-t-retired', today(), 'templates', name)), `${name} is in the backup`);
     }
     assert.ok(fs.existsSync(path.join(T, 'page-contract.md')), 'a user-edited template survives');
   } finally { rm(home); }
