@@ -133,6 +133,8 @@ Real files stay in `~/.claude` (GSD-T installs there); the other dir only holds 
 
 ## Demo videos
 
+Any request for a demo or walkthrough video is routed to this pipeline: a global rule plus the prompt hook, which flags such requests.
+
 `/gsd-t-demo-videos` copies working templates from `templates/demo-videos/` (Playwright walkthrough specs, cast/manifest/runtime helpers, and `walkthrough-*.mjs` scripts) into the project. Narration is the master clock; the default voice is Google Cloud TTS with a fixed voice (`walkthrough-voice-gcloud.mjs`), checked and re-rendered until it passes.
 
 ---

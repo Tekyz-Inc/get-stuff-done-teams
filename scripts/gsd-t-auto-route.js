@@ -31,6 +31,28 @@ const READER_CONTRACT = [
   "• (jargon + buried point + self-narration) \"The incomplete-identity quarantine at egress-client.ts:217 is now unreachable for seller chatter — but I'm keeping it, and it matters that I say why rather than quietly deleting it… Removing it would be a fallback in reverse…\" → \"Keeping a safety check that no longer trips — turning it into a loud alarm. Its bug is fixed so it never fires now, but deleting it would drop protection against a future malformed record (and another code path still uses it). So it stays, now as a loud 'this should never happen' alarm instead of a silent skip.\"",
 ].join("\n");
 
+// Demo videos — any request for one goes through the /gsd-t-demo-videos
+// pipeline, never an ad-hoc recording. Detected from the prompt text so the
+// instruction is in front of the model at the moment it matters.
+const DEMO_VIDEO_RE = new RegExp(
+  "\\b(demo|walk[- ]?through|tutorial|training|explainer|how[- ]to|onboarding|product tour)s?\\b" +
+  "[\\w\\s,'/-]{0,30}?\\b(videos?|recordings?|screencasts?)\\b" +
+  "|\\b(videos?|screencasts?)\\s+(demo|walk[- ]?through|tutorial)s?\\b",
+  "i"
+);
+
+const DEMO_VIDEO_SIGNAL =
+  "[GSD-T DEMO VIDEOS] This asks for a demo or walkthrough video. Use the /gsd-t-demo-videos pipeline " +
+  "(approved plan → one reference video → batch; Cloud TTS fixed voice; its record / mux / trim scripts and checks). " +
+  "Never record, narrate or edit a demo video any other way. If the project already has the pipeline " +
+  "(e2e/walkthrough/, docs/demo-videos/HANDOFF.md), continue it.";
+
+function demoVideoSignal(prompt) {
+  const text = String(prompt || "");
+  if (/^\s*\/gsd-t-demo-videos\b/.test(text)) return null; // already invoked
+  return DEMO_VIDEO_RE.test(text) ? DEMO_VIDEO_SIGNAL : null;
+}
+
 function liveTimestamp(now = new Date()) {
   const day  = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][now.getDay()];
   const mon  = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -65,8 +87,18 @@ process.stdin.on("end", () => {
   // standard in front of the model each turn instead. Assume the first draft is
   // wordy; rewrite it tight before sending.
   process.stdout.write(READER_CONTRACT + "\n");
+
+  let prompt = "";
+  try {
+    prompt = JSON.parse(input).prompt || "";
+  } catch (e) {
+    // Claude Code always sends JSON; if it ever doesn't, say so — the check did not run.
+    process.stdout.write(`[GSD-T] prompt hook input was not JSON (${e.message}) — demo-video check did not run\n`);
+  }
+  const demo = demoVideoSignal(prompt);
+  if (demo) process.stdout.write(demo + "\n");
   process.exit(0);
 });
 }
 
-module.exports = { liveTimestamp };
+module.exports = { liveTimestamp, demoVideoSignal };

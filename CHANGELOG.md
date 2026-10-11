@@ -2,6 +2,14 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [6.1.13] - 2026-10-11
+
+### Added — demo-video requests always go through the pipeline
+
+- `scripts/gsd-t-auto-route.js` (the every-prompt hook): a prompt asking for a demo / walkthrough / tutorial / product-tour video gets a `[GSD-T DEMO VIDEOS]` line telling the session to use `/gsd-t-demo-videos` and never record ad hoc. An explicit `/gsd-t-demo-videos` call is not flagged. Non-JSON hook input now prints a warning instead of skipping silently.
+- `templates/CLAUDE-global.md`: new "Demo Videos" rule.
+- `test/demo-video-signal.test.js`: 3 tests (13 sample prompts, hook output).
+
 ## [6.1.12] - 2026-10-11
 
 ### Fixed — `update-all` now updates each project's worktrees

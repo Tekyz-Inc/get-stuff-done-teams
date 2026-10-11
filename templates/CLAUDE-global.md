@@ -52,6 +52,10 @@ Reproduce before fixing. After **two** failed fix cycles on the same symptom, HA
 - One interactive session per working tree. Use `gsd-t pick-worktree --name <branch>` — it enters an existing free worktree or creates and **provisions** a new one (carries `.env`/local config, installs dependencies from the lockfile). A hand-made worktree is not ready until provisioned.
 - Default to a new worktree + branch for real work; don't work directly on `main`.
 
+# Demo Videos
+
+Any request for a demo, walkthrough or tutorial video of an app uses `/gsd-t-demo-videos` — its plan → reference video → batch flow, fixed voice, and record/mux/trim scripts and checks. Never record, narrate or edit one ad hoc. A prompt hook flags these requests.
+
 # Environments Registry
 
 Before reaching any non-local environment (staging/prod DB, remote server, external service), read `## Environments` in `docs/infrastructure.md`. Hit → use the recorded command. Miss → HALT, ask the user, **record the row first** (`node bin/gsd-t-env-registry.cjs record …`), then use it. Never guess a connection string; never write a secret value — only the vault name and env-var NAME, referenced as `$VAR`. A recorded command must run as written (include every id it needs).
