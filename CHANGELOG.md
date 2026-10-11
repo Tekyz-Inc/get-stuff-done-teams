@@ -2,7 +2,7 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
-## [6.0.10] - 2026-10-10
+## [6.0.10] - 2026-10-11
 
 ### Changed — v6: guardrails, not a pipeline
 
