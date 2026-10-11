@@ -2941,7 +2941,7 @@ function doGraph(args) {
 }
 
 function showHelp() {
-  log(`\n${BOLD}GSD-T${RESET} — Contract-Driven Development for Claude Code\n`);
+  log(`\n${BOLD}GSD-T${RESET} — Guardrails for Claude Code\n`);
   log(`${BOLD}Usage:${RESET}  npx @tekyzinc/gsd-t ${CYAN}<command>${RESET} [options]\n`);
   log(`${BOLD}Commands:${RESET}`);
   log(`  ${CYAN}install${RESET}             Install slash commands + global CLAUDE.md + hooks`);
