@@ -34,6 +34,7 @@ Reach for a command when the work calls for it:
 |---|---|
 | Non-trivial design, before writing code | `/gsd-t-architect` |
 | Risky change (security, money, permissions, data integrity, or just complex) | `/gsd-t-red-team` |
+| Project rules still name retired GSD-T commands | `/gsd-t-tidy-directives` (runs automatically after `update-all` flags it) |
 | A failing test or runtime error | `/gsd-t-debug` |
 | New codebase, or a health check on an old one | `/gsd-t-scan` |
 | Stopping mid-task | `/gsd-t-pause`, later `/gsd-t-resume` |

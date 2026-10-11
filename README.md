@@ -46,6 +46,7 @@ npx @tekyzinc/gsd-t update-all   # the above + every registered project
 | Command | What it does |
 |---|---|
 | `/gsd-t-architect` | Design pass before building: grounds in the code and standing rules, asks only what the code can't answer, checks reuse via the graph, writes a plain-English PseudoCode plan for approval |
+| `/gsd-t-tidy-directives` | Cleans a project's directive files (CLAUDE.md, AGENTS.md, `.claude/` commands/skills/rules/settings) that still name retired GSD-T commands. `update-all` flags the project; the next session there runs it automatically, backs up each file first, and leaves the edits uncommitted |
 | `/gsd-t-red-team` | Opt-in adversarial review of a change — a fresh-context agent tries to break it. For complex or security / money / permissions / data-integrity work |
 | `/gsd-t-debug` | Graph-localized debug loop: two fix cycles, then HALT and hand back to you |
 | `/gsd-t-scan` | Deep codebase analysis and tech-debt register, sliced by volume and built on the graph |
@@ -160,6 +161,7 @@ gsd-t changelog          Open changelog in the browser
 gsd-t graph              Code graph (index, status, who-calls, who-imports, blast-radius, body, …)
 gsd-t pick-worktree      Print the worktree a session should start in
 gsd-t link-config-dir    Share this setup with another Claude config dir (second account)
+gsd-t directives-scan    List directive files that still name retired GSD-T commands
 gsd-t setup-playwright   Install Playwright into a project
 gsd-t workflow-path      Print the absolute path of a workflow (scan, debug)
 gsd-t estimate-sheet     Read / write / audit a Tekyz estimate sheet

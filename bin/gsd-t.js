@@ -2275,6 +2275,7 @@ function updateSingleProject(projectDir, counts) {
   const binToolsCopied = copyBinToolsToProject(projectDir, projectName);
   const guardAdded = updateProjectClaudeMd(claudeMd, projectName);
   const changelogCreated = createProjectChangelog(projectDir, projectName);
+  flagDirectives(projectDir, projectName);
   if (guardAdded || changelogCreated || binToolsCopied) {
     counts.updated++;
   } else {
@@ -2687,6 +2688,48 @@ async function doDoctor(opts) {
   if (issues > 0) process.exit(1);
 }
 
+function retiredNamesForScan() {
+  const ds = require("./gsd-t-directives-scan.cjs");
+  return ds.retiredCommandNames(RETIRED_V6.commandNames, getCommandFiles());
+}
+
+function doDirectivesScan(rest) {
+  const ds = require("./gsd-t-directives-scan.cjs");
+  const json = rest.includes("--json");
+  const dir = path.resolve(rest.find((a) => !a.startsWith("--")) || process.cwd());
+  const hits = ds.scan(dir, retiredNamesForScan());
+  if (json) {
+    process.stdout.write(JSON.stringify({ dir, hits, files: ds.summarize(hits) }, null, 2) + "\n");
+  } else if (hits.length === 0) {
+    success(`No directive file in ${dir} mentions a retired GSD-T command`);
+  } else {
+    for (const [f, terms] of Object.entries(ds.summarize(hits))) warn(`${f}: ${terms.join(", ")}`);
+    info("Run /gsd-t-tidy-directives in this project to clean them.");
+  }
+  process.exitCode = hits.length ? 4 : 0;
+}
+
+// update-all: flag a project whose directive files still name retired commands.
+// The next Claude session there sees the flag (SessionStart hook) and runs
+// /gsd-t-tidy-directives. A clean project loses any old flag.
+const DIRECTIVES_PENDING = path.join(".gsd-t", "directives-pending.json");
+
+function flagDirectives(projectDir, projectName) {
+  const ds = require("./gsd-t-directives-scan.cjs");
+  const hits = ds.scan(projectDir, retiredNamesForScan());
+  const flag = path.join(projectDir, DIRECTIVES_PENDING);
+  if (hits.length === 0) {
+    if (fs.existsSync(flag)) fs.unlinkSync(flag);
+    return false;
+  }
+  if (!fs.existsSync(path.join(projectDir, ".gsd-t"))) return false; // not a GSD-T project folder
+  haltOnSymlinks(projectDir, [DIRECTIVES_PENDING]);
+  const files = ds.summarize(hits);
+  fs.writeFileSync(flag, JSON.stringify({ version: PKG_VERSION, files }, null, 2) + "\n");
+  info(`${projectName} — ${Object.keys(files).length} directive file(s) name retired GSD-T commands; cleaned automatically at the next Claude session there`);
+  return true;
+}
+
 function doLinkConfigDir(target) {
   const cfg = require("./gsd-t-config-dir.cjs");
   if (!target) {
@@ -3080,6 +3123,7 @@ function showHelp() {
   log(`  ${CYAN}graph${RESET}               Code graph (index, status, who-calls, who-imports, blast-radius, body, …)`);
   log(`  ${CYAN}pick-worktree${RESET}       Print the worktree a session should start in`);
   log(`  ${CYAN}link-config-dir${RESET}     Share this setup with another Claude config dir (second account)`);
+  log(`  ${CYAN}directives-scan${RESET}     List directive files that still name retired GSD-T commands`);
   log(`  ${CYAN}setup-playwright${RESET}    Install Playwright into a project`);
   log(`  ${CYAN}workflow-path${RESET}       Print the absolute path of a workflow (scan, debug)`);
   log(`  ${CYAN}estimate-sheet${RESET}      Read / write / audit a Tekyz estimate sheet`);
@@ -3110,6 +3154,7 @@ module.exports = {
   copyFile,
   copyBinToolsToProject,
   updateProjectWorktrees,
+  flagDirectives,
   PROJECT_BIN_TOOLS,
   _classifyGraphSpawnResult,
   hasPlaywright,
@@ -3220,6 +3265,10 @@ if (require.main === module) {
     // (CLAUDE_CONFIG_DIR — one login per dir, e.g. a team account).
     case "link-config-dir":
       doLinkConfigDir(args[1]);
+      break;
+    // Directive files still naming retired GSD-T commands (exit 4 when any).
+    case "directives-scan":
+      doDirectivesScan(args.slice(1));
       break;
     case "register":
       doRegister();

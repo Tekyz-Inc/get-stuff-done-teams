@@ -2,6 +2,18 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [6.1.14] - 2026-10-11
+
+### Added — project directive files are cleaned automatically after v6
+
+Projects' own rules (CLAUDE.md at any depth, AGENTS.md, .cursorrules, project `.claude/` commands, skills, rules, agents, settings) can still point at commands v6 removed.
+
+- `bin/gsd-t-directives-scan.cjs` + `gsd-t directives-scan [dir] [--json]`: deterministic, read-only detection of retired command names (every command GSD-T ever shipped minus what ships now) and `.gsd-t/domains/` pointers. Exit 4 when any.
+- `bin/gsd-t.js`: `update-all` writes `.gsd-t/directives-pending.json` in a project with hits (and removes it once clean).
+- `scripts/gsd-t-update-check.js` (SessionStart): in a flagged project, tells the session to run `/gsd-t-tidy-directives` first — pre-approved.
+- `commands/gsd-t-tidy-directives.md`: backs up each file, makes minimal edits (mapping table: retired command → v6 equivalent or removal), keeps project-specific content, re-scans until clean, leaves edits uncommitted.
+- Tests: `test/directives-scan.test.js` (5).
+
 ## [6.1.13] - 2026-10-11
 
 ### Added — demo-video requests always go through the pipeline

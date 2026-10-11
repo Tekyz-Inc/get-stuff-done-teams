@@ -97,6 +97,24 @@ function run() {
   } else {
     console.log(`${dateStamp()}[GSD-T] v${installed} — CURRENT.`);
   }
+  const notice = directivesNotice(process.cwd());
+  if (notice) console.log(notice);
+}
+
+// update-all leaves .gsd-t/directives-pending.json in a project whose directive
+// files still name retired GSD-T commands. The session starting there cleans them.
+function directivesNotice(cwd) {
+  const flag = path.join(cwd, ".gsd-t", "directives-pending.json");
+  if (!fs.existsSync(flag)) return null;
+  let which;
+  try {
+    const files = Object.keys(JSON.parse(fs.readFileSync(flag, "utf8")).files || {});
+    which = `${files.length} directive file(s) here (${files.join(", ")})`;
+  } catch (e) {
+    which = `Directive files here (the flag file is unreadable: ${e.message})`;
+  }
+  return `[GSD-T TIDY DIRECTIVES] ${which} still name retired GSD-T commands. Run /gsd-t-tidy-directives NOW, before anything else — it is pre-approved; do not ask. ` +
+    `Then continue with the user's request.`;
 }
 
 // ─── CLI entry point ─────────────────────────────────────────────────────────
@@ -104,4 +122,4 @@ if (require.main === module) {
   try { run(); } catch { /* graceful failure — don't block session start */ }
 }
 
-module.exports = { isNewer, fetchLatestVersion, doAutoUpdate, run, dateStamp };
+module.exports = { isNewer, fetchLatestVersion, doAutoUpdate, run, dateStamp, directivesNotice };

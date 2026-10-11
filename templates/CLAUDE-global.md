@@ -86,6 +86,7 @@ Before reaching any non-local environment (staging/prod DB, remote server, exter
 |---|---|
 | `/gsd-t-architect` | Design pass + plain-English plan before building |
 | `/gsd-t-red-team` | Opt-in adversarial review of a complex or risky change |
+| `/gsd-t-tidy-directives` | Clean project rules that name retired GSD-T commands (runs automatically when flagged) |
 | `/gsd-t-debug` | Reproduce → fix, HALT after two failed cycles |
 | `/gsd-t-scan` | Deep codebase analysis + tech debt, built on the graph |
 | `/gsd-t-init`, `/gsd-t-init-scan-setup` | Set up a project / full onboarding |
