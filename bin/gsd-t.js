@@ -2585,6 +2585,7 @@ async function doDoctor(opts) {
   issues += checkDoctorInstallation();
   issues += await checkDoctorProject(opts);
   issues += checkDoctorScip();
+  issues += checkDoctorConfigDirs();
   log("");
   if (issues === 0) {
     log(`${GREEN}${BOLD}  All checks passed!${RESET}`);
@@ -2593,6 +2594,44 @@ async function doDoctor(opts) {
   }
   log("");
   if (issues > 0) process.exit(1);
+}
+
+function doLinkConfigDir(target) {
+  const cfg = require("./gsd-t-config-dir.cjs");
+  if (!target) {
+    error("Usage: gsd-t link-config-dir <dir>   (e.g. ~/.claude-hilo)");
+    process.exit(64);
+  }
+  const dir = target.replace(/^~(?=$|\/)/, os.homedir());
+  heading(`Link ${dir} → ${CLAUDE_DIR}`);
+  const r = cfg.linkConfigDir(CLAUDE_DIR, dir);
+  if (!r.ok) {
+    if (r.error !== "conflicts") error(r.error);
+    for (const row of r.rows.filter((x) => x.state === "conflict")) {
+      error(`${row.dst}: ${row.reason}`);
+    }
+    info("Nothing was changed. Move or remove the items above, then run this again.");
+    process.exit(1);
+  }
+  for (const row of r.rows) {
+    if (row.state === "create") success(`${row.name} linked`);
+    if (row.state === "ok") info(`${row.name} already linked`);
+    if (row.state === "absent") info(`${row.name} — none in ~/.claude, skipped`);
+  }
+  info("Login files (.claude.json, credentials) stay separate — run `claude` with CLAUDE_CONFIG_DIR set and /login.");
+}
+
+function checkDoctorConfigDirs() {
+  const cfg = require("./gsd-t-config-dir.cjs");
+  const dirs = cfg.readRegistry(CLAUDE_DIR);
+  if (dirs.length === 0) return 0;
+  const problems = cfg.checkConfigDirs(CLAUDE_DIR);
+  if (problems.length === 0) {
+    success(`Linked config dirs OK: ${dirs.join(", ")}`);
+    return 0;
+  }
+  for (const p of problems) warn(`${p.dir}: ${p.problem} — run: gsd-t link-config-dir ${p.dir}`);
+  return problems.length;
 }
 
 function doRegister() {
@@ -2949,6 +2988,7 @@ function showHelp() {
   log(`  ${CYAN}changelog${RESET}           Open changelog in the browser`);
   log(`  ${CYAN}graph${RESET}               Code graph (index, status, who-calls, who-imports, blast-radius, body, …)`);
   log(`  ${CYAN}pick-worktree${RESET}       Print the worktree a session should start in`);
+  log(`  ${CYAN}link-config-dir${RESET}     Share this setup with another Claude config dir (second account)`);
   log(`  ${CYAN}setup-playwright${RESET}    Install Playwright into a project`);
   log(`  ${CYAN}workflow-path${RESET}       Print the absolute path of a workflow (scan, debug)`);
   log(`  ${CYAN}estimate-sheet${RESET}      Read / write / audit a Tekyz estimate sheet`);
@@ -3084,6 +3124,11 @@ if (require.main === module) {
       }
       break;
     }
+    // Share this GSD-T setup with a second Claude Code config dir
+    // (CLAUDE_CONFIG_DIR — one login per dir, e.g. a team account).
+    case "link-config-dir":
+      doLinkConfigDir(args[1]);
+      break;
     case "register":
       doRegister();
       break;

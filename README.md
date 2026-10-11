@@ -113,6 +113,16 @@ Exclude ancillary trees with `.gsd-t/graph-exclude.json`. Telemetry is on by def
 - `gsd-t pick-worktree --name <branch>` enters an existing free worktree, or creates and **provisions** a new one: carries `.env*` and local config (permissions kept), skips per-session state and build output, installs dependencies from the worktree's own lockfile. Anything it can't copy is reported; a failed install halts.
 - `gsd-t pick-worktree --list` prints `free|busy<TAB><path>` per worktree.
 
+## Multiple Claude accounts
+
+Claude Code keeps one login per config dir (`CLAUDE_CONFIG_DIR`). To use a second account — say a team plan for one client's projects — without losing GSD-T there:
+
+```bash
+gsd-t link-config-dir ~/.claude-hilo        # links CLAUDE.md, settings.json, commands, scripts, bin, templates, skills, agents, projects
+```
+
+Real files stay in `~/.claude` (GSD-T installs there); the other dir only holds links, plus its own login files, which are never touched. Any conflict halts before anything changes. Point the client's folders at it (e.g. direnv: `export CLAUDE_CONFIG_DIR="$HOME/.claude-hilo"` in an `.envrc`), run `claude` there and `/login`. `gsd-t doctor` flags a broken or missing link.
+
 ---
 
 ## Environments registry
@@ -147,6 +157,7 @@ gsd-t doctor             Diagnose common issues (--install-playwright)
 gsd-t changelog          Open changelog in the browser
 gsd-t graph              Code graph (index, status, who-calls, who-imports, blast-radius, body, …)
 gsd-t pick-worktree      Print the worktree a session should start in
+gsd-t link-config-dir    Share this setup with another Claude config dir (second account)
 gsd-t setup-playwright   Install Playwright into a project
 gsd-t workflow-path      Print the absolute path of a workflow (scan, debug)
 gsd-t estimate-sheet     Read / write / audit a Tekyz estimate sheet

@@ -2,6 +2,16 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [6.1.10] - 2026-10-11
+
+### Added — `gsd-t link-config-dir`: GSD-T across several Claude accounts
+
+Claude Code keeps one login per config dir (`CLAUDE_CONFIG_DIR`), so a second account (e.g. a team plan for one client) lives in a second dir that starts empty. `gsd-t link-config-dir <dir>` links the shared pieces back to `~/.claude` so every account sees the same rules, hooks, commands and memories, while each keeps its own login.
+
+- `bin/gsd-t-config-dir.cjs`: plans every link first; any conflict (a real file in the way, a link pointing elsewhere, a target that is or contains `~/.claude`, a symlinked target) halts with nothing changed. Login files (`.claude.json`, credentials) are never in the shared list. Linked dirs are recorded in `~/.claude/.gsd-t-config-dirs`.
+- `bin/gsd-t.js`: `link-config-dir` subcommand + help line; `doctor` reports missing dirs, unlinked or newly-added shared items, and wrong links.
+- `test/config-dir.test.js`: 8 tests (fake homes).
+
 ## [6.0.10] - 2026-10-11
 
 ### Changed — v6: guardrails, not a pipeline

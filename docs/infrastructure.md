@@ -19,6 +19,7 @@
 | Uninstall | `gsd-t uninstall` |
 | Code graph | `gsd-t graph index \| status \| who-calls \| who-imports \| blast-radius \| body \| who-uses \| table \| metrics` |
 | Worktree | `gsd-t pick-worktree [--name <branch> \| --list \| --suggest]` |
+| Second Claude account | `gsd-t link-config-dir ~/.claude-<name>` |
 | Workflow path | `gsd-t workflow-path scan \| debug` |
 | Estimate sheet | `gsd-t estimate-sheet <verb> --sheet <id\|url>` |
 | PseudoCode style | `gsd-t pseudocode-style --doc <f> \| --dir <d>` |
@@ -64,6 +65,7 @@ Real work happens in a worktree: `~/Worktrees/GSD-T/<branch>/` (v6 was built in 
 | Global bin tools (pick-worktree, worktree-detect, worktree-provision, slice-budget, pseudocode-style, fallback-detect, code-search-classifier, install-check, estimate-sheet) | `~/.claude/bin/` |
 | Hooks | `~/.claude/settings.json` |
 | Version / update cache / project registry | `~/.claude/.gsd-t-version`, `.gsd-t-update-check`, `.gsd-t-projects` |
+| Linked config dirs (second Claude accounts) | `~/.claude/.gsd-t-config-dirs`; each listed dir holds links back to `~/.claude` (`gsd-t link-config-dir <dir>`; checked by `doctor`) |
 | Per-project tools | `{project}/bin/gsd-t-*.cjs` |
 
 ### Installed hooks
