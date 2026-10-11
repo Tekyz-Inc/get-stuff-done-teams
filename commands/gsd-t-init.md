@@ -143,7 +143,7 @@ Before creating the progress file, determine the starting version:
    - `build.gradle` / `build.gradle.kts` → `version = `
    - `.version` file → contents as-is
 2. **If a version is found**: Use it as the starting GSD-T version (the project already has its own versioning history).
-3. **If no version is found**: Use `0.1.00` — the standard GSD-T starting point for a brand-new project with no prior releases. The first `gsd-t-complete-milestone` will reset the patch to `0.1.10` (or bump minor/major per milestone scope).
+3. **If no version is found**: Use `0.1.00` — the standard GSD-T starting point for a brand-new project with no prior releases. The first release resets the patch to `0.1.10` (or bumps minor/major per its scope).
 
 Create `.gsd-t/progress.md`:
 

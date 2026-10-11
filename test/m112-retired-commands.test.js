@@ -91,9 +91,7 @@ test('M112: a shipped command is never mistaken for retired', () => {
 
 // ── The docs must not advertise a command that does not exist ────────────────
 
-// TODO(v6): README.md is rewritten in the v6 docs step; until then it still lists the
-// commands the slim-down cut. Re-enable (drop `todo`) in that same commit.
-test('M112: README advertises no command the package does not ship', { todo: 'v6 README rewrite pending' }, () => {
+test('M112: README advertises no command the package does not ship', () => {
   // README listed /gsd-t-brainstorm as live for months after M38 deleted it,
   // while help.md correctly called it retired — the two disagreed, and the
   // README is what a reader believes.

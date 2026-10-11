@@ -4,88 +4,75 @@ Prime Directives, core guards, and workflow rules live in `~/.claude/CLAUDE.md`.
 
 ## Overview
 
-Contract-driven development methodology for Claude Code. npm package providing slash commands, a CLI installer, templates, and stack rules for reliable parallelizable AI-assisted development.
+Guardrails for Claude Code, shipped as the npm package `@tekyzinc/gsd-t`: slash commands, hook scripts, a CLI installer, and templates. Since v6 there is no execution pipeline — Claude plans, builds and tests directly; GSD-T supplies the code graph, the no-fallback guard, the architect and red-team passes, worktrees, the environments registry, demo videos and estimates.
 
 ## Autonomy Level
-
-> Overrides global: pins the default from `~/.claude/CLAUDE.md` § Autonomy Levels.
 
 **Level 3 — Full Auto**. Only pause for blockers, destructive actions, or project completion.
 
 ## Tech Stack
 
-- **Language**: JavaScript (Node.js >= 16); prefer no external runtime deps in the installer (guiding principle, not absolute — see Don't section). M95 bundles the SCIP indexers (scip-typescript / scip-python) as a code-graph requirement.
+- **Language**: JavaScript (Node.js >= 16). Zero-dep is a guiding principle for the CLI, not a hard rule — the code graph depends on `better-sqlite3`, `tree-sitter` (+ grammars) and the SCIP indexers.
 - **Distribution**: npm package `@tekyzinc/gsd-t`
-- **CLI**: `bin/gsd-t.js` (install, update, init, status, uninstall, doctor, graph, headless, …)
-- **Testing**: `npm test` (Node built-in test runner) + manual CLI testing
+- **CLI**: `bin/gsd-t.js` — run `node bin/gsd-t.js --help` for the subcommand list
+- **Testing**: `npm test` (Node built-in test runner); heavy real-repo graph tests need `GSDT_SLOW_TESTS=1`
 
 ## Project Structure
 
 ```
-bin/                     — CLI entry (gsd-t.js) + orchestrators (orchestrator.js, design-orchestrator.js)
-                           + support modules (gsd-t-context-brief.cjs, cli-preflight.cjs, gsd-t-verify-gate.cjs, model-selector.js, …)
-commands/                — slash commands for Claude Code (GSD-T workflow + utility)
-templates/               — document + prompt + stack templates
-  CLAUDE-{global,project}.md, requirements.md, architecture.md, workflows.md,
-  infrastructure.md, progress.md, backlog.md, backlog-settings.md, design-contract.md
-  prompts/               — validation subagent protocols (qa, red-team, design-verify)
-  stacks/                — Stack Rules Engine templates (injected at spawn time)
-scripts/                 — runtime scripts (design review, context meter hook, event writer)
-examples/                — example project structure + settings
-docs/methodology.md      — GSD → GSD-T evolution and concepts
+bin/          — CLI (gsd-t.js) + tools: graph (gsd-t-graph-*.cjs, scip-*), worktree
+                (pick-worktree, worktree-provision, worktree-detect), env registry
+                (env-registry, doc-marker), estimate-sheet, fallback-detect,
+                code-search / grep classifiers, install-check, slice-budget,
+                pseudocode-style, claude-md-changelog, playwright-bootstrap
+commands/     — slash commands
+scripts/      — hook scripts (graph guards/intercepts, fallback guard, date guard,
+                changelog hooks, install-heal, update-check, auto-route)
+templates/    — CLAUDE-{global,project}.md, living-doc templates, progress.md,
+                PseudoCode-spec.md, estimate-sheet-spec.md + estimate-config.json,
+                playbooks/, demo-videos/, test-helpers/, workflows/ (scan + debug)
+examples/     — settings.json
+docs/         — methodology, architecture, requirements, workflows, infrastructure, GSD-T-README
 package.json, README.md, GSD-T-README.md, CHANGELOG.md
 ```
 
-Exact command list: `ls commands/`. Exact stack rule set: `ls templates/stacks/`. Don't hand-maintain counts in docs.
+Exact command list: `ls commands/`. Don't hand-maintain counts in docs.
 
 ## Meta-Project Notes
 
 - The "source" is the `.md` files in `commands/` + `templates/` and the JS in `bin/` + `scripts/`. There is no `src/`.
-- Changes to command files change the methodology itself — treat them as code; verify by running the workflow.
-- The `.gsd-t/` state dir coexists with the commands that *define* `.gsd-t/` — intentional.
+- Changes to command files change the methodology itself — treat them as code; verify by running them.
 - `bin/gsd-t.js` is the primary testable surface; command files are validated by use.
+- `templates/CLAUDE-global.md` is what every user's `~/.claude/CLAUDE.md` block becomes on update.
 
 ## Conventions
 
-**CLI** — ANSI colors via escape codes, zero external deps, sync file APIs, version tracked in `package.json` and `~/.claude/.gsd-t-version`.
+**CLI** — ANSI colors via escape codes, sync file APIs, version tracked in `package.json` and `~/.claude/.gsd-t-version`. `bin/gsd-t-install-check.cjs` parses `PROJECT_BIN_TOOLS` from `bin/gsd-t.js` source text — keep its `const PROJECT_BIN_TOOLS = [ … ];` shape.
 
-**Command files** — pure markdown, no frontmatter, accept `$ARGUMENTS`, step-numbered, thin Workflow invokers (`Workflow({scriptPath, args})`). Include a Document Ripple section listing files the underlying Workflow expects domain workers to update. Validation protocol bodies stay in `templates/prompts/*-subagent.md`; each triad agent reads its own protocol via Read at spawn time (the workflow embeds a Read directive, not the protocol text — the orchestrator has no `fs`). Don't inline the protocol body into the workflow script.
+**Command files** — markdown, accept `$ARGUMENTS`, step-numbered. `gsd-t-scan` and `gsd-t-debug` are thin invokers: resolve `gsd-t workflow-path <name>`, then `Workflow({scriptPath, args})`.
 
-**Templates** — `{Project Name}`, `{Date}`, `{description}` replacement tokens; tables for structured data.
+**Retiring something** — add it to `RETIRED_V6` in `bin/gsd-t.js` with a verbatim header sentinel from the shipped file (and a hook marker if it was a hook), so install/update/update-all remove it from every machine and project.
 
-**Directory structure** — `.gsd-t/contracts/` (domain interfaces), `.gsd-t/domains/{name}/` (scope/tasks/constraints), `.gsd-t/milestones/` (archives), `.gsd-t/scan/` (analysis outputs).
+**Templates** — `{Project Name}`, `{Date}` replacement tokens; tables for structured data.
 
-**Publishing** — after `npm publish`, ALWAYS run `/gsd-t-version-update-all` to propagate to registered projects.
+**Publishing** — `/cpua` only. It verifies the release actually landed before propagating.
 
 ## Living Documents (project-specific)
 
-Beyond the global Living Documents set (see `~/.claude/CLAUDE.md`), this repo treats the intention-first behavior map as source-of-truth: `.gsd-t/pseudocode/PseudoCode-[Title].md` is authored before a milestone build and rippled in the same pass whenever code/contract/schema changes (M91). A supersede of shipped behavior writes a `⚠ Divergence` flag; the `[RULE]` guard map feeds the deterministic verify gate.
+Architect plans live in `.gsd-t/pseudocode/PseudoCode-[Title].md` — a plain-English decision tree, style-gated by `gsd-t pseudocode-style`. A supersede of shipped behavior writes a `⚠ Divergence` flag.
 
-## GSD-T Workflows (M61 — v4.0.10+)
+## GSD-T Workflows
 
-Phase orchestration lives in `templates/workflows/`. Each command file (`commands/gsd-t-*.md`) is a thin invoker that calls `Workflow({scriptPath, args})`. Canonical scripts:
+Only two Workflow scripts remain in `templates/workflows/`:
 
-- `gsd-t-execute.workflow.js` — preflight → brief → file-disjointness → parallel(domain workers) → integrate → verify-gate
-- `gsd-t-verify.workflow.js` — orthogonal triad with M57 CI-parity + M58 test-data purge as FAIL-blocking gates
-- `gsd-t-wave.workflow.js`, `-integrate`, `-debug`, `-quick`, `-phase` (generic upper-stage runner; M82: `-phase` carries the opt-in `competition: N` arm — generate-and-judge on partition/milestone/discuss/design-decompose, judged by `bin/gsd-t-competition-judge.cjs`; contract `competition-mode-contract.md`)
+- `gsd-t-scan.workflow.js` — preflight → volume probe → graph wiring → line-budgeted slices → deep finder per slice + verify → synthesis → consolidation → living docs + dimension files + plain-English companion
+- `gsd-t-debug.workflow.js` — graph localize → two fix cycles on opus → `needs-human`
 
-**Runtime-native invariant (M81 — v4.0.29+):** the Anthropic Workflow sandbox provides ONLY the globals `agent/parallel/pipeline/log/phase/budget/args` — NO `require`/`fs`/`path`/`child_process`/`process`, and `args` arrives as a JSON STRING. Every `*.workflow.js` MUST be self-contained: it `JSON.parse`s `args`, and delegates all CLI calls (preflight, verify-gate, brief, build-coverage, ci-parity, test-data, parallel/disjointness) to inline `async` helpers that run the command via an `agent()`'s Bash (preferring project-local `bin/<tool>.cjs`, falling back to the global `gsd-t` PATH binary) and parse the JSON envelope. The old `require("./_lib.js")` pattern threw `ReferenceError` on first eval — it silently broke every workflow except scan (TD-113). `_lib.js` is retired as a workflow dependency. The M71 lint (`test/m71-workflow-runtime-native-lint.test.js`) enforces this for all 8 workflows.
+**Runtime-native invariant:** the Workflow sandbox provides ONLY `agent/parallel/pipeline/log/phase/budget/args` — NO `require`/`fs`/`path`/`child_process`/`process`, and `args` arrives as a JSON STRING. Each script `JSON.parse`s `args` and runs every CLI call through an inline helper inside an `agent()`'s Bash (project-local `bin/<tool>.cjs` first, else the global `gsd-t`). Enforced by `test/m71-workflow-runtime-native-lint.test.js`.
 
-The brains stay in `bin/`: `gsd-t-file-disjointness.cjs`, `gsd-t-task-graph.cjs`, `gsd-t-context-brief.cjs`, `cli-preflight.cjs`, `gsd-t-verify-gate.cjs`, `gsd-t-verify-gate-judge.cjs`, `gsd-t-build-coverage.cjs`, `gsd-t-ci-parity.cjs`, `gsd-t-test-data-ledger.cjs`, `gsd-t-competition-judge.cjs` (M82), `gsd-t-traceability-gate.cjs` (M83), `gsd-t-model-tier-policy.cjs` (M85 — single source of truth for tier policy: haiku/sonnet/opus/fable + `resolveProfile`), `gsd-t-model-profile.cjs` (M86 — config read/write + CLI for per-project profile), `journey-coverage.cjs`. Workflows invoke them via an `agent()`-wrapped Bash call (the runCli inline helper), never via in-orchestrator `spawnSync`.
+## Validation Protocols
 
-**M85 — Model-Tier Policy + Fable 5 tier:** `bin/gsd-t-model-tier-policy.cjs` is the SINGLE source of truth for model-tier assignments (haiku/sonnet/opus/fable). Contract: `.gsd-t/contracts/model-tier-policy-contract.md` v1.1.0 STABLE. The 5 highest-leverage stages run on Fable (solution-space probe, partition probe, competition judge, pre-mortem, Red Team); competition producers stay opus (M82 blindness invariant). Debug: cycle-1→opus, cycle-2→fable. The M71-family drift enforcer lint (`test/m85-workflow-tier-policy-lint.test.js`) proves every workflow `model:` literal matches the policy — a drifted literal FAILS the lint.
-
-**M86 — Model Profiles (per-project tier-spend switch):** `bin/gsd-t-model-profile.cjs` adds a second dimension — three named profiles (`standard` / `pro` / `premium`) controlling which workflow stages run on Fable vs. Opus/Sonnet. Contract: `.gsd-t/contracts/model-profile-config-contract.md` v1.0.0 STABLE. Config: `.gsd-t/model-profile.json` (`{ "profile": "pro", "stageOverrides": {} }`). Absent file → global default (`premium`), NAMED as `profile: premium (default)` — SC(f) no-silent-degradation. Invoke-time injection: command invokers call the resolver and pass `overrides` into workflow `args`; workflows use `overrides["<stage>"] ?? "<premium-literal>"` (`??`-form). Blindness clamps enforced at resolve time: `competition-producers` not overridable; `competition-judge` cannot equal producers' model. D3 drift lint (`test/m86-lint-unwrap-fallback.test.js`) validates the `??`-form, bracket key, and fallback literals. Active profile surfaced in session banner (`[GSD-T PROFILE]`), statusline, and `gsd-t status` — always named.
-
-## Validation Protocols (KEPT — methodology layer)
-
-Three validation protocol bodies stay at `templates/prompts/`:
-- `qa-subagent.md` — test mechanics + shallow-test detection + contract compliance
-- `red-team-subagent.md` — adversarial / security / boundaries; verdict `FAIL` / `GRUDGING-PASS`
-- `design-verify-subagent.md` — visual MATCH/DEVIATION against the design contract
-- `pre-mortem-subagent.md` (M83) — adversarial PLAN review (pre-execute): predicts edge-case / dead-deliverable / NFR failures, each → a required test; verdict `BLOCK` / `CLEARED`. The temporal dual of the Red Team (attack the design at plan, not the code at verify). Contract: `plan-hardening-contract.md`.
-
-These are invoked as Workflow `agent()` stages with schema-validated output. The methodology body is unchanged; only the invocation context (Workflow stage vs. Task subagent) updated. Per `.gsd-t/contracts/orthogonal-validation-contract.md` v1.0.0 STABLE.
+There is no `templates/prompts/` in v6. The red-team protocol lives inline in `commands/gsd-t-red-team.md` (one fresh-context opus agent; verdict `FAIL` / `GRUDGING-PASS`; two fix rounds max). The architect pass lives in `commands/gsd-t-architect.md`.
 
 
 # Destructive Action Guard (MANDATORY)
@@ -108,22 +95,21 @@ Before any of these actions, STOP and ask the user:
 
 The global gate applies first (see `~/.claude/CLAUDE.md`). Additionally for this repo:
 
-- **Command file interface/behavior changed** → update `GSD-T-README.md` + `README.md` commands table + `templates/CLAUDE-global.md` + `commands/gsd-t-help.md`.
-- **Command added/removed** → update all 4 files above, bump `package.json`, update any command-counting logic in `bin/gsd-t.js`.
-- **New command invokes a Workflow** → verify `scriptPath` resolves to `templates/workflows/<name>.workflow.js` and `args` shape matches the script's `meta.phases`.
+- **Command added/removed/renamed or its behavior changed** → update `README.md` command table, `GSD-T-README.md` + `docs/GSD-T-README.md`, and the command table in `templates/CLAUDE-global.md`. A removed command's leftovers go in `RETIRED_V6` (non-prefixed files) — `gsd-t-*.md` files are removed automatically.
+- **Hook added/removed** → registrar + marker in `bin/gsd-t.js` (`GSDT_HOOK_MARKERS`; retired ones in `RETIRED_V6.hookMarkers`), README hooks table, `docs/infrastructure.md`.
+- **bin tool added/removed** → `PROJECT_BIN_TOOLS` / `GLOBAL_BIN_TOOLS`; a removed one also goes in `RETIRED_V6.bin` with its header sentinel. Then `ls` the file in a real project after `update-all`.
+- **Workflow script changed** → `scriptPath` still resolves via `gsd-t workflow-path`, `args` matches `meta.phases`, sandbox lint passes, and run it in the real Workflow sandbox.
 - **CLI installer changed** → smoke test `install`, `update`, `status`, `doctor`, `init`, `uninstall`.
-- **Template changed** → verify `gsd-t-init` still produces correct output.
-- **Wave flow changed (phases added/removed/reordered)** → update `gsd-t-wave.md`, `GSD-T-README.md` wave diagram, `README.md` workflow section.
-- **Contract or domain boundary changed** → update `.gsd-t/contracts/` and owning `scope.md`.
+- **Template changed** → verify `gsd-t init` still produces correct output.
+- **Contract changed** → update `.gsd-t/contracts/`.
 
 ## Don't
 
-- PREFER no external npm runtime dependencies in the installer — zero-dep is a GUIDING PRINCIPLE, not a hard rule. Take a dependency when it produces a materially better product (M95: SCIP indexers are now a GSD-T install requirement for compiler-accurate code-graph resolution). Don't add deps casually, but don't let zero-dep ship a crappy product either.
-- NEVER rename a command without updating all 4 reference files above.
-- NEVER modify wave phase sequence without updating wave, README, GSD-T-README in the same commit.
-- NEVER let installer's command count diverge from `commands/` directory reality.
-- NEVER inline validation-subagent protocol bodies into Workflow scripts — each triad agent reads its own `templates/prompts/{qa,red-team,design-verify}-subagent.md` via Read at spawn time (the workflow passes a Read directive; the sandboxed orchestrator can't read files).
-- NEVER reintroduce `require`/`fs`/`path`/`child_process`/`process` into a `*.workflow.js` — the sandbox forbids them (TD-113). Delegate CLI calls to an `agent()`'s Bash via the inline runCli helper.
+- Don't add npm runtime dependencies casually — but don't let zero-dep ship a worse product either.
+- NEVER rename or remove a command without updating every reference file above.
+- NEVER let docs advertise a command that doesn't exist (`test/m112-retired-commands.test.js` checks README).
+- NEVER reintroduce `require`/`fs`/`path`/`child_process`/`process` into a `*.workflow.js`.
+- NEVER `git add -A` here — stage the files you changed.
 
 ## Recovery After Interruption
 
@@ -136,6 +122,6 @@ The global gate applies first (see `~/.claude/CLAUDE.md`). Additionally for this
 
 See `.gsd-t/progress.md`.
 
-## Logging Posture (M100)
+## Logging Posture
 
-GSD-T **opts out of BOTH trace and audit logging** — it is a stateless CLI + methodology package, not a running application. Records: `.gsd-t/trace-optout.json` + `.gsd-t/audit-optout.json`. This is the sanctioned "not a running app" exception (see `.gsd-t/contracts/trace-logging-contract.md` §opt-out-record + `audit-logging-contract.md` §opt-out-record). A real application (requests/jobs/integrations/clients) must NOT opt out.
+GSD-T **opts out of BOTH trace and audit logging** — it is a stateless CLI + methodology package, not a running application. Records: `.gsd-t/trace-optout.json` + `.gsd-t/audit-optout.json`. (The logging scaffolder and its contracts were cut in v6; the records stay as the decision.)

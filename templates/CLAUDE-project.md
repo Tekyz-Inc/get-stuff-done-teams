@@ -8,7 +8,7 @@
 ## Rules that can never be broken
 
 <!--
-  Ticked by David from what the project already says. Nothing invented, nothing
+  Taken from what the project already says. Nothing invented, nothing
   copied from the global file. If a rule is enforced by a hook or a gate, say so
   — the reader should know a machine is watching.
 
@@ -66,5 +66,5 @@
   line count, no "currently in progress". Those belong in progress.md, and a
   file that repeats them is wrong within a week.
 
-  Regenerate with /gsd-t-setup.
+  Regenerate with /gsd-t-init-scan-setup.
 -->

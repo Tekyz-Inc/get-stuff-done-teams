@@ -44,7 +44,8 @@ function readerContractRegion(body) {
   const lines = body.split("\n");
   let start = -1;
   for (let i = 0; i < lines.length; i++) {
-    if (/^## Reader Contract\b/.test(lines[i])) {
+    // v6: the slim CLAUDE-global states the split under `# Output Style`.
+    if (/^#{1,2} (Reader Contract|Output Style)\b/.test(lines[i])) {
       start = i;
       break;
     }
@@ -66,7 +67,7 @@ test("CLAUDE-global carries a `## Reader Contract` block", () => {
   const region = readerContractRegion(readBody(CLAUDE_GLOBAL));
   assert.ok(
     region !== "",
-    "`## Reader Contract` heading missing from templates/CLAUDE-global.md"
+    "Reader Contract / Output Style heading missing from templates/CLAUDE-global.md"
   );
 });
 

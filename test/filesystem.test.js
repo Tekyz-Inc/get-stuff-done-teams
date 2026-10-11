@@ -287,12 +287,13 @@ describe("command listing functions", () => {
   // M115 added gsd-t-test-plan (test-plan-first requirements interrogation):
   // total 57→58, gsdt 50→51.
   // v6 slim-down: 42 commands cut (incl. the /gsd router): total 17, gsdt 11, utilities 6.
-  it("total command count is 17", () => {
-    assert.equal(getCommandFiles().length, 17);
+  // v6 added gsd-t-red-team (opt-in adversarial review): total 18, gsdt 12.
+  it("total command count is 18", () => {
+    assert.equal(getCommandFiles().length, 18);
   });
 
-  it("gsd-t command count is 11", () => {
-    assert.equal(getGsdtCommands().length, 11);
+  it("gsd-t command count is 12", () => {
+    assert.equal(getGsdtCommands().length, 12);
   });
 
   it("utility command count is 6", () => {

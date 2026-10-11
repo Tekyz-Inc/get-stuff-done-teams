@@ -2,6 +2,40 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [6.0.10] - 2026-10-10
+
+### Changed — v6: guardrails, not a pipeline
+
+GSD-T no longer runs an execution flow. Claude plans, builds and tests directly; GSD-T keeps the guardrails a strong model still needs. About 64% of the package was removed (commands 59 → 18, bin 120 → 27 files, scripts 44 → 13, workflows 9 → 2). Why: `docs/methodology.md` § v6.
+
+**Removed**
+- Phase chain: milestone, partition, plan, execute, integrate, test-sync, verify, wave, complete-milestone, impact, quick, feature, project, populate, promote-debt, gap-analysis; their Workflow scripts (execute, verify, wave, integrate, quick, phase, `_lib.js`).
+- Validation triad (QA / Red Team / design-verify stages), pre-mortem, competition mode, traceability gate, verify-gate, CI-parity, build-coverage, test-data ledger, journey coverage.
+- Model tier policy and model profiles (`[GSD-T PROFILE]`).
+- Backlog (7 commands), design-to-code (4 commands + contracts), doc-ripple, migrate-logging and the trace/audit logging scaffolder, test-plan-first, PRD, stories, setup, health, help, log, metrics, status, qa, triage-and-merge, version-update.
+- Stack Rules Engine (`templates/stacks/`), subagent prompts (`templates/prompts/`).
+- Headless / unattended execution, debug ledger, heartbeat, event stream, dashboards, status line, context meter, in-session probes, the `/gsd` router and AUTO-ROUTE, architect-oversight and brevity hooks, CodeGraphContext / Neo4j.
+
+**Kept**
+- Code graph (SQLite + tree-sitter + SCIP) with the graph search guard, graph/read intercepts and use report.
+- No-fallback guard, date guard, CLAUDE.md changelog hooks, install self-heal, update check, live clock + Reader Contract.
+- `/gsd-t-architect` (trimmed), `/gsd-t-debug` (graph localize + two opus cycles, then halt; no preflight / brief / profile / research / loop-ledger), `/gsd-t-scan` (slice-budget now calls its own tool and halts on failure).
+- `/gsd-t-init`, `/gsd-t-init-scan-setup`, `/gsd-t-pause`, `/gsd-t-resume` (rewritten short), `/gsd-t-demo-videos`, `/gsd-t-estimate`, `/gsd-t-estimate-rescale`, `/gsd-t-version-update-all`, `/cpua`, `/checkin`, `/branch`, `/global-change`, `/concise`, `/Claude-md`.
+- Worktree picker + provisioner, environments registry, estimate-sheet writer, PseudoCode style gate, Playwright bootstrap.
+
+**Added**
+- `/gsd-t-red-team` — opt-in adversarial review of a change by one fresh-context agent, for complex or security / money / permissions / data-integrity work. Reproduced bugs only; two fix rounds, then halt.
+- Slim `templates/CLAUDE-global.md` (~95 lines): prime directives, concise output + banner, live clock, graph, no-fallback, destructive guard, unproven assumptions, architect, adversarial review, debugging, worktrees, environments, Playwright, code standards, commits.
+- Installer registers the **date guard** (PreToolUse Write|Edit) and both **CLAUDE.md changelog hooks** (SessionStart check, PostToolUse Write|Edit post-edit), run from the installed package. Before v6 nothing installed them on a new machine.
+- `RETIRED_V6` in `bin/gsd-t.js`: one list drives removal on `install` / `update` / `update-all` of retired commands, `~/.claude/bin` tools, `~/.claude/scripts` files, the status line, project `bin/` strays, and `settings.json` hook markers. A file is removed only when it carries a verbatim shipped header; same-named user files are reported and kept. `update-all` runs the cleanup even when the version is unchanged. `uninstall` now removes every GSD-T hook.
+- `gsd-t graph-availability` subcommand (the scan/debug global route).
+
+**Fixed**
+- Demo-video templates defaulted to the drifting Gemini voice; they now ship `walkthrough-voice-gcloud.mjs` and default to a fixed Google Cloud TTS voice, with the ATOS / FlyLingo timing and audit fixes ported.
+- `GLOBAL_BIN_TOOLS` no longer lists two files that did not exist.
+
+**Docs** — README, GSD-T-README (root + `docs/`), architecture, requirements, workflows, infrastructure, methodology and `templates/CLAUDE-project.md` rewritten for v6. `test/m112-retired-commands.test.js` README check re-enabled.
+
 ## [5.24.10] - 2026-09-29
 
 ### Added — the code graph indexes Drizzle database tables

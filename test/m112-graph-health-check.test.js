@@ -149,10 +149,12 @@ test('M112: the rule reaches plain sessions, not only wired commands', () => {
   // The binvoice failure was ordinary conversational work. The contract governs
   // wired commands only, so the rule has to live where every session reads it.
   const global = fs.readFileSync(path.join(REPO, 'templates', 'CLAUDE-global.md'), 'utf8');
-  assert.match(global, /Code Graph — build it, never grep around it/,
+  // v6: the slim global block carries the rule itself; being in the global file is
+  // what makes it reach every session, wired command or not.
+  assert.match(global, /Code Graph — required, never grep around it/,
     'every project must inherit the rule');
-  assert.match(global, /governs plain conversational work/,
-    'and it must say it applies outside /gsd-t-* commands');
+  assert.match(global, /A PreToolUse hook blocks structural searches/,
+    'and it must say the hook enforces it in every session');
 });
 
 test('M112: the two states get different repairs, and are reported apart', () => {

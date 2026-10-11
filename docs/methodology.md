@@ -1,5 +1,33 @@
 # GSD-T Methodology
 
+## v6 — Guardrails, Not a Pipeline
+
+**v6 (6.0.10, 2026-10-10) removed GSD-T's execution flow.** Claude now plans, builds and tests directly. GSD-T keeps only the guardrails a strong model still needs.
+
+**Why the flow went.** Milestone → partition → plan → execute → verify → wave was built for weaker models: work had to be split into small domains, run by fresh subagents, gated by contracts, checked by a three-agent validation triad, and relayed across sessions by an unattended supervisor because context ran out. With Opus 5 (1M-token context, far stronger coding) each of those layers cost more than it caught. The pipeline added ceremony, tokens and its own failure modes (a gate failing on itself, a workflow that never ran in the real sandbox) while the model could do the work in one pass. About 64% of the package was cut.
+
+**What stayed, and why each one earns its place:**
+
+| Kept | Because a strong model still… |
+|---|---|
+| **Code graph** + search guard | answers "who calls this?" by grep, which matches text, not relationships |
+| **No-fallback guard** | reaches for `catch`-and-continue, which hides real failures |
+| **Architect pass** (`/gsd-t-architect`) | builds the wrong thing correctly when nobody asks "is this the simplest design given what exists?" |
+| **Red team** (`/gsd-t-red-team`, opt-in) | shares its own blind spots when reviewing its own change |
+| **Debug with a two-cycle halt** | keeps patching a symptom instead of re-examining the premise |
+| **Worktrees** (picker + provisioner) | can't run in a folder missing `.env` and dependencies, and two sessions in one folder collide |
+| **Environments registry** | guesses connection strings and re-asks the same question every session |
+| **Date guard, changelog hooks** | writes stale timestamps and edits CLAUDE.md without a trail |
+| **Demo videos, estimates** | needs deterministic pipelines for client deliverables, not re-derived prose |
+
+**What went:** the phase commands and workflows, the validation triad and pre-mortem, competition mode, model profiles, backlog, design-to-code, the logging scaffolder, the stack rules engine, headless and unattended execution, dashboards and the status line, the `/gsd` router, test-plan-first, and the gates that served them. `update` / `update-all` remove their leftover files and hooks.
+
+The rule set itself shrank to one short block in `~/.claude/CLAUDE.md` (`templates/CLAUDE-global.md`).
+
+---
+
+*The sections below describe GSD-T before v6 and are kept as history.*
+
 ## Evolution from GSD to GSD-T
 
 GSD (Get Stuff Done) was a structured methodology for Claude Code that organized work into Milestones → Phases → Waves with living documentation. It worked well for solo sessions but had limitations:

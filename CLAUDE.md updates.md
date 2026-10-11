@@ -17,3 +17,5 @@ M109 `/Claude-md` feature: mined rules from project git history and rewrote CLAU
 **External update detected Aug 9, 2026 11:54am | Claude | GSD-T v5.10.12 | project v5.10.12**
 
 **External update detected Aug 27, 2026 11:50am | Claude | GSD-T v5.14.11 | project v5.15.10**
+
+**Updated Oct 10, 2026 5:44pm | Claude | GSD-T v6.0.10 | project v6.0.10**
