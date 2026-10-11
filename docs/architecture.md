@@ -24,7 +24,7 @@ v6 removed the phase pipeline (milestone → partition → plan → execute → 
 
 ### Commands (`commands/`)
 
-17 shipped files plus `gsd-t-red-team.md` — run `ls commands/` for the current set. Two are thin Workflow invokers (`gsd-t-scan`, `gsd-t-debug`); the rest are prose procedures. `gsd-t-*.md` files are removed from `~/.claude/commands/` on install when the package no longer ships them.
+17 shipped files plus `gsd-t-red-team.md` — run `ls commands/` for the current set. Two are thin Workflow invokers (`gsd-t-scan`, `gsd-t-debug`); the rest are prose procedures. `gsd-t-*.md` files GSD-T once shipped (`RETIRED_V6.commandNames`) are removed from `~/.claude/commands/` on install when the package no longer ships them; any other `gsd-t-*.md` is a user command and is left alone.
 
 ### Hooks (`scripts/`)
 
@@ -105,7 +105,7 @@ Only `gsd-t-scan.workflow.js` and `gsd-t-debug.workflow.js` remain. Command file
 
 ```
 gsd-t install | update
-  ├── commands/*.md → ~/.claude/commands/   (retired gsd-t-*.md removed, each named)
+  ├── commands/*.md → ~/.claude/commands/   (retired GSD-T-shipped gsd-t-*.md removed, each named)
   ├── templates/CLAUDE-global.md → marked block in ~/.claude/CLAUDE.md
   ├── update-check + auto-route scripts → ~/.claude/scripts/ + hooks
   ├── shared templates → ~/.claude/templates/; global bin tools → ~/.claude/bin/

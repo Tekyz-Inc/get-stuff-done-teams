@@ -11,7 +11,7 @@ Requirements for the v6 package. Requirements for the cut pipeline (milestone â†
 | ID | Requirement | Tests |
 |---|---|---|
 | REQ-I1 | `install` / `update` copy shipped commands to `~/.claude/commands/` and merge the GSD-T block into `~/.claude/CLAUDE.md` without touching user content outside the markers | `filesystem`, `cli-quality`, `m50-d1-cli-integration` |
-| REQ-I2 | A `gsd-t-*.md` command the package no longer ships is removed on install and named; user commands are never touched | `m112-retired-commands` |
+| REQ-I2 | A `gsd-t-*.md` command GSD-T once shipped (name on `RETIRED_V6.commandNames`) and no longer ships is removed on install and named; any other `gsd-t-*.md` (a user command) is never touched | `m112-retired-commands` |
 | REQ-I3 | Install registers every guard hook (graph search guard, graph intercept, read intercept, graph use report, fallback guard, date guard, CLAUDE.md changelog check + post-edit, install self-heal, update check, auto-route); a stale command is refreshed in place | `m97-install-hook`, `m106-fallback-gate`, `v6-retired-cleanup` |
 | REQ-I4 | Install, update and update-all remove every `RETIRED_V6` file and hook marker; a file is removed only if it carries a shipped header sentinel; a same-named user file is reported and kept | `v6-retired-cleanup`, `m61-context-meter-hook-retired` |
 | REQ-I5 | `update-all` refreshes every registered project's `bin/` and sweeps retired strays; never downgrades the global install | `update-all-downgrade-halt`, `bin-gsd-t-resilience` |

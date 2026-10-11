@@ -6,9 +6,7 @@
  * Verifies the installer registers a PostToolUse hook with matcher "Grep" that
  * runs gsd-t-graph-intercept.js, and is idempotent.
  *
- * configureGraphInterceptHook is not exported (internal installer fn), so we
- * extract it from the source and run it against a temp settings file — the same
- * technique used to unit-test other internal installer hooks.
+ * Uses the exported configureGraphInterceptHook against a temp settings file.
  */
 
 const test = require('node:test');
@@ -18,15 +16,7 @@ const os = require('node:os');
 const path = require('node:path');
 
 function loadFn() {
-  const src = fs.readFileSync(path.join(__dirname, '..', 'bin', 'gsd-t.js'), 'utf8');
-  const m = src.match(/function configureGraphInterceptHook[\s\S]*?\n}\n/);
-  assert.ok(m, 'configureGraphInterceptHook found in installer');
-  const helpers =
-    'const fs=require("fs"); function warn(){}; function isSymlink(){return false;} ' +
-    'const SETTINGS_JSON=""; const GRAPH_INTERCEPT_HOOK_MARKER="gsd-t-graph-intercept"; ' +
-    'const GRAPH_INTERCEPT_HOOK_COMMAND="node /pkg/scripts/gsd-t-graph-intercept.js";';
-  // eslint-disable-next-line no-eval
-  return eval(`(function(){ ${helpers} ${m[0]} return configureGraphInterceptHook; })()`);
+  return require(path.join(__dirname, '..', 'bin', 'gsd-t.js')).configureGraphInterceptHook;
 }
 
 test('installer adds a Grep-matched PostToolUse hook, then is idempotent', () => {

@@ -392,10 +392,43 @@ const GSDT_HOOK_MARKERS = [
 // history). A user's own same-named file has no such header and is left alone.
 // Nothing here is globbed.
 const RETIRED_V6 = {
-  // ~/.claude/commands — gsd-t-*.md files the package no longer ships are
-  // removed by removeRetiredCommands(); these are the non-prefixed ones.
+  // ~/.claude/commands — non-prefixed commands, matched by shipped header.
   commands: {
     "gsd.md": ["You are the GSD-T smart router"],
+  },
+  // ~/.claude/commands — every gsd-t-*.md GSD-T has EVER shipped (git history
+  // of archive/v5). removeRetiredCommands() deletes one only when its name is
+  // on this list and the package no longer ships it. A user's own gsd-t-*.md
+  // (any other name) is never touched.
+  commandNames: [
+    "gsd-t-architect.md", "gsd-t-audit.md", "gsd-t-backlog-add.md", "gsd-t-backlog-edit.md",
+    "gsd-t-backlog-list.md", "gsd-t-backlog-move.md", "gsd-t-backlog-promote.md",
+    "gsd-t-backlog-remove.md", "gsd-t-backlog-settings.md", "gsd-t-brainstorm.md",
+    "gsd-t-complete-milestone.md", "gsd-t-debug.md", "gsd-t-demo-videos.md",
+    "gsd-t-design-audit.md", "gsd-t-design-build.md", "gsd-t-design-decompose.md",
+    "gsd-t-design-review.md", "gsd-t-discuss.md", "gsd-t-doc-ripple.md",
+    "gsd-t-estimate-rescale.md", "gsd-t-estimate.md", "gsd-t-execute.md", "gsd-t-feature.md",
+    "gsd-t-gap-analysis.md", "gsd-t-health.md", "gsd-t-help.md", "gsd-t-impact.md",
+    "gsd-t-init-scan-setup.md", "gsd-t-init.md", "gsd-t-integrate.md", "gsd-t-log.md",
+    "gsd-t-metrics.md", "gsd-t-migrate-logging.md", "gsd-t-milestone.md",
+    "gsd-t-optimization-apply.md", "gsd-t-optimization-reject.md", "gsd-t-partition.md",
+    "gsd-t-pause.md", "gsd-t-plan.md", "gsd-t-populate.md", "gsd-t-prd.md", "gsd-t-project.md",
+    "gsd-t-promote-debt.md", "gsd-t-prompt.md", "gsd-t-qa.md", "gsd-t-quick.md",
+    "gsd-t-reflect.md", "gsd-t-resume.md", "gsd-t-scan.md", "gsd-t-setup.md", "gsd-t-status.md",
+    "gsd-t-stories.md", "gsd-t-test-plan.md", "gsd-t-test-sync.md", "gsd-t-triage-and-merge.md",
+    "gsd-t-unattended-stop.md", "gsd-t-unattended-watch.md", "gsd-t-unattended.md",
+    "gsd-t-verify.md", "gsd-t-version-update-all.md", "gsd-t-version-update.md",
+    "gsd-t-visualize.md", "gsd-t-wave.md",
+  ],
+  // ~/.claude/templates — the design templates v5's installSharedTemplates()
+  // copied there. Headers verified stable across every version in history.
+  templates: {
+    "design-chart-taxonomy.md": ["# Design Chart & Atom Taxonomy (Closed Set)"],
+    "element-contract.md": ["Atomic visual unit. One contract per visual variant"],
+    "widget-contract.md": ["Composition of elements + data binding + layout. Widgets SELECT and POSITION elements"],
+    "page-contract.md": ["Top-level assembly of widgets + global layout + routing + data loading."],
+    "design-contract.md": ["# Design Contract: {Component/Page Name}"],
+    "shared-services-contract.md": ["**Milestone**: {Milestone Name}"],
   },
   // Project bin/ (stray sweep in copyBinToolsToProject) AND ~/.claude/bin.
   bin: {
@@ -464,8 +497,10 @@ const RETIRED_V6 = {
   claudeDir: {
     "statusline-command.sh": ["Line 1: [GSD-T] | vX.Y.ZZ | ctx N% left | project | git branch | model id | HH:MM TZ"],
   },
-  // settings.json hook commands containing any of these are removed.
+  // settings.json hooks that run one of these GSD-T scripts are removed
+  // (matched by script path — see gsdtScriptPattern — never a bare substring).
   hookMarkers: [
+    "gsd-t-auto-worktree",  // M105 replacement, cut in v6
     "gsd-t-worktree-guard", // M105, retired 2026-08-08 (blocked its own user's edits)
     "gsd-t-context-meter",  // M61 — script deleted; native /context replaced it
     "gsd-t-heartbeat", "gsd-t-in-session-probe", "gsd-t-ctx-cue",
@@ -476,107 +511,14 @@ const RETIRED_V6 = {
 };
 
 function configureGraphInterceptHook(settingsPath) {
-  const targetPath = settingsPath || SETTINGS_JSON;
-  let settings = {};
-  if (fs.existsSync(targetPath)) {
-    try {
-      settings = JSON.parse(fs.readFileSync(targetPath, "utf8"));
-      if (!settings || typeof settings !== "object") settings = {};
-    } catch {
-      warn("settings.json has invalid JSON — cannot configure graph-intercept hook");
-      return { installed: false, action: "noop" };
-    }
-  }
-  if (!settings.hooks) settings.hooks = {};
-  if (!Array.isArray(settings.hooks.PostToolUse)) settings.hooks.PostToolUse = [];
-
-  const cmd = GRAPH_INTERCEPT_HOOK_COMMAND;
-  let action = "noop";
-  let found = false;
-  for (const entry of settings.hooks.PostToolUse) {
-    if (!entry || !Array.isArray(entry.hooks)) continue;
-    for (const h of entry.hooks) {
-      if (!h || typeof h.command !== "string") continue;
-      if (h.command === cmd || h.command.includes(GRAPH_INTERCEPT_HOOK_MARKER)) {
-        found = true;
-        if (h.command !== cmd) { h.command = cmd; action = "updated"; }
-        // ensure the matcher targets Grep
-        if (entry.matcher !== "Grep") { entry.matcher = "Grep"; action = action === "noop" ? "updated" : action; }
-      }
-    }
-  }
-  if (!found) {
-    settings.hooks.PostToolUse.push({
-      matcher: "Grep",
-      hooks: [{ type: "command", command: cmd }],
-    });
-    action = "added";
-  }
-  if (action === "noop") return { installed: true, action: "noop" };
-  if (isSymlink(targetPath)) {
-    warn("Skipping settings.json write — target is a symlink");
-    return { installed: false, action: "noop" };
-  }
-  try {
-    fs.writeFileSync(targetPath, JSON.stringify(settings, null, 2));
-  } catch (e) {
-    warn(`Failed to write settings.json: ${e.message}`);
-    return { installed: false, action: "noop" };
-  }
-  return { installed: true, action };
+  return configureToolHook(settingsPath, "PostToolUse", GRAPH_INTERCEPT_HOOK_MARKER, GRAPH_INTERCEPT_HOOK_COMMAND, "graph-intercept", "Grep");
 }
 
 // M98 — register the read-intercept PostToolUse hook (matcher "Read").
 // Idempotent: find-by-marker, refresh stale command, else add. Mirrors the
 // M97 grep-intercept installer. The script fails-open so this is safe globally.
 function configureReadInterceptHook(settingsPath) {
-  const targetPath = settingsPath || SETTINGS_JSON;
-  let settings = {};
-  if (fs.existsSync(targetPath)) {
-    try {
-      settings = JSON.parse(fs.readFileSync(targetPath, "utf8"));
-      if (!settings || typeof settings !== "object") settings = {};
-    } catch {
-      warn("settings.json has invalid JSON — cannot configure read-intercept hook");
-      return { installed: false, action: "noop" };
-    }
-  }
-  if (!settings.hooks) settings.hooks = {};
-  if (!Array.isArray(settings.hooks.PostToolUse)) settings.hooks.PostToolUse = [];
-
-  const cmd = READ_INTERCEPT_HOOK_COMMAND;
-  let action = "noop";
-  let found = false;
-  for (const entry of settings.hooks.PostToolUse) {
-    if (!entry || !Array.isArray(entry.hooks)) continue;
-    for (const h of entry.hooks) {
-      if (!h || typeof h.command !== "string") continue;
-      if (h.command === cmd || h.command.includes(READ_INTERCEPT_HOOK_MARKER)) {
-        found = true;
-        if (h.command !== cmd) { h.command = cmd; action = "updated"; }
-        if (entry.matcher !== "Read") { entry.matcher = "Read"; action = action === "noop" ? "updated" : action; }
-      }
-    }
-  }
-  if (!found) {
-    settings.hooks.PostToolUse.push({
-      matcher: "Read",
-      hooks: [{ type: "command", command: cmd }],
-    });
-    action = "added";
-  }
-  if (action === "noop") return { installed: true, action: "noop" };
-  if (isSymlink(targetPath)) {
-    warn("Skipping settings.json write — target is a symlink");
-    return { installed: false, action: "noop" };
-  }
-  try {
-    fs.writeFileSync(targetPath, JSON.stringify(settings, null, 2));
-  } catch (e) {
-    warn(`Failed to write settings.json: ${e.message}`);
-    return { installed: false, action: "noop" };
-  }
-  return { installed: true, action };
+  return configureToolHook(settingsPath, "PostToolUse", READ_INTERCEPT_HOOK_MARKER, READ_INTERCEPT_HOOK_COMMAND, "read-intercept", "Read");
 }
 
 // M106 — register the fallback guard on Write|Edit. Same registrar again.
@@ -629,48 +571,7 @@ function configureStopHook(settingsPath, marker, command, label) {
 // Register a hook on any event by marker. One registrar for every event, so a
 // new hook needs no new copy of this logic.
 function configureEventHook(settingsPath, event, marker, command, label) {
-  const targetPath = settingsPath || SETTINGS_JSON;
-  let settings = {};
-  if (fs.existsSync(targetPath)) {
-    try {
-      settings = JSON.parse(fs.readFileSync(targetPath, "utf8"));
-      if (!settings || typeof settings !== "object") settings = {};
-    } catch {
-      warn(`settings.json has invalid JSON — cannot configure ${label} hook`);
-      return { installed: false, action: "noop" };
-    }
-  }
-  if (!settings.hooks) settings.hooks = {};
-  if (!Array.isArray(settings.hooks[event])) settings.hooks[event] = [];
-
-  let action = "noop";
-  let found = false;
-  for (const entry of settings.hooks[event]) {
-    if (!entry || !Array.isArray(entry.hooks)) continue;
-    for (const h of entry.hooks) {
-      if (h && typeof h.command === "string" && h.command.includes(marker)) {
-        found = true;
-        if (h.command !== command) { h.command = command; action = "refreshed"; }
-      }
-    }
-  }
-  if (!found) {
-    // The install check goes FIRST on SessionStart, so a broken install is
-    // repaired before anything else tries to use the missing tools.
-    const entry = { matcher: "", hooks: [{ type: "command", command }] };
-    if (event === "SessionStart") settings.hooks[event].unshift(entry);
-    else settings.hooks[event].push(entry);
-    action = "added";
-  }
-  if (action === "noop") return { installed: true, action };
-
-  try {
-    fs.writeFileSync(targetPath, JSON.stringify(settings, null, 2));
-  } catch (e) {
-    warn(`Failed to write settings.json: ${e.message}`);
-    return { installed: false, action: "noop" };
-  }
-  return { installed: true, action };
+  return upsertGsdtHook(settingsPath, event, marker, command, label, undefined);
 }
 
 function configureWriteEditHook(settingsPath, marker, command, label) {
@@ -686,6 +587,28 @@ function configurePreToolUseHook(settingsPath, marker, command, label, matcher) 
 
 // The matcher-carrying registrar, for any tool event (PreToolUse / PostToolUse).
 function configureToolHook(settingsPath, event, marker, command, label, matcher) {
+  return upsertGsdtHook(settingsPath, event, marker, command, label, matcher);
+}
+
+// A hook command runs GSD-T's script `marker` when it names it by path —
+// scripts/<marker>.js (or scripts/hooks/…, .cjs, .sh), from ~/.claude or the
+// npm-root wrapper. A user command that merely mentions the name is not ours.
+function gsdtScriptPattern(marker) {
+  const m = marker.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`scripts[/\\\\](?:hooks[/\\\\])?${m}\\.(?:c?js|mjs|sh)(?![\\w.-])`);
+}
+function isGsdtHook(h, marker, command) {
+  return !!h && typeof h.command === "string" &&
+    (h.command === command || gsdtScriptPattern(marker).test(h.command));
+}
+
+// The one registrar behind every GSD-T hook. After it runs, exactly one hook
+// for `marker` exists on `event`: extra GSD-T copies are removed (user hooks
+// are never touched), a stale command is refreshed, and a matcher is changed
+// only on a group that holds nothing but this hook — in a shared group the
+// GSD-T hook moves to its own group so the user's hooks keep their matcher.
+// `matcher` undefined = event hook (matcher left alone; new group gets "").
+function upsertGsdtHook(settingsPath, event, marker, command, label, matcher) {
   const targetPath = settingsPath || SETTINGS_JSON;
   let settings = {};
   if (fs.existsSync(targetPath)) {
@@ -699,29 +622,45 @@ function configureToolHook(settingsPath, event, marker, command, label, matcher)
   }
   if (!settings.hooks) settings.hooks = {};
   if (!Array.isArray(settings.hooks[event])) settings.hooks[event] = [];
+  const groups = settings.hooks[event];
 
-  const cmd = command;
   let action = "noop";
-  let found = false;
-  for (const entry of settings.hooks[event]) {
+  let keeper = null;
+  const emptied = new Set();
+  for (const entry of groups) {
     if (!entry || !Array.isArray(entry.hooks)) continue;
-    for (const h of entry.hooks) {
-      if (!h || typeof h.command !== "string") continue;
-      if (h.command === cmd || h.command.includes(marker)) {
-        found = true;
-        if (h.command !== cmd) { h.command = cmd; action = "updated"; }
-        if (entry.matcher !== matcher) { entry.matcher = matcher; action = action === "noop" ? "updated" : action; }
-      }
+    const before = entry.hooks.length;
+    entry.hooks = entry.hooks.filter((h) => {
+      if (!isGsdtHook(h, marker, command)) return true;
+      if (!keeper) { keeper = { entry, h }; return true; }
+      return false; // a second registration of the same GSD-T hook
+    });
+    if (entry.hooks.length !== before) {
+      action = "updated";
+      if (entry.hooks.length === 0) emptied.add(entry);
     }
   }
-  if (!found) {
-    settings.hooks[event].push({
-      matcher,
-      hooks: [{ type: "command", command: cmd }],
-    });
+  if (keeper) {
+    if (keeper.h.command !== command) { keeper.h.command = command; action = "updated"; }
+    if (matcher !== undefined && keeper.entry.matcher !== matcher) {
+      if (keeper.entry.hooks.length === 1) {
+        keeper.entry.matcher = matcher;
+      } else {
+        keeper.entry.hooks = keeper.entry.hooks.filter((h) => h !== keeper.h);
+        groups.push({ matcher, hooks: [keeper.h] });
+      }
+      action = "updated";
+    }
+  } else {
+    const entry = { matcher: matcher === undefined ? "" : matcher, hooks: [{ type: "command", command }] };
+    // The install check goes FIRST on SessionStart, so a broken install is
+    // repaired before anything else tries to use the missing tools.
+    if (event === "SessionStart") groups.unshift(entry);
+    else groups.push(entry);
     action = "added";
   }
   if (action === "noop") return { installed: true, action: "noop" };
+  settings.hooks[event] = groups.filter((g) => !emptied.has(g));
   if (isSymlink(targetPath)) {
     warn("Skipping settings.json write — target is a symlink");
     return { installed: false, action: "noop" };
@@ -814,8 +753,9 @@ function removeHooksByMarkers(targetPath, markers) {
   if (!settings.hooks) return { removed: 0 };
 
   let removed = 0;
+  const patterns = markers.map(gsdtScriptPattern);
   const matches = (h) =>
-    typeof h.command === "string" && markers.some((m) => h.command.includes(m));
+    !!h && typeof h.command === "string" && patterns.some((p) => p.test(h.command));
 
   for (const event of Object.keys(settings.hooks)) {
     const groups = settings.hooks[event];
@@ -843,13 +783,10 @@ function removeHooksByMarkers(targetPath, markers) {
 // shipped. Returns "removed" | "absent" | "kept". Throws when the path escapes
 // `root` or the file cannot be read/deleted — a leftover that runs is the bug.
 function removeShippedFile(root, rel, sentinels) {
-  const rootAbs = path.resolve(root);
-  const abs = path.resolve(rootAbs, rel);
-  if (!abs.startsWith(rootAbs + path.sep) || abs === rootAbs) {
-    throw new Error(`Refusing to remove ${abs} — outside ${rootAbs}`);
-  }
-  if (!fs.existsSync(abs)) return "absent";
-  const st = fs.lstatSync(abs);
+  const abs = lexicallyInside(root, rel);
+  const st = fs.lstatSync(abs, { throwIfNoEntry: false });
+  if (!st) return "absent";
+  assertRealPathInside(root, abs);
   if (st.isSymbolicLink() || !st.isFile()) return "kept";
   const head = fs.readFileSync(abs, "utf8").slice(0, 1200);
   if (!sentinels.some((s) => head.includes(s))) return "kept";
@@ -857,16 +794,35 @@ function removeShippedFile(root, rel, sentinels) {
   return "removed";
 }
 
-// Remove a directory GSD-T created, only once it is empty.
-function removeEmptyDir(root, rel) {
+// `root`/`rel` resolved lexically; throws when `rel` climbs out of `root`.
+function lexicallyInside(root, rel) {
   const rootAbs = path.resolve(root);
   const abs = path.resolve(rootAbs, rel);
   if (!abs.startsWith(rootAbs + path.sep) || abs === rootAbs) {
     throw new Error(`Refusing to remove ${abs} — outside ${rootAbs}`);
   }
-  if (fs.existsSync(abs) && fs.lstatSync(abs).isDirectory() && fs.readdirSync(abs).length === 0) {
-    fs.rmdirSync(abs);
+  return abs;
+}
+
+// Real-path containment. The lexical check alone lets a symlinked directory
+// on the way (bin/cli-preflight-checks -> /elsewhere) carry a deletion out of
+// `root`. Resolves the root and the target's parent; throws (halts) when the
+// real target is outside the real root or equal to it.
+function assertRealPathInside(root, abs) {
+  const realRoot = fs.realpathSync(root);
+  const real = path.join(fs.realpathSync(path.dirname(abs)), path.basename(abs));
+  if (!real.startsWith(realRoot + path.sep) || real === realRoot) {
+    throw new Error(`Refusing to remove ${abs} — it resolves to ${real}, outside ${realRoot}`);
   }
+}
+
+// Remove a directory GSD-T created, only once it is empty.
+function removeEmptyDir(root, rel) {
+  const abs = lexicallyInside(root, rel);
+  const st = fs.lstatSync(abs, { throwIfNoEntry: false });
+  if (!st || st.isSymbolicLink() || !st.isDirectory()) return;
+  assertRealPathInside(root, abs);
+  if (fs.readdirSync(abs).length === 0) fs.rmdirSync(abs);
 }
 
 // v6 — remove what earlier versions installed into ~/.claude and v6 no longer
@@ -879,6 +835,7 @@ function removeRetiredV6Files() {
     [GLOBAL_BIN_DIR, RETIRED_V6.bin, "bin/"],
     [SCRIPTS_DIR, RETIRED_V6.scripts, "scripts/"],
     [CLAUDE_DIR, RETIRED_V6.claudeDir, ""],
+    [CLAUDE_TEMPLATES_DIR, RETIRED_V6.templates, "templates/"],
   ];
   const removed = [];
   const kept = [];
@@ -1224,8 +1181,8 @@ function installCommands(isUpdate) {
  * trio and visualize in M61. A command that still answers is one a person will
  * reasonably use, and it then fails in confusing ways.
  *
- * Only `gsd-t-*.md` files are considered, so a command the user wrote is never
- * touched. Every removal is NAMED, and anything that cannot be read or deleted
+ * Only names GSD-T actually shipped (RETIRED_V6.commandNames) are considered,
+ * so a command the user wrote — even one named gsd-t-*.md — is never touched. Every removal is NAMED, and anything that cannot be read or deleted
  * STOPS the install: a leftover command is exactly the failure being fixed, so
  * reporting a clean install while one remains would restate the bug.
  */
@@ -1236,16 +1193,24 @@ function removeRetiredCommands(shipped) {
   const present = fs.readdirSync(COMMANDS_DIR);
 
   const retired = present.filter(
-    (f) => f.startsWith("gsd-t-") && f.endsWith(".md") && !shippedSet.has(f)
+    (f) => RETIRED_V6.commandNames.includes(f) && !shippedSet.has(f)
   );
-  if (retired.length === 0) return;
-
+  const removed = [];
   for (const file of retired) {
-    fs.unlinkSync(path.join(COMMANDS_DIR, file));
+    const abs = path.join(COMMANDS_DIR, file);
+    const st = fs.lstatSync(abs);
+    if (st.isSymbolicLink() || !st.isFile()) {
+      info(`Left ~/.claude/commands/${file} in place — it is a link or not a file`);
+      continue;
+    }
+    assertRealPathInside(COMMANDS_DIR, abs);
+    fs.unlinkSync(abs);
+    removed.push(file);
   }
+  if (removed.length === 0) return;
 
-  info(`Removed ${retired.length} retired command(s) no longer shipped:`);
-  for (const f of retired) info(`    ${f.replace(/\.md$/, "")}`);
+  info(`Removed ${removed.length} retired command(s) no longer shipped:`);
+  for (const f of removed) info(`    ${f.replace(/\.md$/, "")}`);
 }
 
 const GSDT_START = "<!-- GSD-T:START";
@@ -1269,7 +1234,7 @@ function installGlobalClaudeMd(isUpdate) {
   const template = fs.readFileSync(globalSrc, "utf8");
 
   if (existing.includes(GSDT_START)) {
-    mergeGsdtSection(existing, template, isUpdate);
+    mergeGsdtSection(existing, template);
   } else if (existing.includes("GSD-T: Contract-Driven Development")) {
     migrateToMarkers(existing, template);
   } else {
@@ -1277,11 +1242,12 @@ function installGlobalClaudeMd(isUpdate) {
   }
 }
 
-function mergeGsdtSection(existing, template, isUpdate) {
-  if (!isUpdate) {
-    info("CLAUDE.md already contains GSD-T config");
-    return;
-  }
+// Replace the marked GSD-T section with the template — on install AND update.
+// Install used to keep an old section ("already contains GSD-T config") while
+// recording the new version, so update then believed it was current and the
+// stale section stayed forever. Content outside the markers is preserved, and
+// the old file is backed up before any write.
+function mergeGsdtSection(existing, template) {
   const startIdx = existing.indexOf(GSDT_START);
   const endMarkerIdx = existing.indexOf(GSDT_END);
   if (startIdx === -1 || endMarkerIdx === -1) {
@@ -1331,6 +1297,10 @@ async function doInstall(opts = {}) {
   heading(`${isUpdate ? "Updating" : "Installing"} GSD-T ${versionLink()}`);
   log("");
 
+  // Parse settings.json BEFORE anything is deleted: a malformed file would
+  // otherwise halt the install half-way, after retired commands were removed.
+  assertSettingsParse();
+
   if (ensureDir(COMMANDS_DIR)) success("Created ~/.claude/commands/");
 
   const { gsdtCommands, utilityCommands } = installCommands(isUpdate);
@@ -1374,6 +1344,15 @@ async function doInstall(opts = {}) {
   showInstallSummary(gsdtCommands.length, utilityCommands.length);
 }
 
+function assertSettingsParse() {
+  if (!fs.existsSync(SETTINGS_JSON)) return;
+  try {
+    JSON.parse(fs.readFileSync(SETTINGS_JSON, "utf8"));
+  } catch (e) {
+    throw new Error(`${SETTINGS_JSON} is not valid JSON (${e.message}). Fix it and re-run — nothing was changed.`);
+  }
+}
+
 function reportHook(result, label) {
   if (!result.installed) throw new Error(`Could not register: ${label}`);
   if (result.action === "added") success(`${label} — added`);
@@ -1407,6 +1386,9 @@ async function doUpdate() {
   if (installedVersion === PKG_VERSION) {
     heading(`GSD-T ${versionLink()}`);
     info("Already up to date!");
+    // Same version, but the CLAUDE.md section is compared by CONTENT: a
+    // section left stale by an earlier install is refreshed here.
+    installGlobalClaudeMd(true);
     log("");
     log("  To force a reinstall, run:");
     log(`  ${DIM}$${RESET} npx @tekyzinc/gsd-t install`);
@@ -2015,12 +1997,14 @@ async function doUpdateAll() {
   if (projects.length === 0) { showNoProjectsHint(); return; }
 
   const counts = { updated: 0, skipped: 0, missing: 0, errors: 0 };
+  const failed = [];
   for (const projectDir of projects) {
     try {
       updateSingleProject(projectDir, counts);
     } catch (e) {
-      warn(`${path.basename(projectDir)} — error: ${e.message || e}`);
+      error(`${path.basename(projectDir)} (${projectDir}) — HALTED: ${e.message || e}`);
       counts.errors++;
+      failed.push(projectDir);
     }
   }
 
@@ -2038,6 +2022,12 @@ async function doUpdateAll() {
     playwrightAutoInstalled,
     graphMissing,
   );
+  // Every project is attempted, then the run fails if any project halted.
+  if (failed.length) {
+    error(`update-all FAILED for ${failed.length} project(s):`);
+    for (const p of failed) error(`    ${p}`);
+    process.exitCode = 1;
+  }
 }
 
 // Numeric dotted-version compare: negative when a < b, 0 when equal, positive when a > b.
@@ -2132,6 +2122,8 @@ async function updateGlobalCommands() {
   } else {
     heading(`GSD-T ${versionLink()}`);
     success("Global commands already up to date");
+    installGlobalClaudeMd(true); // compared by content, not version
+    assertSettingsParse();
     // Same version, but files a v6 update retired may still be on this machine.
     const retired = removeRetiredHooks(SETTINGS_JSON);
     if (retired.removed > 0) success(`Removed ${retired.removed} retired hook(s) from settings.json`);
@@ -2367,24 +2359,34 @@ function copyBinToolsToProject(projectDir, projectName) {
   }
   let cleaned = 0;
   if (!_isGsdTSourcePackage(projectDir)) {
+    // No try/catch: a stray that cannot be read or deleted HALTS this project
+    // (update-all reports it and exits non-zero). A leftover retired tool that
+    // still runs is the bug, so it must never pass silently.
     for (const stray of DEPRECATED_BIN_STRAYS) {
-      const strayPath = path.join(projectBinDir, stray);
-      if (!fs.existsSync(strayPath)) continue;
-      try {
-        const strayContent = fs.readFileSync(strayPath, "utf8");
-        const matched = _matchedStraySignature(stray, strayContent);
-        if (matched) {
-          fs.unlinkSync(strayPath);
-          cleaned++;
-          // Red-team fix (HIGH-2): name every deleted file so a destructive sweep
-          // across many projects is reconstructable from scrollback, not a bare count.
-          info(`${projectName} — removed retired bin/${stray} (matched shipped header "${matched.slice(0, 40)}")`);
-        }
-        // No signature match → leave it alone (user's own same-named file).
-      } catch {
-        // leave the file alone on any read error
+      const strayPath = lexicallyInside(projectBinDir, stray);
+      const st = fs.lstatSync(strayPath, { throwIfNoEntry: false });
+      if (!st) continue;
+      assertRealPathInside(projectBinDir, strayPath);
+      if (st.isSymbolicLink() || !st.isFile()) {
+        info(`${projectName} — left bin/${stray} in place (a link or not a file)`);
+        continue;
       }
+      let matched;
+      try {
+        matched = _matchedStraySignature(stray, fs.readFileSync(strayPath, "utf8"));
+        if (matched) fs.unlinkSync(strayPath);
+      } catch (e) {
+        throw new Error(`could not remove retired ${strayPath}: ${e.message}`);
+      }
+      if (matched) {
+        cleaned++;
+        // Red-team fix (HIGH-2): name every deleted file so a destructive sweep
+        // across many projects is reconstructable from scrollback, not a bare count.
+        info(`${projectName} — removed retired bin/${stray} (matched shipped header "${matched.slice(0, 40)}")`);
+      }
+      // No signature match → leave it alone (user's own same-named file).
     }
+    removeEmptyDir(projectBinDir, "cli-preflight-checks");
   }
   if (cleaned > 0) {
     info(`${projectName} — cleaned up ${cleaned} stray bin file(s)`);
