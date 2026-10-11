@@ -22,7 +22,14 @@ const { execFileSync, spawn: cpSpawn } = require("child_process");
 
 // ─── Configuration ───────────────────────────────────────────────────────────
 
-const CLAUDE_DIR = path.join(os.homedir(), ".claude");
+// ~/.claude may itself be a link (the user keeps it elsewhere). It is resolved
+// ONCE to its real folder, and that folder is the root every symlink check is
+// measured from: links BELOW it halt, the root's own location never does.
+const CLAUDE_DIR = resolveClaudeRoot(path.join(os.homedir(), ".claude"));
+function resolveClaudeRoot(p) {
+  if (!fs.lstatSync(p, { throwIfNoEntry: false })) return p; // fresh machine: created on install
+  return fs.realpathSync(p); // throws on a dangling link — nothing can be installed through it
+}
 const COMMANDS_DIR = path.join(CLAUDE_DIR, "commands");
 const SCRIPTS_DIR = path.join(CLAUDE_DIR, "scripts");
 const GLOBAL_BIN_DIR = path.join(CLAUDE_DIR, "bin");
@@ -100,20 +107,17 @@ function versionLink(ver) {
   return link(`v${ver || PKG_VERSION}`, CHANGELOG_URL);
 }
 
-function ensureDir(dir) {
-  if (hasSymlinkInPath(dir)) {
-    warn(`Refusing to use path with symlinked component: ${dir}`);
-    return false;
+// Create `dir` if missing. Throws (never warns and continues) when a link sits
+// on the path between `root` and `dir` — a write through it lands somewhere else.
+// Without `root` every ancestor is checked.
+function ensureDir(dir, root) {
+  if (root) haltOnSymlinks(root, [path.relative(root, dir)]);
+  else if (hasSymlinkInPath(dir) || isSymlink(dir)) {
+    throw new Error(`Refusing to use path with symlinked component: ${dir} — replace the link with a real directory and re-run.`);
   }
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-    return true;
-  }
-  if (isSymlink(dir)) {
-    warn(`Refusing to use symlinked directory: ${dir}`);
-    return false;
-  }
-  return false;
+  if (fs.existsSync(dir)) return false;
+  fs.mkdirSync(dir, { recursive: true });
+  return true;
 }
 
 function isSymlink(filePath) {
@@ -211,28 +215,58 @@ function localDate() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-// Move root/rel to root/backupRel/rel when its first 1,200 characters carry a
-// header GSD-T shipped. Returns "moved" | "absent" | "kept". An existing backup
-// (file or link) is never overwritten: name.1.ext, name.2.ext, … Throws on any
-// failure.
+// Does this file carry a header GSD-T shipped? The command header ("# GSD-T: ")
+// must be the file's FIRST line; every other sentinel is a verbatim comment
+// line that may sit anywhere in the first 1,200 characters.
+function carriesShippedHeader(abs, sentinels) {
+  const text = fs.readFileSync(abs, "utf8").replace(/^\uFEFF/, "");
+  const head = text.slice(0, 1200);
+  return sentinels.some((s) => (s === COMMAND_HEADER ? text.startsWith(s) : head.includes(s)));
+}
+
+// Will retireShippedFile move root/rel? (Same test, no change made.)
+function willRetire(root, rel, sentinels) {
+  const abs = path.join(root, rel);
+  const st = fs.lstatSync(abs, { throwIfNoEntry: false });
+  return !!st && st.isFile() && carriesShippedHeader(abs, sentinels);
+}
+
+// Move root/rel to root/backupRel/rel when it carries a header GSD-T shipped
+// (carriesShippedHeader). Returns "moved" | "absent" | "kept". An existing
+// backup (file or link) is never overwritten: name.1.ext, name.2.ext, …
+// Throws on any failure, after removing any backup folder it just created.
 function retireShippedFile(root, rel, sentinels, backupRel) {
   const abs = path.join(root, rel);
   const st = fs.lstatSync(abs, { throwIfNoEntry: false });
   if (!st) return "absent";
   if (!st.isFile()) return "kept";
+  let created;
+  let dest = path.join(root, backupRel, rel);
   try {
-    const head = fs.readFileSync(abs, "utf8").slice(0, 1200);
-    if (!sentinels.some((s) => head.includes(s))) return "kept";
-    let dest = path.join(root, backupRel, rel);
+    if (!carriesShippedHeader(abs, sentinels)) return "kept";
     const ext = path.extname(dest);
     const stem = dest.slice(0, dest.length - ext.length);
     for (let n = 1; fs.lstatSync(dest, { throwIfNoEntry: false }); n++) dest = `${stem}.${n}${ext}`;
-    fs.mkdirSync(path.dirname(dest), { recursive: true });
+    created = fs.mkdirSync(path.dirname(dest), { recursive: true });
     fs.renameSync(abs, dest);
   } catch (e) {
-    throw new Error(`could not move retired ${abs} to the backup folder: ${e.message}`);
+    if (created) removeCreatedDirs(path.dirname(dest), created);
+    const hint = e.code === "EXDEV"
+      ? `\n  Fix: ${abs} is on a different disk than the backup folder ${path.join(root, backupRel)}, so it cannot be moved there. ` +
+        `Move it out of ${root} yourself (mv "${abs}" <a folder you keep>), then re-run. Files already moved this run are in the backup folder.`
+      : "";
+    throw new Error(`could not move retired ${abs} to the backup folder: ${e.message}${hint}`);
   }
   return "moved";
+}
+
+// Remove the empty folders mkdirSync({recursive}) just made: from `dir` up to
+// and including `created` (the first folder it created).
+function removeCreatedDirs(dir, created) {
+  for (let d = dir; d.length >= created.length; d = path.dirname(d)) {
+    removeEmptyDir(d);
+    if (d === created) break;
+  }
 }
 
 // Remove a directory GSD-T created once a move has emptied it.
@@ -560,7 +594,7 @@ const RETIRED_V6 = {
     "statusline-command.sh": ["Line 1: [GSD-T] | vX.Y.ZZ | ctx N% left | project | git branch | model id | HH:MM TZ"],
   },
   // settings.json hooks that run one of these GSD-T scripts are removed
-  // (matched by the package-installed script path — see gsdtScriptPattern —
+  // (matched by the script's normalized location — see gsdtScriptRefs —
   // never a bare substring). Every marker has git history under scripts/; a
   // name GSD-T never shipped (e.g. gsd-t-board-notify) is not ours to remove.
   hookMarkers: [
@@ -656,22 +690,78 @@ function configureToolHook(settingsPath, event, marker, command, label, matcher)
   return upsertGsdtHook(settingsPath, event, marker, command, label, matcher);
 }
 
-// A hook command runs GSD-T's script `marker` only when it names it by one of
-// the paths the PACKAGE installs it at: ~/.claude/scripts/<marker>.js (written
-// as ~, $HOME, ${HOME} or the absolute home path), or the installed package
-// (…/@tekyzinc/gsd-t/scripts/<marker>.js, e.g. the `$(npm root -g)` wrapper).
-// A user hook that runs a same-named script from its own repo is not ours.
-function gsdtScriptPattern(marker) {
+// ─── Which GSD-T scripts does a command run? ───────────────────────────────
+// settings.json names a GSD-T script in many spellings: quoted or not, through
+// ~, $HOME, ${HOME}, "$HOME"/…, the absolute home path, ~/.claude's real path
+// (when it is a link), or the `$(npm root -g)/@tekyzinc/gsd-t/scripts/`
+// wrapper. normalizeHookCommand rewrites every spelling to ONE form —
+// <HOME>/.claude/… or <PKG>/… — and gsdtScriptRefs reads the GSD-T script paths
+// out of that. A user hook running a same-named script from its own folder
+// normalizes to neither form, so it is never taken for ours.
+function normalizeHookCommand(cmd) {
   const esc = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const homes = ["~", "$HOME", "${HOME}", os.homedir()].map(esc).join("|");
-  const sep = "[/\\\\]";
-  return new RegExp(
-    `(?:(?:${homes})${sep}\\.claude|@tekyzinc${sep}gsd-t)${sep}scripts${sep}(?:hooks${sep})?${esc(marker)}\\.(?:c?js|mjs|sh)(?![\\w.-])`
-  );
+  const slash = (x) => x.replace(/\\/g, "/");
+  const lead = "(?<![\\w.~/$-])"; // a path starts here, not mid-word
+  let s = slash(String(cmd)).replace(/["']/g, "").replace(/\/{2,}/g, "/");
+  s = s.replace(/\$\(\s*npm\s+root\s+-g\s*\)\/@tekyzinc\/gsd-t\/scripts\//g, "<PKG>/");
+  s = s.replace(/[^\s;&|()<>=]*\/@tekyzinc\/gsd-t\/scripts\//g, "<PKG>/");
+  s = s.replace(new RegExp(lead + esc(slash(CLAUDE_DIR)) + "/", "g"), "<HOME>/.claude/");
+  const homes = new Set([slash(os.homedir())]);
+  try { homes.add(slash(fs.realpathSync(os.homedir()))); } catch { /* home not on disk: the literal spelling still matches */ }
+  for (const h of homes) s = s.replace(new RegExp(lead + esc(h) + "/", "g"), "<HOME>/");
+  return s.replace(new RegExp(lead + "(?:\\$\\{HOME\\}|\\$HOME|~)/", "g"), "<HOME>/");
 }
+
+const GSDT_REF_RE =
+  /<HOME>\/\.claude\/(scripts\/(?:hooks\/)?gsd-t-[\w.-]+?\.(?:c?js|mjs|sh)|statusline-command\.sh)(?![\w.-])|<PKG>\/((?:hooks\/)?[\w.-]+?\.(?:c?js|mjs|sh))(?![\w.-])/g;
+
+// Every GSD-T script `cmd` runs: { abs, name } — abs under ~/.claude (real
+// root) or under the package's scripts/; name is the file name minus extension.
+function gsdtScriptRefs(cmd) {
+  if (typeof cmd !== "string") return [];
+  const refs = [];
+  for (const m of normalizeHookCommand(cmd).matchAll(GSDT_REF_RE)) {
+    const abs = m[1] ? path.join(CLAUDE_DIR, m[1]) : path.join(PKG_SCRIPTS, m[2]);
+    refs.push({ abs, name: path.basename(abs).replace(/\.[^.]+$/, "") });
+  }
+  return refs;
+}
+
+// Does hook `h` run GSD-T's script `marker` (or is it exactly `command`)?
 function isGsdtHook(h, marker, command) {
   return !!h && typeof h.command === "string" &&
-    (h.command === command || gsdtScriptPattern(marker).test(h.command));
+    (h.command === command || gsdtScriptRefs(h.command).some((r) => r.name === marker));
+}
+
+// A script GSD-T ships or once shipped: anything in the package's scripts/, a
+// hook GSD-T registers or retired, or a retired ~/.claude file. A user's own
+// gsd-t-named script (e.g. gsd-t-board-notify) is not ours to vouch for.
+function isGsdtOwnedRef(r) {
+  if (r.abs.startsWith(PKG_SCRIPTS + path.sep)) return true;
+  if (GSDT_HOOK_MARKERS.includes(r.name) || RETIRED_V6.hookMarkers.includes(r.name)) return true;
+  return Object.keys(globalRetiredEntries()).some((rel) => path.join(CLAUDE_DIR, rel) === r.abs);
+}
+
+// Every GSD-T-owned script path named in settings.json (hooks + statusLine) that does
+// not exist — or that `willMove` says is about to be moved. `skipHook(h)` names
+// hooks the caller is about to remove or rewrite. Returns readable lines.
+function danglingGsdtRefs(settings, willMove = new Set(), skipHook = () => false, skipStatus = false) {
+  const out = [];
+  const check = (where, cmd) => {
+    for (const r of gsdtScriptRefs(cmd).filter(isGsdtOwnedRef)) {
+      if (willMove.has(r.abs) || !fs.existsSync(r.abs)) out.push(`${where}: ${cmd}\n      → ${r.abs} ${willMove.has(r.abs) ? "is about to be retired" : "does not exist"}`);
+    }
+  };
+  for (const [ev, groups] of Object.entries(settings.hooks || {})) {
+    for (const g of groups) {
+      for (const h of (g && Array.isArray(g.hooks) ? g.hooks : [])) {
+        if (h && typeof h.command === "string" && !skipHook(h)) check(`${ev} hook`, h.command);
+      }
+    }
+  }
+  const sl = settings.statusLine;
+  if (!skipStatus && sl && typeof sl.command === "string") check("statusLine", sl.command);
+  return out;
 }
 
 // settings.json as a plain object ({} when absent). Throws — naming the fix —
@@ -790,16 +880,15 @@ function removeRetiredHooks(settingsPath) {
   return removeHooksByMarkers(settingsPath || SETTINGS_JSON, RETIRED_V6.hookMarkers);
 }
 
-// Remove every hook that runs one of GSD-T's `markers` scripts (gsdtScriptPattern),
+// Remove every hook that runs one of GSD-T's `markers` scripts (gsdtScriptRefs),
 // on any event, and drop groups left empty. Throws on any failure.
 function removeHooksByMarkers(targetPath, markers) {
   const settings = readSettingsObject(targetPath);
   if (!settings.hooks) return { removed: 0 };
 
   let removed = 0;
-  const patterns = markers.map(gsdtScriptPattern);
   const matches = (h) =>
-    !!h && typeof h.command === "string" && patterns.some((p) => p.test(h.command));
+    !!h && typeof h.command === "string" && gsdtScriptRefs(h.command).some((r) => markers.includes(r.name));
 
   for (const event of Object.keys(settings.hooks)) {
     const rewritten = [];
@@ -868,14 +957,15 @@ function retireV6Files() {
   removeEmptyDir(path.join(GLOBAL_BIN_DIR, "cli-preflight-checks"));
   removeEmptyDir(path.join(SCRIPTS_DIR, "hooks"));
 
-  // The status bar pointed at the script moved above. Clear the setting only
-  // when it names that GSD-T script and the script is gone.
-  const statusScript = path.join(CLAUDE_DIR, "statusline-command.sh");
+  // The status bar ran a GSD-T script retired above. Clear the setting when it
+  // names any retired path (any spelling — normalizeHookCommand) that is now
+  // gone; a user's own same-named script was kept, so its setting stays.
+  const retiredAbs = new Set(Object.keys(entries).map((r) => path.join(CLAUDE_DIR, r)));
   let statusCleared = false;
-  if (fs.existsSync(SETTINGS_JSON) && !fs.existsSync(statusScript)) {
+  if (fs.existsSync(SETTINGS_JSON)) {
     const settings = readSettingsObject(SETTINGS_JSON);
     const sl = settings.statusLine;
-    if (sl && typeof sl.command === "string" && sl.command.includes(statusScript)) {
+    if (sl && gsdtScriptRefs(sl.command).some((r) => retiredAbs.has(r.abs) && !fs.existsSync(r.abs))) {
       delete settings.statusLine;
       writeSettingsObject(SETTINGS_JSON, settings);
       statusCleared = true;
@@ -895,7 +985,7 @@ function retireV6Files() {
 const UPDATE_CHECK_SCRIPT = "gsd-t-update-check.js";
 
 function installUpdateCheck() {
-  ensureDir(SCRIPTS_DIR);
+  ensureDir(SCRIPTS_DIR, CLAUDE_DIR);
 
   // Copy update check script
   const src = path.join(PKG_SCRIPTS, UPDATE_CHECK_SCRIPT);
@@ -930,7 +1020,7 @@ function configureUpdateCheckHook(scriptPath) {
 const AUTO_ROUTE_SCRIPT = "gsd-t-auto-route.js";
 
 function installAutoRoute() {
-  ensureDir(SCRIPTS_DIR);
+  ensureDir(SCRIPTS_DIR, CLAUDE_DIR);
 
   const src = path.join(PKG_SCRIPTS, AUTO_ROUTE_SCRIPT);
   const dest = path.join(SCRIPTS_DIR, AUTO_ROUTE_SCRIPT);
@@ -991,7 +1081,7 @@ const GLOBAL_BIN_TOOLS = [
 ];
 
 function installGlobalBinTools() {
-  ensureDir(GLOBAL_BIN_DIR);
+  ensureDir(GLOBAL_BIN_DIR, CLAUDE_DIR);
   // A tool this list promises but the package lacks is a packaging defect that
   // breaks every machine. HALT before copying anything rather than install half.
   const missing = GLOBAL_BIN_TOOLS.filter((tool) => !fs.existsSync(path.join(PKG_ROOT, "bin", tool)));
@@ -1061,7 +1151,7 @@ const SHARED_TEMPLATES = [
 ];
 
 function installSharedTemplates() {
-  ensureDir(CLAUDE_TEMPLATES_DIR);
+  ensureDir(CLAUDE_TEMPLATES_DIR, CLAUDE_DIR);
   let installed = 0, skipped = 0;
   const notDelivered = [];
   for (const file of SHARED_TEMPLATES) {
@@ -1180,6 +1270,7 @@ function mergeGsdtSection(existing, template) {
 
 function appendGsdtToClaudeMd(template) {
   const separator = "\n\n";
+  fs.copyFileSync(GLOBAL_CLAUDE_MD, GLOBAL_CLAUDE_MD + ".backup-" + Date.now());
   fs.appendFileSync(GLOBAL_CLAUDE_MD, separator + template.trimEnd() + "\n");
   success("GSD-T config appended to existing CLAUDE.md");
   info("Your existing content was preserved.");
@@ -1194,7 +1285,7 @@ async function doInstall(opts = {}) {
   // first change: settings.json shape, symlinks, CLAUDE.md markers.
   preflightGlobal();
 
-  if (ensureDir(COMMANDS_DIR)) success("Created ~/.claude/commands/");
+  if (ensureDir(COMMANDS_DIR, CLAUDE_DIR)) success("Created ~/.claude/commands/");
 
   const { gsdtCommands, utilityCommands } = installCommands(isUpdate);
   installGlobalClaudeMd(isUpdate);
@@ -1238,19 +1329,49 @@ async function doInstall(opts = {}) {
 // HALTS with the exact fix, having changed nothing.
 function preflightGlobal() {
   haltOnSymlinks(CLAUDE_DIR, globalTouchedRels());
-  readSettingsObject(SETTINGS_JSON);
+  const settings = readSettingsObject(SETTINGS_JSON);
+  haltOnDanglingRefs(predictDangling(settings), "would leave");
   if (fs.existsSync(GLOBAL_CLAUDE_MD)) {
     const problem = claudeMdProblem(fs.readFileSync(GLOBAL_CLAUDE_MD, "utf8"));
     if (problem) throw new Error(problem);
   }
 }
 
-// Retired hooks out of settings.json, retired files moved to the backup folder.
+// Retired hooks out of settings.json, retired files moved to the backup folder,
+// then PROVE the invariant: no hook or statusLine names a missing GSD-T script.
 function retireV6Everything() {
   heading("Retired in v6");
   const retired = removeRetiredHooks(SETTINGS_JSON);
   if (retired.removed > 0) success(`Removed ${retired.removed} retired hook(s) from settings.json`);
   retireV6Files();
+  haltOnDanglingRefs(danglingGsdtRefs(readSettingsObject(SETTINGS_JSON)), "left");
+}
+
+// Before any change: which GSD-T script references in settings.json would dangle
+// once this run finishes? A hook this run removes (retired marker) or rewrites
+// (a hook GSD-T registers) is excluded; so is a statusLine this run clears.
+// Everything else must name a script that exists and is not about to be moved.
+function predictDangling(settings) {
+  const entries = globalRetiredEntries();
+  const willMove = new Set();
+  for (const [rel, sentinels] of Object.entries(entries)) {
+    if (willRetire(CLAUDE_DIR, rel, sentinels)) willMove.add(path.join(CLAUDE_DIR, rel));
+  }
+  const handled = RETIRED_V6.hookMarkers.concat(GSDT_HOOK_MARKERS);
+  const skipHook = (h) => gsdtScriptRefs(h.command).some((r) => handled.includes(r.name));
+  const sl = settings.statusLine;
+  const statusCleared = !!sl && gsdtScriptRefs(sl.command).some((r) => willMove.has(r.abs));
+  return danglingGsdtRefs(settings, willMove, skipHook, statusCleared);
+}
+
+function haltOnDanglingRefs(lines, verb) {
+  if (lines.length === 0) return;
+  throw new Error(
+    `HALT: this run ${verb} settings.json pointing at GSD-T script(s) that ${verb === "left" ? "do" : "would"} not exist — every Claude Code event would run a broken hook:\n` +
+    lines.map((l) => `    ${l}`).join("\n") + "\n" +
+    `  Fix: remove those entries from ${SETTINGS_JSON} (or restore the script), then re-run.` +
+    (verb === "left" ? "" : " Nothing was changed.")
+  );
 }
 
 // Same version installed: still compare the CLAUDE.md section by content and
@@ -1335,7 +1456,7 @@ function initClaudeMd(projectDir, projectName, today) {
 
 function initDocs(projectDir, projectName, today) {
   const docsDir = path.join(projectDir, "docs");
-  ensureDir(docsDir);
+  ensureDir(docsDir, projectDir);
 
   const docTemplates = ["requirements.md", "architecture.md", "workflows.md", "infrastructure.md"];
   for (const file of docTemplates) {
@@ -1361,8 +1482,8 @@ function initGsdtDir(projectDir, projectName, today) {
   const contractsDir = path.join(gsdtDir, "contracts");
   const domainsDir = path.join(gsdtDir, "domains");
 
-  ensureDir(contractsDir);
-  ensureDir(domainsDir);
+  ensureDir(contractsDir, projectDir);
+  ensureDir(domainsDir, projectDir);
 
   for (const dir of [contractsDir, domainsDir]) {
     const gitkeep = path.join(dir, ".gitkeep");
@@ -1596,15 +1717,14 @@ function updateProjectClaudeMd(claudeMd, projectName) {
   if (content.includes("Destructive Action Guard")) return false;
 
   const newContent = insertGuardSection(content);
-  if (isSymlink(claudeMd)) { warn(`${projectName} — skipping CLAUDE.md write (symlink)`); return false; }
+  if (isSymlink(claudeMd)) throw new Error(`Refusing to write ${claudeMd} — it is a symlink`);
   try {
     fs.writeFileSync(claudeMd, newContent);
-    success(`${projectName} — added Destructive Action Guard`);
-    return true;
   } catch (e) {
-    error(`${projectName} — failed to update CLAUDE.md: ${e.message}`);
-    return false;
+    throw new Error(`failed to update ${claudeMd}: ${e.message}`);
   }
+  success(`${projectName} — added Destructive Action Guard`);
+  return true;
 }
 
 function insertGuardSection(content) {
@@ -1617,7 +1737,7 @@ function insertGuardSection(content) {
 
 function createProjectChangelog(projectDir, projectName) {
   const changelogPath = path.join(projectDir, "CHANGELOG.md");
-  if (isSymlink(changelogPath)) return false;
+  if (isSymlink(changelogPath)) throw new Error(`Refusing to write ${changelogPath} — it is a symlink`);
   try {
     const today = new Date().toISOString().split("T")[0];
     const changelogContent = [
@@ -1919,7 +2039,7 @@ async function doUpdateAll() {
     swaggerMissing,
     playwrightAutoInstalled,
     graphMissing,
-  } = await checkProjectHealth(projects);
+  } = await checkProjectHealth(projects.filter((p) => !failed.includes(p))); // a halted project gets no further changes
   showUpdateAllSummary(
     projects.length,
     counts,
@@ -2057,7 +2177,11 @@ function updateSingleProject(projectDir, counts) {
     counts.skipped++;
     return;
   }
-  // bin/ first: its symlink preflight halts the project before anything changes.
+  // Preflight before ANY change in this project: no link on CLAUDE.md or
+  // CHANGELOG.md here, and copyBinToolsToProject checks every bin/ path it
+  // touches before it changes anything. Every write failure below throws, so
+  // update-all marks this project failed and exits non-zero.
+  haltOnSymlinks(projectDir, ["CLAUDE.md", "CHANGELOG.md"]);
   const binToolsCopied = copyBinToolsToProject(projectDir, projectName);
   const guardAdded = updateProjectClaudeMd(claudeMd, projectName);
   const changelogCreated = createProjectChangelog(projectDir, projectName);
@@ -2905,6 +3029,10 @@ module.exports = {
   preflightGlobal,
   claudeMdProblem,
   RETIRED_V6,
+  _gsdtScriptRefs: gsdtScriptRefs,
+  _normalizeHookCommand: normalizeHookCommand,
+  _danglingGsdtRefs: danglingGsdtRefs,
+  _retireShippedFile: retireShippedFile,
   GSDT_HOOK_MARKERS,
   configureDateGuardHook,
   configureChangelogCheckHook,

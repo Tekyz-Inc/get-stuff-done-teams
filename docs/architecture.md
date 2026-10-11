@@ -105,13 +105,16 @@ Only `gsd-t-scan.workflow.js` and `gsd-t-debug.workflow.js` remain. Command file
 
 ```
 gsd-t install | update
-  ├── preflightGlobal: settings.json shape, symlinks, CLAUDE.md markers → HALT with fix, nothing changed
+  ├── ~/.claude resolved once to its real folder (it may be a link); symlink checks apply below it
+  ├── preflightGlobal: settings.json shape, symlinks, CLAUDE.md markers, any hook/statusLine that would
+  │     point at a missing GSD-T script → HALT with fix, nothing changed
   ├── commands/*.md → ~/.claude/commands/
   ├── templates/CLAUDE-global.md → marked block in ~/.claude/CLAUDE.md
   ├── update-check + auto-route scripts → ~/.claude/scripts/ + hooks
   ├── shared templates → ~/.claude/templates/; global bin tools → ~/.claude/bin/
   ├── register the guard hooks (find by marker, refresh stale command, else add)
   ├── removeRetiredHooks + retireV6Files (RETIRED_V6 → moved to ~/.claude/.gsd-t-retired/<date>/)
+  ├── verify: no hook or statusLine names a GSD-T script that does not exist, else HALT
   └── install SCIP indexers
 ```
 
@@ -121,7 +124,10 @@ gsd-t install | update
 gsd-t update-all
   ├── npm install -g fails → HALT before touching anything
   ├── installed version ≠ package → full update; equal → preflight + CLAUDE.md compare + RETIRED_V6 retirement
-  └── for each registered project: symlink preflight, move retired strays to .gsd-t/retired/<date>/, copy PROJECT_BIN_TOOLS into bin/
+  ├── for each registered project: symlink preflight (CLAUDE.md, CHANGELOG.md, bin/), move retired strays to
+  │     .gsd-t/retired/<date>/, copy PROJECT_BIN_TOOLS into bin/; any failure halts THAT project
+  ├── project health (graph move/build, Playwright) — halted projects skipped
+  └── any halted project → exit non-zero
 ```
 
 ### init
@@ -136,11 +142,11 @@ gsd-t init [name]
 
 ### Retired-file cleanup (`RETIRED_V6`)
 
-One object in `bin/gsd-t.js` drives every retirement: commands, `~/.claude/bin` and project `bin/` tools, `~/.claude/scripts` files, `~/.claude/templates`, the status-line script, and `settings.json` hook markers. **Move, never delete:** a file whose first 1,200 characters contain a verbatim header GSD-T shipped (for `gsd-t-*.md` commands: the `# GSD-T: ` header every shipped version opens with) is moved by `retireShippedFile` to `~/.claude/.gsd-t-retired/<YYYY-MM-DD>/<relative path>` (project: `<project>/.gsd-t/retired/<YYYY-MM-DD>/bin/…`), keeping its permissions and never overwriting an existing backup (`name.1.ext`, …); one summary line gives the count and folder. A file without the header is reported and kept. Why: two red-team rounds on delete-based cleanup did not converge; a move makes any misclassification recoverable. The project backup is added to `.gitignore` only when the project already ignores `.gsd-t/` working files. The status-line setting is cleared only when it points at the moved GSD-T script. The GSD-T source repo is never swept.
+One object in `bin/gsd-t.js` drives every retirement: commands, `~/.claude/bin` and project `bin/` tools, `~/.claude/scripts` files, `~/.claude/templates`, the status-line script, and `settings.json` hook markers. **Move, never delete:** a file whose first 1,200 characters contain a verbatim header GSD-T shipped (for `gsd-t-*.md` commands: the `# GSD-T: ` header, which must be the FIRST line) is moved by `retireShippedFile` to `~/.claude/.gsd-t-retired/<YYYY-MM-DD>/<relative path>` (project: `<project>/.gsd-t/retired/<YYYY-MM-DD>/bin/…`), keeping its permissions and never overwriting an existing backup (`name.1.ext`, …); one summary line gives the count and folder. A file without the header is reported and kept. Why: two red-team rounds on delete-based cleanup did not converge; a move makes any misclassification recoverable. The project backup is added to `.gitignore` only when the project already ignores `.gsd-t/` working files. The status-line setting is cleared when it names (in any spelling) a retired GSD-T script that is now gone. A move that fails (e.g. EXDEV, a different disk) removes the backup folder it just created and prints a fix. Appending a GSD-T section to an unmarked CLAUDE.md writes a backup first. The GSD-T source repo is never swept.
 
 **Halts, not fallbacks.** `preflightGlobal` (install / update / update-all) and `haltOnSymlinks` (also at the top of the project sweep) stop with a `Fix:` line before any change when settings.json is not an object of hook arrays, a path GSD-T would write / copy over / move — or a directory between it and `~/.claude` / the project — is a symlink, or CLAUDE.md markers are malformed (`claudeMdProblem`). A failed copy or move throws: no "Installation Complete!", version file not advanced, so the next run retries.
 
-**One hook registrar.** `upsertGsdtHook` registers every GSD-T hook (guards, intercepts, use report, changelog hooks, install-heal, update-check, auto-route): one entry per script on its intended event, copies on other events removed, SessionStart matcher `""`, user groups never re-matched. `gsdtScriptPattern` recognizes only package-installed paths, so a user hook running a same-named script from its own repo is not ours.
+**One hook registrar.** `upsertGsdtHook` registers every GSD-T hook (guards, intercepts, use report, changelog hooks, install-heal, update-check, auto-route): one entry per script on its intended event, copies on other events removed, SessionStart matcher `""`, user groups never re-matched. `normalizeHookCommand` rewrites every spelling of a script path (quotes, `~`, `$HOME`, `${HOME}`, `"$HOME"/…`, the absolute or real home path, the `$(npm root -g)/@tekyzinc/gsd-t/scripts/` wrapper) to one form, and `gsdtScriptRefs` matches only `~/.claude/scripts/[hooks/]gsd-t-*` or the package scripts dir — a user hook running a same-named script from its own repo is not ours. **Invariant:** after install no hook or statusLine names a GSD-T script that does not exist; a run that would break it halts before any change, and the end of the run re-checks it.
 
 ## Configuration Model
 
