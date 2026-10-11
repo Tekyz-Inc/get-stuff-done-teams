@@ -40,7 +40,20 @@ transition, and a slideshow does not read as software being used.
 | **Playwright** installed | The recorder | Yes — `gsd-t setup-playwright` |
 | **ffmpeg** | Every audio operation | Yes |
 | **auto-editor** (Python venv, bundled into the project, not PATH) | Silence removal, Stage 4 | Yes |
-| A **text-to-speech service with FIXED voices** (e.g. Google Cloud TTS) | The narrator. A language-model TTS re-reads a style hint per request and the voice drifts | Yes — see Stage 1 |
+| **Google Cloud Text-to-Speech** under the user's OWN Google Cloud project (gcloud CLI, `gcloud auth application-default login`, a quota project, the API enabled) | The narrator — fixed trained voices. A language-model TTS (e.g. Gemini) re-reads a style hint per request and the voice drifts | Yes — run the setup check below |
+
+**Run the setup check first, and walk the user through every ✗ before anything else:**
+
+```bash
+node scripts/walkthrough-setup-check.mjs     # after copying the templates (see "Files")
+```
+
+It checks ffmpeg, the auto-editor venv, the gcloud CLI, the gcloud login, a quota
+project of the user's own (`GOOGLE_TTS_PROJECT` or `gcloud auth application-default
+set-quota-project <id>`), and a live one-sentence Text-to-Speech call — printing the exact
+fix for each failure. Logins open a browser, so give the user the command to run with
+`! <command>`; re-run the check until every line is ✓. Never borrow another person's
+project id.
 
 **Ask for the tenant by name.** In the source run, two videos were filmed
 against the wrong location before the right ID was pinned down; the numbering
@@ -492,6 +505,8 @@ e2e/walkthrough/cast.mjs                 the demo's cast — every name said alo
 e2e/walkthrough/signin.ts                shared sign-in + the tenant constant
 e2e/walkthrough/manifest.ts              loads narration; skips if audio is missing
 e2e/walkthrough/preflight.spec.ts        checks every target without recording
+scripts/walkthrough-setup-check.mjs      first-run check: ffmpeg, auto-editor, gcloud login, your quota project, live TTS call
+scripts/walkthrough-tts-project.mjs      which Google Cloud project pays (yours) — halts with setup steps when unset
 scripts/walkthrough-voice-gcloud.mjs     the narrator — fixed-voice TTS, one sentence/request
 scripts/walkthrough-voice.mjs            SUPERSEDED — batched language-model TTS
 scripts/walkthrough-voice-check.mjs      volume spread + MEAN-pitch identity + miscuts; exit 4

@@ -42,6 +42,12 @@ Add a Playwright project:
 Then fill: `signin.ts` (persona + tenant id), `preflight.spec.ts` (targets), and
 one `<name>.lines.mjs` + `<name>.spec.ts` pair per walkthrough.
 
+## First run
+
+```bash
+node scripts/walkthrough-setup-check.mjs   # prints the exact fix for anything missing; exit 0 = ready
+```
+
 ## Run
 
 ```bash
@@ -65,7 +71,7 @@ videos in the source run.
 | `DEMO_GATE_PW` | password gate in front of a demo site, if any |
 | (none — auth) | Google Cloud TTS uses Application Default Credentials: `gcloud auth application-default login` |
 | `TTS_VOICE`, `TTS_RATE`, `TTS_PITCH`, `VOICE_LUFS` | narrator (default `en-US-Chirp3-HD-Algieba`, rate 1.1, −18 LUFS) |
-| `GOOGLE_TTS_PROJECT` | quota project for Cloud TTS |
+| `GOOGLE_TTS_PROJECT` | **your** Google Cloud project billed for the narration (or set it once with `gcloud auth application-default set-quota-project <id>`); unset and no login quota project → the voice step halts with the setup commands |
 | `VOICE_PITCH_MIN` / `VOICE_PITCH_MAX` | mean-pitch band the voice gate expects (default 95–120 Hz; re-band for a new voice) |
 | `VOICE_RENDERER` | `walkthrough-voice.mjs` selects the superseded Gemini renderer explicitly |
 | `WT_RESULTS` | per-video Playwright output folder, so parallel builds do not wipe each other |

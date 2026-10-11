@@ -21,13 +21,15 @@
  *
  * Auth: Application Default Credentials (`gcloud auth application-default
  * login`). Cloud TTS is an OAuth API — it does NOT accept an API key — and it
- * needs a quota project, passed as the `x-goog-user-project` header.
+ * needs a quota project, passed as the `x-goog-user-project` header — YOUR
+ * project (walkthrough-tts-project.mjs). First-time setup: walkthrough-setup-check.mjs.
  */
 import { execFile, execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
+import { resolveTtsProject, PROJECT_FIX } from './walkthrough-tts-project.mjs';
 
 const execFileAsync = promisify(execFile);
 
@@ -72,7 +74,9 @@ const RATE = Number(process.env.TTS_RATE ?? 1.1);
 const PITCH = Number(process.env.TTS_PITCH ?? 0);
 /** Same target as before, so these clips sit alongside the old ones. */
 const LUFS = Number(process.env.VOICE_LUFS ?? -18);
-const PROJECT = process.env.GOOGLE_TTS_PROJECT ?? 'gen-lang-client-0210917654';
+// Your own billing project — never someone else's. Halts with the setup steps when unset.
+const { project: PROJECT } = resolveTtsProject();
+if (!PROJECT) throw new Error(PROJECT_FIX);
 
 const API = 'https://texttospeech.googleapis.com/v1/text:synthesize';
 

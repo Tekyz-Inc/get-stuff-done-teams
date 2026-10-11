@@ -2,6 +2,17 @@
 
 All notable changes to GSD-T are documented here. Updated with each release.
 
+## [6.1.15] - 2026-10-11
+
+### Fixed — demo videos: guided voice setup, and no borrowed Google project
+
+- `templates/demo-videos/scripts/walkthrough-voice-gcloud.mjs` defaulted the billing (quota) project to the maintainer's own Google Cloud project, so another user's narration either failed with a permission error or billed that project. It now uses the user's own project — `GOOGLE_TTS_PROJECT`, else the quota project stored with their gcloud login — and halts with the setup commands when neither is set (`walkthrough-tts-project.mjs`).
+- New `walkthrough-setup-check.mjs`: first-run check of ffmpeg, the auto-editor venv, the gcloud CLI, the gcloud login, the quota project, and a live one-sentence Text-to-Speech call; prints the exact fix for each failure (enable the API, attach billing, set the project). Exit 0 = ready.
+- `/gsd-t-demo-videos`: runs the setup check first and walks the user through every failing step. The narrator is Google Cloud Text-to-Speech (fixed voices), not Gemini.
+- `test/demo-tts-project.test.js`: resolver order; no template carries a hardcoded project id.
+
+Existing projects keep the copies they already have; only new copies of the templates change.
+
 ## [6.1.14] - 2026-10-11
 
 ### Added — project directive files are cleaned automatically after v6
